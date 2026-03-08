@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login simple</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="contenedor">
+        <div class="card">
+            <h1>Ingreso</h1>
+            <label>Rol</label>
+            <select id="rol">
+                <option value="cocina">Cocina</option>
+                <option value="admin">Administrador</option>
+            </select>
+
+            <label>Clave</label>
+            <input id="clave" type="password" placeholder="Ingrese clave">
+
+            <button onclick="entrar()">Entrar</button>
+        </div>
+    </div>
+
+    <script>
+        function entrar() {
+            const rol = document.getElementById("rol").value
+            const clave = document.getElementById("clave").value
+
+            if (rol === "cocina" && clave === "1234") {
+                window.location.href = "/cocina.html"
+                return
+            }
+
+            if (rol === "admin" && clave === "admin123") {
+                window.location.href = "/admin.html"
+                return
+            }
+
+            alert("Clave incorrecta")
+        }
+    </script>
+</body>
+</html>

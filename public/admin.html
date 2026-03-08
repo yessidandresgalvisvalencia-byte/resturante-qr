@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrador</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="contenedor">
+        <h1>Panel Administrador</h1>
+
+        <div class="card">
+            <label>Restaurant ID</label>
+            <input id="restaurantIdInput" type="text" value="rest1">
+
+            <label>Base URL para QR</label>
+            <input id="baseUrl" type="text" placeholder="https://tu-url.ngrok-free.app">
+
+            <label>Número de mesas</label>
+            <input id="numeroMesas" type="number" value="10" min="1">
+
+            <button onclick="generarQRs()">Generar QR</button>
+            <button onclick="cargarAdmin()">Actualizar panel</button>
+        </div>
+
+        <div class="resumen-grid">
+            <div class="card">
+                <h3>Total vendido</h3>
+                <p id="totalVendido">$0</p>
+            </div>
+            <div class="card">
+                <h3>Pedidos activos</h3>
+                <p id="pedidosActivos">0</p>
+            </div>
+        </div>
+
+        <h2>Top productos vendidos</h2>
+        <div id="topProductos" class="grid"></div>
+
+        <h2>Historial de ventas</h2>
+        <div id="historialVentas" class="grid"></div>
+
+        <h2>Control de stock</h2>
+        <div id="stockLista" class="grid"></div>
+
+        <h2>QR por mesa</h2>
+        <div id="qrs" class="grid"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
