@@ -1,5 +1,4 @@
-console.log("PUBLIC KEY:", process.env.WOMPI_PUBLIC_KEY);
-console.log("INTEGRITY KEY:", process.env.WOMPI_INTEGRITY_KEY);
+const express = require("express");
 const crypto = require("crypto");
 
 const router = express.Router();
@@ -17,11 +16,26 @@ router.post("/crear-pago", (req, res) => {
 
     const publicKey = process.env.WOMPI_PUBLIC_KEY;
     const integrityKey = process.env.WOMPI_INTEGRITY_KEY;
+    const appUrl = process.env.APP_URL;
 
-    if (!publicKey || !integrityKey) {
+    if (!publicKey) {
       return res.status(500).json({
         ok: false,
-        error: "Faltan WOMPI_PUBLIC_KEY o WOMPI_INTEGRITY_KEY en el archivo .env"
+        error: "Falta WOMPI_PUBLIC_KEY"
+      });
+    }
+
+    if (!integrityKey) {
+      return res.status(500).json({
+        ok: false,
+        error: "Falta WOMPI_INTEGRITY_KEY"
+      });
+    }
+
+    if (!appUrl) {
+      return res.status(500).json({
+        ok: false,
+        error: "Falta APP_URL"
       });
     }
 
@@ -37,7 +51,8 @@ router.post("/crear-pago", (req, res) => {
       currency,
       amountInCents: monto,
       reference,
-      signature
+      signature,
+      redirectUrl: `${appUrl}/carrito.html`
     });
   } catch (error) {
     console.error("Error en /crear-pago:", error);
