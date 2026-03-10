@@ -19,13 +19,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
+console.log("MONGO_URI EXISTE", !! process.env.MONGO_URI)
+
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB conectado")
   })
   .catch(err => {
-    console.log("Error MongoDB:", err)
-  })
+    console.log("Error MongoDB:", err);
+  });
 
 const apiRoutes = require("./routes/API");
 app.use("/api", apiRoutes);
