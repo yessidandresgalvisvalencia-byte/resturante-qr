@@ -19,9 +19,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-mongoose.connect("mongodb://127.0.0.1:27017/restaurante")
-  .then(() => console.log("MongoDB conectado"))
-  .catch(err => console.log("Error MongoDB:", err));
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("MongoDB conectado")
+  })
+  .catch(err => {
+    console.log("Error MongoDB:", err)
+  })
 
 const apiRoutes = require("./routes/API");
 app.use("/api", apiRoutes);
