@@ -12,6 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "code": "^5.2.4",
+    "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "mongoose": "^9.2.4",
     "qr": "^0.5.5",
