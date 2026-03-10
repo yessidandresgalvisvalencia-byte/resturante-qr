@@ -1,4 +1,5 @@
-const express = require("express");
+console.log("PUBLIC KEY:", process.env.WOMPI_PUBLIC_KEY);
+console.log("INTEGRITY KEY:", process.env.WOMPI_INTEGRITY_KEY);
 const crypto = require("crypto");
 
 const router = express.Router();
