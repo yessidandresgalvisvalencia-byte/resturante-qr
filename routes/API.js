@@ -2,7 +2,7 @@ const express = require("express")
 const QRCode = require("qrcode")
 const router = express.Router()
 
-const Pedido = require("../models/pedido")
+const Pedido = require("../models/pedido.js"); 
 const Llamado = require("../models/llamado")
 
 function menuBase() {
