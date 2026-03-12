@@ -32,7 +32,8 @@
 
             <p id="valorPropina">Propina: $0</p>
             <p id="totalMesa">Total: $0</p>
-            <button onclick="verFactura()">Ver factura</button>
+            
+            
         </div>
 
         <div class="card">
@@ -48,6 +49,7 @@
         <div class="card">
             <h3>Atención</h3>
             <button onclick="llamarMesero()">Llamar al mesero</button>
+            <button onclick="irApagar()">pagar pedido</button>
         </div>
 
         <h2>Menú</h2>
@@ -55,12 +57,20 @@
 
         <h2>Tus pedidos</h2>
         <div id="misPedidos" class="grid"></div>
+        
 
         <h2>Factura</h2>
         <div id="facturaBox" class="card"></div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
-</body>
-</html>
+    <script src="/socket.io/socket.io.js">
+        function Factura() {
+            const factura = 
+            document.getElementById("facturaBox");
+            if (factura) {
+                factura.scrollIntoView({
+                    
+            });
+            }
+        }
+        

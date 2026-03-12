@@ -126,32 +126,21 @@
           alert("Faltan datos para abrir Wompi. Revisa la consola.");
           return;
         }
+const params = new URLSearchParams({
+  "public-key": data.publicKey,
+  "currency": data.currency,
+  "amount-in-cents": String(data.amountInCents),
+  "reference": data.reference,
+  "signature:integrity": data.signature,
+  "redirect-url": data.redirectUrl
+});
 
-        const form = document.createElement("form");
-        form.action = "https://checkout.wompi.co/p/";
-        form.method = "GET";
-
-        const fields = [
-          { name: "public-key", value: data.publicKey },
-          { name: "currency", value: data.currency },
-          { name: "amount-in-cents", value: String(data.amountInCents) },
-          { name: "reference", value: data.reference },
-          { name: "signature:integrity", value: data.signature },
-          { name: "redirect-url", value: data.redirectUrl }
-        ];
-
-        fields.forEach(field => {
-          if (field.value !== undefined && field.value !== null && field.value !== "") {
-            const input = document.createElement("input");
-            input.type = "hidden";
-            input.name = field.name;
-            input.value = field.value;
-            form.appendChild(input);
-          }
-        });
-
-        document.body.appendChild(form);
-        form.submit();
+const wompiUrl = `https://checkout.wompi.co/p/?${params.toString()}`;
+console.log("URL Wompi:", wompiUrl);
+console.log("respuesta backend:", data)
+window.location.href = wompiUrl
+return;
+window.location.href = wompiUrl;   
       } catch (error) {
         console.error("Error al enviar a Wompi:", error);
         alert("Hubo un error enviando el pago. Mira la consola.");
