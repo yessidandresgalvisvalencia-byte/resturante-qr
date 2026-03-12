@@ -271,3 +271,20 @@ socket.on("menu:actualizado", (payload) => {
 
 cargarMenu()
 cargarMesa()
+function renderFactura(pedido) {
+    const facturaBox =
+    document.getElementById("facturaBox");
+    if (!facturaBox) return;
+    let subtotal = 0;
+    const items = pedidos.map(p => {
+        subtotal += Number(p.precio || 0);
+        return `<p>${p.producto} - $${p.precio}</p>`;
+  }).join("");
+
+  facturaBox.innerHTML = `
+    <h3>Detalle</h3>
+    ${items}
+    <hr>
+    <p><strong>Total: $${subtotal}</strong></p>
+  `;
+}
