@@ -160,32 +160,89 @@ function calcularTotales(subtotal) {
 }
 
 async function verFactura() {
-    const porcentaje = Number(document.getElementById("propinaSelect").value || 0)
-    const res = await fetch(`/api/factura/mesa/${mesa}?restaurantId=${restaurantId}&propina=${porcentaje}`)
-    const data = await res.json()
+    try {
+        const porcentaje = Number(document.getElementById("propinaSelect").value || 0)
+        const res = await fetch(`/api/factura/mesa/${mesa}?restaurantId=${restaurantId}&propina=${porcentaje}`)
+        const data = await res.json()
 
-    const box = document.getElementById("facturaBox")
+        const box = document.getElementById("facturaBox")
+        if (!box) return
 
-    let html = `
-        <h3>Factura Mesa ${data.mesa}</h3>
-    `
+        let html = `
+            <h3>Factura Mesa ${data.mesa}</h3>
+        `
 
-    data.pedidos.forEach(p => {
-        if (p.estado !== "entregado") {
-            html += `
-                <p>${p.producto} - $${p.precio}</p>
-            `
+        if (!data.pedidos || data.pedidos.length === 0) {
+            html += `<p>No hay pedidos en la factura.</p>`
+        } else {
+            data.pedidos.forEach(p => {
+                html += `
+                    <p>${p.producto} - $${p.precio}</p>
+                `
+            })
         }
-    })
 
-    html += `
-        <hr>
-        <p>Subtotal: $${data.subtotal}</p>
-        <p>Propina (${data.propina}%): $${data.valorPropina}</p>
-        <p><strong>Total: $${data.total}</strong></p>
-    `
+        html += `
+            <hr>
+            <p>Subtotal: $${data.subtotal}</p>
+            <p>Propina (${data.propina}%): $${data.valorPropina}</p>
+            <p><strong>Total: $${data.total}</strong></p>
+        `
 
-    box.innerHTML = html
+        box.innerHTML = html
+
+        box.scrollIntoView({
+            behavior: "smooth"
+        })
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+async function pagarPedido() {
+    try {
+        const totalTexto = document.getElementById("totalMesa").textContent
+        const total = Number(totalTexto.replace(/[^\d]/g, "")) || 0
+
+        if (total <= 0) {
+            alert("No hay productos en el pedido")
+            return
+        }
+
+        const montoEnCentavos = total * 100
+
+        const resp = await fetch("/pagos/crear-pago", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                monto: montoEnCentavos
+            })
+        })
+
+        const data = await resp.json()
+
+        if (!data.ok) {
+            alert(data.error || "No se pudo iniciar el pago")
+            return
+        }
+
+        const params = new URLSearchParams({
+            "public-key": data.publicKey,
+            "currency": data.currency,
+            "amount-in-cents": data.amountInCents,
+            "reference": data.reference,
+            "signature:integrity": data.signature,
+            "redirect-url": data.redirectUrl
+        })
+
+        const url = `https://checkout.wompi.co/p/?${params.toString()}`
+        window.location.href = url
+    } catch (error) {
+        console.log(error)
+        alert("Error iniciando pago")
+    }
 }
 
 async function cargarMesa() {
@@ -271,20 +328,3 @@ socket.on("menu:actualizado", (payload) => {
 
 cargarMenu()
 cargarMesa()
-function renderFactura(pedido) {
-    const facturaBox =
-    document.getElementById("facturaBox");
-    if (!facturaBox) return;
-    let subtotal = 0;
-    const items = pedidos.map(p => {
-        subtotal += Number(p.precio || 0);
-        return `<p>${p.producto} - $${p.precio}</p>`;
-  }).join("");
-
-  facturaBox.innerHTML = `
-    <h3>Detalle</h3>
-    ${items}
-    <hr>
-    <p><strong>Total: $${subtotal}</strong></p>
-  `;
-}
