@@ -67,7 +67,9 @@
             const factura = 
             document.getElementById("facturaBox");
             if (factura) {
-                factura.scrollIntoView();
+                factura.scrollIntoView({
+                    behavior: "smooth"
+            });
             }
         }
  </script>
