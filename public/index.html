@@ -49,6 +49,7 @@
         <div class="card">
             <h3>Atención</h3>
             <button onclick="llamarMesero()">Llamar al mesero</button>
+            <button onclick="irApagar()">pagar pedido>/button>
         </div>
 
         <h2>Menú</h2>
@@ -146,6 +147,11 @@ router.post("/crear-pago", (req, res) => {
 
 module.exports = router;
  </script>
-    <script src="script.js"></script>
+    <script src="script.js">
+        function irApagar() {
+            window.location.href= "/carrito.html";
+        }
+    
+    </script>
 </body>
 </html>
