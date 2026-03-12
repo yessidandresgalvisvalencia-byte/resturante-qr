@@ -138,7 +138,7 @@ const params = new URLSearchParams({
 const wompiUrl = `https://checkout.wompi.co/p/?${params.toString()}`;
 console.log("URL Wompi:", wompiUrl);
 console.log("respuesta backend:", data)
-alert(wompiUrl);
+window.location.href = wompiUrl;
 return;
 window.location.href = wompiUrl;   
       } catch (error) {
