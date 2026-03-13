@@ -1,164 +1,114 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Menú Restaurante</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menú Restaurante</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<div class="contenedor">
+  <div class="contenedor">
 
-<h1>Menú del Restaurante</h1>
-<h2 id="mesaActual">Mesa</h2>
-<div id="facturaBox"
-class="card"></div>
-<h3>Estado de tu pedido</h3>
-<p id="estadoPedido">Esperando pedido...</p>
-<p id="tiempoPedido"></p>
-</div>
+    <h1>Menú del Restaurante</h1>
+    <h2 id="mesaActual">Mesa</h2>
 
+    <div class="card estado-card">
+      <h3>Estado de tu pedido</h3>
+      <p id="estadoPedido">Esperando pedido...</p>
+      <p id="tiempoPedido"></p>
+    </div>
 
-<div class="card cuenta-card">
+    <div class="card cuenta-card">
+      <h3>Cuenta de tu mesa</h3>
 
-<h3>Cuenta de tu mesa</h3>
+      <p id="subtotalMesa">Subtotal: $0</p>
 
-<p id="subtotalMesa">Subtotal: $0</p>
+      <label>Propina</label>
+      <select id="propinaSelect">
+        <option value="0">0%</option>
+        <option value="10">10%</option>
+        <option value="15">15%</option>
+        <option value="20">20%</option>
+      </select>
 
-<label>Propina</label>
+      <p id="valorPropina">Propina: $0</p>
+      <p id="totalMesa">Total: $0</p>
+    </div>
 
-<select id="propinaSelect">
-<option value="0">0%</option>
-<option value="10">10%</option>
-<option value="15">15%</option>
-<option value="20">20%</option>
-</select>
+    <div class="card">
+      <h3>Método de pago</h3>
+      <select id="metodoPago">
+        <option value="efectivo">Efectivo</option>
+        <option value="transferencia">Transferencia</option>
+        <option value="pse">PSE</option>
+        <option value="tarjeta">Tarjeta</option>
+      </select>
+    </div>
 
-<p id="valorPropina">Propina: $0</p>
-<p id="totalMesa">Total: $0</p>
+    <div class="card">
+      <h3>Atención</h3>
+      <button onclick="llamarMesero()">Llamar al mesero</button>
+      <button onclick="pagarPedido()">Pagar pedido</button>
+      <button onclick="verFactura()">Ver factura</button>
+    </div>
 
-</div>
+    <h2>Menú</h2>
+    <div id="menuLista"></div>
 
+    <h2>Tus pedidos</h2>
+    <div id="misPedidos" class="grid"></div>
 
-<div class="card">
+    <h2>Factura</h2>
+    <div id="facturaBox" class="card"></div>
 
-<h3>Método de pago</h3>
+  </div>
 
-<select id="metodoPago">
-<option value="efectivo">Efectivo</option>
-<option value="transferencia">Transferencia</option>
-<option value="pse">PSE</option>
-<option value="tarjeta">Tarjeta</option>
-</select>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
 
-</div>
+  <script>
+    async function pagarPedido() {
+      const totalTexto = document.getElementById("totalMesa").textContent;
+      const total = Number(totalTexto.replace(/[^\d]/g, "")) || 0;
 
+      if (total <= 0) {
+        alert("No hay productos en el pedido");
+        return;
+      }
 
-<div class="card">
+      const montoEnCentavos = total * 100;
 
-<h3>Atención</h3>
+      const resp = await fetch("/pagos/crear-pago", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          monto: montoEnCentavos
+        })
+      });
 
-<button onclick="llamarMesero()">Llamar al mesero</button>
+      const data = await resp.json();
 
-<button onclick="pagarPedido()">Pagar pedido</button>
+      if (!data.ok) {
+        alert(data.error || "No se pudo iniciar el pago");
+        return;
+      }
 
-<button onclick="verFactura()">Ver factura</button>
+      const params = new URLSearchParams({
+        "public-key": data.publicKey,
+        "currency": data.currency,
+        "amount-in-cents": data.amountInCents,
+        "reference": data.reference,
+        "signature:integrity": data.signature,
+        "redirect-url": data.redirectUrl
+      });
 
-</div>
-
-
-<h2>Menú</h2>
-<div id="menuLista"></div>
-
-
-<h2>Tus pedidos</h2>
-<div id="misPedidos" class="grid"></div>
-
-
-<h2>Factura</h2>
-
-<div id="facturaBox" class="card"></div>
-
-</div>
-
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="script.js"></script>
-
-
-<script>
-
-/* BAJAR AUTOMÁTICAMENTE A LA FACTURA */
-
-function verFactura() {
-
-const factura = document.getElementById("facturaBox");
-
-if (factura) {
-
-factura.scrollIntoView({
-behavior: "smooth"
-});
-
-}
-
-}
-
-
-
-/* PAGAR DIRECTO EN WOMPI */
-
-async function pagarPedido() {
-
-const total = Number(localStorage.getItem("totalPedido")) || 0;
-
-if (total <= 0) {
-alert("No hay productos en el pedido");
-return;
-}
-
-const montoEnCentavos = total * 100;
-
-const resp = await fetch("/pagos/crear-pago", {
-method: "POST",
-headers: {
-"Content-Type": "application/json"
-},
-body: JSON.stringify({
-monto: montoEnPesosColombianos
-})
-});
-
-const data = await resp.json();
-
-if (!data.ok) {
-alert(data.error || "No se pudo iniciar el pago");
-return;
-}
-
-const params = new URLSearchParams({
-"public-key": data.publicKey,
-"currency": data.currency,
-"amount-in-cents": data.amountInCents,
-"reference": data.reference,
-"signature:integrity": data.signature,
-"redirect-url": data.redirectUrl
-});
-
-const url = `https://checkout.wompi.co/p/?${params.toString()}`;
-
-window.location.href = url;
-
-}
-
-</script>
-
-</script src="/socket.io/socket.io.js"></script>
-<script src="script.js"></script>
+      const url = https://checkout.wompi.co/p/?${params.toString()};
+      window.location.href = url;
+    }
+  </script>
 
 </body>
 </html>
-        
