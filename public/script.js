@@ -168,9 +168,8 @@ async function verFactura() {
         const box = document.getElementById("facturaBox")
         if (!box) return
 
-        let html = `
-            <h3>Factura Mesa ${data.mesa}</h3>
-        `
+        let html = `<h3>Factura Mesa ${data.mesa}
+        </h3>`
 
         if (!data.pedidos || data.pedidos.length === 0) {
             html += `<p>No hay pedidos en la factura.</p>`

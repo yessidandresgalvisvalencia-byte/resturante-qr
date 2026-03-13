@@ -14,8 +14,8 @@
 
 <h1>Menú del Restaurante</h1>
 <h2 id="mesaActual">Mesa</h2>
-
-<div class="card estado-card">
+<div id="facturaBox"
+class="card"></div>
 <h3>Estado de tu pedido</h3>
 <p id="estadoPedido">Esperando pedido...</p>
 <p id="tiempoPedido"></p>
@@ -128,7 +128,7 @@ headers: {
 "Content-Type": "application/json"
 },
 body: JSON.stringify({
-monto: montoEnCentavos
+monto: montoEnPesosColombianos
 })
 });
 
