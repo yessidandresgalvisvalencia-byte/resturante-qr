@@ -65,50 +65,47 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="script.js"></script>
+<script src="script.js"></script>
 
-  <script>
-    async function pagarPedido() {
-      const totalTexto = document.getElementById("totalMesa").textContent;
-      const total = Number(totalTexto.replace(/[^\d]/g, "")) || 0;
+<script>
+async function pagarPedido() {
+  const totalTexto = document.getElementById("totalMesa").textContent;
+  const total = Number(totalTexto.replace(/[^\d]/g, "")) || 0;
 
-      if (total <= 0) {
-        alert("No hay productos en el pedido");
-        return;
-      }
+  if (total <= 0) {
+    alert("No hay productos en el pedido");
+    return;
+  }
 
-      const montoEnCentavos = total * 100;
+  const montoEnCentavos = total * 100;
 
-      const resp = await fetch("/pagos/crear-pago", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          monto: montoEnCentavos
-        })
-      });
+  const resp = await fetch("/pagos/crear-pago", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      monto: montoEnCentavos
+    })
+  });
 
-      const data = await resp.json();
+  const data = await resp.json();
 
-      if (!data.ok) {
-        alert(data.error || "No se pudo iniciar el pago");
-        return;
-      }
+  if (!data.ok) {
+    alert(data.error || "No se pudo iniciar el pago");
+    return;
+  }
 
-      const params = new URLSearchParams({
-        "public-key": data.publicKey,
-        "currency": data.currency,
-        "amount-in-cents": data.amountInCents,
-        "reference": data.reference,
-        "signature:integrity": data.signature,
-        "redirect-url": data.redirectUrl
-      });
+  const params = new URLSearchParams({
+    "public-key": data.publicKey,
+    "currency": data.currency,
+    "amount-in-cents": data.amountInCents,
+    "reference": data.reference,
+    "signature:integrity": data.signature,
+    "redirect-url": data.redirectUrl
+  });
 
-      const url = https://checkout.wompi.co/p/?${params.toString()};
-      window.location.href = url;
-    }
-  </script>
-
-</body>
-</html>
+  const url = `https://checkout.wompi.co/p/?${params.toString()}`;
+  window.location.href = url;
+}
+</script>
