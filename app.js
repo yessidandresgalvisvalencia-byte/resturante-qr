@@ -18,6 +18,7 @@ app.set("io", io);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static("public"))
 
 console.log("MONGO_URI EXISTE", !! process.env.MONGO_URI)
 
