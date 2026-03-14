@@ -1,4 +1,27 @@
 const socket = io()
+function actualizarLinksRestaurant() {
+  const restaurantId = document.getElementById("restaurantIdInput").value.trim() || "rest1";
+  const baseUrl = window.location.origin;
+
+  document.getElementById("restaurantIdActual").textContent = restaurantId;
+
+  const menuUrl = `{baseUrl}/?restaurantId=${restaurantId}&mesa=1`;
+  const cocinaUrl = `${baseUrl}/cocina.html?restaurantId=${restaurantId}`;
+  const meseroUrl = `${baseUrl}/mesero.html?restaurantId=${restaurantId}`;
+  const adminUrl = `${baseUrl}/admin.html?restaurantId=${restaurantId}`;
+
+  document.getElementById("linkMenu").href = menuUrl;
+  document.getElementById("linkMenu").textContent = menuUrl;
+
+  document.getElementById("linkCocina").href = cocinaUrl;
+  document.getElementById("linkCocina").textContent = cocinaUrl;
+
+  document.getElementById("linkMesero").href = meseroUrl;
+  document.getElementById("linkMesero").textContent = meseroUrl;
+
+  document.getElementById("linkAdmin").href = adminUrl;
+  document.getElementById("linkAdmin").textContent = adminUrl;
+}
 
 document.getElementById("baseUrl").value = window.location.origin
 
@@ -109,3 +132,9 @@ socket.on("menu:actualizado", () => {
 })
 
 cargarAdmin()
+const params = new URLSearchParams(window.location.search);
+const restaurantIdUrl = params.get("restaurantId") || "rest1";
+
+document.getElementById("restaurantIdInput").value = restaurantIdUrl;
+
+actualizarLinksRestaurant();
