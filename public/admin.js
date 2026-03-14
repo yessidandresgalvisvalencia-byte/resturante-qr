@@ -1,4 +1,7 @@
 const socket = io()
+function getRestaurantId() {
+  return document.getElementById("restaurantIdInput").value.trim() || "rest1";
+}
 function actualizarLinksRestaurant() {
   const restaurantId = document.getElementById("restaurantIdInput").value.trim() || "rest1";
   const baseUrl = window.location.origin;
