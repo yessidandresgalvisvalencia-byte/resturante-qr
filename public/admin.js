@@ -20,8 +20,8 @@ function actualizarLinksRestaurant() {
 
   const menuUrl = `${baseUrl}/?restaurantId=${restaurantId}&mesa=1`;
   const cocinaUrl = `${baseUrl}/cocina.html?restaurantId=${restaurantId}`;
-  const meseroUrl = `${baseUrl}/mesero.html?restaurantId=${restaurantId}`;
-  const adminUrl = `${baseUrl}/admin.html?restaurantId=${restaurantId}`;
+  const meseroUrl = $`{baseUrl}/mesero.html?restaurantId=${restaurantId}`;
+  const adminUrl = $`{baseUrl}/admin.html?restaurantId=${restaurantId}`;
 
   if (linkMenu) {
     linkMenu.href = menuUrl;
@@ -96,7 +96,7 @@ async function cargarResumen(restaurantId) {
 
 async function cargarTopProductos(restaurantId) {
   try {
-    const res = await fetch(`/api/admin/top-productos?restaurantId=${restaurantId}`);
+    const res = await fetch(/api/admin/top-productos?restaurantId=${restaurantId});
     if (!res.ok) return;
 
     const data = await res.json();
@@ -106,7 +106,7 @@ async function cargarTopProductos(restaurantId) {
     topProductos.innerHTML = "";
 
     if (!data.length) {
-      topProductos.innerHTML = `<div class="card"><p>No hay datos todavía.</p></div>`;
+      topProductos.innerHTML = <div class="card"><p>No hay datos todavía.</p></div>;
       return;
     }
 
@@ -125,7 +125,7 @@ async function cargarTopProductos(restaurantId) {
 
 async function cargarHistorialVentas(restaurantId) {
   try {
-    const res = await fetch(`/api/admin/historial-ventas?restaurantId=${restaurantId}`);
+    const res = await fetch(/api/admin/historial-ventas?restaurantId=${restaurantId});
     if (!res.ok) return;
 
     const data = await res.json();
@@ -135,7 +135,7 @@ async function cargarHistorialVentas(restaurantId) {
     historialVentas.innerHTML = "";
 
     if (!data.length) {
-      historialVentas.innerHTML = `<div class="card"><p>No hay ventas todavía.</p></div>`;
+      historialVentas.innerHTML = <div class="card"><p>No hay ventas todavía.</p></div>;
       return;
     }
 
@@ -156,7 +156,7 @@ async function cargarHistorialVentas(restaurantId) {
 
 async function cargarStock(restaurantId) {
   try {
-    const res = await fetch(`/api/menu?restaurantId=${restaurantId}`);
+    const res = await fetch(/api/menu?restaurantId=${restaurantId});
     if (!res.ok) return;
 
     const data = await res.json();
@@ -166,7 +166,11 @@ async function cargarStock(restaurantId) {
     stockLista.innerHTML = "";
 
     if (!data.length) {
-      stockLista.innerHTML = `<div class="card"><p>No hay productos todavía.</p></div>`;
+      stockLista.innerHTML = `
+        <div class="card">
+          <p>No hay productos todavía.</p>
+        </div>
+      `;
       return;
     }
 
@@ -177,6 +181,14 @@ async function cargarStock(restaurantId) {
           <p>Categoría: ${item.categoria}</p>
           <p>Precio: $${item.precio}</p>
           <p>Disponible: ${item.disponible ? "Sí" : "No"}</p>
+
+          <button onclick="cambiarStock(${item.id}, ${!item.disponible})">
+            ${item.disponible ? "Marcar como agotado" : "Marcar como disponible"}
+          </button>
+
+          <button onclick="eliminarProducto(${item.id})">
+            Eliminar
+          </button>
         </div>
       `;
     });
@@ -206,16 +218,6 @@ async function agregarProducto() {
       return;
     }
 
-    console.log("DATOS A ENVIAR", {
-      restaurantId,
-      nombre,
-      precio,
-      categoria,
-      imagen,
-      tiempoBase,
-      disponible
-    });
-
     const res = await fetch("/api/menu", {
       method: "POST",
       headers: {
@@ -232,10 +234,7 @@ async function agregarProducto() {
       })
     });
 
-    console.log("STATUS RESPUESTA", res.status);
-
     const data = await res.json();
-    console.log("RESPUESTA BACKEND", data);
 
     if (!res.ok) {
       alert(data.error || "No se pudo guardar el producto");
@@ -255,6 +254,58 @@ async function agregarProducto() {
   } catch (error) {
     console.log("ERROR AGREGANDO PRODUCTO", error);
     alert("Error agregando producto");
+  }
+}
+
+async function cambiarStock(id, disponible) {
+  try {
+    const restaurantId = getRestaurantId();
+
+    const res = await fetch(`/api/menu/${id}/stock?restaurantId=${restaurantId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ disponible })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.mensaje || "No se pudo actualizar el stock");
+      return;
+    }
+
+    cargarAdmin();
+  } catch (error) {
+    console.log("Error actualizando stock:", error);
+    alert("Error actualizando stock");
+  }
+}
+
+async function eliminarProducto(id) {
+  try {
+    const restaurantId = getRestaurantId();
+
+    const confirmar = confirm("¿Seguro que quieres eliminar este producto?");
+    if (!confirmar) return;
+
+    const res = await fetch(`/api/menu/${id}?restaurantId=${restaurantId}`, {
+      method: "DELETE"
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo eliminar el producto");
+      return;
+    }
+
+    alert("Producto eliminado correctamente");
+    cargarAdmin();
+  } catch (error) {
+    console.log("ERROR ELIMINANDO PRODUCTO", error);
+    alert("Error eliminando producto");
   }
 }
 
