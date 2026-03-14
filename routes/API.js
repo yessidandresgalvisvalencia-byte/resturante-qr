@@ -95,24 +95,32 @@ router.get("/menu", async (req, res) => {
     res.status(500).json([]);
   }
 });
-router.put("/menu/:id/stock", (req, res) => {
-    const restaurantId = getRestaurantId(req)
-    const menu = getMenu(restaurantId)
-    const id = Number(req.params.id)
+router.put("/menu/:id/stock", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const id = Number(req.params.id);
 
-    const producto = menu.find(item => item.id === id)
+    const Menu = require("../models/menu");
+
+    const producto = await Menu.findOneAndUpdate(
+      { restaurantId, id },
+      { disponible: Boolean(req.body.disponible) },
+      { new: true }
+    );
+
     if (!producto) {
-        return res.status(404).json({ mensaje: "Producto no encontrado" })
+      return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
 
-    producto.disponible = Boolean(req.body.disponible)
+    const io = req.app.get("io");
+    io.emit("menu:actualizado", { restaurantId });
 
-    const io = req.app.get("io")
-    io.emit("menu:actualizado", { restaurantId })
-
-    res.json(producto)
-})
-
+    res.json(producto);
+  } catch (error) {
+    console.log("Error actualizando stock:", error);
+    res.status(500).json({ mensaje: "Error actualizando stock" });
+  }
+});
 router.post("/pedido", async (req, res) => {
     try {
         const restaurantId = getRestaurantId(req)
@@ -323,6 +331,60 @@ router.get("/factura/mesa/:mesa", async (req, res) => {
         res.status(500).json({ mensaje: "Error generando factura", error })
     }
 })
+router.post("/menu", async (req, res) => {
+  try {
+    const {
+      restaurantId,
+      nombre,
+      precio,
+      categoria,
+      imagen,
+      tiempoBase,
+      disponible
+    } = req.body;
+
+    if (!restaurantId || !nombre || !precio || !categoria) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos obligatorios"
+      });
+    }
+
+    const Menu = require("../models/menu");
+
+    const ultimoProducto = await Menu.findOne({ restaurantId }).sort({ id: -1 });
+
+    const nuevoId = ultimoProducto ? ultimoProducto.id + 1 : 1;
+
+    const nuevoProducto = new Menu({
+      restaurantId,
+      id: nuevoId,
+      nombre,
+      precio,
+      categoria,
+      imagen: imagen || "",
+      tiempoBase: tiempoBase || 10,
+      disponible: disponible !== false
+    });
+
+    await nuevoProducto.save();
+
+    const io = req.app.get("io");
+io.emit("menu:actualizado", { restaurantId });
+
+    res.json({
+      ok: true,
+      mensaje: "Producto guardado correctamente",
+      producto: nuevoProducto
+    });
+  } catch (error) {
+    console.log("Error guardando producto:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno guardando producto"
+    });
+  }
+});
 
 router.get("/qr/:mesa", async (req, res) => {
     try {
