@@ -96,7 +96,7 @@ async function cargarResumen(restaurantId) {
 
 async function cargarTopProductos(restaurantId) {
   try {
-    const res = await fetch(/api/admin/top-productos?restaurantId=${restaurantId});
+    const res = await fetch(`/api/admin/top-productos?restaurantId=${restaurantId}`);
     if (!res.ok) return;
 
     const data = await res.json();
@@ -125,7 +125,7 @@ async function cargarTopProductos(restaurantId) {
 
 async function cargarHistorialVentas(restaurantId) {
   try {
-    const res = await fetch(/api/admin/historial-ventas?restaurantId=${restaurantId});
+    const res = await fetch(`/api/admin/historial-ventas?restaurantId=${restaurantId}`);
     if (!res.ok) return;
 
     const data = await res.json();
@@ -156,7 +156,7 @@ async function cargarHistorialVentas(restaurantId) {
 
 async function cargarStock(restaurantId) {
   try {
-    const res = await fetch(/api/menu?restaurantId=${restaurantId});
+    const res = await fetch(`/api/menu?restaurantId=${restaurantId}`);
     if (!res.ok) return;
 
     const data = await res.json();
@@ -256,7 +256,6 @@ async function agregarProducto() {
     alert("Error agregando producto");
   }
 }
-
 async function cambiarStock(id, disponible) {
   try {
     const restaurantId = getRestaurantId();
