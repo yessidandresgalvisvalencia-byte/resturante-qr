@@ -12,6 +12,27 @@
         <h1>Panel Administrador</h1>
 
         <div class="card">
+            <h3>Links del restaurante</h3>
+            <p><strong>Restaurant ID:</strong> <span id="restaurantIdActual"></span></p>
+
+            <p><strong>Menú cliente:</strong><br>
+                <a id="linkMenu" target="_blank"></a>
+            </p>
+
+            <p><strong>Cocina:</strong><br>
+                <a id="linkCocina" target="_blank"></a>
+            </p>
+
+            <p><strong>Mesero:</strong><br>
+                <a id="linkMesero" target="_blank"></a>
+            </p>
+
+            <p><strong>Administrador:</strong><br>
+                <a id="linkAdmin" target="_blank"></a>
+            </p>
+        </div>
+
+        <div class="card">
             <label>Restaurant ID</label>
             <input id="restaurantIdInput" type="text" value="rest1">
 
@@ -51,5 +72,31 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="admin.js"></script>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const restaurantId = params.get("restaurantId") || "rest1";
+      const baseUrl = window.location.origin;
+
+      document.getElementById("restaurantIdActual").textContent = restaurantId;
+
+      const menuUrl = `${baseUrl}/?restaurantId=${restaurantId}&mesa=1`;
+      const cocinaUrl = `${baseUrl}/cocina.html?restaurantId=${restaurantId}`;
+      const meseroUrl = `${baseUrl}/mesero.html?restaurantId=${restaurantId}`;
+      const adminUrl = `${baseUrl}/admin.html?restaurantId=${restaurantId}`;
+
+      document.getElementById("linkMenu").href = menuUrl;
+      document.getElementById("linkMenu").textContent = menuUrl;
+
+      document.getElementById("linkCocina").href = cocinaUrl;
+      document.getElementById("linkCocina").textContent = cocinaUrl;
+
+      document.getElementById("linkMesero").href = meseroUrl;
+      document.getElementById("linkMesero").textContent = meseroUrl;
+
+      document.getElementById("linkAdmin").href = adminUrl;
+      document.getElementById("linkAdmin").textContent = adminUrl;
+    </script>
+
 </body>
 </html>
