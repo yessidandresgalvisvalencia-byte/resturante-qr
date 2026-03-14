@@ -185,6 +185,79 @@ async function cargarStock(restaurantId) {
   }
 }
 
+async function agregarProducto() {
+  try {
+    const restaurantId = getRestaurantId();
+
+    const nombre = document.getElementById("nombreProducto").value.trim();
+    const precio = Number(document.getElementById("precioProducto").value || 0);
+    const categoria = document.getElementById("categoriaProducto").value;
+    const imagen = document.getElementById("imagenProducto").value.trim();
+    const tiempoBase = Number(document.getElementById("tiempoProducto").value || 10);
+    const disponible = document.getElementById("disponibleProducto").value === "true";
+
+    if (!nombre) {
+      alert("Escribe el nombre del producto");
+      return;
+    }
+
+    if (precio <= 0) {
+      alert("El precio debe ser mayor a 0");
+      return;
+    }
+
+    console.log("DATOS A ENVIAR", {
+      restaurantId,
+      nombre,
+      precio,
+      categoria,
+      imagen,
+      tiempoBase,
+      disponible
+    });
+
+    const res = await fetch("/api/menu", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        restaurantId,
+        nombre,
+        precio,
+        categoria,
+        imagen,
+        tiempoBase,
+        disponible
+      })
+    });
+
+    console.log("STATUS RESPUESTA", res.status);
+
+    const data = await res.json();
+    console.log("RESPUESTA BACKEND", data);
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo guardar el producto");
+      return;
+    }
+
+    alert("Producto agregado correctamente");
+
+    document.getElementById("nombreProducto").value = "";
+    document.getElementById("precioProducto").value = "";
+    document.getElementById("categoriaProducto").value = "Comida";
+    document.getElementById("imagenProducto").value = "";
+    document.getElementById("tiempoProducto").value = 10;
+    document.getElementById("disponibleProducto").value = "true";
+
+    cargarAdmin();
+  } catch (error) {
+    console.log("ERROR AGREGANDO PRODUCTO", error);
+    alert("Error agregando producto");
+  }
+}
+
 async function cargarAdmin() {
   const restaurantId = getRestaurantId();
 
@@ -218,65 +291,6 @@ socket.on("pedido:actualizado", (pedido) => {
 socket.on("menu:actualizado", (payload) => {
   if (payload.restaurantId === getRestaurantId()) {
     cargarAdmin();
-    async function agregarProducto() {
-  try {
-    const restaurantId = getRestaurantId();
-
-    const nombre = document.getElementById("nombreProducto").value.trim();
-    const precio = Number(document.getElementById("precioProducto").value || 0);
-    const categoria = document.getElementById("categoriaProducto").value;
-    const imagen = document.getElementById("imagenProducto").value.trim();
-    const tiempoBase = Number(document.getElementById("tiempoProducto").value || 10);
-    const disponible = document.getElementById("disponibleProducto").value === "true";
-
-    if (!nombre) {
-      alert("Escribe el nombre del producto");
-      return;
-    }
-
-    if (precio <= 0) {
-      alert("El precio debe ser mayor a 0");
-      return;
-    }
-
-    const res = await fetch("/api/menu", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        restaurantId,
-        nombre,
-        precio,
-        categoria,
-        imagen,
-        tiempoBase,
-        disponible
-      })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error || "No se pudo guardar el producto");
-      return;
-    }
-
-    alert("Producto agregado correctamente");
-
-    document.getElementById("nombreProducto").value = "";
-    document.getElementById("precioProducto").value = "";
-    document.getElementById("categoriaProducto").value = "Comida";
-    document.getElementById("imagenProducto").value = "";
-    document.getElementById("tiempoProducto").value = 10;
-    document.getElementById("disponibleProducto").value = "true";
-
-    cargarAdmin();
-  } catch (error) {
-    console.log(error);
-    alert("Error agregando producto");
-  }
-}
   }
 });
 
