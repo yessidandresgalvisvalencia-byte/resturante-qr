@@ -385,6 +385,40 @@ io.emit("menu:actualizado", { restaurantId });
     });
   }
 });
+router.delete("/menu/:id", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const id = Number(req.params.id);
+
+    const Menu = require("../models/menu");
+
+    const productoEliminado = await Menu.findOneAndDelete({
+      restaurantId,
+      id
+    });
+
+    if (!productoEliminado) {
+      return res.status(404).json({
+        ok: false,
+        error: "Producto no encontrado"
+      });
+    }
+
+    const io = req.app.get("io");
+    io.emit("menu:actualizado", { restaurantId });
+
+    res.json({
+      ok: true,
+      mensaje: "Producto eliminado correctamente"
+    });
+  } catch (error) {
+    console.log("Error eliminando producto:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno eliminando producto"
+    });
+  }
+});
 
 router.get("/qr/:mesa", async (req, res) => {
     try {
