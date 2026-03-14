@@ -79,12 +79,22 @@ function getMenu(restaurantId) {
     return menusPorRestaurante[restaurantId]
 }
 
-router.get("/menu", (req, res) => {
-    const restaurantId = getRestaurantId(req)
-    const menu = getMenu(restaurantId)
-    res.json(menu)
-})
+router.get("/menu", async (req, res) => {
+  try {
 
+    const { restaurantId } = req.query;
+
+    const Menu = require("../models/menu");
+
+    const menu = await Menu.find({ restaurantId });
+
+    res.json(menu);
+
+  } catch (error) {
+    console.log("Error obteniendo menú:", error);
+    res.status(500).json([]);
+  }
+});
 router.put("/menu/:id/stock", (req, res) => {
     const restaurantId = getRestaurantId(req)
     const menu = getMenu(restaurantId)
