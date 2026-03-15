@@ -247,17 +247,26 @@ stockLista.innerHTML += `
 console.log("Stock no disponible:", error);
 }
 }
-function editarProductoPorId(id) {
-  const item = productosStockActuales.find(producto => producto.id === id);
+function editarProducto(item) {
 
-  if (!item) {
-    alert("No se encontró el producto para editar");
-    return;
-  }
+  productoEnEdicion = item.id;
 
-  editarProducto(item);
+  document.getElementById("nombreProducto").value = item.nombre || "";
+  document.getElementById("precioProducto").value = item.precio || "";
+  document.getElementById("categoriaProducto").value = item.categoria || "Comida";
+  document.getElementById("imagenProducto").value = item.imagen || "";
+  document.getElementById("tiempoProducto").value = item.tiempoBase || 10;
+  document.getElementById("disponibleProducto").value = item.disponible ? "true" : "false";
+
+  document.getElementById("btnGuardarProducto").textContent = "Actualizar producto";
+  document.getElementById("btnCancelarEdicion").style.display = "inline-block";
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+
 }
-
 async function guardarOEditarProducto() {
   try {
     const restaurantId = getRestaurantId();
