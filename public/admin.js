@@ -1,4 +1,5 @@
 const socket = io();
+let productoEnEdición = null;
 
 function getRestaurantId() {
 const input = document.getElementById("restaurantIdInput");
@@ -164,6 +165,41 @@ console.log("Historial ventas no disponible:", error);
 }
 
 async function cargarStock(restaurantId) {
+function editarProducto(item) {
+  productoEnEdicion = item.id;
+
+  document.getElementById("nombreProducto").value = item.nombre || "";
+  document.getElementById("precioProducto").value = item.precio || "";
+  document.getElementById("categoriaProducto").value = item.categoria || "Comida";
+  document.getElementById("imagenProducto").value = item.imagen || "";
+  document.getElementById("tiempoProducto").value = item.tiempoBase || 10;
+  document.getElementById("disponibleProducto").value = item.disponible ? "true" : "false";
+
+  document.getElementById("btnGuardarProducto").textContent = "Actualizar producto";
+  document.getElementById("btnCancelarEdicion").style.display = "inline-block";
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+function limpiarFormularioProducto() {
+  document.getElementById("nombreProducto").value = "";
+  document.getElementById("precioProducto").value = "";
+  document.getElementById("categoriaProducto").value = "Comida";
+  document.getElementById("imagenProducto").value = "";
+  document.getElementById("tiempoProducto").value = 10;
+  document.getElementById("disponibleProducto").value = "true";
+}
+
+function cancelarEdicion() {
+  productoEnEdicion = null;
+  limpiarFormularioProducto();
+
+  document.getElementById("btnGuardarProducto").textContent = "Guardar producto";
+  document.getElementById("btnCancelarEdicion").style.display = "none";
+}
 try {
 const res = await fetch(`/api/menu?restaurantId=${restaurantId}`);
 if (!res.ok) return;
@@ -191,12 +227,16 @@ stockLista.innerHTML += `
 <p>Precio: $${item.precio}</p>
 <p>Disponible: ${item.disponible ? "Sí" : "No"}</p>
 
+<button onclick='editarProducto(${JSON.stringify(item)})'>
+  Editar
+</button>
+
 <button onclick="cambiarStock(${item.id}, ${!item.disponible})">
-${item.disponible ? "Marcar como agotado" : "Marcar como disponible"}
+  ${item.disponible ? "Marcar como agotado" : "Marcar como disponible"}
 </button>
 
 <button onclick="eliminarProducto(${item.id})">
-Eliminar
+  Eliminar
 </button>
 </div>
 `;
@@ -206,102 +246,89 @@ console.log("Stock no disponible:", error);
 }
 }
 
-async function agregarProducto() {
-try {
-const restaurantId = getRestaurantId();
+async function guardarOEditarProducto() {
+  try {
+    const restaurantId = getRestaurantId();
 
-const nombreInput = document.getElementById("nombreProducto");
-const precioInput = document.getElementById("precioProducto");
-const categoriaInput = document.getElementById("categoriaProducto");
-const imagenInput = document.getElementById("imagenProducto");
-const tiempoInput = document.getElementById("tiempoProducto");
-const disponibleInput = document.getElementById("disponibleProducto");
+    const nombreInput = document.getElementById("nombreProducto");
+    const precioInput = document.getElementById("precioProducto");
+    const categoriaInput = document.getElementById("categoriaProducto");
+    const imagenInput = document.getElementById("imagenProducto");
+    const tiempoInput = document.getElementById("tiempoProducto");
+    const disponibleInput = document.getElementById("disponibleProducto");
 
-if (!nombreInput || !precioInput || !categoriaInput || !imagenInput || !tiempoInput || !disponibleInput) {
-alert("Faltan campos del formulario");
-return;
-}
+    if (!nombreInput || !precioInput || !categoriaInput || !imagenInput || !tiempoInput || !disponibleInput) {
+      alert("Faltan campos del formulario");
+      return;
+    }
 
-const nombre = nombreInput.value.trim();
-const precio = Number(precioInput.value || 0);
-const categoria = categoriaInput.value;
-const imagen = imagenInput.value.trim();
-const tiempoBase = Number(tiempoInput.value || 10);
-const disponible = disponibleInput.value === "true";
+    const nombre = nombreInput.value.trim();
+    const precio = Number(precioInput.value || 0);
+    const categoria = categoriaInput.value;
+    const imagen = imagenInput.value.trim();
+    const tiempoBase = Number(tiempoInput.value || 10);
+    const disponible = disponibleInput.value === "true";
 
-if (!nombre) {
-alert("Escribe el nombre del producto");
-return;
-}
+    if (!nombre) {
+      alert("Escribe el nombre del producto");
+      return;
+    }
 
-if (precio <= 0) {
-alert("El precio debe ser mayor a 0");
-return;
-}
+    if (precio <= 0) {
+      alert("El precio debe ser mayor a 0");
+      return;
+    }
 
-const res = await fetch("/api/menu", {
-method: "POST",
-headers: {
-"Content-Type": "application/json"
-},
-body: JSON.stringify({
-restaurantId,
-nombre,
-precio,
-categoria,
-imagen,
-tiempoBase,
-disponible
-})
-});
+    let res;
 
-const data = await res.json();
+    if (productoEnEdicion) {
+      res = await fetch(`/api/menu/${productoEnEdicion}?restaurantId=${restaurantId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          nombre,
+          precio,
+          categoria,
+          imagen,
+          tiempoBase,
+          disponible
+        })
+      });
+    } else {
+      res = await fetch("/api/menu", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          restaurantId,
+          nombre,
+          precio,
+          categoria,
+          imagen,
+          tiempoBase,
+          disponible
+        })
+      });
+    }
 
-if (!res.ok) {
-alert(data.error || "No se pudo guardar el producto");
-return;
-}
+    const data = await res.json();
 
-alert("Producto agregado correctamente");
+    if (!res.ok) {
+      alert(data.error || "No se pudo guardar el producto");
+      return;
+    }
 
-nombreInput.value = "";
-precioInput.value = "";
-categoriaInput.value = "Comida";
-imagenInput.value = "";
-tiempoInput.value = 10;
-disponibleInput.value = "true";
+    alert(productoEnEdicion ? "Producto actualizado correctamente" : "Producto agregado correctamente");
 
-cargarAdmin();
-} catch (error) {
-console.log("ERROR AGREGANDO PRODUCTO", error);
-alert("Error agregando producto");
-}
-}
-
-async function cambiarStock(id, disponible) {
-try {
-const restaurantId = getRestaurantId();
-
-const res = await fetch(`/api/menu/${id}/stock?restaurantId=${restaurantId}`, {
-method: "PUT",
-headers: {
-"Content-Type": "application/json"
-},
-body: JSON.stringify({ disponible })
-});
-
-const data = await res.json();
-
-if (!res.ok) {
-alert(data.mensaje || "No se pudo actualizar el stock");
-return;
-}
-
-cargarAdmin();
-} catch (error) {
-console.log("Error actualizando stock:", error);
-alert("Error actualizando stock");
-}
+    cancelarEdicion();
+    cargarAdmin();
+  } catch (error) {
+    console.log("ERROR GUARDANDO PRODUCTO", error);
+    alert("Error guardando producto");
+  }
 }
 
 async function eliminarProducto(id) {

@@ -331,6 +331,58 @@ router.get("/factura/mesa/:mesa", async (req, res) => {
         res.status(500).json({ mensaje: "Error generando factura", error })
     }
 })
+router.put("/menu/:id", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const id = Number(req.params.id);
+
+    const {
+      nombre,
+      precio,
+      categoria,
+      imagen,
+      tiempoBase,
+      disponible
+    } = req.body;
+
+    const Menu = require("../models/menu");
+
+    const productoActualizado = await Menu.findOneAndUpdate(
+      { restaurantId, id },
+      {
+        nombre,
+        precio,
+        categoria,
+        imagen,
+        tiempoBase,
+        disponible
+      },
+      { new: true }
+    );
+
+    if (!productoActualizado) {
+      return res.status(404).json({
+        ok: false,
+        error: "Producto no encontrado"
+      });
+    }
+
+    const io = req.app.get("io");
+    io.emit("menu:actualizado", { restaurantId });
+
+    res.json({
+      ok: true,
+      mensaje: "Producto actualizado correctamente",
+      producto: productoActualizado
+    });
+  } catch (error) {
+    console.log("Error actualizando producto:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno actualizando producto"
+    });
+  }
+});
 router.post("/menu", async (req, res) => {
   try {
     const {
