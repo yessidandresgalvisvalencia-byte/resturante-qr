@@ -1,123 +1,115 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login Administrador</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Administrador</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<div class="contenedor">
+  <div class="contenedor">
+    <h1>Ingreso Administrador</h1>
 
-<h1>Ingreso Administrador</h1>
+    <div class="card">
+      <label>Usuario</label>
+      <input id="usuario" type="text" placeholder="Usuario">
 
-<div class="card">
+      <label>Contraseña</label>
+      <input id="password" type="password" placeholder="Contraseña">
 
-<label>Usuario</label>
-<input id="usuario" type="text" placeholder="Usuario">
+      <button onclick="loginAdmin()">Ingresar</button>
+    </div>
 
-<label>Contraseña</label>
-<input id="password" type="password" placeholder="Contraseña">
+    <div class="card">
+      <h2>Crear administrador</h2>
 
-<button onclick="loginAdmin()">Ingresar</button>
+      <label>Restaurant ID</label>
+      <input id="nuevoRestaurantId" type="text" placeholder="Ej: rest1">
 
-</div>
+      <label>Usuario</label>
+      <input id="nuevoUsuario" type="text" placeholder="Ej: admin1">
 
+      <label>Contraseña</label>
+      <input id="nuevoPassword" type="password" placeholder="Ej: 1234">
 
-<div class="card">
+      <button onclick="registrarAdmin()">Crear administrador</button>
+    </div>
+  </div>
 
-<h2>Crear administrador</h2>
+  <script>
+    async function loginAdmin() {
+      try {
+        const usuario = document.getElementById("usuario").value.trim();
+        const password = document.getElementById("password").value.trim();
 
-<label>Restaurant ID</label>
-<input id="nuevoRestaurantId" type="text" placeholder="Ej: rest1">
+        if (!usuario || !password) {
+          alert("Completa usuario y contraseña");
+          return;
+        }
 
-<label>Usuario</label>
-<input id="nuevoUsuario" type="text" placeholder="Ej: admin1">
+        const res = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ usuario, password })
+        });
 
-<label>Contraseña</label>
-<input id="nuevoPassword" type="password" placeholder="Ej: 1234">
+        const data = await res.json();
 
-<button onclick="registrarAdmin()">Crear administrador</button>
+        if (!res.ok || !data.ok) {
+          alert(data.error || "Usuario o contraseña incorrectos");
+          return;
+        }
 
-</div>
+        localStorage.setItem("adminRestaurantId", data.restaurantId);
+        localStorage.setItem("adminUsuario", data.usuario || usuario);
 
-</div>
+        window.location.href = `/admin.html?restaurantId=${data.restaurantId}`;
+      } catch (error) {
+        console.log("Error login:", error);
+        alert("Error iniciando sesión");
+      }
+    }
 
-<script>
+    async function registrarAdmin() {
+      try {
+        const restaurantId = document.getElementById("nuevoRestaurantId").value.trim();
+        const usuario = document.getElementById("nuevoUsuario").value.trim();
+        const password = document.getElementById("nuevoPassword").value.trim();
 
-async function loginAdmin(){
+        if (!restaurantId || !usuario || !password) {
+          alert("Completa todos los campos");
+          return;
+        }
 
-const usuario = document.getElementById("usuario").value.trim()
-const password = document.getElementById("password").value.trim()
+        const res = await fetch("/api/admin/registro", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ restaurantId, usuario, password })
+        });
 
-if(!usuario || !password){
-alert("Completa usuario y contraseña")
-return
-}
+        const data = await res.json();
 
-const res = await fetch("/api/admin/login",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-usuario,
-password
-})
-})
+        if (!res.ok || !data.ok) {
+          alert(data.error || "No se pudo crear el administrador");
+          return;
+        }
 
-const data = await res.json()
+        alert("Administrador creado correctamente");
 
-if(!data.ok){
-alert(data.error || "Usuario o contraseña incorrectos")
-return
-}
-
-localStorage.setItem("adminRestaurantId",data.restaurantId)
-
-window.location.href = /admin.html?restaurantId=${data.restaurantId}
-
-}
-
-
-
-async function registrarAdmin(){
-
-const restaurantId = document.getElementById("nuevoRestaurantId").value.trim()
-const usuario = document.getElementById("nuevoUsuario").value.trim()
-const password = document.getElementById("nuevoPassword").value.trim()
-
-if(!restaurantId || !usuario || !password){
-alert("Completa todos los campos")
-return
-}
-
-const res = await fetch("/api/admin/registro",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-restaurantId,
-usuario,
-password
-})
-})
-
-const data = await res.json()
-
-if(!data.ok){
-alert(data.error || "No se pudo crear el administrador")
-return
-}
-
-alert("Administrador creado correctamente")
-
-}
-
-</script>
+        document.getElementById("nuevoRestaurantId").value = "";
+        document.getElementById("nuevoUsuario").value = "";
+        document.getElementById("nuevoPassword").value = "";
+      } catch (error) {
+        console.log("Error registro:", error);
+        alert("Error creando administrador");
+      }
+    }
+  </script>
 
 </body>
 </html>
