@@ -1,5 +1,6 @@
 const socket = io();
 let productoEnEdición = null;
+let productosStockActuales = []
 
 function getRestaurantId() {
 const input = document.getElementById("restaurantIdInput");
@@ -205,6 +206,7 @@ const res = await fetch(`/api/menu?restaurantId=${restaurantId}`);
 if (!res.ok) return;
 
 const data = await res.json();
+productosStockActuales = data;
 const stockLista = document.getElementById("stockLista");
 if (!stockLista) return;
 
@@ -227,7 +229,7 @@ stockLista.innerHTML += `
 <p>Precio: $${item.precio}</p>
 <p>Disponible: ${item.disponible ? "Sí" : "No"}</p>
 
-<button onclick='editarProducto(${JSON.stringify(item)})'>
+<button onclick="editarProductoPorId(${item.id})">
   Editar
 </button>
 
@@ -244,6 +246,16 @@ stockLista.innerHTML += `
 } catch (error) {
 console.log("Stock no disponible:", error);
 }
+}
+function editarProductoPorId(id) {
+  const item = productosStockActuales.find(producto => producto.id === id);
+
+  if (!item) {
+    alert("No se encontró el producto para editar");
+    return;
+  }
+
+  editarProducto(item);
 }
 
 async function guardarOEditarProducto() {
