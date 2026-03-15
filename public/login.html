@@ -25,6 +25,24 @@
 
 </div>
 
+
+<div class="card">
+
+<h2>Crear administrador</h2>
+
+<label>Restaurant ID</label>
+<input id="nuevoRestaurantId" type="text" placeholder="Ej: rest1">
+
+<label>Usuario</label>
+<input id="nuevoUsuario" type="text" placeholder="Ej: admin1">
+
+<label>Contraseña</label>
+<input id="nuevoPassword" type="password" placeholder="Ej: 1234">
+
+<button onclick="registrarAdmin()">Crear administrador</button>
+
+</div>
+
 </div>
 
 <script>
@@ -59,7 +77,43 @@ return
 
 localStorage.setItem("adminRestaurantId",data.restaurantId)
 
-window.location.href = `/admin.html?restaurantId=${data.restaurantId}`
+window.location.href = /admin.html?restaurantId=${data.restaurantId}
+
+}
+
+
+
+async function registrarAdmin(){
+
+const restaurantId = document.getElementById("nuevoRestaurantId").value.trim()
+const usuario = document.getElementById("nuevoUsuario").value.trim()
+const password = document.getElementById("nuevoPassword").value.trim()
+
+if(!restaurantId || !usuario || !password){
+alert("Completa todos los campos")
+return
+}
+
+const res = await fetch("/api/admin/registro",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+restaurantId,
+usuario,
+password
+})
+})
+
+const data = await res.json()
+
+if(!data.ok){
+alert(data.error || "No se pudo crear el administrador")
+return
+}
+
+alert("Administrador creado correctamente")
 
 }
 
