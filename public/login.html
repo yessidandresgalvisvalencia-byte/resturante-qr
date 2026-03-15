@@ -1,45 +1,69 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login simple</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login Administrador</title>
+<link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-    <div class="contenedor">
-        <div class="card">
-            <h1>Ingreso</h1>
-            <label>Rol</label>
-            <select id="rol">
-                <option value="cocina">Cocina</option>
-                <option value="admin">Administrador</option>
-            </select>
 
-            <label>Clave</label>
-            <input id="clave" type="password" placeholder="Ingrese clave">
+<div class="contenedor">
 
-            <button onclick="entrar()">Entrar</button>
-        </div>
-    </div>
+<h1>Ingreso Administrador</h1>
 
-    <script>
-        function entrar() {
-            const rol = document.getElementById("rol").value
-            const clave = document.getElementById("clave").value
+<div class="card">
 
-            if (rol === "cocina" && clave === "1234") {
-                window.location.href = "/cocina.html"
-                return
-            }
+<label>Usuario</label>
+<input id="usuario" type="text" placeholder="Usuario">
 
-            if (rol === "admin" && clave === "admin123") {
-                window.location.href = "/admin.html"
-                return
-            }
+<label>Contraseña</label>
+<input id="password" type="password" placeholder="Contraseña">
 
-            alert("Clave incorrecta")
-        }
-    </script>
+<button onclick="loginAdmin()">Ingresar</button>
+
+</div>
+
+</div>
+
+<script>
+
+async function loginAdmin(){
+
+const usuario = document.getElementById("usuario").value.trim()
+const password = document.getElementById("password").value.trim()
+
+if(!usuario || !password){
+alert("Completa usuario y contraseña")
+return
+}
+
+const res = await fetch("/api/admin/login",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+usuario,
+password
+})
+})
+
+const data = await res.json()
+
+if(!data.ok){
+alert(data.error || "Usuario o contraseña incorrectos")
+return
+}
+
+localStorage.setItem("adminRestaurantId",data.restaurantId)
+
+window.location.href = `/admin.html?restaurantId=${data.restaurantId}`
+
+}
+
+</script>
+
 </body>
 </html>

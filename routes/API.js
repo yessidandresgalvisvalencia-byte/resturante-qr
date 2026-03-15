@@ -439,5 +439,90 @@ router.get("/qr/:mesa", async (req, res) => {
         res.status(500).json({ mensaje: "Error generando QR", error })
     }
 })
+router.post("/admin/registro", async (req, res) => {
+  try {
+    const { restaurantId, usuario, password } = req.body;
+
+    if (!restaurantId || !usuario || !password) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos obligatorios"
+      });
+    }
+
+    const Admin = require("../models/admin");
+
+    const existeRestaurant = await Admin.findOne({ restaurantId });
+    if (existeRestaurant) {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese restaurantId ya tiene administrador"
+      });
+    }
+
+    const existeUsuario = await Admin.findOne({ usuario });
+    if (existeUsuario) {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese usuario ya existe"
+      });
+    }
+
+    const nuevoAdmin = new Admin({
+      restaurantId,
+      usuario,
+      password
+    });
+
+    await nuevoAdmin.save();
+
+    res.json({
+      ok: true,
+      mensaje: "Administrador creado correctamente"
+    });
+  } catch (error) {
+    console.log("Error registrando admin:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno registrando administrador"
+    });
+  }
+});
+
+router.post("/admin/login", async (req, res) => {
+  try {
+    const { usuario, password } = req.body;
+
+    if (!usuario || !password) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan usuario o contraseña"
+      });
+    }
+
+    const Admin = require("../models/admin");
+
+    const admin = await Admin.findOne({ usuario, password });
+
+    if (!admin) {
+      return res.status(401).json({
+        ok: false,
+        error: "Usuario o contraseña incorrectos"
+      });
+    }
+
+    res.json({
+      ok: true,
+      restaurantId: admin.restaurantId,
+      usuario: admin.usuario
+    });
+  } catch (error) {
+    console.log("Error login admin:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno en login"
+    });
+  }
+});
 
 module.exports = router
