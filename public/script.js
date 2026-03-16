@@ -148,7 +148,7 @@ async function pedir(idProducto) {
 
 async function llamarMesero() {
   try {
-    await fetch("/api/llamar-mesero", {
+    const res = await fetch("/api/llamar-mesero", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -160,13 +160,23 @@ async function llamarMesero() {
       })
     });
 
-    alert("Se avisó al mesero");
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo llamar al mesero");
+      return;
+    }
+
+    // Dejamos el estado inicial como pendiente
     ultimoEstadoLlamado = "pendiente";
+
+    alert("Se avisó al mesero");
   } catch (error) {
     console.log(error);
     alert("Error llamando al mesero");
   }
 }
+
 async function revisarEstadoLlamado() {
   try {
     const res = await fetch(`/api/llamados/mesa/${mesa}?restaurantId=${restaurantId}`);
@@ -177,7 +187,8 @@ async function revisarEstadoLlamado() {
 
     const estadoActual = data.llamado.estado || "";
 
-    if (estadoActual === "atendiendo" && ultimoEstadoLlamado !== "atendiendo") {
+    // Mostrar el aviso solo cuando pasa de pendiente a atendiendo
+    if (ultimoEstadoLlamado === "pendiente" && estadoActual === "atendiendo") {
       alert("El mesero ya se está dirigiendo a tu lugar.");
     }
 
@@ -203,6 +214,7 @@ async function marcarAtendido() {
       return;
     }
 
+    ultimoEstadoLlamado = "atendido";
     alert("Atención marcada como recibida");
   } catch (error) {
     console.log(error);
@@ -333,10 +345,13 @@ socket.on("menu:actualizado", payload => {
     cargarMenu();
   }
 });
+
+// Revisar estado del llamado periódicamente
 setInterval(() => {
   revisarEstadoLlamado();
 }, 5000);
 
+// También reaccionar cuando el backend avise que cambió un llamado
 socket.on("llamado:actualizado", (llamado) => {
   if (llamado.restaurantId === restaurantId && Number(llamado.mesa) === Number(mesa)) {
     revisarEstadoLlamado();
