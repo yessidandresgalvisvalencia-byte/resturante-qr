@@ -304,6 +304,36 @@ router.get("/mesero/mesas", async (req, res) => {
         };
       }
     });
+    outer.put("/llamados/:id/atendiendo", async (req, res) => {
+  try {
+    const llamado = await Llamado.findByIdAndUpdate(
+      req.params.id,
+      { estado: "atendiendo" },
+      { new: true }
+    );
+
+    if (!llamado) {
+      return res.status(404).json({
+        ok: false,
+        error: "Llamado no encontrado"
+      });
+    }
+
+    const io = req.app.get("io");
+    io.emit("llamado:actualizado", llamado);
+
+    res.json({
+      ok: true,
+      llamado
+    });
+  } catch (error) {
+    console.log("Error marcando atendiendo:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno actualizando llamado"
+    });
+  }
+});
 
     const mesas = Object.values(mesasMap);
 

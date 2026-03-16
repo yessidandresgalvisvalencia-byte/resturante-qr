@@ -10,14 +10,30 @@ async function atenderLlamado(id) {
     })
 }
 
-async function entregarPedido(id) {
-    await fetch(`/api/pedido/${id}/estado`, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ estado: "entregado" })
-    })
+async function atendiendoLlamado(id) {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const restaurantId = params.get("restaurantId") || "rest1";
+
+    const res = await fetch(`/api/llamados/${id}/atendiendo?restaurantId=${restaurantId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo marcar como atendiendo");
+      return;
+    }
+
+    cargarMesero();
+  } catch (error) {
+    console.log(error);
+    alert("Error marcando como atendiendo");
+  }
 }
 
 async function cargarMesero() {
@@ -96,13 +112,14 @@ async function cargarEstadoMesas() {
     }
 
     data.forEach(item => {
-      lista.innerHTML += `
-        <div class="card">
-          <h3>Mesa ${item.mesa}</h3>
-          <p>Estado: ${item.estado === "ocupado" ? "Ocupado" : "Disponible"}</p>
-          <p>${item.mensaje || ""}</p>
-        </div>
-      `;
+     lista.innerHTML += `
+  <div class="card">
+    <h3>Mesa ${llamado.mesa}</h3>
+    <p>${llamado.mensaje || "Solicitud de mesero"}</p>
+    <p>Estado: ${llamado.estado || "pendiente"}</p>
+    <button onclick="atendiendoLlamado('${llamado._id}')">Atendiendo</button>
+  </div>
+`;
     });
   } catch (error) {
     console.log("Error cargando estado de mesas:", error);

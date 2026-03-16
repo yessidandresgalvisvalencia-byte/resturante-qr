@@ -1,4 +1,17 @@
 const socket = io();
+function tiempoTranscurrido(fecha) {
+  const ahora = new Date();
+  const creada = new Date(fecha);
+  const segundos = Math.floor((ahora - creada) / 1000);
+
+  if (segundos < 60) return `Hace ${segundos} segundos`;
+
+  const minutos = Math.floor(segundos / 60);
+  if (minutos < 60) return `Hace ${minutos} minuto${minutos !== 1 ? "s" : ""}`;
+
+  const horas = Math.floor(minutos / 60);
+  return `Hace ${horas} hora${horas !== 1 ? "s" : ""}`;
+}
 let productoEnEdicion = null;
 let productosStockActuales = [];
 
@@ -189,9 +202,9 @@ async function cargarSolicitudesMesero(restaurantId) {
     pendientes.forEach(item => {
       solicitudesMesero.innerHTML += `
         <div class="card">
-          <h3>Solicitud de mesero</h3>
-          <p>Mesa ${item.mesa}</p>
-          <p>${item.mensaje || "Mesa necesita atención"}</p>
+          <h3>Mesa ${item.mesa} solicita mesero</h3>
+          <p>${tiempoTranscurrido(item.createdAt)}</p>
+          <p>Estado: ${item.estado || "pendiente"}</p>
         </div>
       `;
     });
@@ -429,15 +442,15 @@ alert("Error eliminando producto");
 }
 
 async function cargarAdmin() {
-const restaurantId = getRestaurantId();
+  const restaurantId = getRestaurantId();
 
-actualizarLinksRestaurant();
+  actualizarLinksRestaurant();
 
-await cargarResumen(restaurantId);
-await cargarTopProductos(restaurantId);
-await cargarHistorialVentas(restaurantId);
-await cargarSolicitudesMesero(restaurantId);
-await cargarStock(restaurantId);
+  await cargarResumen(restaurantId);
+  await cargarTopProductos(restaurantId);
+  await cargarHistorialVentas(restaurantId);
+  await cargarSolicitudesMesero(restaurantId);
+  await cargarStock(restaurantId);
 }
 
 const baseUrlInput = document.getElementById("baseUrl");
