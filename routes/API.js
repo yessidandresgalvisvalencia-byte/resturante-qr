@@ -353,8 +353,34 @@ router.get("/llamados", async (req, res) => {
         res.status(500).json({ mensaje: "Error obteniendo llamados", error })
     }
 })
+router.get("/llamados/mesa/:mesa", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const mesa = Number(req.params.mesa);
 
-router.put("/llamados/:id/atender", async (req, res) => {
+    const llamado = await Llamado.findOne({ restaurantId, mesa }).sort({ createdAt: -1 });
+
+    if (!llamado) {
+      return res.json({
+        ok: true,
+        llamado: null
+      });
+    }
+
+    res.json({
+      ok: true,
+      llamado
+    });
+  } catch (error) {
+    console.log("Error obteniendo llamado por mesa:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno obteniendo llamado"
+    });
+  }
+});
+
+router.put("/llamados/:id/atendiendo", async (req, res) => {
     try {
         const llamado = await Llamado.findByIdAndUpdate(
             req.params.id,

@@ -8,6 +8,7 @@ let ultimoEstadoMostrado = "";
 let primeraCarga = true;
 let menuData = [];
 let subtotalActual = 0;
+let ultimoEstadoLlamado = "";
 
 document.getElementById("mesaActual").textContent = `Mesa ${mesa}`;
 
@@ -160,9 +161,29 @@ async function llamarMesero() {
     });
 
     alert("Se avisó al mesero");
+    ultimoEstadoLlamado = "pendiente";
   } catch (error) {
     console.log(error);
     alert("Error llamando al mesero");
+  }
+}
+async function revisarEstadoLlamado() {
+  try {
+    const res = await fetch(`/api/llamados/mesa/${mesa}?restaurantId=${restaurantId}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (!data.ok || !data.llamado) return;
+
+    const estadoActual = data.llamado.estado || "";
+
+    if (estadoActual === "atendiendo" && ultimoEstadoLlamado !== "atendiendo") {
+      alert("El mesero ya se está dirigiendo a tu lugar.");
+    }
+
+    ultimoEstadoLlamado = estadoActual;
+  } catch (error) {
+    console.log("Error revisando estado del llamado:", error);
   }
 }
 async function marcarAtendido() {
@@ -335,6 +356,15 @@ socket.on("pedido:actualizado", pedido => {
 socket.on("menu:actualizado", payload => {
   if (payload.restaurantId === restaurantId) {
     cargarMenu();
+  }
+});
+setInterval(() => {
+  revisarEstadoLlamado();
+}, 5000);
+
+socket.on("llamado:actualizado", (llamado) => {
+  if (llamado.restaurantId === restaurantId && Number(llamado.mesa) === Number(mesa)) {
+    revisarEstadoLlamado();
   }
 });
 
