@@ -1,13 +1,14 @@
-const socket = io()
+const socket = io();
 
 function getRestaurantId() {
-    return document.getElementById("restaurantIdInput").value.trim() || "rest1"
+  const input = document.getElementById("restaurantIdInput");
+  return input ? input.value.trim() || "rest1" : "rest1";
 }
 
 async function atenderLlamado(id) {
-    await fetch(`/api/llamados/${id}/atender`, {
-        method: "PUT"
-    })
+  await fetch(`/api/llamados/${id}/atender`, {
+    method: "PUT"
+  });
 }
 
 async function atendiendoLlamado(id) {
@@ -30,65 +31,83 @@ async function atendiendoLlamado(id) {
     }
 
     cargarMesero();
+    cargarEstadoMesas();
   } catch (error) {
     console.log(error);
     alert("Error marcando como atendiendo");
   }
 }
-async function cargarMesero() {
-    const restaurantId = getRestaurantId()
 
-    const llamadosRes = await fetch(`/api/llamados?restaurantId=${restaurantId}`)
-    const llamados = await llamadosRes.json()
+async function entregarPedido(id) {
+  try {
+    const res = await fetch(`/api/pedido/${id}/estado`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ estado: "entregado" })
+    });
 
-    const llamadosPendientes = llamados.filter(l => l.estado === "pendiente")
+    if (!res.ok) {
+      alert("No se pudo marcar como entregado");
+      return;
+    }
 
-    const listaLlamados = document.getElementById("listaLlamados")
-    listaLlamados.innerHTML = ""
-
-    llamadosPendientes.forEach(l => {
-        listaLlamados.innerHTML += `
-            <div class="card">
-                <h3>Mesa ${l.mesa}</h3>
-                <p>${l.mensaje}</p>
-                <button onclick="atenderLlamado('${l._id}')">Atendido</button>
-            </div>
-        `
-    })
-
-    const pedidosRes = await fetch(`/api/pedidos?restaurantId=${restaurantId}`)
-    const pedidos = await pedidosRes.json()
-
-    const listos = pedidos.filter(p => p.estado === "listo")
-
-    const listaListos = document.getElementById("listaListos")
-    listaListos.innerHTML = ""
-
-    listos.forEach(p => {
-        listaListos.innerHTML += `
-            <div class="card">
-                <h3>Mesa ${p.mesa}</h3>
-                <p>${p.producto}</p>
-                <p>$${p.precio}</p>
-                <button onclick="entregarPedido('${p._id}')">Entregado</button>
-            </div>
-        `
-    })
+    cargarMesero();
+  } catch (error) {
+    console.log(error);
+    alert("Error entregando pedido");
+  }
 }
 
-socket.on("llamado:nuevo", () => {
-    cargarMesero()
-})
+async function cargarMesero() {
+  const restaurantId = getRestaurantId();
 
-socket.on("llamado:actualizado", () => {
-    cargarMesero()
-})
+  const llamadosRes = await fetch(`/api/llamados?restaurantId=${restaurantId}`);
+  const llamados = await llamadosRes.json();
 
-socket.on("pedido:actualizado", () => {
-    cargarMesero()
-})
+  const llamadosPendientes = llamados.filter(
+    l => l.estado === "pendiente" || l.estado === "atendiendo"
+  );
 
-cargarMesero()
+  const listaLlamados = document.getElementById("listaLlamados");
+  if (listaLlamados) {
+    listaLlamados.innerHTML = "";
+
+    llamadosPendientes.forEach(l => {
+      listaLlamados.innerHTML += `
+        <div class="card">
+          <h3>Mesa ${l.mesa}</h3>
+          <p>${l.mensaje || "Solicitud de mesero"}</p>
+          <p>Estado: ${l.estado || "pendiente"}</p>
+          <button onclick="atendiendoLlamado('${l._id}')">Atendiendo</button>
+        </div>
+      `;
+    });
+  }
+
+  const pedidosRes = await fetch(`/api/pedidos?restaurantId=${restaurantId}`);
+  const pedidos = await pedidosRes.json();
+
+  const listos = pedidos.filter(p => p.estado === "listo");
+
+  const listaListos = document.getElementById("listaListos");
+  if (listaListos) {
+    listaListos.innerHTML = "";
+
+    listos.forEach(p => {
+      listaListos.innerHTML += `
+        <div class="card">
+          <h3>Mesa ${p.mesa}</h3>
+          <p>${p.producto}</p>
+          <p>$${p.precio}</p>
+          <button onclick="entregarPedido('${p._id}')">Entregado</button>
+        </div>
+      `;
+    });
+  }
+}
+
 async function cargarEstadoMesas() {
   try {
     const restaurantId = new URLSearchParams(window.location.search).get("restaurantId") || "rest1";
@@ -111,24 +130,32 @@ async function cargarEstadoMesas() {
     }
 
     data.forEach(item => {
-     lista.innerHTML += `
-  <div class="card">
-    <h3>Mesa ${llamado.mesa}</h3>
-    <p>${llamado.mensaje || "Solicitud de mesero"}</p>
-    <p>Estado: ${llamado.estado || "pendiente"}</p>
-    <button onclick="atendiendoLlamado('${llamado._id}')">Atendiendo</button>
-  </div>
-`;
+      lista.innerHTML += `
+        <div class="card">
+          <h3>Mesa ${item.mesa}</h3>
+          <p>${item.mensaje || "Solicitud de mesero"}</p>
+          <p>Estado: ${item.estado || "pendiente"}</p>
+        </div>
+      `;
     });
   } catch (error) {
     console.log("Error cargando estado de mesas:", error);
   }
 }
+
 socket.on("llamado:nuevo", () => {
+  cargarMesero();
   cargarEstadoMesas();
 });
 
 socket.on("llamado:actualizado", () => {
+  cargarMesero();
   cargarEstadoMesas();
 });
+
+socket.on("pedido:actualizado", () => {
+  cargarMesero();
+});
+
+cargarMesero();
 cargarEstadoMesas();
