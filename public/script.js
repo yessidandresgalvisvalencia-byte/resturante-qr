@@ -167,6 +167,32 @@ async function llamarMesero() {
 }
 async function marcarAtendido() {
   try {
+
+    const res = await fetch(`/api/llamados/mesa/${mesa}/atendido?restaurantId=${restaurantId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo marcar como atendido");
+      return;
+    }
+
+    alert("Solicitud de mesero atendida");
+
+  } catch (error) {
+
+    console.log(error);
+    alert("Error marcando atención");
+
+  }
+}
+async function marcarAtendido() {
+  try {
     const res = await fetch(`/api/llamados/mesa/${mesa}/atendido?restaurantId=${restaurantId}`, {
       method: "PUT",
       headers: {
