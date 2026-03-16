@@ -165,6 +165,28 @@ async function llamarMesero() {
     alert("Error llamando al mesero");
   }
 }
+async function marcarAtendido() {
+  try {
+    const res = await fetch(`/api/llamados/mesa/${mesa}/atendido?restaurantId=${restaurantId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo marcar como atendido");
+      return;
+    }
+
+    alert("Atención marcada como recibida");
+  } catch (error) {
+    console.log(error);
+    alert("Error marcando atención");
+  }
+}
 
 function calcularTotales(subtotal) {
   const porcentaje = Number(document.getElementById("propinaSelect").value || 0);

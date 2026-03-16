@@ -244,6 +244,75 @@ router.post("/llamar-mesero", async (req, res) => {
         res.status(500).json({ mensaje: "Error creando llamado", error })
     }
 })
+router.put("/llamados/mesa/:mesa/atendido", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const mesa = Number(req.params.mesa);
+
+    const llamado = await Llamado.findOneAndUpdate(
+      {
+        restaurantId,
+        mesa,
+        estado: { $ne: "atendido" }
+      },
+      {
+        estado: "atendido"
+      },
+      {
+        new: true,
+        sort: { createdAt: -1 }
+      }
+    );
+
+    if (!llamado) {
+      return res.status(404).json({
+        ok: false,
+        error: "No hay llamado pendiente para esa mesa"
+      });
+    }
+
+    const io = req.app.get("io");
+    io.emit("llamado:actualizado", llamado);
+
+    res.json({
+      ok: true,
+      mensaje: "Llamado marcado como atendido",
+      llamado
+    });
+  } catch (error) {
+    console.log("Error marcando llamado atendido:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno marcando llamado"
+    });
+  }
+});
+router.get("/mesero/mesas", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+
+    const llamados = await Llamado.find({ restaurantId }).sort({ createdAt: -1 });
+
+    const mesasMap = {};
+
+    llamados.forEach(llamado => {
+      if (!mesasMap[llamado.mesa]) {
+        mesasMap[llamado.mesa] = {
+          mesa: llamado.mesa,
+          estado: llamado.estado === "atendido" ? "disponible" : "ocupado",
+          mensaje: llamado.mensaje || "Mesa necesita atención"
+        };
+      }
+    });
+
+    const mesas = Object.values(mesasMap);
+
+    res.json(mesas);
+  } catch (error) {
+    console.log("Error obteniendo mesas mesero:", error);
+    res.status(500).json([]);
+  }
+});
 
 router.get("/llamados", async (req, res) => {
     try {

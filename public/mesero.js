@@ -74,3 +74,45 @@ socket.on("pedido:actualizado", () => {
 })
 
 cargarMesero()
+async function cargarEstadoMesas() {
+  try {
+    const restaurantId = new URLSearchParams(window.location.search).get("restaurantId") || "rest1";
+    const res = await fetch(`/api/mesero/mesas?restaurantId=${restaurantId}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    const lista = document.getElementById("estadoMesas");
+    if (!lista) return;
+
+    lista.innerHTML = "";
+
+    if (!data.length) {
+      lista.innerHTML = `
+        <div class="card">
+          <p>No hay mesas con solicitudes todavía.</p>
+        </div>
+      `;
+      return;
+    }
+
+    data.forEach(item => {
+      lista.innerHTML += `
+        <div class="card">
+          <h3>Mesa ${item.mesa}</h3>
+          <p>Estado: ${item.estado === "ocupado" ? "Ocupado" : "Disponible"}</p>
+          <p>${item.mensaje || ""}</p>
+        </div>
+      `;
+    });
+  } catch (error) {
+    console.log("Error cargando estado de mesas:", error);
+  }
+}
+socket.on("llamado:nuevo", () => {
+  cargarEstadoMesas();
+});
+
+socket.on("llamado:actualizado", () => {
+  cargarEstadoMesas();
+});
+cargarEstadoMesas();
