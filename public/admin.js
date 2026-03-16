@@ -164,6 +164,41 @@ historialVentas.innerHTML += `
 console.log("Historial ventas no disponible:", error);
 }
 }
+async function cargarSolicitudesMesero(restaurantId) {
+  try {
+    const res = await fetch(`/api/llamados?restaurantId=${restaurantId}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    const solicitudesMesero = document.getElementById("solicitudesMesero");
+    if (!solicitudesMesero) return;
+
+    solicitudesMesero.innerHTML = "";
+
+    const pendientes = data.filter(item => item.estado !== "atendido");
+
+    if (!pendientes.length) {
+      solicitudesMesero.innerHTML = `
+        <div class="card">
+          <p>No hay solicitudes de mesero.</p>
+        </div>
+      `;
+      return;
+    }
+
+    pendientes.forEach(item => {
+      solicitudesMesero.innerHTML += `
+        <div class="card">
+          <h3>Solicitud de mesero</h3>
+          <p>Mesa ${item.mesa}</p>
+          <p>${item.mensaje || "Mesa necesita atención"}</p>
+        </div>
+      `;
+    });
+  } catch (error) {
+    console.log("Solicitudes de mesero no disponibles:", error);
+  }
+}
 
 async function cargarStock(restaurantId) {
 try {
@@ -401,6 +436,7 @@ actualizarLinksRestaurant();
 await cargarResumen(restaurantId);
 await cargarTopProductos(restaurantId);
 await cargarHistorialVentas(restaurantId);
+await cargarSolicitudesMesero(restaurantId);
 await cargarStock(restaurantId);
 }
 
@@ -433,6 +469,17 @@ socket.on("menu:actualizado", (payload) => {
 if (payload.restaurantId === getRestaurantId()) {
 cargarAdmin();
 }
+});
+socket.on("llamado:nuevo", (llamado) => {
+  if (llamado.restaurantId === getRestaurantId()) {
+    cargarAdmin();
+  }
+});
+
+socket.on("llamado:actualizado", (llamado) => {
+  if (llamado.restaurantId === getRestaurantId()) {
+    cargarAdmin();
+  }
 });
 
 actualizarLinksRestaurant();
