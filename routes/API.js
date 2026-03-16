@@ -253,10 +253,10 @@ router.put("/llamados/mesa/:mesa/atendido", async (req, res) => {
       {
         restaurantId,
         mesa,
-        estado: { $ne: "atendido" }
+        estado: { $ne: "atendiendo" }
       },
       {
-        estado: "atendido"
+        estado: "atendiendo"
       },
       {
         new: true,
