@@ -66,7 +66,8 @@ async function cargarMesero() {
   const llamadosRes = await fetch(`/api/llamados?restaurantId=${restaurantId}`);
   const llamados = await llamadosRes.json();
 
-  const llamadosPendientes = llamados.filter(
+  // IMPORTANTE: mostrar tanto pendientes como atendiendo
+  const llamadosActivos = llamados.filter(
     l => l.estado === "pendiente" || l.estado === "atendiendo"
   );
 
@@ -74,7 +75,7 @@ async function cargarMesero() {
   if (listaLlamados) {
     listaLlamados.innerHTML = "";
 
-    llamadosPendientes.forEach(l => {
+    llamadosActivos.forEach(l => {
       listaLlamados.innerHTML += `
         <div class="card">
           <h3>Mesa ${l.mesa}</h3>
@@ -107,7 +108,6 @@ async function cargarMesero() {
     });
   }
 }
-
 async function cargarEstadoMesas() {
   try {
     const restaurantId = new URLSearchParams(window.location.search).get("restaurantId") || "rest1";
