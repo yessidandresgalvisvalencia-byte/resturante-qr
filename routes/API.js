@@ -304,7 +304,7 @@ router.get("/mesero/mesas", async (req, res) => {
         };
       }
     });
-    outer.put("/llamados/:id/atendiendo", async (req, res) => {
+  router.put("/llamados/:id/atendiendo", async (req, res) => {
   try {
     const llamado = await Llamado.findByIdAndUpdate(
       req.params.id,

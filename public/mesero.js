@@ -35,7 +35,6 @@ async function atendiendoLlamado(id) {
     alert("Error marcando como atendiendo");
   }
 }
-
 async function cargarMesero() {
     const restaurantId = getRestaurantId()
 
