@@ -5,12 +5,6 @@ function getRestaurantId() {
   return input ? input.value.trim() || "rest1" : "rest1";
 }
 
-async function atenderLlamado(id) {
-  await fetch(`/api/llamados/${id}/atender`, {
-    method: "PUT"
-  });
-}
-
 async function atendiendoLlamado(id) {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -48,8 +42,10 @@ async function entregarPedido(id) {
       body: JSON.stringify({ estado: "entregado" })
     });
 
+    const data = await res.json();
+
     if (!res.ok) {
-      alert("No se pudo marcar como entregado");
+      alert(data.mensaje || "No se pudo marcar como entregado");
       return;
     }
 
@@ -66,7 +62,7 @@ async function cargarMesero() {
   const llamadosRes = await fetch(`/api/llamados?restaurantId=${restaurantId}`);
   const llamados = await llamadosRes.json();
 
-  // IMPORTANTE: mostrar tanto pendientes como atendiendo
+  // Mostrar pendientes y atendiendo
   const llamadosActivos = llamados.filter(
     l => l.estado === "pendiente" || l.estado === "atendiendo"
   );
@@ -75,16 +71,26 @@ async function cargarMesero() {
   if (listaLlamados) {
     listaLlamados.innerHTML = "";
 
-    llamadosActivos.forEach(l => {
-      listaLlamados.innerHTML += `
+    if (!llamadosActivos.length) {
+      listaLlamados.innerHTML = `
         <div class="card">
-          <h3>Mesa ${l.mesa}</h3>
-          <p>${l.mensaje || "Solicitud de mesero"}</p>
-          <p>Estado: ${l.estado || "pendiente"}</p>
-          <button onclick="atendiendoLlamado('${l._id}')">Atendiendo</button>
+          <p>No hay solicitudes de mesero.</p>
         </div>
       `;
-    });
+    } else {
+      llamadosActivos.forEach(l => {
+        listaLlamados.innerHTML += `
+          <div class="card">
+            <h3>Mesa ${l.mesa}</h3>
+            <p>${l.mensaje || "Solicitud de mesero"}</p>
+            <p>Estado: ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
+            <button onclick="atendiendoLlamado('${l._id}')" ${l.estado === "atendiendo" ? "disabled" : ""}>
+              ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "Atendiendo"}
+            </button>
+          </div>
+        `;
+      });
+    }
   }
 
   const pedidosRes = await fetch(`/api/pedidos?restaurantId=${restaurantId}`);
@@ -96,18 +102,27 @@ async function cargarMesero() {
   if (listaListos) {
     listaListos.innerHTML = "";
 
-    listos.forEach(p => {
-      listaListos.innerHTML += `
+    if (!listos.length) {
+      listaListos.innerHTML = `
         <div class="card">
-          <h3>Mesa ${p.mesa}</h3>
-          <p>${p.producto}</p>
-          <p>$${p.precio}</p>
-          <button onclick="entregarPedido('${p._id}')">Entregado</button>
+          <p>No hay pedidos listos.</p>
         </div>
       `;
-    });
+    } else {
+      listos.forEach(p => {
+        listaListos.innerHTML += `
+          <div class="card">
+            <h3>Mesa ${p.mesa}</h3>
+            <p>${p.producto}</p>
+            <p>$${p.precio}</p>
+            <button onclick="entregarPedido('${p._id}')">Entregado</button>
+          </div>
+        `;
+      });
+    }
   }
 }
+
 async function cargarEstadoMesas() {
   try {
     const restaurantId = new URLSearchParams(window.location.search).get("restaurantId") || "rest1";
@@ -134,7 +149,7 @@ async function cargarEstadoMesas() {
         <div class="card">
           <h3>Mesa ${item.mesa}</h3>
           <p>${item.mensaje || "Solicitud de mesero"}</p>
-          <p>Estado: ${item.estado || "pendiente"}</p>
+          <p>Estado: ${item.estado === "atendiendo" ? "🟡 Atendiendo..." : item.estado === "ocupado" ? "🔴 Pendiente" : "🟢 Disponible"}</p>
         </div>
       `;
     });
