@@ -440,7 +440,136 @@ console.log("ERROR ELIMINANDO PRODUCTO", error);
 alert("Error eliminando producto");
 }
 }
+async function agregarPersonal() {
+  try {
+    const restaurantId = getRestaurantId();
 
+    const nombre = document.getElementById("nombrePersonal").value.trim();
+    const cargo = document.getElementById("cargoPersonal").value;
+    const estado = document.getElementById("estadoPersonal").value;
+
+    if (!nombre) {
+      alert("Escribe el nombre del personal");
+      return;
+    }
+
+    const res = await fetch("/api/personal", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        restaurantId,
+        nombre,
+        cargo,
+        estado
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo guardar el personal");
+      return;
+    }
+
+    alert("Personal agregado correctamente");
+
+    document.getElementById("nombrePersonal").value = "";
+    document.getElementById("cargoPersonal").value = "mesero";
+    document.getElementById("estadoPersonal").value = "disponible";
+
+    cargarAdmin();
+  } catch (error) {
+    console.log("Error agregando personal:", error);
+    alert("Error agregando personal");
+  }
+}
+
+async function eliminarPersonal(id) {
+  try {
+    const res = await fetch(`/api/personal/${id}`, {
+      method: "DELETE"
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo eliminar el personal");
+      return;
+    }
+
+    alert("Personal eliminado correctamente");
+    cargarAdmin();
+  } catch (error) {
+    console.log("Error eliminando personal:", error);
+    alert("Error eliminando personal");
+  }
+}
+
+async function cambiarEstadoPersonal(id, nuevoEstado) {
+  try {
+    const res = await fetch(`/api/personal/${id}/estado`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ estado: nuevoEstado })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo cambiar el estado");
+      return;
+    }
+
+    cargarAdmin();
+  } catch (error) {
+    console.log("Error cambiando estado del personal:", error);
+    alert("Error cambiando estado");
+  }
+}
+
+async function cargarPersonal(restaurantId) {
+  try {
+    const res = await fetch(`/api/personal?restaurantId=${restaurantId}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    const listaPersonal = document.getElementById("listaPersonal");
+    if (!listaPersonal) return;
+
+    listaPersonal.innerHTML = "";
+
+    if (!data.length) {
+      listaPersonal.innerHTML = `
+        <div class="card">
+          <p>No hay personal registrado.</p>
+        </div>
+      `;
+      return;
+    }
+
+    data.forEach(persona => {
+      listaPersonal.innerHTML += `
+        <div class="card">
+          <h3>${persona.nombre}</h3>
+          <p>Cargo: ${persona.cargo}</p>
+          <p>Estado: ${persona.estado === "disponible" ? "🟢 Disponible" : "🔴 Ocupado"}</p>
+
+          <button onclick="cambiarEstadoPersonal('${persona._id}', '${persona.estado === "disponible" ? "ocupado" : "disponible"}')">
+            ${persona.estado === "disponible" ? "Marcar ocupado" : "Marcar disponible"}
+          </button>
+
+          <button onclick="eliminarPersonal('${persona._id}')">Eliminar</button>
+        </div>
+      `;
+    });
+  } catch (error) {
+    console.log("Error cargando personal:", error);
+  }
+}
 async function cargarAdmin() {
   const restaurantId = getRestaurantId();
 
@@ -451,6 +580,7 @@ async function cargarAdmin() {
   await cargarHistorialVentas(restaurantId);
   await cargarSolicitudesMesero(restaurantId);
   await cargarStock(restaurantId);
+  await cargarPersonal(restaurantId)
 }
 
 const baseUrlInput = document.getElementById("baseUrl");
@@ -494,6 +624,9 @@ socket.on("llamado:actualizado", (llamado) => {
     cargarAdmin();
   }
 });
+setInterval(() => {
+  cargarAdmin();
+}, 10000);
 
 actualizarLinksRestaurant();
 cargarAdmin();

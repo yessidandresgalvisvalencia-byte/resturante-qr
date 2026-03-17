@@ -48,6 +48,32 @@
 
 <div class="card">
 <h3>Agregar producto al menú</h3>
+<div class="card">
+  <h3>Agregar personal</h3>
+
+  <label>Nombre</label>
+  <input id="nombrePersonal" type="text" placeholder="Ej: Juan">
+
+  <label>Cargo</label>
+  <select id="cargoPersonal">
+    <option value="mesero">Mesero</option>
+    <option value="mesera">Mesera</option>
+    <option value="cajero">Cajero</option>
+    <option value="cocinero">Cocinero</option>
+    <option value="admin">Admin</option>
+  </select>
+
+  <label>Estado</label>
+  <select id="estadoPersonal">
+    <option value="disponible">Disponible</option>
+    <option value="ocupado">Ocupado</option>
+  </select>
+
+  <button onclick="agregarPersonal()">Guardar personal</button>
+</div>
+
+<h2>Personal del restaurante</h2>
+<div id="listaPersonal" class="grid"></div>
 
 <label>Nombre del producto</label>
 <input id="nombreProducto" type="text" placeholder="Ej: Hamburguesa clásica">
