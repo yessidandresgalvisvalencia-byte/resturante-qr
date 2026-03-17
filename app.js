@@ -1,5 +1,4 @@
 require("dotenv").config();
-
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -8,6 +7,12 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
+const iniciarJobSuscripciones = require("./jobs/suscripciones");
+iniciarJobSuscripciones();
+
+server.listen(PORT, () => {
+  console.log(`Servidor corriendo en puerto ${PORT}`);
+});
 
 const io = new Server(server, {
   cors: { origin: "*" }
