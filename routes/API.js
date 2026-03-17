@@ -5,6 +5,10 @@ const router = express.Router();
 const Pedido = require("../models/pedido.js");
 const Llamado = require("../models/llamado");
 
+/* =========================
+   CONFIG BÁSICA
+========================= */
+
 function menuBase() {
   return [
     {
@@ -579,13 +583,13 @@ router.get("/mesero/mesas", async (req, res) => {
     llamados.forEach(llamado => {
       if (!mesasMap[llamado.mesa]) {
         mesasMap[llamado.mesa] = {
-  _id: llamado._id,
-  mesa: llamado.mesa,
-  estado: llamado.estado,
-  mensaje: llamado.mensaje || "Mesa necesita atención",
-  meseroId: llamado.meseroId || "",
-  meseroNombre: llamado.meseroNombre || ""
-};
+          _id: llamado._id,
+          mesa: llamado.mesa,
+          estado: llamado.estado,
+          mensaje: llamado.mensaje || "Mesa necesita atención",
+          meseroId: llamado.meseroId || "",
+          meseroNombre: llamado.meseroNombre || ""
+        };
       }
     });
 
@@ -769,6 +773,7 @@ router.get("/qr/:mesa", async (req, res) => {
     res.status(500).json({ mensaje: "Error generando QR", error });
   }
 });
+
 /* =========================
    PERSONAL
 ========================= */
@@ -823,39 +828,26 @@ router.get("/personal", async (req, res) => {
   }
 });
 
-router.put("/personal/:id/estado", async (req, res) => {
+router.get("/personal/meseros", async (req, res) => {
   try {
-    const { estado } = req.body;
+    const restaurantId = getRestaurantId(req);
     const Personal = require("../models/personal");
 
-    const persona = await Personal.findByIdAndUpdate(
-      req.params.id,
-      { estado },
-      { new: true }
-    );
+    const meseros = await Personal.find({
+      restaurantId,
+      cargo: { $in: ["mesero", "mesera"] }
+    }).sort({ createdAt: -1 });
 
-    if (!persona) {
-      return res.status(404).json({
-        ok: false,
-        error: "Persona no encontrada"
-      });
-    }
-
-    res.json({
-      ok: true,
-      personal: persona
-    });
+    res.json(meseros);
   } catch (error) {
-    console.log("Error actualizando estado del personal:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Error interno actualizando estado"
-    });
+    console.log("Error obteniendo meseros:", error);
+    res.status(500).json([]);
   }
 });
 
-router.delete("/personal/:id", async (req, res) => {
+router.put("/personal/:id/estado", async (req, res) => {
   try {
+    const { estado } = req.body;
     const Personal = require("../models/personal");
 
     const personaEliminada = await Personal.findByIdAndDelete(req.params.id);
@@ -879,20 +871,5 @@ router.delete("/personal/:id", async (req, res) => {
     });
   }
 });
-router.get("/personal/meseros", async (req, res) => {
-  try {
-    const restaurantId = getRestaurantId(req);
-    const Personal = require("../models/personal");
 
-    const meseros = await Personal.find({
-      restaurantId,
-      cargo: { $in: ["mesero", "mesera"] }
-    }).sort({ createdAt: -1 });
-
-    res.json(meseros);
-  } catch (error) {
-    console.log("Error obteniendo meseros:", error);
-    res.status(500).json([]);
-  }
-});
 module.exports = router;

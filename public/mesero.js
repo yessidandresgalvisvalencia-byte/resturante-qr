@@ -1,12 +1,18 @@
-const nombreMesero = localStorage.getItem("meseroNombre") || "";
-if (!nombreMesero) {
+const nombreMeseroGuardado = localStorage.getItem("meseroNombre") || "";
+
+if (!nombreMeseroGuardado) {
   localStorage.setItem("meseroNombre", "Juan");
 }
+
 const socket = io();
 
 function getRestaurantId() {
   const input = document.getElementById("restaurantIdInput");
   return input ? input.value.trim() || "rest1" : "rest1";
+}
+
+function getNombreMeseroActual() {
+  return localStorage.getItem("meseroNombre") || "";
 }
 
 async function atendiendoLlamado(id) {
@@ -61,71 +67,79 @@ async function entregarPedido(id) {
 }
 
 async function cargarMesero() {
-  const restaurantId = getRestaurantId();
+  try {
+    const restaurantId = getRestaurantId();
+    const nombreMesero = getNombreMeseroActual();
 
-  const llamadosRes = await fetch(`/api/llamados?restaurantId=${restaurantId}`);
-  const llamados = await llamadosRes.json();
+    const res = await fetch(`/api/mesero/mesas?restaurantId=${restaurantId}`);
+    if (!res.ok) {
+      console.log("Error cargando solicitudes del mesero");
+      return;
+    }
 
-  // Mostrar pendientes y atendiendo
-  const llamadosActivos = llamados.filter(
-    l => l.estado === "pendiente" || l.estado === "atendiendo"
-  );
+    const mesas = await res.json();
+    const listaLlamados = document.getElementById("listaLlamados");
 
-  const listaLlamados = document.getElementById("listaLlamados");
-  if (listaLlamados) {
-    listaLlamados.innerHTML = "";
+    if (listaLlamados) {
+      listaLlamados.innerHTML = "";
 
-    if (!llamadosActivos.length) {
-      listaLlamados.innerHTML = `
-        <div class="card">
-          <p>No hay solicitudes de mesero.</p>
-        </div>
-      `;
-    } else {
-      llamadosActivos
-  .filter(l => l.meseroNombre === localStorage.getItem("meseroNombre"))
-  .forEach(l => {
-        listaLlamados.innerHTML += `
+      const llamadasDelMesero = mesas.filter(
+        l => (l.meseroNombre || "").trim().toLowerCase() === nombreMesero.trim().toLowerCase()
+      );
+
+      if (!llamadasDelMesero.length) {
+        listaLlamados.innerHTML = `
           <div class="card">
-            <h3>Mesa ${l.mesa}</h3>
-            <p>${l.mensaje || "Solicitud de mesero"}</p>
-            <p>Estado: ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
-            <button onclick="atendiendoLlamado('${l._id}')" ${l.estado === "atendiendo" ? "disabled" : ""}>
-              ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "Atendiendo"}
-            </button>
+            <p>No hay solicitudes para ${nombreMesero || "este mesero"}.</p>
           </div>
         `;
-      });
+      } else {
+        llamadasDelMesero.forEach(l => {
+          listaLlamados.innerHTML += `
+            <div class="card">
+              <h3>Mesa ${l.mesa}</h3>
+              <p>${l.mensaje || "Solicitud de mesero"}</p>
+              <p><strong>Mesero asignado:</strong> ${l.meseroNombre || "Sin asignar"}</p>
+              <p>Estado: ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
+              <button onclick="atendiendoLlamado('${l._id}')" ${l.estado === "atendiendo" ? "disabled" : ""}>
+                ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "Atendiendo"}
+              </button>
+            </div>
+          `;
+        });
+      }
     }
-  }
 
-  const pedidosRes = await fetch(`/api/pedidos?restaurantId=${restaurantId}`);
-  const pedidos = await pedidosRes.json();
+    const pedidosRes = await fetch(`/api/pedidos?restaurantId=${restaurantId}`);
+    const pedidos = await pedidosRes.json();
 
-  const listos = pedidos.filter(p => p.estado === "listo");
+    const listos = pedidos.filter(p => p.estado === "listo");
 
-  const listaListos = document.getElementById("listaListos");
-  if (listaListos) {
-    listaListos.innerHTML = "";
+    const listaListos = document.getElementById("listaListos");
+    if (listaListos) {
+      listaListos.innerHTML = "";
 
-    if (!listos.length) {
-      listaListos.innerHTML = `
-        <div class="card">
-          <p>No hay pedidos listos.</p>
-        </div>
-      `;
-    } else {
-      listos.forEach(p => {
-        listaListos.innerHTML += `
+      if (!listos.length) {
+        listaListos.innerHTML = `
           <div class="card">
-            <h3>Mesa ${p.mesa}</h3>
-            <p>${p.producto}</p>
-            <p>$${p.precio}</p>
-            <button onclick="entregarPedido('${p._id}')">Entregado</button>
+            <p>No hay pedidos listos.</p>
           </div>
         `;
-      });
+      } else {
+        listos.forEach(p => {
+          listaListos.innerHTML += `
+            <div class="card">
+              <h3>Mesa ${p.mesa}</h3>
+              <p>${p.producto}</p>
+              <p>$${p.precio}</p>
+              <button onclick="entregarPedido('${p._id}')">Entregado</button>
+            </div>
+          `;
+        });
+      }
     }
+  } catch (error) {
+    console.log("Error en cargarMesero:", error);
   }
 }
 
@@ -155,7 +169,8 @@ async function cargarEstadoMesas() {
         <div class="card">
           <h3>Mesa ${item.mesa}</h3>
           <p>${item.mensaje || "Solicitud de mesero"}</p>
-          <p>Estado: ${item.estado === "atendiendo" ? "🟡 Atendiendo..." : item.estado === "ocupado" ? "🔴 Pendiente" : "🟢 Disponible"}</p>
+          <p><strong>Mesero asignado:</strong> ${item.meseroNombre || "Sin asignar"}</p>
+          <p>Estado: ${item.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
         </div>
       `;
     });
