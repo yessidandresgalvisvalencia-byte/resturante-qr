@@ -179,7 +179,11 @@ async function llamarMesero(meseroId) {
 async function cargarMeseros() {
   try {
     const res = await fetch(`/api/personal/meseros?restaurantId=${restaurantId}`);
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.log("Error cargando meseros");
+    return;
+    }
+  
 
     const meseros = await res.json();
     const listaMeseros = document.getElementById("listaMeseros");
@@ -406,3 +410,4 @@ socket.on("llamado:actualizado", (llamado) => {
 
 cargarMenu();
 cargarMesa();
+cargarMeseros();
