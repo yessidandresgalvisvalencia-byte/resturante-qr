@@ -582,7 +582,9 @@ router.get("/mesero/mesas", async (req, res) => {
           _id: llamado._id,
           mesa: llamado.mesa,
           estado: llamado.estado,
-          mensaje: llamado.mensaje || "Mesa necesita atención"
+          mensaje: llamado.mensaje || "Mesa necesita atención",
+          meseroId: llamado.meseroId || "",
+          meseroNombre: llamado.meseroNombre || ""
         };
       }
     });
