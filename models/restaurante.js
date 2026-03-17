@@ -9,9 +9,20 @@ const restauranteSchema = new mongoose.Schema({
 
   plan: { type: String, default: "mensual" },
   precioMensual: { type: Number, default: 200000 },
-  estadoSuscripcion: { type: String, default: "pendiente" },
+  estadoSuscripcion: {
+    type: String,
+    enum: ["pendiente", "activa", "inactiva"],
+    default: "pendiente"
+  },
 
-  aceptaPlan: { type: Boolean, default: false }
+  aceptaPlan: { type: Boolean, default: false },
+
+  fechaUltimoPago: { type: Date, default: null },
+  fechaProximoCobro: { type: Date, default: null },
+  ultimoTransactionId: { type: String, default: "" },
+
+  paymentSourceId: { type: String, default: "" },
+  customerEmailWompi: { type: String, default: "" }
 }, { timestamps: true });
 
 module.exports = mongoose.model("Restaurante", restauranteSchema);
