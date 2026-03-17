@@ -1,3 +1,49 @@
+function mostrarToast(mensaje, tipo = "info") {
+  let container = document.getElementById("toastContainer");
+
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast ${tipo}`;
+  toast.innerText = mensaje;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
+
+  sonidoNotificacion();
+  vibrar();
+}
+
+function sonidoNotificacion() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.frequency.value = 660;
+    gain.gain.value = 0.05;
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch (e) {}
+}
+
+function vibrar() {
+  if (navigator.vibrate) {
+    navigator.vibrate(100);
+  }
+}
 const socket = io();
 let productoEnEdicion = null;
 let productosStockActuales = [];
@@ -574,6 +620,8 @@ async function cargarPersonal(restaurantId) {
           <h3>${persona.nombre}</h3>
           <p>Cargo: ${persona.cargo}</p>
           <p>Estado: ${persona.estado === "disponible" ? "🟢 Disponible" : "🔴 Ocupado"}</p>
+          <p>Usuario: ${persona.usuario || "-"}</p>
+          <p>Contraseña: ${persona.password || "-"}</p>
 
           <button onclick="cambiarEstadoPersonal('${persona._id}', '${persona.estado === "disponible" ? "ocupado" : "disponible"}')">
             ${persona.estado === "disponible" ? "Marcar ocupado" : "Marcar disponible"}
