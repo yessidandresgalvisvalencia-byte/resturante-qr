@@ -378,7 +378,32 @@ router.put("/pedido/:id/pago", async (req, res) => {
 router.post("/llamar-mesero", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
-    const { mesa, mensaje } = req.body;
+    const { mesa, mensaje, meseroId } = req.body;
+
+    if (!meseroId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Debes seleccionar un mesero"
+      });
+    }
+
+    const Personal = require("../models/personal");
+
+    const mesero = await Personal.findById(meseroId);
+
+    if (!mesero) {
+      return res.status(404).json({
+        ok: false,
+        error: "Mesero no encontrado"
+      });
+    }
+
+    if (mesero.estado === "ocupado") {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese mesero ya está ocupado"
+      });
+    }
 
     const llamadaActiva = await Llamado.findOne({
       restaurantId,
@@ -398,10 +423,15 @@ router.post("/llamar-mesero", async (req, res) => {
       restaurantId,
       mesa: Number(mesa),
       mensaje: mensaje || "Mesa necesita atención",
-      estado: "pendiente"
+      estado: "pendiente",
+      meseroId: mesero._id.toString(),
+      meseroNombre: mesero.nombre
     });
 
     await llamado.save();
+
+    mesero.estado = "ocupado";
+    await mesero.save();
 
     const io = req.app.get("io");
     io.emit("llamado:nuevo", llamado);
@@ -411,6 +441,7 @@ router.post("/llamar-mesero", async (req, res) => {
       llamado
     });
   } catch (error) {
+    console.log("Error creando llamado:", error);
     res.status(500).json({
       ok: false,
       mensaje: "Error creando llamado",
@@ -507,6 +538,13 @@ router.put("/llamados/mesa/:mesa/atendido", async (req, res) => {
       return res.status(404).json({
         ok: false,
         error: "No hay llamado activo para esa mesa"
+      });
+    }
+
+    if (llamado.meseroId) {
+      const Personal = require("../models/personal");
+      await Personal.findByIdAndUpdate(llamado.meseroId, {
+        estado: "disponible"
       });
     }
 
@@ -839,5 +877,20 @@ router.delete("/personal/:id", async (req, res) => {
     });
   }
 });
+router.get("/personal/meseros", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const Personal = require("../models/personal");
 
+    const meseros = await Personal.find({
+      restaurantId,
+      cargo: { $in: ["mesero", "mesera"] }
+    }).sort({ createdAt: -1 });
+
+    res.json(meseros);
+  } catch (error) {
+    console.log("Error obteniendo meseros:", error);
+    res.status(500).json([]);
+  }
+});
 module.exports = router;

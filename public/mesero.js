@@ -1,3 +1,7 @@
+const nombreMesero = localStorage.getItem("meseroNombre") || "";
+if (!nombreMesero) {
+  localStorage.setItem("meseroNombre", "Juan");
+}
 const socket = io();
 
 function getRestaurantId() {
@@ -78,7 +82,9 @@ async function cargarMesero() {
         </div>
       `;
     } else {
-      llamadosActivos.forEach(l => {
+      llamadosActivos
+  .filter(l => l.meseroNombre === localStorage.getItem("meseroNombre"))
+  .forEach(l => {
         listaLlamados.innerHTML += `
           <div class="card">
             <h3>Mesa ${l.mesa}</h3>
