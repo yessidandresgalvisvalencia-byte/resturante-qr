@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro Restaurante</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="contenedor">
+    <h1>Crear cuenta de restaurante</h1>
+
+    <div class="card">
+      <h2>Plan Restaurante Pro</h2>
+      <p><strong>$200.000 COP / mes</strong></p>
+      <p>Incluye:</p>
+      <ul>
+        <li>Panel administrador</li>
+        <li>Menú QR</li>
+        <li>Gestión de meseros</li>
+        <li>Pedidos en tiempo real</li>
+        <li>Control de personal</li>
+        <li>Soporte básico</li>
+      </ul>
+      <p>El pago corresponde a una suscripción mensual.</p>
+      <p>El acceso a la plataforma depende de tener la suscripción activa.</p>
+    </div>
+
+    <div class="card">
+      <label>Nombre del restaurante</label>
+      <input id="nombreRestaurante" type="text" placeholder="Ej: La Parrilla de Juan">
+
+      <label>Correo</label>
+      <input id="correoRestaurante" type="email" placeholder="Ej: restaurante@gmail.com">
+
+      <label>Restaurant ID</label>
+      <input id="restaurantId" type="text" placeholder="Ej: parrilla-juan">
+
+      <label>Usuario administrador</label>
+      <input id="usuarioAdmin" type="text" placeholder="Ej: adminparrilla">
+
+      <label>Contraseña</label>
+      <input id="passwordAdmin" type="password" placeholder="Tu contraseña">
+
+      <label style="display:flex; gap:10px; align-items:center; margin-top:10px;">
+        <input id="aceptaPlan" type="checkbox">
+        Acepto el plan mensual de $200.000 COP
+      </label>
+
+      <button onclick="registrarRestaurante()">Crear cuenta</button>
+    </div>
+  </div>
+
+  <script>
+    async function registrarRestaurante() {
+      try {
+        const nombreRestaurante = document.getElementById("nombreRestaurante").value.trim();
+        const correo = document.getElementById("correoRestaurante").value.trim();
+        const restaurantId = document.getElementById("restaurantId").value.trim();
+        const usuarioAdmin = document.getElementById("usuarioAdmin").value.trim();
+        const passwordAdmin = document.getElementById("passwordAdmin").value.trim();
+        const aceptaPlan = document.getElementById("aceptaPlan").checked;
+
+        if (!nombreRestaurante || !correo || !restaurantId || !usuarioAdmin || !passwordAdmin) {
+          alert("Completa todos los campos");
+          return;
+        }
+
+        const res = await fetch("/api/restaurante/registro", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            nombreRestaurante,
+            correo,
+            restaurantId,
+            usuarioAdmin,
+            passwordAdmin,
+            aceptaPlan
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          alert(data.error || "No se pudo registrar el restaurante");
+          return;
+        }
+
+        alert("Cuenta creada correctamente. Tu suscripción quedó en estado pendiente.");
+        window.location.href = "/login.html";
+      } catch (error) {
+        console.log(error);
+        alert("Error registrando restaurante");
+      }
+    }
+  </script>
+</body>
+</html>

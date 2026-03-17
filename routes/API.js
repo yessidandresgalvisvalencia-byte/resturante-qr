@@ -925,5 +925,92 @@ router.post("/mesero/login", async (req, res) => {
     });
   }
 });
+router.post("/restaurante/registro", async (req, res) => {
+  try {
+    const {
+      restaurantId,
+      nombreRestaurante,
+      correo,
+      usuarioAdmin,
+      passwordAdmin,
+      aceptaPlan
+    } = req.body;
+
+    if (!restaurantId || !nombreRestaurante || !correo || !usuarioAdmin || !passwordAdmin) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos obligatorios"
+      });
+    }
+
+    if (!aceptaPlan) {
+      return res.status(400).json({
+        ok: false,
+        error: "Debes aceptar el plan mensual"
+      });
+    }
+
+    const Restaurante = require("../models/restaurante");
+    const Admin = require("../models/admin");
+
+    const existeRestaurantId = await Restaurante.findOne({ restaurantId });
+    if (existeRestaurantId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese Restaurant ID ya existe"
+      });
+    }
+
+    const existeCorreo = await Restaurante.findOne({ correo });
+    if (existeCorreo) {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese correo ya está registrado"
+      });
+    }
+
+    const existeUsuarioAdmin = await Restaurante.findOne({ usuarioAdmin });
+    if (existeUsuarioAdmin) {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese usuario admin ya existe"
+      });
+    }
+
+    const nuevoRestaurante = new Restaurante({
+      restaurantId,
+      nombreRestaurante,
+      correo,
+      usuarioAdmin,
+      passwordAdmin,
+      plan: "mensual",
+      precioMensual: 200000,
+      estadoSuscripcion: "pendiente",
+      aceptaPlan: true
+    });
+
+    await nuevoRestaurante.save();
+
+    const nuevoAdmin = new Admin({
+      restaurantId,
+      usuario: usuarioAdmin,
+      password: passwordAdmin
+    });
+
+    await nuevoAdmin.save();
+
+    res.json({
+      ok: true,
+      mensaje: "Restaurante registrado correctamente",
+      restaurante: nuevoRestaurante
+    });
+  } catch (error) {
+    console.log("Error registrando restaurante:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno registrando restaurante"
+    });
+  }
+});
 
 module.exports = router;
