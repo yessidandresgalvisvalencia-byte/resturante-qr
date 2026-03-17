@@ -202,9 +202,13 @@ async function cargarSolicitudesMesero(restaurantId) {
     pendientes.forEach(item => {
       solicitudesMesero.innerHTML += `
         <div class="card">
-          <h3>Mesa ${item.mesa} solicita mesero</h3>
+          <h3>Mesa ${item.mesa} necesita al mesero ${item.meseroNombre || "sin asignar"}</h3>
           <p>${tiempoTranscurrido(item.createdAt)}</p>
-          <p>Estado: ${item.estado || "pendiente"}</p>
+          <p>Estado: ${
+            item.estado === "atendiendo"
+              ? "🟡 Atendiendo..."
+              : "🔴 Pendiente"
+          }</p>
         </div>
       `;
     });
