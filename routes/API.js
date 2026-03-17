@@ -579,13 +579,13 @@ router.get("/mesero/mesas", async (req, res) => {
     llamados.forEach(llamado => {
       if (!mesasMap[llamado.mesa]) {
         mesasMap[llamado.mesa] = {
-          _id: llamado._id,
-          mesa: llamado.mesa,
-          estado: llamado.estado,
-          mensaje: llamado.mensaje || "Mesa necesita atención",
-          meseroId: llamado.meseroId || "",
-          meseroNombre: llamado.meseroNombre || ""
-        };
+  _id: llamado._id,
+  mesa: llamado.mesa,
+  estado: llamado.estado,
+  mensaje: llamado.mensaje || "Mesa necesita atención",
+  meseroId: llamado.meseroId || "",
+  meseroNombre: llamado.meseroNombre || ""
+};
       }
     });
 
