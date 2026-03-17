@@ -1,18 +1,8 @@
-const nombreMeseroGuardado = localStorage.getItem("meseroNombre") || "";
-
-if (!nombreMeseroGuardado) {
-  localStorage.setItem("meseroNombre", "Juan");
-}
-
 const socket = io();
 
 function getRestaurantId() {
   const input = document.getElementById("restaurantIdInput");
   return input ? input.value.trim() || "rest1" : "rest1";
-}
-
-function getNombreMeseroActual() {
-  return localStorage.getItem("meseroNombre") || "";
 }
 
 async function atendiendoLlamado(id) {
@@ -69,7 +59,6 @@ async function entregarPedido(id) {
 async function cargarMesero() {
   try {
     const restaurantId = getRestaurantId();
-    const nombreMesero = getNombreMeseroActual();
 
     const res = await fetch(`/api/mesero/mesas?restaurantId=${restaurantId}`);
     if (!res.ok) {
@@ -83,18 +72,14 @@ async function cargarMesero() {
     if (listaLlamados) {
       listaLlamados.innerHTML = "";
 
-      const llamadasDelMesero = mesas.filter(
-        l => (l.meseroNombre || "").trim().toLowerCase() === nombreMesero.trim().toLowerCase()
-      );
-
-      if (!llamadasDelMesero.length) {
+      if (!mesas.length) {
         listaLlamados.innerHTML = `
           <div class="card">
-            <p>No hay solicitudes para ${nombreMesero || "este mesero"}.</p>
+            <p>No hay solicitudes de mesero.</p>
           </div>
         `;
       } else {
-        llamadasDelMesero.forEach(l => {
+        mesas.forEach(l => {
           listaLlamados.innerHTML += `
             <div class="card">
               <h3>Mesa ${l.mesa}</h3>
