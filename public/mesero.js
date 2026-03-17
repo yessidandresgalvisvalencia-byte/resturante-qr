@@ -1,14 +1,24 @@
 const socket = io();
 
 function getRestaurantId() {
-  const input = document.getElementById("restaurantIdInput");
-  return input ? input.value.trim() || "rest1" : "rest1";
+  const fromInput = document.getElementById("restaurantIdInput");
+  if (fromInput && fromInput.value.trim()) {
+    return fromInput.value.trim();
+  }
+
+  const fromUrl = new URLSearchParams(window.location.search).get("restaurantId");
+  const fromSession = localStorage.getItem("meseroRestaurantId");
+
+  return fromUrl || fromSession || "rest1";
+}
+
+function getMeseroNombreActual() {
+  return localStorage.getItem("meseroNombre") || "";
 }
 
 async function atendiendoLlamado(id) {
   try {
-    const params = new URLSearchParams(window.location.search);
-    const restaurantId = params.get("restaurantId") || "rest1";
+    const restaurantId = getRestaurantId();
 
     const res = await fetch(`/api/llamados/${id}/atendiendo?restaurantId=${restaurantId}`, {
       method: "PUT",
@@ -59,6 +69,7 @@ async function entregarPedido(id) {
 async function cargarMesero() {
   try {
     const restaurantId = getRestaurantId();
+    const nombreMesero = getMeseroNombreActual();
 
     const res = await fetch(`/api/mesero/mesas?restaurantId=${restaurantId}`);
     if (!res.ok) {
@@ -72,14 +83,18 @@ async function cargarMesero() {
     if (listaLlamados) {
       listaLlamados.innerHTML = "";
 
-      if (!mesas.length) {
+      const llamadasDelMesero = mesas.filter(
+        l => (l.meseroNombre || "").trim().toLowerCase() === nombreMesero.trim().toLowerCase()
+      );
+
+      if (!llamadasDelMesero.length) {
         listaLlamados.innerHTML = `
           <div class="card">
-            <p>No hay solicitudes de mesero.</p>
+            <p>No hay solicitudes para ${nombreMesero || "este mesero"}.</p>
           </div>
         `;
       } else {
-        mesas.forEach(l => {
+        llamadasDelMesero.forEach(l => {
           listaLlamados.innerHTML += `
             <div class="card">
               <h3>Mesa ${l.mesa}</h3>
@@ -130,7 +145,9 @@ async function cargarMesero() {
 
 async function cargarEstadoMesas() {
   try {
-    const restaurantId = new URLSearchParams(window.location.search).get("restaurantId") || "rest1";
+    const restaurantId = getRestaurantId();
+    const nombreMesero = getMeseroNombreActual();
+
     const res = await fetch(`/api/mesero/mesas?restaurantId=${restaurantId}`);
     if (!res.ok) return;
 
@@ -140,16 +157,20 @@ async function cargarEstadoMesas() {
 
     lista.innerHTML = "";
 
-    if (!data.length) {
+    const mesasDelMesero = data.filter(
+      item => (item.meseroNombre || "").trim().toLowerCase() === nombreMesero.trim().toLowerCase()
+    );
+
+    if (!mesasDelMesero.length) {
       lista.innerHTML = `
         <div class="card">
-          <p>No hay mesas con solicitudes todavía.</p>
+          <p>No hay mesas con solicitudes para ${nombreMesero || "este mesero"}.</p>
         </div>
       `;
       return;
     }
 
-    data.forEach(item => {
+    mesasDelMesero.forEach(item => {
       lista.innerHTML += `
         <div class="card">
           <h3>Mesa ${item.mesa}</h3>

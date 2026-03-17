@@ -881,5 +881,49 @@ router.put("/personal/:id/estado", async (req, res) => {
     });
   }
 });
+router.post("/mesero/login", async (req, res) => {
+  try {
+    const { usuario, password } = req.body;
+
+    if (!usuario || !password) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan usuario o contraseña"
+      });
+    }
+
+    const Personal = require("../models/personal");
+
+    const mesero = await Personal.findOne({
+      usuario,
+      password,
+      cargo: { $in: ["mesero", "mesera"] }
+    });
+
+    if (!mesero) {
+      return res.status(401).json({
+        ok: false,
+        error: "Usuario o contraseña incorrectos"
+      });
+    }
+
+    res.json({
+      ok: true,
+      mesero: {
+        _id: mesero._id,
+        nombre: mesero.nombre,
+        usuario: mesero.usuario,
+        cargo: mesero.cargo,
+        restaurantId: mesero.restaurantId
+      }
+    });
+  } catch (error) {
+    console.log("Error login mesero:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno en login de mesero"
+    });
+  }
+});
 
 module.exports = router;
