@@ -780,9 +780,9 @@ router.get("/qr/:mesa", async (req, res) => {
 
 router.post("/personal", async (req, res) => {
   try {
-    const { restaurantId, nombre, cargo, estado } = req.body;
+    const { restaurantId, nombre, cargo, estado, usuario, password } = req.body;
 
-    if (!restaurantId || !nombre || !cargo) {
+    if (!restaurantId || !nombre || !cargo || !usuario || !password) {
       return res.status(400).json({
         ok: false,
         error: "Faltan datos obligatorios"
@@ -791,11 +791,21 @@ router.post("/personal", async (req, res) => {
 
     const Personal = require("../models/personal");
 
+    const existeUsuario = await Personal.findOne({ restaurantId, usuario });
+    if (existeUsuario) {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese usuario ya existe en este restaurante"
+      });
+    }
+
     const nuevoPersonal = new Personal({
       restaurantId,
       nombre,
       cargo,
-      estado: estado || "disponible"
+      estado: estado || "disponible",
+      usuario,
+      password
     });
 
     await nuevoPersonal.save();

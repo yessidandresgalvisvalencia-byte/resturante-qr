@@ -458,9 +458,11 @@ async function agregarPersonal() {
     const nombre = document.getElementById("nombrePersonal").value.trim();
     const cargo = document.getElementById("cargoPersonal").value;
     const estado = document.getElementById("estadoPersonal").value;
+    const usuario = document.getElementById("usuarioPersonal").value.trim();
+    const password = document.getElementById("passwordPersonal").value.trim();
 
-    if (!nombre) {
-      alert("Escribe el nombre del personal");
+    if (!nombre || !usuario || !password) {
+      alert("Completa nombre, usuario y contraseña");
       return;
     }
 
@@ -473,7 +475,9 @@ async function agregarPersonal() {
         restaurantId,
         nombre,
         cargo,
-        estado
+        estado,
+        usuario,
+        password
       })
     });
 
@@ -489,6 +493,8 @@ async function agregarPersonal() {
     document.getElementById("nombrePersonal").value = "";
     document.getElementById("cargoPersonal").value = "mesero";
     document.getElementById("estadoPersonal").value = "disponible";
+    document.getElementById("usuarioPersonal").value = "";
+    document.getElementById("passwordPersonal").value = "";
 
     cargarAdmin();
   } catch (error) {

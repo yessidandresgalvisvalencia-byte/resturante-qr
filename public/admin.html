@@ -80,29 +80,34 @@
     </div>
 
     <div class="card">
-      <h3>Agregar personal</h3>
+  <h3>Agregar personal</h3>
 
-      <label>Nombre</label>
-      <input id="nombrePersonal" type="text" placeholder="Ej: Juan">
+  <label>Nombre</label>
+  <input id="nombrePersonal" type="text" placeholder="Ej: Juan">
 
-      <label>Cargo</label>
-      <select id="cargoPersonal">
-        <option value="mesero">Mesero</option>
-        <option value="mesera">Mesera</option>
-        <option value="cajero">Cajero</option>
-        <option value="cocinero">Cocinero</option>
-        <option value="admin">Admin</option>
-      </select>
+  <label>Cargo</label>
+  <select id="cargoPersonal">
+    <option value="mesero">Mesero</option>
+    <option value="mesera">Mesera</option>
+    <option value="cajero">Cajero</option>
+    <option value="cocinero">Cocinero</option>
+    <option value="admin">Admin</option>
+  </select>
 
-      <label>Estado</label>
-      <select id="estadoPersonal">
-        <option value="disponible">Disponible</option>
-        <option value="ocupado">Ocupado</option>
-      </select>
+  <label>Estado</label>
+  <select id="estadoPersonal">
+    <option value="disponible">Disponible</option>
+    <option value="ocupado">Ocupado</option>
+  </select>
 
-      <button onclick="agregarPersonal()">Guardar personal</button>
-    </div>
+  <label>Usuario</label>
+  <input id="usuarioPersonal" type="text" placeholder="Ej: juan01">
 
+  <label>Contraseña</label>
+  <input id="passwordPersonal" type="text" placeholder="Ej: 1234">
+
+  <button onclick="agregarPersonal()">Guardar personal</button>
+</div>
     <div class="resumen-grid">
       <div class="card">
         <h3>Total vendido</h3>
