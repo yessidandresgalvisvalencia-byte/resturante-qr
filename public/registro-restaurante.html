@@ -1,101 +1,454 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registro Restaurante</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Crear cuenta Restaurante</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+:root {
+--bg: #f6f7fb;
+--card: #ffffff;
+--text: #1f2937;
+--muted: #6b7280;
+--border: #e5e7eb;
+--primary: #111827;
+--primary-hover: #000000;
+--accent: #f3f4f6;
+--success: #065f46;
+}
+
+* {
+box-sizing: border-box;
+}
+
+body {
+margin: 0;
+font-family: Arial, sans-serif;
+background: var(--bg);
+color: var(--text);
+}
+
+.page {
+max-width: 1100px;
+margin: 0 auto;
+padding: 40px 20px 60px;
+}
+
+.hero {
+display: grid;
+grid-template-columns: 1.1fr 0.9fr;
+gap: 24px;
+align-items: stretch;
+margin-bottom: 24px;
+}
+
+.hero-card,
+.form-card,
+.info-card {
+background: var(--card);
+border: 1px solid var(--border);
+border-radius: 18px;
+box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.hero-card {
+padding: 32px;
+}
+
+.hero-badge {
+display: inline-block;
+padding: 8px 14px;
+border-radius: 999px;
+background: var(--accent);
+color: var(--text);
+font-size: 13px;
+font-weight: 700;
+margin-bottom: 16px;
+}
+
+.hero-card h1 {
+font-size: 42px;
+line-height: 1.1;
+margin: 0 0 14px;
+}
+
+.hero-card p {
+margin: 0 0 20px;
+color: var(--muted);
+font-size: 17px;
+line-height: 1.5;
+}
+
+.price-box {
+margin-top: 22px;
+padding: 18px;
+border-radius: 14px;
+background: #111827;
+color: white;
+}
+
+.price-box .price-label {
+font-size: 13px;
+opacity: 0.85;
+margin-bottom: 6px;
+}
+
+.price-box .price-value {
+font-size: 32px;
+font-weight: 800;
+line-height: 1.1;
+}
+
+.price-box .price-sub {
+margin-top: 6px;
+font-size: 14px;
+opacity: 0.9;
+}
+
+.info-card {
+padding: 28px;
+}
+
+.info-card h2 {
+margin: 0 0 16px;
+font-size: 28px;
+}
+
+.benefits {
+list-style: none;
+padding: 0;
+margin: 0 0 18px;
+}
+
+.benefits li {
+padding: 10px 0;
+border-bottom: 1px solid var(--border);
+font-size: 16px;
+}
+
+.benefits li:last-child {
+border-bottom: 0;
+}
+
+.mini-note {
+background: #ecfdf5;
+border: 1px solid #d1fae5;
+color: var(--success);
+padding: 14px;
+border-radius: 12px;
+font-size: 14px;
+line-height: 1.5;
+}
+
+.form-card {
+padding: 28px;
+}
+
+.form-card h3 {
+margin: 0 0 8px;
+font-size: 28px;
+}
+
+.form-subtitle {
+margin: 0 0 24px;
+color: var(--muted);
+font-size: 15px;
+}
+
+.section-title {
+margin: 24px 0 12px;
+font-size: 18px;
+font-weight: 800;
+}
+
+.grid-2 {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 14px;
+}
+
+.field {
+display: flex;
+flex-direction: column;
+gap: 8px;
+margin-bottom: 14px;
+}
+
+.field label {
+font-size: 14px;
+font-weight: 700;
+}
+
+.field input {
+width: 100%;
+padding: 14px 14px;
+border: 1px solid var(--border);
+border-radius: 12px;
+font-size: 15px;
+outline: none;
+transition: 0.2s ease;
+background: white;
+}
+
+.field input:focus {
+border-color: #9ca3af;
+box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+}
+
+.help {
+margin-top: -2px;
+font-size: 12px;
+color: var(--muted);
+line-height: 1.4;
+}
+
+.check-wrap {
+display: flex;
+align-items: flex-start;
+gap: 10px;
+margin: 20px 0 20px;
+padding: 14px;
+border: 1px solid var(--border);
+border-radius: 12px;
+background: #fafafa;
+}
+
+.check-wrap input {
+margin-top: 3px;
+transform: scale(1.1);
+}
+
+.check-wrap label {
+font-size: 14px;
+line-height: 1.5;
+color: var(--text);
+}
+
+.primary-btn {
+width: 100%;
+border: 0;
+background: var(--primary);
+color: white;
+padding: 16px 18px;
+border-radius: 14px;
+font-size: 16px;
+font-weight: 800;
+cursor: pointer;
+transition: 0.2s ease;
+}
+
+.primary-btn:hover {
+background: var(--primary-hover);
+transform: translateY(-1px);
+}
+
+.bottom-note {
+margin-top: 14px;
+font-size: 13px;
+color: var(--muted);
+text-align: center;
+line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+.hero {
+grid-template-columns: 1fr;
+}
+
+.grid-2 {
+grid-template-columns: 1fr;
+}
+
+.hero-card h1 {
+font-size: 34px;
+}
+}
+</style>
 </head>
 <body>
-  <div class="contenedor">
-    <h1>Crear cuenta de restaurante</h1>
+<div class="page">
 
-    <div class="card">
-      <h2>Plan Restaurante Pro</h2>
-      <p><strong>$200.000 COP / mes</strong></p>
-      <p>Incluye:</p>
-      <ul>
-        <li>Panel administrador</li>
-        <li>Menú QR</li>
-        <li>Gestión de meseros</li>
-        <li>Pedidos en tiempo real</li>
-        <li>Control de personal</li>
-        <li>Soporte básico</li>
-      </ul>
-      <p>El pago corresponde a una suscripción mensual.</p>
-      <p>El acceso a la plataforma depende de tener la suscripción activa.</p>
-    </div>
+<section class="hero">
+<div class="hero-card">
+<span class="hero-badge">Sistema para restaurantes</span>
+<h1>Activa tu cuenta y empieza a vender con QR</h1>
+<p>
+Crea tu cuenta, configura tus datos de pago y activa tu suscripción mensual
+en un solo paso. Todo el sistema quedará asociado a tu restaurante.
+</p>
 
-    <div class="card">
-      <label>Nombre del restaurante</label>
-      <input id="nombreRestaurante" type="text" placeholder="Ej: La Parrilla de Juan">
+<div class="price-box">
+<div class="price-label">Plan Restaurante Pro</div>
+<div class="price-value">$200.000 COP / mes</div>
+<div class="price-sub">Sin procesos separados. Registro y pago en una sola página.</div>
+</div>
+</div>
 
-      <label>Correo</label>
-      <input id="correoRestaurante" type="email" placeholder="Ej: restaurante@gmail.com">
+<div class="info-card">
+<h2>¿Qué incluye?</h2>
+<ul class="benefits">
+<li>Panel administrador</li>
+<li>Menú digital QR</li>
+<li>Pedidos en tiempo real</li>
+<li>Gestión de meseros</li>
+<li>Control de personal</li>
+<li>Soporte básico</li>
+</ul>
 
-      <label>Restaurant ID</label>
-      <input id="restaurantId" type="text" placeholder="Ej: parrilla-juan">
+<div class="mini-note">
+El acceso a la plataforma depende de tener la suscripción activa.
+Las ventas del restaurante se gestionan con sus propias llaves de Wompi.
+</div>
+</div>
+</section>
 
-      <label>Usuario administrador</label>
-      <input id="usuarioAdmin" type="text" placeholder="Ej: adminparrilla">
+<section class="form-card">
+<h3>Crear cuenta Restaurante</h3>
+<p class="form-subtitle">
+Completa los datos de tu negocio y tus llaves de Wompi para activar la cuenta.
+</p>
 
-      <label>Contraseña</label>
-      <input id="passwordAdmin" type="password" placeholder="Tu contraseña">
+<div class="section-title">Datos del restaurante</div>
 
-      <label style="display:flex; gap:10px; align-items:center; margin-top:10px;">
-        <input id="aceptaPlan" type="checkbox">
-        Acepto el plan mensual de $200.000 COP
-      </label>
+<div class="grid-2">
+<div class="field">
+<label for="nombre">Nombre del restaurante</label>
+<input id="nombre" type="text" placeholder="Ej: Parrilla La 70" />
+</div>
 
-      <button onclick="registrarRestaurante()">Crear cuenta</button>
-    </div>
-  </div>
+<div class="field">
+<label for="correo">Correo</label>
+<input id="correo" type="email" placeholder="Ej: contacto@restaurante.com" />
+</div>
+</div>
 
-  <script>
-    async function registrarRestaurante() {
-      try {
-        const nombreRestaurante = document.getElementById("nombreRestaurante").value.trim();
-        const correo = document.getElementById("correoRestaurante").value.trim();
-        const restaurantId = document.getElementById("restaurantId").value.trim();
-        const usuarioAdmin = document.getElementById("usuarioAdmin").value.trim();
-        const passwordAdmin = document.getElementById("passwordAdmin").value.trim();
-        const aceptaPlan = document.getElementById("aceptaPlan").checked;
+<div class="grid-2">
+<div class="field">
+<label for="usuario">Usuario admin</label>
+<input id="usuario" type="text" placeholder="Ej: adminparrilla70" />
+</div>
 
-        if (!nombreRestaurante || !correo || !restaurantId || !usuarioAdmin || !passwordAdmin) {
-          alert("Completa todos los campos");
-          return;
-        }
+<div class="field">
+<label for="password">Contraseña</label>
+<input id="password" type="password" placeholder="Crea una contraseña segura" />
+</div>
+</div>
 
-        const res = await fetch("/api/restaurante/registro", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            nombreRestaurante,
-            correo,
-            restaurantId,
-            usuarioAdmin,
-            passwordAdmin,
-            aceptaPlan
-          })
-        });
+<div class="section-title">Claves de Wompi</div>
 
-        const data = await res.json();
+<div class="field">
+<label for="publicKey">Public Key</label>
+<input id="publicKey" type="text" placeholder="Pega tu llave pública de Wompi" />
+<div class="help">Esta llave se usa para abrir el checkout del pago.</div>
+</div>
 
-        if (!res.ok) {
-          alert(data.error || "No se pudo registrar el restaurante");
-          return;
-        }
+<div class="field">
+<label for="privateKey">Private Key</label>
+<input id="privateKey" type="text" placeholder="Pega tu llave privada de Wompi" />
+<div class="help">Esta llave queda asociada a tu restaurante para su configuración.</div>
+</div>
 
-        alert("Cuenta creada correctamente. Tu suscripción quedó en estado pendiente.");
-        window.location.href = "/login.html";
-      } catch (error) {
-        console.log(error);
-        alert("Error registrando restaurante");
-      }
-    }
-    <!-- cambio forzado -->
-  </script>
+<div class="field">
+<label for="integrityKey">Integrity Key</label>
+<input id="integrityKey" type="text" placeholder="Pega tu integrity key de Wompi" />
+<div class="help">Se usa para validar la firma de integridad del pago.</div>
+</div>
+
+<div class="check-wrap">
+<input type="checkbox" id="acepta" />
+<label for="acepta">
+Acepto la suscripción mensual de <strong>$200.000 COP</strong> y entiendo que
+la cuenta quedará activa cuando el pago sea aprobado.
+</label>
+</div>
+
+<button class="primary-btn" onclick="crearYPagar()">Crear cuenta y pagar</button>
+
+<div class="bottom-note">
+Al continuar, se preparará el pago y se abrirá el checkout de Wompi.
+</div>
+</section>
+</div>
+
+<script src="https://checkout.wompi.co/widget.js"></script>
+<script>
+async function crearYPagar() {
+try {
+const nombre = document.getElementById("nombre").value.trim();
+const correo = document.getElementById("correo").value.trim();
+const usuario = document.getElementById("usuario").value.trim();
+const password = document.getElementById("password").value.trim();
+
+const publicKey = document.getElementById("publicKey").value.trim();
+const privateKey = document.getElementById("privateKey").value.trim();
+const integrityKey = document.getElementById("integrityKey").value.trim();
+
+const acepta = document.getElementById("acepta").checked;
+
+if (!nombre || !correo || !usuario || !password) {
+alert("Completa todos los datos del restaurante");
+return;
+}
+
+if (!publicKey || !privateKey || !integrityKey) {
+alert("Completa las claves de Wompi");
+return;
+}
+
+if (!acepta) {
+alert("Debes aceptar la suscripción mensual");
+return;
+}
+
+const res = await fetch("/api/registro-y-pago", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+nombre,
+correo,
+usuario,
+password,
+publicKey,
+privateKey,
+integrityKey
+})
+});
+
+const data = await res.json();
+
+if (!res.ok || !data.ok) {
+alert(data.error || "No se pudo iniciar el proceso");
+return;
+}
+
+const pago = data.pago;
+
+const checkout = new WidgetCheckout({
+currency: pago.currency,
+amountInCents: pago.amountInCents,
+reference: pago.reference,
+publicKey: pago.publicKey,
+signature: { integrity: pago.signature },
+acceptanceToken: pago.acceptanceToken,
+customerData: {
+email: pago.customerEmail,
+fullName: pago.customerData.fullName
+}
+});
+
+checkout.open(function(result) {
+if (result && result.transaction) {
+alert("Pago enviado. Estamos validando la activación.");
+}
+});
+} catch (error) {
+console.log(error);
+alert("Error iniciando proceso");
+}
+}
+</script>
 </body>
 </html>
