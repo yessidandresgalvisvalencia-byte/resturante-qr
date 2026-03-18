@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagar Suscripción</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="contenedor">
+    <h1>Pagar Plan Restaurante Pro</h1>
+
+    <div class="card">
+      <p><strong>$200.000 COP / mes</strong></p>
+      <p>Activa tu cuenta para empezar a usar la plataforma.</p>
+
+      <label>Restaurant ID</label>
+      <input id="restaurantIdPago" type="text" placeholder="Ej: parrilla-juan" />
+
+      <button onclick="pagarSuscripcion()">Pagar ahora</button>
+    </div>
+  </div>
+
+  <script src="https://checkout.wompi.co/widget.js"></script>
+  <script>
+    async function pagarSuscripcion() {
+      try {
+        const restaurantId = document.getElementById("restaurantIdPago").value.trim();
+
+        if (!restaurantId) {
+          alert("Escribe el Restaurant ID");
+          return;
+        }
+
+        const res = await fetch("/api/crear-pago-suscripcion", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ restaurantId })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          alert(data.error || "No se pudo preparar el pago");
+          return;
+        }
+
+        const pago = data.pago;
+
+        const checkout = new WidgetCheckout({
+          currency: pago.currency,
+          amountInCents: pago.amountInCents,
+          reference: pago.reference,
+          publicKey: pago.publicKey,
+          signature: { integrity: pago.signature },
+          customerData: {
+            email: pago.customerEmail,
+            fullName: pago.customerData.fullName
+          },
+          acceptanceToken: pago.acceptanceToken
+        });
+
+        checkout.open(function (result) {
+          if (result && result.transaction) {
+            alert("Pago enviado. Estamos validando el resultado.");
+          }
+        });
+      } catch (error) {
+        console.log(error);
+        alert("Error iniciando pago");
+      }
+    }
+  </script>
+</body>
+</html>

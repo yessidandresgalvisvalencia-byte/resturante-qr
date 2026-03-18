@@ -1149,5 +1149,165 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
     });
   }
 });
+const axios = require("axios");
+const crypto = require("crypto");
+const Restaurante = require("../models/restaurante");
+
+/* =========================
+   SUSCRIPCION / PRIMER PAGO
+========================= */
+
+// Devuelve lo necesario para abrir el widget / checkout del primer pago
+router.post("/crear-pago-suscripcion", async (req, res) => {
+  try {
+    const { restaurantId } = req.body;
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Falta restaurantId"
+      });
+    }
+
+    const restaurante = await Restaurante.findOne({ restaurantId });
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
+
+    const amountInCents = 200000 * 100;
+    const currency = "COP";
+    const reference = `suscripcion_${restaurantId}_${Date.now()}`;
+
+    const acceptanceRes = await axios.get(
+      `https://production.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
+    );
+
+    const acceptanceToken =
+      acceptanceRes.data.data.presigned_acceptance.acceptance_token;
+
+    const signatureRaw = `${reference}${amountInCents}${currency}${process.env.WOMPI_INTEGRITY_KEY}`;
+    const signature = crypto
+      .createHash("sha256")
+      .update(signatureRaw)
+      .digest("hex");
+
+    res.json({
+      ok: true,
+      pago: {
+        amountInCents,
+        currency,
+        reference,
+        acceptanceToken,
+        signature,
+        publicKey: process.env.WOMPI_PUBLIC_KEY,
+        customerEmail: restaurante.correo,
+        customerData: {
+          fullName: restaurante.nombreRestaurante,
+          phoneNumber: "",
+          legalId: ""
+        }
+      }
+    });
+  } catch (error) {
+    console.log("Error creando pago de suscripción:", error?.response?.data || error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno creando pago de suscripción"
+    });
+  }
+});
+
+// Consulta estado de suscripción
+router.get("/restaurante/estado-suscripcion", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+
+    const restaurante = await Restaurante.findOne({ restaurantId });
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
+
+    res.json({
+      ok: true,
+      estadoSuscripcion: restaurante.estadoSuscripcion,
+      plan: restaurante.plan,
+      precioMensual: restaurante.precioMensual,
+      fechaUltimoPago: restaurante.fechaUltimoPago,
+      fechaProximoCobro: restaurante.fechaProximoCobro
+    });
+  } catch (error) {
+    console.log("Error consultando suscripción:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno consultando suscripción"
+    });
+  }
+});
+
+// Webhook de Wompi
+router.post("/wompi/webhook", async (req, res) => {
+  try {
+    const evento = req.body;
+    const transaction = evento?.data?.transaction;
+
+    if (!transaction) {
+      return res.status(200).json({ ok: true });
+    }
+
+    const reference = transaction.reference || "";
+    const status = transaction.status;
+    const transactionId = transaction.id;
+
+    if (!reference.startsWith("suscripcion_")) {
+      return res.status(200).json({ ok: true });
+    }
+
+    const partes = reference.split("_");
+    const restaurantId = partes[1];
+
+    const restaurante = await Restaurante.findOne({ restaurantId });
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
+
+    if (status === "APPROVED") {
+      const hoy = new Date();
+      const proximo = new Date(hoy);
+      proximo.setDate(proximo.getDate() + 30);
+
+      restaurante.estadoSuscripcion = "activa";
+      restaurante.fechaUltimoPago = hoy;
+      restaurante.fechaProximoCobro = proximo;
+      restaurante.ultimoTransactionId = transactionId;
+
+      await restaurante.save();
+    }
+
+    if (status === "DECLINED" || status === "ERROR" || status === "VOIDED") {
+      if (restaurante.estadoSuscripcion !== "activa") {
+        restaurante.estadoSuscripcion = "pendiente";
+        restaurante.ultimoTransactionId = transactionId;
+        await restaurante.save();
+      }
+    }
+
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    console.log("Error webhook Wompi:", error);
+    res.status(500).json({ ok: false });
+  }
+});
 
 module.exports = router;
