@@ -1016,7 +1016,6 @@ router.post("/restaurante/registro", async (req, res) => {
     });
   }
 });
-const crypto = require("crypto");
 const Restaurante = require("../models/restaurante");
 
 // OJO: necesitas usar express.raw() en app.js para esta ruta
@@ -1077,80 +1076,6 @@ router.post("/wompi/webhook", async (req, res) => {
   } catch (error) {
     console.log("Error webhook Wompi:", error);
     return res.status(500).json({ ok: false });
-  }
-});
-/* =========================
-   SUSCRIPCION / PRIMER PAGO
-========================= */
-
-router.post("/crear-pago-suscripcion", async (req, res) => {
-  try {
-    const { restaurantId } = req.body;
-
-    if (!restaurantId) {
-      return res.status(400).json({
-        ok: false,
-        error: "Falta restaurantId"
-      });
-    }
-
-    const Restaurante = require("../models/restaurante");
-    const restaurante = await Restaurante.findOne({ restaurantId });
-
-    if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
-      });
-    }
-router.get("/restaurante/estado-suscripcion", async (req, res) => {
-  try {
-    const restaurantId = getRestaurantId(req);
-    const Restaurante = require("../models/restaurante");
-
-    const restaurante = await Restaurante.findOne({ restaurantId });
-
-    if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
-      });
-    }
-
-    res.json({
-      ok: true,
-      estadoSuscripcion: restaurante.estadoSuscripcion,
-      plan: restaurante.plan,
-      precioMensual: restaurante.precioMensual,
-      fechaUltimoPago: restaurante.fechaUltimoPago,
-      fechaProximoCobro: restaurante.fechaProximoCobro
-    });
-  } catch (error) {
-    console.log("Error consultando suscripción:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Error interno"
-    });
-  }
-});
-    const referencia = `suscripcion_${restaurantId}_${Date.now()}`;
-
-    // Por ahora solo devolvemos la referencia y datos del pago
-    // Luego aquí conectas la creación real con Wompi
-    res.json({
-      ok: true,
-      referencia,
-      amountInCents: 20000000,
-      currency: "COP",
-      correo: restaurante.correo,
-      nombreRestaurante: restaurante.nombreRestaurante
-    });
-  } catch (error) {
-    console.log("Error creando pago de suscripción:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Error interno creando pago"
-    });
   }
 });
 
