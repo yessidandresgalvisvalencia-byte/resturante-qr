@@ -1235,4 +1235,99 @@ router.post("/wompi/webhook", async (req, res) => {
   }
 });
 
+router.post("/registro-y-pago", async (req, res) => {
+try {
+const {
+nombre,
+correo,
+usuario,
+password,
+publicKey,
+privateKey,
+integrityKey
+} = req.body;
+
+if (!nombre || !correo || !usuario || !password) {
+return res.status(400).json({
+ok: false,
+error: "Faltan datos del restaurante"
+});
+}
+
+if (!publicKey || !privateKey || !integrityKey) {
+return res.status(400).json({
+ok: false,
+error: "Faltan claves de Wompi"
+});
+}
+
+const existeUsuario = await Restaurante.findOne({ usuarioAdmin: usuario });
+
+if (existeUsuario) {
+return res.status(400).json({
+ok: false,
+error: "Ese usuario admin ya existe"
+});
+}
+
+const restaurantId = `rest_${Date.now()}`;
+const reference = `suscripcion_${restaurantId}_${Date.now()}`;
+
+const nuevoRestaurante = new Restaurante({
+restaurantId,
+nombreRestaurante: nombre,
+correo,
+usuarioAdmin: usuario,
+passwordAdmin: password,
+wompiPublicKey: publicKey,
+wompiPrivateKey: privateKey,
+wompiIntegrityKey: integrityKey,
+plan: "mensual",
+precioMensual: 200000,
+estadoSuscripcion: "pendiente",
+referenciaPago: reference
+});
+
+await nuevoRestaurante.save();
+
+const amountInCents = 200000 * 100;
+const currency = "COP";
+
+const acceptanceRes = await axios.get(
+`https://production.wompi.co/v1/merchants/${publicKey}`
+);
+
+const acceptanceToken =
+acceptanceRes.data.data.presigned_acceptance.acceptance_token;
+
+const signatureRaw = `${reference}${amountInCents}${currency}${integrityKey}`;
+const signature = crypto
+.createHash("sha256")
+.update(signatureRaw)
+.digest("hex");
+
+res.json({
+ok: true,
+pago: {
+amountInCents,
+currency,
+reference,
+acceptanceToken,
+signature,
+publicKey,
+customerEmail: correo,
+customerData: {
+fullName: nombre
+}
+}
+});
+} catch (error) {
+console.log("Error en registro-y-pago:", error?.response?.data || error);
+res.status(500).json({
+ok: false,
+error: "Error creando cuenta y preparando pago"
+});
+}
+});
+
 module.exports = router;
