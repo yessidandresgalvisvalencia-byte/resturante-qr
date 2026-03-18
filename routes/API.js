@@ -7,7 +7,7 @@ const router = express.Router();
 
 const Pedido = require("../models/pedido.js");
 const Llamado = require("../models/llamado");
-const Restaurante = requiere("../models/restaurante");
+
 
 /* =========================
    CONFIG BÁSICA
