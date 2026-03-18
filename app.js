@@ -29,6 +29,13 @@ app.use("/api", apiRoutes);
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+app.get("/pago-suscripcion.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "pago-suscripcion.html"));
+});
+
+app.get("/pago-suscripcion", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "pago-suscripcion.html"));
+});
 
 console.log("MONGO_URI EXISTE", !!process.env.MONGO_URI);
 
