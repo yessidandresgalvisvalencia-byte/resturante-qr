@@ -1,9 +1,13 @@
 const express = require("express");
 const QRCode = require("qrcode");
+const axios = requiere("axios")
+const crypto = requiere("crypto")
+
 const router = express.Router();
 
 const Pedido = require("../models/pedido.js");
 const Llamado = require("../models/llamado");
+const Restaurante = requiere("../models/restaurante");
 
 /* =========================
    CONFIG BÁSICA
@@ -1149,16 +1153,13 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
     });
   }
 });
-const axios = require("axios");
-const crypto = require("crypto");
-const Restaurante = require("../models/restaurante");
 
 /* =========================
    SUSCRIPCION / PRIMER PAGO
 ========================= */
 
 // Devuelve lo necesario para abrir el widget / checkout del primer pago
-router.post("/crear-pago-suscripcion", async (req, res) => {
+("/crear-pago-suscripcion", async (req, res) => {
   try {
     const { restaurantId } = req.body;
 
