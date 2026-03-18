@@ -1,13 +1,13 @@
 const express = require("express");
 const QRCode = require("qrcode");
-const axios = requiere("axios")
-const crypto = requiere("crypto")
+const axios = require("axios")
+const crypto = require("crypto")
 
 const router = express.Router();
 
 const Pedido = require("../models/pedido.js");
 const Llamado = require("../models/llamado");
-
+const Restaurante = require("../models/restaurante");
 
 /* =========================
    CONFIG BÁSICA
@@ -954,7 +954,7 @@ router.post("/restaurante/registro", async (req, res) => {
       });
     }
 
-    const Restaurante = require("../models/restaurante");
+    
     const Admin = require("../models/admin");
 
     const existeRestaurantId = await Restaurante.findOne({ restaurantId });
@@ -1016,7 +1016,6 @@ router.post("/restaurante/registro", async (req, res) => {
     });
   }
 });
-const Restaurante = require("../models/restaurante");
 
 // OJO: necesitas usar express.raw() en app.js para esta ruta
 router.post("/wompi/webhook", async (req, res) => {
@@ -1199,7 +1198,7 @@ router.post("/wompi/webhook", async (req, res) => {
     const partes = reference.split("_");
     const restaurantId = partes[1];
 
-    const restaurante = await Restaurante.findOne({ restaurantId });
+     await Restaurante.findOne({ restaurantId });
 
     if (!restaurante) {
       return res.status(404).json({
