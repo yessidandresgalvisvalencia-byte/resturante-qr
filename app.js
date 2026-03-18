@@ -1,17 +1,16 @@
-
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
 require("dotenv").config();
 const http = require("http");
 const { Server } = require("socket.io");
+
 const app = express();
 
 const iniciarJobSuscripciones = require("./jobs/suscripciones");
 const apiRoutes = require("./routes/API");
 
 const PORT = process.env.PORT || 3000;
-
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -29,6 +28,7 @@ app.use("/api", apiRoutes);
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
 app.get("/pago-suscripcion.html", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "pago-suscripcion.html"));
 });
