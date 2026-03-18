@@ -4,11 +4,14 @@ const mongoose = require("mongoose");
 const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
-
 const app = express();
-const server = http.createServer(app);
+
 const iniciarJobSuscripciones = require("./jobs/suscripciones");
-iniciarJobSuscripciones();
+const apiRoutes = require("./routes/API");
+
+const PORT = process.env.PORT || 3000;
+
+const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: { origin: "*" }
@@ -19,35 +22,33 @@ app.set("io", io);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public",
-    "index.html"));
-  });
 
-console.log("MONGO_URI EXISTE", !! process.env.MONGO_URI)
+app.use("/api", apiRoutes);
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+console.log("MONGO_URI EXISTE", !!process.env.MONGO_URI);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("MongoDB conectado")
+    console.log("MongoDB conectado");
   })
   .catch(err => {
     console.log("Error MongoDB:", err);
   });
 
-const apiRoutes = require("./routes/API");
-app.use("/api", apiRoutes);
-
-const pagos = require("./routes/pagos");
-app.use("/pagos", pagos);
-
-io.on("connection", () => {
+io.on("connection", (socket) => {
   console.log("Cliente conectado");
+
+  socket.on("disconnect", () => {
+    console.log("Cliente desconectado");
+  });
 });
 
-const PORT = process.env.PORT || 3000;
+iniciarJobSuscripciones();
+
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-});
-server.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
 });
