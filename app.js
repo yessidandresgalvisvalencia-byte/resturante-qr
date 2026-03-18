@@ -10,10 +10,6 @@ const server = http.createServer(app);
 const iniciarJobSuscripciones = require("./jobs/suscripciones");
 iniciarJobSuscripciones();
 
-server.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-});
-
 const io = new Server(server, {
   cors: { origin: "*" }
 });
@@ -50,5 +46,8 @@ io.on("connection", () => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor corriendo en puerto ${PORT}`);
+});
+server.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
 });
