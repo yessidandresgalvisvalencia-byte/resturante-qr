@@ -1312,35 +1312,51 @@ error: "Faltan claves de Wompi"
 });
 }
 
-const existeUsuario = await Restaurante.findOne({ usuarioAdmin: usuario });
+const Usuario = require("../models/usuario");
+const Sede = require("../models/sede");
 
+const existeUsuario = await Usuario.findOne({ usuario });
 if (existeUsuario) {
-return res.status(400).json({
-ok: false,
-error: "Ese usuario admin ya existe"
-});
+  return res.status(400).json({
+    ok: false,
+    error: "Ese usuario admin ya existe"
+  });
+}
+
+const existeCorreo = await Restaurante.findOne({ correo });
+if (existeCorreo) {
+  return res.status(400).json({
+    ok: false,
+    error: "Ese correo ya está registrado"
+  });
 }
 
 const restaurantId = `rest_${Date.now()}`;
 const reference = `suscripcion_${restaurantId}_${Date.now()}`;
 
 const nuevoRestaurante = new Restaurante({
-restaurantId,
-nombreRestaurante: nombre,
-correo,
-usuarioAdmin: usuario,
-passwordAdmin: password,
-wompiPublicKey: publicKey,
-wompiPrivateKey: privateKey,
-wompiIntegrityKey: integrityKey,
-plan: "mensual",
-precioMensual: 200000,
-estadoSuscripcion: "pendiente",
-referenciaPago: reference
+  restaurantId,
+  nombreRestaurante: nombre,
+  correo,
+  usuarioAdmin: usuario,
+  passwordAdmin: password,
+  wompiPublicKey: publicKey,
+  wompiPrivateKey: privateKey,
+  wompiIntegrityKey: integrityKey,
+  plan: "mensual",
+  precioMensual: 200000,
+  estadoSuscripcion: "pendiente",
+  referenciaPago: reference
 });
 
 await nuevoRestaurante.save();
-const Usuario = require("../models/usuario");
+
+const sedePrincipal = await Sede.create({
+  restauranteId: nuevoRestaurante.restaurantId,
+  nombreSede: "Principal",
+  codigoSede: `${nuevoRestaurante.restaurantId}_principal`,
+  direccion: ""
+});
 
 await Usuario.create({
   restauranteId: nuevoRestaurante.restaurantId,
@@ -1384,13 +1400,12 @@ fullName: nombre
 }
 });
 } catch (error) {
-console.log("Error en registro-y-pago:", error?.response?.data || error);
-res.status(500).json({
-ok: false,
-error: "Error creando cuenta y preparando pago"
-});
+  console.log("Error en registro y pago:", error?.response?.data || error);
+  res.status(500).json({
+    ok: false,
+    error: error?.response?.data?.error?.reason || error?.message || "Error creando cuenta y preparando pago"
+  });
 }
-});
 router.post("/sede/crear", async (req, res) => {
   try {
     const { restauranteId, nombreSede, direccion } = req.body;
