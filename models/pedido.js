@@ -5,6 +5,10 @@ const pedidoSchema = new mongoose.Schema({
         type: String,
         default: "rest1"
     },
+    sedeId: {
+  type: String,
+  default: ""
+},
     mesa: {
         type: Number,
         required: true

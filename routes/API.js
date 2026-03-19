@@ -280,7 +280,7 @@ router.delete("/menu/:id", async (req, res) => {
 router.post("/pedido", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
-    const { mesa, producto, categoria, precio, metodoPago, tiempoEstimado } = req.body;
+    const { mesa, producto, categoria, precio, metodoPago, tiempoEstimado, sedeId } = req.body;
 
     if (!mesa || !producto || !precio) {
       return res.status(400).json({ mensaje: "Faltan datos del pedido" });
@@ -288,6 +288,7 @@ router.post("/pedido", async (req, res) => {
 
     const pedido = new Pedido({
       restaurantId,
+      sedeId: sedeId || "",
       mesa: Number(mesa),
       producto,
       categoria: categoria || "",
@@ -312,10 +313,23 @@ router.post("/pedido", async (req, res) => {
 router.get("/pedidos", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
-    const pedidos = await Pedido.find({ restaurantId }).sort({ createdAt: -1 });
+    const sedeId = req.query.sedeId || "";
+
+    const filtro = { restaurantId };
+
+    // 👇 SOLO si viene sedeId, filtra por sede
+    if (sedeId) {
+      filtro.sedeId = sedeId;
+    }
+
+    const pedidos = await Pedido.find(filtro).sort({ createdAt: -1 });
+
     res.json(pedidos);
   } catch (error) {
-    res.status(500).json({ mensaje: "Error obteniendo pedidos", error });
+    res.status(500).json({
+      mensaje: "Error obteniendo pedidos",
+      error
+    });
   }
 });
 
@@ -775,6 +789,34 @@ router.get("/qr/:mesa", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ mensaje: "Error generando QR", error });
+  }
+});
+router.get("/qr-sede/:mesa", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const mesa = Number(req.params.mesa);
+    const sedeId = req.query.sedeId || "";
+
+    const baseUrl = req.query.baseUrl || `${req.protocol}://${req.get("host")}`;
+
+    const url = `${baseUrl}/?restaurantId=${restaurantId}&sedeId=${sedeId}&mesa=${mesa}`;
+
+    const dataUrl = await QRCode.toDataURL(url);
+
+    res.json({
+      ok: true,
+      mesa,
+      restaurantId,
+      sedeId,
+      url,
+      dataUrl
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      ok: false,
+      error: "Error generando QR por sede"
+    });
   }
 });
 
@@ -1298,6 +1340,17 @@ referenciaPago: reference
 });
 
 await nuevoRestaurante.save();
+const Usuario = require("../models/usuario");
+
+await Usuario.create({
+  restauranteId: nuevoRestaurante.restaurantId,
+  sedeId: sedePrincipal._id,
+  nombre: nombre,
+  usuario: usuario,
+  password: password,
+  rol: "admin_general",
+  estado: "activo"
+});
 
 const amountInCents = 200000 * 100;
 const currency = "COP";
@@ -1365,6 +1418,89 @@ router.post("/sede/crear", async (req, res) => {
     res.status(500).json({
       ok: false,
       error: "Error creando sede"
+    });
+  }
+});
+router.post("/usuarios/crear", async (req, res) => {
+  try {
+    const { restauranteId, sedeId, nombre, usuario, password, rol } = req.body;
+
+    const Usuario = require("../models/usuario");
+
+    if (!restauranteId || !nombre || !usuario || !password || !rol) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos obligatorios"
+      });
+    }
+
+    const existe = await Usuario.findOne({ usuario });
+    if (existe) {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese usuario ya existe"
+      });
+    }
+
+    const nuevoUsuario = new Usuario({
+      restauranteId,
+      sedeId: sedeId || null,
+      nombre,
+      usuario,
+      password,
+      rol
+    });
+
+    await nuevoUsuario.save();
+
+    res.json({
+      ok: true,
+      usuario: nuevoUsuario
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      ok: false,
+      error: "Error creando usuario"
+    });
+  }
+});
+router.post("/usuarios/login", async (req, res) => {
+  try {
+    const { usuario, password } = req.body;
+
+    const Usuario = require("../models/usuario");
+
+    const user = await Usuario.findOne({
+      usuario,
+      password,
+      estado: "activo"
+    }).populate("sedeId");
+
+    if (!user) {
+      return res.status(401).json({
+        ok: false,
+        error: "Usuario o contraseña incorrectos"
+      });
+    }
+
+    res.json({
+      ok: true,
+      usuario: {
+        id: user._id,
+        nombre: user.nombre,
+        usuario: user.usuario,
+        rol: user.rol,
+        restauranteId: user.restauranteId,
+        sedeId: user.sedeId ? user.sedeId._id : null,
+        nombreSede: user.sedeId ? user.sedeId.nombreSede : null
+      }
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      ok: false,
+      error: "Error en login"
     });
   }
 });
