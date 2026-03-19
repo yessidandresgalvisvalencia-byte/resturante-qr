@@ -1504,5 +1504,54 @@ router.post("/usuarios/login", async (req, res) => {
     });
   }
 });
+router.post("/debug/limpiar-registro", async (req, res) => {
+  try {
+    const { usuario, correo } = req.body;
 
+    const Usuario = require("../models/usuario");
+    const Restaurante = require("../models/restaurante");
+    const Sede = require("../models/sede");
+
+    const usuarios = await Usuario.find({
+      $or: [{ usuario }, { nombre: usuario }]
+    });
+
+    const restauranteIds = usuarios.map(u => u.restauranteId);
+
+    if (correo) {
+      const restaurantesPorCorreo = await Restaurante.find({ correo });
+      restauranteIds.push(...restaurantesPorCorreo.map(r => r.restaurantId));
+    }
+
+    const idsUnicos = [...new Set(restauranteIds.filter(Boolean))];
+
+    await Usuario.deleteMany({
+      $or: [
+        { usuario },
+        { nombre: usuario },
+        { restauranteId: { $in: idsUnicos } }
+      ]
+    });
+
+    await Sede.deleteMany({ restauranteId: { $in: idsUnicos } });
+    await Restaurante.deleteMany({
+      $or: [
+        { restaurantId: { $in: idsUnicos } },
+        ...(correo ? [{ correo }] : [])
+      ]
+    });
+
+    res.json({
+      ok: true,
+      mensaje: "Registro incompleto limpiado",
+      restauranteIds: idsUnicos
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      ok: false,
+      error: "Error limpiando registro"
+    });
+  }
+});
 module.exports = router;
