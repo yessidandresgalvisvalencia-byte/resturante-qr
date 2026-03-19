@@ -994,6 +994,15 @@ router.post("/restaurante/registro", async (req, res) => {
     });
 
     await nuevoRestaurante.save();
+    const Sede = require("../models/sede");
+
+await Sede.create({
+  restauranteId: nuevoRestaurante.restaurantId,
+  nombreSede: "Principal",
+  codigoSede: `${nuevoRestaurante.restaurantId}_principal`,
+  direccion: ""
+});
+
 
     const nuevoAdmin = new Admin({
       restaurantId,
@@ -1328,6 +1337,36 @@ ok: false,
 error: "Error creando cuenta y preparando pago"
 });
 }
+});
+router.post("/sede/crear", async (req, res) => {
+  try {
+    const { restauranteId, nombreSede, direccion } = req.body;
+
+    const Sede = require("../models/sede");
+
+    const codigoSede = `${restauranteId}_${Date.now()}`;
+
+    const nueva = new Sede({
+      restauranteId,
+      nombreSede,
+      codigoSede,
+      direccion
+    });
+
+    await nueva.save();
+
+    res.json({
+      ok: true,
+      sede: nueva
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      ok: false,
+      error: "Error creando sede"
+    });
+  }
 });
 
 module.exports = router;
