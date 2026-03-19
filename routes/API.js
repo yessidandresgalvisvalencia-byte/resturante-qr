@@ -1504,50 +1504,45 @@ router.post("/usuarios/login", async (req, res) => {
     });
   }
 });
-router.post("/debug/limpiar-registro", async (req, res) => {
+router.get("/debug/limpiar-registro", async (req, res) => {
   try {
-    const { usuario, correo } = req.body;
+    const usuario = (req.query.usuario || "").trim();
 
     const Usuario = require("../models/usuario");
     const Restaurante = require("../models/restaurante");
     const Sede = require("../models/sede");
 
+    if (!usuario) {
+      return res.status(400).json({
+        ok: false,
+        error: "Falta usuario"
+      });
+    }
+
     const usuarios = await Usuario.find({
       $or: [{ usuario }, { nombre: usuario }]
     });
 
-    const restauranteIds = usuarios.map(u => u.restauranteId);
-
-    if (correo) {
-      const restaurantesPorCorreo = await Restaurante.find({ correo });
-      restauranteIds.push(...restaurantesPorCorreo.map(r => r.restaurantId));
-    }
-
-    const idsUnicos = [...new Set(restauranteIds.filter(Boolean))];
+    const restauranteIds = usuarios
+      .map(u => u.restauranteId)
+      .filter(Boolean);
 
     await Usuario.deleteMany({
-      $or: [
-        { usuario },
-        { nombre: usuario },
-        { restauranteId: { $in: idsUnicos } }
-      ]
+      $or: [{ usuario }, { nombre: usuario }]
     });
 
-    await Sede.deleteMany({ restauranteId: { $in: idsUnicos } });
-    await Restaurante.deleteMany({
-      $or: [
-        { restaurantId: { $in: idsUnicos } },
-        ...(correo ? [{ correo }] : [])
-      ]
-    });
+    if (restauranteIds.length) {
+      await Sede.deleteMany({ restauranteId: { $in: restauranteIds } });
+      await Restaurante.deleteMany({ restaurantId: { $in: restauranteIds } });
+    }
 
     res.json({
       ok: true,
-      mensaje: "Registro incompleto limpiado",
-      restauranteIds: idsUnicos
+      mensaje: "Registro limpiado",
+      restauranteIds
     });
   } catch (error) {
-    console.log(error);
+    console.log("Error limpiando registro:", error);
     res.status(500).json({
       ok: false,
       error: "Error limpiando registro"
