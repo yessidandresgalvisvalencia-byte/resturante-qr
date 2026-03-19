@@ -373,82 +373,102 @@ Al continuar, se preparará el pago y se abrirá el checkout de Wompi.
 
 <script src="https://checkout.wompi.co/widget.js"></script>
 <script>
-async function crearYPagar() {
-try {
-const nombre = document.getElementById("nombre").value.trim();
-const correo = document.getElementById("correo").value.trim();
-const usuario = document.getElementById("usuario").value.trim();
-const password = document.getElementById("password").value.trim();
+  async function crearYPagar() {
+    try {
+      const nombre = document.getElementById("nombre").value.trim();
+      const correo = document.getElementById("correo").value.trim();
+      const usuario = document.getElementById("usuario").value.trim();
+      const password = document.getElementById("password").value.trim();
 
-const publicKey = document.getElementById("publicKey").value.trim();
-const privateKey = document.getElementById("privateKey").value.trim();
-const integrityKey = document.getElementById("integrityKey").value.trim();
+      const publicKey = document.getElementById("publicKey").value.trim();
+      const privateKey = document.getElementById("privateKey").value.trim();
+      const integrityKey = document.getElementById("integrityKey").value.trim();
 
-const acepta = document.getElementById("acepta").checked;
+      const acepta = document.getElementById("acepta").checked;
 
-if (!nombre || !correo || !usuario || !password) {
-alert("Completa todos los datos del restaurante");
-return;
-}
+      console.log({
+        nombre,
+        correo,
+        usuario,
+        password,
+        publicKey,
+        privateKey,
+        integrityKey,
+        acepta
+      });
 
-if (!publicKey || !privateKey || !integrityKey) {
-alert("Completa las claves de Wompi");
-return;
-}
+      if (!nombre || !correo || !usuario || !password) {
+        alert("Completa todos los campos");
+        return;
+      }
 
-if (!acepta) {
-alert("Debes aceptar la suscripción mensual");
-return;
-}
+      if (!publicKey || !privateKey || !integrityKey) {
+        alert("Completa las claves de Wompi");
+        return;
+      }
 
-const res = await fetch(`"/api/registro-y-pago",` {
-method: "POST",
-headers: {
-"Content-Type": "application/json"
-},
-body: JSON.stringify({
-nombre,
-correo,
-usuario,
-password,
-publicKey,
-privateKey,
-integrityKey
-})
-});
+      if (!acepta) {
+        alert("Debes aceptar la suscripción mensual");
+        return;
+      }
 
-const data = await res.json();
+      const res = await fetch("/api/registro-y-pago", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          nombre,
+          correo,
+          usuario,
+          password,
+          publicKey,
+          privateKey,
+          integrityKey
+        })
+      });
 
-if (!res.ok || !data.ok) {
-alert(data.error || "No se pudo iniciar el proceso");
-return;
-}
+      const text = await res.text();
+      console.log("Respuesta cruda backend:", text);
 
-const pago = data.pago;
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        alert("El servidor no devolvió JSON. Revisa la consola.");
+        return;
+      }
 
-const checkout = new WidgetCheckout({
-currency: pago.currency,
-amountInCents: pago.amountInCents,
-reference: pago.reference,
-publicKey: pago.publicKey,
-signature: { integrity: pago.signature },
-acceptanceToken: pago.acceptanceToken,
-customerData: {
-email: pago.customerEmail,
-fullName: pago.customerData.fullName
-}
-});
+      if (!res.ok || !data.ok) {
+        alert(data.error || "No se pudo iniciar el pago");
+        return;
+      }
 
-checkout.open(function(result) {
-if (result && result.transaction) {
-alert("Pago enviado. Estamos validando la activación.");
-}
-});
-} catch (error) {
-console.log(error);
-alert("Error iniciando proceso");
-}
-}
+      const pago = data.pago;
+
+      const checkout = new WidgetCheckout({
+        currency: pago.currency,
+        amountInCents: pago.amountInCents,
+        reference: pago.reference,
+        publicKey: pago.publicKey,
+        signature: { integrity: pago.signature },
+        acceptanceToken: pago.acceptanceToken,
+        customerData: {
+          email: pago.customerEmail,
+          fullName: pago.customerData.fullName
+        }
+      });
+
+      checkout.open(function (result) {
+        if (result && result.transaction) {
+          alert("Pago enviado. Estamos validando la suscripción.");
+        }
+      });
+    } catch (error) {
+      console.log("Error frontend:", error);
+      alert("Error iniciando proceso");
+    }
+  }
 </script>
 </body>
 </html>
