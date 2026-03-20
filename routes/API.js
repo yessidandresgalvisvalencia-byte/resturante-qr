@@ -1159,7 +1159,7 @@ router.post("/crear-pago-suscripcion", async (req, res) => {
     const reference = `suscripcion_${restaurantId}_${Date.now()}`;
 
     const acceptanceRes = await axios.get(
-      `https://production.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
+      `https://sandbox.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
     );
 
     const acceptanceToken =
@@ -1338,7 +1338,7 @@ router.post("/registro-y-pago", async (req, res) => {
 
     // 1. VALIDAR WOMPI PRIMERO
     const acceptanceRes = await axios.get(
-      `https://production.wompi.co/v1/merchants/${publicKey}`
+      `https://sandbox.wompi.co/v1/merchants/${publicKey}`
     );
 
     const acceptanceToken =
