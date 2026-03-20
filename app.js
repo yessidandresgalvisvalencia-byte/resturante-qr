@@ -9,6 +9,7 @@ const app = express();
 
 const iniciarJobSuscripciones = require("./jobs/suscripciones");
 const apiRoutes = require("./routes/API");
+app.use("/api", apiRoutes);
 
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);

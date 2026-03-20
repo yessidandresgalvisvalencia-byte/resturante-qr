@@ -1150,6 +1150,7 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
       });
     }
 
+
     res.json({
       ok: true,
       estadoSuscripcion: restaurante.estadoSuscripcion,
@@ -1515,6 +1516,12 @@ router.get("/debug/limpiar-registro", async (req, res) => {
       error: "Error limpiando registro"
     });
   }
+});
+router.get("/wompi/webhook", (req, res) => {
+  res.json({
+    ok: true,
+    mensaje: "Webhook Wompi disponible"
+  });
 });
 router.post("/wompi/webhook", async (req, res) => {
   try {
