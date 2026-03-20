@@ -1071,37 +1071,45 @@ await Sede.create({
 // OJO: necesitas usar express.raw() en app.js para esta ruta
 router.post("/wompi/webhook", async (req, res) => {
   try {
+    console.log("Webhook Wompi recibido:", JSON.stringify(req.body, null, 2));
+
     const evento = req.body;
-
-    // Aquí validas firma si decides usar verificación estricta
-    // usando tu secret/integrity según la integración elegida
-
-    const data = evento?.data;
-    const transaction = data?.transaction;
+    const transaction = evento?.data?.transaction;
 
     if (!transaction) {
+      console.log("Webhook sin transaction");
       return res.status(200).json({ ok: true });
     }
 
-    const referencia = transaction.reference;
-    const estado = transaction.status; // Ej: APPROVED, DECLINED, ERROR
+    const reference = transaction.reference || "";
+    const status = transaction.status;
     const transactionId = transaction.id;
 
-    // Te conviene usar una referencia tipo:
-    // suscripcion_<restaurantId>_<timestamp>
-    if (!referencia || !referencia.startsWith("suscripcion_")) {
+    console.log("Reference:", reference);
+    console.log("Status:", status);
+    console.log("TransactionId:", transactionId);
+
+    if (!reference.startsWith("suscripcion_")) {
+      console.log("Referencia no corresponde a suscripción");
       return res.status(200).json({ ok: true });
     }
 
-    const partes = referencia.split("_");
-    const restaurantId = partes[1] + "_" + partes[2];
+    const partes = reference.split("_");
+    const restaurantId = partes[2];
+
+    console.log("RestaurantId detectado:", restaurantId);
 
     const restaurante = await Restaurante.findOne({ restaurantId });
+
     if (!restaurante) {
-      return res.status(404).json({ ok: false, error: "Restaurante no encontrado" });
+      console.log("Restaurante no encontrado para webhook");
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
     }
 
-    if (estado === "APPROVED") {
+    if (status === "APPROVED") {
       const hoy = new Date();
       const proximo = new Date(hoy);
       proximo.setDate(proximo.getDate() + 30);
@@ -1112,20 +1120,22 @@ router.post("/wompi/webhook", async (req, res) => {
       restaurante.ultimoTransactionId = transactionId;
 
       await restaurante.save();
+      console.log("Suscripción activada correctamente");
     }
 
-    if (estado === "DECLINED" || estado === "ERROR") {
-      if (restaurante.estadoSuscripcion === "pendiente") {
+    if (status === "DECLINED" || status === "ERROR" || status === "VOIDED") {
+      if (restaurante.estadoSuscripcion !== "activa") {
         restaurante.estadoSuscripcion = "pendiente";
         restaurante.ultimoTransactionId = transactionId;
         await restaurante.save();
+        console.log("Suscripción quedó pendiente");
       }
     }
 
-    return res.status(200).json({ ok: true });
+    res.status(200).json({ ok: true });
   } catch (error) {
     console.log("Error webhook Wompi:", error);
-    return res.status(500).json({ ok: false });
+    res.status(500).json({ ok: false });
   }
 });
 
