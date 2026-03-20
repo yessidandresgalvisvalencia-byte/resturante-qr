@@ -1134,7 +1134,7 @@ router.post("/wompi/webhook", async (req, res) => {
 ========================= */
 
 // Devuelve lo necesario para abrir el widget / checkout del primer pago
-("/crear-pago-suscripcion", async (req, res) => {
+router.post("/crear-pago-suscripcion", async (req, res) => {
   try {
     const { restaurantId } = req.body;
 
@@ -1249,7 +1249,7 @@ router.post("/wompi/webhook", async (req, res) => {
     const partes = reference.split("_");
     const restaurantId = partes[1];
 
-     await Restaurante.findOne({ restaurantId });
+    const restaurante = await Restaurante.findOne({ restaurantId });
 
     if (!restaurante) {
       return res.status(404).json({
@@ -1286,7 +1286,7 @@ router.post("/wompi/webhook", async (req, res) => {
   }
 });
 
-router.post("/registro-y-pago", async (req, res) => {
+router.post("/registro-y-pago", async (req, res) => { 
 try {
 const {
 nombre,
@@ -1304,6 +1304,7 @@ ok: false,
 error: "Faltan datos del restaurante"
 });
 }
+
 
 if (!publicKey || !privateKey || !integrityKey) {
 return res.status(400).json({
@@ -1436,6 +1437,7 @@ router.post("/sede/crear", async (req, res) => {
     });
   }
 });
+}); 
 router.post("/usuarios/crear", async (req, res) => {
   try {
     const { restauranteId, sedeId, nombre, usuario, password, rol } = req.body;
@@ -1564,4 +1566,5 @@ router.get("/debug/limpiar-registro", async (req, res) => {
     });
   }
 });
+
 module.exports = router;
