@@ -1516,5 +1516,14 @@ router.get("/debug/limpiar-registro", async (req, res) => {
     });
   }
 });
+router.post("/wompi/webhook", async (req, res) => {
+  try {
+    console.log("Webhook Wompi recibido:", JSON.stringify(req.body, null, 2));
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    console.log("Error webhook Wompi:", error);
+    res.status(500).json({ ok: false });
+  }
+});
 
 module.exports = router;
