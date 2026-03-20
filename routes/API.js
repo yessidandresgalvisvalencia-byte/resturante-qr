@@ -1094,7 +1094,7 @@ router.post("/wompi/webhook", async (req, res) => {
     }
 
     const partes = referencia.split("_");
-    const restaurantId = partes[1];
+    const restaurantId = partes[1] + "_" + partes[2];
 
     const restaurante = await Restaurante.findOne({ restaurantId });
     if (!restaurante) {
@@ -1247,7 +1247,7 @@ router.post("/wompi/webhook", async (req, res) => {
     }
 
     const partes = reference.split("_");
-    const restaurantId = partes[1];
+    const restaurantId = partes[1] + "_" + partes[2];
 
     const restaurante = await Restaurante.findOne({ restaurantId });
 
