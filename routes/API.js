@@ -9,7 +9,7 @@ const Pedido = require("../models/pedido.js");
 const Llamado = require("../models/llamado");
 const Restaurante = require("../models/restaurante");
 const Usuario = require("../models/usuario");
-const Sede = requiere("../models/sede");
+const Sede = require("../models/sede");
 
 
 /* =========================
