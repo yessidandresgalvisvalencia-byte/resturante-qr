@@ -1,13 +1,16 @@
 const express = require("express");
 const QRCode = require("qrcode");
-const axios = require("axios")
-const crypto = require("crypto")
+const axios = require("axios");
+const crypto = require("crypto");
 
 const router = express.Router();
 
 const Pedido = require("../models/pedido.js");
 const Llamado = require("../models/llamado");
 const Restaurante = require("../models/restaurante");
+const Usuario = require("../models/usuario");
+const Sede = requiere("../models/sede");
+
 
 /* =========================
    CONFIG BÁSICA
@@ -1036,7 +1039,7 @@ router.post("/restaurante/registro", async (req, res) => {
     });
 
     await nuevoRestaurante.save();
-    const Sede = require("../models/sede");
+  
 
 await Sede.create({
   restauranteId: nuevoRestaurante.restaurantId,
@@ -1361,7 +1364,7 @@ router.post("/usuarios/crear", async (req, res) => {
   try {
     const { restauranteId, sedeId, nombre, usuario, password, rol } = req.body;
 
-    const Usuario = require("../models/usuario");
+    
 
     if (!restauranteId || !nombre || !usuario || !password || !rol) {
       return res.status(400).json({
@@ -1445,7 +1448,7 @@ router.get("/debug/limpiar-registro", async (req, res) => {
     const usuario = (req.query.usuario || "").trim();
 
    
-    const Restaurante = require("../models/restaurante");
+    
    
 
     if (!usuario) {
