@@ -1634,7 +1634,6 @@ error?.message ||
 });
 }
 });
-const axios = require("axios");
 const Restaurante = require("../models/restaurante");
 const Usuario = require("../models/usuario");
 const Sede = require("../models/sede");
