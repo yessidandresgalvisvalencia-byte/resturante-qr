@@ -147,9 +147,7 @@ grid-template-columns: 1fr;
 <span>Acepto la suscripción mensual de $200.000 COP y autorizo el cobro automático.</span>
 </label>
 
-<button type="button" onclick="crearCuentaYAutorizar()">
-Crear cuenta y activar suscripción
-</button>
+<button onclick="crearCuentaYGuardarTarjeta()">Crear cuenta y autorizar cobros</button>
 
 <p class="texto-suave" style="margin-top: 14px;">
 El método de pago se registra una vez para permitir renovaciones automáticas.
@@ -264,6 +262,118 @@ window.location.href = "/login.html";
 } catch (error) {
 console.log("Error creando cuenta con fuente de pago:", error);
 alert("Error creando cuenta y autorizando cobros");
+}
+}
+
+async function crearCuentaYGuardarTarjeta() {
+try {
+const nombre = document.getElementById("nombre").value.trim();
+const correo = document.getElementById("correo").value.trim();
+const usuario = document.getElementById("usuario").value.trim();
+const password = document.getElementById("password").value.trim();
+
+const publicKey = document.getElementById("publicKey").value.trim();
+const privateKey = document.getElementById("privateKey").value.trim();
+
+const numeroTarjeta = document.getElementById("numeroTarjeta").value.trim().replace(/\s+/g, "");
+const cvc = document.getElementById("cvc").value.trim();
+const expMes = document.getElementById("expMes").value.trim();
+const expAnio = document.getElementById("expAnio").value.trim();
+const cardHolder = document.getElementById("cardHolder").value.trim();
+
+const acepta = document.getElementById("acepta").checked;
+
+if (!nombre || !correo || !usuario || !password) {
+alert("Completa los datos del restaurante");
+return;
+}
+
+if (!publicKey || !privateKey) {
+alert("Completa las llaves de Wompi");
+return;
+}
+
+if (!numeroTarjeta || !cvc || !expMes || !expAnio || !cardHolder) {
+alert("Completa los datos de la tarjeta");
+return;
+}
+
+if (!acepta) {
+alert("Debes aceptar la suscripción mensual");
+return;
+}
+
+// 1. Obtener acceptance token del comercio
+const merchantRes = await fetch(`https://sandbox.wompi.co/v1/merchants/${publicKey}`);
+const merchantData = await merchantRes.json();
+
+const acceptanceToken =
+merchantData?.data?.presigned_acceptance?.acceptance_token;
+
+if (!acceptanceToken) {
+alert("No se pudo obtener el acceptance token");
+return;
+}
+
+// 2. Tokenizar la tarjeta
+const tokenRes = await fetch("https://sandbox.wompi.co/v1/tokens/cards", {
+method: "POST",
+headers: {
+"Content-Type": "application/json",
+"Authorization": `Bearer ${publicKey}`
+},
+body: JSON.stringify({
+number: numeroTarjeta,
+cvc: cvc,
+exp_month: expMes,
+exp_year: expAnio,
+card_holder: cardHolder
+})
+});
+
+const tokenData = await tokenRes.json();
+
+const paymentMethodToken = tokenData?.data?.id;
+
+if (!paymentMethodToken) {
+console.log("Respuesta token tarjeta:", tokenData);
+alert("No se pudo tokenizar la tarjeta");
+return;
+}
+
+// 3. Mandar todo al backend para crear fuente de pago
+const res = await fetch("/api/registro-y-fuente-pago", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+nombre,
+correo,
+usuario,
+password,
+publicKey,
+privateKey,
+acceptanceToken,
+paymentMethodToken,
+customerEmail: correo
+})
+});
+
+const data = await res.json();
+
+console.log("Respuesta backend:", data);
+
+if (!res.ok || !data.ok) {
+alert(data.error || "No se pudo guardar la tarjeta");
+return;
+}
+
+alert("Cuenta creada y tarjeta autorizada correctamente");
+window.location.href = "/login.html";
+} catch (error) {
+console.log("Error frontend:", error);
+alert("Error creando cuenta y guardando tarjeta");
 }
 }
 </script>
