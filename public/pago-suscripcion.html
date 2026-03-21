@@ -5,6 +5,67 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pagar Suscripción</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 30px 15px;
+    }
+
+    .contenedor {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      margin: 8px 0 14px 0;
+      border: 1px solid #d9d9d9;
+      border-radius: 10px;
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #111827;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.95;
+    }
+
+    button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .estado {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #333;
+    }
+  </style>
 </head>
 <body>
   <div class="contenedor">
@@ -14,17 +75,26 @@
       <p><strong>$200.000 COP / mes</strong></p>
       <p>Activa tu cuenta para empezar a usar la plataforma.</p>
 
-      <label>Restaurant ID</label>
-      <input id="restaurantIdPago" type="text" placeholder="Ej: parrilla-juan" />
+      <label for="restaurantIdPago">Restaurant ID</label>
+      <input id="restaurantIdPago" type="text" placeholder="Ej: rest_1774052682306" />
 
-      <button onclick="pagarSuscripcion()">Pagar ahora</button>
+      <button id="btnPagar" onclick="pagarSuscripcion()">Pagar ahora</button>
+
+      <div id="estadoPago" class="estado"></div>
     </div>
   </div>
 
   <script src="https://checkout.wompi.co/widget.js"></script>
   <script>
     async function pagarSuscripcion() {
+      const btn = document.getElementById("btnPagar");
+      const estado = document.getElementById("estadoPago");
+
       try {
+        btn.disabled = true;
+        btn.textContent = "Preparando pago...";
+        estado.textContent = "";
+
         const restaurantId = document.getElementById("restaurantIdPago").value.trim();
 
         if (!restaurantId) {
@@ -35,13 +105,13 @@
         const res = await fetch("/api/crear-pago-suscripcion", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${PublicKey}`,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({ restaurantId })
         });
 
         const data = await res.json();
+        console.log("Respuesta backend pago:", data);
 
         if (!res.ok || !data.ok) {
           alert(data.error || "No se pudo preparar el pago");
@@ -63,14 +133,19 @@
           acceptanceToken: pago.acceptanceToken
         });
 
+        estado.textContent = "Abriendo checkout de Wompi...";
+
         checkout.open(function (result) {
           if (result && result.transaction) {
             alert("Pago enviado. Estamos validando el resultado.");
           }
         });
       } catch (error) {
-        console.log(error);
+        console.log("Error iniciando pago:", error);
         alert("Error iniciando pago");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Pagar ahora";
       }
     }
   </script>

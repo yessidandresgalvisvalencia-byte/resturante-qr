@@ -94,6 +94,7 @@
       margin-top: 12px;
       font-size: 14px;
       color: #333;
+      white-space: pre-line;
     }
 
     ul {
@@ -133,8 +134,9 @@
       <input id="usuarioAdmin" type="text" placeholder="Usuario admin" />
       <input id="password" type="password" placeholder="Contraseña" />
 
-      <h3>Llave pública de Wompi</h3>
+      <h3>Claves de Wompi</h3>
       <input id="publicKey" type="text" placeholder="Public Key (ej: pub_test_...)" />
+      <input id="privateKey" type="text" placeholder="Private Key (ej: prv_test_...)" />
 
       <h3>Tarjeta para cobro automático</h3>
       <input id="cardNumber" type="text" placeholder="Número de tarjeta" />
@@ -163,7 +165,7 @@
       </button>
 
       <p class="texto-suave" style="margin-top: 14px;">
-        El método de pago se registra una sola vez para permitir renovaciones automáticas.
+        En pruebas usa una tarjeta sandbox válida, por ejemplo 4242 4242 4242 4242.
       </p>
 
       <div id="estadoProceso" class="estado"></div>
@@ -186,6 +188,7 @@
         const password = document.getElementById("password").value.trim();
 
         const publicKey = document.getElementById("publicKey").value.trim();
+        const privateKey = document.getElementById("privateKey").value.trim();
 
         const numeroTarjeta = document.getElementById("cardNumber").value.trim().replace(/\s+/g, "");
         const cvc = document.getElementById("cvc").value.trim();
@@ -201,8 +204,8 @@
           return;
         }
 
-        if (!publicKey) {
-          alert("Completa la Public Key de Wompi");
+        if (!publicKey || !privateKey) {
+          alert("Completa la Public Key y la Private Key de Wompi");
           return;
         }
 
@@ -216,9 +219,8 @@
           return;
         }
 
-        estado.textContent = "Obteniendo aceptación del comercio...";
+        estado.textContent = "Obteniendo acceptance token del comercio...";
 
-        // 1. Obtener acceptance token del comercio
         const merchantRes = await fetch(`https://sandbox.wompi.co/v1/merchants/${publicKey}`);
         const merchantData = await merchantRes.json();
 
@@ -233,7 +235,6 @@
 
         estado.textContent = "Tokenizando tarjeta...";
 
-        // 2. Tokenizar tarjeta
         const tokenRes = await fetch("https://sandbox.wompi.co/v1/tokens/cards", {
           method: "POST",
           headers: {
@@ -260,7 +261,6 @@
 
         estado.textContent = "Creando cuenta y guardando método de pago...";
 
-        // 3. Enviar al backend
         const res = await fetch("/api/registro-y-fuente-pago", {
           method: "POST",
           headers: {
@@ -272,9 +272,11 @@
             usuario,
             password,
             publicKey,
+            privateKey,
             acceptanceToken,
             paymentMethodToken,
-            customerEmail
+            customerEmail,
+            aceptaPlan: acepta
           })
         });
 
@@ -286,10 +288,9 @@
           return;
         }
 
-        estado.textContent = "Cuenta creada correctamente.";
+        estado.textContent = "Cuenta creada y tarjeta autorizada correctamente.";
         alert("Cuenta creada y tarjeta autorizada correctamente");
 
-        // Cambia esta ruta si tu login real es otra
         window.location.href = "/login.html";
       } catch (error) {
         console.log("Error frontend:", error);
