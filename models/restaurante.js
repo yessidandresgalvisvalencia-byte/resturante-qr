@@ -15,6 +15,7 @@ const restauranteSchema = new mongoose.Schema({
     default: "pendiente"
   },
 
+
   aceptaPlan: { type: Boolean, default: false },
 
   fechaUltimoPago: { type: Date, default: null },
@@ -22,7 +23,7 @@ const restauranteSchema = new mongoose.Schema({
   ultimoTransactionId: { type: String, default: "" },
 
   paymentSourceId: { type: String, default: "" },
-  customerEmailWompi: { type: String, default: "" }
-}, { timestamps: true });
-
+customerEmailWompi: { type: String, default: "" },
+tokenizacionCompleta: { type: Boolean, default: false }
+}); 
 module.exports = mongoose.model("Restaurante", restauranteSchema);
