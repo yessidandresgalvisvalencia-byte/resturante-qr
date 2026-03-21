@@ -3,71 +3,92 @@ const axios = require("axios");
 const Restaurante = require("../models/restaurante");
 
 function iniciarJobSuscripciones() {
-  // 🔁 se ejecuta todos los días a las 9am
-  cron.schedule("0 9 * * *", async () => {
-    try {
-      console.log("🔁 Revisando suscripciones...");
+// todos los días a las 9:00 AM
+cron.schedule("0 9 * * *", async () => {
+try {
+console.log("Revisando suscripciones automáticas...");
 
-      const hoy = new Date();
+const hoy = new Date();
 
-      const restaurantes = await Restaurante.find({
-        estadoSuscripcion: "activa",
-        fechaProximoCobro: { $lte: hoy },
-        paymentSourceId: { $ne: "" }
-      });
+const restaurantes = await Restaurante.find({
+estadoSuscripcion: "activa",
+fechaProximoCobro: { $lte: hoy },
+paymentSourceId: { $ne: "" },
+tokenizacionCompleta: true
+});
 
-      console.log("Restaurantes a cobrar:", restaurantes.length);
+console.log("Restaurantes para cobrar:", restaurantes.length);
 
-      for (const restaurante of restaurantes) {
-        try {
-          const amountInCents = restaurante.precioMensual * 100;
-          const currency = "COP";
-          const reference = `renovacion_${restaurante.restaurantId}_${Date.now()}`;
+for (const restaurante of restaurantes) {
+try {
+const wompiPublicKey =
+restaurante.wompiPublicKey || process.env.WOMPI_PUBLIC_KEY;
 
-          const merchantRes = await axios.get(
-            `https://sandbox.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
-          );
+const wompiPrivateKey =
+restaurante.wompiPrivateKey || process.env.WOMPI_PRIVATE_KEY;
 
-          const acceptanceToken =
-            merchantRes.data?.data?.presigned_acceptance?.acceptance_token;
+if (!wompiPublicKey || !wompiPrivateKey) {
+console.log(
+"Faltan llaves Wompi para restaurante:",
+restaurante.restaurantId
+);
+continue;
+}
 
-          const txRes = await axios.post(
-            "https://sandbox.wompi.co/v1/transactions",
-            {
-              acceptance_token: acceptanceToken,
-              amount_in_cents: amountInCents,
-              currency,
-              customer_email: restaurante.customerEmailWompi || restaurante.correo,
-              reference,
-              payment_source_id: Number(restaurante.paymentSourceId)
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${process.env.WOMPI_PRIVATE_KEY}`,
-                "Content-Type": "application/json"
-              }
-            }
-          );
+const amountInCents = restaurante.precioMensual * 100;
+const currency = "COP";
+const reference = `renovacion_${restaurante.restaurantId}_${Date.now()}`;
 
-          console.log("💰 Cobro enviado:", restaurante.restaurantId);
+const merchantRes = await axios.get(
+`https://sandbox.wompi.co/v1/merchants/${wompiPublicKey}`
+);
 
-        } catch (error) {
-          console.log(
-            "❌ Error cobrando:",
-            restaurante.restaurantId,
-            error?.response?.data || error
-          );
+const acceptanceToken =
+merchantRes?.data?.data?.presigned_acceptance?.acceptance_token;
 
-          // 👉 si falla, lo pasamos a pendiente
-          restaurante.estadoSuscripcion = "pendiente";
-          await restaurante.save();
-        }
-      }
+if (!acceptanceToken) {
+console.log(
+"No se pudo obtener acceptance token para:",
+restaurante.restaurantId
+);
+continue;
+}
 
-    } catch (error) {
-      console.log("❌ Error general del job:", error);
-    }
-  });
+const txRes = await axios.post(
+"https://sandbox.wompi.co/v1/transactions",
+{
+acceptance_token: acceptanceToken,
+amount_in_cents: amountInCents,
+currency,
+customer_email: restaurante.customerEmailWompi,
+reference,
+payment_source_id: Number(restaurante.paymentSourceId)
+},
+{
+headers: {
+Authorization: `Bearer ${wompiPrivateKey}`,
+"Content-Type": "application/json"
+}
+}
+);
+
+console.log(
+"Cobro automático enviado para:",
+restaurante.restaurantId,
+txRes?.data?.data?.id || "sin id"
+);
+} catch (error) {
+console.log(
+"Error cobrando automáticamente a",
+restaurante.restaurantId,
+error?.response?.data || error
+);
+}
+}
+} catch (error) {
+console.log("Error general del job de suscripciones:", error);
+}
+});
 }
 
 module.exports = iniciarJobSuscripciones;
