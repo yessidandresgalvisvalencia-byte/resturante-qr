@@ -9,12 +9,12 @@ const restauranteSchema = new mongoose.Schema({
 
   plan: { type: String, default: "mensual" },
   precioMensual: { type: Number, default: 200000 },
+
   estadoSuscripcion: {
     type: String,
     enum: ["pendiente", "activa", "inactiva"],
     default: "pendiente"
   },
-
 
   aceptaPlan: { type: Boolean, default: false },
 
@@ -22,8 +22,13 @@ const restauranteSchema = new mongoose.Schema({
   fechaProximoCobro: { type: Date, default: null },
   ultimoTransactionId: { type: String, default: "" },
 
+  // 🔥 NUEVO (para cobro automático)
   paymentSourceId: { type: String, default: "" },
-customerEmailWompi: { type: String, default: "" },
-tokenizacionCompleta: { type: Boolean, default: false }
-}); 
+  customerEmailWompi: { type: String, default: "" },
+  tokenizacionCompleta: { type: Boolean, default: false }
+
+}, {
+  timestamps: true // 🔥 recomendado
+});
+
 module.exports = mongoose.model("Restaurante", restauranteSchema);

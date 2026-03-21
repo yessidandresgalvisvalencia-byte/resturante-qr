@@ -1634,5 +1634,135 @@ error?.message ||
 });
 }
 });
+const axios = require("axios");
+const Restaurante = require("../models/restaurante");
+const Usuario = require("../models/usuario");
+const Sede = require("../models/sede");
+
+router.post("/registro-y-fuente-pago", async (req, res) => {
+  try {
+    const {
+      nombre,
+      correo,
+      usuario,
+      password,
+      publicKey,
+      acceptanceToken,
+      paymentMethodToken,
+      customerEmail
+    } = req.body;
+
+    if (!nombre || !correo || !usuario || !password) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos del restaurante"
+      });
+    }
+
+    if (!publicKey || !acceptanceToken || !paymentMethodToken || !customerEmail) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos del método de pago"
+      });
+    }
+
+    const existeUsuario = await Usuario.findOne({ usuario });
+    if (existeUsuario) {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese usuario admin ya existe"
+      });
+    }
+
+    const existeCorreo = await Restaurante.findOne({ correo });
+    if (existeCorreo) {
+      return res.status(400).json({
+        ok: false,
+        error: "Ese correo ya está registrado"
+      });
+    }
+
+    const privateKey = process.env.WOMPI_PRIVATE_KEY;
+    if (!privateKey) {
+      return res.status(500).json({
+        ok: false,
+        error: "Falta WOMPI_PRIVATE_KEY en el backend"
+      });
+    }
+
+    const paymentSourceRes = await axios.post(
+      "https://sandbox.wompi.co/v1/payment_sources",
+      {
+        type: "CARD",
+        token: paymentMethodToken,
+        customer_email: customerEmail,
+        acceptance_token: acceptanceToken
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${privateKey}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const paymentSource = paymentSourceRes.data?.data;
+
+    if (!paymentSource || !paymentSource.id) {
+      return res.status(400).json({
+        ok: false,
+        error: "No se pudo crear la fuente de pago"
+      });
+    }
+
+    const restaurantId = `rest_${Date.now()}`;
+
+    const nuevoRestaurante = await Restaurante.create({
+      restaurantId,
+      nombreRestaurante: nombre,
+      correo,
+      usuarioAdmin: usuario,
+      passwordAdmin: password,
+      wompiPublicKey: publicKey,
+      plan: "mensual",
+      precioMensual: 200000,
+      estadoSuscripcion: "activa",
+      fechaUltimoPago: new Date(),
+      fechaProximoCobro: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      paymentSourceId: String(paymentSource.id),
+      customerEmailWompi: customerEmail,
+      tokenizacionCompleta: true
+    });
+
+    const sedePrincipal = await Sede.create({
+      restauranteId: restaurantId,
+      nombreSede: "Principal",
+      codigoSede: `${restaurantId}_principal`,
+      direccion: ""
+    });
+
+    await Usuario.create({
+      restauranteId: restaurantId,
+      sedeId: sedePrincipal._id,
+      nombre,
+      usuario,
+      password,
+      rol: "admin_general",
+      estado: "activo"
+    });
+
+    res.json({
+      ok: true,
+      restaurantId,
+      paymentSourceId: paymentSource.id
+    });
+  } catch (error) {
+    console.log("Error registro-y-fuente-pago:", error?.response?.data || error);
+    res.status(500).json({
+      ok: false,
+      error: error?.response?.data?.error?.reason || "Error creando cuenta y guardando tarjeta"
+    });
+  }
+});
 
 module.exports = router;
