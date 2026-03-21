@@ -6,469 +6,266 @@
 <title>Crear cuenta Restaurante</title>
 <link rel="stylesheet" href="style.css" />
 <style>
-:root {
---bg: #f6f7fb;
---card: #ffffff;
---text: #1f2937;
---muted: #6b7280;
---border: #e5e7eb;
---primary: #111827;
---primary-hover: #000000;
---accent: #f3f4f6;
---success: #065f46;
-}
-
-* {
-box-sizing: border-box;
-}
-
 body {
-margin: 0;
 font-family: Arial, sans-serif;
-background: var(--bg);
-color: var(--text);
+background: #f5f5f5;
+margin: 0;
+padding: 30px 15px;
 }
 
-.page {
-max-width: 1100px;
+.contenedor {
+max-width: 760px;
 margin: 0 auto;
-padding: 40px 20px 60px;
 }
 
-.hero {
-display: grid;
-grid-template-columns: 1.1fr 0.9fr;
-gap: 24px;
-align-items: stretch;
-margin-bottom: 24px;
-}
-
-.hero-card,
-.form-card,
-.info-card {
-background: var(--card);
-border: 1px solid var(--border);
-border-radius: 18px;
-box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
-}
-
-.hero-card {
-padding: 32px;
-}
-
-.hero-badge {
-display: inline-block;
-padding: 8px 14px;
-border-radius: 999px;
-background: var(--accent);
-color: var(--text);
-font-size: 13px;
-font-weight: 700;
-margin-bottom: 16px;
-}
-
-.hero-card h1 {
-font-size: 42px;
-line-height: 1.1;
-margin: 0 0 14px;
-}
-
-.hero-card p {
-margin: 0 0 20px;
-color: var(--muted);
-font-size: 17px;
-line-height: 1.5;
-}
-
-.price-box {
-margin-top: 22px;
-padding: 18px;
+.card {
+background: #fff;
 border-radius: 14px;
-background: #111827;
-color: white;
+padding: 24px;
+margin-bottom: 18px;
+box-shadow: 0 2px 10px rgba(0,0,0,0.08);
 }
 
-.price-box .price-label {
-font-size: 13px;
-opacity: 0.85;
-margin-bottom: 6px;
+h1, h2, h3 {
+margin-top: 0;
 }
 
-.price-box .price-value {
-font-size: 32px;
-font-weight: 800;
-line-height: 1.1;
-}
-
-.price-box .price-sub {
-margin-top: 6px;
-font-size: 14px;
-opacity: 0.9;
-}
-
-.info-card {
-padding: 28px;
-}
-
-.info-card h2 {
-margin: 0 0 16px;
-font-size: 28px;
-}
-
-.benefits {
-list-style: none;
-padding: 0;
-margin: 0 0 18px;
-}
-
-.benefits li {
-padding: 10px 0;
-border-bottom: 1px solid var(--border);
-font-size: 16px;
-}
-
-.benefits li:last-child {
-border-bottom: 0;
-}
-
-.mini-note {
-background: #ecfdf5;
-border: 1px solid #d1fae5;
-color: var(--success);
-padding: 14px;
-border-radius: 12px;
-font-size: 14px;
-line-height: 1.5;
-}
-
-.form-card {
-padding: 28px;
-}
-
-.form-card h3 {
-margin: 0 0 8px;
-font-size: 28px;
-}
-
-.form-subtitle {
-margin: 0 0 24px;
-color: var(--muted);
+input {
+width: 100%;
+box-sizing: border-box;
+padding: 12px;
+margin: 8px 0 14px 0;
+border: 1px solid #d9d9d9;
+border-radius: 10px;
 font-size: 15px;
 }
 
-.section-title {
-margin: 24px 0 12px;
-font-size: 18px;
-font-weight: 800;
-}
-
-.grid-2 {
+.fila {
 display: grid;
 grid-template-columns: 1fr 1fr;
-gap: 14px;
+gap: 12px;
 }
 
-.field {
+.checkbox-linea {
 display: flex;
-flex-direction: column;
-gap: 8px;
-margin-bottom: 14px;
-}
-
-.field label {
-font-size: 14px;
-font-weight: 700;
-}
-
-.field input {
-width: 100%;
-padding: 14px 14px;
-border: 1px solid var(--border);
-border-radius: 12px;
-font-size: 15px;
-outline: none;
-transition: 0.2s ease;
-background: white;
-}
-
-.field input:focus {
-border-color: #9ca3af;
-box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
-}
-
-.help {
-margin-top: -2px;
-font-size: 12px;
-color: var(--muted);
-line-height: 1.4;
-}
-
-.check-wrap {
-display: flex;
-align-items: flex-start;
+align-items: center;
 gap: 10px;
-margin: 20px 0 20px;
-padding: 14px;
-border: 1px solid var(--border);
-border-radius: 12px;
-background: #fafafa;
+margin: 16px 0;
+font-size: 15px;
 }
 
-.check-wrap input {
-margin-top: 3px;
-transform: scale(1.1);
+.checkbox-linea input[type="checkbox"] {
+width: auto;
+margin: 0;
 }
 
-.check-wrap label {
-font-size: 14px;
-line-height: 1.5;
-color: var(--text);
-}
-
-.primary-btn {
+button {
 width: 100%;
-border: 0;
-background: var(--primary);
+padding: 14px;
+border: none;
+border-radius: 10px;
+background: #111827;
 color: white;
-padding: 16px 18px;
-border-radius: 14px;
 font-size: 16px;
-font-weight: 800;
 cursor: pointer;
-transition: 0.2s ease;
 }
 
-.primary-btn:hover {
-background: var(--primary-hover);
-transform: translateY(-1px);
+button:hover {
+opacity: 0.95;
 }
 
-.bottom-note {
-margin-top: 14px;
-font-size: 13px;
-color: var(--muted);
-text-align: center;
-line-height: 1.5;
+.plan-precio {
+font-size: 28px;
+font-weight: bold;
+margin: 8px 0 14px 0;
 }
 
-@media (max-width: 900px) {
-.hero {
+.texto-suave {
+color: #555;
+font-size: 14px;
+}
+
+ul {
+margin-top: 8px;
+padding-left: 18px;
+}
+
+@media (max-width: 640px) {
+.fila {
 grid-template-columns: 1fr;
-}
-
-.grid-2 {
-grid-template-columns: 1fr;
-}
-
-.hero-card h1 {
-font-size: 34px;
 }
 }
 </style>
 </head>
 <body>
-<div class="page">
+<div class="contenedor">
+<h1>Crear cuenta Restaurante</h1>
 
-<section class="hero">
-<div class="hero-card">
-<span class="hero-badge">Sistema para restaurantes</span>
-<h1>Activa tu cuenta y empieza a vender con QR</h1>
-<p>
-Crea tu cuenta, configura tus datos de pago y activa tu suscripción mensual
-en un solo paso. Todo el sistema quedará asociado a tu restaurante.
-</p>
+<div class="card">
+<h2>Plan Restaurante Pro</h2>
+<div class="plan-precio">$200.000 COP / mes</div>
 
-<div class="price-box">
-<div class="price-label">Plan Restaurante Pro</div>
-<div class="price-value">$200.000 COP / mes</div>
-<div class="price-sub">Sin procesos separados. Registro y pago en una sola página.</div>
-</div>
-</div>
-
-<div class="info-card">
-<h2>¿Qué incluye?</h2>
-<ul class="benefits">
-<li>Panel administrador</li>
-<li>Menú digital QR</li>
+<ul>
+<li>Panel Administrador</li>
+<li>Menú QR</li>
 <li>Pedidos en tiempo real</li>
 <li>Gestión de meseros</li>
 <li>Control de personal</li>
-<li>Soporte básico</li>
 </ul>
-
-<div class="mini-note">
-El acceso a la plataforma depende de tener la suscripción activa.
-Las ventas del restaurante se gestionan con sus propias llaves de Wompi.
-</div>
-</div>
-</section>
-
-<section class="form-card">
-<h3>Crear cuenta Restaurante</h3>
-<p class="form-subtitle">
-Completa los datos de tu negocio y tus llaves de Wompi para activar la cuenta.
-</p>
-
-<div class="section-title">Datos del restaurante</div>
-
-<div class="grid-2">
-<div class="field">
-<label for="nombre">Nombre del restaurante</label>
-<input id="nombre" type="text" placeholder="Ej: Parrilla La 70" />
 </div>
 
-<div class="field">
-<label for="correo">Correo</label>
-<input id="correo" type="email" placeholder="Ej: contacto@restaurante.com" />
-</div>
+<div class="card">
+<h3>Datos del restaurante</h3>
+
+<input id="nombreRestaurante" type="text" placeholder="Nombre del restaurante" />
+<input id="correo" type="email" placeholder="Correo del restaurante" />
+<input id="usuarioAdmin" type="text" placeholder="Usuario admin" />
+<input id="password" type="password" placeholder="Contraseña" />
+
+<h3>Claves de Wompi</h3>
+<input id="publicKey" type="text" placeholder="Public Key" />
+<input id="privateKey" type="text" placeholder="Private Key" />
+<input id="integrityKey" type="text" placeholder="Integrity Key" />
+
+<h3>Tarjeta para cobro automático</h3>
+<input id="cardNumber" type="text" placeholder="Número de tarjeta" />
+
+<div class="fila">
+<input id="expMonth" type="text" placeholder="Mes (MM)" />
+<input id="expYear" type="text" placeholder="Año (YY)" />
 </div>
 
-<div class="grid-2">
-<div class="field">
-<label for="usuario">Usuario admin</label>
-<input id="usuario" type="text" placeholder="Ej: adminparrilla70" />
+<div class="fila">
+<input id="cvc" type="text" placeholder="CVC" />
+<input id="cardHolder" type="text" placeholder="Nombre del titular" />
 </div>
 
-<div class="field">
-<label for="password">Contraseña</label>
-<input id="password" type="password" placeholder="Crea una contraseña segura" />
-</div>
-</div>
+<input id="customerEmailPago" type="email" placeholder="Correo del pagador" />
 
-<div class="section-title">Claves de Wompi</div>
-
-<div class="field">
-<label for="publicKey">Public Key</label>
-<input id="publicKey" type="text" placeholder="Pega tu llave pública de Wompi" />
-<div class="help">Esta llave se usa para abrir el checkout del pago.</div>
-</div>
-
-<div class="field">
-<label for="privateKey">Private Key</label>
-<input id="privateKey" type="text" placeholder="Pega tu llave privada de Wompi" />
-<div class="help">Esta llave queda asociada a tu restaurante para su configuración.</div>
-</div>
-
-<div class="field">
-<label for="integrityKey">Integrity Key</label>
-<input id="integrityKey" type="text" placeholder="Pega tu integrity key de Wompi" />
-<div class="help">Se usa para validar la firma de integridad del pago.</div>
-</div>
-
-<div class="check-wrap">
-<input type="checkbox" id="acepta" />
-<label for="acepta">
-Acepto la suscripción mensual de <strong>$200.000 COP</strong> y entiendo que
-la cuenta quedará activa cuando el pago sea aprobado.
+<label class="checkbox-linea">
+<input type="checkbox" id="aceptaPlan" />
+<span>Acepto la suscripción mensual de $200.000 COP y autorizo el cobro automático.</span>
 </label>
+
+<button type="button" onclick="crearCuentaYAutorizar()">
+Crear cuenta y activar suscripción
+</button>
+
+<p class="texto-suave" style="margin-top: 14px;">
+El método de pago se registra una vez para permitir renovaciones automáticas.
+</p>
+</div>
 </div>
 
-<button class="primary-btn" onclick="crearYPagar()">Crear cuenta y pagar</button>
-
-<div class="bottom-note">
-Al continuar, se preparará el pago y se abrirá el checkout de Wompi.
-</div>
-</section>
-</div>
-
-<script src="https://checkout.wompi.co/widget.js"></script>
 <script>
-  async function crearYPagar() {
-    try {
-      const nombre = document.getElementById("nombre").value.trim();
-      const correo = document.getElementById("correo").value.trim();
-      const usuario = document.getElementById("usuario").value.trim();
-      const password = document.getElementById("password").value.trim();
+async function crearCuentaYAutorizar() {
+try {
+const nombre = document.getElementById("nombreRestaurante").value.trim();
+const correo = document.getElementById("correo").value.trim();
+const usuario = document.getElementById("usuarioAdmin").value.trim();
+const password = document.getElementById("password").value.trim();
 
-      const publicKey = document.getElementById("publicKey").value.trim();
-      const privateKey = document.getElementById("privateKey").value.trim();
-      const integrityKey = document.getElementById("integrityKey").value.trim();
+const publicKey = document.getElementById("publicKey").value.trim();
+const privateKey = document.getElementById("privateKey").value.trim();
+const integrityKey = document.getElementById("integrityKey").value.trim();
 
-      const acepta = document.getElementById("acepta").checked;
+const cardNumber = document.getElementById("cardNumber").value.trim().replace(/\s+/g, "");
+const expMonth = document.getElementById("expMonth").value.trim();
+const expYear = document.getElementById("expYear").value.trim();
+const cvc = document.getElementById("cvc").value.trim();
+const cardHolder = document.getElementById("cardHolder").value.trim();
+const customerEmail = document.getElementById("customerEmailPago").value.trim();
 
-      console.log({
-        nombre,
-        correo,
-        usuario,
-        password,
-        publicKey,
-        privateKey,
-        integrityKey,
-        acepta
-      });
+const acepta = document.getElementById("aceptaPlan").checked;
 
-      if (!nombre || !correo || !usuario || !password) {
-        alert("Completa todos los campos");
-        return;
-      }
+if (!nombre || !correo || !usuario || !password) {
+alert("Completa los datos del restaurante");
+return;
+}
 
-      if (!publicKey || !privateKey || !integrityKey) {
-        alert("Completa las claves de Wompi");
-        return;
-      }
+if (!publicKey || !privateKey || !integrityKey) {
+alert("Completa las claves de Wompi");
+return;
+}
 
-      if (!acepta) {
-        alert("Debes aceptar la suscripción mensual");
-        return;
-      }
+if (!cardNumber || !expMonth || !expYear || !cvc || !cardHolder || !customerEmail) {
+alert("Completa los datos de la tarjeta");
+return;
+}
 
-      const res = await fetch("/api/registro-y-pago", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          nombre,
-          correo,
-          usuario,
-          password,
-          publicKey,
-          privateKey,
-          integrityKey
-        })
-      });
+if (!acepta) {
+alert("Debes aceptar la suscripción mensual");
+return;
+}
 
-      const text = await res.text();
-      console.log("Respuesta cruda backend:", text);
+// 1. Tokenizar tarjeta con Wompi
+const tokenRes = await fetch("https://sandbox.wompi.co/v1/tokens/cards", {
+method: "POST",
+headers: {
+"Content-Type": "application/json",
+"Authorization": `Bearer ${publicKey}`
+},
+body: JSON.stringify({
+number: cardNumber,
+cvc: cvc,
+exp_month: expMonth,
+exp_year: expYear,
+card_holder: cardHolder
+})
+});
 
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        alert("El servidor no devolvió JSON. Revisa la consola.");
-        return;
-      }
+const tokenData = await tokenRes.json();
 
-      if (!res.ok || !data.ok) {
-        alert(data.error || "No se pudo iniciar el pago");
-        return;
-      }
+if (!tokenRes.ok || !tokenData.data || !tokenData.data.id) {
+console.log("Error tokenizando tarjeta:", tokenData);
+alert("No se pudo tokenizar la tarjeta");
+return;
+}
 
-      const pago = data.pago;
+const cardToken = tokenData.data.id;
 
-      const checkout = new WidgetCheckout({
-        currency: pago.currency,
-        amountInCents: pago.amountInCents,
-        reference: pago.reference,
-        publicKey: pago.publicKey,
-        signature: { integrity: pago.signature },
-        acceptanceToken: pago.acceptanceToken,
-        customerData: {
-          email: pago.customerEmail,
-          fullName: pago.customerData.fullName
-        }
-      });
+// 2. Enviar al backend para crear restaurante + fuente de pago
+const res = await fetch("/api/registro-y-fuente-pago", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+nombre,
+correo,
+usuario,
+password,
+publicKey,
+privateKey,
+integrityKey,
+cardToken,
+customerEmail
+})
+});
 
-      checkout.open(function (result) {
-        if (result && result.transaction) {
-          alert("Pago enviado. Estamos validando la suscripción.");
-        }
-      });
-    } catch (error) {
-      console.log("Error frontend:", error);
-      alert("Error iniciando proceso");
-    }
-  }
+const text = await res.text();
+console.log("Respuesta cruda backend:", text);
+
+let data;
+try {
+data = JSON.parse(text);
+} catch (e) {
+alert("El servidor no devolvió JSON válido");
+return;
+}
+
+if (!res.ok || !data.ok) {
+alert(data.error || "No se pudo crear la cuenta con cobro automático");
+return;
+}
+
+alert("Cuenta creada y método de pago guardado correctamente");
+window.location.href = "/login.html";
+} catch (error) {
+console.log("Error creando cuenta con fuente de pago:", error);
+alert("Error creando cuenta y autorizando cobros");
+}
+}
 </script>
 </body>
 </html>
