@@ -1538,7 +1538,7 @@ error: "Faltan datos para crear la fuente de pago"
 
 const Usuario = require("../models/usuario");
 const Sede = require("../models/sede");
-const Restaurante = require("../models/restaurante");
+
 
 const existeUsuario = await Usuario.findOne({ usuario });
 if (existeUsuario) {
@@ -1634,7 +1634,6 @@ error?.message ||
 });
 }
 });
-const Restaurante = require("../models/restaurante");
 const Usuario = require("../models/usuario");
 const Sede = require("../models/sede");
 
