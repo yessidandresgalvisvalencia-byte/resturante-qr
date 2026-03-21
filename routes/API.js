@@ -1332,7 +1332,7 @@ router.post("/sede/crear", async (req, res) => {
   try {
     const { restauranteId, nombreSede, direccion } = req.body;
 
-    const Sede = require("../models/sede");
+    
 
     const codigoSede = `${restauranteId}_${Date.now()}`;
 
@@ -1406,7 +1406,7 @@ router.post("/usuarios/login", async (req, res) => {
   try {
     const { usuario, password } = req.body;
 
-    const Usuario = require("../models/usuario");
+   
 
     const user = await Usuario.findOne({
       usuario,
@@ -1445,9 +1445,9 @@ router.get("/debug/limpiar-registro", async (req, res) => {
   try {
     const usuario = (req.query.usuario || "").trim();
 
-    const Usuario = require("../models/usuario");
+   
     const Restaurante = require("../models/restaurante");
-    const Sede = require("../models/sede");
+   
 
     if (!usuario) {
       return res.status(400).json({
@@ -1536,8 +1536,7 @@ error: "Faltan datos para crear la fuente de pago"
 });
 }
 
-const Usuario = require("../models/usuario");
-const Sede = require("../models/sede");
+
 
 
 const existeUsuario = await Usuario.findOne({ usuario });
@@ -1634,8 +1633,8 @@ error?.message ||
 });
 }
 });
-const Usuario = require("../models/usuario");
-const Sede = require("../models/sede");
+
+
 
 router.post("/registro-y-fuente-pago", async (req, res) => {
   try {
