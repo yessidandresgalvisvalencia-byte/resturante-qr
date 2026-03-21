@@ -35,6 +35,7 @@
         const res = await fetch("/api/crear-pago-suscripcion", {
           method: "POST",
           headers: {
+            Authorization: `Bearer ${PublicKey}`,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({ restaurantId })
