@@ -1305,7 +1305,7 @@ customerEmailWompi: customerEmail,
 tokenizacionCompleta: true,
 plan: "mensual",
 precioMensual: 200,
-estadoSuscripcion: "activa",
+estadoSuscripcion: "pendiente",
 fechaUltimoPago: new Date(),
 fechaProximoCobro: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 });
@@ -1588,6 +1588,14 @@ router.post("/suscripciones/cobrar", async (req, res) => {
         }
       }
     );
+    if (txRes.data.data.status === "APPROVED") {
+  restaurante.estadoSuscripcion = "activa";
+  restaurante.fechaUltimoPago = new Date();
+  restaurante.fechaProximoCobro = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  restaurante.ultimoTransactionId = txRes.data.data.id;
+
+  await restaurante.save();
+}
 
     return res.json({
       ok: true,
