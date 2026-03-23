@@ -154,11 +154,15 @@
       <input id="customerEmailPago" type="email" placeholder="Correo del pagador" />
 
       <label class="checkbox-linea">
-        <input type="checkbox" id="aceptaPlan" />
-        <span>
-          Acepto la suscripción mensual de $200.000 COP y autorizo el cobro automático.
-        </span>
-      </label>
+  <input type="checkbox" id="aceptaPlan" />
+  <span>
+    Acepto la suscripción mensual de $200.000 COP, la
+    <a href="/privacidad.html" target="_blank">Política de Privacidad</a>,
+    los <a href="/terminos.html" target="_blank">Términos y Condiciones</a>
+    y la <a href="/cancelacion.html" target="_blank">Política de Cancelación</a>,
+    y autorizo el cobro automático.
+  </span>
+</label>
 
       <button id="btnCrearCuenta" onclick="crearCuentaYGuardarTarjeta()">
         Crear cuenta y autorizar cobros
