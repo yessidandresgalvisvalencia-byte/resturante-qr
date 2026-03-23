@@ -1616,4 +1616,39 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     });
   }
 });
+router.post("/confirmar-pago", async (req, res) => {
+  const { transactionId } = req.body;
+
+  try {
+    const response = await axios.get(
+      `https://production.wompi.co/v1/transactions/${transactionId}`
+    );
+
+    const data = response.data.data;
+
+    if (data.status === "APPROVED") {
+
+      const restaurante = await Restaurante.findOne({
+        customerEmailWompi: data.customer_email
+      });
+
+      if (!restaurante) {
+        return res.json({ ok: false, error: "Restaurante no encontrado" });
+      }
+
+      restaurante.estadoSuscripcion = "activa";
+      restaurante.fechaUltimoPago = new Date();
+      restaurante.fechaProximoCobro = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      restaurante.ultimoTransactionId = transactionId;
+
+      await restaurante.save();
+    }
+
+    res.json({ ok: true });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ ok: false, error: "Error confirmando pago" });
+  }
+});
 module.exports = router;

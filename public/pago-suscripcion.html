@@ -133,7 +133,8 @@
           acceptanceToken: pago.acceptanceToken
         });
 
-        estado.textContent = "Abriendo checkout de Wompi...";
+        
+      estado.textContent = "Abriendo checkout de Wompi...";
 
         checkout.open(function (result) {
           if (result && result.transaction) {

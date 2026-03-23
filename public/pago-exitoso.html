@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pago exitoso</title>
+</head>
+<body>
+  <h2>Procesando pago...</h2>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const transactionId = urlParams.get("id");
+
+    console.log("Transaction ID:", transactionId);
+
+    fetch("/api/confirmar-pago", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ transactionId })
+    })
+    .then(res => res.json())
+    .then(data => {
+      document.body.innerHTML = "<h2>Pago confirmado ✅</h2>";
+    })
+    .catch(err => {
+      document.body.innerHTML = "<h2>Error confirmando pago ❌</h2>";
+    });
+  </script>
+</body>
+</html>
