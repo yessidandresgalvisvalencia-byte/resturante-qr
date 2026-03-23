@@ -2,7 +2,6 @@ const express = require("express");
 const QRCode = require("qrcode");
 const axios = require("axios");
 const crypto = require("crypto");
-
 const router = express.Router();
 
 const Pedido = require("../models/pedido.js");
@@ -1539,6 +1538,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
       });
     }
 
+
     const wompiPublicKey =
       restaurante.wompiPublicKey || process.env.WOMPI_PUBLIC_KEY;
 
@@ -1555,6 +1555,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     const amountInCents = restaurante.precioMensual * 100;
     const currency = "COP";
     const reference = `renovacion_${restaurantId}_${Date.now()}`;
+    const response = await axios.post();
 
     const merchantRes = await axios.get(
       `https://sandbox.wompi.co/v1/merchants/${wompiPublicKey}`
