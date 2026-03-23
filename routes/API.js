@@ -1032,7 +1032,7 @@ router.post("/restaurante/registro", async (req, res) => {
       usuarioAdmin,
       passwordAdmin,
       plan: "mensual",
-      precioMensual: 200000,
+      precioMensual: 200,
       estadoSuscripcion: "pendiente",
       aceptaPlan: true
     });
@@ -1095,7 +1095,7 @@ router.post("/crear-pago-suscripcion", async (req, res) => {
       });
     }
 
-    const amountInCents = 200000 * 100;
+    const amountInCents = 200 * 100;
     const currency = "COP";
     const reference = `suscripcion_${restaurantId}_${Date.now()}`;
 
