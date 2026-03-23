@@ -1555,7 +1555,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     const amountInCents = restaurante.precioMensual * 100;
     const currency = "COP";
     const reference = `renovacion_${restaurantId}_${Date.now()}`;
-    const response = await axios.post();
+    
 
     const merchantRes = await axios.get(
       `https://production.wompi.co/v1/merchants/${wompiPublicKey}`
