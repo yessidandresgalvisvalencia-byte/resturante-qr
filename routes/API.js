@@ -1304,7 +1304,7 @@ paymentSourceId: paymentSource.id,
 customerEmailWompi: customerEmail,
 tokenizacionCompleta: true,
 plan: "mensual",
-precioMensual: 200000,
+precioMensual: 200,
 estadoSuscripcion: "activa",
 fechaUltimoPago: new Date(),
 fechaProximoCobro: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
