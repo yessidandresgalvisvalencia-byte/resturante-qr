@@ -1100,7 +1100,7 @@ router.post("/crear-pago-suscripcion", async (req, res) => {
     const reference = `suscripcion_${restaurantId}_${Date.now()}`;
 
     const acceptanceRes = await axios.get(
-      `https://sandbox.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
+      `https://production.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
     );
 
     const acceptanceToken =
@@ -1266,7 +1266,7 @@ return res.status(400).json({ ok: false, error: "Ese usuario admin ya existe" })
 }
 
 const paymentSourceRes = await axios.post(
-"https://sandbox.wompi.co/v1/payment_sources",
+"https://production.wompi.co/v1/payment_sources",
 {
 type: "CARD",
 token: paymentMethodToken,
@@ -1558,7 +1558,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     const response = await axios.post();
 
     const merchantRes = await axios.get(
-      `https://sandbox.wompi.co/v1/merchants/${wompiPublicKey}`
+      `https://production.wompi.co/v1/merchants/${wompiPublicKey}`
     );
 
     const acceptanceToken =
@@ -1572,7 +1572,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     }
 
     const txRes = await axios.post(
-      "https://sandbox.wompi.co/v1/transactions",
+      "https://production.wompi.co/v1/transactions",
       {
         acceptance_token: acceptanceToken,
         amount_in_cents: amountInCents,

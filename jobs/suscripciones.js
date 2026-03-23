@@ -40,7 +40,7 @@ const currency = "COP";
 const reference = `renovacion_${restaurante.restaurantId}_${Date.now()}`;
 
 const merchantRes = await axios.get(
-`https://sandbox.wompi.co/v1/merchants/${wompiPublicKey}`
+`https://production.wompi.co/v1/merchants/${wompiPublicKey}`
 );
 
 const acceptanceToken =
@@ -55,7 +55,7 @@ continue;
 }
 
 const txRes = await axios.post(
-"https://sandbox.wompi.co/v1/transactions",
+"https://production.wompi.co/v1/transactions",
 {
 acceptance_token: acceptanceToken,
 amount_in_cents: amountInCents,

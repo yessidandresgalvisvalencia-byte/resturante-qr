@@ -135,7 +135,7 @@
       <input id="password" type="password" placeholder="Contraseña" />
 
       <h3>Claves de Wompi</h3>
-      <input id="publicKey" type="text" placeholder="Public Key (ej: pub_test_...)" />
+      <input id="publicKey" type="text" placeholder="Public Key (ej: prv_test_...)" />
       <input id="privateKey" type="text" placeholder="Private Key (ej: prv_test_...)" />
 
       <h3>Tarjeta para cobro automático</h3>
@@ -225,7 +225,7 @@
 
         estado.textContent = "Obteniendo acceptance token del comercio...";
 
-        const merchantRes = await fetch(`https://sandbox.wompi.co/v1/merchants/${publicKey}`);
+        const merchantRes = await fetch(`https://production.wompi.co/v1/merchants/${publicKey}`);
         const merchantData = await merchantRes.json();
 
         const acceptanceToken =
@@ -239,7 +239,7 @@
 
         estado.textContent = "Tokenizando tarjeta...";
 
-        const tokenRes = await fetch("https://sandbox.wompi.co/v1/tokens/cards", {
+        const tokenRes = await fetch("https://production.wompi.co/v1/tokens/cards", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
