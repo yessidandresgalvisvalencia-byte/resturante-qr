@@ -1504,116 +1504,107 @@ router.get("/wompi/webhook", (req, res) => {
     mensaje: "Webhook Wompi disponible"
   });
 });
-router.post("/wompi/webhook", async (req, res) => {
-  try {
-    console.log("Webhook Wompi recibido:", JSON.stringify(req.body, null, 2));
-    res.status(200).json({ ok: true });
-  } catch (error) {
-    console.log("Error webhook Wompi:", error);
-    res.status(500).json({ ok: false });
-  }
-});
+
 router.post("/suscripciones/cobrar", async (req, res) => {
-try {
-const { restaurantId } = req.body;
+  try {
+    const { restaurantId } = req.body;
 
-if (!restaurantId) {
-return res.status(400).json({
-ok: false,
-error: "Falta restaurantId"
-});
-}
+    if (!restaurantId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Falta restaurantId"
+      });
+    }
 
-const restaurante = await Restaurante.findOne({ restaurantId });
+    const restaurante = await Restaurante.findOne({ restaurantId });
 
-if (!restaurante) {
-return res.status(404).json({
-ok: false,
-error: "Restaurante no encontrado"
-});
-}
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
 
-if (!restaurante.paymentSourceId) {
-return res.status(400).json({
-ok: false,
-error: "El restaurante no tiene fuente de pago guardada"
-});
-}
+    if (!restaurante.paymentSourceId) {
+      return res.status(400).json({
+        ok: false,
+        error: "No hay fuente de pago guardada"
+      });
+    }
 
-if (!restaurante.customerEmailWompi) {
-return res.status(400).json({
-ok: false,
-error: "Falta customerEmailWompi"
-});
-}
+    if (!restaurante.customerEmailWompi) {
+      return res.status(400).json({
+        ok: false,
+        error: "Falta customerEmailWompi"
+      });
+    }
 
-const wompiPublicKey =
-restaurante.wompiPublicKey || process.env.WOMPI_PUBLIC_KEY;
+    const wompiPublicKey =
+      restaurante.wompiPublicKey || process.env.WOMPI_PUBLIC_KEY;
 
-const wompiPrivateKey =
-restaurante.wompiPrivateKey || process.env.WOMPI_PRIVATE_KEY;
+    const wompiPrivateKey =
+      restaurante.wompiPrivateKey || process.env.WOMPI_PRIVATE_KEY;
 
-if (!wompiPublicKey || !wompiPrivateKey) {
-return res.status(500).json({
-ok: false,
-error: "Faltan llaves de Wompi"
-});
-}
+    if (!wompiPublicKey || !wompiPrivateKey) {
+      return res.status(500).json({
+        ok: false,
+        error: "Faltan llaves de Wompi"
+      });
+    }
 
-const amountInCents = restaurante.precioMensual * 100;
-const currency = "COP";
-const reference = `renovacion_${restaurantId}_${Date.now()}`;
+    const amountInCents = restaurante.precioMensual * 100;
+    const currency = "COP";
+    const reference = `renovacion_${restaurantId}_${Date.now()}`;
 
-const merchantRes = await axios.get(
-`https://sandbox.wompi.co/v1/merchants/${wompiPublicKey}`
-);
+    const merchantRes = await axios.get(
+      `https://sandbox.wompi.co/v1/merchants/${wompiPublicKey}`
+    );
 
-const acceptanceToken =
-merchantRes?.data?.data?.presigned_acceptance?.acceptance_token;
+    const acceptanceToken =
+      merchantRes?.data?.data?.presigned_acceptance?.acceptance_token;
 
-if (!acceptanceToken) {
-return res.status(500).json({
-ok: false,
-error: "No se pudo obtener acceptance token"
-});
-}
+    if (!acceptanceToken) {
+      return res.status(500).json({
+        ok: false,
+        error: "No se pudo obtener acceptance token"
+      });
+    }
 
-const txRes = await axios.post(
-"https://sandbox.wompi.co/v1/transactions",
-{
-acceptance_token: acceptanceToken,
-amount_in_cents: amountInCents,
-currency,
-customer_email: restaurante.customerEmailWompi,
-reference,
-payment_source_id: Number(restaurante.paymentSourceId)
-},
-{
-headers: {
-Authorization: `Bearer ${wompiPrivateKey}`,
-"Content-Type": "application/json"
-}
-}
-);
+    const txRes = await axios.post(
+      "https://sandbox.wompi.co/v1/transactions",
+      {
+        acceptance_token: acceptanceToken,
+        amount_in_cents: amountInCents,
+        currency,
+        customer_email: restaurante.customerEmailWompi,
+        reference,
+        payment_source_id: Number(restaurante.paymentSourceId)
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${wompiPrivateKey}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
 
-return res.json({
-ok: true,
-mensaje: "Cobro enviado a Wompi",
-data: txRes.data
-});
-} catch (error) {
-console.log(
-"Error cobrando suscripción:",
-error?.response?.data || error
-);
+    return res.json({
+      ok: true,
+      mensaje: "Cobro enviado a Wompi",
+      data: txRes.data
+    });
+  } catch (error) {
+    console.log(
+      "Error cobrando suscripción:",
+      error?.response?.data || error
+    );
 
-return res.status(500).json({
-ok: false,
-error:
-error?.response?.data?.error?.reason ||
-error?.response?.data?.error?.messages ||
-"Error cobrando suscripción"
-});
-}
+    return res.status(500).json({
+      ok: false,
+      error:
+        error?.response?.data?.error?.reason ||
+        "Error cobrando suscripción"
+    });
+  }
 });
 module.exports = router;
