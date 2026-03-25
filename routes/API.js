@@ -1097,7 +1097,7 @@ router.post("/crear-pago-suscripcion", async (req, res) => {
       });
     }
 
-    const amountInCents = 200 * 100;
+    const amountInCents = 1500 * 100;
     const currency = "COP";
     const reference = `suscripcion_${restaurantId}_${Date.now()}`;
 
