@@ -7,25 +7,38 @@
   <h2>Procesando pago...</h2>
 
   <script>
+    console.log("URL completa:", window.location.href);
+
     const urlParams = new URLSearchParams(window.location.search);
     const transactionId = urlParams.get("id");
 
     console.log("Transaction ID:", transactionId);
 
-    fetch("/api/confirmar-pago", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ transactionId })
-    })
-    .then(res => res.json())
-    .then(data => {
-      document.body.innerHTML = "<h2>Pago confirmado ✅</h2>";
-    })
-    .catch(err => {
-      document.body.innerHTML = "<h2>Error confirmando pago ❌</h2>";
-    });
+    if (!transactionId) {
+      document.body.innerHTML = "<h2>No llegó transactionId ❌</h2>";
+    } else {
+      fetch("/api/confirmar-pago", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ transactionId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log("Respuesta backend:", data);
+
+        if (data.ok) {
+          document.body.innerHTML = "<h2>Pago confirmado ✅</h2>";
+        } else {
+          document.body.innerHTML = `<h2>${data.error} ❌</h2>`;
+        }
+      })
+      .catch(err => {
+        console.log("Error:", err);
+        document.body.innerHTML = "<h2>Error confirmando pago ❌</h2>";
+      });
+    }
   </script>
 </body>
 </html>
