@@ -1034,7 +1034,7 @@ router.post("/restaurante/registro", async (req, res) => {
       plan: "mensual",
       precioMensual: 200,
       estadoSuscripcion: "pendiente",
-      aceptaPlan: true
+      aceptaPlan: false
     });
 
     await nuevoRestaurante.save();

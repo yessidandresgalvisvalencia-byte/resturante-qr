@@ -26,7 +26,7 @@
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
     }
 
-    h1, h2, h3 {
+    h1, h2 {
       margin-top: 0;
     }
 
@@ -60,27 +60,14 @@
       cursor: not-allowed;
     }
 
-    .texto-suave {
-      color: #555;
-      font-size: 14px;
-    }
-
     .estado {
       margin-top: 14px;
       font-size: 14px;
-      color: #333;
       min-height: 20px;
     }
 
-    .exito {
-      color: green;
-      font-weight: bold;
-    }
-
-    .error {
-      color: crimson;
-      font-weight: bold;
-    }
+    .ok { color: green; font-weight: bold; }
+    .bad { color: crimson; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -88,17 +75,14 @@
     <h1>Pagar Plan Restaurante Pro</h1>
 
     <div class="card">
-      <h2>Suscripción mensual</h2>
-      <p><strong>$200 COP / prueba</strong></p>
-      <p class="texto-suave">
-        Esta página es para probar el cobro real con un monto bajo antes de pasar al valor final.
-      </p>
+      <h2>Prueba de cobro</h2>
+      <p>Usa el Restaurant ID del restaurante que acabas de crear.</p>
 
       <label for="restaurantIdPago">Restaurant ID</label>
       <input
         id="restaurantIdPago"
         type="text"
-        placeholder="Ej: rest_1774445684320"
+        placeholder="Ej: rest_1774449989070"
       />
 
       <button id="btnPagar" onclick="pagarSuscripcion()">
@@ -112,99 +96,102 @@
   <script src="https://checkout.wompi.co/widget.js"></script>
   <script>
     async function pagarSuscripcion() {
-    const restaurantId = document.getElementById("restaurantIdPago").value.trim();
-    const estado = document.getElementById("estadoProceso");
-    const btn = document.getElementById("btnPagar");
+      const restaurantId = document.getElementById("restaurantIdPago").value.trim();
+      const estado = document.getElementById("estadoProceso");
+      const btn = document.getElementById("btnPagar");
 
-    if (!restaurantId) {
-      alert("Escribe el Restaurant ID");
-      return;
-    }
-
-    try {
-      btn.disabled = true;
-      estado.textContent = "Preparando pago...";
-
-      const res = await fetch("/api/crear-pago-suscripcion", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ restaurantId })
-      });
-
-      const data = await res.json();
-      console.log("Respuesta backend:", data);
-
-      if (!res.ok || !data.ok) {
-        estado.textContent = data.error || "No se pudo preparar el pago";
-        btn.disabled = false;
+      if (!restaurantId) {
+        alert("Escribe el Restaurant ID");
         return;
       }
 
-      const pago = data.pago;
+      try {
+        btn.disabled = true;
+        estado.textContent = "Preparando pago...";
 
-      const checkout = new WidgetCheckout({
-        currency: pago.currency,
-        amountInCents: pago.amountInCents,
-        reference: pago.reference,
-        publicKey: pago.publicKey,
-        signature: { integrity: pago.signature },
-        customerData: {
-          email: pago.customerEmail,
-          fullName: pago.customerData.fullName
-        },
-        acceptanceToken: pago.acceptanceToken
-      });
-
-      checkout.open(function (result) {
-        console.log("Resultado Wompi:", result);
-
-        const transactionId = result?.transaction?.id;
-
-        if (!transactionId) {
-          estado.textContent = "No llegó transactionId";
-          btn.disabled = false;
-          return;
-        }
-
-        fetch("/api/confirmar-pago", {
+        const res = await fetch("/api/crear-pago-suscripcion", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({
-            transactionId,
-            restaurantId
-          })
-        })
-        .then(async (response) => {
-          const confirmData = await response.json();
-          console.log("Confirmación backend:", confirmData);
+          body: JSON.stringify({ restaurantId })
+        });
 
-          if (!response.ok || !confirmData.ok) {
-            throw confirmData;
+        const data = await res.json();
+        console.log("Respuesta backend crear-pago:", data);
+
+        if (!res.ok || !data.ok) {
+          estado.innerHTML = `<span class="bad">${data.error || "No se pudo preparar el pago"}</span>`;
+          btn.disabled = false;
+          return;
+        }
+
+        const pago = data.pago;
+
+        const checkout = new WidgetCheckout({
+          currency: pago.currency,
+          amountInCents: pago.amountInCents,
+          reference: pago.reference,
+          publicKey: pago.publicKey,
+          signature: { integrity: pago.signature },
+          customerData: {
+            email: pago.customerEmail,
+            fullName: pago.customerData.fullName
+          },
+          acceptanceToken: pago.acceptanceToken
+        });
+
+        estado.textContent = "Abriendo checkout de Wompi...";
+
+        checkout.open(async function (result) {
+          console.log("Resultado Wompi:", result);
+
+          const transactionId = result?.transaction?.id;
+
+          if (!transactionId) {
+            estado.innerHTML = `<span class="bad">No llegó transactionId. El pago pudo ser cancelado o rechazado.</span>`;
+            btn.disabled = false;
+            return;
           }
 
-          estado.textContent = "Pago confirmado ✅";
-          alert("Pago confirmado ✅");
-        })
-        .catch((error) => {
-          console.log("Error confirmando pago:", error);
-          estado.textContent = error.error || "Error confirmando pago";
-          alert(error.error || "Error confirmando pago");
-        })
-        .finally(() => {
-          btn.disabled = false;
-        });
-      });
+          estado.textContent = "Confirmando pago con el servidor...";
 
-    } catch (error) {
-      console.log("Error iniciando pago:", error);
-      estado.textContent = "Error iniciando pago";
-      btn.disabled = false;
+          try {
+            const confirmRes = await fetch("/api/confirmar-pago", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                transactionId,
+                restaurantId
+              })
+            });
+
+            const confirmData = await confirmRes.json();
+            console.log("Confirmación backend:", confirmData);
+
+            if (!confirmRes.ok || !confirmData.ok) {
+              throw confirmData;
+            }
+
+            estado.innerHTML = `<span class="ok">Pago confirmado correctamente ✅</span>`;
+            alert("Pago confirmado ✅");
+          } catch (error) {
+            console.log("Error confirmando pago:", error);
+            estado.innerHTML = `<span class="bad">${error.error || "Error confirmando pago"}</span>`;
+            alert(error.error || "Error confirmando pago");
+          } finally {
+            btn.disabled = false;
+          }
+        });
+
+      } catch (error) {
+        console.log("Error iniciando pago:", error);
+        estado.innerHTML = `<span class="bad">Error iniciando pago</span>`;
+        btn.disabled = false;
+      }
     }
-  }
   </script>
 </body>
 </html>

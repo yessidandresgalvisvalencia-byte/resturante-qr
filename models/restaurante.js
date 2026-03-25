@@ -31,7 +31,9 @@ tokenizacionCompleta: { type: Boolean, default: false },
 
 // 🔥 NUEVO (IMPORTANTE)
 wompiPublicKey: { type: String, default: "" },
-wompiPrivateKey: { type: String, default: "" }
+wompiPrivateKey: { type: String, default: "" },
+paymentSourceId: {type: String, default: "" },
+customerEmailWompi: {type: string, default: "" },
 
 }, { timestamps: true });
 
