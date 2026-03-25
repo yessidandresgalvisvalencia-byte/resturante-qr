@@ -1617,38 +1617,69 @@ router.post("/suscripciones/cobrar", async (req, res) => {
   }
 });
 router.post("/confirmar-pago", async (req, res) => {
-  const { transactionId } = req.body;
-
   try {
-    const response = await axios.get(
+    const { transactionId } = req.body;
+
+    console.log("Confirmando transactionId:", transactionId);
+
+    if (!transactionId) {
+      return res.status(400).json({
+        ok: false,
+        error: "No llegó transactionId"
+      });
+    }
+
+    // 🔥 CONSULTAR A WOMPI
+    const wompiRes = await axios.get(
       `https://production.wompi.co/v1/transactions/${transactionId}`
     );
 
-    const data = response.data.data;
+    const transaction = wompiRes.data.data;
 
-    if (data.status === "APPROVED") {
+    console.log("Respuesta Wompi:", transaction);
 
-      const restaurante = await Restaurante.findOne({
-        customerEmailWompi: data.customer_email
+    if (transaction.status !== "APPROVED") {
+      return res.json({
+        ok: false,
+        error: "Pago no aprobado"
       });
-
-      if (!restaurante) {
-        return res.json({ ok: false, error: "Restaurante no encontrado" });
-      }
-
-      restaurante.estadoSuscripcion = "activa";
-      restaurante.fechaUltimoPago = new Date();
-      restaurante.fechaProximoCobro = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      restaurante.ultimoTransactionId = transactionId;
-
-      await restaurante.save();
     }
 
-    res.json({ ok: true });
+    // 🔥 AQUÍ ACTUALIZAS TU BD
+    const restaurante = await Restaurante.findOne({
+      paymentSourceId: transaction.payment_source_id
+    });
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
+
+    restaurante.estadoSuscripcion = "activa";
+    restaurante.aceptaPlan = true;
+    restaurante.ultimoTransactionId = transactionId;
+    restaurante.fechaUltimoPago = new Date();
+    restaurante.fechaProximoCobro = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000
+    );
+
+    await restaurante.save();
+
+    console.log("Suscripción activada");
+
+    res.json({
+      ok: true
+    });
 
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ ok: false, error: "Error confirmando pago" });
+    console.error("ERROR REAL:", error.response?.data || error.message);
+
+    res.status(500).json({
+      ok: false,
+      error: "Error confirmando pago"
+    });
   }
 });
 module.exports = router;
