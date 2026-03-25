@@ -33,7 +33,7 @@ tokenizacionCompleta: { type: Boolean, default: false },
 wompiPublicKey: { type: String, default: "" },
 wompiPrivateKey: { type: String, default: "" },
 paymentSourceId: {type: String, default: "" },
-customerEmailWompi: {type: string, default: "" },
+customerEmailWompi: {type: String, default: "" },
 
 }, { timestamps: true });
 
