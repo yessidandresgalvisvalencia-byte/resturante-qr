@@ -112,104 +112,99 @@
   <script src="https://checkout.wompi.co/widget.js"></script>
   <script>
     async function pagarSuscripcion() {
-      const restaurantId = document.getElementById("restaurantIdPago").value.trim();
-      const estado = document.getElementById("estadoProceso");
-      const btn = document.getElementById("btnPagar");
+    const restaurantId = document.getElementById("restaurantIdPago").value.trim();
+    const estado = document.getElementById("estadoProceso");
+    const btn = document.getElementById("btnPagar");
 
-      if (!restaurantId) {
-        alert("Escribe el Restaurant ID");
+    if (!restaurantId) {
+      alert("Escribe el Restaurant ID");
+      return;
+    }
+
+    try {
+      btn.disabled = true;
+      estado.textContent = "Preparando pago...";
+
+      const res = await fetch("/api/crear-pago-suscripcion", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ restaurantId })
+      });
+
+      const data = await res.json();
+      console.log("Respuesta backend:", data);
+
+      if (!res.ok || !data.ok) {
+        estado.textContent = data.error || "No se pudo preparar el pago";
+        btn.disabled = false;
         return;
       }
 
-      try {
-        btn.disabled = true;
-        estado.textContent = "Preparando pago...";
+      const pago = data.pago;
 
-        const res = await fetch("/api/crear-pago-suscripcion", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ restaurantId })
-        });
+      const checkout = new WidgetCheckout({
+        currency: pago.currency,
+        amountInCents: pago.amountInCents,
+        reference: pago.reference,
+        publicKey: pago.publicKey,
+        signature: { integrity: pago.signature },
+        customerData: {
+          email: pago.customerEmail,
+          fullName: pago.customerData.fullName
+        },
+        acceptanceToken: pago.acceptanceToken
+      });
 
-        const data = await res.json();
-        console.log("Respuesta backend:", data);
+      checkout.open(function (result) {
+        console.log("Resultado Wompi:", result);
 
-        if (!res.ok || !data.ok) {
-          estado.innerHTML = `<span class="error">${data.error || "No se pudo preparar el pago"}</span>`;
+        const transactionId = result?.transaction?.id;
+
+        if (!transactionId) {
+          estado.textContent = "No llegó transactionId";
           btn.disabled = false;
           return;
         }
 
-        const pago = data.pago;
-
-        estado.textContent = "Abriendo checkout de Wompi...";
-
-        const checkout = new WidgetCheckout({
-          currency: pago.currency,
-          amountInCents: pago.amountInCents,
-          reference: pago.reference,
-          publicKey: pago.publicKey,
-          signature: {
-            integrity: pago.signature
+        fetch("/api/confirmar-pago", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
           },
-          customerData: {
-            email: pago.customerEmail,
-            fullName: pago.customerData.fullName
-          },
-          acceptanceToken: pago.acceptanceToken
-        });
+          body: JSON.stringify({
+            transactionId,
+            restaurantId
+          })
+        })
+        .then(async (response) => {
+          const confirmData = await response.json();
+          console.log("Confirmación backend:", confirmData);
 
-        checkout.open(function (result) {
-          console.log("Resultado Wompi:", result);
-
-          const transactionId = result?.transaction?.id;
-
-          if (!transactionId) {
-            estado.innerHTML = `<span class="error">No llegó transactionId. Verifica si el pago fue cancelado o rechazado.</span>`;
-            btn.disabled = false;
-            return;
+          if (!response.ok || !confirmData.ok) {
+            throw confirmData;
           }
 
-          estado.textContent = "Confirmando pago con el servidor...";
-
-          fetch("/api/confirmar-pago", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ transactionId })
-          })
-          .then(async (response) => {
-            const confirmData = await response.json();
-            console.log("Confirmación backend:", confirmData);
-
-            if (!response.ok || !confirmData.ok) {
-              throw confirmData;
-            }
-
-            estado.innerHTML = `<span class="exito">Pago confirmado correctamente ✅</span>`;
-            alert("Pago confirmado ✅");
-          })
-          .catch((error) => {
-            console.log("Error confirmando pago:", error);
-            estado.innerHTML = `<span class="error">${error.error || "Error confirmando pago"}</span>`;
-            alert(error.error || "Error confirmando pago");
-          })
-          .finally(() => {
-            btn.disabled = false;
-          });
+          estado.textContent = "Pago confirmado ✅";
+          alert("Pago confirmado ✅");
+        })
+        .catch((error) => {
+          console.log("Error confirmando pago:", error);
+          estado.textContent = error.error || "Error confirmando pago";
+          alert(error.error || "Error confirmando pago");
+        })
+        .finally(() => {
+          btn.disabled = false;
         });
+      });
 
-      } catch (error) {
-        console.log("Error iniciando pago:", error);
-        estado.innerHTML = `<span class="error">Error iniciando pago</span>`;
-        btn.disabled = false;
-
-        
-      }
+    } catch (error) {
+      console.log("Error iniciando pago:", error);
+      estado.textContent = "Error iniciando pago";
+      btn.disabled = false;
     }
+  }
   </script>
 </body>
 </html>
