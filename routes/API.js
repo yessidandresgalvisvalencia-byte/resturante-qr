@@ -1306,8 +1306,9 @@ tokenizacionCompleta: true,
 plan: "mensual",
 precioMensual: 200,
 estadoSuscripcion: "pendiente",
-fechaUltimoPago: new Date(),
-fechaProximoCobro: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+fechaUltimoPago: null,
+fechaProximoCobro: null, 
+ultimoTransactionId: ""
 });
 
 const sedePrincipal = await Sede.create({
@@ -1616,6 +1617,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     });
   }
 });
+
 router.post("/confirmar-pago", async (req, res) => {
   try {
     const { transactionId, restaurantId } = req.body;
@@ -1629,11 +1631,36 @@ router.post("/confirmar-pago", async (req, res) => {
       });
     }
 
+    const restaurante = await Restaurante.findOne({ restaurantId });
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
+
+    const wompiPrivateKey =
+      restaurante.wompiPrivateKey || process.env.WOMPI_PRIVATE_KEY;
+
+    if (!wompiPrivateKey) {
+      return res.status(500).json({
+        ok: false,
+        error: "Falta llave privada de Wompi"
+      });
+    }
+
     const wompiRes = await axios.get(
-      `https://production.wompi.co/v1/transactions/${transactionId}`
+      `https://production.wompi.co/v1/transactions/${transactionId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${wompiPrivateKey}`,
+          "Content-Type": "application/json"
+        }
+      }
     );
 
-    const transaction = wompiRes.data.data;
+    const transaction = wompiRes?.data?.data;
     console.log("Respuesta Wompi:", transaction);
 
     if (!transaction) {
@@ -1650,33 +1677,42 @@ router.post("/confirmar-pago", async (req, res) => {
       });
     }
 
-    const restaurante = await Restaurante.findOne({ restaurantId });
-
-    if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
+    if (restaurante.ultimoTransactionId === String(transactionId)) {
+      return res.json({
+        ok: true,
+        mensaje: "Pago ya confirmado anteriormente"
       });
     }
+
+    const hoy = new Date();
+    const proximo = new Date(hoy);
+    proximo.setDate(proximo.getDate() + 30);
 
     restaurante.estadoSuscripcion = "activa";
     restaurante.aceptaPlan = true;
     restaurante.ultimoTransactionId = String(transactionId);
-    restaurante.fechaUltimoPago = new Date();
-    restaurante.fechaProximoCobro = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    restaurante.fechaUltimoPago = hoy;
+    restaurante.fechaProximoCobro = proximo;
 
     await restaurante.save();
 
     return res.json({
       ok: true,
-      mensaje: "Pago confirmado correctamente"
+      mensaje: "Pago confirmado correctamente",
+      estadoSuscripcion: restaurante.estadoSuscripcion,
+      fechaUltimoPago: restaurante.fechaUltimoPago,
+      fechaProximoCobro: restaurante.fechaProximoCobro
     });
   } catch (error) {
     console.log("ERROR REAL confirmar-pago:", error.response?.data || error.message);
 
     return res.status(500).json({
       ok: false,
-      error: "Error confirmando pago"
+      error:
+        error?.response?.data?.error?.reason ||
+        error?.response?.data?.error?.messages ||
+        error?.message ||
+        "Error confirmando pago"
     });
   }
 });

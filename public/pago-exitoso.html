@@ -1,44 +1,116 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pago exitoso</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 40px 15px;
+    }
+
+    .contenedor {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    .ok {
+      color: green;
+      font-weight: bold;
+    }
+
+    .bad {
+      color: crimson;
+      font-weight: bold;
+    }
+
+    .texto {
+      margin-top: 14px;
+      font-size: 15px;
+      color: #444;
+    }
+
+    a {
+      display: inline-block;
+      margin-top: 18px;
+      text-decoration: none;
+      color: white;
+      background: #111827;
+      padding: 12px 18px;
+      border-radius: 10px;
+    }
+  </style>
 </head>
 <body>
-  <h2>Procesando pago...</h2>
+  <div class="contenedor">
+    <div class="card">
+      <h1>Procesando pago...</h1>
+      <div id="estadoPago" class="texto">Estamos validando tu transacción.</div>
+      <a href="/login.html">Ir al login</a>
+    </div>
+  </div>
 
   <script>
-    console.log("URL completa:", window.location.href);
+    async function confirmarPagoDesdeUrl() {
+      const estado = document.getElementById("estadoPago");
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const transactionId = urlParams.get("id");
+      try {
+        console.log("URL completa:", window.location.href);
 
-    console.log("Transaction ID:", transactionId);
+        const urlParams = new URLSearchParams(window.location.search);
+        const transactionId = urlParams.get("id");
+        const restaurantId = urlParams.get("restaurantId");
 
-    if (!transactionId) {
-      document.body.innerHTML = "<h2>No llegó transactionId ❌</h2>";
-    } else {
-      fetch("/api/confirmar-pago", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ transactionId })
-      })
-      .then(res => res.json())
-      .then(data => {
-        console.log("Respuesta backend:", data);
+        console.log("Transaction ID:", transactionId);
+        console.log("Restaurant ID:", restaurantId);
 
-        if (data.ok) {
-          document.body.innerHTML = "<h2>Pago confirmado ✅</h2>";
-        } else {
-          document.body.innerHTML = `<h2>${data.error} ❌</h2>`;
+        if (!transactionId || !restaurantId) {
+          estado.innerHTML = '<span class="bad">No llegaron transactionId o restaurantId ❌</span>';
+          return;
         }
-      })
-      .catch(err => {
-        console.log("Error:", err);
-        document.body.innerHTML = "<h2>Error confirmando pago ❌</h2>";
-      });
+
+        const res = await fetch("/api/confirmar-pago", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            transactionId,
+            restaurantId
+          })
+        });
+
+        const data = await res.json();
+        console.log("Respuesta backend confirmar-pago:", data);
+
+        if (!res.ok || !data.ok) {
+          estado.innerHTML = `<span class="bad">${data.error || "Error confirmando pago"} ❌</span>`;
+          return;
+        }
+
+        estado.innerHTML = `<span class="ok">Pago confirmado correctamente ✅</span>`;
+      } catch (error) {
+        console.log("Error confirmando pago:", error);
+        estado.innerHTML = '<span class="bad">Error confirmando pago ❌</span>';
+      }
     }
+
+    confirmarPagoDesdeUrl();
   </script>
 </body>
 </html>
