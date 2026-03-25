@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Mesero</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="contenedor">
+    <h1>Ingreso de Mesero</h1>
+
+    <div class="card">
+      <label>Usuario</label>
+      <input id="usuarioMesero" type="text" placeholder="Ej: juan01">
+
+      <label>Contraseña</label>
+      <input id="passwordMesero" type="password" placeholder="Tu contraseña">
+
+      <button onclick="loginMesero()">Ingresar</button>
+    </div>
+  </div>
+
+  <script>
+    async function loginMesero() {
+      try {
+        const usuario = document.getElementById("usuarioMesero").value.trim();
+        const password = document.getElementById("passwordMesero").value.trim();
+
+        if (!usuario || !password) {
+          alert("Completa usuario y contraseña");
+          return;
+        }
+
+        const res = await fetch("/api/mesero/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ usuario, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          alert(data.error || "No se pudo iniciar sesión");
+          return;
+        }
+
+        localStorage.setItem("meseroId", data.mesero._id);
+        localStorage.setItem("meseroNombre", data.mesero.nombre);
+        localStorage.setItem("meseroUsuario", data.mesero.usuario);
+        localStorage.setItem("meseroRestaurantId", data.mesero.restaurantId);
+
+        window.location.href = `/mesero.html?restaurantId=${data.mesero.restaurantId}`;
+      } catch (error) {
+        console.log(error);
+        alert("Error iniciando sesión");
+      }
+    }
+  </script>
+</body>
+</html>

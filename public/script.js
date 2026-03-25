@@ -8,6 +8,7 @@ let ultimoEstadoMostrado = "";
 let primeraCarga = true;
 let menuData = [];
 let subtotalActual = 0;
+let ultimoEstadoLlamado = "";
 
 document.getElementById("mesaActual").textContent = `Mesa ${mesa}`;
 
@@ -145,9 +146,9 @@ async function pedir(idProducto) {
   }
 }
 
-async function llamarMesero() {
+async function llamarMesero(meseroId) {
   try {
-    await fetch("/api/llamar-mesero", {
+    const res = await fetch("/api/llamar-mesero", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -155,14 +156,108 @@ async function llamarMesero() {
       body: JSON.stringify({
         restaurantId,
         mesa,
-        mensaje: "Mesa necesita atención"
+        mensaje: "Mesa necesita atención",
+        meseroId
       })
     });
 
-    alert("Se avisó al mesero");
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo llamar al mesero");
+      return;
+    }
+
+    ultimoEstadoLlamado = "pendiente";
+    alert(`Se avisó al mesero ${data.llamado?.meseroNombre || ""}`);
+    cargarMeseros();
   } catch (error) {
     console.log(error);
     alert("Error llamando al mesero");
+  }
+}
+async function cargarMeseros() {
+  try {
+    const res = await fetch(`/api/personal/meseros?restaurantId=${restaurantId}`);
+    if (!res.ok) {
+      console.log("Error cargando meseros");
+    return;
+    }
+  
+
+    const meseros = await res.json();
+    const listaMeseros = document.getElementById("listaMeseros");
+    if (!listaMeseros) return;
+
+    listaMeseros.innerHTML = "";
+
+    if (!meseros.length) {
+      listaMeseros.innerHTML = `
+        <div class="card">
+          <p>No hay meseros registrados.</p>
+        </div>
+      `;
+      return;
+    }
+
+    meseros.forEach(m => {
+      listaMeseros.innerHTML += `
+        <div class="card">
+          <h3>${m.nombre}</h3>
+          <p>${m.estado === "disponible" ? "🟢 Disponible" : "🔴 Ocupado"}</p>
+          <button onclick="llamarMesero('${m._id}')" ${m.estado === "ocupado" ? "disabled" : ""}>
+            ${m.estado === "ocupado" ? "Ocupado" : "Llamar"}
+          </button>
+        </div>
+      `;
+    });
+  } catch (error) {
+    console.log("Error cargando meseros:", error);
+  }
+}
+
+async function revisarEstadoLlamado() {
+  try {
+    const res = await fetch(`/api/llamados/mesa/${mesa}?restaurantId=${restaurantId}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (!data.ok || !data.llamado) return;
+
+    const estadoActual = data.llamado.estado || "";
+
+    // Mostrar el aviso solo cuando pasa de pendiente a atendiendo
+    if (ultimoEstadoLlamado === "pendiente" && estadoActual === "atendiendo") {
+      alert("El mesero ya se está dirigiendo a tu lugar.");
+    }
+
+    ultimoEstadoLlamado = estadoActual;
+  } catch (error) {
+    console.log("Error revisando estado del llamado:", error);
+  }
+}
+
+async function marcarAtendido() {
+  try {
+    const res = await fetch(`/api/llamados/mesa/${mesa}/atendido?restaurantId=${restaurantId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo marcar como atendido");
+      return;
+    }
+
+    ultimoEstadoLlamado = "atendido";
+    alert("Atención marcada como recibida");
+  } catch (error) {
+    console.log(error);
+    alert("Error marcando atención");
   }
 }
 
@@ -290,5 +385,29 @@ socket.on("menu:actualizado", payload => {
   }
 });
 
+// Revisar estado del llamado periódicamente
+setInterval(() => {
+  revisarEstadoLlamado();
+}, 5000);
+
+// También reaccionar cuando el backend avise que cambió un llamado
+socket.on("llamado:actualizado", (llamado) => {
+  if (llamado.restaurantId === restaurantId && Number(llamado.mesa) === Number(mesa)) {
+    revisarEstadoLlamado();
+  }
+});
+socket.on("llamado:nuevo", (llamado) => {
+  if (llamado.restaurantId === restaurantId) {
+    cargarMeseros();
+  }
+});
+
+socket.on("llamado:actualizado", (llamado) => {
+  if (llamado.restaurantId === restaurantId) {
+    cargarMeseros();
+  }
+});
+
 cargarMenu();
 cargarMesa();
+cargarMeseros();
