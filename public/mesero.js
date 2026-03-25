@@ -33,12 +33,16 @@ async function cargarMesero() {
 
     llamadosPendientes.forEach(l => {
         listaLlamados.innerHTML += `
-            <div class="card">
-                <h3>Mesa ${l.mesa}</h3>
-                <p>${l.mensaje}</p>
-                <button onclick="atenderLlamado('${l._id}')">Atendido</button>
-            </div>
-        `
+  <div class="card">
+    <h3>Mesa ${l.mesa}</h3>
+    <p>${l.mensaje || "Solicitud de mesero"}</p>
+    <p><strong>Mesero asignado:</strong> ${l.meseroNombre || "Sin asignar"}</p>
+    <p>Estado: ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
+    <button onclick="atendiendoLlamado('${l._id}')" ${l.estado === "atendiendo" ? "disabled" : ""}>
+      ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "Atendiendo"}
+    </button>
+  </div>
+`;
     })
 
     const pedidosRes = await fetch(`/api/pedidos?restaurantId=${restaurantId}`)

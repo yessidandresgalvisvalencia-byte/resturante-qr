@@ -439,5 +439,116 @@ router.get("/qr/:mesa", async (req, res) => {
         res.status(500).json({ mensaje: "Error generando QR", error })
     }
 })
+/* =========================
+   PERSONAL
+========================= */
+
+router.post("/personal", async (req, res) => {
+  try {
+    const { restaurantId, nombre, cargo, estado } = req.body;
+
+    if (!restaurantId || !nombre || !cargo) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos obligatorios"
+      });
+    }
+
+    const Personal = require("../models/personal");
+
+    const nuevoPersonal = new Personal({
+      restaurantId,
+      nombre,
+      cargo,
+      estado: estado || "disponible"
+    });
+
+    await nuevoPersonal.save();
+
+    res.json({
+      ok: true,
+      mensaje: "Personal agregado correctamente",
+      personal: nuevoPersonal
+    });
+  } catch (error) {
+    console.log("Error guardando personal:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno guardando personal"
+    });
+  }
+});
+
+router.get("/personal", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const Personal = require("../models/personal");
+
+    const personal = await Personal.find({ restaurantId }).sort({ createdAt: -1 });
+
+    res.json(personal);
+  } catch (error) {
+    console.log("Error obteniendo personal:", error);
+    res.status(500).json([]);
+  }
+});
+
+router.put("/personal/:id/estado", async (req, res) => {
+  try {
+    const { estado } = req.body;
+    const Personal = require("../models/personal");
+
+    const persona = await Personal.findByIdAndUpdate(
+      req.params.id,
+      { estado },
+      { new: true }
+    );
+
+    if (!persona) {
+      return res.status(404).json({
+        ok: false,
+        error: "Persona no encontrada"
+      });
+    }
+
+    res.json({
+      ok: true,
+      personal: persona
+    });
+  } catch (error) {
+    console.log("Error actualizando estado del personal:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno actualizando estado"
+    });
+  }
+});
+
+router.delete("/personal/:id", async (req, res) => {
+  try {
+    const Personal = require("../models/personal");
+
+    const personaEliminada = await Personal.findByIdAndDelete(req.params.id);
+
+    if (!personaEliminada) {
+      return res.status(404).json({
+        ok: false,
+        error: "Persona no encontrada"
+      });
+    }
+
+    res.json({
+      ok: true,
+      mensaje: "Personal eliminado correctamente"
+    });
+  } catch (error) {
+    console.log("Error eliminando personal:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Error interno eliminando personal"
+    });
+  }
+});
+
 
 module.exports = router
