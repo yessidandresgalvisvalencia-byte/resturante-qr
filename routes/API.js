@@ -1038,6 +1038,8 @@ router.post("/restaurante/registro", async (req, res) => {
     });
 
     await nuevoRestaurante.save();
+    console.log("GUARDADO REAL:",
+      nuevoRestaurante);
   
 
 await Sede.create({
