@@ -24,10 +24,10 @@ try {
 const wompiPublicKey =
 restaurante.wompiPublicKey || process.env.WOMPI_PUBLIC_KEY;
 
-const wompiPrivateKey =
-restaurante.wompiPrivateKey || process.env.WOMPI_PRIVATE_KEY;
+const WOMPI_PRIVATE_KEY =
+restaurante.WOMPI_PRIVATE_KEY || process.env.WOMPI_PRIVATE_KEY;
 
-if (!wompiPublicKey || !wompiPrivateKey) {
+if (!wompiPublicKey || !WOMPI_PRIVATE_KEY) {
 console.log(
 "Faltan llaves Wompi para restaurante:",
 restaurante.restaurantId
@@ -66,7 +66,7 @@ payment_source_id: Number(restaurante.paymentSourceId)
 },
 {
 headers: {
-Authorization: `Bearer ${wompiPrivateKey}`,
+Authorization: `Bearer ${process.env.WOMPI_PRIVATE_KEY}`,
 "Content-Type": "application/json"
 }
 }

@@ -1274,7 +1274,7 @@ acceptance_token: acceptanceToken
 },
 {
 headers: {
-Authorization: `Bearer ${privateKey}`,
+Authorization: `Bearer ${process.env.WOMPI_PRIVATE_KEY}`,
 "Content-Type": "application/json"
 }
 }
@@ -1298,7 +1298,7 @@ correo,
 usuarioAdmin: usuario,
 passwordAdmin: password,
 wompiPublicKey: publicKey,
-wompiPrivateKey: privateKey,
+WOMPI_PRIVATE_KEY: WOMPI_PRIVATE_KEY,
 paymentSourceId: paymentSource.id,
 customerEmailWompi: customerEmail,
 tokenizacionCompleta: true,
@@ -1542,10 +1542,10 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     const wompiPublicKey =
       restaurante.wompiPublicKey || process.env.WOMPI_PUBLIC_KEY;
 
-    const wompiPrivateKey =
-      restaurante.wompiPrivateKey || process.env.WOMPI_PRIVATE_KEY;
+    const WOMPI_PRIVATE_KEY =
+      restaurante.WOMPI_PRIVATE_KEY || process.env.WOMPI_PRIVATE_KEY;
 
-    if (!wompiPublicKey || !wompiPrivateKey) {
+    if (!wompiPublicKey || !WOMPI_PRIVATE_KEY) {
       return res.status(500).json({
         ok: false,
         error: "Faltan llaves de Wompi"
@@ -1583,7 +1583,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${wompiPrivateKey}`,
+          Authorization: `Bearer ${process.env.WOMPI_PRIVATE_KEY}`,
           "Content-Type": "application/json"
         }
       }
@@ -1639,10 +1639,10 @@ router.post("/confirmar-pago", async (req, res) => {
       });
     }
 
-    const wompiPrivateKey =
-      restaurante.wompiPrivateKey || process.env.WOMPI_PRIVATE_KEY;
+    const WOMPI_PRIVATE_KEY =
+      restaurante.WOMPI_PRIVATE_KEY || process.env.WOMPI_PRIVATE_KEY;
 
-    if (!wompiPrivateKey) {
+    if (!WOMPI_PRIVATE_KEY) {
       return res.status(500).json({
         ok: false,
         error: "Falta llave privada de Wompi"
