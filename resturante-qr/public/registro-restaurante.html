@@ -1,212 +1,217 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<title>Crear Restaurante</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
+  <title>Crear Restaurante</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-<style>
-body {
-font-family: Arial, sans-serif;
-background: #f5f5f5;
-margin: 0;
-padding: 30px 15px;
-}
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 30px 15px;
+    }
 
-.contenedor {
-max-width: 600px;
-margin: auto;
-}
+    .contenedor {
+      max-width: 600px;
+      margin: auto;
+    }
 
-.card {
-background: #fff;
-padding: 25px;
-border-radius: 14px;
-box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-}
+    .card {
+      background: #fff;
+      padding: 25px;
+      border-radius: 14px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
 
-input {
-width: 100%;
-padding: 12px;
-margin-top: 8px;
-margin-bottom: 15px;
-border-radius: 8px;
-border: 1px solid #ddd;
-}
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      box-sizing: border-box;
+    }
 
-button {
-width: 100%;
-padding: 14px;
-border: none;
-border-radius: 10px;
-background: black;
-color: white;
-font-size: 16px;
-cursor: pointer;
-}
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: black;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
 
-button:hover {
-background: #222;
-}
+    button:hover {
+      background: #222;
+    }
 
-.precio {
-font-size: 22px;
-font-weight: bold;
-margin: 10px 0 20px;
-}
+    button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
 
-.estado {
-margin-top: 15px;
-font-size: 14px;
-}
+    .precio {
+      font-size: 22px;
+      font-weight: bold;
+      margin: 10px 0 20px;
+    }
 
-.ok { color: green; }
-.bad { color: red; }
-</style>
+    .estado {
+      margin-top: 15px;
+      font-size: 14px;
+    }
+
+    .ok { color: green; }
+    .bad { color: red; }
+  </style>
 </head>
 
 <body>
+  <div class="contenedor">
+    <div class="card">
 
-<div class="contenedor">
-<div class="card">
+      <h2>Crear restaurante</h2>
 
-<h2>Crear restaurante</h2>
+      <input id="nombre" placeholder="Nombre del restaurante" />
+      <input id="correo" placeholder="Correo" />
+      <input id="usuario" placeholder="Usuario admin" />
+      <input id="password" type="password" placeholder="Contraseña" />
 
-<input id="nombre" placeholder="Nombre del restaurante" />
-<input id="correo" placeholder="Correo" />
-<input id="usuario" placeholder="Usuario admin" />
-<input id="password" type="password" placeholder="Contraseña" />
+      <h3>Plan mensual</h3>
+      <div class="precio">$1.500 COP</div>
 
-<h3>Plan mensual</h3>
-<div class="precio">$1.500 COP</div>
+      <h3>Datos de pago</h3>
+      <input id="cardNumber" placeholder="Número de tarjeta" />
+      <input id="expMonth" placeholder="Mes (MM)" />
+      <input id="expYear" placeholder="Año (YYYY)" />
+      <input id="cvc" placeholder="CVC" />
+      <input id="cardName" placeholder="Nombre en la tarjeta" />
 
-<h3>Datos de pago</h3>
-<input id="cardNumber" placeholder="Número de tarjeta" />
-<input id="expMonth" placeholder="Mes (MM)" />
-<input id="expYear" placeholder="Año (YYYY)" />
-<input id="cvc" placeholder="CVC" />
-<input id="cardName" placeholder="Nombre en la tarjeta" />
+      <button onclick="crearCuentaYPagar()" id="btnPagar">
+        Crear cuenta y pagar
+      </button>
 
-<button onclick="crearCuentaYPagar()" id="btnPagar">
-Crear cuenta y pagar
-</button>
+      <p style="font-size:13px; color:#555; text-align:center; margin-top:10px;">
+        Pago seguro con Wompi • Activación inmediata
+      </p>
 
-<p style="font-size:13px; color:#555; text-align:center; margin-top:10px;">
-Pago seguro con Wompi • Activación inmediata
-</p>
+      <div id="estadoProceso" class="estado"></div>
 
-<div id="estadoProceso" class="estado"></div>
+    </div>
+  </div>
 
-</div>
-</div>
+  <script>
+    async function crearCuentaYPagar() {
+      const btn = document.getElementById("btnPagar");
+      const estado = document.getElementById("estadoProceso");
 
-<script>
-async function crearCuentaYPagar() {
-const btn = document.getElementById("btnPagar");
-const estado = document.getElementById("estadoProceso");
+      btn.disabled = true;
+      estado.innerHTML = "Iniciando proceso...";
 
-btn.disabled = true;
-estado.innerHTML = "Iniciando proceso...";
+      try {
+        const nombre = document.getElementById("nombre").value.trim();
+        const correo = document.getElementById("correo").value.trim();
+        const usuario = document.getElementById("usuario").value.trim();
+        const password = document.getElementById("password").value.trim();
 
-try {
-const nombre = document.getElementById("nombre").value;
-const correo = document.getElementById("correo").value;
-const usuario = document.getElementById("usuario").value;
-const password = document.getElementById("password").value;
+        const cardNumber = document.getElementById("cardNumber").value.trim();
+        const expMonth = document.getElementById("expMonth").value.trim();
+        const expYear = document.getElementById("expYear").value.trim();
+        const cvc = document.getElementById("cvc").value.trim();
+        const cardName = document.getElementById("cardName").value.trim();
 
-const cardNumber = document.getElementById("cardNumber").value;
-const expMonth = document.getElementById("expMonth").value;
-const expYear = document.getElementById("expYear").value;
-const cvc = document.getElementById("cvc").value;
-const cardName = document.getElementById("cardName").value;
+        if (!nombre || !correo || !usuario || !password) {
+          throw new Error("Completa los datos del restaurante");
+        }
 
-const publicKey = "pub_prod_Oh0v6IoZ1mad01tKxchx0uTmzN4LVtEy"; 
+        if (!cardNumber || !expMonth || !expYear || !cvc || !cardName) {
+          throw new Error("Completa los datos de la tarjeta");
+        }
 
-// 🔥 1. Obtener acceptance_token
-estado.innerHTML = "Conectando con Wompi...";
+        const publicKey = "pub_prod_Oh0v6IoZ1mad01tKxchx0uTmzN4LVtEy";
 
-const merchantRes = await fetch(`https://production.wompi.co/v1/merchants/${publicKey}`);
-const merchantData = await merchantRes.json();
+        estado.innerHTML = "Conectando con Wompi...";
 
-const acceptanceToken =
-merchantData?.data?.presigned_acceptance?.acceptance_token;
+        const merchantRes = await fetch(`https://production.wompi.co/v1/merchants/${publicKey}`);
+        const merchantData = await merchantRes.json();
 
-if (!acceptanceToken) {
-console.log("merchantData:", merchantData);
-throw new Error("No se obtuvo acceptance token");
-}
+        const acceptanceToken =
+          merchantData?.data?.presigned_acceptance?.acceptance_token;
 
-// 🔥 2. Tokenizar tarjeta
-estado.innerHTML = "Tokenizando tarjeta...";
+        if (!acceptanceToken) {
+          console.log("merchantData:", merchantData);
+          throw new Error("No se obtuvo acceptance token");
+        }
 
-const tokenRes = await fetch("https://production.wompi.co/v1/tokens/cards", {
-method: "POST",
-headers: {
-"Content-Type": "application/json",
-"Authorization": `Bearer ${publicKey}` 
-},
-body: JSON.stringify({
-number: cardNumber,
-cvc: cvc,
-exp_month: expMonth,
-exp_year: expYear,
-card_holder: cardName
-})
-});
+        estado.innerHTML = "Tokenizando tarjeta...";
 
-const tokenData = await tokenRes.json();
+        const tokenRes = await fetch("https://production.wompi.co/v1/tokens/cards", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${publicKey}`
+          },
+          body: JSON.stringify({
+            number: cardNumber,
+            cvc: cvc,
+            exp_month: expMonth,
+            exp_year: expYear,
+            card_holder: cardName
+          })
+        });
 
-if (!tokenData.data) {
-console.log(tokenData);
-throw new Error("Error tokenizando tarjeta");
-}
+        const tokenData = await tokenRes.json();
 
-const paymentMethodToken = tokenData.data.id;
+        if (!tokenData.data) {
+          console.log("tokenData:", tokenData);
+          throw new Error("Error tokenizando tarjeta");
+        }
 
-// 🔥 3. Enviar al backend
-estado.innerHTML = "Creando cuenta y procesando pago...";
+        const paymentMethodToken = tokenData.data.id;
 
-const res = await fetch("/api/registro-y-fuente-pago", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    nombre,
-    correo,
-    usuario,
-    password,
-    acceptanceToken,
-    paymentMethodToken,
-    customerEmail: correo
-  })
-});
+        estado.innerHTML = "Creando cuenta y procesando pago...";
 
-const data = await res.json();
+        const res = await fetch("/api/registro-y-fuente-pago", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            nombre,
+            correo,
+            usuario,
+            password,
+            acceptanceToken,
+            paymentMethodToken,
+            customerEmail: correo
+          })
+        });
 
-if (!res.ok || !data.ok) {
-  console.log(data);
-  throw new Error(data.error || "Error en el servidor");
-}
-estado.innerHTML = "<span class='ok'>Cuenta creada y pago realizado ✅</span>";
-alert("Restaurante activado correctamente 🚀");
+        const data = await res.json();
 
-} 
-catch (error) {
-  console.log("ERROR REAL creando fuente de pago:");
-  console.log(error.response?.data || error.message || error);
+        if (!res.ok || !data.ok) {
+          console.log("Respuesta backend:", data);
+          throw new Error(data.error || "Error en el servidor");
+        }
 
-  return res.status(500).json({
-    ok: false,
-    error:
-      error.response?.data?.error?.reason ||
-      error.response?.data?.error?.messages ||
-      error.response?.data?.error?.message ||
-      error.message ||
-      "Error creando fuente de pago"
-  });
-}}
-</script>
+        estado.innerHTML = "<span class='ok'>Cuenta creada y pago realizado ✅</span>";
+        alert("Restaurante activado correctamente 🚀");
 
+      } catch (error) {
+        console.log("ERROR REAL creando fuente de pago:");
+        console.log(error);
+
+        estado.innerHTML = "<span class='bad'>Error: " + error.message + "</span>";
+        alert("Error: " + error.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
 </body>
 </html>
