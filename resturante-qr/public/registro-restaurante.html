@@ -193,14 +193,21 @@ throw new Error(data.error || "Error en el servidor");
 estado.innerHTML = "<span class='ok'>Cuenta creada y pago realizado ✅</span>";
 alert("Restaurante activado correctamente 🚀");
 
-} catch (error) {
-console.error(error);
-estado.innerHTML = "<span class='bad'>Error: " + error.message + "</span>";
-alert("Error: " + error.message);
-} finally {
-btn.disabled = false;
-}
-}
+} 
+catch (error) {
+  console.log("ERROR REAL creando fuente de pago:");
+  console.log(error.response?.data || error.message || error);
+
+  return res.status(500).json({
+    ok: false,
+    error:
+      error.response?.data?.error?.reason ||
+      error.response?.data?.error?.messages ||
+      error.response?.data?.error?.message ||
+      error.message ||
+      "Error creando fuente de pago"
+  });
+}}
 </script>
 
 </body>
