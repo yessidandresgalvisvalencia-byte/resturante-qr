@@ -199,8 +199,11 @@
           throw new Error(data.error || "Error en el servidor");
         }
 
-        estado.innerHTML = "<span class='ok'>Cuenta creada y pago realizado ✅</span>";
-        alert("Restaurante activado correctamente 🚀");
+        estado.innerHTML = "<span class='ok'>Cuenta creada correctamente ✅ Redirigiendo al pago...</span>";
+
+setTimeout(() => {
+  window.location.href = `/pago-suscripcion.html?restaurantId=${encodeURIComponent(data.restauranteId)}`;
+}, 1200);
 
       } catch (error) {
         console.log("ERROR REAL creando fuente de pago:");

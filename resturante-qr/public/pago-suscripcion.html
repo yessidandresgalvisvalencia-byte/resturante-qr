@@ -193,6 +193,14 @@
         btn.disabled = false;
       }
     }
+    window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const restaurantId = params.get("restaurantId");
+
+  if (restaurantId) {
+    document.getElementById("restaurantIdPago").value = restaurantId;
+  }
+});
   </script>
 </body>
 </html>
