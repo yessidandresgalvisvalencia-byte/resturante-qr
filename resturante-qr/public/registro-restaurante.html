@@ -149,7 +149,8 @@ estado.innerHTML = "Tokenizando tarjeta...";
 const tokenRes = await fetch("https://production.wompi.co/v1/tokens/cards", {
 method: "POST",
 headers: {
-"Content-Type": "application/json"
+"Content-Type": "application/json",
+"Authorization": `Bearer ${publicKey}`
 },
 body: JSON.stringify({
 number: cardNumber,
