@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administrador</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="contenedor">
+    <h1>Panel Administrador</h1>
+
+    <div class="card">
+      <h3>Links del restaurante</h3>
+      <p><strong>Restaurant ID:</strong> <span id="restaurantIdActual"></span></p>
+
+      <p><strong>Menú cliente:</strong><br>
+        <a id="linkMenu" target="_blank"></a>
+      </p>
+
+      <p><strong>Cocina:</strong><br>
+        <a id="linkCocina" target="_blank"></a>
+      </p>
+
+      <p><strong>Mesero:</strong><br>
+        <a id="linkMesero" target="_blank"></a>
+      </p>
+
+      <p><strong>Administrador:</strong><br>
+        <a id="linkAdmin" target="_blank"></a>
+      </p>
+    </div>
+
+    <div class="card">
+      <label>Restaurant ID</label>
+      <input id="restaurantIdInput" type="text" value="rest1">
+
+      <label>Base URL para QR</label>
+      <input id="baseUrl" type="text" placeholder="https://tu-url.onrender.com">
+
+      <label>Número de mesas</label>
+      <input id="numeroMesas" type="number" value="10" min="1">
+
+      <button onclick="generarQRs()">Generar QR</button>
+      <button onclick="cargarAdmin()">Actualizar panel</button>
+    </div>
+
+    <div class="card">
+      <h3>Agregar producto al menú</h3>
+
+      <label>Nombre del producto</label>
+      <input id="nombreProducto" type="text" placeholder="Ej: Hamburguesa clásica">
+
+      <label>Precio</label>
+      <input id="precioProducto" type="number" placeholder="Ej: 20000">
+
+      <label>Categoría</label>
+      <select id="categoriaProducto">
+        <option value="Comida">Comida</option>
+        <option value="Bebida">Bebida</option>
+        <option value="Adiciones">Adiciones</option>
+        <option value="Postres">Postres</option>
+      </select>
+
+      <label>URL de imagen</label>
+      <input id="imagenProducto" type="text" placeholder="/img/hamburguesa.jpg">
+
+      <label>Tiempo estimado base (minutos)</label>
+      <input id="tiempoProducto" type="number" value="10">
+
+      <label>Disponible</label>
+      <select id="disponibleProducto">
+        <option value="true">Sí</option>
+        <option value="false">No</option>
+      </select>
+
+      <button id="btnGuardarProducto" onclick="guardarOEditarProducto()">Guardar producto</button>
+      <button id="btnCancelarEdicion" onclick="cancelarEdicion()" style="display:none;">Cancelar edición</button>
+    </div>
+
+    <div class="card">
+  <h3>Agregar personal</h3>
+
+  <label>Nombre</label>
+  <input id="nombrePersonal" type="text" placeholder="Ej: Juan">
+
+  <label>Cargo</label>
+  <select id="cargoPersonal">
+    <option value="mesero">Mesero</option>
+    <option value="mesera">Mesera</option>
+    <option value="cajero">Cajero</option>
+    <option value="cocinero">Cocinero</option>
+    <option value="admin">Admin</option>
+  </select>
+
+  <label>Estado</label>
+  <select id="estadoPersonal">
+    <option value="disponible">Disponible</option>
+    <option value="ocupado">Ocupado</option>
+  </select>
+
+  <label>Usuario</label>
+  <input id="usuarioPersonal" type="text" placeholder="Ej: juan01">
+
+  <label>Contraseña</label>
+  <input id="passwordPersonal" type="text" placeholder="Ej: 1234">
+
+  <button onclick="agregarPersonal()">Guardar personal</button>
+</div>
+    <div class="resumen-grid">
+      <div class="card">
+        <h3>Total vendido</h3>
+        <p id="totalVendido">$0</p>
+      </div>
+
+      <div class="card">
+        <h3>Pedidos activos</h3>
+        <p id="pedidosActivos">0</p>
+      </div>
+    </div>
+
+    <h2>Solicitudes de mesero</h2>
+    <div id="solicitudesMesero" class="grid"></div>
+
+    <h2>Top productos vendidos</h2>
+    <div id="topProductos" class="grid"></div>
+
+    <h2>Historial de ventas</h2>
+    <div id="historialVentas" class="grid"></div>
+
+    <h2>Control de stock</h2>
+    <div id="stockLista" class="grid"></div>
+
+    <h2>Personal del restaurante</h2>
+    <div id="listaPersonal" class="grid"></div>
+
+    <h2>QR por mesa</h2>
+    <div id="qrs" class="grid"></div>
+  </div>
+
+  <script>
+    const adminRestaurantId = localStorage.getItem("adminRestaurantId");
+    if (!adminRestaurantId) {
+      window.location.href = "/login.html";
+    }
+  </script>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
