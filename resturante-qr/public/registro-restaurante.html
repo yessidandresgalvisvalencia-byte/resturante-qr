@@ -120,13 +120,6 @@ const expYear = document.getElementById("expYear").value;
 const cvc = document.getElementById("cvc").value;
 const cardName = document.getElementById("cardName").value;
 
-
-
-
-
-
-
-
 const publicKey = "pub_prod_Oh0v6IoZ1mad01tKxchx0uTmzN4LVtEy"; 
 
 // 🔥 1. Obtener acceptance_token
@@ -150,7 +143,7 @@ const tokenRes = await fetch("https://production.wompi.co/v1/tokens/cards", {
 method: "POST",
 headers: {
 "Content-Type": "application/json",
-"Authorization": `Bearer ${publicKey}`
+"Authorization": `Bearer ${publicKey}` 
 },
 body: JSON.stringify({
 number: cardNumber,
