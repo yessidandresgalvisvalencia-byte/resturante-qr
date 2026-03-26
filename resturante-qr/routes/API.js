@@ -1226,12 +1226,11 @@ if (reference.startsWith("renovacion_")) {
     }
 
     if (status === "DECLINED" || status === "ERROR" || status === "VOIDED") {
-      if (restaurante.estadoSuscripcion !== "activa") {
-        restaurante.estadoSuscripcion = "pendiente";
-        restaurante.ultimoTransactionId = transactionId;
-        await restaurante.save();
-      }
-    }
+  restaurante.estadoSuscripcion = "pendiente";
+  restaurante.ultimoTransactionId = transactionId;
+  await restaurante.save();
+}
+    
 
     res.status(200).json({ ok: true });
   } catch (error) {
