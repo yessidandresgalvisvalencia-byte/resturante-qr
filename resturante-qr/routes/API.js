@@ -1246,8 +1246,6 @@ nombre,
 correo,
 usuario,
 password,
-publicKey,
-privateKey,
 acceptanceToken,
 paymentMethodToken,
 customerEmail
