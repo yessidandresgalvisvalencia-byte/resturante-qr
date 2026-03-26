@@ -1653,7 +1653,7 @@ router.post("/confirmar-pago", async (req, res) => {
       `https://production.wompi.co/v1/transactions/${transactionId}`,
       {
         headers: {
-          Authorization: `Bearer ${wompiPrivateKey}`,
+          Authorization: `Bearer ${process.env.WOMPI_PRIVATE_KEY}`,
           "Content-Type": "application/json"
         }
       }

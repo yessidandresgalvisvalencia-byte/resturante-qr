@@ -167,29 +167,27 @@ const paymentMethodToken = tokenData.data.id;
 estado.innerHTML = "Creando cuenta y procesando pago...";
 
 const res = await fetch("/api/registro-y-fuente-pago", {
-method: "POST",
-headers: {
-"Content-Type": "application/json"
-},
-body: JSON.stringify({
-nombre,
-correo,
-usuario,
-password,
-publicKey,
-acceptanceToken,
-paymentMethodToken,
-customerEmail: correo
-})
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    nombre,
+    correo,
+    usuario,
+    password,
+    acceptanceToken,
+    paymentMethodToken,
+    customerEmail: correo
+  })
 });
 
 const data = await res.json();
 
 if (!res.ok || !data.ok) {
-console.log(data);
-throw new Error(data.error || "Error en el servidor");
+  console.log(data);
+  throw new Error(data.error || "Error en el servidor");
 }
-
 estado.innerHTML = "<span class='ok'>Cuenta creada y pago realizado ✅</span>";
 alert("Restaurante activado correctamente 🚀");
 
