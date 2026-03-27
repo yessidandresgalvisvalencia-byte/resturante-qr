@@ -1032,7 +1032,7 @@ router.post("/restaurante/registro", async (req, res) => {
       usuarioAdmin,
       passwordAdmin,
       plan: "mensual",
-      precioMensual: 200000,
+      precioMensual: 1500,
       estadoSuscripcion: "pendiente",
       aceptaPlan: false
     });
@@ -1313,7 +1313,7 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
       customerEmailWompi: customerEmail,
       tokenizacionCompleta: true,
       plan: "mensual",
-      precioMensual: 200000,
+      precioMensual: 1500,
       estadoSuscripcion: "pendiente",
       fechaUltimoPago: null,
       fechaProximoCobro: null,
