@@ -90,11 +90,42 @@
       </button>
 
       <div id="estadoProceso" class="estado"></div>
+      <div id="accesoPanel" class="card" style="display:none; margin-top:18px;">
+  <h2>Acceder a tu aplicación</h2>
+
+  <label for="usuarioLoginAuto">Usuario</label>
+  <input id="usuarioLoginAuto" type="text" placeholder="Usuario admin" />
+
+  <label for="passwordLoginAuto">Contraseña</label>
+  <input id="passwordLoginAuto" type="password" placeholder="Contraseña" />
+
+  <button id="btnEntrarPanel" onclick="irAlLogin()">
+    Entrar al panel
+  </button>
+</div>
     </div>
   </div>
 
   <script src="https://checkout.wompi.co/widget.js"></script>
   <script>
+    function mostrarAccesoPanel() {
+  const usuario = sessionStorage.getItem("registro_usuario") || "";
+  const password = sessionStorage.getItem("registro_password") || "";
+
+  document.getElementById("usuarioLoginAuto").value = usuario;
+  document.getElementById("passwordLoginAuto").value = password;
+  document.getElementById("accesoPanel").style.display = "block";
+}
+
+function irAlLogin() {
+  const usuario = document.getElementById("usuarioLoginAuto").value.trim();
+  const password = document.getElementById("passwordLoginAuto").value.trim();
+
+  sessionStorage.setItem("login_usuario_prefill", usuario);
+  sessionStorage.setItem("login_password_prefill", password);
+
+  window.location.href = "/login.html";
+}
     async function pagarSuscripcion() {
       const restaurantId = document.getElementById("restaurantIdPago").value.trim();
       const estado = document.getElementById("estadoProceso");
@@ -177,7 +208,8 @@
             }
 
             estado.innerHTML = `<span class="ok">Pago confirmado correctamente ✅</span>`;
-            alert("Pago confirmado ✅");
+mostrarAccesoPanel();
+alert("Pago confirmado ✅");
           } catch (error) {
             console.log("Error confirmando pago:", error);
             estado.innerHTML = `<span class="bad">${error.error || "Error confirmando pago"}</span>`;

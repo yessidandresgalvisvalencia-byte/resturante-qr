@@ -197,8 +197,12 @@ throw new Error(data.error || "Error en el servidor");
 
 estado.innerHTML = "<span class='ok'>Restaurante creado ✅ Redirigiendo al pago...</span>";
 
+sessionStorage.setItem("registro_usuario", usuario);
+sessionStorage.setItem("registro_password", password);
+sessionStorage.setItem("registro_restaurantId", data.restauranteId);
+
 setTimeout(() => {
-window.location.href = `/pago-suscripcion.html?restaurantId=${encodeURIComponent(data.restauranteId)}`;
+  window.location.href = `/pago-suscripcion.html?restaurantId=${encodeURIComponent(data.restauranteId)}`;
 }, 1200);
 
 } catch (error) {

@@ -109,7 +109,26 @@
         alert("Error creando administrador");
       }
     }
+    
   </script>
+  <script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const usuario = sessionStorage.getItem("login_usuario_prefill") || "";
+    const password = sessionStorage.getItem("login_password_prefill") || "";
+
+    const inputUsuario =
+      document.getElementById("usuario") ||
+      document.getElementById("username") ||
+      document.querySelector('input[type="text"]');
+
+    const inputPassword =
+      document.getElementById("password") ||
+      document.querySelector('input[type="password"]');
+
+    if (inputUsuario) inputUsuario.value = usuario;
+    if (inputPassword) inputPassword.value = password;
+  });
+</script>
 
 </body>
 </html>
