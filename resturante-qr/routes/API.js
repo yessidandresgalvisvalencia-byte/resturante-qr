@@ -281,34 +281,41 @@ router.delete("/menu/:id", async (req, res) => {
 
 router.post("/pedido", async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
+    const restauranteId = getRestaurantId(req);
+    console.log("BODY PEDIDO:", req.body);
+
     const { mesa, producto, categoria, precio, metodoPago, tiempoEstimado, sedeId, observaciones } = req.body;
+
     if (!mesa || !producto || !precio) {
       return res.status(400).json({ mensaje: "Faltan datos del pedido" });
     }
 
     const pedido = new Pedido({
-      restaurantId,
+      restauranteId,
       sedeId: sedeId || "",
       mesa: Number(mesa),
       producto,
       observaciones: observaciones || "",
-  estado: "pendiente",
       categoria: categoria || "",
       precio: Number(precio),
       metodoPago: metodoPago || "efectivo",
+      estado: "pendiente",
       estadoPago: "pendiente",
       tiempoEstimado: Number(tiempoEstimado || 15)
     });
-    
+
     await pedido.save();
 
     const io = req.app.get("io");
     io.emit("pedido:nuevo", pedido);
 
-    res.json(pedido);
+    return res.json(pedido);
   } catch (error) {
-    res.status(500).json({ mensaje: "Error creando pedido", error });
+    console.log("ERROR REAL /pedido:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message || "No se pudo enviar el pedido"
+    });
   }
 });
 
