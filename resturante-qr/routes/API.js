@@ -282,7 +282,7 @@ router.delete("/menu/:id", async (req, res) => {
 router.post("/pedido", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
-    const { mesa, producto, categoria, precio, metodoPago, tiempoEstimado, sedeId } = req.body;
+    const { mesa, producto, categoria, precio, metodoPago, tiempoEstimado, sedeId, observaciones } = req.body;
 
     if (!mesa || !producto || !precio) {
       return res.status(400).json({ mensaje: "Faltan datos del pedido" });
@@ -298,7 +298,6 @@ router.post("/pedido", async (req, res) => {
       categoria: categoria || "",
       precio: Number(precio),
       metodoPago: metodoPago || "efectivo",
-      estado: "pedido",
       estadoPago: "pendiente",
       tiempoEstimado: Number(tiempoEstimado || 15)
     });
