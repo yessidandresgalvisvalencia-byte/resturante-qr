@@ -74,7 +74,7 @@ async function cargarPedidos() {
             <p><strong>Estado:</strong> ${pedido.estado}</p>
             <p><strong>Observaciones:</strong> ${pedido.observaciones || "Sin observaciones"}</p>
             <p><strong>Tiempo:</strong> ${pedido.tiempoEstimado} min</p>
-            <p><strong>Método de pago:</strong> ${textoMetodoPago(p.metodoPago)}</p>
+            <p><strong>Método de pago:</strong> ${textoMetodoPago(pedido.metodoPago)}</p>
             <p><strong>Estado del pago:</strong> ${pedido.estadoPago}</p>
 
             <div class="botones">
