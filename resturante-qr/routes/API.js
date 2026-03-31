@@ -282,8 +282,6 @@ router.delete("/menu/:id", async (req, res) => {
 router.post("/pedido", async (req, res) => {
   try {
     const restauranteId = getRestaurantId(req);
-    console.log("BODY PEDIDO:", req.body);
-
     const { mesa, producto, categoria, precio, metodoPago, tiempoEstimado, sedeId, observaciones } = req.body;
 
     if (!mesa || !producto || !precio) {
