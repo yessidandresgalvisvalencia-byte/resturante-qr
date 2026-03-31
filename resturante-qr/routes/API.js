@@ -1042,7 +1042,7 @@ router.post("/restaurante/registro", async (req, res) => {
       usuarioAdmin,
       passwordAdmin,
       plan: "mensual",
-      precioMensual: 1500,
+      precioMensual: 220000,
       estadoSuscripcion: "pendiente",
       aceptaPlan: false
     });
@@ -1107,7 +1107,7 @@ router.post("/crear-pago-suscripcion", async (req, res) => {
       });
     }
 
-    const amountInCents = 1500 * 100;
+    const amountInCents = 220000 * 100;
     const currency = "COP";
     const reference = `suscripcion_${restaurantId}_${Date.now()}`;
 
@@ -1323,7 +1323,7 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
       customerEmailWompi: customerEmail,
       tokenizacionCompleta: true,
       plan: "mensual",
-      precioMensual: 1500,
+      precioMensual: 220000,
       estadoSuscripcion: "pendiente",
       fechaUltimoPago: null,
       fechaProximoCobro: null,
@@ -1449,7 +1449,7 @@ paymentSourceId: String(paymentSource.id),
 customerEmailWompi: customerEmail,
 tokenizacionCompleta: true,
 plan: "mensual",
-precioMensual: 1500, // cámbialo luego a 200000
+precioMensual: 220000, // cámbialo luego a 200000
 estadoSuscripcion: "pendiente",
 aceptaPlan: true,
 fechaUltimoPago: null,

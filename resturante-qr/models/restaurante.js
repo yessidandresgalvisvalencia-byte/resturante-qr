@@ -9,7 +9,7 @@ passwordAdmin: { type: String, required: true },
 
 // 🔹 PLAN
 plan: { type: String, default: "mensual" },
-precioMensual: { type: Number, default: 1500 },
+precioMensual: { type: Number, default: 220000 },
 
 estadoSuscripcion: {
 type: String,
