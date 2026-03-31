@@ -144,7 +144,10 @@ router.post("/menu", async (req, res) => {
     await nuevoProducto.save();
 
     const io = req.app.get("io");
-    io.emit("menu:actualizado", { restaurantId });
+
+    console.log("pedido guardado:", pedido);
+    console.log("enviando evento socket...");
+    io.emit("pedido:nuevo", { restaurantId });
 
     res.json({
       ok: true,
