@@ -282,9 +282,11 @@ router.delete("/menu/:id", async (req, res) => {
    PEDIDOS
 ========================= */
 
+
+
 router.post("/pedido", async (req, res) => {
   try {
-    const restauranteId = getRestaurantId(req);
+    const restaurantId = getRestaurantId(req);
     const { mesa, producto, categoria, precio, metodoPago, tiempoEstimado, sedeId, observaciones } = req.body;
 
     if (!mesa || !producto || !precio) {
@@ -292,7 +294,7 @@ router.post("/pedido", async (req, res) => {
     }
 
     const pedido = new Pedido({
-      restauranteId,
+      restaurantId,
       sedeId: sedeId || "",
       mesa: Number(mesa),
       producto,
