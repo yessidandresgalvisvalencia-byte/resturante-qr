@@ -64,24 +64,24 @@ async function cargarPedidos() {
     const lista = document.getElementById("listaPedidos")
     lista.innerHTML = ""
 
-   activos.forEach(p => {
+   pedidos.forEach((pedido) => {
     lista.innerHTML += `
         <div class="card">
-            <h3>Mesa ${p.mesa}</h3>
-            <p><strong>Producto:</strong> ${p.producto}</p>
-            <p><strong>Categoría:</strong> ${p.categoria || "-"}</p>
-            <p><strong>Precio:</strong> $${p.precio}</p>
-            <p><strong>Estado:</strong> ${p.estado}</p>
-            <p><strong>Obs:</strong> ${p.observaciones || "Sin observaciones"}</p>
-            <p><strong>Tiempo:</strong> ${p.tiempoEstimado} min</p>
+            <h3>Mesa ${pedido.mesa}</h3>
+            <p><strong>Producto:</strong> ${pedido.producto}</p>
+            <p><strong>Categoría:</strong> ${pedido.categoria || "-"}</p>
+            <p><strong>Precio:</strong> $${pedido.precio}</p>
+            <p><strong>Estado:</strong> ${pedido.estado}</p>
+            <p><strong>Obs:</strong> ${pedido.observaciones || "Sin observaciones"}</p>
+            <p><strong>Tiempo:</strong> ${pedido.tiempoEstimado} min</p>
             <p><strong>Método de pago:</strong> ${textoMetodoPago(p.metodoPago)}</p>
-            <p><strong>Estado del pago:</strong> ${p.estadoPago}</p>
+            <p><strong>Estado del pago:</strong> ${pedido.estadoPago}</p>
 
             <div class="botones">
-                <button onclick="cambiarEstado('${p._id}','preparando')">Preparando</button>
-                <button onclick="cambiarEstado('${p._id}','listo')">Listo</button>
-                <button onclick="cambiarEstado('${p._id}','entregado')">Entregado</button>
-                <button onclick="marcarPagado('${p._id}')">Marcar pagado</button>
+                <button onclick="cambiarEstado('${pedido._id}','preparando')">Preparando</button>
+                <button onclick="cambiarEstado('${pedido._id}','listo')">Listo</button>
+                <button onclick="cambiarEstado('${pedido._id}','entregado')">Entregado</button>
+                <button onclick="marcarPagado('${pedido._id}')">Marcar pagado</button>
             </div>
         </div>
     `
