@@ -283,7 +283,6 @@ router.post("/pedido", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
     const { mesa, producto, categoria, precio, metodoPago, tiempoEstimado, sedeId, observaciones } = req.body;
-
     if (!mesa || !producto || !precio) {
       return res.status(400).json({ mensaje: "Faltan datos del pedido" });
     }
