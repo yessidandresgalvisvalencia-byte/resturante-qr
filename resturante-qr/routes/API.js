@@ -1830,23 +1830,5 @@ error: "Error confirmando pago"
 });
 }
 });
-router.post("/crear-pedido", async (req, res) => {
-  try {
-    const { restauranteId, mesa, productos, observaciones } = req.body;
 
-    const pedido = await Pedido.create({
-      restauranteId,
-      mesa,
-      productos,
-      observaciones,
-      estado: "pendiente",
-      fecha: new Date()
-    });
-
-    res.json({ ok: true, pedido });
-
-  } catch (error) {
-    res.status(500).json({ ok: false });
-  }
-});
 module.exports = router;
