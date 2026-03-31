@@ -293,6 +293,8 @@ router.post("/pedido", async (req, res) => {
       sedeId: sedeId || "",
       mesa: Number(mesa),
       producto,
+      observaciones: observaciones || "",
+  estado: "pendiente",
       categoria: categoria || "",
       precio: Number(precio),
       metodoPago: metodoPago || "efectivo",
@@ -300,7 +302,7 @@ router.post("/pedido", async (req, res) => {
       estadoPago: "pendiente",
       tiempoEstimado: Number(tiempoEstimado || 15)
     });
-
+    
     await pedido.save();
 
     const io = req.app.get("io");
@@ -1829,5 +1831,24 @@ ok: false,
 error: "Error confirmando pago"
 });
 }
+});
+router.post("/crear-pedido", async (req, res) => {
+  try {
+    const { restauranteId, mesa, productos, observaciones } = req.body;
+
+    const pedido = await Pedido.create({
+      restauranteId,
+      mesa,
+      productos,
+      observaciones,
+      estado: "pendiente",
+      fecha: new Date()
+    });
+
+    res.json({ ok: true, pedido });
+
+  } catch (error) {
+    res.status(500).json({ ok: false });
+  }
 });
 module.exports = router;

@@ -13,6 +13,10 @@ const pedidoSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    observaciones: {
+  type: String,
+  default: ""
+},
     producto: {
         type: String,
         required: true

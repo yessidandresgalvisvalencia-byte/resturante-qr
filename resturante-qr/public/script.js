@@ -116,7 +116,7 @@ async function pedir(idProducto) {
       alert("Este producto está agotado");
       return;
     }
-
+    const observaciones = document.getElementById("observaciones").value.trim();
     const metodoPago = document.getElementById("metodoPago").value;
     const cantidad = Number(document.getElementById(`cantidad-${idProducto}`).value || 1);
 
@@ -129,6 +129,7 @@ async function pedir(idProducto) {
         restaurantId,
         mesa,
         producto: item.nombre,
+        observaciones,
         categoria: item.categoria,
         precio: item.precio * cantidad,
         cantidad,
