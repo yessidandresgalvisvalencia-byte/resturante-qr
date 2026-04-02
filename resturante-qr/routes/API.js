@@ -111,8 +111,11 @@ router.post("/menu", async (req, res) => {
     const {
       restaurantId,
       nombre,
+      descripcion,
       precio,
       categoria,
+      guarniciones,
+      extras, 
       imagen,
       tiempoBase,
       disponible
