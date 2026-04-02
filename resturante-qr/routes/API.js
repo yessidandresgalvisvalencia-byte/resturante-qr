@@ -134,15 +134,20 @@ router.post("/menu", async (req, res) => {
     const nuevoId = ultimoProducto ? ultimoProducto.id + 1 : 1;
 
     const nuevoProducto = new Menu({
-      restaurantId,
-      id: nuevoId,
-      nombre,
-      precio,
-      categoria,
-      imagen: imagen || "",
-      tiempoBase: tiempoBase || 10,
-      disponible: disponible !== false
-    });
+  restaurantId,
+  id: nuevoId,
+  nombre,
+  descripcion: descripcion || "",
+  precio,
+  categoria, 
+  
+  guarniciones: Array.isArray(guarniciones) ? guarniciones : [],
+  extras: Array.isArray(extras) ? extras : [],
+
+  imagen,
+  tiempoBase,
+  disponible
+});
 
     await nuevoProducto.save();
 
