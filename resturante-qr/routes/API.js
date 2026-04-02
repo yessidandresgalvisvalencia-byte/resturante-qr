@@ -107,185 +107,195 @@ router.get("/menu", async (req, res) => {
 });
 
 router.post("/menu", async (req, res) => {
-  try {
-    const {
-      restaurantId,
-      nombre,
-      descripcion,
-      precio,
-      categoria,
-      guarniciones,
-      extras, 
-      imagen,
-      tiempoBase,
-      disponible
-    } = req.body;
+try {
+const {
+restaurantId,
+nombre,
+descripcion,
+precio,
+categoria,
+guarniciones,
+extras,
+imagen,
+tiempoBase,
+disponible
+} = req.body;
 
-    if (!restaurantId || !nombre || !precio || !categoria) {
-      return res.status(400).json({
-        ok: false,
-        error: "Faltan datos obligatorios"
-      });
-    }
+if (!restaurantId || !nombre || !precio || !categoria) {
+return res.status(400).json({
+ok: false,
+error: "Faltan datos obligatorios"
+});
+}
 
-    const Menu = require("../models/menu");
+const Menu = require("../models/menu");
 
-    const ultimoProducto = await Menu.findOne({ restaurantId }).sort({ id: -1 });
-    const nuevoId = ultimoProducto ? ultimoProducto.id + 1 : 1;
+const ultimoProducto = await Menu.findOne({ restaurantId }).sort({ id: -1 });
+const nuevoId = ultimoProducto ? ultimoProducto.id + 1 : 1;
 
-    const nuevoProducto = new Menu({
-  restaurantId,
-  id: nuevoId,
-  nombre,
-  descripcion: descripcion || "",
-  precio,
-  categoria, 
-  
-  guarniciones: Array.isArray(guarniciones) ? guarniciones : [],
-  extras: Array.isArray(extras) ? extras : [],
-
-  imagen,
-  tiempoBase,
-  disponible
+const nuevoProducto = new Menu({
+restaurantId,
+id: nuevoId,
+nombre,
+descripcion: descripcion || "",
+precio: Number(precio),
+categoria,
+guarniciones: Array.isArray(guarniciones) ? guarniciones : [],
+extras: Array.isArray(extras) ? extras : [],
+imagen,
+tiempoBase: Number(tiempoBase || 10),
+disponible: disponible === true || disponible === "true"
 });
 
-    await nuevoProducto.save();
+await nuevoProducto.save();
 
-    const io = req.app.get("io");
+const io = req.app.get("io");
+if (io) {
+io.emit("menu:actualizado", { restaurantId });
+}
 
-    console.log("pedido guardado:", pedido);
-    console.log("enviando evento socket...");
-    io.emit("pedido:nuevo", { restaurantId });
+console.log("producto guardado:", nuevoProducto);
 
-    res.json({
-      ok: true,
-      mensaje: "Producto guardado correctamente",
-      producto: nuevoProducto
-    });
-  } catch (error) {
-    console.log("Error guardando producto:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Error interno guardando producto"
-    });
-  }
+return res.json({
+ok: true,
+mensaje: "Producto guardado correctamente",
+producto: nuevoProducto
+});
+} catch (error) {
+console.log("ERROR REAL guardando producto:", error);
+return res.status(500).json({
+ok: false,
+error: error.message || "Error interno guardando producto"
+});
+}
 });
 
 router.put("/menu/:id", async (req, res) => {
-  try {
-    const restaurantId = getRestaurantId(req);
-    const id = Number(req.params.id);
+try {
+const restaurantId = getRestaurantId(req);
+const id = Number(req.params.id);
 
-    const {
-      nombre,
-      precio,
-      categoria,
-      imagen,
-      tiempoBase,
-      disponible
-    } = req.body;
+const {
+nombre,
+descripcion,
+precio,
+categoria,
+guarniciones,
+extras,
+imagen,
+tiempoBase,
+disponible
+} = req.body;
 
-    const Menu = require("../models/menu");
+const Menu = require("../models/menu");
 
-    const productoActualizado = await Menu.findOneAndUpdate(
-      { restaurantId, id },
-      {
-        nombre,
-        precio,
-        categoria,
-        imagen,
-        tiempoBase,
-        disponible
-      },
-      { new: true }
-    );
+const productoActualizado = await Menu.findOneAndUpdate(
+{ restaurantId, id },
+{
+nombre,
+descripcion: descripcion || "",
+precio: Number(precio),
+categoria,
+guarniciones: Array.isArray(guarniciones) ? guarniciones : [],
+extras: Array.isArray(extras) ? extras : [],
+imagen,
+tiempoBase: Number(tiempoBase || 10),
+disponible: disponible === true || disponible === "true"
+},
+{ new: true }
+);
 
-    if (!productoActualizado) {
-      return res.status(404).json({
-        ok: false,
-        error: "Producto no encontrado"
-      });
-    }
+if (!productoActualizado) {
+return res.status(404).json({
+ok: false,
+error: "Producto no encontrado"
+});
+}
 
-    const io = req.app.get("io");
-    io.emit("menu:actualizado", { restaurantId });
+const io = req.app.get("io");
+if (io) {
+io.emit("menu:actualizado", { restaurantId });
+}
 
-    res.json({
-      ok: true,
-      mensaje: "Producto actualizado correctamente",
-      producto: productoActualizado
-    });
-  } catch (error) {
-    console.log("Error actualizando producto:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Error interno actualizando producto"
-    });
-  }
+return res.json({
+ok: true,
+mensaje: "Producto actualizado correctamente",
+producto: productoActualizado
+});
+} catch (error) {
+console.log("ERROR REAL actualizando producto:", error);
+return res.status(500).json({
+ok: false,
+error: error.message || "Error interno actualizando producto"
+});
+}
 });
 
 router.put("/menu/:id/stock", async (req, res) => {
-  try {
-    const restaurantId = getRestaurantId(req);
-    const id = Number(req.params.id);
+try {
+const restaurantId = getRestaurantId(req);
+const id = Number(req.params.id);
 
-    const Menu = require("../models/menu");
+const Menu = require("../models/menu");
 
-    const producto = await Menu.findOneAndUpdate(
-      { restaurantId, id },
-      { disponible: Boolean(req.body.disponible) },
-      { new: true }
-    );
+const producto = await Menu.findOneAndUpdate(
+{ restaurantId, id },
+{ disponible: Boolean(req.body.disponible) },
+{ new: true }
+);
 
-    if (!producto) {
-      return res.status(404).json({ mensaje: "Producto no encontrado" });
-    }
+if (!producto) {
+return res.status(404).json({ mensaje: "Producto no encontrado" });
+}
 
-    const io = req.app.get("io");
-    io.emit("menu:actualizado", { restaurantId });
+const io = req.app.get("io");
+if (io) {
+io.emit("menu:actualizado", { restaurantId });
+}
 
-    res.json(producto);
-  } catch (error) {
-    console.log("Error actualizando stock:", error);
-    res.status(500).json({ mensaje: "Error actualizando stock" });
-  }
+return res.json(producto);
+} catch (error) {
+console.log("Error actualizando stock:", error);
+return res.status(500).json({ mensaje: "Error actualizando stock" });
+}
 });
 
 router.delete("/menu/:id", async (req, res) => {
-  try {
-    const restaurantId = getRestaurantId(req);
-    const id = Number(req.params.id);
+try {
+const restaurantId = getRestaurantId(req);
+const id = Number(req.params.id);
 
-    const Menu = require("../models/menu");
+const Menu = require("../models/menu");
 
-    const productoEliminado = await Menu.findOneAndDelete({
-      restaurantId,
-      id
-    });
-
-    if (!productoEliminado) {
-      return res.status(404).json({
-        ok: false,
-        error: "Producto no encontrado"
-      });
-    }
-
-    const io = req.app.get("io");
-    io.emit("menu:actualizado", { restaurantId });
-
-    res.json({
-      ok: true,
-      mensaje: "Producto eliminado correctamente"
-    });
-  } catch (error) {
-    console.log("Error eliminando producto:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Error interno eliminando producto"
-    });
-  }
+const productoEliminado = await Menu.findOneAndDelete({
+restaurantId,
+id
 });
 
+if (!productoEliminado) {
+return res.status(404).json({
+ok: false,
+error: "Producto no encontrado"
+});
+}
+
+const io = req.app.get("io");
+if (io) {
+io.emit("menu:actualizado", { restaurantId });
+}
+
+return res.json({
+ok: true,
+mensaje: "Producto eliminado correctamente"
+});
+} catch (error) {
+console.log("Error eliminando producto:", error);
+return res.status(500).json({
+ok: false,
+error: "Error interno eliminando producto"
+});
+}
+});
 /* =========================
    PEDIDOS
 ========================= */
