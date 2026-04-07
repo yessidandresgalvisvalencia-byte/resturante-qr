@@ -1,238 +1,345 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pagar Suscripción</title>
-  <link rel="stylesheet" href="style.css" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 30px 15px;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pagar Suscripción</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+:root{
+--bg-1:#04101b;
+--bg-2:#09192d;
+--bg-3:#0d223b;
+--text:#f7fbff;
+--muted:#b9c8da;
+--line:rgba(255,255,255,.10);
+--card:rgba(10, 21, 39, .72);
+--card-2:rgba(255,255,255,.05);
+--gold:#d7b77a;
+--gold-2:#f2dfb2;
+--accent:#8ddcff;
+--shadow:0 24px 70px rgba(0,0,0,.45);
+--radius:24px;
+}
 
-    .contenedor {
-      max-width: 760px;
-      margin: 0 auto;
-    }
+*{
+box-sizing:border-box;
+}
 
-    .card {
-      background: #fff;
-      border-radius: 14px;
-      padding: 24px;
-      margin-bottom: 18px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-    }
+body {
+font-family: Inter, "Segoe UI", Arial, sans-serif;
+background:
+linear-gradient(rgba(4,10,18,.74), rgba(4,10,18,.84)),
+url("https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80") center/cover fixed no-repeat;
+margin: 0;
+padding: 30px 15px;
+color: var(--text);
+min-height: 100vh;
+position: relative;
+}
 
-    h1, h2 {
-      margin-top: 0;
-    }
+body::before{
+content:"";
+position:fixed;
+inset:0;
+background:
+radial-gradient(circle at top left, rgba(141,220,255,.12), transparent 24%),
+radial-gradient(circle at bottom right, rgba(215,183,122,.10), transparent 22%);
+pointer-events:none;
+}
 
-    input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 12px;
-      margin: 8px 0 14px 0;
-      border: 1px solid #d9d9d9;
-      border-radius: 10px;
-      font-size: 15px;
-    }
+.contenedor {
+max-width: 760px;
+margin: 0 auto;
+position: relative;
+z-index: 1;
+}
 
-    button {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 10px;
-      background: #111827;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-    }
+.card {
+background: var(--card);
+border-radius: 20px;
+padding: 26px;
+margin-bottom: 18px;
+box-shadow: var(--shadow);
+border: 1px solid var(--line);
+backdrop-filter: blur(18px);
+-webkit-backdrop-filter: blur(18px);
+}
 
-    button:hover {
-      opacity: 0.95;
-    }
+h1, h2 {
+margin-top: 0;
+}
 
-    button:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
+h1{
+font-size: 2.3rem;
+letter-spacing: -0.03em;
+margin-bottom: 16px;
+}
 
-    .estado {
-      margin-top: 14px;
-      font-size: 14px;
-      min-height: 20px;
-    }
+h2{
+color: var(--gold-2);
+font-size: 1.2rem;
+margin-bottom: 10px;
+}
 
-    .ok { color: green; font-weight: bold; }
-    .bad { color: crimson; font-weight: bold; }
-  </style>
+p{
+color: var(--muted);
+line-height: 1.7;
+}
+
+input {
+width: 100%;
+box-sizing: border-box;
+padding: 14px;
+margin: 8px 0 14px 0;
+border: 1px solid rgba(255,255,255,.10);
+border-radius: 12px;
+font-size: 15px;
+background: rgba(255,255,255,.05);
+color: var(--text);
+outline: none;
+transition: .25s ease;
+}
+
+input::placeholder{
+color:#9fb0c5;
+}
+
+input:focus{
+border-color: rgba(141,220,255,.45);
+box-shadow: 0 0 0 4px rgba(141,220,255,.10);
+background: rgba(255,255,255,.07);
+}
+
+button {
+width: 100%;
+padding: 15px;
+border: none;
+border-radius: 14px;
+background: linear-gradient(135deg, var(--gold), var(--gold-2));
+color: #08111d;
+font-size: 16px;
+font-weight: 800;
+cursor: pointer;
+transition: .25s ease;
+box-shadow: 0 14px 30px rgba(215,183,122,.22);
+}
+
+button:hover {
+transform: translateY(-1px);
+box-shadow: 0 18px 34px rgba(215,183,122,.28);
+}
+
+button:disabled {
+opacity: 0.7;
+cursor: not-allowed;
+transform: none;
+}
+
+.estado {
+margin-top: 14px;
+font-size: 14px;
+min-height: 20px;
+line-height: 1.6;
+color: var(--muted);
+background: rgba(255,255,255,.04);
+border: 1px solid rgba(255,255,255,.08);
+padding: 12px 14px;
+border-radius: 12px;
+}
+
+.ok { color: #7ef0b0; font-weight: bold; }
+.bad { color: #ff9a9a; font-weight: bold; }
+
+.top-label{
+display:inline-flex;
+align-items:center;
+gap:8px;
+padding:8px 14px;
+border-radius:999px;
+background:rgba(141,220,255,.10);
+border:1px solid rgba(141,220,255,.16);
+color:#dff4ff;
+font-size:.88rem;
+margin-bottom:18px;
+}
+
+label{
+display:block;
+margin-bottom:6px;
+color:#dfeaf8;
+font-size:.95rem;
+font-weight:600;
+}
+</style>
 </head>
 <body>
-  <div class="contenedor">
-    <h1>Pagar Plan Restaurante Pro</h1>
+<div class="contenedor">
+<div class="top-label">💳 Activación segura de tu plan</div>
+<h1>Pagar Plan Restaurante Pro</h1>
 
-    <div class="card">
-      <h2>Prueba de cobro</h2>
-      <p>Usa el Restaurant ID del restaurante que acabas de crear.</p>
+<div class="card">
+<h2>Prueba de cobro</h2>
+<p>Usa el Restaurant ID del restaurante que acabas de crear.</p>
 
-      <label for="restaurantIdPago">Restaurant ID</label>
-      <input
-        id="restaurantIdPago"
-        type="text"
-        placeholder="Ej: rest_1774449989070"
-      />
+<label for="restaurantIdPago">Restaurant ID</label>
+<input
+id="restaurantIdPago"
+type="text"
+placeholder="Ej: rest_1774449989070"
+/>
 
-      <button id="btnPagar" onclick="pagarSuscripcion()">
-        Pagar ahora
-      </button>
+<button id="btnPagar" onclick="pagarSuscripcion()">
+Pagar ahora
+</button>
 
-      <div id="estadoProceso" class="estado"></div>
-      <div id="accesoPanel" class="card" style="display:none; margin-top:18px;">
-  <h2>Acceder a tu aplicación</h2>
+<div id="estadoProceso" class="estado"></div>
 
-  <label for="usuarioLoginAuto">Usuario</label>
-  <input id="usuarioLoginAuto" type="text" placeholder="Usuario admin" />
+<div id="accesoPanel" class="card" style="display:none; margin-top:18px;">
+<h2>Acceder a tu aplicación</h2>
 
-  <label for="passwordLoginAuto">Contraseña</label>
-  <input id="passwordLoginAuto" type="password" placeholder="Contraseña" />
+<label for="usuarioLoginAuto">Usuario</label>
+<input id="usuarioLoginAuto" type="text" placeholder="Usuario admin" />
 
-  <button id="btnEntrarPanel" onclick="irAlLogin()">
-    Entrar al panel
-  </button>
+<label for="passwordLoginAuto">Contraseña</label>
+<input id="passwordLoginAuto" type="password" placeholder="Contraseña" />
+
+<button id="btnEntrarPanel" onclick="irAlLogin()">
+Entrar al panel
+</button>
 </div>
-    </div>
-  </div>
+</div>
+</div>
 
-  <script src="https://checkout.wompi.co/widget.js"></script>
-  <script>
-    function mostrarAccesoPanel() {
-  const usuario = sessionStorage.getItem("registro_usuario") || "";
-  const password = sessionStorage.getItem("registro_password") || "";
+<script src="https://checkout.wompi.co/widget.js"></script>
+<script>
+function mostrarAccesoPanel() {
+const usuario = sessionStorage.getItem("registro_usuario") || "";
+const password = sessionStorage.getItem("registro_password") || "";
 
-  document.getElementById("usuarioLoginAuto").value = usuario;
-  document.getElementById("passwordLoginAuto").value = password;
-  document.getElementById("accesoPanel").style.display = "block";
+document.getElementById("usuarioLoginAuto").value = usuario;
+document.getElementById("passwordLoginAuto").value = password;
+document.getElementById("accesoPanel").style.display = "block";
 }
 
 function irAlLogin() {
-  const usuario = document.getElementById("usuarioLoginAuto").value.trim();
-  const password = document.getElementById("passwordLoginAuto").value.trim();
+const usuario = document.getElementById("usuarioLoginAuto").value.trim();
+const password = document.getElementById("passwordLoginAuto").value.trim();
 
-  sessionStorage.setItem("login_usuario_prefill", usuario);
-  sessionStorage.setItem("login_password_prefill", password);
+sessionStorage.setItem("login_usuario_prefill", usuario);
+sessionStorage.setItem("login_password_prefill", password);
 
-  window.location.href = "/login.html";
+window.location.href = "/login.html";
 }
-    async function pagarSuscripcion() {
-      const restaurantId = document.getElementById("restaurantIdPago").value.trim();
-      const estado = document.getElementById("estadoProceso");
-      const btn = document.getElementById("btnPagar");
 
-      if (!restaurantId) {
-        alert("Escribe el Restaurant ID");
-        return;
-      }
+async function pagarSuscripcion() {
+const restaurantId = document.getElementById("restaurantIdPago").value.trim();
+const estado = document.getElementById("estadoProceso");
+const btn = document.getElementById("btnPagar");
 
-      try {
-        btn.disabled = true;
-        estado.textContent = "Preparando pago...";
+if (!restaurantId) {
+alert("Escribe el Restaurant ID");
+return;
+}
 
-        const res = await fetch("/api/crear-pago-suscripcion", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ restaurantId })
-        });
+try {
+btn.disabled = true;
+estado.textContent = "Preparando pago...";
 
-        const data = await res.json();
-        console.log("Respuesta backend crear-pago:", data);
+const res = await fetch("/api/crear-pago-suscripcion", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ restaurantId })
+});
 
-        if (!res.ok || !data.ok) {
-          estado.innerHTML = `<span class="bad">${data.error || "No se pudo preparar el pago"}</span>`;
-          btn.disabled = false;
-          return;
-        }
+const data = await res.json();
+console.log("Respuesta backend crear-pago:", data);
 
-        const pago = data.pago;
+if (!res.ok || !data.ok) {
+estado.innerHTML = `<span class="bad">${data.error || "No se pudo preparar el pago"}</span>`;
+btn.disabled = false;
+return;
+}
 
-        const checkout = new WidgetCheckout({
-          currency: pago.currency,
-          amountInCents: pago.amountInCents,
-          reference: pago.reference,
-          publicKey: pago.publicKey,
-          signature: { integrity: pago.signature },
-          customerData: {
-            email: pago.customerEmail,
-            fullName: pago.customerData.fullName
-          },
-          acceptanceToken: pago.acceptanceToken,
-         
-        });
+const pago = data.pago;
 
-        estado.textContent = "Abriendo checkout de Wompi...";
+const checkout = new WidgetCheckout({
+currency: pago.currency,
+amountInCents: pago.amountInCents,
+reference: pago.reference,
+publicKey: pago.publicKey,
+signature: { integrity: pago.signature },
+customerData: {
+email: pago.customerEmail,
+fullName: pago.customerData.fullName
+},
+acceptanceToken: pago.acceptanceToken,
 
-        checkout.open(async function (result) {
-          console.log("Resultado Wompi:", result);
+});
 
-          const transactionId = result?.transaction?.id;
+estado.textContent = "Abriendo checkout de Wompi...";
 
-          if (!transactionId) {
-            estado.innerHTML = `<span class="bad">No llegó transactionId. El pago pudo ser cancelado o rechazado.</span>`;
-            btn.disabled = false;
-            return;
-          }
+checkout.open(async function (result) {
+console.log("Resultado Wompi:", result);
 
-          estado.textContent = "Confirmando pago con el servidor...";
+const transactionId = result?.transaction?.id;
 
-          try {
-            const confirmRes = await fetch("/api/confirmar-pago", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                transactionId,
-                restaurantId
-              })
-            });
+if (!transactionId) {
+estado.innerHTML = `<span class="bad">No llegó transactionId. El pago pudo ser cancelado o rechazado.</span>`;
+btn.disabled = false;
+return;
+}
 
-            const confirmData = await confirmRes.json();
-            console.log("Confirmación backend:", confirmData);
+estado.textContent = "Confirmando pago con el servidor...";
 
-            if (!confirmRes.ok || !confirmData.ok) {
-              throw confirmData;
-            }
+try {
+const confirmRes = await fetch("/api/confirmar-pago", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+transactionId,
+restaurantId
+})
+});
 
-            estado.innerHTML = `<span class="ok">Pago confirmado correctamente ✅</span>`;
+const confirmData = await confirmRes.json();
+console.log("Confirmación backend:", confirmData);
+
+if (!confirmRes.ok || !confirmData.ok) {
+throw confirmData;
+}
+
+estado.innerHTML = `<span class="ok">Pago confirmado correctamente ✅</span>`;
 mostrarAccesoPanel();
 alert("Pago confirmado ✅");
-          } catch (error) {
-            console.log("Error confirmando pago:", error);
-            estado.innerHTML = `<span class="bad">${error.error || "Error confirmando pago"}</span>`;
-            alert(error.error || "Error confirmando pago");
-          } finally {
-            btn.disabled = false;
-          }
-        });
-
-      } catch (error) {
-        console.log("Error iniciando pago:", error);
-        estado.innerHTML = `<span class="bad">Error iniciando pago</span>`;
-        btn.disabled = false;
-      }
-    }
-    window.addEventListener("DOMContentLoaded", () => {
-  const params = new URLSearchParams(window.location.search);
-  const restaurantId = params.get("restaurantId");
-
-  if (restaurantId) {
-    document.getElementById("restaurantIdPago").value = restaurantId;
-  }
+} catch (error) {
+console.log("Error confirmando pago:", error);
+estado.innerHTML = `<span class="bad">${error.error || "Error confirmando pago"}</span>`;
+alert(error.error || "Error confirmando pago");
+} finally {
+btn.disabled = false;
+}
 });
-  </script>
+
+} catch (error) {
+console.log("Error iniciando pago:", error);
+estado.innerHTML = `<span class="bad">Error iniciando pago</span>`;
+btn.disabled = false;
+}
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+const params = new URLSearchParams(window.location.search);
+const restaurantId = params.get("restaurantId");
+
+if (restaurantId) {
+document.getElementById("restaurantIdPago").value = restaurantId;
+}
+});
+</script>
 </body>
 </html>
