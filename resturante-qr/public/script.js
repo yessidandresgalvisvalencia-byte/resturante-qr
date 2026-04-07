@@ -74,6 +74,21 @@ return item.guarniciones;
 return ["Papas", "Ensalada", "Puré"];
 }
 
+function esProductoDeCarne(item) {
+const nombre = (item.nombre || "").toLowerCase();
+const categoria = (item.categoria || "").toLowerCase();
+
+return (
+nombre.includes("carne") ||
+nombre.includes("res") ||
+nombre.includes("bistec") ||
+nombre.includes("lomo") ||
+nombre.includes("churrasco") ||
+nombre.includes("punta de anca") ||
+categoria.includes("carnes")
+);
+}
+
 async function cargarMenu() {
 try {
 const res = await fetch(`/api/menu?restaurantId=${restaurantId}`);
@@ -117,6 +132,21 @@ grupo.innerHTML += `
 <p><strong>Precio base:</strong> $${item.precio}</p>
 <p><strong>Tiempo estimado base:</strong> ${item.tiempoBase} min</p>
 
+${
+esProductoDeCarne(item)
+? `
+<label for="termino-${item.id}">Término de cocción</label>
+<select id="termino-${item.id}">
+<option value="">Selecciona</option>
+<option value="Azul - capa externa bien cocida, centro crudo, suave, blando y jugoso">Azul</option>
+<option value="Término medio - capa externa bien cocida, centro en un 50% rojo y jugoso">Término medio</option>
+<option value="3/4 - capa externa bien cocida de color café, centro de color rosa, mucho más firme y seco">3/4</option>
+<option value="Bien cocido - 100% cocida, color café">Bien cocido</option>
+</select>
+`
+: ""
+}
+
 <label for="cantidad-${item.id}">Cantidad</label>
 <select id="cantidad-${item.id}">
 <option value="1">1</option>
@@ -140,7 +170,7 @@ ${opcionesGuarniciones}
 </select>
 
 <label for="obs-${item.id}">Observaciones del producto</label>
-<textarea id="obs-${item.id}" placeholder="Ej: sin cebolla, sin sal, término medio"></textarea>
+<textarea id="obs-${item.id}" placeholder="Ej: sin cebolla, sin sal"></textarea>
 
 ${
 item.disponible
@@ -171,6 +201,8 @@ const observacionesGenerales = document.getElementById("observaciones").value.tr
 const observacionesProducto = document.getElementById(`obs-${idProducto}`)?.value.trim() || "";
 const metodoPago = document.getElementById("metodoPago").value;
 const cantidad = Number(document.getElementById(`cantidad-${idProducto}`).value || 1);
+const terminoElemento = document.getElementById(`termino-${idProducto}`);
+const terminoCarne = terminoElemento ? terminoElemento.value : "";
 const valorExtra = Number(document.getElementById(`extra-${idProducto}`).value || 0);
 const guarnicion = document.getElementById(`guarnicion-${idProducto}`)?.value || "";
 
@@ -199,7 +231,22 @@ if (nombreExtra && nombreExtra !== "Sin extra") {
 observacionesFinales += `${observacionesFinales ? " | " : ""}Extra: ${nombreExtra}`;
 }
 
+if (terminoCarne) {
+observacionesFinales += `${observacionesFinales ? " | " : ""}Término: ${terminoCarne}`;
+}
+
 observacionesFinales += `${observacionesFinales ? " | " : ""}Cantidad: ${cantidad}`;
+
+const resumen = `
+¿Confirmar pedido?
+
+Producto: ${item.nombre}
+Cantidad: ${cantidad}
+${guarnicion ? `Guarnición: ${guarnicion}\n` : ""}${nombreExtra && nombreExtra !== "Sin extra" ? `Extra: ${nombreExtra}\n` : ""}${terminoCarne ? `Término: ${terminoCarne}\n` : ""}${observacionesProducto ? `Observaciones del producto: ${observacionesProducto}\n` : ""}${observacionesGenerales ? `Observaciones generales: ${observacionesGenerales}\n` : ""}Total: $${precioTotal}
+`;
+
+const confirmarEnvio = confirm(resumen);
+if (!confirmarEnvio) return;
 
 const res = await fetch("/api/pedido", {
 method: "POST",
@@ -481,19 +528,19 @@ setInterval(() => {
 revisarEstadoLlamado();
 }, 5000);
 
-socket.on("llamado:actualizado", (llamado) => {
+socket.on("llamado:actualizado", llamado => {
 if (llamado.restaurantId === restaurantId && Number(llamado.mesa) === Number(mesa)) {
 revisarEstadoLlamado();
 }
 });
 
-socket.on("llamado:nuevo", (llamado) => {
+socket.on("llamado:nuevo", llamado => {
 if (llamado.restaurantId === restaurantId) {
 cargarMeseros();
 }
 });
 
-socket.on("llamado:actualizado", (llamado) => {
+socket.on("llamado:actualizado", llamado => {
 if (llamado.restaurantId === restaurantId) {
 cargarMeseros();
 }
