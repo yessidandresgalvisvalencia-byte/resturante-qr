@@ -6,73 +6,188 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
 <style>
-body {
-font-family: Arial, sans-serif;
-background: #f5f5f5;
-margin: 0;
-padding: 30px 15px;
+:root{
+--bg-1:#04101b;
+--bg-2:#09192d;
+--bg-3:#0d223b;
+--text:#f7fbff;
+--muted:#b9c8da;
+--line:rgba(255,255,255,.10);
+--card:rgba(10, 21, 39, .72);
+--card-2:rgba(255,255,255,.05);
+--gold:#d7b77a;
+--gold-2:#f2dfb2;
+--accent:#8ddcff;
+--shadow:0 24px 70px rgba(0,0,0,.45);
+--radius:24px;
 }
 
-.contenedor {
-max-width: 600px;
-margin: auto;
+*{
+box-sizing:border-box;
 }
 
-.card {
-background: #fff;
-padding: 25px;
-border-radius: 14px;
-box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+body{
+font-family: Inter, "Segoe UI", Arial, sans-serif;
+background:
+linear-gradient(rgba(4,10,18,.74), rgba(4,10,18,.84)),
+url("https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1600&q=80") center/cover fixed no-repeat;
+margin:0;
+padding:30px 15px;
+color:var(--text);
+min-height:100vh;
+position:relative;
 }
 
-input {
-width: 100%;
-padding: 12px;
-margin-top: 8px;
-margin-bottom: 15px;
-border-radius: 8px;
-border: 1px solid #ddd;
-box-sizing: border-box;
+body::before{
+content:"";
+position:fixed;
+inset:0;
+background:
+radial-gradient(circle at top left, rgba(141,220,255,.12), transparent 24%),
+radial-gradient(circle at bottom right, rgba(215,183,122,.10), transparent 22%);
+pointer-events:none;
 }
 
-button {
-width: 100%;
-padding: 14px;
-border: none;
-border-radius: 10px;
-background: black;
-color: white;
-font-size: 16px;
-cursor: pointer;
+.contenedor{
+max-width:600px;
+margin:auto;
+position:relative;
+z-index:1;
 }
 
-button:hover {
-background: #222;
+.card{
+background:var(--card);
+padding:30px;
+border-radius:20px;
+box-shadow:var(--shadow);
+border:1px solid var(--line);
+backdrop-filter:blur(18px);
+-webkit-backdrop-filter:blur(18px);
 }
 
-button:disabled {
-opacity: 0.7;
-cursor: not-allowed;
+h2{
+margin:0 0 8px;
+font-size:2rem;
+letter-spacing:-0.03em;
+color:var(--text);
 }
 
-.precio {
-font-size: 22px;
-font-weight: bold;
-margin: 10px 0 20px;
+h3{
+margin:22px 0 10px;
+color:var(--gold-2);
+font-size:1.08rem;
+font-weight:700;
+letter-spacing:.02em;
 }
 
-.estado {
-margin-top: 15px;
-font-size: 14px;
+input{
+width:100%;
+padding:14px 14px;
+margin-top:8px;
+margin-bottom:15px;
+border-radius:12px;
+border:1px solid rgba(255,255,255,.10);
+box-sizing:border-box;
+background:rgba(255,255,255,.05);
+color:var(--text);
+outline:none;
+transition:.25s ease;
+font-size:15px;
 }
 
-.ok { color: green; }
-.bad { color: red; }
+input::placeholder{
+color:#9fb0c5;
+}
+
+input:focus{
+border-color:rgba(141,220,255,.45);
+box-shadow:0 0 0 4px rgba(141,220,255,.10);
+background:rgba(255,255,255,.07);
+}
+
+button{
+width:100%;
+padding:15px;
+border:none;
+border-radius:14px;
+background:linear-gradient(135deg, var(--gold), var(--gold-2));
+color:#08111d;
+font-size:16px;
+font-weight:800;
+cursor:pointer;
+transition:.25s ease;
+box-shadow:0 14px 30px rgba(215,183,122,.22);
+}
+
+button:hover{
+transform:translateY(-1px);
+box-shadow:0 18px 34px rgba(215,183,122,.28);
+}
+
+button:disabled{
+opacity:0.7;
+cursor:not-allowed;
+transform:none;
+}
+
+.precio{
+font-size:28px;
+font-weight:900;
+margin:10px 0 20px;
+color:var(--accent);
+letter-spacing:-0.03em;
+}
+
+.estado{
+margin-top:18px;
+font-size:14px;
+line-height:1.6;
+color:var(--muted);
+background:rgba(255,255,255,.04);
+border:1px solid rgba(255,255,255,.08);
+padding:12px 14px;
+border-radius:12px;
+min-height:48px;
+}
+
+.ok{
+color:#7ef0b0;
+font-weight:700;
+}
+
+.bad{
+color:#ff9a9a;
+font-weight:700;
+}
+
+.info-text{
+font-size:13px;
+color:var(--muted);
+text-align:center;
+margin-top:12px;
+line-height:1.6;
+}
+
+.top-label{
+display:inline-flex;
+align-items:center;
+gap:8px;
+padding:8px 14px;
+border-radius:999px;
+background:rgba(141,220,255,.10);
+border:1px solid rgba(141,220,255,.16);
+color:#dff4ff;
+font-size:.88rem;
+margin-bottom:18px;
+}
 </style>
 </head>
 <body>
 <div class="contenedor">
 <div class="card">
+
+<div class="top-label">✨ Activación premium para restaurantes</div>
+
 <h2>Crear restaurante</h2>
 
 <input id="nombre" placeholder="Nombre del restaurante" />
@@ -94,7 +209,7 @@ font-size: 14px;
 Crear cuenta y pagar
 </button>
 
-<p style="font-size:13px; color:#555; text-align:center; margin-top:10px;">
+<p class="info-text">
 Pago seguro con Wompi • Activación inmediata
 </p>
 
@@ -202,7 +317,7 @@ sessionStorage.setItem("registro_password", password);
 sessionStorage.setItem("registro_restaurantId", data.restauranteId);
 
 setTimeout(() => {
-  window.location.href = `/pago-suscripcion.html?restaurantId=${encodeURIComponent(data.restauranteId)}`;
+window.location.href = `/pago-suscripcion.html?restaurantId=${encodeURIComponent(data.restauranteId)}`;
 }, 1200);
 
 } catch (error) {
