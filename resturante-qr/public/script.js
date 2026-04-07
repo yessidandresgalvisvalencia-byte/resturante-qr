@@ -156,6 +156,7 @@ border-radius:14px;
 box-shadow:0 10px 30px rgba(0,0,0,.25);
 font-size:14px;
 display:none;
+max-width:320px;
 }
 
 .modal-confirmacion-overlay{
@@ -172,10 +173,12 @@ padding:16px;
 .modal-confirmacion{
 background:white;
 color:#111;
-width:min(560px, 100%);
+width:min(680px, 100%);
 border-radius:18px;
 padding:24px;
 box-shadow:0 20px 60px rgba(0,0,0,.35);
+max-height:90vh;
+overflow:auto;
 }
 
 .modal-confirmacion h3{
@@ -197,6 +200,17 @@ margin:14px 0 18px;
 white-space:pre-line;
 font-size:14px;
 line-height:1.6;
+}
+
+.modal-confirmacion .resumen-secundario{
+background:#fff7ed;
+border:1px solid #fed7aa;
+border-radius:12px;
+padding:14px;
+margin:14px 0 18px;
+font-size:14px;
+line-height:1.6;
+white-space:pre-line;
 }
 
 .modal-botones{
@@ -244,7 +258,11 @@ overlay.innerHTML = `
 <div class="modal-confirmacion">
 <h3 id="modalTituloPedido">Restaurante dice</h3>
 <p>Confirmar pedido</p>
+
 <div id="modalResumenPedido" class="resumen"></div>
+
+<div id="modalProductosAnadidos" class="resumen-secundario" style="display:none;"></div>
+
 <div class="modal-botones">
 <button id="btnAceptarPedido" class="btn-aceptar">Aceptar</button>
 <button id="btnCancelarPedido" class="btn-cancelar">Cancelar</button>
@@ -261,8 +279,12 @@ const indicador = document.getElementById("indicadorCarritoPendiente");
 if (!indicador) return;
 
 if (carritoPendiente.length > 0) {
+const texto = carritoPendiente
+.map((p, i) => `${i + 1}. ${p.producto} x${p.cantidad}`)
+.join(" | ");
+
 indicador.style.display = "block";
-indicador.textContent = `Productos añadidos pendientes: ${carritoPendiente.length}`;
+indicador.textContent = `Añadidos pendientes (${carritoPendiente.length}): ${texto}`;
 } else {
 indicador.style.display = "none";
 indicador.textContent = "";
@@ -282,17 +304,43 @@ pedido.observacionesGenerales ? `Observaciones generales: ${pedido.observaciones
 ].filter(Boolean).join("\n");
 }
 
+function construirResumenCarritoPendiente() {
+if (!carritoPendiente.length) return "";
+
+return carritoPendiente.map((pedido, index) => {
+return [
+`${index + 1}. ${pedido.producto}`,
+`Cantidad: ${pedido.cantidad}`,
+pedido.guarnicion ? `Guarnición: ${pedido.guarnicion}` : "",
+pedido.extra && pedido.extra !== "Sin extra" ? `Extra: ${pedido.extra}` : "",
+pedido.terminoCarne ? `Término: ${pedido.terminoCarne}` : "",
+`Total: $${pedido.precio}`
+].filter(Boolean).join(" | ");
+}).join("\n");
+}
+
 function mostrarConfirmacionPedido(pedido) {
 asegurarUIConfirmacion();
 
 return new Promise(resolve => {
 const overlay = document.getElementById("modalConfirmacionPedido");
 const resumen = document.getElementById("modalResumenPedido");
+const resumenPendientes = document.getElementById("modalProductosAnadidos");
 const btnAceptar = document.getElementById("btnAceptarPedido");
 const btnCancelar = document.getElementById("btnCancelarPedido");
 const btnAnadir = document.getElementById("btnAnadirPedido");
 
 resumen.textContent = construirResumenPedido(pedido);
+
+if (carritoPendiente.length > 0) {
+resumenPendientes.style.display = "block";
+resumenPendientes.textContent =
+`Productos añadidos antes de enviar:\n\n${construirResumenCarritoPendiente()}`;
+} else {
+resumenPendientes.style.display = "none";
+resumenPendientes.textContent = "";
+}
+
 overlay.style.display = "flex";
 
 const limpiar = () => {
@@ -436,9 +484,7 @@ const extras = obtenerExtras(item);
 const guarniciones = obtenerGuarniciones(item);
 
 const opcionesExtras = extras
-.map(extra => {
-return `<option value="${extra.precio}">${extra.nombre}${extra.precio > 0 ? ` +$${extra.precio}` : ""}</option>`;
-})
+.map(extra => `<option value="${extra.precio}">${extra.nombre}${extra.precio > 0 ? ` +$${extra.precio}` : ""}</option>`)
 .join("");
 
 const opcionesGuarniciones = guarniciones
@@ -820,4 +866,4 @@ cargarMeseros();
 
 cargarMenu();
 cargarMesa();
-cargarMeseros
+cargarMeseros();
