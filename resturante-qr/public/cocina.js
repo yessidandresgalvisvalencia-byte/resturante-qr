@@ -30,82 +30,90 @@ function textoMetodoPago(metodoPago) {
 }
 
 async function cambiarEstado(id, estado) {
-    let tiempoEstimado = null
+let tiempoEstimado = null
 
-    if (estado === "preparando") {
-        const tiempo = prompt("Tiempo estimado en minutos", "15")
-        tiempoEstimado = Number(tiempo || 15)
-    }
+if (estado === "preparando") {
+const tiempo = prompt("Tiempo estimado en minutos", "15")
+tiempoEstimado = Number(tiempo || 15)
+}
 
-    await fetch(`/api/pedido/${id}/estado`, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ estado, tiempoEstimado })
-    })
+await fetch(`/api/pedido/${id}/estado`, {
+method: "PUT",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ estado, tiempoEstimado })
+})
+
+cargarPedidos()
 }
 
 async function marcarPagado(id) {
-    await fetch(`/api/pedido/${id}/pago`, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ estadoPago: "pagado" })
-    })
+await fetch(`/api/pedido/${id}/pago`, {
+method: "PUT",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ estadoPago: "pagado" })
+})
+
+cargarPedidos()
 }
 
 async function cargarPedidos() {
-    const res = await fetch(`/api/pedidos?restaurantId=${restaurantId}`)
-    const pedidos = await res.json()
+const res = await fetch(`/api/pedidos?restaurantId=${restaurantId}`)
+const pedidos = await res.json()
 
-    const activos = pedidos.filter(p => p.estado !== "entregado")
-    const lista = document.getElementById("listaPedidos")
-    lista.innerHTML = ""
-
-   pedidos.forEach((pedido) => {
-    lista.innerHTML += `
-        <div class="card">
-            <h3>Mesa ${pedido.mesa}</h3>
-            <p><strong>Producto:</strong> ${pedido.producto}</p>
-            <p><strong>Categoría:</strong> ${pedido.categoria || "-"}</p>
-            <p><strong>Precio:</strong> $${pedido.precio}</p>
-            <p><strong>Estado:</strong> ${pedido.estado}</p>
-            <p><strong>Observaciones:</strong> ${pedido.observaciones || "Sin observaciones"}</p>
-            <p><strong>Tiempo:</strong> ${pedido.tiempoEstimado} min</p>
-            <p><strong>Método de pago:</strong> ${textoMetodoPago(pedido.metodoPago)}</p>
-            <p><strong>Estado del pago:</strong> ${pedido.estadoPago}</p>
-
-            <div class="botones">
-                <button onclick="cambiarEstado('${pedido._id}','preparando')">Preparando</button>
-                <button onclick="cambiarEstado('${pedido._id}','listo')">Listo</button>
-                <button onclick="cambiarEstado('${pedido._id}','entregado')">Entregado</button>
-                <button onclick="marcarPagado('${pedido._id}')">Marcar pagado</button>
-            </div>
-        </div>
-    `
+const visibles = pedidos.filter(p => {
+return !(p.estado === "entregado" && p.estadoPago === "pagado")
 })
 
-    if (!primeraCargaCocina && activos.length > pedidosPrevios) {
-        playBeep()
-    }
+const activos = visibles.filter(p => p.estado !== "entregado")
+const lista = document.getElementById("listaPedidos")
+lista.innerHTML = ""
 
-    pedidosPrevios = activos.length
-    primeraCargaCocina = false
+visibles.forEach((pedido) => {
+lista.innerHTML += `
+<div class="card">
+<h3>Mesa ${pedido.mesa}</h3>
+<p><strong>Producto:</strong> ${pedido.producto}</p>
+<p><strong>Categoría:</strong> ${pedido.categoria || "-"}</p>
+<p><strong>Precio:</strong> $${pedido.precio}</p>
+<p><strong>Estado:</strong> ${pedido.estado}</p>
+<p><strong>Observaciones:</strong> ${pedido.observaciones || "Sin observaciones"}</p>
+<p><strong>Tiempo:</strong> ${pedido.tiempoEstimado} min</p>
+<p><strong>Método de pago:</strong> ${textoMetodoPago(pedido.metodoPago)}</p>
+<p><strong>Estado del pago:</strong> ${pedido.estadoPago}</p>
+
+<div class="botones">
+<button onclick="cambiarEstado('${pedido._id}','preparando')">Preparando</button>
+<button onclick="cambiarEstado('${pedido._id}','listo')">Listo</button>
+<button onclick="cambiarEstado('${pedido._id}','entregado')">Entregado</button>
+<button onclick="marcarPagado('${pedido._id}')">Marcar pagado</button>
+</div>
+</div>
+`
+})
+
+if (!primeraCargaCocina && activos.length > pedidosPrevios) {
+playBeep()
+}
+
+pedidosPrevios = activos.length
+primeraCargaCocina = false
 }
 
 socket.on("pedido:nuevo", (pedido) => {
-    if (pedido.restaurantId === restaurantId) {
-        playBeep()
-        cargarPedidos()
-    }
+if (pedido.restaurantId === restaurantId) {
+playBeep()
+cargarPedidos()
+}
 })
 
 socket.on("pedido:actualizado", (pedido) => {
-    if (pedido.restaurantId === restaurantId) {
-        cargarPedidos()
-    }
+if (pedido.restaurantId === restaurantId) {
+cargarPedidos()
+}
 })
 
 cargarPedidos()
