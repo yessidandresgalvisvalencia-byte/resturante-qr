@@ -765,7 +765,9 @@ try {
 const res = await fetch(`/api/pedidos/mesa/${mesa}?restaurantId=${restaurantId}`);
 const data = await res.json();
 
-const pedidos = data.pedidos;
+const pedidos = data.pedidos.filter(p => {
+  return !(p.estado === "entregado" && p.estadoPago === "pagado");
+});
 subtotalActual = data.subtotal;
 
 calcularTotales(subtotalActual);
