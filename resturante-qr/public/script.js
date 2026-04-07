@@ -9,6 +9,7 @@ let primeraCarga = true;
 let menuData = [];
 let subtotalActual = 0;
 let ultimoEstadoLlamado = "";
+let carritoPendiente = [];
 
 document.getElementById("mesaActual").textContent = `Mesa ${mesa}`;
 
@@ -89,8 +90,330 @@ categoria.includes("carnes")
 );
 }
 
+function obtenerDescripcionTermino(valor) {
+if (valor === "Azul") {
+return "Azul: capa externa bien cocida, centro crudo, suave, blando y jugoso.";
+}
+if (valor === "Término medio") {
+return "Término medio: capa externa bien cocida, centro en un 50% rojo y jugoso.";
+}
+if (valor === "3/4") {
+return "3/4: capa externa bien cocida de color café, centro de color rosa, mucho más firme y seco.";
+}
+if (valor === "Bien cocido") {
+return "Bien cocido: 100% cocida, color café.";
+}
+return "";
+}
+
+function actualizarDescripcionTermino(idProducto) {
+const select = document.getElementById(`termino-${idProducto}`);
+const descripcion = document.getElementById(`descripcion-termino-${idProducto}`);
+if (!select || !descripcion) return;
+
+descripcion.textContent = obtenerDescripcionTermino(select.value);
+}
+
+function renderCalificacion(item) {
+const calificacion = Number(item.calificacion || 4.8);
+const estrellasLlenas = Math.round(calificacion);
+let estrellas = "";
+
+for (let i = 1; i <= 5; i++) {
+estrellas += i <= estrellasLlenas ? "★" : "☆";
+}
+
+return `
+<div class="calificacion-producto" style="margin:8px 0 12px; font-size:14px;">
+<span style="color:#f5c542;">${estrellas}</span>
+<span style="color:#666;"> ${calificacion.toFixed(1)} / 5</span>
+</div>
+`;
+}
+
+function asegurarUIConfirmacion() {
+if (document.getElementById("modalConfirmacionPedido")) return;
+
+const style = document.createElement("style");
+style.textContent = `
+.descripcion-termino{
+font-size:13px;
+line-height:1.5;
+color:#555;
+margin-top:-6px;
+margin-bottom:12px;
+}
+
+.indicador-carrito{
+position:fixed;
+right:16px;
+bottom:16px;
+z-index:9998;
+background:#111827;
+color:white;
+padding:12px 16px;
+border-radius:14px;
+box-shadow:0 10px 30px rgba(0,0,0,.25);
+font-size:14px;
+display:none;
+}
+
+.modal-confirmacion-overlay{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.55);
+display:none;
+align-items:center;
+justify-content:center;
+z-index:9999;
+padding:16px;
+}
+
+.modal-confirmacion{
+background:white;
+color:#111;
+width:min(560px, 100%);
+border-radius:18px;
+padding:24px;
+box-shadow:0 20px 60px rgba(0,0,0,.35);
+}
+
+.modal-confirmacion h3{
+margin:0 0 12px;
+font-size:22px;
+}
+
+.modal-confirmacion p{
+margin:0 0 8px;
+line-height:1.6;
+}
+
+.modal-confirmacion .resumen{
+background:#f8fafc;
+border:1px solid #e5e7eb;
+border-radius:12px;
+padding:14px;
+margin:14px 0 18px;
+white-space:pre-line;
+font-size:14px;
+line-height:1.6;
+}
+
+.modal-botones{
+display:grid;
+grid-template-columns:repeat(3, 1fr);
+gap:10px;
+}
+
+.modal-botones button{
+width:100%;
+border:none;
+border-radius:10px;
+padding:12px;
+font-size:14px;
+font-weight:700;
+cursor:pointer;
+}
+
+.btn-aceptar{
+background:#16a34a;
+color:white;
+}
+
+.btn-cancelar{
+background:#dc2626;
+color:white;
+}
+
+.btn-anadir{
+background:#111827;
+color:white;
+}
+`;
+document.head.appendChild(style);
+
+const indicador = document.createElement("div");
+indicador.id = "indicadorCarritoPendiente";
+indicador.className = "indicador-carrito";
+document.body.appendChild(indicador);
+
+const overlay = document.createElement("div");
+overlay.id = "modalConfirmacionPedido";
+overlay.className = "modal-confirmacion-overlay";
+overlay.innerHTML = `
+<div class="modal-confirmacion">
+<h3 id="modalTituloPedido">Restaurante dice</h3>
+<p>Confirmar pedido</p>
+<div id="modalResumenPedido" class="resumen"></div>
+<div class="modal-botones">
+<button id="btnAceptarPedido" class="btn-aceptar">Aceptar</button>
+<button id="btnCancelarPedido" class="btn-cancelar">Cancelar</button>
+<button id="btnAnadirPedido" class="btn-anadir">Añadir</button>
+</div>
+</div>
+`;
+document.body.appendChild(overlay);
+}
+
+function actualizarIndicadorCarrito() {
+asegurarUIConfirmacion();
+const indicador = document.getElementById("indicadorCarritoPendiente");
+if (!indicador) return;
+
+if (carritoPendiente.length > 0) {
+indicador.style.display = "block";
+indicador.textContent = `Productos añadidos pendientes: ${carritoPendiente.length}`;
+} else {
+indicador.style.display = "none";
+indicador.textContent = "";
+}
+}
+
+function construirResumenPedido(pedido) {
+return [
+`Producto: ${pedido.producto}`,
+`Cantidad: ${pedido.cantidad}`,
+pedido.guarnicion ? `Guarnición: ${pedido.guarnicion}` : "",
+pedido.extra && pedido.extra !== "Sin extra" ? `Extra: ${pedido.extra}` : "",
+pedido.terminoCarne ? `Término: ${pedido.terminoCarne}` : "",
+pedido.observacionesProducto ? `Observaciones del producto: ${pedido.observacionesProducto}` : "",
+pedido.observacionesGenerales ? `Observaciones generales: ${pedido.observacionesGenerales}` : "",
+`Total: $${pedido.precio}`
+].filter(Boolean).join("\n");
+}
+
+function mostrarConfirmacionPedido(pedido) {
+asegurarUIConfirmacion();
+
+return new Promise(resolve => {
+const overlay = document.getElementById("modalConfirmacionPedido");
+const resumen = document.getElementById("modalResumenPedido");
+const btnAceptar = document.getElementById("btnAceptarPedido");
+const btnCancelar = document.getElementById("btnCancelarPedido");
+const btnAnadir = document.getElementById("btnAnadirPedido");
+
+resumen.textContent = construirResumenPedido(pedido);
+overlay.style.display = "flex";
+
+const limpiar = () => {
+overlay.style.display = "none";
+btnAceptar.onclick = null;
+btnCancelar.onclick = null;
+btnAnadir.onclick = null;
+};
+
+btnAceptar.onclick = () => {
+limpiar();
+resolve("aceptar");
+};
+
+btnCancelar.onclick = () => {
+limpiar();
+resolve("cancelar");
+};
+
+btnAnadir.onclick = () => {
+limpiar();
+resolve("anadir");
+};
+});
+}
+
+function crearObjetoPedido(item, idProducto) {
+const observacionesGenerales = document.getElementById("observaciones").value.trim();
+const observacionesProducto = document.getElementById(`obs-${idProducto}`)?.value.trim() || "";
+const metodoPago = document.getElementById("metodoPago").value;
+const cantidad = Number(document.getElementById(`cantidad-${idProducto}`).value || 1);
+const terminoElemento = document.getElementById(`termino-${idProducto}`);
+const terminoValor = terminoElemento ? terminoElemento.value : "";
+const terminoCarne = terminoValor ? obtenerDescripcionTermino(terminoValor) : "";
+const valorExtra = Number(document.getElementById(`extra-${idProducto}`).value || 0);
+const guarnicion = document.getElementById(`guarnicion-${idProducto}`)?.value || "";
+
+const extrasDisponibles = obtenerExtras(item);
+const extraSeleccionado = extrasDisponibles.find(extra => Number(extra.precio) === valorExtra);
+const nombreExtra = extraSeleccionado ? extraSeleccionado.nombre : "Sin extra";
+
+const precioUnitarioFinal = Number(item.precio) + valorExtra;
+const precioTotal = precioUnitarioFinal * cantidad;
+
+let observacionesFinales = "";
+
+if (observacionesGenerales) {
+observacionesFinales += `General: ${observacionesGenerales}`;
+}
+
+if (observacionesProducto) {
+observacionesFinales += `${observacionesFinales ? " | " : ""}Producto: ${observacionesProducto}`;
+}
+
+if (guarnicion) {
+observacionesFinales += `${observacionesFinales ? " | " : ""}Guarnición: ${guarnicion}`;
+}
+
+if (nombreExtra && nombreExtra !== "Sin extra") {
+observacionesFinales += `${observacionesFinales ? " | " : ""}Extra: ${nombreExtra}`;
+}
+
+if (terminoCarne) {
+observacionesFinales += `${observacionesFinales ? " | " : ""}Término: ${terminoCarne}`;
+}
+
+observacionesFinales += `${observacionesFinales ? " | " : ""}Cantidad: ${cantidad}`;
+
+return {
+restaurantId,
+mesa,
+producto: item.nombre,
+observaciones: observacionesFinales,
+observacionesGenerales,
+observacionesProducto,
+categoria: item.categoria,
+precio: precioTotal,
+cantidad,
+metodoPago,
+tiempoEstimado: item.tiempoBase,
+descripcion: item.descripcion || "",
+guarnicion,
+extra: nombreExtra,
+valorExtra,
+terminoCarne
+};
+}
+
+async function enviarPedidoAlServidor(pedido) {
+const res = await fetch("/api/pedido", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+restaurantId: pedido.restaurantId,
+mesa: pedido.mesa,
+producto: pedido.producto,
+observaciones: pedido.observaciones,
+categoria: pedido.categoria,
+precio: pedido.precio,
+cantidad: pedido.cantidad,
+metodoPago: pedido.metodoPago,
+tiempoEstimado: pedido.tiempoEstimado,
+descripcion: pedido.descripcion,
+guarnicion: pedido.guarnicion,
+extra: pedido.extra,
+valorExtra: pedido.valorExtra
+})
+});
+
+if (!res.ok) {
+throw new Error("No se pudo enviar el pedido");
+}
+}
+
 async function cargarMenu() {
 try {
+asegurarUIConfirmacion();
+actualizarIndicadorCarrito();
+
 const res = await fetch(`/api/menu?restaurantId=${restaurantId}`);
 const menu = await res.json();
 menuData = menu;
@@ -127,6 +450,8 @@ grupo.innerHTML += `
 <img src="${item.imagen}" alt="${item.nombre}" class="menu-img">
 <h3>${item.nombre}</h3>
 
+${renderCalificacion(item)}
+
 <p>${item.descripcion || "Delicioso producto preparado especialmente para ti."}</p>
 
 <p><strong>Precio base:</strong> $${item.precio}</p>
@@ -136,13 +461,14 @@ ${
 esProductoDeCarne(item)
 ? `
 <label for="termino-${item.id}">Término de cocción</label>
-<select id="termino-${item.id}">
+<select id="termino-${item.id}" onchange="actualizarDescripcionTermino(${item.id})">
 <option value="">Selecciona</option>
-<option value="Azul - capa externa bien cocida, centro crudo, suave, blando y jugoso">Azul</option>
-<option value="Término medio - capa externa bien cocida, centro en un 50% rojo y jugoso">Término medio</option>
-<option value="3/4 - capa externa bien cocida de color café, centro de color rosa, mucho más firme y seco">3/4</option>
-<option value="Bien cocido - 100% cocida, color café">Bien cocido</option>
+<option value="Azul">Azul</option>
+<option value="Término medio">Término medio</option>
+<option value="3/4">3/4</option>
+<option value="Bien cocido">Bien cocido</option>
 </select>
+<p id="descripcion-termino-${item.id}" class="descripcion-termino"></p>
 `
 : ""
 }
@@ -197,82 +523,28 @@ alert("Este producto está agotado");
 return;
 }
 
-const observacionesGenerales = document.getElementById("observaciones").value.trim();
-const observacionesProducto = document.getElementById(`obs-${idProducto}`)?.value.trim() || "";
-const metodoPago = document.getElementById("metodoPago").value;
-const cantidad = Number(document.getElementById(`cantidad-${idProducto}`).value || 1);
-const terminoElemento = document.getElementById(`termino-${idProducto}`);
-const terminoCarne = terminoElemento ? terminoElemento.value : "";
-const valorExtra = Number(document.getElementById(`extra-${idProducto}`).value || 0);
-const guarnicion = document.getElementById(`guarnicion-${idProducto}`)?.value || "";
+const pedidoActual = crearObjetoPedido(item, idProducto);
+const accion = await mostrarConfirmacionPedido(pedidoActual);
 
-const extrasDisponibles = obtenerExtras(item);
-const extraSeleccionado = extrasDisponibles.find(extra => Number(extra.precio) === valorExtra);
-const nombreExtra = extraSeleccionado ? extraSeleccionado.nombre : "Sin extra";
+if (accion === "cancelar") return;
 
-const precioUnitarioFinal = Number(item.precio) + valorExtra;
-const precioTotal = precioUnitarioFinal * cantidad;
-
-let observacionesFinales = "";
-
-if (observacionesGenerales) {
-observacionesFinales += `General: ${observacionesGenerales}`;
+if (accion === "anadir") {
+carritoPendiente.push(pedidoActual);
+actualizarIndicadorCarrito();
+alert(`Producto añadido. Llevas ${carritoPendiente.length} producto(s) pendiente(s).`);
+return;
 }
 
-if (observacionesProducto) {
-observacionesFinales += `${observacionesFinales ? " | " : ""}Producto: ${observacionesProducto}`;
+const pedidosAEnviar = [...carritoPendiente, pedidoActual];
+
+for (const pedido of pedidosAEnviar) {
+await enviarPedidoAlServidor(pedido);
 }
 
-if (guarnicion) {
-observacionesFinales += `${observacionesFinales ? " | " : ""}Guarnición: ${guarnicion}`;
-}
+carritoPendiente = [];
+actualizarIndicadorCarrito();
 
-if (nombreExtra && nombreExtra !== "Sin extra") {
-observacionesFinales += `${observacionesFinales ? " | " : ""}Extra: ${nombreExtra}`;
-}
-
-if (terminoCarne) {
-observacionesFinales += `${observacionesFinales ? " | " : ""}Término: ${terminoCarne}`;
-}
-
-observacionesFinales += `${observacionesFinales ? " | " : ""}Cantidad: ${cantidad}`;
-
-const resumen = `
-¿Confirmar pedido?
-
-Producto: ${item.nombre}
-Cantidad: ${cantidad}
-${guarnicion ? `Guarnición: ${guarnicion}\n` : ""}${nombreExtra && nombreExtra !== "Sin extra" ? `Extra: ${nombreExtra}\n` : ""}${terminoCarne ? `Término: ${terminoCarne}\n` : ""}${observacionesProducto ? `Observaciones del producto: ${observacionesProducto}\n` : ""}${observacionesGenerales ? `Observaciones generales: ${observacionesGenerales}\n` : ""}Total: $${precioTotal}
-`;
-
-const confirmarEnvio = confirm(resumen);
-if (!confirmarEnvio) return;
-
-const res = await fetch("/api/pedido", {
-method: "POST",
-headers: {
-"Content-Type": "application/json"
-},
-body: JSON.stringify({
-restaurantId,
-mesa,
-producto: item.nombre,
-observaciones: observacionesFinales,
-categoria: item.categoria,
-precio: precioTotal,
-cantidad,
-metodoPago,
-tiempoEstimado: item.tiempoBase,
-descripcion: item.descripcion || "",
-guarnicion,
-extra: nombreExtra,
-valorExtra
-})
-});
-
-if (!res.ok) throw new Error("No se pudo enviar el pedido");
-
-alert(`Pedido enviado a cocina x${cantidad}`);
+alert(`Pedido enviado a cocina ✅ (${pedidosAEnviar.length} producto(s))`);
 await cargarMesa();
 } catch (error) {
 console.log(error);
@@ -548,4 +820,4 @@ cargarMeseros();
 
 cargarMenu();
 cargarMesa();
-cargarMeseros();
+cargarMeseros
