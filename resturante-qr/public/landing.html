@@ -1,995 +1,231 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GRUK QR | Convierte tu restaurante en una máquina de ventas</title>
-  <meta
-    name="description"
-    content="GRUK QR automatiza pedidos, cocina y pagos en tiempo real para restaurantes que quieren vender más, cometer menos errores y operar como un negocio serio."
-  />
-  <meta
-    name="keywords"
-    content="GRUK QR, sistema para restaurantes, menú QR, pedidos en tiempo real, automatización restaurante, cocina digital, software restaurante Colombia"
-  />
-  <style>
-    :root {
-      --bg-1: #020617;
-      --bg-2: #081225;
-      --bg-3: #0b1730;
-      --text: #f8fbff;
-      --muted: #aab8d1;
-      --line: rgba(255, 255, 255, 0.08);
-      --card: rgba(255, 255, 255, 0.04);
-      --blue: #3b82f6;
-      --blue-2: #60a5fa;
-      --cyan: #22d3ee;
-      --green: #00f5c4;
-      --danger: #ff5d5d;
-      --shadow: 0 25px 70px rgba(0, 0, 0, 0.45);
-      --radius: 24px;
-      --max: 1180px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>GRUK QR | Sistema premium para restaurantes</title>
+
+<meta name="description" content="GRUK QR es un sistema premium que transforma restaurantes en negocios rápidos, organizados y altamente rentables.">
+
+<style>
+body {
+margin: 0;
+font-family: 'Segoe UI', sans-serif;
+background: #020617;
+color: white;
+}
+
+header {
+padding: 100px 20px;
+text-align: center;
+background: radial-gradient(circle, #00ffc820, transparent);
+}
+
+h1 {
+font-size: 55px;
+}
+
+h2 {
+color: #00ffc8;
+margin-bottom: 15px;
+}
+
+p {
+max-width: 750px;
+margin: auto;
+color: #aaa;
+line-height: 1.7;
+}
+
+.btn {
+display: inline-block;
+margin-top: 30px;
+padding: 18px 40px;
+background: linear-gradient(45deg, #00ffc8, #00bfff);
+border-radius: 12px;
+color: black;
+text-decoration: none;
+font-weight: bold;
+transition: 0.3s;
+}
+
+.btn:hover {
+transform: scale(1.05);
+}
+
+.section {
+padding: 80px 20px;
+text-align: center;
+}
+
+.grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(250px,1fr));
+gap: 25px;
+margin-top: 40px;
+}
+
+.card {
+background: #0f172a;
+padding: 30px;
+border-radius: 15px;
+}
+
+.highlight {
+background: black;
+padding: 60px 20px;
+text-align: center;
+color: #ff4d4d;
+font-size: 22px;
+font-weight: bold;
+}
+
+footer {
+text-align: center;
+padding: 50px;
+background: black;
+}
+
+.phone {
+font-size: 28px;
+color: #00ffc8;
+}
+</style>
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      margin: 0;
-      font-family: Inter, "Segoe UI", Arial, sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 24%),
-        radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 28%),
-        linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3));
-      color: var(--text);
-      overflow-x: hidden;
-    }
-
-    body::before,
-    body::after {
-      content: "";
-      position: fixed;
-      border-radius: 50%;
-      filter: blur(110px);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    body::before {
-      width: 300px;
-      height: 300px;
-      background: rgba(34, 211, 238, 0.10);
-      top: 40px;
-      left: -80px;
-    }
-
-    body::after {
-      width: 360px;
-      height: 360px;
-      background: rgba(59, 130, 246, 0.12);
-      right: -100px;
-      bottom: 10%;
-    }
-
-    .wrap {
-      position: relative;
-      z-index: 1;
-      width: min(var(--max), calc(100% - 32px));
-      margin: 0 auto;
-    }
-
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      padding: 22px 0;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      text-decoration: none;
-      color: var(--text);
-    }
-
-    .brand-mark {
-      width: 52px;
-      height: 52px;
-      border-radius: 16px;
-      display: grid;
-      place-items: center;
-      font-weight: 900;
-      letter-spacing: 0.08em;
-      background: linear-gradient(135deg, rgba(59,130,246,.25), rgba(0,245,196,.18));
-      border: 1px solid rgba(255,255,255,.10);
-      box-shadow: var(--shadow);
-    }
-
-    .brand strong {
-      display: block;
-      font-size: 1.1rem;
-      letter-spacing: 0.08em;
-    }
-
-    .brand span {
-      display: block;
-      color: var(--muted);
-      font-size: 0.88rem;
-    }
-
-    .nav {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .nav a {
-      color: var(--muted);
-      text-decoration: none;
-      padding: 10px 14px;
-      border-radius: 999px;
-      transition: 0.25s ease;
-      font-size: 0.95rem;
-    }
-
-    .nav a:hover {
-      background: rgba(255,255,255,.05);
-      color: var(--text);
-    }
-
-    .hero {
-      display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 28px;
-      align-items: center;
-      padding: 34px 0 70px;
-    }
-
-    .glass {
-      background: rgba(255,255,255,.04);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
-    }
-
-    .hero-copy {
-      border-radius: 30px;
-      padding: 42px;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      border-radius: 999px;
-      background: rgba(59,130,246,.10);
-      border: 1px solid rgba(96,165,250,.18);
-      color: #d5e8ff;
-      font-size: 0.9rem;
-      margin-bottom: 18px;
-    }
-
-    h1, h2, h3, p {
-      margin: 0;
-    }
-
-    h1 {
-      font-size: clamp(2.8rem, 6vw, 5.2rem);
-      line-height: 0.95;
-      letter-spacing: -0.05em;
-      margin-bottom: 18px;
-    }
-
-    .gradient {
-      background: linear-gradient(135deg, #ffffff 0%, #7dd3fc 35%, #00f5c4 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-
-    .hero-copy p {
-      color: var(--muted);
-      font-size: 1.08rem;
-      line-height: 1.8;
-      max-width: 62ch;
-    }
-
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 14px;
-      margin-top: 28px;
-    }
-
-    .btn,
-    .btn-outline {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: 15px 24px;
-      border-radius: 999px;
-      text-decoration: none;
-      font-weight: 800;
-      transition: 0.25s ease;
-      border: 1px solid transparent;
-    }
-
-    .btn {
-      background: linear-gradient(135deg, var(--green), var(--cyan));
-      color: #03111d;
-      box-shadow: 0 18px 35px rgba(0,245,196,.18);
-    }
-
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 22px 40px rgba(0,245,196,.26);
-    }
-
-    .btn-outline {
-      color: var(--text);
-      background: rgba(255,255,255,.03);
-      border-color: rgba(255,255,255,.10);
-    }
-
-    .btn-outline:hover {
-      transform: translateY(-2px);
-      background: rgba(255,255,255,.06);
-    }
-
-    .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-top: 28px;
-    }
-
-    .stat {
-      background: rgba(255,255,255,.03);
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 18px;
-      padding: 18px;
-    }
-
-    .stat strong {
-      display: block;
-      font-size: 1.4rem;
-      margin-bottom: 6px;
-    }
-
-    .stat span {
-      color: var(--muted);
-      font-size: 0.92rem;
-      line-height: 1.45;
-    }
-
-    .hero-side {
-      border-radius: 30px;
-      padding: 22px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .hero-side::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at 20% 20%, rgba(34,211,238,.14), transparent 25%),
-        radial-gradient(circle at 80% 30%, rgba(0,245,196,.10), transparent 22%);
-      pointer-events: none;
-    }
-
-    .dashboard {
-      position: relative;
-      border-radius: 24px;
-      background: linear-gradient(180deg, #0a1326, #07101e);
-      border: 1px solid rgba(255,255,255,.08);
-      padding: 18px;
-      min-height: 540px;
-      display: grid;
-      gap: 16px;
-    }
-
-    .dash-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: #dbeafe;
-      font-size: 0.92rem;
-    }
-
-    .live {
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: rgba(0,245,196,.12);
-      color: #95ffe6;
-      border: 1px solid rgba(0,245,196,.15);
-    }
-
-    .dash-block {
-      border-radius: 18px;
-      background: rgba(255,255,255,.04);
-      border: 1px solid rgba(255,255,255,.06);
-      padding: 16px;
-    }
-
-    .dash-block strong {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 1rem;
-    }
-
-    .dash-block span,
-    .dash-block p {
-      color: var(--muted);
-      line-height: 1.55;
-      font-size: 0.92rem;
-    }
-
-    .dash-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .scan {
-      display: grid;
-      grid-template-columns: 128px 1fr;
-      gap: 16px;
-      align-items: center;
-      padding: 18px;
-      border-radius: 20px;
-      background: linear-gradient(135deg, rgba(59,130,246,.12), rgba(0,245,196,.08));
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .qr {
-      width: 128px;
-      height: 128px;
-      border-radius: 18px;
-      background:
-        linear-gradient(90deg, #fff 12px, transparent 12px) 0 0/26px 26px,
-        linear-gradient(#fff 12px, transparent 12px) 0 0/26px 26px,
-        linear-gradient(135deg, #e6f7ff, #fff);
-      box-shadow: inset 0 0 0 12px #091223;
-      position: relative;
-    }
-
-    .qr::before,
-    .qr::after {
-      content: "";
-      position: absolute;
-      width: 28px;
-      height: 28px;
-      border: 6px solid #091223;
-      border-radius: 8px;
-      background: #fff;
-    }
-
-    .qr::before {
-      top: 14px;
-      left: 14px;
-    }
-
-    .qr::after {
-      right: 14px;
-      bottom: 14px;
-    }
-
-    section {
-      padding: 24px 0 32px;
-    }
-
-    .section-head {
-      text-align: center;
-      margin-bottom: 28px;
-    }
-
-    .section-head h2 {
-      font-size: clamp(2rem, 4vw, 3rem);
-      margin-bottom: 10px;
-      letter-spacing: -0.04em;
-    }
-
-    .section-head p {
-      max-width: 780px;
-      margin: 0 auto;
-      color: var(--muted);
-      line-height: 1.75;
-      font-size: 1.02rem;
-    }
-
-    .pain-strip {
-      margin: 10px 0 0;
-      padding: 28px;
-      border-radius: 28px;
-      background: linear-gradient(135deg, rgba(255,93,93,.10), rgba(255,255,255,.03));
-      border: 1px solid rgba(255,93,93,.15);
-      box-shadow: var(--shadow);
-      text-align: center;
-      font-weight: 800;
-      font-size: clamp(1.2rem, 2.5vw, 1.8rem);
-      color: #ffd4d4;
-      line-height: 1.5;
-    }
-
-    .grid-3,
-    .grid-4 {
-      display: grid;
-      gap: 18px;
-    }
-
-    .grid-3 {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .grid-4 {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .card {
-      border-radius: var(--radius);
-      padding: 24px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-    }
-
-    .card .icon {
-      width: 54px;
-      height: 54px;
-      display: grid;
-      place-items: center;
-      border-radius: 16px;
-      margin-bottom: 16px;
-      font-size: 1.35rem;
-      background: linear-gradient(135deg, rgba(59,130,246,.18), rgba(0,245,196,.14));
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .card h3 {
-      font-size: 1.15rem;
-      margin-bottom: 10px;
-    }
-
-    .card p {
-      color: var(--muted);
-      line-height: 1.7;
-      font-size: 0.96rem;
-    }
-
-    .how {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 18px;
-      counter-reset: step;
-    }
-
-    .step {
-      position: relative;
-      border-radius: 24px;
-      padding: 26px 22px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-    }
-
-    .step::before {
-      counter-increment: step;
-      content: counter(step);
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      font-weight: 900;
-      background: rgba(59,130,246,.16);
-      color: #dcecff;
-    }
-
-    .step h3 {
-      margin: 30px 0 8px;
-      font-size: 1.12rem;
-    }
-
-    .step p {
-      color: var(--muted);
-      line-height: 1.65;
-      font-size: 0.95rem;
-    }
-
-    .comparison {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    .panel {
-      border-radius: 28px;
-      padding: 28px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-    }
-
-    .panel h3 {
-      font-size: 1.3rem;
-      margin-bottom: 16px;
-    }
-
-    .panel ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: grid;
-      gap: 12px;
-    }
-
-    .panel li {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      color: var(--muted);
-      line-height: 1.65;
-    }
-
-    .bullet {
-      flex: 0 0 26px;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      font-size: 0.9rem;
-      margin-top: 2px;
-    }
-
-    .bad .bullet {
-      background: rgba(255,93,93,.14);
-      color: #ffb5b5;
-    }
-
-    .good .bullet {
-      background: rgba(0,245,196,.14);
-      color: #98ffe7;
-    }
-
-    .contact-box {
-      border-radius: 32px;
-      padding: 34px;
-      background: linear-gradient(135deg, rgba(59,130,246,.08), rgba(255,255,255,.03));
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      display: grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap: 22px;
-      align-items: center;
-    }
-
-    .contact-box h2 {
-      font-size: clamp(2rem, 4vw, 3rem);
-      margin-bottom: 12px;
-      letter-spacing: -0.04em;
-    }
-
-    .contact-box p {
-      color: var(--muted);
-      line-height: 1.75;
-    }
-
-    .contact-actions {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-top: 24px;
-    }
-
-    .contact-side {
-      padding: 24px;
-      border-radius: 24px;
-      background: rgba(255,255,255,.04);
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .phone {
-      font-size: clamp(1.7rem, 4vw, 2.5rem);
-      font-weight: 900;
-      letter-spacing: 0.04em;
-      margin: 12px 0 18px;
-      color: #c8fef1;
-    }
-
-    .register-box {
-      display: block;
-      margin-top: 14px;
-      padding: 20px;
-      border-radius: 22px;
-      text-decoration: none;
-      color: var(--text);
-      background: linear-gradient(135deg, rgba(0,245,196,.12), rgba(59,130,246,.12));
-      border: 1px solid rgba(0,245,196,.18);
-      transition: 0.25s ease;
-    }
-
-    .register-box:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 20px 40px rgba(0,245,196,.12);
-    }
-
-    .register-box small {
-      display: block;
-      margin-bottom: 8px;
-      color: #9cefe0;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      font-weight: 800;
-    }
-
-    .register-box strong {
-      display: block;
-      font-size: 1.16rem;
-      margin-bottom: 8px;
-    }
-
-    .register-box span {
-      color: var(--muted);
-      font-size: 0.92rem;
-      line-height: 1.55;
-      word-break: break-word;
-    }
-
-    footer {
-      text-align: center;
-      padding: 20px 0 42px;
-      color: #8fa6c6;
-      font-size: 0.92rem;
-    }
-
-    @media (max-width: 1024px) {
-      .hero,
-      .comparison,
-      .contact-box {
-        grid-template-columns: 1fr;
-      }
-
-      .grid-4,
-      .grid-3,
-      .how {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 720px) {
-      .topbar {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .nav {
-        justify-content: center;
-      }
-
-      .hero-copy,
-      .hero-side,
-      .card,
-      .panel,
-      .contact-box,
-      .contact-side {
-        border-radius: 22px;
-      }
-
-      .hero-copy,
-      .contact-box,
-      .panel,
-      .card {
-        padding: 22px;
-      }
-
-      .grid-4,
-      .grid-3,
-      .how,
-      .hero-stats,
-      .dash-grid,
-      .scan {
-        grid-template-columns: 1fr;
-      }
-
-      .hero {
-        padding-top: 18px;
-      }
-    }
-  </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <header class="topbar">
-      <a class="brand" href="#inicio">
-        <div class="brand-mark">G</div>
-        <div>
-          <strong>GRUK QR</strong>
-          <span>Sistema de ventas, pedidos y control para restaurantes</span>
-        </div>
-      </a>
 
-      <nav class="nav">
-        <a href="#problema">Problema</a>
-        <a href="#solucion">Solución</a>
-        <a href="#funciona">Cómo funciona</a>
-        <a href="#ventajas">Ventajas</a>
-        <a href="#contacto">Contacto</a>
-      </nav>
-    </header>
+<!-- HERO -->
+<header>
+<h1>GRUK QR</h1>
 
-    <main>
-      <section class="hero" id="inicio">
-        <div class="hero-copy glass">
-          <div class="eyebrow">🚀 Tecnología para restaurantes que quieren crecer de verdad</div>
+<p>
+No estás operando mal tu restaurante…
+pero podrías estar ganando mucho más.
+</p>
 
-          <h1>
-            Tu restaurante no necesita más esfuerzo.  
-            Necesita <span class="gradient">un sistema que venda mejor.</span>
-          </h1>
+<a href="https://resturante-qr-1.onrender.com/registro-restaurante.html" class="btn">
+ACTIVAR MI RESTAURANTE
+</a>
+</header>
 
-          <p>
-            Si tu negocio sigue dependiendo de meseros lentos, pedidos mal tomados y cocina desorganizada, no estás operando un restaurante moderno: estás perdiendo dinero todos los días. GRUK QR convierte esa operación lenta y manual en una experiencia rápida, controlada y mucho más rentable.
-          </p>
+<!-- PROBLEMA -->
+<section class="section">
+<h2>El problema real</h2>
 
-          <div class="hero-actions">
-            <a class="btn" href="https://resturante-qr-1.onrender.com/registro-restaurante.html" target="_blank" rel="noopener noreferrer">
-              Inscríbete ahora
-            </a>
-            <a class="btn-outline" href="#contacto">
-              Hablar con nosotros
-            </a>
-          </div>
+<p>
+Los restaurantes no pierden dinero por la comida…
+pierden dinero por su sistema.
+</p>
 
-          <div class="hero-stats">
-            <div class="stat">
-              <strong>+Velocidad</strong>
-              <span>El pedido avanza más rápido desde la mesa hasta cocina.</span>
-            </div>
-            <div class="stat">
-              <strong>+Control</strong>
-              <span>Todo queda registrado, visible y mejor organizado.</span>
-            </div>
-            <div class="stat">
-              <strong>+Ventas</strong>
-              <span>Más rotación de mesas y mejores decisiones comerciales.</span>
-            </div>
-          </div>
-        </div>
+<div class="grid">
+<div class="card">Meseros lentos</div>
+<div class="card">Errores en pedidos</div>
+<div class="card">Cocina desordenada</div>
+<div class="card">Clientes esperando</div>
+</div>
+</section>
 
-        <div class="hero-side glass">
-          <div class="dashboard">
-            <div class="dash-top">
-              <strong>GRUK QR</strong>
-              <span class="live">Sistema activo</span>
-            </div>
+<div class="highlight">
+Cada error en tu restaurante es dinero que ya perdiste.
+</div>
 
-            <div class="dash-grid">
-              <div class="dash-block">
-                <strong>Menú digital</strong>
-                <span>El cliente escanea, entiende el producto y ordena sin esperar.</span>
-              </div>
-              <div class="dash-block">
-                <strong>Venta más inteligente</strong>
-                <span>Entradas, extras, guarniciones, postres y bebidas para vender más por mesa.</span>
-              </div>
-              <div class="dash-block">
-                <strong>Cocina en tiempo real</strong>
-                <span>El pedido llega de inmediato, con observaciones y cambios claros.</span>
-              </div>
-              <div class="dash-block">
-                <strong>Operación seria</strong>
-                <span>Menos errores, más orden y mejor experiencia del cliente.</span>
-              </div>
-            </div>
+<!-- SOLUCION -->
+<section class="section">
+<h2>La solución</h2>
 
-            <div class="scan">
-              <div class="qr"></div>
-              <div>
-                <h3 style="margin-bottom:8px;">Todo empieza con un QR</h3>
-                <p style="color: var(--muted); line-height: 1.6; margin: 0;">
-                  Sin cartas físicas, sin demoras innecesarias y sin depender de que alguien “desocupe tiempo” para vender.
-                </p>
-              </div>
-            </div>
+<p>
+GRUK QR convierte tu restaurante en un sistema automatizado, rápido y controlado.
+</p>
 
-            <div class="dash-block">
-              <strong>GRUK QR no es una moda tecnológica</strong>
-              <span>Es una herramienta para aumentar control, velocidad y flujo de dinero en un negocio que no puede darse el lujo de operar lento.</span>
-            </div>
-          </div>
-        </div>
-      </section>
+<div class="grid">
+<div class="card">Menú digital inteligente</div>
+<div class="card">Pedidos en tiempo real</div>
+<div class="card">Venta de extras y adiciones</div>
+<div class="card">Control total del negocio</div>
+</div>
+</section>
 
-      <section id="problema">
-        <div class="section-head">
-          <h2>La verdad que muchos dueños no quieren ver</h2>
-          <p>
-            El problema de un restaurante casi nunca empieza en la comida. Empieza en la operación. Y cuando la operación falla, la utilidad también.
-          </p>
-        </div>
+<!-- COMO FUNCIONA -->
+<section class="section">
+<h2>Cómo funciona</h2>
 
-        <div class="grid-4">
-          <article class="card">
-            <div class="icon">⏳</div>
-            <h3>Meseros que tardan</h3>
-            <p>Cada minuto que un cliente espera para pedir es tiempo en el que tu mesa produce menos dinero.</p>
-          </article>
-          <article class="card">
-            <div class="icon">✍️</div>
-            <h3>Pedidos mal tomados</h3>
-            <p>Un pedido mal anotado no es un detalle. Es pérdida, reproceso, desgaste y mala experiencia.</p>
-          </article>
-          <article class="card">
-            <div class="icon">🍳</div>
-            <h3>Cocina descoordinada</h3>
-            <p>Cuando la orden llega tarde o confusa, el problema no lo siente solo cocina: lo siente todo el negocio.</p>
-          </article>
-          <article class="card">
-            <div class="icon">💸</div>
-            <h3>Ventas que se escapan</h3>
-            <p>Si el sistema no ayuda a vender entradas, extras, postres y bebidas, estás dejando dinero sobre la mesa.</p>
-          </article>
-        </div>
+<p>
+El cliente escanea → ordena → cocina recibe → listo.
+</p>
 
-        <div class="pain-strip">
-          Cada demora cuesta dinero. Cada error cuesta dinero. Cada mala experiencia le abre la puerta a tu competencia.
-        </div>
-      </section>
+<p>
+Sin errores. Sin retrasos. Sin fricción.
+</p>
+</section>
 
-      <section id="solucion">
-        <div class="section-head">
-          <h2>Los restaurantes que crecen no funcionan así</h2>
-          <p>
-            Funcionan con sistemas. Con velocidad. Con automatización. Con control. Y por eso pueden vender más sin depender de improvisación.
-          </p>
-        </div>
+<!-- BENEFICIOS -->
+<section class="section">
+<h2>Resultados</h2>
 
-        <div class="comparison">
-          <div class="panel bad">
-            <h3>Sin GRUK QR</h3>
-            <ul>
-              <li><span class="bullet">✕</span><span>El cliente espera para ver carta, pedir o resolver dudas.</span></li>
-              <li><span class="bullet">✕</span><span>El mesero carga toda la venta sobre sus hombros.</span></li>
-              <li><span class="bullet">✕</span><span>La cocina recibe tarde o recibe mal el pedido.</span></li>
-              <li><span class="bullet">✕</span><span>El negocio vende lo básico, pero no maximiza la mesa.</span></li>
-            </ul>
-          </div>
+<div class="grid">
+<div class="card">Más ventas</div>
+<div class="card">Más velocidad</div>
+<div class="card">Más control</div>
+<div class="card">Más rentabilidad</div>
+</div>
+</section>
 
-          <div class="panel good">
-            <h3>Con GRUK QR</h3>
-            <ul>
-              <li><span class="bullet">✓</span><span>El cliente escanea, ve el menú y entiende qué está comprando.</span></li>
-              <li><span class="bullet">✓</span><span>Puede agregar entradas, extras, guarniciones, postres y bebidas fácilmente.</span></li>
-              <li><span class="bullet">✓</span><span>Cocina recibe en tiempo real y con observaciones claras.</span></li>
-              <li><span class="bullet">✓</span><span>La mesa rota más rápido y vende más en menos tiempo.</span></li>
-            </ul>
-          </div>
-        </div>
-      </section>
+<!-- MISION -->
+<section class="section">
+<h2>Misión</h2>
 
-      <section id="funciona">
-        <div class="section-head">
-          <h2>Cómo funciona</h2>
-          <p>
-            Todo el proceso está diseñado para reducir fricción, acelerar la atención y aumentar la venta por cliente.
-          </p>
-        </div>
+<p>
+Transformar la manera en que operan los restaurantes mediante tecnología que elimina la fricción, mejora la eficiencia y aumenta las ventas de forma sostenible.
+</p>
+</section>
 
-        <div class="how">
-          <article class="step">
-            <h3>Escanea</h3>
-            <p>El cliente escanea el QR desde su mesa y entra de inmediato al menú digital del restaurante.</p>
-          </article>
-          <article class="step">
-            <h3>Explora</h3>
-            <p>Ve platos, descripción, valor, guarniciones, extras, entradas, bebidas y todo lo necesario para comprar mejor.</p>
-          </article>
-          <article class="step">
-            <h3>Ordena</h3>
-            <p>Hace el pedido con observaciones claras y la cocina lo recibe en tiempo real, sin errores ni retrasos innecesarios.</p>
-          </article>
-          <article class="step">
-            <h3>Controla</h3>
-            <p>El restaurante gestiona estados, tiempos, pagos y atención de manera mucho más ordenada y profesional.</p>
-          </article>
-        </div>
-      </section>
+<!-- VISION -->
+<section class="section">
+<h2>Visión</h2>
 
-      <section id="ventajas">
-        <div class="section-head">
-          <h2>¿Por qué GRUK QR vende más?</h2>
-          <p>
-            Porque no solo acelera pedidos. También convierte el menú en una herramienta de venta, no en una simple lista de productos.
-          </p>
-        </div>
+<p>
+Convertirnos en el sistema estándar de operación para restaurantes en Latinoamérica, impulsando negocios más inteligentes, rápidos y rentables.
+</p>
+</section>
 
-        <div class="grid-4">
-          <article class="card">
-            <div class="icon">📲</div>
-            <h3>Menú con descripción</h3>
-            <p>El cliente entiende qué trae el plato, reduce dudas y toma decisiones más rápido.</p>
-          </article>
-          <article class="card">
-            <div class="icon">🍟</div>
-            <h3>Adiciones y guarniciones</h3>
-            <p>El sistema permite vender extras, cambios y complementos con valor adicional.</p>
-          </article>
-          <article class="card">
-            <div class="icon">🍰</div>
-            <h3>Más oportunidades de venta</h3>
-            <p>Entradas, postres, bebidas calientes y otros productos dejan de depender solo del impulso del mesero.</p>
-          </article>
-          <article class="card">
-            <div class="icon">⭐</div>
-            <h3>Retroalimentación real</h3>
-            <p>Con una calificación posterior, el restaurante puede mejorar, detectar fallas y usar opiniones en redes.</p>
-          </article>
-        </div>
-      </section>
+<!-- VALOR -->
+<section class="section">
+<h2>Propuesta de valor</h2>
 
-      <section id="contacto">
-        <div class="contact-box">
-          <div>
-            <h2>Tu restaurante puede seguir igual… o puede empezar a vender como un negocio serio</h2>
-            <p>
-              No necesitas esperar a ser grande para operar mejor. Necesitas tomar una decisión inteligente. Si quieres ver tu restaurante más ágil, más organizado y con mayor capacidad de venta, este es el momento.
-            </p>
+<p>
+GRUK QR no es solo un sistema…
+es la diferencia entre operar como antes
+o competir como un negocio moderno.
+</p>
+</section>
 
-            <div class="contact-actions">
-              <a class="btn" href="https://resturante-qr-1.onrender.com/registro-restaurante.html" target="_blank" rel="noopener noreferrer">
-                Inscríbete ahora
-              </a>
-              <a class="btn-outline" href="https://wa.me/573106150402?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20GRUK%20QR" target="_blank" rel="noopener noreferrer">
-                Escribir por WhatsApp
-              </a>
-            </div>
-          </div>
+<!-- CIERRE -->
+<div class="highlight">
+Mientras tú decides… otro restaurante ya está ganando lo que tú estás perdiendo.
+</div>
 
-          <aside class="contact-side">
-            <small style="display:block; color:#9ddfff; text-transform:uppercase; letter-spacing:.14em; font-weight:800; margin-bottom:8px;">
-              Contacto directo
-            </small>
+<!-- CTA -->
+<section class="section">
+<h2>Decisión</h2>
 
-            <div class="phone">310 615 0402</div>
+<p>
+No necesitas más información.
+Necesitas actuar.
+</p>
 
-            <p style="color: var(--muted);">
-              Si estás listo para dejar de perder ventas por operar lento, contáctanos y conoce cómo GRUK QR puede ayudarte.
-            </p>
+<div class="phone">📲 310 615 0402</div>
 
-            <a
-              class="register-box"
-              href="https://resturante-qr-1.onrender.com/registro-restaurante.html"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <small>Inscríbete</small>
-              <strong>Activa tu restaurante con GRUK QR</strong>
-              <span>https://resturante-qr-1.onrender.com/registro-restaurante.html</span>
-            </a>
-          </aside>
-        </div>
-      </section>
-    </main>
+<a href="https://resturante-qr-1.onrender.com/registro-restaurante.html" class="btn">
+INSCRÍBETE AHORA
+</a>
+</section>
 
-    <footer>
-      GRUK QR © · Pedidos, control y ventas para restaurantes que quieren crecer.
-    </footer>
-  </div>
+<footer>
+<p>GRUK QR © Sistema premium para restaurantes</p>
+</footer>
+
 </body>
 </html>
