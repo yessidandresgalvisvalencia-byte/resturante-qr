@@ -1,231 +1,1034 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>GRUK QR | Sistema premium para restaurantes</title>
-
-<meta name="description" content="GRUK QR es un sistema premium que transforma restaurantes en negocios rápidos, organizados y altamente rentables.">
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GRUK QR | Tecnología premium para restaurantes</title>
+<meta
+name="description"
+content="GRUK QR es una solución premium para restaurantes: menú QR, pedidos en tiempo real, cocina digital, pagos y control total para vender más."
+/>
+<meta
+name="keywords"
+content="GRUK QR, sistema para restaurantes, menú QR, cocina digital, pedidos en tiempo real, software para restaurantes Colombia"
+/>
 <style>
+:root {
+--bg: #07111f;
+--bg-2: #0c182c;
+--card: rgba(10, 20, 38, 0.72);
+--card-2: rgba(255, 255, 255, 0.05);
+--line: rgba(255, 255, 255, 0.10);
+--text: #f4f8ff;
+--muted: #a9b8cf;
+--accent: #7dd3fc;
+--accent-2: #00f5c4;
+--gold: #d6b36d;
+--danger: #ff7777;
+--shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+--radius: 26px;
+--max: 1240px;
+}
+
+* {
+box-sizing: border-box;
+}
+
+html {
+scroll-behavior: smooth;
+}
+
 body {
 margin: 0;
-font-family: 'Segoe UI', sans-serif;
-background: #020617;
+font-family: Inter, "Segoe UI", Arial, sans-serif;
+color: var(--text);
+background:
+linear-gradient(rgba(4, 10, 20, 0.76), rgba(4, 10, 20, 0.88)),
+url("https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80") center/cover fixed no-repeat;
+overflow-x: hidden;
+}
+
+body::before {
+content: "";
+position: fixed;
+inset: 0;
+background:
+radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 24%),
+radial-gradient(circle at bottom right, rgba(0, 245, 196, 0.10), transparent 22%);
+pointer-events: none;
+z-index: 0;
+}
+
+.wrap {
+position: relative;
+z-index: 1;
+width: min(var(--max), calc(100% - 32px));
+margin: 0 auto;
+}
+
+.glass {
+background: var(--card);
+backdrop-filter: blur(16px);
+border: 1px solid var(--line);
+box-shadow: var(--shadow);
+}
+
+.topbar {
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 16px;
+padding: 24px 0;
+}
+
+.brand {
+display: flex;
+align-items: center;
+gap: 14px;
+text-decoration: none;
+color: var(--text);
+}
+
+.brand-mark {
+width: 56px;
+height: 56px;
+border-radius: 18px;
+display: grid;
+place-items: center;
+font-weight: 900;
+letter-spacing: 0.08em;
+background: linear-gradient(135deg, rgba(125,211,252,.20), rgba(0,245,196,.14));
+border: 1px solid rgba(255,255,255,.12);
 color: white;
 }
 
-header {
-padding: 100px 20px;
-text-align: center;
-background: radial-gradient(circle, #00ffc820, transparent);
+.brand strong {
+display: block;
+font-size: 1.12rem;
+letter-spacing: 0.08em;
+}
+
+.brand span {
+display: block;
+color: var(--muted);
+font-size: 0.88rem;
+}
+
+.nav {
+display: flex;
+flex-wrap: wrap;
+gap: 8px;
+}
+
+.nav a {
+color: var(--muted);
+text-decoration: none;
+padding: 10px 14px;
+border-radius: 999px;
+transition: 0.25s ease;
+font-size: 0.95rem;
+}
+
+.nav a:hover {
+color: white;
+background: rgba(255,255,255,.06);
+}
+
+.hero {
+display: grid;
+grid-template-columns: 1.15fr 0.85fr;
+gap: 26px;
+align-items: center;
+padding: 42px 0 70px;
+}
+
+.hero-copy {
+padding: 44px;
+border-radius: 34px;
+}
+
+.eyebrow {
+display: inline-flex;
+align-items: center;
+gap: 8px;
+padding: 8px 14px;
+border-radius: 999px;
+color: #d9ecff;
+background: rgba(125, 211, 252, 0.10);
+border: 1px solid rgba(125, 211, 252, 0.18);
+margin-bottom: 18px;
+font-size: 0.9rem;
+}
+
+h1, h2, h3, p {
+margin: 0;
 }
 
 h1 {
-font-size: 55px;
+font-size: clamp(3rem, 6vw, 5.4rem);
+line-height: 0.96;
+letter-spacing: -0.05em;
+margin-bottom: 18px;
 }
 
-h2 {
-color: #00ffc8;
-margin-bottom: 15px;
+.gradient {
+background: linear-gradient(135deg, #ffffff 0%, var(--accent) 35%, var(--accent-2) 100%);
+-webkit-background-clip: text;
+background-clip: text;
+color: transparent;
 }
 
-p {
-max-width: 750px;
-margin: auto;
-color: #aaa;
-line-height: 1.7;
+.hero-copy p {
+color: var(--muted);
+font-size: 1.06rem;
+line-height: 1.85;
+max-width: 64ch;
+}
+
+.hero-actions {
+display: flex;
+flex-wrap: wrap;
+gap: 14px;
+margin-top: 28px;
+}
+
+.btn,
+.btn-outline {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+gap: 10px;
+padding: 15px 24px;
+border-radius: 999px;
+text-decoration: none;
+font-weight: 800;
+transition: 0.25s ease;
+border: 1px solid transparent;
 }
 
 .btn {
-display: inline-block;
-margin-top: 30px;
-padding: 18px 40px;
-background: linear-gradient(45deg, #00ffc8, #00bfff);
-border-radius: 12px;
-color: black;
-text-decoration: none;
-font-weight: bold;
-transition: 0.3s;
+background: linear-gradient(135deg, var(--accent-2), var(--accent));
+color: #03101b;
+box-shadow: 0 18px 34px rgba(0,245,196,.18);
 }
 
 .btn:hover {
-transform: scale(1.05);
+transform: translateY(-2px);
+box-shadow: 0 22px 44px rgba(0,245,196,.26);
 }
 
-.section {
-padding: 80px 20px;
-text-align: center;
+.btn-outline {
+color: white;
+background: rgba(255,255,255,.04);
+border-color: rgba(255,255,255,.12);
 }
 
-.grid {
+.btn-outline:hover {
+transform: translateY(-2px);
+background: rgba(255,255,255,.08);
+}
+
+.hero-stats {
 display: grid;
-grid-template-columns: repeat(auto-fit, minmax(250px,1fr));
-gap: 25px;
-margin-top: 40px;
+grid-template-columns: repeat(3, 1fr);
+gap: 12px;
+margin-top: 28px;
 }
+
+.stat {
+border-radius: 18px;
+padding: 18px;
+background: rgba(255,255,255,.04);
+border: 1px solid rgba(255,255,255,.08);
+}
+
+.stat strong {
+display: block;
+font-size: 1.45rem;
+margin-bottom: 6px;
+}
+
+.stat span {
+color: var(--muted);
+font-size: 0.92rem;
+line-height: 1.45;
+}
+
+.hero-side {
+border-radius: 34px;
+padding: 22px;
+overflow: hidden;
+}
+
+.dashboard {
+border-radius: 26px;
+padding: 18px;
+min-height: 560px;
+background: linear-gradient(180deg, rgba(8, 17, 31, 0.98), rgba(10, 22, 38, 0.94));
+border: 1px solid rgba(255,255,255,.08);
+display: grid;
+gap: 14px;
+}
+
+.dash-top {
+display: flex;
+justify-content: space-between;
+align-items: center;
+color: #dcecff;
+font-size: 0.92rem;
+}
+
+.live {
+padding: 6px 10px;
+border-radius: 999px;
+background: rgba(0,245,196,.12);
+color: #a4ffe9;
+border: 1px solid rgba(0,245,196,.16);
+}
+
+.dash-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 12px;
+}
+
+.dash-block {
+border-radius: 18px;
+padding: 16px;
+background: rgba(255,255,255,.04);
+border: 1px solid rgba(255,255,255,.08);
+}
+
+.dash-block strong {
+display: block;
+margin-bottom: 8px;
+font-size: 1rem;
+}
+
+.dash-block span {
+color: var(--muted);
+font-size: 0.92rem;
+line-height: 1.55;
+}
+
+.scan {
+display: grid;
+grid-template-columns: 124px 1fr;
+gap: 16px;
+align-items: center;
+padding: 18px;
+border-radius: 22px;
+background: linear-gradient(135deg, rgba(125,211,252,.10), rgba(0,245,196,.08));
+border: 1px solid rgba(255,255,255,.08);
+}
+
+.qr {
+width: 124px;
+height: 124px;
+border-radius: 18px;
+background:
+linear-gradient(90deg, #fff 12px, transparent 12px) 0 0/26px 26px,
+linear-gradient(#fff 12px, transparent 12px) 0 0/26px 26px,
+linear-gradient(135deg, #e6f7ff, #fff);
+box-shadow: inset 0 0 0 12px #0a1326;
+position: relative;
+}
+
+.qr::before,
+.qr::after {
+content: "";
+position: absolute;
+width: 28px;
+height: 28px;
+border: 6px solid #0a1326;
+border-radius: 8px;
+background: #fff;
+}
+
+.qr::before { top: 14px; left: 14px; }
+.qr::after { right: 14px; bottom: 14px; }
+
+section {
+padding: 28px 0 34px;
+}
+
+.section-head {
+text-align: center;
+margin-bottom: 26px;
+}
+
+.section-head h2 {
+font-size: clamp(2rem, 4vw, 3.1rem);
+margin-bottom: 12px;
+letter-spacing: -0.04em;
+}
+
+.section-head p {
+max-width: 820px;
+margin: 0 auto;
+color: var(--muted);
+line-height: 1.8;
+font-size: 1.02rem;
+}
+
+.grid-3,
+.grid-4 {
+display: grid;
+gap: 18px;
+}
+
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 .card {
-background: #0f172a;
-padding: 30px;
-border-radius: 15px;
+border-radius: var(--radius);
+padding: 24px;
+background: var(--card);
+border: 1px solid var(--line);
+box-shadow: var(--shadow);
 }
 
-.highlight {
-background: black;
-padding: 60px 20px;
+.card .icon {
+width: 54px;
+height: 54px;
+display: grid;
+place-items: center;
+border-radius: 16px;
+margin-bottom: 16px;
+font-size: 1.35rem;
+background: linear-gradient(135deg, rgba(125,211,252,.18), rgba(0,245,196,.14));
+border: 1px solid rgba(255,255,255,.08);
+}
+
+.card h3 {
+font-size: 1.16rem;
+margin-bottom: 10px;
+}
+
+.card p {
+color: var(--muted);
+line-height: 1.72;
+font-size: 0.96rem;
+}
+
+.pain-strip {
+margin-top: 18px;
+padding: 28px;
+border-radius: 28px;
+background: linear-gradient(135deg, rgba(255,119,119,.10), rgba(255,255,255,.03));
+border: 1px solid rgba(255,119,119,.16);
+box-shadow: var(--shadow);
 text-align: center;
-color: #ff4d4d;
-font-size: 22px;
-font-weight: bold;
+font-weight: 800;
+font-size: clamp(1.2rem, 2.4vw, 1.8rem);
+color: #ffd5d5;
+line-height: 1.5;
+}
+
+.how {
+display: grid;
+grid-template-columns: repeat(4, minmax(0, 1fr));
+gap: 18px;
+counter-reset: step;
+}
+
+.step {
+position: relative;
+border-radius: 24px;
+padding: 26px 22px;
+background: var(--card);
+border: 1px solid var(--line);
+box-shadow: var(--shadow);
+}
+
+.step::before {
+counter-increment: step;
+content: counter(step);
+position: absolute;
+top: 16px;
+right: 16px;
+width: 34px;
+height: 34px;
+border-radius: 50%;
+display: grid;
+place-items: center;
+font-weight: 900;
+background: rgba(125,211,252,.16);
+color: #dbeeff;
+}
+
+.step h3 {
+margin: 32px 0 8px;
+font-size: 1.12rem;
+}
+
+.step p {
+color: var(--muted);
+line-height: 1.65;
+font-size: 0.95rem;
+}
+
+.comparison {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 20px;
+}
+
+.panel {
+border-radius: 28px;
+padding: 28px;
+background: var(--card);
+border: 1px solid var(--line);
+box-shadow: var(--shadow);
+}
+
+.panel h3 {
+font-size: 1.28rem;
+margin-bottom: 16px;
+}
+
+.panel ul {
+list-style: none;
+padding: 0;
+margin: 0;
+display: grid;
+gap: 12px;
+}
+
+.panel li {
+display: flex;
+align-items: flex-start;
+gap: 12px;
+color: var(--muted);
+line-height: 1.68;
+}
+
+.bullet {
+flex: 0 0 26px;
+width: 26px;
+height: 26px;
+border-radius: 50%;
+display: grid;
+place-items: center;
+font-size: 0.9rem;
+margin-top: 2px;
+}
+
+.bad .bullet {
+background: rgba(255,119,119,.15);
+color: #ffc2c2;
+}
+
+.good .bullet {
+background: rgba(0,245,196,.14);
+color: #9dffe8;
+}
+
+.mission-vision {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 20px;
+}
+
+.mv-card {
+border-radius: 30px;
+padding: 30px;
+background: linear-gradient(135deg, rgba(214,179,109,.10), rgba(255,255,255,.03));
+border: 1px solid rgba(214,179,109,.20);
+box-shadow: var(--shadow);
+}
+
+.mv-card h3 {
+font-size: 1.35rem;
+margin-bottom: 14px;
+color: #f1d6a2;
+}
+
+.mv-card p {
+color: var(--muted);
+line-height: 1.8;
+font-size: 0.98rem;
+}
+
+.contact-box {
+border-radius: 34px;
+padding: 36px;
+background: linear-gradient(135deg, rgba(125,211,252,.08), rgba(255,255,255,.03));
+border: 1px solid var(--line);
+box-shadow: var(--shadow);
+display: grid;
+grid-template-columns: 1.15fr .85fr;
+gap: 22px;
+align-items: center;
+}
+
+.contact-box h2 {
+font-size: clamp(2rem, 4vw, 3rem);
+margin-bottom: 12px;
+letter-spacing: -0.04em;
+}
+
+.contact-box p {
+color: var(--muted);
+line-height: 1.78;
+}
+
+.contact-actions {
+display: flex;
+gap: 14px;
+flex-wrap: wrap;
+margin-top: 24px;
+}
+
+.contact-side {
+padding: 24px;
+border-radius: 24px;
+background: rgba(255,255,255,.04);
+border: 1px solid rgba(255,255,255,.08);
+}
+
+.phone {
+font-size: clamp(1.7rem, 4vw, 2.4rem);
+font-weight: 900;
+letter-spacing: 0.04em;
+margin: 12px 0 18px;
+color: #d0fff3;
+}
+
+.register-box {
+display: block;
+margin-top: 14px;
+padding: 20px;
+border-radius: 22px;
+text-decoration: none;
+color: var(--text);
+background: linear-gradient(135deg, rgba(0,245,196,.12), rgba(125,211,252,.12));
+border: 1px solid rgba(0,245,196,.18);
+transition: 0.25s ease;
+}
+
+.register-box:hover {
+transform: translateY(-2px);
+box-shadow: 0 20px 40px rgba(0,245,196,.12);
+}
+
+.register-box small {
+display: block;
+margin-bottom: 8px;
+color: #a7ffee;
+font-size: 0.75rem;
+text-transform: uppercase;
+letter-spacing: 0.14em;
+font-weight: 800;
+}
+
+.register-box strong {
+display: block;
+font-size: 1.18rem;
+margin-bottom: 8px;
+}
+
+.register-box span {
+color: var(--muted);
+font-size: 0.92rem;
+line-height: 1.55;
+word-break: break-word;
 }
 
 footer {
 text-align: center;
-padding: 50px;
-background: black;
+padding: 22px 0 42px;
+color: #9ab0cc;
+font-size: 0.92rem;
 }
 
-.phone {
-font-size: 28px;
-color: #00ffc8;
+@media (max-width: 1024px) {
+.hero,
+.comparison,
+.mission-vision,
+.contact-box {
+grid-template-columns: 1fr;
+}
+
+.grid-4,
+.grid-3,
+.how {
+grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+}
+
+@media (max-width: 720px) {
+.topbar {
+flex-direction: column;
+align-items: stretch;
+}
+
+.nav {
+justify-content: center;
+}
+
+.hero-copy,
+.hero-side,
+.card,
+.panel,
+.mv-card,
+.contact-box,
+.contact-side {
+border-radius: 22px;
+}
+
+.hero-copy,
+.contact-box,
+.panel,
+.mv-card,
+.card {
+padding: 22px;
+}
+
+.grid-4,
+.grid-3,
+.how,
+.hero-stats,
+.dash-grid,
+.scan {
+grid-template-columns: 1fr;
+}
+
+.hero {
+padding-top: 20px;
+}
 }
 </style>
-
 </head>
-
 <body>
-
-<!-- HERO -->
-<header>
-<h1>GRUK QR</h1>
-
-<p>
-No estás operando mal tu restaurante…
-pero podrías estar ganando mucho más.
-</p>
-
-<a href="https://resturante-qr-1.onrender.com/registro-restaurante.html" class="btn">
-ACTIVAR MI RESTAURANTE
+<div class="wrap">
+<header class="topbar">
+<a class="brand" href="#inicio">
+<div class="brand-mark">G</div>
+<div>
+<strong>GRUK QR</strong>
+<span>Solución premium para restaurantes que quieren vender más</span>
+</div>
 </a>
+
+<nav class="nav">
+<a href="#nosotros">Nosotros</a>
+<a href="#problema">Problema</a>
+<a href="#solucion">Solución</a>
+<a href="#funciona">Cómo funciona</a>
+<a href="#vision">Misión & Visión</a>
+<a href="#contacto">Contacto</a>
+</nav>
 </header>
 
-<!-- PROBLEMA -->
-<section class="section">
-<h2>El problema real</h2>
+<main>
+<section class="hero" id="inicio">
+<div class="hero-copy glass">
+<div class="eyebrow">🍷 Tecnología de alto nivel para restaurantes que quieren crecer con seriedad</div>
+
+<h1>
+Un restaurante elegante merece una operación <span class="gradient">igual de elegante.</span>
+</h1>
 
 <p>
-Los restaurantes no pierden dinero por la comida…
-pierden dinero por su sistema.
+GRUK QR no es solo un sistema de pedidos. Es una infraestructura digital para restaurantes que buscan más orden, más velocidad, más control y mayor capacidad de venta. Convertimos una operación lenta y manual en una experiencia premium, eficiente y diseñada para producir más.
 </p>
 
-<div class="grid">
-<div class="card">Meseros lentos</div>
-<div class="card">Errores en pedidos</div>
-<div class="card">Cocina desordenada</div>
-<div class="card">Clientes esperando</div>
-</div>
-</section>
-
-<div class="highlight">
-Cada error en tu restaurante es dinero que ya perdiste.
-</div>
-
-<!-- SOLUCION -->
-<section class="section">
-<h2>La solución</h2>
-
-<p>
-GRUK QR convierte tu restaurante en un sistema automatizado, rápido y controlado.
-</p>
-
-<div class="grid">
-<div class="card">Menú digital inteligente</div>
-<div class="card">Pedidos en tiempo real</div>
-<div class="card">Venta de extras y adiciones</div>
-<div class="card">Control total del negocio</div>
-</div>
-</section>
-
-<!-- COMO FUNCIONA -->
-<section class="section">
-<h2>Cómo funciona</h2>
-
-<p>
-El cliente escanea → ordena → cocina recibe → listo.
-</p>
-
-<p>
-Sin errores. Sin retrasos. Sin fricción.
-</p>
-</section>
-
-<!-- BENEFICIOS -->
-<section class="section">
-<h2>Resultados</h2>
-
-<div class="grid">
-<div class="card">Más ventas</div>
-<div class="card">Más velocidad</div>
-<div class="card">Más control</div>
-<div class="card">Más rentabilidad</div>
-</div>
-</section>
-
-<!-- MISION -->
-<section class="section">
-<h2>Misión</h2>
-
-<p>
-Transformar la manera en que operan los restaurantes mediante tecnología que elimina la fricción, mejora la eficiencia y aumenta las ventas de forma sostenible.
-</p>
-</section>
-
-<!-- VISION -->
-<section class="section">
-<h2>Visión</h2>
-
-<p>
-Convertirnos en el sistema estándar de operación para restaurantes en Latinoamérica, impulsando negocios más inteligentes, rápidos y rentables.
-</p>
-</section>
-
-<!-- VALOR -->
-<section class="section">
-<h2>Propuesta de valor</h2>
-
-<p>
-GRUK QR no es solo un sistema…
-es la diferencia entre operar como antes
-o competir como un negocio moderno.
-</p>
-</section>
-
-<!-- CIERRE -->
-<div class="highlight">
-Mientras tú decides… otro restaurante ya está ganando lo que tú estás perdiendo.
-</div>
-
-<!-- CTA -->
-<section class="section">
-<h2>Decisión</h2>
-
-<p>
-No necesitas más información.
-Necesitas actuar.
-</p>
-
-<div class="phone">📲 310 615 0402</div>
-
-<a href="https://resturante-qr-1.onrender.com/registro-restaurante.html" class="btn">
-INSCRÍBETE AHORA
+<div class="hero-actions">
+<a class="btn" href="https://resturante-qr-1.onrender.com/registro-restaurante.html" target="_blank" rel="noopener noreferrer">
+Inscríbete ahora
 </a>
+<a class="btn-outline" href="#contacto">
+Hablar con nosotros
+</a>
+</div>
+
+<div class="hero-stats">
+<div class="stat">
+<strong>+Orden</strong>
+<span>Procesos más limpios, claros y profesionales desde la mesa hasta cocina.</span>
+</div>
+<div class="stat">
+<strong>+Velocidad</strong>
+<span>Menos espera para el cliente y menos fricción para tu equipo.</span>
+</div>
+<div class="stat">
+<strong>+Valor por mesa</strong>
+<span>Más oportunidades de venta gracias a extras, adiciones y mejor presentación del menú.</span>
+</div>
+</div>
+</div>
+
+<div class="hero-side glass">
+<div class="dashboard">
+<div class="dash-top">
+<strong>GRUK QR Experience</strong>
+<span class="live">Operación activa</span>
+</div>
+
+<div class="dash-grid">
+<div class="dash-block">
+<strong>Menú premium</strong>
+<span>Productos con descripción, presentación clara y una experiencia visual más cuidada.</span>
+</div>
+<div class="dash-block">
+<strong>Venta inteligente</strong>
+<span>Entradas, guarniciones, adiciones, postres y bebidas para elevar el ticket promedio.</span>
+</div>
+<div class="dash-block">
+<strong>Cocina conectada</strong>
+<span>Pedidos en tiempo real, con observaciones precisas y menos margen de error.</span>
+</div>
+<div class="dash-block">
+<strong>Control superior</strong>
+<span>Más trazabilidad, más orden y una operación mucho más seria.</span>
+</div>
+</div>
+
+<div class="scan">
+<div class="qr"></div>
+<div>
+<h3 style="margin-bottom:8px;">Todo empieza con una experiencia impecable</h3>
+<p style="color: var(--muted); line-height: 1.65; margin: 0;">
+Un cliente que entiende mejor el menú, pide más fácil y recibe más rápido, también valora más tu restaurante.
+</p>
+</div>
+</div>
+
+<div class="dash-block">
+<strong>GRUK QR es tecnología con intención</strong>
+<span>No está hecha para verse moderna. Está hecha para hacer que el restaurante funcione mejor, venda más y se perciba más premium.</span>
+</div>
+</div>
+</div>
 </section>
+
+<section id="nosotros">
+<div class="section-head">
+<h2>Quiénes somos</h2>
+<p>
+GRUK QR nace con una idea clara: los restaurantes modernos no deberían perder dinero por operar lento, vender poco desde el menú o depender demasiado de procesos manuales. Somos una solución pensada para elevar la calidad operativa, comercial y visual de un restaurante.
+</p>
+</div>
+
+<div class="grid-3">
+<article class="card">
+<div class="icon">🏛️</div>
+<h3>Enfoque empresarial</h3>
+<p>No pensamos como una simple herramienta, sino como una estructura de crecimiento para negocios gastronómicos.</p>
+</article>
+<article class="card">
+<div class="icon">🎯</div>
+<h3>Orientados a resultados</h3>
+<p>Más velocidad, mejor experiencia, más control interno y mayor capacidad de venta por cliente.</p>
+</article>
+<article class="card">
+<div class="icon">✨</div>
+<h3>Posicionamiento premium</h3>
+<p>Queremos que el restaurante no solo funcione mejor, sino que también se vea y se sienta más profesional.</p>
+</article>
+</div>
+</section>
+
+<section id="problema">
+<div class="section-head">
+<h2>El verdadero problema no siempre se ve en la comida</h2>
+<p>
+Muchos restaurantes tienen buen producto, pero una operación que les quita rentabilidad. Lo que parece normal en el día a día muchas veces es la razón por la que no están creciendo al nivel que podrían.
+</p>
+</div>
+
+<div class="grid-4">
+<article class="card">
+<div class="icon">⌛</div>
+<h3>Espera innecesaria</h3>
+<p>Cuando el cliente debe esperar demasiado para pedir, ya estás perdiendo velocidad de venta.</p>
+</article>
+<article class="card">
+<div class="icon">📝</div>
+<h3>Errores humanos</h3>
+<p>Un pedido mal tomado o mal explicado cuesta dinero, tiempo y reputación.</p>
+</article>
+<article class="card">
+<div class="icon">🍽️</div>
+<h3>Venta desaprovechada</h3>
+<p>Si el menú no impulsa entradas, extras, postres y bebidas, la mesa compra menos de lo que podría.</p>
+</article>
+<article class="card">
+<div class="icon">📉</div>
+<h3>Operación sin sistema</h3>
+<p>Sin una estructura clara, el restaurante trabaja más duro de lo necesario para ganar menos de lo que debería.</p>
+</article>
+</div>
+
+<div class="pain-strip">
+Un restaurante puede verse elegante por fuera y seguir perdiendo dinero por dentro si su sistema no está a la altura.
+</div>
+</section>
+
+<section id="solucion">
+<div class="section-head">
+<h2>La solución: sofisticar la operación sin complicarla</h2>
+<p>
+GRUK QR transforma el recorrido del cliente y del equipo interno en un flujo más limpio, más rápido y mejor pensado para vender.
+</p>
+</div>
+
+<div class="comparison">
+<div class="panel bad">
+<h3>Sin un sistema inteligente</h3>
+<ul>
+<li><span class="bullet">✕</span><span>El cliente depende del mesero para todo: mirar, entender, decidir y pedir.</span></li>
+<li><span class="bullet">✕</span><span>La cocina recibe pedidos con más margen de error y menos claridad.</span></li>
+<li><span class="bullet">✕</span><span>Las ventas adicionales dependen solo del impulso humano.</span></li>
+<li><span class="bullet">✕</span><span>La experiencia se siente más lenta y menos premium.</span></li>
+</ul>
+</div>
+
+<div class="panel good">
+<h3>Con GRUK QR</h3>
+<ul>
+<li><span class="bullet">✓</span><span>El cliente entiende el menú con más claridad y toma decisiones más rápido.</span></li>
+<li><span class="bullet">✓</span><span>Puede agregar entradas, guarniciones, adiciones y bebidas con facilidad.</span></li>
+<li><span class="bullet">✓</span><span>Cocina recibe todo en tiempo real, con observaciones claras y mejor orden.</span></li>
+<li><span class="bullet">✓</span><span>La operación se siente moderna, eficiente y mucho más profesional.</span></li>
+</ul>
+</div>
+</div>
+</section>
+
+<section id="funciona">
+<div class="section-head">
+<h2>Cómo funciona</h2>
+<p>
+Todo está diseñado para que el cliente compre mejor y el restaurante opere mejor.
+</p>
+</div>
+
+<div class="how">
+<article class="step">
+<h3>Escanea</h3>
+<p>El cliente escanea el QR y accede de inmediato a una experiencia digital más clara y cómoda.</p>
+</article>
+<article class="step">
+<h3>Explora</h3>
+<p>Ve productos con descripción, opciones, adiciones, guarniciones y más posibilidades de compra.</p>
+</article>
+<article class="step">
+<h3>Ordena</h3>
+<p>Hace su pedido con observaciones específicas y el sistema lo envía directamente a cocina.</p>
+</article>
+<article class="step">
+<h3>Controla</h3>
+<p>El restaurante gestiona mejor los tiempos, estados, pagos y la experiencia completa de servicio.</p>
+</article>
+</div>
+</section>
+
+<section id="vision">
+<div class="section-head">
+<h2>Misión y visión</h2>
+<p>
+Construimos una marca que no solo vende software, sino una nueva forma de operar restaurantes con más inteligencia y más nivel.
+</p>
+</div>
+
+<div class="mission-vision">
+<div class="mv-card">
+<h3>Misión</h3>
+<p>
+Transformar la operación de los restaurantes mediante tecnología que optimiza la atención, aumenta la venta por mesa, reduce errores y eleva la experiencia del cliente a un estándar más moderno y profesional.
+</p>
+</div>
+
+<div class="mv-card">
+<h3>Visión</h3>
+<p>
+Ser la referencia premium en soluciones digitales para restaurantes en Latinoamérica, ayudando a los negocios gastronómicos a crecer con orden, velocidad, elegancia y rentabilidad.
+</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="section-head">
+<h2>Por qué elegirnos</h2>
+<p>
+Porque un restaurante premium no puede seguir operando con procesos que parecen del pasado. GRUK QR eleva la experiencia, mejora la percepción y fortalece la rentabilidad.
+</p>
+</div>
+
+<div class="grid-4">
+<article class="card">
+<div class="icon">💎</div>
+<h3>Más elegancia operativa</h3>
+<p>La experiencia del cliente se siente más moderna y mejor diseñada.</p>
+</article>
+<article class="card">
+<div class="icon">⚡</div>
+<h3>Más velocidad</h3>
+<p>Se reduce la fricción entre el momento del deseo y el momento de la compra.</p>
+</article>
+<article class="card">
+<div class="icon">📈</div>
+<h3>Más ingreso por mesa</h3>
+<p>El sistema ayuda a mostrar y vender mejor lo que antes dependía solo del mesero.</p>
+</article>
+<article class="card">
+<div class="icon">🧠</div>
+<h3>Más inteligencia comercial</h3>
+<p>La operación deja de ser reactiva y comienza a ser estratégica.</p>
+</article>
+</div>
+</section>
+
+<section id="contacto">
+<div class="contact-box">
+<div>
+<h2>Haz que tu restaurante esté a la altura de la experiencia que quieres vender</h2>
+<p>
+Si tu marca quiere proyectar más nivel, vender mejor y operar con más inteligencia, GRUK QR está diseñado para ayudarte. Este no es un gasto decorativo; es una mejora estructural para el negocio.
+</p>
+
+<div class="contact-actions">
+<a class="btn" href="https://resturante-qr-1.onrender.com/registro-restaurante.html" target="_blank" rel="noopener noreferrer">
+Inscríbete ahora
+</a>
+<a class="btn-outline" href="https://wa.me/573106150402?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20GRUK%20QR" target="_blank" rel="noopener noreferrer">
+WhatsApp
+</a>
+</div>
+</div>
+
+<aside class="contact-side">
+<small style="display:block; color:#b8ecff; text-transform:uppercase; letter-spacing:.14em; font-weight:800; margin-bottom:8px;">
+Contacto directo
+</small>
+
+<div class="phone">310 615 0402</div>
+
+<p style="color: var(--muted);">
+Conoce cómo GRUK QR puede transformar la operación y la percepción de tu restaurante.
+</p>
+
+<a
+class="register-box"
+href="https://resturante-qr-1.onrender.com/registro-restaurante.html"
+target="_blank"
+rel="noopener noreferrer"
+>
+<small>Inscríbete</small>
+<strong>Activa tu restaurante con GRUK QR</strong>
+<span>https://resturante-qr-1.onrender.com/registro-restaurante.html</span>
+</a>
+</aside>
+</div>
+</section>
+</main>
 
 <footer>
-<p>GRUK QR © Sistema premium para restaurantes</p>
+GRUK QR © · Tecnología premium para restaurantes que quieren crecer con elegancia y control.
 </footer>
-
+</div>
 </body>
 </html>
