@@ -730,13 +730,21 @@ const data = await res.json();
 
 const box = document.getElementById("facturaBox");
 if (!box) return;
+const pedidosVisibles = (data.pedidos || []).filter(p => {
+  return !(p.estado === "entregado" && p.estadoPago === "pagado");
+});
+const subtotalVisible = pedidosVisibles.reduce((acc, p) => acc + Number(p.precio || 0), 0);
+const valorPropina = Math.round(subtotalVisible * (data.propina / 100));
+const totalVisible = subtotalVisible + valorPropina;
+
 
 let html = `<h3>Factura Mesa ${data.mesa}</h3>`;
 
-if (!data.pedidos || data.pedidos.length === 0) {
-html += `<p>No hay pedidos en la factura.</p>`;
+
+if (!pedidosVisibles.length) {
+  html += `<p>No hay pedidos en la factura.</p>`;
 } else {
-data.pedidos.forEach(p => {
+  pedidosVisibles.forEach(p => {
 html += `
 <p>
 ${p.producto} - $${p.precio}
@@ -768,8 +776,8 @@ const data = await res.json();
 const pedidos = data.pedidos.filter(p => {
   return !(p.estado === "entregado" && p.estadoPago === "pagado");
 });
-subtotalActual = data.subtotal;
 
+subtotalActual = pedidos.reduce((acc, p) => acc + Number(p.precio || 0), 0);
 calcularTotales(subtotalActual);
 
 const lista = document.getElementById("misPedidos");
