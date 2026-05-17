@@ -12,22 +12,28 @@ const upload = multer({
 
 router.post("/:restaurantId/logo", upload.single("logo"), async (req, res) => {
   try {
-
     const { restaurantId } = req.params;
 
-   
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: "gruk/logos"
     });
 
-    
     const restaurante = await Restaurante.findOneAndUpdate(
-  { restaurantId: restaurantId },
-  {
-    logoUrl: result.secure_url
-  },
-  { new: true }
-);
+      { restaurantId: restaurantId },
+      {
+        logoUrl: result.secure_url
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado",
+        restaurantIdRecibido: restaurantId
+      });
+    }
+
     res.json({
       ok: true,
       logoUrl: restaurante.logoUrl,
@@ -35,14 +41,12 @@ router.post("/:restaurantId/logo", upload.single("logo"), async (req, res) => {
     });
 
   } catch (error) {
-
-    console.error(error);
+    console.error("Error subiendo logo:", error);
 
     res.status(500).json({
       ok: false,
       error: "Error subiendo logo"
     });
-
   }
 });
 
