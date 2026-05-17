@@ -1,4 +1,4 @@
-const restaurantId = "rest_1774048953829";
+const restaurantId = "1774048953829...";
 
 const form = document.getElementById("logoForm");
 

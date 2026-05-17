@@ -21,14 +21,13 @@ router.post("/:restaurantId/logo", upload.single("logo"), async (req, res) => {
     });
 
     
-    const restaurante = await Restaurante.findByIdAndUpdate(
-      restaurantId,
-      {
-        logoUrl: result.secure_url
-      },
-      { new: true }
-    );
-
+    const restaurante = await Restaurante.findOneAndUpdate(
+  { restaurantId: restaurantId },
+  {
+    logoUrl: result.secure_url
+  },
+  { new: true }
+);
     res.json({
       ok: true,
       logoUrl: restaurante.logoUrl,
