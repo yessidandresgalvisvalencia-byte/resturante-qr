@@ -1075,6 +1075,70 @@ function analizarGasto() {
     return;
   }
 
+  const textoAnalisis = `${nombre} ${categoria} ${observacion}`.toLowerCase();
+
+  const esCampanaGanadora =
+    textoAnalisis.includes("black friday") ||
+    textoAnalisis.includes("tráfico") ||
+    textoAnalisis.includes("trafico") ||
+    textoAnalisis.includes("roi") ||
+    textoAnalisis.includes("retorno") ||
+    textoAnalisis.includes("quebró stock") ||
+    textoAnalisis.includes("quebro stock") ||
+    textoAnalisis.includes("agotó stock") ||
+    textoAnalisis.includes("agoto stock") ||
+    textoAnalisis.includes("vendimos todo");
+
+  if (impacto === "alto" && esCampanaGanadora) {
+    const aumentoSugerido = Math.round(valor * 1.6);
+    const presupuestoMinimo = Math.round(valor * 1.25);
+    const presupuestoMaximo = Math.round(valor * 2);
+    const reservaStock = 35;
+
+    document.getElementById("resultadoControlGasto").innerHTML = `
+      <div class="card">
+        <h3>Método 4 — Escalamiento controlado de campaña ganadora</h3>
+
+        <p><strong>Gasto analizado:</strong> ${nombre}</p>
+        <p><strong>Categoría:</strong> ${categoria}</p>
+        <p><strong>Valor registrado:</strong> $${valor.toLocaleString("es-CO")}</p>
+
+        <p><strong>Diagnóstico experto:</strong><br>
+        Este gasto no debe tratarse como un costo a reducir. La observación muestra señales de campaña ganadora: aumento fuerte de tráfico, retorno inmediato y agotamiento de inventario. En este escenario, el problema no fue gastar demasiado, sino no haber preparado suficiente capacidad para capturar toda la demanda generada.
+        </p>
+
+        <p><strong>Análisis financiero:</strong><br>
+        Cuando una campaña genera retorno inmediato y quiebra stock, el gasto se comporta como inversión comercial validada. La decisión prudente no es recortar, sino escalar con protección: aumentar presupuesto, pero acompañado de inventario, medición y límite de pérdida.
+        </p>
+
+        <p><strong>Decisión recomendada:</strong><br>
+        Escalar la campaña en la siguiente fecha comercial equivalente, no repetirla mecánicamente el próximo mes.
+        </p>
+
+        <p><strong>Recomendación estratégica:</strong><br>
+        Para una próxima campaña tipo Black Friday, Hot Sale o temporada de descuentos, se recomienda aumentar el presupuesto de $${valor.toLocaleString("es-CO")} a un rango entre $${presupuestoMinimo.toLocaleString("es-CO")} y $${presupuestoMaximo.toLocaleString("es-CO")}. El punto sugerido inicial sería $${aumentoSugerido.toLocaleString("es-CO")}, siempre que el restaurante prepare inventario suficiente y mida ventas por producto.
+        </p>
+
+        <p><strong>Impacto proyectado:</strong><br>
+        Si el comportamiento se repite, un aumento controlado del presupuesto podría elevar la captación comercial entre un 25% y un 60%. Sin embargo, debe acompañarse con mínimo ${reservaStock}% más de inventario en los productos principales para no perder ventas por agotamiento.
+        </p>
+
+        <p><strong>Uso recomendado del dinero adicional:</strong><br>
+        60% en el canal que ya demostró conversión, 25% en inventario de los productos que agotaron stock, 10% en refuerzo operativo para atención rápida y 5% en reserva de contingencia.
+        </p>
+
+        <p><strong>Control de riesgo:</strong><br>
+        No aumentar presupuesto sin límite. El aumento debe estar condicionado a tres indicadores: costo por pedido, unidades vendidas por producto y velocidad de agotamiento. Si alguno cae más del 20%, se debe frenar la inversión.
+        </p>
+
+        <p><strong>Observación registrada:</strong><br>
+        ${observacion || "Sin observación adicional."}
+        </p>
+      </div>
+    `;
+    return;
+  }
+
   const metodos = [
     {
       nombre: "Método 1 — Optimización operativa inteligente",
@@ -1123,21 +1187,13 @@ function analizarGasto() {
       <p><strong>Categoría:</strong> ${categoria}</p>
       <p><strong>Valor registrado:</strong> $${valor.toLocaleString("es-CO")}</p>
 
-      <p><strong>Diagnóstico experto:</strong><br>
-      ${metodo.tesis}
-      </p>
+      <p><strong>Diagnóstico experto:</strong><br>${metodo.tesis}</p>
 
-      <p><strong>Análisis financiero:</strong><br>
-      ${metodo.analisis}
-      </p>
+      <p><strong>Análisis financiero:</strong><br>${metodo.analisis}</p>
 
-      <p><strong>Decisión recomendada:</strong><br>
-      ${metodo.accion}
-      </p>
+      <p><strong>Decisión recomendada:</strong><br>${metodo.accion}</p>
 
-      <p><strong>Recomendación estratégica:</strong><br>
-      ${metodo.recomendacion}
-      </p>
+      <p><strong>Recomendación estratégica:</strong><br>${metodo.recomendacion}</p>
 
       <p><strong>Impacto proyectado:</strong><br>
       Si el próximo mes se aplica una reducción del ${metodo.reduccion}%, el gasto bajaría de
