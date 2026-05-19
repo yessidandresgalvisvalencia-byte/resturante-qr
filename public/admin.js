@@ -1068,146 +1068,328 @@ function analizarGasto() {
   const valor = Number(document.getElementById("valorGasto").value);
   const categoria = document.getElementById("categoriaGasto").value;
   const impacto = document.getElementById("impactoGasto").value;
+  const objetivo = document.getElementById("objetivoGasto").value;
   const observacion = document.getElementById("observacionGasto").value.trim();
 
-  if (!nombre || !valor || !categoria || !impacto) {
+  if (!nombre || !valor || !categoria || !impacto || !objetivo) {
     alert("Completa todos los datos del gasto");
     return;
   }
 
-  const textoAnalisis = `${nombre} ${categoria} ${observacion}`.toLowerCase();
+  const texto = `${nombre} ${categoria} ${objetivo} ${observacion}`.toLowerCase();
 
-  const esCampanaGanadora =
-    textoAnalisis.includes("black friday") ||
-    textoAnalisis.includes("tráfico") ||
-    textoAnalisis.includes("trafico") ||
-    textoAnalisis.includes("roi") ||
-    textoAnalisis.includes("retorno") ||
-    textoAnalisis.includes("quebró stock") ||
-    textoAnalisis.includes("quebro stock") ||
-    textoAnalisis.includes("agotó stock") ||
-    textoAnalisis.includes("agoto stock") ||
-    textoAnalisis.includes("vendimos todo");
+  const contiene = (palabras) =>
+    palabras.some(palabra => texto.includes(palabra));
 
-  if (impacto === "alto" && esCampanaGanadora) {
-    const aumentoSugerido = Math.round(valor * 1.6);
-    const presupuestoMinimo = Math.round(valor * 1.25);
-    const presupuestoMaximo = Math.round(valor * 2);
-    const reservaStock = 35;
+  const esCampanaGanadora = contiene([
+    "black friday",
+    "hot sale",
+    "tráfico",
+    "trafico",
+    "roi",
+    "retorno",
+    "vendimos todo",
+    "quebró stock",
+    "quebro stock",
+    "agotó stock",
+    "agoto stock",
+    "stock agotado",
+    "triplicó",
+    "triplico",
+    "duplicó",
+    "duplico"
+  ]);
 
-    document.getElementById("resultadoControlGasto").innerHTML = `
-      <div class="card">
-        <h3>Método 4 — Escalamiento controlado de campaña ganadora</h3>
+  const esExperienciaCliente = contiene([
+    "clientes felices",
+    "cliente feliz",
+    "satisfacción",
+    "satisfaccion",
+    "fidelización",
+    "fidelizacion",
+    "recompra",
+    "quejas",
+    "espera",
+    "fila",
+    "atención",
+    "atencion",
+    "experiencia",
+    "tiempo de espera",
+    "servicio"
+  ]);
 
-        <p><strong>Gasto analizado:</strong> ${nombre}</p>
-        <p><strong>Categoría:</strong> ${categoria}</p>
-        <p><strong>Valor registrado:</strong> $${valor.toLocaleString("es-CO")}</p>
+  const esInfraestructura = contiene([
+    "infraestructura",
+    "equipo",
+    "equipos",
+    "maquinaria",
+    "nevera",
+    "horno",
+    "licuadora",
+    "computador",
+    "tablet",
+    "mobiliario",
+    "sillas",
+    "mesas",
+    "adecuación",
+    "adecuacion"
+  ]);
 
-        <p><strong>Diagnóstico experto:</strong><br>
-        Este gasto no debe tratarse como un costo a reducir. La observación muestra señales de campaña ganadora: aumento fuerte de tráfico, retorno inmediato y agotamiento de inventario. En este escenario, el problema no fue gastar demasiado, sino no haber preparado suficiente capacidad para capturar toda la demanda generada.
-        </p>
+  const esOperacionBase =
+    objetivo === "operacion" ||
+    contiene([
+      "arriendo",
+      "nómina",
+      "nomina",
+      "servicios",
+      "luz",
+      "agua",
+      "gas",
+      "internet",
+      "software",
+      "domicilio",
+      "transporte",
+      "mantenimiento"
+    ]);
 
-        <p><strong>Análisis financiero:</strong><br>
-        Cuando una campaña genera retorno inmediato y quiebra stock, el gasto se comporta como inversión comercial validada. La decisión prudente no es recortar, sino escalar con protección: aumentar presupuesto, pero acompañado de inventario, medición y límite de pérdida.
-        </p>
+  let metodo = "";
+  let diagnostico = "";
+  let analisis = "";
+  let decision = "";
+  let recomendacion = "";
+  let porcentajeCambio = 0;
+  let tipoCambio = "reducción";
+  let usoDinero = "";
+  let controlRiesgo = "";
+  let nuevoValor = valor;
 
-        <p><strong>Decisión recomendada:</strong><br>
-        Escalar la campaña en la siguiente fecha comercial equivalente, no repetirla mecánicamente el próximo mes.
-        </p>
+  if (impacto === "alto" && esCampanaGanadora && objetivo === "ventas") {
+    metodo = "Método 4 — Escalamiento controlado de oportunidad validada";
+    tipoCambio = "aumento";
+    porcentajeCambio = 60;
+    nuevoValor = Math.round(valor * 1.6);
 
-        <p><strong>Recomendación estratégica:</strong><br>
-        Para una próxima campaña tipo Black Friday, Hot Sale o temporada de descuentos, se recomienda aumentar el presupuesto de $${valor.toLocaleString("es-CO")} a un rango entre $${presupuestoMinimo.toLocaleString("es-CO")} y $${presupuestoMaximo.toLocaleString("es-CO")}. El punto sugerido inicial sería $${aumentoSugerido.toLocaleString("es-CO")}, siempre que el restaurante prepare inventario suficiente y mida ventas por producto.
-        </p>
+    diagnostico =
+      "El gasto muestra señales de oportunidad validada: generó demanda, retorno inmediato o agotamiento de stock. No debe tratarse como un gasto a recortar.";
 
-        <p><strong>Impacto proyectado:</strong><br>
-        Si el comportamiento se repite, un aumento controlado del presupuesto podría elevar la captación comercial entre un 25% y un 60%. Sin embargo, debe acompañarse con mínimo ${reservaStock}% más de inventario en los productos principales para no perder ventas por agotamiento.
-        </p>
+    analisis =
+      `El gasto en ${nombre} funcionó como una inversión comercial comprobada. Cuando el mercado responde con tráfico, ventas o quiebre de inventario, el problema no es haber gastado, sino no haber preparado suficiente capacidad para capturar toda la demanda.`;
 
-        <p><strong>Uso recomendado del dinero adicional:</strong><br>
-        60% en el canal que ya demostró conversión, 25% en inventario de los productos que agotaron stock, 10% en refuerzo operativo para atención rápida y 5% en reserva de contingencia.
-        </p>
+    decision =
+      "Escalar en la próxima fecha comercial equivalente, no repetir mecánicamente en un mes normal.";
 
-        <p><strong>Control de riesgo:</strong><br>
-        No aumentar presupuesto sin límite. El aumento debe estar condicionado a tres indicadores: costo por pedido, unidades vendidas por producto y velocidad de agotamiento. Si alguno cae más del 20%, se debe frenar la inversión.
-        </p>
+    recomendacion =
+      `Aumentar el presupuesto de forma controlada de $${valor.toLocaleString("es-CO")} a cerca de $${nuevoValor.toLocaleString("es-CO")}, pero solo para eventos equivalentes como Black Friday, temporada de descuentos o campañas con demanda comparable.`;
 
-        <p><strong>Observación registrada:</strong><br>
-        ${observacion || "Sin observación adicional."}
-        </p>
-      </div>
-    `;
-    return;
+    usoDinero =
+      "60% al canal que ya convirtió, 25% a inventario de productos ganadores, 10% a refuerzo operativo y 5% a reserva de contingencia.";
+
+    controlRiesgo =
+      "Si el costo por pedido sube más del 20%, si la rotación cae o si el stock no alcanza, se debe frenar la inversión. Escalar sin medición sería especulación, no estrategia.";
   }
 
-  const metodos = [
-    {
-      nombre: "Método 1 — Optimización operativa inteligente",
-      aplica: impacto === "bajo",
-      reduccion: 35,
-      mejoraRotacion: 30,
-      mejoraLiquidez: 25,
-      tesis: "El gasto no demuestra retorno suficiente frente al dinero invertido.",
-      analisis: `El gasto en ${nombre} representa una salida de dinero que no evidencia aumento de ventas, mejora de tiempos, mayor rotación ni eficiencia interna. En términos empresariales, es un gasto que reduce capacidad de maniobra porque consume recursos que podrían trabajar mejor en otra parte del restaurante.`,
-      recomendacion: `Se recomienda reducir este gasto de forma controlada y redirigir el dinero hacia productos de alta rotación, insumos esenciales o procesos que generen flujo de caja más rápido. La decisión no debe basarse en gastar menos por gastar menos, sino en usar el dinero donde produzca más valor operativo.`,
-      accion: "Reducir, medir y reasignar el gasto."
-    },
-    {
-      nombre: "Método 2 — Validación de retorno financiero",
-      aplica: impacto === "medio",
-      reduccion: 20,
-      mejoraRotacion: 18,
-      mejoraLiquidez: 15,
-      tesis: "El gasto tiene utilidad parcial, pero todavía no justifica completamente su valor.",
-      analisis: `El gasto en ${nombre} puede estar ayudando al restaurante, pero su beneficio no es completamente verificable. Cuando un gasto no demuestra con claridad que mejora ventas, calidad, tiempos o experiencia del cliente, debe tratarse como un gasto bajo observación.`,
-      recomendacion: `Se recomienda mantenerlo solo parcialmente durante el próximo mes, reducir su valor y medir si el resultado del restaurante cambia. Si las ventas, tiempos o satisfacción no disminuyen, significa que el restaurante estaba pagando más de lo necesario.`,
-      accion: "Reducir parcialmente y comprobar si realmente genera retorno."
-    },
-    {
-      nombre: "Método 3 — Ajuste estratégico de inversión",
-      aplica: impacto === "alto",
-      reduccion: 8,
-      mejoraRotacion: 10,
-      mejoraLiquidez: 8,
-      tesis: "El gasto sí parece útil, pero puede optimizarse sin perder el beneficio.",
-      analisis: `El gasto en ${nombre} genera un resultado visible, por lo que no debe eliminarse. Sin embargo, incluso un gasto útil puede estar sobrepagado si no se comparan proveedores, cantidades, precios, frecuencia de compra o condiciones de negociación.`,
-      recomendacion: `Se recomienda conservar este gasto, pero buscar una optimización mínima mediante negociación, compra planificada, mejor proveedor o ajuste de cantidades. El objetivo es mantener el beneficio, pero disminuir el costo.`,
-      accion: "Mantener, negociar y optimizar."
-    }
-  ];
+  else if (esExperienciaCliente && objetivo === "fidelizacion") {
+    metodo = "Método 5 — Protección de retención y experiencia";
+    tipoCambio = "ajuste";
+    porcentajeCambio = impacto === "bajo" ? 10 : impacto === "medio" ? 5 : 0;
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
 
-  const metodo = metodos.find(m => m.aplica);
-  const ahorro = Math.round(valor * (metodo.reduccion / 100));
-  const nuevoGasto = valor - ahorro;
+    diagnostico =
+      "Este gasto pertenece a experiencia de cliente. Aunque no siempre aumenta el ticket inmediato, puede proteger recompra, reputación y retención.";
+
+    analisis =
+      `El gasto en ${nombre} no debe evaluarse solo por ventas inmediatas. Si reduce filas, tiempos de espera, quejas o mejora satisfacción, puede estar defendiendo ingresos futuros. Recortarlo sin medir retención puede generar ahorro aparente y pérdida comercial posterior.`;
+
+    decision =
+      porcentajeCambio > 0
+        ? "Ajustar de forma leve y medir experiencia antes de recortar fuerte."
+        : "Mantener y medir indicadores de fidelización.";
+
+    recomendacion =
+      `Antes de reducir este gasto, mide quejas, tiempo de espera, calificaciones, recompra y comentarios de clientes. Si esos indicadores mejoran, el gasto debe mantenerse o rediseñarse, no eliminarse.`;
+
+    usoDinero =
+      "40% a experiencia directa del cliente, 25% a reducción de tiempos, 20% a capacitación o servicio y 15% a medición de satisfacción.";
+
+    controlRiesgo =
+      "No recortar más del 10% sin comparar indicadores de satisfacción. El ahorro inmediato puede destruir valor si aumenta la pérdida de clientes.";
+  }
+
+  else if (esInfraestructura) {
+    metodo = "Método 6 — Evaluación de activo operativo";
+    tipoCambio = "amortización";
+    porcentajeCambio = 0;
+    nuevoValor = valor;
+
+    diagnostico =
+      "Este gasto parece ser infraestructura o equipo. No debe juzgarse como gasto mensual simple, sino como activo operativo que debe producir eficiencia durante varios periodos.";
+
+    analisis =
+      `El gasto en ${nombre} debe evaluarse por uso, duración, ahorro de tiempo, reducción de errores o aumento de capacidad. Si el equipo permite producir más, atender más rápido o bajar desperdicio, su valor debe medirse en varios meses, no solo en el día de compra.`;
+
+    decision =
+      "Mantener, medir uso real y calcular recuperación del valor.";
+
+    recomendacion =
+      "Divide el valor del gasto entre los meses de uso esperado. Luego compara si el ahorro de tiempo, aumento de producción o reducción de desperdicio supera esa cuota mensual.";
+
+    usoDinero =
+      "70% debe justificarse por capacidad productiva, 20% por reducción de tiempos y 10% por mantenimiento preventivo.";
+
+    controlRiesgo =
+      "Si el equipo no se usa de forma recurrente o no reduce costos, se convierte en capital inmovilizado. Debe tener responsable, frecuencia de uso y métrica de recuperación.";
+  }
+
+  else if (esOperacionBase) {
+    metodo = "Método 7 — Control de gasto estructural";
+    tipoCambio = "renegociación";
+    porcentajeCambio = impacto === "bajo" ? 12 : impacto === "medio" ? 8 : 5;
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
+
+    diagnostico =
+      "Este gasto parece operativo o fijo. No debe eliminarse de forma agresiva, pero sí revisarse porque puede volverse una carga silenciosa.";
+
+    analisis =
+      `El gasto en ${nombre} sostiene la operación base del restaurante. En estos casos, la estrategia no es cortar sin criterio, sino renegociar, comparar proveedores, controlar consumo y evitar que el costo fijo crezca más rápido que las ventas.`;
+
+    decision =
+      "Renegociar, controlar consumo y buscar eficiencia gradual.";
+
+    recomendacion =
+      `Buscar una mejora del ${porcentajeCambio}% mediante negociación, cambio de proveedor, consumo eficiente o revisión de frecuencia.`;
+
+    usoDinero =
+      "50% del ahorro debe ir a liquidez operativa, 30% a insumos críticos y 20% a reserva para pagos fijos.";
+
+    controlRiesgo =
+      "No comprometer la continuidad operativa. Si el recorte afecta servicio, tiempos o calidad, debe revertirse.";
+  }
+
+  else if (impacto === "bajo") {
+    metodo = "Método 1 — Corrección de gasto sin retorno";
+    tipoCambio = "reducción";
+    porcentajeCambio =
+      categoria === "Publicidad" ? 25 :
+      categoria === "Personal" ? 12 :
+      categoria === "Equipos" ? 10 :
+      categoria === "Insumos" ? 30 :
+      35;
+
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
+
+    diagnostico =
+      "El gasto no demuestra retorno suficiente frente al dinero invertido.";
+
+    analisis =
+      `El gasto en ${nombre} consume recursos sin evidenciar ventas, eficiencia, rotación o protección de clientes. En este caso, conservarlo igual sería permitir que el dinero se quede en una actividad de bajo rendimiento.`;
+
+    decision =
+      "Reducir, medir y reasignar.";
+
+    recomendacion =
+      `Aplicar una reducción del ${porcentajeCambio}% y reasignar ese dinero a productos, procesos o canales con mejor rendimiento verificable.`;
+
+    usoDinero =
+      "50% a productos de alta rotación, 25% a insumos críticos, 15% a mejora operativa y 10% a reserva de caja.";
+
+    controlRiesgo =
+      "Si después del recorte no bajan las ventas ni la satisfacción, confirma que el gasto era prescindible.";
+  }
+
+  else if (impacto === "medio") {
+    metodo = "Método 2 — Validación de retorno financiero";
+    tipoCambio = "reducción controlada";
+    porcentajeCambio =
+      categoria === "Publicidad" ? 15 :
+      categoria === "Personal" ? 7 :
+      categoria === "Equipos" ? 5 :
+      categoria === "Insumos" ? 18 :
+      20;
+
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
+
+    diagnostico =
+      "El gasto tiene utilidad parcial, pero todavía no justifica completamente su valor.";
+
+    analisis =
+      `El gasto en ${nombre} puede estar ayudando, pero no demuestra con claridad que el beneficio supere el costo. Debe conservarse bajo prueba, no como gasto automático.`;
+
+    decision =
+      "Reducir parcialmente y comprobar retorno.";
+
+    recomendacion =
+      `Reducirlo en ${porcentajeCambio}% durante un periodo de prueba. Si el resultado no empeora, el restaurante estaba pagando más de lo necesario.`;
+
+    usoDinero =
+      "45% a actividades con retorno medible, 30% a operación esencial, 15% a servicio al cliente y 10% a reserva.";
+
+    controlRiesgo =
+      "No eliminar hasta confirmar con datos. La reducción debe ser reversible si afecta ventas, tiempos o calidad.";
+  }
+
+  else {
+    metodo = "Método 3 — Optimización de gasto útil";
+    tipoCambio = "optimización";
+    porcentajeCambio =
+      categoria === "Publicidad" ? 10 :
+      categoria === "Personal" ? 5 :
+      categoria === "Equipos" ? 5 :
+      categoria === "Insumos" ? 8 :
+      8;
+
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
+
+    diagnostico =
+      "El gasto sí parece útil, pero puede optimizarse sin perder el beneficio.";
+
+    analisis =
+      `El gasto en ${nombre} genera un resultado visible. No debe eliminarse, pero sí revisarse para pagar mejor, comprar mejor o ejecutar con mayor eficiencia.`;
+
+    decision =
+      "Mantener, comparar y optimizar.";
+
+    recomendacion =
+      `Buscar una optimización de ${porcentajeCambio}% mediante negociación, mejor planificación, medición del canal o ajuste de cantidades.`;
+
+    usoDinero =
+      "60% debe conservarse en la actividad que funciona, 20% puede destinarse a prueba de mejora, 10% a medición y 10% a reserva.";
+
+    controlRiesgo =
+      "No tocar lo que funciona sin medir. Optimizar no significa recortar por tacañería, sino conservar resultado pagando mejor.";
+  }
+
+  const diferencia = Math.abs(valor - nuevoValor);
 
   document.getElementById("resultadoControlGasto").innerHTML = `
     <div class="card">
-      <h3>${metodo.nombre}</h3>
+      <h3>${metodo}</h3>
 
       <p><strong>Gasto analizado:</strong> ${nombre}</p>
       <p><strong>Categoría:</strong> ${categoria}</p>
+      <p><strong>Objetivo del gasto:</strong> ${
+        objetivo === "ventas" ? "Ventas inmediatas" :
+        objetivo === "operacion" ? "Operación base" :
+        "Fidelización a largo plazo"
+      }</p>
       <p><strong>Valor registrado:</strong> $${valor.toLocaleString("es-CO")}</p>
 
-      <p><strong>Diagnóstico experto:</strong><br>${metodo.tesis}</p>
+      <p><strong>Diagnóstico experto:</strong><br>${diagnostico}</p>
 
-      <p><strong>Análisis financiero:</strong><br>${metodo.analisis}</p>
+      <p><strong>Análisis financiero:</strong><br>${analisis}</p>
 
-      <p><strong>Decisión recomendada:</strong><br>${metodo.accion}</p>
+      <p><strong>Decisión recomendada:</strong><br>${decision}</p>
 
-      <p><strong>Recomendación estratégica:</strong><br>${metodo.recomendacion}</p>
+      <p><strong>Recomendación estratégica:</strong><br>${recomendacion}</p>
 
       <p><strong>Impacto proyectado:</strong><br>
-      Si el próximo mes se aplica una reducción del ${metodo.reduccion}%, el gasto bajaría de
-      $${valor.toLocaleString("es-CO")} a $${nuevoGasto.toLocaleString("es-CO")}.
-      Esto liberaría aproximadamente $${ahorro.toLocaleString("es-CO")} para ser usado en áreas de mayor rendimiento.
+      Tipo de acción: ${tipoCambio}. Porcentaje sugerido: ${porcentajeCambio}%.
+      Valor proyectado: $${nuevoValor.toLocaleString("es-CO")}.
+      Diferencia estimada: $${diferencia.toLocaleString("es-CO")}.
       </p>
 
-      <p><strong>Proyección operativa:</strong><br>
-      Si el capital liberado se reasigna correctamente, podría mejorar hasta un ${metodo.mejoraRotacion}% la rotación de productos priorizados y hasta un ${metodo.mejoraLiquidez}% la disponibilidad de dinero operativo mensual.
-      </p>
+      <p><strong>Distribución sugerida:</strong><br>${usoDinero}</p>
 
-      <p><strong>Uso recomendado del dinero liberado:</strong><br>
-      Reasignarlo en un 50% a productos de mayor rotación, 25% a negociación o compra eficiente de insumos, 15% a mejora de tiempos de atención y 10% a reserva operativa para evitar gastos impulsivos.
-      </p>
+      <p><strong>Control de riesgo:</strong><br>${controlRiesgo}</p>
 
       <p><strong>Observación registrada:</strong><br>
       ${observacion || "Sin observación adicional."}
