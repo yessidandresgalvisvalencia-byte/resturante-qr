@@ -10,6 +10,10 @@ logoUrl: {
   type: String,
   default: ""
 },
+gastos: {
+  type: Array,
+  default: []
+},
 
 primaryColor: {
   type: String,
