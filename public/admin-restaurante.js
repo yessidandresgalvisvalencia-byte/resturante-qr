@@ -1,6 +1,6 @@
 const params = new URLSearchParams(window.location.search);
 
-const restaurantId = params.get("restaurantId");
+const restaurantId = "rest_1774020559996";
 
 
 const form = document.getElementById("logoForm");
