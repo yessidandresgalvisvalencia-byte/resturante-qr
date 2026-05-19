@@ -1029,16 +1029,23 @@ const paramsLogo = new URLSearchParams(window.location.search);
 const restaurantIdLogo = paramsLogo.get("restaurantId");
 
 async function cargarLogo() {
-  const res = await fetch(`/api/restaurants/${restaurantIdLogo}`);
+
+  const res = await fetch(
+    `/api/restaurants/${restaurantIdLogo}`
+  );
+
   const data = await res.json();
 
   if (data.ok && data.restaurante.logoUrl) {
-    document.body.style.backgroundImage =
-  `url(${data.restaurante.logoUrl})`;
 
-document.body.style.backgroundSize = "cover";
-document.body.style.backgroundPosition = "center";
-    document.getElementById("logoRestaurante").src = data.restaurante.logoUrl;
+    document.body.style.setProperty(
+      "--fondo-restaurante",
+      `url(${data.restaurante.logoUrl})`
+    );
+
+    document.getElementById("logoRestaurante").src =
+      data.restaurante.logoUrl;
+
   }
 }
 
