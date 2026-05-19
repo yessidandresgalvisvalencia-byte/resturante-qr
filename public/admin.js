@@ -1024,6 +1024,19 @@ aplicarDatosEstrategiaMenu();
 cargarEstrategiasAplicadas();
 
 cargarAdmin();
+const restaurantIdActual =
+  new URLSearchParams(window.location.search)
+  .get("restaurantId");
+
+const linkLogo =
+  document.getElementById("linkLogoRestaurante");
+
+if (linkLogo && restaurantIdActual) {
+
+  linkLogo.href =
+    `/admin-restaurante.html?restaurantId=${restaurantIdActual}`;
+
+}
 
 const paramsLogo = new URLSearchParams(window.location.search);
 const restaurantIdLogo = paramsLogo.get("restaurantId");
