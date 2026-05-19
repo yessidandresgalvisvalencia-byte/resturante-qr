@@ -1063,3 +1063,126 @@ async function cargarLogo() {
 }
 
 cargarLogo();
+function analizarGasto() {
+
+  const nombre =
+    document.getElementById("nombreGasto").value;
+
+  const valor =
+    Number(document.getElementById("valorGasto").value);
+
+  const categoria =
+    document.getElementById("categoriaGasto").value;
+
+  const impacto =
+    document.getElementById("impactoGasto").value;
+
+  const observacion =
+    document.getElementById("observacionGasto").value;
+
+  let metodo = "";
+  let diagnostico = "";
+  let recomendacion = "";
+  let ahorro = 0;
+
+  if (impacto === "bajo") {
+
+    metodo = "Método 3 — Optimización de capital";
+
+    diagnostico =
+      "El gasto no muestra retorno operativo claro.";
+
+    ahorro = valor * 0.30;
+
+    recomendacion = `
+      Este gasto debería reducirse gradualmente.
+      El capital debe dirigirse hacia elementos
+      que aumenten rotación, productividad o ventas.
+
+      Si el próximo mes se reduce este gasto,
+      podrías liberar aproximadamente
+      $${ahorro.toLocaleString("es-CO")}
+      en capital reutilizable.
+    `;
+  }
+
+  if (impacto === "medio") {
+
+    metodo = "Método 7 — Control de rotación";
+
+    diagnostico =
+      "El gasto tiene utilidad parcial.";
+
+    ahorro = valor * 0.15;
+
+    recomendacion = `
+      Se recomienda controlar este gasto
+      y medir si realmente mejora ventas
+      o eficiencia operativa.
+
+      Reduciendo parcialmente este gasto,
+      podrías optimizar aproximadamente
+      $${ahorro.toLocaleString("es-CO")}
+      del capital mensual.
+    `;
+  }
+
+  if (impacto === "alto") {
+
+    metodo = "Método 11 — Reinversión eficiente";
+
+    diagnostico =
+      "El gasto parece productivo.";
+
+    ahorro = 0;
+
+    recomendacion = `
+      Este gasto sí parece generar impacto positivo.
+
+      La recomendación es mantenerlo,
+      pero optimizando proveedores,
+      tiempos y negociación de costos.
+    `;
+  }
+
+  document.getElementById(
+    "resultadoControlGasto"
+  ).innerHTML = `
+
+    <div class="card">
+
+      <h3>${metodo}</h3>
+
+      <p>
+      <strong>Gasto analizado:</strong>
+      ${nombre}
+      </p>
+
+      <p>
+      <strong>Valor:</strong>
+      $${valor.toLocaleString("es-CO")}
+      </p>
+
+      <p>
+      <strong>Categoría:</strong>
+      ${categoria}
+      </p>
+
+      <p>
+      <strong>Diagnóstico:</strong>
+      ${diagnostico}
+      </p>
+
+      <p>
+      <strong>Observación:</strong>
+      ${observacion}
+      </p>
+
+      <p>
+      <strong>Recomendación:</strong>
+      ${recomendacion}
+      </p>
+
+    </div>
+  `;
+}
