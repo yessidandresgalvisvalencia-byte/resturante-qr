@@ -49,5 +49,33 @@ router.post("/:restaurantId/logo", upload.single("logo"), async (req, res) => {
     });
   }
 });
+router.get("/:restaurantId", async (req, res) => {
+  try {
+
+    const restaurante = await Restaurante.findOne({
+      restaurantId: req.params.restaurantId
+    });
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
+
+    res.json({
+      ok: true,
+      restaurante
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      ok: false,
+      error: "Error obteniendo restaurante"
+    });
+
+  }
+});
 
 module.exports = router;

@@ -1008,6 +1008,7 @@ function marcarProductoRecomendado(nombreProducto) {
     lista.push(nombreProducto);
     alert(`${nombreProducto} agregado a recomendados`);
   }
+  
 
   guardarProductosRecomendadosAdmin(lista);
   cargarAdmin();
@@ -1023,3 +1024,22 @@ aplicarDatosEstrategiaMenu();
 cargarEstrategiasAplicadas();
 
 cargarAdmin();
+
+const paramsLogo = new URLSearchParams(window.location.search);
+const restaurantIdLogo = paramsLogo.get("restaurantId");
+
+async function cargarLogo() {
+  const res = await fetch(`/api/restaurants/${restaurantIdLogo}`);
+  const data = await res.json();
+
+  if (data.ok && data.restaurante.logoUrl) {
+    document.body.style.backgroundImage =
+  `url(${data.restaurante.logoUrl})`;
+
+document.body.style.backgroundSize = "cover";
+document.body.style.backgroundPosition = "center";
+    document.getElementById("logoRestaurante").src = data.restaurante.logoUrl;
+  }
+}
+
+cargarLogo();
