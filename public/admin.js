@@ -1064,125 +1064,90 @@ async function cargarLogo() {
 
 cargarLogo();
 function analizarGasto() {
+  const nombre = document.getElementById("nombreGasto").value.trim();
+  const valor = Number(document.getElementById("valorGasto").value);
+  const categoria = document.getElementById("categoriaGasto").value;
+  const impacto = document.getElementById("impactoGasto").value;
+  const observacion = document.getElementById("observacionGasto").value.trim();
 
-  const nombre =
-    document.getElementById("nombreGasto").value;
-
-  const valor =
-    Number(document.getElementById("valorGasto").value);
-
-  const categoria =
-    document.getElementById("categoriaGasto").value;
-
-  const impacto =
-    document.getElementById("impactoGasto").value;
-
-  const observacion =
-    document.getElementById("observacionGasto").value;
+  if (!nombre || !valor || !categoria || !impacto) {
+    alert("Completa todos los datos del gasto");
+    return;
+  }
 
   let metodo = "";
   let diagnostico = "";
+  let riesgo = "";
+  let decision = "";
   let recomendacion = "";
-  let ahorro = 0;
+  let ahorroPotencial = 0;
+  let porcentaje = 0;
 
   if (impacto === "bajo") {
+    metodo = "Método 1 — Capital improductivo detectado";
+    porcentaje = 35;
+    ahorroPotencial = valor * 0.35;
 
-    metodo = "Método 3 — Optimización de capital";
+    diagnostico = `El gasto en ${nombre} no evidencia una relación clara con aumento de ventas, eficiencia operativa o rotación del negocio. Por tanto, se clasifica como un gasto de baja productividad.`;
 
-    diagnostico =
-      "El gasto no muestra retorno operativo claro.";
+    riesgo = `Si este gasto se mantiene igual el próximo mes, el restaurante puede inmovilizar capital que podría utilizarse en insumos de mayor salida, mejora del servicio o productos con mejor margen.`;
 
-    ahorro = valor * 0.30;
+    decision = `Reducir, renegociar o sustituir este gasto.`;
 
-    recomendacion = `
-      Este gasto debería reducirse gradualmente.
-      El capital debe dirigirse hacia elementos
-      que aumenten rotación, productividad o ventas.
-
-      Si el próximo mes se reduce este gasto,
-      podrías liberar aproximadamente
-      $${ahorro.toLocaleString("es-CO")}
-      en capital reutilizable.
-    `;
+    recomendacion = `Se recomienda disminuir este gasto en aproximadamente ${porcentaje}% durante el próximo periodo. El capital liberado debería dirigirse hacia productos de alta rotación o actividades que generen intercambio real, flujo de caja y utilidad.`;
   }
 
   if (impacto === "medio") {
+    metodo = "Método 2 — Gasto parcialmente productivo";
+    porcentaje = 18;
+    ahorroPotencial = valor * 0.18;
 
-    metodo = "Método 7 — Control de rotación";
+    diagnostico = `El gasto en ${nombre} tiene alguna utilidad, pero su retorno no es completamente verificable. Puede estar ayudando al negocio, aunque todavía no demuestra suficiente eficiencia frente al valor invertido.`;
 
-    diagnostico =
-      "El gasto tiene utilidad parcial.";
+    riesgo = `Mantener este gasto sin medición puede volverlo recurrente y convertirlo en una carga fija innecesaria.`;
 
-    ahorro = valor * 0.15;
+    decision = `Mantener bajo control, medir resultados y reducir parcialmente.`;
 
-    recomendacion = `
-      Se recomienda controlar este gasto
-      y medir si realmente mejora ventas
-      o eficiencia operativa.
-
-      Reduciendo parcialmente este gasto,
-      podrías optimizar aproximadamente
-      $${ahorro.toLocaleString("es-CO")}
-      del capital mensual.
-    `;
+    recomendacion = `Se recomienda reducirlo en ${porcentaje}% y observar si las ventas, la operación o la satisfacción del cliente realmente se ven afectadas. Si no cambia el resultado, el restaurante confirma que estaba gastando de más.`;
   }
 
   if (impacto === "alto") {
+    metodo = "Método 3 — Gasto productivo optimizable";
+    porcentaje = 8;
+    ahorroPotencial = valor * 0.08;
 
-    metodo = "Método 11 — Reinversión eficiente";
+    diagnostico = `El gasto en ${nombre} sí parece aportar valor al restaurante porque genera resultado visible. Sin embargo, todo gasto productivo también debe optimizarse para no pagar más de lo necesario.`;
 
-    diagnostico =
-      "El gasto parece productivo.";
+    riesgo = `Aunque el gasto sea útil, puede perder eficiencia si no se comparan proveedores, precios, cantidades o condiciones de compra.`;
 
-    ahorro = 0;
+    decision = `Mantener, pero optimizar.`;
 
-    recomendacion = `
-      Este gasto sí parece generar impacto positivo.
-
-      La recomendación es mantenerlo,
-      pero optimizando proveedores,
-      tiempos y negociación de costos.
-    `;
+    recomendacion = `Se recomienda conservar este gasto, pero buscar una mejora mínima del ${porcentaje}% mediante negociación, compra por volumen, cambio de proveedor o mejor planificación.`;
   }
 
-  document.getElementById(
-    "resultadoControlGasto"
-  ).innerHTML = `
-
+  document.getElementById("resultadoControlGasto").innerHTML = `
     <div class="card">
-
       <h3>${metodo}</h3>
 
-      <p>
-      <strong>Gasto analizado:</strong>
-      ${nombre}
+      <p><strong>Gasto analizado:</strong> ${nombre}</p>
+      <p><strong>Valor registrado:</strong> $${valor.toLocaleString("es-CO")}</p>
+      <p><strong>Categoría:</strong> ${categoria}</p>
+
+      <p><strong>Diagnóstico financiero:</strong><br>${diagnostico}</p>
+
+      <p><strong>Riesgo para el restaurante:</strong><br>${riesgo}</p>
+
+      <p><strong>Decisión recomendada:</strong><br>${decision}</p>
+
+      <p><strong>Recomendación estratégica:</strong><br>${recomendacion}</p>
+
+      <p><strong>Capital que podría liberarse:</strong><br>
+      $${Math.round(ahorroPotencial).toLocaleString("es-CO")}
       </p>
 
-      <p>
-      <strong>Valor:</strong>
-      $${valor.toLocaleString("es-CO")}
+      <p><strong>Observación registrada:</strong><br>
+      ${observacion || "Sin observación adicional."}
       </p>
-
-      <p>
-      <strong>Categoría:</strong>
-      ${categoria}
-      </p>
-
-      <p>
-      <strong>Diagnóstico:</strong>
-      ${diagnostico}
-      </p>
-
-      <p>
-      <strong>Observación:</strong>
-      ${observacion}
-      </p>
-
-      <p>
-      <strong>Recomendación:</strong>
-      ${recomendacion}
-      </p>
-
     </div>
   `;
 }
