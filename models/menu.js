@@ -34,3 +34,4 @@ disponible: { type: Boolean, default: true }
 });
 
 module.exports = mongoose.models.Menu || mongoose.model("Menu", menuSchema);
+
