@@ -1077,31 +1077,37 @@ function analizarGasto() {
 
   const metodos = [
     {
-      nombre: "Método 1 — Capital productivo",
+      nombre: "Método 1 — Optimización operativa inteligente",
       aplica: impacto === "bajo",
       reduccion: 35,
-      tesis: "El gasto no demuestra retorno operativo suficiente.",
-      analisis: `El gasto en ${nombre} representa una salida de capital que no evidencia aumento de ventas, mejora de rotación ni eficiencia interna. En términos empresariales, es capital inmovilizado: dinero que salió del negocio sin producir una ventaja clara.`,
-      recomendacion: `Reducir este gasto y redirigir el dinero hacia productos, insumos o procesos que generen rotación real. No se recomienda eliminarlo de golpe si afecta la operación, sino bajarlo gradualmente y medir si las ventas permanecen iguales.`,
-      accion: "Reducir, medir y reasignar."
+      mejoraRotacion: 30,
+      mejoraLiquidez: 25,
+      tesis: "El gasto no demuestra retorno suficiente frente al dinero invertido.",
+      analisis: `El gasto en ${nombre} representa una salida de dinero que no evidencia aumento de ventas, mejora de tiempos, mayor rotación ni eficiencia interna. En términos empresariales, es un gasto que reduce capacidad de maniobra porque consume recursos que podrían trabajar mejor en otra parte del restaurante.`,
+      recomendacion: `Se recomienda reducir este gasto de forma controlada y redirigir el dinero hacia productos de alta rotación, insumos esenciales o procesos que generen flujo de caja más rápido. La decisión no debe basarse en gastar menos por gastar menos, sino en usar el dinero donde produzca más valor operativo.`,
+      accion: "Reducir, medir y reasignar el gasto."
     },
     {
-      nombre: "Método 2 — Margen de seguridad",
+      nombre: "Método 2 — Validación de retorno financiero",
       aplica: impacto === "medio",
       reduccion: 20,
-      tesis: "El gasto tiene utilidad, pero no suficiente margen de justificación.",
-      analisis: `El gasto en ${nombre} puede tener una función útil, pero todavía no demuestra que su beneficio supere claramente su costo. Desde una lógica de margen de seguridad, el restaurante no debería comprometer capital en gastos cuyo retorno sea incierto.`,
-      recomendacion: `Mantenerlo solo si el próximo mes demuestra resultado medible. Se recomienda reducirlo parcialmente y observar si afecta pedidos, tiempos, calidad o satisfacción del cliente.`,
-      accion: "Reducir parcialmente y validar retorno."
+      mejoraRotacion: 18,
+      mejoraLiquidez: 15,
+      tesis: "El gasto tiene utilidad parcial, pero todavía no justifica completamente su valor.",
+      analisis: `El gasto en ${nombre} puede estar ayudando al restaurante, pero su beneficio no es completamente verificable. Cuando un gasto no demuestra con claridad que mejora ventas, calidad, tiempos o experiencia del cliente, debe tratarse como un gasto bajo observación.`,
+      recomendacion: `Se recomienda mantenerlo solo parcialmente durante el próximo mes, reducir su valor y medir si el resultado del restaurante cambia. Si las ventas, tiempos o satisfacción no disminuyen, significa que el restaurante estaba pagando más de lo necesario.`,
+      accion: "Reducir parcialmente y comprobar si realmente genera retorno."
     },
     {
-      nombre: "Método 3 — Valor real vs precio pagado",
+      nombre: "Método 3 — Ajuste estratégico de inversión",
       aplica: impacto === "alto",
       reduccion: 8,
-      tesis: "El gasto parece productivo, pero puede estar sobrepagado.",
-      analisis: `El gasto en ${nombre} sí genera resultado, pero eso no significa que su precio sea óptimo. Puede ser un gasto correcto con un proveedor incorrecto, una cantidad excesiva o una negociación débil.`,
-      recomendacion: `No eliminarlo. Comparar proveedores, revisar cantidades, negociar descuentos o cambiar frecuencia de compra. El objetivo es conservar el valor, pero pagar menos por obtenerlo.`,
-      accion: "Mantener y optimizar."
+      mejoraRotacion: 10,
+      mejoraLiquidez: 8,
+      tesis: "El gasto sí parece útil, pero puede optimizarse sin perder el beneficio.",
+      analisis: `El gasto en ${nombre} genera un resultado visible, por lo que no debe eliminarse. Sin embargo, incluso un gasto útil puede estar sobrepagado si no se comparan proveedores, cantidades, precios, frecuencia de compra o condiciones de negociación.`,
+      recomendacion: `Se recomienda conservar este gasto, pero buscar una optimización mínima mediante negociación, compra planificada, mejor proveedor o ajuste de cantidades. El objetivo es mantener el beneficio, pero disminuir el costo.`,
+      accion: "Mantener, negociar y optimizar."
     }
   ];
 
@@ -1136,11 +1142,15 @@ function analizarGasto() {
       <p><strong>Impacto proyectado:</strong><br>
       Si el próximo mes se aplica una reducción del ${metodo.reduccion}%, el gasto bajaría de
       $${valor.toLocaleString("es-CO")} a $${nuevoGasto.toLocaleString("es-CO")}.
-      El restaurante liberaría aproximadamente $${ahorro.toLocaleString("es-CO")} de capital operativo.
+      Esto liberaría aproximadamente $${ahorro.toLocaleString("es-CO")} para ser usado en áreas de mayor rendimiento.
       </p>
 
-      <p><strong>Uso sugerido del capital liberado:</strong><br>
-      Reasignarlo a productos de mayor rotación, mejora de tiempos de atención, negociación con proveedores o inventario que genere flujo de caja más rápido.
+      <p><strong>Proyección operativa:</strong><br>
+      Si el capital liberado se reasigna correctamente, podría mejorar hasta un ${metodo.mejoraRotacion}% la rotación de productos priorizados y hasta un ${metodo.mejoraLiquidez}% la disponibilidad de dinero operativo mensual.
+      </p>
+
+      <p><strong>Uso recomendado del dinero liberado:</strong><br>
+      Reasignarlo en un 50% a productos de mayor rotación, 25% a negociación o compra eficiente de insumos, 15% a mejora de tiempos de atención y 10% a reserva operativa para evitar gastos impulsivos.
       </p>
 
       <p><strong>Observación registrada:</strong><br>
