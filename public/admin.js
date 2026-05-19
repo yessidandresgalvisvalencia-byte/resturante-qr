@@ -1075,74 +1075,72 @@ function analizarGasto() {
     return;
   }
 
-  let metodo = "";
-  let diagnostico = "";
-  let riesgo = "";
-  let decision = "";
-  let recomendacion = "";
-  let ahorroPotencial = 0;
-  let porcentaje = 0;
+  const metodos = [
+    {
+      nombre: "Método 1 — Capital productivo",
+      aplica: impacto === "bajo",
+      reduccion: 35,
+      tesis: "El gasto no demuestra retorno operativo suficiente.",
+      analisis: `El gasto en ${nombre} representa una salida de capital que no evidencia aumento de ventas, mejora de rotación ni eficiencia interna. En términos empresariales, es capital inmovilizado: dinero que salió del negocio sin producir una ventaja clara.`,
+      recomendacion: `Reducir este gasto y redirigir el dinero hacia productos, insumos o procesos que generen rotación real. No se recomienda eliminarlo de golpe si afecta la operación, sino bajarlo gradualmente y medir si las ventas permanecen iguales.`,
+      accion: "Reducir, medir y reasignar."
+    },
+    {
+      nombre: "Método 2 — Margen de seguridad",
+      aplica: impacto === "medio",
+      reduccion: 20,
+      tesis: "El gasto tiene utilidad, pero no suficiente margen de justificación.",
+      analisis: `El gasto en ${nombre} puede tener una función útil, pero todavía no demuestra que su beneficio supere claramente su costo. Desde una lógica de margen de seguridad, el restaurante no debería comprometer capital en gastos cuyo retorno sea incierto.`,
+      recomendacion: `Mantenerlo solo si el próximo mes demuestra resultado medible. Se recomienda reducirlo parcialmente y observar si afecta pedidos, tiempos, calidad o satisfacción del cliente.`,
+      accion: "Reducir parcialmente y validar retorno."
+    },
+    {
+      nombre: "Método 3 — Valor real vs precio pagado",
+      aplica: impacto === "alto",
+      reduccion: 8,
+      tesis: "El gasto parece productivo, pero puede estar sobrepagado.",
+      analisis: `El gasto en ${nombre} sí genera resultado, pero eso no significa que su precio sea óptimo. Puede ser un gasto correcto con un proveedor incorrecto, una cantidad excesiva o una negociación débil.`,
+      recomendacion: `No eliminarlo. Comparar proveedores, revisar cantidades, negociar descuentos o cambiar frecuencia de compra. El objetivo es conservar el valor, pero pagar menos por obtenerlo.`,
+      accion: "Mantener y optimizar."
+    }
+  ];
 
-  if (impacto === "bajo") {
-    metodo = "Método 1 — Capital improductivo detectado";
-    porcentaje = 35;
-    ahorroPotencial = valor * 0.35;
-
-    diagnostico = `El gasto en ${nombre} no evidencia una relación clara con aumento de ventas, eficiencia operativa o rotación del negocio. Por tanto, se clasifica como un gasto de baja productividad.`;
-
-    riesgo = `Si este gasto se mantiene igual el próximo mes, el restaurante puede inmovilizar capital que podría utilizarse en insumos de mayor salida, mejora del servicio o productos con mejor margen.`;
-
-    decision = `Reducir, renegociar o sustituir este gasto.`;
-
-    recomendacion = `Se recomienda disminuir este gasto en aproximadamente ${porcentaje}% durante el próximo periodo. El capital liberado debería dirigirse hacia productos de alta rotación o actividades que generen intercambio real, flujo de caja y utilidad.`;
-  }
-
-  if (impacto === "medio") {
-    metodo = "Método 2 — Gasto parcialmente productivo";
-    porcentaje = 18;
-    ahorroPotencial = valor * 0.18;
-
-    diagnostico = `El gasto en ${nombre} tiene alguna utilidad, pero su retorno no es completamente verificable. Puede estar ayudando al negocio, aunque todavía no demuestra suficiente eficiencia frente al valor invertido.`;
-
-    riesgo = `Mantener este gasto sin medición puede volverlo recurrente y convertirlo en una carga fija innecesaria.`;
-
-    decision = `Mantener bajo control, medir resultados y reducir parcialmente.`;
-
-    recomendacion = `Se recomienda reducirlo en ${porcentaje}% y observar si las ventas, la operación o la satisfacción del cliente realmente se ven afectadas. Si no cambia el resultado, el restaurante confirma que estaba gastando de más.`;
-  }
-
-  if (impacto === "alto") {
-    metodo = "Método 3 — Gasto productivo optimizable";
-    porcentaje = 8;
-    ahorroPotencial = valor * 0.08;
-
-    diagnostico = `El gasto en ${nombre} sí parece aportar valor al restaurante porque genera resultado visible. Sin embargo, todo gasto productivo también debe optimizarse para no pagar más de lo necesario.`;
-
-    riesgo = `Aunque el gasto sea útil, puede perder eficiencia si no se comparan proveedores, precios, cantidades o condiciones de compra.`;
-
-    decision = `Mantener, pero optimizar.`;
-
-    recomendacion = `Se recomienda conservar este gasto, pero buscar una mejora mínima del ${porcentaje}% mediante negociación, compra por volumen, cambio de proveedor o mejor planificación.`;
-  }
+  const metodo = metodos.find(m => m.aplica);
+  const ahorro = Math.round(valor * (metodo.reduccion / 100));
+  const nuevoGasto = valor - ahorro;
 
   document.getElementById("resultadoControlGasto").innerHTML = `
     <div class="card">
-      <h3>${metodo}</h3>
+      <h3>${metodo.nombre}</h3>
 
       <p><strong>Gasto analizado:</strong> ${nombre}</p>
-      <p><strong>Valor registrado:</strong> $${valor.toLocaleString("es-CO")}</p>
       <p><strong>Categoría:</strong> ${categoria}</p>
+      <p><strong>Valor registrado:</strong> $${valor.toLocaleString("es-CO")}</p>
 
-      <p><strong>Diagnóstico financiero:</strong><br>${diagnostico}</p>
+      <p><strong>Diagnóstico experto:</strong><br>
+      ${metodo.tesis}
+      </p>
 
-      <p><strong>Riesgo para el restaurante:</strong><br>${riesgo}</p>
+      <p><strong>Análisis financiero:</strong><br>
+      ${metodo.analisis}
+      </p>
 
-      <p><strong>Decisión recomendada:</strong><br>${decision}</p>
+      <p><strong>Decisión recomendada:</strong><br>
+      ${metodo.accion}
+      </p>
 
-      <p><strong>Recomendación estratégica:</strong><br>${recomendacion}</p>
+      <p><strong>Recomendación estratégica:</strong><br>
+      ${metodo.recomendacion}
+      </p>
 
-      <p><strong>Capital que podría liberarse:</strong><br>
-      $${Math.round(ahorroPotencial).toLocaleString("es-CO")}
+      <p><strong>Impacto proyectado:</strong><br>
+      Si el próximo mes se aplica una reducción del ${metodo.reduccion}%, el gasto bajaría de
+      $${valor.toLocaleString("es-CO")} a $${nuevoGasto.toLocaleString("es-CO")}.
+      El restaurante liberaría aproximadamente $${ahorro.toLocaleString("es-CO")} de capital operativo.
+      </p>
+
+      <p><strong>Uso sugerido del capital liberado:</strong><br>
+      Reasignarlo a productos de mayor rotación, mejora de tiempos de atención, negociación con proveedores o inventario que genere flujo de caja más rápido.
       </p>
 
       <p><strong>Observación registrada:</strong><br>
