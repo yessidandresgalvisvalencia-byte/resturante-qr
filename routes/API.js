@@ -696,6 +696,7 @@ router.post("/admin/registro", async (req, res) => {
     }
 
     const Admin = require("../models/admin");
+    
 
     const existeRestaurant = await Admin.findOne({ restaurantId });
     if (existeRestaurant) {
@@ -746,6 +747,7 @@ router.post("/admin/login", async (req, res) => {
     }
 
     const Admin = require("../models/admin");
+    const Restaurante = require("../models/restaurante");
 
     const admin = await Admin.findOne({ usuario, password });
 
