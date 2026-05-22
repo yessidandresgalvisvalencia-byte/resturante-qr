@@ -197,7 +197,90 @@ Analiza si un gasto fue necesario, parcialmente útil o innecesario, y genera un
 
 <div id="resultadoControlGasto"></div>
 </div>
+<div class="card">
 
+<h3>Inteligencia de precios</h3>
+
+<p>
+GRUK calculará el precio mínimo sostenible,
+precio rentable recomendado
+y precio premium estratégico
+según costos, margen, demanda y percepción de valor.
+</p>
+
+<label>Nombre del producto</label>
+<input
+id="productoPrecio"
+type="text"
+placeholder="Ej: Carne asada premium"
+>
+
+<label>Costo materia prima</label>
+<input
+id="costoMateriaPrima"
+type="number"
+placeholder="Ej: 18000"
+>
+
+<label>Costo operativo estimado</label>
+<input
+id="costoOperativo"
+type="number"
+placeholder="Ej: 5000"
+>
+
+<label>Tiempo de preparación (min)</label>
+<input
+id="tiempoPreparacion"
+type="number"
+placeholder="Ej: 20"
+>
+
+<label>Tipo de producto</label>
+<select id="tipoProductoPrecio">
+
+<option value="ancla">
+Producto ancla / volumen
+</option>
+
+<option value="estrella">
+Producto estrella
+</option>
+
+<option value="diamante">
+Producto diamante premium
+</option>
+
+<option value="normal">
+Producto equilibrado
+</option>
+
+</select>
+
+<label>Nivel de demanda actual</label>
+<select id="demandaProducto">
+
+<option value="alta">
+Alta demanda
+</option>
+
+<option value="media">
+Demanda media
+</option>
+
+<option value="baja">
+Baja demanda
+</option>
+
+</select>
+
+<button onclick="calcularPrecio()">
+Analizar precio
+</button>
+
+<div id="resultadoPrecioInteligente"></div>
+
+</div>
 <div class="resumen-grid">
 <div class="card">
 <h3>Total vendido</h3>
