@@ -313,6 +313,26 @@ Analizar precio
 <p id="pedidosActivos">0</p>
 </div>
 </div>
+<div class="card">
+  <h3>Reporte ejecutivo GRUK</h3>
+
+  <p class="descripcion-termino">
+    Genera un documento consolidado del restaurante con ventas, productos, estrategias, inventario y recomendaciones.
+  </p>
+
+  <label>Periodo del reporte</label>
+  <select id="periodoReporte">
+    <option value="mensual">Mensual</option>
+    <option value="bimestral">Cada 2 meses</option>
+    <option value="trimestral">Trimestral</option>
+    <option value="semestral">Cada 6 meses</option>
+    <option value="anual">Anual</option>
+  </select>
+
+  <button onclick="generarReporteEjecutivo()">
+    Generar documento
+  </button>
+</div>
 
 <h2>Solicitudes de mesero</h2>
 <div id="solicitudesMesero" class="grid"></div>

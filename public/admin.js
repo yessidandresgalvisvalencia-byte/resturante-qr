@@ -1972,3 +1972,279 @@ alert("Producto anulado con trazabilidad");
 cargarInventario();
 
 }
+async function generarReporteEjecutivo() {
+  const restaurantId =
+    localStorage.getItem("adminRestaurantId") ||
+    new URLSearchParams(window.location.search).get("restaurantId");
+
+  const periodo =
+    document.getElementById("periodoReporte").value;
+
+  const totalVendido =
+    document.getElementById("totalVendido")?.innerText || "$0";
+
+  const pedidosActivos =
+    document.getElementById("pedidosActivos")?.innerText || "0";
+
+  const estrategias =
+    JSON.parse(localStorage.getItem(`estrategias_${restaurantId}`)) || [];
+
+  let inventario = [];
+
+  try {
+    const resInventario =
+      await fetch(`/api/inventario/${restaurantId}`);
+
+    const dataInventario =
+      await resInventario.json();
+
+    if (dataInventario.ok) {
+      inventario = dataInventario.productos || [];
+    }
+  } catch (error) {
+    console.log("No se pudo cargar inventario para reporte", error);
+  }
+
+  let datosVentas = [];
+
+  try {
+    const resVentas =
+      await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
+
+    if (resVentas.ok) {
+      datosVentas = await resVentas.json();
+    }
+  } catch (error) {
+    console.log("No se pudo cargar ventas para reporte", error);
+  }
+
+  const productosTop =
+    datosVentas
+      .sort((a, b) => Number(b.ventas || 0) - Number(a.ventas || 0))
+      .slice(0, 5);
+
+  const inventarioRiesgo =
+    inventario.filter(p =>
+      p.estado === "proximo" ||
+      p.estado === "vencido"
+    );
+
+  const fecha =
+    new Date().toLocaleDateString("es-CO");
+
+  const reporte = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte Ejecutivo GRUK</title>
+
+<style>
+body{
+font-family:Arial, sans-serif;
+padding:40px;
+color:#111827;
+line-height:1.6;
+}
+
+h1{
+font-size:32px;
+margin-bottom:5px;
+}
+
+h2{
+margin-top:35px;
+border-bottom:2px solid #111827;
+padding-bottom:6px;
+}
+
+.card{
+border:1px solid #ddd;
+border-radius:12px;
+padding:18px;
+margin:14px 0;
+}
+
+.alerta{
+background:#fff7ed;
+border-left:6px solid #f97316;
+}
+
+.peligro{
+background:#fef2f2;
+border-left:6px solid #dc2626;
+}
+
+.exito{
+background:#f0fdf4;
+border-left:6px solid #16a34a;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:12px;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:10px;
+text-align:left;
+}
+
+th{
+background:#111827;
+color:white;
+}
+
+button{
+display:none;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Reporte Ejecutivo GRUK</h1>
+<p><strong>Restaurante ID:</strong> ${restaurantId}</p>
+<p><strong>Periodo:</strong> ${periodo}</p>
+<p><strong>Fecha de generación:</strong> ${fecha}</p>
+
+<h2>1. Resumen general</h2>
+
+<div class="card exito">
+<p><strong>Total vendido:</strong> ${totalVendido}</p>
+<p><strong>Pedidos activos:</strong> ${pedidosActivos}</p>
+<p>
+Este reporte consolida el comportamiento operativo, comercial y administrativo del restaurante durante el periodo seleccionado.
+</p>
+</div>
+
+<h2>2. Productos más vendidos</h2>
+
+<table>
+<thead>
+<tr>
+<th>Producto</th>
+<th>Cantidad vendida</th>
+<th>Total generado</th>
+</tr>
+</thead>
+<tbody>
+${
+productosTop.length > 0
+? productosTop.map(p => `
+<tr>
+<td>${p.producto || "Producto sin nombre"}</td>
+<td>${p.ventas || 0}</td>
+<td>$${Number(p.totalDinero || 0).toLocaleString("es-CO")}</td>
+</tr>
+`).join("")
+: `<tr><td colspan="3">No hay datos de ventas disponibles.</td></tr>`
+}
+</tbody>
+</table>
+
+<h2>3. Inventario y vencimientos</h2>
+
+${
+inventarioRiesgo.length > 0
+? `
+<div class="card peligro">
+<p><strong>Productos con alerta:</strong></p>
+<ul>
+${inventarioRiesgo.map(p => `
+<li>
+<strong>${p.nombre}</strong> — ${p.categoria} —
+${p.estado === "vencido" ? "Vencido" : "Próximo a vencer"} —
+Días restantes: ${p.diasRestantes}
+</li>
+`).join("")}
+</ul>
+<p>
+Recomendación: aplicar lógica FEFO: primero en vencer, primero en usarse. Los productos vencidos deben retirarse o revisarse antes de uso.
+</p>
+</div>
+`
+: `
+<div class="card exito">
+<p>No se detectan productos vencidos o próximos a vencer.</p>
+</div>
+`
+}
+
+<h2>4. Estrategias aplicadas</h2>
+
+${
+estrategias.length > 0
+? `
+<table>
+<thead>
+<tr>
+<th>N°</th>
+<th>Estrategia</th>
+<th>Productos</th>
+<th>Fecha</th>
+</tr>
+</thead>
+<tbody>
+${estrategias.map(e => `
+<tr>
+<td>${e.numero}</td>
+<td>${e.titulo}</td>
+<td>${(e.productos || []).join(", ")}</td>
+<td>${e.fecha ? new Date(e.fecha).toLocaleDateString("es-CO") : ""}</td>
+</tr>
+`).join("")}
+</tbody>
+</table>
+`
+: `
+<div class="card alerta">
+<p>No hay estrategias aplicadas registradas en este periodo.</p>
+</div>
+`
+}
+
+<h2>5. Diagnóstico ejecutivo GRUK</h2>
+
+<div class="card">
+<p>
+GRUK interpreta el restaurante como un sistema económico: las ventas muestran demanda, el inventario revela eficiencia operativa y las estrategias aplicadas indican la dirección comercial del negocio.
+</p>
+
+<p>
+La prioridad administrativa debe ser proteger productos de alta rotación, corregir inventario en riesgo y evitar que productos vencidos o de baja salida inmovilicen capital.
+</p>
+
+<p>
+Si las ventas aumentan pero el inventario se vence, existe crecimiento desordenado. Si el inventario se controla y las estrategias se aplican sobre productos con buena rotación y margen, el restaurante mejora su capacidad de caja.
+</p>
+</div>
+
+<h2>6. Recomendación final</h2>
+
+<div class="card alerta">
+<p>
+Mantener seguimiento periódico. Para el próximo reporte, GRUK recomienda comparar ventas, inventario vencido, productos más vendidos y estrategias aplicadas para detectar si el restaurante está creciendo con rentabilidad o solo con volumen.
+</p>
+</div>
+
+<script>
+window.print();
+</script>
+
+</body>
+</html>
+`;
+
+  const ventana =
+    window.open("", "_blank");
+
+  ventana.document.open();
+  ventana.document.write(reporte);
+  ventana.document.close();
+}
+
+window.generarReporteEjecutivo =
+generarReporteEjecutivo;
