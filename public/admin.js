@@ -1397,263 +1397,139 @@ function analizarGasto() {
     </div>
   `;
 }
+function formatoCOP(valor) {
+  return "$" + Math.round(valor).toLocaleString("es-CO");
+}
+
 function calcularPrecioInteligente() {
+  const producto = document.getElementById("productoPrecio").value.trim();
+  const materiaPrima = Number(document.getElementById("costoMateriaPrima").value);
+  const costoOperativo = Number(document.getElementById("costoOperativo").value);
+  const precioActual = Number(document.getElementById("precioActualVenta").value);
+  const tiempo = Number(document.getElementById("tiempoPreparacion").value);
+  const tipo = document.getElementById("tipoProductoPrecio").value;
+  const demanda = document.getElementById("demandaProducto").value;
 
-const producto =
-document.getElementById("productoPrecio").value;
+  if (!producto || !materiaPrima || !costoOperativo || !precioActual || !tiempo) {
+    alert("Completa todos los campos");
+    return;
+  }
 
-const materiaPrima =
-Number(
-document.getElementById("costoMateriaPrima").value
-);
+  const costoTotal = materiaPrima + costoOperativo;
 
-const costoOperativo =
-Number(
-document.getElementById("costoOperativo").value
-);
+  let margenMinimo = 0.25;
+  let margenRecomendado = 0.45;
+  let margenPremium = 0.65;
 
-const tiempo =
-Number(
-document.getElementById("tiempoPreparacion").value
-);
+  if (tipo === "ancla") {
+    margenMinimo = 0.18;
+    margenRecomendado = 0.30;
+    margenPremium = 0.38;
+  }
 
-const tipo =
-document.getElementById("tipoProductoPrecio").value;
+  if (tipo === "estrella") {
+    margenMinimo = 0.35;
+    margenRecomendado = 0.52;
+    margenPremium = 0.70;
+  }
 
-const demanda =
-document.getElementById("demandaProducto").value;
+  if (tipo === "diamante") {
+    margenMinimo = 0.45;
+    margenRecomendado = 0.68;
+    margenPremium = 0.95;
+  }
 
-if (
-!producto ||
-!materiaPrima ||
-!costoOperativo ||
-!tiempo
-) {
-alert("Completa todos los campos");
-return;
+  if (demanda === "alta") {
+    margenRecomendado += 0.05;
+    margenPremium += 0.08;
+  }
+
+  if (demanda === "baja") {
+    margenRecomendado -= 0.08;
+    margenPremium -= 0.10;
+  }
+
+  const precioMinimo = Math.round(costoTotal / (1 - margenMinimo));
+  const precioRecomendado = Math.round(costoTotal / (1 - margenRecomendado));
+  const precioPremium = Math.round(costoTotal / (1 - margenPremium));
+
+  const margenActual =
+    precioActual > 0
+      ? ((precioActual - costoTotal) / precioActual) * 100
+      : 0;
+
+  let semaforo = "";
+  let interpretacion = "";
+  let decision = "";
+  let accion = "";
+
+  if (precioActual < precioMinimo) {
+    semaforo = "🔴 Precio en pérdida o demasiado débil";
+    decision = "Subir precio de forma prioritaria";
+    accion = `Subir mínimo hasta ${formatoCOP(precioMinimo)}.`;
+    interpretacion = `
+      El precio actual está por debajo del umbral mínimo sostenible.
+      El restaurante está vendiendo sin margen de seguridad suficiente.
+      Aquí no se debe competir por volumen: primero hay que proteger la caja.
+    `;
+  } else if (precioActual >= precioMinimo && precioActual < precioRecomendado) {
+    semaforo = "🟡 Precio conservador";
+    decision = "Subir gradualmente";
+    accion = `Mover el precio hacia ${formatoCOP(precioRecomendado)}.`;
+    interpretacion = `
+      El precio actual cubre costos, pero todavía deja dinero sobre la mesa.
+      Hay margen para subir sin romper la lógica comercial, especialmente si el producto tiene buena demanda.
+    `;
+  } else if (precioActual >= precioRecomendado && precioActual <= precioPremium) {
+    semaforo = "🟢 Precio óptimo";
+    decision = "Mantener y medir";
+    accion = "No subir todavía. Medir aceptación, rotación y recompra.";
+    interpretacion = `
+      El precio actual está dentro del rango estratégico.
+      Subirlo sin nueva evidencia podría afectar demanda.
+      En este punto conviene proteger el equilibrio entre margen y mercado.
+    `;
+  } else {
+    semaforo = "🟣 Precio premium alto";
+    decision = "Validar percepción de valor";
+    accion = "Mantener solo si la demanda sigue estable y el cliente percibe valor superior.";
+    interpretacion = `
+      El precio actual supera el rango premium calculado.
+      Esto no es necesariamente malo, pero exige validación: buena foto, marca fuerte, experiencia superior y demanda sostenida.
+    `;
+  }
+
+  document.getElementById("resultadoPrecioInteligente").innerHTML = `
+    <div class="card">
+      <h3>Diagnóstico estratégico de precio</h3>
+
+      <p><strong>Producto:</strong> ${producto}</p>
+      <p><strong>Costo total estimado:</strong> ${formatoCOP(costoTotal)}</p>
+      <p><strong>Precio actual:</strong> ${formatoCOP(precioActual)}</p>
+
+      <p><strong>Precio mínimo sostenible:</strong> ${formatoCOP(precioMinimo)}</p>
+      <p><strong>Precio rentable recomendado:</strong> ${formatoCOP(precioRecomendado)}</p>
+      <p><strong>Precio premium estratégico:</strong> ${formatoCOP(precioPremium)}</p>
+
+      <p><strong>Semáforo GRUK:</strong><br>${semaforo}</p>
+
+      <p><strong>Margen actual estimado:</strong><br>
+      ${margenActual.toFixed(1)}%
+      </p>
+
+      <p><strong>Decisión recomendada:</strong><br>
+      ${decision}
+      </p>
+
+      <p><strong>Acción sugerida:</strong><br>
+      ${accion}
+      </p>
+
+      <p><strong>Interpretación GRUK:</strong><br>
+      ${interpretacion}
+      </p>
+    </div>
+  `;
 }
 
-const costoTotal =
-materiaPrima + costoOperativo;
-
-let margenMinimo = 0.25;
-let margenRecomendado = 0.45;
-let margenPremium = 0.65;
-
-if (tipo === "ancla") {
-margenMinimo = 0.18;
-margenRecomendado = 0.30;
-margenPremium = 0.38;
-}
-
-if (tipo === "estrella") {
-margenMinimo = 0.35;
-margenRecomendado = 0.52;
-margenPremium = 0.70;
-}
-
-if (tipo === "diamante") {
-margenMinimo = 0.45;
-margenRecomendado = 0.68;
-margenPremium = 0.95;
-}
-
-if (demanda === "alta") {
-margenRecomendado += 0.05;
-margenPremium += 0.08;
-}
-
-if (demanda === "baja") {
-margenRecomendado -= 0.08;
-margenPremium -= 0.10;
-}
-
-const precioMinimo =
-Math.round(
-costoTotal / (1 - margenMinimo)
-);
-
-const precioRecomendado =
-Math.round(
-costoTotal / (1 - margenRecomendado)
-);
-
-const precioPremium =
-Math.round(
-costoTotal / (1 - margenPremium)
-);
-
-let lectura = "";
-let recomendacion = "";
-let riesgo = "";
-
-if (tipo === "ancla") {
-
-lectura =
-`
-${producto} tiene perfil de circulación comercial.
-Su función principal es atraer flujo de clientes
-y aumentar frecuencia de compra.
-`;
-
-recomendacion =
-`
-No competir por lujo.
-El objetivo debe ser velocidad,
-rotación y recompra.
-`;
-
-riesgo =
-`
-Subir demasiado el precio podría reducir tráfico.
-`;
-
-}
-
-if (tipo === "estrella") {
-
-lectura =
-`
-${producto} tiene perfil de acumulación rentable.
-Cada venta fortalece significativamente
-la caja operativa del restaurante.
-`;
-
-recomendacion =
-`
-Debe ocupar posiciones principales
-del menú y combinarse
-con productos ancla.
-`;
-
-riesgo =
-`
-Descuentos agresivos pueden destruir margen.
-`;
-
-}
-
-if (tipo === "diamante") {
-
-lectura =
-`
-${producto} tiene perfil premium.
-No necesita venderse masivamente;
-su función es elevar ticket promedio
-y percepción de valor.
-`;
-
-recomendacion =
-`
-Utilizar fotografías premium,
-nombres fuertes
-y presentación visual dominante.
-`;
-
-riesgo =
-`
-Bajar demasiado el precio
-destruye percepción de exclusividad.
-`;
-
-}
-
-document.getElementById(
-"resultadoPrecioInteligente"
-).innerHTML = `
-
-<div class="card">
-
-<h3>
-Diagnóstico estratégico de precio
-</h3>
-
-<p>
-<strong>Producto:</strong>
-${producto}
-</p>
-
-<p>
-<strong>Costo total estimado:</strong>
-$${costoTotal.toLocaleString("es-CO")}
-</p>
-
-<p>
-<strong>Precio mínimo sostenible:</strong>
-$${precioMinimo.toLocaleString("es-CO")}
-</p>
-
-<p>
-<strong>Precio rentable recomendado:</strong>
-$${precioRecomendado.toLocaleString("es-CO")}
-</p>
-
-<p>
-<strong>Precio premium estratégico:</strong>
-$${precioPremium.toLocaleString("es-CO")}
-</p>
-
-<p>
-<strong>Lectura económica:</strong><br>
-${lectura}
-</p>
-
-<p>
-<strong>Recomendación estratégica:</strong><br>
-${recomendacion}
-</p>
-
-<p>
-<strong>Control de riesgo:</strong><br>
-${riesgo}
-</p>
-
-<p>
-<strong>Margen proyectado:</strong><br>
-
-Mínimo:
-${Math.round(margenMinimo * 100)}%
-
-<br>
-
-Recomendado:
-${Math.round(margenRecomendado * 100)}%
-
-<br>
-
-Premium:
-${Math.round(margenPremium * 100)}%
-
-</p>
-
-<p>
-<strong>Interpretación GRUK:</strong><br>
-
-${
-demanda === "alta"
-
-?
-
-`El mercado ya muestra validación suficiente para soportar precios más altos sin destruir demanda.`
-
-:
-
-demanda === "media"
-
-?
-
-`El producto debe crecer de forma gradual manteniendo equilibrio entre margen y aceptación.`
-
-:
-
-`El producto todavía necesita validación comercial antes de aumentar agresivamente el precio.`
-}
-
-</p>
-
-</div>
-`;
-}
-
-window.calcularPrecioInteligente =
-calcularPrecioInteligente;
+window.calcularPrecioInteligente = calcularPrecioInteligente;
