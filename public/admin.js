@@ -1719,3 +1719,210 @@ function calcularPrecioInteligente() {
 }
 
 window.calcularPrecioInteligente = calcularPrecioInteligente;
+async function guardarInventario(){
+
+try{
+
+const restaurantId =
+localStorage.getItem(
+"adminRestaurantId"
+);
+
+const body = {
+
+restaurantId,
+
+nombre:
+document.getElementById(
+"inventarioNombre"
+).value,
+
+categoria:
+document.getElementById(
+"inventarioCategoria"
+).value,
+
+cantidad:Number(
+document.getElementById(
+"inventarioCantidad"
+).value
+),
+
+unidad:
+document.getElementById(
+"inventarioUnidad"
+).value,
+
+proveedor:
+document.getElementById(
+"inventarioProveedor"
+).value,
+
+fechaCompra:
+document.getElementById(
+"inventarioCompra"
+).value,
+
+fechaVencimiento:
+document.getElementById(
+"inventarioVencimiento"
+).value
+
+};
+
+const res =
+await fetch(
+"/api/inventario",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify(body)
+}
+);
+
+const data =
+await res.json();
+
+if(!data.ok){
+alert("Error guardando");
+return;
+}
+
+alert("Inventario guardado");
+
+cargarInventario();
+
+}catch(error){
+
+console.log(error);
+
+}
+
+}
+
+async function cargarInventario(){
+
+try{
+
+const restaurantId =
+localStorage.getItem(
+"adminRestaurantId"
+);
+
+const res =
+await fetch(
+`/api/inventario/${restaurantId}`
+);
+
+const data =
+await res.json();
+
+if(!data.ok) return;
+
+const contenedor =
+document.getElementById(
+"inventarioLista"
+);
+
+contenedor.innerHTML = "";
+
+const productosOrdenados =
+data.productos.sort((a,b)=>{
+return a.diasRestantes - b.diasRestantes;
+});
+
+productosOrdenados.forEach(producto=>{
+
+let color = "#16a34a";
+
+if(producto.estado === "proximo"){
+color = "#f59e0b";
+}
+
+if(producto.estado === "vencido"){
+color = "#dc2626";
+}
+
+contenedor.innerHTML += `
+
+<div class="card">
+
+<h3>${producto.nombre}</h3>
+
+<p>
+<strong>Categoría:</strong>
+${producto.categoria}
+</p>
+
+<p>
+<strong>Cantidad:</strong>
+${producto.cantidad}
+${producto.unidad}
+</p>
+
+<p>
+<strong>Proveedor:</strong>
+${producto.proveedor}
+</p>
+
+<p>
+<strong>Vence:</strong>
+${new Date(
+producto.fechaVencimiento
+).toLocaleDateString()}
+</p>
+
+<p style="color:${color};font-weight:900;">
+
+${
+producto.estado === "vigente"
+
+? "✅ Vigente"
+
+: producto.estado === "proximo"
+
+? "⚠️ Próximo a vencer"
+
+: "❌ Vencido"
+}
+
+</p>
+
+<p>
+<strong>Días restantes:</strong>
+${producto.diasRestantes}
+</p>
+
+<p>
+<strong>Recomendación:</strong>
+
+${
+producto.estado === "vencido"
+
+? "No usar. Revisar y retirar del inventario."
+
+: producto.estado === "proximo"
+
+? "Usar primero este producto en preparaciones del día o promociones controladas."
+
+: "Mantener en inventario. No es prioridad de consumo."
+}
+</p>
+
+</div>
+
+`;
+
+});
+
+}catch(error){
+
+console.log(error);
+
+}
+
+}
+
+cargarInventario();

@@ -7,6 +7,8 @@ const { Server } = require("socket.io");
 const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
 const app = express();
+const inventarioRoutes =
+require("./routes/inventario");
 
 const iniciarJobSuscripciones = require("./jobs/suscripciones");
 const apiRoutes = require("./routes/API");
@@ -26,6 +28,10 @@ app.use(express.static("public"));
 app.use("/estadisticas", estadisticasRoutes);
 app.use("/api/restaurants", restaurantRoutes);
 app.use("/api", apiRoutes);
+app.use(
+"/api/inventario",
+inventarioRoutes
+);
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));

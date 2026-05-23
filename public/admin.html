@@ -325,7 +325,106 @@ Analizar precio
 
 <h2>Control de stock</h2>
 <div id="stockLista" class="grid"></div>
+<div class="card">
 
+<h3>Inventario inteligente</h3>
+
+<label>Producto</label>
+<input id="inventarioNombre" type="text">
+
+<label>Categoría</label>
+
+<select id="inventarioCategoria">
+
+<option value="Carnes">
+Carnes
+</option>
+
+<option value="Lácteos">
+Lácteos
+</option>
+
+<option value="Verduras">
+Verduras
+</option>
+
+<option value="Frutas">
+Frutas
+</option>
+
+<option value="Bebidas">
+Bebidas
+</option>
+
+<option value="Salsas">
+Salsas
+</option>
+
+<option value="Congelados">
+Congelados
+</option>
+
+<option value="Abarrotes">
+Abarrotes
+</option>
+
+<option value="Empaques">
+Empaques
+</option>
+
+<option value="Limpieza">
+Limpieza
+</option>
+
+</select>
+
+<label>Cantidad</label>
+<input
+id="inventarioCantidad"
+type="number"
+>
+
+<label>Unidad</label>
+
+<input
+id="inventarioUnidad"
+type="text"
+placeholder="Ej: kg, litros, unidades"
+>
+
+<label>Proveedor</label>
+
+<input
+id="inventarioProveedor"
+type="text"
+>
+
+<label>Fecha de compra</label>
+
+<input
+id="inventarioCompra"
+type="date"
+>
+
+<label>Fecha de vencimiento</label>
+
+<input
+id="inventarioVencimiento"
+type="date"
+>
+
+<button onclick="guardarInventario()">
+Guardar inventario
+</button>
+
+</div>
+
+<h2>Inventario</h2>
+
+<div
+id="inventarioLista"
+class="grid"
+></div>
 <h2>Personal del restaurante</h2>
 <div id="listaPersonal" class="grid"></div>
 
