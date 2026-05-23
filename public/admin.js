@@ -1978,7 +1978,7 @@ async function generarReporteEjecutivo() {
     new URLSearchParams(window.location.search).get("restaurantId");
 
   const periodo =
-    document.getElementById("periodoReporte").value;
+    document.getElementById("periodoReporte")?.value || "mensual";
 
   const totalVendido =
     document.getElementById("totalVendido")?.innerText || "$0";
@@ -1986,42 +1986,64 @@ async function generarReporteEjecutivo() {
   const pedidosActivos =
     document.getElementById("pedidosActivos")?.innerText || "0";
 
+  const fecha =
+    new Date().toLocaleDateString("es-CO");
+
   const estrategias =
     JSON.parse(localStorage.getItem(`estrategias_${restaurantId}`)) || [];
 
   let inventario = [];
+  let datosVentas = [];
 
   try {
-    const resInventario =
-      await fetch(`/api/inventario/${restaurantId}`);
-
-    const dataInventario =
-      await resInventario.json();
+    const resInventario = await fetch(`/api/inventario/${restaurantId}`);
+    const dataInventario = await resInventario.json();
 
     if (dataInventario.ok) {
       inventario = dataInventario.productos || [];
     }
   } catch (error) {
-    console.log("No se pudo cargar inventario para reporte", error);
+    console.log("No se pudo cargar inventario:", error);
   }
 
-  let datosVentas = [];
-
   try {
-    const resVentas =
-      await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
+    const resVentas = await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
 
     if (resVentas.ok) {
       datosVentas = await resVentas.json();
     }
   } catch (error) {
-    console.log("No se pudo cargar ventas para reporte", error);
+    console.log("No se pudo cargar ventas:", error);
   }
 
-  const productosTop =
+  const ventasOrdenadas =
     datosVentas
-      .sort((a, b) => Number(b.ventas || 0) - Number(a.ventas || 0))
-      .slice(0, 5);
+      .map(p => ({
+        producto: p.producto || "Producto sin nombre",
+        ventas: Number(p.ventas || 0),
+        totalDinero: Number(p.totalDinero || 0)
+      }))
+      .sort((a, b) => b.ventas - a.ventas);
+
+  const productoMasVendido =
+    ventasOrdenadas[0] || null;
+
+  const totalPedidosReporte =
+    ventasOrdenadas.reduce((acc, p) => acc + p.ventas, 0);
+
+  const totalDineroReporte =
+    ventasOrdenadas.reduce((acc, p) => acc + p.totalDinero, 0);
+
+  const ticketPromedio =
+    totalPedidosReporte > 0
+      ? totalDineroReporte / totalPedidosReporte
+      : 0;
+
+  const productosTop =
+    ventasOrdenadas.slice(0, 5);
+
+  const productosBajaRotacion =
+    ventasOrdenadas.filter(p => p.ventas <= 2);
 
   const inventarioRiesgo =
     inventario.filter(p =>
@@ -2029,8 +2051,49 @@ async function generarReporteEjecutivo() {
       p.estado === "vencido"
     );
 
-  const fecha =
-    new Date().toLocaleDateString("es-CO");
+  const inventarioOrdenado =
+    inventario
+      .slice()
+      .sort((a, b) => Number(a.diasRestantes || 0) - Number(b.diasRestantes || 0))
+      .slice(0, 8);
+
+  const labelsTop =
+    productosTop.map(p => p.producto);
+
+  const dataTopVentas =
+    productosTop.map(p => p.ventas);
+
+  const dataTopDinero =
+    productosTop.map(p => p.totalDinero);
+
+  const labelsInventario =
+    inventarioOrdenado.map(p => p.nombre);
+
+  const dataInventarioDias =
+    inventarioOrdenado.map(p => Number(p.diasRestantes || 0));
+
+  const productoMasVendidoTexto =
+    productoMasVendido
+      ? `${productoMasVendido.producto} con ${productoMasVendido.ventas} pedidos`
+      : "No hay producto líder registrado";
+
+  const participacionTop =
+    productoMasVendido && totalPedidosReporte > 0
+      ? ((productoMasVendido.ventas / totalPedidosReporte) * 100).toFixed(1)
+      : 0;
+
+  const diagnosticoVentas =
+    productoMasVendido
+      ? `El producto más vendido fue ${productoMasVendido.producto}, concentrando aproximadamente el ${participacionTop}% de los pedidos. Si esta concentración continúa, el restaurante debe evitar depender de un solo producto y convertir esa demanda en venta cruzada hacia platos de mayor margen.`
+      : "No hay suficientes datos para diagnosticar el comportamiento de ventas.";
+
+  const diagnosticoInventario =
+    inventarioRiesgo.length > 0
+      ? `El inventario presenta ${inventarioRiesgo.length} producto(s) vencidos o próximos a vencer. Si esta situación continúa, el restaurante puede perder capital por desperdicio y afectar su margen operativo. Se recomienda aplicar FEFO: primero en vencer, primero en usarse.`
+      : "El inventario no muestra alertas críticas de vencimiento. Esto indica una operación más controlada y menor riesgo de desperdicio.";
+
+  const diagnosticoGraham =
+    `Desde una lógica de largo plazo, GRUK recomienda no tomar decisiones solo por volumen de ventas. El restaurante debe proteger su margen de seguridad: vender más solo es sano si aumenta caja real, controla inventario y evita productos que roten mucho pero dejen poca utilidad.`;
 
   const reporte = `
 <!DOCTYPE html>
@@ -2038,6 +2101,8 @@ async function generarReporteEjecutivo() {
 <head>
 <meta charset="UTF-8">
 <title>Reporte Ejecutivo GRUK</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body{
@@ -2063,6 +2128,7 @@ border:1px solid #ddd;
 border-radius:12px;
 padding:18px;
 margin:14px 0;
+page-break-inside:avoid;
 }
 
 .alerta{
@@ -2078,6 +2144,11 @@ border-left:6px solid #dc2626;
 .exito{
 background:#f0fdf4;
 border-left:6px solid #16a34a;
+}
+
+.grafica{
+height:360px;
+margin:20px 0;
 }
 
 table{
@@ -2097,8 +2168,10 @@ background:#111827;
 color:white;
 }
 
+@media print{
 button{
 display:none;
+}
 }
 </style>
 </head>
@@ -2107,20 +2180,69 @@ display:none;
 
 <h1>Reporte Ejecutivo GRUK</h1>
 <p><strong>Restaurante ID:</strong> ${restaurantId}</p>
-<p><strong>Periodo:</strong> ${periodo}</p>
+<p><strong>Periodo seleccionado:</strong> ${periodo}</p>
 <p><strong>Fecha de generación:</strong> ${fecha}</p>
 
 <h2>1. Resumen general</h2>
 
 <div class="card exito">
-<p><strong>Total vendido:</strong> ${totalVendido}</p>
+<p><strong>Total vendido visible en panel:</strong> ${totalVendido}</p>
+<p><strong>Total calculado por ventas:</strong> $${totalDineroReporte.toLocaleString("es-CO")}</p>
+<p><strong>Total pedidos:</strong> ${totalPedidosReporte}</p>
 <p><strong>Pedidos activos:</strong> ${pedidosActivos}</p>
+<p><strong>Ticket promedio estimado:</strong> $${Math.round(ticketPromedio).toLocaleString("es-CO")}</p>
+<p><strong>Producto más vendido:</strong> ${productoMasVendidoTexto}</p>
+</div>
+
+<h2>2. Gráfica de productos más vendidos</h2>
+
+<div class="card">
+<div class="grafica">
+<canvas id="graficaTopProductos"></canvas>
+</div>
+
+<p><strong>Lectura GRUK:</strong><br>
+${diagnosticoVentas}
+</p>
+
 <p>
-Este reporte consolida el comportamiento operativo, comercial y administrativo del restaurante durante el periodo seleccionado.
+Si el mercado mantiene esta reacción, GRUK recomienda usar el producto líder como entrada comercial, pero no permitir que absorba toda la estrategia. La demanda debe convertirse en combos, productos complementarios y platos con mayor margen.
 </p>
 </div>
 
-<h2>2. Productos más vendidos</h2>
+<h2>3. Gráfica de ingresos por producto</h2>
+
+<div class="card">
+<div class="grafica">
+<canvas id="graficaIngresosProductos"></canvas>
+</div>
+
+<p><strong>Lectura GRUK:</strong><br>
+Esta gráfica permite comparar si los productos más vendidos son también los que más dinero generan. Si un producto vende mucho pero genera poco ingreso, funciona como producto de tráfico; si vende menos pero genera más dinero, puede ser un producto de acumulación rentable.
+</p>
+
+<p>
+La estrategia de largo plazo debe proteger los productos que fortalecen caja, no solo los que generan volumen. Esto responde al margen de seguridad: crecer sin utilidad real puede debilitar el negocio aunque las ventas aparenten subir.
+</p>
+</div>
+
+<h2>4. Gráfica de inventario y vencimientos</h2>
+
+<div class="card">
+<div class="grafica">
+<canvas id="graficaInventario"></canvas>
+</div>
+
+<p><strong>Lectura GRUK:</strong><br>
+${diagnosticoInventario}
+</p>
+
+<p>
+Si los productos próximos a vencer aumentan, el restaurante está inmovilizando capital en inventario que no rota. A largo plazo, eso reduce liquidez y puede convertir ventas aparentemente sanas en pérdidas ocultas.
+</p>
+</div>
+
+<h2>5. Tabla de productos más vendidos</h2>
 
 <table>
 <thead>
@@ -2135,23 +2257,45 @@ ${
 productosTop.length > 0
 ? productosTop.map(p => `
 <tr>
-<td>${p.producto || "Producto sin nombre"}</td>
-<td>${p.ventas || 0}</td>
-<td>$${Number(p.totalDinero || 0).toLocaleString("es-CO")}</td>
+<td>${p.producto}</td>
+<td>${p.ventas}</td>
+<td>$${p.totalDinero.toLocaleString("es-CO")}</td>
 </tr>
 `).join("")
-: `<tr><td colspan="3">No hay datos de ventas disponibles.</td></tr>`
+: `<tr><td colspan="3">No hay datos disponibles.</td></tr>`
 }
 </tbody>
 </table>
 
-<h2>3. Inventario y vencimientos</h2>
+<h2>6. Productos de baja rotación</h2>
+
+${
+productosBajaRotacion.length > 0
+? `
+<div class="card alerta">
+<ul>
+${productosBajaRotacion.map(p => `
+<li><strong>${p.producto}</strong>: ${p.ventas} venta(s)</li>
+`).join("")}
+</ul>
+<p>
+GRUK recomienda revisar foto, precio, descripción, ubicación y posible venta cruzada. Si después de una prueba no mejora, puede estar ocupando espacio visual y capital sin retorno.
+</p>
+</div>
+`
+: `
+<div class="card exito">
+<p>No se detectan productos críticos de baja rotación.</p>
+</div>
+`
+}
+
+<h2>7. Inventario en riesgo</h2>
 
 ${
 inventarioRiesgo.length > 0
 ? `
 <div class="card peligro">
-<p><strong>Productos con alerta:</strong></p>
 <ul>
 ${inventarioRiesgo.map(p => `
 <li>
@@ -2162,18 +2306,18 @@ Días restantes: ${p.diasRestantes}
 `).join("")}
 </ul>
 <p>
-Recomendación: aplicar lógica FEFO: primero en vencer, primero en usarse. Los productos vencidos deben retirarse o revisarse antes de uso.
+Prioridad: usar primero los productos próximos a vencer. Los vencidos deben retirarse o revisarse antes de uso.
 </p>
 </div>
 `
 : `
 <div class="card exito">
-<p>No se detectan productos vencidos o próximos a vencer.</p>
+<p>No hay inventario crítico por vencimiento.</p>
 </div>
 `
 }
 
-<h2>4. Estrategias aplicadas</h2>
+<h2>8. Estrategias aplicadas</h2>
 
 ${
 estrategias.length > 0
@@ -2201,45 +2345,89 @@ ${estrategias.map(e => `
 `
 : `
 <div class="card alerta">
-<p>No hay estrategias aplicadas registradas en este periodo.</p>
+<p>No hay estrategias aplicadas registradas.</p>
 </div>
 `
 }
 
-<h2>5. Diagnóstico ejecutivo GRUK</h2>
+<h2>9. Estrategia de largo plazo GRUK</h2>
 
 <div class="card">
 <p>
-GRUK interpreta el restaurante como un sistema económico: las ventas muestran demanda, el inventario revela eficiencia operativa y las estrategias aplicadas indican la dirección comercial del negocio.
+${diagnosticoGraham}
 </p>
 
 <p>
-La prioridad administrativa debe ser proteger productos de alta rotación, corregir inventario en riesgo y evitar que productos vencidos o de baja salida inmovilicen capital.
+Si el restaurante continúa como está, debe observar tres señales: dependencia excesiva de un producto, acumulación de inventario próximo a vencer y diferencia entre productos que venden mucho y productos que realmente generan caja.
 </p>
 
 <p>
-Si las ventas aumentan pero el inventario se vence, existe crecimiento desordenado. Si el inventario se controla y las estrategias se aplican sobre productos con buena rotación y margen, el restaurante mejora su capacidad de caja.
-</p>
-</div>
-
-<h2>6. Recomendación final</h2>
-
-<div class="card alerta">
-<p>
-Mantener seguimiento periódico. Para el próximo reporte, GRUK recomienda comparar ventas, inventario vencido, productos más vendidos y estrategias aplicadas para detectar si el restaurante está creciendo con rentabilidad o solo con volumen.
+La estrategia recomendada es construir un portafolio balanceado: productos ancla para atraer tráfico, productos estrella para fortalecer caja, productos premium para aumentar ticket y control estricto del inventario para evitar capital muerto.
 </p>
 </div>
 
 <script>
-window.print();
+const labelsTop = ${JSON.stringify(labelsTop)};
+const dataTopVentas = ${JSON.stringify(dataTopVentas)};
+const dataTopDinero = ${JSON.stringify(dataTopDinero)};
+const labelsInventario = ${JSON.stringify(labelsInventario)};
+const dataInventarioDias = ${JSON.stringify(dataInventarioDias)};
+
+new Chart(document.getElementById("graficaTopProductos"), {
+  type: "bar",
+  data: {
+    labels: labelsTop,
+    datasets: [{
+      label: "Cantidad vendida",
+      data: dataTopVentas
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false
+  }
+});
+
+new Chart(document.getElementById("graficaIngresosProductos"), {
+  type: "bar",
+  data: {
+    labels: labelsTop,
+    datasets: [{
+      label: "Ingresos generados",
+      data: dataTopDinero
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false
+  }
+});
+
+new Chart(document.getElementById("graficaInventario"), {
+  type: "bar",
+  data: {
+    labels: labelsInventario,
+    datasets: [{
+      label: "Días restantes para vencer",
+      data: dataInventarioDias
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false
+  }
+});
+
+setTimeout(() => {
+  window.print();
+}, 900);
 </script>
 
 </body>
 </html>
 `;
 
-  const ventana =
-    window.open("", "_blank");
+  const ventana = window.open("", "_blank");
 
   ventana.document.open();
   ventana.document.write(reporte);
