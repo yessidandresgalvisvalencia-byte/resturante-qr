@@ -1401,7 +1401,15 @@ function formatoCOP(valor) {
   return "$" + Math.round(valor).toLocaleString("es-CO");
 }
 
-function normalizarMiles(valor) {
+function normalizarCosto(valor) {
+  const numero = Number(valor);
+
+  if (!numero) return 0;
+
+  return numero;
+}
+
+function normalizarPrecio(valor) {
   const numero = Number(valor);
 
   if (!numero) return 0;
@@ -1416,15 +1424,15 @@ function normalizarMiles(valor) {
 function calcularPrecioInteligente() {
   const producto = document.getElementById("productoPrecio").value.trim();
 
-  const materiaPrima = normalizarMiles(
+  const materiaPrima = normalizarCosto(
     document.getElementById("costoMateriaPrima").value
   );
 
-  const costoOperativo = normalizarMiles(
+  const costoOperativo = normalizarCosto(
     document.getElementById("costoOperativo").value
   );
 
-  const precioActual = normalizarMiles(
+  const precioActual = normalizarPrecio(
     document.getElementById("precioActualVenta").value
   );
 
@@ -1437,6 +1445,19 @@ function calcularPrecioInteligente() {
     return;
   }
 
+  const textoProducto = producto.toLowerCase();
+
+  const esGanchoPorNombre =
+    textoProducto.includes("tinto") ||
+    textoProducto.includes("cafe") ||
+    textoProducto.includes("café") ||
+    textoProducto.includes("agua") ||
+    textoProducto.includes("empanada") ||
+    textoProducto.includes("pan");
+
+  const esProductoGancho =
+    tipo === "ancla" || esGanchoPorNombre;
+
   const costoBase = materiaPrima + costoOperativo;
 
   const costoTrabajo =
@@ -1444,7 +1465,8 @@ function calcularPrecioInteligente() {
     tiempo >= 30 ? 12000 :
     tiempo >= 20 ? 8000 :
     tiempo >= 10 ? 5000 :
-    3000;
+    tiempo >= 5 ? 1500 :
+    500;
 
   const costoTotal = costoBase + costoTrabajo;
 
@@ -1453,9 +1475,9 @@ function calcularPrecioInteligente() {
   let margenPremium = 0.65;
 
   if (tipo === "ancla") {
-    margenMinimo = 0.18;
-    margenRecomendado = 0.30;
-    margenPremium = 0.38;
+    margenMinimo = 0.05;
+    margenRecomendado = 0.18;
+    margenPremium = 0.30;
   }
 
   if (tipo === "estrella") {
@@ -1467,10 +1489,10 @@ function calcularPrecioInteligente() {
   if (tipo === "diamante") {
     margenMinimo = 0.45;
     margenRecomendado = 0.68;
-    margenPremium = 0.95;
+    margenPremium = 0.88;
   }
 
-  if (demanda === "alta") {
+  if (demanda === "alta" && !esProductoGancho) {
     margenRecomendado += 0.05;
     margenPremium += 0.08;
   }
@@ -1480,17 +1502,13 @@ function calcularPrecioInteligente() {
     margenPremium -= 0.10;
   }
 
-  const precioMinimo =
-    Math.round(costoTotal / (1 - margenMinimo));
+  margenMinimo = Math.min(Math.max(margenMinimo, 0.03), 0.85);
+  margenRecomendado = Math.min(Math.max(margenRecomendado, 0.08), 0.88);
+  margenPremium = Math.min(Math.max(margenPremium, 0.12), 0.90);
 
-  const precioRecomendado =
-    Math.round(costoTotal / (1 - margenRecomendado));
-
-  const divisorPremium =
-    Math.max(0.08, 1 - margenPremium);
-
-  const precioPremium =
-    Math.max(0, Math.round(costoTotal / divisorPremium));
+  const precioMinimo = Math.round(costoTotal / (1 - margenMinimo));
+  const precioRecomendado = Math.round(costoTotal / (1 - margenRecomendado));
+  const precioPremium = Math.round(costoTotal / Math.max(0.08, 1 - margenPremium));
 
   const margenActual =
     precioActual > 0
@@ -1521,13 +1539,26 @@ function calcularPrecioInteligente() {
 
     interpretacion = `
       ¡Cuidado! El precio actual de ${formatoCOP(precioActual)}
-      supera exageradamente el límite premium calculado de
-      ${formatoCOP(precioPremium)}.
+      supera exageradamente el límite premium calculado de ${formatoCOP(precioPremium)}.
 
       GRUK detecta una desviación extrema incompatible con el comportamiento normal del mercado.
       Esto probablemente no es una estrategia premium: parece un error de digitación.
+    `;
+  }
 
-      Verifica el número antes de afectar percepción, demanda y credibilidad del restaurante.
+  else if (precioActual < precioMinimo && esProductoGancho) {
+    semaforo = "🔵 Azul — producto gancho subsidiado";
+    decision = "Mantener solo si genera venta cruzada comprobada";
+    accion = "No subir automáticamente. Validar si arrastra compras rentables.";
+
+    interpretacion = `
+      ${producto} está por debajo del precio mínimo sostenible, pero su rol puede ser estratégico.
+      Un producto gancho no existe para ganar mucho por unidad, sino para atraer tráfico, generar hábito y abrir la puerta a productos de mayor margen.
+
+      GRUK no recomienda subirlo de forma automática si está funcionando como imán comercial.
+      La condición es estricta: debe comprobarse que arrastra ventas de productos rentables como repostería, entradas, platos fuertes o combos.
+
+      Si no existe venta cruzada real, el subsidio deja de ser estrategia y se convierte en pérdida.
     `;
   }
 
@@ -1538,16 +1569,11 @@ function calcularPrecioInteligente() {
 
     interpretacion = `
       El precio actual no rescata correctamente el costo de materia prima,
-      operación y tiempo de preparación. Bajo esta estructura, el restaurante
-      está vendiendo por debajo del nivel mínimo necesario para proteger margen.
-
-      GRUK recomienda corregir el precio hoy mismo. No se trata de subir por
-      ambición, sino de evitar que el producto consuma trabajo, inventario y
-      tiempo sin devolver suficiente valor económico.
+      operación y tiempo de preparación.
 
       Alerta de quiebra volumétrica:
-      cada venta de este producto destruye aproximadamente
-      ${formatoCOP(perdidaPorVenta)} de margen operativo.
+      cada venta de este producto destruye aproximadamente ${formatoCOP(perdidaPorVenta)}
+      de margen operativo.
 
       Si el ritmo continúa, el restaurante podría perder más de
       ${formatoCOP(destruccionMensual)} mensuales únicamente por mantener este precio.
@@ -1560,9 +1586,8 @@ function calcularPrecioInteligente() {
     accion = `Mover el precio hacia ${formatoCOP(precioRecomendado)}.`;
 
     interpretacion = `
-      El precio actual ya cubre la base mínima, pero todavía no captura todo el
-      valor económico del producto. Hay espacio para mejorar margen sin romper
-      la lógica comercial, especialmente si el producto tiene buena aceptación.
+      El precio actual cubre el mínimo, pero todavía no captura todo el valor económico del producto.
+      Hay espacio para mejorar margen sin romper la lógica comercial.
     `;
   }
 
@@ -1572,9 +1597,8 @@ function calcularPrecioInteligente() {
     accion = "No subir todavía. Medir aceptación, rotación y recompra.";
 
     interpretacion = `
-      El precio actual está dentro del rango óptimo calculado. Aquí la mejor
-      decisión no es subir por subir, sino defender el equilibrio entre margen,
-      demanda y percepción de valor.
+      El precio actual está dentro del rango óptimo calculado.
+      Aquí la mejor decisión es defender el equilibrio entre margen, demanda y percepción de valor.
     `;
   }
 
@@ -1584,9 +1608,8 @@ function calcularPrecioInteligente() {
     accion = "Mantener solo si la demanda sigue estable y el cliente percibe valor superior.";
 
     interpretacion = `
-      El precio actual supera el rango premium calculado. Puede funcionar solo
-      si existe reputación, presentación fuerte, experiencia superior y demanda sostenida.
-      Si no existen esas condiciones, el precio puede destruir rotación.
+      El precio actual supera el rango premium calculado.
+      Puede funcionar solo si existe reputación, presentación fuerte, experiencia superior y demanda sostenida.
     `;
   }
 
@@ -1596,8 +1619,8 @@ function calcularPrecioInteligente() {
 
       <p><strong>Producto:</strong> ${producto}</p>
 
-      <p><strong>Costo materia prima normalizado:</strong> ${formatoCOP(materiaPrima)}</p>
-      <p><strong>Costo operativo normalizado:</strong> ${formatoCOP(costoOperativo)}</p>
+      <p><strong>Costo materia prima:</strong> ${formatoCOP(materiaPrima)}</p>
+      <p><strong>Costo operativo:</strong> ${formatoCOP(costoOperativo)}</p>
       <p><strong>Costo trabajo/tiempo estimado:</strong> ${formatoCOP(costoTrabajo)}</p>
       <p><strong>Costo total estratégico:</strong> ${formatoCOP(costoTotal)}</p>
 
