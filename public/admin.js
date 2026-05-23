@@ -1912,6 +1912,9 @@ producto.estado === "vencido"
 : "Mantener en inventario. No es prioridad de consumo."
 }
 </p>
+<button onclick="anularInventario('${producto._id}')">
+Anular producto
+</button>
 
 </div>
 
@@ -1928,3 +1931,44 @@ console.log(error);
 }
 
 cargarInventario();
+async function anularInventario(id){
+
+const motivo =
+prompt("Escribe el motivo de anulación:");
+
+if(!motivo){
+alert("Debes escribir un motivo");
+return;
+}
+
+const usuario =
+localStorage.getItem("adminUsuario") || "admin";
+
+const res =
+await fetch(
+`/api/inventario/anular/${id}`,
+{
+method:"PUT",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+motivo,
+usuario
+})
+}
+);
+
+const data =
+await res.json();
+
+if(!data.ok){
+alert(data.error || "No se pudo anular");
+return;
+}
+
+alert("Producto anulado con trazabilidad");
+
+cargarInventario();
+
+}

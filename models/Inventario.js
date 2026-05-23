@@ -50,6 +50,24 @@ prioridad:{
 type:String,
 default:"media"
 },
+anulado:{
+type:Boolean,
+default:false
+},
+
+motivoAnulacion:{
+type:String,
+default:""
+},
+
+fechaAnulacion:{
+type:Date
+},
+
+usuarioAnulacion:{
+type:String,
+default:""
+},
 
 createdAt:{
 type:Date,
