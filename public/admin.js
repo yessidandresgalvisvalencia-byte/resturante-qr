@@ -2041,13 +2041,46 @@ async function generarReporteEjecutivo() {
   console.log("No se pudo cargar ventas:", error);
 }
   const ventasOrdenadas =
-    datosVentas
-      .map(p => ({
-        producto: p.producto || "Producto sin nombre",
-        ventas: Number(p.ventas || 0),
-        totalDinero: Number(p.totalDinero || 0)
-      }))
-      .sort((a, b) => b.ventas - a.ventas);
+  datosVentas
+    .map(p => {
+      const producto =
+        p.producto ||
+        p.nombre ||
+        p.nombreProducto ||
+        "Producto sin nombre";
+
+      const ventas =
+        Number(p.ventas || p.cantidad || p.cantidadVendida || 0);
+
+      const precio =
+        Number(p.precio || p.precioUnitario || p.valorUnitario || 0);
+
+      let totalDinero =
+        Number(p.totalDinero || p.total || p.valorTotal || p.ingresos || 0);
+
+      if (!totalDinero && precio && ventas) {
+        totalDinero = precio * ventas;
+      }
+
+      return {
+        producto,
+        ventas,
+        precio,
+        totalDinero
+      };
+    })
+    .filter(p => {
+      const nombre = p.producto.toLowerCase().trim();
+
+      const esDatoBasura =
+        nombre === "cacac" ||
+        nombre === "test" ||
+        nombre === "prueba" ||
+        nombre.includes("xxxx");
+
+      return !esDatoBasura && p.ventas > 0;
+    })
+    .sort((a, b) => b.ventas - a.ventas);
 
   const productoMasVendido =
     ventasOrdenadas[0] || null;
