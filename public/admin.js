@@ -1447,16 +1447,49 @@ function calcularPrecioInteligente() {
 
   const textoProducto = producto.toLowerCase();
 
-  const esGanchoPorNombre =
+  const esBebidaBasica =
     textoProducto.includes("tinto") ||
     textoProducto.includes("cafe") ||
     textoProducto.includes("café") ||
     textoProducto.includes("agua") ||
-    textoProducto.includes("empanada") ||
-    textoProducto.includes("pan");
+    textoProducto.includes("aromatica") ||
+    textoProducto.includes("aromática");
 
-  const esProductoGancho =
-    tipo === "ancla" || esGanchoPorNombre;
+  const esEntradaBasica =
+    textoProducto.includes("empanada") ||
+    textoProducto.includes("pan") ||
+    textoProducto.includes("arepa") ||
+    textoProducto.includes("papita") ||
+    textoProducto.includes("papas pequeñas") ||
+    textoProducto.includes("entrada");
+
+  const esPostre =
+    textoProducto.includes("postre") ||
+    textoProducto.includes("volcan") ||
+    textoProducto.includes("volcán") ||
+    textoProducto.includes("arequipe") ||
+    textoProducto.includes("brownie") ||
+    textoProducto.includes("torta") ||
+    textoProducto.includes("helado") ||
+    textoProducto.includes("flan");
+
+  const esPlatoFuerte =
+    textoProducto.includes("carne") ||
+    textoProducto.includes("punta") ||
+    textoProducto.includes("anca") ||
+    textoProducto.includes("costilla") ||
+    textoProducto.includes("lomo") ||
+    textoProducto.includes("pollo") ||
+    textoProducto.includes("filete") ||
+    textoProducto.includes("parrilla") ||
+    textoProducto.includes("asado") ||
+    textoProducto.includes("asada");
+
+  const puedeSerGancho =
+    tipo === "ancla" &&
+    (esBebidaBasica || esEntradaBasica) &&
+    !esPostre &&
+    !esPlatoFuerte;
 
   const costoBase = materiaPrima + costoOperativo;
 
@@ -1492,7 +1525,7 @@ function calcularPrecioInteligente() {
     margenPremium = 0.88;
   }
 
-  if (demanda === "alta" && !esProductoGancho) {
+  if (demanda === "alta" && !puedeSerGancho) {
     margenRecomendado += 0.05;
     margenPremium += 0.08;
   }
@@ -1548,17 +1581,36 @@ function calcularPrecioInteligente() {
     `;
   }
 
-  else if (precioActual < costoTotal && esProductoGancho) {
+  else if (precioActual < costoTotal && puedeSerGancho) {
     semaforo = "🔵 Azul — producto gancho subsidiado";
     decision = "Mantener solo si genera venta cruzada comprobada";
     accion = "No subir automáticamente. Validar si arrastra compras rentables.";
 
     interpretacion = `
-      ${producto} está por debajo de su costo total, pero puede cumplir una función estratégica como producto gancho.
+      ${producto} está por debajo de su costo total, pero puede cumplir una función estratégica como producto gancho de entrada.
 
-      Este precio solo tiene sentido si atrae tráfico y empuja compras de mayor margen. Si el cliente compra este producto y además adquiere repostería, entradas, platos fuertes o combos rentables, el subsidio puede justificarse.
+      Este precio solo tiene sentido si atrae tráfico al inicio del consumo y empuja compras de mayor margen: repostería, entradas rentables, platos fuertes, combos o bebidas complementarias.
 
       Si no existe venta cruzada real, el subsidio deja de ser estrategia y se convierte en pérdida.
+    `;
+  }
+
+  else if (precioActual < costoTotal && (esPostre || esPlatoFuerte)) {
+    semaforo = "🔴 Rojo de emergencia — cuello de botella operativo";
+    decision = "Suspender subsidio y subir precio de inmediato";
+    accion = `Subir mínimo hasta ${formatoCOP(precioMinimo)}.`;
+
+    interpretacion = `
+      ¡Alerta de cuello de botella operativo!
+
+      ${producto} no debe tratarse como producto gancho. Los postres y platos fuertes no funcionan como anzuelo de entrada cuando están por debajo del costo: consumen tiempo de cocina, retrasan operación y destruyen margen en una fase crítica del servicio.
+
+      Cada venta destruye aproximadamente ${formatoCOP(perdidaPorVenta)} de margen operativo.
+
+      Si se mantiene esta estructura, el restaurante podría perder más de
+      ${formatoCOP(destruccionMensual)} mensuales por sostener un precio que no rescata materia prima, operación ni tiempo productivo.
+
+      GRUK recomienda suspender el subsidio y corregir el precio hacia el mínimo sostenible de ${formatoCOP(precioMinimo)}.
     `;
   }
 
