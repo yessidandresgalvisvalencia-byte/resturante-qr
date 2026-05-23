@@ -1401,11 +1401,37 @@ function formatoCOP(valor) {
   return "$" + Math.round(valor).toLocaleString("es-CO");
 }
 
+function formatoCOP(valor) {
+  return "$" + Math.round(valor).toLocaleString("es-CO");
+}
+
+function normalizarMiles(valor) {
+  const numero = Number(valor);
+
+  if (!numero) return 0;
+
+  if (numero > 0 && numero < 1000) {
+    return numero * 1000;
+  }
+
+  return numero;
+}
+
 function calcularPrecioInteligente() {
   const producto = document.getElementById("productoPrecio").value.trim();
-  const materiaPrima = Number(document.getElementById("costoMateriaPrima").value);
-  const costoOperativo = Number(document.getElementById("costoOperativo").value);
-  const precioActual = Number(document.getElementById("precioActualVenta").value);
+
+  const materiaPrima = normalizarMiles(
+    document.getElementById("costoMateriaPrima").value
+  );
+
+  const costoOperativo = normalizarMiles(
+    document.getElementById("costoOperativo").value
+  );
+
+  const precioActual = normalizarMiles(
+    document.getElementById("precioActualVenta").value
+  );
+
   const tiempo = Number(document.getElementById("tiempoPreparacion").value);
   const tipo = document.getElementById("tipoProductoPrecio").value;
   const demanda = document.getElementById("demandaProducto").value;
@@ -1415,7 +1441,16 @@ function calcularPrecioInteligente() {
     return;
   }
 
-  const costoTotal = materiaPrima + costoOperativo;
+  const costoBase = materiaPrima + costoOperativo;
+
+  const costoTrabajo =
+    tiempo >= 45 ? 18000 :
+    tiempo >= 30 ? 12000 :
+    tiempo >= 20 ? 8000 :
+    tiempo >= 10 ? 5000 :
+    3000;
+
+  const costoTotal = costoBase + costoTrabajo;
 
   let margenMinimo = 0.25;
   let margenRecomendado = 0.45;
@@ -1459,43 +1494,53 @@ function calcularPrecioInteligente() {
       : 0;
 
   let semaforo = "";
-  let interpretacion = "";
   let decision = "";
   let accion = "";
+  let interpretacion = "";
 
   if (precioActual < precioMinimo) {
-    semaforo = "🔴 Precio en pérdida o demasiado débil";
-    decision = "Subir precio de forma prioritaria";
+    semaforo = "🔴 Rojo de emergencia — precio por debajo del mínimo sostenible";
+    decision = "Subir precio de forma inmediata";
     accion = `Subir mínimo hasta ${formatoCOP(precioMinimo)}.`;
+
     interpretacion = `
-      El precio actual está por debajo del umbral mínimo sostenible.
-      El restaurante está vendiendo sin margen de seguridad suficiente.
-      Aquí no se debe competir por volumen: primero hay que proteger la caja.
+      El precio actual no rescata correctamente el costo de materia prima,
+      operación y tiempo de preparación. Bajo esta estructura, el restaurante
+      está vendiendo por debajo del nivel mínimo necesario para proteger margen.
+
+      GRUK recomienda corregir el precio de inmediato. No se trata de subir por
+      ambición, sino de evitar que el producto consuma trabajo, inventario y
+      tiempo sin devolver suficiente valor económico.
     `;
   } else if (precioActual >= precioMinimo && precioActual < precioRecomendado) {
-    semaforo = "🟡 Precio conservador";
+    semaforo = "🟡 Amarillo — precio conservador";
     decision = "Subir gradualmente";
     accion = `Mover el precio hacia ${formatoCOP(precioRecomendado)}.`;
+
     interpretacion = `
-      El precio actual cubre costos, pero todavía deja dinero sobre la mesa.
-      Hay margen para subir sin romper la lógica comercial, especialmente si el producto tiene buena demanda.
+      El precio actual ya cubre la base mínima, pero todavía no captura todo el
+      valor económico del producto. Hay espacio para mejorar margen sin romper
+      la lógica comercial, especialmente si el producto tiene buena aceptación.
     `;
   } else if (precioActual >= precioRecomendado && precioActual <= precioPremium) {
-    semaforo = "🟢 Precio óptimo";
+    semaforo = "🟢 Verde — precio estratégicamente sano";
     decision = "Mantener y medir";
     accion = "No subir todavía. Medir aceptación, rotación y recompra.";
+
     interpretacion = `
-      El precio actual está dentro del rango estratégico.
-      Subirlo sin nueva evidencia podría afectar demanda.
-      En este punto conviene proteger el equilibrio entre margen y mercado.
+      El precio actual está dentro del rango óptimo calculado. Aquí la mejor
+      decisión no es subir por subir, sino defender el equilibrio entre margen,
+      demanda y percepción de valor.
     `;
   } else {
-    semaforo = "🟣 Precio premium alto";
+    semaforo = "🟣 Morado — precio premium alto";
     decision = "Validar percepción de valor";
     accion = "Mantener solo si la demanda sigue estable y el cliente percibe valor superior.";
+
     interpretacion = `
-      El precio actual supera el rango premium calculado.
-      Esto no es necesariamente malo, pero exige validación: buena foto, marca fuerte, experiencia superior y demanda sostenida.
+      El precio actual supera el rango premium calculado. Puede funcionar si el
+      producto tiene reputación, presentación fuerte y demanda sostenida. Si no,
+      existe riesgo de perder rotación.
     `;
   }
 
@@ -1504,7 +1549,12 @@ function calcularPrecioInteligente() {
       <h3>Diagnóstico estratégico de precio</h3>
 
       <p><strong>Producto:</strong> ${producto}</p>
-      <p><strong>Costo total estimado:</strong> ${formatoCOP(costoTotal)}</p>
+
+      <p><strong>Costo materia prima normalizado:</strong> ${formatoCOP(materiaPrima)}</p>
+      <p><strong>Costo operativo normalizado:</strong> ${formatoCOP(costoOperativo)}</p>
+      <p><strong>Costo trabajo/tiempo estimado:</strong> ${formatoCOP(costoTrabajo)}</p>
+      <p><strong>Costo total estratégico:</strong> ${formatoCOP(costoTotal)}</p>
+
       <p><strong>Precio actual:</strong> ${formatoCOP(precioActual)}</p>
 
       <p><strong>Precio mínimo sostenible:</strong> ${formatoCOP(precioMinimo)}</p>
