@@ -1515,6 +1515,8 @@ function calcularPrecioInteligente() {
       ? ((precioActual - costoTotal) / precioActual) * 100
       : 0;
 
+  const utilidadActual = precioActual - costoTotal;
+
   const desviacionPremium =
     precioPremium > 0 ? precioActual / precioPremium : 999;
 
@@ -1546,37 +1548,46 @@ function calcularPrecioInteligente() {
     `;
   }
 
-  else if (precioActual < precioMinimo && esProductoGancho) {
+  else if (precioActual < costoTotal && esProductoGancho) {
     semaforo = "🔵 Azul — producto gancho subsidiado";
     decision = "Mantener solo si genera venta cruzada comprobada";
     accion = "No subir automáticamente. Validar si arrastra compras rentables.";
 
     interpretacion = `
-      ${producto} está por debajo del precio mínimo sostenible, pero su rol puede ser estratégico.
-      Un producto gancho no existe para ganar mucho por unidad, sino para atraer tráfico, generar hábito y abrir la puerta a productos de mayor margen.
+      ${producto} está por debajo de su costo total, pero puede cumplir una función estratégica como producto gancho.
 
-      GRUK no recomienda subirlo de forma automática si está funcionando como imán comercial.
-      La condición es estricta: debe comprobarse que arrastra ventas de productos rentables como repostería, entradas, platos fuertes o combos.
+      Este precio solo tiene sentido si atrae tráfico y empuja compras de mayor margen. Si el cliente compra este producto y además adquiere repostería, entradas, platos fuertes o combos rentables, el subsidio puede justificarse.
 
       Si no existe venta cruzada real, el subsidio deja de ser estrategia y se convierte en pérdida.
     `;
   }
 
-  else if (precioActual < precioMinimo) {
-    semaforo = "🔴 Rojo de emergencia — precio por debajo del mínimo sostenible";
+  else if (precioActual < costoTotal) {
+    semaforo = "🔴 Rojo de emergencia — pérdida real por unidad";
     decision = "Subir precio de forma inmediata";
     accion = `Subir mínimo hasta ${formatoCOP(precioMinimo)}.`;
 
     interpretacion = `
-      El precio actual no rescata correctamente el costo de materia prima,
-      operación y tiempo de preparación.
+      El precio actual está por debajo del costo total estratégico. Aquí sí existe pérdida real por unidad.
 
-      Alerta de quiebra volumétrica:
-      cada venta de este producto destruye aproximadamente ${formatoCOP(perdidaPorVenta)}
-      de margen operativo.
+      Cada venta destruye aproximadamente ${formatoCOP(perdidaPorVenta)} de margen operativo.
 
       Si el ritmo continúa, el restaurante podría perder más de
       ${formatoCOP(destruccionMensual)} mensuales únicamente por mantener este precio.
+    `;
+  }
+
+  else if (precioActual >= costoTotal && precioActual < precioMinimo) {
+    semaforo = "🟡 Amarillo — cubre costos, pero no genera utilidad suficiente";
+    decision = "Subir gradualmente hacia una utilidad real";
+    accion = `Mover el precio hacia ${formatoCOP(precioRecomendado)}.`;
+
+    interpretacion = `
+      El precio actual de ${formatoCOP(precioActual)} cubre los costos básicos y deja una utilidad aproximada de ${formatoCOP(utilidadActual)} por unidad, equivalente a un margen estimado de ${margenActual.toFixed(1)}%.
+
+      Sin embargo, sigue por debajo del mínimo sostenible calculado de ${formatoCOP(precioMinimo)}. Esto significa que el producto no está quebrando al restaurante, pero trabaja casi únicamente para pagar materia prima, operación y tiempo.
+
+      GRUK recomienda subir gradualmente hacia ${formatoCOP(precioRecomendado)} para que el plato deje de estar en zona de supervivencia y empiece a producir utilidad real.
     `;
   }
 
@@ -1586,8 +1597,9 @@ function calcularPrecioInteligente() {
     accion = `Mover el precio hacia ${formatoCOP(precioRecomendado)}.`;
 
     interpretacion = `
-      El precio actual cubre el mínimo, pero todavía no captura todo el valor económico del producto.
-      Hay espacio para mejorar margen sin romper la lógica comercial.
+      El precio actual ya supera el mínimo sostenible, pero todavía no captura todo el valor económico del producto.
+
+      Hay espacio para mejorar margen sin romper la lógica comercial, especialmente si el producto tiene buena aceptación.
     `;
   }
 
@@ -1598,7 +1610,8 @@ function calcularPrecioInteligente() {
 
     interpretacion = `
       El precio actual está dentro del rango óptimo calculado.
-      Aquí la mejor decisión es defender el equilibrio entre margen, demanda y percepción de valor.
+
+      Aquí la mejor decisión no es subir por subir, sino defender el equilibrio entre margen, demanda y percepción de valor.
     `;
   }
 
@@ -1609,7 +1622,8 @@ function calcularPrecioInteligente() {
 
     interpretacion = `
       El precio actual supera el rango premium calculado.
-      Puede funcionar solo si existe reputación, presentación fuerte, experiencia superior y demanda sostenida.
+
+      Puede funcionar solo si existe reputación, presentación fuerte, experiencia superior y demanda sostenida. Si no existen esas condiciones, el precio puede destruir rotación.
     `;
   }
 
@@ -1625,6 +1639,7 @@ function calcularPrecioInteligente() {
       <p><strong>Costo total estratégico:</strong> ${formatoCOP(costoTotal)}</p>
 
       <p><strong>Precio actual:</strong> ${formatoCOP(precioActual)}</p>
+      <p><strong>Utilidad actual por unidad:</strong> ${formatoCOP(utilidadActual)}</p>
 
       <p><strong>Precio mínimo sostenible:</strong> ${formatoCOP(precioMinimo)}</p>
       <p><strong>Precio rentable recomendado:</strong> ${formatoCOP(precioRecomendado)}</p>
