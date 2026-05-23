@@ -2007,15 +2007,39 @@ async function generarReporteEjecutivo() {
   }
 
   try {
-    const resVentas = await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
+  let resVentas = await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
 
-    if (resVentas.ok) {
-      datosVentas = await resVentas.json();
-    }
-  } catch (error) {
-    console.log("No se pudo cargar ventas:", error);
+  if (!resVentas.ok) {
+    resVentas = await fetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
   }
 
+  if (resVentas.ok) {
+    datosVentas = await resVentas.json();
+  }
+
+  if (!Array.isArray(datosVentas) || datosVentas.length === 0) {
+    const topProductosDOM = document.querySelectorAll("#topProductos .card");
+
+    datosVentas = Array.from(topProductosDOM).map(card => {
+      const texto = card.innerText;
+
+      return {
+        producto:
+          card.querySelector("h3")?.innerText ||
+          texto.split("\n")[0] ||
+          "Producto sin nombre",
+
+        ventas:
+          Number((texto.match(/\d+/) || [0])[0]),
+
+        totalDinero: 0
+      };
+    });
+  }
+
+} catch (error) {
+  console.log("No se pudo cargar ventas:", error);
+}
   const ventasOrdenadas =
     datosVentas
       .map(p => ({
