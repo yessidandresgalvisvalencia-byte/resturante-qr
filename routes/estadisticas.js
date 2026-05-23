@@ -5,7 +5,10 @@ const Pedido = require("../models/pedido");
 
 router.get("/pareto", async (req, res) => {
   try {
-    const restaurantId = req.query.restaurantId || req.query.restaurant || "rest1";
+    const restaurantId =
+      req.query.restaurantId ||
+      req.query.restaurant ||
+      "rest1";
 
     const datos = await Pedido.aggregate([
       {
@@ -14,10 +17,23 @@ router.get("/pareto", async (req, res) => {
         }
       },
       {
+        $addFields: {
+          precioNumerico: {
+            $convert: {
+              input: "$precio",
+              to: "double",
+              onError: 0,
+              onNull: 0
+            }
+          }
+        }
+      },
+      {
         $group: {
           _id: "$producto",
           ventas: { $sum: 1 },
-          totalDinero: { $sum: "$precio" }
+          precioPromedio: { $avg: "$precioNumerico" },
+          totalDinero: { $sum: "$precioNumerico" }
         }
       },
       {
@@ -25,18 +41,32 @@ router.get("/pareto", async (req, res) => {
           _id: 0,
           producto: "$_id",
           ventas: 1,
-          totalDinero: 1
+          precioPromedio: { $round: ["$precioPromedio", 0] },
+          totalDinero: { $round: ["$totalDinero", 0] }
         }
       },
       {
-        $sort: { ventas: -1 }
+        $match: {
+          producto: {
+            $nin: ["CACAC", "test", "prueba", "TEST", "Prueba"]
+          }
+        }
+      },
+      {
+        $sort: {
+          ventas: -1
+        }
       }
     ]);
 
     res.json(datos);
+
   } catch (error) {
     console.error("Error en estadísticas:", error);
-    res.status(500).json({ error: "Error obteniendo estadísticas" });
+
+    res.status(500).json({
+      error: "Error obteniendo estadísticas"
+    });
   }
 });
 
