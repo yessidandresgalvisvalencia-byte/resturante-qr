@@ -1401,10 +1401,6 @@ function formatoCOP(valor) {
   return "$" + Math.round(valor).toLocaleString("es-CO");
 }
 
-function formatoCOP(valor) {
-  return "$" + Math.round(valor).toLocaleString("es-CO");
-}
-
 function normalizarMiles(valor) {
   const numero = Number(valor);
 
@@ -1484,21 +1480,58 @@ function calcularPrecioInteligente() {
     margenPremium -= 0.10;
   }
 
-  const precioMinimo = Math.round(costoTotal / (1 - margenMinimo));
-  const precioRecomendado = Math.round(costoTotal / (1 - margenRecomendado));
-  const precioPremium = Math.round(costoTotal / (1 - margenPremium));
+  const precioMinimo =
+    Math.round(costoTotal / (1 - margenMinimo));
+
+  const precioRecomendado =
+    Math.round(costoTotal / (1 - margenRecomendado));
+
+  const divisorPremium =
+    Math.max(0.08, 1 - margenPremium);
+
+  const precioPremium =
+    Math.max(0, Math.round(costoTotal / divisorPremium));
 
   const margenActual =
     precioActual > 0
       ? ((precioActual - costoTotal) / precioActual) * 100
       : 0;
 
+  const desviacionPremium =
+    precioPremium > 0 ? precioActual / precioPremium : 999;
+
+  const posibleErrorDigitacion =
+    desviacionPremium >= 5;
+
+  const perdidaPorVenta =
+    Math.max(0, costoTotal - precioActual);
+
+  const destruccionMensual =
+    perdidaPorVenta * 30;
+
   let semaforo = "";
   let decision = "";
   let accion = "";
   let interpretacion = "";
 
-  if (precioActual < precioMinimo) {
+  if (posibleErrorDigitacion) {
+    semaforo = "⚠️ Alerta crítica de digitación";
+    decision = "Revisar inmediatamente el precio ingresado";
+    accion = "El precio actual parece contener ceros adicionales o un error humano.";
+
+    interpretacion = `
+      ¡Cuidado! El precio actual de ${formatoCOP(precioActual)}
+      supera exageradamente el límite premium calculado de
+      ${formatoCOP(precioPremium)}.
+
+      GRUK detecta una desviación extrema incompatible con el comportamiento normal del mercado.
+      Esto probablemente no es una estrategia premium: parece un error de digitación.
+
+      Verifica el número antes de afectar percepción, demanda y credibilidad del restaurante.
+    `;
+  }
+
+  else if (precioActual < precioMinimo) {
     semaforo = "🔴 Rojo de emergencia — precio por debajo del mínimo sostenible";
     decision = "Subir precio de forma inmediata";
     accion = `Subir mínimo hasta ${formatoCOP(precioMinimo)}.`;
@@ -1508,11 +1541,20 @@ function calcularPrecioInteligente() {
       operación y tiempo de preparación. Bajo esta estructura, el restaurante
       está vendiendo por debajo del nivel mínimo necesario para proteger margen.
 
-      GRUK recomienda corregir el precio de inmediato. No se trata de subir por
+      GRUK recomienda corregir el precio hoy mismo. No se trata de subir por
       ambición, sino de evitar que el producto consuma trabajo, inventario y
       tiempo sin devolver suficiente valor económico.
+
+      Alerta de quiebra volumétrica:
+      cada venta de este producto destruye aproximadamente
+      ${formatoCOP(perdidaPorVenta)} de margen operativo.
+
+      Si el ritmo continúa, el restaurante podría perder más de
+      ${formatoCOP(destruccionMensual)} mensuales únicamente por mantener este precio.
     `;
-  } else if (precioActual >= precioMinimo && precioActual < precioRecomendado) {
+  }
+
+  else if (precioActual >= precioMinimo && precioActual < precioRecomendado) {
     semaforo = "🟡 Amarillo — precio conservador";
     decision = "Subir gradualmente";
     accion = `Mover el precio hacia ${formatoCOP(precioRecomendado)}.`;
@@ -1522,7 +1564,9 @@ function calcularPrecioInteligente() {
       valor económico del producto. Hay espacio para mejorar margen sin romper
       la lógica comercial, especialmente si el producto tiene buena aceptación.
     `;
-  } else if (precioActual >= precioRecomendado && precioActual <= precioPremium) {
+  }
+
+  else if (precioActual >= precioRecomendado && precioActual <= precioPremium) {
     semaforo = "🟢 Verde — precio estratégicamente sano";
     decision = "Mantener y medir";
     accion = "No subir todavía. Medir aceptación, rotación y recompra.";
@@ -1532,15 +1576,17 @@ function calcularPrecioInteligente() {
       decisión no es subir por subir, sino defender el equilibrio entre margen,
       demanda y percepción de valor.
     `;
-  } else {
+  }
+
+  else {
     semaforo = "🟣 Morado — precio premium alto";
     decision = "Validar percepción de valor";
     accion = "Mantener solo si la demanda sigue estable y el cliente percibe valor superior.";
 
     interpretacion = `
-      El precio actual supera el rango premium calculado. Puede funcionar si el
-      producto tiene reputación, presentación fuerte y demanda sostenida. Si no,
-      existe riesgo de perder rotación.
+      El precio actual supera el rango premium calculado. Puede funcionar solo
+      si existe reputación, presentación fuerte, experiencia superior y demanda sostenida.
+      Si no existen esas condiciones, el precio puede destruir rotación.
     `;
   }
 
