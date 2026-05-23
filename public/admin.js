@@ -1869,9 +1869,11 @@ ${producto.proveedor}
 
 <p>
 <strong>Vence:</strong>
-${new Date(
+${
 producto.fechaVencimiento
-).toLocaleDateString()}
+? producto.fechaVencimiento.split("T")[0]
+: ""
+}
 </p>
 
 <p style="color:${color};font-weight:900;">

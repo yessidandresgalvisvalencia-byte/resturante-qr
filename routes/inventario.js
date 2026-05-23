@@ -42,12 +42,14 @@ restaurantId:req.params.restaurantId
 });
 
 const hoy = new Date();
+hoy.setHours(0, 0, 0, 0);
 
 const productosProcesados =
 productos.map(producto=>{
 
 const vencimiento =
 new Date(producto.fechaVencimiento);
+vencimiento.setHours(0, 0, 0, 0);
 
 const diferencia =
 vencimiento - hoy;
