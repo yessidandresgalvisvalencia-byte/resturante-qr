@@ -506,6 +506,7 @@ imagen,
 tiempoBase,
 disponible
 };
+console.log("PAYLOAD PRODUCTO:", payload);
 
 if (productoEnEdicion) {
 res = await fetch(`/api/menu/${productoEnEdicion}?restaurantId=${restaurantId}`, {
