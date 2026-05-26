@@ -1974,9 +1974,14 @@ cargarInventario();
 }
 async function generarReporteEjecutivo() {
   const restaurantId =
-    localStorage.getItem("adminRestaurantId") ||
-    new URLSearchParams(window.location.search).get("restaurantId");
+  new URLSearchParams(window.location.search).get("restaurantId") ||
+  localStorage.getItem("adminRestaurantId") ||
+  "rest1";
 
+console.log(
+  "REPORTE restaurantId:",
+  restaurantId
+);
   const periodo =
     document.getElementById("periodoReporte")?.value || "mensual";
 
