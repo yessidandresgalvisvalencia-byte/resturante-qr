@@ -29,47 +29,58 @@ router.get("/pareto", async (req, res) => {
       const clave = normalizar(item.nombre);
 
       mapaMenu[clave] = {
-        nombreOriginal: item.nombre,
-        categoria: item.categoria || "",
-        precioUnitarioActual: Number(item.precio || 0)
-      };
+  nombreOriginal: item.nombre,
+  categoria: item.categoria || "",
+  precioUnitarioActual: Number(item.precio || 0),
+  costoMateriaPrimaUnitario: Number(item.costoMateriaPrima || 0)
+};
     });
 
-    const acumulado = {};
+   const acumulado = {};
 
-    pedidos.forEach(pedido => {
-      const nombrePedido =
-        pedido.producto ||
-        pedido.nombreProducto ||
-        pedido.nombre ||
-        "Producto sin nombre";
+pedidos.forEach(pedido => {
+  const nombrePedido =
+    pedido.producto ||
+    pedido.nombreProducto ||
+    pedido.nombre ||
+    "Producto sin nombre";
 
-      const clave = normalizar(nombrePedido);
+  const clave = normalizar(nombrePedido);
 
-      const productoMenu = mapaMenu[clave];
+  const productoMenu = mapaMenu[clave];
 
-      const nombreFinal =
-        productoMenu?.nombreOriginal || nombrePedido;
+  const nombreFinal =
+    productoMenu?.nombreOriginal || nombrePedido;
 
-      const categoria =
-        productoMenu?.categoria || "";
+  const categoria =
+    productoMenu?.categoria || "";
 
-      const precioUnitarioActual =
-        productoMenu?.precioUnitarioActual || 0;
+  const precioUnitarioActual =
+    productoMenu?.precioUnitarioActual || 0;
 
-      if (!acumulado[clave]) {
-        acumulado[clave] = {
-          producto: nombreFinal,
-          categoria,
-          precioUnitarioActual,
-          ventas: 0,
-          totalCalculado: 0
-        };
-      }
+  const costoMateriaPrimaUnitario =
+    productoMenu?.costoMateriaPrimaUnitario || 0;
 
-      acumulado[clave].ventas += 1;
-      acumulado[clave].totalCalculado += precioUnitarioActual;
-    });
+  if (!acumulado[clave]) {
+    acumulado[clave] = {
+      producto: nombreFinal,
+      categoria,
+      precioUnitarioActual,
+
+      costoMateriaPrimaUnitario,
+      costoMateriaPrimaTotal: 0,
+
+      ventas: 0,
+      totalCalculado: 0
+    };
+  }
+
+  acumulado[clave].ventas += 1;
+  acumulado[clave].totalCalculado += precioUnitarioActual;
+
+  acumulado[clave].costoMateriaPrimaTotal +=
+    costoMateriaPrimaUnitario;
+});
 
     const datos = Object.values(acumulado)
       .filter(p => {

@@ -2062,17 +2062,29 @@ async function generarReporteEjecutivo() {
   }
 
   const ventasOrdenadas =
-    datosVentas
-      .map(p => ({
-        producto: p.producto || "Producto sin nombre",
-        categoria: p.categoria || "",
-        precioUnitarioActual: Number(p.precioUnitarioActual || 0),
-        ventas: Number(p.ventas || 0),
-        totalDinero: Number(p.totalCalculado || 0)
-      }))
-      .filter(p => p.ventas > 0)
-      .sort((a, b) => b.ventas - a.ventas);
+  datosVentas
+    .map(p => ({
+      producto: p.producto || "Producto sin nombre",
 
+      categoria: p.categoria || "",
+
+      precioUnitarioActual:
+        Number(p.precioUnitarioActual || 0),
+
+      costoMateriaPrimaUnitario:
+        Number(p.costoMateriaPrimaUnitario || 0),
+
+      costoMateriaPrimaTotal:
+        Number(p.costoMateriaPrimaTotal || 0),
+
+      ventas:
+        Number(p.ventas || 0),
+
+      totalDinero:
+        Number(p.totalCalculado || 0)
+    }))
+    .filter(p => p.ventas > 0)
+    .sort((a, b) => b.ventas - a.ventas);
   const productoMasVendido =
     ventasOrdenadas[0] || null;
 
@@ -2082,17 +2094,11 @@ async function generarReporteEjecutivo() {
   const totalDineroReporte =
     ventasOrdenadas.reduce((acc, p) => acc + p.totalDinero, 0);
     const costosMateriaPrima =
-  inventario.reduce((acc, p) => {
-
-    const cantidad =
-      Number(p.cantidad || 0);
-
-    const costo =
-      Number(p.costo || 0);
-
-    return acc + (cantidad * costo);
-
-  }, 0);
+  ventasOrdenadas.reduce(
+    (acc, p) =>
+      acc + Number(p.costoMateriaPrimaTotal || 0),
+    0
+  );
 
 const utilidadNeta =
   totalDineroReporte -
