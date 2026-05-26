@@ -2018,23 +2018,7 @@ async function generarReporteEjecutivo() {
 
   const totalGastos =
     gastos.reduce((acc, g) => acc + Number(g.valor || 0), 0);
-const costosMateriaPrima =
-  inventario.reduce((acc, p) => {
 
-    const cantidad =
-      Number(p.cantidad || 0);
-
-    const costo =
-      Number(p.costo || 0);
-
-    return acc + (cantidad * costo);
-
-  }, 0);
-
-const utilidadNeta =
-  totalDineroReporte -
-  totalGastos -
-  costosMateriaPrima;
   let inventario = [];
   let datosVentas = [];
 
@@ -2089,6 +2073,23 @@ const utilidadNeta =
 
   const totalDineroReporte =
     ventasOrdenadas.reduce((acc, p) => acc + p.totalDinero, 0);
+    const costosMateriaPrima =
+  inventario.reduce((acc, p) => {
+
+    const cantidad =
+      Number(p.cantidad || 0);
+
+    const costo =
+      Number(p.costo || 0);
+
+    return acc + (cantidad * costo);
+
+  }, 0);
+
+const utilidadNeta =
+  totalDineroReporte -
+  totalGastos -
+  costosMateriaPrima;
 
   const ticketPromedio =
     totalPedidosReporte > 0
