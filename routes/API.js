@@ -185,6 +185,7 @@ const {
 nombre,
 descripcion,
 precio,
+costoMateriaPrima,
 categoria,
 guarniciones,
 extras,
@@ -201,6 +202,8 @@ const productoActualizado = await Menu.findOneAndUpdate(
 nombre,
 descripcion: descripcion || "",
 precio: Number(precio),
+costoMateriaPrima:
+Number(costoMateriaPrima || 0),
 categoria,
 guarniciones: Array.isArray(guarniciones) ? guarniciones : [],
 extras: Array.isArray(extras) ? extras : [],

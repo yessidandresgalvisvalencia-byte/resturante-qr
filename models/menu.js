@@ -16,6 +16,10 @@ nombre: { type: String, required: true },
 descripcion: { type: String, default: "" },
 
 precio: { type: Number, required: true },
+costoMateriaPrima:{
+type:Number,
+default:0
+},
 categoria: { type: String, required: true },
 
 guarniciones: {
