@@ -199,17 +199,33 @@ const Menu = require("../models/menu");
 const productoActualizado = await Menu.findOneAndUpdate(
 { restaurantId, id },
 {
+$set: {
 nombre,
 descripcion: descripcion || "",
 precio: Number(precio),
+
 costoMateriaPrima:
 Number(costoMateriaPrima || 0),
+
 categoria,
-guarniciones: Array.isArray(guarniciones) ? guarniciones : [],
-extras: Array.isArray(extras) ? extras : [],
+
+guarniciones: Array.isArray(guarniciones)
+? guarniciones
+: [],
+
+extras: Array.isArray(extras)
+? extras
+: [],
+
 imagen,
-tiempoBase: Number(tiempoBase || 10),
-disponible: disponible === true || disponible === "true"
+
+tiempoBase:
+Number(tiempoBase || 10),
+
+disponible:
+disponible === true ||
+disponible === "true"
+}
 },
 { new: true }
 );
