@@ -1396,7 +1396,25 @@ function analizarGasto() {
       </p>
     </div>
   `;
+  const gastosGuardados =
+  JSON.parse(localStorage.getItem(`gastos_${restaurantId}`)) || [];
+
+gastosGuardados.push({
+  nombre,
+  valor,
+  categoria,
+  impacto,
+  objetivo,
+  observacion,
+  fecha: new Date().toISOString()
+});
+
+localStorage.setItem(
+  `gastos_${restaurantId}`,
+  JSON.stringify(gastosGuardados)
+);
 }
+
 function formatoCOP(valor) {
   return "$" + Math.round(valor).toLocaleString("es-CO");
 }
@@ -1974,14 +1992,12 @@ cargarInventario();
 }
 async function generarReporteEjecutivo() {
   const restaurantId =
-  new URLSearchParams(window.location.search).get("restaurantId") ||
-  localStorage.getItem("adminRestaurantId") ||
-  "rest1";
+    new URLSearchParams(window.location.search).get("restaurantId") ||
+    localStorage.getItem("adminRestaurantId") ||
+    "rest1";
 
-console.log(
-  "REPORTE restaurantId:",
-  restaurantId
-);
+  console.log("REPORTE restaurantId:", restaurantId);
+
   const periodo =
     document.getElementById("periodoReporte")?.value || "mensual";
 
@@ -1996,6 +2012,12 @@ console.log(
 
   const estrategias =
     JSON.parse(localStorage.getItem(`estrategias_${restaurantId}`)) || [];
+
+  const gastos =
+    JSON.parse(localStorage.getItem(`gastos_${restaurantId}`)) || [];
+
+  const totalGastos =
+    gastos.reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
   let inventario = [];
   let datosVentas = [];
@@ -2012,51 +2034,36 @@ console.log(
   }
 
   try {
+    let resVentas =
+      await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
 
-  let resVentas =
-    await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
+    if (!resVentas.ok) {
+      resVentas =
+        await fetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
+    }
 
-  if (!resVentas.ok) {
+    if (resVentas.ok) {
+      datosVentas = await resVentas.json();
+    } else {
+      datosVentas = [];
+    }
 
-    resVentas =
-      await fetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
-
-  }
-
-  if (resVentas.ok) {
-
-    datosVentas =
-      await resVentas.json();
-
-  } else {
-
+  } catch (error) {
+    console.log("No se pudo cargar ventas:", error);
     datosVentas = [];
-
   }
 
-} catch (error) {
-
-  console.log(
-    "No se pudo cargar ventas:",
-    error
-  );
-
-  datosVentas = [];
-}
-
-
-
-const ventasOrdenadas =
-  datosVentas
-    .map(p => ({
-      producto: p.producto || "Producto sin nombre",
-      categoria: p.categoria || "",
-      precioUnitarioActual: Number(p.precioUnitarioActual || 0),
-      ventas: Number(p.ventas || 0),
-      totalDinero: Number(p.totalCalculado || 0)
-    }))
-    .filter(p => p.ventas > 0)
-    .sort((a, b) => b.ventas - a.ventas);
+  const ventasOrdenadas =
+    datosVentas
+      .map(p => ({
+        producto: p.producto || "Producto sin nombre",
+        categoria: p.categoria || "",
+        precioUnitarioActual: Number(p.precioUnitarioActual || 0),
+        ventas: Number(p.ventas || 0),
+        totalDinero: Number(p.totalCalculado || 0)
+      }))
+      .filter(p => p.ventas > 0)
+      .sort((a, b) => b.ventas - a.ventas);
 
   const productoMasVendido =
     ventasOrdenadas[0] || null;
@@ -2126,7 +2133,7 @@ const ventasOrdenadas =
       : "El inventario no muestra alertas críticas de vencimiento. Esto indica una operación más controlada y menor riesgo de desperdicio.";
 
   const diagnosticoGraham =
-    `Desde una lógica de largo plazo, GRUK recomienda no tomar decisiones solo por volumen de ventas. El restaurante debe proteger su margen de seguridad: vender más solo es sano si aumenta caja real, controla inventario y evita productos que roten mucho pero dejen poca utilidad.`;
+    `Desde una lógica de largo plazo, GRUK recomienda no tomar decisiones solo por volumen de ventas. El restaurante debe proteger su margen de seguridad: vender más solo es sano si aumenta caja real, controla inventario, administra gastos y evita productos que roten mucho pero dejen poca utilidad.`;
 
   const reporte = `
 <!DOCTYPE html>
@@ -2134,7 +2141,6 @@ const ventasOrdenadas =
 <head>
 <meta charset="UTF-8">
 <title>Reporte Ejecutivo GRUK</title>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -2291,30 +2297,16 @@ Si los productos próximos a vencer aumentan, el restaurante está inmovilizando
 <tbody>
 ${
 productosTop.length > 0
-
-?
-
-productosTop.map(p => `
+? productosTop.map(p => `
 <tr>
 <td>${p.producto}</td>
-
 <td>${p.categoria}</td>
-
-<td>
-$${p.precioUnitarioActual.toLocaleString("es-CO")}
-</td>
-
+<td>$${p.precioUnitarioActual.toLocaleString("es-CO")}</td>
 <td>${p.ventas}</td>
-
-<td>
-$${p.totalDinero.toLocaleString("es-CO")}
-</td>
+<td>$${p.totalDinero.toLocaleString("es-CO")}</td>
 </tr>
 `).join("")
-
-:
-
-`
+: `
 <tr>
 <td colspan="5">
 No hay datos disponibles.
@@ -2408,7 +2400,51 @@ ${estrategias.map(e => `
 `
 }
 
-<h2>9. Estrategia de largo plazo GRUK</h2>
+<h2>9. Control de gasto</h2>
+
+${
+gastos.length > 0
+? `
+<table>
+<thead>
+<tr>
+<th>Gasto</th>
+<th>Categoría</th>
+<th>Valor</th>
+<th>Objetivo</th>
+<th>Impacto</th>
+<th>Fecha</th>
+</tr>
+</thead>
+<tbody>
+${gastos.map(g => `
+<tr>
+<td>${g.nombre}</td>
+<td>${g.categoria}</td>
+<td>$${Number(g.valor || 0).toLocaleString("es-CO")}</td>
+<td>${g.objetivo}</td>
+<td>${g.impacto}</td>
+<td>${g.fecha ? new Date(g.fecha).toLocaleDateString("es-CO") : ""}</td>
+</tr>
+`).join("")}
+</tbody>
+</table>
+
+<div class="card alerta">
+<p><strong>Total de gastos registrados:</strong> $${totalGastos.toLocaleString("es-CO")}</p>
+<p>
+GRUK recomienda revisar si estos gastos están generando retorno real, protegiendo operación o solo consumiendo caja sin producir valor. Un gasto no es negativo por existir; es negativo cuando no fortalece ventas, operación, retención o margen.
+</p>
+</div>
+`
+: `
+<div class="card alerta">
+<p>No hay gastos registrados en control de gasto.</p>
+</div>
+`
+}
+
+<h2>10. Estrategia de largo plazo GRUK</h2>
 
 <div class="card">
 <p>
@@ -2416,11 +2452,11 @@ ${diagnosticoGraham}
 </p>
 
 <p>
-Si el restaurante continúa como está, debe observar tres señales: dependencia excesiva de un producto, acumulación de inventario próximo a vencer y diferencia entre productos que venden mucho y productos que realmente generan caja.
+Si el restaurante continúa como está, debe observar cuatro señales: dependencia excesiva de un producto, acumulación de inventario próximo a vencer, diferencia entre productos que venden mucho y productos que realmente generan caja, y gastos que consumen dinero sin retorno medible.
 </p>
 
 <p>
-La estrategia recomendada es construir un portafolio balanceado: productos ancla para atraer tráfico, productos estrella para fortalecer caja, productos premium para aumentar ticket y control estricto del inventario para evitar capital muerto.
+La estrategia recomendada es construir un portafolio balanceado: productos ancla para atraer tráfico, productos estrella para fortalecer caja, productos premium para aumentar ticket, control estricto del inventario para evitar capital muerto y control de gastos para proteger el margen de seguridad.
 </p>
 </div>
 
@@ -2492,5 +2528,4 @@ setTimeout(() => {
   ventana.document.close();
 }
 
-window.generarReporteEjecutivo =
-generarReporteEjecutivo;
+window.generarReporteEjecutivo = generarReporteEjecutivo;
