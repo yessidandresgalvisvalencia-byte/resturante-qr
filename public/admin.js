@@ -2018,7 +2018,23 @@ async function generarReporteEjecutivo() {
 
   const totalGastos =
     gastos.reduce((acc, g) => acc + Number(g.valor || 0), 0);
+const costosMateriaPrima =
+  inventario.reduce((acc, p) => {
 
+    const cantidad =
+      Number(p.cantidad || 0);
+
+    const costo =
+      Number(p.costo || 0);
+
+    return acc + (cantidad * costo);
+
+  }, 0);
+
+const utilidadNeta =
+  totalDineroReporte -
+  totalGastos -
+  costosMateriaPrima;
   let inventario = [];
   let datosVentas = [];
 
@@ -2227,10 +2243,35 @@ display:none;
 <div class="card exito">
 <p><strong>Total vendido visible en panel:</strong> ${totalVendido}</p>
 <p><strong>Total calculado por ventas:</strong> $${totalDineroReporte.toLocaleString("es-CO")}</p>
+<p>
+<strong>Total gastos registrados:</strong>
+$${totalGastos.toLocaleString("es-CO")}
+</p>
+
+<p>
+<strong>Costos estimados de materia prima:</strong>
+$${costosMateriaPrima.toLocaleString("es-CO")}
+</p>
+
+<p>
+<strong>Utilidad neta estimada:</strong>
+$${utilidadNeta.toLocaleString("es-CO")}
+</p>
 <p><strong>Total pedidos:</strong> ${totalPedidosReporte}</p>
 <p><strong>Pedidos activos:</strong> ${pedidosActivos}</p>
 <p><strong>Ticket promedio estimado:</strong> $${Math.round(ticketPromedio).toLocaleString("es-CO")}</p>
 <p><strong>Producto más vendido:</strong> ${productoMasVendidoTexto}</p>
+<p>
+<strong>Interpretación financiera GRUK:</strong><br>
+
+${
+utilidadNeta > 0
+
+? `El restaurante mantiene una utilidad neta positiva estimada. Si el mercado continúa estable y los gastos permanecen controlados, la operación puede fortalecerse y aumentar caja real.`
+
+: `La utilidad neta estimada es negativa. Aunque el restaurante pueda vender bastante, actualmente los gastos y costos están consumiendo más dinero del que entra. GRUK recomienda revisar precios, desperdicio, gastos innecesarios y productos de baja rentabilidad.`
+}
+</p>
 </div>
 
 <h2>2. Gráfica de productos más vendidos</h2>
