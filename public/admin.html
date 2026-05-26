@@ -179,17 +179,40 @@ Analiza si un gasto fue necesario, parcialmente útil o innecesario, y genera un
 <option value="Insumos">Insumos</option>
 <option value="Publicidad">Publicidad</option>
 <option value="Personal">Personal</option>
+<option value="Logística">Logística / Domicilios</option>
 <option value="Equipos">Equipos</option>
 <option value="Servicios">Servicios</option>
 <option value="Mantenimiento">Mantenimiento</option>
 <option value="Otro">Otro</option>
 </select>
+
+<label>¿El gasto pertenece a este restaurante?</label>
+<select id="gastoPertenece">
+<option value="si">Sí, pertenece a este restaurante</option>
+<option value="no">No, fue utilizado por otro restaurante</option>
+</select>
+
+<label>Restaurante beneficiado</label>
+<input
+id="restauranteBeneficiado"
+type="text"
+placeholder="Ej: Restaurante B"
+>
+
+<label>ID del pedido relacionado</label>
+<input
+id="pedidoRelacionado"
+type="text"
+placeholder="Ej: PED-001"
+>
+
 <label>Objetivo del gasto</label>
 <select id="objetivoGasto">
-  <option value="ventas">Ventas inmediatas</option>
-  <option value="operacion">Operación base</option>
-  <option value="fidelizacion">Fidelización a largo plazo</option>
+<option value="ventas">Ventas inmediatas</option>
+<option value="operacion">Operación base</option>
+<option value="fidelizacion">Fidelización a largo plazo</option>
 </select>
+
 <label>Resultado generado por el gasto</label>
 <select id="impactoGasto">
 <option value="alto">Sí generó resultado claro</option>

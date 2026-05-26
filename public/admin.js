@@ -1079,6 +1079,11 @@ function analizarGasto() {
   const objetivo = document.getElementById("objetivoGasto").value;
   const observacion = document.getElementById("observacionGasto").value.trim();
 
+  const gastoPertenece = document.getElementById("gastoPertenece").value;
+  const restauranteBeneficiado = document.getElementById("restauranteBeneficiado").value.trim();
+  const pedidoRelacionado = document.getElementById("pedidoRelacionado").value.trim();
+  const esCostoRecuperable = gastoPertenece === "no";
+
   if (!nombre || !valor || !categoria || !impacto || !objetivo) {
     alert("Completa todos los datos del gasto");
     return;
@@ -1090,74 +1095,28 @@ function analizarGasto() {
     palabras.some(palabra => texto.includes(palabra));
 
   const esCampanaGanadora = contiene([
-    "black friday",
-    "hot sale",
-    "tráfico",
-    "trafico",
-    "roi",
-    "retorno",
-    "vendimos todo",
-    "quebró stock",
-    "quebro stock",
-    "agotó stock",
-    "agoto stock",
-    "stock agotado",
-    "triplicó",
-    "triplico",
-    "duplicó",
-    "duplico"
+    "black friday", "hot sale", "tráfico", "trafico", "roi", "retorno",
+    "vendimos todo", "quebró stock", "quebro stock", "agotó stock",
+    "agoto stock", "stock agotado", "triplicó", "triplico", "duplicó", "duplico"
   ]);
 
   const esExperienciaCliente = contiene([
-    "clientes felices",
-    "cliente feliz",
-    "satisfacción",
-    "satisfaccion",
-    "fidelización",
-    "fidelizacion",
-    "recompra",
-    "quejas",
-    "espera",
-    "fila",
-    "atención",
-    "atencion",
-    "experiencia",
-    "tiempo de espera",
-    "servicio"
+    "clientes felices", "cliente feliz", "satisfacción", "satisfaccion",
+    "fidelización", "fidelizacion", "recompra", "quejas", "espera", "fila",
+    "atención", "atencion", "experiencia", "tiempo de espera", "servicio"
   ]);
 
   const esInfraestructura = contiene([
-    "infraestructura",
-    "equipo",
-    "equipos",
-    "maquinaria",
-    "nevera",
-    "horno",
-    "licuadora",
-    "computador",
-    "tablet",
-    "mobiliario",
-    "sillas",
-    "mesas",
-    "adecuación",
-    "adecuacion"
+    "infraestructura", "equipo", "equipos", "maquinaria", "nevera", "horno",
+    "licuadora", "computador", "tablet", "mobiliario", "sillas", "mesas",
+    "adecuación", "adecuacion"
   ]);
 
   const esOperacionBase =
     objetivo === "operacion" ||
     contiene([
-      "arriendo",
-      "nómina",
-      "nomina",
-      "servicios",
-      "luz",
-      "agua",
-      "gas",
-      "internet",
-      "software",
-      "domicilio",
-      "transporte",
-      "mantenimiento"
+      "arriendo", "nómina", "nomina", "servicios", "luz", "agua", "gas",
+      "internet", "software", "domicilio", "transporte", "mantenimiento"
     ]);
 
   let metodo = "";
@@ -1171,7 +1130,40 @@ function analizarGasto() {
   let controlRiesgo = "";
   let nuevoValor = valor;
 
-  if (impacto === "alto" && esCampanaGanadora && objetivo === "ventas") {
+  if (esCostoRecuperable) {
+    metodo = "Método 8 — Recuperación de capital operativo externo";
+    tipoCambio = "recaudo";
+    porcentajeCambio = 0;
+    nuevoValor = valor;
+
+    diagnostico =
+      "Se detectó un gasto operativo utilizado por un tercero y no por este restaurante.";
+
+    analisis =
+      `El gasto en ${nombre} no representa una pérdida operativa interna real. El recurso fue utilizado para beneficiar una operación externa, por lo que el capital debe recuperarse mediante cobro administrativo y no mediante reducción de personal o recorte logístico.`;
+
+    decision =
+      "Generar cuenta de cobro inmediata al restaurante beneficiado.";
+
+    recomendacion =
+      `📊 Orden de Recaudo de GRUK:
+
+Se detectó una fuga de capital de $${valor.toLocaleString("es-CO")} en el rubro logístico.
+
+Pedido relacionado: ${pedidoRelacionado || "Sin ID asociado"}.
+
+GRUK recomienda generar cuenta de cobro inmediata a: ${restauranteBeneficiado || "Restaurante beneficiado"}.
+
+No reduzca personal ni capacidad logística. El problema no es exceso operativo: el problema es capital no recuperado.`;
+
+    usoDinero =
+      "El dinero recuperado debe regresar a liquidez operativa y caja menor.";
+
+    controlRiesgo =
+      "Si estos costos externos no se cobran rápidamente, el restaurante puede aparentar pérdidas falsas y tomar decisiones equivocadas de recorte.";
+  }
+
+  else if (impacto === "alto" && esCampanaGanadora && objetivo === "ventas") {
     metodo = "Método 4 — Escalamiento controlado de oportunidad validada";
     tipoCambio = "aumento";
     porcentajeCambio = 60;
@@ -1404,49 +1396,36 @@ function analizarGasto() {
       </p>
     </div>
   `;
+
+  const restaurantId =
+    new URLSearchParams(window.location.search).get("restaurantId") ||
+    localStorage.getItem("adminRestaurantId") ||
+    "rest1";
+
   const gastosGuardados =
-  JSON.parse(localStorage.getItem(`gastos_${restaurantId}`)) || [];
+    JSON.parse(localStorage.getItem(`gastos_${restaurantId}`)) || [];
 
-gastosGuardados.push({
-  nombre,
-  valor,
-  categoria,
-  impacto,
-  objetivo,
-  observacion,
-  fecha: new Date().toISOString()
-});
+  gastosGuardados.push({
+    nombre,
+    valor,
+    categoria,
+    impacto,
+    objetivo,
+    observacion,
 
-localStorage.setItem(
-  `gastos_${restaurantId}`,
-  JSON.stringify(gastosGuardados)
-);
+    gastoPertenece,
+    restauranteBeneficiado,
+    pedidoRelacionado,
+    esCostoRecuperable,
+
+    fecha: new Date().toISOString()
+  });
+
+  localStorage.setItem(
+    `gastos_${restaurantId}`,
+    JSON.stringify(gastosGuardados)
+  );
 }
-
-function formatoCOP(valor) {
-  return "$" + Math.round(valor).toLocaleString("es-CO");
-}
-
-function normalizarCosto(valor) {
-  const numero = Number(valor);
-
-  if (!numero) return 0;
-
-  return numero;
-}
-
-function normalizarPrecio(valor) {
-  const numero = Number(valor);
-
-  if (!numero) return 0;
-
-  if (numero > 0 && numero < 1000) {
-    return numero * 1000;
-  }
-
-  return numero;
-}
-
 function calcularPrecioInteligente() {
   const producto = document.getElementById("productoPrecio").value.trim();
 
