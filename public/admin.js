@@ -400,6 +400,7 @@ productoEnEdicion = item.id;
 document.getElementById("nombreProducto").value = item.nombre || "";
 document.getElementById("descripcionProducto").value = item.descripcion || "";
 document.getElementById("precioProducto").value = item.precio || "";
+document.getElementById("costoMateriaProducto").value = item.costoMateriaPrima || "";
 document.getElementById("categoriaProducto").value = item.categoria || "Comida";
 document.getElementById("guarnicionesProducto").value = guarnicionesATexto(item.guarniciones);
 document.getElementById("extrasProducto").value = extrasATexto(item.extras);
@@ -420,6 +421,7 @@ function limpiarFormularioProducto() {
 document.getElementById("nombreProducto").value = "";
 document.getElementById("descripcionProducto").value = "";
 document.getElementById("precioProducto").value = "";
+document.getElementById("costoMateriaProducto").value = "";
 document.getElementById("categoriaProducto").value = "Comida";
 document.getElementById("guarnicionesProducto").value = "";
 document.getElementById("extrasProducto").value = "";
