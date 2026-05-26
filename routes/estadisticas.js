@@ -4,6 +4,15 @@ const router = express.Router();
 const Pedido = require("../models/pedido");
 const Menu = require("../models/menu");
 
+function normalizar(texto = "") {
+  return texto
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 router.get("/pareto", async (req, res) => {
   try {
     const restaurantId =
@@ -17,30 +26,40 @@ router.get("/pareto", async (req, res) => {
     const mapaMenu = {};
 
     menu.forEach(item => {
-      mapaMenu[item.nombre] = {
-        precioUnitarioActual: Number(item.precio || 0),
-        categoria: item.categoria || ""
+      const clave = normalizar(item.nombre);
+
+      mapaMenu[clave] = {
+        nombreOriginal: item.nombre,
+        categoria: item.categoria || "",
+        precioUnitarioActual: Number(item.precio || 0)
       };
     });
 
     const acumulado = {};
 
     pedidos.forEach(pedido => {
-      const nombre =
+      const nombrePedido =
         pedido.producto ||
         pedido.nombreProducto ||
         pedido.nombre ||
         "Producto sin nombre";
 
-      const precioUnitarioActual =
-        mapaMenu[nombre]?.precioUnitarioActual || 0;
+      const clave = normalizar(nombrePedido);
+
+      const productoMenu = mapaMenu[clave];
+
+      const nombreFinal =
+        productoMenu?.nombreOriginal || nombrePedido;
 
       const categoria =
-        mapaMenu[nombre]?.categoria || "";
+        productoMenu?.categoria || "";
 
-      if (!acumulado[nombre]) {
-        acumulado[nombre] = {
-          producto: nombre,
+      const precioUnitarioActual =
+        productoMenu?.precioUnitarioActual || 0;
+
+      if (!acumulado[clave]) {
+        acumulado[clave] = {
+          producto: nombreFinal,
           categoria,
           precioUnitarioActual,
           ventas: 0,
@@ -48,13 +67,13 @@ router.get("/pareto", async (req, res) => {
         };
       }
 
-      acumulado[nombre].ventas += 1;
-      acumulado[nombre].totalCalculado += precioUnitarioActual;
+      acumulado[clave].ventas += 1;
+      acumulado[clave].totalCalculado += precioUnitarioActual;
     });
 
     const datos = Object.values(acumulado)
       .filter(p => {
-        const n = p.producto.toLowerCase().trim();
+        const n = normalizar(p.producto);
 
         return (
           n !== "cacac" &&
