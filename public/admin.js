@@ -455,6 +455,7 @@ if (
 !nombreInput ||
 !descripcionInput ||
 !precioInput ||
+!costoMateriaInput ||
 !categoriaInput ||
 !guarnicionesInput ||
 !extrasInput ||
@@ -469,6 +470,8 @@ return;
 const nombre = nombreInput.value.trim();
 const descripcion = descripcionInput.value.trim();
 const precio = Number(precioInput.value || 0);
+const costoMateriaPrima =
+Number(costoMateriaInput.value || 0);
 const categoria = categoriaInput.value;
 const guarniciones = parsearGuarniciones(guarnicionesInput.value);
 const extras = parsearExtras(extrasInput.value);
@@ -493,6 +496,7 @@ restaurantId,
 nombre,
 descripcion,
 precio,
+costoMateriaPrima,
 categoria,
 guarniciones,
 extras,
