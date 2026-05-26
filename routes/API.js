@@ -113,6 +113,7 @@ restaurantId,
 nombre,
 descripcion,
 precio,
+costoMateriaPrima,
 categoria,
 guarniciones,
 extras,
@@ -138,7 +139,12 @@ restaurantId,
 id: nuevoId,
 nombre,
 descripcion: descripcion || "",
+
 precio: Number(precio),
+
+costoMateriaPrima:
+Number(costoMateriaPrima || 0),
+
 categoria,
 guarniciones: Array.isArray(guarniciones) ? guarniciones : [],
 extras: Array.isArray(extras) ? extras : [],

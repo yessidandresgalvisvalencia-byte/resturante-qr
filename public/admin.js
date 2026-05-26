@@ -443,6 +443,7 @@ const restaurantId = getRestaurantId();
 const nombreInput = document.getElementById("nombreProducto");
 const descripcionInput = document.getElementById("descripcionProducto");
 const precioInput = document.getElementById("precioProducto");
+const costoMateriaInput = document.getElementById("costoMateriaProducto");
 const categoriaInput = document.getElementById("categoriaProducto");
 const guarnicionesInput = document.getElementById("guarnicionesProducto");
 const extrasInput = document.getElementById("extrasProducto");
