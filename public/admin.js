@@ -2039,47 +2039,16 @@ async function generarReporteEjecutivo() {
 
 } catch (error) {
   console.log("No se pudo cargar ventas:", error);
-}
-  const ventasOrdenadas =
+}const ventasOrdenadas =
   datosVentas
-    .map(p => {
-      const producto =
-        p.producto ||
-        p.nombre ||
-        p.nombreProducto ||
-        "Producto sin nombre";
-
-      const ventas =
-        Number(p.ventas || p.cantidad || p.cantidadVendida || 0);
-
-      const precio =
-        Number(p.precio || p.precioUnitario || p.valorUnitario || 0);
-
-      let totalDinero =
-        Number(p.totalDinero || p.total || p.valorTotal || p.ingresos || 0);
-
-      if (!totalDinero && precio && ventas) {
-        totalDinero = precio * ventas;
-      }
-
-      return {
-        producto,
-        ventas,
-        precio,
-        totalDinero
-      };
-    })
-    .filter(p => {
-      const nombre = p.producto.toLowerCase().trim();
-
-      const esDatoBasura =
-        nombre === "cacac" ||
-        nombre === "test" ||
-        nombre === "prueba" ||
-        nombre.includes("xxxx");
-
-      return !esDatoBasura && p.ventas > 0;
-    })
+    .map(p => ({
+      producto: p.producto || "Producto sin nombre",
+      categoria: p.categoria || "",
+      precioUnitarioActual: Number(p.precioUnitarioActual || 0),
+      ventas: Number(p.ventas || 0),
+      totalDinero: Number(p.totalCalculado || 0)
+    }))
+    .filter(p => p.ventas > 0)
     .sort((a, b) => b.ventas - a.ventas);
 
   const productoMasVendido =
@@ -2305,21 +2274,46 @@ Si los productos próximos a vencer aumentan, el restaurante está inmovilizando
 <thead>
 <tr>
 <th>Producto</th>
+<th>Categoría</th>
+<th>Precio unitario actual</th>
 <th>Cantidad vendida</th>
-<th>Total generado</th>
+<th>Total calculado</th>
 </tr>
 </thead>
+
 <tbody>
 ${
 productosTop.length > 0
-? productosTop.map(p => `
+
+?
+
+productosTop.map(p => `
 <tr>
 <td>${p.producto}</td>
+
+<td>${p.categoria}</td>
+
+<td>
+$${p.precioUnitarioActual.toLocaleString("es-CO")}
+</td>
+
 <td>${p.ventas}</td>
-<td>$${p.totalDinero.toLocaleString("es-CO")}</td>
+
+<td>
+$${p.totalDinero.toLocaleString("es-CO")}
+</td>
 </tr>
 `).join("")
-: `<tr><td colspan="3">No hay datos disponibles.</td></tr>`
+
+:
+
+`
+<tr>
+<td colspan="5">
+No hay datos disponibles.
+</td>
+</tr>
+`
 }
 </tbody>
 </table>

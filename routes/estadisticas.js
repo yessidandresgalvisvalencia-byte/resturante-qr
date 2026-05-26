@@ -14,10 +14,13 @@ router.get("/pareto", async (req, res) => {
     const pedidos = await Pedido.find({ restaurantId });
     const menu = await Menu.find({ restaurantId });
 
-    const mapaPrecios = {};
+    const mapaMenu = {};
 
-    menu.forEach(producto => {
-      mapaPrecios[producto.nombre] = Number(producto.precio || 0);
+    menu.forEach(item => {
+      mapaMenu[item.nombre] = {
+        precioUnitarioActual: Number(item.precio || 0),
+        categoria: item.categoria || ""
+      };
     });
 
     const acumulado = {};
@@ -29,54 +32,38 @@ router.get("/pareto", async (req, res) => {
         pedido.nombre ||
         "Producto sin nombre";
 
-      const precioPedido =
-        Number(
-          pedido.precio ||
-          pedido.total ||
-          pedido.valor ||
-          pedido.valorTotal ||
-          pedido.precioUnitario ||
-          0
-        );
+      const precioUnitarioActual =
+        mapaMenu[nombre]?.precioUnitarioActual || 0;
 
-      const precioMenu =
-        Number(mapaPrecios[nombre] || 0);
-
-      const precioFinal =
-        precioPedido > 0
-          ? precioPedido
-          : precioMenu;
+      const categoria =
+        mapaMenu[nombre]?.categoria || "";
 
       if (!acumulado[nombre]) {
         acumulado[nombre] = {
           producto: nombre,
+          categoria,
+          precioUnitarioActual,
           ventas: 0,
-          precio: precioFinal,
-          totalDinero: 0
+          totalCalculado: 0
         };
       }
 
       acumulado[nombre].ventas += 1;
-      acumulado[nombre].totalDinero += precioFinal;
-
-      if (!acumulado[nombre].precio && precioFinal) {
-        acumulado[nombre].precio = precioFinal;
-      }
+      acumulado[nombre].totalCalculado += precioUnitarioActual;
     });
 
-    const datos =
-      Object.values(acumulado)
-        .filter(p => {
-          const n = p.producto.toLowerCase().trim();
+    const datos = Object.values(acumulado)
+      .filter(p => {
+        const n = p.producto.toLowerCase().trim();
 
-          return (
-            n !== "cacac" &&
-            n !== "test" &&
-            n !== "prueba" &&
-            !n.includes("xxxx")
-          );
-        })
-        .sort((a, b) => b.ventas - a.ventas);
+        return (
+          n !== "cacac" &&
+          n !== "test" &&
+          n !== "prueba" &&
+          !n.includes("xxxx")
+        );
+      })
+      .sort((a, b) => b.ventas - a.ventas);
 
     res.json(datos);
 
