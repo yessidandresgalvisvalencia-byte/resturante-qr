@@ -72,25 +72,55 @@ function actualizarLinksRestaurant() {
 const restaurantId = getRestaurantId();
 const baseUrl = window.location.origin;
 
-const restaurantIdActual = document.getElementById("restaurantIdActual");
-const linkMenu = document.getElementById("linkMenu");
-const linkCocina = document.getElementById("linkCocina");
+const restaurantIdActual =
+document.getElementById("restaurantIdActual");
+
+const linkMenu =
+document.getElementById("linkMenu");
+
+const linkCocina =
+document.getElementById("linkCocina");
+
 const linkCaja =
 document.getElementById("linkCaja");
-const linkMesero = document.getElementById("linkMesero");
-const linkAdmin = document.getElementById("linkAdmin");
-const linkDashboard = document.getElementById("linkDashboard");
+
+const linkMesero =
+document.getElementById("linkMesero");
+
+const linkAdmin =
+document.getElementById("linkAdmin");
+
+const linkDashboard =
+document.getElementById("linkDashboard");
+
+const linkDashboardAuto =
+document.getElementById("linkDashboardAuto");
 
 if (restaurantIdActual) {
 restaurantIdActual.textContent = restaurantId;
 }
 
-const menuUrl = `${baseUrl}/?restaurantId=${restaurantId}&mesa=1`;
-const cocinaUrl = `${baseUrl}/cocina.html?restaurantId=${restaurantId}`;
-const meseroUrl = `${baseUrl}/mesero.html?restaurantId=${restaurantId}`;
-const adminUrl = `${baseUrl}/admin.html?restaurantId=${restaurantId}`;
-const dashboardUrl = `${baseUrl}/admin-dashboard.html?restaurant=${restaurantId}&modo=manual`;
-const dashboardAutoUrl = `${baseUrl}/admin-dashboard.html?restaurant=${restaurantId}`;
+const menuUrl =
+`${baseUrl}/?restaurantId=${restaurantId}&mesa=1`;
+
+const cocinaUrl =
+`${baseUrl}/cocina.html?restaurantId=${restaurantId}`;
+
+const cajaUrl =
+`${baseUrl}/caja.html?restaurantId=${restaurantId}`;
+
+const meseroUrl =
+`${baseUrl}/mesero.html?restaurantId=${restaurantId}`;
+
+const adminUrl =
+`${baseUrl}/admin.html?restaurantId=${restaurantId}`;
+
+const dashboardUrl =
+`${baseUrl}/admin-dashboard.html?restaurant=${restaurantId}&modo=manual`;
+
+const dashboardAutoUrl =
+`${baseUrl}/admin-dashboard.html?restaurant=${restaurantId}`;
+
 if (linkMenu) {
 linkMenu.href = menuUrl;
 linkMenu.textContent = menuUrl;
@@ -101,31 +131,29 @@ linkCocina.href = cocinaUrl;
 linkCocina.textContent = cocinaUrl;
 }
 
+if (linkCaja) {
+linkCaja.href = cajaUrl;
+linkCaja.textContent = cajaUrl;
+}
+
 if (linkMesero) {
 linkMesero.href = meseroUrl;
 linkMesero.textContent = meseroUrl;
-}
-if (linkDashboard) {
-linkDashboard.href = dashboardUrl;
-linkDashboard.textContent = dashboardUrl;
-}
-
-const linkDashboardAuto =
-document.getElementById("linkDashboardAuto");
-
-if (linkDashboardAuto) {
-
-linkDashboardAuto.href =
-dashboardAutoUrl;
-
-linkDashboardAuto.textContent =
-dashboardAutoUrl;
-
 }
 
 if (linkAdmin) {
 linkAdmin.href = adminUrl;
 linkAdmin.textContent = adminUrl;
+}
+
+if (linkDashboard) {
+linkDashboard.href = dashboardUrl;
+linkDashboard.textContent = dashboardUrl;
+}
+
+if (linkDashboardAuto) {
+linkDashboardAuto.href = dashboardAutoUrl;
+linkDashboardAuto.textContent = dashboardAutoUrl;
 }
 }
 
