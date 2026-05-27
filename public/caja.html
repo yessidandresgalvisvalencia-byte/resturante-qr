@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caja GRUK</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="contenedor">
+
+<h1>Caja GRUK</h1>
+
+<div class="card">
+<h3>Registrar pago</h3>
+
+<label>Nombre del cliente / mesa</label>
+<input id="clienteCaja" type="text" placeholder="Ej: Mesa 4">
+
+<label>Descripción del pedido</label>
+<textarea id="descripcionCaja" placeholder="Ej: 2 carnes asadas, 3 empanadas"></textarea>
+
+<label>Total a pagar</label>
+<input id="totalCaja" type="number" placeholder="Ej: 50000">
+
+<label>Método de pago</label>
+<select id="metodoPagoCaja">
+<option value="Efectivo">Efectivo</option>
+<option value="Transferencia">Transferencia</option>
+<option value="Tarjeta">Tarjeta</option>
+<option value="PSE">PSE</option>
+</select>
+
+<label>Dinero recibido</label>
+<input id="dineroRecibidoCaja" type="number" placeholder="Ej: 60000">
+
+<button onclick="calcularCaja()">Calcular cambio</button>
+<button onclick="guardarPagoCaja()">Guardar pago</button>
+<button onclick="imprimirFacturaCaja()">Imprimir factura</button>
+
+<div id="resultadoCaja"></div>
+</div>
+
+<h2>Pagos registrados</h2>
+<div id="historialCaja" class="grid"></div>
+
+</div>
+
+<script src="caja.js"></script>
+</body>
+</html>

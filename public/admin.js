@@ -75,6 +75,8 @@ const baseUrl = window.location.origin;
 const restaurantIdActual = document.getElementById("restaurantIdActual");
 const linkMenu = document.getElementById("linkMenu");
 const linkCocina = document.getElementById("linkCocina");
+const linkCaja =
+document.getElementById("linkCaja");
 const linkMesero = document.getElementById("linkMesero");
 const linkAdmin = document.getElementById("linkAdmin");
 const linkDashboard = document.getElementById("linkDashboard");
