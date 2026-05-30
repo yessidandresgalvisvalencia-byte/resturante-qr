@@ -1079,28 +1079,53 @@ if (linkLogo && restaurantIdActual) {
 const paramsLogo = new URLSearchParams(window.location.search);
 const restaurantIdLogo = paramsLogo.get("restaurantId");
 
-async function cargarLogo() {
+async function cargarLogoRestaurante() {
+const paramsLogo = new URLSearchParams(window.location.search);
+const restaurantIdLogo =
+paramsLogo.get("restaurantId") ||
+localStorage.getItem("adminRestaurantId");
 
-  const res = await fetch(
-    `/api/restaurants/${restaurantIdLogo}`
-  );
+if (!restaurantIdLogo) return;
 
-  const data = await res.json();
+try {
+const res = await fetch(`/api/restaurants/${restaurantIdLogo}`);
+const data = await res.json();
 
-  if (data.ok && data.restaurante.logoUrl) {
+if (data.ok && data.restaurante.logoUrl) {
+const logo = document.getElementById("logoRestaurante");
 
-    document.body.style.setProperty(
-      "--fondo-restaurante",
-      `url(${data.restaurante.logoUrl})`
-    );
-
-    document.getElementById("logoRestaurante").src =
-      data.restaurante.logoUrl;
-
-  }
+if (logo) {
+logo.src = data.restaurante.logoUrl;
 }
 
-cargarLogo();
+document.body.style.setProperty(
+"--fondo-restaurante",
+`url(${data.restaurante.logoUrl})`
+);
+}
+} catch (error) {
+console.log("Error cargando logo restaurante:", error);
+}
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+cargarLogoRestaurante();
+
+const params = new URLSearchParams(window.location.search);
+const restaurantIdActual =
+params.get("restaurantId") ||
+localStorage.getItem("adminRestaurantId");
+
+const linkLogo =
+document.getElementById("linkLogoRestaurante");
+
+if (linkLogo && restaurantIdActual) {
+linkLogo.href =
+`/admin-restaurante.html?restaurantId=${restaurantIdActual}`;
+
+linkLogo.style.display = "inline-block";
+}
+});
 function analizarGasto() {
   const nombre = document.getElementById("nombreGasto").value.trim();
   const valor = Number(document.getElementById("valorGasto").value);
