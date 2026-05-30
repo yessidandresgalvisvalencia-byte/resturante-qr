@@ -775,32 +775,40 @@ router.post("/admin/login", async (req, res) => {
     const Restaurante = require("../models/restaurante");
 
     let admin = await Admin.findOne({
-  usuario,
-  password
-});
+      usuario,
+      password
+    });
 
-if (!admin) {
+    let usuarioFinal = usuario;
 
-  admin = await Restaurante.findOne({
-    usuarioAdmin: usuario,
-    passwordAdmin: password
-  });
+    if (!admin) {
 
-}
+      admin = await Restaurante.findOne({
+        usuarioAdmin: usuario,
+        passwordAdmin: password
+      });
 
-if (!admin) {
-  return res.status(401).json({
-    ok: false,
-    error: "Usuario o contraseña incorrectos"
-  });
-}
+      if (admin) {
+        usuarioFinal = admin.usuarioAdmin;
+      }
+    }
+
+    if (!admin) {
+      return res.status(401).json({
+        ok: false,
+        error: "Usuario o contraseña incorrectos"
+      });
+    }
+
     res.json({
       ok: true,
       restaurantId: admin.restaurantId,
-      usuario: admin.usuario
+      usuario: usuarioFinal
     });
+
   } catch (error) {
     console.log("Error login admin:", error);
+
     res.status(500).json({
       ok: false,
       error: "Error interno en login"
