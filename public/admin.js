@@ -774,7 +774,9 @@ await cargarHistorialVentas(restaurantId);
 await cargarSolicitudesMesero(restaurantId);
 await cargarStock(restaurantId);
 await cargarPersonal(restaurantId);
+cargarConfiguracionFinanciera();
 }
+
 
 const baseUrlInput = document.getElementById("baseUrl");
 if (baseUrlInput) {
@@ -2619,3 +2621,53 @@ setTimeout(() => {
 }
 
 window.generarReporteEjecutivo = generarReporteEjecutivo;
+function guardarConfiguracionFinanciera() {
+
+const restaurantId = getRestaurantId();
+
+const margenSeguridad =
+Number(
+document.getElementById(
+"margenSeguridadGeneral"
+).value || 0.02
+);
+
+localStorage.setItem(
+`configFinanciera_${restaurantId}`,
+JSON.stringify({
+margenSeguridad
+})
+);
+
+document.getElementById(
+"estadoConfiguracionFinanciera"
+).innerHTML =
+"<p>✅ Configuración guardada correctamente.</p>";
+
+}
+
+function cargarConfiguracionFinanciera() {
+
+const restaurantId =
+getRestaurantId();
+
+const config =
+JSON.parse(
+localStorage.getItem(
+`configFinanciera_${restaurantId}`
+)
+) || {
+margenSeguridad: 0.02
+};
+
+const input =
+document.getElementById(
+"margenSeguridadGeneral"
+);
+
+if (input) {
+input.value =
+config.margenSeguridad;
+}
+
+}
