@@ -1601,7 +1601,16 @@ function calcularPrecioInteligente() {
 const G = Math.max(0, precioActual - costoTotal);
 
 const PB = (costoTotal + G) / (1 - MS);
-  const Dmax = 1 - (costoTotal / PB);
+  let Dmax = 0;
+
+if (precioActual < PB) {
+  Dmax = 0;
+} else {
+  Dmax =
+    1 - (PB / precioActual);
+}
+
+Dmax = Math.max(0, Math.min(Dmax, MS));
 
   let margenMinimo = 0.25;
   let margenRecomendado = 0.45;
