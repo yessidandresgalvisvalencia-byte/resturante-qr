@@ -1598,10 +1598,10 @@ function calcularPrecioInteligente() {
     };
 
   const MS = Number(configFinanciera.margenSeguridad || 0.02);
-const G = Math.max(0, precioActual - costoTotal);
 
-const PB = (costoTotal + G) / (1 - MS);
-  let Dmax = 0;
+
+const PB =
+  costoTotal / (1 - MS);
 
 if (precioActual < PB) {
   Dmax = 0;
