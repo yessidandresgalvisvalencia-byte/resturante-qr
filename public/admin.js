@@ -1598,13 +1598,9 @@ function calcularPrecioInteligente() {
     };
 
   const MS = Number(configFinanciera.margenSeguridad || 0.02);
+const G = Math.max(0, precioActual - costoTotal);
 
-  const G = Number(
-    document.getElementById("gananciaDeseada")?.value || 0
-  );
-
-  const PB = (costoTotal + G) / (1 - MS);
-
+const PB = (costoTotal + G) / (1 - MS);
   const Dmax = 1 - (costoTotal / PB);
 
   let margenMinimo = 0.25;
@@ -1797,8 +1793,6 @@ function calcularPrecioInteligente() {
       <p><strong>Costo operativo:</strong> ${formatoCOP(costoOperativo)}</p>
       <p><strong>Costo trabajo/tiempo estimado:</strong> ${formatoCOP(costoTrabajo)}</p>
       <p><strong>Costo total estratégico:</strong> ${formatoCOP(costoTotal)}</p>
-
-      <p><strong>Ganancia deseada:</strong> ${formatoCOP(G)}</p>
       <p><strong>Margen de Seguridad (MS):</strong> ${(MS * 100).toFixed(2)}%</p>
       <p><strong>Precio Blindado (PB):</strong> ${formatoCOP(PB)}</p>
       <p><strong>Descuento Máximo Permitido (Dmax):</strong> ${(Dmax * 100).toFixed(2)}%</p>
