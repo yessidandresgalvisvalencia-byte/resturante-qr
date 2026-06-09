@@ -232,6 +232,43 @@ placeholder="Ej: PED-001"
 <div class="card">
 
 <h3>⚙️ Configuración Financiera GRUK</h3>
+<label>Variación de costos de insumos</label>
+<select id="riesgoInsumos">
+<option value="bajo">Baja</option>
+<option value="medio">Media</option>
+<option value="alto">Alta</option>
+</select>
+
+<label>Frecuencia de descuentos/promociones</label>
+<select id="riesgoDescuentos">
+<option value="bajo">Casi nunca</option>
+<option value="medio">Algunas veces</option>
+<option value="alto">Frecuente</option>
+</select>
+
+<label>Riesgo de desperdicio o vencimiento</label>
+<select id="riesgoDesperdicio">
+<option value="bajo">Bajo</option>
+<option value="medio">Medio</option>
+<option value="alto">Alto</option>
+</select>
+
+<button onclick="recomendarMargenSeguridad()">
+GRUK recomendar margen de seguridad
+</button>
+
+<input
+id="margenSeguridadGeneral"
+type="number"
+step="0.01"
+readonly
+>
+
+<button onclick="guardarConfiguracionFinanciera()">
+Guardar configuración financiera
+</button>
+
+<div id="estadoConfiguracionFinanciera"></div>
 
 <p>
 Configuración global para proteger márgenes y controlar descuentos.
