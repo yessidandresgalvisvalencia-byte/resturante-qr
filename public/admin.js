@@ -1614,6 +1614,56 @@ function calcularPrecioInteligente() {
 
   const Dmax =
     1 - (costoTotal / PB);
+    let descuentoRecomendado = 0;
+let explicacionDescuento = "";
+
+if (precioActual < PB) {
+
+  descuentoRecomendado = 0;
+
+  explicacionDescuento = `
+  No se recomienda aplicar descuentos.
+
+  El precio actual está por debajo del Precio Blindado de
+  ${formatoCOP(PB)}.
+
+  Antes de pensar en promociones, GRUK recomienda primero
+  alcanzar el precio blindado para proteger el margen de seguridad.
+  `;
+
+} else if (
+  precioActual >= PB &&
+  precioActual < precioPremium
+) {
+
+  descuentoRecomendado =
+    Math.min((Dmax * 100) * 0.5, 10);
+
+  explicacionDescuento = `
+  El producto ya supera el Precio Blindado.
+
+  Se recomienda un descuento prudente de hasta
+  ${descuentoRecomendado.toFixed(2)}%.
+
+  Esto permite incentivar ventas sin sacrificar
+  excesivamente el margen de seguridad.
+  `;
+
+} else {
+
+  descuentoRecomendado =
+    Math.min((Dmax * 100) * 0.7, 15);
+
+  explicacionDescuento = `
+  El producto se encuentra en una zona premium.
+
+  Existe espacio para aplicar descuentos tácticos
+  sin comprometer la rentabilidad del producto.
+
+  GRUK recomienda no superar
+  ${descuentoRecomendado.toFixed(2)}%.
+  `;
+}
 
   let margenMinimo = 0.25;
   let margenRecomendado = 0.45;
@@ -1766,7 +1816,21 @@ function calcularPrecioInteligente() {
       Hay espacio para mejorar margen sin romper la lógica comercial, especialmente si el producto tiene buena aceptación.
     `;
   }
+else if (precioActual < PB) {
+  semaforo = "🟡 Amarillo — precio no blindado";
+  decision = "Subir hacia el Precio Blindado";
+  accion = `Ajustar el precio mínimo a ${formatoCOP(PB)}.`;
 
+  interpretacion = `
+    El precio actual de ${formatoCOP(precioActual)} cubre parte de la estructura económica,
+    pero no alcanza el Precio Blindado de ${formatoCOP(PB)}.
+
+    Esto significa que el restaurante no está respetando el Margen de Seguridad del
+    ${(MS * 100).toFixed(2)}% configurado.
+
+    GRUK recomienda no marcar este precio como sano hasta que alcance o supere el Precio Blindado.
+  `;
+}
   else if (precioActual >= precioRecomendado && precioActual <= precioPremium) {
     semaforo = "🟢 Verde — precio estratégicamente sano";
     decision = "Mantener y medir";
@@ -1806,7 +1870,15 @@ function calcularPrecioInteligente() {
       <p><strong>Margen de Seguridad (MS):</strong> ${(MS * 100).toFixed(2)}%</p>
       <p><strong>Precio Blindado (PB):</strong> ${formatoCOP(PB)}</p>
       <p><strong>Descuento Máximo Permitido (Dmax):</strong> ${(Dmax * 100).toFixed(2)}%</p>
+      <p>
+<strong>Descuento recomendado por GRUK:</strong>
+${descuentoRecomendado.toFixed(2)}%
+</p>
 
+<p>
+<strong>Justificación:</strong><br>
+${explicacionDescuento}
+</p>
       <p><strong>Precio actual:</strong> ${formatoCOP(precioActual)}</p>
       <p><strong>Utilidad actual por unidad:</strong> ${formatoCOP(utilidadActual)}</p>
 
