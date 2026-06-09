@@ -2781,69 +2781,65 @@ function recomendarMargenSeguridad() {
   const riesgoDesperdicio =
     document.getElementById("riesgoDesperdicio").value;
 
-  let puntos = 0;
-  let razones = [];
+  let margenSeguridad = 0.02;
+
+  let razones = [
+    "GRUK parte de un piso mínimo obligatorio del 2% para proteger el restaurante ante imprevistos básicos"
+  ];
 
   if (riesgoInsumos === "medio") {
-    puntos += 1;
-    razones.push("los costos de insumos tienen variación media");
+    margenSeguridad += 0.03;
+    razones.push("aumenta 3% porque los costos de insumos tienen variación media");
   }
 
   if (riesgoInsumos === "alto") {
-    puntos += 2;
-    razones.push("los costos de insumos cambian mucho");
+    margenSeguridad += 0.08;
+    razones.push("aumenta 8% porque los costos de insumos son altamente variables");
   }
 
   if (riesgoDescuentos === "medio") {
-    puntos += 1;
-    razones.push("el restaurante aplica descuentos ocasionales");
+    margenSeguridad += 0.03;
+    razones.push("aumenta 3% porque el restaurante aplica descuentos ocasionales");
   }
 
   if (riesgoDescuentos === "alto") {
-    puntos += 2;
-    razones.push("el restaurante usa promociones con frecuencia");
+    margenSeguridad += 0.06;
+    razones.push("aumenta 6% porque el restaurante usa promociones frecuentes");
   }
 
   if (riesgoDesperdicio === "medio") {
-    puntos += 1;
-    razones.push("existe riesgo moderado de desperdicio o vencimiento");
+    margenSeguridad += 0.06;
+    razones.push("aumenta 6% porque existe riesgo moderado de desperdicio o vencimiento");
   }
 
   if (riesgoDesperdicio === "alto") {
-    puntos += 2;
-    razones.push("existe alto riesgo de desperdicio o vencimiento");
+    margenSeguridad += 0.12;
+    razones.push("aumenta 12% porque existe alto riesgo de desperdicio o vencimiento");
   }
 
-  let margenSeguridad = 0.02;
-  let nivelMargen = "Protección mínima";
+  margenSeguridad =
+    Math.min(margenSeguridad, 0.35);
 
-  if (puntos <= 1) {
-    margenSeguridad = 0.02;
+  let nivelMargen = "";
+
+  if (margenSeguridad <= 0.05) {
     nivelMargen = "Protección mínima";
-  } else if (puntos <= 3) {
-    margenSeguridad = 0.10;
+  } else if (margenSeguridad <= 0.15) {
     nivelMargen = "Protección moderada";
-  } else if (puntos <= 5) {
-    margenSeguridad = 0.20;
+  } else if (margenSeguridad <= 0.25) {
     nivelMargen = "Protección alta";
   } else {
-    margenSeguridad = 0.35;
     nivelMargen = "Protección agresiva";
   }
 
   document.getElementById("margenSeguridadGeneral").value =
-    margenSeguridad;
-
-  const explicacion =
-    razones.length
-      ? `GRUK recomienda este margen porque ${razones.join(", ")}.`
-      : "GRUK recomienda un margen bajo porque el negocio parece tener costos estables, pocos descuentos y bajo desperdicio.";
+    margenSeguridad.toFixed(2);
 
   document.getElementById("estadoConfiguracionFinanciera").innerHTML = `
     <div class="card">
       <p><strong>Margen recomendado por GRUK:</strong> ${(margenSeguridad * 100).toFixed(0)}%</p>
       <p><strong>Nivel:</strong> ${nivelMargen}</p>
-      <p><strong>¿Por qué?</strong><br>${explicacion}</p>
+      <p><strong>¿Por qué?</strong><br>${razones.join(". ")}.</p>
     </div>
   `;
 }
