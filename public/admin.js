@@ -1483,6 +1483,33 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
     JSON.stringify(gastosGuardados)
   );
 }
+function formatoCOP(valor) {
+  return "$" + Math.round(Number(valor || 0)).toLocaleString("es-CO");
+}
+
+function normalizarCosto(valor) {
+  const numero = Number(valor);
+
+  if (!numero) return 0;
+
+  if (numero > 0 && numero < 1000) {
+    return numero * 1000;
+  }
+
+  return numero;
+}
+
+function normalizarPrecio(valor) {
+  const numero = Number(valor);
+
+  if (!numero) return 0;
+
+  if (numero > 0 && numero < 1000) {
+    return numero * 1000;
+  }
+
+  return numero;
+}
 function calcularPrecioInteligente() {
   const producto = document.getElementById("productoPrecio").value.trim();
 
