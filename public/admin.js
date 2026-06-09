@@ -1487,7 +1487,7 @@ function formatoCOP(valor) {
   return "$" + Math.round(Number(valor || 0)).toLocaleString("es-CO");
 }
 
-function normalizarCosto(valor) {
+window.normalizarCosto = function(valor) {
   const numero = Number(valor);
 
   if (!numero) return 0;
@@ -1497,9 +1497,9 @@ function normalizarCosto(valor) {
   }
 
   return numero;
-}
+};
 
-function normalizarPrecio(valor) {
+window.normalizarPrecio = function(valor) {
   const numero = Number(valor);
 
   if (!numero) return 0;
@@ -1509,19 +1509,19 @@ function normalizarPrecio(valor) {
   }
 
   return numero;
-}
+};
 function calcularPrecioInteligente() {
   const producto = document.getElementById("productoPrecio").value.trim();
 
-  const materiaPrima = normalizarCosto(
+  const materiaPrima = window.normalizarCosto(
     document.getElementById("costoMateriaPrima").value
   );
 
-  const costoOperativo = normalizarCosto(
+  const costoOperativo = window.normalizarCosto(
     document.getElementById("costoOperativo").value
   );
 
-  const precioActual = normalizarPrecio(
+  const precioActual = window.normalizarPrecio(
     document.getElementById("precioActualVenta").value
   );
 
