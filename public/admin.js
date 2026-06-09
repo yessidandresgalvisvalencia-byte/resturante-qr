@@ -2675,19 +2675,77 @@ document.getElementById(
 ).value || 0.02
 );
 
-localStorage.setItem(
-`configFinanciera_${restaurantId}`,
-JSON.stringify({
-margenSeguridad
-})
-);
+let nivelMargen = "";
+let explicacionMargen = "";
 
-document.getElementById(
-"estadoConfiguracionFinanciera"
-).innerHTML =
-"<p>✅ Configuración guardada correctamente.</p>";
+if (margenSeguridad <= 0.02) {
+
+  nivelMargen = "Protección mínima";
+
+  explicacionMargen =
+    "Este margen es bajo. Sirve para negocios con costos estables, poca variación de precios y descuentos muy controlados.";
+
+} else if (margenSeguridad <= 0.10) {
+
+  nivelMargen = "Protección moderada";
+
+  explicacionMargen =
+    "Este margen ayuda a proteger el restaurante frente a pequeños errores, desperdicios normales o descuentos ocasionales.";
+
+} else if (margenSeguridad <= 0.20) {
+
+  nivelMargen = "Protección alta";
+
+  explicacionMargen =
+    "Este margen es útil cuando el restaurante tiene variación en insumos, promociones frecuentes o riesgo de desperdicio.";
+
+} else {
+
+  nivelMargen = "Protección agresiva";
+
+  explicacionMargen =
+    "Este margen exige precios más altos y limita más los descuentos. Es recomendable cuando el negocio quiere proteger fuertemente su caja y evitar vender barato.";
 
 }
+
+localStorage.setItem(
+  `configFinanciera_${restaurantId}`,
+  JSON.stringify({
+    margenSeguridad,
+    nivelMargen,
+    explicacionMargen
+  })
+);
+
+const estado =
+document.getElementById(
+"estadoConfiguracionFinanciera"
+);
+
+if (estado) {
+
+  estado.innerHTML = `
+  <div class="card">
+    <p><strong>Configuración guardada correctamente.</strong></p>
+
+    <p>
+      <strong>Nivel detectado:</strong>
+      ${nivelMargen}
+    </p>
+
+    <p>
+      <strong>Explicación GRUK:</strong><br>
+      ${explicacionMargen}
+    </p>
+  </div>
+  `;
+
+}
+
+}
+
+
+
 
 function cargarConfiguracionFinanciera() {
 
