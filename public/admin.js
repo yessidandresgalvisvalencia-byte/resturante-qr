@@ -1614,6 +1614,7 @@ function calcularPrecioInteligente() {
 
   const Dmax =
     1 - (costoTotal / PB);
+   
     let descuentoRecomendado = 0;
 let explicacionDescuento = "";
 
