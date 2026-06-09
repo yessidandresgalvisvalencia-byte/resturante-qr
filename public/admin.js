@@ -1593,78 +1593,19 @@ function calcularPrecioInteligente() {
   const costoTotal = costoBase + costoTrabajo;
 
   const configFinanciera =
-    JSON.parse(
-      localStorage.getItem(
-        `configFinanciera_${getRestaurantId()}`
-      )
-    ) || {
+    JSON.parse(localStorage.getItem(`configFinanciera_${getRestaurantId()}`)) || {
       margenSeguridad: 0.02
     };
 
-  const MS =
-    Number(configFinanciera.margenSeguridad || 0.02);
+  const MS = Number(configFinanciera.margenSeguridad || 0.02);
 
-  const G =
-    Number(
-      document.getElementById("gananciaDeseada")?.value || 0
-    );
+  const G = Number(
+    document.getElementById("gananciaDeseada")?.value || 0
+  );
 
-  const PB =
-    (costoTotal + G) / (1 - MS);
+  const PB = (costoTotal + G) / (1 - MS);
 
-  const Dmax =
-    1 - (costoTotal / PB);
-   
-    let descuentoRecomendado = 0;
-let explicacionDescuento = "";
-
-if (precioActual < PB) {
-
-  descuentoRecomendado = 0;
-
-  explicacionDescuento = `
-  No se recomienda aplicar descuentos.
-
-  El precio actual está por debajo del Precio Blindado de
-  ${formatoCOP(PB)}.
-
-  Antes de pensar en promociones, GRUK recomienda primero
-  alcanzar el precio blindado para proteger el margen de seguridad.
-  `;
-
-} else if (
-  precioActual >= PB &&
-  precioActual < precioPremium
-) {
-
-  descuentoRecomendado =
-    Math.min((Dmax * 100) * 0.5, 10);
-
-  explicacionDescuento = `
-  El producto ya supera el Precio Blindado.
-
-  Se recomienda un descuento prudente de hasta
-  ${descuentoRecomendado.toFixed(2)}%.
-
-  Esto permite incentivar ventas sin sacrificar
-  excesivamente el margen de seguridad.
-  `;
-
-} else {
-
-  descuentoRecomendado =
-    Math.min((Dmax * 100) * 0.7, 15);
-
-  explicacionDescuento = `
-  El producto se encuentra en una zona premium.
-
-  Existe espacio para aplicar descuentos tácticos
-  sin comprometer la rentabilidad del producto.
-
-  GRUK recomienda no superar
-  ${descuentoRecomendado.toFixed(2)}%.
-  `;
-}
+  const Dmax = 1 - (costoTotal / PB);
 
   let margenMinimo = 0.25;
   let margenRecomendado = 0.45;
@@ -1706,6 +1647,41 @@ if (precioActual < PB) {
   const precioRecomendado = Math.round(costoTotal / (1 - margenRecomendado));
   const precioPremium = Math.round(costoTotal / Math.max(0.08, 1 - margenPremium));
 
+  let descuentoRecomendado = 0;
+  let explicacionDescuento = "";
+
+  if (precioActual < PB) {
+    descuentoRecomendado = 0;
+
+    explicacionDescuento = `
+    No se recomienda aplicar descuentos.
+
+    El precio actual está por debajo del Precio Blindado de ${formatoCOP(PB)}.
+
+    Antes de pensar en promociones, GRUK recomienda primero alcanzar el precio blindado para proteger el margen de seguridad.
+    `;
+  } else if (precioActual >= PB && precioActual < precioPremium) {
+    descuentoRecomendado = Math.min((Dmax * 100) * 0.5, 10);
+
+    explicacionDescuento = `
+    El producto ya supera el Precio Blindado.
+
+    Se recomienda un descuento prudente de hasta ${descuentoRecomendado.toFixed(2)}%.
+
+    Esto permite incentivar ventas sin sacrificar excesivamente el margen de seguridad.
+    `;
+  } else {
+    descuentoRecomendado = Math.min((Dmax * 100) * 0.7, 15);
+
+    explicacionDescuento = `
+    El producto se encuentra en una zona premium.
+
+    Existe espacio para aplicar descuentos tácticos sin comprometer la rentabilidad del producto.
+
+    GRUK recomienda no superar ${descuentoRecomendado.toFixed(2)}%.
+    `;
+  }
+
   const margenActual =
     precioActual > 0
       ? ((precioActual - costoTotal) / precioActual) * 100
@@ -1713,38 +1689,16 @@ if (precioActual < PB) {
 
   const utilidadActual = precioActual - costoTotal;
 
-  const desviacionPremium =
-    precioPremium > 0 ? precioActual / precioPremium : 999;
+  const perdidaPorVenta = Math.max(0, costoTotal - precioActual);
 
-  const posibleErrorDigitacion =
-    desviacionPremium >= 5;
-
-  const perdidaPorVenta =
-    Math.max(0, costoTotal - precioActual);
-
-  const destruccionMensual =
-    perdidaPorVenta * 30;
+  const destruccionMensual = perdidaPorVenta * 30;
 
   let semaforo = "";
   let decision = "";
   let accion = "";
   let interpretacion = "";
 
-  if (posibleErrorDigitacion) {
-    semaforo = "⚠️ Alerta crítica de digitación";
-    decision = "Revisar inmediatamente el precio ingresado";
-    accion = "El precio actual parece contener ceros adicionales o un error humano.";
-
-    interpretacion = `
-      ¡Cuidado! El precio actual de ${formatoCOP(precioActual)}
-      supera exageradamente el límite premium calculado de ${formatoCOP(precioPremium)}.
-
-      GRUK detecta una desviación extrema incompatible con el comportamiento normal del mercado.
-      Esto probablemente no es una estrategia premium: parece un error de digitación.
-    `;
-  }
-
-  else if (precioActual < costoTotal && puedeSerGancho) {
+  if (precioActual < costoTotal && puedeSerGancho) {
     semaforo = "🔵 Azul — producto gancho subsidiado";
     decision = "Mantener solo si genera venta cruzada comprobada";
     accion = "No subir automáticamente. Validar si arrastra compras rentables.";
@@ -1752,7 +1706,7 @@ if (precioActual < PB) {
     interpretacion = `
       ${producto} está por debajo de su costo total, pero puede cumplir una función estratégica como producto gancho de entrada.
 
-      Este precio solo tiene sentido si atrae tráfico al inicio del consumo y empuja compras de mayor margen: repostería, entradas rentables, platos fuertes, combos o bebidas complementarias.
+      Este precio solo tiene sentido si atrae tráfico al inicio del consumo y empuja compras de mayor margen.
 
       Si no existe venta cruzada real, el subsidio deja de ser estrategia y se convierte en pérdida.
     `;
@@ -1764,14 +1718,9 @@ if (precioActual < PB) {
     accion = `Subir mínimo hasta ${formatoCOP(precioMinimo)}.`;
 
     interpretacion = `
-      ¡Alerta de cuello de botella operativo!
-
-      ${producto} no debe tratarse como producto gancho. Los postres y platos fuertes no funcionan como anzuelo de entrada cuando están por debajo del costo: consumen tiempo de cocina, retrasan operación y destruyen margen en una fase crítica del servicio.
+      ${producto} no debe tratarse como producto gancho.
 
       Cada venta destruye aproximadamente ${formatoCOP(perdidaPorVenta)} de margen operativo.
-
-      Si se mantiene esta estructura, el restaurante podría perder más de
-      ${formatoCOP(destruccionMensual)} mensuales por sostener un precio que no rescata materia prima, operación ni tiempo productivo.
 
       GRUK recomienda suspender el subsidio y corregir el precio hacia el mínimo sostenible de ${formatoCOP(precioMinimo)}.
     `;
@@ -1783,26 +1732,36 @@ if (precioActual < PB) {
     accion = `Subir mínimo hasta ${formatoCOP(precioMinimo)}.`;
 
     interpretacion = `
-      El precio actual está por debajo del costo total estratégico. Aquí sí existe pérdida real por unidad.
+      El precio actual está por debajo del costo total estratégico.
 
       Cada venta destruye aproximadamente ${formatoCOP(perdidaPorVenta)} de margen operativo.
-
-      Si el ritmo continúa, el restaurante podría perder más de
-      ${formatoCOP(destruccionMensual)} mensuales únicamente por mantener este precio.
     `;
   }
 
-  else if (precioActual >= costoTotal && precioActual < precioMinimo) {
-    semaforo = "🟡 Amarillo — cubre costos, pero no genera utilidad suficiente";
-    decision = "Subir gradualmente hacia una utilidad real";
-    accion = `Mover el precio hacia ${formatoCOP(precioRecomendado)}.`;
+  else if (precioActual < PB) {
+    semaforo = "🟡 Amarillo — precio no blindado";
+    decision = "Subir hacia el Precio Blindado";
+    accion = `Ajustar el precio mínimo a ${formatoCOP(PB)}.`;
 
     interpretacion = `
-      El precio actual de ${formatoCOP(precioActual)} cubre los costos básicos y deja una utilidad aproximada de ${formatoCOP(utilidadActual)} por unidad, equivalente a un margen estimado de ${margenActual.toFixed(1)}%.
+      El precio actual de ${formatoCOP(precioActual)} cubre parte de la estructura económica,
+      pero no alcanza el Precio Blindado de ${formatoCOP(PB)}.
 
-      Sin embargo, sigue por debajo del mínimo sostenible calculado de ${formatoCOP(precioMinimo)}. Esto significa que el producto no está quebrando al restaurante, pero trabaja casi únicamente para pagar materia prima, operación y tiempo.
+      Esto significa que no se está respetando el Margen de Seguridad del ${(MS * 100).toFixed(2)}%.
 
-      GRUK recomienda subir gradualmente hacia ${formatoCOP(precioRecomendado)} para que el plato deje de estar en zona de supervivencia y empiece a producir utilidad real.
+      GRUK recomienda no marcar este precio como sano hasta que alcance o supere el Precio Blindado.
+    `;
+  }
+
+  else if (precioActual >= precioRecomendado && precioActual <= precioPremium) {
+    semaforo = "🟢 Verde — precio estratégicamente sano";
+    decision = "Mantener y medir";
+    accion = "No subir todavía. Medir aceptación, rotación y recompra.";
+
+    interpretacion = `
+      El precio actual está dentro del rango óptimo calculado y además respeta el Precio Blindado.
+
+      Aquí la mejor decisión no es subir por subir, sino defender el equilibrio entre margen, demanda y percepción de valor.
     `;
   }
 
@@ -1813,34 +1772,6 @@ if (precioActual < PB) {
 
     interpretacion = `
       El precio actual ya supera el mínimo sostenible, pero todavía no captura todo el valor económico del producto.
-
-      Hay espacio para mejorar margen sin romper la lógica comercial, especialmente si el producto tiene buena aceptación.
-    `;
-  }
-else if (precioActual < PB) {
-  semaforo = "🟡 Amarillo — precio no blindado";
-  decision = "Subir hacia el Precio Blindado";
-  accion = `Ajustar el precio mínimo a ${formatoCOP(PB)}.`;
-
-  interpretacion = `
-    El precio actual de ${formatoCOP(precioActual)} cubre parte de la estructura económica,
-    pero no alcanza el Precio Blindado de ${formatoCOP(PB)}.
-
-    Esto significa que el restaurante no está respetando el Margen de Seguridad del
-    ${(MS * 100).toFixed(2)}% configurado.
-
-    GRUK recomienda no marcar este precio como sano hasta que alcance o supere el Precio Blindado.
-  `;
-}
-  else if (precioActual >= precioRecomendado && precioActual <= precioPremium) {
-    semaforo = "🟢 Verde — precio estratégicamente sano";
-    decision = "Mantener y medir";
-    accion = "No subir todavía. Medir aceptación, rotación y recompra.";
-
-    interpretacion = `
-      El precio actual está dentro del rango óptimo calculado.
-
-      Aquí la mejor decisión no es subir por subir, sino defender el equilibrio entre margen, demanda y percepción de valor.
     `;
   }
 
@@ -1852,7 +1783,7 @@ else if (precioActual < PB) {
     interpretacion = `
       El precio actual supera el rango premium calculado.
 
-      Puede funcionar solo si existe reputación, presentación fuerte, experiencia superior y demanda sostenida. Si no existen esas condiciones, el precio puede destruir rotación.
+      Puede funcionar solo si existe reputación, presentación fuerte, experiencia superior y demanda sostenida.
     `;
   }
 
@@ -1871,15 +1802,11 @@ else if (precioActual < PB) {
       <p><strong>Margen de Seguridad (MS):</strong> ${(MS * 100).toFixed(2)}%</p>
       <p><strong>Precio Blindado (PB):</strong> ${formatoCOP(PB)}</p>
       <p><strong>Descuento Máximo Permitido (Dmax):</strong> ${(Dmax * 100).toFixed(2)}%</p>
-      <p>
-<strong>Descuento recomendado por GRUK:</strong>
-${descuentoRecomendado.toFixed(2)}%
-</p>
 
-<p>
-<strong>Justificación:</strong><br>
-${explicacionDescuento}
-</p>
+      <p><strong>Descuento recomendado por GRUK:</strong> ${descuentoRecomendado.toFixed(2)}%</p>
+
+      <p><strong>Justificación del descuento:</strong><br>${explicacionDescuento}</p>
+
       <p><strong>Precio actual:</strong> ${formatoCOP(precioActual)}</p>
       <p><strong>Utilidad actual por unidad:</strong> ${formatoCOP(utilidadActual)}</p>
 
@@ -1893,23 +1820,14 @@ ${explicacionDescuento}
       ${margenActual.toFixed(1)}%
       </p>
 
-      <p><strong>Decisión recomendada:</strong><br>
-      ${decision}
-      </p>
+      <p><strong>Decisión recomendada:</strong><br>${decision}</p>
 
-      <p><strong>Acción sugerida:</strong><br>
-      ${accion}
-      </p>
+      <p><strong>Acción sugerida:</strong><br>${accion}</p>
 
-      <p><strong>Interpretación GRUK:</strong><br>
-      ${interpretacion}
-      </p>
+      <p><strong>Interpretación GRUK:</strong><br>${interpretacion}</p>
     </div>
   `;
 }
-
-window.calcularPrecioInteligente =
-calcularPrecioInteligente;
 
 window.calcularPrecioInteligente = calcularPrecioInteligente;
 async function guardarInventario(){
@@ -2800,5 +2718,4 @@ if (input) {
 input.value =
 config.margenSeguridad;
 }
-
 }
