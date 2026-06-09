@@ -1565,6 +1565,29 @@ function calcularPrecioInteligente() {
 
   const costoTotal = costoBase + costoTrabajo;
 
+  const configFinanciera =
+    JSON.parse(
+      localStorage.getItem(
+        `configFinanciera_${getRestaurantId()}`
+      )
+    ) || {
+      margenSeguridad: 0.02
+    };
+
+  const MS =
+    Number(configFinanciera.margenSeguridad || 0.02);
+
+  const G =
+    Number(
+      document.getElementById("gananciaDeseada")?.value || 0
+    );
+
+  const PB =
+    (costoTotal + G) / (1 - MS);
+
+  const Dmax =
+    1 - (costoTotal / PB);
+
   let margenMinimo = 0.25;
   let margenRecomendado = 0.45;
   let margenPremium = 0.65;
@@ -1752,6 +1775,11 @@ function calcularPrecioInteligente() {
       <p><strong>Costo trabajo/tiempo estimado:</strong> ${formatoCOP(costoTrabajo)}</p>
       <p><strong>Costo total estratégico:</strong> ${formatoCOP(costoTotal)}</p>
 
+      <p><strong>Ganancia deseada:</strong> ${formatoCOP(G)}</p>
+      <p><strong>Margen de Seguridad (MS):</strong> ${(MS * 100).toFixed(2)}%</p>
+      <p><strong>Precio Blindado (PB):</strong> ${formatoCOP(PB)}</p>
+      <p><strong>Descuento Máximo Permitido (Dmax):</strong> ${(Dmax * 100).toFixed(2)}%</p>
+
       <p><strong>Precio actual:</strong> ${formatoCOP(precioActual)}</p>
       <p><strong>Utilidad actual por unidad:</strong> ${formatoCOP(utilidadActual)}</p>
 
@@ -1779,6 +1807,9 @@ function calcularPrecioInteligente() {
     </div>
   `;
 }
+
+window.calcularPrecioInteligente =
+calcularPrecioInteligente;
 
 window.calcularPrecioInteligente = calcularPrecioInteligente;
 async function guardarInventario(){
