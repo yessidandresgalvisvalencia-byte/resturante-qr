@@ -2834,12 +2834,83 @@ function recomendarMargenSeguridad() {
 
   document.getElementById("margenSeguridadGeneral").value =
     margenSeguridad.toFixed(2);
+    let explicacionCompleta = "";
+
+if (margenSeguridad <= 0.05) {
+
+  explicacionCompleta = `
+  GRUK recomienda un margen de seguridad del
+  ${(margenSeguridad * 100).toFixed(0)}%.
+
+  Este valor parte del piso mínimo obligatorio del 2%, diseñado para proteger
+  al restaurante frente a pequeños imprevistos operativos como errores de caja,
+  desperdicios menores, devoluciones ocasionales o variaciones normales del negocio.
+
+  Debido a que los riesgos detectados son relativamente bajos, no es necesario
+  exigir un colchón financiero mayor. Un margen superior podría elevar
+  innecesariamente los precios y afectar la competitividad.
+  `;
+
+} else if (margenSeguridad <= 0.15) {
+
+  explicacionCompleta = `
+  GRUK recomienda un margen de seguridad del
+  ${(margenSeguridad * 100).toFixed(0)}%.
+
+  Aunque el sistema mantiene el piso mínimo de protección del 2%,
+  detectó factores que incrementan el riesgo operativo del restaurante.
+
+  Entre ellos se encuentran variaciones en los costos de insumos,
+  promociones comerciales o riesgos moderados de desperdicio.
+
+  Por esta razón GRUK aumenta automáticamente el margen recomendado
+  para que el negocio pueda absorber estos impactos sin comprometer
+  la rentabilidad de los productos.
+  `;
+
+} else if (margenSeguridad <= 0.25) {
+
+  explicacionCompleta = `
+  GRUK recomienda un margen de seguridad del
+  ${(margenSeguridad * 100).toFixed(0)}%.
+
+  El análisis financiero detectó varios factores de riesgo que pueden
+  afectar directamente la utilidad del restaurante.
+
+  Entre ellos se encuentran fluctuaciones importantes en los costos,
+  descuentos frecuentes y pérdidas potenciales por desperdicio
+  o vencimiento de inventario.
+
+  Un margen menor podría dejar al negocio expuesto a pérdidas
+  operativas, por lo que GRUK recomienda fortalecer el colchón
+  financiero mediante un nivel de protección alto.
+  `;
+
+} else {
+
+  explicacionCompleta = `
+  GRUK recomienda un margen de seguridad del
+  ${(margenSeguridad * 100).toFixed(0)}%.
+
+  El restaurante presenta un perfil de riesgo elevado.
+
+  La combinación de alta variación de costos, promociones frecuentes
+  o riesgo significativo de desperdicio puede generar fugas importantes
+  de rentabilidad si no existe una protección financiera adecuada.
+
+  Por esta razón el sistema recomienda un margen agresivo que permita
+  blindar los precios, limitar descuentos excesivos y proteger la caja
+  del negocio frente a escenarios adversos.
+  `;
+}
 
   document.getElementById("estadoConfiguracionFinanciera").innerHTML = `
     <div class="card">
       <p><strong>Margen recomendado por GRUK:</strong> ${(margenSeguridad * 100).toFixed(0)}%</p>
       <p><strong>Nivel:</strong> ${nivelMargen}</p>
-      <p><strong>¿Por qué?</strong><br>${razones.join(". ")}.</p>
+      <p><strong>Análisis financiero GRUK:</strong><br>
+${explicacionCompleta}
+</p>
     </div>
   `;
 }
