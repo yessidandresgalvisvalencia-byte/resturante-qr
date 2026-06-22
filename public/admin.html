@@ -448,67 +448,40 @@ Analizar precio
 <label>Categoría</label>
 
 <select id="inventarioCategoria">
-
-<option value="Carnes">
-Carnes
-</option>
-
-<option value="Lácteos">
-Lácteos
-</option>
-
-<option value="Verduras">
-Verduras
-</option>
-
-<option value="Frutas">
-Frutas
-</option>
-
-<option value="Bebidas">
-Bebidas
-</option>
-
-<option value="Salsas">
-Salsas
-</option>
-
-<option value="Congelados">
-Congelados
-</option>
-
-<option value="Abarrotes">
-Abarrotes
-</option>
-
-<option value="Empaques">
-Empaques
-</option>
-
-<option value="Limpieza">
-Limpieza
-</option>
-
+<option value="Carnes">Carnes</option>
+<option value="Lácteos">Lácteos</option>
+<option value="Verduras">Verduras</option>
+<option value="Frutas">Frutas</option>
+<option value="Bebidas">Bebidas</option>
+<option value="Salsas">Salsas</option>
+<option value="Congelados">Congelados</option>
+<option value="Abarrotes">Abarrotes</option>
+<option value="Empaques">Empaques</option>
+<option value="Limpieza">Limpieza</option>
 </select>
 
 <label>Cantidad</label>
+
 <p class="descripcion-termino">
 Cantidad numérica real del inventario.
 Ejemplo:
 15, 20, 3.5, 100.
 No escribas unidades aquí.
 </p>
+
 <input
 id="inventarioCantidad"
 type="number"
 >
 
 <label>Unidad</label>
+
 <p class="descripcion-termino">
 Tipo de medida utilizada.
 Ejemplo:
 kg, gramos, litros, unidades, bolsas, cajas.
 </p>
+
 <input
 id="inventarioUnidad"
 type="text"
@@ -540,16 +513,7 @@ type="date"
 Guardar inventario
 </button>
 
-</div>
-
-<button onclick="mostrarCarpetaInventario()">
-📦 Ir a inventario
-</button>
-
-<div
-id="carpetaInventario"
-style="display:none;"
->
+<br><br>
 
 <div id="inventarioResumen"></div>
 
@@ -570,7 +534,6 @@ class="grid"
 ></div>
 
 </div>
-
 </div>
 <h2>Personal del restaurante</h2>
 <div id="listaPersonal" class="grid"></div>
