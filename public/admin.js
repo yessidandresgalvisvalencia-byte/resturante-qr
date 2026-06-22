@@ -1933,6 +1933,16 @@ async function cargarInventario() {
         productos.filter(
           p => p.estado === "vencido"
         ).length;
+        const valorInventario =
+  productos.reduce((acc, p) => {
+
+    return acc +
+      (
+        Number(p.cantidad || 0) *
+        Number(p.costo || 0)
+      );
+
+  }, 0);
 
       resumen.innerHTML = `
         <div class="card">
@@ -1952,6 +1962,12 @@ async function cargarInventario() {
             Vencidos:
             <strong>${vencidos}</strong>
           </p>
+          <p>
+💰 Valor total inventario:
+<strong>
+${formatoCOP(valorInventario)}
+</strong>
+</p>
         </div>
       `;
     }
