@@ -22,6 +22,11 @@ type:Number,
 required:true
 },
 
+costo:{
+type:Number,
+default:0
+},
+
 unidad:{
 type:String,
 default:"unidades"
@@ -50,6 +55,7 @@ prioridad:{
 type:String,
 default:"media"
 },
+
 anulado:{
 type:Boolean,
 default:false
@@ -77,6 +83,7 @@ default:Date.now
 });
 
 module.exports =
+mongoose.models.Inventario ||
 mongoose.model(
 "Inventario",
 inventarioSchema
