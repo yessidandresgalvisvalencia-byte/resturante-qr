@@ -1833,258 +1833,256 @@ Dmax = Math.max(0, Math.min(Dmax, MS));
 }
 
 window.calcularPrecioInteligente = calcularPrecioInteligente;
-async function guardarInventario(){
+async function guardarInventario() {
+  try {
+    const restaurantId =
+      localStorage.getItem("adminRestaurantId") ||
+      getRestaurantId();
 
-try{
+    const body = {
+      restaurantId,
 
-const restaurantId =
-localStorage.getItem(
-"adminRestaurantId"
-);
+      nombre:
+        document.getElementById("inventarioNombre").value,
 
-const body = {
+      categoria:
+        document.getElementById("inventarioCategoria").value,
 
-restaurantId,
+      cantidad:
+        Number(document.getElementById("inventarioCantidad").value),
 
-nombre:
-document.getElementById(
-"inventarioNombre"
-).value,
+      unidad:
+        document.getElementById("inventarioUnidad").value,
 
-categoria:
-document.getElementById(
-"inventarioCategoria"
-).value,
+      proveedor:
+        document.getElementById("inventarioProveedor").value,
 
-cantidad:Number(
-document.getElementById(
-"inventarioCantidad"
-).value
-),
+      fechaCompra:
+        document.getElementById("inventarioCompra").value,
 
-unidad:
-document.getElementById(
-"inventarioUnidad"
-).value,
+      fechaVencimiento:
+        document.getElementById("inventarioVencimiento").value
+    };
 
-proveedor:
-document.getElementById(
-"inventarioProveedor"
-).value,
+    const res = await fetch("/api/inventario", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
 
-fechaCompra:
-document.getElementById(
-"inventarioCompra"
-).value,
+    const data = await res.json();
 
-fechaVencimiento:
-document.getElementById(
-"inventarioVencimiento"
-).value
+    if (!data.ok) {
+      alert("Error guardando");
+      return;
+    }
 
-};
+    alert("Inventario guardado");
 
-const res =
-await fetch(
-"/api/inventario",
-{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify(body)
-}
-);
+    cargarInventario();
 
-const data =
-await res.json();
-
-if(!data.ok){
-alert("Error guardando");
-return;
+  } catch (error) {
+    console.log(error);
+  }
 }
 
-alert("Inventario guardado");
+async function cargarInventario() {
+  try {
+    const restaurantId =
+      localStorage.getItem("adminRestaurantId") ||
+      getRestaurantId();
+
+    const res =
+      await fetch(`/api/inventario/${restaurantId}`);
+
+    const data =
+      await res.json();
+
+    if (!data.ok) return;
+
+    const contenedor =
+      document.getElementById("inventarioLista");
+
+    const resumen =
+      document.getElementById("inventarioResumen");
+
+    if (!contenedor) return;
+
+    contenedor.innerHTML = "";
+
+    const productos =
+      data.productos || [];
+
+    const productosOrdenados =
+      productos.sort((a, b) => {
+        return a.diasRestantes - b.diasRestantes;
+      });
+
+    if (resumen) {
+      const totalProductos =
+        productos.length;
+
+      const proximos =
+        productos.filter(
+          p => p.estado === "proximo"
+        ).length;
+
+      const vencidos =
+        productos.filter(
+          p => p.estado === "vencido"
+        ).length;
+
+      resumen.innerHTML = `
+        <div class="card">
+          <h3>📦 Resumen de inventario</h3>
+
+          <p>
+            Productos registrados:
+            <strong>${totalProductos}</strong>
+          </p>
+
+          <p>
+            Próximos a vencer:
+            <strong>${proximos}</strong>
+          </p>
+
+          <p>
+            Vencidos:
+            <strong>${vencidos}</strong>
+          </p>
+        </div>
+      `;
+    }
+
+    productosOrdenados.forEach(producto => {
+      let color = "#16a34a";
+
+      if (producto.estado === "proximo") {
+        color = "#f59e0b";
+      }
+
+      if (producto.estado === "vencido") {
+        color = "#dc2626";
+      }
+
+      contenedor.innerHTML += `
+        <div class="card">
+          <h3>${producto.nombre}</h3>
+
+          <p>
+            <strong>Categoría:</strong>
+            ${producto.categoria}
+          </p>
+
+          <p>
+            <strong>Cantidad:</strong>
+            ${producto.cantidad}
+            ${producto.unidad}
+          </p>
+
+          <p>
+            <strong>Proveedor:</strong>
+            ${producto.proveedor}
+          </p>
+
+          <p>
+            <strong>Vence:</strong>
+            ${
+              producto.fechaVencimiento
+                ? producto.fechaVencimiento.split("T")[0]
+                : ""
+            }
+          </p>
+
+          <p style="color:${color};font-weight:900;">
+            ${
+              producto.estado === "vigente"
+                ? "✅ Vigente"
+                : producto.estado === "proximo"
+                ? "⚠️ Próximo a vencer"
+                : "❌ Vencido"
+            }
+          </p>
+
+          <p>
+            <strong>Días restantes:</strong>
+            ${producto.diasRestantes}
+          </p>
+
+          <p>
+            <strong>Recomendación:</strong>
+            ${
+              producto.estado === "vencido"
+                ? "No usar. Revisar y retirar del inventario."
+                : producto.estado === "proximo"
+                ? "Usar primero este producto en preparaciones del día o promociones controladas."
+                : "Mantener en inventario. No es prioridad de consumo."
+            }
+          </p>
+
+          <button onclick="anularInventario('${producto._id}')">
+            Anular producto
+          </button>
+        </div>
+      `;
+    });
+
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+function mostrarCarpetaInventario() {
+  const carpeta =
+    document.getElementById("carpetaInventario");
+
+  if (!carpeta) return;
+
+  carpeta.style.display =
+    carpeta.style.display === "none"
+      ? "block"
+      : "none";
+}
 
 cargarInventario();
 
-}catch(error){
+async function anularInventario(id) {
+  const motivo =
+    prompt("Escribe el motivo de anulación:");
 
-console.log(error);
+  if (!motivo) {
+    alert("Debes escribir un motivo");
+    return;
+  }
 
-}
+  const usuario =
+    localStorage.getItem("adminUsuario") || "admin";
 
-}
+  const res =
+    await fetch(`/api/inventario/anular/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        motivo,
+        usuario
+      })
+    });
 
-async function cargarInventario(){
+  const data =
+    await res.json();
 
-try{
+  if (!data.ok) {
+    alert(data.error || "No se pudo anular");
+    return;
+  }
 
-const restaurantId =
-localStorage.getItem(
-"adminRestaurantId"
-);
+  alert("Producto anulado con trazabilidad");
 
-const res =
-await fetch(
-`/api/inventario/${restaurantId}`
-);
-
-const data =
-await res.json();
-
-if(!data.ok) return;
-
-const contenedor =
-document.getElementById(
-"inventarioLista"
-);
-
-contenedor.innerHTML = "";
-
-const productosOrdenados =
-data.productos.sort((a,b)=>{
-return a.diasRestantes - b.diasRestantes;
-});
-
-productosOrdenados.forEach(producto=>{
-
-let color = "#16a34a";
-
-if(producto.estado === "proximo"){
-color = "#f59e0b";
-}
-
-if(producto.estado === "vencido"){
-color = "#dc2626";
-}
-
-contenedor.innerHTML += `
-
-<div class="card">
-
-<h3>${producto.nombre}</h3>
-
-<p>
-<strong>Categoría:</strong>
-${producto.categoria}
-</p>
-
-<p>
-<strong>Cantidad:</strong>
-${producto.cantidad}
-${producto.unidad}
-</p>
-
-<p>
-<strong>Proveedor:</strong>
-${producto.proveedor}
-</p>
-
-<p>
-<strong>Vence:</strong>
-${
-producto.fechaVencimiento
-? producto.fechaVencimiento.split("T")[0]
-: ""
-}
-</p>
-
-<p style="color:${color};font-weight:900;">
-
-${
-producto.estado === "vigente"
-
-? "✅ Vigente"
-
-: producto.estado === "proximo"
-
-? "⚠️ Próximo a vencer"
-
-: "❌ Vencido"
-}
-
-</p>
-
-<p>
-<strong>Días restantes:</strong>
-${producto.diasRestantes}
-</p>
-
-<p>
-<strong>Recomendación:</strong>
-
-${
-producto.estado === "vencido"
-
-? "No usar. Revisar y retirar del inventario."
-
-: producto.estado === "proximo"
-
-? "Usar primero este producto en preparaciones del día o promociones controladas."
-
-: "Mantener en inventario. No es prioridad de consumo."
-}
-</p>
-<button onclick="anularInventario('${producto._id}')">
-Anular producto
-</button>
-
-</div>
-
-`;
-
-});
-
-}catch(error){
-
-console.log(error);
-
-}
-
-}
-
-cargarInventario();
-async function anularInventario(id){
-
-const motivo =
-prompt("Escribe el motivo de anulación:");
-
-if(!motivo){
-alert("Debes escribir un motivo");
-return;
-}
-
-const usuario =
-localStorage.getItem("adminUsuario") || "admin";
-
-const res =
-await fetch(
-`/api/inventario/anular/${id}`,
-{
-method:"PUT",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-motivo,
-usuario
-})
-}
-);
-
-const data =
-await res.json();
-
-if(!data.ok){
-alert(data.error || "No se pudo anular");
-return;
-}
-
-alert("Producto anulado con trazabilidad");
-
-cargarInventario();
-
+  cargarInventario();
 }
 async function generarReporteEjecutivo() {
   const restaurantId =

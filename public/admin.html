@@ -542,12 +542,36 @@ Guardar inventario
 
 </div>
 
+<button onclick="mostrarCarpetaInventario()">
+📦 Ir a inventario
+</button>
+
+<div
+id="carpetaInventario"
+style="display:none;"
+>
+
+<div id="inventarioResumen"></div>
+
+<button onclick="mostrarCarpetaInventario()">
+📦 Ver inventario completo
+</button>
+
+<div
+id="carpetaInventario"
+style="display:none;"
+>
+
 <h2>Inventario</h2>
 
 <div
 id="inventarioLista"
 class="grid"
 ></div>
+
+</div>
+
+</div>
 <h2>Personal del restaurante</h2>
 <div id="listaPersonal" class="grid"></div>
 
