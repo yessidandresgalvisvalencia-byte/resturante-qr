@@ -1976,24 +1976,30 @@ ${formatoCOP(valorInventario)}
 <table style="
 width:100%;
 border-collapse:collapse;
-background:white;
+background:rgba(15,23,42,.85);
+color:white;
+border-radius:12px;
+overflow:hidden;
 ">
 
 <thead>
 
-<tr>
+<tr style="
+background:#0f172a;
+color:white;
+">
 
-<th>Producto</th>
-<th>Categoría</th>
-<th>Cantidad</th>
-<th>Unidad</th>
-<th>Costo</th>
-<th>Total</th>
-<th>Proveedor</th>
-<th>Vence</th>
-<th>Estado</th>
-<th>Días</th>
-<th>Acción</th>
+<th style="padding:12px;">Producto</th>
+<th style="padding:12px;">Categoría</th>
+<th style="padding:12px;">Cantidad</th>
+<th style="padding:12px;">Unidad</th>
+<th style="padding:12px;">Costo</th>
+<th style="padding:12px;">Total</th>
+<th style="padding:12px;">Proveedor</th>
+<th style="padding:12px;">Vence</th>
+<th style="padding:12px;">Estado</th>
+<th style="padding:12px;">Días</th>
+<th style="padding:12px;">Acción</th>
 
 </tr>
 
@@ -2017,7 +2023,9 @@ costoUnitario;
 
 return `
 
-<tr>
+<tr style="
+border-bottom:1px solid rgba(255,255,255,.15);
+">
 
 <td>${producto.nombre}</td>
 
