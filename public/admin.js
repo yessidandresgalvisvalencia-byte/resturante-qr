@@ -1839,31 +1839,37 @@ async function guardarInventario() {
       localStorage.getItem("adminRestaurantId") ||
       getRestaurantId();
 
-    const body = {
-      restaurantId,
+   const body = {
+  restaurantId,
 
-      nombre:
-        document.getElementById("inventarioNombre").value,
+  nombre:
+    document.getElementById("inventarioNombre").value,
 
-      categoria:
-        document.getElementById("inventarioCategoria").value,
+  categoria:
+    document.getElementById("inventarioCategoria").value,
 
-      cantidad:
-        Number(document.getElementById("inventarioCantidad").value),
+  cantidad:
+    Number(
+      document.getElementById("inventarioCantidad").value
+    ),
 
-      unidad:
-        document.getElementById("inventarioUnidad").value,
+  costo:
+    Number(
+      document.getElementById("inventarioCosto").value || 0
+    ),
 
-      proveedor:
-        document.getElementById("inventarioProveedor").value,
+  unidad:
+    document.getElementById("inventarioUnidad").value,
 
-      fechaCompra:
-        document.getElementById("inventarioCompra").value,
+  proveedor:
+    document.getElementById("inventarioProveedor").value,
 
-      fechaVencimiento:
-        document.getElementById("inventarioVencimiento").value
-    };
+  fechaCompra:
+    document.getElementById("inventarioCompra").value,
 
+  fechaVencimiento:
+    document.getElementById("inventarioVencimiento").value
+};
     const res = await fetch("/api/inventario", {
       method: "POST",
       headers: {
