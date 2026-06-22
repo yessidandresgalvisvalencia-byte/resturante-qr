@@ -1956,100 +1956,111 @@ async function cargarInventario() {
       `;
     }
 
-    productosOrdenados.forEach(producto => {
-      let color = "#16a34a";
+    contenedor.innerHTML = `
+<table style="
+width:100%;
+border-collapse:collapse;
+background:white;
+">
 
-      if (producto.estado === "proximo") {
-        color = "#f59e0b";
-      }
+<thead>
 
-      if (producto.estado === "vencido") {
-        color = "#dc2626";
-      }
+<tr>
 
-      const costoUnitario =
-  Number(producto.costo || producto.precioCompra || 0);
+<th>Producto</th>
+<th>Categoría</th>
+<th>Cantidad</th>
+<th>Unidad</th>
+<th>Costo</th>
+<th>Total</th>
+<th>Proveedor</th>
+<th>Vence</th>
+<th>Estado</th>
+<th>Días</th>
+<th>Acción</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+${productosOrdenados.map(producto => {
+
+const costoUnitario =
+Number(
+producto.costo ||
+producto.precioCompra ||
+0
+);
 
 const valorTotalProducto =
-  Number(producto.cantidad || 0) * costoUnitario;
+Number(producto.cantidad || 0)
+*
+costoUnitario;
 
-contenedor.innerHTML += `
-  <div class="card">
-    <h3>${producto.nombre}</h3>
+return `
 
-    <p>
-      <strong>Categoría:</strong>
-      ${producto.categoria}
-    </p>
+<tr>
 
-    <p>
-      <strong>Cantidad:</strong>
-      ${producto.cantidad}
-      ${producto.unidad}
-    </p>
+<td>${producto.nombre}</td>
 
-    <p>
-      <strong>Costo unitario:</strong>
-      ${formatoCOP(costoUnitario)}
-    </p>
+<td>${producto.categoria}</td>
 
-    <p>
-      <strong>Valor total del producto:</strong>
-      ${formatoCOP(valorTotalProducto)}
-    </p>
+<td>${producto.cantidad}</td>
 
-    <p>
-      <strong>Proveedor:</strong>
-      ${producto.proveedor}
-    </p>
+<td>${producto.unidad}</td>
 
-    <p>
-      <strong>Vence:</strong>
-      ${
-        producto.fechaVencimiento
-          ? producto.fechaVencimiento.split("T")[0]
-          : ""
-      }
-    </p>
+<td>${formatoCOP(costoUnitario)}</td>
 
-    <p style="color:${color};font-weight:900;">
-      ${
-        producto.estado === "vigente"
-          ? "✅ Vigente"
-          : producto.estado === "proximo"
-          ? "⚠️ Próximo a vencer"
-          : "❌ Vencido"
-      }
-    </p>
+<td>${formatoCOP(valorTotalProducto)}</td>
 
-    <p>
-      <strong>Días restantes:</strong>
-      ${producto.diasRestantes}
-    </p>
+<td>${producto.proveedor || "-"}</td>
 
-    <p>
-      <strong>Recomendación:</strong>
-      ${
-        producto.estado === "vencido"
-          ? "No usar. Revisar y retirar del inventario."
-          : producto.estado === "proximo"
-          ? "Usar primero este producto en preparaciones del día o promociones controladas."
-          : "Mantener en inventario. No es prioridad de consumo."
-      }
-    </p>
+<td>
+${
+producto.fechaVencimiento
+? producto.fechaVencimiento.split("T")[0]
+: "-"
+}
+</td>
 
-    <button onclick="anularInventario('${producto._id}')">
-      Anular producto
-    </button>
-  </div>
+<td>
+${
+producto.estado === "vigente"
+? "✅ Vigente"
+: producto.estado === "proximo"
+? "⚠️ Próximo"
+: "❌ Vencido"
+}
+</td>
+
+<td>${producto.diasRestantes}</td>
+
+<td>
+
+<button
+onclick="anularInventario('${producto._id}')"
+>
+Anular
+</button>
+
+</td>
+
+</tr>
+
 `;
-    });
 
-  } catch (error) {
+}).join("")}
+
+</tbody>
+
+</table>
+`;
+} catch (error) {
     console.log(error);
   }
 }
-
 function mostrarCarpetaInventario() {
   const carpeta =
     document.getElementById("carpetaInventario");
