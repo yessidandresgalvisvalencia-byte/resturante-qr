@@ -1967,66 +1967,82 @@ async function cargarInventario() {
         color = "#dc2626";
       }
 
-      contenedor.innerHTML += `
-        <div class="card">
-          <h3>${producto.nombre}</h3>
+      const costoUnitario =
+  Number(producto.costo || producto.precioCompra || 0);
 
-          <p>
-            <strong>Categoría:</strong>
-            ${producto.categoria}
-          </p>
+const valorTotalProducto =
+  Number(producto.cantidad || 0) * costoUnitario;
 
-          <p>
-            <strong>Cantidad:</strong>
-            ${producto.cantidad}
-            ${producto.unidad}
-          </p>
+contenedor.innerHTML += `
+  <div class="card">
+    <h3>${producto.nombre}</h3>
 
-          <p>
-            <strong>Proveedor:</strong>
-            ${producto.proveedor}
-          </p>
+    <p>
+      <strong>Categoría:</strong>
+      ${producto.categoria}
+    </p>
 
-          <p>
-            <strong>Vence:</strong>
-            ${
-              producto.fechaVencimiento
-                ? producto.fechaVencimiento.split("T")[0]
-                : ""
-            }
-          </p>
+    <p>
+      <strong>Cantidad:</strong>
+      ${producto.cantidad}
+      ${producto.unidad}
+    </p>
 
-          <p style="color:${color};font-weight:900;">
-            ${
-              producto.estado === "vigente"
-                ? "✅ Vigente"
-                : producto.estado === "proximo"
-                ? "⚠️ Próximo a vencer"
-                : "❌ Vencido"
-            }
-          </p>
+    <p>
+      <strong>Costo unitario:</strong>
+      ${formatoCOP(costoUnitario)}
+    </p>
 
-          <p>
-            <strong>Días restantes:</strong>
-            ${producto.diasRestantes}
-          </p>
+    <p>
+      <strong>Valor total del producto:</strong>
+      ${formatoCOP(valorTotalProducto)}
+    </p>
 
-          <p>
-            <strong>Recomendación:</strong>
-            ${
-              producto.estado === "vencido"
-                ? "No usar. Revisar y retirar del inventario."
-                : producto.estado === "proximo"
-                ? "Usar primero este producto en preparaciones del día o promociones controladas."
-                : "Mantener en inventario. No es prioridad de consumo."
-            }
-          </p>
+    <p>
+      <strong>Proveedor:</strong>
+      ${producto.proveedor}
+    </p>
 
-          <button onclick="anularInventario('${producto._id}')">
-            Anular producto
-          </button>
-        </div>
-      `;
+    <p>
+      <strong>Vence:</strong>
+      ${
+        producto.fechaVencimiento
+          ? producto.fechaVencimiento.split("T")[0]
+          : ""
+      }
+    </p>
+
+    <p style="color:${color};font-weight:900;">
+      ${
+        producto.estado === "vigente"
+          ? "✅ Vigente"
+          : producto.estado === "proximo"
+          ? "⚠️ Próximo a vencer"
+          : "❌ Vencido"
+      }
+    </p>
+
+    <p>
+      <strong>Días restantes:</strong>
+      ${producto.diasRestantes}
+    </p>
+
+    <p>
+      <strong>Recomendación:</strong>
+      ${
+        producto.estado === "vencido"
+          ? "No usar. Revisar y retirar del inventario."
+          : producto.estado === "proximo"
+          ? "Usar primero este producto en preparaciones del día o promociones controladas."
+          : "Mantener en inventario. No es prioridad de consumo."
+      }
+    </p>
+
+    <button onclick="anularInventario('${producto._id}')">
+      Anular producto
+    </button>
+  </div>
+`;
     });
 
   } catch (error) {
