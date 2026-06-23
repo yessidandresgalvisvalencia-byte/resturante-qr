@@ -53,6 +53,8 @@ const cliente = document.getElementById("clienteCaja").value.trim();
 const descripcion = document.getElementById("descripcionCaja").value.trim();
 const total = Number(document.getElementById("totalCaja").value || 0);
 const metodo = document.getElementById("metodoPagoCaja").value;
+const tipoVenta =
+document.getElementById("tipoVentaCaja").value;
 const recibido = Number(document.getElementById("dineroRecibidoCaja").value || 0);
 
 if (!cliente || !descripcion || !total) {
@@ -73,14 +75,20 @@ cambio = recibido - total;
 const pago = {
 id: Date.now(),
 restaurantId: restaurantIdCaja,
+
+tipoVenta,
+
 cliente,
 descripcion,
+
 total,
 metodo,
 recibido,
 cambio,
+
 fecha: new Date().toISOString()
 };
+
 
 const pagos =
 JSON.parse(localStorage.getItem(`pagos_caja_${restaurantIdCaja}`)) || [];
@@ -117,6 +125,14 @@ contenedor.innerHTML += `
 <h3>${pago.cliente}</h3>
 <p><strong>Total:</strong> ${formatoCOPCaja(pago.total)}</p>
 <p><strong>Método:</strong> ${pago.metodo}</p>
+<p>
+<strong>Origen:</strong>
+${
+pago.tipoVenta === "manual"
+? "💵 Venta manual"
+: "📲 Pedido QR"
+}
+</p>
 <p><strong>Recibido:</strong> ${formatoCOPCaja(pago.recibido)}</p>
 <p><strong>Cambio:</strong> ${formatoCOPCaja(pago.cambio)}</p>
 <p><strong>Fecha:</strong> ${new Date(pago.fecha).toLocaleString("es-CO")}</p>
@@ -208,6 +224,14 @@ font-weight:bold;
 
 <p class="total">Total: ${formatoCOPCaja(pago.total)}</p>
 <p><strong>Método:</strong> ${pago.metodo}</p>
+<p>
+<strong>Origen:</strong>
+${
+pago.tipoVenta === "manual"
+? "💵 Venta manual"
+: "📲 Pedido QR"
+}
+</p>
 <p><strong>Recibido:</strong> ${formatoCOPCaja(pago.recibido)}</p>
 <p><strong>Cambio:</strong> ${formatoCOPCaja(pago.cambio)}</p>
 

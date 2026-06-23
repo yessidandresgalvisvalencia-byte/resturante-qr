@@ -2235,7 +2235,32 @@ async function generarReporteEjecutivo() {
   let datosVentas = [];
   let personal = [];
 let gastoNomina = 0;
+const pagosCaja =
+JSON.parse(
+localStorage.getItem(
+`pagos_caja_${restaurantId}`
+)
+) || [];
 
+const ventasManualCaja =
+pagosCaja
+.filter(p => p.tipoVenta === "manual")
+.reduce((acc, p) => {
+
+return acc +
+Number(p.total || 0);
+
+}, 0);
+
+const ventasQRCaja =
+pagosCaja
+.filter(p => p.tipoVenta === "qr")
+.reduce((acc, p) => {
+
+return acc +
+Number(p.total || 0);
+
+}, 0);
   try {
     const resInventario = await fetch(`/api/inventario/${restaurantId}`);
     const dataInventario = await resInventario.json();
@@ -2497,21 +2522,47 @@ display:none;
 <h2>1. Resumen general</h2>
 
 <div class="card exito">
+
 <p><strong>Total vendido visible en panel:</strong> ${totalVendido}</p>
-<p><strong>Total calculado por ventas:</strong> $${totalDineroReporte.toLocaleString("es-CO")}</p>
+
+<p>
+<strong>Total calculado por pedidos QR:</strong>
+$${totalDineroReporte.toLocaleString("es-CO")}
+</p>
+
+<p>
+<strong>Ventas manuales registradas en caja:</strong>
+$${ventasManualCaja.toLocaleString("es-CO")}
+</p>
+
+<p>
+<strong>Pedidos QR registrados desde caja:</strong>
+$${ventasQRCaja.toLocaleString("es-CO")}
+</p>
+
+<p>
+<strong>Total ingresos reales:</strong>
+$${(
+totalDineroReporte +
+ventasManualCaja
+).toLocaleString("es-CO")}
+</p>
+
 <p>
 <strong>Diferencia detectada:</strong>
 $${(
 Number(String(totalVendido).replace(/[^0-9]/g, "")) -
-totalDineroReporte
+(totalDineroReporte + ventasManualCaja)
 ).toLocaleString("es-CO")}
 </p>
 
 <p>
 <small>
-GRUK detecta diferencia entre el total visible del panel y la suma calculada por productos. Esta diferencia puede corresponder a impuestos, propinas, domicilios, productos sin precio configurado, pedidos anulados o registros no incluidos en la tabla de ventas.
+GRUK separa los ingresos entre pedidos QR y ventas manuales registradas desde caja. Si la diferencia no es cero, puede corresponder a impuestos, propinas, domicilios, pedidos anulados o registros aún no clasificados.
 </small>
 </p>
+
+
 <p>
 <strong>Total gastos registrados:</strong>
 $${totalGastos.toLocaleString("es-CO")}
@@ -2536,10 +2587,12 @@ $${costosMateriaPrima.toLocaleString("es-CO")}
 <strong>Utilidad neta estimada:</strong>
 $${utilidadNeta.toLocaleString("es-CO")}
 </p>
+
 <p><strong>Total pedidos:</strong> ${totalPedidosReporte}</p>
 <p><strong>Pedidos activos:</strong> ${pedidosActivos}</p>
 <p><strong>Ticket promedio estimado:</strong> $${Math.round(ticketPromedio).toLocaleString("es-CO")}</p>
 <p><strong>Producto más vendido:</strong> ${productoMasVendidoTexto}</p>
+
 <p>
 <strong>Interpretación financiera GRUK:</strong><br>
 
@@ -2548,9 +2601,10 @@ utilidadNeta > 0
 
 ? `El restaurante mantiene una utilidad neta positiva estimada. Si el mercado continúa estable y los gastos permanecen controlados, la operación puede fortalecerse y aumentar caja real.`
 
-: `La utilidad neta estimada es negativa. Aunque el restaurante pueda vender bastante, actualmente los gastos y costos están consumiendo más dinero del que entra. GRUK recomienda revisar precios, desperdicio, gastos innecesarios y productos de baja rentabilidad.`
+: `La utilidad neta estimada es negativa. Aunque el restaurante pueda vender bastante, actualmente los gastos y costos están consumiendo más dinero del que entra. GRUK recomienda revisar precios, desperdicio, gastos innecesarios, nómina, gastos fijos y productos de baja rentabilidad.`
 }
 </p>
+
 </div>
 
 <h2>2. Gráfica de productos más vendidos</h2>

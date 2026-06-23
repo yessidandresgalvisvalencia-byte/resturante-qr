@@ -20,6 +20,23 @@
 
 <label>Descripción del pedido</label>
 <textarea id="descripcionCaja" placeholder="Ej: 2 carnes asadas, 3 empanadas"></textarea>
+<label>Origen de la venta</label>
+
+<select id="tipoVentaCaja">
+
+<option value="manual">
+Venta manual (fuera del QR)
+</option>
+
+<option value="qr">
+Pedido QR / Tiempo real
+</option>
+
+</select>
+
+<p class="descripcion-termino">
+Seleccione "Venta manual" cuando el pedido no fue registrado mediante GRUK en tiempo real.
+</p>
 
 <label>Total a pagar</label>
 <input id="totalCaja" type="number" placeholder="Ej: 50000">
