@@ -76,24 +76,6 @@ async function generarFacturaElectronica(pedido) {
   return response.data;
 }
 
-  const token = await obtenerTokenFactus();
-  const facturaBody = construirFacturaDesdePedido(pedido);
-
-  const response = await axios.post(
-    `${process.env.FACTUS_BASE_URL}/v1/bills/validate`,
-    facturaBody,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-    }
-  );
-
-  return response.data;
-
-
 module.exports = {
   generarFacturaElectronica,
 };
