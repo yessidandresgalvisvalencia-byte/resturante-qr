@@ -110,10 +110,28 @@ function guardarPagoCaja() {
   );
 
   ultimoPagoCaja = pago;
+  facturarPagoCaja(pago);
 
   alert("Pago guardado correctamente");
 
   cargarHistorialCaja();
+}
+async function facturarPagoCaja(pago) {
+  try {
+    const res = await fetch("/api/facturacion/caja", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(pago),
+    });
+
+    const data = await res.json();
+
+    console.log("Respuesta facturación:", data);
+  } catch (error) {
+    console.error("Error enviando factura a backend:", error);
+  }
 }
 
 

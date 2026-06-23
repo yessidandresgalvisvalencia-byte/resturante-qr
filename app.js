@@ -6,6 +6,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
+const facturacionRoutes = require("./routes/facturacion");
 const app = express();
 const inventarioRoutes =
 require("./routes/inventario");
@@ -27,6 +28,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use("/estadisticas", estadisticasRoutes);
 app.use("/api/restaurants", restaurantRoutes);
+app.use("/api/facturacion", facturacionRoutes);
 app.use("/api", apiRoutes);
 app.use(
 "/api/inventario",
