@@ -153,26 +153,26 @@ pago.tipoVenta === "manual"
 }
 
 function imprimirFacturaCaja() {
-if (!ultimoPagoCaja) {
-const pagos =
-JSON.parse(localStorage.getItem(`pagos_caja_${restaurantIdCaja}`)) || [];
+  if (!ultimoPagoCaja) {
+    const pagos =
+      JSON.parse(localStorage.getItem(`pagos_caja_${restaurantIdCaja}`)) || [];
 
-ultimoPagoCaja = pagos[pagos.length - 1];
-}
+    ultimoPagoCaja = pagos[pagos.length - 1];
+  }
 
-if (!ultimoPagoCaja) {
-alert("Primero guarda un pago");
-return;
-}
+  if (!ultimoPagoCaja) {
+    alert("Primero guarda un pago");
+    return;
+  }
 
-const pago = ultimoPagoCaja;
+  const pago = ultimoPagoCaja;
 
-const factura = `
+  const factura = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Factura GRUK</title>
+<title>Factura interna GRUK</title>
 
 <style>
 body{
@@ -209,6 +209,13 @@ margin:6px 0;
 font-size:20px;
 font-weight:bold;
 }
+
+.estado-dian{
+background:#f3f3f3;
+padding:8px;
+border-radius:8px;
+margin:10px 0;
+}
 </style>
 </head>
 
@@ -216,14 +223,20 @@ font-weight:bold;
 
 <div class="factura">
 <h1>GRUK</h1>
-<h2>Factura de venta</h2>
+<h2>Factura interna de venta</h2>
 
 <hr>
 
 <p><strong>Restaurante ID:</strong> ${pago.restaurantId}</p>
 <p><strong>Cliente / Mesa:</strong> ${pago.cliente}</p>
 <p><strong>Fecha:</strong> ${new Date(pago.fecha).toLocaleString("es-CO")}</p>
-<p><strong>N° factura:</strong> ${pago.id}</p>
+<p><strong>N° interno GRUK:</strong> ${pago.numeroInternoGruk || pago.id}</p>
+
+<div class="estado-dian">
+<p><strong>Estado DIAN:</strong> ${pago.facturaElectronica?.estado || "pendiente"}</p>
+<p><strong>N° DIAN:</strong> ${pago.facturaElectronica?.numeroDIAN || "Pendiente"}</p>
+<p><strong>CUFE:</strong> ${pago.facturaElectronica?.cufe || "Pendiente"}</p>
+</div>
 
 <hr>
 
@@ -237,9 +250,9 @@ font-weight:bold;
 <p>
 <strong>Origen:</strong>
 ${
-pago.tipoVenta === "manual"
-? "💵 Venta manual"
-: "📲 Pedido QR"
+  pago.tipoVenta === "manual"
+    ? "💵 Venta manual"
+    : "📲 Pedido QR"
 }
 </p>
 <p><strong>Recibido:</strong> ${formatoCOPCaja(pago.recibido)}</p>
@@ -260,11 +273,11 @@ window.print();
 </html>
 `;
 
-const ventana = window.open("", "_blank");
+  const ventana = window.open("", "_blank");
 
-ventana.document.open();
-ventana.document.write(factura);
-ventana.document.close();
+  ventana.document.open();
+  ventana.document.write(factura);
+  ventana.document.close();
 }
 
 cargarHistorialCaja();
