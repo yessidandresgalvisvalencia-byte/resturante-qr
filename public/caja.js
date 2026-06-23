@@ -49,63 +49,73 @@ metodo === "Efectivo"
 }
 
 function guardarPagoCaja() {
-const cliente = document.getElementById("clienteCaja").value.trim();
-const descripcion = document.getElementById("descripcionCaja").value.trim();
-const total = Number(document.getElementById("totalCaja").value || 0);
-const metodo = document.getElementById("metodoPagoCaja").value;
-const tipoVenta =
-document.getElementById("tipoVentaCaja").value;
-const recibido = Number(document.getElementById("dineroRecibidoCaja").value || 0);
+  const cliente = document.getElementById("clienteCaja").value.trim();
+  const descripcion = document.getElementById("descripcionCaja").value.trim();
+  const total = Number(document.getElementById("totalCaja").value || 0);
+  const metodo = document.getElementById("metodoPagoCaja").value;
+  const tipoVenta = document.getElementById("tipoVentaCaja").value;
+  const recibido = Number(document.getElementById("dineroRecibidoCaja").value || 0);
 
-if (!cliente || !descripcion || !total) {
-alert("Completa cliente/mesa, descripción y total");
-return;
+  if (!cliente || !descripcion || !total) {
+    alert("Completa cliente/mesa, descripción y total");
+    return;
+  }
+
+  let cambio = 0;
+
+  if (metodo === "Efectivo") {
+    if (recibido < total) {
+      alert("El dinero recibido es menor al total");
+      return;
+    }
+    cambio = recibido - total;
+  }
+
+  const pago = {
+    id: Date.now(),
+    numeroInternoGruk: Date.now(),
+    restaurantId: restaurantIdCaja,
+
+    tipoVenta,
+
+    cliente,
+    descripcion,
+
+    total,
+    metodo,
+    recibido,
+    cambio,
+
+    facturaElectronica: {
+      enviadaDIAN: false,
+      estado: "pendiente",
+      numeroDIAN: null,
+      cufe: null,
+      pdfUrl: null,
+      xmlUrl: null,
+      mensaje: "Factura interna GRUK. Pendiente de validación DIAN."
+    },
+
+    fecha: new Date().toISOString()
+  };
+
+  const pagos =
+    JSON.parse(localStorage.getItem(`pagos_caja_${restaurantIdCaja}`)) || [];
+
+  pagos.push(pago);
+
+  localStorage.setItem(
+    `pagos_caja_${restaurantIdCaja}`,
+    JSON.stringify(pagos)
+  );
+
+  ultimoPagoCaja = pago;
+
+  alert("Pago guardado correctamente");
+
+  cargarHistorialCaja();
 }
 
-let cambio = 0;
-
-if (metodo === "Efectivo") {
-if (recibido < total) {
-alert("El dinero recibido es menor al total");
-return;
-}
-cambio = recibido - total;
-}
-
-const pago = {
-id: Date.now(),
-restaurantId: restaurantIdCaja,
-
-tipoVenta,
-
-cliente,
-descripcion,
-
-total,
-metodo,
-recibido,
-cambio,
-
-fecha: new Date().toISOString()
-};
-
-
-const pagos =
-JSON.parse(localStorage.getItem(`pagos_caja_${restaurantIdCaja}`)) || [];
-
-pagos.push(pago);
-
-localStorage.setItem(
-`pagos_caja_${restaurantIdCaja}`,
-JSON.stringify(pagos)
-);
-
-ultimoPagoCaja = pago;
-
-alert("Pago guardado correctamente");
-
-cargarHistorialCaja();
-}
 
 function cargarHistorialCaja() {
 const pagos =
