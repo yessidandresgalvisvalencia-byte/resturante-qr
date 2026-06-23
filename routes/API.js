@@ -902,7 +902,16 @@ router.get("/qr-sede/:mesa", async (req, res) => {
 
 router.post("/personal", async (req, res) => {
   try {
-    const { restaurantId, nombre, cargo, estado, usuario, password } = req.body;
+
+    const {
+      restaurantId,
+      nombre,
+      cargo,
+      salario,
+      estado,
+      usuario,
+      password
+    } = req.body;
 
     if (!restaurantId || !nombre || !cargo || !usuario || !password) {
       return res.status(400).json({
@@ -913,7 +922,11 @@ router.post("/personal", async (req, res) => {
 
     const Personal = require("../models/personal");
 
-    const existeUsuario = await Personal.findOne({ restaurantId, usuario });
+    const existeUsuario = await Personal.findOne({
+      restaurantId,
+      usuario
+    });
+
     if (existeUsuario) {
       return res.status(400).json({
         ok: false,
@@ -925,6 +938,7 @@ router.post("/personal", async (req, res) => {
       restaurantId,
       nombre,
       cargo,
+      salario: Number(salario || 0),
       estado: estado || "disponible",
       usuario,
       password
@@ -937,52 +951,139 @@ router.post("/personal", async (req, res) => {
       mensaje: "Personal agregado correctamente",
       personal: nuevoPersonal
     });
+
   } catch (error) {
-    console.log("Error guardando personal:", error);
+
+    console.log(
+      "Error guardando personal:",
+      error
+    );
+
     res.status(500).json({
       ok: false,
       error: "Error interno guardando personal"
     });
+
   }
 });
 
 router.get("/personal", async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
-    const Personal = require("../models/personal");
 
-    const personal = await Personal.find({ restaurantId }).sort({ createdAt: -1 });
+    const restaurantId = getRestaurantId(req);
+
+    const Personal =
+      require("../models/personal");
+
+    const personal =
+      await Personal.find({
+        restaurantId
+      }).sort({
+        createdAt: -1
+      });
 
     res.json(personal);
+
   } catch (error) {
-    console.log("Error obteniendo personal:", error);
+
+    console.log(
+      "Error obteniendo personal:",
+      error
+    );
+
     res.status(500).json([]);
+
   }
 });
 
 router.get("/personal/meseros", async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
-    const Personal = require("../models/personal");
 
-    const meseros = await Personal.find({
-      restaurantId,
-      cargo: { $in: ["mesero", "mesera"] }
-    }).sort({ createdAt: -1 });
+    const restaurantId =
+      getRestaurantId(req);
+
+    const Personal =
+      require("../models/personal");
+
+    const meseros =
+      await Personal.find({
+        restaurantId,
+        cargo: {
+          $in: [
+            "mesero",
+            "mesera"
+          ]
+        }
+      }).sort({
+        createdAt: -1
+      });
 
     res.json(meseros);
+
   } catch (error) {
-    console.log("Error obteniendo meseros:", error);
+
+    console.log(
+      "Error obteniendo meseros:",
+      error
+    );
+
     res.status(500).json([]);
+
   }
 });
 
 router.put("/personal/:id/estado", async (req, res) => {
   try {
-    const { estado } = req.body;
-    const Personal = require("../models/personal");
 
-    const personaEliminada = await Personal.findByIdAndDelete(req.params.id);
+    const { estado } = req.body;
+
+    const Personal =
+      require("../models/personal");
+
+    const persona =
+      await Personal.findByIdAndUpdate(
+        req.params.id,
+        { estado },
+        { new: true }
+      );
+
+    if (!persona) {
+      return res.status(404).json({
+        ok: false,
+        error: "Persona no encontrada"
+      });
+    }
+
+    res.json({
+      ok: true,
+      persona
+    });
+
+  } catch (error) {
+
+    console.log(
+      "Error cambiando estado:",
+      error
+    );
+
+    res.status(500).json({
+      ok: false,
+      error: "Error interno"
+    });
+
+  }
+});
+
+router.delete("/personal/:id", async (req, res) => {
+  try {
+
+    const Personal =
+      require("../models/personal");
+
+    const personaEliminada =
+      await Personal.findByIdAndDelete(
+        req.params.id
+      );
 
     if (!personaEliminada) {
       return res.status(404).json({
@@ -995,17 +1096,29 @@ router.put("/personal/:id/estado", async (req, res) => {
       ok: true,
       mensaje: "Personal eliminado correctamente"
     });
+
   } catch (error) {
-    console.log("Error eliminando personal:", error);
+
+    console.log(
+      "Error eliminando personal:",
+      error
+    );
+
     res.status(500).json({
       ok: false,
       error: "Error interno eliminando personal"
     });
+
   }
 });
+
 router.post("/mesero/login", async (req, res) => {
   try {
-    const { usuario, password } = req.body;
+
+    const {
+      usuario,
+      password
+    } = req.body;
 
     if (!usuario || !password) {
       return res.status(400).json({
@@ -1014,13 +1127,20 @@ router.post("/mesero/login", async (req, res) => {
       });
     }
 
-    const Personal = require("../models/personal");
+    const Personal =
+      require("../models/personal");
 
-    const mesero = await Personal.findOne({
-      usuario,
-      password,
-      cargo: { $in: ["mesero", "mesera"] }
-    });
+    const mesero =
+      await Personal.findOne({
+        usuario,
+        password,
+        cargo: {
+          $in: [
+            "mesero",
+            "mesera"
+          ]
+        }
+      });
 
     if (!mesero) {
       return res.status(401).json({
@@ -1036,15 +1156,23 @@ router.post("/mesero/login", async (req, res) => {
         nombre: mesero.nombre,
         usuario: mesero.usuario,
         cargo: mesero.cargo,
+        salario: mesero.salario || 0,
         restaurantId: mesero.restaurantId
       }
     });
+
   } catch (error) {
-    console.log("Error login mesero:", error);
+
+    console.log(
+      "Error login mesero:",
+      error
+    );
+
     res.status(500).json({
       ok: false,
       error: "Error interno en login de mesero"
     });
+
   }
 });
 router.post("/restaurante/registro", async (req, res) => {
