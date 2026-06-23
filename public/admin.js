@@ -2319,7 +2319,11 @@ let gastoNomina = 0;
       totalDinero:
         Number(p.totalCalculado || 0)
     }))
-    .filter(p => p.ventas > 0)
+    .filter(p =>
+  p.ventas > 0 &&
+  p.precioUnitarioActual > 0 &&
+  p.totalDinero > 0
+)
     .sort((a, b) => b.ventas - a.ventas);
   const productoMasVendido =
     ventasOrdenadas[0] || null;
@@ -2719,6 +2723,7 @@ gastos.length > 0
 <th>Fecha</th>
 </tr>
 </thead>
+
 <tbody>
 ${gastos.map(g => `
 <tr>
@@ -2734,36 +2739,20 @@ ${gastos.map(g => `
 </table>
 
 <div class="card alerta">
-<p><strong>Total de gastos registrados:</strong> $${totalGastos.toLocaleString("es-CO")}</p>
+<p><strong>Total gastos registrados:</strong> $${totalGastos.toLocaleString("es-CO")}</p>
+<p><strong>Total nómina:</strong> $${gastoNomina.toLocaleString("es-CO")}</p>
+<p><strong>Estructura global de gastos:</strong> $${(totalGastos + gastoNomina).toLocaleString("es-CO")}</p>
 
 <p>
-<strong>Total nómina:</strong>
-$${gastoNomina.toLocaleString("es-CO")}
-</p>
-
-<p>
-<strong>Costo operativo total:</strong>
-$${(totalGastos + gastoNomina).toLocaleString("es-CO")}
-</p>
-
-<p>
-GRUK recomienda revisar si estos gastos están generando retorno real, protegiendo operación o solo consumiendo caja sin producir valor. Un gasto no es negativo por existir; es negativo cuando no fortalece ventas, operación, retención o margen.
+GRUK recomienda revisar si estos gastos están generando retorno real, protegiendo operación o solo consumiendo caja sin producir valor.
 </p>
 </div>
 `
 : `
 <div class="card alerta">
 <p>No hay gastos registrados en control de gasto.</p>
-
-<p>
-<strong>Total nómina:</strong>
-$${gastoNomina.toLocaleString("es-CO")}
-</p>
-
-<p>
-<strong>Costo operativo total:</strong>
-$${gastoNomina.toLocaleString("es-CO")}
-</p>
+<p><strong>Total nómina:</strong> $${gastoNomina.toLocaleString("es-CO")}</p>
+<p><strong>Estructura global de gastos:</strong> $${gastoNomina.toLocaleString("es-CO")}</p>
 </div>
 `
 }
