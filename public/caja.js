@@ -56,6 +56,12 @@ function guardarPagoCaja() {
   const tipoVenta = document.getElementById("tipoVentaCaja").value;
   const recibido = Number(document.getElementById("dineroRecibidoCaja").value || 0);
 
+  const documentoCliente =
+  document.getElementById("documentoClienteCaja")?.value.trim() || "";
+
+const correoCliente =
+  document.getElementById("correoClienteCaja")?.value.trim() || "";
+
   if (!cliente || !descripcion || !total) {
     alert("Completa cliente/mesa, descripción y total");
     return;
@@ -79,7 +85,10 @@ function guardarPagoCaja() {
     tipoVenta,
 
     cliente,
-    descripcion,
+documentoCliente,
+correoCliente,
+descripcion,
+
 
     total,
     metodo,
