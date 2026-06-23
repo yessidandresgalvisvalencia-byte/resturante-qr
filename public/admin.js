@@ -2500,6 +2500,19 @@ display:none;
 <p><strong>Total vendido visible en panel:</strong> ${totalVendido}</p>
 <p><strong>Total calculado por ventas:</strong> $${totalDineroReporte.toLocaleString("es-CO")}</p>
 <p>
+<strong>Diferencia detectada:</strong>
+$${(
+Number(String(totalVendido).replace(/[^0-9]/g, "")) -
+totalDineroReporte
+).toLocaleString("es-CO")}
+</p>
+
+<p>
+<small>
+GRUK detecta diferencia entre el total visible del panel y la suma calculada por productos. Esta diferencia puede corresponder a impuestos, propinas, domicilios, productos sin precio configurado, pedidos anulados o registros no incluidos en la tabla de ventas.
+</small>
+</p>
+<p>
 <strong>Total gastos registrados:</strong>
 $${totalGastos.toLocaleString("es-CO")}
 </p>
