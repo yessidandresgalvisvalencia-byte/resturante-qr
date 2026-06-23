@@ -129,30 +129,30 @@ async function facturarPagoCaja(pago) {
     const data = await res.json();
 
     console.log("Respuesta facturación:", data);
+
+    if (data.ok && data.factura) {
+      pago.facturaElectronica.estado = data.factura.estado || "simulada";
+      pago.facturaElectronica.mensaje = data.factura.mensaje || "";
+      pago.facturaElectronica.numeroDIAN = data.factura.reference_code || null;
+
+      const pagos =
+        JSON.parse(localStorage.getItem(`pagos_caja_${restaurantIdCaja}`)) || [];
+
+      const pagosActualizados = pagos.map((p) =>
+        p.id === pago.id ? pago : p
+      );
+
+      localStorage.setItem(
+        `pagos_caja_${restaurantIdCaja}`,
+        JSON.stringify(pagosActualizados)
+      );
+
+      ultimoPagoCaja = pago;
+    }
   } catch (error) {
     console.error("Error enviando factura a backend:", error);
   }
 }
-if (data.ok && data.factura) {
-  pago.facturaElectronica.estado = data.factura.estado || "simulada";
-  pago.facturaElectronica.mensaje = data.factura.mensaje || "";
-  pago.facturaElectronica.numeroDIAN = data.factura.reference_code || null;
-
-  const pagos =
-    JSON.parse(localStorage.getItem(`pagos_caja_${restaurantIdCaja}`)) || [];
-
-  const pagosActualizados = pagos.map((p) =>
-    p.id === pago.id ? pago : p
-  );
-
-  localStorage.setItem(
-    `pagos_caja_${restaurantIdCaja}`,
-    JSON.stringify(pagosActualizados)
-  );
-
-  ultimoPagoCaja = pago;
-}
-
 function cargarHistorialCaja() {
 const pagos =
 JSON.parse(localStorage.getItem(`pagos_caja_${restaurantIdCaja}`)) || [];
