@@ -2233,6 +2233,8 @@ async function generarReporteEjecutivo() {
 
   let inventario = [];
   let datosVentas = [];
+  let personal = [];
+let gastoNomina = 0;
 
   try {
     const resInventario = await fetch(`/api/inventario/${restaurantId}`);
@@ -2264,6 +2266,36 @@ async function generarReporteEjecutivo() {
     console.log("No se pudo cargar ventas:", error);
     datosVentas = [];
   }
+  try {
+
+  const resPersonal =
+    await fetch(
+      `/api/personal?restaurantId=${restaurantId}`
+    );
+
+  if (resPersonal.ok) {
+
+    personal =
+      await resPersonal.json();
+
+    gastoNomina =
+      personal.reduce((acc, p) => {
+
+        return acc +
+        Number(p.salario || 0);
+
+      }, 0);
+
+  }
+
+} catch(error) {
+
+  console.log(
+    "No se pudo cargar personal:",
+    error
+  );
+
+}
 
   const ventasOrdenadas =
   datosVentas
@@ -2307,6 +2339,7 @@ async function generarReporteEjecutivo() {
 const utilidadNeta =
   totalDineroReporte -
   totalGastos -
+  gastoNomina -
   costosMateriaPrima;
 
   const ticketPromedio =
@@ -2465,6 +2498,16 @@ display:none;
 <p>
 <strong>Total gastos registrados:</strong>
 $${totalGastos.toLocaleString("es-CO")}
+</p>
+
+<p>
+<strong>Nómina mensual:</strong>
+$${gastoNomina.toLocaleString("es-CO")}
+</p>
+
+<p>
+<strong>Gastos + Nómina:</strong>
+$${(totalGastos + gastoNomina).toLocaleString("es-CO")}
 </p>
 
 <p>
@@ -2692,6 +2735,17 @@ ${gastos.map(g => `
 
 <div class="card alerta">
 <p><strong>Total de gastos registrados:</strong> $${totalGastos.toLocaleString("es-CO")}</p>
+
+<p>
+<strong>Total nómina:</strong>
+$${gastoNomina.toLocaleString("es-CO")}
+</p>
+
+<p>
+<strong>Costo operativo total:</strong>
+$${(totalGastos + gastoNomina).toLocaleString("es-CO")}
+</p>
+
 <p>
 GRUK recomienda revisar si estos gastos están generando retorno real, protegiendo operación o solo consumiendo caja sin producir valor. Un gasto no es negativo por existir; es negativo cuando no fortalece ventas, operación, retención o margen.
 </p>
@@ -2700,6 +2754,16 @@ GRUK recomienda revisar si estos gastos están generando retorno real, protegien
 : `
 <div class="card alerta">
 <p>No hay gastos registrados en control de gasto.</p>
+
+<p>
+<strong>Total nómina:</strong>
+$${gastoNomina.toLocaleString("es-CO")}
+</p>
+
+<p>
+<strong>Costo operativo total:</strong>
+$${gastoNomina.toLocaleString("es-CO")}
+</p>
 </div>
 `
 }
