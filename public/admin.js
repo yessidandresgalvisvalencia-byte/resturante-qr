@@ -634,6 +634,11 @@ const estado = document.getElementById("estadoPersonal").value;
 const usuario = document.getElementById("usuarioPersonal").value.trim();
 const password = document.getElementById("passwordPersonal").value.trim();
 
+const salario =
+Number(
+document.getElementById("salarioPersonal")?.value || 0
+);
+
 if (!nombre || !usuario || !password) {
 alert("Completa nombre, usuario y contraseña");
 return;
@@ -648,6 +653,7 @@ body: JSON.stringify({
 restaurantId,
 nombre,
 cargo,
+salario,
 estado,
 usuario,
 password
@@ -668,6 +674,13 @@ document.getElementById("cargoPersonal").value = "mesero";
 document.getElementById("estadoPersonal").value = "disponible";
 document.getElementById("usuarioPersonal").value = "";
 document.getElementById("passwordPersonal").value = "";
+
+const salarioInput =
+document.getElementById("salarioPersonal");
+
+if (salarioInput) {
+salarioInput.value = "";
+}
 
 cargarAdmin();
 } catch (error) {
@@ -740,16 +753,64 @@ listaPersonal.innerHTML = `
 `;
 return;
 }
+const totalEmpleados = data.length;
 
+const gastoNomina =
+data.reduce((acc, persona) => {
+
+return acc +
+Number(persona.salario || 0);
+
+}, 0);
+
+listaPersonal.innerHTML = `
+<div class="card">
+
+<h3>👥 Resumen de Personal</h3>
+
+<p>
+<strong>Total empleados:</strong>
+${totalEmpleados}
+</p>
+
+<p>
+<strong>Gasto mensual en nómina:</strong>
+${formatoCOP(gastoNomina)}
+</p>
+
+</div>
+`;
 data.forEach(persona => {
 listaPersonal.innerHTML += `
 <div class="card">
 <h3>${persona.nombre}</h3>
-<p>Cargo: ${persona.cargo}</p>
-<p>Estado: ${persona.estado === "disponible" ? "🟢 Disponible" : "🔴 Ocupado"}</p>
-<p>Usuario: ${persona.usuario || "-"}</p>
-<p>Contraseña: ${persona.password || "-"}</p>
 
+<p>
+<strong>Cargo:</strong>
+${persona.cargo}
+</p>
+
+<p>
+<strong>Salario mensual:</strong>
+${formatoCOP(persona.salario || 0)}
+</p>
+
+<p>
+<strong>Estado:</strong>
+${persona.estado === "disponible"
+? "🟢 Disponible"
+: "🔴 Ocupado"}
+</p>
+
+<p>
+<strong>Usuario:</strong>
+${persona.usuario || "-"}
+</p>
+
+<p>
+<strong>Contraseña:</strong>
+${persona.password || "-"}
+</p>
 <button onclick="cambiarEstadoPersonal('${persona._id}', '${persona.estado === "disponible" ? "ocupado" : "disponible"}')">
 ${persona.estado === "disponible" ? "Marcar ocupado" : "Marcar disponible"}
 </button>
