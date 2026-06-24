@@ -2973,7 +2973,94 @@ ${mensajeFinanciero}
 <strong>Lectura GRUK:</strong><br>
 Este cuadro compara lo realmente logrado frente a lo presupuestado. Si el presupuesto está en cero, GRUK mostrará 0% hasta que el restaurante configure una meta mensual de ventas y utilidad.
 </p>
+<h2>Fundamentos de Costos y Gastos GRUK</h2>
+<div class="card">
 
+<h3>¿Qué es un costo?</h3>
+
+<p>
+Un costo corresponde a todos los recursos necesarios para producir un bien o prestar un servicio que posteriormente generará ingresos. En un restaurante, los costos permiten preparar y entregar los productos al cliente.
+</p>
+
+<p>
+Ejemplos:
+Materia prima, carnes, verduras, bebidas, empaques, cocineros y personal directamente relacionado con la preparación del producto.
+</p>
+
+<h3>¿Qué es un gasto?</h3>
+
+<p>
+Un gasto corresponde a recursos consumidos para administrar, vender o sostener la operación del negocio, pero que no forman parte directa del producto vendido.
+</p>
+
+<p>
+Ejemplos:
+Publicidad, administración, contabilidad, servicios generales, mantenimiento, arriendos y gastos financieros.
+</p>
+
+</div>
+<div class="card">
+
+<h3>Clasificación de costos según GRUK</h3>
+
+<table>
+
+<thead>
+<tr>
+<th>Tipo</th>
+<th>Definición</th>
+<th>Ejemplos</th>
+</tr>
+</thead>
+
+<tbody>
+
+<tr>
+<td>Costo Directo</td>
+
+<td>
+Tiene relación directa con la elaboración del producto o prestación del servicio.
+</td>
+
+<td>
+Materia prima, cocineros, contrataciones directas.
+</td>
+
+</tr>
+
+<tr>
+
+<td>Costo Indirecto Variable</td>
+
+<td>
+Participa en la producción pero no forma parte material del producto.
+</td>
+
+<td>
+Gas, energía, combustibles, mantenimiento.
+</td>
+
+</tr>
+
+<tr>
+
+<td>Costo Indirecto Fijo</td>
+
+<td>
+Permanece aunque la producción aumente o disminuya.
+</td>
+
+<td>
+Arriendo, seguros, depreciaciones, amortizaciones.
+</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
 </div>
 <h2>Clasificación Gerencial de Gastos</h2>
 
@@ -3020,7 +3107,23 @@ Este cuadro compara lo realmente logrado frente a lo presupuestado. Si el presup
 </tr>
 </tbody>
 </table>
+<div class="card">
 
+<h3>Interpretación Gerencial GRUK</h3>
+
+<p>
+Los costos permiten producir. Los gastos permiten administrar, vender y sostener el negocio.
+</p>
+
+<p>
+Un restaurante puede vender mucho y aun así perder dinero si los gastos administrativos, la nómina o los costos indirectos crecen más rápido que los ingresos.
+</p>
+
+<p>
+GRUK analiza simultáneamente ingresos, costos, gastos, inventario y nómina para determinar la rentabilidad real del negocio.
+</p>
+
+</div>
 <p>
 <strong>Lectura GRUK:</strong><br>
 Esta clasificación permite identificar qué parte del dinero se está consumiendo en administración, ventas, operación, financiación o logística. Si un gasto no fortalece ventas, servicio o margen, debe revisarse.
