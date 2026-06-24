@@ -426,7 +426,21 @@ Analizar precio
     <option value="semestral">Cada 6 meses</option>
     <option value="anual">Anual</option>
   </select>
+<div class="card">
+<h3>Presupuesto mensual GRUK</h3>
 
+<label>Meta mensual de ventas</label>
+<input id="presupuestoVentas" type="number" placeholder="Ej: 20000000">
+
+<label>Meta mensual de utilidad neta</label>
+<input id="presupuestoUtilidad" type="number" placeholder="Ej: 5000000">
+
+<button onclick="guardarPresupuestoGerencial()">
+Guardar presupuesto
+</button>
+
+<div id="estadoPresupuestoGerencial"></div>
+</div>
   <button onclick="generarReporteEjecutivo()">
     Generar documento
   </button>

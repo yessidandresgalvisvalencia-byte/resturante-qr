@@ -2401,6 +2401,48 @@ const porcentajeUtilidad =
   ingresosTotales > 0
     ? (utilidadNeta / ingresosTotales) * 100
     : 0;
+    const rentabilidad =
+  ingresosTotales > 0
+    ? (utilidadNeta / ingresosTotales) * 100
+    : 0;
+
+let colorFinanciero = "";
+let mensajeFinanciero = "";
+
+if (utilidadNeta < 0) {
+  colorFinanciero = "🔴 Rojo — Riesgo financiero";
+
+  mensajeFinanciero =
+    "GRUK detecta que la operación está consumiendo más recursos de los que genera. Se recomienda revisar gastos, nómina, precios, desperdicio y productos de baja rentabilidad.";
+
+} else if (rentabilidad < 10) {
+  colorFinanciero = "🟡 Amarillo — Rentabilidad baja";
+
+  mensajeFinanciero =
+    "El restaurante genera utilidad, pero el margen es bajo. GRUK recomienda fortalecer productos de mayor margen, controlar gastos y revisar precios.";
+
+} else {
+  colorFinanciero = "🟢 Verde — Rentabilidad saludable";
+
+  mensajeFinanciero =
+    "El restaurante presenta una rentabilidad positiva y saludable. GRUK recomienda mantener control de costos, inventario y gastos para sostener el resultado.";
+}
+
+const presupuestoVentas =
+  Number(localStorage.getItem(`presupuestoVentas_${restaurantId}`) || 0);
+
+const presupuestoUtilidad =
+  Number(localStorage.getItem(`presupuestoUtilidad_${restaurantId}`) || 0);
+
+const cumplimientoVentas =
+  presupuestoVentas > 0
+    ? (ingresosTotales / presupuestoVentas) * 100
+    : 0;
+
+const cumplimientoUtilidad =
+  presupuestoUtilidad > 0
+    ? (utilidadNeta / presupuestoUtilidad) * 100
+    : 0;
   const ticketPromedio =
     totalPedidosReporte > 0
       ? totalDineroReporte / totalPedidosReporte
@@ -2853,7 +2895,63 @@ GRUK recomienda revisar si estos gastos están generando retorno real, protegien
 </div>
 `
 }
-<h2>10. Estado Gerencial de Costos GRUK</h2>
+<h2>10. Semáforo Financiero GRUK</h2>
+
+<div class="card alerta">
+
+<h3>${colorFinanciero}</h3>
+
+<p>
+<strong>Rentabilidad neta:</strong>
+${rentabilidad.toFixed(2)}%
+</p>
+
+<p>
+${mensajeFinanciero}
+</p>
+
+</div>
+
+<h2>11. Estado Comparativo Gerencial</h2>
+
+<div class="card">
+
+<table>
+<thead>
+<tr>
+<th>Concepto</th>
+<th>Real</th>
+<th>Presupuesto</th>
+<th>Cumplimiento</th>
+</tr>
+</thead>
+
+<tbody>
+
+<tr>
+<td>Ingresos reales</td>
+<td>$${ingresosTotales.toLocaleString("es-CO")}</td>
+<td>$${presupuestoVentas.toLocaleString("es-CO")}</td>
+<td>${cumplimientoVentas.toFixed(1)}%</td>
+</tr>
+
+<tr>
+<td>Utilidad neta</td>
+<td>$${utilidadNeta.toLocaleString("es-CO")}</td>
+<td>$${presupuestoUtilidad.toLocaleString("es-CO")}</td>
+<td>${cumplimientoUtilidad.toFixed(1)}%</td>
+</tr>
+
+</tbody>
+</table>
+
+<p>
+<strong>Lectura GRUK:</strong><br>
+Este cuadro compara lo realmente logrado frente a lo presupuestado. Si el presupuesto está en cero, GRUK mostrará 0% hasta que el restaurante configure una meta mensual de ventas y utilidad.
+</p>
+
+</div>
+<h2>12. Estado Gerencial de Costos GRUK</h2>
 
 <div class="card">
 
@@ -2928,7 +3026,7 @@ porcentajeGastos > 10
 
 </div>
 
-<h2>11. Estrategia de largo plazo GRUK</h2>
+<h2>13. Estrategia de largo plazo GRUK</h2>
 
 <div class="card">
 <p>
@@ -3261,5 +3359,28 @@ if (margenSeguridad <= 0.05) {
 ${explicacionCompleta}
 </p>
     </div>
+  `;
+}
+function guardarPresupuestoGerencial() {
+  const restaurantId = getRestaurantId();
+
+  const presupuestoVentas =
+    Number(document.getElementById("presupuestoVentas").value || 0);
+
+  const presupuestoUtilidad =
+    Number(document.getElementById("presupuestoUtilidad").value || 0);
+
+  localStorage.setItem(
+    `presupuestoVentas_${restaurantId}`,
+    presupuestoVentas
+  );
+
+  localStorage.setItem(
+    `presupuestoUtilidad_${restaurantId}`,
+    presupuestoUtilidad
+  );
+
+  document.getElementById("estadoPresupuestoGerencial").innerHTML = `
+    <p>✅ Presupuesto guardado correctamente.</p>
   `;
 }
