@@ -2366,10 +2366,37 @@ Number(p.total || 0);
   );
 
 const utilidadNeta =
-  totalDineroReporte -
+  ingresosTotales -
   totalGastos -
   gastoNomina -
   costosMateriaPrima;
+  const ingresosTotales =
+  totalDineroReporte +
+  ventasManualCaja;
+
+const utilidadBruta =
+  ingresosTotales -
+  costosMateriaPrima;
+
+const porcentajeMateriaPrima =
+  ingresosTotales > 0
+    ? (costosMateriaPrima / ingresosTotales) * 100
+    : 0;
+
+const porcentajeGastos =
+  ingresosTotales > 0
+    ? (totalGastos / ingresosTotales) * 100
+    : 0;
+
+const porcentajeNomina =
+  ingresosTotales > 0
+    ? (gastoNomina / ingresosTotales) * 100
+    : 0;
+
+const porcentajeUtilidad =
+  ingresosTotales > 0
+    ? (utilidadNeta / ingresosTotales) * 100
+    : 0;
 
   const ticketPromedio =
     totalPedidosReporte > 0
@@ -2823,8 +2850,82 @@ GRUK recomienda revisar si estos gastos están generando retorno real, protegien
 </div>
 `
 }
+<h2>10. Estado Gerencial de Costos GRUK</h2>
 
-<h2>10. Estrategia de largo plazo GRUK</h2>
+<div class="card">
+
+<h3>Estado de resultados simplificado</h3>
+
+<table>
+<thead>
+<tr>
+<th>Concepto</th>
+<th>Valor</th>
+<th>% sobre ingresos</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Ingresos reales</td>
+<td>$${ingresosTotales.toLocaleString("es-CO")}</td>
+<td>100%</td>
+</tr>
+
+<tr>
+<td>Costos de materia prima</td>
+<td>$${costosMateriaPrima.toLocaleString("es-CO")}</td>
+<td>${porcentajeMateriaPrima.toFixed(2)}%</td>
+</tr>
+
+<tr>
+<td>Utilidad bruta</td>
+<td>$${utilidadBruta.toLocaleString("es-CO")}</td>
+<td>${((utilidadBruta / ingresosTotales) * 100).toFixed(2)}%</td>
+</tr>
+
+<tr>
+<td>Gastos registrados</td>
+<td>$${totalGastos.toLocaleString("es-CO")}</td>
+<td>${porcentajeGastos.toFixed(2)}%</td>
+</tr>
+
+<tr>
+<td>Nómina</td>
+<td>$${gastoNomina.toLocaleString("es-CO")}</td>
+<td>${porcentajeNomina.toFixed(2)}%</td>
+</tr>
+
+<tr>
+<td><strong>Utilidad neta estimada</strong></td>
+<td><strong>$${utilidadNeta.toLocaleString("es-CO")}</strong></td>
+<td><strong>${porcentajeUtilidad.toFixed(2)}%</strong></td>
+</tr>
+</tbody>
+</table>
+
+<p>
+<strong>Lectura GRUK:</strong><br>
+GRUK separa ingresos, costos directos, gastos registrados y nómina para mostrar si el restaurante realmente está generando utilidad o si está vendiendo sin cubrir su estructura de costos.
+</p>
+
+${
+porcentajeGastos > 10
+? `
+<p>
+⚠️ Los gastos registrados superan el 10% de los ingresos. GRUK recomienda revisar administración, publicidad, servicios, mantenimiento y gastos de bajo retorno.
+</p>
+`
+: `
+<p>
+✅ Los gastos registrados se mantienen dentro de un rango controlado frente a los ingresos.
+</p>
+`
+}
+
+</div>
+
+<h2>11. Estrategia de largo plazo GRUK</h2>
 
 <div class="card">
 <p>
