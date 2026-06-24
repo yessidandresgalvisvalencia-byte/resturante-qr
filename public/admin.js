@@ -2230,6 +2230,30 @@ async function generarReporteEjecutivo() {
 
   const totalGastos =
     gastos.reduce((acc, g) => acc + Number(g.valor || 0), 0);
+    const gastosAdministracion =
+  gastos
+    .filter(g => g.categoria === "Administración")
+    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
+
+const gastosVentas =
+  gastos
+    .filter(g => g.categoria === "Ventas")
+    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
+
+const gastosFinancieros =
+  gastos
+    .filter(g => g.categoria === "Financieros")
+    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
+
+const gastosProduccion =
+  gastos
+    .filter(g => g.categoria === "Producción")
+    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
+
+const gastosLogistica =
+  gastos
+    .filter(g => g.categoria === "Logística")
+    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
   let inventario = [];
   let datosVentas = [];
@@ -2948,6 +2972,58 @@ ${mensajeFinanciero}
 <p>
 <strong>Lectura GRUK:</strong><br>
 Este cuadro compara lo realmente logrado frente a lo presupuestado. Si el presupuesto está en cero, GRUK mostrará 0% hasta que el restaurante configure una meta mensual de ventas y utilidad.
+</p>
+
+</div>
+<h2>Clasificación Gerencial de Gastos</h2>
+
+<div class="card">
+
+<table>
+<thead>
+<tr>
+<th>Tipo de gasto</th>
+<th>Valor</th>
+<th>Lectura GRUK</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Administración</td>
+<td>$${gastosAdministracion.toLocaleString("es-CO")}</td>
+<td>Gastos necesarios para dirigir y sostener la operación administrativa.</td>
+</tr>
+
+<tr>
+<td>Ventas</td>
+<td>$${gastosVentas.toLocaleString("es-CO")}</td>
+<td>Gastos orientados a atraer clientes, vender más o aumentar recompra.</td>
+</tr>
+
+<tr>
+<td>Financieros</td>
+<td>$${gastosFinancieros.toLocaleString("es-CO")}</td>
+<td>Costos asociados a intereses, créditos, comisiones o financiación.</td>
+</tr>
+
+<tr>
+<td>Producción / Servicio</td>
+<td>$${gastosProduccion.toLocaleString("es-CO")}</td>
+<td>Gastos relacionados con preparar, producir o prestar el servicio.</td>
+</tr>
+
+<tr>
+<td>Logística</td>
+<td>$${gastosLogistica.toLocaleString("es-CO")}</td>
+<td>Gastos asociados a domicilios, transporte o distribución.</td>
+</tr>
+</tbody>
+</table>
+
+<p>
+<strong>Lectura GRUK:</strong><br>
+Esta clasificación permite identificar qué parte del dinero se está consumiendo en administración, ventas, operación, financiación o logística. Si un gasto no fortalece ventas, servicio o margen, debe revisarse.
 </p>
 
 </div>

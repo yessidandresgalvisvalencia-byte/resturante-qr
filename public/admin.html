@@ -181,17 +181,20 @@ Analiza si un gasto fue necesario, parcialmente útil o innecesario, y genera un
 <label>Valor del gasto</label>
 <input id="valorGasto" type="number" placeholder="Ej: 500000">
 
-<label>Categoría del gasto</label>
+<label>Categoría contable del gasto</label>
+
 <select id="categoriaGasto">
-<option value="Insumos">Insumos</option>
-<option value="Publicidad">Publicidad</option>
-<option value="Personal">Personal</option>
+<option value="Administración">Administración</option>
+<option value="Ventas">Ventas</option>
+<option value="Financieros">Financieros</option>
+<option value="Producción">Producción / Servicio</option>
 <option value="Logística">Logística / Domicilios</option>
-<option value="Equipos">Equipos</option>
-<option value="Servicios">Servicios</option>
-<option value="Mantenimiento">Mantenimiento</option>
 <option value="Otro">Otro</option>
 </select>
+
+<p class="descripcion-termino">
+GRUK usará esta clasificación para separar gastos administrativos, gastos de ventas, financieros, producción y logística dentro del reporte ejecutivo.
+</p>
 
 <label>¿El gasto pertenece a este restaurante?</label>
 <select id="gastoPertenece">
