@@ -3063,6 +3063,36 @@ Arriendo, seguros, depreciaciones, amortizaciones.
 </div>
 </div>
 <h2>Clasificación Gerencial de Gastos</h2>
+<div class="card">
+
+<h3>¿Qué significa cada gasto?</h3>
+
+<p>
+<strong>Administración:</strong>
+Gastos necesarios para dirigir y controlar la empresa. Ejemplo: gerente, contabilidad, auditoría, servicios generales y papelería.
+</p>
+
+<p>
+<strong>Ventas:</strong>
+Gastos destinados a atraer clientes y aumentar ingresos. Ejemplo: publicidad, promociones y campañas comerciales.
+</p>
+
+<p>
+<strong>Financieros:</strong>
+Costos generados por préstamos, créditos o financiación.
+</p>
+
+<p>
+<strong>Producción:</strong>
+Gastos relacionados con la elaboración del producto o prestación del servicio.
+</p>
+
+<p>
+<strong>Logística:</strong>
+Gastos asociados al transporte, domicilios y distribución.
+</p>
+
+</div>
 
 <div class="card">
 
