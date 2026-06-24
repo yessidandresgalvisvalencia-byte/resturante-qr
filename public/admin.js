@@ -2378,10 +2378,9 @@ const utilidadBruta =
   costosMateriaPrima;
 
 const utilidadNeta =
-  ingresosTotales -
+  utilidadBruta -
   totalGastos -
-  gastoNomina -
-  costosMateriaPrima;
+  gastoNomina;
 
 const porcentajeMateriaPrima =
   ingresosTotales > 0
