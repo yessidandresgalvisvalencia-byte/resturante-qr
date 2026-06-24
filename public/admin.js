@@ -2357,25 +2357,30 @@ Number(p.total || 0);
     ventasOrdenadas.reduce((acc, p) => acc + p.ventas, 0);
 
   const totalDineroReporte =
-    ventasOrdenadas.reduce((acc, p) => acc + p.totalDinero, 0);
-    const costosMateriaPrima =
+  ventasOrdenadas.reduce(
+    (acc, p) => acc + p.totalDinero,
+    0
+  );
+
+const costosMateriaPrima =
   ventasOrdenadas.reduce(
     (acc, p) =>
       acc + Number(p.costoMateriaPrimaTotal || 0),
     0
   );
 
-const utilidadNeta =
-  ingresosTotales -
-  totalGastos -
-  gastoNomina -
-  costosMateriaPrima;
-  const ingresosTotales =
+const ingresosTotales =
   totalDineroReporte +
   ventasManualCaja;
 
 const utilidadBruta =
   ingresosTotales -
+  costosMateriaPrima;
+
+const utilidadNeta =
+  ingresosTotales -
+  totalGastos -
+  gastoNomina -
   costosMateriaPrima;
 
 const porcentajeMateriaPrima =
@@ -2397,7 +2402,6 @@ const porcentajeUtilidad =
   ingresosTotales > 0
     ? (utilidadNeta / ingresosTotales) * 100
     : 0;
-
   const ticketPromedio =
     totalPedidosReporte > 0
       ? totalDineroReporte / totalPedidosReporte
