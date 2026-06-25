@@ -917,6 +917,96 @@ f.porcentajeMargenRentabilidad >= 35
 </p>
 
 </div>
+<h2>Motor Estratégico de Precios GRUK</h2>
+<div class="card">
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>Concepto</th>
+
+<th>Valor</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+
+<td>Costo materia prima</td>
+
+<td>${formatoCOPFinanzas(r.costoMateriaPrima)}</td>
+
+</tr>
+
+<tr>
+
+<td>Costos indirectos asignados</td>
+
+<td>${formatoCOPFinanzas(r.costoIndirecto)}</td>
+
+</tr>
+
+<tr>
+
+<td>Costo real del producto</td>
+
+<td>${formatoCOPFinanzas(r.costoReal)}</td>
+
+</tr>
+
+<tr>
+
+<td>Precio actual</td>
+
+<td>${formatoCOPFinanzas(r.precioActual)}</td>
+
+</tr>
+
+<tr>
+
+<td>Precio sugerido GRUK</td>
+
+<td><strong>${formatoCOPFinanzas(r.precioSugerido)}</strong></td>
+
+</tr>
+
+<tr>
+
+<td>Margen actual</td>
+
+<td>${r.margenActual.toFixed(2)}%</td>
+
+</tr>
+
+<tr>
+
+<td>Margen objetivo</td>
+
+<td>${(r.margenObjetivo*100).toFixed(0)}%</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+<p>
+
+<strong>Lectura GRUK</strong>
+
+<br><br>
+
+${interpretarPrecioGRUK(r)}
+
+</p>
+
+</div>
 <h3>Arquitectura Financiera GRUK</h3>
 
 <p>
@@ -1231,6 +1321,73 @@ function guardarPresupuestoGRUK() {
       <p>Meta utilidad: <strong>${formatoCOPFinanzas(utilidad)}</strong></p>
     </div>
   `;
+}
+function calcularPrecioInteligenteGRUK(producto, finanzas) {
+
+  const costoMateriaPrima = Number(producto.costo || 0);
+
+  const porcentajeCostosIndirectos =
+    finanzas.costoProduccionTotal > 0
+      ? finanzas.costosIndirectosServicio / finanzas.costoProduccionTotal
+      : 0;
+
+  const costoIndirecto =
+    costoMateriaPrima * porcentajeCostosIndirectos;
+
+  const costoReal =
+    costoMateriaPrima + costoIndirecto;
+
+  const margenObjetivo = 0.60;
+
+  const precioSugerido =
+    costoReal / (1 - margenObjetivo);
+
+  const margenActual =
+    producto.precio > 0
+      ? ((producto.precio - costoReal) / producto.precio) * 100
+      : 0;
+
+  return {
+
+    costoMateriaPrima,
+
+    costoIndirecto,
+
+    costoReal,
+
+    precioActual: producto.precio,
+
+    precioSugerido,
+
+    margenActual,
+
+    margenObjetivo
+
+  };
+
+}
+function interpretarPrecioGRUK(r){
+
+  if(r.margenActual<20){
+
+    return "🔴 El margen del producto es insuficiente. Se recomienda aumentar el precio o reducir costos.";
+
+  }
+
+  if(r.margenActual<40){
+
+    return "🟡 El margen es aceptable, aunque existe oportunidad para mejorar la rentabilidad.";
+
+  }
+
+  if(r.margenActual<60){
+
+    return "🟢 El margen es saludable para la operación.";
+
+  }
+
+  return "⭐ Producto con margen premium. Conviene proteger su calidad y posicionamiento.";
+
 }
 window.calcularFinanzasGRUK = calcularFinanzasGRUK;
 window.generarBloqueFinancieroGRUK = generarBloqueFinancieroGRUK;
