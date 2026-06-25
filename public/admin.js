@@ -3037,6 +3037,7 @@ GRUK recomienda revisar si estos gastos están generando retorno real, protegien
 `
 }
 
+${bloqueFinancieroGRUK}
 
 <h2>13. Estrategia de largo plazo GRUK</h2>
 
