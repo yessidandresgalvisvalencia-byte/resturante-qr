@@ -749,12 +749,12 @@ f.historicoFinanciero.length > 0
 ? f.historicoFinanciero.map(h => `
 <tr>
 <td>${h.mes}</td>
-<td>${formatoCOPFinanzas(h.ingresos)}</td>
-<td>${formatoCOPFinanzas(h.materia_prima)}</td>
-<td>${formatoCOPFinanzas(h.gastos_operativos)}</td>
-<td>${formatoCOPFinanzas(h.nomina)}</td>
-<td>${formatoCOPFinanzas(h.utilidad_operacional)}</td>
-<td>${Number(h.rentabilidad_real || 0).toFixed(2)}%</td>
+<td>${formatoCOPFinanzas(h.ingresos || h.ingresosTotales)}</td>
+<td>${formatoCOPFinanzas(h.materia_prima || h.costosMateriaPrima)}</td>
+<td>${formatoCOPFinanzas(h.gastos_operativos || h.totalGastos)}</td>
+<td>${formatoCOPFinanzas(h.nomina || h.gastoNomina)}</td>
+<td>${formatoCOPFinanzas(h.utilidad_operacional || h.utilidadNeta)}</td>
+<td>${Number(h.rentabilidad_real || h.rentabilidadReal || 0).toFixed(2)}%</td>
 </tr>
 `).join("")
 : `
