@@ -476,6 +476,31 @@ Analizar precio
     <option value="anual">Anual</option>
   </select>
 <div class="card">
+  <div class="card">
+<h3>Simulador Financiero GRUK</h3>
+
+<p>
+Simula qué pasaría si cambian las ventas, los costos, la nómina o los gastos del restaurante.
+</p>
+
+<label>Aumento o disminución de ventas (%)</label>
+<input id="simVentas" type="number" placeholder="Ej: 10 o -5">
+
+<label>Aumento o disminución de materia prima (%)</label>
+<input id="simMateriaPrima" type="number" placeholder="Ej: 8 o -3">
+
+<label>Aumento o disminución de gastos (%)</label>
+<input id="simGastos" type="number" placeholder="Ej: 5 o -10">
+
+<label>Aumento o disminución de nómina (%)</label>
+<input id="simNomina" type="number" placeholder="Ej: 0 o 15">
+
+<button onclick="simularFinanzasGRUK()">
+Simular escenario
+</button>
+
+<div id="resultadoSimuladorFinanciero"></div>
+</div>
 <h3>Presupuesto mensual GRUK</h3>
 
 <label>Meta mensual de ventas</label>

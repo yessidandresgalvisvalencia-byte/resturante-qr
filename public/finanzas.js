@@ -738,8 +738,89 @@ function calcularPrecioVentaGRUK(costoProduccion, rentabilidadDeseada) {
 
   return cp / (1 - r / 100);
 }
+async function simularFinanzasGRUK() {
+  const restaurantId =
+    getRestaurantIdFinanzas();
 
+  const f =
+    await calcularFinanzasGRUK(restaurantId);
+
+  const cambioVentas =
+    Number(document.getElementById("simVentas")?.value || 0);
+
+  const cambioMateriaPrima =
+    Number(document.getElementById("simMateriaPrima")?.value || 0);
+
+  const cambioGastos =
+    Number(document.getElementById("simGastos")?.value || 0);
+
+  const cambioNomina =
+    Number(document.getElementById("simNomina")?.value || 0);
+
+  const ingresosSimulados =
+    f.ingresosTotales * (1 + cambioVentas / 100);
+
+  const materiaPrimaSimulada =
+    f.costosMateriaPrima * (1 + cambioMateriaPrima / 100);
+
+  const gastosSimulados =
+    f.gastosOperativosRegistrados * (1 + cambioGastos / 100);
+
+  const nominaSimulada =
+    f.gastoNomina * (1 + cambioNomina / 100);
+
+  const utilidadBrutaSimulada =
+    ingresosSimulados -
+    materiaPrimaSimulada;
+
+  const utilidadOperacionalSimulada =
+    utilidadBrutaSimulada -
+    gastosSimulados -
+    nominaSimulada;
+
+  const rentabilidadSimulada =
+    ingresosSimulados > 0
+      ? (utilidadOperacionalSimulada / ingresosSimulados) * 100
+      : 0;
+
+  let lectura = "";
+
+  if (utilidadOperacionalSimulada < 0) {
+    lectura =
+      "🔴 El escenario simulado genera pérdida operacional. GRUK recomienda revisar precios, gastos, nómina o volumen mínimo de ventas.";
+  } else if (rentabilidadSimulada < 10) {
+    lectura =
+      "🟡 El escenario simulado genera utilidad, pero con rentabilidad baja. Conviene mejorar margen o reducir costos.";
+  } else {
+    lectura =
+      "🟢 El escenario simulado muestra una operación financieramente saludable.";
+  }
+
+  const contenedor =
+    document.getElementById("resultadoSimuladorFinanciero");
+
+  if (!contenedor) return;
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <h3>Resultado de simulación</h3>
+
+      <p><strong>Ingresos actuales:</strong> ${formatoCOPFinanzas(f.ingresosTotales)}</p>
+      <p><strong>Ingresos simulados:</strong> ${formatoCOPFinanzas(ingresosSimulados)}</p>
+
+      <p><strong>Materia prima simulada:</strong> ${formatoCOPFinanzas(materiaPrimaSimulada)}</p>
+      <p><strong>Gastos simulados:</strong> ${formatoCOPFinanzas(gastosSimulados)}</p>
+      <p><strong>Nómina simulada:</strong> ${formatoCOPFinanzas(nominaSimulada)}</p>
+
+      <p><strong>Utilidad operacional simulada:</strong> ${formatoCOPFinanzas(utilidadOperacionalSimulada)}</p>
+      <p><strong>Rentabilidad simulada:</strong> ${rentabilidadSimulada.toFixed(2)}%</p>
+
+      <p><strong>Lectura GRUK:</strong><br>${lectura}</p>
+    </div>
+  `;
+}
 window.calcularFinanzasGRUK = calcularFinanzasGRUK;
 window.generarBloqueFinancieroGRUK = generarBloqueFinancieroGRUK;
 window.cerrarMesFinanciero = cerrarMesFinanciero;
 window.calcularPrecioVentaGRUK = calcularPrecioVentaGRUK;
+window.simularFinanzasGRUK = simularFinanzasGRUK;
