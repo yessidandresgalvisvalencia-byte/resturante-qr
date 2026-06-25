@@ -239,9 +239,20 @@ function calcularEstadoResultadosGRUK(datos) {
       ? (utilidadOperacional / datos.ingresosTotales) * 100
       : 0;
 const totalCostoYGasto =
+
   costoProduccionVentas +
   gastosOperativosRegistrados +
   datos.gastoNomina;
+  const costoPrimo =
+  costoProduccionVentas +
+  datos.gastoNomina;
+
+const costosIndirectosServicio =
+  gastosOperativosRegistrados;
+
+const costoProduccionTotal =
+  costoPrimo +
+  costosIndirectosServicio;
 
 const margenRentabilidad =
   datos.ingresosTotales -
@@ -252,24 +263,29 @@ const porcentajeMargenRentabilidad =
     ? (margenRentabilidad / totalCostoYGasto) * 100
     : 0;
   return {
-    totalCostoYGasto,
-margenRentabilidad,
-porcentajeMargenRentabilidad,
-    ventasBrutas,
-    descuentosVentas,
-    devolucionesVentas,
-    ventasNetas,
-    costoProduccionVentas,
-    utilidadBruta,
-    gastosOperativosRegistrados,
-    estructuraGlobalGastos,
-    utilidadOperacional,
-    otrosIngresos,
-    otrosEgresos,
-    utilidadAntesImpuestos,
-    utilidadNeta,
-    rentabilidadReal
-  };
+  ventasBrutas,
+  descuentosVentas,
+  devolucionesVentas,
+  ventasNetas,
+  costoProduccionVentas,
+  utilidadBruta,
+  gastosOperativosRegistrados,
+  estructuraGlobalGastos,
+  utilidadOperacional,
+  otrosIngresos,
+  otrosEgresos,
+  utilidadAntesImpuestos,
+  utilidadNeta,
+  rentabilidadReal,
+
+  costoPrimo,
+  costosIndirectosServicio,
+  costoProduccionTotal,
+
+  totalCostoYGasto,
+  margenRentabilidad,
+  porcentajeMargenRentabilidad
+};
 }
 
 function calcularSemaforoGRUK(utilidadOperacional, rentabilidadReal) {
@@ -793,6 +809,63 @@ ${Number(
 }
 </tbody>
 </table>
+</div>
+<h2>Costos de Producción GRUK</h2>
+
+<div class="card">
+
+<table>
+
+<tr>
+<td><strong>Materia prima</strong></td>
+<td>${formatoCOPFinanzas(f.costosMateriaPrima)}</td>
+</tr>
+
+<tr>
+<td><strong>Mano de obra directa (Nómina)</strong></td>
+<td>${formatoCOPFinanzas(f.gastoNomina)}</td>
+</tr>
+
+<tr>
+<td><strong>Costo Primo</strong></td>
+<td><strong>${formatoCOPFinanzas(f.costoPrimo)}</strong></td>
+</tr>
+
+<tr>
+<td><strong>Costos Indirectos de Servicio (CIS)</strong></td>
+<td>${formatoCOPFinanzas(f.costosIndirectosServicio)}</td>
+</tr>
+
+<tr>
+<td><strong>Costo Total de Producción</strong></td>
+<td><strong>${formatoCOPFinanzas(f.costoProduccionTotal)}</strong></td>
+</tr>
+
+</table>
+
+</div>
+<div class="card">
+
+<h3>Interpretación GRUK</h3>
+
+<p>
+
+${
+f.costosIndirectosServicio >
+f.costoPrimo
+
+?
+
+"⚠️ Los costos indirectos de servicio superan el costo primo. El restaurante está destinando más recursos a sostener la operación que a producir. Se recomienda revisar logística, publicidad, administración y demás costos fijos."
+
+:
+
+"✅ El costo primo representa la mayor parte del costo de producción, indicando una estructura de costos más saludable para la operación."
+
+}
+
+</p>
+
 </div>
 <h2>Margen de Rentabilidad GRUK</h2>
 
