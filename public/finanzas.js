@@ -394,7 +394,59 @@ function porcentajeSobreIngresos(valor, ingresos) {
 }
 
 function generarBloqueFinancieroGRUK(f) {
+  let diagnosticoGeneral = "";
+
+if (
+  porcentajeSobreIngresos(
+    f.costosMateriaPrima,
+    f.ingresosTotales
+  ).replace("%","") > 35
+){
+
+diagnosticoGeneral +=
+"• El costo de materia prima es elevado.<br>";
+
+}
+
+if (
+  porcentajeSobreIngresos(
+    f.gastoNomina,
+    f.ingresosTotales
+  ).replace("%","") > 30
+){
+
+diagnosticoGeneral +=
+"• La nómina consume una parte importante de los ingresos.<br>";
+
+}
+
+if (
+  porcentajeSobreIngresos(
+    f.gastosOperativosRegistrados,
+    f.ingresosTotales
+  ).replace("%","") > 20
+){
+
+diagnosticoGeneral +=
+"• Los gastos operativos están creciendo más rápido que las ventas.<br>";
+
+}
+
+if(f.utilidadOperacional < 0){
+
+diagnosticoGeneral +=
+"• El negocio presenta pérdida operacional.<br>";
+
+}
+
+if(diagnosticoGeneral===""){
+
+diagnosticoGeneral =
+"Todos los indicadores financieros se encuentran dentro de parámetros saludables.";
+
+}
   return `
+
 <h2>Fundamentos de costos y gastos GRUK</h2>
 
 <div class="card">
@@ -587,6 +639,90 @@ f.historicoFinanciero.length > 0
 </tbody>
 </table>
 </div>
+<h2>Indicadores Financieros GRUK</h2>
+
+<div class="card">
+
+<p>
+<strong>Margen Bruto:</strong>
+${((utilidadBruta/ingresosTotales)*100).toFixed(2)}%
+</p>
+
+<p>
+<strong>Margen Operacional:</strong>
+${((utilidadOperacional/ingresosTotales)*100).toFixed(2)}%
+</p>
+
+<p>
+<strong>Costo de Materia Prima:</strong>
+${porcentajeMateriaPrima.toFixed(2)}%
+</p>
+
+<p>
+<strong>Peso de Nómina:</strong>
+${porcentajeNomina.toFixed(2)}%
+</p>
+
+<p>
+<strong>Peso de Gastos Operativos:</strong>
+${porcentajeGastos.toFixed(2)}%
+</p>
+
+</div>
+<div class="card">
+
+<h3>Interpretación automática</h3>
+
+<p>
+
+GRUK compara automáticamente los indicadores financieros con rangos recomendados para restaurantes.
+
+</p>
+
+</div>
+<h2>Indicadores Financieros GRUK</h2>
+
+<div class="card">
+
+<p>
+<strong>Margen Bruto:</strong>
+${porcentajeSobreIngresos(f.utilidadBruta, f.ingresosTotales)}
+</p>
+
+<p>
+<strong>Margen Operacional:</strong>
+${f.rentabilidadReal.toFixed(2)}%
+</p>
+
+<p>
+<strong>Costo de Materia Prima:</strong>
+${porcentajeSobreIngresos(f.costosMateriaPrima, f.ingresosTotales)}
+</p>
+
+<p>
+<strong>Peso de Nómina:</strong>
+${porcentajeSobreIngresos(f.gastoNomina, f.ingresosTotales)}
+</p>
+
+<p>
+<strong>Peso de Gastos Operativos:</strong>
+${porcentajeSobreIngresos(f.gastosOperativosRegistrados, f.ingresosTotales)}
+</p>
+
+</div>
+
+<div class="card">
+
+<h3>Interpretación automática GRUK</h3>
+
+<p>
+
+${diagnosticoGeneral}
+
+</p>
+
+</div>
+
 `;
 }
 
