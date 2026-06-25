@@ -2814,7 +2814,7 @@ finanzasGRUK.utilidadOperacional > 0
 
 ? `El restaurante mantiene una utilidad neta positiva estimada. Si el mercado continúa estable y los gastos permanecen controlados, la operación puede fortalecerse y aumentar caja real.`
 
-: `La utilidad neta estimada es negativa. Aunque el restaurante pueda vender bastante, actualmente los gastos y costos están consumiendo más dinero del que entra. GRUK recomienda revisar precios, desperdicio, gastos innecesarios, nómina, gastos fijos y productos de baja rentabilidad.`
+: `La utilidad operacional antes de impuestos es negativa. Aunque el restaurante pueda vender bastante, actualmente los gastos y costos están consumiendo más dinero del que entra. GRUK recomienda revisar precios, desperdicio, gastos innecesarios, nómina, gastos fijos y productos de baja rentabilidad.`
 }
 </p>
 
