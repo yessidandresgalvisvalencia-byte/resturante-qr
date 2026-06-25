@@ -468,6 +468,8 @@ async function cerrarMesFinanciero() {
 
   const historico =
     JSON.parse(localStorage.getItem(`historicoFinanciero_${restaurantId}`)) || [];
+    
+console.log("FINANZAS:", f);
 
   const yaExiste =
     historico.some(h => h.mes === mesActual);
@@ -476,7 +478,8 @@ async function cerrarMesFinanciero() {
     alert("Este mes ya fue cerrado. No se puede cerrar dos veces.");
     return;
   }
-console.log("FINANZAS:", f);
+
+
   historico.push({
     mes: mesActual,
     ingresos: f.ingresosTotales,
