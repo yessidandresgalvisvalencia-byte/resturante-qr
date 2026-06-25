@@ -867,7 +867,7 @@ f.costoPrimo
 </p>
 
 </div>
-<h2>Margen de Rentabilidad GRUK</h2>
+<h2>Rendimiento sobre el Costo Total GRUK</h2>
 
 <div class="card">
 
@@ -875,22 +875,22 @@ f.costoPrimo
 <tbody>
 
 <tr>
-<td><strong>Ingresos reales / Precio de venta global</strong></td>
+<td><strong>Ingresos Totales</strong></td>
 <td>${formatoCOPFinanzas(f.ingresosTotales)}</td>
 </tr>
 
 <tr>
-<td><strong>Total costo y gasto</strong></td>
+<td><strong>Costo Total de Producción y Operación</strong></td>
 <td>${formatoCOPFinanzas(f.totalCostoYGasto)}</td>
 </tr>
 
 <tr>
-<td><strong>Margen de rentabilidad</strong></td>
+<td><strong>Resultado Operacional</strong></td>
 <td>${formatoCOPFinanzas(f.margenRentabilidad)}</td>
 </tr>
 
 <tr>
-<td><strong>% Margen de rentabilidad</strong></td>
+<td><strong>% Rendimiento sobre el Costo Total</strong></td>
 <td>${Number(f.porcentajeMargenRentabilidad || 0).toFixed(2)}%</td>
 </tr>
 
@@ -908,6 +908,25 @@ f.porcentajeMargenRentabilidad >= 35
 </p>
 
 </div>
+<h3>Arquitectura Financiera GRUK</h3>
+
+<p>
+
+GRUK analiza el negocio desde dos dimensiones complementarias.
+
+<strong>Margen Operacional:</strong>
+mide qué porcentaje de cada peso vendido termina convertido en utilidad operacional. Este indicador evalúa la capacidad del restaurante para transformar sus ventas en rentabilidad.
+
+<br><br>
+
+<strong>Rendimiento sobre el Costo Total:</strong>
+mide cuánto valor económico genera o destruye cada peso invertido en producir y operar el restaurante. Este indicador evalúa la eficiencia interna de la operación.
+
+<br><br>
+
+Mientras el Margen Operacional observa el comportamiento del negocio frente al mercado, el Rendimiento sobre el Costo Total analiza la eficiencia con la que se administran los recursos invertidos.
+
+</p>
 <div class="card">
 
 <h3>Lectura GRUK</h3>
