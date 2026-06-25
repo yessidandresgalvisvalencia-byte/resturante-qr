@@ -848,8 +848,37 @@ ${formatoCOPFinanzas(ventasEquilibrio)}.
     </div>
   `;
 }
+function guardarPresupuestoGRUK() {
+  const restaurantId =
+    getRestaurantIdFinanzas();
+
+  const ventas =
+    Number(document.getElementById("presupuestoVentas").value || 0);
+
+  const utilidad =
+    Number(document.getElementById("presupuestoUtilidad").value || 0);
+
+  localStorage.setItem(
+    `presupuestoVentas_${restaurantId}`,
+    ventas
+  );
+
+  localStorage.setItem(
+    `presupuestoUtilidad_${restaurantId}`,
+    utilidad
+  );
+
+  document.getElementById("resultadoPresupuestoGRUK").innerHTML = `
+    <div class="card">
+      <p>✅ Presupuesto guardado.</p>
+      <p>Meta ingresos: <strong>${formatoCOPFinanzas(ventas)}</strong></p>
+      <p>Meta utilidad: <strong>${formatoCOPFinanzas(utilidad)}</strong></p>
+    </div>
+  `;
+}
 window.calcularFinanzasGRUK = calcularFinanzasGRUK;
 window.generarBloqueFinancieroGRUK = generarBloqueFinancieroGRUK;
 window.cerrarMesFinanciero = cerrarMesFinanciero;
 window.calcularPrecioVentaGRUK = calcularPrecioVentaGRUK;
 window.simularFinanzasGRUK = simularFinanzasGRUK;
+window.guardarPresupuestoGRUK = guardarPresupuestoGRUK;
