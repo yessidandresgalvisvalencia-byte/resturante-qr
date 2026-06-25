@@ -14,14 +14,49 @@ function normalizarCategoriaGastoGRUK(g) {
   const categoria = String(g.categoria || "").toLowerCase();
   const nombre = String(g.nombre || "").toLowerCase();
 
-  if (categoria.includes("publicidad") || categoria.includes("ventas") || nombre.includes("publicidad") || nombre.includes("marketing")) return "Ventas";
-  if (categoria.includes("logística") || categoria.includes("logistica") || nombre.includes("domicilio") || nombre.includes("domiciliario") || nombre.includes("transporte")) return "Logística";
-  if (categoria.includes("financiero") || nombre.includes("credito") || nombre.includes("crédito") || nombre.includes("interes") || nombre.includes("banco")) return "Financieros";
-  if (categoria.includes("producción") || categoria.includes("produccion") || categoria.includes("insumo") || nombre.includes("materia prima") || nombre.includes("insumo")) return "Producción";
-  if (categoria.includes("administración") || categoria.includes("administracion") || nombre.includes("gerente") || nombre.includes("contador") || nombre.includes("papeleria")) return "Administración";
+  if (
+    categoria.includes("publicidad") ||
+    categoria.includes("ventas") ||
+    nombre.includes("publicidad") ||
+    nombre.includes("marketing")
+  ) return "Ventas";
+
+  if (
+    categoria.includes("logística") ||
+    categoria.includes("logistica") ||
+    nombre.includes("domicilio") ||
+    nombre.includes("domiciliario") ||
+    nombre.includes("domciliario") ||   // ← agregado
+    nombre.includes("transporte")
+  ) return "Logística";
+
+  if (
+    categoria.includes("financiero") ||
+    nombre.includes("credito") ||
+    nombre.includes("crédito") ||
+    nombre.includes("interes") ||
+    nombre.includes("banco")
+  ) return "Financieros";
+
+  if (
+    categoria.includes("producción") ||
+    categoria.includes("produccion") ||
+    categoria.includes("insumo") ||
+    nombre.includes("materia prima") ||
+    nombre.includes("insumo")
+  ) return "Producción";
+
+  if (
+    categoria.includes("administración") ||
+    categoria.includes("administracion") ||
+    nombre.includes("gerente") ||
+    nombre.includes("contador") ||
+    nombre.includes("papeleria")
+  ) return "Administración";
 
   return "Otro";
 }
+
 
 async function obtenerDatosFinancierosGRUK(restaurantId) {
   const gastos =
@@ -277,7 +312,53 @@ function calcularVariacionesMensualesGRUK(historico) {
       mensaje: "Aún no hay suficientes meses cerrados para calcular variaciones."
     };
   }
+function generarCausasAutomaticasGRUK(variaciones) {
+  if (!variaciones || !variaciones.hayVariacion) {
+    return [
+      "Aún no hay suficientes meses cerrados para detectar causas automáticas."
+    ];
+  }
 
+  const causas = [];
+
+  if (variaciones.materiaPrima > 10) {
+    causas.push(
+      "⚠️ Materia prima aumentó de forma importante. Posibles causas: desperdicio, compra costosa, inflación, mala negociación con proveedores, robo hormiga, porciones mal estandarizadas o errores en recetas."
+    );
+  }
+
+  if (variaciones.gastosOperativos > 10) {
+    causas.push(
+      "⚠️ Los gastos operativos aumentaron. Posibles causas: publicidad sin retorno, gastos innecesarios, servicios más costosos, mantenimiento no planeado o mala clasificación de gastos."
+    );
+  }
+
+  if (variaciones.nomina > 10) {
+    causas.push(
+      "⚠️ La nómina aumentó. Posibles causas: contratación adicional, horas extra, personal improductivo, mala programación de turnos o bajo volumen de ventas frente al personal contratado."
+    );
+  }
+
+  if (variaciones.ingresos < -10) {
+    causas.push(
+      "📉 Los ingresos disminuyeron. Posibles causas: baja demanda, pérdida de clientes, productos poco atractivos, mala estrategia comercial, precios mal ajustados o caída en pedidos."
+    );
+  }
+
+  if (variaciones.utilidadOperacional < -10) {
+    causas.push(
+      "🔴 La utilidad operacional empeoró. Posibles causas: gastos creciendo más rápido que ventas, aumento de costos, nómina pesada, logística costosa o productos con margen insuficiente."
+    );
+  }
+
+  if (causas.length === 0) {
+    causas.push(
+      "✅ No se detectan variaciones críticas. Los cambios del periodo parecen estar dentro de un rango controlado."
+    );
+  }
+
+  return causas;
+}
   const anterior =
     historico[historico.length - 2];
 
@@ -348,7 +429,8 @@ async function calcularFinanzasGRUK(restaurantIdParam) {
 
 const variacionesMensuales =
   calcularVariacionesMensualesGRUK(historicoFinanciero);
-
+const causasAutomaticas =
+  generarCausasAutomaticasGRUK(variacionesMensuales);
 return {
     restaurantId,
 
@@ -362,7 +444,8 @@ return {
     ...presupuesto,
 
     historicoFinanciero,
-    variacionesMensuales
+    variacionesMensuales,
+causasAutomaticas
   };
 }
 
@@ -746,8 +829,6 @@ Aún necesitas cerrar al menos dos meses financieros para que GRUK calcule varia
 
 </div>
 
-<h2>Indicadores Financieros GRUK</h2>
-
 <div class="card">
 
 <p>
@@ -779,12 +860,35 @@ ${porcentajeSobreIngresos(f.gastosOperativosRegistrados, f.ingresosTotales)}
 </div>
 <div class="card">
 
+
 <h3>Interpretación automática</h3>
 
 <p>
 
 GRUK compara automáticamente los indicadores financieros con rangos recomendados para restaurantes.
 
+</p>
+
+</div>
+<h2>Posibles Causas Automáticas GRUK</h2>
+
+<div class="card">
+
+<p>
+<strong>Diagnóstico causal:</strong>
+</p>
+
+<ul>
+${
+(f.causasAutomaticas || [])
+.map(causa => `<li>${causa}</li>`)
+.join("")
+}
+</ul>
+
+<p>
+<strong>Lectura GRUK:</strong><br>
+GRUK no solo muestra que algo subió o bajó; también propone posibles causas operativas para que el administrador investigue antes de tomar decisiones.
 </p>
 
 </div>
