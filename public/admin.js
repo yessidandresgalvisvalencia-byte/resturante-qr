@@ -2405,6 +2405,46 @@ const utilidadNeta =
   utilidadBruta -
   totalGastos -
   gastoNomina;
+const ventasBrutas =
+  ingresosTotales;
+
+const descuentosVentas =
+  0;
+
+const devolucionesVentas =
+  0;
+
+const ventasNetas =
+  ventasBrutas -
+  descuentosVentas -
+  devolucionesVentas;
+
+const costoProduccionVentas =
+  costosMateriaPrima;
+
+const gastosAdministracionResultado =
+  gastosAdministracion || 0;
+
+const gastosVentasResultado =
+  gastosVentas || 0;
+
+const utilidadOperacional =
+  utilidadBruta -
+  gastosAdministracionResultado -
+  gastosVentasResultado -
+  gastoNomina;
+
+const otrosIngresos =
+  0;
+
+const otrosEgresos =
+  gastosFinancieros || 0;
+
+const utilidadAntesImpuestos =
+  utilidadOperacional +
+  otrosIngresos -
+  otrosEgresos;
+
 
 const porcentajeMateriaPrima =
   ingresosTotales > 0
@@ -3157,6 +3197,94 @@ GRUK analiza simultáneamente ingresos, costos, gastos, inventario y nómina par
 <p>
 <strong>Lectura GRUK:</strong><br>
 Esta clasificación permite identificar qué parte del dinero se está consumiendo en administración, ventas, operación, financiación o logística. Si un gasto no fortalece ventas, servicio o margen, debe revisarse.
+</p>
+
+</div>
+<h2>Estado de Resultados Profesional GRUK</h2>
+
+<div class="card">
+
+<table>
+<thead>
+<tr>
+<th>Concepto</th>
+<th>Valor</th>
+</tr>
+</thead>
+
+<tbody>
+
+<tr>
+<td><strong>Ventas brutas</strong></td>
+<td><strong>$${ventasBrutas.toLocaleString("es-CO")}</strong></td>
+</tr>
+
+<tr>
+<td>Menos: Descuentos en ventas</td>
+<td>$${descuentosVentas.toLocaleString("es-CO")}</td>
+</tr>
+
+<tr>
+<td>Menos: Devoluciones</td>
+<td>$${devolucionesVentas.toLocaleString("es-CO")}</td>
+</tr>
+
+<tr>
+<td><strong>Ventas netas</strong></td>
+<td><strong>$${ventasNetas.toLocaleString("es-CO")}</strong></td>
+</tr>
+
+<tr>
+<td>Costo de producción y ventas</td>
+<td>$${costoProduccionVentas.toLocaleString("es-CO")}</td>
+</tr>
+
+<tr>
+<td><strong>Utilidad bruta</strong></td>
+<td><strong>$${utilidadBruta.toLocaleString("es-CO")}</strong></td>
+</tr>
+
+<tr>
+<td>Gastos de administración</td>
+<td>$${gastosAdministracionResultado.toLocaleString("es-CO")}</td>
+</tr>
+
+<tr>
+<td>Gastos en ventas</td>
+<td>$${gastosVentasResultado.toLocaleString("es-CO")}</td>
+</tr>
+
+<tr>
+<td>Nómina</td>
+<td>$${gastoNomina.toLocaleString("es-CO")}</td>
+</tr>
+
+<tr>
+<td><strong>Utilidad operacional</strong></td>
+<td><strong>$${utilidadOperacional.toLocaleString("es-CO")}</strong></td>
+</tr>
+
+<tr>
+<td>Otros ingresos</td>
+<td>$${otrosIngresos.toLocaleString("es-CO")}</td>
+</tr>
+
+<tr>
+<td>Otros egresos / financieros</td>
+<td>$${otrosEgresos.toLocaleString("es-CO")}</td>
+</tr>
+
+<tr>
+<td><strong>Utilidad antes de impuestos</strong></td>
+<td><strong>$${utilidadAntesImpuestos.toLocaleString("es-CO")}</strong></td>
+</tr>
+
+</tbody>
+</table>
+
+<p>
+<strong>Lectura GRUK:</strong><br>
+Este estado de resultados muestra cómo las ventas se transforman en utilidad. Primero se calculan las ventas netas, luego se resta el costo de producción para obtener la utilidad bruta, después se descuentan los gastos de administración, ventas, nómina y egresos financieros para estimar la utilidad antes de impuestos.
 </p>
 
 </div>
