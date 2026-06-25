@@ -2638,7 +2638,11 @@ const cumplimientoUtilidad =
 
   const diagnosticoGraham =
     `Desde una lógica de largo plazo, GRUK recomienda no tomar decisiones solo por volumen de ventas. El restaurante debe proteger su margen de seguridad: vender más solo es sano si aumenta caja real, controla inventario, administra gastos y evita productos que roten mucho pero dejen poca utilidad.`;
+const finanzasGRUK =
+  await calcularFinanzasGRUK(restaurantId);
 
+const bloqueFinancieroGRUK =
+  generarBloqueFinancieroGRUK(finanzasGRUK);
   const reporte = `
 <!DOCTYPE html>
 <html lang="es">
@@ -3469,6 +3473,7 @@ Este cuadro permite comparar el comportamiento financiero de los últimos meses:
 </p>
 
 </div>
+${bloqueFinancieroGRUK}
 
 <h2>13. Estrategia de largo plazo GRUK</h2>
 
