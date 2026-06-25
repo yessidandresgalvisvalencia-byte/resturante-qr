@@ -2459,9 +2459,31 @@ const costosMateriaPrima =
   );
 
 
-const costoProduccionVentas =
+const ingresosTotales =
+  totalDineroReporte +
+  ventasManualCaja;
+
+const utilidadBruta =
+  ingresosTotales -
   costosMateriaPrima;
 
+const ventasBrutas =
+  ingresosTotales;
+
+const descuentosVentas =
+  0;
+
+const devolucionesVentas =
+  0;
+
+const ventasNetas =
+  ventasBrutas -
+  descuentosVentas -
+  devolucionesVentas;
+
+const costoProduccionVentas =
+  costosMateriaPrima;
+  
 const gastosAdministracionResultado =
   gastosAdministracion || 0;
 
@@ -2492,7 +2514,7 @@ const utilidadAntesImpuestos =
   utilidadOperacional +
   otrosIngresos -
   otrosEgresos;
-  
+
 const utilidadNeta =
   utilidadAntesImpuestos;
 
