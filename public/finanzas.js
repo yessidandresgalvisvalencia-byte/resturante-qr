@@ -476,7 +476,7 @@ async function cerrarMesFinanciero() {
     alert("Este mes ya fue cerrado. No se puede cerrar dos veces.");
     return;
   }
-
+console.log("FINANZAS:", f);
   historico.push({
     mes: mesActual,
     ingresos: f.ingresosTotales,
