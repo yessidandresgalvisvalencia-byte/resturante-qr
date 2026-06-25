@@ -344,9 +344,12 @@ async function calcularFinanzasGRUK(restaurantIdParam) {
     );
 
   const historicoFinanciero =
-    JSON.parse(localStorage.getItem(`historicoFinanciero_${restaurantId}`)) || [];
+  JSON.parse(localStorage.getItem(`historicoFinanciero_${restaurantId}`)) || [];
 
-  return {
+const variacionesMensuales =
+  calcularVariacionesMensualesGRUK(historicoFinanciero);
+
+return {
     restaurantId,
 
     ...ingresos,
