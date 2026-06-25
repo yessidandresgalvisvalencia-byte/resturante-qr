@@ -184,31 +184,58 @@ Analiza si un gasto fue necesario, parcialmente útil o innecesario, y genera un
 <label>Categoría contable del gasto</label>
 
 <select id="categoriaGasto">
-  <p class="descripcion-termino">
+<option value="Administración">Administración</option>
+<option value="Ventas">Ventas</option>
+<option value="Financieros">Financieros</option>
+<option value="Producción">Producción / Servicio</option>
+<option value="Logística">Logística / Domicilios</option>
+<option value="Otro">Otro</option>
+</select>
 
-<strong>Administración:</strong>
-Gerencia, secretaría, contabilidad, auditoría, servicios generales, software administrativo, papelería y gastos de oficina.
+<p class="descripcion-termino">
+GRUK usará esta clasificación para separar gastos administrativos, gastos de ventas, financieros, producción y logística dentro del reporte ejecutivo.
+</p>
 
-<br><br>
+<div class="card" style="
+margin-top:10px;
+background:#f8fafc;
+border-left:5px solid #2563eb;
+color:#111827;
+">
 
-<strong>Ventas:</strong>
-Publicidad, mercadeo, vendedores, promociones, fidelización y campañas comerciales.
+<h4 style="color:#1d4ed8;">
+📚 Guía rápida de clasificación de gastos GRUK
+</h4>
 
-<br><br>
+<p style="color:#111827;">
+<strong>🏢 Administración:</strong>
+Gastos necesarios para dirigir y controlar la empresa.
+Ejemplo: gerente, contabilidad, auditoría, servicios generales y papelería.
+</p>
 
-<strong>Financieros:</strong>
-Intereses, créditos, préstamos, comisiones bancarias y costos de financiación.
+<p style="color:#111827;">
+<strong>📢 Ventas:</strong>
+Gastos destinados a atraer clientes y aumentar ingresos.
+Ejemplo: publicidad, promociones y campañas comerciales.
+</p>
 
-<br><br>
+<p style="color:#111827;">
+<strong>🏦 Financieros:</strong>
+Costos generados por préstamos, créditos, intereses o financiación.
+</p>
 
-<strong>Producción / Servicio:</strong>
-Insumos, materia prima, elementos utilizados para producir o prestar el servicio.
+<p style="color:#111827;">
+<strong>🏭 Producción:</strong>
+Gastos relacionados con la elaboración del producto o prestación del servicio.
+Ejemplo: materia prima, insumos, empaques y elementos de producción.
+</p>
 
-<br><br>
+<p style="color:#111827;">
+<strong>🚚 Logística:</strong>
+Gastos asociados al transporte, domicilios, combustible y distribución.
+</p>
 
-<strong>Logística:</strong>
-Domicilios, transporte, combustible y distribución.
-
+</div>
 </p>
 <option value="Administración">Administración</option>
 <option value="Ventas">Ventas</option>
@@ -226,7 +253,6 @@ margin-top:10px;
 background:#f8fafc;
 border-left:5px solid #2563eb;
 color:#111827;
-">
 ">
 
 <div class="card" style="
