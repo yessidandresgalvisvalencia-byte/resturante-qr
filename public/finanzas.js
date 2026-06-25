@@ -238,8 +238,23 @@ function calcularEstadoResultadosGRUK(datos) {
     datos.ingresosTotales > 0
       ? (utilidadOperacional / datos.ingresosTotales) * 100
       : 0;
+const totalCostoYGasto =
+  costoProduccionVentas +
+  gastosOperativosRegistrados +
+  datos.gastoNomina;
 
+const margenRentabilidad =
+  datos.ingresosTotales -
+  totalCostoYGasto;
+
+const porcentajeMargenRentabilidad =
+  totalCostoYGasto > 0
+    ? (margenRentabilidad / totalCostoYGasto) * 100
+    : 0;
   return {
+    totalCostoYGasto,
+margenRentabilidad,
+porcentajeMargenRentabilidad,
     ventasBrutas,
     descuentosVentas,
     devolucionesVentas,
@@ -778,6 +793,76 @@ ${Number(
 }
 </tbody>
 </table>
+</div>
+<h2>Margen de Rentabilidad GRUK</h2>
+
+<div class="card">
+
+<table>
+<tbody>
+
+<tr>
+<td><strong>Ingresos reales / Precio de venta global</strong></td>
+<td>${formatoCOPFinanzas(f.ingresosTotales)}</td>
+</tr>
+
+<tr>
+<td><strong>Total costo y gasto</strong></td>
+<td>${formatoCOPFinanzas(f.totalCostoYGasto)}</td>
+</tr>
+
+<tr>
+<td><strong>Margen de rentabilidad</strong></td>
+<td>${formatoCOPFinanzas(f.margenRentabilidad)}</td>
+</tr>
+
+<tr>
+<td><strong>% Margen de rentabilidad</strong></td>
+<td>${Number(f.porcentajeMargenRentabilidad || 0).toFixed(2)}%</td>
+</tr>
+
+</tbody>
+</table>
+
+<p><strong>Lectura GRUK:</strong><br>
+${
+f.porcentajeMargenRentabilidad >= 35
+? "🟢 El margen de rentabilidad es saludable."
+: f.porcentajeMargenRentabilidad >= 20
+? "🟡 El margen es aceptable, pero debe vigilarse."
+: "🔴 El margen de rentabilidad es insuficiente. Se recomienda revisar precios, costos, gastos, nómina y desperdicios."
+}
+</p>
+
+</div>
+<div class="card">
+
+<h3>Lectura GRUK</h3>
+
+<p>
+
+${
+f.porcentajeMargenRentabilidad>=35
+?
+
+"🟢 El margen de rentabilidad es saludable. El restaurante está generando utilidad suficiente para sostener su operación y crecer."
+
+:
+
+f.porcentajeMargenRentabilidad>=20
+
+?
+
+"🟡 El margen es aceptable, pero existe poco espacio para absorber aumentos de costos. Se recomienda fortalecer la rentabilidad."
+
+:
+
+"🔴 El margen de rentabilidad es insuficiente. GRUK recomienda revisar precios, costos, desperdicios, gastos y estructura operativa para recuperar la rentabilidad."
+
+}
+
+</p>
+
 </div>
 <h2>Variación Mensual GRUK</h2>
 
