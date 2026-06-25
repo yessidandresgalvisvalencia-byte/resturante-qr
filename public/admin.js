@@ -3831,6 +3831,12 @@ function guardarPresupuestoGerencial() {
 async function cerrarMesFinanciero() {
   const restaurantId =
     getRestaurantId();
+    const pagosCaja =
+  JSON.parse(
+    localStorage.getItem(
+      `pagos_caja_${restaurantId}`
+    )
+  ) || [];
 
   const mesActual =
     new Date().toLocaleString("es-CO", {
