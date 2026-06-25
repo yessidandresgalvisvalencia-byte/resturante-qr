@@ -14,34 +14,32 @@ function normalizarCategoriaGastoGRUK(g) {
   const categoria = String(g.categoria || "").toLowerCase();
   const nombre = String(g.nombre || "").toLowerCase();
 
-  if (categoria.includes("publicidad") || nombre.includes("publicidad") || nombre.includes("marketing")) return "Ventas";
-  if (categoria.includes("venta") || categoria.includes("ventas")) return "Ventas";
-
-  if (categoria.includes("domicilio") || categoria.includes("logística") || categoria.includes("logistica") || nombre.includes("domicilio")) return "Logística";
-
-  if (categoria.includes("financiero") || nombre.includes("interes") || nombre.includes("crédito") || nombre.includes("credito") || nombre.includes("banco")) return "Financieros";
-
-  if (categoria.includes("insumo") || categoria.includes("producción") || categoria.includes("produccion") || categoria.includes("servicio") || nombre.includes("materia prima")) return "Producción";
-
-  if (categoria.includes("administración") || categoria.includes("administracion") || nombre.includes("contador") || nombre.includes("gerente") || nombre.includes("papeleria")) return "Administración";
+  if (categoria.includes("publicidad") || categoria.includes("ventas") || nombre.includes("publicidad") || nombre.includes("marketing")) return "Ventas";
+  if (categoria.includes("logística") || categoria.includes("logistica") || nombre.includes("domicilio") || nombre.includes("domiciliario") || nombre.includes("transporte")) return "Logística";
+  if (categoria.includes("financiero") || nombre.includes("credito") || nombre.includes("crédito") || nombre.includes("interes") || nombre.includes("banco")) return "Financieros";
+  if (categoria.includes("producción") || categoria.includes("produccion") || categoria.includes("insumo") || nombre.includes("materia prima") || nombre.includes("insumo")) return "Producción";
+  if (categoria.includes("administración") || categoria.includes("administracion") || nombre.includes("gerente") || nombre.includes("contador") || nombre.includes("papeleria")) return "Administración";
 
   return "Otro";
 }
 
-async function calcularFinanzasGRUK(restaurantIdParam) {
-  const restaurantId = restaurantIdParam || getRestaurantIdFinanzas();
+async function obtenerDatosFinancierosGRUK(restaurantId) {
+  const gastos =
+    JSON.parse(localStorage.getItem(`gastos_${restaurantId}`)) || [];
 
-  const gastos = JSON.parse(localStorage.getItem(`gastos_${restaurantId}`)) || [];
-  const pagosCaja = JSON.parse(localStorage.getItem(`pagos_caja_${restaurantId}`)) || [];
+  const pagosCaja =
+    JSON.parse(localStorage.getItem(`pagos_caja_${restaurantId}`)) || [];
 
   let datosVentas = [];
   let personal = [];
 
   try {
-    let resVentas = await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
+    let resVentas =
+      await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
 
     if (!resVentas.ok) {
-      resVentas = await fetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
+      resVentas =
+        await fetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
     }
 
     if (resVentas.ok) {
@@ -52,7 +50,8 @@ async function calcularFinanzasGRUK(restaurantIdParam) {
   }
 
   try {
-    const resPersonal = await fetch(`/api/personal?restaurantId=${restaurantId}`);
+    const resPersonal =
+      await fetch(`/api/personal?restaurantId=${restaurantId}`);
 
     if (resPersonal.ok) {
       personal = await resPersonal.json();
@@ -61,138 +60,193 @@ async function calcularFinanzasGRUK(restaurantIdParam) {
     console.log("Error cargando personal financiero:", error);
   }
 
-  const ventasOrdenadas = datosVentas
-    .map(p => ({
-      producto: p.producto || "Producto sin nombre",
-      categoria: p.categoria || "",
-      precioUnitarioActual: Number(p.precioUnitarioActual || 0),
-      costoMateriaPrimaTotal: Number(p.costoMateriaPrimaTotal || 0),
-      ventas: Number(p.ventas || 0),
-      totalDinero: Number(p.totalCalculado || 0)
-    }))
-    .filter(p =>
-      p.ventas > 0 &&
-      p.precioUnitarioActual > 0 &&
-      p.totalDinero > 0
+  return {
+    gastos,
+    pagosCaja,
+    datosVentas,
+    personal
+  };
+}
+
+function calcularIngresosGRUK(datosVentas, pagosCaja) {
+  const ventasOrdenadas =
+    datosVentas
+      .map(p => ({
+        producto: p.producto || "Producto sin nombre",
+        categoria: p.categoria || "",
+        precioUnitarioActual: Number(p.precioUnitarioActual || 0),
+        costoMateriaPrimaTotal: Number(p.costoMateriaPrimaTotal || 0),
+        ventas: Number(p.ventas || 0),
+        totalDinero: Number(p.totalCalculado || 0)
+      }))
+      .filter(p =>
+        p.ventas > 0 &&
+        p.precioUnitarioActual > 0 &&
+        p.totalDinero > 0
+      );
+
+  const ventasQR =
+    ventasOrdenadas.reduce((acc, p) => acc + p.totalDinero, 0);
+
+  const ventasManualCaja =
+    pagosCaja
+      .filter(p => p.tipoVenta === "manual")
+      .reduce((acc, p) => acc + Number(p.total || 0), 0);
+
+  const ventasQRCaja =
+    pagosCaja
+      .filter(p => p.tipoVenta === "qr")
+      .reduce((acc, p) => acc + Number(p.total || 0), 0);
+
+  const ingresosTotales =
+    ventasQR + ventasManualCaja;
+
+  const costosMateriaPrima =
+    ventasOrdenadas.reduce(
+      (acc, p) => acc + Number(p.costoMateriaPrimaTotal || 0),
+      0
     );
 
-  const ventasQR = ventasOrdenadas.reduce((acc, p) => acc + p.totalDinero, 0);
+  return {
+    ventasOrdenadas,
+    ventasQR,
+    ventasManualCaja,
+    ventasQRCaja,
+    ingresosTotales,
+    costosMateriaPrima
+  };
+}
 
-  const ventasManualCaja = pagosCaja
-    .filter(p => p.tipoVenta === "manual")
-    .reduce((acc, p) => acc + Number(p.total || 0), 0);
+function clasificarGastosGRUK(gastos) {
+  const totalGastos =
+    gastos.reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
-  const ventasQRCaja = pagosCaja
-    .filter(p => p.tipoVenta === "qr")
-    .reduce((acc, p) => acc + Number(p.total || 0), 0);
+  const gastosAdministracion =
+    gastos.filter(g => normalizarCategoriaGastoGRUK(g) === "Administración")
+      .reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
-  const ingresosTotales = ventasQR + ventasManualCaja;
+  const gastosVentas =
+    gastos.filter(g => normalizarCategoriaGastoGRUK(g) === "Ventas")
+      .reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
-  const costosMateriaPrima = ventasOrdenadas.reduce(
-    (acc, p) => acc + Number(p.costoMateriaPrimaTotal || 0),
-    0
-  );
+  const gastosLogistica =
+    gastos.filter(g => normalizarCategoriaGastoGRUK(g) === "Logística")
+      .reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
-  const gastoNomina = personal.reduce(
+  const gastosFinancieros =
+    gastos.filter(g => normalizarCategoriaGastoGRUK(g) === "Financieros")
+      .reduce((acc, g) => acc + Number(g.valor || 0), 0);
+
+  const gastosProduccion =
+    gastos.filter(g => normalizarCategoriaGastoGRUK(g) === "Producción")
+      .reduce((acc, g) => acc + Number(g.valor || 0), 0);
+
+  const gastosOtro =
+    gastos.filter(g => normalizarCategoriaGastoGRUK(g) === "Otro")
+      .reduce((acc, g) => acc + Number(g.valor || 0), 0);
+
+  return {
+    totalGastos,
+    gastosAdministracion,
+    gastosVentas,
+    gastosLogistica,
+    gastosFinancieros,
+    gastosProduccion,
+    gastosOtro
+  };
+}
+
+function calcularNominaGRUK(personal) {
+  return personal.reduce(
     (acc, p) => acc + Number(p.salario || 0),
     0
   );
+}
 
-  const gastosAdministracion = gastos
-    .filter(g => normalizarCategoriaGastoGRUK(g) === "Administración")
-    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
+function calcularEstadoResultadosGRUK(datos) {
+  const ventasBrutas =
+    datos.ingresosTotales;
 
-  const gastosVentas = gastos
-    .filter(g => normalizarCategoriaGastoGRUK(g) === "Ventas")
-    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
-
-  const gastosFinancieros = gastos
-    .filter(g => normalizarCategoriaGastoGRUK(g) === "Financieros")
-    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
-
-  const gastosProduccion = gastos
-    .filter(g => normalizarCategoriaGastoGRUK(g) === "Producción")
-    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
-
-  const gastosLogistica = gastos
-    .filter(g => normalizarCategoriaGastoGRUK(g) === "Logística")
-    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
-
-  const gastosOtro = gastos
-    .filter(g => normalizarCategoriaGastoGRUK(g) === "Otro")
-    .reduce((acc, g) => acc + Number(g.valor || 0), 0);
-
-  const totalGastos = gastos.reduce(
-    (acc, g) => acc + Number(g.valor || 0),
-    0
-  );
-
-  const ventasBrutas = ingresosTotales;
   const descuentosVentas = 0;
   const devolucionesVentas = 0;
 
   const ventasNetas =
-    ventasBrutas -
-    descuentosVentas -
-    devolucionesVentas;
+    ventasBrutas - descuentosVentas - devolucionesVentas;
 
   const costoProduccionVentas =
-    costosMateriaPrima +
-    gastosProduccion;
+    datos.costosMateriaPrima + datos.gastosProduccion;
 
   const utilidadBruta =
-    ventasNetas -
-    costoProduccionVentas;
+    ventasNetas - costoProduccionVentas;
 
   const gastosOperativosRegistrados =
-  totalGastos;
+    datos.totalGastos;
 
-const estructuraGlobalGastos =
-  gastosOperativosRegistrados +
-  gastoNomina;
+  const estructuraGlobalGastos =
+    gastosOperativosRegistrados + datos.gastoNomina;
 
-const utilidadOperacional =
-  utilidadBruta -
-  gastosOperativosRegistrados -
-  gastoNomina;
+  const utilidadOperacional =
+    utilidadBruta -
+    gastosOperativosRegistrados -
+    datos.gastoNomina;
 
-const otrosIngresos = 0;
+  const otrosIngresos = 0;
+  const otrosEgresos = datos.gastosFinancieros || 0;
 
-const otrosEgresos =
-  gastosFinancieros || 0;
+  const utilidadAntesImpuestos =
+    utilidadOperacional + otrosIngresos - otrosEgresos;
 
-const utilidadAntesImpuestos =
-  utilidadOperacional +
-  otrosIngresos -
-  otrosEgresos;
+  const utilidadNeta =
+    utilidadAntesImpuestos;
 
-const utilidadNeta =
-  utilidadAntesImpuestos;
-
-const rentabilidadReal =
-  ingresosTotales > 0
-    ? (utilidadOperacional / ingresosTotales) * 100
-    : 0;
-
-  const rentabilidad =
-    ingresosTotales > 0
-      ? (utilidadNeta / ingresosTotales) * 100
+  const rentabilidadReal =
+    datos.ingresosTotales > 0
+      ? (utilidadOperacional / datos.ingresosTotales) * 100
       : 0;
 
-  let semaforo = "";
-  let mensajeSemaforo = "";
+  return {
+    ventasBrutas,
+    descuentosVentas,
+    devolucionesVentas,
+    ventasNetas,
+    costoProduccionVentas,
+    utilidadBruta,
+    gastosOperativosRegistrados,
+    estructuraGlobalGastos,
+    utilidadOperacional,
+    otrosIngresos,
+    otrosEgresos,
+    utilidadAntesImpuestos,
+    utilidadNeta,
+    rentabilidadReal
+  };
+}
 
-  if (utilidadNeta < 0) {
-    semaforo = "🔴 Rojo — Riesgo financiero";
-    mensajeSemaforo = "GRUK detecta que el negocio está consumiendo más recursos de los que genera. Se recomienda revisar precios, nómina, gastos, desperdicio y productos de baja rentabilidad.";
-  } else if (rentabilidad < 10) {
-    semaforo = "🟡 Amarillo — Rentabilidad baja";
-    mensajeSemaforo = "El restaurante tiene utilidad, pero el margen es bajo. GRUK recomienda fortalecer productos rentables y controlar gastos.";
-  } else {
-    semaforo = "🟢 Verde — Rentabilidad saludable";
-    mensajeSemaforo = "La operación presenta rentabilidad positiva. GRUK recomienda mantener control de costos, inventario y gastos.";
+function calcularSemaforoGRUK(utilidadOperacional, rentabilidadReal) {
+  if (utilidadOperacional < 0) {
+    return {
+      semaforo: "🔴 Rojo — Riesgo financiero crítico",
+      mensajeSemaforo:
+        "GRUK detecta que la carga estructural fija está consumiendo más recursos de los que genera el negocio. Se recomienda revisar nómina, logística, publicidad, precios, desperdicio y productos de baja rentabilidad."
+    };
   }
 
+  if (rentabilidadReal < 10) {
+    return {
+      semaforo: "🟡 Amarillo — Rentabilidad baja",
+      mensajeSemaforo:
+        "El restaurante genera utilidad, pero el margen es bajo. GRUK recomienda fortalecer productos rentables, controlar gastos y revisar precios."
+    };
+  }
+
+  return {
+    semaforo: "🟢 Verde — Rentabilidad saludable",
+    mensajeSemaforo:
+      "La operación presenta rentabilidad positiva. GRUK recomienda mantener control de costos, inventario y gastos."
+  };
+}
+
+function calcularPresupuestoGRUK(restaurantId, ingresosTotales, utilidadNeta) {
   const presupuestoVentas =
     Number(localStorage.getItem(`presupuestoVentas_${restaurantId}`) || 0);
 
@@ -209,57 +263,81 @@ const rentabilidadReal =
       ? (utilidadNeta / presupuestoUtilidad) * 100
       : 0;
 
+  return {
+    presupuestoVentas,
+    presupuestoUtilidad,
+    cumplimientoVentas,
+    cumplimientoUtilidad
+  };
+}
+
+async function calcularFinanzasGRUK(restaurantIdParam) {
+  const restaurantId =
+    restaurantIdParam || getRestaurantIdFinanzas();
+
+  const base =
+    await obtenerDatosFinancierosGRUK(restaurantId);
+
+  const ingresos =
+    calcularIngresosGRUK(base.datosVentas, base.pagosCaja);
+
+  const gastos =
+    clasificarGastosGRUK(base.gastos);
+
+  const gastoNomina =
+    calcularNominaGRUK(base.personal);
+
+  const estado =
+    calcularEstadoResultadosGRUK({
+      ...ingresos,
+      ...gastos,
+      gastoNomina
+    });
+
+  const semaforo =
+    calcularSemaforoGRUK(
+      estado.utilidadOperacional,
+      estado.rentabilidadReal
+    );
+
+  const presupuesto =
+    calcularPresupuestoGRUK(
+      restaurantId,
+      ingresos.ingresosTotales,
+      estado.utilidadNeta
+    );
+
   const historicoFinanciero =
     JSON.parse(localStorage.getItem(`historicoFinanciero_${restaurantId}`)) || [];
 
   return {
     restaurantId,
-    ventasQR,
-    ventasManualCaja,
-    ventasQRCaja,
-    ingresosTotales,
-    ventasBrutas,
-    descuentosVentas,
-    devolucionesVentas,
-    ventasNetas,
-    costosMateriaPrima,
-    gastosProduccion,
-    costoProduccionVentas,
-    utilidadBruta,
-    gastosAdministracion,
-    gastosVentas,
-    gastosLogistica,
-    gastosFinancieros,
-    gastosOtro,
-    totalGastos,
+
+    ...ingresos,
+    ...gastos,
+
     gastoNomina,
-    utilidadOperacional,
-    otrosIngresos,
-    otrosEgresos,
-    utilidadAntesImpuestos,
-    utilidadNeta,
-    rentabilidad,
-    semaforo,
-    mensajeSemaforo,
-    presupuestoVentas,
-    presupuestoUtilidad,
-    cumplimientoVentas,
-    cumplimientoUtilidad,
-    historicoFinanciero,
-    gastosOperativosRegistrados,
-estructuraGlobalGastos,
-rentabilidadReal,
+
+    ...estado,
+    ...semaforo,
+    ...presupuesto,
+
+    historicoFinanciero
   };
 }
 
 async function cerrarMesFinanciero() {
-  const restaurantId = getRestaurantIdFinanzas();
-  const f = await calcularFinanzasGRUK(restaurantId);
+  const restaurantId =
+    getRestaurantIdFinanzas();
 
-  const mesActual = new Date().toLocaleString("es-CO", {
-    month: "long",
-    year: "numeric"
-  });
+  const f =
+    await calcularFinanzasGRUK(restaurantId);
+
+  const mesActual =
+    new Date().toLocaleString("es-CO", {
+      month: "long",
+      year: "numeric"
+    });
 
   const historico =
     JSON.parse(localStorage.getItem(`historicoFinanciero_${restaurantId}`)) || [];
@@ -274,20 +352,16 @@ async function cerrarMesFinanciero() {
 
   historico.push({
     mes: mesActual,
-    ingresosTotales: f.ingresosTotales,
+    ingresos: f.ingresosTotales,
     ventasQR: f.ventasQR,
     ventasManualCaja: f.ventasManualCaja,
-    costosMateriaPrima: f.costosMateriaPrima,
-    costoProduccionVentas: f.costoProduccionVentas,
-    utilidadBruta: f.utilidadBruta,
-    gastosAdministracion: f.gastosAdministracion,
-    gastosVentas: f.gastosVentas,
-    gastosLogistica: f.gastosLogistica,
-    gastosFinancieros: f.gastosFinancieros,
-    gastoNomina: f.gastoNomina,
-    utilidadOperacional: f.utilidadOperacional,
-    utilidadNeta: f.utilidadNeta,
-    rentabilidad: f.rentabilidadReal,
+    materia_prima: f.costosMateriaPrima,
+    gastos_operativos: f.gastosOperativosRegistrados,
+    nomina: f.gastoNomina,
+    estructura_global_gastos: f.estructuraGlobalGastos,
+    utilidad_bruta: f.utilidadBruta,
+    utilidad_operacional: f.utilidadOperacional,
+    rentabilidad_real: f.rentabilidadReal,
     fechaCierre: new Date().toISOString()
   });
 
@@ -304,13 +378,19 @@ async function cerrarMesFinanciero() {
       <div class="card">
         <p><strong>Mes cerrado:</strong> ${mesActual}</p>
         <p><strong>Ingresos reales:</strong> ${formatoCOPFinanzas(f.ingresosTotales)}</p>
-        <p><strong>Utilidad neta:</strong> ${formatoCOPFinanzas(f.utilidadNeta)}</p>
-        <p><strong>Rentabilidad:</strong> ${f.rentabilidadReal.toFixed(2)}%</p>
+        <p><strong>Utilidad operacional:</strong> ${formatoCOPFinanzas(f.utilidadOperacional)}</p>
+        <p><strong>Rentabilidad real:</strong> ${f.rentabilidadReal.toFixed(2)}%</p>
       </div>
     `;
   }
 
   alert("Mes financiero cerrado correctamente");
+}
+
+function porcentajeSobreIngresos(valor, ingresos) {
+  return ingresos > 0
+    ? ((Number(valor || 0) / ingresos) * 100).toFixed(2) + "%"
+    : "0.00%";
 }
 
 function generarBloqueFinancieroGRUK(f) {
@@ -339,69 +419,95 @@ Es el recurso consumido para administrar, vender, financiar o sostener el negoci
 <tr>
 <th>Concepto</th>
 <th>Valor</th>
+<th>% sobre ingresos</th>
 </tr>
 </thead>
+
 <tbody>
-<tr><td><strong>Ventas brutas</strong></td><td><strong>${formatoCOPFinanzas(f.ventasBrutas)}</strong></td></tr>
-<tr><td>Menos: Descuentos</td><td>${formatoCOPFinanzas(f.descuentosVentas)}</td></tr>
-<tr><td>Menos: Devoluciones</td><td>${formatoCOPFinanzas(f.devolucionesVentas)}</td></tr>
-<tr><td><strong>Ventas netas</strong></td><td><strong>${formatoCOPFinanzas(f.ventasNetas)}</strong></td></tr>
-<tr><td>Costo de producción y ventas</td><td>${formatoCOPFinanzas(f.costoProduccionVentas)}</td></tr>
-<tr><td><strong>Utilidad bruta</strong></td><td><strong>${formatoCOPFinanzas(f.utilidadBruta)}</strong></td></tr>
-<tr><td>Gastos de administración</td><td>${formatoCOPFinanzas(f.gastosAdministracion)}</td></tr>
-<tr><td>Gastos en ventas</td><td>${formatoCOPFinanzas(f.gastosVentas)}</td></tr>
-<tr><td>Logística / domicilios</td><td>${formatoCOPFinanzas(f.gastosLogistica)}</td></tr>
-<tr><td>Nómina</td><td>${formatoCOPFinanzas(f.gastoNomina)}</td></tr>
-<tr><td><strong>Utilidad operacional</strong></td><td><strong>${formatoCOPFinanzas(f.utilidadOperacional)}</strong></td></tr>
-<tr><td>Otros ingresos</td><td>${formatoCOPFinanzas(f.otrosIngresos)}</td></tr>
-<tr><td>Otros egresos / financieros</td><td>${formatoCOPFinanzas(f.otrosEgresos)}</td></tr>
-<tr><td><strong>Utilidad antes de impuestos</strong></td><td><strong>${formatoCOPFinanzas(f.utilidadAntesImpuestos)}</strong></td></tr>
+<tr>
+<td><strong>Ventas brutas</strong></td>
+<td><strong>${formatoCOPFinanzas(f.ventasBrutas)}</strong></td>
+<td>100.00%</td>
+</tr>
+
+<tr>
+<td>Menos: Descuentos</td>
+<td>${formatoCOPFinanzas(f.descuentosVentas)}</td>
+<td>${porcentajeSobreIngresos(f.descuentosVentas, f.ingresosTotales)}</td>
+</tr>
+
+<tr>
+<td>Menos: Devoluciones</td>
+<td>${formatoCOPFinanzas(f.devolucionesVentas)}</td>
+<td>${porcentajeSobreIngresos(f.devolucionesVentas, f.ingresosTotales)}</td>
+</tr>
+
+<tr>
+<td><strong>Ventas netas</strong></td>
+<td><strong>${formatoCOPFinanzas(f.ventasNetas)}</strong></td>
+<td>${porcentajeSobreIngresos(f.ventasNetas, f.ingresosTotales)}</td>
+</tr>
+
+<tr>
+<td>Menos: Costo de producción / materia prima</td>
+<td>${formatoCOPFinanzas(f.costosMateriaPrima)}</td>
+<td>${porcentajeSobreIngresos(f.costosMateriaPrima, f.ingresosTotales)}</td>
+</tr>
+
+<tr>
+<td><strong>Utilidad bruta</strong></td>
+<td><strong>${formatoCOPFinanzas(f.utilidadBruta)}</strong></td>
+<td><strong>${porcentajeSobreIngresos(f.utilidadBruta, f.ingresosTotales)}</strong></td>
+</tr>
+
+<tr>
+<td>Menos: Gastos de administración</td>
+<td>${formatoCOPFinanzas(f.gastosAdministracion)}</td>
+<td>${porcentajeSobreIngresos(f.gastosAdministracion, f.ingresosTotales)}</td>
+</tr>
+
+<tr>
+<td>Menos: Gastos en ventas</td>
+<td>${formatoCOPFinanzas(f.gastosVentas)}</td>
+<td>${porcentajeSobreIngresos(f.gastosVentas, f.ingresosTotales)}</td>
+</tr>
+
+<tr>
+<td>Menos: Gastos de logística / domicilios</td>
+<td>${formatoCOPFinanzas(f.gastosLogistica)}</td>
+<td>${porcentajeSobreIngresos(f.gastosLogistica, f.ingresosTotales)}</td>
+</tr>
+
+<tr>
+<td>Menos: Nómina</td>
+<td>${formatoCOPFinanzas(f.gastoNomina)}</td>
+<td>${porcentajeSobreIngresos(f.gastoNomina, f.ingresosTotales)}</td>
+</tr>
+
+<tr>
+<td><strong>Utilidad operacional antes de impuestos</strong></td>
+<td><strong>${formatoCOPFinanzas(f.utilidadOperacional)}</strong></td>
+<td><strong>${f.rentabilidadReal.toFixed(2)}%</strong></td>
+</tr>
 </tbody>
 </table>
+
+<p>
+<strong>Lectura GRUK:</strong><br>
+GRUK calcula una sola utilidad operacional usando ingresos reales, materia prima, gastos operativos registrados y nómina. Este valor alimenta el semáforo financiero, el histórico y la rentabilidad real para evitar descuadres entre secciones.
+</p>
 </div>
 
-<h2>Clasificación Gerencial de Costos y Gastos</h2>
+<h2>Resumen de Control de Operación</h2>
 
 <div class="card">
 <table>
-<thead>
-<tr>
-<th>Clasificación</th>
-<th>Valor</th>
-<th>Explicación GRUK</th>
-</tr>
-</thead>
 <tbody>
-<tr>
-<td>Costo directo / materia prima</td>
-<td>${formatoCOPFinanzas(f.costosMateriaPrima)}</td>
-<td>Recursos directamente relacionados con la preparación del producto.</td>
-</tr>
-<tr>
-<td>Producción / servicio</td>
-<td>${formatoCOPFinanzas(f.gastosProduccion)}</td>
-<td>Gastos asociados a producir o prestar el servicio.</td>
-</tr>
-<tr>
-<td>Administración</td>
-<td>${formatoCOPFinanzas(f.gastosAdministracion)}</td>
-<td>Gerencia, contabilidad, auditoría, papelería y control administrativo.</td>
-</tr>
-<tr>
-<td>Ventas</td>
-<td>${formatoCOPFinanzas(f.gastosVentas)}</td>
-<td>Publicidad, promociones, mercadeo y campañas comerciales.</td>
-</tr>
-<tr>
-<td>Financieros</td>
-<td>${formatoCOPFinanzas(f.gastosFinancieros)}</td>
-<td>Intereses, créditos, comisiones bancarias o financiación.</td>
-</tr>
-<tr>
-<td>Logística</td>
-<td>${formatoCOPFinanzas(f.gastosLogistica)}</td>
-<td>Domicilios, transporte, combustible y distribución.</td>
-</tr>
+<tr><td>Total ingresos reales</td><td>${formatoCOPFinanzas(f.ingresosTotales)}</td></tr>
+<tr><td>Costos estimados de materia prima</td><td>${formatoCOPFinanzas(f.costosMateriaPrima)}</td></tr>
+<tr><td>Gastos operativos registrados</td><td>${formatoCOPFinanzas(f.gastosOperativosRegistrados)}</td></tr>
+<tr><td>Nómina mensual</td><td>${formatoCOPFinanzas(f.gastoNomina)}</td></tr>
+<tr><td><strong>Estructura global de gastos</strong></td><td><strong>${formatoCOPFinanzas(f.estructuraGlobalGastos)}</strong></td></tr>
 </tbody>
 </table>
 </div>
@@ -410,7 +516,7 @@ Es el recurso consumido para administrar, vender, financiar o sostener el negoci
 
 <div class="card">
 <h3>${f.semaforo}</h3>
-<p><strong>Rentabilidad neta:</strong> ${f.rentabilidadReal.toFixed(2)}%</p>
+<p><strong>Rentabilidad operacional real:</strong> ${f.rentabilidadReal.toFixed(2)}%</p>
 <p>${f.mensajeSemaforo}</p>
 </div>
 
@@ -434,39 +540,10 @@ Es el recurso consumido para administrar, vender, financiar o sostener el negoci
 <td>${f.cumplimientoVentas.toFixed(1)}%</td>
 </tr>
 <tr>
-<td>Utilidad neta</td>
-<td>${formatoCOPFinanzas(f.utilidadNeta)}</td>
+<td>Utilidad operacional</td>
+<td>${formatoCOPFinanzas(f.utilidadOperacional)}</td>
 <td>${formatoCOPFinanzas(f.presupuestoUtilidad)}</td>
 <td>${f.cumplimientoUtilidad.toFixed(1)}%</td>
-<tr>
-
-<td>Gastos Operativos</td>
-
-<td>
-${formatoCOPFinanzas(f.gastosOperativosRegistrados)}
-</td>
-
-</tr>
-
-<tr>
-
-<td>Nómina</td>
-
-<td>
-${formatoCOPFinanzas(f.gastoNomina)}
-</td>
-
-</tr>
-
-<tr>
-
-<td>Estructura Global de Gastos</td>
-
-<td>
-${formatoCOPFinanzas(f.estructuraGlobalGastos)}
-</td>
-
-</tr>
 </tr>
 </tbody>
 </table>
@@ -481,9 +558,9 @@ ${formatoCOPFinanzas(f.estructuraGlobalGastos)}
 <th>Mes</th>
 <th>Ingresos</th>
 <th>Materia prima</th>
-<th>Gastos</th>
+<th>Gastos operativos</th>
 <th>Nómina</th>
-<th>Utilidad</th>
+<th>Utilidad operacional</th>
 <th>Rentabilidad</th>
 </tr>
 </thead>
@@ -493,12 +570,12 @@ f.historicoFinanciero.length > 0
 ? f.historicoFinanciero.map(h => `
 <tr>
 <td>${h.mes}</td>
-<td>${formatoCOPFinanzas(h.ingresosTotales)}</td>
-<td>${formatoCOPFinanzas(h.costosMateriaPrima)}</td>
-<td>${formatoCOPFinanzas((h.gastosAdministracion || 0) + (h.gastosVentas || 0) + (h.gastosLogistica || 0) + (h.gastosFinancieros || 0))}</td>
-<td>${formatoCOPFinanzas(h.gastoNomina)}</td>
-<td>${formatoCOPFinanzas(h.utilidadNeta)}</td>
-<td>${Number(h.rentabilidad || 0).toFixed(2)}%</td>
+<td>${formatoCOPFinanzas(h.ingresos)}</td>
+<td>${formatoCOPFinanzas(h.materia_prima)}</td>
+<td>${formatoCOPFinanzas(h.gastos_operativos)}</td>
+<td>${formatoCOPFinanzas(h.nomina)}</td>
+<td>${formatoCOPFinanzas(h.utilidad_operacional)}</td>
+<td>${Number(h.rentabilidad_real || 0).toFixed(2)}%</td>
 </tr>
 `).join("")
 : `
