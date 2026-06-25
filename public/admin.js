@@ -1571,7 +1571,7 @@ window.normalizarPrecio = function(valor) {
 
   return numero;
 };
-function calcularPrecioInteligente() {
+async function calcularPrecioInteligente() {
   const producto = document.getElementById("productoPrecio").value.trim();
 
   const materiaPrima = window.normalizarCosto(
@@ -1594,6 +1594,18 @@ function calcularPrecioInteligente() {
     alert("Completa todos los campos");
     return;
   }
+  const finanzasActuales =
+  typeof calcularFinanzasGRUK === "function"
+    ? await calcularFinanzasGRUK(getRestaurantId())
+    : null;
+
+const factorIndirectoGRUK =
+  finanzasActuales && finanzasActuales.costoProduccionTotal > 0
+    ? finanzasActuales.costosIndirectosServicio / finanzasActuales.costoProduccionTotal
+    : 0;
+
+const costoIndirectoGRUK =
+  materiaPrima * factorIndirectoGRUK;
 
   const textoProducto = producto.toLowerCase();
 
@@ -1641,7 +1653,10 @@ function calcularPrecioInteligente() {
     !esPostre &&
     !esPlatoFuerte;
 
-  const costoBase = materiaPrima + costoOperativo;
+  const costoBase =
+  materiaPrima +
+  costoOperativo +
+  costoIndirectoGRUK;
 
   const costoTrabajo =
     tiempo >= 45 ? 18000 :
@@ -1657,7 +1672,7 @@ function calcularPrecioInteligente() {
     JSON.parse(localStorage.getItem(`configFinanciera_${getRestaurantId()}`)) || {
       margenSeguridad: 0.02
     };
-
+  
   const MS = Number(configFinanciera.margenSeguridad || 0.02);
 
 
