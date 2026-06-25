@@ -2334,6 +2334,8 @@ const historicoFinanciero =
   JSON.parse(
     localStorage.getItem(`historicoFinanciero_${restaurantId}`)
   ) || [];
+  const variacionesMensuales =
+  calcularVariacionesMensualesGRUK(historicoFinanciero);
 
 const ventasManualCaja =
 pagosCaja

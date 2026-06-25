@@ -270,7 +270,43 @@ function calcularPresupuestoGRUK(restaurantId, ingresosTotales, utilidadNeta) {
     cumplimientoUtilidad
   };
 }
+function calcularVariacionesMensualesGRUK(historico) {
+  if (!historico || historico.length < 2) {
+    return {
+      hayVariacion: false,
+      mensaje: "Aún no hay suficientes meses cerrados para calcular variaciones."
+    };
+  }
 
+  const anterior =
+    historico[historico.length - 2];
+
+  const actual =
+    historico[historico.length - 1];
+
+  function variacion(valorActual, valorAnterior) {
+    valorActual = Number(valorActual || 0);
+    valorAnterior = Number(valorAnterior || 0);
+
+    if (valorAnterior === 0) return 0;
+
+    return ((valorActual - valorAnterior) / valorAnterior) * 100;
+  }
+
+  return {
+    hayVariacion: true,
+
+    mesAnterior: anterior.mes,
+    mesActual: actual.mes,
+
+    ingresos: variacion(actual.ingresos, anterior.ingresos),
+    materiaPrima: variacion(actual.materia_prima, anterior.materia_prima),
+    gastosOperativos: variacion(actual.gastos_operativos, anterior.gastos_operativos),
+    nomina: variacion(actual.nomina, anterior.nomina),
+    utilidadOperacional: variacion(actual.utilidad_operacional, anterior.utilidad_operacional),
+    rentabilidadReal: variacion(actual.rentabilidad_real, anterior.rentabilidad_real)
+  };
+}
 async function calcularFinanzasGRUK(restaurantIdParam) {
   const restaurantId =
     restaurantIdParam || getRestaurantIdFinanzas();
@@ -322,7 +358,8 @@ async function calcularFinanzasGRUK(restaurantIdParam) {
     ...semaforo,
     ...presupuesto,
 
-    historicoFinanciero
+    historicoFinanciero,
+    variacionesMensuales
   };
 }
 
@@ -638,6 +675,72 @@ f.historicoFinanciero.length > 0
 }
 </tbody>
 </table>
+</div>
+<h2>Variación Mensual GRUK</h2>
+
+<div class="card">
+
+${
+f.variacionesMensuales && f.variacionesMensuales.hayVariacion
+? `
+<p>
+<strong>Comparación:</strong>
+${f.variacionesMensuales.mesAnterior}
+vs
+${f.variacionesMensuales.mesActual}
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Concepto</th>
+<th>Variación</th>
+<th>Lectura GRUK</th>
+</tr>
+</thead>
+
+<tbody>
+
+<tr>
+<td>Ingresos</td>
+<td>${f.variacionesMensuales.ingresos.toFixed(2)}%</td>
+<td>${f.variacionesMensuales.ingresos >= 0 ? "📈 Aumentaron los ingresos." : "📉 Disminuyeron los ingresos."}</td>
+</tr>
+
+<tr>
+<td>Materia prima</td>
+<td>${f.variacionesMensuales.materiaPrima.toFixed(2)}%</td>
+<td>${f.variacionesMensuales.materiaPrima > 0 ? "⚠️ Subió el costo de materia prima." : "✅ Bajó o se controló la materia prima."}</td>
+</tr>
+
+<tr>
+<td>Gastos operativos</td>
+<td>${f.variacionesMensuales.gastosOperativos.toFixed(2)}%</td>
+<td>${f.variacionesMensuales.gastosOperativos > 0 ? "⚠️ Aumentaron los gastos operativos." : "✅ Se redujeron los gastos operativos."}</td>
+</tr>
+
+<tr>
+<td>Nómina</td>
+<td>${f.variacionesMensuales.nomina.toFixed(2)}%</td>
+<td>${f.variacionesMensuales.nomina > 0 ? "⚠️ Aumentó la carga de nómina." : "✅ La nómina se mantuvo o bajó."}</td>
+</tr>
+
+<tr>
+<td>Utilidad operacional</td>
+<td>${f.variacionesMensuales.utilidadOperacional.toFixed(2)}%</td>
+<td>${f.variacionesMensuales.utilidadOperacional >= 0 ? "📈 Mejoró la utilidad operacional." : "📉 Empeoró la utilidad operacional."}</td>
+</tr>
+
+</tbody>
+</table>
+`
+: `
+<p>
+Aún necesitas cerrar al menos dos meses financieros para que GRUK calcule variaciones mensuales.
+</p>
+`
+}
+
 </div>
 
 <h2>Indicadores Financieros GRUK</h2>
