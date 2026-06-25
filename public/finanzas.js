@@ -312,6 +312,37 @@ function calcularVariacionesMensualesGRUK(historico) {
       mensaje: "Aún no hay suficientes meses cerrados para calcular variaciones."
     };
   }
+
+  const anterior =
+    historico[historico.length - 2];
+
+  const actual =
+    historico[historico.length - 1];
+
+  function variacion(valorActual, valorAnterior) {
+    valorActual = Number(valorActual || 0);
+    valorAnterior = Number(valorAnterior || 0);
+
+    if (valorAnterior === 0) return 0;
+
+    return ((valorActual - valorAnterior) / valorAnterior) * 100;
+  }
+
+  return {
+    hayVariacion: true,
+
+    mesAnterior: anterior.mes,
+    mesActual: actual.mes,
+
+    ingresos: variacion(actual.ingresos, anterior.ingresos),
+    materiaPrima: variacion(actual.materia_prima, anterior.materia_prima),
+    gastosOperativos: variacion(actual.gastos_operativos, anterior.gastos_operativos),
+    nomina: variacion(actual.nomina, anterior.nomina),
+    utilidadOperacional: variacion(actual.utilidad_operacional, anterior.utilidad_operacional),
+    rentabilidadReal: variacion(actual.rentabilidad_real, anterior.rentabilidad_real)
+  };
+}
+
 function generarCausasAutomaticasGRUK(variaciones) {
   if (!variaciones || !variaciones.hayVariacion) {
     return [
@@ -359,35 +390,8 @@ function generarCausasAutomaticasGRUK(variaciones) {
 
   return causas;
 }
-  const anterior =
-    historico[historico.length - 2];
 
-  const actual =
-    historico[historico.length - 1];
 
-  function variacion(valorActual, valorAnterior) {
-    valorActual = Number(valorActual || 0);
-    valorAnterior = Number(valorAnterior || 0);
-
-    if (valorAnterior === 0) return 0;
-
-    return ((valorActual - valorAnterior) / valorAnterior) * 100;
-  }
-
-  return {
-    hayVariacion: true,
-
-    mesAnterior: anterior.mes,
-    mesActual: actual.mes,
-
-    ingresos: variacion(actual.ingresos, anterior.ingresos),
-    materiaPrima: variacion(actual.materia_prima, anterior.materia_prima),
-    gastosOperativos: variacion(actual.gastos_operativos, anterior.gastos_operativos),
-    nomina: variacion(actual.nomina, anterior.nomina),
-    utilidadOperacional: variacion(actual.utilidad_operacional, anterior.utilidad_operacional),
-    rentabilidadReal: variacion(actual.rentabilidad_real, anterior.rentabilidad_real)
-  };
-}
 async function calcularFinanzasGRUK(restaurantIdParam) {
   const restaurantId =
     restaurantIdParam || getRestaurantIdFinanzas();
