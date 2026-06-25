@@ -144,24 +144,35 @@ async function calcularFinanzasGRUK(restaurantIdParam) {
     ventasNetas -
     costoProduccionVentas;
 
-  const utilidadOperacional =
-    utilidadBruta -
-    gastosAdministracion -
-    gastosVentas -
-    gastosLogistica -
-    gastoNomina -
-    gastosOtro;
+  const gastosOperativosRegistrados =
+  totalGastos;
 
-  const otrosIngresos = 0;
-  const otrosEgresos = gastosFinancieros;
+const estructuraGlobalGastos =
+  gastosOperativosRegistrados +
+  gastoNomina;
 
-  const utilidadAntesImpuestos =
-    utilidadOperacional +
-    otrosIngresos -
-    otrosEgresos;
+const utilidadOperacional =
+  utilidadBruta -
+  gastosOperativosRegistrados -
+  gastoNomina;
 
-  const utilidadNeta =
-    utilidadAntesImpuestos;
+const otrosIngresos = 0;
+
+const otrosEgresos =
+  gastosFinancieros || 0;
+
+const utilidadAntesImpuestos =
+  utilidadOperacional +
+  otrosIngresos -
+  otrosEgresos;
+
+const utilidadNeta =
+  utilidadAntesImpuestos;
+
+const rentabilidadReal =
+  ingresosTotales > 0
+    ? (utilidadOperacional / ingresosTotales) * 100
+    : 0;
 
   const rentabilidad =
     ingresosTotales > 0
@@ -234,7 +245,10 @@ async function calcularFinanzasGRUK(restaurantIdParam) {
     presupuestoUtilidad,
     cumplimientoVentas,
     cumplimientoUtilidad,
-    historicoFinanciero
+    historicoFinanciero,
+    gastosOperativosRegistrados,
+estructuraGlobalGastos,
+rentabilidadReal,
   };
 }
 
@@ -273,7 +287,7 @@ async function cerrarMesFinanciero() {
     gastoNomina: f.gastoNomina,
     utilidadOperacional: f.utilidadOperacional,
     utilidadNeta: f.utilidadNeta,
-    rentabilidad: f.rentabilidad,
+    rentabilidad: f.rentabilidadReal,
     fechaCierre: new Date().toISOString()
   });
 
@@ -291,7 +305,7 @@ async function cerrarMesFinanciero() {
         <p><strong>Mes cerrado:</strong> ${mesActual}</p>
         <p><strong>Ingresos reales:</strong> ${formatoCOPFinanzas(f.ingresosTotales)}</p>
         <p><strong>Utilidad neta:</strong> ${formatoCOPFinanzas(f.utilidadNeta)}</p>
-        <p><strong>Rentabilidad:</strong> ${f.rentabilidad.toFixed(2)}%</p>
+        <p><strong>Rentabilidad:</strong> ${f.rentabilidadReal.toFixed(2)}%</p>
       </div>
     `;
   }
@@ -396,7 +410,7 @@ Es el recurso consumido para administrar, vender, financiar o sostener el negoci
 
 <div class="card">
 <h3>${f.semaforo}</h3>
-<p><strong>Rentabilidad neta:</strong> ${f.rentabilidad.toFixed(2)}%</p>
+<p><strong>Rentabilidad neta:</strong> ${f.rentabilidadReal.toFixed(2)}%</p>
 <p>${f.mensajeSemaforo}</p>
 </div>
 
@@ -424,6 +438,35 @@ Es el recurso consumido para administrar, vender, financiar o sostener el negoci
 <td>${formatoCOPFinanzas(f.utilidadNeta)}</td>
 <td>${formatoCOPFinanzas(f.presupuestoUtilidad)}</td>
 <td>${f.cumplimientoUtilidad.toFixed(1)}%</td>
+<tr>
+
+<td>Gastos Operativos</td>
+
+<td>
+${formatoCOPFinanzas(f.gastosOperativosRegistrados)}
+</td>
+
+</tr>
+
+<tr>
+
+<td>Nómina</td>
+
+<td>
+${formatoCOPFinanzas(f.gastoNomina)}
+</td>
+
+</tr>
+
+<tr>
+
+<td>Estructura Global de Gastos</td>
+
+<td>
+${formatoCOPFinanzas(f.estructuraGlobalGastos)}
+</td>
+
+</tr>
 </tr>
 </tbody>
 </table>
