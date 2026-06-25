@@ -865,69 +865,7 @@ ${porcentajeSobreIngresos(f.gastosOperativosRegistrados, f.ingresosTotales)}
 <div class="card">
 
 
-<h3>Interpretación automática</h3>
 
-<p>
-
-GRUK compara automáticamente los indicadores financieros con rangos recomendados para restaurantes.
-
-</p>
-
-</div>
-<h2>Posibles Causas Automáticas GRUK</h2>
-
-<div class="card">
-
-<p>
-<strong>Diagnóstico causal:</strong>
-</p>
-
-<ul>
-${
-(f.causasAutomaticas || [])
-.map(causa => `<li>${causa}</li>`)
-.join("")
-}
-</ul>
-
-<p>
-<strong>Lectura GRUK:</strong><br>
-GRUK no solo muestra que algo subió o bajó; también propone posibles causas operativas para que el administrador investigue antes de tomar decisiones.
-</p>
-
-</div>
-<h2>Indicadores Financieros GRUK</h2>
-
-<div class="card">
-
-<p>
-<strong>Margen Bruto:</strong>
-${porcentajeSobreIngresos(f.utilidadBruta, f.ingresosTotales)}
-</p>
-
-<p>
-<strong>Margen Operacional:</strong>
-${f.rentabilidadReal.toFixed(2)}%
-</p>
-
-<p>
-<strong>Costo de Materia Prima:</strong>
-${porcentajeSobreIngresos(f.costosMateriaPrima, f.ingresosTotales)}
-</p>
-
-<p>
-<strong>Peso de Nómina:</strong>
-${porcentajeSobreIngresos(f.gastoNomina, f.ingresosTotales)}
-</p>
-
-<p>
-<strong>Peso de Gastos Operativos:</strong>
-${porcentajeSobreIngresos(f.gastosOperativosRegistrados, f.ingresosTotales)}
-</p>
-
-</div>
-
-<div class="card">
 
 <h3>Interpretación automática GRUK</h3>
 

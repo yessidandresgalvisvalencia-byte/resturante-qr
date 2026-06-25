@@ -2797,8 +2797,8 @@ $${costosMateriaPrima.toLocaleString("es-CO")}
 </p>
 
 <p>
-<strong>Utilidad neta estimada:</strong>
-$${utilidadNeta.toLocaleString("es-CO")}
+<strong>Utilidad operacional antes de impuestos:</strong>
+$${finanzasGRUK.utilidadOperacional.toLocaleString("es-CO")}
 </p>
 
 <p><strong>Total pedidos:</strong> ${totalPedidosReporte}</p>
@@ -2810,7 +2810,7 @@ $${utilidadNeta.toLocaleString("es-CO")}
 <strong>Interpretación financiera GRUK:</strong><br>
 
 ${
-utilidadNeta > 0
+finanzasGRUK.utilidadOperacional > 0
 
 ? `El restaurante mantiene una utilidad neta positiva estimada. Si el mercado continúa estable y los gastos permanecen controlados, la operación puede fortalecerse y aumentar caja real.`
 
