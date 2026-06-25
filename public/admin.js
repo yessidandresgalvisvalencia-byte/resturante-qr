@@ -2230,30 +2230,95 @@ async function generarReporteEjecutivo() {
 
   const totalGastos =
     gastos.reduce((acc, g) => acc + Number(g.valor || 0), 0);
-    const gastosAdministracion =
+   function normalizarCategoriaGasto(g) {
+  const categoria =
+    String(g.categoria || "").toLowerCase();
+
+  const nombre =
+    String(g.nombre || "").toLowerCase();
+
+  if (
+    categoria.includes("publicidad") ||
+    nombre.includes("publicidad") ||
+    nombre.includes("marketing") ||
+    nombre.includes("campaña") ||
+    nombre.includes("promocion")
+  ) {
+    return "Ventas";
+  }
+
+  if (
+    categoria.includes("domicilio") ||
+    categoria.includes("logística") ||
+    categoria.includes("logistica") ||
+    nombre.includes("domicilio") ||
+    nombre.includes("domiciliario") ||
+    nombre.includes("transporte")
+  ) {
+    return "Logística";
+  }
+
+  if (
+    categoria.includes("financiero") ||
+    nombre.includes("interes") ||
+    nombre.includes("crédito") ||
+    nombre.includes("credito") ||
+    nombre.includes("banco")
+  ) {
+    return "Financieros";
+  }
+
+  if (
+    categoria.includes("insumo") ||
+    categoria.includes("producción") ||
+    categoria.includes("produccion") ||
+    categoria.includes("servicio") ||
+    nombre.includes("materia prima") ||
+    nombre.includes("insumo")
+  ) {
+    return "Producción";
+  }
+
+  if (
+    categoria.includes("personal") ||
+    categoria.includes("administración") ||
+    categoria.includes("administracion") ||
+    nombre.includes("contador") ||
+    nombre.includes("gerente") ||
+    nombre.includes("papelería") ||
+    nombre.includes("papeleria")
+  ) {
+    return "Administración";
+  }
+
+  return "Otro";
+}
+
+const gastosAdministracion =
   gastos
-    .filter(g => g.categoria === "Administración")
+    .filter(g => normalizarCategoriaGasto(g) === "Administración")
     .reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
 const gastosVentas =
   gastos
-    .filter(g => g.categoria === "Ventas")
+    .filter(g => normalizarCategoriaGasto(g) === "Ventas")
     .reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
 const gastosFinancieros =
   gastos
-    .filter(g => g.categoria === "Financieros")
+    .filter(g => normalizarCategoriaGasto(g) === "Financieros")
     .reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
 const gastosProduccion =
   gastos
-    .filter(g => g.categoria === "Producción")
+    .filter(g => normalizarCategoriaGasto(g) === "Producción")
     .reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
 const gastosLogistica =
   gastos
-    .filter(g => g.categoria === "Logística")
+    .filter(g => normalizarCategoriaGasto(g) === "Logística")
     .reduce((acc, g) => acc + Number(g.valor || 0), 0);
+
 
   let inventario = [];
   let datosVentas = [];
@@ -2393,31 +2458,6 @@ const costosMateriaPrima =
     0
   );
 
-const ingresosTotales =
-  totalDineroReporte +
-  ventasManualCaja;
-
-const utilidadBruta =
-  ingresosTotales -
-  costosMateriaPrima;
-
-const utilidadNeta =
-  utilidadBruta -
-  totalGastos -
-  gastoNomina;
-const ventasBrutas =
-  ingresosTotales;
-
-const descuentosVentas =
-  0;
-
-const devolucionesVentas =
-  0;
-
-const ventasNetas =
-  ventasBrutas -
-  descuentosVentas -
-  devolucionesVentas;
 
 const costoProduccionVentas =
   costosMateriaPrima;
@@ -2428,11 +2468,11 @@ const gastosAdministracionResultado =
 const gastosVentasResultado =
   gastosVentas || 0;
 
-const utilidadOperacional =
-  utilidadBruta -
-  gastosAdministracionResultado -
-  gastosVentasResultado -
-  gastoNomina;
+const gastosLogisticaResultado =
+  gastosLogistica || 0;
+
+const gastosProduccionResultado =
+  gastosProduccion || 0;
 
 const otrosIngresos =
   0;
@@ -2440,11 +2480,21 @@ const otrosIngresos =
 const otrosEgresos =
   gastosFinancieros || 0;
 
+const utilidadOperacional =
+  utilidadBruta -
+  gastosAdministracionResultado -
+  gastosVentasResultado -
+  gastosLogisticaResultado -
+  gastosProduccionResultado -
+  gastoNomina;
+
 const utilidadAntesImpuestos =
   utilidadOperacional +
   otrosIngresos -
   otrosEgresos;
-
+  
+const utilidadNeta =
+  utilidadAntesImpuestos;
 
 const porcentajeMateriaPrima =
   ingresosTotales > 0
