@@ -3453,26 +3453,6 @@ porcentajeGastos > 10
 </tr>
 </thead>
 
-<tbody>
-${mesesComparativo.map(m => `
-<tr>
-<td>${m.mes}</td>
-<td>$${Number(m.ingresos || 0).toLocaleString("es-CO")}</td>
-<td>$${Number(m.materiaPrima || 0).toLocaleString("es-CO")}</td>
-<td>$${Number(m.gastos || 0).toLocaleString("es-CO")}</td>
-<td>$${Number(m.nomina || 0).toLocaleString("es-CO")}</td>
-<td>$${Number(m.utilidad || 0).toLocaleString("es-CO")}</td>
-</tr>
-`).join("")}
-</tbody>
-</table>
-
-<p>
-<strong>Lectura GRUK:</strong><br>
-Este cuadro permite comparar el comportamiento financiero de los últimos meses: ingresos, materia prima, gastos, nómina y utilidad. Sirve para detectar si el restaurante está mejorando o perdiendo rentabilidad con el tiempo.
-</p>
-
-</div>
 ${bloqueFinancieroGRUK}
 
 <h2>13. Estrategia de largo plazo GRUK</h2>
