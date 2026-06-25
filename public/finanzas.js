@@ -639,34 +639,36 @@ f.historicoFinanciero.length > 0
 </tbody>
 </table>
 </div>
+
 <h2>Indicadores Financieros GRUK</h2>
 
 <div class="card">
 
 <p>
 <strong>Margen Bruto:</strong>
-${((utilidadBruta/ingresosTotales)*100).toFixed(2)}%
+${porcentajeSobreIngresos(f.utilidadBruta, f.ingresosTotales)}
 </p>
 
 <p>
 <strong>Margen Operacional:</strong>
-${((utilidadOperacional/ingresosTotales)*100).toFixed(2)}%
+${f.rentabilidadReal.toFixed(2)}%
 </p>
 
 <p>
 <strong>Costo de Materia Prima:</strong>
-${porcentajeMateriaPrima.toFixed(2)}%
+${porcentajeSobreIngresos(f.costosMateriaPrima, f.ingresosTotales)}
 </p>
 
 <p>
 <strong>Peso de Nómina:</strong>
-${porcentajeNomina.toFixed(2)}%
+${porcentajeSobreIngresos(f.gastoNomina, f.ingresosTotales)}
 </p>
 
 <p>
 <strong>Peso de Gastos Operativos:</strong>
-${porcentajeGastos.toFixed(2)}%
+${porcentajeSobreIngresos(f.gastosOperativosRegistrados, f.ingresosTotales)}
 </p>
+
 
 </div>
 <div class="card">
