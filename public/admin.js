@@ -3388,7 +3388,7 @@ Este estado de resultados muestra cómo las ventas se transforman en utilidad. P
 <tr>
 <td>Costos de materia prima</td>
 <td>$${costosMateriaPrima.toLocaleString("es-CO")}</td>
-<td>${porcentajeMateriaPrima.toFixed(2)}%</td>
+<td>${finanzasGRUK.ingresosTotales > 0 ? ((finanzasGRUK.costosMateriaPrima / finanzasGRUK.ingresosTotales) * 100).toFixed(2) : "0.00"}</td>
 </tr>
 
 <tr>
