@@ -2330,6 +2330,10 @@ localStorage.getItem(
 `pagos_caja_${restaurantId}`
 )
 ) || [];
+const historicoFinanciero =
+  JSON.parse(
+    localStorage.getItem(`historicoFinanciero_${restaurantId}`)
+  ) || [];
 
 const ventasManualCaja =
 pagosCaja
@@ -2517,11 +2521,6 @@ const utilidadAntesImpuestos =
 
 const utilidadNeta =
   utilidadAntesImpuestos;
-
-const porcentajeMateriaPrima =
-  ingresosTotales > 0
-    ? (costosMateriaPrima / ingresosTotales) * 100
-    : 0;
 
 const porcentajeGastos =
   ingresosTotales > 0
@@ -3434,6 +3433,42 @@ porcentajeGastos > 10
 }
 
 </div>
+<h2>Comparativo mensual GRUK</h2>
+
+<div class="card">
+
+<table>
+<thead>
+<tr>
+<th>Mes</th>
+<th>Ingresos</th>
+<th>Materia prima</th>
+<th>Gastos</th>
+<th>Nómina</th>
+<th>Utilidad</th>
+</tr>
+</thead>
+
+<tbody>
+${mesesComparativo.map(m => `
+<tr>
+<td>${m.mes}</td>
+<td>$${Number(m.ingresos || 0).toLocaleString("es-CO")}</td>
+<td>$${Number(m.materiaPrima || 0).toLocaleString("es-CO")}</td>
+<td>$${Number(m.gastos || 0).toLocaleString("es-CO")}</td>
+<td>$${Number(m.nomina || 0).toLocaleString("es-CO")}</td>
+<td>$${Number(m.utilidad || 0).toLocaleString("es-CO")}</td>
+</tr>
+`).join("")}
+</tbody>
+</table>
+
+<p>
+<strong>Lectura GRUK:</strong><br>
+Este cuadro permite comparar el comportamiento financiero de los últimos meses: ingresos, materia prima, gastos, nómina y utilidad. Sirve para detectar si el restaurante está mejorando o perdiendo rentabilidad con el tiempo.
+</p>
+
+</div>
 
 <h2>13. Estrategia de largo plazo GRUK</h2>
 
@@ -3792,4 +3827,171 @@ function guardarPresupuestoGerencial() {
   document.getElementById("estadoPresupuestoGerencial").innerHTML = `
     <p>✅ Presupuesto guardado correctamente.</p>
   `;
+}
+async function cerrarMesFinanciero() {
+  const restaurantId =
+    getRestaurantId();
+
+  const mesActual =
+    new Date().toLocaleString("es-CO", {
+      month: "long",
+      year: "numeric"
+    });
+
+  const totalVendidoTexto =
+    document.getElementById("totalVendido")?.innerText || "$0";
+
+  const ingresosPanel =
+    Number(
+      String(totalVendidoTexto).replace(/[^0-9]/g, "")
+    );
+
+  const gastos =
+    JSON.parse(
+      localStorage.getItem(`gastos_${restaurantId}`)
+    ) || [];
+
+  const totalGastos =
+    gastos.reduce(
+      (acc, g) => acc + Number(g.valor || 0),
+      0
+    );
+
+  const ventasManualCaja =
+    pagosCaja
+      .filter(p => p.tipoVenta === "manual")
+      .reduce(
+        (acc, p) => acc + Number(p.total || 0),
+        0
+      );
+
+  let datosVentas = [];
+  let personal = [];
+
+  try {
+    let resVentas =
+      await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
+
+    if (!resVentas.ok) {
+      resVentas =
+        await fetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
+    }
+
+    if (resVentas.ok) {
+      datosVentas = await resVentas.json();
+    }
+  } catch (error) {
+    console.log("No se pudo cargar ventas para cierre:", error);
+  }
+
+  try {
+    const resPersonal =
+      await fetch(`/api/personal?restaurantId=${restaurantId}`);
+
+    if (resPersonal.ok) {
+      personal =
+        await resPersonal.json();
+    }
+  } catch (error) {
+    console.log("No se pudo cargar personal para cierre:", error);
+  }
+
+  const ventasOrdenadas =
+    datosVentas
+      .map(p => ({
+        precioUnitarioActual:
+          Number(p.precioUnitarioActual || 0),
+
+        costoMateriaPrimaTotal:
+          Number(p.costoMateriaPrimaTotal || 0),
+
+        ventas:
+          Number(p.ventas || 0),
+
+        totalDinero:
+          Number(p.totalCalculado || 0)
+      }))
+      .filter(p =>
+        p.ventas > 0 &&
+        p.precioUnitarioActual > 0 &&
+        p.totalDinero > 0
+      );
+
+  const ventasQR =
+    ventasOrdenadas.reduce(
+      (acc, p) => acc + p.totalDinero,
+      0
+    );
+
+  const costosMateriaPrima =
+    ventasOrdenadas.reduce(
+      (acc, p) => acc + Number(p.costoMateriaPrimaTotal || 0),
+      0
+    );
+
+  const gastoNomina =
+    personal.reduce(
+      (acc, p) => acc + Number(p.salario || 0),
+      0
+    );
+
+  const ingresosTotales =
+    ventasQR +
+    ventasManualCaja;
+
+  const utilidadBruta =
+    ingresosTotales -
+    costosMateriaPrima;
+
+  const utilidadNeta =
+    utilidadBruta -
+    totalGastos -
+    gastoNomina;
+
+  const historico =
+    JSON.parse(
+      localStorage.getItem(`historicoFinanciero_${restaurantId}`)
+    ) || [];
+
+  const yaExiste =
+    historico.some(h => h.mes === mesActual);
+
+  if (yaExiste) {
+    alert("Este mes ya fue cerrado. No se puede cerrar dos veces.");
+    return;
+  }
+
+  historico.push({
+    mes: mesActual,
+    ingresosPanel,
+    ingresosTotales,
+    ventasQR,
+    ventasManualCaja,
+    costosMateriaPrima,
+    utilidadBruta,
+    totalGastos,
+    gastoNomina,
+    utilidadNeta,
+    fechaCierre: new Date().toISOString()
+  });
+
+  localStorage.setItem(
+    `historicoFinanciero_${restaurantId}`,
+    JSON.stringify(historico)
+  );
+
+  const estado =
+    document.getElementById("estadoCierreMensual");
+
+  if (estado) {
+    estado.innerHTML = `
+      <div class="card">
+        <p><strong>Mes cerrado correctamente:</strong> ${mesActual}</p>
+        <p><strong>Ingresos reales:</strong> ${formatoCOP(ingresosTotales)}</p>
+        <p><strong>Utilidad neta:</strong> ${formatoCOP(utilidadNeta)}</p>
+      </div>
+    `;
+  }
+
+  alert("Mes financiero cerrado correctamente");
 }
