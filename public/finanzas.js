@@ -468,7 +468,7 @@ async function cerrarMesFinanciero() {
 
   const historico =
     JSON.parse(localStorage.getItem(`historicoFinanciero_${restaurantId}`)) || [];
-    
+
 console.log("FINANZAS:", f);
 
   const yaExiste =
@@ -757,7 +757,17 @@ f.historicoFinanciero.length > 0
 <td>${formatoCOPFinanzas(h.gastos_operativos || h.totalGastos)}</td>
 <td>${formatoCOPFinanzas(h.nomina || h.gastoNomina)}</td>
 <td>${formatoCOPFinanzas(h.utilidad_operacional || h.utilidadNeta)}</td>
-<td>${Number(h.rentabilidad_real || h.rentabilidadReal || 0).toFixed(2)}%</td>
+<td>
+${Number(
+  (
+    (
+      Number(h.utilidad_operacional || h.utilidadNeta || 0)
+      /
+      Number(h.ingresos || h.ingresosTotales || 1)
+    ) * 100
+  )
+).toFixed(2)}%
+</td>
 </tr>
 `).join("")
 : `
