@@ -751,6 +751,9 @@ async function simularFinanzasGRUK() {
   const cambioMateriaPrima =
     Number(document.getElementById("simMateriaPrima")?.value || 0);
 
+    const tipoVentas =
+  document.getElementById("simTipoVentas")?.value || "precio";
+
   const cambioGastos =
     Number(document.getElementById("simGastos")?.value || 0);
 
@@ -760,8 +763,13 @@ async function simularFinanzasGRUK() {
   const ingresosSimulados =
     f.ingresosTotales * (1 + cambioVentas / 100);
 
-  const materiaPrimaSimulada =
-    f.costosMateriaPrima * (1 + cambioMateriaPrima / 100);
+  let materiaPrimaSimulada =
+  f.costosMateriaPrima * (1 + cambioMateriaPrima / 100);
+
+if (tipoVentas === "volumen") {
+  materiaPrimaSimulada =
+    materiaPrimaSimulada * (1 + cambioVentas / 100);
+}
 
   const gastosSimulados =
     f.gastosOperativosRegistrados * (1 + cambioGastos / 100);
@@ -782,7 +790,18 @@ async function simularFinanzasGRUK() {
     ingresosSimulados > 0
       ? (utilidadOperacionalSimulada / ingresosSimulados) * 100
       : 0;
+const porcentajeMateriaPrimaSimulada =
+  ingresosSimulados > 0
+    ? materiaPrimaSimulada / ingresosSimulados
+    : 0;
 
+const denominadorEquilibrio =
+  1 - porcentajeMateriaPrimaSimulada;
+
+const ventasEquilibrio =
+  denominadorEquilibrio > 0
+    ? (gastosSimulados + nominaSimulada) / denominadorEquilibrio
+    : 0;
   let lectura = "";
 
   if (utilidadOperacionalSimulada < 0) {
@@ -814,6 +833,16 @@ async function simularFinanzasGRUK() {
 
       <p><strong>Utilidad operacional simulada:</strong> ${formatoCOPFinanzas(utilidadOperacionalSimulada)}</p>
       <p><strong>Rentabilidad simulada:</strong> ${rentabilidadSimulada.toFixed(2)}%</p>
+      <p>
+<strong>Ventas mínimas de equilibrio:</strong>
+${formatoCOPFinanzas(ventasEquilibrio)}
+</p>
+
+<p>
+<strong>Lectura de equilibrio GRUK:</strong><br>
+Para no perder dinero en este escenario, el restaurante necesita facturar mínimo
+${formatoCOPFinanzas(ventasEquilibrio)}.
+</p>
 
       <p><strong>Lectura GRUK:</strong><br>${lectura}</p>
     </div>

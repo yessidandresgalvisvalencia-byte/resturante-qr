@@ -485,6 +485,17 @@ Simula qué pasaría si cambian las ventas, los costos, la nómina o los gastos 
 
 <label>Aumento o disminución de ventas (%)</label>
 <input id="simVentas" type="number" placeholder="Ej: 10 o -5">
+<label>¿Por qué cambian las ventas?</label>
+
+<select id="simTipoVentas">
+<option value="precio">Por aumento de precios</option>
+<option value="volumen">Por más clientes / más pedidos</option>
+</select>
+
+<p class="descripcion-termino">
+Si el aumento es por volumen, GRUK también aumenta la materia prima de forma proporcional.
+Si es por precio, la materia prima no sube automáticamente.
+</p>
 
 <label>Aumento o disminución de materia prima (%)</label>
 <input id="simMateriaPrima" type="number" placeholder="Ej: 8 o -3">
