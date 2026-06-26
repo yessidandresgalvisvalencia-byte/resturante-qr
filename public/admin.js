@@ -2022,10 +2022,147 @@ ${recomendaciones.join("<br>")}
       <p><strong>Decisión recomendada:</strong><br>${decision}</p>
 
       <p><strong>Acción sugerida:</strong><br>${accion}</p>
+      <h3>Motor de Inteligencia Comercial</h3>
+
+<p>
+
+${
+
+generarMotorInteligenciaGRUK().join("<br>")
+
+}
+
+</p>
 
       <p><strong>Interpretación GRUK:</strong><br>${interpretacion}</p>
     </div>
   `;
+}
+function guardarInteligenciaGRUK() {
+  const datos = {
+    competencia: document.getElementById("competenciaGRUK").value,
+    ciudad: document.getElementById("ciudadGRUK").value.trim(),
+    temporada: document.getElementById("temporadaGRUK").value,
+    marketing: document.getElementById("marketingGRUK").value,
+    valor: document.getElementById("valorGRUK").value
+  };
+
+  localStorage.setItem(
+    `inteligenciaGRUK_${getRestaurantId()}`,
+    JSON.stringify(datos)
+  );
+
+  alert("Inteligencia Comercial GRUK guardada correctamente.");
+}
+function obtenerInteligenciaGRUK() {
+  return (
+    JSON.parse(
+      localStorage.getItem(`inteligenciaGRUK_${getRestaurantId()}`)
+    ) || null
+  );
+}
+function generarMotorInteligenciaGRUK(){
+
+const i=
+
+obtenerInteligenciaGRUK();
+
+if(!i){
+
+return "";
+
+}
+
+let recomendaciones=[];
+
+if(
+
+i.temporada==="alta"
+
+&&
+
+i.competencia==="similar"
+
+){
+
+recomendaciones.push(
+
+"📈 Existe capacidad para aumentar el precio entre un 5% y un 10%."
+
+);
+
+}
+
+if(
+
+i.temporada==="baja"
+
+&&
+
+i.marketing==="bajo"
+
+){
+
+recomendaciones.push(
+
+"📢 Se recomienda fortalecer campañas antes de reducir precios."
+
+);
+
+}
+
+if(
+
+i.competencia==="muy_barata"
+
+&&
+
+i.valor==="alta"
+
+){
+
+recomendaciones.push(
+
+"⭐ No compita por precio. Compita por experiencia y percepción de valor."
+
+);
+
+}
+
+if(
+
+i.marketing==="alto"
+
+&&
+
+i.temporada==="alta"
+
+){
+
+recomendaciones.push(
+
+"🚀 Existe un entorno favorable para lanzar productos premium."
+
+);
+
+}
+
+if(
+
+recomendaciones.length===0
+
+){
+
+recomendaciones.push(
+
+"✅ El contexto comercial es estable."
+
+);
+
+}
+
+return recomendaciones;
+
 }
 
 window.calcularPrecioInteligente = calcularPrecioInteligente;
