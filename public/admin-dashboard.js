@@ -531,6 +531,8 @@ function cargarRecomendacionesSmith(datos, totalPedidos, ticketPromedio) {
     complemento;
     const inteligencia =
   obtenerInteligenciaDashboardGRUK(restaurantId);
+  const contextoGRUK =
+  generarContextoEstrategicoDashboardGRUK(inteligencia);
 
 const metaVentas =
   Number(inteligencia.metaVentasMensual || 0);
