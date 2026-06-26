@@ -2044,20 +2044,33 @@ ${generarMotorInteligenciaGRUK({
   `;
 }
 function guardarInteligenciaGRUK() {
+  const restaurantId = getRestaurantId();
+
+  const presupuestoVentas =
+    Number(localStorage.getItem(`presupuestoVentas_${restaurantId}`) || 0);
+
+  const presupuestoUtilidad =
+    Number(localStorage.getItem(`presupuestoUtilidad_${restaurantId}`) || 0);
+
   const datos = {
     competencia: document.getElementById("competenciaGRUK").value,
     ciudad: document.getElementById("ciudadGRUK").value.trim(),
     temporada: document.getElementById("temporadaGRUK").value,
     marketing: document.getElementById("marketingGRUK").value,
-    valor: document.getElementById("valorGRUK").value
+    valor: document.getElementById("valorGRUK").value,
+    metaVentasMensual: presupuestoVentas,
+    metaUtilidadMensual: presupuestoUtilidad,
+    fechaActualizacion: new Date().toISOString()
   };
 
   localStorage.setItem(
-    `inteligenciaGRUK_${getRestaurantId()}`,
+    `inteligenciaGRUK_${restaurantId}`,
     JSON.stringify(datos)
   );
 
-  alert("Inteligencia Comercial GRUK guardada correctamente.");
+  alert(
+    "Inteligencia Comercial GRUK guardada. Las estrategias se ajustarán a las metas mensuales de ventas y utilidad."
+  );
 }
 function obtenerInteligenciaGRUK() {
   return (
@@ -2085,131 +2098,110 @@ function generarMotorInteligenciaGRUK(contexto = {}) {
   const tipo = String(contexto.tipo || "");
   const demanda = String(contexto.demanda || "");
 
+  const metaVentas = Number(i.metaVentasMensual || 0);
+  const metaUtilidad = Number(i.metaUtilidadMensual || 0);
+
   let recomendaciones = [];
 
-  if (i.temporada === "alta" && i.valor === "alta" && margenActual >= 40) {
+  if (metaVentas > 0) {
     recomendaciones.push(
-      "📈 Temporada alta + alta percepción de valor: GRUK detecta capacidad para incrementar precio entre 5% y 12%, siempre que la demanda se mantenga estable."
+      `🎯 Meta mensual de ventas detectada: ${formatoCOP(metaVentas)}. GRUK ajustará las estrategias comerciales para apoyar el incremento de ventas sin destruir margen.`
     );
   }
 
-  if (i.temporada === "baja" && margenActual >= 40) {
+  if (metaUtilidad > 0) {
     recomendaciones.push(
-      "📉 Temporada baja con margen saludable: se pueden usar promociones tácticas moderadas sin destruir rentabilidad."
-    );
-  }
-
-  if (i.temporada === "baja" && margenActual < 25) {
-    recomendaciones.push(
-      "⚠️ Temporada baja con margen débil: no se recomienda competir con descuentos. Primero debe corregirse precio, costo o presentación del producto."
-    );
-  }
-
-  if (i.competencia === "muy_barata" && i.valor === "alta") {
-    recomendaciones.push(
-      "⭐ Competencia más barata, pero valor percibido alto: GRUK recomienda competir por experiencia, presentación, marca y servicio; no por precio bajo."
-    );
-  }
-
-  if (i.competencia === "muy_barata" && i.valor !== "alta" && margenActual < 40) {
-    recomendaciones.push(
-      "🔴 Competencia barata + bajo margen: el producto queda en una zona riesgosa. Se recomienda rediseñar costos, porción o propuesta de valor antes de bajar precio."
-    );
-  }
-
-  if (i.competencia === "mas_costosa" && margenActual >= 35) {
-    recomendaciones.push(
-      "🟢 La competencia es más costosa y el margen es sano: existe espacio para subir precio gradualmente sin perder competitividad."
-    );
-  }
-
-  if (i.competencia === "similar" && precioActual < precioRecomendado) {
-    recomendaciones.push(
-      "🟡 Competencia similar y precio por debajo del recomendado: GRUK sugiere ajustar el precio hacia el rango rentable."
-    );
-  }
-
-  if (i.marketing === "alto" && i.valor === "alta") {
-    recomendaciones.push(
-      "🚀 Marketing alto + valor percibido alto: entorno favorable para posicionar el producto como estrella o premium."
-    );
-  }
-
-  if (i.marketing === "bajo" && i.temporada === "baja") {
-    recomendaciones.push(
-      "📢 Marketing bajo en temporada baja: GRUK recomienda fortalecer campañas antes de bajar precios."
-    );
-  }
-
-  if (i.marketing === "alto" && i.temporada === "alta" && margenActual >= 50) {
-    recomendaciones.push(
-      "👑 Marketing alto + temporada alta + margen fuerte: existe oportunidad para estrategia premium o edición especial."
+      `💰 Meta mensual de utilidad detectada: ${formatoCOP(metaUtilidad)}. Las recomendaciones priorizarán precios, promociones y productos que ayuden a proteger utilidad real.`
     );
   }
 
   if (precioActual < PB) {
     recomendaciones.push(
-      "🛡️ El precio actual está por debajo del Precio Blindado. No se recomienda descuento comercial hasta proteger el margen de seguridad."
+      "🛡️ El precio actual está por debajo del Precio Blindado. No se recomienda aplicar descuentos hasta proteger el margen de seguridad."
     );
   }
 
-  if (precioActual > precioPremium && i.valor !== "alta") {
+  if (i.temporada === "alta" && i.valor === "alta" && margenActual >= 40) {
     recomendaciones.push(
-      "⚠️ El precio supera el rango premium, pero la percepción de valor no es alta. Se recomienda reforzar presentación, experiencia o reducir precio."
+      "📈 Temporada alta + alta percepción de valor: existe capacidad para aumentar precio entre 5% y 12%, especialmente si esto ayuda a cumplir la meta mensual de utilidad."
     );
   }
 
-  if (precioActual > precioPremium && i.valor === "alta") {
+  if (i.temporada === "baja" && margenActual >= 40) {
     recomendaciones.push(
-      "🟣 El precio supera el rango premium, pero la percepción de valor es alta. Puede sostenerse si hay reputación, diferenciación y recompra."
+      "📉 Temporada baja con margen saludable: se pueden usar promociones tácticas moderadas para empujar la meta de ventas, sin comprometer la rentabilidad."
     );
   }
 
-  if (clasificacion.includes("Premium") && i.valor === "baja") {
+  if (i.temporada === "baja" && margenActual < 25) {
     recomendaciones.push(
-      "🔴 El producto aparece como premium por margen, pero la percepción de valor es baja. Hay riesgo de rechazo del cliente."
+      "⚠️ Temporada baja con margen débil: no se recomienda competir con descuentos. Para cumplir metas, GRUK sugiere combos, venta cruzada o reducción de costos antes que bajar precios."
     );
   }
 
-  if (tipo === "ancla" && margenActual >= 40) {
+  if (i.competencia === "muy_barata" && i.valor === "alta") {
     recomendaciones.push(
-      "⚠️ Fue marcado como producto ancla, pero su margen es alto. GRUK recomienda tratarlo como producto estrella o premium antes de usarlo como gancho."
+      "⭐ Aunque la competencia sea más barata, la percepción de valor es alta. GRUK recomienda competir por experiencia, presentación y servicio, no por precio bajo."
     );
   }
 
-  if (tipo === "ancla" && margenActual < 20) {
+  if (i.competencia === "mas_costosa" && margenActual >= 35) {
     recomendaciones.push(
-      "🧲 Producto ancla con margen bajo: solo debe mantenerse si genera venta cruzada comprobable hacia productos más rentables."
+      "🟢 La competencia es más costosa y el margen es sano. Existe espacio para subir precio gradualmente y acercarse a la meta de utilidad mensual."
     );
   }
 
   if (demanda === "alta" && margenActual >= 40 && i.valor !== "baja") {
     recomendaciones.push(
-      "📊 Demanda alta + margen sano: existe capacidad para probar incrementos graduales de precio sin afectar significativamente la rotación."
+      "📊 Demanda alta + margen sano: GRUK recomienda incrementar ventas con estrategia de precio controlada, combos premium o mayor visibilidad del producto."
     );
   }
 
-  if (demanda === "baja" && precioActual > precioPremium) {
+  if (tipo === "ancla" && margenActual < 20) {
     recomendaciones.push(
-      "📉 Demanda baja + precio premium alto: GRUK recomienda validar si el precio está frenando la venta o si falta percepción de valor."
+      "🧲 Producto ancla con margen bajo: solo debe usarse para atraer tráfico si genera venta cruzada hacia productos más rentables."
     );
   }
 
-  if (indiceRentabilidad >= 8 && i.temporada !== "baja") {
+  if (tipo === "ancla" && margenActual >= 40) {
     recomendaciones.push(
-      "✅ Índice de rentabilidad alto: el producto puede sostener la estrategia actual, cuidando calidad y consistencia."
+      "⚠️ Aunque fue marcado como producto ancla, su margen es alto. GRUK recomienda tratarlo como producto estrella o premium para apoyar la meta de utilidad."
+    );
+  }
+
+  if (clasificacion.includes("Premium") && i.valor === "baja") {
+    recomendaciones.push(
+      "🔴 El producto parece premium por margen, pero la percepción de valor es baja. Antes de subir precio, mejore presentación, experiencia o comunicación comercial."
+    );
+  }
+
+  if (indiceRentabilidad >= 8 && metaUtilidad > 0) {
+    recomendaciones.push(
+      "✅ Índice de rentabilidad alto: este producto puede ser usado como palanca para cumplir la meta mensual de utilidad."
     );
   }
 
   if (indiceRentabilidad <= 4) {
     recomendaciones.push(
-      "🔴 Índice de rentabilidad bajo: el producto requiere revisión urgente de precio, costos, porción o estrategia comercial."
+      "🔴 Índice de rentabilidad bajo: este producto no debe ser protagonista en estrategias de incremento de ventas hasta corregir precio, costo o propuesta de valor."
+    );
+  }
+
+  if (metaVentas > 0 && margenActual >= 40 && demanda === "alta") {
+    recomendaciones.push(
+      "🚀 Estrategia alineada a meta de ventas: aumentar exposición del producto, ofrecer combos y priorizarlo en campañas comerciales."
+    );
+  }
+
+  if (metaUtilidad > 0 && margenActual >= 60) {
+    recomendaciones.push(
+      "👑 Estrategia alineada a meta de utilidad: proteger precio, evitar descuentos agresivos y posicionar el producto como premium."
     );
   }
 
   if (recomendaciones.length === 0) {
     recomendaciones.push(
-      "✅ El contexto comercial es estable. GRUK recomienda mantener estrategia actual y seguir monitoreando demanda, margen y competencia."
+      "✅ El contexto comercial es estable. GRUK recomienda mantener estrategia actual y monitorear demanda, margen, competencia y cumplimiento de metas."
     );
   }
 
