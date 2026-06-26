@@ -1242,6 +1242,7 @@ function analizarGasto() {
   let analisis = "";
   let decision = "";
   let recomendacion = "";
+
   let porcentajeCambio = 0;
   let tipoCambio = "reducción";
   let usoDinero = "";
@@ -1767,6 +1768,107 @@ Dmax = Math.max(0, Math.min(Dmax, MS));
     precioActual > 0
       ? ((precioActual - costoTotal) / precioActual) * 100
       : 0;
+      let indiceRentabilidad = 0;
+
+if (margenActual >= 70)
+  indiceRentabilidad = 10;
+
+else if (margenActual >= 60)
+  indiceRentabilidad = 9;
+
+else if (margenActual >= 50)
+  indiceRentabilidad = 8;
+
+else if (margenActual >= 40)
+  indiceRentabilidad = 7;
+
+else if (margenActual >= 30)
+  indiceRentabilidad = 6;
+
+else if (margenActual >= 20)
+  indiceRentabilidad = 5;
+
+else if (margenActual >= 10)
+  indiceRentabilidad = 4;
+
+else
+  indiceRentabilidad = 2;
+let clasificacion = "";
+
+if (margenActual >= 60) {
+
+  clasificacion = "⭐ Producto Premium";
+
+}
+
+else if (margenActual >= 40) {
+
+  clasificacion = "🟢 Producto Estrella";
+
+}
+
+else if (margenActual >= 20) {
+
+  clasificacion = "🟡 Producto Rentable";
+
+}
+
+else {
+
+  clasificacion = "🔴 Producto de Bajo Margen";
+
+}
+
+
+let recomendaciones = [];
+
+if (margenActual < 20) {
+
+  recomendaciones.push(
+    "• Aumentar precio de venta."
+  );
+
+}
+
+if (demanda === "alta") {
+
+  recomendaciones.push(
+    "• Existe capacidad para incrementar precio sin afectar significativamente la demanda."
+  );
+
+}
+
+if (tipo === "ancla") {
+
+  recomendaciones.push(
+    "• Utilizar como producto de atracción y complementar con venta cruzada."
+  );
+
+}
+
+if (tipo === "estrella") {
+
+  recomendaciones.push(
+    "• Mantener disponibilidad permanente y reforzar publicidad."
+  );
+
+}
+
+if (tipo === "diamante") {
+
+  recomendaciones.push(
+    "• Mantener percepción Premium evitando descuentos frecuentes."
+  );
+
+}
+
+if (recomendaciones.length === 0) {
+
+  recomendaciones.push(
+    "• Mantener estrategia actual."
+  );
+
+}
 
   const utilidadActual = precioActual - costoTotal;
 
@@ -1898,6 +2000,20 @@ Dmax = Math.max(0, Math.min(Dmax, MS));
       <p><strong>Margen actual estimado:</strong><br>
       ${margenActual.toFixed(1)}%
       </p>
+      <p>
+<strong>Índice de Rentabilidad GRUK:</strong><br>
+${indiceRentabilidad}/10
+</p>
+
+<p>
+<strong>Clasificación Estratégica:</strong><br>
+${clasificacion}
+</p>
+
+<p>
+<strong>Recomendaciones GRUK:</strong><br>
+${recomendaciones.join("<br>")}
+</p>
 
       <p><strong>Decisión recomendada:</strong><br>${decision}</p>
 
