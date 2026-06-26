@@ -533,6 +533,7 @@ function cargarRecomendacionesSmith(datos, totalPedidos, ticketPromedio) {
   obtenerInteligenciaDashboardGRUK(restaurantId);
   const contextoGRUK =
   generarContextoEstrategicoDashboardGRUK(inteligencia);
+  let html = contextoGRUK; 
 
 const metaVentas =
   Number(inteligencia.metaVentasMensual || 0);
@@ -555,74 +556,7 @@ const ciudad =
 const valor =
   inteligencia.valor || "media";
 
-  let html = `
-<div class="recommendation">
-    <span class="strategy-label">
-        Contexto Comercial Detectado
-    </span>
 
-    <h3>Motor Estratégico GRUK</h3>
-
-    <p>
-        ${contextoComercial.join("<br><br>")}
-    </p>
-
-    <p>
-
-        A partir de este contexto,
-        todas las recomendaciones del Dashboard
-        fueron adaptadas automáticamente
-        para ayudar al restaurante
-        a cumplir simultáneamente
-        su meta mensual de ventas
-        y su meta mensual de utilidad neta.
-
-    </p>
-
-</div>
-`;
-  let contextoComercial = [];
-  if (temporada === "alta") {
-  contextoComercial.push(
-    "📈 Temporada alta detectada. Las estrategias priorizarán incremento del ticket promedio antes que descuentos."
-  );
-}
-
-if (temporada === "baja") {
-  contextoComercial.push(
-    "📉 Temporada baja. Se priorizarán acciones para aumentar tráfico sin destruir margen."
-  );
-}
-
-if (competencia === "muy_barata") {
-  contextoComercial.push(
-    "⚔️ Competencia agresiva detectada. GRUK recomienda competir por valor y experiencia, no únicamente por precio."
-  );
-}
-
-if (marketing === "alto") {
-  contextoComercial.push(
-    "🚀 El nivel de marketing permite impulsar productos premium."
-  );
-}
-
-if (valor === "alta") {
-  contextoComercial.push(
-    "⭐ El restaurante posee una percepción de valor elevada. Existe espacio para fortalecer precios."
-  );
-}
-
-if (metaVentas > 0) {
-  contextoComercial.push(
-    `🎯 Meta mensual de ventas: ${formatoMoneda(metaVentas)}. Todas las estrategias buscarán acelerar el cumplimiento de esta meta.`
-  );
-}
-
-if (metaUtilidad > 0) {
-  contextoComercial.push(
-    `💰 Meta mensual de utilidad: ${formatoMoneda(metaUtilidad)}. GRUK priorizará margen antes que volumen cuando exista conflicto.`
-  );
-}
 
   if (empate) {
     const par1 = pares[0];
