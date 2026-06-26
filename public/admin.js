@@ -1838,12 +1838,16 @@ if (demanda === "alta") {
 
 }
 
-if (tipo === "ancla") {
-
+if (tipo === "ancla" && margenActual < 40) {
   recomendaciones.push(
     "• Utilizar como producto de atracción y complementar con venta cruzada."
   );
+}
 
+if (tipo === "ancla" && margenActual >= 40) {
+  recomendaciones.push(
+    "• Aunque fue marcado como producto ancla, su margen es alto. GRUK recomienda tratarlo como producto estrella o premium antes de usarlo como gancho."
+  );
 }
 
 if (tipo === "estrella") {
