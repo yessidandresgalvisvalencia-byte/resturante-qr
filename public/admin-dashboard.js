@@ -5,6 +5,39 @@ const restaurantId =
   "rest1";
 
 const modoDashboard = params.get("modo") || "automatico";
+function obtenerInteligenciaDashboardGRUK(restaurantId) {
+  return (
+    JSON.parse(
+      localStorage.getItem(`inteligenciaGRUK_${restaurantId}`)
+    ) || {}
+  );
+}
+
+function generarContextoEstrategicoDashboardGRUK(i) {
+  if (!i || Object.keys(i).length === 0) {
+    return "";
+  }
+
+  return `
+    <div class="strategy-card">
+      <h3>Contexto Comercial Detectado GRUK</h3>
+
+      <p><strong>Competencia:</strong> ${i.competencia || "No configurada"}</p>
+      <p><strong>Ciudad:</strong> ${i.ciudad || "No configurada"}</p>
+      <p><strong>Temporada:</strong> ${i.temporada || "No configurada"}</p>
+      <p><strong>Marketing:</strong> ${i.marketing || "No configurado"}</p>
+      <p><strong>Percepción de valor:</strong> ${i.valor || "No configurada"}</p>
+
+      <p><strong>Meta mensual de ventas:</strong> ${formatoMoneda(i.metaVentasMensual || 0)}</p>
+      <p><strong>Meta mensual de utilidad:</strong> ${formatoMoneda(i.metaUtilidadMensual || 0)}</p>
+
+      <p>
+        GRUK adaptará las estrategias comerciales del dashboard según estas metas,
+        manteniendo su naturaleza original: incrementar ventas sin destruir margen.
+      </p>
+    </div>
+  `;
+}
 
 async function obtenerDatosPareto() {
   if (modoDashboard === "manual") {
@@ -288,6 +321,11 @@ async function cargarDashboard() {
   try {
     let datos = await obtenerDatosPareto();
     datos = enriquecerDatos(datos);
+    const inteligenciaGRUK =
+  obtenerInteligenciaDashboardGRUK(restaurantId);
+
+const contextoGRUK =
+  generarContextoEstrategicoDashboardGRUK(inteligenciaGRUK);
 
     if (!datos || datos.length === 0) {
       document.getElementById("recomendaciones").innerHTML = `
@@ -491,8 +529,98 @@ function cargarRecomendacionesSmith(datos, totalPedidos, ticketPromedio) {
     datos.find(p => p.rolEconomico === "producto_estrella") ||
     datos.find(p => p.rolEconomico === "producto_diamante") ||
     complemento;
+    const inteligencia =
+  obtenerInteligenciaDashboardGRUK(restaurantId);
 
-  let html = "";
+const metaVentas =
+  Number(inteligencia.metaVentasMensual || 0);
+
+const metaUtilidad =
+  Number(inteligencia.metaUtilidadMensual || 0);
+
+const temporada =
+  inteligencia.temporada || "normal";
+
+const competencia =
+  inteligencia.competencia || "similar";
+
+const marketing =
+  inteligencia.marketing || "medio";
+
+const ciudad =
+  inteligencia.ciudad || "";
+
+const valor =
+  inteligencia.valor || "media";
+
+  let html = `
+<div class="recommendation">
+    <span class="strategy-label">
+        Contexto Comercial Detectado
+    </span>
+
+    <h3>Motor Estratégico GRUK</h3>
+
+    <p>
+        ${contextoComercial.join("<br><br>")}
+    </p>
+
+    <p>
+
+        A partir de este contexto,
+        todas las recomendaciones del Dashboard
+        fueron adaptadas automáticamente
+        para ayudar al restaurante
+        a cumplir simultáneamente
+        su meta mensual de ventas
+        y su meta mensual de utilidad neta.
+
+    </p>
+
+</div>
+`;
+  let contextoComercial = [];
+  if (temporada === "alta") {
+  contextoComercial.push(
+    "📈 Temporada alta detectada. Las estrategias priorizarán incremento del ticket promedio antes que descuentos."
+  );
+}
+
+if (temporada === "baja") {
+  contextoComercial.push(
+    "📉 Temporada baja. Se priorizarán acciones para aumentar tráfico sin destruir margen."
+  );
+}
+
+if (competencia === "muy_barata") {
+  contextoComercial.push(
+    "⚔️ Competencia agresiva detectada. GRUK recomienda competir por valor y experiencia, no únicamente por precio."
+  );
+}
+
+if (marketing === "alto") {
+  contextoComercial.push(
+    "🚀 El nivel de marketing permite impulsar productos premium."
+  );
+}
+
+if (valor === "alta") {
+  contextoComercial.push(
+    "⭐ El restaurante posee una percepción de valor elevada. Existe espacio para fortalecer precios."
+  );
+}
+
+if (metaVentas > 0) {
+  contextoComercial.push(
+    `🎯 Meta mensual de ventas: ${formatoMoneda(metaVentas)}. Todas las estrategias buscarán acelerar el cumplimiento de esta meta.`
+  );
+}
+
+if (metaUtilidad > 0) {
+  contextoComercial.push(
+    `💰 Meta mensual de utilidad: ${formatoMoneda(metaUtilidad)}. GRUK priorizará margen antes que volumen cuando exista conflicto.`
+  );
+}
 
   if (empate) {
     const par1 = pares[0];
