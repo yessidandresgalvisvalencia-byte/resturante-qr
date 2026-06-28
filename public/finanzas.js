@@ -525,24 +525,28 @@ const variacionesMensuales =
   calcularVariacionesMensualesGRUK(historicoFinanciero);
 const causasAutomaticas =
   generarCausasAutomaticasGRUK(variacionesMensuales);
-  f.controlCostos =
-generarControlCostosGRUK(f);
-return {
-    restaurantId,
 
-    ...ingresos,
-    ...gastos,
+const resultadoFinanciero = {
+  restaurantId,
 
-    gastoNomina,
+  ...ingresos,
+  ...gastos,
 
-    ...estado,
-    ...semaforo,
-    ...presupuesto,
+  gastoNomina,
 
-    historicoFinanciero,
-    variacionesMensuales,
-causasAutomaticas
-  };
+  ...estado,
+  ...semaforo,
+  ...presupuesto,
+
+  historicoFinanciero,
+  variacionesMensuales,
+  causasAutomaticas
+};
+
+resultadoFinanciero.controlCostos =
+  generarControlCostosGRUK(resultadoFinanciero);
+
+return resultadoFinanciero; 
 }
 
 async function cerrarMesFinanciero() {
