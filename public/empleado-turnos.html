@@ -25,14 +25,14 @@
     </div>
 
     <nav>
-      <button class="menuActivo">🏠 Inicio</button>
-      <button>📅 Mi turno de hoy</button>
-      <button>🗓 Mis turnos</button>
-      <button>⏰ Horas extra</button>
-      <button>🔄 Doble turno</button>
-      <button>📍 Marcaciones</button>
-      <button>☕ Descansos</button>
-      <button>👤 Perfil</button>
+      <button class="menuActivo" onclick="mostrarSeccionEmpleado('inicio', this)">🏠 Inicio</button>
+<button onclick="mostrarSeccionEmpleado('hoy', this)">📅 Mi turno de hoy</button>
+<button onclick="mostrarSeccionEmpleado('turnos', this)">🗓 Mis turnos</button>
+<button onclick="mostrarSeccionEmpleado('extras', this)">⏰ Horas extra</button>
+<button onclick="mostrarSeccionEmpleado('doble', this)">🔄 Doble turno</button>
+<button onclick="mostrarSeccionEmpleado('marcaciones', this)">📍 Marcaciones</button>
+<button onclick="mostrarSeccionEmpleado('descansos', this)">☕ Descansos</button>
+<button onclick="mostrarSeccionEmpleado('perfil', this)">👤 Perfil</button>
     </nav>
 
   </aside>
@@ -40,15 +40,13 @@
   <main class="contenido">
 
     <header class="headerLaboral">
+      <section id="seccion-inicio" class="seccionEmpleado activa"></section>
       <div>
         <h1>Control Laboral GRUK</h1>
         <p>Gestión de personal, asistencia, turnos y validación facial.</p>
       </div>
 
-      <button class="btnHeader" onclick="guardarEmpleadoGRUK()">
-        + Guardar empleado
-      </button>
-    </header>
+
 
     <section class="cardPrincipal">
 

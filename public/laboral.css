@@ -1980,3 +1980,10 @@ button:focus-visible{
         0 0 0 4px rgba(10,99,255,.25);
 
 }
+.seccionEmpleado{
+    display:none;
+}
+
+.seccionEmpleado.activa{
+    display:block;
+}

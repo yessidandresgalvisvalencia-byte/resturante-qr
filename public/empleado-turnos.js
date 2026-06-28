@@ -121,7 +121,7 @@ function actualizarVistaEmpleadoGRUK() {
 
   cargarAsistenciaHoyGRUK();
 }
-
+renderizarPanelEmpleadoGRUK();
 function cargarAsistenciaHoyGRUK() {
   const asistencias = obtenerAsistenciasGRUK();
 
@@ -382,3 +382,148 @@ function solicitarDobleTurno() {
 }
 
 document.addEventListener("DOMContentLoaded", actualizarVistaEmpleadoGRUK);
+function mostrarSeccionEmpleado(seccion, boton) {
+  document.querySelectorAll(".seccionEmpleado").forEach(s => {
+    s.classList.remove("activa");
+  });
+
+  const activa = document.getElementById(`seccion-${seccion}`);
+
+  if (activa) {
+    activa.classList.add("activa");
+  }
+
+  document.querySelectorAll(".sidebar nav button").forEach(b => {
+    b.classList.remove("menuActivo");
+  });
+
+  if (boton) {
+    boton.classList.add("menuActivo");
+  }
+
+  renderizarPanelEmpleadoGRUK();
+}
+
+function renderizarPanelEmpleadoGRUK() {
+  const empleado = obtenerEmpleadoActualGRUK();
+
+  if (!empleado) return;
+
+  const asistencias = obtenerAsistenciasGRUK().filter(a =>
+    Number(a.empleadoId) === empleadoIdActual
+  );
+
+  const solicitudes =
+    JSON.parse(localStorage.getItem(`solicitudesExtra_GRUK_${restaurantIdEmpleado}`)) || [];
+
+  const solicitudesEmpleado =
+    solicitudes.filter(s => Number(s.empleadoId) === empleadoIdActual);
+
+  const hoy = fechaISOHoyGRUK();
+
+  const asistenciaHoy =
+    asistencias.find(a => a.fecha === hoy);
+
+  const detalleTurnoHoy = document.getElementById("detalleTurnoHoy");
+  if (detalleTurnoHoy) {
+    detalleTurnoHoy.innerHTML = asistenciaHoy
+      ? `
+        <div class="turnoCard">
+          <h3>Turno de hoy</h3>
+          <p><strong>Entrada:</strong> ${asistenciaHoy.horaEntradaTexto || "Sin marcar"}</p>
+          <p><strong>Salida:</strong> ${asistenciaHoy.horaSalidaTexto || "Sin marcar"}</p>
+          <p><strong>Horas trabajadas:</strong> ${asistenciaHoy.horasTrabajadas || 0}h</p>
+          <p><strong>Estado:</strong> ${asistenciaHoy.estado}</p>
+        </div>
+      `
+      : `
+        <div class="turnoCard">
+          <h3>Sin marcación hoy</h3>
+          <p>Aún no has registrado entrada para el día de hoy.</p>
+        </div>
+      `;
+  }
+
+  const listaMisTurnos = document.getElementById("listaMisTurnos");
+  if (listaMisTurnos) {
+    listaMisTurnos.innerHTML = asistencias.length
+      ? asistencias.map(a => `
+        <div class="turnoCard">
+          <h3>${a.fecha}</h3>
+          <p><strong>Entrada:</strong> ${a.horaEntradaTexto || "Sin marcar"}</p>
+          <p><strong>Salida:</strong> ${a.horaSalidaTexto || "Sin marcar"}</p>
+          <p><strong>Horas:</strong> ${a.horasTrabajadas || 0}h</p>
+          <p><strong>Estado:</strong> ${a.estado}</p>
+        </div>
+      `).join("")
+      : `<p>No tienes turnos completados todavía.</p>`;
+  }
+
+  const listaHorasExtra = document.getElementById("listaHorasExtraEmpleado");
+  if (listaHorasExtra) {
+    const extras = solicitudesEmpleado.filter(s => s.tipo === "hora_extra");
+
+    listaHorasExtra.innerHTML = extras.length
+      ? extras.map(s => `
+        <div class="turnoCard">
+          <h3>Solicitud de hora extra</h3>
+          <p><strong>Fecha:</strong> ${new Date(s.fecha).toLocaleString("es-CO")}</p>
+          <p><strong>Estado:</strong> ${s.estado}</p>
+        </div>
+      `).join("")
+      : `<p>No tienes solicitudes de hora extra.</p>`;
+  }
+
+  const listaDoble = document.getElementById("listaDobleTurnoEmpleado");
+  if (listaDoble) {
+    const dobles = solicitudesEmpleado.filter(s => s.tipo === "doble_turno");
+
+    listaDoble.innerHTML = dobles.length
+      ? dobles.map(s => `
+        <div class="turnoCard">
+          <h3>Solicitud de doble turno</h3>
+          <p><strong>Fecha:</strong> ${new Date(s.fecha).toLocaleString("es-CO")}</p>
+          <p><strong>Estado:</strong> ${s.estado}</p>
+        </div>
+      `).join("")
+      : `<p>No tienes solicitudes de doble turno.</p>`;
+  }
+
+  const listaMarcaciones = document.getElementById("listaMarcacionesEmpleado");
+  if (listaMarcaciones) {
+    listaMarcaciones.innerHTML = asistencias.length
+      ? asistencias.map(a => `
+        <div class="turnoCard">
+          <h3>Marcación ${a.fecha}</h3>
+          <p><strong>Entrada:</strong> ${a.horaEntradaTexto || "Sin entrada"}</p>
+          <p><strong>Salida:</strong> ${a.horaSalidaTexto || "Sin salida"}</p>
+          <p><strong>GPS entrada:</strong> ${a.gpsEntrada?.mensaje || "No registrado"}</p>
+          <p><strong>GPS salida:</strong> ${a.gpsSalida?.mensaje || "No registrado"}</p>
+        </div>
+      `).join("")
+      : `<p>No tienes marcaciones registradas.</p>`;
+  }
+
+  const perfil = document.getElementById("perfilEmpleadoGRUK");
+  if (perfil) {
+    perfil.innerHTML = `
+      <div class="turnoCard">
+        <h3>${empleado.nombre}</h3>
+        <p><strong>Documento:</strong> ${empleado.documento}</p>
+        <p><strong>Cargo:</strong> ${empleado.cargo}</p>
+        <p><strong>Área:</strong> ${empleado.area}</p>
+        <p><strong>Contrato:</strong> ${empleado.contrato}</p>
+        <p><strong>Salario:</strong> ${formatoCOPEmpleado(empleado.salario)}</p>
+        <p><strong>Valor hora:</strong> ${formatoCOPEmpleado(empleado.valorHora)}</p>
+      </div>
+    `;
+  }
+}
+
+function formatoCOPEmpleado(valor) {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0
+  }).format(Number(valor || 0));
+}
