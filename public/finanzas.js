@@ -373,7 +373,66 @@ function calcularVariacionesMensualesGRUK(historico) {
     rentabilidadReal: variacion(actual.rentabilidad_real, anterior.rentabilidad_real)
   };
 }
+function generarControlCostosGRUK(f){
 
+if(
+!f.historicoFinanciero ||
+f.historicoFinanciero.length<2
+){
+
+return null;
+
+}
+
+const actual=
+f.historicoFinanciero[f.historicoFinanciero.length-1];
+
+const anterior=
+f.historicoFinanciero[f.historicoFinanciero.length-2];
+
+const variacion=(a,b)=>{
+
+if(Number(b)===0) return 0;
+
+return Number((((a-b)/b)*100).toFixed(2));
+
+};
+
+return{
+
+materiaPrima:
+variacion(
+actual.costosMateriaPrima||actual.materia_prima,
+anterior.costosMateriaPrima||anterior.materia_prima
+),
+
+nomina:
+variacion(
+actual.gastoNomina||actual.nomina,
+anterior.gastoNomina||anterior.nomina
+),
+
+utilidad:
+variacion(
+actual.utilidadOperacional||actual.utilidad_operacional,
+anterior.utilidadOperacional||anterior.utilidad_operacional
+),
+
+margen:
+variacion(
+actual.rentabilidadReal,
+anterior.rentabilidadReal
+),
+
+mesActual:
+actual.mes,
+
+mesAnterior:
+anterior.mes
+
+};
+
+}
 function generarCausasAutomaticasGRUK(variaciones) {
   if (!variaciones || !variaciones.hayVariacion) {
     return [
@@ -466,6 +525,8 @@ const variacionesMensuales =
   calcularVariacionesMensualesGRUK(historicoFinanciero);
 const causasAutomaticas =
   generarCausasAutomaticasGRUK(variacionesMensuales);
+  f.controlCostos =
+generarControlCostosGRUK(f);
 return {
     restaurantId,
 
@@ -1081,7 +1142,113 @@ ${diagnosticoGeneral}
 </p>
 
 </div>
+<h2>Control de Costos GRUK</h2>
 
+<div class="card">
+
+${
+f.controlCostos
+?
+
+`
+
+<p>
+
+Comparación:
+
+<strong>
+
+${f.controlCostos.mesAnterior}
+
+</strong>
+
+vs
+
+<strong>
+
+${f.controlCostos.mesActual}
+
+</strong>
+
+</p>
+
+<table>
+
+<tr>
+
+<td>Materia Prima</td>
+
+<td>
+
+${f.controlCostos.materiaPrima>=0?"📈":"📉"}
+
+${f.controlCostos.materiaPrima}%
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>Nómina</td>
+
+<td>
+
+${f.controlCostos.nomina>=0?"📈":"📉"}
+
+${f.controlCostos.nomina}%
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>Utilidad Operacional</td>
+
+<td>
+
+${f.controlCostos.utilidad>=0?"📈":"📉"}
+
+${f.controlCostos.utilidad}%
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>Margen Operacional</td>
+
+<td>
+
+${f.controlCostos.margen>=0?"📈":"📉"}
+
+${f.controlCostos.margen}%
+
+</td>
+
+</tr>
+
+</table>
+
+`
+
+:
+
+`
+
+<p>
+
+Aún se necesitan al menos dos meses cerrados para comparar la evolución de los costos.
+
+</p>
+
+`
+
+}
+
+</div>
 `;
 }
 
