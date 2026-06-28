@@ -1638,3 +1638,345 @@ body{
     }
 
 }
+/*==================================================
+            ANIMACIONES Y ACABADO FINAL
+==================================================*/
+
+@keyframes aparecerSuave{
+
+    from{
+        opacity:0;
+        transform:translateY(18px);
+    }
+
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+
+}
+
+.cardPrincipal,
+.cardMarcacion,
+.cardFormulario,
+.accion,
+.resumen,
+.metricaCard,
+.panelPremium{
+
+    animation:aparecerSuave .45s ease both;
+
+}
+
+.cardPrincipal{ animation-delay:.05s; }
+.cardMarcacion{ animation-delay:.10s; }
+.accionesGrid{ animation-delay:.15s; }
+.resumenRapido{ animation-delay:.20s; }
+.cardFormulario{ animation-delay:.25s; }
+
+/*==================================================
+            EFECTO GLASS GRUK
+==================================================*/
+
+.glass{
+
+    background:rgba(255,255,255,.75);
+
+    backdrop-filter:blur(18px);
+
+    border:1px solid rgba(255,255,255,.55);
+
+}
+
+/*==================================================
+            ESTADOS DE MARCACIÓN
+==================================================*/
+
+.estadoOK{
+
+    color:#166534!important;
+
+    background:#DCFCE7!important;
+
+    padding:8px 12px;
+
+    border-radius:999px;
+
+    font-weight:700;
+
+}
+
+.estadoPendiente{
+
+    color:#92400E!important;
+
+    background:#FEF3C7!important;
+
+    padding:8px 12px;
+
+    border-radius:999px;
+
+    font-weight:700;
+
+}
+
+.estadoError{
+
+    color:#991B1B!important;
+
+    background:#FEE2E2!important;
+
+    padding:8px 12px;
+
+    border-radius:999px;
+
+    font-weight:700;
+
+}
+
+/*==================================================
+            EFECTOS PREMIUM
+==================================================*/
+
+.cardPrincipal:hover,
+.cardMarcacion:hover,
+.cardFormulario:hover{
+
+    box-shadow:
+        0 20px 50px rgba(15,23,42,.12);
+
+}
+
+button:active{
+
+    transform:scale(.98);
+
+}
+
+input::placeholder{
+
+    color:#9CA3AF;
+
+}
+
+/*==================================================
+            TITULOS Y SEPARADORES
+==================================================*/
+
+.seccionTitulo{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    margin:34px 0 18px;
+
+}
+
+.seccionTitulo h2{
+
+    font-size:24px;
+
+    color:var(--oscuro);
+
+}
+
+.lineaAzul{
+
+    height:4px;
+
+    width:70px;
+
+    border-radius:999px;
+
+    background:linear-gradient(
+        90deg,
+        var(--azul),
+        var(--azul3)
+    );
+
+    margin-top:8px;
+
+}
+
+/*==================================================
+            TARJETAS DE TURNO FUTURAS
+==================================================*/
+
+.turnoCard{
+
+    background:white;
+
+    border-radius:20px;
+
+    padding:22px;
+
+    box-shadow:var(--sombra);
+
+    border-left:6px solid var(--azul);
+
+    margin-bottom:18px;
+
+    transition:.30s;
+
+}
+
+.turnoCard:hover{
+
+    transform:translateX(5px);
+
+}
+
+.turnoCard h3{
+
+    font-size:20px;
+
+    margin-bottom:8px;
+
+}
+
+.turnoCard p{
+
+    color:var(--grisTexto);
+
+    line-height:1.5;
+
+}
+
+/*==================================================
+            MODALES FUTUROS
+==================================================*/
+
+.modalOverlay{
+
+    position:fixed;
+
+    inset:0;
+
+    background:rgba(15,23,42,.55);
+
+    display:none;
+
+    align-items:center;
+
+    justify-content:center;
+
+    z-index:999;
+
+}
+
+.modalOverlay.activo{
+
+    display:flex;
+
+}
+
+.modalGRUK{
+
+    background:white;
+
+    border-radius:28px;
+
+    padding:32px;
+
+    width:min(520px,92%);
+
+    box-shadow:
+        0 30px 70px rgba(0,0,0,.25);
+
+    animation:aparecerSuave .30s ease both;
+
+}
+
+.modalGRUK h2{
+
+    font-size:26px;
+
+    margin-bottom:18px;
+
+}
+
+.modalGRUK p{
+
+    color:var(--grisTexto);
+
+    line-height:1.6;
+
+}
+
+/*==================================================
+            CAMARA / SELFIE FUTURA
+==================================================*/
+
+.camaraBox{
+
+    background:#F8FBFF;
+
+    border:2px dashed #C9DAF5;
+
+    border-radius:22px;
+
+    padding:24px;
+
+    text-align:center;
+
+}
+
+.camaraBox video,
+.camaraBox canvas,
+.camaraBox img{
+
+    width:100%;
+
+    max-height:360px;
+
+    object-fit:cover;
+
+    border-radius:18px;
+
+    margin-top:16px;
+
+}
+
+/*==================================================
+            FIRMA GRUK
+==================================================*/
+
+.grukFirma{
+
+    text-align:center;
+
+    margin-top:35px;
+
+    color:#94A3B8;
+
+    font-size:13px;
+
+}
+
+.grukFirma strong{
+
+    color:var(--azul);
+
+}
+
+/*==================================================
+            FOCUS ACCESIBLE
+==================================================*/
+
+button:focus,
+input:focus,
+select:focus{
+
+    outline:none;
+
+}
+
+button:focus-visible{
+
+    box-shadow:
+        0 0 0 4px rgba(10,99,255,.25);
+
+}
