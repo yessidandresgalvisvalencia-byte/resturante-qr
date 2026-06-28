@@ -188,34 +188,33 @@ function enriquecerDatos(datos) {
   return datos.map(item => {
     const producto = item.producto || "Producto sin nombre";
     const ventas = Number(item.ventas || 0);
-    const totalDinero =
+    const precioUnitario =
+  Number(
+    item.precio ||
+    item.precioActual ||
+    item.precioVenta ||
+    item.precio_unitario ||
+    item.valorUnitario ||
+    item.valor ||
+    0
+  );
+
+const totalDinero =
   Number(
     item.totalDinero ||
     item.total ||
     item.ingresos ||
-    item.valor ||
+    item.valorTotal ||
     item.precioTotal ||
     0
-  );
-
-const precioUnitario =
-  Number(
-    item.precio ||
-    item.precioUnitario ||
-    item.precio_unitario ||
-    0
-  );
+  ) || (precioUnitario * ventas);
 
 const ticket =
-  ventas > 0 && totalDinero > 0
+  ventas > 0
     ? totalDinero / ventas
     : precioUnitario;
-    const margen = Number(
-      item.margen ||
-      item.margenEstimado ||
-      estimarMargenPorProducto(producto, ticket)
-    );
 
+    
     const participacion =
       totalPedidos > 0 ? Number(((ventas / totalPedidos) * 100).toFixed(1)) : 0;
 
