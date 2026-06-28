@@ -188,8 +188,11 @@ function enriquecerDatos(datos) {
   return datos.map(item => {
     const producto = item.producto || "Producto sin nombre";
     const ventas = Number(item.ventas || 0);
-    const precioUnitario =
+
+
+const precioUnitario =
   Number(
+    item.precioUnitarioActual ||
     item.precio ||
     item.precioActual ||
     item.precioVenta ||
@@ -201,6 +204,7 @@ function enriquecerDatos(datos) {
 
 const totalDinero =
   Number(
+    item.totalCalculado ||
     item.totalDinero ||
     item.total ||
     item.ingresos ||
@@ -214,7 +218,7 @@ const ticket =
     ? totalDinero / ventas
     : precioUnitario;
 
-    
+
     const participacion =
       totalPedidos > 0 ? Number(((ventas / totalPedidos) * 100).toFixed(1)) : 0;
 
