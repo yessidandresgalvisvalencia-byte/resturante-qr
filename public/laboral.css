@@ -1987,3 +1987,10 @@ button:focus-visible{
 .seccionEmpleado.activa{
     display:block;
 }
+.seccionAdminLaboral{
+    display:none;
+}
+
+.seccionAdminLaboral.activa{
+    display:block;
+}
