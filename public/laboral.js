@@ -687,3 +687,58 @@ function cargarPanelesAdminLaboralGRUK() {
 }
 
 document.addEventListener("DOMContentLoaded", cargarPanelesAdminLaboralGRUK);
+async function tomarFotoEmpleadoAdminGRUK() {
+  const input = document.createElement("input");
+
+  input.type = "file";
+  input.accept = "image/*";
+  input.capture = "user";
+
+  input.onchange = () => {
+    const file = input.files[0];
+
+    if (!file) return;
+
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+
+    const inputPrincipal = document.getElementById("fotoEmpleado");
+    inputPrincipal.files = dataTransfer.files;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const preview = document.getElementById("previewFotoEmpleado");
+
+      if (preview) {
+        preview.src = reader.result;
+        preview.style.display = "block";
+      }
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  input.click();
+}
+
+document.addEventListener("change", function(e) {
+  if (e.target && e.target.id === "fotoEmpleado") {
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const preview = document.getElementById("previewFotoEmpleado");
+
+      if (preview) {
+        preview.src = reader.result;
+        preview.style.display = "block";
+      }
+    };
+
+    reader.readAsDataURL(file);
+  }
+});

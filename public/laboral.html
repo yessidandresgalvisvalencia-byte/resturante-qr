@@ -124,7 +124,17 @@
 
         <div class="formGrid">
 
-          <input type="file" id="fotoEmpleado" accept="image/*">
+          <div class="fotoEmpleadoBox">
+
+  <input type="file" id="fotoEmpleado" accept="image/*">
+
+  <button type="button" class="btnSecundario" onclick="tomarFotoEmpleadoAdminGRUK()">
+    📷 Tomar foto
+  </button>
+
+  <img id="previewFotoEmpleado" src="" alt="Foto empleado">
+
+</div>
 
           <input id="nombreEmpleado" placeholder="Nombre completo">
           <input id="documentoEmpleado" placeholder="Documento">
