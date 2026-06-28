@@ -2,42 +2,205 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Control Laboral GRUK</title>
-  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="laboral.css">
 </head>
+
 <body>
 
-<h1>Control Laboral GRUK</h1>
+<div class="layout">
 
-<div class="card">
-  <h2>Registrar empleado</h2>
+  <aside class="sidebar">
 
-  <input type="file" id="fotoEmpleado" accept="image/*">
+    <div class="logoGRUK">
+      <h1>GRUK</h1>
+      <span>CONTROL LABORAL</span>
+    </div>
 
-  <input id="nombreEmpleado" placeholder="Nombre completo">
-  <input id="documentoEmpleado" placeholder="Documento">
-  <input id="cargoEmpleado" placeholder="Cargo">
-  <input id="areaEmpleado" placeholder="Área: Cocina, Mesas, Caja, Administración">
-  <input id="telefonoEmpleado" placeholder="Teléfono">
-  <input id="correoEmpleado" placeholder="Correo">
+    <div class="empleadoActual">
+      <img id="fotoEmpleadoActual" src="img/avatar.png" alt="Empleado">
+      <h2 id="nombreEmpleadoActual">Bienvenido</h2>
+      <p id="cargoEmpleadoActual">Personal</p>
+    </div>
 
-  <select id="contratoEmpleado">
-    <option value="mensual">Mensual</option>
-    <option value="por_horas">Por horas</option>
-    <option value="turno">Por turno</option>
-  </select>
+    <nav>
+      <button class="menuActivo">🏠 Inicio</button>
+      <button>📅 Mi turno de hoy</button>
+      <button>🗓 Mis turnos</button>
+      <button>⏰ Horas extra</button>
+      <button>🔄 Doble turno</button>
+      <button>📍 Marcaciones</button>
+      <button>☕ Descansos</button>
+      <button>👤 Perfil</button>
+    </nav>
 
-  <input id="salarioEmpleado" placeholder="Salario mensual" type="number">
-  <input id="valorHoraEmpleado" placeholder="Valor hora" type="number">
+  </aside>
 
-  <button onclick="guardarEmpleadoGRUK()">
-    Guardar empleado
-  </button>
-</div>
+  <main class="contenido">
 
-<div class="card">
-  <h2>Personal registrado</h2>
-  <div id="listaEmpleadosGRUK"></div>
+    <header class="headerLaboral">
+      <div>
+        <h1>Control Laboral GRUK</h1>
+        <p>Gestión de personal, asistencia, turnos y validación facial.</p>
+      </div>
+
+      <button class="btnHeader" onclick="guardarEmpleadoGRUK()">
+        + Guardar empleado
+      </button>
+    </header>
+
+    <section class="cardPrincipal">
+
+      <div class="cardTitulo">
+        <h2>Mi turno de hoy</h2>
+        <span class="estadoTurno">EN CURSO</span>
+      </div>
+
+      <div class="turnosGrid">
+        <div>
+          <p>Entrada programada</p>
+          <h1 id="entradaProgramada">--:--</h1>
+        </div>
+
+        <div>
+          <p>Salida programada</p>
+          <h1 id="salidaProgramada">--:--</h1>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="cardMarcacion">
+
+      <div class="encabezadoMarcacion">
+
+        <div>
+          <h2>Entrada registrada</h2>
+          <h1 id="horaEntradaReal">--:--</h1>
+          <p id="fechaActual">Sin registrar</p>
+        </div>
+
+        <div class="fotoVerificacion">
+          <img id="fotoVerificacion" src="img/avatar.png" alt="Verificación">
+          <span>✔ Verificado</span>
+        </div>
+
+      </div>
+
+      <div class="estadoGrid">
+
+        <div class="miniCard">
+          <h4>📍 Ubicación</h4>
+          <p id="ubicacionActual">Pendiente</p>
+        </div>
+
+        <div class="miniCard">
+          <h4>📷 Reconocimiento</h4>
+          <p id="estadoFace">Pendiente</p>
+        </div>
+
+        <div class="miniCard">
+          <h4>🛡 Estado</h4>
+          <p id="estadoMarcacion">Esperando</p>
+        </div>
+
+      </div>
+
+      <div class="botonesMarcacion">
+        <button class="btnPrincipal" onclick="marcarEntradaGRUK()">
+          📷 MARCAR ENTRADA
+        </button>
+
+        <button class="btnSecundario" onclick="marcarSalidaGRUK()">
+          📷 MARCAR SALIDA
+        </button>
+      </div>
+
+    </section>
+
+    <section class="accionesGrid">
+
+      <div class="accion">
+        <h3>⏰ Hora Extra</h3>
+        <p>Solicita autorización para trabajar tiempo adicional.</p>
+        <button onclick="solicitarHoraExtra()">Solicitar</button>
+      </div>
+
+      <div class="accion">
+        <h3>🔄 Doble Turno</h3>
+        <p>Solicita autorización para cubrir otro turno.</p>
+        <button onclick="solicitarDobleTurno()">Solicitar</button>
+      </div>
+
+    </section>
+
+    <section class="resumenRapido">
+
+      <div class="resumen">
+        <h4>Turno actual</h4>
+        <h2 id="turnoActual">---</h2>
+      </div>
+
+      <div class="resumen">
+        <h4>Horas trabajadas</h4>
+        <h2 id="horasTrabajadas">0h</h2>
+      </div>
+
+      <div class="resumen">
+        <h4>Horas extra</h4>
+        <h2 id="horasExtras">0h</h2>
+      </div>
+
+      <div class="resumen">
+        <h4>Próximo turno</h4>
+        <h2 id="proximoTurno">Ninguno</h2>
+      </div>
+
+    </section>
+
+    <section class="cardFormulario">
+
+      <h2>Registrar empleado</h2>
+
+      <div class="formGrid">
+
+        <input type="file" id="fotoEmpleado" accept="image/*">
+
+        <input id="nombreEmpleado" placeholder="Nombre completo">
+        <input id="documentoEmpleado" placeholder="Documento">
+        <input id="cargoEmpleado" placeholder="Cargo">
+        <input id="areaEmpleado" placeholder="Área: Cocina, Mesas, Caja, Administración">
+        <input id="telefonoEmpleado" placeholder="Teléfono">
+        <input id="correoEmpleado" placeholder="Correo">
+
+        <select id="contratoEmpleado">
+          <option value="mensual">Mensual</option>
+          <option value="por_horas">Por horas</option>
+          <option value="turno">Por turno</option>
+        </select>
+
+        <input id="salarioEmpleado" placeholder="Salario mensual" type="number">
+        <input id="valorHoraEmpleado" placeholder="Valor hora" type="number">
+
+      </div>
+
+      <button class="btnPrincipal" onclick="guardarEmpleadoGRUK()">
+        Guardar empleado
+      </button>
+
+    </section>
+
+    <section class="cardFormulario">
+
+      <h2>Personal registrado</h2>
+
+      <div id="listaEmpleadosGRUK"></div>
+
+    </section>
+
+  </main>
+
 </div>
 
 <script src="laboral.js"></script>
