@@ -208,3 +208,332 @@ function formatoCOPLaboral(valor) {
 }
 
 document.addEventListener("DOMContentLoaded", cargarEmpleadosGRUK);
+function mostrarSeccionAdminLaboral(seccion, boton = null) {
+  document.querySelectorAll(".seccionAdminLaboral").forEach(s => {
+    s.classList.remove("activa");
+  });
+
+  const activa = document.getElementById(`admin-${seccion}`);
+
+  if (activa) {
+    activa.classList.add("activa");
+  }
+
+  document.querySelectorAll(".sidebar nav button").forEach(b => {
+    b.classList.remove("menuActivo");
+  });
+
+  if (boton) {
+    boton.classList.add("menuActivo");
+  }
+
+  actualizarDashboardLaboralAdmin();
+}
+
+function obtenerTurnosAdminGRUK() {
+  return (
+    JSON.parse(localStorage.getItem(`turnos_GRUK_${restaurantIdLaboral}`)) || []
+  );
+}
+
+function guardarTurnosAdminGRUK(turnos) {
+  localStorage.setItem(
+    `turnos_GRUK_${restaurantIdLaboral}`,
+    JSON.stringify(turnos)
+  );
+}
+
+function crearTurnoAdminGRUK() {
+  const empleadoId = Number(document.getElementById("empleadoTurnoAdmin").value || 0);
+  const fecha = document.getElementById("fechaTurnoAdmin").value;
+  const entrada = document.getElementById("entradaTurnoAdmin").value;
+  const salida = document.getElementById("salidaTurnoAdmin").value;
+  const tipo = document.getElementById("tipoTurnoAdmin").value;
+
+  if (!empleadoId || !fecha || !entrada || !salida) {
+    alert("Completa empleado, fecha, entrada y salida.");
+    return;
+  }
+
+  const empleados = obtenerEmpleadosGRUK();
+  const empleado = empleados.find(e => Number(e.id) === empleadoId);
+
+  const turnos = obtenerTurnosAdminGRUK();
+
+  turnos.push({
+    id: Date.now(),
+    empleadoId,
+    empleadoNombre: empleado ? empleado.nombre : "Empleado",
+    cargo: empleado ? empleado.cargo : "",
+    fecha,
+    entradaProgramada: entrada,
+    salidaProgramada: salida,
+    tipo,
+    estado: "programado",
+    fechaCreacion: new Date().toISOString()
+  });
+
+  guardarTurnosAdminGRUK(turnos);
+
+  alert("Turno creado correctamente.");
+
+  cargarPanelesAdminLaboralGRUK();
+}
+
+function cargarSelectEmpleadosTurnoGRUK() {
+  const select = document.getElementById("empleadoTurnoAdmin");
+
+  if (!select) return;
+
+  const empleados = obtenerEmpleadosGRUK().filter(e => e.activo);
+
+  select.innerHTML = `
+    <option value="">Selecciona empleado</option>
+    ${empleados.map(e => `
+      <option value="${e.id}">
+        ${e.nombre} · ${e.cargo}
+      </option>
+    `).join("")}
+  `;
+}
+
+function cargarTurnosAdminGRUK() {
+  const contenedor = document.getElementById("listaTurnosAdminGRUK");
+
+  if (!contenedor) return;
+
+  const turnos = obtenerTurnosAdminGRUK();
+
+  if (turnos.length === 0) {
+    contenedor.innerHTML = "<p>No hay turnos programados.</p>";
+    return;
+  }
+
+  contenedor.innerHTML = turnos.map(t => `
+    <div class="turnoCard">
+      <h3>${t.empleadoNombre}</h3>
+      <p><strong>Fecha:</strong> ${t.fecha}</p>
+      <p><strong>Entrada:</strong> ${t.entradaProgramada}</p>
+      <p><strong>Salida:</strong> ${t.salidaProgramada}</p>
+      <p><strong>Tipo:</strong> ${t.tipo}</p>
+      <p><strong>Estado:</strong> ${t.estado}</p>
+    </div>
+  `).join("");
+}
+
+function obtenerAsistenciasAdminGRUK() {
+  return (
+    JSON.parse(localStorage.getItem(`asistencias_GRUK_${restaurantIdLaboral}`)) ||
+    []
+  );
+}
+
+function cargarAsistenciasAdminGRUK() {
+  const contenedor = document.getElementById("listaAsistenciasAdminGRUK");
+
+  if (!contenedor) return;
+
+  const asistencias = obtenerAsistenciasAdminGRUK();
+
+  if (asistencias.length === 0) {
+    contenedor.innerHTML = "<p>No hay asistencias registradas.</p>";
+    return;
+  }
+
+  contenedor.innerHTML = asistencias.map(a => `
+    <div class="turnoCard">
+      <h3>${a.empleadoNombre || "Empleado"}</h3>
+      <p><strong>Fecha:</strong> ${a.fecha}</p>
+      <p><strong>Entrada:</strong> ${a.horaEntradaTexto || "Sin entrada"}</p>
+      <p><strong>Salida:</strong> ${a.horaSalidaTexto || "Sin salida"}</p>
+      <p><strong>Horas trabajadas:</strong> ${a.horasTrabajadas || 0}h</p>
+      <p><strong>Estado:</strong> ${a.estado || "pendiente"}</p>
+
+      ${a.selfieEntrada ? `<img src="${a.selfieEntrada}" width="90" style="border-radius:14px;margin-top:10px;">` : ""}
+      ${a.selfieSalida ? `<img src="${a.selfieSalida}" width="90" style="border-radius:14px;margin-top:10px;">` : ""}
+    </div>
+  `).join("");
+}
+
+function obtenerSolicitudesAdminGRUK() {
+  return (
+    JSON.parse(localStorage.getItem(`solicitudesExtra_GRUK_${restaurantIdLaboral}`)) ||
+    []
+  );
+}
+
+function guardarSolicitudesAdminGRUK(solicitudes) {
+  localStorage.setItem(
+    `solicitudesExtra_GRUK_${restaurantIdLaboral}`,
+    JSON.stringify(solicitudes)
+  );
+}
+
+function cargarSolicitudesAdminGRUK() {
+  const contenedor = document.getElementById("listaSolicitudesAdminGRUK");
+
+  if (!contenedor) return;
+
+  const solicitudes = obtenerSolicitudesAdminGRUK();
+
+  if (solicitudes.length === 0) {
+    contenedor.innerHTML = "<p>No hay solicitudes pendientes.</p>";
+    return;
+  }
+
+  contenedor.innerHTML = solicitudes.map(s => `
+    <div class="turnoCard">
+      <h3>${s.tipo === "hora_extra" ? "Hora extra" : "Doble turno"}</h3>
+      <p><strong>Empleado:</strong> ${s.empleadoNombre}</p>
+      <p><strong>Fecha:</strong> ${new Date(s.fecha).toLocaleString("es-CO")}</p>
+      <p><strong>Estado:</strong> ${s.estado}</p>
+
+      <button class="btnTabla btnSecTabla" onclick="actualizarSolicitudAdminGRUK(${s.id}, 'aprobada')">
+        Aprobar
+      </button>
+
+      <button class="btnTabla btnEliminar" onclick="actualizarSolicitudAdminGRUK(${s.id}, 'rechazada')">
+        Rechazar
+      </button>
+    </div>
+  `).join("");
+}
+
+function actualizarSolicitudAdminGRUK(id, estado) {
+  const solicitudes = obtenerSolicitudesAdminGRUK();
+
+  const solicitud = solicitudes.find(s => Number(s.id) === Number(id));
+
+  if (solicitud) {
+    solicitud.estado = estado;
+    solicitud.fechaRespuesta = new Date().toISOString();
+  }
+
+  guardarSolicitudesAdminGRUK(solicitudes);
+
+  cargarPanelesAdminLaboralGRUK();
+
+  alert(`Solicitud ${estado}.`);
+}
+
+function calcularNominaRealAdminGRUK() {
+  const contenedor = document.getElementById("nominaRealAdminGRUK");
+
+  if (!contenedor) return;
+
+  const empleados = obtenerEmpleadosGRUK();
+  const asistencias = obtenerAsistenciasAdminGRUK();
+
+  if (empleados.length === 0) {
+    contenedor.innerHTML = "<p>No hay empleados registrados.</p>";
+    return;
+  }
+
+  const filas = empleados.map(e => {
+    const asistenciasEmpleado = asistencias.filter(a =>
+      Number(a.empleadoId) === Number(e.id)
+    );
+
+    const horas = asistenciasEmpleado.reduce(
+      (acc, a) => acc + Number(a.horasTrabajadas || 0),
+      0
+    );
+
+    const costoHoras = horas * Number(e.valorHora || 0);
+
+    return `
+      <tr>
+        <td>${e.nombre}</td>
+        <td>${e.cargo}</td>
+        <td>${horas.toFixed(2)}h</td>
+        <td>${formatoCOPLaboral(costoHoras)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  contenedor.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Empleado</th>
+          <th>Cargo</th>
+          <th>Horas trabajadas</th>
+          <th>Costo calculado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filas}
+      </tbody>
+    </table>
+  `;
+}
+
+function generarQRLaboralGRUK() {
+  const contenedor = document.getElementById("qrLaboralGRUK");
+
+  const link =
+    `${window.location.origin}/empleado-turnos.html?restaurantId=${restaurantIdLaboral}`;
+
+  contenedor.innerHTML = `
+    <div class="turnoCard">
+      <h3>Link laboral GRUK</h3>
+      <p>${link}</p>
+      <p>Usa este enlace para generar o imprimir el QR laboral del restaurante.</p>
+    </div>
+  `;
+}
+
+function actualizarDashboardLaboralAdmin() {
+  const empleados = obtenerEmpleadosGRUK();
+  const asistencias = obtenerAsistenciasAdminGRUK();
+  const solicitudes = obtenerSolicitudesAdminGRUK();
+
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const total = empleados.length;
+  const activos = empleados.filter(e => e.activo).length;
+  const marcacionesHoy = asistencias.filter(a => a.fecha === hoy).length;
+  const pendientes = solicitudes.filter(s => s.estado === "pendiente").length;
+
+  if (document.getElementById("totalEmpleadosAdmin")) {
+    document.getElementById("totalEmpleadosAdmin").textContent = total;
+  }
+
+  if (document.getElementById("empleadosActivosAdmin")) {
+    document.getElementById("empleadosActivosAdmin").textContent = activos;
+  }
+
+  if (document.getElementById("marcacionesHoyAdmin")) {
+    document.getElementById("marcacionesHoyAdmin").textContent = marcacionesHoy;
+  }
+
+  if (document.getElementById("solicitudesPendientesAdmin")) {
+    document.getElementById("solicitudesPendientesAdmin").textContent = pendientes;
+  }
+
+  const resumen = document.getElementById("resumenLaboralAdmin");
+
+  if (resumen) {
+    resumen.innerHTML = `
+      <div class="turnoCard">
+        <h3>Estado laboral del día</h3>
+        <p><strong>Empleados registrados:</strong> ${total}</p>
+        <p><strong>Activos:</strong> ${activos}</p>
+        <p><strong>Marcaciones hoy:</strong> ${marcacionesHoy}</p>
+        <p><strong>Solicitudes pendientes:</strong> ${pendientes}</p>
+      </div>
+    `;
+  }
+}
+
+function cargarPanelesAdminLaboralGRUK() {
+  cargarEmpleadosGRUK();
+  cargarSelectEmpleadosTurnoGRUK();
+  cargarTurnosAdminGRUK();
+  cargarAsistenciasAdminGRUK();
+  cargarSolicitudesAdminGRUK();
+  calcularNominaRealAdminGRUK();
+  actualizarDashboardLaboralAdmin();
+}
+
+document.addEventListener("DOMContentLoaded", cargarPanelesAdminLaboralGRUK);
