@@ -218,10 +218,19 @@ const ticket =
     ? totalDinero / ventas
     : precioUnitario;
 
+const costoMateriaPrimaUnitario =
+  Number(item.costoMateriaPrimaUnitario || 0);
 
-    const participacion =
-      totalPedidos > 0 ? Number(((ventas / totalPedidos) * 100).toFixed(1)) : 0;
+const margen =
+  precioUnitario > 0
+    ? Number(
+        (((precioUnitario - costoMateriaPrimaUnitario) / precioUnitario) * 100).toFixed(1)
+      )
+    : estimarMargenPorProducto(producto, ticket);
 
+const participacion =
+  totalPedidos > 0 ? Number(((ventas / totalPedidos) * 100).toFixed(1)) : 0;
+  
     const rolEconomico = clasificarRolEconomico({
       ventas,
       margen,
