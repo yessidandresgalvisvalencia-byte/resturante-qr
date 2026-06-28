@@ -1349,3 +1349,292 @@ body{
     line-height:1.6;
 
 }
+/*==================================================
+            RESPONSIVE TABLET
+==================================================*/
+
+@media (max-width:1100px){
+
+    .layout{
+
+        flex-direction:column;
+
+    }
+
+    .sidebar{
+
+        width:100%;
+
+        min-height:auto;
+
+        flex-direction:row;
+
+        align-items:center;
+
+        gap:20px;
+
+        overflow-x:auto;
+
+        padding:20px;
+
+    }
+
+    .logoGRUK{
+
+        margin-bottom:0;
+
+        min-width:160px;
+
+    }
+
+    .empleadoActual{
+
+        display:none;
+
+    }
+
+    .sidebar nav{
+
+        flex-direction:row;
+
+        gap:10px;
+
+    }
+
+    .sidebar nav button{
+
+        white-space:nowrap;
+
+    }
+
+    .contenido{
+
+        padding:24px;
+
+    }
+
+    .turnosGrid,
+    .accionesGrid{
+
+        grid-template-columns:1fr 1fr;
+
+    }
+
+    .estadoGrid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .resumenRapido,
+    .metricasLaborales{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+    .formGrid{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+}
+
+/*==================================================
+            RESPONSIVE CELULAR
+==================================================*/
+
+@media (max-width:720px){
+
+    body{
+
+        background:#F7FAFF;
+
+    }
+
+    .sidebar{
+
+        border-radius:0 0 28px 28px;
+
+    }
+
+    .logoGRUK h1{
+
+        font-size:26px;
+
+    }
+
+    .logoGRUK span{
+
+        font-size:11px;
+
+    }
+
+    .sidebar nav button{
+
+        padding:12px 14px;
+
+        font-size:14px;
+
+    }
+
+    .contenido{
+
+        padding:18px;
+
+    }
+
+    .headerLaboral{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+        gap:18px;
+
+    }
+
+    .headerLaboral h1{
+
+        font-size:28px;
+
+    }
+
+    .btnHeader{
+
+        width:100%;
+
+    }
+
+    .cardPrincipal,
+    .cardMarcacion,
+    .cardFormulario,
+    .accion,
+    .resumen,
+    .metricaCard{
+
+        border-radius:20px;
+
+        padding:22px;
+
+    }
+
+    .cardTitulo{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+        gap:14px;
+
+    }
+
+    .turnosGrid,
+    .accionesGrid,
+    .estadoGrid,
+    .resumenRapido,
+    .metricasLaborales,
+    .formGrid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .encabezadoMarcacion{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+        gap:22px;
+
+    }
+
+    .fotoVerificacion{
+
+        width:100%;
+
+        display:flex;
+
+        align-items:center;
+
+        gap:14px;
+
+        text-align:left;
+
+    }
+
+    .fotoVerificacion img{
+
+        width:82px;
+
+        height:82px;
+
+    }
+
+    .botonesMarcacion{
+
+        flex-direction:column;
+
+    }
+
+    .btnPrincipal,
+    .btnSecundario{
+
+        width:100%;
+
+    }
+
+    #listaEmpleadosGRUK table{
+
+        min-width:900px;
+
+    }
+
+}
+
+/*==================================================
+            RESPONSIVE MINI
+==================================================*/
+
+@media (max-width:420px){
+
+    .contenido{
+
+        padding:14px;
+
+    }
+
+    .headerLaboral h1{
+
+        font-size:24px;
+
+    }
+
+    .turnosGrid h1,
+    .encabezadoMarcacion h1{
+
+        font-size:32px;
+
+    }
+
+    .resumen h2{
+
+        font-size:26px;
+
+    }
+
+    .sidebar{
+
+        padding:16px;
+
+    }
+
+    .sidebar nav button{
+
+        font-size:13px;
+
+    }
+
+}
