@@ -5,37 +5,48 @@ const restaurantIdLaboral =
   paramsLaboral.get("restaurant") ||
   "rest1";
 
-function obtenerEmpleadosGRUK() {
-  return JSON.parse(
-    localStorage.getItem(`personal_GRUK_${restaurantIdLaboral}`)
-  ) || [];
-}
-
-function guardarEmpleadosGRUK(lista) {
-  localStorage.setItem(
-    `personal_GRUK_${restaurantIdLaboral}`,
-    JSON.stringify(lista)
-  );
+function formatoCOPLaboral(valor) {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0
+  }).format(Number(valor || 0));
 }
 
 function convertirImagenBase64(file) {
   return new Promise((resolve, reject) => {
-    if (!file) {
-      resolve("");
-      return;
-    }
+    if (!file) return resolve("");
 
     const reader = new FileReader();
-
     reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
-
     reader.readAsDataURL(file);
   });
 }
 
+/* =========================
+   EMPLEADOS — BACKEND
+========================= */
+
+async function obtenerEmpleadosGRUK() {
+  try {
+    const res = await fetch(`/laboral/empleados/${restaurantIdLaboral}`);
+    const data = await res.json();
+
+    if (!data.ok) {
+      console.error(data.mensaje);
+      return [];
+    }
+
+    return data.empleados || [];
+  } catch (error) {
+    console.error("Error obteniendo empleados:", error);
+    return [];
+  }
+}
+
 async function guardarEmpleadoGRUK() {
-  const fotoFile = document.getElementById("fotoEmpleado").files[0];
+  const fotoFile = document.getElementById("fotoEmpleado")?.files[0];
 
   const nombre = document.getElementById("nombreEmpleado").value.trim();
   const documento = document.getElementById("documentoEmpleado").value.trim();
@@ -45,98 +56,97 @@ async function guardarEmpleadoGRUK() {
   const correo = document.getElementById("correoEmpleado").value.trim();
   const contrato = document.getElementById("contratoEmpleado").value;
 
-  const salario = Number(
-    document.getElementById("salarioEmpleado").value || 0
-  );
-
-  let valorHora = Number(
-    document.getElementById("valorHoraEmpleado").value || 0
-  );
+  const salario = Number(document.getElementById("salarioEmpleado").value || 0);
+  const valorHora = Number(document.getElementById("valorHoraEmpleado").value || 0);
 
   if (!nombre || !documento || !cargo || !area || !salario) {
     alert("Completa nombre, documento, cargo, área y salario.");
     return;
   }
 
-  if (!fotoFile) {
-    alert("Debes subir una foto base del empleado.");
+  let fotoBase = "";
+
+  if (window.fotoEmpleadoCapturadaGRUK) {
+    fotoBase = window.fotoEmpleadoCapturadaGRUK;
+  } else if (fotoFile) {
+    fotoBase = await convertirImagenBase64(fotoFile);
+  }
+
+  if (!fotoBase) {
+    alert("Debes subir o tomar una foto base del empleado.");
     return;
   }
 
-  if (valorHora <= 0) {
-    valorHora = Math.round(salario / 240);
+  try {
+    const res = await fetch("/laboral/empleados", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        restaurantId: restaurantIdLaboral,
+        nombre,
+        documento,
+        cargo,
+        area,
+        telefono,
+        correo,
+        contrato,
+        salario,
+        valorHora,
+        fotoBase
+      })
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      alert(data.mensaje || "No se pudo guardar el empleado.");
+      return;
+    }
+
+    alert("Empleado guardado correctamente.");
+
+    window.fotoEmpleadoCapturadaGRUK = "";
+    limpiarFormularioEmpleadoGRUK();
+    await cargarPanelesAdminLaboralGRUK();
+
+  } catch (error) {
+    console.error("Error guardando empleado:", error);
+    alert("Error conectando con el servidor.");
   }
-
-  const fotoBase = await convertirImagenBase64(fotoFile);
-
-  const empleados = obtenerEmpleadosGRUK();
-
-  const empleado = {
-    id: Date.now(),
-    nombre,
-    documento,
-    cargo,
-    area,
-    telefono,
-    correo,
-    contrato,
-    salario,
-    valorHora,
-    fotoBase,
-    activo: true,
-    fechaIngreso: new Date().toISOString()
-  };
-
-  empleados.push(empleado);
-
-  guardarEmpleadosGRUK(empleados);
-
-  alert("Empleado guardado correctamente.");
-
-  limpiarFormularioEmpleadoGRUK();
-  cargarEmpleadosGRUK();
 }
 
 function limpiarFormularioEmpleadoGRUK() {
-  document.getElementById("fotoEmpleado").value = "";
-  document.getElementById("nombreEmpleado").value = "";
-  document.getElementById("documentoEmpleado").value = "";
-  document.getElementById("cargoEmpleado").value = "";
-  document.getElementById("areaEmpleado").value = "";
-  document.getElementById("telefonoEmpleado").value = "";
-  document.getElementById("correoEmpleado").value = "";
-  document.getElementById("salarioEmpleado").value = "";
-  document.getElementById("valorHoraEmpleado").value = "";
-}
+  const ids = [
+    "fotoEmpleado",
+    "nombreEmpleado",
+    "documentoEmpleado",
+    "cargoEmpleado",
+    "areaEmpleado",
+    "telefonoEmpleado",
+    "correoEmpleado",
+    "salarioEmpleado",
+    "valorHoraEmpleado"
+  ];
 
-function eliminarEmpleadoGRUK(id) {
-  let empleados = obtenerEmpleadosGRUK();
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
 
-  empleados = empleados.filter(e => e.id !== id);
-
-  guardarEmpleadosGRUK(empleados);
-
-  cargarEmpleadosGRUK();
-}
-
-function cambiarEstadoEmpleadoGRUK(id) {
-  const empleados = obtenerEmpleadosGRUK();
-
-  const empleado = empleados.find(e => e.id === id);
-
-  if (empleado) {
-    empleado.activo = !empleado.activo;
+  const preview = document.getElementById("previewFotoEmpleado");
+  if (preview) {
+    preview.src = "";
+    preview.style.display = "none";
   }
-
-  guardarEmpleadosGRUK(empleados);
-
-  cargarEmpleadosGRUK();
 }
 
-function cargarEmpleadosGRUK() {
+async function cargarEmpleadosGRUK() {
   const contenedor = document.getElementById("listaEmpleadosGRUK");
+  if (!contenedor) return;
 
-  const empleados = obtenerEmpleadosGRUK();
+  const empleados = await obtenerEmpleadosGRUK();
 
   if (empleados.length === 0) {
     contenedor.innerHTML = "<p>No hay empleados registrados.</p>";
@@ -162,7 +172,7 @@ function cargarEmpleadosGRUK() {
         ${empleados.map(e => `
           <tr>
             <td>
-              <img src="${e.fotoBase}" width="55" height="55" style="border-radius:50%;object-fit:cover;">
+              <img src="${e.fotoBase || ""}" width="55" height="55" style="border-radius:50%;object-fit:cover;">
             </td>
             <td>${e.nombre}</td>
             <td>${e.cargo}</td>
@@ -171,16 +181,12 @@ function cargarEmpleadosGRUK() {
             <td>${formatoCOPLaboral(e.valorHora)}</td>
             <td>${e.activo ? "🟢 Activo" : "🔴 Inactivo"}</td>
             <td>
-              <button onclick="cambiarEstadoEmpleadoGRUK(${e.id})">
+              <button class="btnTabla" onclick="cambiarEstadoEmpleadoGRUK('${e._id}')">
                 Cambiar estado
               </button>
 
-              <button onclick="eliminarEmpleadoGRUK(${e.id})">
+              <button class="btnTabla btnEliminar" onclick="eliminarEmpleadoGRUK('${e._id}')">
                 Eliminar
-              </button>
-
-              <button onclick="copiarLinkEmpleadoGRUK(${e.id})">
-                Link turnos
               </button>
             </td>
           </tr>
@@ -190,24 +196,54 @@ function cargarEmpleadosGRUK() {
   `;
 }
 
-function copiarLinkEmpleadoGRUK(id) {
-  const link =
-    `${window.location.origin}/empleado-turnos.html?restaurantId=${restaurantIdLaboral}&empleadoId=${id}`;
+async function cambiarEstadoEmpleadoGRUK(id) {
+  try {
+    const res = await fetch(`/laboral/empleados/${id}/estado`, {
+      method: "PUT"
+    });
 
-  navigator.clipboard.writeText(link);
+    const data = await res.json();
 
-  alert("Link del empleado copiado.");
+    if (!data.ok) {
+      alert(data.mensaje || "No se pudo cambiar el estado.");
+      return;
+    }
+
+    await cargarPanelesAdminLaboralGRUK();
+
+  } catch (error) {
+    console.error("Error cambiando estado:", error);
+    alert("Error conectando con el servidor.");
+  }
 }
 
-function formatoCOPLaboral(valor) {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0
-  }).format(Number(valor || 0));
+async function eliminarEmpleadoGRUK(id) {
+  if (!confirm("¿Eliminar este empleado?")) return;
+
+  try {
+    const res = await fetch(`/laboral/empleados/${id}`, {
+      method: "DELETE"
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      alert(data.mensaje || "No se pudo eliminar.");
+      return;
+    }
+
+    await cargarPanelesAdminLaboralGRUK();
+
+  } catch (error) {
+    console.error("Error eliminando empleado:", error);
+    alert("Error conectando con el servidor.");
+  }
 }
 
-document.addEventListener("DOMContentLoaded", cargarEmpleadosGRUK);
+/* =========================
+   NAVEGACIÓN ADMIN
+========================= */
+
 function mostrarSeccionAdminLaboral(seccion, boton = null) {
   document.querySelectorAll(".seccionAdminLaboral").forEach(s => {
     s.classList.remove("activa");
@@ -230,6 +266,10 @@ function mostrarSeccionAdminLaboral(seccion, boton = null) {
   actualizarDashboardLaboralAdmin();
 }
 
+/* =========================
+   TURNOS — TEMPORAL LOCAL
+========================= */
+
 function obtenerTurnosAdminGRUK() {
   return (
     JSON.parse(localStorage.getItem(`turnos_GRUK_${restaurantIdLaboral}`)) || []
@@ -243,8 +283,8 @@ function guardarTurnosAdminGRUK(turnos) {
   );
 }
 
-function crearTurnoAdminGRUK() {
-  const empleadoId = Number(document.getElementById("empleadoTurnoAdmin").value || 0);
+async function crearTurnoAdminGRUK() {
+  const empleadoId = document.getElementById("empleadoTurnoAdmin").value;
   const fecha = document.getElementById("fechaTurnoAdmin").value;
   const entrada = document.getElementById("entradaTurnoAdmin").value;
   const salida = document.getElementById("salidaTurnoAdmin").value;
@@ -255,8 +295,8 @@ function crearTurnoAdminGRUK() {
     return;
   }
 
-  const empleados = obtenerEmpleadosGRUK();
-  const empleado = empleados.find(e => Number(e.id) === empleadoId);
+  const empleados = await obtenerEmpleadosGRUK();
+  const empleado = empleados.find(e => String(e._id) === String(empleadoId));
 
   const turnos = obtenerTurnosAdminGRUK();
 
@@ -280,17 +320,17 @@ function crearTurnoAdminGRUK() {
   cargarPanelesAdminLaboralGRUK();
 }
 
-function cargarSelectEmpleadosTurnoGRUK() {
+async function cargarSelectEmpleadosTurnoGRUK() {
   const select = document.getElementById("empleadoTurnoAdmin");
-
   if (!select) return;
 
-  const empleados = obtenerEmpleadosGRUK().filter(e => e.activo);
+  const empleados = await obtenerEmpleadosGRUK();
+  const activos = empleados.filter(e => e.activo);
 
   select.innerHTML = `
     <option value="">Selecciona empleado</option>
-    ${empleados.map(e => `
-      <option value="${e.id}">
+    ${activos.map(e => `
+      <option value="${e._id}">
         ${e.nombre} · ${e.cargo}
       </option>
     `).join("")}
@@ -299,7 +339,6 @@ function cargarSelectEmpleadosTurnoGRUK() {
 
 function cargarTurnosAdminGRUK() {
   const contenedor = document.getElementById("listaTurnosAdminGRUK");
-
   if (!contenedor) return;
 
   const turnos = obtenerTurnosAdminGRUK();
@@ -321,16 +360,31 @@ function cargarTurnosAdminGRUK() {
   `).join("");
 }
 
+/* =========================
+   ASISTENCIAS Y SOLICITUDES — TEMPORAL LOCAL
+========================= */
+
 function obtenerAsistenciasAdminGRUK() {
   return (
-    JSON.parse(localStorage.getItem(`asistencias_GRUK_${restaurantIdLaboral}`)) ||
-    []
+    JSON.parse(localStorage.getItem(`asistencias_GRUK_${restaurantIdLaboral}`)) || []
+  );
+}
+
+function obtenerSolicitudesAdminGRUK() {
+  return (
+    JSON.parse(localStorage.getItem(`solicitudesExtra_GRUK_${restaurantIdLaboral}`)) || []
+  );
+}
+
+function guardarSolicitudesAdminGRUK(solicitudes) {
+  localStorage.setItem(
+    `solicitudesExtra_GRUK_${restaurantIdLaboral}`,
+    JSON.stringify(solicitudes)
   );
 }
 
 function cargarAsistenciasAdminGRUK() {
   const contenedor = document.getElementById("listaAsistenciasAdminGRUK");
-
   if (!contenedor) return;
 
   const asistencias = obtenerAsistenciasAdminGRUK();
@@ -355,23 +409,8 @@ function cargarAsistenciasAdminGRUK() {
   `).join("");
 }
 
-function obtenerSolicitudesAdminGRUK() {
-  return (
-    JSON.parse(localStorage.getItem(`solicitudesExtra_GRUK_${restaurantIdLaboral}`)) ||
-    []
-  );
-}
-
-function guardarSolicitudesAdminGRUK(solicitudes) {
-  localStorage.setItem(
-    `solicitudesExtra_GRUK_${restaurantIdLaboral}`,
-    JSON.stringify(solicitudes)
-  );
-}
-
 function cargarSolicitudesAdminGRUK() {
   const contenedor = document.getElementById("listaSolicitudesAdminGRUK");
-
   if (!contenedor) return;
 
   const solicitudes = obtenerSolicitudesAdminGRUK();
@@ -416,12 +455,15 @@ function actualizarSolicitudAdminGRUK(id, estado) {
   alert(`Solicitud ${estado}.`);
 }
 
-function calcularNominaRealAdminGRUK() {
-  const contenedor = document.getElementById("nominaRealAdminGRUK");
+/* =========================
+   NÓMINA TEMPORAL
+========================= */
 
+async function calcularNominaRealAdminGRUK() {
+  const contenedor = document.getElementById("nominaRealAdminGRUK");
   if (!contenedor) return;
 
-  const empleados = obtenerEmpleadosGRUK();
+  const empleados = await obtenerEmpleadosGRUK();
   const asistencias = obtenerAsistenciasAdminGRUK();
 
   if (empleados.length === 0) {
@@ -431,7 +473,7 @@ function calcularNominaRealAdminGRUK() {
 
   const filas = empleados.map(e => {
     const asistenciasEmpleado = asistencias.filter(a =>
-      Number(a.empleadoId) === Number(e.id)
+      String(a.empleadoId) === String(e._id)
     );
 
     const horas = asistenciasEmpleado.reduce(
@@ -468,6 +510,10 @@ function calcularNominaRealAdminGRUK() {
   `;
 }
 
+/* =========================
+   QR LABORAL
+========================= */
+
 function obtenerTokenLaboralGRUK() {
   const clave = `tokenLaboral_GRUK_${restaurantIdLaboral}`;
 
@@ -502,7 +548,6 @@ function regenerarTokenLaboralGRUK() {
 
 function generarQRLaboralGRUK() {
   const contenedor = document.getElementById("qrLaboralGRUK");
-
   if (!contenedor) return;
 
   const token = obtenerTokenLaboralGRUK();
@@ -514,15 +559,12 @@ function generarQRLaboralGRUK() {
     <div class="turnoCard">
       <h3>QR Laboral GRUK</h3>
 
-      <p>
-        Escanea este código para ingresar al Portal Laboral del restaurante.
-      </p>
+      <p>Escanea este código para ingresar al Portal Laboral del restaurante.</p>
 
       <div id="qrLaboralCanvas" style="display:flex;justify-content:center;margin:25px 0;"></div>
 
       <p><strong>Estado:</strong> 🟢 Activo</p>
       <p><strong>Restaurante ID:</strong> ${restaurantIdLaboral}</p>
-      <p><strong>Token:</strong> ${token}</p>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;">
         <button class="btnTabla btnSecTabla" onclick="copiarLinkLaboralGRUK()">
@@ -553,10 +595,7 @@ function generarQRLaboralGRUK() {
     correctLevel: QRCode.CorrectLevel.H
   });
 
-  localStorage.setItem(
-    `linkLaboral_GRUK_${restaurantIdLaboral}`,
-    link
-  );
+  localStorage.setItem(`linkLaboral_GRUK_${restaurantIdLaboral}`, link);
 }
 
 function copiarLinkLaboralGRUK() {
@@ -633,8 +672,12 @@ function imprimirQRLaboralGRUK() {
   ventana.document.close();
 }
 
-function actualizarDashboardLaboralAdmin() {
-  const empleados = obtenerEmpleadosGRUK();
+/* =========================
+   DASHBOARD ADMIN
+========================= */
+
+async function actualizarDashboardLaboralAdmin() {
+  const empleados = await obtenerEmpleadosGRUK();
   const asistencias = obtenerAsistenciasAdminGRUK();
   const solicitudes = obtenerSolicitudesAdminGRUK();
 
@@ -676,17 +719,10 @@ function actualizarDashboardLaboralAdmin() {
   }
 }
 
-function cargarPanelesAdminLaboralGRUK() {
-  cargarEmpleadosGRUK();
-  cargarSelectEmpleadosTurnoGRUK();
-  cargarTurnosAdminGRUK();
-  cargarAsistenciasAdminGRUK();
-  cargarSolicitudesAdminGRUK();
-  calcularNominaRealAdminGRUK();
-  actualizarDashboardLaboralAdmin();
-}
+/* =========================
+   FOTO EMPLEADO
+========================= */
 
-document.addEventListener("DOMContentLoaded", cargarPanelesAdminLaboralGRUK);
 async function tomarFotoEmpleadoAdminGRUK() {
   const input = document.createElement("input");
 
@@ -703,7 +739,10 @@ async function tomarFotoEmpleadoAdminGRUK() {
     dataTransfer.items.add(file);
 
     const inputPrincipal = document.getElementById("fotoEmpleado");
-    inputPrincipal.files = dataTransfer.files;
+
+    if (inputPrincipal) {
+      inputPrincipal.files = dataTransfer.files;
+    }
 
     const reader = new FileReader();
 
@@ -742,3 +781,19 @@ document.addEventListener("change", function(e) {
     reader.readAsDataURL(file);
   }
 });
+
+/* =========================
+   CARGA GENERAL
+========================= */
+
+async function cargarPanelesAdminLaboralGRUK() {
+  await cargarEmpleadosGRUK();
+  await cargarSelectEmpleadosTurnoGRUK();
+  cargarTurnosAdminGRUK();
+  cargarAsistenciasAdminGRUK();
+  cargarSolicitudesAdminGRUK();
+  await calcularNominaRealAdminGRUK();
+  await actualizarDashboardLaboralAdmin();
+}
+
+document.addEventListener("DOMContentLoaded", cargarPanelesAdminLaboralGRUK);
