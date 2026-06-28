@@ -416,7 +416,33 @@ function generarControlCostosGRUK(f) {
     actual.rentabilidadReal || actual.rentabilidad_real,
     anterior.rentabilidadReal || anterior.rentabilidad_real
   );
+let indiceControlCostos = 10;
 
+if (materiaPrima > 5) indiceControlCostos -= 1.5;
+if (nomina > 5) indiceControlCostos -= 1.5;
+if (utilidad < -10) indiceControlCostos -= 2;
+if (margen < -5) indiceControlCostos -= 2;
+
+if (materiaPrima < -5) indiceControlCostos += 0.5;
+if (nomina < -5) indiceControlCostos += 0.5;
+if (utilidad > 10) indiceControlCostos += 1;
+if (margen > 5) indiceControlCostos += 1;
+
+indiceControlCostos =
+  Math.min(10, Math.max(0, indiceControlCostos));
+
+let lecturaIndiceControl = "";
+
+if (indiceControlCostos >= 8) {
+  lecturaIndiceControl =
+    "🟢 Control de costos sólido. El restaurante muestra buena disciplina financiera frente al mes anterior.";
+} else if (indiceControlCostos >= 5) {
+  lecturaIndiceControl =
+    "🟡 Control de costos medio. Hay señales mixtas que deben vigilarse para evitar deterioro financiero.";
+} else {
+  lecturaIndiceControl =
+    "🔴 Control de costos débil. GRUK recomienda revisar urgentemente materia prima, nómina, gastos, precios y margen operacional.";
+}
   const diagnostico = [];
 
   if (materiaPrima > 5) {
@@ -487,6 +513,8 @@ function generarControlCostosGRUK(f) {
     semaforoMargen: obtenerSemaforoVariacion(margen, "costo"),
 
     diagnostico,
+    indiceControlCostos,
+lecturaIndiceControl,
 
     mesActual: actual.mes,
     mesAnterior: anterior.mes
@@ -1346,6 +1374,15 @@ ${f.controlCostos.semaforoMargen}
 </tbody>
 
 </table>
+<h3>Índice de Control de Costos GRUK</h3>
+
+<p>
+<strong>${f.controlCostos.indiceControlCostos.toFixed(1)} / 10</strong>
+</p>
+
+<p>
+${f.controlCostos.lecturaIndiceControl}
+</p>
 <h3>Diagnóstico Automático GRUK</h3>
 
 <p>
