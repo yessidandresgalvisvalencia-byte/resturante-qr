@@ -373,97 +373,124 @@ function calcularVariacionesMensualesGRUK(historico) {
     rentabilidadReal: variacion(actual.rentabilidad_real, anterior.rentabilidad_real)
   };
 }
-function generarControlCostosGRUK(f){
+function generarControlCostosGRUK(f) {
 
-if(
-!f.historicoFinanciero ||
-f.historicoFinanciero.length<2
-){
+  if (
+    !f.historicoFinanciero ||
+    f.historicoFinanciero.length < 2
+  ) {
+    return null;
+  }
 
-return null;
+  const actual =
+    f.historicoFinanciero[f.historicoFinanciero.length - 1];
 
-}
+  const anterior =
+    f.historicoFinanciero[f.historicoFinanciero.length - 2];
 
-const actual=
-f.historicoFinanciero[f.historicoFinanciero.length-1];
+  const variacion = (a, b) => {
+    a = Number(a || 0);
+    b = Number(b || 0);
 
-const anterior=
-f.historicoFinanciero[f.historicoFinanciero.length-2];
+    if (b === 0) return 0;
 
-const variacion=(a,b)=>{
+    return Number((((a - b) / b) * 100).toFixed(2));
+  };
 
-if(Number(b)===0) return 0;
+  const materiaPrima = variacion(
+    actual.costosMateriaPrima || actual.materia_prima,
+    anterior.costosMateriaPrima || anterior.materia_prima
+  );
 
-return Number((((a-b)/b)*100).toFixed(2));
+  const nomina = variacion(
+    actual.gastoNomina || actual.nomina,
+    anterior.gastoNomina || anterior.nomina
+  );
 
-};
+  const utilidad = variacion(
+    actual.utilidadOperacional || actual.utilidad_operacional || actual.utilidadNeta,
+    anterior.utilidadOperacional || anterior.utilidad_operacional || anterior.utilidadNeta
+  );
 
-return {
+  const margen = variacion(
+    actual.rentabilidadReal || actual.rentabilidad_real,
+    anterior.rentabilidadReal || anterior.rentabilidad_real
+  );
 
-  materiaPrima:
-    variacion(
-      actual.costosMateriaPrima || actual.materia_prima,
-      anterior.costosMateriaPrima || anterior.materia_prima
-    ),
+  const diagnostico = [];
 
-  nomina:
-    variacion(
-      actual.gastoNomina || actual.nomina,
-      anterior.gastoNomina || anterior.nomina
-    ),
+  if (materiaPrima > 5) {
+    diagnostico.push(
+      "⚠️ La materia prima aumentó de forma relevante. GRUK recomienda revisar proveedores, desperdicio, gramajes, porciones y cambios en precios de compra."
+    );
+  } else if (materiaPrima < -5) {
+    diagnostico.push(
+      "✅ La materia prima disminuyó. Esto puede indicar mejor negociación, menor desperdicio o mayor control en recetas."
+    );
+  } else {
+    diagnostico.push(
+      "🟡 La materia prima se mantiene estable frente al mes anterior."
+    );
+  }
 
-  utilidad:
-    variacion(
-      actual.utilidadOperacional || actual.utilidad_operacional,
-      anterior.utilidadOperacional || anterior.utilidad_operacional
-    ),
+  if (nomina > 5) {
+    diagnostico.push(
+      "⚠️ La nómina aumentó. Se recomienda revisar turnos, horas extra, productividad del personal y relación entre ventas y carga laboral."
+    );
+  } else if (nomina < -5) {
+    diagnostico.push(
+      "✅ La nómina disminuyó. GRUK detecta una mejora potencial en eficiencia laboral, siempre que no afecte la calidad del servicio."
+    );
+  } else {
+    diagnostico.push(
+      "🟡 La nómina se mantiene dentro de un rango estable."
+    );
+  }
 
-  margen:
-    variacion(
-      actual.rentabilidadReal,
-      anterior.rentabilidadReal
-    ),
+  if (utilidad > 10) {
+    diagnostico.push(
+      "🟢 La utilidad operacional mejoró de forma importante. Las estrategias comerciales y el control de costos están generando mejor resultado financiero."
+    );
+  } else if (utilidad < -10) {
+    diagnostico.push(
+      "🔴 La utilidad operacional se deterioró. GRUK recomienda revisar costos, gastos, precios, nómina y productos de bajo margen."
+    );
+  } else {
+    diagnostico.push(
+      "🟡 La utilidad operacional se mantiene relativamente estable."
+    );
+  }
 
-  semaforoMateriaPrima:
-    obtenerSemaforoVariacion(
-      variacion(
-        actual.costosMateriaPrima || actual.materia_prima,
-        anterior.costosMateriaPrima || anterior.materia_prima
-      ),
-      "costo"
-    ),
+  if (margen > 5) {
+    diagnostico.push(
+      "🟢 El margen operacional mejoró. El restaurante está convirtiendo mejor sus ingresos en utilidad."
+    );
+  } else if (margen < -5) {
+    diagnostico.push(
+      "🔴 El margen operacional cayó. Aunque las ventas puedan aumentar, los costos o gastos están consumiendo más rentabilidad."
+    );
+  } else {
+    diagnostico.push(
+      "🟡 El margen operacional no tuvo cambios fuertes frente al periodo anterior."
+    );
+  }
 
-  semaforoNomina:
-    obtenerSemaforoVariacion(
-      variacion(
-        actual.gastoNomina || actual.nomina,
-        anterior.gastoNomina || anterior.nomina
-      ),
-      "costo"
-    ),
+  return {
+    materiaPrima,
+    nomina,
+    utilidad,
+    margen,
 
-  semaforoUtilidad:
-    obtenerSemaforoVariacion(
-      variacion(
-        actual.utilidadOperacional || actual.utilidad_operacional,
-        anterior.utilidadOperacional || anterior.utilidad_operacional
-      ),
-      "utilidad"
-    ),
+    semaforoMateriaPrima: obtenerSemaforoVariacion(materiaPrima, "costo"),
+    semaforoNomina: obtenerSemaforoVariacion(nomina, "costo"),
+    semaforoUtilidad: obtenerSemaforoVariacion(utilidad, "utilidad"),
+    semaforoMargen: obtenerSemaforoVariacion(margen, "costo"),
 
-  semaforoMargen:
-    obtenerSemaforoVariacion(
-      variacion(
-        actual.rentabilidadReal,
-        anterior.rentabilidadReal
-      ),
-      "costo"
-    ),
+    diagnostico,
 
-  mesActual: actual.mes,
-  mesAnterior: anterior.mes
-
-};
+    mesActual: actual.mes,
+    mesAnterior: anterior.mes
+  };
 }
 function obtenerSemaforoVariacion(valor, tipo) {
 
@@ -1319,6 +1346,11 @@ ${f.controlCostos.semaforoMargen}
 </tbody>
 
 </table>
+<h3>Diagnóstico Automático GRUK</h3>
+
+<p>
+${f.controlCostos.diagnostico.join("<br><br>")}
+</p>
 
 `
 
