@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control Laboral GRUK</title>
+  <title>Portal Empleado GRUK</title>
   <link rel="stylesheet" href="laboral.css">
 </head>
 
@@ -15,24 +15,47 @@
 
     <div class="logoGRUK">
       <h1>GRUK</h1>
-      <span>CONTROL LABORAL</span>
+      <span>PORTAL EMPLEADO</span>
     </div>
 
     <div class="empleadoActual">
-      <img id="fotoEmpleadoActual" src="img/avatar.png" alt="Empleado">
+      <img id="fotoEmpleadoActual" src="" alt="Empleado">
       <h2 id="nombreEmpleadoActual">Bienvenido</h2>
       <p id="cargoEmpleadoActual">Personal</p>
     </div>
 
     <nav>
-      <button class="menuActivo" onclick="mostrarSeccionEmpleado('inicio', this)">🏠 Inicio</button>
-<button onclick="mostrarSeccionEmpleado('hoy', this)">📅 Mi turno de hoy</button>
-<button onclick="mostrarSeccionEmpleado('turnos', this)">🗓 Mis turnos</button>
-<button onclick="mostrarSeccionEmpleado('extras', this)">⏰ Horas extra</button>
-<button onclick="mostrarSeccionEmpleado('doble', this)">🔄 Doble turno</button>
-<button onclick="mostrarSeccionEmpleado('marcaciones', this)">📍 Marcaciones</button>
-<button onclick="mostrarSeccionEmpleado('descansos', this)">☕ Descansos</button>
-<button onclick="mostrarSeccionEmpleado('perfil', this)">👤 Perfil</button>
+      <button class="menuActivo" onclick="mostrarSeccionEmpleado('inicio', this)">
+        🏠 Inicio
+      </button>
+
+      <button onclick="mostrarSeccionEmpleado('hoy', this)">
+        📅 Mi turno de hoy
+      </button>
+
+      <button onclick="mostrarSeccionEmpleado('turnos', this)">
+        🗓 Mis turnos
+      </button>
+
+      <button onclick="mostrarSeccionEmpleado('extras', this)">
+        ⏰ Horas extra
+      </button>
+
+      <button onclick="mostrarSeccionEmpleado('doble', this)">
+        🔄 Doble turno
+      </button>
+
+      <button onclick="mostrarSeccionEmpleado('marcaciones', this)">
+        📍 Marcaciones
+      </button>
+
+      <button onclick="mostrarSeccionEmpleado('descansos', this)">
+        ☕ Descansos
+      </button>
+
+      <button onclick="mostrarSeccionEmpleado('perfil', this)">
+        👤 Perfil
+      </button>
     </nav>
 
   </aside>
@@ -40,121 +63,213 @@
   <main class="contenido">
 
     <header class="headerLaboral">
-      <section id="seccion-inicio" class="seccionEmpleado activa"></section>
       <div>
-        <h1>Control Laboral GRUK</h1>
-        <p>Gestión de personal, asistencia, turnos y validación facial.</p>
+        <h1>Portal Empleado GRUK</h1>
+        <p>Consulta tus turnos, marca entrada/salida y gestiona solicitudes laborales.</p>
       </div>
+    </header>
 
+    <!-- INICIO -->
+    <section id="seccion-inicio" class="seccionEmpleado activa">
 
+      <section class="cardPrincipal">
 
-    <section class="cardPrincipal">
+        <div class="cardTitulo">
+          <h2>Mi turno de hoy</h2>
+          <span class="estadoTurno" id="estadoTurnoHoy">PENDIENTE</span>
+        </div>
 
-      <div class="cardTitulo">
+        <div class="turnosGrid">
+          <div>
+            <p>Entrada programada</p>
+            <h1 id="entradaProgramada">--:--</h1>
+          </div>
+
+          <div>
+            <p>Salida programada</p>
+            <h1 id="salidaProgramada">--:--</h1>
+          </div>
+        </div>
+
+      </section>
+
+      <section class="cardMarcacion">
+
+        <div class="encabezadoMarcacion">
+
+          <div>
+            <h2>Marcación laboral</h2>
+            <h1 id="horaEntradaReal">--:--</h1>
+            <p id="fechaActual">Sin registrar</p>
+          </div>
+
+          <div class="fotoVerificacion">
+            <img id="fotoVerificacion" src="" alt="Verificación">
+            <span id="estadoVerificacionVisual">Pendiente</span>
+          </div>
+
+        </div>
+
+        <div class="estadoGrid">
+
+          <div class="miniCard">
+            <h4>📍 Ubicación</h4>
+            <p id="ubicacionActual">Pendiente</p>
+          </div>
+
+          <div class="miniCard">
+            <h4>📷 Reconocimiento</h4>
+            <p id="estadoFace">Pendiente</p>
+          </div>
+
+          <div class="miniCard">
+            <h4>🛡 Estado</h4>
+            <p id="estadoMarcacion">Esperando</p>
+          </div>
+
+        </div>
+
+        <div class="botonesMarcacion">
+          <button class="btnPrincipal" onclick="marcarEntradaGRUK()">
+            📷 MARCAR ENTRADA
+          </button>
+
+          <button class="btnSecundario" onclick="marcarSalidaGRUK()">
+            📷 MARCAR SALIDA
+          </button>
+        </div>
+
+      </section>
+
+      <section class="accionesGrid">
+
+        <div class="accion">
+          <h3>⏰ Hora Extra</h3>
+          <p>Solicita autorización para trabajar tiempo adicional.</p>
+          <button onclick="solicitarHoraExtra()">Solicitar</button>
+        </div>
+
+        <div class="accion">
+          <h3>🔄 Doble Turno</h3>
+          <p>Solicita autorización para cubrir otro turno.</p>
+          <button onclick="solicitarDobleTurno()">Solicitar</button>
+        </div>
+
+      </section>
+
+      <section class="resumenRapido">
+
+        <div class="resumen">
+          <h4>Turno actual</h4>
+          <h2 id="turnoActual">---</h2>
+        </div>
+
+        <div class="resumen">
+          <h4>Horas trabajadas</h4>
+          <h2 id="horasTrabajadas">0h</h2>
+        </div>
+
+        <div class="resumen">
+          <h4>Horas extra</h4>
+          <h2 id="horasExtras">0h</h2>
+        </div>
+
+        <div class="resumen">
+          <h4>Próximo turno</h4>
+          <h2 id="proximoTurno">Ninguno</h2>
+        </div>
+
+      </section>
+
+    </section>
+
+    <!-- MI TURNO HOY -->
+    <section id="seccion-hoy" class="seccionEmpleado">
+      <div class="cardFormulario">
         <h2>Mi turno de hoy</h2>
-        <span class="estadoTurno">EN CURSO</span>
+        <div id="detalleTurnoHoy"></div>
       </div>
-
-      <div class="turnosGrid">
-        <div>
-          <p>Entrada programada</p>
-          <h1 id="entradaProgramada">--:--</h1>
-        </div>
-
-        <div>
-          <p>Salida programada</p>
-          <h1 id="salidaProgramada">--:--</h1>
-        </div>
-      </div>
-
     </section>
 
-    <section class="cardMarcacion">
+    <!-- MIS TURNOS -->
+    <section id="seccion-turnos" class="seccionEmpleado">
+      <div class="cardFormulario">
+        <h2>Mis turnos</h2>
 
-      <div class="encabezadoMarcacion">
+        <div class="accionesGrid">
+          <div class="accion">
+            <h3>📌 Próximos turnos</h3>
+            <p>Turnos programados por el administrador.</p>
+          </div>
 
-        <div>
-          <h2>Entrada registrada</h2>
-          <h1 id="horaEntradaReal">--:--</h1>
-          <p id="fechaActual">Sin registrar</p>
+          <div class="accion">
+            <h3>✅ Turnos completados</h3>
+            <p>Historial de turnos con entrada y salida registrada.</p>
+          </div>
         </div>
 
-        <div class="fotoVerificacion">
-          <img id="fotoVerificacion" src="img/avatar.png" alt="Verificación">
-          <span>✔ Verificado</span>
-        </div>
-
+        <div id="listaMisTurnos"></div>
       </div>
+    </section>
 
-      <div class="estadoGrid">
+    <!-- HORAS EXTRA -->
+    <section id="seccion-extras" class="seccionEmpleado">
+      <div class="cardFormulario">
+        <h2>Horas extra</h2>
 
-        <div class="miniCard">
-          <h4>📍 Ubicación</h4>
-          <p id="ubicacionActual">Pendiente</p>
-        </div>
-
-        <div class="miniCard">
-          <h4>📷 Reconocimiento</h4>
-          <p id="estadoFace">Pendiente</p>
-        </div>
-
-        <div class="miniCard">
-          <h4>🛡 Estado</h4>
-          <p id="estadoMarcacion">Esperando</p>
-        </div>
-
-      </div>
-
-      <div class="botonesMarcacion">
-        <button class="btnPrincipal" onclick="marcarEntradaGRUK()">
-          📷 MARCAR ENTRADA
+        <button class="btnPrincipal" onclick="solicitarHoraExtra()">
+          Solicitar nueva hora extra
         </button>
 
-        <button class="btnSecundario" onclick="marcarSalidaGRUK()">
-          📷 MARCAR SALIDA
+        <br><br>
+
+        <div id="listaHorasExtraEmpleado"></div>
+      </div>
+    </section>
+
+    <!-- DOBLE TURNO -->
+    <section id="seccion-doble" class="seccionEmpleado">
+      <div class="cardFormulario">
+        <h2>Doble turno</h2>
+
+        <button class="btnPrincipal" onclick="solicitarDobleTurno()">
+          Solicitar doble turno
         </button>
-      </div>
 
+        <br><br>
+
+        <div id="listaDobleTurnoEmpleado"></div>
+      </div>
     </section>
 
-    <section class="accionesGrid">
-
-      <div class="accion">
-        <h3>⏰ Hora Extra</h3>
-        <p>Solicita autorización para trabajar tiempo adicional.</p>
-        <button onclick="solicitarHoraExtra()">Solicitar</button>
+    <!-- MARCACIONES -->
+    <section id="seccion-marcaciones" class="seccionEmpleado">
+      <div class="cardFormulario">
+        <h2>Marcaciones</h2>
+        <div id="listaMarcacionesEmpleado"></div>
       </div>
-
-      <div class="accion">
-        <h3>🔄 Doble Turno</h3>
-        <p>Solicita autorización para cubrir otro turno.</p>
-        <button onclick="solicitarDobleTurno()">Solicitar</button>
-      </div>
-
     </section>
 
-    <section class="resumenRapido">
+    <!-- DESCANSOS -->
+    <section id="seccion-descansos" class="seccionEmpleado">
+      <div class="cardFormulario">
+        <h2>Descansos</h2>
 
-      <div class="resumen">
-        <h4>Turno actual</h4>
-        <h2 id="turnoActual">---</h2>
+        <div class="turnoCard">
+          <h3>☕ Descansos autorizados</h3>
+          <p>
+            Próximamente podrás registrar descansos, pausas autorizadas y tiempos fuera de operación.
+          </p>
+        </div>
       </div>
+    </section>
 
-      <div class="resumen">
-        <h4>Horas trabajadas</h4>
-        <h2 id="horasTrabajadas">0h</h2>
+    <!-- PERFIL -->
+    <section id="seccion-perfil" class="seccionEmpleado">
+      <div class="cardFormulario">
+        <h2>Mi perfil laboral</h2>
+        <div id="perfilEmpleadoGRUK"></div>
       </div>
-
-      <div class="resumen">
-        <h4>Horas extra</h4>
-        <h2 id="horasExtras">0h</h2>
-      </div>
-
-      <div class="resumen">
-        <h4>Próximo turno</h4>
-        <h2 id="proximoTurno">Ninguno</h2>
-      </div>
-
     </section>
 
   </main>
