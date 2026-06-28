@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control Laboral GRUK</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<h1>Control Laboral GRUK</h1>
+
+<div class="card">
+  <h2>Registrar empleado</h2>
+
+  <input type="file" id="fotoEmpleado" accept="image/*">
+
+  <input id="nombreEmpleado" placeholder="Nombre completo">
+  <input id="documentoEmpleado" placeholder="Documento">
+  <input id="cargoEmpleado" placeholder="Cargo">
+  <input id="areaEmpleado" placeholder="Área: Cocina, Mesas, Caja, Administración">
+  <input id="telefonoEmpleado" placeholder="Teléfono">
+  <input id="correoEmpleado" placeholder="Correo">
+
+  <select id="contratoEmpleado">
+    <option value="mensual">Mensual</option>
+    <option value="por_horas">Por horas</option>
+    <option value="turno">Por turno</option>
+  </select>
+
+  <input id="salarioEmpleado" placeholder="Salario mensual" type="number">
+  <input id="valorHoraEmpleado" placeholder="Valor hora" type="number">
+
+  <button onclick="guardarEmpleadoGRUK()">
+    Guardar empleado
+  </button>
+</div>
+
+<div class="card">
+  <h2>Personal registrado</h2>
+  <div id="listaEmpleadosGRUK"></div>
+</div>
+
+<script src="laboral.js"></script>
+</body>
+</html>
