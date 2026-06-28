@@ -398,41 +398,91 @@ return Number((((a-b)/b)*100).toFixed(2));
 
 };
 
-return{
+return {
 
-materiaPrima:
-variacion(
-actual.costosMateriaPrima||actual.materia_prima,
-anterior.costosMateriaPrima||anterior.materia_prima
-),
+  materiaPrima:
+    variacion(
+      actual.costosMateriaPrima || actual.materia_prima,
+      anterior.costosMateriaPrima || anterior.materia_prima
+    ),
 
-nomina:
-variacion(
-actual.gastoNomina||actual.nomina,
-anterior.gastoNomina||anterior.nomina
-),
+  nomina:
+    variacion(
+      actual.gastoNomina || actual.nomina,
+      anterior.gastoNomina || anterior.nomina
+    ),
 
-utilidad:
-variacion(
-actual.utilidadOperacional||actual.utilidad_operacional,
-anterior.utilidadOperacional||anterior.utilidad_operacional
-),
+  utilidad:
+    variacion(
+      actual.utilidadOperacional || actual.utilidad_operacional,
+      anterior.utilidadOperacional || anterior.utilidad_operacional
+    ),
 
-margen:
-variacion(
-actual.rentabilidadReal,
-anterior.rentabilidadReal
-),
+  margen:
+    variacion(
+      actual.rentabilidadReal,
+      anterior.rentabilidadReal
+    ),
 
-mesActual:
-actual.mes,
+  semaforoMateriaPrima:
+    obtenerSemaforoVariacion(
+      variacion(
+        actual.costosMateriaPrima || actual.materia_prima,
+        anterior.costosMateriaPrima || anterior.materia_prima
+      ),
+      "costo"
+    ),
 
-mesAnterior:
-anterior.mes
+  semaforoNomina:
+    obtenerSemaforoVariacion(
+      variacion(
+        actual.gastoNomina || actual.nomina,
+        anterior.gastoNomina || anterior.nomina
+      ),
+      "costo"
+    ),
+
+  semaforoUtilidad:
+    obtenerSemaforoVariacion(
+      variacion(
+        actual.utilidadOperacional || actual.utilidad_operacional,
+        anterior.utilidadOperacional || anterior.utilidad_operacional
+      ),
+      "utilidad"
+    ),
+
+  semaforoMargen:
+    obtenerSemaforoVariacion(
+      variacion(
+        actual.rentabilidadReal,
+        anterior.rentabilidadReal
+      ),
+      "costo"
+    ),
+
+  mesActual: actual.mes,
+  mesAnterior: anterior.mes
 
 };
+}
+function obtenerSemaforoVariacion(valor, tipo) {
+
+  if (tipo === "utilidad") {
+
+    if (valor >= 10) return "🟢 Excelente";
+    if (valor >= 0) return "🟡 Estable";
+    return "🔴 En deterioro";
+
+  }
+
+  // Materia prima, nómina y margen
+
+  if (valor <= -5) return "🟢 Mejoró";
+  if (valor <= 5) return "🟡 Estable";
+  return "🔴 Empeoró";
 
 }
+
 function generarCausasAutomaticasGRUK(variaciones) {
   if (!variaciones || !variaciones.hayVariacion) {
     return [
@@ -1158,25 +1208,33 @@ f.controlCostos
 
 <p>
 
-Comparación:
-
-<strong>
+<strong>Comparación:</strong>
 
 ${f.controlCostos.mesAnterior}
 
-</strong>
-
 vs
 
-<strong>
-
 ${f.controlCostos.mesActual}
-
-</strong>
 
 </p>
 
 <table>
+
+<thead>
+
+<tr>
+
+<th>Indicador</th>
+
+<th>Variación</th>
+
+<th>Semáforo</th>
+
+</tr>
+
+</thead>
+
+<tbody>
 
 <tr>
 
@@ -1186,7 +1244,13 @@ ${f.controlCostos.mesActual}
 
 ${f.controlCostos.materiaPrima>=0?"📈":"📉"}
 
-${f.controlCostos.materiaPrima}%
+${f.controlCostos.materiaPrima.toFixed(2)}%
+
+</td>
+
+<td>
+
+${f.controlCostos.semaforoMateriaPrima}
 
 </td>
 
@@ -1200,7 +1264,13 @@ ${f.controlCostos.materiaPrima}%
 
 ${f.controlCostos.nomina>=0?"📈":"📉"}
 
-${f.controlCostos.nomina}%
+${f.controlCostos.nomina.toFixed(2)}%
+
+</td>
+
+<td>
+
+${f.controlCostos.semaforoNomina}
 
 </td>
 
@@ -1214,7 +1284,13 @@ ${f.controlCostos.nomina}%
 
 ${f.controlCostos.utilidad>=0?"📈":"📉"}
 
-${f.controlCostos.utilidad}%
+${f.controlCostos.utilidad.toFixed(2)}%
+
+</td>
+
+<td>
+
+${f.controlCostos.semaforoUtilidad}
 
 </td>
 
@@ -1228,11 +1304,19 @@ ${f.controlCostos.utilidad}%
 
 ${f.controlCostos.margen>=0?"📈":"📉"}
 
-${f.controlCostos.margen}%
+${f.controlCostos.margen.toFixed(2)}%
+
+</td>
+
+<td>
+
+${f.controlCostos.semaforoMargen}
 
 </td>
 
 </tr>
+
+</tbody>
 
 </table>
 
@@ -1244,7 +1328,7 @@ ${f.controlCostos.margen}%
 
 <p>
 
-Aún se necesitan al menos dos meses cerrados para comparar la evolución de los costos.
+Aún se necesitan al menos dos meses financieros cerrados para que GRUK pueda comparar automáticamente la evolución de los costos y la rentabilidad.
 
 </p>
 
