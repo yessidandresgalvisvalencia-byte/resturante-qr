@@ -468,19 +468,169 @@ function calcularNominaRealAdminGRUK() {
   `;
 }
 
+function obtenerTokenLaboralGRUK() {
+  const clave = `tokenLaboral_GRUK_${restaurantIdLaboral}`;
+
+  let token = localStorage.getItem(clave);
+
+  if (!token) {
+    token =
+      "GRUK-" +
+      Math.random().toString(36).substring(2, 10).toUpperCase() +
+      "-" +
+      Date.now();
+
+    localStorage.setItem(clave, token);
+  }
+
+  return token;
+}
+
+function regenerarTokenLaboralGRUK() {
+  const clave = `tokenLaboral_GRUK_${restaurantIdLaboral}`;
+
+  const nuevoToken =
+    "GRUK-" +
+    Math.random().toString(36).substring(2, 10).toUpperCase() +
+    "-" +
+    Date.now();
+
+  localStorage.setItem(clave, nuevoToken);
+
+  generarQRLaboralGRUK();
+}
+
 function generarQRLaboralGRUK() {
   const contenedor = document.getElementById("qrLaboralGRUK");
 
+  if (!contenedor) return;
+
+  const token = obtenerTokenLaboralGRUK();
+
   const link =
-    `${window.location.origin}/empleado-turnos.html?restaurantId=${restaurantIdLaboral}`;
+    `${window.location.origin}/empleado-turnos.html?restaurantId=${restaurantIdLaboral}&token=${encodeURIComponent(token)}`;
 
   contenedor.innerHTML = `
     <div class="turnoCard">
-      <h3>Link laboral GRUK</h3>
-      <p>${link}</p>
-      <p>Usa este enlace para generar o imprimir el QR laboral del restaurante.</p>
+      <h3>QR Laboral GRUK</h3>
+
+      <p>
+        Escanea este código para ingresar al Portal Laboral del restaurante.
+      </p>
+
+      <div id="qrLaboralCanvas" style="display:flex;justify-content:center;margin:25px 0;"></div>
+
+      <p><strong>Estado:</strong> 🟢 Activo</p>
+      <p><strong>Restaurante ID:</strong> ${restaurantIdLaboral}</p>
+      <p><strong>Token:</strong> ${token}</p>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;">
+        <button class="btnTabla btnSecTabla" onclick="copiarLinkLaboralGRUK()">
+          Copiar enlace
+        </button>
+
+        <button class="btnTabla" onclick="descargarQRLaboralGRUK()">
+          Descargar PNG
+        </button>
+
+        <button class="btnTabla" onclick="imprimirQRLaboralGRUK()">
+          Imprimir
+        </button>
+
+        <button class="btnTabla btnEliminar" onclick="regenerarTokenLaboralGRUK()">
+          Regenerar QR
+        </button>
+      </div>
     </div>
   `;
+
+  new QRCode(document.getElementById("qrLaboralCanvas"), {
+    text: link,
+    width: 230,
+    height: 230,
+    colorDark: "#0A63FF",
+    colorLight: "#FFFFFF",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  localStorage.setItem(
+    `linkLaboral_GRUK_${restaurantIdLaboral}`,
+    link
+  );
+}
+
+function copiarLinkLaboralGRUK() {
+  const link =
+    localStorage.getItem(`linkLaboral_GRUK_${restaurantIdLaboral}`);
+
+  navigator.clipboard.writeText(link);
+
+  alert("Enlace laboral copiado.");
+}
+
+function descargarQRLaboralGRUK() {
+  const qrImg =
+    document.querySelector("#qrLaboralCanvas img") ||
+    document.querySelector("#qrLaboralCanvas canvas");
+
+  if (!qrImg) {
+    alert("Primero genera el QR.");
+    return;
+  }
+
+  let dataUrl = "";
+
+  if (qrImg.tagName.toLowerCase() === "img") {
+    dataUrl = qrImg.src;
+  } else {
+    dataUrl = qrImg.toDataURL("image/png");
+  }
+
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = `QR-Laboral-GRUK-${restaurantIdLaboral}.png`;
+  a.click();
+}
+
+function imprimirQRLaboralGRUK() {
+  const contenido = document.getElementById("qrLaboralGRUK").innerHTML;
+
+  const ventana = window.open("", "_blank");
+
+  ventana.document.write(`
+    <html>
+    <head>
+      <title>QR Laboral GRUK</title>
+      <style>
+        body{
+          font-family:Arial,sans-serif;
+          padding:40px;
+          text-align:center;
+        }
+
+        .turnoCard{
+          border:1px solid #ddd;
+          border-radius:20px;
+          padding:30px;
+          max-width:500px;
+          margin:auto;
+        }
+
+        button{
+          display:none;
+        }
+      </style>
+    </head>
+    <body>
+      ${contenido}
+      <script>
+        window.onload = () => window.print();
+      </script>
+    </body>
+    </html>
+  `);
+
+  ventana.document.close();
 }
 
 function actualizarDashboardLaboralAdmin() {
