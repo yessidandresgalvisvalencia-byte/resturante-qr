@@ -188,9 +188,28 @@ function enriquecerDatos(datos) {
   return datos.map(item => {
     const producto = item.producto || "Producto sin nombre";
     const ventas = Number(item.ventas || 0);
-    const totalDinero = Number(item.totalDinero || 0);
-    const ticket = ventas > 0 ? totalDinero / ventas : 0;
+    const totalDinero =
+  Number(
+    item.totalDinero ||
+    item.total ||
+    item.ingresos ||
+    item.valor ||
+    item.precioTotal ||
+    0
+  );
 
+const precioUnitario =
+  Number(
+    item.precio ||
+    item.precioUnitario ||
+    item.precio_unitario ||
+    0
+  );
+
+const ticket =
+  ventas > 0 && totalDinero > 0
+    ? totalDinero / ventas
+    : precioUnitario;
     const margen = Number(
       item.margen ||
       item.margenEstimado ||
