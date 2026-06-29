@@ -1,7 +1,4 @@
-const {
-  obtenerDescriptorFacialGRUK,
-  distanciaFacialGRUK
-} = require("./faceEngine");
+const { compararCarasGRUK } = require("./rekognitionEngine");
 
 async function compararRostroBasico({ selfie, empleados }) {
   if (!selfie || !empleados || empleados.length === 0) {
@@ -11,41 +8,30 @@ async function compararRostroBasico({ selfie, empleados }) {
     };
   }
 
-  const descriptorSelfie = await obtenerDescriptorFacialGRUK(selfie);
-
-  if (!descriptorSelfie) {
-    return {
-      ok: false,
-      mensaje: "No se detectó un rostro claro. Intenta con buena luz y mirando al frente."
-    };
-  }
-
   let mejorEmpleado = null;
-  let mejorDistancia = Infinity;
+  let mejorSimilitud = 0;
 
   for (const empleado of empleados) {
-    if (!empleado.descriptorFacial || !empleado.descriptorFacial.length) {
-      continue;
-    }
+    if (!empleado.fotoBase) continue;
 
-    const distancia = distanciaFacialGRUK(
-      descriptorSelfie,
-      empleado.descriptorFacial
-    );
+    try {
+      const resultado = await compararCarasGRUK(empleado.fotoBase, selfie);
 
-    if (distancia < mejorDistancia) {
-      mejorDistancia = distancia;
-      mejorEmpleado = empleado;
+      if (resultado.similitud > mejorSimilitud) {
+        mejorSimilitud = resultado.similitud;
+        mejorEmpleado = empleado;
+      }
+    } catch (error) {
+      console.error("Error comparando con", empleado.nombre, error.message);
     }
   }
 
-  if (mejorEmpleado && mejorDistancia <= 0.52) {
+  if (mejorEmpleado && mejorSimilitud >= 90) {
     return {
       ok: true,
       empleado: mejorEmpleado,
-      distancia: mejorDistancia,
-      confianza: Number(((1 - mejorDistancia) * 100).toFixed(2)),
-      metodo: "reconocimiento_facial_real"
+      confianza: Number(mejorSimilitud.toFixed(2)),
+      metodo: "aws_rekognition"
     };
   }
 
@@ -53,7 +39,7 @@ async function compararRostroBasico({ selfie, empleados }) {
     ok: false,
     requiereSeleccionManual: false,
     mensaje: "El rostro no coincide con ningún empleado registrado.",
-    distancia: mejorDistancia === Infinity ? null : mejorDistancia
+    confianza: Number(mejorSimilitud.toFixed(2))
   };
 }
 
