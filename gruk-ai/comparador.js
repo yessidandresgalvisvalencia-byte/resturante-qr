@@ -16,6 +16,7 @@ async function compararRostroBasico({ selfie, empleados }) {
 
     try {
       const resultado = await compararCarasGRUK(empleado.fotoBase, selfie);
+      console.log("Comparación:", empleado.nombre, resultado.similitud);
 
       if (resultado.similitud > mejorSimilitud) {
         mejorSimilitud = resultado.similitud;
@@ -26,7 +27,7 @@ async function compararRostroBasico({ selfie, empleados }) {
     }
   }
 
-  if (mejorEmpleado && mejorSimilitud >= 90) {
+ if (mejorEmpleado && mejorSimilitud >= 70) {
     return {
       ok: true,
       empleado: mejorEmpleado,
