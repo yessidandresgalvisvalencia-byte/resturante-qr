@@ -2009,3 +2009,27 @@ button:focus-visible{
     border:5px solid var(--azulClaro);
     box-shadow:var(--sombra);
 }
+.loaderGRUK {
+  width: 58px;
+  height: 58px;
+  border: 6px solid #e5e7eb;
+  border-top: 6px solid #111827;
+  border-radius: 50%;
+  margin: 25px auto;
+  animation: girarGRUK 0.9s linear infinite;
+}
+
+@keyframes girarGRUK {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#textoCargaGRUK {
+  text-align: center;
+  margin-top: 10px;
+}
