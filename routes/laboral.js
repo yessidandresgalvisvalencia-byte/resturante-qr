@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const ia = require("../gruk-ai");
 const EmpleadoLaboral = require("../models/EmpleadoLaboral");
-
+const SolicitudLaboral = require("../models/SolicitudLaboral");
 
 // CREAR EMPLEADO
 router.post("/empleados", async (req, res) => {
@@ -193,6 +193,113 @@ empleados.forEach(e => {
     res.status(500).json({
       ok: false,
       mensaje: "Error reconociendo empleado."
+    });
+  }
+});
+// CREAR SOLICITUD LABORAL
+router.post("/solicitudes", async (req, res) => {
+  try {
+    const {
+      restaurantId,
+      empleadoId,
+      empleadoNombre,
+      tipo
+    } = req.body;
+
+    if (!restaurantId || !empleadoId || !tipo) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: "Faltan datos obligatorios de la solicitud."
+      });
+    }
+
+    const solicitud = await SolicitudLaboral.create({
+      restaurantId,
+      empleadoId,
+      empleadoNombre,
+      tipo,
+      estado: "pendiente"
+    });
+
+    res.json({
+      ok: true,
+      mensaje: "Solicitud enviada correctamente.",
+      solicitud
+    });
+
+  } catch (error) {
+    console.error("Error creando solicitud laboral:", error);
+
+    res.status(500).json({
+      ok: false,
+      mensaje: "Error interno creando solicitud laboral."
+    });
+  }
+});
+
+// LISTAR SOLICITUDES POR RESTAURANTE
+router.get("/solicitudes/:restaurantId", async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+
+    const solicitudes = await SolicitudLaboral.find({ restaurantId })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      ok: true,
+      solicitudes
+    });
+
+  } catch (error) {
+    console.error("Error listando solicitudes:", error);
+
+    res.status(500).json({
+      ok: false,
+      mensaje: "Error interno listando solicitudes."
+    });
+  }
+});
+
+// CAMBIAR ESTADO DE SOLICITUD
+router.put("/solicitudes/:id/estado", async (req, res) => {
+  try {
+    const { estado, observacion } = req.body;
+
+    if (!["pendiente", "aprobada", "rechazada"].includes(estado)) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: "Estado inválido."
+      });
+    }
+
+    const solicitud = await SolicitudLaboral.findByIdAndUpdate(
+      req.params.id,
+      {
+        estado,
+        observacion: observacion || ""
+      },
+      { new: true }
+    );
+
+    if (!solicitud) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: "Solicitud no encontrada."
+      });
+    }
+
+    res.json({
+      ok: true,
+      mensaje: "Solicitud actualizada correctamente.",
+      solicitud
+    });
+
+  } catch (error) {
+    console.error("Error actualizando solicitud:", error);
+
+    res.status(500).json({
+      ok: false,
+      mensaje: "Error interno actualizando solicitud."
     });
   }
 });

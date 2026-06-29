@@ -529,7 +529,7 @@ async function marcarSalidaGRUK() {
   alert("Salida registrada correctamente.");
 }
 
-function solicitarHoraExtra() {
+async function solicitarHoraExtra() {
   const empleado = obtenerEmpleadoActualGRUK();
 
   if (!empleado) {
@@ -537,30 +537,31 @@ function solicitarHoraExtra() {
     return;
   }
 
-  const solicitudes =
-    JSON.parse(localStorage.getItem(`solicitudesExtra_GRUK_${restaurantIdEmpleado}`)) ||
-    [];
-
-  solicitudes.push({
-    id: Date.now(),
-    empleadoId: empleadoIdActual,
-    empleadoNombre: empleado.nombre,
-    tipo: "hora_extra",
-    estado: "pendiente",
-    fecha: new Date().toISOString()
+  const res = await fetch("/laboral/solicitudes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      restaurantId: restaurantIdEmpleado,
+      empleadoId: empleado._id,
+      empleadoNombre: empleado.nombre,
+      tipo: "hora_extra"
+    })
   });
 
-  localStorage.setItem(
-    `solicitudesExtra_GRUK_${restaurantIdEmpleado}`,
-    JSON.stringify(solicitudes)
-  );
+  const data = await res.json();
 
+  if (!data.ok) {
+    alert(data.mensaje);
+    return;
+  }
+
+  alert("Solicitud de hora extra enviada correctamente.");
   renderizarPanelEmpleadoGRUK();
-
-  alert("Solicitud de hora extra enviada al administrador.");
 }
 
-function solicitarDobleTurno() {
+async function solicitarDobleTurno() {
   const empleado = obtenerEmpleadoActualGRUK();
 
   if (!empleado) {
@@ -568,27 +569,28 @@ function solicitarDobleTurno() {
     return;
   }
 
-  const solicitudes =
-    JSON.parse(localStorage.getItem(`solicitudesExtra_GRUK_${restaurantIdEmpleado}`)) ||
-    [];
-
-  solicitudes.push({
-    id: Date.now(),
-    empleadoId: empleadoIdActual,
-    empleadoNombre: empleado.nombre,
-    tipo: "doble_turno",
-    estado: "pendiente",
-    fecha: new Date().toISOString()
+  const res = await fetch("/laboral/solicitudes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      restaurantId: restaurantIdEmpleado,
+      empleadoId: empleado._id,
+      empleadoNombre: empleado.nombre,
+      tipo: "doble_turno"
+    })
   });
 
-  localStorage.setItem(
-    `solicitudesExtra_GRUK_${restaurantIdEmpleado}`,
-    JSON.stringify(solicitudes)
-  );
+  const data = await res.json();
 
+  if (!data.ok) {
+    alert(data.mensaje);
+    return;
+  }
+
+  alert("Solicitud de doble turno enviada correctamente.");
   renderizarPanelEmpleadoGRUK();
-
-  alert("Solicitud de doble turno enviada al administrador.");
 }
 
 function mostrarSeccionEmpleado(seccion, boton) {
@@ -613,7 +615,7 @@ function mostrarSeccionEmpleado(seccion, boton) {
   renderizarPanelEmpleadoGRUK();
 }
 
-function renderizarPanelEmpleadoGRUK() {
+async function renderizarPanelEmpleadoGRUK() {
   const empleado = obtenerEmpleadoActualGRUK();
 
   if (!empleado) return;
@@ -622,9 +624,12 @@ function renderizarPanelEmpleadoGRUK() {
     String(a.empleadoId) === String(empleadoIdActual)
   );
 
-  const solicitudes =
-    JSON.parse(localStorage.getItem(`solicitudesExtra_GRUK_${restaurantIdEmpleado}`)) || [];
+   const resSolicitudes = await fetch(`/laboral/solicitudes/${restaurantIdEmpleado}`);
+const dataSolicitudes = await resSolicitudes.json();
 
+const solicitudes = dataSolicitudes.ok
+  ? dataSolicitudes.solicitudes
+  : [];
   const solicitudesEmpleado =
     solicitudes.filter(s => String(s.empleadoId) === String(empleadoIdActual));
 
