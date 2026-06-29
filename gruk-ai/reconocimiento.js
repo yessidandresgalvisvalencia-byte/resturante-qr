@@ -1,12 +1,7 @@
 const { compararRostroBasico } = require("./comparador");
 const { generarCodigoVerificacion } = require("./utils");
 
-async function reconocerEmpleado({
-  restaurantId,
-  selfie,
-  empleados,
-  empleadoRecordadoId
-}) {
+async function reconocerEmpleado({ restaurantId, selfie, empleados }) {
   if (!restaurantId || !selfie) {
     return {
       ok: false,
@@ -22,9 +17,10 @@ async function reconocerEmpleado({
   }
 
   const resultado = await compararRostroBasico({
-  selfie,
-  empleados
-});
+    selfie,
+    empleados
+  });
+
   return {
     ...resultado,
     restaurantId,
