@@ -1,3 +1,4 @@
+alert("JS NUEVO CARGADO");
 const paramsEmpleadoTurnos = new URLSearchParams(window.location.search);
 
 const restaurantIdEmpleado =
@@ -111,9 +112,14 @@ async function tomarSelfieGRUK() {
 
 
 async function identificarEmpleadoPorRostroGRUK() {
+  console.log("BOTÓN TOMAR FOTO FUNCIONÓ");
+
   try {
-    document.getElementById("estadoFace").textContent =
-      "Tomando foto...";
+    const estadoIdentificacion = document.getElementById("estadoIdentificacionGRUK");
+    const estadoFace = document.getElementById("estadoFace");
+
+    if (estadoIdentificacion) estadoIdentificacion.textContent = "Tomando foto...";
+    if (estadoFace) estadoFace.textContent = "Tomando foto...";
 
     const selfie = await tomarSelfieGRUK();
 
@@ -129,8 +135,8 @@ async function identificarEmpleadoPorRostroGRUK() {
       preview.style.display = "block";
     }
 
-    document.getElementById("estadoFace").textContent =
-      "Reconociendo empleado...";
+    if (estadoIdentificacion) estadoIdentificacion.textContent = "Validando identidad...";
+    if (estadoFace) estadoFace.textContent = "Validando identidad...";
 
     const res = await fetch("/laboral/reconocer", {
       method: "POST",
@@ -146,6 +152,11 @@ async function identificarEmpleadoPorRostroGRUK() {
     const data = await res.json();
 
     if (!data.ok || !data.empleado) {
+      if (data.requiereSeleccionManual && data.empleados?.length) {
+        mostrarSeleccionManualEmpleadoGRUK(data.empleados, selfie);
+        return;
+      }
+
       alert(data.mensaje || "No se reconoció el empleado.");
       return;
     }
@@ -153,19 +164,20 @@ async function identificarEmpleadoPorRostroGRUK() {
     empleadoActualGRUK = data.empleado;
     empleadoIdActual = data.empleado._id;
 
-    const modal = document.getElementById("pantallaIdentificacionGRUK");
 
-    if (modal) {
-      modal.remove();
-    }
 
     actualizarVistaEmpleadoGRUK();
+
+    document.getElementById("seccion-identificacion").classList.remove("activa");
+    document.getElementById("seccion-inicio").classList.add("activa");
+
+    mostrarSeccionEmpleado("inicio");
 
     alert(`Bienvenido/a ${data.empleado.nombre}`);
 
   } catch (error) {
     console.error(error);
-    alert("No fue posible reconocer el empleado.");
+    alert("No fue posible validar la identidad del empleado.");
   }
 }
 
@@ -635,3 +647,40 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("fechaActual").textContent =
     fechaActualGRUK();
 });
+function mostrarSeleccionManualEmpleadoGRUK(empleados, selfie) {
+  const modal = document.getElementById("pantallaIdentificacionGRUK");
+
+  if (!modal) return;
+
+  modal.querySelector(".modalGRUK").innerHTML = `
+    <h2>Selecciona tu perfil</h2>
+    <p>GRUK guardó tu selfie como evidencia. Selecciona tu nombre para ingresar.</p>
+
+    <div style="display:grid;gap:12px;margin-top:18px;">
+      ${empleados.map(e => `
+        <button class="btnSecundario" onclick='ingresarEmpleadoManualGRUK(${JSON.stringify(e)}, "${selfie}")'>
+          ${e.fotoBase ? `<img src="${e.fotoBase}" width="45" height="45" style="border-radius:50%;object-fit:cover;margin-right:10px;vertical-align:middle;">` : ""}
+          ${e.nombre} · ${e.cargo || "Empleado"}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function ingresarEmpleadoManualGRUK(empleado, selfie) {
+  empleadoActualGRUK = empleado;
+  empleadoIdActual = empleado._id;
+
+  const modal = document.getElementById("pantallaIdentificacionGRUK");
+  if (modal) modal.remove();
+
+  actualizarVistaEmpleadoGRUK();
+  mostrarSeccionEmpleado("inicio");
+
+  localStorage.setItem(
+    `ultimaSelfieIdentificacion_GRUK_${restaurantIdEmpleado}_${empleado._id}`,
+    selfie
+  );
+
+  alert(`Bienvenido/a ${empleado.nombre}`);
+}

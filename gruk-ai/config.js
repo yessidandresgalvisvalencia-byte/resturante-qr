@@ -1,15 +1,8 @@
 module.exports = {
+  version: "1.0.0",
 
-    faceService:
-
-        process.env.FACE_SERVICE_URL ||
-
-        "http://localhost:5050",
-
-    distanciaMaxima:0.40,
-
-    modelo:"Facenet",
-
-    version:"1.0.0"
-
+  reconocimiento: {
+    umbralAceptacion: 0.75,
+    modo: process.env.GRUK_FACE_MODE || "evidencia"
+  }
 };

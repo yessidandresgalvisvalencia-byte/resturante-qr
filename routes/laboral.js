@@ -156,6 +156,8 @@ router.delete("/empleados/:id", async (req, res) => {
 });
 router.post("/reconocer", async (req, res) => {
   try {
+    console.log("LLEGÓ A /laboral/reconocer");
+console.log("BODY:", req.body);
     const { restaurantId, selfie } = req.body;
 
     if (!restaurantId || !selfie) {

@@ -61,6 +61,32 @@
   </aside>
 
   <main class="contenido">
+    <section id="seccion-identificacion" class="seccionEmpleado">
+
+  <div class="cardMarcacion">
+
+    <div class="encabezadoMarcacion">
+
+      <div>
+        <h2>Verificación facial GRUK</h2>
+        <h1>Ingresar</h1>
+        <p>Escanea tu rostro para abrir automáticamente tu portal laboral.</p>
+      </div>
+
+      <div class="fotoVerificacion">
+        <img id="selfieIdentificacionPreview" src="" alt="Selfie">
+        <span id="estadoIdentificacionGRUK">Pendiente</span>
+      </div>
+
+    </div>
+
+    <button class="btnPrincipal" onclick="identificarEmpleadoPorRostroGRUK()">
+      📷 Tomar foto e ingresar
+    </button>
+
+  </div>
+
+</section>
 
     <header class="headerLaboral">
       <div>
@@ -70,7 +96,7 @@
     </header>
 
     <!-- INICIO -->
-    <section id="seccion-inicio" class="seccionEmpleado activa">
+<section id="seccion-inicio" class="seccionEmpleado">
 
       <section class="cardPrincipal">
 
@@ -276,6 +302,6 @@
 
 </div>
 
-<script defer src="empleado-turnos.js"></script>
+<script defer src="empleado-turnos.js?v=99"></script>
 </body>
 </html>

@@ -1,61 +1,34 @@
-const axios=require("axios");
+const { compararRostroBasico } = require("./comparador");
+const { generarCodigoVerificacion } = require("./utils");
 
-const config=require("./config");
+async function reconocerEmpleado({ restaurantId, selfie, empleados }) {
+  if (!restaurantId || !selfie) {
+    return {
+      ok: false,
+      mensaje: "Faltan datos para reconocer empleado."
+    };
+  }
 
-async function reconocerEmpleado({
+  if (!empleados || empleados.length === 0) {
+    return {
+      ok: false,
+      mensaje: "No hay empleados registrados para este restaurante."
+    };
+  }
 
-    restaurantId,
-
+  const resultado = compararRostroBasico({
     selfie,
-
     empleados
+  });
 
-}){
-
-    try{
-
-        const respuesta=
-
-        await axios.post(
-
-            `${config.faceService}/reconocer`,
-
-            {
-
-                restaurantId,
-
-                selfie,
-
-                empleados
-
-            }
-
-        );
-
-        return respuesta.data;
-
-    }
-
-    catch(error){
-
-        return{
-
-            ok:false,
-
-            mensaje:
-
-            "No fue posible reconocer el empleado.",
-
-            error:error.message
-
-        };
-
-    }
-
+  return {
+    ...resultado,
+    restaurantId,
+    codigoVerificacion: generarCodigoVerificacion(),
+    fecha: new Date()
+  };
 }
 
-module.exports={
-
-    reconocerEmpleado
-
+module.exports = {
+  reconocerEmpleado
 };
