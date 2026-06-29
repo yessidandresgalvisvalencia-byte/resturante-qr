@@ -719,16 +719,16 @@ function ingresarEmpleadoManualGRUK(empleado, selfie) {
   empleadoActualGRUK = empleado;
   empleadoIdActual = empleado._id;
 
+  localStorage.setItem(
+    `empleadoRecordado_GRUK_${restaurantIdEmpleado}`,
+    empleado._id
+  );
+
   const modal = document.getElementById("pantallaIdentificacionGRUK");
   if (modal) modal.remove();
 
   actualizarVistaEmpleadoGRUK();
-  mostrarSeccionEmpleado("inicio");
-
-  localStorage.setItem(
-    `ultimaSelfieIdentificacion_GRUK_${restaurantIdEmpleado}_${empleado._id}`,
-    selfie
-  );
+  mostrarSeccionEmpleado("perfil");
 
   alert(`Bienvenido/a ${empleado.nombre}`);
 }
