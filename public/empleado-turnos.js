@@ -166,33 +166,25 @@ async function identificarEmpleadoPorRostroGRUK() {
   console.log("BOTÓN TOMAR FOTO FUNCIONÓ");
 
   try {
-    mostrarCargaIdentificacionGRUK("📷 Tomando foto...");
-
     const selfie = await tomarSelfieGRUK();
 
     if (!selfie) {
       alert("Debes tomar una foto para ingresar.");
-      location.reload();
       return;
     }
 
-    mostrarCargaIdentificacionGRUK("🔍 Analizando rostro...");
+    const res = await fetch("/laboral/reconocer", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        restaurantId: restaurantIdEmpleado,
+        selfie
+      })
+    });
 
-   const res = await fetch("/laboral/reconocer", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    restaurantId: restaurantIdEmpleado,
-    selfie,
-    empleadoRecordadoId: localStorage.getItem(
-      `empleadoRecordado_GRUK_${restaurantIdEmpleado}`
-    )
-  })
-});
-
-const data = await res.json();
+    const data = await res.json();
 
     if (!data.ok || !data.empleado) {
       if (data.requiereSeleccionManual && data.empleados?.length) {
@@ -201,29 +193,21 @@ const data = await res.json();
       }
 
       alert(data.mensaje || "No se reconoció el empleado.");
-      location.reload();
       return;
     }
 
     empleadoActualGRUK = data.empleado;
     empleadoIdActual = data.empleado._id;
 
-    registrarIngresoEmpleadoGRUK(data.empleado, selfie);
-
-   console.log(`Empleado reconocido: ${data.empleado.nombre}`);
-
     const modal = document.getElementById("pantallaIdentificacionGRUK");
-if (modal) modal.remove();
+    if (modal) modal.remove();
 
-actualizarVistaEmpleadoGRUK();
-mostrarSeccionEmpleado("perfil");
-
-alert(`Bienvenido/a ${data.empleado.nombre}`);
+    actualizarVistaEmpleadoGRUK();
+    mostrarSeccionEmpleado("perfil");
 
   } catch (error) {
     console.error(error);
     alert("No fue posible validar la identidad del empleado.");
-    location.reload();
   }
 }
 
