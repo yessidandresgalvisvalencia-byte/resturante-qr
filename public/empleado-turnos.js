@@ -161,7 +161,63 @@ function abrirPerfilEmpleadoReconocidoGRUK() {
 
   mostrarSeccionEmpleado("perfil");
 }
+function mostrarBienvenidaGRUK(empleado) {
+  const horaActual = new Date();
+  const hora = horaActual.getHours();
 
+  let saludo = "Hola";
+
+  if (hora >= 5 && hora < 12) {
+    saludo = "Buenos días";
+  } else if (hora >= 12 && hora < 18) {
+    saludo = "Buenas tardes";
+  } else {
+    saludo = "Buenas noches";
+  }
+
+  const horaTexto = horaActual.toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  const fechaTexto = horaActual.toLocaleDateString("es-CO", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
+
+  const bienvenida = document.createElement("div");
+  bienvenida.className = "bienvenidaGRUK";
+  bienvenida.innerHTML = `
+    <div class="bienvenidaCardGRUK">
+      <div class="bienvenidaLogoGRUK">GRUK</div>
+
+      <h1>${saludo}, ${empleado.nombre} 👋</h1>
+
+      <p class="bienvenidaOkGRUK">✅ Identidad verificada correctamente</p>
+
+      <p>
+        Te damos la bienvenida a una nueva jornada. Deseamos que este día esté lleno de
+        excelentes resultados, crecimiento, productividad y logros. Recuerda que cada
+        esfuerzo suma al éxito del equipo.
+      </p>
+
+      <div class="bienvenidaInfoGRUK">
+        <span>🕒 ${horaTexto}</span>
+        <span>📅 ${fechaTexto}</span>
+      </div>
+
+      <strong>¡Vamos por un gran día! 💙🚀</strong>
+    </div>
+  `;
+
+  document.body.appendChild(bienvenida);
+
+  setTimeout(() => {
+    bienvenida.remove();
+  }, 3200);
+}
 async function identificarEmpleadoPorRostroGRUK() {
   console.log("BOTÓN TOMAR FOTO FUNCIONÓ");
 
@@ -230,7 +286,8 @@ Te damos la bienvenida a una nueva jornada. Deseamos que este día esté lleno d
     if (modal) modal.remove();
 
     actualizarVistaEmpleadoGRUK();
-    mostrarSeccionEmpleado("perfil");
+mostrarBienvenidaGRUK(data.empleado);
+mostrarSeccionEmpleado("perfil");
 
   } catch (error) {
     console.error(error);
