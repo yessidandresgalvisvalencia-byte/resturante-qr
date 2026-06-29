@@ -259,28 +259,6 @@ async function identificarEmpleadoPorRostroGRUK() {
 
     empleadoActualGRUK = data.empleado;
     empleadoIdActual = data.empleado._id;
-    const hora = new Date().getHours();
-
-let saludo = "Hola";
-
-if (hora >= 5 && hora < 12) {
-  saludo = "Buenos días";
-} else if (hora >= 12 && hora < 18) {
-  saludo = "Buenas tardes";
-} else {
-  saludo = "Buenas noches";
-}
-
-alert(`${saludo}, ${data.empleado.nombre} 👋
-
-GRUK verificó tu identidad exitosamente.
-
-Te damos la bienvenida a una nueva jornada. Deseamos que este día esté lleno de excelentes resultados, crecimiento, productividad y logros. Recuerda que cada esfuerzo suma al éxito del equipo. ¡Vamos por un gran día! 💙🚀`);
-    
-
-
-
-
 
     const modal = document.getElementById("pantallaIdentificacionGRUK");
     if (modal) modal.remove();
