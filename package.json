@@ -12,7 +12,10 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@vladmandic/face-api": "^1.7.15",
     "axios": "^1.6.0",
+    "canvas": "^3.2.3",
     "cloudinary": "^2.10.0",
     "code": "^5.2.4",
     "dotenv": "^17.3.1",

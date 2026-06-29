@@ -21,12 +21,10 @@ async function reconocerEmpleado({
     };
   }
 
-  const resultado = compararRostroBasico({
-    selfie,
-    empleados,
-    empleadoRecordadoId
-  });
-
+  const resultado = await compararRostroBasico({
+  selfie,
+  empleados
+});
   return {
     ...resultado,
     restaurantId,

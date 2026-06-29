@@ -67,6 +67,12 @@ const empleadoLaboralSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    
+    descriptorFacial: {
+  type: [Number],
+  default: []
+},
+  
 
     fechaIngreso: {
       type: Date,
@@ -76,6 +82,8 @@ const empleadoLaboralSchema = new mongoose.Schema(
   {
     timestamps: true
   }
+  
+
 );
 
 empleadoLaboralSchema.index(

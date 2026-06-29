@@ -1,4 +1,9 @@
-function compararRostroBasico({ selfie, empleados, empleadoRecordadoId }) {
+const {
+  obtenerDescriptorFacialGRUK,
+  distanciaFacialGRUK
+} = require("./faceEngine");
+
+async function compararRostroBasico({ selfie, empleados }) {
   if (!selfie || !empleados || empleados.length === 0) {
     return {
       ok: false,
@@ -6,42 +11,49 @@ function compararRostroBasico({ selfie, empleados, empleadoRecordadoId }) {
     };
   }
 
-  if (empleadoRecordadoId) {
-    const empleadoRecordado = empleados.find(e =>
-      String(e._id) === String(empleadoRecordadoId)
+  const descriptorSelfie = await obtenerDescriptorFacialGRUK(selfie);
+
+  if (!descriptorSelfie) {
+    return {
+      ok: false,
+      mensaje: "No se detectó un rostro claro. Intenta con buena luz y mirando al frente."
+    };
+  }
+
+  let mejorEmpleado = null;
+  let mejorDistancia = Infinity;
+
+  for (const empleado of empleados) {
+    if (!empleado.descriptorFacial || !empleado.descriptorFacial.length) {
+      continue;
+    }
+
+    const distancia = distanciaFacialGRUK(
+      descriptorSelfie,
+      empleado.descriptorFacial
     );
 
-    if (empleadoRecordado) {
-      return {
-        ok: true,
-        empleado: empleadoRecordado,
-        confianza: 85,
-        metodo: "empleado_recordado"
-      };
+    if (distancia < mejorDistancia) {
+      mejorDistancia = distancia;
+      mejorEmpleado = empleado;
     }
   }
 
-  if (empleados.length === 1) {
+  if (mejorEmpleado && mejorDistancia <= 0.52) {
     return {
       ok: true,
-      empleado: empleados[0],
-      confianza: 80,
-      metodo: "empleado_unico"
+      empleado: mejorEmpleado,
+      distancia: mejorDistancia,
+      confianza: Number(((1 - mejorDistancia) * 100).toFixed(2)),
+      metodo: "reconocimiento_facial_real"
     };
   }
 
   return {
     ok: false,
-    requiereSeleccionManual: true,
-    empleados: empleados.map(e => ({
-      _id: e._id,
-      nombre: e.nombre,
-      cargo: e.cargo,
-      area: e.area,
-      fotoBase: e.fotoBase
-    })),
-    mensaje:
-      "GRUK recibió la selfie como evidencia. Selecciona tu perfil para activar el ingreso automático en este dispositivo."
+    requiereSeleccionManual: false,
+    mensaje: "El rostro no coincide con ningún empleado registrado.",
+    distancia: mejorDistancia === Infinity ? null : mejorDistancia
   };
 }
 

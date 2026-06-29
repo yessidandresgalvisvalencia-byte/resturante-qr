@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const ia = require("../gruk-ai");
 const EmpleadoLaboral = require("../models/EmpleadoLaboral");
+const { obtenerDescriptorFacialGRUK } = require("../gruk-ai/faceEngine");
 
 // CREAR EMPLEADO
 router.post("/empleados", async (req, res) => {
@@ -34,6 +35,20 @@ router.post("/empleados", async (req, res) => {
     if (valorHoraNum <= 0 && salarioNum > 0) {
       valorHoraNum = Math.round(salarioNum / 240);
     }
+    let descriptorFacial = [];
+
+if (fotoBase) {
+  const descriptor = await obtenerDescriptorFacialGRUK(fotoBase);
+
+  if (!descriptor) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: "No se detectó un rostro claro en la foto del empleado."
+    });
+  }
+
+  descriptorFacial = descriptor;
+}
 
     const empleado = await EmpleadoLaboral.create({
       restaurantId,
@@ -47,6 +62,7 @@ router.post("/empleados", async (req, res) => {
       salario: salarioNum,
       valorHora: valorHoraNum,
       fotoBase,
+      descriptorFacial,
       activo: true
     });
 
@@ -158,7 +174,7 @@ router.post("/reconocer", async (req, res) => {
   try {
     console.log("LLEGÓ A /laboral/reconocer");
 console.log("BODY:", req.body);
-    const { restaurantId, selfie, empleadoRecordadoId } = req.body;
+    const { restaurantId, selfie } = req.body;
 
     if (!restaurantId || !selfie) {
       return res.status(400).json({
@@ -175,8 +191,7 @@ console.log("BODY:", req.body);
     const resultado = await ia.reconocimiento.reconocerEmpleado({
   restaurantId,
   selfie,
-  empleados,
-  empleadoRecordadoId
+  empleados
 });
 
     res.json(resultado);
