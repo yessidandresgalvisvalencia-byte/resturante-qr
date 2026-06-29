@@ -173,6 +173,11 @@ console.log("BODY:", req.body);
       restaurantId,
       activo: true
     }).lean();
+    console.log("Empleados encontrados:", empleados.length);
+
+empleados.forEach(e => {
+  console.log("Empleado:", e.nombre, "fotoBase existe:", !!e.fotoBase);
+});
 
     const resultado = await ia.reconocimiento.reconocerEmpleado({
   restaurantId,
