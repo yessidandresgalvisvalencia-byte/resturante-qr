@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-
+const ia = require("../gruk-ai");
 const EmpleadoLaboral = require("../models/EmpleadoLaboral");
 
 // CREAR EMPLEADO
@@ -154,5 +154,37 @@ router.delete("/empleados/:id", async (req, res) => {
     });
   }
 });
+router.post("/reconocer", async (req, res) => {
+  try {
+    const { restaurantId, selfie } = req.body;
 
+    if (!restaurantId || !selfie) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: "Faltan restaurantId o selfie."
+      });
+    }
+
+    const empleados = await EmpleadoLaboral.find({
+      restaurantId,
+      activo: true
+    }).lean();
+
+    const resultado = await ia.reconocimiento.reconocerEmpleado({
+      restaurantId,
+      selfie,
+      empleados
+    });
+
+    res.json(resultado);
+
+  } catch (error) {
+    console.error("Error en /laboral/reconocer:", error);
+
+    res.status(500).json({
+      ok: false,
+      mensaje: "Error reconociendo empleado."
+    });
+  }
+});
 module.exports = router;
