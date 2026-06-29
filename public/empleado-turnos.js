@@ -209,17 +209,15 @@ async function identificarEmpleadoPorRostroGRUK() {
 
     registrarIngresoEmpleadoGRUK(data.empleado, selfie);
 
-    mostrarCargaIdentificacionGRUK(`✅ Bienvenido/a ${data.empleado.nombre}`);
+   console.log(`Empleado reconocido: ${data.empleado.nombre}`);
 
-    setTimeout(() => {
-      const modal = document.getElementById("pantallaIdentificacionGRUK");
-      if (modal) modal.remove();
+    const modal = document.getElementById("pantallaIdentificacionGRUK");
+if (modal) modal.remove();
 
-      actualizarVistaEmpleadoGRUK();
-      abrirPerfilEmpleadoReconocidoGRUK();
+actualizarVistaEmpleadoGRUK();
+mostrarSeccionEmpleado("perfil");
 
-      alert(`Bienvenido/a ${data.empleado.nombre}`);
-    }, 900);
+alert(`Bienvenido/a ${data.empleado.nombre}`);
 
   } catch (error) {
     console.error(error);
