@@ -178,20 +178,21 @@ async function identificarEmpleadoPorRostroGRUK() {
 
     mostrarCargaIdentificacionGRUK("🔍 Analizando rostro...");
 
-    const res = await fetch("/laboral/reconocer", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        restaurantId: restaurantIdEmpleado,
-        selfie
-      })
-    });
+   const res = await fetch("/laboral/reconocer", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    restaurantId: restaurantIdEmpleado,
+    selfie,
+    empleadoRecordadoId: localStorage.getItem(
+      `empleadoRecordado_GRUK_${restaurantIdEmpleado}`
+    )
+  })
+});
 
-    mostrarCargaIdentificacionGRUK("🧠 Identificando empleado...");
-
-    const data = await res.json();
+const data = await res.json();
 
     if (!data.ok || !data.empleado) {
       if (data.requiereSeleccionManual && data.empleados?.length) {

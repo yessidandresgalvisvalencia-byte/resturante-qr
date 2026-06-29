@@ -158,7 +158,7 @@ router.post("/reconocer", async (req, res) => {
   try {
     console.log("LLEGÓ A /laboral/reconocer");
 console.log("BODY:", req.body);
-    const { restaurantId, selfie } = req.body;
+    const { restaurantId, selfie, empleadoRecordadoId } = req.body;
 
     if (!restaurantId || !selfie) {
       return res.status(400).json({
@@ -173,10 +173,11 @@ console.log("BODY:", req.body);
     }).lean();
 
     const resultado = await ia.reconocimiento.reconocerEmpleado({
-      restaurantId,
-      selfie,
-      empleados
-    });
+  restaurantId,
+  selfie,
+  empleados,
+  empleadoRecordadoId
+});
 
     res.json(resultado);
 
