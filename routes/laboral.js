@@ -72,8 +72,9 @@ if (fotoBase) {
       empleado
     });
 
-  } catch (error) {
+   } catch (error) {
     console.error("Error creando empleado laboral:", error);
+    console.error("STACK:", error.stack);
 
     if (error.code === 11000) {
       return res.status(409).json({
@@ -84,7 +85,7 @@ if (fotoBase) {
 
     res.status(500).json({
       ok: false,
-      mensaje: "Error interno creando empleado laboral."
+      mensaje: error.message || "Error interno creando empleado laboral."
     });
   }
 });
