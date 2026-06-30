@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administrador GRUK</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<button class="btnMenuGRUK" onclick="toggleMenuGRUK()">☰</button>
+
+<aside id="menuAdminGRUK" class="menuAdminGRUK">
+  <h2>GRUK</h2>
+
+  <button onclick="cargarModuloGRUK('dashboard')">📊 Dashboard</button>
+  <button onclick="cargarModuloGRUK('restaurante')">🍽 Restaurante</button>
+  <button onclick="cargarModuloGRUK('laboral')">👥 Laboral</button>
+  <button onclick="cargarModuloGRUK('finanzas')">💰 Finanzas</button>
+  <button onclick="cargarModuloGRUK('inventario')">📦 Inventario</button>
+  <button onclick="cargarModuloGRUK('reportes')">📄 Reportes</button>
+  <button onclick="cargarModuloGRUK('configuracion')">⚙ Configuración</button>
+</aside>
+
+<main class="adminContenidoGRUK">
+  <div class="card">
+    <h1>Bienvenido a GRUK</h1>
+    <p>Selecciona un módulo del menú para administrar tu restaurante.</p>
+  </div>
+
+  <div id="contenedorModuloGRUK"></div>
+</main>
+
+<script>
+  const adminRestaurantId = localStorage.getItem("adminRestaurantId");
+  if (!adminRestaurantId) {
+    window.location.href = "/login.html";
+  }
+</script>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="finanzas.js"></script>
+<script src="admin.js"></script>
+<script src="admin-v2.js"></script>
+
+</body>
+</html>
