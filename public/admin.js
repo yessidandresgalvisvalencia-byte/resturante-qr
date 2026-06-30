@@ -4037,3 +4037,22 @@ async function cerrarMesFinanciero() {
 
   alert("Mes financiero cerrado correctamente");
 }
+function toggleMenuGRUK() {
+  const menu = document.getElementById("menuAdminGRUK");
+  if (menu) menu.classList.toggle("abierto");
+}
+
+function mostrarPanelGRUK(panel) {
+  document.querySelectorAll(".panelGRUK").forEach(p => {
+    p.classList.remove("activo");
+  });
+
+  const activo = document.getElementById(`panel-${panel}`);
+
+  if (activo) {
+    activo.classList.add("activo");
+  }
+
+  const menu = document.getElementById("menuAdminGRUK");
+  if (menu) menu.classList.remove("abierto");
+}
