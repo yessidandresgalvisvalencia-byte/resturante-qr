@@ -1,10 +1,811 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=/admin/index.html">
-  <title>Redirigiendo...</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administrador</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+<img id="logoRestaurante" width="180">
+
+<div class="contenedor">
+<h1>Panel Administrador</h1>
+<section id="panel-inicio" class="panelGRUK activo">
+  <div class="card">
+    <h2>Bienvenido a GRUK</h2>
+    <p>Administra tu restaurante desde un solo lugar: ventas, productos, personal, inventario, finanzas y módulos laborales.</p>
+  </div>
+</section>
+<body>
+
+<button class="btnMenuGRUK" onclick="toggleMenuGRUK()">☰</button>
+
+<aside id="menuAdminGRUK" class="menuAdminGRUK">
+  <h2>GRUK</h2>
+
+  <button onclick="mostrarPanelGRUK('inicio')">🏠 Inicio</button>
+  <button onclick="mostrarPanelGRUK('restaurante')">🍽 Restaurante</button>
+  <button onclick="mostrarPanelGRUK('laboral')">👥 Laboral</button>
+  <button onclick="mostrarPanelGRUK('finanzas')">💰 Finanzas</button>
+  <button onclick="mostrarPanelGRUK('inventario')">📦 Inventario</button>
+  <button onclick="mostrarPanelGRUK('dashboard')">📊 Dashboard</button>
+  <button onclick="mostrarPanelGRUK('configuracion')">⚙ Configuración</button>
+</aside>
+
+<main class="adminContenidoGRUK">
+
+<img id="logoRestaurante" width="180">
+
+<div class="contenedor">
+<h1>Panel Administrador</h1>
+
+<div class="card">
+<h3>Links del restaurante</h3>
+<p><strong>Restaurant ID:</strong> <span id="restaurantIdActual"></span></p>
+
+<a id="linkLogoRestaurante" class="btn-logo">
+Personalizar Logo
+</a>
+
+<p><strong>Menú cliente:</strong><br>
+<a id="linkMenu" target="_blank"></a>
+</p>
+
+<p><strong>Cocina:</strong><br>
+<a id="linkCocina" target="_blank"></a>
+</p>
+<p><strong>Caja:</strong><br>
+<a id="linkCaja" target="_blank"></a>
+</p>
+
+<p><strong>Mesero:</strong><br>
+<a id="linkMesero" target="_blank"></a>
+</p>
+
+<p><strong>Administrador:</strong><br>
+<a id="linkAdmin" target="_blank"></a>
+</p>
+
+<p><strong>Dashboard manual:</strong><br>
+<a id="linkDashboard" target="_blank"></a>
+</p>
+
+<p><strong>Dashboard automático:</strong><br>
+<a id="linkDashboardAuto" target="_blank"></a>
+</p>
+</div>
+
+<div class="card">
+<label>Restaurant ID</label>
+<input id="restaurantIdInput" type="text" value="rest1">
+
+<label>Base URL para QR</label>
+<input id="baseUrl" type="text" placeholder="https://tu-url.onrender.com">
+
+<label>Número de mesas</label>
+<input id="numeroMesas" type="number" value="10" min="1">
+
+<button onclick="generarQRs()">Generar QR</button>
+<button onclick="cargarAdmin()">Actualizar panel</button>
+</div>
+
+<div class="card">
+<h3>Agregar producto al menú</h3>
+
+<label>Nombre del producto</label>
+<input id="nombreProducto" type="text" placeholder="Ej: Hamburguesa clásica">
+
+<label>Descripción</label>
+<textarea id="descripcionProducto" placeholder="Ej: Hamburguesa artesanal con carne de res, queso, lechuga, tomate y salsa especial"></textarea>
+
+<label>Precio</label>
+<input id="precioProducto" type="number" placeholder="Ej: 20000">
+<label>Costo materia prima por unidad</label>
+<p class="descripcion-termino">
+Costo real de los ingredientes usados para preparar una unidad del producto.
+Ejemplo: si una empanada cuesta $1.800 en insumos, escribe 1800.
+</p>
+<input id="costoMateriaProducto" type="number" placeholder="Ej: 3500">
+<label>Categoría</label>
+<select id="categoriaProducto">
+<option value="Entradas">Entradas</option>
+<option value="Comida">Comida</option>
+<option value="Bebidas frías">Bebidas frías</option>
+<option value="Bebidas calientes">Bebidas calientes</option>
+<option value="Adiciones">Adiciones</option>
+<option value="Postres">Postres</option>
+</select>
+
+<label>Guarniciones (separadas por coma)</label>
+<input id="guarnicionesProducto" type="text" placeholder="Ej: papas, ensalada, puré">
+
+<label>Adiciones / extras con precio</label>
+<input id="extrasProducto" type="text" placeholder="Ej: chicharrón:8000, tajadas:3000, aguacate:5000">
+
+<label>URL de imagen</label>
+<input id="imagenProducto" type="text" placeholder="/img/hamburguesa.jpg">
+
+<label>Tiempo estimado base (minutos)</label>
+<input id="tiempoProducto" type="number" value="10">
+
+<label>Disponible</label>
+<select id="disponibleProducto">
+<option value="true">Sí</option>
+<option value="false">No</option>
+</select>
+
+<button id="btnGuardarProducto" onclick="guardarOEditarProducto()">Guardar producto</button>
+<button id="btnCancelarEdicion" onclick="cancelarEdicion()" style="display:none;">Cancelar edición</button>
+</div>
+
+<div class="card">
+<h3>Agregar personal</h3>
+
+<label>Nombre</label>
+<input id="nombrePersonal" type="text" placeholder="Ej: Juan">
+
+<label>Cargo</label>
+<select id="cargoPersonal">
+<option value="mesero">Mesero</option>
+<option value="mesera">Mesera</option>
+<option value="cajero">Cajero</option>
+<option value="cocinero">Cocinero</option>
+<option value="admin">Admin</option>
+</select>
+
+<label>Estado</label>
+<select id="estadoPersonal">
+<option value="disponible">Disponible</option>
+<option value="ocupado">Ocupado</option>
+</select>
+
+<label>Usuario</label>
+<input id="usuarioPersonal" type="text" placeholder="Ej: juan01">
+
+<label>Contraseña</label>
+<input id="passwordPersonal" type="text" placeholder="Ej: 1234">
+<label>Salario mensual</label>
+<input
+id="salarioPersonal"
+type="number"
+placeholder="Ej: 1800000"
+>
+<button onclick="agregarPersonal()">Guardar personal</button>
+</div>
+
+<div class="card">
+<h3>Insertar datos manuales para estadísticas</h3>
+
+<p>Agrega productos vendidos manualmente para generar gráfica y recomendaciones.</p>
+
+<label>Producto</label>
+<input id="productoManual" type="text" placeholder="Ej: Carne">
+
+<label>Cantidad vendida</label>
+<input id="cantidadManual" type="number" placeholder="Ej: 2">
+
+<label>Precio unitario</label>
+<input id="precioManual" type="number" placeholder="Ej: 5000">
+
+<button onclick="agregarDatoManualDashboard()">Agregar producto</button>
+<button onclick="guardarDatosManualDashboard()">Guardar datos manuales</button>
+<button onclick="limpiarDatosManualDashboard()">Limpiar datos</button>
+
+<div id="listaDatosManual" class="grid"></div>
+</div>
+
+<div class="card">
+<h3>Control de Gasto</h3>
+
+<p>
+Analiza si un gasto fue necesario, parcialmente útil o innecesario, y genera una recomendación financiera especializada para evitar derroche de capital.
+</p>
+
+<label>Nombre del gasto</label>
+<input id="nombreGasto" type="text" placeholder="Ej: empaques premium, publicidad, insumos extra">
+
+<label>Valor del gasto</label>
+<input id="valorGasto" type="number" placeholder="Ej: 500000">
+
+
+</p>
+<option value="Administración">Administración</option>
+<option value="Ventas">Ventas</option>
+<option value="Financieros">Financieros</option>
+<option value="Producción">Producción / Servicio</option>
+<option value="Logística">Logística / Domicilios</option>
+<option value="Otro">Otro</option>
+</select>
+
+<p class="descripcion-termino">
+GRUK usará esta clasificación para separar gastos administrativos, gastos de ventas, financieros, producción y logística dentro del reporte ejecutivo.
+</p>
+<div class="card" style="
+margin-top:10px;
+background:#f8fafc;
+border-left:5px solid #2563eb;
+color:#111827;
+">
+
+<div class="card" style="
+margin-top:10px;
+background:#f8fafc;
+border-left:5px solid #2563eb;
+color:#111827;
+">
+
+<h4 style="color:#1d4ed8;">
+📚 Guía rápida de clasificación de gastos GRUK
+</h4>
+
+<p style="color:#111827;">
+<strong>🏢 Administración:</strong>
+Gastos necesarios para dirigir y controlar la empresa.
+Ejemplo: gerente, contabilidad, auditoría, servicios generales y papelería.
+</p>
+
+<p style="color:#111827;">
+<strong>📢 Ventas:</strong>
+Gastos destinados a atraer clientes y aumentar ingresos.
+Ejemplo: publicidad, promociones y campañas comerciales.
+</p>
+
+<p style="color:#111827;">
+<strong>🏦 Financieros:</strong>
+Costos generados por préstamos, créditos, intereses o financiación.
+</p>
+
+<p style="color:#111827;">
+<strong>🏭 Producción:</strong>
+Gastos relacionados con la elaboración del producto o prestación del servicio.
+Ejemplo: materia prima, insumos, empaques y elementos de producción.
+</p>
+
+<p style="color:#111827;">
+<strong>🚚 Logística:</strong>
+Gastos asociados al transporte, domicilios, combustible y distribución.
+</p>
+
+</div>
+</div>
+<label>¿El gasto pertenece a este restaurante?</label>
+<select id="gastoPertenece">
+<option value="si">Sí, pertenece a este restaurante</option>
+<option value="no">No, fue utilizado por otro restaurante</option>
+</select>
+
+<label>Restaurante beneficiado</label>
+<input
+id="restauranteBeneficiado"
+type="text"
+placeholder="Ej: Restaurante B"
+>
+
+<label>ID del pedido relacionado</label>
+<input
+id="pedidoRelacionado"
+type="text"
+placeholder="Ej: PED-001"
+>
+
+<label>Objetivo del gasto</label>
+<select id="objetivoGasto">
+<option value="ventas">Ventas inmediatas</option>
+<option value="operacion">Operación base</option>
+<option value="fidelizacion">Fidelización a largo plazo</option>
+</select>
+
+<label>Resultado generado por el gasto</label>
+<select id="impactoGasto">
+<option value="alto">Sí generó resultado claro</option>
+<option value="medio">Generó resultado parcial</option>
+<option value="bajo">No generó resultado visible</option>
+</select>
+
+<label>Observación del gasto</label>
+<textarea id="observacionGasto" placeholder="Ej: se compró mucho inventario, pero no rotó; se pagó publicidad, pero no aumentaron los pedidos"></textarea>
+
+<button onclick="analizarGasto()">Analizar gasto</button>
+
+<div id="resultadoControlGasto"></div>
+</div>
+<div class="card">
+
+<h3>⚙️ Configuración Financiera GRUK</h3>
+<label>Variación de costos de insumos</label>
+<select id="riesgoInsumos">
+<option value="bajo">Baja</option>
+<option value="medio">Media</option>
+<option value="alto">Alta</option>
+</select>
+
+<label>Frecuencia de descuentos/promociones</label>
+<select id="riesgoDescuentos">
+<option value="bajo">Casi nunca</option>
+<option value="medio">Algunas veces</option>
+<option value="alto">Frecuente</option>
+</select>
+
+<label>Riesgo de desperdicio o vencimiento</label>
+<select id="riesgoDesperdicio">
+<option value="bajo">Bajo</option>
+<option value="medio">Medio</option>
+<option value="alto">Alto</option>
+</select>
+
+<button onclick="recomendarMargenSeguridad()">
+GRUK recomendar margen de seguridad
+</button>
+
+<input
+id="margenSeguridadGeneral"
+type="number"
+step="0.01"
+readonly
+>
+
+<button onclick="guardarConfiguracionFinanciera()">
+Guardar configuración financiera
+</button>
+
+<div id="estadoConfiguracionFinanciera"></div>
+
+<p>
+Configuración global para proteger márgenes y controlar descuentos.
+</p>
+
+<label>Margen de Seguridad (MS)</label>
+
+<input
+id="margenSeguridadGeneral"
+type="number"
+step="0.01"
+value="0.02"
+placeholder="Ej: 0.02">
+
+<button onclick="guardarConfiguracionFinanciera()">
+Guardar configuración financiera
+</button>
+
+<div id="estadoConfiguracionFinanciera"></div>
+
+</div>
+<div class="card">
+
+<h3>Inteligencia de precios</h3>
+
+<p>
+GRUK calculará el precio mínimo sostenible,
+precio rentable recomendado
+y precio premium estratégico
+según costos, margen, demanda y percepción de valor.
+</p>
+
+<label>Nombre del producto</label>
+<input
+id="productoPrecio"
+type="text"
+placeholder="Ej: Carne asada premium"
+>
+
+<label>Costo materia prima</label>
+
+<input
+id="costoMateriaPrima"
+type="number"
+placeholder="Ej: 18000"
+>
+
+<p class="descripcion-termino">
+Incluye únicamente ingredientes físicos:
+carne, pollo, arroz, queso, verduras,
+papas, salsas y demás insumos directos.
+</p>
+
+<label>Costo operativo estimado</label>
+
+<input
+id="costoOperativo"
+type="number"
+placeholder="Ej: 5000"
+>
+
+<p class="descripcion-termino">
+Incluye costos indirectos del plato:
+gas, energía, carbón, empaques,
+limpieza, comisiones, desgaste,
+salario proporcional y operación general.
+No incluyas aquí la materia prima.
+</p>
+
+<label>Tiempo de preparación (min)</label>
+<input
+id="tiempoPreparacion"
+type="number"
+placeholder="Ej: 20"
+>
+
+<label>Tipo de producto</label>
+<select id="tipoProductoPrecio">
+
+<option value="ancla">
+Producto ancla / volumen
+</option>
+
+<option value="estrella">
+Producto estrella
+</option>
+
+<option value="diamante">
+Producto diamante premium
+</option>
+
+<option value="normal">
+Producto equilibrado
+</option>
+
+</select>
+
+<label>Nivel de demanda actual</label>
+<select id="demandaProducto">
+
+<option value="alta">
+Alta demanda
+</option>
+
+<option value="media">
+Demanda media
+</option>
+
+<option value="baja">
+Baja demanda
+</option>
+
+</select>
+<label>Precio actual de venta</label>
+<input
+id="precioActualVenta"
+type="number"
+placeholder="Ej: 25000"
+>
+<button onclick="calcularPrecioInteligente()">
+Analizar precio
+</button>
+
+<div id="resultadoPrecioInteligente"></div>
+
+
+<h2>Inteligencia Comercial GRUK</h2>
+
+<div class="card">
+
+<h3>Factores Externos</h3>
+
+<label>Competencia</label>
+
+<select id="competenciaGRUK">
+<option value="muy_barata">Muy barata</option>
+<option value="similar" selected>Similar</option>
+<option value="mas_costosa">Más costosa</option>
+</select>
+
+<label>Ciudad</label>
+
+<input
+id="ciudadGRUK"
+type="text"
+placeholder="Ej: Medellín"
+>
+
+<label>Temporada</label>
+
+<select id="temporadaGRUK">
+<option value="baja">Baja</option>
+<option value="normal" selected>Normal</option>
+<option value="alta">Alta</option>
+</select>
+
+<label>Marketing</label>
+
+<select id="marketingGRUK">
+<option value="bajo">Bajo</option>
+<option value="medio" selected>Medio</option>
+<option value="alto">Alto</option>
+</select>
+
+<label>Percepción de valor</label>
+
+<select id="valorGRUK">
+<option value="baja">Baja</option>
+<option value="media" selected>Media</option>
+<option value="alta">Alta</option>
+</select>
+
+<button onclick="guardarInteligenciaGRUK()">
+
+Guardar Inteligencia Comercial
+
+</button>
+
+</div>
+<div class="resumen-grid">
+<div class="card">
+<h3>Total vendido</h3>
+<p id="totalVendido">$0</p>
+</div>
+
+<div class="card">
+<h3>Pedidos activos</h3>
+<p id="pedidosActivos">0</p>
+</div>
+</div>
+<div class="card">
+  <h3>Reporte ejecutivo GRUK</h3>
+
+  <p class="descripcion-termino">
+    Genera un documento consolidado del restaurante con ventas, productos, estrategias, inventario y recomendaciones.
+  </p>
+
+  <label>Periodo del reporte</label>
+  <select id="periodoReporte">
+    <option value="mensual">Mensual</option>
+    <option value="bimestral">Cada 2 meses</option>
+    <option value="trimestral">Trimestral</option>
+    <option value="semestral">Cada 6 meses</option>
+    <option value="anual">Anual</option>
+  </select>
+<div class="card">
+  <div class="card">
+    <div class="card">
+
+<h3>Presupuesto Inteligente GRUK</h3>
+
+<p>
+Defina las metas financieras del próximo mes.
+GRUK comparará automáticamente el resultado real contra estas metas.
+</p>
+
+<label>Meta de ingresos</label>
+<input
+id="presupuestoVentas"
+type="number"
+placeholder="Ej: 25000000"
+>
+
+<label>Meta de utilidad operacional</label>
+<input
+id="presupuestoUtilidad"
+type="number"
+placeholder="Ej: 6000000"
+>
+
+<button onclick="guardarPresupuestoGRUK()">
+Guardar presupuesto
+</button>
+
+<div id="resultadoPresupuestoGRUK"></div>
+
+</div>
+<h3>Simulador Financiero GRUK</h3>
+
+<p>
+Simula qué pasaría si cambian las ventas, los costos, la nómina o los gastos del restaurante.
+</p>
+
+<label>Aumento o disminución de ventas (%)</label>
+<input id="simVentas" type="number" placeholder="Ej: 10 o -5">
+<label>¿Por qué cambian las ventas?</label>
+
+<select id="simTipoVentas">
+<option value="precio">Por aumento de precios</option>
+<option value="volumen">Por más clientes / más pedidos</option>
+</select>
+
+<p class="descripcion-termino">
+Si el aumento es por volumen, GRUK también aumenta la materia prima de forma proporcional.
+Si es por precio, la materia prima no sube automáticamente.
+</p>
+
+<label>Aumento o disminución de materia prima (%)</label>
+<input id="simMateriaPrima" type="number" placeholder="Ej: 8 o -3">
+
+<label>Aumento o disminución de gastos (%)</label>
+<input id="simGastos" type="number" placeholder="Ej: 5 o -10">
+
+<label>Aumento o disminución de nómina (%)</label>
+<input id="simNomina" type="number" placeholder="Ej: 0 o 15">
+
+<button onclick="simularFinanzasGRUK()">
+Simular escenario
+</button>
+
+<div id="resultadoSimuladorFinanciero"></div>
+</div>
+<h3>Presupuesto mensual GRUK</h3>
+
+<label>Meta mensual de ventas</label>
+<input id="presupuestoVentas" type="number" placeholder="Ej: 20000000">
+
+<label>Meta mensual de utilidad neta</label>
+<input id="presupuestoUtilidad" type="number" placeholder="Ej: 5000000">
+
+<button onclick="guardarPresupuestoGerencial()">
+Guardar presupuesto
+</button>
+<div class="card">
+<h3>Cierre mensual GRUK</h3>
+
+<p>
+Cuando cierres el mes, GRUK guardará los ingresos, costos, gastos, nómina y utilidad del periodo actual en el histórico financiero.
+</p>
+
+<button onclick="cerrarMesFinanciero()">
+Cerrar mes financiero
+</button>
+
+<div id="estadoCierreMensual"></div>
+</div>
+<div id="estadoPresupuestoGerencial"></div>
+</div>
+  <button onclick="generarReporteEjecutivo()">
+    Generar documento
+  </button>
+</div>
+
+<h2>Solicitudes de mesero</h2>
+<div id="solicitudesMesero" class="grid"></div>
+
+<h2>Top productos vendidos</h2>
+<div id="topProductos" class="grid"></div>
+
+<h2>Historial de ventas</h2>
+<div id="historialVentas" class="grid"></div>
+
+<h2>Control de stock</h2>
+<div id="stockLista" class="grid"></div>
+<div class="card">
+
+<h3>Inventario inteligente</h3>
+
+<label>Producto</label>
+<input id="inventarioNombre" type="text">
+
+<label>Categoría</label>
+
+<select id="inventarioCategoria">
+<option value="Carnes">Carnes</option>
+<option value="Lácteos">Lácteos</option>
+<option value="Verduras">Verduras</option>
+<option value="Frutas">Frutas</option>
+<option value="Bebidas">Bebidas</option>
+<option value="Salsas">Salsas</option>
+<option value="Congelados">Congelados</option>
+<option value="Abarrotes">Abarrotes</option>
+<option value="Empaques">Empaques</option>
+<option value="Limpieza">Limpieza</option>
+</select>
+
+<label>Cantidad</label>
+
+<p class="descripcion-termino">
+Cantidad numérica real del inventario.
+Ejemplo:
+15, 20, 3.5, 100.
+No escribas unidades aquí.
+</p>
+
+<input
+id="inventarioCantidad"
+type="number"
+>
+
+<label>Costo unitario de compra</label>
+
+<p class="descripcion-termino">
+Valor pagado por una unidad, kilogramo, litro o paquete.
+
+Ejemplos:
+
+• Carne: $18.000 por kg
+• Leche: $4.500 por litro
+• Empaques: $500 por unidad
+
+GRUK utilizará este valor para calcular automáticamente
+el dinero invertido en inventario y el valor total de cada producto.
+</p>
+
+<input
+id="inventarioCosto"
+type="number"
+placeholder="Ej: 18000"
+>
+
+<label>Unidad</label>
+
+<p class="descripcion-termino">
+Tipo de medida utilizada.
+Ejemplo:
+kg, gramos, litros, unidades, bolsas, cajas.
+</p>
+
+<input
+id="inventarioUnidad"
+type="text"
+placeholder="Ej: kg, litros, unidades"
+>
+
+<label>Proveedor</label>
+
+<input
+id="inventarioProveedor"
+type="text"
+>
+
+<label>Fecha de compra</label>
+
+<input
+id="inventarioCompra"
+type="date"
+>
+
+<label>Fecha de vencimiento</label>
+
+<input
+id="inventarioVencimiento"
+type="date"
+>
+
+<button onclick="guardarInventario()">
+Guardar inventario
+</button>
+
+<br><br>
+
+<div id="inventarioResumen"></div>
+
+<button onclick="mostrarCarpetaInventario()">
+📦 Ver inventario completo
+</button>
+
+<div
+id="carpetaInventario"
+style="display:none;"
+>
+
+<h2>Inventario</h2>
+
+<div
+id="inventarioLista"
+class="grid"
+></div>
+
+</div>
+</div>
+<h2>Personal del restaurante</h2>
+<div id="listaPersonal" class="grid"></div>
+
+<h2>Estrategias aplicadas</h2>
+<div id="estrategiasAplicadas" class="grid"></div>
+
+<h2>productos recomendados</h2>
+<div id="produsctosRecomendadosAdmin" class="grid"></div>
+
+<h2>QR por mesa</h2>
+<div id="qrs" class="grid"></div>
+</div>
+</main>
+<script>
+const adminRestaurantId = localStorage.getItem("adminRestaurantId");
+if (!adminRestaurantId) {
+window.location.href = "/login.html";
+}
+
+</script>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="finanzas.js"></script>
+<script src="admin.js"></script>
 </body>
 </html>
