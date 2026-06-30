@@ -38,3 +38,6 @@ async function cargarModuloGRUK(modulo) {
     cargarAdmin();
   }
 }
+document.addEventListener("DOMContentLoaded", () => {
+    cargarModuloGRUK("dashboard");
+});
