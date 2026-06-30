@@ -250,3 +250,79 @@ bottom: -8px;
 border-top: 8px solid #92400e;
 border-left: 8px solid transparent;
 }
+.btnMenuGRUK {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 10000;
+  background: #111827;
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.menuAdminGRUK {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 100vh;
+  background: #111827;
+  color: white;
+  z-index: 9999;
+  padding: 80px 18px 20px;
+  box-shadow: 10px 0 30px rgba(0,0,0,.18);
+}
+
+.menuAdminGRUK h2 {
+  margin-bottom: 25px;
+}
+
+.menuAdminGRUK button {
+  width: 100%;
+  display: block;
+  border: none;
+  background: transparent;
+  color: white;
+  text-align: left;
+  padding: 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.menuAdminGRUK button:hover {
+  background: rgba(255,255,255,.12);
+}
+
+.adminContenidoGRUK {
+  margin-left: 280px;
+  padding: 24px;
+}
+
+.panelGRUK {
+  display: none;
+}
+
+.panelGRUK.activo {
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .menuAdminGRUK {
+    left: -280px;
+    transition: .3s;
+  }
+
+  .menuAdminGRUK.abierto {
+    left: 0;
+  }
+
+  .adminContenidoGRUK {
+    margin-left: 0;
+    padding-top: 70px;
+  }
+}

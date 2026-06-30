@@ -12,6 +12,28 @@
 
 <div class="contenedor">
 <h1>Panel Administrador</h1>
+<body>
+
+<button class="btnMenuGRUK" onclick="toggleMenuGRUK()">☰</button>
+
+<aside id="menuAdminGRUK" class="menuAdminGRUK">
+  <h2>GRUK</h2>
+
+  <button onclick="mostrarPanelGRUK('inicio')">🏠 Inicio</button>
+  <button onclick="mostrarPanelGRUK('restaurante')">🍽 Restaurante</button>
+  <button onclick="mostrarPanelGRUK('laboral')">👥 Laboral</button>
+  <button onclick="mostrarPanelGRUK('finanzas')">💰 Finanzas</button>
+  <button onclick="mostrarPanelGRUK('inventario')">📦 Inventario</button>
+  <button onclick="mostrarPanelGRUK('dashboard')">📊 Dashboard</button>
+  <button onclick="mostrarPanelGRUK('configuracion')">⚙ Configuración</button>
+</aside>
+
+<main class="adminContenidoGRUK">
+
+<img id="logoRestaurante" width="180">
+
+<div class="contenedor">
+<h1>Panel Administrador</h1>
 
 <div class="card">
 <h3>Links del restaurante</h3>
@@ -767,12 +789,13 @@ class="grid"
 <h2>QR por mesa</h2>
 <div id="qrs" class="grid"></div>
 </div>
-
+</main>
 <script>
 const adminRestaurantId = localStorage.getItem("adminRestaurantId");
 if (!adminRestaurantId) {
 window.location.href = "/login.html";
 }
+
 </script>
 
 <script src="/socket.io/socket.io.js"></script>
