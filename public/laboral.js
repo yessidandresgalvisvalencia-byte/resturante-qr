@@ -370,10 +370,19 @@ function obtenerAsistenciasAdminGRUK() {
   );
 }
 
-function obtenerSolicitudesAdminGRUK() {
-  return (
-    JSON.parse(localStorage.getItem(`solicitudesExtra_GRUK_${restaurantIdLaboral}`)) || []
-  );
+async function obtenerSolicitudesAdminGRUK() {
+  try {
+    const res = await fetch(`/laboral/solicitudes/${restaurantIdLaboral}`);
+    const data = await res.json();
+
+    if (!data.ok) return [];
+
+    return data.solicitudes || [];
+
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 }
 
 function guardarSolicitudesAdminGRUK(solicitudes) {
@@ -409,11 +418,11 @@ function cargarAsistenciasAdminGRUK() {
   `).join("");
 }
 
-function cargarSolicitudesAdminGRUK() {
+async function cargarSolicitudesAdminGRUK() {
   const contenedor = document.getElementById("listaSolicitudesAdminGRUK");
   if (!contenedor) return;
 
-  const solicitudes = obtenerSolicitudesAdminGRUK();
+  const solicitudes = await obtenerSolicitudesAdminGRUK();
 
   if (solicitudes.length === 0) {
     contenedor.innerHTML = "<p>No hay solicitudes pendientes.</p>";
@@ -438,19 +447,25 @@ function cargarSolicitudesAdminGRUK() {
   `).join("");
 }
 
-function actualizarSolicitudAdminGRUK(id, estado) {
-  const solicitudes = obtenerSolicitudesAdminGRUK();
+async function actualizarSolicitudAdminGRUK(id, estado) {
+  const res = await fetch(`/laboral/solicitudes/${id}/estado`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      estado
+    })
+  });
 
-  const solicitud = solicitudes.find(s => Number(s.id) === Number(id));
+  const data = await res.json();
 
-  if (solicitud) {
-    solicitud.estado = estado;
-    solicitud.fechaRespuesta = new Date().toISOString();
+  if (!data.ok) {
+    alert(data.mensaje || "No se pudo actualizar la solicitud.");
+    return;
   }
 
-  guardarSolicitudesAdminGRUK(solicitudes);
-
-  cargarPanelesAdminLaboralGRUK();
+  await cargarPanelesAdminLaboralGRUK();
 
   alert(`Solicitud ${estado}.`);
 }
@@ -678,8 +693,8 @@ function imprimirQRLaboralGRUK() {
 
 async function actualizarDashboardLaboralAdmin() {
   const empleados = await obtenerEmpleadosGRUK();
-  const asistencias = obtenerAsistenciasAdminGRUK();
-  const solicitudes = obtenerSolicitudesAdminGRUK();
+  const asistencias =  obtenerAsistenciasAdminGRUK();
+  const solicitudes = await obtenerSolicitudesAdminGRUK();
 
   const hoy = new Date().toISOString().slice(0, 10);
 
