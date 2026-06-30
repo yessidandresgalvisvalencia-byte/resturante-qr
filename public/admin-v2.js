@@ -57,3 +57,10 @@ if (modulo === "finanzas") {
     cargarAdmin();
   }
 }
+if (modulo === "configuracion") {
+
+    if(typeof cargarAdmin==="function"){
+        cargarAdmin();
+    }
+
+}
