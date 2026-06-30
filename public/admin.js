@@ -117,15 +117,15 @@ function cargarScriptModuloGRUK(nombreModulo) {
       return;
     }
 
-    const id = `script-${nombreModulo}`;
+    const yaExiste = document.querySelector(`script[src="${src}"]`);
 
-    if (document.getElementById(id)) {
+    if (yaExiste) {
       resolve();
       return;
     }
 
     const script = document.createElement("script");
-    script.id = id;
+    script.id = `script-${nombreModulo}`;
     script.src = src;
     script.onload = resolve;
     script.onerror = resolve;
@@ -134,6 +134,47 @@ function cargarScriptModuloGRUK(nombreModulo) {
   });
 }
 
+async function cargarModuloGRUK(nombreModulo) {
+  const contenedor = document.getElementById("contenidoPrincipalGRUK");
+
+  if (!contenedor) {
+    console.error("No existe contenidoPrincipalGRUK");
+    return;
+  }
+
+  contenedor.dataset.moduloActual = nombreModulo;
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <p>Cargando módulo...</p>
+    </div>
+  `;
+
+  try {
+    cargarCSSModuloGRUK(nombreModulo);
+
+    const res = await fetch(`/modulos/${nombreModulo}.html`);
+    const html = await res.text();
+
+    contenedor.innerHTML = html;
+
+    await cargarScriptModuloGRUK(nombreModulo);
+
+    await inicializarModuloGRUK(nombreModulo);
+
+    const menu = document.getElementById("menuAdminGRUK");
+    if (menu) menu.classList.remove("abierto");
+
+  } catch (error) {
+    console.error("Error cargando módulo:", error);
+
+    contenedor.innerHTML = `
+      <div class="card">
+        <p>No se pudo cargar el módulo ${nombreModulo}.</p>
+      </div>
+    `;
+  }
+}
 async function cargarModuloGRUK(nombreModulo) {
   const contenedor = document.getElementById("contenidoPrincipalGRUK");
 
