@@ -1,0 +1,59 @@
+<div class="card">
+  <h1>📊 Reportes y Dashboard GRUK</h1>
+  <p>Consulta estadísticas, genera reportes y administra el dashboard manual.</p>
+</div>
+
+<div class="card">
+
+<h3>Insertar datos manuales para estadísticas</h3>
+
+<p>Agrega productos vendidos manualmente para generar gráfica y recomendaciones.</p>
+
+<label>Producto</label>
+<input id="productoManual" type="text" placeholder="Ej: Carne">
+
+<label>Cantidad vendida</label>
+<input id="cantidadManual" type="number" placeholder="Ej: 2">
+
+<label>Precio unitario</label>
+<input id="precioManual" type="number" placeholder="Ej: 5000">
+
+<button onclick="agregarDatoManualDashboard()">
+Agregar producto
+</button>
+
+<button onclick="guardarDatosManualDashboard()">
+Guardar datos manuales
+</button>
+
+<button onclick="limpiarDatosManualDashboard()">
+Limpiar datos
+</button>
+
+<div id="listaDatosManual" class="grid"></div>
+
+</div>
+
+<div class="card">
+
+<h3>Reporte ejecutivo GRUK</h3>
+
+<p class="descripcion-termino">
+Genera un documento consolidado del restaurante con ventas, productos, estrategias, inventario y recomendaciones.
+</p>
+
+<label>Periodo del reporte</label>
+
+<select id="periodoReporte">
+<option value="mensual">Mensual</option>
+<option value="bimestral">Cada 2 meses</option>
+<option value="trimestral">Trimestral</option>
+<option value="semestral">Cada 6 meses</option>
+<option value="anual">Anual</option>
+</select>
+
+<button onclick="generarReporteEjecutivo()">
+Generar documento
+</button>
+
+</div>
