@@ -1624,9 +1624,1039 @@ function interpretarPrecioGRUK(r){
   return "⭐ Producto con margen premium. Conviene proteger su calidad y posicionamiento.";
 
 }
+function analizarGasto() {
+  const nombre = document.getElementById("nombreGasto").value.trim();
+  const valor = Number(document.getElementById("valorGasto").value);
+  const categoria = document.getElementById("categoriaGasto").value;
+  const impacto = document.getElementById("impactoGasto").value;
+  const objetivo = document.getElementById("objetivoGasto").value;
+  const observacion = document.getElementById("observacionGasto").value.trim();
+
+  const gastoPertenece = document.getElementById("gastoPertenece").value;
+  const restauranteBeneficiado = document.getElementById("restauranteBeneficiado").value.trim();
+  const pedidoRelacionado = document.getElementById("pedidoRelacionado").value.trim();
+  const esCostoRecuperable = gastoPertenece === "no";
+
+  if (!nombre || !valor || !categoria || !impacto || !objetivo) {
+    alert("Completa todos los datos del gasto");
+    return;
+  }
+
+  const texto = `${nombre} ${categoria} ${objetivo} ${observacion}`.toLowerCase();
+
+  const contiene = (palabras) =>
+    palabras.some(palabra => texto.includes(palabra));
+
+  const esCampanaGanadora = contiene([
+    "black friday", "hot sale", "tráfico", "trafico", "roi", "retorno",
+    "vendimos todo", "quebró stock", "quebro stock", "agotó stock",
+    "agoto stock", "stock agotado", "triplicó", "triplico", "duplicó", "duplico"
+  ]);
+
+  const esExperienciaCliente = contiene([
+    "clientes felices", "cliente feliz", "satisfacción", "satisfaccion",
+    "fidelización", "fidelizacion", "recompra", "quejas", "espera", "fila",
+    "atención", "atencion", "experiencia", "tiempo de espera", "servicio"
+  ]);
+
+  const esInfraestructura = contiene([
+    "infraestructura", "equipo", "equipos", "maquinaria", "nevera", "horno",
+    "licuadora", "computador", "tablet", "mobiliario", "sillas", "mesas",
+    "adecuación", "adecuacion"
+  ]);
+
+  const esOperacionBase =
+    objetivo === "operacion" ||
+    contiene([
+      "arriendo", "nómina", "nomina", "servicios", "luz", "agua", "gas",
+      "internet", "software", "domicilio", "transporte", "mantenimiento"
+    ]);
+
+  let metodo = "";
+  let diagnostico = "";
+  let analisis = "";
+  let decision = "";
+  let recomendacion = "";
+
+  let porcentajeCambio = 0;
+  let tipoCambio = "reducción";
+  let usoDinero = "";
+  let controlRiesgo = "";
+  let nuevoValor = valor;
+
+  if (esCostoRecuperable) {
+    metodo = "Método 8 — Recuperación de capital operativo externo";
+    tipoCambio = "recaudo";
+    porcentajeCambio = 0;
+    nuevoValor = valor;
+
+    diagnostico = "Se detectó un gasto operativo utilizado por un tercero y no por este restaurante.";
+
+    analisis = `El gasto en ${nombre} no representa una pérdida operativa interna real. El recurso fue utilizado para beneficiar una operación externa, por lo que el capital debe recuperarse mediante cobro administrativo y no mediante reducción de personal o recorte logístico.`;
+
+    decision = "Generar cuenta de cobro inmediata al restaurante beneficiado.";
+
+    recomendacion = `📊 Orden de Recaudo de GRUK:<br><br>
+Se detectó una fuga de capital de $${valor.toLocaleString("es-CO")} en el rubro logístico.<br><br>
+Pedido relacionado: ${pedidoRelacionado || "Sin ID asociado"}.<br><br>
+GRUK recomienda generar cuenta de cobro inmediata a: ${restauranteBeneficiado || "Restaurante beneficiado"}.<br><br>
+No reduzca personal ni capacidad logística. El problema no es exceso operativo: el problema es capital no recuperado.`;
+
+    usoDinero = "El dinero recuperado debe regresar a liquidez operativa y caja menor.";
+    controlRiesgo = "Si estos costos externos no se cobran rápidamente, el restaurante puede aparentar pérdidas falsas y tomar decisiones equivocadas de recorte.";
+  }
+
+  else if (impacto === "alto" && esCampanaGanadora && objetivo === "ventas") {
+    metodo = "Método 4 — Escalamiento controlado de oportunidad validada";
+    tipoCambio = "aumento";
+    porcentajeCambio = 60;
+    nuevoValor = Math.round(valor * 1.6);
+
+    diagnostico = "El gasto muestra señales de oportunidad validada: generó demanda, retorno inmediato o agotamiento de stock. No debe tratarse como un gasto a recortar.";
+    analisis = `El gasto en ${nombre} funcionó como una inversión comercial comprobada. Cuando el mercado responde con tráfico, ventas o quiebre de inventario, el problema no es haber gastado, sino no haber preparado suficiente capacidad para capturar toda la demanda.`;
+    decision = "Escalar en la próxima fecha comercial equivalente, no repetir mecánicamente en un mes normal.";
+    recomendacion = `Aumentar el presupuesto de forma controlada de $${valor.toLocaleString("es-CO")} a cerca de $${nuevoValor.toLocaleString("es-CO")}, pero solo para eventos equivalentes como Black Friday, temporada de descuentos o campañas con demanda comparable.`;
+    usoDinero = "60% al canal que ya convirtió, 25% a inventario de productos ganadores, 10% a refuerzo operativo y 5% a reserva de contingencia.";
+    controlRiesgo = "Si el costo por pedido sube más del 20%, si la rotación cae o si el stock no alcanza, se debe frenar la inversión. Escalar sin medición sería especulación, no estrategia.";
+  }
+
+  else if (esExperienciaCliente && objetivo === "fidelizacion") {
+    metodo = "Método 5 — Protección de retención y experiencia";
+    tipoCambio = "ajuste";
+    porcentajeCambio = impacto === "bajo" ? 10 : impacto === "medio" ? 5 : 0;
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
+
+    diagnostico = "Este gasto pertenece a experiencia de cliente. Aunque no siempre aumenta el ticket inmediato, puede proteger recompra, reputación y retención.";
+    analisis = `El gasto en ${nombre} no debe evaluarse solo por ventas inmediatas. Si reduce filas, tiempos de espera, quejas o mejora satisfacción, puede estar defendiendo ingresos futuros. Recortarlo sin medir retención puede generar ahorro aparente y pérdida comercial posterior.`;
+    decision = porcentajeCambio > 0 ? "Ajustar de forma leve y medir experiencia antes de recortar fuerte." : "Mantener y medir indicadores de fidelización.";
+    recomendacion = `Antes de reducir este gasto, mide quejas, tiempo de espera, calificaciones, recompra y comentarios de clientes. Si esos indicadores mejoran, el gasto debe mantenerse o rediseñarse, no eliminarse.`;
+    usoDinero = "40% a experiencia directa del cliente, 25% a reducción de tiempos, 20% a capacitación o servicio y 15% a medición de satisfacción.";
+    controlRiesgo = "No recortar más del 10% sin comparar indicadores de satisfacción. El ahorro inmediato puede destruir valor si aumenta la pérdida de clientes.";
+  }
+
+  else if (esInfraestructura) {
+    metodo = "Método 6 — Evaluación de activo operativo";
+    tipoCambio = "amortización";
+    porcentajeCambio = 0;
+    nuevoValor = valor;
+
+    diagnostico = "Este gasto parece ser infraestructura o equipo. No debe juzgarse como gasto mensual simple, sino como activo operativo que debe producir eficiencia durante varios periodos.";
+    analisis = `El gasto en ${nombre} debe evaluarse por uso, duración, ahorro de tiempo, reducción de errores o aumento de capacidad. Si el equipo permite producir más, atender más rápido o bajar desperdicio, su valor debe medirse en varios meses, no solo en el día de compra.`;
+    decision = "Mantener, medir uso real y calcular recuperación del valor.";
+    recomendacion = "Divide el valor del gasto entre los meses de uso esperado. Luego compara si el ahorro de tiempo, aumento de producción o reducción de desperdicio supera esa cuota mensual.";
+    usoDinero = "70% debe justificarse por capacidad productiva, 20% por reducción de tiempos y 10% por mantenimiento preventivo.";
+    controlRiesgo = "Si el equipo no se usa de forma recurrente o no reduce costos, se convierte en capital inmovilizado. Debe tener responsable, frecuencia de uso y métrica de recuperación.";
+  }
+
+  else if (esOperacionBase) {
+    metodo = "Método 7 — Control de gasto estructural";
+    tipoCambio = "renegociación";
+    porcentajeCambio = impacto === "bajo" ? 12 : impacto === "medio" ? 8 : 5;
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
+
+    diagnostico = "Este gasto parece operativo o fijo. No debe eliminarse de forma agresiva, pero sí revisarse porque puede volverse una carga silenciosa.";
+    analisis = `El gasto en ${nombre} sostiene la operación base del restaurante. En estos casos, la estrategia no es cortar sin criterio, sino renegociar, comparar proveedores, controlar consumo y evitar que el costo fijo crezca más rápido que las ventas.`;
+    decision = "Renegociar, controlar consumo y buscar eficiencia gradual.";
+    recomendacion = `Buscar una mejora del ${porcentajeCambio}% mediante negociación, cambio de proveedor, consumo eficiente o revisión de frecuencia.`;
+    usoDinero = "50% del ahorro debe ir a liquidez operativa, 30% a insumos críticos y 20% a reserva para pagos fijos.";
+    controlRiesgo = "No comprometer la continuidad operativa. Si el recorte afecta servicio, tiempos o calidad, debe revertirse.";
+  }
+
+  else if (impacto === "bajo") {
+    metodo = "Método 1 — Corrección de gasto sin retorno";
+    tipoCambio = "reducción";
+    porcentajeCambio =
+      categoria === "Publicidad" ? 25 :
+      categoria === "Personal" ? 12 :
+      categoria === "Equipos" ? 10 :
+      categoria === "Insumos" ? 30 :
+      35;
+
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
+
+    diagnostico = "El gasto no demuestra retorno suficiente frente al dinero invertido.";
+    analisis = `El gasto en ${nombre} consume recursos sin evidenciar ventas, eficiencia, rotación o protección de clientes. En este caso, conservarlo igual sería permitir que el dinero se quede en una actividad de bajo rendimiento.`;
+    decision = "Reducir, medir y reasignar.";
+    recomendacion = `Aplicar una reducción del ${porcentajeCambio}% y reasignar ese dinero a productos, procesos o canales con mejor rendimiento verificable.`;
+    usoDinero = "50% a productos de alta rotación, 25% a insumos críticos, 15% a mejora operativa y 10% a reserva de caja.";
+    controlRiesgo = "Si después del recorte no bajan las ventas ni la satisfacción, confirma que el gasto era prescindible.";
+  }
+
+  else if (impacto === "medio") {
+    metodo = "Método 2 — Validación de retorno financiero";
+    tipoCambio = "reducción controlada";
+    porcentajeCambio =
+      categoria === "Publicidad" ? 15 :
+      categoria === "Personal" ? 7 :
+      categoria === "Equipos" ? 5 :
+      categoria === "Insumos" ? 18 :
+      20;
+
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
+
+    diagnostico = "El gasto tiene utilidad parcial, pero todavía no justifica completamente su valor.";
+    analisis = `El gasto en ${nombre} puede estar ayudando, pero no demuestra con claridad que el beneficio supere el costo. Debe conservarse bajo prueba, no como gasto automático.`;
+    decision = "Reducir parcialmente y comprobar retorno.";
+    recomendacion = `Reducirlo en ${porcentajeCambio}% durante un periodo de prueba. Si el resultado no empeora, el restaurante estaba pagando más de lo necesario.`;
+    usoDinero = "45% a actividades con retorno medible, 30% a operación esencial, 15% a servicio al cliente y 10% a reserva.";
+    controlRiesgo = "No eliminar hasta confirmar con datos. La reducción debe ser reversible si afecta ventas, tiempos o calidad.";
+  }
+
+  else {
+    metodo = "Método 3 — Optimización de gasto útil";
+    tipoCambio = "optimización";
+    porcentajeCambio =
+      categoria === "Publicidad" ? 10 :
+      categoria === "Personal" ? 5 :
+      categoria === "Equipos" ? 5 :
+      categoria === "Insumos" ? 8 :
+      8;
+
+    nuevoValor = Math.round(valor * (1 - porcentajeCambio / 100));
+
+    diagnostico = "El gasto sí parece útil, pero puede optimizarse sin perder el beneficio.";
+    analisis = `El gasto en ${nombre} genera un resultado visible. No debe eliminarse, pero sí revisarse para pagar mejor, comprar mejor o ejecutar con mayor eficiencia.`;
+    decision = "Mantener, comparar y optimizar.";
+    recomendacion = `Buscar una optimización de ${porcentajeCambio}% mediante negociación, mejor planificación, medición del canal o ajuste de cantidades.`;
+    usoDinero = "60% debe conservarse en la actividad que funciona, 20% puede destinarse a prueba de mejora, 10% a medición y 10% a reserva.";
+    controlRiesgo = "No tocar lo que funciona sin medir. Optimizar no significa recortar por tacañería, sino conservar resultado pagando mejor.";
+  }
+
+  const diferencia = Math.abs(valor - nuevoValor);
+
+  document.getElementById("resultadoControlGasto").innerHTML = `
+    <div class="card">
+      <h3>${metodo}</h3>
+      <p><strong>Gasto analizado:</strong> ${nombre}</p>
+      <p><strong>Categoría:</strong> ${categoria}</p>
+      <p><strong>Objetivo del gasto:</strong> ${
+        objetivo === "ventas" ? "Ventas inmediatas" :
+        objetivo === "operacion" ? "Operación base" :
+        "Fidelización a largo plazo"
+      }</p>
+      <p><strong>Valor registrado:</strong> $${valor.toLocaleString("es-CO")}</p>
+      <p><strong>Diagnóstico experto:</strong><br>${diagnostico}</p>
+      <p><strong>Análisis financiero:</strong><br>${analisis}</p>
+      <p><strong>Decisión recomendada:</strong><br>${decision}</p>
+      <p><strong>Recomendación estratégica:</strong><br>${recomendacion}</p>
+      <p><strong>Impacto proyectado:</strong><br>
+      Tipo de acción: ${tipoCambio}. Porcentaje sugerido: ${porcentajeCambio}%.
+      Valor proyectado: $${nuevoValor.toLocaleString("es-CO")}.
+      Diferencia estimada: $${diferencia.toLocaleString("es-CO")}.
+      </p>
+      <p><strong>Distribución sugerida:</strong><br>${usoDinero}</p>
+      <p><strong>Control de riesgo:</strong><br>${controlRiesgo}</p>
+      <p><strong>Observación registrada:</strong><br>${observacion || "Sin observación adicional."}</p>
+    </div>
+  `;
+
+  const restaurantId = getRestaurantId();
+
+  const gastosGuardados =
+    JSON.parse(localStorage.getItem(`gastos_${restaurantId}`)) || [];
+
+  gastosGuardados.push({
+    nombre,
+    valor,
+    categoria,
+    impacto,
+    objetivo,
+    observacion,
+    gastoPertenece,
+    restauranteBeneficiado,
+    pedidoRelacionado,
+    esCostoRecuperable,
+    fecha: new Date().toISOString()
+  });
+
+  localStorage.setItem(
+    `gastos_${restaurantId}`,
+    JSON.stringify(gastosGuardados)
+  );
+}
 window.calcularFinanzasGRUK = calcularFinanzasGRUK;
 window.generarBloqueFinancieroGRUK = generarBloqueFinancieroGRUK;
 window.cerrarMesFinanciero = cerrarMesFinanciero;
 window.calcularPrecioVentaGRUK = calcularPrecioVentaGRUK;
 window.simularFinanzasGRUK = simularFinanzasGRUK;
 window.guardarPresupuestoGRUK = guardarPresupuestoGRUK;
+window.normalizarCosto = function(valor) {
+  const numero = Number(valor);
+
+  if (!numero) return 0;
+
+  if (numero > 0 && numero < 1000) {
+    return numero * 1000;
+  }
+
+  return numero;
+};
+
+window.normalizarPrecio = function(valor) {
+  const numero = Number(valor);
+
+  if (!numero) return 0;
+
+  if (numero > 0 && numero < 1000) {
+    return numero * 1000;
+  }
+
+  return numero;
+};
+async function calcularPrecioInteligente() {
+  const producto = document.getElementById("productoPrecio").value.trim();
+
+  const materiaPrima = window.normalizarCosto(
+    document.getElementById("costoMateriaPrima").value
+  );
+
+  const costoOperativo = window.normalizarCosto(
+    document.getElementById("costoOperativo").value
+  );
+
+  const precioActual = window.normalizarPrecio(
+    document.getElementById("precioActualVenta").value
+  );
+
+  const tiempo = Number(document.getElementById("tiempoPreparacion").value);
+  const tipo = document.getElementById("tipoProductoPrecio").value;
+  const demanda = document.getElementById("demandaProducto").value;
+
+  if (!producto || !materiaPrima || !costoOperativo || !precioActual || !tiempo) {
+    alert("Completa todos los campos");
+    return;
+  }
+  const finanzasActuales =
+  typeof calcularFinanzasGRUK === "function"
+    ? await calcularFinanzasGRUK(getRestaurantId())
+    : null;
+
+const factorIndirectoGRUK =
+  finanzasActuales && finanzasActuales.costoProduccionTotal > 0
+    ? finanzasActuales.costosIndirectosServicio / finanzasActuales.costoProduccionTotal
+    : 0;
+
+const costoIndirectoGRUK =
+  materiaPrima * factorIndirectoGRUK;
+
+  const textoProducto = producto.toLowerCase();
+
+  const esBebidaBasica =
+    textoProducto.includes("tinto") ||
+    textoProducto.includes("cafe") ||
+    textoProducto.includes("café") ||
+    textoProducto.includes("agua") ||
+    textoProducto.includes("aromatica") ||
+    textoProducto.includes("aromática");
+
+  const esEntradaBasica =
+    textoProducto.includes("empanada") ||
+    textoProducto.includes("pan") ||
+    textoProducto.includes("arepa") ||
+    textoProducto.includes("papita") ||
+    textoProducto.includes("papas pequeñas") ||
+    textoProducto.includes("entrada");
+
+  const esPostre =
+    textoProducto.includes("postre") ||
+    textoProducto.includes("volcan") ||
+    textoProducto.includes("volcán") ||
+    textoProducto.includes("arequipe") ||
+    textoProducto.includes("brownie") ||
+    textoProducto.includes("torta") ||
+    textoProducto.includes("helado") ||
+    textoProducto.includes("flan");
+
+  const esPlatoFuerte =
+    textoProducto.includes("carne") ||
+    textoProducto.includes("punta") ||
+    textoProducto.includes("anca") ||
+    textoProducto.includes("costilla") ||
+    textoProducto.includes("lomo") ||
+    textoProducto.includes("pollo") ||
+    textoProducto.includes("filete") ||
+    textoProducto.includes("parrilla") ||
+    textoProducto.includes("asado") ||
+    textoProducto.includes("asada");
+
+  const puedeSerGancho =
+    tipo === "ancla" &&
+    (esBebidaBasica || esEntradaBasica) &&
+    !esPostre &&
+    !esPlatoFuerte;
+
+  const costoBase =
+  materiaPrima +
+  costoOperativo +
+  costoIndirectoGRUK;
+
+  const costoTrabajo =
+    tiempo >= 45 ? 18000 :
+    tiempo >= 30 ? 12000 :
+    tiempo >= 20 ? 8000 :
+    tiempo >= 10 ? 5000 :
+    tiempo >= 5 ? 1500 :
+    500;
+
+  const costoTotal = costoBase + costoTrabajo;
+
+  const configFinanciera =
+    JSON.parse(localStorage.getItem(`configFinanciera_${getRestaurantId()}`)) || {
+      margenSeguridad: 0.02
+    };
+  
+  const MS = Number(configFinanciera.margenSeguridad || 0.02);
+
+
+const PB =
+  costoTotal / (1 - MS);
+
+if (precioActual < PB) {
+  Dmax = 0;
+} else {
+  Dmax =
+    1 - (PB / precioActual);
+}
+
+Dmax = Math.max(0, Math.min(Dmax, MS));
+
+  let margenMinimo = 0.25;
+  let margenRecomendado = 0.45;
+  let margenPremium = 0.65;
+
+  if (tipo === "ancla") {
+    margenMinimo = 0.05;
+    margenRecomendado = 0.18;
+    margenPremium = 0.30;
+  }
+
+  if (tipo === "estrella") {
+    margenMinimo = 0.35;
+    margenRecomendado = 0.52;
+    margenPremium = 0.70;
+  }
+
+  if (tipo === "diamante") {
+    margenMinimo = 0.45;
+    margenRecomendado = 0.68;
+    margenPremium = 0.88;
+  }
+
+  if (demanda === "alta" && !puedeSerGancho) {
+    margenRecomendado += 0.05;
+    margenPremium += 0.08;
+  }
+
+  if (demanda === "baja") {
+    margenRecomendado -= 0.08;
+    margenPremium -= 0.10;
+  }
+
+  margenMinimo = Math.min(Math.max(margenMinimo, 0.03), 0.85);
+  margenRecomendado = Math.min(Math.max(margenRecomendado, 0.08), 0.88);
+  margenPremium = Math.min(Math.max(margenPremium, 0.12), 0.90);
+
+  const precioMinimo = Math.round(costoTotal / (1 - margenMinimo));
+  const precioRecomendado = Math.round(costoTotal / (1 - margenRecomendado));
+  const precioPremium = Math.round(costoTotal / Math.max(0.08, 1 - margenPremium));
+
+  let descuentoRecomendado = 0;
+  let explicacionDescuento = "";
+
+  if (precioActual < PB) {
+    descuentoRecomendado = 0;
+
+    explicacionDescuento = `
+    No se recomienda aplicar descuentos.
+
+    El precio actual está por debajo del Precio Blindado de ${formatoCOP(PB)}.
+
+    Antes de pensar en promociones, GRUK recomienda primero alcanzar el precio blindado para proteger el margen de seguridad.
+    `;
+  } else if (precioActual >= PB && precioActual < precioPremium) {
+    descuentoRecomendado = Math.min((Dmax * 100) * 0.5, 10);
+
+    explicacionDescuento = `
+    El producto ya supera el Precio Blindado.
+
+    Se recomienda un descuento prudente de hasta ${descuentoRecomendado.toFixed(2)}%.
+
+    Esto permite incentivar ventas sin sacrificar excesivamente el margen de seguridad.
+    `;
+  } else {
+    descuentoRecomendado = Math.min((Dmax * 100) * 0.7, 15);
+
+    explicacionDescuento = `
+    El producto se encuentra en una zona premium.
+
+    Existe espacio para aplicar descuentos tácticos sin comprometer la rentabilidad del producto.
+
+    GRUK recomienda no superar ${descuentoRecomendado.toFixed(2)}%.
+    `;
+  }
+
+  const margenActual =
+    precioActual > 0
+      ? ((precioActual - costoTotal) / precioActual) * 100
+      : 0;
+      let indiceRentabilidad = 0;
+
+if (margenActual >= 70)
+  indiceRentabilidad = 10;
+
+else if (margenActual >= 60)
+  indiceRentabilidad = 9;
+
+else if (margenActual >= 50)
+  indiceRentabilidad = 8;
+
+else if (margenActual >= 40)
+  indiceRentabilidad = 7;
+
+else if (margenActual >= 30)
+  indiceRentabilidad = 6;
+
+else if (margenActual >= 20)
+  indiceRentabilidad = 5;
+
+else if (margenActual >= 10)
+  indiceRentabilidad = 4;
+
+else
+  indiceRentabilidad = 2;
+let clasificacion = "";
+
+if (margenActual >= 60) {
+
+  clasificacion = "⭐ Producto Premium";
+
+}
+
+else if (margenActual >= 40) {
+
+  clasificacion = "🟢 Producto Estrella";
+
+}
+
+else if (margenActual >= 20) {
+
+  clasificacion = "🟡 Producto Rentable";
+
+}
+
+else {
+
+  clasificacion = "🔴 Producto de Bajo Margen";
+
+}
+
+
+let recomendaciones = [];
+
+if (margenActual < 20) {
+
+  recomendaciones.push(
+    "• Aumentar precio de venta."
+  );
+
+}
+
+if (demanda === "alta") {
+
+  recomendaciones.push(
+    "• Existe capacidad para incrementar precio sin afectar significativamente la demanda."
+  );
+
+}
+
+if (tipo === "ancla" && margenActual < 40) {
+  recomendaciones.push(
+    "• Utilizar como producto de atracción y complementar con venta cruzada."
+  );
+}
+
+if (tipo === "ancla" && margenActual >= 40) {
+  recomendaciones.push(
+    "• Aunque fue marcado como producto ancla, su margen es alto. GRUK recomienda tratarlo como producto estrella o premium antes de usarlo como gancho."
+  );
+}
+
+if (tipo === "estrella") {
+
+  recomendaciones.push(
+    "• Mantener disponibilidad permanente y reforzar publicidad."
+  );
+
+}
+
+if (tipo === "diamante") {
+
+  recomendaciones.push(
+    "• Mantener percepción Premium evitando descuentos frecuentes."
+  );
+
+}
+
+if (recomendaciones.length === 0) {
+
+  recomendaciones.push(
+    "• Mantener estrategia actual."
+  );
+
+}
+
+  const utilidadActual = precioActual - costoTotal;
+
+  const perdidaPorVenta = Math.max(0, costoTotal - precioActual);
+
+  const destruccionMensual = perdidaPorVenta * 30;
+
+  let semaforo = "";
+  let decision = "";
+  let accion = "";
+  let interpretacion = "";
+
+  if (precioActual < costoTotal && puedeSerGancho) {
+    semaforo = "🔵 Azul — producto gancho subsidiado";
+    decision = "Mantener solo si genera venta cruzada comprobada";
+    accion = "No subir automáticamente. Validar si arrastra compras rentables.";
+
+    interpretacion = `
+      ${producto} está por debajo de su costo total, pero puede cumplir una función estratégica como producto gancho de entrada.
+
+      Este precio solo tiene sentido si atrae tráfico al inicio del consumo y empuja compras de mayor margen.
+
+      Si no existe venta cruzada real, el subsidio deja de ser estrategia y se convierte en pérdida.
+    `;
+  }
+
+  else if (precioActual < costoTotal && (esPostre || esPlatoFuerte)) {
+    semaforo = "🔴 Rojo de emergencia — cuello de botella operativo";
+    decision = "Suspender subsidio y subir precio de inmediato";
+    accion = `Subir mínimo hasta ${formatoCOP(precioMinimo)}.`;
+
+    interpretacion = `
+      ${producto} no debe tratarse como producto gancho.
+
+      Cada venta destruye aproximadamente ${formatoCOP(perdidaPorVenta)} de margen operativo.
+
+      GRUK recomienda suspender el subsidio y corregir el precio hacia el mínimo sostenible de ${formatoCOP(precioMinimo)}.
+    `;
+  }
+
+  else if (precioActual < costoTotal) {
+    semaforo = "🔴 Rojo de emergencia — pérdida real por unidad";
+    decision = "Subir precio de forma inmediata";
+    accion = `Subir mínimo hasta ${formatoCOP(precioMinimo)}.`;
+
+    interpretacion = `
+      El precio actual está por debajo del costo total estratégico.
+
+      Cada venta destruye aproximadamente ${formatoCOP(perdidaPorVenta)} de margen operativo.
+    `;
+  }
+
+  else if (precioActual < PB) {
+    semaforo = "🟡 Amarillo — precio no blindado";
+    decision = "Subir hacia el Precio Blindado";
+    accion = `Ajustar el precio mínimo a ${formatoCOP(PB)}.`;
+
+    interpretacion = `
+      El precio actual de ${formatoCOP(precioActual)} cubre parte de la estructura económica,
+      pero no alcanza el Precio Blindado de ${formatoCOP(PB)}.
+
+      Esto significa que no se está respetando el Margen de Seguridad del ${(MS * 100).toFixed(2)}%.
+
+      GRUK recomienda no marcar este precio como sano hasta que alcance o supere el Precio Blindado.
+    `;
+  }
+
+  else if (precioActual >= precioRecomendado && precioActual <= precioPremium) {
+    semaforo = "🟢 Verde — precio estratégicamente sano";
+    decision = "Mantener y medir";
+    accion = "No subir todavía. Medir aceptación, rotación y recompra.";
+
+    interpretacion = `
+      El precio actual está dentro del rango óptimo calculado y además respeta el Precio Blindado.
+
+      Aquí la mejor decisión no es subir por subir, sino defender el equilibrio entre margen, demanda y percepción de valor.
+    `;
+  }
+
+  else if (precioActual >= precioMinimo && precioActual < precioRecomendado) {
+    semaforo = "🟡 Amarillo — precio conservador";
+    decision = "Subir gradualmente";
+    accion = `Mover el precio hacia ${formatoCOP(precioRecomendado)}.`;
+
+    interpretacion = `
+      El precio actual ya supera el mínimo sostenible, pero todavía no captura todo el valor económico del producto.
+    `;
+  }
+
+  else {
+    semaforo = "🟣 Morado — precio premium alto";
+    decision = "Validar percepción de valor";
+    accion = "Mantener solo si la demanda sigue estable y el cliente percibe valor superior.";
+
+    interpretacion = `
+      El precio actual supera el rango premium calculado.
+
+      Puede funcionar solo si existe reputación, presentación fuerte, experiencia superior y demanda sostenida.
+    `;
+  }
+const inteligenciaGRUK =
+  generarMotorInteligenciaGRUK({
+    margenActual,
+    precioActual,
+    precioRecomendado,
+    precioPremium,
+    PB,
+    indiceRentabilidad,
+    clasificacion,
+    tipo,
+    demanda
+  });
+
+  document.getElementById("resultadoPrecioInteligente").innerHTML = `
+    <div class="card">
+      <h3>Diagnóstico estratégico de precio</h3>
+
+      <p><strong>Producto:</strong> ${producto}</p>
+
+      <p><strong>Costo materia prima:</strong> ${formatoCOP(materiaPrima)}</p>
+      <p><strong>Costo operativo:</strong> ${formatoCOP(costoOperativo)}</p>
+      <p><strong>Costo trabajo/tiempo estimado:</strong> ${formatoCOP(costoTrabajo)}</p>
+      <p><strong>Costo total estratégico:</strong> ${formatoCOP(costoTotal)}</p>
+      <p><strong>Margen de Seguridad (MS):</strong> ${(MS * 100).toFixed(2)}%</p>
+      <p><strong>Precio Blindado (PB):</strong> ${formatoCOP(PB)}</p>
+      <p><strong>Descuento Máximo Permitido (Dmax):</strong> ${(Dmax * 100).toFixed(2)}%</p>
+
+      <p><strong>Descuento recomendado por GRUK:</strong> ${descuentoRecomendado.toFixed(2)}%</p>
+
+      <p><strong>Justificación del descuento:</strong><br>${explicacionDescuento}</p>
+
+      <p><strong>Precio actual:</strong> ${formatoCOP(precioActual)}</p>
+      <p><strong>Utilidad actual por unidad:</strong> ${formatoCOP(utilidadActual)}</p>
+
+      <p><strong>Precio mínimo sostenible:</strong> ${formatoCOP(precioMinimo)}</p>
+      <p><strong>Precio rentable recomendado:</strong> ${formatoCOP(precioRecomendado)}</p>
+      <p><strong>Precio premium estratégico:</strong> ${formatoCOP(precioPremium)}</p>
+
+      <p><strong>Semáforo GRUK:</strong><br>${semaforo}</p>
+
+      <p><strong>Margen actual estimado:</strong><br>
+      ${margenActual.toFixed(1)}%
+      </p>
+      <p>
+<strong>Índice de Rentabilidad GRUK:</strong><br>
+${indiceRentabilidad}/10
+</p>
+
+<p>
+<strong>Clasificación Estratégica:</strong><br>
+${clasificacion}
+</p>
+
+<p>
+<strong>Recomendaciones GRUK:</strong><br>
+${recomendaciones.join("<br>")}
+</p>
+
+      <p><strong>Decisión recomendada:</strong><br>${decision}</p>
+
+      <p><strong>Acción sugerida:</strong><br>${accion}</p>
+      <h3>Centro de Inteligencia Comercial GRUK</h3>
+
+<p>
+
+<strong>Contexto Comercial Detectado</strong>
+
+<br><br>
+
+${inteligenciaGRUK.contexto.join("<br>")}
+
+</p>
+
+<br>
+
+<p>
+
+<strong>Diagnóstico Estratégico</strong>
+
+<br><br>
+
+${inteligenciaGRUK.recomendaciones.join("<br><br>")}
+
+</p>
+
+      <p><strong>Interpretación GRUK:</strong><br>${interpretacion}</p>
+    </div>
+  `;
+}
+function guardarInteligenciaGRUK() {
+  const restaurantId = getRestaurantId();
+
+  const presupuestoVentas =
+    Number(localStorage.getItem(`presupuestoVentas_${restaurantId}`) || 0);
+
+  const presupuestoUtilidad =
+    Number(localStorage.getItem(`presupuestoUtilidad_${restaurantId}`) || 0);
+
+  const datos = {
+    competencia: document.getElementById("competenciaGRUK").value,
+    ciudad: document.getElementById("ciudadGRUK").value.trim(),
+    temporada: document.getElementById("temporadaGRUK").value,
+    marketing: document.getElementById("marketingGRUK").value,
+    valor: document.getElementById("valorGRUK").value,
+    metaVentasMensual: presupuestoVentas,
+    metaUtilidadMensual: presupuestoUtilidad,
+    fechaActualizacion: new Date().toISOString()
+  };
+
+  localStorage.setItem(
+    `inteligenciaGRUK_${restaurantId}`,
+    JSON.stringify(datos)
+  );
+
+  alert(
+    "Inteligencia Comercial GRUK guardada. Las estrategias se ajustarán a las metas mensuales de ventas y utilidad."
+  );
+}
+
+function obtenerInteligenciaGRUK() {
+  return (
+    JSON.parse(
+      localStorage.getItem(`inteligenciaGRUK_${getRestaurantId()}`)
+    ) || null
+  );
+}
+function generarMotorInteligenciaGRUK(contexto = {}) {
+  const i = obtenerInteligenciaGRUK();
+
+  if (!i) {
+    return {
+      contexto: [
+        "⚠️ Inteligencia Comercial no configurada."
+      ],
+      diagnostico: [
+        "Configura competencia, ciudad, temporada, marketing y percepción de valor para activar el análisis estratégico."
+      ],
+      riesgo: "🟡 Medio",
+      oportunidad: "🟡 Media"
+    };
+  }
+
+  const margenActual = Number(contexto.margenActual || 0);
+  const precioActual = Number(contexto.precioActual || 0);
+  const precioRecomendado = Number(contexto.precioRecomendado || 0);
+  const precioPremium = Number(contexto.precioPremium || 0);
+  const PB = Number(contexto.PB || 0);
+  const indiceRentabilidad = Number(contexto.indiceRentabilidad || 0);
+  const clasificacion = String(contexto.clasificacion || "");
+  const tipo = String(contexto.tipo || "");
+  const demanda = String(contexto.demanda || "");
+
+  const metaVentas = Number(i.metaVentasMensual || 0);
+  const metaUtilidad = Number(i.metaUtilidadMensual || 0);
+
+  let contextoDetectado = [];
+  let diagnostico = [];
+  let riesgoPuntos = 0;
+  let oportunidadPuntos = 0;
+
+  contextoDetectado.push(
+    `Competencia: ${
+      i.competencia === "muy_barata"
+        ? "🔴 Muy barata"
+        : i.competencia === "similar"
+        ? "🟡 Similar"
+        : "🟢 Más costosa"
+    }`
+  );
+
+  contextoDetectado.push(
+    `Ciudad: ${i.ciudad || "No configurada"}`
+  );
+
+  contextoDetectado.push(
+    `Temporada: ${
+      i.temporada === "alta"
+        ? "🟢 Alta"
+        : i.temporada === "normal"
+        ? "🟡 Normal"
+        : "🔴 Baja"
+    }`
+  );
+
+  contextoDetectado.push(
+    `Marketing: ${
+      i.marketing === "alto"
+        ? "🟢 Alto"
+        : i.marketing === "medio"
+        ? "🟡 Medio"
+        : "🔴 Bajo"
+    }`
+  );
+
+  contextoDetectado.push(
+    `Percepción de valor: ${
+      i.valor === "alta"
+        ? "🟢 Alta"
+        : i.valor === "media"
+        ? "🟡 Media"
+        : "🔴 Baja"
+    }`
+  );
+
+  if (metaVentas > 0) {
+    contextoDetectado.push(
+      `Meta mensual de ventas: ${formatoCOP(metaVentas)}`
+    );
+  }
+
+  if (metaUtilidad > 0) {
+    contextoDetectado.push(
+      `Meta mensual de utilidad: ${formatoCOP(metaUtilidad)}`
+    );
+  }
+
+  if (i.competencia === "muy_barata") riesgoPuntos += 2;
+  if (i.temporada === "baja") riesgoPuntos += 2;
+  if (i.marketing === "bajo") riesgoPuntos += 1;
+  if (i.valor === "baja") riesgoPuntos += 2;
+  if (precioActual < PB) riesgoPuntos += 3;
+  if (margenActual < 20) riesgoPuntos += 3;
+
+  if (i.temporada === "alta") oportunidadPuntos += 2;
+  if (i.marketing === "alto") oportunidadPuntos += 2;
+  if (i.valor === "alta") oportunidadPuntos += 2;
+  if (i.competencia === "mas_costosa") oportunidadPuntos += 2;
+  if (demanda === "alta") oportunidadPuntos += 2;
+  if (indiceRentabilidad >= 8) oportunidadPuntos += 2;
+  if (margenActual >= 40) oportunidadPuntos += 2;
+
+  if (i.competencia === "muy_barata" && i.valor === "alta") {
+    diagnostico.push(
+      "⭐ La competencia compite agresivamente por precio, pero la percepción de valor es alta. GRUK recomienda no entrar en guerra de precios; la estrategia debe enfocarse en experiencia, presentación, confianza y diferenciación."
+    );
+  }
+
+  if (i.competencia === "muy_barata" && i.valor !== "alta") {
+    diagnostico.push(
+      "🔴 La competencia es muy barata y la percepción de valor no es suficientemente fuerte. Antes de subir precios, GRUK recomienda reforzar valor percibido, presentación, empaque, servicio o propuesta diferencial."
+    );
+  }
+
+  if (i.temporada === "alta" && demanda === "alta" && margenActual >= 40) {
+    diagnostico.push(
+      "📈 Temporada alta + demanda alta + margen sano: existe una oportunidad real para incrementar precio de forma gradual o impulsar combos premium."
+    );
+  }
+
+  if (i.temporada === "baja" && margenActual >= 40) {
+    diagnostico.push(
+      "📉 Temporada baja con margen saludable: se permiten promociones tácticas controladas para apoyar la meta de ventas sin destruir rentabilidad."
+    );
+  }
+
+  if (i.temporada === "baja" && margenActual < 25) {
+    diagnostico.push(
+      "⚠️ Temporada baja con margen débil: no se recomienda competir con descuentos. GRUK recomienda corregir costos, porciones o precio antes de lanzar promociones."
+    );
+  }
+
+  if (i.marketing === "alto" && i.valor === "alta" && margenActual >= 40) {
+    diagnostico.push(
+      "🚀 Marketing alto + valor percibido alto: el producto puede soportar una estrategia de posicionamiento premium o campaña de mayor visibilidad."
+    );
+  }
+
+  if (precioActual < PB) {
+    diagnostico.push(
+      "🛡️ El precio actual está por debajo del Precio Blindado. GRUK recomienda no aplicar descuentos hasta proteger el margen de seguridad."
+    );
+  }
+
+  if (precioActual > precioPremium && i.valor !== "alta") {
+    diagnostico.push(
+      "⚠️ El precio supera el rango premium, pero la percepción de valor no es alta. Se debe reforzar experiencia o ajustar el precio para evitar rechazo del cliente."
+    );
+  }
+
+  if (precioActual > precioPremium && i.valor === "alta") {
+    diagnostico.push(
+      "🟣 El precio supera el rango premium y la percepción de valor es alta. Puede sostenerse si existe reputación, diferenciación, recompra y experiencia superior."
+    );
+  }
+
+  if (tipo === "ancla" && margenActual >= 40) {
+    diagnostico.push(
+      "⚠️ El producto fue marcado como ancla, pero su margen es alto. GRUK recomienda tratarlo como producto estrella o premium para apoyar la meta de utilidad."
+    );
+  }
+
+  if (tipo === "ancla" && margenActual < 20) {
+    diagnostico.push(
+      "🧲 Producto ancla con margen bajo: solo debe mantenerse si genera venta cruzada comprobable hacia productos más rentables."
+    );
+  }
+
+  if (metaVentas > 0 && margenActual >= 40 && demanda === "alta") {
+    diagnostico.push(
+      "🎯 La estrategia de incrementar ventas se adapta a la meta mensual: priorizar exposición del producto, combos, venta cruzada y mayor visibilidad comercial."
+    );
+  }
+
+  if (metaUtilidad > 0 && margenActual >= 60) {
+    diagnostico.push(
+      "💰 La estrategia se alinea con la meta mensual de utilidad: proteger precio, evitar descuentos agresivos y posicionar el producto como premium."
+    );
+  }
+
+  if (metaVentas > 0 && metaUtilidad > 0 && margenActual < 25) {
+    diagnostico.push(
+      "⚠️ Hay tensión entre vender más y proteger utilidad. GRUK recomienda no aumentar volumen con productos de bajo margen; primero debe corregirse el precio o el costo."
+    );
+  }
+
+  if (indiceRentabilidad >= 8) {
+    diagnostico.push(
+      "✅ Índice de rentabilidad alto: este producto puede actuar como palanca para cumplir metas comerciales y financieras."
+    );
+  }
+
+  if (indiceRentabilidad <= 4) {
+    diagnostico.push(
+      "🔴 Índice de rentabilidad bajo: este producto no debe liderar estrategias de incremento de ventas hasta corregir margen, precio o costos."
+    );
+  }
+
+  if (diagnostico.length === 0) {
+    diagnostico.push(
+      "✅ El contexto comercial es estable. GRUK recomienda mantener la estrategia actual y monitorear competencia, demanda, margen y cumplimiento de metas."
+    );
+  }
+
+  const riesgo =
+    riesgoPuntos >= 6
+      ? "🔴 Alto"
+      : riesgoPuntos >= 3
+      ? "🟡 Medio"
+      : "🟢 Bajo";
+
+  const oportunidad =
+    oportunidadPuntos >= 7
+      ? "🟢 Alta"
+      : oportunidadPuntos >= 4
+      ? "🟡 Media"
+      : "🔴 Baja";
+
+  return {
+    contexto: contextoDetectado,
+    diagnostico: [...new Set(diagnostico)],
+    riesgo,
+    oportunidad
+  };
+}
+
+window.calcularPrecioInteligente = calcularPrecioInteligente;
