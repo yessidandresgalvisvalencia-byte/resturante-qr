@@ -11,12 +11,9 @@ function mostrarToast(mensaje, tipo = "info") {
   const toast = document.createElement("div");
   toast.className = `toast ${tipo}`;
   toast.innerText = mensaje;
-
   container.appendChild(toast);
 
-  setTimeout(() => {
-    toast.remove();
-  }, 3000);
+  setTimeout(() => toast.remove(), 3000);
 
   sonidoNotificacion();
   vibrar();
@@ -40,9 +37,7 @@ function sonidoNotificacion() {
 }
 
 function vibrar() {
-  if (navigator.vibrate) {
-    navigator.vibrate(100);
-  }
+  if (navigator.vibrate) navigator.vibrate(100);
 }
 
 const socket = io();
@@ -99,41 +94,6 @@ function cargarCSSModuloGRUK(nombreModulo) {
   document.head.appendChild(link);
 }
 
-function cargarScriptModuloGRUK(nombreModulo) {
-  return new Promise((resolve) => {
-    const scripts = {
-      "centro-control": "/js/centro-control.js",
-      restaurante: "/js/restaurante.js",
-      inventario: "/js/inventario.js",
-      reportes: "/js/reportes.js",
-      configuracion: "/js/configuracion.js",
-      finanzas: "/finanzas.js"
-    };
-
-    const src = scripts[nombreModulo];
-
-    if (!src) {
-      resolve();
-      return;
-    }
-
-    const yaExiste = document.querySelector(`script[src="${src}"]`);
-
-    if (yaExiste) {
-      resolve();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id = `script-${nombreModulo}`;
-    script.src = src;
-    script.onload = resolve;
-    script.onerror = resolve;
-
-    document.body.appendChild(script);
-  });
-}
-
 async function cargarModuloGRUK(nombreModulo) {
   const contenedor = document.getElementById("contenidoPrincipalGRUK");
 
@@ -157,47 +117,6 @@ async function cargarModuloGRUK(nombreModulo) {
     const html = await res.text();
 
     contenedor.innerHTML = html;
-
-    await cargarScriptModuloGRUK(nombreModulo);
-
-    await inicializarModuloGRUK(nombreModulo);
-
-    const menu = document.getElementById("menuAdminGRUK");
-    if (menu) menu.classList.remove("abierto");
-
-  } catch (error) {
-    console.error("Error cargando módulo:", error);
-
-    contenedor.innerHTML = `
-      <div class="card">
-        <p>No se pudo cargar el módulo ${nombreModulo}.</p>
-      </div>
-    `;
-  }
-}
-async function cargarModuloGRUK(nombreModulo) {
-  const contenedor = document.getElementById("contenidoPrincipalGRUK");
-
-  if (!contenedor) {
-    console.error("No existe contenidoPrincipalGRUK");
-    return;
-  }
-
-  contenedor.innerHTML = `
-    <div class="card">
-      <p>Cargando módulo...</p>
-    </div>
-  `;
-
-  try {
-    cargarCSSModuloGRUK(nombreModulo);
-
-    const res = await fetch(`/modulos/${nombreModulo}.html`);
-    const html = await res.text();
-
-    contenedor.innerHTML = html;
-
-    await cargarScriptModuloGRUK(nombreModulo);
 
     await inicializarModuloGRUK(nombreModulo);
 
@@ -243,32 +162,6 @@ async function inicializarModuloGRUK(nombreModulo) {
       const f = await calcularFinanzasGRUK(getRestaurantId());
       contenedor.innerHTML = generarBloqueFinancieroGRUK(f);
     }
-  }
-}
-
-async function cargarLogoRestaurante() {
-  const restaurantId = getRestaurantId();
-
-  if (!restaurantId) return;
-
-  try {
-    const res = await fetch(`/api/restaurants/${restaurantId}`);
-    const data = await res.json();
-
-    if (data.ok && data.restaurante.logoUrl) {
-      const logo = document.getElementById("logoRestaurante");
-
-      if (logo) {
-        logo.src = data.restaurante.logoUrl;
-      }
-
-      document.body.style.setProperty(
-        "--fondo-restaurante",
-        `url(${data.restaurante.logoUrl})`
-      );
-    }
-  } catch (error) {
-    console.log("Error cargando logo restaurante:", error);
   }
 }
 
@@ -323,6 +216,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  await cargarLogoRestaurante();
   await cargarModuloGRUK("centro-control");
 });
