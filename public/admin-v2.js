@@ -37,3 +37,8 @@ async function cargarModuloGRUK(modulo) {
     cargarAdmin();
   }
 }
+if (modulo === "restaurante") {
+  if (typeof cargarAdmin === "function") {
+    cargarAdmin();
+  }
+}
