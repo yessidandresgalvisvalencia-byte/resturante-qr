@@ -1,0 +1,181 @@
+<div class="card">
+  <h1>💰 Finanzas GRUK</h1>
+  <p>Controla precios, gastos, presupuestos, simulaciones y cierres financieros.</p>
+</div>
+
+<div class="card">
+  <h3>⚙️ Configuración Financiera GRUK</h3>
+
+  <label>Variación de costos de insumos</label>
+  <select id="riesgoInsumos">
+    <option value="bajo">Baja</option>
+    <option value="medio">Media</option>
+    <option value="alto">Alta</option>
+  </select>
+
+  <label>Frecuencia de descuentos/promociones</label>
+  <select id="riesgoDescuentos">
+    <option value="bajo">Casi nunca</option>
+    <option value="medio">Algunas veces</option>
+    <option value="alto">Frecuente</option>
+  </select>
+
+  <label>Riesgo de desperdicio o vencimiento</label>
+  <select id="riesgoDesperdicio">
+    <option value="bajo">Bajo</option>
+    <option value="medio">Medio</option>
+    <option value="alto">Alto</option>
+  </select>
+
+  <button onclick="recomendarMargenSeguridad()">
+    GRUK recomendar margen de seguridad
+  </button>
+
+  <label>Margen de Seguridad</label>
+  <input id="margenSeguridadGeneral" type="number" step="0.01" value="0.02">
+
+  <button onclick="guardarConfiguracionFinanciera()">
+    Guardar configuración financiera
+  </button>
+
+  <div id="estadoConfiguracionFinanciera"></div>
+</div>
+
+<div class="card">
+  <h3>Inteligencia de precios</h3>
+
+  <label>Nombre del producto</label>
+  <input id="productoPrecio" type="text">
+
+  <label>Costo materia prima</label>
+  <input id="costoMateriaPrima" type="number">
+
+  <label>Costo operativo estimado</label>
+  <input id="costoOperativo" type="number">
+
+  <label>Tiempo de preparación</label>
+  <input id="tiempoPreparacion" type="number">
+
+  <label>Tipo de producto</label>
+  <select id="tipoProductoPrecio">
+    <option value="ancla">Producto ancla / volumen</option>
+    <option value="estrella">Producto estrella</option>
+    <option value="diamante">Producto diamante premium</option>
+    <option value="normal">Producto equilibrado</option>
+  </select>
+
+  <label>Nivel de demanda actual</label>
+  <select id="demandaProducto">
+    <option value="alta">Alta demanda</option>
+    <option value="media">Demanda media</option>
+    <option value="baja">Baja demanda</option>
+  </select>
+
+  <label>Precio actual de venta</label>
+  <input id="precioActualVenta" type="number">
+
+  <button onclick="calcularPrecioInteligente()">
+    Analizar precio
+  </button>
+
+  <div id="resultadoPrecioInteligente"></div>
+</div>
+
+<div class="card">
+  <h3>Control de gasto</h3>
+
+  <label>Nombre del gasto</label>
+  <input id="nombreGasto" type="text">
+
+  <label>Valor del gasto</label>
+  <input id="valorGasto" type="number">
+
+  <label>¿El gasto pertenece a este restaurante?</label>
+  <select id="gastoPertenece">
+    <option value="si">Sí, pertenece a este restaurante</option>
+    <option value="no">No, fue utilizado por otro restaurante</option>
+  </select>
+
+  <label>Restaurante beneficiado</label>
+  <input id="restauranteBeneficiado" type="text">
+
+  <label>ID del pedido relacionado</label>
+  <input id="pedidoRelacionado" type="text">
+
+  <label>Objetivo del gasto</label>
+  <select id="objetivoGasto">
+    <option value="ventas">Ventas inmediatas</option>
+    <option value="operacion">Operación base</option>
+    <option value="fidelizacion">Fidelización a largo plazo</option>
+  </select>
+
+  <label>Resultado generado por el gasto</label>
+  <select id="impactoGasto">
+    <option value="alto">Sí generó resultado claro</option>
+    <option value="medio">Generó resultado parcial</option>
+    <option value="bajo">No generó resultado visible</option>
+  </select>
+
+  <label>Observación del gasto</label>
+  <textarea id="observacionGasto"></textarea>
+
+  <button onclick="analizarGasto()">Analizar gasto</button>
+
+  <div id="resultadoControlGasto"></div>
+</div>
+
+<div class="card">
+  <h3>Simulador Financiero GRUK</h3>
+
+  <label>Aumento o disminución de ventas (%)</label>
+  <input id="simVentas" type="number">
+
+  <label>¿Por qué cambian las ventas?</label>
+  <select id="simTipoVentas">
+    <option value="precio">Por aumento de precios</option>
+    <option value="volumen">Por más clientes / más pedidos</option>
+  </select>
+
+  <label>Aumento o disminución de materia prima (%)</label>
+  <input id="simMateriaPrima" type="number">
+
+  <label>Aumento o disminución de gastos (%)</label>
+  <input id="simGastos" type="number">
+
+  <label>Aumento o disminución de nómina (%)</label>
+  <input id="simNomina" type="number">
+
+  <button onclick="simularFinanzasGRUK()">
+    Simular escenario
+  </button>
+
+  <div id="resultadoSimuladorFinanciero"></div>
+</div>
+
+<div class="card">
+  <h3>Presupuesto Inteligente GRUK</h3>
+
+  <label>Meta de ingresos</label>
+  <input id="presupuestoVentas" type="number">
+
+  <label>Meta de utilidad operacional</label>
+  <input id="presupuestoUtilidad" type="number">
+
+  <button onclick="guardarPresupuestoGRUK()">
+    Guardar presupuesto
+  </button>
+
+  <div id="resultadoPresupuestoGRUK"></div>
+</div>
+
+<div class="card">
+  <h3>Cierre mensual GRUK</h3>
+
+  <p>Guarda ingresos, costos, gastos, nómina y utilidad del periodo actual.</p>
+
+  <button onclick="cerrarMesFinanciero()">
+    Cerrar mes financiero
+  </button>
+
+  <div id="estadoCierreMensual"></div>
+</div>

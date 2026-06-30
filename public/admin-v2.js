@@ -52,3 +52,8 @@ if (modulo === "dashboard") {
     cargarAdmin();
   }
 }
+if (modulo === "finanzas") {
+  if (typeof cargarAdmin === "function") {
+    cargarAdmin();
+  }
+}
