@@ -47,3 +47,8 @@ if (modulo === "inventario") {
     cargarAdmin();
   }
 }
+if (modulo === "dashboard") {
+  if (typeof cargarAdmin === "function") {
+    cargarAdmin();
+  }
+}
