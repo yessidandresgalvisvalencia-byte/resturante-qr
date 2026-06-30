@@ -42,3 +42,8 @@ if (modulo === "restaurante") {
     cargarAdmin();
   }
 }
+if (modulo === "inventario") {
+  if (typeof cargarAdmin === "function") {
+    cargarAdmin();
+  }
+}
