@@ -1,32 +1,64 @@
+<div class="dashboardHeroGRUK">
+  <div>
+    <p>Centro de administración</p>
+    <h1>📊 Dashboard GRUK</h1>
+    <span>Resumen general del restaurante en tiempo real.</span>
+  </div>
 
-<div class="card">
-  <h1>📊 Dashboard GRUK</h1>
-  <p>Resumen general del restaurante: ventas, pedidos activos, productos más vendidos, stock y solicitudes.</p>
+  <div class="estadoSistemaGRUK">
+    🟢 Sistema operativo
+  </div>
 </div>
 
-<div class="resumen-grid">
-  <div class="card">
+<div class="resumen-grid dashboardCardsGRUK">
+  <div class="card metricGRUK">
+    <span>💰</span>
     <h3>Total vendido</h3>
     <p id="totalVendido">$0</p>
   </div>
 
-  <div class="card">
+  <div class="card metricGRUK">
+    <span>📦</span>
     <h3>Pedidos activos</h3>
     <p id="pedidosActivos">0</p>
   </div>
+
+  <div class="card metricGRUK">
+    <span>🔔</span>
+    <h3>Solicitudes</h3>
+    <p id="solicitudesPendientesAdmin">0</p>
+  </div>
+
+  <div class="card metricGRUK">
+    <span>⚡</span>
+    <h3>Estado</h3>
+    <p>Operando</p>
+  </div>
 </div>
 
-<h2>Solicitudes de mesero</h2>
-<div id="solicitudesMesero" class="grid"></div>
+<div class="dashboardGridGRUK">
+  <div class="card">
+    <h2>Solicitudes de mesero</h2>
+    <div id="solicitudesMesero" class="grid"></div>
+  </div>
 
-<h2>Top productos vendidos</h2>
-<div id="topProductos" class="grid"></div>
+  <div class="card">
+    <h2>Top productos vendidos</h2>
+    <div id="topProductos" class="grid"></div>
+  </div>
 
-<h2>Historial de ventas</h2>
-<div id="historialVentas" class="grid"></div>
+  <div class="card">
+    <h2>Historial de ventas</h2>
+    <div id="historialVentas" class="grid"></div>
+  </div>
 
-<h2>Estrategias aplicadas</h2>
-<div id="estrategiasAplicadas" class="grid"></div>
+  <div class="card">
+    <h2>Estrategias aplicadas</h2>
+    <div id="estrategiasAplicadas" class="grid"></div>
+  </div>
 
-<h2>Productos recomendados</h2>
-<div id="produsctosRecomendadosAdmin" class="grid"></div>
+  <div class="card">
+    <h2>Productos recomendados</h2>
+    <div id="produsctosRecomendadosAdmin" class="grid"></div>
+  </div>
+</div>
