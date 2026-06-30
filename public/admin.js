@@ -4056,3 +4056,20 @@ function mostrarPanelGRUK(panel) {
   const menu = document.getElementById("menuAdminGRUK");
   if (menu) menu.classList.remove("abierto");
 }
+async function cargarModuloGRUK(nombreModulo) {
+  const contenedor = document.getElementById("contenidoPrincipalGRUK");
+
+  if (!contenedor) {
+    console.error("No existe el contenedor contenidoPrincipalGRUK");
+    return;
+  }
+
+  const res = await fetch(`/modulos/${nombreModulo}.html`);
+  const html = await res.text();
+
+  contenedor.innerHTML = html;
+
+  if (typeof cargarAdmin === "function") {
+    cargarAdmin();
+  }
+}
