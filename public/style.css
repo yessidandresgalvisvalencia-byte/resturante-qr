@@ -268,17 +268,19 @@ border-left: 8px solid transparent;
   position: fixed;
   top: 0;
   left: 0;
-  width: 260px;
+  width: 265px;
   height: 100vh;
-  background: #111827;
+  background: linear-gradient(180deg, #0f172a, #111827);
   color: white;
   z-index: 9999;
-  padding: 80px 18px 20px;
-  box-shadow: 10px 0 30px rgba(0,0,0,.18);
+  padding: 76px 18px 20px;
+  box-shadow: 10px 0 35px rgba(0,0,0,.22);
 }
 
 .menuAdminGRUK h2 {
-  margin-bottom: 25px;
+  margin: 0 0 24px;
+  font-size: 28px;
+  letter-spacing: 2px;
 }
 
 .menuAdminGRUK button {
@@ -286,16 +288,41 @@ border-left: 8px solid transparent;
   display: block;
   border: none;
   background: transparent;
-  color: white;
+  color: #e5e7eb;
   text-align: left;
-  padding: 14px;
-  border-radius: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
   cursor: pointer;
   font-size: 15px;
+  margin-bottom: 8px;
+  font-weight: 700;
 }
 
 .menuAdminGRUK button:hover {
   background: rgba(255,255,255,.12);
+  color: white;
+  transform: translateX(4px);
+}
+
+.adminContenidoGRUK {
+  margin-left: 285px;
+  padding: 28px;
+}
+
+@media (max-width: 900px) {
+  .menuAdminGRUK {
+    left: -285px;
+    transition: .3s ease;
+  }
+
+  .menuAdminGRUK.abierto {
+    left: 0;
+  }
+
+  .adminContenidoGRUK {
+    margin-left: 0;
+    padding-top: 72px;
+  }
 }
 
 .adminContenidoGRUK {
