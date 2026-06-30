@@ -436,11 +436,11 @@ async function cargarSolicitudesAdminGRUK() {
       <p><strong>Fecha:</strong> ${new Date(s.fecha).toLocaleString("es-CO")}</p>
       <p><strong>Estado:</strong> ${s.estado}</p>
 
-      <button class="btnTabla btnSecTabla" onclick="actualizarSolicitudAdminGRUK(${s.id}, 'aprobada')">
+      <button class="btnTabla btnSecTabla" onclick="actualizarSolicitudAdminGRUK('${s._id}', 'aprobada')">
         Aprobar
       </button>
 
-      <button class="btnTabla btnEliminar" onclick="actualizarSolicitudAdminGRUK(${s.id}, 'rechazada')">
+      <button class="btnTabla btnEliminar" onclick="actualizarSolicitudAdminGRUK('${s._id}', 'rechazada')">
         Rechazar
       </button>
     </div>
