@@ -285,16 +285,16 @@ async function identificarEmpleadoPorRostroGRUK() {
     const data = await res.json();
 
     if (!data.ok || !data.empleado) {
-      if (data.requiereSeleccionManual && data.empleados?.length) {
-        mostrarSeleccionManualEmpleadoGRUK(data.empleados, selfie);
-        return;
-      }
+  const empleados = await obtenerEmpleadosTurnosGRUK();
 
-      alert(data.mensaje || "No se reconoció el empleado.");
+  if (empleados.length) {
+    mostrarSeleccionManualEmpleadoGRUK(empleados, selfie);
+    return;
+  }
 
-
-      return;
-    }
+  alert(data.mensaje || "No se reconoció el empleado.");
+  return;
+}
 
     empleadoActualGRUK = data.empleado;
     empleadoIdActual = data.empleado._id;
