@@ -307,12 +307,16 @@ function actualizarVistaEmpleadoGRUK() {
 }
 
 function cargarAsistenciaHoyGRUK() {
+  const empleado = obtenerEmpleadoActualGRUK();
+
+  if (!empleado) return;
+
   const asistencias = obtenerAsistenciasGRUK();
 
   const hoy = fechaISOHoyGRUK();
 
   const asistencia = asistencias.find(a =>
-    String(a.empleadoId) === String(empleadoIdActual) &&
+    String(a.empleadoId) === String(empleado._id) &&
     a.fecha === hoy
   );
 
@@ -397,9 +401,9 @@ async function marcarEntradaGRUK() {
   const asistencias = obtenerAsistenciasGRUK();
 
   const yaExiste = asistencias.find(a =>
-    String(a.empleadoId) === String(empleadoIdActual) &&
-    a.fecha === hoy
-  );
+  String(a.empleadoId) === String(empleado._id) &&
+  a.fecha === hoy
+);
 
   if (yaExiste && yaExiste.entradaReal) {
     alert("Ya registraste entrada hoy.");
@@ -476,9 +480,9 @@ async function marcarSalidaGRUK() {
   const asistencias = obtenerAsistenciasGRUK();
 
   const asistencia = asistencias.find(a =>
-    String(a.empleadoId) === String(empleadoIdActual) &&
-    a.fecha === hoy
-  );
+  String(a.empleadoId) === String(empleado._id) &&
+  a.fecha === hoy
+);
 
   if (!asistencia || !asistencia.entradaReal) {
     alert("Primero debes marcar entrada.");
@@ -621,8 +625,8 @@ async function renderizarPanelEmpleadoGRUK() {
   if (!empleado) return;
 
   const asistencias = obtenerAsistenciasGRUK().filter(a =>
-    String(a.empleadoId) === String(empleadoIdActual)
-  );
+  String(a.empleadoId) === String(empleado._id)
+);
 
    const resSolicitudes = await fetch(`/laboral/solicitudes/${restaurantIdEmpleado}`);
 const dataSolicitudes = await resSolicitudes.json();
@@ -631,8 +635,8 @@ const solicitudes = dataSolicitudes.ok
   ? dataSolicitudes.solicitudes
   : [];
   const solicitudesEmpleado =
-    solicitudes.filter(s => String(s.empleadoId) === String(empleadoIdActual));
-
+  solicitudes.filter(s => String(s.empleadoId) === String(empleado._id));
+  
   const hoy = fechaISOHoyGRUK();
 
   const asistenciaHoy =
