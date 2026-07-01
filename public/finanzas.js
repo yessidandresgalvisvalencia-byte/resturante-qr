@@ -2660,3 +2660,233 @@ function generarMotorInteligenciaGRUK(contexto = {}) {
 }
 
 window.calcularPrecioInteligente = calcularPrecioInteligente;
+function guardarPresupuestoGerencial() {
+  const restaurantId = getRestaurantId();
+
+  const presupuestoVentas =
+    Number(document.getElementById("presupuestoVentas").value || 0);
+
+  const presupuestoUtilidad =
+    Number(document.getElementById("presupuestoUtilidad").value || 0);
+
+  localStorage.setItem(
+    `presupuestoVentas_${restaurantId}`,
+    presupuestoVentas
+  );
+
+  localStorage.setItem(
+    `presupuestoUtilidad_${restaurantId}`,
+    presupuestoUtilidad
+  );
+
+  const inteligenciaActual =
+    JSON.parse(localStorage.getItem(`inteligenciaGRUK_${restaurantId}`)) || {};
+
+  const inteligenciaActualizada = {
+    ...inteligenciaActual,
+    metaVentasMensual: presupuestoVentas,
+    metaUtilidadMensual: presupuestoUtilidad,
+    fechaActualizacionMetas: new Date().toISOString()
+  };
+
+  localStorage.setItem(
+    `inteligenciaGRUK_${restaurantId}`,
+    JSON.stringify(inteligenciaActualizada)
+  );
+
+  document.getElementById("estadoPresupuestoGerencial").innerHTML = `
+    <div class="card">
+      <p>✅ Presupuesto guardado correctamente.</p>
+
+      <p>
+        <strong>Meta mensual de ventas:</strong>
+        ${formatoCOP(presupuestoVentas)}
+      </p>
+
+      <p>
+        <strong>Meta mensual de utilidad:</strong>
+        ${formatoCOP(presupuestoUtilidad)}
+      </p>
+
+      <p>
+        GRUK conectó estas metas con la Inteligencia Comercial.
+        Las estrategias de incremento de ventas, precio, promociones y productos premium
+        se adaptarán automáticamente a estos objetivos.
+      </p>
+    </div>
+  `;
+}
+async function cerrarMesFinanciero() {
+  const restaurantId =
+    getRestaurantId();
+
+  const pagosCaja =
+    JSON.parse(
+      localStorage.getItem(
+        `pagos_caja_${restaurantId}`
+      )
+    ) || [];
+
+  const mesActual =
+    new Date().toLocaleString("es-CO", {
+      month: "long",
+      year: "numeric"
+    });
+
+  const totalVendidoTexto =
+    document.getElementById("totalVendido")?.innerText || "$0";
+
+  const ingresosPanel =
+    Number(
+      String(totalVendidoTexto).replace(/[^0-9]/g, "")
+    );
+
+  const gastos =
+    JSON.parse(
+      localStorage.getItem(`gastos_${restaurantId}`)
+    ) || [];
+
+  const totalGastos =
+    gastos.reduce(
+      (acc, g) => acc + Number(g.valor || 0),
+      0
+    );
+
+  const ventasManualCaja =
+    pagosCaja
+      .filter(p => p.tipoVenta === "manual")
+      .reduce(
+        (acc, p) => acc + Number(p.total || 0),
+        0
+      );
+
+  let datosVentas = [];
+  let personal = [];
+
+  try {
+    let resVentas =
+      await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
+
+    if (!resVentas.ok) {
+      resVentas =
+        await fetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
+    }
+
+    if (resVentas.ok) {
+      datosVentas = await resVentas.json();
+    }
+  } catch (error) {
+    console.log("No se pudo cargar ventas para cierre:", error);
+  }
+
+  try {
+    const resPersonal =
+      await fetch(`/api/personal?restaurantId=${restaurantId}`);
+
+    if (resPersonal.ok) {
+      personal =
+        await resPersonal.json();
+    }
+  } catch (error) {
+    console.log("No se pudo cargar personal para cierre:", error);
+  }
+
+  const ventasOrdenadas =
+    datosVentas
+      .map(p => ({
+        precioUnitarioActual:
+          Number(p.precioUnitarioActual || 0),
+
+        costoMateriaPrimaTotal:
+          Number(p.costoMateriaPrimaTotal || 0),
+
+        ventas:
+          Number(p.ventas || 0),
+
+        totalDinero:
+          Number(p.totalCalculado || 0)
+      }))
+      .filter(p =>
+        p.ventas > 0 &&
+        p.precioUnitarioActual > 0 &&
+        p.totalDinero > 0
+      );
+
+  const ventasQR =
+    ventasOrdenadas.reduce(
+      (acc, p) => acc + p.totalDinero,
+      0
+    );
+
+  const costosMateriaPrima =
+    ventasOrdenadas.reduce(
+      (acc, p) => acc + Number(p.costoMateriaPrimaTotal || 0),
+      0
+    );
+
+  const gastoNomina =
+    personal.reduce(
+      (acc, p) => acc + Number(p.salario || 0),
+      0
+    );
+
+  const ingresosTotales =
+    ventasQR +
+    ventasManualCaja;
+
+  const utilidadBruta =
+    ingresosTotales -
+    costosMateriaPrima;
+
+  const utilidadNeta =
+    utilidadBruta -
+    totalGastos -
+    gastoNomina;
+
+  const historico =
+    JSON.parse(
+      localStorage.getItem(`historicoFinanciero_${restaurantId}`)
+    ) || [];
+
+  const yaExiste =
+    historico.some(h => h.mes === mesActual);
+
+  if (yaExiste) {
+    alert("Este mes ya fue cerrado. No se puede cerrar dos veces.");
+    return;
+  }
+
+  historico.push({
+    mes: mesActual,
+    ingresosPanel,
+    ingresosTotales,
+    ventasQR,
+    ventasManualCaja,
+    costosMateriaPrima,
+    utilidadBruta,
+    totalGastos,
+    gastoNomina,
+    utilidadNeta,
+    fechaCierre: new Date().toISOString()
+  });
+
+  localStorage.setItem(
+    `historicoFinanciero_${restaurantId}`,
+    JSON.stringify(historico)
+  );
+
+  const estado =
+    document.getElementById("estadoCierreMensual");
+
+  if (estado) {
+    estado.innerHTML = `
+      <div class="card">
+        <p><strong>Mes cerrado correctamente:</strong> ${mesActual}</p>
+        <p><strong>Ingresos reales:</strong> ${formatoCOP(ingresosTotales)}</p>
+        <p><strong>Utilidad neta:</strong> ${formatoCOP(utilidadNeta)}</p>
+      </div>
+    `;
+  }
+
+  alert("Mes financiero cerrado correctamente");
+}
