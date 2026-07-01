@@ -1,4 +1,3 @@
-alert("JS NUEVO CARGADO");
 const paramsEmpleadoTurnos = new URLSearchParams(window.location.search);
 
 const restaurantIdEmpleado =
@@ -8,43 +7,15 @@ const restaurantIdEmpleado =
 
 let empleadoActualGRUK = null;
 let empleadoIdActual = null;
-let empleadosLaboralesGRUK = [];
 
 async function obtenerEmpleadosTurnosGRUK() {
   const res = await fetch(`/laboral/empleados/${restaurantIdEmpleado}`);
   const data = await res.json();
 
-  if (!data.ok) {
-    console.error(data.mensaje);
-    return [];
-  }
+  if (!data.ok) return [];
 
   return data.empleados || [];
 }
-
-async function obtenerAsistenciasGRUK() {
-  const empleado = obtenerEmpleadoActualGRUK();
-
-  if (!empleado) return [];
-
-  try {
-    const res = await fetch(
-      `/laboral/asistencias/${restaurantIdEmpleado}/${empleado._id}`
-    );
-
-    const data = await res.json();
-
-    if (!data.ok) return [];
-
-    return data.asistencias || [];
-
-  } catch (error) {
-    console.error("Error obteniendo asistencias:", error);
-    return [];
-  }
-}
-
-
 
 function obtenerEmpleadoActualGRUK() {
   if (empleadoActualGRUK) return empleadoActualGRUK;
@@ -58,6 +29,23 @@ function obtenerEmpleadoActualGRUK() {
   }
 
   return null;
+}
+
+async function obtenerAsistenciasGRUK() {
+  const empleado = obtenerEmpleadoActualGRUK();
+  if (!empleado) return [];
+
+  try {
+    const res = await fetch(`/laboral/asistencias/${restaurantIdEmpleado}/${empleado._id}`);
+    const data = await res.json();
+
+    if (!data.ok) return [];
+
+    return data.asistencias || [];
+  } catch (error) {
+    console.error("Error obteniendo asistencias:", error);
+    return [];
+  }
 }
 
 function fechaISOHoyGRUK() {
@@ -80,15 +68,20 @@ function fechaActualGRUK() {
   });
 }
 
+function formatoCOPEmpleado(valor) {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0
+  }).format(Number(valor || 0));
+}
 
 function crearPantallaIdentificacionGRUK() {
   document.body.insertAdjacentHTML("afterbegin", `
     <div id="pantallaIdentificacionGRUK" class="modalOverlay activo">
       <div class="modalGRUK">
         <h2>Verificación facial GRUK</h2>
-        <p>
-          Escanea tu rostro para ingresar automáticamente a tu portal laboral.
-        </p>
+        <p>Escanea tu rostro para ingresar automáticamente a tu portal laboral.</p>
 
         <div class="camaraBox">
           <img id="selfieIdentificacionPreview" src="" style="display:none;">
@@ -158,71 +151,16 @@ async function tomarSelfieGRUK() {
     input.click();
   });
 }
-function mostrarCargaIdentificacionGRUK(texto) {
-  const estado = document.getElementById("estadoIdentificacionGRUK");
-  const estadoFace = document.getElementById("estadoFace");
 
-  if (estado) estado.textContent = texto;
-  if (estadoFace) estadoFace.textContent = texto;
-
-  const modal = document.getElementById("pantallaIdentificacionGRUK");
-
-  if (modal) {
-    const caja = modal.querySelector(".modalGRUK");
-
-    if (caja) {
-      caja.innerHTML = `
-        <h2>Verificación facial GRUK</h2>
-        <div class="loaderGRUK"></div>
-        <h3 id="textoCargaGRUK">${texto}</h3>
-        <p>Estamos validando tu identidad de forma segura.</p>
-      `;
-    }
-  }
-}
-
-function registrarIngresoEmpleadoGRUK(empleado, selfie) {
-  const ingresos =
-    JSON.parse(localStorage.getItem(`ingresos_GRUK_${restaurantIdEmpleado}`)) || [];
-
-  ingresos.push({
-    id: Date.now(),
-    empleadoId: empleado._id,
-    empleadoNombre: empleado.nombre,
-    cargo: empleado.cargo || "Empleado",
-    selfie,
-    fecha: new Date().toISOString(),
-    tipo: "reconocimiento_facial"
-  });
-
-  localStorage.setItem(
-    `ingresos_GRUK_${restaurantIdEmpleado}`,
-    JSON.stringify(ingresos)
-  );
-}
-
-function abrirPerfilEmpleadoReconocidoGRUK() {
-  const identificacion = document.getElementById("seccion-identificacion");
-  const perfil = document.getElementById("seccion-perfil");
-
-  if (identificacion) identificacion.classList.remove("activa");
-  if (perfil) perfil.classList.add("activa");
-
-  mostrarSeccionEmpleado("perfil");
-}
 function mostrarBienvenidaGRUK(empleado) {
   const horaActual = new Date();
   const hora = horaActual.getHours();
 
   let saludo = "Hola";
 
-  if (hora >= 5 && hora < 12) {
-    saludo = "Buenos días";
-  } else if (hora >= 12 && hora < 18) {
-    saludo = "Buenas tardes";
-  } else {
-    saludo = "Buenas noches";
-  }
+  if (hora >= 5 && hora < 12) saludo = "Buenos días";
+  else if (hora >= 12 && hora < 18) saludo = "Buenas tardes";
+  else saludo = "Buenas noches";
 
   const horaTexto = horaActual.toLocaleTimeString("es-CO", {
     hour: "2-digit",
@@ -238,25 +176,17 @@ function mostrarBienvenidaGRUK(empleado) {
 
   const bienvenida = document.createElement("div");
   bienvenida.className = "bienvenidaGRUK";
+
   bienvenida.innerHTML = `
     <div class="bienvenidaCardGRUK">
       <div class="bienvenidaLogoGRUK">GRUK</div>
-
       <h1>${saludo}, ${empleado.nombre} 👋</h1>
-
       <p class="bienvenidaOkGRUK">✅ Identidad verificada correctamente</p>
-
-      <p>
-        Te damos la bienvenida a una nueva jornada. Deseamos que este día esté lleno de
-        excelentes resultados, crecimiento, productividad y logros. Recuerda que cada
-        esfuerzo suma al éxito del equipo.
-      </p>
-
+      <p>Te damos la bienvenida a una nueva jornada.</p>
       <div class="bienvenidaInfoGRUK">
         <span>🕒 ${horaTexto}</span>
         <span>📅 ${fechaTexto}</span>
       </div>
-
       <strong>¡Vamos por un gran día! 💙🚀</strong>
     </div>
   `;
@@ -267,17 +197,15 @@ function mostrarBienvenidaGRUK(empleado) {
     bienvenida.remove();
   }, 3200);
 }
+
 async function identificarEmpleadoPorRostroGRUK() {
   console.log("BOTÓN TOMAR FOTO FUNCIONÓ");
 
   try {
-    
-
     const selfie = await tomarSelfieGRUK();
 
     if (!selfie) {
       alert("Debes tomar una foto para ingresar.");
-
       return;
     }
 
@@ -295,42 +223,39 @@ async function identificarEmpleadoPorRostroGRUK() {
     const data = await res.json();
 
     if (!data.ok || !data.empleado) {
-  const empleados = await obtenerEmpleadosTurnosGRUK();
+      const empleados = await obtenerEmpleadosTurnosGRUK();
 
-  if (empleados.length) {
-    mostrarSeleccionManualEmpleadoGRUK(empleados, selfie);
-    return;
-  }
+      if (empleados.length) {
+        mostrarSeleccionManualEmpleadoGRUK(empleados, selfie);
+        return;
+      }
 
-  alert(data.mensaje || "No se reconoció el empleado.");
-  return;
-}
+      alert(data.mensaje || "No se reconoció el empleado.");
+      return;
+    }
 
     empleadoActualGRUK = data.empleado;
     empleadoIdActual = data.empleado._id;
+
     localStorage.setItem(
-  `empleadoActual_GRUK_${restaurantIdEmpleado}`,
-  JSON.stringify(data.empleado)
-);
+      `empleadoActual_GRUK_${restaurantIdEmpleado}`,
+      JSON.stringify(data.empleado)
+    );
 
     const modal = document.getElementById("pantallaIdentificacionGRUK");
     if (modal) modal.remove();
 
-    actualizarVistaEmpleadoGRUK();
-mostrarBienvenidaGRUK(data.empleado);
-mostrarSeccionEmpleado("perfil");
+    await actualizarVistaEmpleadoGRUK();
+    mostrarBienvenidaGRUK(data.empleado);
+    mostrarSeccionEmpleado("perfil");
 
   } catch (error) {
     console.error(error);
     alert("No fue posible validar la identidad del empleado.");
-
-
   }
 }
 
-window.identificarEmpleadoPorRostroGRUK = identificarEmpleadoPorRostroGRUK;
-
-function actualizarVistaEmpleadoGRUK() {
+async function actualizarVistaEmpleadoGRUK() {
   const empleado = obtenerEmpleadoActualGRUK();
 
   if (!empleado) return;
@@ -355,8 +280,8 @@ function actualizarVistaEmpleadoGRUK() {
   document.getElementById("estadoVerificacionVisual").textContent =
     "✔ Verificado";
 
-  cargarAsistenciaHoyGRUK();
-renderizarPanelEmpleadoGRUK();
+  await cargarAsistenciaHoyGRUK();
+  await renderizarPanelEmpleadoGRUK();
 }
 
 async function cargarAsistenciaHoyGRUK() {
@@ -451,12 +376,12 @@ async function marcarEntradaGRUK() {
 
   const hoy = fechaISOHoyGRUK();
 
-  const asistencias = obtenerAsistenciasGRUK();
+  const asistencias = await obtenerAsistenciasGRUK();
 
   const yaExiste = asistencias.find(a =>
-  String(a.empleadoId) === String(empleado._id) &&
-  a.fecha === hoy
-);
+    String(a.empleadoId) === String(empleado._id) &&
+    a.fecha === hoy
+  );
 
   if (yaExiste && yaExiste.entradaReal) {
     alert("Ya registraste entrada hoy.");
@@ -473,37 +398,35 @@ async function marcarEntradaGRUK() {
     return;
   }
 
-  document.getElementById("estadoFace").textContent =
-    "Selfie registrada";
-
   document.getElementById("ubicacionActual").textContent =
     "Validando GPS...";
 
   const gps = await obtenerUbicacionGRUK();
 
-  const asistencia = {
-    id: Date.now(),
-    empleadoId: empleado._id,
-    empleadoNombre: empleado.nombre,
-    cargo: empleado.cargo,
-    fecha: hoy,
-    entradaReal: new Date().toISOString(),
-    horaEntradaTexto: horaActualGRUK(),
-    selfieEntrada: selfie,
-    gpsEntrada: gps,
-    salidaReal: null,
-    selfieSalida: null,
-    gpsSalida: null,
-    horasTrabajadas: 0,
-    horasExtra: 0,
-    dobleTurno: false,
-    estado: "entrada_registrada",
-    verificacionFacial: "empleado_reconocido"
-  };
+  const res = await fetch("/laboral/asistencias/entrada", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      restaurantId: restaurantIdEmpleado,
+      empleadoId: empleado._id,
+      empleadoNombre: empleado.nombre,
+      cargo: empleado.cargo,
+      fecha: hoy,
+      selfieEntrada: selfie,
+      gpsEntrada: gps
+    })
+  });
 
-  asistencias.push(asistencia);
+  const data = await res.json();
 
-  guardarAsistenciasGRUK(asistencias);
+  if (!data.ok) {
+    alert(data.mensaje || "No se pudo marcar entrada.");
+    return;
+  }
+
+  const asistencia = data.asistencia;
 
   document.getElementById("fotoVerificacion").src = selfie;
   document.getElementById("horaEntradaReal").textContent =
@@ -515,7 +438,7 @@ async function marcarEntradaGRUK() {
   document.getElementById("estadoMarcacion").textContent =
     "Entrada registrada";
 
-  renderizarPanelEmpleadoGRUK();
+  await renderizarPanelEmpleadoGRUK();
 
   alert("Entrada registrada correctamente.");
 }
@@ -530,12 +453,12 @@ async function marcarSalidaGRUK() {
 
   const hoy = fechaISOHoyGRUK();
 
-  const asistencias = obtenerAsistenciasGRUK();
+  const asistencias = await obtenerAsistenciasGRUK();
 
   const asistencia = asistencias.find(a =>
-  String(a.empleadoId) === String(empleado._id) &&
-  a.fecha === hoy
-);
+    String(a.empleadoId) === String(empleado._id) &&
+    a.fecha === hoy
+  );
 
   if (!asistencia || !asistencia.entradaReal) {
     alert("Primero debes marcar entrada.");
@@ -559,29 +482,37 @@ async function marcarSalidaGRUK() {
 
   const gps = await obtenerUbicacionGRUK();
 
-  const salida = new Date();
-  const entrada = new Date(asistencia.entradaReal);
+  const res = await fetch("/laboral/asistencias/salida", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      restaurantId: restaurantIdEmpleado,
+      empleadoId: empleado._id,
+      fecha: hoy,
+      selfieSalida: selfie,
+      gpsSalida: gps
+    })
+  });
 
-  const horas =
-    (salida.getTime() - entrada.getTime()) / (1000 * 60 * 60);
+  const data = await res.json();
 
-  asistencia.salidaReal = salida.toISOString();
-  asistencia.horaSalidaTexto = horaActualGRUK();
-  asistencia.selfieSalida = selfie;
-  asistencia.gpsSalida = gps;
-  asistencia.horasTrabajadas = Number(horas.toFixed(2));
-  asistencia.estado = "turno_completado";
+  if (!data.ok) {
+    alert(data.mensaje || "No se pudo marcar salida.");
+    return;
+  }
 
-  guardarAsistenciasGRUK(asistencias);
+  const asistenciaActualizada = data.asistencia;
 
   document.getElementById("fotoVerificacion").src = selfie;
   document.getElementById("ubicacionActual").textContent = gps.mensaje;
   document.getElementById("estadoMarcacion").textContent =
     "Turno completado";
   document.getElementById("horasTrabajadas").textContent =
-    `${asistencia.horasTrabajadas}h`;
+    `${asistenciaActualizada.horasTrabajadas}h`;
 
-  renderizarPanelEmpleadoGRUK();
+  await renderizarPanelEmpleadoGRUK();
 
   alert("Salida registrada correctamente.");
 }
@@ -615,7 +546,7 @@ async function solicitarHoraExtra() {
   }
 
   alert("Solicitud de hora extra enviada correctamente.");
-  renderizarPanelEmpleadoGRUK();
+  await renderizarPanelEmpleadoGRUK();
 }
 
 async function solicitarDobleTurno() {
@@ -647,7 +578,7 @@ async function solicitarDobleTurno() {
   }
 
   alert("Solicitud de doble turno enviada correctamente.");
-  renderizarPanelEmpleadoGRUK();
+  await renderizarPanelEmpleadoGRUK();
 }
 
 function mostrarSeccionEmpleado(seccion, boton) {
@@ -677,18 +608,21 @@ async function renderizarPanelEmpleadoGRUK() {
 
   if (!empleado) return;
 
-  const asistencias = obtenerAsistenciasGRUK().filter(a =>
-  String(a.empleadoId) === String(empleado._id)
-);
+  const asistencias = await obtenerAsistenciasGRUK();
 
-   const resSolicitudes = await fetch(`/laboral/solicitudes/${restaurantIdEmpleado}`);
-const dataSolicitudes = await resSolicitudes.json();
+  let solicitudes = [];
 
-const solicitudes = dataSolicitudes.ok
-  ? dataSolicitudes.solicitudes
-  : [];
+  try {
+    const resSolicitudes = await fetch(`/laboral/solicitudes/${restaurantIdEmpleado}`);
+    const dataSolicitudes = await resSolicitudes.json();
+
+    solicitudes = dataSolicitudes.ok ? dataSolicitudes.solicitudes : [];
+  } catch (error) {
+    console.error("Error cargando solicitudes:", error);
+  }
+
   const solicitudesEmpleado =
-  solicitudes.filter(s => String(s.empleadoId) === String(empleado._id));
+    solicitudes.filter(s => String(s.empleadoId) === String(empleado._id));
 
   const hoy = fechaISOHoyGRUK();
 
@@ -696,6 +630,7 @@ const solicitudes = dataSolicitudes.ok
     asistencias.find(a => a.fecha === hoy);
 
   const detalleTurnoHoy = document.getElementById("detalleTurnoHoy");
+
   if (detalleTurnoHoy) {
     detalleTurnoHoy.innerHTML = asistenciaHoy
       ? `
@@ -716,6 +651,7 @@ const solicitudes = dataSolicitudes.ok
   }
 
   const listaMisTurnos = document.getElementById("listaMisTurnos");
+
   if (listaMisTurnos) {
     listaMisTurnos.innerHTML = asistencias.length
       ? asistencias.map(a => `
@@ -731,6 +667,7 @@ const solicitudes = dataSolicitudes.ok
   }
 
   const listaHorasExtra = document.getElementById("listaHorasExtraEmpleado");
+
   if (listaHorasExtra) {
     const extras = solicitudesEmpleado.filter(s => s.tipo === "hora_extra");
 
@@ -746,6 +683,7 @@ const solicitudes = dataSolicitudes.ok
   }
 
   const listaDoble = document.getElementById("listaDobleTurnoEmpleado");
+
   if (listaDoble) {
     const dobles = solicitudesEmpleado.filter(s => s.tipo === "doble_turno");
 
@@ -761,6 +699,7 @@ const solicitudes = dataSolicitudes.ok
   }
 
   const listaMarcaciones = document.getElementById("listaMarcacionesEmpleado");
+
   if (listaMarcaciones) {
     listaMarcaciones.innerHTML = asistencias.length
       ? asistencias.map(a => `
@@ -776,6 +715,7 @@ const solicitudes = dataSolicitudes.ok
   }
 
   const perfil = document.getElementById("perfilEmpleadoGRUK");
+
   if (perfil) {
     perfil.innerHTML = `
       <div class="turnoCard">
@@ -791,20 +731,6 @@ const solicitudes = dataSolicitudes.ok
   }
 }
 
-function formatoCOPEmpleado(valor) {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0
-  }).format(Number(valor || 0));
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  crearPantallaIdentificacionGRUK();
-
-  document.getElementById("fechaActual").textContent =
-    fechaActualGRUK();
-});
 function mostrarSeleccionManualEmpleadoGRUK(empleados, selfie) {
   const modal = document.getElementById("pantallaIdentificacionGRUK");
 
@@ -825,20 +751,38 @@ function mostrarSeleccionManualEmpleadoGRUK(empleados, selfie) {
   `;
 }
 
-function ingresarEmpleadoManualGRUK(empleado, selfie) {
+async function ingresarEmpleadoManualGRUK(empleado, selfie) {
   empleadoActualGRUK = empleado;
   empleadoIdActual = empleado._id;
 
   localStorage.setItem(
-    `empleadoRecordado_GRUK_${restaurantIdEmpleado}`,
-    empleado._id
+    `empleadoActual_GRUK_${restaurantIdEmpleado}`,
+    JSON.stringify(empleado)
   );
 
   const modal = document.getElementById("pantallaIdentificacionGRUK");
   if (modal) modal.remove();
 
-  actualizarVistaEmpleadoGRUK();
+  await actualizarVistaEmpleadoGRUK();
   mostrarSeccionEmpleado("perfil");
 
   alert(`Bienvenido/a ${empleado.nombre}`);
 }
+
+window.identificarEmpleadoPorRostroGRUK = identificarEmpleadoPorRostroGRUK;
+window.marcarEntradaGRUK = marcarEntradaGRUK;
+window.marcarSalidaGRUK = marcarSalidaGRUK;
+window.solicitarHoraExtra = solicitarHoraExtra;
+window.solicitarDobleTurno = solicitarDobleTurno;
+window.mostrarSeccionEmpleado = mostrarSeccionEmpleado;
+window.ingresarEmpleadoManualGRUK = ingresarEmpleadoManualGRUK;
+
+document.addEventListener("DOMContentLoaded", () => {
+  crearPantallaIdentificacionGRUK();
+
+  const fecha = document.getElementById("fechaActual");
+
+  if (fecha) {
+    fecha.textContent = fechaActualGRUK();
+  }
+});
