@@ -37,7 +37,17 @@ function guardarAsistenciasGRUK(asistencias) {
 }
 
 function obtenerEmpleadoActualGRUK() {
-  return empleadoActualGRUK;
+  if (empleadoActualGRUK) return empleadoActualGRUK;
+
+  const guardado = localStorage.getItem(`empleadoActual_GRUK_${restaurantIdEmpleado}`);
+
+  if (guardado) {
+    empleadoActualGRUK = JSON.parse(guardado);
+    empleadoIdActual = empleadoActualGRUK._id;
+    return empleadoActualGRUK;
+  }
+
+  return null;
 }
 
 function fechaISOHoyGRUK() {
@@ -259,6 +269,10 @@ async function identificarEmpleadoPorRostroGRUK() {
 
     empleadoActualGRUK = data.empleado;
     empleadoIdActual = data.empleado._id;
+    localStorage.setItem(
+  `empleadoActual_GRUK_${restaurantIdEmpleado}`,
+  JSON.stringify(data.empleado)
+);
 
     const modal = document.getElementById("pantallaIdentificacionGRUK");
     if (modal) modal.remove();
@@ -430,7 +444,7 @@ async function marcarEntradaGRUK() {
 
   const asistencia = {
     id: Date.now(),
-    empleadoId: empleadoIdActual,
+    empleadoId: empleado._id,
     empleadoNombre: empleado.nombre,
     cargo: empleado.cargo,
     fecha: hoy,
@@ -636,7 +650,7 @@ const solicitudes = dataSolicitudes.ok
   : [];
   const solicitudesEmpleado =
   solicitudes.filter(s => String(s.empleadoId) === String(empleado._id));
-  
+
   const hoy = fechaISOHoyGRUK();
 
   const asistenciaHoy =
