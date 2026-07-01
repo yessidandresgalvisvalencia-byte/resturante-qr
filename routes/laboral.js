@@ -3,6 +3,7 @@ const router = express.Router();
 const ia = require("../gruk-ai");
 const EmpleadoLaboral = require("../models/EmpleadoLaboral");
 const SolicitudLaboral = require("../models/SolicitudLaboral");
+const AsistenciaLaboral = require("../models/AsistenciaLaboral");
 
 // CREAR EMPLEADO
 router.post("/empleados", async (req, res) => {
@@ -300,6 +301,186 @@ router.put("/solicitudes/:id/estado", async (req, res) => {
     res.status(500).json({
       ok: false,
       mensaje: "Error interno actualizando solicitud."
+    });
+  }
+});
+// MARCAR ENTRADA
+router.post("/asistencias/entrada", async (req, res) => {
+  try {
+    const {
+      restaurantId,
+      empleadoId,
+      empleadoNombre,
+      cargo,
+      fecha,
+      selfieEntrada,
+      gpsEntrada
+    } = req.body;
+
+    if (!restaurantId || !empleadoId || !fecha) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: "Faltan datos para marcar entrada."
+      });
+    }
+
+    const existente = await AsistenciaLaboral.findOne({
+      restaurantId,
+      empleadoId,
+      fecha
+    });
+
+    if (existente && existente.entradaReal) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: "Ya registraste entrada hoy.",
+        asistencia: existente
+      });
+    }
+
+    const asistencia = await AsistenciaLaboral.create({
+      restaurantId,
+      empleadoId,
+      empleadoNombre,
+      cargo,
+      fecha,
+      entradaReal: new Date().toISOString(),
+      horaEntradaTexto: new Date().toLocaleTimeString("es-CO", {
+        hour: "2-digit",
+        minute: "2-digit"
+      }),
+      selfieEntrada,
+      gpsEntrada,
+      salidaReal: null,
+      selfieSalida: null,
+      gpsSalida: null,
+      horasTrabajadas: 0,
+      estado: "entrada_registrada",
+      verificacionFacial: "empleado_reconocido"
+    });
+
+    res.json({
+      ok: true,
+      mensaje: "Entrada registrada correctamente.",
+      asistencia
+    });
+
+  } catch (error) {
+    console.error("Error marcando entrada:", error);
+    res.status(500).json({
+      ok: false,
+      mensaje: "Error interno marcando entrada."
+    });
+  }
+});
+
+// MARCAR SALIDA
+router.put("/asistencias/salida", async (req, res) => {
+  try {
+    const {
+      restaurantId,
+      empleadoId,
+      fecha,
+      selfieSalida,
+      gpsSalida
+    } = req.body;
+
+    const asistencia = await AsistenciaLaboral.findOne({
+      restaurantId,
+      empleadoId,
+      fecha
+    });
+
+    if (!asistencia || !asistencia.entradaReal) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: "Primero debes marcar entrada."
+      });
+    }
+
+    if (asistencia.salidaReal) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: "Ya registraste salida hoy."
+      });
+    }
+
+    const salida = new Date();
+    const entrada = new Date(asistencia.entradaReal);
+
+    const horas =
+      (salida.getTime() - entrada.getTime()) / (1000 * 60 * 60);
+
+    asistencia.salidaReal = salida.toISOString();
+    asistencia.horaSalidaTexto = salida.toLocaleTimeString("es-CO", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+    asistencia.selfieSalida = selfieSalida;
+    asistencia.gpsSalida = gpsSalida;
+    asistencia.horasTrabajadas = Number(horas.toFixed(2));
+    asistencia.estado = "turno_completado";
+
+    await asistencia.save();
+
+    res.json({
+      ok: true,
+      mensaje: "Salida registrada correctamente.",
+      asistencia
+    });
+
+  } catch (error) {
+    console.error("Error marcando salida:", error);
+    res.status(500).json({
+      ok: false,
+      mensaje: "Error interno marcando salida."
+    });
+  }
+});
+
+// LISTAR ASISTENCIAS
+router.get("/asistencias/:restaurantId/:empleadoId", async (req, res) => {
+  try {
+    const { restaurantId, empleadoId } = req.params;
+
+    const asistencias = await AsistenciaLaboral.find({
+      restaurantId,
+      empleadoId
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      ok: true,
+      asistencias
+    });
+
+  } catch (error) {
+    console.error("Error listando asistencias:", error);
+    res.status(500).json({
+      ok: false,
+      mensaje: "Error interno listando asistencias."
+    });
+  }
+});
+
+// LISTAR TODAS LAS ASISTENCIAS DEL RESTAURANTE
+router.get("/asistencias/:restaurantId", async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+
+    const asistencias = await AsistenciaLaboral.find({
+      restaurantId
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      ok: true,
+      asistencias
+    });
+
+  } catch (error) {
+    console.error("Error listando asistencias restaurante:", error);
+    res.status(500).json({
+      ok: false,
+      mensaje: "Error interno listando asistencias."
     });
   }
 });

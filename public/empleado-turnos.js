@@ -22,19 +22,29 @@ async function obtenerEmpleadosTurnosGRUK() {
   return data.empleados || [];
 }
 
-function obtenerAsistenciasGRUK() {
-  return (
-    JSON.parse(localStorage.getItem(`asistencias_GRUK_${restaurantIdEmpleado}`)) ||
-    []
-  );
+async function obtenerAsistenciasGRUK() {
+  const empleado = obtenerEmpleadoActualGRUK();
+
+  if (!empleado) return [];
+
+  try {
+    const res = await fetch(
+      `/laboral/asistencias/${restaurantIdEmpleado}/${empleado._id}`
+    );
+
+    const data = await res.json();
+
+    if (!data.ok) return [];
+
+    return data.asistencias || [];
+
+  } catch (error) {
+    console.error("Error obteniendo asistencias:", error);
+    return [];
+  }
 }
 
-function guardarAsistenciasGRUK(asistencias) {
-  localStorage.setItem(
-    `asistencias_GRUK_${restaurantIdEmpleado}`,
-    JSON.stringify(asistencias)
-  );
-}
+
 
 function obtenerEmpleadoActualGRUK() {
   if (empleadoActualGRUK) return empleadoActualGRUK;
@@ -346,15 +356,15 @@ function actualizarVistaEmpleadoGRUK() {
     "✔ Verificado";
 
   cargarAsistenciaHoyGRUK();
-  renderizarPanelEmpleadoGRUK();
+renderizarPanelEmpleadoGRUK();
 }
 
-function cargarAsistenciaHoyGRUK() {
+async function cargarAsistenciaHoyGRUK() {
   const empleado = obtenerEmpleadoActualGRUK();
 
   if (!empleado) return;
 
-  const asistencias = obtenerAsistenciasGRUK();
+  const asistencias = await obtenerAsistenciasGRUK();
 
   const hoy = fechaISOHoyGRUK();
 
@@ -390,7 +400,7 @@ function cargarAsistenciaHoyGRUK() {
 
   if (asistencia.horasTrabajadas) {
     document.getElementById("horasTrabajadas").textContent =
-      `${asistencia.horasTrabajadas.toFixed(2)}h`;
+      `${Number(asistencia.horasTrabajadas).toFixed(2)}h`;
   }
 }
 
