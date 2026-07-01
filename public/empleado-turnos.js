@@ -54,9 +54,10 @@ function fechaISOHoyGRUK() {
 
 function horaActualGRUK() {
   return new Date().toLocaleTimeString("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "America/Bogota"
+})
 }
 
 function fechaActualGRUK() {

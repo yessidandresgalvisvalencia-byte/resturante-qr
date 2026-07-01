@@ -346,9 +346,11 @@ router.post("/asistencias/entrada", async (req, res) => {
       fecha,
       entradaReal: new Date().toISOString(),
       horaEntradaTexto: new Date().toLocaleTimeString("es-CO", {
-        hour: "2-digit",
-        minute: "2-digit"
-      }),
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "America/Bogota"
+}),
+    
       selfieEntrada,
       gpsEntrada,
       salidaReal: null,
@@ -413,9 +415,10 @@ router.put("/asistencias/salida", async (req, res) => {
 
     asistencia.salidaReal = salida.toISOString();
     asistencia.horaSalidaTexto = salida.toLocaleTimeString("es-CO", {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "America/Bogota"
+});
     asistencia.selfieSalida = selfieSalida;
     asistencia.gpsSalida = gpsSalida;
     asistencia.horasTrabajadas = Number(horas.toFixed(2));
