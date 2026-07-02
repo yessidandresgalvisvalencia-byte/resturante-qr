@@ -389,3 +389,139 @@ function detectarEventosInventarioGRUK(fechaMes) {
     factorDemanda
   };
 }
+async function diagnosticoInventarioGRUK() {
+  const restaurantId =
+    localStorage.getItem("adminRestaurantId") ||
+    getRestaurantId();
+
+  const res = await fetch(`/api/inventario/${restaurantId}`);
+  const data = await res.json();
+
+  if (!data.ok) {
+    alert("No se pudo cargar el inventario.");
+    return;
+  }
+
+  const productos = data.productos || [];
+  const contenedor = document.getElementById("resultadoDiagnosticoGRUK") || document.getElementById("planInventarioMensual");
+
+  if (!contenedor) {
+    alert("Falta el contenedor de diagnóstico.");
+    return;
+  }
+
+  const totalProductos = productos.length;
+
+  const vencidos = productos.filter(p => p.estado === "vencido");
+  const proximos = productos.filter(p => p.estado === "proximo" || Number(p.diasRestantes || 0) <= 7);
+  const sinStock = productos.filter(p => Number(p.cantidad || 0) <= 0);
+
+  const valorInventario = productos.reduce((acc, p) => {
+    return acc + Number(p.cantidad || 0) * Number(p.costo || 0);
+  }, 0);
+
+  const capitalRiesgo = proximos.reduce((acc, p) => {
+    return acc + Number(p.cantidad || 0) * Number(p.costo || 0);
+  }, 0);
+
+  let salud = 100;
+
+  salud -= vencidos.length * 15;
+  salud -= proximos.length * 7;
+  salud -= sinStock.length * 10;
+
+  salud = Math.max(0, Math.min(100, salud));
+
+  const comprar = productos
+    .filter(p => Number(p.cantidad || 0) <= 5 && p.estado !== "vencido")
+    .slice(0, 5);
+
+  const noComprar = productos
+    .filter(p => p.estado === "vencido" || p.estado === "proximo" || Number(p.diasRestantes || 0) <= 10)
+    .slice(0, 5);
+
+  const usarPrimero = productos
+    .filter(p => p.estado === "proximo" || Number(p.diasRestantes || 0) <= 7)
+    .slice(0, 5);
+
+  const saludo = obtenerSaludoInventarioGRUK();
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <h2>🤖 Diagnóstico General GRUK</h2>
+
+      <p><strong>${saludo}.</strong></p>
+
+      <h3>Inventario saludable: ${salud}%</h3>
+
+      <p>
+        GRUK detectó <strong>${totalProductos}</strong> productos registrados,
+        con un valor total aproximado de
+        <strong>${formatoCOP(valorInventario)}</strong>.
+      </p>
+
+      <p>
+        Hay <strong>${proximos.length}</strong> producto(s) próximos a vencer,
+        <strong>${vencidos.length}</strong> vencido(s) y
+        <strong>${sinStock.length}</strong> sin stock.
+      </p>
+
+      <p>
+        Capital en riesgo por vencimiento:
+        <strong>${formatoCOP(capitalRiesgo)}</strong>.
+      </p>
+
+      <h3>✅ Usa primero</h3>
+      ${
+        usarPrimero.length
+          ? `<ul>${usarPrimero.map(p => `<li>${p.nombre} — vence en ${p.diasRestantes} días</li>`).join("")}</ul>`
+          : `<p>No hay productos urgentes para usar primero.</p>`
+      }
+
+      <h3>✔ Para el próximo mes compra</h3>
+      ${
+        comprar.length
+          ? `<ul>${comprar.map(p => `<li>${p.nombre} — reponer stock (${p.cantidad} ${p.unidad || ""})</li>`).join("")}</ul>`
+          : `<p>No hay compras urgentes detectadas.</p>`
+      }
+
+      <h3>❌ No compres por ahora</h3>
+      ${
+        noComprar.length
+          ? `<ul>${noComprar.map(p => `<li>${p.nombre} — primero consume o revisa el inventario actual</li>`).join("")}</ul>`
+          : `<p>No hay productos bloqueados para compra.</p>`
+      }
+
+      <h3>📌 Recomendación GRUK</h3>
+      <p>
+        Prioriza productos próximos a vencer, evita comprar más de los productos con baja salida
+        y revisa las compras del próximo mes con base en stock real y vencimientos.
+        Cuando conectemos el módulo de recetas, este diagnóstico podrá calcular consumo real por venta.
+      </p>
+    </div>
+  `;
+}
+
+function obtenerSaludoInventarioGRUK() {
+  const hora = new Date().getHours();
+
+  if (hora >= 5 && hora < 12) return "Buenos días";
+  if (hora >= 12 && hora < 18) return "Buenas tardes";
+  return "Buenas noches";
+}
+
+function analizarVencimientosGRUK() {
+  generarPlanInventarioMensualGRUK();
+}
+
+function analizarSobreProduccionGRUK() {
+  diagnosticoInventarioGRUK();
+}
+
+function analizarTemporadasGRUK() {
+  generarPlanInventarioMensualGRUK();
+}
+
+function analizarCapitalInventarioGRUK() {
+  diagnosticoInventarioGRUK();
+}
