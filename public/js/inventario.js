@@ -448,9 +448,15 @@ async function diagnosticoInventarioGRUK() {
 
   contenedor.innerHTML = `
     <div class="card">
-      <h2>🤖 Diagnóstico General GRUK</h2>
+      <h2>🧠 Asesor Empresarial GRUK</h2>
 
-      <p><strong>${saludo}.</strong></p>
+<p><strong>${saludo}.</strong></p>
+
+<p>
+  He analizado el estado actual de tu inventario y preparé las siguientes
+  recomendaciones para ayudarte a reducir pérdidas, optimizar tus compras
+  y mejorar la rentabilidad del restaurante.
+</p>
 
       <h3>Inventario saludable: ${salud}%</h3>
 
