@@ -47,15 +47,107 @@
 
   <div id="inventarioResumen"></div>
 
-  <button onclick="mostrarCarpetaInventario()">
-    📦 Ver inventario completo
-  </button>
+  <hr style="margin:25px 0;">
 
-  <div id="carpetaInventario" style="display:none;">
-    <h2>Inventario</h2>
-    <div id="inventarioLista" class="grid"></div>
+<h2>🧠 Centro de Inteligencia de Inventario GRUK</h2>
+
+<p>
+La inteligencia de inventario analiza el comportamiento del restaurante,
+los vencimientos, las temporadas, los eventos y la rotación de productos
+para ayudar a tomar decisiones antes de que ocurran pérdidas.
+</p>
+
+<div class="accionesGrid">
+
+  <div class="accion">
+    <h3>📅 Pronóstico mensual</h3>
+    <p>
+      Calcula cuánto inventario deberías comprar el próximo mes según la
+      demanda histórica y la temporada.
+    </p>
+
+    <button onclick="generarPlanInventarioMensualGRUK()">
+      Analizar
+    </button>
   </div>
+
+  <div class="accion">
+    <h3>⚠️ Riesgo de vencimiento</h3>
+
+    <p>
+      Detecta productos próximos a vencer y recomienda cuáles utilizar primero.
+    </p>
+
+    <button onclick="analizarVencimientosGRUK()">
+      Analizar
+    </button>
+  </div>
+
+  <div class="accion">
+    <h3>📦 Riesgo de sobreproducción</h3>
+
+    <p>
+      Identifica productos que podrían comprarse en exceso o inmovilizar dinero.
+    </p>
+
+    <button onclick="analizarSobreProduccionGRUK()">
+      Analizar
+    </button>
+  </div>
+
+  <div class="accion">
+    <h3>📈 Tendencias comerciales</h3>
+
+    <p>
+      Analiza temporadas, eventos deportivos y celebraciones para anticipar cambios en la demanda.
+    </p>
+
+    <button onclick="analizarTemporadasGRUK()">
+      Analizar
+    </button>
+  </div>
+
+  <div class="accion">
+    <h3>💰 Capital inmovilizado</h3>
+
+    <p>
+      Calcula cuánto dinero permanece detenido en inventario de baja rotación.
+    </p>
+
+    <button onclick="analizarCapitalInventarioGRUK()">
+      Analizar
+    </button>
+  </div>
+
+  <div class="accion">
+    <h3>🤖 Diagnóstico General GRUK</h3>
+
+    <p>
+      Ejecuta todos los análisis y genera un informe estratégico completo del inventario.
+    </p>
+
+    <button onclick="diagnosticoInventarioGRUK()">
+      Ejecutar IA
+    </button>
+  </div>
+
+</div>
+
+<br>
+
+<div id="planInventarioMensual"></div>
+
+<hr style="margin:25px 0;">
+
+<button onclick="mostrarCarpetaInventario()">
+  📦 Ver inventario completo
+</button>
+
+<div id="carpetaInventario" style="display:none;">
+  <h2>Inventario</h2>
+  <div id="inventarioLista" class="grid"></div>
 </div>
 
 <h2>Control de stock</h2>
+
 <div id="stockLista" class="grid"></div>

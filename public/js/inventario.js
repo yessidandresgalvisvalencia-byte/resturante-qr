@@ -223,3 +223,169 @@ async function anularInventario(id) {
 async function inicializarInventarioGRUK() {
   await cargarInventario();
 }
+async function generarPlanInventarioMensualGRUK() {
+  const restaurantId =
+    localStorage.getItem("adminRestaurantId") ||
+    getRestaurantId();
+
+  const res = await fetch(`/api/inventario/${restaurantId}`);
+  const data = await res.json();
+
+  if (!data.ok) {
+    alert("No se pudo analizar el inventario.");
+    return;
+  }
+
+  const productos = data.productos || [];
+
+  const hoy = new Date();
+
+  const mesProximo = new Date(
+    hoy.getFullYear(),
+    hoy.getMonth() + 1,
+    1
+  );
+
+  const mesNombre = mesProximo.toLocaleDateString("es-CO", {
+    month: "long",
+    year: "numeric"
+  });
+
+  const eventos = detectarEventosInventarioGRUK(mesProximo);
+
+  const analisis = productos.map(p => {
+    const cantidad = Number(p.cantidad || 0);
+    const dias = Number(p.diasRestantes || 0);
+
+    let recomendacion = "Mantener compra normal";
+    let prioridad = "🟢 Normal";
+    let accion = "Revisar rotación antes de comprar más.";
+
+    if (p.estado === "vencido") {
+      prioridad = "🔴 Crítico";
+      recomendacion = "No comprar más";
+      accion = "Retirar o revisar inmediatamente. No debe usarse sin validación.";
+    } else if (p.estado === "proximo" || dias <= 7) {
+      prioridad = "🟠 Alta";
+      recomendacion = "Usar primero";
+      accion = "Priorizar este producto en ventas, combos o producción antes de comprar más.";
+    } else if (dias <= 20) {
+      prioridad = "🟡 Media";
+      recomendacion = "Comprar con cuidado";
+      accion = "Evitar sobrecompra. Consumir inventario actual antes de reponer.";
+    }
+
+    if (eventos.factorDemanda > 1 && p.categoria) {
+      const categoria = String(p.categoria).toLowerCase();
+
+      if (
+        categoria.includes("bebida") ||
+        categoria.includes("carne") ||
+        categoria.includes("comida") ||
+        categoria.includes("insumo")
+      ) {
+        recomendacion = "Aumentar compra controlada";
+        accion += ` Evento próximo detectado: ${eventos.descripcion}. Aumentar compra entre 10% y 25% si el producto rota bien.`;
+      }
+    }
+
+    if (cantidad <= 0) {
+      prioridad = "🔴 Crítico";
+      recomendacion = "Reponer";
+      accion = "Producto sin existencia. Reponer si es necesario para operación.";
+    }
+
+    return {
+      nombre: p.nombre,
+      categoria: p.categoria,
+      cantidad,
+      unidad: p.unidad,
+      diasRestantes: dias,
+      estado: p.estado,
+      prioridad,
+      recomendacion,
+      accion
+    };
+  });
+
+  const contenedor = document.getElementById("planInventarioMensual");
+
+  if (!contenedor) {
+    alert("Falta el contenedor planInventarioMensual en inventario.html");
+    return;
+  }
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <h3>🧠 Planificador mensual de inventario GRUK</h3>
+      <p><strong>Mes analizado:</strong> ${mesNombre}</p>
+      <p><strong>Contexto detectado:</strong> ${eventos.descripcion}</p>
+      <p><strong>Factor de demanda:</strong> ${eventos.factorDemanda}x</p>
+
+      <table style="width:100%;border-collapse:collapse;margin-top:15px;">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Categoría</th>
+            <th>Cantidad</th>
+            <th>Vence en</th>
+            <th>Prioridad</th>
+            <th>Recomendación</th>
+            <th>Acción GRUK</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${analisis.map(item => `
+            <tr>
+              <td>${item.nombre}</td>
+              <td>${item.categoria || "-"}</td>
+              <td>${item.cantidad} ${item.unidad || ""}</td>
+              <td>${item.diasRestantes} días</td>
+              <td>${item.prioridad}</td>
+              <td>${item.recomendacion}</td>
+              <td>${item.accion}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function detectarEventosInventarioGRUK(fechaMes) {
+  const mes = fechaMes.getMonth() + 1;
+
+  let descripcion = "Mes normal sin eventos fuertes detectados.";
+  let factorDemanda = 1;
+
+  if (mes === 12) {
+    descripcion = "Temporada navideña y fin de año. Puede aumentar demanda de comidas, bebidas y celebraciones.";
+    factorDemanda = 1.25;
+  }
+
+  if (mes === 1) {
+    descripcion = "Enero puede tener demanda irregular por vacaciones y menor flujo en algunos sectores.";
+    factorDemanda = 0.9;
+  }
+
+  if (mes === 5) {
+    descripcion = "Mes con celebraciones familiares como Día de la Madre. Puede subir demanda de comidas especiales y bebidas.";
+    factorDemanda = 1.15;
+  }
+
+  if (mes === 6 || mes === 7) {
+    descripcion = "Temporada de vacaciones y posibles eventos deportivos. Vigilar demanda de comidas rápidas, carnes y bebidas.";
+    factorDemanda = 1.12;
+  }
+
+  if (mes === 9 || mes === 10) {
+    descripcion = "Mes comercial relativamente normal. Mantener compras controladas según rotación.";
+    factorDemanda = 1;
+  }
+
+  return {
+    descripcion,
+    factorDemanda
+  };
+}
