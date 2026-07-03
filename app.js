@@ -11,6 +11,8 @@ const laboralRoutes = require("./routes/laboral");
 const app = express();
 const inventarioRoutes =
 require("./routes/inventario");
+const recetasRoutes = require("./routes/recetas");
+app.use("/api/recetas", recetasRoutes);
 
 const iniciarJobSuscripciones = require("./jobs/suscripciones");
 const apiRoutes = require("./routes/API");

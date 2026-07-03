@@ -93,7 +93,41 @@ function cargarCSSModuloGRUK(nombreModulo) {
 
   document.head.appendChild(link);
 }
+function cargarScriptModuloGRUK(nombreModulo) {
+  return new Promise((resolve) => {
+    const scripts = {
+      "centro-control": "/js/centro-control.js",
+      restaurante: "/js/restaurante.js",
+      inventario: "/js/inventario.js",
+      recetas: "/js/recetas.js",
+      reportes: "/js/reportes.js",
+      configuracion: "/js/configuracion.js",
+      finanzas: "/finanzas.js"
+    };
 
+    const src = scripts[nombreModulo];
+
+    if (!src) {
+      resolve();
+      return;
+    }
+
+    const yaExiste = document.querySelector(`script[src="${src}"]`);
+
+    if (yaExiste) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = `script-${nombreModulo}`;
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = resolve;
+
+    document.body.appendChild(script);
+  });
+}
 async function cargarModuloGRUK(nombreModulo) {
   const contenedor = document.getElementById("contenidoPrincipalGRUK");
 
@@ -110,14 +144,16 @@ async function cargarModuloGRUK(nombreModulo) {
     </div>
   `;
 
+
   try {
     cargarCSSModuloGRUK(nombreModulo);
 
     const res = await fetch(`/modulos/${nombreModulo}.html`);
     const html = await res.text();
+    
 
     contenedor.innerHTML = html;
-
+    await cargarScriptModuloGRUK(nombreModulo);
     await inicializarModuloGRUK(nombreModulo);
 
     const menu = document.getElementById("menuAdminGRUK");
@@ -138,6 +174,9 @@ async function inicializarModuloGRUK(nombreModulo) {
   if (nombreModulo === "centro-control" && typeof inicializarCentroControlGRUK === "function") {
     await inicializarCentroControlGRUK();
   }
+  if (nombreModulo === "recetas" && typeof inicializarRecetasGRUK === "function") {
+  await inicializarRecetasGRUK();
+}
 
   if (nombreModulo === "restaurante" && typeof inicializarRestauranteGRUK === "function") {
     await inicializarRestauranteGRUK();

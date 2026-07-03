@@ -1,0 +1,99 @@
+<div class="card">
+  <h1>📖 Recetas Inteligentes GRUK</h1>
+  <p>
+    Crea recetas estándar conectadas con inventario, costos reales,
+    producción, precio inteligente y rentabilidad.
+  </p>
+</div>
+
+<div class="card">
+  <h2>➕ Nueva receta estándar</h2>
+
+  <label>Nombre del plato o bebida</label>
+  <input id="recetaNombre" type="text" placeholder="Ej: Hamburguesa clásica">
+
+  <label>Categoría</label>
+  <select id="recetaCategoria">
+    <option value="Comida">Comida</option>
+    <option value="Bebida">Bebida</option>
+    <option value="Postre">Postre</option>
+    <option value="Entrada">Entrada</option>
+    <option value="Adición">Adición</option>
+  </select>
+
+  <label>Porciones base</label>
+  <input id="recetaPorciones" type="number" value="1">
+
+  <label>Tiempo de preparación en minutos</label>
+  <input id="recetaTiempo" type="number" value="10">
+
+  <label>Responsable</label>
+  <input id="recetaResponsable" type="text" placeholder="Ej: Chef principal">
+
+  <label>Precio de venta</label>
+  <input id="recetaPrecioVenta" type="number" placeholder="Ej: 25000">
+
+  <label>Observaciones / preparación</label>
+  <textarea id="recetaObservaciones" placeholder="Describe la preparación o detalles importantes"></textarea>
+</div>
+
+<div class="card">
+  <h2>🥘 Ingredientes de la receta</h2>
+
+  <label>Ingrediente desde inventario</label>
+  <select id="ingredienteInventario"></select>
+
+  <label>Cantidad usada</label>
+  <input id="ingredienteCantidad" type="number" placeholder="Ej: 180">
+
+  <label>Unidad usada</label>
+  <input id="ingredienteUnidad" type="text" placeholder="Ej: g, kg, ml, unidad">
+
+  <button onclick="agregarIngredienteRecetaGRUK()">
+    Agregar ingrediente
+  </button>
+
+  <br><br>
+
+  <div id="listaIngredientesReceta"></div>
+</div>
+
+<div class="card">
+  <h2>💰 Costeo automático</h2>
+
+  <label>Costo mano de obra</label>
+  <input id="recetaManoObra" type="number" value="0">
+
+  <label>CIS / costos indirectos</label>
+  <input id="recetaCIS" type="number" value="0">
+
+  <button onclick="calcularRecetaGRUK()">
+    Calcular receta
+  </button>
+
+  <br><br>
+
+  <div id="resultadoCosteoReceta"></div>
+</div>
+
+<div class="card">
+  <h2>🧠 Asesor Empresarial GRUK</h2>
+
+  <p>
+    Analiza la receta estándar, su estructura de costos, precio de venta,
+    margen y rentabilidad para generar recomendaciones empresariales.
+  </p>
+
+  <button onclick="generarDiagnosticoRecetaGRUK()">
+    ✨ Obtener recomendaciones
+  </button>
+
+  <br><br>
+
+  <div id="diagnosticoRecetaGRUK"></div>
+</div>
+
+<div class="card">
+  <h2>📚 Recetas registradas</h2>
+  <div id="listaRecetasGRUK"></div>
+</div>
