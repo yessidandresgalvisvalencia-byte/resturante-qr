@@ -496,3 +496,178 @@ function obtenerSaludoRecetaGRUK() {
   if (hora >= 12 && hora < 18) return "Buenas tardes";
   return "Buenas noches";
 }
+
+function obtenerInventarioGRUK() {
+  const restaurantId = getRestaurantId();
+  return JSON.parse(localStorage.getItem(`inventario_${restaurantId}`)) || [];
+}
+
+function guardarInventarioGRUK(inventario) {
+  const restaurantId = getRestaurantId();
+  localStorage.setItem(`inventario_${restaurantId}`, JSON.stringify(inventario));
+}
+
+function agregarIngredienteRecetaGRUK() {
+  const nombre = document.getElementById("ingredienteInventario").value.trim();
+  const cantidad = Number(document.getElementById("ingredienteCantidad").value);
+  const unidad = document.getElementById("ingredienteUnidad").value.trim();
+
+  if (!nombre || cantidad <= 0 || !unidad) {
+    alert("Completa ingrediente, cantidad y unidad.");
+    return;
+  }
+
+  ingredientesRecetaGRUK.push({
+    nombre,
+    cantidad,
+    unidad
+  });
+
+  document.getElementById("ingredienteInventario").value = "";
+  document.getElementById("ingredienteCantidad").value = "";
+  document.getElementById("ingredienteUnidad").value = "";
+
+  mostrarIngredientesRecetaGRUK();
+}
+
+function mostrarIngredientesRecetaGRUK() {
+  const contenedor = document.getElementById("listaIngredientesReceta");
+
+  if (!ingredientesRecetaGRUK.length) {
+    contenedor.innerHTML = "<p>No hay ingredientes agregados.</p>";
+    return;
+  }
+
+  contenedor.innerHTML = ingredientesRecetaGRUK.map((i, index) => `
+    <div class="card-mini">
+      <strong>${i.nombre}</strong><br>
+      Cantidad usada: ${i.cantidad} ${i.unidad}
+      <br>
+      <button onclick="eliminarIngredienteRecetaGRUK(${index})">
+        Eliminar
+      </button>
+    </div>
+  `).join("");
+}
+
+function eliminarIngredienteRecetaGRUK(index) {
+  ingredientesRecetaGRUK.splice(index, 1);
+  mostrarIngredientesRecetaGRUK();
+}
+
+function descontarInventarioPorRecetaGRUK(nombreReceta) {
+  let inventario = obtenerInventarioGRUK();
+  let movimientos = [];
+
+  ingredientesRecetaGRUK.forEach(ingrediente => {
+    const item = inventario.find(p =>
+      p.nombre &&
+      p.nombre.toLowerCase().trim() === ingrediente.nombre.toLowerCase().trim()
+    );
+
+    if (!item) {
+      movimientos.push({
+        producto: ingrediente.nombre,
+        estado: "No encontrado",
+        mensaje: `No se descontó ${ingrediente.nombre} porque no existe en inventario.`
+      });
+      return;
+    }
+
+    const cantidadAntes = Number(item.cantidad || 0);
+    const cantidadUsada = Number(ingrediente.cantidad || 0);
+    const cantidadNueva = cantidadAntes - cantidadUsada;
+
+    item.cantidad = cantidadNueva < 0 ? 0 : cantidadNueva;
+
+    if (!item.movimientos) item.movimientos = [];
+
+    const justificacion = `Se descontaron ${cantidadUsada} ${ingrediente.unidad} de ${ingrediente.nombre} porque fue utilizado en la receta "${nombreReceta}".`;
+
+    item.movimientos.push({
+      tipo: "Salida por receta",
+      receta: nombreReceta,
+      cantidad: cantidadUsada,
+      unidad: ingrediente.unidad,
+      cantidadAntes,
+      cantidadDespues: item.cantidad,
+      fecha: new Date().toISOString(),
+      justificacion
+    });
+
+    movimientos.push({
+      producto: ingrediente.nombre,
+      estado: "Descontado",
+      cantidadAntes,
+      cantidadUsada,
+      cantidadDespues: item.cantidad,
+      justificacion
+    });
+  });
+
+  guardarInventarioGRUK(inventario);
+
+  return movimientos;
+}
+
+function guardarRecetaGRUK() {
+  const nombre = document.getElementById("recetaNombre").value.trim();
+
+  if (!nombre) {
+    alert("Escribe el nombre de la receta.");
+    return;
+  }
+
+  if (!ingredientesRecetaGRUK.length) {
+    alert("Agrega al menos un ingrediente.");
+    return;
+  }
+
+  const movimientos = descontarInventarioPorRecetaGRUK(nombre);
+
+  const receta = {
+    id: Date.now(),
+    nombre,
+    categoria: document.getElementById("recetaCategoria").value,
+    porciones: Number(document.getElementById("recetaPorciones").value || 1),
+    tiempo: Number(document.getElementById("recetaTiempo").value || 0),
+    responsable: document.getElementById("recetaResponsable").value.trim(),
+    precioVenta: Number(document.getElementById("recetaPrecioVenta").value || 0),
+    observaciones: document.getElementById("recetaObservaciones").value.trim(),
+    ingredientes: ingredientesRecetaGRUK,
+    movimientosInventario: movimientos,
+    fecha: new Date().toISOString()
+  };
+
+  const restaurantId = getRestaurantId();
+  const recetas = JSON.parse(localStorage.getItem(`recetas_${restaurantId}`)) || [];
+
+  recetas.push(receta);
+
+  localStorage.setItem(`recetas_${restaurantId}`, JSON.stringify(recetas));
+
+  mostrarResultadoDescuentoGRUK(movimientos);
+
+  ingredientesRecetaGRUK = [];
+  mostrarIngredientesRecetaGRUK();
+
+  alert("Receta guardada e inventario descontado correctamente.");
+}
+
+function mostrarResultadoDescuentoGRUK(movimientos) {
+  const contenedor = document.getElementById("resultadoDescuentoInventarioGRUK");
+
+  if (!contenedor) return;
+
+  contenedor.innerHTML = `
+    <div class="card-mini">
+      <h3>📦 Descuento aplicado al inventario</h3>
+      ${movimientos.map(m => `
+        <p>
+          <strong>${m.producto}</strong><br>
+          ${m.justificacion || m.mensaje}
+        </p>
+      `).join("")}
+    </div>
+  `;
+}
