@@ -1,0 +1,154 @@
+<div class="card">
+  <h1>💸 Costos GRUK</h1>
+  <p>
+    Controla costos por departamento, mano de obra, servicios públicos,
+    lavandería, depreciaciones, cargos diferidos y alimentación del personal.
+  </p>
+</div>
+
+<div class="card">
+  <h2>🏢 Centros de costo</h2>
+
+  <label>Departamento</label>
+  <input id="costoDepartamento" type="text" placeholder="Ej: Cocina, Restaurante, Administración">
+
+  <label>Código</label>
+  <input id="costoCodigoDepartamento" type="text" placeholder="Ej: 10">
+
+  <button onclick="agregarCentroCostoGRUK()">Agregar centro</button>
+
+  <div id="listaCentrosCostoGRUK"></div>
+</div>
+
+<div class="card">
+  <h2>🧾 Registrar costo o gasto</h2>
+
+  <label>Concepto</label>
+  <input id="costoConcepto" type="text" placeholder="Ej: Energía, agua, reparación, seguro">
+
+  <label>Tipo</label>
+  <select id="costoTipo">
+    <option value="materia_prima">Materia prima</option>
+    <option value="mano_obra">Mano de obra</option>
+    <option value="servicio_publico">Servicio público</option>
+    <option value="lavanderia">Lavandería</option>
+    <option value="depreciacion">Depreciación</option>
+    <option value="gasto_anticipado">Gasto pagado por anticipado</option>
+    <option value="cargo_diferido">Cargo diferido</option>
+    <option value="alimentacion_empleados">Alimentación empleados</option>
+    <option value="mantenimiento">Mantenimiento / reparación</option>
+    <option value="otro">Otro</option>
+  </select>
+
+  <label>Valor</label>
+  <input id="costoValor" type="number" placeholder="Ej: 850000">
+
+  <label>Departamento afectado</label>
+  <select id="costoDepartamentoAplicado"></select>
+
+  <label>Método de distribución</label>
+  <select id="costoMetodoDistribucion">
+    <option value="directo">Directo al departamento</option>
+    <option value="porcentaje">Porcentaje manual</option>
+    <option value="empleados">Número de empleados</option>
+    <option value="area">Área ocupada</option>
+    <option value="consumo">Consumo real</option>
+    <option value="prendas">Prendas procesadas</option>
+  </select>
+
+  <label>Observación</label>
+  <textarea id="costoObservacion" placeholder="Detalle del soporte, factura, proveedor o causación"></textarea>
+
+  <button onclick="guardarCostoGRUK()">Guardar costo</button>
+</div>
+
+<div class="card">
+  <h2>⚡ Servicios públicos</h2>
+
+  <label>Servicio</label>
+  <select id="servicioPublicoTipo">
+    <option value="energia">Energía</option>
+    <option value="agua">Agua</option>
+    <option value="gas">Gas</option>
+    <option value="internet">Internet / comunicaciones</option>
+  </select>
+
+  <label>Valor factura</label>
+  <input id="servicioPublicoValor" type="number">
+
+  <label>Consumo total</label>
+  <input id="servicioPublicoConsumo" type="number" placeholder="Ej: kWh, m³, litros">
+
+  <label>Unidad</label>
+  <input id="servicioPublicoUnidad" type="text" placeholder="Ej: kWh, m³, litros">
+
+  <button onclick="analizarServicioPublicoGRUK()">Analizar servicio</button>
+
+  <div id="resultadoServiciosGRUK"></div>
+</div>
+
+<div class="card">
+  <h2>🧺 Lavandería</h2>
+
+  <label>Total cargos lavandería del período</label>
+  <input id="lavanderiaTotalCargos" type="number">
+
+  <label>Total prendas procesadas</label>
+  <input id="lavanderiaTotalPrendas" type="number">
+
+  <label>Departamento</label>
+  <select id="lavanderiaDepartamento"></select>
+
+  <label>Prendas del departamento</label>
+  <input id="lavanderiaPrendasDepartamento" type="number">
+
+  <button onclick="calcularLavanderiaGRUK()">Calcular costo lavandería</button>
+
+  <div id="resultadoLavanderiaGRUK"></div>
+</div>
+
+<div class="card">
+  <h2>🏗 Depreciación y activos</h2>
+
+  <label>Activo</label>
+  <input id="activoNombre" type="text" placeholder="Ej: Horno, nevera, freidora">
+
+  <label>Departamento</label>
+  <select id="activoDepartamento"></select>
+
+  <label>Costo del activo</label>
+  <input id="activoCosto" type="number">
+
+  <label>Vida útil en meses</label>
+  <input id="activoVidaUtil" type="number" placeholder="Ej: 120">
+
+  <label>Adiciones</label>
+  <input id="activoAdiciones" type="number" value="0">
+
+  <button onclick="calcularDepreciacionGRUK()">Calcular depreciación</button>
+
+  <div id="resultadoDepreciacionGRUK"></div>
+</div>
+
+<div class="card">
+  <h2>🍽 Alimentación de empleados</h2>
+
+  <label>Valor total alimentación</label>
+  <input id="alimentacionValor" type="number">
+
+  <label>Número de empleados</label>
+  <input id="alimentacionEmpleados" type="number">
+
+  <label>Días suministrados</label>
+  <input id="alimentacionDias" type="number">
+
+  <label>Departamento</label>
+  <select id="alimentacionDepartamento"></select>
+
+  <button onclick="calcularAlimentacionEmpleadosGRUK()">Calcular alimentación</button>
+
+  <div id="resultadoAlimentacionGRUK"></div>
+</div>
+
+<div class="card">
+  <h2>🧠 Asesor Empresarial de Costos GRUK</h2

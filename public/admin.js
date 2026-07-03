@@ -177,6 +177,9 @@ async function inicializarModuloGRUK(nombreModulo) {
   if (nombreModulo === "recetas" && typeof inicializarRecetasGRUK === "function") {
   await inicializarRecetasGRUK();
 }
+if (nombreModulo === "costos" && typeof inicializarCostosGRUK === "function") {
+  await inicializarCostosGRUK();
+}
 
   if (nombreModulo === "restaurante" && typeof inicializarRestauranteGRUK === "function") {
     await inicializarRestauranteGRUK();
