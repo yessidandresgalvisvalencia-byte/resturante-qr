@@ -40,9 +40,16 @@
 <div class="card">
   <h2>🥘 Ingredientes de la receta</h2>
 
-  <label>Ingrediente desde inventario</label>
-  <select id="ingredienteInventario"></select>
+  <label>Ingrediente</label>
 
+<input
+  id="ingredienteInventario"
+  list="listaIngredientesInventarioGRUK"
+  type="text"
+  placeholder="Escribe o selecciona un ingrediente"
+>
+
+<datalist id="listaIngredientesInventarioGRUK"></datalist>
   <label>Cantidad usada</label>
   <input id="ingredienteCantidad" type="number" placeholder="Ej: 180">
 
