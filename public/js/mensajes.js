@@ -11,11 +11,11 @@ function getAdminNombreGRUK() {
 async function inicializarMensajesGRUK() {
   const restaurantId = getRestaurantIdMensajesGRUK();
 
-  if (typeof socket !== "undefined") {
-    socket.emit("laboral:unirse", restaurantId);
+  if (typeof socketEmpleadoGRUK !== "undefined") {
+  socketEmpleadoGRUK.emit("laboral:unirse", restaurantId);
 
-    socket.off("laboral:mensaje:nuevo");
-    socket.on("laboral:mensaje:nuevo", (mensaje) => {
+  socketEmpleadoGRUK.off("laboral:mensaje:nuevo");
+  socketEmpleadoGRUK.on("laboral:mensaje:nuevo", (mensaje) => {
       if (mensaje.restaurantId === restaurantId) {
         mensajesLaboralGRUK.push(mensaje);
         pintarMensajesLaboralGRUK();
