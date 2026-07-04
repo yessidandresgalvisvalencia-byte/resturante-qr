@@ -82,10 +82,7 @@ async function enviarMensajeEmpleadoGRUK() {
 
     input.value = "";
 
-if (data.data) {
-  mensajesEmpleadoGRUK.push(data.data);
-  pintarMensajesEmpleadoGRUK();
-}
+await cargarMensajesEmpleadoGRUK();
 
   } catch (error) {
     console.error("Error enviando mensaje empleado:", error);
