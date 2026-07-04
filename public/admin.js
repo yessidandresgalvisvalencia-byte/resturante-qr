@@ -180,10 +180,13 @@ async function inicializarModuloGRUK(nombreModulo) {
 if (nombreModulo === "costos" && typeof inicializarCostosGRUK === "function") {
   await inicializarCostosGRUK();
 }
+
 if (nombreModulo === "deudas" && typeof inicializarDeudasGRUK === "function") {
   inicializarDeudasGRUK();
 }
-
+if (nombreModulo === "mensajes" && typeof inicializarMensajesGRUK === "function") {
+  await inicializarMensajesGRUK();
+}
   if (nombreModulo === "restaurante" && typeof inicializarRestauranteGRUK === "function") {
     await inicializarRestauranteGRUK();
   }
