@@ -49,6 +49,10 @@
         📍 Marcaciones
       </button>
 
+      <button onclick="mostrarSeccionEmpleado('mensajes', this)">
+  💬 Mensajes
+</button>
+
       <button onclick="mostrarSeccionEmpleado('descansos', this)">
         ☕ Descansos
       </button>
@@ -297,11 +301,43 @@
         <div id="perfilEmpleadoGRUK"></div>
       </div>
     </section>
+    <section id="seccion-mensajes" class="seccionEmpleado">
+  <div class="cardFormulario">
+    <h2>💬 Mensajes Laborales</h2>
+
+    <div
+      id="listaMensajesEmpleadoGRUK"
+      style="
+        height:420px;
+        overflow-y:auto;
+        background:#0f172a;
+        padding:15px;
+        border-radius:14px;
+        margin-bottom:15px;
+      "
+    ></div>
+
+    <div style="display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;">
+      <input
+        id="mensajeEmpleadoTextoGRUK"
+        type="text"
+        placeholder="Escribe un mensaje..."
+        style="width:100%; min-width:0; position:relative; z-index:2;"
+        onkeydown="if(event.key==='Enter') enviarMensajeEmpleadoGRUK()"
+      >
+
+      <button onclick="enviarMensajeEmpleadoGRUK()">
+        Enviar
+      </button>
+    </div>
+  </div>
+</section>
 
   </main>
 
 </div>
 
 <script defer src="empleado-turnos.js?v=1000"></script>
+<script defer src="empleado-chat.js?v=1"></script>
 </body>
 </html>
