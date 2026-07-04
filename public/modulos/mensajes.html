@@ -18,14 +18,14 @@
     "
   ></div>
 
-  <div style="display:flex; gap:10px;">
+  <div style="display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;">
     <input
-      id="mensajeLaboralTextoGRUK"
-      type="text"
-      placeholder="Escribe un mensaje..."
-      style="flex:1;"
-      onkeydown="if(event.key==='Enter') enviarMensajeLaboralGRUK()"
-    >
+  id="mensajeLaboralTextoGRUK"
+  type="text"
+  placeholder="Escribe un mensaje..."
+  style="width:100%; min-width:0; position:relative; z-index:2;"
+  onkeydown="if(event.key==='Enter') enviarMensajeLaboralGRUK()"
+>
 
     <button onclick="enviarMensajeLaboralGRUK()">
       Enviar
