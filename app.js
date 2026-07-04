@@ -13,6 +13,7 @@ const inventarioRoutes =
 require("./routes/inventario");
 const recetasRoutes = require("./routes/recetas");
 app.use("/api/recetas", recetasRoutes);
+const mensajesLaboralRoutes = require("./routes/mensajesLaboral");
 
 const iniciarJobSuscripciones = require("./jobs/suscripciones");
 const apiRoutes = require("./routes/API");
@@ -37,6 +38,7 @@ app.use(
 "/api/inventario",
 inventarioRoutes
 );
+app.use("/laboral/mensajes", mensajesLaboralRoutes);
 app.use("/laboral", laboralRoutes);
 
 app.get("/", (req, res) => {
@@ -63,6 +65,11 @@ mongoose.connect(process.env.MONGO_URI)
 
 io.on("connection", (socket) => {
   console.log("Cliente conectado");
+
+  socket.on("laboral:unirse", (restaurantId) => {
+    socket.join(`laboral-${restaurantId}`);
+    console.log(`Cliente unido a laboral-${restaurantId}`);
+  });
 
   socket.on("disconnect", () => {
     console.log("Cliente desconectado");
