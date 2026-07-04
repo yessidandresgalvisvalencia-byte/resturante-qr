@@ -1,0 +1,42 @@
+<div class="card">
+  <h1>💳 Planeador Financiero GRUK</h1>
+  <p>
+    Simula deudas, créditos o inversiones del restaurante para conocer el valor futuro,
+    intereses, cuota mensual y nivel de riesgo financiero.
+  </p>
+</div>
+
+<div class="card">
+  <h2>➕ Nueva simulación financiera</h2>
+
+  <label>Nombre de la deuda o crédito</label>
+  <input id="deudaNombre" type="text" placeholder="Ej: Crédito para maquinaria">
+
+  <label>Valor solicitado</label>
+  <input id="deudaValor" type="number" placeholder="Ej: 5000000">
+
+  <label>Tasa de interés mensual (%)</label>
+  <input id="deudaTasa" type="number" placeholder="Ej: 1.5">
+
+  <label>Número de meses</label>
+  <input id="deudaMeses" type="number" placeholder="Ej: 12">
+
+  <label>Pago mensual estimado</label>
+  <input id="deudaPago" type="number" placeholder="Ej: 450000">
+
+  <label>Utilidad mensual del restaurante</label>
+  <input id="deudaUtilidad" type="number" placeholder="Ej: 2500000">
+
+  <button onclick="calcularDeudaGRUK()">
+    Analizar deuda
+  </button>
+
+  <br><br>
+
+  <div id="resultadoDeudaGRUK"></div>
+</div>
+
+<div class="card">
+  <h2>📊 Simulaciones guardadas</h2>
+  <div id="listaDeudasGRUK"></div>
+</div>

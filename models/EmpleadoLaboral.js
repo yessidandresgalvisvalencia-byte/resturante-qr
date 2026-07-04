@@ -44,7 +44,7 @@ const empleadoLaboralSchema = new mongoose.Schema(
 
     contrato: {
       type: String,
-      enum: ["mensual", "por_horas", "turno"],
+      enum: ["mensual", "por_horas", "turno", "quincenal"],
       default: "mensual"
     },
 
