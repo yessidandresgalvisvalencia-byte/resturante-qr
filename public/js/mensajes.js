@@ -1,3 +1,5 @@
+const socketMensajesAdminGRUK = io();
+
 let mensajesLaboralGRUK = [];
 
 function getRestaurantIdMensajesGRUK() {
@@ -11,20 +13,15 @@ function getAdminNombreGRUK() {
 async function inicializarMensajesGRUK() {
   const restaurantId = getRestaurantIdMensajesGRUK();
 
-  if (typeof socketEmpleadoGRUK !== "undefined") {
-  socketEmpleadoGRUK.emit("laboral:unirse", restaurantId);
+  socketMensajesAdminGRUK.emit("laboral:unirse", restaurantId);
 
-  if (typeof socket !== "undefined") {
-  socket.emit("laboral:unirse", restaurantId);
+  socketMensajesAdminGRUK.off("laboral:mensaje:nuevo");
 
-  socket.off("laboral:mensaje:nuevo");
-  socket.on("laboral:mensaje:nuevo", (mensaje) => {
-      if (mensaje.restaurantId === restaurantId) {
-        mensajesLaboralGRUK.push(mensaje);
-        pintarMensajesLaboralGRUK();
-      }
-    });
-  }
+  socketMensajesAdminGRUK.on("laboral:mensaje:nuevo", async (mensaje) => {
+    if (mensaje.restaurantId === restaurantId && mensaje.tipoChat === "general") {
+      await cargarMensajesLaboralGRUK();
+    }
+  });
 
   await cargarMensajesLaboralGRUK();
 }
@@ -78,6 +75,8 @@ async function enviarMensajeLaboralGRUK() {
 
     input.value = "";
 
+    await cargarMensajesLaboralGRUK();
+
   } catch (error) {
     console.error("Error enviando mensaje:", error);
     alert("Error enviando mensaje.");
@@ -116,7 +115,7 @@ function pintarMensajesLaboralGRUK() {
           <strong>${m.remitenteNombre || "Usuario"}</strong>
           <p style="margin:6px 0;">${m.mensaje}</p>
           <small style="opacity:.8;">
-            ${new Date(m.createdAt || m.fecha || Date.now()).toLocaleTimeString("es-CO", {
+            ${new Date(m.createdAt || Date.now()).toLocaleTimeString("es-CO", {
               hour: "2-digit",
               minute: "2-digit"
             })}
@@ -128,3 +127,5 @@ function pintarMensajesLaboralGRUK() {
 
   contenedor.scrollTop = contenedor.scrollHeight;
 }
+
+window.enviarMensajeLaboralGRUK = enviarMensajeLaboralGRUK;
