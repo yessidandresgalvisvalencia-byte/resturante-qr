@@ -1,17 +1,31 @@
 let deudasGRUK = [];
 
-function inicializarDeudaGRUK() {
+async function inicializarDeudaGRUK() {
   cargarDeudasGRUK();
   mostrarDeudasGRUK();
+
+  const finanzas = await calcularFinanzasGRUK(getRestaurantId());
+
+  const presupuesto =
+    Number(finanzas.utilidadNeta || finanzas.utilidadOperacional || finanzas.saldoCaja || 0);
+
+  const input = document.getElementById("deudaPresupuestoGRUK");
+
+  if (input) {
+    input.value = formatoCOP(presupuesto);
+  }
 }
 
-function calcularDeudaGRUK() {
+async function calcularDeudaGRUK() {
   const nombre = document.getElementById("deudaNombre").value.trim();
   const valor = Number(document.getElementById("deudaValor").value);
   const tasaMensual = Number(document.getElementById("deudaTasa").value) / 100;
   const meses = Number(document.getElementById("deudaMeses").value);
   const pagoMensual = Number(document.getElementById("deudaPago").value);
-  const utilidadMensual = Number(document.getElementById("deudaUtilidad").value);
+  const finanzas = await calcularFinanzasGRUK(getRestaurantId());
+
+const utilidadMensual =
+  Number(finanzas.utilidadNeta || finanzas.utilidadOperacional || finanzas.saldoCaja || 0);
 
   if (!nombre || valor <= 0 || meses <= 0) {
     mostrarToast("Completa los datos principales de la deuda", "error");
