@@ -8,6 +8,8 @@ const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
 const facturacionRoutes = require("./routes/facturacion");
 const laboralRoutes = require("./routes/laboral");
+const gastosRoutes = require("./routes/gastos");
+const finanzasRoutes = require("./routes/finanzas");
 const app = express();
 const inventarioRoutes =
 require("./routes/inventario");
@@ -33,6 +35,8 @@ app.use(express.static("public"));
 app.use("/estadisticas", estadisticasRoutes);
 app.use("/api/restaurants", restaurantRoutes);
 app.use("/api/facturacion", facturacionRoutes);
+app.use("/api/gastos", gastosRoutes);
+app.use("/api/finanzas", finanzasRoutes);
 app.use("/api", apiRoutes);
 app.use(
 "/api/inventario",
