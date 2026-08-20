@@ -9,6 +9,7 @@ const Llamado = require("../models/llamado");
 const Restaurante = require("../models/restaurante");
 const Usuario = require("../models/usuario");
 const Sede = require("../models/sede");
+const Empresa = require("../models/Empresa");
 
 
 /* =========================
@@ -1502,6 +1503,22 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
     }
 
     const restaurantId = `rest_${Date.now()}`;
+    const nuevaEmpresa = await Empresa.create({
+  empresaId: `emp_${Date.now()}`,
+  nombre,
+  tipoNegocio: "restaurante",
+  correo,
+  estado: "activa",
+
+  modulos: {
+    restaurante: true,
+    inventario: true,
+    finanzas: true,
+    facturacion: true,
+    laboral: true,
+    inteligencia: false
+  }
+});
 
     const nuevoRestaurante = await Restaurante.create({
       restaurantId,
@@ -1524,21 +1541,23 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
     });
 
     const sedePrincipal = await Sede.create({
-      restauranteId: restaurantId,
-      nombreSede: "Principal",
-      codigoSede: `${restaurantId}_principal`,
-      direccion: ""
-    });
+  empresaId: nuevaEmpresa._id,
+  restauranteId: restaurantId,
+  nombreSede: "Principal",
+  codigoSede: `${restaurantId}_principal`,
+  direccion: ""
+});
 
     await Usuario.create({
-      restauranteId: restaurantId,
-      sedeId: sedePrincipal._id,
-      nombre,
-      usuario,
-      password,
-      rol: "admin_general",
-      estado: "activo"
-    });
+  empresaId: nuevaEmpresa._id,
+  restauranteId: restaurantId,
+  sedeId: sedePrincipal._id,
+  nombre,
+  usuario,
+  password,
+  rol: "admin_general",
+  estado: "activo"
+});
 
     return res.json({
       ok: true,
@@ -1558,132 +1577,7 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
     });
   }
 });
-router.post("/registro-y-fuente-pago", async (req, res) => {
-try {
-const {
-nombre,
-correo,
-usuario,
-password,
-acceptanceToken,
-paymentMethodToken,
-customerEmail
-} = req.body;
 
-const wompiPublicKey = process.env.WOMPI_PUBLIC_KEY;
-const wompiPrivateKey = process.env.WOMPI_PRIVATE_KEY;
-
-if (!nombre || !correo || !usuario || !password) {
-return res.status(400).json({
-ok: false,
-error: "Faltan datos"
-});
-}
-
-if (!paymentMethodToken || !customerEmail || !acceptanceToken) {
-return res.status(400).json({
-ok: false,
-error: "Faltan datos del pago"
-});
-}
-
-if (!wompiPublicKey || !wompiPrivateKey) {
-return res.status(500).json({
-ok: false,
-error: "Faltan llaves de Wompi en Render"
-});
-}
-
-const existeUsuario = await Usuario.findOne({ usuario });
-if (existeUsuario) {
-return res.status(400).json({
-ok: false,
-error: "Ese usuario admin ya existe"
-});
-}
-
-const paymentSourceRes = await axios.post(
-"https://production.wompi.co/v1/payment_sources",
-{
-type: "CARD",
-token: paymentMethodToken,
-customer_email: customerEmail,
-acceptance_token: acceptanceToken
-},
-{
-headers: {
-Authorization: `Bearer ${wompiPrivateKey}`,
-"Content-Type": "application/json"
-}
-}
-);
-
-const paymentSource = paymentSourceRes.data?.data;
-
-if (!paymentSource || paymentSource.status !== "AVAILABLE") {
-return res.status(400).json({
-ok: false,
-error: "No se pudo crear la fuente de pago"
-});
-}
-
-const restaurantId = `rest_${Date.now()}`;
-
-const nuevoRestaurante = await Restaurante.create({
-restaurantId,
-nombreRestaurante: nombre,
-correo,
-usuarioAdmin: usuario,
-passwordAdmin: password,
-wompiPublicKey,
-wompiPrivateKey,
-paymentSourceId: String(paymentSource.id),
-customerEmailWompi: customerEmail,
-tokenizacionCompleta: true,
-plan: "mensual",
-precioMensual: 220000, // cámbialo luego a 200000
-estadoSuscripcion: "pendiente",
-aceptaPlan: true,
-fechaUltimoPago: null,
-fechaProximoCobro: null,
-ultimoTransactionId: ""
-});
-
-const sedePrincipal = await Sede.create({
-restauranteId: restaurantId,
-nombreSede: "Principal",
-codigoSede: `${restaurantId}_principal`,
-direccion: ""
-});
-
-await Usuario.create({
-restauranteId: restaurantId,
-sedeId: sedePrincipal._id,
-nombre,
-usuario,
-password,
-rol: "admin_general",
-estado: "activo"
-});
-
-return res.json({
-ok: true,
-restauranteId: nuevoRestaurante.restaurantId,
-paymentSourceId: paymentSource.id
-});
-} catch (error) {
-console.log("Error registro y fuente pago:", error?.response?.data || error?.message || error);
-
-return res.status(500).json({
-ok: false,
-error:
-error?.response?.data?.error?.reason ||
-error?.response?.data?.error?.message ||
-error?.message ||
-"Error creando fuente de pago"
-});
-}
-});
 router.post("/sede/crear", async (req, res) => {
   try {
     const { restauranteId, nombreSede, direccion } = req.body;
