@@ -15,6 +15,12 @@ const ventaSchema = new mongoose.Schema(
       default: null,
       index: true
     },
+    productoServicioId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "ProductoServicio",
+  default: null,
+  index: true
+},
 
     origen: {
       type: String,
@@ -45,6 +51,27 @@ const ventaSchema = new mongoose.Schema(
       type: Number,
       required: true
     },
+    costoUnitario: {
+  type: Number,
+  default: 0,
+  min: 0
+},
+
+costoTotal: {
+  type: Number,
+  default: 0,
+  min: 0
+},
+
+utilidadBruta: {
+  type: Number,
+  default: 0
+},
+
+margenBruto: {
+  type: Number,
+  default: 0
+},
 
     total: {
       type: Number,
