@@ -1,90 +1,125 @@
 const mongoose = require("mongoose");
 
-const inventarioSchema = new mongoose.Schema({
+const inventarioSchema = new mongoose.Schema(
+  {
+    // =========================
+    // GRUK CORE
+    // =========================
 
-restaurantId:{
-type:String,
-required:true
-},
+    empresaId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Empresa",
+      default: null,
+      index: true
+    },
 
-nombre:{
-type:String,
-required:true
-},
+    sedeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Sede",
+      default: null,
+      index: true
+    },
 
-categoria:{
-type:String,
-required:true
-},
+    // Compatibilidad con GRUK Restaurantes
+    restaurantId: {
+      type: String,
+      default: null,
+      index: true
+    },
 
-cantidad:{
-type:Number,
-required:true
-},
+    nombre: {
+      type: String,
+      required: true,
+      trim: true
+    },
 
-costo:{
-type:Number,
-default:0
-},
+    categoria: {
+      type: String,
+      required: true,
+      trim: true
+    },
 
-unidad:{
-type:String,
-default:"unidades"
-},
+    cantidad: {
+      type: Number,
+      required: true,
+      min: 0
+    },
 
-fechaCompra:{
-type:Date
-},
+    costo: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
 
-fechaVencimiento:{
-type:Date,
-required:true
-},
+    unidad: {
+      type: String,
+      default: "unidades",
+      trim: true
+    },
 
-proveedor:{
-type:String,
-default:""
-},
+    proveedor: {
+      type: String,
+      default: "",
+      trim: true
+    },
 
-estado:{
-type:String,
-default:"vigente"
-},
+    fechaCompra: {
+      type: Date,
+      default: null
+    },
 
-prioridad:{
-type:String,
-default:"media"
-},
+    // No todas las industrias manejan vencimientos
+    fechaVencimiento: {
+      type: Date,
+      default: null
+    },
 
-anulado:{
-type:Boolean,
-default:false
-},
+    estado: {
+      type: String,
+      enum: [
+        "vigente",
+        "proximo",
+        "vencido",
+        "agotado"
+      ],
+      default: "vigente"
+    },
 
-motivoAnulacion:{
-type:String,
-default:""
-},
+    prioridad: {
+      type: String,
+      enum: [
+        "baja",
+        "media",
+        "alta"
+      ],
+      default: "media"
+    },
 
-fechaAnulacion:{
-type:Date
-},
+    anulado: {
+      type: Boolean,
+      default: false
+    },
 
-usuarioAnulacion:{
-type:String,
-default:""
-},
+    motivoAnulacion: {
+      type: String,
+      default: ""
+    },
 
-createdAt:{
-type:Date,
-default:Date.now
-}
+    fechaAnulacion: {
+      type: Date,
+      default: null
+    },
 
-});
+    usuarioAnulacion: {
+      type: String,
+      default: ""
+    }
+  },
+  {
+    timestamps: true
+  }
+);
 
 module.exports =
-mongoose.models.Inventario ||
-mongoose.model(
-"Inventario",
-inventarioSchema
-);
+  mongoose.models.Inventario ||
+  mongoose.model("Inventario", inventarioSchema);

@@ -4,32 +4,55 @@ const router = express.Router();
 
 const Inventario =
 require("../models/Inventario");
+const Restaurante = require("../models/restaurante");
+router.post("/", async (req, res) => {
+  try {
+    const datos = { ...req.body };
 
-router.post("/", async (req,res)=>{
+    // Compatibilidad con GRUK Restaurantes:
+    // si llega restaurantId, resolvemos automáticamente empresaId.
+    if (datos.restaurantId && !datos.empresaId) {
 
-try{
+      const restaurante = await Restaurante.findOne({
+        restaurantId: datos.restaurantId
+      });
 
-const inventario =
-new Inventario(req.body);
+      if (!restaurante) {
+        return res.status(404).json({
+          ok: false,
+          error: "Restaurante no encontrado"
+        });
+      }
 
-await inventario.save();
+      datos.empresaId = restaurante.empresaId || null;
+    }
 
-res.json({
-ok:true,
-inventario
-});
+    // Todo inventario nuevo debe pertenecer a una empresa.
+    if (!datos.empresaId) {
+      return res.status(400).json({
+        ok: false,
+        error: "No se pudo determinar la empresa del inventario"
+      });
+    }
 
-}catch(error){
+    const inventario = new Inventario(datos);
 
-console.log(error);
+    await inventario.save();
 
-res.status(500).json({
-ok:false,
-error:"Error guardando inventario"
-});
+    res.json({
+      ok: true,
+      inventario
+    });
 
-}
+  } catch (error) {
 
+    console.log(error);
+
+    res.status(500).json({
+      ok: false,
+      error: "Error guardando inventario"
+    });
+  }
 });
 
 router.get("/:restaurantId", async (req,res)=>{
@@ -48,26 +71,30 @@ hoy.setHours(0, 0, 0, 0);
 const productosProcesados =
 productos.map(producto=>{
 
-const vencimiento =
-new Date(producto.fechaVencimiento);
-vencimiento.setHours(0, 0, 0, 0);
+let diasRestantes = null;
+let estado = producto.estado || "vigente";
 
-const diferencia =
-vencimiento - hoy;
+if (producto.fechaVencimiento) {
 
-const diasRestantes =
-Math.ceil(
-diferencia /
-(1000 * 60 * 60 * 24)
-);
+  const vencimiento = new Date(producto.fechaVencimiento);
 
-let estado = "vigente";
+  vencimiento.setHours(0, 0, 0, 0);
 
-if(diasRestantes <= 0){
-estado = "vencido";
-}
-else if(diasRestantes <= 5){
-estado = "proximo";
+  const diferencia = vencimiento - hoy;
+
+  diasRestantes = Math.ceil(
+    diferencia / (1000 * 60 * 60 * 24)
+  );
+
+  if (diasRestantes <= 0) {
+    estado = "vencido";
+  }
+  else if (diasRestantes <= 5) {
+    estado = "proximo";
+  }
+  else {
+    estado = "vigente";
+  }
 }
 
 return{
