@@ -1582,10 +1582,29 @@ router.post("/sede/crear", async (req, res) => {
   try {
     const { restauranteId, nombreSede, direccion } = req.body;
 
+    if (!restauranteId || !nombreSede) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos obligatorios"
+      });
+    }
+
+    // Buscar el restaurante para obtener su empresa
+    const restaurante = await Restaurante.findOne({
+      restaurantId: restauranteId
+    });
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
 
     const codigoSede = `${restauranteId}_${Date.now()}`;
 
     const nueva = new Sede({
+      empresaId: restaurante.empresaId || null,
       restauranteId,
       nombreSede,
       codigoSede,
@@ -1601,6 +1620,7 @@ router.post("/sede/crear", async (req, res) => {
 
   } catch (error) {
     console.log(error);
+
     res.status(500).json({
       ok: false,
       error: "Error creando sede"
@@ -1609,9 +1629,14 @@ router.post("/sede/crear", async (req, res) => {
 });
 router.post("/usuarios/crear", async (req, res) => {
   try {
-    const { restauranteId, sedeId, nombre, usuario, password, rol } = req.body;
-
-    
+    const {
+      restauranteId,
+      sedeId,
+      nombre,
+      usuario,
+      password,
+      rol
+    } = req.body;
 
     if (!restauranteId || !nombre || !usuario || !password || !rol) {
       return res.status(400).json({
@@ -1620,7 +1645,20 @@ router.post("/usuarios/crear", async (req, res) => {
       });
     }
 
+    // Buscar restaurante para obtener empresaId
+    const restaurante = await Restaurante.findOne({
+      restaurantId: restauranteId
+    });
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
+
     const existe = await Usuario.findOne({ usuario });
+
     if (existe) {
       return res.status(400).json({
         ok: false,
@@ -1629,6 +1667,7 @@ router.post("/usuarios/crear", async (req, res) => {
     }
 
     const nuevoUsuario = new Usuario({
+      empresaId: restaurante.empresaId || null,
       restauranteId,
       sedeId: sedeId || null,
       nombre,
@@ -1643,8 +1682,10 @@ router.post("/usuarios/crear", async (req, res) => {
       ok: true,
       usuario: nuevoUsuario
     });
+
   } catch (error) {
     console.log(error);
+
     res.status(500).json({
       ok: false,
       error: "Error creando usuario"
