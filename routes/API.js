@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const QRCode = require("qrcode");
 const axios = require("axios");
 const crypto = require("crypto");
@@ -10,6 +11,7 @@ const Restaurante = require("../models/restaurante");
 const Usuario = require("../models/usuario");
 const Sede = require("../models/sede");
 const Empresa = require("../models/Empresa");
+const Venta = require("../models/Venta");
 
 
 /* =========================
@@ -434,18 +436,122 @@ router.put("/pedido/:id/pago", async (req, res) => {
   try {
     const { estadoPago } = req.body;
 
+    // 1. Buscar el pedido antes de modificarlo
+    const pedidoAnterior = await Pedido.findById(req.params.id);
+
+    if (!pedidoAnterior) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: "Pedido no encontrado"
+      });
+    }
+
+    // 2. Actualizar el estado del pago
     const pedido = await Pedido.findByIdAndUpdate(
       req.params.id,
       { estadoPago },
       { new: true }
     );
 
+    // 3. Registrar la venta empresarial solamente cuando pasa a pagado
+    if (
+      estadoPago === "pagado" &&
+      pedidoAnterior.estadoPago !== "pagado"
+    ) {
+      const restaurante = await Restaurante.findOne({
+        restaurantId: pedido.restaurantId
+      });
+
+      if (!restaurante) {
+        throw new Error(
+          `No se encontró el restaurante ${pedido.restaurantId}`
+        );
+      }
+
+      if (!restaurante.empresaId) {
+        throw new Error(
+          "El restaurante todavía no está vinculado a una empresa"
+        );
+      }
+
+      let sedeObjectId = null;
+
+      if (pedido.sedeId) {
+        const sede = await Sede.findOne({
+          $or: [
+            { codigoSede: pedido.sedeId },
+            { _id: mongoose.Types.ObjectId.isValid(pedido.sedeId)
+                ? pedido.sedeId
+                : null }
+          ]
+        });
+
+        if (sede) {
+          sedeObjectId = sede._id;
+        }
+      }
+
+      try {
+        await Venta.create({
+          empresaId: restaurante.empresaId,
+          sedeId: sedeObjectId,
+
+          origen: "restaurante",
+          origenId: pedido._id,
+
+          concepto: pedido.producto,
+          categoria: pedido.categoria || "",
+
+          cantidad: 1,
+          precioUnitario: pedido.precio,
+          total: pedido.precio,
+
+          metodoPago: pedido.metodoPago || "",
+
+          estado: "pagada",
+
+          metadata: {
+            restaurantId: pedido.restaurantId,
+            pedidoId: pedido._id.toString(),
+            mesa: pedido.mesa
+          }
+        });
+
+        console.log(
+          `Venta empresarial registrada desde pedido ${pedido._id}`
+        );
+
+      } catch (ventaError) {
+
+        // Código 11000 = MongoDB detectó una venta duplicada.
+        // No dañamos el pago por un segundo intento.
+        if (ventaError.code === 11000) {
+          console.log(
+            `Venta del pedido ${pedido._id} ya estaba registrada`
+          );
+        } else {
+          throw ventaError;
+        }
+      }
+    }
+
+    // 4. Mantener Socket.IO funcionando como antes
     const io = req.app.get("io");
     io.emit("pedido:actualizado", pedido);
 
-    res.json(pedido);
+    res.json({
+      ok: true,
+      pedido
+    });
+
   } catch (error) {
-    res.status(500).json({ mensaje: "Error actualizando pago", error });
+    console.error("Error actualizando pago:", error);
+
+    res.status(500).json({
+      ok: false,
+      mensaje: "Error actualizando pago",
+      error: error.message
+    });
   }
 });
 
