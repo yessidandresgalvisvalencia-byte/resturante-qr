@@ -9,6 +9,27 @@ function getRestaurantIdFinanzas() {
     "rest1"
   );
 }
+async function getEmpresaIdFinanzas() {
+  const restaurantId = getRestaurantIdFinanzas();
+
+  if (!restaurantId) {
+    throw new Error("No se encontró restaurantId");
+  }
+
+  const response = await fetch(
+    `/api/restaurants/${encodeURIComponent(restaurantId)}/empresa`
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !data.ok) {
+    throw new Error(
+      data.error || "No se pudo obtener la empresa"
+    );
+  }
+
+  return data.empresaId;
+}
 
 function normalizarCategoriaGastoGRUK(g) {
   const categoria = String(g.categoria || "").toLowerCase();

@@ -10,6 +10,8 @@ const facturacionRoutes = require("./routes/facturacion");
 const laboralRoutes = require("./routes/laboral");
 const gastosRoutes = require("./routes/gastos");
 const finanzasRoutes = require("./routes/finanzas");
+const productosServiciosRoutes = require("./routes/productosServicios");
+const comprasRoutes = require("./routes/compras");
 const app = express();
 const inventarioRoutes =
 require("./routes/inventario");
@@ -37,6 +39,8 @@ app.use("/api/restaurants", restaurantRoutes);
 app.use("/api/facturacion", facturacionRoutes);
 app.use("/api/gastos", gastosRoutes);
 app.use("/api/finanzas", finanzasRoutes);
+app.use("/api/productos-servicios", productosServiciosRoutes);
+app.use("/api/compras", comprasRoutes);
 app.use("/api", apiRoutes);
 app.use(
 "/api/inventario",

@@ -19,6 +19,12 @@ const inventarioSchema = new mongoose.Schema(
       default: null,
       index: true
     },
+    productoServicioId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "ProductoServicio",
+  default: null,
+  index: true
+},
 
     // Compatibilidad con GRUK Restaurantes
     restaurantId: {
@@ -119,7 +125,11 @@ const inventarioSchema = new mongoose.Schema(
     timestamps: true
   }
 );
-
+inventarioSchema.index({
+  empresaId: 1,
+  productoServicioId: 1,
+  sedeId: 1
+});
 module.exports =
   mongoose.models.Inventario ||
   mongoose.model("Inventario", inventarioSchema);
