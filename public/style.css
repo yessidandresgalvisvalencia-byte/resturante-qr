@@ -165,16 +165,17 @@
     filter: brightness(1.1) contrast(1.1);
   }
 
-  /* Tipografía Escalar y Estilizada */
+  
   .categoria-titulo {
-    font-size: var(--font-size-title);
-    font-weight: 900;
-    margin: 48px 0 24px;
-    letter-spacing: -0.03em;
-    background: linear-gradient(180deg, #ffffff 30%, rgba(255,255,255,0.6) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
+  font-size: var(--font-size-title);
+  font-weight: 900;
+  margin: 48px 0 24px;
+  letter-spacing: -0.03em;
+  background: linear-gradient(180deg, #ffffff 30%, rgba(255,255,255,0.6) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
   .card h3 {
     font-size: var(--font-size-card);
