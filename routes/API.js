@@ -111,428 +111,285 @@ router.get("/menu", async (req, res) => {
 });
 
 router.post("/menu", async (req, res) => {
-try {
-const {
-restaurantId,
-nombre,
-descripcion,
-precio,
-costoMateriaPrima,
-categoria,
-guarniciones,
-extras,
-imagen,
-tiempoBase,
-disponible
-} = req.body;
+  const session = await mongoose.startSession();
 
-if (!restaurantId || !nombre || !precio || !categoria) {
-return res.status(400).json({
-ok: false,
-error: "Faltan datos obligatorios"
-});
-}
-// =====================================================
-// GRUK CORE — RESOLUCIÓN SEGURA DE IDENTIDAD EMPRESARIAL
-// =====================================================
-
-const restaurante = await Restaurante.findOne({
-  restaurantId
-}).select("_id restaurantId empresaId");
-
-if (!restaurante) {
-  return res.status(404).json({
-    ok: false,
-    error: "Restaurante no encontrado"
-  });
-}
-
-if (!restaurante.empresaId) {
-  return res.status(409).json({
-    ok: false,
-    error: "El restaurante todavía no está vinculado a una empresa"
-  });
-}
-
-// Validación económica.
-// No confiamos únicamente en Number() porque NaN también es Number.
-const precioNumerico = Number(precio);
-const costoNumerico = Number(costoMateriaPrima || 0);
-
-if (
-  !Number.isFinite(precioNumerico) ||
-  precioNumerico < 0
-) {
-  return res.status(400).json({
-    ok: false,
-    error: "El precio del producto no es válido"
-  });
-}
-
-if (
-  !Number.isFinite(costoNumerico) ||
-  costoNumerico < 0
-) {
-  return res.status(400).json({
-    ok: false,
-    error: "El costo de materia prima no es válido"
-  });
-}
-
-const Menu = require("../models/menu");
-
-const ultimoProducto = await Menu.findOne({ restaurantId }).sort({ id: -1 });
-const nuevoId = ultimoProducto ? ultimoProducto.id + 1 : 1;
-// =====================================================
-// GRUK CORE — IDENTIDAD ECONÓMICA DEL PRODUCTO
-// =====================================================
-
-let productoCore = null;
-
-try {
-  productoCore = await ProductoServicio.create({
-    empresaId: restaurante.empresaId,
-    sedeId: null,
-
-    tipo: "producto",
-
-    nombre: String(nombre).trim(),
-    descripcion: String(descripcion || "").trim(),
-    categoria: String(categoria).trim(),
-
-    precioVenta: precioNumerico,
-    costoUnitario: costoNumerico,
-
-    manejaInventario: false,
-    unidad: "unidad",
-    activo: true,
-
-    origen: "restaurante",
-
-    metadata: {
+  try {
+    const {
       restaurantId,
-      menuId: nuevoId
-    }
-  });
-} catch (coreError) {
-  console.error(
-    "Error creando ProductoServicio CORE:",
-    coreError
-  );
+      nombre,
+      descripcion,
+      precio,
+      costoMateriaPrima,
+      categoria,
+      guarniciones,
+      extras,
+      imagen,
+      tiempoBase,
+      disponible
+    } = req.body;
 
-  return res.status(500).json({
-    ok: false,
-    error: "No se pudo crear la identidad empresarial del producto"
-  });
-}
-const nuevoProducto = new Menu({
-restaurantId,
-id: nuevoId,
-productoServicioId: productoCore._id,
-nombre,
-descripcion: descripcion || "",
+    // =====================================================
+    // GRUK — VALIDACIÓN DE ENTRADA
+    // =====================================================
 
-precio: precioNumerico,
-
-costoMateriaPrima: costoNumerico,
-
-categoria,
-guarniciones: Array.isArray(guarniciones) ? guarniciones : [],
-extras: Array.isArray(extras) ? extras : [],
-imagen,
-tiempoBase: Number(tiempoBase || 10),
-disponible: disponible === true || disponible === "true"
-});
-
-try {
-  await nuevoProducto.save();
-} catch (menuError) {
-
-  // Compensación:
-  // si Restaurante falla después de crear CORE,
-  // eliminamos la identidad económica huérfana.
-  if (productoCore?._id) {
-    try {
-      await ProductoServicio.deleteOne({
-        _id: productoCore._id,
-        empresaId: restaurante.empresaId
+    if (
+      !restaurantId ||
+      !nombre ||
+      precio === undefined ||
+      precio === null ||
+      !categoria
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos obligatorios"
       });
-    } catch (rollbackError) {
-      console.error(
-        "CRITICAL: no se pudo revertir ProductoServicio huérfano:",
-        rollbackError
-      );
     }
+
+    const precioNumerico = Number(precio);
+    const costoNumerico = Number(costoMateriaPrima || 0);
+    const tiempoNumerico = Number(tiempoBase || 10);
+
+    if (!Number.isFinite(precioNumerico) || precioNumerico < 0) {
+      return res.status(400).json({
+        ok: false,
+        error: "El precio del producto no es válido"
+      });
+    }
+
+    if (!Number.isFinite(costoNumerico) || costoNumerico < 0) {
+      return res.status(400).json({
+        ok: false,
+        error: "El costo de materia prima no es válido"
+      });
+    }
+
+    if (!Number.isFinite(tiempoNumerico) || tiempoNumerico < 0) {
+      return res.status(400).json({
+        ok: false,
+        error: "El tiempo base no es válido"
+      });
+    }
+
+    const Menu = require("../models/menu");
+
+    let nuevoProducto = null;
+
+    // =====================================================
+    // GRUK — UNIDAD ATÓMICA CORE + RESTAURANTE
+    // =====================================================
+
+    await session.withTransaction(async () => {
+
+      // ===================================================
+      // 1. RESOLVER PROPIEDAD EMPRESARIAL
+      // ===================================================
+
+      const restaurante = await Restaurante.findOne({
+        restaurantId
+      })
+        .select("_id restaurantId empresaId")
+        .session(session);
+
+      if (!restaurante) {
+        const error = new Error("Restaurante no encontrado");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (!restaurante.empresaId) {
+        const error = new Error(
+          "El restaurante todavía no está vinculado a una empresa"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ===================================================
+      // 2. GENERAR IDENTIFICADOR DE LA VERTICAL
+      // ===================================================
+
+      const ultimoProducto = await Menu.findOne({
+        restaurantId
+      })
+        .sort({ id: -1 })
+        .session(session);
+
+      const nuevoId =
+        ultimoProducto
+          ? Number(ultimoProducto.id) + 1
+          : 1;
+
+      // ===================================================
+      // 3. CREAR IDENTIDAD ECONÓMICA EN GRUK CORE
+      // ===================================================
+
+      const productosCore = await ProductoServicio.create(
+        [
+          {
+            empresaId: restaurante.empresaId,
+            sedeId: null,
+
+            tipo: "producto",
+
+            nombre: String(nombre).trim(),
+            descripcion: String(descripcion || "").trim(),
+            categoria: String(categoria).trim(),
+
+            precioVenta: precioNumerico,
+            costoUnitario: costoNumerico,
+
+            manejaInventario: false,
+            unidad: "unidad",
+
+            activo: true,
+            origen: "restaurante",
+
+            metadata: {
+              restaurantId,
+              menuId: nuevoId
+            }
+          }
+        ],
+        {
+          session
+        }
+      );
+
+      const productoCore = productosCore[0];
+
+      if (!productoCore) {
+        throw new Error(
+          "No fue posible crear la identidad económica del producto"
+        );
+      }
+      // ===================================================
+      // 4. CREAR REPRESENTACIÓN EN GRUK RESTAURANTES
+      // ===================================================
+
+      const productosMenu = await Menu.create(
+        [
+          {
+            restaurantId,
+            id: nuevoId,
+
+            productoServicioId: productoCore._id,
+
+            nombre: String(nombre).trim(),
+            descripcion: String(descripcion || "").trim(),
+
+            precio: precioNumerico,
+            costoMateriaPrima: costoNumerico,
+
+            categoria: String(categoria).trim(),
+
+            guarniciones:
+              Array.isArray(guarniciones)
+                ? guarniciones
+                : [],
+
+            extras:
+              Array.isArray(extras)
+                ? extras
+                : [],
+
+            imagen: String(imagen || ""),
+
+            tiempoBase: tiempoNumerico,
+
+            disponible:
+              disponible === true ||
+              disponible === "true"
+          }
+        ],
+        {
+          session
+        }
+      );
+
+      nuevoProducto = productosMenu[0];
+
+      if (!nuevoProducto) {
+        throw new Error(
+          "No fue posible crear el producto del restaurante"
+        );
+      }
+    });
+
+    // =====================================================
+    // GRUK REALTIME
+    // Solo después de COMMIT exitoso.
+    // =====================================================
+
+    const io = req.app.get("io");
+
+    if (io) {
+      io.emit("menu:actualizado", {
+        restaurantId
+      });
+    }
+
+    console.log(
+      "GRUK CREATE confirmado:",
+      {
+        menuId: nuevoProducto.id,
+        menuObjectId: nuevoProducto._id,
+        productoServicioId:
+          nuevoProducto.productoServicioId
+      }
+    );
+
+    return res.status(201).json({
+      ok: true,
+      mensaje: "Producto guardado correctamente",
+      producto: nuevoProducto
+    });
+
+  } catch (error) {
+    console.error(
+      "Error transaccional creando producto:",
+      error
+    );
+
+    const statusCode =
+      Number.isInteger(error.statusCode)
+        ? error.statusCode
+        : 500;
+
+    return res.status(statusCode).json({
+      ok: false,
+      error:
+        error.message ||
+        "Error interno guardando producto"
+    });
+
+  } finally {
+    await session.endSession();
   }
-
-  throw menuError;
-}
-
-const io = req.app.get("io");
-if (io) {
-io.emit("menu:actualizado", { restaurantId });
-}
-
-console.log("producto guardado:", nuevoProducto);
-
-return res.json({
-ok: true,
-mensaje: "Producto guardado correctamente",
-producto: nuevoProducto
 });
-} catch (error) {
-console.log("ERROR REAL guardando producto:", error);
-return res.status(500).json({
-ok: false,
-error: error.message || "Error interno guardando producto"
-});
-}
-});
+
 
 router.put("/menu/:id", async (req, res) => {
-try {
-const restaurantId = getRestaurantId(req);
-const id = Number(req.params.id);
+  const session = await mongoose.startSession();
 
-const {
-nombre,
-descripcion,
-precio,
-costoMateriaPrima,
-categoria,
-guarniciones,
-extras,
-imagen,
-tiempoBase,
-disponible
-} = req.body;
-// =====================================================
-// GRUK — VALIDACIÓN DE ACTUALIZACIÓN DE PRODUCTO
-// =====================================================
-
-if (!Number.isInteger(id) || id <= 0) {
-  return res.status(400).json({
-    ok: false,
-    error: "Identificador de producto no válido"
-  });
-}
-
-if (!nombre || precio === undefined || precio === null || !categoria) {
-  return res.status(400).json({
-    ok: false,
-    error: "Faltan datos obligatorios"
-  });
-}
-
-const precioNumerico = Number(precio);
-const costoNumerico = Number(costoMateriaPrima || 0);
-const tiempoNumerico = Number(tiempoBase || 10);
-
-if (!Number.isFinite(precioNumerico) || precioNumerico < 0) {
-  return res.status(400).json({
-    ok: false,
-    error: "El precio del producto no es válido"
-  });
-}
-
-if (!Number.isFinite(costoNumerico) || costoNumerico < 0) {
-  return res.status(400).json({
-    ok: false,
-    error: "El costo de materia prima no es válido"
-  });
-}
-
-if (!Number.isFinite(tiempoNumerico) || tiempoNumerico < 0) {
-  return res.status(400).json({
-    ok: false,
-    error: "El tiempo base no es válido"
-  });
-}
-const Menu = require("../models/menu");
-// =====================================================
-// GRUK CORE — VERIFICACIÓN DE IDENTIDAD Y PROPIEDAD
-// =====================================================
-
-const productoActual = await Menu.findOne({
-  restaurantId,
-  id
-});
-
-if (!productoActual) {
-  return res.status(404).json({
-    ok: false,
-    error: "Producto no encontrado"
-  });
-}
-
-const restaurante = await Restaurante.findOne({
-  restaurantId
-}).select("_id restaurantId empresaId");
-
-if (!restaurante) {
-  return res.status(404).json({
-    ok: false,
-    error: "Restaurante no encontrado"
-  });
-}
-
-if (!restaurante.empresaId) {
-  return res.status(409).json({
-    ok: false,
-    error: "El restaurante todavía no está vinculado a una empresa"
-  });
-}
-// =====================================================
-// GRUK CORE — RESOLVER O CREAR IDENTIDAD ECONÓMICA
-// =====================================================
-
-let productoCore = null;
-
-if (productoActual.productoServicioId) {
-
-  productoCore = await ProductoServicio.findOne({
-    _id: productoActual.productoServicioId,
-    empresaId: restaurante.empresaId
-  });
-
-  if (!productoCore) {
-    return res.status(409).json({
-      ok: false,
-      error: "La identidad CORE del producto no corresponde a esta empresa"
-    });
-  }
-
-} else {
-
-  productoCore = await ProductoServicio.create({
-    empresaId: restaurante.empresaId,
-    sedeId: null,
-
-    tipo: "producto",
-
-    nombre: String(nombre).trim(),
-    descripcion: String(descripcion || "").trim(),
-    categoria: String(categoria).trim(),
-
-    precioVenta: precioNumerico,
-    costoUnitario: costoNumerico,
-
-    manejaInventario: false,
-    unidad: "unidad",
-    activo: true,
-
-    origen: "restaurante",
-
-    metadata: {
-      restaurantId,
-      menuId: id,
-      migradoDesdeMenuLegacy: true
-    }
-  });
-
-  productoActual.productoServicioId = productoCore._id;
-
-  await productoActual.save();
-}
-// =====================================================
-// GRUK CORE — SINCRONIZACIÓN ECONÓMICA
-// =====================================================
-
-const coreActualizado = await ProductoServicio.findOneAndUpdate(
-  {
-    _id: productoCore._id,
-    empresaId: restaurante.empresaId
-  },
-  {
-    $set: {
-      nombre: String(nombre).trim(),
-      descripcion: String(descripcion || "").trim(),
-      categoria: String(categoria).trim(),
-
-      precioVenta: precioNumerico,
-      costoUnitario: costoNumerico,
-
-      activo: disponible === true || disponible === "true"
-    }
-  },
-  {
-    new: true,
-    runValidators: true
-  }
-);
-
-if (!coreActualizado) {
-  return res.status(409).json({
-    ok: false,
-    error: "No fue posible sincronizar el producto con GRUK CORE"
-  });
-}
-const productoActualizado = await Menu.findOneAndUpdate(
-{ restaurantId, id },
-{
-$set: {
-  productoServicioId: productoCore._id,
-nombre,
-descripcion: descripcion || "",
-precio: precioNumerico,
-
-costoMateriaPrima: costoNumerico,
-
-categoria,
-
-guarniciones: Array.isArray(guarniciones)
-? guarniciones
-: [],
-
-extras: Array.isArray(extras)
-? extras
-: [],
-
-imagen,
-
-tiempoBase: tiempoNumerico,
-
-disponible:
-disponible === true ||
-disponible === "true"
-}
-},
-{ new: true }
-);
-
-if (!productoActualizado) {
-return res.status(404).json({
-ok: false,
-error: "Producto no encontrado"
-});
-}
-
-const io = req.app.get("io");
-if (io) {
-io.emit("menu:actualizado", { restaurantId });
-}
-
-return res.json({
-ok: true,
-mensaje: "Producto actualizado correctamente",
-producto: productoActualizado
-});
-} catch (error) {
-console.log("ERROR REAL actualizando producto:", error);
-return res.status(500).json({
-ok: false,
-error: error.message || "Error interno actualizando producto"
-});
-}
-});
-
-router.put("/menu/:id/stock", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
     const id = Number(req.params.id);
 
+    const {
+      nombre,
+      descripcion,
+      precio,
+      costoMateriaPrima,
+      categoria,
+      guarniciones,
+      extras,
+      imagen,
+      tiempoBase,
+      disponible
+    } = req.body;
+
     // =====================================================
-    // GRUK — VALIDACIÓN DE DISPONIBILIDAD
+    // GRUK — VALIDACIÓN ESTRICTA DE ACTUALIZACIÓN
     // =====================================================
 
     if (!Number.isInteger(id) || id <= 0) {
@@ -542,14 +399,461 @@ router.put("/menu/:id/stock", async (req, res) => {
       });
     }
 
+    if (
+      !nombre ||
+      precio === undefined ||
+      precio === null ||
+      !categoria
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan datos obligatorios"
+      });
+    }
+
+    const precioNumerico = Number(precio);
+    const costoNumerico = Number(costoMateriaPrima || 0);
+    const tiempoNumerico = Number(tiempoBase || 10);
+
+    if (
+      !Number.isFinite(precioNumerico) ||
+      precioNumerico < 0
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "El precio del producto no es válido"
+      });
+    }
+
+    if (
+      !Number.isFinite(costoNumerico) ||
+      costoNumerico < 0
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "El costo de materia prima no es válido"
+      });
+    }
+
+    if (
+      !Number.isFinite(tiempoNumerico) ||
+      tiempoNumerico < 0
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "El tiempo base no es válido"
+      });
+    }
+
+    const Menu = require("../models/menu");
+
+    let productoActualizado = null;
+
+    // =====================================================
+    // GRUK — UNIDAD ATÓMICA DE ACTUALIZACIÓN
+    // CORE + VERTICAL RESTAURANTE
+    // =====================================================
+
+    await session.withTransaction(async () => {
+
+      // ===================================================
+      // 1. RESOLVER EMPRESA PROPIETARIA
+      // ===================================================
+
+      const restaurante = await Restaurante.findOne({
+        restaurantId
+      })
+        .select("_id restaurantId empresaId")
+        .session(session);
+
+      if (!restaurante) {
+        const error = new Error(
+          "Restaurante no encontrado"
+        );
+
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (!restaurante.empresaId) {
+        const error = new Error(
+          "El restaurante todavía no está vinculado a una empresa"
+        );
+
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ===================================================
+      // 2. LOCALIZAR PRODUCTO DE LA VERTICAL
+      // ===================================================
+
+      const productoActual = await Menu.findOne({
+        restaurantId,
+        id
+      }).session(session);
+
+      if (!productoActual) {
+        const error = new Error(
+          "Producto no encontrado"
+        );
+
+        error.statusCode = 404;
+        throw error;
+      }
+
+      let productoCore = null;
+
+      // ===================================================
+      // 3. RESOLVER IDENTIDAD ECONÓMICA CORE
+      // ===================================================
+
+      if (productoActual.productoServicioId) {
+
+        productoCore =
+          await ProductoServicio.findOne({
+            _id: productoActual.productoServicioId,
+            empresaId: restaurante.empresaId
+          }).session(session);
+
+        if (!productoCore) {
+          const error = new Error(
+            "La identidad CORE del producto no corresponde a esta empresa"
+          );
+
+          error.statusCode = 409;
+          throw error;
+        }
+
+      } else {
+
+        // ===============================================
+        // MIGRACIÓN TRANSACCIONAL DE PRODUCTO LEGACY
+        // ===============================================
+
+        const productosCore =
+          await ProductoServicio.create(
+            [
+              {
+                empresaId: restaurante.empresaId,
+                sedeId: null,
+
+                tipo: "producto",
+
+                nombre: String(nombre).trim(),
+
+                descripcion:
+                  String(descripcion || "").trim(),
+
+                categoria:
+                  String(categoria).trim(),
+
+                precioVenta:
+                  precioNumerico,
+
+                costoUnitario:
+                  costoNumerico,
+
+                manejaInventario: false,
+                unidad: "unidad",
+
+                activo: true,
+                origen: "restaurante",
+
+                metadata: {
+                  restaurantId,
+                  menuId: id,
+                  migradoDesdeMenuLegacy: true
+                }
+              }
+            ],
+            {
+              session
+            }
+          );
+
+        productoCore = productosCore[0];
+
+        if (!productoCore) {
+          throw new Error(
+            "No fue posible crear la identidad CORE del producto legacy"
+          );
+        }
+      }
+
+      // ===================================================
+      // 4. ACTUALIZAR IDENTIDAD ECONÓMICA CORE
+      // ===================================================
+
+      const coreActualizado =
+        await ProductoServicio.findOneAndUpdate(
+          {
+            _id: productoCore._id,
+            empresaId: restaurante.empresaId
+          },
+          {
+            $set: {
+              nombre:
+                String(nombre).trim(),
+
+              descripcion:
+                String(descripcion || "").trim(),
+
+              categoria:
+                String(categoria).trim(),
+
+              precioVenta:
+                precioNumerico,
+
+              costoUnitario:
+                costoNumerico
+            }
+          },
+          {
+            new: true,
+            runValidators: true,
+            session
+          }
+        );
+
+      if (!coreActualizado) {
+        const error = new Error(
+          "No fue posible sincronizar el producto con GRUK CORE"
+        );
+
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ===================================================
+      // 5. ACTUALIZAR REPRESENTACIÓN RESTAURANTE
+      // ===================================================
+
+      productoActualizado =
+        await Menu.findOneAndUpdate(
+          {
+            _id: productoActual._id,
+            restaurantId,
+            id
+          },
+          {
+            $set: {
+              productoServicioId:
+                productoCore._id,
+
+              nombre:
+                String(nombre).trim(),
+
+              descripcion:
+                String(descripcion || "").trim(),
+
+              precio:
+                precioNumerico,
+
+              costoMateriaPrima:
+                costoNumerico,
+
+              categoria:
+                String(categoria).trim(),
+
+              guarniciones:
+                Array.isArray(guarniciones)
+                  ? guarniciones
+                  : [],
+
+              extras:
+                Array.isArray(extras)
+                  ? extras
+                  : [],
+
+              imagen:
+                String(imagen || ""),
+
+              tiempoBase:
+                tiempoNumerico,
+
+              disponible:
+                disponible === true ||
+                disponible === "true"
+            }
+          },
+          {
+            new: true,
+            runValidators: true,
+            session
+          }
+        );
+
+      if (!productoActualizado) {
+        const error = new Error(
+          "No fue posible actualizar el producto del restaurante"
+        );
+
+        error.statusCode = 409;
+        throw error;
+      }
+    });
+
+    // =====================================================
+    // GRUK REALTIME
+    // Nunca emitir antes de que MongoDB confirme COMMIT.
+    // =====================================================
+
+    const io = req.app.get("io");
+
+    if (io) {
+      io.emit("menu:actualizado", {
+        restaurantId
+      });
+    }
+
+    console.log(
+      "GRUK UPDATE confirmado:",
+      {
+        restaurantId,
+        menuId: productoActualizado.id,
+        menuObjectId: productoActualizado._id,
+        productoServicioId:
+          productoActualizado.productoServicioId
+      }
+    );
+
+    return res.json({
+      ok: true,
+      mensaje: "Producto actualizado correctamente",
+      producto: productoActualizado
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Error transaccional actualizando producto:",
+      error
+    );
+
+    const statusCode =
+      Number.isInteger(error.statusCode)
+        ? error.statusCode
+        : 500;
+
+    return res.status(statusCode).json({
+      ok: false,
+      error:
+        error.message ||
+        "Error interno actualizando producto"
+    });
+
+  } finally {
+
+    await session.endSession();
+  }
+});
+
+router.put("/menu/:id/stock", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const id = Number(req.params.id);
+
+    // =====================================================
+    // GRUK RESTAURANTES — DISPONIBILIDAD OPERACIONAL
+    // =====================================================
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({
+        ok: false,
+        error: "Identificador de producto no válido"
+      });
+    }
+
+    if (
+      req.body.disponible !== true &&
+      req.body.disponible !== false &&
+      req.body.disponible !== "true" &&
+      req.body.disponible !== "false"
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Estado de disponibilidad no válido"
+      });
+    }
+
     const disponible =
       req.body.disponible === true ||
       req.body.disponible === "true";
 
     const Menu = require("../models/menu");
 
+    const producto = await Menu.findOneAndUpdate(
+      {
+        restaurantId,
+        id
+      },
+      {
+        $set: {
+          disponible
+        }
+      },
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
+    if (!producto) {
+      return res.status(404).json({
+        ok: false,
+        error: "Producto no encontrado"
+      });
+    }
+
+    const io = req.app.get("io");
+
+    if (io) {
+      io.emit("menu:actualizado", {
+        restaurantId
+      });
+    }
+
+    return res.json({
+      ok: true,
+      producto
+    });
+
+  } catch (error) {
+    console.error(
+      "Error actualizando disponibilidad operacional:",
+      error
+    );
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        error.message ||
+        "Error actualizando disponibilidad del producto"
+    });
+  }
+});
+
+router.delete("/menu/:id", async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const id = Number(req.params.id);
+
     // =====================================================
-    // GRUK RESTAURANTES — RESOLVER PRODUCTO
+    // GRUK — VALIDACIÓN DE IDENTIDAD
+    // =====================================================
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({
+        ok: false,
+        error: "Identificador de producto no válido"
+      });
+    }
+
+    const Menu = require("../models/menu");
+
+    // =====================================================
+    // GRUK RESTAURANTES — LOCALIZAR PRODUCTO
     // =====================================================
 
     const producto = await Menu.findOne({
@@ -565,7 +869,7 @@ router.put("/menu/:id/stock", async (req, res) => {
     }
 
     // =====================================================
-    // GRUK CORE — RESOLVER PROPIEDAD EMPRESARIAL
+    // GRUK CORE — VERIFICAR PROPIEDAD EMPRESARIAL
     // =====================================================
 
     const restaurante = await Restaurante.findOne({
@@ -586,29 +890,15 @@ router.put("/menu/:id/stock", async (req, res) => {
       });
     }
 
-    // =====================================================
-    // GRUK CORE — SINCRONIZAR ESTADO ECONÓMICO
-    // =====================================================
+    let productoCore = null;
 
     if (producto.productoServicioId) {
-      const coreActualizado =
-        await ProductoServicio.findOneAndUpdate(
-          {
-            _id: producto.productoServicioId,
-            empresaId: restaurante.empresaId
-          },
-          {
-            $set: {
-              activo: disponible
-            }
-          },
-          {
-            new: true,
-            runValidators: true
-          }
-        );
+      productoCore = await ProductoServicio.findOne({
+        _id: producto.productoServicioId,
+        empresaId: restaurante.empresaId
+      });
 
-      if (!coreActualizado) {
+      if (!productoCore) {
         return res.status(409).json({
           ok: false,
           error:
@@ -618,12 +908,78 @@ router.put("/menu/:id/stock", async (req, res) => {
     }
 
     // =====================================================
-    // GRUK RESTAURANTES — ACTUALIZAR DISPONIBILIDAD
+    // GRUK CORE — RETIRO LÓGICO
+    // =====================================================
+    //
+    // La identidad económica NO se elimina.
+    // Debe permanecer disponible para:
+    //
+    // - ventas históricas
+    // - costos históricos
+    // - reportes
+    // - auditoría
+    // - GRUK Intelligence
+    // - memoria empresarial
+    //
     // =====================================================
 
-    producto.disponible = disponible;
+    if (productoCore) {
+      productoCore.activo = false;
 
-    await producto.save();
+      productoCore.metadata = {
+        ...(productoCore.metadata || {}),
+        retiradoDesde: "restaurante",
+        restaurantId,
+        menuId: id,
+        fechaRetiro: new Date()
+      };
+
+      await productoCore.save();
+    }
+
+    // =====================================================
+    // GRUK RESTAURANTES — RETIRAR DE LA VERTICAL
+    // =====================================================
+
+    try {
+      await Menu.deleteOne({
+        _id: producto._id,
+        restaurantId
+      });
+    } catch (menuError) {
+
+      // Compensación provisional:
+      // si falla la eliminación del Menu después de retirar CORE,
+      // restauramos el estado anterior del producto CORE.
+      if (productoCore) {
+        try {
+          productoCore.activo = true;
+
+          productoCore.metadata = {
+            ...(productoCore.metadata || {})
+          };
+
+          delete productoCore.metadata.retiradoDesde;
+          delete productoCore.metadata.fechaRetiro;
+
+          productoCore.markModified("metadata");
+
+          await productoCore.save();
+
+        } catch (rollbackError) {
+          console.error(
+            "CRITICAL: fallo restaurando ProductoServicio después de DELETE:",
+            rollbackError
+          );
+        }
+      }
+
+      throw menuError;
+    }
+
+    // =====================================================
+    // GRUK REALTIME — NOTIFICAR A LA VERTICAL
+    // =====================================================
 
     const io = req.app.get("io");
 
@@ -635,12 +991,17 @@ router.put("/menu/:id/stock", async (req, res) => {
 
     return res.json({
       ok: true,
-      producto
+      mensaje: "Producto retirado correctamente",
+      producto: {
+        id: producto.id,
+        productoServicioId:
+          producto.productoServicioId || null
+      }
     });
 
   } catch (error) {
     console.error(
-      "Error actualizando disponibilidad del producto:",
+      "Error retirando producto del menú:",
       error
     );
 
@@ -648,46 +1009,9 @@ router.put("/menu/:id/stock", async (req, res) => {
       ok: false,
       error:
         error.message ||
-        "Error actualizando disponibilidad del producto"
+        "Error interno retirando producto"
     });
   }
-});
-
-router.delete("/menu/:id", async (req, res) => {
-try {
-const restaurantId = getRestaurantId(req);
-const id = Number(req.params.id);
-
-const Menu = require("../models/menu");
-
-const productoEliminado = await Menu.findOneAndDelete({
-restaurantId,
-id
-});
-
-if (!productoEliminado) {
-return res.status(404).json({
-ok: false,
-error: "Producto no encontrado"
-});
-}
-
-const io = req.app.get("io");
-if (io) {
-io.emit("menu:actualizado", { restaurantId });
-}
-
-return res.json({
-ok: true,
-mensaje: "Producto eliminado correctamente"
-});
-} catch (error) {
-console.log("Error eliminando producto:", error);
-return res.status(500).json({
-ok: false,
-error: "Error interno eliminando producto"
-});
-}
 });
 /* =========================
    PEDIDOS
@@ -698,41 +1022,387 @@ error: "Error interno eliminando producto"
 router.post("/pedido", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
-    const { mesa, producto, categoria, precio, metodoPago, tiempoEstimado, sedeId, observaciones } = req.body;
 
-    if (!mesa || !producto || !precio) {
-      return res.status(400).json({ mensaje: "Faltan datos del pedido" });
+    const {
+      mesa,
+      sedeId,
+      observaciones,
+      metodoPago,
+      cantidad,
+      extra,
+      menuItemId,
+      productoServicioId
+    } = req.body;
+
+    // =====================================================
+    // GRUK RESTAURANTES — VALIDACIÓN OPERACIONAL
+    // =====================================================
+
+    const mesaNumerica = Number(mesa);
+    const cantidadNumerica = Number(cantidad || 1);
+
+    if (
+      !Number.isInteger(mesaNumerica) ||
+      mesaNumerica <= 0
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Mesa no válida"
+      });
     }
+
+    if (
+      !Number.isInteger(cantidadNumerica) ||
+      cantidadNumerica <= 0
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Cantidad no válida"
+      });
+    }
+
+    const metodosPagoPermitidos = [
+      "efectivo",
+      "transferencia",
+      "pse",
+      "tarjeta"
+    ];
+
+    const metodoPagoNormalizado =
+      metodoPago || "efectivo";
+
+    if (
+      !metodosPagoPermitidos.includes(
+        metodoPagoNormalizado
+      )
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Método de pago no válido"
+      });
+    }
+
+    // =====================================================
+    // GRUK SECURITY — IDENTIDAD DEL PRODUCTO
+    // El navegador identifica; el servidor verifica.
+    // =====================================================
+
+    if (
+      !menuItemId ||
+      !mongoose.Types.ObjectId.isValid(menuItemId)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Identidad de producto no válida"
+      });
+    }
+
+    const Menu = require("../models/menu");
+
+    const menuItem = await Menu.findOne({
+      _id: menuItemId,
+      restaurantId
+    });
+
+    if (!menuItem) {
+      return res.status(404).json({
+        ok: false,
+        error:
+          "El producto no pertenece a este restaurante"
+      });
+    }
+
+    if (!menuItem.disponible) {
+      return res.status(409).json({
+        ok: false,
+        error:
+          "El producto no se encuentra disponible"
+      });
+    }
+
+    if (!menuItem.productoServicioId) {
+      return res.status(409).json({
+        ok: false,
+        error:
+          "El producto todavía no tiene identidad GRUK CORE"
+      });
+    }
+
+    // Si el cliente envía productoServicioId,
+    // debe coincidir con la identidad registrada en Menu.
+    if (
+      productoServicioId &&
+      (
+        !mongoose.Types.ObjectId.isValid(
+          productoServicioId
+        ) ||
+        String(productoServicioId) !==
+          String(menuItem.productoServicioId)
+      )
+    ) {
+      return res.status(409).json({
+        ok: false,
+        error:
+          "La identidad económica enviada no corresponde al producto"
+      });
+    }
+
+    // =====================================================
+    // GRUK CORE — VERIFICAR PROPIEDAD EMPRESARIAL
+    // =====================================================
+
+    const restaurante = await Restaurante.findOne({
+      restaurantId
+    }).select(
+      "_id restaurantId empresaId"
+    );
+
+    if (!restaurante) {
+      return res.status(404).json({
+        ok: false,
+        error: "Restaurante no encontrado"
+      });
+    }
+
+    if (!restaurante.empresaId) {
+      return res.status(409).json({
+        ok: false,
+        error:
+          "El restaurante todavía no está vinculado a una empresa"
+      });
+    }
+
+    const productoCore =
+      await ProductoServicio.findOne({
+        _id: menuItem.productoServicioId,
+        empresaId: restaurante.empresaId,
+        tipo: "producto"
+      });
+
+    if (!productoCore) {
+      return res.status(409).json({
+        ok: false,
+        error:
+          "La identidad GRUK CORE no pertenece a esta empresa"
+      });
+    }
+
+    if (!productoCore.activo) {
+      return res.status(409).json({
+        ok: false,
+        error:
+          "El producto se encuentra inactivo en GRUK CORE"
+      });
+    }
+
+    // =====================================================
+    // GRUK RESTAURANTES — VALIDAR EXTRA
+    // Nunca confiar en valorExtra enviado por el navegador.
+    // =====================================================
+
+    let extraNombre = "";
+    let valorExtraUnitario = 0;
+
+    const extraSolicitado =
+      typeof extra === "string"
+        ? extra.trim()
+        : "";
+
+    if (
+      extraSolicitado &&
+      extraSolicitado !== "Sin extra"
+    ) {
+      const extraAutorizado =
+        menuItem.extras.find(
+          (item) =>
+            String(item.nombre)
+              .trim()
+              .toLowerCase() ===
+            extraSolicitado.toLowerCase()
+        );
+
+      if (!extraAutorizado) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "El extra seleccionado no pertenece a este producto"
+        });
+      }
+
+      const precioExtra =
+        Number(extraAutorizado.precio);
+
+      if (
+        !Number.isFinite(precioExtra) ||
+        precioExtra < 0
+      ) {
+        return res.status(409).json({
+          ok: false,
+          error:
+            "El extra tiene una configuración económica inválida"
+        });
+      }
+
+      extraNombre =
+        String(extraAutorizado.nombre).trim();
+
+      valorExtraUnitario = precioExtra;
+    }
+
+    // =====================================================
+    // GRUK CORE — AUTORIDAD ECONÓMICA
+    // El precio NO proviene del navegador.
+    // =====================================================
+
+    const precioBase =
+      Number(menuItem.precio);
+
+    if (
+      !Number.isFinite(precioBase) ||
+      precioBase < 0
+    ) {
+      return res.status(409).json({
+        ok: false,
+        error:
+          "El producto tiene un precio inválido"
+      });
+    }
+
+    const precioUnitario =
+      precioBase + valorExtraUnitario;
+
+    const precioTotal =
+      precioUnitario * cantidadNumerica;
+
+    if (
+      !Number.isFinite(precioTotal) ||
+      precioTotal < 0
+    ) {
+      return res.status(409).json({
+        ok: false,
+        error:
+          "No fue posible calcular el valor del pedido"
+      });
+    }
+
+    // =====================================================
+    // GRUK — CREACIÓN TRAZABLE DEL PEDIDO
+    // Vertical Restaurante ↔ Identidad económica CORE
+    // =====================================================
 
     const pedido = new Pedido({
       restaurantId,
-      sedeId: sedeId || "",
-      mesa: Number(mesa),
-      producto,
-      observaciones: observaciones || "",
-      categoria: categoria || "",
-      precio: Number(precio),
-      metodoPago: metodoPago || "efectivo",
-      estado: "pendiente",
-      estadoPago: "pendiente",
-      tiempoEstimado: Number(tiempoEstimado || 15)
+
+      sedeId:
+        typeof sedeId === "string"
+          ? sedeId.trim()
+          : "",
+
+      menuItemId: menuItem._id,
+
+      productoServicioId:
+        productoCore._id,
+
+      mesa: mesaNumerica,
+
+      producto:
+        String(menuItem.nombre).trim(),
+
+      categoria:
+        String(menuItem.categoria || "").trim(),
+
+      observaciones:
+        typeof observaciones === "string"
+          ? observaciones.trim()
+          : "",
+
+      cantidad:
+        cantidadNumerica,
+
+      precioUnitario,
+
+      valorExtraUnitario,
+
+      extra:
+        extraNombre,
+
+      precio:
+        precioTotal,
+
+      metodoPago:
+        metodoPagoNormalizado,
+
+      estado:
+        "pendiente",
+
+      estadoPago:
+        "pendiente",
+
+      tiempoEstimado:
+        Number(menuItem.tiempoBase || 15)
     });
 
     await pedido.save();
 
-    const io = req.app.get("io");
-    io.emit("pedido:nuevo", pedido);
+    // =====================================================
+    // GRUK REALTIME
+    // Solo después de persistencia confirmada.
+    // =====================================================
 
-    return res.json(pedido);
+    const io = req.app.get("io");
+
+    if (io) {
+      io.emit(
+        "pedido:nuevo",
+        pedido
+      );
+    }
+
+    console.log(
+      "GRUK ORDER confirmado:",
+      {
+        pedidoId:
+          pedido._id,
+
+        restaurantId:
+          pedido.restaurantId,
+
+        menuItemId:
+          pedido.menuItemId,
+
+        productoServicioId:
+          pedido.productoServicioId,
+
+        cantidad:
+          pedido.cantidad,
+
+        precioUnitario:
+          pedido.precioUnitario,
+
+        total:
+          pedido.precio
+      }
+    );
+
+    return res.status(201).json({
+      ok: true,
+      pedido
+    });
+
   } catch (error) {
-    console.log("ERROR REAL /pedido:", error);
+    console.error(
+      "Error creando pedido GRUK:",
+      error
+    );
+
     return res.status(500).json({
       ok: false,
-      error: error.message || "No se pudo enviar el pedido"
+      error:
+        error.message ||
+        "No se pudo crear el pedido"
     });
   }
 });
-
 router.get("/pedidos", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);

@@ -421,6 +421,8 @@ observacionesFinales += `${observacionesFinales ? " | " : ""}Cantidad: ${cantida
 return {
 restaurantId,
 mesa,
+menuItemId: item._id || null,
+productoServicioId: item.productoServicioId || null,
 producto: item.nombre,
 observaciones: observacionesFinales,
 observacionesGenerales,
@@ -447,6 +449,8 @@ headers: {
 body: JSON.stringify({
 restaurantId: pedido.restaurantId,
 mesa: pedido.mesa,
+menuItemId: pedido.menuItemId,
+productoServicioId: pedido.productoServicioId,
 producto: pedido.producto,
 observaciones: pedido.observaciones,
 categoria: pedido.categoria,

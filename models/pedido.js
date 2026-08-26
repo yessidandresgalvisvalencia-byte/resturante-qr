@@ -22,6 +22,30 @@ productoServicioId: {
     default: null,
     index: true
 },
+cantidad: {
+    type: Number,
+    required: true,
+    default: 1,
+    min: 1
+},
+
+precioUnitario: {
+    type: Number,
+    required: true,
+    min: 0
+},
+
+valorExtraUnitario: {
+    type: Number,
+    default: 0,
+    min: 0
+},
+
+extra: {
+    type: String,
+    default: "",
+    trim: true
+},
     mesa: {
         type: Number,
         required: true
