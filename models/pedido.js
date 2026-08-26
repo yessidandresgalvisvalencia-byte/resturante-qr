@@ -9,6 +9,19 @@ const pedidoSchema = new mongoose.Schema({
   type: String,
   default: ""
 },
+menuItemId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Menu",
+    default: null,
+    index: true
+},
+
+productoServicioId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "ProductoServicio",
+    default: null,
+    index: true
+},
     mesa: {
         type: Number,
         required: true

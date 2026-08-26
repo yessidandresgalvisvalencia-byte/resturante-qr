@@ -9,10 +9,28 @@ precio: { type: Number, default: 0 }
 );
 
 const menuSchema = new mongoose.Schema({
-restaurantId: { type: String, required: true },
-id: { type: Number, required: true },
-nombre: { type: String, required: true },
+restaurantId: { 
+  type: String, 
+  required: true,
+  index: true
+},
 
+id: { 
+  type: Number, 
+  required: true 
+},
+
+productoServicioId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "ProductoServicio",
+  default: null,
+  index: true
+},
+
+nombre: { 
+  type: String, 
+  required: true 
+},
 descripcion: { type: String, default: "" },
 
 precio: { type: Number, required: true },
