@@ -4,6 +4,7 @@ const path = require("path");
 require("dotenv").config();
 const http = require("http");
 const { Server } = require("socket.io");
+const eventBus = require("./core/eventos/eventBus");
 const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
 const facturacionRoutes = require("./routes/facturacion");
@@ -30,6 +31,18 @@ const io = new Server(server, {
 });
 
 app.set("io", io);
+eventBus.on("VENTA_COMPLETADA", (event) => {
+  console.log(
+    "[GRUK EVENT] VENTA_COMPLETADA",
+    {
+      ventaId: event.payload.ventaId?.toString(),
+      empresaId: event.payload.empresaId?.toString(),
+      sedeId: event.payload.sedeId?.toString() || null,
+      total: event.payload.total,
+      occurredAt: event.occurredAt
+    }
+  );
+});
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -62,7 +75,12 @@ app.get("/pago-suscripcion", (req, res) => {
 });
 
 console.log("MONGO_URI EXISTE", !!process.env.MONGO_URI);
-
+mongoose.connection.once("open", () => {
+  console.log("GRUK MongoDB:", {
+    host: mongoose.connection.host,
+    db: mongoose.connection.name
+  });
+});
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB conectado");

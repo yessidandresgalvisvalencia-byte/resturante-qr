@@ -11,7 +11,9 @@ const Restaurante = require("../models/restaurante");
 const Usuario = require("../models/usuario");
 const Sede = require("../models/sede");
 const Empresa = require("../models/Empresa");
-const Venta = require("../models/Venta");
+const {
+  registrarVentaDesdePedido
+} = require("../services/ventas.service");
 const ProductoServicio = require("../models/ProductoServicio");
 
 
@@ -1526,47 +1528,20 @@ router.put("/pedido/:id/pago", async (req, res) => {
         }
       }
 
-      try {
-        await Venta.create({
-          empresaId: restaurante.empresaId,
-          sedeId: sedeObjectId,
+      const resultadoVenta = await registrarVentaDesdePedido({
+        pedido,
+        empresaId: restaurante.empresaId,
+        sedeId: sedeObjectId
+      });
 
-          origen: "restaurante",
-          origenId: pedido._id,
-
-          concepto: pedido.producto,
-          categoria: pedido.categoria || "",
-
-          cantidad: 1,
-          precioUnitario: pedido.precio,
-          total: pedido.precio,
-
-          metodoPago: pedido.metodoPago || "",
-
-          estado: "pagada",
-
-          metadata: {
-            restaurantId: pedido.restaurantId,
-            pedidoId: pedido._id.toString(),
-            mesa: pedido.mesa
-          }
-        });
-
+      if (resultadoVenta.creada) {
         console.log(
           `Venta empresarial registrada desde pedido ${pedido._id}`
         );
-
-      } catch (ventaError) {
-
-        // Código 11000 = MongoDB detectó una venta duplicada.
-        // No dañamos el pago por un segundo intento.
-        if (ventaError.code === 11000) {
-          console.log(
-            `Venta del pedido ${pedido._id} ya estaba registrada`
-          );
-        } else {
-          throw ventaError;
-        }
+      } else {
+        console.log(
+          `Venta del pedido ${pedido._id} ya estaba registrada`
+        );
       }
     }
 

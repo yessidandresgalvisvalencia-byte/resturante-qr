@@ -43,19 +43,17 @@ function vibrar() {
 const socket = io();
 
 function getRestaurantId() {
-  const input = document.getElementById("restaurantIdInput");
-
-  if (input && input.value.trim()) {
-    return input.value.trim();
-  }
-
   const params = new URLSearchParams(window.location.search);
 
-  return (
+  const restaurantId =
     params.get("restaurantId") ||
-    localStorage.getItem("adminRestaurantId") ||
-    "rest1"
-  );
+    localStorage.getItem("adminRestaurantId");
+
+  if (!restaurantId) {
+    throw new Error("GRUK: no existe restaurantId para la sesión actual");
+  }
+
+  return restaurantId.trim();
 }
 
 function tiempoTranscurrido(fecha) {
