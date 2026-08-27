@@ -1,0 +1,103 @@
+<div class="card">
+  <h1>🍽 Restaurante</h1>
+  <p>Aquí organizaremos productos, enlaces, QR, personal y configuración del restaurante.</p>
+</div>
+<div class="card">
+<h3>Links del restaurante</h3>
+<p><strong>Restaurant ID:</strong> <span id="restaurantIdActual"></span></p>
+
+<a id="linkLogoRestaurante" class="btn-logo">
+Personalizar Logo
+</a>
+
+<p><strong>Menú cliente:</strong><br>
+<a id="linkMenu" target="_blank"></a>
+</p>
+
+<p><strong>Cocina:</strong><br>
+<a id="linkCocina" target="_blank"></a>
+</p>
+<p><strong>Caja:</strong><br>
+<a id="linkCaja" target="_blank"></a>
+</p>
+
+<p><strong>Mesero:</strong><br>
+<a id="linkMesero" target="_blank"></a>
+</p>
+
+<p><strong>Administrador:</strong><br>
+<a id="linkAdmin" target="_blank"></a>
+</p>
+
+<p><strong>Dashboard manual:</strong><br>
+<a id="linkDashboard" target="_blank"></a>
+</p>
+
+<p><strong>Dashboard automático:</strong><br>
+<a id="linkDashboardAuto" target="_blank"></a>
+</p>
+</div>
+<div class="card">
+  <label>Restaurant ID</label>
+  <input id="restaurantIdInput" type="text" value="" readonly>
+
+  <label>Base URL para QR</label>
+  <input id="baseUrl" type="text" placeholder="https://tu-url.onrender.com">
+
+  <label>Número de mesas</label>
+  <input id="numeroMesas" type="number" value="10" min="1">
+
+  <button onclick="generarQRs()">Generar QR</button>
+  <button onclick="inicializarRestauranteGRUK()">Actualizar panel</button>
+</div>
+
+<h2>QR por mesa</h2>
+<div id="qrs" class="grid"></div>
+<div class="card">
+<h3>Agregar producto al menú</h3>
+
+<label>Nombre del producto</label>
+<input id="nombreProducto" type="text" placeholder="Ej: Hamburguesa clásica">
+
+<label>Descripción</label>
+<textarea id="descripcionProducto" placeholder="Ej: Hamburguesa artesanal con carne de res, queso, lechuga, tomate y salsa especial"></textarea>
+
+<label>Precio</label>
+<input id="precioProducto" type="number" placeholder="Ej: 20000">
+<label>Costo materia prima por unidad</label>
+<p class="descripcion-termino">
+Costo real de los ingredientes usados para preparar una unidad del producto.
+Ejemplo: si una empanada cuesta $1.800 en insumos, escribe 1800.
+</p>
+<input id="costoMateriaProducto" type="number" placeholder="Ej: 3500">
+<label>Categoría</label>
+<select id="categoriaProducto">
+<option value="Entradas">Entradas</option>
+<option value="Comida">Comida</option>
+<option value="Bebidas frías">Bebidas frías</option>
+<option value="Bebidas calientes">Bebidas calientes</option>
+<option value="Adiciones">Adiciones</option>
+<option value="Postres">Postres</option>
+</select>
+
+<label>Guarniciones (separadas por coma)</label>
+<input id="guarnicionesProducto" type="text" placeholder="Ej: papas, ensalada, puré">
+
+<label>Adiciones / extras con precio</label>
+<input id="extrasProducto" type="text" placeholder="Ej: chicharrón:8000, tajadas:3000, aguacate:5000">
+
+<label>URL de imagen</label>
+<input id="imagenProducto" type="text" placeholder="/img/hamburguesa.jpg">
+
+<label>Tiempo estimado base (minutos)</label>
+<input id="tiempoProducto" type="number" value="10">
+
+<label>Disponible</label>
+<select id="disponibleProducto">
+<option value="true">Sí</option>
+<option value="false">No</option>
+</select>
+
+<button id="btnGuardarProducto" onclick="guardarOEditarProducto()">Guardar producto</button>
+<button id="btnCancelarEdicion" onclick="cancelarEdicion()" style="display:none;">Cancelar edición</button>
+</div>

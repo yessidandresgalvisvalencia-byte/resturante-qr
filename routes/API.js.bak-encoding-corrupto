@@ -3,8 +3,6 @@ const mongoose = require("mongoose");
 const QRCode = require("qrcode");
 const axios = require("axios");
 const crypto = require("crypto");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const router = express.Router();
 
 const Pedido = require("../models/pedido.js");
@@ -20,14 +18,14 @@ const ProductoServicio = require("../models/ProductoServicio");
 
 
 /* =========================
-   CONFIG BÃƒÂSICA
+   CONFIG BÃSICA
 ========================= */
 
 function menuBase() {
   return [
     {
       id: 1,
-      nombre: "Hamburguesa clÃƒÂ¡sica",
+      nombre: "Hamburguesa clÃ¡sica",
       categoria: "Hamburguesas",
       precio: 20000,
       imagen: "/img/hamburguesa.jpg",
@@ -55,7 +53,7 @@ function menuBase() {
     {
       id: 4,
       nombre: "Perro caliente",
-      categoria: "Comida rÃƒÂ¡pida",
+      categoria: "Comida rÃ¡pida",
       precio: 18000,
       imagen: "/img/perro.jpg",
       disponible: true,
@@ -64,7 +62,7 @@ function menuBase() {
     {
       id: 5,
       nombre: "Papas especiales",
-      categoria: "AcompaÃƒÂ±amientos",
+      categoria: "AcompaÃ±amientos",
       precio: 12000,
       imagen: "/img/papas.jpg",
       disponible: true,
@@ -109,7 +107,7 @@ router.get("/menu", async (req, res) => {
     const menu = await Menu.find({ restaurantId });
     res.json(menu);
   } catch (error) {
-    console.log("Error obteniendo menÃƒÂº:", error);
+    console.log("Error obteniendo menÃº:", error);
     res.status(500).json([]);
   }
 });
@@ -133,7 +131,7 @@ router.post("/menu", async (req, res) => {
     } = req.body;
 
     // =====================================================
-    // GRUK Ã¢â‚¬â€ VALIDACIÃƒâ€œN DE ENTRADA
+    // GRUK â€” VALIDACIÃ“N DE ENTRADA
     // =====================================================
 
     if (
@@ -156,21 +154,21 @@ router.post("/menu", async (req, res) => {
     if (!Number.isFinite(precioNumerico) || precioNumerico < 0) {
       return res.status(400).json({
         ok: false,
-        error: "El precio del producto no es vÃƒÂ¡lido"
+        error: "El precio del producto no es vÃ¡lido"
       });
     }
 
     if (!Number.isFinite(costoNumerico) || costoNumerico < 0) {
       return res.status(400).json({
         ok: false,
-        error: "El costo de materia prima no es vÃƒÂ¡lido"
+        error: "El costo de materia prima no es vÃ¡lido"
       });
     }
 
     if (!Number.isFinite(tiempoNumerico) || tiempoNumerico < 0) {
       return res.status(400).json({
         ok: false,
-        error: "El tiempo base no es vÃƒÂ¡lido"
+        error: "El tiempo base no es vÃ¡lido"
       });
     }
 
@@ -179,7 +177,7 @@ router.post("/menu", async (req, res) => {
     let nuevoProducto = null;
 
     // =====================================================
-    // GRUK Ã¢â‚¬â€ UNIDAD ATÃƒâ€œMICA CORE + RESTAURANTE
+    // GRUK â€” UNIDAD ATÃ“MICA CORE + RESTAURANTE
     // =====================================================
 
     await session.withTransaction(async () => {
@@ -202,7 +200,7 @@ router.post("/menu", async (req, res) => {
 
       if (!restaurante.empresaId) {
         const error = new Error(
-          "El restaurante todavÃƒÂ­a no estÃƒÂ¡ vinculado a una empresa"
+          "El restaurante todavÃ­a no estÃ¡ vinculado a una empresa"
         );
         error.statusCode = 409;
         throw error;
@@ -224,7 +222,7 @@ router.post("/menu", async (req, res) => {
           : 1;
 
       // ===================================================
-      // 3. CREAR IDENTIDAD ECONÃƒâ€œMICA EN GRUK CORE
+      // 3. CREAR IDENTIDAD ECONÃ“MICA EN GRUK CORE
       // ===================================================
 
       const productosCore = await ProductoServicio.create(
@@ -263,11 +261,11 @@ router.post("/menu", async (req, res) => {
 
       if (!productoCore) {
         throw new Error(
-          "No fue posible crear la identidad econÃƒÂ³mica del producto"
+          "No fue posible crear la identidad econÃ³mica del producto"
         );
       }
       // ===================================================
-      // 4. CREAR REPRESENTACIÃƒâ€œN EN GRUK RESTAURANTES
+      // 4. CREAR REPRESENTACIÃ“N EN GRUK RESTAURANTES
       // ===================================================
 
       const productosMenu = await Menu.create(
@@ -321,7 +319,7 @@ router.post("/menu", async (req, res) => {
 
     // =====================================================
     // GRUK REALTIME
-    // Solo despuÃƒÂ©s de COMMIT exitoso.
+    // Solo despuÃ©s de COMMIT exitoso.
     // =====================================================
 
     const io = req.app.get("io");
@@ -393,13 +391,13 @@ router.put("/menu/:id", async (req, res) => {
     } = req.body;
 
     // =====================================================
-    // GRUK Ã¢â‚¬â€ VALIDACIÃƒâ€œN ESTRICTA DE ACTUALIZACIÃƒâ€œN
+    // GRUK â€” VALIDACIÃ“N ESTRICTA DE ACTUALIZACIÃ“N
     // =====================================================
 
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         ok: false,
-        error: "Identificador de producto no vÃƒÂ¡lido"
+        error: "Identificador de producto no vÃ¡lido"
       });
     }
 
@@ -425,7 +423,7 @@ router.put("/menu/:id", async (req, res) => {
     ) {
       return res.status(400).json({
         ok: false,
-        error: "El precio del producto no es vÃƒÂ¡lido"
+        error: "El precio del producto no es vÃ¡lido"
       });
     }
 
@@ -435,7 +433,7 @@ router.put("/menu/:id", async (req, res) => {
     ) {
       return res.status(400).json({
         ok: false,
-        error: "El costo de materia prima no es vÃƒÂ¡lido"
+        error: "El costo de materia prima no es vÃ¡lido"
       });
     }
 
@@ -445,7 +443,7 @@ router.put("/menu/:id", async (req, res) => {
     ) {
       return res.status(400).json({
         ok: false,
-        error: "El tiempo base no es vÃƒÂ¡lido"
+        error: "El tiempo base no es vÃ¡lido"
       });
     }
 
@@ -454,7 +452,7 @@ router.put("/menu/:id", async (req, res) => {
     let productoActualizado = null;
 
     // =====================================================
-    // GRUK Ã¢â‚¬â€ UNIDAD ATÃƒâ€œMICA DE ACTUALIZACIÃƒâ€œN
+    // GRUK â€” UNIDAD ATÃ“MICA DE ACTUALIZACIÃ“N
     // CORE + VERTICAL RESTAURANTE
     // =====================================================
 
@@ -481,7 +479,7 @@ router.put("/menu/:id", async (req, res) => {
 
       if (!restaurante.empresaId) {
         const error = new Error(
-          "El restaurante todavÃƒÂ­a no estÃƒÂ¡ vinculado a una empresa"
+          "El restaurante todavÃ­a no estÃ¡ vinculado a una empresa"
         );
 
         error.statusCode = 409;
@@ -509,7 +507,7 @@ router.put("/menu/:id", async (req, res) => {
       let productoCore = null;
 
       // ===================================================
-      // 3. RESOLVER IDENTIDAD ECONÃƒâ€œMICA CORE
+      // 3. RESOLVER IDENTIDAD ECONÃ“MICA CORE
       // ===================================================
 
       if (productoActual.productoServicioId) {
@@ -532,7 +530,7 @@ router.put("/menu/:id", async (req, res) => {
       } else {
 
         // ===============================================
-        // MIGRACIÃƒâ€œN TRANSACCIONAL DE PRODUCTO LEGACY
+        // MIGRACIÃ“N TRANSACCIONAL DE PRODUCTO LEGACY
         // ===============================================
 
         const productosCore =
@@ -586,7 +584,7 @@ router.put("/menu/:id", async (req, res) => {
       }
 
       // ===================================================
-      // 4. ACTUALIZAR IDENTIDAD ECONÃƒâ€œMICA CORE
+      // 4. ACTUALIZAR IDENTIDAD ECONÃ“MICA CORE
       // ===================================================
 
       const coreActualizado =
@@ -630,7 +628,7 @@ router.put("/menu/:id", async (req, res) => {
       }
 
       // ===================================================
-      // 5. ACTUALIZAR REPRESENTACIÃƒâ€œN RESTAURANTE
+      // 5. ACTUALIZAR REPRESENTACIÃ“N RESTAURANTE
       // ===================================================
 
       productoActualizado =
@@ -759,13 +757,13 @@ router.put("/menu/:id/stock", async (req, res) => {
     const id = Number(req.params.id);
 
     // =====================================================
-    // GRUK RESTAURANTES Ã¢â‚¬â€ DISPONIBILIDAD OPERACIONAL
+    // GRUK RESTAURANTES â€” DISPONIBILIDAD OPERACIONAL
     // =====================================================
 
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         ok: false,
-        error: "Identificador de producto no vÃƒÂ¡lido"
+        error: "Identificador de producto no vÃ¡lido"
       });
     }
 
@@ -777,7 +775,7 @@ router.put("/menu/:id/stock", async (req, res) => {
     ) {
       return res.status(400).json({
         ok: false,
-        error: "Estado de disponibilidad no vÃƒÂ¡lido"
+        error: "Estado de disponibilidad no vÃ¡lido"
       });
     }
 
@@ -844,20 +842,20 @@ router.delete("/menu/:id", async (req, res) => {
     const id = Number(req.params.id);
 
     // =====================================================
-    // GRUK Ã¢â‚¬â€ VALIDACIÃƒâ€œN DE IDENTIDAD
+    // GRUK â€” VALIDACIÃ“N DE IDENTIDAD
     // =====================================================
 
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         ok: false,
-        error: "Identificador de producto no vÃƒÂ¡lido"
+        error: "Identificador de producto no vÃ¡lido"
       });
     }
 
     const Menu = require("../models/menu");
 
     // =====================================================
-    // GRUK RESTAURANTES Ã¢â‚¬â€ LOCALIZAR PRODUCTO
+    // GRUK RESTAURANTES â€” LOCALIZAR PRODUCTO
     // =====================================================
 
     const producto = await Menu.findOne({
@@ -873,7 +871,7 @@ router.delete("/menu/:id", async (req, res) => {
     }
 
     // =====================================================
-    // GRUK CORE Ã¢â‚¬â€ VERIFICAR PROPIEDAD EMPRESARIAL
+    // GRUK CORE â€” VERIFICAR PROPIEDAD EMPRESARIAL
     // =====================================================
 
     const restaurante = await Restaurante.findOne({
@@ -890,7 +888,7 @@ router.delete("/menu/:id", async (req, res) => {
     if (!restaurante.empresaId) {
       return res.status(409).json({
         ok: false,
-        error: "El restaurante todavÃƒÂ­a no estÃƒÂ¡ vinculado a una empresa"
+        error: "El restaurante todavÃ­a no estÃ¡ vinculado a una empresa"
       });
     }
 
@@ -912,16 +910,16 @@ router.delete("/menu/:id", async (req, res) => {
     }
 
     // =====================================================
-    // GRUK CORE Ã¢â‚¬â€ RETIRO LÃƒâ€œGICO
+    // GRUK CORE â€” RETIRO LÃ“GICO
     // =====================================================
     //
-    // La identidad econÃƒÂ³mica NO se elimina.
+    // La identidad econÃ³mica NO se elimina.
     // Debe permanecer disponible para:
     //
-    // - ventas histÃƒÂ³ricas
-    // - costos histÃƒÂ³ricos
+    // - ventas histÃ³ricas
+    // - costos histÃ³ricos
     // - reportes
-    // - auditorÃƒÂ­a
+    // - auditorÃ­a
     // - GRUK Intelligence
     // - memoria empresarial
     //
@@ -942,7 +940,7 @@ router.delete("/menu/:id", async (req, res) => {
     }
 
     // =====================================================
-    // GRUK RESTAURANTES Ã¢â‚¬â€ RETIRAR DE LA VERTICAL
+    // GRUK RESTAURANTES â€” RETIRAR DE LA VERTICAL
     // =====================================================
 
     try {
@@ -952,8 +950,8 @@ router.delete("/menu/:id", async (req, res) => {
       });
     } catch (menuError) {
 
-      // CompensaciÃƒÂ³n provisional:
-      // si falla la eliminaciÃƒÂ³n del Menu despuÃƒÂ©s de retirar CORE,
+      // CompensaciÃ³n provisional:
+      // si falla la eliminaciÃ³n del Menu despuÃ©s de retirar CORE,
       // restauramos el estado anterior del producto CORE.
       if (productoCore) {
         try {
@@ -972,7 +970,7 @@ router.delete("/menu/:id", async (req, res) => {
 
         } catch (rollbackError) {
           console.error(
-            "CRITICAL: fallo restaurando ProductoServicio despuÃƒÂ©s de DELETE:",
+            "CRITICAL: fallo restaurando ProductoServicio despuÃ©s de DELETE:",
             rollbackError
           );
         }
@@ -982,7 +980,7 @@ router.delete("/menu/:id", async (req, res) => {
     }
 
     // =====================================================
-    // GRUK REALTIME Ã¢â‚¬â€ NOTIFICAR A LA VERTICAL
+    // GRUK REALTIME â€” NOTIFICAR A LA VERTICAL
     // =====================================================
 
     const io = req.app.get("io");
@@ -1005,7 +1003,7 @@ router.delete("/menu/:id", async (req, res) => {
 
   } catch (error) {
     console.error(
-      "Error retirando producto del menÃƒÂº:",
+      "Error retirando producto del menÃº:",
       error
     );
 
@@ -1039,7 +1037,7 @@ router.post("/pedido", async (req, res) => {
     } = req.body;
 
     // =====================================================
-    // GRUK RESTAURANTES Ã¢â‚¬â€ VALIDACIÃƒâ€œN OPERACIONAL
+    // GRUK RESTAURANTES â€” VALIDACIÃ“N OPERACIONAL
     // =====================================================
 
     const mesaNumerica = Number(mesa);
@@ -1051,7 +1049,7 @@ router.post("/pedido", async (req, res) => {
     ) {
       return res.status(400).json({
         ok: false,
-        error: "Mesa no vÃƒÂ¡lida"
+        error: "Mesa no vÃ¡lida"
       });
     }
 
@@ -1061,7 +1059,7 @@ router.post("/pedido", async (req, res) => {
     ) {
       return res.status(400).json({
         ok: false,
-        error: "Cantidad no vÃƒÂ¡lida"
+        error: "Cantidad no vÃ¡lida"
       });
     }
 
@@ -1082,12 +1080,12 @@ router.post("/pedido", async (req, res) => {
     ) {
       return res.status(400).json({
         ok: false,
-        error: "MÃƒÂ©todo de pago no vÃƒÂ¡lido"
+        error: "MÃ©todo de pago no vÃ¡lido"
       });
     }
 
     // =====================================================
-    // GRUK SECURITY Ã¢â‚¬â€ IDENTIDAD DEL PRODUCTO
+    // GRUK SECURITY â€” IDENTIDAD DEL PRODUCTO
     // El navegador identifica; el servidor verifica.
     // =====================================================
 
@@ -1097,7 +1095,7 @@ router.post("/pedido", async (req, res) => {
     ) {
       return res.status(400).json({
         ok: false,
-        error: "Identidad de producto no vÃƒÂ¡lida"
+        error: "Identidad de producto no vÃ¡lida"
       });
     }
 
@@ -1128,11 +1126,11 @@ router.post("/pedido", async (req, res) => {
       return res.status(409).json({
         ok: false,
         error:
-          "El producto todavÃƒÂ­a no tiene identidad GRUK CORE"
+          "El producto todavÃ­a no tiene identidad GRUK CORE"
       });
     }
 
-    // Si el cliente envÃƒÂ­a productoServicioId,
+    // Si el cliente envÃ­a productoServicioId,
     // debe coincidir con la identidad registrada en Menu.
     if (
       productoServicioId &&
@@ -1147,12 +1145,12 @@ router.post("/pedido", async (req, res) => {
       return res.status(409).json({
         ok: false,
         error:
-          "La identidad econÃƒÂ³mica enviada no corresponde al producto"
+          "La identidad econÃ³mica enviada no corresponde al producto"
       });
     }
 
     // =====================================================
-    // GRUK CORE Ã¢â‚¬â€ VERIFICAR PROPIEDAD EMPRESARIAL
+    // GRUK CORE â€” VERIFICAR PROPIEDAD EMPRESARIAL
     // =====================================================
 
     const restaurante = await Restaurante.findOne({
@@ -1172,7 +1170,7 @@ router.post("/pedido", async (req, res) => {
       return res.status(409).json({
         ok: false,
         error:
-          "El restaurante todavÃƒÂ­a no estÃƒÂ¡ vinculado a una empresa"
+          "El restaurante todavÃ­a no estÃ¡ vinculado a una empresa"
       });
     }
 
@@ -1200,7 +1198,7 @@ router.post("/pedido", async (req, res) => {
     }
 
     // =====================================================
-    // GRUK RESTAURANTES Ã¢â‚¬â€ VALIDAR EXTRA
+    // GRUK RESTAURANTES â€” VALIDAR EXTRA
     // Nunca confiar en valorExtra enviado por el navegador.
     // =====================================================
 
@@ -1243,7 +1241,7 @@ router.post("/pedido", async (req, res) => {
         return res.status(409).json({
           ok: false,
           error:
-            "El extra tiene una configuraciÃƒÂ³n econÃƒÂ³mica invÃƒÂ¡lida"
+            "El extra tiene una configuraciÃ³n econÃ³mica invÃ¡lida"
         });
       }
 
@@ -1254,7 +1252,7 @@ router.post("/pedido", async (req, res) => {
     }
 
     // =====================================================
-    // GRUK CORE Ã¢â‚¬â€ AUTORIDAD ECONÃƒâ€œMICA
+    // GRUK CORE â€” AUTORIDAD ECONÃ“MICA
     // El precio NO proviene del navegador.
     // =====================================================
 
@@ -1268,7 +1266,7 @@ router.post("/pedido", async (req, res) => {
       return res.status(409).json({
         ok: false,
         error:
-          "El producto tiene un precio invÃƒÂ¡lido"
+          "El producto tiene un precio invÃ¡lido"
       });
     }
 
@@ -1290,8 +1288,8 @@ router.post("/pedido", async (req, res) => {
     }
 
     // =====================================================
-    // GRUK Ã¢â‚¬â€ CREACIÃƒâ€œN TRAZABLE DEL PEDIDO
-    // Vertical Restaurante Ã¢â€ â€ Identidad econÃƒÂ³mica CORE
+    // GRUK â€” CREACIÃ“N TRAZABLE DEL PEDIDO
+    // Vertical Restaurante â†” Identidad econÃ³mica CORE
     // =====================================================
 
     const pedido = new Pedido({
@@ -1350,7 +1348,7 @@ router.post("/pedido", async (req, res) => {
 
     // =====================================================
     // GRUK REALTIME
-    // Solo despuÃƒÂ©s de persistencia confirmada.
+    // Solo despuÃ©s de persistencia confirmada.
     // =====================================================
 
     const io = req.app.get("io");
@@ -1414,7 +1412,7 @@ router.get("/pedidos", async (req, res) => {
 
     const filtro = { restaurantId };
 
-    // Ã°Å¸â€˜â€¡ SOLO si viene sedeId, filtra por sede
+    // ðŸ‘‡ SOLO si viene sedeId, filtra por sede
     if (sedeId) {
       filtro.sedeId = sedeId;
     }
@@ -1503,13 +1501,13 @@ router.put("/pedido/:id/pago", async (req, res) => {
 
       if (!restaurante) {
         throw new Error(
-          `No se encontrÃƒÂ³ el restaurante ${pedido.restaurantId}`
+          `No se encontrÃ³ el restaurante ${pedido.restaurantId}`
         );
       }
 
       if (!restaurante.empresaId) {
         throw new Error(
-          "El restaurante todavÃƒÂ­a no estÃƒÂ¡ vinculado a una empresa"
+          "El restaurante todavÃ­a no estÃ¡ vinculado a una empresa"
         );
       }
 
@@ -1597,7 +1595,7 @@ router.post("/llamar-mesero", async (req, res) => {
     if (mesero.estado === "ocupado") {
       return res.status(400).json({
         ok: false,
-        error: "Ese mesero ya estÃƒÂ¡ ocupado"
+        error: "Ese mesero ya estÃ¡ ocupado"
       });
     }
 
@@ -1618,7 +1616,7 @@ router.post("/llamar-mesero", async (req, res) => {
     const llamado = new Llamado({
       restaurantId,
       mesa: Number(mesa),
-      mensaje: mensaje || "Mesa necesita atenciÃƒÂ³n",
+      mensaje: mensaje || "Mesa necesita atenciÃ³n",
       estado: "pendiente",
       meseroId: mesero._id.toString(),
       meseroNombre: mesero.nombre
@@ -1778,7 +1776,7 @@ router.get("/mesero/mesas", async (req, res) => {
           _id: llamado._id,
           mesa: llamado.mesa,
           estado: llamado.estado,
-          mensaje: llamado.mensaje || "Mesa necesita atenciÃƒÂ³n",
+          mensaje: llamado.mensaje || "Mesa necesita atenciÃ³n",
           meseroId: llamado.meseroId || "",
           meseroNombre: llamado.meseroNombre || ""
         };
@@ -1881,109 +1879,60 @@ router.post("/admin/registro", async (req, res) => {
 
 router.post("/admin/login", async (req, res) => {
   try {
-    const usuario = String(req.body?.usuario || "").trim();
-    const password = String(req.body?.password || "");
+    const { usuario, password } = req.body;
 
     if (!usuario || !password) {
       return res.status(400).json({
         ok: false,
-        error: "Faltan usuario o contraseÃƒÂ±a"
+        error: "Faltan usuario o contraseÃ±a"
       });
     }
 
     const Admin = require("../models/admin");
+    const Restaurante = require("../models/restaurante");
 
-    let admin = await Admin.findOne({ usuario });
+    let admin = await Admin.findOne({
+      usuario,
+      password
+    });
 
-    let restaurante = null;
-    let autenticado = false;
     let usuarioFinal = usuario;
-    let restaurantId = null;
 
-    if (admin) {
-      const passwordGuardado = String(admin.password || "");
+    if (!admin) {
 
-      if (passwordGuardado.startsWith("$2")) {
-        autenticado = await bcrypt.compare(
-          password,
-          passwordGuardado
-        );
-      } else {
-        autenticado = password === passwordGuardado;
-
-        if (autenticado) {
-          admin.password = await bcrypt.hash(password, 12);
-          await admin.save();
-
-          console.log(
-            `[SEGURIDAD] Admin migrado a bcrypt: ${admin._id}`
-          );
-        }
-      }
-
-      if (autenticado) {
-        restaurantId = admin.restaurantId;
-      }
-    }
-
-    if (!autenticado) {
-      restaurante = await Restaurante.findOne({
-        usuarioAdmin: usuario
+      admin = await Restaurante.findOne({
+        usuarioAdmin: usuario,
+        passwordAdmin: password
       });
 
-      if (restaurante) {
-        const passwordGuardado =
-          String(restaurante.passwordAdmin || "");
-
-        if (passwordGuardado.startsWith("$2")) {
-          autenticado = await bcrypt.compare(
-            password,
-            passwordGuardado
-          );
-        } else {
-          autenticado = password === passwordGuardado;
-
-          if (autenticado) {
-            restaurante.passwordAdmin =
-              await bcrypt.hash(password, 12);
-
-            await restaurante.save();
-
-            console.log(
-              `[SEGURIDAD] Restaurante migrado a bcrypt: ${restaurante._id}`
-            );
-          }
-        }
-
-        if (autenticado) {
-          restaurantId = restaurante.restaurantId;
-          usuarioFinal = restaurante.usuarioAdmin;
-        }
+      if (admin) {
+        usuarioFinal = admin.usuarioAdmin;
       }
     }
 
-    if (!autenticado) {
+    if (!admin) {
       return res.status(401).json({
         ok: false,
-        error: "Usuario o contraseÃƒÂ±a incorrectos"
+        error: "Usuario o contraseÃ±a incorrectos"
       });
     }
 
-    return res.json({
+    res.json({
       ok: true,
-      restaurantId,
+      restaurantId: admin.restaurantId,
       usuario: usuarioFinal
     });
 
   } catch (error) {
-    console.error("Error login admin:", error);
+    console.log("Error login admin:", error);
 
-    return res.status(500).json({
+    res.status(500).json({
       ok: false,
       error: "Error interno en login"
     });
   }
 });
+
 /* =========================
    FACTURA / QR
 ========================= */
@@ -2291,7 +2240,7 @@ router.post("/mesero/login", async (req, res) => {
     if (!usuario || !password) {
       return res.status(400).json({
         ok: false,
-        error: "Faltan usuario o contraseÃƒÂ±a"
+        error: "Faltan usuario o contraseÃ±a"
       });
     }
 
@@ -2313,7 +2262,7 @@ router.post("/mesero/login", async (req, res) => {
     if (!mesero) {
       return res.status(401).json({
         ok: false,
-        error: "Usuario o contraseÃƒÂ±a incorrectos"
+        error: "Usuario o contraseÃ±a incorrectos"
       });
     }
 
@@ -2383,7 +2332,7 @@ router.post("/restaurante/registro", async (req, res) => {
     if (existeCorreo) {
       return res.status(400).json({
         ok: false,
-        error: "Ese correo ya estÃƒÂ¡ registrado"
+        error: "Ese correo ya estÃ¡ registrado"
       });
     }
 
@@ -2502,15 +2451,15 @@ router.post("/crear-pago-suscripcion", async (req, res) => {
       }
     });
   } catch (error) {
-    console.log("Error creando pago de suscripciÃƒÂ³n:", error?.response?.data || error);
+    console.log("Error creando pago de suscripciÃ³n:", error?.response?.data || error);
     res.status(500).json({
       ok: false,
-      error: "Error interno creando pago de suscripciÃƒÂ³n"
+      error: "Error interno creando pago de suscripciÃ³n"
     });
   }
 });
 
-// Consulta estado de suscripciÃƒÂ³n
+// Consulta estado de suscripciÃ³n
 router.get("/restaurante/estado-suscripcion", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
@@ -2534,10 +2483,10 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
       fechaProximoCobro: restaurante.fechaProximoCobro
     });
   } catch (error) {
-    console.log("Error consultando suscripciÃƒÂ³n:", error);
+    console.log("Error consultando suscripciÃ³n:", error);
     res.status(500).json({
       ok: false,
-      error: "Error interno consultando suscripciÃƒÂ³n"
+      error: "Error interno consultando suscripciÃ³n"
     });
   }
 });
@@ -2874,7 +2823,7 @@ router.post("/usuarios/login", async (req, res) => {
     if (!user) {
       return res.status(401).json({
         ok: false,
-        error: "Usuario o contraseÃƒÂ±a incorrectos"
+        error: "Usuario o contraseÃ±a incorrectos"
       });
     }
 
@@ -3050,7 +2999,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     });
   } catch (error) {
     console.log(
-      "Error cobrando suscripciÃƒÂ³n:",
+      "Error cobrando suscripciÃ³n:",
       error?.response?.data || error
     );
 
@@ -3058,7 +3007,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
       ok: false,
       error:
         error?.response?.data?.error?.reason ||
-        "Error cobrando suscripciÃƒÂ³n"
+        "Error cobrando suscripciÃ³n"
     });
   }
 });
@@ -3086,7 +3035,7 @@ console.log("Respuesta Wompi:", transaction);
 if (!transaction) {
 return res.status(404).json({
 ok: false,
-error: "TransacciÃƒÂ³n no encontrada"
+error: "TransacciÃ³n no encontrada"
 });
 }
 
