@@ -80,9 +80,25 @@ function toggleMenuGRUK() {
 }
 
 function cargarCSSModuloGRUK(nombreModulo) {
+  const modulosConCSS = new Set([
+    "centro-control",
+    "configuracion",
+    "finanzas",
+    "inventario",
+    "laboral",
+    "reportes",
+    "restaurante"
+  ]);
+
+  if (!modulosConCSS.has(nombreModulo)) {
+    return;
+  }
+
   const id = `css-${nombreModulo}`;
 
-  if (document.getElementById(id)) return;
+  if (document.getElementById(id)) {
+    return;
+  }
 
   const link = document.createElement("link");
   link.id = id;
