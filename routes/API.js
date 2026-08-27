@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const QRCode = require("qrcode");
 const axios = require("axios");
 const crypto = require("crypto");
+const bcrypt = require("bcrypt");
 const router = express.Router();
 
 const Pedido = require("../models/pedido.js");
@@ -1879,7 +1880,8 @@ router.post("/admin/registro", async (req, res) => {
 
 router.post("/admin/login", async (req, res) => {
   try {
-    const { usuario, password } = req.body;
+    const usuario = String(req.body?.usuario || "").trim();
+    const password = String(req.body?.password || "");
 
     if (!usuario || !password) {
       return res.status(400).json({
@@ -1889,50 +1891,98 @@ router.post("/admin/login", async (req, res) => {
     }
 
     const Admin = require("../models/admin");
-    const Restaurante = require("../models/restaurante");
 
-    let admin = await Admin.findOne({
-      usuario,
-      password
-    });
+    let admin = await Admin.findOne({ usuario });
 
+    let restaurante = null;
+    let autenticado = false;
     let usuarioFinal = usuario;
+    let restaurantId = null;
 
-    if (!admin) {
+    if (admin) {
+      const passwordGuardado = String(admin.password || "");
 
-      admin = await Restaurante.findOne({
-        usuarioAdmin: usuario,
-        passwordAdmin: password
-      });
+      if (passwordGuardado.startsWith("$2")) {
+        autenticado = await bcrypt.compare(
+          password,
+          passwordGuardado
+        );
+      } else {
+        autenticado = password === passwordGuardado;
 
-      if (admin) {
-        usuarioFinal = admin.usuarioAdmin;
+        if (autenticado) {
+          admin.password = await bcrypt.hash(password, 12);
+          await admin.save();
+
+          console.log(
+            `[SEGURIDAD] Admin migrado a bcrypt: ${admin._id}`
+          );
+        }
+      }
+
+      if (autenticado) {
+        restaurantId = admin.restaurantId;
       }
     }
 
-    if (!admin) {
+    if (!autenticado) {
+      restaurante = await Restaurante.findOne({
+        usuarioAdmin: usuario
+      });
+
+      if (restaurante) {
+        const passwordGuardado =
+          String(restaurante.passwordAdmin || "");
+
+        if (passwordGuardado.startsWith("$2")) {
+          autenticado = await bcrypt.compare(
+            password,
+            passwordGuardado
+          );
+        } else {
+          autenticado = password === passwordGuardado;
+
+          if (autenticado) {
+            restaurante.passwordAdmin =
+              await bcrypt.hash(password, 12);
+
+            await restaurante.save();
+
+            console.log(
+              `[SEGURIDAD] Restaurante migrado a bcrypt: ${restaurante._id}`
+            );
+          }
+        }
+
+        if (autenticado) {
+          restaurantId = restaurante.restaurantId;
+          usuarioFinal = restaurante.usuarioAdmin;
+        }
+      }
+    }
+
+    if (!autenticado) {
       return res.status(401).json({
         ok: false,
         error: "Usuario o contraseña incorrectos"
       });
     }
 
-    res.json({
+    return res.json({
       ok: true,
-      restaurantId: admin.restaurantId,
+      restaurantId,
       usuario: usuarioFinal
     });
 
   } catch (error) {
-    console.log("Error login admin:", error);
+    console.error("Error login admin:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
       error: "Error interno en login"
     });
   }
 });
-
 /* =========================
    FACTURA / QR
 ========================= */

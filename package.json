@@ -17,6 +17,7 @@
   "dependencies": {
     "@aws-sdk/client-rekognition": "^3.1076.0",
     "axios": "^1.6.0",
+    "bcrypt": "^6.0.0",
     "cloudinary": "^2.10.0",
     "code": "^5.2.4",
     "dotenv": "^17.3.1",

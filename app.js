@@ -81,7 +81,12 @@ mongoose.connection.once("open", () => {
     db: mongoose.connection.name
   });
 });
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(
+  process.env.MONGO_URI,
+  process.env.MONGO_DB
+    ? { dbName: process.env.MONGO_DB }
+    : {}
+)
   .then(() => {
     console.log("MongoDB conectado");
   })
