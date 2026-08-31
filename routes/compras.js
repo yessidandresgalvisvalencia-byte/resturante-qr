@@ -6,6 +6,11 @@ const Empresa = require("../models/Empresa");
 const ProductoServicio = require("../models/ProductoServicio");
 const Inventario = require("../models/Inventario");
 const MovimientoInventario = require("../models/MovimientoInventario");
+const authMiddleware = require("../core/auth/auth.middleware");
+const {
+  ROLES_GRUK,
+  roleCheck
+} = require("../core/auth/roleCheck.middleware");
 
 const router = express.Router();
 
@@ -14,7 +19,11 @@ const router = express.Router();
 // CREAR COMPRA
 // ==========================================
 
-router.post("/", async (req, res) => {
+router.post(
+  "/",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
@@ -41,6 +50,13 @@ router.post("/", async (req, res) => {
       return res.status(400).json({
         ok: false,
         error: "empresaId e items son obligatorios"
+      });
+    }
+
+    if (String(empresaId) !== String(req.auth.empresaId)) {
+      return res.status(403).json({
+        ok: false,
+        error: "No tienes acceso a registrar compras en esta empresa"
       });
     }
 
@@ -338,9 +354,20 @@ inventario.costo = costoPromedioPonderado;
 // LISTAR COMPRAS DE UNA EMPRESA
 // ==========================================
 
-router.get("/empresa/:empresaId", async (req, res) => {
+router.get(
+  "/empresa/:empresaId",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const { empresaId } = req.params;
+
+    if (String(empresaId) !== String(req.auth.empresaId)) {
+      return res.status(403).json({
+        ok: false,
+        error: "No tienes acceso a las compras de esta empresa"
+      });
+    }
 
     if (!mongoose.Types.ObjectId.isValid(empresaId)) {
       return res.status(400).json({
@@ -383,7 +410,11 @@ router.get("/empresa/:empresaId", async (req, res) => {
 // ANULAR COMPRA
 // ==========================================
 
-router.put("/:id/anular", async (req, res) => {
+router.put(
+  "/:id/anular",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
@@ -392,8 +423,11 @@ router.put("/:id/anular", async (req, res) => {
       });
     }
 
-    const compra = await Compra.findByIdAndUpdate(
-      req.params.id,
+    const compra = await Compra.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        empresaId: req.auth.empresaId
+      },
       {
         estado: "anulada"
       },
