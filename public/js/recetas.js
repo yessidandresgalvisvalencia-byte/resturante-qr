@@ -27,7 +27,7 @@ async function cargarInventarioParaRecetasGRUK() {
   const restaurantId = getRestaurantIdRecetasGRUK();
 
   try {
-    const res = await fetch(`/api/inventario/${restaurantId}`);
+    const res = await grukFetch(`/api/inventario/${restaurantId}`);
     const data = await res.json();
 
     inventarioDisponibleGRUK = data.ok ? data.productos || [] : [];

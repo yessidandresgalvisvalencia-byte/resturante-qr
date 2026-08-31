@@ -248,7 +248,7 @@ Number(p.total || 0);
 
 }, 0);
   try {
-    const resInventario = await fetch(`/api/inventario/${restaurantId}`);
+    const resInventario = await grukFetch(`/api/inventario/${restaurantId}`);
     const dataInventario = await resInventario.json();
 
     if (dataInventario.ok) {

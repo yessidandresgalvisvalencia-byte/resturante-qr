@@ -16,7 +16,7 @@ async function guardarInventario() {
       fechaVencimiento: document.getElementById("inventarioVencimiento").value
     };
 
-    const res = await fetch("/api/inventario", {
+    const res = await grukFetch("/api/inventario", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -45,7 +45,7 @@ async function cargarInventario() {
       localStorage.getItem("adminRestaurantId") ||
       getRestaurantId();
 
-    const res = await fetch(`/api/inventario/${restaurantId}`);
+    const res = await grukFetch(`/api/inventario/${restaurantId}`);
     const data = await res.json();
 
     if (!data.ok) return;
@@ -198,7 +198,7 @@ async function anularInventario(id) {
   const usuario =
     localStorage.getItem("adminUsuario") || "admin";
 
-  const res = await fetch(`/api/inventario/anular/${id}`, {
+  const res = await grukFetch(`/api/inventario/anular/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json"
@@ -228,7 +228,7 @@ async function generarPlanInventarioMensualGRUK() {
     localStorage.getItem("adminRestaurantId") ||
     getRestaurantId();
 
-  const res = await fetch(`/api/inventario/${restaurantId}`);
+  const res = await grukFetch(`/api/inventario/${restaurantId}`);
   const data = await res.json();
 
   if (!data.ok) {
@@ -394,7 +394,7 @@ async function diagnosticoInventarioGRUK() {
     localStorage.getItem("adminRestaurantId") ||
     getRestaurantId();
 
-  const res = await fetch(`/api/inventario/${restaurantId}`);
+  const res = await grukFetch(`/api/inventario/${restaurantId}`);
   const data = await res.json();
 
   if (!data.ok) {

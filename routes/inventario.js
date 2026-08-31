@@ -5,7 +5,16 @@ const router = express.Router();
 const Inventario =
 require("../models/Inventario");
 const Restaurante = require("../models/restaurante");
-router.post("/", async (req, res) => {
+const authMiddleware = require("../core/auth/auth.middleware");
+const {
+  ROLES_GRUK,
+  roleCheck
+} = require("../core/auth/roleCheck.middleware");
+router.post(
+  "/",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const datos = { ...req.body };
 
@@ -24,8 +33,31 @@ router.post("/", async (req, res) => {
         });
       }
 
-      datos.empresaId = restaurante.empresaId || null;
+      if (
+        !restaurante.empresaId ||
+        String(restaurante.empresaId) !== String(req.auth.empresaId)
+      ) {
+        return res.status(403).json({
+          ok: false,
+          error: "No tienes acceso al inventario de este restaurante"
+        });
+      }
+
+      datos.empresaId = req.auth.empresaId;
     }
+
+    if (
+      datos.empresaId &&
+      String(datos.empresaId) !== String(req.auth.empresaId)
+    ) {
+      return res.status(403).json({
+        ok: false,
+        error: "No tienes acceso a crear inventario en esta empresa"
+      });
+    }
+
+    // El JWT es la autoridad final del tenant.
+    datos.empresaId = req.auth.empresaId;
 
     // Todo inventario nuevo debe pertenecer a una empresa.
     if (!datos.empresaId) {
@@ -55,12 +87,29 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.get("/:restaurantId", async (req,res)=>{
+router.get(
+"/:restaurantId",
+authMiddleware,
+roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+async (req,res)=>{
 
 try{
 
+const restaurante = await Restaurante.findOne({
+  restaurantId: req.params.restaurantId,
+  empresaId: req.auth.empresaId
+});
+
+if (!restaurante) {
+  return res.status(403).json({
+    ok:false,
+    error:"No tienes acceso al inventario de este restaurante"
+  });
+}
+
 const productos =
 await Inventario.find({
+empresaId:req.auth.empresaId,
 restaurantId:req.params.restaurantId,
 anulado:false
 });
@@ -122,7 +171,11 @@ error:"Error obteniendo inventario"
 }
 
 });
-router.put("/anular/:id", async (req,res)=>{
+router.put(
+"/anular/:id",
+authMiddleware,
+roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+async (req,res)=>{
 
 try{
 
@@ -136,8 +189,11 @@ error:"Debes escribir un motivo de anulación"
 }
 
 const producto =
-await Inventario.findByIdAndUpdate(
-req.params.id,
+await Inventario.findOneAndUpdate(
+{
+_id:req.params.id,
+empresaId:req.auth.empresaId
+},
 {
 anulado:true,
 motivoAnulacion:motivo,
