@@ -12,7 +12,7 @@ async function inicializarCentroControlGRUK() {
 
 async function cargarResumen(restaurantId) {
   try {
-    const res = await fetch(`/api/admin/resumen?restaurantId=${restaurantId}`);
+    const res = await grukFetch(`/api/admin/resumen?restaurantId=${restaurantId}`);
     if (!res.ok) return;
 
     const data = await res.json();
@@ -30,7 +30,7 @@ async function cargarResumen(restaurantId) {
 
 async function cargarTopProductos(restaurantId) {
   try {
-    const res = await fetch(`/api/admin/resumen?restaurantId=${restaurantId}`);
+    const res = await grukFetch(`/api/admin/resumen?restaurantId=${restaurantId}`);
     if (!res.ok) return;
 
     const data = await res.json();
@@ -55,7 +55,7 @@ async function cargarTopProductos(restaurantId) {
 
 async function cargarHistorialVentas(restaurantId) {
   try {
-    const res = await fetch(`/api/admin/resumen?restaurantId=${restaurantId}`);
+    const res = await grukFetch(`/api/admin/resumen?restaurantId=${restaurantId}`);
     if (!res.ok) return;
 
     const data = await res.json();

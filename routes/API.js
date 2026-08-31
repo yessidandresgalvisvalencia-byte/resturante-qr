@@ -5,6 +5,11 @@ const axios = require("axios");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const authMiddleware = require("../core/auth/auth.middleware");
+const {
+  ROLES_GRUK,
+  roleCheck
+} = require("../core/auth/roleCheck.middleware");
 const router = express.Router();
 
 const Pedido = require("../models/pedido.js");
@@ -1796,9 +1801,30 @@ router.get("/mesero/mesas", async (req, res) => {
    ADMIN
 ========================= */
 
-router.get("/admin/resumen", async (req, res) => {
+router.get(
+  "/admin/resumen",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
+    const restaurantId = String(req.query.restaurantId || "").trim();
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        mensaje: "restaurantId es obligatorio"
+      });
+    }
+
+    const restaurante = await Restaurante.findOne({
+      restaurantId,
+      empresaId: req.auth.empresaId
+    }).select("_id").lean();
+
+    if (!restaurante) {
+      return res.status(403).json({
+        mensaje: "Restaurante fuera del tenant autorizado"
+      });
+    }
 
     const pedidos = await Pedido.find({ restaurantId }).sort({ createdAt: -1 });
     const activos = pedidos.filter(p => p.estado !== "entregado");
