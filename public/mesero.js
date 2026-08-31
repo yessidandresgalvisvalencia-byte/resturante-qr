@@ -47,15 +47,14 @@ function vibrar() {
 const socket = io();
 
 function getRestaurantId() {
-  const fromInput = document.getElementById("restaurantIdInput");
-  if (fromInput && fromInput.value.trim()) {
-    return fromInput.value.trim();
-  }
-
   const fromUrl = new URLSearchParams(window.location.search).get("restaurantId");
   const fromSession = localStorage.getItem("meseroRestaurantId");
+  const fromInput = document.getElementById("restaurantIdInput");
+  const inputValue = fromInput && fromInput.value.trim()
+    ? fromInput.value.trim()
+    : "";
 
-  return fromUrl || fromSession || "rest1";
+  return fromUrl || fromSession || inputValue || "rest1";
 }
 
 function getMeseroNombreActual() {

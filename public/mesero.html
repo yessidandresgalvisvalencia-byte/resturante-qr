@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -25,18 +25,16 @@
         <div id="listaListos" class="grid"></div>
     </div>
 
+    <script>
+      const meseroId = localStorage.getItem("meseroId");
+      const meseroRestaurantId = localStorage.getItem("meseroRestaurantId");
+
+      if (!meseroId || !meseroRestaurantId) {
+        window.location.href = "/login-mesero.html";
+      }
+    </script>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="mesero.js"></script>
 </body>
 </html>
-<script>
-  const meseroId = localStorage.getItem("meseroId");
-  const meseroRestaurantId = localStorage.getItem("meseroRestaurantId");
-
-  if (!meseroId || !meseroRestaurantId) {
-    window.location.href = "/login-mesero.html";
-  }
-</script>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="mesero.js"></script>
