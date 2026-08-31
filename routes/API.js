@@ -106,6 +106,52 @@ function getMenu(restaurantId) {
    MENU
 ========================= */
 
+async function validarTenantMenu(req, res, next) {
+  try {
+    const restaurantId = String(
+      req.query.restaurantId ||
+      req.body?.restaurantId ||
+      ""
+    ).trim();
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        ok: false,
+        error: "restaurantId es obligatorio"
+      });
+    }
+
+    const restaurante = await Restaurante.findOne({
+      restaurantId,
+      empresaId: req.auth.empresaId
+    })
+      .select("_id")
+      .lean();
+
+    if (!restaurante) {
+      return res.status(403).json({
+        ok: false,
+        error: "Restaurante fuera del tenant autorizado"
+      });
+    }
+
+    return next();
+  } catch (error) {
+    console.error("Error validando tenant de menu:", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Error validando acceso al restaurante"
+    });
+  }
+}
+
+const seguridadMenuAdmin = [
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  validarTenantMenu
+];
+
 router.get("/menu", async (req, res) => {
   try {
     const { restaurantId } = req.query;
@@ -119,7 +165,7 @@ router.get("/menu", async (req, res) => {
   }
 });
 
-router.post("/menu", async (req, res) => {
+router.post("/menu", ...seguridadMenuAdmin, async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
@@ -377,7 +423,7 @@ router.post("/menu", async (req, res) => {
 });
 
 
-router.put("/menu/:id", async (req, res) => {
+router.put("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
@@ -758,7 +804,7 @@ router.put("/menu/:id", async (req, res) => {
   }
 });
 
-router.put("/menu/:id/stock", async (req, res) => {
+router.put("/menu/:id/stock", ...seguridadMenuAdmin, async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
     const id = Number(req.params.id);
@@ -843,7 +889,7 @@ router.put("/menu/:id/stock", async (req, res) => {
   }
 });
 
-router.delete("/menu/:id", async (req, res) => {
+router.delete("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
     const id = Number(req.params.id);

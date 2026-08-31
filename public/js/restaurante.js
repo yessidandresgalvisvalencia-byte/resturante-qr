@@ -247,7 +247,7 @@ async function guardarOEditarProducto() {
     let res;
 
     if (productoEnEdicion) {
-      res = await fetch(`/api/menu/${productoEnEdicion}?restaurantId=${restaurantId}`, {
+      res = await grukFetch(`/api/menu/${productoEnEdicion}?restaurantId=${restaurantId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json"
@@ -255,7 +255,7 @@ async function guardarOEditarProducto() {
         body: JSON.stringify(payload)
       });
     } else {
-      res = await fetch("/api/menu", {
+      res = await grukFetch("/api/menu", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -286,7 +286,7 @@ async function cambiarStock(id, disponible) {
   try {
     const restaurantId = getRestaurantId();
 
-    const res = await fetch(`/api/menu/${id}/stock?restaurantId=${restaurantId}`, {
+    const res = await grukFetch(`/api/menu/${id}/stock?restaurantId=${restaurantId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json"
@@ -315,7 +315,7 @@ async function eliminarProducto(id) {
     const confirmar = confirm("¿Seguro que quieres eliminar este producto?");
     if (!confirmar) return;
 
-    const res = await fetch(`/api/menu/${id}?restaurantId=${restaurantId}`, {
+    const res = await grukFetch(`/api/menu/${id}?restaurantId=${restaurantId}`, {
       method: "DELETE"
     });
 
