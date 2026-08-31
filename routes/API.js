@@ -2432,7 +2432,6 @@ router.post("/mesero/login", async (req, res) => {
     const mesero =
       await Personal.findOne({
         usuario,
-        password,
         cargo: {
           $in: [
             "mesero",
@@ -2441,10 +2440,37 @@ router.post("/mesero/login", async (req, res) => {
         }
       });
 
-    if (!mesero) {
+    let autenticado = false;
+
+    if (mesero) {
+      const passwordGuardado =
+        String(mesero.password || "");
+
+      if (passwordGuardado.startsWith("$2")) {
+        autenticado = await bcrypt.compare(
+          password,
+          passwordGuardado
+        );
+      } else {
+        autenticado = password === passwordGuardado;
+
+        if (autenticado) {
+          mesero.password =
+            await bcrypt.hash(password, 12);
+
+          await mesero.save();
+
+          console.log(
+            `[SEGURIDAD] Mesero migrado a bcrypt: ${mesero._id}`
+          );
+        }
+      }
+    }
+
+    if (!mesero || !autenticado) {
       return res.status(401).json({
         ok: false,
-        error: "Usuario o contraseÃƒÂ±a incorrectos"
+        error: "Usuario o password incorrectos"
       });
     }
 
