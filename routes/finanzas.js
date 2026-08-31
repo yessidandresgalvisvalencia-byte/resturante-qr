@@ -4,13 +4,29 @@ const mongoose = require("mongoose");
 const Venta = require("../models/Venta");
 const Gasto = require("../models/Gasto");
 const Empresa = require("../models/Empresa");
+const authMiddleware = require("../core/auth/auth.middleware");
+const {
+  ROLES_GRUK,
+  roleCheck
+} = require("../core/auth/roleCheck.middleware");
 
 const router = express.Router();
 
-router.get("/resumen/:empresaId", async (req, res) => {
+router.get(
+  "/resumen/:empresaId",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const { empresaId } = req.params;
     const { desde, hasta, sedeId } = req.query;
+
+    if (String(empresaId) !== String(req.auth.empresaId)) {
+      return res.status(403).json({
+        ok: false,
+        error: "No tienes acceso a la informacion financiera de esta empresa"
+      });
+    }
 
     if (!mongoose.Types.ObjectId.isValid(empresaId)) {
       return res.status(400).json({
