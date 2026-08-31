@@ -3,6 +3,11 @@ const mongoose = require("mongoose");
 
 const ProductoServicio = require("../models/ProductoServicio");
 const Empresa = require("../models/Empresa");
+const authMiddleware = require("../core/auth/auth.middleware");
+const {
+  ROLES_GRUK,
+  roleCheck
+} = require("../core/auth/roleCheck.middleware");
 
 const router = express.Router();
 
@@ -11,7 +16,11 @@ const router = express.Router();
 // CREAR PRODUCTO O SERVICIO
 // ==========================================
 
-router.post("/", async (req, res) => {
+router.post(
+  "/",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const {
       empresaId,
@@ -33,6 +42,13 @@ router.post("/", async (req, res) => {
       return res.status(400).json({
         ok: false,
         error: "Faltan datos obligatorios"
+      });
+    }
+
+    if (String(empresaId) !== String(req.auth.empresaId)) {
+      return res.status(403).json({
+        ok: false,
+        error: "No tienes acceso a crear productos en esta empresa"
       });
     }
 
@@ -103,10 +119,21 @@ router.post("/", async (req, res) => {
 // LISTAR CATÁLOGO DE UNA EMPRESA
 // ==========================================
 
-router.get("/empresa/:empresaId", async (req, res) => {
+router.get(
+  "/empresa/:empresaId",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const { empresaId } = req.params;
     const { tipo, activo } = req.query;
+
+    if (String(empresaId) !== String(req.auth.empresaId)) {
+      return res.status(403).json({
+        ok: false,
+        error: "No tienes acceso al catalogo de esta empresa"
+      });
+    }
 
     if (!mongoose.Types.ObjectId.isValid(empresaId)) {
       return res.status(400).json({
@@ -151,7 +178,11 @@ router.get("/empresa/:empresaId", async (req, res) => {
 // ACTUALIZAR PRODUCTO O SERVICIO
 // ==========================================
 
-router.put("/:id", async (req, res) => {
+router.put(
+  "/:id",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const cambios = { ...req.body };
 
@@ -163,8 +194,11 @@ router.put("/:id", async (req, res) => {
     }
 
     const actualizado =
-      await ProductoServicio.findByIdAndUpdate(
-        req.params.id,
+      await ProductoServicio.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          empresaId: req.auth.empresaId
+        },
         cambios,
         {
           new: true,
@@ -199,11 +233,18 @@ router.put("/:id", async (req, res) => {
 // DESACTIVAR SIN BORRAR HISTORIAL
 // ==========================================
 
-router.put("/:id/desactivar", async (req, res) => {
+router.put(
+  "/:id/desactivar",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const actualizado =
-      await ProductoServicio.findByIdAndUpdate(
-        req.params.id,
+      await ProductoServicio.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          empresaId: req.auth.empresaId
+        },
         {
           activo: false
         },
