@@ -66,6 +66,12 @@
         localStorage.setItem("adminRestaurantId", data.restaurantId);
         localStorage.setItem("adminUsuario", data.usuario || usuario);
 
+        if (data.token) {
+          localStorage.setItem("grukAuthToken", data.token);
+        } else {
+          localStorage.removeItem("grukAuthToken");
+        }
+
         window.location.href = `/admin.html?restaurantId=${data.restaurantId}`;
       } catch (error) {
         console.log("Error login:", error);

@@ -149,3 +149,4 @@ scripts/diagnostico-auth.js
 # Herramientas locales GRUK
 scripts/mongo-direct-uri.js
 scripts/parche-jwt-local.js
+scripts/parche-login-jwt-local.js
