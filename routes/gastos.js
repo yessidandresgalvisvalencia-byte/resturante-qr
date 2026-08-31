@@ -3,6 +3,11 @@ const mongoose = require("mongoose");
 
 const Gasto = require("../models/Gasto");
 const Empresa = require("../models/Empresa");
+const authMiddleware = require("../core/auth/auth.middleware");
+const {
+  ROLES_GRUK,
+  roleCheck
+} = require("../core/auth/roleCheck.middleware");
 
 const router = express.Router();
 
@@ -11,7 +16,11 @@ const router = express.Router();
 CREAR GASTO EMPRESARIAL
 ========================================
 */
-router.post("/", async (req, res) => {
+router.post(
+  "/",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const {
       empresaId,
@@ -30,6 +39,13 @@ router.post("/", async (req, res) => {
       return res.status(400).json({
         ok: false,
         error: "Faltan datos obligatorios"
+      });
+    }
+
+    if (String(empresaId) !== String(req.auth.empresaId)) {
+      return res.status(403).json({
+        ok: false,
+        error: "No tienes acceso a registrar gastos en esta empresa"
       });
     }
 
@@ -94,9 +110,20 @@ router.post("/", async (req, res) => {
 CONSULTAR GASTOS DE UNA EMPRESA
 ========================================
 */
-router.get("/empresa/:empresaId", async (req, res) => {
+router.get(
+  "/empresa/:empresaId",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const { empresaId } = req.params;
+
+    if (String(empresaId) !== String(req.auth.empresaId)) {
+      return res.status(403).json({
+        ok: false,
+        error: "No tienes acceso a los gastos de esta empresa"
+      });
+    }
 
     if (!mongoose.Types.ObjectId.isValid(empresaId)) {
       return res.status(400).json({
