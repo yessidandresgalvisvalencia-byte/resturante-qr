@@ -16,7 +16,7 @@ async function getEmpresaIdFinanzas() {
     throw new Error("No se encontró restaurantId");
   }
 
-  const response = await fetch(
+  const response = await grukFetch(
     `/api/restaurants/${encodeURIComponent(restaurantId)}/empresa`
   );
 
@@ -91,11 +91,11 @@ async function obtenerDatosFinancierosGRUK(restaurantId) {
 
   try {
     let resVentas =
-      await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
+      await grukFetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
 
     if (!resVentas.ok) {
       resVentas =
-        await fetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
+        await grukFetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
     }
 
     if (resVentas.ok) {
@@ -107,7 +107,7 @@ async function obtenerDatosFinancierosGRUK(restaurantId) {
 
   try {
     const resPersonal =
-      await fetch(`/api/personal?restaurantId=${restaurantId}`);
+      await grukFetch(`/api/personal?restaurantId=${restaurantId}`);
 
     if (resPersonal.ok) {
       personal = await resPersonal.json();
@@ -2786,11 +2786,11 @@ async function cerrarMesFinanciero() {
 
   try {
     let resVentas =
-      await fetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
+      await grukFetch(`/estadisticas/pareto?restaurantId=${restaurantId}`);
 
     if (!resVentas.ok) {
       resVentas =
-        await fetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
+        await grukFetch(`/estadisticas/pareto?restaurant=${restaurantId}`);
     }
 
     if (resVentas.ok) {
@@ -2802,7 +2802,7 @@ async function cerrarMesFinanciero() {
 
   try {
     const resPersonal =
-      await fetch(`/api/personal?restaurantId=${restaurantId}`);
+      await grukFetch(`/api/personal?restaurantId=${restaurantId}`);
 
     if (resPersonal.ok) {
       personal =

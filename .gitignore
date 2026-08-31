@@ -150,3 +150,7 @@ scripts/diagnostico-auth.js
 scripts/mongo-direct-uri.js
 scripts/parche-jwt-local.js
 scripts/parche-login-jwt-local.js
+
+# Parches locales frontend GRUK
+scripts/parche-admin-gruk-api-local.js
+scripts/parche-finanzas-gruk-fetch-local.js
