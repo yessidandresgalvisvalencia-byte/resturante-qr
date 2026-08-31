@@ -273,7 +273,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.getItem("adminRestaurantId") ||
     new URLSearchParams(window.location.search).get("restaurantId");
 
-  if (!adminRestaurantId) {
+  const grukAuthToken =
+    localStorage.getItem("grukAuthToken");
+
+  if (!adminRestaurantId || !grukAuthToken) {
     window.location.href = "/login.html";
     return;
   }

@@ -73,8 +73,9 @@
 <script>
 
 const adminRestaurantId = localStorage.getItem("adminRestaurantId");
+const grukAuthToken = localStorage.getItem("grukAuthToken");
 
-if (!adminRestaurantId){
+if (!adminRestaurantId || !grukAuthToken){
 
 window.location.href="/login.html";
 
