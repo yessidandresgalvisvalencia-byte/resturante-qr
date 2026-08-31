@@ -145,3 +145,7 @@ node_modules/
 
 # Scripts locales de diagnostico
 scripts/diagnostico-auth.js
+
+# Herramientas locales GRUK
+scripts/mongo-direct-uri.js
+scripts/parche-jwt-local.js

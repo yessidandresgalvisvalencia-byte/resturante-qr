@@ -1899,6 +1899,7 @@ router.post("/admin/login", async (req, res) => {
     let autenticado = false;
     let usuarioFinal = usuario;
     let restaurantId = null;
+    let authSubjectId = null;
 
     if (admin) {
       const passwordGuardado = String(admin.password || "");
@@ -1923,6 +1924,7 @@ router.post("/admin/login", async (req, res) => {
 
       if (autenticado) {
         restaurantId = admin.restaurantId;
+        authSubjectId = admin._id;
       }
     }
 
@@ -1958,6 +1960,7 @@ router.post("/admin/login", async (req, res) => {
         if (autenticado) {
           restaurantId = restaurante.restaurantId;
           usuarioFinal = restaurante.usuarioAdmin;
+          authSubjectId = restaurante._id;
         }
       }
     }
@@ -1969,10 +1972,66 @@ router.post("/admin/login", async (req, res) => {
       });
     }
 
+    // El tenant se resuelve exclusivamente desde MongoDB.
+    // Nunca confiar en empresaId enviado por navegador, URL o localStorage.
+    if (!restaurante && restaurantId) {
+      restaurante = await Restaurante.findOne({
+        restaurantId
+      }).select("_id restaurantId empresaId");
+    }
+
+    let token = null;
+
+    if (restaurante?.empresaId) {
+      const jwtSecret = process.env.JWT_SECRET;
+
+      if (!jwtSecret) {
+        console.error(
+          "[SEGURIDAD] JWT_SECRET no configurado durante login"
+        );
+
+        return res.status(500).json({
+          ok: false,
+          error: "Configuracion de seguridad invalida"
+        });
+      }
+
+      if (!authSubjectId) {
+        console.error(
+          "[SEGURIDAD] Login autenticado sin sujeto de identidad"
+        );
+
+        return res.status(500).json({
+          ok: false,
+          error: "Identidad de autenticacion invalida"
+        });
+      }
+
+      token = jwt.sign(
+        {
+          empresaId: String(restaurante.empresaId),
+          restaurantId: String(restaurantId),
+          sedeId: null,
+          rol: "DUEÑO"
+        },
+        jwtSecret,
+        {
+          algorithm: "HS256",
+          subject: String(authSubjectId),
+          expiresIn: "8h"
+        }
+      );
+    } else {
+      console.warn(
+        `[SEGURIDAD] Login legacy sin JWT: restaurantId=${restaurantId}`
+      );
+    }
+
     return res.json({
       ok: true,
       restaurantId,
-      usuario: usuarioFinal
+      usuario: usuarioFinal,
+      token
     });
 
   } catch (error) {
