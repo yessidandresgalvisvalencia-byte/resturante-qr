@@ -261,7 +261,7 @@ async function guardarRecetaGRUK() {
   if (!receta) return;
 
   try {
-    const res = await fetch("/api/recetas", {
+    const res = await grukFetch("/api/recetas", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -297,7 +297,7 @@ async function cargarRecetasGuardadasGRUK() {
   const restaurantId = getRestaurantIdRecetasGRUK();
 
   try {
-    const res = await fetch(`/api/recetas/${restaurantId}`);
+    const res = await grukFetch(`/api/recetas/${restaurantId}`);
     const data = await res.json();
 
     const recetas = data.ok ? data.recetas || [] : [];
@@ -329,7 +329,7 @@ async function cargarRecetasGuardadasGRUK() {
 }
 
 async function verRecetaGRUK(id) {
-  const res = await fetch(`/api/recetas/detalle/${id}`);
+  const res = await grukFetch(`/api/recetas/detalle/${id}`);
   const data = await res.json();
 
   if (!data.ok) {
@@ -369,7 +369,7 @@ async function verRecetaGRUK(id) {
 }
 
 async function duplicarRecetaGRUK(id) {
-  const res = await fetch(`/api/recetas/duplicar/${id}`, {
+  const res = await grukFetch(`/api/recetas/duplicar/${id}`, {
     method: "POST"
   });
 
@@ -386,7 +386,7 @@ async function duplicarRecetaGRUK(id) {
 async function eliminarRecetaGRUK(id) {
   if (!confirm("¿Eliminar esta receta?")) return;
 
-  const res = await fetch(`/api/recetas/${id}`, {
+  const res = await grukFetch(`/api/recetas/${id}`, {
     method: "DELETE"
   });
 

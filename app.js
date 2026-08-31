@@ -14,6 +14,8 @@ const finanzasRoutes = require("./routes/finanzas");
 const productosServiciosRoutes = require("./routes/productosServicios");
 const comprasRoutes = require("./routes/compras");
 const app = express();
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 const inventarioRoutes =
 require("./routes/inventario");
 const recetasRoutes = require("./routes/recetas");
@@ -44,8 +46,6 @@ eventBus.on("VENTA_COMPLETADA", (event) => {
   );
 });
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(express.static("public"));
 app.use("/estadisticas", estadisticasRoutes);
 app.use("/api/restaurants", restaurantRoutes);
