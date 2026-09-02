@@ -108,10 +108,13 @@ function getMenu(restaurantId) {
 
 async function validarTenantMenu(req, res, next) {
   try {
+    const fuenteRestaurantId =
+      req.method === "POST"
+        ? req.body?.restaurantId
+        : req.query.restaurantId;
+
     const restaurantId = String(
-      req.query.restaurantId ||
-      req.body?.restaurantId ||
-      ""
+      fuenteRestaurantId || ""
     ).trim();
 
     if (!restaurantId) {
@@ -134,6 +137,8 @@ async function validarTenantMenu(req, res, next) {
         error: "Restaurante fuera del tenant autorizado"
       });
     }
+
+    req.menuRestaurantId = restaurantId;
 
     return next();
   } catch (error) {
@@ -169,8 +174,8 @@ router.post("/menu", ...seguridadMenuAdmin, async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
+    const restaurantId = req.menuRestaurantId;
     const {
-      restaurantId,
       nombre,
       descripcion,
       precio,
@@ -427,7 +432,7 @@ router.put("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const restaurantId = getRestaurantId(req);
+    const restaurantId = req.menuRestaurantId;
     const id = Number(req.params.id);
 
     const {
@@ -806,7 +811,7 @@ router.put("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
 
 router.put("/menu/:id/stock", ...seguridadMenuAdmin, async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
+    const restaurantId = req.menuRestaurantId;
     const id = Number(req.params.id);
 
     // =====================================================
@@ -891,7 +896,7 @@ router.put("/menu/:id/stock", ...seguridadMenuAdmin, async (req, res) => {
 
 router.delete("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
+    const restaurantId = req.menuRestaurantId;
     const id = Number(req.params.id);
 
     // =====================================================
