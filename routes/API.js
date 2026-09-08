@@ -2975,6 +2975,7 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
 
     const nuevoRestaurante = await Restaurante.create({
       restaurantId,
+      empresaId: nuevaEmpresa._id,
       nombreRestaurante: nombre,
       correo,
       usuarioAdmin: usuario,
