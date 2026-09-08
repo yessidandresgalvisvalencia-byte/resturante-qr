@@ -22,6 +22,9 @@ const {
   registrarVentaDesdePedido
 } = require("../services/ventas.service");
 const ProductoServicio = require("../models/ProductoServicio");
+const {
+  validarObjetivosEmpresa
+} = require("../core/empresa/validators/objetivosEmpresa.validator");
 
 
 /* =========================
@@ -2904,9 +2907,33 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
       password,
       acceptanceToken,
       paymentMethodToken,
-      customerEmail
+      customerEmail,
+      margen_objetivo,
+      punto_equilibrio,
+      ticket_objetivo,
+      cac_maximo,
+      empleados_actuales
     } = req.body;
+    const {
+      error: errorObjetivos,
+      value: objetivosEmpresa
+    } = validarObjetivosEmpresa({
+      margen_objetivo,
+      punto_equilibrio,
+      ticket_objetivo,
+      cac_maximo,
+      empleados_actuales
+    });
 
+    if (errorObjetivos) {
+      return res.status(400).json({
+        ok: false,
+        error: "Objetivos empresariales inválidos",
+        detalles: errorObjetivos.details.map(
+          (detalle) => detalle.message
+        )
+      });
+    }
     const wompiPublicKey = process.env.WOMPI_PUBLIC_KEY;
     const wompiPrivateKey = process.env.WOMPI_PRIVATE_KEY;
 
@@ -2960,8 +2987,16 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
   empresaId: `emp_${Date.now()}`,
   nombre,
   tipoNegocio: "restaurante",
-  correo,
+    correo,
   estado: "activa",
+
+  configuracion: {
+    margen_objetivo: objetivosEmpresa.margen_objetivo,
+    punto_equilibrio: objetivosEmpresa.punto_equilibrio,
+    ticket_objetivo: objetivosEmpresa.ticket_objetivo,
+    cac_maximo: objetivosEmpresa.cac_maximo,
+    empleados_actuales: objetivosEmpresa.empleados_actuales
+  },
 
   modulos: {
     restaurante: true,

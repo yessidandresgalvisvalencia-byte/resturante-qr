@@ -194,7 +194,48 @@ margin-bottom:18px;
 <input id="correo" placeholder="Correo" />
 <input id="usuario" placeholder="Usuario admin" />
 <input id="password" type="password" placeholder="Contraseña" />
+<h3>Objetivos iniciales de tu empresa</h3>
 
+<input
+  id="margenObjetivo"
+  type="number"
+  min="0"
+  max="100"
+  step="0.01"
+  placeholder="Margen objetivo (%)"
+/>
+
+<input
+  id="puntoEquilibrio"
+  type="number"
+  min="0"
+  step="1"
+  placeholder="Punto de equilibrio mensual (COP)"
+/>
+
+<input
+  id="ticketObjetivo"
+  type="number"
+  min="0"
+  step="1"
+  placeholder="Ticket promedio objetivo (COP)"
+/>
+
+<input
+  id="cacMaximo"
+  type="number"
+  min="0"
+  step="1"
+  placeholder="CAC máximo (COP)"
+/>
+
+<input
+  id="empleadosActuales"
+  type="number"
+  min="0"
+  step="1"
+  placeholder="Número actual de empleados"
+/>
 <h3>Plan mensual</h3>
 <div class="precio">$220000 COP</div>
 
@@ -230,6 +271,32 @@ const nombre = document.getElementById("nombre").value.trim();
 const correo = document.getElementById("correo").value.trim();
 const usuario = document.getElementById("usuario").value.trim();
 const password = document.getElementById("password").value.trim();
+const margenObjetivo =
+  document.getElementById("margenObjetivo").value.trim();
+
+const puntoEquilibrio =
+  document.getElementById("puntoEquilibrio").value.trim();
+
+const ticketObjetivo =
+  document.getElementById("ticketObjetivo").value.trim();
+
+const cacMaximo =
+  document.getElementById("cacMaximo").value.trim();
+
+const empleadosActuales =
+  document.getElementById("empleadosActuales").value.trim();
+
+if (
+  margenObjetivo === "" ||
+  puntoEquilibrio === "" ||
+  ticketObjetivo === "" ||
+  cacMaximo === "" ||
+  empleadosActuales === ""
+) {
+  throw new Error(
+    "Completa los objetivos iniciales de la empresa"
+  );
+}
 
 const cardNumber = document.getElementById("cardNumber").value.trim();
 const expMonth = document.getElementById("expMonth").value.trim();
@@ -297,6 +364,11 @@ nombre,
 correo,
 usuario,
 password,
+margen_objetivo: margenObjetivo,
+punto_equilibrio: puntoEquilibrio,
+ticket_objetivo: ticketObjetivo,
+cac_maximo: cacMaximo,
+empleados_actuales: empleadosActuales,
 acceptanceToken,
 paymentMethodToken,
 customerEmail: correo
