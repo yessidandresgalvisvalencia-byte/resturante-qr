@@ -2712,7 +2712,7 @@ await Sede.create({
     const nuevoAdmin = new Admin({
       restaurantId,
       usuario: usuarioAdmin,
-      password: passwordAdmin
+    password: passwordHash,
     });
 
     await nuevoAdmin.save();
@@ -2983,7 +2983,9 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
     }
 
     const restaurantId = `rest_${Date.now()}`;
-    const nuevaEmpresa = await Empresa.create({
+const passwordHash = await bcrypt.hash(password, 12);
+
+const nuevaEmpresa = await Empresa.create({
   empresaId: `emp_${Date.now()}`,
   nombre,
   tipoNegocio: "restaurante",
@@ -3014,9 +3016,8 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
       nombreRestaurante: nombre,
       correo,
       usuarioAdmin: usuario,
-      passwordAdmin: password,
+      passwordAdmin: passwordHash,
       wompiPublicKey,
-      wompiPrivateKey,
       paymentSourceId: String(paymentSource.id),
       customerEmailWompi: customerEmail,
       tokenizacionCompleta: true,
@@ -3043,7 +3044,7 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
   sedeId: sedePrincipal._id,
   nombre,
   usuario,
-  password,
+   password: passwordHash,
   rol: "admin_general",
   estado: "activo"
 });
