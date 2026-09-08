@@ -60,9 +60,42 @@ const empresaSchema = new mongoose.Schema(
         default: "America/Bogota"
       },
 
-      idioma: {
+            idioma: {
         type: String,
         default: "es"
+      },
+
+      // Objetivos empresariales para las neuronas GRUK.
+      // Sin metas ficticias para empresas existentes.
+      margen_objetivo: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: null
+      },
+
+      punto_equilibrio: {
+        type: Number,
+        min: 0,
+        default: null
+      },
+
+      ticket_objetivo: {
+        type: Number,
+        min: 0,
+        default: null
+      },
+
+      cac_maximo: {
+        type: Number,
+        min: 0,
+        default: null
+      },
+
+      empleados_actuales: {
+        type: Number,
+        min: 0,
+        default: null
       }
     },
 
