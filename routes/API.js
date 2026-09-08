@@ -2204,7 +2204,11 @@ router.get("/qr-sede/:mesa", async (req, res) => {
    PERSONAL
 ========================= */
 
-router.post("/personal", async (req, res) => {
+router.post(
+  "/personal",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
 
     const {
@@ -2224,6 +2228,20 @@ router.post("/personal", async (req, res) => {
       });
     }
 
+    const restauranteAutorizado = await Restaurante.findOne({
+      restaurantId,
+      empresaId: req.auth.empresaId
+    })
+      .select("_id")
+      .lean();
+
+    if (!restauranteAutorizado) {
+      return res.status(403).json({
+        ok: false,
+        error: "Restaurante fuera del tenant autorizado"
+      });
+    }
+
     const Personal = require("../models/personal");
 
     const existeUsuario = await Personal.findOne({
@@ -2238,6 +2256,8 @@ router.post("/personal", async (req, res) => {
       });
     }
 
+    const passwordHash = await bcrypt.hash(password, 12);
+
     const nuevoPersonal = new Personal({
       restaurantId,
       nombre,
@@ -2245,15 +2265,18 @@ router.post("/personal", async (req, res) => {
       salario: Number(salario || 0),
       estado: estado || "disponible",
       usuario,
-      password
+      password: passwordHash
     });
 
     await nuevoPersonal.save();
 
+    const personalSeguro = nuevoPersonal.toObject();
+    delete personalSeguro.password;
+
     res.json({
       ok: true,
       mensaje: "Personal agregado correctamente",
-      personal: nuevoPersonal
+      personal: personalSeguro
     });
 
   } catch (error) {
@@ -2271,10 +2294,37 @@ router.post("/personal", async (req, res) => {
   }
 });
 
-router.get("/personal", async (req, res) => {
+router.get(
+  "/personal",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
 
-    const restaurantId = getRestaurantId(req);
+    const restaurantId = String(
+      req.query.restaurantId || ""
+    ).trim();
+
+    if (!restaurantId) {
+      return res.status(400).json({
+        ok: false,
+        error: "restaurantId es obligatorio"
+      });
+    }
+
+    const restauranteAutorizado = await Restaurante.findOne({
+      restaurantId,
+      empresaId: req.auth.empresaId
+    })
+      .select("_id")
+      .lean();
+
+    if (!restauranteAutorizado) {
+      return res.status(403).json({
+        ok: false,
+        error: "Restaurante fuera del tenant autorizado"
+      });
+    }
 
     const Personal =
       require("../models/personal");
@@ -2282,9 +2332,11 @@ router.get("/personal", async (req, res) => {
     const personal =
       await Personal.find({
         restaurantId
-      }).sort({
-        createdAt: -1
-      });
+      })
+        .select("-password")
+        .sort({
+          createdAt: -1
+        });
 
     res.json(personal);
 
@@ -2318,9 +2370,11 @@ router.get("/personal/meseros", async (req, res) => {
             "mesera"
           ]
         }
-      }).sort({
-        createdAt: -1
-      });
+      })
+        .select("-password")
+        .sort({
+          createdAt: -1
+        });
 
     res.json(meseros);
 
@@ -2336,27 +2390,59 @@ router.get("/personal/meseros", async (req, res) => {
   }
 });
 
-router.put("/personal/:id/estado", async (req, res) => {
+router.put(
+  "/personal/:id/estado",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
 
     const { estado } = req.body;
 
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        ok: false,
+        error: "ID de persona invalido"
+      });
+    }
+
     const Personal =
       require("../models/personal");
+
+    const personaExistente = await Personal.findById(
+      req.params.id
+    )
+      .select("restaurantId")
+      .lean();
+
+    if (!personaExistente) {
+      return res.status(404).json({
+        ok: false,
+        error: "Persona no encontrada"
+      });
+    }
+
+    const restauranteAutorizado = await Restaurante.findOne({
+      restaurantId: personaExistente.restaurantId,
+      empresaId: req.auth.empresaId
+    })
+      .select("_id")
+      .lean();
+
+    if (!restauranteAutorizado) {
+      return res.status(403).json({
+        ok: false,
+        error: "Personal fuera del tenant autorizado"
+      });
+    }
 
     const persona =
       await Personal.findByIdAndUpdate(
         req.params.id,
         { estado },
         { new: true }
-      );
-
-    if (!persona) {
-      return res.status(404).json({
-        ok: false,
-        error: "Persona no encontrada"
-      });
-    }
+      )
+        .select("-password");
 
     res.json({
       ok: true,
@@ -2378,11 +2464,49 @@ router.put("/personal/:id/estado", async (req, res) => {
   }
 });
 
-router.delete("/personal/:id", async (req, res) => {
+router.delete(
+  "/personal/:id",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        ok: false,
+        error: "ID de persona invalido"
+      });
+    }
 
     const Personal =
       require("../models/personal");
+
+    const personaExistente = await Personal.findById(
+      req.params.id
+    )
+      .select("restaurantId")
+      .lean();
+
+    if (!personaExistente) {
+      return res.status(404).json({
+        ok: false,
+        error: "Persona no encontrada"
+      });
+    }
+
+    const restauranteAutorizado = await Restaurante.findOne({
+      restaurantId: personaExistente.restaurantId,
+      empresaId: req.auth.empresaId
+    })
+      .select("_id")
+      .lean();
+
+    if (!restauranteAutorizado) {
+      return res.status(403).json({
+        ok: false,
+        error: "Personal fuera del tenant autorizado"
+      });
+    }
 
     const personaEliminada =
       await Personal.findByIdAndDelete(

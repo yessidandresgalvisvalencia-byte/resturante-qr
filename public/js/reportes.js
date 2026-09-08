@@ -280,7 +280,7 @@ Number(p.total || 0);
   try {
 
   const resPersonal =
-    await fetch(
+    await grukFetch(
       `/api/personal?restaurantId=${restaurantId}`
     );
 
