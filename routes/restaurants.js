@@ -2,6 +2,11 @@ const express = require("express");
 const multer = require("multer");
 const cloudinary = require("../config/cloudinary");
 const Restaurante = require("../models/restaurante");
+const authMiddleware = require("../core/auth/auth.middleware");
+const {
+  ROLES_GRUK,
+  roleCheck
+} = require("../core/auth/roleCheck.middleware");
 
 const router = express.Router();
 
@@ -49,12 +54,17 @@ router.post("/:restaurantId/logo", upload.single("logo"), async (req, res) => {
     });
   }
 });
-router.get("/:restaurantId/empresa", async (req, res) => {
+router.get(
+  "/:restaurantId/empresa",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
   try {
     const { restaurantId } = req.params;
 
     const restaurante = await Restaurante.findOne({
-      restaurantId
+      restaurantId,
+      empresaId: req.auth.empresaId
     }).select("restaurantId nombreRestaurante empresaId");
 
     if (!restaurante) {
