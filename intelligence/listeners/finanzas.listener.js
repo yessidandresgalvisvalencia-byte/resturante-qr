@@ -4,6 +4,7 @@ const eventBus = require("../../core/eventos/eventBus");
 const finanzasNeuron = require("../neurons/finanzas.neuron");
 
 let registrado = false;
+const empresasEnAnalisis = new Set();
 
 function registrarFinanzasListener() {
   if (registrado) {
@@ -21,9 +22,16 @@ function registrarFinanzasListener() {
         return;
       }
 
+      const empresaKey = String(empresaId);
+
+      if (empresasEnAnalisis.has(empresaKey)) {
+        return;
+      }
+
+      empresasEnAnalisis.add(empresaKey);
+
       // EventEmitter ejecuta listeners sincrónicamente.
-      // Diferimos Inteligencia para sacarla de la ruta crítica
-      // que confirma la venta.
+      // Inteligencia queda fuera de la ruta crítica de la venta.
       setImmediate(() => {
         Promise.resolve()
           .then(() => finanzasNeuron.analyze(empresaId))
@@ -31,7 +39,7 @@ function registrarFinanzasListener() {
             console.log(
               "[GRUK INTELLIGENCE] FINANZAS reporte generado",
               {
-                empresaId: String(empresaId),
+                empresaId: empresaKey,
                 reporteId: reporte?._id
                   ? String(reporte._id)
                   : null,
@@ -44,13 +52,16 @@ function registrarFinanzasListener() {
             console.error(
               "[GRUK INTELLIGENCE] FINANZAS fallo aislado",
               {
-                empresaId: String(empresaId),
+                empresaId: empresaKey,
                 error:
                   error instanceof Error
                     ? error.message
                     : String(error)
               }
             );
+          })
+          .finally(() => {
+            empresasEnAnalisis.delete(empresaKey);
           });
       });
     });
