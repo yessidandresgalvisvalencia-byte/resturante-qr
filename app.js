@@ -5,6 +5,7 @@ require("dotenv").config();
 const http = require("http");
 const { Server } = require("socket.io");
 const eventBus = require("./core/eventos/eventBus");
+const { registrarFinanzasListener } = require("./intelligence/listeners/finanzas.listener");
 const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
 const facturacionRoutes = require("./routes/facturacion");
@@ -33,6 +34,8 @@ const io = new Server(server, {
 });
 
 app.set("io", io);
+
+registrarFinanzasListener();
 eventBus.on("VENTA_COMPLETADA", (event) => {
   console.log(
     "[GRUK EVENT] VENTA_COMPLETADA",
