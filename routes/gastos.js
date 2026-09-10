@@ -6,6 +6,9 @@ const Empresa = require("../models/Empresa");
 const {
   validarGasto
 } = require("../core/gastos/validators/gasto.validator");
+const {
+  registrarGasto
+} = require("../core/gastos/gastos.service");
 const authMiddleware = require("../core/auth/auth.middleware");
 const {
   ROLES_GRUK,
@@ -72,7 +75,7 @@ router.post(
       });
     }
 
-    const nuevoGasto = new Gasto({
+    const nuevoGasto = await registrarGasto({
       empresaId,
       sedeId: sedeId || null,
       concepto,
@@ -84,8 +87,6 @@ router.post(
       origen: origen || "manual",
       metadata: metadata || {}
     });
-
-    await nuevoGasto.save();
 
     res.status(201).json({
       ok: true,
