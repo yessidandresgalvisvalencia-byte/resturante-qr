@@ -1645,7 +1645,7 @@ function interpretarPrecioGRUK(r){
   return "⭐ Producto con margen premium. Conviene proteger su calidad y posicionamiento.";
 
 }
-function analizarGasto() {
+async function analizarGasto() {
   const nombre = document.getElementById("nombreGasto").value.trim();
   const valor = Number(document.getElementById("valorGasto").value);
   const categoria = document.getElementById("categoriaGasto").value;
@@ -1872,28 +1872,73 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
   `;
 
   const restaurantId = getRestaurantId();
+  const fechaGasto = new Date().toISOString();
 
-  const gastosGuardados =
-    JSON.parse(localStorage.getItem(`gastos_${restaurantId}`)) || [];
+  try {
+    const empresaId = await getEmpresaIdFinanzas();
 
-  gastosGuardados.push({
-    nombre,
-    valor,
-    categoria,
-    impacto,
-    objetivo,
-    observacion,
-    gastoPertenece,
-    restauranteBeneficiado,
-    pedidoRelacionado,
-    esCostoRecuperable,
-    fecha: new Date().toISOString()
-  });
+    const response = await grukFetch('/api/gastos', {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        empresaId,
+        concepto: nombre,
+        categoria,
+        monto: valor,
+        fecha: fechaGasto,
+        origen: "finanzas_gruk",
+        metadata: {
+          impacto,
+          objetivo,
+          observacion,
+          gastoPertenece,
+          restauranteBeneficiado,
+          pedidoRelacionado,
+          esCostoRecuperable
+        }
+      })
+    });
 
-  localStorage.setItem(
-    `gastos_${restaurantId}`,
-    JSON.stringify(gastosGuardados)
-  );
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      throw new Error(
+        data.error || "No se pudo registrar el gasto"
+      );
+    }
+
+    /*
+     * Compatibilidad temporal:
+     * MongoDB es la fuente de verdad.
+     * localStorage solo mantiene funcionando la UI legacy.
+     */
+    const gastosGuardados =
+      JSON.parse(localStorage.getItem(`gastos_${restaurantId}`)) || [];
+
+    gastosGuardados.push({
+      nombre,
+      valor,
+      categoria,
+      impacto,
+      objetivo,
+      observacion,
+      gastoPertenece,
+      restauranteBeneficiado,
+      pedidoRelacionado,
+      esCostoRecuperable,
+      fecha: fechaGasto
+    });
+
+    localStorage.setItem(
+      `gastos_${restaurantId}`,
+      JSON.stringify(gastosGuardados)
+    );
+  } catch (error) {
+    console.error("GRUK: error registrando gasto:", error);
+    alert("No se pudo guardar el gasto. No fue registrado.");
+  }
 }
 window.calcularFinanzasGRUK = calcularFinanzasGRUK;
 window.generarBloqueFinancieroGRUK = generarBloqueFinancieroGRUK;
