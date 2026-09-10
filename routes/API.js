@@ -1576,6 +1576,8 @@ router.put("/pedido/:id/pago", async (req, res) => {
 
       if (pedido.sedeId) {
         const sede = await Sede.findOne({
+          empresaId: restaurante.empresaId,
+          restauranteId: pedido.restaurantId,
           $or: [
             { codigoSede: pedido.sedeId },
             { _id: mongoose.Types.ObjectId.isValid(pedido.sedeId)
