@@ -2,25 +2,6 @@
 
 const mongoose = require("mongoose");
 
-const identidadClienteSchema = new mongoose.Schema(
-  {
-    tipo: {
-      type: String,
-      enum: ["DOCUMENTO", "CORREO", "TELEFONO"],
-      required: true
-    },
-
-    hash: {
-      type: String,
-      required: true,
-      trim: true
-    }
-  },
-  {
-    _id: false
-  }
-);
-
 const clienteSchema = new mongoose.Schema(
   {
     empresaId: {
@@ -35,11 +16,6 @@ const clienteSchema = new mongoose.Schema(
       ref: "Sede",
       required: true,
       index: true
-    },
-
-    identidades: {
-      type: [identidadClienteSchema],
-      default: []
     },
 
     primeraCompraAt: {
@@ -80,12 +56,6 @@ const clienteSchema = new mongoose.Schema(
     timestamps: true
   }
 );
-
-clienteSchema.index({
-  empresaId: 1,
-  "identidades.tipo": 1,
-  "identidades.hash": 1
-});
 
 clienteSchema.index({
   empresaId: 1,
