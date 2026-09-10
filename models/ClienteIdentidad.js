@@ -75,6 +75,7 @@ clienteIdentidadSchema.index(
     hash: 1
   },
   {
+    name: "uq_cliente_identidad_activa",
     unique: true,
     partialFilterExpression: {
       deletedAt: null
