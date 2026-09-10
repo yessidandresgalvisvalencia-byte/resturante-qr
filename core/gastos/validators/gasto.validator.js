@@ -1,0 +1,102 @@
+﻿"use strict";
+
+const Joi = require("joi");
+
+const gastoSchema = Joi.object({
+  empresaId: Joi.string()
+    .hex()
+    .length(24)
+    .required(),
+
+  sedeId: Joi.string()
+    .hex()
+    .length(24)
+    .allow(null, "")
+    .optional(),
+
+  concepto: Joi.string()
+    .trim()
+    .min(1)
+    .max(200)
+    .required(),
+
+  categoria: Joi.string()
+    .trim()
+    .min(1)
+    .max(80)
+    .required(),
+
+  monto: Joi.number()
+    .min(0)
+    .required(),
+
+  metodoPago: Joi.string()
+    .trim()
+    .max(80)
+    .allow("")
+    .optional(),
+
+  proveedor: Joi.string()
+    .trim()
+    .max(200)
+    .allow("")
+    .optional(),
+
+  fecha: Joi.date()
+    .iso()
+    .optional(),
+
+  origen: Joi.string()
+    .valid("manual", "finanzas_gruk")
+    .default("manual"),
+
+  metadata: Joi.object({
+    impacto: Joi.string()
+      .valid("bajo", "medio", "alto")
+      .optional(),
+
+    objetivo: Joi.string()
+      .valid("ventas", "operacion", "fidelizacion")
+      .optional(),
+
+    observacion: Joi.string()
+      .trim()
+      .max(1000)
+      .allow("")
+      .optional(),
+
+    gastoPertenece: Joi.string()
+      .max(50)
+      .allow("")
+      .optional(),
+
+    restauranteBeneficiado: Joi.string()
+      .trim()
+      .max(200)
+      .allow("")
+      .optional(),
+
+    pedidoRelacionado: Joi.string()
+      .trim()
+      .max(200)
+      .allow("")
+      .optional(),
+
+    esCostoRecuperable: Joi.boolean()
+      .optional()
+  })
+    .unknown(false)
+    .default({})
+}).required();
+
+function validarGasto(datos) {
+  return gastoSchema.validate(datos, {
+    abortEarly: false,
+    allowUnknown: false,
+    convert: true
+  });
+}
+
+module.exports = {
+  validarGasto
+};

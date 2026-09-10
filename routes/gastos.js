@@ -3,6 +3,9 @@ const mongoose = require("mongoose");
 
 const Gasto = require("../models/Gasto");
 const Empresa = require("../models/Empresa");
+const {
+  validarGasto
+} = require("../core/gastos/validators/gasto.validator");
 const authMiddleware = require("../core/auth/auth.middleware");
 const {
   ROLES_GRUK,
@@ -22,6 +25,16 @@ router.post(
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
   async (req, res) => {
   try {
+    const { error, value } = validarGasto(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        ok: false,
+        error: "Datos de gasto invalidos",
+        detalles: error.details.map(detalle => detalle.message)
+      });
+    }
+
     const {
       empresaId,
       sedeId,
@@ -33,14 +46,8 @@ router.post(
       fecha,
       origen,
       metadata
-    } = req.body;
+    } = value;
 
-    if (!empresaId || !concepto || !categoria || monto === undefined) {
-      return res.status(400).json({
-        ok: false,
-        error: "Faltan datos obligatorios"
-      });
-    }
 
     if (String(empresaId) !== String(req.auth.empresaId)) {
       return res.status(403).json({
@@ -65,21 +72,12 @@ router.post(
       });
     }
 
-    const montoNumero = Number(monto);
-
-    if (!Number.isFinite(montoNumero) || montoNumero < 0) {
-      return res.status(400).json({
-        ok: false,
-        error: "El monto debe ser un número válido"
-      });
-    }
-
     const nuevoGasto = new Gasto({
       empresaId,
       sedeId: sedeId || null,
       concepto,
       categoria,
-      monto: montoNumero,
+      monto,
       metodoPago: metodoPago || "",
       proveedor: proveedor || "",
       fecha: fecha || new Date(),
