@@ -2,6 +2,8 @@
 
 const crypto = require("crypto");
 
+const HASH_VERSION = "v1";
+
 const TIPOS_IDENTIDAD = Object.freeze([
   "DOCUMENTO",
   "CORREO",
@@ -92,6 +94,7 @@ function generarIdentidadHash({
 }
 
 module.exports = {
+  HASH_VERSION,
   TIPOS_IDENTIDAD,
   normalizarIdentidad,
   generarIdentidadHash

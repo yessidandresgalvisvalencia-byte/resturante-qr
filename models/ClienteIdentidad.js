@@ -37,6 +37,13 @@ const clienteIdentidadSchema = new mongoose.Schema(
       trim: true
     },
 
+    hashVersion: {
+      type: String,
+      required: true,
+      default: "v1",
+      trim: true
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Usuario",
@@ -64,6 +71,7 @@ clienteIdentidadSchema.index(
   {
     empresaId: 1,
     tipo: 1,
+    hashVersion: 1,
     hash: 1
   },
   {

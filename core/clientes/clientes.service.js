@@ -6,6 +6,7 @@ const Cliente = require("../../models/Cliente");
 const ClienteIdentidad = require("../../models/ClienteIdentidad");
 const Sede = require("../../models/sede");
 const {
+  HASH_VERSION,
   TIPOS_IDENTIDAD,
   generarIdentidadHash
 } = require("./identidad.service");
@@ -41,6 +42,7 @@ async function buscarClientePorIdentidad({
   let query = ClienteIdentidad.findOne({
     empresaId,
     tipo,
+    hashVersion: HASH_VERSION,
     hash,
     deletedAt: null
   });
@@ -137,6 +139,7 @@ async function obtenerOCrearClientePorIdentidad({
         await ClienteIdentidad.findOne({
           empresaId,
           tipo,
+          hashVersion: HASH_VERSION,
           hash,
           deletedAt: null
         }).session(session);
@@ -186,6 +189,7 @@ async function obtenerOCrearClientePorIdentidad({
             sedeId,
             clienteId: clienteCreado._id,
             tipo,
+            hashVersion: HASH_VERSION,
             hash,
             createdBy:
               actorType === "USUARIO"
