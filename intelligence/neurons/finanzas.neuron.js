@@ -8,7 +8,8 @@ const CerebroReporteNeurona = require(
 );
 
 const {
-  obtenerResumenVentas
+  obtenerResumenVentas,
+  obtenerResumenGastos
 } = require("../../core/finanzas/finanzas.service");
 
 const NEURONA = "FINANZAS";
@@ -114,11 +115,18 @@ async function analyze(empresaId) {
   const { desde, hasta } =
     obtenerPeriodoActual();
 
-  const resumen = await obtenerResumenVentas({
-    empresaId: empresa._id,
-    desde,
-    hasta
-  });
+  const [resumen, resumenGastos] = await Promise.all([
+    obtenerResumenVentas({
+      empresaId: empresa._id,
+      desde,
+      hasta
+    }),
+    obtenerResumenGastos({
+      empresaId: empresa._id,
+      desde,
+      hasta
+    })
+  ]);
 
   const margenActual =
     resumen.margenBrutoConfiable === null
@@ -141,6 +149,19 @@ async function analyze(empresaId) {
     calcularConfianza(coberturaCosto);
 
   const hallazgos = [];
+
+  if (resumenGastos.gastosRegistrados > 0) {
+    hallazgos.push({
+      tipo: "GASTOS_REGISTRADOS_PERIODO",
+      evidencia:
+        `${resumenGastos.gastosRegistrados} gasto(s) ` +
+        `registrado(s) por un total de ` +
+        `${resumenGastos.montoGastosRegistrados}.`,
+      impacto_financiero_estimado:
+        resumenGastos.montoGastosRegistrados,
+      confianza: 100
+    });
+  }
 
   if (margenObjetivo === null) {
     hallazgos.push({
