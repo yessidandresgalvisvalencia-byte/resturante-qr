@@ -2,6 +2,7 @@
 
 const mongoose = require("mongoose");
 const Venta = require("../../models/Venta");
+const Gasto = require("../../models/Gasto");
 
 /**
  * Convierte empresaId a ObjectId de forma estricta.
@@ -200,6 +201,85 @@ async function obtenerResumenVentas({
   };
 }
 
+
+/**
+ * Resumen deterministico de gastos registrados.
+ *
+ * - Solo estado "registrado".
+ * - Excluye anulados.
+ * - No supone salida de caja.
+ * - No calcula utilidad neta.
+ * - No clasifica Marketing desde texto libre.
+ */
+async function obtenerResumenGastos({
+  empresaId,
+  desde,
+  hasta
+}) {
+  const empresaObjectId =
+    validarEmpresaId(empresaId);
+
+  if (!(desde instanceof Date) || Number.isNaN(desde.getTime())) {
+    throw new Error(
+      "GRUK Finanzas: fecha desde invalida"
+    );
+  }
+
+  if (!(hasta instanceof Date) || Number.isNaN(hasta.getTime())) {
+    throw new Error(
+      "GRUK Finanzas: fecha hasta invalida"
+    );
+  }
+
+  if (desde >= hasta) {
+    throw new Error(
+      "GRUK Finanzas: el periodo financiero es invalido"
+    );
+  }
+
+  const [totales] = await Gasto.aggregate([
+    {
+      $match: {
+        empresaId: empresaObjectId,
+        estado: "registrado",
+        fecha: {
+          $gte: desde,
+          $lt: hasta
+        }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        gastosRegistrados: {
+          $sum: 1
+        },
+        montoGastosRegistrados: {
+          $sum: "$monto"
+        }
+      }
+    }
+  ]);
+
+  const resumen = totales || {
+    gastosRegistrados: 0,
+    montoGastosRegistrados: 0
+  };
+
+  return {
+    empresaId: String(empresaObjectId),
+    periodo: {
+      desde,
+      hasta
+    },
+    gastosRegistrados:
+      resumen.gastosRegistrados,
+    montoGastosRegistrados:
+      resumen.montoGastosRegistrados
+  };
+}
+
 module.exports = {
-  obtenerResumenVentas
+  obtenerResumenVentas,
+  obtenerResumenGastos
 };
