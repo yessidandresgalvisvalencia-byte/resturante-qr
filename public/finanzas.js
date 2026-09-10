@@ -1845,32 +1845,6 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
 
   const diferencia = Math.abs(valor - nuevoValor);
 
-  document.getElementById("resultadoControlGasto").innerHTML = `
-    <div class="card">
-      <h3>${metodo}</h3>
-      <p><strong>Gasto analizado:</strong> ${nombre}</p>
-      <p><strong>Categoría:</strong> ${categoria}</p>
-      <p><strong>Objetivo del gasto:</strong> ${
-        objetivo === "ventas" ? "Ventas inmediatas" :
-        objetivo === "operacion" ? "Operación base" :
-        "Fidelización a largo plazo"
-      }</p>
-      <p><strong>Valor registrado:</strong> $${valor.toLocaleString("es-CO")}</p>
-      <p><strong>Diagnóstico experto:</strong><br>${diagnostico}</p>
-      <p><strong>Análisis financiero:</strong><br>${analisis}</p>
-      <p><strong>Decisión recomendada:</strong><br>${decision}</p>
-      <p><strong>Recomendación estratégica:</strong><br>${recomendacion}</p>
-      <p><strong>Impacto proyectado:</strong><br>
-      Tipo de acción: ${tipoCambio}. Porcentaje sugerido: ${porcentajeCambio}%.
-      Valor proyectado: $${nuevoValor.toLocaleString("es-CO")}.
-      Diferencia estimada: $${diferencia.toLocaleString("es-CO")}.
-      </p>
-      <p><strong>Distribución sugerida:</strong><br>${usoDinero}</p>
-      <p><strong>Control de riesgo:</strong><br>${controlRiesgo}</p>
-      <p><strong>Observación registrada:</strong><br>${observacion || "Sin observación adicional."}</p>
-    </div>
-  `;
-
   const restaurantId = getRestaurantId();
   const fechaGasto = new Date().toISOString();
 
@@ -1908,6 +1882,32 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
         data.error || "No se pudo registrar el gasto"
       );
     }
+    document.getElementById("resultadoControlGasto").innerHTML = `
+      <div class="card">
+        <h3>${metodo}</h3>
+        <p><strong>Gasto analizado:</strong> ${nombre}</p>
+        <p><strong>Categoría:</strong> ${categoria}</p>
+        <p><strong>Objetivo del gasto:</strong> ${
+          objetivo === "ventas" ? "Ventas inmediatas" :
+          objetivo === "operacion" ? "Operación base" :
+          "Fidelización a largo plazo"
+        }</p>
+        <p><strong>Valor registrado:</strong> ${valor.toLocaleString("es-CO")}</p>
+        <p><strong>Diagnóstico experto:</strong><br>${diagnostico}</p>
+        <p><strong>Análisis financiero:</strong><br>${analisis}</p>
+        <p><strong>Decisión recomendada:</strong><br>${decision}</p>
+        <p><strong>Recomendación estratégica:</strong><br>${recomendacion}</p>
+        <p><strong>Impacto proyectado:</strong><br>
+        Tipo de acción: ${tipoCambio}. Porcentaje sugerido: ${porcentajeCambio}%.
+        Valor proyectado: ${nuevoValor.toLocaleString("es-CO")}.
+        Diferencia estimada: ${diferencia.toLocaleString("es-CO")}.
+        </p>
+        <p><strong>Distribución sugerida:</strong><br>${usoDinero}</p>
+        <p><strong>Control de riesgo:</strong><br>${controlRiesgo}</p>
+        <p><strong>Observación registrada:</strong><br>${observacion || "Sin observación adicional."}</p>
+      </div>
+    `;
+
 
     /*
      * Compatibilidad temporal:
