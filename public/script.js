@@ -468,6 +468,14 @@ valorExtra: pedido.valorExtra
 if (!res.ok) {
 throw new Error("No se pudo enviar el pedido");
 }
+
+const data = await res.json();
+
+if (!data || !data.pedido || !data.pedido._id) {
+throw new Error("El servidor no devolvio la identidad del pedido");
+}
+
+return data.pedido;
 }
 function obtenerProductosRecomendados() {
 const recomendadosManual =
