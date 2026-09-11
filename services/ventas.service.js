@@ -1,7 +1,9 @@
 ﻿"use strict";
 
+const mongoose = require("mongoose");
 const Venta = require("../models/Venta");
 const ProductoServicio = require("../models/ProductoServicio");
+const Cliente = require("../models/Cliente");
 const eventBus = require("../core/eventos/eventBus");
 
 async function registrarVentaDesdePedido({
@@ -43,6 +45,44 @@ async function registrarVentaDesdePedido({
       throw new Error(
         "GRUK Ventas: ProductoServicio no pertenece a la empresa"
       );
+    }
+
+    let clienteId = null;
+
+    if (pedido.clienteId) {
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          pedido.clienteId
+        )
+      ) {
+        throw new Error(
+          "GRUK Ventas: clienteId invalido"
+        );
+      }
+
+      const filtroCliente = {
+        _id: pedido.clienteId,
+        empresaId,
+        deletedAt: null
+      };
+
+      if (sedeId) {
+        filtroCliente.sedeId = sedeId;
+      }
+
+      const cliente = await Cliente.findOne(
+        filtroCliente
+      )
+        .select("_id")
+        .lean();
+
+      if (!cliente) {
+        throw new Error(
+          "GRUK Ventas: Cliente no pertenece a la empresa o sede"
+        );
+      }
+
+      clienteId = cliente._id;
     }
 
     const cantidad = Number(pedido.cantidad);
@@ -87,6 +127,8 @@ async function registrarVentaDesdePedido({
       productoServicioId:
         productoServicio._id,
 
+      clienteId,
+
       origen: "restaurante",
       origenId: pedido._id,
 
@@ -128,6 +170,8 @@ costoFuente:
 
       productoServicioId:
         venta.productoServicioId,
+
+      clienteId: venta.clienteId,
 
       origen: venta.origen,
       origenId: venta.origenId,

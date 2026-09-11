@@ -22,6 +22,14 @@ productoServicioId: {
     default: null,
     index: true
 },
+
+clienteId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Cliente",
+    default: null,
+    index: true
+},
+
 cantidad: {
     type: Number,
     required: true,

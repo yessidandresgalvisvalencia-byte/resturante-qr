@@ -22,6 +22,13 @@ const ventaSchema = new mongoose.Schema(
   index: true
 },
 
+    clienteId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Cliente",
+      default: null,
+      index: true
+    },
+
     origen: {
       type: String,
       default: "restaurante"
