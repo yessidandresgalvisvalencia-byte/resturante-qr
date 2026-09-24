@@ -137,3 +137,16 @@ test("Empresa nueva activa inteligencia GRUK por defecto", () => {
 
   assert.equal(empresa.modulos.inteligencia, true);
 });
+
+
+test("Situacion ejecutiva refleja ordenes pendientes aunque no haya CRITICOS", () => {
+  const { construirSituacion } = require("../../intelligence/brain/cerebro");
+  const texto = construirSituacion([], [{}, {}, {}, {}]);
+  assert.equal(texto, "4 orden(es) empresariales requieren seguimiento.");
+});
+
+test("Situacion ejecutiva combina funciones criticas y ordenes", () => {
+  const { construirSituacion } = require("../../intelligence/brain/cerebro");
+  const texto = construirSituacion([{}], [{}, {}]);
+  assert.equal(texto, "1 funcion(es) critica(s) requieren atencion y 2 orden(es) esperan gestion.");
+});
