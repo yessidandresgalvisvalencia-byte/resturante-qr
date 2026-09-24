@@ -54,6 +54,13 @@ jobs:
           node --check intelligence/models/CerebroAuditoria.js
           node --check intelligence/models/CerebroDecision.js
           node --check intelligence/models/CerebroReporteNeurona.js
+          node --check public/js/memoria.js
+          node --check shared/jobs/memoria.job.js
+          node --check intelligence/memory/memoria.controller.js
+          node --check intelligence/memory/memoria.service.js
+          node --check intelligence/memory/kpi.service.js
+          node --check intelligence/memory/CerebroMemoria.js
+          node --check routes/memoria.js
           node --check public/js/junta-directiva.js
           node --check intelligence/board/junta.controller.js
           node --check intelligence/board/junta.service.js
