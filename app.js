@@ -15,6 +15,7 @@ const finanzasRoutes = require("./routes/finanzas");
 const productosServiciosRoutes = require("./routes/productosServicios");
 const comprasRoutes = require("./routes/compras");
 const cerebroRoutes = require("./routes/cerebro");
+const juntaRoutes = require("./routes/junta");
 const iniciarCerebroJob = require("./shared/jobs/cerebro.job");
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -60,6 +61,7 @@ app.use("/api/finanzas", finanzasRoutes);
 app.use("/api/productos-servicios", productosServiciosRoutes);
 app.use("/api/compras", comprasRoutes);
 app.use("/api/cerebro", cerebroRoutes);
+app.use("/api/junta", juntaRoutes);
 app.use("/api", apiRoutes);
 app.use(
 "/api/inventario",
