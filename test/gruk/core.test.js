@@ -34,3 +34,18 @@ test("EMPLEADO recibe 403 en una frontera reservada a Finanzas", () => {
   assert.equal(statusCode, 403);
   assert.equal(payload.ok, false);
 });
+
+
+test("Cerebro desempata por confianza y luego menor riesgo de caja", () => {
+  const { compararCandidatos } = require("../../intelligence/brain/cerebro");
+  const base = { hallazgo: { impacto_financiero_estimado: 1000, confianza: 90 } };
+  const marketing = { ...base, regla: { departamento: "MARKETING" } };
+  const finanzas = { ...base, regla: { departamento: "FINANZAS" } };
+  assert.ok(compararCandidatos(finanzas, marketing) < 0);
+
+  const ventasMayorConfianza = {
+    hallazgo: { impacto_financiero_estimado: 1000, confianza: 95 },
+    regla: { departamento: "VENTAS" }
+  };
+  assert.ok(compararCandidatos(ventasMayorConfianza, finanzas) < 0);
+});
