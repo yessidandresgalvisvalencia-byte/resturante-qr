@@ -21,10 +21,22 @@ function httpError(statusCode, message) {
 
 router.get("/ultima-decision", ...seguridad, async (req, res) => {
   try {
-    const decision = await Decision.findOne({
+    const filtro = {
       empresaId: req.auth.empresaId,
       deletedAt: null
-    })
+    };
+
+    if (req.auth.rol === ROLES_GRUK.ADMIN_SEDE) {
+      if (!req.auth.sedeId) {
+        return res.status(403).json({
+          ok: false,
+          error: "ADMIN_SEDE requiere una sede autorizada"
+        });
+      }
+      filtro.sedeId = req.auth.sedeId;
+    }
+
+    const decision = await Decision.findOne(filtro)
       .sort({ createdAt: -1 })
       .lean();
 
@@ -59,11 +71,20 @@ router.post(
       let ordenRespuesta = null;
 
       await session.withTransaction(async () => {
-        const decision = await Decision.findOne({
+        const filtroDecision = {
           _id: req.params.decisionId,
           empresaId: req.auth.empresaId,
           deletedAt: null
-        }).session(session);
+        };
+
+        if (req.auth.rol === ROLES_GRUK.ADMIN_SEDE) {
+          if (!req.auth.sedeId) {
+            throw httpError(403, "ADMIN_SEDE requiere una sede autorizada");
+          }
+          filtroDecision.sedeId = req.auth.sedeId;
+        }
+
+        const decision = await Decision.findOne(filtroDecision).session(session);
 
         if (!decision) {
           throw httpError(404, "Decision no encontrada");
