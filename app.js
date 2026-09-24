@@ -97,7 +97,8 @@ mongoose.connect(
     console.log("MongoDB conectado");
   })
   .catch(err => {
-    console.log("Error MongoDB:", err);
+    console.error("Error MongoDB:", err.message);
+    process.exitCode = 1;
   });
 
 io.on("connection", (socket) => {
