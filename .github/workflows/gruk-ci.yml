@@ -46,6 +46,7 @@ jobs:
           node --check public/admin.js
           node --check public/js/gruk-api.js
           node --check public/js/centro-control.js
+          node --check public/js/auditoria.js
           node --check shared/jobs/cerebro.job.js
           node --check jobs/suscripciones.js
           node --check models/restaurante.js
@@ -53,6 +54,18 @@ jobs:
           node --check intelligence/models/CerebroAuditoria.js
           node --check intelligence/models/CerebroDecision.js
           node --check intelligence/models/CerebroReporteNeurona.js
+          node --check public/js/memoria.js
+          node --check shared/jobs/memoria.job.js
+          node --check intelligence/memory/memoria.controller.js
+          node --check intelligence/memory/memoria.service.js
+          node --check intelligence/memory/kpi.service.js
+          node --check intelligence/memory/CerebroMemoria.js
+          node --check routes/memoria.js
+          node --check public/js/junta-directiva.js
+          node --check intelligence/board/junta.controller.js
+          node --check intelligence/board/junta.service.js
+          node --check intelligence/board/JuntaSesion.js
+          node --check routes/junta.js
           node --check intelligence/brain/cerebro.js
           node --check intelligence/brain/cerebro.service.js
           node --check intelligence/brain/cerebro.controller.js

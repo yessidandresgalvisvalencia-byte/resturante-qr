@@ -7,11 +7,11 @@ const {
   roleCheck
 } = require("../core/auth/roleCheck.middleware");
 const {
-  ultimaDecision,
-  auditoriaCerebro,
-  aprobarOrden,
-  rechazarOrden
-} = require("../intelligence/brain/cerebro.controller");
+  obtenerJunta,
+  abrirJunta,
+  intervenir,
+  cerrarJunta
+} = require("../intelligence/board/junta.controller");
 
 const router = express.Router();
 
@@ -21,27 +21,27 @@ const seguridad = [
 ];
 
 router.get(
-  "/ultima-decision",
+  "/decisiones/:decisionId",
   ...seguridad,
-  ultimaDecision
-);
-
-router.get(
-  "/auditoria",
-  ...seguridad,
-  auditoriaCerebro
+  obtenerJunta
 );
 
 router.post(
-  "/decisiones/:decisionId/ordenes/:ordenId/aprobar",
+  "/decisiones/:decisionId/abrir",
   ...seguridad,
-  aprobarOrden
+  abrirJunta
 );
 
 router.post(
-  "/decisiones/:decisionId/ordenes/:ordenId/rechazar",
+  "/sesiones/:sesionId/cerrar",
   ...seguridad,
-  rechazarOrden
+  cerrarJunta
+);
+
+router.post(
+  "/sesiones/:sesionId/intervenciones",
+  ...seguridad,
+  intervenir
 );
 
 module.exports = router;

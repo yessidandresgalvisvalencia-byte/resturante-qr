@@ -8,12 +8,19 @@ const MAPA={
  COSTO_NO_CONFIABLE:{departamento:"FINANZAS",tarea:"Completar costos confiables de los productos vendidos.",kpi:"cobertura_costo_porcentaje"},
  TICKET_BAJO_OBJETIVO:{departamento:"VENTAS",tarea:"Revisar ticket promedio y mezcla de productos frente al objetivo.",kpi:"ticket_promedio"},
  INVENTARIO_AGOTADO:{departamento:"OPERACIONES",tarea:"Reponer o resolver los items de inventario agotados.",kpi:"porcentaje_items_agotados"},
- SIN_INVENTARIO_CONFIGURADO:{departamento:"OPERACIONES",tarea:"Configurar el inventario operativo para poder medir disponibilidad.",kpi:"porcentaje_items_agotados"},
+ SIN_INVENTARIO_CONFIGURADO:{departamento:"OPERACIONES",tarea:"Configurar el inventario operativo para poder medir disponibilidad.",kpi:"inventario_configurado"},
  DATOS_INSUFICIENTES:{departamento:"MARKETING",tarea:"Configurar atribucion de gasto y clientes adquiridos para medir CAC.",kpi:"cac"},
  CONFIGURACION_INCOMPLETA:{departamento:"DIRECCION",tarea:"Completar los objetivos empresariales requeridos por GRUK.",kpi:"configuracion_core"}
 };
 const RIESGO_CAJA={FINANZAS:0,OPERACIONES:1,VENTAS:2,MARKETING:3,DIRECCION:4,GENTE:5,SERVICIO_CLIENTE:6};
 function prioridad(estado,impacto){if(estado==="CRITICO")return"CRITICA";if(impacto>0)return"ALTA";return"MEDIA";}
+function construirSituacion(criticos,ordenes){
+ const totalCriticos=Array.isArray(criticos)?criticos.length:0;
+ const totalOrdenes=Array.isArray(ordenes)?ordenes.length:0;
+ if(totalCriticos>0)return `${totalCriticos} funcion(es) critica(s) requieren atencion y ${totalOrdenes} orden(es) esperan gestion.`;
+ if(totalOrdenes>0)return `${totalOrdenes} orden(es) empresariales requieren seguimiento.`;
+ return "Los cinco KPI principales estan bajo seguimiento sin ordenes pendientes.";
+}
 function compararCandidatos(a,b){
  const impactoA=Number(a.hallazgo.impacto_financiero_estimado)||0;
  const impactoB=Number(b.hallazgo.impacto_financiero_estimado)||0;
@@ -45,6 +52,6 @@ async function tomarDecision(empresaId){
  const criticos=reportes.filter(r=>r.kpi_principal.estado==="CRITICO");
  const confianza=Math.round(reportes.reduce((s,r)=>{const hs=r.hallazgos||[];return s+(hs.length?hs.reduce((x,h)=>x+Number(h.confianza||0),0)/hs.length:100);},0)/5);
  const principal=candidatos[0];
- return (await Decision.create({empresaId:new mongoose.Types.ObjectId(String(empresaId)),sedeId:null,decision_general:{situacion:criticos.length?`${criticos.length} funcion(es) critica(s) requieren atencion.`:"Revision empresarial consolidada disponible.",causa_raiz:principal?principal.hallazgo.evidencia:"No hay hallazgos accionables con los datos actuales.",prediccion:principal?"Sin correccion, el KPI asociado puede continuar fuera del objetivo.":"Mantener seguimiento de los cinco KPI principales."},ordenes_por_departamento:ordenes,confianza_global:Math.max(0,Math.min(100,confianza)),riesgo_si_no_se_hace:principal?principal.hallazgo.evidencia:"No se identifico riesgo cuantificado.",como_medir_exito_en_7_dias:ordenes.length?"Recalcular los KPI de las ordenes y comparar contra sus objetivos.":"Generar nuevamente los cinco reportes y verificar su estado.",reportesOrigen:reportes.map(r=>r._id),createdBy:null,deletedAt:null})).toObject();
+ return (await Decision.create({empresaId:new mongoose.Types.ObjectId(String(empresaId)),sedeId:null,decision_general:{situacion:construirSituacion(criticos,ordenes),causa_raiz:principal?principal.hallazgo.evidencia:"No hay hallazgos accionables con los datos actuales.",prediccion:principal?"Sin correccion, el KPI asociado puede continuar fuera del objetivo.":"Mantener seguimiento de los cinco KPI principales."},ordenes_por_departamento:ordenes,confianza_global:Math.max(0,Math.min(100,confianza)),riesgo_si_no_se_hace:principal?principal.hallazgo.evidencia:"No se identifico riesgo cuantificado.",como_medir_exito_en_7_dias:ordenes.length?"Recalcular los KPI de las ordenes y comparar contra sus objetivos.":"Generar nuevamente los cinco reportes y verificar su estado.",reportesOrigen:reportes.map(r=>r._id),createdBy:null,deletedAt:null})).toObject();
 }
-module.exports={tomarDecision,compararCandidatos};
+module.exports={tomarDecision,compararCandidatos,construirSituacion};

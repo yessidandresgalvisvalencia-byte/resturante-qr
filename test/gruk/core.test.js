@@ -137,3 +137,144 @@ test("Empresa nueva activa inteligencia GRUK por defecto", () => {
 
   assert.equal(empresa.modulos.inteligencia, true);
 });
+
+
+test("Situacion ejecutiva refleja ordenes pendientes aunque no haya CRITICOS", () => {
+  const { construirSituacion } = require("../../intelligence/brain/cerebro");
+  const texto = construirSituacion([], [{}, {}, {}, {}]);
+  assert.equal(texto, "4 orden(es) empresariales requieren seguimiento.");
+});
+
+test("Situacion ejecutiva combina funciones criticas y ordenes", () => {
+  const { construirSituacion } = require("../../intelligence/brain/cerebro");
+  const texto = construirSituacion([{}], [{}, {}]);
+  assert.equal(texto, "1 funcion(es) critica(s) requieren atencion y 2 orden(es) esperan gestion.");
+});
+
+
+test("Junta preserva KPI sin dato y solo usa impactos reportados", () => {
+  const {
+    construirIntervencionNeurona
+  } = require("../../intelligence/board/junta.service");
+
+  const intervencion = construirIntervencionNeurona({
+    neurona: "MARKETING",
+    kpi_principal: {
+      nombre: "cac",
+      valor_actual: null,
+      valor_objetivo: 10000,
+      estado: "ALERTA"
+    },
+    hallazgos: [{
+      tipo: "DATOS_INSUFICIENTES",
+      evidencia: "No existen datos atribuibles suficientes.",
+      impacto_financiero_estimado: 0,
+      confianza: 100
+    }]
+  });
+
+  assert.match(intervencion.mensaje, /Valor actual: sin dato/);
+  assert.equal(intervencion.impacto_financiero_estimado, 0);
+  assert.equal(intervencion.confianza, 100);
+  assert.equal(intervencion.departamento, "MARKETING");
+});
+
+test("Junta suma impacto y promedia confianza de evidencia determinista", () => {
+  const {
+    construirIntervencionNeurona
+  } = require("../../intelligence/board/junta.service");
+
+  const intervencion = construirIntervencionNeurona({
+    neurona: "FINANZAS",
+    kpi_principal: {
+      nombre: "margen",
+      valor_actual: 20,
+      valor_objetivo: 35,
+      estado: "CRITICO"
+    },
+    hallazgos: [
+      { evidencia: "A", impacto_financiero_estimado: 1000, confianza: 80 },
+      { evidencia: "B", impacto_financiero_estimado: 500, confianza: 100 }
+    ]
+  });
+
+  assert.equal(intervencion.impacto_financiero_estimado, 1500);
+  assert.equal(intervencion.confianza, 90);
+  assert.equal(intervencion.departamento, "FINANZAS");
+});
+
+
+test("Memoria determina mejora segun direccion del KPI", () => {
+  const { compararResultado } = require("../../intelligence/memory/memoria.service");
+
+  assert.equal(
+    compararResultado({
+      baseline: { medible: true, valor: 50 },
+      seguimiento: { medible: true, valor: 75 },
+      direccion: "MAYOR_ES_MEJOR"
+    }),
+    "MEJORO"
+  );
+
+  assert.equal(
+    compararResultado({
+      baseline: { medible: true, valor: 20 },
+      seguimiento: { medible: true, valor: 5 },
+      direccion: "MENOR_ES_MEJOR"
+    }),
+    "MEJORO"
+  );
+
+  assert.equal(
+    compararResultado({
+      baseline: { medible: false, valor: null },
+      seguimiento: { medible: true, valor: 10 },
+      direccion: "MAYOR_ES_MEJOR"
+    }),
+    "NO_MEDIBLE"
+  );
+});
+
+test("Memoria evalua cumplimiento de objetivo sin inventar dato", () => {
+  const { evaluarObjetivo } = require("../../intelligence/memory/memoria.service");
+
+  assert.equal(
+    evaluarObjetivo({
+      seguimiento: { medible: true, valor: 100, objetivo: 100 },
+      direccion: "MAYOR_ES_MEJOR"
+    }),
+    true
+  );
+
+  assert.equal(
+    evaluarObjetivo({
+      seguimiento: { medible: false, valor: null, objetivo: 100 },
+      direccion: "MAYOR_ES_MEJOR"
+    }),
+    null
+  );
+});
+
+test("Configuracion CORE mide solo los cinco objetivos requeridos", () => {
+  const { medirConfiguracionCore } = require("../../intelligence/memory/kpi.service");
+
+  assert.equal(
+    medirConfiguracionCore({
+      configuracion: {
+        margen_objetivo: 30,
+        punto_equilibrio: 1000000,
+        ticket_objetivo: 50000,
+        cac_maximo: null,
+        empleados_actuales: 10
+      }
+    }),
+    80
+  );
+});
+
+
+test("Inventario configurado usa un KPI distinto a porcentaje agotado", () => {
+  const { KPI_DIRECCION } = require("../../intelligence/memory/kpi.service");
+  assert.equal(KPI_DIRECCION.inventario_configurado, "MAYOR_ES_MEJOR");
+  assert.equal(KPI_DIRECCION.porcentaje_items_agotados, "MENOR_ES_MEJOR");
+});

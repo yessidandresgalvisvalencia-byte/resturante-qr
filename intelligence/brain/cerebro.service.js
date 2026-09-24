@@ -3,7 +3,10 @@
 const mongoose = require("mongoose");
 const Decision = require("../models/CerebroDecision");
 const Auditoria = require("../models/CerebroAuditoria");
+const JuntaSesion = require("../board/JuntaSesion");
+const CerebroMemoria = require("../memory/CerebroMemoria");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
+const { registrarBaselineAprobacion } = require("../memory/memoria.service");
 
 function serviceError(statusCode, message) {
   const error = new Error(message);
@@ -71,6 +74,16 @@ async function procesarOrden({ auth, decisionId, ordenId, accion }) {
       }
 
       await decision.save({ session });
+
+      if (accion === "APROBAR") {
+        await registrarBaselineAprobacion({
+          auth,
+          decision,
+          orden,
+          session
+        });
+      }
+
       await Auditoria.create([{
         empresaId: auth.empresaId,
         sedeId: auth.sedeId || null,
@@ -89,4 +102,152 @@ async function procesarOrden({ auth, decisionId, ordenId, accion }) {
   }
 }
 
-module.exports = { obtenerUltimaDecision, procesarOrden, filtroTenant };
+async function obtenerAuditoria(auth, limite = 100) {
+  const maximo = Math.max(1, Math.min(200, Number(limite) || 100));
+
+  const [accionesOrden, juntas, memorias] = await Promise.all([
+    Auditoria.find(filtroTenant(auth))
+      .sort({ createdAt: -1 })
+      .limit(maximo)
+      .lean(),
+    JuntaSesion.find(filtroTenant(auth))
+      .sort({ createdAt: -1 })
+      .limit(maximo)
+      .lean(),
+    CerebroMemoria.find(filtroTenant(auth))
+      .sort({ createdAt: -1 })
+      .limit(maximo)
+      .lean()
+  ]);
+
+  const decisionIds = [...new Set([
+    ...accionesOrden.map((evento) => String(evento.decisionId)),
+    ...juntas.map((sesion) => String(sesion.decisionId)),
+    ...memorias.map((memoria) => String(memoria.decisionId))
+  ])];
+
+  const decisiones = decisionIds.length
+    ? await Decision.find({
+        ...filtroTenant(auth),
+        _id: { $in: decisionIds }
+      }).lean()
+    : [];
+
+  const mapaDecisiones = new Map(
+    decisiones.map((decision) => [String(decision._id), decision])
+  );
+
+  const eventos = [];
+
+  for (const evento of accionesOrden) {
+    const decision = mapaDecisiones.get(String(evento.decisionId)) || null;
+    const orden = decision?.ordenes_por_departamento?.find(
+      (item) => String(item._id) === String(evento.ordenId)
+    ) || null;
+
+    eventos.push({
+      _id: String(evento._id),
+      tipo: "ORDEN",
+      accion: evento.accion,
+      actor: "HUMANO",
+      usuarioId: evento.usuarioId,
+      rol: evento.metadata?.rol || null,
+      createdAt: evento.createdAt,
+      decisionId: evento.decisionId,
+      ordenId: evento.ordenId,
+      departamento: orden?.departamento || null,
+      tarea: orden?.tarea || null,
+      kpi_a_medir: orden?.kpi_a_medir || null,
+      situacion: decision?.decision_general?.situacion || null
+    });
+  }
+
+  for (const sesion of juntas) {
+    const decision = mapaDecisiones.get(String(sesion.decisionId)) || null;
+    const situacion = decision?.decision_general?.situacion || null;
+
+    eventos.push({
+      _id: `junta-abrir-${sesion._id}`,
+      tipo: "JUNTA",
+      accion: "JUNTA_ABIERTA",
+      actor: "HUMANO",
+      usuarioId: sesion.createdBy,
+      rol: null,
+      createdAt: sesion.createdAt,
+      decisionId: sesion.decisionId,
+      ordenId: null,
+      departamento: "DIRECCION",
+      tarea: "Se abrió la discusión de Junta Directiva con evidencia de las cinco neuronas.",
+      kpi_a_medir: null,
+      situacion
+    });
+
+    for (const intervencion of sesion.intervenciones || []) {
+      if (intervencion.tipo !== "HUMANO") continue;
+
+      eventos.push({
+        _id: `junta-intervencion-${intervencion._id}`,
+        tipo: "JUNTA",
+        accion: "JUNTA_INTERVENCION",
+        actor: "HUMANO",
+        usuarioId: intervencion.autorUsuarioId,
+        rol: null,
+        createdAt: intervencion.createdAt,
+        decisionId: sesion.decisionId,
+        ordenId: null,
+        departamento: intervencion.departamento,
+        tarea: intervencion.mensaje,
+        kpi_a_medir: null,
+        situacion
+      });
+    }
+
+    if (sesion.closedAt) {
+      eventos.push({
+        _id: `junta-cerrar-${sesion._id}`,
+        tipo: "JUNTA",
+        accion: "JUNTA_CERRADA",
+        actor: "HUMANO",
+        usuarioId: sesion.closedBy,
+        rol: null,
+        createdAt: sesion.closedAt,
+        decisionId: sesion.decisionId,
+        ordenId: null,
+        departamento: "DIRECCION",
+        tarea: "Se cerró la discusión de Junta Directiva.",
+        kpi_a_medir: null,
+        situacion
+      });
+    }
+  }
+
+  for (const memoria of memorias) {
+    if (memoria.resultado === "PENDIENTE" || !memoria.seguimiento?.measuredAt) {
+      continue;
+    }
+
+    const decision = mapaDecisiones.get(String(memoria.decisionId)) || null;
+
+    eventos.push({
+      _id: `memoria-${memoria._id}`,
+      tipo: "MEMORIA",
+      accion: "MEMORIA_EVALUADA",
+      actor: "SISTEMA",
+      usuarioId: null,
+      rol: null,
+      createdAt: memoria.seguimiento.measuredAt,
+      decisionId: memoria.decisionId,
+      ordenId: memoria.ordenId,
+      departamento: memoria.departamento,
+      tarea: `Resultado a 7 días: ${memoria.resultado}.`,
+      kpi_a_medir: memoria.kpi,
+      situacion: decision?.decision_general?.situacion || null
+    });
+  }
+
+  return eventos
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, maximo);
+}
+
+module.exports = { obtenerUltimaDecision, procesarOrden, obtenerAuditoria, filtroTenant };

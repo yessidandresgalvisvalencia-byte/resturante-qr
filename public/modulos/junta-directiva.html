@@ -1,0 +1,33 @@
+<section>
+  <h1>Junta Directiva GRUK</h1>
+  <p>Discusión estructurada sobre la última decisión del Cerebro. Las posiciones de las neuronas salen de datos calculados; no inventan cifras.</p>
+
+  <div id="juntaEstadoGRUK" class="card">
+    <p>Cargando sesión...</p>
+  </div>
+
+  <div class="card">
+    <button id="juntaAbrirGRUK" type="button">Abrir discusión</button>
+    <button id="juntaCerrarGRUK" type="button">Cerrar discusión</button>
+  </div>
+
+  <div class="card">
+    <h2>Agregar intervención</h2>
+    <label for="juntaDepartamentoGRUK">Departamento</label>
+    <select id="juntaDepartamentoGRUK">
+      <option value="DIRECCION">Dirección</option>
+      <option value="FINANZAS">Finanzas</option>
+      <option value="VENTAS">Ventas</option>
+      <option value="MARKETING">Marketing</option>
+      <option value="OPERACIONES">Operaciones</option>
+      <option value="GENTE">Gente</option>
+      <option value="SERVICIO_CLIENTE">Servicio al Cliente</option>
+    </select>
+
+    <label for="juntaMensajeGRUK">Intervención</label>
+    <textarea id="juntaMensajeGRUK" rows="4" maxlength="2000" placeholder="Escribe una observación, pregunta o criterio para la Junta."></textarea>
+    <button id="juntaEnviarGRUK" type="button">Agregar a la discusión</button>
+  </div>
+
+  <div id="juntaIntervencionesGRUK"></div>
+</section>
