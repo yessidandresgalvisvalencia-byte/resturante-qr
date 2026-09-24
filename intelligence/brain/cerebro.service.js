@@ -89,4 +89,45 @@ async function procesarOrden({ auth, decisionId, ordenId, accion }) {
   }
 }
 
-module.exports = { obtenerUltimaDecision, procesarOrden, filtroTenant };
+async function obtenerAuditoria(auth, limite = 100) {
+  const maximo = Math.max(1, Math.min(200, Number(limite) || 100));
+  const eventos = await Auditoria.find(filtroTenant(auth))
+    .sort({ createdAt: -1 })
+    .limit(maximo)
+    .lean();
+
+  if (!eventos.length) return [];
+
+  const decisionIds = [...new Set(eventos.map((evento) => String(evento.decisionId)))];
+  const decisiones = await Decision.find({
+    ...filtroTenant(auth),
+    _id: { $in: decisionIds }
+  }).lean();
+
+  const mapaDecisiones = new Map(
+    decisiones.map((decision) => [String(decision._id), decision])
+  );
+
+  return eventos.map((evento) => {
+    const decision = mapaDecisiones.get(String(evento.decisionId)) || null;
+    const orden = decision?.ordenes_por_departamento?.find(
+      (item) => String(item._id) === String(evento.ordenId)
+    ) || null;
+
+    return {
+      _id: evento._id,
+      accion: evento.accion,
+      usuarioId: evento.usuarioId,
+      rol: evento.metadata?.rol || null,
+      createdAt: evento.createdAt,
+      decisionId: evento.decisionId,
+      ordenId: evento.ordenId,
+      departamento: orden?.departamento || null,
+      tarea: orden?.tarea || null,
+      kpi_a_medir: orden?.kpi_a_medir || null,
+      situacion: decision?.decision_general?.situacion || null
+    };
+  });
+}
+
+module.exports = { obtenerUltimaDecision, procesarOrden, obtenerAuditoria, filtroTenant };
