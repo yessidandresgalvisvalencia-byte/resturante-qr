@@ -2865,41 +2865,64 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
 // Webhook de Wompi
 router.post("/wompi/webhook", async (req, res) => {
   try {
-    const evento = req.body;
-    const transaction = evento?.data?.transaction;
+    const transactionId = req.body?.data?.transaction?.id;
+
+    if (!transactionId) {
+      return res.status(200).json({ ok: true });
+    }
+
+    // Nunca confiar en estado, monto o referencia enviados por el webhook.
+    // Se consulta la transaccion canonica directamente en Wompi.
+    const wompiRes = await axios.get(
+      `https://production.wompi.co/v1/transactions/${encodeURIComponent(String(transactionId))}`
+    );
+    const transaction = wompiRes.data?.data;
 
     if (!transaction) {
       return res.status(200).json({ ok: true });
     }
 
-    const reference = transaction.reference || "";
-    const status = transaction.status;
-    const transactionId = transaction.id;
+    const reference = String(transaction.reference || "");
+    const prefijo = reference.startsWith("suscripcion_")
+      ? "suscripcion_"
+      : reference.startsWith("renovacion_")
+        ? "renovacion_"
+        : null;
 
-    if (
-  !reference.startsWith("suscripcion_") &&
-  !reference.startsWith("renovacion_")
-) {
-  return res.status(200).json({ ok: true });
-}
+    if (!prefijo) {
+      return res.status(200).json({ ok: true });
+    }
 
-   const partes = reference.split("_");
-let restaurantId = "";
+    const referenciaSinPrefijo = reference.slice(prefijo.length);
+    const ultimoSeparador = referenciaSinPrefijo.lastIndexOf("_");
 
-if (reference.startsWith("suscripcion_")) {
-  restaurantId = partes[1] + "_" + partes[2];
-}
+    if (ultimoSeparador <= 0) {
+      return res.status(200).json({ ok: true });
+    }
 
-if (reference.startsWith("renovacion_")) {
-  restaurantId = partes[1] + "_" + partes[2];
-}
+    const restaurantId = referenciaSinPrefijo.slice(0, ultimoSeparador);
     const restaurante = await Restaurante.findOne({ restaurantId });
 
     if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
+      return res.status(200).json({ ok: true });
+    }
+
+    const montoEsperado = Number(restaurante.precioMensual || 220000) * 100;
+    const montoValido = Number(transaction.amount_in_cents) === montoEsperado;
+    const monedaValida = String(transaction.currency || "").toUpperCase() === "COP";
+
+    if (!montoValido || !monedaValida) {
+      console.error("[SEGURIDAD] Webhook Wompi no coincide con la suscripcion", {
+        restaurantId,
+        transactionId: String(transactionId)
       });
+      return res.status(200).json({ ok: true });
+    }
+
+    const status = String(transaction.status || "").toUpperCase();
+
+    if (restaurante.ultimoTransactionId === String(transactionId)) {
+      return res.status(200).json({ ok: true });
     }
 
     if (status === "APPROVED") {
@@ -2910,22 +2933,18 @@ if (reference.startsWith("renovacion_")) {
       restaurante.estadoSuscripcion = "activa";
       restaurante.fechaUltimoPago = hoy;
       restaurante.fechaProximoCobro = proximo;
-      restaurante.ultimoTransactionId = transactionId;
-
+      restaurante.ultimoTransactionId = String(transactionId);
+      await restaurante.save();
+    } else if (["DECLINED", "ERROR", "VOIDED"].includes(status)) {
+      restaurante.estadoSuscripcion = "pendiente";
+      restaurante.ultimoTransactionId = String(transactionId);
       await restaurante.save();
     }
 
-    if (status === "DECLINED" || status === "ERROR" || status === "VOIDED") {
-  restaurante.estadoSuscripcion = "pendiente";
-  restaurante.ultimoTransactionId = transactionId;
-  await restaurante.save();
-}
-    
-
-    res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true });
   } catch (error) {
-    console.log("Error webhook Wompi:", error);
-    res.status(500).json({ ok: false });
+    console.log("Error webhook Wompi:", error?.response?.data || error?.message || error);
+    return res.status(500).json({ ok: false });
   }
 });
 
