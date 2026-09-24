@@ -3070,7 +3070,7 @@ const nuevaEmpresa = await Empresa.create({
   }
 });
 
-router.post("/sede/crear", async (req, res) => {
+router.post("/sede/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
   try {
     const { restauranteId, nombreSede, direccion } = req.body;
 
@@ -3083,7 +3083,8 @@ router.post("/sede/crear", async (req, res) => {
 
     // Buscar el restaurante para obtener su empresa
     const restaurante = await Restaurante.findOne({
-      restaurantId: restauranteId
+      restaurantId: restauranteId,
+      empresaId: req.auth.empresaId
     });
 
     if (!restaurante) {
@@ -3119,14 +3120,14 @@ router.post("/sede/crear", async (req, res) => {
     });
   }
 });
-router.post("/usuarios/crear", async (req, res) => {
+router.post("/usuarios/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
   try {
     const {
       restauranteId,
       sedeId,
       nombre,
       usuario,
-      password,
+      password: await bcrypt.hash(password, 12),
       rol
     } = req.body;
 
@@ -3139,13 +3140,36 @@ router.post("/usuarios/crear", async (req, res) => {
 
     // Buscar restaurante para obtener empresaId
     const restaurante = await Restaurante.findOne({
-      restaurantId: restauranteId
+      restaurantId: restauranteId,
+      empresaId: req.auth.empresaId
     });
 
     if (!restaurante) {
       return res.status(404).json({
         ok: false,
         error: "Restaurante no encontrado"
+      });
+    }
+
+    if (
+      req.auth.rol === ROLES_GRUK.ADMIN_SEDE &&
+      String(req.auth.sedeId || "") !== String(sedeId || "")
+    ) {
+      return res.status(403).json({
+        ok: false,
+        error: "ADMIN_SEDE solo puede crear usuarios en su propia sede"
+      });
+    }
+
+    const rolesPermitidos =
+      req.auth.rol === ROLES_GRUK.DUENO
+        ? ["admin_sede", "mesero"]
+        : ["mesero"];
+
+    if (!rolesPermitidos.includes(rol)) {
+      return res.status(403).json({
+        ok: false,
+        error: "No puedes asignar ese rol"
       });
     }
 
