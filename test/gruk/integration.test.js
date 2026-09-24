@@ -21,7 +21,7 @@ test(
     const { ejecutarCicloEmpresa } = require("../../intelligence/orchestrator/cicloInteligencia");
     const { procesarOrden, obtenerAuditoria } = require("../../intelligence/brain/cerebro.service");
     const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
-    const { abrirSesion, agregarIntervencion, cerrarSesion } = require("../../intelligence/board/junta.service");
+    const { obtenerSesion, abrirSesion, agregarIntervencion, cerrarSesion } = require("../../intelligence/board/junta.service");
     const { evaluarPendientes } = require("../../intelligence/memory/memoria.service");
 
     await mongoose.connect(TEST_MONGO_URI, {
@@ -140,6 +140,12 @@ test(
         sedeId: null,
         rol: ROLES_GRUK.DUENO
       };
+
+      const juntaAntesDeAbrir = await obtenerSesion({
+        auth: authDueno,
+        decisionId: String(decisionGuardada._id)
+      });
+      assert.equal(juntaAntesDeAbrir, null);
 
       const junta = await abrirSesion({
         auth: authDueno,
