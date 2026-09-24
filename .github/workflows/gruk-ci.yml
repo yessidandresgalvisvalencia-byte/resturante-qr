@@ -37,6 +37,7 @@ jobs:
           node --check intelligence/models/CerebroReporteNeurona.js
           node --check intelligence/brain/cerebro.js
           node --check intelligence/brain/cerebro.service.js
+          node --check intelligence/brain/cerebro.controller.js
           node --check intelligence/orchestrator/cicloInteligencia.js
           node --check intelligence/neurons/finanzas.neuron.js
           node --check intelligence/neurons/ventas.neuron.js
