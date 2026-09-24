@@ -1926,19 +1926,32 @@ router.get(
   }
 });
 
-router.post("/admin/registro", async (req, res) => {
+router.post("/admin/registro", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
   try {
-    const { restaurantId, usuario, password } = req.body;
+    const restaurantId = String(req.body?.restaurantId || "").trim();
+    const usuario = String(req.body?.usuario || "").trim();
+    const password = String(req.body?.password || "");
 
-    if (!restaurantId || !usuario || !password) {
+    if (!restaurantId || !usuario || password.length < 8) {
       return res.status(400).json({
         ok: false,
-        error: "Faltan datos obligatorios"
+        error: "Datos de administrador inválidos"
+      });
+    }
+
+    const restauranteAutorizado = await Restaurante.findOne({
+      restaurantId,
+      empresaId: req.auth.empresaId
+    }).select("_id").lean();
+
+    if (!restauranteAutorizado) {
+      return res.status(403).json({
+        ok: false,
+        error: "Restaurante fuera de la empresa autorizada"
       });
     }
 
     const Admin = require("../models/admin");
-    
 
     const existeRestaurant = await Admin.findOne({ restaurantId });
     if (existeRestaurant) {
@@ -1959,7 +1972,7 @@ router.post("/admin/registro", async (req, res) => {
     const nuevoAdmin = new Admin({
       restaurantId,
       usuario,
-      password
+      password: await bcrypt.hash(password, 12)
     });
 
     await nuevoAdmin.save();
