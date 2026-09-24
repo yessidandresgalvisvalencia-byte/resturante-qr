@@ -1,0 +1,35 @@
+name: GRUK CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "gruk/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Syntax check GRUK
+        run: |
+          node --check app.js
+          node --check routes/cerebro.js
+          node --check routes/API.js
+          node --check intelligence/brain/cerebro.js
+          node --check intelligence/orchestrator/cicloInteligencia.js
+          node --check intelligence/neurons/finanzas.neuron.js
+          node --check intelligence/neurons/ventas.neuron.js
+          node --check intelligence/neurons/marketing.neuron.js
+          node --check intelligence/neurons/operaciones.neuron.js
+          node --check intelligence/neurons/gente.neuron.js
+      - run: npm test
