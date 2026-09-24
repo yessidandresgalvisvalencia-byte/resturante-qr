@@ -1,94 +1,98 @@
+"use strict";
+
 const cron = require("node-cron");
 const axios = require("axios");
 const Restaurante = require("../models/restaurante");
 
 function iniciarJobSuscripciones() {
-// todos los días a las 9:00 AM
-cron.schedule("0 9 * * *", async () => {
-try {
-console.log("Revisando suscripciones automáticas...");
+  cron.schedule("0 9 * * *", async () => {
+    try {
+      console.log("Revisando suscripciones automáticas...");
 
-const hoy = new Date();
+      const hoy = new Date();
+      const wompiPrivateKey = process.env.WOMPI_PRIVATE_KEY;
+      const wompiPublicKeyGlobal = process.env.WOMPI_PUBLIC_KEY;
 
-const restaurantes = await Restaurante.find({
-estadoSuscripcion: "activa",
-fechaProximoCobro: { $lte: hoy },
-paymentSourceId: { $ne: "" },
-tokenizacionCompleta: true
-});
+      if (!wompiPrivateKey) {
+        console.error("[SEGURIDAD] WOMPI_PRIVATE_KEY no configurada; se omite cobro automático");
+        return;
+      }
 
-console.log("Restaurantes para cobrar:", restaurantes.length);
+      const restaurantes = await Restaurante.find({
+        estadoSuscripcion: "activa",
+        fechaProximoCobro: { $lte: hoy },
+        paymentSourceId: { $ne: "" },
+        tokenizacionCompleta: true
+      });
 
-for (const restaurante of restaurantes) {
-try {
-const wompiPublicKey =
-restaurante.wompiPublicKey || process.env.WOMPI_PUBLIC_KEY;
+      console.log("Restaurantes para cobrar:", restaurantes.length);
 
-const WOMPI_PRIVATE_KEY =
-restaurante.WOMPI_PRIVATE_KEY || process.env.WOMPI_PRIVATE_KEY;
+      for (const restaurante of restaurantes) {
+        try {
+          const wompiPublicKey =
+            restaurante.wompiPublicKey || wompiPublicKeyGlobal;
 
-if (!wompiPublicKey || !WOMPI_PRIVATE_KEY) {
-console.log(
-"Faltan llaves Wompi para restaurante:",
-restaurante.restaurantId
-);
-continue;
-}
+          if (!wompiPublicKey) {
+            console.log("Falta llave pública Wompi para restaurante:", restaurante.restaurantId);
+            continue;
+          }
 
-const amountInCents = restaurante.precioMensual * 100;
-const currency = "COP";
-const reference = `renovacion_${restaurante.restaurantId}_${Date.now()}`;
+          const amountInCents = Number(restaurante.precioMensual || 0) * 100;
+          if (!Number.isFinite(amountInCents) || amountInCents <= 0) {
+            console.error("Precio mensual inválido:", restaurante.restaurantId);
+            continue;
+          }
 
-const merchantRes = await axios.get(
-`https://production.wompi.co/v1/merchants/${wompiPublicKey}`
-);
+          const currency = "COP";
+          const reference = `renovacion_${restaurante.restaurantId}_${Date.now()}`;
 
-const acceptanceToken =
-merchantRes?.data?.data?.presigned_acceptance?.acceptance_token;
+          const merchantRes = await axios.get(
+            `https://production.wompi.co/v1/merchants/${wompiPublicKey}`
+          );
 
-if (!acceptanceToken) {
-console.log(
-"No se pudo obtener acceptance token para:",
-restaurante.restaurantId
-);
-continue;
-}
+          const acceptanceToken =
+            merchantRes?.data?.data?.presigned_acceptance?.acceptance_token;
 
-const txRes = await axios.post(
-"https://production.wompi.co/v1/transactions",
-{
-acceptance_token: acceptanceToken,
-amount_in_cents: amountInCents,
-currency,
-customer_email: restaurante.customerEmailWompi,
-reference,
-payment_source_id: Number(restaurante.paymentSourceId)
-},
-{
-headers: {
-Authorization: `Bearer ${process.env.WOMPI_PRIVATE_KEY}`,
-"Content-Type": "application/json"
-}
-}
-);
+          if (!acceptanceToken) {
+            console.log("No se pudo obtener acceptance token para:", restaurante.restaurantId);
+            continue;
+          }
 
-console.log(
-"Cobro automático enviado para:",
-restaurante.restaurantId,
-txRes?.data?.data?.id || "sin id"
-);
-} catch (error) {
-console.log(
-"Error cobrando automáticamente a",
-restaurante.restaurantId,
-error?.response?.data || error
-);
-}
-}
-} catch (error) {
-console.log("Error general del job de suscripciones:", error);
-}
-});
+          const txRes = await axios.post(
+            "https://production.wompi.co/v1/transactions",
+            {
+              acceptance_token: acceptanceToken,
+              amount_in_cents: amountInCents,
+              currency,
+              customer_email: restaurante.customerEmailWompi,
+              reference,
+              payment_source_id: Number(restaurante.paymentSourceId)
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${wompiPrivateKey}`,
+                "Content-Type": "application/json"
+              }
+            }
+          );
+
+          console.log(
+            "Cobro automático enviado para:",
+            restaurante.restaurantId,
+            txRes?.data?.data?.id || "sin id"
+          );
+        } catch (error) {
+          console.log(
+            "Error cobrando automáticamente a",
+            restaurante.restaurantId,
+            error?.response?.data || error?.message || error
+          );
+        }
+      }
+    } catch (error) {
+      console.log("Error general del job de suscripciones:", error?.message || error);
+    }
+  });
 }
 
 module.exports = iniciarJobSuscripciones;

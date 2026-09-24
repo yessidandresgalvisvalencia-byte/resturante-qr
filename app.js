@@ -14,6 +14,8 @@ const gastosRoutes = require("./routes/gastos");
 const finanzasRoutes = require("./routes/finanzas");
 const productosServiciosRoutes = require("./routes/productosServicios");
 const comprasRoutes = require("./routes/compras");
+const cerebroRoutes = require("./routes/cerebro");
+const iniciarCerebroJob = require("./shared/jobs/cerebro.job");
 const app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -57,6 +59,7 @@ app.use("/api/gastos", gastosRoutes);
 app.use("/api/finanzas", finanzasRoutes);
 app.use("/api/productos-servicios", productosServiciosRoutes);
 app.use("/api/compras", comprasRoutes);
+app.use("/api/cerebro", cerebroRoutes);
 app.use("/api", apiRoutes);
 app.use(
 "/api/inventario",
@@ -84,18 +87,33 @@ mongoose.connection.once("open", () => {
     db: mongoose.connection.name
   });
 });
-mongoose.connect(
-  process.env.MONGO_URI,
-  process.env.MONGO_DB
-    ? { dbName: process.env.MONGO_DB }
-    : {}
-)
-  .then(() => {
+async function iniciarAplicacion() {
+  if (!process.env.MONGO_URI) {
+    console.error("MONGO_URI no configurado");
+    process.exit(1);
+  }
+
+  try {
+    await mongoose.connect(
+      process.env.MONGO_URI,
+      process.env.MONGO_DB
+        ? { dbName: process.env.MONGO_DB }
+        : {}
+    );
+
     console.log("MongoDB conectado");
-  })
-  .catch(err => {
-    console.log("Error MongoDB:", err);
-  });
+
+    iniciarJobSuscripciones();
+    iniciarCerebroJob();
+
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`Servidor corriendo en puerto ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Error MongoDB:", err.message);
+    process.exit(1);
+  }
+}
 
 io.on("connection", (socket) => {
   console.log("Cliente conectado");
@@ -110,8 +128,4 @@ io.on("connection", (socket) => {
   });
 });
 
-iniciarJobSuscripciones();
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-});
+iniciarAplicacion();

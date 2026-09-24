@@ -5,6 +5,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const Joi = require("joi");
 const authMiddleware = require("../core/auth/auth.middleware");
 const {
   ROLES_GRUK,
@@ -26,6 +27,21 @@ const {
   validarObjetivosEmpresa
 } = require("../core/empresa/validators/objetivosEmpresa.validator");
 
+
+const crearSedeSchema = Joi.object({
+  restauranteId: Joi.string().trim().min(1).max(120).required(),
+  nombreSede: Joi.string().trim().min(1).max(120).required(),
+  direccion: Joi.string().trim().max(300).allow("").default("")
+}).required();
+
+const crearUsuarioSchema = Joi.object({
+  restauranteId: Joi.string().trim().min(1).max(120).required(),
+  sedeId: Joi.string().hex().length(24).allow(null, ""),
+  nombre: Joi.string().trim().min(1).max(120).required(),
+  usuario: Joi.string().trim().min(3).max(120).required(),
+  password: Joi.string().min(8).max(200).required(),
+  rol: Joi.string().valid("admin_sede", "mesero").required()
+}).required();
 
 /* =========================
    CONFIG BÃƒÂSICA
@@ -1910,19 +1926,32 @@ router.get(
   }
 });
 
-router.post("/admin/registro", async (req, res) => {
+router.post("/admin/registro", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
   try {
-    const { restaurantId, usuario, password } = req.body;
+    const restaurantId = String(req.body?.restaurantId || "").trim();
+    const usuario = String(req.body?.usuario || "").trim();
+    const password = String(req.body?.password || "");
 
-    if (!restaurantId || !usuario || !password) {
+    if (!restaurantId || !usuario || password.length < 8) {
       return res.status(400).json({
         ok: false,
-        error: "Faltan datos obligatorios"
+        error: "Datos de administrador inválidos"
+      });
+    }
+
+    const restauranteAutorizado = await Restaurante.findOne({
+      restaurantId,
+      empresaId: req.auth.empresaId
+    }).select("_id").lean();
+
+    if (!restauranteAutorizado) {
+      return res.status(403).json({
+        ok: false,
+        error: "Restaurante fuera de la empresa autorizada"
       });
     }
 
     const Admin = require("../models/admin");
-    
 
     const existeRestaurant = await Admin.findOne({ restaurantId });
     if (existeRestaurant) {
@@ -1943,7 +1972,7 @@ router.post("/admin/registro", async (req, res) => {
     const nuevoAdmin = new Admin({
       restaurantId,
       usuario,
-      password
+      password: await bcrypt.hash(password, 12)
     });
 
     await nuevoAdmin.save();
@@ -2758,7 +2787,7 @@ router.post("/crear-pago-suscripcion", async (req, res) => {
       });
     }
 
-    const amountInCents = 220000 * 100;
+    const amountInCents = Number(restaurante.precioMensual || 220000) * 100;
     const currency = "COP";
     const reference = `suscripcion_${restaurantId}_${Date.now()}`;
 
@@ -2836,41 +2865,64 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
 // Webhook de Wompi
 router.post("/wompi/webhook", async (req, res) => {
   try {
-    const evento = req.body;
-    const transaction = evento?.data?.transaction;
+    const transactionId = req.body?.data?.transaction?.id;
+
+    if (!transactionId) {
+      return res.status(200).json({ ok: true });
+    }
+
+    // Nunca confiar en estado, monto o referencia enviados por el webhook.
+    // Se consulta la transaccion canonica directamente en Wompi.
+    const wompiRes = await axios.get(
+      `https://production.wompi.co/v1/transactions/${encodeURIComponent(String(transactionId))}`
+    );
+    const transaction = wompiRes.data?.data;
 
     if (!transaction) {
       return res.status(200).json({ ok: true });
     }
 
-    const reference = transaction.reference || "";
-    const status = transaction.status;
-    const transactionId = transaction.id;
+    const reference = String(transaction.reference || "");
+    const prefijo = reference.startsWith("suscripcion_")
+      ? "suscripcion_"
+      : reference.startsWith("renovacion_")
+        ? "renovacion_"
+        : null;
 
-    if (
-  !reference.startsWith("suscripcion_") &&
-  !reference.startsWith("renovacion_")
-) {
-  return res.status(200).json({ ok: true });
-}
+    if (!prefijo) {
+      return res.status(200).json({ ok: true });
+    }
 
-   const partes = reference.split("_");
-let restaurantId = "";
+    const referenciaSinPrefijo = reference.slice(prefijo.length);
+    const ultimoSeparador = referenciaSinPrefijo.lastIndexOf("_");
 
-if (reference.startsWith("suscripcion_")) {
-  restaurantId = partes[1] + "_" + partes[2];
-}
+    if (ultimoSeparador <= 0) {
+      return res.status(200).json({ ok: true });
+    }
 
-if (reference.startsWith("renovacion_")) {
-  restaurantId = partes[1] + "_" + partes[2];
-}
+    const restaurantId = referenciaSinPrefijo.slice(0, ultimoSeparador);
     const restaurante = await Restaurante.findOne({ restaurantId });
 
     if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
+      return res.status(200).json({ ok: true });
+    }
+
+    const montoEsperado = Number(restaurante.precioMensual || 220000) * 100;
+    const montoValido = Number(transaction.amount_in_cents) === montoEsperado;
+    const monedaValida = String(transaction.currency || "").toUpperCase() === "COP";
+
+    if (!montoValido || !monedaValida) {
+      console.error("[SEGURIDAD] Webhook Wompi no coincide con la suscripcion", {
+        restaurantId,
+        transactionId: String(transactionId)
       });
+      return res.status(200).json({ ok: true });
+    }
+
+    const status = String(transaction.status || "").toUpperCase();
+
+    if (restaurante.ultimoTransactionId === String(transactionId)) {
+      return res.status(200).json({ ok: true });
     }
 
     if (status === "APPROVED") {
@@ -2881,22 +2933,18 @@ if (reference.startsWith("renovacion_")) {
       restaurante.estadoSuscripcion = "activa";
       restaurante.fechaUltimoPago = hoy;
       restaurante.fechaProximoCobro = proximo;
-      restaurante.ultimoTransactionId = transactionId;
-
+      restaurante.ultimoTransactionId = String(transactionId);
+      await restaurante.save();
+    } else if (["DECLINED", "ERROR", "VOIDED"].includes(status)) {
+      restaurante.estadoSuscripcion = "pendiente";
+      restaurante.ultimoTransactionId = String(transactionId);
       await restaurante.save();
     }
 
-    if (status === "DECLINED" || status === "ERROR" || status === "VOIDED") {
-  restaurante.estadoSuscripcion = "pendiente";
-  restaurante.ultimoTransactionId = transactionId;
-  await restaurante.save();
-}
-    
-
-    res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true });
   } catch (error) {
-    console.log("Error webhook Wompi:", error);
-    res.status(500).json({ ok: false });
+    console.log("Error webhook Wompi:", error?.response?.data || error?.message || error);
+    return res.status(500).json({ ok: false });
   }
 });
 
@@ -3008,7 +3056,7 @@ const nuevaEmpresa = await Empresa.create({
     finanzas: true,
     facturacion: true,
     laboral: true,
-    inteligencia: false
+    inteligencia: true
   }
 });
 
@@ -3070,20 +3118,18 @@ const nuevaEmpresa = await Empresa.create({
   }
 });
 
-router.post("/sede/crear", async (req, res) => {
+router.post("/sede/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
   try {
-    const { restauranteId, nombreSede, direccion } = req.body;
-
-    if (!restauranteId || !nombreSede) {
-      return res.status(400).json({
-        ok: false,
-        error: "Faltan datos obligatorios"
-      });
+    const validacion = crearSedeSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (validacion.error) {
+      return res.status(400).json({ ok: false, error: "Datos de sede inválidos" });
     }
+    const { restauranteId, nombreSede, direccion } = validacion.value;
 
     // Buscar el restaurante para obtener su empresa
     const restaurante = await Restaurante.findOne({
-      restaurantId: restauranteId
+      restaurantId: restauranteId,
+      empresaId: req.auth.empresaId
     });
 
     if (!restaurante) {
@@ -3119,33 +3165,68 @@ router.post("/sede/crear", async (req, res) => {
     });
   }
 });
-router.post("/usuarios/crear", async (req, res) => {
+router.post("/usuarios/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
   try {
-    const {
-      restauranteId,
-      sedeId,
-      nombre,
-      usuario,
-      password,
-      rol
-    } = req.body;
-
-    if (!restauranteId || !nombre || !usuario || !password || !rol) {
-      return res.status(400).json({
-        ok: false,
-        error: "Faltan datos obligatorios"
-      });
+    const validacion = crearUsuarioSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (validacion.error) {
+      return res.status(400).json({ ok: false, error: "Datos de usuario inválidos" });
     }
+    const { restauranteId, sedeId, nombre, usuario, password, rol } = validacion.value;
 
     // Buscar restaurante para obtener empresaId
     const restaurante = await Restaurante.findOne({
-      restaurantId: restauranteId
+      restaurantId: restauranteId,
+      empresaId: req.auth.empresaId
     });
 
     if (!restaurante) {
       return res.status(404).json({
         ok: false,
         error: "Restaurante no encontrado"
+      });
+    }
+
+    if (sedeId) {
+      if (!mongoose.Types.ObjectId.isValid(sedeId)) {
+        return res.status(400).json({
+          ok: false,
+          error: "sedeId inválido"
+        });
+      }
+
+      const sedeAutorizada = await Sede.findOne({
+        _id: sedeId,
+        empresaId: req.auth.empresaId,
+        restauranteId
+      }).select("_id").lean();
+
+      if (!sedeAutorizada) {
+        return res.status(403).json({
+          ok: false,
+          error: "La sede no pertenece a este restaurante y empresa"
+        });
+      }
+    }
+
+    if (
+      req.auth.rol === ROLES_GRUK.ADMIN_SEDE &&
+      String(req.auth.sedeId || "") !== String(sedeId || "")
+    ) {
+      return res.status(403).json({
+        ok: false,
+        error: "ADMIN_SEDE solo puede crear usuarios en su propia sede"
+      });
+    }
+
+    const rolesPermitidos =
+      req.auth.rol === ROLES_GRUK.DUENO
+        ? ["admin_sede", "mesero"]
+        : ["mesero"];
+
+    if (!rolesPermitidos.includes(rol)) {
+      return res.status(403).json({
+        ok: false,
+        error: "No puedes asignar ese rol"
       });
     }
 
@@ -3158,13 +3239,15 @@ router.post("/usuarios/crear", async (req, res) => {
       });
     }
 
+    const passwordHash = await bcrypt.hash(String(password), 12);
+
     const nuevoUsuario = new Usuario({
       empresaId: restaurante.empresaId || null,
       restauranteId,
       sedeId: sedeId || null,
       nombre,
       usuario,
-      password,
+      password: passwordHash,
       rol
     });
 
@@ -3186,46 +3269,108 @@ router.post("/usuarios/crear", async (req, res) => {
 });
 router.post("/usuarios/login", async (req, res) => {
   try {
-    const { usuario, password } = req.body;
+    const usuario = String(req.body?.usuario || "").trim();
+    const password = String(req.body?.password || "");
 
-   
+    if (!usuario || !password) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan usuario o contraseña"
+      });
+    }
 
     const user = await Usuario.findOne({
       usuario,
-      password,
       estado: "activo"
     }).populate("sedeId");
 
     if (!user) {
       return res.status(401).json({
         ok: false,
-        error: "Usuario o contraseÃƒÂ±a incorrectos"
+        error: "Usuario o contraseña incorrectos"
       });
     }
 
-    res.json({
+    const passwordGuardado = String(user.password || "");
+    let autenticado = false;
+
+    if (passwordGuardado.startsWith("$2")) {
+      autenticado = await bcrypt.compare(password, passwordGuardado);
+    } else {
+      autenticado = password === passwordGuardado;
+
+      if (autenticado) {
+        user.password = await bcrypt.hash(password, 12);
+        await user.save();
+      }
+    }
+
+    if (!autenticado) {
+      return res.status(401).json({
+        ok: false,
+        error: "Usuario o contraseña incorrectos"
+      });
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret || !user.empresaId) {
+      return res.status(500).json({
+        ok: false,
+        error: "Configuración de seguridad inválida"
+      });
+    }
+
+    const rolJwt =
+      user.rol === "admin_general"
+        ? ROLES_GRUK.DUENO
+        : user.rol === "admin_sede"
+          ? ROLES_GRUK.ADMIN_SEDE
+          : ROLES_GRUK.EMPLEADO;
+
+    const token = jwt.sign(
+      {
+        empresaId: String(user.empresaId),
+        restaurantId: String(user.restauranteId || ""),
+        sedeId: user.sedeId ? String(user.sedeId._id) : null,
+        rol: rolJwt
+      },
+      jwtSecret,
+      {
+        algorithm: "HS256",
+        subject: String(user._id),
+        expiresIn: "8h"
+      }
+    );
+
+    return res.json({
       ok: true,
+      token,
       usuario: {
         id: user._id,
         nombre: user.nombre,
         usuario: user.usuario,
         rol: user.rol,
+        rolGruk: rolJwt,
         restauranteId: user.restauranteId,
         sedeId: user.sedeId ? user.sedeId._id : null,
         nombreSede: user.sedeId ? user.sedeId.nombreSede : null
       }
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({
+    console.error("Error en login de usuario:", error);
+    return res.status(500).json({
       ok: false,
       error: "Error en login"
     });
   }
 });
-router.get("/debug/limpiar-registro", async (req, res) => {
+router.delete("/debug/limpiar-registro", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
+  if (process.env.NODE_ENV === "production") {
+    return res.status(404).json({ ok: false, error: "Ruta no disponible" });
+  }
+
   try {
-    const usuario = (req.query.usuario || "").trim();
+    const usuario = String(req.query.usuario || "").trim();
 
    
     
@@ -3239,6 +3384,7 @@ router.get("/debug/limpiar-registro", async (req, res) => {
     }
 
     const usuarios = await Usuario.find({
+      empresaId: req.auth.empresaId,
       $or: [{ usuario }, { nombre: usuario }]
     });
 
@@ -3247,12 +3393,19 @@ router.get("/debug/limpiar-registro", async (req, res) => {
       .filter(Boolean);
 
     await Usuario.deleteMany({
+      empresaId: req.auth.empresaId,
       $or: [{ usuario }, { nombre: usuario }]
     });
 
     if (restauranteIds.length) {
-      await Sede.deleteMany({ restauranteId: { $in: restauranteIds } });
-      await Restaurante.deleteMany({ restaurantId: { $in: restauranteIds } });
+      await Sede.deleteMany({
+        empresaId: req.auth.empresaId,
+        restauranteId: { $in: restauranteIds }
+      });
+      await Restaurante.deleteMany({
+        empresaId: req.auth.empresaId,
+        restaurantId: { $in: restauranteIds }
+      });
     }
 
     res.json({
@@ -3275,7 +3428,7 @@ router.get("/wompi/webhook", (req, res) => {
   });
 });
 
-router.post("/suscripciones/cobrar", async (req, res) => {
+router.post("/suscripciones/cobrar", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
   try {
     const { restaurantId } = req.body;
 
@@ -3286,7 +3439,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
       });
     }
 
-    const restaurante = await Restaurante.findOne({ restaurantId });
+    const restaurante = await Restaurante.findOne({ restaurantId, empresaId: req.auth.empresaId });
 
     if (!restaurante) {
       return res.status(404).json({
@@ -3313,8 +3466,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     const wompiPublicKey =
       restaurante.wompiPublicKey || process.env.WOMPI_PUBLIC_KEY;
 
-    const WOMPI_PRIVATE_KEY =
-      restaurante.WOMPI_PRIVATE_KEY || process.env.WOMPI_PRIVATE_KEY;
+    const WOMPI_PRIVATE_KEY = process.env.WOMPI_PRIVATE_KEY;
 
     if (!wompiPublicKey || !WOMPI_PRIVATE_KEY) {
       return res.status(500).json({
@@ -3406,8 +3558,6 @@ const wompiRes = await axios.get(
 );
 
 const transaction = wompiRes.data.data;
-console.log("Respuesta Wompi:", transaction);
-
 if (!transaction) {
 return res.status(404).json({
 ok: false,
@@ -3428,6 +3578,19 @@ if (!restaurante) {
 return res.status(404).json({
 ok: false,
 error: "Restaurante no encontrado"
+});
+}
+
+const referenciaEsperada = `suscripcion_${restaurantId}_`;
+const montoEsperado = Number(restaurante.precioMensual || 220000) * 100;
+const referenciaValida = String(transaction.reference || "").startsWith(referenciaEsperada);
+const montoValido = Number(transaction.amount_in_cents) === montoEsperado;
+const monedaValida = String(transaction.currency || "").toUpperCase() === "COP";
+
+if (!referenciaValida || !montoValido || !monedaValida) {
+return res.status(400).json({
+ok: false,
+error: "La transacción no corresponde a esta suscripción"
 });
 }
 

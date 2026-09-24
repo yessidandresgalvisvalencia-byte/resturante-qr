@@ -1,64 +1,53 @@
-﻿"use strict";
+"use strict";
 
 const eventBus = require("../../core/eventos/eventBus");
 const finanzasNeuron = require("../neurons/finanzas.neuron");
+const { ejecutarCicloEmpresa } = require("../orchestrator/cicloInteligencia");
 
 let registrado = false;
 const empresasEnAnalisis = new Set();
 
 function registrarFinanzasListener() {
-  if (registrado) {
-    return;
-  }
+  if (registrado) return;
 
   for (const eventName of finanzasNeuron.getRequiredEvents()) {
     eventBus.on(eventName, (event) => {
       const empresaId = event?.payload?.empresaId;
 
       if (!empresaId) {
-        console.error(
-          `[GRUK INTELLIGENCE] ${eventName} sin empresaId`
-        );
+        console.error("[GRUK INTELLIGENCE] evento financiero sin empresaId", {
+          eventName
+        });
         return;
       }
 
       const empresaKey = String(empresaId);
-
-      if (empresasEnAnalisis.has(empresaKey)) {
-        return;
-      }
+      if (empresasEnAnalisis.has(empresaKey)) return;
 
       empresasEnAnalisis.add(empresaKey);
 
-      // EventEmitter ejecuta listeners sincrónicamente.
-      // Inteligencia queda fuera de la ruta crítica de la venta.
       setImmediate(() => {
         Promise.resolve()
-          .then(() => finanzasNeuron.analyze(empresaId))
-          .then((reporte) => {
-            console.log(
-              "[GRUK INTELLIGENCE] FINANZAS reporte generado",
-              {
-                empresaId: empresaKey,
-                reporteId: reporte?._id
-                  ? String(reporte._id)
-                  : null,
-                estado:
-                  reporte?.kpi_principal?.estado || null
-              }
+          .then(() => ejecutarCicloEmpresa(empresaId))
+          .then((resultado) => {
+            const reporte = resultado?.reportes?.find(
+              (item) => item?.neurona === "FINANZAS"
             );
+
+            console.log("[GRUK INTELLIGENCE] ciclo generado por evento financiero", {
+              empresaId: empresaKey,
+              reporteId: reporte?._id ? String(reporte._id) : null,
+              estado: reporte?.kpi_principal?.estado || null,
+              decisionId: resultado?.decision?._id
+                ? String(resultado.decision._id)
+                : null
+            });
           })
           .catch((error) => {
-            console.error(
-              "[GRUK INTELLIGENCE] FINANZAS fallo aislado",
-              {
-                empresaId: empresaKey,
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : String(error)
-              }
-            );
+            console.error("[GRUK INTELLIGENCE] ciclo financiero fallo aislado", {
+              empresaId: empresaKey,
+              error: error instanceof Error ? error.message : String(error)
+            });
           })
           .finally(() => {
             empresasEnAnalisis.delete(empresaKey);

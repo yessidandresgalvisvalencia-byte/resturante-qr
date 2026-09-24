@@ -48,11 +48,8 @@ paymentSourceId: { type: String, default: "" },
 customerEmailWompi: { type: String, default: "" },
 tokenizacionCompleta: { type: Boolean, default: false },
 
-// 🔥 NUEVO (IMPORTANTE)
+// Configuración pública de Wompi. La llave privada vive exclusivamente en variables de entorno.
 wompiPublicKey: { type: String, default: "" },
-WOMPI_PRIVATE_KEY: { type: String, default: "" },
-paymentSourceId: {type: String, default: "" },
-customerEmailWompi: {type: String, default: "" },
 logoUrl: {
   type: String,
   default: ""

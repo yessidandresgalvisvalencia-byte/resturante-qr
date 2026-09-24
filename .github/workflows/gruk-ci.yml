@@ -1,0 +1,68 @@
+name: GRUK CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "gruk/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name gruk-mongo -p 27017:27017 mongo:8 --replSet rs0 --bind_ip_all
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MongoDB replica set no alcanzo PRIMARY"
+          exit 1
+      - name: Syntax check GRUK
+        run: |
+          node --check app.js
+          node --check routes/cerebro.js
+          node --check routes/API.js
+          node --check public/admin.js
+          node --check public/js/gruk-api.js
+          node --check public/js/centro-control.js
+          node --check shared/jobs/cerebro.job.js
+          node --check jobs/suscripciones.js
+          node --check models/restaurante.js
+          node --check intelligence/listeners/finanzas.listener.js
+          node --check intelligence/models/CerebroAuditoria.js
+          node --check intelligence/models/CerebroDecision.js
+          node --check intelligence/models/CerebroReporteNeurona.js
+          node --check intelligence/brain/cerebro.js
+          node --check intelligence/brain/cerebro.service.js
+          node --check intelligence/brain/cerebro.controller.js
+          node --check intelligence/orchestrator/cicloInteligencia.js
+          node --check intelligence/neurons/finanzas.neuron.js
+          node --check intelligence/neurons/ventas.neuron.js
+          node --check intelligence/neurons/marketing.neuron.js
+          node --check intelligence/neurons/operaciones.neuron.js
+          node --check intelligence/neurons/gente.neuron.js
+      - name: Run npm test
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+        run: npm test

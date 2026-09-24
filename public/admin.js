@@ -43,11 +43,7 @@ function vibrar() {
 const socket = io();
 
 function getRestaurantId() {
-  const params = new URLSearchParams(window.location.search);
-
-  const restaurantId =
-    params.get("restaurantId") ||
-    localStorage.getItem("adminRestaurantId");
+  const restaurantId = localStorage.getItem("adminRestaurantId");
 
   if (!restaurantId) {
     throw new Error("GRUK: no existe restaurantId para la sesión actual");
@@ -162,7 +158,7 @@ async function cargarModuloGRUK(nombreModulo) {
   try {
     cargarCSSModuloGRUK(nombreModulo);
 
-    const res = await fetch(`/modulos/${nombreModulo}.html`);
+    const res = await grukFetch(`/modulos/${nombreModulo}.html`);
     const html = await res.text();
     
 
@@ -270,13 +266,19 @@ socket.on("llamado:actualizado", (llamado) => {
 
 document.addEventListener("DOMContentLoaded", async () => {
   const adminRestaurantId =
-    localStorage.getItem("adminRestaurantId") ||
+    localStorage.getItem("adminRestaurantId");
+
+  const restaurantIdUrl =
     new URLSearchParams(window.location.search).get("restaurantId");
 
   const grukAuthToken =
     localStorage.getItem("grukAuthToken");
 
-  if (!adminRestaurantId || !grukAuthToken) {
+  if (
+    !adminRestaurantId ||
+    !grukAuthToken ||
+    (restaurantIdUrl && restaurantIdUrl !== adminRestaurantId)
+  ) {
     window.location.href = "/login.html";
     return;
   }

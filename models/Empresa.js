@@ -127,6 +127,16 @@ const empresaSchema = new mongoose.Schema(
 
       inteligencia: {
         type: Boolean,
+        default: true
+      },
+
+      gente: {
+        type: Boolean,
+        default: false
+      },
+
+      servicio_cliente: {
+        type: Boolean,
         default: false
       }
     }
