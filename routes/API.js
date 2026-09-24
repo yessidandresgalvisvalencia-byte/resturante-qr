@@ -3056,7 +3056,7 @@ const nuevaEmpresa = await Empresa.create({
     finanzas: true,
     facturacion: true,
     laboral: true,
-    inteligencia: false
+    inteligencia: true
   }
 });
 
