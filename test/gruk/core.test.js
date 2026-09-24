@@ -49,3 +49,31 @@ test("Cerebro desempata por confianza y luego menor riesgo de caja", () => {
   };
   assert.ok(compararCandidatos(ventasMayorConfianza, finanzas) < 0);
 });
+
+
+test("filtroTenant nunca permite a ADMIN_SEDE consultar otra sede", () => {
+  const { filtroTenant } = require("../../intelligence/brain/cerebro.service");
+  const auth = {
+    empresaId: "64b000000000000000000001",
+    sedeId: "64b000000000000000000002",
+    rol: ROLES_GRUK.ADMIN_SEDE
+  };
+  const filtro = filtroTenant(auth, {
+    _id: "64b000000000000000000003",
+    sedeId: "64b000000000000000000099"
+  });
+  assert.equal(String(filtro.empresaId), auth.empresaId);
+  assert.equal(String(filtro.sedeId), auth.sedeId);
+});
+
+test("filtroTenant rechaza ADMIN_SEDE sin sede autorizada", () => {
+  const { filtroTenant } = require("../../intelligence/brain/cerebro.service");
+  assert.throws(
+    () => filtroTenant({
+      empresaId: "64b000000000000000000001",
+      sedeId: null,
+      rol: ROLES_GRUK.ADMIN_SEDE
+    }),
+    (error) => error.statusCode === 403
+  );
+});
