@@ -40,7 +40,8 @@ function validarEmpresaId(empresaId) {
 async function obtenerResumenVentas({
   empresaId,
   desde,
-  hasta
+  hasta,
+  session = null
 }) {
   const empresaObjectId =
     validarEmpresaId(empresaId);
@@ -72,7 +73,7 @@ async function obtenerResumenVentas({
     }
   };
 
-  const [totales] = await Venta.aggregate([
+  const agregadoVentas = Venta.aggregate([
     {
       $match: filtroBase
     },
@@ -135,6 +136,12 @@ async function obtenerResumenVentas({
       }
     }
   ]);
+
+  if (session) {
+    agregadoVentas.session(session);
+  }
+
+  const [totales] = await agregadoVentas;
 
   const resumen = totales || {
     ventasTotales: 0,
