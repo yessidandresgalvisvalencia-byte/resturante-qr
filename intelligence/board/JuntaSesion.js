@@ -32,15 +32,13 @@ const intervencionSchema = new mongoose.Schema({
   },
   impacto_financiero_estimado: {
     type: Number,
-    required: true,
-    default: 0
+    default: null
   },
   confianza: {
     type: Number,
     min: 0,
     max: 100,
-    required: true,
-    default: 100
+    default: null
   },
   createdAt: {
     type: Date,
