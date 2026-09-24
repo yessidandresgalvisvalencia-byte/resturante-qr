@@ -31,6 +31,8 @@ async function tomarDecision(empresaId){
  if(!mongoose.Types.ObjectId.isValid(empresaId))throw new Error("CEREBRO_EMPRESA_ID_INVALIDO");
  const reportes=await ultimosReportes(empresaId);
  if(reportes.length!==5)throw new Error("CEREBRO_REQUIERE_CINCO_REPORTES");
+ const periodos=new Set(reportes.map(r=>String(r.periodo)));
+ if(periodos.size!==1)throw new Error("CEREBRO_REPORTES_DE_PERIODOS_DISTINTOS");
  const candidatos=[];
  for(const r of reportes)for(const h of r.hallazgos||[]){const regla=MAPA[h.tipo];if(regla)candidatos.push({reporte:r,hallazgo:h,regla});}
  candidatos.sort(compararCandidatos);
