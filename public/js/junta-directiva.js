@@ -10,9 +10,30 @@ function escaparJuntaGRUK(valor) {
 }
 
 function formatoNumeroJuntaGRUK(valor) {
-  if (valor === null || valor === undefined || valor === "") return "No estimado";
+  if (valor === null || valor === undefined || valor === "") {
+    return "No estimado";
+  }
+
   const numero = Number(valor);
-  return Number.isFinite(numero) ? numero.toLocaleString("es-CO") : "No estimado";
+  return Number.isFinite(numero)
+    ? numero.toLocaleString("es-CO")
+    : "No estimado";
+}
+
+function configurarProcesandoJuntaGRUK(procesando) {
+  const indicador = document.getElementById("juntaProcesandoGRUK");
+  const boton = document.getElementById("juntaEnviarGRUK");
+
+  if (indicador) indicador.hidden = !procesando;
+  if (boton) {
+    boton.disabled =
+      procesando ||
+      !juntaSesionActualGRUK?._id ||
+      juntaSesionActualGRUK?.estado === "CERRADA";
+    boton.textContent = procesando
+      ? "Expertos analizando..."
+      : "Preguntar a los expertos";
+  }
 }
 
 function configurarControlesJuntaGRUK({ existe, cerrada }) {
@@ -44,11 +65,41 @@ function renderizarJuntaSinSesionGRUK(decision) {
     estado.innerHTML = `
       <h2>Discusión aún no abierta</h2>
       <p><strong>Decisión:</strong> ${escaparJuntaGRUK(decision._id)}</p>
-      <p>Abre la Junta cuando quieras iniciar formalmente la discusión.</p>
+      <p>Abre la Junta para que los expertos puedan responder sobre esta decisión.</p>
     `;
   }
 
   if (lista) lista.innerHTML = "";
+}
+
+function nombreActorJuntaGRUK(item) {
+  if (item.tipo === "NEURONA") {
+    return `DATO · NEURONA ${escaparJuntaGRUK(item.departamento)}`;
+  }
+
+  if (item.tipo === "EXPERTO_IA") {
+    return `EXPERTO · ${escaparJuntaGRUK(item.departamento)}`;
+  }
+
+  return `PREGUNTA HUMANA · ${escaparJuntaGRUK(item.departamento)}`;
+}
+
+function conectarReintentosJuntaGRUK() {
+  document
+    .querySelectorAll("button[data-junta-reintentar]")
+    .forEach((boton) => {
+      boton.addEventListener("click", () => {
+        reintentarRespuestaJuntaGRUK(
+          boton.dataset.juntaReintentar
+        ).catch((error) => {
+          console.error("Junta reintento:", error);
+          alert(
+            error.message ||
+            "Los expertos no pudieron responder todavía."
+          );
+        });
+      });
+    });
 }
 
 function renderizarJuntaGRUK(sesion) {
@@ -67,7 +118,11 @@ function renderizarJuntaGRUK(sesion) {
     estado.innerHTML = `
       <h2>Sesión ${escaparJuntaGRUK(sesion.estado)}</h2>
       <p><strong>Decisión:</strong> ${escaparJuntaGRUK(sesion.decisionId)}</p>
-      <p><strong>Intervenciones:</strong> ${Array.isArray(sesion.intervenciones) ? sesion.intervenciones.length : 0}</p>
+      <p><strong>Intervenciones:</strong> ${
+        Array.isArray(sesion.intervenciones)
+          ? sesion.intervenciones.length
+          : 0
+      }</p>
     `;
   }
 
@@ -77,27 +132,65 @@ function renderizarJuntaGRUK(sesion) {
     ? sesion.intervenciones
     : [];
 
-  lista.innerHTML = intervenciones.map((item) => {
-    const actor = item.tipo === "NEURONA"
-      ? `NEURONA ${escaparJuntaGRUK(item.departamento)}`
-      : `HUMANO · ${escaparJuntaGRUK(item.departamento)}`;
+  const respuestasPorPregunta = new Map();
+  for (const item of intervenciones) {
+    if (
+      item.tipo === "EXPERTO_IA" &&
+      item.respuestaAId
+    ) {
+      const clave = String(item.respuestaAId);
+      respuestasPorPregunta.set(
+        clave,
+        (respuestasPorPregunta.get(clave) || 0) + 1
+      );
+    }
+  }
 
+  lista.innerHTML = intervenciones.map((item) => {
     const evidencia = item.evidencia
-      ? `<p><strong>Evidencia:</strong> ${escaparJuntaGRUK(item.evidencia)}</p>`
+      ? `<p><strong>Evidencia utilizada:</strong> ${escaparJuntaGRUK(item.evidencia)}</p>`
       : "";
 
-    const confianza = item.confianza === null || item.confianza === undefined
-      ? "No aplica"
-      : `${Number(item.confianza)}%`;
+    const esDatoNeurona = item.tipo === "NEURONA";
+    const esExperto = item.tipo === "EXPERTO_IA";
+
+    const metricas = esDatoNeurona
+      ? `
+        <p><strong>Impacto financiero estimado:</strong> ${formatoNumeroJuntaGRUK(item.impacto_financiero_estimado)}</p>
+        <p><strong>Confianza del dato:</strong> ${
+          item.confianza === null || item.confianza === undefined
+            ? "No aplica"
+            : escaparJuntaGRUK(`${Number(item.confianza)}%`)
+        }</p>
+      `
+      : "";
+
+    const notaExperto = esExperto
+      ? "<p><small>Criterio profesional generado sobre datos GRUK. No es una orden del Cerebro.</small></p>"
+      : "";
+
+    const tieneRespuesta = item.tipo === "HUMANO"
+      ? (respuestasPorPregunta.get(String(item._id)) || 0) >= 6
+      : true;
+
+    const reintento =
+      item.tipo === "HUMANO" &&
+      !tieneRespuesta &&
+      !cerrada
+        ? `<button type="button" data-junta-reintentar="${escaparJuntaGRUK(item._id)}">Pedir respuesta a los expertos</button>`
+        : "";
 
     return `<div class="card">
-      <h3>${actor}</h3>
+      <h3>${nombreActorJuntaGRUK(item)}</h3>
       <p>${escaparJuntaGRUK(item.mensaje)}</p>
       ${evidencia}
-      <p><strong>Impacto financiero estimado:</strong> ${formatoNumeroJuntaGRUK(item.impacto_financiero_estimado)}</p>
-      <p><strong>Confianza:</strong> ${escaparJuntaGRUK(confianza)}</p>
+      ${metricas}
+      ${notaExperto}
+      ${reintento}
     </div>`;
   }).join("");
+
+  conectarReintentosJuntaGRUK();
 }
 
 async function cargarJuntaUltimaDecisionGRUK() {
@@ -105,46 +198,65 @@ async function cargarJuntaUltimaDecisionGRUK() {
   const dataDecision = await resDecision.json();
 
   if (!resDecision.ok || !dataDecision.ok) {
-    throw new Error(dataDecision.error || "No fue posible consultar la última decisión.");
+    throw new Error(
+      dataDecision.error ||
+      "No fue posible consultar la última decisión."
+    );
   }
 
   if (!dataDecision.decision?._id) {
-    throw new Error("El Cerebro todavía no tiene una decisión para discutir.");
+    throw new Error(
+      "El Cerebro todavía no tiene una decisión para discutir."
+    );
   }
 
   juntaDecisionActualGRUK = dataDecision.decision;
 
   const res = await grukFetch(
-    `/api/junta/decisiones/${encodeURIComponent(juntaDecisionActualGRUK._id)}`
+    `/api/junta/decisiones/${encodeURIComponent(
+      juntaDecisionActualGRUK._id
+    )}`
   );
   const data = await res.json();
 
   if (!res.ok || !data.ok) {
-    throw new Error(data.error || "No fue posible consultar la Junta.");
+    throw new Error(
+      data.error ||
+      "No fue posible consultar la Junta."
+    );
   }
 
   if (data.sesion) {
     renderizarJuntaGRUK(data.sesion);
   } else {
-    renderizarJuntaSinSesionGRUK(juntaDecisionActualGRUK);
+    renderizarJuntaSinSesionGRUK(
+      juntaDecisionActualGRUK
+    );
   }
 }
 
 async function abrirJuntaDirectivaGRUK() {
   if (!juntaDecisionActualGRUK?._id) {
-    throw new Error("No existe una decisión del Cerebro para discutir.");
+    throw new Error(
+      "No existe una decisión del Cerebro para discutir."
+    );
   }
 
   if (juntaSesionActualGRUK?._id) return;
 
   const res = await grukFetch(
-    `/api/junta/decisiones/${encodeURIComponent(juntaDecisionActualGRUK._id)}/abrir`,
+    `/api/junta/decisiones/${encodeURIComponent(
+      juntaDecisionActualGRUK._id
+    )}/abrir`,
     { method: "POST" }
   );
   const data = await res.json();
 
   if (!res.ok || !data.ok) {
-    throw new Error(data.error || "No fue posible abrir la Junta.");
+    throw new Error(
+      data.error ||
+      "No fue posible abrir la Junta."
+    );
   }
 
   renderizarJuntaGRUK(data.sesion);
@@ -152,109 +264,185 @@ async function abrirJuntaDirectivaGRUK() {
 
 async function cerrarJuntaDirectivaGRUK() {
   if (!juntaSesionActualGRUK?._id) {
-    throw new Error("No existe una sesión de Junta abierta.");
+    throw new Error(
+      "No existe una sesión de Junta abierta."
+    );
   }
 
   if (juntaSesionActualGRUK.estado === "CERRADA") return;
   if (!confirm("Cerrar esta discusión de Junta Directiva?")) return;
 
   const res = await grukFetch(
-    `/api/junta/sesiones/${encodeURIComponent(juntaSesionActualGRUK._id)}/cerrar`,
+    `/api/junta/sesiones/${encodeURIComponent(
+      juntaSesionActualGRUK._id
+    )}/cerrar`,
     { method: "POST" }
   );
   const data = await res.json();
 
   if (!res.ok || !data.ok) {
-    throw new Error(data.error || "No fue posible cerrar la Junta.");
+    throw new Error(
+      data.error ||
+      "No fue posible cerrar la Junta."
+    );
   }
 
   renderizarJuntaGRUK(data.sesion);
 }
 
-async function agregarIntervencionJuntaGRUK() {
+async function reintentarRespuestaJuntaGRUK(intervencionId) {
   if (!juntaSesionActualGRUK?._id) {
-    throw new Error("No existe una sesión de Junta abierta.");
+    throw new Error(
+      "No existe una sesión de Junta abierta."
+    );
   }
 
-  const departamento = document.getElementById("juntaDepartamentoGRUK")?.value;
-  const input = document.getElementById("juntaMensajeGRUK");
-  const mensaje = input?.value?.trim() || "";
-
-  if (!mensaje) {
-    alert("Escribe una intervención antes de enviarla.");
-    return;
-  }
-
-  const boton = document.getElementById("juntaEnviarGRUK");
-  if (boton) boton.disabled = true;
+  configurarProcesandoJuntaGRUK(true);
 
   try {
     const res = await grukFetch(
-      `/api/junta/sesiones/${encodeURIComponent(juntaSesionActualGRUK._id)}/intervenciones`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ departamento, mensaje })
-      }
+      `/api/junta/sesiones/${encodeURIComponent(
+        juntaSesionActualGRUK._id
+      )}/intervenciones/${encodeURIComponent(
+        intervencionId
+      )}/responder`,
+      { method: "POST" }
     );
     const data = await res.json();
 
     if (!res.ok || !data.ok) {
-      throw new Error(data.error || "No fue posible agregar la intervención.");
+      throw new Error(
+        data.error ||
+        "Los expertos no pudieron responder."
+      );
+    }
+
+    renderizarJuntaGRUK(data.sesion);
+  } finally {
+    configurarProcesandoJuntaGRUK(false);
+  }
+}
+
+async function agregarIntervencionJuntaGRUK() {
+  if (!juntaSesionActualGRUK?._id) {
+    throw new Error(
+      "No existe una sesión de Junta abierta."
+    );
+  }
+
+  const departamento =
+    document.getElementById("juntaDepartamentoGRUK")?.value;
+  const input =
+    document.getElementById("juntaMensajeGRUK");
+  const mensaje = input?.value?.trim() || "";
+
+  if (!mensaje) {
+    alert("Escribe una pregunta antes de enviarla.");
+    return;
+  }
+
+  configurarProcesandoJuntaGRUK(true);
+
+  try {
+    const res = await grukFetch(
+      `/api/junta/sesiones/${encodeURIComponent(
+        juntaSesionActualGRUK._id
+      )}/intervenciones`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          departamento,
+          mensaje
+        })
+      }
+    );
+    const data = await res.json();
+
+    if (data.sesion) {
+      renderizarJuntaGRUK(data.sesion);
+    }
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "La pregunta quedó guardada, pero los expertos no pudieron responder."
+      );
     }
 
     if (input) input.value = "";
     renderizarJuntaGRUK(data.sesion);
   } finally {
-    if (boton && juntaSesionActualGRUK?.estado !== "CERRADA") {
-      boton.disabled = false;
-    }
+    configurarProcesandoJuntaGRUK(false);
   }
 }
 
 async function inicializarJuntaDirectivaGRUK() {
-  const estado = document.getElementById("juntaEstadoGRUK");
+  const estado =
+    document.getElementById("juntaEstadoGRUK");
 
   try {
     await cargarJuntaUltimaDecisionGRUK();
 
-    const botonAbrir = document.getElementById("juntaAbrirGRUK");
+    const botonAbrir =
+      document.getElementById("juntaAbrirGRUK");
+
     if (botonAbrir) {
       botonAbrir.addEventListener("click", () => {
         abrirJuntaDirectivaGRUK().catch((error) => {
           console.error("Junta apertura:", error);
-          alert(error.message || "No fue posible abrir la Junta.");
+          alert(
+            error.message ||
+            "No fue posible abrir la Junta."
+          );
         });
       });
     }
 
-    const botonEnviar = document.getElementById("juntaEnviarGRUK");
+    const botonEnviar =
+      document.getElementById("juntaEnviarGRUK");
+
     if (botonEnviar) {
       botonEnviar.addEventListener("click", () => {
         agregarIntervencionJuntaGRUK().catch((error) => {
-          console.error("Junta intervención:", error);
-          alert(error.message || "No fue posible agregar la intervención.");
+          console.error("Junta pregunta:", error);
+          alert(
+            error.message ||
+            "No fue posible consultar a los expertos."
+          );
         });
       });
     }
 
-    const botonCerrar = document.getElementById("juntaCerrarGRUK");
+    const botonCerrar =
+      document.getElementById("juntaCerrarGRUK");
+
     if (botonCerrar) {
       botonCerrar.addEventListener("click", () => {
         cerrarJuntaDirectivaGRUK().catch((error) => {
           console.error("Junta cierre:", error);
-          alert(error.message || "No fue posible cerrar la Junta.");
+          alert(
+            error.message ||
+            "No fue posible cerrar la Junta."
+          );
         });
       });
     }
   } catch (error) {
     console.error("Junta Directiva:", error);
+
     configurarControlesJuntaGRUK({
       existe: false,
       cerrada: false
     });
+
     if (estado) {
-      estado.innerHTML = `<p>${escaparJuntaGRUK(error.message || "No fue posible consultar la Junta.")}</p>`;
+      estado.innerHTML = `<p>${escaparJuntaGRUK(
+        error.message ||
+        "No fue posible consultar la Junta."
+      )}</p>`;
     }
   }
 }
