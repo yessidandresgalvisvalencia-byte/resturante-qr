@@ -21,7 +21,7 @@ test(
     const { ejecutarCicloEmpresa } = require("../../intelligence/orchestrator/cicloInteligencia");
     const { procesarOrden } = require("../../intelligence/brain/cerebro.service");
     const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
-    const { abrirSesion, agregarIntervencion } = require("../../intelligence/board/junta.service");
+    const { abrirSesion, agregarIntervencion, cerrarSesion } = require("../../intelligence/board/junta.service");
 
     await mongoose.connect(TEST_MONGO_URI, {
       dbName: "gruk_ci"
@@ -167,6 +167,26 @@ test(
 
       const juntaGuardada = await JuntaSesion.findById(junta._id).lean();
       assert.equal(juntaGuardada.intervenciones.length, 6);
+
+      const juntaCerrada = await cerrarSesion({
+        auth: authDueno,
+        sesionId: String(junta._id)
+      });
+      assert.equal(juntaCerrada.estado, "CERRADA");
+      assert.equal(String(juntaCerrada.closedBy), String(usuarioId));
+      assert.ok(juntaCerrada.closedAt);
+
+      await assert.rejects(
+        () => agregarIntervencion({
+          auth: authDueno,
+          sesionId: String(junta._id),
+          payload: {
+            departamento: "DIRECCION",
+            mensaje: "No debe entrar después del cierre."
+          }
+        }),
+        (error) => error.statusCode === 409
+      );
 
       const otraEmpresa = await Empresa.create({
         empresaId: "emp_ci_aislamiento",
