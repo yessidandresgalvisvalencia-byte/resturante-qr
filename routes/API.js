@@ -2787,7 +2787,7 @@ router.post("/crear-pago-suscripcion", async (req, res) => {
       });
     }
 
-    const amountInCents = 220000 * 100;
+    const amountInCents = Number(restaurante.precioMensual || 220000) * 100;
     const currency = "COP";
     const reference = `suscripcion_${restaurantId}_${Date.now()}`;
 
@@ -3539,8 +3539,6 @@ const wompiRes = await axios.get(
 );
 
 const transaction = wompiRes.data.data;
-console.log("Respuesta Wompi:", transaction);
-
 if (!transaction) {
 return res.status(404).json({
 ok: false,
@@ -3561,6 +3559,19 @@ if (!restaurante) {
 return res.status(404).json({
 ok: false,
 error: "Restaurante no encontrado"
+});
+}
+
+const referenciaEsperada = `suscripcion_${restaurantId}_`;
+const montoEsperado = Number(restaurante.precioMensual || 220000) * 100;
+const referenciaValida = String(transaction.reference || "").startsWith(referenciaEsperada);
+const montoValido = Number(transaction.amount_in_cents) === montoEsperado;
+const monedaValida = String(transaction.currency || "").toUpperCase() === "COP";
+
+if (!referenciaValida || !montoValido || !monedaValida) {
+return res.status(400).json({
+ok: false,
+error: "La transacción no corresponde a esta suscripción"
 });
 }
 
