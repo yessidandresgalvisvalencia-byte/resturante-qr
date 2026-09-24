@@ -18,6 +18,17 @@ function renderizarJuntaGRUK(sesion) {
 
   const estado = document.getElementById("juntaEstadoGRUK");
   const lista = document.getElementById("juntaIntervencionesGRUK");
+  const cerrada = sesion.estado === "CERRADA";
+
+  const botonCerrar = document.getElementById("juntaCerrarGRUK");
+  const botonEnviar = document.getElementById("juntaEnviarGRUK");
+  const mensajeInput = document.getElementById("juntaMensajeGRUK");
+  const departamentoInput = document.getElementById("juntaDepartamentoGRUK");
+
+  if (botonCerrar) botonCerrar.disabled = cerrada;
+  if (botonEnviar) botonEnviar.disabled = cerrada;
+  if (mensajeInput) mensajeInput.disabled = cerrada;
+  if (departamentoInput) departamentoInput.disabled = cerrada;
 
   if (estado) {
     estado.innerHTML = `
@@ -77,6 +88,27 @@ async function abrirJuntaUltimaDecisionGRUK() {
   renderizarJuntaGRUK(data.sesion);
 }
 
+async function cerrarJuntaDirectivaGRUK() {
+  if (!juntaSesionActualGRUK?._id) {
+    throw new Error("No existe una sesión de Junta abierta.");
+  }
+
+  if (juntaSesionActualGRUK.estado === "CERRADA") return;
+  if (!confirm("Cerrar esta discusión de Junta Directiva?")) return;
+
+  const res = await grukFetch(
+    `/api/junta/sesiones/${encodeURIComponent(juntaSesionActualGRUK._id)}/cerrar`,
+    { method: "POST" }
+  );
+  const data = await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "No fue posible cerrar la Junta.");
+  }
+
+  renderizarJuntaGRUK(data.sesion);
+}
+
 async function agregarIntervencionJuntaGRUK() {
   if (!juntaSesionActualGRUK?._id) {
     throw new Error("No existe una sesión de Junta abierta.");
@@ -128,6 +160,16 @@ async function inicializarJuntaDirectivaGRUK() {
         agregarIntervencionJuntaGRUK().catch((error) => {
           console.error("Junta intervención:", error);
           alert(error.message || "No fue posible agregar la intervención.");
+        });
+      });
+    }
+
+    const botonCerrar = document.getElementById("juntaCerrarGRUK");
+    if (botonCerrar) {
+      botonCerrar.addEventListener("click", () => {
+        cerrarJuntaDirectivaGRUK().catch((error) => {
+          console.error("Junta cierre:", error);
+          alert(error.message || "No fue posible cerrar la Junta.");
         });
       });
     }
