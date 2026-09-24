@@ -109,6 +109,7 @@ function cargarScriptModuloGRUK(nombreModulo) {
       "centro-control": "/js/centro-control.js",
       auditoria: "/js/auditoria.js",
       "junta-directiva": "/js/junta-directiva.js",
+      memoria: "/js/memoria.js",
       restaurante: "/js/restaurante.js",
       inventario: "/js/inventario.js",
       recetas: "/js/recetas.js",
@@ -191,6 +192,9 @@ async function inicializarModuloGRUK(nombreModulo) {
   }
   if (nombreModulo === "junta-directiva" && typeof inicializarJuntaDirectivaGRUK === "function") {
     await inicializarJuntaDirectivaGRUK();
+  }
+  if (nombreModulo === "memoria" && typeof inicializarMemoriaGRUK === "function") {
+    await inicializarMemoriaGRUK();
   }
   if (nombreModulo === "recetas" && typeof inicializarRecetasGRUK === "function") {
   await inicializarRecetasGRUK();
