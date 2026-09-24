@@ -3186,38 +3186,96 @@ router.post("/usuarios/crear", async (req, res) => {
 });
 router.post("/usuarios/login", async (req, res) => {
   try {
-    const { usuario, password } = req.body;
+    const usuario = String(req.body?.usuario || "").trim();
+    const password = String(req.body?.password || "");
 
-   
+    if (!usuario || !password) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan usuario o contraseña"
+      });
+    }
 
     const user = await Usuario.findOne({
       usuario,
-      password,
       estado: "activo"
     }).populate("sedeId");
 
     if (!user) {
       return res.status(401).json({
         ok: false,
-        error: "Usuario o contraseÃƒÂ±a incorrectos"
+        error: "Usuario o contraseña incorrectos"
       });
     }
 
-    res.json({
+    const passwordGuardado = String(user.password || "");
+    let autenticado = false;
+
+    if (passwordGuardado.startsWith("$2")) {
+      autenticado = await bcrypt.compare(password, passwordGuardado);
+    } else {
+      autenticado = password === passwordGuardado;
+
+      if (autenticado) {
+        user.password = await bcrypt.hash(password, 12);
+        await user.save();
+      }
+    }
+
+    if (!autenticado) {
+      return res.status(401).json({
+        ok: false,
+        error: "Usuario o contraseña incorrectos"
+      });
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret || !user.empresaId) {
+      return res.status(500).json({
+        ok: false,
+        error: "Configuración de seguridad inválida"
+      });
+    }
+
+    const rolJwt =
+      user.rol === "admin_general"
+        ? ROLES_GRUK.DUENO
+        : user.rol === "admin_sede"
+          ? ROLES_GRUK.ADMIN_SEDE
+          : ROLES_GRUK.EMPLEADO;
+
+    const token = jwt.sign(
+      {
+        empresaId: String(user.empresaId),
+        restaurantId: String(user.restauranteId || ""),
+        sedeId: user.sedeId ? String(user.sedeId._id) : null,
+        rol: rolJwt
+      },
+      jwtSecret,
+      {
+        algorithm: "HS256",
+        subject: String(user._id),
+        expiresIn: "8h"
+      }
+    );
+
+    return res.json({
       ok: true,
+      token,
       usuario: {
         id: user._id,
         nombre: user.nombre,
         usuario: user.usuario,
         rol: user.rol,
+        rolGruk: rolJwt,
         restauranteId: user.restauranteId,
         sedeId: user.sedeId ? user.sedeId._id : null,
         nombreSede: user.sedeId ? user.sedeId.nombreSede : null
       }
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({
+    console.error("Error en login de usuario:", error);
+    return res.status(500).json({
       ok: false,
       error: "Error en login"
     });
