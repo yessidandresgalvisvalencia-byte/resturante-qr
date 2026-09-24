@@ -2,7 +2,8 @@
 
 const {
   obtenerUltimaDecision,
-  procesarOrden
+  procesarOrden,
+  obtenerAuditoria
 } = require("./cerebro.service");
 
 function responderError(res, error, operacion) {
@@ -32,6 +33,15 @@ async function ultimaDecision(req, res) {
   }
 }
 
+async function auditoriaCerebro(req, res) {
+  try {
+    const eventos = await obtenerAuditoria(req.auth, req.query?.limit);
+    return res.json({ ok: true, eventos });
+  } catch (error) {
+    return responderError(res, error, "auditoria");
+  }
+}
+
 function crearProcesadorOrden(accion, operacion) {
   return async function procesar(req, res) {
     try {
@@ -57,6 +67,7 @@ const rechazarOrden = crearProcesadorOrden("RECHAZAR", "rechazar orden");
 
 module.exports = {
   ultimaDecision,
+  auditoriaCerebro,
   aprobarOrden,
   rechazarOrden
 };
