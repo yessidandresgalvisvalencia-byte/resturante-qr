@@ -162,7 +162,7 @@ async function cargarModuloGRUK(nombreModulo) {
   try {
     cargarCSSModuloGRUK(nombreModulo);
 
-    const res = await fetch(`/modulos/${nombreModulo}.html`);
+    const res = await grukFetch(`/modulos/${nombreModulo}.html`);
     const html = await res.text();
     
 
