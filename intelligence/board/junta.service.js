@@ -86,6 +86,16 @@ function construirIntervencionNeurona(reporte) {
   };
 }
 
+async function obtenerSesion({ auth, decisionId }) {
+  if (!mongoose.Types.ObjectId.isValid(decisionId)) {
+    throw serviceError(400, "Decision invalida");
+  }
+
+  return JuntaSesion.findOne(
+    filtroTenant(auth, { decisionId })
+  ).lean();
+}
+
 async function abrirSesion({ auth, decisionId }) {
   if (!mongoose.Types.ObjectId.isValid(decisionId)) {
     throw serviceError(400, "Decision invalida");
@@ -218,6 +228,7 @@ async function agregarIntervencion({ auth, sesionId, payload }) {
 }
 
 module.exports = {
+  obtenerSesion,
   abrirSesion,
   agregarIntervencion,
   cerrarSesion,
