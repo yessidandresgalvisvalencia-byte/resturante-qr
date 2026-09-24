@@ -130,6 +130,35 @@ test(
 
       const usuarioId = new mongoose.Types.ObjectId();
 
+      const otraEmpresa = await Empresa.create({
+        empresaId: "emp_ci_aislamiento",
+        nombre: "GRUK CI Tenant B",
+        tipoNegocio: "servicios",
+        correo: "tenant-b@gruk.test",
+        estado: "activa"
+      });
+
+      await assert.rejects(
+        () => procesarOrden({
+          auth: {
+            usuarioId: String(new mongoose.Types.ObjectId()),
+            empresaId: String(otraEmpresa._id),
+            sedeId: null,
+            rol: ROLES_GRUK.DUENO
+          },
+          decisionId: String(decisionGuardada._id),
+          ordenId: String(orden._id),
+          accion: "APROBAR"
+        }),
+        (error) => error.statusCode === 404
+      );
+
+      const auditoriaAjena = await Auditoria.countDocuments({
+        empresaId: otraEmpresa._id,
+        decisionId: decisionGuardada._id
+      });
+      assert.equal(auditoriaAjena, 0);
+
       const aprobada = await procesarOrden({
         auth: {
           usuarioId: String(usuarioId),
