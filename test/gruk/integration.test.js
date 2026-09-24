@@ -21,7 +21,7 @@ test(
     const { ejecutarCicloEmpresa } = require("../../intelligence/orchestrator/cicloInteligencia");
     const { procesarOrden, obtenerAuditoria } = require("../../intelligence/brain/cerebro.service");
     const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
-    const { obtenerSesion, abrirSesion, agregarIntervencion, cerrarSesion } = require("../../intelligence/board/junta.service");
+    const { obtenerSesion, abrirSesion, agregarIntervencion, responderPreguntaExpertos, cerrarSesion } = require("../../intelligence/board/junta.service");
     const { evaluarPendientes } = require("../../intelligence/memory/memoria.service");
 
     await mongoose.connect(TEST_MONGO_URI, {
@@ -158,27 +158,95 @@ test(
         5
       );
 
-      const juntaIntervenida = await agregarIntervencion({
+      const preguntaGuardada = await agregarIntervencion({
         auth: authDueno,
         sesionId: String(junta._id),
         payload: {
           departamento: "DIRECCION",
-          mensaje: "Validar responsables y fecha antes de ejecutar."
+          mensaje: "¿Qué debemos corregir primero y por qué?"
         }
       });
 
       assert.equal(
-        juntaIntervenida.intervenciones.filter((item) => item.tipo === "HUMANO").length,
+        preguntaGuardada.sesion.intervenciones.filter(
+          (item) => item.tipo === "HUMANO"
+        ).length,
         1
       );
-      const intervencionHumana = juntaIntervenida.intervenciones.find(
+
+      const intervencionHumana = preguntaGuardada.sesion.intervenciones.find(
         (item) => item.tipo === "HUMANO"
       );
       assert.equal(intervencionHumana.impacto_financiero_estimado, null);
       assert.equal(intervencionHumana.confianza, null);
 
+      const departamentosExpertos = [
+        "FINANZAS",
+        "VENTAS",
+        "MARKETING",
+        "OPERACIONES",
+        "GENTE",
+        "DIRECCION"
+      ];
+
+      const generarExpertosMock = async () => ({
+        model: "modelo-ci",
+        responseId: "resp_ci",
+        respuestas: departamentosExpertos.map((departamento) => ({
+          departamento,
+          respuesta: `Criterio experto de ${departamento}.`,
+          evidencia_usada: ["Evidencia CI"],
+          inferencias: ["Inferencia CI"],
+          datos_faltantes: []
+        }))
+      });
+
+      const juntaRespondida = await responderPreguntaExpertos({
+        auth: authDueno,
+        sesionId: String(junta._id),
+        intervencionId: String(preguntaGuardada.intervencionId),
+        generar: generarExpertosMock
+      });
+
+      assert.equal(
+        juntaRespondida.intervenciones.filter(
+          (item) => item.tipo === "EXPERTO_IA"
+        ).length,
+        6
+      );
+
+      const respuestasLigadas = juntaRespondida.intervenciones.filter(
+        (item) =>
+          item.tipo === "EXPERTO_IA" &&
+          String(item.respuestaAId) === String(preguntaGuardada.intervencionId)
+      );
+      assert.equal(respuestasLigadas.length, 6);
+      assert.ok(
+        respuestasLigadas.every(
+          (item) =>
+            item.impacto_financiero_estimado === null &&
+            item.confianza === null
+        )
+      );
+
+      const juntaReintento = await responderPreguntaExpertos({
+        auth: authDueno,
+        sesionId: String(junta._id),
+        intervencionId: String(preguntaGuardada.intervencionId),
+        generar: async () => {
+          throw new Error("No debe volver a llamar al proveedor");
+        }
+      });
+
+      assert.equal(
+        juntaReintento.intervenciones.filter(
+          (item) => item.tipo === "EXPERTO_IA"
+        ).length,
+        6
+      );
+
       const juntaGuardada = await JuntaSesion.findById(junta._id).lean();
-      assert.equal(juntaGuardada.intervenciones.length, 6);
+      assert.equal(juntaGuardada.intervenciones.length, 12);
 
       const juntaCerrada = await cerrarSesion({
         auth: authDueno,
