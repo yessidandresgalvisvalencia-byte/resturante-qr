@@ -270,13 +270,19 @@ socket.on("llamado:actualizado", (llamado) => {
 
 document.addEventListener("DOMContentLoaded", async () => {
   const adminRestaurantId =
-    localStorage.getItem("adminRestaurantId") ||
+    localStorage.getItem("adminRestaurantId");
+
+  const restaurantIdUrl =
     new URLSearchParams(window.location.search).get("restaurantId");
 
   const grukAuthToken =
     localStorage.getItem("grukAuthToken");
 
-  if (!adminRestaurantId || !grukAuthToken) {
+  if (
+    !adminRestaurantId ||
+    !grukAuthToken ||
+    (restaurantIdUrl && restaurantIdUrl !== adminRestaurantId)
+  ) {
     window.location.href = "/login.html";
     return;
   }
