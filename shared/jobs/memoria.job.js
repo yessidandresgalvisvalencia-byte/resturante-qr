@@ -26,7 +26,7 @@ function iniciarMemoriaJob() {
   if (iniciado) return;
   iniciado = true;
 
-  cron.schedule("30 2 * * *", () => {
+  cron.schedule("45 */3 * * *", () => {
     void ejecutarMemoriaPendiente();
   });
 
