@@ -3,6 +3,7 @@ const params = new URLSearchParams(window.location.search);
 
 const mesa = Number(params.get("mesa") || 1);
 const restaurantId = params.get("restaurantId") || "rest1";
+const sedeId = params.get("sedeId") || "";
 const fondoRestaurante =
 localStorage.getItem(`logo_restaurante_${restaurantId}`);
 
@@ -448,6 +449,7 @@ headers: {
 },
 body: JSON.stringify({
 restaurantId: pedido.restaurantId,
+sedeId,
 mesa: pedido.mesa,
 menuItemId: pedido.menuItemId,
 productoServicioId: pedido.productoServicioId,
