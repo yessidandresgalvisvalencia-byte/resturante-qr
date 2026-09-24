@@ -127,7 +127,7 @@ const empresaSchema = new mongoose.Schema(
 
       inteligencia: {
         type: Boolean,
-        default: false
+        default: true
       },
 
       gente: {
