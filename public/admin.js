@@ -107,6 +107,7 @@ function cargarScriptModuloGRUK(nombreModulo) {
   return new Promise((resolve) => {
     const scripts = {
       "centro-control": "/js/centro-control.js",
+      auditoria: "/js/auditoria.js",
       restaurante: "/js/restaurante.js",
       inventario: "/js/inventario.js",
       recetas: "/js/recetas.js",
@@ -183,6 +184,9 @@ async function cargarModuloGRUK(nombreModulo) {
 async function inicializarModuloGRUK(nombreModulo) {
   if (nombreModulo === "centro-control" && typeof inicializarCentroControlGRUK === "function") {
     await inicializarCentroControlGRUK();
+  }
+  if (nombreModulo === "auditoria" && typeof inicializarAuditoriaGRUK === "function") {
+    await inicializarAuditoriaGRUK();
   }
   if (nombreModulo === "recetas" && typeof inicializarRecetasGRUK === "function") {
   await inicializarRecetasGRUK();
