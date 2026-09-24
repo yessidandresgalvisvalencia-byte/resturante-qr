@@ -14,6 +14,8 @@ const gastosRoutes = require("./routes/gastos");
 const finanzasRoutes = require("./routes/finanzas");
 const productosServiciosRoutes = require("./routes/productosServicios");
 const comprasRoutes = require("./routes/compras");
+const cerebroRoutes = require("./routes/cerebro");
+const iniciarCerebroJob = require("./shared/jobs/cerebro.job");
 const app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -57,6 +59,7 @@ app.use("/api/gastos", gastosRoutes);
 app.use("/api/finanzas", finanzasRoutes);
 app.use("/api/productos-servicios", productosServiciosRoutes);
 app.use("/api/compras", comprasRoutes);
+app.use("/api/cerebro", cerebroRoutes);
 app.use("/api", apiRoutes);
 app.use(
 "/api/inventario",
@@ -111,6 +114,7 @@ io.on("connection", (socket) => {
 });
 
 iniciarJobSuscripciones();
+iniciarCerebroJob();
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
