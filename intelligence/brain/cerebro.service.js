@@ -183,23 +183,43 @@ async function obtenerAuditoria(auth, limite = 100) {
     });
 
     for (const intervencion of sesion.intervenciones || []) {
-      if (intervencion.tipo !== "HUMANO") continue;
+      if (intervencion.tipo === "HUMANO") {
+        eventos.push({
+          _id: `junta-intervencion-${intervencion._id}`,
+          tipo: "JUNTA",
+          accion: "JUNTA_INTERVENCION",
+          actor: "HUMANO",
+          usuarioId: intervencion.autorUsuarioId,
+          rol: null,
+          modelo: null,
+          createdAt: intervencion.createdAt,
+          decisionId: sesion.decisionId,
+          ordenId: null,
+          departamento: intervencion.departamento,
+          tarea: intervencion.mensaje,
+          kpi_a_medir: null,
+          situacion
+        });
+      }
 
-      eventos.push({
-        _id: `junta-intervencion-${intervencion._id}`,
-        tipo: "JUNTA",
-        accion: "JUNTA_INTERVENCION",
-        actor: "HUMANO",
-        usuarioId: intervencion.autorUsuarioId,
-        rol: null,
-        createdAt: intervencion.createdAt,
-        decisionId: sesion.decisionId,
-        ordenId: null,
-        departamento: intervencion.departamento,
-        tarea: intervencion.mensaje,
-        kpi_a_medir: null,
-        situacion
-      });
+      if (intervencion.tipo === "EXPERTO_IA") {
+        eventos.push({
+          _id: `junta-experto-${intervencion._id}`,
+          tipo: "JUNTA",
+          accion: "JUNTA_RESPUESTA_EXPERTA",
+          actor: "IA",
+          usuarioId: null,
+          rol: null,
+          modelo: intervencion.modelo || null,
+          createdAt: intervencion.createdAt,
+          decisionId: sesion.decisionId,
+          ordenId: null,
+          departamento: intervencion.departamento,
+          tarea: intervencion.mensaje,
+          kpi_a_medir: null,
+          situacion
+        });
+      }
     }
 
     if (sesion.closedAt) {
