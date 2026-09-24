@@ -6,7 +6,7 @@ const intervencionSchema = new mongoose.Schema({
   tipo: {
     type: String,
     required: true,
-    enum: ["NEURONA", "HUMANO"]
+    enum: ["NEURONA", "HUMANO", "EXPERTO_IA"]
   },
   departamento: {
     type: String,
@@ -17,6 +17,15 @@ const intervencionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Usuario",
     default: null
+  },
+  respuestaAId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null
+  },
+  modelo: {
+    type: String,
+    default: null,
+    maxlength: 100
   },
   mensaje: {
     type: String,
