@@ -87,19 +87,33 @@ mongoose.connection.once("open", () => {
     db: mongoose.connection.name
   });
 });
-mongoose.connect(
-  process.env.MONGO_URI,
-  process.env.MONGO_DB
-    ? { dbName: process.env.MONGO_DB }
-    : {}
-)
-  .then(() => {
+async function iniciarAplicacion() {
+  if (!process.env.MONGO_URI) {
+    console.error("MONGO_URI no configurado");
+    process.exit(1);
+  }
+
+  try {
+    await mongoose.connect(
+      process.env.MONGO_URI,
+      process.env.MONGO_DB
+        ? { dbName: process.env.MONGO_DB }
+        : {}
+    );
+
     console.log("MongoDB conectado");
-  })
-  .catch(err => {
+
+    iniciarJobSuscripciones();
+    iniciarCerebroJob();
+
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`Servidor corriendo en puerto ${PORT}`);
+    });
+  } catch (err) {
     console.error("Error MongoDB:", err.message);
-    process.exitCode = 1;
-  });
+    process.exit(1);
+  }
+}
 
 io.on("connection", (socket) => {
   console.log("Cliente conectado");
@@ -114,9 +128,4 @@ io.on("connection", (socket) => {
   });
 });
 
-iniciarJobSuscripciones();
-iniciarCerebroJob();
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-});
+iniciarAplicacion();
