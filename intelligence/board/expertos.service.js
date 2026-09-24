@@ -1,12 +1,12 @@
 "use strict";
 
 const DEPARTAMENTOS_EXPERTOS = Object.freeze([
-  "DIRECCION",
   "FINANZAS",
   "VENTAS",
   "MARKETING",
   "OPERACIONES",
-  "GENTE"
+  "GENTE",
+  "DIRECCION"
 ]);
 
 const PERFIL_EXPERTOS = Object.freeze({
@@ -169,7 +169,13 @@ function validarRespuestas(respuestas) {
     }
   }
 
-  return respuestas;
+  const porDepartamento = new Map(
+    respuestas.map((item) => [item.departamento, item])
+  );
+
+  return DEPARTAMENTOS_EXPERTOS.map(
+    (departamento) => porDepartamento.get(departamento)
+  );
 }
 
 async function generarRespuestasExpertas({
