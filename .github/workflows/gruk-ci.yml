@@ -20,6 +20,24 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name gruk-mongo -p 27017:27017 mongo:8 --replSet rs0 --bind_ip_all
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MongoDB replica set no alcanzo PRIMARY"
+          exit 1
       - name: Syntax check GRUK
         run: |
           node --check app.js
@@ -44,4 +62,7 @@ jobs:
           node --check intelligence/neurons/marketing.neuron.js
           node --check intelligence/neurons/operaciones.neuron.js
           node --check intelligence/neurons/gente.neuron.js
-      - run: npm test
+      - name: Run npm test
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+        run: npm test
