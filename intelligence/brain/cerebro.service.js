@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const Decision = require("../models/CerebroDecision");
 const Auditoria = require("../models/CerebroAuditoria");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
+const { registrarBaselineAprobacion } = require("../memory/memoria.service");
 
 function serviceError(statusCode, message) {
   const error = new Error(message);
@@ -71,6 +72,16 @@ async function procesarOrden({ auth, decisionId, ordenId, accion }) {
       }
 
       await decision.save({ session });
+
+      if (accion === "APROBAR") {
+        await registrarBaselineAprobacion({
+          auth,
+          decision,
+          orden,
+          session
+        });
+      }
+
       await Auditoria.create([{
         empresaId: auth.empresaId,
         sedeId: auth.sedeId || null,
