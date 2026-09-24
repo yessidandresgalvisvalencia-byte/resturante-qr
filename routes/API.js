@@ -3151,6 +3151,28 @@ router.post("/usuarios/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
       });
     }
 
+    if (sedeId) {
+      if (!mongoose.Types.ObjectId.isValid(sedeId)) {
+        return res.status(400).json({
+          ok: false,
+          error: "sedeId inválido"
+        });
+      }
+
+      const sedeAutorizada = await Sede.findOne({
+        _id: sedeId,
+        empresaId: req.auth.empresaId,
+        restauranteId
+      }).select("_id").lean();
+
+      if (!sedeAutorizada) {
+        return res.status(403).json({
+          ok: false,
+          error: "La sede no pertenece a este restaurante y empresa"
+        });
+      }
+    }
+
     if (
       req.auth.rol === ROLES_GRUK.ADMIN_SEDE &&
       String(req.auth.sedeId || "") !== String(sedeId || "")
