@@ -357,6 +357,7 @@ test(
       assert.ok(accionesHistorial.has("APROBAR"));
       assert.ok(accionesHistorial.has("JUNTA_ABIERTA"));
       assert.ok(accionesHistorial.has("JUNTA_INTERVENCION"));
+      assert.ok(accionesHistorial.has("JUNTA_RESPUESTA_EXPERTA"));
       assert.ok(accionesHistorial.has("JUNTA_CERRADA"));
       assert.ok(accionesHistorial.has("MEMORIA_EVALUADA"));
 
