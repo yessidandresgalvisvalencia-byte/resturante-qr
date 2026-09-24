@@ -10,6 +10,7 @@ const KPI_DIRECCION = Object.freeze({
   cobertura_costo_porcentaje: "MAYOR_ES_MEJOR",
   ticket_promedio: "MAYOR_ES_MEJOR",
   porcentaje_items_agotados: "MENOR_ES_MEJOR",
+  inventario_configurado: "MAYOR_ES_MEJOR",
   cac: "MENOR_ES_MEJOR",
   configuracion_core: "MAYOR_ES_MEJOR"
 });
@@ -132,7 +133,7 @@ async function medirKpi({ empresaId, kpi, session = null }) {
     }
   }
 
-  if (kpi === "porcentaje_items_agotados") {
+  if (kpi === "porcentaje_items_agotados" || kpi === "inventario_configurado") {
     const totalQuery = Inventario.countDocuments({
       empresaId: empresaObjectId,
       anulado: false
@@ -156,10 +157,19 @@ async function medirKpi({ empresaId, kpi, session = null }) {
       agotadosQuery
     ]);
 
-    valor = total > 0
-      ? Number(((agotados / total) * 100).toFixed(2))
-      : 0;
-    objetivo = 0;
+    if (kpi === "porcentaje_items_agotados") {
+      valor = total > 0
+        ? Number(((agotados / total) * 100).toFixed(2))
+        : null;
+      objetivo = 0;
+      medible = total > 0;
+    }
+
+    if (kpi === "inventario_configurado") {
+      valor = total > 0 ? 1 : 0;
+      objetivo = 1;
+      medible = true;
+    }
   }
 
   if (kpi === "cac") {
