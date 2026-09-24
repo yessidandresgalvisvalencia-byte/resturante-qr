@@ -17,3 +17,17 @@ async function aprobarOrdenCerebroGRUK(decisionId,ordenId){
  const res=await grukFetch(`/api/cerebro/decisiones/${encodeURIComponent(decisionId)}/ordenes/${encodeURIComponent(ordenId)}/aprobar`,{method:"POST"});
  const data=await res.json();if(!res.ok||!data.ok){alert(data.error||"No se pudo aprobar la orden.");return;}await cargarDecisionCerebroGRUK();
 }
+
+
+async function rechazarOrdenGRUK(decisionId, ordenId){
+ try{
+  const res=await grukFetch(`/api/cerebro/decisiones/${encodeURIComponent(decisionId)}/ordenes/${encodeURIComponent(ordenId)}/rechazar`,{method:"POST"});
+  const data=await res.json();
+  if(!res.ok)throw new Error(data.error||"No se pudo rechazar la orden");
+  await cargarCentroControl();
+ }catch(error){
+  console.error("GRUK rechazar orden:",error);
+  alert(error.message||"No se pudo rechazar la orden");
+ }
+}
+window.rechazarOrdenGRUK=rechazarOrdenGRUK;
