@@ -54,6 +54,11 @@ jobs:
           node --check intelligence/models/CerebroAuditoria.js
           node --check intelligence/models/CerebroDecision.js
           node --check intelligence/models/CerebroReporteNeurona.js
+          node --check public/js/junta-directiva.js
+          node --check intelligence/board/junta.controller.js
+          node --check intelligence/board/junta.service.js
+          node --check intelligence/board/JuntaSesion.js
+          node --check routes/junta.js
           node --check intelligence/brain/cerebro.js
           node --check intelligence/brain/cerebro.service.js
           node --check intelligence/brain/cerebro.controller.js
