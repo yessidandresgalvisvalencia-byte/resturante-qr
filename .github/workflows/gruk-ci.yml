@@ -46,6 +46,7 @@ jobs:
           node --check public/admin.js
           node --check public/js/gruk-api.js
           node --check public/js/centro-control.js
+          node --check public/js/auditoria.js
           node --check shared/jobs/cerebro.job.js
           node --check jobs/suscripciones.js
           node --check models/restaurante.js
