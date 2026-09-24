@@ -1,6 +1,7 @@
 "use strict";
 
 const {
+  obtenerSesion,
   abrirSesion,
   agregarIntervencion,
   cerrarSesion
@@ -19,6 +20,22 @@ function responderError(res, error, operacion) {
     ok: false,
     error: "Error procesando solicitud de Junta Directiva"
   });
+}
+
+async function obtenerJunta(req, res) {
+  try {
+    const sesion = await obtenerSesion({
+      auth: req.auth,
+      decisionId: req.params.decisionId
+    });
+
+    return res.json({
+      ok: true,
+      sesion: sesion || null
+    });
+  } catch (error) {
+    return responderError(res, error, "consultar");
+  }
 }
 
 async function abrirJunta(req, res) {
@@ -62,6 +79,7 @@ async function intervenir(req, res) {
 }
 
 module.exports = {
+  obtenerJunta,
   abrirJunta,
   intervenir,
   cerrarJunta
