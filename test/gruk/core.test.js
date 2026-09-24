@@ -77,3 +77,18 @@ test("filtroTenant rechaza ADMIN_SEDE sin sede autorizada", () => {
     (error) => error.statusCode === 403
   );
 });
+
+
+test("Peluqueria de 3 empleados mantiene modulos automaticos apagados", () => {
+  assert.deepEqual(
+    calcularActivacionModulos({ empleadosActuales: 3, clientesRecurrentes: 0 }),
+    { gente: false, servicio_cliente: false }
+  );
+});
+
+test("Restaurante de 18 empleados activa Gente sin inventar Servicio al Cliente", () => {
+  assert.deepEqual(
+    calcularActivacionModulos({ empleadosActuales: 18, clientesRecurrentes: 0 }),
+    { gente: true, servicio_cliente: false }
+  );
+});
