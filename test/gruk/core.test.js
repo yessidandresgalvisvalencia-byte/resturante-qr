@@ -202,3 +202,72 @@ test("Junta suma impacto y promedia confianza de evidencia determinista", () => 
   assert.equal(intervencion.confianza, 90);
   assert.equal(intervencion.departamento, "FINANZAS");
 });
+
+
+test("Memoria determina mejora segun direccion del KPI", () => {
+  const { compararResultado } = require("../../intelligence/memory/memoria.service");
+
+  assert.equal(
+    compararResultado({
+      baseline: { medible: true, valor: 50 },
+      seguimiento: { medible: true, valor: 75 },
+      direccion: "MAYOR_ES_MEJOR"
+    }),
+    "MEJORO"
+  );
+
+  assert.equal(
+    compararResultado({
+      baseline: { medible: true, valor: 20 },
+      seguimiento: { medible: true, valor: 5 },
+      direccion: "MENOR_ES_MEJOR"
+    }),
+    "MEJORO"
+  );
+
+  assert.equal(
+    compararResultado({
+      baseline: { medible: false, valor: null },
+      seguimiento: { medible: true, valor: 10 },
+      direccion: "MAYOR_ES_MEJOR"
+    }),
+    "NO_MEDIBLE"
+  );
+});
+
+test("Memoria evalua cumplimiento de objetivo sin inventar dato", () => {
+  const { evaluarObjetivo } = require("../../intelligence/memory/memoria.service");
+
+  assert.equal(
+    evaluarObjetivo({
+      seguimiento: { medible: true, valor: 100, objetivo: 100 },
+      direccion: "MAYOR_ES_MEJOR"
+    }),
+    true
+  );
+
+  assert.equal(
+    evaluarObjetivo({
+      seguimiento: { medible: false, valor: null, objetivo: 100 },
+      direccion: "MAYOR_ES_MEJOR"
+    }),
+    null
+  );
+});
+
+test("Configuracion CORE mide solo los cinco objetivos requeridos", () => {
+  const { medirConfiguracionCore } = require("../../intelligence/memory/kpi.service");
+
+  assert.equal(
+    medirConfiguracionCore({
+      configuracion: {
+        margen_objetivo: 30,
+        punto_equilibrio: 1000000,
+        ticket_objetivo: 50000,
+        cac_maximo: null,
+        empleados_actuales: 10
+      }
+    }),
+    80
+  );
+});
