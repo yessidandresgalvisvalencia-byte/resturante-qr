@@ -164,6 +164,11 @@ test(
         juntaIntervenida.intervenciones.filter((item) => item.tipo === "HUMANO").length,
         1
       );
+      const intervencionHumana = juntaIntervenida.intervenciones.find(
+        (item) => item.tipo === "HUMANO"
+      );
+      assert.equal(intervencionHumana.impacto_financiero_estimado, null);
+      assert.equal(intervencionHumana.confianza, null);
 
       const juntaGuardada = await JuntaSesion.findById(junta._id).lean();
       assert.equal(juntaGuardada.intervenciones.length, 6);
