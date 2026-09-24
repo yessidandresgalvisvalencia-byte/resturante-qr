@@ -3281,9 +3281,9 @@ router.post("/usuarios/login", async (req, res) => {
     });
   }
 });
-router.get("/debug/limpiar-registro", async (req, res) => {
+router.delete("/debug/limpiar-registro", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
   try {
-    const usuario = (req.query.usuario || "").trim();
+    const usuario = String(req.query.usuario || "").trim();
 
    
     
@@ -3297,6 +3297,7 @@ router.get("/debug/limpiar-registro", async (req, res) => {
     }
 
     const usuarios = await Usuario.find({
+      empresaId: req.auth.empresaId,
       $or: [{ usuario }, { nombre: usuario }]
     });
 
@@ -3305,12 +3306,19 @@ router.get("/debug/limpiar-registro", async (req, res) => {
       .filter(Boolean);
 
     await Usuario.deleteMany({
+      empresaId: req.auth.empresaId,
       $or: [{ usuario }, { nombre: usuario }]
     });
 
     if (restauranteIds.length) {
-      await Sede.deleteMany({ restauranteId: { $in: restauranteIds } });
-      await Restaurante.deleteMany({ restaurantId: { $in: restauranteIds } });
+      await Sede.deleteMany({
+        empresaId: req.auth.empresaId,
+        restauranteId: { $in: restauranteIds }
+      });
+      await Restaurante.deleteMany({
+        empresaId: req.auth.empresaId,
+        restaurantId: { $in: restauranteIds }
+      });
     }
 
     res.json({
