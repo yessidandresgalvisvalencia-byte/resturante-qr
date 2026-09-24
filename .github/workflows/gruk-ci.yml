@@ -31,6 +31,7 @@ jobs:
           node --check shared/jobs/cerebro.job.js
           node --check intelligence/listeners/finanzas.listener.js
           node --check intelligence/brain/cerebro.js
+          node --check intelligence/brain/cerebro.service.js
           node --check intelligence/orchestrator/cicloInteligencia.js
           node --check intelligence/neurons/finanzas.neuron.js
           node --check intelligence/neurons/ventas.neuron.js
