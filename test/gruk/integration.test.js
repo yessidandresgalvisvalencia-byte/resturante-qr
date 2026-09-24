@@ -16,6 +16,7 @@ test(
     const Reporte = require("../../intelligence/models/CerebroReporteNeurona");
     const Decision = require("../../intelligence/models/CerebroDecision");
     const Auditoria = require("../../intelligence/models/CerebroAuditoria");
+    const Memoria = require("../../intelligence/memory/CerebroMemoria");
     const { ejecutarCicloEmpresa } = require("../../intelligence/orchestrator/cicloInteligencia");
     const { procesarOrden } = require("../../intelligence/brain/cerebro.service");
     const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
@@ -182,6 +183,15 @@ test(
         usuarioId
       });
       assert.equal(auditorias, 1);
+
+      const memorias = await Memoria.countDocuments({
+        empresaId: empresa._id,
+        decisionId: decisionGuardada._id,
+        ordenId: orden._id,
+        resultado: "PENDIENTE",
+        createdBy: usuarioId
+      });
+      assert.equal(memorias, 1);
 
       const empresaActualizada = await Empresa.findById(empresa._id).lean();
       assert.equal(empresaActualizada.modulos.gente, true);
