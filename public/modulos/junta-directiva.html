@@ -1,6 +1,9 @@
 <section>
   <h1>Junta Directiva GRUK</h1>
-  <p>Discusión estructurada sobre la última decisión del Cerebro. Las posiciones de las neuronas salen de datos calculados; no inventan cifras.</p>
+  <p>
+    Discusión empresarial con datos reales de las neuronas y respuesta de expertos por función.
+    Los expertos pueden inferir y recomendar, pero no inventan cifras ni sustituyen al Cerebro.
+  </p>
 
   <div id="juntaEstadoGRUK" class="card">
     <p>Cargando sesión...</p>
@@ -12,8 +15,13 @@
   </div>
 
   <div class="card">
-    <h2>Agregar intervención</h2>
-    <label for="juntaDepartamentoGRUK">Departamento</label>
+    <h2>Preguntar a la Junta</h2>
+    <p>
+      Escribe una pregunta concreta. Dirección, Finanzas, Ventas, Marketing,
+      Operaciones y Gente responderán desde su especialidad usando el contexto real de GRUK.
+    </p>
+
+    <label for="juntaDepartamentoGRUK">Área que plantea la pregunta</label>
     <select id="juntaDepartamentoGRUK">
       <option value="DIRECCION">Dirección</option>
       <option value="FINANZAS">Finanzas</option>
@@ -24,9 +32,16 @@
       <option value="SERVICIO_CLIENTE">Servicio al Cliente</option>
     </select>
 
-    <label for="juntaMensajeGRUK">Intervención</label>
-    <textarea id="juntaMensajeGRUK" rows="4" maxlength="2000" placeholder="Escribe una observación, pregunta o criterio para la Junta."></textarea>
-    <button id="juntaEnviarGRUK" type="button">Agregar a la discusión</button>
+    <label for="juntaMensajeGRUK">Pregunta o intervención</label>
+    <textarea
+      id="juntaMensajeGRUK"
+      rows="5"
+      maxlength="2000"
+      placeholder="Ejemplo: ¿Qué deberíamos corregir primero para mejorar rentabilidad sin afectar ventas?"
+    ></textarea>
+
+    <button id="juntaEnviarGRUK" type="button">Preguntar a los expertos</button>
+    <p id="juntaProcesandoGRUK" hidden>Los expertos están analizando los datos y la discusión...</p>
   </div>
 
   <div id="juntaIntervencionesGRUK"></div>
