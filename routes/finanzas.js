@@ -102,16 +102,36 @@ router.get(
       ...filtroFechaGasto
     };
 
-    if (sedeId) {
-      if (!mongoose.Types.ObjectId.isValid(sedeId)) {
+    let sedeEfectiva = sedeId || null;
+
+    if (req.auth.rol === ROLES_GRUK.ADMIN_SEDE) {
+      if (!req.auth.sedeId) {
+        return res.status(403).json({
+          ok: false,
+          error: "ADMIN_SEDE requiere una sede autorizada"
+        });
+      }
+
+      if (sedeId && String(sedeId) !== String(req.auth.sedeId)) {
+        return res.status(403).json({
+          ok: false,
+          error: "No tienes acceso a las finanzas de otra sede"
+        });
+      }
+
+      sedeEfectiva = req.auth.sedeId;
+    }
+
+    if (sedeEfectiva) {
+      if (!mongoose.Types.ObjectId.isValid(sedeEfectiva)) {
         return res.status(400).json({
           ok: false,
           error: "sedeId inválido"
         });
       }
 
-      filtroVentas.sedeId = sedeId;
-      filtroGastos.sedeId = sedeId;
+      filtroVentas.sedeId = sedeEfectiva;
+      filtroGastos.sedeId = sedeEfectiva;
     }
 
     // =========================
