@@ -3127,7 +3127,7 @@ router.post("/usuarios/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
       sedeId,
       nombre,
       usuario,
-      password: await bcrypt.hash(password, 12),
+      password,
       rol
     } = req.body;
 
@@ -3182,13 +3182,15 @@ router.post("/usuarios/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
       });
     }
 
+    const passwordHash = await bcrypt.hash(String(password), 12);
+
     const nuevoUsuario = new Usuario({
       empresaId: restaurante.empresaId || null,
       restauranteId,
       sedeId: sedeId || null,
       nombre,
       usuario,
-      password,
+      password: passwordHash,
       rol
     });
 
