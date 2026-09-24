@@ -5,6 +5,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const Joi = require("joi");
 const authMiddleware = require("../core/auth/auth.middleware");
 const {
   ROLES_GRUK,
@@ -26,6 +27,21 @@ const {
   validarObjetivosEmpresa
 } = require("../core/empresa/validators/objetivosEmpresa.validator");
 
+
+const crearSedeSchema = Joi.object({
+  restauranteId: Joi.string().trim().min(1).max(120).required(),
+  nombreSede: Joi.string().trim().min(1).max(120).required(),
+  direccion: Joi.string().trim().max(300).allow("").default("")
+}).required();
+
+const crearUsuarioSchema = Joi.object({
+  restauranteId: Joi.string().trim().min(1).max(120).required(),
+  sedeId: Joi.string().hex().length(24).allow(null, ""),
+  nombre: Joi.string().trim().min(1).max(120).required(),
+  usuario: Joi.string().trim().min(3).max(120).required(),
+  password: Joi.string().min(8).max(200).required(),
+  rol: Joi.string().valid("admin_sede", "mesero").required()
+}).required();
 
 /* =========================
    CONFIG BÃƒÂSICA
@@ -3072,14 +3088,11 @@ const nuevaEmpresa = await Empresa.create({
 
 router.post("/sede/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
   try {
-    const { restauranteId, nombreSede, direccion } = req.body;
-
-    if (!restauranteId || !nombreSede) {
-      return res.status(400).json({
-        ok: false,
-        error: "Faltan datos obligatorios"
-      });
+    const validacion = crearSedeSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (validacion.error) {
+      return res.status(400).json({ ok: false, error: "Datos de sede inválidos" });
     }
+    const { restauranteId, nombreSede, direccion } = validacion.value;
 
     // Buscar el restaurante para obtener su empresa
     const restaurante = await Restaurante.findOne({
@@ -3122,21 +3135,11 @@ router.post("/sede/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (r
 });
 router.post("/usuarios/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
   try {
-    const {
-      restauranteId,
-      sedeId,
-      nombre,
-      usuario,
-      password,
-      rol
-    } = req.body;
-
-    if (!restauranteId || !nombre || !usuario || !password || !rol) {
-      return res.status(400).json({
-        ok: false,
-        error: "Faltan datos obligatorios"
-      });
+    const validacion = crearUsuarioSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (validacion.error) {
+      return res.status(400).json({ ok: false, error: "Datos de usuario inválidos" });
     }
+    const { restauranteId, sedeId, nombre, usuario, password, rol } = validacion.value;
 
     // Buscar restaurante para obtener empresaId
     const restaurante = await Restaurante.findOne({
