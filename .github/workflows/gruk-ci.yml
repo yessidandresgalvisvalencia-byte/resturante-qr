@@ -64,6 +64,7 @@ jobs:
           node --check public/js/junta-directiva.js
           node --check intelligence/board/junta.controller.js
           node --check intelligence/board/junta.service.js
+          node --check intelligence/board/expertos.service.js
           node --check intelligence/board/JuntaSesion.js
           node --check routes/junta.js
           node --check intelligence/brain/cerebro.js

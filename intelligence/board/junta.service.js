@@ -5,6 +5,9 @@ const Joi = require("joi");
 const JuntaSesion = require("./JuntaSesion");
 const Decision = require("../models/CerebroDecision");
 const Reporte = require("../models/CerebroReporteNeurona");
+const {
+  generarRespuestasExpertas
+} = require("./expertos.service");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
 
 const DEPARTAMENTO_POR_NEURONA = Object.freeze({
@@ -17,7 +20,15 @@ const DEPARTAMENTO_POR_NEURONA = Object.freeze({
 
 const intervencionHumanaSchema = Joi.object({
   departamento: Joi.string()
-    .valid("DIRECCION", "OPERACIONES", "VENTAS", "FINANZAS", "MARKETING", "GENTE", "SERVICIO_CLIENTE")
+    .valid(
+      "DIRECCION",
+      "OPERACIONES",
+      "VENTAS",
+      "FINANZAS",
+      "MARKETING",
+      "GENTE",
+      "SERVICIO_CLIENTE"
+    )
     .required(),
   mensaje: Joi.string().trim().min(3).max(2000).required()
 }).required();
@@ -51,14 +62,28 @@ function formatearNumero(valor) {
   return Number.isFinite(numero) ? numero : null;
 }
 
+function limitarTexto(valor, maximo) {
+  return String(valor || "").trim().slice(0, maximo);
+}
+
 function construirIntervencionNeurona(reporte) {
   const hallazgos = Array.isArray(reporte.hallazgos) ? reporte.hallazgos : [];
-  const impactos = hallazgos.map((h) => Number(h.impacto_financiero_estimado) || 0);
-  const confianzas = hallazgos.map((h) => Number(h.confianza)).filter(Number.isFinite);
+  const impactos = hallazgos.map(
+    (h) => Number(h.impacto_financiero_estimado) || 0
+  );
+  const confianzas = hallazgos
+    .map((h) => Number(h.confianza))
+    .filter(Number.isFinite);
 
-  const impacto = impactos.reduce((suma, valor) => suma + Math.max(0, valor), 0);
+  const impacto = impactos.reduce(
+    (suma, valor) => suma + Math.max(0, valor),
+    0
+  );
   const confianza = confianzas.length
-    ? Math.round(confianzas.reduce((suma, valor) => suma + valor, 0) / confianzas.length)
+    ? Math.round(
+        confianzas.reduce((suma, valor) => suma + valor, 0) /
+        confianzas.length
+      )
     : 100;
 
   const actual = formatearNumero(reporte.kpi_principal?.valor_actual);
@@ -72,17 +97,73 @@ function construirIntervencionNeurona(reporte) {
     `Objetivo: ${objetivo === null ? "sin dato" : objetivo}.`;
 
   const evidencia = hallazgos.length
-    ? hallazgos.map((hallazgo) => hallazgo.evidencia).filter(Boolean).join(" | ")
+    ? hallazgos
+        .map((hallazgo) => hallazgo.evidencia)
+        .filter(Boolean)
+        .join(" | ")
     : "Sin hallazgos adicionales para el periodo.";
 
   return {
     tipo: "NEURONA",
-    departamento: DEPARTAMENTO_POR_NEURONA[reporte.neurona] || "DIRECCION",
+    departamento:
+      DEPARTAMENTO_POR_NEURONA[reporte.neurona] || "DIRECCION",
     autorUsuarioId: null,
+    respuestaAId: null,
+    modelo: null,
     mensaje,
     evidencia,
     impacto_financiero_estimado: impacto,
     confianza
+  };
+}
+
+function construirIntervencionExperta({
+  respuesta,
+  intervencionId,
+  model
+}) {
+  const bloques = [limitarTexto(respuesta.respuesta, 1200)];
+
+  if (Array.isArray(respuesta.inferencias) && respuesta.inferencias.length) {
+    bloques.push(
+      "Inferencias profesionales: " +
+      respuesta.inferencias
+        .map((item) => limitarTexto(item, 350))
+        .filter(Boolean)
+        .join(" | ")
+    );
+  }
+
+  if (
+    Array.isArray(respuesta.datos_faltantes) &&
+    respuesta.datos_faltantes.length
+  ) {
+    bloques.push(
+      "Datos faltantes: " +
+      respuesta.datos_faltantes
+        .map((item) => limitarTexto(item, 300))
+        .filter(Boolean)
+        .join(" | ")
+    );
+  }
+
+  const evidencia = Array.isArray(respuesta.evidencia_usada)
+    ? respuesta.evidencia_usada
+        .map((item) => limitarTexto(item, 600))
+        .filter(Boolean)
+        .join(" | ")
+    : "";
+
+  return {
+    tipo: "EXPERTO_IA",
+    departamento: respuesta.departamento,
+    autorUsuarioId: null,
+    respuestaAId: intervencionId,
+    modelo: limitarTexto(model, 100),
+    mensaje: limitarTexto(bloques.filter(Boolean).join("\n\n"), 2000),
+    evidencia: limitarTexto(evidencia, 4000),
+    impacto_financiero_estimado: null,
+    confianza: null
   };
 }
 
@@ -217,6 +298,8 @@ async function agregarIntervencion({ auth, sesionId, payload }) {
     tipo: "HUMANO",
     departamento: value.departamento,
     autorUsuarioId: auth.usuarioId,
+    respuestaAId: null,
+    modelo: null,
     mensaje: value.mensaje,
     evidencia: "",
     impacto_financiero_estimado: null,
@@ -224,13 +307,146 @@ async function agregarIntervencion({ auth, sesionId, payload }) {
   });
 
   await sesion.save();
-  return sesion.toObject();
+
+  const intervencion =
+    sesion.intervenciones[sesion.intervenciones.length - 1];
+
+  return {
+    sesion: sesion.toObject(),
+    intervencionId: intervencion._id
+  };
+}
+
+async function responderPreguntaExpertos({
+  auth,
+  sesionId,
+  intervencionId,
+  generar = generarRespuestasExpertas
+}) {
+  if (
+    !mongoose.Types.ObjectId.isValid(sesionId) ||
+    !mongoose.Types.ObjectId.isValid(intervencionId)
+  ) {
+    throw serviceError(400, "Intervencion invalida");
+  }
+
+  const sesion = await JuntaSesion.findOne(
+    filtroTenant(auth, { _id: sesionId })
+  ).lean();
+
+  if (!sesion) {
+    throw serviceError(404, "Sesion no encontrada");
+  }
+
+  if (sesion.estado !== "ABIERTA") {
+    throw serviceError(409, "La sesion de Junta ya esta cerrada");
+  }
+
+  const existentes = (sesion.intervenciones || []).filter(
+    (item) =>
+      item.tipo === "EXPERTO_IA" &&
+      String(item.respuestaAId || "") === String(intervencionId)
+  );
+
+  if (existentes.length >= 6) {
+    return sesion;
+  }
+
+  const pregunta = (sesion.intervenciones || []).find(
+    (item) =>
+      item.tipo === "HUMANO" &&
+      String(item._id) === String(intervencionId)
+  );
+
+  if (!pregunta) {
+    throw serviceError(404, "Pregunta humana no encontrada");
+  }
+
+  const decision = await Decision.findOne(
+    filtroTenant(auth, { _id: sesion.decisionId })
+  ).lean();
+
+  if (!decision) {
+    throw serviceError(404, "Decision no encontrada");
+  }
+
+  const reportes = await Reporte.find({
+    empresaId: auth.empresaId,
+    _id: { $in: decision.reportesOrigen || [] },
+    deletedAt: null
+  }).lean();
+
+  if (reportes.length !== 5) {
+    throw serviceError(409, "La Junta requiere los cinco reportes origen");
+  }
+
+  const generadas = await generar({
+    pregunta: pregunta.mensaje,
+    decision,
+    reportes,
+    intervenciones: sesion.intervenciones
+  });
+
+  const respuestas = generadas.respuestas.map((respuesta) =>
+    construirIntervencionExperta({
+      respuesta,
+      intervencionId: pregunta._id,
+      model: generadas.model
+    })
+  );
+
+  const actualizada = await JuntaSesion.findOneAndUpdate(
+    {
+      ...filtroTenant(auth, {
+        _id: sesionId,
+        estado: "ABIERTA"
+      }),
+      intervenciones: {
+        $not: {
+          $elemMatch: {
+            tipo: "EXPERTO_IA",
+            respuestaAId: pregunta._id
+          }
+        }
+      }
+    },
+    {
+      $push: {
+        intervenciones: {
+          $each: respuestas
+        }
+      }
+    },
+    {
+      new: true
+    }
+  ).lean();
+
+  if (actualizada) {
+    return actualizada;
+  }
+
+  const posterior = await JuntaSesion.findOne(
+    filtroTenant(auth, { _id: sesionId })
+  ).lean();
+
+  const yaRespondida = (posterior?.intervenciones || []).some(
+    (item) =>
+      item.tipo === "EXPERTO_IA" &&
+      String(item.respuestaAId || "") === String(intervencionId)
+  );
+
+  if (yaRespondida) return posterior;
+
+  throw serviceError(409, "La pregunta no pudo ser respondida en esta sesion");
 }
 
 module.exports = {
   obtenerSesion,
   abrirSesion,
   agregarIntervencion,
+  responderPreguntaExpertos,
   cerrarSesion,
-  construirIntervencionNeurona
+  construirIntervencionNeurona,
+  construirIntervencionExperta
 };

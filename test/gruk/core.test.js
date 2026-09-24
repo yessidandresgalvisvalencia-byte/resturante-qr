@@ -278,3 +278,112 @@ test("Inventario configurado usa un KPI distinto a porcentaje agotado", () => {
   assert.equal(KPI_DIRECCION.inventario_configurado, "MAYOR_ES_MEJOR");
   assert.equal(KPI_DIRECCION.porcentaje_items_agotados, "MENOR_ES_MEJOR");
 });
+
+
+test("Junta experta exige seis perspectivas y no inventa impacto", async () => {
+  const {
+    generarRespuestasExpertas,
+    DEPARTAMENTOS_EXPERTOS
+  } = require("../../intelligence/board/expertos.service");
+
+  const respuestas = DEPARTAMENTOS_EXPERTOS.map((departamento) => ({
+    departamento,
+    respuesta: `Respuesta de ${departamento}`,
+    evidencia_usada: ["Dato presente"],
+    inferencias: ["Inferencia profesional"],
+    datos_faltantes: []
+  }));
+
+  let requestBody = null;
+  const fetchImpl = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      async json() {
+        return {
+          id: "resp_test",
+          output: [{
+            type: "message",
+            content: [{
+              type: "output_text",
+              text: JSON.stringify({ respuestas })
+            }]
+          }]
+        };
+      }
+    };
+  };
+
+  const resultado = await generarRespuestasExpertas({
+    pregunta: "¿Qué corregimos primero?",
+    decision: {
+      decision_general: {
+        situacion: "Situacion",
+        causa_raiz: "Causa",
+        prediccion: "Prediccion"
+      },
+      ordenes_por_departamento: []
+    },
+    reportes: [],
+    intervenciones: [],
+    apiKey: "test-key",
+    model: "modelo-test",
+    fetchImpl
+  });
+
+  assert.equal(resultado.respuestas.length, 6);
+  assert.deepEqual(
+    new Set(resultado.respuestas.map((item) => item.departamento)),
+    new Set(DEPARTAMENTOS_EXPERTOS)
+  );
+  assert.equal(requestBody.store, false);
+  assert.equal(requestBody.reasoning.effort, "high");
+  assert.equal(requestBody.text.format.type, "json_schema");
+});
+
+test("Junta experta falla cerrado si no existe credencial de IA", async () => {
+  const {
+    generarRespuestasExpertas
+  } = require("../../intelligence/board/expertos.service");
+
+  await assert.rejects(
+    () => generarRespuestasExpertas({
+      pregunta: "Pregunta",
+      decision: { ordenes_por_departamento: [] },
+      reportes: [],
+      intervenciones: [],
+      apiKey: ""
+    }),
+    (error) =>
+      error.statusCode === 503 &&
+      error.message === "JUNTA_IA_NO_CONFIGURADA"
+  );
+});
+
+test("Intervencion experta queda ligada a la pregunta sin cifras inventadas", () => {
+  const mongoose = require("mongoose");
+  const {
+    construirIntervencionExperta
+  } = require("../../intelligence/board/junta.service");
+
+  const preguntaId = new mongoose.Types.ObjectId();
+  const intervencion = construirIntervencionExperta({
+    intervencionId: preguntaId,
+    model: "modelo-test",
+    respuesta: {
+      departamento: "FINANZAS",
+      respuesta: "Primero validaria la cobertura de costos.",
+      evidencia_usada: ["7 ventas no tienen costo congelado confiable."],
+      inferencias: ["Sin costo confiable no conviene concluir margen real."],
+      datos_faltantes: ["Costo real de las ventas historicas."]
+    }
+  });
+
+  assert.equal(intervencion.tipo, "EXPERTO_IA");
+  assert.equal(intervencion.departamento, "FINANZAS");
+  assert.equal(String(intervencion.respuestaAId), String(preguntaId));
+  assert.equal(intervencion.impacto_financiero_estimado, null);
+  assert.equal(intervencion.confianza, null);
+  assert.match(intervencion.mensaje, /Inferencias profesionales/);
+  assert.match(intervencion.mensaje, /Datos faltantes/);
+});

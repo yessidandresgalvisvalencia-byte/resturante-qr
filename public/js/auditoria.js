@@ -39,6 +39,7 @@ async function inicializarAuditoriaGRUK() {
         <p><strong>Tarea:</strong> ${escaparAuditoriaGRUK(evento.tarea || "No disponible")}</p>
         <p><strong>KPI:</strong> ${escaparAuditoriaGRUK(evento.kpi_a_medir || "No disponible")}</p>
         <p><strong>Rol:</strong> ${escaparAuditoriaGRUK(evento.rol || "No disponible")}</p>
+        ${evento.modelo ? `<p><strong>Modelo IA:</strong> ${escaparAuditoriaGRUK(evento.modelo)}</p>` : ""}
         <p><strong>Fecha:</strong> ${escaparAuditoriaGRUK(fecha)}</p>
         <p><strong>Contexto:</strong> ${escaparAuditoriaGRUK(evento.situacion || "No disponible")}</p>
       </div>`;
