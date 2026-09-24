@@ -2,6 +2,7 @@
 
 const eventBus = require("../../core/eventos/eventBus");
 const finanzasNeuron = require("../neurons/finanzas.neuron");
+const { ejecutarCicloEmpresa } = require("../orchestrator/cicloInteligencia");
 
 let registrado = false;
 const empresasEnAnalisis = new Set();
@@ -35,7 +36,7 @@ function registrarFinanzasListener() {
       setImmediate(() => {
         Promise.resolve()
           .then(() => finanzasNeuron.analyze(empresaId))
-          .then((reporte) => {
+          .then(async (reporte) => {
             console.log(
               "[GRUK INTELLIGENCE] FINANZAS reporte generado",
               {
@@ -47,6 +48,10 @@ function registrarFinanzasListener() {
                   reporte?.kpi_principal?.estado || null
               }
             );
+
+            if (reporte?.kpi_principal?.estado === "CRITICO") {
+              await ejecutarCicloEmpresa(empresaId);
+            }
           })
           .catch((error) => {
             console.error(
