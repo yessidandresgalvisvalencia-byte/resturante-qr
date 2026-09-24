@@ -177,6 +177,20 @@ test(
       });
 
       await assert.rejects(
+        () => abrirSesion({
+          auth: {
+            usuarioId: String(new mongoose.Types.ObjectId()),
+            empresaId: String(otraEmpresa._id),
+            sedeId: null,
+            rol: ROLES_GRUK.DUENO
+          },
+          decisionId: String(decisionGuardada._id)
+        }),
+        (error) => error.statusCode === 404,
+        "Junta no debe abrir decision de otro tenant"
+      );
+
+      await assert.rejects(
         () => procesarOrden({
           auth: {
             usuarioId: String(new mongoose.Types.ObjectId()),
