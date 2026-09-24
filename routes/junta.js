@@ -10,6 +10,7 @@ const {
   obtenerJunta,
   abrirJunta,
   intervenir,
+  reintentarRespuesta,
   cerrarJunta
 } = require("../intelligence/board/junta.controller");
 
@@ -42,6 +43,12 @@ router.post(
   "/sesiones/:sesionId/intervenciones",
   ...seguridad,
   intervenir
+);
+
+router.post(
+  "/sesiones/:sesionId/intervenciones/:intervencionId/responder",
+  ...seguridad,
+  reintentarRespuesta
 );
 
 module.exports = router;
