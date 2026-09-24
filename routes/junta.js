@@ -7,6 +7,7 @@ const {
   roleCheck
 } = require("../core/auth/roleCheck.middleware");
 const {
+  obtenerJunta,
   abrirJunta,
   intervenir,
   cerrarJunta
@@ -18,6 +19,12 @@ const seguridad = [
   auth,
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE)
 ];
+
+router.get(
+  "/decisiones/:decisionId",
+  ...seguridad,
+  obtenerJunta
+);
 
 router.post(
   "/decisiones/:decisionId/abrir",
