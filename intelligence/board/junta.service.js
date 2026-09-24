@@ -46,7 +46,9 @@ function filtroTenant(auth, extra = {}) {
 }
 
 function formatearNumero(valor) {
-  return Number.isFinite(Number(valor)) ? Number(valor) : null;
+  if (valor === null || valor === undefined || valor === "") return null;
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : null;
 }
 
 function construirIntervencionNeurona(reporte) {
