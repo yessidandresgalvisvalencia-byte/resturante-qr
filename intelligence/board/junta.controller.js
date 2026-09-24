@@ -4,21 +4,41 @@ const {
   obtenerSesion,
   abrirSesion,
   agregarIntervencion,
+  responderPreguntaExpertos,
   cerrarSesion
 } = require("./junta.service");
 
-function responderError(res, error, operacion) {
+function mensajePublico(error) {
+  if (error.message === "JUNTA_IA_NO_CONFIGURADA") {
+    return "La Junta experta todavía no tiene proveedor de IA configurado.";
+  }
+
+  if (
+    error.message === "JUNTA_IA_JSON_INVALIDO" ||
+    error.message === "JUNTA_IA_RESPUESTAS_INCOMPLETAS" ||
+    error.message === "JUNTA_IA_RESPUESTA_SIN_TEXTO" ||
+    String(error.message || "").startsWith("JUNTA_IA_PROVIDER_ERROR_")
+  ) {
+    return "Los expertos no pudieron completar la respuesta. La pregunta quedó guardada y puede reintentarse.";
+  }
+
+  return error.message;
+}
+
+function responderError(res, error, operacion, extra = {}) {
   if (error.statusCode) {
     return res.status(error.statusCode).json({
       ok: false,
-      error: error.message
+      error: mensajePublico(error),
+      ...extra
     });
   }
 
   console.error(`Junta ${operacion}:`, error);
   return res.status(500).json({
     ok: false,
-    error: "Error procesando solicitud de Junta Directiva"
+    error: "Error procesando solicitud de Junta Directiva",
+    ...extra
   });
 }
 
@@ -65,16 +85,57 @@ async function cerrarJunta(req, res) {
 }
 
 async function intervenir(req, res) {
+  let guardada = null;
+
   try {
-    const sesion = await agregarIntervencion({
+    guardada = await agregarIntervencion({
       auth: req.auth,
       sesionId: req.params.sesionId,
       payload: req.body
     });
 
-    return res.json({ ok: true, sesion });
+    const sesion = await responderPreguntaExpertos({
+      auth: req.auth,
+      sesionId: req.params.sesionId,
+      intervencionId: guardada.intervencionId
+    });
+
+    return res.json({
+      ok: true,
+      sesion,
+      expertosRespondieron: true
+    });
   } catch (error) {
-    return responderError(res, error, "intervenir");
+    return responderError(
+      res,
+      error,
+      "intervenir",
+      guardada
+        ? {
+            sesion: guardada.sesion,
+            preguntaGuardada: true,
+            intervencionId: guardada.intervencionId
+          }
+        : {}
+    );
+  }
+}
+
+async function reintentarRespuesta(req, res) {
+  try {
+    const sesion = await responderPreguntaExpertos({
+      auth: req.auth,
+      sesionId: req.params.sesionId,
+      intervencionId: req.params.intervencionId
+    });
+
+    return res.json({
+      ok: true,
+      sesion,
+      expertosRespondieron: true
+    });
+  } catch (error) {
+    return responderError(res, error, "reintentar respuesta");
   }
 }
 
@@ -82,5 +143,6 @@ module.exports = {
   obtenerJunta,
   abrirJunta,
   intervenir,
+  reintentarRespuesta,
   cerrarJunta
 };
