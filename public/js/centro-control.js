@@ -1,151 +1,19 @@
-async function inicializarCentroControlGRUK() {
-  const restaurantId = getRestaurantId();
-
-  await cargarResumen(restaurantId);
-  await cargarTopProductos(restaurantId);
-  await cargarHistorialVentas(restaurantId);
-  await cargarSolicitudesMesero(restaurantId);
-
-  cargarEstrategiasAplicadas();
-  cargarProductosRecomendadosAdmin();
+"use strict";
+function escaparGRUK(valor){return String(valor??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+async function inicializarCentroControlGRUK(){await cargarDecisionCerebroGRUK();}
+async function cargarDecisionCerebroGRUK(){
+ const contenedor=document.getElementById("cerebroDecisionGRUK"); if(!contenedor)return;
+ try{
+  const res=await grukFetch("/api/cerebro/ultima-decision"); const data=await res.json();
+  if(!res.ok||!data.ok){contenedor.innerHTML="<p>No fue posible consultar al Cerebro.</p>";return;}
+  const d=data.decision;if(!d){contenedor.innerHTML="<p>El Cerebro todavía no ha generado una decisión empresarial.</p>";return;}
+  const ordenes=d.ordenes_por_departamento||[];
+  contenedor.innerHTML=`<div class="card"><h2>Cerebro decidió</h2><p><strong>Situación:</strong> ${escaparGRUK(d.decision_general?.situacion)}</p><p><strong>Causa:</strong> ${escaparGRUK(d.decision_general?.causa_raiz)}</p><p><strong>Confianza:</strong> ${Number(d.confianza_global||0)}%</p></div>`+
+  ordenes.map(o=>`<div class="card"><h3>${escaparGRUK(o.departamento)}</h3><p>${escaparGRUK(o.tarea)}</p><p><strong>Prioridad:</strong> ${escaparGRUK(o.prioridad)}</p><p><strong>KPI:</strong> ${escaparGRUK(o.kpi_a_medir)}</p>${o.estado==="PENDIENTE_APROBACION"?`<button onclick="aprobarOrdenCerebroGRUK('${d._id}','${o._id}')">Aprobar</button>`:`<p><strong>Estado:</strong> ${escaparGRUK(o.estado)}</p>`}</div>`).join("");
+ }catch(error){console.error("Cerebro no disponible:",error);contenedor.innerHTML="<p>Error consultando la decisión empresarial.</p>";}
 }
-
-async function cargarResumen(restaurantId) {
-  try {
-    const res = await grukFetch(`/api/admin/resumen?restaurantId=${restaurantId}`);
-    if (!res.ok) return;
-
-    const data = await res.json();
-
-    const totalVendido = document.getElementById("totalVendido");
-    const pedidosActivos = document.getElementById("pedidosActivos");
-
-    if (totalVendido) totalVendido.textContent = `$${data.totalVendido || 0}`;
-    if (pedidosActivos) pedidosActivos.textContent = data.pedidosActivos || 0;
-
-  } catch (error) {
-    console.log("Resumen admin no disponible:", error);
-  }
-}
-
-async function cargarTopProductos(restaurantId) {
-  try {
-    const res = await grukFetch(`/api/admin/resumen?restaurantId=${restaurantId}`);
-    if (!res.ok) return;
-
-    const data = await res.json();
-    const topProductos = document.getElementById("topProductos");
-    if (!topProductos) return;
-
-    const productos = data.topProductos || [];
-
-    topProductos.innerHTML = productos.length
-      ? productos.map(item => `
-        <div class="card">
-          <h3>${item.producto}</h3>
-          <p>Vendidos: ${item.cantidad}</p>
-        </div>
-      `).join("")
-      : `<div class="card"><p>No hay datos todavía.</p></div>`;
-
-  } catch (error) {
-    console.log("Top productos no disponible:", error);
-  }
-}
-
-async function cargarHistorialVentas(restaurantId) {
-  try {
-    const res = await grukFetch(`/api/admin/resumen?restaurantId=${restaurantId}`);
-    if (!res.ok) return;
-
-    const data = await res.json();
-    const historialVentas = document.getElementById("historialVentas");
-    if (!historialVentas) return;
-
-    const historial = data.historial || [];
-
-    historialVentas.innerHTML = historial.length
-      ? historial.map(item => `
-        <div class="card">
-          <h3>${item.producto || "Venta"}</h3>
-          <p>Mesa: ${item.mesa || "-"}</p>
-          <p>Valor: $${item.precio || 0}</p>
-          <p>Estado pago: ${item.estadoPago || "-"}</p>
-        </div>
-      `).join("")
-      : `<div class="card"><p>No hay ventas todavía.</p></div>`;
-
-  } catch (error) {
-    console.log("Historial ventas no disponible:", error);
-  }
-}
-
-async function cargarSolicitudesMesero(restaurantId) {
-  try {
-    const res = await fetch(`/api/llamados?restaurantId=${restaurantId}`);
-    if (!res.ok) return;
-
-    const data = await res.json();
-    const solicitudesMesero = document.getElementById("solicitudesMesero");
-    if (!solicitudesMesero) return;
-
-    const pendientes = data.filter(item => item.estado !== "atendido");
-
-    solicitudesMesero.innerHTML = pendientes.length
-      ? pendientes.map(item => `
-        <div class="card">
-          <h3>Mesa ${item.mesa} necesita al mesero ${item.meseroNombre || "sin asignar"}</h3>
-          <p>${tiempoTranscurrido(item.createdAt)}</p>
-          <p>Estado: ${item.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
-        </div>
-      `).join("")
-      : `<div class="card"><p>No hay solicitudes de mesero.</p></div>`;
-
-  } catch (error) {
-    console.log("Solicitudes de mesero no disponibles:", error);
-  }
-}
-
-function cargarEstrategiasAplicadas() {
-  const contenedor = document.getElementById("estrategiasAplicadas");
-  if (!contenedor) return;
-
-  const restaurantId = getRestaurantId();
-
-  const estrategias =
-    JSON.parse(localStorage.getItem(`estrategias_${restaurantId}`)) || [];
-
-  if (!estrategias.length) {
-    contenedor.innerHTML = `<div class="card">No hay estrategias aplicadas.</div>`;
-    return;
-  }
-
-  contenedor.innerHTML = estrategias.map(e => `
-    <div class="card">
-      <h3>Estrategia ${e.numero}</h3>
-      <p><strong>${e.titulo}</strong></p>
-      <ul>
-        ${(e.productos || []).map(p => `<li>${p}</li>`).join("")}
-      </ul>
-    </div>
-  `).join("");
-}
-
-function cargarProductosRecomendadosAdmin() {
-  const contenedor = document.getElementById("productosRecomendadosAdmin");
-  if (!contenedor) return;
-
-  const restaurantId = getRestaurantId();
-
-  const productos =
-    JSON.parse(localStorage.getItem(`productos_recomendados_${restaurantId}`)) || [];
-
-  contenedor.innerHTML = productos.length
-    ? productos.map(producto => `
-      <div class="card">
-        <h3>${producto}</h3>
-        <p>Producto recomendado en el menú.</p>
-      </div>
-    `).join("")
-    : `<div class="card">No hay productos recomendados todavía.</div>`;
+async function aprobarOrdenCerebroGRUK(decisionId,ordenId){
+ if(!confirm("¿Aprobar esta orden del Cerebro?"))return;
+ const res=await grukFetch(`/api/cerebro/decisiones/${encodeURIComponent(decisionId)}/ordenes/${encodeURIComponent(ordenId)}/aprobar`,{method:"POST"});
+ const data=await res.json();if(!res.ok||!data.ok){alert(data.error||"No se pudo aprobar la orden.");return;}await cargarDecisionCerebroGRUK();
 }
