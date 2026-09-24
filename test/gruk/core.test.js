@@ -150,3 +150,55 @@ test("Situacion ejecutiva combina funciones criticas y ordenes", () => {
   const texto = construirSituacion([{}], [{}, {}]);
   assert.equal(texto, "1 funcion(es) critica(s) requieren atencion y 2 orden(es) esperan gestion.");
 });
+
+
+test("Junta preserva KPI sin dato y solo usa impactos reportados", () => {
+  const {
+    construirIntervencionNeurona
+  } = require("../../intelligence/board/junta.service");
+
+  const intervencion = construirIntervencionNeurona({
+    neurona: "MARKETING",
+    kpi_principal: {
+      nombre: "cac",
+      valor_actual: null,
+      valor_objetivo: 10000,
+      estado: "ALERTA"
+    },
+    hallazgos: [{
+      tipo: "DATOS_INSUFICIENTES",
+      evidencia: "No existen datos atribuibles suficientes.",
+      impacto_financiero_estimado: 0,
+      confianza: 100
+    }]
+  });
+
+  assert.match(intervencion.mensaje, /Valor actual: sin dato/);
+  assert.equal(intervencion.impacto_financiero_estimado, 0);
+  assert.equal(intervencion.confianza, 100);
+  assert.equal(intervencion.departamento, "MARKETING");
+});
+
+test("Junta suma impacto y promedia confianza de evidencia determinista", () => {
+  const {
+    construirIntervencionNeurona
+  } = require("../../intelligence/board/junta.service");
+
+  const intervencion = construirIntervencionNeurona({
+    neurona: "FINANZAS",
+    kpi_principal: {
+      nombre: "margen",
+      valor_actual: 20,
+      valor_objetivo: 35,
+      estado: "CRITICO"
+    },
+    hallazgos: [
+      { evidencia: "A", impacto_financiero_estimado: 1000, confianza: 80 },
+      { evidencia: "B", impacto_financiero_estimado: 500, confianza: 100 }
+    ]
+  });
+
+  assert.equal(intervencion.impacto_financiero_estimado, 1500);
+  assert.equal(intervencion.confianza, 90);
+  assert.equal(intervencion.departamento, "FINANZAS");
+});
