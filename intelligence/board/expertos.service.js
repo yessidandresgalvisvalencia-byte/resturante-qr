@@ -239,6 +239,25 @@ async function generarRespuestasExpertas({
   }
 
   if (!response.ok) {
+    let detalle = "";
+    try {
+      const providerBody = await response.json();
+      detalle = String(
+        providerBody?.error?.message ||
+        providerBody?.error?.code ||
+        providerBody?.error?.type ||
+        ""
+      ).slice(0, 500);
+    } catch {
+      // Nunca registrar cabeceras, request body ni credenciales.
+    }
+
+    console.error("Junta IA provider:", {
+      status: response.status,
+      model,
+      detalle
+    });
+
     const error = new Error(`JUNTA_IA_PROVIDER_ERROR_${response.status}`);
     error.statusCode = 502;
     throw error;
