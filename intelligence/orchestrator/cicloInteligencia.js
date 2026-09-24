@@ -16,7 +16,15 @@ const NEURONAS = Object.freeze([
   gente
 ]);
 
-async function ejecutarCicloEmpresa(empresaId) {
+function debeTomarDecision(reportes, forzarDecision = false) {
+  if (forzarDecision) return true;
+  return reportes.some(
+    (reporte) => reporte.kpi_principal?.estado === "CRITICO"
+  );
+}
+
+async function ejecutarCicloEmpresa(empresaId, opciones = {}) {
+  const { forzarDecision = false } = opciones;
   const modulos = await evaluarModulosAutomaticos(empresaId);
   const reportes = [];
 
@@ -33,13 +41,7 @@ async function ejecutarCicloEmpresa(empresaId) {
     throw new Error("CICLO_INTELIGENCIA_REPORTES_INCOMPLETOS");
   }
 
-  const requiereDecision = reportes.some(
-    (reporte) =>
-      reporte.necesita_decision_de_cerebro === true ||
-      reporte.kpi_principal?.estado === "CRITICO"
-  );
-
-  const decision = requiereDecision
+  const decision = debeTomarDecision(reportes, forzarDecision)
     ? await cerebro.tomarDecision(empresaId)
     : null;
 
@@ -48,5 +50,6 @@ async function ejecutarCicloEmpresa(empresaId) {
 
 module.exports = {
   ejecutarCicloEmpresa,
+  debeTomarDecision,
   NEURONAS
 };
