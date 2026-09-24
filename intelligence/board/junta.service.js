@@ -209,8 +209,8 @@ async function agregarIntervencion({ auth, sesionId, payload }) {
     autorUsuarioId: auth.usuarioId,
     mensaje: value.mensaje,
     evidencia: "",
-    impacto_financiero_estimado: 0,
-    confianza: 100
+    impacto_financiero_estimado: null,
+    confianza: null
   });
 
   await sesion.save();
