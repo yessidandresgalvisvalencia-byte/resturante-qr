@@ -33,6 +33,9 @@ async function inicializarAuditoriaGRUK() {
 
       return `<div class="card">
         <h3>${escaparAuditoriaGRUK(evento.accion)} · ${escaparAuditoriaGRUK(evento.departamento || "SIN_DEPARTAMENTO")}</h3>
+        <p><strong>Tipo:</strong> ${escaparAuditoriaGRUK(evento.tipo || "EVENTO")}</p>
+        <p><strong>Actor:</strong> ${escaparAuditoriaGRUK(evento.actor || "HUMANO")}</p>
+        <p><strong>Usuario:</strong> ${escaparAuditoriaGRUK(evento.usuarioId || "Sistema")}</p>
         <p><strong>Tarea:</strong> ${escaparAuditoriaGRUK(evento.tarea || "No disponible")}</p>
         <p><strong>KPI:</strong> ${escaparAuditoriaGRUK(evento.kpi_a_medir || "No disponible")}</p>
         <p><strong>Rol:</strong> ${escaparAuditoriaGRUK(evento.rol || "No disponible")}</p>
