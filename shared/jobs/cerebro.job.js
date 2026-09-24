@@ -9,7 +9,7 @@ function iniciarCerebroJob(){
   try{
    const empresas=await Empresa.find({estado:"activa","modulos.inteligencia":true}).select("_id").lean();
    for(const empresa of empresas){
-    try{await ejecutarCicloEmpresa(empresa._id);}
+    try{await ejecutarCicloEmpresa(empresa._id,{forzarDecision:true});}
     catch(error){console.error("[GRUK CEREBRO] ciclo empresa fallo",{empresaId:String(empresa._id),error:error.message});}
    }
   }catch(error){console.error("[GRUK CEREBRO] job fallo",error);}
