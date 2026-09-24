@@ -9,8 +9,9 @@ function escaparJuntaGRUK(valor) {
 }
 
 function formatoNumeroJuntaGRUK(valor) {
+  if (valor === null || valor === undefined || valor === "") return "No estimado";
   const numero = Number(valor);
-  return Number.isFinite(numero) ? numero.toLocaleString("es-CO") : "0";
+  return Number.isFinite(numero) ? numero.toLocaleString("es-CO") : "No estimado";
 }
 
 function renderizarJuntaGRUK(sesion) {
@@ -58,7 +59,7 @@ function renderizarJuntaGRUK(sesion) {
       <p>${escaparJuntaGRUK(item.mensaje)}</p>
       ${evidencia}
       <p><strong>Impacto financiero estimado:</strong> ${formatoNumeroJuntaGRUK(item.impacto_financiero_estimado)}</p>
-      <p><strong>Confianza:</strong> ${Number(item.confianza || 0)}%</p>
+      <p><strong>Confianza:</strong> ${item.confianza === null || item.confianza === undefined ? "No aplica" : Number(item.confianza) + "%"}</p>
     </div>`;
   }).join("");
 }
