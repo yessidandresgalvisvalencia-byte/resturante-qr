@@ -17,9 +17,11 @@ test(
     const Decision = require("../../intelligence/models/CerebroDecision");
     const Auditoria = require("../../intelligence/models/CerebroAuditoria");
     const Memoria = require("../../intelligence/memory/CerebroMemoria");
+    const JuntaSesion = require("../../intelligence/board/JuntaSesion");
     const { ejecutarCicloEmpresa } = require("../../intelligence/orchestrator/cicloInteligencia");
     const { procesarOrden } = require("../../intelligence/brain/cerebro.service");
     const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
+    const { abrirSesion, agregarIntervencion } = require("../../intelligence/board/junta.service");
 
     await mongoose.connect(TEST_MONGO_URI, {
       dbName: "gruk_ci"
@@ -131,6 +133,41 @@ test(
 
       const usuarioId = new mongoose.Types.ObjectId();
 
+      const authDueno = {
+        usuarioId: String(usuarioId),
+        empresaId: String(empresa._id),
+        sedeId: null,
+        rol: ROLES_GRUK.DUENO
+      };
+
+      const junta = await abrirSesion({
+        auth: authDueno,
+        decisionId: String(decisionGuardada._id)
+      });
+
+      assert.equal(junta.estado, "ABIERTA");
+      assert.equal(
+        junta.intervenciones.filter((item) => item.tipo === "NEURONA").length,
+        5
+      );
+
+      const juntaIntervenida = await agregarIntervencion({
+        auth: authDueno,
+        sesionId: String(junta._id),
+        payload: {
+          departamento: "DIRECCION",
+          mensaje: "Validar responsables y fecha antes de ejecutar."
+        }
+      });
+
+      assert.equal(
+        juntaIntervenida.intervenciones.filter((item) => item.tipo === "HUMANO").length,
+        1
+      );
+
+      const juntaGuardada = await JuntaSesion.findById(junta._id).lean();
+      assert.equal(juntaGuardada.intervenciones.length, 6);
+
       const otraEmpresa = await Empresa.create({
         empresaId: "emp_ci_aislamiento",
         nombre: "GRUK CI Tenant B",
@@ -161,12 +198,7 @@ test(
       assert.equal(auditoriaAjena, 0);
 
       const aprobada = await procesarOrden({
-        auth: {
-          usuarioId: String(usuarioId),
-          empresaId: String(empresa._id),
-          sedeId: null,
-          rol: ROLES_GRUK.DUENO
-        },
+        auth: authDueno,
         decisionId: String(decisionGuardada._id),
         ordenId: String(orden._id),
         accion: "APROBAR"
