@@ -107,3 +107,33 @@ test("Cerebro inmediato solo se dispara con KPI CRITICO", () => {
   assert.equal(debeTomarDecision(reportesCritico, false), true);
   assert.equal(debeTomarDecision(reportesAlerta, true), true);
 });
+
+
+test("Las cinco neuronas implementan el contrato GRUK", () => {
+  const neuronas = [
+    require("../../intelligence/neurons/finanzas.neuron"),
+    require("../../intelligence/neurons/ventas.neuron"),
+    require("../../intelligence/neurons/marketing.neuron"),
+    require("../../intelligence/neurons/operaciones.neuron"),
+    require("../../intelligence/neurons/gente.neuron")
+  ];
+
+  assert.equal(neuronas.length, 5);
+  for (const neurona of neuronas) {
+    assert.equal(typeof neurona.getRequiredEvents, "function");
+    assert.equal(typeof neurona.analyze, "function");
+    assert.ok(Array.isArray(neurona.getRequiredEvents()));
+  }
+});
+
+test("Empresa nueva activa inteligencia GRUK por defecto", () => {
+  const Empresa = require("../../models/Empresa");
+  const empresa = new Empresa({
+    empresaId: "emp_test_default_intelligence",
+    nombre: "Empresa Test",
+    tipoNegocio: "servicios",
+    correo: "test@example.com"
+  });
+
+  assert.equal(empresa.modulos.inteligencia, true);
+});
