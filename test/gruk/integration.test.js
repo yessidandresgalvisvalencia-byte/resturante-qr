@@ -22,6 +22,7 @@ test(
     const { procesarOrden, obtenerAuditoria } = require("../../intelligence/brain/cerebro.service");
     const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
     const { abrirSesion, agregarIntervencion, cerrarSesion } = require("../../intelligence/board/junta.service");
+    const { evaluarPendientes } = require("../../intelligence/memory/memoria.service");
 
     await mongoose.connect(TEST_MONGO_URI, {
       dbName: "gruk_ci"
@@ -264,12 +265,26 @@ test(
       });
       assert.equal(memorias, 1);
 
+      await Memoria.updateOne(
+        {
+          empresaId: empresa._id,
+          decisionId: decisionGuardada._id,
+          ordenId: orden._id
+        },
+        { $set: { evaluarAt: new Date(0) } }
+      );
+
+      const evaluadas = await evaluarPendientes(new Date());
+      assert.equal(evaluadas.length, 1);
+      assert.equal(evaluadas[0].resultado, "SIN_CAMBIO");
+
       const historial = await obtenerAuditoria(authDueno, 100);
       const accionesHistorial = new Set(historial.map((evento) => evento.accion));
       assert.ok(accionesHistorial.has("APROBAR"));
       assert.ok(accionesHistorial.has("JUNTA_ABIERTA"));
       assert.ok(accionesHistorial.has("JUNTA_INTERVENCION"));
       assert.ok(accionesHistorial.has("JUNTA_CERRADA"));
+      assert.ok(accionesHistorial.has("MEMORIA_EVALUADA"));
 
       const empresaActualizada = await Empresa.findById(empresa._id).lean();
       assert.equal(empresaActualizada.modulos.gente, true);
