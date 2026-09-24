@@ -1,6 +1,7 @@
 "use strict";
 
 let juntaSesionActualGRUK = null;
+let juntaDecisionActualGRUK = null;
 
 function escaparJuntaGRUK(valor) {
   return String(valor ?? "").replace(/[&<>"']/g, (c) => ({
@@ -14,6 +15,42 @@ function formatoNumeroJuntaGRUK(valor) {
   return Number.isFinite(numero) ? numero.toLocaleString("es-CO") : "No estimado";
 }
 
+function configurarControlesJuntaGRUK({ existe, cerrada }) {
+  const botonAbrir = document.getElementById("juntaAbrirGRUK");
+  const botonCerrar = document.getElementById("juntaCerrarGRUK");
+  const botonEnviar = document.getElementById("juntaEnviarGRUK");
+  const mensajeInput = document.getElementById("juntaMensajeGRUK");
+  const departamentoInput = document.getElementById("juntaDepartamentoGRUK");
+
+  if (botonAbrir) botonAbrir.disabled = existe;
+  if (botonCerrar) botonCerrar.disabled = !existe || cerrada;
+  if (botonEnviar) botonEnviar.disabled = !existe || cerrada;
+  if (mensajeInput) mensajeInput.disabled = !existe || cerrada;
+  if (departamentoInput) departamentoInput.disabled = !existe || cerrada;
+}
+
+function renderizarJuntaSinSesionGRUK(decision) {
+  juntaSesionActualGRUK = null;
+
+  const estado = document.getElementById("juntaEstadoGRUK");
+  const lista = document.getElementById("juntaIntervencionesGRUK");
+
+  configurarControlesJuntaGRUK({
+    existe: false,
+    cerrada: false
+  });
+
+  if (estado) {
+    estado.innerHTML = `
+      <h2>Discusión aún no abierta</h2>
+      <p><strong>Decisión:</strong> ${escaparJuntaGRUK(decision._id)}</p>
+      <p>Abre la Junta cuando quieras iniciar formalmente la discusión.</p>
+    `;
+  }
+
+  if (lista) lista.innerHTML = "";
+}
+
 function renderizarJuntaGRUK(sesion) {
   juntaSesionActualGRUK = sesion;
 
@@ -21,15 +58,10 @@ function renderizarJuntaGRUK(sesion) {
   const lista = document.getElementById("juntaIntervencionesGRUK");
   const cerrada = sesion.estado === "CERRADA";
 
-  const botonCerrar = document.getElementById("juntaCerrarGRUK");
-  const botonEnviar = document.getElementById("juntaEnviarGRUK");
-  const mensajeInput = document.getElementById("juntaMensajeGRUK");
-  const departamentoInput = document.getElementById("juntaDepartamentoGRUK");
-
-  if (botonCerrar) botonCerrar.disabled = cerrada;
-  if (botonEnviar) botonEnviar.disabled = cerrada;
-  if (mensajeInput) mensajeInput.disabled = cerrada;
-  if (departamentoInput) departamentoInput.disabled = cerrada;
+  configurarControlesJuntaGRUK({
+    existe: true,
+    cerrada
+  });
 
   if (estado) {
     estado.innerHTML = `
@@ -54,17 +86,21 @@ function renderizarJuntaGRUK(sesion) {
       ? `<p><strong>Evidencia:</strong> ${escaparJuntaGRUK(item.evidencia)}</p>`
       : "";
 
+    const confianza = item.confianza === null || item.confianza === undefined
+      ? "No aplica"
+      : `${Number(item.confianza)}%`;
+
     return `<div class="card">
       <h3>${actor}</h3>
       <p>${escaparJuntaGRUK(item.mensaje)}</p>
       ${evidencia}
       <p><strong>Impacto financiero estimado:</strong> ${formatoNumeroJuntaGRUK(item.impacto_financiero_estimado)}</p>
-      <p><strong>Confianza:</strong> ${item.confianza === null || item.confianza === undefined ? "No aplica" : Number(item.confianza) + "%"}</p>
+      <p><strong>Confianza:</strong> ${escaparJuntaGRUK(confianza)}</p>
     </div>`;
   }).join("");
 }
 
-async function abrirJuntaUltimaDecisionGRUK() {
+async function cargarJuntaUltimaDecisionGRUK() {
   const resDecision = await grukFetch("/api/cerebro/ultima-decision");
   const dataDecision = await resDecision.json();
 
@@ -76,8 +112,33 @@ async function abrirJuntaUltimaDecisionGRUK() {
     throw new Error("El Cerebro todavía no tiene una decisión para discutir.");
   }
 
+  juntaDecisionActualGRUK = dataDecision.decision;
+
   const res = await grukFetch(
-    `/api/junta/decisiones/${encodeURIComponent(dataDecision.decision._id)}/abrir`,
+    `/api/junta/decisiones/${encodeURIComponent(juntaDecisionActualGRUK._id)}`
+  );
+  const data = await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "No fue posible consultar la Junta.");
+  }
+
+  if (data.sesion) {
+    renderizarJuntaGRUK(data.sesion);
+  } else {
+    renderizarJuntaSinSesionGRUK(juntaDecisionActualGRUK);
+  }
+}
+
+async function abrirJuntaDirectivaGRUK() {
+  if (!juntaDecisionActualGRUK?._id) {
+    throw new Error("No existe una decisión del Cerebro para discutir.");
+  }
+
+  if (juntaSesionActualGRUK?._id) return;
+
+  const res = await grukFetch(
+    `/api/junta/decisiones/${encodeURIComponent(juntaDecisionActualGRUK._id)}/abrir`,
     { method: "POST" }
   );
   const data = await res.json();
@@ -145,7 +206,9 @@ async function agregarIntervencionJuntaGRUK() {
     if (input) input.value = "";
     renderizarJuntaGRUK(data.sesion);
   } finally {
-    if (boton) boton.disabled = false;
+    if (boton && juntaSesionActualGRUK?.estado !== "CERRADA") {
+      boton.disabled = false;
+    }
   }
 }
 
@@ -153,11 +216,21 @@ async function inicializarJuntaDirectivaGRUK() {
   const estado = document.getElementById("juntaEstadoGRUK");
 
   try {
-    await abrirJuntaUltimaDecisionGRUK();
+    await cargarJuntaUltimaDecisionGRUK();
 
-    const boton = document.getElementById("juntaEnviarGRUK");
-    if (boton) {
-      boton.addEventListener("click", () => {
+    const botonAbrir = document.getElementById("juntaAbrirGRUK");
+    if (botonAbrir) {
+      botonAbrir.addEventListener("click", () => {
+        abrirJuntaDirectivaGRUK().catch((error) => {
+          console.error("Junta apertura:", error);
+          alert(error.message || "No fue posible abrir la Junta.");
+        });
+      });
+    }
+
+    const botonEnviar = document.getElementById("juntaEnviarGRUK");
+    if (botonEnviar) {
+      botonEnviar.addEventListener("click", () => {
         agregarIntervencionJuntaGRUK().catch((error) => {
           console.error("Junta intervención:", error);
           alert(error.message || "No fue posible agregar la intervención.");
@@ -176,8 +249,12 @@ async function inicializarJuntaDirectivaGRUK() {
     }
   } catch (error) {
     console.error("Junta Directiva:", error);
+    configurarControlesJuntaGRUK({
+      existe: false,
+      cerrada: false
+    });
     if (estado) {
-      estado.innerHTML = `<p>${escaparJuntaGRUK(error.message || "No fue posible abrir la Junta.")}</p>`;
+      estado.innerHTML = `<p>${escaparJuntaGRUK(error.message || "No fue posible consultar la Junta.")}</p>`;
     }
   }
 }
