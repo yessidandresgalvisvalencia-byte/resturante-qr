@@ -92,3 +92,18 @@ test("Restaurante de 18 empleados activa Gente sin inventar Servicio al Cliente"
     { gente: true, servicio_cliente: false }
   );
 });
+
+
+test("Cerebro inmediato solo se dispara con KPI CRITICO", () => {
+  const { debeTomarDecision } = require("../../intelligence/orchestrator/cicloInteligencia");
+  const reportesAlerta = [
+    { kpi_principal: { estado: "ALERTA" }, necesita_decision_de_cerebro: true }
+  ];
+  const reportesCritico = [
+    { kpi_principal: { estado: "CRITICO" }, necesita_decision_de_cerebro: false }
+  ];
+
+  assert.equal(debeTomarDecision(reportesAlerta, false), false);
+  assert.equal(debeTomarDecision(reportesCritico, false), true);
+  assert.equal(debeTomarDecision(reportesAlerta, true), true);
+});
