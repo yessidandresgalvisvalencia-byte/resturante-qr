@@ -34,6 +34,9 @@ async function tomarDecision(empresaId){
  const clavePeriodo=(r)=>`${new Date(r.periodo.desde).toISOString()}|${new Date(r.periodo.hasta).toISOString()}`;
  const periodos=new Set(reportes.map(clavePeriodo));
  if(periodos.size!==1)throw new Error("CEREBRO_REPORTES_DE_PERIODOS_DISTINTOS");
+ const ahora=Date.now();
+ const reporteObsoleto=reportes.some(r=>ahora-new Date(r.timestamp).getTime()>4*60*60*1000);
+ if(reporteObsoleto)throw new Error("CEREBRO_REPORTES_OBSOLETOS");
  const candidatos=[];
  for(const r of reportes)for(const h of r.hallazgos||[]){const regla=MAPA[h.tipo];if(regla)candidatos.push({reporte:r,hallazgo:h,regla});}
  candidatos.sort(compararCandidatos);
