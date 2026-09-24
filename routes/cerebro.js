@@ -8,6 +8,7 @@ const {
 } = require("../core/auth/roleCheck.middleware");
 const {
   ultimaDecision,
+  auditoriaCerebro,
   aprobarOrden,
   rechazarOrden
 } = require("../intelligence/brain/cerebro.controller");
@@ -23,6 +24,12 @@ router.get(
   "/ultima-decision",
   ...seguridad,
   ultimaDecision
+);
+
+router.get(
+  "/auditoria",
+  ...seguridad,
+  auditoriaCerebro
 );
 
 router.post(
