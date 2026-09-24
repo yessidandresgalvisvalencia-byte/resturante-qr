@@ -30,14 +30,15 @@ async function cargarDecisionCerebroGRUK() {
     }
 
     const ordenes = d.ordenes_por_departamento || [];
-    const resumen = `<div class="card"><h2>Cerebro decidió</h2><p><strong>Situación:</strong> ${escaparGRUK(d.decision_general?.situacion)}</p><p><strong>Causa:</strong> ${escaparGRUK(d.decision_general?.causa_raiz)}</p><p><strong>Confianza:</strong> ${Number(d.confianza_global || 0)}%</p></div>`;
+    const resumen = `<div class="card"><h2>Cerebro decidió</h2><p><strong>Situación:</strong> ${escaparGRUK(d.decision_general?.situacion)}</p><p><strong>Causa:</strong> ${escaparGRUK(d.decision_general?.causa_raiz)}</p><p><strong>Predicción:</strong> ${escaparGRUK(d.decision_general?.prediccion)}</p><p><strong>Riesgo si no se actúa:</strong> ${escaparGRUK(d.riesgo_si_no_se_hace)}</p><p><strong>Cómo medir éxito en 7 días:</strong> ${escaparGRUK(d.como_medir_exito_en_7_dias)}</p><p><strong>Confianza:</strong> ${Number(d.confianza_global || 0)}%</p></div>`;
 
     const tarjetas = ordenes.map((o) => {
       const acciones = o.estado === "PENDIENTE_APROBACION"
         ? `<button data-accion="aprobar" data-decision="${escaparGRUK(d._id)}" data-orden="${escaparGRUK(o._id)}">Aprobar</button> <button data-accion="rechazar" data-decision="${escaparGRUK(d._id)}" data-orden="${escaparGRUK(o._id)}">Rechazar</button>`
         : `<p><strong>Estado:</strong> ${escaparGRUK(o.estado)}</p>`;
 
-      return `<div class="card"><h3>${escaparGRUK(o.departamento)}</h3><p>${escaparGRUK(o.tarea)}</p><p><strong>Prioridad:</strong> ${escaparGRUK(o.prioridad)}</p><p><strong>KPI:</strong> ${escaparGRUK(o.kpi_a_medir)}</p>${acciones}</div>`;
+      const deadline = o.deadline ? new Date(o.deadline).toLocaleDateString("es-CO") : "Sin fecha";
+      return `<div class="card"><h3>${escaparGRUK(o.departamento)}</h3><p>${escaparGRUK(o.tarea)}</p><p><strong>Prioridad:</strong> ${escaparGRUK(o.prioridad)}</p><p><strong>KPI:</strong> ${escaparGRUK(o.kpi_a_medir)}</p><p><strong>Fecha límite:</strong> ${escaparGRUK(deadline)}</p>${acciones}</div>`;
     }).join("");
 
     contenedor.innerHTML = resumen + tarjetas;
