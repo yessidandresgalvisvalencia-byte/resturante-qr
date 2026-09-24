@@ -25,6 +25,11 @@ jobs:
           node --check app.js
           node --check routes/cerebro.js
           node --check routes/API.js
+          node --check public/admin.js
+          node --check public/js/gruk-api.js
+          node --check public/js/centro-control.js
+          node --check shared/jobs/cerebro.job.js
+          node --check intelligence/listeners/finanzas.listener.js
           node --check intelligence/brain/cerebro.js
           node --check intelligence/orchestrator/cicloInteligencia.js
           node --check intelligence/neurons/finanzas.neuron.js
