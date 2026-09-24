@@ -271,3 +271,10 @@ test("Configuracion CORE mide solo los cinco objetivos requeridos", () => {
     80
   );
 });
+
+
+test("Inventario configurado usa un KPI distinto a porcentaje agotado", () => {
+  const { KPI_DIRECCION } = require("../../intelligence/memory/kpi.service");
+  assert.equal(KPI_DIRECCION.inventario_configurado, "MAYOR_ES_MEJOR");
+  assert.equal(KPI_DIRECCION.porcentaje_items_agotados, "MENOR_ES_MEJOR");
+});
