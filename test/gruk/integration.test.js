@@ -19,7 +19,7 @@ test(
     const Memoria = require("../../intelligence/memory/CerebroMemoria");
     const JuntaSesion = require("../../intelligence/board/JuntaSesion");
     const { ejecutarCicloEmpresa } = require("../../intelligence/orchestrator/cicloInteligencia");
-    const { procesarOrden } = require("../../intelligence/brain/cerebro.service");
+    const { procesarOrden, obtenerAuditoria } = require("../../intelligence/brain/cerebro.service");
     const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
     const { abrirSesion, agregarIntervencion, cerrarSesion } = require("../../intelligence/board/junta.service");
 
@@ -263,6 +263,13 @@ test(
         createdBy: usuarioId
       });
       assert.equal(memorias, 1);
+
+      const historial = await obtenerAuditoria(authDueno, 100);
+      const accionesHistorial = new Set(historial.map((evento) => evento.accion));
+      assert.ok(accionesHistorial.has("APROBAR"));
+      assert.ok(accionesHistorial.has("JUNTA_ABIERTA"));
+      assert.ok(accionesHistorial.has("JUNTA_INTERVENCION"));
+      assert.ok(accionesHistorial.has("JUNTA_CERRADA"));
 
       const empresaActualizada = await Empresa.findById(empresa._id).lean();
       assert.equal(empresaActualizada.modulos.gente, true);
