@@ -2,7 +2,8 @@
 
 const {
   abrirSesion,
-  agregarIntervencion
+  agregarIntervencion,
+  cerrarSesion
 } = require("./junta.service");
 
 function responderError(res, error, operacion) {
@@ -33,6 +34,19 @@ async function abrirJunta(req, res) {
   }
 }
 
+async function cerrarJunta(req, res) {
+  try {
+    const sesion = await cerrarSesion({
+      auth: req.auth,
+      sesionId: req.params.sesionId
+    });
+
+    return res.json({ ok: true, sesion });
+  } catch (error) {
+    return responderError(res, error, "cerrar");
+  }
+}
+
 async function intervenir(req, res) {
   try {
     const sesion = await agregarIntervencion({
@@ -49,5 +63,6 @@ async function intervenir(req, res) {
 
 module.exports = {
   abrirJunta,
-  intervenir
+  intervenir,
+  cerrarJunta
 };
