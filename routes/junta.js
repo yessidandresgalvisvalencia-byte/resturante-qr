@@ -8,7 +8,8 @@ const {
 } = require("../core/auth/roleCheck.middleware");
 const {
   abrirJunta,
-  intervenir
+  intervenir,
+  cerrarJunta
 } = require("../intelligence/board/junta.controller");
 
 const router = express.Router();
@@ -22,6 +23,12 @@ router.post(
   "/decisiones/:decisionId/abrir",
   ...seguridad,
   abrirJunta
+);
+
+router.post(
+  "/sesiones/:sesionId/cerrar",
+  ...seguridad,
+  cerrarJunta
 );
 
 router.post(
