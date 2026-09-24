@@ -144,6 +144,35 @@ async function abrirSesion({ auth, decisionId }) {
   }
 }
 
+async function cerrarSesion({ auth, sesionId }) {
+  if (!mongoose.Types.ObjectId.isValid(sesionId)) {
+    throw serviceError(400, "Sesion invalida");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(auth.usuarioId)) {
+    throw serviceError(401, "Identidad de usuario invalida");
+  }
+
+  const sesion = await JuntaSesion.findOne(
+    filtroTenant(auth, { _id: sesionId })
+  );
+
+  if (!sesion) {
+    throw serviceError(404, "Sesion no encontrada");
+  }
+
+  if (sesion.estado === "CERRADA") {
+    return sesion.toObject();
+  }
+
+  sesion.estado = "CERRADA";
+  sesion.closedBy = auth.usuarioId;
+  sesion.closedAt = new Date();
+
+  await sesion.save();
+  return sesion.toObject();
+}
+
 async function agregarIntervencion({ auth, sesionId, payload }) {
   if (!mongoose.Types.ObjectId.isValid(sesionId)) {
     throw serviceError(400, "Sesion invalida");
@@ -191,5 +220,6 @@ async function agregarIntervencion({ auth, sesionId, payload }) {
 module.exports = {
   abrirSesion,
   agregarIntervencion,
+  cerrarSesion,
   construirIntervencionNeurona
 };
