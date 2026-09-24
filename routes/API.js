@@ -3365,7 +3365,7 @@ router.get("/wompi/webhook", (req, res) => {
   });
 });
 
-router.post("/suscripciones/cobrar", async (req, res) => {
+router.post("/suscripciones/cobrar", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
   try {
     const { restaurantId } = req.body;
 
@@ -3376,7 +3376,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
       });
     }
 
-    const restaurante = await Restaurante.findOne({ restaurantId });
+    const restaurante = await Restaurante.findOne({ restaurantId, empresaId: req.auth.empresaId });
 
     if (!restaurante) {
       return res.status(404).json({
@@ -3403,8 +3403,7 @@ router.post("/suscripciones/cobrar", async (req, res) => {
     const wompiPublicKey =
       restaurante.wompiPublicKey || process.env.WOMPI_PUBLIC_KEY;
 
-    const WOMPI_PRIVATE_KEY =
-      restaurante.WOMPI_PRIVATE_KEY || process.env.WOMPI_PRIVATE_KEY;
+    const WOMPI_PRIVATE_KEY = process.env.WOMPI_PRIVATE_KEY;
 
     if (!wompiPublicKey || !WOMPI_PRIVATE_KEY) {
       return res.status(500).json({
