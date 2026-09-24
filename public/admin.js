@@ -43,11 +43,7 @@ function vibrar() {
 const socket = io();
 
 function getRestaurantId() {
-  const params = new URLSearchParams(window.location.search);
-
-  const restaurantId =
-    params.get("restaurantId") ||
-    localStorage.getItem("adminRestaurantId");
+  const restaurantId = localStorage.getItem("adminRestaurantId");
 
   if (!restaurantId) {
     throw new Error("GRUK: no existe restaurantId para la sesión actual");
