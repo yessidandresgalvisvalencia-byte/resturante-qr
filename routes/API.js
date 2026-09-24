@@ -3346,6 +3346,10 @@ router.post("/usuarios/login", async (req, res) => {
   }
 });
 router.delete("/debug/limpiar-registro", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
+  if (process.env.NODE_ENV === "production") {
+    return res.status(404).json({ ok: false, error: "Ruta no disponible" });
+  }
+
   try {
     const usuario = String(req.query.usuario || "").trim();
 
