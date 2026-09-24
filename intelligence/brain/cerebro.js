@@ -8,7 +8,7 @@ const MAPA={
  COSTO_NO_CONFIABLE:{departamento:"FINANZAS",tarea:"Completar costos confiables de los productos vendidos.",kpi:"cobertura_costo_porcentaje"},
  TICKET_BAJO_OBJETIVO:{departamento:"VENTAS",tarea:"Revisar ticket promedio y mezcla de productos frente al objetivo.",kpi:"ticket_promedio"},
  INVENTARIO_AGOTADO:{departamento:"OPERACIONES",tarea:"Reponer o resolver los items de inventario agotados.",kpi:"porcentaje_items_agotados"},
- SIN_INVENTARIO_CONFIGURADO:{departamento:"OPERACIONES",tarea:"Configurar el inventario operativo para poder medir disponibilidad.",kpi:"porcentaje_items_agotados"},
+ SIN_INVENTARIO_CONFIGURADO:{departamento:"OPERACIONES",tarea:"Configurar el inventario operativo para poder medir disponibilidad.",kpi:"inventario_configurado"},
  DATOS_INSUFICIENTES:{departamento:"MARKETING",tarea:"Configurar atribucion de gasto y clientes adquiridos para medir CAC.",kpi:"cac"},
  CONFIGURACION_INCOMPLETA:{departamento:"DIRECCION",tarea:"Completar los objetivos empresariales requeridos por GRUK.",kpi:"configuracion_core"}
 };
