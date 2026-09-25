@@ -9,17 +9,8 @@ const {
 } = require("./junta.service");
 
 function mensajePublico(error) {
-  if (error.message === "JUNTA_IA_NO_CONFIGURADA") {
-    return "La Junta experta todavía no tiene proveedor de IA configurado.";
-  }
-
-  if (
-    error.message === "JUNTA_IA_JSON_INVALIDO" ||
-    error.message === "JUNTA_IA_RESPUESTAS_INCOMPLETAS" ||
-    error.message === "JUNTA_IA_RESPUESTA_SIN_TEXTO" ||
-    String(error.message || "").startsWith("JUNTA_IA_PROVIDER_ERROR_")
-  ) {
-    return "Los expertos no pudieron completar la respuesta. La pregunta quedó guardada y puede reintentarse.";
+  if (error.message === "JUNTA_RESPUESTAS_INCOMPLETAS") {
+    return "La Junta no pudo construir una deliberación completa. La pregunta quedó guardada y puede reintentarse.";
   }
 
   return error.message;
