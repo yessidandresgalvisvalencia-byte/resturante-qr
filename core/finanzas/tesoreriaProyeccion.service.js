@@ -391,21 +391,30 @@ async function construirProyeccionTesoreria({
         )
       : null;
 
-  const datosObligacionesCompletos =
+  const datos7dCompletos =
     obligacionesRegistradas
       .cobertura7Dias !==
     "NO_CONFIABLE_DATOS_FALTANTES";
 
+  const faltantes30d =
+    grupos.sinFecha.cantidad +
+    grupos.vencidas.noCuantificadas +
+    grupos.proximos7Dias.noCuantificadas +
+    grupos.dias8a30.noCuantificadas;
+
+  const datos30dCompletos =
+    faltantes30d === 0;
+
   const brechaCajaActual7d =
     saldoActual === null ||
-    !datosObligacionesCompletos
+    !datos7dCompletos
       ? null
       : saldoActual -
         obligaciones7Resumen.monto;
 
   const escenarioCobroTotal7d =
     saldoActual === null ||
-    !datosObligacionesCompletos
+    !datos7dCompletos
       ? null
       : saldoActual +
         cobros7Resumen.monto -
@@ -416,7 +425,7 @@ async function construirProyeccionTesoreria({
 
   if (
     saldoActual !== null &&
-    !datosObligacionesCompletos
+    !datos7dCompletos
   ) {
     estado7d =
       "DATOS_INSUFICIENTES";
@@ -487,7 +496,7 @@ async function construirProyeccionTesoreria({
       "COMPLETO"
       ? resumenTesoreria
           .estadoConfiabilidad
-      : datosObligacionesCompletos
+      : datos30dCompletos
         ? "COMPLETO"
         : "PARCIAL";
 
@@ -596,6 +605,11 @@ async function construirProyeccionTesoreria({
       diasCoberturaSalidasHistoricas
     },
     advertencias: [
+      ...(!datos30dCompletos
+        ? [
+            "La proyeccion de 30 dias es PARCIAL porque existen obligaciones sin fecha o montos pendientes no cuantificados."
+          ]
+        : []),
       ...(resumenTesoreria
           .estadoConfiabilidad !==
           "COMPLETO"
