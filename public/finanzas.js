@@ -3834,6 +3834,209 @@ async function guardarPoliticaPagosGRUK() {
   }
 }
 
+function renderizarExcepcionesPrioridadPagoGRUK(
+  proyeccion
+) {
+  const activas =
+    Array.isArray(
+      proyeccion?.excepcionesPrioridadPago
+    )
+      ? proyeccion.excepcionesPrioridadPago
+      : [];
+
+  const excepcionesContenedor =
+    document.getElementById(
+      "excepcionesPrioridadPagoGRUK"
+    );
+
+  if (excepcionesContenedor) {
+    excepcionesContenedor.innerHTML =
+      activas.length
+        ? `
+          <ul>
+            ${activas.map((item) => `
+              <li>
+                <strong>${escaparTesoreriaGRUK(
+                  item.origenTipo
+                )}</strong>
+                · vence excepción:
+                ${escaparTesoreriaGRUK(
+                  new Date(
+                    item.expiresAt
+                  ).toLocaleString("es-CO")
+                )}
+                · ${escaparTesoreriaGRUK(
+                  item.motivo
+                )}
+                <button
+                  onclick="revocarExcepcionPrioridadPagoGRUK('${escaparTesoreriaGRUK(
+                    item._id
+                  )}')"
+                >
+                  Revocar
+                </button>
+              </li>
+            `).join("")}
+          </ul>
+        `
+        : "<p>No hay excepciones temporales activas.</p>";
+  }
+
+  const obligaciones =
+    Array.isArray(
+      proyeccion?.obligaciones?.prioridadPago
+    )
+      ? proyeccion.obligaciones.prioridadPago
+      : [];
+
+  const obligacionesContenedor =
+    document.getElementById(
+      "obligacionesParaExcepcionGRUK"
+    );
+
+  if (!obligacionesContenedor) return;
+
+  obligacionesContenedor.innerHTML =
+    obligaciones.length
+      ? `
+        <h5>Obligaciones del horizonte 7 días</h5>
+        <ol>
+          ${obligaciones.map((item) => `
+            <li>
+              ${escaparTesoreriaGRUK(
+                item.descripcion || "Obligación"
+              )}
+              · ${formatoCOPFinanzas(
+                item.monto || 0
+              )}
+              · ${item.fechaVencimiento
+                ? escaparTesoreriaGRUK(
+                    new Date(
+                      item.fechaVencimiento
+                    ).toLocaleDateString("es-CO")
+                  )
+                : "sin fecha"}
+              ${item.excepcionPrioridad
+                ? `· <strong>EXCEPCIÓN ACTIVA</strong>`
+                : `
+                  <button
+                    onclick="crearExcepcionPrioridadPagoGRUK(
+                      '${escaparTesoreriaGRUK(item.tipo)}',
+                      '${escaparTesoreriaGRUK(item.id)}',
+                      '${escaparTesoreriaGRUK(item.descripcion || "Obligación")}'
+                    )"
+                  >
+                    Priorizar temporalmente
+                  </button>
+                `
+              }
+            </li>
+          `).join("")}
+        </ol>
+      `
+      : "<p>No hay obligaciones cuantificadas dentro de 7 días.</p>";
+}
+
+async function crearExcepcionPrioridadPagoGRUK(
+  origenTipo,
+  origenId,
+  descripcion
+) {
+  const motivo =
+    window.prompt(
+      `Motivo obligatorio para priorizar temporalmente: ${descripcion}`
+    );
+
+  if (
+    !motivo ||
+    motivo.trim().length < 10
+  ) {
+    return;
+  }
+
+  const horas =
+    Number(
+      window.prompt(
+        "¿Cuántas horas debe durar la excepción?",
+        "24"
+      ) || 0
+    );
+
+  if (
+    !Number.isFinite(horas) ||
+    horas <= 0
+  ) {
+    return;
+  }
+
+  const expiresAt =
+    new Date(
+      Date.now() +
+      horas * 60 * 60 * 1000
+    );
+
+  const res =
+    await grukFetch(
+      "/api/tesoreria/excepciones-prioridad-pago",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+        body:
+          JSON.stringify({
+            origenTipo,
+            origenId,
+            motivo:
+              motivo.trim(),
+            expiresAt:
+              expiresAt.toISOString()
+          })
+      }
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    alert(
+      data.error ||
+      "No fue posible crear la excepción. Solo el DUEÑO puede hacerlo."
+    );
+    return;
+  }
+
+  await cargarTesoreriaGRUK();
+}
+
+async function revocarExcepcionPrioridadPagoGRUK(
+  excepcionId
+) {
+  const res =
+    await grukFetch(
+      `/api/tesoreria/excepciones-prioridad-pago/${encodeURIComponent(
+        excepcionId
+      )}`,
+      {
+        method: "DELETE"
+      }
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    alert(
+      data.error ||
+      "No fue posible revocar la excepción."
+    );
+    return;
+  }
+
+  await cargarTesoreriaGRUK();
+}
+
 async function cargarTesoreriaGRUK() {
   const res =
     await grukFetch(
@@ -3859,6 +4062,10 @@ async function cargarTesoreriaGRUK() {
     data.proyeccion
       ?.obligacionesRegistradas ||
     null
+  );
+
+  renderizarExcepcionesPrioridadPagoGRUK(
+    data.proyeccion || null
   );
 
   llenarSelectsTesoreriaGRUK(
@@ -4155,3 +4362,9 @@ window.moverCategoriaPoliticaGRUK =
 
 window.guardarPoliticaPagosGRUK =
   guardarPoliticaPagosGRUK;
+
+window.crearExcepcionPrioridadPagoGRUK =
+  crearExcepcionPrioridadPagoGRUK;
+
+window.revocarExcepcionPrioridadPagoGRUK =
+  revocarExcepcionPrioridadPagoGRUK;
