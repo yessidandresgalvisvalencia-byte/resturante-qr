@@ -77,6 +77,15 @@ const schema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  montoConsumido: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  consumidaAt: {
+    type: Date,
+    default: null
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Usuario",
