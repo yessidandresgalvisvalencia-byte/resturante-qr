@@ -59,6 +59,74 @@ async function registrarGasto({
   return gasto;
 }
 
+async function actualizarEstadoPagoGasto({
+  gastoId,
+  empresaId,
+  sedeId = null,
+  estadoPago
+}) {
+  const filtro = {
+    _id: gastoId,
+    empresaId,
+    estado: "registrado"
+  };
+
+  if (sedeId) {
+    filtro.sedeId = sedeId;
+  }
+
+  const gasto = await Gasto.findOne(
+    filtro
+  );
+
+  if (!gasto) {
+    const error = new Error(
+      "GASTO_NO_ENCONTRADO"
+    );
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const anterior =
+    gasto.estadoPago ||
+    "desconocido";
+
+  if (anterior === estadoPago) {
+    return gasto;
+  }
+
+  gasto.estadoPago = estadoPago;
+  await gasto.save();
+
+  try {
+    eventBus.emit(
+      "GASTO_PAGO_ACTUALIZADO",
+      {
+        gastoId: gasto._id,
+        empresaId: gasto.empresaId,
+        sedeId: gasto.sedeId,
+        concepto: gasto.concepto,
+        categoria: gasto.categoria,
+        monto: gasto.monto,
+        metodoPago: gasto.metodoPago,
+        estadoPagoAnterior: anterior,
+        estadoPago: gasto.estadoPago,
+        proveedor: gasto.proveedor,
+        fecha: gasto.fecha,
+        origen: gasto.origen
+      }
+    );
+  } catch (error) {
+    console.error(
+      "GRUK Gastos: estado de pago persistido, fallo al emitir GASTO_PAGO_ACTUALIZADO:",
+      error
+    );
+  }
+
+  return gasto;
+}
+
 module.exports = {
-  registrarGasto
+  registrarGasto,
+  actualizarEstadoPagoGasto
 };
