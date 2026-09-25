@@ -445,7 +445,7 @@ function construirPreguntaAutomatica(
     "VENTA_COMPLETADA"
   ) {
     return (
-      `Hoy hice una venta de ${monto} pesos y GRUK confirma que fue pagada. ` +
+      `Hoy hice una venta de ${monto} pesos y ya la cobre; GRUK confirma el ingreso. ` +
       "Analiza que cambia en caja, ventas, margen, capacidad y riesgo."
     );
   }
@@ -723,7 +723,10 @@ async function recalcularEstadoVivo({
 
   const tipoEventoHistorial =
     esRecalculoSistema
-      ? "CICLO_INTELIGENCIA_COMPLETADO"
+      ? String(
+          event?.eventName ||
+          "RECALCULO"
+        )
       : ultimoEvento.tipo;
 
   const direccionEventoHistorial =
