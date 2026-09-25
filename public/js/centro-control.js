@@ -10,6 +10,78 @@ async function inicializarCentroControlGRUK() {
   await cargarDecisionCerebroGRUK();
 }
 
+async function cargarPlanesPagoDecisionGRUK(
+  decisionId
+) {
+  const res =
+    await grukFetch(
+      `/api/cerebro/decisiones/${encodeURIComponent(
+        decisionId
+      )}/planes-pago`
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible consultar los planes de pago"
+    );
+  }
+
+  return Array.isArray(data.planes)
+    ? data.planes
+    : [];
+}
+
+function renderizarPlanesPagoGRUK(
+  planes
+) {
+  if (!Array.isArray(planes) || !planes.length) {
+    return "";
+  }
+
+  return planes.map((plan) => `
+    <div class="card">
+      <h3>Plan autorizado con caja actual</h3>
+      <p>
+        <strong>Total autorizado:</strong>
+        ${formatoCOP(plan.totalAutorizado || 0)}
+      </p>
+      <p>
+        <strong>Saldo disponible al aprobar:</strong>
+        ${formatoCOP(plan.saldoDisponibleSnapshot || 0)}
+      </p>
+      <p>
+        <strong>Estado:</strong>
+        PENDIENTE DE CONFIRMACIÓN MANUAL
+      </p>
+      <ol>
+        ${(plan.items || []).map((item) => `
+          <li>
+            ${escaparGRUK(item.descripcion || "Obligación")}
+            · ${formatoCOP(item.monto || 0)}
+            · vence ${item.fechaVencimiento
+              ? escaparGRUK(
+                  new Date(
+                    item.fechaVencimiento
+                  ).toLocaleDateString("es-CO")
+                )
+              : "sin fecha"}
+            · <strong>${escaparGRUK(item.estado || "")}</strong>
+          </li>
+        `).join("")}
+      </ol>
+      <p>
+        <small>
+          Este plan es una autorización operativa. GRUK no ha movido dinero ni ha confirmado pagos bancarios.
+        </small>
+      </p>
+    </div>
+  `).join("");
+}
+
 async function cargarDecisionCerebroGRUK() {
   const contenedor = document.getElementById("cerebroDecisionGRUK");
   if (!contenedor) return;
@@ -31,6 +103,20 @@ async function cargarDecisionCerebroGRUK() {
 
     const ordenes = d.ordenes_por_departamento || [];
     const financiero = d.contexto_financiero || null;
+
+    let planesPago = [];
+
+    try {
+      planesPago =
+        await cargarPlanesPagoDecisionGRUK(
+          d._id
+        );
+    } catch (error) {
+      console.error(
+        "Planes de pago no disponibles:",
+        error
+      );
+    }
 
     const politicaPagos =
       financiero?.politicaPriorizacionPagos || null;
@@ -162,7 +248,15 @@ async function cargarDecisionCerebroGRUK() {
       return `<div class="card"><h3>${escaparGRUK(o.departamento)}</h3><p>${escaparGRUK(o.tarea)}</p><p><strong>Prioridad:</strong> ${escaparGRUK(o.prioridad)}</p><p><strong>KPI:</strong> ${escaparGRUK(o.kpi_a_medir)}</p><p><strong>Fecha límite:</strong> ${escaparGRUK(deadline)}</p>${acciones}</div>`;
     }).join("");
 
-    contenedor.innerHTML = resumen + tarjetas;
+    const planesPagoHTML =
+      renderizarPlanesPagoGRUK(
+        planesPago
+      );
+
+    contenedor.innerHTML =
+      resumen +
+      planesPagoHTML +
+      tarjetas;
     contenedor.querySelectorAll("button[data-accion]").forEach((boton) => {
       boton.addEventListener("click", () => procesarOrdenCerebroGRUK(
         boton.dataset.decision,
