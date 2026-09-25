@@ -340,3 +340,73 @@ Eventos que generan recálculo inmediato de agenda:
 El listener aplica debounce por empresa para evitar ejecuciones repetidas por ráfagas de eventos.
 
 El Centro de Control muestra el snapshot financiero que originó cada decisión antes de que el dueño apruebe una orden.
+
+
+## Política financiera configurable
+
+La empresa puede definir una precedencia explícita por categoría para ordenar obligaciones dentro del mismo horizonte financiero.
+
+Ubicación:
+
+`Empresa.configuracion.politica_financiera.priorizacion_pagos`
+
+Campos:
+
+- `usar_precedencia_categoria`
+- `precedencia_categorias`
+- `updatedAt`
+- `updatedBy`
+
+Categorías soportadas:
+
+- NOMINA
+- IMPUESTOS
+- DEUDA
+- ARRIENDO
+- SERVICIOS
+- SEGUROS
+- LICENCIAS
+- PROVEEDORES
+- OTRO
+
+La política está desactivada por defecto.
+
+Sin política activa, GRUK conserva la regla:
+
+1. vencidas;
+2. fecha más próxima;
+3. mayor monto cuando comparten fecha.
+
+Con política activa:
+
+1. vencidas siguen antes que obligaciones futuras;
+2. dentro de vencidas se aplica precedencia de categoría;
+3. dentro de próximos 7 días se aplica precedencia de categoría;
+4. luego fecha;
+5. luego monto.
+
+Ejemplo de política explícita:
+
+`NOMINA > IMPUESTOS > DEUDA > PROVEEDORES`
+
+La categoría no se usa como prioridad si el dueño no activa la política.
+
+### Seguridad
+
+- DUEÑO puede modificar la política.
+- ADMIN_SEDE puede consultarla pero no cambiarla.
+- empresaId siempre proviene del JWT.
+- Joi valida categorías, duplicados y payload.
+- cada modificación guarda updatedAt y updatedBy.
+- el cambio emite POLITICA_FINANCIERA_ACTUALIZADA.
+- Junta y Cerebro recalculan inmediatamente.
+
+### Auditoría de decisiones
+
+La política aplicada queda dentro del snapshot financiero de cada CerebroDecision y participa en decisionFingerprint.
+
+Por tanto, cambiar la política es un cambio material y genera una nueva lectura/decisión cuando corresponda.
+
+El Centro de Control muestra si la política estaba ACTIVA o INACTIVA y el orden exacto aplicado.
+
+Empresas históricas sin esta configuración mantienen comportamiento anterior: política desactivada.
