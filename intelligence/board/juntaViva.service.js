@@ -5,7 +5,8 @@ const mongoose = require("mongoose");
 const Gasto = require("../../models/Gasto");
 const Compra = require("../../models/Compra");
 const {
-  obtenerResumenCaja
+  obtenerResumenCaja,
+  reconciliarPeriodoCaja
 } = require("../../core/finanzas/caja.service");
 const Reporte = require("../models/CerebroReporteNeurona");
 const JuntaEstadoVivo = require("./JuntaEstadoVivo");
@@ -624,10 +625,33 @@ async function obtenerEstadoVivo(auth) {
     }).lean();
 
   if (!estado) {
+    const ahora = new Date();
+    const desde =
+      inicioMesUTC(ahora);
+    const hasta =
+      new Date(
+        Date.UTC(
+          ahora.getUTCFullYear(),
+          ahora.getUTCMonth() + 1,
+          1,
+          0,
+          0,
+          0,
+          0
+        )
+      );
+
+    await reconciliarPeriodoCaja({
+      empresaId,
+      desde,
+      hasta
+    });
+
     estado = await recalcularEstadoVivo({
       empresaId,
       sedeId,
-      event: null
+      event: null,
+      ahora
     });
   }
 
