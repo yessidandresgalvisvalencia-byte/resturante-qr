@@ -5,7 +5,8 @@ const assert = require("node:assert/strict");
 
 const {
   construirAgendaFinanciera,
-  resolverDeadline
+  resolverDeadline,
+  seleccionarCobrosParaBrecha
 } = require(
   "../../intelligence/brain/agendaFinanciera.service"
 );
@@ -343,4 +344,109 @@ test("fingerprint cambia cuando cambia materialmente la brecha", () => {
   });
 
   assert.notEqual(a, b);
+});
+
+
+test("prioriza vencidos, luego proximos 7 dias y excluye cobros de 20 dias", () => {
+  const seleccion =
+    seleccionarCobrosParaBrecha(
+      [
+        {
+          id: "v3",
+          descripcion: "Factura 20 dias",
+          monto: 500000,
+          fechaVencimiento: "2026-10-15T00:00:00Z",
+          clasificacion: "PROXIMOS_30_DIAS"
+        },
+        {
+          id: "v2",
+          descripcion: "Factura manana",
+          monto: 90000,
+          fechaVencimiento: "2026-09-26T00:00:00Z",
+          clasificacion: "PROXIMOS_7_DIAS"
+        },
+        {
+          id: "v1",
+          descripcion: "Factura vencida",
+          monto: 100000,
+          fechaVencimiento: "2026-09-20T00:00:00Z",
+          clasificacion: "VENCIDA"
+        }
+      ],
+      150000
+    );
+
+  assert.deepEqual(
+    seleccion.map(
+      (item) => item.id
+    ),
+    ["v2", "v1"]
+  );
+
+  assert.equal(
+    seleccion.some(
+      (item) => item.id === "v3"
+    ),
+    false
+  );
+});
+
+test("agenda calcula remanente despues de los cobros priorizados", () => {
+  const agenda =
+    construirAgendaFinanciera({
+      confiabilidad: "COMPLETO",
+      saldoActual: 100000,
+      obligaciones: {
+        proximos7d: {
+          monto: 400000
+        }
+      },
+      cobrosEsperados: {
+        proximos7d: {
+          monto: 200000
+        },
+        prioridadCobro: [
+          {
+            id: "v1",
+            descripcion: "Cobro vencido",
+            monto: 120000,
+            fechaVencimiento: "2026-09-20T00:00:00Z",
+            clasificacion: "VENCIDA"
+          },
+          {
+            id: "v2",
+            descripcion: "Cobro 3 dias",
+            monto: 80000,
+            fechaVencimiento: "2026-09-28T00:00:00Z",
+            clasificacion: "PROXIMOS_7_DIAS"
+          }
+        ]
+      },
+      escenario7d: {
+        estado: "DEFICIT_AUN_COBRANDO_TODO",
+        faltanteConCajaActual: 300000,
+        faltanteAunCobrandoTodo: 100000
+      }
+    });
+
+  assert.equal(
+    agenda.montoCobrosPriorizados,
+    200000
+  );
+
+  assert.equal(
+    agenda.faltanteDespuesCobrosPriorizados,
+    100000
+  );
+
+  const ventas =
+    agenda.accionesSugeridas.find(
+      (item) =>
+        item.departamento === "VENTAS"
+    );
+
+  assert.equal(
+    ventas.cobrosPriorizados.length,
+    2
+  );
 });
