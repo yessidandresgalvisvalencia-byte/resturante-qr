@@ -230,3 +230,58 @@ Si depende de cobros, marca ATENCION pero no genera orden.
 El modelo legacy de Compra admite `estadoPago=parcial`, pero no conserva todavía el monto pagado acumulado.
 
 GRUK no inventa el saldo pendiente. Las compras parciales se excluyen del monto exacto proyectado y reducen la confiabilidad de la proyección a PARCIAL hasta modelar cuotas/pagos parciales correctamente.
+
+
+## Obligaciones recurrentes
+
+GRUK puede registrar compromisos periódicos que todavía no tienen un `Gasto` o `Compra` manual creado.
+
+Modelo:
+
+`core/finanzas/models/ObligacionRecurrente.js`
+
+Servicio:
+
+`core/finanzas/obligacionesRecurrentes.service.js`
+
+Categorías iniciales:
+
+- NOMINA
+- ARRIENDO
+- SERVICIOS
+- IMPUESTOS
+- DEUDA
+- SEGUROS
+- LICENCIAS
+- OTRO
+
+Frecuencias:
+
+- semanal
+- quincenal
+- mensual
+- bimestral
+- trimestral
+- semestral
+- anual
+
+Cada obligación conserva `fuenteMonto`: `CONTRATO`, `HISTORICO`, `ESTIMADO_MANUAL` u `OTRO`.
+
+Una obligación recurrente **no crea salida de caja**. Solo alimenta la proyección de Tesorería. La salida real continúa naciendo exclusivamente de un pago confirmado en el libro canónico de caja.
+
+El motor de obligaciones combina:
+
+- compras pendientes/parciales;
+- gastos pendientes;
+- obligaciones recurrentes activas.
+
+La cobertura de 7 días puede ser:
+
+- `SUFICIENTE`
+- `INSUFICIENTE`
+- `NO_CALCULABLE_TESORERIA`
+- `NO_CONFIABLE_DATOS_FALTANTES`
+
+La proyección de 30 días puede quedar PARCIAL aunque la cobertura de 7 días sea confiable. Por ejemplo, una compra parcial sin saldo exacto que vence en 20 días no invalida los próximos 7 días, pero sí impide afirmar que el horizonte de 30 días esté completamente cuantificado.
+
+GRUK nunca calcula automáticamente una obligación fiscal oficial solo por categoría IMPUESTOS. El monto debe provenir de una fuente explícita y auditable.
