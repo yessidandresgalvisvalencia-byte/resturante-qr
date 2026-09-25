@@ -3286,6 +3286,267 @@ function renderizarObligacionesTesoreriaGRUK(
   `;
 }
 
+function renderizarObligacionesRecurrentesGRUK(
+  obligaciones
+) {
+  const contenedor =
+    document.getElementById(
+      "obligacionesRecurrentesGRUK"
+    );
+
+  if (!contenedor) return;
+
+  const lista =
+    Array.isArray(obligaciones)
+      ? obligaciones
+      : [];
+
+  if (!lista.length) {
+    contenedor.innerHTML =
+      "<p>No hay obligaciones recurrentes activas.</p>";
+    return;
+  }
+
+  contenedor.innerHTML = `
+    <hr>
+    <h4>Obligaciones recurrentes activas</h4>
+    <ul>
+      ${lista.map((item) => `
+        <li>
+          <strong>${escaparTesoreriaGRUK(
+            item.nombre
+          )}</strong>
+          · ${escaparTesoreriaGRUK(
+            item.categoria
+          )}
+          · ${formatoCOPFinanzas(
+            item.monto || 0
+          )}
+          · ${escaparTesoreriaGRUK(
+            item.frecuencia
+          )}
+          · próximo:
+          ${escaparTesoreriaGRUK(
+            new Date(
+              item.proximoVencimiento
+            ).toLocaleDateString("es-CO")
+          )}
+          · fuente:
+          ${escaparTesoreriaGRUK(
+            item.fuenteMonto
+          )}
+          <button
+            onclick="desactivarObligacionRecurrenteGRUK('${escaparTesoreriaGRUK(
+              item._id
+            )}')"
+          >
+            Desactivar
+          </button>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+async function cargarObligacionesRecurrentesGRUK() {
+  const res =
+    await grukFetch(
+      "/api/tesoreria/obligaciones-recurrentes"
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible consultar obligaciones recurrentes"
+    );
+  }
+
+  renderizarObligacionesRecurrentesGRUK(
+    data.obligaciones || []
+  );
+
+  return data.obligaciones || [];
+}
+
+async function crearObligacionRecurrenteGRUK() {
+  const estado =
+    document.getElementById(
+      "estadoObligacionRecurrenteGRUK"
+    );
+
+  const nombre =
+    document.getElementById(
+      "recurrenteNombre"
+    )?.value.trim();
+
+  const categoria =
+    document.getElementById(
+      "recurrenteCategoria"
+    )?.value;
+
+  const monto =
+    Number(
+      document.getElementById(
+        "recurrenteMonto"
+      )?.value || 0
+    );
+
+  const frecuencia =
+    document.getElementById(
+      "recurrenteFrecuencia"
+    )?.value;
+
+  const proximoVencimiento =
+    document.getElementById(
+      "recurrenteProximoVencimiento"
+    )?.value;
+
+  const fechaFin =
+    document.getElementById(
+      "recurrenteFechaFin"
+    )?.value || null;
+
+  const tercero =
+    document.getElementById(
+      "recurrenteTercero"
+    )?.value.trim() || "";
+
+  const fuenteMonto =
+    document.getElementById(
+      "recurrenteFuenteMonto"
+    )?.value;
+
+  if (
+    !nombre ||
+    !categoria ||
+    !frecuencia ||
+    !proximoVencimiento ||
+    !Number.isFinite(monto) ||
+    monto <= 0
+  ) {
+    if (estado) {
+      estado.innerHTML =
+        "<p>Completa nombre, monto, frecuencia y próximo vencimiento.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/obligaciones-recurrentes",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              nombre,
+              categoria,
+              monto,
+              frecuencia,
+              proximoVencimiento,
+              fechaFin,
+              tercero,
+              fuenteMonto
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible crear la obligación recurrente"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Obligación recurrente creada. Ya participa en la cobertura de Tesorería.</p>";
+    }
+
+    document.getElementById(
+      "recurrenteNombre"
+    ).value = "";
+
+    document.getElementById(
+      "recurrenteMonto"
+    ).value = "";
+
+    document.getElementById(
+      "recurrenteTercero"
+    ).value = "";
+
+    await Promise.all([
+      cargarObligacionesRecurrentesGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function desactivarObligacionRecurrenteGRUK(
+  obligacionId
+) {
+  const estado =
+    document.getElementById(
+      "estadoObligacionRecurrenteGRUK"
+    );
+
+  try {
+    const res =
+      await grukFetch(
+        `/api/tesoreria/obligaciones-recurrentes/${encodeURIComponent(
+          obligacionId
+        )}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible desactivar la obligación recurrente"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Obligación recurrente desactivada.</p>";
+    }
+
+    await Promise.all([
+      cargarObligacionesRecurrentesGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
 function llenarSelectsTesoreriaGRUK(cuentas) {
   const origen =
     document.getElementById(
@@ -3491,7 +3752,10 @@ async function crearCuentaTesoreriaGRUK() {
       );
     }
 
-    await cargarTesoreriaGRUK();
+    await Promise.all([
+      cargarTesoreriaGRUK(),
+      cargarObligacionesRecurrentesGRUK()
+    ]);
   } catch (error) {
     if (estado) {
       estado.innerHTML =
@@ -3636,3 +3900,9 @@ window.transferirTesoreriaGRUK =
 
 window.inicializarTesoreriaGRUK =
   inicializarTesoreriaGRUK;
+
+window.crearObligacionRecurrenteGRUK =
+  crearObligacionRecurrenteGRUK;
+
+window.desactivarObligacionRecurrenteGRUK =
+  desactivarObligacionRecurrenteGRUK;
