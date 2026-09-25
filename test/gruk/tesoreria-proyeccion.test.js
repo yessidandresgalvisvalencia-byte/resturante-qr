@@ -353,3 +353,77 @@ test("saldo desconocido a 20 dias vuelve 30d PARCIAL sin invalidar cobertura 7d"
     200000
   );
 });
+
+
+test("cartera priorizada ordena vencidos por fecha y luego mayor monto", async () => {
+  const ahora = new Date();
+
+  await crearCuenta({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    nombre: "Banco cartera",
+    tipo: "BANCO",
+    saldoInicial: 100000,
+    saldoInicialAt: new Date(
+      ahora.getTime() -
+      60 * 60 * 1000
+    ),
+    createdBy: USUARIO_ID
+  });
+
+  const Venta = require("../../models/Venta");
+
+  await Venta.create([
+    {
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      concepto: "Vence en 3 dias",
+      cantidad: 1,
+      precioUnitario: 70000,
+      total: 70000,
+      estado: "pendiente",
+      fechaVencimientoCobro: fechaMasDias(ahora, 3),
+      fecha: ahora
+    },
+    {
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      concepto: "Vencida pequena",
+      cantidad: 1,
+      precioUnitario: 50000,
+      total: 50000,
+      estado: "pendiente",
+      fechaVencimientoCobro: fechaMasDias(ahora, -2),
+      fecha: ahora
+    },
+    {
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      concepto: "Vencida grande",
+      cantidad: 1,
+      precioUnitario: 90000,
+      total: 90000,
+      estado: "pendiente",
+      fechaVencimientoCobro: fechaMasDias(ahora, -2),
+      fecha: ahora
+    }
+  ]);
+
+  const proyeccion =
+    await construirProyeccionTesoreria({
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      ahora
+    });
+
+  assert.deepEqual(
+    proyeccion.cobrosEsperados.prioridadCobro.map(
+      (item) => item.descripcion
+    ),
+    [
+      "Vencida grande",
+      "Vencida pequena",
+      "Vence en 3 dias"
+    ]
+  );
+});
