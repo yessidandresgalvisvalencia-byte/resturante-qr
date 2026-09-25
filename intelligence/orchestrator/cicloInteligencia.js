@@ -6,6 +6,12 @@ const marketing = require("../neurons/marketing.neuron");
 const operaciones = require("../neurons/operaciones.neuron");
 const gente = require("../neurons/gente.neuron");
 const cerebro = require("../brain/cerebro");
+const {
+  construirProyeccionTesoreria
+} = require("../../core/finanzas/tesoreriaProyeccion.service");
+const {
+  construirAgendaFinanciera
+} = require("../brain/agendaFinanciera.service");
 const { evaluarModulosAutomaticos } = require("../../core/modulos/modulos.service");
 const eventBus = require("../../core/eventos/eventBus");
 
@@ -17,8 +23,15 @@ const NEURONAS = Object.freeze([
   gente
 ]);
 
-function debeTomarDecision(reportes, forzarDecision = false) {
+function debeTomarDecision(
+  reportes,
+  forzarDecision = false,
+  agendaFinanciera = null
+) {
   if (forzarDecision) return true;
+  if (agendaFinanciera?.requiereDecision) {
+    return true;
+  }
   return reportes.some(
     (reporte) => reporte.kpi_principal?.estado === "CRITICO"
   );
@@ -42,9 +55,29 @@ async function ejecutarCicloEmpresa(empresaId, opciones = {}) {
     throw new Error("CICLO_INTELIGENCIA_REPORTES_INCOMPLETOS");
   }
 
-  const decision = debeTomarDecision(reportes, forzarDecision)
-    ? await cerebro.tomarDecision(empresaId)
-    : null;
+  const proyeccionTesoreria =
+    await construirProyeccionTesoreria({
+      empresaId
+    });
+
+  const agendaFinanciera =
+    construirAgendaFinanciera(
+      proyeccionTesoreria
+    );
+
+  const decision =
+    debeTomarDecision(
+      reportes,
+      forzarDecision,
+      agendaFinanciera
+    )
+      ? await cerebro.tomarDecision(
+          empresaId,
+          {
+            agendaFinanciera
+          }
+        )
+      : null;
 
   eventBus.emit("CICLO_INTELIGENCIA_COMPLETADO", {
     empresaId,
@@ -56,7 +89,13 @@ async function ejecutarCicloEmpresa(empresaId, opciones = {}) {
     )
   });
 
-  return { modulos, reportes, decision };
+  return {
+    modulos,
+    reportes,
+    proyeccionTesoreria,
+    agendaFinanciera,
+    decision
+  };
 }
 
 module.exports = {
