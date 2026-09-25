@@ -1,5 +1,115 @@
 <div class="card">
 
+<h3>💰 Tesorería GRUK</h3>
+
+<p>
+Configura las cuentas reales donde vive el dinero. GRUK separa saldo disponible de flujo del periodo y marca la confiabilidad del dato.
+</p>
+
+<div id="resumenTesoreriaGRUK">
+  <p>Cargando tesorería...</p>
+</div>
+
+<hr>
+
+<h4>Nueva cuenta</h4>
+
+<label>Nombre de la cuenta</label>
+<input
+  id="tesoreriaNombreCuenta"
+  type="text"
+  placeholder="Ej: Caja principal, Bancolombia, Nequi"
+/>
+
+<label>Tipo</label>
+<select id="tesoreriaTipoCuenta">
+  <option value="EFECTIVO">Efectivo / Caja</option>
+  <option value="BANCO">Banco</option>
+  <option value="BILLETERA">Billetera digital</option>
+  <option value="OTRO">Otro</option>
+</select>
+
+<label>Saldo inicial confirmado</label>
+<input
+  id="tesoreriaSaldoInicial"
+  type="number"
+  step="1"
+  value="0"
+/>
+
+<label>Fecha y hora del saldo inicial</label>
+<input
+  id="tesoreriaSaldoInicialAt"
+  type="datetime-local"
+/>
+
+<label>Métodos de pago que llegan a esta cuenta</label>
+<select
+  id="tesoreriaMetodosPago"
+  multiple
+  size="6"
+>
+  <option value="efectivo">Efectivo</option>
+  <option value="transferencia">Transferencia bancaria</option>
+  <option value="tarjeta">Tarjeta / datáfono</option>
+  <option value="nequi">Nequi</option>
+  <option value="daviplata">Daviplata</option>
+  <option value="otro">Otro</option>
+</select>
+
+<p class="descripcion-termino">
+Selecciona solo métodos que tengan un destino inequívoco. Si dos cuentas comparten el mismo método, GRUK dejará el movimiento sin asignar en lugar de adivinar.
+</p>
+
+<label>
+  <input
+    id="tesoreriaPermiteNegativo"
+    type="checkbox"
+  >
+  Permitir saldo negativo en esta cuenta
+</label>
+
+<button onclick="crearCuentaTesoreriaGRUK()">
+  Crear cuenta de tesorería
+</button>
+
+<div id="estadoCuentaTesoreriaGRUK"></div>
+
+<hr>
+
+<h4>Transferencia interna</h4>
+
+<label>Cuenta origen</label>
+<select id="tesoreriaCuentaOrigen"></select>
+
+<label>Cuenta destino</label>
+<select id="tesoreriaCuentaDestino"></select>
+
+<label>Monto</label>
+<input
+  id="tesoreriaTransferenciaMonto"
+  type="number"
+  min="1"
+  step="1"
+/>
+
+<label>Concepto</label>
+<input
+  id="tesoreriaTransferenciaConcepto"
+  type="text"
+  value="Transferencia interna"
+/>
+
+<button onclick="transferirTesoreriaGRUK()">
+  Transferir entre cuentas
+</button>
+
+<div id="estadoTransferenciaTesoreriaGRUK"></div>
+
+</div>
+
+<div class="card">
+
 <h3>Control de Gasto</h3>
 
 <p>
