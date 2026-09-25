@@ -120,39 +120,56 @@ function construirIntervencionNeurona(reporte) {
 function construirIntervencionExperta({
   respuesta,
   intervencionId,
-  model
+  model,
+  responseId
 }) {
-  const bloques = [limitarTexto(respuesta.respuesta, 1200)];
+  const bloques = [
+    limitarTexto(respuesta.respuesta, 1800)
+  ];
 
-  if (Array.isArray(respuesta.inferencias) && respuesta.inferencias.length) {
+  if (respuesta.criterio_profesional) {
     bloques.push(
-      "Inferencias profesionales: " +
-      respuesta.inferencias
-        .map((item) => limitarTexto(item, 350))
-        .filter(Boolean)
-        .join(" | ")
+      "Criterio profesional: " +
+      limitarTexto(
+        respuesta.criterio_profesional,
+        1000
+      )
     );
   }
 
-  if (
-    Array.isArray(respuesta.datos_faltantes) &&
-    respuesta.datos_faltantes.length
-  ) {
-    bloques.push(
-      "Datos faltantes: " +
-      respuesta.datos_faltantes
-        .map((item) => limitarTexto(item, 300))
-        .filter(Boolean)
-        .join(" | ")
-    );
+  const secciones = [
+    ["Riesgos", respuesta.riesgos, 350],
+    ["Objeciones a la Junta", respuesta.objeciones, 350],
+    ["Acuerdos con la Junta", respuesta.acuerdos, 350],
+    ["Inferencias profesionales", respuesta.inferencias, 350],
+    ["Datos faltantes", respuesta.datos_faltantes, 300]
+  ];
+
+  for (const [titulo, items, maximo] of secciones) {
+    if (!Array.isArray(items) || !items.length) {
+      continue;
+    }
+
+    const contenido = items
+      .map((item) => limitarTexto(item, maximo))
+      .filter(Boolean)
+      .join(" | ");
+
+    if (contenido) {
+      bloques.push(`${titulo}: ${contenido}`);
+    }
   }
 
-  const evidencia = Array.isArray(respuesta.evidencia_usada)
+  const evidencia = Array.isArray(
+    respuesta.evidencia_usada
+  )
     ? respuesta.evidencia_usada
         .map((item) => limitarTexto(item, 600))
         .filter(Boolean)
         .join(" | ")
     : "";
+
+  const confianza = Number(respuesta.confianza);
 
   return {
     tipo: "EXPERTO_IA",
@@ -160,10 +177,18 @@ function construirIntervencionExperta({
     autorUsuarioId: null,
     respuestaAId: intervencionId,
     modelo: limitarTexto(model, 100),
-    mensaje: limitarTexto(bloques.filter(Boolean).join("\n\n"), 2000),
-    evidencia: limitarTexto(evidencia, 4000),
+    proveedorRespuestaId:
+      limitarTexto(responseId, 200) || null,
+    mensaje: limitarTexto(
+      bloques.filter(Boolean).join("\n\n"),
+      4000
+    ),
+    evidencia: limitarTexto(evidencia, 6000),
     impacto_financiero_estimado: null,
-    confianza: null
+    confianza:
+      Number.isFinite(confianza)
+        ? Math.max(0, Math.min(100, confianza))
+        : null
   };
 }
 
@@ -391,7 +416,8 @@ async function responderPreguntaExpertos({
     construirIntervencionExperta({
       respuesta,
       intervencionId: pregunta._id,
-      model: generadas.model
+      model: generadas.model,
+      responseId: generadas.responseId
     })
   );
 
