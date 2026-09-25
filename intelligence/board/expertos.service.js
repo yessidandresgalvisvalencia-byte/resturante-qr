@@ -442,6 +442,175 @@ function extraerHechosHumanos(pregunta) {
   return hechos;
 }
 
+function extraerAtributosSeguimiento(textoEntrada) {
+  const texto = normalizar(textoEntrada);
+  const atributos = {};
+
+  if (
+    /\b(ya me pago|ya pago|ya la cobre|ya cobre|me pagaron|quedo pagad|pago completo)\b/.test(texto)
+  ) {
+    atributos.estado_cobro = "COBRADA";
+  } else if (
+    /\b(no me ha pagado|no ha pagado|quedo debiendo|a credito|fiado|pendiente de pago)\b/.test(texto)
+  ) {
+    atributos.estado_cobro = "PENDIENTE";
+  }
+
+  if (/\befectivo\b/.test(texto)) {
+    atributos.medio_pago = "EFECTIVO";
+  } else if (/\b(tarjeta|dataphone|datafono)\b/.test(texto)) {
+    atributos.medio_pago = "TARJETA";
+  } else if (/\b(transferencia|transferi)\b/.test(texto)) {
+    atributos.medio_pago = "TRANSFERENCIA";
+  } else if (/\bnequi\b/.test(texto)) {
+    atributos.medio_pago = "NEQUI";
+  } else if (/\bdaviplata\b/.test(texto)) {
+    atributos.medio_pago = "DAVIPLATA";
+  }
+
+  if (
+    /\b(cliente nuevo|era nuevo|primera vez|nunca habia venido)\b/.test(texto)
+  ) {
+    atributos.tipo_cliente = "NUEVO";
+  } else if (
+    /\b(cliente recurrente|era recurrente|ya habia venido|cliente de siempre|cliente frecuente)\b/.test(texto)
+  ) {
+    atributos.tipo_cliente = "RECURRENTE";
+  }
+
+  if (/\binstagram\b/.test(texto)) {
+    atributos.canal_origen = "INSTAGRAM";
+  } else if (/\bfacebook\b/.test(texto)) {
+    atributos.canal_origen = "FACEBOOK";
+  } else if (/\bwhatsapp\b/.test(texto)) {
+    atributos.canal_origen = "WHATSAPP";
+  } else if (/\bgoogle\b/.test(texto)) {
+    atributos.canal_origen = "GOOGLE";
+  } else if (/\b(recomendacion|recomendado|referido)\b/.test(texto)) {
+    atributos.canal_origen = "RECOMENDACION";
+  } else if (/\b(paso por|pasaba por|vio el local)\b/.test(texto)) {
+    atributos.canal_origen = "TRAFICO_LOCAL";
+  }
+
+  if (/\b(con descuento|le di descuento|descuento)\b/.test(texto)) {
+    atributos.hubo_descuento = true;
+  }
+
+  return atributos;
+}
+
+function enriquecerHecho(hecho, atributos) {
+  return {
+    ...hecho,
+    ...Object.fromEntries(
+      Object.entries(atributos || {})
+        .filter(([, valor]) =>
+          valor !== null &&
+          valor !== undefined
+        )
+    )
+  };
+}
+
+function extraerHechosConversacion(
+  pregunta,
+  intervenciones
+) {
+  const humanos =
+    (intervenciones || [])
+      .filter((item) =>
+        item.tipo === "HUMANO"
+      )
+      .map((item) =>
+        String(item.mensaje || "").trim()
+      )
+      .filter(Boolean);
+
+  const actual =
+    String(pregunta || "").trim();
+
+  if (
+    actual &&
+    humanos.at(-1) !== actual
+  ) {
+    humanos.push(actual);
+  }
+
+  for (
+    let i = humanos.length - 1;
+    i >= 0;
+    i -= 1
+  ) {
+    const hechosBase =
+      extraerHechosHumanos(
+        humanos[i]
+      );
+
+    if (!hechosBase.length) {
+      continue;
+    }
+
+    const atributos = {};
+
+    for (
+      let j = i;
+      j < humanos.length;
+      j += 1
+    ) {
+      Object.assign(
+        atributos,
+        extraerAtributosSeguimiento(
+          humanos[j]
+        )
+      );
+    }
+
+    return hechosBase.map(
+      (hecho) =>
+        enriquecerHecho(
+          hecho,
+          atributos
+        )
+    );
+  }
+
+  return extraerHechosHumanos(actual);
+}
+
+function descripcionSeguimientoVenta(evento) {
+  const partes = [];
+
+  if (evento.estado_cobro === "COBRADA") {
+    partes.push("confirmaste que la venta ya fue cobrada");
+  } else if (evento.estado_cobro === "PENDIENTE") {
+    partes.push("confirmaste que el cobro sigue pendiente");
+  }
+
+  if (evento.medio_pago) {
+    partes.push(
+      `medio de pago: ${evento.medio_pago.toLowerCase()}`
+    );
+  }
+
+  if (evento.tipo_cliente) {
+    partes.push(
+      `cliente ${evento.tipo_cliente.toLowerCase()}`
+    );
+  }
+
+  if (evento.canal_origen) {
+    partes.push(
+      `origen: ${evento.canal_origen.toLowerCase()}`
+    );
+  }
+
+  if (evento.hubo_descuento) {
+    partes.push("hubo descuento");
+  }
+
+  return partes;
+}
+
 function formatearCOP(valor) {
   const n = numero(valor);
 
@@ -1396,7 +1565,10 @@ function construirContexto({
     temas_detectados:
       detectarTemas(pregunta),
     hechos_humanos:
-      extraerHechosHumanos(pregunta),
+      extraerHechosConversacion(
+        pregunta,
+        intervenciones
+      ),
     decision_en_discusion: decision
       ? {
           situacion:
@@ -2091,7 +2263,10 @@ async function generarRespuestasExpertas({
     detectarTemas(pregunta);
 
   const hechosHumanos =
-    extraerHechosHumanos(pregunta);
+    extraerHechosConversacion(
+      pregunta,
+      intervenciones
+    );
 
   const respuestas =
     DEPARTAMENTOS_EXPERTOS.map(
@@ -2132,6 +2307,7 @@ module.exports = {
   clasificarIntencion,
   detectarTemas,
   extraerHechosHumanos,
+  extraerHechosConversacion,
   construirContexto,
   validarRespuestas,
   generarRespuestasExpertas,
