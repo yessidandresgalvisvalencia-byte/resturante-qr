@@ -100,6 +100,7 @@ router.post(
       metodoPago,
       estadoPago,
       fechaVencimientoPago,
+      saldoPendientePago,
       fecha,
       observaciones,
       origen,
@@ -256,6 +257,12 @@ router.post(
             estadoPago: estadoPago || "pagado",
             fechaVencimientoPago:
               fechaVencimientoPago || null,
+            saldoPendientePago:
+              (estadoPago || "pagado") === "parcial"
+                ? Number(saldoPendientePago)
+                : (estadoPago || "pagado") === "pendiente"
+                  ? total
+                  : 0,
             fecha: fecha || new Date(),
             observaciones: observaciones || "",
             origen: origen || "manual",
@@ -466,7 +473,15 @@ const estadoPagoCompraSchema = Joi.object({
       "parcial",
       "pagado"
     )
-    .required()
+    .required(),
+  saldoPendientePago: Joi.number()
+    .min(0)
+    .allow(null)
+    .optional(),
+  fechaVencimientoPago: Joi.date()
+    .iso()
+    .allow(null, "")
+    .optional()
 }).required();
 
 router.put(
@@ -538,12 +553,73 @@ router.put(
         compra.estadoPago;
 
       if (
-        estadoAnterior !==
-        value.estadoPago
+        value.estadoPago === "parcial"
       ) {
-        compra.estadoPago =
-          value.estadoPago;
+        const saldo =
+          Number(
+            value.saldoPendientePago
+          );
 
+        if (
+          !Number.isFinite(saldo) ||
+          saldo <= 0 ||
+          saldo >= Number(compra.total)
+        ) {
+          return res.status(400).json({
+            ok: false,
+            error:
+              "Una compra parcial requiere saldoPendientePago mayor que 0 y menor que el total"
+          });
+        }
+      }
+
+      const cambioEstado =
+        estadoAnterior !==
+        value.estadoPago;
+
+      const saldoAnterior =
+        compra.saldoPendientePago;
+
+      compra.estadoPago =
+        value.estadoPago;
+
+      if (
+        value.estadoPago === "pagado"
+      ) {
+        compra.saldoPendientePago = 0;
+      } else if (
+        value.estadoPago === "pendiente"
+      ) {
+        compra.saldoPendientePago =
+          Number(compra.total);
+      } else {
+        compra.saldoPendientePago =
+          Number(
+            value.saldoPendientePago
+          );
+      }
+
+      if (
+        value.fechaVencimientoPago !==
+        undefined
+      ) {
+        compra.fechaVencimientoPago =
+          value.fechaVencimientoPago ||
+          null;
+      }
+
+      const cambioSaldo =
+        Number(saldoAnterior ?? -1) !==
+        Number(
+          compra.saldoPendientePago ?? -1
+        );
+
+      if (
+        cambioEstado ||
+        cambioSaldo ||
+        value.fechaVencimientoPago !==
+          undefined
+      ) {
         await compra.save();
 
         try {
@@ -563,6 +639,10 @@ router.put(
                 estadoAnterior,
               estadoPago:
                 compra.estadoPago,
+              saldoPendientePago:
+                compra.saldoPendientePago,
+              fechaVencimientoPago:
+                compra.fechaVencimientoPago,
               fecha: compra.fecha,
               sourceUpdatedAt:
                 compra.updatedAt,
