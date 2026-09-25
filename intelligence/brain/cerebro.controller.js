@@ -3,7 +3,8 @@
 const {
   obtenerUltimaDecision,
   procesarOrden,
-  obtenerAuditoria
+  obtenerAuditoria,
+  obtenerPlanesPagoDecision
 } = require("./cerebro.service");
 
 function responderError(res, error, operacion) {
@@ -30,6 +31,27 @@ async function ultimaDecision(req, res) {
     });
   } catch (error) {
     return responderError(res, error, "ultima decision");
+  }
+}
+
+async function planesPagoDecision(req, res) {
+  try {
+    const planes =
+      await obtenerPlanesPagoDecision(
+        req.auth,
+        req.params.decisionId
+      );
+
+    return res.json({
+      ok: true,
+      planes
+    });
+  } catch (error) {
+    return responderError(
+      res,
+      error,
+      "planes de pago"
+    );
   }
 }
 
@@ -68,6 +90,7 @@ const rechazarOrden = crearProcesadorOrden("RECHAZAR", "rechazar orden");
 module.exports = {
   ultimaDecision,
   auditoriaCerebro,
+  planesPagoDecision,
   aprobarOrden,
   rechazarOrden
 };
