@@ -24,6 +24,14 @@ const politicaPagoSchema=new mongoose.Schema({
  updatedAt:{type:Date,default:null},
  updatedBy:{type:mongoose.Schema.Types.ObjectId,ref:"Usuario",default:null}
 },{_id:false});
+const excepcionPagoSchema=new mongoose.Schema({
+ excepcionId:{type:mongoose.Schema.Types.ObjectId,default:null},
+ origenTipo:{type:String,enum:["COMPRA","GASTO","RECURRENTE"],required:true},
+ origenId:{type:mongoose.Schema.Types.ObjectId,required:true},
+ motivo:{type:String,required:true,maxlength:1000},
+ expiresAt:{type:Date,required:true},
+ createdBy:{type:mongoose.Schema.Types.ObjectId,ref:"Usuario",default:null}
+},{_id:false});
 const contextoFinancieroSchema=new mongoose.Schema({
  fuente:{type:String,enum:["TESORERIA_GRUK"],default:"TESORERIA_GRUK"},
  estado7d:{type:String,default:null},
@@ -37,6 +45,7 @@ const contextoFinancieroSchema=new mongoose.Schema({
  faltanteDespuesCobrosPriorizados:{type:Number,default:0,min:0},
  cobrosPriorizados:{type:[cobroPrioritarioSchema],default:[]},
  politicaPriorizacionPagos:{type:politicaPagoSchema,default:null},
+ excepcionesPrioridadPago:{type:[excepcionPagoSchema],default:[]},
  obligacionesPriorizadas:{type:[obligacionPrioritariaSchema],default:[]},
  planPagosCajaActual:{type:[obligacionPrioritariaSchema],default:[]},
  planPagosConCobros:{type:[obligacionPrioritariaSchema],default:[]},
