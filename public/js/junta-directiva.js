@@ -77,7 +77,7 @@ function nombreActorJuntaGRUK(item) {
     return `DATO · NEURONA ${escaparJuntaGRUK(item.departamento)}`;
   }
 
-  if (item.tipo === "EXPERTO_IA") {
+  if (["EXPERTO_IA", "EXPERTO_GRUK"].includes(item.tipo)) {
     return `EXPERTO GRUK · ${escaparJuntaGRUK(item.departamento)}`;
   }
 
@@ -135,7 +135,7 @@ function renderizarJuntaGRUK(sesion) {
   const respuestasPorPregunta = new Map();
   for (const item of intervenciones) {
     if (
-      item.tipo === "EXPERTO_IA" &&
+      ["EXPERTO_IA", "EXPERTO_GRUK"].includes(item.tipo) &&
       item.respuestaAId
     ) {
       const clave = String(item.respuestaAId);
@@ -152,7 +152,7 @@ function renderizarJuntaGRUK(sesion) {
       : "";
 
     const esDatoNeurona = item.tipo === "NEURONA";
-    const esExperto = item.tipo === "EXPERTO_IA";
+    const esExperto = ["EXPERTO_IA", "EXPERTO_GRUK"].includes(item.tipo);
 
     const metricas = esDatoNeurona
       ? `
