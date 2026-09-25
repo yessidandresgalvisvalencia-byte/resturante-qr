@@ -6,7 +6,7 @@ const intervencionSchema = new mongoose.Schema({
   tipo: {
     type: String,
     required: true,
-    enum: ["NEURONA", "HUMANO", "EXPERTO_IA"]
+    enum: ["NEURONA", "HUMANO", "EXPERTO_IA", "EXPERTO_GRUK"]
   },
   departamento: {
     type: String,
