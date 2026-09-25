@@ -238,6 +238,98 @@ const proyeccionSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const obligacionesSchema = new mongoose.Schema({
+  alcance: {
+    type: String,
+    default: "OBLIGACIONES_REGISTRADAS_GRUK"
+  },
+  advertencia: {
+    type: String,
+    default: "",
+    maxlength: 1200
+  },
+  montoExigible7Dias: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  noCuantificadasExigibles: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  obligacionesSinFecha: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  cobertura7Dias: {
+    type: String,
+    enum: [
+      "SUFICIENTE",
+      "INSUFICIENTE",
+      "NO_CALCULABLE_TESORERIA",
+      "NO_CONFIABLE_DATOS_FALTANTES"
+    ],
+    required: true
+  },
+  saldoDespues7Dias: {
+    type: Number,
+    default: null
+  },
+  vencidas: {
+    cantidad: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    montoCuantificado: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    noCuantificadas: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
+  },
+  proximos7Dias: {
+    cantidad: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    montoCuantificado: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    noCuantificadas: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
+  },
+  dias8a30: {
+    cantidad: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    montoCuantificado: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    noCuantificadas: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
+  }
+}, { _id: false });
+
 const diagnosticoSchema = new mongoose.Schema({
   estado: {
     type: String,
