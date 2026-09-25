@@ -11,6 +11,7 @@ const {
   ROLES_GRUK,
   roleCheck
 } = require("../core/auth/roleCheck.middleware");
+const eventBus = require("../core/eventos/eventBus");
 
 const router = express.Router();
 
@@ -327,6 +328,27 @@ inventario.costo = costoPromedioPonderado;
         );
       }
     });
+
+    // GRUK: el evento nace solo despues de confirmar la transaccion.
+    // Si estadoPago no es "pagado", la Junta lo registra como compromiso,
+    // nunca como salida confirmada de caja.
+    try {
+      eventBus.emit("COMPRA_REGISTRADA", {
+        compraId: compraCreada._id,
+        empresaId: compraCreada.empresaId,
+        sedeId: compraCreada.sedeId,
+        proveedor: compraCreada.proveedor,
+        total: compraCreada.total,
+        metodoPago: compraCreada.metodoPago,
+        estadoPago: compraCreada.estadoPago,
+        fecha: compraCreada.fecha
+      });
+    } catch (eventError) {
+      console.error(
+        "[GRUK COMPRAS] compra persistida, fallo al emitir COMPRA_REGISTRADA:",
+        eventError
+      );
+    }
 
     res.status(201).json({
       ok: true,
