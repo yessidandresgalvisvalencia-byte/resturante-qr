@@ -27,6 +27,11 @@ const {
 const {
   construirProyeccionTesoreria
 } = require("../core/finanzas/tesoreriaProyeccion.service");
+const {
+  CATEGORIAS_POLITICA,
+  obtenerPoliticaPriorizacionPagos,
+  actualizarPoliticaPriorizacionPagos
+} = require("../core/finanzas/politicaFinanciera.service");
 
 const router = express.Router();
 
@@ -37,6 +42,34 @@ const seguridad = [
     ROLES_GRUK.ADMIN_SEDE
   )
 ];
+
+const seguridadDueno = [
+  authMiddleware,
+  roleCheck(
+    ROLES_GRUK.DUENO
+  )
+];
+
+const politicaPagosSchema =
+  Joi.object({
+    usar_precedencia_categoria:
+      Joi.boolean()
+        .required(),
+    precedencia_categorias:
+      Joi.array()
+        .items(
+          Joi.string().valid(
+            ...CATEGORIAS_POLITICA
+          )
+        )
+        .unique()
+        .max(
+          CATEGORIAS_POLITICA.length
+        )
+        .required()
+  })
+    .required()
+    .unknown(false);
 
 const cuentaSchema = Joi.object({
   sedeId: Joi.string()
@@ -279,6 +312,91 @@ function responderError(
           : error.message
   });
 }
+
+router.get(
+  "/politica-priorizacion-pagos",
+  ...seguridad,
+  async (req, res) => {
+    try {
+      const politica =
+        await obtenerPoliticaPriorizacionPagos(
+          req.auth.empresaId
+        );
+
+      return res.json({
+        ok: true,
+        politica,
+        categoriasDisponibles:
+          CATEGORIAS_POLITICA
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error consultando politica financiera"
+      );
+    }
+  }
+);
+
+router.put(
+  "/politica-priorizacion-pagos",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const {
+        error,
+        value
+      } =
+        politicaPagosSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: false,
+            convert: true
+          }
+        );
+
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            error.details
+              .map(
+                (item) =>
+                  item.message
+              )
+              .join("; ")
+        });
+      }
+
+      const politica =
+        await actualizarPoliticaPriorizacionPagos({
+          empresaId:
+            req.auth.empresaId,
+          usarPrecedenciaCategoria:
+            value
+              .usar_precedencia_categoria,
+          precedenciaCategorias:
+            value
+              .precedencia_categorias,
+          updatedBy:
+            req.auth.usuarioId
+        });
+
+      return res.json({
+        ok: true,
+        politica
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error actualizando politica financiera"
+      );
+    }
+  }
+);
 
 router.get(
   "/resumen",
