@@ -271,7 +271,10 @@ async function construirProyeccionTesoreria({
     }),
 
     obtenerPoliticaPriorizacionPagos(
-      empresaId
+      empresaId,
+      {
+        permitirAusente: true
+      }
     )
   ]);
 
