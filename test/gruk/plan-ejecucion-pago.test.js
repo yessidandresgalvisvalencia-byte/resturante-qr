@@ -10,8 +10,12 @@ const Decision = require(
 const PlanEjecucionPago = require(
   "../../core/finanzas/models/PlanEjecucionPago"
 );
+const MovimientoCaja = require(
+  "../../core/finanzas/models/MovimientoCaja"
+);
 const {
-  crearPlanDesdeDecision
+  crearPlanDesdeDecision,
+  confirmarItemPagado
 } = require(
   "../../core/finanzas/planEjecucionPago.service"
 );
@@ -59,7 +63,8 @@ test.after(async () => {
 test.beforeEach(async () => {
   await Promise.all([
     Decision.deleteMany({}),
-    PlanEjecucionPago.deleteMany({})
+    PlanEjecucionPago.deleteMany({}),
+    MovimientoCaja.deleteMany({})
   ]);
 });
 
@@ -331,5 +336,308 @@ test("Cerebro no expone planes de pago de otro tenant", async () => {
       ),
     (error) =>
       error.statusCode === 404
+  );
+});
+
+
+async function crearSalidaCaja({
+  origenTipo,
+  origenId,
+  movimientoOriginalId = null,
+  tipoAsiento = "CONFIRMACION"
+}) {
+  return MovimientoCaja.create({
+    empresaId:
+      EMPRESA_ID,
+    sedeId: null,
+    cuentaTesoreriaId: null,
+    estadoAsignacionCuenta:
+      "SIN_ASIGNAR",
+    direccion:
+      "SALIDA",
+    monto:
+      150000,
+    moneda:
+      "COP",
+    origenTipo,
+    origenId,
+    tipoAsiento,
+    movimientoOriginalId,
+    concepto:
+      "Pago prueba",
+    metodoPago:
+      "transferencia",
+    claveIdempotencia:
+      `PLAN_TEST:${new mongoose.Types.ObjectId()}`,
+    referenciaEconomica:
+      null,
+    confirmadoAt:
+      new Date(),
+    metadata: {},
+    createdBy:
+      USUARIO_ID,
+    deletedAt:
+      null
+  });
+}
+
+test("confirmacion de plan exige salida real no revertida en Caja", async () => {
+  const decision =
+    decisionBase();
+
+  const plan =
+    await crearPlanDesdeDecision({
+      decision,
+      orden:
+        decision
+          .ordenes_por_departamento[0],
+      createdBy:
+        new mongoose.Types.ObjectId(
+          USUARIO_ID
+        )
+    });
+
+  const gasto =
+    plan.items.find(
+      (item) =>
+        item.origenTipo ===
+        "GASTO"
+    );
+
+  await assert.rejects(
+    () =>
+      confirmarItemPagado({
+        empresaId:
+          EMPRESA_ID,
+        planId:
+          plan._id,
+        itemId:
+          gasto._id,
+        confirmadoBy:
+          USUARIO_ID
+      }),
+    (error) =>
+      error.statusCode === 409
+  );
+
+  const movimiento =
+    await crearSalidaCaja({
+      origenTipo:
+        "GASTO",
+      origenId:
+        gasto.origenId
+    });
+
+  const confirmado =
+    await confirmarItemPagado({
+      empresaId:
+        EMPRESA_ID,
+      planId:
+        plan._id,
+      itemId:
+        gasto._id,
+      confirmadoBy:
+        USUARIO_ID
+    });
+
+  const item =
+    confirmado.items.find(
+      (x) =>
+        String(x._id) ===
+        String(gasto._id)
+    );
+
+  assert.equal(
+    item.estado,
+    "CONFIRMADO"
+  );
+
+  assert.equal(
+    String(
+      item.movimientoCajaId
+    ),
+    String(
+      movimiento._id
+    )
+  );
+
+  assert.ok(
+    item.confirmadoAt
+  );
+});
+
+test("salida revertida no confirma item del plan", async () => {
+  const decision =
+    decisionBase();
+
+  const plan =
+    await crearPlanDesdeDecision({
+      decision,
+      orden:
+        decision
+          .ordenes_por_departamento[0],
+      createdBy:
+        new mongoose.Types.ObjectId(
+          USUARIO_ID
+        )
+    });
+
+  const gasto =
+    plan.items.find(
+      (item) =>
+        item.origenTipo ===
+        "GASTO"
+    );
+
+  const confirmacion =
+    await crearSalidaCaja({
+      origenTipo:
+        "GASTO",
+      origenId:
+        gasto.origenId
+    });
+
+  await crearSalidaCaja({
+    origenTipo:
+      "GASTO",
+    origenId:
+      gasto.origenId,
+    movimientoOriginalId:
+      confirmacion._id,
+    tipoAsiento:
+      "REVERSION"
+  });
+
+  await assert.rejects(
+    () =>
+      confirmarItemPagado({
+        empresaId:
+          EMPRESA_ID,
+        planId:
+          plan._id,
+        itemId:
+          gasto._id,
+        confirmadoBy:
+          USUARIO_ID
+      }),
+    (error) =>
+      error.statusCode === 409 &&
+      /revertida/i.test(
+        error.message
+      )
+  );
+});
+
+test("obligacion recurrente no puede confirmarse sin documento de pago real", async () => {
+  const decision =
+    decisionBase();
+
+  const plan =
+    await crearPlanDesdeDecision({
+      decision,
+      orden:
+        decision
+          .ordenes_por_departamento[0],
+      createdBy:
+        new mongoose.Types.ObjectId(
+          USUARIO_ID
+        )
+    });
+
+  const recurrente =
+    plan.items.find(
+      (item) =>
+        item.origenTipo ===
+        "RECURRENTE"
+    );
+
+  assert.equal(
+    recurrente.estado,
+    "REQUIERE_REGISTRO_PAGO"
+  );
+
+  await assert.rejects(
+    () =>
+      confirmarItemPagado({
+        empresaId:
+          EMPRESA_ID,
+        planId:
+          plan._id,
+        itemId:
+          recurrente._id,
+        confirmadoBy:
+          USUARIO_ID
+      }),
+    (error) =>
+      error.statusCode === 409 &&
+      /requiere primero/i.test(
+        error.message
+      )
+  );
+});
+
+test("plan queda COMPLETADO cuando todos sus items confirmables estan confirmados", async () => {
+  const origenId =
+    new mongoose.Types.ObjectId();
+
+  const plan =
+    await PlanEjecucionPago.create({
+      empresaId:
+        EMPRESA_ID,
+      sedeId: null,
+      decisionId:
+        new mongoose.Types.ObjectId(),
+      ordenId:
+        new mongoose.Types.ObjectId(),
+      estado:
+        "PENDIENTE_CONFIRMACION",
+      saldoDisponibleSnapshot:
+        200000,
+      totalAutorizado:
+        100000,
+      items: [
+        {
+          origenTipo:
+            "GASTO",
+          origenId,
+          descripcion:
+            "Pago unico",
+          monto:
+            100000,
+          estado:
+            "PENDIENTE_CONFIRMACION"
+        }
+      ],
+      createdBy:
+        USUARIO_ID,
+      deletedAt:
+        null
+    });
+
+  await crearSalidaCaja({
+    origenTipo:
+      "GASTO",
+    origenId
+  });
+
+  const confirmado =
+    await confirmarItemPagado({
+      empresaId:
+        EMPRESA_ID,
+      planId:
+        plan._id,
+      itemId:
+        plan.items[0]._id,
+      confirmadoBy:
+        USUARIO_ID
+    });
+
+  assert.equal(
+    confirmado.estado,
+    "COMPLETADO"
+  );
+
+  assert.ok(
+    confirmado.completedAt
   );
 });
