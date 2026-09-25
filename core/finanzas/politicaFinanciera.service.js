@@ -104,7 +104,8 @@ function politicaPorDefecto() {
 }
 
 async function obtenerPoliticaPriorizacionPagos(
-  empresaId
+  empresaId,
+  opciones = {}
 ) {
   const empresa =
     await Empresa.findById(
@@ -119,6 +120,12 @@ async function obtenerPoliticaPriorizacionPagos(
       .lean();
 
   if (!empresa) {
+    if (
+      opciones.permitirAusente
+    ) {
+      return politicaPorDefecto();
+    }
+
     throw serviceError(
       404,
       "Empresa no encontrada"
