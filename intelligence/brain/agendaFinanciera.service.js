@@ -150,6 +150,10 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
   const saldoActual =
     proyeccion?.saldoActual ?? null;
 
+  const saldoOperativo =
+    proyeccion?.saldoLibreOperativo ??
+    saldoActual;
+
   const obligaciones7d =
     num(proyeccion?.obligaciones?.proximos7d?.monto);
 
