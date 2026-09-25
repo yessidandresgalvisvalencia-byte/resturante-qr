@@ -329,6 +329,12 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
     faltanteDespuesCobrosPriorizados,
     politicaPriorizacionPagos:
       proyeccion?.politicaPriorizacionPagos || null,
+    excepcionesPrioridadPago:
+      Array.isArray(
+        proyeccion?.excepcionesPrioridadPago
+      )
+        ? proyeccion.excepcionesPrioridadPago
+        : [],
     obligacionesPriorizadas,
     planPagosCajaActual,
     planPagosConCobros,
