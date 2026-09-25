@@ -66,6 +66,7 @@ jobs:
           node --check routes/memoria.js
           node --check public/js/junta-directiva.js
           node --check public/finanzas.js
+          node --check public/admin.js
           node --check intelligence/board/junta.controller.js
           node --check intelligence/board/junta.service.js
           node --check intelligence/board/expertos.service.js
@@ -78,7 +79,11 @@ jobs:
           node --check core/gastos/gastos.service.js
           node --check core/gastos/validators/gasto.validator.js
           node --check core/finanzas/caja.service.js
+          node --check core/finanzas/tesoreria.service.js
           node --check core/finanzas/models/MovimientoCaja.js
+          node --check core/finanzas/models/CuentaTesoreria.js
+          node --check core/finanzas/models/TransferenciaTesoreria.js
+          node --check routes/tesoreria.js
           node --check models/Gasto.js
           node --check intelligence/brain/cerebro.js
           node --check intelligence/brain/cerebro.service.js
