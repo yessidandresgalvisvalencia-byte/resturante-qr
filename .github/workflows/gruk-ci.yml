@@ -48,9 +48,11 @@ jobs:
           node --check public/js/centro-control.js
           node --check public/js/auditoria.js
           node --check shared/jobs/cerebro.job.js
+          node --check shared/jobs/caja.job.js
           node --check jobs/suscripciones.js
           node --check models/restaurante.js
           node --check intelligence/listeners/finanzas.listener.js
+          node --check intelligence/listeners/caja.listener.js
           node --check intelligence/listeners/juntaViva.listener.js
           node --check intelligence/models/CerebroAuditoria.js
           node --check intelligence/models/CerebroDecision.js
@@ -75,6 +77,8 @@ jobs:
           node --check routes/compras.js
           node --check core/gastos/gastos.service.js
           node --check core/gastos/validators/gasto.validator.js
+          node --check core/finanzas/caja.service.js
+          node --check core/finanzas/models/MovimientoCaja.js
           node --check models/Gasto.js
           node --check intelligence/brain/cerebro.js
           node --check intelligence/brain/cerebro.service.js
