@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 
 const Compra = require("../models/Compra");
 const Empresa = require("../models/Empresa");
+const Sede = require("../models/sede");
 const ProductoServicio = require("../models/ProductoServicio");
 const Inventario = require("../models/Inventario");
 const MovimientoInventario = require("../models/MovimientoInventario");
@@ -14,6 +15,66 @@ const {
 const eventBus = require("../core/eventos/eventBus");
 
 const router = express.Router();
+
+async function resolverSedeAutorizada({
+  auth,
+  sedeId
+}) {
+  if (auth.rol === ROLES_GRUK.ADMIN_SEDE) {
+    if (!auth.sedeId) {
+      const error = new Error(
+        "ADMIN_SEDE requiere una sede autorizada"
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (
+      sedeId &&
+      String(sedeId) !==
+        String(auth.sedeId)
+    ) {
+      const error = new Error(
+        "No tienes acceso a otra sede"
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+
+    return auth.sedeId;
+  }
+
+  if (!sedeId) return null;
+
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      sedeId
+    )
+  ) {
+    const error = new Error(
+      "sedeId invalido"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const sede = await Sede.findOne({
+    _id: sedeId,
+    empresaId: auth.empresaId
+  })
+    .select("_id")
+    .lean();
+
+  if (!sede) {
+    const error = new Error(
+      "Sede fuera del tenant autorizado"
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return sede._id;
+}
 
 
 // ==========================================
@@ -76,6 +137,12 @@ router.post(
         error: "Empresa no encontrada"
       });
     }
+
+    const sedeEfectiva =
+      await resolverSedeAutorizada({
+        auth: req.auth,
+        sedeId: sedeEfectiva
+      });
 
     const itemsProcesados = [];
 
@@ -167,7 +234,7 @@ router.post(
         [
           {
             empresaId,
-            sedeId: sedeId || null,
+            sedeId: sedeEfectiva,
             proveedor: proveedor || "",
             numeroDocumento: numeroDocumento || "",
 
@@ -218,7 +285,7 @@ router.post(
         const filtroInventario = {
           empresaId,
           productoServicioId: item.producto._id,
-          sedeId: sedeId || null,
+          sedeId: sedeEfectiva,
           anulado: false
         };
 
@@ -261,7 +328,7 @@ inventario.costo = costoPromedioPonderado;
             [
               {
                 empresaId,
-                sedeId: sedeId || null,
+                sedeId: sedeEfectiva,
                 productoServicioId: item.producto._id,
 
                 // CORE puro: no necesitamos restaurantId.
@@ -302,7 +369,7 @@ inventario.costo = costoPromedioPonderado;
           [
             {
               empresaId,
-              sedeId: sedeId || null,
+              sedeId: sedeEfectiva,
               productoServicioId: item.producto._id,
               inventarioId: inventario._id,
 
@@ -362,9 +429,17 @@ inventario.costo = costoPromedioPonderado;
       error
     );
 
-    res.status(500).json({
+    const statusCode =
+      Number.isInteger(error.statusCode)
+        ? error.statusCode
+        : 500;
+
+    res.status(statusCode).json({
       ok: false,
-      error: "Error creando compra"
+      error:
+        statusCode === 500
+          ? "Error creando compra"
+          : error.message
     });
 
   } finally {
@@ -398,10 +473,28 @@ router.get(
       });
     }
 
-    const compras = await Compra.find({
+    const filtroCompras = {
       empresaId,
       estado: "registrada"
-    }).sort({
+    };
+
+    if (
+      req.auth.rol === ROLES_GRUK.ADMIN_SEDE
+    ) {
+      if (!req.auth.sedeId) {
+        return res.status(403).json({
+          ok: false,
+          error: "ADMIN_SEDE requiere una sede autorizada"
+        });
+      }
+
+      filtroCompras.sedeId =
+        req.auth.sedeId;
+    }
+
+    const compras = await Compra.find(
+      filtroCompras
+    ).sort({
       fecha: -1
     });
 
@@ -445,11 +538,27 @@ router.put(
       });
     }
 
+    const filtroCompra = {
+      _id: req.params.id,
+      empresaId: req.auth.empresaId
+    };
+
+    if (
+      req.auth.rol === ROLES_GRUK.ADMIN_SEDE
+    ) {
+      if (!req.auth.sedeId) {
+        return res.status(403).json({
+          ok: false,
+          error: "ADMIN_SEDE requiere una sede autorizada"
+        });
+      }
+
+      filtroCompra.sedeId =
+        req.auth.sedeId;
+    }
+
     const compra = await Compra.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        empresaId: req.auth.empresaId
-      },
+      filtroCompra,
       {
         estado: "anulada"
       },
