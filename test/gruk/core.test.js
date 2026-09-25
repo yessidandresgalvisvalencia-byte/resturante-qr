@@ -280,84 +280,57 @@ test("Inventario configurado usa un KPI distinto a porcentaje agotado", () => {
 });
 
 
-test("Junta experta exige seis perspectivas y no inventa impacto", async () => {
+test("Junta deterministica entrega seis perspectivas sin proveedor externo", async () => {
   const {
     generarRespuestasExpertas,
     DEPARTAMENTOS_EXPERTOS
   } = require("../../intelligence/board/expertos.service");
 
-  const respuestas = DEPARTAMENTOS_EXPERTOS.map((departamento) => ({
-    departamento,
-    respuesta: `Respuesta de ${departamento}`,
-    evidencia_usada: ["Dato presente"],
-    inferencias: ["Inferencia profesional"],
-    datos_faltantes: []
-  }));
-
-  let requestBody = null;
-  const fetchImpl = async (_url, options) => {
-    requestBody = JSON.parse(options.body);
-    return {
-      ok: true,
-      async json() {
-        return {
-          id: "resp_test",
-          output: [{
-            type: "message",
-            content: [{
-              type: "output_text",
-              text: JSON.stringify({ respuestas })
-            }]
-          }]
-        };
-      }
-    };
-  };
-
   const resultado = await generarRespuestasExpertas({
     pregunta: "¿Qué corregimos primero?",
-    decision: {
-      decision_general: {
-        situacion: "Situacion",
-        causa_raiz: "Causa",
-        prediccion: "Prediccion"
+    reportes: [{
+      neurona: "FINANZAS",
+      kpi_principal: {
+        nombre: "margen",
+        valor_actual: 20,
+        valor_objetivo: 35,
+        estado: "CRITICO"
       },
-      ordenes_por_departamento: []
-    },
-    reportes: [],
-    intervenciones: [],
-    apiKey: "test-key",
-    model: "modelo-test",
-    fetchImpl
+      hallazgos: [{
+        tipo: "MARGEN_BAJO_OBJETIVO",
+        evidencia: "Margen por debajo del objetivo.",
+        impacto_financiero_estimado: 0,
+        confianza: 100
+      }]
+    }],
+    intervenciones: []
   });
 
+  assert.equal(resultado.model, "GRUK-DETERMINISTICO-1");
   assert.equal(resultado.respuestas.length, 6);
   assert.deepEqual(
-    new Set(resultado.respuestas.map((item) => item.departamento)),
-    new Set(DEPARTAMENTOS_EXPERTOS)
+    resultado.respuestas.map((item) => item.departamento),
+    DEPARTAMENTOS_EXPERTOS
   );
-  assert.equal(requestBody.store, false);
-  assert.equal(requestBody.reasoning.effort, "high");
-  assert.equal(requestBody.text.format.type, "json_schema");
+  assert.match(resultado.respuestas[0].respuesta, /FINANZAS/);
+  assert.ok(resultado.respuestas[0].evidencia_usada.some((item) => /Margen/.test(item)));
 });
 
-test("Junta experta falla cerrado si no existe credencial de IA", async () => {
-  const {
-    generarRespuestasExpertas
-  } = require("../../intelligence/board/expertos.service");
+test("Junta conserva correccion humana como contexto y no como hecho", async () => {
+  const { generarRespuestasExpertas } = require("../../intelligence/board/expertos.service");
 
-  await assert.rejects(
-    () => generarRespuestasExpertas({
-      pregunta: "Pregunta",
-      decision: { ordenes_por_departamento: [] },
-      reportes: [],
-      intervenciones: [],
-      apiKey: ""
-    }),
-    (error) =>
-      error.statusCode === 503 &&
-      error.message === "JUNTA_IA_NO_CONFIGURADA"
-  );
+  const resultado = await generarRespuestasExpertas({
+    pregunta: "¿Qué corregimos?",
+    reportes: [],
+    intervenciones: [{
+      tipo: "HUMANO",
+      mensaje: "El proveedor cambió las condiciones ayer."
+    }]
+  });
+
+  const finanzas = resultado.respuestas.find((item) => item.departamento === "FINANZAS");
+  assert.match(finanzas.respuesta, /criterio humano previo/);
+  assert.equal(finanzas.evidencia_usada.length, 0);
 });
 
 test("Intervencion experta queda ligada a la pregunta sin cifras inventadas", () => {
