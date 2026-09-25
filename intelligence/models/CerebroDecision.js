@@ -8,6 +8,16 @@ const cobroPrioritarioSchema=new mongoose.Schema({
  fechaVencimiento:{type:Date,default:null},
  clasificacion:{type:String,enum:["VENCIDA","PROXIMOS_7_DIAS"],required:true}
 },{_id:false});
+const obligacionPrioritariaSchema=new mongoose.Schema({
+ origenId:{type:mongoose.Schema.Types.ObjectId,default:null},
+ tipo:{type:String,default:null},
+ descripcion:{type:String,default:"",maxlength:300},
+ categoria:{type:String,default:null,maxlength:80},
+ tercero:{type:String,default:"",maxlength:160},
+ monto:{type:Number,required:true,min:0},
+ fechaVencimiento:{type:Date,default:null},
+ estadoCobertura:{type:String,enum:["CUBIERTA","NO_CUBIERTA"],default:null}
+},{_id:false});
 const contextoFinancieroSchema=new mongoose.Schema({
  fuente:{type:String,enum:["TESORERIA_GRUK"],default:"TESORERIA_GRUK"},
  estado7d:{type:String,default:null},
@@ -20,6 +30,9 @@ const contextoFinancieroSchema=new mongoose.Schema({
  montoCobrosPriorizados:{type:Number,default:0,min:0},
  faltanteDespuesCobrosPriorizados:{type:Number,default:0,min:0},
  cobrosPriorizados:{type:[cobroPrioritarioSchema],default:[]},
+ obligacionesPriorizadas:{type:[obligacionPrioritariaSchema],default:[]},
+ planPagosCajaActual:{type:[obligacionPrioritariaSchema],default:[]},
+ planPagosConCobros:{type:[obligacionPrioritariaSchema],default:[]},
  fechaCritica:{type:Date,default:null}
 },{_id:false});
 const schema=new mongoose.Schema({empresaId:{type:mongoose.Schema.Types.ObjectId,ref:"Empresa",required:true,index:true},sedeId:{type:mongoose.Schema.Types.ObjectId,ref:"Sede",default:null,index:true},decisionFingerprint:{type:String,default:null,index:true,maxlength:64},decision_general:{situacion:{type:String,required:true},causa_raiz:{type:String,required:true},prediccion:{type:String,required:true}},ordenes_por_departamento:{type:[ordenSchema],default:[]},contexto_financiero:{type:contextoFinancieroSchema,default:null},confianza_global:{type:Number,required:true,min:0,max:100},riesgo_si_no_se_hace:{type:String,required:true},como_medir_exito_en_7_dias:{type:String,required:true},reportesOrigen:[{type:mongoose.Schema.Types.ObjectId,ref:"CerebroReporteNeurona"}],createdBy:{type:mongoose.Schema.Types.ObjectId,ref:"Usuario",default:null},deletedAt:{type:Date,default:null,index:true}},{timestamps:true,collection:"cerebro_decisiones"});
