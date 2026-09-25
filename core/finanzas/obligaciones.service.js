@@ -265,7 +265,7 @@ async function obtenerObligacionesRegistradas({
       }
     })
       .select(
-        "_id sedeId concepto proveedor monto estadoPago fechaVencimientoPago fecha"
+        "_id sedeId concepto categoria proveedor monto estadoPago fechaVencimientoPago fecha"
       )
       .lean(),
 
@@ -348,6 +348,8 @@ async function obtenerObligacionesRegistradas({
         gasto.proveedor || "",
       concepto:
         gasto.concepto || "Gasto",
+      categoria:
+        gasto.categoria || null,
       estadoPago:
         gasto.estadoPago,
       fechaVencimiento:
