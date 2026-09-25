@@ -99,6 +99,7 @@ router.post(
       impuestos,
       metodoPago,
       estadoPago,
+      fechaVencimientoPago,
       fecha,
       observaciones,
       origen,
@@ -253,6 +254,8 @@ router.post(
             total,
             metodoPago: metodoPago || "efectivo",
             estadoPago: estadoPago || "pagado",
+            fechaVencimientoPago:
+              fechaVencimientoPago || null,
             fecha: fecha || new Date(),
             observaciones: observaciones || "",
             origen: origen || "manual",
