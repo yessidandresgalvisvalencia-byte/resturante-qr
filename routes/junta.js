@@ -7,6 +7,7 @@ const {
   roleCheck
 } = require("../core/auth/roleCheck.middleware");
 const {
+  obtenerJuntaViva,
   obtenerJunta,
   abrirJunta,
   intervenir,
@@ -20,6 +21,12 @@ const seguridad = [
   auth,
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE)
 ];
+
+router.get(
+  "/viva",
+  ...seguridad,
+  obtenerJuntaViva
+);
 
 router.get(
   "/decisiones/:decisionId",
