@@ -80,11 +80,14 @@ jobs:
           node --check core/gastos/validators/gasto.validator.js
           node --check core/finanzas/caja.service.js
           node --check core/finanzas/tesoreria.service.js
+          node --check core/finanzas/tesoreriaProyeccion.service.js
           node --check core/finanzas/models/MovimientoCaja.js
           node --check core/finanzas/models/CuentaTesoreria.js
           node --check core/finanzas/models/TransferenciaTesoreria.js
           node --check routes/tesoreria.js
           node --check models/Gasto.js
+          node --check models/Compra.js
+          node --check models/Venta.js
           node --check intelligence/brain/cerebro.js
           node --check intelligence/brain/cerebro.service.js
           node --check intelligence/brain/cerebro.controller.js
