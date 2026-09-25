@@ -202,13 +202,13 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
   const planPagosCajaActual =
     construirPlanPagos(
       obligacionesPriorizadas,
-      saldoActual
+      saldoOperativo
     );
 
   const recursosConCobros =
     Math.max(
       0,
-      Number(saldoActual || 0) +
+      Number(saldoOperativo || 0) +
       montoCobrosPriorizados
     );
 
@@ -319,6 +319,12 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
     confiabilidad:
       proyeccion?.confiabilidad || "SIN_CONFIGURAR",
     saldoActual,
+    saldoOperativo,
+    reservasActivas:
+      proyeccion?.reservasActivas || {
+        total: 0,
+        utilidadDueno: 0
+      },
     obligaciones7d,
     cobros7d,
     faltanteConCajaActual,
