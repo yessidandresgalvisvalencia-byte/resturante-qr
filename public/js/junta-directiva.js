@@ -61,6 +61,8 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
     estadoVivo.tesoreria || {};
   const proyeccionTesoreria =
     estadoVivo.proyeccionTesoreria || {};
+  const obligaciones =
+    estadoVivo.obligaciones || {};
   const evento =
     estadoVivo.ultimoEvento || {};
   const cambio =
@@ -220,6 +222,58 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
         ${cuentasTesoreriaHTML}
       </ul>
 
+      <h4>Obligaciones registradas</h4>
+
+      <p>
+        <strong>Cobertura 7 días:</strong>
+        ${escaparJuntaGRUK(
+          obligaciones.cobertura7Dias ||
+          "NO_CALCULABLE"
+        )}
+      </p>
+
+      <p>
+        <strong>Vencidas:</strong>
+        ${formatoMonedaJuntaGRUK(
+          obligaciones.vencidas
+            ?.montoCuantificado || 0
+        )}
+        ·
+        <strong>Próximos 7 días:</strong>
+        ${formatoMonedaJuntaGRUK(
+          obligaciones.proximos7Dias
+            ?.montoCuantificado || 0
+        )}
+        ·
+        <strong>8–30 días:</strong>
+        ${formatoMonedaJuntaGRUK(
+          obligaciones.dias8a30
+            ?.montoCuantificado || 0
+        )}
+      </p>
+
+      <p>
+        <strong>Sin fecha:</strong>
+        ${Number(
+          obligaciones.obligacionesSinFecha || 0
+        )}
+        ·
+        <strong>Exigibles no cuantificadas:</strong>
+        ${Number(
+          obligaciones.noCuantificadasExigibles || 0
+        )}
+      </p>
+
+      <p>
+        <strong>Saldo después de obligaciones registradas 7d:</strong>
+        ${obligaciones.saldoDespues7Dias === null ||
+          obligaciones.saldoDespues7Dias === undefined
+          ? "No calculable con confianza"
+          : formatoMonedaJuntaGRUK(
+              obligaciones.saldoDespues7Dias
+            )}
+      </p>
+
       <h4>Proyección 7/30 días</h4>
 
       <p>
@@ -272,9 +326,12 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
               proyeccionTesoreria.proximoVencimiento.descripcion || ""
             )}
             ·
-            ${formatoMonedaJuntaGRUK(
-              proyeccionTesoreria.proximoVencimiento.monto || 0
-            )}
+            ${proyeccionTesoreria.proximoVencimiento.monto === null ||
+              proyeccionTesoreria.proximoVencimiento.monto === undefined
+              ? "Monto no cuantificado"
+              : formatoMonedaJuntaGRUK(
+                  proyeccionTesoreria.proximoVencimiento.monto
+                )}
             ·
             ${escaparJuntaGRUK(
               formatoFechaJuntaGRUK(
