@@ -9,7 +9,8 @@ const PlanEjecucionPago = require("../../core/finanzas/models/PlanEjecucionPago"
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
 const { registrarBaselineAprobacion } = require("../memory/memoria.service");
 const {
-  crearPlanDesdeDecision
+  crearPlanDesdeDecision,
+  confirmarItemPagado
 } = require("../../core/finanzas/planEjecucionPago.service");
 
 function serviceError(statusCode, message) {
@@ -112,6 +113,37 @@ async function procesarOrden({ auth, decisionId, ordenId, accion }) {
   } finally {
     await session.endSession();
   }
+}
+
+async function confirmarItemPlanPago({
+  auth,
+  planId,
+  itemId
+}) {
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      auth.usuarioId
+    )
+  ) {
+    throw serviceError(
+      401,
+      "Identidad de usuario invalida"
+    );
+  }
+
+  return confirmarItemPagado({
+    empresaId:
+      auth.empresaId,
+    sedeId:
+      auth.rol ===
+      ROLES_GRUK.ADMIN_SEDE
+        ? auth.sedeId
+        : null,
+    planId,
+    itemId,
+    confirmadoBy:
+      auth.usuarioId
+  });
 }
 
 async function obtenerPlanesPagoDecision(
@@ -349,5 +381,6 @@ module.exports = {
   procesarOrden,
   obtenerAuditoria,
   obtenerPlanesPagoDecision,
+  confirmarItemPlanPago,
   filtroTenant
 };
