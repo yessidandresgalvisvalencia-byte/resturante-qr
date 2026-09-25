@@ -1,12 +1,9 @@
 "use strict";
 
 const {
-  RESPUESTA_EXPERTA_SCHEMA
-} = require("./expertos.schema");
-const {
   PERFILES_EXPERTOS,
-  construirSystemPrompt
-} = require("./expertos.prompt");
+  TEMAS
+} = require("./expertos.config");
 
 const DEPARTAMENTOS_EXPERTOS = Object.freeze([
   "FINANZAS",
@@ -17,64 +14,152 @@ const DEPARTAMENTOS_EXPERTOS = Object.freeze([
   "DIRECCION"
 ]);
 
-const CONOCIMIENTO = Object.freeze({
+const CONOCIMIENTO = Object.freeze(
+  Object.fromEntries(
+    Object.entries(PERFILES_EXPERTOS).map(
+      ([departamento, perfil]) => [
+        departamento,
+        {
+          foco: perfil.foco,
+          principios: perfil.principios
+        }
+      ]
+    )
+  )
+);
+
+const PLAYBOOKS = Object.freeze({
   FINANZAS: {
-    foco: PERFILES_EXPERTOS.FINANZAS.foco,
-    arranque:
-      "Construir primero un flujo de caja de corto plazo con saldo inicial, fecha real de cobros, obligaciones, costos variables y caja final. La utilidad contable no sustituye liquidez."
+    ARRANQUE:
+      "Empezaría por caja, no por utilidad. Necesitamos saldo inicial, calendario de cobros, calendario de obligaciones, costos variables por venta y caja final por semana. Después medimos cuántas semanas de supervivencia tenemos y qué gasto puede comprometerse sin poner en riesgo nómina, proveedores e impuestos.",
+    FLUJO_CAJA:
+      "El flujo de caja debe separar con precisión cuándo se vende, cuándo se cobra y cuándo sale el dinero. Mi primera lectura es liquidez de corto plazo: saldo inicial + cobros reales - pagos reales = caja final. Después incorporamos escenarios y colchón de seguridad.",
+    MARGEN_PRECIO:
+      "Antes de tocar precio necesito costo confiable y margen de contribución. Una subida de precio puede mejorar margen unitario pero reducir conversión; un descuento puede elevar volumen y destruir caja. La decisión debe modelar ambas cosas.",
+    PUNTO_EQUILIBRIO:
+      "El punto de equilibrio se construye con costos fijos y contribución por unidad o por peso vendido. Si no conocemos contribución real, cualquier punto de equilibrio es decorativo.",
+    CRECIMIENTO:
+      "El crecimiento debe financiar capital de trabajo. Antes de expandir preguntaría cuánto efectivo consume cada peso adicional de venta y cuánto tarda en regresar a caja.",
+    DEUDA:
+      "La deuda solo tiene sentido si el flujo que financia puede pagar capital e intereses con margen de seguridad. No usaría deuda de largo plazo para tapar pérdidas operativas recurrentes sin corregir la causa.",
+    DEFAULT:
+      "Voy a proteger caja, margen y capacidad de pago. No aceptaré una recomendación que aumente ventas o gasto sin explicar cuándo entra el efectivo, cuánto margen deja y qué riesgo financiero crea."
   },
+
   VENTAS: {
-    foco: PERFILES_EXPERTOS.VENTAS.foco,
-    arranque:
-      "Definir cliente, oferta, ticket objetivo, proceso comercial, conversión esperada y plazo real de cobro. Una venta prometida no debe tratarse como caja disponible."
+    ARRANQUE:
+      "Definiría primero cliente, problema, oferta, ticket, proceso comercial y forma de cobro. El objetivo no es registrar ventas prometidas sino construir ingresos que puedan repetirse y cobrarse.",
+    FLUJO_CAJA:
+      "Para que Finanzas proyecte caja, Ventas debe entregar supuestos operables: número de oportunidades, conversión, ticket, frecuencia y plazo real de cobro. Una venta a crédito no puede tratarse como efectivo disponible.",
+    MARGEN_PRECIO:
+      "Precio y margen deben evaluarse junto con conversión, ticket y mezcla de productos. Defender margen no significa subir precios indiscriminadamente; significa vender valor sin comprar volumen no rentable.",
+    VENTAS:
+      "Separaría tráfico, oportunidad, conversión, ticket, recurrencia y cobranza. Si solo miramos ventas totales no sabremos dónde se rompe el motor comercial.",
+    CRECIMIENTO:
+      "Antes de exigir más volumen validaría que existe un proceso comercial repetible y que Operaciones puede cumplir lo vendido sin deteriorar experiencia ni margen.",
+    DEFAULT:
+      "Mi responsabilidad es convertir demanda en ingresos rentables y cobrables. Necesito saber quién compra, por qué compra, cuánto deja y cuándo paga."
   },
+
   MARKETING: {
-    foco: PERFILES_EXPERTOS.MARKETING.foco,
-    arranque:
-      "Definir cliente ideal, propuesta de valor, canal inicial, mecanismo de atribución y CAC máximo tolerable antes de escalar inversión."
+    ARRANQUE:
+      "No empezaría comprando publicidad. Primero definiría cliente ideal, propuesta de valor, mensaje, canal de prueba y mecanismo de atribución. Solo después asignaría presupuesto con un CAC máximo compatible con margen y caja.",
+    FLUJO_CAJA:
+      "Marketing debe tratar el presupuesto como inversión condicionada. Si no conocemos CAC máximo, tiempo de recuperación y margen por cliente, no tenemos autorización económica para escalar adquisición.",
+    MARGEN_PRECIO:
+      "Si Finanzas necesita proteger margen, Marketing debe fortalecer percepción de valor antes de depender de descuentos. El precio se defiende mejor con segmentación, oferta y posicionamiento que con promociones permanentes.",
+    MARKETING_CAC:
+      "Mediría costo por cliente adquirido, conversión por canal, recuperación del CAC y recurrencia. Alcance, clics o seguidores no bastan para gobernar presupuesto.",
+    CRECIMIENTO:
+      "Escalaría únicamente canales con atribución y economía unitaria demostradas. Crecer adquisición sin saber qué canal produce clientes rentables multiplica el desperdicio.",
+    DEFAULT:
+      "Mi responsabilidad es crear demanda rentable y medible. Toda recomendación debe conectar canal, cliente, conversión, CAC, margen y recurrencia."
   },
+
   OPERACIONES: {
-    foco: PERFILES_EXPERTOS.OPERACIONES.foco,
-    arranque:
-      "Traducir la venta esperada en capacidad, compras, inventario, tiempos, calidad y responsables operativos para evitar crecer por encima de la capacidad real."
+    ARRANQUE:
+      "Diseñaría el flujo completo desde compra hasta entrega: capacidad, inventario mínimo, proveedores, tiempos, control de calidad, merma y responsable de cada punto crítico. La operación debe poder medir costo y cumplimiento desde el primer día.",
+    FLUJO_CAJA:
+      "Cada venta prevista debe convertirse en necesidades de compra, inventario, horas y capacidad. Finanzas necesita saber cuándo Operaciones consume caja antes de que la venta se cobre.",
+    MARGEN_PRECIO:
+      "Si el margen está bajo, no asumiría que el problema es precio. Revisaría costo real, merma, porciones, reproceso, compras y mezcla antes de trasladar todo al cliente.",
+    OPERACION_INVENTARIO:
+      "Separaría rotación, quiebres de stock, merma, inventario inmovilizado y tiempo de reposición. Inventario no es solo disponibilidad: también es caja detenida y riesgo de pérdida.",
+    CRECIMIENTO:
+      "No aceptaría una meta de crecimiento sin capacidad disponible, proveedor confiable y estándar de calidad. Vender por encima de capacidad convierte crecimiento en retrasos, devoluciones y pérdida de margen.",
+    DEFAULT:
+      "Mi responsabilidad es que lo vendido pueda entregarse con calidad, costo y tiempo controlados. Buscaré primero desperdicio, cuellos de botella y capital inmovilizado."
   },
+
   GENTE: {
-    foco: PERFILES_EXPERTOS.GENTE.foco,
-    arranque:
-      "Asignar responsable y KPI a Dirección, Operaciones, Ventas, Finanzas y Marketing. Separar una función formal de Gente solo cuando la escala y carga lo justifiquen."
+    ARRANQUE:
+      "Primero asignaría un responsable y un KPI a Dirección, Operaciones, Ventas, Finanzas y Marketing. No crearía departamentos por estética. Con poca gente, una persona puede cubrir varias funciones, pero ninguna función crítica puede quedar sin dueño.",
+    GENTE_CAPACIDAD:
+      "Antes de contratar necesito demostrar falta de capacidad: carga, horas, productividad, cuello de botella, costo total de la persona y KPI que debe mover. Si el problema es proceso, contratar solo encarece el desorden.",
+    CRECIMIENTO:
+      "El crecimiento exige capacidad humana, pero la contratación debe seguir a la evidencia. Separaría necesidad permanente, pico temporal y mala distribución de responsabilidades.",
+    DEFAULT:
+      "Mi pregunta es simple: ¿qué función crítica no tiene hoy responsable con KPI? Esa brecha se corrige antes de aumentar estructura."
   },
+
   DIRECCION: {
-    foco: PERFILES_EXPERTOS.DIRECCION.foco,
-    arranque:
-      "Cerrar primero las definiciones que hacen posible medir el negocio: cliente y oferta, economía unitaria, caja, operación, responsables y KPIs. Después se prioriza ejecución."
+    ARRANQUE:
+      "Empezando desde cero, no construiría primero un organigrama. Definiría cliente y oferta, economía unitaria y caja, operación mínima viable, responsable y KPI para las cinco funciones críticas, y una cadencia semanal de revisión. Solo después añadimos estructura.",
+    FLUJO_CAJA:
+      "Si la caja nos mantiene vivos, la Junta debe gobernarla como restricción principal. Dirección necesita una vista semanal que conecte ventas cobradas, obligaciones, compras, nómina, inversión y caja final; luego decide qué se puede financiar.",
+    MARGEN_PRECIO:
+      "No convertiría un problema de margen automáticamente en una orden de subir precios. Primero separaría precio, costo, mezcla, merma, productividad y percepción de valor; después el Cerebro podrá priorizar la intervención con mejor evidencia.",
+    CRECIMIENTO:
+      "No aprobaría crecimiento por entusiasmo. Exigiría evidencia de demanda, economía unitaria, caja para capital de trabajo, capacidad operativa y responsables antes de escalar.",
+    DEFAULT:
+      "Voy a ordenar la discusión por supervivencia, impacto financiero, dependencia y reversibilidad. La Junta debe dejar claro qué sabemos, qué suponemos y qué dato falta antes de que el Cerebro decida."
   }
 });
 
-const ARRANQUE_RIESGOS = Object.freeze({
-  FINANZAS: [
-    "Confundir utilidad proyectada con dinero disponible para pagar obligaciones.",
-    "Comprometer costos fijos antes de conocer la caja de supervivencia."
-  ],
-  VENTAS: [
-    "Proyectar ingresos sin separar venta, facturación y cobro efectivo.",
-    "Perseguir volumen que no deje contribución suficiente."
-  ],
-  MARKETING: [
-    "Comprar demanda antes de conocer CAC máximo, margen y capacidad de atención.",
-    "Medir alcance o tráfico sin atribución a ventas y caja."
-  ],
-  OPERACIONES: [
-    "Diseñar capacidad para una demanda no validada o quedarse corto frente a una demanda real.",
-    "Comprar inventario sin política de rotación, reposición y merma."
-  ],
-  GENTE: [
-    "Contratar antes de definir responsabilidades, carga real y KPI.",
-    "Crear departamentos por organigrama en lugar de cubrir funciones críticas."
-  ],
-  DIRECCION: [
-    "Intentar ejecutar simultáneamente demasiadas iniciativas sin dependencias claras.",
-    "Tomar decisiones permanentes con supuestos que todavía no han sido validados."
-  ]
+const RIESGOS_POR_TEMA = Object.freeze({
+  FLUJO_CAJA: {
+    FINANZAS: [
+      "Confundir utilidad con liquidez disponible.",
+      "No calendarizar pagos y descubrir el faltante cuando ya vencen las obligaciones."
+    ],
+    VENTAS: [
+      "Proyectar caja con ventas que todavía no están cobradas.",
+      "Aceptar plazos de cobro incompatibles con las obligaciones del negocio."
+    ],
+    MARKETING: [
+      "Consumir caja en adquisición antes de conocer recuperación del CAC."
+    ],
+    OPERACIONES: [
+      "Comprar inventario demasiado pronto y dejar efectivo inmovilizado."
+    ],
+    GENTE: [
+      "Aumentar nómina fija antes de comprobar carga y productividad."
+    ],
+    DIRECCION: [
+      "Tomar compromisos permanentes con una caja proyectada pero no cobrada."
+    ]
+  },
+
+  MARGEN_PRECIO: {
+    FINANZAS: [
+      "Subir volumen con margen insuficiente puede acelerar la pérdida de caja."
+    ],
+    VENTAS: [
+      "Usar descuentos para sostener conversión puede deteriorar la economía unitaria."
+    ],
+    MARKETING: [
+      "Posicionar la oferta solo por precio puede volver estructural el descuento."
+    ],
+    OPERACIONES: [
+      "Atribuir todo el deterioro de margen al precio puede esconder merma o sobrecosto."
+    ],
+    GENTE: [
+      "Presionar metas sin revisar capacidad puede trasladar el problema a horas extra y errores."
+    ],
+    DIRECCION: [
+      "Atacar un síntoma de margen sin validar la causa puede empeorar ventas o caja."
+    ]
+  }
 });
 
 function normalizar(texto) {
@@ -94,7 +179,10 @@ function clasificarIntencion(pregunta) {
     return "ARRANQUE";
   }
 
-  if (/(corrige|corregir|equivoc|eso no|no es correcto|error)/.test(p)) {
+  if (
+    /(corrige|corregir|equivoc|eso no|no es correcto|error)/
+      .test(p)
+  ) {
     return "CORRECCION";
   }
 
@@ -102,15 +190,41 @@ function clasificarIntencion(pregunta) {
     return "EXPLICACION";
   }
 
-  if (/(que hacemos|que hago|como mejor|prioridad|primero)/.test(p)) {
+  if (
+    /(que hacemos|que hago|como mejor|prioridad|primero)/
+      .test(p)
+  ) {
     return "ACCION";
   }
 
   return "CONSULTA";
 }
 
+function detectarTemas(pregunta) {
+  const texto = normalizar(pregunta);
+  const detectados = [];
+
+  for (const [tema, config] of Object.entries(TEMAS)) {
+    if (
+      config.patrones.some((patron) =>
+        patron.test(texto)
+      )
+    ) {
+      detectados.push(tema);
+    }
+  }
+
+  return detectados.length
+    ? detectados
+    : ["GENERAL"];
+}
+
 function numero(valor) {
-  if (valor === null || valor === undefined || valor === "") {
+  if (
+    valor === null ||
+    valor === undefined ||
+    valor === ""
+  ) {
     return null;
   }
 
@@ -120,6 +234,7 @@ function numero(valor) {
 
 function formato(valor) {
   const n = numero(valor);
+
   if (n === null) return null;
 
   return new Intl.NumberFormat("es-CO", {
@@ -128,17 +243,24 @@ function formato(valor) {
 }
 
 function limitarTexto(valor, maximo = 1200) {
-  return String(valor || "").trim().slice(0, maximo);
+  return String(valor || "")
+    .trim()
+    .slice(0, maximo);
 }
 
-function limitarLista(lista, {
-  maxItems = 10,
-  maxTexto = 500
-} = {}) {
+function limitarLista(
+  lista,
+  {
+    maxItems = 10,
+    maxTexto = 500
+  } = {}
+) {
   if (!Array.isArray(lista)) return [];
 
   return lista
-    .map((item) => limitarTexto(item, maxTexto))
+    .map((item) =>
+      limitarTexto(item, maxTexto)
+    )
     .filter(Boolean)
     .slice(0, maxItems);
 }
@@ -147,6 +269,7 @@ function hechosReporte(reporte) {
   if (!reporte) return [];
 
   const kpi = reporte.kpi_principal || {};
+
   const hechos = [
     `${reporte.neurona}: ${kpi.nombre || "KPI"} — estado ${kpi.estado || "SIN_ESTADO"}.`
   ];
@@ -164,72 +287,24 @@ function hechosReporte(reporte) {
 
   return hechos.concat(
     (reporte.hallazgos || [])
-      .map((h) => limitarTexto(h.evidencia, 500))
+      .map((hallazgo) =>
+        limitarTexto(
+          hallazgo?.evidencia,
+          500
+        )
+      )
       .filter(Boolean)
   );
 }
 
-function sanitizarReporte(reporte) {
-  return {
-    neurona: limitarTexto(reporte?.neurona, 40),
-    periodo: reporte?.periodo || null,
-    kpi_principal: {
-      nombre: limitarTexto(reporte?.kpi_principal?.nombre, 120),
-      valor_actual: numero(reporte?.kpi_principal?.valor_actual),
-      valor_objetivo: numero(reporte?.kpi_principal?.valor_objetivo),
-      estado: limitarTexto(reporte?.kpi_principal?.estado, 30)
-    },
-    hallazgos: (reporte?.hallazgos || [])
-      .slice(0, 12)
-      .map((hallazgo) => ({
-        tipo: limitarTexto(hallazgo?.tipo, 80),
-        evidencia: limitarTexto(hallazgo?.evidencia, 700),
-        impacto_financiero_estimado:
-          numero(hallazgo?.impacto_financiero_estimado),
-        confianza: numero(hallazgo?.confianza)
-      })),
-    necesita_decision_de_cerebro:
-      Boolean(reporte?.necesita_decision_de_cerebro)
-  };
-}
-
-function sanitizarDecision(decision) {
-  if (!decision) return null;
-
-  return {
-    decision_general: {
-      situacion: limitarTexto(decision?.decision_general?.situacion, 800),
-      causa_raiz: limitarTexto(decision?.decision_general?.causa_raiz, 800),
-      prediccion: limitarTexto(decision?.decision_general?.prediccion, 800)
-    },
-    ordenes_por_departamento:
-      (decision?.ordenes_por_departamento || [])
-        .slice(0, 20)
-        .map((orden) => ({
-          departamento: limitarTexto(orden?.departamento, 40),
-          tarea: limitarTexto(orden?.tarea, 700),
-          prioridad: limitarTexto(orden?.prioridad, 30),
-          kpi_a_medir: limitarTexto(orden?.kpi_a_medir, 120),
-          estado: limitarTexto(orden?.estado, 50)
-        })),
-    confianza_global: numero(decision?.confianza_global),
-    riesgo_si_no_se_hace:
-      limitarTexto(decision?.riesgo_si_no_se_hace, 900),
-    como_medir_exito_en_7_dias:
-      limitarTexto(decision?.como_medir_exito_en_7_dias, 900)
-  };
-}
-
-function sanitizarHistorial(intervenciones) {
+function extraerMemoriaHumana(intervenciones) {
   return (intervenciones || [])
-    .slice(-18)
-    .map((item) => ({
-      tipo: limitarTexto(item?.tipo, 30),
-      departamento: limitarTexto(item?.departamento, 40),
-      mensaje: limitarTexto(item?.mensaje, 1400),
-      evidencia: limitarTexto(item?.evidencia, 1600)
-    }))
-    .filter((item) => item.mensaje);
+    .filter((item) => item.tipo === "HUMANO")
+    .slice(-10)
+    .map((item) =>
+      limitarTexto(item.mensaje, 1200)
+    )
+    .filter(Boolean);
 }
 
 function construirContexto({
@@ -240,402 +315,589 @@ function construirContexto({
   intervenciones
 }) {
   return {
-    pregunta_humana: limitarTexto(pregunta, 2000),
+    pregunta_humana:
+      limitarTexto(pregunta, 2000),
     intencion_detectada: intencion,
-    decision_cerebro_en_discusion: sanitizarDecision(decision),
-    reportes_neuronas: (reportes || [])
-      .slice(0, 10)
-      .map(sanitizarReporte),
-    historial_conversacion: sanitizarHistorial(intervenciones),
-    reglas_de_evidencia: {
-      dato_gruk:
-        "Hecho proveniente de reportes o decisiones persistidas por GRUK.",
-      dato_humano:
-        "Afirmación de la persona usuaria; sirve como contexto pero no se convierte automáticamente en hecho verificado.",
-      criterio_profesional:
-        "Juicio empresarial sin números inventados.",
-      supuesto:
-        "Hipótesis pendiente de validación que debe señalarse explícitamente."
-    }
+    temas_detectados:
+      detectarTemas(pregunta),
+    decision_en_discusion: decision
+      ? {
+          situacion:
+            limitarTexto(
+              decision?.decision_general?.situacion,
+              800
+            ),
+          causa_raiz:
+            limitarTexto(
+              decision?.decision_general?.causa_raiz,
+              800
+            ),
+          prediccion:
+            limitarTexto(
+              decision?.decision_general?.prediccion,
+              800
+            ),
+          confianza_global:
+            numero(decision?.confianza_global)
+        }
+      : null,
+    reportes_neuronas:
+      (reportes || []).map((reporte) => ({
+        neurona: reporte.neurona,
+        kpi_principal:
+          reporte.kpi_principal || null,
+        hallazgos:
+          (reporte.hallazgos || [])
+            .slice(0, 12)
+            .map((hallazgo) => ({
+              tipo:
+                limitarTexto(
+                  hallazgo?.tipo,
+                  80
+                ),
+              evidencia:
+                limitarTexto(
+                  hallazgo?.evidencia,
+                  700
+                ),
+              impacto_financiero_estimado:
+                numero(
+                  hallazgo
+                    ?.impacto_financiero_estimado
+                ),
+              confianza:
+                numero(hallazgo?.confianza)
+            }))
+      })),
+    historial_humano:
+      extraerMemoriaHumana(
+        intervenciones
+      )
   };
 }
 
-function respuestaFallbackArranque(departamento) {
-  const conocimiento = CONOCIMIENTO[departamento];
-
-  const objeciones = {
-    FINANZAS: [
-      "VENTAS y MARKETING no deben tratar ventas proyectadas como caja hasta definir plazo y probabilidad real de cobro."
-    ],
-    VENTAS: [
-      "FINANZAS necesita supuestos comerciales operables; una proyección de caja sin volumen, ticket, conversión y cobranza es incompleta."
-    ],
-    MARKETING: [
-      "No aprobaría una escala de adquisición hasta conocer margen de contribución, CAC máximo y capacidad de atención."
-    ],
-    OPERACIONES: [
-      "No aceptaría una meta comercial sin traducirla a compras, inventario, tiempos, personal y capacidad."
-    ],
-    GENTE: [
-      "No contrataría por intuición: primero deben existir función, carga, responsable y KPI que justifiquen la capacidad adicional."
-    ],
-    DIRECCION: [
-      "La discusión no debe terminar en seis planes separados. Las dependencias deben quedar ordenadas antes de que el Cerebro emita una decisión."
-    ]
-  };
-
-  return {
-    departamento,
-    respuesta:
-      `${departamento}: ${conocimiento.arranque}`,
-    criterio_profesional:
-      `Mi responsabilidad en este escenario es ${conocimiento.foco}. El diseño inicial debe permitir medir supervivencia y ejecución antes de optimizar crecimiento.`,
-    evidencia_usada: [],
-    inferencias: [
-      "La pregunta plantea explícitamente un escenario desde cero; por tanto, estas conclusiones son criterios de diseño empresarial y no describen resultados históricos."
-    ],
-    riesgos: ARRANQUE_RIESGOS[departamento] || [],
-    objeciones: objeciones[departamento] || [],
-    acuerdos: [],
-    datos_faltantes:
-      departamento === "DIRECCION"
-        ? [
-            "Qué negocio se va a crear.",
-            "Qué se venderá y a qué cliente.",
-            "Capital disponible.",
-            "Canal o ubicación de operación.",
-            "Número inicial de personas."
-          ]
-        : [],
-    confianza: 85
-  };
+function reportePorDepartamento(
+  reportes,
+  departamento
+) {
+  return (reportes || []).find(
+    (reporte) =>
+      reporte.neurona === departamento
+  ) || null;
 }
 
-function respuestaFallbackContexto({
+function temaPrincipal(temas) {
+  const prioridad = [
+    "FLUJO_CAJA",
+    "MARGEN_PRECIO",
+    "PUNTO_EQUILIBRIO",
+    "DEUDA",
+    "CRECIMIENTO",
+    "VENTAS",
+    "MARKETING_CAC",
+    "OPERACION_INVENTARIO",
+    "GENTE_CAPACIDAD",
+    "SERVICIO_CLIENTE"
+  ];
+
+  return prioridad.find((tema) =>
+    temas.includes(tema)
+  ) || "GENERAL";
+}
+
+function playbookPara({
   departamento,
-  reporte,
-  memoria
+  intencion,
+  temas
 }) {
-  const hechos = hechosReporte(reporte);
+  const playbook =
+    PLAYBOOKS[departamento];
+
+  if (intencion === "ARRANQUE") {
+    return playbook.ARRANQUE;
+  }
+
+  for (const tema of temas) {
+    if (playbook[tema]) {
+      return playbook[tema];
+    }
+  }
+
+  return playbook.DEFAULT;
+}
+
+function riesgosPara({
+  departamento,
+  temas,
+  reporte
+}) {
+  const riesgos = [];
+
+  for (const tema of temas) {
+    const definidos =
+      RIESGOS_POR_TEMA[tema]
+        ?.[departamento];
+
+    if (Array.isArray(definidos)) {
+      riesgos.push(...definidos);
+    }
+  }
+
+  if (
+    reporte?.kpi_principal?.estado ===
+    "CRITICO"
+  ) {
+    riesgos.push(
+      "El KPI de esta función está en CRITICO; debe tratarse como señal prioritaria sin inventar una causa que los datos todavía no demuestran."
+    );
+  }
+
+  return [...new Set(riesgos)]
+    .slice(0, 8);
+}
+
+function datosFaltantesPara({
+  departamento,
+  intencion,
+  temas,
+  reporte
+}) {
+  if (intencion === "ARRANQUE") {
+    const porDepartamento = {
+      FINANZAS: [
+        "Capital inicial disponible.",
+        "Costos fijos previstos.",
+        "Costos variables por venta.",
+        "Plazos de cobro y pago."
+      ],
+      VENTAS: [
+        "Cliente objetivo.",
+        "Oferta concreta.",
+        "Ticket objetivo.",
+        "Forma y plazo de cobro."
+      ],
+      MARKETING: [
+        "Cliente ideal.",
+        "Propuesta de valor.",
+        "Presupuesto inicial.",
+        "CAC máximo tolerable."
+      ],
+      OPERACIONES: [
+        "Capacidad inicial.",
+        "Proveedores.",
+        "Inventario mínimo.",
+        "Tiempo de entrega objetivo."
+      ],
+      GENTE: [
+        "Número inicial de personas.",
+        "Responsable de cada función crítica.",
+        "Carga de trabajo prevista."
+      ],
+      DIRECCION: [
+        "Qué negocio se va a crear.",
+        "Qué se venderá y a qué cliente.",
+        "Capital disponible.",
+        "Canal o ubicación de operación.",
+        "Número inicial de personas."
+      ]
+    };
+
+    return porDepartamento[
+      departamento
+    ] || [];
+  }
+
   const faltantes = [];
 
-  if (!reporte) {
+  if (
+    departamento !== "DIRECCION" &&
+    !reporte
+  ) {
     faltantes.push(
       `No hay reporte vigente de ${departamento}.`
     );
   }
 
-  let respuesta =
-    `${departamento}: para responder con rigor revisaría ${CONOCIMIENTO[departamento].foco}.`;
+  const principal = temaPrincipal(temas);
 
-  if (reporte) {
-    respuesta +=
-      ` El KPI disponible está ${reporte.kpi_principal?.estado || "sin estado"}; sus hallazgos son evidencia disponible, pero no prueban por sí solos una causa.`;
-  } else {
-    respuesta +=
-      " No existe evidencia suficiente para afirmar una causa concreta desde esta función.";
+  const porTema = {
+    FLUJO_CAJA: {
+      FINANZAS: [
+        "Saldo de caja disponible.",
+        "Calendario de cobros.",
+        "Calendario de obligaciones."
+      ],
+      VENTAS: [
+        "Ventas esperadas por fecha de cobro.",
+        "Plazo medio real de cobro."
+      ],
+      MARKETING: [
+        "Presupuesto comprometido.",
+        "Tiempo de recuperación del CAC."
+      ],
+      OPERACIONES: [
+        "Calendario de compras y pagos a proveedores."
+      ],
+      GENTE: [
+        "Nómina total y fechas de pago."
+      ],
+      DIRECCION: [
+        "Semanas de caja de supervivencia."
+      ]
+    },
+
+    MARGEN_PRECIO: {
+      FINANZAS: [
+        "Costo unitario confiable.",
+        "Margen de contribución por producto o servicio."
+      ],
+      VENTAS: [
+        "Conversión y ticket por nivel de precio."
+      ],
+      MARKETING: [
+        "Percepción de valor y CAC por segmento."
+      ],
+      OPERACIONES: [
+        "Merma, reproceso y costo operativo real."
+      ],
+      GENTE: [
+        "Costo laboral asociado a la entrega."
+      ],
+      DIRECCION: [
+        "Causa cuantificada de la pérdida de margen."
+      ]
+    }
+  };
+
+  faltantes.push(
+    ...(
+      porTema[principal]
+        ?.[departamento] || []
+    )
+  );
+
+  return [...new Set(faltantes)]
+    .slice(0, 10);
+}
+
+function objecionesPara({
+  departamento,
+  temas
+}) {
+  const principal =
+    temaPrincipal(temas);
+
+  const matriz = {
+    FLUJO_CAJA: {
+      FINANZAS: [
+        "VENTAS: no tratar venta como caja hasta definir cuándo se cobra.",
+        "MARKETING: no escalar presupuesto sin conocer recuperación del CAC."
+      ],
+      VENTAS: [
+        "FINANZAS: una proyección sin supuestos comerciales de volumen, ticket y cobranza queda incompleta."
+      ],
+      MARKETING: [
+        "VENTAS: más demanda no resuelve caja si la conversión o la cobranza son débiles."
+      ],
+      OPERACIONES: [
+        "FINANZAS: la proyección debe incluir cuándo inventario y compras consumen efectivo."
+      ],
+      GENTE: [
+        "DIRECCION: nómina fija nueva exige justificar capacidad y caja."
+      ],
+      DIRECCION: [
+        "Toda función debe expresar su recomendación en impacto de caja y KPI antes de pasarla al Cerebro."
+      ]
+    },
+
+    MARGEN_PRECIO: {
+      FINANZAS: [
+        "VENTAS: no aceptar descuentos que no conserven margen de contribución.",
+        "OPERACIONES: validar merma y costos antes de atribuir todo el problema al precio."
+      ],
+      VENTAS: [
+        "FINANZAS: subir precio sin observar conversión puede deteriorar ingresos totales."
+      ],
+      MARKETING: [
+        "VENTAS: evitar competir únicamente por descuento cuando puede defenderse valor."
+      ],
+      OPERACIONES: [
+        "FINANZAS: revisar costo operativo y merma antes de trasladar ineficiencia al cliente."
+      ],
+      GENTE: [
+        "OPERACIONES: no convertir ineficiencia de proceso en sobrecarga permanente de personal."
+      ],
+      DIRECCION: [
+        "No declarar causa raíz hasta separar precio, costo, mezcla, merma, productividad y valor percibido."
+      ]
+    }
+  };
+
+  return (
+    matriz[principal]
+      ?.[departamento] || []
+  ).slice(0, 8);
+}
+
+function acuerdosPara({
+  departamento,
+  temas
+}) {
+  const principal =
+    temaPrincipal(temas);
+
+  if (principal === "FLUJO_CAJA") {
+    const comunes = {
+      FINANZAS: [
+        "Con VENTAS: separar venta de cobro.",
+        "Con OPERACIONES: calendarizar compras y pagos."
+      ],
+      VENTAS: [
+        "Con FINANZAS: proyectar por fecha real de cobro."
+      ],
+      MARKETING: [
+        "Con FINANZAS: condicionar presupuesto a recuperación económica."
+      ],
+      OPERACIONES: [
+        "Con FINANZAS: tratar inventario como uso de caja."
+      ],
+      GENTE: [
+        "Con FINANZAS: tratar nuevas contrataciones como compromisos recurrentes."
+      ],
+      DIRECCION: [
+        "Con toda la Junta: la caja es una restricción compartida, no exclusiva de Finanzas."
+      ]
+    };
+
+    return comunes[
+      departamento
+    ] || [];
   }
 
-  if (memoria.length) {
+  return [];
+}
+
+function confianzaPara({
+  intencion,
+  reporte,
+  temas
+}) {
+  if (intencion === "ARRANQUE") {
+    return 85;
+  }
+
+  let confianza = reporte ? 70 : 40;
+
+  if (
+    temas.length > 0 &&
+    !temas.includes("GENERAL")
+  ) {
+    confianza += 5;
+  }
+
+  const confianzas =
+    (reporte?.hallazgos || [])
+      .map((hallazgo) =>
+        numero(hallazgo?.confianza)
+      )
+      .filter(Number.isFinite);
+
+  if (confianzas.length) {
+    const promedio =
+      confianzas.reduce(
+        (suma, valor) =>
+          suma + valor,
+        0
+      ) / confianzas.length;
+
+    confianza =
+      Math.round(
+        (confianza + promedio) / 2
+      );
+  }
+
+  return Math.max(
+    0,
+    Math.min(100, confianza)
+  );
+}
+
+function construirRespuestaExperta({
+  departamento,
+  pregunta,
+  intencion,
+  temas,
+  reportes,
+  intervenciones
+}) {
+  const perfil =
+    PERFILES_EXPERTOS[departamento];
+
+  const reporte =
+    reportePorDepartamento(
+      reportes,
+      departamento
+    );
+
+  const memoria =
+    extraerMemoriaHumana(
+      intervenciones
+    );
+
+  const evidencias =
+    intencion === "ARRANQUE"
+      ? []
+      : hechosReporte(reporte);
+
+  let respuesta =
+    playbookPara({
+      departamento,
+      intencion,
+      temas
+    });
+
+  if (
+    intencion !== "ARRANQUE" &&
+    reporte
+  ) {
+    respuesta +=
+      ` El reporte vigente de ${departamento} marca ${reporte.kpi_principal?.estado || "SIN_ESTADO"} en ${reporte.kpi_principal?.nombre || "su KPI principal"}.`;
+  }
+
+  if (
+    intencion !== "ARRANQUE" &&
+    memoria.length
+  ) {
     respuesta +=
       " Hay intervenciones humanas previas, pero se mantienen como contexto y no se convierten automáticamente en hechos calculados por GRUK.";
   }
 
+  const criterios =
+    perfil.principios.slice(0, 3);
+
   return {
     departamento,
-    respuesta,
+    respuesta:
+      `${departamento}: ${respuesta}`,
     criterio_profesional:
-      "Primero separaría hechos observados, hipótesis y decisiones reversibles antes de comprometer recursos.",
-    evidencia_usada: hechos,
-    inferencias: [],
-    riesgos:
-      reporte?.kpi_principal?.estado === "CRITICO"
+      `${perfil.cargo}. ${perfil.preguntaCentral} Principios aplicados: ${criterios.join(" ")}`,
+    evidencia_usada: evidencias,
+    inferencias:
+      intencion === "ARRANQUE"
         ? [
-            "El KPI está en estado CRITICO y requiere atención prioritaria, sin asumir una causa que los datos no demuestran."
+            "La pregunta plantea un escenario desde cero; estas conclusiones son criterios de diseño empresarial y no describen resultados históricos."
           ]
-        : [],
-    objeciones: [],
-    acuerdos: [],
-    datos_faltantes: faltantes,
-    confianza: reporte ? 70 : 35
+        : [
+            "Los datos disponibles orientan el diagnóstico, pero no prueban por sí solos una causa raíz."
+          ],
+    riesgos:
+      riesgosPara({
+        departamento,
+        temas,
+        reporte
+      }),
+    objeciones:
+      objecionesPara({
+        departamento,
+        temas
+      }),
+    acuerdos:
+      acuerdosPara({
+        departamento,
+        temas
+      }),
+    datos_faltantes:
+      datosFaltantesPara({
+        departamento,
+        intencion,
+        temas,
+        reporte
+      }),
+    confianza:
+      confianzaPara({
+        intencion,
+        reporte,
+        temas
+      })
   };
 }
 
-function generarFallback({
-  intencion,
-  reportes,
-  intervenciones
-}) {
-  const porNeurona = new Map(
-    (reportes || []).map((reporte) => [
-      reporte.neurona,
-      reporte
-    ])
-  );
+function sintetizarDireccion(
+  respuestas,
+  {
+    intencion,
+    temas
+  }
+) {
+  const direccion =
+    respuestas.find(
+      (respuesta) =>
+        respuesta.departamento ===
+        "DIRECCION"
+    );
 
-  const memoria = sanitizarHistorial(intervenciones);
+  if (!direccion) return;
 
-  const respuestas = DEPARTAMENTOS_EXPERTOS.map(
-    (departamento) => {
-      if (intencion === "ARRANQUE") {
-        return respuestaFallbackArranque(departamento);
-      }
-
-      return respuestaFallbackContexto({
-        departamento,
-        reporte:
-          porNeurona.get(departamento) || null,
-        memoria
-      });
-    }
-  );
-
-  const direccion = respuestas.find(
-    (item) => item.departamento === "DIRECCION"
-  );
-
-  if (direccion && intencion !== "ARRANQUE") {
-    const faltantes = respuestas
-      .flatMap((item) => item.datos_faltantes)
+  const faltantes =
+    respuestas
+      .flatMap(
+        (respuesta) =>
+          respuesta.datos_faltantes || []
+      )
       .filter(Boolean);
 
-    direccion.respuesta =
-      "DIRECCION: la Junta conserva separados los hechos, el criterio profesional y los datos faltantes. Antes de convertir la discusión en acción deben resolverse los vacíos que puedan cambiar materialmente la decisión.";
-
-    direccion.datos_faltantes =
-      [...new Set(faltantes)].slice(0, 10);
-  }
-
-  return {
-    model: "GRUK-CONSULTIVO-2",
-    responseId: null,
+  const riesgos =
     respuestas
-  };
-}
+      .flatMap(
+        (respuesta) =>
+          respuesta.riesgos || []
+      )
+      .filter(Boolean);
 
-function extraerTextoRespuesta(payload) {
-  if (typeof payload?.output_text === "string") {
-    return payload.output_text.trim();
+  if (intencion !== "ARRANQUE") {
+    const principal =
+      temaPrincipal(temas);
+
+    direccion.respuesta +=
+      ` Como síntesis de Junta, el tema dominante es ${principal}. Antes de que el Cerebro convierta esto en órdenes, deben cerrarse los datos que puedan cambiar materialmente la decisión.`;
   }
 
-  const textos = [];
+  direccion.datos_faltantes =
+    [...new Set([
+      ...direccion.datos_faltantes,
+      ...faltantes
+    ])].slice(0, 10);
 
-  for (const item of payload?.output || []) {
-    for (const parte of item?.content || []) {
-      if (
-        parte?.type === "output_text" &&
-        typeof parte?.text === "string"
-      ) {
-        textos.push(parte.text);
-      }
-    }
-  }
-
-  return textos.join("\n").trim();
-}
-
-function errorProveedor(codigo, statusCode = 502) {
-  const error = new Error(codigo);
-  error.statusCode = statusCode;
-  return error;
-}
-
-function razonamientoConfigurado() {
-  const permitido = new Set([
-    "none",
-    "low",
-    "medium",
-    "high",
-    "xhigh"
-  ]);
-
-  const valor = String(
-    process.env.GRUK_EXPERT_REASONING_EFFORT || "high"
-  ).toLowerCase();
-
-  return permitido.has(valor) ? valor : "high";
-}
-
-async function consultarOpenAI({
-  contexto,
-  fetchImpl = global.fetch
-}) {
-  const apiKey = String(
-    process.env.OPENAI_API_KEY || ""
-  ).trim();
-
-  if (!apiKey) return null;
-
-  if (typeof fetchImpl !== "function") {
-    throw errorProveedor(
-      "JUNTA_IA_PROVIDER_ERROR_FETCH_NO_DISPONIBLE"
-    );
-  }
-
-  const model = String(
-    process.env.GRUK_EXPERT_MODEL || "gpt-5.6"
-  ).trim();
-
-  let response;
-
-  try {
-    response = await fetchImpl(
-      "https://api.openai.com/v1/responses",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model,
-          reasoning: {
-            effort: razonamientoConfigurado()
-          },
-          input: [
-            {
-              role: "system",
-              content: construirSystemPrompt()
-            },
-            {
-              role: "user",
-              content:
-                "CONTEXTO_GRUK\n" +
-                JSON.stringify(contexto)
-            }
-          ],
-          text: {
-            format: {
-              type: "json_schema",
-              name: "gruk_junta_experta",
-              strict: true,
-              schema: RESPUESTA_EXPERTA_SCHEMA
-            }
-          },
-          max_output_tokens: 9000
-        })
-      }
-    );
-  } catch (error) {
-    console.error(
-      "[JUNTA] Error de transporte con proveedor IA:",
-      error?.message || error
-    );
-
-    throw errorProveedor(
-      "JUNTA_IA_PROVIDER_ERROR_TRANSPORTE"
-    );
-  }
-
-  if (!response.ok) {
-    console.error(
-      "[JUNTA] Proveedor IA respondió con estado:",
-      response.status
-    );
-
-    throw errorProveedor(
-      `JUNTA_IA_PROVIDER_ERROR_${response.status}`
-    );
-  }
-
-  const payload = await response.json();
-  const texto = extraerTextoRespuesta(payload);
-
-  if (!texto) {
-    throw errorProveedor(
-      "JUNTA_IA_RESPUESTA_SIN_TEXTO"
-    );
-  }
-
-  let parsed;
-
-  try {
-    parsed = JSON.parse(texto);
-  } catch {
-    throw errorProveedor(
-      "JUNTA_IA_JSON_INVALIDO"
-    );
-  }
-
-  return {
-    model: payload.model || model,
-    responseId: payload.id || null,
-    parsed
-  };
-}
-
-function normalizarRespuestaExperta(respuesta) {
-  return {
-    departamento: limitarTexto(
-      respuesta?.departamento,
-      40
-    ).toUpperCase(),
-    respuesta: limitarTexto(
-      respuesta?.respuesta,
-      1800
-    ),
-    criterio_profesional: limitarTexto(
-      respuesta?.criterio_profesional,
-      1200
-    ),
-    evidencia_usada: limitarLista(
-      respuesta?.evidencia_usada,
-      { maxItems: 10, maxTexto: 500 }
-    ),
-    inferencias: limitarLista(
-      respuesta?.inferencias,
-      { maxItems: 8, maxTexto: 500 }
-    ),
-    riesgos: limitarLista(
-      respuesta?.riesgos,
-      { maxItems: 8, maxTexto: 500 }
-    ),
-    objeciones: limitarLista(
-      respuesta?.objeciones,
-      { maxItems: 8, maxTexto: 500 }
-    ),
-    acuerdos: limitarLista(
-      respuesta?.acuerdos,
-      { maxItems: 8, maxTexto: 500 }
-    ),
-    datos_faltantes: limitarLista(
-      respuesta?.datos_faltantes,
-      { maxItems: 10, maxTexto: 350 }
-    ),
-    confianza:
-      Number.isInteger(respuesta?.confianza)
-        ? Math.max(
-            0,
-            Math.min(100, respuesta.confianza)
-          )
-        : 0
-  };
+  direccion.riesgos =
+    [...new Set([
+      ...direccion.riesgos,
+      ...riesgos
+    ])].slice(0, 8);
 }
 
 function validarRespuestas(respuestas) {
   if (!Array.isArray(respuestas)) {
-    throw errorProveedor(
-      "JUNTA_IA_RESPUESTAS_INCOMPLETAS"
+    throw new Error(
+      "JUNTA_RESPUESTAS_INCOMPLETAS"
     );
   }
 
-  const normalizadas = respuestas.map(
-    normalizarRespuestaExperta
-  );
+  const porDepartamento =
+    new Map();
 
-  const porDepartamento = new Map();
-
-  for (const respuesta of normalizadas) {
+  for (const respuesta of respuestas) {
     if (
       !DEPARTAMENTOS_EXPERTOS.includes(
-        respuesta.departamento
+        respuesta?.departamento
       ) ||
-      !respuesta.respuesta ||
-      !respuesta.criterio_profesional ||
-      porDepartamento.has(respuesta.departamento)
+      !respuesta?.respuesta ||
+      !respuesta?.criterio_profesional ||
+      porDepartamento.has(
+        respuesta.departamento
+      )
     ) {
-      throw errorProveedor(
-        "JUNTA_IA_RESPUESTAS_INCOMPLETAS"
+      throw new Error(
+        "JUNTA_RESPUESTAS_INCOMPLETAS"
       );
     }
 
@@ -649,8 +911,8 @@ function validarRespuestas(respuestas) {
     porDepartamento.size !==
     DEPARTAMENTOS_EXPERTOS.length
   ) {
-    throw errorProveedor(
-      "JUNTA_IA_RESPUESTAS_INCOMPLETAS"
+    throw new Error(
+      "JUNTA_RESPUESTAS_INCOMPLETAS"
     );
   }
 
@@ -664,60 +926,53 @@ async function generarRespuestasExpertas({
   pregunta,
   decision,
   reportes,
-  intervenciones,
-  proveedor = consultarOpenAI
+  intervenciones
 }) {
-  const intencion = clasificarIntencion(pregunta);
+  const intencion =
+    clasificarIntencion(pregunta);
 
-  const contexto = construirContexto({
-    pregunta,
-    intencion,
-    decision,
-    reportes,
-    intervenciones
-  });
+  const temas =
+    intencion === "ARRANQUE"
+      ? detectarTemas(pregunta)
+      : detectarTemas(pregunta);
 
-  const generada = await proveedor({ contexto });
+  const respuestas =
+    DEPARTAMENTOS_EXPERTOS.map(
+      (departamento) =>
+        construirRespuestaExperta({
+          departamento,
+          pregunta,
+          intencion,
+          temas,
+          reportes,
+          intervenciones
+        })
+    );
 
-  if (!generada) {
-    const fallback = generarFallback({
+  sintetizarDireccion(
+    respuestas,
+    {
       intencion,
-      reportes,
-      intervenciones
-    });
-
-    return {
-      ...fallback,
-      intencion
-    };
-  }
-
-  const respuestas = validarRespuestas(
-    generada.parsed?.respuestas
+      temas
+    }
   );
 
   return {
-    model: generada.model,
-    responseId: generada.responseId,
+    model: "GRUK-CONSULTIVO-2",
+    responseId: null,
     intencion,
-    respuestas
+    temas,
+    respuestas:
+      validarRespuestas(respuestas)
   };
-}
-
-function extraerMemoriaHumana(intervenciones) {
-  return (intervenciones || [])
-    .filter((item) => item.tipo === "HUMANO")
-    .slice(-10)
-    .map((item) => limitarTexto(item.mensaje, 1200))
-    .filter(Boolean);
 }
 
 module.exports = {
   DEPARTAMENTOS_EXPERTOS,
   CONOCIMIENTO,
   clasificarIntencion,
+  detectarTemas,
   construirContexto,
-  consultarOpenAI,
   validarRespuestas,
   generarRespuestasExpertas,
   extraerMemoriaHumana
