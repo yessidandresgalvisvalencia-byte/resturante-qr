@@ -1,5 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const Joi = require("joi");
 
 const Compra = require("../models/Compra");
 const Empresa = require("../models/Empresa");
@@ -446,6 +447,145 @@ inventario.costo = costoPromedioPonderado;
     await session.endSession();
   }
 });
+
+// ==========================================
+// ACTUALIZAR ESTADO DE PAGO DE COMPRA
+// ==========================================
+
+const estadoPagoCompraSchema = Joi.object({
+  estadoPago: Joi.string()
+    .valid(
+      "pendiente",
+      "parcial",
+      "pagado"
+    )
+    .required()
+}).required();
+
+router.put(
+  "/:id/pago",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
+    try {
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          req.params.id
+        )
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error: "ID de compra invalido"
+        });
+      }
+
+      const { error, value } =
+        estadoPagoCompraSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: true
+          }
+        );
+
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error: "Estado de pago invalido"
+        });
+      }
+
+      const filtro = {
+        _id: req.params.id,
+        empresaId: req.auth.empresaId,
+        estado: "registrada"
+      };
+
+      if (
+        req.auth.rol ===
+        ROLES_GRUK.ADMIN_SEDE
+      ) {
+        if (!req.auth.sedeId) {
+          return res.status(403).json({
+            ok: false,
+            error:
+              "ADMIN_SEDE requiere una sede autorizada"
+          });
+        }
+
+        filtro.sedeId =
+          req.auth.sedeId;
+      }
+
+      const compra =
+        await Compra.findOne(filtro);
+
+      if (!compra) {
+        return res.status(404).json({
+          ok: false,
+          error: "Compra no encontrada"
+        });
+      }
+
+      const estadoAnterior =
+        compra.estadoPago;
+
+      if (
+        estadoAnterior !==
+        value.estadoPago
+      ) {
+        compra.estadoPago =
+          value.estadoPago;
+
+        await compra.save();
+
+        try {
+          eventBus.emit(
+            "COMPRA_PAGO_ACTUALIZADO",
+            {
+              compraId: compra._id,
+              empresaId:
+                compra.empresaId,
+              sedeId: compra.sedeId,
+              proveedor:
+                compra.proveedor,
+              total: compra.total,
+              metodoPago:
+                compra.metodoPago,
+              estadoPagoAnterior:
+                estadoAnterior,
+              estadoPago:
+                compra.estadoPago,
+              fecha: compra.fecha
+            }
+          );
+        } catch (eventError) {
+          console.error(
+            "[GRUK COMPRAS] pago persistido, fallo al emitir COMPRA_PAGO_ACTUALIZADO:",
+            eventError
+          );
+        }
+      }
+
+      return res.json({
+        ok: true,
+        compra
+      });
+    } catch (error) {
+      console.error(
+        "Error actualizando pago de compra:",
+        error
+      );
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Error actualizando estado de pago"
+      });
+    }
+  }
+);
+
 
 // ==========================================
 // LISTAR COMPRAS DE UNA EMPRESA
