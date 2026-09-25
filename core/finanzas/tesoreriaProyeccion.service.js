@@ -137,6 +137,12 @@ function normalizarDetalleObligacion(
       item.concepto ||
       item.tercero ||
       "Obligacion registrada",
+    categoria:
+      item.categoria || null,
+    tercero:
+      item.tercero || "",
+    fuenteMonto:
+      item.fuenteMonto || null,
     monto:
       item.cuantificable
         ? Number(
@@ -281,6 +287,56 @@ async function construirProyeccionTesoreria({
             b.fechaVencimiento
           )
       );
+
+  const obligacionesPriorizadas7d =
+    detalleObligaciones
+      .filter((item) => {
+        if (
+          !item.cuantificable ||
+          item.monto === null ||
+          !item.fechaVencimiento
+        ) {
+          return false;
+        }
+
+        const fecha =
+          new Date(
+            item.fechaVencimiento
+          );
+
+        return (
+          !Number.isNaN(
+            fecha.getTime()
+          ) &&
+          fecha <= hasta7
+        );
+      })
+      .sort((a, b) => {
+        const fechaA =
+          new Date(
+            a.fechaVencimiento
+          ).getTime();
+        const fechaB =
+          new Date(
+            b.fechaVencimiento
+          ).getTime();
+
+        const vencidaA =
+          fechaA < fechaAhora.getTime();
+        const vencidaB =
+          fechaB < fechaAhora.getTime();
+
+        if (vencidaA !== vencidaB) {
+          return vencidaA ? -1 : 1;
+        }
+
+        if (fechaA !== fechaB) {
+          return fechaA - fechaB;
+        }
+
+        return Number(b.monto || 0) -
+          Number(a.monto || 0);
+      });
 
   const cobrosEsperados =
     ventasPendientes
@@ -570,6 +626,11 @@ async function construirProyeccionTesoreria({
       },
       detalle:
         detalle30.slice(
+          0,
+          30
+        ),
+      prioridadPago:
+        obligacionesPriorizadas7d.slice(
           0,
           30
         )
