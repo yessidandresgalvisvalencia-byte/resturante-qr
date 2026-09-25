@@ -327,6 +327,8 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
     cobrosPriorizados,
     montoCobrosPriorizados,
     faltanteDespuesCobrosPriorizados,
+    politicaPriorizacionPagos:
+      proyeccion?.politicaPriorizacionPagos || null,
     obligacionesPriorizadas,
     planPagosCajaActual,
     planPagosConCobros,
