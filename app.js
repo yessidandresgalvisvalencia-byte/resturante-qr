@@ -8,6 +8,7 @@ const eventBus = require("./core/eventos/eventBus");
 const { registrarFinanzasListener } = require("./intelligence/listeners/finanzas.listener");
 const { registrarCajaListener } = require("./intelligence/listeners/caja.listener");
 const { registrarJuntaVivaListener } = require("./intelligence/listeners/juntaViva.listener");
+const { registrarAgendaFinancieraListener } = require("./intelligence/listeners/agendaFinanciera.listener");
 const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
 const facturacionRoutes = require("./routes/facturacion");
@@ -46,6 +47,7 @@ app.set("io", io);
 
 registrarCajaListener();
 registrarFinanzasListener();
+registrarAgendaFinancieraListener();
 registrarJuntaVivaListener();
 eventBus.on("VENTA_COMPLETADA", (event) => {
   console.log(
