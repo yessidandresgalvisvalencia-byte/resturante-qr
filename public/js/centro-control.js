@@ -35,6 +35,31 @@ async function cargarDecisionCerebroGRUK() {
     const politicaPagos =
       financiero?.politicaPriorizacionPagos || null;
 
+    const excepcionesPago =
+      Array.isArray(
+        financiero?.excepcionesPrioridadPago
+      )
+        ? financiero.excepcionesPrioridadPago
+        : [];
+
+    const excepcionesPagoHTML =
+      excepcionesPago.length
+        ? `
+          <h4>Excepciones temporales aplicadas</h4>
+          <ul>
+            ${excepcionesPago.map((item) => `
+              <li>
+                ${escaparGRUK(item.origenTipo)}
+                · ${escaparGRUK(item.motivo)}
+                · expira ${escaparGRUK(
+                  new Date(item.expiresAt).toLocaleString("es-CO")
+                )}
+              </li>
+            `).join("")}
+          </ul>
+        `
+        : "";
+
     const politicaPagosHTML =
       politicaPagos
         ? `
@@ -112,6 +137,7 @@ async function cargarDecisionCerebroGRUK() {
           <p><strong>Brecha aun cobrando todo:</strong> ${formatoCOP(financiero.faltanteAunCobrandoTodo || 0)}</p>
           <p><strong>Fecha crítica:</strong> ${financiero.fechaCritica ? escaparGRUK(new Date(financiero.fechaCritica).toLocaleDateString("es-CO")) : "Sin fecha"}</p>
           ${politicaPagosHTML}
+          ${excepcionesPagoHTML}
           ${carteraHTML}
           ${planPagoHTML(
             "Plan de pagos con caja actual",
