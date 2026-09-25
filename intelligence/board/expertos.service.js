@@ -245,6 +245,61 @@ function convertirMontoHumano(valor, unidad) {
   return base;
 }
 
+function extraerMontoDesdeTexto(texto) {
+  const match = String(texto || "").match(
+    /(?:mas\s+de|aprox(?:imadamente)?|cerca\s+de|por|de|fueron|fue|son)?\s*\$?\s*(\d+(?:[.,]\d+)?)\s*(mil|k|millones?|m)?\s*(?:pesos|cop)?/i
+  );
+
+  if (!match) return null;
+
+  const monto = convertirMontoHumano(
+    match[1],
+    match[2]
+  );
+
+  return monto !== null && monto >= 1000
+    ? monto
+    : null;
+}
+
+function extraerCantidadHumana(texto) {
+  const mapa = {
+    uno: 1,
+    una: 1,
+    un: 1,
+    dos: 2,
+    tres: 3,
+    cuatro: 4,
+    cinco: 5,
+    seis: 6,
+    siete: 7,
+    ocho: 8,
+    nueve: 9,
+    diez: 10
+  };
+
+  const match = normalizar(texto).match(
+    /\b(\d+|uno|una|un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/
+  );
+
+  if (!match) return null;
+
+  if (/^\d+$/.test(match[1])) {
+    return Number(match[1]);
+  }
+
+  return mapa[match[1]] || null;
+}
+
+function momentoHumano(texto) {
+  const t = normalizar(texto);
+
+  if (/\bhoy\b/.test(t)) return "HOY";
+  if (/\bayer\b/.test(t)) return "AYER";
+
+  return "NO_ESPECIFICADO";
+}
+
 function extraerHechosHumanos(pregunta) {
   const original = String(pregunta || "").trim();
   const texto = normalizar(original);
@@ -290,6 +345,98 @@ function extraerHechosHumanos(pregunta) {
         });
       }
     }
+  }
+
+  const hablaDeGasto =
+    /\b(gaste|gastamos|pague|pagamos|compre|compramos|inverti|invertimos)\b/.test(texto);
+
+  if (hablaDeGasto) {
+    const monto = extraerMontoDesdeTexto(texto);
+
+    if (monto !== null) {
+      hechos.push({
+        tipo: "GASTO_REPORTADO",
+        fuente: "USUARIO",
+        monto_cop: monto,
+        momento: momentoHumano(texto),
+        categoria_sugerida:
+          /publicidad|instagram|facebook|marketing|campana/.test(texto)
+            ? "MARKETING"
+            : /nomina|empleado|salario|sueldo/.test(texto)
+              ? "GENTE"
+              : /proveedor|insumo|inventario|materia prima|pollo|carne|bebida/.test(texto)
+                ? "OPERACIONES"
+                : "NO_CLASIFICADA",
+        texto: limitarTexto(original, 500)
+      });
+    }
+  }
+
+  const salidaPersonal =
+    /(?:se me fueron|se fueron|renunciaron|renuncio|despedi|despedimos|salieron)\b/.test(texto) &&
+    /\b(emplead|persona|trabajador|mesero|cocinero|vendedor)/.test(texto);
+
+  if (salidaPersonal) {
+    hechos.push({
+      tipo: "SALIDA_PERSONAL_REPORTADA",
+      fuente: "USUARIO",
+      cantidad:
+        extraerCantidadHumana(texto),
+      momento: momentoHumano(texto),
+      texto: limitarTexto(original, 500)
+    });
+  }
+
+  const quejaCliente =
+    /\b(cliente|clientes)\b/.test(texto) &&
+    /\b(quej|reclam|molest|devolu|inconforme|mal servicio)/.test(texto);
+
+  if (quejaCliente) {
+    hechos.push({
+      tipo: "QUEJA_CLIENTE_REPORTADA",
+      fuente: "USUARIO",
+      momento: momentoHumano(texto),
+      texto: limitarTexto(original, 500)
+    });
+  }
+
+  const agotado =
+    /\b(sin inventario|sin stock|agotad|se me acabo|se acabo|no tengo existencias)\b/.test(texto);
+
+  if (agotado) {
+    hechos.push({
+      tipo: "QUIEBRE_INVENTARIO_REPORTADO",
+      fuente: "USUARIO",
+      momento: momentoHumano(texto),
+      texto: limitarTexto(original, 500)
+    });
+  }
+
+  const cambioPrecio =
+    /\b(subi|subimos|aumente|aumentamos|baje|bajamos|reduje|redujimos)\b/.test(texto) &&
+    /\b(precio|precios)\b/.test(texto);
+
+  if (cambioPrecio) {
+    const porcentajeMatch =
+      texto.match(/(\d+(?:[.,]\d+)?)\s*%/);
+
+    hechos.push({
+      tipo: "CAMBIO_PRECIO_REPORTADO",
+      fuente: "USUARIO",
+      direccion:
+        /\b(subi|subimos|aumente|aumentamos)\b/.test(texto)
+          ? "SUBE"
+          : "BAJA",
+      porcentaje:
+        porcentajeMatch
+          ? Number(
+              porcentajeMatch[1]
+                .replace(",", ".")
+            )
+          : null,
+      momento: momentoHumano(texto),
+      texto: limitarTexto(original, 500)
+    });
   }
 
   return hechos;
