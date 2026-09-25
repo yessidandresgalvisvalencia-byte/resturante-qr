@@ -159,6 +159,85 @@ const tesoreriaSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const proyeccionSchema = new mongoose.Schema({
+  confiabilidad: {
+    type: String,
+    enum: [
+      "SIN_CONFIGURAR",
+      "PARCIAL",
+      "COMPLETO"
+    ],
+    required: true
+  },
+  saldoActual: {
+    type: Number,
+    default: null
+  },
+  estado7d: {
+    type: String,
+    required: true,
+    enum: [
+      "SIN_SALDO_VERIFICABLE",
+      "CUBIERTO_CON_CAJA_ACTUAL",
+      "DEPENDE_DE_COBROS",
+      "DEFICIT_AUN_COBRANDO_TODO"
+    ]
+  },
+  obligacionesVencidas: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  obligaciones7d: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  obligaciones30d: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  cobros7d: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  cobros30d: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  faltanteConCajaActual: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  faltanteAunCobrandoTodo: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  diasCoberturaSalidasHistoricas: {
+    type: Number,
+    default: null
+  },
+  proximoVencimiento: {
+    tipo: String,
+    descripcion: String,
+    monto: Number,
+    fechaVencimiento: Date
+  },
+  advertencias: {
+    type: [String],
+    default: []
+  },
+  generadoAt: {
+    type: Date,
+    required: true
+  }
+}, { _id: false });
+
 const diagnosticoSchema = new mongoose.Schema({
   estado: {
     type: String,
@@ -328,6 +407,10 @@ const schema = new mongoose.Schema({
   },
   tesoreria: {
     type: tesoreriaSchema,
+    required: true
+  },
+  proyeccionTesoreria: {
+    type: proyeccionSchema,
     required: true
   },
   diagnostico: {
