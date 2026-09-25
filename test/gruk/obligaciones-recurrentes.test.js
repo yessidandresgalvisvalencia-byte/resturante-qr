@@ -297,3 +297,60 @@ test("arriendo a 20 dias afecta 30d pero no cobertura 7d", async () => {
     700000
   );
 });
+
+
+test("recurrencia mensual en dia 31 cae al ultimo dia valido", () => {
+  const obligacion = {
+    _id:
+      new mongoose.Types.ObjectId(),
+    sedeId:
+      new mongoose.Types.ObjectId(
+        SEDE_ID
+      ),
+    categoria:
+      "DEUDA",
+    nombre:
+      "Cuota mensual",
+    monto:
+      100000,
+    frecuencia:
+      "MENSUAL",
+    proximoVencimiento:
+      new Date(
+        "2026-01-31T00:00:00Z"
+      ),
+    fechaFin:
+      null,
+    fuenteMonto:
+      "CONTRATO",
+    tercero:
+      "Banco"
+  };
+
+  const items =
+    generarVencimientos({
+      obligacion,
+      desde:
+        new Date(
+          "2026-01-01T00:00:00Z"
+        ),
+      hasta:
+        new Date(
+          "2026-04-01T00:00:00Z"
+        )
+    });
+
+  assert.deepEqual(
+    items.map(
+      (item) =>
+        item.fechaVencimiento
+          .toISOString()
+          .slice(0, 10)
+    ),
+    [
+      "2026-01-31",
+      "2026-02-28",
+      "2026-03-28"
+    ]
+  );
+});
