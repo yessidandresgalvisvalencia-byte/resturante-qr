@@ -1,31 +1,42 @@
-# Junta Directiva GRUK — motor experto
+# Junta Directiva GRUK — motor experto nativo
 
 ## Objetivo
 
-La Junta Directiva es consultiva. Finanzas, Ventas, Marketing, Operaciones, Gente y Dirección deliberan sobre una pregunta humana usando contexto empresarial mínimo y reportes de neuronas. La Junta no genera órdenes ejecutables; esa autoridad sigue reservada al Cerebro GRUK.
+La Junta Directiva es consultiva. Finanzas, Ventas, Marketing, Operaciones, Gente y Dirección deliberan sobre una pregunta humana usando exclusivamente lógica propia de GRUK, reportes de neuronas y contexto conversacional persistido.
 
-## Configuración
+La Junta no genera órdenes ejecutables; esa autoridad sigue reservada al Cerebro GRUK.
 
-Para activar deliberación LLM:
+## Dependencias externas
 
-```env
-OPENAI_API_KEY=...
-GRUK_EXPERT_MODEL=gpt-5.6
-GRUK_EXPERT_REASONING_EFFORT=high
-```
+Ninguna.
 
-`GRUK_EXPERT_MODEL` y `GRUK_EXPERT_REASONING_EFFORT` son opcionales. Si `OPENAI_API_KEY` no existe, GRUK conserva un fallback determinístico para no interrumpir producción.
+La Junta no requiere OpenAI, API keys, modelos remotos ni proveedores de IA externos.
 
-## Seguridad y privacidad
+No existen variables `OPENAI_API_KEY`, `GRUK_EXPERT_MODEL` ni equivalentes para esta función.
 
-El payload enviado al proveedor se construye explícitamente. No se envían `_id`, `responsableId`, `autorUsuarioId`, tokens ni credenciales. Se envían únicamente la pregunta, la decisión empresarial sanitizada, KPIs/hallazgos de neuronas y un historial conversacional limitado.
+## Cómo funciona
 
-El texto humano y las evidencias se consideran contenido no confiable para instrucciones. El prompt de sistema prohíbe que esos textos reemplacen las reglas de la Junta.
+1. Clasifica la intención de la pregunta.
+2. Detecta los temas empresariales implicados: caja, margen/precio, ventas, CAC, operación/inventario, gente/capacidad, crecimiento, deuda o servicio.
+3. Cada experto aplica su perfil, principios y playbooks propios.
+4. Cruza la pregunta con el reporte determinístico de su neurona.
+5. Separa evidencia real, criterio profesional, inferencias y datos faltantes.
+6. Genera riesgos, acuerdos y objeciones cruzadas entre funciones.
+7. Dirección sintetiza la discusión sin emitir órdenes.
+8. El Cerebro conserva autoridad exclusiva para decidir y mandar órdenes.
 
-No se solicita ni se persiste cadena privada de pensamiento. Se guardan únicamente resultados auditables: respuesta, criterio profesional, evidencia, inferencias, riesgos, objeciones, acuerdos, datos faltantes y confianza.
+## Seguridad
 
-## Continuidad operativa
+Todo se ejecuta dentro de GRUK. No se envían datos de empresa, usuarios, decisiones, KPIs ni conversaciones a terceros.
 
-Los endpoints existentes de `/api/junta` no cambian. La integración no modifica `app.js`, autenticación, RBAC ni el flujo de aprobación del Cerebro. DUEÑO y ADMIN_SEDE conservan el acceso actual; EMPLEADO no obtiene acceso a la Junta.
+No se guarda cadena privada de razonamiento. Se persisten únicamente resultados auditables: respuesta, criterio profesional, evidencia usada, inferencias, riesgos, objeciones, acuerdos, datos faltantes y confianza.
 
-Si el proveedor LLM responde con error, la pregunta humana ya guardada puede reintentarse con el endpoint existente de respuesta.
+Los endpoints existentes de `/api/junta` mantienen `auth + empresaId + roleCheck`. DUEÑO y ADMIN_SEDE conservan acceso; EMPLEADO no obtiene acceso a la Junta.
+
+## Compatibilidad
+
+Las sesiones nuevas se guardan como `EXPERTO_GRUK`.
+
+El modelo acepta también el tipo histórico `EXPERTO_IA` exclusivamente para poder leer sesiones ya persistidas antes de esta migración.
+
+No se modifica `app.js`, el flujo del Cerebro ni la aprobación humana de órdenes.
