@@ -280,118 +280,38 @@ test("Inventario configurado usa un KPI distinto a porcentaje agotado", () => {
 });
 
 
-test("Junta deterministica entrega seis perspectivas sin proveedor externo", async () => {
-  const {
-    generarRespuestasExpertas,
-    DEPARTAMENTOS_EXPERTOS
-  } = require("../../intelligence/board/expertos.service");
-
-  const resultado = await generarRespuestasExpertas({
-    pregunta: "¿Qué corregimos primero?",
-    reportes: [{
-      neurona: "FINANZAS",
-      kpi_principal: {
-        nombre: "margen",
-        valor_actual: 20,
-        valor_objetivo: 35,
-        estado: "CRITICO"
-      },
-      hallazgos: [{
-        tipo: "MARGEN_BAJO_OBJETIVO",
-        evidencia: "Margen por debajo del objetivo.",
-        impacto_financiero_estimado: 0,
-        confianza: 100
-      }]
-    }],
-    intervenciones: []
-  });
-
-  assert.equal(resultado.model, "GRUK-CONSULTIVO-2");
-  assert.equal(resultado.respuestas.length, 6);
-  assert.deepEqual(
-    resultado.respuestas.map((item) => item.departamento),
-    DEPARTAMENTOS_EXPERTOS
-  );
-  assert.match(resultado.respuestas[0].respuesta, /FINANZAS/);
-  assert.ok(resultado.respuestas[0].evidencia_usada.some((item) => /Margen/.test(item)));
-});
-
-test("Junta conserva correccion humana como contexto y no como hecho", async () => {
-  const { generarRespuestasExpertas } = require("../../intelligence/board/expertos.service");
-
-  const resultado = await generarRespuestasExpertas({
-    pregunta: "¿Qué corregimos?",
-    reportes: [],
-    intervenciones: [{
-      tipo: "HUMANO",
-      mensaje: "El proveedor cambió las condiciones ayer."
-    }]
-  });
-
-  const finanzas = resultado.respuestas.find((item) => item.departamento === "FINANZAS");
-  assert.match(finanzas.respuesta, /intervenciones humanas previas/);
-  assert.equal(finanzas.evidencia_usada.length, 0);
-});
-
-test("Intervencion experta queda ligada a la pregunta sin cifras inventadas", () => {
+test("Intervencion experta GRUK queda ligada a la pregunta", () => {
   const mongoose = require("mongoose");
-  const {
-    construirIntervencionExperta
-  } = require("../../intelligence/board/junta.service");
-
+  const { construirIntervencionExperta } = require("../../intelligence/board/junta.service");
   const preguntaId = new mongoose.Types.ObjectId();
   const intervencion = construirIntervencionExperta({
     intervencionId: preguntaId,
     model: "modelo-test",
     respuesta: {
       departamento: "FINANZAS",
-      respuesta: "Primero validaria la cobertura de costos.",
-      evidencia_usada: ["7 ventas no tienen costo congelado confiable."],
-      inferencias: ["Sin costo confiable no conviene concluir margen real."],
-      datos_faltantes: ["Costo real de las ventas historicas."]
+      respuesta: "Construiría primero un flujo de caja de 13 semanas.",
+      evidencia_usada: [],
+      inferencias: ["Criterio profesional financiero."],
+      datos_faltantes: ["Caja inicial."]
     }
   });
-
-  assert.equal(intervencion.tipo, "EXPERTO_IA");
+  assert.equal(intervencion.tipo, "EXPERTO_GRUK");
   assert.equal(intervencion.departamento, "FINANZAS");
   assert.equal(String(intervencion.respuestaAId), String(preguntaId));
-  assert.equal(intervencion.impacto_financiero_estimado, null);
-  assert.equal(intervencion.confianza, null);
-  assert.match(intervencion.mensaje, /Inferencias profesionales/);
-  assert.match(intervencion.mensaje, /Datos faltantes/);
+  assert.match(intervencion.mensaje, /Caja inicial/);
 });
 
-test("Junta reconoce escenario desde cero y no arrastra historico", async () => {
-  const { generarRespuestasExpertas, clasificarIntencion } = require("../../intelligence/board/expertos.service");
-  assert.equal(clasificarIntencion("Supongamos que vamos a empezar desde cero, ¿cómo lo hacemos?"), "ARRANQUE");
-  const resultado = await generarRespuestasExpertas({
-    pregunta: "Supongamos que vamos a empezar desde cero, ¿cómo lo hacemos?",
-    reportes: [{
-      neurona: "FINANZAS",
-      kpi_principal: { nombre: "margen", valor_actual: 1, valor_objetivo: 99, estado: "CRITICO" },
-      hallazgos: [{ evidencia: "Dato historico que no debe gobernar el supuesto." }]
-    }],
-    intervenciones: []
-  });
-  assert.equal(resultado.intencion, "ARRANQUE");
-  assert.equal(resultado.respuestas.length, 6);
-  assert.ok(resultado.respuestas.every(r => !r.evidencia_usada.includes("Dato historico que no debe gobernar el supuesto.")));
-  assert.match(resultado.respuestas.at(-1).respuesta, /cliente y oferta/);
-});
-
-test("Junta formatea KPI sin decimales interminables", async () => {
-  const { generarRespuestasExpertas } = require("../../intelligence/board/expertos.service");
-  const resultado = await generarRespuestasExpertas({
-    pregunta: "Explícame el estado de ventas",
-    reportes: [{
-      neurona: "VENTAS",
-      kpi_principal: { nombre: "ticket_promedio", valor_actual: 17141.428571428572, valor_objetivo: null, estado: "ALERTA" },
-      hallazgos: []
-    }],
-    intervenciones: []
-  });
-  const ventas = resultado.respuestas.find(r => r.departamento === "VENTAS");
-  assert.ok(ventas.evidencia_usada.some(x => /17[.,]141[.,]43/.test(x)));
-  assert.ok(!ventas.evidencia_usada.some(x => /428571428572/.test(x)));
+test("Runtime de expertos exige proveedor generativo configurado", async () => {
+  const previo = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  const { generarRespuestasExpertas, DEPARTAMENTOS_EXPERTOS, PERFILES } =
+    require("../../intelligence/board/expertos.service");
+  assert.equal(DEPARTAMENTOS_EXPERTOS.length, 6);
+  assert.match(PERFILES.FINANZAS, /flujo de caja de 13 semanas/i);
+  await assert.rejects(
+    () => generarRespuestasExpertas({ pregunta: "¿Cómo cuidamos la caja?", reportes: [], intervenciones: [] }),
+    /JUNTA_GENERATIVA_NO_CONFIGURADA/
+  );
+  if (previo) process.env.OPENAI_API_KEY = previo;
 });
 
