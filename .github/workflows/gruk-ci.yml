@@ -51,6 +51,7 @@ jobs:
           node --check jobs/suscripciones.js
           node --check models/restaurante.js
           node --check intelligence/listeners/finanzas.listener.js
+          node --check intelligence/listeners/juntaViva.listener.js
           node --check intelligence/models/CerebroAuditoria.js
           node --check intelligence/models/CerebroDecision.js
           node --check intelligence/models/CerebroReporteNeurona.js
@@ -62,11 +63,19 @@ jobs:
           node --check intelligence/memory/CerebroMemoria.js
           node --check routes/memoria.js
           node --check public/js/junta-directiva.js
+          node --check public/finanzas.js
           node --check intelligence/board/junta.controller.js
           node --check intelligence/board/junta.service.js
           node --check intelligence/board/expertos.service.js
           node --check intelligence/board/JuntaSesion.js
+          node --check intelligence/board/JuntaEstadoVivo.js
+          node --check intelligence/board/juntaViva.service.js
           node --check routes/junta.js
+          node --check routes/gastos.js
+          node --check routes/compras.js
+          node --check core/gastos/gastos.service.js
+          node --check core/gastos/validators/gasto.validator.js
+          node --check models/Gasto.js
           node --check intelligence/brain/cerebro.js
           node --check intelligence/brain/cerebro.service.js
           node --check intelligence/brain/cerebro.controller.js
