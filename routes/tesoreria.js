@@ -16,6 +16,9 @@ const {
   obtenerResumenTesoreria,
   transferir
 } = require("../core/finanzas/tesoreria.service");
+const {
+  construirProyeccionTesoreria
+} = require("../core/finanzas/tesoreriaProyeccion.service");
 
 const router = express.Router();
 
@@ -220,9 +223,19 @@ router.get(
           sedeId
         });
 
+      const proyeccion =
+        await construirProyeccionTesoreria({
+          empresaId:
+            req.auth.empresaId,
+          sedeId,
+          tesoreria:
+            resumen
+        });
+
       return res.json({
         ok: true,
-        resumen
+        resumen,
+        proyeccion
       });
     } catch (error) {
       return responderError(
