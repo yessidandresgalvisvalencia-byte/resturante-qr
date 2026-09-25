@@ -81,7 +81,9 @@ jobs:
           node --check core/finanzas/caja.service.js
           node --check core/finanzas/tesoreria.service.js
           node --check core/finanzas/obligaciones.service.js
+          node --check core/finanzas/obligacionesRecurrentes.service.js
           node --check core/finanzas/tesoreriaProyeccion.service.js
+          node --check core/finanzas/models/ObligacionRecurrente.js
           node --check core/finanzas/models/MovimientoCaja.js
           node --check core/finanzas/models/CuentaTesoreria.js
           node --check core/finanzas/models/TransferenciaTesoreria.js
