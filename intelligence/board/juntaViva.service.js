@@ -8,6 +8,9 @@ const {
   obtenerResumenCaja,
   reconciliarPeriodoCaja
 } = require("../../core/finanzas/caja.service");
+const {
+  obtenerResumenTesoreria
+} = require("../../core/finanzas/tesoreria.service");
 const Reporte = require("../models/CerebroReporteNeurona");
 const JuntaEstadoVivo = require("./JuntaEstadoVivo");
 const {
@@ -279,6 +282,7 @@ function normalizarEvento(event) {
 function construirDiagnostico({
   ultimoEvento,
   ventana24h,
+  tesoreria,
   reportes,
   estadoAnterior = null
 }) {
@@ -303,16 +307,50 @@ function construirDiagnostico({
   const flujoParcialNegativo =
     flujoParcial < 0;
 
+  const tesoreriaParcial =
+    tesoreria?.estadoConfiabilidad ===
+    "PARCIAL";
+
+  const saldoTesoreriaNegativo =
+    tesoreria?.estadoConfiabilidad ===
+      "COMPLETO" &&
+    Number(
+      tesoreria?.saldoDisponible
+    ) < 0;
+
   const estado = criticos.length
     ? "CRITICO"
     : (
         alertas.length ||
-        flujoParcialNegativo
+        flujoParcialNegativo ||
+        tesoreriaParcial ||
+        saldoTesoreriaNegativo
       )
       ? "ATENCION"
       : "NORMAL";
 
   const razones = [];
+
+  if (tesoreriaParcial) {
+    razones.push(
+      "Tesoreria esta PARCIAL: existen movimientos confirmados sin cuenta asignada. El saldo configurado no debe tratarse como disponibilidad definitiva."
+    );
+  }
+
+  if (saldoTesoreriaNegativo) {
+    razones.push(
+      `Tesoreria configurada muestra saldo disponible negativo por ${Math.abs(Number(tesoreria.saldoDisponible || 0))}.`
+    );
+  }
+
+  if (
+    tesoreria?.estadoConfiabilidad ===
+    "SIN_CONFIGURAR"
+  ) {
+    razones.push(
+      "Tesoreria no esta configurada; GRUK aun no puede afirmar cuanto dinero disponible tiene la empresa."
+    );
+  }
 
   if (flujoParcialNegativo) {
     razones.push(
@@ -375,8 +413,17 @@ function construirDiagnostico({
       `Se registro una compra por ${ultimoEvento.monto} con pago no confirmado.`;
   }
 
+  const lecturaTesoreria =
+    tesoreria?.estadoConfiabilidad ===
+      "COMPLETO"
+      ? ` Tesoreria esta COMPLETA y muestra saldo disponible configurado de ${Number(tesoreria.saldoDisponible || 0)}.`
+      : tesoreria?.estadoConfiabilidad ===
+          "PARCIAL"
+        ? ` Tesoreria esta PARCIAL; el saldo configurado visible es ${Number(tesoreria.saldoDisponible || 0)}, pero existen movimientos sin cuenta asignada y no debe tratarse como saldo definitivo.`
+        : " Tesoreria no esta configurada, por lo que GRUK no afirma un saldo disponible real.";
+
   const lectura =
-    `Este indicador no es el saldo bancario ni la caja total de la empresa; mide movimientos confirmados que GRUK puede demostrar. En las ultimas 24 horas GRUK confirma ${ventana24h.ventasPagadas.cantidad} venta(s) pagada(s) por ${ventana24h.ventasPagadas.monto}, ${ventana24h.comprasPagadas.cantidad} compra(s) pagada(s) por ${ventana24h.comprasPagadas.monto} y ${ventana24h.gastosPagados.cantidad} gasto(s) pagado(s) por ${ventana24h.gastosPagados.monto}. El flujo confirmado parcial es ${ventana24h.flujoConfirmadoParcial}. Adicionalmente hay ${numeroSeguro(ventana24h.comprasNoConfirmadas?.cantidad)} compra(s) por ${numeroSeguro(ventana24h.comprasNoConfirmadas?.monto)} y ${numeroSeguro(ventana24h.gastosNoConfirmados?.cantidad)} gasto(s) por ${numeroSeguro(ventana24h.gastosNoConfirmados?.monto)} cuyo pago no esta confirmado y por eso no se descuentan de caja. ${criticos.length ? "Hay KPI criticos que requieren decision del Cerebro." : "La Junta mantiene observacion continua y actualizara esta lectura con el siguiente evento."}`;
+    `El flujo de 24 horas no es el saldo bancario ni la caja total de la empresa; mide movimientos confirmados que GRUK puede demostrar. En las ultimas 24 horas GRUK confirma ${ventana24h.ventasPagadas.cantidad} venta(s) pagada(s) por ${ventana24h.ventasPagadas.monto}, ${ventana24h.comprasPagadas.cantidad} compra(s) pagada(s) por ${ventana24h.comprasPagadas.monto} y ${ventana24h.gastosPagados.cantidad} gasto(s) pagado(s) por ${ventana24h.gastosPagados.monto}. El flujo confirmado parcial es ${ventana24h.flujoConfirmadoParcial}.${lecturaTesoreria} Adicionalmente hay ${numeroSeguro(ventana24h.comprasNoConfirmadas?.cantidad)} compra(s) por ${numeroSeguro(ventana24h.comprasNoConfirmadas?.monto)} y ${numeroSeguro(ventana24h.gastosNoConfirmados?.cantidad)} gasto(s) por ${numeroSeguro(ventana24h.gastosNoConfirmados?.monto)} cuyo pago no esta confirmado y por eso no se descuentan de caja. ${criticos.length ? "Hay KPI criticos que requieren decision del Cerebro." : "La Junta mantiene observacion continua y actualizara esta lectura con el siguiente evento."}`;
 
   const flujoActual =
     numeroSeguro(
@@ -502,7 +549,8 @@ function construirPreguntaAutomatica(
 
 function enriquecerReportesConCaja(
   reportes,
-  ventana24h
+  ventana24h,
+  tesoreria = null
 ) {
   const evidenciaCaja =
     "CAJA GRUK 24H: " +
@@ -510,6 +558,13 @@ function enriquecerReportesConCaja(
     `salidas confirmadas ${numeroSeguro(ventana24h?.salidasConfirmadas)}, ` +
     `flujo confirmado parcial ${numeroSeguro(ventana24h?.flujoConfirmadoParcial)}. ` +
     "Este flujo parcial no equivale al saldo bancario ni a la caja total.";
+
+  const evidenciaTesoreria =
+    tesoreria?.estadoConfiabilidad === "COMPLETO"
+      ? `TESORERIA GRUK: estado COMPLETO, saldo disponible configurado ${Number(tesoreria.saldoDisponible || 0)}.`
+      : tesoreria?.estadoConfiabilidad === "PARCIAL"
+        ? `TESORERIA GRUK: estado PARCIAL, saldo configurado visible ${Number(tesoreria.saldoDisponible || 0)}; existen movimientos sin cuenta asignada.`
+        : "TESORERIA GRUK: SIN_CONFIGURAR; no existe saldo disponible verificable.";
 
   return (reportes || []).map(
     (reporte) => {
@@ -537,6 +592,26 @@ function enriquecerReportesConCaja(
                 )
               ),
             confianza: 100
+          },
+          {
+            tipo:
+              "TESORERIA_DISPONIBLE",
+            evidencia:
+              evidenciaTesoreria,
+            impacto_financiero_estimado:
+              tesoreria?.estadoConfiabilidad === "COMPLETO"
+                ? Math.abs(
+                    Number(
+                      tesoreria.saldoDisponible || 0
+                    )
+                  )
+                : 0,
+            confianza:
+              tesoreria?.estadoConfiabilidad === "COMPLETO"
+                ? 100
+                : tesoreria?.estadoConfiabilidad === "PARCIAL"
+                  ? 60
+                  : 0
           }
         ]
       };
@@ -547,6 +622,7 @@ function enriquecerReportesConCaja(
 async function generarDiagnosticosAutomaticos({
   ultimoEvento,
   ventana24h,
+  tesoreria,
   reportes,
   ahora
 }) {
@@ -562,7 +638,8 @@ async function generarDiagnosticosAutomaticos({
       reportes:
         enriquecerReportesConCaja(
           reportes,
-          ventana24h
+          ventana24h,
+          tesoreria
         ),
       intervenciones: [],
       fuente: "GRUK"
@@ -629,6 +706,48 @@ async function generarDiagnosticosAutomaticos({
     }));
 }
 
+function mapearTesoreria(tesoreria) {
+  return {
+    estadoConfiabilidad:
+      tesoreria?.estadoConfiabilidad ||
+      "SIN_CONFIGURAR",
+    saldoDisponible:
+      tesoreria?.saldoDisponible ??
+      null,
+    cuentas:
+      (tesoreria?.cuentas || [])
+        .map((cuenta) => ({
+          cuentaTesoreriaId:
+            cuenta._id,
+          nombre:
+            cuenta.nombre,
+          tipo:
+            cuenta.tipo,
+          sedeId:
+            cuenta.sedeId || null,
+          saldoDisponible:
+            Number(
+              cuenta.saldo
+                ?.saldoDisponible || 0
+            )
+        }))
+        .slice(0, 30),
+    movimientosSinAsignar:
+      tesoreria?.movimientosSinAsignar || {
+        entradas: {
+          cantidad: 0,
+          monto: 0
+        },
+        salidas: {
+          cantidad: 0,
+          monto: 0
+        }
+      },
+    advertencia:
+      tesoreria?.advertencia || null
+  };
+}
+
 function mapearReportes(reportes) {
   return reportes.map((r) => ({
     neurona: r.neurona,
@@ -672,7 +791,8 @@ async function recalcularEstadoVivo({
   const [
     ventana24h,
     mesActual,
-    reportes
+    reportes,
+    tesoreria
   ] = await Promise.all([
     construirResumen({
       empresaId: empresaObjectId,
@@ -688,7 +808,13 @@ async function recalcularEstadoVivo({
     }),
     ultimosReportes(
       empresaObjectId
-    )
+    ),
+    obtenerResumenTesoreria({
+      empresaId:
+        empresaObjectId,
+      sedeId:
+        sedeObjectId
+    })
   ]);
 
   const filtro = {
@@ -708,7 +834,9 @@ async function recalcularEstadoVivo({
     [
       "CICLO_INTELIGENCIA_COMPLETADO",
       "CAJA_MOVIMIENTO_REGISTRADO",
-      "CAJA_RECONCILIADA"
+      "CAJA_RECONCILIADA",
+      "TESORERIA_CUENTA_CREADA",
+      "TESORERIA_TRANSFERENCIA_COMPLETADA"
     ].includes(
       event?.eventName
     );
@@ -747,6 +875,7 @@ async function recalcularEstadoVivo({
     construirDiagnostico({
       ultimoEvento,
       ventana24h,
+      tesoreria,
       reportes,
       estadoAnterior: actual
     });
@@ -759,6 +888,7 @@ async function recalcularEstadoVivo({
       await generarDiagnosticosAutomaticos({
         ultimoEvento,
         ventana24h,
+        tesoreria,
         reportes,
         ahora
       });
@@ -783,6 +913,10 @@ async function recalcularEstadoVivo({
         ultimoEvento,
         ventana24h,
         mesActual,
+        tesoreria:
+          mapearTesoreria(
+            tesoreria
+          ),
         diagnostico,
         diagnosticosExpertos,
         reportesNeuronas:
