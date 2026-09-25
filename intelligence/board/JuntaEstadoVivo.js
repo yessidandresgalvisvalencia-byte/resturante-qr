@@ -62,6 +62,10 @@ const resumenSchema = new mongoose.Schema({
     cantidad: { type: Number, default: 0, min: 0 },
     monto: { type: Number, default: 0, min: 0 }
   },
+  comprasNoConfirmadas: {
+    cantidad: { type: Number, default: 0, min: 0 },
+    monto: { type: Number, default: 0, min: 0 }
+  },
   gastosRegistrados: {
     cantidad: { type: Number, default: 0, min: 0 },
     monto: { type: Number, default: 0, min: 0 }
@@ -73,6 +77,16 @@ const resumenSchema = new mongoose.Schema({
   gastosNoConfirmados: {
     cantidad: { type: Number, default: 0, min: 0 },
     monto: { type: Number, default: 0, min: 0 }
+  },
+  entradasConfirmadas: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  salidasConfirmadas: {
+    type: Number,
+    default: 0,
+    min: 0
   },
   flujoConfirmadoParcial: {
     type: Number,
