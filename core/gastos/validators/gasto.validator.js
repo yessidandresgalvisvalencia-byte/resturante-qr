@@ -44,6 +44,11 @@ const gastoSchema = Joi.object({
     )
     .default("desconocido"),
 
+  fechaVencimientoPago: Joi.date()
+    .iso()
+    .allow(null, "")
+    .optional(),
+
   proveedor: Joi.string()
     .trim()
     .max(200)
