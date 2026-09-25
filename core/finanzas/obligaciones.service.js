@@ -7,6 +7,9 @@ const Gasto = require("../../models/Gasto");
 const {
   obtenerResumenTesoreria
 } = require("./tesoreria.service");
+const {
+  obtenerVencimientosRecurrentes
+} = require("./obligacionesRecurrentes.service");
 
 function objectId(valor, nombre) {
   if (!mongoose.Types.ObjectId.isValid(valor)) {
@@ -221,9 +224,16 @@ async function obtenerObligacionesRegistradas({
         }
       : {};
 
+  const horizonte31 =
+    sumarDiasUTC(
+      inicioDiaUTC(ahora),
+      31
+    );
+
   const [
     compras,
-    gastos
+    gastos,
+    recurrentes
   ] = await Promise.all([
     Compra.find({
       empresaId:
@@ -257,7 +267,18 @@ async function obtenerObligacionesRegistradas({
       .select(
         "_id sedeId concepto proveedor monto estadoPago fechaVencimientoPago fecha"
       )
-      .lean()
+      .lean(),
+
+    obtenerVencimientosRecurrentes({
+      empresaId:
+        empresaObjectId,
+      sedeId:
+        sedeId || null,
+      desde:
+        inicioDiaUTC(ahora),
+      hasta:
+        horizonte31
+    })
   ]);
 
   const resumenTesoreria =
@@ -337,6 +358,37 @@ async function obtenerObligacionesRegistradas({
         pendiente.cuantificable,
       montoPendiente:
         pendiente.monto
+    });
+  }
+
+  for (const recurrente of recurrentes) {
+    todos.push({
+      origenTipo:
+        "RECURRENTE",
+      origenId:
+        recurrente
+          .obligacionRecurrenteId,
+      sedeId:
+        recurrente.sedeId || null,
+      tercero:
+        recurrente.tercero || "",
+      concepto:
+        recurrente.concepto,
+      categoria:
+        recurrente.categoria,
+      fuenteMonto:
+        recurrente.fuenteMonto,
+      estadoPago:
+        "PROYECTADO",
+      fechaVencimiento:
+        fechaValida(
+          recurrente.fechaVencimiento
+        ),
+      cuantificable: true,
+      montoPendiente:
+        Number(
+          recurrente.montoPendiente || 0
+        )
     });
   }
 
@@ -439,7 +491,7 @@ async function obtenerObligacionesRegistradas({
     alcance:
       "OBLIGACIONES_REGISTRADAS_GRUK",
     advertencia:
-      "Esta cobertura solo incluye compras y gastos registrados en GRUK. No incluye nomina, impuestos, deuda u otras obligaciones que no esten registradas.",
+      "Esta cobertura incluye compras, gastos y obligaciones recurrentes registradas en GRUK. No incluye compromisos que no hayan sido configurados o registrados.",
     tesoreria: {
       estadoConfiabilidad:
         resumenTesoreria
