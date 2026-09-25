@@ -2961,3 +2961,479 @@ async function cerrarMesFinanciero() {
 
   alert("Mes financiero cerrado correctamente");
 }
+
+
+function escaparTesoreriaGRUK(valor) {
+  return String(valor ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[c])
+  );
+}
+
+function fechaLocalInputGRUK(fecha = new Date()) {
+  const local =
+    new Date(
+      fecha.getTime() -
+      fecha.getTimezoneOffset() * 60000
+    );
+
+  return local
+    .toISOString()
+    .slice(0, 16);
+}
+
+function renderizarTesoreriaGRUK(resumen) {
+  const contenedor =
+    document.getElementById(
+      "resumenTesoreriaGRUK"
+    );
+
+  if (!contenedor) return;
+
+  const estado =
+    resumen?.estadoConfiabilidad ||
+    "SIN_CONFIGURAR";
+
+  const cuentas =
+    Array.isArray(resumen?.cuentas)
+      ? resumen.cuentas
+      : [];
+
+  const noAsignados =
+    resumen?.movimientosSinAsignar || {
+      entradas: {
+        cantidad: 0,
+        monto: 0
+      },
+      salidas: {
+        cantidad: 0,
+        monto: 0
+      }
+    };
+
+  const saldoTexto =
+    resumen?.saldoDisponible === null ||
+    resumen?.saldoDisponible === undefined
+      ? "No disponible"
+      : formatoCOPFinanzas(
+          resumen.saldoDisponible
+        );
+
+  const cuentasHtml =
+    cuentas.length
+      ? cuentas.map((cuenta) => {
+          const saldo =
+            cuenta?.saldo
+              ?.saldoDisponible ?? 0;
+
+          const metodos =
+            Array.isArray(
+              cuenta.metodosPagoAsociados
+            )
+              ? cuenta
+                  .metodosPagoAsociados
+                  .join(", ")
+              : "";
+
+          return `
+            <li>
+              <strong>${escaparTesoreriaGRUK(
+                cuenta.nombre
+              )}</strong>
+              · ${escaparTesoreriaGRUK(
+                cuenta.tipo
+              )}
+              · saldo
+              ${formatoCOPFinanzas(saldo)}
+              ${metodos
+                ? `· recibe: ${escaparTesoreriaGRUK(
+                    metodos
+                  )}`
+                : ""}
+            </li>
+          `;
+        }).join("")
+      : "<li>No hay cuentas configuradas.</li>";
+
+  contenedor.innerHTML = `
+    <p>
+      <strong>Confiabilidad:</strong>
+      ${escaparTesoreriaGRUK(estado)}
+    </p>
+
+    <p>
+      <strong>Saldo disponible configurado:</strong>
+      ${saldoTexto}
+    </p>
+
+    <p>
+      <strong>Movimientos sin asignar:</strong>
+      entradas
+      ${formatoCOPFinanzas(
+        noAsignados.entradas?.monto || 0
+      )}
+      · salidas
+      ${formatoCOPFinanzas(
+        noAsignados.salidas?.monto || 0
+      )}
+    </p>
+
+    ${resumen?.advertencia
+      ? `<p><strong>Advertencia:</strong> ${escaparTesoreriaGRUK(
+          resumen.advertencia
+        )}</p>`
+      : ""}
+
+    <ul>${cuentasHtml}</ul>
+  `;
+}
+
+function llenarSelectsTesoreriaGRUK(cuentas) {
+  const origen =
+    document.getElementById(
+      "tesoreriaCuentaOrigen"
+    );
+
+  const destino =
+    document.getElementById(
+      "tesoreriaCuentaDestino"
+    );
+
+  const opciones =
+    (cuentas || []).map(
+      (cuenta) => `
+        <option value="${escaparTesoreriaGRUK(
+          cuenta._id
+        )}">
+          ${escaparTesoreriaGRUK(
+            cuenta.nombre
+          )}
+          ·
+          ${formatoCOPFinanzas(
+            cuenta?.saldo
+              ?.saldoDisponible || 0
+          )}
+        </option>
+      `
+    ).join("");
+
+  if (origen) {
+    origen.innerHTML =
+      opciones ||
+      '<option value="">Sin cuentas</option>';
+  }
+
+  if (destino) {
+    destino.innerHTML =
+      opciones ||
+      '<option value="">Sin cuentas</option>';
+
+    if (
+      destino.options.length > 1
+    ) {
+      destino.selectedIndex = 1;
+    }
+  }
+}
+
+async function cargarTesoreriaGRUK() {
+  const res =
+    await grukFetch(
+      "/api/tesoreria/resumen"
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible consultar tesorería"
+    );
+  }
+
+  renderizarTesoreriaGRUK(
+    data.resumen
+  );
+
+  llenarSelectsTesoreriaGRUK(
+    data.resumen?.cuentas || []
+  );
+
+  return data.resumen;
+}
+
+async function crearCuentaTesoreriaGRUK() {
+  const nombre =
+    document
+      .getElementById(
+        "tesoreriaNombreCuenta"
+      )
+      ?.value
+      .trim();
+
+  const tipo =
+    document.getElementById(
+      "tesoreriaTipoCuenta"
+    )?.value;
+
+  const saldoInicial =
+    Number(
+      document.getElementById(
+        "tesoreriaSaldoInicial"
+      )?.value || 0
+    );
+
+  const fechaValor =
+    document.getElementById(
+      "tesoreriaSaldoInicialAt"
+    )?.value;
+
+  const metodosSelect =
+    document.getElementById(
+      "tesoreriaMetodosPago"
+    );
+
+  const metodos =
+    metodosSelect
+      ? Array.from(
+          metodosSelect.selectedOptions
+        ).map(
+          (option) => option.value
+        )
+      : [];
+
+  const permiteSaldoNegativo =
+    Boolean(
+      document.getElementById(
+        "tesoreriaPermiteNegativo"
+      )?.checked
+    );
+
+  const estado =
+    document.getElementById(
+      "estadoCuentaTesoreriaGRUK"
+    );
+
+  if (
+    !nombre ||
+    !tipo ||
+    !fechaValor
+  ) {
+    if (estado) {
+      estado.innerHTML =
+        "<p>Completa nombre, tipo y fecha del saldo inicial.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/cuentas",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              nombre,
+              tipo,
+              saldoInicial,
+              saldoInicialAt:
+                new Date(
+                  fechaValor
+                ).toISOString(),
+              metodosPagoAsociados:
+                metodos,
+              permiteSaldoNegativo
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible crear la cuenta"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Cuenta creada. Desde esta fecha GRUK trazará sus movimientos.</p>";
+    }
+
+    document.getElementById(
+      "tesoreriaNombreCuenta"
+    ).value = "";
+
+    document.getElementById(
+      "tesoreriaSaldoInicial"
+    ).value = "0";
+
+    if (metodosSelect) {
+      Array.from(
+        metodosSelect.options
+      ).forEach(
+        (option) => {
+          option.selected = false;
+        }
+      );
+    }
+
+    await cargarTesoreriaGRUK();
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function transferirTesoreriaGRUK() {
+  const cuentaOrigenId =
+    document.getElementById(
+      "tesoreriaCuentaOrigen"
+    )?.value;
+
+  const cuentaDestinoId =
+    document.getElementById(
+      "tesoreriaCuentaDestino"
+    )?.value;
+
+  const monto =
+    Number(
+      document.getElementById(
+        "tesoreriaTransferenciaMonto"
+      )?.value || 0
+    );
+
+  const concepto =
+    document.getElementById(
+      "tesoreriaTransferenciaConcepto"
+    )?.value
+      .trim() ||
+    "Transferencia interna";
+
+  const estado =
+    document.getElementById(
+      "estadoTransferenciaTesoreriaGRUK"
+    );
+
+  if (
+    !cuentaOrigenId ||
+    !cuentaDestinoId ||
+    cuentaOrigenId ===
+      cuentaDestinoId ||
+    !Number.isFinite(monto) ||
+    monto <= 0
+  ) {
+    if (estado) {
+      estado.innerHTML =
+        "<p>Selecciona cuentas diferentes y un monto válido.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/transferencias",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              cuentaOrigenId,
+              cuentaDestinoId,
+              monto,
+              concepto
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible completar la transferencia"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Transferencia interna completada y auditada.</p>";
+    }
+
+    document.getElementById(
+      "tesoreriaTransferenciaMonto"
+    ).value = "";
+
+    await cargarTesoreriaGRUK();
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function inicializarTesoreriaGRUK() {
+  const fecha =
+    document.getElementById(
+      "tesoreriaSaldoInicialAt"
+    );
+
+  if (
+    fecha &&
+    !fecha.value
+  ) {
+    fecha.value =
+      fechaLocalInputGRUK();
+  }
+
+  try {
+    await cargarTesoreriaGRUK();
+  } catch (error) {
+    const contenedor =
+      document.getElementById(
+        "resumenTesoreriaGRUK"
+      );
+
+    if (contenedor) {
+      contenedor.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+window.crearCuentaTesoreriaGRUK =
+  crearCuentaTesoreriaGRUK;
+
+window.transferirTesoreriaGRUK =
+  transferirTesoreriaGRUK;
+
+window.inicializarTesoreriaGRUK =
+  inicializarTesoreriaGRUK;
