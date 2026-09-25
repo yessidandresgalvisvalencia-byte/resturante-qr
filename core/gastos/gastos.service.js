@@ -10,6 +10,7 @@ async function registrarGasto({
   categoria,
   monto,
   metodoPago = "",
+  estadoPago = "desconocido",
   proveedor = "",
   fecha = new Date(),
   origen = "manual",
@@ -27,6 +28,7 @@ async function registrarGasto({
     categoria,
     monto,
     metodoPago,
+    estadoPago,
     proveedor,
     fecha,
     origen,
@@ -42,6 +44,7 @@ async function registrarGasto({
       categoria: gasto.categoria,
       monto: gasto.monto,
       metodoPago: gasto.metodoPago,
+      estadoPago: gasto.estadoPago,
       proveedor: gasto.proveedor,
       fecha: gasto.fecha,
       origen: gasto.origen
