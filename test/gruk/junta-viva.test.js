@@ -151,3 +151,89 @@ test("diagnostico vivo eleva CRITICO al Cerebro pero no emite orden", () => {
     false
   );
 });
+
+
+test("Junta viva explica cuanto cambio el flujo desde la lectura anterior", () => {
+  const diagnostico = construirDiagnostico({
+    ultimoEvento: {
+      tipo: "VENTA_COMPLETADA",
+      direccion: "ENTRADA_CONFIRMADA",
+      monto: 100000
+    },
+    ventana24h: {
+      ventasPagadas: {
+        cantidad: 3,
+        monto: 180000
+      },
+      comprasPagadas: {
+        cantidad: 0,
+        monto: 0
+      },
+      gastosRegistrados: {
+        cantidad: 0,
+        monto: 0
+      },
+      gastosPagados: {
+        cantidad: 0,
+        monto: 0
+      },
+      gastosNoConfirmados: {
+        cantidad: 0,
+        monto: 0
+      },
+      flujoConfirmadoParcial: 180000
+    },
+    reportes: [],
+    estadoAnterior: {
+      ventana24h: {
+        flujoConfirmadoParcial: 80000
+      }
+    }
+  });
+
+  assert.equal(
+    diagnostico
+      .cambioDesdeAnterior
+      .direccion,
+    "AUMENTA_FLUJO_PARCIAL"
+  );
+
+  assert.equal(
+    diagnostico
+      .cambioDesdeAnterior
+      .valor,
+    100000
+  );
+
+  assert.match(
+    diagnostico
+      .cambioDesdeAnterior
+      .explicacion,
+    /100000/
+  );
+});
+
+test("actualizar un gasto a pagado se vuelve salida confirmada", () => {
+  const evento = normalizarEvento({
+    eventName:
+      "GASTO_PAGO_ACTUALIZADO",
+    payload: {
+      gastoId:
+        "507f1f77bcf86cd799439016",
+      monto: 45000,
+      estadoPagoAnterior:
+        "pendiente",
+      estadoPago:
+        "pagado"
+    }
+  });
+
+  assert.equal(
+    evento.direccion,
+    "SALIDA_CONFIRMADA"
+  );
+  assert.equal(
+    evento.monto,
+    45000
+  );
+});
