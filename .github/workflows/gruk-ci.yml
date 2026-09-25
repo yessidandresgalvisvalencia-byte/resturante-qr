@@ -80,6 +80,7 @@ jobs:
           node --check core/gastos/validators/gasto.validator.js
           node --check core/finanzas/caja.service.js
           node --check core/finanzas/tesoreria.service.js
+          node --check core/finanzas/obligaciones.service.js
           node --check core/finanzas/tesoreriaProyeccion.service.js
           node --check core/finanzas/models/MovimientoCaja.js
           node --check core/finanzas/models/CuentaTesoreria.js
