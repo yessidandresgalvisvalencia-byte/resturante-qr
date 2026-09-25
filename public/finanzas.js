@@ -1649,6 +1649,9 @@ async function analizarGasto() {
   const nombre = document.getElementById("nombreGasto").value.trim();
   const valor = Number(document.getElementById("valorGasto").value);
   const categoria = document.getElementById("categoriaGasto").value;
+  const estadoPago =
+    document.getElementById("estadoPagoGasto")?.value ||
+    "desconocido";
   const impacto = document.getElementById("impactoGasto").value;
   const objetivo = document.getElementById("objetivoGasto").value;
   const observacion = document.getElementById("observacionGasto").value.trim();
@@ -1861,6 +1864,7 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
         concepto: nombre,
         categoria,
         monto: valor,
+        estadoPago,
         fecha: fechaGasto,
         origen: "finanzas_gruk",
         metadata: {
@@ -1921,6 +1925,7 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
       nombre,
       valor,
       categoria,
+      estadoPago,
       impacto,
       objetivo,
       observacion,
