@@ -49,6 +49,11 @@ const intervencionSchema = new mongoose.Schema({
     max: 100,
     default: null
   },
+  relevancia: {
+    type: String,
+    enum: ["ALTA", "MEDIA", "BAJA", "NINGUNA"],
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
