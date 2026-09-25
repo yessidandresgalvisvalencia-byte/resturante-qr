@@ -987,7 +987,10 @@ async function obtenerEstadoVivo(auth) {
       sedeId
     }).lean();
 
-  if (!estado) {
+  if (
+    !estado ||
+    !estado.tesoreria
+  ) {
     const ahora = new Date();
     const desde =
       inicioMesUTC(ahora);
