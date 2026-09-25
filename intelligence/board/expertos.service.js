@@ -757,7 +757,7 @@ function respuestaEventoVenta({
         ...evidenciaBase,
         ...hechosReporte(finanzas).filter(
           (item) =>
-            /tesoreria|caja|flujo|margen|costo|confiable/i.test(item)
+            /proyeccion|obligacion|cobro|tesoreria|caja|flujo|margen|costo|confiable/i.test(item)
         )
       ].slice(0, 6),
       inferencias: [
