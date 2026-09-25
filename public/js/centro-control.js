@@ -70,6 +70,19 @@ function renderizarPlanesPagoGRUK(
                 )
               : "sin fecha"}
             · <strong>${escaparGRUK(item.estado || "")}</strong>
+            ${item.estado === "PENDIENTE_CONFIRMACION"
+              ? `
+                <button
+                  data-plan-confirmar="1"
+                  data-plan="${escaparGRUK(plan._id)}"
+                  data-item="${escaparGRUK(item._id)}"
+                >
+                  Verificar pago en Caja
+                </button>
+              `
+              : item.estado === "REQUIERE_REGISTRO_PAGO"
+                ? "<em> · requiere documento/pago real en GRUK</em>"
+                : ""}
           </li>
         `).join("")}
       </ol>
@@ -264,9 +277,65 @@ async function cargarDecisionCerebroGRUK() {
         boton.dataset.accion
       ));
     });
+
+    contenedor
+      .querySelectorAll(
+        "button[data-plan-confirmar]"
+      )
+      .forEach((boton) => {
+        boton.addEventListener(
+          "click",
+          () =>
+            confirmarItemPlanPagoGRUK(
+              boton.dataset.plan,
+              boton.dataset.item
+            )
+        );
+      });
   } catch (error) {
     console.error("Cerebro no disponible:", error);
     contenedor.innerHTML = "<p>Error consultando la decisión empresarial.</p>";
+  }
+}
+
+async function confirmarItemPlanPagoGRUK(
+  planId,
+  itemId
+) {
+  try {
+    const res =
+      await grukFetch(
+        `/api/cerebro/planes-pago/${encodeURIComponent(
+          planId
+        )}/items/${encodeURIComponent(
+          itemId
+        )}/confirmar`,
+        {
+          method: "POST"
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible verificar el pago."
+      );
+    }
+
+    await cargarDecisionCerebroGRUK();
+  } catch (error) {
+    console.error(
+      "GRUK verificar pago:",
+      error
+    );
+
+    alert(
+      error.message ||
+      "No fue posible verificar el pago."
+    );
   }
 }
 
