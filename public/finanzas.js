@@ -1652,6 +1652,9 @@ async function analizarGasto() {
   const estadoPago =
     document.getElementById("estadoPagoGasto")?.value ||
     "desconocido";
+  const fechaVencimientoPago =
+    document.getElementById("fechaVencimientoGasto")?.value ||
+    null;
   const impacto = document.getElementById("impactoGasto").value;
   const objetivo = document.getElementById("objetivoGasto").value;
   const observacion = document.getElementById("observacionGasto").value.trim();
@@ -1865,6 +1868,7 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
         categoria,
         monto: valor,
         estadoPago,
+        fechaVencimientoPago,
         fecha: fechaGasto,
         origen: "finanzas_gruk",
         metadata: {
@@ -1926,6 +1930,7 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
       valor,
       categoria,
       estadoPago,
+      fechaVencimientoPago,
       impacto,
       objetivo,
       observacion,
@@ -2988,7 +2993,7 @@ function fechaLocalInputGRUK(fecha = new Date()) {
     .slice(0, 16);
 }
 
-function renderizarTesoreriaGRUK(resumen) {
+function renderizarTesoreriaGRUK(resumen, proyeccion = null) {
   const contenedor =
     document.getElementById(
       "resumenTesoreriaGRUK"
@@ -3091,6 +3096,90 @@ function renderizarTesoreriaGRUK(resumen) {
       : ""}
 
     <ul>${cuentasHtml}</ul>
+
+    ${proyeccion
+      ? `
+        <hr>
+        <h4>Proyección de caja</h4>
+
+        <p>
+          <strong>Confiabilidad:</strong>
+          ${escaparTesoreriaGRUK(
+            proyeccion.confiabilidad || "SIN_DATOS"
+          )}
+        </p>
+
+        <p>
+          <strong>Obligaciones vencidas:</strong>
+          ${formatoCOPFinanzas(
+            proyeccion.obligaciones?.vencidas?.monto || 0
+          )}
+          ·
+          <strong>hasta 7 días:</strong>
+          ${formatoCOPFinanzas(
+            proyeccion.obligaciones?.proximos7d?.monto || 0
+          )}
+        </p>
+
+        <p>
+          <strong>Cobros esperados hasta 7 días:</strong>
+          ${formatoCOPFinanzas(
+            proyeccion.cobrosEsperados?.proximos7d?.monto || 0
+          )}
+        </p>
+
+        <p>
+          <strong>Escenario 7 días:</strong>
+          ${escaparTesoreriaGRUK(
+            proyeccion.escenario7d?.estado || "SIN_DATOS"
+          )}
+        </p>
+
+        <p>
+          <strong>Saldo después de obligaciones con caja actual:</strong>
+          ${proyeccion.escenario7d
+            ?.saldoDespuesDeObligacionesConCajaActual === null
+            ? "No verificable"
+            : formatoCOPFinanzas(
+                proyeccion.escenario7d
+                  ?.saldoDespuesDeObligacionesConCajaActual || 0
+              )}
+        </p>
+
+        <p>
+          <strong>Días de cobertura sobre salidas históricas 30d:</strong>
+          ${proyeccion.historico30d
+            ?.diasCoberturaSalidasHistoricas ?? "No calculable"}
+        </p>
+
+        ${proyeccion.proximoVencimiento
+          ? `<p><strong>Próximo vencimiento:</strong>
+              ${escaparTesoreriaGRUK(
+                proyeccion.proximoVencimiento.descripcion
+              )}
+              ·
+              ${formatoCOPFinanzas(
+                proyeccion.proximoVencimiento.monto
+              )}
+              ·
+              ${escaparTesoreriaGRUK(
+                new Date(
+                  proyeccion.proximoVencimiento.fechaVencimiento
+                ).toLocaleDateString("es-CO")
+              )}
+            </p>`
+          : ""}
+
+        ${Array.isArray(proyeccion.advertencias)
+          ? proyeccion.advertencias
+              .map(
+                (item) =>
+                  `<p><small>⚠️ ${escaparTesoreriaGRUK(item)}</small></p>`
+              )
+              .join("")
+          : ""}
+      `
+      : ""}
   `;
 }
 
@@ -3159,7 +3248,8 @@ async function cargarTesoreriaGRUK() {
   }
 
   renderizarTesoreriaGRUK(
-    data.resumen
+    data.resumen,
+    data.proyeccion || null
   );
 
   llenarSelectsTesoreriaGRUK(
