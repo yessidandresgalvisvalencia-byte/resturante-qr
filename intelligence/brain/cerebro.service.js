@@ -206,7 +206,7 @@ async function obtenerPlanesPagoDecision(
 async function obtenerAuditoria(auth, limite = 100) {
   const maximo = Math.max(1, Math.min(200, Number(limite) || 100));
 
-  const [accionesOrden, juntas, memorias] = await Promise.all([
+  const [accionesOrden, juntas, memorias, planesPago] = await Promise.all([
     Auditoria.find(filtroTenant(auth))
       .sort({ createdAt: -1 })
       .limit(maximo)
@@ -218,13 +218,20 @@ async function obtenerAuditoria(auth, limite = 100) {
     CerebroMemoria.find(filtroTenant(auth))
       .sort({ createdAt: -1 })
       .limit(maximo)
+      .lean(),
+    PlanEjecucionPago.find(
+      filtroTenant(auth)
+    )
+      .sort({ createdAt: -1 })
+      .limit(maximo)
       .lean()
   ]);
 
   const decisionIds = [...new Set([
     ...accionesOrden.map((evento) => String(evento.decisionId)),
     ...juntas.map((sesion) => String(sesion.decisionId)),
-    ...memorias.map((memoria) => String(memoria.decisionId))
+    ...memorias.map((memoria) => String(memoria.decisionId)),
+    ...planesPago.map((plan) => String(plan.decisionId))
   ])];
 
   const decisiones = decisionIds.length
@@ -343,6 +350,90 @@ async function obtenerAuditoria(auth, limite = 100) {
         tarea: "Se cerró la discusión de Junta Directiva.",
         kpi_a_medir: null,
         situacion
+      });
+    }
+  }
+
+  for (const plan of planesPago) {
+    const decision =
+      mapaDecisiones.get(
+        String(plan.decisionId)
+      ) || null;
+
+    eventos.push({
+      _id:
+        `plan-pago-${plan._id}`,
+      tipo:
+        "PLAN_PAGO",
+      accion:
+        "PLAN_PAGO_CREADO",
+      actor:
+        "HUMANO",
+      usuarioId:
+        plan.createdBy,
+      rol:
+        null,
+      createdAt:
+        plan.createdAt,
+      decisionId:
+        plan.decisionId,
+      ordenId:
+        plan.ordenId,
+      departamento:
+        "DIRECCION",
+      tarea:
+        `Plan de pago autorizado por ${Number(plan.totalAutorizado || 0)}.`,
+      kpi_a_medir:
+        "obligaciones_7d_cubiertas",
+      situacion:
+        decision
+          ?.decision_general
+          ?.situacion || null
+    });
+
+    for (
+      const item of
+      plan.items || []
+    ) {
+      if (
+        item.estado !==
+        "CONFIRMADO" ||
+        !item.confirmadoAt
+      ) {
+        continue;
+      }
+
+      eventos.push({
+        _id:
+          `plan-pago-item-${item._id}`,
+        tipo:
+          "PLAN_PAGO",
+        accion:
+          "PAGO_VERIFICADO_EN_CAJA",
+        actor:
+          "HUMANO",
+        usuarioId:
+          item.confirmadoBy || null,
+        rol:
+          null,
+        createdAt:
+          item.confirmadoAt,
+        decisionId:
+          plan.decisionId,
+        ordenId:
+          plan.ordenId,
+        departamento:
+          "FINANZAS",
+        tarea:
+          `Pago verificado en Caja: ${item.descripcion || "obligacion"} por ${Number(item.monto || 0)}.`,
+        kpi_a_medir:
+          "obligaciones_7d_cubiertas",
+        situacion:
+          decision
+            ?.decision_general
+            ?.situacion || null,
+        movimientoCajaId:
+          item.movimientoCajaId || null
       });
     }
   }
