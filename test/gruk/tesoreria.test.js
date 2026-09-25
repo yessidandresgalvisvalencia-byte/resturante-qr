@@ -14,7 +14,8 @@ const {
   transferir
 } = require("../../core/finanzas/tesoreria.service");
 const {
-  registrarMovimientoDesdeEvento
+  registrarMovimientoDesdeEvento,
+  obtenerResumenCaja
 } = require("../../core/finanzas/caja.service");
 
 const EMPRESA_ID = "507f1f77bcf86cd799439101";
@@ -217,6 +218,19 @@ test("transferencia interna mueve saldo sin cambiar total consolidado", async ()
     }),
     2
   );
+
+  const flujo =
+    await obtenerResumenCaja({
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      desde: new Date("2026-09-25T00:00:00.000Z"),
+      hasta: new Date("2026-09-26T00:00:00.000Z")
+    });
+
+  assert.equal(
+    flujo.flujoConfirmadoParcial,
+    0
+  );
 });
 
 test("transferencia rechaza saldo insuficiente", async () => {
@@ -256,5 +270,24 @@ test("transferencia rechaza saldo insuficiente", async () => {
   assert.equal(
     await TransferenciaTesoreria.countDocuments({}),
     0
+  );
+});
+
+
+test("rechaza saldo inicial fechado en el futuro", async () => {
+  await assert.rejects(
+    () =>
+      crearCuenta({
+        empresaId: EMPRESA_ID,
+        sedeId: SEDE_ID,
+        nombre: "Cuenta futura",
+        tipo: "BANCO",
+        saldoInicial: 1000,
+        saldoInicialAt: new Date(
+          Date.now() + 60 * 60 * 1000
+        ).toISOString(),
+        createdBy: USUARIO_ID
+      }),
+    /no puede fecharse en el futuro/
   );
 });
