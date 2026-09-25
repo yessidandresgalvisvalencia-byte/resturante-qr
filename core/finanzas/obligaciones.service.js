@@ -257,15 +257,17 @@ async function obtenerObligacionesRegistradas({
       .select(
         "_id sedeId concepto proveedor monto estadoPago fechaVencimientoPago fecha"
       )
-      .lean(),
+      .lean()
+  ]);
 
-    obtenerResumenTesoreria({
+  const resumenTesoreria =
+    tesoreria ||
+    await obtenerResumenTesoreria({
       empresaId:
         empresaObjectId,
       sedeId:
         sedeId || null
-    })
-  ]);
+    });
 
   const grupos = {
     vencidas:
