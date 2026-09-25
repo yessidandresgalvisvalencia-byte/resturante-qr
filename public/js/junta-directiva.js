@@ -121,6 +121,11 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
         ventana.flujoConfirmadoParcial
       )}
       ·
+      <strong>compras con pago no confirmado:</strong>
+      ${formatoMonedaJuntaGRUK(
+        ventana.comprasNoConfirmadas?.monto
+      )}
+      ·
       <strong>gastos con pago no confirmado:</strong>
       ${formatoMonedaJuntaGRUK(
         ventana.gastosNoConfirmados?.monto
@@ -167,7 +172,7 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
         formatoFechaJuntaGRUK(
           estadoVivo.ultimoCambioAt
         )
-      )}. GRUK solo descuenta gastos con estado de pago confirmado. Los históricos sin estado permanecen fuera del flujo confirmado.
+      )}. El flujo confirmado proviene del libro canónico de caja. GRUK solo descuenta compras y gastos con pago confirmado; los históricos sin estado permanecen fuera del flujo confirmado.
     </small></p>
   `;
 }
