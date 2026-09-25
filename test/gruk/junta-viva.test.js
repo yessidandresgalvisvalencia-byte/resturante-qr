@@ -724,3 +724,88 @@ test("deficit verificable aun cobrando todo genera CRITICO y requiere Cerebro", 
     )
   );
 });
+
+
+test("proyeccion con datos insuficientes genera ATENCION sin fingir deficit ni cobertura", () => {
+  const diagnostico = construirDiagnostico({
+    ultimoEvento: {
+      tipo: "RECALCULO",
+      direccion: "NEUTRO",
+      monto: null
+    },
+    ventana24h: {
+      ventasPagadas: {
+        cantidad: 0,
+        monto: 0
+      },
+      comprasPagadas: {
+        cantidad: 0,
+        monto: 0
+      },
+      comprasNoConfirmadas: {
+        cantidad: 1,
+        monto: 120000
+      },
+      gastosRegistrados: {
+        cantidad: 0,
+        monto: 0
+      },
+      gastosPagados: {
+        cantidad: 0,
+        monto: 0
+      },
+      gastosNoConfirmados: {
+        cantidad: 0,
+        monto: 0
+      },
+      flujoConfirmadoParcial: 0
+    },
+    tesoreria: {
+      estadoConfiabilidad:
+        "COMPLETO",
+      saldoDisponible:
+        500000
+    },
+    proyeccionTesoreria: {
+      confiabilidad:
+        "PARCIAL",
+      obligaciones: {
+        proximos7d: {
+          monto: 0
+        }
+      },
+      cobrosEsperados: {
+        proximos7d: {
+          monto: 0
+        }
+      },
+      escenario7d: {
+        estado:
+          "DATOS_INSUFICIENTES"
+      }
+    },
+    reportes: []
+  });
+
+  assert.equal(
+    diagnostico.estado,
+    "ATENCION"
+  );
+
+  assert.equal(
+    diagnostico.requiereDecisionCerebro,
+    false
+  );
+
+  assert.ok(
+    diagnostico.razones.some(
+      (item) =>
+        /datos incompletos/i.test(item)
+    )
+  );
+
+  assert.match(
+    diagnostico.lectura,
+    /no afirma cobertura suficiente/i
+  );
+});
