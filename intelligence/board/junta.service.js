@@ -18,6 +18,15 @@ const DEPARTAMENTO_POR_NEURONA = Object.freeze({
   GENTE: "GENTE"
 });
 
+const TIPOS_EXPERTO = Object.freeze([
+  "EXPERTO_GRUK",
+  "EXPERTO_IA"
+]);
+
+function esIntervencionExperta(item) {
+  return TIPOS_EXPERTO.includes(item?.tipo);
+}
+
 const intervencionHumanaSchema = Joi.object({
   departamento: Joi.string()
     .valid(
@@ -120,8 +129,7 @@ function construirIntervencionNeurona(reporte) {
 function construirIntervencionExperta({
   respuesta,
   intervencionId,
-  model,
-  responseId
+  model
 }) {
   const bloques = [
     limitarTexto(respuesta.respuesta, 1800)
@@ -172,13 +180,11 @@ function construirIntervencionExperta({
   const confianza = Number(respuesta.confianza);
 
   return {
-    tipo: "EXPERTO_IA",
+    tipo: "EXPERTO_GRUK",
     departamento: respuesta.departamento,
     autorUsuarioId: null,
     respuestaAId: intervencionId,
     modelo: limitarTexto(model, 100),
-    proveedorRespuestaId:
-      limitarTexto(responseId, 200) || null,
     mensaje: limitarTexto(
       bloques.filter(Boolean).join("\n\n"),
       4000
@@ -369,7 +375,7 @@ async function responderPreguntaExpertos({
 
   const existentes = (sesion.intervenciones || []).filter(
     (item) =>
-      item.tipo === "EXPERTO_IA" &&
+      esIntervencionExperta(item) &&
       String(item.respuestaAId || "") === String(intervencionId)
   );
 
@@ -416,8 +422,7 @@ async function responderPreguntaExpertos({
     construirIntervencionExperta({
       respuesta,
       intervencionId: pregunta._id,
-      model: generadas.model,
-      responseId: generadas.responseId
+      model: generadas.model
     })
   );
 
@@ -430,7 +435,7 @@ async function responderPreguntaExpertos({
       intervenciones: {
         $not: {
           $elemMatch: {
-            tipo: "EXPERTO_IA",
+            tipo: { $in: TIPOS_EXPERTO },
             respuestaAId: pregunta._id
           }
         }
@@ -458,7 +463,7 @@ async function responderPreguntaExpertos({
 
   const yaRespondida = (posterior?.intervenciones || []).some(
     (item) =>
-      item.tipo === "EXPERTO_IA" &&
+      esIntervencionExperta(item) &&
       String(item.respuestaAId || "") === String(intervencionId)
   );
 
