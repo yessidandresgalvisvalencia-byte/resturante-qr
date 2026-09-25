@@ -566,7 +566,8 @@ function respuestaEventoVenta({
         "¿Qué productos o servicios incluyó?",
         "¿Cuál fue el costo directo confiable de esa venta?"
       ],
-      confianza: ticket_promedio ? 82 : 72
+      confianza: ticket_promedio ? 82 : 72,
+      relevancia: "ALTA"
     };
   }
 
@@ -599,7 +600,8 @@ function respuestaEventoVenta({
         "¿Por qué canal llegó?",
         "¿Hubo descuento o venta sugerida?"
       ],
-      confianza: ticket_promedio ? 88 : 76
+      confianza: ticket_promedio ? 88 : 76,
+      relevancia: "ALTA"
     };
   }
 
@@ -628,7 +630,8 @@ function respuestaEventoVenta({
         "¿Era nuevo o recurrente?",
         "¿Hubo campaña, recomendación o acción comercial asociada?"
       ],
-      confianza: 76
+      confianza: 76,
+      relevancia: "MEDIA"
     };
   }
 
@@ -657,7 +660,8 @@ function respuestaEventoVenta({
         "¿Cuánto tiempo y capacidad consumió?",
         "¿Hubo faltantes, merma o compras extraordinarias?"
       ],
-      confianza: 74
+      confianza: 74,
+      relevancia: "MEDIA"
     };
   }
 
@@ -679,7 +683,8 @@ function respuestaEventoVenta({
         "Con OPERACIONES: primero medir si ventas de este tamaño generan carga recurrente."
       ],
       datos_faltantes: [],
-      confianza: 90
+      confianza: 90,
+      relevancia: "BAJA"
     };
   }
 
@@ -712,13 +717,582 @@ function respuestaEventoVenta({
         "Cómo llegó el cliente.",
         "Si era cliente nuevo o recurrente."
       ],
-      confianza: ticket_promedio ? 86 : 78
+      confianza: ticket_promedio ? 86 : 78,
+      relevancia: "ALTA"
     };
   }
 
   return null;
 }
 
+
+const RELEVANCIA_EVENTO = Object.freeze({
+  VENTA_REPORTADA: {
+    FINANZAS: "ALTA",
+    VENTAS: "ALTA",
+    MARKETING: "MEDIA",
+    OPERACIONES: "MEDIA",
+    GENTE: "BAJA",
+    DIRECCION: "ALTA"
+  },
+  GASTO_REPORTADO: {
+    FINANZAS: "ALTA",
+    VENTAS: "BAJA",
+    MARKETING: "BAJA",
+    OPERACIONES: "MEDIA",
+    GENTE: "BAJA",
+    DIRECCION: "ALTA"
+  },
+  SALIDA_PERSONAL_REPORTADA: {
+    FINANZAS: "MEDIA",
+    VENTAS: "BAJA",
+    MARKETING: "NINGUNA",
+    OPERACIONES: "ALTA",
+    GENTE: "ALTA",
+    DIRECCION: "ALTA"
+  },
+  QUEJA_CLIENTE_REPORTADA: {
+    FINANZAS: "MEDIA",
+    VENTAS: "MEDIA",
+    MARKETING: "MEDIA",
+    OPERACIONES: "ALTA",
+    GENTE: "MEDIA",
+    DIRECCION: "ALTA"
+  },
+  QUIEBRE_INVENTARIO_REPORTADO: {
+    FINANZAS: "ALTA",
+    VENTAS: "MEDIA",
+    MARKETING: "BAJA",
+    OPERACIONES: "ALTA",
+    GENTE: "BAJA",
+    DIRECCION: "ALTA"
+  },
+  CAMBIO_PRECIO_REPORTADO: {
+    FINANZAS: "ALTA",
+    VENTAS: "ALTA",
+    MARKETING: "ALTA",
+    OPERACIONES: "MEDIA",
+    GENTE: "NINGUNA",
+    DIRECCION: "ALTA"
+  }
+});
+
+function relevanciaEvento(tipo, departamento) {
+  return RELEVANCIA_EVENTO[tipo]?.[departamento] || "BAJA";
+}
+
+function hechoConversacionalPrincipal(hechosHumanos) {
+  const prioridad = [
+    "VENTA_REPORTADA",
+    "GASTO_REPORTADO",
+    "SALIDA_PERSONAL_REPORTADA",
+    "QUEJA_CLIENTE_REPORTADA",
+    "QUIEBRE_INVENTARIO_REPORTADO",
+    "CAMBIO_PRECIO_REPORTADO"
+  ];
+
+  for (const tipo of prioridad) {
+    const encontrado = (hechosHumanos || []).find(
+      (hecho) => hecho.tipo === tipo
+    );
+
+    if (encontrado) return encontrado;
+  }
+
+  return null;
+}
+
+function respuestaSinAporteMaterial({
+  departamento,
+  hecho
+}) {
+  const etiqueta = {
+    GASTO_REPORTADO: "este gasto",
+    SALIDA_PERSONAL_REPORTADA: "esta salida de personal",
+    QUEJA_CLIENTE_REPORTADA: "esta queja",
+    QUIEBRE_INVENTARIO_REPORTADO: "este quiebre de inventario",
+    CAMBIO_PRECIO_REPORTADO: "este cambio de precio"
+  }[hecho.tipo] || "este hecho";
+
+  return {
+    respuesta:
+      `No veo una conclusión material desde ${departamento} solo con ${etiqueta}. Prefiero no rellenar la Junta con una opinión que no cambia la decisión.`,
+    criterio_profesional:
+      "Cuando una función no tiene evidencia suficiente o impacto directo, su mejor aporte es declarar el límite y no fabricar relevancia.",
+    evidencia_usada: [
+      `DATO_USUARIO: ${limitarTexto(hecho.texto, 400)}`
+    ],
+    inferencias: [],
+    riesgos: [],
+    objeciones: [],
+    acuerdos: [],
+    datos_faltantes: [],
+    confianza: 95,
+    relevancia: "NINGUNA"
+  };
+}
+
+function respuestaEventoGeneral({
+  departamento,
+  hecho
+}) {
+  if (!hecho) return null;
+
+  const relevancia =
+    relevanciaEvento(
+      hecho.tipo,
+      departamento
+    );
+
+  if (relevancia === "NINGUNA") {
+    return respuestaSinAporteMaterial({
+      departamento,
+      hecho
+    });
+  }
+
+  const dato = [
+    `DATO_USUARIO: ${limitarTexto(hecho.texto, 450)}`
+  ];
+
+  if (hecho.tipo === "GASTO_REPORTADO") {
+    const monto = formatearCOP(hecho.monto_cop);
+    const categoria = hecho.categoria_sugerida;
+
+    const porDepartamento = {
+      FINANZAS: {
+        respuesta:
+          `Ese gasto de ${monto} no lo juzgaría solo por el monto. Quiero saber qué compró, si era inevitable, si estaba previsto y cuánta caja quedó después. Un gasto puede ser correcto y aun así llegar en el peor momento de liquidez.`,
+        criterio:
+          "Todo desembolso debe justificarse por necesidad, retorno o continuidad operativa y medirse contra caja disponible.",
+        faltantes: [
+          "¿Qué se pagó exactamente?",
+          "¿Ya salió el dinero de caja?",
+          "¿Era un gasto previsto o extraordinario?",
+          "¿Qué caja quedó disponible después?"
+        ]
+      },
+      VENTAS: {
+        respuesta:
+          "Desde Ventas no puedo concluir mucho solo por el gasto. Me importa únicamente si ese desembolso habilita ingresos, mejora conversión o sostiene una venta que de otro modo se perdería.",
+        criterio:
+          "El área comercial no debe apropiarse de un gasto si no existe vínculo demostrable con ingresos.",
+        faltantes: [
+          "¿Este gasto está asociado a una venta, cliente o canal concreto?"
+        ]
+      },
+      MARKETING: {
+        respuesta:
+          categoria === "MARKETING"
+            ? `Si esos ${monto} fueron publicidad, necesito una condición mínima: poder atribuir clientes o ventas a ese gasto. Sin atribución, no sabremos si fue inversión o consumo de caja.`
+            : "No veo todavía evidencia de que este gasto sea de Marketing. Si no está vinculado a adquisición o retención de clientes, no lo convertiría en una conclusión de mi función.",
+        criterio:
+          "Marketing solo reclama responsabilidad sobre gasto que tenga una hipótesis de demanda, medición y atribución.",
+        faltantes:
+          categoria === "MARKETING"
+            ? [
+                "¿Qué canal recibió el dinero?",
+                "¿Cuántos clientes o ventas se atribuyen a ese gasto?"
+              ]
+            : []
+      },
+      OPERACIONES: {
+        respuesta:
+          categoria === "OPERACIONES"
+            ? `Si los ${monto} fueron para proveedor o insumos, necesito saber qué cobertura compramos: cuántos días de operación, qué rotación y si evitamos un quiebre. Comprar mucho puede proteger servicio o simplemente inmovilizar caja.`
+            : "Operaciones solo debería intervenir si el gasto compró capacidad, inventario, mantenimiento o continuidad del servicio.",
+        criterio:
+          "Un desembolso operativo debe traducirse en capacidad, disponibilidad, calidad o reducción de riesgo medible.",
+        faltantes:
+          categoria === "OPERACIONES"
+            ? [
+                "¿Qué insumo o activo se compró?",
+                "¿Cuánta cobertura o capacidad agregó?",
+                "¿Era reposición normal o compra extraordinaria?"
+              ]
+            : []
+      },
+      GENTE: {
+        respuesta:
+          categoria === "GENTE"
+            ? `Si ese gasto de ${monto} fue de nómina o personal, necesito separar obligación recurrente de gasto extraordinario. El impacto importante no es un pago aislado, sino cuánto compromiso fijo mensual representa.`
+            : "No veo una conclusión de Gente a partir de este gasto si no está relacionado con nómina, contratación, formación o capacidad humana.",
+        criterio:
+          "Gente analiza compromisos laborales y capacidad, no cualquier salida de caja.",
+        faltantes:
+          categoria === "GENTE"
+            ? [
+                "¿Es un costo recurrente o extraordinario?",
+                "¿A qué capacidad o responsabilidad corresponde?"
+              ]
+            : []
+      },
+      DIRECCION: {
+        respuesta:
+          `No preguntaría primero si gastar ${monto} fue “mucho” o “poco”. Preguntaría qué problema resolvió, qué alternativa existía y qué cambió después del desembolso. Dirección debe conectar ese gasto con caja, continuidad y resultado.`,
+        criterio:
+          "Un gasto se evalúa por necesidad, impacto, reversibilidad y efecto sobre caja, no por intuición.",
+        faltantes: [
+          "Qué problema resolvió.",
+          "Qué resultado se esperaba.",
+          "Qué caja quedó después."
+        ]
+      }
+    };
+
+    const item = porDepartamento[departamento];
+
+    return {
+      respuesta: item.respuesta,
+      criterio_profesional: item.criterio,
+      evidencia_usada: dato,
+      inferencias: [],
+      riesgos: [
+        departamento === "FINANZAS"
+          ? "Normalizar gastos aislados sin controlar su efecto acumulado sobre caja."
+          : "Sacar conclusiones funcionales sin conocer para qué se usó el dinero."
+      ],
+      objeciones: [],
+      acuerdos: [],
+      datos_faltantes: item.faltantes,
+      confianza: 78,
+      relevancia
+    };
+  }
+
+  if (hecho.tipo === "SALIDA_PERSONAL_REPORTADA") {
+    const cantidad =
+      hecho.cantidad
+        ? `${hecho.cantidad} persona(s)`
+        : "personal";
+
+    const porDepartamento = {
+      FINANZAS: {
+        respuesta:
+          `La salida de ${cantidad} puede aliviar nómina o crear un costo mayor si obliga a pagar horas extra, liquidaciones o reemplazos urgentes. No asumiría ahorro hasta calcular el costo completo de la transición.`,
+        criterio:
+          "La salida de personal se evalúa por costo total, no únicamente por salario que deja de pagarse.",
+        faltantes: [
+          "Costo de liquidación.",
+          "Costo temporal de cobertura.",
+          "Costo estimado de reemplazo."
+        ]
+      },
+      VENTAS: {
+        respuesta:
+          "Solo me preocupa directamente si la persona saliente atendía clientes, sostenía cartera o generaba ventas. Si no, no forzaría una conclusión comercial.",
+        criterio:
+          "Ventas debe medir continuidad de relaciones e ingresos cuando la salida afecta roles comerciales.",
+        faltantes: [
+          "¿La persona gestionaba clientes o ventas activas?"
+        ]
+      },
+      OPERACIONES: {
+        respuesta:
+          `Necesito saber qué turno, proceso o capacidad quedó descubierta con la salida de ${cantidad}. El riesgo inmediato no es el organigrama: es que el trabajo siga existiendo y ahora nadie tenga capacidad para hacerlo.`,
+        criterio:
+          "Toda salida debe traducirse a capacidad perdida, cobertura temporal y riesgo de continuidad.",
+        faltantes: [
+          "Qué funciones quedaron sin cobertura.",
+          "Horas o turnos que deben redistribuirse.",
+          "Impacto esperado en tiempo y calidad."
+        ]
+      },
+      GENTE: {
+        respuesta:
+          `Aquí sí entro de lleno. Antes de correr a reemplazar a ${cantidad}, quiero saber por qué se fueron, qué función cubrían y si el problema es realmente falta de personas o diseño deficiente del trabajo. Reemplazar sin entender la causa puede repetir la salida.`,
+        criterio:
+          "Una baja de personal exige separar causa de salida, necesidad real del puesto y riesgo de recurrencia.",
+        faltantes: [
+          "Motivo de salida.",
+          "Función y KPI de cada persona.",
+          "Carga que queda pendiente.",
+          "Si existe reemplazo interno viable."
+        ]
+      },
+      DIRECCION: {
+        respuesta:
+          `La pregunta no es simplemente “¿a quién contratamos para reemplazar a ${cantidad}?”. Primero debemos saber qué función crítica quedó sin responsable y cuánto tiempo puede operar así la empresa sin deteriorar ventas, servicio o control.`,
+        criterio:
+          "Dirección protege continuidad de funciones críticas antes que puestos específicos.",
+        faltantes: [
+          "Qué función crítica quedó descubierta.",
+          "Cuánto tiempo puede sostenerse la cobertura temporal."
+        ]
+      }
+    };
+
+    const item = porDepartamento[departamento];
+
+    if (!item) {
+      return respuestaSinAporteMaterial({
+        departamento,
+        hecho
+      });
+    }
+
+    return {
+      respuesta: item.respuesta,
+      criterio_profesional: item.criterio,
+      evidencia_usada: dato,
+      inferencias: [],
+      riesgos: [
+        "Reemplazar personas sin diagnosticar la causa o la necesidad real de capacidad."
+      ],
+      objeciones: [],
+      acuerdos: [],
+      datos_faltantes: item.faltantes,
+      confianza: 82,
+      relevancia
+    };
+  }
+
+  if (hecho.tipo === "QUEJA_CLIENTE_REPORTADA") {
+    const porDepartamento = {
+      FINANZAS: {
+        respuesta:
+          "Una queja puede tener costo directo —devolución, descuento, reposición— y costo futuro por pérdida de recurrencia. Necesito cuantificar ambos antes de llamarla un incidente menor.",
+        criterio:
+          "El costo de una falla de servicio incluye compensación inmediata y posible valor futuro perdido.",
+        faltantes: [
+          "¿Hubo devolución, descuento o reposición?",
+          "¿El cliente era recurrente?"
+        ]
+      },
+      VENTAS: {
+        respuesta:
+          "Quiero saber si esta queja pone en riesgo una relación comercial. Si el cliente compra con frecuencia, la prioridad es recuperar confianza y entender qué promesa comercial no se cumplió.",
+        criterio:
+          "La recuperación de servicio es también protección de ingresos futuros.",
+        faltantes: [
+          "Historial de compra del cliente.",
+          "Promesa comercial realizada."
+        ]
+      },
+      MARKETING: {
+        respuesta:
+          "Una queja aislada no define reputación, pero sí puede revelar una brecha entre lo que prometemos y lo que entregamos. Me interesa si la expectativa vino de nuestro mensaje o canal.",
+        criterio:
+          "Marketing debe corregir promesas que atraen clientes con expectativas que Operaciones no puede cumplir.",
+        faltantes: [
+          "Qué expectativa tenía el cliente.",
+          "Qué mensaje, campaña o canal influyó."
+        ]
+      },
+      OPERACIONES: {
+        respuesta:
+          "Aquí necesito reconstruir el servicio de punta a punta: qué pidió, qué recibió, cuánto tardó, quién intervino y dónde ocurrió la desviación. Una queja sirve si la convertimos en causa operativa verificable.",
+        criterio:
+          "Las quejas deben transformarse en fallas de proceso observables, no en opiniones sobre personas.",
+        faltantes: [
+          "Qué ocurrió exactamente.",
+          "Hora y pedido involucrado.",
+          "Punto del proceso donde apareció la falla."
+        ]
+      },
+      GENTE: {
+        respuesta:
+          "No asumiría que la queja es culpa de un empleado. Primero separaría proceso, carga, formación y conducta. Si el problema es sistémico, castigar a una persona no lo corrige.",
+        criterio:
+          "El desempeño humano se evalúa después de distinguir falla individual de falla de proceso.",
+        faltantes: [
+          "Si hubo incumplimiento de procedimiento.",
+          "Carga de trabajo y formación de quien atendió."
+        ]
+      },
+      DIRECCION: {
+        respuesta:
+          "No quiero cerrar una queja solo con una compensación. Quiero saber si revela un fallo repetible que puede costarnos más clientes. Si es aislada, se resuelve; si es patrón, cambia prioridad operativa.",
+        criterio:
+          "Dirección diferencia incidente de patrón y protege recurrencia y reputación.",
+        faltantes: [
+          "Si existen quejas similares recientes.",
+          "Costo de resolverla y riesgo de repetición."
+        ]
+      }
+    };
+
+    const item = porDepartamento[departamento];
+
+    return {
+      respuesta: item.respuesta,
+      criterio_profesional: item.criterio,
+      evidencia_usada: dato,
+      inferencias: [],
+      riesgos: [
+        "Tratar el síntoma sin encontrar si existe una causa repetible."
+      ],
+      objeciones: [],
+      acuerdos: [],
+      datos_faltantes: item.faltantes,
+      confianza: 80,
+      relevancia
+    };
+  }
+
+  if (hecho.tipo === "QUIEBRE_INVENTARIO_REPORTADO") {
+    const porDepartamento = {
+      FINANZAS: {
+        respuesta:
+          "Quedarse sin inventario puede significar caja protegida por comprar poco o ventas perdidas por comprar tarde. Necesito medir qué ingreso se dejó de capturar y qué capital habría requerido evitar el quiebre.",
+        criterio:
+          "El inventario óptimo equilibra caja inmovilizada contra costo de quiebre.",
+        faltantes: [
+          "Ventas perdidas estimadas.",
+          "Costo y plazo de reposición."
+        ]
+      },
+      VENTAS: {
+        respuesta:
+          "Si el producto agotado tiene demanda real, quiero saber cuántas ventas no pudimos cerrar y si el cliente aceptó sustituto. Eso convierte el quiebre en impacto comercial.",
+        criterio:
+          "Un agotado se mide también por conversión perdida y sustitución.",
+        faltantes: [
+          "Clientes afectados.",
+          "Ventas perdidas o sustituidas."
+        ]
+      },
+      OPERACIONES: {
+        respuesta:
+          "Aquí la primera pregunta es por qué se agotó: demanda superior, compra tardía, proveedor incumplido, dato de inventario incorrecto o política de reposición inexistente. Cada causa exige una corrección distinta.",
+        criterio:
+          "Un quiebre debe rastrearse hasta reposición, proveedor, pronóstico o exactitud de inventario.",
+        faltantes: [
+          "Producto agotado.",
+          "Fecha del último pedido.",
+          "Tiempo de reposición.",
+          "Stock teórico versus stock real."
+        ]
+      },
+      DIRECCION: {
+        respuesta:
+          "No ordenaría simplemente comprar más. Primero debemos saber si el quiebre fue excepcional o si nuestra política de inventario está mal diseñada. Comprar de más también destruye caja.",
+        criterio:
+          "Dirección equilibra disponibilidad con capital de trabajo.",
+        faltantes: [
+          "Frecuencia de quiebres.",
+          "Valor de ventas perdidas.",
+          "Capital necesario para aumentar stock."
+        ]
+      }
+    };
+
+    const item = porDepartamento[departamento];
+
+    if (!item) {
+      return respuestaSinAporteMaterial({
+        departamento,
+        hecho
+      });
+    }
+
+    return {
+      respuesta: item.respuesta,
+      criterio_profesional: item.criterio,
+      evidencia_usada: dato,
+      inferencias: [],
+      riesgos: [
+        "Corregir un quiebre comprando exceso de inventario sin calcular rotación."
+      ],
+      objeciones: [],
+      acuerdos: [],
+      datos_faltantes: item.faltantes,
+      confianza: 84,
+      relevancia
+    };
+  }
+
+  if (hecho.tipo === "CAMBIO_PRECIO_REPORTADO") {
+    const cambio =
+      hecho.porcentaje !== null
+        ? `${hecho.porcentaje}%`
+        : "un valor no cuantificado";
+
+    const verbo =
+      hecho.direccion === "SUBE"
+        ? "subiste"
+        : "bajaste";
+
+    const porDepartamento = {
+      FINANZAS: {
+        respuesta:
+          `Si ${verbo} precios ${cambio}, quiero medir margen de contribución antes y después, no solo facturación. El cambio sirve si mejora economía unitaria sin destruir volumen de forma desproporcionada.`,
+        criterio:
+          "Precio debe evaluarse por contribución total y caja, no solo margen porcentual.",
+        faltantes: [
+          "Margen antes y después.",
+          "Volumen vendido antes y después."
+        ]
+      },
+      VENTAS: {
+        respuesta:
+          `El cambio de precio de ${cambio} debe observarse en conversión, ticket y objeciones del cliente. Si la conversión cae, necesito saber si perdimos clientes sensibles al precio o si la oferta dejó de justificar el valor.`,
+        criterio:
+          "Ventas valida elasticidad real en comportamiento de compra.",
+        faltantes: [
+          "Conversión antes y después.",
+          "Objeciones recibidas.",
+          "Ticket promedio posterior al cambio."
+        ]
+      },
+      MARKETING: {
+        respuesta:
+          `Un cambio de precio de ${cambio} también cambia el posicionamiento. Debemos revisar si el mensaje y la propuesta de valor justifican el nuevo nivel de precio y a qué segmento seguimos siendo atractivos.`,
+        criterio:
+          "Precio y posicionamiento deben ser coherentes para no comprar demanda equivocada.",
+        faltantes: [
+          "Segmento afectado.",
+          "Cambios en respuesta por canal."
+        ]
+      },
+      OPERACIONES: {
+        respuesta:
+          "Desde Operaciones me importa si el cambio de precio responde a mayor costo real o si pretende compensar ineficiencias. Si es lo segundo, subir precio puede esconder un problema que seguirá creciendo.",
+        criterio:
+          "El precio no debe utilizarse como sustituto permanente de control de costo y merma.",
+        faltantes: [
+          "Cambio reciente en costos, merma o productividad."
+        ]
+      },
+      DIRECCION: {
+        respuesta:
+          `No declararía éxito o fracaso por haber cambiado precios ${cambio}. Necesitamos un antes/después de margen, volumen, conversión y caja durante un periodo comparable.`,
+        criterio:
+          "Dirección evalúa cambios de precio como experimentos económicos medibles.",
+        faltantes: [
+          "Fecha exacta del cambio.",
+          "Métricas comparables antes y después."
+        ]
+      }
+    };
+
+    const item = porDepartamento[departamento];
+
+    if (!item) {
+      return respuestaSinAporteMaterial({
+        departamento,
+        hecho
+      });
+    }
+
+    return {
+      respuesta: item.respuesta,
+      criterio_profesional: item.criterio,
+      evidencia_usada: dato,
+      inferencias: [],
+      riesgos: [
+        "Atribuir cambios de resultado al precio sin controlar otras variables."
+      ],
+      objeciones: [],
+      acuerdos: [],
+      datos_faltantes: item.faltantes,
+      confianza: 81,
+      relevancia
+    };
+  }
+
+  return null;
+}
 
 function numero(valor) {
   if (
@@ -1237,6 +1811,11 @@ function construirRespuestaExperta({
   const perfil =
     PERFILES_EXPERTOS[departamento];
 
+  const hechoPrincipal =
+    hechoConversacionalPrincipal(
+      hechosHumanos
+    );
+
   const ventaReportada =
     eventoVentaReportada(hechosHumanos);
 
@@ -1250,6 +1829,24 @@ function construirRespuestaExperta({
             reportes
           }),
         reportes
+      });
+
+    if (contextual) {
+      return {
+        departamento,
+        ...contextual
+      };
+    }
+  }
+
+  if (
+    hechoPrincipal &&
+    hechoPrincipal.tipo !== "VENTA_REPORTADA"
+  ) {
+    const contextual =
+      respuestaEventoGeneral({
+        departamento,
+        hecho: hechoPrincipal
       });
 
     if (contextual) {
@@ -1345,7 +1942,39 @@ function construirRespuestaExperta({
         intencion,
         reporte,
         temas
-      })
+      }),
+    relevancia:
+      (() => {
+        const principal = temaPrincipal(temas);
+        const mapa = {
+          FLUJO_CAJA: {
+            FINANZAS: "ALTA",
+            VENTAS: "MEDIA",
+            MARKETING: "BAJA",
+            OPERACIONES: "MEDIA",
+            GENTE: "BAJA",
+            DIRECCION: "ALTA"
+          },
+          MARGEN_PRECIO: {
+            FINANZAS: "ALTA",
+            VENTAS: "ALTA",
+            MARKETING: "MEDIA",
+            OPERACIONES: "MEDIA",
+            GENTE: "BAJA",
+            DIRECCION: "ALTA"
+          },
+          GENTE_CAPACIDAD: {
+            FINANZAS: "MEDIA",
+            VENTAS: "BAJA",
+            MARKETING: "NINGUNA",
+            OPERACIONES: "ALTA",
+            GENTE: "ALTA",
+            DIRECCION: "ALTA"
+          }
+        };
+
+        return mapa[principal]?.[departamento] || "MEDIA";
+      })()
   };
 }
 
