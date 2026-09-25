@@ -83,6 +83,8 @@ jobs:
           node --check core/finanzas/tesoreria.service.js
           node --check core/finanzas/obligaciones.service.js
           node --check core/finanzas/politicaFinanciera.service.js
+          node --check core/finanzas/excepcionesPrioridadPago.service.js
+          node --check core/finanzas/models/ExcepcionPrioridadPago.js
           node --check core/finanzas/obligacionesRecurrentes.service.js
           node --check core/finanzas/tesoreriaProyeccion.service.js
           node --check core/finanzas/models/ObligacionRecurrente.js
