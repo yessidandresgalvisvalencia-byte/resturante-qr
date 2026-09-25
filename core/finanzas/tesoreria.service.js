@@ -371,6 +371,20 @@ async function crearCuenta({
     );
   }
 
+  const maximoFuturo =
+    Date.now() +
+    5 * 60 * 1000;
+
+  if (
+    fecha.getTime() >
+    maximoFuturo
+  ) {
+    throw serviceError(
+      400,
+      "El saldo inicial no puede fecharse en el futuro"
+    );
+  }
+
   const metodos = [
     ...new Set(
       (metodosPagoAsociados || [])
