@@ -3,6 +3,7 @@ const crypto=require("crypto");
 const mongoose=require("mongoose");
 const Reporte=require("../models/CerebroReporteNeurona");
 const Decision=require("../models/CerebroDecision");
+const Auditoria=require("../models/CerebroAuditoria");
 const NEURONAS=["FINANZAS","VENTAS","MARKETING","OPERACIONES","GENTE"];
 const MAPA={
  MARGEN_BAJO_OBJETIVO:{departamento:"FINANZAS",tarea:"Revisar costos y margen bruto frente al objetivo configurado.",kpi:"margen_bruto_confiable"},
@@ -85,6 +86,89 @@ function construirDecisionFingerprint({agenda,candidatos}){
  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
+const KPI_FINANCIEROS_AGENDA=new Set([
+ "brecha_caja_7d",
+ "cobros_confirmados_7d",
+ "obligaciones_7d_cubiertas",
+ "cobertura_datos_obligaciones_7d",
+ "tesoreria_confiable"
+]);
+
+function estadoAgendaRequiereAccion(estado7d){
+ return [
+  "DEFICIT_AUN_COBRANDO_TODO",
+  "DEPENDE_DE_COBROS",
+  "DATOS_INSUFICIENTES",
+  "SIN_SALDO_VERIFICABLE"
+ ].includes(estado7d);
+}
+
+async function requiereActualizarDecisionFinanciera(empresaId,agenda){
+ if(!mongoose.Types.ObjectId.isValid(empresaId))return false;
+ const ultima=await Decision.findOne({
+  empresaId:new mongoose.Types.ObjectId(String(empresaId)),
+  deletedAt:null
+ })
+  .sort({createdAt:-1})
+  .select("contexto_financiero.estado7d")
+  .lean();
+
+ const anterior=ultima?.contexto_financiero?.estado7d||null;
+ if(!anterior)return false;
+
+ return (
+  estadoAgendaRequiereAccion(anterior) &&
+  !agenda?.requiereDecision
+ );
+}
+
+async function superarOrdenesFinancierasPendientes({
+ decision,
+ nuevaDecisionId
+}){
+ if(!decision?._id)return 0;
+
+ const documento=await Decision.findById(decision._id);
+ if(!documento)return 0;
+
+ const superadas=[];
+ const ahora=new Date();
+
+ for(const orden of documento.ordenes_por_departamento||[]){
+  if(
+   orden.estado==="PENDIENTE_APROBACION" &&
+   KPI_FINANCIEROS_AGENDA.has(orden.kpi_a_medir)
+  ){
+   orden.estado="SUPERADA";
+   orden.superadaAt=ahora;
+   orden.superadaPorDecisionId=nuevaDecisionId;
+   superadas.push(orden);
+  }
+ }
+
+ if(!superadas.length)return 0;
+
+ await documento.save();
+
+ await Auditoria.insertMany(
+  superadas.map((orden)=>({
+   empresaId:documento.empresaId,
+   sedeId:documento.sedeId||null,
+   decisionId:documento._id,
+   ordenId:orden._id,
+   accion:"SUPERAR",
+   usuarioId:null,
+   metadata:{
+    actor:"SISTEMA",
+    nuevaDecisionId:String(nuevaDecisionId)
+   },
+   deletedAt:null
+  }))
+ );
+
+ return superadas.length;
+}
+
 async function tomarDecision(empresaId,opciones={}){
  if(!mongoose.Types.ObjectId.isValid(empresaId))throw new Error("CEREBRO_EMPRESA_ID_INVALIDO");
  const reportes=await ultimosReportes(empresaId);
@@ -138,6 +222,15 @@ async function tomarDecision(empresaId,opciones={}){
   : agenda?.estado7d==="DEPENDE_DE_COBROS"
     ? `La cobertura depende de convertir en caja cobros esperados por hasta ${Number(agenda.cobros7d||0)}.`
     : null;
- return (await Decision.create({empresaId:new mongoose.Types.ObjectId(String(empresaId)),sedeId:null,decisionFingerprint,decision_general:{situacion:construirSituacion(criticos,ordenes),causa_raiz:causaAgenda||(principal?principal.hallazgo.evidencia:"No hay hallazgos accionables con los datos actuales."),prediccion:agenda?.requiereDecision?"Sin resolver la señal financiera antes de la fecha critica, la cobertura operativa de corto plazo puede deteriorarse.":(principal?"Sin correccion, el KPI asociado puede continuar fuera del objetivo.":"Mantener seguimiento de los cinco KPI principales.")},ordenes_por_departamento:ordenes,contexto_financiero:agenda?{fuente:agenda.fuente,estado7d:agenda.estado7d,confiabilidad:agenda.confiabilidad,saldoActual:agenda.saldoActual,obligaciones7d:agenda.obligaciones7d,cobros7d:agenda.cobros7d,faltanteConCajaActual:agenda.faltanteConCajaActual,faltanteAunCobrandoTodo:agenda.faltanteAunCobrandoTodo,fechaCritica:agenda.fechaCritica}:undefined,confianza_global:Math.max(0,Math.min(100,confianza)),riesgo_si_no_se_hace:riesgoAgenda||(principal?principal.hallazgo.evidencia:"No se identifico riesgo cuantificado."),como_medir_exito_en_7_dias:agenda?.requiereDecision?"Recalcular Tesoreria y verificar que la brecha de caja de 7 dias sea cero o que la cobertura quede demostrada con datos completos.":(ordenes.length?"Recalcular los KPI de las ordenes y comparar contra sus objetivos.":"Generar nuevamente los cinco reportes y verificar su estado."),reportesOrigen:reportes.map(r=>r._id),createdBy:null,deletedAt:null})).toObject();
+ const nuevaDecision=(await Decision.create({empresaId:new mongoose.Types.ObjectId(String(empresaId)),sedeId:null,decisionFingerprint,decision_general:{situacion:construirSituacion(criticos,ordenes),causa_raiz:causaAgenda||(principal?principal.hallazgo.evidencia:"No hay hallazgos accionables con los datos actuales."),prediccion:agenda?.requiereDecision?"Sin resolver la señal financiera antes de la fecha critica, la cobertura operativa de corto plazo puede deteriorarse.":(principal?"Sin correccion, el KPI asociado puede continuar fuera del objetivo.":"Mantener seguimiento de los cinco KPI principales.")},ordenes_por_departamento:ordenes,contexto_financiero:agenda?{fuente:agenda.fuente,estado7d:agenda.estado7d,confiabilidad:agenda.confiabilidad,saldoActual:agenda.saldoActual,obligaciones7d:agenda.obligaciones7d,cobros7d:agenda.cobros7d,faltanteConCajaActual:agenda.faltanteConCajaActual,faltanteAunCobrandoTodo:agenda.faltanteAunCobrandoTodo,fechaCritica:agenda.fechaCritica}:undefined,confianza_global:Math.max(0,Math.min(100,confianza)),riesgo_si_no_se_hace:riesgoAgenda||(principal?principal.hallazgo.evidencia:"No se identifico riesgo cuantificado."),como_medir_exito_en_7_dias:agenda?.requiereDecision?"Recalcular Tesoreria y verificar que la brecha de caja de 7 dias sea cero o que la cobertura quede demostrada con datos completos.":(ordenes.length?"Recalcular los KPI de las ordenes y comparar contra sus objetivos.":"Generar nuevamente los cinco reportes y verificar su estado."),reportesOrigen:reportes.map(r=>r._id),createdBy:null,deletedAt:null})).toObject();
+
+ if(ultimaDecision?._id){
+  await superarOrdenesFinancierasPendientes({
+   decision:ultimaDecision,
+   nuevaDecisionId:nuevaDecision._id
+  });
+ }
+
+ return nuevaDecision;
 }
-module.exports={tomarDecision,compararCandidatos,construirSituacion,convertirAgendaEnOrdenes,construirDecisionFingerprint};
+module.exports={tomarDecision,compararCandidatos,construirSituacion,convertirAgendaEnOrdenes,construirDecisionFingerprint,requiereActualizarDecisionFinanciera,estadoAgendaRequiereAccion,superarOrdenesFinancierasPendientes};
