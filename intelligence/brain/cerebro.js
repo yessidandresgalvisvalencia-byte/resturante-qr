@@ -16,10 +16,24 @@ const MAPA={
 };
 const RIESGO_CAJA={FINANZAS:0,OPERACIONES:1,VENTAS:2,MARKETING:3,DIRECCION:4,GENTE:5,SERVICIO_CLIENTE:6};
 
+function describirCobrosPriorizados(a){
+ const items=Array.isArray(a?.cobrosPriorizados)?a.cobrosPriorizados:[];
+ if(!items.length)return "No existen cobros vencidos o con vencimiento dentro de 7 dias suficientes para priorizar.";
+ const detalle=items.map((item,index)=>{
+  const fecha=item.fechaVencimiento
+   ? new Date(item.fechaVencimiento).toISOString().slice(0,10)
+   : "sin fecha";
+  return `${index+1}. ${item.descripcion||"Venta pendiente"} por ${Number(item.monto||0)} (vence ${fecha}, ${item.clasificacion||"SIN_CLASIFICAR"})`;
+ }).join(" ");
+ const total=Number(a.montoCobrosPriorizados||0);
+ const remanente=Number(a.faltanteDespuesCobrosPriorizados||0);
+ return `${detalle} Total priorizado: ${total}.${remanente>0?` Aun faltarian ${remanente} despues de cobrarlos.`:""}`;
+}
+
 const AGENDA_TAREAS={
  REDUCIR_BRECHA_CAJA_7D:(a)=>`Cerrar la brecha de caja proyectada de ${Number(a.montoReferencia||0)} antes del vencimiento critico y reportar avance diario.`,
  CONTROLAR_BRECHA_CAJA_7D:(a)=>`Controlar la brecha de caja de corto plazo por ${Number(a.montoReferencia||0)} hasta que los cobros esperados se conviertan en caja confirmada.`,
- ACELERAR_COBROS_7D:(a)=>`Convertir en caja confirmada hasta ${Number(a.montoReferencia||0)} de cobros esperados dentro del horizonte de 7 dias.`,
+ ACELERAR_COBROS_7D:(a)=>`Priorizar estos cobros concretos para convertirlos en caja dentro del horizonte de 7 dias: ${describirCobrosPriorizados(a)}`,
  PRIORIZAR_OBLIGACIONES_7D:(a)=>`Priorizar obligaciones por ${Number(a.montoReferencia||0)} dentro de los proximos 7 dias y aprobar el orden de atencion antes del vencimiento critico.`,
  COMPLETAR_DATOS_OBLIGACIONES_7D:()=>"Completar fechas de vencimiento y saldos pendientes no cuantificados antes de declarar cobertura de caja de 7 dias.",
  COMPLETAR_TESORERIA:()=>"Completar la configuracion y conciliacion de Tesoreria hasta obtener un saldo disponible verificable."
@@ -73,7 +87,15 @@ function construirDecisionFingerprint({agenda,candidatos}){
     codigo:a.codigo,
     prioridad:a.prioridad,
     kpi:a.kpi_a_medir,
-    monto:Number(a.montoReferencia||0)
+    monto:Number(a.montoReferencia||0),
+    cobros:(a.cobrosPriorizados||[]).map(item=>({
+     id:String(item.id||""),
+     monto:Number(item.monto||0),
+     fecha:item.fechaVencimiento
+      ?new Date(item.fechaVencimiento).toISOString()
+      :null,
+     clasificacion:item.clasificacion||null
+    }))
    }))
   }:null,
   hallazgos:(candidatos||[]).map(c=>({
@@ -233,4 +255,4 @@ async function tomarDecision(empresaId,opciones={}){
 
  return nuevaDecision;
 }
-module.exports={tomarDecision,compararCandidatos,construirSituacion,convertirAgendaEnOrdenes,construirDecisionFingerprint,requiereActualizarDecisionFinanciera,estadoAgendaRequiereAccion,superarOrdenesFinancierasPendientes};
+module.exports={tomarDecision,compararCandidatos,construirSituacion,convertirAgendaEnOrdenes,construirDecisionFingerprint,requiereActualizarDecisionFinanciera,estadoAgendaRequiereAccion,superarOrdenesFinancierasPendientes,describirCobrosPriorizados};
