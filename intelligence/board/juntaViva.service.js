@@ -564,7 +564,8 @@ async function generarDiagnosticosAutomaticos({
           reportes,
           ventana24h
         ),
-      intervenciones: []
+      intervenciones: [],
+      fuente: "GRUK"
     });
 
   return (resultado.respuestas || [])
