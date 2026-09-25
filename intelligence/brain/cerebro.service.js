@@ -202,12 +202,12 @@ async function obtenerAuditoria(auth, limite = 100) {
         });
       }
 
-      if (intervencion.tipo === "EXPERTO_IA") {
+      if (["EXPERTO_GRUK", "EXPERTO_IA"].includes(intervencion.tipo)) {
         eventos.push({
           _id: `junta-experto-${intervencion._id}`,
           tipo: "JUNTA",
           accion: "JUNTA_RESPUESTA_EXPERTA",
-          actor: "IA",
+          actor: intervencion.tipo === "EXPERTO_GRUK" ? "GRUK" : "IA",
           usuarioId: null,
           rol: null,
           modelo: intervencion.modelo || null,
