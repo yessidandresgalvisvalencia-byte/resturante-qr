@@ -2,6 +2,7 @@
 
 let juntaSesionActualGRUK = null;
 let juntaDecisionActualGRUK = null;
+let juntaVivaTimerGRUK = null;
 
 function escaparJuntaGRUK(valor) {
   return String(valor ?? "").replace(/[&<>"']/g, (c) => ({
@@ -22,6 +23,149 @@ function formatoNumeroJuntaGRUK(valor) {
   return Number.isFinite(numero)
     ? numero.toLocaleString("es-CO")
     : "No estimado";
+}
+
+function formatoMonedaJuntaGRUK(valor) {
+  const numero = Number(valor || 0);
+
+  return numero.toLocaleString("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0
+  });
+}
+
+function formatoFechaJuntaGRUK(valor) {
+  if (!valor) return "Sin actualización";
+
+  const fecha = new Date(valor);
+
+  if (Number.isNaN(fecha.getTime())) {
+    return "Sin actualización";
+  }
+
+  return fecha.toLocaleString("es-CO");
+}
+
+function renderizarJuntaVivaGRUK(estadoVivo) {
+  const contenedor =
+    document.getElementById("juntaVivaGRUK");
+
+  if (!contenedor || !estadoVivo) return;
+
+  const ventana =
+    estadoVivo.ventana24h || {};
+  const diagnostico =
+    estadoVivo.diagnostico || {};
+  const evento =
+    estadoVivo.ultimoEvento || {};
+
+  const razones =
+    Array.isArray(diagnostico.razones)
+      ? diagnostico.razones
+      : [];
+
+  contenedor.innerHTML = `
+    <h2>Junta en vivo · ${escaparJuntaGRUK(
+      diagnostico.estado || "NORMAL"
+    )}</h2>
+
+    <p><strong>Último movimiento:</strong> ${escaparJuntaGRUK(
+      evento.descripcion || "Sin movimientos recientes."
+    )}</p>
+
+    <p><strong>Diagnóstico:</strong> ${escaparJuntaGRUK(
+      diagnostico.titular || "Sin diagnóstico."
+    )}</p>
+
+    <p>${escaparJuntaGRUK(
+      diagnostico.lectura || ""
+    )}</p>
+
+    <p>
+      <strong>Últimas 24 h · entradas confirmadas:</strong>
+      ${formatoMonedaJuntaGRUK(
+        ventana.ventasPagadas?.monto
+      )}
+      ·
+      <strong>salidas confirmadas por compras:</strong>
+      ${formatoMonedaJuntaGRUK(
+        ventana.comprasPagadas?.monto
+      )}
+    </p>
+
+    <p>
+      <strong>Flujo confirmado parcial:</strong>
+      ${formatoMonedaJuntaGRUK(
+        ventana.flujoConfirmadoParcial
+      )}
+      ·
+      <strong>gastos registrados no confirmados como salida:</strong>
+      ${formatoMonedaJuntaGRUK(
+        ventana.gastosRegistrados?.monto
+      )}
+    </p>
+
+    ${
+      razones.length
+        ? `<p><strong>Señales activas:</strong> ${razones
+            .map(escaparJuntaGRUK)
+            .join(" | ")}</p>`
+        : ""
+    }
+
+    <p>
+      <strong>Cerebro:</strong>
+      ${diagnostico.requiereDecisionCerebro
+        ? "Hay una señal crítica que requiere decisión."
+        : "Sin nueva decisión crítica requerida por este estado."}
+    </p>
+
+    <p><small>
+      Actualizado: ${escaparJuntaGRUK(
+        formatoFechaJuntaGRUK(
+          estadoVivo.ultimoCambioAt
+        )
+      )}. Los gastos registrados no se consideran salida de caja hasta que GRUK pueda demostrar el pago.
+    </small></p>
+  `;
+}
+
+async function cargarJuntaVivaGRUK() {
+  const res = await grukFetch(
+    "/api/junta/viva"
+  );
+  const data = await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible consultar la Junta en vivo."
+    );
+  }
+
+  renderizarJuntaVivaGRUK(
+    data.estado
+  );
+}
+
+function iniciarRefrescoJuntaVivaGRUK() {
+  if (juntaVivaTimerGRUK) {
+    clearInterval(
+      juntaVivaTimerGRUK
+    );
+  }
+
+  juntaVivaTimerGRUK = setInterval(() => {
+    cargarJuntaVivaGRUK().catch(
+      (error) => {
+        console.error(
+          "Junta viva:",
+          error
+        );
+      }
+    );
+  }, 10000);
 }
 
 function configurarProcesandoJuntaGRUK(procesando) {
@@ -408,6 +552,27 @@ async function agregarIntervencionJuntaGRUK() {
 async function inicializarJuntaDirectivaGRUK() {
   const estado =
     document.getElementById("juntaEstadoGRUK");
+  const estadoVivo =
+    document.getElementById("juntaVivaGRUK");
+
+  try {
+    await cargarJuntaVivaGRUK();
+  } catch (error) {
+    console.error(
+      "Junta viva inicial:",
+      error
+    );
+
+    if (estadoVivo) {
+      estadoVivo.innerHTML =
+        `<h2>Junta en vivo</h2><p>${escaparJuntaGRUK(
+          error.message ||
+          "No fue posible consultar el estado vivo."
+        )}</p>`;
+    }
+  }
+
+  iniciarRefrescoJuntaVivaGRUK();
 
   try {
     await cargarJuntaUltimaDecisionGRUK();
