@@ -20,6 +20,49 @@ Configura las cuentas reales donde vive el dinero. GRUK separa saldo disponible 
 
 <hr>
 
+<h4>Política de prioridad de pagos</h4>
+
+<p>
+Por defecto GRUK prioriza vencidas, luego fecha más próxima y después mayor monto. El DUEÑO puede activar precedencia adicional por categoría.
+</p>
+
+<label>
+  <input
+    id="politicaPagosActiva"
+    type="checkbox"
+  >
+  Activar precedencia por categoría
+</label>
+
+<label>Orden corporativo de categorías</label>
+<select
+  id="politicaPagosCategorias"
+  multiple
+  size="9"
+>
+  <option value="NOMINA">Nómina</option>
+  <option value="IMPUESTOS">Impuestos</option>
+  <option value="DEUDA">Deuda</option>
+  <option value="ARRIENDO">Arriendo</option>
+  <option value="SERVICIOS">Servicios</option>
+  <option value="SEGUROS">Seguros</option>
+  <option value="LICENCIAS">Licencias</option>
+  <option value="PROVEEDORES">Proveedores</option>
+  <option value="OTRO">Otro</option>
+</select>
+
+<p class="descripcion-termino">
+El orden visual de selección define la precedencia. La política solo se aplica dentro de la misma frontera: vencidas entre sí o próximas 7 días entre sí.
+</p>
+
+<button onclick="guardarPoliticaPagosGRUK()">
+  Guardar política de pagos
+</button>
+
+<div id="estadoPoliticaPagosGRUK"></div>
+
+<hr>
+
 <h4>Nueva obligación recurrente</h4>
 
 <label>Nombre</label>
