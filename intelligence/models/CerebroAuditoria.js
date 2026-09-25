@@ -28,12 +28,15 @@ const schema = new mongoose.Schema({
   accion: {
     type: String,
     required: true,
-    enum: ["APROBAR", "RECHAZAR"]
+    enum: ["APROBAR", "RECHAZAR", "SUPERAR"]
   },
   usuarioId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Usuario",
-    required: true
+    default: null,
+    required: function requiredUsuario() {
+      return this.accion !== "SUPERAR";
+    }
   },
   metadata: {
     type: mongoose.Schema.Types.Mixed,
