@@ -306,7 +306,7 @@ test("Junta deterministica entrega seis perspectivas sin proveedor externo", asy
     intervenciones: []
   });
 
-  assert.equal(resultado.model, "GRUK-DETERMINISTICO-1");
+  assert.equal(resultado.model, "GRUK-CONSULTIVO-2");
   assert.equal(resultado.respuestas.length, 6);
   assert.deepEqual(
     resultado.respuestas.map((item) => item.departamento),
@@ -329,7 +329,7 @@ test("Junta conserva correccion humana como contexto y no como hecho", async () 
   });
 
   const finanzas = resultado.respuestas.find((item) => item.departamento === "FINANZAS");
-  assert.match(finanzas.respuesta, /criterio humano previo/);
+  assert.match(finanzas.respuesta, /intervenciones humanas previas/);
   assert.equal(finanzas.evidencia_usada.length, 0);
 });
 
