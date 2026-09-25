@@ -145,3 +145,88 @@ Cada diagnóstico conserva:
 - fecha de generación.
 
 Esta capa es consultiva. Aunque la Junta detecte un problema, no crea órdenes ejecutables. El Cerebro conserva autoridad exclusiva para decidir.
+
+
+## Tesorería real y proyección
+
+GRUK separa tres conceptos que no deben confundirse:
+
+1. flujo confirmado del periodo;
+2. saldo disponible por cuentas configuradas;
+3. proyección de obligaciones y cobros futuros.
+
+### Cuentas de tesorería
+
+`CuentaTesoreria` representa Caja, Banco, Billetera u Otra cuenta real.
+
+Cada cuenta tiene:
+
+- empresa y sede;
+- saldo inicial confirmado;
+- fecha/hora del saldo inicial;
+- métodos de pago asociados;
+- política de saldo negativo;
+- auditoría de creador.
+
+El saldo inicial no puede fecharse en el futuro.
+
+Los movimientos posteriores se asignan automáticamente solo si existe una única cuenta compatible con método de pago y sede. Si existen cero o varias cuentas candidatas, el movimiento queda `SIN_ASIGNAR`.
+
+### Confiabilidad
+
+Tesorería usa:
+
+- `SIN_CONFIGURAR`: no hay cuentas;
+- `PARCIAL`: existen movimientos confirmados sin cuenta asignada;
+- `COMPLETO`: saldo inicial y movimientos posteriores están trazados.
+
+La Junta solo puede tratar `saldoDisponible` como hecho fuerte cuando el estado es `COMPLETO`.
+
+### Transferencias internas
+
+Una transferencia genera dos asientos atómicos:
+
+- SALIDA en cuenta origen;
+- ENTRADA en cuenta destino.
+
+No cambia el flujo operativo total de la empresa.
+
+La cuenta origen se bloquea dentro de la transacción para evitar gastar el mismo saldo en transferencias concurrentes.
+
+### Vencimientos
+
+Compra y Gasto admiten `fechaVencimientoPago`.
+
+Venta pendiente admite `fechaVencimientoCobro`.
+
+Los cobros esperados nunca se convierten en caja antes de confirmarse.
+
+### Proyección 7/30 días
+
+`tesoreriaProyeccion.service.js` calcula:
+
+- obligaciones vencidas;
+- obligaciones próximas 7 y 30 días;
+- cobros esperados 7 y 30 días;
+- próximo vencimiento;
+- saldo después de obligaciones usando solo caja actual;
+- escenario condicionado a cobrar todo lo esperado;
+- promedio de salidas confirmadas de 30 días;
+- días de cobertura sobre ese histórico.
+
+Estados 7 días:
+
+- `CUBIERTO_CON_CAJA_ACTUAL`
+- `DEPENDE_DE_COBROS`
+- `DEFICIT_AUN_COBRANDO_TODO`
+- `SIN_SALDO_VERIFICABLE`
+
+Si la proyección es COMPLETA y queda `DEFICIT_AUN_COBRANDO_TODO`, la Junta marca CRITICO y `requiereDecisionCerebro=true`.
+
+Si depende de cobros, marca ATENCION pero no genera orden.
+
+### Limitación explícita de pagos parciales
+
+El modelo legacy de Compra admite `estadoPago=parcial`, pero no conserva todavía el monto pagado acumulado.
+
+GRUK no inventa el saldo pendiente. Las compras parciales se excluyen del monto exacto proyectado y reducen la confiabilidad de la proyección a PARCIAL hasta modelar cuotas/pagos parciales correctamente.
