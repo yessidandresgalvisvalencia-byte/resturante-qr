@@ -94,6 +94,71 @@ const resumenSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const tesoreriaSchema = new mongoose.Schema({
+  estadoConfiabilidad: {
+    type: String,
+    enum: [
+      "SIN_CONFIGURAR",
+      "PARCIAL",
+      "COMPLETO"
+    ],
+    required: true
+  },
+  saldoDisponible: {
+    type: Number,
+    default: null
+  },
+  cuentas: {
+    type: [{
+      cuentaTesoreriaId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CuentaTesoreria",
+        required: true
+      },
+      nombre: String,
+      tipo: String,
+      sedeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Sede",
+        default: null
+      },
+      saldoDisponible: Number
+    }],
+    default: []
+  },
+  movimientosSinAsignar: {
+    entradas: {
+      cantidad: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      monto: {
+        type: Number,
+        default: 0,
+        min: 0
+      }
+    },
+    salidas: {
+      cantidad: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      monto: {
+        type: Number,
+        default: 0,
+        min: 0
+      }
+    }
+  },
+  advertencia: {
+    type: String,
+    default: null,
+    maxlength: 1200
+  }
+}, { _id: false });
+
 const diagnosticoSchema = new mongoose.Schema({
   estado: {
     type: String,
@@ -259,6 +324,10 @@ const schema = new mongoose.Schema({
   },
   mesActual: {
     type: resumenSchema,
+    required: true
+  },
+  tesoreria: {
+    type: tesoreriaSchema,
     required: true
   },
   diagnostico: {
