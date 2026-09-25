@@ -12,6 +12,11 @@ const {
 const {
   obtenerObligacionesRegistradas
 } = require("./obligaciones.service");
+const {
+  obtenerPoliticaPriorizacionPagos,
+  normalizarCategoriaObligacion,
+  indiceCategoria
+} = require("./politicaFinanciera.service");
 
 function objectId(valor, nombre) {
   if (!mongoose.Types.ObjectId.isValid(valor)) {
@@ -139,6 +144,10 @@ function normalizarDetalleObligacion(
       "Obligacion registrada",
     categoria:
       item.categoria || null,
+    categoriaPolitica:
+      normalizarCategoriaObligacion(
+        item
+      ),
     tercero:
       item.tercero || "",
     fuenteMonto:
@@ -208,7 +217,8 @@ async function construirProyeccionTesoreria({
     ventasPendientes,
     ventasSinFecha,
     resumenCaja30,
-    obligacionesRegistradas
+    obligacionesRegistradas,
+    politicaPriorizacionPagos
   ] = await Promise.all([
     Venta.find({
       ...scope,
@@ -258,7 +268,11 @@ async function construirProyeccionTesoreria({
         fechaAhora,
       tesoreria:
         resumenTesoreria
-    })
+    }),
+
+    obtenerPoliticaPriorizacionPagos(
+      empresaId
+    )
   ]);
 
   const detalleObligaciones =
@@ -328,6 +342,27 @@ async function construirProyeccionTesoreria({
 
         if (vencidaA !== vencidaB) {
           return vencidaA ? -1 : 1;
+        }
+
+        if (
+          politicaPriorizacionPagos
+            ?.usar_precedencia_categoria
+        ) {
+          const categoriaA =
+            indiceCategoria(
+              a,
+              politicaPriorizacionPagos
+            );
+
+          const categoriaB =
+            indiceCategoria(
+              b,
+              politicaPriorizacionPagos
+            );
+
+          if (categoriaA !== categoriaB) {
+            return categoriaA - categoriaB;
+          }
         }
 
         if (fechaA !== fechaB) {
@@ -606,6 +641,7 @@ async function construirProyeccionTesoreria({
         .estadoConfiabilidad,
     saldoActual,
     obligacionesRegistradas,
+    politicaPriorizacionPagos,
     obligaciones: {
       vencidas:
         obligacionesVencidas,
