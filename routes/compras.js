@@ -142,7 +142,7 @@ router.post(
     const sedeEfectiva =
       await resolverSedeAutorizada({
         auth: req.auth,
-        sedeId: sedeEfectiva
+        sedeId: sedeId || null
       });
 
     const itemsProcesados = [];
