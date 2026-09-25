@@ -82,3 +82,66 @@ Las sesiones nuevas se guardan como `EXPERTO_GRUK`.
 El tipo histórico `EXPERTO_IA` se conserva únicamente para leer sesiones antiguas.
 
 Los gastos históricos que no tienen `estadoPago` son tratados como `desconocido` a efectos de caja: nunca se descuentan del flujo confirmado hasta contar con evidencia de pago.
+
+
+## Libro canónico de caja
+
+La Junta viva ya no reconstruye entradas y salidas confirmadas sumando directamente `Venta`, `Compra` y `Gasto`.
+
+La fuente financiera operativa es `movimientos_caja`, implementada en:
+
+- `core/finanzas/models/MovimientoCaja.js`
+- `core/finanzas/caja.service.js`
+- `intelligence/listeners/caja.listener.js`
+- `shared/jobs/caja.job.js`
+
+Cada asiento contiene empresa, sede, dirección, monto, origen, tipo de asiento, fecha de confirmación y clave de idempotencia.
+
+Los asientos son inmutables. Si un pago deja de estar confirmado, GRUK crea una `REVERSION`; no borra ni reescribe el movimiento original.
+
+### Idempotencia
+
+El mismo evento puede recibirse más de una vez sin duplicar caja.
+
+La clave usa origen, documento, tipo de asiento y versión temporal del documento. Además, antes de crear una confirmación GRUK verifica si ya existe una confirmación activa para ese origen.
+
+### Duplicados entre documentos distintos
+
+GRUK nunca deduplica Compra vs. Gasto por monto, fecha, proveedor o texto parecido.
+
+Si dos documentos representan el mismo pago, deben compartir una `metadata.cajaReferencia` explícita. Solo entonces el libro puede tratar el segundo registro como la misma realidad económica.
+
+### Reconciliación
+
+Al iniciar la aplicación y luego cada hora, GRUK reconcilia el mes actual contra MongoDB.
+
+La reconciliación también revisa documentos cuya `updatedAt` está dentro del periodo, aunque la fecha original de la compra o gasto sea anterior. Esto permite recuperar cambios de estado de pago que pudieron ocurrir después de la fecha original.
+
+Si un evento se perdió por caída del proceso, la reconciliación reconstruye el asiento de forma idempotente y emite un único `CAJA_RECONCILIADA` al finalizar.
+
+## Diagnóstico automático de expertos
+
+La Junta viva ejecuta el motor experto nativo después de cambios empresariales relevantes.
+
+Antes de generar opinión, GRUK incorpora evidencia determinística de caja de 24 horas en el reporte de Finanzas:
+
+- entradas confirmadas;
+- salidas confirmadas;
+- flujo confirmado parcial;
+- aclaración explícita de que no es saldo bancario.
+
+Solo se persisten y muestran expertos con relevancia `ALTA` o `MEDIA`, además de Dirección.
+
+Cada diagnóstico conserva:
+
+- departamento;
+- relevancia;
+- respuesta;
+- criterio profesional;
+- evidencia utilizada;
+- riesgos;
+- datos faltantes;
+- confianza;
+- fecha de generación.
+
+Esta capa es consultiva. Aunque la Junta detecte un problema, no crea órdenes ejecutables. El Cerebro conserva autoridad exclusiva para decidir.
