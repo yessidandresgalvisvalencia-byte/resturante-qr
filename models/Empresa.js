@@ -99,6 +99,33 @@ const empresaSchema = new mongoose.Schema(
       },
 
       politica_financiera: {
+        distribucion_dueno: {
+          habilitada: {
+            type: Boolean,
+            default: false
+          },
+          porcentaje_utilidad: {
+            type: Number,
+            min: 0,
+            max: 100,
+            default: 0
+          },
+          reserva_minima_caja: {
+            type: Number,
+            min: 0,
+            default: 0
+          },
+          updatedAt: {
+            type: Date,
+            default: null
+          },
+          updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Usuario",
+            default: null
+          }
+        },
+
         priorizacion_pagos: {
           usar_precedencia_categoria: {
             type: Boolean,
