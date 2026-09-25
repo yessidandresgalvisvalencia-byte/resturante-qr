@@ -772,9 +772,7 @@ async function reconciliarDocumento({
   if (origenTipo === "COMPRA") {
     event = {
       eventName:
-        esPagado
-          ? "COMPRA_PAGO_ACTUALIZADO"
-          : "COMPRA_PAGO_ACTUALIZADO",
+        "COMPRA_PAGO_ACTUALIZADO",
       occurredAt:
         documento.updatedAt ||
         documento.createdAt ||
@@ -853,12 +851,22 @@ async function reconciliarPeriodoCaja({
       String(empresaId)
     );
 
+  const enPeriodo = {
+    $gte: desde,
+    $lt: hasta
+  };
+
   const filtroFecha = {
     empresaId: empresaObjectId,
-    fecha: {
-      $gte: desde,
-      $lt: hasta
-    }
+    fecha: enPeriodo
+  };
+
+  const filtroActividad = {
+    empresaId: empresaObjectId,
+    $or: [
+      { fecha: enPeriodo },
+      { updatedAt: enPeriodo }
+    ]
   };
 
   const [ventas, compras, gastos] =
@@ -868,11 +876,11 @@ async function reconciliarPeriodoCaja({
         estado: "pagada"
       }).lean(),
       Compra.find({
-        ...filtroFecha,
+        ...filtroActividad,
         estado: "registrada"
       }).lean(),
       Gasto.find({
-        ...filtroFecha,
+        ...filtroActividad,
         estado: "registrado"
       }).lean()
     ]);
