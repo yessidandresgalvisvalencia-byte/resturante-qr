@@ -53,6 +53,7 @@ jobs:
           node --check models/restaurante.js
           node --check intelligence/listeners/finanzas.listener.js
           node --check intelligence/listeners/caja.listener.js
+          node --check intelligence/listeners/agendaFinanciera.listener.js
           node --check intelligence/listeners/juntaViva.listener.js
           node --check intelligence/models/CerebroAuditoria.js
           node --check intelligence/models/CerebroDecision.js
@@ -92,6 +93,7 @@ jobs:
           node --check models/Compra.js
           node --check models/Venta.js
           node --check intelligence/brain/cerebro.js
+          node --check intelligence/brain/agendaFinanciera.service.js
           node --check intelligence/brain/cerebro.service.js
           node --check intelligence/brain/cerebro.controller.js
           node --check intelligence/orchestrator/cicloInteligencia.js
