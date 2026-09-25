@@ -47,7 +47,10 @@ async function registrarGasto({
       estadoPago: gasto.estadoPago,
       proveedor: gasto.proveedor,
       fecha: gasto.fecha,
-      origen: gasto.origen
+      origen: gasto.origen,
+      sourceUpdatedAt: gasto.updatedAt,
+      cajaReferencia:
+        gasto.metadata?.cajaReferencia || null
     });
   } catch (error) {
     console.error(
@@ -113,7 +116,11 @@ async function actualizarEstadoPagoGasto({
         estadoPago: gasto.estadoPago,
         proveedor: gasto.proveedor,
         fecha: gasto.fecha,
-        origen: gasto.origen
+        origen: gasto.origen,
+        sourceUpdatedAt:
+          gasto.updatedAt,
+        cajaReferencia:
+          gasto.metadata?.cajaReferencia || null
       }
     );
   } catch (error) {
