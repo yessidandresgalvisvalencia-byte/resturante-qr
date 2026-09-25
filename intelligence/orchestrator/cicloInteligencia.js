@@ -7,6 +7,7 @@ const operaciones = require("../neurons/operaciones.neuron");
 const gente = require("../neurons/gente.neuron");
 const cerebro = require("../brain/cerebro");
 const { evaluarModulosAutomaticos } = require("../../core/modulos/modulos.service");
+const eventBus = require("../../core/eventos/eventBus");
 
 const NEURONAS = Object.freeze([
   finanzas,
@@ -44,6 +45,16 @@ async function ejecutarCicloEmpresa(empresaId, opciones = {}) {
   const decision = debeTomarDecision(reportes, forzarDecision)
     ? await cerebro.tomarDecision(empresaId)
     : null;
+
+  eventBus.emit("CICLO_INTELIGENCIA_COMPLETADO", {
+    empresaId,
+    reportesIds: reportes.map((reporte) => reporte._id),
+    decisionId: decision?._id || null,
+    hayCriticos: reportes.some(
+      (reporte) =>
+        reporte.kpi_principal?.estado === "CRITICO"
+    )
+  });
 
   return { modulos, reportes, decision };
 }
