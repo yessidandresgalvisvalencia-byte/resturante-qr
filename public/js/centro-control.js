@@ -32,6 +32,24 @@ async function cargarDecisionCerebroGRUK() {
     const ordenes = d.ordenes_por_departamento || [];
     const financiero = d.contexto_financiero || null;
 
+    const politicaPagos =
+      financiero?.politicaPriorizacionPagos || null;
+
+    const politicaPagosHTML =
+      politicaPagos
+        ? `
+          <p>
+            <strong>Política de prioridad:</strong>
+            ${politicaPagos.usar_precedencia_categoria
+              ? `ACTIVA · ${escaparGRUK(
+                  (politicaPagos.precedencia_categorias || [])
+                    .join(" > ")
+                )}`
+              : "INACTIVA · vencimiento, fecha y monto"}
+          </p>
+        `
+        : "";
+
     const cobrosPrioritarios =
       Array.isArray(financiero?.cobrosPriorizados)
         ? financiero.cobrosPriorizados
@@ -93,6 +111,7 @@ async function cargarDecisionCerebroGRUK() {
           <p><strong>Brecha con caja actual:</strong> ${formatoCOP(financiero.faltanteConCajaActual || 0)}</p>
           <p><strong>Brecha aun cobrando todo:</strong> ${formatoCOP(financiero.faltanteAunCobrandoTodo || 0)}</p>
           <p><strong>Fecha crítica:</strong> ${financiero.fechaCritica ? escaparGRUK(new Date(financiero.fechaCritica).toLocaleDateString("es-CO")) : "Sin fecha"}</p>
+          ${politicaPagosHTML}
           ${carteraHTML}
           ${planPagoHTML(
             "Plan de pagos con caja actual",
