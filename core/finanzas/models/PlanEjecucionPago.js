@@ -27,8 +27,27 @@ const itemSchema = new mongoose.Schema({
   },
   estado: {
     type: String,
-    enum: ["PENDIENTE_CONFIRMACION", "CONFIRMADO", "CANCELADO"],
+    enum: [
+      "PENDIENTE_CONFIRMACION",
+      "REQUIERE_REGISTRO_PAGO",
+      "CONFIRMADO",
+      "CANCELADO"
+    ],
     default: "PENDIENTE_CONFIRMACION"
+  },
+  confirmadoAt: {
+    type: Date,
+    default: null
+  },
+  confirmadoBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Usuario",
+    default: null
+  },
+  movimientoCajaId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "MovimientoCaja",
+    default: null
   }
 }, { _id: true });
 
@@ -56,6 +75,16 @@ const schema = new mongoose.Schema({
     required: true,
     index: true
   },
+  estado: {
+    type: String,
+    enum: [
+      "PENDIENTE_CONFIRMACION",
+      "COMPLETADO",
+      "CANCELADO"
+    ],
+    default: "PENDIENTE_CONFIRMACION",
+    index: true
+  },
   saldoDisponibleSnapshot: {
     type: Number,
     required: true
@@ -73,6 +102,10 @@ const schema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Usuario",
     required: true
+  },
+  completedAt: {
+    type: Date,
+    default: null
   },
   deletedAt: {
     type: Date,
