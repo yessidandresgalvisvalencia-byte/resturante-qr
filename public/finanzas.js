@@ -4307,6 +4307,392 @@ async function transferirTesoreriaGRUK() {
   }
 }
 
+function contenedorDistribucionDuenoGRUK() {
+  return document.getElementById(
+    "estadoPoliticaDistribucionDuenoGRUK"
+  )?.parentElement || null;
+}
+
+function renderizarReservasDuenoGRUK(
+  reservas
+) {
+  const contenedor =
+    document.getElementById(
+      "reservasDuenoGRUK"
+    );
+
+  if (!contenedor) return;
+
+  const lista =
+    (Array.isArray(reservas)
+      ? reservas
+      : [])
+      .filter(
+        (item) =>
+          item.categoria ===
+          "UTILIDAD_DUENO"
+      );
+
+  if (!lista.length) {
+    contenedor.innerHTML =
+      "<p>No hay reservas de utilidad del dueño.</p>";
+    return;
+  }
+
+  contenedor.innerHTML = `
+    <h5>Reservas de utilidad del dueño</h5>
+    <ul>
+      ${lista.map((item) => `
+        <li>
+          ${formatoCOPFinanzas(
+            item.monto || 0
+          )}
+          · <strong>${escaparTesoreriaGRUK(
+            item.estado || ""
+          )}</strong>
+          · ${escaparTesoreriaGRUK(
+            item.concepto || ""
+          )}
+          ${item.estado === "PROPUESTA"
+            ? `
+              <button
+                onclick="aprobarReservaDuenoGRUK('${escaparTesoreriaGRUK(
+                  item._id
+                )}')"
+              >
+                Aprobar separación
+              </button>
+            `
+            : ""}
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+async function cargarDistribucionDuenoGRUK() {
+  const [politicaRes, reservasRes] =
+    await Promise.all([
+      grukFetch(
+        "/api/tesoreria/distribucion-dueno/politica"
+      ),
+      grukFetch(
+        "/api/tesoreria/distribucion-dueno/reservas"
+      )
+    ]);
+
+  if (
+    politicaRes.status === 403 ||
+    reservasRes.status === 403
+  ) {
+    const bloque =
+      contenedorDistribucionDuenoGRUK();
+
+    if (bloque) {
+      bloque.style.display =
+        "none";
+    }
+
+    return null;
+  }
+
+  const politicaData =
+    await politicaRes.json();
+
+  const reservasData =
+    await reservasRes.json();
+
+  if (
+    !politicaRes.ok ||
+    !politicaData.ok
+  ) {
+    throw new Error(
+      politicaData.error ||
+      "No fue posible consultar la política del dueño"
+    );
+  }
+
+  if (
+    !reservasRes.ok ||
+    !reservasData.ok
+  ) {
+    throw new Error(
+      reservasData.error ||
+      "No fue posible consultar reservas del dueño"
+    );
+  }
+
+  const politica =
+    politicaData.politica || {};
+
+  const activa =
+    document.getElementById(
+      "distribucionDuenoActiva"
+    );
+
+  const porcentaje =
+    document.getElementById(
+      "distribucionDuenoPorcentaje"
+    );
+
+  const reservaMinima =
+    document.getElementById(
+      "distribucionDuenoReservaMinima"
+    );
+
+  if (activa) {
+    activa.checked =
+      Boolean(
+        politica.habilitada
+      );
+  }
+
+  if (porcentaje) {
+    porcentaje.value =
+      Number(
+        politica
+          .porcentaje_utilidad || 0
+      );
+  }
+
+  if (reservaMinima) {
+    reservaMinima.value =
+      Number(
+        politica
+          .reserva_minima_caja || 0
+      );
+  }
+
+  renderizarReservasDuenoGRUK(
+    reservasData.reservas || []
+  );
+
+  return {
+    politica,
+    reservas:
+      reservasData.reservas || []
+  };
+}
+
+async function guardarPoliticaDistribucionDuenoGRUK() {
+  const estado =
+    document.getElementById(
+      "estadoPoliticaDistribucionDuenoGRUK"
+    );
+
+  try {
+    const habilitada =
+      Boolean(
+        document.getElementById(
+          "distribucionDuenoActiva"
+        )?.checked
+      );
+
+    const porcentaje =
+      Number(
+        document.getElementById(
+          "distribucionDuenoPorcentaje"
+        )?.value || 0
+      );
+
+    const reservaMinima =
+      Number(
+        document.getElementById(
+          "distribucionDuenoReservaMinima"
+        )?.value || 0
+      );
+
+    const res =
+      await grukFetch(
+        "/api/tesoreria/distribucion-dueno/politica",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              habilitada,
+              porcentaje_utilidad:
+                porcentaje,
+              reserva_minima_caja:
+                reservaMinima
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible guardar la política del dueño"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Política del dueño guardada.</p>";
+    }
+
+    await Promise.all([
+      cargarDistribucionDuenoGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function cerrarPeriodoDistribucionDuenoGRUK() {
+  const resultado =
+    document.getElementById(
+      "resultadoDistribucionDuenoGRUK"
+    );
+
+  const periodo =
+    document.getElementById(
+      "distribucionDuenoPeriodo"
+    )?.value;
+
+  if (!periodo) {
+    if (resultado) {
+      resultado.innerHTML =
+        "<p>Selecciona un periodo mensual ya finalizado.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/distribucion-dueno/cierres",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              periodo
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible cerrar el periodo"
+      );
+    }
+
+    const calculo =
+      data.calculo || {};
+
+    if (resultado) {
+      resultado.innerHTML = `
+        <p><strong>Cierre:</strong> ${escaparTesoreriaGRUK(
+          data.cierre?.periodo || periodo
+        )}</p>
+        <p><strong>Confiabilidad:</strong> ${escaparTesoreriaGRUK(
+          data.cierre?.estadoConfiabilidad || ""
+        )}</p>
+        <p><strong>Utilidad operacional confiable:</strong> ${data.cierre?.utilidadOperacionalConfiable === null || data.cierre?.utilidadOperacionalConfiable === undefined
+          ? "No calculable"
+          : formatoCOPFinanzas(
+              data.cierre.utilidadOperacionalConfiable
+            )}</p>
+        <p><strong>Estado distribución:</strong> ${escaparTesoreriaGRUK(
+          calculo.estado || ""
+        )}</p>
+        <p><strong>Derecho teórico del dueño:</strong> ${formatoCOPFinanzas(
+          calculo.derechoTeoricoDueno || 0
+        )}</p>
+        <p><strong>Caja libre distribuible:</strong> ${formatoCOPFinanzas(
+          calculo.cajaLibreDistribuible || 0
+        )}</p>
+        <p><strong>Monto propuesto a separar:</strong> ${formatoCOPFinanzas(
+          calculo.montoPropuesto || 0
+        )}</p>
+        <p><small>La propuesta no mueve dinero. Solo al aprobarla pasa a reserva activa y deja de contarse como caja operativa libre.</small></p>
+      `;
+    }
+
+    await Promise.all([
+      cargarDistribucionDuenoGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function aprobarReservaDuenoGRUK(
+  reservaId
+) {
+  const resultado =
+    document.getElementById(
+      "resultadoDistribucionDuenoGRUK"
+    );
+
+  try {
+    const res =
+      await grukFetch(
+        `/api/tesoreria/distribucion-dueno/reservas/${encodeURIComponent(
+          reservaId
+        )}/aprobar`,
+        {
+          method: "POST"
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible aprobar la reserva"
+      );
+    }
+
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>✅ Ganancia del dueño separada: <strong>${formatoCOPFinanzas(
+          data.reserva?.monto || 0
+        )}</strong>. Ya no cuenta como caja operativa libre.</p>`;
+    }
+
+    await Promise.all([
+      cargarDistribucionDuenoGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
 async function inicializarTesoreriaGRUK() {
   const fecha =
     document.getElementById(
@@ -4327,6 +4713,15 @@ async function inicializarTesoreriaGRUK() {
       cargarPoliticaPagosGRUK(),
       cargarObligacionesRecurrentesGRUK()
     ]);
+
+    try {
+      await cargarDistribucionDuenoGRUK();
+    } catch (error) {
+      console.warn(
+        "[GRUK FINANZAS] distribución dueño no disponible:",
+        error.message
+      );
+    }
   } catch (error) {
     const contenedor =
       document.getElementById(
@@ -4368,3 +4763,12 @@ window.crearExcepcionPrioridadPagoGRUK =
 
 window.revocarExcepcionPrioridadPagoGRUK =
   revocarExcepcionPrioridadPagoGRUK;
+
+window.guardarPoliticaDistribucionDuenoGRUK =
+  guardarPoliticaDistribucionDuenoGRUK;
+
+window.cerrarPeriodoDistribucionDuenoGRUK =
+  cerrarPeriodoDistribucionDuenoGRUK;
+
+window.aprobarReservaDuenoGRUK =
+  aprobarReservaDuenoGRUK;
