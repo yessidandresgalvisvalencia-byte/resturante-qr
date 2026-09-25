@@ -360,3 +360,38 @@ test("Intervencion experta queda ligada a la pregunta sin cifras inventadas", ()
   assert.match(intervencion.mensaje, /Inferencias profesionales/);
   assert.match(intervencion.mensaje, /Datos faltantes/);
 });
+
+test("Junta reconoce escenario desde cero y no arrastra historico", async () => {
+  const { generarRespuestasExpertas, clasificarIntencion } = require("../../intelligence/board/expertos.service");
+  assert.equal(clasificarIntencion("Supongamos que vamos a empezar desde cero, ¿cómo lo hacemos?"), "ARRANQUE");
+  const resultado = await generarRespuestasExpertas({
+    pregunta: "Supongamos que vamos a empezar desde cero, ¿cómo lo hacemos?",
+    reportes: [{
+      neurona: "FINANZAS",
+      kpi_principal: { nombre: "margen", valor_actual: 1, valor_objetivo: 99, estado: "CRITICO" },
+      hallazgos: [{ evidencia: "Dato historico que no debe gobernar el supuesto." }]
+    }],
+    intervenciones: []
+  });
+  assert.equal(resultado.intencion, "ARRANQUE");
+  assert.equal(resultado.respuestas.length, 6);
+  assert.ok(resultado.respuestas.every(r => !r.evidencia_usada.includes("Dato historico que no debe gobernar el supuesto.")));
+  assert.match(resultado.respuestas.at(-1).respuesta, /cliente y oferta/);
+});
+
+test("Junta formatea KPI sin decimales interminables", async () => {
+  const { generarRespuestasExpertas } = require("../../intelligence/board/expertos.service");
+  const resultado = await generarRespuestasExpertas({
+    pregunta: "Explícame el estado de ventas",
+    reportes: [{
+      neurona: "VENTAS",
+      kpi_principal: { nombre: "ticket_promedio", valor_actual: 17141.428571428572, valor_objetivo: null, estado: "ALERTA" },
+      hallazgos: []
+    }],
+    intervenciones: []
+  });
+  const ventas = resultado.respuestas.find(r => r.departamento === "VENTAS");
+  assert.ok(ventas.evidencia_usada.some(x => /17[.,]141[.,]43/.test(x)));
+  assert.ok(!ventas.evidencia_usada.some(x => /428571428572/.test(x)));
+});
+
