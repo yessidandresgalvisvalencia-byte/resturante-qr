@@ -626,37 +626,78 @@ async function obtenerResumenCaja({
 
   const rows =
     await MovimientoCaja.aggregate([
-      { $match: match },
+      {
+        $match: {
+          ...match,
+          tipoAsiento:
+            "CONFIRMACION"
+        }
+      },
+      {
+        $lookup: {
+          from:
+            "movimientos_caja",
+          let: {
+            confirmacionId:
+              "$_id",
+            empresa:
+              "$empresaId"
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $eq: [
+                        "$empresaId",
+                        "$$empresa"
+                      ]
+                    },
+                    {
+                      $eq: [
+                        "$tipoAsiento",
+                        "REVERSION"
+                      ]
+                    },
+                    {
+                      $eq: [
+                        "$movimientoOriginalId",
+                        "$$confirmacionId"
+                      ]
+                    },
+                    {
+                      $eq: [
+                        "$deletedAt",
+                        null
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              $limit: 1
+            }
+          ],
+          as: "reversiones"
+        }
+      },
+      {
+        $match: {
+          "reversiones.0": {
+            $exists: false
+          }
+        }
+      },
       {
         $group: {
           _id: "$origenTipo",
           cantidad: {
-            $sum: {
-              $cond: [
-                {
-                  $eq: [
-                    "$tipoAsiento",
-                    "CONFIRMACION"
-                  ]
-                },
-                1,
-                -1
-              ]
-            }
+            $sum: 1
           },
           monto: {
-            $sum: {
-              $cond: [
-                {
-                  $eq: [
-                    "$tipoAsiento",
-                    "CONFIRMACION"
-                  ]
-                },
-                "$monto",
-                { $multiply: [-1, "$monto"] }
-              ]
-            }
+            $sum: "$monto"
           }
         }
       }
