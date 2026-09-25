@@ -2,9 +2,11 @@
 
 const mongoose = require("mongoose");
 
-const Venta = require("../../models/Venta");
 const Gasto = require("../../models/Gasto");
 const Compra = require("../../models/Compra");
+const {
+  obtenerResumenCaja
+} = require("../../core/finanzas/caja.service");
 const Reporte = require("../models/CerebroReporteNeurona");
 const JuntaEstadoVivo = require("./JuntaEstadoVivo");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
@@ -99,84 +101,76 @@ async function construirResumen({
   hasta
 }) {
   const [
-    ventasPagadas,
-    comprasPagadas,
+    caja,
+    comprasNoConfirmadas,
     gastosRegistrados,
-    gastosPagados,
     gastosNoConfirmados
   ] = await Promise.all([
-      agregarResumen({
-        Model: Venta,
-        empresaId,
-        sedeId,
-        desde,
-        hasta,
-        filtroExtra: {
-          estado: "pagada"
-        },
-        campoMonto: "total"
-      }),
-      agregarResumen({
-        Model: Compra,
-        empresaId,
-        sedeId,
-        desde,
-        hasta,
-        filtroExtra: {
-          estado: "registrada",
-          estadoPago: "pagado"
-        },
-        campoMonto: "total"
-      }),
-      agregarResumen({
-        Model: Gasto,
-        empresaId,
-        sedeId,
-        desde,
-        hasta,
-        filtroExtra: {
-          estado: "registrado"
-        },
-        campoMonto: "monto"
-      }),
-      agregarResumen({
-        Model: Gasto,
-        empresaId,
-        sedeId,
-        desde,
-        hasta,
-        filtroExtra: {
-          estado: "registrado",
-          estadoPago: "pagado"
-        },
-        campoMonto: "monto"
-      }),
-      agregarResumen({
-        Model: Gasto,
-        empresaId,
-        sedeId,
-        desde,
-        hasta,
-        filtroExtra: {
-          estado: "registrado",
-          estadoPago: { $ne: "pagado" }
-        },
-        campoMonto: "monto"
-      })
-    ]);
+    obtenerResumenCaja({
+      empresaId,
+      sedeId,
+      desde,
+      hasta
+    }),
+    agregarResumen({
+      Model: Compra,
+      empresaId,
+      sedeId,
+      desde,
+      hasta,
+      filtroExtra: {
+        estado: "registrada",
+        estadoPago: {
+          $ne: "pagado"
+        }
+      },
+      campoMonto: "total"
+    }),
+    agregarResumen({
+      Model: Gasto,
+      empresaId,
+      sedeId,
+      desde,
+      hasta,
+      filtroExtra: {
+        estado: "registrado"
+      },
+      campoMonto: "monto"
+    }),
+    agregarResumen({
+      Model: Gasto,
+      empresaId,
+      sedeId,
+      desde,
+      hasta,
+      filtroExtra: {
+        estado: "registrado",
+        estadoPago: {
+          $ne: "pagado"
+        }
+      },
+      campoMonto: "monto"
+    })
+  ]);
 
   return {
     desde,
     hasta,
-    ventasPagadas,
-    comprasPagadas,
+    ventasPagadas:
+      caja.ventasPagadas,
+    comprasPagadas:
+      caja.comprasPagadas,
+    comprasNoConfirmadas,
     gastosRegistrados,
-    gastosPagados,
+    gastosPagados:
+      caja.gastosPagados,
     gastosNoConfirmados,
+    entradasConfirmadas:
+      caja.entradasConfirmadas,
+    salidasConfirmadas:
+      caja.salidasConfirmadas,
     flujoConfirmadoParcial:
-      ventasPagadas.monto -
-      comprasPagadas.monto -
-      gastosPagados.monto
+      caja.flujoConfirmadoParcial
   };
 }
 
@@ -509,31 +503,36 @@ async function recalcularEstadoVivo({
     )
     .lean();
 
-  const esRecalculoInteligencia =
-    event?.eventName ===
-    "CICLO_INTELIGENCIA_COMPLETADO";
+  const esRecalculoSistema =
+    [
+      "CICLO_INTELIGENCIA_COMPLETADO",
+      "CAJA_MOVIMIENTO_REGISTRADO",
+      "CAJA_RECONCILIADA"
+    ].includes(
+      event?.eventName
+    );
 
   const eventoNormalizado =
     normalizarEvento(event);
 
   const ultimoEvento =
-    esRecalculoInteligencia &&
+    esRecalculoSistema &&
     actual?.ultimoEvento
       ? actual.ultimoEvento
       : eventoNormalizado;
 
   const tipoEventoHistorial =
-    esRecalculoInteligencia
+    esRecalculoSistema
       ? "CICLO_INTELIGENCIA_COMPLETADO"
       : ultimoEvento.tipo;
 
   const direccionEventoHistorial =
-    esRecalculoInteligencia
+    esRecalculoSistema
       ? "NEUTRO"
       : ultimoEvento.direccion;
 
   const montoEventoHistorial =
-    esRecalculoInteligencia
+    esRecalculoSistema
       ? null
       : ultimoEvento.monto;
 
