@@ -17,6 +17,9 @@ const {
   transferir
 } = require("../core/finanzas/tesoreria.service");
 const {
+  obtenerObligacionesRegistradas
+} = require("../core/finanzas/obligaciones.service");
+const {
   construirProyeccionTesoreria
 } = require("../core/finanzas/tesoreriaProyeccion.service");
 
@@ -242,6 +245,38 @@ router.get(
         res,
         error,
         "Error consultando tesoreria"
+      );
+    }
+  }
+);
+
+router.get(
+  "/obligaciones",
+  ...seguridad,
+  async (req, res) => {
+    try {
+      const sedeId =
+        await resolverSedeScope(
+          req,
+          req.query.sedeId || null
+        );
+
+      const obligaciones =
+        await obtenerObligacionesRegistradas({
+          empresaId:
+            req.auth.empresaId,
+          sedeId
+        });
+
+      return res.json({
+        ok: true,
+        obligaciones
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error consultando obligaciones registradas"
       );
     }
   }
