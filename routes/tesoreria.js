@@ -37,6 +37,15 @@ const {
   crearExcepcionPrioridadPago,
   revocarExcepcionPrioridadPago
 } = require("../core/finanzas/excepcionesPrioridadPago.service");
+const {
+  obtenerPoliticaDistribucionDueno,
+  actualizarPoliticaDistribucionDueno,
+  cerrarPeriodoMensual,
+  calcularDistribucionDueno,
+  crearPropuestaReservaDueno,
+  aprobarReservaDueno,
+  listarReservas
+} = require("../core/finanzas/distribucionDueno.service");
 
 const router = express.Router();
 
@@ -99,6 +108,36 @@ const politicaPagosSchema =
         .unique()
         .max(
           CATEGORIAS_POLITICA.length
+        )
+        .required()
+  })
+    .required()
+    .unknown(false);
+
+const politicaDistribucionDuenoSchema =
+  Joi.object({
+    habilitada:
+      Joi.boolean()
+        .required(),
+    porcentaje_utilidad:
+      Joi.number()
+        .min(0)
+        .max(100)
+        .required(),
+    reserva_minima_caja:
+      Joi.number()
+        .min(0)
+        .required()
+  })
+    .required()
+    .unknown(false);
+
+const cierreMensualSchema =
+  Joi.object({
+    periodo:
+      Joi.string()
+        .pattern(
+          /^\d{4}-\d{2}$/
         )
         .required()
   })
@@ -346,6 +385,227 @@ function responderError(
           : error.message
   });
 }
+
+router.get(
+  "/distribucion-dueno/politica",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const politica =
+        await obtenerPoliticaDistribucionDueno(
+          req.auth.empresaId
+        );
+
+      return res.json({
+        ok: true,
+        politica
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error consultando politica de distribucion"
+      );
+    }
+  }
+);
+
+router.put(
+  "/distribucion-dueno/politica",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const {
+        error,
+        value
+      } =
+        politicaDistribucionDuenoSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: false,
+            convert: true
+          }
+        );
+
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            error.details
+              .map(
+                (item) =>
+                  item.message
+              )
+              .join("; ")
+        });
+      }
+
+      const politica =
+        await actualizarPoliticaDistribucionDueno({
+          empresaId:
+            req.auth.empresaId,
+          habilitada:
+            value.habilitada,
+          porcentajeUtilidad:
+            value.porcentaje_utilidad,
+          reservaMinimaCaja:
+            value.reserva_minima_caja,
+          updatedBy:
+            req.auth.usuarioId
+        });
+
+      return res.json({
+        ok: true,
+        politica
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error actualizando politica de distribucion"
+      );
+    }
+  }
+);
+
+router.post(
+  "/distribucion-dueno/cierres",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const {
+        error,
+        value
+      } =
+        cierreMensualSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: false,
+            convert: true
+          }
+        );
+
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            error.details
+              .map(
+                (item) =>
+                  item.message
+              )
+              .join("; ")
+        });
+      }
+
+      const cierre =
+        await cerrarPeriodoMensual({
+          empresaId:
+            req.auth.empresaId,
+          periodo:
+            value.periodo,
+          createdBy:
+            req.auth.usuarioId
+        });
+
+      const calculo =
+        await calcularDistribucionDueno({
+          empresaId:
+            req.auth.empresaId,
+          cierreId:
+            cierre._id
+        });
+
+      let propuesta = null;
+
+      if (
+        calculo.estado ===
+          "DISTRIBUIBLE" &&
+        calculo.montoPropuesto > 0
+      ) {
+        propuesta =
+          await crearPropuestaReservaDueno({
+            empresaId:
+              req.auth.empresaId,
+            cierreId:
+              cierre._id,
+            createdBy:
+              req.auth.usuarioId
+          });
+      }
+
+      return res.status(201).json({
+        ok: true,
+        cierre,
+        calculo,
+        propuesta:
+          propuesta?.reserva || null
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error cerrando periodo financiero"
+      );
+    }
+  }
+);
+
+router.get(
+  "/distribucion-dueno/reservas",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const reservas =
+        await listarReservas({
+          empresaId:
+            req.auth.empresaId
+        });
+
+      return res.json({
+        ok: true,
+        reservas
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error consultando reservas de caja"
+      );
+    }
+  }
+);
+
+router.post(
+  "/distribucion-dueno/reservas/:id/aprobar",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const reserva =
+        await aprobarReservaDueno({
+          empresaId:
+            req.auth.empresaId,
+          reservaId:
+            req.params.id,
+          approvedBy:
+            req.auth.usuarioId
+        });
+
+      return res.json({
+        ok: true,
+        reserva
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error aprobando reserva del dueño"
+      );
+    }
+  }
+);
 
 router.get(
   "/excepciones-prioridad-pago",
