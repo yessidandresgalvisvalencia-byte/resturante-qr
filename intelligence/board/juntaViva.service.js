@@ -98,8 +98,13 @@ async function construirResumen({
   desde,
   hasta
 }) {
-  const [ventasPagadas, comprasPagadas, gastosRegistrados] =
-    await Promise.all([
+  const [
+    ventasPagadas,
+    comprasPagadas,
+    gastosRegistrados,
+    gastosPagados,
+    gastosNoConfirmados
+  ] = await Promise.all([
       agregarResumen({
         Model: Venta,
         empresaId,
@@ -133,6 +138,30 @@ async function construirResumen({
           estado: "registrado"
         },
         campoMonto: "monto"
+      }),
+      agregarResumen({
+        Model: Gasto,
+        empresaId,
+        sedeId,
+        desde,
+        hasta,
+        filtroExtra: {
+          estado: "registrado",
+          estadoPago: "pagado"
+        },
+        campoMonto: "monto"
+      }),
+      agregarResumen({
+        Model: Gasto,
+        empresaId,
+        sedeId,
+        desde,
+        hasta,
+        filtroExtra: {
+          estado: "registrado",
+          estadoPago: { $ne: "pagado" }
+        },
+        campoMonto: "monto"
       })
     ]);
 
@@ -142,9 +171,12 @@ async function construirResumen({
     ventasPagadas,
     comprasPagadas,
     gastosRegistrados,
+    gastosPagados,
+    gastosNoConfirmados,
     flujoConfirmadoParcial:
       ventasPagadas.monto -
-      comprasPagadas.monto
+      comprasPagadas.monto -
+      gastosPagados.monto
   };
 }
 
@@ -210,14 +242,19 @@ function normalizarEvento(event) {
   }
 
   if (tipo === "GASTO_REGISTRADO") {
+    const pagado =
+      payload.estadoPago === "pagado";
+
     return {
       tipo,
-      direccion:
-        "SALIDA_REGISTRADA_NO_CONFIRMADA",
+      direccion: pagado
+        ? "SALIDA_CONFIRMADA"
+        : "SALIDA_REGISTRADA_NO_CONFIRMADA",
       fuenteId: payload.gastoId || null,
       monto: numeroSeguro(payload.monto),
-      descripcion:
-        `Gasto registrado por ${numeroSeguro(payload.monto)}. GRUK no lo trata como salida confirmada de caja.`,
+      descripcion: pagado
+        ? `Gasto pagado registrado por ${numeroSeguro(payload.monto)}.`
+        : `Gasto registrado por ${numeroSeguro(payload.monto)} con pago no confirmado.`,
       occurredAt:
         event?.occurredAt || new Date()
     };
@@ -291,10 +328,18 @@ function construirDiagnostico({
       `Se registro una compra pagada por ${ultimoEvento.monto}.`;
   } else if (
     ultimoEvento.tipo ===
+      "GASTO_REGISTRADO" &&
+    ultimoEvento.direccion ===
+      "SALIDA_CONFIRMADA"
+  ) {
+    titular =
+      `Se confirmo un gasto pagado por ${ultimoEvento.monto}.`;
+  } else if (
+    ultimoEvento.tipo ===
     "GASTO_REGISTRADO"
   ) {
     titular =
-      `Se registro un gasto por ${ultimoEvento.monto}; no se asume salida de caja sin confirmacion.`;
+      `Se registro un gasto por ${ultimoEvento.monto} con pago no confirmado.`;
   } else if (
     ultimoEvento.tipo ===
     "COMPRA_REGISTRADA"
@@ -304,7 +349,7 @@ function construirDiagnostico({
   }
 
   const lectura =
-    `En las ultimas 24 horas GRUK confirma ${ventana24h.ventasPagadas.cantidad} venta(s) pagada(s) por ${ventana24h.ventasPagadas.monto} y ${ventana24h.comprasPagadas.cantidad} compra(s) pagada(s) por ${ventana24h.comprasPagadas.monto}. El flujo confirmado parcial es ${ventana24h.flujoConfirmadoParcial}. Adicionalmente hay ${ventana24h.gastosRegistrados.cantidad} gasto(s) registrado(s) por ${ventana24h.gastosRegistrados.monto} que no se cuentan como salida confirmada de caja. ${criticos.length ? "Hay KPI criticos que requieren decision del Cerebro." : "La Junta mantiene observacion continua y actualizara esta lectura con el siguiente evento."}`;
+    `En las ultimas 24 horas GRUK confirma ${ventana24h.ventasPagadas.cantidad} venta(s) pagada(s) por ${ventana24h.ventasPagadas.monto}, ${ventana24h.comprasPagadas.cantidad} compra(s) pagada(s) por ${ventana24h.comprasPagadas.monto} y ${ventana24h.gastosPagados.cantidad} gasto(s) pagado(s) por ${ventana24h.gastosPagados.monto}. El flujo confirmado parcial es ${ventana24h.flujoConfirmadoParcial}. Adicionalmente hay ${ventana24h.gastosNoConfirmados.cantidad} gasto(s) por ${ventana24h.gastosNoConfirmados.monto} cuyo pago no esta confirmado y por eso no se descuentan de caja. ${criticos.length ? "Hay KPI criticos que requieren decision del Cerebro." : "La Junta mantiene observacion continua y actualizara esta lectura con el siguiente evento."}`;
 
   return {
     estado,
