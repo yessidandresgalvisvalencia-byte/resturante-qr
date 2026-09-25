@@ -10,6 +10,9 @@ const {
 } = require("../../core/finanzas/caja.service");
 const Reporte = require("../models/CerebroReporteNeurona");
 const JuntaEstadoVivo = require("./JuntaEstadoVivo");
+const {
+  generarRespuestasExpertas
+} = require("./expertos.service");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
 
 const NEURONAS = Object.freeze([
@@ -429,6 +432,202 @@ function construirDiagnostico({
   };
 }
 
+function construirPreguntaAutomatica(
+  ultimoEvento
+) {
+  const monto =
+    numeroSeguro(
+      ultimoEvento?.monto
+    );
+
+  if (
+    ultimoEvento?.tipo ===
+    "VENTA_COMPLETADA"
+  ) {
+    return (
+      `Hoy hice una venta de ${monto} pesos y GRUK confirma que fue pagada. ` +
+      "Analiza que cambia en caja, ventas, margen, capacidad y riesgo."
+    );
+  }
+
+  if (
+    ultimoEvento?.tipo ===
+      "COMPRA_REGISTRADA" ||
+    ultimoEvento?.tipo ===
+      "COMPRA_PAGO_ACTUALIZADO"
+  ) {
+    if (
+      ultimoEvento.direccion ===
+      "SALIDA_CONFIRMADA"
+    ) {
+      return (
+        `Hoy compre insumos por ${monto} pesos y el pago ya fue confirmado. ` +
+        "Analiza el efecto en flujo de caja, inventario, margen y continuidad operativa."
+      );
+    }
+
+    return (
+      `Existe una compra por ${monto} pesos cuyo pago sigue pendiente. ` +
+      "Analiza el compromiso sobre flujo de caja, inventario y capital de trabajo sin tratarlo como dinero ya pagado."
+    );
+  }
+
+  if (
+    ultimoEvento?.tipo ===
+      "GASTO_REGISTRADO" ||
+    ultimoEvento?.tipo ===
+      "GASTO_PAGO_ACTUALIZADO"
+  ) {
+    if (
+      ultimoEvento.direccion ===
+      "SALIDA_CONFIRMADA"
+    ) {
+      return (
+        `Hoy pague un gasto de ${monto} pesos y GRUK confirma la salida. ` +
+        "Analiza el efecto en flujo de caja, necesidad del gasto y riesgo financiero."
+      );
+    }
+
+    return (
+      `Existe un gasto registrado por ${monto} pesos cuyo pago no esta confirmado. ` +
+      "Analiza el compromiso sobre flujo de caja sin asumir que el dinero ya salio."
+    );
+  }
+
+  return (
+    "Analiza el estado actual del flujo de caja y los KPI de GRUK. " +
+    "Distingue hechos confirmados, riesgos y datos faltantes sin inventar causas."
+  );
+}
+
+function enriquecerReportesConCaja(
+  reportes,
+  ventana24h
+) {
+  const evidenciaCaja =
+    "CAJA GRUK 24H: " +
+    `entradas confirmadas ${numeroSeguro(ventana24h?.entradasConfirmadas)}, ` +
+    `salidas confirmadas ${numeroSeguro(ventana24h?.salidasConfirmadas)}, ` +
+    `flujo confirmado parcial ${numeroSeguro(ventana24h?.flujoConfirmadoParcial)}. ` +
+    "Este flujo parcial no equivale al saldo bancario ni a la caja total.";
+
+  return (reportes || []).map(
+    (reporte) => {
+      if (
+        reporte.neurona !==
+        "FINANZAS"
+      ) {
+        return reporte;
+      }
+
+      return {
+        ...reporte,
+        hallazgos: [
+          ...(reporte.hallazgos || []),
+          {
+            tipo:
+              "CAJA_CONFIRMADA_24H",
+            evidencia:
+              evidenciaCaja,
+            impacto_financiero_estimado:
+              Math.abs(
+                numeroSeguro(
+                  ventana24h
+                    ?.flujoConfirmadoParcial
+                )
+              ),
+            confianza: 100
+          }
+        ]
+      };
+    }
+  );
+}
+
+async function generarDiagnosticosAutomaticos({
+  ultimoEvento,
+  ventana24h,
+  reportes,
+  ahora
+}) {
+  const pregunta =
+    construirPreguntaAutomatica(
+      ultimoEvento
+    );
+
+  const resultado =
+    await generarRespuestasExpertas({
+      pregunta,
+      decision: null,
+      reportes:
+        enriquecerReportesConCaja(
+          reportes,
+          ventana24h
+        ),
+      intervenciones: []
+    });
+
+  return (resultado.respuestas || [])
+    .filter(
+      (item) =>
+        item.relevancia === "ALTA" ||
+        item.relevancia === "MEDIA" ||
+        item.departamento ===
+          "DIRECCION"
+    )
+    .map((item) => ({
+      departamento:
+        item.departamento,
+      relevancia:
+        item.relevancia || "MEDIA",
+      respuesta:
+        String(
+          item.respuesta || ""
+        ).slice(0, 3000),
+      criterioProfesional:
+        String(
+          item.criterio_profesional ||
+          ""
+        ).slice(0, 1800),
+      evidencia:
+        (item.evidencia_usada || [])
+          .map((valor) =>
+            String(valor)
+              .slice(0, 700)
+          )
+          .slice(0, 8),
+      riesgos:
+        (item.riesgos || [])
+          .map((valor) =>
+            String(valor)
+              .slice(0, 500)
+          )
+          .slice(0, 6),
+      datosFaltantes:
+        (item.datos_faltantes || [])
+          .map((valor) =>
+            String(valor)
+              .slice(0, 400)
+          )
+          .slice(0, 8),
+      confianza:
+        Number.isFinite(
+          Number(item.confianza)
+        )
+          ? Math.max(
+              0,
+              Math.min(
+                100,
+                Number(
+                  item.confianza
+                )
+              )
+            )
+          : null,
+      generatedAt: ahora
+    }));
+}
+
 function mapearReportes(reportes) {
   return reportes.map((r) => ({
     neurona: r.neurona,
@@ -500,7 +699,7 @@ async function recalcularEstadoVivo({
     filtro
   )
     .select(
-      "version ventana24h diagnostico ultimoEvento"
+      "version ventana24h diagnostico ultimoEvento diagnosticosExpertos"
     )
     .lean();
 
@@ -548,6 +747,31 @@ async function recalcularEstadoVivo({
       estadoAnterior: actual
     });
 
+  let diagnosticosExpertos =
+    actual?.diagnosticosExpertos || [];
+
+  try {
+    diagnosticosExpertos =
+      await generarDiagnosticosAutomaticos({
+        ultimoEvento,
+        ventana24h,
+        reportes,
+        ahora
+      });
+  } catch (error) {
+    console.error(
+      "[GRUK JUNTA VIVA] diagnostico experto automatico fallo",
+      {
+        empresaId:
+          String(empresaObjectId),
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error)
+      }
+    );
+  }
+
   return JuntaEstadoVivo.findOneAndUpdate(
     filtro,
     {
@@ -556,6 +780,7 @@ async function recalcularEstadoVivo({
         ventana24h,
         mesActual,
         diagnostico,
+        diagnosticosExpertos,
         reportesNeuronas:
           mapearReportes(reportes),
         version,
@@ -660,6 +885,9 @@ async function obtenerEstadoVivo(auth) {
 
 module.exports = {
   construirDiagnostico,
+  construirPreguntaAutomatica,
+  enriquecerReportesConCaja,
+  generarDiagnosticosAutomaticos,
   normalizarEvento,
   recalcularEstadoVivo,
   obtenerEstadoVivo
