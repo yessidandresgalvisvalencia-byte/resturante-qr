@@ -3,6 +3,7 @@
 const mongoose = require("mongoose");
 
 const Venta = require("../../models/Venta");
+const ReservaCaja = require("./models/ReservaCaja");
 const {
   obtenerResumenCaja
 } = require("./caja.service");
@@ -224,7 +225,8 @@ async function construirProyeccionTesoreria({
     resumenCaja30,
     obligacionesRegistradas,
     politicaPriorizacionPagos,
-    excepcionesPrioridadPago
+    excepcionesPrioridadPago,
+    reservasActivasRows
   ] = await Promise.all([
     Venta.find({
       ...scope,
@@ -287,7 +289,43 @@ async function construirProyeccionTesoreria({
       empresaId,
       sedeId,
       ahora: fechaAhora
-    })
+    }),
+
+    ReservaCaja.aggregate([
+      {
+        $match: {
+          empresaId:
+            scope.empresaId,
+          estado:
+            "ACTIVA",
+          deletedAt:
+            null
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum:
+              "$monto"
+          },
+          utilidadDueno: {
+            $sum: {
+              $cond: [
+                {
+                  $eq: [
+                    "$categoria",
+                    "UTILIDAD_DUENO"
+                  ]
+                },
+                "$monto",
+                0
+              ]
+            }
+          }
+        }
+      }
+    ])
   ]);
 
   const mapaExcepciones =
@@ -576,6 +614,27 @@ async function construirProyeccionTesoreria({
         )
       : null;
 
+  const reservasActivas =
+    Number(
+      reservasActivasRows[0]
+        ?.total || 0
+    );
+
+  const reservaUtilidadDueno =
+    Number(
+      reservasActivasRows[0]
+        ?.utilidadDueno || 0
+    );
+
+  const saldoLibreOperativo =
+    saldoActual === null
+      ? null
+      : Math.max(
+          0,
+          saldoActual -
+          reservasActivas
+        );
+
   const datos7dCompletos =
     obligacionesRegistradas
       .cobertura7Dias !==
@@ -594,14 +653,14 @@ async function construirProyeccionTesoreria({
     saldoActual === null ||
     !datos7dCompletos
       ? null
-      : saldoActual -
+      : saldoLibreOperativo -
         obligaciones7Resumen.monto;
 
   const escenarioCobroTotal7d =
     saldoActual === null ||
     !datos7dCompletos
       ? null
-      : saldoActual +
+      : saldoLibreOperativo +
         cobros7Resumen.monto -
         obligaciones7Resumen.monto;
 
@@ -702,6 +761,13 @@ async function construirProyeccionTesoreria({
       resumenTesoreria
         .estadoConfiabilidad,
     saldoActual,
+    saldoLibreOperativo,
+    reservasActivas: {
+      total:
+        reservasActivas,
+      utilidadDueno:
+        reservaUtilidadDueno
+    },
     obligacionesRegistradas,
     politicaPriorizacionPagos,
     excepcionesPrioridadPago:
