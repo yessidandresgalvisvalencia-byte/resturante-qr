@@ -57,6 +57,8 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
     estadoVivo.ventana24h || {};
   const diagnostico =
     estadoVivo.diagnostico || {};
+  const tesoreria =
+    estadoVivo.tesoreria || {};
   const evento =
     estadoVivo.ultimoEvento || {};
   const cambio =
@@ -130,6 +132,34 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
         ).join("")
       : "";
 
+  const cuentasTesoreria =
+    Array.isArray(
+      tesoreria.cuentas
+    )
+      ? tesoreria.cuentas
+      : [];
+
+  const cuentasTesoreriaHTML =
+    cuentasTesoreria.length
+      ? cuentasTesoreria.map(
+          (cuenta) => `
+            <li>
+              ${escaparJuntaGRUK(
+                cuenta.nombre || "Cuenta"
+              )}
+              ·
+              ${escaparJuntaGRUK(
+                cuenta.tipo || ""
+              )}
+              ·
+              ${formatoMonedaJuntaGRUK(
+                cuenta.saldoDisponible || 0
+              )}
+            </li>
+          `
+        ).join("")
+      : "<li>Sin cuentas configuradas.</li>";
+
   const razones =
     Array.isArray(diagnostico.razones)
       ? diagnostico.razones
@@ -147,6 +177,47 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
     <p><strong>Diagnóstico:</strong> ${escaparJuntaGRUK(
       diagnostico.titular || "Sin diagnóstico."
     )}</p>
+
+    <div>
+      <h3>Tesorería · ${escaparJuntaGRUK(
+        tesoreria.estadoConfiabilidad ||
+        "SIN_CONFIGURAR"
+      )}</h3>
+
+      <p>
+        <strong>Saldo disponible:</strong>
+        ${tesoreria.saldoDisponible === null ||
+          tesoreria.saldoDisponible === undefined
+          ? "No verificable"
+          : formatoMonedaJuntaGRUK(
+              tesoreria.saldoDisponible
+            )}
+      </p>
+
+      <p>
+        <strong>Sin asignar:</strong>
+        entradas
+        ${formatoMonedaJuntaGRUK(
+          tesoreria.movimientosSinAsignar
+            ?.entradas?.monto || 0
+        )}
+        · salidas
+        ${formatoMonedaJuntaGRUK(
+          tesoreria.movimientosSinAsignar
+            ?.salidas?.monto || 0
+        )}
+      </p>
+
+      ${tesoreria.advertencia
+        ? `<p><strong>Advertencia:</strong> ${escaparJuntaGRUK(
+            tesoreria.advertencia
+          )}</p>`
+        : ""}
+
+      <ul>
+        ${cuentasTesoreriaHTML}
+      </ul>
+    </div>
 
     <p>${escaparJuntaGRUK(
       diagnostico.lectura || ""
