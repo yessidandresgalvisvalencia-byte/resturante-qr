@@ -32,7 +32,7 @@ function configurarProcesandoJuntaGRUK(procesando) {
       juntaSesionActualGRUK?.estado === "CERRADA";
     boton.textContent = procesando
       ? "Expertos analizando..."
-      : "Preguntar a los expertos";
+      : "Preguntar a toda la Junta";
   }
 }
 
@@ -78,7 +78,7 @@ function nombreActorJuntaGRUK(item) {
   }
 
   if (item.tipo === "EXPERTO_IA") {
-    return `EXPERTO · ${escaparJuntaGRUK(item.departamento)}`;
+    return `EXPERTO GRUK · ${escaparJuntaGRUK(item.departamento)}`;
   }
 
   return `PREGUNTA HUMANA · ${escaparJuntaGRUK(item.departamento)}`;
