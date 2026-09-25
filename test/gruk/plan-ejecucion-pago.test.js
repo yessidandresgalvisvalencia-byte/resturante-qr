@@ -20,7 +20,8 @@ const {
   "../../core/finanzas/planEjecucionPago.service"
 );
 const {
-  obtenerPlanesPagoDecision
+  obtenerPlanesPagoDecision,
+  obtenerAuditoria
 } = require(
   "../../intelligence/brain/cerebro.service"
 );
@@ -463,6 +464,43 @@ test("confirmacion de plan exige salida real no revertida en Caja", async () => 
 
   assert.ok(
     item.confirmadoAt
+  );
+
+  const auditoria =
+    await obtenerAuditoria(
+      {
+        usuarioId:
+          USUARIO_ID,
+        empresaId:
+          EMPRESA_ID,
+        sedeId:
+          null,
+        rol:
+          ROLES_GRUK.DUENO
+      },
+      100
+    );
+
+  assert.ok(
+    auditoria.some(
+      (evento) =>
+        evento.accion ===
+        "PLAN_PAGO_CREADO"
+    )
+  );
+
+  assert.ok(
+    auditoria.some(
+      (evento) =>
+        evento.accion ===
+        "PAGO_VERIFICADO_EN_CAJA" &&
+        String(
+          evento.movimientoCajaId
+        ) ===
+        String(
+          movimiento._id
+        )
+    )
   );
 });
 
