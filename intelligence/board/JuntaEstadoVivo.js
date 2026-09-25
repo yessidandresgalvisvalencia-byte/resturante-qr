@@ -102,6 +102,64 @@ const diagnosticoSchema = new mongoose.Schema({
   requiereDecisionCerebro: {
     type: Boolean,
     default: false
+  },
+  cambioDesdeAnterior: {
+    direccion: {
+      type: String,
+      enum: [
+        "AUMENTA_FLUJO_PARCIAL",
+        "REDUCE_FLUJO_PARCIAL",
+        "SIN_CAMBIO",
+        "INICIAL"
+      ],
+      default: "INICIAL"
+    },
+    valor: {
+      type: Number,
+      default: 0
+    },
+    explicacion: {
+      type: String,
+      default: "",
+      maxlength: 800
+    }
+  }
+}, { _id: false });
+
+const historialSchema = new mongoose.Schema({
+  version: {
+    type: Number,
+    required: true
+  },
+  estado: {
+    type: String,
+    enum: ["NORMAL", "ATENCION", "CRITICO"],
+    required: true
+  },
+  titular: {
+    type: String,
+    required: true,
+    maxlength: 1200
+  },
+  tipoEvento: {
+    type: String,
+    required: true
+  },
+  direccionEvento: {
+    type: String,
+    required: true
+  },
+  montoEvento: {
+    type: Number,
+    default: null
+  },
+  flujoConfirmadoParcial: {
+    type: Number,
+    required: true
+  },
+  createdAt: {
+    type: Date,
+    required: true
   }
 }, { _id: false });
 
@@ -133,6 +191,10 @@ const schema = new mongoose.Schema({
   diagnostico: {
     type: diagnosticoSchema,
     required: true
+  },
+  historialDiagnosticos: {
+    type: [historialSchema],
+    default: []
   },
   reportesNeuronas: {
     type: [{
