@@ -58,6 +58,29 @@ async function cargarDecisionCerebroGRUK() {
         `
         : "";
 
+    const planPagoHTML = (titulo, items) => {
+      const lista = Array.isArray(items) ? items : [];
+
+      if (!lista.length) return "";
+
+      return `
+        <h4>${escaparGRUK(titulo)}</h4>
+        <ol>
+          ${lista.map((item) => `
+            <li>
+              ${escaparGRUK(item.descripcion || "Obligación")}
+              ${item.categoria ? `[${escaparGRUK(item.categoria)}]` : ""}
+              · ${formatoCOP(item.monto || 0)}
+              · vence ${item.fechaVencimiento
+                ? escaparGRUK(new Date(item.fechaVencimiento).toLocaleDateString("es-CO"))
+                : "sin fecha"}
+              · <strong>${escaparGRUK(item.estadoCobertura || "")}</strong>
+            </li>
+          `).join("")}
+        </ol>
+      `;
+    };
+
     const contextoFinanciero = financiero
       ? `
         <div class="card">
@@ -71,6 +94,14 @@ async function cargarDecisionCerebroGRUK() {
           <p><strong>Brecha aun cobrando todo:</strong> ${formatoCOP(financiero.faltanteAunCobrandoTodo || 0)}</p>
           <p><strong>Fecha crítica:</strong> ${financiero.fechaCritica ? escaparGRUK(new Date(financiero.fechaCritica).toLocaleDateString("es-CO")) : "Sin fecha"}</p>
           ${carteraHTML}
+          ${planPagoHTML(
+            "Plan de pagos con caja actual",
+            financiero.planPagosCajaActual
+          )}
+          ${planPagoHTML(
+            "Plan de pagos considerando cobros priorizados",
+            financiero.planPagosConCobros
+          )}
         </div>
       `
       : "";
