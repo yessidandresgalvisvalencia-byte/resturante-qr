@@ -3595,6 +3595,245 @@ function llenarSelectsTesoreriaGRUK(cuentas) {
   }
 }
 
+function categoriasPoliticaPagosGRUK() {
+  const select =
+    document.getElementById(
+      "politicaPagosCategorias"
+    );
+
+  if (!select) return [];
+
+  return Array.from(
+    select.options
+  ).map(
+    (option) => option.value
+  );
+}
+
+function reordenarPoliticaPagosGRUK(
+  precedencia
+) {
+  const select =
+    document.getElementById(
+      "politicaPagosCategorias"
+    );
+
+  if (!select) return;
+
+  const mapa =
+    new Map(
+      Array.from(
+        select.options
+      ).map(
+        (option) => [
+          option.value,
+          option
+        ]
+      )
+    );
+
+  const orden = [
+    ...(Array.isArray(precedencia)
+      ? precedencia
+      : []),
+    ...Array.from(
+      mapa.keys()
+    ).filter(
+      (categoria) =>
+        !(
+          precedencia || []
+        ).includes(
+          categoria
+        )
+    )
+  ];
+
+  for (const categoria of orden) {
+    const option =
+      mapa.get(categoria);
+
+    if (option) {
+      select.appendChild(option);
+    }
+  }
+}
+
+function moverCategoriaPoliticaGRUK(
+  direccion
+) {
+  const select =
+    document.getElementById(
+      "politicaPagosCategorias"
+    );
+
+  if (!select) return;
+
+  const index =
+    select.selectedIndex;
+
+  if (index < 0) return;
+
+  const destino =
+    index + Number(direccion);
+
+  if (
+    destino < 0 ||
+    destino >=
+      select.options.length
+  ) {
+    return;
+  }
+
+  const actual =
+    select.options[index];
+
+  if (direccion < 0) {
+    select.insertBefore(
+      actual,
+      select.options[destino]
+    );
+  } else {
+    const referencia =
+      select.options[destino]
+        .nextSibling;
+
+    select.insertBefore(
+      actual,
+      referencia
+    );
+  }
+
+  select.selectedIndex =
+    destino;
+}
+
+function renderizarPoliticaPagosGRUK(
+  politica
+) {
+  const activa =
+    document.getElementById(
+      "politicaPagosActiva"
+    );
+
+  if (activa) {
+    activa.checked =
+      Boolean(
+        politica
+          ?.usar_precedencia_categoria
+      );
+  }
+
+  reordenarPoliticaPagosGRUK(
+    politica
+      ?.precedencia_categorias || []
+  );
+
+  const estado =
+    document.getElementById(
+      "estadoPoliticaPagosGRUK"
+    );
+
+  if (estado) {
+    const modo =
+      politica
+        ?.usar_precedencia_categoria
+        ? "ACTIVA"
+        : "INACTIVA";
+
+    estado.innerHTML =
+      `<p>Política: <strong>${modo}</strong>. ${politica?.usar_precedencia_categoria ? "GRUK aplica el orden corporativo dentro de cada frontera de vencimiento." : "GRUK usa vencimiento, fecha y monto."}</p>`;
+  }
+}
+
+async function cargarPoliticaPagosGRUK() {
+  const res =
+    await grukFetch(
+      "/api/tesoreria/politica-priorizacion-pagos"
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible consultar la política de pagos"
+    );
+  }
+
+  renderizarPoliticaPagosGRUK(
+    data.politica
+  );
+
+  return data.politica;
+}
+
+async function guardarPoliticaPagosGRUK() {
+  const estado =
+    document.getElementById(
+      "estadoPoliticaPagosGRUK"
+    );
+
+  const activa =
+    Boolean(
+      document.getElementById(
+        "politicaPagosActiva"
+      )?.checked
+    );
+
+  const categorias =
+    categoriasPoliticaPagosGRUK();
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/politica-priorizacion-pagos",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              usar_precedencia_categoria:
+                activa,
+              precedencia_categorias:
+                categorias
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible guardar la política de pagos"
+      );
+    }
+
+    renderizarPoliticaPagosGRUK(
+      data.politica
+    );
+
+    if (estado) {
+      estado.innerHTML +=
+        "<p>✅ Política guardada. Junta y Cerebro recalcularán la prioridad financiera.</p>";
+    }
+
+    await cargarTesoreriaGRUK();
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}. Solo el DUEÑO puede modificar esta política corporativa.</p>`;
+    }
+  }
+}
+
 async function cargarTesoreriaGRUK() {
   const res =
     await grukFetch(
@@ -3876,7 +4115,11 @@ async function inicializarTesoreriaGRUK() {
   }
 
   try {
-    await cargarTesoreriaGRUK();
+    await Promise.all([
+      cargarTesoreriaGRUK(),
+      cargarPoliticaPagosGRUK(),
+      cargarObligacionesRecurrentesGRUK()
+    ]);
   } catch (error) {
     const contenedor =
       document.getElementById(
@@ -3906,3 +4149,9 @@ window.crearObligacionRecurrenteGRUK =
 
 window.desactivarObligacionRecurrenteGRUK =
   desactivarObligacionRecurrenteGRUK;
+
+window.moverCategoriaPoliticaGRUK =
+  moverCategoriaPoliticaGRUK;
+
+window.guardarPoliticaPagosGRUK =
+  guardarPoliticaPagosGRUK;
