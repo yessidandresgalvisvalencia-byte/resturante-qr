@@ -3183,6 +3183,109 @@ function renderizarTesoreriaGRUK(resumen, proyeccion = null) {
   `;
 }
 
+function renderizarObligacionesTesoreriaGRUK(
+  obligaciones
+) {
+  const contenedor =
+    document.getElementById(
+      "obligacionesTesoreriaGRUK"
+    );
+
+  if (!contenedor) return;
+
+  if (!obligaciones) {
+    contenedor.innerHTML =
+      "<p>No hay información de obligaciones disponible.</p>";
+    return;
+  }
+
+  const grupos =
+    obligaciones.grupos || {};
+
+  const vencidas =
+    grupos.vencidas || {};
+  const siete =
+    grupos.proximos7Dias || {};
+  const treinta =
+    grupos.dias8a30 || {};
+  const sinFecha =
+    grupos.sinFecha || {};
+
+  const saldoDespues =
+    obligaciones.saldoDespues7Dias;
+
+  contenedor.innerHTML = `
+    <hr>
+    <h4>Obligaciones registradas</h4>
+
+    <p>
+      <strong>Cobertura 7 días:</strong>
+      ${escaparTesoreriaGRUK(
+        obligaciones.cobertura7Dias ||
+        "NO_CALCULABLE"
+      )}
+    </p>
+
+    <p>
+      <strong>Vencidas:</strong>
+      ${formatoCOPFinanzas(
+        vencidas.montoCuantificado || 0
+      )}
+      ·
+      <strong>Próximos 7 días:</strong>
+      ${formatoCOPFinanzas(
+        siete.montoCuantificado || 0
+      )}
+      ·
+      <strong>8–30 días:</strong>
+      ${formatoCOPFinanzas(
+        treinta.montoCuantificado || 0
+      )}
+    </p>
+
+    <p>
+      <strong>Total exigible cuantificado hasta 7 días:</strong>
+      ${formatoCOPFinanzas(
+        obligaciones.montoExigible7Dias || 0
+      )}
+    </p>
+
+    <p>
+      <strong>Obligaciones sin fecha:</strong>
+      ${Number(
+        obligaciones.obligacionesSinFecha || 0
+      )}
+      ·
+      <strong>exigibles no cuantificadas:</strong>
+      ${Number(
+        obligaciones.noCuantificadasExigibles || 0
+      )}
+    </p>
+
+    <p>
+      <strong>Saldo después de obligaciones registradas 7d:</strong>
+      ${saldoDespues === null ||
+        saldoDespues === undefined
+        ? "No calculable con confianza"
+        : formatoCOPFinanzas(
+            saldoDespues
+          )}
+    </p>
+
+    <p><small>
+      ${escaparTesoreriaGRUK(
+        obligaciones.advertencia || ""
+      )}
+    </small></p>
+
+    ${sinFecha.cantidad
+      ? `<p><small>⚠️ Hay ${Number(
+          sinFecha.cantidad
+        )} obligación(es) sin fecha. GRUK no declarará cobertura suficiente hasta completar esos vencimientos.</small></p>`
+      : ""}
+  `;
+}
+
 function llenarSelectsTesoreriaGRUK(cuentas) {
   const origen =
     document.getElementById(
@@ -3250,6 +3353,12 @@ async function cargarTesoreriaGRUK() {
   renderizarTesoreriaGRUK(
     data.resumen,
     data.proyeccion || null
+  );
+
+  renderizarObligacionesTesoreriaGRUK(
+    data.proyeccion
+      ?.obligacionesRegistradas ||
+    null
   );
 
   llenarSelectsTesoreriaGRUK(
