@@ -20,6 +20,7 @@ const cerebroRoutes = require("./routes/cerebro");
 const juntaRoutes = require("./routes/junta");
 const memoriaRoutes = require("./routes/memoria");
 const iniciarCerebroJob = require("./shared/jobs/cerebro.job");
+const iniciarCajaJob = require("./shared/jobs/caja.job");
 const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -113,6 +114,7 @@ async function iniciarAplicacion() {
     console.log("MongoDB conectado");
 
     iniciarJobSuscripciones();
+    iniciarCajaJob();
     iniciarCerebroJob();
     iniciarMemoriaJob();
 
