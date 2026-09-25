@@ -27,17 +27,22 @@ const intervencionSchema = new mongoose.Schema({
     default: null,
     maxlength: 100
   },
+  proveedorRespuestaId: {
+    type: String,
+    default: null,
+    maxlength: 200
+  },
   mensaje: {
     type: String,
     required: true,
     trim: true,
-    maxlength: 2000
+    maxlength: 4000
   },
   evidencia: {
     type: String,
     default: "",
     trim: true,
-    maxlength: 4000
+    maxlength: 6000
   },
   impacto_financiero_estimado: {
     type: Number,
