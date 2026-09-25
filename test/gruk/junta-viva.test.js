@@ -507,3 +507,123 @@ test("venta viva genera diagnostico experto relevante sin volver a preguntar por
     false
   );
 });
+
+
+test("tesoreria COMPLETA permite citar saldo disponible sin confundirlo con flujo", () => {
+  const diagnostico = construirDiagnostico({
+    ultimoEvento: {
+      tipo: "RECALCULO",
+      direccion: "NEUTRO",
+      monto: null
+    },
+    ventana24h: {
+      ventasPagadas: { cantidad: 1, monto: 100000 },
+      comprasPagadas: { cantidad: 0, monto: 0 },
+      comprasNoConfirmadas: { cantidad: 0, monto: 0 },
+      gastosRegistrados: { cantidad: 0, monto: 0 },
+      gastosPagados: { cantidad: 0, monto: 0 },
+      gastosNoConfirmados: { cantidad: 0, monto: 0 },
+      flujoConfirmadoParcial: 100000
+    },
+    tesoreria: {
+      estadoConfiabilidad: "COMPLETO",
+      saldoDisponible: 250000
+    },
+    reportes: []
+  });
+
+  assert.equal(
+    diagnostico.estado,
+    "NORMAL"
+  );
+
+  assert.match(
+    diagnostico.lectura,
+    /saldo disponible configurado de 250000/i
+  );
+
+  assert.match(
+    diagnostico.lectura,
+    /flujo confirmado parcial es 100000/i
+  );
+});
+
+test("tesoreria PARCIAL obliga ATENCION y no trata saldo como definitivo", () => {
+  const diagnostico = construirDiagnostico({
+    ultimoEvento: {
+      tipo: "RECALCULO",
+      direccion: "NEUTRO",
+      monto: null
+    },
+    ventana24h: {
+      ventasPagadas: { cantidad: 0, monto: 0 },
+      comprasPagadas: { cantidad: 0, monto: 0 },
+      comprasNoConfirmadas: { cantidad: 0, monto: 0 },
+      gastosRegistrados: { cantidad: 0, monto: 0 },
+      gastosPagados: { cantidad: 0, monto: 0 },
+      gastosNoConfirmados: { cantidad: 0, monto: 0 },
+      flujoConfirmadoParcial: 0
+    },
+    tesoreria: {
+      estadoConfiabilidad: "PARCIAL",
+      saldoDisponible: 300000
+    },
+    reportes: []
+  });
+
+  assert.equal(
+    diagnostico.estado,
+    "ATENCION"
+  );
+
+  assert.ok(
+    diagnostico.razones.some(
+      (item) =>
+        /no debe tratarse como disponibilidad definitiva/i.test(item)
+    )
+  );
+
+  assert.match(
+    diagnostico.lectura,
+    /no debe tratarse como saldo definitivo/i
+  );
+});
+
+test("evidencia de Finanzas distingue tesoreria de flujo del periodo", () => {
+  const reportes = enriquecerReportesConCaja(
+    [
+      {
+        neurona: "FINANZAS",
+        kpi_principal: {
+          nombre: "margen_bruto_confiable",
+          estado: "OK"
+        },
+        hallazgos: []
+      }
+    ],
+    {
+      entradasConfirmadas: 180000,
+      salidasConfirmadas: 50000,
+      flujoConfirmadoParcial: 130000
+    },
+    {
+      estadoConfiabilidad: "COMPLETO",
+      saldoDisponible: 420000
+    }
+  );
+
+  const tesoreria = reportes[0].hallazgos.find(
+    (item) =>
+      item.tipo === "TESORERIA_DISPONIBLE"
+  );
+
+  assert.ok(tesoreria);
+  assert.equal(
+    tesoreria.confianza,
+    100
+  );
+  assert.match(
+    tesoreria.evidencia,
+    /420000/
+  );
+});
