@@ -76,12 +76,16 @@ function renderizarJuntaSinSesionGRUK(decision) {
   if (lista) lista.innerHTML = "";
 }
 
+function esExpertoJuntaGRUK(item) {
+  return ["EXPERTO_GRUK", "EXPERTO_IA"].includes(item?.tipo);
+}
+
 function nombreActorJuntaGRUK(item) {
   if (item.tipo === "NEURONA") {
     return `DATO · NEURONA ${escaparJuntaGRUK(item.departamento)}`;
   }
 
-  if (item.tipo === "EXPERTO_IA") {
+  if (esExpertoJuntaGRUK(item)) {
     return `EXPERTO GRUK · ${escaparJuntaGRUK(item.departamento)}`;
   }
 
@@ -139,7 +143,7 @@ function renderizarJuntaGRUK(sesion) {
   const respuestasPorPregunta = new Map();
   for (const item of intervenciones) {
     if (
-      item.tipo === "EXPERTO_IA" &&
+      esExpertoJuntaGRUK(item) &&
       item.respuestaAId
     ) {
       const clave = String(item.respuestaAId);
@@ -156,7 +160,7 @@ function renderizarJuntaGRUK(sesion) {
       : "";
 
     const esDatoNeurona = item.tipo === "NEURONA";
-    const esExperto = item.tipo === "EXPERTO_IA";
+    const esExperto = esExpertoJuntaGRUK(item);
 
     const metricas = esDatoNeurona
       ? `
