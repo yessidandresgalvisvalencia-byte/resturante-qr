@@ -577,13 +577,30 @@ function extraerHechosConversacion(
   return extraerHechosHumanos(actual);
 }
 
+function etiquetaDatoHecho(hecho) {
+  return hecho?.fuente === "GRUK"
+    ? "DATO_GRUK"
+    : "DATO_USUARIO";
+}
+
 function descripcionSeguimientoVenta(evento) {
   const partes = [];
 
+  const datoGruk =
+    evento.fuente === "GRUK";
+
   if (evento.estado_cobro === "COBRADA") {
-    partes.push("confirmaste que la venta ya fue cobrada");
+    partes.push(
+      datoGruk
+        ? "GRUK confirma que la venta ya fue cobrada"
+        : "confirmaste que la venta ya fue cobrada"
+    );
   } else if (evento.estado_cobro === "PENDIENTE") {
-    partes.push("confirmaste que el cobro sigue pendiente");
+    partes.push(
+      datoGruk
+        ? "GRUK confirma que el cobro sigue pendiente"
+        : "confirmaste que el cobro sigue pendiente"
+    );
   }
 
   if (evento.medio_pago) {
@@ -686,13 +703,18 @@ function respuestaEventoVenta({
       ? ` Eso equivale a por lo menos ${relacion_minima_ticket.toFixed(1)} veces el ticket promedio que GRUK tiene hoy (${formatearCOP(ticket_promedio)}).`
       : "";
 
+  const etiquetaDato =
+    etiquetaDatoHecho(evento);
+
   const evidenciaBase = [
-    `DATO_USUARIO: reportaste una venta de ${montoTexto}${evento.momento === "HOY" ? " hoy" : ""}.`
+    evento.fuente === "GRUK"
+      ? `${etiquetaDato}: GRUK registro una venta de ${montoTexto}${evento.momento === "HOY" ? " hoy" : ""}.`
+      : `${etiquetaDato}: reportaste una venta de ${montoTexto}${evento.momento === "HOY" ? " hoy" : ""}.`
   ];
 
   for (const detalle of descripcionSeguimientoVenta(evento)) {
     evidenciaBase.push(
-      `DATO_USUARIO: ${detalle}.`
+      `${etiquetaDato}: ${detalle}.`
     );
   }
 
@@ -1035,7 +1057,7 @@ function respuestaSinAporteMaterial({
     criterio_profesional:
       "Cuando una función no tiene evidencia suficiente o impacto directo, su mejor aporte es declarar el límite y no fabricar relevancia.",
     evidencia_usada: [
-      `DATO_USUARIO: ${limitarTexto(hecho.texto, 400)}`
+      `${etiquetaDatoHecho(hecho)}: ${limitarTexto(hecho.texto, 400)}`
     ],
     inferencias: [],
     riesgos: [],
@@ -1068,7 +1090,7 @@ function respuestaEventoGeneral({
   }
 
   const dato = [
-    `DATO_USUARIO: ${limitarTexto(hecho.texto, 450)}`
+    `${etiquetaDatoHecho(hecho)}: ${limitarTexto(hecho.texto, 450)}`
   ];
 
   const reporte =
@@ -2326,7 +2348,8 @@ async function generarRespuestasExpertas({
   pregunta,
   decision,
   reportes,
-  intervenciones
+  intervenciones,
+  fuente = "USUARIO"
 }) {
   const intencion =
     clasificarIntencion(pregunta);
@@ -2334,11 +2357,21 @@ async function generarRespuestasExpertas({
   const temas =
     detectarTemas(pregunta);
 
-  const hechosHumanos =
+  const hechosExtraidos =
     extraerHechosConversacion(
       pregunta,
       intervenciones
     );
+
+  const hechosHumanos =
+    fuente === "GRUK"
+      ? hechosExtraidos.map(
+          (hecho) => ({
+            ...hecho,
+            fuente: "GRUK"
+          })
+        )
+      : hechosExtraidos;
 
   const respuestas =
     DEPARTAMENTOS_EXPERTOS.map(
