@@ -51,6 +51,12 @@ const gastoSchema = new mongoose.Schema(
       index: true
     },
 
+    fechaVencimientoPago: {
+      type: Date,
+      default: null,
+      index: true
+    },
+
     proveedor: {
       type: String,
       default: "",
