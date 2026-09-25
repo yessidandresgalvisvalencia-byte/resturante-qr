@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const Empresa = require("../../models/Empresa");
 const Inventario = require("../../models/Inventario");
 const { obtenerResumenVentas } = require("../../core/finanzas/finanzas.service");
+const { obtenerResumenCaja } = require("../../core/finanzas/caja.service");
+const { construirProyeccionTesoreria } = require("../../core/finanzas/tesoreriaProyeccion.service");
 
 const KPI_DIRECCION = Object.freeze({
   margen_bruto_confiable: "MAYOR_ES_MEJOR",
@@ -12,7 +14,12 @@ const KPI_DIRECCION = Object.freeze({
   porcentaje_items_agotados: "MENOR_ES_MEJOR",
   inventario_configurado: "MAYOR_ES_MEJOR",
   cac: "MENOR_ES_MEJOR",
-  configuracion_core: "MAYOR_ES_MEJOR"
+  configuracion_core: "MAYOR_ES_MEJOR",
+  tesoreria_confiable: "MAYOR_ES_MEJOR",
+  brecha_caja_7d: "MENOR_ES_MEJOR",
+  cobros_confirmados_7d: "MAYOR_ES_MEJOR",
+  obligaciones_7d_cubiertas: "MAYOR_ES_MEJOR",
+  cobertura_datos_obligaciones_7d: "MAYOR_ES_MEJOR"
 });
 
 function periodoActualUTC() {
