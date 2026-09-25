@@ -15,6 +15,22 @@ const schema = new mongoose.Schema({
     default: null,
     index: true
   },
+  cuentaTesoreriaId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "CuentaTesoreria",
+    default: null,
+    index: true
+  },
+  estadoAsignacionCuenta: {
+    type: String,
+    enum: [
+      "ASIGNADA",
+      "SIN_ASIGNAR",
+      "TRANSFERENCIA"
+    ],
+    default: "SIN_ASIGNAR",
+    index: true
+  },
   direccion: {
     type: String,
     required: true,
@@ -35,7 +51,12 @@ const schema = new mongoose.Schema({
   origenTipo: {
     type: String,
     required: true,
-    enum: ["VENTA", "COMPRA", "GASTO"],
+    enum: [
+      "VENTA",
+      "COMPRA",
+      "GASTO",
+      "TRANSFERENCIA"
+    ],
     index: true
   },
   origenId: {
@@ -115,6 +136,12 @@ schema.index({
 schema.index({
   empresaId: 1,
   sedeId: 1,
+  confirmadoAt: -1
+});
+
+schema.index({
+  empresaId: 1,
+  cuentaTesoreriaId: 1,
   confirmadoAt: -1
 });
 
