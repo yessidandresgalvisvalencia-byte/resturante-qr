@@ -25,22 +25,32 @@ test("Junta viva trata venta pagada como entrada confirmada", () => {
   assert.equal(evento.monto, 120000);
 });
 
-test("Junta viva nunca trata gasto registrado como salida confirmada", () => {
-  const evento = normalizarEvento({
+test("Junta viva distingue gasto pagado de gasto sin pago confirmado", () => {
+  const desconocido = normalizarEvento({
     eventName: "GASTO_REGISTRADO",
     payload: {
       gastoId: "507f1f77bcf86cd799439012",
-      monto: 300000
+      monto: 300000,
+      estadoPago: "desconocido"
+    }
+  });
+
+  const pagado = normalizarEvento({
+    eventName: "GASTO_REGISTRADO",
+    payload: {
+      gastoId: "507f1f77bcf86cd799439015",
+      monto: 80000,
+      estadoPago: "pagado"
     }
   });
 
   assert.equal(
-    evento.direccion,
+    desconocido.direccion,
     "SALIDA_REGISTRADA_NO_CONFIRMADA"
   );
-  assert.match(
-    evento.descripcion,
-    /no lo trata como salida confirmada/i
+  assert.equal(
+    pagado.direccion,
+    "SALIDA_CONFIRMADA"
   );
 });
 
@@ -93,7 +103,15 @@ test("diagnostico vivo eleva CRITICO al Cerebro pero no emite orden", () => {
         cantidad: 2,
         monto: 40000
       },
-      flujoConfirmadoParcial: 150000
+      gastosPagados: {
+        cantidad: 1,
+        monto: 10000
+      },
+      gastosNoConfirmados: {
+        cantidad: 1,
+        monto: 30000
+      },
+      flujoConfirmadoParcial: 140000
     },
     reportes: [
       {
