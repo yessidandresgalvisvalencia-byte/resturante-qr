@@ -7,6 +7,9 @@ const {
   responderPreguntaExpertos,
   cerrarSesion
 } = require("./junta.service");
+const {
+  obtenerEstadoVivo
+} = require("./juntaViva.service");
 
 function mensajePublico(error) {
   if (error.message === "JUNTA_RESPUESTAS_INCOMPLETAS") {
@@ -31,6 +34,25 @@ function responderError(res, error, operacion, extra = {}) {
     error: "Error procesando solicitud de Junta Directiva",
     ...extra
   });
+}
+
+async function obtenerJuntaViva(req, res) {
+  try {
+    const estado = await obtenerEstadoVivo(
+      req.auth
+    );
+
+    return res.json({
+      ok: true,
+      estado
+    });
+  } catch (error) {
+    return responderError(
+      res,
+      error,
+      "consultar estado vivo"
+    );
+  }
 }
 
 async function obtenerJunta(req, res) {
@@ -131,6 +153,7 @@ async function reintentarRespuesta(req, res) {
 }
 
 module.exports = {
+  obtenerJuntaViva,
   obtenerJunta,
   abrirJunta,
   intervenir,
