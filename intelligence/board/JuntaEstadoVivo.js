@@ -178,6 +178,7 @@ const proyeccionSchema = new mongoose.Schema({
     required: true,
     enum: [
       "SIN_SALDO_VERIFICABLE",
+      "DATOS_INSUFICIENTES",
       "CUBIERTO_CON_CAJA_ACTUAL",
       "DEPENDE_DE_COBROS",
       "DEFICIT_AUN_COBRANDO_TODO"
