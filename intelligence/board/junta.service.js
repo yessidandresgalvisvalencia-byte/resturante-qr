@@ -155,7 +155,7 @@ function construirIntervencionExperta({
     : "";
 
   return {
-    tipo: "EXPERTO_IA",
+    tipo: "EXPERTO_GRUK",
     departamento: respuesta.departamento,
     autorUsuarioId: null,
     respuestaAId: intervencionId,
@@ -344,7 +344,7 @@ async function responderPreguntaExpertos({
 
   const existentes = (sesion.intervenciones || []).filter(
     (item) =>
-      item.tipo === "EXPERTO_IA" &&
+      ["EXPERTO_IA", "EXPERTO_GRUK"].includes(item.tipo) &&
       String(item.respuestaAId || "") === String(intervencionId)
   );
 
@@ -404,7 +404,7 @@ async function responderPreguntaExpertos({
       intervenciones: {
         $not: {
           $elemMatch: {
-            tipo: "EXPERTO_IA",
+            tipo: { $in: ["EXPERTO_IA", "EXPERTO_GRUK"] },
             respuestaAId: pregunta._id
           }
         }
@@ -432,7 +432,7 @@ async function responderPreguntaExpertos({
 
   const yaRespondida = (posterior?.intervenciones || []).some(
     (item) =>
-      item.tipo === "EXPERTO_IA" &&
+      ["EXPERTO_IA", "EXPERTO_GRUK"].includes(item.tipo) &&
       String(item.respuestaAId || "") === String(intervencionId)
   );
 
