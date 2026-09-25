@@ -154,7 +154,13 @@ function renderizarJuntaGRUK(sesion) {
     }
   }
 
-  lista.innerHTML = intervenciones.map((item) => {
+  const visibles = intervenciones.filter(
+    (item) =>
+      !esExpertoJuntaGRUK(item) ||
+      item.relevancia !== "NINGUNA"
+  );
+
+  lista.innerHTML = visibles.map((item) => {
     const evidencia = item.evidencia
       ? `<p><strong>Evidencia utilizada:</strong> ${escaparJuntaGRUK(item.evidencia)}</p>`
       : "";
@@ -175,6 +181,11 @@ function renderizarJuntaGRUK(sesion) {
 
     const notaExperto = esExperto
       ? `
+        <p><strong>Relevancia:</strong> ${
+          item.relevancia
+            ? escaparJuntaGRUK(item.relevancia)
+            : "No clasificada"
+        }</p>
         <p><strong>Confianza profesional:</strong> ${
           item.confianza === null || item.confianza === undefined
             ? "No estimada"
