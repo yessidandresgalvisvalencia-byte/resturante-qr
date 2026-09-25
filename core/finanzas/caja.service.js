@@ -493,8 +493,12 @@ async function reversarMovimiento(candidato) {
 }
 
 async function registrarMovimientoDesdeEvento(
-  event
+  event,
+  opciones = {}
 ) {
+  const {
+    emitirEvento = true
+  } = opciones;
   const candidato =
     construirCandidatoDesdeEvento(
       event
@@ -518,6 +522,7 @@ async function registrarMovimientoDesdeEvento(
         );
 
   if (
+    emitirEvento &&
     resultado.creado &&
     resultado.movimiento
   ) {
@@ -814,7 +819,10 @@ async function reconciliarDocumento({
   if (!event) return null;
 
   return registrarMovimientoDesdeEvento(
-    event
+    event,
+    {
+      emitirEvento: false
+    }
   );
 }
 
