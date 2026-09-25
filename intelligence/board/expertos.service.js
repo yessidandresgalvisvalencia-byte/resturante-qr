@@ -219,6 +219,360 @@ function detectarTemas(pregunta) {
     : ["GENERAL"];
 }
 
+function convertirMontoHumano(valor, unidad) {
+  const base = Number(
+    String(valor || "")
+      .replace(/\./g, "")
+      .replace(",", ".")
+  );
+
+  if (!Number.isFinite(base)) return null;
+
+  const u = normalizar(unidad);
+
+  if (u === "mil" || u === "k") {
+    return base * 1000;
+  }
+
+  if (
+    u === "millon" ||
+    u === "millones" ||
+    u === "m"
+  ) {
+    return base * 1000000;
+  }
+
+  return base;
+}
+
+function extraerHechosHumanos(pregunta) {
+  const original = String(pregunta || "").trim();
+  const texto = normalizar(original);
+  const hechos = [];
+
+  const hablaDeVenta =
+    /\b(venta|vendi|vendimos|facture|facturamos)\b/.test(texto);
+
+  if (hablaDeVenta) {
+    const montoMatch = texto.match(
+      /(?:mas\s+de|más\s+de|aprox(?:imadamente)?|cerca\s+de|por|de)?\s*\$?\s*(\d+(?:[.,]\d+)?)\s*(mil|k|millones?|m)?\s*(?:pesos|cop)?/i
+    );
+
+    if (montoMatch) {
+      const monto = convertirMontoHumano(
+        montoMatch[1],
+        montoMatch[2]
+      );
+
+      if (
+        monto !== null &&
+        monto >= 1000
+      ) {
+        const comparador =
+          /mas\s+de|más\s+de/.test(texto)
+            ? "MAYOR_QUE"
+            : "APROXIMADO";
+
+        const momento =
+          /\bhoy\b/.test(texto)
+            ? "HOY"
+            : /\bayer\b/.test(texto)
+              ? "AYER"
+              : "NO_ESPECIFICADO";
+
+        hechos.push({
+          tipo: "VENTA_REPORTADA",
+          fuente: "USUARIO",
+          monto_cop: monto,
+          comparador,
+          momento,
+          texto: limitarTexto(original, 500)
+        });
+      }
+    }
+  }
+
+  return hechos;
+}
+
+function formatearCOP(valor) {
+  const n = numero(valor);
+
+  if (n === null) {
+    return "sin monto verificable";
+  }
+
+  return "$" + new Intl.NumberFormat(
+    "es-CO",
+    { maximumFractionDigits: 0 }
+  ).format(n);
+}
+
+function eventoVentaReportada(hechosHumanos) {
+  return (hechosHumanos || []).find(
+    (hecho) =>
+      hecho.tipo === "VENTA_REPORTADA"
+  ) || null;
+}
+
+function contextoVentaReportada({
+  evento,
+  reportes
+}) {
+  if (!evento) return null;
+
+  const ventas =
+    reportePorDepartamento(
+      reportes,
+      "VENTAS"
+    );
+
+  const ticket =
+    numero(
+      ventas?.kpi_principal?.nombre === "ticket_promedio"
+        ? ventas.kpi_principal.valor_actual
+        : null
+    );
+
+  const relacionMinima =
+    ticket && ticket > 0
+      ? evento.monto_cop / ticket
+      : null;
+
+  return {
+    evento,
+    ticket_promedio: ticket,
+    relacion_minima_ticket:
+      relacionMinima
+  };
+}
+
+function respuestaEventoVenta({
+  departamento,
+  eventoContexto,
+  reportes
+}) {
+  if (!eventoContexto) return null;
+
+  const {
+    evento,
+    ticket_promedio,
+    relacion_minima_ticket
+  } = eventoContexto;
+
+  const montoTexto =
+    evento.comparador === "MAYOR_QUE"
+      ? "más de " + formatearCOP(evento.monto_cop)
+      : "aproximadamente " + formatearCOP(evento.monto_cop);
+
+  const comparacion =
+    relacion_minima_ticket
+      ? ` Eso equivale a por lo menos ${relacion_minima_ticket.toFixed(1)} veces el ticket promedio que GRUK tiene hoy (${formatearCOP(ticket_promedio)}).`
+      : "";
+
+  const evidenciaBase = [
+    `DATO_USUARIO: reportaste una venta de ${montoTexto}${evento.momento === "HOY" ? " hoy" : ""}.`
+  ];
+
+  if (ticket_promedio) {
+    evidenciaBase.push(
+      `DATO_GRUK: ticket promedio actual ${formatearCOP(ticket_promedio)}.`
+    );
+  }
+
+  const finanzas =
+    reportePorDepartamento(
+      reportes,
+      "FINANZAS"
+    );
+
+  if (departamento === "FINANZAS") {
+    return {
+      respuesta:
+        `Eso sí es un dato útil. Si fue una sola venta de ${montoTexto}, primero separaría tres cosas: venta, cobro y margen.${comparacion} Que sea un ticket grande es positivo comercialmente, pero todavía no puedo llamarlo buen negocio hasta saber cuánto quedó realmente en caja y cuánto costó producir o entregar esa venta.`,
+      criterio_profesional:
+        "Una transacción grande merece análisis de contribución, no celebración automática. Quiero saber si se cobró, qué costo directo tuvo y cuánto margen dejó.",
+      evidencia_usada: [
+        ...evidenciaBase,
+        ...hechosReporte(finanzas).filter(
+          (item) =>
+            /margen|costo|confiable/i.test(item)
+        )
+      ].slice(0, 6),
+      inferencias: [
+        relacion_minima_ticket
+          ? `Si el dato humano corresponde a una sola transacción comparable, su valor es al menos ${relacion_minima_ticket.toFixed(1)} veces el ticket promedio actual.`
+          : "La venta reportada parece material, pero falta compararla con ticket y margen confiables."
+      ],
+      riesgos: [
+        "Confundir una venta grande con caja disponible si todavía no fue cobrada.",
+        "Repetir una venta aparentemente atractiva sin conocer su costo y margen real."
+      ],
+      objeciones: [
+        "VENTAS: no llamaría esto un patrón todavía; primero necesitamos comprobar margen y cobro."
+      ],
+      acuerdos: [
+        "Con VENTAS: vale la pena reconstruir esta transacción porque se aparta del comportamiento promedio."
+      ],
+      datos_faltantes: [
+        "¿La venta ya fue cobrada y por qué medio?",
+        "¿Qué productos o servicios incluyó?",
+        "¿Cuál fue el costo directo confiable de esa venta?"
+      ],
+      confianza: ticket_promedio ? 82 : 72
+    };
+  }
+
+  if (departamento === "VENTAS") {
+    return {
+      respuesta:
+        `Esta venta sí merece que la estudiemos.${comparacion} No me interesa solo que haya sido grande: quiero saber por qué ese cliente compró tanto. Si entendemos qué compró, quién era, qué necesidad tenía y cómo llegó, podemos descubrir un paquete, segmento o comportamiento que aumente ticket de forma repetible.`,
+      criterio_profesional:
+        "Una venta excepcional es una pista comercial. El trabajo del área es desmontarla y encontrar qué parte fue reproducible y qué parte fue casualidad.",
+      evidencia_usada: evidenciaBase,
+      inferencias: [
+        relacion_minima_ticket
+          ? `La transacción reportada está al menos ${relacion_minima_ticket.toFixed(1)} veces por encima del ticket promedio actual.`
+          : "La transacción reportada puede ser un caso de ticket alto que conviene reconstruir."
+      ],
+      riesgos: [
+        "Asumir que una sola venta excepcional representa demanda repetible.",
+        "Intentar copiar el valor del ticket sin entender qué motivó la compra."
+      ],
+      objeciones: [
+        "FINANZAS: estoy de acuerdo en validar margen, pero no esperaría para investigar qué hizo distinta esta venta."
+      ],
+      acuerdos: [
+        "Con MARKETING: necesitamos saber de dónde llegó este cliente.",
+        "Con OPERACIONES: necesitamos identificar exactamente qué combinación se vendió."
+      ],
+      datos_faltantes: [
+        "¿Era cliente nuevo o recurrente?",
+        "¿Qué compró exactamente?",
+        "¿Por qué canal llegó?",
+        "¿Hubo descuento o venta sugerida?"
+      ],
+      confianza: ticket_promedio ? 88 : 76
+    };
+  }
+
+  if (departamento === "MARKETING") {
+    return {
+      respuesta:
+        `Yo no pediría presupuesto todavía; pediría trazabilidad. Una venta de ${montoTexto} puede enseñarnos mucho si sabemos de dónde salió el cliente. Si vino por recomendación, Instagram, ubicación, búsqueda, campaña o cliente recurrente, eso cambia por completo lo que deberíamos intentar repetir.`,
+      criterio_profesional:
+        "El valor de esta venta para Marketing no es el monto aislado sino descubrir el origen de una demanda de alto valor y si puede adquirirse de forma rentable.",
+      evidencia_usada: evidenciaBase,
+      inferencias: [
+        "La venta reportada es un caso candidato para atribución de canal; todavía no prueba que ningún canal sea rentable."
+      ],
+      riesgos: [
+        "Asignar el éxito a un canal sin evidencia de atribución.",
+        "Escalar publicidad a partir de una sola transacción."
+      ],
+      objeciones: [
+        "VENTAS: antes de llamar esto un segmento repetible necesitamos conocer el origen del cliente."
+      ],
+      acuerdos: [
+        "Con VENTAS: reconstruir el recorrido del cliente antes de intentar replicar la venta."
+      ],
+      datos_faltantes: [
+        "¿Cómo conoció el cliente el negocio?",
+        "¿Era nuevo o recurrente?",
+        "¿Hubo campaña, recomendación o acción comercial asociada?"
+      ],
+      confianza: 76
+    };
+  }
+
+  if (departamento === "OPERACIONES") {
+    return {
+      respuesta:
+        `A mí me interesa qué tuvo que hacer la operación para entregar esa venta de ${montoTexto}. Si fue un pedido grande pero salió rápido, sin quiebres, sin merma extra y con buena calidad, tenemos una señal de capacidad. Si obligó a improvisar compras, retrasó otros pedidos o consumió inventario crítico, el ticket alto puede esconder costo operativo.`,
+      criterio_profesional:
+        "Una venta grande debe analizarse también como consumo de capacidad. El tamaño del ticket no basta para saber si la operación la soportó bien.",
+      evidencia_usada: evidenciaBase,
+      inferencias: [
+        "La transacción puede revelar una combinación de productos de alto valor o un cuello de botella operativo; todavía no sabemos cuál."
+      ],
+      riesgos: [
+        "Intentar repetir tickets grandes sin conocer capacidad, inventario y tiempo de servicio.",
+        "Ocultar merma o sobrecosto dentro de una venta de alto valor."
+      ],
+      objeciones: [
+        "VENTAS: antes de promover ese mismo paquete, confirmemos que podemos entregarlo de manera repetible."
+      ],
+      acuerdos: [
+        "Con FINANZAS: necesitamos costo directo confiable de la transacción."
+      ],
+      datos_faltantes: [
+        "¿Qué productos o servicios incluyó?",
+        "¿Cuánto tiempo y capacidad consumió?",
+        "¿Hubo faltantes, merma o compras extraordinarias?"
+      ],
+      confianza: 74
+    };
+  }
+
+  if (departamento === "GENTE") {
+    return {
+      respuesta:
+        "Esta venta, por sí sola, no me da evidencia para contratar ni cambiar estructura. Sería un error convertir una buena transacción en una conclusión sobre personal. Si este tipo de venta empieza a repetirse y crea sobrecarga medible, entonces sí revisamos capacidad, responsabilidades y productividad.",
+      criterio_profesional:
+        "Una señal comercial aislada no justifica una decisión de plantilla. Gente entra cuando existe evidencia de carga recurrente o una función crítica sin responsable.",
+      evidencia_usada: evidenciaBase,
+      inferencias: [
+        "No hay evidencia suficiente para concluir que esta venta cambie la necesidad de personal."
+      ],
+      riesgos: [
+        "Aumentar nómina fija por una señal comercial todavía no repetida."
+      ],
+      objeciones: [],
+      acuerdos: [
+        "Con OPERACIONES: primero medir si ventas de este tamaño generan carga recurrente."
+      ],
+      datos_faltantes: [],
+      confianza: 90
+    };
+  }
+
+  if (departamento === "DIRECCION") {
+    return {
+      respuesta:
+        `Este es el tipo de dato que sí debe cambiar la conversación.${comparacion} No lo convertiría todavía en estrategia, pero sí en un caso que vale la pena desmontar. La pregunta de Dirección ya no es “¿vendimos bien hoy?”, sino “¿qué hizo posible esta venta y podemos repetirlo manteniendo margen, caja y capacidad?”.`,
+      criterio_profesional:
+        "Una transacción muy superior al comportamiento habitual puede ser una señal estratégica, pero solo después de separar casualidad, margen, origen del cliente y capacidad de repetición.",
+      evidencia_usada: evidenciaBase,
+      inferencias: [
+        relacion_minima_ticket
+          ? `La venta reportada es material frente al ticket promedio: al menos ${relacion_minima_ticket.toFixed(1)} veces su valor actual.`
+          : "La venta reportada merece análisis como caso de alto valor."
+      ],
+      riesgos: [
+        "Construir una estrategia alrededor de una sola transacción.",
+        "Celebrar facturación sin comprobar margen, cobro y repetibilidad."
+      ],
+      objeciones: [
+        "Ningún departamento debe usar esta venta como prueba de una causa que todavía no está demostrada."
+      ],
+      acuerdos: [
+        "La Junta debe reconstruir esta venta desde cliente, canal, mezcla, costo y operación antes de proponer cómo repetirla."
+      ],
+      datos_faltantes: [
+        "Qué compró exactamente.",
+        "Si ya fue cobrada.",
+        "Qué margen dejó.",
+        "Cómo llegó el cliente.",
+        "Si era cliente nuevo o recurrente."
+      ],
+      confianza: ticket_promedio ? 86 : 78
+    };
+  }
+
+  return null;
+}
+
+
 function numero(valor) {
   if (
     valor === null ||
@@ -320,6 +674,8 @@ function construirContexto({
     intencion_detectada: intencion,
     temas_detectados:
       detectarTemas(pregunta),
+    hechos_humanos:
+      extraerHechosHumanos(pregunta),
     decision_en_discusion: decision
       ? {
           situacion:
@@ -728,10 +1084,34 @@ function construirRespuestaExperta({
   intencion,
   temas,
   reportes,
-  intervenciones
+  intervenciones,
+  hechosHumanos
 }) {
   const perfil =
     PERFILES_EXPERTOS[departamento];
+
+  const ventaReportada =
+    eventoVentaReportada(hechosHumanos);
+
+  if (ventaReportada) {
+    const contextual =
+      respuestaEventoVenta({
+        departamento,
+        eventoContexto:
+          contextoVentaReportada({
+            evento: ventaReportada,
+            reportes
+          }),
+        reportes
+      });
+
+    if (contextual) {
+      return {
+        departamento,
+        ...contextual
+      };
+    }
+  }
 
   const reporte =
     reportePorDepartamento(
@@ -932,9 +1312,10 @@ async function generarRespuestasExpertas({
     clasificarIntencion(pregunta);
 
   const temas =
-    intencion === "ARRANQUE"
-      ? detectarTemas(pregunta)
-      : detectarTemas(pregunta);
+    detectarTemas(pregunta);
+
+  const hechosHumanos =
+    extraerHechosHumanos(pregunta);
 
   const respuestas =
     DEPARTAMENTOS_EXPERTOS.map(
@@ -945,7 +1326,8 @@ async function generarRespuestasExpertas({
           intencion,
           temas,
           reportes,
-          intervenciones
+          intervenciones,
+          hechosHumanos
         })
     );
 
@@ -962,6 +1344,7 @@ async function generarRespuestasExpertas({
     responseId: null,
     intencion,
     temas,
+    hechosHumanos,
     respuestas:
       validarRespuestas(respuestas)
   };
@@ -972,6 +1355,7 @@ module.exports = {
   CONOCIMIENTO,
   clasificarIntencion,
   detectarTemas,
+  extraerHechosHumanos,
   construirContexto,
   validarRespuestas,
   generarRespuestasExpertas,
