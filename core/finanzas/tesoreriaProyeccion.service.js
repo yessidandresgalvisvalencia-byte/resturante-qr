@@ -702,11 +702,11 @@ async function construirProyeccionTesoreria({
     salidas30 / 30;
 
   const diasCoberturaSalidasHistoricas =
-    saldoActual !== null &&
+    saldoLibreOperativo !== null &&
     promedioSalidaDiaria30 > 0
       ? Number(
           (
-            saldoActual /
+            saldoLibreOperativo /
             promedioSalidaDiaria30
           ).toFixed(1)
         )
