@@ -237,3 +237,89 @@ test("actualizar un gasto a pagado se vuelve salida confirmada", () => {
     45000
   );
 });
+
+
+test("actualizar una compra a pagada se vuelve salida confirmada", () => {
+  const evento = normalizarEvento({
+    eventName:
+      "COMPRA_PAGO_ACTUALIZADO",
+    payload: {
+      compraId:
+        "507f1f77bcf86cd799439017",
+      total: 210000,
+      estadoPagoAnterior:
+        "pendiente",
+      estadoPago:
+        "pagado"
+    }
+  });
+
+  assert.equal(
+    evento.tipo,
+    "COMPRA_PAGO_ACTUALIZADO"
+  );
+  assert.equal(
+    evento.direccion,
+    "SALIDA_CONFIRMADA"
+  );
+  assert.equal(
+    evento.monto,
+    210000
+  );
+});
+
+test("flujo confirmado parcial negativo genera ATENCION sin afirmar caja negativa", () => {
+  const diagnostico = construirDiagnostico({
+    ultimoEvento: {
+      tipo: "COMPRA_REGISTRADA",
+      direccion: "SALIDA_CONFIRMADA",
+      monto: 180000
+    },
+    ventana24h: {
+      ventasPagadas: {
+        cantidad: 2,
+        monto: 100000
+      },
+      comprasPagadas: {
+        cantidad: 1,
+        monto: 180000
+      },
+      gastosRegistrados: {
+        cantidad: 0,
+        monto: 0
+      },
+      gastosPagados: {
+        cantidad: 0,
+        monto: 0
+      },
+      gastosNoConfirmados: {
+        cantidad: 0,
+        monto: 0
+      },
+      flujoConfirmadoParcial: -80000
+    },
+    reportes: []
+  });
+
+  assert.equal(
+    diagnostico.estado,
+    "ATENCION"
+  );
+
+  assert.ok(
+    diagnostico.razones.some(
+      (item) =>
+        /no equivale a saldo de caja negativo/i.test(item)
+    )
+  );
+
+  assert.match(
+    diagnostico.lectura,
+    /no es el saldo bancario ni la caja total/i
+  );
+
+  assert.equal(
+    diagnostico.requiereDecisionCerebro,
+    false
+  );
+});
