@@ -2,8 +2,6 @@
 
 const mongoose = require("mongoose");
 
-const Compra = require("../../models/Compra");
-const Gasto = require("../../models/Gasto");
 const Venta = require("../../models/Venta");
 const {
   obtenerResumenCaja
@@ -11,6 +9,9 @@ const {
 const {
   obtenerResumenTesoreria
 } = require("./tesoreria.service");
+const {
+  obtenerObligacionesRegistradas
+} = require("./obligaciones.service");
 
 function objectId(valor, nombre) {
   if (!mongoose.Types.ObjectId.isValid(valor)) {
@@ -91,11 +92,66 @@ function resumir(items) {
       items.reduce(
         (total, item) =>
           total +
-          Number(
-            item.monto || 0
+          (
+            Number.isFinite(
+              Number(item.monto)
+            )
+              ? Number(item.monto)
+              : 0
           ),
         0
       )
+  };
+}
+
+function itemsObligaciones(
+  obligacionesRegistradas
+) {
+  const grupos =
+    obligacionesRegistradas
+      ?.grupos || {};
+
+  return [
+    ...(grupos.vencidas
+      ?.items || []),
+    ...(grupos.proximos7Dias
+      ?.items || []),
+    ...(grupos.dias8a30
+      ?.items || []),
+    ...(grupos.sinFecha
+      ?.items || []),
+    ...(grupos.posterior30Dias
+      ?.items || [])
+  ];
+}
+
+function normalizarDetalleObligacion(
+  item
+) {
+  return {
+    tipo:
+      item.origenTipo,
+    id:
+      item.origenId,
+    descripcion:
+      item.concepto ||
+      item.tercero ||
+      "Obligacion registrada",
+    monto:
+      item.cuantificable
+        ? Number(
+            item.montoPendiente || 0
+          )
+        : null,
+    cuantificable:
+      Boolean(
+        item.cuantificable
+      ),
+    estadoPago:
+      item.estadoPago,
+    fechaVencimiento:
+      item.fechaVencimiento ||
+      null
   };
 }
 
@@ -135,71 +191,19 @@ async function construirProyeccionTesoreria({
       sedeId
     });
 
+  const resumenTesoreria =
+    tesoreria ||
+    await obtenerResumenTesoreria({
+      empresaId,
+      sedeId
+    });
+
   const [
-    comprasPendientes,
-    comprasParciales,
-    gastosPendientes,
     ventasPendientes,
-    resumenCaja30
+    ventasSinFecha,
+    resumenCaja30,
+    obligacionesRegistradas
   ] = await Promise.all([
-    Compra.find({
-      ...scope,
-      estado:
-        "registrada",
-      estadoPago:
-        "pendiente",
-      fechaVencimientoPago: {
-        $ne: null,
-        $lte: hasta30
-      }
-    })
-      .select(
-        "_id proveedor total fechaVencimientoPago"
-      )
-      .sort({
-        fechaVencimientoPago: 1
-      })
-      .lean(),
-
-    Compra.find({
-      ...scope,
-      estado:
-        "registrada",
-      estadoPago:
-        "parcial",
-      fechaVencimientoPago: {
-        $ne: null,
-        $lte: hasta30
-      }
-    })
-      .select(
-        "_id proveedor total fechaVencimientoPago"
-      )
-      .sort({
-        fechaVencimientoPago: 1
-      })
-      .lean(),
-
-    Gasto.find({
-      ...scope,
-      estado:
-        "registrado",
-      estadoPago: {
-        $ne: "pagado"
-      },
-      fechaVencimientoPago: {
-        $ne: null,
-        $lte: hasta30
-      }
-    })
-      .select(
-        "_id concepto proveedor monto estadoPago fechaVencimientoPago"
-      )
-      .sort({
-        fechaVencimientoPago: 1
-      })
-      .lean(),
-
     Venta.find({
       ...scope,
       estado:
@@ -217,6 +221,18 @@ async function construirProyeccionTesoreria({
       })
       .lean(),
 
+    Venta.find({
+      ...scope,
+      estado:
+        "pendiente",
+      fechaVencimientoCobro:
+        null
+    })
+      .select(
+        "_id total"
+      )
+      .lean(),
+
     obtenerResumenCaja({
       empresaId,
       sedeId,
@@ -227,67 +243,44 @@ async function construirProyeccionTesoreria({
         ),
       hasta:
         fechaAhora
+    }),
+
+    obtenerObligacionesRegistradas({
+      empresaId,
+      sedeId,
+      ahora:
+        fechaAhora,
+      tesoreria:
+        resumenTesoreria
     })
   ]);
 
-  const obligaciones = [
-    ...comprasPendientes.map(
-      (item) => ({
-        tipo:
-          "COMPRA",
-        id:
-          item._id,
-        descripcion:
-          item.proveedor ||
-          "Compra pendiente",
-        monto:
-          Number(
-            item.total || 0
-          ),
-        fechaVencimiento:
-          item.fechaVencimientoPago
-      })
-    ),
-    ...gastosPendientes.map(
-      (item) => ({
-        tipo:
-          "GASTO",
-        id:
-          item._id,
-        descripcion:
-          item.concepto ||
-          item.proveedor ||
-          "Gasto pendiente",
-        monto:
-          Number(
-            item.monto || 0
-          ),
-        fechaVencimiento:
-          item.fechaVencimientoPago
-      })
+  const detalleObligaciones =
+    itemsObligaciones(
+      obligacionesRegistradas
     )
-  ]
-    .map((item) => ({
-      ...item,
-      clasificacion:
-        clasificarFecha(
+      .map(
+        normalizarDetalleObligacion
+      );
+
+  const detalle30 =
+    detalleObligaciones
+      .filter(
+        (item) =>
+          item.fechaVencimiento &&
           new Date(
             item.fechaVencimiento
-          ),
-          fechaAhora,
-          hasta7,
-          hasta30
-        )
-    }))
-    .sort(
-      (a, b) =>
-        new Date(
-          a.fechaVencimiento
-        ) -
-        new Date(
-          b.fechaVencimiento
-        )
-    );
+          ) <= hasta30
+      )
+      .sort(
+        (a, b) =>
+          new Date(
+            a.fechaVencimiento
+          ) -
+          new Date(
+            b.fechaVencimiento
+          )
+      );
 
   const cobrosEsperados =
     ventasPendientes
@@ -315,29 +308,6 @@ async function construirProyeccionTesoreria({
           )
       }));
 
-  const obligacionesVencidas =
-    obligaciones.filter(
-      (item) =>
-        item.clasificacion ===
-        "VENCIDA"
-    );
-
-  const obligaciones7 =
-    obligaciones.filter(
-      (item) =>
-        item.clasificacion ===
-        "VENCIDA" ||
-        item.clasificacion ===
-          "PROXIMOS_7_DIAS"
-    );
-
-  const obligaciones30 =
-    obligaciones.filter(
-      (item) =>
-        item.clasificacion !==
-        "POSTERIOR"
-    );
-
   const cobrosVencidos =
     cobrosEsperados.filter(
       (item) =>
@@ -361,12 +331,52 @@ async function construirProyeccionTesoreria({
         "POSTERIOR"
     );
 
-  const resumenTesoreria =
-    tesoreria ||
-    await obtenerResumenTesoreria({
-      empresaId,
-      sedeId
-    });
+  const grupos =
+    obligacionesRegistradas
+      .grupos;
+
+  const obligacionesVencidas = {
+    cantidad:
+      grupos.vencidas.cantidad,
+    monto:
+      grupos.vencidas
+        .montoCuantificado
+  };
+
+  const obligaciones7Resumen = {
+    cantidad:
+      grupos.vencidas.cantidad +
+      grupos.proximos7Dias
+        .cantidad,
+    monto:
+      obligacionesRegistradas
+        .montoExigible7Dias
+  };
+
+  const obligaciones30Resumen = {
+    cantidad:
+      grupos.vencidas.cantidad +
+      grupos.proximos7Dias
+        .cantidad +
+      grupos.dias8a30.cantidad,
+    monto:
+      grupos.vencidas
+        .montoCuantificado +
+      grupos.proximos7Dias
+        .montoCuantificado +
+      grupos.dias8a30
+        .montoCuantificado
+  };
+
+  const cobros7Resumen =
+    resumir(
+      cobros7
+    );
+
+  const cobros30Resumen =
+    resumir(
+      cobros30
+    );
 
   const saldoVerificable =
     resumenTesoreria
@@ -381,34 +391,21 @@ async function construirProyeccionTesoreria({
         )
       : null;
 
-  const obligaciones7Resumen =
-    resumir(
-      obligaciones7
-    );
-
-  const cobros7Resumen =
-    resumir(
-      cobros7
-    );
-
-  const obligaciones30Resumen =
-    resumir(
-      obligaciones30
-    );
-
-  const cobros30Resumen =
-    resumir(
-      cobros30
-    );
+  const datosObligacionesCompletos =
+    obligacionesRegistradas
+      .cobertura7Dias !==
+    "NO_CONFIABLE_DATOS_FALTANTES";
 
   const brechaCajaActual7d =
-    saldoActual === null
+    saldoActual === null ||
+    !datosObligacionesCompletos
       ? null
       : saldoActual -
         obligaciones7Resumen.monto;
 
   const escenarioCobroTotal7d =
-    saldoActual === null
+    saldoActual === null ||
+    !datosObligacionesCompletos
       ? null
       : saldoActual +
         cobros7Resumen.monto -
@@ -418,6 +415,12 @@ async function construirProyeccionTesoreria({
     "SIN_SALDO_VERIFICABLE";
 
   if (
+    saldoActual !== null &&
+    !datosObligacionesCompletos
+  ) {
+    estado7d =
+      "DATOS_INSUFICIENTES";
+  } else if (
     saldoActual !== null
   ) {
     if (
@@ -456,24 +459,27 @@ async function construirProyeccionTesoreria({
         )
       : null;
 
-  const parcialesSinSaldoExacto =
-    comprasParciales.map(
-      (item) => ({
-        tipo:
-          "COMPRA_PARCIAL",
-        id:
-          item._id,
-        descripcion:
-          item.proveedor ||
-          "Compra parcialmente pagada",
-        totalDocumento:
-          Number(
-            item.total || 0
-          ),
-        fechaVencimiento:
-          item.fechaVencimientoPago
-      })
-    );
+  const comprasParcialesSinSaldoExacto =
+    detalleObligaciones
+      .filter(
+        (item) =>
+          item.tipo === "COMPRA" &&
+          item.estadoPago ===
+            "parcial" &&
+          !item.cuantificable
+      )
+      .map(
+        (item) => ({
+          tipo:
+            "COMPRA_PARCIAL",
+          id:
+            item.id,
+          descripcion:
+            item.descripcion,
+          fechaVencimiento:
+            item.fechaVencimiento
+        })
+      );
 
   const confiabilidad =
     resumenTesoreria
@@ -481,10 +487,14 @@ async function construirProyeccionTesoreria({
       "COMPLETO"
       ? resumenTesoreria
           .estadoConfiabilidad
-      : parcialesSinSaldoExacto
-          .length
-        ? "PARCIAL"
-        : "COMPLETO";
+      : datosObligacionesCompletos
+        ? "COMPLETO"
+        : "PARCIAL";
+
+  const proximoVencimiento =
+    detalle30.length
+      ? detalle30[0]
+      : null;
 
   return {
     generadoAt:
@@ -498,17 +508,27 @@ async function construirProyeccionTesoreria({
       resumenTesoreria
         .estadoConfiabilidad,
     saldoActual,
+    obligacionesRegistradas,
     obligaciones: {
       vencidas:
-        resumir(
-          obligacionesVencidas
-        ),
+        obligacionesVencidas,
       proximos7d:
         obligaciones7Resumen,
       proximos30d:
         obligaciones30Resumen,
+      sinFecha: {
+        cantidad:
+          grupos.sinFecha
+            .cantidad,
+        montoCuantificado:
+          grupos.sinFecha
+            .montoCuantificado,
+        noCuantificadas:
+          grupos.sinFecha
+            .noCuantificadas
+      },
       detalle:
-        obligaciones.slice(
+        detalle30.slice(
           0,
           30
         )
@@ -522,16 +542,27 @@ async function construirProyeccionTesoreria({
         cobros7Resumen,
       proximos30d:
         cobros30Resumen,
+      sinFecha: {
+        cantidad:
+          ventasSinFecha.length,
+        monto:
+          ventasSinFecha.reduce(
+            (total, item) =>
+              total +
+              Number(
+                item.total || 0
+              ),
+            0
+          )
+      },
       detalle:
         cobrosEsperados.slice(
           0,
           30
         )
     },
-    comprasParcialesSinSaldoExacto:
-      parcialesSinSaldoExacto,
-    proximoVencimiento:
-      obligaciones[0] || null,
+    comprasParcialesSinSaldoExacto,
+    proximoVencimiento,
     escenario7d: {
       estado:
         estado7d,
@@ -572,12 +603,31 @@ async function construirProyeccionTesoreria({
             "El saldo actual no es completamente verificable porque Tesoreria no esta COMPLETA."
           ]
         : []),
-      ...(parcialesSinSaldoExacto
-          .length
+      ...(grupos.sinFecha
+          .cantidad
         ? [
-            "Existen compras parcialmente pagadas sin monto pagado acumulado; su saldo pendiente exacto no puede proyectarse sin inventar datos."
+            `Existen ${grupos.sinFecha.cantidad} obligacion(es) registrada(s) sin fecha de vencimiento; la cobertura de 7 dias no puede declararse completa.`
           ]
         : []),
+      ...(obligacionesRegistradas
+          .noCuantificadasExigibles
+        ? [
+            `Existen ${obligacionesRegistradas.noCuantificadasExigibles} obligacion(es) exigible(s) cuyo saldo pendiente no esta cuantificado.`
+          ]
+        : []),
+      ...(comprasParcialesSinSaldoExacto
+          .length
+        ? [
+            "Existen compras parcialmente pagadas sin saldo pendiente exacto; GRUK no usa el total del documento como deuda restante."
+          ]
+        : []),
+      ...(ventasSinFecha.length
+        ? [
+            `Existen ${ventasSinFecha.length} venta(s) pendientes sin fecha de cobro; no se usan para cubrir obligaciones proyectadas.`
+          ]
+        : []),
+      obligacionesRegistradas
+        .advertencia,
       "Los cobros esperados son proyeccion, no caja disponible hasta que se confirmen."
     ]
   };
