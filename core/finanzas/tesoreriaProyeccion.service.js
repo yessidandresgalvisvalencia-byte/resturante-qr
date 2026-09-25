@@ -17,6 +17,11 @@ const {
   normalizarCategoriaObligacion,
   indiceCategoria
 } = require("./politicaFinanciera.service");
+const {
+  listarExcepcionesActivas,
+  indexarExcepciones,
+  obtenerExcepcionParaObligacion
+} = require("./excepcionesPrioridadPago.service");
 
 function objectId(valor, nombre) {
   if (!mongoose.Types.ObjectId.isValid(valor)) {
@@ -218,7 +223,8 @@ async function construirProyeccionTesoreria({
     ventasSinFecha,
     resumenCaja30,
     obligacionesRegistradas,
-    politicaPriorizacionPagos
+    politicaPriorizacionPagos,
+    excepcionesPrioridadPago
   ] = await Promise.all([
     Venta.find({
       ...scope,
@@ -275,8 +281,19 @@ async function construirProyeccionTesoreria({
       {
         permitirAusente: true
       }
-    )
+    ),
+
+    listarExcepcionesActivas({
+      empresaId,
+      sedeId,
+      ahora: fechaAhora
+    })
   ]);
+
+  const mapaExcepciones =
+    indexarExcepciones(
+      excepcionesPrioridadPago
+    );
 
   const detalleObligaciones =
     itemsObligaciones(
@@ -284,7 +301,31 @@ async function construirProyeccionTesoreria({
     )
       .map(
         normalizarDetalleObligacion
-      );
+      )
+      .map((item) => {
+        const excepcion =
+          obtenerExcepcionParaObligacion(
+            item,
+            mapaExcepciones
+          );
+
+        return {
+          ...item,
+          excepcionPrioridad:
+            excepcion
+              ? {
+                  _id:
+                    excepcion._id,
+                  motivo:
+                    excepcion.motivo,
+                  expiresAt:
+                    excepcion.expiresAt,
+                  createdBy:
+                    excepcion.createdBy
+                }
+              : null
+        };
+      });
 
   const detalle30 =
     detalleObligaciones
@@ -345,6 +386,24 @@ async function construirProyeccionTesoreria({
 
         if (vencidaA !== vencidaB) {
           return vencidaA ? -1 : 1;
+        }
+
+        const excepcionA =
+          Boolean(
+            a.excepcionPrioridad
+          );
+
+        const excepcionB =
+          Boolean(
+            b.excepcionPrioridad
+          );
+
+        if (
+          excepcionA !== excepcionB
+        ) {
+          return excepcionA
+            ? -1
+            : 1;
         }
 
         if (
@@ -645,6 +704,22 @@ async function construirProyeccionTesoreria({
     saldoActual,
     obligacionesRegistradas,
     politicaPriorizacionPagos,
+    excepcionesPrioridadPago:
+      excepcionesPrioridadPago.map(
+        (item) => ({
+          _id: item._id,
+          origenTipo:
+            item.origenTipo,
+          origenId:
+            item.origenId,
+          motivo:
+            item.motivo,
+          expiresAt:
+            item.expiresAt,
+          createdBy:
+            item.createdBy
+        })
+      ),
     obligaciones: {
       vencidas:
         obligacionesVencidas,
