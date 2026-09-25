@@ -6,6 +6,9 @@ const Venta = require("../../models/Venta");
 const Compra = require("../../models/Compra");
 const Gasto = require("../../models/Gasto");
 const MovimientoCaja = require("./models/MovimientoCaja");
+const {
+  resolverCuentaPorMetodo
+} = require("./tesoreria.service");
 const eventBus = require("../eventos/eventBus");
 
 const TIPOS_SOPORTADOS = Object.freeze([
@@ -408,11 +411,26 @@ async function confirmarMovimiento(candidato) {
     };
   }
 
+  const cuentaTesoreriaId =
+    await resolverCuentaPorMetodo({
+      empresaId:
+        candidato.empresaId,
+      sedeId:
+        candidato.sedeId,
+      metodoPago:
+        candidato.metodoPago
+    });
+
   return crearIdempotente({
     empresaId:
       candidato.empresaId,
     sedeId:
       candidato.sedeId,
+    cuentaTesoreriaId,
+    estadoAsignacionCuenta:
+      cuentaTesoreriaId
+        ? "ASIGNADA"
+        : "SIN_ASIGNAR",
     direccion:
       candidato.direccion,
     monto:
@@ -466,6 +484,15 @@ async function reversarMovimiento(candidato) {
       candidato.empresaId,
     sedeId:
       original.sedeId || null,
+    cuentaTesoreriaId:
+      original.cuentaTesoreriaId || null,
+    estadoAsignacionCuenta:
+      original.estadoAsignacionCuenta ||
+      (
+        original.cuentaTesoreriaId
+          ? "ASIGNADA"
+          : "SIN_ASIGNAR"
+      ),
     direccion:
       original.direccion,
     monto:
