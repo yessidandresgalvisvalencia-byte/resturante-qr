@@ -37,7 +37,6 @@ Por defecto GRUK prioriza vencidas, luego fecha más próxima y después mayor m
 <label>Orden corporativo de categorías</label>
 <select
   id="politicaPagosCategorias"
-  multiple
   size="9"
 >
   <option value="NOMINA">Nómina</option>
@@ -51,8 +50,24 @@ Por defecto GRUK prioriza vencidas, luego fecha más próxima y después mayor m
   <option value="OTRO">Otro</option>
 </select>
 
+<div>
+  <button
+    type="button"
+    onclick="moverCategoriaPoliticaGRUK(-1)"
+  >
+    ↑ Subir
+  </button>
+
+  <button
+    type="button"
+    onclick="moverCategoriaPoliticaGRUK(1)"
+  >
+    ↓ Bajar
+  </button>
+</div>
+
 <p class="descripcion-termino">
-El orden visual de selección define la precedencia. La política solo se aplica dentro de la misma frontera: vencidas entre sí o próximas 7 días entre sí.
+El orden visible define la precedencia. La política solo se aplica dentro de la misma frontera: vencidas entre sí o próximas 7 días entre sí.
 </p>
 
 <button onclick="guardarPoliticaPagosGRUK()">
