@@ -194,6 +194,10 @@ function construirIntervencionExperta({
     confianza:
       Number.isFinite(confianza)
         ? Math.max(0, Math.min(100, confianza))
+        : null,
+    relevancia:
+      ["ALTA", "MEDIA", "BAJA", "NINGUNA"].includes(respuesta.relevancia)
+        ? respuesta.relevancia
         : null
   };
 }
