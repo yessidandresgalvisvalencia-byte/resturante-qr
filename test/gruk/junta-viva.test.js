@@ -5,7 +5,10 @@ const assert = require("node:assert/strict");
 
 const {
   normalizarEvento,
-  construirDiagnostico
+  construirDiagnostico,
+  construirPreguntaAutomatica,
+  enriquecerReportesConCaja,
+  generarDiagnosticosAutomaticos
 } = require("../../intelligence/board/juntaViva.service");
 
 test("Junta viva trata venta pagada como entrada confirmada", () => {
@@ -320,6 +323,172 @@ test("flujo confirmado parcial negativo genera ATENCION sin afirmar caja negativ
 
   assert.equal(
     diagnostico.requiereDecisionCerebro,
+    false
+  );
+});
+
+
+test("pregunta automatica de venta declara cobro confirmado", () => {
+  const pregunta =
+    construirPreguntaAutomatica({
+      tipo: "VENTA_COMPLETADA",
+      direccion: "ENTRADA_CONFIRMADA",
+      monto: 120000
+    });
+
+  assert.match(
+    pregunta,
+    /ya la cobre/i
+  );
+});
+
+test("evidencia automatica incorpora caja confirmada a Finanzas", () => {
+  const reportes =
+    enriquecerReportesConCaja(
+      [
+        {
+          neurona: "FINANZAS",
+          kpi_principal: {
+            nombre:
+              "margen_bruto_confiable",
+            valor_actual: 35,
+            valor_objetivo: 40,
+            estado: "ALERTA"
+          },
+          hallazgos: []
+        }
+      ],
+      {
+        entradasConfirmadas:
+          200000,
+        salidasConfirmadas:
+          50000,
+        flujoConfirmadoParcial:
+          150000
+      }
+    );
+
+  assert.ok(
+    reportes[0]
+      .hallazgos
+      .some(
+        (item) =>
+          item.tipo ===
+            "CAJA_CONFIRMADA_24H" &&
+          /150000/.test(
+            item.evidencia
+          )
+      )
+  );
+});
+
+test("venta viva genera diagnostico experto relevante sin volver a preguntar por el cobro", async () => {
+  const diagnosticos =
+    await generarDiagnosticosAutomaticos({
+      ultimoEvento: {
+        tipo:
+          "VENTA_COMPLETADA",
+        direccion:
+          "ENTRADA_CONFIRMADA",
+        monto: 120000
+      },
+      ventana24h: {
+        entradasConfirmadas:
+          220000,
+        salidasConfirmadas:
+          70000,
+        flujoConfirmadoParcial:
+          150000,
+        ventasPagadas: {
+          cantidad: 4,
+          monto: 220000
+        },
+        comprasPagadas: {
+          cantidad: 1,
+          monto: 50000
+        },
+        gastosPagados: {
+          cantidad: 1,
+          monto: 20000
+        }
+      },
+      reportes: [
+        {
+          neurona: "FINANZAS",
+          kpi_principal: {
+            nombre:
+              "margen_bruto_confiable",
+            valor_actual: 35,
+            valor_objetivo: 40,
+            estado: "ALERTA"
+          },
+          hallazgos: []
+        },
+        {
+          neurona: "VENTAS",
+          kpi_principal: {
+            nombre:
+              "ticket_promedio",
+            valor_actual:
+              17141.43,
+            valor_objetivo:
+              25000,
+            estado: "ALERTA"
+          },
+          hallazgos: []
+        }
+      ],
+      ahora:
+        new Date(
+          "2026-09-25T21:00:00Z"
+        )
+    });
+
+  const finanzas =
+    diagnosticos.find(
+      (item) =>
+        item.departamento ===
+        "FINANZAS"
+    );
+
+  const ventas =
+    diagnosticos.find(
+      (item) =>
+        item.departamento ===
+        "VENTAS"
+    );
+
+  const direccion =
+    diagnosticos.find(
+      (item) =>
+        item.departamento ===
+        "DIRECCION"
+    );
+
+  assert.ok(finanzas);
+  assert.ok(ventas);
+  assert.ok(direccion);
+
+  assert.ok(
+    finanzas.evidencia.some(
+      (item) =>
+        /CAJA GRUK 24H/i.test(item)
+    )
+  );
+
+  assert.ok(
+    !finanzas.datosFaltantes.some(
+      (item) =>
+        /ya fue cobrada/i.test(item)
+    )
+  );
+
+  assert.equal(
+    diagnosticos.some(
+      (item) =>
+        item.departamento ===
+        "GENTE"
+    ),
     false
   );
 });
