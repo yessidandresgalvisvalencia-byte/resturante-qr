@@ -201,7 +201,8 @@ function agregarAGrupo(
 async function obtenerObligacionesRegistradas({
   empresaId,
   sedeId = null,
-  ahora = new Date()
+  ahora = new Date(),
+  tesoreria = null
 }) {
   const empresaObjectId =
     objectId(
@@ -222,8 +223,7 @@ async function obtenerObligacionesRegistradas({
 
   const [
     compras,
-    gastos,
-    tesoreria
+    gastos
   ] = await Promise.all([
     Compra.find({
       empresaId:
@@ -401,7 +401,7 @@ async function obtenerObligacionesRegistradas({
     noCuantificadasExigibles;
 
   const tesoreriaCompleta =
-    tesoreria
+    resumenTesoreria
       .estadoConfiabilidad ===
     "COMPLETO";
 
@@ -412,7 +412,7 @@ async function obtenerObligacionesRegistradas({
   const saldoDisponible =
     tesoreriaCompleta
       ? Number(
-          tesoreria
+          resumenTesoreria
             .saldoDisponible || 0
         )
       : null;
@@ -440,10 +440,10 @@ async function obtenerObligacionesRegistradas({
       "Esta cobertura solo incluye compras y gastos registrados en GRUK. No incluye nomina, impuestos, deuda u otras obligaciones que no esten registradas.",
     tesoreria: {
       estadoConfiabilidad:
-        tesoreria
+        resumenTesoreria
           .estadoConfiabilidad,
       saldoDisponible:
-        tesoreria
+        resumenTesoreria
           .saldoDisponible
     },
     grupos,
