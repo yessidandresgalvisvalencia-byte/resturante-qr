@@ -46,7 +46,7 @@ const CONOCIMIENTO = Object.freeze({
   DIRECCION: {
     foco: PERFILES_EXPERTOS.DIRECCION.foco,
     arranque:
-      "Cerrar primero las definiciones que hacen posible medir el negocio: cliente, oferta, economía unitaria, caja, operación, responsables y KPIs. Después se prioriza ejecución."
+      "Cerrar primero las definiciones que hacen posible medir el negocio: cliente y oferta, economía unitaria, caja, operación, responsables y KPIs. Después se prioriza ejecución."
   }
 });
 
@@ -338,7 +338,7 @@ function respuestaFallbackContexto({
 
   if (memoria.length) {
     respuesta +=
-      " Hay contexto humano previo, pero se mantiene separado de los hechos calculados por GRUK.";
+      " Hay intervenciones humanas previas, pero se mantienen como contexto y no se convierten automáticamente en hechos calculados por GRUK.";
   }
 
   return {
@@ -407,7 +407,7 @@ function generarFallback({
   }
 
   return {
-    model: "GRUK-CONSULTIVO-FALLBACK-3",
+    model: "GRUK-CONSULTIVO-2",
     responseId: null,
     respuestas
   };
