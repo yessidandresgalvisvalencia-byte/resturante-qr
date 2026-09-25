@@ -222,7 +222,10 @@ function normalizarEvento(event) {
     };
   }
 
-  if (tipo === "COMPRA_REGISTRADA") {
+  if (
+    tipo === "COMPRA_REGISTRADA" ||
+    tipo === "COMPRA_PAGO_ACTUALIZADO"
+  ) {
     const pagada =
       payload.estadoPago === "pagado";
 
@@ -323,8 +326,10 @@ function construirDiagnostico({
     titular =
       `Entro una venta pagada por ${ultimoEvento.monto}.`;
   } else if (
-    ultimoEvento.tipo ===
-    "COMPRA_REGISTRADA" &&
+    (
+      ultimoEvento.tipo === "COMPRA_REGISTRADA" ||
+      ultimoEvento.tipo === "COMPRA_PAGO_ACTUALIZADO"
+    ) &&
     ultimoEvento.direccion ===
       "SALIDA_CONFIRMADA"
   ) {
@@ -347,8 +352,8 @@ function construirDiagnostico({
     titular =
       `Se registro un gasto por ${ultimoEvento.monto} con pago no confirmado.`;
   } else if (
-    ultimoEvento.tipo ===
-    "COMPRA_REGISTRADA"
+    ultimoEvento.tipo === "COMPRA_REGISTRADA" ||
+    ultimoEvento.tipo === "COMPRA_PAGO_ACTUALIZADO"
   ) {
     titular =
       `Se registro una compra por ${ultimoEvento.monto} con pago no confirmado.`;
