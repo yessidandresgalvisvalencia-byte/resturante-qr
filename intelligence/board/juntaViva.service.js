@@ -901,9 +901,12 @@ function mapearProyeccionTesoreria(proyeccion) {
             descripcion:
               proyeccion.proximoVencimiento.descripcion,
             monto:
-              Number(
-                proyeccion.proximoVencimiento.monto || 0
-              ),
+              proyeccion.proximoVencimiento.monto === null ||
+              proyeccion.proximoVencimiento.monto === undefined
+                ? null
+                : Number(
+                    proyeccion.proximoVencimiento.monto
+                  ),
             fechaVencimiento:
               proyeccion.proximoVencimiento.fechaVencimiento
           }
