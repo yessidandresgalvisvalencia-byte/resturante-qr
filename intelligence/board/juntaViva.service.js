@@ -296,13 +296,31 @@ function construirDiagnostico({
       "ALERTA"
   );
 
+  const flujoParcial =
+    numeroSeguro(
+      ventana24h
+        ?.flujoConfirmadoParcial
+    );
+
+  const flujoParcialNegativo =
+    flujoParcial < 0;
+
   const estado = criticos.length
     ? "CRITICO"
-    : alertas.length
+    : (
+        alertas.length ||
+        flujoParcialNegativo
+      )
       ? "ATENCION"
       : "NORMAL";
 
   const razones = [];
+
+  if (flujoParcialNegativo) {
+    razones.push(
+      `En las ultimas 24 horas las salidas confirmadas superan las entradas confirmadas por ${Math.abs(flujoParcial)}. Esto no equivale a saldo de caja negativo; es una señal de flujo parcial.`
+    );
+  }
 
   for (const r of criticos) {
     razones.push(
@@ -360,7 +378,7 @@ function construirDiagnostico({
   }
 
   const lectura =
-    `En las ultimas 24 horas GRUK confirma ${ventana24h.ventasPagadas.cantidad} venta(s) pagada(s) por ${ventana24h.ventasPagadas.monto}, ${ventana24h.comprasPagadas.cantidad} compra(s) pagada(s) por ${ventana24h.comprasPagadas.monto} y ${ventana24h.gastosPagados.cantidad} gasto(s) pagado(s) por ${ventana24h.gastosPagados.monto}. El flujo confirmado parcial es ${ventana24h.flujoConfirmadoParcial}. Adicionalmente hay ${ventana24h.gastosNoConfirmados.cantidad} gasto(s) por ${ventana24h.gastosNoConfirmados.monto} cuyo pago no esta confirmado y por eso no se descuentan de caja. ${criticos.length ? "Hay KPI criticos que requieren decision del Cerebro." : "La Junta mantiene observacion continua y actualizara esta lectura con el siguiente evento."}`;
+    `Este indicador no es el saldo bancario ni la caja total de la empresa; mide movimientos confirmados que GRUK puede demostrar. En las ultimas 24 horas GRUK confirma ${ventana24h.ventasPagadas.cantidad} venta(s) pagada(s) por ${ventana24h.ventasPagadas.monto}, ${ventana24h.comprasPagadas.cantidad} compra(s) pagada(s) por ${ventana24h.comprasPagadas.monto} y ${ventana24h.gastosPagados.cantidad} gasto(s) pagado(s) por ${ventana24h.gastosPagados.monto}. El flujo confirmado parcial es ${ventana24h.flujoConfirmadoParcial}. Adicionalmente hay ${ventana24h.gastosNoConfirmados.cantidad} gasto(s) por ${ventana24h.gastosNoConfirmados.monto} cuyo pago no esta confirmado y por eso no se descuentan de caja. ${criticos.length ? "Hay KPI criticos que requieren decision del Cerebro." : "La Junta mantiene observacion continua y actualizara esta lectura con el siguiente evento."}`;
 
   const flujoActual =
     numeroSeguro(
