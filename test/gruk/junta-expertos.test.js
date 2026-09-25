@@ -8,6 +8,7 @@ const {
   clasificarIntencion,
   detectarTemas,
   extraerHechosHumanos,
+  extraerHechosConversacion,
   construirContexto,
   validarRespuestas,
   generarRespuestasExpertas
@@ -382,4 +383,94 @@ test("interpreta cambio de precio y separa margen conversion y posicionamiento",
   assert.match(ventas.respuesta, /conversión/i);
   assert.match(marketing.respuesta, /posicionamiento/i);
   assert.equal(gente.relevancia, "NINGUNA");
+});
+
+
+test("mantiene el caso entre turnos y enriquece la venta con cobro cliente y canal", async () => {
+  const intervenciones = [
+    {
+      tipo: "HUMANO",
+      departamento: "DIRECCION",
+      mensaje:
+        "hoy hice una venta de mas de 100 mil pesos"
+    },
+    {
+      tipo: "EXPERTO_GRUK",
+      departamento: "FINANZAS",
+      mensaje: "respuesta previa"
+    },
+    {
+      tipo: "HUMANO",
+      departamento: "DIRECCION",
+      mensaje:
+        "si, ya la cobre en efectivo; era cliente nuevo y llego por Instagram"
+    }
+  ];
+
+  const hechos = extraerHechosConversacion(
+    "si, ya la cobre en efectivo; era cliente nuevo y llego por Instagram",
+    intervenciones
+  );
+
+  assert.equal(hechos.length, 1);
+  assert.equal(hechos[0].tipo, "VENTA_REPORTADA");
+  assert.equal(hechos[0].estado_cobro, "COBRADA");
+  assert.equal(hechos[0].medio_pago, "EFECTIVO");
+  assert.equal(hechos[0].tipo_cliente, "NUEVO");
+  assert.equal(hechos[0].canal_origen, "INSTAGRAM");
+
+  const resultado = await generarRespuestasExpertas({
+    pregunta:
+      "si, ya la cobre en efectivo; era cliente nuevo y llego por Instagram",
+    reportes: [{
+      neurona: "VENTAS",
+      kpi_principal: {
+        nombre: "ticket_promedio",
+        valor_actual: 17141.43,
+        valor_objetivo: null,
+        estado: "ALERTA"
+      },
+      hallazgos: []
+    }],
+    intervenciones
+  });
+
+  const finanzas = resultado.respuestas.find(
+    (item) => item.departamento === "FINANZAS"
+  );
+  const marketing = resultado.respuestas.find(
+    (item) => item.departamento === "MARKETING"
+  );
+  const direccion = resultado.respuestas.find(
+    (item) => item.departamento === "DIRECCION"
+  );
+
+  assert.match(
+    finanzas.respuesta,
+    /sí se convirtió en caja/i
+  );
+  assert.ok(
+    !finanzas.datos_faltantes.some(
+      (item) => /ya fue cobrada/i.test(item)
+    )
+  );
+
+  assert.match(
+    marketing.respuesta,
+    /instagram/i
+  );
+  assert.ok(
+    !marketing.datos_faltantes.some(
+      (item) => /cómo conoció/i.test(item)
+    )
+  );
+
+  assert.match(
+    direccion.respuesta,
+    /cliente nuevo/i
+  );
+  assert.match(
+    direccion.respuesta,
+    /instagram/i
+  );
 });
