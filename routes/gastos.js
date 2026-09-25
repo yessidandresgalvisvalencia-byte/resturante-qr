@@ -109,6 +109,7 @@ router.post(
       monto,
       metodoPago,
       estadoPago,
+      fechaVencimientoPago,
       proveedor,
       fecha,
       origen,
@@ -153,6 +154,8 @@ router.post(
       monto,
       metodoPago: metodoPago || "",
       estadoPago: estadoPago || "desconocido",
+      fechaVencimientoPago:
+        fechaVencimientoPago || null,
       proveedor: proveedor || "",
       fecha: fecha || new Date(),
       origen: origen || "manual",
