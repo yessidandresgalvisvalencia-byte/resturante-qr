@@ -149,9 +149,14 @@ async function obtenerAuditoria(auth, limite = 100) {
       _id: String(evento._id),
       tipo: "ORDEN",
       accion: evento.accion,
-      actor: "HUMANO",
-      usuarioId: evento.usuarioId,
-      rol: evento.metadata?.rol || null,
+      actor:
+        evento.accion === "SUPERAR"
+          ? "SISTEMA"
+          : "HUMANO",
+      usuarioId:
+        evento.usuarioId || null,
+      rol:
+        evento.metadata?.rol || null,
       createdAt: evento.createdAt,
       decisionId: evento.decisionId,
       ordenId: evento.ordenId,
