@@ -690,11 +690,34 @@ function respuestaEventoVenta({
     `DATO_USUARIO: reportaste una venta de ${montoTexto}${evento.momento === "HOY" ? " hoy" : ""}.`
   ];
 
+  for (const detalle of descripcionSeguimientoVenta(evento)) {
+    evidenciaBase.push(
+      `DATO_USUARIO: ${detalle}.`
+    );
+  }
+
   if (ticket_promedio) {
     evidenciaBase.push(
       `DATO_GRUK: ticket promedio actual ${formatearCOP(ticket_promedio)}.`
     );
   }
+
+  const estadoCobro =
+    evento.estado_cobro === "COBRADA"
+      ? "La primera duda ya quedó resuelta: esa venta sí se convirtió en caja."
+      : evento.estado_cobro === "PENDIENTE"
+        ? "Todavía no la trataría como caja: confirmaste que el cobro sigue pendiente."
+        : "Todavía necesito separar venta de cobro: no sabemos si ese dinero ya entró realmente a caja.";
+
+  const detalleCliente =
+    evento.tipo_cliente
+      ? ` Ya sabemos además que era un cliente ${evento.tipo_cliente.toLowerCase()}.`
+      : "";
+
+  const detalleCanal =
+    evento.canal_origen
+      ? ` El origen reportado fue ${evento.canal_origen.toLowerCase()}.`
+      : "";
 
   const finanzas =
     reportePorDepartamento(
@@ -705,7 +728,7 @@ function respuestaEventoVenta({
   if (departamento === "FINANZAS") {
     return {
       respuesta:
-        `Eso sí es un dato útil. Si fue una sola venta de ${montoTexto}, primero separaría tres cosas: venta, cobro y margen.${comparacion} Que sea un ticket grande es positivo comercialmente, pero todavía no puedo llamarlo buen negocio hasta saber cuánto quedó realmente en caja y cuánto costó producir o entregar esa venta.`,
+        `Eso sí es un dato útil. Si fue una sola venta de ${montoTexto}, primero separaría tres cosas: venta, cobro y margen.${comparacion} ${estadoCobro} Que sea un ticket grande es positivo comercialmente, pero todavía no puedo llamarlo buen negocio hasta saber cuánto costó producir o entregar esa venta.`,
       criterio_profesional:
         "Una transacción grande merece análisis de contribución, no celebración automática. Quiero saber si se cobró, qué costo directo tuvo y cuánto margen dejó.",
       evidencia_usada: [
@@ -731,7 +754,12 @@ function respuestaEventoVenta({
         "Con VENTAS: vale la pena reconstruir esta transacción porque se aparta del comportamiento promedio."
       ],
       datos_faltantes: [
-        "¿La venta ya fue cobrada y por qué medio?",
+        ...(evento.estado_cobro
+          ? []
+          : ["¿La venta ya fue cobrada?"]),
+        ...(evento.medio_pago
+          ? []
+          : ["¿Por qué medio se pagó o se pagará?"]),
         "¿Qué productos o servicios incluyó?",
         "¿Cuál fue el costo directo confiable de esa venta?"
       ],
@@ -743,7 +771,7 @@ function respuestaEventoVenta({
   if (departamento === "VENTAS") {
     return {
       respuesta:
-        `Esta venta sí merece que la estudiemos.${comparacion} No me interesa solo que haya sido grande: quiero saber por qué ese cliente compró tanto. Si entendemos qué compró, quién era, qué necesidad tenía y cómo llegó, podemos descubrir un paquete, segmento o comportamiento que aumente ticket de forma repetible.`,
+        `Esta venta sí merece que la estudiemos.${comparacion}${detalleCliente}${detalleCanal} No me interesa solo que haya sido grande: quiero saber por qué ese cliente compró tanto. Si entendemos qué compró, qué necesidad tenía y qué parte del proceso hizo posible ese ticket, podemos descubrir un paquete, segmento o comportamiento repetible.`,
       criterio_profesional:
         "Una venta excepcional es una pista comercial. El trabajo del área es desmontarla y encontrar qué parte fue reproducible y qué parte fue casualidad.",
       evidencia_usada: evidenciaBase,
@@ -764,10 +792,16 @@ function respuestaEventoVenta({
         "Con OPERACIONES: necesitamos identificar exactamente qué combinación se vendió."
       ],
       datos_faltantes: [
-        "¿Era cliente nuevo o recurrente?",
+        ...(evento.tipo_cliente
+          ? []
+          : ["¿Era cliente nuevo o recurrente?"]),
         "¿Qué compró exactamente?",
-        "¿Por qué canal llegó?",
-        "¿Hubo descuento o venta sugerida?"
+        ...(evento.canal_origen
+          ? []
+          : ["¿Por qué canal llegó?"]),
+        ...(evento.hubo_descuento
+          ? []
+          : ["¿Hubo descuento o venta sugerida?"])
       ],
       confianza: ticket_promedio ? 88 : 76,
       relevancia: "ALTA"
@@ -777,7 +811,9 @@ function respuestaEventoVenta({
   if (departamento === "MARKETING") {
     return {
       respuesta:
-        `Yo no pediría presupuesto todavía; pediría trazabilidad. Una venta de ${montoTexto} puede enseñarnos mucho si sabemos de dónde salió el cliente. Si vino por recomendación, Instagram, ubicación, búsqueda, campaña o cliente recurrente, eso cambia por completo lo que deberíamos intentar repetir.`,
+        evento.canal_origen
+          ? `Ya tenemos una pista importante: el origen reportado fue ${evento.canal_origen.toLowerCase()}. No significa todavía que ese canal sea rentable, pero ahora sí podemos buscar si otros clientes de alto valor llegaron por la misma vía y cuánto costó conseguirlos.`
+          : `Yo no pediría presupuesto todavía; pediría trazabilidad. Una venta de ${montoTexto} puede enseñarnos mucho si sabemos de dónde salió el cliente. Si vino por recomendación, Instagram, ubicación, búsqueda o campaña, eso cambia por completo lo que deberíamos intentar repetir.`,
       criterio_profesional:
         "El valor de esta venta para Marketing no es el monto aislado sino descubrir el origen de una demanda de alto valor y si puede adquirirse de forma rentable.",
       evidencia_usada: evidenciaBase,
@@ -795,8 +831,12 @@ function respuestaEventoVenta({
         "Con VENTAS: reconstruir el recorrido del cliente antes de intentar replicar la venta."
       ],
       datos_faltantes: [
-        "¿Cómo conoció el cliente el negocio?",
-        "¿Era nuevo o recurrente?",
+        ...(evento.canal_origen
+          ? []
+          : ["¿Cómo conoció el cliente el negocio?"]),
+        ...(evento.tipo_cliente
+          ? []
+          : ["¿Era nuevo o recurrente?"]),
         "¿Hubo campaña, recomendación o acción comercial asociada?"
       ],
       confianza: 76,
@@ -860,7 +900,7 @@ function respuestaEventoVenta({
   if (departamento === "DIRECCION") {
     return {
       respuesta:
-        `Este es el tipo de dato que sí debe cambiar la conversación.${comparacion} No lo convertiría todavía en estrategia, pero sí en un caso que vale la pena desmontar. La pregunta de Dirección ya no es “¿vendimos bien hoy?”, sino “¿qué hizo posible esta venta y podemos repetirlo manteniendo margen, caja y capacidad?”.`,
+        `Este es el tipo de dato que sí debe cambiar la conversación.${comparacion}${detalleCliente}${detalleCanal} ${estadoCobro} No lo convertiría todavía en estrategia, pero sí en un caso que vale la pena desmontar. La pregunta de Dirección ya no es “¿vendimos bien hoy?”, sino “¿qué hizo posible esta venta y podemos repetirlo manteniendo margen, caja y capacidad?”.`,
       criterio_profesional:
         "Una transacción muy superior al comportamiento habitual puede ser una señal estratégica, pero solo después de separar casualidad, margen, origen del cliente y capacidad de repetición.",
       evidencia_usada: evidenciaBase,
@@ -881,10 +921,16 @@ function respuestaEventoVenta({
       ],
       datos_faltantes: [
         "Qué compró exactamente.",
-        "Si ya fue cobrada.",
+        ...(evento.estado_cobro
+          ? []
+          : ["Si ya fue cobrada."]),
         "Qué margen dejó.",
-        "Cómo llegó el cliente.",
-        "Si era cliente nuevo o recurrente."
+        ...(evento.canal_origen
+          ? []
+          : ["Cómo llegó el cliente."]),
+        ...(evento.tipo_cliente
+          ? []
+          : ["Si era cliente nuevo o recurrente."])
       ],
       confianza: ticket_promedio ? 86 : 78,
       relevancia: "ALTA"
