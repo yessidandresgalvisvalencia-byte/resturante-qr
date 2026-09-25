@@ -69,11 +69,48 @@ function sumarFrecuencia(fecha, frecuencia) {
     );
   }
 
-  siguiente.setUTCMonth(
-    siguiente.getUTCMonth() + meses
+  const diaObjetivo =
+    siguiente.getUTCDate();
+
+  const hora =
+    siguiente.getUTCHours();
+  const minuto =
+    siguiente.getUTCMinutes();
+  const segundo =
+    siguiente.getUTCSeconds();
+  const ms =
+    siguiente.getUTCMilliseconds();
+
+  const base =
+    new Date(
+      Date.UTC(
+        siguiente.getUTCFullYear(),
+        siguiente.getUTCMonth() + meses,
+        1,
+        hora,
+        minuto,
+        segundo,
+        ms
+      )
+    );
+
+  const ultimoDiaMes =
+    new Date(
+      Date.UTC(
+        base.getUTCFullYear(),
+        base.getUTCMonth() + 1,
+        0
+      )
+    ).getUTCDate();
+
+  base.setUTCDate(
+    Math.min(
+      diaObjetivo,
+      ultimoDiaMes
+    )
   );
 
-  return siguiente;
+  return base;
 }
 
 function generarVencimientos({
