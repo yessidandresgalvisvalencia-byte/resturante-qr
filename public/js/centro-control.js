@@ -30,7 +30,25 @@ async function cargarDecisionCerebroGRUK() {
     }
 
     const ordenes = d.ordenes_por_departamento || [];
-    const resumen = `<div class="card"><h2>Cerebro decidió</h2><p><strong>Situación:</strong> ${escaparGRUK(d.decision_general?.situacion)}</p><p><strong>Causa:</strong> ${escaparGRUK(d.decision_general?.causa_raiz)}</p><p><strong>Predicción:</strong> ${escaparGRUK(d.decision_general?.prediccion)}</p><p><strong>Riesgo si no se actúa:</strong> ${escaparGRUK(d.riesgo_si_no_se_hace)}</p><p><strong>Cómo medir éxito en 7 días:</strong> ${escaparGRUK(d.como_medir_exito_en_7_dias)}</p><p><strong>Confianza:</strong> ${Number(d.confianza_global || 0)}%</p></div>`;
+    const financiero = d.contexto_financiero || null;
+
+    const contextoFinanciero = financiero
+      ? `
+        <div class="card">
+          <h3>Contexto financiero de la decisión</h3>
+          <p><strong>Estado 7 días:</strong> ${escaparGRUK(financiero.estado7d || "SIN_DATO")}</p>
+          <p><strong>Confiabilidad:</strong> ${escaparGRUK(financiero.confiabilidad || "SIN_DATO")}</p>
+          <p><strong>Saldo disponible:</strong> ${financiero.saldoActual === null || financiero.saldoActual === undefined ? "No verificable" : formatoCOP(financiero.saldoActual)}</p>
+          <p><strong>Obligaciones 7 días:</strong> ${formatoCOP(financiero.obligaciones7d || 0)}</p>
+          <p><strong>Cobros esperados 7 días:</strong> ${formatoCOP(financiero.cobros7d || 0)}</p>
+          <p><strong>Brecha con caja actual:</strong> ${formatoCOP(financiero.faltanteConCajaActual || 0)}</p>
+          <p><strong>Brecha aun cobrando todo:</strong> ${formatoCOP(financiero.faltanteAunCobrandoTodo || 0)}</p>
+          <p><strong>Fecha crítica:</strong> ${financiero.fechaCritica ? escaparGRUK(new Date(financiero.fechaCritica).toLocaleDateString("es-CO")) : "Sin fecha"}</p>
+        </div>
+      `
+      : "";
+
+    const resumen = `<div class="card"><h2>Cerebro decidió</h2><p><strong>Situación:</strong> ${escaparGRUK(d.decision_general?.situacion)}</p><p><strong>Causa:</strong> ${escaparGRUK(d.decision_general?.causa_raiz)}</p><p><strong>Predicción:</strong> ${escaparGRUK(d.decision_general?.prediccion)}</p><p><strong>Riesgo si no se actúa:</strong> ${escaparGRUK(d.riesgo_si_no_se_hace)}</p><p><strong>Cómo medir éxito en 7 días:</strong> ${escaparGRUK(d.como_medir_exito_en_7_dias)}</p><p><strong>Confianza:</strong> ${Number(d.confianza_global || 0)}%</p></div>` + contextoFinanciero;
 
     const tarjetas = ordenes.map((o) => {
       const acciones = o.estado === "PENDIENTE_APROBACION"
