@@ -18,6 +18,12 @@ const obligacionPrioritariaSchema=new mongoose.Schema({
  fechaVencimiento:{type:Date,default:null},
  estadoCobertura:{type:String,enum:["CUBIERTA","NO_CUBIERTA"],default:null}
 },{_id:false});
+const politicaPagoSchema=new mongoose.Schema({
+ usar_precedencia_categoria:{type:Boolean,default:false},
+ precedencia_categorias:{type:[String],default:[]},
+ updatedAt:{type:Date,default:null},
+ updatedBy:{type:mongoose.Schema.Types.ObjectId,ref:"Usuario",default:null}
+},{_id:false});
 const contextoFinancieroSchema=new mongoose.Schema({
  fuente:{type:String,enum:["TESORERIA_GRUK"],default:"TESORERIA_GRUK"},
  estado7d:{type:String,default:null},
@@ -30,6 +36,7 @@ const contextoFinancieroSchema=new mongoose.Schema({
  montoCobrosPriorizados:{type:Number,default:0,min:0},
  faltanteDespuesCobrosPriorizados:{type:Number,default:0,min:0},
  cobrosPriorizados:{type:[cobroPrioritarioSchema],default:[]},
+ politicaPriorizacionPagos:{type:politicaPagoSchema,default:null},
  obligacionesPriorizadas:{type:[obligacionPrioritariaSchema],default:[]},
  planPagosCajaActual:{type:[obligacionPrioritariaSchema],default:[]},
  planPagosConCobros:{type:[obligacionPrioritariaSchema],default:[]},
