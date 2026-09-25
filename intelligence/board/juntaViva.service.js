@@ -336,6 +336,10 @@ function construirDiagnostico({
     proyeccionTesoreria?.escenario7d?.estado ===
       "DEPENDE_DE_COBROS";
 
+  const proyeccionDatosInsuficientes =
+    proyeccionTesoreria?.escenario7d?.estado ===
+      "DATOS_INSUFICIENTES";
+
   const estado =
     criticos.length ||
     proyeccionCritica
@@ -345,7 +349,8 @@ function construirDiagnostico({
           flujoParcialNegativo ||
           tesoreriaParcial ||
           saldoTesoreriaNegativo ||
-          proyeccionDependiente
+          proyeccionDependiente ||
+          proyeccionDatosInsuficientes
         )
         ? "ATENCION"
         : "NORMAL";
@@ -386,6 +391,10 @@ function construirDiagnostico({
         proyeccionTesoreria?.cobrosEsperados
           ?.proximos7d?.monto || 0
       )} previstos dentro del periodo.`
+    );
+  } else if (proyeccionDatosInsuficientes) {
+    razones.push(
+      "La cobertura de 7 dias no es confiable porque existen obligaciones sin fecha o saldos pendientes no cuantificados. GRUK no declara suficiencia de caja con datos incompletos."
     );
   }
 
@@ -461,11 +470,11 @@ function construirDiagnostico({
 
   const lecturaProyeccion =
     proyeccionTesoreria
-      ? ` Proyeccion 7 dias: estado ${proyeccionTesoreria.escenario7d?.estado || "SIN_DATOS"}, obligaciones por ${Number(
+      ? ` Proyeccion 7 dias: estado ${proyeccionTesoreria.escenario7d?.estado || "SIN_DATOS"}, obligaciones cuantificadas por ${Number(
           proyeccionTesoreria.obligaciones?.proximos7d?.monto || 0
         )}, cobros esperados por ${Number(
           proyeccionTesoreria.cobrosEsperados?.proximos7d?.monto || 0
-        )}. Los cobros esperados no son caja hasta confirmarse.`
+        )}. ${proyeccionDatosInsuficientes ? "Existen obligaciones sin fecha o saldo exacto y por eso GRUK no afirma cobertura suficiente." : ""} Los cobros esperados no son caja hasta confirmarse.`
       : "";
 
   const lectura =
@@ -780,6 +789,60 @@ async function generarDiagnosticosAutomaticos({
     }));
 }
 
+function mapearObligaciones(obligaciones) {
+  const grupos =
+    obligaciones?.grupos || {};
+
+  function grupo(nombre) {
+    return {
+      cantidad:
+        Number(
+          grupos?.[nombre]?.cantidad || 0
+        ),
+      montoCuantificado:
+        Number(
+          grupos?.[nombre]?.montoCuantificado || 0
+        ),
+      noCuantificadas:
+        Number(
+          grupos?.[nombre]?.noCuantificadas || 0
+        )
+    };
+  }
+
+  return {
+    alcance:
+      obligaciones?.alcance ||
+      "OBLIGACIONES_REGISTRADAS_GRUK",
+    advertencia:
+      obligaciones?.advertencia || "",
+    montoExigible7Dias:
+      Number(
+        obligaciones?.montoExigible7Dias || 0
+      ),
+    noCuantificadasExigibles:
+      Number(
+        obligaciones?.noCuantificadasExigibles || 0
+      ),
+    obligacionesSinFecha:
+      Number(
+        obligaciones?.obligacionesSinFecha || 0
+      ),
+    cobertura7Dias:
+      obligaciones?.cobertura7Dias ||
+      "NO_CALCULABLE_TESORERIA",
+    saldoDespues7Dias:
+      obligaciones?.saldoDespues7Dias ??
+      null,
+    vencidas:
+      grupo("vencidas"),
+    proximos7Dias:
+      grupo("proximos7Dias"),
+    dias8a30:
+      grupo("dias8a30")
+  };
+}
+
 function mapearProyeccionTesoreria(proyeccion) {
   return {
     confiabilidad:
@@ -1081,6 +1144,11 @@ async function recalcularEstadoVivo({
           mapearProyeccionTesoreria(
             proyeccionTesoreria
           ),
+        obligaciones:
+          mapearObligaciones(
+            proyeccionTesoreria
+              ?.obligacionesRegistradas
+          ),
         diagnostico,
         diagnosticosExpertos,
         reportesNeuronas:
@@ -1154,7 +1222,8 @@ async function obtenerEstadoVivo(auth) {
   if (
     !estado ||
     !estado.tesoreria ||
-    !estado.proyeccionTesoreria
+    !estado.proyeccionTesoreria ||
+    !estado.obligaciones
   ) {
     const ahora = new Date();
     const desde =
