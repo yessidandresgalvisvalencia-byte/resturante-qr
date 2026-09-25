@@ -10,7 +10,7 @@ La Junta no genera órdenes ejecutables; esa autoridad sigue reservada al Cerebr
 
 Ninguna.
 
-La Junta no requiere OpenAI, API keys, modelos remotos ni proveedores de IA externos.
+La Junta no requiere OpenAI, API keys, modelos remotos ni proveedores de IA externos. El motor de Junta no realiza llamadas de red para generar respuestas.
 
 No existen variables `OPENAI_API_KEY`, `GRUK_EXPERT_MODEL` ni equivalentes para esta función.
 
