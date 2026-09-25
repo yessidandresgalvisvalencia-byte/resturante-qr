@@ -210,14 +210,14 @@ test(
 
       assert.equal(
         juntaRespondida.intervenciones.filter(
-          (item) => item.tipo === "EXPERTO_IA"
+          (item) => item.tipo === "EXPERTO_GRUK"
         ).length,
         6
       );
 
       const respuestasLigadas = juntaRespondida.intervenciones.filter(
         (item) =>
-          item.tipo === "EXPERTO_IA" &&
+          item.tipo === "EXPERTO_GRUK" &&
           String(item.respuestaAId) === String(preguntaGuardada.intervencionId)
       );
       assert.equal(respuestasLigadas.length, 6);
@@ -240,7 +240,7 @@ test(
 
       assert.equal(
         juntaReintento.intervenciones.filter(
-          (item) => item.tipo === "EXPERTO_IA"
+          (item) => item.tipo === "EXPERTO_GRUK"
         ).length,
         6
       );
