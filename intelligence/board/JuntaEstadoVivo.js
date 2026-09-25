@@ -178,6 +178,64 @@ const historialSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const diagnosticoExpertoSchema = new mongoose.Schema({
+  departamento: {
+    type: String,
+    required: true,
+    enum: [
+      "DIRECCION",
+      "OPERACIONES",
+      "VENTAS",
+      "FINANZAS",
+      "MARKETING",
+      "GENTE",
+      "SERVICIO_CLIENTE"
+    ]
+  },
+  relevancia: {
+    type: String,
+    required: true,
+    enum: [
+      "ALTA",
+      "MEDIA",
+      "BAJA",
+      "NINGUNA"
+    ]
+  },
+  respuesta: {
+    type: String,
+    required: true,
+    maxlength: 3000
+  },
+  criterioProfesional: {
+    type: String,
+    default: "",
+    maxlength: 1800
+  },
+  evidencia: {
+    type: [String],
+    default: []
+  },
+  riesgos: {
+    type: [String],
+    default: []
+  },
+  datosFaltantes: {
+    type: [String],
+    default: []
+  },
+  confianza: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: null
+  },
+  generatedAt: {
+    type: Date,
+    required: true
+  }
+}, { _id: false });
+
 const schema = new mongoose.Schema({
   empresaId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -206,6 +264,10 @@ const schema = new mongoose.Schema({
   diagnostico: {
     type: diagnosticoSchema,
     required: true
+  },
+  diagnosticosExpertos: {
+    type: [diagnosticoExpertoSchema],
+    default: []
   },
   historialDiagnosticos: {
     type: [historialSchema],
