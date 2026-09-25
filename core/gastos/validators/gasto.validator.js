@@ -97,6 +97,16 @@ const gastoSchema = Joi.object({
     .default({})
 }).required();
 
+const estadoPagoSchema = Joi.object({
+  estadoPago: Joi.string()
+    .valid(
+      "desconocido",
+      "pendiente",
+      "pagado"
+    )
+    .required()
+}).required();
+
 function validarGasto(datos) {
   return gastoSchema.validate(datos, {
     abortEarly: false,
@@ -105,6 +115,15 @@ function validarGasto(datos) {
   });
 }
 
+function validarEstadoPagoGasto(datos) {
+  return estadoPagoSchema.validate(datos, {
+    abortEarly: false,
+    allowUnknown: false,
+    convert: true
+  });
+}
+
 module.exports = {
-  validarGasto
+  validarGasto,
+  validarEstadoPagoGasto
 };
