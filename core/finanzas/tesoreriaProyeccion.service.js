@@ -308,6 +308,38 @@ async function construirProyeccionTesoreria({
           )
       }));
 
+  const carteraPriorizada =
+    [...cobrosEsperados]
+      .sort((a, b) => {
+        const ordenClasificacion = {
+          VENCIDA: 0,
+          PROXIMOS_7_DIAS: 1,
+          PROXIMOS_30_DIAS: 2,
+          POSTERIOR: 3
+        };
+
+        const claseA =
+          ordenClasificacion[a.clasificacion] ?? 99;
+        const claseB =
+          ordenClasificacion[b.clasificacion] ?? 99;
+
+        if (claseA !== claseB) {
+          return claseA - claseB;
+        }
+
+        const fechaA =
+          new Date(a.fechaVencimiento).getTime();
+        const fechaB =
+          new Date(b.fechaVencimiento).getTime();
+
+        if (fechaA !== fechaB) {
+          return fechaA - fechaB;
+        }
+
+        return Number(b.monto || 0) -
+          Number(a.monto || 0);
+      });
+
   const cobrosVencidos =
     cobrosEsperados.filter(
       (item) =>
@@ -566,6 +598,11 @@ async function construirProyeccionTesoreria({
       },
       detalle:
         cobrosEsperados.slice(
+          0,
+          30
+        ),
+      prioridadCobro:
+        carteraPriorizada.slice(
           0,
           30
         )
