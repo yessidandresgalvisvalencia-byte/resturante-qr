@@ -235,10 +235,21 @@ function construirCandidatoDesdeEvento(event) {
     referenciaEconomica:
       referenciaEconomica(payload),
     confirmadoAt:
-      fechaSegura(
-        payload.fecha,
-        fechaSegura(event.occurredAt)
-      ),
+      eventName.endsWith(
+        "_PAGO_ACTUALIZADO"
+      )
+        ? fechaSegura(
+            payload.sourceUpdatedAt,
+            fechaSegura(
+              event.occurredAt
+            )
+          )
+        : fechaSegura(
+            payload.fecha,
+            fechaSegura(
+              event.occurredAt
+            )
+          ),
     claveIdempotencia:
       claveEstadoFuente({
         origenTipo,
