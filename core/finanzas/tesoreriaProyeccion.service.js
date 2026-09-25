@@ -306,8 +306,22 @@ async function construirProyeccionTesoreria({
         $group: {
           _id: null,
           total: {
-            $sum:
-              "$monto"
+            $sum: {
+              $max: [
+                0,
+                {
+                  $subtract: [
+                    "$monto",
+                    {
+                      $ifNull: [
+                        "$montoConsumido",
+                        0
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
           },
           utilidadDueno: {
             $sum: {
@@ -318,7 +332,22 @@ async function construirProyeccionTesoreria({
                     "UTILIDAD_DUENO"
                   ]
                 },
-                "$monto",
+                {
+                  $max: [
+                    0,
+                    {
+                      $subtract: [
+                        "$monto",
+                        {
+                          $ifNull: [
+                            "$montoConsumido",
+                            0
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
                 0
               ]
             }
