@@ -59,6 +59,8 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
     estadoVivo.diagnostico || {};
   const tesoreria =
     estadoVivo.tesoreria || {};
+  const proyeccionTesoreria =
+    estadoVivo.proyeccionTesoreria || {};
   const evento =
     estadoVivo.ultimoEvento || {};
   const cambio =
@@ -217,6 +219,70 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
       <ul>
         ${cuentasTesoreriaHTML}
       </ul>
+
+      <h4>Proyección 7/30 días</h4>
+
+      <p>
+        <strong>Estado 7 días:</strong>
+        ${escaparJuntaGRUK(
+          proyeccionTesoreria.estado7d ||
+          "SIN_SALDO_VERIFICABLE"
+        )}
+      </p>
+
+      <p>
+        <strong>Obligaciones vencidas:</strong>
+        ${formatoMonedaJuntaGRUK(
+          proyeccionTesoreria.obligacionesVencidas || 0
+        )}
+        ·
+        <strong>hasta 7 días:</strong>
+        ${formatoMonedaJuntaGRUK(
+          proyeccionTesoreria.obligaciones7d || 0
+        )}
+        ·
+        <strong>hasta 30 días:</strong>
+        ${formatoMonedaJuntaGRUK(
+          proyeccionTesoreria.obligaciones30d || 0
+        )}
+      </p>
+
+      <p>
+        <strong>Cobros esperados 7 días:</strong>
+        ${formatoMonedaJuntaGRUK(
+          proyeccionTesoreria.cobros7d || 0
+        )}
+        ·
+        <strong>30 días:</strong>
+        ${formatoMonedaJuntaGRUK(
+          proyeccionTesoreria.cobros30d || 0
+        )}
+      </p>
+
+      <p>
+        <strong>Días de cobertura sobre salidas históricas:</strong>
+        ${proyeccionTesoreria
+          .diasCoberturaSalidasHistoricas ?? "No calculable"}
+      </p>
+
+      ${proyeccionTesoreria.proximoVencimiento
+        ? `<p>
+            <strong>Próximo vencimiento:</strong>
+            ${escaparJuntaGRUK(
+              proyeccionTesoreria.proximoVencimiento.descripcion || ""
+            )}
+            ·
+            ${formatoMonedaJuntaGRUK(
+              proyeccionTesoreria.proximoVencimiento.monto || 0
+            )}
+            ·
+            ${escaparJuntaGRUK(
+              formatoFechaJuntaGRUK(
+                proyeccionTesoreria.proximoVencimiento.fechaVencimiento
+              )
+            )}
+          </p>`
+        : ""}
     </div>
 
     <p>${escaparJuntaGRUK(
