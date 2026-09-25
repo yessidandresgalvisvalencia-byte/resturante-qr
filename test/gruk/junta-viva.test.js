@@ -477,6 +477,21 @@ test("venta viva genera diagnostico experto relevante sin volver a preguntar por
   );
 
   assert.ok(
+    finanzas.evidencia.some(
+      (item) =>
+        /^DATO_GRUK:/i.test(item)
+    )
+  );
+
+  assert.equal(
+    finanzas.evidencia.some(
+      (item) =>
+        /^DATO_USUARIO:/i.test(item)
+    ),
+    false
+  );
+
+  assert.ok(
     !finanzas.datosFaltantes.some(
       (item) =>
         /ya fue cobrada/i.test(item)
