@@ -40,6 +40,17 @@ const gastoSchema = new mongoose.Schema(
       trim: true
     },
 
+    estadoPago: {
+      type: String,
+      enum: [
+        "desconocido",
+        "pendiente",
+        "pagado"
+      ],
+      default: "desconocido",
+      index: true
+    },
+
     proveedor: {
       type: String,
       default: "",
