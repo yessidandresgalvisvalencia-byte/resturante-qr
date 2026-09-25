@@ -47,6 +47,17 @@ function seleccionarCobrosParaBrecha(
       : []
   ) {
     if (
+      ![
+        "VENCIDA",
+        "PROXIMOS_7_DIAS"
+      ].includes(
+        item?.clasificacion
+      )
+    ) {
+      continue;
+    }
+
+    if (
       !Number.isFinite(
         Number(item?.monto)
       ) ||
@@ -110,6 +121,21 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
       faltanteConCajaActual
     );
 
+  const montoCobrosPriorizados =
+    cobrosPriorizados.reduce(
+      (total, item) =>
+        total +
+        Number(item.monto || 0),
+      0
+    );
+
+  const faltanteDespuesCobrosPriorizados =
+    Math.max(
+      0,
+      faltanteConCajaActual -
+      montoCobrosPriorizados
+    );
+
   const accionesSugeridas = [];
 
   if (estado7d === "DEFICIT_AUN_COBRANDO_TODO") {
@@ -130,7 +156,9 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
         kpi_a_medir: "cobros_confirmados_7d",
         montoReferencia:
           faltanteConCajaActual,
-        cobrosPriorizados
+        cobrosPriorizados,
+        montoCobrosPriorizados,
+        faltanteDespuesCobrosPriorizados
       },
       {
         departamento: "DIRECCION",
@@ -159,7 +187,9 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
         kpi_a_medir: "cobros_confirmados_7d",
         montoReferencia:
           faltanteConCajaActual,
-        cobrosPriorizados
+        cobrosPriorizados,
+        montoCobrosPriorizados,
+        faltanteDespuesCobrosPriorizados
       }
     );
   } else if (estado7d === "DATOS_INSUFICIENTES") {
@@ -194,6 +224,8 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
     faltanteAunCobrandoTodo,
     fechaCritica: deadline,
     cobrosPriorizados,
+    montoCobrosPriorizados,
+    faltanteDespuesCobrosPriorizados,
     requiereDecision:
       accionesSugeridas.length > 0,
     accionesSugeridas
