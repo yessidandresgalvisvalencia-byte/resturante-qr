@@ -96,6 +96,41 @@ const empresaSchema = new mongoose.Schema(
         type: Number,
         min: 0,
         default: null
+      },
+
+      politica_financiera: {
+        priorizacion_pagos: {
+          usar_precedencia_categoria: {
+            type: Boolean,
+            default: false
+          },
+          precedencia_categorias: {
+            type: [{
+              type: String,
+              enum: [
+                "NOMINA",
+                "IMPUESTOS",
+                "DEUDA",
+                "ARRIENDO",
+                "SERVICIOS",
+                "SEGUROS",
+                "LICENCIAS",
+                "PROVEEDORES",
+                "OTRO"
+              ]
+            }],
+            default: []
+          },
+          updatedAt: {
+            type: Date,
+            default: null
+          },
+          updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Usuario",
+            default: null
+          }
+        }
       }
     },
 
