@@ -229,7 +229,10 @@ async function cargarDecisionCerebroGRUK() {
           <h3>Contexto financiero de la decisión</h3>
           <p><strong>Estado 7 días:</strong> ${escaparGRUK(financiero.estado7d || "SIN_DATO")}</p>
           <p><strong>Confiabilidad:</strong> ${escaparGRUK(financiero.confiabilidad || "SIN_DATO")}</p>
-          <p><strong>Saldo disponible:</strong> ${financiero.saldoActual === null || financiero.saldoActual === undefined ? "No verificable" : formatoCOP(financiero.saldoActual)}</p>
+          <p><strong>Saldo bancario / tesorería:</strong> ${financiero.saldoActual === null || financiero.saldoActual === undefined ? "No verificable" : formatoCOP(financiero.saldoActual)}</p>
+          <p><strong>Caja operativa libre:</strong> ${financiero.saldoOperativo === null || financiero.saldoOperativo === undefined ? "No verificable" : formatoCOP(financiero.saldoOperativo)}</p>
+          <p><strong>Reservas activas:</strong> ${formatoCOP(financiero.reservasActivasTotal || 0)}</p>
+          <p><strong>Ganancia del dueño separada:</strong> ${formatoCOP(financiero.reservaUtilidadDueno || 0)}</p>
           <p><strong>Obligaciones 7 días:</strong> ${formatoCOP(financiero.obligaciones7d || 0)}</p>
           <p><strong>Cobros esperados 7 días:</strong> ${formatoCOP(financiero.cobros7d || 0)}</p>
           <p><strong>Brecha con caja actual:</strong> ${formatoCOP(financiero.faltanteConCajaActual || 0)}</p>
