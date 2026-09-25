@@ -121,10 +121,15 @@ function generarVencimientos({
 }) {
   const resultados = [];
 
-  let cursor =
+  const ancla =
     new Date(
       obligacion.proximoVencimiento
     );
+
+  let cursor =
+    new Date(ancla);
+
+  let indice = 0;
 
   const fechaFin =
     obligacion.fechaFin
@@ -180,11 +185,58 @@ function generarVencimientos({
       break;
     }
 
-    cursor =
-      sumarFrecuencia(
-        cursor,
-        obligacion.frecuencia
+    indice += 1;
+
+    if (
+      obligacion.frecuencia === "SEMANAL" ||
+      obligacion.frecuencia === "QUINCENAL"
+    ) {
+      cursor =
+        sumarFrecuencia(
+          cursor,
+          obligacion.frecuencia
+        );
+    } else {
+      const mesesPorCiclo = {
+        MENSUAL: 1,
+        BIMESTRAL: 2,
+        TRIMESTRAL: 3,
+        SEMESTRAL: 6,
+        ANUAL: 12
+      }[obligacion.frecuencia];
+
+      const base =
+        new Date(
+          Date.UTC(
+            ancla.getUTCFullYear(),
+            ancla.getUTCMonth() +
+              mesesPorCiclo * indice,
+            1,
+            ancla.getUTCHours(),
+            ancla.getUTCMinutes(),
+            ancla.getUTCSeconds(),
+            ancla.getUTCMilliseconds()
+          )
+        );
+
+      const ultimoDia =
+        new Date(
+          Date.UTC(
+            base.getUTCFullYear(),
+            base.getUTCMonth() + 1,
+            0
+          )
+        ).getUTCDate();
+
+      base.setUTCDate(
+        Math.min(
+          ancla.getUTCDate(),
+          ultimoDia
+        )
       );
+
+      cursor = base;
+    }
 
     guard += 1;
   }
