@@ -224,6 +224,38 @@ router.post(
 
     const total = subtotal + impuestosNumero;
 
+    const estadoPagoEfectivo =
+      estadoPago || "pagado";
+
+    let saldoPendienteEfectivo = 0;
+
+    if (
+      estadoPagoEfectivo === "pendiente"
+    ) {
+      saldoPendienteEfectivo = total;
+    } else if (
+      estadoPagoEfectivo === "parcial"
+    ) {
+      saldoPendienteEfectivo =
+        Number(
+          saldoPendientePago
+        );
+
+      if (
+        !Number.isFinite(
+          saldoPendienteEfectivo
+        ) ||
+        saldoPendienteEfectivo <= 0 ||
+        saldoPendienteEfectivo >= total
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Una compra parcial requiere saldoPendientePago mayor que 0 y menor que el total"
+        });
+      }
+    }
+
     let compraCreada = null;
 
     // ==========================================
@@ -254,15 +286,12 @@ router.post(
             impuestos: impuestosNumero,
             total,
             metodoPago: metodoPago || "efectivo",
-            estadoPago: estadoPago || "pagado",
+            estadoPago:
+              estadoPagoEfectivo,
             fechaVencimientoPago:
               fechaVencimientoPago || null,
             saldoPendientePago:
-              (estadoPago || "pagado") === "parcial"
-                ? Number(saldoPendientePago)
-                : (estadoPago || "pagado") === "pendiente"
-                  ? total
-                  : 0,
+              saldoPendienteEfectivo,
             fecha: fecha || new Date(),
             observaciones: observaciones || "",
             origen: origen || "manual",
@@ -419,6 +448,10 @@ inventario.costo = costoPromedioPonderado;
         total: compraCreada.total,
         metodoPago: compraCreada.metodoPago,
         estadoPago: compraCreada.estadoPago,
+        saldoPendientePago:
+          compraCreada.saldoPendientePago,
+        fechaVencimientoPago:
+          compraCreada.fechaVencimientoPago,
         fecha: compraCreada.fecha,
         sourceUpdatedAt:
           compraCreada.updatedAt,
