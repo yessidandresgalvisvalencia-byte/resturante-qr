@@ -116,6 +116,12 @@ const compraSchema = new mongoose.Schema(
       default: "pagado"
     },
 
+    fechaVencimientoPago: {
+      type: Date,
+      default: null,
+      index: true
+    },
+
     estado: {
       type: String,
       enum: [
