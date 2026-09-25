@@ -128,6 +128,25 @@ test(
       assert.ok(resultado.decision?._id);
       assert.ok(resultado.decision.ordenes_por_departamento.length > 0);
 
+      const segundoCiclo =
+        await ejecutarCicloEmpresa(
+          empresa._id,
+          { forzarDecision: true }
+        );
+
+      assert.equal(
+        String(segundoCiclo.decision?._id),
+        String(resultado.decision._id)
+      );
+
+      assert.equal(
+        await Decision.countDocuments({
+          empresaId: empresa._id,
+          deletedAt: null
+        }),
+        1
+      );
+
       const decisionGuardada = await Decision.findById(resultado.decision._id);
       const orden = decisionGuardada.ordenes_por_departamento[0];
       assert.equal(orden.estado, "PENDIENTE_APROBACION");
