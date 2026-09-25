@@ -374,3 +374,110 @@ test("referencia economica explicita evita doble conteo entre documentos distint
     1
   );
 });
+
+
+test("reversion posterior elimina el efecto del periodo original sin simular reembolso", async () => {
+  const gastoId =
+    "507f1f77bcf86cd799439018";
+
+  await registrarMovimientoDesdeEvento(
+    {
+      eventName:
+        "GASTO_REGISTRADO",
+      occurredAt:
+        new Date(
+          "2026-08-10T12:00:00Z"
+        ),
+      payload: {
+        gastoId,
+        empresaId:
+          EMPRESA_ID,
+        sedeId:
+          SEDE_ID,
+        monto: 90000,
+        estadoPago:
+          "pagado",
+        fecha:
+          "2026-08-10T12:00:00Z",
+        sourceUpdatedAt:
+          "2026-08-10T12:00:00Z"
+      }
+    },
+    { emitirEvento: false }
+  );
+
+  await registrarMovimientoDesdeEvento(
+    {
+      eventName:
+        "GASTO_PAGO_ACTUALIZADO",
+      occurredAt:
+        new Date(
+          "2026-09-25T12:00:00Z"
+        ),
+      payload: {
+        gastoId,
+        empresaId:
+          EMPRESA_ID,
+        sedeId:
+          SEDE_ID,
+        monto: 90000,
+        estadoPagoAnterior:
+          "pagado",
+        estadoPago:
+          "pendiente",
+        fecha:
+          "2026-08-10T12:00:00Z",
+        sourceUpdatedAt:
+          "2026-09-25T12:00:00Z"
+      }
+    },
+    { emitirEvento: false }
+  );
+
+  const agosto =
+    await obtenerResumenCaja({
+      empresaId:
+        EMPRESA_ID,
+      sedeId:
+        SEDE_ID,
+      desde:
+        new Date(
+          "2026-08-01T00:00:00Z"
+        ),
+      hasta:
+        new Date(
+          "2026-09-01T00:00:00Z"
+        )
+    });
+
+  const septiembre =
+    await obtenerResumenCaja({
+      empresaId:
+        EMPRESA_ID,
+      sedeId:
+        SEDE_ID,
+      desde:
+        new Date(
+          "2026-09-01T00:00:00Z"
+        ),
+      hasta:
+        new Date(
+          "2026-10-01T00:00:00Z"
+        )
+    });
+
+  assert.equal(
+    agosto.gastosPagados.monto,
+    0
+  );
+
+  assert.equal(
+    septiembre.entradasConfirmadas,
+    0
+  );
+
+  assert.equal(
+    septiembre.flujoConfirmadoParcial,
+    0
+  );
+});
