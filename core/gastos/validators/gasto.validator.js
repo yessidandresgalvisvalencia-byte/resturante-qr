@@ -91,6 +91,12 @@ const gastoSchema = Joi.object({
       .optional(),
 
     esCostoRecuperable: Joi.boolean()
+      .optional(),
+
+    cajaReferencia: Joi.string()
+      .trim()
+      .max(200)
+      .allow("")
       .optional()
   })
     .unknown(false)
