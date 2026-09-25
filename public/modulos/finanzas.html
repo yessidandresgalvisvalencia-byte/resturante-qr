@@ -12,6 +12,17 @@ Analiza si un gasto fue necesario, parcialmente útil o innecesario, y genera un
 <label>Valor del gasto</label>
 <input id="valorGasto" type="number" placeholder="Ej: 500000">
 
+<label>Estado del pago</label>
+<select id="estadoPagoGasto">
+<option value="desconocido" selected>No confirmado</option>
+<option value="pagado">Pagado</option>
+<option value="pendiente">Pendiente</option>
+</select>
+
+<p class="descripcion-termino">
+GRUK solo descontará este gasto del flujo confirmado cuando el estado sea Pagado.
+</p>
+
 <label>Clasificación del gasto</label>
 <select id="categoriaGasto">
 <option value="Administración">Administración</option>
