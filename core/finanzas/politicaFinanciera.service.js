@@ -44,7 +44,7 @@ function normalizarTexto(valor) {
 }
 
 function normalizarCategoriaObligacion(item = {}) {
-  if (item.origenTipo === "COMPRA") {
+  if ((item.origenTipo || item.tipo) === "COMPRA") {
     return "PROVEEDORES";
   }
 
