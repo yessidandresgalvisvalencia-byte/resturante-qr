@@ -7,6 +7,9 @@ const JuntaSesion = require("../board/JuntaSesion");
 const CerebroMemoria = require("../memory/CerebroMemoria");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
 const { registrarBaselineAprobacion } = require("../memory/memoria.service");
+const {
+  crearPlanDesdeDecision
+} = require("../../core/finanzas/planEjecucionPago.service");
 
 function serviceError(statusCode, message) {
   const error = new Error(message);
@@ -80,6 +83,14 @@ async function procesarOrden({ auth, decisionId, ordenId, accion }) {
           auth,
           decision,
           orden,
+          session
+        });
+
+        await crearPlanDesdeDecision({
+          decision,
+          orden,
+          createdBy:
+            auth.usuarioId,
           session
         });
       }
