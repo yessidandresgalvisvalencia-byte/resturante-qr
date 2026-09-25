@@ -1,4 +1,5 @@
 "use strict";
+const crypto=require("crypto");
 const mongoose=require("mongoose");
 const Reporte=require("../models/CerebroReporteNeurona");
 const Decision=require("../models/CerebroDecision");
@@ -56,6 +57,34 @@ function convertirAgendaEnOrdenes(agenda){
  }));
 }
 
+function construirDecisionFingerprint({agenda,candidatos}){
+ const payload={
+  agenda:agenda?{
+   estado7d:agenda.estado7d||null,
+   confiabilidad:agenda.confiabilidad||null,
+   saldoActual:agenda.saldoActual??null,
+   obligaciones7d:Number(agenda.obligaciones7d||0),
+   cobros7d:Number(agenda.cobros7d||0),
+   faltanteConCajaActual:Number(agenda.faltanteConCajaActual||0),
+   faltanteAunCobrandoTodo:Number(agenda.faltanteAunCobrandoTodo||0),
+   acciones:(agenda.accionesSugeridas||[]).map(a=>({
+    departamento:a.departamento,
+    codigo:a.codigo,
+    prioridad:a.prioridad,
+    kpi:a.kpi_a_medir,
+    monto:Number(a.montoReferencia||0)
+   }))
+  }:null,
+  hallazgos:(candidatos||[]).map(c=>({
+   departamento:c.regla.departamento,
+   tipo:c.hallazgo.tipo,
+   impacto:Number(c.hallazgo.impacto_financiero_estimado||0),
+   confianza:Number(c.hallazgo.confianza||0)
+  }))
+ };
+ return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+}
+
 async function tomarDecision(empresaId,opciones={}){
  if(!mongoose.Types.ObjectId.isValid(empresaId))throw new Error("CEREBRO_EMPRESA_ID_INVALIDO");
  const reportes=await ultimosReportes(empresaId);
@@ -80,6 +109,27 @@ async function tomarDecision(empresaId,opciones={}){
  const criticos=reportes.filter(r=>r.kpi_principal.estado==="CRITICO");
  const confianza=Math.round(reportes.reduce((s,r)=>{const hs=r.hallazgos||[];return s+(hs.length?hs.reduce((x,h)=>x+Number(h.confianza||0),0)/hs.length:100);},0)/5);
  const principal=candidatos[0];
+ const decisionFingerprint=
+  construirDecisionFingerprint({
+   agenda,
+   candidatos
+  });
+
+ const ultimaDecision=
+  await Decision.findOne({
+   empresaId:new mongoose.Types.ObjectId(String(empresaId)),
+   deletedAt:null
+  })
+   .sort({createdAt:-1})
+   .lean();
+
+ if(
+  ultimaDecision?.decisionFingerprint &&
+  ultimaDecision.decisionFingerprint===decisionFingerprint
+ ){
+  return ultimaDecision;
+ }
+
  const causaAgenda=agenda?.requiereDecision
   ? `Tesoreria 7d en estado ${agenda.estado7d}. Obligaciones: ${Number(agenda.obligaciones7d||0)}. Saldo verificable: ${agenda.saldoActual===null?"sin dato":Number(agenda.saldoActual)}.`
   : null;
@@ -88,6 +138,6 @@ async function tomarDecision(empresaId,opciones={}){
   : agenda?.estado7d==="DEPENDE_DE_COBROS"
     ? `La cobertura depende de convertir en caja cobros esperados por hasta ${Number(agenda.cobros7d||0)}.`
     : null;
- return (await Decision.create({empresaId:new mongoose.Types.ObjectId(String(empresaId)),sedeId:null,decision_general:{situacion:construirSituacion(criticos,ordenes),causa_raiz:causaAgenda||(principal?principal.hallazgo.evidencia:"No hay hallazgos accionables con los datos actuales."),prediccion:agenda?.requiereDecision?"Sin resolver la señal financiera antes de la fecha critica, la cobertura operativa de corto plazo puede deteriorarse.":(principal?"Sin correccion, el KPI asociado puede continuar fuera del objetivo.":"Mantener seguimiento de los cinco KPI principales.")},ordenes_por_departamento:ordenes,contexto_financiero:agenda?{fuente:agenda.fuente,estado7d:agenda.estado7d,confiabilidad:agenda.confiabilidad,saldoActual:agenda.saldoActual,obligaciones7d:agenda.obligaciones7d,cobros7d:agenda.cobros7d,faltanteConCajaActual:agenda.faltanteConCajaActual,faltanteAunCobrandoTodo:agenda.faltanteAunCobrandoTodo,fechaCritica:agenda.fechaCritica}:undefined,confianza_global:Math.max(0,Math.min(100,confianza)),riesgo_si_no_se_hace:riesgoAgenda||(principal?principal.hallazgo.evidencia:"No se identifico riesgo cuantificado."),como_medir_exito_en_7_dias:agenda?.requiereDecision?"Recalcular Tesoreria y verificar que la brecha de caja de 7 dias sea cero o que la cobertura quede demostrada con datos completos.":(ordenes.length?"Recalcular los KPI de las ordenes y comparar contra sus objetivos.":"Generar nuevamente los cinco reportes y verificar su estado."),reportesOrigen:reportes.map(r=>r._id),createdBy:null,deletedAt:null})).toObject();
+ return (await Decision.create({empresaId:new mongoose.Types.ObjectId(String(empresaId)),sedeId:null,decisionFingerprint,decision_general:{situacion:construirSituacion(criticos,ordenes),causa_raiz:causaAgenda||(principal?principal.hallazgo.evidencia:"No hay hallazgos accionables con los datos actuales."),prediccion:agenda?.requiereDecision?"Sin resolver la señal financiera antes de la fecha critica, la cobertura operativa de corto plazo puede deteriorarse.":(principal?"Sin correccion, el KPI asociado puede continuar fuera del objetivo.":"Mantener seguimiento de los cinco KPI principales.")},ordenes_por_departamento:ordenes,contexto_financiero:agenda?{fuente:agenda.fuente,estado7d:agenda.estado7d,confiabilidad:agenda.confiabilidad,saldoActual:agenda.saldoActual,obligaciones7d:agenda.obligaciones7d,cobros7d:agenda.cobros7d,faltanteConCajaActual:agenda.faltanteConCajaActual,faltanteAunCobrandoTodo:agenda.faltanteAunCobrandoTodo,fechaCritica:agenda.fechaCritica}:undefined,confianza_global:Math.max(0,Math.min(100,confianza)),riesgo_si_no_se_hace:riesgoAgenda||(principal?principal.hallazgo.evidencia:"No se identifico riesgo cuantificado."),como_medir_exito_en_7_dias:agenda?.requiereDecision?"Recalcular Tesoreria y verificar que la brecha de caja de 7 dias sea cero o que la cobertura quede demostrada con datos completos.":(ordenes.length?"Recalcular los KPI de las ordenes y comparar contra sus objetivos.":"Generar nuevamente los cinco reportes y verificar su estado."),reportesOrigen:reportes.map(r=>r._id),createdBy:null,deletedAt:null})).toObject();
 }
-module.exports={tomarDecision,compararCandidatos,construirSituacion,convertirAgendaEnOrdenes};
+module.exports={tomarDecision,compararCandidatos,construirSituacion,convertirAgendaEnOrdenes,construirDecisionFingerprint};
