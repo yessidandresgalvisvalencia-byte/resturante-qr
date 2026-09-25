@@ -735,7 +735,7 @@ function respuestaEventoVenta({
         ...evidenciaBase,
         ...hechosReporte(finanzas).filter(
           (item) =>
-            /margen|costo|confiable/i.test(item)
+            /caja|flujo|margen|costo|confiable/i.test(item)
         )
       ].slice(0, 6),
       inferencias: [
@@ -1049,7 +1049,8 @@ function respuestaSinAporteMaterial({
 
 function respuestaEventoGeneral({
   departamento,
-  hecho
+  hecho,
+  reportes = []
 }) {
   if (!hecho) return null;
 
@@ -1069,6 +1070,15 @@ function respuestaEventoGeneral({
   const dato = [
     `DATO_USUARIO: ${limitarTexto(hecho.texto, 450)}`
   ];
+
+  const reporte =
+    reportePorDepartamento(
+      reportes,
+      departamento
+    );
+
+  const evidenciasReporte =
+    hechosReporte(reporte);
 
   if (hecho.tipo === "GASTO_REPORTADO") {
     const monto = formatearCOP(hecho.monto_cop);
@@ -1160,7 +1170,10 @@ function respuestaEventoGeneral({
     return {
       respuesta: item.respuesta,
       criterio_profesional: item.criterio,
-      evidencia_usada: dato,
+      evidencia_usada: [
+        ...dato,
+        ...evidenciasReporte
+      ].slice(0, 8),
       inferencias: [],
       riesgos: [
         departamento === "FINANZAS"
@@ -1249,7 +1262,10 @@ function respuestaEventoGeneral({
     return {
       respuesta: item.respuesta,
       criterio_profesional: item.criterio,
-      evidencia_usada: dato,
+      evidencia_usada: [
+        ...dato,
+        ...evidenciasReporte
+      ].slice(0, 8),
       inferencias: [],
       riesgos: [
         "Reemplazar personas sin diagnosticar la causa o la necesidad real de capacidad."
@@ -1332,7 +1348,10 @@ function respuestaEventoGeneral({
     return {
       respuesta: item.respuesta,
       criterio_profesional: item.criterio,
-      evidencia_usada: dato,
+      evidencia_usada: [
+        ...dato,
+        ...evidenciasReporte
+      ].slice(0, 8),
       inferencias: [],
       riesgos: [
         "Tratar el síntoma sin encontrar si existe una causa repetible."
@@ -1404,7 +1423,10 @@ function respuestaEventoGeneral({
     return {
       respuesta: item.respuesta,
       criterio_profesional: item.criterio,
-      evidencia_usada: dato,
+      evidencia_usada: [
+        ...dato,
+        ...evidenciasReporte
+      ].slice(0, 8),
       inferencias: [],
       riesgos: [
         "Corregir un quiebre comprando exceso de inventario sin calcular rotación."
@@ -1493,7 +1515,10 @@ function respuestaEventoGeneral({
     return {
       respuesta: item.respuesta,
       criterio_profesional: item.criterio,
-      evidencia_usada: dato,
+      evidencia_usada: [
+        ...dato,
+        ...evidenciasReporte
+      ].slice(0, 8),
       inferencias: [],
       riesgos: [
         "Atribuir cambios de resultado al precio sin controlar otras variables."
@@ -2064,7 +2089,8 @@ function construirRespuestaExperta({
     const contextual =
       respuestaEventoGeneral({
         departamento,
-        hecho: hechoPrincipal
+        hecho: hechoPrincipal,
+        reportes
       });
 
     if (contextual) {
