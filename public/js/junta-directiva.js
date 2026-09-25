@@ -70,6 +70,66 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
           .reverse()
       : [];
 
+  const diagnosticosExpertos =
+    Array.isArray(
+      estadoVivo.diagnosticosExpertos
+    )
+      ? estadoVivo.diagnosticosExpertos
+      : [];
+
+  const expertosHTML =
+    diagnosticosExpertos.length
+      ? diagnosticosExpertos.map(
+          (item) => {
+            const evidencia =
+              Array.isArray(item.evidencia)
+                ? item.evidencia.slice(0, 3)
+                : [];
+
+            const faltantes =
+              Array.isArray(item.datosFaltantes)
+                ? item.datosFaltantes.slice(0, 3)
+                : [];
+
+            return `
+              <details>
+                <summary>
+                  <strong>EXPERTO GRUK · ${escaparJuntaGRUK(
+                    item.departamento
+                  )}</strong>
+                  · relevancia
+                  ${escaparJuntaGRUK(
+                    item.relevancia
+                  )}
+                  ${item.confianza !== null &&
+                    item.confianza !== undefined
+                    ? `· confianza ${escaparJuntaGRUK(
+                        item.confianza
+                      )}%`
+                    : ""}
+                </summary>
+
+                <p>${textoMultilineaJuntaGRUK(
+                  item.respuesta
+                )}</p>
+
+                ${evidencia.length
+                  ? `<p><strong>Evidencia:</strong> ${evidencia
+                      .map(escaparJuntaGRUK)
+                      .join(" | ")}</p>`
+                  : ""}
+
+                ${faltantes.length
+                  ? `<p><strong>Falta confirmar:</strong> ${faltantes
+                      .map(escaparJuntaGRUK)
+                      .join(" | ")}</p>`
+                  : ""}
+              </details>
+            `;
+          }
+        ).join("")
+      : "";
+
   const razones =
     Array.isArray(diagnostico.razones)
       ? diagnostico.razones
@@ -146,6 +206,16 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
         ? "Hay una señal crítica que requiere decisión."
         : "Sin nueva decisión crítica requerida por este estado."}
     </p>
+
+    ${expertosHTML
+      ? `
+        <h3>Diagnóstico automático de la Junta</h3>
+        <p><small>
+          Los expertos relevantes reaccionan automáticamente a los movimientos y KPI actuales. Es criterio consultivo; no son órdenes del Cerebro.
+        </small></p>
+        ${expertosHTML}
+      `
+      : ""}
 
     ${historial.length
       ? `
