@@ -627,3 +627,100 @@ test("evidencia de Finanzas distingue tesoreria de flujo del periodo", () => {
     /420000/
   );
 });
+
+
+test("proyeccion que depende de cobros genera ATENCION pero no orden del Cerebro", () => {
+  const diagnostico = construirDiagnostico({
+    ultimoEvento: {
+      tipo: "RECALCULO",
+      direccion: "NEUTRO",
+      monto: null
+    },
+    ventana24h: {
+      ventasPagadas: { cantidad: 0, monto: 0 },
+      comprasPagadas: { cantidad: 0, monto: 0 },
+      comprasNoConfirmadas: { cantidad: 1, monto: 150000 },
+      gastosRegistrados: { cantidad: 0, monto: 0 },
+      gastosPagados: { cantidad: 0, monto: 0 },
+      gastosNoConfirmados: { cantidad: 0, monto: 0 },
+      flujoConfirmadoParcial: 0
+    },
+    tesoreria: {
+      estadoConfiabilidad: "COMPLETO",
+      saldoDisponible: 100000
+    },
+    proyeccionTesoreria: {
+      confiabilidad: "COMPLETO",
+      obligaciones: {
+        proximos7d: { monto: 150000 }
+      },
+      cobrosEsperados: {
+        proximos7d: { monto: 100000 }
+      },
+      escenario7d: {
+        estado: "DEPENDE_DE_COBROS",
+        faltanteAunCobrandoTodo: 0
+      }
+    },
+    reportes: []
+  });
+
+  assert.equal(diagnostico.estado, "ATENCION");
+  assert.equal(
+    diagnostico.requiereDecisionCerebro,
+    false
+  );
+  assert.ok(
+    diagnostico.razones.some(
+      (item) => /depende de cobrar/i.test(item)
+    )
+  );
+});
+
+test("deficit verificable aun cobrando todo genera CRITICO y requiere Cerebro", () => {
+  const diagnostico = construirDiagnostico({
+    ultimoEvento: {
+      tipo: "RECALCULO",
+      direccion: "NEUTRO",
+      monto: null
+    },
+    ventana24h: {
+      ventasPagadas: { cantidad: 0, monto: 0 },
+      comprasPagadas: { cantidad: 0, monto: 0 },
+      comprasNoConfirmadas: { cantidad: 1, monto: 250000 },
+      gastosRegistrados: { cantidad: 0, monto: 0 },
+      gastosPagados: { cantidad: 0, monto: 0 },
+      gastosNoConfirmados: { cantidad: 0, monto: 0 },
+      flujoConfirmadoParcial: 0
+    },
+    tesoreria: {
+      estadoConfiabilidad: "COMPLETO",
+      saldoDisponible: 50000
+    },
+    proyeccionTesoreria: {
+      confiabilidad: "COMPLETO",
+      obligaciones: {
+        proximos7d: { monto: 250000 }
+      },
+      cobrosEsperados: {
+        proximos7d: { monto: 50000 }
+      },
+      escenario7d: {
+        estado: "DEFICIT_AUN_COBRANDO_TODO",
+        faltanteAunCobrandoTodo: 150000
+      }
+    },
+    reportes: []
+  });
+
+  assert.equal(diagnostico.estado, "CRITICO");
+  assert.equal(
+    diagnostico.requiereDecisionCerebro,
+    true
+  );
+  assert.ok(
+    diagnostico.razones.some(
+      (item) => /faltante de 150000/i.test(item)
+    )
+  );
+});
