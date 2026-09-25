@@ -7,6 +7,7 @@ const {
   DEPARTAMENTOS_EXPERTOS,
   clasificarIntencion,
   detectarTemas,
+  extraerHechosHumanos,
   construirContexto,
   validarRespuestas,
   generarRespuestasExpertas
@@ -145,5 +146,83 @@ test("Finanzas y Ventas se objetan sobre caja", async () => {
   );
   assert.ok(
     ventas.objeciones.some((item) => /FINANZAS/.test(item))
+  );
+});
+
+
+test("interpreta una venta humana concreta y la cruza con ticket real", async () => {
+  const hechos = extraerHechosHumanos(
+    "pero nos podemos guiar hoy hice una venta de mas de 100 mil pesos"
+  );
+
+  assert.equal(hechos.length, 1);
+  assert.equal(hechos[0].tipo, "VENTA_REPORTADA");
+  assert.equal(hechos[0].monto_cop, 100000);
+  assert.equal(hechos[0].comparador, "MAYOR_QUE");
+  assert.equal(hechos[0].momento, "HOY");
+
+  const resultado = await generarRespuestasExpertas({
+    pregunta:
+      "pero nos podemos guiar hoy hice una venta de mas de 100 mil pesos",
+    decision: null,
+    reportes: [
+      {
+        neurona: "VENTAS",
+        kpi_principal: {
+          nombre: "ticket_promedio",
+          valor_actual: 17141.43,
+          valor_objetivo: null,
+          estado: "ALERTA"
+        },
+        hallazgos: []
+      },
+      {
+        neurona: "FINANZAS",
+        kpi_principal: {
+          nombre: "margen_bruto_confiable",
+          valor_actual: null,
+          valor_objetivo: null,
+          estado: "ALERTA"
+        },
+        hallazgos: [
+          {
+            evidencia:
+              "7 venta(s) no tienen costo congelado confiable.",
+            confianza: 100
+          }
+        ]
+      }
+    ],
+    intervenciones: []
+  });
+
+  const finanzas = resultado.respuestas.find(
+    (item) => item.departamento === "FINANZAS"
+  );
+  const ventas = resultado.respuestas.find(
+    (item) => item.departamento === "VENTAS"
+  );
+  const gente = resultado.respuestas.find(
+    (item) => item.departamento === "GENTE"
+  );
+  const direccion = resultado.respuestas.find(
+    (item) => item.departamento === "DIRECCION"
+  );
+
+  assert.match(finanzas.respuesta, /5\.8 veces/i);
+  assert.match(finanzas.respuesta, /venta, cobro y margen/i);
+  assert.match(ventas.respuesta, /por qué ese cliente compró tanto/i);
+  assert.match(gente.respuesta, /no me da evidencia para contratar/i);
+  assert.match(direccion.respuesta, /qué hizo posible esta venta/i);
+
+  assert.ok(
+    ventas.evidencia_usada.some(
+      (item) => /DATO_USUARIO/.test(item)
+    )
+  );
+  assert.ok(
+    ventas.evidencia_usada.some(
+      (item) => /17\.141/.test(item)
+    )
   );
 });
