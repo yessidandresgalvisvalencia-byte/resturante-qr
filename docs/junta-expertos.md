@@ -492,3 +492,95 @@ Finanzas muestra:
 - excepción expirada deja de aplicar ✅
 - revocación conserva auditoría ✅
 - CI completo ✅
+
+
+## Plan de ejecución de pagos aprobados
+
+GRUK mantiene el nivel 2 de automatización: aprobación humana obligatoria y sin mover dinero automáticamente.
+
+Cuando se aprueba una orden del Cerebro cuyo KPI es `obligaciones_7d_cubiertas`, GRUK crea un `PlanEjecucionPago`.
+
+El plan se construye exclusivamente desde `planPagosCajaActual`.
+
+Por tanto:
+
+- solo incluye obligaciones que el saldo disponible verificable podía cubrir al momento de aprobar;
+- no usa cobros futuros como si ya fueran caja;
+- no ejecuta transferencias;
+- no crea movimientos de caja;
+- conserva el saldo disponible usado como snapshot;
+- conserva el total autorizado y las obligaciones concretas.
+
+Modelo:
+
+`core/finanzas/models/PlanEjecucionPago.js`
+
+Servicio:
+
+`core/finanzas/planEjecucionPago.service.js`
+
+### Obligaciones recurrentes
+
+Una obligación recurrente puede aparecer en el plan financiero, pero no puede marcarse pagada directamente.
+
+Su estado es:
+
+`REQUIERE_REGISTRO_PAGO`
+
+Debe existir primero un documento/pago real en GRUK. No se inventa una salida de caja para cerrar una recurrencia proyectada.
+
+### Verificación contra Caja
+
+Un item de COMPRA o GASTO solo pasa a `CONFIRMADO` si GRUK encuentra en `movimientos_caja`:
+
+- mismo empresaId;
+- mismo origenTipo;
+- mismo origenId;
+- dirección SALIDA;
+- asiento CONFIRMACION;
+- movimiento no eliminado;
+- sin REVERSION activa.
+
+El botón del Centro de Control dice `Verificar pago en Caja`.
+
+Ese botón no paga. Solo reconcilia evidencia ya existente.
+
+Si no existe salida real, devuelve conflicto y el item sigue pendiente.
+
+Si la salida fue revertida, también se rechaza la confirmación.
+
+Cuando todos los items confirmables quedan confirmados/cancelados, el plan pasa a `COMPLETADO`.
+
+### API
+
+- `GET /api/cerebro/decisiones/:decisionId/planes-pago`
+- `POST /api/cerebro/planes-pago/:planId/items/:itemId/confirmar`
+
+Ambos respetan auth, empresaId y scope de sede.
+
+### Auditoría
+
+La auditoría unificada del Cerebro incluye:
+
+- `PLAN_PAGO_CREADO`
+- `PAGO_VERIFICADO_EN_CAJA`
+
+La verificación conserva:
+
+- usuario;
+- fecha;
+- movimientoCajaId;
+- decisión;
+- orden;
+- obligación;
+- monto.
+
+### Regla contable
+
+`APROBAR != PAGAR`
+
+`PLAN != MOVIMIENTO_CAJA`
+
+`CONFIRMAR_ITEM = VERIFICAR_MOVIMIENTO_CAJA_REAL`
+
+Esta separación evita que una decisión administrativa fabrique caja o marque un pago sin evidencia económica real.
