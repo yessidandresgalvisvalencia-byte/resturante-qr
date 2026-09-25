@@ -65,11 +65,21 @@ async function ejecutarCicloEmpresa(empresaId, opciones = {}) {
       proyeccionTesoreria
     );
 
+  const requiereCierreFinanciero =
+    await cerebro
+      .requiereActualizarDecisionFinanciera(
+        empresaId,
+        agendaFinanciera
+      );
+
   const decision =
-    debeTomarDecision(
-      reportes,
-      forzarDecision,
-      agendaFinanciera
+    (
+      debeTomarDecision(
+        reportes,
+        forzarDecision,
+        agendaFinanciera
+      ) ||
+      requiereCierreFinanciero
     )
       ? await cerebro.tomarDecision(
           empresaId,
