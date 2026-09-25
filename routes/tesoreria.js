@@ -20,6 +20,11 @@ const {
   obtenerObligacionesRegistradas
 } = require("../core/finanzas/obligaciones.service");
 const {
+  crearObligacionRecurrente,
+  listarObligacionesRecurrentes,
+  desactivarObligacionRecurrente
+} = require("../core/finanzas/obligacionesRecurrentes.service");
+const {
   construirProyeccionTesoreria
 } = require("../core/finanzas/tesoreriaProyeccion.service");
 
@@ -79,6 +84,73 @@ const cuentaSchema = Joi.object({
 })
   .required()
   .unknown(false);
+
+const obligacionRecurrenteSchema =
+  Joi.object({
+    sedeId: Joi.string()
+      .trim()
+      .allow(null, "")
+      .optional(),
+    nombre: Joi.string()
+      .trim()
+      .min(2)
+      .max(160)
+      .required(),
+    categoria: Joi.string()
+      .valid(
+        "NOMINA",
+        "ARRIENDO",
+        "SERVICIOS",
+        "IMPUESTOS",
+        "DEUDA",
+        "SEGUROS",
+        "LICENCIAS",
+        "OTRO"
+      )
+      .required(),
+    monto: Joi.number()
+      .positive()
+      .required(),
+    frecuencia: Joi.string()
+      .valid(
+        "SEMANAL",
+        "QUINCENAL",
+        "MENSUAL",
+        "BIMESTRAL",
+        "TRIMESTRAL",
+        "SEMESTRAL",
+        "ANUAL"
+      )
+      .required(),
+    proximoVencimiento:
+      Joi.date()
+        .iso()
+        .required(),
+    fechaFin: Joi.date()
+      .iso()
+      .allow(null, "")
+      .optional(),
+    tercero: Joi.string()
+      .trim()
+      .max(160)
+      .allow("")
+      .default(""),
+    notas: Joi.string()
+      .trim()
+      .max(1000)
+      .allow("")
+      .default(""),
+    fuenteMonto: Joi.string()
+      .valid(
+        "CONTRATO",
+        "HISTORICO",
+        "ESTIMADO_MANUAL",
+        "OTRO"
+      )
+      .required()
+  })
+    .required()
+    .unknown(false);
 
 const transferenciaSchema =
   Joi.object({
@@ -245,6 +317,153 @@ router.get(
         res,
         error,
         "Error consultando tesoreria"
+      );
+    }
+  }
+);
+
+router.get(
+  "/obligaciones-recurrentes",
+  ...seguridad,
+  async (req, res) => {
+    try {
+      const sedeId =
+        await resolverSedeScope(
+          req,
+          req.query.sedeId || null
+        );
+
+      const obligaciones =
+        await listarObligacionesRecurrentes({
+          empresaId:
+            req.auth.empresaId,
+          sedeId
+        });
+
+      return res.json({
+        ok: true,
+        obligaciones
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error consultando obligaciones recurrentes"
+      );
+    }
+  }
+);
+
+router.post(
+  "/obligaciones-recurrentes",
+  ...seguridad,
+  async (req, res) => {
+    try {
+      const {
+        error,
+        value
+      } =
+        obligacionRecurrenteSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: false,
+            convert: true
+          }
+        );
+
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            error.details
+              .map(
+                (item) =>
+                  item.message
+              )
+              .join("; ")
+        });
+      }
+
+      const sedeId =
+        await resolverSedeScope(
+          req,
+          value.sedeId || null
+        );
+
+      const obligacion =
+        await crearObligacionRecurrente({
+          empresaId:
+            req.auth.empresaId,
+          sedeId,
+          nombre:
+            value.nombre,
+          categoria:
+            value.categoria,
+          monto:
+            value.monto,
+          frecuencia:
+            value.frecuencia,
+          proximoVencimiento:
+            value.proximoVencimiento,
+          fechaFin:
+            value.fechaFin || null,
+          tercero:
+            value.tercero,
+          notas:
+            value.notas,
+          fuenteMonto:
+            value.fuenteMonto,
+          createdBy:
+            req.auth.usuarioId
+        });
+
+      return res.status(201).json({
+        ok: true,
+        obligacion
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error creando obligación recurrente"
+      );
+    }
+  }
+);
+
+router.delete(
+  "/obligaciones-recurrentes/:id",
+  ...seguridad,
+  async (req, res) => {
+    try {
+      const sedeId =
+        req.auth.rol ===
+        ROLES_GRUK.ADMIN_SEDE
+          ? await resolverSedeScope(
+              req,
+              req.auth.sedeId
+            )
+          : null;
+
+      const obligacion =
+        await desactivarObligacionRecurrente({
+          empresaId:
+            req.auth.empresaId,
+          sedeId,
+          obligacionId:
+            req.params.id
+        });
+
+      return res.json({
+        ok: true,
+        obligacion
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error desactivando obligación recurrente"
       );
     }
   }
