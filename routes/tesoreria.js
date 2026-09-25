@@ -32,6 +32,11 @@ const {
   obtenerPoliticaPriorizacionPagos,
   actualizarPoliticaPriorizacionPagos
 } = require("../core/finanzas/politicaFinanciera.service");
+const {
+  listarExcepcionesActivas,
+  crearExcepcionPrioridadPago,
+  revocarExcepcionPrioridadPago
+} = require("../core/finanzas/excepcionesPrioridadPago.service");
 
 const router = express.Router();
 
@@ -49,6 +54,35 @@ const seguridadDueno = [
     ROLES_GRUK.DUENO
   )
 ];
+
+const excepcionPrioridadPagoSchema =
+  Joi.object({
+    sedeId: Joi.string()
+      .trim()
+      .allow(null, "")
+      .optional(),
+    origenTipo: Joi.string()
+      .valid(
+        "COMPRA",
+        "GASTO",
+        "RECURRENTE"
+      )
+      .required(),
+    origenId: Joi.string()
+      .trim()
+      .required(),
+    motivo: Joi.string()
+      .trim()
+      .min(10)
+      .max(1000)
+      .required(),
+    expiresAt: Joi.date()
+      .iso()
+      .greater("now")
+      .required()
+  })
+    .required()
+    .unknown(false);
 
 const politicaPagosSchema =
   Joi.object({
@@ -312,6 +346,135 @@ function responderError(
           : error.message
   });
 }
+
+router.get(
+  "/excepciones-prioridad-pago",
+  ...seguridad,
+  async (req, res) => {
+    try {
+      const sedeId =
+        await resolverSedeScope(
+          req,
+          req.query.sedeId || null
+        );
+
+      const excepciones =
+        await listarExcepcionesActivas({
+          empresaId:
+            req.auth.empresaId,
+          sedeId
+        });
+
+      return res.json({
+        ok: true,
+        excepciones
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error consultando excepciones de prioridad"
+      );
+    }
+  }
+);
+
+router.post(
+  "/excepciones-prioridad-pago",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const {
+        error,
+        value
+      } =
+        excepcionPrioridadPagoSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: false,
+            convert: true
+          }
+        );
+
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            error.details
+              .map(
+                (item) =>
+                  item.message
+              )
+              .join("; ")
+        });
+      }
+
+      const sedeId =
+        await resolverSedeScope(
+          req,
+          value.sedeId || null
+        );
+
+      const excepcion =
+        await crearExcepcionPrioridadPago({
+          empresaId:
+            req.auth.empresaId,
+          sedeId,
+          origenTipo:
+            value.origenTipo,
+          origenId:
+            value.origenId,
+          motivo:
+            value.motivo,
+          expiresAt:
+            value.expiresAt,
+          createdBy:
+            req.auth.usuarioId
+        });
+
+      return res.status(201).json({
+        ok: true,
+        excepcion
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error creando excepcion de prioridad"
+      );
+    }
+  }
+);
+
+router.delete(
+  "/excepciones-prioridad-pago/:id",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const excepcion =
+        await revocarExcepcionPrioridadPago({
+          empresaId:
+            req.auth.empresaId,
+          excepcionId:
+            req.params.id,
+          revokedBy:
+            req.auth.usuarioId
+        });
+
+      return res.json({
+        ok: true,
+        excepcion
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error revocando excepcion de prioridad"
+      );
+    }
+  }
+);
 
 router.get(
   "/politica-priorizacion-pagos",
