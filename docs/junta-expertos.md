@@ -410,3 +410,85 @@ Por tanto, cambiar la política es un cambio material y genera una nueva lectura
 El Centro de Control muestra si la política estaba ACTIVA o INACTIVA y el orden exacto aplicado.
 
 Empresas históricas sin esta configuración mantienen comportamiento anterior: política desactivada.
+
+
+## Excepciones temporales de prioridad de pagos
+
+GRUK permite que el DUEÑO adelante temporalmente una obligación concreta dentro del horizonte financiero de 7 días sin modificar la política corporativa base.
+
+Modelo:
+
+`core/finanzas/models/ExcepcionPrioridadPago.js`
+
+Servicio:
+
+`core/finanzas/excepcionesPrioridadPago.service.js`
+
+Una excepción exige:
+
+- obligación concreta;
+- origen COMPRA, GASTO o RECURRENTE;
+- motivo obligatorio;
+- fecha/hora de expiración futura;
+- createdBy.
+
+La revocación conserva:
+
+- revokedAt;
+- revokedBy;
+- documento histórico.
+
+### Orden de prioridad
+
+La secuencia queda:
+
+1. frontera de vencimiento: vencida antes que futura;
+2. excepción temporal activa;
+3. política corporativa por categoría, si está activa;
+4. fecha;
+5. monto.
+
+Por seguridad, una obligación futura con excepción nunca adelanta una obligación ya vencida.
+
+### Seguridad
+
+- solo DUEÑO puede crear o revocar;
+- DUEÑO y ADMIN_SEDE pueden consultar;
+- empresaId proviene del JWT;
+- Joi exige motivo y expiración futura;
+- una obligación no puede tener dos excepciones activas simultáneas;
+- expiración elimina automáticamente el efecto sin borrar historia.
+
+### Inteligencia
+
+Los eventos:
+
+- EXCEPCION_PRIORIDAD_PAGO_CREADA
+- EXCEPCION_PRIORIDAD_PAGO_REVOCADA
+
+recalculan inmediatamente Junta y Cerebro.
+
+Las excepciones activas:
+
+- participan en decisionFingerprint;
+- quedan guardadas en contexto_financiero;
+- muestran motivo y expiración en Centro de Control.
+
+### UI
+
+Finanzas muestra:
+
+- excepciones activas;
+- obligaciones elegibles dentro de 7 días;
+- botón Priorizar temporalmente;
+- motivo;
+- duración;
+- revocación.
+
+### Validación
+
+- excepción sube obligación dentro de su frontera ✅
+- futura con excepción no supera vencida ✅
+- excepción expirada deja de aplicar ✅
+- revocación conserva auditoría ✅
+- CI completo ✅
