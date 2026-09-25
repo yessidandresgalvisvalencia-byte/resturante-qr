@@ -496,9 +496,6 @@ async function recalcularEstadoVivo({
     )
   ]);
 
-  const ultimoEvento =
-    normalizarEvento(event);
-
   const filtro = {
     empresaId: empresaObjectId,
     sedeId: sedeObjectId
@@ -508,9 +505,37 @@ async function recalcularEstadoVivo({
     filtro
   )
     .select(
-      "version ventana24h diagnostico"
+      "version ventana24h diagnostico ultimoEvento"
     )
     .lean();
+
+  const esRecalculoInteligencia =
+    event?.eventName ===
+    "CICLO_INTELIGENCIA_COMPLETADO";
+
+  const eventoNormalizado =
+    normalizarEvento(event);
+
+  const ultimoEvento =
+    esRecalculoInteligencia &&
+    actual?.ultimoEvento
+      ? actual.ultimoEvento
+      : eventoNormalizado;
+
+  const tipoEventoHistorial =
+    esRecalculoInteligencia
+      ? "CICLO_INTELIGENCIA_COMPLETADO"
+      : ultimoEvento.tipo;
+
+  const direccionEventoHistorial =
+    esRecalculoInteligencia
+      ? "NEUTRO"
+      : ultimoEvento.direccion;
+
+  const montoEventoHistorial =
+    esRecalculoInteligencia
+      ? null
+      : ultimoEvento.monto;
 
   const version =
     Number(actual?.version || 0) + 1;
@@ -550,11 +575,11 @@ async function recalcularEstadoVivo({
               titular:
                 diagnostico.titular,
               tipoEvento:
-                ultimoEvento.tipo,
+                tipoEventoHistorial,
               direccionEvento:
-                ultimoEvento.direccion,
+                direccionEventoHistorial,
               montoEvento:
-                ultimoEvento.monto,
+                montoEventoHistorial,
               flujoConfirmadoParcial:
                 ventana24h
                   .flujoConfirmadoParcial,
