@@ -427,3 +427,80 @@ test("cartera priorizada ordena vencidos por fecha y luego mayor monto", async (
     ]
   );
 });
+
+
+test("prioridad de pagos ordena vencidas, fecha y mayor monto sin ponderar categoria", async () => {
+  const ahora = new Date();
+
+  await crearCuenta({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    nombre: "Banco pagos",
+    tipo: "BANCO",
+    saldoInicial: 100000,
+    saldoInicialAt: new Date(
+      ahora.getTime() -
+      60 * 60 * 1000
+    ),
+    createdBy: USUARIO_ID
+  });
+
+  await Gasto.create([
+    {
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      concepto: "Servicio vencido pequeno",
+      categoria: "Servicios",
+      monto: 40000,
+      estadoPago: "pendiente",
+      fechaVencimientoPago: fechaMasDias(ahora, -2),
+      estado: "registrado",
+      fecha: ahora
+    },
+    {
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      concepto: "Nomina vencida grande",
+      categoria: "Nomina",
+      monto: 90000,
+      estadoPago: "pendiente",
+      fechaVencimientoPago: fechaMasDias(ahora, -2),
+      estado: "registrado",
+      fecha: ahora
+    },
+    {
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      concepto: "Impuesto futuro",
+      categoria: "Impuestos",
+      monto: 300000,
+      estadoPago: "pendiente",
+      fechaVencimientoPago: fechaMasDias(ahora, 3),
+      estado: "registrado",
+      fecha: ahora
+    }
+  ]);
+
+  const proyeccion =
+    await construirProyeccionTesoreria({
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      ahora
+    });
+
+  assert.deepEqual(
+    proyeccion.obligaciones.prioridadPago.map(
+      (item) => item.descripcion
+    ),
+    [
+      "Nomina vencida grande",
+      "Servicio vencido pequeno",
+      "Impuesto futuro"
+    ]
+  );
+
+  assert.equal(
+    proyeccion.obligaciones.prioridadPago[0].categoria,
+    "Nomina"
+  );
+});
