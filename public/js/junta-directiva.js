@@ -9,6 +9,10 @@ function escaparJuntaGRUK(valor) {
   }[c]));
 }
 
+function textoMultilineaJuntaGRUK(valor) {
+  return escaparJuntaGRUK(valor).replace(/\n/g, "<br>");
+}
+
 function formatoNumeroJuntaGRUK(valor) {
   if (valor === null || valor === undefined || valor === "") {
     return "No estimado";
@@ -166,7 +170,14 @@ function renderizarJuntaGRUK(sesion) {
       : "";
 
     const notaExperto = esExperto
-      ? "<p><small>Criterio profesional generado sobre datos GRUK. No es una orden del Cerebro.</small></p>"
+      ? `
+        <p><strong>Confianza profesional:</strong> ${
+          item.confianza === null || item.confianza === undefined
+            ? "No estimada"
+            : escaparJuntaGRUK(`${Number(item.confianza)}%`)
+        }</p>
+        <p><small>Deliberación experta sobre evidencia GRUK y contexto humano. No es una orden del Cerebro.</small></p>
+      `
       : "";
 
     const tieneRespuesta = item.tipo === "HUMANO"
@@ -182,7 +193,7 @@ function renderizarJuntaGRUK(sesion) {
 
     return `<div class="card">
       <h3>${nombreActorJuntaGRUK(item)}</h3>
-      <p>${escaparJuntaGRUK(item.mensaje)}</p>
+      <p>${textoMultilineaJuntaGRUK(item.mensaje)}</p>
       ${evidencia}
       ${metricas}
       ${notaExperto}
