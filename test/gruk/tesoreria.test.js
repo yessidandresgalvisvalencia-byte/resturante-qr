@@ -10,7 +10,8 @@ const MovimientoCaja = require("../../core/finanzas/models/MovimientoCaja");
 const {
   crearCuenta,
   obtenerResumenTesoreria,
-  normalizarMetodoPago
+  normalizarMetodoPago,
+  transferir
 } = require("../../core/finanzas/tesoreria.service");
 const {
   registrarMovimientoDesdeEvento
@@ -149,5 +150,111 @@ test("metodo ambiguo deja movimiento sin asignar y tesoreria PARCIAL", async () 
   assert.equal(
     resumen.movimientosSinAsignar.entradas.monto,
     80000
+  );
+});
+
+
+test("transferencia interna mueve saldo sin cambiar total consolidado", async () => {
+  const origen = await crearCuenta({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    nombre: "Caja",
+    tipo: "EFECTIVO",
+    saldoInicial: 500000,
+    saldoInicialAt: "2026-09-25T12:00:00.000Z",
+    createdBy: USUARIO_ID
+  });
+
+  const destino = await crearCuenta({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    nombre: "Banco",
+    tipo: "BANCO",
+    saldoInicial: 100000,
+    saldoInicialAt: "2026-09-25T12:00:00.000Z",
+    createdBy: USUARIO_ID
+  });
+
+  const antes = await obtenerResumenTesoreria({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID
+  });
+
+  await transferir({
+    empresaId: EMPRESA_ID,
+    sedeScopeId: SEDE_ID,
+    cuentaOrigenId: origen._id,
+    cuentaDestinoId: destino._id,
+    monto: 200000,
+    concepto: "Consignacion diaria",
+    createdBy: USUARIO_ID
+  });
+
+  const despues = await obtenerResumenTesoreria({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID
+  });
+
+  assert.equal(antes.saldoDisponible, 600000);
+  assert.equal(despues.saldoDisponible, 600000);
+
+  const caja = despues.cuentas.find(
+    (cuenta) => cuenta.nombre === "Caja"
+  );
+  const banco = despues.cuentas.find(
+    (cuenta) => cuenta.nombre === "Banco"
+  );
+
+  assert.equal(caja.saldo.saldoDisponible, 300000);
+  assert.equal(banco.saldo.saldoDisponible, 300000);
+  assert.equal(
+    await TransferenciaTesoreria.countDocuments({}),
+    1
+  );
+  assert.equal(
+    await MovimientoCaja.countDocuments({
+      origenTipo: "TRANSFERENCIA"
+    }),
+    2
+  );
+});
+
+test("transferencia rechaza saldo insuficiente", async () => {
+  const origen = await crearCuenta({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    nombre: "Caja limitada",
+    tipo: "EFECTIVO",
+    saldoInicial: 50000,
+    saldoInicialAt: "2026-09-25T12:00:00.000Z",
+    createdBy: USUARIO_ID
+  });
+
+  const destino = await crearCuenta({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    nombre: "Banco destino",
+    tipo: "BANCO",
+    saldoInicial: 0,
+    saldoInicialAt: "2026-09-25T12:00:00.000Z",
+    createdBy: USUARIO_ID
+  });
+
+  await assert.rejects(
+    () =>
+      transferir({
+        empresaId: EMPRESA_ID,
+        sedeScopeId: SEDE_ID,
+        cuentaOrigenId: origen._id,
+        cuentaDestinoId: destino._id,
+        monto: 80000,
+        createdBy: USUARIO_ID
+      }),
+    /Saldo insuficiente/
+  );
+
+  assert.equal(
+    await TransferenciaTesoreria.countDocuments({}),
+    0
   );
 });
