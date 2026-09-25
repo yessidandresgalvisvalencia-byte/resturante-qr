@@ -30,11 +30,31 @@ function describirCobrosPriorizados(a){
  return `${detalle} Total priorizado: ${total}.${remanente>0?` Aun faltarian ${remanente} despues de cobrarlos.`:""}`;
 }
 
+function describirObligacionesPriorizadas(a){
+ const items=Array.isArray(a?.obligacionesPriorizadas)
+  ?a.obligacionesPriorizadas
+  :[];
+
+ if(!items.length){
+  return "No existen obligaciones cuantificadas con vencimiento dentro de 7 dias para ordenar.";
+ }
+
+ return items.map((item,index)=>{
+  const fecha=item.fechaVencimiento
+   ?new Date(item.fechaVencimiento).toISOString().slice(0,10)
+   :"sin fecha";
+  const categoria=item.categoria
+   ?` [${item.categoria}]`
+   :"";
+  return `${index+1}. ${item.descripcion||"Obligacion"}${categoria} por ${Number(item.monto||0)} (vence ${fecha})`;
+ }).join(" ");
+}
+
 const AGENDA_TAREAS={
  REDUCIR_BRECHA_CAJA_7D:(a)=>`Cerrar la brecha de caja proyectada de ${Number(a.montoReferencia||0)} antes del vencimiento critico y reportar avance diario.`,
  CONTROLAR_BRECHA_CAJA_7D:(a)=>`Controlar la brecha de caja de corto plazo por ${Number(a.montoReferencia||0)} hasta que los cobros esperados se conviertan en caja confirmada.`,
  ACELERAR_COBROS_7D:(a)=>`Priorizar estos cobros concretos para convertirlos en caja dentro del horizonte de 7 dias: ${describirCobrosPriorizados(a)}`,
- PRIORIZAR_OBLIGACIONES_7D:(a)=>`Priorizar obligaciones por ${Number(a.montoReferencia||0)} dentro de los proximos 7 dias y aprobar el orden de atencion antes del vencimiento critico.`,
+ PRIORIZAR_OBLIGACIONES_7D:(a)=>`Priorizar obligaciones por ${Number(a.montoReferencia||0)} dentro de los proximos 7 dias. Orden propuesto: ${describirObligacionesPriorizadas(a)}`,
  COMPLETAR_DATOS_OBLIGACIONES_7D:()=>"Completar fechas de vencimiento y saldos pendientes no cuantificados antes de declarar cobertura de caja de 7 dias.",
  COMPLETAR_TESORERIA:()=>"Completar la configuracion y conciliacion de Tesoreria hasta obtener un saldo disponible verificable."
 };
@@ -255,4 +275,4 @@ async function tomarDecision(empresaId,opciones={}){
 
  return nuevaDecision;
 }
-module.exports={tomarDecision,compararCandidatos,construirSituacion,convertirAgendaEnOrdenes,construirDecisionFingerprint,requiereActualizarDecisionFinanciera,estadoAgendaRequiereAccion,superarOrdenesFinancierasPendientes,describirCobrosPriorizados};
+module.exports={tomarDecision,compararCandidatos,construirSituacion,convertirAgendaEnOrdenes,construirDecisionFingerprint,requiereActualizarDecisionFinanciera,estadoAgendaRequiereAccion,superarOrdenesFinancierasPendientes,describirCobrosPriorizados,describirObligacionesPriorizadas};
