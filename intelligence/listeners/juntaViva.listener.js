@@ -8,7 +8,8 @@ const {
 const EVENTOS = Object.freeze([
   "VENTA_COMPLETADA",
   "GASTO_REGISTRADO",
-  "COMPRA_REGISTRADA"
+  "COMPRA_REGISTRADA",
+  "CICLO_INTELIGENCIA_COMPLETADO"
 ]);
 
 let registrado = false;
