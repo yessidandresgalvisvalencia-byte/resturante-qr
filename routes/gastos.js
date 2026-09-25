@@ -4,10 +4,12 @@ const mongoose = require("mongoose");
 const Gasto = require("../models/Gasto");
 const Empresa = require("../models/Empresa");
 const {
-  validarGasto
+  validarGasto,
+  validarEstadoPagoGasto
 } = require("../core/gastos/validators/gasto.validator");
 const {
-  registrarGasto
+  registrarGasto,
+  actualizarEstadoPagoGasto
 } = require("../core/gastos/gastos.service");
 const authMiddleware = require("../core/auth/auth.middleware");
 const {
@@ -104,6 +106,72 @@ router.post(
     });
   }
 });
+
+
+/*
+========================================
+ACTUALIZAR ESTADO DE PAGO
+========================================
+*/
+router.put(
+  "/:id/pago",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+          ok: false,
+          error: "Gasto invalido"
+        });
+      }
+
+      const { error, value } =
+        validarEstadoPagoGasto(req.body);
+
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error: "Estado de pago invalido"
+        });
+      }
+
+      const gasto =
+        await actualizarEstadoPagoGasto({
+          gastoId: req.params.id,
+          empresaId: req.auth.empresaId,
+          sedeId:
+            req.auth.rol === ROLES_GRUK.ADMIN_SEDE
+              ? req.auth.sedeId
+              : null,
+          estadoPago: value.estadoPago
+        });
+
+      return res.json({
+        ok: true,
+        gasto
+      });
+    } catch (error) {
+      const statusCode =
+        Number.isInteger(error.statusCode)
+          ? error.statusCode
+          : 500;
+
+      console.error(
+        "Error actualizando pago de gasto:",
+        error
+      );
+
+      return res.status(statusCode).json({
+        ok: false,
+        error:
+          statusCode === 404
+            ? "Gasto no encontrado"
+            : "Error actualizando estado de pago"
+      });
+    }
+  }
+);
 
 
 /*
