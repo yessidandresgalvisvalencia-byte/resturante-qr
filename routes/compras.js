@@ -409,7 +409,11 @@ inventario.costo = costoPromedioPonderado;
         total: compraCreada.total,
         metodoPago: compraCreada.metodoPago,
         estadoPago: compraCreada.estadoPago,
-        fecha: compraCreada.fecha
+        fecha: compraCreada.fecha,
+        sourceUpdatedAt:
+          compraCreada.updatedAt,
+        cajaReferencia:
+          compraCreada.metadata?.cajaReferencia || null
       });
     } catch (eventError) {
       console.error(
@@ -556,7 +560,11 @@ router.put(
                 estadoAnterior,
               estadoPago:
                 compra.estadoPago,
-              fecha: compra.fecha
+              fecha: compra.fecha,
+              sourceUpdatedAt:
+                compra.updatedAt,
+              cajaReferencia:
+                compra.metadata?.cajaReferencia || null
             }
           );
         } catch (eventError) {
