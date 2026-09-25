@@ -46,6 +46,11 @@ const {
   aprobarReservaDueno,
   listarReservas
 } = require("../core/finanzas/distribucionDueno.service");
+const {
+  evaluarRetiroSeguro,
+  registrarRetiroDueno,
+  listarRetirosDueno
+} = require("../core/finanzas/retiroDueno.service");
 
 const router = express.Router();
 
@@ -128,6 +133,28 @@ const politicaDistribucionDuenoSchema =
       Joi.number()
         .min(0)
         .required()
+  })
+    .required()
+    .unknown(false);
+
+const retiroDuenoSchema =
+  Joi.object({
+    cuentaTesoreriaId:
+      Joi.string()
+        .trim()
+        .required(),
+    monto:
+      Joi.number()
+        .positive()
+        .required(),
+    concepto:
+      Joi.string()
+        .trim()
+        .max(300)
+        .allow("")
+        .default(
+          "Retiro de utilidad del dueño"
+        )
   })
     .required()
     .unknown(false);
@@ -548,6 +575,119 @@ router.post(
         res,
         error,
         "Error cerrando periodo financiero"
+      );
+    }
+  }
+);
+
+router.get(
+  "/distribucion-dueno/reservas/:id/retiro-seguro",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const diagnostico =
+        await evaluarRetiroSeguro({
+          empresaId:
+            req.auth.empresaId,
+          reservaId:
+            req.params.id
+        });
+
+      return res.json({
+        ok: true,
+        diagnostico
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error evaluando retiro del dueño"
+      );
+    }
+  }
+);
+
+router.post(
+  "/distribucion-dueno/reservas/:id/retiros",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const {
+        error,
+        value
+      } =
+        retiroDuenoSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: false,
+            convert: true
+          }
+        );
+
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            error.details
+              .map(
+                (item) =>
+                  item.message
+              )
+              .join("; ")
+        });
+      }
+
+      const retiro =
+        await registrarRetiroDueno({
+          empresaId:
+            req.auth.empresaId,
+          reservaId:
+            req.params.id,
+          cuentaTesoreriaId:
+            value.cuentaTesoreriaId,
+          monto:
+            value.monto,
+          concepto:
+            value.concepto,
+          createdBy:
+            req.auth.usuarioId
+        });
+
+      return res.status(201).json({
+        ok: true,
+        retiro
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error registrando retiro del dueño"
+      );
+    }
+  }
+);
+
+router.get(
+  "/distribucion-dueno/retiros",
+  ...seguridadDueno,
+  async (req, res) => {
+    try {
+      const retiros =
+        await listarRetirosDueno({
+          empresaId:
+            req.auth.empresaId
+        });
+
+      return res.json({
+        ok: true,
+        retiros
+      });
+    } catch (error) {
+      return responderError(
+        res,
+        error,
+        "Error consultando retiros del dueño"
       );
     }
   }
