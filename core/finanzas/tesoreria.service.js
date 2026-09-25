@@ -67,6 +67,14 @@ async function resolverCuentaPorMetodo({
   sedeId = null,
   metodoPago
 }) {
+  if (
+    !String(
+      metodoPago || ""
+    ).trim()
+  ) {
+    return null;
+  }
+
   const metodo =
     normalizarMetodoPago(
       metodoPago
@@ -429,6 +437,7 @@ async function listarCuentas({
         empresaId,
         "empresaId"
       ),
+    estado: "activa",
     deletedAt: null
   };
 
