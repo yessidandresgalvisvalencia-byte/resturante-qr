@@ -350,7 +350,7 @@ test("recurrencia mensual en dia 31 cae al ultimo dia valido", () => {
     [
       "2026-01-31",
       "2026-02-28",
-      "2026-03-28"
+      "2026-03-31"
     ]
   );
 });
