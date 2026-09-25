@@ -32,6 +32,32 @@ async function cargarDecisionCerebroGRUK() {
     const ordenes = d.ordenes_por_departamento || [];
     const financiero = d.contexto_financiero || null;
 
+    const cobrosPrioritarios =
+      Array.isArray(financiero?.cobrosPriorizados)
+        ? financiero.cobrosPriorizados
+        : [];
+
+    const carteraHTML =
+      cobrosPrioritarios.length
+        ? `
+          <h4>Cobros priorizados</h4>
+          <ol>
+            ${cobrosPrioritarios.map((item) => `
+              <li>
+                ${escaparGRUK(item.descripcion || "Venta pendiente")}
+                · ${formatoCOP(item.monto || 0)}
+                · vence ${item.fechaVencimiento
+                  ? escaparGRUK(new Date(item.fechaVencimiento).toLocaleDateString("es-CO"))
+                  : "sin fecha"}
+                · ${escaparGRUK(item.clasificacion || "")}
+              </li>
+            `).join("")}
+          </ol>
+          <p><strong>Total priorizado:</strong> ${formatoCOP(financiero.montoCobrosPriorizados || 0)}</p>
+          <p><strong>Faltante después de estos cobros:</strong> ${formatoCOP(financiero.faltanteDespuesCobrosPriorizados || 0)}</p>
+        `
+        : "";
+
     const contextoFinanciero = financiero
       ? `
         <div class="card">
@@ -44,6 +70,7 @@ async function cargarDecisionCerebroGRUK() {
           <p><strong>Brecha con caja actual:</strong> ${formatoCOP(financiero.faltanteConCajaActual || 0)}</p>
           <p><strong>Brecha aun cobrando todo:</strong> ${formatoCOP(financiero.faltanteAunCobrandoTodo || 0)}</p>
           <p><strong>Fecha crítica:</strong> ${financiero.fechaCritica ? escaparGRUK(new Date(financiero.fechaCritica).toLocaleDateString("es-CO")) : "Sin fecha"}</p>
+          ${carteraHTML}
         </div>
       `
       : "";
