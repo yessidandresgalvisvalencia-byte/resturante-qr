@@ -278,7 +278,8 @@ function normalizarEvento(event) {
 function construirDiagnostico({
   ultimoEvento,
   ventana24h,
-  reportes
+  reportes,
+  estadoAnterior = null
 }) {
   const criticos = reportes.filter(
     (r) =>
@@ -356,13 +357,57 @@ function construirDiagnostico({
   const lectura =
     `En las ultimas 24 horas GRUK confirma ${ventana24h.ventasPagadas.cantidad} venta(s) pagada(s) por ${ventana24h.ventasPagadas.monto}, ${ventana24h.comprasPagadas.cantidad} compra(s) pagada(s) por ${ventana24h.comprasPagadas.monto} y ${ventana24h.gastosPagados.cantidad} gasto(s) pagado(s) por ${ventana24h.gastosPagados.monto}. El flujo confirmado parcial es ${ventana24h.flujoConfirmadoParcial}. Adicionalmente hay ${ventana24h.gastosNoConfirmados.cantidad} gasto(s) por ${ventana24h.gastosNoConfirmados.monto} cuyo pago no esta confirmado y por eso no se descuentan de caja. ${criticos.length ? "Hay KPI criticos que requieren decision del Cerebro." : "La Junta mantiene observacion continua y actualizara esta lectura con el siguiente evento."}`;
 
+  const flujoActual =
+    numeroSeguro(
+      ventana24h
+        ?.flujoConfirmadoParcial
+    );
+
+  const flujoAnterior =
+    estadoAnterior
+      ? numeroSeguro(
+          estadoAnterior
+            ?.ventana24h
+            ?.flujoConfirmadoParcial
+        )
+      : null;
+
+  let cambioDesdeAnterior = {
+    direccion: "INICIAL",
+    valor: 0,
+    explicacion:
+      "Esta es la primera lectura viva disponible."
+  };
+
+  if (flujoAnterior !== null) {
+    const delta =
+      flujoActual - flujoAnterior;
+
+    cambioDesdeAnterior = {
+      direccion:
+        delta > 0
+          ? "AUMENTA_FLUJO_PARCIAL"
+          : delta < 0
+            ? "REDUCE_FLUJO_PARCIAL"
+            : "SIN_CAMBIO",
+      valor: Math.abs(delta),
+      explicacion:
+        delta > 0
+          ? `El flujo confirmado parcial aumento en ${Math.abs(delta)} desde la lectura anterior.`
+          : delta < 0
+            ? `El flujo confirmado parcial se redujo en ${Math.abs(delta)} desde la lectura anterior.`
+            : "El flujo confirmado parcial no cambio desde la lectura anterior."
+    };
+  }
+
   return {
     estado,
     titular,
     lectura,
     razones,
     requiereDecisionCerebro:
-      criticos.length > 0
+      criticos.length > 0,
+    cambioDesdeAnterior
   };
 }
 
@@ -431,13 +476,6 @@ async function recalcularEstadoVivo({
   const ultimoEvento =
     normalizarEvento(event);
 
-  const diagnostico =
-    construirDiagnostico({
-      ultimoEvento,
-      ventana24h,
-      reportes
-    });
-
   const filtro = {
     empresaId: empresaObjectId,
     sedeId: sedeObjectId
@@ -446,11 +484,21 @@ async function recalcularEstadoVivo({
   const actual = await JuntaEstadoVivo.findOne(
     filtro
   )
-    .select("version")
+    .select(
+      "version ventana24h diagnostico"
+    )
     .lean();
 
   const version =
     Number(actual?.version || 0) + 1;
+
+  const diagnostico =
+    construirDiagnostico({
+      ultimoEvento,
+      ventana24h,
+      reportes,
+      estadoAnterior: actual
+    });
 
   return JuntaEstadoVivo.findOneAndUpdate(
     filtro,
@@ -468,6 +516,30 @@ async function recalcularEstadoVivo({
       },
       $setOnInsert: {
         createdBy: null
+      },
+      $push: {
+        historialDiagnosticos: {
+          $each: [
+            {
+              version,
+              estado:
+                diagnostico.estado,
+              titular:
+                diagnostico.titular,
+              tipoEvento:
+                ultimoEvento.tipo,
+              direccionEvento:
+                ultimoEvento.direccion,
+              montoEvento:
+                ultimoEvento.monto,
+              flujoConfirmadoParcial:
+                ventana24h
+                  .flujoConfirmadoParcial,
+              createdAt: ahora
+            }
+          ],
+          $slice: -30
+        }
       }
     },
     {
