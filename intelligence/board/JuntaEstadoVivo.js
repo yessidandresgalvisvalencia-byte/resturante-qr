@@ -9,6 +9,7 @@ const eventoSchema = new mongoose.Schema({
     enum: [
       "VENTA_COMPLETADA",
       "GASTO_REGISTRADO",
+      "GASTO_PAGO_ACTUALIZADO",
       "COMPRA_REGISTRADA",
       "RECALCULO"
     ]
