@@ -55,7 +55,8 @@ const schema = new mongoose.Schema({
       "VENTA",
       "COMPRA",
       "GASTO",
-      "TRANSFERENCIA"
+      "TRANSFERENCIA",
+      "RETIRO_DUENO"
     ],
     index: true
   },
