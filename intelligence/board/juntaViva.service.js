@@ -241,7 +241,10 @@ function normalizarEvento(event) {
     };
   }
 
-  if (tipo === "GASTO_REGISTRADO") {
+  if (
+    tipo === "GASTO_REGISTRADO" ||
+    tipo === "GASTO_PAGO_ACTUALIZADO"
+  ) {
     const pagado =
       payload.estadoPago === "pagado";
 
@@ -327,16 +330,18 @@ function construirDiagnostico({
     titular =
       `Se registro una compra pagada por ${ultimoEvento.monto}.`;
   } else if (
-    ultimoEvento.tipo ===
-      "GASTO_REGISTRADO" &&
+    (
+      ultimoEvento.tipo === "GASTO_REGISTRADO" ||
+      ultimoEvento.tipo === "GASTO_PAGO_ACTUALIZADO"
+    ) &&
     ultimoEvento.direccion ===
       "SALIDA_CONFIRMADA"
   ) {
     titular =
       `Se confirmo un gasto pagado por ${ultimoEvento.monto}.`;
   } else if (
-    ultimoEvento.tipo ===
-    "GASTO_REGISTRADO"
+    ultimoEvento.tipo === "GASTO_REGISTRADO" ||
+    ultimoEvento.tipo === "GASTO_PAGO_ACTUALIZADO"
   ) {
     titular =
       `Se registro un gasto por ${ultimoEvento.monto} con pago no confirmado.`;
