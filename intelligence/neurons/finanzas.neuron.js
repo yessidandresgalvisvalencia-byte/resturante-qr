@@ -15,7 +15,11 @@ const {
 const NEURONA = "FINANZAS";
 
 function getRequiredEvents() {
-  return ["VENTA_COMPLETADA", "GASTO_REGISTRADO"];
+  return [
+    "VENTA_COMPLETADA",
+    "GASTO_REGISTRADO",
+    "GASTO_PAGO_ACTUALIZADO"
+  ];
 }
 
 function obtenerPeriodoActual() {
