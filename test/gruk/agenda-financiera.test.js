@@ -11,7 +11,8 @@ const {
 );
 
 const {
-  convertirAgendaEnOrdenes
+  convertirAgendaEnOrdenes,
+  construirDecisionFingerprint
 } = require(
   "../../intelligence/brain/cerebro"
 );
@@ -255,4 +256,91 @@ test("vencimiento ya vencido da 24 horas para reaccion operativa", () => {
     deadline.toISOString(),
     "2026-09-26T12:00:00.000Z"
   );
+});
+
+
+test("fingerprint ignora deadline movil y conserva misma situacion", () => {
+  const base = {
+    estado7d: "DEPENDE_DE_COBROS",
+    confiabilidad: "COMPLETO",
+    saldoActual: 100000,
+    obligaciones7d: 250000,
+    cobros7d: 200000,
+    faltanteConCajaActual: 150000,
+    faltanteAunCobrandoTodo: 0,
+    accionesSugeridas: [
+      {
+        departamento: "FINANZAS",
+        codigo: "CONTROLAR_BRECHA_CAJA_7D",
+        prioridad: "ALTA",
+        deadline: new Date("2026-09-27T00:00:00Z"),
+        kpi_a_medir: "brecha_caja_7d",
+        montoReferencia: 150000
+      }
+    ]
+  };
+
+  const a = construirDecisionFingerprint({
+    agenda: base,
+    candidatos: []
+  });
+
+  const b = construirDecisionFingerprint({
+    agenda: {
+      ...base,
+      fechaCritica: new Date("2026-09-28T00:00:00Z"),
+      accionesSugeridas: [
+        {
+          ...base.accionesSugeridas[0],
+          deadline: new Date("2026-09-29T00:00:00Z")
+        }
+      ]
+    },
+    candidatos: []
+  });
+
+  assert.equal(a, b);
+});
+
+test("fingerprint cambia cuando cambia materialmente la brecha", () => {
+  const agenda = {
+    estado7d: "DEPENDE_DE_COBROS",
+    confiabilidad: "COMPLETO",
+    saldoActual: 100000,
+    obligaciones7d: 250000,
+    cobros7d: 200000,
+    faltanteConCajaActual: 150000,
+    faltanteAunCobrandoTodo: 0,
+    accionesSugeridas: [
+      {
+        departamento: "FINANZAS",
+        codigo: "CONTROLAR_BRECHA_CAJA_7D",
+        prioridad: "ALTA",
+        kpi_a_medir: "brecha_caja_7d",
+        montoReferencia: 150000
+      }
+    ]
+  };
+
+  const a = construirDecisionFingerprint({
+    agenda,
+    candidatos: []
+  });
+
+  const b = construirDecisionFingerprint({
+    agenda: {
+      ...agenda,
+      saldoActual: 130000,
+      faltanteConCajaActual: 120000,
+      accionesSugeridas: [
+        {
+          ...agenda.accionesSugeridas[0],
+          montoReferencia: 120000
+        }
+      ]
+    },
+    candidatos: []
+  });
+
+  assert.notEqual(a, b);
 });
