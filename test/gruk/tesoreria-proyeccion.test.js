@@ -297,3 +297,59 @@ test("compra parcial con saldo exacto mantiene proyeccion cuantificada", async (
     70000
   );
 });
+
+
+test("saldo desconocido a 20 dias vuelve 30d PARCIAL sin invalidar cobertura 7d", async () => {
+  const ahora = new Date();
+
+  await crearCuenta({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    nombre: "Banco horizonte",
+    tipo: "BANCO",
+    saldoInicial: 200000,
+    saldoInicialAt: new Date(
+      ahora.getTime() -
+      60 * 60 * 1000
+    ),
+    createdBy: USUARIO_ID
+  });
+
+  await Compra.create({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    proveedor: "Proveedor 20 dias",
+    items: [],
+    subtotal: 300000,
+    impuestos: 0,
+    total: 300000,
+    metodoPago: "credito",
+    estadoPago: "parcial",
+    saldoPendientePago: null,
+    fechaVencimientoPago: fechaMasDias(ahora, 20),
+    estado: "registrada",
+    fecha: ahora
+  });
+
+  const proyeccion =
+    await construirProyeccionTesoreria({
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      ahora
+    });
+
+  assert.equal(
+    proyeccion.confiabilidad,
+    "PARCIAL"
+  );
+
+  assert.equal(
+    proyeccion.escenario7d.estado,
+    "CUBIERTO_CON_CAJA_ACTUAL"
+  );
+
+  assert.equal(
+    proyeccion.escenario7d.saldoDespuesDeObligacionesConCajaActual,
+    200000
+  );
+});
