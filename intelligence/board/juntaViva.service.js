@@ -11,6 +11,9 @@ const {
 const {
   obtenerResumenTesoreria
 } = require("../../core/finanzas/tesoreria.service");
+const {
+  construirProyeccionTesoreria
+} = require("../../core/finanzas/tesoreriaProyeccion.service");
 const Reporte = require("../models/CerebroReporteNeurona");
 const JuntaEstadoVivo = require("./JuntaEstadoVivo");
 const {
@@ -283,6 +286,7 @@ function construirDiagnostico({
   ultimoEvento,
   ventana24h,
   tesoreria,
+  proyeccionTesoreria = null,
   reportes,
   estadoAnterior = null
 }) {
@@ -318,16 +322,33 @@ function construirDiagnostico({
       tesoreria?.saldoDisponible
     ) < 0;
 
-  const estado = criticos.length
-    ? "CRITICO"
-    : (
-        alertas.length ||
-        flujoParcialNegativo ||
-        tesoreriaParcial ||
-        saldoTesoreriaNegativo
-      )
-      ? "ATENCION"
-      : "NORMAL";
+  const proyeccionConfiable =
+    proyeccionTesoreria?.confiabilidad ===
+    "COMPLETO";
+
+  const proyeccionCritica =
+    proyeccionConfiable &&
+    proyeccionTesoreria?.escenario7d?.estado ===
+      "DEFICIT_AUN_COBRANDO_TODO";
+
+  const proyeccionDependiente =
+    proyeccionConfiable &&
+    proyeccionTesoreria?.escenario7d?.estado ===
+      "DEPENDE_DE_COBROS";
+
+  const estado =
+    criticos.length ||
+    proyeccionCritica
+      ? "CRITICO"
+      : (
+          alertas.length ||
+          flujoParcialNegativo ||
+          tesoreriaParcial ||
+          saldoTesoreriaNegativo ||
+          proyeccionDependiente
+        )
+        ? "ATENCION"
+        : "NORMAL";
 
   const razones = [];
 
@@ -349,6 +370,22 @@ function construirDiagnostico({
   ) {
     razones.push(
       "Tesoreria no esta configurada; GRUK aun no puede afirmar cuanto dinero disponible tiene la empresa."
+    );
+  }
+
+  if (proyeccionCritica) {
+    razones.push(
+      `La proyeccion de 7 dias muestra un faltante de ${Number(
+        proyeccionTesoreria?.escenario7d
+          ?.faltanteAunCobrandoTodo || 0
+      )} incluso si se cobran todos los ingresos esperados del periodo.`
+    );
+  } else if (proyeccionDependiente) {
+    razones.push(
+      `Las obligaciones de los proximos 7 dias no se cubren solo con la caja actual. La operacion depende de cobrar ${Number(
+        proyeccionTesoreria?.cobrosEsperados
+          ?.proximos7d?.monto || 0
+      )} previstos dentro del periodo.`
     );
   }
 
@@ -422,8 +459,17 @@ function construirDiagnostico({
         ? ` Tesoreria esta PARCIAL; el saldo configurado visible es ${Number(tesoreria.saldoDisponible || 0)}, pero existen movimientos sin cuenta asignada y no debe tratarse como saldo definitivo.`
         : " Tesoreria no esta configurada, por lo que GRUK no afirma un saldo disponible real.";
 
+  const lecturaProyeccion =
+    proyeccionTesoreria
+      ? ` Proyeccion 7 dias: estado ${proyeccionTesoreria.escenario7d?.estado || "SIN_DATOS"}, obligaciones por ${Number(
+          proyeccionTesoreria.obligaciones?.proximos7d?.monto || 0
+        )}, cobros esperados por ${Number(
+          proyeccionTesoreria.cobrosEsperados?.proximos7d?.monto || 0
+        )}. Los cobros esperados no son caja hasta confirmarse.`
+      : "";
+
   const lectura =
-    `El flujo de 24 horas no es el saldo bancario ni la caja total de la empresa; mide movimientos confirmados que GRUK puede demostrar. En las ultimas 24 horas GRUK confirma ${ventana24h.ventasPagadas.cantidad} venta(s) pagada(s) por ${ventana24h.ventasPagadas.monto}, ${ventana24h.comprasPagadas.cantidad} compra(s) pagada(s) por ${ventana24h.comprasPagadas.monto} y ${ventana24h.gastosPagados.cantidad} gasto(s) pagado(s) por ${ventana24h.gastosPagados.monto}. El flujo confirmado parcial es ${ventana24h.flujoConfirmadoParcial}.${lecturaTesoreria} Adicionalmente hay ${numeroSeguro(ventana24h.comprasNoConfirmadas?.cantidad)} compra(s) por ${numeroSeguro(ventana24h.comprasNoConfirmadas?.monto)} y ${numeroSeguro(ventana24h.gastosNoConfirmados?.cantidad)} gasto(s) por ${numeroSeguro(ventana24h.gastosNoConfirmados?.monto)} cuyo pago no esta confirmado y por eso no se descuentan de caja. ${criticos.length ? "Hay KPI criticos que requieren decision del Cerebro." : "La Junta mantiene observacion continua y actualizara esta lectura con el siguiente evento."}`;
+    `El flujo de 24 horas no es el saldo bancario ni la caja total de la empresa; mide movimientos confirmados que GRUK puede demostrar. En las ultimas 24 horas GRUK confirma ${ventana24h.ventasPagadas.cantidad} venta(s) pagada(s) por ${ventana24h.ventasPagadas.monto}, ${ventana24h.comprasPagadas.cantidad} compra(s) pagada(s) por ${ventana24h.comprasPagadas.monto} y ${ventana24h.gastosPagados.cantidad} gasto(s) pagado(s) por ${ventana24h.gastosPagados.monto}. El flujo confirmado parcial es ${ventana24h.flujoConfirmadoParcial}.${lecturaTesoreria}${lecturaProyeccion} Adicionalmente hay ${numeroSeguro(ventana24h.comprasNoConfirmadas?.cantidad)} compra(s) por ${numeroSeguro(ventana24h.comprasNoConfirmadas?.monto)} y ${numeroSeguro(ventana24h.gastosNoConfirmados?.cantidad)} gasto(s) por ${numeroSeguro(ventana24h.gastosNoConfirmados?.monto)} cuyo pago no esta confirmado y por eso no se descuentan de caja. ${criticos.length || proyeccionCritica ? "Hay señales criticas que requieren decision del Cerebro." : "La Junta mantiene observacion continua y actualizara esta lectura con el siguiente evento."}`;
 
   const flujoActual =
     numeroSeguro(
@@ -474,7 +520,8 @@ function construirDiagnostico({
     lectura,
     razones,
     requiereDecisionCerebro:
-      criticos.length > 0,
+      criticos.length > 0 ||
+      proyeccionCritica,
     cambioDesdeAnterior
   };
 }
@@ -550,7 +597,8 @@ function construirPreguntaAutomatica(
 function enriquecerReportesConCaja(
   reportes,
   ventana24h,
-  tesoreria = null
+  tesoreria = null,
+  proyeccionTesoreria = null
 ) {
   const evidenciaCaja =
     "CAJA GRUK 24H: " +
@@ -565,6 +613,15 @@ function enriquecerReportesConCaja(
       : tesoreria?.estadoConfiabilidad === "PARCIAL"
         ? `TESORERIA GRUK: estado PARCIAL, saldo configurado visible ${Number(tesoreria.saldoDisponible || 0)}; existen movimientos sin cuenta asignada.`
         : "TESORERIA GRUK: SIN_CONFIGURAR; no existe saldo disponible verificable.";
+
+  const evidenciaProyeccion =
+    proyeccionTesoreria
+      ? `PROYECCION GRUK 7D: estado ${proyeccionTesoreria.escenario7d?.estado || "SIN_DATOS"}, obligaciones ${Number(
+          proyeccionTesoreria.obligaciones?.proximos7d?.monto || 0
+        )}, cobros esperados ${Number(
+          proyeccionTesoreria.cobrosEsperados?.proximos7d?.monto || 0
+        )}, dias cobertura historica ${proyeccionTesoreria.historico30d?.diasCoberturaSalidasHistoricas ?? "NO_CALCULABLE"}. Los cobros esperados no son caja confirmada.`
+      : "PROYECCION GRUK 7D: no disponible.";
 
   return (reportes || []).map(
     (reporte) => {
@@ -612,6 +669,21 @@ function enriquecerReportesConCaja(
                 : tesoreria?.estadoConfiabilidad === "PARCIAL"
                   ? 60
                   : 0
+          },
+          {
+            tipo:
+              "PROYECCION_CAJA_7D",
+            evidencia:
+              evidenciaProyeccion,
+            impacto_financiero_estimado:
+              Number(
+                proyeccionTesoreria?.obligaciones
+                  ?.proximos7d?.monto || 0
+              ),
+            confianza:
+              proyeccionTesoreria?.confiabilidad === "COMPLETO"
+                ? 100
+                : 50
           }
         ]
       };
@@ -623,6 +695,7 @@ async function generarDiagnosticosAutomaticos({
   ultimoEvento,
   ventana24h,
   tesoreria,
+  proyeccionTesoreria,
   reportes,
   ahora
 }) {
@@ -639,7 +712,8 @@ async function generarDiagnosticosAutomaticos({
         enriquecerReportesConCaja(
           reportes,
           ventana24h,
-          tesoreria
+          tesoreria,
+          proyeccionTesoreria
         ),
       intervenciones: [],
       fuente: "GRUK"
@@ -704,6 +778,80 @@ async function generarDiagnosticosAutomaticos({
           : null,
       generatedAt: ahora
     }));
+}
+
+function mapearProyeccionTesoreria(proyeccion) {
+  return {
+    confiabilidad:
+      proyeccion?.confiabilidad ||
+      "SIN_CONFIGURAR",
+    saldoActual:
+      proyeccion?.saldoActual ??
+      null,
+    estado7d:
+      proyeccion?.escenario7d?.estado ||
+      "SIN_SALDO_VERIFICABLE",
+    obligacionesVencidas:
+      Number(
+        proyeccion?.obligaciones
+          ?.vencidas?.monto || 0
+      ),
+    obligaciones7d:
+      Number(
+        proyeccion?.obligaciones
+          ?.proximos7d?.monto || 0
+      ),
+    obligaciones30d:
+      Number(
+        proyeccion?.obligaciones
+          ?.proximos30d?.monto || 0
+      ),
+    cobros7d:
+      Number(
+        proyeccion?.cobrosEsperados
+          ?.proximos7d?.monto || 0
+      ),
+    cobros30d:
+      Number(
+        proyeccion?.cobrosEsperados
+          ?.proximos30d?.monto || 0
+      ),
+    faltanteConCajaActual:
+      Number(
+        proyeccion?.escenario7d
+          ?.faltanteConCajaActual || 0
+      ),
+    faltanteAunCobrandoTodo:
+      Number(
+        proyeccion?.escenario7d
+          ?.faltanteAunCobrandoTodo || 0
+      ),
+    diasCoberturaSalidasHistoricas:
+      proyeccion?.historico30d
+        ?.diasCoberturaSalidasHistoricas ??
+      null,
+    proximoVencimiento:
+      proyeccion?.proximoVencimiento
+        ? {
+            tipo:
+              proyeccion.proximoVencimiento.tipo,
+            descripcion:
+              proyeccion.proximoVencimiento.descripcion,
+            monto:
+              Number(
+                proyeccion.proximoVencimiento.monto || 0
+              ),
+            fechaVencimiento:
+              proyeccion.proximoVencimiento.fechaVencimiento
+          }
+        : null,
+    advertencias:
+      (proyeccion?.advertencias || [])
+        .slice(0, 10),
+    generadoAt:
+      proyeccion?.generadoAt ||
+      new Date()
+  };
 }
 
 function mapearTesoreria(tesoreria) {
@@ -817,6 +965,16 @@ async function recalcularEstadoVivo({
     })
   ]);
 
+  const proyeccionTesoreria =
+    await construirProyeccionTesoreria({
+      empresaId:
+        empresaObjectId,
+      sedeId:
+        sedeObjectId,
+      ahora,
+      tesoreria
+    });
+
   const filtro = {
     empresaId: empresaObjectId,
     sedeId: sedeObjectId
@@ -876,6 +1034,7 @@ async function recalcularEstadoVivo({
       ultimoEvento,
       ventana24h,
       tesoreria,
+      proyeccionTesoreria,
       reportes,
       estadoAnterior: actual
     });
@@ -889,6 +1048,7 @@ async function recalcularEstadoVivo({
         ultimoEvento,
         ventana24h,
         tesoreria,
+        proyeccionTesoreria,
         reportes,
         ahora
       });
@@ -916,6 +1076,10 @@ async function recalcularEstadoVivo({
         tesoreria:
           mapearTesoreria(
             tesoreria
+          ),
+        proyeccionTesoreria:
+          mapearProyeccionTesoreria(
+            proyeccionTesoreria
           ),
         diagnostico,
         diagnosticosExpertos,
@@ -989,7 +1153,8 @@ async function obtenerEstadoVivo(auth) {
 
   if (
     !estado ||
-    !estado.tesoreria
+    !estado.tesoreria ||
+    !estado.proyeccionTesoreria
   ) {
     const ahora = new Date();
     const desde =
