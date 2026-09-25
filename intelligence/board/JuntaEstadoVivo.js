@@ -11,6 +11,7 @@ const eventoSchema = new mongoose.Schema({
       "GASTO_REGISTRADO",
       "GASTO_PAGO_ACTUALIZADO",
       "COMPRA_REGISTRADA",
+      "COMPRA_PAGO_ACTUALIZADO",
       "RECALCULO"
     ]
   },
