@@ -462,8 +462,22 @@ async function totalReservasActivas(
         $group: {
           _id: null,
           total: {
-            $sum:
-              "$monto"
+            $sum: {
+              $max: [
+                0,
+                {
+                  $subtract: [
+                    "$monto",
+                    {
+                      $ifNull: [
+                        "$montoConsumido",
+                        0
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
           }
         }
       }
