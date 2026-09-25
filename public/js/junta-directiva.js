@@ -59,6 +59,16 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
     estadoVivo.diagnostico || {};
   const evento =
     estadoVivo.ultimoEvento || {};
+  const cambio =
+    diagnostico.cambioDesdeAnterior || null;
+  const historial =
+    Array.isArray(
+      estadoVivo.historialDiagnosticos
+    )
+      ? estadoVivo.historialDiagnosticos
+          .slice(-3)
+          .reverse()
+      : [];
 
   const razones =
     Array.isArray(diagnostico.razones)
@@ -81,6 +91,12 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
     <p>${escaparJuntaGRUK(
       diagnostico.lectura || ""
     )}</p>
+
+    ${cambio?.explicacion
+      ? `<p><strong>Cambio desde la lectura anterior:</strong> ${escaparJuntaGRUK(
+          cambio.explicacion
+        )}</p>`
+      : ""}
 
     <p>
       <strong>Últimas 24 h · entradas confirmadas:</strong>
@@ -125,6 +141,26 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
         ? "Hay una señal crítica que requiere decisión."
         : "Sin nueva decisión crítica requerida por este estado."}
     </p>
+
+    ${historial.length
+      ? `
+        <p><strong>Últimas lecturas:</strong></p>
+        <ul>
+          ${historial.map((item) => `
+            <li>
+              ${escaparJuntaGRUK(
+                formatoFechaJuntaGRUK(item.createdAt)
+              )} ·
+              ${escaparJuntaGRUK(item.estado)} ·
+              flujo parcial
+              ${formatoMonedaJuntaGRUK(
+                item.flujoConfirmadoParcial
+              )}
+            </li>
+          `).join("")}
+        </ul>
+      `
+      : ""}
 
     <p><small>
       Actualizado: ${escaparJuntaGRUK(
