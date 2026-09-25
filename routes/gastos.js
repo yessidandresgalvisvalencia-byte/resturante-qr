@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 
 const Gasto = require("../models/Gasto");
 const Empresa = require("../models/Empresa");
+const Sede = require("../models/sede");
 const {
   validarGasto,
   validarEstadoPagoGasto
@@ -18,6 +19,66 @@ const {
 } = require("../core/auth/roleCheck.middleware");
 
 const router = express.Router();
+
+async function resolverSedeAutorizada({
+  auth,
+  sedeId
+}) {
+  if (auth.rol === ROLES_GRUK.ADMIN_SEDE) {
+    if (!auth.sedeId) {
+      const error = new Error(
+        "ADMIN_SEDE requiere una sede autorizada"
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (
+      sedeId &&
+      String(sedeId) !==
+        String(auth.sedeId)
+    ) {
+      const error = new Error(
+        "No tienes acceso a otra sede"
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+
+    return auth.sedeId;
+  }
+
+  if (!sedeId) return null;
+
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      sedeId
+    )
+  ) {
+    const error = new Error(
+      "sedeId invalido"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const sede = await Sede.findOne({
+    _id: sedeId,
+    empresaId: auth.empresaId
+  })
+    .select("_id")
+    .lean();
+
+  if (!sede) {
+    const error = new Error(
+      "Sede fuera del tenant autorizado"
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return sede._id;
+}
 
 /*
 ========================================
@@ -78,9 +139,15 @@ router.post(
       });
     }
 
+    const sedeEfectiva =
+      await resolverSedeAutorizada({
+        auth: req.auth,
+        sedeId: sedeId || null
+      });
+
     const nuevoGasto = await registrarGasto({
       empresaId,
-      sedeId: sedeId || null,
+      sedeId: sedeEfectiva,
       concepto,
       categoria,
       monto,
@@ -100,9 +167,17 @@ router.post(
   } catch (error) {
     console.error("Error creando gasto:", error);
 
-    res.status(500).json({
+    const statusCode =
+      Number.isInteger(error.statusCode)
+        ? error.statusCode
+        : 500;
+
+    res.status(statusCode).json({
       ok: false,
-      error: "Error creando gasto empresarial"
+      error:
+        statusCode === 500
+          ? "Error creando gasto empresarial"
+          : error.message
     });
   }
 });
@@ -136,14 +211,20 @@ router.put(
         });
       }
 
+      const sedeEfectiva =
+        await resolverSedeAutorizada({
+          auth: req.auth,
+          sedeId:
+            req.auth.rol === ROLES_GRUK.ADMIN_SEDE
+              ? req.auth.sedeId
+              : null
+        });
+
       const gasto =
         await actualizarEstadoPagoGasto({
           gastoId: req.params.id,
           empresaId: req.auth.empresaId,
-          sedeId:
-            req.auth.rol === ROLES_GRUK.ADMIN_SEDE
-              ? req.auth.sedeId
-              : null,
+          sedeId: sedeEfectiva,
           estadoPago: value.estadoPago
         });
 
@@ -201,10 +282,28 @@ router.get(
       });
     }
 
-    const gastos = await Gasto.find({
+    const filtroGastos = {
       empresaId,
       estado: "registrado"
-    }).sort({ fecha: -1 });
+    };
+
+    if (
+      req.auth.rol === ROLES_GRUK.ADMIN_SEDE
+    ) {
+      if (!req.auth.sedeId) {
+        return res.status(403).json({
+          ok: false,
+          error: "ADMIN_SEDE requiere una sede autorizada"
+        });
+      }
+
+      filtroGastos.sedeId =
+        req.auth.sedeId;
+    }
+
+    const gastos = await Gasto.find(
+      filtroGastos
+    ).sort({ fecha: -1 });
 
     const totalGastos = gastos.reduce(
       (total, gasto) => total + gasto.monto,
