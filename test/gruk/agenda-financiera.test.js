@@ -494,7 +494,7 @@ test("plan de pagos conserva prioridad y marca cobertura completa por obligacion
     [
       "CUBIERTA",
       "NO_CUBIERTA",
-      "CUBIERTA"
+      "NO_CUBIERTA"
     ]
   );
 
