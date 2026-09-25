@@ -11,6 +11,7 @@ async function registrarGasto({
   monto,
   metodoPago = "",
   estadoPago = "desconocido",
+  fechaVencimientoPago = null,
   proveedor = "",
   fecha = new Date(),
   origen = "manual",
@@ -29,6 +30,8 @@ async function registrarGasto({
     monto,
     metodoPago,
     estadoPago,
+    fechaVencimientoPago:
+      fechaVencimientoPago || null,
     proveedor,
     fecha,
     origen,
