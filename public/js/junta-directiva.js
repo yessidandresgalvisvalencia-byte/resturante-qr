@@ -92,6 +92,11 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
       ${formatoMonedaJuntaGRUK(
         ventana.comprasPagadas?.monto
       )}
+      ·
+      <strong>gastos pagados:</strong>
+      ${formatoMonedaJuntaGRUK(
+        ventana.gastosPagados?.monto
+      )}
     </p>
 
     <p>
@@ -100,9 +105,9 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
         ventana.flujoConfirmadoParcial
       )}
       ·
-      <strong>gastos registrados no confirmados como salida:</strong>
+      <strong>gastos con pago no confirmado:</strong>
       ${formatoMonedaJuntaGRUK(
-        ventana.gastosRegistrados?.monto
+        ventana.gastosNoConfirmados?.monto
       )}
     </p>
 
@@ -126,7 +131,7 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
         formatoFechaJuntaGRUK(
           estadoVivo.ultimoCambioAt
         )
-      )}. Los gastos registrados no se consideran salida de caja hasta que GRUK pueda demostrar el pago.
+      )}. GRUK solo descuenta gastos con estado de pago confirmado. Los históricos sin estado permanecen fuera del flujo confirmado.
     </small></p>
   `;
 }
