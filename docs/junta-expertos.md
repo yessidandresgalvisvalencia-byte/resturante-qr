@@ -285,3 +285,58 @@ La cobertura de 7 días puede ser:
 La proyección de 30 días puede quedar PARCIAL aunque la cobertura de 7 días sea confiable. Por ejemplo, una compra parcial sin saldo exacto que vence en 20 días no invalida los próximos 7 días, pero sí impide afirmar que el horizonte de 30 días esté completamente cuantificado.
 
 GRUK nunca calcula automáticamente una obligación fiscal oficial solo por categoría IMPUESTOS. El monto debe provenir de una fuente explícita y auditable.
+
+
+## Agenda financiera del Cerebro
+
+El Cerebro ya recibe una señal financiera estructurada derivada de Tesorería.
+
+Servicio:
+
+`intelligence/brain/agendaFinanciera.service.js`
+
+La agenda incluye:
+
+- estado de cobertura a 7 días;
+- confiabilidad del dato;
+- saldo disponible verificable;
+- obligaciones registradas a 7 días;
+- cobros esperados a 7 días;
+- faltante con caja actual;
+- faltante aun cobrando todo;
+- fecha crítica;
+- acciones sugeridas por departamento.
+
+Estados relevantes:
+
+- `CUBIERTO_CON_CAJA_ACTUAL`
+- `DEPENDE_DE_COBROS`
+- `DEFICIT_AUN_COBRANDO_TODO`
+- `DATOS_INSUFICIENTES`
+- `SIN_SALDO_VERIFICABLE`
+
+La agenda no crea órdenes directamente. El Cerebro transforma la señal en órdenes pendientes de aprobación humana.
+
+Ejemplos de KPI de seguimiento:
+
+- `brecha_caja_7d`
+- `cobros_confirmados_7d`
+- `obligaciones_7d_cubiertas`
+- `cobertura_datos_obligaciones_7d`
+- `tesoreria_confiable`
+
+La Memoria soporta estos KPI y crea baseline cuando el humano aprueba una orden.
+
+El ciclo de inteligencia puede dispararse por agenda financiera aunque ninguna neurona esté en estado CRITICO.
+
+Eventos que generan recálculo inmediato de agenda:
+
+- COMPRA_REGISTRADA
+- COMPRA_PAGO_ACTUALIZADO
+- TESORERIA_CUENTA_CREADA
+- OBLIGACION_RECURRENTE_CREADA
+- OBLIGACION_RECURRENTE_DESACTIVADA
+
+El listener aplica debounce por empresa para evitar ejecuciones repetidas por ráfagas de eventos.
+
+El Centro de Control muestra el snapshot financiero que originó cada decisión antes de que el dueño apruebe una orden.
