@@ -5,6 +5,7 @@ const Decision = require("../models/CerebroDecision");
 const Auditoria = require("../models/CerebroAuditoria");
 const JuntaSesion = require("../board/JuntaSesion");
 const CerebroMemoria = require("../memory/CerebroMemoria");
+const PlanEjecucionPago = require("../../core/finanzas/models/PlanEjecucionPago");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
 const { registrarBaselineAprobacion } = require("../memory/memoria.service");
 const {
@@ -111,6 +112,63 @@ async function procesarOrden({ auth, decisionId, ordenId, accion }) {
   } finally {
     await session.endSession();
   }
+}
+
+async function obtenerPlanesPagoDecision(
+  auth,
+  decisionId
+) {
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      decisionId
+    )
+  ) {
+    throw serviceError(
+      400,
+      "decisionId invalido"
+    );
+  }
+
+  const decision =
+    await Decision.findOne(
+      filtroTenant(
+        auth,
+        { _id: decisionId }
+      )
+    )
+      .select("_id")
+      .lean();
+
+  if (!decision) {
+    throw serviceError(
+      404,
+      "Decision no encontrada"
+    );
+  }
+
+  const filtro = {
+    empresaId:
+      auth.empresaId,
+    decisionId:
+      decision._id,
+    deletedAt: null
+  };
+
+  if (
+    auth.rol ===
+    ROLES_GRUK.ADMIN_SEDE
+  ) {
+    filtro.sedeId =
+      auth.sedeId;
+  }
+
+  return PlanEjecucionPago.find(
+    filtro
+  )
+    .sort({
+      createdAt: 1
+    })
+    .lean();
 }
 
 async function obtenerAuditoria(auth, limite = 100) {
@@ -286,4 +344,10 @@ async function obtenerAuditoria(auth, limite = 100) {
     .slice(0, maximo);
 }
 
-module.exports = { obtenerUltimaDecision, procesarOrden, obtenerAuditoria, filtroTenant };
+module.exports = {
+  obtenerUltimaDecision,
+  procesarOrden,
+  obtenerAuditoria,
+  obtenerPlanesPagoDecision,
+  filtroTenant
+};
