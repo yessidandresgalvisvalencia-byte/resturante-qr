@@ -64,6 +64,14 @@ const resumenSchema = new mongoose.Schema({
     cantidad: { type: Number, default: 0, min: 0 },
     monto: { type: Number, default: 0, min: 0 }
   },
+  gastosPagados: {
+    cantidad: { type: Number, default: 0, min: 0 },
+    monto: { type: Number, default: 0, min: 0 }
+  },
+  gastosNoConfirmados: {
+    cantidad: { type: Number, default: 0, min: 0 },
+    monto: { type: Number, default: 0, min: 0 }
+  },
   flujoConfirmadoParcial: {
     type: Number,
     default: 0
