@@ -90,6 +90,54 @@ function seleccionarCobrosParaBrecha(
   return seleccion;
 }
 
+function construirPlanPagos(
+  prioridadPago,
+  recursosDisponibles
+) {
+  const recursos =
+    Math.max(
+      0,
+      Number(recursosDisponibles || 0)
+    );
+
+  let acumulado = 0;
+
+  return (
+    Array.isArray(prioridadPago)
+      ? prioridadPago
+      : []
+  ).map((item) => {
+    const monto =
+      Number(item?.monto || 0);
+
+    const puedeCubrirCompleto =
+      monto > 0 &&
+      acumulado + monto <= recursos;
+
+    if (puedeCubrirCompleto) {
+      acumulado += monto;
+    }
+
+    return {
+      id: item.id,
+      tipo: item.tipo,
+      descripcion:
+        item.descripcion,
+      categoria:
+        item.categoria || null,
+      tercero:
+        item.tercero || "",
+      monto,
+      fechaVencimiento:
+        item.fechaVencimiento,
+      estadoCobertura:
+        puedeCubrirCompleto
+          ? "CUBIERTA"
+          : "NO_CUBIERTA"
+    };
+  });
+}
+
 function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
   const estado7d =
     proyeccion?.escenario7d?.estado ||
@@ -136,6 +184,50 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
       montoCobrosPriorizados
     );
 
+  const obligacionesPriorizadas =
+    Array.isArray(
+      proyeccion
+        ?.obligaciones
+        ?.prioridadPago
+    )
+      ? proyeccion
+          .obligaciones
+          .prioridadPago
+      : [];
+
+  const planPagosCajaActual =
+    construirPlanPagos(
+      obligacionesPriorizadas,
+      saldoActual
+    );
+
+  const recursosConCobros =
+    Math.max(
+      0,
+      Number(saldoActual || 0) +
+      montoCobrosPriorizados
+    );
+
+  const planPagosConCobros =
+    construirPlanPagos(
+      obligacionesPriorizadas,
+      recursosConCobros
+    );
+
+  const obligacionesNoCubiertasCajaActual =
+    planPagosCajaActual.filter(
+      (item) =>
+        item.estadoCobertura ===
+        "NO_CUBIERTA"
+    );
+
+  const obligacionesNoCubiertasConCobros =
+    planPagosConCobros.filter(
+      (item) =>
+        item.estadoCobertura ===
+        "NO_CUBIERTA"
+    );
+
   const accionesSugeridas = [];
 
   if (estado7d === "DEFICIT_AUN_COBRANDO_TODO") {
@@ -166,7 +258,12 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
         prioridad: "CRITICA",
         deadline,
         kpi_a_medir: "obligaciones_7d_cubiertas",
-        montoReferencia: obligaciones7d
+        montoReferencia: obligaciones7d,
+        obligacionesPriorizadas,
+        planPagosCajaActual,
+        planPagosConCobros,
+        obligacionesNoCubiertasCajaActual,
+        obligacionesNoCubiertasConCobros
       }
     );
   } else if (estado7d === "DEPENDE_DE_COBROS") {
@@ -226,6 +323,11 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
     cobrosPriorizados,
     montoCobrosPriorizados,
     faltanteDespuesCobrosPriorizados,
+    obligacionesPriorizadas,
+    planPagosCajaActual,
+    planPagosConCobros,
+    obligacionesNoCubiertasCajaActual,
+    obligacionesNoCubiertasConCobros,
     requiereDecision:
       accionesSugeridas.length > 0,
     accionesSugeridas
@@ -235,5 +337,6 @@ function construirAgendaFinanciera(proyeccion, ahora = new Date()) {
 module.exports = {
   construirAgendaFinanciera,
   resolverDeadline,
-  seleccionarCobrosParaBrecha
+  seleccionarCobrosParaBrecha,
+  construirPlanPagos
 };
