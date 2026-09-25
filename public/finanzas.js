@@ -4313,7 +4313,7 @@ function contenedorDistribucionDuenoGRUK() {
   )?.parentElement || null;
 }
 
-function renderizarReservasDuenoGRUK(
+async function renderizarReservasDuenoGRUK(
   reservas
 ) {
   const contenedor =
@@ -4339,34 +4339,162 @@ function renderizarReservasDuenoGRUK(
     return;
   }
 
-  contenedor.innerHTML = `
-    <h5>Reservas de utilidad del dueño</h5>
-    <ul>
-      ${lista.map((item) => `
-        <li>
+  const bloques = [];
+
+  for (const item of lista) {
+    let diagnostico = null;
+
+    if (item.estado === "ACTIVA") {
+      try {
+        const res =
+          await grukFetch(
+            `/api/tesoreria/distribucion-dueno/reservas/${encodeURIComponent(
+              item._id
+            )}/retiro-seguro`
+          );
+
+        const data =
+          await res.json();
+
+        if (res.ok && data.ok) {
+          diagnostico =
+            data.diagnostico;
+        }
+      } catch (_) {}
+    }
+
+    const saldoRestante =
+      Math.max(
+        0,
+        Number(item.monto || 0) -
+        Number(item.montoConsumido || 0)
+      );
+
+    const opcionesCuenta =
+      Array.isArray(
+        diagnostico?.cuentasElegibles
+      )
+        ? diagnostico.cuentasElegibles
+            .map(
+              (cuenta) => `
+                <option value="${escaparTesoreriaGRUK(
+                  cuenta.cuentaId
+                )}">
+                  ${escaparTesoreriaGRUK(
+                    cuenta.nombre || "Cuenta"
+                  )} · disponible ${formatoCOPFinanzas(
+                    cuenta.saldoDisponible || 0
+                  )}
+                </option>
+              `
+            )
+            .join("")
+        : "";
+
+    bloques.push(`
+      <div class="card">
+        <p>
+          <strong>${escaparTesoreriaGRUK(
+            item.concepto || "Utilidad del dueño"
+          )}</strong>
+        </p>
+        <p>
+          Reserva original:
           ${formatoCOPFinanzas(
             item.monto || 0
           )}
-          · <strong>${escaparTesoreriaGRUK(
+        </p>
+        <p>
+          Retirado:
+          ${formatoCOPFinanzas(
+            item.montoConsumido || 0
+          )}
+        </p>
+        <p>
+          Pendiente por retirar:
+          <strong>${formatoCOPFinanzas(
+            saldoRestante
+          )}</strong>
+        </p>
+        <p>
+          Estado:
+          <strong>${escaparTesoreriaGRUK(
             item.estado || ""
           )}</strong>
-          · ${escaparTesoreriaGRUK(
-            item.concepto || ""
-          )}
-          ${item.estado === "PROPUESTA"
-            ? `
-              <button
-                onclick="aprobarReservaDuenoGRUK('${escaparTesoreriaGRUK(
-                  item._id
-                )}')"
-              >
-                Aprobar separación
-              </button>
-            `
-            : ""}
-        </li>
-      `).join("")}
-    </ul>
+        </p>
+
+        ${item.estado === "PROPUESTA"
+          ? `
+            <button
+              onclick="aprobarReservaDuenoGRUK('${escaparTesoreriaGRUK(
+                item._id
+              )}')"
+            >
+              Aprobar separación
+            </button>
+          `
+          : ""}
+
+        ${item.estado === "ACTIVA" && diagnostico
+          ? `
+            <hr>
+            <p>
+              <strong>¿Cuándo puedo sacar?</strong>
+              ${diagnostico.puedeRetirarHoy
+                ? "✅ HOY"
+                : "⛔ BLOQUEADO"}
+            </p>
+            <p>
+              ${escaparTesoreriaGRUK(
+                diagnostico.motivo || ""
+              )}
+            </p>
+            <p>
+              Máximo seguro hoy:
+              <strong>${formatoCOPFinanzas(
+                diagnostico.montoMaximoHoy || 0
+              )}</strong>
+            </p>
+
+            ${diagnostico.puedeRetirarHoy
+              ? `
+                <label>Cuenta desde la que saldrá</label>
+                <select id="retiroCuenta_${escaparTesoreriaGRUK(item._id)}">
+                  ${opcionesCuenta}
+                </select>
+
+                <label>Monto a retirar</label>
+                <input
+                  id="retiroMonto_${escaparTesoreriaGRUK(item._id)}"
+                  type="number"
+                  min="1"
+                  step="1"
+                  max="${Number(
+                    diagnostico.montoMaximoHoy || 0
+                  )}"
+                  value="${Number(
+                    diagnostico.montoMaximoHoy || 0
+                  )}"
+                />
+
+                <button
+                  onclick="registrarRetiroDuenoGRUK('${escaparTesoreriaGRUK(
+                    item._id
+                  )}')"
+                >
+                  Registrar retiro real
+                </button>
+              `
+              : ""}
+          `
+          : ""}
+      </div>
+    `);
+  }
+
+  contenedor.innerHTML = `
+    <h5>Reservas de utilidad del dueño</h5>
+    ${bloques.join("")}
   `;
 }
 
@@ -4463,7 +4591,7 @@ async function cargarDistribucionDuenoGRUK() {
       );
   }
 
-  renderizarReservasDuenoGRUK(
+  await renderizarReservasDuenoGRUK(
     reservasData.reservas || []
   );
 
@@ -4539,6 +4667,7 @@ async function guardarPoliticaDistribucionDuenoGRUK() {
 
     await Promise.all([
       cargarDistribucionDuenoGRUK(),
+      cargarHistorialRetirosDuenoGRUK(),
       cargarTesoreriaGRUK()
     ]);
   } catch (error) {
@@ -4640,6 +4769,155 @@ async function cerrarPeriodoDistribucionDuenoGRUK() {
           error.message
         )}</p>`;
     }
+  }
+}
+
+async function registrarRetiroDuenoGRUK(
+  reservaId
+) {
+  const resultado =
+    document.getElementById(
+      "resultadoDistribucionDuenoGRUK"
+    );
+
+  const cuentaTesoreriaId =
+    document.getElementById(
+      `retiroCuenta_${reservaId}`
+    )?.value;
+
+  const monto =
+    Number(
+      document.getElementById(
+        `retiroMonto_${reservaId}`
+      )?.value || 0
+    );
+
+  if (
+    !cuentaTesoreriaId ||
+    !Number.isFinite(monto) ||
+    monto <= 0
+  ) {
+    if (resultado) {
+      resultado.innerHTML =
+        "<p>Selecciona una cuenta y un monto válido.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        `/api/tesoreria/distribucion-dueno/reservas/${encodeURIComponent(
+          reservaId
+        )}/retiros`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              cuentaTesoreriaId,
+              monto,
+              concepto:
+                "Retiro de utilidad del dueño"
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible registrar el retiro"
+      );
+    }
+
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>✅ Retiro registrado: <strong>${formatoCOPFinanzas(
+          data.retiro?.retiro?.monto || monto
+        )}</strong>. Saldo pendiente de la reserva: <strong>${formatoCOPFinanzas(
+          data.retiro?.reserva?.saldoRestante || 0
+        )}</strong>.</p>`;
+    }
+
+    await Promise.all([
+      cargarDistribucionDuenoGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function cargarHistorialRetirosDuenoGRUK() {
+  const contenedor =
+    document.getElementById(
+      "historialRetirosDuenoGRUK"
+    );
+
+  if (!contenedor) return;
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/distribucion-dueno/retiros"
+      );
+
+    if (res.status === 403) {
+      contenedor.style.display =
+        "none";
+      return;
+    }
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible consultar retiros"
+      );
+    }
+
+    const retiros =
+      data.retiros || [];
+
+    contenedor.innerHTML =
+      retiros.length
+        ? `
+          <h5>Historial de retiros del dueño</h5>
+          <ul>
+            ${retiros.map((item) => `
+              <li>
+                ${new Date(
+                  item.fecha
+                ).toLocaleString("es-CO")}
+                · ${formatoCOPFinanzas(
+                  item.monto || 0
+                )}
+                · ${escaparTesoreriaGRUK(
+                  item.concepto || ""
+                )}
+              </li>
+            `).join("")}
+          </ul>
+        `
+        : "<p>No hay retiros registrados.</p>";
+  } catch (error) {
+    contenedor.innerHTML =
+      `<p>❌ ${escaparTesoreriaGRUK(
+        error.message
+      )}</p>`;
   }
 }
 
@@ -4772,3 +5050,6 @@ window.cerrarPeriodoDistribucionDuenoGRUK =
 
 window.aprobarReservaDuenoGRUK =
   aprobarReservaDuenoGRUK;
+
+window.registrarRetiroDuenoGRUK =
+  registrarRetiroDuenoGRUK;
