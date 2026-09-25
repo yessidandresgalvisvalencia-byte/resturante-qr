@@ -226,3 +226,160 @@ test("interpreta una venta humana concreta y la cruza con ticket real", async ()
     )
   );
 });
+
+
+test("interpreta gasto operativo reportado sin convertirlo en opinion generica", async () => {
+  const hechos = extraerHechosHumanos(
+    "hoy gaste 300 mil pesos en pollo para el restaurante"
+  );
+
+  const gasto = hechos.find(
+    (item) => item.tipo === "GASTO_REPORTADO"
+  );
+
+  assert.ok(gasto);
+  assert.equal(gasto.monto_cop, 300000);
+  assert.equal(gasto.categoria_sugerida, "OPERACIONES");
+
+  const resultado = await generarRespuestasExpertas({
+    pregunta:
+      "hoy gaste 300 mil pesos en pollo para el restaurante",
+    reportes: [],
+    intervenciones: []
+  });
+
+  const finanzas = resultado.respuestas.find(
+    (item) => item.departamento === "FINANZAS"
+  );
+  const operaciones = resultado.respuestas.find(
+    (item) => item.departamento === "OPERACIONES"
+  );
+
+  assert.equal(finanzas.relevancia, "ALTA");
+  assert.match(finanzas.respuesta, /300\.000/);
+  assert.match(operaciones.respuesta, /proveedor|insumos/i);
+});
+
+test("interpreta salida de dos empleados y evita opinion artificial de Marketing", async () => {
+  const hechos = extraerHechosHumanos(
+    "hoy se me fueron dos empleados"
+  );
+
+  const salida = hechos.find(
+    (item) =>
+      item.tipo === "SALIDA_PERSONAL_REPORTADA"
+  );
+
+  assert.ok(salida);
+  assert.equal(salida.cantidad, 2);
+
+  const resultado = await generarRespuestasExpertas({
+    pregunta: "hoy se me fueron dos empleados",
+    reportes: [],
+    intervenciones: []
+  });
+
+  const gente = resultado.respuestas.find(
+    (item) => item.departamento === "GENTE"
+  );
+  const marketing = resultado.respuestas.find(
+    (item) => item.departamento === "MARKETING"
+  );
+
+  assert.equal(gente.relevancia, "ALTA");
+  assert.match(gente.respuesta, /por qué se fueron/i);
+  assert.equal(marketing.relevancia, "NINGUNA");
+  assert.match(
+    marketing.respuesta,
+    /no veo una conclusión material/i
+  );
+});
+
+test("interpreta queja de cliente como falla a reconstruir", async () => {
+  const resultado = await generarRespuestasExpertas({
+    pregunta:
+      "hoy un cliente se quejo por la demora del pedido",
+    reportes: [],
+    intervenciones: []
+  });
+
+  const operaciones = resultado.respuestas.find(
+    (item) => item.departamento === "OPERACIONES"
+  );
+  const ventas = resultado.respuestas.find(
+    (item) => item.departamento === "VENTAS"
+  );
+
+  assert.equal(operaciones.relevancia, "ALTA");
+  assert.match(
+    operaciones.respuesta,
+    /reconstruir el servicio/i
+  );
+  assert.equal(ventas.relevancia, "MEDIA");
+});
+
+test("interpreta quiebre de inventario sin ordenar comprar mas automaticamente", async () => {
+  const resultado = await generarRespuestasExpertas({
+    pregunta:
+      "hoy me quede sin inventario de un producto importante",
+    reportes: [],
+    intervenciones: []
+  });
+
+  const operaciones = resultado.respuestas.find(
+    (item) => item.departamento === "OPERACIONES"
+  );
+  const direccion = resultado.respuestas.find(
+    (item) => item.departamento === "DIRECCION"
+  );
+
+  assert.equal(operaciones.relevancia, "ALTA");
+  assert.match(
+    operaciones.respuesta,
+    /por qué se agotó/i
+  );
+  assert.match(
+    direccion.respuesta,
+    /no ordenaría simplemente comprar más/i
+  );
+});
+
+test("interpreta cambio de precio y separa margen conversion y posicionamiento", async () => {
+  const hechos = extraerHechosHumanos(
+    "hoy subi los precios 10%"
+  );
+
+  const cambio = hechos.find(
+    (item) =>
+      item.tipo === "CAMBIO_PRECIO_REPORTADO"
+  );
+
+  assert.ok(cambio);
+  assert.equal(cambio.direccion, "SUBE");
+  assert.equal(cambio.porcentaje, 10);
+
+  const resultado = await generarRespuestasExpertas({
+    pregunta: "hoy subi los precios 10%",
+    reportes: [],
+    intervenciones: []
+  });
+
+  const finanzas = resultado.respuestas.find(
+    (item) => item.departamento === "FINANZAS"
+  );
+  const ventas = resultado.respuestas.find(
+    (item) => item.departamento === "VENTAS"
+  );
+  const marketing = resultado.respuestas.find(
+    (item) => item.departamento === "MARKETING"
+  );
+  const gente = resultado.respuestas.find(
+    (item) => item.departamento === "GENTE"
+  );
+
+  assert.equal(finanzas.relevancia, "ALTA");
+  assert.match(finanzas.respuesta, /margen de contribución/i);
+  assert.match(ventas.respuesta, /conversión/i);
+  assert.match(marketing.respuesta, /posicionamiento/i);
+  assert.equal(gente.relevancia, "NINGUNA");
+});
