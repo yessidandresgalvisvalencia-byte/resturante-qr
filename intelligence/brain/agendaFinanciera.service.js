@@ -101,6 +101,7 @@ function construirPlanPagos(
     );
 
   let acumulado = 0;
+  let prioridadBloqueada = false;
 
   return (
     Array.isArray(prioridadPago)
@@ -111,11 +112,14 @@ function construirPlanPagos(
       Number(item?.monto || 0);
 
     const puedeCubrirCompleto =
+      !prioridadBloqueada &&
       monto > 0 &&
       acumulado + monto <= recursos;
 
     if (puedeCubrirCompleto) {
       acumulado += monto;
+    } else {
+      prioridadBloqueada = true;
     }
 
     return {
