@@ -14,6 +14,63 @@ Configura las cuentas reales donde vive el dinero. GRUK separa saldo disponible 
   <p>Cargando obligaciones registradas...</p>
 </div>
 
+<hr>
+
+<h4>Ganancia separada del dueño</h4>
+
+<p>
+GRUK calcula la utilidad del dueño solo sobre un cierre mensual confiable y la limita por caja libre real después de obligaciones, reservas y colchón mínimo.
+</p>
+
+<label>
+  <input
+    id="distribucionDuenoActiva"
+    type="checkbox"
+  >
+  Habilitar distribución de utilidad al dueño
+</label>
+
+<label>Porcentaje de utilidad que corresponde al dueño</label>
+<input
+  id="distribucionDuenoPorcentaje"
+  type="number"
+  min="0"
+  max="100"
+  step="0.01"
+  value="0"
+/>
+
+<label>Colchón mínimo de caja que nunca se distribuye</label>
+<input
+  id="distribucionDuenoReservaMinima"
+  type="number"
+  min="0"
+  step="1"
+  value="0"
+/>
+
+<button onclick="guardarPoliticaDistribucionDuenoGRUK()">
+  Guardar política del dueño
+</button>
+
+<div id="estadoPoliticaDistribucionDuenoGRUK"></div>
+
+<label>Periodo mensual a cerrar</label>
+<input
+  id="distribucionDuenoPeriodo"
+  type="month"
+/>
+
+<button onclick="cerrarPeriodoDistribucionDuenoGRUK()">
+  Cerrar mes y calcular ganancia del dueño
+</button>
+
+<div id="resultadoDistribucionDuenoGRUK"></div>
+
+<div id="reservasDuenoGRUK">
+  <p>Cargando reservas de utilidad...</p>
+</div>
+
 <div id="obligacionesRecurrentesGRUK">
   <p>Cargando obligaciones recurrentes...</p>
 </div>
