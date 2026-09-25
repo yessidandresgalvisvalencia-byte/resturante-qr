@@ -6,7 +6,8 @@ const assert = require("node:assert/strict");
 const {
   construirAgendaFinanciera,
   resolverDeadline,
-  seleccionarCobrosParaBrecha
+  seleccionarCobrosParaBrecha,
+  construirPlanPagos
 } = require(
   "../../intelligence/brain/agendaFinanciera.service"
 );
@@ -448,5 +449,141 @@ test("agenda calcula remanente despues de los cobros priorizados", () => {
   assert.equal(
     ventas.cobrosPriorizados.length,
     2
+  );
+});
+
+
+test("plan de pagos conserva prioridad y marca cobertura completa por obligacion", () => {
+  const prioridad = [
+    {
+      id: "o1",
+      tipo: "GASTO",
+      descripcion: "Nomina vencida",
+      categoria: "NOMINA",
+      monto: 120000,
+      fechaVencimiento: "2026-09-24T00:00:00Z"
+    },
+    {
+      id: "o2",
+      tipo: "COMPRA",
+      descripcion: "Proveedor",
+      monto: 90000,
+      fechaVencimiento: "2026-09-26T00:00:00Z"
+    },
+    {
+      id: "o3",
+      tipo: "GASTO",
+      descripcion: "Servicio",
+      categoria: "SERVICIOS",
+      monto: 50000,
+      fechaVencimiento: "2026-09-27T00:00:00Z"
+    }
+  ];
+
+  const plan =
+    construirPlanPagos(
+      prioridad,
+      180000
+    );
+
+  assert.deepEqual(
+    plan.map(
+      (item) =>
+        item.estadoCobertura
+    ),
+    [
+      "CUBIERTA",
+      "NO_CUBIERTA",
+      "CUBIERTA"
+    ]
+  );
+
+  assert.deepEqual(
+    plan.map(
+      (item) =>
+        item.descripcion
+    ),
+    [
+      "Nomina vencida",
+      "Proveedor",
+      "Servicio"
+    ]
+  );
+});
+
+test("cobros priorizados amplian cobertura sin cambiar orden de pagos", () => {
+  const agenda =
+    construirAgendaFinanciera({
+      confiabilidad: "COMPLETO",
+      saldoActual: 100000,
+      obligaciones: {
+        proximos7d: {
+          monto: 250000
+        },
+        prioridadPago: [
+          {
+            id: "o1",
+            tipo: "GASTO",
+            descripcion: "Obligacion uno",
+            monto: 100000,
+            fechaVencimiento: "2026-09-24T00:00:00Z"
+          },
+          {
+            id: "o2",
+            tipo: "COMPRA",
+            descripcion: "Obligacion dos",
+            monto: 150000,
+            fechaVencimiento: "2026-09-27T00:00:00Z"
+          }
+        ]
+      },
+      cobrosEsperados: {
+        proximos7d: {
+          monto: 150000
+        },
+        prioridadCobro: [
+          {
+            id: "v1",
+            descripcion: "Cobro vencido",
+            monto: 150000,
+            fechaVencimiento: "2026-09-24T00:00:00Z",
+            clasificacion: "VENCIDA"
+          }
+        ]
+      },
+      escenario7d: {
+        estado: "DEPENDE_DE_COBROS",
+        faltanteConCajaActual: 150000,
+        faltanteAunCobrandoTodo: 0
+      }
+    });
+
+  assert.deepEqual(
+    agenda.planPagosCajaActual.map(
+      (item) =>
+        item.estadoCobertura
+    ),
+    [
+      "CUBIERTA",
+      "NO_CUBIERTA"
+    ]
+  );
+
+  assert.deepEqual(
+    agenda.planPagosConCobros.map(
+      (item) =>
+        item.estadoCobertura
+    ),
+    [
+      "CUBIERTA",
+      "CUBIERTA"
+    ]
+  );
+
+  assert.deepEqual(
+    agenda.planPagosConCobros.map(
+      (item) => item.id
+    ),
+    ["o1", "o2"]
   );
 });
