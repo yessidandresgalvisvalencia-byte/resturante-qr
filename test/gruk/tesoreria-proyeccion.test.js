@@ -169,9 +169,131 @@ test("compra parcial sin monto acumulado vuelve la proyeccion PARCIAL", async ()
     proyeccion.comprasParcialesSinSaldoExacto.length,
     1
   );
+  assert.equal(
+    proyeccion.escenario7d.estado,
+    "DATOS_INSUFICIENTES"
+  );
+
   assert.ok(
     proyeccion.advertencias.some(
-      (item) => /sin monto pagado acumulado/i.test(item)
+      (item) => /sin saldo pendiente exacto/i.test(item)
     )
+  );
+});
+
+
+test("obligacion sin fecha vuelve la proyeccion PARCIAL y bloquea conclusion de cobertura", async () => {
+  const ahora = new Date();
+
+  await crearCuenta({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    nombre: "Banco cobertura",
+    tipo: "BANCO",
+    saldoInicial: 500000,
+    saldoInicialAt: new Date(
+      ahora.getTime() -
+      60 * 60 * 1000
+    ),
+    createdBy: USUARIO_ID
+  });
+
+  await Gasto.create({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    concepto: "Imprevisto pendiente",
+    categoria: "Otro",
+    monto: 120000,
+    estadoPago: "pendiente",
+    fechaVencimientoPago: null,
+    estado: "registrado",
+    fecha: ahora
+  });
+
+  const proyeccion =
+    await construirProyeccionTesoreria({
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      ahora
+    });
+
+  assert.equal(
+    proyeccion.confiabilidad,
+    "PARCIAL"
+  );
+
+  assert.equal(
+    proyeccion.escenario7d.estado,
+    "DATOS_INSUFICIENTES"
+  );
+
+  assert.equal(
+    proyeccion.obligaciones.sinFecha.cantidad,
+    1
+  );
+
+  assert.equal(
+    proyeccion.escenario7d.saldoDespuesDeObligacionesConCajaActual,
+    null
+  );
+});
+
+test("compra parcial con saldo exacto mantiene proyeccion cuantificada", async () => {
+  const ahora = new Date();
+
+  await crearCuenta({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    nombre: "Banco parcial exacto",
+    tipo: "BANCO",
+    saldoInicial: 150000,
+    saldoInicialAt: new Date(
+      ahora.getTime() -
+      60 * 60 * 1000
+    ),
+    createdBy: USUARIO_ID
+  });
+
+  await Compra.create({
+    empresaId: EMPRESA_ID,
+    sedeId: SEDE_ID,
+    proveedor: "Proveedor exacto",
+    items: [],
+    subtotal: 300000,
+    impuestos: 0,
+    total: 300000,
+    metodoPago: "credito",
+    estadoPago: "parcial",
+    saldoPendientePago: 80000,
+    fechaVencimientoPago: fechaMasDias(ahora, 3),
+    estado: "registrada",
+    fecha: ahora
+  });
+
+  const proyeccion =
+    await construirProyeccionTesoreria({
+      empresaId: EMPRESA_ID,
+      sedeId: SEDE_ID,
+      ahora
+    });
+
+  assert.equal(
+    proyeccion.confiabilidad,
+    "COMPLETO"
+  );
+
+  assert.equal(
+    proyeccion.obligaciones.proximos7d.monto,
+    80000
+  );
+
+  assert.equal(
+    proyeccion.escenario7d.estado,
+    "CUBIERTO_CON_CAJA_ACTUAL"
+  );
+
+  assert.equal(
+    proyeccion.escenario7d.saldoDespuesDeObligacionesConCajaActual,
+    70000
   );
 });
