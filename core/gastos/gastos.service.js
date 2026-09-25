@@ -48,6 +48,8 @@ async function registrarGasto({
       monto: gasto.monto,
       metodoPago: gasto.metodoPago,
       estadoPago: gasto.estadoPago,
+      fechaVencimientoPago:
+        gasto.fechaVencimientoPago,
       proveedor: gasto.proveedor,
       fecha: gasto.fecha,
       origen: gasto.origen,
@@ -117,6 +119,8 @@ async function actualizarEstadoPagoGasto({
         metodoPago: gasto.metodoPago,
         estadoPagoAnterior: anterior,
         estadoPago: gasto.estadoPago,
+        fechaVencimientoPago:
+          gasto.fechaVencimientoPago,
         proveedor: gasto.proveedor,
         fecha: gasto.fecha,
         origen: gasto.origen,
