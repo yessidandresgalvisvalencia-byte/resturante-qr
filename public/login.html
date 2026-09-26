@@ -27,45 +27,137 @@
   <script>
     async function loginAdmin() {
       try {
-        const usuario = document.getElementById("usuario").value.trim();
-        const password = document.getElementById("password").value.trim();
+        const usuario =
+          document.getElementById("usuario").value.trim();
+
+        const password =
+          document.getElementById("password").value;
 
         if (!usuario || !password) {
           alert("Completa usuario y contraseña");
           return;
         }
 
-        const res = await fetch("/api/admin/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ usuario, password })
-        });
+        let res =
+          await fetch("/api/usuarios/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body:
+              JSON.stringify({
+                usuario,
+                password
+              })
+          });
 
-        const data = await res.json();
+        let data =
+          await res.json();
 
         if (!res.ok || !data.ok) {
-          alert(data.error || "Usuario o contraseña incorrectos");
+          res =
+            await fetch("/api/admin/login", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body:
+                JSON.stringify({
+                  usuario,
+                  password
+                })
+            });
+
+          data =
+            await res.json();
+        }
+
+        if (!res.ok || !data.ok) {
+          alert(
+            data.error ||
+            "Usuario o contraseña incorrectos"
+          );
           return;
         }
 
-        localStorage.setItem("adminRestaurantId", data.restaurantId);
-        localStorage.setItem("adminUsuario", data.usuario || usuario);
+        const restaurantId =
+          data.usuario?.restauranteId ||
+          data.restaurantId ||
+          "";
 
-        if (data.token) {
-          localStorage.setItem("grukAuthToken", data.token);
+        if (restaurantId) {
+          localStorage.setItem(
+            "adminRestaurantId",
+            restaurantId
+          );
         } else {
-          localStorage.removeItem("grukAuthToken");
+          localStorage.removeItem(
+            "adminRestaurantId"
+          );
         }
 
-        window.location.href = `/admin.html?restaurantId=${data.restaurantId}`;
+        localStorage.setItem(
+          "adminUsuario",
+          data.usuario?.usuario ||
+          data.usuario ||
+          usuario
+        );
+
+        if (data.empresa) {
+          localStorage.setItem(
+            "grukEmpresaId",
+            data.empresa.empresaId || ""
+          );
+
+          localStorage.setItem(
+            "grukTipoNegocio",
+            data.empresa.tipoNegocio || ""
+          );
+
+          localStorage.setItem(
+            "grukVertical",
+            data.empresa.vertical || ""
+          );
+
+          localStorage.setItem(
+            "grukModulos",
+            JSON.stringify(
+              data.empresa.modulos || {}
+            )
+          );
+        }
+
+        if (data.token) {
+          localStorage.setItem(
+            "grukAuthToken",
+            data.token
+          );
+        } else {
+          localStorage.removeItem(
+            "grukAuthToken"
+          );
+        }
+
+        const destino =
+          restaurantId
+            ? `/admin.html?restaurantId=${encodeURIComponent(
+                restaurantId
+              )}`
+            : "/admin.html";
+
+        window.location.href =
+          destino;
       } catch (error) {
-        console.log("Error login:", error);
-        alert("Error iniciando sesión");
+        console.log(
+          "Error login:",
+          error
+        );
+
+        alert(
+          "Error iniciando sesión"
+        );
       }
     }
-
     
   </script>
   <script>
