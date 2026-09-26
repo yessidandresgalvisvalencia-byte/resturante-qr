@@ -199,13 +199,13 @@ async function cargarInventario() {
 
             return `
               <tr style="border-bottom:1px solid rgba(255,255,255,15);">
-                <td>${producto.nombre}</td>
-                <td>${producto.categoria}</td>
+                <td>${escaparInventarioGRUK(producto.nombre)}</td>
+                <td>${escaparInventarioGRUK(producto.categoria)}</td>
                 <td>${producto.cantidad}</td>
-                <td>${producto.unidad}</td>
+                <td>${escaparInventarioGRUK(producto.unidad)}</td>
                 <td>${formatoCOP(costoUnitario)}</td>
                 <td>${formatoCOP(valorTotalProducto)}</td>
-                <td>${producto.proveedor || "-"}</td>
+                <td>${escaparInventarioGRUK(producto.proveedor || "-")}</td>
                 <td>
                   ${
                     producto.fechaVencimiento
@@ -219,10 +219,12 @@ async function cargarInventario() {
                       ? "✅ Vigente"
                       : producto.estado === "proximo"
                         ? "⚠️ Próximo"
-                        : "❌ Vencido"
+                        : producto.estado === "agotado"
+                          ? "⛔ Agotado"
+                          : "❌ Vencido"
                   }
                 </td>
-                <td>${producto.diasRestantes}</td>
+                <td>${producto.diasRestantes === null || producto.diasRestantes === undefined ? "-" : escaparInventarioGRUK(producto.diasRestantes)}</td>
                 <td>
                   <button onclick="anularInventario('${producto._id}')">
                     Anular
@@ -234,6 +236,8 @@ async function cargarInventario() {
         </tbody>
       </table>
     `;
+
+    renderizarPaginacionInventarioGRUK(data.paginacion || {});
 
   } catch (error) {
     console.log(error);
@@ -285,6 +289,7 @@ async function anularInventario(id) {
 }
 
 async function inicializarInventarioGRUK() {
+  registrarFiltrosInventarioGRUK();
   await cargarInventario();
 }
 async function generarPlanInventarioMensualGRUK() {
@@ -595,3 +600,6 @@ function analizarTemporadasGRUK() {
 function analizarCapitalInventarioGRUK() {
   diagnosticoInventarioGRUK();
 }
+window.aplicarFiltrosInventarioGRUK = aplicarFiltrosInventarioGRUK;
+window.limpiarFiltrosInventarioGRUK = limpiarFiltrosInventarioGRUK;
+window.cambiarPaginaInventarioGRUK = cambiarPaginaInventarioGRUK;
