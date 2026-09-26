@@ -60,6 +60,23 @@ const kpiPrincipalSchema = new mongoose.Schema(
         "ALERTA",
         "CRITICO"
       ]
+    },
+
+    medicion_disponible: {
+      type: Boolean,
+      default: true
+    },
+
+    objetivo_disponible: {
+      type: Boolean,
+      default: true
+    },
+
+    motivo_no_evaluable: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500
     }
   },
   {
