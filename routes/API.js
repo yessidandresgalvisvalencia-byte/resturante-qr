@@ -3859,86 +3859,225 @@ router.post("/suscripciones/cobrar", authMiddleware, roleCheck(ROLES_GRUK.DUENO)
 });
 
 router.post("/confirmar-pago", async (req, res) => {
-try {
-const { transactionId, restaurantId } = req.body;
+  try {
+    const transactionId =
+      String(
+        req.body?.transactionId || ""
+      ).trim();
 
-console.log("Confirmando pago:", { transactionId, restaurantId });
+    const empresaId =
+      String(
+        req.body?.empresaId || ""
+      ).trim();
 
-if (!transactionId || !restaurantId) {
-return res.status(400).json({
-ok: false,
-error: "Faltan datos para confirmar el pago"
+    const restaurantId =
+      String(
+        req.body?.restaurantId || ""
+      ).trim();
+
+    if (
+      !transactionId ||
+      (!empresaId && !restaurantId)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Faltan datos para confirmar el pago"
+      });
+    }
+
+    let empresa = null;
+    let restaurante = null;
+
+    if (empresaId) {
+      empresa =
+        await Empresa.findOne({
+          empresaId
+        });
+    } else {
+      restaurante =
+        await Restaurante.findOne({
+          restaurantId
+        });
+
+      if (restaurante?.empresaId) {
+        empresa =
+          await Empresa.findById(
+            restaurante.empresaId
+          );
+      }
+    }
+
+    if (!empresa) {
+      return res.status(404).json({
+        ok: false,
+        error:
+          "Empresa no encontrada"
+      });
+    }
+
+    if (
+      !restaurante &&
+      empresa.modulos?.restaurante
+    ) {
+      restaurante =
+        await Restaurante.findOne({
+          empresaId:
+            empresa._id
+        });
+    }
+
+    const wompiRes =
+      await axios.get(
+        `https://production.wompi.co/v1/transactions/${encodeURIComponent(transactionId)}`
+      );
+
+    const transaction =
+      wompiRes.data?.data;
+
+    if (!transaction) {
+      return res.status(404).json({
+        ok: false,
+        error:
+          "Transacción no encontrada"
+      });
+    }
+
+    if (
+      String(
+        transaction.status || ""
+      ).toUpperCase() !==
+      "APPROVED"
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          `Pago no aprobado. Estado: ${transaction.status}`
+      });
+    }
+
+    const referenciaEsperada =
+      `suscripcion_empresa_${empresa.empresaId}_`;
+
+    const montoEsperado =
+      Number(
+        empresa.suscripcion
+          ?.precioMensual ||
+        restaurante
+          ?.precioMensual ||
+        220000
+      ) * 100;
+
+    const referenciaValida =
+      String(
+        transaction.reference || ""
+      ).startsWith(
+        referenciaEsperada
+      );
+
+    const montoValido =
+      Number(
+        transaction.amount_in_cents
+      ) ===
+      montoEsperado;
+
+    const monedaValida =
+      String(
+        transaction.currency || ""
+      ).toUpperCase() ===
+      "COP";
+
+    if (
+      !referenciaValida ||
+      !montoValido ||
+      !monedaValida
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "La transacción no corresponde a esta suscripción"
+      });
+    }
+
+    if (
+      empresa.suscripcion
+        ?.ultimoTransactionId ===
+      transactionId
+    ) {
+      return res.json({
+        ok: true,
+        mensaje:
+          "Pago ya confirmado anteriormente"
+      });
+    }
+
+    const hoy =
+      new Date();
+
+    const proximo =
+      new Date(hoy);
+
+    proximo.setDate(
+      proximo.getDate() + 30
+    );
+
+    empresa.suscripcion.estado =
+      "activa";
+
+    empresa.suscripcion.fechaUltimoPago =
+      hoy;
+
+    empresa.suscripcion.fechaProximoCobro =
+      proximo;
+
+    empresa.suscripcion.ultimoTransactionId =
+      transactionId;
+
+    await empresa.save();
+
+    if (restaurante) {
+      restaurante.estadoSuscripcion =
+        "activa";
+
+      restaurante.aceptaPlan =
+        true;
+
+      restaurante.ultimoTransactionId =
+        transactionId;
+
+      restaurante.fechaUltimoPago =
+        hoy;
+
+      restaurante.fechaProximoCobro =
+        proximo;
+
+      await restaurante.save();
+    }
+
+    return res.json({
+      ok: true,
+      mensaje:
+        "Pago confirmado correctamente",
+      empresaId:
+        empresa.empresaId,
+      tipoNegocio:
+        empresa.tipoNegocio
+    });
+  } catch (error) {
+    console.log(
+      "ERROR REAL confirmar-pago:",
+      error?.response?.data ||
+      error?.message ||
+      error
+    );
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Error confirmando pago"
+    });
+  }
 });
-}
 
-const wompiRes = await axios.get(
-`https://production.wompi.co/v1/transactions/${transactionId}`
-);
-
-const transaction = wompiRes.data.data;
-if (!transaction) {
-return res.status(404).json({
-ok: false,
-error: "TransacciÃƒÂ³n no encontrada"
-});
-}
-
-if (transaction.status !== "APPROVED") {
-return res.status(400).json({
-ok: false,
-error: `Pago no aprobado. Estado: ${transaction.status}`
-});
-}
-
-const restaurante = await Restaurante.findOne({ restaurantId });
-
-if (!restaurante) {
-return res.status(404).json({
-ok: false,
-error: "Restaurante no encontrado"
-});
-}
-
-const referenciaEsperada = `suscripcion_${restaurantId}_`;
-const montoEsperado = Number(restaurante.precioMensual || 220000) * 100;
-const referenciaValida = String(transaction.reference || "").startsWith(referenciaEsperada);
-const montoValido = Number(transaction.amount_in_cents) === montoEsperado;
-const monedaValida = String(transaction.currency || "").toUpperCase() === "COP";
-
-if (!referenciaValida || !montoValido || !monedaValida) {
-return res.status(400).json({
-ok: false,
-error: "La transacción no corresponde a esta suscripción"
-});
-}
-
-if (restaurante.ultimoTransactionId === String(transactionId)) {
-return res.json({
-ok: true,
-mensaje: "Pago ya confirmado anteriormente"
-});
-}
-
-restaurante.estadoSuscripcion = "activa";
-restaurante.aceptaPlan = true;
-restaurante.ultimoTransactionId = String(transactionId);
-restaurante.fechaUltimoPago = new Date();
-restaurante.fechaProximoCobro = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-await restaurante.save();
-
-return res.json({
-ok: true,
-mensaje: "Pago confirmado correctamente"
-});
-} catch (error) {
-console.log("ERROR REAL confirmar-pago:", error.response?.data || error.message);
-
-return res.status(500).json({
-ok: false,
-error: "Error confirmando pago"
-});
-}
-});
 
 module.exports = router;
