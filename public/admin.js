@@ -43,13 +43,89 @@ function vibrar() {
 const socket = io();
 
 function getRestaurantId() {
-  const restaurantId = localStorage.getItem("adminRestaurantId");
+  const restaurantId =
+    localStorage.getItem(
+      "adminRestaurantId"
+    );
 
-  if (!restaurantId) {
-    throw new Error("GRUK: no existe restaurantId para la sesión actual");
+  return restaurantId
+    ? restaurantId.trim()
+    : "";
+}
+
+async function cargarContextoEmpresaGRUK() {
+  const res =
+    await grukFetch(
+      "/api/empresa/contexto"
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible cargar el contexto de la empresa"
+    );
   }
 
-  return restaurantId.trim();
+  const empresa =
+    data.empresa || {};
+
+  localStorage.setItem(
+    "grukEmpresaId",
+    empresa.empresaId || ""
+  );
+
+  localStorage.setItem(
+    "grukTipoNegocio",
+    empresa.tipoNegocio || ""
+  );
+
+  localStorage.setItem(
+    "grukVertical",
+    empresa.vertical || ""
+  );
+
+  localStorage.setItem(
+    "grukModulos",
+    JSON.stringify(
+      empresa.modulos || {}
+    )
+  );
+
+  document
+    .querySelectorAll(
+      "[data-gruk-modulo]"
+    )
+    .forEach((elemento) => {
+      const modulo =
+        elemento.dataset
+          .grukModulo;
+
+      const habilitado =
+        Boolean(
+          empresa.modulos
+            ?.[modulo]
+        );
+
+      elemento.hidden =
+        !habilitado;
+    });
+
+  const tituloMenu =
+    document.querySelector(
+      "#menuAdminGRUK h2"
+    );
+
+  if (tituloMenu) {
+    tituloMenu.textContent =
+      empresa.nombre
+        ? `GRUK · ${empresa.nombre}`
+        : "GRUK";
+  }
+
+  return empresa;
 }
 
 function tiempoTranscurrido(fecha) {
@@ -282,22 +358,51 @@ socket.on("llamado:actualizado", (llamado) => {
 
 document.addEventListener("DOMContentLoaded", async () => {
   const adminRestaurantId =
-    localStorage.getItem("adminRestaurantId");
+    localStorage.getItem(
+      "adminRestaurantId"
+    );
 
   const restaurantIdUrl =
-    new URLSearchParams(window.location.search).get("restaurantId");
+    new URLSearchParams(
+      window.location.search
+    ).get("restaurantId");
 
   const grukAuthToken =
-    localStorage.getItem("grukAuthToken");
+    localStorage.getItem(
+      "grukAuthToken"
+    );
 
-  if (
-    !adminRestaurantId ||
-    !grukAuthToken ||
-    (restaurantIdUrl && restaurantIdUrl !== adminRestaurantId)
-  ) {
-    window.location.href = "/login.html";
+  if (!grukAuthToken) {
+    window.location.href =
+      "/login.html";
     return;
   }
 
-  await cargarModuloGRUK("centro-control");
+  if (
+    restaurantIdUrl &&
+    adminRestaurantId &&
+    restaurantIdUrl !==
+      adminRestaurantId
+  ) {
+    window.location.href =
+      "/login.html";
+    return;
+  }
+
+  try {
+    await cargarContextoEmpresaGRUK();
+  } catch (error) {
+    console.error(
+      "Contexto de empresa:",
+      error
+    );
+
+    window.location.href =
+      "/login.html";
+    return;
+  }
+
+  await cargarModuloGRUK(
+    "centro-control"
+  );
 });
