@@ -206,6 +206,14 @@ margin-bottom:18px;
   <option value="clinica">Clínica / centro de atención</option>
   <option value="otro">Otro negocio</option>
 </select>
+
+<input
+  id="tipoNegocioOtro"
+  placeholder="Escribe el tipo de negocio"
+  maxlength="80"
+  style="display:none;"
+/>
+
 <p class="info-text">
 GRUK usa este dato para activar solo las capacidades y el lenguaje operativo que corresponden a tu negocio.
 </p>
@@ -277,6 +285,24 @@ Pago seguro con Wompi • Activación inmediata
 </div>
 
 <script>
+document.getElementById("tipoNegocio").addEventListener(
+  "change",
+  (event) => {
+    const otro =
+      document.getElementById("tipoNegocioOtro");
+
+    const mostrar =
+      event.target.value === "otro";
+
+    otro.style.display =
+      mostrar ? "block" : "none";
+
+    if (!mostrar) {
+      otro.value = "";
+    }
+  }
+);
+
 async function crearCuentaYPagar() {
 const btn = document.getElementById("btnPagar");
 const estado = document.getElementById("estadoProceso");
@@ -287,7 +313,16 @@ estado.innerHTML = "Iniciando proceso...";
 try {
 const nombre = document.getElementById("nombre").value.trim();
 const correo = document.getElementById("correo").value.trim();
-const tipoNegocio = document.getElementById("tipoNegocio").value.trim();
+const tipoSeleccionado =
+  document.getElementById("tipoNegocio").value.trim();
+
+const tipoOtro =
+  document.getElementById("tipoNegocioOtro").value.trim();
+
+const tipoNegocio =
+  tipoSeleccionado === "otro"
+    ? tipoOtro
+    : tipoSeleccionado;
 const usuario = document.getElementById("usuario").value.trim();
 const password = document.getElementById("password").value.trim();
 const margenObjetivo =
