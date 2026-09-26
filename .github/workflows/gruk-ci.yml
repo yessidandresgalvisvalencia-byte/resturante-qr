@@ -92,7 +92,9 @@ jobs:
           node --check core/finanzas/models/ObligacionRecurrente.js
           node --check core/finanzas/models/CierreFinancieroMensual.js
           node --check core/finanzas/models/ReservaCaja.js
+          node --check core/finanzas/models/RetiroDueno.js
           node --check core/finanzas/distribucionDueno.service.js
+          node --check core/finanzas/retiroDueno.service.js
           node --check core/finanzas/models/MovimientoCaja.js
           node --check core/finanzas/models/CuentaTesoreria.js
           node --check core/finanzas/models/TransferenciaTesoreria.js
