@@ -3842,6 +3842,23 @@ router.post("/usuarios/login", async (req, res) => {
       });
     }
 
+    const empresa =
+      await Empresa.findById(
+        user.empresaId
+      )
+        .select(
+          "empresaId nombre tipoNegocio verticalOperativa modulos estado"
+        )
+        .lean();
+
+    if (!empresa) {
+      return res.status(401).json({
+        ok: false,
+        error:
+          "La empresa del usuario no está disponible"
+      });
+    }
+
     const rolJwt =
       user.rol === "admin_general"
         ? ROLES_GRUK.DUENO
@@ -3873,9 +3890,33 @@ router.post("/usuarios/login", async (req, res) => {
         usuario: user.usuario,
         rol: user.rol,
         rolGruk: rolJwt,
-        restauranteId: user.restauranteId,
-        sedeId: user.sedeId ? user.sedeId._id : null,
-        nombreSede: user.sedeId ? user.sedeId.nombreSede : null
+        restauranteId:
+          user.restauranteId || null,
+        sedeId:
+          user.sedeId
+            ? user.sedeId._id
+            : null,
+        nombreSede:
+          user.sedeId
+            ? user.sedeId.nombreSede
+            : null
+      },
+      empresa: {
+        empresaId:
+          empresa.empresaId,
+        nombre:
+          empresa.nombre,
+        tipoNegocio:
+          empresa.tipoNegocio,
+        vertical:
+          empresa.verticalOperativa ||
+          (
+            empresa.tipoNegocio === "restaurante"
+              ? "restaurante"
+              : "generico"
+          ),
+        modulos:
+          empresa.modulos || {}
       }
     });
   } catch (error) {
