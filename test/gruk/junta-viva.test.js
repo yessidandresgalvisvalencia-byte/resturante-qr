@@ -809,3 +809,67 @@ test("proyeccion con datos insuficientes genera ATENCION sin fingir deficit ni c
     /no afirma cobertura suficiente/i
   );
 });
+
+
+test("setup pendiente no convierte la Junta viva en ATENCION operativa", () => {
+  const diagnostico = construirDiagnostico({
+    ultimoEvento: {
+      tipo: "RECALCULO",
+      direccion: "NEUTRO",
+      monto: null
+    },
+    ventana24h: {
+      ventasPagadas: { cantidad: 0, monto: 0 },
+      comprasPagadas: { cantidad: 0, monto: 0 },
+      comprasNoConfirmadas: { cantidad: 0, monto: 0 },
+      gastosRegistrados: { cantidad: 0, monto: 0 },
+      gastosPagados: { cantidad: 0, monto: 0 },
+      gastosNoConfirmados: { cantidad: 0, monto: 0 },
+      flujoConfirmadoParcial: 0
+    },
+    tesoreria: {
+      estadoConfiabilidad: "COMPLETO",
+      saldoDisponible: 500000
+    },
+    reportes: [
+      {
+        neurona: "FINANZAS",
+        kpi_principal: {
+          nombre: "margen_bruto_confiable",
+          estado: "SIN_CONFIGURAR",
+          evaluabilidad: "SIN_CONFIGURAR"
+        }
+      },
+      {
+        neurona: "MARKETING",
+        kpi_principal: {
+          nombre: "cac",
+          estado: "DATOS_INSUFICIENTES",
+          evaluabilidad: "DATOS_INSUFICIENTES"
+        }
+      }
+    ]
+  });
+
+  assert.equal(
+    diagnostico.estado,
+    "NORMAL"
+  );
+
+  assert.equal(
+    diagnostico.requiereDecisionCerebro,
+    false
+  );
+
+  assert.ok(
+    diagnostico.razones.some(
+      (item) =>
+        /una sola brecha de preparacion\/datos/i.test(item)
+    )
+  );
+
+  assert.doesNotMatch(
+    diagnostico.lectura,
+    /señales criticas evaluables/i
+  );
+});
