@@ -34,7 +34,10 @@ function debeTomarDecision(
   }
   return reportes.some(
     (reporte) =>
-      reporte.kpi_principal?.evaluabilidad === "EVALUABLE" &&
+      !["SIN_CONFIGURAR", "DATOS_INSUFICIENTES"].includes(
+        reporte.kpi_principal?.evaluabilidad ||
+        reporte.kpi_principal?.estado
+      ) &&
       reporte.kpi_principal?.estado === "CRITICO"
   );
 }
