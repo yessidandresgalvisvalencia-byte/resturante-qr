@@ -290,13 +290,28 @@ function construirDiagnostico({
   reportes,
   estadoAnterior = null
 }) {
-  const criticos = reportes.filter(
+  const evaluables = reportes.filter(
+    (r) =>
+      r.kpi_principal?.evaluabilidad ===
+      "EVALUABLE"
+  );
+
+  const preparacionPendiente =
+    reportes.filter(
+      (r) =>
+        r.kpi_principal?.evaluabilidad ===
+          "SIN_CONFIGURAR" ||
+        r.kpi_principal?.evaluabilidad ===
+          "DATOS_INSUFICIENTES"
+    );
+
+  const criticos = evaluables.filter(
     (r) =>
       r.kpi_principal?.estado ===
       "CRITICO"
   );
 
-  const alertas = reportes.filter(
+  const alertas = evaluables.filter(
     (r) =>
       r.kpi_principal?.estado ===
       "ALERTA"
@@ -356,6 +371,20 @@ function construirDiagnostico({
         : "NORMAL";
 
   const razones = [];
+
+  if (preparacionPendiente.length) {
+    const resumenPreparacion =
+      preparacionPendiente
+        .map(
+          (r) =>
+            `${r.neurona} (${r.kpi_principal?.evaluabilidad})`
+        )
+        .join(", ");
+
+    razones.push(
+      `Preparacion de Inteligencia pendiente en ${resumenPreparacion}. Es una sola brecha de preparacion/datos, no una alerta operativa del negocio.`
+    );
+  }
 
   if (tesoreriaParcial) {
     razones.push(
