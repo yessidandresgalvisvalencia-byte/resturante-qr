@@ -488,7 +488,8 @@ test("setup pendiente no se presenta como alerta operativa repetida", async () =
           nombre: "margen_bruto_confiable",
           valor_actual: 86.34,
           valor_objetivo: null,
-          estado: "ALERTA",
+          estado: "SIN_CONFIGURAR",
+          evaluabilidad: "SIN_CONFIGURAR",
           medicion_disponible: true,
           objetivo_disponible: false,
           motivo_no_evaluable:
@@ -509,7 +510,8 @@ test("setup pendiente no se presenta como alerta operativa repetida", async () =
           nombre: "cac",
           valor_actual: null,
           valor_objetivo: null,
-          estado: "ALERTA",
+          estado: "SIN_CONFIGURAR",
+          evaluabilidad: "SIN_CONFIGURAR",
           medicion_disponible: false,
           objetivo_disponible: false,
           motivo_no_evaluable:
