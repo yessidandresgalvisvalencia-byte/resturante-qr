@@ -474,3 +474,104 @@ test("mantiene el caso entre turnos y enriquece la venta con cobro cliente y can
     /instagram/i
   );
 });
+
+
+test("setup pendiente no se presenta como alerta operativa repetida", async () => {
+  const resultado = await generarRespuestasExpertas({
+    pregunta:
+      "¿Qué debemos corregir primero?",
+    decision: null,
+    reportes: [
+      {
+        neurona: "FINANZAS",
+        kpi_principal: {
+          nombre: "margen_bruto_confiable",
+          valor_actual: 86.34,
+          valor_objetivo: null,
+          estado: "ALERTA",
+          medicion_disponible: true,
+          objetivo_disponible: false,
+          motivo_no_evaluable:
+            "Falta configurar margen objetivo."
+        },
+        hallazgos: [
+          {
+            tipo: "CONFIGURACION_INCOMPLETA",
+            evidencia:
+              "La empresa no tiene margen objetivo configurado.",
+            confianza: 100
+          }
+        ]
+      },
+      {
+        neurona: "MARKETING",
+        kpi_principal: {
+          nombre: "cac",
+          valor_actual: null,
+          valor_objetivo: null,
+          estado: "ALERTA",
+          medicion_disponible: false,
+          objetivo_disponible: false,
+          motivo_no_evaluable:
+            "Falta configurar CAC maximo y atribucion."
+        },
+        hallazgos: [
+          {
+            tipo: "DATOS_INSUFICIENTES",
+            evidencia:
+              "No existen datos atribuibles suficientes.",
+            confianza: 100
+          },
+          {
+            tipo: "CONFIGURACION_INCOMPLETA",
+            evidencia:
+              "La empresa no tiene CAC maximo configurado.",
+            confianza: 100
+          }
+        ]
+      }
+    ],
+    intervenciones: []
+  });
+
+  const finanzas =
+    resultado.respuestas.find(
+      (item) =>
+        item.departamento ===
+        "FINANZAS"
+    );
+
+  const marketing =
+    resultado.respuestas.find(
+      (item) =>
+        item.departamento ===
+        "MARKETING"
+    );
+
+  const direccion =
+    resultado.respuestas.find(
+      (item) =>
+        item.departamento ===
+        "DIRECCION"
+    );
+
+  assert.match(
+    finanzas.respuesta,
+    /no es evaluable como alerta operativa/i
+  );
+
+  assert.match(
+    marketing.respuesta,
+    /no es evaluable como alerta operativa/i
+  );
+
+  assert.doesNotMatch(
+    finanzas.evidencia_usada.join(" "),
+    /no tiene margen objetivo configurado/i
+  );
+
+  assert.match(
+    direccion.respuesta,
+    /una sola brecha de preparación de GRUK/i
+  );
+});
