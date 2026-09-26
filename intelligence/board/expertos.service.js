@@ -2567,7 +2567,7 @@ function sintetizarDireccion(
         )];
 
       direccion.respuesta +=
-        ` GRUK tiene una sola brecha de preparación empresarial, no ${sinConfigurar.length} alertas operativas distintas. Falta completar: ${campos.join(", ")}. Configúralo una vez en Configuración y las neuronas se recalcularán.`;
+        ` Hay una sola brecha de preparación de GRUK, no ${sinConfigurar.length} alertas operativas distintas. Falta completar: ${campos.join(", ")}. Configúralo una vez en Configuración y las neuronas se recalcularán.`;
 
       direccion.datos_faltantes = [
         `Configuración base pendiente: ${campos.join(", ")}.`
