@@ -21,6 +21,7 @@ const cerebroRoutes = require("./routes/cerebro");
 const juntaRoutes = require("./routes/junta");
 const memoriaRoutes = require("./routes/memoria");
 const tesoreriaRoutes = require("./routes/tesoreria");
+const configuracionInteligenciaRoutes = require("./routes/configuracionInteligencia");
 const iniciarCerebroJob = require("./shared/jobs/cerebro.job");
 const iniciarCajaJob = require("./shared/jobs/caja.job");
 const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
@@ -74,6 +75,7 @@ app.use("/api/cerebro", cerebroRoutes);
 app.use("/api/junta", juntaRoutes);
 app.use("/api/memoria", memoriaRoutes);
 app.use("/api/tesoreria", tesoreriaRoutes);
+app.use("/api/configuracion-inteligencia", configuracionInteligenciaRoutes);
 app.use("/api", apiRoutes);
 app.use(
 "/api/inventario",
