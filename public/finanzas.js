@@ -1649,6 +1649,12 @@ async function analizarGasto() {
   const nombre = document.getElementById("nombreGasto").value.trim();
   const valor = Number(document.getElementById("valorGasto").value);
   const categoria = document.getElementById("categoriaGasto").value;
+  const estadoPago =
+    document.getElementById("estadoPagoGasto")?.value ||
+    "desconocido";
+  const fechaVencimientoPago =
+    document.getElementById("fechaVencimientoGasto")?.value ||
+    null;
   const impacto = document.getElementById("impactoGasto").value;
   const objetivo = document.getElementById("objetivoGasto").value;
   const observacion = document.getElementById("observacionGasto").value.trim();
@@ -1861,6 +1867,8 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
         concepto: nombre,
         categoria,
         monto: valor,
+        estadoPago,
+        fechaVencimientoPago,
         fecha: fechaGasto,
         origen: "finanzas_gruk",
         metadata: {
@@ -1921,6 +1929,8 @@ No reduzca personal ni capacidad logística. El problema no es exceso operativo:
       nombre,
       valor,
       categoria,
+      estadoPago,
+      fechaVencimientoPago,
       impacto,
       objetivo,
       observacion,
@@ -2956,3 +2966,2090 @@ async function cerrarMesFinanciero() {
 
   alert("Mes financiero cerrado correctamente");
 }
+
+
+function escaparTesoreriaGRUK(valor) {
+  return String(valor ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[c])
+  );
+}
+
+function fechaLocalInputGRUK(fecha = new Date()) {
+  const local =
+    new Date(
+      fecha.getTime() -
+      fecha.getTimezoneOffset() * 60000
+    );
+
+  return local
+    .toISOString()
+    .slice(0, 16);
+}
+
+function renderizarTesoreriaGRUK(resumen, proyeccion = null) {
+  const contenedor =
+    document.getElementById(
+      "resumenTesoreriaGRUK"
+    );
+
+  if (!contenedor) return;
+
+  const estado =
+    resumen?.estadoConfiabilidad ||
+    "SIN_CONFIGURAR";
+
+  const cuentas =
+    Array.isArray(resumen?.cuentas)
+      ? resumen.cuentas
+      : [];
+
+  const noAsignados =
+    resumen?.movimientosSinAsignar || {
+      entradas: {
+        cantidad: 0,
+        monto: 0
+      },
+      salidas: {
+        cantidad: 0,
+        monto: 0
+      }
+    };
+
+  const saldoTexto =
+    resumen?.saldoDisponible === null ||
+    resumen?.saldoDisponible === undefined
+      ? "No disponible"
+      : formatoCOPFinanzas(
+          resumen.saldoDisponible
+        );
+
+  const cuentasHtml =
+    cuentas.length
+      ? cuentas.map((cuenta) => {
+          const saldo =
+            cuenta?.saldo
+              ?.saldoDisponible ?? 0;
+
+          const metodos =
+            Array.isArray(
+              cuenta.metodosPagoAsociados
+            )
+              ? cuenta
+                  .metodosPagoAsociados
+                  .join(", ")
+              : "";
+
+          return `
+            <li>
+              <strong>${escaparTesoreriaGRUK(
+                cuenta.nombre
+              )}</strong>
+              · ${escaparTesoreriaGRUK(
+                cuenta.tipo
+              )}
+              · saldo
+              ${formatoCOPFinanzas(saldo)}
+              ${metodos
+                ? `· recibe: ${escaparTesoreriaGRUK(
+                    metodos
+                  )}`
+                : ""}
+            </li>
+          `;
+        }).join("")
+      : "<li>No hay cuentas configuradas.</li>";
+
+  contenedor.innerHTML = `
+    <p>
+      <strong>Confiabilidad:</strong>
+      ${escaparTesoreriaGRUK(estado)}
+    </p>
+
+    <p>
+      <strong>Saldo disponible configurado:</strong>
+      ${saldoTexto}
+    </p>
+
+    <p>
+      <strong>Movimientos sin asignar:</strong>
+      entradas
+      ${formatoCOPFinanzas(
+        noAsignados.entradas?.monto || 0
+      )}
+      · salidas
+      ${formatoCOPFinanzas(
+        noAsignados.salidas?.monto || 0
+      )}
+    </p>
+
+    ${resumen?.advertencia
+      ? `<p><strong>Advertencia:</strong> ${escaparTesoreriaGRUK(
+          resumen.advertencia
+        )}</p>`
+      : ""}
+
+    <ul>${cuentasHtml}</ul>
+
+    ${proyeccion
+      ? `
+        <hr>
+        <h4>Proyección de caja</h4>
+
+        <p>
+          <strong>Confiabilidad:</strong>
+          ${escaparTesoreriaGRUK(
+            proyeccion.confiabilidad || "SIN_DATOS"
+          )}
+        </p>
+
+        <p>
+          <strong>Obligaciones vencidas:</strong>
+          ${formatoCOPFinanzas(
+            proyeccion.obligaciones?.vencidas?.monto || 0
+          )}
+          ·
+          <strong>hasta 7 días:</strong>
+          ${formatoCOPFinanzas(
+            proyeccion.obligaciones?.proximos7d?.monto || 0
+          )}
+        </p>
+
+        <p>
+          <strong>Cobros esperados hasta 7 días:</strong>
+          ${formatoCOPFinanzas(
+            proyeccion.cobrosEsperados?.proximos7d?.monto || 0
+          )}
+        </p>
+
+        <p>
+          <strong>Escenario 7 días:</strong>
+          ${escaparTesoreriaGRUK(
+            proyeccion.escenario7d?.estado || "SIN_DATOS"
+          )}
+        </p>
+
+        <p>
+          <strong>Saldo después de obligaciones con caja actual:</strong>
+          ${proyeccion.escenario7d
+            ?.saldoDespuesDeObligacionesConCajaActual === null
+            ? "No verificable"
+            : formatoCOPFinanzas(
+                proyeccion.escenario7d
+                  ?.saldoDespuesDeObligacionesConCajaActual || 0
+              )}
+        </p>
+
+        <p>
+          <strong>Días de cobertura sobre salidas históricas 30d:</strong>
+          ${proyeccion.historico30d
+            ?.diasCoberturaSalidasHistoricas ?? "No calculable"}
+        </p>
+
+        ${proyeccion.proximoVencimiento
+          ? `<p><strong>Próximo vencimiento:</strong>
+              ${escaparTesoreriaGRUK(
+                proyeccion.proximoVencimiento.descripcion
+              )}
+              ·
+              ${formatoCOPFinanzas(
+                proyeccion.proximoVencimiento.monto
+              )}
+              ·
+              ${escaparTesoreriaGRUK(
+                new Date(
+                  proyeccion.proximoVencimiento.fechaVencimiento
+                ).toLocaleDateString("es-CO")
+              )}
+            </p>`
+          : ""}
+
+        ${Array.isArray(proyeccion.advertencias)
+          ? proyeccion.advertencias
+              .map(
+                (item) =>
+                  `<p><small>⚠️ ${escaparTesoreriaGRUK(item)}</small></p>`
+              )
+              .join("")
+          : ""}
+      `
+      : ""}
+  `;
+}
+
+function renderizarObligacionesTesoreriaGRUK(
+  obligaciones
+) {
+  const contenedor =
+    document.getElementById(
+      "obligacionesTesoreriaGRUK"
+    );
+
+  if (!contenedor) return;
+
+  if (!obligaciones) {
+    contenedor.innerHTML =
+      "<p>No hay información de obligaciones disponible.</p>";
+    return;
+  }
+
+  const grupos =
+    obligaciones.grupos || {};
+
+  const vencidas =
+    grupos.vencidas || {};
+  const siete =
+    grupos.proximos7Dias || {};
+  const treinta =
+    grupos.dias8a30 || {};
+  const sinFecha =
+    grupos.sinFecha || {};
+
+  const saldoDespues =
+    obligaciones.saldoDespues7Dias;
+
+  contenedor.innerHTML = `
+    <hr>
+    <h4>Obligaciones registradas</h4>
+
+    <p>
+      <strong>Cobertura 7 días:</strong>
+      ${escaparTesoreriaGRUK(
+        obligaciones.cobertura7Dias ||
+        "NO_CALCULABLE"
+      )}
+    </p>
+
+    <p>
+      <strong>Vencidas:</strong>
+      ${formatoCOPFinanzas(
+        vencidas.montoCuantificado || 0
+      )}
+      ·
+      <strong>Próximos 7 días:</strong>
+      ${formatoCOPFinanzas(
+        siete.montoCuantificado || 0
+      )}
+      ·
+      <strong>8–30 días:</strong>
+      ${formatoCOPFinanzas(
+        treinta.montoCuantificado || 0
+      )}
+    </p>
+
+    <p>
+      <strong>Total exigible cuantificado hasta 7 días:</strong>
+      ${formatoCOPFinanzas(
+        obligaciones.montoExigible7Dias || 0
+      )}
+    </p>
+
+    <p>
+      <strong>Obligaciones sin fecha:</strong>
+      ${Number(
+        obligaciones.obligacionesSinFecha || 0
+      )}
+      ·
+      <strong>exigibles no cuantificadas:</strong>
+      ${Number(
+        obligaciones.noCuantificadasExigibles || 0
+      )}
+    </p>
+
+    <p>
+      <strong>Saldo después de obligaciones registradas 7d:</strong>
+      ${saldoDespues === null ||
+        saldoDespues === undefined
+        ? "No calculable con confianza"
+        : formatoCOPFinanzas(
+            saldoDespues
+          )}
+    </p>
+
+    <p><small>
+      ${escaparTesoreriaGRUK(
+        obligaciones.advertencia || ""
+      )}
+    </small></p>
+
+    ${sinFecha.cantidad
+      ? `<p><small>⚠️ Hay ${Number(
+          sinFecha.cantidad
+        )} obligación(es) sin fecha. GRUK no declarará cobertura suficiente hasta completar esos vencimientos.</small></p>`
+      : ""}
+  `;
+}
+
+function renderizarObligacionesRecurrentesGRUK(
+  obligaciones
+) {
+  const contenedor =
+    document.getElementById(
+      "obligacionesRecurrentesGRUK"
+    );
+
+  if (!contenedor) return;
+
+  const lista =
+    Array.isArray(obligaciones)
+      ? obligaciones
+      : [];
+
+  if (!lista.length) {
+    contenedor.innerHTML =
+      "<p>No hay obligaciones recurrentes activas.</p>";
+    return;
+  }
+
+  contenedor.innerHTML = `
+    <hr>
+    <h4>Obligaciones recurrentes activas</h4>
+    <ul>
+      ${lista.map((item) => `
+        <li>
+          <strong>${escaparTesoreriaGRUK(
+            item.nombre
+          )}</strong>
+          · ${escaparTesoreriaGRUK(
+            item.categoria
+          )}
+          · ${formatoCOPFinanzas(
+            item.monto || 0
+          )}
+          · ${escaparTesoreriaGRUK(
+            item.frecuencia
+          )}
+          · próximo:
+          ${escaparTesoreriaGRUK(
+            new Date(
+              item.proximoVencimiento
+            ).toLocaleDateString("es-CO")
+          )}
+          · fuente:
+          ${escaparTesoreriaGRUK(
+            item.fuenteMonto
+          )}
+          <button
+            onclick="desactivarObligacionRecurrenteGRUK('${escaparTesoreriaGRUK(
+              item._id
+            )}')"
+          >
+            Desactivar
+          </button>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+async function cargarObligacionesRecurrentesGRUK() {
+  const res =
+    await grukFetch(
+      "/api/tesoreria/obligaciones-recurrentes"
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible consultar obligaciones recurrentes"
+    );
+  }
+
+  renderizarObligacionesRecurrentesGRUK(
+    data.obligaciones || []
+  );
+
+  return data.obligaciones || [];
+}
+
+async function crearObligacionRecurrenteGRUK() {
+  const estado =
+    document.getElementById(
+      "estadoObligacionRecurrenteGRUK"
+    );
+
+  const nombre =
+    document.getElementById(
+      "recurrenteNombre"
+    )?.value.trim();
+
+  const categoria =
+    document.getElementById(
+      "recurrenteCategoria"
+    )?.value;
+
+  const monto =
+    Number(
+      document.getElementById(
+        "recurrenteMonto"
+      )?.value || 0
+    );
+
+  const frecuencia =
+    document.getElementById(
+      "recurrenteFrecuencia"
+    )?.value;
+
+  const proximoVencimiento =
+    document.getElementById(
+      "recurrenteProximoVencimiento"
+    )?.value;
+
+  const fechaFin =
+    document.getElementById(
+      "recurrenteFechaFin"
+    )?.value || null;
+
+  const tercero =
+    document.getElementById(
+      "recurrenteTercero"
+    )?.value.trim() || "";
+
+  const fuenteMonto =
+    document.getElementById(
+      "recurrenteFuenteMonto"
+    )?.value;
+
+  if (
+    !nombre ||
+    !categoria ||
+    !frecuencia ||
+    !proximoVencimiento ||
+    !Number.isFinite(monto) ||
+    monto <= 0
+  ) {
+    if (estado) {
+      estado.innerHTML =
+        "<p>Completa nombre, monto, frecuencia y próximo vencimiento.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/obligaciones-recurrentes",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              nombre,
+              categoria,
+              monto,
+              frecuencia,
+              proximoVencimiento,
+              fechaFin,
+              tercero,
+              fuenteMonto
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible crear la obligación recurrente"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Obligación recurrente creada. Ya participa en la cobertura de Tesorería.</p>";
+    }
+
+    document.getElementById(
+      "recurrenteNombre"
+    ).value = "";
+
+    document.getElementById(
+      "recurrenteMonto"
+    ).value = "";
+
+    document.getElementById(
+      "recurrenteTercero"
+    ).value = "";
+
+    await Promise.all([
+      cargarObligacionesRecurrentesGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function desactivarObligacionRecurrenteGRUK(
+  obligacionId
+) {
+  const estado =
+    document.getElementById(
+      "estadoObligacionRecurrenteGRUK"
+    );
+
+  try {
+    const res =
+      await grukFetch(
+        `/api/tesoreria/obligaciones-recurrentes/${encodeURIComponent(
+          obligacionId
+        )}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible desactivar la obligación recurrente"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Obligación recurrente desactivada.</p>";
+    }
+
+    await Promise.all([
+      cargarObligacionesRecurrentesGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+function llenarSelectsTesoreriaGRUK(cuentas) {
+  const origen =
+    document.getElementById(
+      "tesoreriaCuentaOrigen"
+    );
+
+  const destino =
+    document.getElementById(
+      "tesoreriaCuentaDestino"
+    );
+
+  const opciones =
+    (cuentas || []).map(
+      (cuenta) => `
+        <option value="${escaparTesoreriaGRUK(
+          cuenta._id
+        )}">
+          ${escaparTesoreriaGRUK(
+            cuenta.nombre
+          )}
+          ·
+          ${formatoCOPFinanzas(
+            cuenta?.saldo
+              ?.saldoDisponible || 0
+          )}
+        </option>
+      `
+    ).join("");
+
+  if (origen) {
+    origen.innerHTML =
+      opciones ||
+      '<option value="">Sin cuentas</option>';
+  }
+
+  if (destino) {
+    destino.innerHTML =
+      opciones ||
+      '<option value="">Sin cuentas</option>';
+
+    if (
+      destino.options.length > 1
+    ) {
+      destino.selectedIndex = 1;
+    }
+  }
+}
+
+function categoriasPoliticaPagosGRUK() {
+  const select =
+    document.getElementById(
+      "politicaPagosCategorias"
+    );
+
+  if (!select) return [];
+
+  return Array.from(
+    select.options
+  ).map(
+    (option) => option.value
+  );
+}
+
+function reordenarPoliticaPagosGRUK(
+  precedencia
+) {
+  const select =
+    document.getElementById(
+      "politicaPagosCategorias"
+    );
+
+  if (!select) return;
+
+  const mapa =
+    new Map(
+      Array.from(
+        select.options
+      ).map(
+        (option) => [
+          option.value,
+          option
+        ]
+      )
+    );
+
+  const orden = [
+    ...(Array.isArray(precedencia)
+      ? precedencia
+      : []),
+    ...Array.from(
+      mapa.keys()
+    ).filter(
+      (categoria) =>
+        !(
+          precedencia || []
+        ).includes(
+          categoria
+        )
+    )
+  ];
+
+  for (const categoria of orden) {
+    const option =
+      mapa.get(categoria);
+
+    if (option) {
+      select.appendChild(option);
+    }
+  }
+}
+
+function moverCategoriaPoliticaGRUK(
+  direccion
+) {
+  const select =
+    document.getElementById(
+      "politicaPagosCategorias"
+    );
+
+  if (!select) return;
+
+  const index =
+    select.selectedIndex;
+
+  if (index < 0) return;
+
+  const destino =
+    index + Number(direccion);
+
+  if (
+    destino < 0 ||
+    destino >=
+      select.options.length
+  ) {
+    return;
+  }
+
+  const actual =
+    select.options[index];
+
+  if (direccion < 0) {
+    select.insertBefore(
+      actual,
+      select.options[destino]
+    );
+  } else {
+    const referencia =
+      select.options[destino]
+        .nextSibling;
+
+    select.insertBefore(
+      actual,
+      referencia
+    );
+  }
+
+  select.selectedIndex =
+    destino;
+}
+
+function renderizarPoliticaPagosGRUK(
+  politica
+) {
+  const activa =
+    document.getElementById(
+      "politicaPagosActiva"
+    );
+
+  if (activa) {
+    activa.checked =
+      Boolean(
+        politica
+          ?.usar_precedencia_categoria
+      );
+  }
+
+  reordenarPoliticaPagosGRUK(
+    politica
+      ?.precedencia_categorias || []
+  );
+
+  const estado =
+    document.getElementById(
+      "estadoPoliticaPagosGRUK"
+    );
+
+  if (estado) {
+    const modo =
+      politica
+        ?.usar_precedencia_categoria
+        ? "ACTIVA"
+        : "INACTIVA";
+
+    estado.innerHTML =
+      `<p>Política: <strong>${modo}</strong>. ${politica?.usar_precedencia_categoria ? "GRUK aplica el orden corporativo dentro de cada frontera de vencimiento." : "GRUK usa vencimiento, fecha y monto."}</p>`;
+  }
+}
+
+async function cargarPoliticaPagosGRUK() {
+  const res =
+    await grukFetch(
+      "/api/tesoreria/politica-priorizacion-pagos"
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible consultar la política de pagos"
+    );
+  }
+
+  renderizarPoliticaPagosGRUK(
+    data.politica
+  );
+
+  return data.politica;
+}
+
+async function guardarPoliticaPagosGRUK() {
+  const estado =
+    document.getElementById(
+      "estadoPoliticaPagosGRUK"
+    );
+
+  const activa =
+    Boolean(
+      document.getElementById(
+        "politicaPagosActiva"
+      )?.checked
+    );
+
+  const categorias =
+    categoriasPoliticaPagosGRUK();
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/politica-priorizacion-pagos",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              usar_precedencia_categoria:
+                activa,
+              precedencia_categorias:
+                categorias
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible guardar la política de pagos"
+      );
+    }
+
+    renderizarPoliticaPagosGRUK(
+      data.politica
+    );
+
+    if (estado) {
+      estado.innerHTML +=
+        "<p>✅ Política guardada. Junta y Cerebro recalcularán la prioridad financiera.</p>";
+    }
+
+    await cargarTesoreriaGRUK();
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}. Solo el DUEÑO puede modificar esta política corporativa.</p>`;
+    }
+  }
+}
+
+function renderizarExcepcionesPrioridadPagoGRUK(
+  proyeccion
+) {
+  const activas =
+    Array.isArray(
+      proyeccion?.excepcionesPrioridadPago
+    )
+      ? proyeccion.excepcionesPrioridadPago
+      : [];
+
+  const excepcionesContenedor =
+    document.getElementById(
+      "excepcionesPrioridadPagoGRUK"
+    );
+
+  if (excepcionesContenedor) {
+    excepcionesContenedor.innerHTML =
+      activas.length
+        ? `
+          <ul>
+            ${activas.map((item) => `
+              <li>
+                <strong>${escaparTesoreriaGRUK(
+                  item.origenTipo
+                )}</strong>
+                · vence excepción:
+                ${escaparTesoreriaGRUK(
+                  new Date(
+                    item.expiresAt
+                  ).toLocaleString("es-CO")
+                )}
+                · ${escaparTesoreriaGRUK(
+                  item.motivo
+                )}
+                <button
+                  onclick="revocarExcepcionPrioridadPagoGRUK('${escaparTesoreriaGRUK(
+                    item._id
+                  )}')"
+                >
+                  Revocar
+                </button>
+              </li>
+            `).join("")}
+          </ul>
+        `
+        : "<p>No hay excepciones temporales activas.</p>";
+  }
+
+  const obligaciones =
+    Array.isArray(
+      proyeccion?.obligaciones?.prioridadPago
+    )
+      ? proyeccion.obligaciones.prioridadPago
+      : [];
+
+  const obligacionesContenedor =
+    document.getElementById(
+      "obligacionesParaExcepcionGRUK"
+    );
+
+  if (!obligacionesContenedor) return;
+
+  obligacionesContenedor.innerHTML =
+    obligaciones.length
+      ? `
+        <h5>Obligaciones del horizonte 7 días</h5>
+        <ol>
+          ${obligaciones.map((item) => `
+            <li>
+              ${escaparTesoreriaGRUK(
+                item.descripcion || "Obligación"
+              )}
+              · ${formatoCOPFinanzas(
+                item.monto || 0
+              )}
+              · ${item.fechaVencimiento
+                ? escaparTesoreriaGRUK(
+                    new Date(
+                      item.fechaVencimiento
+                    ).toLocaleDateString("es-CO")
+                  )
+                : "sin fecha"}
+              ${item.excepcionPrioridad
+                ? `· <strong>EXCEPCIÓN ACTIVA</strong>`
+                : `
+                  <button
+                    onclick="crearExcepcionPrioridadPagoGRUK(
+                      '${escaparTesoreriaGRUK(item.tipo)}',
+                      '${escaparTesoreriaGRUK(item.id)}',
+                      '${escaparTesoreriaGRUK(item.descripcion || "Obligación")}'
+                    )"
+                  >
+                    Priorizar temporalmente
+                  </button>
+                `
+              }
+            </li>
+          `).join("")}
+        </ol>
+      `
+      : "<p>No hay obligaciones cuantificadas dentro de 7 días.</p>";
+}
+
+async function crearExcepcionPrioridadPagoGRUK(
+  origenTipo,
+  origenId,
+  descripcion
+) {
+  const motivo =
+    window.prompt(
+      `Motivo obligatorio para priorizar temporalmente: ${descripcion}`
+    );
+
+  if (
+    !motivo ||
+    motivo.trim().length < 10
+  ) {
+    return;
+  }
+
+  const horas =
+    Number(
+      window.prompt(
+        "¿Cuántas horas debe durar la excepción?",
+        "24"
+      ) || 0
+    );
+
+  if (
+    !Number.isFinite(horas) ||
+    horas <= 0
+  ) {
+    return;
+  }
+
+  const expiresAt =
+    new Date(
+      Date.now() +
+      horas * 60 * 60 * 1000
+    );
+
+  const res =
+    await grukFetch(
+      "/api/tesoreria/excepciones-prioridad-pago",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+        body:
+          JSON.stringify({
+            origenTipo,
+            origenId,
+            motivo:
+              motivo.trim(),
+            expiresAt:
+              expiresAt.toISOString()
+          })
+      }
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    alert(
+      data.error ||
+      "No fue posible crear la excepción. Solo el DUEÑO puede hacerlo."
+    );
+    return;
+  }
+
+  await cargarTesoreriaGRUK();
+}
+
+async function revocarExcepcionPrioridadPagoGRUK(
+  excepcionId
+) {
+  const res =
+    await grukFetch(
+      `/api/tesoreria/excepciones-prioridad-pago/${encodeURIComponent(
+        excepcionId
+      )}`,
+      {
+        method: "DELETE"
+      }
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    alert(
+      data.error ||
+      "No fue posible revocar la excepción."
+    );
+    return;
+  }
+
+  await cargarTesoreriaGRUK();
+}
+
+async function cargarTesoreriaGRUK() {
+  const res =
+    await grukFetch(
+      "/api/tesoreria/resumen"
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible consultar tesorería"
+    );
+  }
+
+  renderizarTesoreriaGRUK(
+    data.resumen,
+    data.proyeccion || null
+  );
+
+  renderizarObligacionesTesoreriaGRUK(
+    data.proyeccion
+      ?.obligacionesRegistradas ||
+    null
+  );
+
+  renderizarExcepcionesPrioridadPagoGRUK(
+    data.proyeccion || null
+  );
+
+  llenarSelectsTesoreriaGRUK(
+    data.resumen?.cuentas || []
+  );
+
+  return data.resumen;
+}
+
+async function crearCuentaTesoreriaGRUK() {
+  const nombre =
+    document
+      .getElementById(
+        "tesoreriaNombreCuenta"
+      )
+      ?.value
+      .trim();
+
+  const tipo =
+    document.getElementById(
+      "tesoreriaTipoCuenta"
+    )?.value;
+
+  const saldoInicial =
+    Number(
+      document.getElementById(
+        "tesoreriaSaldoInicial"
+      )?.value || 0
+    );
+
+  const fechaValor =
+    document.getElementById(
+      "tesoreriaSaldoInicialAt"
+    )?.value;
+
+  const metodosSelect =
+    document.getElementById(
+      "tesoreriaMetodosPago"
+    );
+
+  const metodos =
+    metodosSelect
+      ? Array.from(
+          metodosSelect.selectedOptions
+        ).map(
+          (option) => option.value
+        )
+      : [];
+
+  const permiteSaldoNegativo =
+    Boolean(
+      document.getElementById(
+        "tesoreriaPermiteNegativo"
+      )?.checked
+    );
+
+  const estado =
+    document.getElementById(
+      "estadoCuentaTesoreriaGRUK"
+    );
+
+  if (
+    !nombre ||
+    !tipo ||
+    !fechaValor
+  ) {
+    if (estado) {
+      estado.innerHTML =
+        "<p>Completa nombre, tipo y fecha del saldo inicial.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/cuentas",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              nombre,
+              tipo,
+              saldoInicial,
+              saldoInicialAt:
+                new Date(
+                  fechaValor
+                ).toISOString(),
+              metodosPagoAsociados:
+                metodos,
+              permiteSaldoNegativo
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible crear la cuenta"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Cuenta creada. Desde esta fecha GRUK trazará sus movimientos.</p>";
+    }
+
+    document.getElementById(
+      "tesoreriaNombreCuenta"
+    ).value = "";
+
+    document.getElementById(
+      "tesoreriaSaldoInicial"
+    ).value = "0";
+
+    if (metodosSelect) {
+      Array.from(
+        metodosSelect.options
+      ).forEach(
+        (option) => {
+          option.selected = false;
+        }
+      );
+    }
+
+    await Promise.all([
+      cargarTesoreriaGRUK(),
+      cargarObligacionesRecurrentesGRUK()
+    ]);
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function transferirTesoreriaGRUK() {
+  const cuentaOrigenId =
+    document.getElementById(
+      "tesoreriaCuentaOrigen"
+    )?.value;
+
+  const cuentaDestinoId =
+    document.getElementById(
+      "tesoreriaCuentaDestino"
+    )?.value;
+
+  const monto =
+    Number(
+      document.getElementById(
+        "tesoreriaTransferenciaMonto"
+      )?.value || 0
+    );
+
+  const concepto =
+    document.getElementById(
+      "tesoreriaTransferenciaConcepto"
+    )?.value
+      .trim() ||
+    "Transferencia interna";
+
+  const estado =
+    document.getElementById(
+      "estadoTransferenciaTesoreriaGRUK"
+    );
+
+  if (
+    !cuentaOrigenId ||
+    !cuentaDestinoId ||
+    cuentaOrigenId ===
+      cuentaDestinoId ||
+    !Number.isFinite(monto) ||
+    monto <= 0
+  ) {
+    if (estado) {
+      estado.innerHTML =
+        "<p>Selecciona cuentas diferentes y un monto válido.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/transferencias",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              cuentaOrigenId,
+              cuentaDestinoId,
+              monto,
+              concepto
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible completar la transferencia"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Transferencia interna completada y auditada.</p>";
+    }
+
+    document.getElementById(
+      "tesoreriaTransferenciaMonto"
+    ).value = "";
+
+    await cargarTesoreriaGRUK();
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+function contenedorDistribucionDuenoGRUK() {
+  return document.getElementById(
+    "estadoPoliticaDistribucionDuenoGRUK"
+  )?.parentElement || null;
+}
+
+async function renderizarReservasDuenoGRUK(
+  reservas
+) {
+  const contenedor =
+    document.getElementById(
+      "reservasDuenoGRUK"
+    );
+
+  if (!contenedor) return;
+
+  const lista =
+    (Array.isArray(reservas)
+      ? reservas
+      : [])
+      .filter(
+        (item) =>
+          item.categoria ===
+          "UTILIDAD_DUENO"
+      );
+
+  if (!lista.length) {
+    contenedor.innerHTML =
+      "<p>No hay reservas de utilidad del dueño.</p>";
+    return;
+  }
+
+  const bloques = [];
+
+  for (const item of lista) {
+    let diagnostico = null;
+
+    if (item.estado === "ACTIVA") {
+      try {
+        const res =
+          await grukFetch(
+            `/api/tesoreria/distribucion-dueno/reservas/${encodeURIComponent(
+              item._id
+            )}/retiro-seguro`
+          );
+
+        const data =
+          await res.json();
+
+        if (res.ok && data.ok) {
+          diagnostico =
+            data.diagnostico;
+        }
+      } catch (_) {}
+    }
+
+    const saldoRestante =
+      Math.max(
+        0,
+        Number(item.monto || 0) -
+        Number(item.montoConsumido || 0)
+      );
+
+    const opcionesCuenta =
+      Array.isArray(
+        diagnostico?.cuentasElegibles
+      )
+        ? diagnostico.cuentasElegibles
+            .map(
+              (cuenta) => `
+                <option value="${escaparTesoreriaGRUK(
+                  cuenta.cuentaId
+                )}">
+                  ${escaparTesoreriaGRUK(
+                    cuenta.nombre || "Cuenta"
+                  )} · disponible ${formatoCOPFinanzas(
+                    cuenta.saldoDisponible || 0
+                  )}
+                </option>
+              `
+            )
+            .join("")
+        : "";
+
+    bloques.push(`
+      <div class="card">
+        <p>
+          <strong>${escaparTesoreriaGRUK(
+            item.concepto || "Utilidad del dueño"
+          )}</strong>
+        </p>
+        <p>
+          Reserva original:
+          ${formatoCOPFinanzas(
+            item.monto || 0
+          )}
+        </p>
+        <p>
+          Retirado:
+          ${formatoCOPFinanzas(
+            item.montoConsumido || 0
+          )}
+        </p>
+        <p>
+          Pendiente por retirar:
+          <strong>${formatoCOPFinanzas(
+            saldoRestante
+          )}</strong>
+        </p>
+        <p>
+          Estado:
+          <strong>${escaparTesoreriaGRUK(
+            item.estado || ""
+          )}</strong>
+        </p>
+
+        ${item.estado === "PROPUESTA"
+          ? `
+            <button
+              onclick="aprobarReservaDuenoGRUK('${escaparTesoreriaGRUK(
+                item._id
+              )}')"
+            >
+              Aprobar separación
+            </button>
+          `
+          : ""}
+
+        ${item.estado === "ACTIVA" && diagnostico
+          ? `
+            <hr>
+            <p>
+              <strong>¿Cuándo puedo sacar?</strong>
+              ${diagnostico.puedeRetirarHoy
+                ? "✅ HOY"
+                : "⛔ BLOQUEADO"}
+            </p>
+            <p>
+              ${escaparTesoreriaGRUK(
+                diagnostico.motivo || ""
+              )}
+            </p>
+            <p>
+              Máximo seguro hoy:
+              <strong>${formatoCOPFinanzas(
+                diagnostico.montoMaximoHoy || 0
+              )}</strong>
+            </p>
+
+            ${diagnostico.puedeRetirarHoy
+              ? `
+                <label>Cuenta desde la que saldrá</label>
+                <select id="retiroCuenta_${escaparTesoreriaGRUK(item._id)}">
+                  ${opcionesCuenta}
+                </select>
+
+                <label>Monto a retirar</label>
+                <input
+                  id="retiroMonto_${escaparTesoreriaGRUK(item._id)}"
+                  type="number"
+                  min="1"
+                  step="1"
+                  max="${Number(
+                    diagnostico.montoMaximoHoy || 0
+                  )}"
+                  value="${Number(
+                    diagnostico.montoMaximoHoy || 0
+                  )}"
+                />
+
+                <button
+                  onclick="registrarRetiroDuenoGRUK('${escaparTesoreriaGRUK(
+                    item._id
+                  )}')"
+                >
+                  Registrar retiro real
+                </button>
+              `
+              : ""}
+          `
+          : ""}
+      </div>
+    `);
+  }
+
+  contenedor.innerHTML = `
+    <h5>Reservas de utilidad del dueño</h5>
+    ${bloques.join("")}
+  `;
+}
+
+async function cargarDistribucionDuenoGRUK() {
+  const [politicaRes, reservasRes] =
+    await Promise.all([
+      grukFetch(
+        "/api/tesoreria/distribucion-dueno/politica"
+      ),
+      grukFetch(
+        "/api/tesoreria/distribucion-dueno/reservas"
+      )
+    ]);
+
+  if (
+    politicaRes.status === 403 ||
+    reservasRes.status === 403
+  ) {
+    const bloque =
+      contenedorDistribucionDuenoGRUK();
+
+    if (bloque) {
+      bloque.style.display =
+        "none";
+    }
+
+    return null;
+  }
+
+  const politicaData =
+    await politicaRes.json();
+
+  const reservasData =
+    await reservasRes.json();
+
+  if (
+    !politicaRes.ok ||
+    !politicaData.ok
+  ) {
+    throw new Error(
+      politicaData.error ||
+      "No fue posible consultar la política del dueño"
+    );
+  }
+
+  if (
+    !reservasRes.ok ||
+    !reservasData.ok
+  ) {
+    throw new Error(
+      reservasData.error ||
+      "No fue posible consultar reservas del dueño"
+    );
+  }
+
+  const politica =
+    politicaData.politica || {};
+
+  const activa =
+    document.getElementById(
+      "distribucionDuenoActiva"
+    );
+
+  const porcentaje =
+    document.getElementById(
+      "distribucionDuenoPorcentaje"
+    );
+
+  const reservaMinima =
+    document.getElementById(
+      "distribucionDuenoReservaMinima"
+    );
+
+  if (activa) {
+    activa.checked =
+      Boolean(
+        politica.habilitada
+      );
+  }
+
+  if (porcentaje) {
+    porcentaje.value =
+      Number(
+        politica
+          .porcentaje_utilidad || 0
+      );
+  }
+
+  if (reservaMinima) {
+    reservaMinima.value =
+      Number(
+        politica
+          .reserva_minima_caja || 0
+      );
+  }
+
+  await renderizarReservasDuenoGRUK(
+    reservasData.reservas || []
+  );
+
+  return {
+    politica,
+    reservas:
+      reservasData.reservas || []
+  };
+}
+
+async function guardarPoliticaDistribucionDuenoGRUK() {
+  const estado =
+    document.getElementById(
+      "estadoPoliticaDistribucionDuenoGRUK"
+    );
+
+  try {
+    const habilitada =
+      Boolean(
+        document.getElementById(
+          "distribucionDuenoActiva"
+        )?.checked
+      );
+
+    const porcentaje =
+      Number(
+        document.getElementById(
+          "distribucionDuenoPorcentaje"
+        )?.value || 0
+      );
+
+    const reservaMinima =
+      Number(
+        document.getElementById(
+          "distribucionDuenoReservaMinima"
+        )?.value || 0
+      );
+
+    const res =
+      await grukFetch(
+        "/api/tesoreria/distribucion-dueno/politica",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              habilitada,
+              porcentaje_utilidad:
+                porcentaje,
+              reserva_minima_caja:
+                reservaMinima
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible guardar la política del dueño"
+      );
+    }
+
+    if (estado) {
+      estado.innerHTML =
+        "<p>✅ Política del dueño guardada.</p>";
+    }
+
+    await Promise.all([
+      cargarDistribucionDuenoGRUK(),
+      cargarHistorialRetirosDuenoGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function cerrarPeriodoDistribucionDuenoGRUK() {
+  const resultado =
+    document.getElementById(
+      "resultadoDistribucionDuenoGRUK"
+    );
+
+  const periodo =
+    document.getElementById(
+      "distribucionDuenoPeriodo"
+    )?.value;
+
+  if (!periodo) {
+    if (resultado) {
+      resultado.innerHTML =
+        "<p>Selecciona un periodo mensual ya finalizado.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/distribucion-dueno/cierres",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              periodo
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible cerrar el periodo"
+      );
+    }
+
+    const calculo =
+      data.calculo || {};
+
+    if (resultado) {
+      resultado.innerHTML = `
+        <p><strong>Cierre:</strong> ${escaparTesoreriaGRUK(
+          data.cierre?.periodo || periodo
+        )}</p>
+        <p><strong>Confiabilidad:</strong> ${escaparTesoreriaGRUK(
+          data.cierre?.estadoConfiabilidad || ""
+        )}</p>
+        <p><strong>Utilidad operacional confiable:</strong> ${data.cierre?.utilidadOperacionalConfiable === null || data.cierre?.utilidadOperacionalConfiable === undefined
+          ? "No calculable"
+          : formatoCOPFinanzas(
+              data.cierre.utilidadOperacionalConfiable
+            )}</p>
+        <p><strong>Estado distribución:</strong> ${escaparTesoreriaGRUK(
+          calculo.estado || ""
+        )}</p>
+        <p><strong>Derecho teórico del dueño:</strong> ${formatoCOPFinanzas(
+          calculo.derechoTeoricoDueno || 0
+        )}</p>
+        <p><strong>Caja libre distribuible:</strong> ${formatoCOPFinanzas(
+          calculo.cajaLibreDistribuible || 0
+        )}</p>
+        <p><strong>Monto propuesto a separar:</strong> ${formatoCOPFinanzas(
+          calculo.montoPropuesto || 0
+        )}</p>
+        <p><small>La propuesta no mueve dinero. Solo al aprobarla pasa a reserva activa y deja de contarse como caja operativa libre.</small></p>
+      `;
+    }
+
+    await Promise.all([
+      cargarDistribucionDuenoGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function registrarRetiroDuenoGRUK(
+  reservaId
+) {
+  const resultado =
+    document.getElementById(
+      "resultadoDistribucionDuenoGRUK"
+    );
+
+  const cuentaTesoreriaId =
+    document.getElementById(
+      `retiroCuenta_${reservaId}`
+    )?.value;
+
+  const monto =
+    Number(
+      document.getElementById(
+        `retiroMonto_${reservaId}`
+      )?.value || 0
+    );
+
+  if (
+    !cuentaTesoreriaId ||
+    !Number.isFinite(monto) ||
+    monto <= 0
+  ) {
+    if (resultado) {
+      resultado.innerHTML =
+        "<p>Selecciona una cuenta y un monto válido.</p>";
+    }
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        `/api/tesoreria/distribucion-dueno/reservas/${encodeURIComponent(
+          reservaId
+        )}/retiros`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              cuentaTesoreriaId,
+              monto,
+              concepto:
+                "Retiro de utilidad del dueño"
+            })
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible registrar el retiro"
+      );
+    }
+
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>✅ Retiro registrado: <strong>${formatoCOPFinanzas(
+          data.retiro?.retiro?.monto || monto
+        )}</strong>. Saldo pendiente de la reserva: <strong>${formatoCOPFinanzas(
+          data.retiro?.reserva?.saldoRestante || 0
+        )}</strong>.</p>`;
+    }
+
+    await Promise.all([
+      cargarDistribucionDuenoGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function cargarHistorialRetirosDuenoGRUK() {
+  const contenedor =
+    document.getElementById(
+      "historialRetirosDuenoGRUK"
+    );
+
+  if (!contenedor) return;
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/tesoreria/distribucion-dueno/retiros"
+      );
+
+    if (res.status === 403) {
+      contenedor.style.display =
+        "none";
+      return;
+    }
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible consultar retiros"
+      );
+    }
+
+    const retiros =
+      data.retiros || [];
+
+    contenedor.innerHTML =
+      retiros.length
+        ? `
+          <h5>Historial de retiros del dueño</h5>
+          <ul>
+            ${retiros.map((item) => `
+              <li>
+                ${new Date(
+                  item.fecha
+                ).toLocaleString("es-CO")}
+                · ${formatoCOPFinanzas(
+                  item.monto || 0
+                )}
+                · ${escaparTesoreriaGRUK(
+                  item.concepto || ""
+                )}
+              </li>
+            `).join("")}
+          </ul>
+        `
+        : "<p>No hay retiros registrados.</p>";
+  } catch (error) {
+    contenedor.innerHTML =
+      `<p>❌ ${escaparTesoreriaGRUK(
+        error.message
+      )}</p>`;
+  }
+}
+
+async function aprobarReservaDuenoGRUK(
+  reservaId
+) {
+  const resultado =
+    document.getElementById(
+      "resultadoDistribucionDuenoGRUK"
+    );
+
+  try {
+    const res =
+      await grukFetch(
+        `/api/tesoreria/distribucion-dueno/reservas/${encodeURIComponent(
+          reservaId
+        )}/aprobar`,
+        {
+          method: "POST"
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible aprobar la reserva"
+      );
+    }
+
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>✅ Ganancia del dueño separada: <strong>${formatoCOPFinanzas(
+          data.reserva?.monto || 0
+        )}</strong>. Ya no cuenta como caja operativa libre.</p>`;
+    }
+
+    await Promise.all([
+      cargarDistribucionDuenoGRUK(),
+      cargarTesoreriaGRUK()
+    ]);
+  } catch (error) {
+    if (resultado) {
+      resultado.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+async function inicializarTesoreriaGRUK() {
+  const fecha =
+    document.getElementById(
+      "tesoreriaSaldoInicialAt"
+    );
+
+  if (
+    fecha &&
+    !fecha.value
+  ) {
+    fecha.value =
+      fechaLocalInputGRUK();
+  }
+
+  try {
+    await Promise.all([
+      cargarTesoreriaGRUK(),
+      cargarPoliticaPagosGRUK(),
+      cargarObligacionesRecurrentesGRUK()
+    ]);
+
+    try {
+      await cargarDistribucionDuenoGRUK();
+    } catch (error) {
+      console.warn(
+        "[GRUK FINANZAS] distribución dueño no disponible:",
+        error.message
+      );
+    }
+  } catch (error) {
+    const contenedor =
+      document.getElementById(
+        "resumenTesoreriaGRUK"
+      );
+
+    if (contenedor) {
+      contenedor.innerHTML =
+        `<p>❌ ${escaparTesoreriaGRUK(
+          error.message
+        )}</p>`;
+    }
+  }
+}
+
+window.crearCuentaTesoreriaGRUK =
+  crearCuentaTesoreriaGRUK;
+
+window.transferirTesoreriaGRUK =
+  transferirTesoreriaGRUK;
+
+window.inicializarTesoreriaGRUK =
+  inicializarTesoreriaGRUK;
+
+window.crearObligacionRecurrenteGRUK =
+  crearObligacionRecurrenteGRUK;
+
+window.desactivarObligacionRecurrenteGRUK =
+  desactivarObligacionRecurrenteGRUK;
+
+window.moverCategoriaPoliticaGRUK =
+  moverCategoriaPoliticaGRUK;
+
+window.guardarPoliticaPagosGRUK =
+  guardarPoliticaPagosGRUK;
+
+window.crearExcepcionPrioridadPagoGRUK =
+  crearExcepcionPrioridadPagoGRUK;
+
+window.revocarExcepcionPrioridadPagoGRUK =
+  revocarExcepcionPrioridadPagoGRUK;
+
+window.guardarPoliticaDistribucionDuenoGRUK =
+  guardarPoliticaDistribucionDuenoGRUK;
+
+window.cerrarPeriodoDistribucionDuenoGRUK =
+  cerrarPeriodoDistribucionDuenoGRUK;
+
+window.aprobarReservaDuenoGRUK =
+  aprobarReservaDuenoGRUK;
+
+window.registrarRetiroDuenoGRUK =
+  registrarRetiroDuenoGRUK;

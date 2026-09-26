@@ -96,6 +96,12 @@ margenBruto: {
       default: "pagada"
     },
 
+    fechaVencimientoCobro: {
+      type: Date,
+      default: null,
+      index: true
+    },
+
     fecha: {
       type: Date,
       default: Date.now,

@@ -6,6 +6,9 @@ const http = require("http");
 const { Server } = require("socket.io");
 const eventBus = require("./core/eventos/eventBus");
 const { registrarFinanzasListener } = require("./intelligence/listeners/finanzas.listener");
+const { registrarCajaListener } = require("./intelligence/listeners/caja.listener");
+const { registrarJuntaVivaListener } = require("./intelligence/listeners/juntaViva.listener");
+const { registrarAgendaFinancieraListener } = require("./intelligence/listeners/agendaFinanciera.listener");
 const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
 const facturacionRoutes = require("./routes/facturacion");
@@ -17,7 +20,10 @@ const comprasRoutes = require("./routes/compras");
 const cerebroRoutes = require("./routes/cerebro");
 const juntaRoutes = require("./routes/junta");
 const memoriaRoutes = require("./routes/memoria");
+const tesoreriaRoutes = require("./routes/tesoreria");
+const configuracionInteligenciaRoutes = require("./routes/configuracionInteligencia");
 const iniciarCerebroJob = require("./shared/jobs/cerebro.job");
+const iniciarCajaJob = require("./shared/jobs/caja.job");
 const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -40,7 +46,10 @@ const io = new Server(server, {
 
 app.set("io", io);
 
+registrarCajaListener();
 registrarFinanzasListener();
+registrarAgendaFinancieraListener();
+registrarJuntaVivaListener();
 eventBus.on("VENTA_COMPLETADA", (event) => {
   console.log(
     "[GRUK EVENT] VENTA_COMPLETADA",
@@ -65,6 +74,8 @@ app.use("/api/compras", comprasRoutes);
 app.use("/api/cerebro", cerebroRoutes);
 app.use("/api/junta", juntaRoutes);
 app.use("/api/memoria", memoriaRoutes);
+app.use("/api/tesoreria", tesoreriaRoutes);
+app.use("/api/configuracion-inteligencia", configuracionInteligenciaRoutes);
 app.use("/api", apiRoutes);
 app.use(
 "/api/inventario",
@@ -109,6 +120,7 @@ async function iniciarAplicacion() {
     console.log("MongoDB conectado");
 
     iniciarJobSuscripciones();
+    iniciarCajaJob();
     iniciarCerebroJob();
     iniciarMemoriaJob();
 

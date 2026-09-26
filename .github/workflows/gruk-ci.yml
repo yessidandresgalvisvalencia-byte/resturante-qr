@@ -48,9 +48,13 @@ jobs:
           node --check public/js/centro-control.js
           node --check public/js/auditoria.js
           node --check shared/jobs/cerebro.job.js
+          node --check shared/jobs/caja.job.js
           node --check jobs/suscripciones.js
           node --check models/restaurante.js
           node --check intelligence/listeners/finanzas.listener.js
+          node --check intelligence/listeners/caja.listener.js
+          node --check intelligence/listeners/agendaFinanciera.listener.js
+          node --check intelligence/listeners/juntaViva.listener.js
           node --check intelligence/models/CerebroAuditoria.js
           node --check intelligence/models/CerebroDecision.js
           node --check intelligence/models/CerebroReporteNeurona.js
@@ -62,12 +66,51 @@ jobs:
           node --check intelligence/memory/CerebroMemoria.js
           node --check routes/memoria.js
           node --check public/js/junta-directiva.js
+          node --check public/finanzas.js
+          node --check public/admin.js
           node --check intelligence/board/junta.controller.js
           node --check intelligence/board/junta.service.js
           node --check intelligence/board/expertos.service.js
           node --check intelligence/board/JuntaSesion.js
+          node --check intelligence/board/JuntaEstadoVivo.js
+          node --check intelligence/board/juntaViva.service.js
           node --check routes/junta.js
+          node --check routes/gastos.js
+          node --check routes/compras.js
+          node --check routes/inventario.js
+          node --check routes/configuracionInteligencia.js
+          node --check core/empresa/configuracionInteligencia.service.js
+          node --check core/empresa/configuracionInteligencia.controller.js
+          node --check public/js/configuracion.js
+          node --check models/Inventario.js
+          node --check public/js/inventario.js
+          node --check core/gastos/gastos.service.js
+          node --check core/gastos/validators/gasto.validator.js
+          node --check core/finanzas/caja.service.js
+          node --check core/finanzas/tesoreria.service.js
+          node --check core/finanzas/obligaciones.service.js
+          node --check core/finanzas/politicaFinanciera.service.js
+          node --check core/finanzas/excepcionesPrioridadPago.service.js
+          node --check core/finanzas/models/ExcepcionPrioridadPago.js
+          node --check core/finanzas/planEjecucionPago.service.js
+          node --check core/finanzas/models/PlanEjecucionPago.js
+          node --check core/finanzas/obligacionesRecurrentes.service.js
+          node --check core/finanzas/tesoreriaProyeccion.service.js
+          node --check core/finanzas/models/ObligacionRecurrente.js
+          node --check core/finanzas/models/CierreFinancieroMensual.js
+          node --check core/finanzas/models/ReservaCaja.js
+          node --check core/finanzas/models/RetiroDueno.js
+          node --check core/finanzas/distribucionDueno.service.js
+          node --check core/finanzas/retiroDueno.service.js
+          node --check core/finanzas/models/MovimientoCaja.js
+          node --check core/finanzas/models/CuentaTesoreria.js
+          node --check core/finanzas/models/TransferenciaTesoreria.js
+          node --check routes/tesoreria.js
+          node --check models/Gasto.js
+          node --check models/Compra.js
+          node --check models/Venta.js
           node --check intelligence/brain/cerebro.js
+          node --check intelligence/brain/agendaFinanciera.service.js
           node --check intelligence/brain/cerebro.service.js
           node --check intelligence/brain/cerebro.controller.js
           node --check intelligence/orchestrator/cicloInteligencia.js

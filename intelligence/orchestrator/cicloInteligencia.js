@@ -6,7 +6,14 @@ const marketing = require("../neurons/marketing.neuron");
 const operaciones = require("../neurons/operaciones.neuron");
 const gente = require("../neurons/gente.neuron");
 const cerebro = require("../brain/cerebro");
+const {
+  construirProyeccionTesoreria
+} = require("../../core/finanzas/tesoreriaProyeccion.service");
+const {
+  construirAgendaFinanciera
+} = require("../brain/agendaFinanciera.service");
 const { evaluarModulosAutomaticos } = require("../../core/modulos/modulos.service");
+const eventBus = require("../../core/eventos/eventBus");
 
 const NEURONAS = Object.freeze([
   finanzas,
@@ -16,10 +23,22 @@ const NEURONAS = Object.freeze([
   gente
 ]);
 
-function debeTomarDecision(reportes, forzarDecision = false) {
+function debeTomarDecision(
+  reportes,
+  forzarDecision = false,
+  agendaFinanciera = null
+) {
   if (forzarDecision) return true;
+  if (agendaFinanciera?.requiereDecision) {
+    return true;
+  }
   return reportes.some(
-    (reporte) => reporte.kpi_principal?.estado === "CRITICO"
+    (reporte) =>
+      !["SIN_CONFIGURAR", "DATOS_INSUFICIENTES"].includes(
+        reporte.kpi_principal?.evaluabilidad ||
+        reporte.kpi_principal?.estado
+      ) &&
+      reporte.kpi_principal?.estado === "CRITICO"
   );
 }
 
@@ -41,11 +60,58 @@ async function ejecutarCicloEmpresa(empresaId, opciones = {}) {
     throw new Error("CICLO_INTELIGENCIA_REPORTES_INCOMPLETOS");
   }
 
-  const decision = debeTomarDecision(reportes, forzarDecision)
-    ? await cerebro.tomarDecision(empresaId)
-    : null;
+  const proyeccionTesoreria =
+    await construirProyeccionTesoreria({
+      empresaId
+    });
 
-  return { modulos, reportes, decision };
+  const agendaFinanciera =
+    construirAgendaFinanciera(
+      proyeccionTesoreria
+    );
+
+  const requiereCierreFinanciero =
+    await cerebro
+      .requiereActualizarDecisionFinanciera(
+        empresaId,
+        agendaFinanciera
+      );
+
+  const decision =
+    (
+      debeTomarDecision(
+        reportes,
+        forzarDecision,
+        agendaFinanciera
+      ) ||
+      requiereCierreFinanciero
+    )
+      ? await cerebro.tomarDecision(
+          empresaId,
+          {
+            agendaFinanciera
+          }
+        )
+      : null;
+
+  eventBus.emit("CICLO_INTELIGENCIA_COMPLETADO", {
+    empresaId,
+    reportesIds: reportes.map((reporte) => reporte._id),
+    decisionId: decision?._id || null,
+    hayCriticos: reportes.some(
+      (reporte) =>
+        reporte.kpi_principal?.evaluabilidad === "EVALUABLE" &&
+        reporte.kpi_principal?.estado === "CRITICO"
+    )
+  });
+
+  return {
+    modulos,
+    reportes,
+    proyeccionTesoreria,
+    agendaFinanciera,
+    decision
+  };
 }
 
 module.exports = {

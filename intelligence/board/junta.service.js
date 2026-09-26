@@ -18,6 +18,15 @@ const DEPARTAMENTO_POR_NEURONA = Object.freeze({
   GENTE: "GENTE"
 });
 
+const TIPOS_EXPERTO = Object.freeze([
+  "EXPERTO_GRUK",
+  "EXPERTO_IA"
+]);
+
+function esIntervencionExperta(item) {
+  return TIPOS_EXPERTO.includes(item?.tipo);
+}
+
 const intervencionHumanaSchema = Joi.object({
   departamento: Joi.string()
     .valid(
@@ -88,13 +97,29 @@ function construirIntervencionNeurona(reporte) {
 
   const actual = formatearNumero(reporte.kpi_principal?.valor_actual);
   const objetivo = formatearNumero(reporte.kpi_principal?.valor_objetivo);
-  const estado = String(reporte.kpi_principal?.estado || "ALERTA");
-  const nombreKpi = String(reporte.kpi_principal?.nombre || "kpi");
+  const estado = String(
+    reporte.kpi_principal?.estado ||
+    "SIN_ESTADO"
+  );
+
+  const evaluabilidad = String(
+    reporte.kpi_principal?.evaluabilidad ||
+    (
+      ["SIN_CONFIGURAR", "DATOS_INSUFICIENTES"].includes(estado)
+        ? estado
+        : "EVALUABLE"
+    )
+  );
+
+  const nombreKpi = String(
+    reporte.kpi_principal?.nombre ||
+    "kpi"
+  );
 
   const mensaje =
-    `${reporte.neurona}: ${nombreKpi} está en ${estado}. ` +
-    `Valor actual: ${actual === null ? "sin dato" : actual}. ` +
-    `Objetivo: ${objetivo === null ? "sin dato" : objetivo}.`;
+    evaluabilidad === "EVALUABLE"
+      ? `${reporte.neurona}: ${nombreKpi} está en ${estado}. Valor actual: ${actual === null ? "sin dato" : actual}. Objetivo: ${objetivo === null ? "sin dato" : objetivo}.`
+      : `${reporte.neurona}: ${nombreKpi} todavía no es evaluable como señal operativa (${evaluabilidad}). Valor actual: ${actual === null ? "sin dato" : actual}. Objetivo: ${objetivo === null ? "sin dato" : objetivo}.`;
 
   const evidencia = hallazgos.length
     ? hallazgos
@@ -122,48 +147,74 @@ function construirIntervencionExperta({
   intervencionId,
   model
 }) {
-  const bloques = [limitarTexto(respuesta.respuesta, 1200)];
+  const bloques = [
+    limitarTexto(respuesta.respuesta, 1800)
+  ];
 
-  if (Array.isArray(respuesta.inferencias) && respuesta.inferencias.length) {
+  if (respuesta.criterio_profesional) {
     bloques.push(
-      "Inferencias profesionales: " +
-      respuesta.inferencias
-        .map((item) => limitarTexto(item, 350))
-        .filter(Boolean)
-        .join(" | ")
+      "Criterio profesional: " +
+      limitarTexto(
+        respuesta.criterio_profesional,
+        1000
+      )
     );
   }
 
-  if (
-    Array.isArray(respuesta.datos_faltantes) &&
-    respuesta.datos_faltantes.length
-  ) {
-    bloques.push(
-      "Datos faltantes: " +
-      respuesta.datos_faltantes
-        .map((item) => limitarTexto(item, 300))
-        .filter(Boolean)
-        .join(" | ")
-    );
+  const secciones = [
+    ["Riesgos", respuesta.riesgos, 350],
+    ["Objeciones a la Junta", respuesta.objeciones, 350],
+    ["Acuerdos con la Junta", respuesta.acuerdos, 350],
+    ["Inferencias profesionales", respuesta.inferencias, 350],
+    ["Datos faltantes", respuesta.datos_faltantes, 300]
+  ];
+
+  for (const [titulo, items, maximo] of secciones) {
+    if (!Array.isArray(items) || !items.length) {
+      continue;
+    }
+
+    const contenido = items
+      .map((item) => limitarTexto(item, maximo))
+      .filter(Boolean)
+      .join(" | ");
+
+    if (contenido) {
+      bloques.push(`${titulo}: ${contenido}`);
+    }
   }
 
-  const evidencia = Array.isArray(respuesta.evidencia_usada)
+  const evidencia = Array.isArray(
+    respuesta.evidencia_usada
+  )
     ? respuesta.evidencia_usada
         .map((item) => limitarTexto(item, 600))
         .filter(Boolean)
         .join(" | ")
     : "";
 
+  const confianza = Number(respuesta.confianza);
+
   return {
-    tipo: "EXPERTO_IA",
+    tipo: "EXPERTO_GRUK",
     departamento: respuesta.departamento,
     autorUsuarioId: null,
     respuestaAId: intervencionId,
     modelo: limitarTexto(model, 100),
-    mensaje: limitarTexto(bloques.filter(Boolean).join("\n\n"), 2000),
-    evidencia: limitarTexto(evidencia, 4000),
+    mensaje: limitarTexto(
+      bloques.filter(Boolean).join("\n\n"),
+      4000
+    ),
+    evidencia: limitarTexto(evidencia, 6000),
     impacto_financiero_estimado: null,
-    confianza: null
+    confianza:
+      Number.isFinite(confianza)
+        ? Math.max(0, Math.min(100, confianza))
+        : null,
+    relevancia:
+      ["ALTA", "MEDIA", "BAJA", "NINGUNA"].includes(respuesta.relevancia)
+        ? respuesta.relevancia
+        : null
   };
 }
 
@@ -344,7 +395,7 @@ async function responderPreguntaExpertos({
 
   const existentes = (sesion.intervenciones || []).filter(
     (item) =>
-      item.tipo === "EXPERTO_IA" &&
+      esIntervencionExperta(item) &&
       String(item.respuestaAId || "") === String(intervencionId)
   );
 
@@ -404,7 +455,7 @@ async function responderPreguntaExpertos({
       intervenciones: {
         $not: {
           $elemMatch: {
-            tipo: "EXPERTO_IA",
+            tipo: { $in: TIPOS_EXPERTO },
             respuestaAId: pregunta._id
           }
         }
@@ -432,7 +483,7 @@ async function responderPreguntaExpertos({
 
   const yaRespondida = (posterior?.intervenciones || []).some(
     (item) =>
-      item.tipo === "EXPERTO_IA" &&
+      esIntervencionExperta(item) &&
       String(item.respuestaAId || "") === String(intervencionId)
   );
 

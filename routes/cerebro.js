@@ -9,6 +9,8 @@ const {
 const {
   ultimaDecision,
   auditoriaCerebro,
+  planesPagoDecision,
+  confirmarItemPlan,
   aprobarOrden,
   rechazarOrden
 } = require("../intelligence/brain/cerebro.controller");
@@ -30,6 +32,18 @@ router.get(
   "/auditoria",
   ...seguridad,
   auditoriaCerebro
+);
+
+router.get(
+  "/decisiones/:decisionId/planes-pago",
+  ...seguridad,
+  planesPagoDecision
+);
+
+router.post(
+  "/planes-pago/:planId/items/:itemId/confirmar",
+  ...seguridad,
+  confirmarItemPlan
 );
 
 router.post(

@@ -36,6 +36,19 @@ const gastoSchema = Joi.object({
     .allow("")
     .optional(),
 
+  estadoPago: Joi.string()
+    .valid(
+      "desconocido",
+      "pendiente",
+      "pagado"
+    )
+    .default("desconocido"),
+
+  fechaVencimientoPago: Joi.date()
+    .iso()
+    .allow(null, "")
+    .optional(),
+
   proveedor: Joi.string()
     .trim()
     .max(200)
@@ -83,10 +96,26 @@ const gastoSchema = Joi.object({
       .optional(),
 
     esCostoRecuperable: Joi.boolean()
+      .optional(),
+
+    cajaReferencia: Joi.string()
+      .trim()
+      .max(200)
+      .allow("")
       .optional()
   })
     .unknown(false)
     .default({})
+}).required();
+
+const estadoPagoSchema = Joi.object({
+  estadoPago: Joi.string()
+    .valid(
+      "desconocido",
+      "pendiente",
+      "pagado"
+    )
+    .required()
 }).required();
 
 function validarGasto(datos) {
@@ -97,6 +126,15 @@ function validarGasto(datos) {
   });
 }
 
+function validarEstadoPagoGasto(datos) {
+  return estadoPagoSchema.validate(datos, {
+    abortEarly: false,
+    allowUnknown: false,
+    convert: true
+  });
+}
+
 module.exports = {
-  validarGasto
+  validarGasto,
+  validarEstadoPagoGasto
 };

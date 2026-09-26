@@ -117,7 +117,94 @@
 
   <div id="carpetaInventario" style="display:none;">
     <h2>Inventario</h2>
+
+    <div class="card">
+      <h3>🔎 Buscar y filtrar inventario</h3>
+
+      <div class="accionesGrid">
+        <div class="accion">
+          <label>Buscar</label>
+          <input
+            id="inventarioFiltroTexto"
+            type="search"
+            placeholder="Producto, proveedor, categoría o unidad"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="accion">
+          <label>Categoría</label>
+          <select id="inventarioFiltroCategoria">
+            <option value="">Todas</option>
+            <option value="Carnes">Carnes</option>
+            <option value="Lácteos">Lácteos</option>
+            <option value="Verduras">Verduras</option>
+            <option value="Frutas">Frutas</option>
+            <option value="Bebidas">Bebidas</option>
+            <option value="Salsas">Salsas</option>
+            <option value="Congelados">Congelados</option>
+            <option value="Abarrotes">Abarrotes</option>
+            <option value="Empaques">Empaques</option>
+            <option value="Limpieza">Limpieza</option>
+          </select>
+        </div>
+
+        <div class="accion">
+          <label>Estado</label>
+          <select id="inventarioFiltroEstado">
+            <option value="">Todos</option>
+            <option value="vigente">Vigente</option>
+            <option value="proximo">Próximo a vencer</option>
+            <option value="vencido">Vencido</option>
+            <option value="agotado">Agotado</option>
+          </select>
+        </div>
+
+        <div class="accion">
+          <label>Stock</label>
+          <select id="inventarioFiltroStock">
+            <option value="">Todo</option>
+            <option value="agotado">Agotado</option>
+            <option value="bajo">Stock bajo (1–5)</option>
+            <option value="disponible">Disponible (&gt;5)</option>
+          </select>
+        </div>
+
+        <div class="accion">
+          <label>Proveedor</label>
+          <input
+            id="inventarioFiltroProveedor"
+            type="search"
+            placeholder="Ej: Distribuidora ABC"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="accion">
+          <label>Ordenar por</label>
+          <select id="inventarioFiltroOrden">
+            <option value="vencimiento">Vencimiento / urgencia</option>
+            <option value="nombre">Nombre A–Z</option>
+            <option value="cantidad_asc">Cantidad menor primero</option>
+            <option value="cantidad_desc">Cantidad mayor primero</option>
+            <option value="valor_desc">Mayor valor en inventario</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;">
+        <button onclick="aplicarFiltrosInventarioGRUK()">Aplicar filtros</button>
+        <button onclick="limpiarFiltrosInventarioGRUK()">Limpiar</button>
+        <span id="inventarioResultadosMeta"></span>
+      </div>
+    </div>
+
     <div id="inventarioLista" class="grid"></div>
+
+    <div
+      id="inventarioPaginacion"
+      style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:15px;"
+    ></div>
   </div>
 
   <h2>Control de stock</h2>

@@ -96,6 +96,79 @@ const empresaSchema = new mongoose.Schema(
         type: Number,
         min: 0,
         default: null
+      },
+
+      inteligencia_base_actualizadaAt: {
+        type: Date,
+        default: null
+      },
+
+      inteligencia_base_actualizadaBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Usuario",
+        default: null
+      },
+
+      politica_financiera: {
+        distribucion_dueno: {
+          habilitada: {
+            type: Boolean,
+            default: false
+          },
+          porcentaje_utilidad: {
+            type: Number,
+            min: 0,
+            max: 100,
+            default: 0
+          },
+          reserva_minima_caja: {
+            type: Number,
+            min: 0,
+            default: 0
+          },
+          updatedAt: {
+            type: Date,
+            default: null
+          },
+          updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Usuario",
+            default: null
+          }
+        },
+
+        priorizacion_pagos: {
+          usar_precedencia_categoria: {
+            type: Boolean,
+            default: false
+          },
+          precedencia_categorias: {
+            type: [{
+              type: String,
+              enum: [
+                "NOMINA",
+                "IMPUESTOS",
+                "DEUDA",
+                "ARRIENDO",
+                "SERVICIOS",
+                "SEGUROS",
+                "LICENCIAS",
+                "PROVEEDORES",
+                "OTRO"
+              ]
+            }],
+            default: []
+          },
+          updatedAt: {
+            type: Date,
+            default: null
+          },
+          updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Usuario",
+            default: null
+          }
+        }
       }
     },
 

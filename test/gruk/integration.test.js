@@ -128,6 +128,25 @@ test(
       assert.ok(resultado.decision?._id);
       assert.ok(resultado.decision.ordenes_por_departamento.length > 0);
 
+      const segundoCiclo =
+        await ejecutarCicloEmpresa(
+          empresa._id,
+          { forzarDecision: true }
+        );
+
+      assert.equal(
+        String(segundoCiclo.decision?._id),
+        String(resultado.decision._id)
+      );
+
+      assert.equal(
+        await Decision.countDocuments({
+          empresaId: empresa._id,
+          deletedAt: null
+        }),
+        1
+      );
+
       const decisionGuardada = await Decision.findById(resultado.decision._id);
       const orden = decisionGuardada.ordenes_por_departamento[0];
       assert.equal(orden.estado, "PENDIENTE_APROBACION");
@@ -210,14 +229,14 @@ test(
 
       assert.equal(
         juntaRespondida.intervenciones.filter(
-          (item) => item.tipo === "EXPERTO_IA"
+          (item) => item.tipo === "EXPERTO_GRUK"
         ).length,
         6
       );
 
       const respuestasLigadas = juntaRespondida.intervenciones.filter(
         (item) =>
-          item.tipo === "EXPERTO_IA" &&
+          item.tipo === "EXPERTO_GRUK" &&
           String(item.respuestaAId) === String(preguntaGuardada.intervencionId)
       );
       assert.equal(respuestasLigadas.length, 6);
@@ -240,7 +259,7 @@ test(
 
       assert.equal(
         juntaReintento.intervenciones.filter(
-          (item) => item.tipo === "EXPERTO_IA"
+          (item) => item.tipo === "EXPERTO_GRUK"
         ).length,
         6
       );

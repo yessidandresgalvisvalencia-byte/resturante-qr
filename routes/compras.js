@@ -1,8 +1,10 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const Joi = require("joi");
 
 const Compra = require("../models/Compra");
 const Empresa = require("../models/Empresa");
+const Sede = require("../models/sede");
 const ProductoServicio = require("../models/ProductoServicio");
 const Inventario = require("../models/Inventario");
 const MovimientoInventario = require("../models/MovimientoInventario");
@@ -11,8 +13,69 @@ const {
   ROLES_GRUK,
   roleCheck
 } = require("../core/auth/roleCheck.middleware");
+const eventBus = require("../core/eventos/eventBus");
 
 const router = express.Router();
+
+async function resolverSedeAutorizada({
+  auth,
+  sedeId
+}) {
+  if (auth.rol === ROLES_GRUK.ADMIN_SEDE) {
+    if (!auth.sedeId) {
+      const error = new Error(
+        "ADMIN_SEDE requiere una sede autorizada"
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (
+      sedeId &&
+      String(sedeId) !==
+        String(auth.sedeId)
+    ) {
+      const error = new Error(
+        "No tienes acceso a otra sede"
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+
+    return auth.sedeId;
+  }
+
+  if (!sedeId) return null;
+
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      sedeId
+    )
+  ) {
+    const error = new Error(
+      "sedeId invalido"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const sede = await Sede.findOne({
+    _id: sedeId,
+    empresaId: auth.empresaId
+  })
+    .select("_id")
+    .lean();
+
+  if (!sede) {
+    const error = new Error(
+      "Sede fuera del tenant autorizado"
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return sede._id;
+}
 
 
 // ==========================================
@@ -36,6 +99,8 @@ router.post(
       impuestos,
       metodoPago,
       estadoPago,
+      fechaVencimientoPago,
+      saldoPendientePago,
       fecha,
       observaciones,
       origen,
@@ -75,6 +140,12 @@ router.post(
         error: "Empresa no encontrada"
       });
     }
+
+    const sedeEfectiva =
+      await resolverSedeAutorizada({
+        auth: req.auth,
+        sedeId: sedeId || null
+      });
 
     const itemsProcesados = [];
 
@@ -153,6 +224,38 @@ router.post(
 
     const total = subtotal + impuestosNumero;
 
+    const estadoPagoEfectivo =
+      estadoPago || "pagado";
+
+    let saldoPendienteEfectivo = 0;
+
+    if (
+      estadoPagoEfectivo === "pendiente"
+    ) {
+      saldoPendienteEfectivo = total;
+    } else if (
+      estadoPagoEfectivo === "parcial"
+    ) {
+      saldoPendienteEfectivo =
+        Number(
+          saldoPendientePago
+        );
+
+      if (
+        !Number.isFinite(
+          saldoPendienteEfectivo
+        ) ||
+        saldoPendienteEfectivo <= 0 ||
+        saldoPendienteEfectivo >= total
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Una compra parcial requiere saldoPendientePago mayor que 0 y menor que el total"
+        });
+      }
+    }
+
     let compraCreada = null;
 
     // ==========================================
@@ -166,7 +269,7 @@ router.post(
         [
           {
             empresaId,
-            sedeId: sedeId || null,
+            sedeId: sedeEfectiva,
             proveedor: proveedor || "",
             numeroDocumento: numeroDocumento || "",
 
@@ -183,7 +286,12 @@ router.post(
             impuestos: impuestosNumero,
             total,
             metodoPago: metodoPago || "efectivo",
-            estadoPago: estadoPago || "pagado",
+            estadoPago:
+              estadoPagoEfectivo,
+            fechaVencimientoPago:
+              fechaVencimientoPago || null,
+            saldoPendientePago:
+              saldoPendienteEfectivo,
             fecha: fecha || new Date(),
             observaciones: observaciones || "",
             origen: origen || "manual",
@@ -217,7 +325,7 @@ router.post(
         const filtroInventario = {
           empresaId,
           productoServicioId: item.producto._id,
-          sedeId: sedeId || null,
+          sedeId: sedeEfectiva,
           anulado: false
         };
 
@@ -260,7 +368,7 @@ inventario.costo = costoPromedioPonderado;
             [
               {
                 empresaId,
-                sedeId: sedeId || null,
+                sedeId: sedeEfectiva,
                 productoServicioId: item.producto._id,
 
                 // CORE puro: no necesitamos restaurantId.
@@ -301,7 +409,7 @@ inventario.costo = costoPromedioPonderado;
           [
             {
               empresaId,
-              sedeId: sedeId || null,
+              sedeId: sedeEfectiva,
               productoServicioId: item.producto._id,
               inventarioId: inventario._id,
 
@@ -328,6 +436,35 @@ inventario.costo = costoPromedioPonderado;
       }
     });
 
+    // GRUK: el evento nace solo despues de confirmar la transaccion.
+    // Si estadoPago no es "pagado", la Junta lo registra como compromiso,
+    // nunca como salida confirmada de caja.
+    try {
+      eventBus.emit("COMPRA_REGISTRADA", {
+        compraId: compraCreada._id,
+        empresaId: compraCreada.empresaId,
+        sedeId: compraCreada.sedeId,
+        proveedor: compraCreada.proveedor,
+        total: compraCreada.total,
+        metodoPago: compraCreada.metodoPago,
+        estadoPago: compraCreada.estadoPago,
+        saldoPendientePago:
+          compraCreada.saldoPendientePago,
+        fechaVencimientoPago:
+          compraCreada.fechaVencimientoPago,
+        fecha: compraCreada.fecha,
+        sourceUpdatedAt:
+          compraCreada.updatedAt,
+        cajaReferencia:
+          compraCreada.metadata?.cajaReferencia || null
+      });
+    } catch (eventError) {
+      console.error(
+        "[GRUK COMPRAS] compra persistida, fallo al emitir COMPRA_REGISTRADA:",
+        eventError
+      );
+    }
+
     res.status(201).json({
       ok: true,
       compra: compraCreada,
@@ -340,15 +477,239 @@ inventario.costo = costoPromedioPonderado;
       error
     );
 
-    res.status(500).json({
+    const statusCode =
+      Number.isInteger(error.statusCode)
+        ? error.statusCode
+        : 500;
+
+    res.status(statusCode).json({
       ok: false,
-      error: "Error creando compra"
+      error:
+        statusCode === 500
+          ? "Error creando compra"
+          : error.message
     });
 
   } finally {
     await session.endSession();
   }
 });
+
+// ==========================================
+// ACTUALIZAR ESTADO DE PAGO DE COMPRA
+// ==========================================
+
+const estadoPagoCompraSchema = Joi.object({
+  estadoPago: Joi.string()
+    .valid(
+      "pendiente",
+      "parcial",
+      "pagado"
+    )
+    .required(),
+  saldoPendientePago: Joi.number()
+    .min(0)
+    .allow(null)
+    .optional(),
+  fechaVencimientoPago: Joi.date()
+    .iso()
+    .allow(null, "")
+    .optional()
+}).required();
+
+router.put(
+  "/:id/pago",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
+    try {
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          req.params.id
+        )
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error: "ID de compra invalido"
+        });
+      }
+
+      const { error, value } =
+        estadoPagoCompraSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: true
+          }
+        );
+
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error: "Estado de pago invalido"
+        });
+      }
+
+      const filtro = {
+        _id: req.params.id,
+        empresaId: req.auth.empresaId,
+        estado: "registrada"
+      };
+
+      if (
+        req.auth.rol ===
+        ROLES_GRUK.ADMIN_SEDE
+      ) {
+        if (!req.auth.sedeId) {
+          return res.status(403).json({
+            ok: false,
+            error:
+              "ADMIN_SEDE requiere una sede autorizada"
+          });
+        }
+
+        filtro.sedeId =
+          req.auth.sedeId;
+      }
+
+      const compra =
+        await Compra.findOne(filtro);
+
+      if (!compra) {
+        return res.status(404).json({
+          ok: false,
+          error: "Compra no encontrada"
+        });
+      }
+
+      const estadoAnterior =
+        compra.estadoPago;
+
+      if (
+        value.estadoPago === "parcial"
+      ) {
+        const saldo =
+          Number(
+            value.saldoPendientePago
+          );
+
+        if (
+          !Number.isFinite(saldo) ||
+          saldo <= 0 ||
+          saldo >= Number(compra.total)
+        ) {
+          return res.status(400).json({
+            ok: false,
+            error:
+              "Una compra parcial requiere saldoPendientePago mayor que 0 y menor que el total"
+          });
+        }
+      }
+
+      const cambioEstado =
+        estadoAnterior !==
+        value.estadoPago;
+
+      const saldoAnterior =
+        compra.saldoPendientePago;
+
+      compra.estadoPago =
+        value.estadoPago;
+
+      if (
+        value.estadoPago === "pagado"
+      ) {
+        compra.saldoPendientePago = 0;
+      } else if (
+        value.estadoPago === "pendiente"
+      ) {
+        compra.saldoPendientePago =
+          Number(compra.total);
+      } else {
+        compra.saldoPendientePago =
+          Number(
+            value.saldoPendientePago
+          );
+      }
+
+      if (
+        value.fechaVencimientoPago !==
+        undefined
+      ) {
+        compra.fechaVencimientoPago =
+          value.fechaVencimientoPago ||
+          null;
+      }
+
+      const cambioSaldo =
+        Number(saldoAnterior ?? -1) !==
+        Number(
+          compra.saldoPendientePago ?? -1
+        );
+
+      if (
+        cambioEstado ||
+        cambioSaldo ||
+        value.fechaVencimientoPago !==
+          undefined
+      ) {
+        await compra.save();
+
+        try {
+          eventBus.emit(
+            "COMPRA_PAGO_ACTUALIZADO",
+            {
+              compraId: compra._id,
+              empresaId:
+                compra.empresaId,
+              sedeId: compra.sedeId,
+              proveedor:
+                compra.proveedor,
+              total: compra.total,
+              metodoPago:
+                compra.metodoPago,
+              estadoPagoAnterior:
+                estadoAnterior,
+              estadoPago:
+                compra.estadoPago,
+              saldoPendientePago:
+                compra.saldoPendientePago,
+              fechaVencimientoPago:
+                compra.fechaVencimientoPago,
+              fecha: compra.fecha,
+              sourceUpdatedAt:
+                compra.updatedAt,
+              cajaReferencia:
+                compra.metadata?.cajaReferencia || null
+            }
+          );
+        } catch (eventError) {
+          console.error(
+            "[GRUK COMPRAS] pago persistido, fallo al emitir COMPRA_PAGO_ACTUALIZADO:",
+            eventError
+          );
+        }
+      }
+
+      return res.json({
+        ok: true,
+        compra
+      });
+    } catch (error) {
+      console.error(
+        "Error actualizando pago de compra:",
+        error
+      );
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Error actualizando estado de pago"
+      });
+    }
+  }
+);
+
 
 // ==========================================
 // LISTAR COMPRAS DE UNA EMPRESA
@@ -376,10 +737,28 @@ router.get(
       });
     }
 
-    const compras = await Compra.find({
+    const filtroCompras = {
       empresaId,
       estado: "registrada"
-    }).sort({
+    };
+
+    if (
+      req.auth.rol === ROLES_GRUK.ADMIN_SEDE
+    ) {
+      if (!req.auth.sedeId) {
+        return res.status(403).json({
+          ok: false,
+          error: "ADMIN_SEDE requiere una sede autorizada"
+        });
+      }
+
+      filtroCompras.sedeId =
+        req.auth.sedeId;
+    }
+
+    const compras = await Compra.find(
+      filtroCompras
+    ).sort({
       fecha: -1
     });
 
@@ -423,11 +802,27 @@ router.put(
       });
     }
 
+    const filtroCompra = {
+      _id: req.params.id,
+      empresaId: req.auth.empresaId
+    };
+
+    if (
+      req.auth.rol === ROLES_GRUK.ADMIN_SEDE
+    ) {
+      if (!req.auth.sedeId) {
+        return res.status(403).json({
+          ok: false,
+          error: "ADMIN_SEDE requiere una sede autorizada"
+        });
+      }
+
+      filtroCompra.sedeId =
+        req.auth.sedeId;
+    }
+
     const compra = await Compra.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        empresaId: req.auth.empresaId
-      },
+      filtroCompra,
       {
         estado: "anulada"
       },

@@ -130,6 +130,36 @@ inventarioSchema.index({
   productoServicioId: 1,
   sedeId: 1
 });
+inventarioSchema.index({
+  empresaId: 1,
+  restaurantId: 1,
+  anulado: 1,
+  categoria: 1
+});
+inventarioSchema.index({
+  empresaId: 1,
+  restaurantId: 1,
+  anulado: 1,
+  nombre: 1
+});
+inventarioSchema.index({
+  empresaId: 1,
+  restaurantId: 1,
+  anulado: 1,
+  proveedor: 1
+});
+inventarioSchema.index({
+  empresaId: 1,
+  restaurantId: 1,
+  anulado: 1,
+  cantidad: 1
+});
+inventarioSchema.index({
+  empresaId: 1,
+  restaurantId: 1,
+  anulado: 1,
+  fechaVencimiento: 1
+});
 module.exports =
   mongoose.models.Inventario ||
   mongoose.model("Inventario", inventarioSchema);

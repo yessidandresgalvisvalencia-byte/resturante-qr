@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const Empresa = require("../../models/Empresa");
 const Inventario = require("../../models/Inventario");
 const { obtenerResumenVentas } = require("../../core/finanzas/finanzas.service");
+const { obtenerResumenCaja } = require("../../core/finanzas/caja.service");
+const { construirProyeccionTesoreria } = require("../../core/finanzas/tesoreriaProyeccion.service");
 
 const KPI_DIRECCION = Object.freeze({
   margen_bruto_confiable: "MAYOR_ES_MEJOR",
@@ -12,7 +14,12 @@ const KPI_DIRECCION = Object.freeze({
   porcentaje_items_agotados: "MENOR_ES_MEJOR",
   inventario_configurado: "MAYOR_ES_MEJOR",
   cac: "MENOR_ES_MEJOR",
-  configuracion_core: "MAYOR_ES_MEJOR"
+  configuracion_core: "MAYOR_ES_MEJOR",
+  tesoreria_confiable: "MAYOR_ES_MEJOR",
+  brecha_caja_7d: "MENOR_ES_MEJOR",
+  cobros_confirmados_7d: "MAYOR_ES_MEJOR",
+  obligaciones_7d_cubiertas: "MAYOR_ES_MEJOR",
+  cobertura_datos_obligaciones_7d: "MAYOR_ES_MEJOR"
 });
 
 function periodoActualUTC() {
@@ -183,6 +190,71 @@ async function medirKpi({ empresaId, kpi, session = null }) {
   if (kpi === "configuracion_core") {
     valor = medirConfiguracionCore(empresa);
     objetivo = 100;
+  }
+
+  if (
+    kpi === "tesoreria_confiable" ||
+    kpi === "brecha_caja_7d" ||
+    kpi === "obligaciones_7d_cubiertas" ||
+    kpi === "cobertura_datos_obligaciones_7d"
+  ) {
+    const p = await construirProyeccionTesoreria({
+      empresaId: empresaObjectId
+    });
+
+    if (kpi === "tesoreria_confiable") {
+      valor = p.estadoTesoreria === "COMPLETO" ? 1 : 0;
+      objetivo = 1;
+    }
+
+    if (kpi === "brecha_caja_7d") {
+      const e = p.escenario7d?.estado;
+      if (e === "SIN_SALDO_VERIFICABLE" || e === "DATOS_INSUFICIENTES") {
+        valor = null;
+        objetivo = 0;
+        medible = false;
+      } else {
+        valor = normalizarNumero(
+          p.escenario7d?.faltanteConCajaActual
+        ) ?? 0;
+        objetivo = 0;
+      }
+    }
+
+    if (kpi === "obligaciones_7d_cubiertas") {
+      const e = p.escenario7d?.estado;
+      if (e === "SIN_SALDO_VERIFICABLE" || e === "DATOS_INSUFICIENTES") {
+        valor = null;
+        objetivo = 1;
+        medible = false;
+      } else {
+        valor = e === "CUBIERTO_CON_CAJA_ACTUAL" ? 1 : 0;
+        objetivo = 1;
+      }
+    }
+
+    if (kpi === "cobertura_datos_obligaciones_7d") {
+      valor = p.escenario7d?.estado === "DATOS_INSUFICIENTES" ? 0 : 1;
+      objetivo = 1;
+    }
+  }
+
+  if (kpi === "cobros_confirmados_7d") {
+    const hasta = new Date();
+    const desde = new Date(
+      hasta.getTime() - 7 * 24 * 60 * 60 * 1000
+    );
+
+    const caja = await obtenerResumenCaja({
+      empresaId: empresaObjectId,
+      desde,
+      hasta
+    });
+
+    valor = normalizarNumero(
+      caja.entradasConfirmadas
+    ) ?? 0;
+    objetivo = null;
   }
 
   return {

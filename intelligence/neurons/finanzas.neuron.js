@@ -15,7 +15,11 @@ const {
 const NEURONA = "FINANZAS";
 
 function getRequiredEvents() {
-  return ["VENTA_COMPLETADA", "GASTO_REGISTRADO"];
+  return [
+    "VENTA_COMPLETADA",
+    "GASTO_REGISTRADO",
+    "GASTO_PAGO_ACTUALIZADO"
+  ];
 }
 
 function obtenerPeriodoActual() {
@@ -55,11 +59,12 @@ function calcularEstadoMargen({
   margenActual,
   margenObjetivo
 }) {
-  if (
-    margenActual === null ||
-    margenObjetivo === null
-  ) {
-    return "ALERTA";
+  if (margenObjetivo === null) {
+    return "SIN_CONFIGURAR";
+  }
+
+  if (margenActual === null) {
+    return "DATOS_INSUFICIENTES";
   }
 
   if (margenActual >= margenObjetivo) {
@@ -223,14 +228,9 @@ async function analyze(empresaId) {
   });
 
   const necesitaDecision =
-    estado !== "OK" ||
-    hallazgos.some(
-      (hallazgo) =>
-        hallazgo.tipo ===
-          "CONFIGURACION_INCOMPLETA" ||
-        hallazgo.tipo ===
-          "COSTO_NO_CONFIABLE"
-    );
+    margenActual !== null &&
+    margenObjetivo !== null &&
+    estado !== "OK";
 
   const reporte = await CerebroReporteNeurona.create({
     neurona: NEURONA,
@@ -250,7 +250,23 @@ async function analyze(empresaId) {
       nombre: "margen_bruto_confiable",
       valor_actual: margenActual,
       valor_objetivo: margenObjetivo,
-      estado
+      estado,
+      medicion_disponible:
+        margenActual !== null,
+      objetivo_disponible:
+        margenObjetivo !== null,
+      motivo_no_evaluable:
+        margenObjetivo === null
+          ? "Falta configurar margen objetivo."
+          : margenActual === null
+            ? "No existe margen bruto confiable suficiente para evaluar."
+            : "",
+      evaluabilidad:
+        margenObjetivo === null
+          ? "SIN_CONFIGURAR"
+          : margenActual === null
+            ? "DATOS_INSUFICIENTES"
+            : "EVALUABLE"
     },
 
     hallazgos,

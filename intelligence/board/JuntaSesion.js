@@ -6,7 +6,7 @@ const intervencionSchema = new mongoose.Schema({
   tipo: {
     type: String,
     required: true,
-    enum: ["NEURONA", "HUMANO", "EXPERTO_IA"]
+    enum: ["NEURONA", "HUMANO", "EXPERTO_GRUK", "EXPERTO_IA"]
   },
   departamento: {
     type: String,
@@ -31,13 +31,13 @@ const intervencionSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
-    maxlength: 2000
+    maxlength: 4000
   },
   evidencia: {
     type: String,
     default: "",
     trim: true,
-    maxlength: 4000
+    maxlength: 6000
   },
   impacto_financiero_estimado: {
     type: Number,
@@ -47,6 +47,11 @@ const intervencionSchema = new mongoose.Schema({
     type: Number,
     min: 0,
     max: 100,
+    default: null
+  },
+  relevancia: {
+    type: String,
+    enum: ["ALTA", "MEDIA", "BAJA", "NINGUNA"],
     default: null
   },
   createdAt: {

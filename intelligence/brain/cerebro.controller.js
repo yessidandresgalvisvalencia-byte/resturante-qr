@@ -3,7 +3,9 @@
 const {
   obtenerUltimaDecision,
   procesarOrden,
-  obtenerAuditoria
+  obtenerAuditoria,
+  obtenerPlanesPagoDecision,
+  confirmarItemPlanPago
 } = require("./cerebro.service");
 
 function responderError(res, error, operacion) {
@@ -30,6 +32,52 @@ async function ultimaDecision(req, res) {
     });
   } catch (error) {
     return responderError(res, error, "ultima decision");
+  }
+}
+
+async function confirmarItemPlan(req, res) {
+  try {
+    const plan =
+      await confirmarItemPlanPago({
+        auth:
+          req.auth,
+        planId:
+          req.params.planId,
+        itemId:
+          req.params.itemId
+      });
+
+    return res.json({
+      ok: true,
+      plan
+    });
+  } catch (error) {
+    return responderError(
+      res,
+      error,
+      "confirmar item de plan de pago"
+    );
+  }
+}
+
+async function planesPagoDecision(req, res) {
+  try {
+    const planes =
+      await obtenerPlanesPagoDecision(
+        req.auth,
+        req.params.decisionId
+      );
+
+    return res.json({
+      ok: true,
+      planes
+    });
+  } catch (error) {
+    return responderError(
+      res,
+      error,
+      "planes de pago"
+    );
   }
 }
 
@@ -68,6 +116,8 @@ const rechazarOrden = crearProcesadorOrden("RECHAZAR", "rechazar orden");
 module.exports = {
   ultimaDecision,
   auditoriaCerebro,
+  planesPagoDecision,
+  confirmarItemPlan,
   aprobarOrden,
   rechazarOrden
 };

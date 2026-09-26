@@ -232,6 +232,10 @@ if (nombreModulo === "mensajes" && typeof inicializarMensajesGRUK === "function"
       const f = await calcularFinanzasGRUK(getRestaurantId());
       contenedor.innerHTML = generarBloqueFinancieroGRUK(f);
     }
+
+    if (typeof inicializarTesoreriaGRUK === "function") {
+      await inicializarTesoreriaGRUK();
+    }
   }
 }
 

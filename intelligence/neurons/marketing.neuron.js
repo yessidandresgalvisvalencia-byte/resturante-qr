@@ -136,12 +136,26 @@ async function analyze(empresaId) {
       nombre: "cac",
       valor_actual: cacActual,
       valor_objetivo: cacObjetivo,
-      estado: "ALERTA"
+      estado:
+        cacObjetivo === null
+          ? "SIN_CONFIGURAR"
+          : "DATOS_INSUFICIENTES",
+      medicion_disponible: false,
+      objetivo_disponible:
+        cacObjetivo !== null,
+      motivo_no_evaluable:
+        cacObjetivo === null
+          ? "Falta configurar CAC maximo y todavia no existe atribucion suficiente para calcular CAC."
+          : "Todavia no existe atribucion suficiente para calcular CAC sin inventar valores.",
+      evaluabilidad:
+        cacObjetivo === null
+          ? "SIN_CONFIGURAR"
+          : "DATOS_INSUFICIENTES"
     },
 
     hallazgos,
 
-    necesita_decision_de_cerebro: true,
+    necesita_decision_de_cerebro: false,
 
     createdBy: null,
 

@@ -1,5 +1,337 @@
 <div class="card">
 
+<h3>💰 Tesorería GRUK</h3>
+
+<p>
+Configura las cuentas reales donde vive el dinero. GRUK separa saldo disponible de flujo del periodo y marca la confiabilidad del dato.
+</p>
+
+<div id="resumenTesoreriaGRUK">
+  <p>Cargando tesorería...</p>
+</div>
+
+<div id="obligacionesTesoreriaGRUK">
+  <p>Cargando obligaciones registradas...</p>
+</div>
+
+<hr>
+
+<h4>Ganancia separada del dueño</h4>
+
+<p>
+GRUK calcula la utilidad del dueño solo sobre un cierre mensual confiable y la limita por caja libre real después de obligaciones, reservas y colchón mínimo.
+</p>
+
+<label>
+  <input
+    id="distribucionDuenoActiva"
+    type="checkbox"
+  >
+  Habilitar distribución de utilidad al dueño
+</label>
+
+<label>Porcentaje de utilidad que corresponde al dueño</label>
+<input
+  id="distribucionDuenoPorcentaje"
+  type="number"
+  min="0"
+  max="100"
+  step="0.01"
+  value="0"
+/>
+
+<label>Colchón mínimo de caja que nunca se distribuye</label>
+<input
+  id="distribucionDuenoReservaMinima"
+  type="number"
+  min="0"
+  step="1"
+  value="0"
+/>
+
+<button onclick="guardarPoliticaDistribucionDuenoGRUK()">
+  Guardar política del dueño
+</button>
+
+<div id="estadoPoliticaDistribucionDuenoGRUK"></div>
+
+<label>Periodo mensual a cerrar</label>
+<input
+  id="distribucionDuenoPeriodo"
+  type="month"
+/>
+
+<button onclick="cerrarPeriodoDistribucionDuenoGRUK()">
+  Cerrar mes y calcular ganancia del dueño
+</button>
+
+<div id="resultadoDistribucionDuenoGRUK"></div>
+
+<div id="reservasDuenoGRUK">
+  <p>Cargando reservas de utilidad...</p>
+</div>
+
+<div id="historialRetirosDuenoGRUK">
+  <p>Cargando retiros del dueño...</p>
+</div>
+
+<div id="obligacionesRecurrentesGRUK">
+  <p>Cargando obligaciones recurrentes...</p>
+</div>
+
+<hr>
+
+<h4>Política de prioridad de pagos</h4>
+
+<p>
+Por defecto GRUK prioriza vencidas, luego fecha más próxima y después mayor monto. El DUEÑO puede activar precedencia adicional por categoría.
+</p>
+
+<label>
+  <input
+    id="politicaPagosActiva"
+    type="checkbox"
+  >
+  Activar precedencia por categoría
+</label>
+
+<label>Orden corporativo de categorías</label>
+<select
+  id="politicaPagosCategorias"
+  size="9"
+>
+  <option value="NOMINA">Nómina</option>
+  <option value="IMPUESTOS">Impuestos</option>
+  <option value="DEUDA">Deuda</option>
+  <option value="ARRIENDO">Arriendo</option>
+  <option value="SERVICIOS">Servicios</option>
+  <option value="SEGUROS">Seguros</option>
+  <option value="LICENCIAS">Licencias</option>
+  <option value="PROVEEDORES">Proveedores</option>
+  <option value="OTRO">Otro</option>
+</select>
+
+<div>
+  <button
+    type="button"
+    onclick="moverCategoriaPoliticaGRUK(-1)"
+  >
+    ↑ Subir
+  </button>
+
+  <button
+    type="button"
+    onclick="moverCategoriaPoliticaGRUK(1)"
+  >
+    ↓ Bajar
+  </button>
+</div>
+
+<p class="descripcion-termino">
+El orden visible define la precedencia. La política solo se aplica dentro de la misma frontera: vencidas entre sí o próximas 7 días entre sí.
+</p>
+
+<button onclick="guardarPoliticaPagosGRUK()">
+  Guardar política de pagos
+</button>
+
+<div id="estadoPoliticaPagosGRUK"></div>
+
+<hr>
+
+<h4>Excepciones temporales de prioridad</h4>
+
+<p>
+Solo el DUEÑO puede crear una excepción. Requiere motivo y fecha de expiración. No modifica la política base.
+</p>
+
+<div id="excepcionesPrioridadPagoGRUK">
+  <p>Cargando excepciones activas...</p>
+</div>
+
+<div id="obligacionesParaExcepcionGRUK">
+  <p>Cargando obligaciones elegibles...</p>
+</div>
+
+<hr>
+
+<h4>Nueva obligación recurrente</h4>
+
+<label>Nombre</label>
+<input
+  id="recurrenteNombre"
+  type="text"
+  placeholder="Ej: Nómina, arriendo, cuota crédito"
+/>
+
+<label>Categoría</label>
+<select id="recurrenteCategoria">
+  <option value="NOMINA">Nómina</option>
+  <option value="ARRIENDO">Arriendo</option>
+  <option value="SERVICIOS">Servicios</option>
+  <option value="IMPUESTOS">Impuestos</option>
+  <option value="DEUDA">Deuda / crédito</option>
+  <option value="SEGUROS">Seguros</option>
+  <option value="LICENCIAS">Licencias</option>
+  <option value="OTRO">Otro</option>
+</select>
+
+<label>Monto</label>
+<input
+  id="recurrenteMonto"
+  type="number"
+  min="1"
+  step="1"
+/>
+
+<label>Frecuencia</label>
+<select id="recurrenteFrecuencia">
+  <option value="SEMANAL">Semanal</option>
+  <option value="QUINCENAL">Quincenal</option>
+  <option value="MENSUAL" selected>Mensual</option>
+  <option value="BIMESTRAL">Bimestral</option>
+  <option value="TRIMESTRAL">Trimestral</option>
+  <option value="SEMESTRAL">Semestral</option>
+  <option value="ANUAL">Anual</option>
+</select>
+
+<label>Próximo vencimiento</label>
+<input
+  id="recurrenteProximoVencimiento"
+  type="date"
+/>
+
+<label>Fecha fin (opcional)</label>
+<input
+  id="recurrenteFechaFin"
+  type="date"
+/>
+
+<label>Tercero / beneficiario</label>
+<input
+  id="recurrenteTercero"
+  type="text"
+  placeholder="Ej: Arrendador, banco, empleados"
+/>
+
+<label>Fuente del monto</label>
+<select id="recurrenteFuenteMonto">
+  <option value="CONTRATO">Contrato / obligación formal</option>
+  <option value="HISTORICO">Histórico observado</option>
+  <option value="ESTIMADO_MANUAL">Estimación manual</option>
+  <option value="OTRO">Otro</option>
+</select>
+
+<p class="descripcion-termino">
+La obligación recurrente afecta la proyección, no la caja. Solo un pago real confirmado genera salida de dinero.
+</p>
+
+<button onclick="crearObligacionRecurrenteGRUK()">
+  Crear obligación recurrente
+</button>
+
+<div id="estadoObligacionRecurrenteGRUK"></div>
+
+<hr>
+
+<h4>Nueva cuenta</h4>
+
+<label>Nombre de la cuenta</label>
+<input
+  id="tesoreriaNombreCuenta"
+  type="text"
+  placeholder="Ej: Caja principal, Bancolombia, Nequi"
+/>
+
+<label>Tipo</label>
+<select id="tesoreriaTipoCuenta">
+  <option value="EFECTIVO">Efectivo / Caja</option>
+  <option value="BANCO">Banco</option>
+  <option value="BILLETERA">Billetera digital</option>
+  <option value="OTRO">Otro</option>
+</select>
+
+<label>Saldo inicial confirmado</label>
+<input
+  id="tesoreriaSaldoInicial"
+  type="number"
+  step="1"
+  value="0"
+/>
+
+<label>Fecha y hora del saldo inicial</label>
+<input
+  id="tesoreriaSaldoInicialAt"
+  type="datetime-local"
+/>
+
+<label>Métodos de pago que llegan a esta cuenta</label>
+<select
+  id="tesoreriaMetodosPago"
+  multiple
+  size="6"
+>
+  <option value="efectivo">Efectivo</option>
+  <option value="transferencia">Transferencia bancaria</option>
+  <option value="tarjeta">Tarjeta / datáfono</option>
+  <option value="nequi">Nequi</option>
+  <option value="daviplata">Daviplata</option>
+  <option value="otro">Otro</option>
+</select>
+
+<p class="descripcion-termino">
+Selecciona solo métodos que tengan un destino inequívoco. Si dos cuentas comparten el mismo método, GRUK dejará el movimiento sin asignar en lugar de adivinar.
+</p>
+
+<label>
+  <input
+    id="tesoreriaPermiteNegativo"
+    type="checkbox"
+  >
+  Permitir saldo negativo en esta cuenta
+</label>
+
+<button onclick="crearCuentaTesoreriaGRUK()">
+  Crear cuenta de tesorería
+</button>
+
+<div id="estadoCuentaTesoreriaGRUK"></div>
+
+<hr>
+
+<h4>Transferencia interna</h4>
+
+<label>Cuenta origen</label>
+<select id="tesoreriaCuentaOrigen"></select>
+
+<label>Cuenta destino</label>
+<select id="tesoreriaCuentaDestino"></select>
+
+<label>Monto</label>
+<input
+  id="tesoreriaTransferenciaMonto"
+  type="number"
+  min="1"
+  step="1"
+/>
+
+<label>Concepto</label>
+<input
+  id="tesoreriaTransferenciaConcepto"
+  type="text"
+  value="Transferencia interna"
+/>
+
+<button onclick="transferirTesoreriaGRUK()">
+  Transferir entre cuentas
+</button>
+
+<div id="estadoTransferenciaTesoreriaGRUK"></div>
+
+</div>
+
+<div class="card">
+
 <h3>Control de Gasto</h3>
 
 <p>
@@ -11,6 +343,27 @@ Analiza si un gasto fue necesario, parcialmente útil o innecesario, y genera un
 
 <label>Valor del gasto</label>
 <input id="valorGasto" type="number" placeholder="Ej: 500000">
+
+<label>Estado del pago</label>
+<select id="estadoPagoGasto">
+<option value="desconocido" selected>No confirmado</option>
+<option value="pagado">Pagado</option>
+<option value="pendiente">Pendiente</option>
+</select>
+
+<p class="descripcion-termino">
+GRUK solo descontará este gasto del flujo confirmado cuando el estado sea Pagado.
+</p>
+
+<label>Fecha de vencimiento del pago</label>
+<input
+  id="fechaVencimientoGasto"
+  type="date"
+/>
+
+<p class="descripcion-termino">
+Si el gasto está pendiente, esta fecha permite a Tesorería proyectar si la caja alcanzará antes del vencimiento.
+</p>
 
 <label>Clasificación del gasto</label>
 <select id="categoriaGasto">

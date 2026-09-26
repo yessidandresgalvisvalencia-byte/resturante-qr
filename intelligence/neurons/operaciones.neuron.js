@@ -37,7 +37,7 @@ async function analyze(empresaId) {
 
   const porcentaje = total ? (agotados / total) * 100 : 0;
   const estado = total === 0
-    ? "ALERTA"
+    ? "DATOS_INSUFICIENTES"
     : agotados === 0
       ? "OK"
       : porcentaje >= 20
@@ -72,12 +72,28 @@ async function analyze(empresaId) {
     timestamp: new Date(),
     kpi_principal: {
       nombre: "porcentaje_items_agotados",
-      valor_actual: Number(porcentaje.toFixed(2)),
+      valor_actual:
+        total === 0
+          ? null
+          : Number(porcentaje.toFixed(2)),
       valor_objetivo: 0,
-      estado
+      estado,
+      medicion_disponible:
+        total > 0,
+      objetivo_disponible: true,
+      motivo_no_evaluable:
+        total === 0
+          ? "No existen items activos de inventario para medir disponibilidad."
+          : "",
+      evaluabilidad:
+        total === 0
+          ? "DATOS_INSUFICIENTES"
+          : "EVALUABLE"
     },
     hallazgos,
-    necesita_decision_de_cerebro: estado !== "OK",
+    necesita_decision_de_cerebro:
+      total > 0 &&
+      estado !== "OK",
     createdBy: null,
     deletedAt: null
   });

@@ -5,8 +5,13 @@ const Decision = require("../models/CerebroDecision");
 const Auditoria = require("../models/CerebroAuditoria");
 const JuntaSesion = require("../board/JuntaSesion");
 const CerebroMemoria = require("../memory/CerebroMemoria");
+const PlanEjecucionPago = require("../../core/finanzas/models/PlanEjecucionPago");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
 const { registrarBaselineAprobacion } = require("../memory/memoria.service");
+const {
+  crearPlanDesdeDecision,
+  confirmarItemPagado
+} = require("../../core/finanzas/planEjecucionPago.service");
 
 function serviceError(statusCode, message) {
   const error = new Error(message);
@@ -82,6 +87,14 @@ async function procesarOrden({ auth, decisionId, ordenId, accion }) {
           orden,
           session
         });
+
+        await crearPlanDesdeDecision({
+          decision,
+          orden,
+          createdBy:
+            auth.usuarioId,
+          session
+        });
       }
 
       await Auditoria.create([{
@@ -102,10 +115,98 @@ async function procesarOrden({ auth, decisionId, ordenId, accion }) {
   }
 }
 
+async function confirmarItemPlanPago({
+  auth,
+  planId,
+  itemId
+}) {
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      auth.usuarioId
+    )
+  ) {
+    throw serviceError(
+      401,
+      "Identidad de usuario invalida"
+    );
+  }
+
+  return confirmarItemPagado({
+    empresaId:
+      auth.empresaId,
+    sedeId:
+      auth.rol ===
+      ROLES_GRUK.ADMIN_SEDE
+        ? auth.sedeId
+        : null,
+    planId,
+    itemId,
+    confirmadoBy:
+      auth.usuarioId
+  });
+}
+
+async function obtenerPlanesPagoDecision(
+  auth,
+  decisionId
+) {
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      decisionId
+    )
+  ) {
+    throw serviceError(
+      400,
+      "decisionId invalido"
+    );
+  }
+
+  const decision =
+    await Decision.findOne(
+      filtroTenant(
+        auth,
+        { _id: decisionId }
+      )
+    )
+      .select("_id")
+      .lean();
+
+  if (!decision) {
+    throw serviceError(
+      404,
+      "Decision no encontrada"
+    );
+  }
+
+  const filtro = {
+    empresaId:
+      auth.empresaId,
+    decisionId:
+      decision._id,
+    deletedAt: null
+  };
+
+  if (
+    auth.rol ===
+    ROLES_GRUK.ADMIN_SEDE
+  ) {
+    filtro.sedeId =
+      auth.sedeId;
+  }
+
+  return PlanEjecucionPago.find(
+    filtro
+  )
+    .sort({
+      createdAt: 1
+    })
+    .lean();
+}
+
 async function obtenerAuditoria(auth, limite = 100) {
   const maximo = Math.max(1, Math.min(200, Number(limite) || 100));
 
-  const [accionesOrden, juntas, memorias] = await Promise.all([
+  const [accionesOrden, juntas, memorias, planesPago] = await Promise.all([
     Auditoria.find(filtroTenant(auth))
       .sort({ createdAt: -1 })
       .limit(maximo)
@@ -117,13 +218,20 @@ async function obtenerAuditoria(auth, limite = 100) {
     CerebroMemoria.find(filtroTenant(auth))
       .sort({ createdAt: -1 })
       .limit(maximo)
+      .lean(),
+    PlanEjecucionPago.find(
+      filtroTenant(auth)
+    )
+      .sort({ createdAt: -1 })
+      .limit(maximo)
       .lean()
   ]);
 
   const decisionIds = [...new Set([
     ...accionesOrden.map((evento) => String(evento.decisionId)),
     ...juntas.map((sesion) => String(sesion.decisionId)),
-    ...memorias.map((memoria) => String(memoria.decisionId))
+    ...memorias.map((memoria) => String(memoria.decisionId)),
+    ...planesPago.map((plan) => String(plan.decisionId))
   ])];
 
   const decisiones = decisionIds.length
@@ -149,9 +257,14 @@ async function obtenerAuditoria(auth, limite = 100) {
       _id: String(evento._id),
       tipo: "ORDEN",
       accion: evento.accion,
-      actor: "HUMANO",
-      usuarioId: evento.usuarioId,
-      rol: evento.metadata?.rol || null,
+      actor:
+        evento.accion === "SUPERAR"
+          ? "SISTEMA"
+          : "HUMANO",
+      usuarioId:
+        evento.usuarioId || null,
+      rol:
+        evento.metadata?.rol || null,
       createdAt: evento.createdAt,
       decisionId: evento.decisionId,
       ordenId: evento.ordenId,
@@ -202,12 +315,12 @@ async function obtenerAuditoria(auth, limite = 100) {
         });
       }
 
-      if (intervencion.tipo === "EXPERTO_IA") {
+      if (["EXPERTO_GRUK", "EXPERTO_IA"].includes(intervencion.tipo)) {
         eventos.push({
           _id: `junta-experto-${intervencion._id}`,
           tipo: "JUNTA",
           accion: "JUNTA_RESPUESTA_EXPERTA",
-          actor: "IA",
+          actor: intervencion.tipo === "EXPERTO_GRUK" ? "GRUK" : "IA",
           usuarioId: null,
           rol: null,
           modelo: intervencion.modelo || null,
@@ -241,6 +354,90 @@ async function obtenerAuditoria(auth, limite = 100) {
     }
   }
 
+  for (const plan of planesPago) {
+    const decision =
+      mapaDecisiones.get(
+        String(plan.decisionId)
+      ) || null;
+
+    eventos.push({
+      _id:
+        `plan-pago-${plan._id}`,
+      tipo:
+        "PLAN_PAGO",
+      accion:
+        "PLAN_PAGO_CREADO",
+      actor:
+        "HUMANO",
+      usuarioId:
+        plan.createdBy,
+      rol:
+        null,
+      createdAt:
+        plan.createdAt,
+      decisionId:
+        plan.decisionId,
+      ordenId:
+        plan.ordenId,
+      departamento:
+        "DIRECCION",
+      tarea:
+        `Plan de pago autorizado por ${Number(plan.totalAutorizado || 0)}.`,
+      kpi_a_medir:
+        "obligaciones_7d_cubiertas",
+      situacion:
+        decision
+          ?.decision_general
+          ?.situacion || null
+    });
+
+    for (
+      const item of
+      plan.items || []
+    ) {
+      if (
+        item.estado !==
+        "CONFIRMADO" ||
+        !item.confirmadoAt
+      ) {
+        continue;
+      }
+
+      eventos.push({
+        _id:
+          `plan-pago-item-${item._id}`,
+        tipo:
+          "PLAN_PAGO",
+        accion:
+          "PAGO_VERIFICADO_EN_CAJA",
+        actor:
+          "HUMANO",
+        usuarioId:
+          item.confirmadoBy || null,
+        rol:
+          null,
+        createdAt:
+          item.confirmadoAt,
+        decisionId:
+          plan.decisionId,
+        ordenId:
+          plan.ordenId,
+        departamento:
+          "FINANZAS",
+        tarea:
+          `Pago verificado en Caja: ${item.descripcion || "obligacion"} por ${Number(item.monto || 0)}.`,
+        kpi_a_medir:
+          "obligaciones_7d_cubiertas",
+        situacion:
+          decision
+            ?.decision_general
+            ?.situacion || null,
+        movimientoCajaId:
+          item.movimientoCajaId || null
+      });
+    }
+  }
+
   for (const memoria of memorias) {
     if (memoria.resultado === "PENDIENTE" || !memoria.seguimiento?.measuredAt) {
       continue;
@@ -270,4 +467,11 @@ async function obtenerAuditoria(auth, limite = 100) {
     .slice(0, maximo);
 }
 
-module.exports = { obtenerUltimaDecision, procesarOrden, obtenerAuditoria, filtroTenant };
+module.exports = {
+  obtenerUltimaDecision,
+  procesarOrden,
+  obtenerAuditoria,
+  obtenerPlanesPagoDecision,
+  confirmarItemPlanPago,
+  filtroTenant
+};

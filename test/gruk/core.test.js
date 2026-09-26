@@ -352,7 +352,7 @@ test("Intervencion experta queda ligada a la pregunta sin cifras inventadas", ()
     }
   });
 
-  assert.equal(intervencion.tipo, "EXPERTO_IA");
+  assert.equal(intervencion.tipo, "EXPERTO_GRUK");
   assert.equal(intervencion.departamento, "FINANZAS");
   assert.equal(String(intervencion.respuestaAId), String(preguntaId));
   assert.equal(intervencion.impacto_financiero_estimado, null);

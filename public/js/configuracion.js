@@ -333,3 +333,294 @@ ${explicacionCompleta}
     </div>
   `;
 }
+
+function escaparConfiguracionGRUK(valor) {
+  return String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function pintarEstadoConfiguracionInteligenciaGRUK(
+  configuracion
+) {
+  const estado =
+    document.getElementById(
+      "estadoConfiguracionInteligenciaGRUK"
+    );
+
+  if (!estado) return;
+
+  const faltantes =
+    Array.isArray(
+      configuracion?.faltantes
+    )
+      ? configuracion.faltantes
+      : [];
+
+  const completo =
+    Boolean(
+      configuracion?.completo
+    );
+
+  estado.innerHTML = `
+    <div class="card">
+      <p>
+        <strong>Preparación de Inteligencia:</strong>
+        ${completo ? "✅ COMPLETA" : "⚠️ PENDIENTE"}
+      </p>
+      <p>
+        ${Number(configuracion?.configurados || 0)}
+        de
+        ${Number(configuracion?.total || 5)}
+        datos configurados
+        ·
+        ${Number(configuracion?.porcentaje || 0)}%
+      </p>
+      ${faltantes.length
+        ? `<p><strong>Falta:</strong> ${faltantes
+            .map(
+              (item) =>
+                escaparConfiguracionGRUK(
+                  item.etiqueta
+                )
+            )
+            .join(", ")}</p>`
+        : "<p>Las cinco referencias base ya están disponibles para las neuronas.</p>"}
+    </div>
+  `;
+}
+
+function cargarValoresConfiguracionInteligenciaGRUK(
+  valores
+) {
+  const campos = {
+    configInteligenciaMargen:
+      valores?.margen_objetivo,
+    configInteligenciaPuntoEquilibrio:
+      valores?.punto_equilibrio,
+    configInteligenciaTicket:
+      valores?.ticket_objetivo,
+    configInteligenciaCAC:
+      valores?.cac_maximo,
+    configInteligenciaEmpleados:
+      valores?.empleados_actuales
+  };
+
+  for (
+    const [id, valor] of
+    Object.entries(campos)
+  ) {
+    const input =
+      document.getElementById(id);
+
+    if (!input) continue;
+
+    input.value =
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor;
+  }
+}
+
+async function cargarConfiguracionInteligenciaGRUK() {
+  const res =
+    await grukFetch(
+      "/api/configuracion-inteligencia"
+    );
+
+  const data =
+    await res.json();
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.error ||
+      "No fue posible cargar la configuración base de Inteligencia."
+    );
+  }
+
+  cargarValoresConfiguracionInteligenciaGRUK(
+    data.configuracion?.valores || {}
+  );
+
+  pintarEstadoConfiguracionInteligenciaGRUK(
+    data.configuracion
+  );
+
+  return data.configuracion;
+}
+
+async function guardarConfiguracionInteligenciaGRUK() {
+  const estado =
+    document.getElementById(
+      "estadoConfiguracionInteligenciaGRUK"
+    );
+
+  const body = {
+    margen_objetivo:
+      Number(
+        document.getElementById(
+          "configInteligenciaMargen"
+        )?.value
+      ),
+    punto_equilibrio:
+      Number(
+        document.getElementById(
+          "configInteligenciaPuntoEquilibrio"
+        )?.value
+      ),
+    ticket_objetivo:
+      Number(
+        document.getElementById(
+          "configInteligenciaTicket"
+        )?.value
+      ),
+    cac_maximo:
+      Number(
+        document.getElementById(
+          "configInteligenciaCAC"
+        )?.value
+      ),
+    empleados_actuales:
+      Number(
+        document.getElementById(
+          "configInteligenciaEmpleados"
+        )?.value
+      )
+  };
+
+  const camposVacios = [
+    [
+      "Margen objetivo",
+      document.getElementById(
+        "configInteligenciaMargen"
+      )?.value
+    ],
+    [
+      "Punto de equilibrio",
+      document.getElementById(
+        "configInteligenciaPuntoEquilibrio"
+      )?.value
+    ],
+    [
+      "Ticket objetivo",
+      document.getElementById(
+        "configInteligenciaTicket"
+      )?.value
+    ],
+    [
+      "CAC máximo",
+      document.getElementById(
+        "configInteligenciaCAC"
+      )?.value
+    ],
+    [
+      "Empleados actuales",
+      document.getElementById(
+        "configInteligenciaEmpleados"
+      )?.value
+    ]
+  ]
+    .filter(
+      ([, valor]) =>
+        valor === "" ||
+        valor === null ||
+        valor === undefined
+    )
+    .map(
+      ([nombre]) =>
+        nombre
+    );
+
+  if (camposVacios.length) {
+    if (estado) {
+      estado.innerHTML = `
+        <div class="card">
+          <p>⚠️ Completa primero: ${camposVacios
+            .map(escaparConfiguracionGRUK)
+            .join(", ")}.</p>
+        </div>
+      `;
+    }
+
+    return;
+  }
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/configuracion-inteligencia",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify(
+              body
+            )
+        }
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible guardar la configuración base."
+      );
+    }
+
+    pintarEstadoConfiguracionInteligenciaGRUK(
+      data.configuracion
+    );
+
+    if (estado) {
+      estado.insertAdjacentHTML(
+        "beforeend",
+        "<p>✅ Guardado. GRUK está recalculando las neuronas con estas referencias.</p>"
+      );
+    }
+  } catch (error) {
+    if (estado) {
+      estado.innerHTML = `
+        <div class="card">
+          <p>❌ ${escaparConfiguracionGRUK(
+            error.message
+          )}</p>
+        </div>
+      `;
+    }
+  }
+}
+
+async function inicializarConfiguracionGRUK() {
+  cargarConfiguracionFinanciera();
+
+  try {
+    await cargarConfiguracionInteligenciaGRUK();
+  } catch (error) {
+    const estado =
+      document.getElementById(
+        "estadoConfiguracionInteligenciaGRUK"
+      );
+
+    if (estado) {
+      estado.innerHTML = `
+        <div class="card">
+          <p>❌ ${escaparConfiguracionGRUK(
+            error.message
+          )}</p>
+        </div>
+      `;
+    }
+  }
+}
+
+window.guardarConfiguracionInteligenciaGRUK =
+  guardarConfiguracionInteligenciaGRUK;

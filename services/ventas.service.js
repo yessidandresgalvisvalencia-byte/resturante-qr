@@ -186,7 +186,11 @@ costoFuente:
       margenBruto: venta.margenBruto,
 
       metodoPago: venta.metodoPago,
-      fecha: venta.fecha
+      concepto: venta.concepto,
+      fecha: venta.fecha,
+      sourceUpdatedAt: venta.updatedAt,
+      cajaReferencia:
+        venta.metadata?.cajaReferencia || null
     });
 
     return {

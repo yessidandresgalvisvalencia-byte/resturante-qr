@@ -10,7 +10,7 @@ async function analyze(empresaId){
  const empresa=await Empresa.findById(empresaId).select("_id configuracion.empleados_actuales").lean(); if(!empresa) throw new Error("GENTE_NEURON_EMPRESA_NO_ENCONTRADA");
  const {desde,hasta}=periodo(); const cfg=empresa.configuracion?.empleados_actuales; const empleados=cfg==null?null:Number(cfg);
  const hallazgos=[]; let estado="OK";
- if(empleados==null){estado="ALERTA";hallazgos.push({tipo:"CONFIGURACION_INCOMPLETA",evidencia:"La empresa no tiene empleados actuales configurados.",impacto_financiero_estimado:0,confianza:100});}
- const doc=await CerebroReporteNeurona.create({neurona:NEURONA,empresaId:empresa._id,sedeId:null,periodo:{desde,hasta},timestamp:new Date(),kpi_principal:{nombre:"empleados_actuales",valor_actual:empleados,valor_objetivo:15,estado},hallazgos,necesita_decision_de_cerebro:estado!=="OK",createdBy:null,deletedAt:null});return doc.toObject();
+ if(empleados==null){estado="SIN_CONFIGURAR";hallazgos.push({tipo:"CONFIGURACION_INCOMPLETA",evidencia:"La empresa no tiene empleados actuales configurados.",impacto_financiero_estimado:0,confianza:100});}
+ const doc=await CerebroReporteNeurona.create({neurona:NEURONA,empresaId:empresa._id,sedeId:null,periodo:{desde,hasta},timestamp:new Date(),kpi_principal:{nombre:"empleados_actuales",valor_actual:empleados,valor_objetivo:null,estado,medicion_disponible:empleados!=null,objetivo_disponible:false,motivo_no_evaluable:empleados==null?"Falta configurar empleados actuales.":"",evaluabilidad:empleados==null?"SIN_CONFIGURAR":"EVALUABLE"},hallazgos,necesita_decision_de_cerebro:false,createdBy:null,deletedAt:null});return doc.toObject();
 }
 module.exports={getRequiredEvents,analyze};

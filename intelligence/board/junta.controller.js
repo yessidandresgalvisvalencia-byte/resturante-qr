@@ -7,19 +7,13 @@ const {
   responderPreguntaExpertos,
   cerrarSesion
 } = require("./junta.service");
+const {
+  obtenerEstadoVivo
+} = require("./juntaViva.service");
 
 function mensajePublico(error) {
-  if (error.message === "JUNTA_IA_NO_CONFIGURADA") {
-    return "La Junta experta todavía no tiene proveedor de IA configurado.";
-  }
-
-  if (
-    error.message === "JUNTA_IA_JSON_INVALIDO" ||
-    error.message === "JUNTA_IA_RESPUESTAS_INCOMPLETAS" ||
-    error.message === "JUNTA_IA_RESPUESTA_SIN_TEXTO" ||
-    String(error.message || "").startsWith("JUNTA_IA_PROVIDER_ERROR_")
-  ) {
-    return "Los expertos no pudieron completar la respuesta. La pregunta quedó guardada y puede reintentarse.";
+  if (error.message === "JUNTA_RESPUESTAS_INCOMPLETAS") {
+    return "La Junta no pudo construir una deliberación completa. La pregunta quedó guardada y puede reintentarse.";
   }
 
   return error.message;
@@ -40,6 +34,25 @@ function responderError(res, error, operacion, extra = {}) {
     error: "Error procesando solicitud de Junta Directiva",
     ...extra
   });
+}
+
+async function obtenerJuntaViva(req, res) {
+  try {
+    const estado = await obtenerEstadoVivo(
+      req.auth
+    );
+
+    return res.json({
+      ok: true,
+      estado
+    });
+  } catch (error) {
+    return responderError(
+      res,
+      error,
+      "consultar estado vivo"
+    );
+  }
 }
 
 async function obtenerJunta(req, res) {
@@ -140,6 +153,7 @@ async function reintentarRespuesta(req, res) {
 }
 
 module.exports = {
+  obtenerJuntaViva,
   obtenerJunta,
   abrirJunta,
   intervenir,

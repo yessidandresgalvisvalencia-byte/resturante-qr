@@ -39,13 +39,92 @@ async function guardarInventario() {
   }
 }
 
+const estadoFiltrosInventarioGRUK = { page: 1, limit: 50 };
+
+function escaparInventarioGRUK(valor) {
+  return String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/\x27/g, "&#039;");
+}
+
+function leerFiltrosInventarioGRUK() {
+  return {
+    q: document.getElementById("inventarioFiltroTexto")?.value.trim() || "",
+    categoria: document.getElementById("inventarioFiltroCategoria")?.value || "",
+    estado: document.getElementById("inventarioFiltroEstado")?.value || "",
+    stock: document.getElementById("inventarioFiltroStock")?.value || "",
+    proveedor: document.getElementById("inventarioFiltroProveedor")?.value.trim() || "",
+    orden: document.getElementById("inventarioFiltroOrden")?.value || "vencimiento",
+    page: estadoFiltrosInventarioGRUK.page,
+    limit: estadoFiltrosInventarioGRUK.limit
+  };
+}
+
+function construirQueryInventarioGRUK() {
+  const params = new URLSearchParams();
+  Object.entries(leerFiltrosInventarioGRUK()).forEach(([clave, valor]) => {
+    if (valor !== "" && valor !== null && valor !== undefined) params.set(clave, String(valor));
+  });
+  return params.toString();
+}
+
+function aplicarFiltrosInventarioGRUK() {
+  estadoFiltrosInventarioGRUK.page = 1;
+  cargarInventario();
+}
+
+function limpiarFiltrosInventarioGRUK() {
+  ["inventarioFiltroTexto","inventarioFiltroCategoria","inventarioFiltroEstado","inventarioFiltroStock","inventarioFiltroProveedor"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const orden = document.getElementById("inventarioFiltroOrden");
+  if (orden) orden.value = "vencimiento";
+  aplicarFiltrosInventarioGRUK();
+}
+
+function cambiarPaginaInventarioGRUK(page) {
+  const numero = Number(page);
+  if (!Number.isInteger(numero) || numero < 1) return;
+  estadoFiltrosInventarioGRUK.page = numero;
+  cargarInventario();
+}
+
+function renderizarPaginacionInventarioGRUK(paginacion) {
+  const contenedor = document.getElementById("inventarioPaginacion");
+  if (!contenedor) return;
+  const page = Number(paginacion?.page || 1);
+  const totalPaginas = Number(paginacion?.totalPaginas || 1);
+  if (totalPaginas <= 1) { contenedor.innerHTML = ""; return; }
+  contenedor.innerHTML = `<button ${page <= 1 ? "disabled" : ""} onclick="cambiarPaginaInventarioGRUK(${page - 1})">← Anterior</button><span>Página <strong>${page}</strong> de <strong>${totalPaginas}</strong></span><button ${page >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaInventarioGRUK(${page + 1})">Siguiente →</button>`;
+}
+
+let debounceInventarioGRUK = null;
+function registrarFiltrosInventarioGRUK() {
+  ["inventarioFiltroTexto","inventarioFiltroProveedor"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      clearTimeout(debounceInventarioGRUK);
+      debounceInventarioGRUK = setTimeout(aplicarFiltrosInventarioGRUK, 300);
+    });
+  });
+  ["inventarioFiltroCategoria","inventarioFiltroEstado","inventarioFiltroStock","inventarioFiltroOrden"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", aplicarFiltrosInventarioGRUK);
+  });
+}
 async function cargarInventario() {
   try {
     const restaurantId =
       localStorage.getItem("adminRestaurantId") ||
       getRestaurantId();
 
-    const res = await grukFetch(`/api/inventario/${restaurantId}`);
+    const queryInventario = construirQueryInventarioGRUK();
+    const res = await grukFetch(`/api/inventario/${encodeURIComponent(restaurantId)}?${queryInventario}`);
     const data = await res.json();
 
     if (!data.ok) return;
@@ -59,42 +138,27 @@ async function cargarInventario() {
 
     const productos = data.productos || [];
 
-    const productosOrdenados = productos.sort((a, b) => {
-      return a.diasRestantes - b.diasRestantes;
-    });
+    const productosOrdenados = productos;
 
     if (resumen) {
-      const totalProductos = productos.length;
-
-      const proximos = productos.filter(
-        p => p.estado === "proximo"
-      ).length;
-
-      const vencidos = productos.filter(
-        p => p.estado === "vencido"
-      ).length;
-
-      const valorInventario = productos.reduce((acc, p) => {
-        return acc + (
-          Number(p.cantidad || 0) *
-          Number(p.costo || 0)
-        );
-      }, 0);
+      const r = data.resumen || {};
 
       resumen.innerHTML = `
         <div class="card">
-          <h3>📦 Resumen de inventario</h3>
-
-          <p>Productos registrados: <strong>${totalProductos}</strong></p>
-          <p>Próximos a vencer: <strong>${proximos}</strong></p>
-          <p>Vencidos: <strong>${vencidos}</strong></p>
-
-          <p>
-            💰 Valor total inventario:
-            <strong>${formatoCOP(valorInventario)}</strong>
-          </p>
+          <h3>📦 Resumen de inventario filtrado</h3>
+          <p>Productos encontrados: <strong>${Number(r.totalProductos || 0)}</strong></p>
+          <p>Stock bajo: <strong>${Number(r.stockBajo || 0)}</strong></p>
+          <p>Agotados: <strong>${Number(r.agotados || 0)}</strong></p>
+          <p>Próximos a vencer: <strong>${Number(r.proximos || 0)}</strong></p>
+          <p>Vencidos: <strong>${Number(r.vencidos || 0)}</strong></p>
+          <p>💰 Valor filtrado: <strong>${formatoCOP(Number(r.valorInventario || 0))}</strong></p>
         </div>
       `;
+    }
+
+    const meta = document.getElementById("inventarioResultadosMeta");
+    if (meta) {
+      meta.innerHTML = `Mostrando <strong>${productos.length}</strong> de <strong>${Number(data.paginacion?.total || 0)}</strong> resultado(s)`;
     }
 
     contenedor.innerHTML = `
@@ -135,13 +199,13 @@ async function cargarInventario() {
 
             return `
               <tr style="border-bottom:1px solid rgba(255,255,255,15);">
-                <td>${producto.nombre}</td>
-                <td>${producto.categoria}</td>
+                <td>${escaparInventarioGRUK(producto.nombre)}</td>
+                <td>${escaparInventarioGRUK(producto.categoria)}</td>
                 <td>${producto.cantidad}</td>
-                <td>${producto.unidad}</td>
+                <td>${escaparInventarioGRUK(producto.unidad)}</td>
                 <td>${formatoCOP(costoUnitario)}</td>
                 <td>${formatoCOP(valorTotalProducto)}</td>
-                <td>${producto.proveedor || "-"}</td>
+                <td>${escaparInventarioGRUK(producto.proveedor || "-")}</td>
                 <td>
                   ${
                     producto.fechaVencimiento
@@ -155,10 +219,12 @@ async function cargarInventario() {
                       ? "✅ Vigente"
                       : producto.estado === "proximo"
                         ? "⚠️ Próximo"
-                        : "❌ Vencido"
+                        : producto.estado === "agotado"
+                          ? "⛔ Agotado"
+                          : "❌ Vencido"
                   }
                 </td>
-                <td>${producto.diasRestantes}</td>
+                <td>${producto.diasRestantes === null || producto.diasRestantes === undefined ? "-" : escaparInventarioGRUK(producto.diasRestantes)}</td>
                 <td>
                   <button onclick="anularInventario('${producto._id}')">
                     Anular
@@ -170,6 +236,8 @@ async function cargarInventario() {
         </tbody>
       </table>
     `;
+
+    renderizarPaginacionInventarioGRUK(data.paginacion || {});
 
   } catch (error) {
     console.log(error);
@@ -221,6 +289,7 @@ async function anularInventario(id) {
 }
 
 async function inicializarInventarioGRUK() {
+  registrarFiltrosInventarioGRUK();
   await cargarInventario();
 }
 async function generarPlanInventarioMensualGRUK() {
@@ -531,3 +600,6 @@ function analizarTemporadasGRUK() {
 function analizarCapitalInventarioGRUK() {
   diagnosticoInventarioGRUK();
 }
+window.aplicarFiltrosInventarioGRUK = aplicarFiltrosInventarioGRUK;
+window.limpiarFiltrosInventarioGRUK = limpiarFiltrosInventarioGRUK;
+window.cambiarPaginaInventarioGRUK = cambiarPaginaInventarioGRUK;
