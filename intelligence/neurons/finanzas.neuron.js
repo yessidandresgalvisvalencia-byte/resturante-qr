@@ -227,14 +227,9 @@ async function analyze(empresaId) {
   });
 
   const necesitaDecision =
-    estado !== "OK" ||
-    hallazgos.some(
-      (hallazgo) =>
-        hallazgo.tipo ===
-          "CONFIGURACION_INCOMPLETA" ||
-        hallazgo.tipo ===
-          "COSTO_NO_CONFIABLE"
-    );
+    margenActual !== null &&
+    margenObjetivo !== null &&
+    estado !== "OK";
 
   const reporte = await CerebroReporteNeurona.create({
     neurona: NEURONA,
@@ -254,7 +249,17 @@ async function analyze(empresaId) {
       nombre: "margen_bruto_confiable",
       valor_actual: margenActual,
       valor_objetivo: margenObjetivo,
-      estado
+      estado,
+      medicion_disponible:
+        margenActual !== null,
+      objetivo_disponible:
+        margenObjetivo !== null,
+      motivo_no_evaluable:
+        margenObjetivo === null
+          ? "Falta configurar margen objetivo."
+          : margenActual === null
+            ? "No existe margen bruto confiable suficiente para evaluar."
+            : ""
     },
 
     hallazgos,
