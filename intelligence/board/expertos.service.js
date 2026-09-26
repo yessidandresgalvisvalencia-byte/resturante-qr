@@ -1613,6 +1613,30 @@ function evaluabilidadReporte(reporte) {
   const kpi =
     reporte.kpi_principal || {};
 
+  if (
+    kpi.evaluabilidad ===
+      "SIN_CONFIGURAR" ||
+    kpi.evaluabilidad ===
+      "DATOS_INSUFICIENTES"
+  ) {
+    return {
+      evaluable: false,
+      estado:
+        kpi.evaluabilidad,
+      motivo:
+        limitarTexto(
+          kpi.motivo_no_evaluable,
+          400
+        ) ||
+        (
+          kpi.evaluabilidad ===
+          "SIN_CONFIGURAR"
+            ? "Falta configuración empresarial base."
+            : "Faltan datos confiables para evaluar este KPI."
+        )
+    };
+  }
+
   const requiereObjetivo = [
     "margen_bruto_confiable",
     "ticket_promedio",
@@ -2258,7 +2282,9 @@ function construirRespuestaExperta({
     respuesta +=
       evaluabilidad.evaluable
         ? ` El reporte vigente de ${departamento} marca ${reporte.kpi_principal?.estado || "SIN_ESTADO"} en ${reporte.kpi_principal?.nombre || "su KPI principal"}.`
-        : ` El KPI ${reporte.kpi_principal?.nombre || "principal"} todavía no es evaluable como alerta operativa; lo trato como preparación pendiente, no como deterioro del negocio.`;
+        : evaluabilidad.estado === "SIN_CONFIGURAR"
+          ? ` La configuración base necesaria para evaluar ${reporte.kpi_principal?.nombre || "este KPI"} aún está pendiente. No la interpreto como una alerta del negocio.`
+          : ` Aún no hay datos confiables suficientes para evaluar ${reporte.kpi_principal?.nombre || "este KPI"}. No invento una alerta ni una causa.`;
   }
 
   if (
@@ -2438,7 +2464,7 @@ function sintetizarDireccion(
         )
         .filter(
           (item) =>
-            /todavía no es evaluable como alerta operativa/i
+            /(configuración base necesaria|no la interpreto como una alerta del negocio)/i
               .test(
                 item.respuesta || ""
               )
