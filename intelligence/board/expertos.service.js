@@ -1871,6 +1871,58 @@ function temaPrincipal(temas) {
   ) || "GENERAL";
 }
 
+function temaExplicitoDepartamento(
+  departamento,
+  principal
+) {
+  const mapa = {
+    FINANZAS: [
+      "FLUJO_CAJA",
+      "MARGEN_PRECIO",
+      "PUNTO_EQUILIBRIO",
+      "DEUDA"
+    ],
+    VENTAS: [
+      "VENTAS",
+      "MARGEN_PRECIO"
+    ],
+    MARKETING: [
+      "MARKETING_CAC"
+    ],
+    OPERACIONES: [
+      "OPERACION_INVENTARIO"
+    ],
+    GENTE: [
+      "GENTE_CAPACIDAD"
+    ]
+  };
+
+  return (
+    mapa[departamento] || []
+  ).includes(principal);
+}
+
+function etiquetaKpiConfiguracion(
+  nombre
+) {
+  const mapa = {
+    margen_bruto_confiable:
+      "margen objetivo",
+    ticket_promedio:
+      "ticket objetivo",
+    cac:
+      "CAC máximo",
+    empleados_actuales:
+      "empleados actuales"
+  };
+
+  return (
+    mapa[nombre] ||
+    nombre ||
+    "configuración base"
+  );
+}
+
 function playbookPara({
   departamento,
   intencion,
@@ -2417,21 +2469,15 @@ function construirRespuestaExperta({
         if (
           departamento !== "DIRECCION" &&
           reporte &&
-          reporte.kpi_principal
-            ?.medicion_disponible === false
+          !evaluabilidadReporte(
+            reporte
+          ).evaluable &&
+          !temaExplicitoDepartamento(
+            departamento,
+            principal
+          )
         ) {
-          const temaExplicito = {
-            MARKETING:
-              principal === "MARKETING_CAC",
-            OPERACIONES:
-              principal === "OPERACION_INVENTARIO",
-            GENTE:
-              principal === "GENTE_CAPACIDAD"
-          }[departamento];
-
-          if (!temaExplicito) {
-            return "NINGUNA";
-          }
+          return "NINGUNA";
         }
 
         return base;
@@ -2443,7 +2489,8 @@ function sintetizarDireccion(
   respuestas,
   {
     intencion,
-    temas
+    temas,
+    reportes = []
   }
 ) {
   const direccion =
@@ -2457,6 +2504,11 @@ function sintetizarDireccion(
 
   const faltantes =
     respuestas
+      .filter(
+        (respuesta) =>
+          respuesta.relevancia !==
+          "NINGUNA"
+      )
       .flatMap(
         (respuesta) =>
           respuesta.datos_faltantes || []
@@ -2465,6 +2517,11 @@ function sintetizarDireccion(
 
   const riesgos =
     respuestas
+      .filter(
+        (respuesta) =>
+          respuesta.relevancia !==
+          "NINGUNA"
+      )
       .flatMap(
         (respuesta) =>
           respuesta.riesgos || []
@@ -2475,32 +2532,65 @@ function sintetizarDireccion(
     const principal =
       temaPrincipal(temas);
 
-    const setupPendiente =
-      respuestas
+    const sinConfigurar =
+      (reportes || [])
         .filter(
-          (item) =>
-            item.departamento !==
-            "DIRECCION"
-        )
+          (reporte) =>
+            reporte?.kpi_principal
+              ?.evaluabilidad ===
+            "SIN_CONFIGURAR"
+        );
+
+    const datosInsuficientes =
+      (reportes || [])
         .filter(
-          (item) =>
-            /(configuración base necesaria|no la interpreto como una alerta del negocio)/i
-              .test(
-                item.respuesta || ""
-              )
-        )
-        .map(
-          (item) =>
-            item.departamento
+          (reporte) =>
+            reporte?.kpi_principal
+              ?.evaluabilidad ===
+            "DATOS_INSUFICIENTES"
         );
 
     direccion.respuesta +=
       ` Como síntesis de Junta, el tema dominante es ${principal}.`;
 
-    if (setupPendiente.length) {
+    if (sinConfigurar.length) {
+      const campos =
+        [...new Set(
+          sinConfigurar.map(
+            (reporte) =>
+              etiquetaKpiConfiguracion(
+                reporte
+                  ?.kpi_principal
+                  ?.nombre
+              )
+          )
+        )];
+
       direccion.respuesta +=
-        ` Hay una sola brecha de preparación de GRUK que afecta ${setupPendiente.join(", ")}; no la interpreto como ${setupPendiente.length} fallas distintas del negocio. Completa la configuración base una vez y GRUK recalculará los KPI.`;
-    } else {
+        ` GRUK tiene una sola brecha de preparación empresarial, no ${sinConfigurar.length} alertas operativas distintas. Falta completar: ${campos.join(", ")}. Configúralo una vez en Configuración y las neuronas se recalcularán.`;
+
+      direccion.datos_faltantes = [
+        `Configuración base pendiente: ${campos.join(", ")}.`
+      ];
+    }
+
+    if (datosInsuficientes.length) {
+      const funciones =
+        [...new Set(
+          datosInsuficientes.map(
+            (reporte) =>
+              reporte.neurona
+          )
+        )];
+
+      direccion.respuesta +=
+        ` Además, ${funciones.join(", ")} todavía no tienen datos operativos suficientes para evaluar su KPI; eso es ausencia de evidencia, no una alerta del negocio.`;
+    }
+
+    if (
+      !sinConfigurar.length &&
+      !datosInsuficientes.length
+    ) {
       direccion.respuesta +=
         " Los datos actuales sí permiten separar señales operativas de simples faltantes de información.";
     }
@@ -2508,13 +2598,13 @@ function sintetizarDireccion(
 
   direccion.datos_faltantes =
     [...new Set([
-      ...direccion.datos_faltantes,
+      ...(direccion.datos_faltantes || []),
       ...faltantes
     ])].slice(0, 10);
 
   direccion.riesgos =
     [...new Set([
-      ...direccion.riesgos,
+      ...(direccion.riesgos || []),
       ...riesgos
     ])].slice(0, 8);
 }
@@ -2613,7 +2703,8 @@ async function generarRespuestasExpertas({
     respuestas,
     {
       intencion,
-      temas
+      temas,
+      reportes
     }
   );
 
