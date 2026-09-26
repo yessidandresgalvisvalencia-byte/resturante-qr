@@ -112,14 +112,14 @@ if (margenSeguridad <= 0.02) {
   nivelMargen = "Protección moderada";
 
   explicacionMargen =
-    "Este margen ayuda a proteger el restaurante frente a pequeños errores, desperdicios normales o descuentos ocasionales.";
+    "Este margen ayuda a proteger la empresa frente a pequeños errores, desperdicios normales o descuentos ocasionales.";
 
 } else if (margenSeguridad <= 0.20) {
 
   nivelMargen = "Protección alta";
 
   explicacionMargen =
-    "Este margen es útil cuando el restaurante tiene variación en insumos, promociones frecuentes o riesgo de desperdicio.";
+    "Este margen es útil cuando la empresa tiene variación en costos directos o insumos, promociones frecuentes o riesgo de desperdicio.";
 
 } else {
 
@@ -202,27 +202,27 @@ function recomendarMargenSeguridad() {
   let margenSeguridad = 0.02;
 
   let razones = [
-    "GRUK parte de un piso mínimo obligatorio del 2% para proteger el restaurante ante imprevistos básicos"
+    "GRUK parte de un piso mínimo obligatorio del 2% para proteger la empresa ante imprevistos básicos"
   ];
 
   if (riesgoInsumos === "medio") {
     margenSeguridad += 0.03;
-    razones.push("aumenta 3% porque los costos de insumos tienen variación media");
+    razones.push("aumenta 3% porque los costos de costos directos o insumos tienen variación media");
   }
 
   if (riesgoInsumos === "alto") {
     margenSeguridad += 0.08;
-    razones.push("aumenta 8% porque los costos de insumos son altamente variables");
+    razones.push("aumenta 8% porque los costos de costos directos o insumos son altamente variables");
   }
 
   if (riesgoDescuentos === "medio") {
     margenSeguridad += 0.03;
-    razones.push("aumenta 3% porque el restaurante aplica descuentos ocasionales");
+    razones.push("aumenta 3% porque la empresa aplica descuentos ocasionales");
   }
 
   if (riesgoDescuentos === "alto") {
     margenSeguridad += 0.06;
-    razones.push("aumenta 6% porque el restaurante usa promociones frecuentes");
+    razones.push("aumenta 6% porque la empresa usa promociones frecuentes");
   }
 
   if (riesgoDesperdicio === "medio") {
@@ -262,7 +262,7 @@ function recomendarMargenSeguridad() {
     ${(margenSeguridad * 100).toFixed(0)}%.
 
     Este valor parte del piso mínimo obligatorio del 2%, diseñado para proteger
-    al restaurante frente a pequeños imprevistos operativos como errores de caja,
+    al negocio frente a pequeños imprevistos operativos como errores de caja,
     desperdicios menores, devoluciones ocasionales o variaciones normales del negocio.
 
     Debido a que los riesgos detectados son relativamente bajos, no es necesario
@@ -277,9 +277,9 @@ function recomendarMargenSeguridad() {
     ${(margenSeguridad * 100).toFixed(0)}%.
 
     Aunque el sistema mantiene el piso mínimo de protección del 2%,
-    detectó factores que incrementan el riesgo operativo del restaurante.
+    detectó factores que incrementan el riesgo operativo dla empresa.
 
-    Entre ellos se encuentran variaciones en los costos de insumos,
+    Entre ellos se encuentran variaciones en los costos de costos directos o insumos,
     promociones comerciales o riesgos moderados de desperdicio.
 
     Por esta razón GRUK aumenta automáticamente el margen recomendado
@@ -294,7 +294,7 @@ function recomendarMargenSeguridad() {
     ${(margenSeguridad * 100).toFixed(0)}%.
 
     El análisis financiero detectó varios factores de riesgo que pueden
-    afectar directamente la utilidad del restaurante.
+    afectar directamente la utilidad dla empresa.
 
     Entre ellos se encuentran fluctuaciones importantes en los costos,
     descuentos frecuentes y pérdidas potenciales por desperdicio
@@ -311,7 +311,7 @@ function recomendarMargenSeguridad() {
     GRUK recomienda un margen de seguridad del
     ${(margenSeguridad * 100).toFixed(0)}%.
 
-    El restaurante presenta un perfil de riesgo elevado.
+    La empresa presenta un perfil de riesgo elevado.
 
     La combinación de alta variación de costos, promociones frecuentes
     o riesgo significativo de desperdicio puede generar fugas importantes

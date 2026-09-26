@@ -39,11 +39,11 @@
 🧠 Memoria 7 días
 </button>
 
-<button onclick="cargarModuloGRUK('restaurante')">
+<button data-gruk-modulo="restaurante" onclick="cargarModuloGRUK('restaurante')">
 🍽 Restaurante
 </button>
 
-<button onclick="window.location.href='/laboral.html?restaurantId=' + getRestaurantId()">
+<button data-gruk-modulo="laboral" onclick="window.location.href='/laboral.html?restaurantId=' + encodeURIComponent(getRestaurantId())">
 👥 Laboral
 </button>
 
@@ -51,10 +51,10 @@
 💰 Finanzas
 </button>
 
-<button onclick="cargarModuloGRUK('inventario')">
+<button data-gruk-modulo="inventario" onclick="cargarModuloGRUK('inventario')">
 📦 Inventario
 </button>
-<button onclick="cargarModuloGRUK('recetas')">
+<button data-gruk-modulo="restaurante" onclick="cargarModuloGRUK('recetas')">
 📖 Recetas
 </button>
 <button onclick="cargarModuloGRUK('costos')">
@@ -87,10 +87,8 @@
 const adminRestaurantId = localStorage.getItem("adminRestaurantId");
 const grukAuthToken = localStorage.getItem("grukAuthToken");
 
-if (!adminRestaurantId || !grukAuthToken){
-
-window.location.href="/login.html";
-
+if (!grukAuthToken) {
+  window.location.href = "/login.html";
 }
 
 </script>

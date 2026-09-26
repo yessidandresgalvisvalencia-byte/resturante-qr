@@ -156,6 +156,11 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
       estadoVivo.diagnosticosExpertos
     )
       ? estadoVivo.diagnosticosExpertos
+          .filter(
+            (item) =>
+              item?.relevancia !==
+              "NINGUNA"
+          )
       : [];
 
   const expertosHTML =
