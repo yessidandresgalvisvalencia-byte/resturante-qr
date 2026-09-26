@@ -84,7 +84,11 @@ async function analyze(empresaId) {
       motivo_no_evaluable:
         total === 0
           ? "No existen items activos de inventario para medir disponibilidad."
-          : ""
+          : "",
+      evaluabilidad:
+        total === 0
+          ? "DATOS_INSUFICIENTES"
+          : "EVALUABLE"
     },
     hallazgos,
     necesita_decision_de_cerebro:
