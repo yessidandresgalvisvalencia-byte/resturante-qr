@@ -72,12 +72,24 @@ async function analyze(empresaId) {
     timestamp: new Date(),
     kpi_principal: {
       nombre: "porcentaje_items_agotados",
-      valor_actual: Number(porcentaje.toFixed(2)),
+      valor_actual:
+        total === 0
+          ? null
+          : Number(porcentaje.toFixed(2)),
       valor_objetivo: 0,
-      estado
+      estado,
+      medicion_disponible:
+        total > 0,
+      objetivo_disponible: true,
+      motivo_no_evaluable:
+        total === 0
+          ? "No existen items activos de inventario para medir disponibilidad."
+          : ""
     },
     hallazgos,
-    necesita_decision_de_cerebro: estado !== "OK",
+    necesita_decision_de_cerebro:
+      total > 0 &&
+      estado !== "OK",
     createdBy: null,
     deletedAt: null
   });
