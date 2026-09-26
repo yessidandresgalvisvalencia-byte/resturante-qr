@@ -2288,8 +2288,8 @@ function construirRespuestaExperta({
     respuesta =
       evaluabilidad.estado ===
         "SIN_CONFIGURAR"
-        ? `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. La configuración base necesaria está pendiente. Esto es preparación de GRUK, no una alerta del negocio.`
-        : `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. ${evaluabilidad.motivo || "Faltan datos confiables para evaluarlo."} No invento una alerta ni una causa.`;
+        ? `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. La configuración base necesaria está pendiente. No es evaluable como alerta operativa; esto es preparación de GRUK, no una falla del negocio.`
+        : `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. ${evaluabilidad.motivo || "Faltan datos confiables para evaluarlo."} No es evaluable como alerta operativa y no invento una causa.`;
   } else {
     respuesta =
       playbookPara({
