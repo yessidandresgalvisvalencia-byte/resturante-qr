@@ -1,4 +1,5 @@
 const express = require("express");
+const Joi = require("joi");
 
 const router = express.Router();
 
@@ -10,6 +11,49 @@ const {
   ROLES_GRUK,
   roleCheck
 } = require("../core/auth/roleCheck.middleware");
+const inventarioQuerySchema = Joi.object({
+  q: Joi.string().trim().max(100).allow("").default(""),
+  categoria: Joi.string().trim().max(80).allow("").default(""),
+  estado: Joi.string().valid("", "vigente", "proximo", "vencido", "agotado").default(""),
+  stock: Joi.string().valid("", "agotado", "bajo", "disponible").default(""),
+  proveedor: Joi.string().trim().max(100).allow("").default(""),
+  orden: Joi.string().valid("vencimiento", "nombre", "cantidad_asc", "cantidad_desc", "valor_desc").default("vencimiento"),
+  page: Joi.number().integer().min(1).max(100000).default(1),
+  limit: Joi.number().integer().min(1).max(200).default(50)
+}).required().unknown(false);
+
+function escaparRegex(valor) {
+  return String(valor || "").replace(/[.*+?^${}()|[\]\\]/g, "\\const {
+  ROLES_GRUK,
+  roleCheck
+} = require("../core/auth/roleCheck.middleware");");
+}
+
+function calcularEstadoInventario(producto, hoy) {
+  const cantidad = Number(producto.cantidad || 0);
+  if (cantidad <= 0) return { estado: "agotado", diasRestantes: producto.fechaVencimiento ? 0 : null };
+  if (!producto.fechaVencimiento) return { estado: producto.estado || "vigente", diasRestantes: null };
+  const vencimiento = new Date(producto.fechaVencimiento);
+  vencimiento.setHours(0, 0, 0, 0);
+  const diasRestantes = Math.ceil((vencimiento - hoy) / (1000 * 60 * 60 * 24));
+  if (diasRestantes <= 0) return { estado: "vencido", diasRestantes };
+  if (diasRestantes <= 5) return { estado: "proximo", diasRestantes };
+  return { estado: "vigente", diasRestantes };
+}
+
+function ordenarInventario(productos, orden) {
+  return [...productos].sort((a, b) => {
+    if (orden === "nombre") return String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base" });
+    if (orden === "cantidad_asc") return Number(a.cantidad || 0) - Number(b.cantidad || 0);
+    if (orden === "cantidad_desc") return Number(b.cantidad || 0) - Number(a.cantidad || 0);
+    if (orden === "valor_desc") return (Number(b.cantidad || 0) * Number(b.costo || 0)) - (Number(a.cantidad || 0) * Number(a.costo || 0));
+    const diasA = a.diasRestantes == null ? Number.MAX_SAFE_INTEGER : Number(a.diasRestantes);
+    const diasB = b.diasRestantes == null ? Number.MAX_SAFE_INTEGER : Number(b.diasRestantes);
+    if (diasA !== diasB) return diasA - diasB;
+    return String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base" });
+  });
+}
+
 router.post(
   "/",
   authMiddleware,
