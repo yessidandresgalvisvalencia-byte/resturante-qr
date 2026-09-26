@@ -136,7 +136,10 @@ async function analyze(empresaId) {
       nombre: "cac",
       valor_actual: cacActual,
       valor_objetivo: cacObjetivo,
-      estado: "ALERTA",
+      estado:
+        cacObjetivo === null
+          ? "SIN_CONFIGURAR"
+          : "DATOS_INSUFICIENTES",
       medicion_disponible: false,
       objetivo_disponible:
         cacObjetivo !== null,
