@@ -97,13 +97,29 @@ function construirIntervencionNeurona(reporte) {
 
   const actual = formatearNumero(reporte.kpi_principal?.valor_actual);
   const objetivo = formatearNumero(reporte.kpi_principal?.valor_objetivo);
-  const estado = String(reporte.kpi_principal?.estado || "ALERTA");
-  const nombreKpi = String(reporte.kpi_principal?.nombre || "kpi");
+  const estado = String(
+    reporte.kpi_principal?.estado ||
+    "SIN_ESTADO"
+  );
+
+  const evaluabilidad = String(
+    reporte.kpi_principal?.evaluabilidad ||
+    (
+      ["SIN_CONFIGURAR", "DATOS_INSUFICIENTES"].includes(estado)
+        ? estado
+        : "EVALUABLE"
+    )
+  );
+
+  const nombreKpi = String(
+    reporte.kpi_principal?.nombre ||
+    "kpi"
+  );
 
   const mensaje =
-    `${reporte.neurona}: ${nombreKpi} está en ${estado}. ` +
-    `Valor actual: ${actual === null ? "sin dato" : actual}. ` +
-    `Objetivo: ${objetivo === null ? "sin dato" : objetivo}.`;
+    evaluabilidad === "EVALUABLE"
+      ? `${reporte.neurona}: ${nombreKpi} está en ${estado}. Valor actual: ${actual === null ? "sin dato" : actual}. Objetivo: ${objetivo === null ? "sin dato" : objetivo}.`
+      : `${reporte.neurona}: ${nombreKpi} todavía no es evaluable como señal operativa (${evaluabilidad}). Valor actual: ${actual === null ? "sin dato" : actual}. Objetivo: ${objetivo === null ? "sin dato" : objetivo}.`;
 
   const evidencia = hallazgos.length
     ? hallazgos
