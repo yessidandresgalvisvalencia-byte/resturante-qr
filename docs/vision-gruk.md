@@ -327,3 +327,200 @@ Cada nueva línea de código debe responder al menos una de estas preguntas:
 8. ¿Acumula aprendizaje reutilizable?
 
 Si no responde ninguna, probablemente no es prioridad.
+
+
+## GRUK actual vs arquitectura objetivo
+
+Esta separación es obligatoria para no sobreprometer.
+
+### Capacidades actuales confirmadas en este repositorio
+
+Hoy existe implementación en áreas como:
+
+- Empresa, Sede y Usuario;
+- autenticación y RBAC;
+- restaurantes;
+- pedidos y estados operacionales;
+- ventas y pagos;
+- gastos y compras;
+- inventario y vencimientos;
+- recetas;
+- productos/servicios;
+- libro canónico de Caja;
+- Tesorería;
+- obligaciones registradas y recurrentes;
+- proyección de caja 7/30 días;
+- cartera priorizada;
+- prioridad de pagos;
+- políticas financieras;
+- reservas de caja;
+- utilidad separada del dueño;
+- retiros del dueño;
+- neuronas determinísticas;
+- Junta Viva;
+- Cerebro;
+- órdenes sujetas a aprobación humana;
+- auditoría;
+- Memoria de decisiones/KPI;
+- eventos y jobs internos;
+- activación progresiva de módulos.
+
+Esto no significa que todas estas capacidades tengan todavía la profundidad final de la visión.
+
+### Arquitectura objetivo todavía incompleta
+
+Todavía son dirección futura, capas parciales o capacidades por construir:
+
+- Entity Resolution general;
+- Semantic Layer completa;
+- Operational/Economic Graph navegable;
+- Process Model transversal;
+- Process Telemetry completa;
+- Expected vs Actual generalizado;
+- Exception/Risk Engine transversal;
+- Evidence Layer navegable de extremo a extremo;
+- Action Layer uniforme;
+- Policy Engine genérico para todas las acciones;
+- Integration Layer extensa;
+- AI Economics;
+- autonomía avanzada;
+- ontologías de industrias distintas a restaurantes.
+
+Nunca presentar arquitectura objetivo como capacidad terminada.
+
+## Foco técnico inmediato
+
+La prioridad no es añadir más módulos.
+
+La prioridad es hacer impecable esta cadena:
+
+```
+PEDIDO
+→ VENTA
+→ PRODUCTO
+→ RECETA
+→ INSUMO
+→ INVENTARIO
+→ COSTO
+→ MARGEN
+→ CAJA
+```
+
+GRUK debe poder demostrar, sin inferencias decorativas:
+
+> Vendiste esto.
+
+> Consumiste aproximadamente esto según receta/movimiento disponible.
+
+> Costó esto.
+
+> Dejó este margen.
+
+> El inventario teórico debería ser este.
+
+> El inventario observado es este.
+
+> La desviación es esta.
+
+> La evidencia que la soporta es esta.
+
+Esta cadena es la primera prueba real del concepto de contexto económico.
+
+## Secuencia técnica posterior
+
+Cuando la cadena económica esté sólida:
+
+```
+compras + proveedores
+↓
+inventario físico / reconciliación
+↓
+Event Log
+↓
+Process Telemetry
+↓
+Expected vs Actual
+↓
+Exception Engine
+↓
+Evidence Layer
+↓
+Action Layer
+↓
+Policy / Permissions
+↓
+un único agente operacional
+```
+
+La primera misión de ese agente debería ser:
+
+> Encontrar dónde este restaurante necesita atención económica u operacional.
+
+No crear veinte agentes antes de demostrar que uno produce valor.
+
+## Prioridad comercial inmediata
+
+Mientras el producto madura, GRUK necesita restaurantes reales.
+
+Las preguntas comerciales prioritarias son:
+
+- ¿Pagan?
+- ¿Lo usan?
+- ¿Qué módulo usan realmente?
+- ¿Qué ignoran?
+- ¿Qué problema les duele más?
+- ¿Qué información no tienen hoy?
+- ¿Qué función los hace volver mañana?
+- ¿Qué resultado económico medible produce GRUK?
+- ¿Permanecen después del primer mes?
+
+La evolución global del software empresarial puede validar la dirección del problema.
+
+Solo restaurantes reales pueden validar el producto.
+
+## Moat de GRUK
+
+El moat no debe ser una pantalla ni el acceso a un LLM.
+
+Debe acumular:
+
+- clientes;
+- contexto operacional;
+- datos estructurados;
+- relaciones económicas;
+- workflows;
+- integraciones;
+- decisiones;
+- resultados;
+- conocimiento vertical;
+- distribución;
+- marca.
+
+Un competidor puede copiar una pantalla o usar el mismo modelo.
+
+Es mucho más difícil copiar años de aprendizaje operacional estructurado con clientes reales.
+
+## Definición comercial inmediata
+
+Mientras la arquitectura de largo plazo madura, la promesa comercial debe seguir siendo simple:
+
+> GRUK ayuda a restaurantes a conectar su operación para entender qué está pasando con sus ventas, inventario, costos, margen y caja.
+
+## Disciplina de ejecución
+
+Antes de aprobar una funcionalidad nueva, responder:
+
+1. ¿Mejora la confiabilidad de la cadena económica central?
+2. ¿Conecta entidades que hoy están aisladas?
+3. ¿Hace observable un proceso importante?
+4. ¿Detecta una desviación con evidencia?
+5. ¿Habilita una acción segura y auditable?
+6. ¿Permite medir el resultado económico?
+7. ¿Reduce trabajo real de un restaurante?
+8. ¿Aporta aprendizaje reutilizable?
+
+Si la respuesta es no a todas, no es prioridad actual.
+
+La visión no necesita crecer más.
+
+Necesita ejecutarse con más profundidad, disciplina y evidencia.
