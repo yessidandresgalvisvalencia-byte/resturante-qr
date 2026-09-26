@@ -98,6 +98,17 @@ const empresaSchema = new mongoose.Schema(
         default: null
       },
 
+      inteligencia_base_actualizadaAt: {
+        type: Date,
+        default: null
+      },
+
+      inteligencia_base_actualizadaBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Usuario",
+        default: null
+      },
+
       politica_financiera: {
         distribucion_dueno: {
           habilitada: {
