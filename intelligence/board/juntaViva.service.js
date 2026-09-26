@@ -292,17 +292,25 @@ function construirDiagnostico({
 }) {
   const evaluables = reportes.filter(
     (r) =>
-      r.kpi_principal?.evaluabilidad ===
-      "EVALUABLE"
+      ![
+        "SIN_CONFIGURAR",
+        "DATOS_INSUFICIENTES"
+      ].includes(
+        r.kpi_principal?.evaluabilidad ||
+        r.kpi_principal?.estado
+      )
   );
 
   const preparacionPendiente =
     reportes.filter(
       (r) =>
-        r.kpi_principal?.evaluabilidad ===
-          "SIN_CONFIGURAR" ||
-        r.kpi_principal?.evaluabilidad ===
+        [
+          "SIN_CONFIGURAR",
           "DATOS_INSUFICIENTES"
+        ].includes(
+          r.kpi_principal?.evaluabilidad ||
+          r.kpi_principal?.estado
+        )
     );
 
   const criticos = evaluables.filter(
