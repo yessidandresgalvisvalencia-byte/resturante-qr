@@ -89,7 +89,11 @@ function convertirAgendaEnOrdenes(agenda){
  }));
 }
 
-function construirDecisionFingerprint({agenda,candidatos}){
+function construirDecisionFingerprint({
+ agenda,
+ candidatos,
+ reportes=[]
+}){
  const payload={
   agenda:agenda?{
    estado7d:agenda.estado7d||null,
@@ -131,6 +135,14 @@ function construirDecisionFingerprint({agenda,candidatos}){
     }))
    }))
   }:null,
+  reportes:(reportes||[]).map(r=>({
+   neurona:r.neurona,
+   kpi:r.kpi_principal?.nombre||null,
+   estado:r.kpi_principal?.estado||null,
+   evaluabilidad:r.kpi_principal?.evaluabilidad||null,
+   valorActual:r.kpi_principal?.valor_actual??null,
+   valorObjetivo:r.kpi_principal?.valor_objetivo??null
+  })),
   hallazgos:(candidatos||[]).map(c=>({
    departamento:c.regla.departamento,
    tipo:c.hallazgo.tipo,
@@ -261,7 +273,8 @@ async function tomarDecision(empresaId,opciones={}){
  const decisionFingerprint=
   construirDecisionFingerprint({
    agenda,
-   candidatos
+   candidatos,
+   reportes
   });
 
  const ultimaDecision=
