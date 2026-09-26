@@ -14,7 +14,7 @@ async function analyze(empresaId){
  const [r]=await Venta.aggregate([{$match:{empresaId:new mongoose.Types.ObjectId(String(empresaId)),estado:"pagada",fecha:{$gte:desde,$lt:hasta}}},{$group:{_id:null,ventas:{$sum:1},ingresos:{$sum:"$total"}}}]);
  const ventas=r?.ventas||0, ingresos=r?.ingresos||0, actual=ventas?ingresos/ventas:null;
  const cfg=empresa.configuracion?.ticket_objetivo; const objetivo=cfg==null?null:Number(cfg);
- let estado="ALERTA"; if(actual!=null&&objetivo!=null) estado=actual>=objetivo?"OK":actual<objetivo*0.8?"CRITICO":"ALERTA";
+ let estado=objetivo==null?"SIN_CONFIGURAR":actual==null?"DATOS_INSUFICIENTES":"ALERTA"; if(actual!=null&&objetivo!=null) estado=actual>=objetivo?"OK":actual<objetivo*0.8?"CRITICO":"ALERTA";
  const hallazgos=[];
  if(objetivo==null) hallazgos.push({tipo:"CONFIGURACION_INCOMPLETA",evidencia:"La empresa no tiene ticket objetivo configurado.",impacto_financiero_estimado:0,confianza:100});
  if(!ventas) hallazgos.push({tipo:"SIN_VENTAS_EN_PERIODO",evidencia:"No existen ventas pagadas en el periodo analizado.",impacto_financiero_estimado:0,confianza:100});
