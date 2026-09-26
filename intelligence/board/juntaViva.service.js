@@ -976,6 +976,14 @@ function mapearReportes(reportes) {
     valorObjetivo:
       r.kpi_principal?.valor_objetivo ??
       null,
+    evaluabilidad:
+      r.kpi_principal?.evaluabilidad ||
+      (
+        r.kpi_principal?.medicion_disponible === false ||
+        r.kpi_principal?.objetivo_disponible === false
+          ? "DATOS_INSUFICIENTES"
+          : "EVALUABLE"
+      ),
     timestamp: r.timestamp
   }));
 }
@@ -1062,7 +1070,8 @@ async function recalcularEstadoVivo({
       "TESORERIA_CUENTA_CREADA",
       "TESORERIA_TRANSFERENCIA_COMPLETADA",
       "OBLIGACION_RECURRENTE_CREADA",
-      "OBLIGACION_RECURRENTE_DESACTIVADA"
+      "OBLIGACION_RECURRENTE_DESACTIVADA",
+      "CONFIGURACION_INTELIGENCIA_ACTUALIZADA"
     ].includes(
       event?.eventName
     );
@@ -1198,6 +1207,34 @@ async function recalcularEstadoVivo({
   ).lean();
 }
 
+function diagnosticosExpertosObsoletos(
+  diagnosticos
+) {
+  return (diagnosticos || []).some(
+    (item) => {
+      const texto = [
+        item?.respuesta || "",
+        ...(item?.evidencia || [])
+      ].join(" ");
+
+      return (
+        /El KPI disponible está/i.test(
+          texto
+        ) ||
+        /Criterio profesional generado sobre datos GRUK/i.test(
+          texto
+        ) ||
+        /No existen items de inventario activos para medir disponibilidad/i.test(
+          texto
+        ) &&
+        /estado ALERTA/i.test(
+          texto
+        )
+      );
+    }
+  );
+}
+
 async function obtenerEstadoVivo(auth) {
   const empresaId =
     objectId(auth.empresaId);
@@ -1228,7 +1265,10 @@ async function obtenerEstadoVivo(auth) {
     !estado ||
     !estado.tesoreria ||
     !estado.proyeccionTesoreria ||
-    !estado.obligaciones
+    !estado.obligaciones ||
+    diagnosticosExpertosObsoletos(
+      estado.diagnosticosExpertos
+    )
   ) {
     const ahora = new Date();
     const desde =
@@ -1270,5 +1310,6 @@ module.exports = {
   generarDiagnosticosAutomaticos,
   normalizarEvento,
   recalcularEstadoVivo,
-  obtenerEstadoVivo
+  obtenerEstadoVivo,
+  diagnosticosExpertosObsoletos
 };
