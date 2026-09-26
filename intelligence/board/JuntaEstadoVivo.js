@@ -526,6 +526,15 @@ const schema = new mongoose.Schema({
       kpi: String,
       valorActual: mongoose.Schema.Types.Mixed,
       valorObjetivo: mongoose.Schema.Types.Mixed,
+      evaluabilidad: {
+        type: String,
+        enum: [
+          "EVALUABLE",
+          "SIN_CONFIGURAR",
+          "DATOS_INSUFICIENTES"
+        ],
+        default: "EVALUABLE"
+      },
       timestamp: Date
     }],
     default: []
