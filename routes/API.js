@@ -44,7 +44,7 @@ const crearUsuarioSchema = Joi.object({
   nombre: Joi.string().trim().min(1).max(120).required(),
   usuario: Joi.string().trim().min(3).max(120).required(),
   password: Joi.string().min(8).max(200).required(),
-  rol: Joi.string().valid("admin_sede", "mesero").required()
+  rol: Joi.string().valid("admin_sede", "mesero", "empleado").required()
 }).required();
 
 /* =========================
@@ -3640,155 +3640,379 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
   }
 });
 
-router.post("/sede/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
-  try {
-    const validacion = crearSedeSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
-    if (validacion.error) {
-      return res.status(400).json({ ok: false, error: "Datos de sede inválidos" });
-    }
-    const { restauranteId, nombreSede, direccion } = validacion.value;
+router.post(
+  "/sede/crear",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO),
+  async (req, res) => {
+    try {
+      const validacion =
+        crearSedeSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: true
+          }
+        );
 
-    // Buscar el restaurante para obtener su empresa
-    const restaurante = await Restaurante.findOne({
-      restaurantId: restauranteId,
-      empresaId: req.auth.empresaId
-    });
-
-    if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
-      });
-    }
-
-    const codigoSede = `${restauranteId}_${Date.now()}`;
-
-    const nueva = new Sede({
-      empresaId: restaurante.empresaId || null,
-      restauranteId,
-      nombreSede,
-      codigoSede,
-      direccion
-    });
-
-    await nueva.save();
-
-    res.json({
-      ok: true,
-      sede: nueva
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    res.status(500).json({
-      ok: false,
-      error: "Error creando sede"
-    });
-  }
-});
-router.post("/usuarios/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
-  try {
-    const validacion = crearUsuarioSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
-    if (validacion.error) {
-      return res.status(400).json({ ok: false, error: "Datos de usuario inválidos" });
-    }
-    const { restauranteId, sedeId, nombre, usuario, password, rol } = validacion.value;
-
-    // Buscar restaurante para obtener empresaId
-    const restaurante = await Restaurante.findOne({
-      restaurantId: restauranteId,
-      empresaId: req.auth.empresaId
-    });
-
-    if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
-      });
-    }
-
-    if (sedeId) {
-      if (!mongoose.Types.ObjectId.isValid(sedeId)) {
+      if (validacion.error) {
         return res.status(400).json({
           ok: false,
-          error: "sedeId inválido"
+          error:
+            "Datos de sede inválidos"
         });
       }
 
-      const sedeAutorizada = await Sede.findOne({
-        _id: sedeId,
-        empresaId: req.auth.empresaId,
-        restauranteId
-      }).select("_id").lean();
+      const {
+        restauranteId,
+        nombreSede,
+        direccion
+      } = validacion.value;
 
-      if (!sedeAutorizada) {
+      const empresa =
+        await Empresa.findOne({
+          _id:
+            req.auth.empresaId,
+          estado:
+            "activa"
+        })
+          .select(
+            "_id empresaId modulos.restaurante"
+          )
+          .lean();
+
+      if (!empresa) {
+        return res.status(404).json({
+          ok: false,
+          error:
+            "Empresa no encontrada"
+        });
+      }
+
+      let restaurantIdFinal =
+        null;
+
+      if (restauranteId) {
+        const restaurante =
+          await Restaurante.findOne({
+            restaurantId:
+              restauranteId,
+            empresaId:
+              req.auth.empresaId
+          })
+            .select(
+              "restaurantId"
+            )
+            .lean();
+
+        if (!restaurante) {
+          return res.status(404).json({
+            ok: false,
+            error:
+              "Restaurante fuera de la empresa autorizada"
+          });
+        }
+
+        restaurantIdFinal =
+          restaurante.restaurantId;
+      } else if (
+        empresa.modulos?.restaurante
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Para una empresa con vertical restaurante debes indicar restauranteId"
+        });
+      }
+
+      const codigoBase =
+        restaurantIdFinal ||
+        empresa.empresaId;
+
+      const nueva =
+        await Sede.create({
+          empresaId:
+            empresa._id,
+          restauranteId:
+            restaurantIdFinal,
+          nombreSede,
+          codigoSede:
+            `${codigoBase}_${Date.now()}`,
+          direccion
+        });
+
+      return res.status(201).json({
+        ok: true,
+        sede:
+          nueva
+      });
+    } catch (error) {
+      console.error(
+        "Error creando sede:",
+        error
+      );
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Error creando sede"
+      });
+    }
+  }
+);
+
+router.post(
+  "/usuarios/crear",
+  authMiddleware,
+  roleCheck(
+    ROLES_GRUK.DUENO,
+    ROLES_GRUK.ADMIN_SEDE
+  ),
+  async (req, res) => {
+    try {
+      const validacion =
+        crearUsuarioSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: true
+          }
+        );
+
+      if (validacion.error) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Datos de usuario inválidos"
+        });
+      }
+
+      const {
+        restauranteId,
+        sedeId,
+        nombre,
+        usuario,
+        password,
+        rol
+      } = validacion.value;
+
+      const empresa =
+        await Empresa.findOne({
+          _id:
+            req.auth.empresaId,
+          estado:
+            "activa"
+        })
+          .select(
+            "_id modulos.restaurante"
+          )
+          .lean();
+
+      if (!empresa) {
+        return res.status(404).json({
+          ok: false,
+          error:
+            "Empresa no encontrada"
+        });
+      }
+
+      let restaurantIdFinal =
+        null;
+
+      if (restauranteId) {
+        const restaurante =
+          await Restaurante.findOne({
+            restaurantId:
+              restauranteId,
+            empresaId:
+              req.auth.empresaId
+          })
+            .select(
+              "restaurantId"
+            )
+            .lean();
+
+        if (!restaurante) {
+          return res.status(404).json({
+            ok: false,
+            error:
+              "Restaurante fuera de la empresa autorizada"
+          });
+        }
+
+        restaurantIdFinal =
+          restaurante.restaurantId;
+      } else if (
+        empresa.modulos?.restaurante
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Para usuarios del vertical restaurante debes indicar restauranteId"
+        });
+      }
+
+      let sedeAutorizada =
+        null;
+
+      if (sedeId) {
+        if (
+          !mongoose.Types.ObjectId.isValid(
+            sedeId
+          )
+        ) {
+          return res.status(400).json({
+            ok: false,
+            error:
+              "sedeId inválido"
+          });
+        }
+
+        sedeAutorizada =
+          await Sede.findOne({
+            _id:
+              sedeId,
+            empresaId:
+              req.auth.empresaId,
+            ...(restaurantIdFinal
+              ? {
+                  restauranteId:
+                    restaurantIdFinal
+                }
+              : {})
+          })
+            .select(
+              "_id restauranteId"
+            )
+            .lean();
+
+        if (!sedeAutorizada) {
+          return res.status(403).json({
+            ok: false,
+            error:
+              "La sede no pertenece a la empresa autorizada"
+          });
+        }
+      }
+
+      if (
+        req.auth.rol ===
+          ROLES_GRUK.ADMIN_SEDE &&
+        String(
+          req.auth.sedeId || ""
+        ) !==
+        String(
+          sedeId || ""
+        )
+      ) {
         return res.status(403).json({
           ok: false,
-          error: "La sede no pertenece a este restaurante y empresa"
+          error:
+            "ADMIN_SEDE solo puede crear usuarios en su propia sede"
         });
       }
-    }
 
-    if (
-      req.auth.rol === ROLES_GRUK.ADMIN_SEDE &&
-      String(req.auth.sedeId || "") !== String(sedeId || "")
-    ) {
-      return res.status(403).json({
+      const rolesPermitidos =
+        req.auth.rol ===
+          ROLES_GRUK.DUENO
+          ? [
+              "admin_sede",
+              restaurantIdFinal
+                ? "mesero"
+                : "empleado"
+            ]
+          : [
+              restaurantIdFinal
+                ? "mesero"
+                : "empleado"
+            ];
+
+      if (
+        !rolesPermitidos.includes(
+          rol
+        )
+      ) {
+        return res.status(403).json({
+          ok: false,
+          error:
+            "No puedes asignar ese rol"
+        });
+      }
+
+      const existe =
+        await Usuario.findOne({
+          usuario
+        })
+          .select(
+            "_id"
+          )
+          .lean();
+
+      if (existe) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Ese usuario ya existe"
+        });
+      }
+
+      const passwordHash =
+        await bcrypt.hash(
+          String(password),
+          12
+        );
+
+      const nuevoUsuario =
+        await Usuario.create({
+          empresaId:
+            empresa._id,
+          restauranteId:
+            restaurantIdFinal,
+          sedeId:
+            sedeAutorizada?._id ||
+            null,
+          nombre,
+          usuario,
+          password:
+            passwordHash,
+          rol,
+          estado:
+            "activo"
+        });
+
+      return res.status(201).json({
+        ok: true,
+        usuario: {
+          id:
+            nuevoUsuario._id,
+          nombre:
+            nuevoUsuario.nombre,
+          usuario:
+            nuevoUsuario.usuario,
+          rol:
+            nuevoUsuario.rol,
+          sedeId:
+            nuevoUsuario.sedeId,
+          restauranteId:
+            nuevoUsuario.restauranteId ||
+            null
+        }
+      });
+    } catch (error) {
+      console.error(
+        "Error creando usuario:",
+        error
+      );
+
+      return res.status(500).json({
         ok: false,
-        error: "ADMIN_SEDE solo puede crear usuarios en su propia sede"
+        error:
+          "Error creando usuario"
       });
     }
-
-    const rolesPermitidos =
-      req.auth.rol === ROLES_GRUK.DUENO
-        ? ["admin_sede", "mesero"]
-        : ["mesero"];
-
-    if (!rolesPermitidos.includes(rol)) {
-      return res.status(403).json({
-        ok: false,
-        error: "No puedes asignar ese rol"
-      });
-    }
-
-    const existe = await Usuario.findOne({ usuario });
-
-    if (existe) {
-      return res.status(400).json({
-        ok: false,
-        error: "Ese usuario ya existe"
-      });
-    }
-
-    const passwordHash = await bcrypt.hash(String(password), 12);
-
-    const nuevoUsuario = new Usuario({
-      empresaId: restaurante.empresaId || null,
-      restauranteId,
-      sedeId: sedeId || null,
-      nombre,
-      usuario,
-      password: passwordHash,
-      rol
-    });
-
-    await nuevoUsuario.save();
-
-    res.json({
-      ok: true,
-      usuario: nuevoUsuario
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    res.status(500).json({
-      ok: false,
-      error: "Error creando usuario"
-    });
   }
-});
+);
+
 router.post("/usuarios/login", async (req, res) => {
   try {
     const usuario = String(req.body?.usuario || "").trim();
