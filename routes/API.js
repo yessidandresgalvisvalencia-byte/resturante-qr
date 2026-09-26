@@ -2953,12 +2953,15 @@ router.post("/wompi/webhook", async (req, res) => {
 });
 
 router.post("/registro-y-fuente-pago", async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
     const {
       nombre,
       correo,
       usuario,
       password,
+      tipoNegocio,
       acceptanceToken,
       paymentMethodToken,
       customerEmail,
@@ -2968,6 +2971,19 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
       cac_maximo,
       empleados_actuales
     } = req.body;
+
+    const tipoNormalizado =
+      normalizarTipoNegocio(
+        tipoNegocio
+      );
+
+    if (!tipoNormalizado) {
+      return res.status(400).json({
+        ok: false,
+        error: "Selecciona el tipo de negocio"
+      });
+    }
+
     const {
       error: errorObjetivos,
       value: objetivosEmpresa
@@ -2983,142 +2999,379 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
       return res.status(400).json({
         ok: false,
         error: "Objetivos empresariales inválidos",
-        detalles: errorObjetivos.details.map(
-          (detalle) => detalle.message
-        )
+        detalles:
+          errorObjetivos.details.map(
+            (detalle) =>
+              detalle.message
+          )
       });
     }
-    const wompiPublicKey = process.env.WOMPI_PUBLIC_KEY;
-    const wompiPrivateKey = process.env.WOMPI_PRIVATE_KEY;
 
-    if (!nombre || !correo || !usuario || !password) {
-      return res.status(400).json({ ok: false, error: "Faltan datos" });
+    const perfil =
+      resolverPerfilNegocio(
+        tipoNormalizado,
+        objetivosEmpresa
+          .empleados_actuales
+      );
+
+    const wompiPublicKey =
+      process.env.WOMPI_PUBLIC_KEY;
+
+    const wompiPrivateKey =
+      process.env.WOMPI_PRIVATE_KEY;
+
+    if (
+      !nombre ||
+      !correo ||
+      !usuario ||
+      !password
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Completa los datos de la empresa"
+      });
     }
 
-    if (!paymentMethodToken || !customerEmail || !acceptanceToken) {
-      return res.status(400).json({ ok: false, error: "Faltan datos del pago" });
+    if (
+      String(password).length < 8
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "La contraseña debe tener al menos 8 caracteres"
+      });
     }
 
-    if (!wompiPublicKey || !wompiPrivateKey) {
+    if (
+      !paymentMethodToken ||
+      !customerEmail ||
+      !acceptanceToken
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Faltan datos del pago"
+      });
+    }
+
+    if (
+      !wompiPublicKey ||
+      !wompiPrivateKey
+    ) {
       return res.status(500).json({
         ok: false,
-        error: "Faltan llaves de Wompi en Render"
+        error:
+          "Faltan llaves de Wompi en Render"
       });
     }
 
-    const existeUsuario = await Usuario.findOne({ usuario });
+    const existeUsuario =
+      await Usuario.findOne({
+        usuario
+      })
+        .select("_id")
+        .lean();
+
     if (existeUsuario) {
-      return res.status(400).json({ ok: false, error: "Ese usuario admin ya existe" });
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Ese usuario admin ya existe"
+      });
     }
 
-    const paymentSourceRes = await axios.post(
-      "https://production.wompi.co/v1/payment_sources",
-      {
-        type: "CARD",
-        token: paymentMethodToken,
-        customer_email: customerEmail,
-        acceptance_token: acceptanceToken
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${wompiPrivateKey}`,
-          "Content-Type": "application/json"
+    const paymentSourceRes =
+      await axios.post(
+        "https://production.wompi.co/v1/payment_sources",
+        {
+          type:
+            "CARD",
+          token:
+            paymentMethodToken,
+          customer_email:
+            customerEmail,
+          acceptance_token:
+            acceptanceToken
+        },
+        {
+          headers: {
+            Authorization:
+              `Bearer ${wompiPrivateKey}`,
+            "Content-Type":
+              "application/json"
+          }
         }
+      );
+
+    const paymentSource =
+      paymentSourceRes.data?.data;
+
+    if (
+      !paymentSource ||
+      paymentSource.status !==
+        "AVAILABLE"
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "No se pudo crear la fuente de pago"
+      });
+    }
+
+    const empresaPublicId =
+      `emp_${new mongoose.Types.ObjectId().toString()}`;
+
+    const restaurantId =
+      perfil.vertical ===
+        "restaurante"
+        ? `rest_${new mongoose.Types.ObjectId().toString()}`
+        : null;
+
+    const passwordHash =
+      await bcrypt.hash(
+        String(password),
+        12
+      );
+
+    let nuevaEmpresa = null;
+    let nuevoRestaurante = null;
+    let sedePrincipal = null;
+    let nuevoUsuario = null;
+
+    await session.withTransaction(
+      async () => {
+        [nuevaEmpresa] =
+          await Empresa.create(
+            [
+              {
+                empresaId:
+                  empresaPublicId,
+                nombre:
+                  String(nombre).trim(),
+                tipoNegocio:
+                  perfil.tipo,
+                verticalOperativa:
+                  perfil.vertical,
+                correo:
+                  String(correo)
+                    .trim()
+                    .toLowerCase(),
+                estado:
+                  "activa",
+                suscripcion: {
+                  plan:
+                    "mensual",
+                  precioMensual:
+                    220000,
+                  estado:
+                    "pendiente",
+                  paymentSourceId:
+                    String(
+                      paymentSource.id
+                    ),
+                  customerEmailWompi:
+                    String(
+                      customerEmail
+                    )
+                      .trim()
+                      .toLowerCase(),
+                  tokenizacionCompleta:
+                    true,
+                  fechaUltimoPago:
+                    null,
+                  fechaProximoCobro:
+                    null,
+                  ultimoTransactionId:
+                    ""
+                },
+                configuracion: {
+                  margen_objetivo:
+                    objetivosEmpresa
+                      .margen_objetivo,
+                  punto_equilibrio:
+                    objetivosEmpresa
+                      .punto_equilibrio,
+                  ticket_objetivo:
+                    objetivosEmpresa
+                      .ticket_objetivo,
+                  cac_maximo:
+                    objetivosEmpresa
+                      .cac_maximo,
+                  empleados_actuales:
+                    objetivosEmpresa
+                      .empleados_actuales
+                },
+                modulos:
+                  perfil.modulos
+              }
+            ],
+            {
+              session
+            }
+          );
+
+        if (
+          perfil.vertical ===
+          "restaurante"
+        ) {
+          [nuevoRestaurante] =
+            await Restaurante.create(
+              [
+                {
+                  restaurantId,
+                  empresaId:
+                    nuevaEmpresa._id,
+                  nombreRestaurante:
+                    String(nombre).trim(),
+                  correo:
+                    String(correo)
+                      .trim()
+                      .toLowerCase(),
+                  usuarioAdmin:
+                    String(usuario).trim(),
+                  passwordAdmin:
+                    passwordHash,
+                  wompiPublicKey,
+                  paymentSourceId:
+                    String(
+                      paymentSource.id
+                    ),
+                  customerEmailWompi:
+                    String(
+                      customerEmail
+                    )
+                      .trim()
+                      .toLowerCase(),
+                  tokenizacionCompleta:
+                    true,
+                  plan:
+                    "mensual",
+                  precioMensual:
+                    220000,
+                  estadoSuscripcion:
+                    "pendiente",
+                  fechaUltimoPago:
+                    null,
+                  fechaProximoCobro:
+                    null,
+                  ultimoTransactionId:
+                    "",
+                  aceptaPlan:
+                    true
+                }
+              ],
+              {
+                session
+              }
+            );
+        }
+
+        const codigoSede =
+          restaurantId
+            ? `${restaurantId}_principal`
+            : `${empresaPublicId}_principal`;
+
+        [sedePrincipal] =
+          await Sede.create(
+            [
+              {
+                empresaId:
+                  nuevaEmpresa._id,
+                restauranteId:
+                  restaurantId,
+                nombreSede:
+                  "Principal",
+                codigoSede,
+                direccion:
+                  ""
+              }
+            ],
+            {
+              session
+            }
+          );
+
+        [nuevoUsuario] =
+          await Usuario.create(
+            [
+              {
+                empresaId:
+                  nuevaEmpresa._id,
+                restauranteId:
+                  restaurantId,
+                sedeId:
+                  sedePrincipal._id,
+                nombre:
+                  String(nombre).trim(),
+                usuario:
+                  String(usuario).trim(),
+                password:
+                  passwordHash,
+                rol:
+                  "admin_general",
+                estado:
+                  "activo"
+              }
+            ],
+            {
+              session
+            }
+          );
       }
     );
 
-    const paymentSource = paymentSourceRes.data?.data;
-
-    if (!paymentSource || paymentSource.status !== "AVAILABLE") {
-      return res.status(400).json({
-        ok: false,
-        error: "No se pudo crear la fuente de pago"
-      });
-    }
-
-    const restaurantId = `rest_${Date.now()}`;
-const passwordHash = await bcrypt.hash(password, 12);
-
-const nuevaEmpresa = await Empresa.create({
-  empresaId: `emp_${Date.now()}`,
-  nombre,
-  tipoNegocio: "restaurante",
-    correo,
-  estado: "activa",
-
-  configuracion: {
-    margen_objetivo: objetivosEmpresa.margen_objetivo,
-    punto_equilibrio: objetivosEmpresa.punto_equilibrio,
-    ticket_objetivo: objetivosEmpresa.ticket_objetivo,
-    cac_maximo: objetivosEmpresa.cac_maximo,
-    empleados_actuales: objetivosEmpresa.empleados_actuales
-  },
-
-  modulos: {
-    restaurante: true,
-    inventario: true,
-    finanzas: true,
-    facturacion: true,
-    laboral: true,
-    inteligencia: true
-  }
-});
-
-    const nuevoRestaurante = await Restaurante.create({
-      restaurantId,
-      empresaId: nuevaEmpresa._id,
-      nombreRestaurante: nombre,
-      correo,
-      usuarioAdmin: usuario,
-      passwordAdmin: passwordHash,
-      wompiPublicKey,
-      paymentSourceId: String(paymentSource.id),
-      customerEmailWompi: customerEmail,
-      tokenizacionCompleta: true,
-      plan: "mensual",
-      precioMensual: 220000,
-      estadoSuscripcion: "pendiente",
-      fechaUltimoPago: null,
-      fechaProximoCobro: null,
-      ultimoTransactionId: "",
-      aceptaPlan: true
-    });
-
-    const sedePrincipal = await Sede.create({
-  empresaId: nuevaEmpresa._id,
-  restauranteId: restaurantId,
-  nombreSede: "Principal",
-  codigoSede: `${restaurantId}_principal`,
-  direccion: ""
-});
-
-    await Usuario.create({
-  empresaId: nuevaEmpresa._id,
-  restauranteId: restaurantId,
-  sedeId: sedePrincipal._id,
-  nombre,
-  usuario,
-   password: passwordHash,
-  rol: "admin_general",
-  estado: "activo"
-});
-
-    return res.json({
+    return res.status(201).json({
       ok: true,
-      restauranteId: nuevoRestaurante.restaurantId,
-      paymentSourceId: paymentSource.id
+      empresaId:
+        nuevaEmpresa.empresaId,
+      empresaObjectId:
+        nuevaEmpresa._id,
+      tipoNegocio:
+        nuevaEmpresa.tipoNegocio,
+      vertical:
+        nuevaEmpresa.verticalOperativa,
+      modulos:
+        nuevaEmpresa.modulos,
+      restauranteId:
+        nuevoRestaurante
+          ?.restaurantId ||
+        null,
+      sedeId:
+        sedePrincipal._id,
+      usuarioId:
+        nuevoUsuario._id,
+      paymentSourceId:
+        paymentSource.id,
+      siguientePaso: {
+        requierePago:
+          true,
+        referenciaTipo:
+          "empresa",
+        referenciaId:
+          nuevaEmpresa.empresaId
+      }
     });
   } catch (error) {
-    console.log("Error registro y fuente pago:", error?.response?.data || error?.message || error);
+    console.log(
+      "Error registro y fuente pago:",
+      error?.response?.data ||
+      error?.message ||
+      error
+    );
 
     return res.status(500).json({
       ok: false,
       error:
-        error?.response?.data?.error?.reason ||
-        error?.response?.data?.error?.message ||
+        error?.response?.data
+          ?.error?.reason ||
+        error?.response?.data
+          ?.error?.message ||
         error?.message ||
-        "Error creando fuente de pago"
+        "Error creando empresa"
     });
+  } finally {
+    await session.endSession();
   }
 });
 
