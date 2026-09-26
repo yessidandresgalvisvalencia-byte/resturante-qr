@@ -35,6 +35,81 @@ function formatoMonedaJuntaGRUK(valor) {
   });
 }
 
+async function cargarConfiguracionBaseJuntaGRUK() {
+  const contenedor =
+    document.getElementById(
+      "juntaConfiguracionBaseGRUK"
+    );
+
+  if (!contenedor) return;
+
+  try {
+    const res =
+      await grukFetch(
+        "/api/configuracion-inteligencia"
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.error ||
+        "No fue posible verificar la configuración base."
+      );
+    }
+
+    const cfg =
+      data.configuracion || {};
+
+    if (cfg.completo) {
+      contenedor.innerHTML = `
+        <h3>Preparación de Inteligencia · ✅ COMPLETA</h3>
+        <p>
+          Las cinco referencias empresariales base ya están configuradas.
+          La Junta puede distinguir objetivos de resultados reales.
+        </p>
+      `;
+      return;
+    }
+
+    const faltantes =
+      Array.isArray(cfg.faltantes)
+        ? cfg.faltantes
+        : [];
+
+    contenedor.innerHTML = `
+      <h3>Preparación de Inteligencia · ⚠️ ${Number(cfg.configurados || 0)}/${Number(cfg.total || 5)}</h3>
+      <p>
+        Esto no significa que existan ${faltantes.length} problemas operativos.
+        Es una sola tarea de configuración inicial.
+      </p>
+      <p>
+        <strong>Falta completar:</strong>
+        ${faltantes
+          .map(
+            (item) =>
+              escaparJuntaGRUK(
+                item.etiqueta
+              )
+          )
+          .join(", ")}
+      </p>
+      <p>
+        Ve a Configuración → Configuración base de Inteligencia.
+        Al guardarla, GRUK recalcula las neuronas automáticamente.
+      </p>
+    `;
+  } catch (error) {
+    contenedor.innerHTML = `
+      <h3>Preparación de Inteligencia</h3>
+      <p>${escaparJuntaGRUK(
+        error.message
+      )}</p>
+    `;
+  }
+}
+
 function formatoFechaJuntaGRUK(valor) {
   if (!valor) return "Sin actualización";
 
@@ -864,6 +939,8 @@ async function inicializarJuntaDirectivaGRUK() {
     document.getElementById("juntaEstadoGRUK");
   const estadoVivo =
     document.getElementById("juntaVivaGRUK");
+
+  await cargarConfiguracionBaseJuntaGRUK();
 
   try {
     await cargarJuntaVivaGRUK();
