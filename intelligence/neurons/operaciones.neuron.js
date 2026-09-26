@@ -37,7 +37,7 @@ async function analyze(empresaId) {
 
   const porcentaje = total ? (agotados / total) * 100 : 0;
   const estado = total === 0
-    ? "ALERTA"
+    ? "DATOS_INSUFICIENTES"
     : agotados === 0
       ? "OK"
       : porcentaje >= 20
