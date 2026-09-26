@@ -26,21 +26,25 @@ const ProductoServicio = require("../models/ProductoServicio");
 const {
   validarObjetivosEmpresa
 } = require("../core/empresa/validators/objetivosEmpresa.validator");
+const {
+  resolverPerfilNegocio,
+  normalizarTipoNegocio
+} = require("../core/empresa/perfilesNegocio");
 
 
 const crearSedeSchema = Joi.object({
-  restauranteId: Joi.string().trim().min(1).max(120).required(),
+  restauranteId: Joi.string().trim().min(1).max(120).allow(null, ""),
   nombreSede: Joi.string().trim().min(1).max(120).required(),
   direccion: Joi.string().trim().max(300).allow("").default("")
 }).required();
 
 const crearUsuarioSchema = Joi.object({
-  restauranteId: Joi.string().trim().min(1).max(120).required(),
+  restauranteId: Joi.string().trim().min(1).max(120).allow(null, ""),
   sedeId: Joi.string().hex().length(24).allow(null, ""),
   nombre: Joi.string().trim().min(1).max(120).required(),
   usuario: Joi.string().trim().min(3).max(120).required(),
   password: Joi.string().min(8).max(200).required(),
-  rol: Joi.string().valid("admin_sede", "mesero").required()
+  rol: Joi.string().valid("admin_sede", "mesero", "empleado").required()
 }).required();
 
 /* =========================
@@ -2769,63 +2773,124 @@ await Sede.create({
 // Devuelve lo necesario para abrir el widget / checkout del primer pago
 router.post("/crear-pago-suscripcion", async (req, res) => {
   try {
-    const { restaurantId } = req.body;
+    const empresaId =
+      String(
+        req.body?.empresaId || ""
+      ).trim();
 
-    if (!restaurantId) {
-      return res.status(400).json({
-        ok: false,
-        error: "Falta restaurantId"
-      });
+    const restaurantId =
+      String(
+        req.body?.restaurantId || ""
+      ).trim();
+
+    let empresa = null;
+    let restaurante = null;
+
+    if (empresaId) {
+      empresa =
+        await Empresa.findOne({
+          empresaId
+        });
+    } else if (restaurantId) {
+      restaurante =
+        await Restaurante.findOne({
+          restaurantId
+        });
+
+      if (restaurante?.empresaId) {
+        empresa =
+          await Empresa.findById(
+            restaurante.empresaId
+          );
+      }
     }
 
-    const restaurante = await Restaurante.findOne({ restaurantId });
-
-    if (!restaurante) {
+    if (!empresa) {
       return res.status(404).json({
         ok: false,
-        error: "Restaurante no encontrado"
+        error:
+          "Empresa no encontrada"
       });
     }
 
-    const amountInCents = Number(restaurante.precioMensual || 220000) * 100;
-    const currency = "COP";
-    const reference = `suscripcion_${restaurantId}_${Date.now()}`;
+    const amountInCents =
+      Number(
+        empresa.suscripcion
+          ?.precioMensual ||
+        restaurante
+          ?.precioMensual ||
+        220000
+      ) * 100;
 
-    const acceptanceRes = await axios.get(
-      `https://production.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
-    );
+    const currency =
+      "COP";
+
+    const reference =
+      `suscripcion_empresa_${empresa.empresaId}_${Date.now()}`;
+
+    const acceptanceRes =
+      await axios.get(
+        `https://production.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
+      );
 
     const acceptanceToken =
-      acceptanceRes.data.data.presigned_acceptance.acceptance_token;
+      acceptanceRes.data
+        ?.data
+        ?.presigned_acceptance
+        ?.acceptance_token;
 
-    const signatureRaw = `${reference}${amountInCents}${currency}${process.env.WOMPI_INTEGRITY_KEY}`;
-    const signature = crypto
-      .createHash("sha256")
-      .update(signatureRaw)
-      .digest("hex");
+    if (!acceptanceToken) {
+      return res.status(500).json({
+        ok: false,
+        error:
+          "No se pudo preparar aceptación de pago"
+      });
+    }
 
-    res.json({
+    const signatureRaw =
+      `${reference}${amountInCents}${currency}${process.env.WOMPI_INTEGRITY_KEY}`;
+
+    const signature =
+      crypto
+        .createHash("sha256")
+        .update(signatureRaw)
+        .digest("hex");
+
+    return res.json({
       ok: true,
       pago: {
+        empresaId:
+          empresa.empresaId,
         amountInCents,
         currency,
         reference,
         acceptanceToken,
         signature,
-        publicKey: process.env.WOMPI_PUBLIC_KEY,
-        customerEmail: restaurante.correo,
+        publicKey:
+          process.env.WOMPI_PUBLIC_KEY,
+        customerEmail:
+          empresa.correo,
         customerData: {
-          fullName: restaurante.nombreRestaurante,
-          phoneNumber: "",
-          legalId: ""
+          fullName:
+            empresa.nombre,
+          phoneNumber:
+            "",
+          legalId:
+            ""
         }
       }
     });
   } catch (error) {
-    console.log("Error creando pago de suscripciÃƒÂ³n:", error?.response?.data || error);
-    res.status(500).json({
+    console.log(
+      "Error creando pago de suscripción:",
+      error?.response?.data ||
+      error
+    );
+
+    return res.status(500).json({
       ok: false,
-      error: "Error interno creando pago de suscripciÃƒÂ³n"
+      error:
+        "Error interno creando pago de suscripción"
     });
   }
 });
@@ -2865,96 +2930,303 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
 // Webhook de Wompi
 router.post("/wompi/webhook", async (req, res) => {
   try {
-    const transactionId = req.body?.data?.transaction?.id;
+    const transactionId =
+      req.body?.data?.transaction?.id;
 
     if (!transactionId) {
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({
+        ok: true
+      });
     }
 
-    // Nunca confiar en estado, monto o referencia enviados por el webhook.
-    // Se consulta la transaccion canonica directamente en Wompi.
-    const wompiRes = await axios.get(
-      `https://production.wompi.co/v1/transactions/${encodeURIComponent(String(transactionId))}`
-    );
-    const transaction = wompiRes.data?.data;
+    const wompiRes =
+      await axios.get(
+        `https://production.wompi.co/v1/transactions/${encodeURIComponent(String(transactionId))}`
+      );
+
+    const transaction =
+      wompiRes.data?.data;
 
     if (!transaction) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const reference = String(transaction.reference || "");
-    const prefijo = reference.startsWith("suscripcion_")
-      ? "suscripcion_"
-      : reference.startsWith("renovacion_")
-        ? "renovacion_"
-        : null;
-
-    if (!prefijo) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const referenciaSinPrefijo = reference.slice(prefijo.length);
-    const ultimoSeparador = referenciaSinPrefijo.lastIndexOf("_");
-
-    if (ultimoSeparador <= 0) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const restaurantId = referenciaSinPrefijo.slice(0, ultimoSeparador);
-    const restaurante = await Restaurante.findOne({ restaurantId });
-
-    if (!restaurante) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const montoEsperado = Number(restaurante.precioMensual || 220000) * 100;
-    const montoValido = Number(transaction.amount_in_cents) === montoEsperado;
-    const monedaValida = String(transaction.currency || "").toUpperCase() === "COP";
-
-    if (!montoValido || !monedaValida) {
-      console.error("[SEGURIDAD] Webhook Wompi no coincide con la suscripcion", {
-        restaurantId,
-        transactionId: String(transactionId)
+      return res.status(200).json({
+        ok: true
       });
-      return res.status(200).json({ ok: true });
     }
 
-    const status = String(transaction.status || "").toUpperCase();
+    const reference =
+      String(
+        transaction.reference || ""
+      );
 
-    if (restaurante.ultimoTransactionId === String(transactionId)) {
-      return res.status(200).json({ ok: true });
+    let empresa = null;
+    let restaurante = null;
+
+    const prefijosEmpresa = [
+      "suscripcion_empresa_",
+      "renovacion_empresa_"
+    ];
+
+    const prefijoEmpresa =
+      prefijosEmpresa.find(
+        (prefijo) =>
+          reference.startsWith(
+            prefijo
+          )
+      );
+
+    if (prefijoEmpresa) {
+      const resto =
+        reference.slice(
+          prefijoEmpresa.length
+        );
+
+      const ultimoSeparador =
+        resto.lastIndexOf("_");
+
+      if (
+        ultimoSeparador <= 0
+      ) {
+        return res.status(200).json({
+          ok: true
+        });
+      }
+
+      const empresaPublicId =
+        resto.slice(
+          0,
+          ultimoSeparador
+        );
+
+      empresa =
+        await Empresa.findOne({
+          empresaId:
+            empresaPublicId
+        });
+
+      if (
+        empresa?.modulos?.restaurante
+      ) {
+        restaurante =
+          await Restaurante.findOne({
+            empresaId:
+              empresa._id
+          });
+      }
+    } else {
+      const prefijoLegacy =
+        reference.startsWith(
+          "suscripcion_"
+        )
+          ? "suscripcion_"
+          : reference.startsWith(
+              "renovacion_"
+            )
+            ? "renovacion_"
+            : null;
+
+      if (!prefijoLegacy) {
+        return res.status(200).json({
+          ok: true
+        });
+      }
+
+      const resto =
+        reference.slice(
+          prefijoLegacy.length
+        );
+
+      const ultimoSeparador =
+        resto.lastIndexOf("_");
+
+      if (
+        ultimoSeparador <= 0
+      ) {
+        return res.status(200).json({
+          ok: true
+        });
+      }
+
+      const restaurantId =
+        resto.slice(
+          0,
+          ultimoSeparador
+        );
+
+      restaurante =
+        await Restaurante.findOne({
+          restaurantId
+        });
+
+      if (
+        restaurante?.empresaId
+      ) {
+        empresa =
+          await Empresa.findById(
+            restaurante.empresaId
+          );
+      }
     }
 
-    if (status === "APPROVED") {
-      const hoy = new Date();
-      const proximo = new Date(hoy);
-      proximo.setDate(proximo.getDate() + 30);
-
-      restaurante.estadoSuscripcion = "activa";
-      restaurante.fechaUltimoPago = hoy;
-      restaurante.fechaProximoCobro = proximo;
-      restaurante.ultimoTransactionId = String(transactionId);
-      await restaurante.save();
-    } else if (["DECLINED", "ERROR", "VOIDED"].includes(status)) {
-      restaurante.estadoSuscripcion = "pendiente";
-      restaurante.ultimoTransactionId = String(transactionId);
-      await restaurante.save();
+    if (!empresa) {
+      return res.status(200).json({
+        ok: true
+      });
     }
 
-    return res.status(200).json({ ok: true });
+    const montoEsperado =
+      Number(
+        empresa.suscripcion
+          ?.precioMensual ||
+        restaurante
+          ?.precioMensual ||
+        220000
+      ) * 100;
+
+    const montoValido =
+      Number(
+        transaction.amount_in_cents
+      ) ===
+      montoEsperado;
+
+    const monedaValida =
+      String(
+        transaction.currency || ""
+      ).toUpperCase() ===
+      "COP";
+
+    if (
+      !montoValido ||
+      !monedaValida
+    ) {
+      console.error(
+        "[SEGURIDAD] Webhook Wompi no coincide con la suscripción",
+        {
+          empresaId:
+            empresa.empresaId,
+          transactionId:
+            String(transactionId)
+        }
+      );
+
+      return res.status(200).json({
+        ok: true
+      });
+    }
+
+    const txId =
+      String(transactionId);
+
+    if (
+      empresa.suscripcion
+        ?.ultimoTransactionId ===
+      txId
+    ) {
+      return res.status(200).json({
+        ok: true
+      });
+    }
+
+    const status =
+      String(
+        transaction.status || ""
+      ).toUpperCase();
+
+    if (
+      status ===
+      "APPROVED"
+    ) {
+      const hoy =
+        new Date();
+
+      const proximo =
+        new Date(hoy);
+
+      proximo.setDate(
+        proximo.getDate() + 30
+      );
+
+      empresa.suscripcion.estado =
+        "activa";
+
+      empresa.suscripcion.fechaUltimoPago =
+        hoy;
+
+      empresa.suscripcion.fechaProximoCobro =
+        proximo;
+
+      empresa.suscripcion.ultimoTransactionId =
+        txId;
+
+      await empresa.save();
+
+      if (restaurante) {
+        restaurante.estadoSuscripcion =
+          "activa";
+
+        restaurante.fechaUltimoPago =
+          hoy;
+
+        restaurante.fechaProximoCobro =
+          proximo;
+
+        restaurante.ultimoTransactionId =
+          txId;
+
+        await restaurante.save();
+      }
+    } else if (
+      [
+        "DECLINED",
+        "ERROR",
+        "VOIDED"
+      ].includes(status)
+    ) {
+      empresa.suscripcion.estado =
+        "pendiente";
+
+      empresa.suscripcion.ultimoTransactionId =
+        txId;
+
+      await empresa.save();
+
+      if (restaurante) {
+        restaurante.estadoSuscripcion =
+          "pendiente";
+
+        restaurante.ultimoTransactionId =
+          txId;
+
+        await restaurante.save();
+      }
+    }
+
+    return res.status(200).json({
+      ok: true
+    });
   } catch (error) {
-    console.log("Error webhook Wompi:", error?.response?.data || error?.message || error);
-    return res.status(500).json({ ok: false });
+    console.log(
+      "Error webhook Wompi:",
+      error?.response?.data ||
+      error?.message ||
+      error
+    );
+
+    return res.status(500).json({
+      ok: false
+    });
   }
 });
 
 router.post("/registro-y-fuente-pago", async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
     const {
       nombre,
       correo,
       usuario,
       password,
+      tipoNegocio,
       acceptanceToken,
       paymentMethodToken,
       customerEmail,
@@ -2964,6 +3236,19 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
       cac_maximo,
       empleados_actuales
     } = req.body;
+
+    const tipoNormalizado =
+      normalizarTipoNegocio(
+        tipoNegocio
+      );
+
+    if (!tipoNormalizado) {
+      return res.status(400).json({
+        ok: false,
+        error: "Selecciona el tipo de negocio"
+      });
+    }
+
     const {
       error: errorObjetivos,
       value: objetivosEmpresa
@@ -2979,294 +3264,755 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
       return res.status(400).json({
         ok: false,
         error: "Objetivos empresariales inválidos",
-        detalles: errorObjetivos.details.map(
-          (detalle) => detalle.message
-        )
+        detalles:
+          errorObjetivos.details.map(
+            (detalle) =>
+              detalle.message
+          )
       });
     }
-    const wompiPublicKey = process.env.WOMPI_PUBLIC_KEY;
-    const wompiPrivateKey = process.env.WOMPI_PRIVATE_KEY;
 
-    if (!nombre || !correo || !usuario || !password) {
-      return res.status(400).json({ ok: false, error: "Faltan datos" });
+    const perfil =
+      resolverPerfilNegocio(
+        tipoNormalizado,
+        objetivosEmpresa
+          .empleados_actuales
+      );
+
+    const wompiPublicKey =
+      process.env.WOMPI_PUBLIC_KEY;
+
+    const wompiPrivateKey =
+      process.env.WOMPI_PRIVATE_KEY;
+
+    if (
+      !nombre ||
+      !correo ||
+      !usuario ||
+      !password
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Completa los datos de la empresa"
+      });
     }
 
-    if (!paymentMethodToken || !customerEmail || !acceptanceToken) {
-      return res.status(400).json({ ok: false, error: "Faltan datos del pago" });
+    if (
+      String(password).length < 8
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "La contraseña debe tener al menos 8 caracteres"
+      });
     }
 
-    if (!wompiPublicKey || !wompiPrivateKey) {
+    if (
+      !paymentMethodToken ||
+      !customerEmail ||
+      !acceptanceToken
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Faltan datos del pago"
+      });
+    }
+
+    if (
+      !wompiPublicKey ||
+      !wompiPrivateKey
+    ) {
       return res.status(500).json({
         ok: false,
-        error: "Faltan llaves de Wompi en Render"
+        error:
+          "Faltan llaves de Wompi en Render"
       });
     }
 
-    const existeUsuario = await Usuario.findOne({ usuario });
+    const existeUsuario =
+      await Usuario.findOne({
+        usuario
+      })
+        .select("_id")
+        .lean();
+
     if (existeUsuario) {
-      return res.status(400).json({ ok: false, error: "Ese usuario admin ya existe" });
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Ese usuario admin ya existe"
+      });
     }
 
-    const paymentSourceRes = await axios.post(
-      "https://production.wompi.co/v1/payment_sources",
-      {
-        type: "CARD",
-        token: paymentMethodToken,
-        customer_email: customerEmail,
-        acceptance_token: acceptanceToken
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${wompiPrivateKey}`,
-          "Content-Type": "application/json"
+    const paymentSourceRes =
+      await axios.post(
+        "https://production.wompi.co/v1/payment_sources",
+        {
+          type:
+            "CARD",
+          token:
+            paymentMethodToken,
+          customer_email:
+            customerEmail,
+          acceptance_token:
+            acceptanceToken
+        },
+        {
+          headers: {
+            Authorization:
+              `Bearer ${wompiPrivateKey}`,
+            "Content-Type":
+              "application/json"
+          }
         }
+      );
+
+    const paymentSource =
+      paymentSourceRes.data?.data;
+
+    if (
+      !paymentSource ||
+      paymentSource.status !==
+        "AVAILABLE"
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "No se pudo crear la fuente de pago"
+      });
+    }
+
+    const empresaPublicId =
+      `emp_${new mongoose.Types.ObjectId().toString()}`;
+
+    const restaurantId =
+      perfil.vertical ===
+        "restaurante"
+        ? `rest_${new mongoose.Types.ObjectId().toString()}`
+        : null;
+
+    const passwordHash =
+      await bcrypt.hash(
+        String(password),
+        12
+      );
+
+    let nuevaEmpresa = null;
+    let nuevoRestaurante = null;
+    let sedePrincipal = null;
+    let nuevoUsuario = null;
+
+    await session.withTransaction(
+      async () => {
+        [nuevaEmpresa] =
+          await Empresa.create(
+            [
+              {
+                empresaId:
+                  empresaPublicId,
+                nombre:
+                  String(nombre).trim(),
+                tipoNegocio:
+                  perfil.tipo,
+                verticalOperativa:
+                  perfil.vertical,
+                correo:
+                  String(correo)
+                    .trim()
+                    .toLowerCase(),
+                estado:
+                  "activa",
+                suscripcion: {
+                  plan:
+                    "mensual",
+                  precioMensual:
+                    220000,
+                  estado:
+                    "pendiente",
+                  paymentSourceId:
+                    String(
+                      paymentSource.id
+                    ),
+                  customerEmailWompi:
+                    String(
+                      customerEmail
+                    )
+                      .trim()
+                      .toLowerCase(),
+                  tokenizacionCompleta:
+                    true,
+                  fechaUltimoPago:
+                    null,
+                  fechaProximoCobro:
+                    null,
+                  ultimoTransactionId:
+                    ""
+                },
+                configuracion: {
+                  margen_objetivo:
+                    objetivosEmpresa
+                      .margen_objetivo,
+                  punto_equilibrio:
+                    objetivosEmpresa
+                      .punto_equilibrio,
+                  ticket_objetivo:
+                    objetivosEmpresa
+                      .ticket_objetivo,
+                  cac_maximo:
+                    objetivosEmpresa
+                      .cac_maximo,
+                  empleados_actuales:
+                    objetivosEmpresa
+                      .empleados_actuales
+                },
+                modulos:
+                  perfil.modulos
+              }
+            ],
+            {
+              session
+            }
+          );
+
+        if (
+          perfil.vertical ===
+          "restaurante"
+        ) {
+          [nuevoRestaurante] =
+            await Restaurante.create(
+              [
+                {
+                  restaurantId,
+                  empresaId:
+                    nuevaEmpresa._id,
+                  nombreRestaurante:
+                    String(nombre).trim(),
+                  correo:
+                    String(correo)
+                      .trim()
+                      .toLowerCase(),
+                  usuarioAdmin:
+                    String(usuario).trim(),
+                  passwordAdmin:
+                    passwordHash,
+                  wompiPublicKey,
+                  paymentSourceId:
+                    String(
+                      paymentSource.id
+                    ),
+                  customerEmailWompi:
+                    String(
+                      customerEmail
+                    )
+                      .trim()
+                      .toLowerCase(),
+                  tokenizacionCompleta:
+                    true,
+                  plan:
+                    "mensual",
+                  precioMensual:
+                    220000,
+                  estadoSuscripcion:
+                    "pendiente",
+                  fechaUltimoPago:
+                    null,
+                  fechaProximoCobro:
+                    null,
+                  ultimoTransactionId:
+                    "",
+                  aceptaPlan:
+                    true
+                }
+              ],
+              {
+                session
+              }
+            );
+        }
+
+        const codigoSede =
+          restaurantId
+            ? `${restaurantId}_principal`
+            : `${empresaPublicId}_principal`;
+
+        [sedePrincipal] =
+          await Sede.create(
+            [
+              {
+                empresaId:
+                  nuevaEmpresa._id,
+                restauranteId:
+                  restaurantId,
+                nombreSede:
+                  "Principal",
+                codigoSede,
+                direccion:
+                  ""
+              }
+            ],
+            {
+              session
+            }
+          );
+
+        [nuevoUsuario] =
+          await Usuario.create(
+            [
+              {
+                empresaId:
+                  nuevaEmpresa._id,
+                restauranteId:
+                  restaurantId,
+                sedeId:
+                  sedePrincipal._id,
+                nombre:
+                  String(nombre).trim(),
+                usuario:
+                  String(usuario).trim(),
+                password:
+                  passwordHash,
+                rol:
+                  "admin_general",
+                estado:
+                  "activo"
+              }
+            ],
+            {
+              session
+            }
+          );
       }
     );
 
-    const paymentSource = paymentSourceRes.data?.data;
-
-    if (!paymentSource || paymentSource.status !== "AVAILABLE") {
-      return res.status(400).json({
-        ok: false,
-        error: "No se pudo crear la fuente de pago"
-      });
-    }
-
-    const restaurantId = `rest_${Date.now()}`;
-const passwordHash = await bcrypt.hash(password, 12);
-
-const nuevaEmpresa = await Empresa.create({
-  empresaId: `emp_${Date.now()}`,
-  nombre,
-  tipoNegocio: "restaurante",
-    correo,
-  estado: "activa",
-
-  configuracion: {
-    margen_objetivo: objetivosEmpresa.margen_objetivo,
-    punto_equilibrio: objetivosEmpresa.punto_equilibrio,
-    ticket_objetivo: objetivosEmpresa.ticket_objetivo,
-    cac_maximo: objetivosEmpresa.cac_maximo,
-    empleados_actuales: objetivosEmpresa.empleados_actuales
-  },
-
-  modulos: {
-    restaurante: true,
-    inventario: true,
-    finanzas: true,
-    facturacion: true,
-    laboral: true,
-    inteligencia: true
-  }
-});
-
-    const nuevoRestaurante = await Restaurante.create({
-      restaurantId,
-      empresaId: nuevaEmpresa._id,
-      nombreRestaurante: nombre,
-      correo,
-      usuarioAdmin: usuario,
-      passwordAdmin: passwordHash,
-      wompiPublicKey,
-      paymentSourceId: String(paymentSource.id),
-      customerEmailWompi: customerEmail,
-      tokenizacionCompleta: true,
-      plan: "mensual",
-      precioMensual: 220000,
-      estadoSuscripcion: "pendiente",
-      fechaUltimoPago: null,
-      fechaProximoCobro: null,
-      ultimoTransactionId: "",
-      aceptaPlan: true
-    });
-
-    const sedePrincipal = await Sede.create({
-  empresaId: nuevaEmpresa._id,
-  restauranteId: restaurantId,
-  nombreSede: "Principal",
-  codigoSede: `${restaurantId}_principal`,
-  direccion: ""
-});
-
-    await Usuario.create({
-  empresaId: nuevaEmpresa._id,
-  restauranteId: restaurantId,
-  sedeId: sedePrincipal._id,
-  nombre,
-  usuario,
-   password: passwordHash,
-  rol: "admin_general",
-  estado: "activo"
-});
-
-    return res.json({
+    return res.status(201).json({
       ok: true,
-      restauranteId: nuevoRestaurante.restaurantId,
-      paymentSourceId: paymentSource.id
+      empresaId:
+        nuevaEmpresa.empresaId,
+      empresaObjectId:
+        nuevaEmpresa._id,
+      tipoNegocio:
+        nuevaEmpresa.tipoNegocio,
+      vertical:
+        nuevaEmpresa.verticalOperativa,
+      modulos:
+        nuevaEmpresa.modulos,
+      restauranteId:
+        nuevoRestaurante
+          ?.restaurantId ||
+        null,
+      sedeId:
+        sedePrincipal._id,
+      usuarioId:
+        nuevoUsuario._id,
+      paymentSourceId:
+        paymentSource.id,
+      siguientePaso: {
+        requierePago:
+          true,
+        referenciaTipo:
+          "empresa",
+        referenciaId:
+          nuevaEmpresa.empresaId
+      }
     });
   } catch (error) {
-    console.log("Error registro y fuente pago:", error?.response?.data || error?.message || error);
+    console.log(
+      "Error registro y fuente pago:",
+      error?.response?.data ||
+      error?.message ||
+      error
+    );
 
     return res.status(500).json({
       ok: false,
       error:
-        error?.response?.data?.error?.reason ||
-        error?.response?.data?.error?.message ||
+        error?.response?.data
+          ?.error?.reason ||
+        error?.response?.data
+          ?.error?.message ||
         error?.message ||
-        "Error creando fuente de pago"
+        "Error creando empresa"
     });
+  } finally {
+    await session.endSession();
   }
 });
 
-router.post("/sede/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
-  try {
-    const validacion = crearSedeSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
-    if (validacion.error) {
-      return res.status(400).json({ ok: false, error: "Datos de sede inválidos" });
-    }
-    const { restauranteId, nombreSede, direccion } = validacion.value;
+router.post(
+  "/sede/crear",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO),
+  async (req, res) => {
+    try {
+      const validacion =
+        crearSedeSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: true
+          }
+        );
 
-    // Buscar el restaurante para obtener su empresa
-    const restaurante = await Restaurante.findOne({
-      restaurantId: restauranteId,
-      empresaId: req.auth.empresaId
-    });
-
-    if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
-      });
-    }
-
-    const codigoSede = `${restauranteId}_${Date.now()}`;
-
-    const nueva = new Sede({
-      empresaId: restaurante.empresaId || null,
-      restauranteId,
-      nombreSede,
-      codigoSede,
-      direccion
-    });
-
-    await nueva.save();
-
-    res.json({
-      ok: true,
-      sede: nueva
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    res.status(500).json({
-      ok: false,
-      error: "Error creando sede"
-    });
-  }
-});
-router.post("/usuarios/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
-  try {
-    const validacion = crearUsuarioSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
-    if (validacion.error) {
-      return res.status(400).json({ ok: false, error: "Datos de usuario inválidos" });
-    }
-    const { restauranteId, sedeId, nombre, usuario, password, rol } = validacion.value;
-
-    // Buscar restaurante para obtener empresaId
-    const restaurante = await Restaurante.findOne({
-      restaurantId: restauranteId,
-      empresaId: req.auth.empresaId
-    });
-
-    if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
-      });
-    }
-
-    if (sedeId) {
-      if (!mongoose.Types.ObjectId.isValid(sedeId)) {
+      if (validacion.error) {
         return res.status(400).json({
           ok: false,
-          error: "sedeId inválido"
+          error:
+            "Datos de sede inválidos"
         });
       }
 
-      const sedeAutorizada = await Sede.findOne({
-        _id: sedeId,
-        empresaId: req.auth.empresaId,
-        restauranteId
-      }).select("_id").lean();
+      const {
+        restauranteId,
+        nombreSede,
+        direccion
+      } = validacion.value;
 
-      if (!sedeAutorizada) {
+      const empresa =
+        await Empresa.findOne({
+          _id:
+            req.auth.empresaId,
+          estado:
+            "activa"
+        })
+          .select(
+            "_id empresaId modulos.restaurante"
+          )
+          .lean();
+
+      if (!empresa) {
+        return res.status(404).json({
+          ok: false,
+          error:
+            "Empresa no encontrada"
+        });
+      }
+
+      let restaurantIdFinal =
+        null;
+
+      if (restauranteId) {
+        const restaurante =
+          await Restaurante.findOne({
+            restaurantId:
+              restauranteId,
+            empresaId:
+              req.auth.empresaId
+          })
+            .select(
+              "restaurantId"
+            )
+            .lean();
+
+        if (!restaurante) {
+          return res.status(404).json({
+            ok: false,
+            error:
+              "Restaurante fuera de la empresa autorizada"
+          });
+        }
+
+        restaurantIdFinal =
+          restaurante.restaurantId;
+      } else if (
+        empresa.modulos?.restaurante
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Para una empresa con vertical restaurante debes indicar restauranteId"
+        });
+      }
+
+      const codigoBase =
+        restaurantIdFinal ||
+        empresa.empresaId;
+
+      const nueva =
+        await Sede.create({
+          empresaId:
+            empresa._id,
+          restauranteId:
+            restaurantIdFinal,
+          nombreSede,
+          codigoSede:
+            `${codigoBase}_${Date.now()}`,
+          direccion
+        });
+
+      return res.status(201).json({
+        ok: true,
+        sede:
+          nueva
+      });
+    } catch (error) {
+      console.error(
+        "Error creando sede:",
+        error
+      );
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Error creando sede"
+      });
+    }
+  }
+);
+
+router.post(
+  "/usuarios/crear",
+  authMiddleware,
+  roleCheck(
+    ROLES_GRUK.DUENO,
+    ROLES_GRUK.ADMIN_SEDE
+  ),
+  async (req, res) => {
+    try {
+      const validacion =
+        crearUsuarioSchema.validate(
+          req.body,
+          {
+            abortEarly: false,
+            stripUnknown: true
+          }
+        );
+
+      if (validacion.error) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Datos de usuario inválidos"
+        });
+      }
+
+      const {
+        restauranteId,
+        sedeId,
+        nombre,
+        usuario,
+        password,
+        rol
+      } = validacion.value;
+
+      const empresa =
+        await Empresa.findOne({
+          _id:
+            req.auth.empresaId,
+          estado:
+            "activa"
+        })
+          .select(
+            "_id modulos.restaurante"
+          )
+          .lean();
+
+      if (!empresa) {
+        return res.status(404).json({
+          ok: false,
+          error:
+            "Empresa no encontrada"
+        });
+      }
+
+      let restaurantIdFinal =
+        null;
+
+      if (restauranteId) {
+        const restaurante =
+          await Restaurante.findOne({
+            restaurantId:
+              restauranteId,
+            empresaId:
+              req.auth.empresaId
+          })
+            .select(
+              "restaurantId"
+            )
+            .lean();
+
+        if (!restaurante) {
+          return res.status(404).json({
+            ok: false,
+            error:
+              "Restaurante fuera de la empresa autorizada"
+          });
+        }
+
+        restaurantIdFinal =
+          restaurante.restaurantId;
+      } else if (
+        empresa.modulos?.restaurante
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Para usuarios del vertical restaurante debes indicar restauranteId"
+        });
+      }
+
+      let sedeAutorizada =
+        null;
+
+      if (sedeId) {
+        if (
+          !mongoose.Types.ObjectId.isValid(
+            sedeId
+          )
+        ) {
+          return res.status(400).json({
+            ok: false,
+            error:
+              "sedeId inválido"
+          });
+        }
+
+        sedeAutorizada =
+          await Sede.findOne({
+            _id:
+              sedeId,
+            empresaId:
+              req.auth.empresaId,
+            ...(restaurantIdFinal
+              ? {
+                  restauranteId:
+                    restaurantIdFinal
+                }
+              : {})
+          })
+            .select(
+              "_id restauranteId"
+            )
+            .lean();
+
+        if (!sedeAutorizada) {
+          return res.status(403).json({
+            ok: false,
+            error:
+              "La sede no pertenece a la empresa autorizada"
+          });
+        }
+      }
+
+      if (
+        req.auth.rol ===
+          ROLES_GRUK.ADMIN_SEDE &&
+        String(
+          req.auth.sedeId || ""
+        ) !==
+        String(
+          sedeId || ""
+        )
+      ) {
         return res.status(403).json({
           ok: false,
-          error: "La sede no pertenece a este restaurante y empresa"
+          error:
+            "ADMIN_SEDE solo puede crear usuarios en su propia sede"
         });
       }
-    }
 
-    if (
-      req.auth.rol === ROLES_GRUK.ADMIN_SEDE &&
-      String(req.auth.sedeId || "") !== String(sedeId || "")
-    ) {
-      return res.status(403).json({
+      const rolesPermitidos =
+        req.auth.rol ===
+          ROLES_GRUK.DUENO
+          ? [
+              "admin_sede",
+              restaurantIdFinal
+                ? "mesero"
+                : "empleado"
+            ]
+          : [
+              restaurantIdFinal
+                ? "mesero"
+                : "empleado"
+            ];
+
+      if (
+        !rolesPermitidos.includes(
+          rol
+        )
+      ) {
+        return res.status(403).json({
+          ok: false,
+          error:
+            "No puedes asignar ese rol"
+        });
+      }
+
+      const existe =
+        await Usuario.findOne({
+          usuario
+        })
+          .select(
+            "_id"
+          )
+          .lean();
+
+      if (existe) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Ese usuario ya existe"
+        });
+      }
+
+      const passwordHash =
+        await bcrypt.hash(
+          String(password),
+          12
+        );
+
+      const nuevoUsuario =
+        await Usuario.create({
+          empresaId:
+            empresa._id,
+          restauranteId:
+            restaurantIdFinal,
+          sedeId:
+            sedeAutorizada?._id ||
+            null,
+          nombre,
+          usuario,
+          password:
+            passwordHash,
+          rol,
+          estado:
+            "activo"
+        });
+
+      return res.status(201).json({
+        ok: true,
+        usuario: {
+          id:
+            nuevoUsuario._id,
+          nombre:
+            nuevoUsuario.nombre,
+          usuario:
+            nuevoUsuario.usuario,
+          rol:
+            nuevoUsuario.rol,
+          sedeId:
+            nuevoUsuario.sedeId,
+          restauranteId:
+            nuevoUsuario.restauranteId ||
+            null
+        }
+      });
+    } catch (error) {
+      console.error(
+        "Error creando usuario:",
+        error
+      );
+
+      return res.status(500).json({
         ok: false,
-        error: "ADMIN_SEDE solo puede crear usuarios en su propia sede"
+        error:
+          "Error creando usuario"
       });
     }
-
-    const rolesPermitidos =
-      req.auth.rol === ROLES_GRUK.DUENO
-        ? ["admin_sede", "mesero"]
-        : ["mesero"];
-
-    if (!rolesPermitidos.includes(rol)) {
-      return res.status(403).json({
-        ok: false,
-        error: "No puedes asignar ese rol"
-      });
-    }
-
-    const existe = await Usuario.findOne({ usuario });
-
-    if (existe) {
-      return res.status(400).json({
-        ok: false,
-        error: "Ese usuario ya existe"
-      });
-    }
-
-    const passwordHash = await bcrypt.hash(String(password), 12);
-
-    const nuevoUsuario = new Usuario({
-      empresaId: restaurante.empresaId || null,
-      restauranteId,
-      sedeId: sedeId || null,
-      nombre,
-      usuario,
-      password: passwordHash,
-      rol
-    });
-
-    await nuevoUsuario.save();
-
-    res.json({
-      ok: true,
-      usuario: nuevoUsuario
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    res.status(500).json({
-      ok: false,
-      error: "Error creando usuario"
-    });
   }
-});
+);
+
 router.post("/usuarios/login", async (req, res) => {
   try {
     const usuario = String(req.body?.usuario || "").trim();
@@ -3320,6 +4066,23 @@ router.post("/usuarios/login", async (req, res) => {
       });
     }
 
+    const empresa =
+      await Empresa.findById(
+        user.empresaId
+      )
+        .select(
+          "empresaId nombre tipoNegocio verticalOperativa modulos estado"
+        )
+        .lean();
+
+    if (!empresa) {
+      return res.status(401).json({
+        ok: false,
+        error:
+          "La empresa del usuario no está disponible"
+      });
+    }
+
     const rolJwt =
       user.rol === "admin_general"
         ? ROLES_GRUK.DUENO
@@ -3351,9 +4114,33 @@ router.post("/usuarios/login", async (req, res) => {
         usuario: user.usuario,
         rol: user.rol,
         rolGruk: rolJwt,
-        restauranteId: user.restauranteId,
-        sedeId: user.sedeId ? user.sedeId._id : null,
-        nombreSede: user.sedeId ? user.sedeId.nombreSede : null
+        restauranteId:
+          user.restauranteId || null,
+        sedeId:
+          user.sedeId
+            ? user.sedeId._id
+            : null,
+        nombreSede:
+          user.sedeId
+            ? user.sedeId.nombreSede
+            : null
+      },
+      empresa: {
+        empresaId:
+          empresa.empresaId,
+        nombre:
+          empresa.nombre,
+        tipoNegocio:
+          empresa.tipoNegocio,
+        vertical:
+          empresa.verticalOperativa ||
+          (
+            empresa.tipoNegocio === "restaurante"
+              ? "restaurante"
+              : "generico"
+          ),
+        modulos:
+          empresa.modulos || {}
       }
     });
   } catch (error) {
@@ -3541,86 +4328,225 @@ router.post("/suscripciones/cobrar", authMiddleware, roleCheck(ROLES_GRUK.DUENO)
 });
 
 router.post("/confirmar-pago", async (req, res) => {
-try {
-const { transactionId, restaurantId } = req.body;
+  try {
+    const transactionId =
+      String(
+        req.body?.transactionId || ""
+      ).trim();
 
-console.log("Confirmando pago:", { transactionId, restaurantId });
+    const empresaId =
+      String(
+        req.body?.empresaId || ""
+      ).trim();
 
-if (!transactionId || !restaurantId) {
-return res.status(400).json({
-ok: false,
-error: "Faltan datos para confirmar el pago"
+    const restaurantId =
+      String(
+        req.body?.restaurantId || ""
+      ).trim();
+
+    if (
+      !transactionId ||
+      (!empresaId && !restaurantId)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Faltan datos para confirmar el pago"
+      });
+    }
+
+    let empresa = null;
+    let restaurante = null;
+
+    if (empresaId) {
+      empresa =
+        await Empresa.findOne({
+          empresaId
+        });
+    } else {
+      restaurante =
+        await Restaurante.findOne({
+          restaurantId
+        });
+
+      if (restaurante?.empresaId) {
+        empresa =
+          await Empresa.findById(
+            restaurante.empresaId
+          );
+      }
+    }
+
+    if (!empresa) {
+      return res.status(404).json({
+        ok: false,
+        error:
+          "Empresa no encontrada"
+      });
+    }
+
+    if (
+      !restaurante &&
+      empresa.modulos?.restaurante
+    ) {
+      restaurante =
+        await Restaurante.findOne({
+          empresaId:
+            empresa._id
+        });
+    }
+
+    const wompiRes =
+      await axios.get(
+        `https://production.wompi.co/v1/transactions/${encodeURIComponent(transactionId)}`
+      );
+
+    const transaction =
+      wompiRes.data?.data;
+
+    if (!transaction) {
+      return res.status(404).json({
+        ok: false,
+        error:
+          "Transacción no encontrada"
+      });
+    }
+
+    if (
+      String(
+        transaction.status || ""
+      ).toUpperCase() !==
+      "APPROVED"
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          `Pago no aprobado. Estado: ${transaction.status}`
+      });
+    }
+
+    const referenciaEsperada =
+      `suscripcion_empresa_${empresa.empresaId}_`;
+
+    const montoEsperado =
+      Number(
+        empresa.suscripcion
+          ?.precioMensual ||
+        restaurante
+          ?.precioMensual ||
+        220000
+      ) * 100;
+
+    const referenciaValida =
+      String(
+        transaction.reference || ""
+      ).startsWith(
+        referenciaEsperada
+      );
+
+    const montoValido =
+      Number(
+        transaction.amount_in_cents
+      ) ===
+      montoEsperado;
+
+    const monedaValida =
+      String(
+        transaction.currency || ""
+      ).toUpperCase() ===
+      "COP";
+
+    if (
+      !referenciaValida ||
+      !montoValido ||
+      !monedaValida
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "La transacción no corresponde a esta suscripción"
+      });
+    }
+
+    if (
+      empresa.suscripcion
+        ?.ultimoTransactionId ===
+      transactionId
+    ) {
+      return res.json({
+        ok: true,
+        mensaje:
+          "Pago ya confirmado anteriormente"
+      });
+    }
+
+    const hoy =
+      new Date();
+
+    const proximo =
+      new Date(hoy);
+
+    proximo.setDate(
+      proximo.getDate() + 30
+    );
+
+    empresa.suscripcion.estado =
+      "activa";
+
+    empresa.suscripcion.fechaUltimoPago =
+      hoy;
+
+    empresa.suscripcion.fechaProximoCobro =
+      proximo;
+
+    empresa.suscripcion.ultimoTransactionId =
+      transactionId;
+
+    await empresa.save();
+
+    if (restaurante) {
+      restaurante.estadoSuscripcion =
+        "activa";
+
+      restaurante.aceptaPlan =
+        true;
+
+      restaurante.ultimoTransactionId =
+        transactionId;
+
+      restaurante.fechaUltimoPago =
+        hoy;
+
+      restaurante.fechaProximoCobro =
+        proximo;
+
+      await restaurante.save();
+    }
+
+    return res.json({
+      ok: true,
+      mensaje:
+        "Pago confirmado correctamente",
+      empresaId:
+        empresa.empresaId,
+      tipoNegocio:
+        empresa.tipoNegocio
+    });
+  } catch (error) {
+    console.log(
+      "ERROR REAL confirmar-pago:",
+      error?.response?.data ||
+      error?.message ||
+      error
+    );
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Error confirmando pago"
+    });
+  }
 });
-}
 
-const wompiRes = await axios.get(
-`https://production.wompi.co/v1/transactions/${transactionId}`
-);
-
-const transaction = wompiRes.data.data;
-if (!transaction) {
-return res.status(404).json({
-ok: false,
-error: "TransacciÃƒÂ³n no encontrada"
-});
-}
-
-if (transaction.status !== "APPROVED") {
-return res.status(400).json({
-ok: false,
-error: `Pago no aprobado. Estado: ${transaction.status}`
-});
-}
-
-const restaurante = await Restaurante.findOne({ restaurantId });
-
-if (!restaurante) {
-return res.status(404).json({
-ok: false,
-error: "Restaurante no encontrado"
-});
-}
-
-const referenciaEsperada = `suscripcion_${restaurantId}_`;
-const montoEsperado = Number(restaurante.precioMensual || 220000) * 100;
-const referenciaValida = String(transaction.reference || "").startsWith(referenciaEsperada);
-const montoValido = Number(transaction.amount_in_cents) === montoEsperado;
-const monedaValida = String(transaction.currency || "").toUpperCase() === "COP";
-
-if (!referenciaValida || !montoValido || !monedaValida) {
-return res.status(400).json({
-ok: false,
-error: "La transacción no corresponde a esta suscripción"
-});
-}
-
-if (restaurante.ultimoTransactionId === String(transactionId)) {
-return res.json({
-ok: true,
-mensaje: "Pago ya confirmado anteriormente"
-});
-}
-
-restaurante.estadoSuscripcion = "activa";
-restaurante.aceptaPlan = true;
-restaurante.ultimoTransactionId = String(transactionId);
-restaurante.fechaUltimoPago = new Date();
-restaurante.fechaProximoCobro = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-await restaurante.save();
-
-return res.json({
-ok: true,
-mensaje: "Pago confirmado correctamente"
-});
-} catch (error) {
-console.log("ERROR REAL confirmar-pago:", error.response?.data || error.message);
-
-return res.status(500).json({
-ok: false,
-error: "Error confirmando pago"
-});
-}
-});
 
 module.exports = router;
