@@ -33,7 +33,9 @@ function debeTomarDecision(
     return true;
   }
   return reportes.some(
-    (reporte) => reporte.kpi_principal?.estado === "CRITICO"
+    (reporte) =>
+      reporte.kpi_principal?.evaluabilidad === "EVALUABLE" &&
+      reporte.kpi_principal?.estado === "CRITICO"
   );
 }
 
@@ -95,6 +97,7 @@ async function ejecutarCicloEmpresa(empresaId, opciones = {}) {
     decisionId: decision?._id || null,
     hayCriticos: reportes.some(
       (reporte) =>
+        reporte.kpi_principal?.evaluabilidad === "EVALUABLE" &&
         reporte.kpi_principal?.estado === "CRITICO"
     )
   });
