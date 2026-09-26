@@ -18,12 +18,9 @@ const empresaSchema = new mongoose.Schema(
     tipoNegocio: {
       type: String,
       required: true,
-      enum: [
-        "restaurante",
-        "retail",
-        "servicios",
-        "otro"
-      ],
+      trim: true,
+      minlength: 2,
+      maxlength: 80,
       default: "restaurante"
     },
 
