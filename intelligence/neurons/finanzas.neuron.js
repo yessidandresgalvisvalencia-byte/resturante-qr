@@ -259,7 +259,13 @@ async function analyze(empresaId) {
           ? "Falta configurar margen objetivo."
           : margenActual === null
             ? "No existe margen bruto confiable suficiente para evaluar."
-            : ""
+            : "",
+      evaluabilidad:
+        margenObjetivo === null
+          ? "SIN_CONFIGURAR"
+          : margenActual === null
+            ? "DATOS_INSUFICIENTES"
+            : "EVALUABLE"
     },
 
     hallazgos,
