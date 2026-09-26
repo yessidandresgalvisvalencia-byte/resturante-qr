@@ -26,16 +26,20 @@ const ProductoServicio = require("../models/ProductoServicio");
 const {
   validarObjetivosEmpresa
 } = require("../core/empresa/validators/objetivosEmpresa.validator");
+const {
+  resolverPerfilNegocio,
+  normalizarTipoNegocio
+} = require("../core/empresa/perfilesNegocio");
 
 
 const crearSedeSchema = Joi.object({
-  restauranteId: Joi.string().trim().min(1).max(120).required(),
+  restauranteId: Joi.string().trim().min(1).max(120).allow(null, ""),
   nombreSede: Joi.string().trim().min(1).max(120).required(),
   direccion: Joi.string().trim().max(300).allow("").default("")
 }).required();
 
 const crearUsuarioSchema = Joi.object({
-  restauranteId: Joi.string().trim().min(1).max(120).required(),
+  restauranteId: Joi.string().trim().min(1).max(120).allow(null, ""),
   sedeId: Joi.string().hex().length(24).allow(null, ""),
   nombre: Joi.string().trim().min(1).max(120).required(),
   usuario: Joi.string().trim().min(3).max(120).required(),
