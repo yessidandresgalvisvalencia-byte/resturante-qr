@@ -18,8 +18,8 @@ const inventarioQuerySchema = Joi.object({
   stock: Joi.string().valid("", "agotado", "bajo", "disponible").default(""),
   proveedor: Joi.string().trim().max(100).allow("").default(""),
   orden: Joi.string().valid("vencimiento", "nombre", "cantidad_asc", "cantidad_desc", "valor_desc").default("vencimiento"),
-  page: Joi.number().integer().min(1).max(100000).default(1),
-  limit: Joi.number().integer().min(1).max(200).default(50)
+  page: Joi.number().integer().min(1).max(100000).optional(),
+  limit: Joi.number().integer().min(1).max(200).optional()
 }).required().unknown(false);
 
 function escaparRegex(valor) {
@@ -219,18 +219,25 @@ router.get(
       }, { totalProductos: 0, proximos: 0, vencidos: 0, agotados: 0, stockBajo: 0, valorInventario: 0 });
 
       const total = ordenados.length;
-      const inicio = (filtros.page - 1) * filtros.limit;
-      const paginados = ordenados.slice(inicio, inicio + filtros.limit);
+      const usaPaginacion = Boolean(filtros.page && filtros.limit);
+      const page = usaPaginacion ? filtros.page : 1;
+      const limit = usaPaginacion ? filtros.limit : Math.max(total, 1);
+      const inicio = usaPaginacion ? (page - 1) * limit : 0;
+      const paginados = usaPaginacion
+        ? ordenados.slice(inicio, inicio + limit)
+        : ordenados;
 
       return res.json({
         ok: true,
         productos: paginados,
         resumen,
         paginacion: {
-          page: filtros.page,
-          limit: filtros.limit,
+          page,
+          limit,
           total,
-          totalPaginas: Math.max(1, Math.ceil(total / filtros.limit))
+          totalPaginas: usaPaginacion
+            ? Math.max(1, Math.ceil(total / limit))
+            : 1
         },
         filtrosAplicados: filtros
       });
