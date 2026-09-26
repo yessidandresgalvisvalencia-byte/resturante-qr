@@ -132,89 +132,117 @@ router.post(
 });
 
 router.get(
-"/:restaurantId",
-authMiddleware,
-roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
-async (req,res)=>{
+  "/:restaurantId",
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  async (req, res) => {
+    try {
+      const { error, value: filtros } = inventarioQuerySchema.validate(req.query, {
+        abortEarly: false,
+        stripUnknown: false,
+        convert: true
+      });
 
-try{
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          error: error.details.map((item) => item.message).join("; ")
+        });
+      }
 
-const restaurante = await Restaurante.findOne({
-  restaurantId: req.params.restaurantId,
-  empresaId: req.auth.empresaId
-});
+      const restaurante = await Restaurante.findOne({
+        restaurantId: req.params.restaurantId,
+        empresaId: req.auth.empresaId
+      });
 
-if (!restaurante) {
-  return res.status(403).json({
-    ok:false,
-    error:"No tienes acceso al inventario de este restaurante"
-  });
-}
+      if (!restaurante) {
+        return res.status(403).json({
+          ok: false,
+          error: "No tienes acceso al inventario de este restaurante"
+        });
+      }
 
-const productos =
-await Inventario.find({
-empresaId:req.auth.empresaId,
-restaurantId:req.params.restaurantId,
-anulado:false
-});
+      const query = {
+        empresaId: req.auth.empresaId,
+        restaurantId: req.params.restaurantId,
+        anulado: false
+      };
 
-const hoy = new Date();
-hoy.setHours(0, 0, 0, 0);
+      if (filtros.q) {
+        const patron = new RegExp(escaparRegex(filtros.q), "i");
+        query.$or = [
+          { nombre: patron },
+          { categoria: patron },
+          { proveedor: patron },
+          { unidad: patron }
+        ];
+      }
 
-const productosProcesados =
-productos.map(producto=>{
+      if (filtros.categoria) {
+        query.categoria = new RegExp("^" + escaparRegex(filtros.categoria) + "$", "i");
+      }
 
-let diasRestantes = null;
-let estado = producto.estado || "vigente";
+      if (filtros.proveedor) {
+        query.proveedor = new RegExp(escaparRegex(filtros.proveedor), "i");
+      }
 
-if (producto.fechaVencimiento) {
+      if (filtros.stock === "agotado") query.cantidad = { $lte: 0 };
+      if (filtros.stock === "bajo") query.cantidad = { $gt: 0, $lte: 5 };
+      if (filtros.stock === "disponible") query.cantidad = { $gt: 5 };
 
-  const vencimiento = new Date(producto.fechaVencimiento);
+      const productos = await Inventario.find(query)
+        .select("nombre categoria cantidad costo unidad proveedor fechaCompra fechaVencimiento estado prioridad sedeId restaurantId createdAt")
+        .lean();
 
-  vencimiento.setHours(0, 0, 0, 0);
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
 
-  const diferencia = vencimiento - hoy;
+      let procesados = productos.map((producto) => ({
+        ...producto,
+        ...calcularEstadoInventario(producto, hoy)
+      }));
 
-  diasRestantes = Math.ceil(
-    diferencia / (1000 * 60 * 60 * 24)
-  );
+      if (filtros.estado) {
+        procesados = procesados.filter((producto) => producto.estado === filtros.estado);
+      }
 
-  if (diasRestantes <= 0) {
-    estado = "vencido";
+      const ordenados = ordenarInventario(procesados, filtros.orden);
+
+      const resumen = ordenados.reduce((acc, producto) => {
+        acc.totalProductos += 1;
+        if (producto.estado === "proximo") acc.proximos += 1;
+        if (producto.estado === "vencido") acc.vencidos += 1;
+        if (producto.estado === "agotado") acc.agotados += 1;
+        if (Number(producto.cantidad || 0) > 0 && Number(producto.cantidad || 0) <= 5) acc.stockBajo += 1;
+        acc.valorInventario += Number(producto.cantidad || 0) * Number(producto.costo || 0);
+        return acc;
+      }, { totalProductos: 0, proximos: 0, vencidos: 0, agotados: 0, stockBajo: 0, valorInventario: 0 });
+
+      const total = ordenados.length;
+      const inicio = (filtros.page - 1) * filtros.limit;
+      const paginados = ordenados.slice(inicio, inicio + filtros.limit);
+
+      return res.json({
+        ok: true,
+        productos: paginados,
+        resumen,
+        paginacion: {
+          page: filtros.page,
+          limit: filtros.limit,
+          total,
+          totalPaginas: Math.max(1, Math.ceil(total / filtros.limit))
+        },
+        filtrosAplicados: filtros
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({
+        ok: false,
+        error: "Error obteniendo inventario"
+      });
+    }
   }
-  else if (diasRestantes <= 5) {
-    estado = "proximo";
-  }
-  else {
-    estado = "vigente";
-  }
-}
-
-return{
-...producto._doc,
-diasRestantes,
-estado
-};
-
-});
-
-res.json({
-ok:true,
-productos:productosProcesados
-});
-
-}catch(error){
-
-console.log(error);
-
-res.status(500).json({
-ok:false,
-error:"Error obteniendo inventario"
-});
-
-}
-
-});
+);
 router.put(
 "/anular/:id",
 authMiddleware,
