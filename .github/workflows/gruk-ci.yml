@@ -77,7 +77,7 @@ jobs:
           node --check routes/junta.js
           node --check routes/gastos.js
           node --check routes/compras.js
-          node --check routes/inventario.js
+          node --check routes/inventario.js\n          node --check routes/configuracionInteligencia.js\n          node --check core/empresa/configuracionInteligencia.service.js\n          node --check core/empresa/configuracionInteligencia.controller.js\n          node --check public/js/configuracion.js
           node --check models/Inventario.js
           node --check public/js/inventario.js
           node --check core/gastos/gastos.service.js
