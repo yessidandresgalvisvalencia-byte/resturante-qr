@@ -25,7 +25,6 @@ const inventarioQuerySchema = Joi.object({
 function escaparRegex(valor) {
   return String(valor || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-
 function calcularEstadoInventario(producto, hoy) {
   const cantidad = Number(producto.cantidad || 0);
   if (cantidad <= 0) return { estado: "agotado", diasRestantes: producto.fechaVencimiento ? 0 : null };
