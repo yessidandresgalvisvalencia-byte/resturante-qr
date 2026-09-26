@@ -1692,15 +1692,6 @@ function hechosReporte(reporte) {
     );
   }
 
-  if (
-    !evaluabilidad.evaluable &&
-    evaluabilidad.motivo
-  ) {
-    hechos.push(
-      `Estado de preparación: ${evaluabilidad.motivo}`
-    );
-  }
-
   const hallazgos =
     (reporte.hallazgos || [])
       .filter(
@@ -2345,6 +2336,22 @@ function construirRespuestaExperta({
             GENTE: "BAJA",
             DIRECCION: "ALTA"
           },
+          MARKETING_CAC: {
+            FINANZAS: "MEDIA",
+            VENTAS: "MEDIA",
+            MARKETING: "ALTA",
+            OPERACIONES: "BAJA",
+            GENTE: "NINGUNA",
+            DIRECCION: "ALTA"
+          },
+          OPERACION_INVENTARIO: {
+            FINANZAS: "MEDIA",
+            VENTAS: "MEDIA",
+            MARKETING: "BAJA",
+            OPERACIONES: "ALTA",
+            GENTE: "BAJA",
+            DIRECCION: "ALTA"
+          },
           GENTE_CAPACIDAD: {
             FINANZAS: "MEDIA",
             VENTAS: "BAJA",
@@ -2355,7 +2362,33 @@ function construirRespuestaExperta({
           }
         };
 
-        return mapa[principal]?.[departamento] || "MEDIA";
+        const base =
+          mapa[principal]?.[departamento] ||
+          (departamento === "DIRECCION"
+            ? "ALTA"
+            : "MEDIA");
+
+        if (
+          departamento !== "DIRECCION" &&
+          reporte &&
+          reporte.kpi_principal
+            ?.medicion_disponible === false
+        ) {
+          const temaExplicito = {
+            MARKETING:
+              principal === "MARKETING_CAC",
+            OPERACIONES:
+              principal === "OPERACION_INVENTARIO",
+            GENTE:
+              principal === "GENTE_CAPACIDAD"
+          }[departamento];
+
+          if (!temaExplicito) {
+            return "NINGUNA";
+          }
+        }
+
+        return base;
       })()
   };
 }
