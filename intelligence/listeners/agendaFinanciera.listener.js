@@ -27,9 +27,19 @@ let registrado = false;
 const timers = new Map();
 const procesando = new Set();
 const pendientes = new Set();
+const forzarDecision = new Set();
 
-function programar(empresaId) {
+function programar(
+  empresaId,
+  {
+    forzar = false
+  } = {}
+) {
   const key = String(empresaId);
+
+  if (forzar) {
+    forzarDecision.add(key);
+  }
 
   if (timers.has(key)) {
     clearTimeout(
@@ -59,9 +69,18 @@ async function ejecutar(empresaId) {
   procesando.add(key);
 
   try {
+    const debeForzar =
+      forzarDecision.has(key);
+
+    forzarDecision.delete(key);
+
     const resultado =
       await ejecutarCicloEmpresa(
-        empresaId
+        empresaId,
+        {
+          forzarDecision:
+            debeForzar
+        }
       );
 
     console.log(
@@ -102,7 +121,13 @@ async function ejecutar(empresaId) {
 
     if (pendientes.has(key)) {
       pendientes.delete(key);
-      programar(key);
+      programar(
+        key,
+        {
+          forzar:
+            forzarDecision.has(key)
+        }
+      );
     }
   }
 }
@@ -129,7 +154,12 @@ function registrarAgendaFinancieraListener() {
         }
 
         programar(
-          empresaId
+          empresaId,
+          {
+            forzar:
+              eventName ===
+              "CONFIGURACION_INTELIGENCIA_ACTUALIZADA"
+          }
         );
       }
     );
