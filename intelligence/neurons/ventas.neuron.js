@@ -19,7 +19,8 @@ async function analyze(empresaId){
  if(objetivo==null) hallazgos.push({tipo:"CONFIGURACION_INCOMPLETA",evidencia:"La empresa no tiene ticket objetivo configurado.",impacto_financiero_estimado:0,confianza:100});
  if(!ventas) hallazgos.push({tipo:"SIN_VENTAS_EN_PERIODO",evidencia:"No existen ventas pagadas en el periodo analizado.",impacto_financiero_estimado:0,confianza:100});
  if(actual!=null&&objetivo!=null&&actual<objetivo) hallazgos.push({tipo:"TICKET_BAJO_OBJETIVO",evidencia:`Ticket promedio ${actual.toFixed(2)}, objetivo ${objetivo.toFixed(2)}.`,impacto_financiero_estimado:Math.max(0,(objetivo-actual)*ventas),confianza:100});
- const doc=await CerebroReporteNeurona.create({neurona:NEURONA,empresaId:empresa._id,sedeId:null,periodo:{desde,hasta},timestamp:new Date(),kpi_principal:{nombre:"ticket_promedio",valor_actual:actual,valor_objetivo:objetivo,estado},hallazgos,necesita_decision_de_cerebro:estado!=="OK",createdBy:null,deletedAt:null});
+ const evaluable=actual!=null&&objetivo!=null;
+ const doc=await CerebroReporteNeurona.create({neurona:NEURONA,empresaId:empresa._id,sedeId:null,periodo:{desde,hasta},timestamp:new Date(),kpi_principal:{nombre:"ticket_promedio",valor_actual:actual,valor_objetivo:objetivo,estado,medicion_disponible:actual!=null,objetivo_disponible:objetivo!=null,motivo_no_evaluable:objetivo==null?"Falta configurar ticket objetivo.":actual==null?"No existen ventas pagadas suficientes para evaluar ticket promedio.":""},hallazgos,necesita_decision_de_cerebro:evaluable&&estado!=="OK",createdBy:null,deletedAt:null});
  return doc.toObject();
 }
 module.exports={getRequiredEvents,analyze};
