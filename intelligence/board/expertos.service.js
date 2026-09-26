@@ -1977,6 +1977,14 @@ function datosFaltantesPara({
 
   if (
     departamento !== "DIRECCION" &&
+    reporte &&
+    !evaluabilidadReporte(reporte).evaluable
+  ) {
+    return [];
+  }
+
+  if (
+    departamento !== "DIRECCION" &&
     !reporte
   ) {
     faltantes.push(
@@ -2263,28 +2271,40 @@ function construirRespuestaExperta({
       ? []
       : hechosReporte(reporte);
 
-  let respuesta =
-    playbookPara({
-      departamento,
-      intencion,
-      temas
-    });
+  const evaluabilidad =
+    reporte
+      ? evaluabilidadReporte(
+          reporte
+        )
+      : null;
+
+  let respuesta;
 
   if (
     intencion !== "ARRANQUE" &&
-    reporte
+    reporte &&
+    !evaluabilidad?.evaluable
   ) {
-    const evaluabilidad =
-      evaluabilidadReporte(
-        reporte
-      );
+    respuesta =
+      evaluabilidad.estado ===
+        "SIN_CONFIGURAR"
+        ? `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. La configuración base necesaria está pendiente. Esto es preparación de GRUK, no una alerta del negocio.`
+        : `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. ${evaluabilidad.motivo || "Faltan datos confiables para evaluarlo."} No invento una alerta ni una causa.`;
+  } else {
+    respuesta =
+      playbookPara({
+        departamento,
+        intencion,
+        temas
+      });
 
-    respuesta +=
-      evaluabilidad.evaluable
-        ? ` El reporte vigente de ${departamento} marca ${reporte.kpi_principal?.estado || "SIN_ESTADO"} en ${reporte.kpi_principal?.nombre || "su KPI principal"}.`
-        : evaluabilidad.estado === "SIN_CONFIGURAR"
-          ? ` La configuración base necesaria para evaluar ${reporte.kpi_principal?.nombre || "este KPI"} aún está pendiente. No la interpreto como una alerta del negocio.`
-          : ` Aún no hay datos confiables suficientes para evaluar ${reporte.kpi_principal?.nombre || "este KPI"}. No invento una alerta ni una causa.`;
+    if (
+      intencion !== "ARRANQUE" &&
+      reporte
+    ) {
+      respuesta +=
+        ` El reporte vigente de ${departamento} marca ${reporte.kpi_principal?.estado || "SIN_ESTADO"} en ${reporte.kpi_principal?.nombre || "su KPI principal"}.`;
+    }
   }
 
   if (
