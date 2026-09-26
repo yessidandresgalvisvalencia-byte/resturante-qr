@@ -188,6 +188,11 @@ function resolverPerfilNegocio(
         activarGente ||
         Boolean(
           base.modulos.gente
+        ),
+      laboral:
+        activarGente ||
+        Boolean(
+          base.modulos.laboral
         )
     }
   };
