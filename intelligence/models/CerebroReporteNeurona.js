@@ -77,6 +77,17 @@ const kpiPrincipalSchema = new mongoose.Schema(
       default: "",
       trim: true,
       maxlength: 500
+    },
+
+    evaluabilidad: {
+      type: String,
+      enum: [
+        "EVALUABLE",
+        "SIN_CONFIGURAR",
+        "DATOS_INSUFICIENTES"
+      ],
+      default: "EVALUABLE",
+      index: true
     }
   },
   {
