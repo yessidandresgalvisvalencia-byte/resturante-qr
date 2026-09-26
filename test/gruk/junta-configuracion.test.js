@@ -159,7 +159,7 @@ test("junta general consolida configuracion pendiente como una sola brecha", asy
 
   assert.match(
     direccion.respuesta,
-    /una sola brecha de preparación empresarial/i
+    /una sola brecha de preparación de GRUK/i
   );
 
   assert.match(
