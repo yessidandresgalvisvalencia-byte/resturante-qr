@@ -9,7 +9,8 @@ const usuarioSchema = new mongoose.Schema({
 },
   restauranteId: {
     type: String,
-    required: true
+    default: null,
+    index: true
   },
   sedeId: {
     type: mongoose.Schema.Types.ObjectId,
