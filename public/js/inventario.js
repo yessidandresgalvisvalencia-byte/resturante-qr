@@ -39,6 +39,84 @@ async function guardarInventario() {
   }
 }
 
+const estadoFiltrosInventarioGRUK = { page: 1, limit: 50 };
+
+function escaparInventarioGRUK(valor) {
+  return String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/\x27/g, "&#039;");
+}
+
+function leerFiltrosInventarioGRUK() {
+  return {
+    q: document.getElementById("inventarioFiltroTexto")?.value.trim() || "",
+    categoria: document.getElementById("inventarioFiltroCategoria")?.value || "",
+    estado: document.getElementById("inventarioFiltroEstado")?.value || "",
+    stock: document.getElementById("inventarioFiltroStock")?.value || "",
+    proveedor: document.getElementById("inventarioFiltroProveedor")?.value.trim() || "",
+    orden: document.getElementById("inventarioFiltroOrden")?.value || "vencimiento",
+    page: estadoFiltrosInventarioGRUK.page,
+    limit: estadoFiltrosInventarioGRUK.limit
+  };
+}
+
+function construirQueryInventarioGRUK() {
+  const params = new URLSearchParams();
+  Object.entries(leerFiltrosInventarioGRUK()).forEach(([clave, valor]) => {
+    if (valor !== "" && valor !== null && valor !== undefined) params.set(clave, String(valor));
+  });
+  return params.toString();
+}
+
+function aplicarFiltrosInventarioGRUK() {
+  estadoFiltrosInventarioGRUK.page = 1;
+  cargarInventario();
+}
+
+function limpiarFiltrosInventarioGRUK() {
+  ["inventarioFiltroTexto","inventarioFiltroCategoria","inventarioFiltroEstado","inventarioFiltroStock","inventarioFiltroProveedor"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const orden = document.getElementById("inventarioFiltroOrden");
+  if (orden) orden.value = "vencimiento";
+  aplicarFiltrosInventarioGRUK();
+}
+
+function cambiarPaginaInventarioGRUK(page) {
+  const numero = Number(page);
+  if (!Number.isInteger(numero) || numero < 1) return;
+  estadoFiltrosInventarioGRUK.page = numero;
+  cargarInventario();
+}
+
+function renderizarPaginacionInventarioGRUK(paginacion) {
+  const contenedor = document.getElementById("inventarioPaginacion");
+  if (!contenedor) return;
+  const page = Number(paginacion?.page || 1);
+  const totalPaginas = Number(paginacion?.totalPaginas || 1);
+  if (totalPaginas <= 1) { contenedor.innerHTML = ""; return; }
+  contenedor.innerHTML = `<button ${page <= 1 ? "disabled" : ""} onclick="cambiarPaginaInventarioGRUK(${page - 1})">← Anterior</button><span>Página <strong>${page}</strong> de <strong>${totalPaginas}</strong></span><button ${page >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaInventarioGRUK(${page + 1})">Siguiente →</button>`;
+}
+
+let debounceInventarioGRUK = null;
+function registrarFiltrosInventarioGRUK() {
+  ["inventarioFiltroTexto","inventarioFiltroProveedor"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      clearTimeout(debounceInventarioGRUK);
+      debounceInventarioGRUK = setTimeout(aplicarFiltrosInventarioGRUK, 300);
+    });
+  });
+  ["inventarioFiltroCategoria","inventarioFiltroEstado","inventarioFiltroStock","inventarioFiltroOrden"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", aplicarFiltrosInventarioGRUK);
+  });
+}
 async function cargarInventario() {
   try {
     const restaurantId =
