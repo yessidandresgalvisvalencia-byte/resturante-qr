@@ -248,7 +248,11 @@ async function tomarDecision(empresaId,opciones={}){
  if(reporteObsoleto)throw new Error("CEREBRO_REPORTES_OBSOLETOS");
  const candidatos=[];
  for(const r of reportes){
-  const evaluable=r.kpi_principal?.evaluabilidad==="EVALUABLE";
+  const evaluabilidad=
+   r.kpi_principal?.evaluabilidad||
+   r.kpi_principal?.estado;
+  const evaluable=!
+   ["SIN_CONFIGURAR","DATOS_INSUFICIENTES"].includes(evaluabilidad);
   if(!evaluable)continue;
   for(const h of r.hallazgos||[]){
    const regla=MAPA[h.tipo];
@@ -265,7 +269,9 @@ async function tomarDecision(empresaId,opciones={}){
  }
  for(const c of candidatos){if(usados.has(c.regla.departamento))continue;usados.add(c.regla.departamento);ordenes.push({departamento:c.regla.departamento,tarea:c.regla.tarea,prioridad:prioridad(c.reporte.kpi_principal.estado,Number(c.hallazgo.impacto_financiero_estimado)||0),responsableId:null,deadline:new Date(Date.now()+7*86400000),kpi_a_medir:c.regla.kpi,automatizable:false});}
  const criticos=reportes.filter(r=>
-  r.kpi_principal?.evaluabilidad==="EVALUABLE" &&
+  !["SIN_CONFIGURAR","DATOS_INSUFICIENTES"].includes(
+   r.kpi_principal?.evaluabilidad||r.kpi_principal?.estado
+  ) &&
   r.kpi_principal?.estado==="CRITICO"
  );
  const confianza=Math.round(reportes.reduce((s,r)=>{const hs=r.hallazgos||[];return s+(hs.length?hs.reduce((x,h)=>x+Number(h.confianza||0),0)/hs.length:100);},0)/5);
