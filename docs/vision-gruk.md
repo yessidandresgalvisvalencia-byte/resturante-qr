@@ -6,9 +6,11 @@ Fecha de referencia: 26 de septiembre de 2026.
 
 GRUK busca convertirse en una capa operacional e inteligente para empresas: construir una representación confiable de cómo funciona el negocio, conectar sus datos y procesos, detectar desviaciones y riesgos, explicar su impacto económico y ayudar a ejecutar acciones bajo reglas, permisos y supervisión humana, midiendo posteriormente sus resultados.
 
-Comercialmente, el punto de entrada es más pequeño:
+Comercialmente, el producto debe mantener un punto de entrada pequeño y demostrable.
 
-> GRUK ayuda a restaurantes a conectar su operación para entender qué está pasando con sus ventas, inventario, costos y margen.
+> GRUK ayuda a un negocio a conectar su operación para entender qué está pasando con sus ventas, inventario/recursos, costos, margen y caja.
+
+Restaurantes son el primer vertical de validación porque ya existe operación real construida para ese dominio. No son la identidad completa de GRUK ni obligan al CORE a usar conceptos gastronómicos.
 
 La visión de largo plazo no autoriza a construir todo ahora.
 
@@ -454,7 +456,9 @@ un único agente operacional
 
 La primera misión de ese agente debería ser:
 
-> Encontrar dónde este restaurante necesita atención económica u operacional.
+> Encontrar dónde esta empresa necesita atención económica u operacional.
+
+Cada vertical aporta su propia ontología para explicar la operación.
 
 No crear veinte agentes antes de demostrar que uno produce valor.
 
@@ -502,9 +506,11 @@ Es mucho más difícil copiar años de aprendizaje operacional estructurado con 
 
 ## Definición comercial inmediata
 
-Mientras la arquitectura de largo plazo madura, la promesa comercial debe seguir siendo simple:
+Mientras la arquitectura de largo plazo madura, la promesa comercial debe seguir siendo simple y adaptarse al vertical:
 
-> GRUK ayuda a restaurantes a conectar su operación para entender qué está pasando con sus ventas, inventario, costos, margen y caja.
+> GRUK conecta la operación de tu negocio para ayudarte a entender ventas, recursos, costos, margen y caja.
+
+Para el vertical restaurante, esa promesa se especializa en pedidos, productos, recetas, insumos e inventario.
 
 ## Disciplina de ejecución
 
