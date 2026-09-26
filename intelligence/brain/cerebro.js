@@ -235,7 +235,14 @@ async function tomarDecision(empresaId,opciones={}){
  const reporteObsoleto=reportes.some(r=>ahora-new Date(r.timestamp).getTime()>4*60*60*1000);
  if(reporteObsoleto)throw new Error("CEREBRO_REPORTES_OBSOLETOS");
  const candidatos=[];
- for(const r of reportes)for(const h of r.hallazgos||[]){const regla=MAPA[h.tipo];if(regla)candidatos.push({reporte:r,hallazgo:h,regla});}
+ for(const r of reportes){
+  const evaluable=r.kpi_principal?.evaluabilidad==="EVALUABLE";
+  if(!evaluable)continue;
+  for(const h of r.hallazgos||[]){
+   const regla=MAPA[h.tipo];
+   if(regla)candidatos.push({reporte:r,hallazgo:h,regla});
+  }
+ }
  candidatos.sort(compararCandidatos);
  const usados=new Set(); const ordenes=[];
  const agenda=opciones.agendaFinanciera||null;
@@ -245,7 +252,10 @@ async function tomarDecision(empresaId,opciones={}){
   ordenes.push(ordenAgenda);
  }
  for(const c of candidatos){if(usados.has(c.regla.departamento))continue;usados.add(c.regla.departamento);ordenes.push({departamento:c.regla.departamento,tarea:c.regla.tarea,prioridad:prioridad(c.reporte.kpi_principal.estado,Number(c.hallazgo.impacto_financiero_estimado)||0),responsableId:null,deadline:new Date(Date.now()+7*86400000),kpi_a_medir:c.regla.kpi,automatizable:false});}
- const criticos=reportes.filter(r=>r.kpi_principal.estado==="CRITICO");
+ const criticos=reportes.filter(r=>
+  r.kpi_principal?.evaluabilidad==="EVALUABLE" &&
+  r.kpi_principal?.estado==="CRITICO"
+ );
  const confianza=Math.round(reportes.reduce((s,r)=>{const hs=r.hallazgos||[];return s+(hs.length?hs.reduce((x,h)=>x+Number(h.confianza||0),0)/hs.length:100);},0)/5);
  const principal=candidatos[0];
  const decisionFingerprint=
