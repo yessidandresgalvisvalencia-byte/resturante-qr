@@ -58,7 +58,9 @@ const kpiPrincipalSchema = new mongoose.Schema(
       enum: [
         "OK",
         "ALERTA",
-        "CRITICO"
+        "CRITICO",
+        "SIN_CONFIGURAR",
+        "DATOS_INSUFICIENTES"
       ]
     },
 
