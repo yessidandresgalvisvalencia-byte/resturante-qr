@@ -18,12 +18,9 @@ const empresaSchema = new mongoose.Schema(
     tipoNegocio: {
       type: String,
       required: true,
-      enum: [
-        "restaurante",
-        "retail",
-        "servicios",
-        "otro"
-      ],
+      trim: true,
+      minlength: 2,
+      maxlength: 80,
       default: "restaurante"
     },
 
@@ -42,6 +39,60 @@ const empresaSchema = new mongoose.Schema(
         "suspendida"
       ],
       default: "activa"
+    },
+
+    verticalOperativa: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+      default: "generico",
+      index: true
+    },
+
+    suscripcion: {
+      plan: {
+        type: String,
+        default: "mensual"
+      },
+      precioMensual: {
+        type: Number,
+        min: 0,
+        default: 220000
+      },
+      estado: {
+        type: String,
+        enum: [
+          "pendiente",
+          "activa",
+          "inactiva"
+        ],
+        default: "pendiente",
+        index: true
+      },
+      paymentSourceId: {
+        type: String,
+        default: ""
+      },
+      customerEmailWompi: {
+        type: String,
+        default: ""
+      },
+      tokenizacionCompleta: {
+        type: Boolean,
+        default: false
+      },
+      fechaUltimoPago: {
+        type: Date,
+        default: null
+      },
+      fechaProximoCobro: {
+        type: Date,
+        default: null
+      },
+      ultimoTransactionId: {
+        type: String,
+        default: ""
+      }
     },
 
     configuracion: {

@@ -176,17 +176,17 @@ font-weight:600;
 <body>
 <div class="contenedor">
 <div class="top-label">💳 Activación segura de tu plan</div>
-<h1>Pagar Plan Restaurante Pro</h1>
+<h1>Pagar Plan GRUK</h1>
 
 <div class="card">
 <h2>Prueba de cobro</h2>
-<p>Usa el Restaurant ID del restaurante que acabas de crear.</p>
+<p>Usa el ID de la empresa que acabas de crear.</p>
 
-<label for="restaurantIdPago">Restaurant ID</label>
+<label for="empresaIdPago">Empresa ID</label>
 <input
-id="restaurantIdPago"
+id="empresaIdPago"
 type="text"
-placeholder="Ej: rest_1774449989070"
+placeholder="Ej: emp_..."
 />
 
 <button id="btnPagar" onclick="pagarSuscripcion()">
@@ -233,12 +233,12 @@ window.location.href = "/login.html";
 }
 
 async function pagarSuscripcion() {
-const restaurantId = document.getElementById("restaurantIdPago").value.trim();
+const empresaId = document.getElementById("empresaIdPago").value.trim();
 const estado = document.getElementById("estadoProceso");
 const btn = document.getElementById("btnPagar");
 
-if (!restaurantId) {
-alert("Escribe el Restaurant ID");
+if (!empresaId) {
+alert("Escribe el ID de la empresa");
 return;
 }
 
@@ -251,7 +251,7 @@ method: "POST",
 headers: {
 "Content-Type": "application/json"
 },
-body: JSON.stringify({ restaurantId })
+body: JSON.stringify({ empresaId })
 });
 
 const data = await res.json();
@@ -302,7 +302,7 @@ headers: {
 },
 body: JSON.stringify({
 transactionId,
-restaurantId
+empresaId
 })
 });
 
@@ -334,10 +334,13 @@ btn.disabled = false;
 
 window.addEventListener("DOMContentLoaded", () => {
 const params = new URLSearchParams(window.location.search);
-const restaurantId = params.get("restaurantId");
+const empresaId =
+  params.get("empresaId") ||
+  sessionStorage.getItem("registro_empresaId") ||
+  "";
 
-if (restaurantId) {
-document.getElementById("restaurantIdPago").value = restaurantId;
+if (empresaId) {
+  document.getElementById("empresaIdPago").value = empresaId;
 }
 });
 </script>

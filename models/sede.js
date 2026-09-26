@@ -9,7 +9,8 @@ const sedeSchema = new mongoose.Schema({
 },
   restauranteId: {
     type: String,
-    required: true
+    default: null,
+    index: true
   },
   nombreSede: {
     type: String,
