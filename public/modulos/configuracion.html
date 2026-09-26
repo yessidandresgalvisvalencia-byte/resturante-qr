@@ -4,6 +4,75 @@
 </div>
 
 <div class="card">
+  <h2>🧠 Configuración base de Inteligencia</h2>
+
+  <p>
+    Estos cinco datos permiten que las neuronas comparen resultados reales contra objetivos reales de tu empresa.
+    Si faltan, GRUK debe mostrarlos como preparación pendiente, no como una falla operativa.
+  </p>
+
+  <div id="estadoConfiguracionInteligenciaGRUK">
+    <p>Cargando configuración empresarial...</p>
+  </div>
+
+  <label>Margen objetivo (%)</label>
+  <input
+    id="configInteligenciaMargen"
+    type="number"
+    min="0"
+    max="100"
+    step="0.01"
+    placeholder="Ej: 35"
+  >
+
+  <label>Punto de equilibrio mensual (COP)</label>
+  <input
+    id="configInteligenciaPuntoEquilibrio"
+    type="number"
+    min="0"
+    step="1"
+    placeholder="Ej: 15000000"
+  >
+
+  <label>Ticket objetivo (COP)</label>
+  <input
+    id="configInteligenciaTicket"
+    type="number"
+    min="0"
+    step="1"
+    placeholder="Ej: 35000"
+  >
+
+  <label>CAC máximo aceptable (COP)</label>
+  <input
+    id="configInteligenciaCAC"
+    type="number"
+    min="0"
+    step="1"
+    placeholder="Ej: 12000"
+  >
+
+  <label>Empleados actuales</label>
+  <input
+    id="configInteligenciaEmpleados"
+    type="number"
+    min="0"
+    step="1"
+    placeholder="Ej: 8"
+  >
+
+  <button onclick="guardarConfiguracionInteligenciaGRUK()">
+    Guardar configuración base
+  </button>
+
+  <p>
+    <small>
+      GRUK no inventa estos objetivos. Deben representar lo que realmente quieres operar y medir.
+    </small>
+  </p>
+</div>
+
+<div class="card">
 
 <h3>⚙️ Configuración Financiera GRUK</h3>
 
