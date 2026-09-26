@@ -143,7 +143,11 @@ async function analyze(empresaId) {
       motivo_no_evaluable:
         cacObjetivo === null
           ? "Falta configurar CAC maximo y todavia no existe atribucion suficiente para calcular CAC."
-          : "Todavia no existe atribucion suficiente para calcular CAC sin inventar valores."
+          : "Todavia no existe atribucion suficiente para calcular CAC sin inventar valores.",
+      evaluabilidad:
+        cacObjetivo === null
+          ? "SIN_CONFIGURAR"
+          : "DATOS_INSUFICIENTES"
     },
 
     hallazgos,
