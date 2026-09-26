@@ -1602,28 +1602,137 @@ function limitarLista(
     .slice(0, maxItems);
 }
 
+function evaluabilidadReporte(reporte) {
+  if (!reporte) {
+    return {
+      evaluable: false,
+      motivo: "No existe reporte vigente."
+    };
+  }
+
+  const kpi =
+    reporte.kpi_principal || {};
+
+  const requiereObjetivo = [
+    "margen_bruto_confiable",
+    "ticket_promedio",
+    "cac"
+  ].includes(
+    kpi.nombre
+  );
+
+  const medicionDisponible =
+    kpi.medicion_disponible !== false;
+
+  const objetivoDisponible =
+    requiereObjetivo
+      ? kpi.objetivo_disponible !== false &&
+        kpi.valor_objetivo !== null &&
+        kpi.valor_objetivo !== undefined
+      : true;
+
+  return {
+    evaluable:
+      medicionDisponible &&
+      objetivoDisponible,
+    motivo:
+      limitarTexto(
+        kpi.motivo_no_evaluable,
+        400
+      ) ||
+      (
+        !medicionDisponible
+          ? "No existe medición suficiente todavía."
+          : !objetivoDisponible
+            ? "Falta el objetivo empresarial necesario para evaluar."
+            : ""
+      )
+  };
+}
+
 function hechosReporte(reporte) {
   if (!reporte) return [];
 
-  const kpi = reporte.kpi_principal || {};
+  const kpi =
+    reporte.kpi_principal || {};
+
+  const evaluabilidad =
+    evaluabilidadReporte(
+      reporte
+    );
 
   const hechos = [
-    `${reporte.neurona}: ${kpi.nombre || "KPI"} — estado ${kpi.estado || "SIN_ESTADO"}.`
+    evaluabilidad.evaluable
+      ? `${reporte.neurona}: ${kpi.nombre || "KPI"} — estado ${kpi.estado || "SIN_ESTADO"}.`
+      : `${reporte.neurona}: ${kpi.nombre || "KPI"} — todavía no evaluable como señal operativa.`
   ];
 
-  const actual = formato(kpi.valor_actual);
-  const objetivo = formato(kpi.valor_objetivo);
+  const actual =
+    formato(
+      kpi.valor_actual
+    );
+
+  const objetivo =
+    formato(
+      kpi.valor_objetivo
+    );
 
   if (actual !== null) {
-    hechos.push(`Valor actual: ${actual}.`);
+    hechos.push(
+      `Valor actual: ${actual}.`
+    );
   }
 
-  if (objetivo !== null) {
-    hechos.push(`Objetivo: ${objetivo}.`);
+  if (
+    evaluabilidad.evaluable &&
+    objetivo !== null
+  ) {
+    hechos.push(
+      `Objetivo: ${objetivo}.`
+    );
+  }
+
+  if (
+    !evaluabilidad.evaluable &&
+    evaluabilidad.motivo
+  ) {
+    hechos.push(
+      `Estado de preparación: ${evaluabilidad.motivo}`
+    );
+  }
+
+  const hallazgos =
+    (reporte.hallazgos || [])
+      .filter(
+        (hallazgo) =>
+          ![
+            "CONFIGURACION_INCOMPLETA",
+            "SIN_INVENTARIO_CONFIGURADO"
+          ].includes(
+            hallazgo?.tipo
+          )
+      );
+
+  if (!evaluabilidad.evaluable) {
+    return hechos.concat(
+      hallazgos
+        .filter(
+          (hallazgo) =>
+            hallazgo?.tipo !==
+            "DATOS_INSUFICIENTES"
+        )
+        .map((hallazgo) =>
+          limitarTexto(
+            hallazgo?.evidencia,
+            500
+          )
+        )
+        .filter(Boolean)
+    );
   }
 
   return hechos.concat(
-    (reporte.hallazgos || [])
+    hallazgos
       .map((hallazgo) =>
         limitarTexto(
           hallazgo?.evidencia,
@@ -2150,8 +2259,15 @@ function construirRespuestaExperta({
     intencion !== "ARRANQUE" &&
     reporte
   ) {
+    const evaluabilidad =
+      evaluabilidadReporte(
+        reporte
+      );
+
     respuesta +=
-      ` El reporte vigente de ${departamento} marca ${reporte.kpi_principal?.estado || "SIN_ESTADO"} en ${reporte.kpi_principal?.nombre || "su KPI principal"}.`;
+      evaluabilidad.evaluable
+        ? ` El reporte vigente de ${departamento} marca ${reporte.kpi_principal?.estado || "SIN_ESTADO"} en ${reporte.kpi_principal?.nombre || "su KPI principal"}.`
+        : ` El KPI ${reporte.kpi_principal?.nombre || "principal"} todavía no es evaluable como alerta operativa; lo trato como preparación pendiente, no como deterioro del negocio.`;
   }
 
   if (
@@ -2280,8 +2396,35 @@ function sintetizarDireccion(
     const principal =
       temaPrincipal(temas);
 
+    const setupPendiente =
+      respuestas
+        .filter(
+          (item) =>
+            item.departamento !==
+            "DIRECCION"
+        )
+        .filter(
+          (item) =>
+            /todavía no es evaluable como alerta operativa/i
+              .test(
+                item.respuesta || ""
+              )
+        )
+        .map(
+          (item) =>
+            item.departamento
+        );
+
     direccion.respuesta +=
-      ` Como síntesis de Junta, el tema dominante es ${principal}. Antes de que el Cerebro convierta esto en órdenes, deben cerrarse los datos que puedan cambiar materialmente la decisión.`;
+      ` Como síntesis de Junta, el tema dominante es ${principal}.`;
+
+    if (setupPendiente.length) {
+      direccion.respuesta +=
+        ` Hay una sola brecha de preparación de GRUK que afecta ${setupPendiente.join(", ")}; no la interpreto como ${setupPendiente.length} fallas distintas del negocio. Completa la configuración base una vez y GRUK recalculará los KPI.`;
+    } else {
+      direccion.respuesta +=
+        " Los datos actuales sí permiten separar señales operativas de simples faltantes de información.";
+    }
   }
 
   direccion.datos_faltantes =
@@ -2416,5 +2559,7 @@ module.exports = {
   construirContexto,
   validarRespuestas,
   generarRespuestasExpertas,
-  extraerMemoriaHumana
+  extraerMemoriaHumana,
+  evaluabilidadReporte,
+  hechosReporte
 };
