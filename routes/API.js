@@ -2930,86 +2930,290 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
 // Webhook de Wompi
 router.post("/wompi/webhook", async (req, res) => {
   try {
-    const transactionId = req.body?.data?.transaction?.id;
+    const transactionId =
+      req.body?.data?.transaction?.id;
 
     if (!transactionId) {
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({
+        ok: true
+      });
     }
 
-    // Nunca confiar en estado, monto o referencia enviados por el webhook.
-    // Se consulta la transaccion canonica directamente en Wompi.
-    const wompiRes = await axios.get(
-      `https://production.wompi.co/v1/transactions/${encodeURIComponent(String(transactionId))}`
-    );
-    const transaction = wompiRes.data?.data;
+    const wompiRes =
+      await axios.get(
+        `https://production.wompi.co/v1/transactions/${encodeURIComponent(String(transactionId))}`
+      );
+
+    const transaction =
+      wompiRes.data?.data;
 
     if (!transaction) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const reference = String(transaction.reference || "");
-    const prefijo = reference.startsWith("suscripcion_")
-      ? "suscripcion_"
-      : reference.startsWith("renovacion_")
-        ? "renovacion_"
-        : null;
-
-    if (!prefijo) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const referenciaSinPrefijo = reference.slice(prefijo.length);
-    const ultimoSeparador = referenciaSinPrefijo.lastIndexOf("_");
-
-    if (ultimoSeparador <= 0) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const restaurantId = referenciaSinPrefijo.slice(0, ultimoSeparador);
-    const restaurante = await Restaurante.findOne({ restaurantId });
-
-    if (!restaurante) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const montoEsperado = Number(restaurante.precioMensual || 220000) * 100;
-    const montoValido = Number(transaction.amount_in_cents) === montoEsperado;
-    const monedaValida = String(transaction.currency || "").toUpperCase() === "COP";
-
-    if (!montoValido || !monedaValida) {
-      console.error("[SEGURIDAD] Webhook Wompi no coincide con la suscripcion", {
-        restaurantId,
-        transactionId: String(transactionId)
+      return res.status(200).json({
+        ok: true
       });
-      return res.status(200).json({ ok: true });
     }
 
-    const status = String(transaction.status || "").toUpperCase();
+    const reference =
+      String(
+        transaction.reference || ""
+      );
 
-    if (restaurante.ultimoTransactionId === String(transactionId)) {
-      return res.status(200).json({ ok: true });
+    let empresa = null;
+    let restaurante = null;
+
+    const prefijosEmpresa = [
+      "suscripcion_empresa_",
+      "renovacion_empresa_"
+    ];
+
+    const prefijoEmpresa =
+      prefijosEmpresa.find(
+        (prefijo) =>
+          reference.startsWith(
+            prefijo
+          )
+      );
+
+    if (prefijoEmpresa) {
+      const resto =
+        reference.slice(
+          prefijoEmpresa.length
+        );
+
+      const ultimoSeparador =
+        resto.lastIndexOf("_");
+
+      if (
+        ultimoSeparador <= 0
+      ) {
+        return res.status(200).json({
+          ok: true
+        });
+      }
+
+      const empresaPublicId =
+        resto.slice(
+          0,
+          ultimoSeparador
+        );
+
+      empresa =
+        await Empresa.findOne({
+          empresaId:
+            empresaPublicId
+        });
+
+      if (
+        empresa?.modulos?.restaurante
+      ) {
+        restaurante =
+          await Restaurante.findOne({
+            empresaId:
+              empresa._id
+          });
+      }
+    } else {
+      const prefijoLegacy =
+        reference.startsWith(
+          "suscripcion_"
+        )
+          ? "suscripcion_"
+          : reference.startsWith(
+              "renovacion_"
+            )
+            ? "renovacion_"
+            : null;
+
+      if (!prefijoLegacy) {
+        return res.status(200).json({
+          ok: true
+        });
+      }
+
+      const resto =
+        reference.slice(
+          prefijoLegacy.length
+        );
+
+      const ultimoSeparador =
+        resto.lastIndexOf("_");
+
+      if (
+        ultimoSeparador <= 0
+      ) {
+        return res.status(200).json({
+          ok: true
+        });
+      }
+
+      const restaurantId =
+        resto.slice(
+          0,
+          ultimoSeparador
+        );
+
+      restaurante =
+        await Restaurante.findOne({
+          restaurantId
+        });
+
+      if (
+        restaurante?.empresaId
+      ) {
+        empresa =
+          await Empresa.findById(
+            restaurante.empresaId
+          );
+      }
     }
 
-    if (status === "APPROVED") {
-      const hoy = new Date();
-      const proximo = new Date(hoy);
-      proximo.setDate(proximo.getDate() + 30);
-
-      restaurante.estadoSuscripcion = "activa";
-      restaurante.fechaUltimoPago = hoy;
-      restaurante.fechaProximoCobro = proximo;
-      restaurante.ultimoTransactionId = String(transactionId);
-      await restaurante.save();
-    } else if (["DECLINED", "ERROR", "VOIDED"].includes(status)) {
-      restaurante.estadoSuscripcion = "pendiente";
-      restaurante.ultimoTransactionId = String(transactionId);
-      await restaurante.save();
+    if (!empresa) {
+      return res.status(200).json({
+        ok: true
+      });
     }
 
-    return res.status(200).json({ ok: true });
+    const montoEsperado =
+      Number(
+        empresa.suscripcion
+          ?.precioMensual ||
+        restaurante
+          ?.precioMensual ||
+        220000
+      ) * 100;
+
+    const montoValido =
+      Number(
+        transaction.amount_in_cents
+      ) ===
+      montoEsperado;
+
+    const monedaValida =
+      String(
+        transaction.currency || ""
+      ).toUpperCase() ===
+      "COP";
+
+    if (
+      !montoValido ||
+      !monedaValida
+    ) {
+      console.error(
+        "[SEGURIDAD] Webhook Wompi no coincide con la suscripción",
+        {
+          empresaId:
+            empresa.empresaId,
+          transactionId:
+            String(transactionId)
+        }
+      );
+
+      return res.status(200).json({
+        ok: true
+      });
+    }
+
+    const txId =
+      String(transactionId);
+
+    if (
+      empresa.suscripcion
+        ?.ultimoTransactionId ===
+      txId
+    ) {
+      return res.status(200).json({
+        ok: true
+      });
+    }
+
+    const status =
+      String(
+        transaction.status || ""
+      ).toUpperCase();
+
+    if (
+      status ===
+      "APPROVED"
+    ) {
+      const hoy =
+        new Date();
+
+      const proximo =
+        new Date(hoy);
+
+      proximo.setDate(
+        proximo.getDate() + 30
+      );
+
+      empresa.suscripcion.estado =
+        "activa";
+
+      empresa.suscripcion.fechaUltimoPago =
+        hoy;
+
+      empresa.suscripcion.fechaProximoCobro =
+        proximo;
+
+      empresa.suscripcion.ultimoTransactionId =
+        txId;
+
+      await empresa.save();
+
+      if (restaurante) {
+        restaurante.estadoSuscripcion =
+          "activa";
+
+        restaurante.fechaUltimoPago =
+          hoy;
+
+        restaurante.fechaProximoCobro =
+          proximo;
+
+        restaurante.ultimoTransactionId =
+          txId;
+
+        await restaurante.save();
+      }
+    } else if (
+      [
+        "DECLINED",
+        "ERROR",
+        "VOIDED"
+      ].includes(status)
+    ) {
+      empresa.suscripcion.estado =
+        "pendiente";
+
+      empresa.suscripcion.ultimoTransactionId =
+        txId;
+
+      await empresa.save();
+
+      if (restaurante) {
+        restaurante.estadoSuscripcion =
+          "pendiente";
+
+        restaurante.ultimoTransactionId =
+          txId;
+
+        await restaurante.save();
+      }
+    }
+
+    return res.status(200).json({
+      ok: true
+    });
   } catch (error) {
-    console.log("Error webhook Wompi:", error?.response?.data || error?.message || error);
-    return res.status(500).json({ ok: false });
+    console.log(
+      "Error webhook Wompi:",
+      error?.response?.data ||
+      error?.message ||
+      error
+    );
+
+    return res.status(500).json({
+      ok: false
+    });
   }
 });
 
