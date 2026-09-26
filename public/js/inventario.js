@@ -123,7 +123,8 @@ async function cargarInventario() {
       localStorage.getItem("adminRestaurantId") ||
       getRestaurantId();
 
-    const res = await grukFetch(`/api/inventario/${restaurantId}`);
+    const queryInventario = construirQueryInventarioGRUK();
+    const res = await grukFetch(`/api/inventario/${encodeURIComponent(restaurantId)}?${queryInventario}`);
     const data = await res.json();
 
     if (!data.ok) return;
@@ -137,42 +138,27 @@ async function cargarInventario() {
 
     const productos = data.productos || [];
 
-    const productosOrdenados = productos.sort((a, b) => {
-      return a.diasRestantes - b.diasRestantes;
-    });
+    const productosOrdenados = productos;
 
     if (resumen) {
-      const totalProductos = productos.length;
-
-      const proximos = productos.filter(
-        p => p.estado === "proximo"
-      ).length;
-
-      const vencidos = productos.filter(
-        p => p.estado === "vencido"
-      ).length;
-
-      const valorInventario = productos.reduce((acc, p) => {
-        return acc + (
-          Number(p.cantidad || 0) *
-          Number(p.costo || 0)
-        );
-      }, 0);
+      const r = data.resumen || {};
 
       resumen.innerHTML = `
         <div class="card">
-          <h3>📦 Resumen de inventario</h3>
-
-          <p>Productos registrados: <strong>${totalProductos}</strong></p>
-          <p>Próximos a vencer: <strong>${proximos}</strong></p>
-          <p>Vencidos: <strong>${vencidos}</strong></p>
-
-          <p>
-            💰 Valor total inventario:
-            <strong>${formatoCOP(valorInventario)}</strong>
-          </p>
+          <h3>📦 Resumen de inventario filtrado</h3>
+          <p>Productos encontrados: <strong>${Number(r.totalProductos || 0)}</strong></p>
+          <p>Stock bajo: <strong>${Number(r.stockBajo || 0)}</strong></p>
+          <p>Agotados: <strong>${Number(r.agotados || 0)}</strong></p>
+          <p>Próximos a vencer: <strong>${Number(r.proximos || 0)}</strong></p>
+          <p>Vencidos: <strong>${Number(r.vencidos || 0)}</strong></p>
+          <p>💰 Valor filtrado: <strong>${formatoCOP(Number(r.valorInventario || 0))}</strong></p>
         </div>
       `;
+    }
+
+    const meta = document.getElementById("inventarioResultadosMeta");
+    if (meta) {
+      meta.innerHTML = `Mostrando <strong>${productos.length}</strong> de <strong>${Number(data.paginacion?.total || 0)}</strong> resultado(s)`;
     }
 
     contenedor.innerHTML = `
