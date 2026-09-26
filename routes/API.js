@@ -2773,63 +2773,124 @@ await Sede.create({
 // Devuelve lo necesario para abrir el widget / checkout del primer pago
 router.post("/crear-pago-suscripcion", async (req, res) => {
   try {
-    const { restaurantId } = req.body;
+    const empresaId =
+      String(
+        req.body?.empresaId || ""
+      ).trim();
 
-    if (!restaurantId) {
-      return res.status(400).json({
-        ok: false,
-        error: "Falta restaurantId"
-      });
+    const restaurantId =
+      String(
+        req.body?.restaurantId || ""
+      ).trim();
+
+    let empresa = null;
+    let restaurante = null;
+
+    if (empresaId) {
+      empresa =
+        await Empresa.findOne({
+          empresaId
+        });
+    } else if (restaurantId) {
+      restaurante =
+        await Restaurante.findOne({
+          restaurantId
+        });
+
+      if (restaurante?.empresaId) {
+        empresa =
+          await Empresa.findById(
+            restaurante.empresaId
+          );
+      }
     }
 
-    const restaurante = await Restaurante.findOne({ restaurantId });
-
-    if (!restaurante) {
+    if (!empresa) {
       return res.status(404).json({
         ok: false,
-        error: "Restaurante no encontrado"
+        error:
+          "Empresa no encontrada"
       });
     }
 
-    const amountInCents = Number(restaurante.precioMensual || 220000) * 100;
-    const currency = "COP";
-    const reference = `suscripcion_${restaurantId}_${Date.now()}`;
+    const amountInCents =
+      Number(
+        empresa.suscripcion
+          ?.precioMensual ||
+        restaurante
+          ?.precioMensual ||
+        220000
+      ) * 100;
 
-    const acceptanceRes = await axios.get(
-      `https://production.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
-    );
+    const currency =
+      "COP";
+
+    const reference =
+      `suscripcion_empresa_${empresa.empresaId}_${Date.now()}`;
+
+    const acceptanceRes =
+      await axios.get(
+        `https://production.wompi.co/v1/merchants/${process.env.WOMPI_PUBLIC_KEY}`
+      );
 
     const acceptanceToken =
-      acceptanceRes.data.data.presigned_acceptance.acceptance_token;
+      acceptanceRes.data
+        ?.data
+        ?.presigned_acceptance
+        ?.acceptance_token;
 
-    const signatureRaw = `${reference}${amountInCents}${currency}${process.env.WOMPI_INTEGRITY_KEY}`;
-    const signature = crypto
-      .createHash("sha256")
-      .update(signatureRaw)
-      .digest("hex");
+    if (!acceptanceToken) {
+      return res.status(500).json({
+        ok: false,
+        error:
+          "No se pudo preparar aceptación de pago"
+      });
+    }
 
-    res.json({
+    const signatureRaw =
+      `${reference}${amountInCents}${currency}${process.env.WOMPI_INTEGRITY_KEY}`;
+
+    const signature =
+      crypto
+        .createHash("sha256")
+        .update(signatureRaw)
+        .digest("hex");
+
+    return res.json({
       ok: true,
       pago: {
+        empresaId:
+          empresa.empresaId,
         amountInCents,
         currency,
         reference,
         acceptanceToken,
         signature,
-        publicKey: process.env.WOMPI_PUBLIC_KEY,
-        customerEmail: restaurante.correo,
+        publicKey:
+          process.env.WOMPI_PUBLIC_KEY,
+        customerEmail:
+          empresa.correo,
         customerData: {
-          fullName: restaurante.nombreRestaurante,
-          phoneNumber: "",
-          legalId: ""
+          fullName:
+            empresa.nombre,
+          phoneNumber:
+            "",
+          legalId:
+            ""
         }
       }
     });
   } catch (error) {
-    console.log("Error creando pago de suscripciÃƒÂ³n:", error?.response?.data || error);
-    res.status(500).json({
+    console.log(
+      "Error creando pago de suscripción:",
+      error?.response?.data ||
+      error
+    );
+
+    return res.status(500).json({
       ok: false,
-      error: "Error interno creando pago de suscripciÃƒÂ³n"
+      error:
+        "Error interno creando pago de suscripción"
     });
   }
 });
