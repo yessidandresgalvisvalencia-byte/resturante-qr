@@ -32,7 +32,7 @@ const usuarioSchema = new mongoose.Schema({
   },
   rol: {
     type: String,
-    enum: ["admin_general", "admin_sede", "mesero"],
+    enum: ["admin_general", "admin_sede", "mesero", "empleado"],
     default: "mesero"
   },
   estado: {
