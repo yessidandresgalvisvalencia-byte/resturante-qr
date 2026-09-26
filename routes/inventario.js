@@ -23,10 +23,7 @@ const inventarioQuerySchema = Joi.object({
 }).required().unknown(false);
 
 function escaparRegex(valor) {
-  return String(valor || "").replace(/[.*+?^${}()|[\]\\]/g, "\\const {
-  ROLES_GRUK,
-  roleCheck
-} = require("../core/auth/roleCheck.middleware");");
+  return String(valor || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function calcularEstadoInventario(producto, hoy) {
