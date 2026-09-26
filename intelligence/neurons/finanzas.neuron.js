@@ -59,11 +59,12 @@ function calcularEstadoMargen({
   margenActual,
   margenObjetivo
 }) {
-  if (
-    margenActual === null ||
-    margenObjetivo === null
-  ) {
-    return "ALERTA";
+  if (margenObjetivo === null) {
+    return "SIN_CONFIGURAR";
+  }
+
+  if (margenActual === null) {
+    return "DATOS_INSUFICIENTES";
   }
 
   if (margenActual >= margenObjetivo) {
