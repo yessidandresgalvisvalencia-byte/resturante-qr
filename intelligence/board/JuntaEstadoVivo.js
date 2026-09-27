@@ -449,6 +449,21 @@ const diagnosticoExpertoSchema = new mongoose.Schema({
     default: "",
     maxlength: 1800
   },
+  prioridadProfesional: {
+    type: String,
+    enum: ["ALTA", "MEDIA", "NORMAL"],
+    default: "NORMAL"
+  },
+  primerPaso: {
+    type: String,
+    default: "",
+    maxlength: 900
+  },
+  comoMedir: {
+    type: String,
+    default: "",
+    maxlength: 900
+  },
   evidencia: {
     type: [String],
     default: []
