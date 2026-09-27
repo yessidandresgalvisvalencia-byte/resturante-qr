@@ -792,6 +792,20 @@ async function generarDiagnosticosAutomaticos({
           item.criterio_profesional ||
           ""
         ).slice(0, 1800),
+      prioridadProfesional:
+        ["ALTA", "MEDIA", "NORMAL"].includes(
+          item.prioridad_profesional
+        )
+          ? item.prioridad_profesional
+          : "NORMAL",
+      primerPaso:
+        String(
+          item.primer_paso || ""
+        ).slice(0, 900),
+      comoMedir:
+        String(
+          item.como_medir || ""
+        ).slice(0, 900),
       evidencia:
         (item.evidencia_usada || [])
           .map((valor) =>
