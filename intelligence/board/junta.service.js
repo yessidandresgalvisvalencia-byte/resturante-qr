@@ -8,6 +8,9 @@ const Reporte = require("../models/CerebroReporteNeurona");
 const {
   generarRespuestasExpertas
 } = require("./expertos.service");
+const {
+  obtenerConfiguracionInteligencia
+} = require("../../core/empresa/configuracionInteligencia.service");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
 
 const DEPARTAMENTO_POR_NEURONA = Object.freeze({
@@ -431,11 +434,17 @@ async function responderPreguntaExpertos({
     throw serviceError(409, "La Junta requiere los cinco reportes origen");
   }
 
+  const configuracionInteligencia =
+    await obtenerConfiguracionInteligencia(
+      auth.empresaId
+    );
+
   const generadas = await generar({
     pregunta: pregunta.mensaje,
     decision,
     reportes,
-    intervenciones: sesion.intervenciones
+    intervenciones: sesion.intervenciones,
+    configuracionInteligencia
   });
 
   const respuestas = generadas.respuestas.map((respuesta) =>
