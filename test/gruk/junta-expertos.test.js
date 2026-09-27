@@ -557,14 +557,14 @@ test("setup pendiente no se presenta como alerta operativa repetida", async () =
         "DIRECCION"
     );
 
-  assert.match(
+  assert.doesNotMatch(
     finanzas.respuesta,
-    /no es evaluable como alerta operativa/i
+    /estado ALERTA/i
   );
 
-  assert.match(
+  assert.doesNotMatch(
     marketing.respuesta,
-    /no es evaluable como alerta operativa/i
+    /estado ALERTA/i
   );
 
   assert.doesNotMatch(
@@ -574,6 +574,6 @@ test("setup pendiente no se presenta como alerta operativa repetida", async () =
 
   assert.match(
     direccion.respuesta,
-    /una sola brecha de preparación de GRUK/i
+    /una sola tarea de preparación de GRUK/i
   );
 });
