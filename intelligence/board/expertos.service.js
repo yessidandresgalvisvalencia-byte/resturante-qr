@@ -2332,31 +2332,35 @@ function construirRespuestaExperta({
 
   let respuesta;
 
+  respuesta =
+    playbookPara({
+      departamento,
+      intencion,
+      temas
+    });
+
   if (
     intencion !== "ARRANQUE" &&
     reporte &&
-    !evaluabilidad?.evaluable
+    evaluabilidad?.evaluable
   ) {
-    respuesta =
-      evaluabilidad.estado ===
-        "SIN_CONFIGURAR"
-        ? `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. La configuración base necesaria está pendiente. No es evaluable como alerta operativa; esto es preparación de GRUK, no una falla del negocio.`
-        : `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. ${evaluabilidad.motivo || "Faltan datos confiables para evaluarlo."} No es evaluable como alerta operativa y no invento una causa.`;
-  } else {
-    respuesta =
-      playbookPara({
-        departamento,
-        intencion,
-        temas
-      });
+    respuesta +=
+      ` Con los datos actuales sí puedo contrastar este criterio: ${reporte.kpi_principal?.nombre || "el KPI principal"} está en ${reporte.kpi_principal?.estado || "SIN_ESTADO"}.`;
+  }
 
-    if (
-      intencion !== "ARRANQUE" &&
-      reporte
-    ) {
-      respuesta +=
-        ` El reporte vigente de ${departamento} marca ${reporte.kpi_principal?.estado || "SIN_ESTADO"} en ${reporte.kpi_principal?.nombre || "su KPI principal"}.`;
-    }
+  if (
+    intencion !== "ARRANQUE" &&
+    reporte &&
+    !evaluabilidad?.evaluable &&
+    temaExplicitoDepartamento(
+      departamento,
+      temaPrincipal(temas)
+    )
+  ) {
+    respuesta +=
+      evaluabilidad.estado === "SIN_CONFIGURAR"
+        ? ` Puedo asesorarte sobre la decisión, pero todavía no puedo validar numéricamente este criterio contra el objetivo de tu empresa porque falta ${etiquetaKpiConfiguracion(reporte.kpi_principal?.nombre)}. Eso es preparación de GRUK, no una alerta del negocio.`
+        : ` Puedo asesorarte sobre la decisión, pero todavía no puedo validar numéricamente este criterio con datos propios suficientes. No voy a convertir esa ausencia de evidencia en una causa inventada.`;
   }
 
   if (
@@ -2375,7 +2379,7 @@ function construirRespuestaExperta({
     respuesta:
       `${departamento}: ${respuesta}`,
     criterio_profesional:
-      `${perfil.cargo}. ${perfil.preguntaCentral} Principios aplicados: ${criterios.join(" ")}`,
+      `${perfil.cargo}. ${perfil.preguntaCentral} Mi criterio es priorizar la decisión que proteja resultado económico, continuidad y capacidad de ejecución; separar hechos de supuestos; y exigir una métrica para comprobar después si funcionó. Principios aplicados: ${criterios.join(" ")}`,
     evidencia_usada: evidencias,
     inferencias:
       intencion === "ARRANQUE"
@@ -2383,7 +2387,8 @@ function construirRespuestaExperta({
             "La pregunta plantea un escenario desde cero; estas conclusiones son criterios de diseño empresarial y no describen resultados históricos."
           ]
         : [
-            "Los datos disponibles orientan el diagnóstico, pero no prueban por sí solos una causa raíz."
+            "El consejo profesional puede orientar una acción o una prueba aun cuando falte un KPI objetivo; lo que no puede hacer es presentar como hecho una causa que GRUK no haya demostrado.",
+            "Toda recomendación relevante debe terminar en una comprobación: qué cambia, qué KPI se observa y en qué horizonte se evalúa."
           ],
     riesgos:
       riesgosPara({
@@ -2596,11 +2601,27 @@ function sintetizarDireccion(
     }
   }
 
-  direccion.datos_faltantes =
-    [...new Set([
-      ...(direccion.datos_faltantes || []),
-      ...faltantes
-    ])].slice(0, 10);
+  const hayPreparacionPendiente =
+    intencion !== "ARRANQUE" &&
+    (reportes || []).some(
+      (reporte) =>
+        reporte?.kpi_principal
+          ?.evaluabilidad ===
+        "SIN_CONFIGURAR"
+    );
+
+  if (!hayPreparacionPendiente) {
+    direccion.datos_faltantes =
+      [...new Set([
+        ...(direccion.datos_faltantes || []),
+        ...faltantes
+      ])].slice(0, 10);
+  } else {
+    direccion.datos_faltantes =
+      [...new Set(
+        direccion.datos_faltantes || []
+      )].slice(0, 5);
+  }
 
   direccion.riesgos =
     [...new Set([
