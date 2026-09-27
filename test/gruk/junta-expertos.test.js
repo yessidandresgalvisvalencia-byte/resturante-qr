@@ -53,6 +53,15 @@ test("la Junta nativa conserva seis expertos y orden canónico", async () => {
   assert.ok(finanzas.criterio_profesional);
   assert.ok(finanzas.datos_faltantes.length > 0);
   assert.ok(finanzas.confianza > 0);
+  assert.ok(finanzas.prioridad_profesional);
+  assert.match(
+    finanzas.primer_paso,
+    /cobros|pagos|caja/i
+  );
+  assert.match(
+    finanzas.como_medir,
+    /línea base|horizonte/i
+  );
 });
 
 test("detecta caja y margen sin proveedor externo", () => {
@@ -557,14 +566,14 @@ test("setup pendiente no se presenta como alerta operativa repetida", async () =
         "DIRECCION"
     );
 
-  assert.match(
+  assert.doesNotMatch(
     finanzas.respuesta,
-    /no es evaluable como alerta operativa/i
+    /estado ALERTA/i
   );
 
-  assert.match(
+  assert.doesNotMatch(
     marketing.respuesta,
-    /no es evaluable como alerta operativa/i
+    /estado ALERTA/i
   );
 
   assert.doesNotMatch(
@@ -574,6 +583,6 @@ test("setup pendiente no se presenta como alerta operativa repetida", async () =
 
   assert.match(
     direccion.respuesta,
-    /una sola brecha de preparación de GRUK/i
+    /una sola tarea de preparación de GRUK/i
   );
 });

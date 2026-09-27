@@ -159,7 +159,7 @@ test("junta general consolida configuracion pendiente como una sola brecha", asy
 
   assert.match(
     direccion.respuesta,
-    /una sola brecha de preparación de GRUK/i
+    /una sola tarea de preparación de GRUK/i
   );
 
   assert.match(
@@ -272,12 +272,17 @@ test("pregunta explicita de margen permite a Finanzas declarar limite sin falsa 
 
   assert.match(
     finanzas.respuesta,
-    /No voy a diagnosticar margen_bruto_confiable todavía/i
+    /costo confiable|margen de contribución/i
   );
 
   assert.match(
     finanzas.respuesta,
-    /no una falla del negocio/i
+    /puedo asesorarte sobre la decisión/i
+  );
+
+  assert.match(
+    finanzas.respuesta,
+    /preparación de GRUK, no una alerta del negocio/i
   );
 
   assert.doesNotMatch(
