@@ -53,6 +53,15 @@ test("la Junta nativa conserva seis expertos y orden canónico", async () => {
   assert.ok(finanzas.criterio_profesional);
   assert.ok(finanzas.datos_faltantes.length > 0);
   assert.ok(finanzas.confianza > 0);
+  assert.ok(finanzas.prioridad_profesional);
+  assert.match(
+    finanzas.primer_paso,
+    /cobros|pagos|caja/i
+  );
+  assert.match(
+    finanzas.como_medir,
+    /línea base|horizonte/i
+  );
 });
 
 test("detecta caja y margen sin proveedor externo", () => {
