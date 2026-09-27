@@ -2495,7 +2495,8 @@ function sintetizarDireccion(
   {
     intencion,
     temas,
-    reportes = []
+    reportes = [],
+    configuracionInteligencia = null
   }
 ) {
   const direccion =
@@ -2558,24 +2559,38 @@ function sintetizarDireccion(
     direccion.respuesta +=
       ` Como síntesis de Junta, el tema dominante es ${principal}.`;
 
-    if (sinConfigurar.length) {
+    const faltantesConfiguracion =
+      Array.isArray(
+        configuracionInteligencia?.faltantes
+      )
+        ? configuracionInteligencia.faltantes
+            .map((item) => item?.etiqueta)
+            .filter(Boolean)
+        : [];
+
+    if (
+      sinConfigurar.length ||
+      faltantesConfiguracion.length
+    ) {
       const campos =
-        [...new Set(
-          sinConfigurar.map(
-            (reporte) =>
-              etiquetaKpiConfiguracion(
-                reporte
-                  ?.kpi_principal
-                  ?.nombre
+        faltantesConfiguracion.length
+          ? [...new Set(faltantesConfiguracion)]
+          : [...new Set(
+              sinConfigurar.map(
+                (reporte) =>
+                  etiquetaKpiConfiguracion(
+                    reporte
+                      ?.kpi_principal
+                      ?.nombre
+                  )
               )
-          )
-        )];
+            )];
 
       direccion.respuesta +=
-        ` Hay una sola brecha de preparación de GRUK, no ${sinConfigurar.length} alertas operativas distintas. Falta completar: ${campos.join(", ")}. Configúralo una vez en Configuración y las neuronas se recalcularán.`;
+        ` Hay una sola tarea de preparación de GRUK, no varias alertas del negocio. Falta completar: ${campos.join(", ")}. Se configura una vez y después las neuronas comparan resultados contra objetivos reales.`;
 
       direccion.datos_faltantes = [
-        `Configuración base pendiente: ${campos.join(", ")}.`
+        `Preparación GRUK pendiente: ${campos.join(", ")}.`
       ];
     }
 
@@ -2682,6 +2697,7 @@ async function generarRespuestasExpertas({
   decision,
   reportes,
   intervenciones,
+  configuracionInteligencia = null,
   fuente = "USUARIO"
 }) {
   const intencion =
@@ -2725,7 +2741,8 @@ async function generarRespuestasExpertas({
     {
       intencion,
       temas,
-      reportes
+      reportes,
+      configuracionInteligencia
     }
   );
 
