@@ -2203,6 +2203,96 @@ function acuerdosPara({
   return [];
 }
 
+function marcoAsesoriaPara({
+  departamento,
+  temas,
+  reporte
+}) {
+  const principal =
+    temaPrincipal(temas);
+
+  const primerosPasos = {
+    FINANZAS: {
+      FLUJO_CAJA:
+        "Construir o actualizar el calendario real de cobros y pagos de los próximos 7 y 30 días antes de comprometer nueva caja.",
+      MARGEN_PRECIO:
+        "Tomar los productos con mayor venta y verificar costo unitario confiable, precio, margen de contribución y merma antes de tocar precios.",
+      PUNTO_EQUILIBRIO:
+        "Separar costos fijos mensuales de costos variables y calcular contribución real antes de fijar el punto de equilibrio.",
+      GENERAL:
+        "Identificar primero qué decisión puede comprometer caja, margen o capacidad de pago y cuantificarla."
+    },
+    VENTAS: {
+      VENTAS:
+        "Separar tráfico, oportunidades, conversión, ticket, recurrencia y cobranza para encontrar dónde se pierde ingreso.",
+      MARGEN_PRECIO:
+        "Comparar conversión, ticket y margen antes y después de cualquier cambio de precio o descuento.",
+      GENERAL:
+        "Definir qué cliente compra, qué problema resuelve la oferta, cuánto deja y cuándo paga."
+    },
+    MARKETING: {
+      MARKETING_CAC:
+        "No aumentar presupuesto hasta poder atribuir gasto, clientes adquiridos e ingresos por canal.",
+      GENERAL:
+        "Definir cliente objetivo, propuesta de valor y un mecanismo simple de atribución antes de escalar campañas."
+    },
+    OPERACIONES: {
+      OPERACION_INVENTARIO:
+        "Reconstruir la cadena compra → inventario → consumo → venta y localizar primero quiebres, merma o diferencias físicas.",
+      GENERAL:
+        "Elegir el proceso operativo que más dinero, tiempo o continuidad puede perder y medir su desviación real."
+    },
+    GENTE: {
+      GENTE_CAPACIDAD:
+        "Mapear funciones críticas, responsable actual, carga y KPI antes de decidir contratar o redistribuir personas.",
+      GENERAL:
+        "Comprobar qué función crítica no tiene responsable o capacidad suficiente antes de aumentar plantilla."
+    },
+    DIRECCION: {
+      GENERAL:
+        "Elegir un solo problema prioritario, expresar su impacto económico, asignar responsable y definir cómo sabremos en siete días si mejoró."
+    }
+  };
+
+  const metricas = {
+    FINANZAS:
+      reporte?.kpi_principal?.nombre ||
+      "caja, margen y cobertura de obligaciones",
+    VENTAS:
+      reporte?.kpi_principal?.nombre ||
+      "conversión, ticket, recurrencia y cobranza",
+    MARKETING:
+      reporte?.kpi_principal?.nombre ||
+      "CAC atribuible y recuperación del gasto",
+    OPERACIONES:
+      reporte?.kpi_principal?.nombre ||
+      "disponibilidad, merma, tiempo y continuidad",
+    GENTE:
+      reporte?.kpi_principal?.nombre ||
+      "capacidad, productividad y cobertura de funciones",
+    DIRECCION:
+      "resultado económico del problema priorizado"
+  };
+
+  const pasos =
+    primerosPasos[departamento] || {};
+
+  return {
+    prioridad:
+      reporte?.kpi_principal?.estado === "CRITICO"
+        ? "ALTA"
+        : reporte?.kpi_principal?.estado === "ALERTA"
+          ? "MEDIA"
+          : "NORMAL",
+    primer_paso:
+      pasos[principal] ||
+      pasos.GENERAL ||
+      primerosPasos.DIRECCION.GENERAL,
+    como_medir:
+      `Medir ${metricas[departamento] || metricas.DIRECCION} contra la línea base actual y revisar el cambio en un horizonte explícito.`
+  };
+}
+
 function confianzaPara({
   intencion,
   reporte,
@@ -2374,12 +2464,25 @@ function construirRespuestaExperta({
   const criterios =
     perfil.principios.slice(0, 3);
 
+  const marcoAsesoria =
+    marcoAsesoriaPara({
+      departamento,
+      temas,
+      reporte
+    });
+
   return {
     departamento,
     respuesta:
       `${departamento}: ${respuesta}`,
     criterio_profesional:
       `${perfil.cargo}. ${perfil.preguntaCentral} Mi criterio es priorizar la decisión que proteja resultado económico, continuidad y capacidad de ejecución; separar hechos de supuestos; y exigir una métrica para comprobar después si funcionó. Principios aplicados: ${criterios.join(" ")}`,
+    prioridad_profesional:
+      marcoAsesoria.prioridad,
+    primer_paso:
+      marcoAsesoria.primer_paso,
+    como_medir:
+      marcoAsesoria.como_medir,
     evidencia_usada: evidencias,
     inferencias:
       intencion === "ARRANQUE"
@@ -2747,7 +2850,7 @@ async function generarRespuestasExpertas({
   );
 
   return {
-    model: "GRUK-CONSULTIVO-2",
+    model: "GRUK-CONSULTIVO-3",
     responseId: null,
     intencion,
     temas,
