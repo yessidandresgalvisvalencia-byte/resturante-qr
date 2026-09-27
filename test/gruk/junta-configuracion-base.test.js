@@ -175,6 +175,16 @@ test("Junta agrupa configuración pendiente como una sola brecha", async () => {
       reportes,
       intervenciones:
         [],
+      configuracionInteligencia: {
+        completo: false,
+        faltantes: [
+          { etiqueta: "Margen objetivo" },
+          { etiqueta: "Punto de equilibrio" },
+          { etiqueta: "Ticket objetivo" },
+          { etiqueta: "CAC máximo" },
+          { etiqueta: "Empleados actuales" }
+        ]
+      },
       fuente:
         "GRUK"
     });
@@ -191,6 +201,11 @@ test("Junta agrupa configuración pendiente como una sola brecha", async () => {
   assert.match(
     direccion.respuesta,
     /una sola tarea de preparación de GRUK/i
+  );
+
+  assert.match(
+    direccion.respuesta,
+    /Punto de equilibrio/i
   );
 
   for (
