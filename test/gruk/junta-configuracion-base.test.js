@@ -190,7 +190,7 @@ test("Junta agrupa configuración pendiente como una sola brecha", async () => {
 
   assert.match(
     direccion.respuesta,
-    /una sola brecha de preparación de GRUK/i
+    /una sola tarea de preparación de GRUK/i
   );
 
   for (
