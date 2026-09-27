@@ -164,6 +164,36 @@ function construirIntervencionExperta({
     );
   }
 
+  if (respuesta.prioridad_profesional) {
+    bloques.push(
+      "Prioridad profesional: " +
+      limitarTexto(
+        respuesta.prioridad_profesional,
+        80
+      )
+    );
+  }
+
+  if (respuesta.primer_paso) {
+    bloques.push(
+      "Primer paso: " +
+      limitarTexto(
+        respuesta.primer_paso,
+        700
+      )
+    );
+  }
+
+  if (respuesta.como_medir) {
+    bloques.push(
+      "Cómo medir: " +
+      limitarTexto(
+        respuesta.como_medir,
+        700
+      )
+    );
+  }
+
   const secciones = [
     ["Riesgos", respuesta.riesgos, 350],
     ["Objeciones a la Junta", respuesta.objeciones, 350],
