@@ -586,3 +586,171 @@ test("setup pendiente no se presenta como alerta operativa repetida", async () =
     /una sola tarea de preparación de GRUK/i
   );
 });
+
+
+test("Direccion actua como CEO con diagnostico, tres preguntas y acciones inmediatas", async () => {
+  const resultado =
+    await generarRespuestasExpertas({
+      pregunta:
+        "No sé manejar mis ganancias ni mi margen, ¿por dónde empiezo?",
+      decision: null,
+      reportes: [],
+      intervenciones: []
+    });
+
+  const direccion =
+    resultado.respuestas.find(
+      (item) =>
+        item.departamento ===
+        "DIRECCION"
+    );
+
+  assert.ok(
+    direccion
+      .diagnostico_ejecutivo
+  );
+
+  assert.equal(
+    direccion
+      .preguntas_criticas
+      .length,
+    3
+  );
+
+  assert.ok(
+    direccion
+      .acciones_inmediatas
+      .length >= 3
+  );
+
+  assert.ok(
+    direccion
+      .acciones_inmediatas
+      .length <= 5
+  );
+
+  assert.match(
+    direccion
+      .criterio_profesional,
+    /CEO y Director General GRUK/i
+  );
+
+  assert.match(
+    direccion
+      .preguntas_criticas
+      .join(" "),
+    /efectivo|obligaciones/i
+  );
+});
+
+test("configuracion faltante se consolida en Direccion como una sola preparacion", async () => {
+  const resultado =
+    await generarRespuestasExpertas({
+      pregunta:
+        "¿Qué debemos corregir primero?",
+      decision: null,
+      reportes: [
+        {
+          neurona:
+            "FINANZAS",
+          kpi_principal: {
+            nombre:
+              "margen_bruto_confiable",
+            valor_actual:
+              86.34,
+            valor_objetivo:
+              null,
+            estado:
+              "SIN_CONFIGURAR",
+            evaluabilidad:
+              "SIN_CONFIGURAR",
+            medicion_disponible:
+              true,
+            objetivo_disponible:
+              false,
+            motivo_no_evaluable:
+              "Falta configurar margen objetivo."
+          },
+          hallazgos: []
+        },
+        {
+          neurona:
+            "VENTAS",
+          kpi_principal: {
+            nombre:
+              "ticket_promedio",
+            valor_actual:
+              23000,
+            valor_objetivo:
+              null,
+            estado:
+              "SIN_CONFIGURAR",
+            evaluabilidad:
+              "SIN_CONFIGURAR",
+            medicion_disponible:
+              true,
+            objetivo_disponible:
+              false,
+            motivo_no_evaluable:
+              "Falta configurar ticket objetivo."
+          },
+          hallazgos: []
+        }
+      ],
+      intervenciones: [],
+      configuracionInteligencia: {
+        completo:
+          false,
+        faltantes: [
+          {
+            campo:
+              "margen_objetivo",
+            etiqueta:
+              "Margen objetivo"
+          },
+          {
+            campo:
+              "ticket_objetivo",
+            etiqueta:
+              "Ticket objetivo"
+          },
+          {
+            campo:
+              "cac_maximo",
+            etiqueta:
+              "CAC máximo"
+          }
+        ]
+      }
+    });
+
+  const direccion =
+    resultado.respuestas.find(
+      (item) =>
+        item.departamento ===
+        "DIRECCION"
+    );
+
+  assert.match(
+    direccion.respuesta,
+    /una sola tarea de preparación de GRUK/i
+  );
+
+  assert.equal(
+    direccion
+      .datos_faltantes
+      .filter(
+        (item) =>
+          /Preparación GRUK pendiente/i
+            .test(item)
+      )
+      .length,
+    1
+  );
+
+  assert.match(
+    direccion
+      .datos_faltantes[0],
+    /Margen objetivo.*Ticket objetivo.*CAC máximo/i
+  );
+});
