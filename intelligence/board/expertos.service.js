@@ -2203,6 +2203,96 @@ function acuerdosPara({
   return [];
 }
 
+function marcoAsesoriaPara({
+  departamento,
+  temas,
+  reporte
+}) {
+  const principal =
+    temaPrincipal(temas);
+
+  const primerosPasos = {
+    FINANZAS: {
+      FLUJO_CAJA:
+        "Construir o actualizar el calendario real de cobros y pagos de los próximos 7 y 30 días antes de comprometer nueva caja.",
+      MARGEN_PRECIO:
+        "Tomar los productos con mayor venta y verificar costo unitario confiable, precio, margen de contribución y merma antes de tocar precios.",
+      PUNTO_EQUILIBRIO:
+        "Separar costos fijos mensuales de costos variables y calcular contribución real antes de fijar el punto de equilibrio.",
+      GENERAL:
+        "Identificar primero qué decisión puede comprometer caja, margen o capacidad de pago y cuantificarla."
+    },
+    VENTAS: {
+      VENTAS:
+        "Separar tráfico, oportunidades, conversión, ticket, recurrencia y cobranza para encontrar dónde se pierde ingreso.",
+      MARGEN_PRECIO:
+        "Comparar conversión, ticket y margen antes y después de cualquier cambio de precio o descuento.",
+      GENERAL:
+        "Definir qué cliente compra, qué problema resuelve la oferta, cuánto deja y cuándo paga."
+    },
+    MARKETING: {
+      MARKETING_CAC:
+        "No aumentar presupuesto hasta poder atribuir gasto, clientes adquiridos e ingresos por canal.",
+      GENERAL:
+        "Definir cliente objetivo, propuesta de valor y un mecanismo simple de atribución antes de escalar campañas."
+    },
+    OPERACIONES: {
+      OPERACION_INVENTARIO:
+        "Reconstruir la cadena compra → inventario → consumo → venta y localizar primero quiebres, merma o diferencias físicas.",
+      GENERAL:
+        "Elegir el proceso operativo que más dinero, tiempo o continuidad puede perder y medir su desviación real."
+    },
+    GENTE: {
+      GENTE_CAPACIDAD:
+        "Mapear funciones críticas, responsable actual, carga y KPI antes de decidir contratar o redistribuir personas.",
+      GENERAL:
+        "Comprobar qué función crítica no tiene responsable o capacidad suficiente antes de aumentar plantilla."
+    },
+    DIRECCION: {
+      GENERAL:
+        "Elegir un solo problema prioritario, expresar su impacto económico, asignar responsable y definir cómo sabremos en siete días si mejoró."
+    }
+  };
+
+  const metricas = {
+    FINANZAS:
+      reporte?.kpi_principal?.nombre ||
+      "caja, margen y cobertura de obligaciones",
+    VENTAS:
+      reporte?.kpi_principal?.nombre ||
+      "conversión, ticket, recurrencia y cobranza",
+    MARKETING:
+      reporte?.kpi_principal?.nombre ||
+      "CAC atribuible y recuperación del gasto",
+    OPERACIONES:
+      reporte?.kpi_principal?.nombre ||
+      "disponibilidad, merma, tiempo y continuidad",
+    GENTE:
+      reporte?.kpi_principal?.nombre ||
+      "capacidad, productividad y cobertura de funciones",
+    DIRECCION:
+      "resultado económico del problema priorizado"
+  };
+
+  const pasos =
+    primerosPasos[departamento] || {};
+
+  return {
+    prioridad:
+      reporte?.kpi_principal?.estado === "CRITICO"
+        ? "ALTA"
+        : reporte?.kpi_principal?.estado === "ALERTA"
+          ? "MEDIA"
+          : "NORMAL",
+    primer_paso:
+      pasos[principal] ||
+      pasos.GENERAL ||
+      primerosPasos.DIRECCION.GENERAL,
+    como_medir:
+      `Medir ${metricas[departamento] || metricas.DIRECCION} contra la línea base actual y revisar el cambio en un horizonte explícito.`
+  };
+}
+
 function confianzaPara({
   intencion,
   reporte,
@@ -2332,31 +2422,35 @@ function construirRespuestaExperta({
 
   let respuesta;
 
+  respuesta =
+    playbookPara({
+      departamento,
+      intencion,
+      temas
+    });
+
   if (
     intencion !== "ARRANQUE" &&
     reporte &&
-    !evaluabilidad?.evaluable
+    evaluabilidad?.evaluable
   ) {
-    respuesta =
-      evaluabilidad.estado ===
-        "SIN_CONFIGURAR"
-        ? `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. La configuración base necesaria está pendiente. No es evaluable como alerta operativa; esto es preparación de GRUK, no una falla del negocio.`
-        : `No voy a diagnosticar ${reporte.kpi_principal?.nombre || "este KPI"} todavía. ${evaluabilidad.motivo || "Faltan datos confiables para evaluarlo."} No es evaluable como alerta operativa y no invento una causa.`;
-  } else {
-    respuesta =
-      playbookPara({
-        departamento,
-        intencion,
-        temas
-      });
+    respuesta +=
+      ` Con los datos actuales sí puedo contrastar este criterio: ${reporte.kpi_principal?.nombre || "el KPI principal"} está en ${reporte.kpi_principal?.estado || "SIN_ESTADO"}.`;
+  }
 
-    if (
-      intencion !== "ARRANQUE" &&
-      reporte
-    ) {
-      respuesta +=
-        ` El reporte vigente de ${departamento} marca ${reporte.kpi_principal?.estado || "SIN_ESTADO"} en ${reporte.kpi_principal?.nombre || "su KPI principal"}.`;
-    }
+  if (
+    intencion !== "ARRANQUE" &&
+    reporte &&
+    !evaluabilidad?.evaluable &&
+    temaExplicitoDepartamento(
+      departamento,
+      temaPrincipal(temas)
+    )
+  ) {
+    respuesta +=
+      evaluabilidad.estado === "SIN_CONFIGURAR"
+        ? ` Puedo asesorarte sobre la decisión, pero todavía no puedo validar numéricamente este criterio contra el objetivo de tu empresa porque falta ${etiquetaKpiConfiguracion(reporte.kpi_principal?.nombre)}. Eso es preparación de GRUK, no una alerta del negocio.`
+        : ` Puedo asesorarte sobre la decisión, pero todavía no puedo validar numéricamente este criterio con datos propios suficientes. No voy a convertir esa ausencia de evidencia en una causa inventada.`;
   }
 
   if (
@@ -2370,12 +2464,25 @@ function construirRespuestaExperta({
   const criterios =
     perfil.principios.slice(0, 3);
 
+  const marcoAsesoria =
+    marcoAsesoriaPara({
+      departamento,
+      temas,
+      reporte
+    });
+
   return {
     departamento,
     respuesta:
       `${departamento}: ${respuesta}`,
     criterio_profesional:
-      `${perfil.cargo}. ${perfil.preguntaCentral} Principios aplicados: ${criterios.join(" ")}`,
+      `${perfil.cargo}. ${perfil.preguntaCentral} Mi criterio es priorizar la decisión que proteja resultado económico, continuidad y capacidad de ejecución; separar hechos de supuestos; y exigir una métrica para comprobar después si funcionó. Principios aplicados: ${criterios.join(" ")}`,
+    prioridad_profesional:
+      marcoAsesoria.prioridad,
+    primer_paso:
+      marcoAsesoria.primer_paso,
+    como_medir:
+      marcoAsesoria.como_medir,
     evidencia_usada: evidencias,
     inferencias:
       intencion === "ARRANQUE"
@@ -2383,7 +2490,8 @@ function construirRespuestaExperta({
             "La pregunta plantea un escenario desde cero; estas conclusiones son criterios de diseño empresarial y no describen resultados históricos."
           ]
         : [
-            "Los datos disponibles orientan el diagnóstico, pero no prueban por sí solos una causa raíz."
+            "El consejo profesional puede orientar una acción o una prueba aun cuando falte un KPI objetivo; lo que no puede hacer es presentar como hecho una causa que GRUK no haya demostrado.",
+            "Toda recomendación relevante debe terminar en una comprobación: qué cambia, qué KPI se observa y en qué horizonte se evalúa."
           ],
     riesgos:
       riesgosPara({
@@ -2490,7 +2598,8 @@ function sintetizarDireccion(
   {
     intencion,
     temas,
-    reportes = []
+    reportes = [],
+    configuracionInteligencia = null
   }
 ) {
   const direccion =
@@ -2553,24 +2662,38 @@ function sintetizarDireccion(
     direccion.respuesta +=
       ` Como síntesis de Junta, el tema dominante es ${principal}.`;
 
-    if (sinConfigurar.length) {
+    const faltantesConfiguracion =
+      Array.isArray(
+        configuracionInteligencia?.faltantes
+      )
+        ? configuracionInteligencia.faltantes
+            .map((item) => item?.etiqueta)
+            .filter(Boolean)
+        : [];
+
+    if (
+      sinConfigurar.length ||
+      faltantesConfiguracion.length
+    ) {
       const campos =
-        [...new Set(
-          sinConfigurar.map(
-            (reporte) =>
-              etiquetaKpiConfiguracion(
-                reporte
-                  ?.kpi_principal
-                  ?.nombre
+        faltantesConfiguracion.length
+          ? [...new Set(faltantesConfiguracion)]
+          : [...new Set(
+              sinConfigurar.map(
+                (reporte) =>
+                  etiquetaKpiConfiguracion(
+                    reporte
+                      ?.kpi_principal
+                      ?.nombre
+                  )
               )
-          )
-        )];
+            )];
 
       direccion.respuesta +=
-        ` Hay una sola brecha de preparación de GRUK, no ${sinConfigurar.length} alertas operativas distintas. Falta completar: ${campos.join(", ")}. Configúralo una vez en Configuración y las neuronas se recalcularán.`;
+        ` Hay una sola tarea de preparación de GRUK, no varias alertas del negocio. Falta completar: ${campos.join(", ")}. Se configura una vez y después las neuronas comparan resultados contra objetivos reales.`;
 
       direccion.datos_faltantes = [
-        `Configuración base pendiente: ${campos.join(", ")}.`
+        `Preparación GRUK pendiente: ${campos.join(", ")}.`
       ];
     }
 
@@ -2596,11 +2719,27 @@ function sintetizarDireccion(
     }
   }
 
-  direccion.datos_faltantes =
-    [...new Set([
-      ...(direccion.datos_faltantes || []),
-      ...faltantes
-    ])].slice(0, 10);
+  const hayPreparacionPendiente =
+    intencion !== "ARRANQUE" &&
+    (reportes || []).some(
+      (reporte) =>
+        reporte?.kpi_principal
+          ?.evaluabilidad ===
+        "SIN_CONFIGURAR"
+    );
+
+  if (!hayPreparacionPendiente) {
+    direccion.datos_faltantes =
+      [...new Set([
+        ...(direccion.datos_faltantes || []),
+        ...faltantes
+      ])].slice(0, 10);
+  } else {
+    direccion.datos_faltantes =
+      [...new Set(
+        direccion.datos_faltantes || []
+      )].slice(0, 5);
+  }
 
   direccion.riesgos =
     [...new Set([
@@ -2661,6 +2800,7 @@ async function generarRespuestasExpertas({
   decision,
   reportes,
   intervenciones,
+  configuracionInteligencia = null,
   fuente = "USUARIO"
 }) {
   const intencion =
@@ -2704,12 +2844,13 @@ async function generarRespuestasExpertas({
     {
       intencion,
       temas,
-      reportes
+      reportes,
+      configuracionInteligencia
     }
   );
 
   return {
-    model: "GRUK-CONSULTIVO-2",
+    model: "GRUK-CONSULTIVO-3",
     responseId: null,
     intencion,
     temas,
