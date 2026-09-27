@@ -156,6 +156,11 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
       estadoVivo.diagnosticosExpertos
     )
       ? estadoVivo.diagnosticosExpertos
+          .filter(
+            (item) =>
+              item?.relevancia !==
+              "NINGUNA"
+          )
       : [];
 
   const expertosHTML =
@@ -193,6 +198,24 @@ function renderizarJuntaVivaGRUK(estadoVivo) {
                 <p>${textoMultilineaJuntaGRUK(
                   item.respuesta
                 )}</p>
+
+                ${item.prioridadProfesional
+                  ? `<p><strong>Prioridad profesional:</strong> ${escaparJuntaGRUK(
+                      item.prioridadProfesional
+                    )}</p>`
+                  : ""}
+
+                ${item.primerPaso
+                  ? `<p><strong>Primer paso:</strong> ${escaparJuntaGRUK(
+                      item.primerPaso
+                    )}</p>`
+                  : ""}
+
+                ${item.comoMedir
+                  ? `<p><strong>Cómo medir:</strong> ${escaparJuntaGRUK(
+                      item.comoMedir
+                    )}</p>`
+                  : ""}
 
                 ${evidencia.length
                   ? `<p><strong>Evidencia:</strong> ${evidencia
