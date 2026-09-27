@@ -306,7 +306,7 @@ test("Junta deterministica entrega seis perspectivas sin proveedor externo", asy
     intervenciones: []
   });
 
-  assert.equal(resultado.model, "GRUK-CONSULTIVO-2");
+  assert.equal(resultado.model, "GRUK-CONSULTIVO-3");
   assert.equal(resultado.respuestas.length, 6);
   assert.deepEqual(
     resultado.respuestas.map((item) => item.departamento),
