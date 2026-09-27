@@ -19,6 +19,9 @@ const JuntaEstadoVivo = require("./JuntaEstadoVivo");
 const {
   generarRespuestasExpertas
 } = require("./expertos.service");
+const {
+  obtenerConfiguracionInteligencia
+} = require("../../core/empresa/configuracionInteligencia.service");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
 
 const NEURONAS = Object.freeze([
@@ -743,6 +746,7 @@ async function generarDiagnosticosAutomaticos({
   tesoreria,
   proyeccionTesoreria,
   reportes,
+  configuracionInteligencia = null,
   ahora
 }) {
   const pregunta =
@@ -762,6 +766,7 @@ async function generarDiagnosticosAutomaticos({
           proyeccionTesoreria
         ),
       intervenciones: [],
+      configuracionInteligencia,
       fuente: "GRUK"
     });
 
@@ -787,6 +792,20 @@ async function generarDiagnosticosAutomaticos({
           item.criterio_profesional ||
           ""
         ).slice(0, 1800),
+      prioridadProfesional:
+        ["ALTA", "MEDIA", "NORMAL"].includes(
+          item.prioridad_profesional
+        )
+          ? item.prioridad_profesional
+          : "NORMAL",
+      primerPaso:
+        String(
+          item.primer_paso || ""
+        ).slice(0, 900),
+      comoMedir:
+        String(
+          item.como_medir || ""
+        ).slice(0, 900),
       evidencia:
         (item.evidencia_usada || [])
           .map((valor) =>
@@ -1051,7 +1070,8 @@ async function recalcularEstadoVivo({
     ventana24h,
     mesActual,
     reportes,
-    tesoreria
+    tesoreria,
+    configuracionInteligencia
   ] = await Promise.all([
     construirResumen({
       empresaId: empresaObjectId,
@@ -1073,7 +1093,10 @@ async function recalcularEstadoVivo({
         empresaObjectId,
       sedeId:
         sedeObjectId
-    })
+    }),
+    obtenerConfiguracionInteligencia(
+      empresaObjectId
+    )
   ]);
 
   const proyeccionTesoreria =
@@ -1164,6 +1187,7 @@ async function recalcularEstadoVivo({
         tesoreria,
         proyeccionTesoreria,
         reportes,
+        configuracionInteligencia,
         ahora
       });
   } catch (error) {
