@@ -92,3 +92,66 @@ Resultado verificable después del cambio.
 ## Principio final
 
 GRUK evoluciona por evidencia. Las noticias disparan evaluación; el código, los tests y los resultados deciden si una mejora merece entrar al producto.
+
+
+---
+
+## Propuesta 2026-09-28 — Trazabilidad de runtime para Expertos y agentes
+
+### Fuente
+
+- URL: https://www.tcs.com/what-we-do/industries/banking/white-paper/zero-trust-autonomous-agents-new-paradigm-ai-age
+- Fecha: 2026-09-27
+- Tipo: arquitectura / seguridad
+- URL: https://www.snowflake.com/en/blog/engineering/enterprise-mcp-gateway-ai-agent-governance/
+- Fecha: 2026-08
+- Tipo: ingeniería / gobernanza
+- URL: https://pressreleases.responsesource.com/news/107627/gooddata-ai-launches-ai-observability-to-track-trace-and-trust/
+- Fecha: 2026-09-23
+- Tipo: release / observabilidad
+
+### Hallazgo externo
+
+La gobernanza de agentes está pasando de verificar únicamente identidad a verificar cada decisión y herramienta en runtime, con trazabilidad suficiente para reconstruir contexto, autorización, herramienta, resultado y costo. El patrón de gateway/control-plane central evita que cada agente implemente permisos y auditoría por su cuenta.
+
+### Estado actual de GRUK
+
+Se revisaron core/auth/auth.middleware.js, intelligence/board/expertos.service.js, intelligence/board/junta.service.js e intelligence/models/CerebroAuditoria.js. El JWT humano fija usuario, empresa, sede y rol. La Junta conserva evidencia y confianza en intervenciones. CerebroAuditoria registra aprobación/rechazo/superación de órdenes. No existe todavía una traza común para una futura invocación de modelo/herramienta/agente que enlace actor, tenant, propósito, autorización, recurso, resultado, latencia/costo y aprobación humana.
+
+### Brecha
+
+Cuando los Expertos GRUK evolucionen de consejo a herramientas de lectura y posteriormente a acciones aprobadas, los logs dispersos no bastarán para demostrar por qué una acción estuvo permitida ni reconstruir el recorrido completo. Falta un identificador de ejecución y un registro append-only tenant-scoped que sea independiente del proveedor de IA.
+
+### Decisión
+
+IMPLEMENTAR AHORA.
+
+### Cambio propuesto
+
+Crear primero una capa de observabilidad pasiva, sin habilitar nuevas acciones:
+- core/automation/AgentRun.js: ejecución con empresaId, sedeId, principal, propósito, estado y timestamps.
+- core/automation/agentAudit.service.js: API interna append-only para eventos CONTEXTO_LEIDO, MODELO_INVOCADO, HERRAMIENTA_SOLICITADA, HERRAMIENTA_DENEGADA, HERRAMIENTA_EJECUTADA y APROBACION_HUMANA.
+- correlationId/runId propagado por Junta y, posteriormente, Cerebro.
+- metadata en allowlist; jamás prompts completos, secretos, tokens o credenciales.
+- provider/model, latencia y unidades de uso solo cuando el proveedor las entregue; no estimar costo si no existe tarifa/dato verificable.
+- retención y borrado lógico compatibles con empresaId/sedeId.
+
+No conectar todavía herramientas de escritura ni autonomía L3/L4.
+
+### Riesgo de producción
+
+BAJO si los nuevos modelos/servicios permanecen pasivos y ninguna ruta existente depende de ellos. MEDIO al instrumentar la Junta, por lo que esa integración debe ser un PR separado y reversible.
+
+### Pruebas obligatorias
+
+- tenant A no puede consultar trazas de tenant B.
+- ADMIN_SEDE queda limitado a su sede.
+- eventos desconocidos son rechazados.
+- metadata elimina campos no permitidos y no persiste Authorization, JWT, API keys ni secretos.
+- una falla de auditoría no concede permisos ni convierte una acción denegada en permitida.
+- runId enlaza inicio, decisión de política, herramienta y resultado sin modificar los contratos actuales de Junta/Cerebro.
+- regresión completa npm test.
+
+### Criterio de éxito
+
+Una ejecución de prueba puede reconstruirse por runId mostrando quién/qué inició la operación, empresa/sede, propósito, política aplicada, herramienta solicitada, resultado y aprobación cuando corresponda, sin almacenar secretos ni habilitar ninguna capacidad nueva de ejecución.
