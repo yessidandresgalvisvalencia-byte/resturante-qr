@@ -694,11 +694,11 @@ async function autorizarCompletarGRUK(){
  const boton=document.getElementById("btnCompletarGRUK"),out=document.getElementById("resultadoCompletarGRUK");
  if(boton)boton.disabled=true;if(out)out.innerHTML="<p>GRUK está revisando qué puede calcular sin inventar datos...</p>";
  try{
-  const [cfgRes,juntaRes]=await Promise.all([grukFetch("/api/configuracion-inteligencia"),grukFetch("/api/junta/viva")]);
-  const cfgData=await cfgRes.json(),juntaData=await juntaRes.json();
+  const [cfgRes,juntaRes,recRes]=await Promise.all([grukFetch("/api/configuracion-inteligencia"),grukFetch("/api/junta/viva"),grukFetch("/api/configuracion-inteligencia/recomendaciones")]);
+  const cfgData=await cfgRes.json(),juntaData=await juntaRes.json(),recData=await recRes.json();
   if(!cfgRes.ok||!cfgData.ok)throw new Error(cfgData.error||"No fue posible leer la configuración.");
   const cfg=cfgData.configuracion||{},valores={...(cfg.valores||{})},faltantes=new Set((cfg.faltantes||[]).map(x=>x.campo)),estado=juntaData.estado||{},reps=Array.isArray(estado.reportesNeuronas)?estado.reportesNeuronas:[];
-  const completados=[],pendientes=[];
+  const completados=[],pendientes=[]; const rec=recData?.recomendacion; if(faltantes.has("margen_objetivo")&&rec?.estado==="RECOMENDADO"&&Number.isFinite(Number(rec.valor))){valores.margen_objetivo=Number(rec.valor);completados.push("Margen objetivo: "+rec.valor+"% recomendado por FINANZAS con confianza "+rec.confianza+"%. "+rec.por_que);} else if(faltantes.has("margen_objetivo")&&rec?.estado==="EVIDENCIA_INSUFICIENTE"){pendientes.push("Margen objetivo — "+rec.por_que); faltantes.delete("margen_objetivo");}
   const venta=reps.find(x=>x.neurona==="VENTAS"&&x.evaluabilidad==="EVALUABLE"&&Number.isFinite(Number(x.valorActual)));
   if(faltantes.has("ticket_objetivo")&&venta){valores.ticket_objetivo=Number(venta.valorActual);completados.push("Ticket objetivo: se tomó el ticket promedio real medido por Ventas como referencia inicial.");}
   // No inferimos margen objetivo desde margen actual: convertir desempeño observado en objetivo sería una decisión empresarial, no un cálculo.
