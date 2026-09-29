@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<title>Crear Restaurante</title>
+<title>Crear negocio en GRUK</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
 <style>
@@ -186,57 +186,17 @@ margin-bottom:18px;
 <div class="contenedor">
 <div class="card">
 
-<div class="top-label">✨ Activación premium para restaurantes</div>
+<div class="top-label">✨ Activa tu negocio con GRUK</div>
 
-<h2>Crear restaurante</h2>
+<h2>Crea tu negocio en GRUK</h2>
+<p class="info-text" style="text-align:left">Cuéntanos lo esencial. GRUK configurará tu empresa y te irá guiando a medida que aprende de tu operación.</p>
 
-<input id="nombre" placeholder="Nombre del restaurante" />
+<input id="nombre" placeholder="Nombre de tu negocio" />
+<select id="tipoNegocio" style="width:100%;padding:14px;margin:8px 0 15px;border-radius:12px;background:#0d223b;color:#f7fbff;border:1px solid rgba(255,255,255,.10)"><option value="">¿Qué tipo de negocio tienes?</option><option value="restaurante">Restaurante / comida</option><option value="retail">Tienda / comercio</option><option value="servicios">Servicios / peluquería / consultoría</option><option value="otro">Otro negocio</option></select>
 <input id="correo" placeholder="Correo" />
 <input id="usuario" placeholder="Usuario admin" />
 <input id="password" type="password" placeholder="Contraseña" />
-<h3>Objetivos iniciales de tu empresa</h3>
-
-<input
-  id="margenObjetivo"
-  type="number"
-  min="0"
-  max="100"
-  step="0.01"
-  placeholder="Margen objetivo (%)"
-/>
-
-<input
-  id="puntoEquilibrio"
-  type="number"
-  min="0"
-  step="1"
-  placeholder="Punto de equilibrio mensual (COP)"
-/>
-
-<input
-  id="ticketObjetivo"
-  type="number"
-  min="0"
-  step="1"
-  placeholder="Ticket promedio objetivo (COP)"
-/>
-
-<input
-  id="cacMaximo"
-  type="number"
-  min="0"
-  step="1"
-  placeholder="CAC máximo (COP)"
-/>
-
-<input
-  id="empleadosActuales"
-  type="number"
-  min="0"
-  step="1"
-  placeholder="Número actual de empleados"
-/>
-<h3>Plan mensual</h3>
+<h3>Tu negocio</h3><p class="info-text" style="text-align:left">No necesitas saber de márgenes, CAC o punto de equilibrio para empezar. GRUK te ayudará a definirlos después, explicándote qué recomienda y por qué.</p><input id="empleadosActuales" type="number" min="0" step="1" placeholder="¿Cuántas personas trabajan hoy en el negocio?" /><h3>Plan mensual</h3>
 <div class="precio">$220000 COP</div>
 
 <h3>Datos de pago</h3>
@@ -271,32 +231,11 @@ const nombre = document.getElementById("nombre").value.trim();
 const correo = document.getElementById("correo").value.trim();
 const usuario = document.getElementById("usuario").value.trim();
 const password = document.getElementById("password").value.trim();
-const margenObjetivo =
-  document.getElementById("margenObjetivo").value.trim();
-
-const puntoEquilibrio =
-  document.getElementById("puntoEquilibrio").value.trim();
-
-const ticketObjetivo =
-  document.getElementById("ticketObjetivo").value.trim();
-
-const cacMaximo =
-  document.getElementById("cacMaximo").value.trim();
-
+const tipoNegocio = document.getElementById("tipoNegocio").value;
 const empleadosActuales =
   document.getElementById("empleadosActuales").value.trim();
 
-if (
-  margenObjetivo === "" ||
-  puntoEquilibrio === "" ||
-  ticketObjetivo === "" ||
-  cacMaximo === "" ||
-  empleadosActuales === ""
-) {
-  throw new Error(
-    "Completa los objetivos iniciales de la empresa"
-  );
-}
+if (!tipoNegocio || empleadosActuales === "") { throw new Error("Cuéntanos el tipo de negocio y cuántas personas trabajan hoy"); }
 
 const cardNumber = document.getElementById("cardNumber").value.trim();
 const expMonth = document.getElementById("expMonth").value.trim();
@@ -305,7 +244,7 @@ const cvc = document.getElementById("cvc").value.trim();
 const cardName = document.getElementById("cardName").value.trim();
 
 if (!nombre || !correo || !usuario || !password) {
-throw new Error("Completa los datos del restaurante");
+throw new Error("Completa los datos de tu negocio");
 }
 
 if (!cardNumber || !expMonth || !expYear || !cvc || !cardName) {
@@ -352,7 +291,7 @@ throw new Error("Error tokenizando tarjeta");
 
 const paymentMethodToken = tokenData.data.id;
 
-estado.innerHTML = "Creando restaurante...";
+estado.innerHTML = "Creando tu negocio en GRUK...";
 
 const res = await fetch("/api/registro-y-fuente-pago", {
 method: "POST",
@@ -364,10 +303,7 @@ nombre,
 correo,
 usuario,
 password,
-margen_objetivo: margenObjetivo,
-punto_equilibrio: puntoEquilibrio,
-ticket_objetivo: ticketObjetivo,
-cac_maximo: cacMaximo,
+tipoNegocio,
 empleados_actuales: empleadosActuales,
 acceptanceToken,
 paymentMethodToken,
@@ -382,7 +318,7 @@ console.log("Respuesta backend:", data);
 throw new Error(data.error || "Error en el servidor");
 }
 
-estado.innerHTML = "<span class='ok'>Restaurante creado ✅ Redirigiendo al pago...</span>";
+estado.innerHTML = "<span class='ok'>Negocio creado ✅ Redirigiendo al pago...</span>";
 
 sessionStorage.setItem("registro_usuario", usuario);
 sessionStorage.setItem("registro_password", password);

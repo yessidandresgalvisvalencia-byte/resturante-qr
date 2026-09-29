@@ -2962,27 +2962,14 @@ router.post("/registro-y-fuente-pago", async (req, res) => {
       punto_equilibrio,
       ticket_objetivo,
       cac_maximo,
-      empleados_actuales
+      empleados_actuales,
+      tipoNegocio
     } = req.body;
-    const {
-      error: errorObjetivos,
-      value: objetivosEmpresa
-    } = validarObjetivosEmpresa({
-      margen_objetivo,
-      punto_equilibrio,
-      ticket_objetivo,
-      cac_maximo,
-      empleados_actuales
-    });
-
-    if (errorObjetivos) {
-      return res.status(400).json({
-        ok: false,
-        error: "Objetivos empresariales inválidos",
-        detalles: errorObjetivos.details.map(
-          (detalle) => detalle.message
-        )
-      });
+    const tiposPermitidos = ["restaurante", "retail", "servicios", "otro"];
+    const tipoNegocioNormalizado = tiposPermitidos.includes(String(tipoNegocio || "").toLowerCase()) ? String(tipoNegocio).toLowerCase() : "otro";
+    const empleadosNormalizados = Number(empleados_actuales);
+    if (!Number.isInteger(empleadosNormalizados) || empleadosNormalizados < 0) {
+      return res.status(400).json({ ok: false, error: "Número de empleados inválido" });
     }
     const wompiPublicKey = process.env.WOMPI_PUBLIC_KEY;
     const wompiPrivateKey = process.env.WOMPI_PRIVATE_KEY;
@@ -3038,25 +3025,27 @@ const passwordHash = await bcrypt.hash(password, 12);
 const nuevaEmpresa = await Empresa.create({
   empresaId: `emp_${Date.now()}`,
   nombre,
-  tipoNegocio: "restaurante",
+  tipoNegocio: tipoNegocioNormalizado,
     correo,
   estado: "activa",
 
   configuracion: {
-    margen_objetivo: objetivosEmpresa.margen_objetivo,
-    punto_equilibrio: objetivosEmpresa.punto_equilibrio,
-    ticket_objetivo: objetivosEmpresa.ticket_objetivo,
-    cac_maximo: objetivosEmpresa.cac_maximo,
-    empleados_actuales: objetivosEmpresa.empleados_actuales
+    margen_objetivo: null,
+    punto_equilibrio: null,
+    ticket_objetivo: null,
+    cac_maximo: null,
+    empleados_actuales: empleadosNormalizados
   },
 
   modulos: {
-    restaurante: true,
+    restaurante: tipoNegocioNormalizado === "restaurante",
     inventario: true,
     finanzas: true,
     facturacion: true,
-    laboral: true,
-    inteligencia: true
+    laboral: empleadosNormalizados > 15,
+    inteligencia: true,
+    gente: empleadosNormalizados > 15,
+    servicio_cliente: false
   }
 });
 

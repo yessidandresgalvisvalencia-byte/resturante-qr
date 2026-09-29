@@ -393,6 +393,41 @@ function pintarEstadoConfiguracionInteligenciaGRUK(
   `;
 }
 
+function pintarGuiaEmpresarialGRUK(configuracion) {
+  const contenedor = document.getElementById("guiaConfiguracionGRUK");
+  if (!contenedor) return;
+
+  const faltantes = Array.isArray(configuracion?.faltantes) ? configuracion.faltantes : [];
+  if (!faltantes.length) {
+    contenedor.innerHTML = `
+      <div class="card">
+        <h3>GRUK ya tiene la base para orientarte</h3>
+        <p>Ahora puede comparar lo que ocurre en tu negocio con tus objetivos. Cuando detecte una desviación, debe explicarte qué recomienda, por qué y cómo medir si funcionó.</p>
+      </div>`;
+    return;
+  }
+
+  const explicaciones = {
+    margen_objetivo: ["Margen objetivo", "Sirve para saber cuánto debe quedar después del costo directo de vender.", "Primero necesitamos costos confiables. No voy a inventarte un porcentaje universal."],
+    punto_equilibrio: ["Punto de equilibrio", "Te dice cuánto necesitas vender para cubrir la estructura del negocio.", "Se construye con tus costos fijos y tu margen real; no con una cifra genérica."],
+    ticket_objetivo: ["Ticket objetivo", "Permite saber cuánto debería dejar, en promedio, cada venta.", "GRUK puede ayudarte a definirlo comparando tu ticket real, mezcla y meta comercial."],
+    cac_maximo: ["Costo máximo por cliente", "Evita gastar en marketing más de lo que económicamente soporta cada cliente.", "Antes de recomendarlo necesito margen, recurrencia y atribución de ventas."],
+    empleados_actuales: ["Personas del negocio", "Permite entender capacidad y activar funciones como Gente cuando realmente hacen falta.", "Este dato sí puedes indicarlo directamente: cuántas personas trabajan hoy."]
+  };
+
+  const tarjetas = faltantes.map((item) => {
+    const e = explicaciones[item.campo] || [item.etiqueta, "GRUK necesita este dato para analizar mejor tu empresa.", "Te explicaré cómo obtenerlo antes de pedirte que lo configures."];
+    return `<div class="card"><h3>${escaparConfiguracionGRUK(e[0])}</h3><p><strong>¿Por qué te lo pido?</strong> ${escaparConfiguracionGRUK(e[1])}</p><p><strong>Mi recomendación:</strong> ${escaparConfiguracionGRUK(e[2])}</p></div>`;
+  }).join("");
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <h3>No tienes que llenar todo a ciegas</h3>
+      <p>Faltan ${faltantes.length} referencias. GRUK no las tratará como errores ni inventará valores. Te irá guiando para obtenerlas con datos reales.</p>
+    </div>
+    ${tarjetas}`;
+}
+
 function cargarValoresConfiguracionInteligenciaGRUK(
   valores
 ) {
@@ -449,6 +484,8 @@ async function cargarConfiguracionInteligenciaGRUK() {
   pintarEstadoConfiguracionInteligenciaGRUK(
     data.configuracion
   );
+
+  pintarGuiaEmpresarialGRUK(data.configuracion);
 
   return data.configuracion;
 }
@@ -579,6 +616,8 @@ async function guardarConfiguracionInteligenciaGRUK() {
     pintarEstadoConfiguracionInteligenciaGRUK(
       data.configuracion
     );
+
+    pintarGuiaEmpresarialGRUK(data.configuracion);
 
     if (estado) {
       estado.insertAdjacentHTML(

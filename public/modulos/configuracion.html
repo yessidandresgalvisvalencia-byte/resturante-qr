@@ -1,119 +1,20 @@
 <div class="card">
-  <h1>⚙ Configuración GRUK</h1>
-  <p>Parámetros generales y financieros del restaurante.</p>
+  <h1>⚙ Configuración guiada por GRUK</h1>
+  <p>No tienes que convertirte en analista para configurar tu empresa. GRUK te muestra qué necesita aprender, para qué sirve y te acompaña paso a paso.</p>
 </div>
 
 <div class="card">
-  <h2>🧠 Configuración base de Inteligencia</h2>
-
-  <p>
-    Estos cinco datos permiten que las neuronas comparen resultados reales contra objetivos reales de tu empresa.
-    Si faltan, GRUK debe mostrarlos como preparación pendiente, no como una falla operativa.
-  </p>
-
-  <div id="estadoConfiguracionInteligenciaGRUK">
-    <p>Cargando configuración empresarial...</p>
-  </div>
-
-  <label>Margen objetivo (%)</label>
-  <input
-    id="configInteligenciaMargen"
-    type="number"
-    min="0"
-    max="100"
-    step="0.01"
-    placeholder="Ej: 35"
-  >
-
-  <label>Punto de equilibrio mensual (COP)</label>
-  <input
-    id="configInteligenciaPuntoEquilibrio"
-    type="number"
-    min="0"
-    step="1"
-    placeholder="Ej: 15000000"
-  >
-
-  <label>Ticket objetivo (COP)</label>
-  <input
-    id="configInteligenciaTicket"
-    type="number"
-    min="0"
-    step="1"
-    placeholder="Ej: 35000"
-  >
-
-  <label>CAC máximo aceptable (COP)</label>
-  <input
-    id="configInteligenciaCAC"
-    type="number"
-    min="0"
-    step="1"
-    placeholder="Ej: 12000"
-  >
-
-  <label>Empleados actuales</label>
-  <input
-    id="configInteligenciaEmpleados"
-    type="number"
-    min="0"
-    step="1"
-    placeholder="Ej: 8"
-  >
-
-  <button onclick="guardarConfiguracionInteligenciaGRUK()">
-    Guardar configuración base
-  </button>
-
-  <p>
-    <small>
-      GRUK no inventa estos objetivos. Deben representar lo que realmente quieres operar y medir.
-    </small>
-  </p>
-</div>
-
-<div class="card">
-
-<h3>⚙️ Configuración Financiera GRUK</h3>
-
-<label>Variación de costos de insumos</label>
-<select id="riesgoInsumos">
-  <option value="bajo">Baja</option>
-  <option value="medio">Media</option>
-  <option value="alto">Alta</option>
-</select>
-
-<label>Frecuencia de descuentos/promociones</label>
-<select id="riesgoDescuentos">
-  <option value="bajo">Casi nunca</option>
-  <option value="medio">Algunas veces</option>
-  <option value="alto">Frecuente</option>
-</select>
-
-<label>Riesgo de desperdicio o vencimiento</label>
-<select id="riesgoDesperdicio">
-  <option value="bajo">Bajo</option>
-  <option value="medio">Medio</option>
-  <option value="alto">Alto</option>
-</select>
-
-<button onclick="recomendarMargenSeguridad()">
-  GRUK recomendar margen de seguridad
-</button>
-
-<label>Margen de Seguridad (MS)</label>
-<input
-  id="margenSeguridadGeneral"
-  type="number"
-  step="0.01"
-  value="0.02"
-  placeholder="Ej: 0.02"
->
-
-<button onclick="guardarConfiguracionFinanciera()">
-  Guardar configuración financiera
-</button>
-
-<div id="estadoConfiguracionFinanciera"></div>
-
+  <h2>🧠 Tu guía empresarial</h2>
+  <div id="estadoConfiguracionInteligenciaGRUK"><p>GRUK está revisando qué conoce de tu negocio...</p></div>
+  <div id="guiaConfiguracionGRUK"></div>
+  <details style="margin-top:18px">
+    <summary><strong>Quiero ajustar los datos manualmente</strong></summary>
+    <p><small>Úsalo solo si ya conoces estas cifras. Si no, deja que GRUK te explique primero qué necesita.</small></p>
+    <label>Margen objetivo (%)</label><input id="configInteligenciaMargen" type="number" min="0" max="100" step="0.01">
+    <label>Punto de equilibrio mensual (COP)</label><input id="configInteligenciaPuntoEquilibrio" type="number" min="0" step="1">
+    <label>Ticket objetivo (COP)</label><input id="configInteligenciaTicket" type="number" min="0" step="1">
+    <label>CAC máximo aceptable (COP)</label><input id="configInteligenciaCAC" type="number" min="0" step="1">
+    <label>Empleados actuales</label><input id="configInteligenciaEmpleados" type="number" min="0" step="1">
+    <button onclick="guardarConfiguracionInteligenciaGRUK()">Guardar datos</button>
+  </details>
 </div>
