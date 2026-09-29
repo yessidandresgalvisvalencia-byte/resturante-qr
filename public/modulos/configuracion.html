@@ -10,10 +10,10 @@
   <details style="margin-top:18px">
     <summary><strong>Quiero ajustar los datos manualmente</strong></summary>
     <p><small>Úsalo solo si ya conoces estas cifras. Si no, deja que GRUK te explique primero qué necesita.</small></p>
-    <label>Margen objetivo (%)</label><input id="configInteligenciaMargen" type="number" min="0" max="100" step="0.01">
-    <label>Punto de equilibrio mensual (COP)</label><input id="configInteligenciaPuntoEquilibrio" type="number" min="0" step="1">
-    <label>Ticket objetivo (COP)</label><input id="configInteligenciaTicket" type="number" min="0" step="1">
-    <label>CAC máximo aceptable (COP)</label><input id="configInteligenciaCAC" type="number" min="0" step="1">
+    <label>Margen objetivo (%)</label><p><small><strong>¿Qué significa?</strong> Es el porcentaje que quieres conservar de cada venta después de cubrir su costo directo.</small></p><input id="configInteligenciaMargen" type="number" min="0" max="100" step="0.01">
+    <label>Punto de equilibrio mensual (COP)</label><p><small><strong>¿Qué significa?</strong> Es cuánto necesita vender el negocio en el mes para cubrir sus costos y gastos sin perder dinero.</small></p><input id="configInteligenciaPuntoEquilibrio" type="number" min="0" step="1">
+    <label>Ticket objetivo (COP)</label><p><small><strong>¿Qué significa?</strong> Es cuánto quieres que compre, en promedio, cada cliente o cada venta.</small></p><input id="configInteligenciaTicket" type="number" min="0" step="1">
+    <label>CAC máximo aceptable (COP)</label><p><small><strong>CAC = costo de adquirir un cliente.</strong> Es el máximo que aceptarías gastar en marketing y ventas para conseguir un cliente nuevo.</small></p><input id="configInteligenciaCAC" type="number" min="0" step="1">
     <label>Empleados actuales</label><input id="configInteligenciaEmpleados" type="number" min="0" step="1">
     <button onclick="guardarConfiguracionInteligenciaGRUK()">Guardar datos</button>
   </details>
