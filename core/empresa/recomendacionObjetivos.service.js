@@ -1,27 +1,31 @@
 "use strict";
-const mongoose=require("mongoose");
-const Empresa=require("../../models/Empresa");
+const mongoose=require("mongoose"),Empresa=require("../../models/Empresa"),Cliente=require("../../models/Cliente");
 const {obtenerResumenVentas,obtenerResumenGastos}=require("../finanzas/finanzas.service");
-function inicioMes(d){return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1));}
-function finMes(d){return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1));}
-async function recomendarMargenObjetivo(empresaId){
- if(!mongoose.Types.ObjectId.isValid(empresaId))throw Object.assign(new Error("empresaId inválido"),{statusCode:400});
- const empresa=await Empresa.findById(empresaId).select("_id configuracion.margen_objetivo").lean();
- if(!empresa)throw Object.assign(new Error("Empresa no encontrada"),{statusCode:404});
- if(empresa.configuracion?.margen_objetivo!=null)return{campo:"margen_objetivo",estado:"YA_CONFIGURADO",valor:Number(empresa.configuracion.margen_objetivo),departamento:"FINANZAS",confianza:100};
- const ahora=new Date(),desde=inicioMes(ahora),hasta=finMes(ahora);
- const [v,g]=await Promise.all([obtenerResumenVentas({empresaId:empresa._id,desde,hasta}),obtenerResumenGastos({empresaId:empresa._id,desde,hasta})]);
- const cobertura=Number(v.coberturaCostoPorcentaje||0),margen=Number(v.margenBrutoConfiable);
- if(v.ventasTotales<10||cobertura<80||!Number.isFinite(margen)||v.ingresosConCostoConfiable<=0){
-  return{campo:"margen_objetivo",estado:"EVIDENCIA_INSUFICIENTE",valor:null,departamento:"FINANZAS",confianza:Math.round(cobertura),que:"Todavía no recomiendo un margen objetivo numérico.",por_que:"Necesito al menos 10 ventas del periodo y costos confiables en 80% o más de las ventas para que la base no sea engañosa.",como:"Finanzas mide ventas pagadas y solo usa costos congelados como confiables.",para_que:"Evitar fijar precios o metas de rentabilidad sobre costos incompletos.",datos:{ventas:v.ventasTotales,cobertura_costos:cobertura}};
+const err=(s,m)=>Object.assign(new Error(m),{statusCode:s});
+function periodo(){const d=new Date();return{desde:new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)),hasta:new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1))};}
+async function recomendarObjetivos(empresaId){
+ if(!mongoose.Types.ObjectId.isValid(empresaId))throw err(400,"empresaId inválido");
+ const empresa=await Empresa.findById(empresaId).select("_id configuracion").lean();if(!empresa)throw err(404,"Empresa no encontrada");
+ const {desde,hasta}=periodo(),[v,g,nuevosClientes]=await Promise.all([obtenerResumenVentas({empresaId:empresa._id,desde,hasta}),obtenerResumenGastos({empresaId:empresa._id,desde,hasta}),Cliente.countDocuments({empresaId:empresa._id,deletedAt:null,primeraCompraAt:{$gte:desde,$lt:hasta}})]);
+ const cfg=empresa.configuracion||{},out=[],cob=Number(v.coberturaCostoPorcentaje||0),margen=Number(v.margenBrutoConfiable),ing=Number(v.ingresosConCostoConfiable||0),gastos=Number(g.montoGastosRegistrados||0);
+ if(cfg.margen_objetivo==null){
+  if(v.ventasTotales>=10&&cob>=80&&Number.isFinite(margen)&&ing>0){const carga=gastos/ing*100,col=Math.min(10,Math.max(2,carga*.15)),valor=Math.min(100,Number((margen+col).toFixed(2)));out.push({campo:"margen_objetivo",departamento:"FINANZAS",estado:"RECOMENDADO",valor,confianza:Math.min(95,Math.round(cob)),que:`Recomiendo un margen objetivo inicial de ${valor}%.`,como:`Margen bruto confiable observado ${margen.toFixed(2)}% + colchón prudente ${col.toFixed(2)} puntos según gastos registrados.`,por_que:"Copiar el margen actual no crea una meta; el objetivo necesita espacio para sostener estructura y absorber desviaciones.",para_que:"Detectar deterioro de rentabilidad y orientar precios y costos.",como_medir:"Margen bruto confiable y cobertura de costos mensualmente."});}
+  else out.push({campo:"margen_objetivo",departamento:"FINANZAS",estado:"EVIDENCIA_INSUFICIENTE",valor:null,confianza:Math.round(cob),que:"Aún no recomiendo un margen numérico.",por_que:"Necesito mínimo 10 ventas y 80% de costos confiables.",como:"Registrar costos reales de las ventas.",para_que:"Evitar una meta financiera falsa."});
  }
- const gastos=Number(g.montoGastosRegistrados||0),ingresos=Number(v.ingresosConCostoConfiable||0);
- const cargaGastos=ingresos>0?(gastos/ingresos)*100:0;
- // Objetivo inicial = margen bruto observado + colchón basado únicamente en gastos registrados no absorbidos.
- // El colchón se limita para no fabricar una meta agresiva con un solo mes.
- const colchón=Math.min(10,Math.max(2,cargaGastos*0.15));
- const recomendado=Math.min(100,Number((margen+colchón).toFixed(2)));
- const confianza=Math.min(95,Math.round(cobertura));
- return{campo:"margen_objetivo",estado:"RECOMENDADO",valor:recomendado,departamento:"FINANZAS",confianza,que:`Finanzas recomienda un margen objetivo inicial de ${recomendado}%.`,como:`Partí del margen bruto confiable observado (${margen.toFixed(2)}%) y añadí un colchón prudente de ${colchón.toFixed(2)} puntos basado en la carga de gastos registrados, limitado a 10 puntos para no sobrerreaccionar a un solo periodo.`,por_que:"El margen objetivo debe dejar espacio para sostener la estructura del negocio; copiar exactamente el margen actual no crea una meta de mejora.",para_que:"Dar a GRUK una referencia inicial defendible para detectar deterioro de rentabilidad y orientar precios/costos.",como_medir:"Revisar margen bruto confiable, cobertura de costos y gastos sobre ingresos cada mes.",datos:{ventas:v.ventasTotales,cobertura_costos:cobertura,margen_observado:margen,gastos_registrados:gastos,ingresos_con_costo_confiable:ingresos,carga_gastos_porcentaje:Number(cargaGastos.toFixed(2))}};
+ if(cfg.punto_equilibrio==null){
+  if(v.ventasTotales>=10&&cob>=80&&Number.isFinite(margen)&&margen>0&&gastos>0){const ratio=margen/100,valor=Math.round(gastos/ratio);out.push({campo:"punto_equilibrio",departamento:"FINANZAS",estado:"RECOMENDADO",valor,confianza:Math.min(90,Math.round(cob)),que:`Recomiendo un punto de equilibrio inicial de ${valor.toLocaleString("es-CO")} COP mensuales.`,como:"Dividí los gastos registrados del periodo entre el margen bruto confiable observado.",por_que:"Ese cálculo estima las ventas necesarias para generar margen bruto suficiente para cubrir los gastos hoy registrados.",para_que:"Saber desde qué nivel de ventas el negocio empieza a cubrir su estructura registrada.",como_medir:"Actualizar mensualmente gastos y margen. Si faltan gastos fijos, esta referencia debe subir."});}
+  else out.push({campo:"punto_equilibrio",departamento:"FINANZAS",estado:"EVIDENCIA_INSUFICIENTE",valor:null,confianza:Math.round(cob),que:"Aún no puedo recomendar el punto de equilibrio.",por_que:"Necesito gastos registrados y margen confiable con cobertura suficiente.",como:"Completar costos de venta y gastos del negocio.",para_que:"No confundir ventas altas con haber cubierto la estructura."});
+ }
+ if(cfg.ticket_objetivo==null){
+  if(v.ventasTotales>=10&&v.ingresosTotales>0){const actual=v.ingresosTotales/v.ventasTotales,valor=Math.round(actual*1.05);out.push({campo:"ticket_objetivo",departamento:"VENTAS",estado:"RECOMENDADO",valor,confianza:Math.min(90,60+Math.min(30,v.ventasTotales)),que:`Recomiendo un ticket objetivo inicial de ${valor.toLocaleString("es-CO")} COP.`,como:`El ticket observado es ${Math.round(actual).toLocaleString("es-CO")} COP; propongo una mejora inicial prudente del 5% para convertir el dato observado en una meta comercial.`,por_que:"Usar exactamente el promedio actual como objetivo no exige mejora; un primer escalón pequeño permite probar venta adicional sin asumir una demanda que no conocemos.",para_que:"Medir si combos, venta complementaria o mezcla comercial elevan el valor de cada venta.",como_medir:"Ticket promedio semanal y mensual contra esta referencia."});}
+  else out.push({campo:"ticket_objetivo",departamento:"VENTAS",estado:"EVIDENCIA_INSUFICIENTE",valor:null,confianza:0,que:"Aún no recomiendo ticket objetivo.",por_que:"Necesito al menos 10 ventas pagadas para tener una base comercial mínima.",como:"GRUK lo calculará automáticamente al acumular ventas.",para_que:"Evitar una meta basada en una muestra demasiado pequeña."});
+ }
+ if(cfg.cac_maximo==null){
+  const margenBase=Number.isFinite(margen)&&cob>=80?margen:null;
+  if(nuevosClientes>=5&&margenBase!==null&&v.ventasTotales>0){const ticket=v.ingresosTotales/v.ventasTotales,contrib=ticket*(margenBase/100),valor=Math.max(0,Math.round(contrib*.25));out.push({campo:"cac_maximo",departamento:"MARKETING",estado:"RECOMENDADO",valor,confianza:Math.min(85,Math.round((cob+Math.min(100,nuevosClientes*10))/2)),que:`Recomiendo un CAC máximo provisional de ${valor.toLocaleString("es-CO")} COP.`,como:"Tomé el margen bruto confiable de una venta promedio y limité adquisición al 25% de esa contribución como techo inicial conservador.",por_que:"Aún no existe atribución canónica del gasto de marketing; por eso esto es un límite económico provisional, no un CAC observado.",para_que:"Evitar pagar por adquirir un cliente más de lo que una primera compra puede soportar prudentemente.",como_medir:"Cuando Marketing tenga gasto atribuible y clientes nuevos atribuibles, reemplazar este techo provisional por CAC real y recurrencia."});}
+  else out.push({campo:"cac_maximo",departamento:"MARKETING",estado:"EVIDENCIA_INSUFICIENTE",valor:null,confianza:0,que:"Aún no recomiendo un CAC máximo numérico.",por_que:"Necesito margen confiable y clientes nuevos identificables. El sistema todavía no tiene atribución canónica de gasto de marketing.",como:"Registrar identidad de clientes y, después, gasto de adquisición atribuible.",para_que:"No disfrazar un supuesto de marketing como CAC real."});
+ }
+ return{periodo:{desde,hasta},recomendaciones:out};
 }
-module.exports={recomendarMargenObjetivo};
+async function recomendarMargenObjetivo(id){const r=await recomendarObjetivos(id);return r.recomendaciones.find(x=>x.campo==="margen_objetivo")||{campo:"margen_objetivo",estado:"YA_CONFIGURADO",departamento:"FINANZAS",confianza:100};}
+module.exports={recomendarObjetivos,recomendarMargenObjetivo};

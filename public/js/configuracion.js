@@ -691,24 +691,15 @@ window.guardarConfiguracionInteligenciaGRUK =
   guardarConfiguracionInteligenciaGRUK;
 
 async function autorizarCompletarGRUK(){
- const boton=document.getElementById("btnCompletarGRUK"),out=document.getElementById("resultadoCompletarGRUK");
- if(boton)boton.disabled=true;if(out)out.innerHTML="<p>GRUK está revisando qué puede calcular sin inventar datos...</p>";
+ const boton=document.getElementById("btnCompletarGRUK"),out=document.getElementById("resultadoCompletarGRUK");if(boton)boton.disabled=true;if(out)out.innerHTML="<p>Los expertos GRUK están construyendo referencias responsables...</p>";
  try{
-  const [cfgRes,juntaRes,recRes]=await Promise.all([grukFetch("/api/configuracion-inteligencia"),grukFetch("/api/junta/viva"),grukFetch("/api/configuracion-inteligencia/recomendaciones")]);
-  const cfgData=await cfgRes.json(),juntaData=await juntaRes.json(),recData=await recRes.json();
-  if(!cfgRes.ok||!cfgData.ok)throw new Error(cfgData.error||"No fue posible leer la configuración.");
-  const cfg=cfgData.configuracion||{},valores={...(cfg.valores||{})},faltantes=new Set((cfg.faltantes||[]).map(x=>x.campo)),estado=juntaData.estado||{},reps=Array.isArray(estado.reportesNeuronas)?estado.reportesNeuronas:[];
-  const completados=[],pendientes=[]; const rec=recData?.recomendacion; if(faltantes.has("margen_objetivo")&&rec?.estado==="RECOMENDADO"&&Number.isFinite(Number(rec.valor))){valores.margen_objetivo=Number(rec.valor);completados.push("Margen objetivo: "+rec.valor+"% recomendado por FINANZAS con confianza "+rec.confianza+"%. "+rec.por_que);} else if(faltantes.has("margen_objetivo")&&rec?.estado==="EVIDENCIA_INSUFICIENTE"){pendientes.push("Margen objetivo — "+rec.por_que); faltantes.delete("margen_objetivo");}
-  const venta=reps.find(x=>x.neurona==="VENTAS"&&x.evaluabilidad==="EVALUABLE"&&Number.isFinite(Number(x.valorActual)));
-  if(faltantes.has("ticket_objetivo")&&venta){valores.ticket_objetivo=Number(venta.valorActual);completados.push("Ticket objetivo: se tomó el ticket promedio real medido por Ventas como referencia inicial.");}
-  // No inferimos margen objetivo desde margen actual: convertir desempeño observado en objetivo sería una decisión empresarial, no un cálculo.
-  for(const f of (cfg.faltantes||[])){if(!completados.some(x=>x.toLowerCase().startsWith(String(f.etiqueta||"").toLowerCase().split(" ")[0]))){pendientes.push(f.etiqueta);}}
-  const requeridos=["margen_objetivo","punto_equilibrio","ticket_objetivo","cac_maximo","empleados_actuales"];
-  const listo=requeridos.every(k=>Number.isFinite(Number(valores[k])));
-  if(completados.length&&listo){
-   const save=await grukFetch("/api/configuracion-inteligencia",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(valores)});const sd=await save.json();if(!save.ok||!sd.ok)throw new Error(sd.error||"No fue posible guardar.");
-   await cargarConfiguracionInteligenciaGRUK();
-  }
-  if(out)out.innerHTML='<div class="card"><h3>Resultado de la autorización</h3>'+(completados.length?'<p><strong>GRUK pudo derivar:</strong></p><ul>'+completados.map(x=>'<li>'+escaparConfiguracionGRUK(x)+'</li>').join("")+'</ul>':'<p><strong>Hoy no hay un dato faltante que GRUK pueda completar de forma segura.</strong></p>')+(pendientes.length?'<p><strong>Aún necesita decisión o información humana:</strong> '+pendientes.map(escaparConfiguracionGRUK).join(", ")+'. GRUK no pondrá ceros ni porcentajes genéricos para desbloquear Inteligencia.</p>':'')+'<p><strong>Regla:</strong> autorizar no significa permitir que GRUK invente. Significa permitirle usar cálculos verificables como punto de partida.</p></div>';
+  const [cr,rr]=await Promise.all([grukFetch("/api/configuracion-inteligencia"),grukFetch("/api/configuracion-inteligencia/recomendaciones")]),cd=await cr.json(),rd=await rr.json();
+  if(!cr.ok||!cd.ok)throw new Error(cd.error||"No fue posible leer configuración");if(!rr.ok||!rd.ok)throw new Error(rd.error||"No fue posible construir recomendaciones");
+  const valores={...(cd.configuracion?.valores||{})},recs=rd.recomendacion?.recomendaciones||[],aplicadas=[],pendientes=[];
+  for(const r of recs){if(r.estado==="RECOMENDADO"&&Number.isFinite(Number(r.valor))){valores[r.campo]=Number(r.valor);aplicadas.push(r);}else pendientes.push(r);}
+  const campos=["margen_objetivo","punto_equilibrio","ticket_objetivo","cac_maximo","empleados_actuales"],listo=campos.every(k=>Number.isFinite(Number(valores[k])));
+  if(listo&&aplicadas.length){const sr=await grukFetch("/api/configuracion-inteligencia",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(valores)}),sd=await sr.json();if(!sr.ok||!sd.ok)throw new Error(sd.error||"No fue posible guardar recomendaciones");await cargarConfiguracionInteligenciaGRUK();}
+  const card=r=>'<div class="card"><p><strong>ATTE. '+escaparConfiguracionGRUK(r.departamento)+' GRUK</strong></p><p><strong>'+escaparConfiguracionGRUK(r.que)+'</strong></p><p><strong>Cómo:</strong> '+escaparConfiguracionGRUK(r.como)+'</p><p><strong>Por qué:</strong> '+escaparConfiguracionGRUK(r.por_que)+'</p><p><strong>Para qué:</strong> '+escaparConfiguracionGRUK(r.para_que)+'</p><p><strong>Confianza:</strong> '+Number(r.confianza||0)+'%</p>'+(r.como_medir?'<p><strong>Cómo lo mediremos:</strong> '+escaparConfiguracionGRUK(r.como_medir)+'</p>':'')+'</div>';
+  if(out)out.innerHTML=(aplicadas.length?'<h3>Referencias recomendadas por GRUK</h3>'+aplicadas.map(card).join(""):'')+(pendientes.length?'<h3>Lo que GRUK todavía necesita aprender</h3>'+pendientes.map(card).join(""):'')+(!listo&&aplicadas.length?'<p><strong>Importante:</strong> las recomendaciones se muestran, pero no se guardaron todavía porque aún faltan referencias obligatorias. GRUK no rellenará las restantes con cero.</p>':'');
  }catch(e){if(out)out.innerHTML='<p>⚠️ '+escaparConfiguracionGRUK(e.message)+'</p>';}finally{if(boton)boton.disabled=false}
 }
