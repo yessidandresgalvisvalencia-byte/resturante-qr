@@ -399,10 +399,36 @@ function pintarGuiaEmpresarialGRUK(configuracion) {
 
   const faltantes = Array.isArray(configuracion?.faltantes) ? configuracion.faltantes : [];
   if (!faltantes.length) {
+    const valores = configuracion?.valores || {};
+    const moneda = (valor) => Number(valor || 0).toLocaleString("es-CO", { maximumFractionDigits: 0 });
     contenedor.innerHTML = `
       <div class="card">
         <h3>GRUK ya tiene la base para orientarte</h3>
-        <p>Ahora puede comparar lo que ocurre en tu negocio con tus objetivos. Cuando detecte una desviación, debe explicarte qué recomienda, por qué y cómo medir si funcionó.</p>
+        <p>Ahora puedo comparar lo que ocurre en tu negocio con las referencias que configuraste. No son números decorativos: cada una tiene un trabajo concreto.</p>
+      </div>
+      <div class="card">
+        <h3>Qué hice</h3>
+        <p>Organicé cinco referencias empresariales: margen objetivo <strong>${escaparConfiguracionGRUK(valores.margen_objetivo)}%</strong>, punto de equilibrio <strong>${moneda(valores.punto_equilibrio)}</strong>, ticket objetivo <strong>${moneda(valores.ticket_objetivo)}</strong>, CAC máximo <strong>${moneda(valores.cac_maximo)}</strong> y <strong>${escaparConfiguracionGRUK(valores.empleados_actuales)}</strong> personas.</p>
+      </div>
+      <div class="card">
+        <h3>Cómo lo hice</h3>
+        <p>Convertí esos datos en referencias de control. Finanzas puede contrastar rentabilidad y equilibrio; Ventas, el valor promedio vendido; Marketing, cuánto cuesta adquirir un cliente; y GRUK puede entender mejor el tamaño operativo del negocio.</p>
+      </div>
+      <div class="card">
+        <h3>Por qué lo hice</h3>
+        <p>Un número aislado no dice si el negocio va bien. Vender más no garantiza ganar más, y tener utilidad no garantiza tener caja. Estas referencias permiten comparar resultados reales contra objetivos explícitos.</p>
+      </div>
+      <div class="card">
+        <h3>Para qué te sirve</h3>
+        <p>Para que GRUK pueda pasar de mostrar datos a explicarte situaciones concretas: qué se está desviando, qué merece atención y qué acción empresarial conviene evaluar.</p>
+      </div>
+      <div class="card">
+        <h3>Resultado esperado</h3>
+        <p>Que recibas recomendaciones entendibles y accionables en lugar de tener que interpretar reportes por tu cuenta. Si los datos reales no son suficientes, GRUK debe decirlo antes de recomendar.</p>
+      </div>
+      <div class="card">
+        <h3>Cómo lo mediremos</h3>
+        <p>Cada recomendación deberá quedar asociada a un KPI. Después compararemos el resultado real con la referencia correspondiente para saber si la acción mejoró, empeoró o no produjo un cambio medible.</p>
       </div>`;
     return;
   }
