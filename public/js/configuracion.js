@@ -689,3 +689,26 @@ async function inicializarConfiguracionGRUK() {
 
 window.guardarConfiguracionInteligenciaGRUK =
   guardarConfiguracionInteligenciaGRUK;
+
+async function autorizarCompletarGRUK(){
+ const boton=document.getElementById("btnCompletarGRUK"),out=document.getElementById("resultadoCompletarGRUK");
+ if(boton)boton.disabled=true;if(out)out.innerHTML="<p>GRUK está revisando qué puede calcular sin inventar datos...</p>";
+ try{
+  const [cfgRes,juntaRes]=await Promise.all([grukFetch("/api/configuracion-inteligencia"),grukFetch("/api/junta/viva")]);
+  const cfgData=await cfgRes.json(),juntaData=await juntaRes.json();
+  if(!cfgRes.ok||!cfgData.ok)throw new Error(cfgData.error||"No fue posible leer la configuración.");
+  const cfg=cfgData.configuracion||{},valores={...(cfg.valores||{})},faltantes=new Set((cfg.faltantes||[]).map(x=>x.campo)),estado=juntaData.estado||{},reps=Array.isArray(estado.reportesNeuronas)?estado.reportesNeuronas:[];
+  const completados=[],pendientes=[];
+  const venta=reps.find(x=>x.neurona==="VENTAS"&&x.evaluabilidad==="EVALUABLE"&&Number.isFinite(Number(x.valorActual)));
+  if(faltantes.has("ticket_objetivo")&&venta){valores.ticket_objetivo=Number(venta.valorActual);completados.push("Ticket objetivo: se tomó el ticket promedio real medido por Ventas como referencia inicial.");}
+  // No inferimos margen objetivo desde margen actual: convertir desempeño observado en objetivo sería una decisión empresarial, no un cálculo.
+  for(const f of (cfg.faltantes||[])){if(!completados.some(x=>x.toLowerCase().startsWith(String(f.etiqueta||"").toLowerCase().split(" ")[0]))){pendientes.push(f.etiqueta);}}
+  const requeridos=["margen_objetivo","punto_equilibrio","ticket_objetivo","cac_maximo","empleados_actuales"];
+  const listo=requeridos.every(k=>Number.isFinite(Number(valores[k])));
+  if(completados.length&&listo){
+   const save=await grukFetch("/api/configuracion-inteligencia",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(valores)});const sd=await save.json();if(!save.ok||!sd.ok)throw new Error(sd.error||"No fue posible guardar.");
+   await cargarConfiguracionInteligenciaGRUK();
+  }
+  if(out)out.innerHTML='<div class="card"><h3>Resultado de la autorización</h3>'+(completados.length?'<p><strong>GRUK pudo derivar:</strong></p><ul>'+completados.map(x=>'<li>'+escaparConfiguracionGRUK(x)+'</li>').join("")+'</ul>':'<p><strong>Hoy no hay un dato faltante que GRUK pueda completar de forma segura.</strong></p>')+(pendientes.length?'<p><strong>Aún necesita decisión o información humana:</strong> '+pendientes.map(escaparConfiguracionGRUK).join(", ")+'. GRUK no pondrá ceros ni porcentajes genéricos para desbloquear Inteligencia.</p>':'')+'<p><strong>Regla:</strong> autorizar no significa permitir que GRUK invente. Significa permitirle usar cálculos verificables como punto de partida.</p></div>';
+ }catch(e){if(out)out.innerHTML='<p>⚠️ '+escaparConfiguracionGRUK(e.message)+'</p>';}finally{if(boton)boton.disabled=false}
+}
