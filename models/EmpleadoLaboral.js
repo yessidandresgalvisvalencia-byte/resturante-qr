@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const empleadoLaboralSchema = new mongoose.Schema(
   {
+    empresaId: { type: mongoose.Schema.Types.ObjectId, ref: "Empresa", default: null, index: true },
+    sedeId: { type: mongoose.Schema.Types.ObjectId, ref: "Sede", default: null, index: true },
     restaurantId: {
       type: String,
       required: true,
@@ -86,6 +88,7 @@ const empleadoLaboralSchema = new mongoose.Schema(
 
 );
 
+empleadoLaboralSchema.index({ empresaId: 1, sedeId: 1, activo: 1 });
 empleadoLaboralSchema.index(
   { restaurantId: 1, documento: 1 },
   { unique: true }

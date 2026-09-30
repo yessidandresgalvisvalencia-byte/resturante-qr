@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 
 const solicitudLaboralSchema = new mongoose.Schema({
+  empresaId: { type: mongoose.Schema.Types.ObjectId, ref: "Empresa", default: null, index: true },
+  sedeId: { type: mongoose.Schema.Types.ObjectId, ref: "Sede", default: null, index: true },
   restaurantId: {
     type: String,
     required: true
@@ -25,5 +27,7 @@ const solicitudLaboralSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+solicitudLaboralSchema.index({ empresaId: 1, estado: 1, createdAt: -1 });
 
 module.exports = mongoose.model("SolicitudLaboral", solicitudLaboralSchema);
