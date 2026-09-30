@@ -1525,9 +1525,14 @@ router.get("/pedidos/mesa/:mesa", async (req, res) => {
   }
 });
 
-router.put("/pedido/:id/estado", async (req, res) => {
+router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO), async (req, res) => {
   try {
     const { estado, tiempoEstimado } = req.body;
+    if (!["pendiente","preparando","listo","entregado"].includes(String(estado))) return res.status(400).json({ok:false,error:"Estado de pedido inválido"});
+    const actual = await Pedido.findById(req.params.id).select("restaurantId").lean();
+    if (!actual) return res.status(404).json({ok:false,error:"Pedido no encontrado"});
+    const tenant = await Restaurante.findOne({restaurantId:actual.restaurantId,empresaId:req.auth.empresaId}).select("_id").lean();
+    if (!tenant) return res.status(403).json({ok:false,error:"Pedido fuera del tenant autorizado"});
 
     const update = { estado };
     if (tiempoEstimado) {
@@ -1549,9 +1554,10 @@ router.put("/pedido/:id/estado", async (req, res) => {
   }
 });
 
-router.put("/pedido/:id/pago", async (req, res) => {
+router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
   try {
     const { estadoPago } = req.body;
+    if (!["pendiente","pagado"].includes(String(estadoPago))) return res.status(400).json({ok:false,error:"Estado de pago inválido"});
 
     // 1. Buscar el pedido antes de modificarlo
     const pedidoAnterior = await Pedido.findById(req.params.id);
@@ -1563,7 +1569,10 @@ router.put("/pedido/:id/pago", async (req, res) => {
       });
     }
 
-    // 2. Actualizar el estado del pago
+    const restauranteTenant = await Restaurante.findOne({ restaurantId: pedidoAnterior.restaurantId, empresaId: req.auth.empresaId }).select("_id empresaId").lean();
+    if (!restauranteTenant) return res.status(403).json({ok:false,error:"Pedido fuera del tenant autorizado"});
+
+        // 2. Actualizar el estado del pago
     const pedido = await Pedido.findByIdAndUpdate(
       req.params.id,
       { estadoPago },
@@ -1576,7 +1585,8 @@ router.put("/pedido/:id/pago", async (req, res) => {
       pedidoAnterior.estadoPago !== "pagado"
     ) {
       const restaurante = await Restaurante.findOne({
-        restaurantId: pedido.restaurantId
+        restaurantId: pedido.restaurantId,
+        empresaId: req.auth.empresaId
       });
 
       if (!restaurante) {
@@ -1642,7 +1652,7 @@ router.put("/pedido/:id/pago", async (req, res) => {
     res.status(500).json({
       ok: false,
       mensaje: "Error actualizando pago",
-      error: error.message
+      error: "Operación de pago no completada"
     });
   }
 });
