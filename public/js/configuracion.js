@@ -668,7 +668,7 @@ async function inicializarConfiguracionGRUK() {
   cargarConfiguracionFinanciera();
 
   try {
-    await cargarConfiguracionInteligenciaGRUK();
+    await cargarConfiguracionInteligenciaGRUK();\n    await cargarConfiguracionFiscalGRUK();
   } catch (error) {
     const estado =
       document.getElementById(
@@ -703,3 +703,16 @@ async function autorizarCompletarGRUK(){
   if(out)out.innerHTML=(aplicadas.length?'<h3>Referencias recomendadas por GRUK</h3>'+aplicadas.map(card).join(""):'')+(pendientes.length?'<h3>Lo que GRUK todavía necesita aprender</h3>'+pendientes.map(card).join(""):'')+(!listo&&aplicadas.length?'<p><strong>Importante:</strong> las recomendaciones se muestran, pero no se guardaron todavía porque aún faltan referencias obligatorias. GRUK no rellenará las restantes con cero.</p>':'');
  }catch(e){if(out)out.innerHTML='<p>⚠️ '+escaparConfiguracionGRUK(e.message)+'</p>';}finally{if(boton)boton.disabled=false}
 }
+
+async function cargarConfiguracionFiscalGRUK(){
+ const res=await grukFetch("/api/facturacion-v2/configuracion-fiscal"),d=await res.json();if(!res.ok||!d.ok)throw new Error(d.error||"No fue posible cargar la configuración fiscal");
+ const f=d.fiscal||{},fe=f.facturacionElectronica||{};const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||"";};
+ set("fiscalNit",f.nit);set("fiscalDv",f.dv);set("fiscalRazonSocial",f.razonSocial);set("fiscalNombreComercial",f.nombreComercial);set("fiscalResponsabilidad",f.responsabilidadFiscal);set("fiscalDireccion",f.direccion);set("fiscalMunicipio",f.municipioCodigo);set("fiscalTelefono",f.telefono);set("fiscalNumberingRangeId",fe.numberingRangeId);
+ const h=document.getElementById("fiscalHabilitada");if(h)h.checked=Boolean(fe.habilitada);pintarEstadoFiscalGRUK(d.estado);
+}
+function pintarEstadoFiscalGRUK(e){const out=document.getElementById("estadoFiscalGRUK");if(!out)return;out.innerHTML='<div class="card"><p><strong>Estado:</strong> '+(e?.completo?"✅ Lista para facturar":"⚠️ Configuración incompleta")+'</p>'+(e?.faltantes?.length?'<p><strong>Falta:</strong> '+e.faltantes.map(escaparConfiguracionGRUK).join(", ")+'</p>':"")+'</div>';}
+async function guardarConfiguracionFiscalGRUK(){
+ const val=id=>document.getElementById(id)?.value?.trim()||null,body={nit:val("fiscalNit"),dv:val("fiscalDv"),razonSocial:val("fiscalRazonSocial"),nombreComercial:val("fiscalNombreComercial"),responsabilidadFiscal:val("fiscalResponsabilidad"),direccion:val("fiscalDireccion"),municipioCodigo:val("fiscalMunicipio"),telefono:val("fiscalTelefono"),tributo:"01",facturacionElectronica:{habilitada:Boolean(document.getElementById("fiscalHabilitada")?.checked),numberingRangeId:val("fiscalNumberingRangeId")}};
+ const res=await grukFetch("/api/facturacion-v2/configuracion-fiscal",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}),d=await res.json();if(!res.ok||!d.ok)throw new Error(d.error||"No fue posible guardar la configuración fiscal");pintarEstadoFiscalGRUK(d.estado);mostrarToast("Configuración fiscal guardada","success");
+}
+window.guardarConfiguracionFiscalGRUK=guardarConfiguracionFiscalGRUK;

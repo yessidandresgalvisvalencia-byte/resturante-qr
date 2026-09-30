@@ -24,3 +24,19 @@
     <button onclick="guardarConfiguracionInteligenciaGRUK()">Guardar datos</button>
   </details>
 </div>
+<div class="card">
+  <h2>🧾 Facturación electrónica</h2>
+  <p>Configura la identidad fiscal de esta empresa. GRUK nunca mezclará el NIT ni la numeración entre empresas.</p>
+  <label>NIT</label><input id="fiscalNit" inputmode="numeric" autocomplete="off">
+  <label>Dígito de verificación (DV)</label><input id="fiscalDv" inputmode="numeric" maxlength="1">
+  <label>Razón social</label><input id="fiscalRazonSocial">
+  <label>Nombre comercial</label><input id="fiscalNombreComercial">
+  <label>Responsabilidad fiscal</label><input id="fiscalResponsabilidad" placeholder="Según RUT">
+  <label>Dirección fiscal</label><input id="fiscalDireccion">
+  <label>Código municipio</label><input id="fiscalMunicipio" placeholder="Código usado por el proveedor">
+  <label>Teléfono</label><input id="fiscalTelefono">
+  <label>ID del rango de numeración Factus</label><input id="fiscalNumberingRangeId" autocomplete="off">
+  <label><input id="fiscalHabilitada" type="checkbox"> Habilitar emisión electrónica cuando la configuración esté completa</label>
+  <button onclick="guardarConfiguracionFiscalGRUK()">Guardar configuración fiscal</button>
+  <div id="estadoFiscalGRUK"></div>
+</div>

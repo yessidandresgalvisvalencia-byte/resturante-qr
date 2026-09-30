@@ -172,6 +172,26 @@ const empresaSchema = new mongoose.Schema(
       }
     },
 
+    fiscal: {
+      nit: { type: String, trim: true, default: null },
+      dv: { type: String, trim: true, default: null },
+      razonSocial: { type: String, trim: true, default: null },
+      nombreComercial: { type: String, trim: true, default: null },
+      tipoDocumento: { type: String, enum: ["NIT"], default: "NIT" },
+      responsabilidadFiscal: { type: String, trim: true, default: null },
+      tributo: { type: String, trim: true, default: "01" },
+      direccion: { type: String, trim: true, default: null },
+      municipioCodigo: { type: String, trim: true, default: null },
+      telefono: { type: String, trim: true, default: null },
+      facturacionElectronica: {
+        habilitada: { type: Boolean, default: false },
+        proveedor: { type: String, enum: ["FACTUS"], default: "FACTUS" },
+        numberingRangeId: { type: String, trim: true, default: null },
+        actualizadoAt: { type: Date, default: null },
+        actualizadoBy: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario", default: null }
+      }
+    },
+
     modulos: {
       restaurante: {
         type: Boolean,
