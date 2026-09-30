@@ -67,8 +67,6 @@ router.post("/empleados", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK
 
    } catch (error) {
     console.error("Error creando empleado laboral:", error);
-    console.error("STACK:", error.stack);
-
     if (error.code === 11000) {
       return res.status(409).json({
         ok: false,
@@ -78,91 +76,42 @@ router.post("/empleados", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK
 
     res.status(500).json({
       ok: false,
-      mensaje: error.message || "Error interno creando empleado laboral."
+      mensaje: "Error interno creando empleado laboral."
     });
   }
 });
 
 // LISTAR EMPLEADOS
-router.get("/empleados/:restaurantId", async (req, res) => {
-  try {
-    const { restaurantId } = req.params;
-
-    const empleados = await EmpleadoLaboral.find({ restaurantId })
-      .sort({ createdAt: -1 });
-
-    res.json({
-      ok: true,
-      empleados
-    });
-
-  } catch (error) {
-    console.error("Error listando empleados laborales:", error);
-
-    res.status(500).json({
-      ok: false,
-      mensaje: "Error interno listando empleados."
-    });
-  }
+router.get("/empleados/:restaurantId", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req,res)=>{
+ try{
+  const contexto=await resolverContextoLaboral(req.auth,req.params.restaurantId);
+  const empleados=await EmpleadoLaboral.find({empresaId:req.auth.empresaId,restaurantId:contexto.restaurantId}).sort({createdAt:-1});
+  return res.json({ok:true,empleados});
+ }catch(error){console.error("Error listando empleados laborales:",error);return res.status(500).json({ok:false,mensaje:"Error interno listando empleados."});}
 });
 
 // CAMBIAR ESTADO ACTIVO / INACTIVO
-router.put("/empleados/:id/estado", async (req, res) => {
-  try {
-    const empleado = await EmpleadoLaboral.findById(req.params.id);
-
-    if (!empleado) {
-      return res.status(404).json({
-        ok: false,
-        mensaje: "Empleado no encontrado."
-      });
-    }
-
-    empleado.activo = !empleado.activo;
-
-    await empleado.save();
-
-    res.json({
-      ok: true,
-      mensaje: "Estado actualizado.",
-      empleado
-    });
-
-  } catch (error) {
-    console.error("Error cambiando estado empleado:", error);
-
-    res.status(500).json({
-      ok: false,
-      mensaje: "Error interno cambiando estado."
-    });
-  }
+router.put("/empleados/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req,res)=>{
+ try{
+  const actual=await EmpleadoLaboral.findOne({_id:req.params.id,empresaId:req.auth.empresaId}).select("restaurantId activo").lean();
+  if(!actual)return res.status(404).json({ok:false,mensaje:"Empleado no encontrado."});
+  const contexto=await resolverContextoLaboral(req.auth,actual.restaurantId);
+  const empleado=await EmpleadoLaboral.findOneAndUpdate({_id:req.params.id,empresaId:req.auth.empresaId,restaurantId:contexto.restaurantId},{$set:{activo:!actual.activo}},{returnDocument:"after"});
+  if(!empleado)return res.status(404).json({ok:false,mensaje:"Empleado no encontrado."});
+  return res.json({ok:true,mensaje:"Estado actualizado.",empleado});
+ }catch(error){console.error("Error cambiando estado empleado:",error);return res.status(500).json({ok:false,mensaje:"Error interno cambiando estado."});}
 });
 
 // ELIMINAR EMPLEADO
-router.delete("/empleados/:id", async (req, res) => {
-  try {
-    const empleado = await EmpleadoLaboral.findByIdAndDelete(req.params.id);
-
-    if (!empleado) {
-      return res.status(404).json({
-        ok: false,
-        mensaje: "Empleado no encontrado."
-      });
-    }
-
-    res.json({
-      ok: true,
-      mensaje: "Empleado eliminado correctamente."
-    });
-
-  } catch (error) {
-    console.error("Error eliminando empleado:", error);
-
-    res.status(500).json({
-      ok: false,
-      mensaje: "Error interno eliminando empleado."
-    });
-  }
+router.delete("/empleados/:id", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req,res)=>{
+ try{
+  const actual=await EmpleadoLaboral.findOne({_id:req.params.id,empresaId:req.auth.empresaId}).select("restaurantId").lean();
+  if(!actual)return res.status(404).json({ok:false,mensaje:"Empleado no encontrado."});
+  const contexto=await resolverContextoLaboral(req.auth,actual.restaurantId);
+  const empleado=await EmpleadoLaboral.findOneAndDelete({_id:req.params.id,empresaId:req.auth.empresaId,restaurantId:contexto.restaurantId});
+  if(!empleado)return res.status(404).json({ok:false,mensaje:"Empleado no encontrado."});
+  return res.json({ok:true,mensaje:"Empleado eliminado correctamente."});
+ }catch(error){console.error("Error eliminando empleado:",error);return res.status(500).json({ok:false,mensaje:"Error interno eliminando empleado."});}
 });
 router.post("/reconocer", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO), async (req, res) => {
   try {
@@ -200,111 +149,39 @@ router.post("/reconocer", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK
   }
 });
 // CREAR SOLICITUD LABORAL
-router.post("/solicitudes", async (req, res) => {
-  try {
-    const {
-      restaurantId,
-      empleadoId,
-      empleadoNombre,
-      tipo
-    } = req.body;
-
-    if (!restaurantId || !empleadoId || !tipo) {
-      return res.status(400).json({
-        ok: false,
-        mensaje: "Faltan datos obligatorios de la solicitud."
-      });
-    }
-
-    const solicitud = await SolicitudLaboral.create({
-      restaurantId,
-      empleadoId,
-      empleadoNombre,
-      tipo,
-      estado: "pendiente"
-    });
-
-    res.json({
-      ok: true,
-      mensaje: "Solicitud enviada correctamente.",
-      solicitud
-    });
-
-  } catch (error) {
-    console.error("Error creando solicitud laboral:", error);
-
-    res.status(500).json({
-      ok: false,
-      mensaje: "Error interno creando solicitud laboral."
-    });
-  }
+router.post("/solicitudes", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO), async (req,res)=>{
+ try{
+  const {restaurantId,empleadoId,empleadoNombre,tipo}=req.body;
+  if(!restaurantId||!empleadoId||!tipo)return res.status(400).json({ok:false,mensaje:"Faltan datos obligatorios de la solicitud."});
+  const contexto=await resolverContextoLaboral(req.auth,restaurantId);
+  const empleado=await EmpleadoLaboral.findOne({_id:empleadoId,empresaId:req.auth.empresaId,restaurantId:contexto.restaurantId,activo:true}).select("_id nombre").lean();
+  if(!empleado)return res.status(403).json({ok:false,mensaje:"Empleado fuera del tenant autorizado."});
+  const solicitud=await SolicitudLaboral.create({empresaId:req.auth.empresaId,sedeId:contexto.sedeId,restaurantId:contexto.restaurantId,empleadoId,empleadoNombre:empleado.nombre||empleadoNombre,tipo,estado:"pendiente"});
+  return res.json({ok:true,mensaje:"Solicitud enviada correctamente.",solicitud});
+ }catch(error){console.error("Error creando solicitud laboral:",error);return res.status(500).json({ok:false,mensaje:"Error interno creando solicitud laboral."});}
 });
 
 // LISTAR SOLICITUDES POR RESTAURANTE
-router.get("/solicitudes/:restaurantId", async (req, res) => {
-  try {
-    const { restaurantId } = req.params;
-
-    const solicitudes = await SolicitudLaboral.find({ restaurantId })
-      .sort({ createdAt: -1 });
-
-    res.json({
-      ok: true,
-      solicitudes
-    });
-
-  } catch (error) {
-    console.error("Error listando solicitudes:", error);
-
-    res.status(500).json({
-      ok: false,
-      mensaje: "Error interno listando solicitudes."
-    });
-  }
+router.get("/solicitudes/:restaurantId", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req,res)=>{
+ try{
+  const contexto=await resolverContextoLaboral(req.auth,req.params.restaurantId);
+  const solicitudes=await SolicitudLaboral.find({empresaId:req.auth.empresaId,restaurantId:contexto.restaurantId}).sort({createdAt:-1});
+  return res.json({ok:true,solicitudes});
+ }catch(error){console.error("Error listando solicitudes:",error);return res.status(500).json({ok:false,mensaje:"Error interno listando solicitudes."});}
 });
 
 // CAMBIAR ESTADO DE SOLICITUD
-router.put("/solicitudes/:id/estado", async (req, res) => {
-  try {
-    const { estado, observacion } = req.body;
-
-    if (!["pendiente", "aprobada", "rechazada"].includes(estado)) {
-      return res.status(400).json({
-        ok: false,
-        mensaje: "Estado inválido."
-      });
-    }
-
-    const solicitud = await SolicitudLaboral.findByIdAndUpdate(
-      req.params.id,
-      {
-        estado,
-        observacion: observacion || ""
-      },
-      { new: true }
-    );
-
-    if (!solicitud) {
-      return res.status(404).json({
-        ok: false,
-        mensaje: "Solicitud no encontrada."
-      });
-    }
-
-    res.json({
-      ok: true,
-      mensaje: "Solicitud actualizada correctamente.",
-      solicitud
-    });
-
-  } catch (error) {
-    console.error("Error actualizando solicitud:", error);
-
-    res.status(500).json({
-      ok: false,
-      mensaje: "Error interno actualizando solicitud."
-    });
-  }
+router.put("/solicitudes/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req,res)=>{
+ try{
+  const {estado,observacion}=req.body;
+  if(!["pendiente","aprobada","rechazada"].includes(estado))return res.status(400).json({ok:false,mensaje:"Estado inválido."});
+  const actual=await SolicitudLaboral.findOne({_id:req.params.id,empresaId:req.auth.empresaId}).select("restaurantId").lean();
+  if(!actual)return res.status(404).json({ok:false,mensaje:"Solicitud no encontrada."});
+  const contexto=await resolverContextoLaboral(req.auth,actual.restaurantId);
+  const solicitud=await SolicitudLaboral.findOneAndUpdate({_id:req.params.id,empresaId:req.auth.empresaId,restaurantId:contexto.restaurantId},{$set:{estado,observacion:observacion||""}},{returnDocument:"after"});
+  if(!solicitud)return res.status(404).json({ok:false,mensaje:"Solicitud no encontrada."});
+  return res.json({ok:true,mensaje:"Solicitud actualizada correctamente.",solicitud});
+ }catch(error){console.error("Error actualizando solicitud:",error);return res.status(500).json({ok:false,mensaje:"Error interno actualizando solicitud."});}
 });
 // MARCAR ENTRADA
 router.post("/asistencias/entrada", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO), async (req, res) => {
