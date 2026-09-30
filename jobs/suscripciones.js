@@ -3,7 +3,8 @@
 const cron = require("node-cron");
 const axios = require("axios");
 const Restaurante = require("../models/restaurante");
-const { obtenerOCrearIntento } = require("../core/pagos/intentoCobro.service");
+const { obtenerOCrearIntento, adquirirDerechoEnvio } = require("../core/pagos/intentoCobro.service");
+const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 
 function iniciarJobSuscripciones() {
   cron.schedule("0 9 * * *", async () => {
@@ -50,7 +51,12 @@ function iniciarJobSuscripciones() {
             console.log("Cobro mensual ya iniciado:", restaurante.restaurantId, intento.periodo);
             continue;
           }
-          const reference = intento.reference;
+          const intentoAdquirido = await adquirirDerechoEnvio(intento._id);
+          if (!intentoAdquirido) {
+            console.log("Otro worker adquirió el cobro mensual:", restaurante.restaurantId, intento.periodo);
+            continue;
+          }
+          const reference = intentoAdquirido.reference;
 
           const merchantRes = await axios.get(
             `https://production.wompi.co/v1/merchants/${wompiPublicKey}`
@@ -63,10 +69,6 @@ function iniciarJobSuscripciones() {
             console.log("No se pudo obtener acceptance token para:", restaurante.restaurantId);
             continue;
           }
-
-          intento.estado = "ENVIANDO";
-          intento.inicioEnvioAt = new Date();
-          await intento.save();
 
           const txRes = await axios.post(
             "https://production.wompi.co/v1/transactions",
@@ -87,15 +89,16 @@ function iniciarJobSuscripciones() {
           );
 
           const tx = txRes?.data?.data;
-          intento.transactionId = String(tx?.id || "");
-          intento.estado = String(tx?.status || "").toUpperCase() === "APPROVED" ? "APROBADO" : "PENDIENTE";
-          intento.enviadoAt = new Date();
-          if (intento.estado === "APROBADO") intento.resueltoAt = new Date();
-          await intento.save();
-          console.log("Cobro automático enviado para:", restaurante.restaurantId, intento.transactionId || "sin id");
+          const estadoFinal = String(tx?.status || "").toUpperCase() === "APPROVED" ? "APROBADO" : "PENDIENTE";
+          const actualizado = await IntentoCobroSuscripcion.findOneAndUpdate(
+            {_id:intentoAdquirido._id,estado:"ENVIANDO"},
+            {$set:{transactionId:String(tx?.id || ""),estado:estadoFinal,enviadoAt:new Date(),...(estadoFinal==="APROBADO"?{resueltoAt:new Date()}:{})}},
+            {new:true}
+          );
+          console.log("Cobro automático enviado para:", restaurante.restaurantId, actualizado?.transactionId || "sin id");
         } catch (error) {
           try {
-            const intentoFallido = await require("../models/IntentoCobroSuscripcion").findOne({ restaurantId: restaurante.restaurantId, periodo: new Date().toISOString().slice(0,7) });
+            const intentoFallido = await IntentoCobroSuscripcion.findOne({ restaurantId: restaurante.restaurantId, periodo: new Date().toISOString().slice(0,7) });
             if (intentoFallido && intentoFallido.estado === "ENVIANDO") {
               intentoFallido.estado = "RESULTADO_DESCONOCIDO";
               intentoFallido.ultimoError = "Resultado remoto no confirmado; reintento automático bloqueado";
