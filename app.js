@@ -143,4 +143,11 @@ async function iniciarAplicacion() {
   }
 }
 
-io.on("connection", (socket) => {\n  // Los canales sensibles requieren autenticación antes de habilitar suscripciones.\n  socket.on("laboral:unirse", () => {\n    socket.emit("security:error", { error: "Canal laboral requiere autenticación" });\n  });\n});\n\niniciarAplicacion();
+io.on("connection", (socket) => {
+  // Los canales sensibles requieren autenticación antes de habilitar suscripciones.
+  socket.on("laboral:unirse", () => {
+    socket.emit("security:error", { error: "Canal laboral requiere autenticación" });
+  });
+});
+
+iniciarAplicacion();
