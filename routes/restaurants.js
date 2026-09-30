@@ -47,8 +47,7 @@ router.post("/:restaurantId/logo", authMiddleware, roleCheck(ROLES_GRUK.DUENO, R
 
     res.json({
       ok: true,
-      logoUrl: restaurante.logoUrl,
-      restaurante
+      logoUrl: restaurante.logoUrl
     });
 
   } catch (error) {
@@ -109,7 +108,7 @@ router.get("/:restaurantId", async (req, res) => {
 
     const restaurante = await Restaurante.findOne({
       restaurantId: req.params.restaurantId
-    });
+    }).select("restaurantId nombreRestaurante logoUrl primaryColor").lean();
 
     if (!restaurante) {
       return res.status(404).json({
@@ -120,7 +119,12 @@ router.get("/:restaurantId", async (req, res) => {
 
     res.json({
       ok: true,
-      restaurante
+      restaurante: {
+        restaurantId: restaurante.restaurantId,
+        nombreRestaurante: restaurante.nombreRestaurante,
+        logoUrl: restaurante.logoUrl || "",
+        primaryColor: restaurante.primaryColor || "#ff6600"
+      }
     });
 
   } catch (error) {
