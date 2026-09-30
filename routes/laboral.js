@@ -385,7 +385,7 @@ router.post("/asistencias/entrada", authMiddleware, roleCheck(ROLES_GRUK.DUENO, 
 });
 
 // MARCAR SALIDA
-router.put("/asistencias/salida", async (req, res) => {
+router.put("/asistencias/salida", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO), async (req, res) => {
   try {
     const {
       restaurantId,
@@ -395,8 +395,10 @@ router.put("/asistencias/salida", async (req, res) => {
       gpsSalida
     } = req.body;
 
+    const contexto = await resolverContextoLaboral(req.auth, restaurantId);
     const asistencia = await AsistenciaLaboral.findOne({
-      restaurantId,
+      empresaId: contexto.empresaId,
+      restaurantId: contexto.restaurantId,
       empleadoId,
       fecha
     });
