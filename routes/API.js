@@ -14,6 +14,7 @@ const {
 const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
+const { revocarIdentidad } = require("../core/auth/sessionRevocation.service");
 
 const Pedido = require("../models/pedido.js");
 const Llamado = require("../models/llamado");
@@ -2164,6 +2165,8 @@ router.post("/admin/login", async (req, res) => {
     });
   }
 });
+router.post("/auth/cerrar-todas-sesiones", authMiddleware, async (req,res)=>{ try { if(!req.auth.identityType) return res.status(409).json({ok:false,error:"La sesión actual debe renovarse antes de usar esta función"}); const ok=await revocarIdentidad({identityType:req.auth.identityType,usuarioId:req.auth.usuarioId}); if(!ok)return res.status(404).json({ok:false,error:"Identidad no encontrada"}); return res.json({ok:true,mensaje:"Todas las sesiones fueron cerradas"}); } catch(error){ console.error("[SEGURIDAD] Error revocando sesiones:",error); return res.status(500).json({ok:false,error:"Error cerrando sesiones"}); } });
+
 /* =========================
    FACTURA / QR
 ========================= */
@@ -2483,7 +2486,7 @@ router.put(
     const persona =
       await Personal.findByIdAndUpdate(
         req.params.id,
-        { estado },
+        String(estado).toLowerCase() === "inactivo" ? { estado, $inc: { tokenVersion: 1 } } : { estado },
         { new: true }
       )
         .select("-password");
@@ -2640,7 +2643,7 @@ router.post("/mesero/login", async (req, res) => {
       }
     }
 
-    if (!mesero || !autenticado) {
+    if (!mesero || !autenticado || String(mesero.estado).toLowerCase() === "inactivo") {
       return res.status(401).json({
         ok: false,
         error: "Usuario o password incorrectos"

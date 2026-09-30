@@ -63,7 +63,9 @@ async function authMiddleware(req, res, next) {
       restaurantId: payload.restaurantId
         ? String(payload.restaurantId)
         : null,
-      rol: String(payload.rol)
+      rol: String(payload.rol),
+      identityType: payload.identityType ? String(payload.identityType) : null,
+      tokenVersion: Number(payload.tokenVersion || 0)
     });
 
     return next();
