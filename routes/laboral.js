@@ -164,10 +164,8 @@ router.delete("/empleados/:id", async (req, res) => {
     });
   }
 });
-router.post("/reconocer", async (req, res) => {
+router.post("/reconocer", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO), async (req, res) => {
   try {
-    console.log("LLEGÓ A /laboral/reconocer");
-console.log("BODY:", req.body);
     const { restaurantId, selfie } = req.body;
 
     if (!restaurantId || !selfie) {
@@ -177,15 +175,12 @@ console.log("BODY:", req.body);
       });
     }
 
+    const contexto = await resolverContextoLaboral(req.auth, restaurantId);
     const empleados = await EmpleadoLaboral.find({
-      restaurantId,
+      empresaId: contexto.empresaId,
+      restaurantId: contexto.restaurantId,
       activo: true
     }).lean();
-    console.log("Empleados encontrados:", empleados.length);
-
-empleados.forEach(e => {
-  console.log("Empleado:", e.nombre, "fotoBase existe:", !!e.fotoBase);
-});
 
     const resultado = await ia.reconocimiento.reconocerEmpleado({
   restaurantId,
