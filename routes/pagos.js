@@ -3,19 +3,6 @@ const crypto = require("crypto");
 
 const router = express.Router();
 
-router.get("/debug", (req, res) => {
-  res.json({
-    ok: true,
-    appUrl: process.env.APP_URL || null,
-    publicKeyExists: !!process.env.WOMPI_PUBLIC_KEY,
-    integrityKeyExists: !!process.env.WOMPI_INTEGRITY_KEY,
-    appUrl: process.env.APP_URL || null,
-    publicKeyPreview: process.env.WOMPI_PUBLIC_KEY
-      ? process.env.WOMPI_PUBLIC_KEY.slice(0, 12)
-      : null
-  });
-});
-
 router.post("/crear-pago", (req, res) => {
   try {
     const monto = Number(req.body.monto);

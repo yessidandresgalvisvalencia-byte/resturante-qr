@@ -29,8 +29,14 @@ const iniciarCerebroJob = require("./shared/jobs/cerebro.job");
 const iniciarCajaJob = require("./shared/jobs/caja.job");
 const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
 const app = express();
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.disable("x-powered-by");
+const { securityHeaders, noStore } = require("./core/security/httpSecurity.middleware");
+const rateLimit = require("./core/security/rateLimit.middleware");
+app.set("trust proxy", 1);
+app.use(securityHeaders);
+app.use("/api", noStore, rateLimit({ windowMs: 60 * 1000, max: 180 }));
+app.use(express.json({ limit: "1mb", strict: true }));
+app.use(express.urlencoded({ extended: false, limit: "256kb", parameterLimit: 200 }));
 const inventarioRoutes =
 require("./routes/inventario");
 const recetasRoutes = require("./routes/recetas");
@@ -43,9 +49,7 @@ const apiRoutes = require("./routes/API");
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: { origin: "*" }
-});
+const io = new Server(server, { maxHttpBufferSize: 1e6, cors: { origin: false } });
 
 app.set("io", io);
 
@@ -139,17 +143,4 @@ async function iniciarAplicacion() {
   }
 }
 
-io.on("connection", (socket) => {
-  console.log("Cliente conectado");
-
-  socket.on("laboral:unirse", (restaurantId) => {
-    socket.join(`laboral-${restaurantId}`);
-    console.log(`Cliente unido a laboral-${restaurantId}`);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Cliente desconectado");
-  });
-});
-
-iniciarAplicacion();
+io.on("connection", (socket) => {\n  // Los canales sensibles requieren autenticación antes de habilitar suscripciones.\n  socket.on("laboral:unirse", () => {\n    socket.emit("security:error", { error: "Canal laboral requiere autenticación" });\n  });\n});\n\niniciarAplicacion();

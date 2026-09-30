@@ -1,0 +1,4 @@
+"use strict";
+const buckets=new Map();
+function rateLimit({windowMs=60000,max=120}={}){return function(req,res,next){const now=Date.now(),key=String(req.ip||req.socket?.remoteAddress||"unknown");let b=buckets.get(key);if(!b||now-b.start>=windowMs)b={start:now,count:0};b.count++;buckets.set(key,b);if(b.count>max){res.setHeader("Retry-After",String(Math.ceil((b.start+windowMs-now)/1000)));return res.status(429).json({ok:false,error:"Demasiadas solicitudes"});}if(buckets.size>10000){for(const [k,v] of buckets){if(now-v.start>=windowMs)buckets.delete(k);}}return next();};}
+module.exports=rateLimit;

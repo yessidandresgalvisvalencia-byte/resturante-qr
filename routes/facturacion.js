@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
+const auth = require("../core/auth/auth.middleware");
+const { ROLES_GRUK, roleCheck } = require("../core/auth/roleCheck.middleware");
 
 const { generarFacturaElectronica } = require("../services/factusService");
 
-router.post("/caja", async (req, res) => {
+router.post("/caja", auth, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
   try {
     const pago = req.body;
 
@@ -20,7 +22,7 @@ router.post("/caja", async (req, res) => {
     res.status(500).json({
       ok: false,
       mensaje: "Error generando factura",
-      error: error.message,
+      error: "Error generando factura",
     });
   }
 });
