@@ -4,6 +4,7 @@ const path = require("path");
 require("dotenv").config();
 const http = require("http");
 const { Server } = require("socket.io");
+const jwt = require("jsonwebtoken");
 const eventBus = require("./core/eventos/eventBus");
 const { registrarFinanzasListener } = require("./intelligence/listeners/finanzas.listener");
 const { registrarCajaListener } = require("./intelligence/listeners/caja.listener");
@@ -143,11 +144,19 @@ async function iniciarAplicacion() {
   }
 }
 
+io.use((socket, next) => {
+  try {
+    const token = String(socket.handshake.auth?.token || "").replace(/^Bearer\\s+/i, "");
+    if (!token || !process.env.JWT_SECRET) return next(new Error("UNAUTHORIZED"));
+    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms:["HS256"] });
+    if (!payload.sub || !payload.empresaId || !payload.rol) return next(new Error("UNAUTHORIZED"));
+    socket.auth = Object.freeze({ usuarioId:String(payload.sub), empresaId:String(payload.empresaId), sedeId:payload.sedeId ? String(payload.sedeId) : null, rol:String(payload.rol) });
+    return next();
+  } catch (_) { return next(new Error("UNAUTHORIZED")); }
+});
+
 io.on("connection", (socket) => {
-  // Los canales sensibles requieren autenticación antes de habilitar suscripciones.
-  socket.on("laboral:unirse", () => {
-    socket.emit("security:error", { error: "Canal laboral requiere autenticación" });
-  });
+  socket.join(`empresa-${socket.auth.empresaId}`);
 });
 
 iniciarAplicacion();

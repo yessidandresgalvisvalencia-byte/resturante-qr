@@ -449,12 +449,14 @@ router.put("/asistencias/salida", async (req, res) => {
 });
 
 // LISTAR ASISTENCIAS
-router.get("/asistencias/:restaurantId/:empleadoId", async (req, res) => {
+router.get("/asistencias/:restaurantId/:empleadoId", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
   try {
     const { restaurantId, empleadoId } = req.params;
+    const contexto = await resolverContextoLaboral(req.auth, restaurantId);
 
     const asistencias = await AsistenciaLaboral.find({
-      restaurantId,
+      empresaId: contexto.empresaId,
+      restaurantId: contexto.restaurantId,
       empleadoId
     }).sort({ createdAt: -1 });
 
@@ -473,12 +475,14 @@ router.get("/asistencias/:restaurantId/:empleadoId", async (req, res) => {
 });
 
 // LISTAR TODAS LAS ASISTENCIAS DEL RESTAURANTE
-router.get("/asistencias/:restaurantId", async (req, res) => {
+router.get("/asistencias/:restaurantId", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
   try {
     const { restaurantId } = req.params;
+    const contexto = await resolverContextoLaboral(req.auth, restaurantId);
 
     const asistencias = await AsistenciaLaboral.find({
-      restaurantId
+      empresaId: contexto.empresaId,
+      restaurantId: contexto.restaurantId
     }).sort({ createdAt: -1 });
 
     res.json({
