@@ -1,7 +1,8 @@
 const jwt = require("jsonwebtoken");
 const ROLES_VALIDOS = new Set(["DUEÑO","ADMIN_SEDE","EMPLEADO"]);
+const { validarVersionSesion } = require("./sessionVersion.service");
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   try {
     const authorization = String(
       req.headers.authorization || ""
@@ -47,6 +48,10 @@ function authMiddleware(req, res, next) {
         ok: false,
         error: "Token de autenticación inválido"
       });
+    }
+
+    if (!(await validarVersionSesion(payload))) {
+      return res.status(401).json({ ok:false, error:"Sesión revocada" });
     }
 
     req.auth = Object.freeze({

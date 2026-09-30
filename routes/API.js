@@ -2013,6 +2013,8 @@ router.post("/admin/login", async (req, res) => {
     let usuarioFinal = usuario;
     let restaurantId = null;
     let authSubjectId = null;
+    let identityType = null;
+    let tokenVersion = 0;
 
     if (admin) {
       const passwordGuardado = String(admin.password || "");
@@ -2038,6 +2040,8 @@ router.post("/admin/login", async (req, res) => {
       if (autenticado) {
         restaurantId = admin.restaurantId;
         authSubjectId = admin._id;
+        identityType = "ADMIN";
+        tokenVersion = Number(admin.tokenVersion || 0);
       }
     }
 
@@ -2074,6 +2078,8 @@ router.post("/admin/login", async (req, res) => {
           restaurantId = restaurante.restaurantId;
           usuarioFinal = restaurante.usuarioAdmin;
           authSubjectId = restaurante._id;
+          identityType = "RESTAURANTE";
+          tokenVersion = Number(restaurante.tokenVersion || 0);
         }
       }
     }
@@ -2125,7 +2131,9 @@ router.post("/admin/login", async (req, res) => {
           empresaId: String(restaurante.empresaId),
           restaurantId: String(restaurantId),
           sedeId: null,
-          rol: "DUEÑO"
+          rol: "DUEÑO",
+          identityType,
+          tokenVersion
         },
         jwtSecret,
         {
@@ -2643,7 +2651,7 @@ router.post("/mesero/login", async (req, res) => {
     if (!restauranteMesero?.empresaId || !process.env.JWT_SECRET) {
       return res.status(500).json({ ok:false, error:"Identidad empresarial no configurada" });
     }
-    const token = jwt.sign({ empresaId:String(restauranteMesero.empresaId), restaurantId:String(mesero.restaurantId), sedeId:mesero.sedeId ? String(mesero.sedeId) : null, rol:"EMPLEADO" }, process.env.JWT_SECRET, { algorithm:"HS256", subject:String(mesero._id), expiresIn:"8h" });
+    const token = jwt.sign({ empresaId:String(restauranteMesero.empresaId), restaurantId:String(mesero.restaurantId), sedeId:mesero.sedeId ? String(mesero.sedeId) : null, rol:"EMPLEADO", identityType:"PERSONAL", tokenVersion:Number(mesero.tokenVersion || 0) }, process.env.JWT_SECRET, { algorithm:"HS256", subject:String(mesero._id), expiresIn:"8h" });
 
     res.json({
       ok: true,

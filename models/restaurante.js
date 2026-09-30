@@ -12,6 +12,7 @@ nombreRestaurante: { type: String, required: true },
 correo: { type: String, required: true },
 usuarioAdmin: { type: String, required: true, unique: true },
 passwordAdmin: { type: String, required: true },
+tokenVersion: { type: Number, default: 0, min: 0 },
 logoUrl: {
   type: String,
   default: ""

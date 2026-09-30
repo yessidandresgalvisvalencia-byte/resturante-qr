@@ -21,7 +21,8 @@ const personalSchema = new mongoose.Schema({
 
   usuario: { type: String, required: true },
 
-  password: { type: String, required: true }
+  password: { type: String, required: true },
+  tokenVersion: { type: Number, default: 0, min: 0 }
 
 }, { timestamps: true });
 
