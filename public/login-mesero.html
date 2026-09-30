@@ -52,6 +52,7 @@
         localStorage.setItem("meseroNombre", data.mesero.nombre);
         localStorage.setItem("meseroUsuario", data.mesero.usuario);
         localStorage.setItem("meseroRestaurantId", data.mesero.restaurantId);
+        if (data.token) localStorage.setItem("grukAuthToken", data.token);
 
         window.location.href = `/mesero.html?restaurantId=${data.mesero.restaurantId}`;
       } catch (error) {

@@ -2639,8 +2639,15 @@ router.post("/mesero/login", async (req, res) => {
       });
     }
 
+    const restauranteMesero = await Restaurante.findOne({ restaurantId: mesero.restaurantId }).select("empresaId restaurantId").lean();
+    if (!restauranteMesero?.empresaId || !process.env.JWT_SECRET) {
+      return res.status(500).json({ ok:false, error:"Identidad empresarial no configurada" });
+    }
+    const token = jwt.sign({ empresaId:String(restauranteMesero.empresaId), restaurantId:String(mesero.restaurantId), sedeId:mesero.sedeId ? String(mesero.sedeId) : null, rol:"EMPLEADO" }, process.env.JWT_SECRET, { algorithm:"HS256", subject:String(mesero._id), expiresIn:"8h" });
+
     res.json({
       ok: true,
+      token,
       mesero: {
         _id: mesero._id,
         nombre: mesero.nombre,
