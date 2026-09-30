@@ -1,9 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const MensajeLaboral = require("../models/MensajeLaboral");
+const Restaurante = require("../models/restaurante");
+const auth = require("../core/auth/auth.middleware");
+async function tenant(req,res,next){const restaurantId=req.body?.restaurantId||req.params.restaurantId;const r=await Restaurante.findOne({restaurantId,empresaId:req.auth.empresaId}).select("_id").lean();if(!r)return res.status(403).json({ok:false,mensaje:"Restaurante fuera del tenant autorizado."});next();}
+router.use(auth);
 
 // ENVIAR MENSAJE
-router.post("/", async (req, res) => {
+router.post("/", tenant, async (req, res) => {
   try {
     const mensaje = await MensajeLaboral.create(req.body);
 
@@ -30,7 +34,7 @@ router.post("/", async (req, res) => {
 });
 
 // LISTAR MENSAJES GENERALES
-router.get("/general/:restaurantId", async (req, res) => {
+router.get("/general/:restaurantId", tenant, async (req, res) => {
   try {
     const mensajes = await MensajeLaboral.find({
       restaurantId: req.params.restaurantId,
@@ -53,7 +57,7 @@ router.get("/general/:restaurantId", async (req, res) => {
 });
 
 // LISTAR CHAT PRIVADO ENTRE DOS USUARIOS
-router.get("/privado/:restaurantId/:usuarioA/:usuarioB", async (req, res) => {
+router.get("/privado/:restaurantId/:usuarioA/:usuarioB", tenant, async (req, res) => {
   try {
     const { restaurantId, usuarioA, usuarioB } = req.params;
 

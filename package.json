@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "nodemon app.js",
     "start": "node app.js",
-    "test": "node --test test/gruk/*.test.js"
+    "test": "node --test test/gruk/*.test.js",
+    "check:syntax": "node --check app.js && node --check routes/facturacion.js && node --check routes/pagos.js && node --check routes/restaurants.js && node --check routes/mensajesLaboral.js && node --check core/security/httpSecurity.middleware.js && node --check core/security/rateLimit.middleware.js",
+    "gate": "npm run check:syntax && npm test"
   },
   "engines": {
     "node": "20.x"

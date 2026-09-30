@@ -11,11 +11,17 @@ const {
 const router = express.Router();
 
 const upload = multer({
-  dest: "uploads/"
+  dest: "uploads/",
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) => {
+    const permitidos = new Set(["image/jpeg", "image/png", "image/webp"]);
+    if (!permitidos.has(file.mimetype)) return cb(new Error("TIPO_ARCHIVO_NO_PERMITIDO"));
+    return cb(null, true);
+  }
 });
 
 
-router.post("/:restaurantId/logo", upload.single("logo"), async (req, res) => {
+router.post("/:restaurantId/logo", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), upload.single("logo"), async (req, res) => {
   try {
     const { restaurantId } = req.params;
 
@@ -24,7 +30,7 @@ router.post("/:restaurantId/logo", upload.single("logo"), async (req, res) => {
     });
 
     const restaurante = await Restaurante.findOneAndUpdate(
-      { restaurantId: restaurantId },
+      { restaurantId: restaurantId, empresaId: req.auth.empresaId },
       {
         logoUrl: result.secure_url
       },

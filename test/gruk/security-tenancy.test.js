@@ -1,0 +1,5 @@
+"use strict";const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
+function src(p){return fs.readFileSync(path.join(__dirname,"../..",p),"utf8");}
+test("rutas laborales de mensajes exigen autenticación",()=>{const s=src("routes/mensajesLaboral.js");assert.match(s,/router\.use\(auth\)/);assert.match(s,/empresaId:req\.auth\.empresaId/);});
+test("upload de logo exige RBAC y tenant",()=>{const s=src("routes/restaurants.js");assert.match(s,/logo", authMiddleware, roleCheck/);assert.match(s,/empresaId: req\.auth\.empresaId/);assert.match(s,/fileSize: 2 \* 1024 \* 1024/);});
+test("production gate ejecuta sintaxis antes de tests",()=>{const p=JSON.parse(src("package.json"));assert.match(p.scripts.gate,/check:syntax/);assert.match(p.scripts.gate,/npm test/);});
