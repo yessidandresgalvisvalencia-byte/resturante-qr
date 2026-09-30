@@ -4,9 +4,12 @@ const ia = require("../gruk-ai");
 const EmpleadoLaboral = require("../models/EmpleadoLaboral");
 const SolicitudLaboral = require("../models/SolicitudLaboral");
 const AsistenciaLaboral = require("../models/AsistenciaLaboral");
+const authMiddleware = require("../core/auth/auth.middleware");
+const { ROLES_GRUK, roleCheck } = require("../core/auth/roleCheck.middleware");
+const { resolverContextoLaboral } = require("../core/laboral/tenantLaboral.service");
 
 // CREAR EMPLEADO
-router.post("/empleados", async (req, res) => {
+router.post("/empleados", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
   try {
     const {
       restaurantId,
@@ -37,8 +40,12 @@ router.post("/empleados", async (req, res) => {
       valorHoraNum = Math.round(salarioNum / 240);
     }
 
+    const contexto = await resolverContextoLaboral(req.auth, restaurantId);
+
     const empleado = await EmpleadoLaboral.create({
-      restaurantId,
+      empresaId: contexto.empresaId,
+      sedeId: contexto.sedeId,
+      restaurantId: contexto.restaurantId,
       nombre,
       documento,
       cargo,

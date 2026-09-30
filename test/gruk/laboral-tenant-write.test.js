@@ -1,0 +1,4 @@
+"use strict";const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
+const src=p=>fs.readFileSync(path.join(__dirname,"../..",p),"utf8");
+test("alta laboral deriva tenant del servidor y no del body",()=>{const s=src("routes/laboral.js");assert.match(s,/router\.post\("\/empleados", authMiddleware, roleCheck/);assert.match(s,/resolverContextoLaboral\(req\.auth, restaurantId\)/);assert.match(s,/empresaId: contexto\.empresaId/);assert.match(s,/sedeId: contexto\.sedeId/);});
+test("resolver laboral exige empresa autenticada y valida sede",()=>{const s=src("core/laboral/tenantLaboral.service.js");assert.match(s,/auth\?\.empresaId/);assert.match(s,/empresaId:auth\.empresaId/);assert.match(s,/restauranteId:rid/);});

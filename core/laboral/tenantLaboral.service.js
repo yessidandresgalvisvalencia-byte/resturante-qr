@@ -1,0 +1,5 @@
+"use strict";
+const Restaurante=require("../../models/restaurante");
+const Sede=require("../../models/sede");
+async function resolverContextoLaboral(auth,restaurantId){if(!auth?.empresaId){const e=new Error("Autenticación de tenant requerida");e.statusCode=401;throw e;}const rid=String(restaurantId||"").trim();if(!rid){const e=new Error("restaurantId es obligatorio");e.statusCode=400;throw e;}const restaurante=await Restaurante.findOne({restaurantId:rid,empresaId:auth.empresaId}).select("_id restaurantId empresaId").lean();if(!restaurante){const e=new Error("Restaurante fuera del tenant autorizado");e.statusCode=403;throw e;}let sedeId=null;if(auth.sedeId){const sede=await Sede.findOne({_id:auth.sedeId,empresaId:auth.empresaId,restauranteId:rid}).select("_id").lean();if(!sede){const e=new Error("Sede fuera del tenant autorizado");e.statusCode=403;throw e;}sedeId=sede._id;}return{empresaId:restaurante.empresaId,sedeId,restaurantId:rid};}
+module.exports={resolverContextoLaboral};
