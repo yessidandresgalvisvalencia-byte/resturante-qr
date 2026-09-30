@@ -307,7 +307,7 @@ router.put("/solicitudes/:id/estado", async (req, res) => {
   }
 });
 // MARCAR ENTRADA
-router.post("/asistencias/entrada", async (req, res) => {
+router.post("/asistencias/entrada", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO), async (req, res) => {
   try {
     const {
       restaurantId,
@@ -326,8 +326,12 @@ router.post("/asistencias/entrada", async (req, res) => {
       });
     }
 
+    const contexto = await resolverContextoLaboral(req.auth, restaurantId);
+    const empleado = await EmpleadoLaboral.findOne({ _id:empleadoId, empresaId:contexto.empresaId, restaurantId:contexto.restaurantId, activo:true }).select("_id").lean();
+    if (!empleado) return res.status(403).json({ ok:false, mensaje:"Empleado fuera del tenant autorizado." });
     const existente = await AsistenciaLaboral.findOne({
-      restaurantId,
+      empresaId: contexto.empresaId,
+      restaurantId: contexto.restaurantId,
       empleadoId,
       fecha
     });
@@ -341,7 +345,9 @@ router.post("/asistencias/entrada", async (req, res) => {
     }
 
     const asistencia = await AsistenciaLaboral.create({
-      restaurantId,
+      empresaId: contexto.empresaId,
+      sedeId: contexto.sedeId,
+      restaurantId: contexto.restaurantId,
       empleadoId,
       empleadoNombre,
       cargo,
