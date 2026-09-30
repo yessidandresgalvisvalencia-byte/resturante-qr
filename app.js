@@ -11,7 +11,9 @@ const { registrarJuntaVivaListener } = require("./intelligence/listeners/juntaVi
 const { registrarAgendaFinancieraListener } = require("./intelligence/listeners/agendaFinanciera.listener");
 const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
-const facturacionRoutes = require("./routes/facturacion");\nconst facturacionCoreRoutes = require("./core/facturacion/facturacion.routes");\nconst { registrarFacturacionListener } = require("./core/facturacion/facturacion.listener");
+const facturacionRoutes = require("./routes/facturacion");
+const facturacionCoreRoutes = require("./core/facturacion/facturacion.routes");
+const { registrarFacturacionListener } = require("./core/facturacion/facturacion.listener");
 const laboralRoutes = require("./routes/laboral");
 const gastosRoutes = require("./routes/gastos");
 const finanzasRoutes = require("./routes/finanzas");
@@ -50,7 +52,8 @@ app.set("io", io);
 registrarCajaListener();
 registrarFinanzasListener();
 registrarAgendaFinancieraListener();
-registrarJuntaVivaListener();\nregistrarFacturacionListener();
+registrarJuntaVivaListener();
+registrarFacturacionListener();
 eventBus.on("VENTA_COMPLETADA", (event) => {
   console.log(
     "[GRUK EVENT] VENTA_COMPLETADA",
@@ -67,7 +70,8 @@ eventBus.on("VENTA_COMPLETADA", (event) => {
 app.use(express.static("public"));
 app.use("/estadisticas", estadisticasRoutes);
 app.use("/api/restaurants", restaurantRoutes);
-app.use("/api/facturacion", facturacionRoutes); // legado: no retirar aún\napp.use("/api/facturacion-v2", facturacionCoreRoutes);
+app.use("/api/facturacion", facturacionRoutes); // legado: no retirar aún
+app.use("/api/facturacion-v2", facturacionCoreRoutes);
 app.use("/api/gastos", gastosRoutes);
 app.use("/api/finanzas", finanzasRoutes);
 app.use("/api/productos-servicios", productosServiciosRoutes);
