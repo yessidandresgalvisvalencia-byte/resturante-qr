@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const CerebroMemoria = require("./CerebroMemoria");
 const { medirKpi } = require("./kpi.service");
 const { ROLES_GRUK } = require("../../core/auth/roleCheck.middleware");
+const { registrarEvidencia } = require("../evidence/evidencia.service");
 
 function serviceError(statusCode, message) {
   const error = new Error(message);
@@ -158,10 +159,14 @@ async function evaluarMemoria(memoria) {
     }
   );
 
+  const memoriaActualizada = await CerebroMemoria.findById(memoria._id).lean();
+  const evidencia = await registrarEvidencia({ memoria: memoriaActualizada });
+
   return {
     memoriaId: memoria._id,
     resultado,
-    cumplioObjetivo
+    cumplioObjetivo,
+    atribucion: evidencia?.atribucion?.estado || "NO_DEMOSTRADA"
   };
 }
 

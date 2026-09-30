@@ -1,0 +1,4 @@
+"use strict";const test=require("node:test"),assert=require("node:assert/strict");const {calcularVariacion,construirAdvertencia}=require("../../intelligence/evidence/evidencia.service");
+test("evidencia calcula variación sin inventar porcentaje con baseline cero",()=>{assert.deepEqual(calcularVariacion(100,110),{absoluta:10,porcentual:10});assert.deepEqual(calcularVariacion(0,10),{absoluta:10,porcentual:null});});
+test("antes/después nunca afirma causalidad",()=>{const t=construirAdvertencia("MEJORO");assert.match(t,/no demuestra causalidad/i);assert.match(t,/no atribuye/i);});
+test("sin medición GRUK no declara impacto",()=>{assert.match(construirAdvertencia("NO_MEDIBLE"),/no declara resultado ni impacto/i);});
