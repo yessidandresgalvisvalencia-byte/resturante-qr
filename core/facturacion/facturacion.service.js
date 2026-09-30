@@ -9,7 +9,8 @@ async function prepararDesdeVenta({empresaId,ventaId,createdBy=null}){
  if(!empresa)throw Object.assign(new Error("Empresa no encontrada"),{statusCode:404});if(!venta)throw Object.assign(new Error("Venta pagada no encontrada en la empresa"),{statusCode:404});
  const faltantes=[];if(!empresa.nombre)faltantes.push("EMISOR_RAZON_SOCIAL");if(!empresa.correo)faltantes.push("EMISOR_CORREO");
  // NIT, responsabilidades fiscales, resolución/prefijo y adquirente fiscal no existen todavía en el modelo canónico.
- if(!process.env.FACTUS_NUMBERING_RANGE_ID)faltantes.push("RESOLUCION_NUMERACION");\n faltantes.push("ADQUIRENTE_DATOS_FISCALES");
+ if(!process.env.FACTUS_NUMBERING_RANGE_ID)faltantes.push("RESOLUCION_NUMERACION");
+ faltantes.push("ADQUIRENTE_DATOS_FISCALES");
  const snapshot={venta:{id:String(venta._id),fecha:venta.fecha,total:venta.total,concepto:venta.concepto,cantidad:venta.cantidad,precioUnitario:venta.precioUnitario,metodoPago:venta.metodoPago},emisor:{nombre:empresa.nombre,correo:empresa.correo,pais:empresa.configuracion?.pais||"CO",moneda:empresa.configuracion?.moneda||"COP"},fiscal:{numbering_range_id:process.env.FACTUS_NUMBERING_RANGE_ID||null,customer:null,items:[]}};
  const doc=await Documento.findOneAndUpdate({empresaId:eid,ventaId:vid,tipoDocumento:"FACTURA_VENTA",deletedAt:null},{$setOnInsert:{empresaId:eid,sedeId:venta.sedeId||null,ventaId:vid,tipoDocumento:"FACTURA_VENTA",createdBy:createdBy&&mongoose.Types.ObjectId.isValid(createdBy)?new mongoose.Types.ObjectId(String(createdBy)):null},$set:{estado:faltantes.length?"PENDIENTE_DATOS":"LISTA_PARA_EMITIR",faltantes,snapshot}}, {new:true,upsert:true,setDefaultsOnInsert:true});
  eventBus.emit("FACTURA_PREPARADA",{empresaId:eid,sedeId:venta.sedeId||null,ventaId:vid,facturaId:doc._id,estado:doc.estado,faltantes:doc.faltantes});return doc.toObject();
