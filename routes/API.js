@@ -12,6 +12,7 @@ const {
   roleCheck
 } = require("../core/auth/roleCheck.middleware");
 const router = express.Router();
+const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 
 const Pedido = require("../models/pedido.js");
 const Llamado = require("../models/llamado");
@@ -2865,6 +2866,15 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
 // Webhook de Wompi
 router.post("/wompi/webhook", async (req, res) => {
   try {
+    const secretoEventos = process.env.WOMPI_EVENTS_SECRET;
+    const checksumHeader = req.get("X-Event-Checksum");
+    if (!validarEventoWompi(req.body, checksumHeader, secretoEventos)) {
+      console.error("[SEGURIDAD] Webhook Wompi con firma inválida");
+      return res.status(401).json({ ok: false });
+    }
+    if (req.body?.event !== "transaction.updated" || req.body?.environment !== "prod") {
+      return res.status(200).json({ ok: true });
+    }
     const transactionId = req.body?.data?.transaction?.id;
 
     if (!transactionId) {

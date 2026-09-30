@@ -1,0 +1,5 @@
+"use strict";
+const crypto=require("crypto");
+function leerRuta(obj,ruta){return String(ruta).split(".").reduce((v,k)=>v==null?undefined:v[k],obj);}
+function validarEventoWompi(body,headerChecksum,secreto){if(!secreto)return false;const props=body?.signature?.properties;const checksum=String(headerChecksum||body?.signature?.checksum||"").toLowerCase();if(!Array.isArray(props)||!props.length||!checksum||body?.timestamp==null)return false;let cadena="";for(const prop of props){const valor=leerRuta(body?.data,prop);if(valor===undefined||valor===null)return false;cadena+=String(valor);}cadena+=String(body.timestamp)+String(secreto);const esperado=crypto.createHash("sha256").update(cadena).digest("hex").toLowerCase();if(checksum.length!==esperado.length)return false;return crypto.timingSafeEqual(Buffer.from(checksum),Buffer.from(esperado));}
+module.exports={validarEventoWompi};
