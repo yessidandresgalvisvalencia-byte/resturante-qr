@@ -8,9 +8,10 @@ const intentoSchema=new mongoose.Schema({
  amountInCents:{type:Number,required:true,min:1},
  currency:{type:String,required:true,default:"COP"},
  transactionId:{type:String,default:"",index:true},
- estado:{type:String,enum:["CREADO","ENVIADO","PENDIENTE","APROBADO","RECHAZADO","ERROR_ENVIO"],default:"CREADO",index:true},
+ estado:{type:String,enum:["CREADO","ENVIANDO","ENVIADO","PENDIENTE","APROBADO","RECHAZADO","ERROR_ENVIO","RESULTADO_DESCONOCIDO"],default:"CREADO",index:true},
  ultimoError:{type:String,default:""},
  enviadoAt:{type:Date,default:null},
+ inicioEnvioAt:{type:Date,default:null},
  resueltoAt:{type:Date,default:null}
 },{timestamps:true});
 intentoSchema.index({restaurantId:1,periodo:1},{unique:true});

@@ -46,7 +46,7 @@ function iniciarJobSuscripciones() {
 
           const currency = "COP";
           const intento = await obtenerOCrearIntento({ restaurante, amountInCents, currency });
-          if (["ENVIADO","PENDIENTE","APROBADO"].includes(intento.estado) || intento.transactionId) {
+          if (["ENVIANDO","ENVIADO","PENDIENTE","APROBADO","RESULTADO_DESCONOCIDO"].includes(intento.estado) || intento.transactionId) {
             console.log("Cobro mensual ya iniciado:", restaurante.restaurantId, intento.periodo);
             continue;
           }
@@ -63,6 +63,10 @@ function iniciarJobSuscripciones() {
             console.log("No se pudo obtener acceptance token para:", restaurante.restaurantId);
             continue;
           }
+
+          intento.estado = "ENVIANDO";
+          intento.inicioEnvioAt = new Date();
+          await intento.save();
 
           const txRes = await axios.post(
             "https://production.wompi.co/v1/transactions",
@@ -90,6 +94,14 @@ function iniciarJobSuscripciones() {
           await intento.save();
           console.log("Cobro automático enviado para:", restaurante.restaurantId, intento.transactionId || "sin id");
         } catch (error) {
+          try {
+            const intentoFallido = await require("../models/IntentoCobroSuscripcion").findOne({ restaurantId: restaurante.restaurantId, periodo: new Date().toISOString().slice(0,7) });
+            if (intentoFallido && intentoFallido.estado === "ENVIANDO") {
+              intentoFallido.estado = "RESULTADO_DESCONOCIDO";
+              intentoFallido.ultimoError = "Resultado remoto no confirmado; reintento automático bloqueado";
+              await intentoFallido.save();
+            }
+          } catch (ledgerError) { console.error("Error cerrando intento incierto:", ledgerError.message); }
           console.log(
             "Error cobrando automáticamente a",
             restaurante.restaurantId,
