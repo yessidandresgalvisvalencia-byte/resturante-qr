@@ -23,7 +23,8 @@ const Usuario = require("../models/usuario");
 const Sede = require("../models/sede");
 const Empresa = require("../models/Empresa");
 const {
-  registrarVentaDesdePedido
+  registrarVentaDesdePedido,
+  emitirVentaCompletada
 } = require("../services/ventas.service");
 const ProductoServicio = require("../models/ProductoServicio");
 const {
@@ -1555,105 +1556,87 @@ router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROL
 });
 
 router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
+  const estadoPago = String(req.body?.estadoPago || "");
+  if (!["pendiente", "pagado"].includes(estadoPago)) {
+    return res.status(400).json({ ok: false, error: "Estado de pago inválido" });
+  }
+
+  const session = await mongoose.startSession();
+  let pedidoFinal = null;
+  let ventaPostCommit = null;
+
   try {
-    const { estadoPago } = req.body;
-    if (!["pendiente","pagado"].includes(String(estadoPago))) return res.status(400).json({ok:false,error:"Estado de pago inválido"});
+    await session.withTransaction(async () => {
+      const pedido = await Pedido.findById(req.params.id).session(session);
+      if (!pedido) {
+        const error = new Error("PEDIDO_NO_ENCONTRADO"); error.statusCode = 404; throw error;
+      }
 
-    // 1. Buscar el pedido antes de modificarlo
-    const pedidoAnterior = await Pedido.findById(req.params.id);
-
-    if (!pedidoAnterior) {
-      return res.status(404).json({
-        ok: false,
-        mensaje: "Pedido no encontrado"
-      });
-    }
-
-    const restauranteTenant = await Restaurante.findOne({ restaurantId: pedidoAnterior.restaurantId, empresaId: req.auth.empresaId }).select("_id empresaId").lean();
-    if (!restauranteTenant) return res.status(403).json({ok:false,error:"Pedido fuera del tenant autorizado"});
-
-        // 2. Actualizar el estado del pago
-    const pedido = await Pedido.findByIdAndUpdate(
-      req.params.id,
-      { estadoPago },
-      { new: true }
-    );
-
-    // 3. Registrar la venta empresarial solamente cuando pasa a pagado
-    if (
-      estadoPago === "pagado" &&
-      pedidoAnterior.estadoPago !== "pagado"
-    ) {
       const restaurante = await Restaurante.findOne({
         restaurantId: pedido.restaurantId,
         empresaId: req.auth.empresaId
-      });
+      }).select("_id empresaId").session(session).lean();
 
       if (!restaurante) {
-        throw new Error(
-          `No se encontrÃƒÂ³ el restaurante ${pedido.restaurantId}`
-        );
+        const error = new Error("PEDIDO_FUERA_TENANT"); error.statusCode = 403; throw error;
       }
 
-      if (!restaurante.empresaId) {
-        throw new Error(
-          "El restaurante todavÃƒÂ­a no estÃƒÂ¡ vinculado a una empresa"
-        );
+      if (pedido.estadoPago === estadoPago) {
+        pedidoFinal = pedido;
+        return;
+      }
+
+      if (estadoPago !== "pagado") {
+        const error = new Error("REVERSO_PAGO_NO_PERMITIDO"); error.statusCode = 409; throw error;
       }
 
       let sedeObjectId = null;
-
       if (pedido.sedeId) {
         const sede = await Sede.findOne({
           empresaId: restaurante.empresaId,
           restauranteId: pedido.restaurantId,
           $or: [
             { codigoSede: pedido.sedeId },
-            { _id: mongoose.Types.ObjectId.isValid(pedido.sedeId)
-                ? pedido.sedeId
-                : null }
+            { _id: mongoose.Types.ObjectId.isValid(pedido.sedeId) ? pedido.sedeId : null }
           ]
-        });
-
-        if (sede) {
-          sedeObjectId = sede._id;
-        }
+        }).session(session).lean();
+        if (sede) sedeObjectId = sede._id;
       }
 
       const resultadoVenta = await registrarVentaDesdePedido({
         pedido,
         empresaId: restaurante.empresaId,
-        sedeId: sedeObjectId
+        sedeId: sedeObjectId,
+        session,
+        emitirEvento: false
       });
 
-      if (resultadoVenta.creada) {
-        console.log(
-          `Venta empresarial registrada desde pedido ${pedido._id}`
-        );
-      } else {
-        console.log(
-          `Venta del pedido ${pedido._id} ya estaba registrada`
-        );
-      }
-    }
-
-    // 4. Mantener Socket.IO funcionando como antes
-    const io = req.app.get("io");
-    io.emit("pedido:actualizado", pedido);
-
-    res.json({
-      ok: true,
-      pedido
+      pedido.estadoPago = "pagado";
+      await pedido.save({ session });
+      pedidoFinal = pedido;
+      if (resultadoVenta.creada) ventaPostCommit = resultadoVenta.venta;
     });
 
+    if (ventaPostCommit) emitirVentaCompletada(ventaPostCommit);
+
+    const io = req.app.get("io");
+    io.emit("pedido:actualizado", pedidoFinal);
+
+    return res.json({ ok: true, pedido: pedidoFinal });
   } catch (error) {
     console.error("Error actualizando pago:", error);
-
-    res.status(500).json({
+    const status = Number(error.statusCode || 500);
+    const mensajes = {
+      403: "Pedido fuera del tenant autorizado",
+      404: "Pedido no encontrado",
+      409: "Un pago confirmado no puede revertirse desde este endpoint"
+    };
+    return res.status(status).json({
       ok: false,
-      mensaje: "Error actualizando pago",
-      error: "Operación de pago no completada"
+      mensaje: mensajes[status] || "Operación de pago no completada"
     });
+  } finally {
+    await session.endSession();
   }
 });
 

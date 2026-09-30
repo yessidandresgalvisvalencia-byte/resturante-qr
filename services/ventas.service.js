@@ -9,7 +9,9 @@ const eventBus = require("../core/eventos/eventBus");
 async function registrarVentaDesdePedido({
   pedido,
   empresaId,
-  sedeId = null
+  sedeId = null,
+  session = null,
+  emitirEvento = true
 }) {
   if (!pedido) {
     throw new Error(
@@ -39,6 +41,7 @@ async function registrarVentaDesdePedido({
         empresaId
       })
         .select("_id costoUnitario")
+        .session(session)
         .lean();
 
     if (!productoServicio) {
@@ -74,6 +77,7 @@ async function registrarVentaDesdePedido({
         filtroCliente
       )
         .select("_id")
+        .session(session)
         .lean();
 
       if (!cliente) {
@@ -120,7 +124,7 @@ async function registrarVentaDesdePedido({
         ? (utilidadBruta / total) * 100
         : 0;
 
-    const venta = await Venta.create({
+    const [venta] = await Venta.create([{
       empresaId,
       sedeId,
 
@@ -161,9 +165,9 @@ costoFuente:
     ? "ProductoServicio"
     : "NO_CONFIGURADO"
       }
-    });
+    }], { session });
 
-    eventBus.emit("VENTA_COMPLETADA", {
+    if (emitirEvento) eventBus.emit("VENTA_COMPLETADA", {
       ventaId: venta._id,
       empresaId: venta.empresaId,
       sedeId: venta.sedeId,
@@ -205,7 +209,7 @@ costoFuente:
       const ventaExistente = await Venta.findOne({
         origen: "restaurante",
         origenId: pedido._id
-      });
+      }).session(session);
 
       return {
         venta: ventaExistente,
@@ -217,6 +221,17 @@ costoFuente:
   }
 }
 
-module.exports = {
-  registrarVentaDesdePedido
-};
+function emitirVentaCompletada(venta) {
+  eventBus.emit("VENTA_COMPLETADA", {
+    ventaId: venta._id, empresaId: venta.empresaId, sedeId: venta.sedeId,
+    productoServicioId: venta.productoServicioId, clienteId: venta.clienteId,
+    origen: venta.origen, origenId: venta.origenId, cantidad: venta.cantidad,
+    precioUnitario: venta.precioUnitario, total: venta.total,
+    costoUnitario: venta.costoUnitario, costoTotal: venta.costoTotal,
+    utilidadBruta: venta.utilidadBruta, margenBruto: venta.margenBruto,
+    metodoPago: venta.metodoPago, concepto: venta.concepto, fecha: venta.fecha,
+    sourceUpdatedAt: venta.updatedAt, cajaReferencia: venta.metadata?.cajaReferencia || null
+  });
+}
+
+module.exports = { registrarVentaDesdePedido, emitirVentaCompletada };
