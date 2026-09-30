@@ -13,6 +13,7 @@ const {
 } = require("../core/auth/roleCheck.middleware");
 const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
+const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 
 const Pedido = require("../models/pedido.js");
 const Llamado = require("../models/llamado");
@@ -2930,6 +2931,15 @@ router.post("/wompi/webhook", async (req, res) => {
     }
 
     const status = String(transaction.status || "").toUpperCase();
+    const intento = await IntentoCobroSuscripcion.findOne({ reference });
+    if (intento) {
+      intento.transactionId = String(transactionId);
+      if (status === "APPROVED") intento.estado = "APROBADO";
+      else if (status === "PENDING") intento.estado = "PENDIENTE";
+      else if (["DECLINED","ERROR","VOIDED"].includes(status)) intento.estado = "RECHAZADO";
+      if (["APPROVED","DECLINED","ERROR","VOIDED"].includes(status)) intento.resueltoAt = new Date();
+      await intento.save();
+    }
 
     if (restaurante.ultimoTransactionId === String(transactionId)) {
       return res.status(200).json({ ok: true });

@@ -3,6 +3,7 @@
 const cron = require("node-cron");
 const axios = require("axios");
 const Restaurante = require("../models/restaurante");
+const { obtenerOCrearIntento } = require("../core/pagos/intentoCobro.service");
 
 function iniciarJobSuscripciones() {
   cron.schedule("0 9 * * *", async () => {
@@ -44,7 +45,12 @@ function iniciarJobSuscripciones() {
           }
 
           const currency = "COP";
-          const reference = `renovacion_${restaurante.restaurantId}_${Date.now()}`;
+          const intento = await obtenerOCrearIntento({ restaurante, amountInCents, currency });
+          if (["ENVIADO","PENDIENTE","APROBADO"].includes(intento.estado) || intento.transactionId) {
+            console.log("Cobro mensual ya iniciado:", restaurante.restaurantId, intento.periodo);
+            continue;
+          }
+          const reference = intento.reference;
 
           const merchantRes = await axios.get(
             `https://production.wompi.co/v1/merchants/${wompiPublicKey}`
@@ -76,11 +82,13 @@ function iniciarJobSuscripciones() {
             }
           );
 
-          console.log(
-            "Cobro automático enviado para:",
-            restaurante.restaurantId,
-            txRes?.data?.data?.id || "sin id"
-          );
+          const tx = txRes?.data?.data;
+          intento.transactionId = String(tx?.id || "");
+          intento.estado = String(tx?.status || "").toUpperCase() === "APPROVED" ? "APROBADO" : "PENDIENTE";
+          intento.enviadoAt = new Date();
+          if (intento.estado === "APROBADO") intento.resueltoAt = new Date();
+          await intento.save();
+          console.log("Cobro automático enviado para:", restaurante.restaurantId, intento.transactionId || "sin id");
         } catch (error) {
           console.log(
             "Error cobrando automáticamente a",
