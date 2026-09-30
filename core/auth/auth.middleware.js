@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const ROLES_VALIDOS = new Set(["DUEÑO","ADMIN_SEDE","EMPLEADO"]);
 
 function authMiddleware(req, res, next) {
   try {
@@ -41,7 +42,7 @@ function authMiddleware(req, res, next) {
       algorithms: ["HS256"]
     });
 
-    if (!payload.sub || !payload.empresaId || !payload.rol) {
+    if (!payload.sub || !payload.empresaId || !payload.rol || !ROLES_VALIDOS.has(String(payload.rol))) {
       return res.status(401).json({
         ok: false,
         error: "Token de autenticación inválido"
