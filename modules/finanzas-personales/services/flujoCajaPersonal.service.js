@@ -4,6 +4,7 @@ const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
 const Outbox=require("../models/outboxPersonal.model");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
+const {encryptObject}=require("../security/fieldEncryption.service");
 
 function eventFor(tipo){if(tipo==="GASTO")return PERSONAL_EVENTS.GASTO_REGISTRADO;if(tipo==="INGRESO")return PERSONAL_EVENTS.INGRESO_DETECTADO;if(tipo==="PAGO_DEUDA")return PERSONAL_EVENTS.PAGO_DEUDA;throw new TypeError("Tipo de transacción no soportado");}
 function hashExternalId(usuarioId,externalId){if(!externalId)return null;const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET||process.env.JWT_SECRET;if(!secret)throw new Error("PERSONAL_IDEMPOTENCY_SECRET/JWT_SECRET requerido");return crypto.createHmac("sha256",secret).update(String(usuarioId)).update(":").update(String(externalId)).digest("hex");}
@@ -11,8 +12,8 @@ async function registrarTransaccion(usuarioId,input){
  const session=await mongoose.startSession();let tx,outbox;
  try{
   await session.withTransaction(async()=>{
-   const externalIdHash=hashExternalId(usuarioId,input.externalId);
-   [tx]=await Transaccion.create([{usuarioId,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash}],{session});
+   const externalIdHash=hashExternalId(usuarioId,input.externalId);const envelope=input.metadatosSensibles?encryptObject(input.metadatosSensibles,{aad:String(usuarioId)}):null;
+   [tx]=await Transaccion.create([{usuarioId,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null}],{session});
    const eventId=crypto.randomUUID(),eventName=eventFor(input.tipo);
    [outbox]=await Outbox.create([{usuarioId,eventId,eventName,aggregateId:tx._id,payload:{transaccionId:tx._id.toString(),tipo:tx.tipo,montoMinor:tx.montoMinor,moneda:tx.moneda,categoria:tx.categoria,fecha:tx.fecha}}],{session});
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
