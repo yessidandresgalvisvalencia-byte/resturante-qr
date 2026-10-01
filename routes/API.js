@@ -13,7 +13,9 @@ const {
 } = require("../core/auth/roleCheck.middleware");
 const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
+const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
+const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
 const { revocarIdentidad } = require("../core/auth/sessionRevocation.service");
 
 const Pedido = require("../models/pedido.js");
@@ -2888,90 +2890,30 @@ router.post("/wompi/webhook", async (req, res) => {
       return res.status(200).json({ ok: true });
     }
     const transactionId = req.body?.data?.transaction?.id;
+    if (!transactionId) return res.status(200).json({ ok: true });
 
-    if (!transactionId) {
-      return res.status(200).json({ ok: true });
-    }
-
-    // Nunca confiar en estado, monto o referencia enviados por el webhook.
-    // Se consulta la transaccion canonica directamente en Wompi.
     const wompiRes = await axios.get(
       `https://production.wompi.co/v1/transactions/${encodeURIComponent(String(transactionId))}`
     );
     const transaction = wompiRes.data?.data;
-
-    if (!transaction) {
-      return res.status(200).json({ ok: true });
-    }
+    if (!transaction) return res.status(200).json({ ok: true });
 
     const reference = String(transaction.reference || "");
-    const prefijo = reference.startsWith("suscripcion_")
-      ? "suscripcion_"
-      : reference.startsWith("renovacion_")
-        ? "renovacion_"
-        : null;
-
-    if (!prefijo) {
+    if (reference.startsWith("GRUK_PEDIDO_")) {
+      const resultadoPedido = await confirmarPagoPedidoWompi({ transaction, io: req.app.get("io") });
+      if (!resultadoPedido.ok) console.error("[PAGOS] Evento de pedido no aplicado", resultadoPedido);
       return res.status(200).json({ ok: true });
     }
 
-    const referenciaSinPrefijo = reference.slice(prefijo.length);
-    const ultimoSeparador = referenciaSinPrefijo.lastIndexOf("_");
-
-    if (ultimoSeparador <= 0) {
+    if (!reference.startsWith("suscripcion_") && !reference.startsWith("renovacion_")) {
       return res.status(200).json({ ok: true });
     }
-
-    const restaurantId = referenciaSinPrefijo.slice(0, ultimoSeparador);
-    const restaurante = await Restaurante.findOne({ restaurantId });
-
-    if (!restaurante) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const montoEsperado = Number(restaurante.precioMensual || 220000) * 100;
-    const montoValido = Number(transaction.amount_in_cents) === montoEsperado;
-    const monedaValida = String(transaction.currency || "").toUpperCase() === "COP";
-
-    if (!montoValido || !monedaValida) {
-      console.error("[SEGURIDAD] Webhook Wompi no coincide con la suscripcion", {
-        restaurantId,
-        transactionId: String(transactionId)
+    const resultado = await aplicarResultadoSuscripcion({ transaction });
+    if (!resultado.ok) {
+      console.error("[SUSCRIPCIONES] Resultado Wompi no aplicado", {
+        reference, transactionId: String(transactionId), reason: resultado.reason
       });
-      return res.status(200).json({ ok: true });
     }
-
-    const status = String(transaction.status || "").toUpperCase();
-    const intento = await IntentoCobroSuscripcion.findOne({ reference });
-    if (intento) {
-      intento.transactionId = String(transactionId);
-      if (status === "APPROVED") intento.estado = "APROBADO";
-      else if (status === "PENDING") intento.estado = "PENDIENTE";
-      else if (["DECLINED","ERROR","VOIDED"].includes(status)) intento.estado = "RECHAZADO";
-      if (["APPROVED","DECLINED","ERROR","VOIDED"].includes(status)) intento.resueltoAt = new Date();
-      await intento.save();
-    }
-
-    if (restaurante.ultimoTransactionId === String(transactionId)) {
-      return res.status(200).json({ ok: true });
-    }
-
-    if (status === "APPROVED") {
-      const hoy = new Date();
-      const proximo = new Date(hoy);
-      proximo.setDate(proximo.getDate() + 30);
-
-      restaurante.estadoSuscripcion = "activa";
-      restaurante.fechaUltimoPago = hoy;
-      restaurante.fechaProximoCobro = proximo;
-      restaurante.ultimoTransactionId = String(transactionId);
-      await restaurante.save();
-    } else if (["DECLINED", "ERROR", "VOIDED"].includes(status)) {
-      restaurante.estadoSuscripcion = "pendiente";
-      restaurante.ultimoTransactionId = String(transactionId);
-      await restaurante.save();
-    }
-
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.log("Error webhook Wompi:", error?.response?.data || error?.message || error);
