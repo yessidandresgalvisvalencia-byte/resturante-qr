@@ -27,6 +27,7 @@ const memoriaRoutes = require("./routes/memoria");
 const tesoreriaRoutes = require("./routes/tesoreria");
 const configuracionInteligenciaRoutes = require("./routes/configuracionInteligencia");
 const ejecutivoRoutes = require("./routes/ejecutivo");
+const finanzasPersonalesRoutes = require("./modules/finanzas-personales/routes");
 const iniciarCerebroJob = require("./shared/jobs/cerebro.job");
 const iniciarCajaJob = require("./shared/jobs/caja.job");
 const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
@@ -88,6 +89,7 @@ app.use("/api/memoria", memoriaRoutes);
 app.use("/api/tesoreria", tesoreriaRoutes);
 app.use("/api/configuracion-inteligencia", configuracionInteligenciaRoutes);
 app.use("/api/ejecutivo", ejecutivoRoutes);
+app.use("/api/finanzas-personales", finanzasPersonalesRoutes);
 app.use("/api", apiRoutes);
 app.use(
 "/api/inventario",
