@@ -13,6 +13,7 @@ const {
 } = require("../core/auth/roleCheck.middleware");
 const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
+const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { revocarIdentidad } = require("../core/auth/sessionRevocation.service");
 
@@ -2905,6 +2906,13 @@ router.post("/wompi/webhook", async (req, res) => {
     }
 
     const reference = String(transaction.reference || "");
+
+    if (reference.startsWith("GRUK_PEDIDO_")) {
+      const resultadoPedido = await confirmarPagoPedidoWompi({ transaction, io: req.app.get("io") });
+      if (!resultadoPedido.ok) console.error("[PAGOS] Evento de pedido no aplicado", resultadoPedido);
+      return res.status(200).json({ ok: true });
+    }
+
     const prefijo = reference.startsWith("suscripcion_")
       ? "suscripcion_"
       : reference.startsWith("renovacion_")
