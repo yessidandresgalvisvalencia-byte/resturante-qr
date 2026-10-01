@@ -27,7 +27,9 @@ async function publicarEvento(outbox){
  }catch(err){await Outbox.updateOne({_id:outbox._id},{$set:{estado:"ERROR",ultimoError:String(err.message||err).slice(0,500)},$inc:{intentos:1}});throw err;}
 }
 async function republicarPendientes(limite=100){const docs=await Outbox.find({estado:{$in:["PENDIENTE","ERROR"]}}).sort({createdAt:1}).limit(Math.min(limite,500));let publicados=0;for(const doc of docs){try{await publicarEvento(doc);publicados++;}catch(_){}}return publicados;}
-async function flujoPeriodo(usuarioId,{desde,hasta}){\n const inicio=new Date(desde),fin=new Date(hasta);if(Number.isNaN(inicio.getTime())||Number.isNaN(fin.getTime())||inicio>=fin)throw Object.assign(new Error("Periodo inválido"),{statusCode:400});\n const rows=await Transaccion.aggregate([{$match:{usuarioId:new mongoose.Types.ObjectId(usuarioId),moneda:"COP",fecha:{$gte:inicio,$lt:fin}}},{$group:{_id:"$tipo",total:{$sum:"$montoMinor"}}}]);
+async function flujoPeriodo(usuarioId,{desde,hasta}){
+ const inicio=new Date(desde),fin=new Date(hasta);if(Number.isNaN(inicio.getTime())||Number.isNaN(fin.getTime())||inicio>=fin)throw Object.assign(new Error("Periodo inválido"),{statusCode:400});
+ const rows=await Transaccion.aggregate([{$match:{usuarioId:new mongoose.Types.ObjectId(usuarioId),moneda:"COP",fecha:{$gte:inicio,$lt:fin}}},{$group:{_id:"$tipo",total:{$sum:"$montoMinor"}}}]);
  const totals=Object.fromEntries(rows.map(x=>[x._id,x.total]));const ingresos=totals.INGRESO||0,gastos=totals.GASTO||0,pagosDeuda=totals.PAGO_DEUDA||0;
  return{ingresosMinor:ingresos,gastosMinor:gastos,pagosDeudaMinor:pagosDeuda,flujoNetoMinor:ingresos-gastos-pagosDeuda,moneda:"COP"};
 }
