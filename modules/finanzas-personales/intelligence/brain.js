@@ -1,0 +1,3 @@
+"use strict";
+const service=require("../services/finanzasPersonales.service");
+async function analizar(userId){const r=await service.resumen(userId);const hallazgos=[];if(r.flujoLibre<0)hallazgos.push({nivel:"CRITICO",codigo:"FLUJO_NEGATIVO",mensaje:"Tus salidas y cuotas superan tus ingresos registrados."});if(r.ingresos>0&&r.cuotasDeuda/r.ingresos>0.35)hallazgos.push({nivel:"ALTO",codigo:"CARGA_DEUDA",mensaje:"Las cuotas de deuda superan el 35% de los ingresos registrados."});if(!hallazgos.length)hallazgos.push({nivel:"ESTABLE",codigo:"SIN_ALERTA_CRITICA",mensaje:"No se detectan alertas críticas con los datos registrados."});return{generadoEn:new Date(),resumen:r,hallazgos};}module.exports={analizar};
