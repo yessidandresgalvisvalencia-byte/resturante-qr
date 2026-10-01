@@ -1,4 +1,4 @@
-name: GRUK Gate
+name: GRUK Production Gate
 on:
   pull_request:
     branches: [main]
@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   gate:
+    name: GRUK Production Gate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
