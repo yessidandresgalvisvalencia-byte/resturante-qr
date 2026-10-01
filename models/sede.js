@@ -7,10 +7,7 @@ const sedeSchema = new mongoose.Schema({
   default: null,
   index: true
 },
-  restauranteId: {
-    type: String,
-    required: true
-  },
+  restauranteId: {\n    type: String,\n    default: null,\n    index: true\n  },
   nombreSede: {
     type: String,
     required: true
