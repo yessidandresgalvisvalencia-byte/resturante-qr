@@ -14,6 +14,7 @@ const {
 const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
+const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
 const { revocarIdentidad } = require("../core/auth/sessionRevocation.service");
 
 const Pedido = require("../models/pedido.js");
@@ -2905,14 +2906,20 @@ router.post("/wompi/webhook", async (req, res) => {
     }
 
     const reference = String(transaction.reference || "");
-    const prefijo = reference.startsWith("suscripcion_")
-      ? "suscripcion_"
-      : reference.startsWith("renovacion_")
-        ? "renovacion_"
-        : null;
-
-    if (!prefijo) {
+    if (!reference.startsWith("suscripcion_") && !reference.startsWith("renovacion_")) {
       return res.status(200).json({ ok: true });
+    }
+
+    const resultado = await aplicarResultadoSuscripcion({ transaction });
+    if (!resultado.ok) {
+      console.error("[SUSCRIPCIONES] Resultado Wompi no aplicado", {
+        reference,
+        transactionId: String(transactionId),
+        reason: resultado.reason
+      });
+    }
+
+    return res.status(200).json({ ok: true });
     }
 
     const referenciaSinPrefijo = reference.slice(prefijo.length);
