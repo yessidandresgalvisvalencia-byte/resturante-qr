@@ -1,86 +1,11 @@
 "use strict";
-const mongoose = require("mongoose");
-const Restaurante = require("../models/restaurante");
-const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
-
-function siguienteCobroMensual(desde) {
-  const base = new Date(desde);
-  const day = base.getUTCDate();
-  const next = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 1,
-    base.getUTCHours(), base.getUTCMinutes(), base.getUTCSeconds(), base.getUTCMilliseconds()));
-  const lastDay = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
-  next.setUTCDate(Math.min(day, lastDay));
-  return next;
-}
-
-async function aplicarResultadoSuscripcion({ transaction }) {
-  const reference = String(transaction?.reference || "");
-  if (!reference.startsWith("suscripcion_") && !reference.startsWith("renovacion_")) {
-    return { handled: false };
-  }
-
-  const intento = await IntentoCobroSuscripcion.findOne({ reference });
-  let restaurante = null;
-  if (intento) {
-    restaurante = await Restaurante.findOne({ restaurantId: intento.restaurantId });
-  } else if (reference.startsWith("suscripcion_")) {
-    const raw = reference.slice("suscripcion_".length);
-    const cut = raw.lastIndexOf("_");
-    if (cut > 0) restaurante = await Restaurante.findOne({ restaurantId: raw.slice(0, cut) });
-  }
-  if (!restaurante) return { handled: true, ok: false, reason: "RESTAURANTE_NO_ENCONTRADO" };
-
-  const amountExpected = intento?.amountInCents ?? Math.round(Number(restaurante.precioMensual || 0) * 100);
-  if (Number(transaction.amount_in_cents) !== Number(amountExpected) ||
-      String(transaction.currency || "").toUpperCase() !== "COP") {
-    console.error("[SEGURIDAD] Resultado de suscripción con integridad económica inválida", {
-      reference, transactionId: String(transaction.id || "")
-    });
-    return { handled: true, ok: false, reason: "INTEGRIDAD_ECONOMICA_INVALIDA" };
-  }
-
-  const status = String(transaction.status || "").toUpperCase();
-  const transactionId = String(transaction.id || "");
-  if (restaurante.ultimoTransactionId === transactionId && transactionId) {
-    return { handled: true, ok: true, idempotent: true, status };
-  }
-
-  const session = await mongoose.startSession();
-  try {
-    await session.withTransaction(async () => {
-      const r = await Restaurante.findById(restaurante._id).session(session);
-      if (!r) throw new Error("RESTAURANTE_NO_ENCONTRADO");
-      if (r.ultimoTransactionId === transactionId && transactionId) return;
-
-      if (intento) {
-        const i = await IntentoCobroSuscripcion.findById(intento._id).session(session);
-        if (i) {
-          i.transactionId = transactionId;
-          if (status === "APPROVED") i.estado = "APROBADO";
-          else if (status === "PENDING") i.estado = "PENDIENTE";
-          else if (["DECLINED","ERROR","VOIDED"].includes(status)) i.estado = "RECHAZADO";
-          if (["APPROVED","DECLINED","ERROR","VOIDED"].includes(status)) i.resueltoAt = new Date();
-          await i.save({ session });
-        }
-      }
-
-      if (status === "APPROVED") {
-        const paidAt = new Date();
-        r.estadoSuscripcion = "activa";
-        r.fechaUltimoPago = paidAt;
-        r.fechaProximoCobro = siguienteCobroMensual(paidAt);
-        r.ultimoTransactionId = transactionId;
-        await r.save({ session });
-      } else if (["DECLINED","ERROR","VOIDED"].includes(status)) {
-        r.estadoSuscripcion = "pendiente";
-        r.ultimoTransactionId = transactionId;
-        await r.save({ session });
-      }
-    });
-    return { handled: true, ok: true, status };
-  } finally {
-    await session.endSession();
-  }
-}
-
-module.exports = { aplicarResultadoSuscripcion, siguienteCobroMensual };
+const mongoose=require("mongoose");
+const Restaurante=require("../models/restaurante");
+const Empresa=require("../models/Empresa");
+const SuscripcionEmpresa=require("../models/SuscripcionEmpresa");
+const Intento=require("../models/IntentoCobroSuscripcion");
+function siguienteCobroMensual(desde){const base=new Date(desde),day=base.getUTCDate(),next=new Date(Date.UTC(base.getUTCFullYear(),base.getUTCMonth()+1,1,base.getUTCHours(),base.getUTCMinutes(),base.getUTCSeconds(),base.getUTCMilliseconds())),last=new Date(Date.UTC(next.getUTCFullYear(),next.getUTCMonth()+1,0)).getUTCDate();next.setUTCDate(Math.min(day,last));return next}
+async function aplicarEmpresa({transaction,intento}){const status=String(transaction.status||"").toUpperCase(),transactionId=String(transaction.id||"");const session=await mongoose.startSession();try{let idempotent=false;await session.withTransaction(async()=>{const i=await Intento.findById(intento._id).session(session);const s=await SuscripcionEmpresa.findOne({empresaId:intento.empresaId}).session(session);if(!i||!s)throw new Error("SUSCRIPCION_EMPRESA_NO_ENCONTRADA");if(s.ultimoTransactionId===transactionId&&transactionId){idempotent=true;return}i.transactionId=transactionId;if(status==="APPROVED")i.estado="APROBADO";else if(status==="PENDING")i.estado="PENDIENTE";else if(["DECLINED","ERROR","VOIDED"].includes(status))i.estado="RECHAZADO";if(["APPROVED","DECLINED","ERROR","VOIDED"].includes(status))i.resueltoAt=new Date();await i.save({session});if(status==="APPROVED"){const paidAt=new Date();s.estado="ACTIVA";s.fechaUltimoPago=paidAt;s.fechaProximoCobro=siguienteCobroMensual(paidAt);s.ultimoTransactionId=transactionId;await s.save({session})}else if(["DECLINED","ERROR","VOIDED"].includes(status)){s.estado="PENDIENTE";s.ultimoTransactionId=transactionId;await s.save({session})}},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return{handled:true,ok:true,idempotent,status}}finally{await session.endSession()}}
+async function aplicarResultadoSuscripcion({transaction}){const reference=String(transaction?.reference||"");if(!reference.startsWith("suscripcion_")&&!reference.startsWith("renovacion_")&&!reference.startsWith("gruk_empresa_"))return{handled:false};const intento=await Intento.findOne({reference});if(intento?.empresaId){const sub=await SuscripcionEmpresa.findOne({empresaId:intento.empresaId}).lean();if(!sub)return{handled:true,ok:false,reason:"SUSCRIPCION_EMPRESA_NO_ENCONTRADA"};if(Number(transaction.amount_in_cents)!==Number(intento.amountInCents)||String(transaction.currency||"").toUpperCase()!==String(intento.currency||"COP").toUpperCase())return{handled:true,ok:false,reason:"INTEGRIDAD_ECONOMICA_INVALIDA"};return aplicarEmpresa({transaction,intento})}
+let restaurante=null;if(intento?.restaurantId)restaurante=await Restaurante.findOne({restaurantId:intento.restaurantId});else if(reference.startsWith("suscripcion_")){const raw=reference.slice(12),cut=raw.lastIndexOf("_");if(cut>0)restaurante=await Restaurante.findOne({restaurantId:raw.slice(0,cut)})}if(!restaurante)return{handled:true,ok:false,reason:"RESTAURANTE_NO_ENCONTRADO"};const expected=intento?.amountInCents??Math.round(Number(restaurante.precioMensual||0)*100);if(Number(transaction.amount_in_cents)!==Number(expected)||String(transaction.currency||"").toUpperCase()!=="COP")return{handled:true,ok:false,reason:"INTEGRIDAD_ECONOMICA_INVALIDA"};const status=String(transaction.status||"").toUpperCase(),transactionId=String(transaction.id||"");if(restaurante.ultimoTransactionId===transactionId&&transactionId)return{handled:true,ok:true,idempotent:true,status};const session=await mongoose.startSession();try{await session.withTransaction(async()=>{const r=await Restaurante.findById(restaurante._id).session(session);if(!r)throw new Error("RESTAURANTE_NO_ENCONTRADO");if(r.ultimoTransactionId===transactionId&&transactionId)return;if(intento){const i=await Intento.findById(intento._id).session(session);if(i){i.transactionId=transactionId;i.estado=status==="APPROVED"?"APROBADO":status==="PENDING"?"PENDIENTE":"RECHAZADO";if(["APPROVED","DECLINED","ERROR","VOIDED"].includes(status))i.resueltoAt=new Date();await i.save({session})}}if(status==="APPROVED"){const paidAt=new Date();r.estadoSuscripcion="activa";r.fechaUltimoPago=paidAt;r.fechaProximoCobro=siguienteCobroMensual(paidAt);r.ultimoTransactionId=transactionId;await r.save({session})}else if(["DECLINED","ERROR","VOIDED"].includes(status)){r.estadoSuscripcion="pendiente";r.ultimoTransactionId=transactionId;await r.save({session})}},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return{handled:true,ok:true,status}}finally{await session.endSession()}}
+module.exports={aplicarResultadoSuscripcion,siguienteCobroMensual};
