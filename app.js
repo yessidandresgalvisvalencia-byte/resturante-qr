@@ -14,6 +14,7 @@ const { registrarAgendaFinancieraListener } = require("./intelligence/listeners/
 const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
 const facturacionRoutes = require("./routes/facturacion");
+const pagosRoutes = require("./routes/pagos");
 const facturacionCoreRoutes = require("./core/facturacion/facturacion.routes");
 const { registrarFacturacionListener } = require("./core/facturacion/facturacion.listener");
 const laboralRoutes = require("./routes/laboral");
@@ -76,6 +77,7 @@ eventBus.on("VENTA_COMPLETADA", (event) => {
 app.use(express.static("public"));
 app.use("/estadisticas", estadisticasRoutes);
 app.use("/api/restaurants", restaurantRoutes);
+app.use("/pagos", pagosRoutes);
 app.use("/api/facturacion", facturacionRoutes); // legado: no retirar aún
 app.use("/api/facturacion-v2", facturacionCoreRoutes);
 app.use("/api/gastos", gastosRoutes);
