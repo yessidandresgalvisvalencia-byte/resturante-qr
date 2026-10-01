@@ -74,44 +74,47 @@
 
 <script>
 async function pagarPedido() {
-  const totalTexto = document.getElementById("totalMesa").textContent;
-  const total = Number(totalTexto.replace(/[^\d]/g, "")) || 0;
+  try {
+    const paramsActuales = new URLSearchParams(window.location.search);
+    const restaurantId = paramsActuales.get("restaurantId");
+    const mesa = Number(paramsActuales.get("mesa"));
+    const metodoPago = document.getElementById("metodoPago").value;
 
-  if (total <= 0) {
-    alert("No hay productos en el pedido");
-    return;
+    if (metodoPago !== "tarjeta") {
+      alert("El cobro automático está disponible al seleccionar Tarjeta.");
+      return;
+    }
+    if (!restaurantId || !Number.isInteger(mesa) || mesa <= 0) {
+      alert("No se pudo identificar restaurante y mesa.");
+      return;
+    }
+
+    const boton = document.querySelector('button[onclick="pagarPedido()"]');
+    if (boton) boton.disabled = true;
+
+    const resp = await fetch("/pagos/crear-pago", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ restaurantId, mesa })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.error || "No se pudo iniciar el pago");
+
+    const wompiParams = new URLSearchParams({
+      "public-key": data.publicKey,
+      "currency": data.currency,
+      "amount-in-cents": String(data.amountInCents),
+      "reference": data.reference,
+      "signature:integrity": data.signature,
+      "redirect-url": data.redirectUrl
+    });
+
+    window.location.assign(`https://checkout.wompi.co/p/?${wompiParams.toString()}`);
+  } catch (error) {
+    console.error("[PAGOS] Error:", error);
+    alert(error.message || "No se pudo iniciar el pago");
+    const boton = document.querySelector('button[onclick="pagarPedido()"]');
+    if (boton) boton.disabled = false;
   }
-  
-
-  const montoEnCentavos = total * 100;
-
-  const resp = await fetch("/pagos/crear-pago", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      monto: montoEnCentavos
-    })
-  });
-
-  const data = await resp.json();
-
-  if (!data.ok) {
-    alert(data.error || "No se pudo iniciar el pago");
-    return;
-  }
-
-  const params = new URLSearchParams({
-    "public-key": data.publicKey,
-    "currency": data.currency,
-    "amount-in-cents": data.amountInCents,
-    "reference": data.reference,
-    "signature:integrity": data.signature,
-    "redirect-url": data.redirectUrl
-  });
-
-  const url = `https://checkout.wompi.co/p/?${params.toString()}`;
-  window.location.href = url;
 }
 </script>
