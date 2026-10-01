@@ -28,6 +28,7 @@ const tesoreriaRoutes = require("./routes/tesoreria");
 const configuracionInteligenciaRoutes = require("./routes/configuracionInteligencia");
 const ejecutivoRoutes = require("./routes/ejecutivo");
 const finanzasPersonalesRoutes = require("./modules/finanzas-personales/routes");
+const { registerPersonalRealtime } = require("./modules/finanzas-personales/realtime/personalRealtime");
 const iniciarCerebroJob = require("./shared/jobs/cerebro.job");
 const iniciarCajaJob = require("./shared/jobs/caja.job");
 const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
@@ -55,6 +56,7 @@ const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 1e6, cors: { origin: false } });
 
 app.set("io", io);
+registerPersonalRealtime(io);
 
 registrarCajaListener();
 registrarFinanzasListener();
