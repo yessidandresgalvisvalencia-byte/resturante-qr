@@ -1,0 +1,4 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},neurona:{type:String,enum:["FLUJO_DE_CAJA","DEUDA"],required:true,index:true},periodo:{desde:Date,hasta:Date},timestamp:{type:Date,default:Date.now,index:true},kpi_principal:{nombre:String,valor_actual:mongoose.Schema.Types.Mixed,valor_objetivo:mongoose.Schema.Types.Mixed,estado:{type:String,enum:["OK","ALERTA","CRITICO"]}},hallazgos:[{tipo:String,evidencia:String,impacto_anual_estimado:Number,confianza:{type:Number,min:0,max:100}}],necesita_decision_de_cerebro:{type:Boolean,default:false}},{collection:"cerebro_reportes_neuronas_personales"});
+schema.index({usuarioId:1,neurona:1,timestamp:-1});module.exports=mongoose.models.ReporteNeuronaPersonal||mongoose.model("ReporteNeuronaPersonal",schema);
