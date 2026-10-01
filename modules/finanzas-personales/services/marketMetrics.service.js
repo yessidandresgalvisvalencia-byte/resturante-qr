@@ -1,7 +1,8 @@
 "use strict";
-function returns(prices){const r=[];for(let i=1;i<prices.length;i++){const a=prices[i-1],b=prices[i];if(!(a>0&&b>0))throw new Error("Serie de precios inválida");r.push(b/a-1)}return r}
-function mean(a){return a.reduce((s,x)=>s+x,0)/a.length}
+function logReturns(prices){const r=[];for(let i=1;i<prices.length;i++){const a=prices[i-1],b=prices[i];if(!(Number.isFinite(a)&&Number.isFinite(b)&&a>0&&b>0))throw new Error("Serie de precios inválida");r.push(Math.log(b/a))}return r}
+function mean(a){if(!a.length)throw new Error("Serie vacía");return a.reduce((s,x)=>s+x,0)/a.length}
 function std(a){if(a.length<2)return 0;const m=mean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1))}
 function maxDrawdown(prices){let peak=prices[0],worst=0;for(const p of prices){peak=Math.max(peak,p);worst=Math.max(worst,(peak-p)/peak)}return worst*100}
-function annualize(prices,periods=252){if(!Array.isArray(prices)||prices.length<60)throw new Error("Serie insuficiente: mínimo 60 observaciones");const r=returns(prices),m=mean(r),v=std(r);return{retornoEsperadoAnualPct:Number((((1+m)**periods-1)*100).toFixed(4)),volatilidadAnualPct:Number((v*Math.sqrt(periods)*100).toFixed(4)),maxDrawdownHistoricoPct:Number(maxDrawdown(prices).toFixed(4)),observaciones:prices.length}}
-module.exports={annualize,maxDrawdown,returns};
+function annualize(prices,periods=252){if(!Array.isArray(prices)||prices.length<252)throw new Error("Serie insuficiente: mínimo 252 observaciones");const lr=logReturns(prices),daily=mean(lr),v=std(lr),annualLog=daily*periods;return{retornoEsperadoAnualPct:Number(((Math.exp(annualLog)-1)*100).toFixed(4)),volatilidadAnualPct:Number((v*Math.sqrt(periods)*100).toFixed(4)),maxDrawdownHistoricoPct:Number(maxDrawdown(prices).toFixed(4)),observaciones:prices.length,metodoRetorno:"media de log-retornos anualizada"}}
+function rollingPositiveProbability(prices,horizonPeriods){if(!Number.isInteger(horizonPeriods)||horizonPeriods<1||prices.length<=horizonPeriods)return null;let wins=0,total=0;for(let i=horizonPeriods;i<prices.length;i++){wins+=prices[i]>prices[i-horizonPeriods]?1:0;total++}return total?Number((wins/total*100).toFixed(2)):null}
+module.exports={annualize,maxDrawdown,logReturns,rollingPositiveProbability};
