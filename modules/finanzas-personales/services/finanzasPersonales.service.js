@@ -1,0 +1,6 @@
+"use strict";
+const mongoose=require("mongoose");const Movimiento=require("../models/movimiento.model");const Credito=require("../models/credito.model");
+async function registrarMovimiento(userId,data){const session=await mongoose.startSession();try{let doc;await session.withTransaction(async()=>{[doc]=await Movimiento.create([{userId,...data}],{session});});return doc;}finally{await session.endSession();}}
+async function resumen(userId){const [m,c]=await Promise.all([Movimiento.find({userId}).lean(),Credito.find({userId,activo:true}).lean()]);const ingresos=m.filter(x=>x.tipo==="INGRESO").reduce((a,x)=>a+x.monto,0);const gastos=m.filter(x=>x.tipo==="GASTO").reduce((a,x)=>a+x.monto,0);const deuda=c.reduce((a,x)=>a+x.saldo,0);const cuotas=c.reduce((a,x)=>a+x.cuotaMensual,0);const flujo=ingresos-gastos-cuotas;return{ingresos,gastos,cuotasDeuda:cuotas,flujoLibre:flujo,deudaTotal:deuda,tasaAhorroPct:ingresos?Number((flujo/ingresos*100).toFixed(2)):0};}
+function simularCredito({capital,tasaMensualPct,meses}){const r=tasaMensualPct/100;const cuota=r===0?capital/meses:capital*(r*Math.pow(1+r,meses))/(Math.pow(1+r,meses)-1);const total=cuota*meses;return{cuotaMensual:Number(cuota.toFixed(2)),costoTotal:Number(total.toFixed(2)),interesesEstimados:Number((total-capital).toFixed(2)),tasaMensualPct,meses};}
+module.exports={registrarMovimiento,resumen,simularCredito};
