@@ -1,0 +1,3 @@
+"use strict";
+const {verifyPersonalToken}=require("./personalToken.service");
+module.exports=async function personalAuth(req,res,next){try{const raw=String(req.headers.authorization||"").trim();if(!raw.startsWith("Bearer "))return res.status(401).json({ok:false,error:"Autenticación requerida"});const p=await verifyPersonalToken(raw.slice(7).trim());req.personalAuth=Object.freeze({userId:String(p.sub),tokenVersion:Number(p.tokenVersion||0)});return next();}catch(_){return res.status(401).json({ok:false,error:"Sesión personal inválida o expirada"});}};

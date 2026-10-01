@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "GRUK",
+  "short_name": "GRUK",
+  "description": "GRUK · Inteligencia financiera personal",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#020916",
+  "theme_color": "#07162f",
+  "categories": [
+    "finance",
+    "business",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "/gruk-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
