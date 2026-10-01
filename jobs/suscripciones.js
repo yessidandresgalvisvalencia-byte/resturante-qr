@@ -5,6 +5,7 @@ const axios = require("axios");
 const Restaurante = require("../models/restaurante");
 const { obtenerOCrearIntento, adquirirDerechoEnvio } = require("../core/pagos/intentoCobro.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
+const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
 
 function iniciarJobSuscripciones() {
   cron.schedule("0 9 * * *", async () => {
@@ -89,13 +90,17 @@ function iniciarJobSuscripciones() {
           );
 
           const tx = txRes?.data?.data;
-          const estadoFinal = String(tx?.status || "").toUpperCase() === "APPROVED" ? "APROBADO" : "PENDIENTE";
-          const actualizado = await IntentoCobroSuscripcion.findOneAndUpdate(
-            {_id:intentoAdquirido._id,estado:"ENVIANDO"},
-            {$set:{transactionId:String(tx?.id || ""),estado:estadoFinal,enviadoAt:new Date(),...(estadoFinal==="APROBADO"?{resueltoAt:new Date()}:{})}},
-            {new:true}
+          if (!tx?.id) throw new Error("WOMPI_SIN_TRANSACTION_ID");
+
+          await IntentoCobroSuscripcion.findOneAndUpdate(
+            { _id: intentoAdquirido._id, estado: "ENVIANDO" },
+            { $set: { transactionId: String(tx.id), estado: "ENVIADO", enviadoAt: new Date() } },
+            { new: true }
           );
-          console.log("Cobro automático enviado para:", restaurante.restaurantId, actualizado?.transactionId || "sin id");
+
+          const resultado = await aplicarResultadoSuscripcion({ transaction: tx });
+          if (!resultado.ok) throw new Error(resultado.reason || "RESULTADO_SUSCRIPCION_NO_APLICADO");
+          console.log("Cobro automático enviado para:", restaurante.restaurantId, String(tx.id));
         } catch (error) {
           try {
             const intentoFallido = await IntentoCobroSuscripcion.findOne({ restaurantId: restaurante.restaurantId, periodo: new Date().toISOString().slice(0,7) });
