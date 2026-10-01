@@ -1,0 +1,4 @@
+"use strict";
+const test=require("node:test");const assert=require("node:assert/strict");const service=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
+test("simula crédito sin interés",()=>{const r=service.simularCredito({capital:1200000,tasaMensualPct:0,meses:12});assert.equal(r.cuotaMensual,100000);assert.equal(r.costoTotal,1200000);assert.equal(r.interesesEstimados,0);});
+test("simula crédito con interés y TEA",()=>{const r=service.simularCredito({capital:10000000,tasaMensualPct:1.5,meses:24});assert.ok(r.cuotaMensual>0);assert.ok(r.costoTotal>10000000);assert.ok(r.tasaEfectivaAnualPct>18);});
