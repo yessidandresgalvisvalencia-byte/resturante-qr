@@ -2905,7 +2905,7 @@ router.post("/wompi/webhook", async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
-    if (!reference.startsWith("suscripcion_") && !reference.startsWith("renovacion_")) {
+    if (!reference.startsWith("suscripcion_") && !reference.startsWith("renovacion_") && !reference.startsWith("gruk_empresa_")) {
       return res.status(200).json({ ok: true });
     }
     const resultado = await aplicarResultadoSuscripcion({ transaction });
