@@ -13,6 +13,7 @@ const { registrarJuntaVivaListener } = require("./intelligence/listeners/juntaVi
 const { registrarAgendaFinancieraListener } = require("./intelligence/listeners/agendaFinanciera.listener");
 const estadisticasRoutes = require("./routes/estadisticas");
 const restaurantRoutes = require("./routes/restaurants");
+const onboardingRoutes = require("./routes/onboarding");
 const facturacionRoutes = require("./routes/facturacion");
 const pagosRoutes = require("./routes/pagos");
 const facturacionCoreRoutes = require("./core/facturacion/facturacion.routes");
@@ -77,6 +78,7 @@ eventBus.on("VENTA_COMPLETADA", (event) => {
 app.use(express.static("public"));
 app.use("/estadisticas", estadisticasRoutes);
 app.use("/api/restaurants", restaurantRoutes);
+app.use("/api/onboarding", onboardingRoutes);
 app.use("/pagos", pagosRoutes);
 app.use("/api/facturacion", facturacionRoutes); // legado: no retirar aún
 app.use("/api/facturacion-v2", facturacionCoreRoutes);
