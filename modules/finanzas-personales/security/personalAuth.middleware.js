@@ -1,0 +1,3 @@
+"use strict";
+const jwt=require("jsonwebtoken");
+module.exports=function personalAuth(req,res,next){try{const raw=String(req.headers.authorization||"").trim();if(!raw.startsWith("Bearer ")||!process.env.JWT_SECRET)return res.status(401).json({ok:false,error:"Autenticación requerida"});const p=jwt.verify(raw.slice(7).trim(),process.env.JWT_SECRET,{algorithms:["HS256"]});if(!p.sub)return res.status(401).json({ok:false,error:"Identidad inválida"});req.personalAuth=Object.freeze({userId:String(p.sub)});return next();}catch(_){return res.status(401).json({ok:false,error:"Sesión inválida o expirada"});}};
