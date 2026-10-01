@@ -1,0 +1,8 @@
+"use strict";
+const Macro=require("../models/macroSnapshot.model");
+const SOURCES={inflacion:"https://www.dane.gov.co/index.php/estadisticas-por-tema/precios-y-costos/indice-de-precios-al-consumidor-ipc/ipc-informacion-tecnica",ibr:"https://www.banrep.gov.co/es"};
+function extract(text,re){const m=text.match(re);if(!m)throw new Error("NO_CALCULABLE: fuente oficial cambió de formato");return Number(m[1].replace(",","."))}
+async function html(url){const r=await fetch(url,{headers:{"user-agent":"GRUK-MacroCollector/1.0"},signal:AbortSignal.timeout(12000)});if(!r.ok)throw new Error("Fuente oficial HTTP "+r.status);return r.text()}
+async function collectColombia(){const [dane,banrep]=await Promise.all([html(SOURCES.inflacion),html(SOURCES.ibr)]);const inflacion=extract(dane,/variaci[oó]n anual(?: del IPC)? (?:fue|se ubic[oó] en)\s*([0-9]+[,.][0-9]+)%/i);const ibr=extract(banrep,/IBR[\s\S]{0,500}?Tasa nominal[\s\S]{0,200}?([0-9]+[,.][0-9]+)%/i);return{pais:"CO",moneda:"COP",fechaCorte:new Date(),inflacionAnualPct:inflacion,tasaLibreRiesgoPct:ibr,fuenteInflacion:SOURCES.inflacion,fuenteTasa:SOURCES.ibr,metodologiaTasa:"Proxy monetario COP: IBR Overnight nominal observado. Se etiqueta explícitamente como proxy; no equivale a rendimiento soberano libre de riesgo a 5 años."}}
+async function persistColombia(){const x=await collectColombia();return Macro.create(x)}
+module.exports={collectColombia,persistColombia,SOURCES};
