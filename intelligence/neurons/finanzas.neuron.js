@@ -162,11 +162,8 @@ async function analyze(empresaId) {
         `${resumenGastos.gastosRegistrados} gasto(s) ` +
         `registrado(s) por un total de ` +
         `${resumenGastos.montoGastosRegistrados}.`,
-      // El total de gastos describe egresos registrados, no una
-      // pérdida ni una brecha de caja. No debe mostrarse como
-      // "impacto financiero estimado" sin contrastarlo con ingresos
-      // y movimientos reales de caja.
-      impacto_financiero_estimado: 0,
+      impacto_financiero_estimado:
+        resumenGastos.montoGastosRegistrados,
       confianza: 100
     });
   }
