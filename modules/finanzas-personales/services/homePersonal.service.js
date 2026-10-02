@@ -6,7 +6,7 @@ function monthStart(d=new Date()){return new Date(d.getFullYear(),d.getMonth(),1
 async function obtener(usuarioId,now=new Date()){
  const inicio=monthStart(now),fin=new Date(now.getFullYear(),now.getMonth()+1,1);
  const [tx,deudas,pat]=await Promise.all([
-  Transaccion.find({usuarioId,fecha:{$gte:inicio,$lt:fin},tipo:{$in:["INGRESO","GASTO"]}}).lean(),
+  Transaccion.find({usuarioId,fecha:{$gte:inicio,$lt:fin},tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).lean(),
   Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:"ACTIVO"}).sort({fechaVencimiento:1,createdAt:1}).lean(),
   patrimonio.obtener(usuarioId)
  ]);
