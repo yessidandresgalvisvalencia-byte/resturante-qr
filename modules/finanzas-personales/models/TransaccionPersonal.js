@@ -18,7 +18,10 @@ const schema=new mongoose.Schema({
  origen:{type:String,enum:["MANUAL","OPEN_BANKING","PASARELA","COMPROBANTE","SISTEMA"],default:"MANUAL"},
  externalIdHash:{type:String,default:null},
  metadatosCifrados:{ciphertext:{type:String,select:false,default:null},iv:{type:String,select:false,default:null},tag:{type:String,select:false,default:null}},
- keyVersion:{type:Number,select:false,default:null},\n estado:{type:String,enum:["ACTIVA","ANULADA"],default:"ACTIVA",index:true},\n anuladaEn:{type:Date,default:null},\n motivoAnulacion:{type:String,trim:true,maxlength:240,default:""}
+ keyVersion:{type:Number,select:false,default:null},
+ estado:{type:String,enum:["ACTIVA","ANULADA"],default:"ACTIVA",index:true},
+ anuladaEn:{type:Date,default:null},
+ motivoAnulacion:{type:String,trim:true,maxlength:240,default:""}
 },{timestamps:true,collection:"fin_transacciones_personales"});
 schema.index({usuarioId:1,fecha:-1});schema.index({usuarioId:1,tipo:1,categoria:1,fecha:-1});
 schema.index({usuarioId:1,externalIdHash:1},{unique:true,partialFilterExpression:{externalIdHash:{$type:"string"}}});
