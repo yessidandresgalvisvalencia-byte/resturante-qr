@@ -16,3 +16,14 @@ test("estructura la frase natural de la moto sin confundir día con dinero",()=>
   assert.equal(r.tasaMensualPct,0);
   assert.equal(r.concepto,"Moto");
 });
+
+const homePersonal=require("../../modules/finanzas-personales/services/homePersonal.service");
+test("solo una cuota con vencimiento dentro del mes compromete flujo",()=>{
+ const inicio=new Date(2026,9,1),fin=new Date(2026,10,1);
+ assert.equal(homePersonal.cuotaDelPeriodo({direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:4500000,cuotaMinor:1000000,fechaVencimiento:new Date(2026,9,15)},inicio,fin),1000000);
+ assert.equal(homePersonal.cuotaDelPeriodo({direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:4500000,cuotaMinor:1000000,fechaVencimiento:new Date(2026,10,15)},inicio,fin),0);
+});
+test("el principal total nunca se usa como cuota mensual",()=>{
+ const inicio=new Date(2026,9,1),fin=new Date(2026,10,1);
+ assert.equal(homePersonal.cuotaDelPeriodo({direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:4500000,cuotaMinor:1000000,fechaVencimiento:new Date(2026,9,15)},inicio,fin),1000000);
+});
