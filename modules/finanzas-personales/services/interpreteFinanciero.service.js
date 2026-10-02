@@ -20,11 +20,11 @@ function deudaEstructurada(t){
     /(?:cuota(?:\s+(?:mensual|de))?|pago\s+mensual|me\s+toca\s+pagar)\s*(?:de\s*)?([^,;.]+?)(?=\s+(?:y|sin|con|cada|el\s+d[ií]a|pero)|[,;.]|$)/i,
     /(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}\s+(?:de\s+)?cada\s+mes\s*[,;:]?\s*([^,;.]+?)(?=\s+(?:y|sin|con|pero)|[,;.]|$)/i
   ]);
-  if(!principal||!cuota||!dia||dia<1||dia>31)return null;
+  if(!principal||!dia||dia<1||dia>31)return null;
   const abonado=abono||0,saldo=principal-abonado;
-  if(saldo<0||cuota>principal)return null;
+  if(saldo<0||(cuota!=null&&cuota>principal))return null;
   const concepto=/moto/i.test(texto)?"Moto":/carro|veh[ií]culo/i.test(texto)?"Vehículo":"Deuda";
-  return{tipo:"DEUDA_POR_PAGAR",montoMinor:principal,principalMinor:principal,saldoMinor:saldo,abonadoMinor:abonado,cuotaMinor:cuota,diaPago:dia,frecuencia:"MENSUAL",concepto,categoria:"Deuda",contraparte:"",fecha:hoy(),estado:"LISTO",confianza:99,razonRevision:"",tasaMensualPct:/sin\s+inter[eé]s/i.test(texto)?0:undefined};
+  return{tipo:"DEUDA_POR_PAGAR",montoMinor:principal,principalMinor:principal,saldoMinor:saldo,abonadoMinor:abonado,cuotaMinor:cuota||0,diaPago:dia,frecuencia:"MENSUAL",concepto,categoria:"Deuda",contraparte:"",fecha:hoy(),estado:"LISTO",confianza:99,razonRevision:"",tasaMensualPct:/sin\s+inter[eé]s/i.test(texto)?0:undefined};
 }
 function interpretarSegmento(raw){const deuda=deudaEstructurada(raw);if(deuda)return deuda;const t=raw.trim();if(!t)return null;const m=monto(t);let tipo=null,concepto=t.slice(0,140),conf=90,razon="";if(/me deben|quedaron (?:en |de )?pagarme|me lo pagan despu[eé]s|por cobrar/i.test(t))tipo="CUENTA_POR_COBRAR";else if(/le prest[eé]|prest[eé].*(?:a |al )/i.test(t))tipo="PRESTAMO_OTORGADO";else if(/me prestaron|ped[ií] prestado/i.test(t))tipo="PRESTAMO_RECIBIDO";else if(/me devolvi[oó]|me pag[oó].*prest|cobr[eé].*prest/i.test(t))tipo="COBRO_PRESTAMO";else if(/pagu[eé].*(?:deuda|tarjeta|cr[eé]dito|cuota)/i.test(t))tipo="PAGO_DEUDA";else if(/gast[eé]|compr[eé]|pagu[eé]|me cost[oó]|egreso/i.test(t))tipo="GASTO";else if(/gan[eé]|recib[ií]|me pagaron|ingres[oó]|vend[ií]/i.test(t))tipo="INGRESO";if(!m){conf=30;razon="No pude determinar un monto confiable."}if(!tipo){conf=Math.min(conf,40);razon=razon||"No pude determinar la naturaleza financiera."}return{tipo:tipo||"GASTO",montoMinor:m||1,concepto,categoria:categoria(t,tipo),contraparte:"",fecha:hoy(),estado:conf>=80?"LISTO":"REQUIERE_REVISION",confianza:conf,razonRevision:razon}}
 async function crearBorrador(usuarioId,{texto,canal="TEXTO"}){const partes=String(texto).split(/\n+|;|\s+y\s+(?=(?:hoy|ayer|tambi[eé]n|despu[eé]s|luego|gast[eé]|gan[eé]|recib[ií]|pagu[eé]|compr[eé]|prest[eé]))/i).map(x=>x.trim()).filter(Boolean);const items=partes.map(interpretarSegmento).filter(Boolean);if(!items.length)throw Object.assign(new Error("No detecté hechos financieros"),{statusCode:422});return Borrador.create({usuarioId,canal,textoOriginal:texto,items})}
