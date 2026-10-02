@@ -235,19 +235,31 @@ function calcularEstadoResultadosGRUK(datos) {
   const utilidadBruta =
     ventasNetas - costoProduccionVentas;
 
+  // Los gastos de producción ya forman parte del costo de ventas y
+  // los financieros se presentan después de la utilidad operacional.
+  // Excluirlos aquí evita descontar el mismo peso dos veces.
   const gastosOperativosRegistrados =
-    datos.totalGastos;
+    Math.max(
+      0,
+      Number(datos.totalGastos || 0) -
+      Number(datos.gastosProduccion || 0) -
+      Number(datos.gastosFinancieros || 0)
+    );
+
+  const otrosIngresos = 0;
+  const otrosEgresos =
+    Number(datos.gastosFinancieros || 0);
 
   const estructuraGlobalGastos =
-    gastosOperativosRegistrados + datos.gastoNomina;
+    costoProduccionVentas +
+    gastosOperativosRegistrados +
+    Number(datos.gastoNomina || 0) +
+    otrosEgresos;
 
   const utilidadOperacional =
     utilidadBruta -
     gastosOperativosRegistrados -
     datos.gastoNomina;
-
-  const otrosIngresos = 0;
-  const otrosEgresos = datos.gastosFinancieros || 0;
 
   const utilidadAntesImpuestos =
     utilidadOperacional + otrosIngresos - otrosEgresos;
@@ -260,10 +272,10 @@ function calcularEstadoResultadosGRUK(datos) {
       ? (utilidadOperacional / datos.ingresosTotales) * 100
       : 0;
 const totalCostoYGasto =
-
   costoProduccionVentas +
   gastosOperativosRegistrados +
-  datos.gastoNomina;
+  datos.gastoNomina +
+  otrosEgresos;
   const costoPrimo =
   costoProduccionVentas +
   datos.gastoNomina;
@@ -898,7 +910,7 @@ Es el recurso consumido para administrar, vender, financiar o sostener el negoci
 
 <p>
 <strong>Lectura GRUK:</strong><br>
-GRUK calcula una sola utilidad operacional usando ingresos reales, materia prima, gastos operativos registrados y nómina. Este valor alimenta el semáforo financiero, el histórico y la rentabilidad real para evitar descuadres entre secciones.
+¿Por qué da este resultado?<br>GRUK parte de las ventas netas, resta una sola vez el costo de producción, después los gastos operativos y la nómina. Los gastos financieros se separan del resultado operacional y se descuentan una sola vez al calcular el resultado neto. Así cada peso tiene una sola categoría y la cifra puede rastrearse.
 </p>
 </div>
 
@@ -908,10 +920,11 @@ GRUK calcula una sola utilidad operacional usando ingresos reales, materia prima
 <table>
 <tbody>
 <tr><td>Total ingresos reales</td><td>${formatoCOPFinanzas(f.ingresosTotales)}</td></tr>
-<tr><td>Costos estimados de materia prima</td><td>${formatoCOPFinanzas(f.costosMateriaPrima)}</td></tr>
-<tr><td>Gastos operativos registrados</td><td>${formatoCOPFinanzas(f.gastosOperativosRegistrados)}</td></tr>
+<tr><td>Costo de producción total</td><td>${formatoCOPFinanzas(f.costoProduccionVentas)}</td></tr>
+<tr><td>Gastos operativos sin duplicados</td><td>${formatoCOPFinanzas(f.gastosOperativosRegistrados)}</td></tr>
 <tr><td>Nómina mensual</td><td>${formatoCOPFinanzas(f.gastoNomina)}</td></tr>
-<tr><td><strong>Estructura global de gastos</strong></td><td><strong>${formatoCOPFinanzas(f.estructuraGlobalGastos)}</strong></td></tr>
+<tr><td>Gastos financieros</td><td>${formatoCOPFinanzas(f.otrosEgresos)}</td></tr>
+<tr><td><strong>Total costos y gastos sin duplicados</strong></td><td><strong>${formatoCOPFinanzas(f.totalCostoYGasto)}</strong></td></tr>
 </tbody>
 </table>
 </div>
