@@ -235,19 +235,31 @@ function calcularEstadoResultadosGRUK(datos) {
   const utilidadBruta =
     ventasNetas - costoProduccionVentas;
 
+  // Los gastos de producción ya forman parte del costo de ventas y
+  // los financieros se presentan después de la utilidad operacional.
+  // Excluirlos aquí evita descontar el mismo peso dos veces.
   const gastosOperativosRegistrados =
-    datos.totalGastos;
+    Math.max(
+      0,
+      Number(datos.totalGastos || 0) -
+      Number(datos.gastosProduccion || 0) -
+      Number(datos.gastosFinancieros || 0)
+    );
+
+  const otrosIngresos = 0;
+  const otrosEgresos =
+    Number(datos.gastosFinancieros || 0);
 
   const estructuraGlobalGastos =
-    gastosOperativosRegistrados + datos.gastoNomina;
+    costoProduccionVentas +
+    gastosOperativosRegistrados +
+    Number(datos.gastoNomina || 0) +
+    otrosEgresos;
 
   const utilidadOperacional =
     utilidadBruta -
     gastosOperativosRegistrados -
     datos.gastoNomina;
-
-  const otrosIngresos = 0;
-  const otrosEgresos = datos.gastosFinancieros || 0;
 
   const utilidadAntesImpuestos =
     utilidadOperacional + otrosIngresos - otrosEgresos;
@@ -260,10 +272,10 @@ function calcularEstadoResultadosGRUK(datos) {
       ? (utilidadOperacional / datos.ingresosTotales) * 100
       : 0;
 const totalCostoYGasto =
-
   costoProduccionVentas +
   gastosOperativosRegistrados +
-  datos.gastoNomina;
+  datos.gastoNomina +
+  otrosEgresos;
   const costoPrimo =
   costoProduccionVentas +
   datos.gastoNomina;
