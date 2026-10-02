@@ -922,7 +922,8 @@ Es el recurso consumido para administrar, vender, financiar o sostener el negoci
 <tr><td>Total ingresos reales</td><td>${formatoCOPFinanzas(f.ingresosTotales)}</td></tr>
 <tr><td>Costo de producción total</td><td>${formatoCOPFinanzas(f.costoProduccionVentas)}</td></tr>
 <tr><td>Gastos operativos sin duplicados</td><td>${formatoCOPFinanzas(f.gastosOperativosRegistrados)}</td></tr>
-<tr><td>Nómina mensual</td><td>${formatoCOPFinanzas(f.gastoNomina)}</td></tr>\n<tr><td>Gastos financieros</td><td>${formatoCOPFinanzas(f.otrosEgresos)}</td></tr>
+<tr><td>Nómina mensual</td><td>${formatoCOPFinanzas(f.gastoNomina)}</td></tr>
+<tr><td>Gastos financieros</td><td>${formatoCOPFinanzas(f.otrosEgresos)}</td></tr>
 <tr><td><strong>Total costos y gastos sin duplicados</strong></td><td><strong>${formatoCOPFinanzas(f.totalCostoYGasto)}</strong></td></tr>
 </tbody>
 </table>
