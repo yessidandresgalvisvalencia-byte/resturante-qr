@@ -3,9 +3,9 @@ const crypto=require("crypto");
 const Prestamo=require("../models/prestamoPersonal.model");
 const Notificacion=require("../models/notificacionPersonal.model");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
-const {fechaColombia}=require("./colombiaFinanciero.service");
+
 function llaveDia(now=new Date()){return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(now);}
-function finMananaColombia(now=new Date()){const base=fechaColombia(1);base.setUTCHours(23,59,59,999);return base;}
+function finMananaColombia(now=new Date()){const key=llaveDia(now);const [y,m,d]=key.split("-").map(Number);return new Date(Date.UTC(y,m-1,d+2,4,59,59,999));}
 async function ejecutar(now=new Date()){
  const limite=finMananaColombia(now),hoy=llaveDia(now);
  const rows=await Prestamo.find({direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0},fechaVencimiento:{$ne:null,$lte:limite}}).lean();
