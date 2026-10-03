@@ -37,11 +37,11 @@ async function registrarTransaccion(usuarioId,input){
  return tx;
 }
 async function publicarEvento(outbox){
- try{personalEventBus.emitFinancial(outbox.eventName,{eventId:outbox.eventId,usuarioId:outbox.usuarioId.toString(),aggregateId:outbox.aggregateId.toString(),payload:outbox.payload});
-  await Outbox.updateOne({_id:outbox._id,estado:{$ne:"PUBLICADO"}},{$set:{estado:"PUBLICADO",publicadoEn:new Date(),ultimoError:null},$inc:{intentos:1}});
- }catch(err){await Outbox.updateOne({_id:outbox._id},{$set:{estado:"ERROR",ultimoError:String(err.message||err).slice(0,500)},$inc:{intentos:1}});throw err;}
+ try{const claimed=await Outbox.findOneAndUpdate({_id:outbox._id,estado:{$in:["PENDIENTE","ERROR"]}},{$set:{estado:"PUBLICANDO"},$inc:{intentos:1}},{new:true});if(!claimed)return false;personalEventBus.emitFinancial(claimed.eventName,{eventId:claimed.eventId,usuarioId:claimed.usuarioId.toString(),aggregateId:claimed.aggregateId.toString(),payload:claimed.payload});
+  await Outbox.updateOne({_id:claimed._id,estado:"PUBLICANDO"},{$set:{estado:"PUBLICADO",publicadoEn:new Date(),ultimoError:null}});return true;
+ }catch(err){await Outbox.updateOne({_id:outbox._id,estado:"PUBLICANDO"},{$set:{estado:"ERROR",ultimoError:String(err.message||err).slice(0,500)}});throw err;}
 }
-async function republicarPendientes(limite=100){const docs=await Outbox.find({estado:{$in:["PENDIENTE","ERROR"]}}).sort({createdAt:1}).limit(Math.min(limite,500));let publicados=0;for(const doc of docs){try{await publicarEvento(doc);publicados++;}catch(_){}}return publicados;}
+async function republicarPendientes(limite=100){const docs=await Outbox.find({estado:{$in:["PENDIENTE","ERROR"]}}).sort({createdAt:1}).limit(Math.min(limite,500));let publicados=0;for(const doc of docs){try{if(await publicarEvento(doc))publicados++;}catch(_){}}return publicados;}
 async function flujoPeriodo(usuarioId,{desde,hasta}){
  const inicio=new Date(desde),fin=new Date(hasta);if(Number.isNaN(inicio.getTime())||Number.isNaN(fin.getTime())||inicio>=fin)throw Object.assign(new Error("Periodo inválido"),{statusCode:400});
  const rows=await Transaccion.aggregate([{$match:{usuarioId:new mongoose.Types.ObjectId(usuarioId),estado:{$ne:"ANULADA"},moneda:"COP",fecha:{$gte:inicio,$lt:fin}}},{$group:{_id:"$tipo",total:{$sum:"$montoMinor"}}}]);
