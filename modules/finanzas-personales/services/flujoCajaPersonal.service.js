@@ -3,6 +3,7 @@ const crypto=require("crypto");
 const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
 const Outbox=require("../models/outboxPersonal.model");
+const Cuenta=require("../models/cuentaFinanciera.model");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
 const {encryptObject}=require("../security/fieldEncryption.service");
 
@@ -16,9 +17,21 @@ async function registrarTransaccion(usuarioId,input){
    [tx]=await Transaccion.create([{usuarioId,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",cuenta:input.cuenta||"EFECTIVO",medioPago:input.medioPago||"EFECTIVO",contraparte:input.contraparte||"",descripcion:input.descripcion||"",recurrente:Boolean(input.recurrente),frecuencia:input.frecuencia||"NINGUNA",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null}],{session});
    const eventId=crypto.randomUUID(),eventName=eventFor(input.tipo);
    [outbox]=await Outbox.create([{usuarioId,eventId,eventName,aggregateId:tx._id,payload:{transaccionId:tx._id.toString(),tipo:tx.tipo,montoMinor:tx.montoMinor,moneda:tx.moneda,categoria:tx.categoria,fecha:tx.fecha}}],{session});
+   // El ledger y la liquidez deben cambiar en la misma transacción ACID.
+   // Si el usuario aún no tiene la cuenta indicada, se crea con saldo cero y luego se aplica el movimiento.
+   const nombreCuenta=String(input.cuenta||"EFECTIVO").trim()||"EFECTIVO";
+   let cuenta=await Cuenta.findOne({usuarioId,nombre:nombreCuenta,activa:true}).session(session);
+   if(!cuenta){
+    [cuenta]=await Cuenta.create([{usuarioId,nombre:nombreCuenta,tipo:nombreCuenta.toUpperCase()==="EFECTIVO"?"EFECTIVO":"OTRA",institucion:"",moneda:"COP",saldoMinor:0,activa:true}],{session});
+   }
+   const delta=input.tipo==="INGRESO"||input.tipo==="PRESTAMO_RECIBIDO"||input.tipo==="COBRO_PRESTAMO"?input.montoMinor:input.tipo==="GASTO"||input.tipo==="PAGO_DEUDA"||input.tipo==="PRESTAMO_OTORGADO"?-input.montoMinor:0;
+   if(delta){
+    const actualizada=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true,...(delta<0?{saldoMinor:{$gte:-delta}}:{})},{$inc:{saldoMinor:delta}},{new:true,session});
+    if(!actualizada)throw Object.assign(new Error("Saldo insuficiente en "+nombreCuenta),{statusCode:409});
+   }
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
  }finally{await session.endSession();}
- await publicarEvento(outbox);
+ try{await publicarEvento(outbox);}catch(err){console.error("[FIN_PERSONAL_OUTBOX_POST_COMMIT]",err);}
  return tx;
 }
 async function publicarEvento(outbox){
