@@ -24,6 +24,8 @@ function cuotaDelPeriodo(deuda,inicio,fin){
  if(venc<inicio||venc>=fin)return 0;
  return Math.min(Number(deuda.cuotaMinor||deuda.saldoMinor),Number(deuda.saldoMinor));
 }
+function calcularFlujoMes({ingresosMinor=0,gastosMinor=0,pagosDeudaRegistradosMinor=0,cuotasVencenMesMinor=0}){for(const n of [ingresosMinor,gastosMinor,pagosDeudaRegistradosMinor,cuotasVencenMesMinor])if(!Number.isSafeInteger(n)||n<0)throw new TypeError("Los importes del flujo deben ser enteros seguros no negativos");const cuotasPendientesMesMinor=Math.max(0,cuotasVencenMesMinor-pagosDeudaRegistradosMinor);const flujoRealizadoMinor=ingresosMinor-gastosMinor-pagosDeudaRegistradosMinor;const flujoProyectadoMesMinor=flujoRealizadoMinor-cuotasPendientesMesMinor;if(!Number.isSafeInteger(flujoRealizadoMinor)||!Number.isSafeInteger(flujoProyectadoMesMinor))throw new RangeError("El flujo calculado excede el rango monetario seguro");return{cuotasPendientesMesMinor,flujoRealizadoMinor,flujoProyectadoMesMinor};}
+
 async function obtener(usuarioId,now=new Date()){
  const inicio=monthStart(now),fin=nextMonth(now);
  const [tx,deudas,pat,ingresosRecurrentes,calendariosIngreso,cobros]=await Promise.all([
@@ -40,9 +42,7 @@ async function obtener(usuarioId,now=new Date()){
  const deudaTotalMinor=deudas.reduce((s,x)=>s+x.saldoMinor,0);
  const cuotasVencenMesMinor=deudas.reduce((s,x)=>s+cuotaDelPeriodo(x,inicio,fin),0);
  // Una cuota ya pagada en el ledger no puede descontarse otra vez como compromiso.
- const cuotasPendientesMesMinor=Math.max(0,cuotasVencenMesMinor-pagosDeudaRegistradosMinor);
- const flujoRealizadoMinor=ingresosMinor-gastosMinor-pagosDeudaRegistradosMinor;
- const flujoProyectadoMesMinor=flujoRealizadoMinor-cuotasPendientesMesMinor;
+ const {cuotasPendientesMesMinor,flujoRealizadoMinor,flujoProyectadoMesMinor}=calcularFlujoMes({ingresosMinor,gastosMinor,pagosDeudaRegistradosMinor,cuotasVencenMesMinor});
  const calendarioProximos=calendariosIngreso.map(x=>{const p=partesColombia(now);let y=p.y,m=p.m,d=Math.min(x.diaMes,diasEnMesUTC(y,m));let fecha=fechaCivilColombia(y,m,d);if(fecha<=now){m++;if(m>12){m=1;y++;}d=Math.min(x.diaMes,diasEnMesUTC(y,m));fecha=fechaCivilColombia(y,m,d);}return{tx:{montoMinor:x.montoMinor,concepto:x.concepto},fecha};});
  const proximosIngresos=(calendarioProximos.length?calendarioProximos:ingresosRecurrentes.map(x=>({tx:x,fecha:siguienteFechaRecurrente(x,now)}))).filter(x=>x.fecha).sort((a,b)=>a.fecha-b.fecha);
  const proximoIngreso=proximosIngresos[0]||null;
@@ -78,4 +78,4 @@ async function obtener(usuarioId,now=new Date()){
  if(flujoProyectadoMesMinor<0)decisiones.unshift({tipo:"FLUJO",prioridad:"CRITICA",titulo:"El flujo proyectado del mes es negativo",detalle:"Ingresos del mes menos gastos registrados, pagos de deuda ya realizados y cuotas pendientes que vencen este mes. El saldo total de la deuda no se descuenta del flujo mensual.",montoMinor:flujoProyectadoMesMinor,accion:"REVISAR_FLUJO"});
  return{corte:now,moneda:"COP",asesor:{disponibleHoyMinor,colchonMinor,estaEnRojo,formula:"saldo_real - gastos_fijos_antes_proximo_ingreso - colchon_10pct",saldoRealMinor:pat.liquidezMinor,gastosFijosAntesProximoIngresoMinor,proximoIngreso:proximoIngreso?{fecha:proximoIngreso.fecha,montoMinor:proximoIngreso.tx.montoMinor,concepto:proximoIngreso.tx.concepto}:null,proximoIngresoConocido:Boolean(proximoIngreso),compromisosAntesProximoIngreso:compromisosAntesIngreso,saldoRealConocido:Boolean(pat.saldoVerificado),saldoRequiereReconciliacion:!Boolean(pat.saldoVerificado),fuenteSaldo:pat.fuenteLiquidez,fuentesSaldo:(pat.cuentas||[]).map(x=>({nombre:x.nombre,saldoMinor:x.saldoMinor}))},mes:{ingresosMinor,gastosMinor,pagosDeudaRegistradosMinor,cuotasPendientesMesMinor,flujoRealizadoMinor,flujoMinor:flujoProyectadoMesMinor},caja:{saldoLiquidoMinor:pat.liquidezMinor,comprometidoMinor:cuotasPendientesMesMinor,disponibleDespuesCompromisosMinor},patrimonio:{netoMinor:pat.patrimonioFinancieroNetoMinor,deudaTotalMinor:pat.pasivosMinor,liquidezMinor:pat.liquidezMinor,cuentasPorCobrarMinor:pat.cuentasPorCobrarMinor},proximaObligacion:proxima?{id:proxima._id,concepto:proxima.concepto,montoMinor:Math.min(proxima.cuotaMinor||proxima.saldoMinor,proxima.saldoMinor),fecha:proxima.fechaVencimiento}:null,decisiones:decisiones.slice(0,5),explicaciones,fuente:"ledger_personal_canonico"};
 }
-module.exports={obtener,cuotaDelPeriodo,_fechas:{partesColombia,monthStart,nextMonth,fechaCivilColombia,siguienteFechaRecurrente}};
+module.exports={obtener,cuotaDelPeriodo,calcularFlujoMes,_fechas:{partesColombia,monthStart,nextMonth,fechaCivilColombia,siguienteFechaRecurrente}};
