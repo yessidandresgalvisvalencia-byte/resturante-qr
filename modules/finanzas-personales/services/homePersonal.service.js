@@ -8,12 +8,14 @@ function partesColombia(d=new Date()){const p=new Intl.DateTimeFormat("en-CA",{t
 function inicioDiaColombiaUTC(y,m,d){return new Date(Date.UTC(y,m-1,d,5,0,0,0));}
 function monthStart(d=new Date()){const p=partesColombia(d);return inicioDiaColombiaUTC(p.y,p.m,1);}
 function nextMonth(d=new Date()){const p=partesColombia(d),y=p.m===12?p.y+1:p.y,m=p.m===12?1:p.m+1;return inicioDiaColombiaUTC(y,m,1);}
+function diasEnMesUTC(y,m){return new Date(Date.UTC(y,m,0)).getUTCDate();}
+function fechaCivilColombia(y,m,d){return inicioDiaColombiaUTC(y,m,Math.min(d,diasEnMesUTC(y,m)));}
 function siguienteFechaRecurrente(tx,now){
  if(!tx||tx.tipo!=="INGRESO"||!tx.recurrente||tx.frecuencia==="NINGUNA")return null;
  const base=new Date(tx.fecha);if(Number.isNaN(base.getTime()))return null;
- const next=new Date(base);
- const step=()=>{if(tx.frecuencia==="DIARIA")next.setDate(next.getDate()+1);else if(tx.frecuencia==="SEMANAL")next.setDate(next.getDate()+7);else if(tx.frecuencia==="QUINCENAL")next.setDate(next.getDate()+15);else if(tx.frecuencia==="MENSUAL")next.setMonth(next.getMonth()+1);else if(tx.frecuencia==="ANUAL")next.setFullYear(next.getFullYear()+1);};
- let guard=0;while(next<=now&&guard++<1000)step();return next>now?next:null;
+ const b=partesColombia(base),n=partesColombia(now);let y=b.y,m=b.m,d=b.d,guard=0;
+ const avanzar=()=>{if(tx.frecuencia==="DIARIA"){const z=new Date(Date.UTC(y,m-1,d+1));y=z.getUTCFullYear();m=z.getUTCMonth()+1;d=z.getUTCDate();}else if(tx.frecuencia==="SEMANAL"||tx.frecuencia==="QUINCENAL"){const z=new Date(Date.UTC(y,m-1,d+(tx.frecuencia==="SEMANAL"?7:15)));y=z.getUTCFullYear();m=z.getUTCMonth()+1;d=z.getUTCDate();}else if(tx.frecuencia==="MENSUAL"){m++;if(m>12){m=1;y++;}d=Math.min(b.d,diasEnMesUTC(y,m));}else if(tx.frecuencia==="ANUAL"){y++;d=Math.min(b.d,diasEnMesUTC(y,m));}};
+ let next=fechaCivilColombia(y,m,d);while(next<=now&&guard++<1000){avanzar();next=fechaCivilColombia(y,m,d);}return next>now?next:null;
 }
 function cuotaDelPeriodo(deuda,inicio,fin){
  if(!deuda||deuda.direccion!=="POR_PAGAR"||!["ACTIVO","VENCIDO"].includes(deuda.estado)||deuda.saldoMinor<=0)return 0;
