@@ -9,7 +9,7 @@ function clasificar(texto){
  const t=normalizar(texto).toLowerCase();
  const pregunta=/\?|^(como|cómo|cuanto|cuánto|que|qué|puedo|deberia|debería|conviene|por que|por qué)\b/.test(t);
  const intencion=/\b(estoy pensando|pienso|quiero|quisiera|planeo|me ofrecieron|si compro|si saco|si pido|podria comprar|podría comprar|voy a comprar|quiero comprar|quiero viajar|quiero invertir)\b/.test(t);
- const hecho=/\b(gaste|gasté|compre|compré|pague|pagué|recibi|recibí|me pagaron|gane|gané|abone|aboné|me prestaron|le preste|le presté|me debe|me deben|me quedo debiendo|me quedó debiendo)\b/.test(t);
+ const hecho=/\b(gaste|gasté|compre|compré|pague|pagué|recibi|recibí|me pago|me pagó|me consigno|me consignó|me transfirio|me transfirió|me pagaron|gane|gané|abone|aboné|me prestaron|le preste|le presté|me debe|me deben|me quedo debiendo|me quedó debiendo)\b/.test(t);
  if(intencion)return"INTENCION";if(hecho&&!pregunta)return"HECHO";return"PREGUNTA";
 }
 async function procesar(usuarioId,{texto,canal="TEXTO"}){
