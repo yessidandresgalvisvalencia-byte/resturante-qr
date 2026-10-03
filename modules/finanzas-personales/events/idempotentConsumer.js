@@ -10,7 +10,16 @@ async function procesarUnaVez({consumidor,event},handler){
  catch(e){await Evento.deleteOne({consumidor,eventId:event.eventId});throw e;}
 }
 async function procesarUnaVezMongo({consumidor,event},handler){
- validar(consumidor,event,handler);const session=await mongoose.startSession();let salida={procesado:false,duplicado:false};
- try{await session.withTransaction(async()=>{try{await Evento.create([{consumidor,eventId:event.eventId,eventName:event.eventName,usuarioId:event.usuarioId}],{session});}catch(e){if(e?.code===11000){salida={procesado:false,duplicado:true};return;}throw e;}const resultado=await handler(event,session);salida={procesado:true,duplicado:false,resultado};},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return salida;}finally{await session.endSession();}
+ validar(consumidor,event,handler);
+ const session=await mongoose.startSession();let resultado;
+ try{
+  try{
+   await session.withTransaction(async()=>{
+    await Evento.create([{consumidor,eventId:event.eventId,eventName:event.eventName,usuarioId:event.usuarioId}],{session});
+    resultado=await handler(event,session);
+   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
+  }catch(e){if(e?.code===11000)return{procesado:false,duplicado:true};throw e;}
+  return{procesado:true,duplicado:false,resultado};
+ }finally{await session.endSession();}
 }
 module.exports={procesarUnaVez,procesarUnaVezMongo};
