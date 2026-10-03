@@ -4,6 +4,7 @@ const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
 const Outbox=require("../models/outboxPersonal.model");
 const Cuenta=require("../models/cuentaFinanciera.model");
+const Prestamo=require("../models/prestamoPersonal.model");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
 const {encryptObject}=require("../security/fieldEncryption.service");
 
@@ -14,7 +15,8 @@ async function registrarTransaccion(usuarioId,input){
  try{
   await session.withTransaction(async()=>{
    const externalIdHash=hashExternalId(usuarioId,input.externalId);const envelope=input.metadatosSensibles?encryptObject(input.metadatosSensibles,{aad:String(usuarioId)}):null;
-   [tx]=await Transaccion.create([{usuarioId,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",cuenta:input.cuenta||"EFECTIVO",medioPago:input.medioPago||"EFECTIVO",contraparte:input.contraparte||"",descripcion:input.descripcion||"",recurrente:Boolean(input.recurrente),frecuencia:input.frecuencia||"NINGUNA",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null}],{session});
+   [tx]=await Transaccion.create([{usuarioId,prestamoId:input.prestamoId||null,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",cuenta:input.cuenta||"EFECTIVO",medioPago:input.medioPago||"EFECTIVO",contraparte:input.contraparte||"",descripcion:input.descripcion||"",recurrente:Boolean(input.recurrente),frecuencia:input.frecuencia||"NINGUNA",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null}],{session});
+   if(input.tipo==="PAGO_DEUDA"&&input.prestamoId){const p=await Prestamo.findOne({_id:input.prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).session(session);if(!p)throw Object.assign(new Error("Deuda no encontrada"),{statusCode:404});if(input.montoMinor>p.saldoMinor)throw Object.assign(new Error("El pago supera el saldo pendiente"),{statusCode:409});p.saldoMinor-=input.montoMinor;if(p.saldoMinor===0)p.estado="PAGADO";await p.save({session});}
    const eventId=crypto.randomUUID(),eventName=eventFor(input.tipo);
    [outbox]=await Outbox.create([{usuarioId,eventId,eventName,aggregateId:tx._id,payload:{transaccionId:tx._id.toString(),tipo:tx.tipo,montoMinor:tx.montoMinor,moneda:tx.moneda,categoria:tx.categoria,fecha:tx.fecha}}],{session});
    // El ledger y la liquidez deben cambiar en la misma transacción ACID.
