@@ -43,7 +43,7 @@ async function obtener(usuarioId,now=new Date()){
  const cuotasPendientesMesMinor=Math.max(0,cuotasVencenMesMinor-pagosDeudaRegistradosMinor);
  const flujoRealizadoMinor=ingresosMinor-gastosMinor-pagosDeudaRegistradosMinor;
  const flujoProyectadoMesMinor=flujoRealizadoMinor-cuotasPendientesMesMinor;
- const calendarioProximos=calendariosIngreso.map(x=>{let y=now.getFullYear(),m=now.getMonth(),d=Math.min(x.diaMes,new Date(y,m+1,0).getDate());let fecha=new Date(y,m,d,12,0,0);if(fecha<=now){m++;if(m>11){m=0;y++;}d=Math.min(x.diaMes,new Date(y,m+1,0).getDate());fecha=new Date(y,m,d,12,0,0);}return{tx:{montoMinor:x.montoMinor,concepto:x.concepto},fecha};});
+ const calendarioProximos=calendariosIngreso.map(x=>{const p=partesColombia(now);let y=p.y,m=p.m,d=Math.min(x.diaMes,diasEnMesUTC(y,m));let fecha=fechaCivilColombia(y,m,d);if(fecha<=now){m++;if(m>12){m=1;y++;}d=Math.min(x.diaMes,diasEnMesUTC(y,m));fecha=fechaCivilColombia(y,m,d);}return{tx:{montoMinor:x.montoMinor,concepto:x.concepto},fecha};});
  const proximosIngresos=(calendarioProximos.length?calendarioProximos:ingresosRecurrentes.map(x=>({tx:x,fecha:siguienteFechaRecurrente(x,now)}))).filter(x=>x.fecha).sort((a,b)=>a.fecha-b.fecha);
  const proximoIngreso=proximosIngresos[0]||null;
  const limiteCompromisos=proximoIngreso?proximoIngreso.fecha:fin;
