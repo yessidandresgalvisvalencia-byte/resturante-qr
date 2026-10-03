@@ -11,7 +11,8 @@
     "gate": "npm run check:syntax && npm test",
     "start:personal": "node modules/finanzas-personales/server.js",
     "check:personal": "node --check modules/finanzas-personales/server.js && node --check modules/finanzas-personales/security/entitlementSync.service.js && node --check modules/finanzas-personales/models/entitlementSync.model.js && node --check models/EntitlementProducto.js",
-    "test:finanzas-personales": "node --test test/gruk/finanzas-personales-core.test.js"
+    "test:finanzas-personales": "node --test test/gruk/finanzas-personales-core.test.js",
+    "build:personal": "npm run check:syntax && npm run test:finanzas-personales"
   },
   "engines": {
     "node": "20.x"
