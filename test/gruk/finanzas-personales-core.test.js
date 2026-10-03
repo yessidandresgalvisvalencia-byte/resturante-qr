@@ -24,3 +24,6 @@ test("fecha civil Colombia conserva fin de febrero",()=>{assert.equal(home._fech
 
 test("flujo real GRUK no descuenta saldo total de deuda",()=>{const x=home.calcularFlujoMes({ingresosMinor:74000,gastosMinor:10000,pagosDeudaRegistradosMinor:0,cuotasVencenMesMinor:1000000});assert.equal(x.flujoRealizadoMinor,64000);assert.equal(x.cuotasPendientesMesMinor,1000000);assert.equal(x.flujoProyectadoMesMinor,-936000);});
 test("cuota pagada no se descuenta dos veces",()=>{const x=home.calcularFlujoMes({ingresosMinor:1500000,gastosMinor:100000,pagosDeudaRegistradosMinor:1000000,cuotasVencenMesMinor:1000000});assert.equal(x.cuotasPendientesMesMinor,0);assert.equal(x.flujoRealizadoMinor,400000);assert.equal(x.flujoProyectadoMesMinor,400000);});
+
+
+test("parser reconoce millón singular y millones plural sin confundir mil",()=>{assert.equal(interprete.parseMontoExacto("1 millón"),1000000);assert.equal(interprete.parseMontoExacto("1.5 millones"),1500000);assert.equal(interprete.parseMontoExacto("2,5 millones"),2500000);assert.equal(interprete.parseMontoExacto("2,5 lucas"),2500);});
