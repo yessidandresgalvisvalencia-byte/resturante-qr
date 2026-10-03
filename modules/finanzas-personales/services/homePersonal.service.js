@@ -2,6 +2,7 @@
 const Transaccion=require("../models/TransaccionPersonal");
 const Prestamo=require("../models/prestamoPersonal.model");
 const patrimonio=require("./patrimonioPersonal.service");
+const Calendario=require("../models/calendarioFinanciero.model");
 
 function monthStart(d=new Date()){return new Date(d.getFullYear(),d.getMonth(),1);}
 function nextMonth(d){return new Date(d.getFullYear(),d.getMonth()+1,1);}
@@ -21,11 +22,13 @@ function cuotaDelPeriodo(deuda,inicio,fin){
 }
 async function obtener(usuarioId,now=new Date()){
  const inicio=monthStart(now),fin=nextMonth(now);
- const [tx,deudas,pat,ingresosRecurrentes]=await Promise.all([
+ const [tx,deudas,pat,ingresosRecurrentes,calendariosIngreso,cobros]=await Promise.all([
   Transaccion.find({usuarioId,fecha:{$gte:inicio,$lt:fin},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA"]},estado:{$ne:"ANULADA"}}).lean(),
   Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).sort({fechaVencimiento:1,createdAt:1}).lean(),
   patrimonio.snapshot(usuarioId),
-  Transaccion.find({usuarioId,tipo:"INGRESO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).limit(100).lean()
+  Transaccion.find({usuarioId,tipo:"INGRESO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).limit(100).lean(),
+  Calendario.find({usuarioId,tipo:"INGRESO",activo:true}).lean(),
+  Prestamo.find({usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).sort({fechaVencimiento:1}).lean()
  ]);
  const ingresosMinor=tx.filter(x=>x.tipo==="INGRESO").reduce((s,x)=>s+x.montoMinor,0);
  const gastosMinor=tx.filter(x=>x.tipo==="GASTO").filter(x=>!deudas.some(d=>d.principalMinor===x.montoMinor&&/moto/i.test(d.concepto||"")&&/moto/i.test(x.concepto||""))).reduce((s,x)=>s+x.montoMinor,0);
@@ -36,7 +39,8 @@ async function obtener(usuarioId,now=new Date()){
  const cuotasPendientesMesMinor=Math.max(0,cuotasVencenMesMinor-pagosDeudaRegistradosMinor);
  const flujoRealizadoMinor=ingresosMinor-gastosMinor-pagosDeudaRegistradosMinor;
  const flujoProyectadoMesMinor=flujoRealizadoMinor-cuotasPendientesMesMinor;
- const proximosIngresos=ingresosRecurrentes.map(x=>({tx:x,fecha:siguienteFechaRecurrente(x,now)})).filter(x=>x.fecha).sort((a,b)=>a.fecha-b.fecha);
+ const calendarioProximos=calendariosIngreso.map(x=>{let y=now.getFullYear(),m=now.getMonth(),d=Math.min(x.diaMes,new Date(y,m+1,0).getDate());let fecha=new Date(y,m,d,12,0,0);if(fecha<=now){m++;if(m>11){m=0;y++;}d=Math.min(x.diaMes,new Date(y,m+1,0).getDate());fecha=new Date(y,m,d,12,0,0);}return{tx:{montoMinor:x.montoMinor,concepto:x.concepto},fecha};});
+ const proximosIngresos=(calendarioProximos.length?calendarioProximos:ingresosRecurrentes.map(x=>({tx:x,fecha:siguienteFechaRecurrente(x,now)}))).filter(x=>x.fecha).sort((a,b)=>a.fecha-b.fecha);
  const proximoIngreso=proximosIngresos[0]||null;
  const limiteCompromisos=proximoIngreso?proximoIngreso.fecha:fin;
  const pagosDeudaIds=new Set(tx.filter(x=>x.tipo==="PAGO_DEUDA"&&x.prestamoId).map(x=>String(x.prestamoId)));
@@ -63,6 +67,7 @@ async function obtener(usuarioId,now=new Date()){
   deuda:{titulo:"Deuda registrada",calculo:deudasDetalle.map(x=>x.concepto+" "+fmt(x.saldoMinor)).join(" + ")+" = "+fmt(deudaTotalMinor),origen:{deudas:deudasDetalle},significado:"Es el saldo pendiente total. GRUK solo lleva al flujo mensual las cuotas que vencen en el mes, no toda la deuda.",accion:"Cumple las cuotas según sus vencimientos; el saldo total permanece en patrimonio hasta ser pagado."}
  };
  const decisiones=[];
+ for(const cobro of cobros){if(cobro.fechaVencimiento&&new Date(cobro.fechaVencimiento)<=now)decisiones.push({tipo:"COBRO",prioridad:"ALTA",titulo:"Cobro pendiente: "+cobro.contraparte,detalle:"Tienes dinero por cobrar. No se cuenta como caja hasta recibirlo.",montoMinor:cobro.saldoMinor,fecha:cobro.fechaVencimiento,accion:"COBRAR"});}
  if(proxima){const cuota=Math.min(proxima.cuotaMinor||proxima.saldoMinor,proxima.saldoMinor);decisiones.push({tipo:"OBLIGACION",prioridad:"ALTA",titulo:"Próximo compromiso: "+proxima.concepto,detalle:"Reserva la cuota pendiente antes de aumentar gasto discrecional.",montoMinor:cuota,fecha:proxima.fechaVencimiento,accion:"REVISAR_DEUDA"});}
  if(disponibleDespuesCompromisosMinor<0)decisiones.unshift({tipo:"CAJA",prioridad:"CRITICA",titulo:"Caja insuficiente para compromisos registrados",detalle:"La liquidez registrada no cubre las cuotas pendientes que vencen este mes.",montoMinor:Math.abs(disponibleDespuesCompromisosMinor),accion:"PROTEGER_CAJA"});
  else if(cuotasPendientesMesMinor>0)decisiones.push({tipo:"CAJA",prioridad:"MEDIA",titulo:"Dinero comprometido este mes",detalle:"Esta cifra corresponde solo a cuotas pendientes con vencimiento dentro del mes, no al saldo total de tus deudas.",montoMinor:cuotasPendientesMesMinor,accion:"RESERVAR"});
