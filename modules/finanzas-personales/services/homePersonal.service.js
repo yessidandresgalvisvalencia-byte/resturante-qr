@@ -4,8 +4,10 @@ const Prestamo=require("../models/prestamoPersonal.model");
 const patrimonio=require("./patrimonioPersonal.service");
 const Calendario=require("../models/calendarioFinanciero.model");
 
-function monthStart(d=new Date()){return new Date(d.getFullYear(),d.getMonth(),1);}
-function nextMonth(d){return new Date(d.getFullYear(),d.getMonth()+1,1);}
+function partesColombia(d=new Date()){const p=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);const v=Object.fromEntries(p.map(x=>[x.type,x.value]));return{y:Number(v.year),m:Number(v.month),d:Number(v.day)};}
+function inicioDiaColombiaUTC(y,m,d){return new Date(Date.UTC(y,m-1,d,5,0,0,0));}
+function monthStart(d=new Date()){const p=partesColombia(d);return inicioDiaColombiaUTC(p.y,p.m,1);}
+function nextMonth(d=new Date()){const p=partesColombia(d),y=p.m===12?p.y+1:p.y,m=p.m===12?1:p.m+1;return inicioDiaColombiaUTC(y,m,1);}
 function siguienteFechaRecurrente(tx,now){
  if(!tx||tx.tipo!=="INGRESO"||!tx.recurrente||tx.frecuencia==="NINGUNA")return null;
  const base=new Date(tx.fecha);if(Number.isNaN(base.getTime()))return null;
