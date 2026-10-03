@@ -1,13 +1,22 @@
 "use strict";
 const crypto=require("crypto");
 const Prestamo=require("../models/prestamoPersonal.model");
+const Notificacion=require("../models/notificacionPersonal.model");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
-function inicioDia(d=new Date()){const x=new Date(d);x.setHours(0,0,0,0);return x;}
+const {fechaColombia}=require("./colombiaFinanciero.service");
+function llaveDia(now=new Date()){return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(now);}
+function finMananaColombia(now=new Date()){const base=fechaColombia(1);base.setUTCHours(23,59,59,999);return base;}
 async function ejecutar(now=new Date()){
- const limite=new Date(now);limite.setDate(limite.getDate()+1);limite.setHours(23,59,59,999);
+ const limite=finMananaColombia(now),hoy=llaveDia(now);
  const rows=await Prestamo.find({direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0},fechaVencimiento:{$ne:null,$lte:limite}}).lean();
  let emitidos=0;
- for(const p of rows){const vencida=p.fechaVencimiento<inicioDia(now);personalEventBus.emitFinancial(PERSONAL_EVENTS.RECORDATORIO_COBRO,{eventId:crypto.randomUUID(),usuarioId:String(p.usuarioId),aggregateId:String(p._id),payload:{prestamoId:String(p._id),contraparte:p.contraparte,saldoMinor:p.saldoMinor,fechaVencimiento:p.fechaVencimiento,estado:vencida?"VENCIDA":"POR_VENCER",mensaje:(p.contraparte||"Alguien")+" te debe "+new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(p.saldoMinor)+"."}});emitidos++;}
+ for(const p of rows){
+  const vencida=llaveDia(p.fechaVencimiento)<hoy,clave="COBRO:"+String(p._id)+":"+hoy;
+  const mensaje=(p.contraparte||"Alguien")+" te debe "+new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(p.saldoMinor)+".";
+  let n;try{n=await Notificacion.create({usuarioId:p.usuarioId,clave,tipo:"RECORDATORIO_COBRO",titulo:vencida?"Cobro vencido":"Cobro por vencer",mensaje,payload:{prestamoId:String(p._id),contraparte:p.contraparte,saldoMinor:p.saldoMinor,fechaVencimiento:p.fechaVencimiento,estado:vencida?"VENCIDA":"POR_VENCER"}});}catch(e){if(e?.code===11000)continue;throw e;}
+  personalEventBus.emitFinancial(PERSONAL_EVENTS.RECORDATORIO_COBRO,{eventId:crypto.randomUUID(),usuarioId:String(p.usuarioId),aggregateId:String(n._id),payload:{notificacionId:String(n._id),...n.payload,mensaje}});
+  emitidos++;
+ }
  return{revisados:rows.length,emitidos};
 }
 module.exports={ejecutar};
