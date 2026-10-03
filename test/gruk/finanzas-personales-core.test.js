@@ -14,3 +14,6 @@ test("monto corto sin unidad exige revisión",()=>{const x=interprete.interpreta
 test("vocabulario colombiano adicional",()=>{assert.equal(colombia.clasificar("hice un rebusque","INGRESO"),"Salario");assert.equal(colombia.clasificar("pagué el pagadiario","GASTO"),"Deuda");assert.equal(colombia.clasificar("compré mecato","GASTO"),"Gastos hormiga");});
 
 test("clasificación no confunde transporte Didi con Didi Food",()=>{assert.equal(colombia.clasificar("pagué un Didi para ir al trabajo","GASTO"),"Gastos variables");assert.equal(colombia.clasificar("pedí Didi Food","GASTO"),"Gastos hormiga");});
+
+test("parser canónico expuesto conserva semántica colombiana",()=>{assert.equal(interprete.parseMontoExacto("2,5 lucas"),2500);assert.equal(interprete.parseMontoExacto("1.5 millones"),1500000);assert.equal(interprete.parseMontoExacto("más o menos 30 lucas"),null);});
+test("monto ambiguo desnudo no se vuelve treinta mil",()=>{const x=interprete.interpretarSegmento("gasté 30 en bus");assert.equal(x.montoMinor,30);assert.equal(x.estado,"REQUIERE_REVISION");});
