@@ -10,6 +10,7 @@ const schema=new mongoose.Schema({
  resultadoMinor:{type:Number,default:0,validate:{validator:Number.isSafeInteger,message:"resultadoMinor inválido"}},
  estado:{type:String,enum:["PROPUESTA","APROBADA","COMPLETADA","DESCARTADA"],default:"PROPUESTA",index:true},
  evidencia:{type:String,default:"",maxlength:300},
+ transaccionEvidenciaId:{type:mongoose.Schema.Types.ObjectId,ref:"TransaccionPersonal",default:null,index:true},
  completadaEn:{type:Date,default:null}
 },{timestamps:true,collection:"fin_acciones_progreso_personal"});
 schema.index({usuarioId:1,clave:1},{unique:true});
