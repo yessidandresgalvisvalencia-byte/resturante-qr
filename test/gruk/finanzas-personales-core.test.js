@@ -21,3 +21,6 @@ test("monto ambiguo desnudo no se vuelve treinta mil",()=>{const x=interprete.in
 
 test("corte mensual corresponde a medianoche Colombia",()=>{const d=new Date("2026-10-01T04:30:00.000Z");assert.equal(home._fechas.monthStart(d).toISOString(),"2026-09-01T05:00:00.000Z");assert.equal(home._fechas.nextMonth(d).toISOString(),"2026-10-01T05:00:00.000Z");});
 test("fecha civil Colombia conserva fin de febrero",()=>{assert.equal(home._fechas.fechaCivilColombia(2027,2,31).toISOString(),"2027-02-28T05:00:00.000Z");});
+
+test("flujo real GRUK no descuenta saldo total de deuda",()=>{const x=home.calcularFlujoMes({ingresosMinor:74000,gastosMinor:10000,pagosDeudaRegistradosMinor:0,cuotasVencenMesMinor:1000000});assert.equal(x.flujoRealizadoMinor,64000);assert.equal(x.cuotasPendientesMesMinor,1000000);assert.equal(x.flujoProyectadoMesMinor,-936000);});
+test("cuota pagada no se descuenta dos veces",()=>{const x=home.calcularFlujoMes({ingresosMinor:1500000,gastosMinor:100000,pagosDeudaRegistradosMinor:1000000,cuotasVencenMesMinor:1000000});assert.equal(x.cuotasPendientesMesMinor,0);assert.equal(x.flujoRealizadoMinor,400000);assert.equal(x.flujoProyectadoMesMinor,400000);});
