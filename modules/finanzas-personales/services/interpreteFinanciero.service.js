@@ -33,9 +33,9 @@ function deudaEstructurada(t){
     /(?:moto|carro|veh[ií]culo|deuda|credito|cr[eé]dito|pr[eé]stamo)\s+(?:de|por)\s*([^,;.]+?)(?=\s+(?:y|sin|con|cada|pago|cuota|pero)|[,;.]|$)/i
   ]);
   const abono=buscar([/(?:ya\s+)?(?:he|hab[ií]a)?\s*(?:abonado|abon[eé]|pagado|pagu[eé])\s*([^,;.]+?)(?=\s+(?:y|sin|con|cada|pero)|[,;.]|$)/i]);
-  const cuota=buscar([
-    /(?:cuota(?:\s+(?:mensual|de))?|pago\s+mensual|me\s+toca\s+pagar)\s*(?:de\s*)?([^,;.]+?)(?=\s+(?:y|sin|con|cada|el\s+d[ií]a|pero)|[,;.]|$)/i,
-    /(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}\s+(?:de\s+)?cada\s+mes\s*[,;:]?\s*(?:me\s+toca\s+pagar\s*)?(?:un|una)\s+(mill[oó]n|millones|palo|barra)(?:\s+de\s+pesos)?(?=\s+(?:y|sin|con|pero)|[,;.]|$)|(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}\s+(?:de\s+)?cada\s+mes\s*[,;:]?\s*(?:me\s+toca\s+pagar\s*)?([^,;.]+?)(?=\s+(?:y|sin|con|pero)|[,;.]|$)/i
+  const cuotaDirecta=texto.match(/(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}\s+(?:de\s+)?cada\s+mes\s*[,;:]?\s*(?:me\s+toca\s+pagar\s*)?((?:\d+(?:[.,]\d+)?|un|uno|una)\s*(?:millones?|mill[oó]n|lucas?|palos?|barras?|mil|m|k)?)(?:\s+de\s+pesos)?/i);
+  const cuota=cuotaDirecta?monto(cuotaDirecta[1]):buscar([
+    /(?:cuota(?:\s+(?:mensual|de))?|pago\s+mensual|me\s+toca\s+pagar)\s*(?:de\s*)?([^,;.]+?)(?=\s+(?:y|sin|con|cada|el\s+d[ií]a|pero)|[,;.]|$)/i
   ]);
   if(!principal||!dia||dia<1||dia>31)return null;
   const abonado=abono||0,saldo=principal-abonado;
