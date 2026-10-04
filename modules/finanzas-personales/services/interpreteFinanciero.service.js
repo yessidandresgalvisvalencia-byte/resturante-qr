@@ -9,7 +9,7 @@ function monto(s){
  const m=raw.match(/(?:\$\s*)?(\d+(?:[.,]\d+)?)\s*(millones?|mill[oó]n|lucas?|palos?|barras?|mil|m|k)?\b/i);
  if(!m)return null;
  const unit=(m[2]||"").toLowerCase();
- const factor=/^(?:luca|mil|k)/i.test(unit)?1000:/(?:palo|barra|^m$|mill)/i.test(unit)?1000000:1;
+ const factor=/(?:palo|barra|^m$|mill)/i.test(unit)?1000000:/^(?:luca|mil|k)/i.test(unit)?1000:1;
  if(factor===1){const digits=m[1].replace(/\D/g,"");const n=Number(digits);return Number.isSafeInteger(n)&&n>0?n:null;}
  let parts;
  if(factor===1000&&/^\d{1,3}[.,]\d{3}$/.test(m[1]))parts=[m[1].replace(/[.,]/g,"")];
