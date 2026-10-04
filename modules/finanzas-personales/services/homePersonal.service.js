@@ -1,6 +1,8 @@
 "use strict";
 const Transaccion=require("../models/TransaccionPersonal");
 const Prestamo=require("../models/prestamoPersonal.model");
+const DeudaPersonal=require("../models/DeudaPersonal");
+const {pagoExigible}=require("./tarjetaCreditoPersonal.service");
 const patrimonio=require("./patrimonioPersonal.service");
 const Calendario=require("../models/calendarioFinanciero.model");
 
@@ -28,9 +30,10 @@ function calcularFlujoMes({ingresosMinor=0,gastosMinor=0,pagosDeudaRegistradosMi
 
 async function obtener(usuarioId,now=new Date()){
  const inicio=monthStart(now),fin=nextMonth(now);
- const [tx,deudas,pat,ingresosRecurrentes,calendariosIngreso,cobros]=await Promise.all([
+ const [tx,deudas,tarjetas,pat,ingresosRecurrentes,calendariosIngreso,cobros]=await Promise.all([
   Transaccion.find({usuarioId,fecha:{$gte:inicio,$lt:fin},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA"]},estado:{$ne:"ANULADA"}}).lean(),
   Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).sort({fechaVencimiento:1,createdAt:1}).lean(),
+  DeudaPersonal.find({usuarioId,tipo:"TARJETA_CREDITO",activa:true,saldoMinor:{$gt:0}}).lean(),
   patrimonio.snapshot(usuarioId),
   Transaccion.find({usuarioId,tipo:"INGRESO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).limit(100).lean(),
   Calendario.find({usuarioId,tipo:"INGRESO",activo:true}).lean(),
@@ -47,8 +50,11 @@ async function obtener(usuarioId,now=new Date()){
  const proximosIngresos=(calendarioProximos.length?calendarioProximos:ingresosRecurrentes.map(x=>({tx:x,fecha:siguienteFechaRecurrente(x,now)}))).filter(x=>x.fecha).sort((a,b)=>a.fecha-b.fecha);
  const proximoIngreso=proximosIngresos[0]||null;
  const limiteCompromisos=proximoIngreso?proximoIngreso.fecha:fin;
+ const pHoy=partesColombia(now);
+ const vencimientoTarjeta=t=>{let y=pHoy.y,m=pHoy.m,d=Math.min(Number(t.diaPago),diasEnMesUTC(y,m));let fecha=fechaCivilColombia(y,m,d);if(fecha<now){m++;if(m>12){m=1;y++;}fecha=fechaCivilColombia(y,m,Math.min(Number(t.diaPago),diasEnMesUTC(y,m)));}return fecha;};
+ const compromisosTarjeta=tarjetas.map(t=>({concepto:"Pago tarjeta "+t.nombre,montoMinor:pagoExigible(t),fecha:vencimientoTarjeta(t),deudaId:String(t._id)})).filter(x=>x.montoMinor>0);
  const pagosDeudaIds=new Set(tx.filter(x=>x.tipo==="PAGO_DEUDA"&&x.prestamoId).map(x=>String(x.prestamoId)));
- const compromisosAntesIngreso=deudas.filter(d=>d.fechaVencimiento&&new Date(d.fechaVencimiento)>=now&&new Date(d.fechaVencimiento)<limiteCompromisos&&!pagosDeudaIds.has(String(d._id))).map(d=>({concepto:d.concepto,montoMinor:Math.min(Number(d.cuotaMinor||d.saldoMinor),Number(d.saldoMinor)),fecha:d.fechaVencimiento}));
+ const compromisosAntesIngreso=deudas.filter(d=>d.fechaVencimiento&&new Date(d.fechaVencimiento)>=now&&new Date(d.fechaVencimiento)<limiteCompromisos&&!pagosDeudaIds.has(String(d._id))).map(d=>({concepto:d.concepto,montoMinor:Math.min(Number(d.cuotaMinor||d.saldoMinor),Number(d.saldoMinor)),fecha:d.fechaVencimiento})); compromisosAntesIngreso.push(...compromisosTarjeta.filter(x=>x.fecha>=now&&x.fecha<limiteCompromisos));
  const gastosFijosRecurrentes=await Transaccion.find({usuarioId,tipo:"GASTO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).limit(100).lean();
  for(const g of gastosFijosRecurrentes){const fecha=siguienteFechaRecurrente({...g,tipo:"INGRESO"},now);if(fecha&&fecha<limiteCompromisos)compromisosAntesIngreso.push({concepto:g.concepto,montoMinor:g.montoMinor,fecha});}
  const gastosFijosAntesProximoIngresoMinor=compromisosAntesIngreso.reduce((s,x)=>s+x.montoMinor,0);
