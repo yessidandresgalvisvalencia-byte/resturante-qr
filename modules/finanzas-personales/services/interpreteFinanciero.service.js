@@ -2,7 +2,23 @@
 const Borrador=require("../models/borradorFinanciero.model");
 const colombia=require("./colombiaFinanciero.service");
 const hoy=()=>colombia.fechaColombia(0);
-function monto(s){const raw=String(s).toLowerCase().trim();if(/\b(?:m[aá]s o menos|aprox(?:imadamente)?|por ah[ií]|como unos?|como unas?)\b/i.test(raw))return null;if(/\bmedio\s+(?:palo|barra)\b/i.test(raw))return 500000;const m=raw.match(/(?:\$\s*)?(\d+(?:[.,]\d+)?)\s*(mill(?:o|ó)(?:n|nes)|lucas?|palos?|barras?|mil|m|k)?\b/i);if(!m)return null;const unit=(m[2]||"").toLowerCase();let parts;if(/^(?:luca|mil|k)/i.test(unit)&&/^\d{1,3}[.,]\d{3}$/.test(m[1]))parts=[m[1].replace(/[.,]/g,"")];else parts=m[1].split(/[.,]/);let factor=1;if(/luca|mil|^k$/.test(unit))factor=1000;else if(/palo|barra|^m$|mill/.test(unit))factor=1000000;if(factor===1){const digits=m[1].replace(/\D/g,"");const n=Number(digits);return Number.isSafeInteger(n)&&n>0?n:null;}let entero=BigInt(parts[0]),valor=entero*BigInt(factor);if(parts[1]){const scale=10n**BigInt(parts[1].length);valor+=(BigInt(parts[1])*BigInt(factor))/scale;}if(valor<=0n||valor>BigInt(Number.MAX_SAFE_INTEGER))return null;return Number(valor)}
+function monto(s){
+ const raw=String(s).toLowerCase().trim();
+ if(/\b(?:m[aá]s o menos|aprox(?:imadamente)?|por ah[ií]|como unos?|como unas?)\b/i.test(raw))return null;
+ if(/\bmedio\s+(?:palo|barra)\b/i.test(raw))return 500000;
+ const m=raw.match(/(?:\$\s*)?(\d+(?:[.,]\d+)?)\s*(millones?|mill[oó]n|lucas?|palos?|barras?|mil|m|k)?\b/i);
+ if(!m)return null;
+ const unit=(m[2]||"").toLowerCase();
+ const factor=/^(?:luca|mil|k)/i.test(unit)?1000:/(?:palo|barra|^m$|mill)/i.test(unit)?1000000:1;
+ if(factor===1){const digits=m[1].replace(/\D/g,"");const n=Number(digits);return Number.isSafeInteger(n)&&n>0?n:null;}
+ let parts;
+ if(factor===1000&&/^\d{1,3}[.,]\d{3}$/.test(m[1]))parts=[m[1].replace(/[.,]/g,"")];
+ else parts=m[1].split(/[.,]/);
+ let valor=BigInt(parts[0])*BigInt(factor);
+ if(parts[1]){const scale=10n**BigInt(parts[1].length);valor+=(BigInt(parts[1])*BigInt(factor))/scale;}
+ if(valor<=0n||valor>BigInt(Number.MAX_SAFE_INTEGER))return null;
+ return Number(valor);
+}
 function categoria(t,tipo){if(/ahorr|guardar plata/i.test(t))return"Ahorro";if(/prest/i.test(t)&&!/gota a gota/i.test(t))return"Préstamo";return colombia.clasificar(t,tipo)}
 function numeroPalabras(s){const t=String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g," ");const nums={un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,veinte:20,treinta:30,cuarenta:40,cincuenta:50,cien:100,quinientos:500};let total=0,current=0,seen=false;for(const w of t.split(/\s+/)){if(/^\d+(?:[.,]\d+)?$/.test(w)){current+=Number(w.replace(",","."));seen=true;continue}if(nums[w]!=null){current+=nums[w];seen=true;continue}if(w==="mil"){current=(current||1)*1000;seen=true;continue}if(w==="millon"||w==="millones"){total+=(current||1)*1000000;current=0;seen=true;continue}}return seen?Math.round(total+current):null}
 function valorDespues(t,re){const m=t.match(re);if(!m)return null;const frag=m[1].trim();const limpio=frag.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");const abreviado=limpio.match(/^(\d+|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve)\s+millones?\s+(\d+|cien|doscientos|trescientos|cuatrocientos|quinientos|seiscientos|setecientos|ochocientos|novecientos)(?!\s+mil)/);if(abreviado){const base=/^\d+$/.test(abreviado[1])?Number(abreviado[1]):numeroPalabras(abreviado[1]);const resto=/^\d+$/.test(abreviado[2])?Number(abreviado[2]):numeroPalabras(abreviado[2]);if(base&&resto!=null)return base*1000000+resto*1000}const numeric=monto(frag);if(numeric&&numeric>31)return numeric;return numeroPalabras(frag)}
