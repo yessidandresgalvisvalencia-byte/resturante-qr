@@ -40,7 +40,8 @@ async function obtener(usuarioId,now=new Date()){
   Prestamo.find({usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).sort({fechaVencimiento:1}).lean()
  ]);
  const ingresosMinor=tx.filter(x=>x.tipo==="INGRESO").reduce((s,x)=>s+x.montoMinor,0);
- const gastosConsumoMinor=tx.filter(x=>x.tipo==="GASTO").filter(x=>!deudas.some(d=>d.principalMinor===x.montoMinor&&/moto/i.test(d.concepto||"")&&/moto/i.test(x.concepto||""))).reduce((s,x)=>s+x.montoMinor,0);\n const gastosMinor=tx.filter(x=>x.tipo==="GASTO"&&x.medioPago!=="CREDITO").filter(x=>!deudas.some(d=>d.principalMinor===x.montoMinor&&/moto/i.test(d.concepto||"")&&/moto/i.test(x.concepto||""))).reduce((s,x)=>s+x.montoMinor,0);
+ const gastosConsumoMinor=tx.filter(x=>x.tipo==="GASTO").filter(x=>!deudas.some(d=>d.principalMinor===x.montoMinor&&/moto/i.test(d.concepto||"")&&/moto/i.test(x.concepto||""))).reduce((s,x)=>s+x.montoMinor,0);
+ const gastosMinor=tx.filter(x=>x.tipo==="GASTO"&&x.medioPago!=="CREDITO").filter(x=>!deudas.some(d=>d.principalMinor===x.montoMinor&&/moto/i.test(d.concepto||"")&&/moto/i.test(x.concepto||""))).reduce((s,x)=>s+x.montoMinor,0);
  const pagosDeudaRegistradosMinor=tx.filter(x=>x.tipo==="PAGO_DEUDA").reduce((s,x)=>s+x.montoMinor,0);
  const deudaTotalMinor=deudas.reduce((s,x)=>s+x.saldoMinor,0);
  const cuotasVencenMesMinor=deudas.reduce((s,x)=>s+cuotaDelPeriodo(x,inicio,fin),0);
