@@ -54,3 +54,14 @@ test("acción irreversible exige verdad reconciliada, aprobación e idempotencia
 test("autorización falla cerrada ante cadena ausente y acción desconocida",()=>{const hecho={tipo:"HECHO",confianza:"VERIFICADO",requiereReconciliacion:false};assert.equal(authorizationRisk.evaluar({accion:"PAGAR",verdades:[hecho],aprobacionExplicita:true,idempotencyKey:"pago-123456"}).autorizada,false);assert.deepEqual(authorizationRisk.evaluar({accion:"BORRAR_TODO",verdades:[hecho]}).motivos,["ACCION_NO_CLASIFICADA"]);});
 
 test("prueba de decisión es determinística y detecta manipulación",()=>{const evaluacion={autorizada:true,irreversible:true,motivos:[]};const args={accion:"PAGAR",evaluacion,verdades:[{tipo:"HECHO",montoMinor:45000,fuente:"CUENTA",confianza:"VERIFICADO",requiereReconciliacion:false}],actorId:"usuario-1",corte:new Date("2026-10-05T01:00:00.000Z"),idempotencyKey:"pago-123456"};const a=decisionProof.crear(args),b=decisionProof.crear(args);assert.equal(a.hash,b.hash);assert.equal(decisionProof.verificar(a),true);assert.equal(decisionProof.verificar({...a,accion:"INVERTIR"}),false);});
+
+
+test("DecisionProof verifica persistencia sin hashear metadata y falla cerrado ante manipulación",()=>{
+ const evaluacion={autorizada:true,irreversible:true,motivos:[]};
+ const original=decisionProof.crear({accion:"PAGAR",evaluacion,verdades:[{tipo:"HECHO",confianza:"VERIFICADO"}],actorId:"actor-1",corte:"2026-10-05T00:00:00.000Z",idempotencyKey:"proof-123456"});
+ assert.equal(decisionProof.verificar(original),true);
+ const persistido={...original,_id:"mongo-id",usuarioId:"usuario-id",createdAt:new Date(),updatedAt:new Date(),previousHash:"a".repeat(64)};
+ assert.equal(decisionProof.verificar(persistido),true);
+ assert.equal(decisionProof.verificar({...persistido,accion:"TRANSFERIR"}),false);
+ for(const hash of [null,"zz","a".repeat(63),"g".repeat(64)])assert.equal(decisionProof.verificar({...persistido,hash}),false);
+});
