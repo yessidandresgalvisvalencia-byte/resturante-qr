@@ -27,3 +27,7 @@ test("cuota pagada no se descuenta dos veces",()=>{const x=home.calcularFlujoMes
 
 
 test("parser reconoce millón singular y millones plural sin confundir mil",()=>{assert.equal(interprete.parseMontoExacto("1 millón"),1000000);assert.equal(interprete.parseMontoExacto("1.5 millones"),1500000);assert.equal(interprete.parseMontoExacto("2,5 millones"),2500000);assert.equal(interprete.parseMontoExacto("2,5 lucas"),2500);});
+
+test("compra con tarjeta de crédito no reduce caja realizada",()=>{assert.equal(home.gastoAfectaCaja({tipo:"GASTO",medioPago:"CREDITO",montoMinor:200000}),false);});
+test("gasto en débito o efectivo sí reduce caja realizada",()=>{assert.equal(home.gastoAfectaCaja({tipo:"GASTO",medioPago:"DEBITO",montoMinor:200000}),true);assert.equal(home.gastoAfectaCaja({tipo:"GASTO",medioPago:"EFECTIVO",montoMinor:200000}),true);});
+test("pago de tarjeta no se clasifica como gasto de consumo",()=>{assert.equal(home.gastoAfectaCaja({tipo:"PAGO_DEUDA",medioPago:"DEBITO",montoMinor:200000}),false);});
