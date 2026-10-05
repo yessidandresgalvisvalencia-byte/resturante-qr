@@ -25,7 +25,7 @@ async function registrar(usuarioId,args){
   const docs=await DecisionProof.create([{usuarioId,...creada,requestFingerprint:fp}],{session});
   head.headHash=creada.hash;head.secuencia=secuencia;await head.save({session});
   const resultado=docs[0].toObject();
-  await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"DECISION_PROOF_REGISTRADA",aggregateType:"DECISION_PROOF",aggregateId:docs[0]._id,payload:{decisionProofId:String(docs[0]._id),hash:creada.hash,accion:creada.accion,autorizada:creada.autorizada}}],{session});
+  await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"DECISION_PROOF_REGISTRADA",aggregateType:"DECISION_PROOF",aggregateId:docs[0]._id,payload:{decisionProofId:String(docs[0]._id),hash:creada.hash,accion:creada.accion,autorizada:creada.autorizada}}],{session});return resultado;
  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
  return guardada;
  }catch(err){

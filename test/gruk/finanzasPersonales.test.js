@@ -27,3 +27,38 @@ test("el principal total nunca se usa como cuota mensual",()=>{
  const inicio=new Date(2026,9,1),fin=new Date(2026,10,1);
  assert.equal(homePersonal.cuotaDelPeriodo({direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:4500000,cuotaMinor:1000000,fechaVencimiento:new Date(2026,9,15)},inicio,fin),1000000);
 });
+
+test("la deuda de moto conserva última cuota parcial sin sobrepago",()=>{
+ const r=interprete.deudaEstructurada("Compré una moto de 7 millones, ya aboné 2 millones quinientos, pago un millón cada día 15 y es sin interés");
+ assert.equal(r.saldoMinor,4500000);assert.equal(r.cuotaMinor,1000000);
+ assert.deepEqual([1000000,1000000,1000000,1000000,500000].reduce((a,x)=>a+x,0),r.saldoMinor);
+});
+test("contrato de aprobación permite ítems independientes",()=>{
+ const fs=require("node:fs"),path=require("node:path");
+ const src=fs.readFileSync(path.join(__dirname,"..","..","modules","finanzas-personales","services","aprobacionConversacional.service.js"),"utf8");
+ const routes=fs.readFileSync(path.join(__dirname,"..","..","modules","finanzas-personales","routes.js"),"utf8");
+ assert.match(src,/estado==="LISTO"/);assert.match(src,/estadoAprobacion!=="APROBADO"/);
+ assert.doesNotMatch(src,/b\.items\.some\(x=>x\.estado!=="LISTO"\)/);
+ assert.match(src,/b\.estado=pendientes\.length\?"PARCIAL":"APROBADO"/);
+ assert.match(routes,/items\/:itemId\/aprobar/);
+});
+
+test("parser colombiano entiende cantidades monetarias escritas",()=>{
+ assert.equal(interprete.parseMontoExacto("un millón"),1000000);
+ assert.equal(interprete.parseMontoExacto("dos millones quinientos"),2500000);
+ assert.equal(interprete.parseMontoExacto("500 lucas"),500000);
+});
+
+
+test("efectivo preexistente se interpreta como ajuste de saldo, nunca ingreso",()=>{
+ const r=interprete.interpretarSegmento("En mi billetera tengo 312000 pesos en efectivo, que no había registrado");
+ assert.equal(r.tipo,"AJUSTE_SALDO");assert.equal(r.montoMinor,312000);assert.notEqual(r.tipo,"INGRESO");
+});
+test("la moto financiada es patrimonio y deuda, nunca gasto conversacional",()=>{
+ const r=interprete.interpretarSegmento("Me compré una moto de 7 millones, cada día 15 pago un millón, ya aboné 2 millones quinientos y es sin interés");
+ assert.equal(r.tipo,"DEUDA_POR_PAGAR");assert.equal(r.principalMinor,7000000);assert.equal(r.saldoMinor,4500000);assert.notEqual(r.tipo,"GASTO");
+});
+test("aprobación parcial permanece aprobable",()=>{
+ const fs=require("node:fs"),path=require("node:path");const src=fs.readFileSync(path.join(__dirname,"..","..","modules","finanzas-personales","services","aprobacionConversacional.service.js"),"utf8");
+ assert.match(src,/estado:\{\$in:\["PENDIENTE","PARCIAL"\]\}/);
+});
