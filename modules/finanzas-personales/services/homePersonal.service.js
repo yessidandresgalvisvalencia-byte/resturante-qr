@@ -59,7 +59,8 @@ async function obtener(usuarioId,now=new Date()){
  const gastosFijosRecurrentes=await Transaccion.find({usuarioId,tipo:"GASTO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).limit(100).lean();
  for(const g of gastosFijosRecurrentes){const fecha=siguienteFechaRecurrente({...g,tipo:"INGRESO"},now);if(fecha&&fecha<limiteCompromisos)compromisosAntesIngreso.push({concepto:g.concepto,montoMinor:g.montoMinor,fecha});}
  const gastosFijosAntesProximoIngresoMinor=compromisosAntesIngreso.reduce((s,x)=>s+x.montoMinor,0);
- const saldoAsesorMinor=(!pat.saldoVerificado&&pat.hayMovimientosLedger&&Number.isSafeInteger(pat.saldoDerivadoLedgerMinor)?Math.max(0,pat.saldoDerivadoLedgerMinor):pat.liquidezMinor);\n const colchonMinor=Math.floor(saldoAsesorMinor/10);
+ const saldoAsesorMinor=(!pat.saldoVerificado&&pat.hayMovimientosLedger&&Number.isSafeInteger(pat.saldoDerivadoLedgerMinor)?Math.max(0,pat.saldoDerivadoLedgerMinor):pat.liquidezMinor);
+ const colchonMinor=Math.floor(saldoAsesorMinor/10);
  const disponibleBaseMinor=saldoAsesorMinor-gastosFijosAntesProximoIngresoMinor-colchonMinor;
  const disponibleHoyMinor=Math.max(0,disponibleBaseMinor);
  const estaEnRojo=disponibleBaseMinor<0;
