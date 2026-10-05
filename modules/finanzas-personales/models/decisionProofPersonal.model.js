@@ -2,6 +2,7 @@
 const mongoose=require("mongoose");
 const schema=new mongoose.Schema({
  usuarioId:{type:mongoose.Schema.Types.ObjectId,ref:"Usuario",required:true,index:true},
+ version:{type:Number,required:true,enum:[1],default:1},
  accion:{type:String,required:true,trim:true},
  autorizada:{type:Boolean,required:true},
  irreversible:{type:Boolean,required:true},
