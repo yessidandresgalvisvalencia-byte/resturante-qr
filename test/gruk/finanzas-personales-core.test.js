@@ -76,3 +76,10 @@ test("DecisionProof idempotencia semántica distingue misma intención de confli
  assert.equal(persistence.resolverExistente({requestFingerprint:fp,hash:"a".repeat(64)},fp).hash,"a".repeat(64));
  assert.throws(()=>persistence.resolverExistente({requestFingerprint:fp},"b".repeat(64)),e=>e.code==="IDEMPOTENCY_KEY_CONFLICT");
 });
+
+
+test("Bloque 1 falla cerrado: hecho ambiguo nunca queda listo ni se inventa como gasto contable",()=>{const x=interprete.interpretarSegmento("se movieron 80 lucas");assert.equal(x.tipo,"POR_CLASIFICAR");assert.equal(x.estado,"REQUIERE_REVISION");assert.match(x.razonRevision,/naturaleza financiera/i);});
+test("Bloque 1: saldo existente es reconciliación y no ingreso",()=>{const x=interprete.interpretarSegmento("En mi billetera tengo 312000 pesos en efectivo, que no había registrado.");assert.equal(x.tipo,"AJUSTE_SALDO");assert.equal(x.montoMinor,312000);assert.notEqual(x.tipo,"INGRESO");});
+test("Bloque 1: transferencia propia no es ingreso ni gasto",()=>{const x=interprete.interpretarSegmento("pasé 50 lucas de Nequi a Daviplata");assert.equal(x.tipo,"TRANSFERENCIA_PROPIA");assert.equal(x.estado,"LISTO");assert.equal(x.montoMinor,50000);});
+test("Bloque 1: ahorro es movimiento patrimonial y no gasto",()=>{const x=interprete.interpretarSegmento("ahorré 100 lucas en mi cuenta de ahorro");assert.equal(x.tipo,"AHORRO_ACTIVO");assert.equal(x.montoMinor,100000);assert.notEqual(x.tipo,"GASTO");});
+test("Bloque 1: compra financiada de moto crea deuda y no gasto",()=>{const x=interprete.interpretarSegmento("compré una moto de 7 millones, pago un millón cada día 15 y ya he abonado dos millones quinientos, sin interés");assert.equal(x.tipo,"DEUDA_POR_PAGAR");assert.equal(x.principalMinor,7000000);assert.equal(x.saldoMinor,4500000);assert.equal(x.cuotaMinor,1000000);assert.notEqual(x.tipo,"GASTO");});
