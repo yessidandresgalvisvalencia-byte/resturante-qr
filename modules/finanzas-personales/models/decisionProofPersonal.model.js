@@ -2,7 +2,7 @@
 const mongoose=require("mongoose");
 const schema=new mongoose.Schema({
  usuarioId:{type:mongoose.Schema.Types.ObjectId,ref:"Usuario",required:true,index:true},
- version:{type:Number,required:true,enum:[1],default:1},
+ version:{type:Number,required:true,enum:[1,2],default:1},
  accion:{type:String,required:true,trim:true},
  autorizada:{type:Boolean,required:true},
  irreversible:{type:Boolean,required:true},
@@ -13,7 +13,8 @@ const schema=new mongoose.Schema({
  idempotencyKey:{type:String,required:true,trim:true},
  hashAlgoritmo:{type:String,enum:["SHA-256"],required:true},
  hash:{type:String,required:true,match:/^[a-f0-9]{64}$/},
- previousHash:{type:String,default:null,match:/^[a-f0-9]{64}$/}
+ previousHash:{type:String,default:null,match:/^[a-f0-9]{64}$/},
+ secuencia:{type:Number,default:null,min:1}
 },{timestamps:true,versionKey:false});
 schema.index({usuarioId:1,idempotencyKey:1},{unique:true});
 schema.index({usuarioId:1,hash:1},{unique:true});
