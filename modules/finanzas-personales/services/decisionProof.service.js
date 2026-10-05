@@ -14,7 +14,7 @@ function crear({accion,evaluacion,verdades=[],actorId=null,corte=new Date(),idem
  return Object.freeze({...cuerpo,hashAlgoritmo:"SHA-256",hash});
 }
 function verificar(prueba){
- if(!prueba||prueba.hashAlgoritmo!=="SHA-256"||typeof prueba.hash!=="string")return false;
+ if(!prueba||prueba.hashAlgoritmo!=="SHA-256"||typeof prueba.hash!=="string"||!/^[a-f0-9]{64}$/.test(prueba.hash))return false;
  const {hash,hashAlgoritmo,...cuerpo}=prueba;
  const esperado=crypto.createHash("sha256").update(JSON.stringify(canonical(cuerpo))).digest("hex");
  return crypto.timingSafeEqual(Buffer.from(hash,"hex"),Buffer.from(esperado,"hex"));
