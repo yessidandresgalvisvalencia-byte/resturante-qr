@@ -6,6 +6,7 @@ function monto(s){
  const raw=String(s).toLowerCase().trim();
  if(/\b(?:m[aá]s o menos|aprox(?:imadamente)?|por ah[ií]|como unos?|como unas?)\b/i.test(raw))return null;
  if(/\bmedio\s+(?:palo|barra)\b/i.test(raw))return 500000;
+ const escrito=numeroPalabras(raw);if(escrito&&escrito>31&&/\b(?:mil|millon|millones)\b/i.test(raw.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"")))return escrito;
  const m=raw.match(/(?:\$\s*)?(\d+(?:[.,]\d+)?)\s*(millones?|mill[oó]n|lucas?|palos?|barras?|mil|m|k)?\b/i);
  if(!m){const p=numeroPalabras(raw);return p&&p>31?p:null;}
  const unit=(m[2]||"").toLowerCase();
