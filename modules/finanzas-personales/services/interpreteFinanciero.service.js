@@ -7,7 +7,7 @@ function monto(s){
  if(/\b(?:m[aá]s o menos|aprox(?:imadamente)?|por ah[ií]|como unos?|como unas?)\b/i.test(raw))return null;
  if(/\bmedio\s+(?:palo|barra)\b/i.test(raw))return 500000;
  const m=raw.match(/(?:\$\s*)?(\d+(?:[.,]\d+)?)\s*(millones?|mill[oó]n|lucas?|palos?|barras?|mil|m|k)?\b/i);
- if(!m)return null;
+ if(!m){const p=numeroPalabras(raw);return p&&p>31?p:null;}
  const unit=(m[2]||"").toLowerCase();
  const factor=/(?:palo|barra|^m$|mill)/i.test(unit)?1000000:/^(?:luca|mil|k)/i.test(unit)?1000:1;
  if(factor===1){const digits=m[1].replace(/\D/g,"");const n=Number(digits);return Number.isSafeInteger(n)&&n>0?n:null;}
@@ -33,7 +33,7 @@ function deudaEstructurada(t){
     /(?:moto|carro|veh[ií]culo|deuda|credito|cr[eé]dito|pr[eé]stamo)\s+(?:de|por)\s*([^,;.]+?)(?=\s+(?:y|sin|con|cada|pago|cuota|pero)|[,;.]|$)/i
   ]);
   const abono=buscar([/(?:ya\s+)?(?:he|hab[ií]a)?\s*(?:abonado|abon[eé]|pagado|pagu[eé])\s*([^,;.]+?)(?=\s+(?:y|sin|con|cada|pero)|[,;.]|$)/i]);
-  const cuotaDirecta=texto.match(/(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}\s+(?:de\s+)?cada\s+mes(?:\s+me\s+toca\s+pagar)?\s*[,;:]?\s*((?:\d+(?:[.,]\d+)?|un|uno|una)\s*(?:millones?|mill[oó]n|lucas?|palos?|barras?|mil|m|k)?)(?:\s+de\s+pesos)?/i);
+  const cuotaDirecta=texto.match(/(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}\s+(?:de\s+)?cada\s+mes(?:\s+me\s+toca\s+pagar)?\s*[,;:]?\s*((?:\d+(?:[.,]\d+)?|un|uno|una)\s*(?:millones?|mill[oó]n|lucas?|palos?|barras?|mil|m|k)?)(?:\s+de\s+pesos)?/i)||texto.match(/(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}(?:\s+de\s+cada\s+mes)?\s*(?:me\s+toca\s+)?pagar\s+([^,;.]+?)(?=\s+(?:y|sin|con|pero)|[,;.]|$)/i);
   const cuota=cuotaDirecta?(monto(cuotaDirecta[1])||numeroPalabras(cuotaDirecta[1])):buscar([
     /(?:cuota(?:\s+(?:mensual|de))?|pago\s+mensual|me\s+toca\s+pagar)\s*(?:de\s*)?([^,;.]+?)(?=\s+(?:y|sin|con|cada|el\s+d[ií]a|pero)|[,;.]|$)/i
   ]);
