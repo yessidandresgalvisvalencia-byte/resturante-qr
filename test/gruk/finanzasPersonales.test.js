@@ -42,3 +42,9 @@ test("contrato de aprobación permite ítems independientes",()=>{
  assert.match(src,/b\.estado=pendientes\.length\?"PARCIAL":"APROBADO"/);
  assert.match(routes,/items\/:itemId\/aprobar/);
 });
+
+test("parser colombiano entiende cantidades monetarias escritas",()=>{
+ assert.equal(interprete.parseMontoExacto("un millón"),1000000);
+ assert.equal(interprete.parseMontoExacto("dos millones quinientos"),2500000);
+ assert.equal(interprete.parseMontoExacto("500 lucas"),500000);
+});
