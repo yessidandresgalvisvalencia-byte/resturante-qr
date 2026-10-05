@@ -19,4 +19,5 @@ const schema=new mongoose.Schema({
 },{timestamps:true,versionKey:false});
 schema.index({usuarioId:1,idempotencyKey:1},{unique:true});
 schema.index({usuarioId:1,hash:1},{unique:true});
+schema.index({usuarioId:1,secuencia:1},{unique:true,partialFilterExpression:{secuencia:{$type:"number"}}});
 module.exports=mongoose.models.DecisionProofPersonal||mongoose.model("DecisionProofPersonal",schema);
