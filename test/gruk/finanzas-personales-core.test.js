@@ -65,3 +65,14 @@ test("DecisionProof verifica persistencia sin hashear metadata y falla cerrado a
  assert.equal(decisionProof.verificar({...persistido,accion:"TRANSFERIR"}),false);
  for(const hash of [null,"zz","a".repeat(63),"g".repeat(64)])assert.equal(decisionProof.verificar({...persistido,hash}),false);
 });
+
+
+test("DecisionProof idempotencia semántica distingue misma intención de conflicto",()=>{
+ const persistence=require("../../modules/finanzas-personales/services/decisionProofPersistence.service");
+ const base={accion:"PAGAR",evaluacion:{autorizada:true,irreversible:true,motivos:[]},verdades:[{tipo:"HECHO",confianza:"VERIFICADO",evidenciaTipo:"MONTO",montoMinor:1000}],actorId:"actor-1",idempotencyKey:"idem-123456"};
+ const fp=persistence.fingerprint(base);
+ assert.equal(persistence.fingerprint({...base}),fp);
+ assert.notEqual(persistence.fingerprint({...base,accion:"TRANSFERIR"}),fp);
+ assert.equal(persistence.resolverExistente({requestFingerprint:fp,hash:"a".repeat(64)},fp).hash,"a".repeat(64));
+ assert.throws(()=>persistence.resolverExistente({requestFingerprint:fp},"b".repeat(64)),e=>e.code==="IDEMPOTENCY_KEY_CONFLICT");
+});
