@@ -15,10 +15,11 @@ async function registrar(usuarioId,args){
   if(repetida){guardada=repetida;return;}
   let head=await ChainHead.findOne({usuarioId}).session(session);
   if(!head){try{const hs=await ChainHead.create([{usuarioId,headHash:null,secuencia:0}],{session});head=hs[0];}catch(e){if(e?.code!==11000)throw e;head=await ChainHead.findOne({usuarioId}).session(session);}}
-  const creada=proof.crear(args);
   const previousHash=head.headHash||null;
-  const docs=await DecisionProof.create([{usuarioId,...creada,previousHash}],{session});
-  head.headHash=creada.hash;head.secuencia+=1;await head.save({session});
+  const secuencia=head.secuencia+1;
+  const creada=proof.crear({...args,version:2,previousHash,secuencia});
+  const docs=await DecisionProof.create([{usuarioId,...creada}],{session});
+  head.headHash=creada.hash;head.secuencia=secuencia;await head.save({session});
   guardada=docs[0].toObject();
   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"DECISION_PROOF_REGISTRADA",aggregateType:"DECISION_PROOF",aggregateId:docs[0]._id,payload:{decisionProofId:String(docs[0]._id),hash:creada.hash,accion:creada.accion,autorizada:creada.autorizada}}],{session});
  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
