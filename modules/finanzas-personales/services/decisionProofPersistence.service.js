@@ -12,12 +12,13 @@ async function registrar(usuarioId,args){
  const fp=fingerprint(args);
  const existente=await DecisionProof.findOne({usuarioId,idempotencyKey:args.idempotencyKey.trim()}).lean();
  if(existente)return resolverExistente(existente,fp);
+ await ChainHead.updateOne({usuarioId},{$setOnInsert:{usuarioId,headHash:null,secuencia:0}},{upsert:true});
  const session=await mongoose.startSession();
  try{const guardada=await session.withTransaction(async()=>{
   const repetida=await DecisionProof.findOne({usuarioId,idempotencyKey:args.idempotencyKey.trim()}).session(session).lean();
   if(repetida)return resolverExistente(repetida,fp);
-  let head=await ChainHead.findOne({usuarioId}).session(session);
-  if(!head){const hs=await ChainHead.create([{usuarioId,headHash:null,secuencia:0}],{session});head=hs[0];}
+  const head=await ChainHead.findOne({usuarioId}).session(session);
+  if(!head)throw new Error("CHAIN_HEAD_AUSENTE");
   const previousHash=head.headHash||null;
   const secuencia=head.secuencia+1;
   const creada=proof.crear({...args,version:2,previousHash,secuencia});
