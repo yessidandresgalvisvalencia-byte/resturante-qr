@@ -2,6 +2,7 @@
 const test=require("node:test");const assert=require("node:assert/strict");
 const interprete=require("../../modules/finanzas-personales/services/interpreteFinanciero.service");
 const colombia=require("../../modules/finanzas-personales/services/colombiaFinanciero.service");
+const patrimonioPersonal=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
 const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
 const home=require("../../modules/finanzas-personales/services/homePersonal.service");
 test("colombianismos monetarios exactos",()=>{assert.equal(interprete.interpretarSegmento("gasté 25 lucas en Rappi").montoMinor,25000);assert.equal(interprete.interpretarSegmento("recibí 3 palos de salario").montoMinor,3000000);assert.equal(interprete.interpretarSegmento("me pagaron medio palo").montoMinor,500000);});
@@ -37,3 +38,5 @@ test("saldo verificado tiene autoridad contable",()=>{const x=home.resolverSaldo
 test("ledger sin ancla se identifica como reconstrucción pendiente",()=>{const x=home.resolverSaldoAsesor({saldoVerificado:false,hayMovimientosLedger:true,saldoDerivadoLedgerMinor:45000,liquidezMinor:0});assert.equal(x.montoMinor,45000);assert.equal(x.confiabilidad,"RECONSTRUIDO_SIN_ANCLA");assert.equal(x.requiereReconciliacion,true);});
 
 test("resumen financiero comparte la semántica canónica de caja",()=>{assert.equal(finanzas.gastoAfectaCaja({tipo:"GASTO",medioPago:"CREDITO"}),false);assert.equal(finanzas.gastoAfectaCaja({tipo:"GASTO",medioPago:"DEBITO"}),true);assert.equal(finanzas.gastoAfectaCaja({tipo:"PAGO_DEUDA",medioPago:"DEBITO"}),false);});
+
+test("ledger patrimonial aplica delta de caja exactamente una vez",()=>{assert.equal(patrimonioPersonal.deltaCaja({tipo:"INGRESO",montoMinor:74000,medioPago:"TRANSFERENCIA"}),74000);assert.equal(patrimonioPersonal.deltaCaja({tipo:"GASTO",montoMinor:10000,medioPago:"DEBITO"}),-10000);assert.equal(patrimonioPersonal.deltaCaja({tipo:"GASTO",montoMinor:200000,medioPago:"CREDITO"}),0);assert.equal(patrimonioPersonal.deltaCaja({tipo:"PAGO_DEUDA",montoMinor:1000000,medioPago:"DEBITO"}),-1000000);});
