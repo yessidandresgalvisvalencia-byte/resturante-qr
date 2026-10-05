@@ -1,9 +1,10 @@
 "use strict";
 const IRREVERSIBLES=new Set(["PAGAR","TRANSFERIR","INVERTIR","ENDEUDARSE","REFINANCIAR","DEBITAR","COBRAR_AUTOMATICO"]);
 const REVERSIBLES=new Set(["SIMULAR","CONSULTAR"]);
-function evaluar({accion,verdades=[],aprobacionExplicita=false,idempotencyKey=null,integridadCadena=null}){
+function evaluar({accion,verdades=[],aprobacionExplicita=false,idempotencyKey=null,integridadCadena=null,evidenciasRequeridas=[]}){
  if(typeof accion!=="string"||!accion.trim())throw new TypeError("Acción obligatoria");
  if(!Array.isArray(verdades))throw new TypeError("Verdades debe ser una lista");
+ if(!Array.isArray(evidenciasRequeridas))throw new TypeError("evidenciasRequeridas debe ser una lista");
  const normalizada=accion.trim().toUpperCase();
  if(!IRREVERSIBLES.has(normalizada)&&!REVERSIBLES.has(normalizada))return{autorizada:false,irreversible:true,motivos:["ACCION_NO_CLASIFICADA"]};
  const irreversible=IRREVERSIBLES.has(normalizada);
@@ -13,6 +14,7 @@ function evaluar({accion,verdades=[],aprobacionExplicita=false,idempotencyKey=nu
  if(!aprobacionExplicita)motivos.push("REQUIERE_APROBACION_EXPLICITA");
  if(typeof idempotencyKey!=="string"||idempotencyKey.trim().length<8)motivos.push("REQUIERE_IDEMPOTENCIA");
  const hechos=verdades.filter(v=>v&&v.tipo==="HECHO"&&v.confianza==="VERIFICADO"&&!v.requiereReconciliacion);
+ for(const requisito of evidenciasRequeridas){const ok=hechos.some(v=>v.evidenciaTipo===requisito);if(!ok)motivos.push("FALTA_EVIDENCIA_"+String(requisito).toUpperCase());}
  if(!hechos.length)motivos.push("REQUIERE_HECHO_RECONCILIADO");
  if(verdades.some(v=>v&&["INFERENCIA","PROYECCION"].includes(v.tipo)&&v.requiereReconciliacion))motivos.push("DATOS_PENDIENTES_RECONCILIACION");
  return{autorizada:motivos.length===0,irreversible:true,motivos};
