@@ -2,6 +2,7 @@
 const mongoose=require("mongoose");const crypto=require("crypto");
 const DecisionProof=require("../models/decisionProofPersonal.model");
 const Outbox=require("../models/outboxPersonal.model");
+const ChainHead=require("../models/decisionChainHeadPersonal.model");
 const proof=require("./decisionProof.service");
 async function registrar(usuarioId,args){
  if(!usuarioId)throw new TypeError("usuarioId obligatorio");
@@ -12,9 +13,12 @@ async function registrar(usuarioId,args){
  try{await session.withTransaction(async()=>{
   const repetida=await DecisionProof.findOne({usuarioId,idempotencyKey:args.idempotencyKey.trim()}).session(session).lean();
   if(repetida){guardada=repetida;return;}
-  const anterior=await DecisionProof.findOne({usuarioId}).sort({corte:-1,_id:-1}).session(session).lean();
+  let head=await ChainHead.findOne({usuarioId}).session(session);
+  if(!head){try{const hs=await ChainHead.create([{usuarioId,headHash:null,secuencia:0}],{session});head=hs[0];}catch(e){if(e?.code!==11000)throw e;head=await ChainHead.findOne({usuarioId}).session(session);}}
   const creada=proof.crear(args);
-  const docs=await DecisionProof.create([{usuarioId,...creada,previousHash:anterior?.hash||null}],{session});
+  const previousHash=head.headHash||null;
+  const docs=await DecisionProof.create([{usuarioId,...creada,previousHash}],{session});
+  head.headHash=creada.hash;head.secuencia+=1;await head.save({session});
   guardada=docs[0].toObject();
   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"DECISION_PROOF_REGISTRADA",aggregateType:"DECISION_PROOF",aggregateId:docs[0]._id,payload:{decisionProofId:String(docs[0]._id),hash:creada.hash,accion:creada.accion,autorizada:creada.autorizada}}],{session});
  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
