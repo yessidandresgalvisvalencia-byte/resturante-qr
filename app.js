@@ -21,6 +21,7 @@ const { registrarFacturacionListener } = require("./core/facturacion/facturacion
 const laboralRoutes = require("./routes/laboral");
 const gastosRoutes = require("./routes/gastos");
 const finanzasRoutes = require("./routes/finanzas");
+const personalFinanceRoutes = require("./personal-finance/personalFinance.routes");
 const productosServiciosRoutes = require("./routes/productosServicios");
 const comprasRoutes = require("./routes/compras");
 const cerebroRoutes = require("./routes/cerebro");
@@ -84,6 +85,7 @@ app.use("/api/facturacion", facturacionRoutes); // legado: no retirar aún
 app.use("/api/facturacion-v2", facturacionCoreRoutes);
 app.use("/api/gastos", gastosRoutes);
 app.use("/api/finanzas", finanzasRoutes);
+app.use("/api/personal-finance", personalFinanceRoutes);
 app.use("/api/productos-servicios", productosServiciosRoutes);
 app.use("/api/compras", comprasRoutes);
 app.use("/api/cerebro", cerebroRoutes);
