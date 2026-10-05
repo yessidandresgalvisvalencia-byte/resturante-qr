@@ -2,6 +2,7 @@
 const test=require("node:test");const assert=require("node:assert/strict");
 const interprete=require("../../modules/finanzas-personales/services/interpreteFinanciero.service");
 const colombia=require("../../modules/finanzas-personales/services/colombiaFinanciero.service");
+const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
 const home=require("../../modules/finanzas-personales/services/homePersonal.service");
 test("colombianismos monetarios exactos",()=>{assert.equal(interprete.interpretarSegmento("gasté 25 lucas en Rappi").montoMinor,25000);assert.equal(interprete.interpretarSegmento("recibí 3 palos de salario").montoMinor,3000000);assert.equal(interprete.interpretarSegmento("me pagaron medio palo").montoMinor,500000);});
 test("gasto hormiga colombiano",()=>{assert.equal(colombia.clasificar("me gasté 18 lucas en un cafecito","GASTO"),"Gastos hormiga");assert.equal(colombia.clasificar("pagué el SOAT","GASTO"),"Gastos fijos");});
@@ -34,3 +35,5 @@ test("pago de tarjeta no se clasifica como gasto de consumo",()=>{assert.equal(h
 
 test("saldo verificado tiene autoridad contable",()=>{const x=home.resolverSaldoAsesor({saldoVerificado:true,liquidezMinor:45000,fuenteLiquidez:"CUENTAS"});assert.equal(x.montoMinor,45000);assert.equal(x.confiabilidad,"VERIFICADO");assert.equal(x.requiereReconciliacion,false);});
 test("ledger sin ancla se identifica como reconstrucción pendiente",()=>{const x=home.resolverSaldoAsesor({saldoVerificado:false,hayMovimientosLedger:true,saldoDerivadoLedgerMinor:45000,liquidezMinor:0});assert.equal(x.montoMinor,45000);assert.equal(x.confiabilidad,"RECONSTRUIDO_SIN_ANCLA");assert.equal(x.requiereReconciliacion,true);});
+
+test("resumen financiero comparte la semántica canónica de caja",()=>{assert.equal(finanzas.gastoAfectaCaja({tipo:"GASTO",medioPago:"CREDITO"}),false);assert.equal(finanzas.gastoAfectaCaja({tipo:"GASTO",medioPago:"DEBITO"}),true);assert.equal(finanzas.gastoAfectaCaja({tipo:"PAGO_DEUDA",medioPago:"DEBITO"}),false);});
