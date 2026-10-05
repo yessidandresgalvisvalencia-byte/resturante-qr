@@ -90,3 +90,6 @@ test("Outbox acepta SALDO_RECONCILIADO para commit ACID de ajuste de saldo",()=>
 
 test("Context Engine reconoce seguimiento de deuda sin cambiar al resumen mensual",()=>{const ctx=require("../../modules/finanzas-personales/services/contextoPersonal.service");const x=ctx.detectarReferencia("¿Cuánto me falta?");assert.equal(x.seguimiento,true);assert.equal(x.deudaExplicita,false);});
 test("Context Engine reconoce referencia explícita a la moto",()=>{const ctx=require("../../modules/finanzas-personales/services/contextoPersonal.service");const x=ctx.detectarReferencia("¿Cuánto debo de la moto?");assert.equal(x.deudaExplicita,true);assert.equal(x.seguimiento,true);});
+
+
+test("ahorro existente no registrado es reconciliación patrimonial, no ingreso ni transferencia",()=>{const i=require("../../modules/finanzas-personales/services/interpreteFinanciero.service");const x=i.interpretarSegmento("Tengo 508000 como ahorro que no había registrado");assert.equal(x.tipo,"AJUSTE_SALDO_AHORRO");assert.equal(x.montoMinor,508000);assert.equal(x.estado,"LISTO");assert.equal(x.cuentaDestino,"AHORRO");});
