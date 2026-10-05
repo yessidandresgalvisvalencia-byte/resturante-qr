@@ -12,18 +12,18 @@ async function registrar(usuarioId,args){
  const fp=fingerprint(args);
  const existente=await DecisionProof.findOne({usuarioId,idempotencyKey:args.idempotencyKey.trim()}).lean();
  if(existente)return resolverExistente(existente,fp);
- const session=await mongoose.startSession();let guardada=null;
- try{await session.withTransaction(async()=>{
+ const session=await mongoose.startSession();
+ try{const guardada=await session.withTransaction(async()=>{
   const repetida=await DecisionProof.findOne({usuarioId,idempotencyKey:args.idempotencyKey.trim()}).session(session).lean();
-  if(repetida){guardada=resolverExistente(repetida,fp);return;}
+  if(repetida)return resolverExistente(repetida,fp);
   let head=await ChainHead.findOne({usuarioId}).session(session);
-  if(!head){try{const hs=await ChainHead.create([{usuarioId,headHash:null,secuencia:0}],{session});head=hs[0];}catch(e){if(e?.code!==11000)throw e;head=await ChainHead.findOne({usuarioId}).session(session);}}
+  if(!head){const hs=await ChainHead.create([{usuarioId,headHash:null,secuencia:0}],{session});head=hs[0];}
   const previousHash=head.headHash||null;
   const secuencia=head.secuencia+1;
   const creada=proof.crear({...args,version:2,previousHash,secuencia});
   const docs=await DecisionProof.create([{usuarioId,...creada,requestFingerprint:fp}],{session});
   head.headHash=creada.hash;head.secuencia=secuencia;await head.save({session});
-  guardada=docs[0].toObject();
+  const resultado=docs[0].toObject();
   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"DECISION_PROOF_REGISTRADA",aggregateType:"DECISION_PROOF",aggregateId:docs[0]._id,payload:{decisionProofId:String(docs[0]._id),hash:creada.hash,accion:creada.accion,autorizada:creada.autorizada}}],{session});
  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
  return guardada;
