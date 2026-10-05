@@ -31,3 +31,6 @@ test("parser reconoce millón singular y millones plural sin confundir mil",()=>
 test("compra con tarjeta de crédito no reduce caja realizada",()=>{assert.equal(home.gastoAfectaCaja({tipo:"GASTO",medioPago:"CREDITO",montoMinor:200000}),false);});
 test("gasto en débito o efectivo sí reduce caja realizada",()=>{assert.equal(home.gastoAfectaCaja({tipo:"GASTO",medioPago:"DEBITO",montoMinor:200000}),true);assert.equal(home.gastoAfectaCaja({tipo:"GASTO",medioPago:"EFECTIVO",montoMinor:200000}),true);});
 test("pago de tarjeta no se clasifica como gasto de consumo",()=>{assert.equal(home.gastoAfectaCaja({tipo:"PAGO_DEUDA",medioPago:"DEBITO",montoMinor:200000}),false);});
+
+test("saldo verificado tiene autoridad contable",()=>{const x=home.resolverSaldoAsesor({saldoVerificado:true,liquidezMinor:45000,fuenteLiquidez:"CUENTAS"});assert.equal(x.montoMinor,45000);assert.equal(x.confiabilidad,"VERIFICADO");assert.equal(x.requiereReconciliacion,false);});
+test("ledger sin ancla se identifica como reconstrucción pendiente",()=>{const x=home.resolverSaldoAsesor({saldoVerificado:false,hayMovimientosLedger:true,saldoDerivadoLedgerMinor:45000,liquidezMinor:0});assert.equal(x.montoMinor,45000);assert.equal(x.confiabilidad,"RECONSTRUIDO_SIN_ANCLA");assert.equal(x.requiereReconciliacion,true);});
