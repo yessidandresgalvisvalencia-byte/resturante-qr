@@ -86,3 +86,7 @@ test("Bloque 1: compra financiada de moto crea deuda y no gasto",()=>{const x=in
 
 
 test("Outbox acepta SALDO_RECONCILIADO para commit ACID de ajuste de saldo",()=>{const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");const d=new Outbox({usuarioId:"507f1f77bcf86cd799439011",eventId:"saldo-reconciliado-test",eventName:"SALDO_RECONCILIADO",aggregateId:"507f1f77bcf86cd799439012",payload:{saldoNuevoMinor:312000}});const err=d.validateSync();assert.equal(err,undefined);});
+
+
+test("Context Engine reconoce seguimiento de deuda sin cambiar al resumen mensual",()=>{const ctx=require("../../modules/finanzas-personales/services/contextoPersonal.service");const x=ctx.detectarReferencia("¿Cuánto me falta?");assert.equal(x.seguimiento,true);assert.equal(x.deudaExplicita,false);});
+test("Context Engine reconoce referencia explícita a la moto",()=>{const ctx=require("../../modules/finanzas-personales/services/contextoPersonal.service");const x=ctx.detectarReferencia("¿Cuánto debo de la moto?");assert.equal(x.deudaExplicita,true);assert.equal(x.seguimiento,true);});
