@@ -11,6 +11,7 @@ const schema=new mongoose.Schema({
  actorId:{type:String,default:null},
  corte:{type:Date,required:true,index:true},
  idempotencyKey:{type:String,required:true,trim:true},
+ requestFingerprint:{type:String,default:null,match:/^[a-f0-9]{64}$/},
  hashAlgoritmo:{type:String,enum:["SHA-256"],required:true},
  hash:{type:String,required:true,match:/^[a-f0-9]{64}$/},
  previousHash:{type:String,default:null,match:/^[a-f0-9]{64}$/},
