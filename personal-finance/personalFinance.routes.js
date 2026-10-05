@@ -1,15 +1,11 @@
 const express = require("express");
 const Joi = require("joi");
 const service = require("./services/personalFinance.service");
+const payments = require("./services/personalPayment.service");
+const personalAuth = require("./auth/personalAuth.middleware");
 
 const router = express.Router();
 
-function ownerKey(req) {
-  // Bounded context independiente: no usa empresaId como identidad financiera.
-  // Mientras se integra autenticación personal, exige una identidad personal explícita.
-  const value = String(req.header("x-gruk-personal-owner") || "").trim();
-  return value.length >= 8 ? value : null;
-}
 function validate(schema, payload) {
   const { value, error } = schema.validate(payload, { abortEarly: false, stripUnknown: true });
   if (error) { const e = new Error(error.message); e.status = 400; throw e; }
@@ -41,9 +37,9 @@ const receivableSchema = Joi.object({
   probability: Joi.number().min(0).max(1).default(0.7)
 });
 
+router.use(personalAuth);
 router.use((req, res, next) => {
-  req.personalOwnerKey = ownerKey(req);
-  if (!req.personalOwnerKey) return res.status(401).json({ ok:false, error:"Identidad personal requerida" });
+  req.personalOwnerKey = req.personalAuth.ownerKey;
   next();
 });
 router.get("/state", async (req,res,next) => {
@@ -64,6 +60,22 @@ router.post("/receivables", async (req,res,next) => {
     const idem=String(req.header("idempotency-key")||"").trim();
     if (!idem) return res.status(400).json({ok:false,error:"Idempotency-Key requerido"});
     res.status(201).json({ok:true,data:await service.registerReceivable(req.personalOwnerKey,validate(receivableSchema,req.body),idem)});
+  } catch(e){ next(e); }
+});
+router.post("/obligations/:id/pay", async (req,res,next) => {
+  try {
+    const idem=String(req.header("idempotency-key")||"").trim();
+    if (!idem) return res.status(400).json({ok:false,error:"Idempotency-Key requerido"});
+    const body=validate(Joi.object({amount:Joi.number().positive().required()}),req.body);
+    res.json({ok:true,data:await payments.payObligation(req.personalOwnerKey,req.params.id,body.amount,idem)});
+  } catch(e){ next(e); }
+});
+router.post("/receivables/:id/collect", async (req,res,next) => {
+  try {
+    const idem=String(req.header("idempotency-key")||"").trim();
+    if (!idem) return res.status(400).json({ok:false,error:"Idempotency-Key requerido"});
+    const body=validate(Joi.object({amount:Joi.number().positive().required()}),req.body);
+    res.json({ok:true,data:await payments.collectReceivable(req.personalOwnerKey,req.params.id,body.amount,idem)});
   } catch(e){ next(e); }
 });
 router.use((err,req,res,next) => {
