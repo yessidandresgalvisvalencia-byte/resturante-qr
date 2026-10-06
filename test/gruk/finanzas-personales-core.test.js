@@ -93,3 +93,35 @@ test("Context Engine reconoce referencia explícita a la moto",()=>{const ctx=re
 
 
 test("ahorro existente no registrado es reconciliación patrimonial, no ingreso ni transferencia",()=>{const i=require("../../modules/finanzas-personales/services/interpreteFinanciero.service");const x=i.interpretarSegmento("Tengo 508000 como ahorro que no había registrado");assert.equal(x.tipo,"AJUSTE_SALDO_AHORRO");assert.equal(x.montoMinor,508000);assert.equal(x.estado,"LISTO");assert.equal(x.cuentaDestino,"AHORRO");});
+
+
+test("parser semántico reconoce múltiples formas de declarar ahorro preexistente",()=>{
+ const frases=[
+  ["Tenía 508 lucas ahorradas desde antes",508000],
+  ["Cuento con 508 mil de ahorro que no te había dicho",508000],
+  ["Hay 508000 guardados que no estaban registrados",508000],
+  ["Se me olvidó registrar 508 lucas que tenía ahorradas",508000],
+  ["Tengo 508 mil de platica aparte",508000],
+  ["Me quedaron 508 lucas guardadas de antes",508000],
+  ["Dispongo de 508000 en un fondo que ya tenía",508000],
+  ["Tengo un colchón de 508 lucas",508000]
+ ];
+ for(const [frase,valor] of frases){
+  const x=interprete.interpretarSegmento(frase);
+  assert.equal(x.tipo,"AJUSTE_SALDO_AHORRO",frase);
+  assert.equal(x.montoMinor,valor,frase);
+  assert.notEqual(x.tipo,"INGRESO",frase);
+ }
+});
+
+test("parser semántico separa ahorro nuevo de saldo preexistente",()=>{
+ for(const frase of ["Hoy ahorré 100 lucas en mi cuenta de ahorro","Ayer guardé 80 lucas en ahorro","Acabo de meter 50 lucas al fondo"]){
+  const x=interprete.interpretarSegmento(frase);
+  assert.notEqual(x.tipo,"AJUSTE_SALDO_AHORRO",frase);
+ }
+});
+
+test("señales patrimoniales son composables y no dependen de una oración exacta",()=>{
+ const s=interprete.señalesPatrimoniales("Se me pasó decir que cuento con 300 lucas de platica aparte desde antes");
+ assert.equal(s.posesion,true);assert.equal(s.ahorro,true);assert.equal(s.preexistente,true);
+});
