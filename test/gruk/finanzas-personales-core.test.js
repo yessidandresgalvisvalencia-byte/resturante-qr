@@ -125,3 +125,53 @@ test("señales patrimoniales son composables y no dependen de una oración exact
  const s=interprete.señalesPatrimoniales("Se me pasó decir que cuento con 300 lucas de platica aparte desde antes");
  assert.equal(s.posesion,true);assert.equal(s.ahorro,true);assert.equal(s.preexistente,true);
 });
+
+
+test("Accounting Frame clasifica naturaleza económica antes del tipo contable",()=>{
+ const frame=require("../../modules/finanzas-personales/services/semanticAccountingFrame.service");
+ const casos=[
+  ["Tengo 312 mil en efectivo que no había registrado",312000,"DECLARAR_SALDO","PATRIMONIO","EFECTIVO"],
+  ["Tengo 508 lucas ahorradas desde antes",508000,"DECLARAR_SALDO","PATRIMONIO","AHORRO"],
+  ["Carlos me debe 500 lucas",500000,"DECLARAR_CUENTA_POR_COBRAR","PATRIMONIO","CUENTA_POR_COBRAR"],
+  ["Pasé 100 lucas de Nequi a Bancolombia",100000,"TRANSFERIR","TRASPASO","CUENTA_PROPIA"],
+  ["Pagué 200 lucas de la deuda",200000,"PAGAR_OBLIGACION","PASIVO","DEUDA"],
+  ["Debo 7 millones de la moto",7000000,"DECLARAR_OBLIGACION","PASIVO","DEUDA"],
+  ["Me pagaron 500 lucas por un servicio",500000,"RECIBIR","FLUJO","DINERO"],
+  ["Gasté 25 lucas en almuerzo",25000,"CONSUMIR","FLUJO","DINERO"]
+ ];
+ for(const [texto,monto,acto,naturaleza,entidad] of casos){
+  const x=frame.construirFrame(texto,{montoMinor:monto});
+  assert.equal(x.acto,acto,texto);assert.equal(x.naturaleza,naturaleza,texto);assert.equal(x.entidad,entidad,texto);assert.deepEqual(x.faltantes,[],texto);
+ }
+});
+
+test("Accounting Frame falla cerrado cuando no conoce la naturaleza",()=>{
+ const frame=require("../../modules/finanzas-personales/services/semanticAccountingFrame.service");
+ const x=frame.construirFrame("Se movieron 80 lucas",{montoMinor:80000});
+ assert.equal(x.naturaleza,"NO_CLASIFICADO");
+ assert.equal(x.acto,"NO_IDENTIFICADO");
+ assert.deepEqual(x.faltantes,["NATURALEZA"]);
+});
+
+test("Accounting Frame distingue consulta de hecho financiero",()=>{
+ const frame=require("../../modules/finanzas-personales/services/semanticAccountingFrame.service");
+ const x=frame.construirFrame("¿Cuánto debo de la moto?",{montoMinor:null});
+ assert.equal(x.acto,"CONSULTAR");assert.equal(x.naturaleza,"NO_CLASIFICADO");assert.deepEqual(x.faltantes,[]);
+});
+
+
+test("Accounting Frame valida sin degradar hechos contables coherentes",()=>{
+ for(const texto of ["Gasté 25 lucas en almuerzo","Me pagaron 500 lucas por un servicio","Pasé 100 lucas de Nequi a Bancolombia","Tengo 508 lucas ahorradas desde antes"]){
+  const x=interprete.interpretarSegmento(texto);
+  assert.equal(x.estado,"LISTO",texto);
+  assert.ok(x.semanticFrame,texto);
+ }
+});
+
+test("Accounting Frame bloquea contradicción antes de persistencia automática",()=>{
+ const base={tipo:"GASTO",montoMinor:100000,estado:"LISTO",confianza:99,razonRevision:""};
+ const x=interprete.validarConFrame("Tengo 100 lucas ahorradas desde antes",base);
+ assert.equal(x.estado,"REQUIERE_REVISION");
+ assert.equal(x.semanticFrame.naturaleza,"PATRIMONIO");
+ assert.match(x.razonRevision,/contradice/i);
+});
