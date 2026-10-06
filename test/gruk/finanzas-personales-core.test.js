@@ -158,3 +158,20 @@ test("Accounting Frame distingue consulta de hecho financiero",()=>{
  const x=frame.construirFrame("¿Cuánto debo de la moto?",{montoMinor:null});
  assert.equal(x.acto,"CONSULTAR");assert.equal(x.naturaleza,"NO_CLASIFICADO");assert.deepEqual(x.faltantes,[]);
 });
+
+
+test("Accounting Frame valida sin degradar hechos contables coherentes",()=>{
+ for(const texto of ["Gasté 25 lucas en almuerzo","Me pagaron 500 lucas por un servicio","Pasé 100 lucas de Nequi a Bancolombia","Tengo 508 lucas ahorradas desde antes"]){
+  const x=interprete.interpretarSegmento(texto);
+  assert.equal(x.estado,"LISTO",texto);
+  assert.ok(x.semanticFrame,texto);
+ }
+});
+
+test("Accounting Frame bloquea contradicción antes de persistencia automática",()=>{
+ const base={tipo:"GASTO",montoMinor:100000,estado:"LISTO",confianza:99,razonRevision:""};
+ const x=interprete.validarConFrame("Tengo 100 lucas ahorradas desde antes",base);
+ assert.equal(x.estado,"REQUIERE_REVISION");
+ assert.equal(x.semanticFrame.naturaleza,"PATRIMONIO");
+ assert.match(x.razonRevision,/contradice/i);
+});
