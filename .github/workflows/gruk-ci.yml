@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   unit:
-    name: GRUK Syntax and Unit Tests
+    name: GRUK Syntax and Independent Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -29,11 +29,19 @@ jobs:
       - run: npm ci
       - name: Check production source syntax
         run: npm run check:syntax
-      - name: Run unit tests without MongoDB
+      - name: Run Mongo-independent unit tests
         env:
           NODE_ENV: test
-          CI: "false"
-        run: npm test
+        run: |
+          node --test \
+            test/gruk/p0-pedido-feature-flag.test.js \
+            test/gruk/p0-outbox-worker.test.js \
+            test/gruk/p0-sede-sin-sede.test.js \
+            test/gruk/p0-sede-idempotencia.test.js \
+            test/gruk/p0-http-route-contract.test.js \
+            test/gruk/p0-pedido-socket-room.test.js \
+            test/gruk/p0-outbox-fencing.test.js \
+            test/gruk/p0-pedido-transaccion.test.js
   gate:
     name: GRUK Production Gate
     runs-on: ubuntu-latest
