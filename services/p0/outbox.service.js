@@ -21,21 +21,22 @@ async function publicarLote({io,workerId=crypto.randomUUID(),limit=50,now=new Da
  if(!Number.isInteger(limit)||limit<1||limit>100)throw new Error('OUTBOX_LIMITE_INVALIDO');
  let sent=0,failed=0;
  for(let n=0;n<limit;n++){
-  const leaseUntil=new Date(now.getTime()+60000);
-  const evt=await Outbox.findOneAndUpdate({nextAttemptAt:{$lte:now},$or:[{status:'PENDING'},{status:'CLAIMED',leaseUntil:{$lte:now}}]},{$set:{status:'CLAIMED',leaseUntil,claimedBy:workerId},$inc:{attempts:1}},{sort:{createdAt:1},new:true});
+  const leaseUntil=new Date(Date.now()+60000);
+  const claimToken=crypto.randomUUID();
+  const evt=await Outbox.findOneAndUpdate({nextAttemptAt:{$lte:now},$or:[{status:'PENDING'},{status:'CLAIMED',leaseUntil:{$lte:now}}]},{$set:{status:'CLAIMED',leaseUntil,claimedBy:workerId,claimToken},$inc:{attempts:1}},{sort:{createdAt:1},new:true});
   if(!evt)break;
   try{
    validateEvent(evt);
    const target=io.to('empresa-'+evt.empresaId.toString());
    if(!target||typeof target.emit!=='function')throw new Error('OUTBOX_ROOM_INVALIDO');
    target.emit(EVENT_SOCKET[evt.eventName],{eventId:evt.eventId,empresaId:String(evt.empresaId),sedeId:evt.sedeId?String(evt.sedeId):null,aggregateId:String(evt.aggregateId),data:evt.payload});
-   const updated=await Outbox.updateOne({_id:evt._id,status:'CLAIMED',claimedBy:workerId},{$set:{status:'DONE',dispatchedAt:new Date(),leaseUntil:null,claimedBy:null,lastError:''}});
+   const updated=await Outbox.updateOne({_id:evt._id,status:'CLAIMED',claimedBy:workerId,claimToken},{$set:{status:'DONE',dispatchedAt:new Date(),leaseUntil:null,claimedBy:null,claimToken:null,lastError:''}});
    if(updated.modifiedCount!==1)throw new Error('OUTBOX_ACK_PERDIDO');
    sent++;
   }catch(err){
    failed++;
    const delay=Math.min(300000,1000*2**Math.min(evt.attempts,8));
-   await Outbox.updateOne({_id:evt._id,status:'CLAIMED',claimedBy:workerId},{$set:{status:'PENDING',nextAttemptAt:new Date(Date.now()+delay),leaseUntil:null,claimedBy:null,lastError:String(err.message).slice(0,300)}});
+   await Outbox.updateOne({_id:evt._id,status:'CLAIMED',claimedBy:workerId,claimToken},{$set:{status:'PENDING',nextAttemptAt:new Date(Date.now()+delay),leaseUntil:null,claimedBy:null,claimToken:null,lastError:String(err.message).slice(0,300)}});
   }
  }
  return {sent,failed};
