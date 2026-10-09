@@ -16,6 +16,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    name: GRUK Production Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Reject critical production dependencies
+        run: npm audit --omit=dev --audit-level=critical
   unit:
     name: GRUK Syntax and Independent Unit Tests
     runs-on: ubuntu-latest
