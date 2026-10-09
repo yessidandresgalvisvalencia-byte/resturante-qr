@@ -5,6 +5,9 @@ const mongoose=require('mongoose');
 const {randomUUID}=require('node:crypto');
 const uri=process.env.TEST_MONGO_URI;
 const allowed=process.env.NODE_ENV!=='production'&&typeof uri==='string'&&/^mongodb:\/\/(?:127\.0\.0\.1|localhost)(?:[:\/?,]|$)/.test(uri);
+test('CI requires a valid local MongoDB replica set for ACID verification',()=>{
+ if(process.env.CI==='true')assert.equal(allowed,true,'CI_P0_MONGO_LOCAL_REQUERIDO');
+});
 test('P0 MongoDB replica set: rollback atomico de pedido, recibo y outbox',{skip:!allowed?'TEST_MONGO_URI local requerido':false,timeout:30000},async()=>{
  const connection=await mongoose.createConnection(uri,{serverSelectionTimeoutMS:5000}).asPromise();
  const suffix=randomUUID().replace(/-/g,'');
