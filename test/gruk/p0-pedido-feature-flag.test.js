@@ -12,3 +12,5 @@ test('flag activado solo permite restaurante explicitamente autorizado',()=>{
 test('cabecera de idempotencia valida',()=>assert.equal(requireP0IdempotencyKey({'idempotency-key':'abcdefghijklmnop'}),'abcdefghijklmnop'));
 test('cabecera ausente rechazada',()=>assert.throws(()=>requireP0IdempotencyKey({}),{statusCode:428}));
 test('clave demasiado corta rechazada',()=>assert.throws(()=>requireP0IdempotencyKey({'idempotency-key':'abc'}),{statusCode:428}));
+
+test('production always disables experimental order flow',()=>{const env={NODE_ENV:'production',GRUK_P0_PEDIDOS_ENABLED:'true',GRUK_P0_PEDIDOS_RESTAURANTES:'yessid'};assert.equal(isP0PedidoEnabled({env,restaurantId:'yessid'}),false);});
