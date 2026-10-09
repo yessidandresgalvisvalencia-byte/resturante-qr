@@ -7,6 +7,9 @@ const Outbox=require('../../models/GrukOutbox');
 
 const uri=process.env.TEST_MONGO_URI;
 const blocked=process.env.NODE_ENV==='production'||!uri||!/^mongodb:\/\/((127\.0\.0\.1)|(localhost))(?:[:\/?,]|$)/.test(uri);
+test('CI exige TEST_MONGO_URI local para la prueba de concurrencia',()=>{
+ if(process.env.CI==='true')assert.equal(blocked,false,'CI_NO_TIENE_MONGO_LOCAL_VALIDO');
+});
 test('Outbox: two competing workers cannot claim the same pending event on a local MongoDB replica set',{skip:blocked?'Requires explicit local TEST_MONGO_URI and nonproduction environment':false,timeout:30000},async()=>{
  const conn=await mongoose.createConnection(uri,{serverSelectionTimeoutMS:5000}).asPromise();
  const Model=conn.model('GrukOutboxP0Test',Outbox.schema,'gruk_outbox_p0_tests');
