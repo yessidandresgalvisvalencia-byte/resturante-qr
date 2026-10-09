@@ -24,12 +24,12 @@ function createPedidoService({mongoose,Pedido,Receipt,registrarEventoEnTransacci
   if(typeof resolverSedeCanonica!=='function')throw fail('RESOLVER_SEDE_CANONICA_REQUERIDO',500);
   const scopeSede=await resolverSedeCanonica({restaurantId,sedeId,empresaId});
   if(!scopeSede||!(scopeSede.sedeObjectId===null && sedeId==='' || OID.test(String(scopeSede.sedeObjectId||'')))||String(scopeSede.empresaId).toLowerCase()!==String(empresaId).toLowerCase()||scopeSede.restaurantId!==restaurantId||scopeSede.sedeIdOriginal!==sedeId)throw fail('SEDE_CANONICA_NO_AUTORIZADA',403);
-  const payload=await resolverAutorizado({restaurantId,sedeId,empresaId,intent,sedeObjectId:scopeSede.sedeObjectId});
-  if(!payload||payload.restaurantId!==restaurantId||payload.sedeId!==sedeId||!payload.productoServicioId||!Number.isFinite(payload.precio)||payload.precio<0)throw fail('PEDIDO_AUTORIZADO_INVALIDO',409);
   const session=await mongoose.startSession();
   let pedidoId;
   try{
    await session.withTransaction(async()=>{
+    const payload=await resolverAutorizado({restaurantId,sedeId,empresaId,intent,sedeObjectId:scopeSede.sedeObjectId,session});
+    if(!payload||payload.restaurantId!==restaurantId||payload.sedeId!==sedeId||!payload.productoServicioId||!Number.isFinite(payload.precio)||payload.precio<0)throw fail('PEDIDO_AUTORIZADO_INVALIDO',409);
     const [pedido]=await Pedido.create([payload],{session});
     pedidoId=pedido._id;
     await Receipt.create([{...scope,intentDigest,payloadDigest:digest(payload),pedidoId}],{session});
