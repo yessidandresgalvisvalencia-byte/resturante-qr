@@ -58,7 +58,22 @@ jobs:
         run: npm ci
       - name: Start MongoDB replica set
         run: |
-          docker run -d --name gruk-mongo -p 127.0.0.1:27017:27017 public.ecr.aws/docker/library/mongo:8 --replSet rs0 --bind_ip_all
+          # Rate limits on anonymous registry pulls are transient. Fail closed if all retries fail.
+          started=false
+          for image in public.ecr.aws/docker/library/mongo:8 mongo:8; do
+            for attempt in 1 2 3; do
+              if docker run -d --name gruk-mongo -p 127.0.0.1:27017:27017 "$image" --replSet rs0 --bind_ip_all; then
+                started=true
+                break 2
+              fi
+              docker rm -f gruk-mongo >/dev/null 2>&1 || true
+              sleep $((attempt * 5))
+            done
+          done
+          if [ "$started" != true ]; then
+            echo "No se pudo obtener la imagen MongoDB: pruebas ACID obligatorias bloqueadas"
+            exit 1
+          fi
           for i in {1..30}; do
             if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then break; fi
             sleep 1
