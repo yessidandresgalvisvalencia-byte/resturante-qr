@@ -23,7 +23,7 @@ function createPedidoService({mongoose,Pedido,Receipt,registrarEventoEnTransacci
   if(existing)return existing;
   if(typeof resolverSedeCanonica!=='function')throw fail('RESOLVER_SEDE_CANONICA_REQUERIDO',500);
   const scopeSede=await resolverSedeCanonica({restaurantId,sedeId,empresaId});
-  if(!scopeSede||!OID.test(String(scopeSede.sedeObjectId||''))||String(scopeSede.empresaId).toLowerCase()!==String(empresaId).toLowerCase()||scopeSede.restaurantId!==restaurantId||scopeSede.sedeIdOriginal!==sedeId)throw fail('SEDE_CANONICA_NO_AUTORIZADA',403);
+  if(!scopeSede||!(scopeSede.sedeObjectId===null && sedeId==='' || OID.test(String(scopeSede.sedeObjectId||'')))||String(scopeSede.empresaId).toLowerCase()!==String(empresaId).toLowerCase()||scopeSede.restaurantId!==restaurantId||scopeSede.sedeIdOriginal!==sedeId)throw fail('SEDE_CANONICA_NO_AUTORIZADA',403);
   const payload=await resolverAutorizado({restaurantId,sedeId,empresaId,intent,sedeObjectId:scopeSede.sedeObjectId});
   if(!payload||payload.restaurantId!==restaurantId||payload.sedeId!==sedeId||!payload.productoServicioId||!Number.isFinite(payload.precio)||payload.precio<0)throw fail('PEDIDO_AUTORIZADO_INVALIDO',409);
   const session=await mongoose.startSession();
