@@ -16,6 +16,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  unit:
+    name: GRUK Syntax and Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Check production source syntax
+        run: npm run check:syntax
+      - name: Run unit tests without MongoDB
+        env:
+          NODE_ENV: test
+          CI: "false"
+        run: npm test
   gate:
     name: GRUK Production Gate
     runs-on: ubuntu-latest
