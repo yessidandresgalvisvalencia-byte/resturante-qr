@@ -12,6 +12,7 @@ const schema=new mongoose.Schema({
  nextAttemptAt:{type:Date,default:Date.now,index:true},
  leaseUntil:{type:Date,default:null},
  claimedBy:{type:String,default:null},
+ claimToken:{type:String,default:null},
  dispatchedAt:{type:Date,default:null},
  lastError:{type:String,default:''}
 },{timestamps:true,strict:'throw'});
