@@ -1,0 +1,14 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {crearResolverSede}=require('../../services/p0/resolverSede');
+const {digest,createPedidoService}=require('../../services/p0/crearPedidoConOutbox');
+const empresaId='507f1f77bcf86cd799439011',sedeObjectId='507f1f77bcf86cd799439012';
+const resolver=(found)=>crearResolverSede({Sede:{find(query){return {limit(n){assert.equal(n,2);return {async lean(){return found(query)}}}}}}});
+test('digest estable para objetos con orden diferente',()=>{assert.equal(digest({b:2,a:1}),digest({a:1,b:2}));assert.notEqual(digest({a:1}),digest({a:2}));});
+test('resuelve codigo de sede bajo empresa y restaurante',async()=>{const fn=resolver(q=>{assert.equal(q.empresaId,empresaId);assert.equal(q.restauranteId,'yessid');assert.deepEqual(q.$or,[{codigoSede:'CENTRO'}]);return [{_id:sedeObjectId,codigoSede:'CENTRO'}]});const result=await fn({empresaId,restaurantId:'yessid',sedeId:'CENTRO'});assert.equal(result.sedeObjectId,sedeObjectId);});
+test('acepta identificador MongoDB y restringe consulta',async()=>{const fn=resolver(q=>{assert.deepEqual(q.$or,[{codigoSede:sedeObjectId},{_id:sedeObjectId}]);return [{_id:sedeObjectId,codigoSede:'CENTRO'}]});await fn({empresaId,restaurantId:'yessid',sedeId:sedeObjectId});});
+test('rechaza sede ausente',async()=>{await assert.rejects(resolver(()=>[])({empresaId,restaurantId:'yessid',sedeId:'NO_EXISTE'}),{codigo:'SEDE_NO_AUTORIZADA'});});
+test('rechaza identidad ambigua',async()=>{await assert.rejects(resolver(()=>[{_id:sedeObjectId},{_id:'507f1f77bcf86cd799439013'}])({empresaId,restaurantId:'yessid',sedeId:'CENTRO'}),{codigo:'IDENTIDAD_SEDE_AMBIGUA'});});
+test('no permite sede vacia en politica estricta',async()=>{await assert.rejects(resolver(()=>[])({empresaId,restaurantId:'yessid',sedeId:''}),{codigo:'SEDE_EXPLICITA_REQUERIDA'});});
+test('servicio de pedidos falla cerrado ante dependencias ausentes',()=>{assert.throws(()=>createPedidoService({}),{message:'DEPENDENCIAS_INCOMPLETAS'});});

@@ -139,6 +139,8 @@ async function iniciarAplicacion() {
     iniciarCajaJob();
     iniciarCerebroJob();
     iniciarMemoriaJob();
+    // P0 experimental: disabled in production and unless both flags are explicitly enabled.
+    require("./services/p0/outbox.worker").iniciarOutboxWorker({io});
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`Servidor corriendo en puerto ${PORT}`);

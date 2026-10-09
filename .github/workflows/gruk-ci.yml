@@ -16,6 +16,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    name: GRUK Production Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Reject critical production dependencies
+        run: npm audit --omit=dev --audit-level=critical
+  unit:
+    name: GRUK Syntax and Independent Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Check production source syntax
+        run: npm run check:syntax
+      - name: Run Mongo-independent unit tests
+        env:
+          NODE_ENV: test
+        run: |
+          node --test \
+            test/gruk/p0-pedido-feature-flag.test.js \
+            test/gruk/p0-outbox-worker.test.js \
+            test/gruk/p0-sede-sin-sede.test.js \
+            test/gruk/p0-sede-idempotencia.test.js \
+            test/gruk/p0-http-route-contract.test.js \
+            test/gruk/p0-pedido-socket-room.test.js \
+            test/gruk/p0-outbox-fencing.test.js \
+            test/gruk/p0-pedido-transaccion.test.js
   gate:
     name: GRUK Production Gate
     runs-on: ubuntu-latest
@@ -32,7 +71,22 @@ jobs:
         run: npm ci
       - name: Start MongoDB replica set
         run: |
-          docker run -d --name gruk-mongo -p 27017:27017 mongo:8 --replSet rs0 --bind_ip_all
+          # Rate limits on anonymous registry pulls are transient. Fail closed if all retries fail.
+          started=false
+          for image in public.ecr.aws/docker/library/mongo:8 mongo:8; do
+            for attempt in 1 2 3; do
+              if docker run -d --name gruk-mongo -p 127.0.0.1:27017:27017 "$image" --replSet rs0 --bind_ip_all; then
+                started=true
+                break 2
+              fi
+              docker rm -f gruk-mongo >/dev/null 2>&1 || true
+              sleep $((attempt * 5))
+            done
+          done
+          if [ "$started" != true ]; then
+            echo "No se pudo obtener la imagen MongoDB: pruebas ACID obligatorias bloqueadas"
+            exit 1
+          fi
           for i in {1..30}; do
             if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then break; fi
             sleep 1
