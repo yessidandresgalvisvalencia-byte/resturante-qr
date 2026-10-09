@@ -1437,7 +1437,7 @@ router.post("/pedido", async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit(
+      io.to(`empresa-${String(restaurante.empresaId)}`).emit(
         "pedido:nuevo",
         pedido
       );
