@@ -21,9 +21,10 @@ async function publicarLote({io,workerId=crypto.randomUUID(),limit=50,now=new Da
  if(!Number.isInteger(limit)||limit<1||limit>100)throw new Error('OUTBOX_LIMITE_INVALIDO');
  let sent=0,failed=0;
  for(let n=0;n<limit;n++){
-  const leaseUntil=new Date(Date.now()+60000);
+  const attemptNow=new Date();
+  const leaseUntil=new Date(attemptNow.getTime()+60000);
   const claimToken=crypto.randomUUID();
-  const evt=await Outbox.findOneAndUpdate({nextAttemptAt:{$lte:now},$or:[{status:'PENDING'},{status:'CLAIMED',leaseUntil:{$lte:now}}]},{$set:{status:'CLAIMED',leaseUntil,claimedBy:workerId,claimToken},$inc:{attempts:1}},{sort:{createdAt:1},new:true});
+  const evt=await Outbox.findOneAndUpdate({nextAttemptAt:{$lte:attemptNow},$or:[{status:'PENDING'},{status:'CLAIMED',leaseUntil:{$lte:attemptNow}}]},{$set:{status:'CLAIMED',leaseUntil,claimedBy:workerId,claimToken},$inc:{attempts:1}},{sort:{createdAt:1},new:true});
   if(!evt)break;
   try{
    validateEvent(evt);
