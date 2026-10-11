@@ -16,7 +16,7 @@ async function registrarEventoEnTransaccion(input,session){
  const [event]=await Outbox.create([{eventId:input.eventId,empresaId:input.empresaId,sedeId:input.sedeId||null,eventName:input.eventName,aggregateId:input.aggregateId,payload:input.payload}],{session});
  return event;
 }
-async function publicarLote({io,workerId=crypto.randomUUID(),limit=50,now=new Date()}={}){
+async function publicarLote({io,workerId=crypto.randomUUID(),limit=50,now=new Date(),proyectarIngreso=null}={}){
  if(!io||typeof io.to!=='function')throw new Error('OUTBOX_SOCKET_NO_DISPONIBLE');
  if(!Number.isInteger(limit)||limit<1||limit>100)throw new Error('OUTBOX_LIMITE_INVALIDO');
  let sent=0,failed=0;
@@ -28,6 +28,10 @@ async function publicarLote({io,workerId=crypto.randomUUID(),limit=50,now=new Da
   if(!evt)break;
   try{
    validateEvent(evt);
+   if(evt.eventName==='VENTA_COMPLETADA'){
+    const proyector=proyectarIngreso||require('./proyectarIngresoWompi').crearProyectorIngresoWompi();
+    await proyector(evt);
+   }
    const target=io.to('empresa-'+evt.empresaId.toString());
    if(!target||typeof target.emit!=='function')throw new Error('OUTBOX_ROOM_INVALIDO');
    target.emit(EVENT_SOCKET[evt.eventName],{eventId:evt.eventId,empresaId:String(evt.empresaId),sedeId:evt.sedeId?String(evt.sedeId):null,aggregateId:String(evt.aggregateId),data:evt.payload});
