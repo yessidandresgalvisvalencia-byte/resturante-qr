@@ -45,6 +45,9 @@ test('Wompi P0 end-to-end: approved webhook -> ACID sale -> outbox -> idempotent
   }
   const replay=await confirmarPagoPedidoWompi({transaction});
   assert.equal(replay.idempotent,true);
+  const delayed=await confirmarPagoPedidoWompi({transaction:{...transaction,status:'DECLINED'}});
+  assert.equal(delayed.idempotent,true);
+  assert.equal((await Intento.findOne({reference}).lean()).estado,'APROBADO');
   const sale=await Venta.findOne({origen:'restaurante',origenId:pedido._id,empresaId}).lean();
   assert.ok(sale);
   assert.equal(sale.metodoPago,'tarjeta');
