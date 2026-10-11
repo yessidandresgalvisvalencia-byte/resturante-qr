@@ -32,3 +32,11 @@ test('transactional settlement refuses conflicting gateway transaction identifie
  const mark=source.indexOf('lockedIntento.estado = "APROBADO"');
  assert.ok(lock>=0&&check>lock&&mark>check);
 });
+
+test('transient transaction retry clears rolled back post-commit notifications',()=>{
+ const start=source.indexOf('await session.withTransaction(async () => {');
+ const resetSales=source.indexOf('ventasPostCommit.length = 0;',start);
+ const resetOrders=source.indexOf('pedidosPostCommit.length = 0;',start);
+ const read=source.indexOf('const lockedIntento = await IntentoPagoPedido.findOne',start);
+ assert.ok(start>=0 && resetSales>start && resetOrders>start && resetSales<read && resetOrders<read);
+});
