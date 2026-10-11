@@ -2929,14 +2929,14 @@ router.post("/wompi/webhook", async (req, res) => {
       `https://production.wompi.co/v1/transactions/${encodeURIComponent(String(transactionId))}`
     );
     const transaction = wompiRes.data?.data;
-    if (!transaction) return res.status(200).json({ ok: true });
+    if (!transaction) return res.status(503).json({ ok: false, error: "WOMPI_TRANSACCION_NO_DISPONIBLE" });
 
     const reference = String(transaction.reference || "");
     if (reference.startsWith("GRUK_PEDIDO_")) {
       const resultadoPedido = await confirmarPagoPedidoWompi({ transaction, io: req.app.get("io") });
       if (!resultadoPedido.ok) {
         console.error("[PAGOS] Evento de pedido no aplicado", resultadoPedido);
-        if (resultadoPedido.reason === "INTENTO_NO_ENCONTRADO") return res.status(503).json({ ok: false, error: "PAGO_PENDIENTE_CONCILIACION" });
+        if (["INTENTO_NO_ENCONTRADO", "INTENTO_ESTADO_CONFLICTIVO"].includes(resultadoPedido.reason)) return res.status(503).json({ ok: false, error: "PAGO_PENDIENTE_CONCILIACION" });
         return res.status(200).json({ ok: true, ignored: true });
       }
       return res.status(200).json({ ok: true });
