@@ -26,3 +26,11 @@ test('P0 requires explicit restaurant scope and does not use rest1 fallback',()=
  assert.match(route,/RESTAURANTE_EXPLICITO_REQUERIDO/);
  assert.doesNotMatch(route,/getRestaurantId\(req\)/);
 });
+
+test('P0 does not coerce object or array sede identifiers',()=>{
+ const start=src.indexOf('router.post("/pedido-p0"');
+ const end=src.indexOf('router.post("/pedido"',start);
+ const route=src.slice(start,end);
+ assert.match(route,/sedeId:req\.body\?\.sedeId===undefined\?"":req\.body\.sedeId/);
+ assert.doesNotMatch(route,/sedeId:String\(req\.body/);
+});
