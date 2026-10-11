@@ -5,7 +5,7 @@ const {crearConciliadorWompi}=require('../../services/p0/conciliarPendientesWomp
 
 function fixture(pendientes,consultar,confirmar){
  const calls=[];
- const IntentoModel={find(q){calls.push(q);return {sort(){return {limit(limit){calls.push(limit);return {lean:async()=>pendientes};}}}}},async findOneAndUpdate(query){calls.push({claim:query});return {_id:query._id}},findOne(query){calls.push({fence:query});return {lean:async()=>({_id:query._id})}},async updateOne(query){calls.push({release:query});return {modifiedCount:1}}};
+ const IntentoModel={find(q){calls.push(q);return {sort(){return {limit(limit){calls.push(limit);return {lean:async()=>pendientes};}}}}},async findOneAndUpdate(query){calls.push({claim:query});return pendientes.find(p=>p._id===query._id)||null},findOne(query){calls.push({fence:query});return {lean:async()=>({_id:query._id})}},async updateOne(query){calls.push({release:query});return {modifiedCount:1}}};
  const conciliar=crearConciliadorWompi({IntentoModel,consultar,confirmar,habilitado:({restaurantId})=>restaurantId==='allowed'});
  return {conciliar,calls};
 }
@@ -86,4 +86,21 @@ test('unknown Wompi status must not enter financial settlement',async()=>{
  assert.equal(outcome.failed,1);
  assert.equal(confirmations,0);
  assert.equal(f.calls.filter(x=>x.release).length,1);
+});
+
+test('validates payment economics from atomic claim instead of stale scan',async()=>{
+ let applied=0;
+ const stale={_id:'changed-amount',reference:'GRUK_PEDIDO_1',transactionId:'tx1',amountInCents:10000,currency:'COP'};
+ const Model={
+  find(){return {sort(){return {limit(){return {lean:async()=>[stale]};}}}}},
+  async findOneAndUpdate(){return {...stale,amountInCents:20000};},
+  findOne(){return {lean:async()=>stale};},
+  async updateOne(){return {modifiedCount:1};}
+ };
+ const run=crearConciliadorWompi({IntentoModel:Model,habilitado:()=>true,
+  consultar:async()=>({id:'tx1',reference:stale.reference,status:'APPROVED',amount_in_cents:10000,currency:'COP'}),
+  confirmar:async()=>{applied++;return {handled:true,ok:true,estado:'APROBADO'};}});
+ const result=await run({restaurantId:'allowed'});
+ assert.equal(result.failed,1);
+ assert.equal(applied,0);
 });
