@@ -57,6 +57,20 @@ test('Wompi reconciliation: invalid amount then valid approval -> one ACID sale 
   assert.equal(await Ingreso.countDocuments({ventaId:sale._id,empresaId}),1);
   const income=await Ingreso.findOne({ventaId:sale._id,empresaId}).lean();
   assert.equal(income.importeCentavos,1200000);
+  // Reordered Wompi callbacks after recovery cannot downgrade a settled payment.
+  const settledTransaction={id:txnId,reference,status:'APPROVED',amount_in_cents:1200000,currency:'COP'};
+  const replayWebhook=await confirmarPagoPedidoWompi({transaction:settledTransaction});
+  assert.equal(replayWebhook.ok,true);
+  assert.equal(replayWebhook.idempotent,true);
+  for(const status of ['PENDING','DECLINED','ERROR']){
+   const delayed=await confirmarPagoPedidoWompi({transaction:{...settledTransaction,status}});
+   assert.equal(delayed.ok,true);
+   assert.equal(delayed.idempotent,true);
+  }
+  assert.equal((await Intento.findById(intento._id).lean()).estado,'APROBADO');
+  assert.equal((await Pedido.findById(pedido._id).lean()).estadoPago,'pagado');
+  assert.equal(await Venta.countDocuments({origenId:pedido._id}),1);
+  assert.equal(await Outbox.countDocuments({empresaId}),2);
   // Re-delivery of an already completed outbox event must not duplicate income.
   const duplicateDelivery=await publicarLote({io,workerId:'recovered-approval-replay',limit:10});
   assert.equal(duplicateDelivery.sent,0);
