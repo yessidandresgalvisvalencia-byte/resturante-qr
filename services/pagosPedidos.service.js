@@ -22,6 +22,9 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   }
 
   const status = String(transaction.status || "").toUpperCase();
+  if (typeof transaction.id !== "string" || !transaction.id.trim()) return { handled: true, ok: false, reason: "TRANSACCION_ID_INVALIDO" };
+  if (!["PENDING","APPROVED","DECLINED","ERROR","VOIDED"].includes(status)) return { handled: true, ok: false, reason: "ESTADO_WOMPI_DESCONOCIDO" };
+  if (intento.transactionId && String(intento.transactionId) !== transaction.id) return { handled: true, ok: false, reason: "TRANSACCION_REFERENCIA_CONFLICTIVA" };
   // A settled payment is final: delayed PENDING/DECLINED events must never revert it.
   if (intento.estado === "APROBADO") {
     if (String(intento.transactionId || "") !== String(transaction.id || "")) {
