@@ -29,7 +29,7 @@ function crearConciliadorWompi({
   const pendientes=await IntentoModel.find({
    restaurantId,estado:{$in:['CREADO','PENDIENTE','RECHAZADO']},
    transactionId:{$type:'string',$ne:''},
-   conciliacionIntentos:{$lt:MAX_INTENTOS_AUTOMATICOS},
+   conciliacionIntentos:{$not:{$gte:MAX_INTENTOS_AUTOMATICOS}},
    $or:[{conciliacionReintentoAt:null},{conciliacionReintentoAt:{$lte:new Date()}}]
   }).sort({updatedAt:1}).limit(limit).lean();
   const resultado={checked:0,approved:0,unchanged:0,failed:0};
@@ -40,7 +40,7 @@ function crearConciliadorWompi({
    try{claimed=await IntentoModel.findOneAndUpdate({
     _id:intento._id,restaurantId,estado:{$in:['CREADO','PENDIENTE','RECHAZADO']},
     transactionId:intento.transactionId,
-    conciliacionIntentos:{$lt:MAX_INTENTOS_AUTOMATICOS},
+    conciliacionIntentos:{$not:{$gte:MAX_INTENTOS_AUTOMATICOS}},
     $and:[
      {$or:[{conciliacionLeaseUntil:null},{conciliacionLeaseUntil:{$lte:now}}]},
      {$or:[{conciliacionReintentoAt:null},{conciliacionReintentoAt:{$lte:now}}]}
