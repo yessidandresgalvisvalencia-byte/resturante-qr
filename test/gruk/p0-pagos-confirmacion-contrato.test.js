@@ -12,3 +12,10 @@ test('las actualizaciones de pedidos pagados no se emiten globalmente',()=>{
  assert.match(source,/io\.to\(`empresa-\$\{empresaNotificacionId\}\`\)\.emit\("pedido:actualizado"/);
  assert.doesNotMatch(source,/io\.emit\("pedido:actualizado"/);
 });
+
+test('a settled approved intent is protected before any mutable webhook status',()=>{
+ const guard=source.indexOf('if (intento.estado === "APROBADO")');
+ const mutation=source.indexOf('intento.transactionId = String(transaction.id || "")');
+ assert.ok(guard>=0&&mutation>guard,'the immutable approved guard must precede status mutation');
+ assert.match(source,/TRANSACCION_APROBADA_DIFERENTE/);
+});
