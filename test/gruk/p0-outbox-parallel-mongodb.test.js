@@ -39,6 +39,6 @@ test('two concurrent outbox workers claim one event at most once',{timeout:40000
    assert.equal(rooms[0].room,'empresa-'+String(empresaId));
    assert.equal(await Event.countDocuments({status:'DONE'}),1);
    assert.equal(await Event.countDocuments({status:'CLAIMED'}),0);
-  }finally{await mongoose.disconnect();}
- }finally{await session.endSession();await connection.dropDatabase();await connection.close();}
+  }finally{await session.endSession();await connection.dropDatabase();await connection.close();await mongoose.disconnect();}
+ }
 });
