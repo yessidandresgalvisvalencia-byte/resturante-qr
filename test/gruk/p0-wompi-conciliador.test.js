@@ -5,7 +5,7 @@ const {crearConciliadorWompi}=require('../../services/p0/conciliarPendientesWomp
 
 function fixture(pendientes,consultar,confirmar){
  const calls=[];
- const IntentoModel={find(q){calls.push(q);return {sort(){return {limit(limit){calls.push(limit);return {lean:async()=>pendientes};}}}}},async findOneAndUpdate(query){calls.push({claim:query});return {_id:query._id}},async updateOne(query){calls.push({release:query});return {modifiedCount:1}}};
+ const IntentoModel={find(q){calls.push(q);return {sort(){return {limit(limit){calls.push(limit);return {lean:async()=>pendientes};}}}}},async findOneAndUpdate(query){calls.push({claim:query});return {_id:query._id}},findOne(query){calls.push({fence:query});return {lean:async()=>({_id:query._id})}},async updateOne(query){calls.push({release:query});return {modifiedCount:1}}};
  const conciliar=crearConciliadorWompi({IntentoModel,consultar,confirmar,habilitado:({restaurantId})=>restaurantId==='allowed'});
  return {conciliar,calls};
 }
@@ -42,4 +42,21 @@ test('locked attempt is skipped before remote Wompi lookup',async()=>{
  const run=crearConciliadorWompi({IntentoModel:Model,consultar:async()=>{calls++;},confirmar:async()=>{calls++;},habilitado:()=>true});
  assert.deepEqual(await run({restaurantId:'allowed'}),{checked:0,approved:0,unchanged:0,failed:0});
  assert.equal(calls,0);
+});
+
+test('expired or stolen lease after gateway response is never settled',async()=>{
+ let confirmed=0;
+ const attempt={_id:'stale-1',reference:'GRUK_PEDIDO_1',transactionId:'tx1'};
+ const Model={
+  find(){return {sort(){return {limit(){return {lean:async()=>[attempt]};}}}}},
+  async findOneAndUpdate(){return attempt;},
+  findOne(){return {lean:async()=>null};},
+  async updateOne(){return {modifiedCount:0};}
+ };
+ const run=crearConciliadorWompi({IntentoModel:Model,habilitado:()=>true,
+  consultar:async()=>({id:'tx1',reference:attempt.reference,status:'APPROVED'}),
+  confirmar:async()=>{confirmed++;return {handled:true,ok:true,estado:'APROBADO'};}});
+ const result=await run({restaurantId:'allowed'});
+ assert.equal(result.failed,1);
+ assert.equal(confirmed,0);
 });
