@@ -6,6 +6,8 @@ const Sede = require("../models/sede");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
 const { registrarVentaDesdePedido, emitirVentaCompletada } = require("./ventas.service");
 const { calcularImportePagoCentavos } = require("./p0/calcularImportePago");
+const { registrarEventoEnTransaccion } = require("./p0/outbox.service");
+const { isP0PedidoEnabled } = require("./p0/pedidoFeatureFlag");
 
 async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const reference = String(transaction?.reference || "");
@@ -51,6 +53,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const ventasPostCommit = [];
   const pedidosPostCommit = [];
   let empresaNotificacionId = null;
+  const outboxEnabled = isP0PedidoEnabled({restaurantId:intento.restaurantId});
   try {
     await session.withTransaction(async () => {
       // MongoDB can re-run this callback after transient errors. Discard effects from rolled-back attempts.
@@ -108,7 +111,32 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
         pedido.metodoPago = "tarjeta";
         await pedido.save({ session });
         pedidosPostCommit.push(pedido);
-        if (resultado.creada) ventasPostCommit.push(resultado.venta);
+        if (resultado.creada) {
+          if (outboxEnabled) {
+            await registrarEventoEnTransaccion({
+              eventId: 'VENTA_COMPLETADA:'+String(resultado.venta._id),
+              empresaId: restaurante.empresaId,
+              sedeId: sedeObjectId,
+              eventName: 'VENTA_COMPLETADA',
+              aggregateId: resultado.venta._id,
+              payload: {
+                ventaId: String(resultado.venta._id),
+                pedidoId: String(pedido._id),
+                restaurantId: lockedIntento.restaurantId,
+                total: resultado.venta.total,
+                metodoPago: 'tarjeta'
+              }
+            },session);
+            await registrarEventoEnTransaccion({
+              eventId: 'PEDIDO_ACTUALIZADO:'+String(pedido._id)+':PAGADO',
+              empresaId: restaurante.empresaId,
+              sedeId: sedeObjectId,
+              eventName: 'PEDIDO_ACTUALIZADO',
+              aggregateId: pedido._id,
+              payload: {pedidoId:String(pedido._id),restaurantId:lockedIntento.restaurantId,estadoPago:'pagado'}
+            },session);
+          } else ventasPostCommit.push(resultado.venta);
+        }
       }
 
       lockedIntento.estado = "APROBADO";
@@ -118,7 +146,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
     });
 
     for (const venta of ventasPostCommit) emitirVentaCompletada(venta);
-    if (io && empresaNotificacionId) for (const pedido of pedidosPostCommit) io.to(`empresa-${empresaNotificacionId}`).emit("pedido:actualizado", pedido);
+    if (!outboxEnabled && io && empresaNotificacionId) for (const pedido of pedidosPostCommit) io.to(`empresa-${empresaNotificacionId}`).emit("pedido:actualizado", pedido);
     return { handled: true, ok: true, estado: "APROBADO" };
   } finally {
     await session.endSession();
