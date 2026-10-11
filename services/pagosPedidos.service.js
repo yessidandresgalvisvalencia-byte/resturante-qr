@@ -34,15 +34,23 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
     }
     return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
   }
-  intento.transactionId = String(transaction.id || "");
-  if (status === "PENDING") intento.estado = "PENDIENTE";
-  if (["DECLINED","ERROR","VOIDED"].includes(status)) {
-    intento.estado = "RECHAZADO";
-    intento.resueltoAt = new Date();
-  }
   if (status !== "APPROVED") {
-    await intento.save();
-    return { handled: true, ok: true, estado: intento.estado };
+    // Conditional atomic update prevents an older webhook from overwriting
+    // an APPROVED payment committed after our initial read.
+    const nuevoEstado = status === "PENDING" ? "PENDIENTE" : "RECHAZADO";
+    const cambios = { estado: nuevoEstado, transactionId: transaction.id };
+    if (nuevoEstado === "RECHAZADO") cambios.resueltoAt = new Date();
+    const updated = await IntentoPagoPedido.findOneAndUpdate({
+      reference,
+      estado: { $ne: "APROBADO" },
+      $or: [{ transactionId: transaction.id }, { transactionId: "" }, { transactionId: null }]
+    }, { $set: cambios }, { new: true });
+    if (updated) return { handled: true, ok: true, estado: updated.estado };
+    const current = await IntentoPagoPedido.findOne({ reference }).lean();
+    if (current?.estado === "APROBADO" && current.transactionId === transaction.id)
+      return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
+    return { handled: true, ok: false, reason: current?.transactionId && current.transactionId !== transaction.id
+      ? "TRANSACCION_REFERENCIA_CONFLICTIVA" : "INTENTO_ESTADO_CONFLICTIVO" };
   }
 
   if (intento.estado === "APROBADO") {
