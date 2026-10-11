@@ -19,3 +19,16 @@ test('a settled approved intent is protected before any mutable webhook status',
  assert.ok(guard>=0&&mutation>guard,'the immutable approved guard must precede status mutation');
  assert.match(source,/TRANSACCION_APROBADA_DIFERENTE/);
 });
+
+test('Wompi amount must be a positive safe integer matching persisted cents',()=>{
+ assert.match(source,/Number\.isSafeInteger\(transaction\.amount_in_cents\)/);
+ assert.match(source,/transaction\.amount_in_cents === intento\.amountInCents/);
+});
+test('transactional settlement refuses conflicting gateway transaction identifiers',()=>{
+ assert.match(source,/TRANSACCION_REFERENCIA_CONFLICTIVA/);
+ assert.match(source,/TRANSACCION_APROBADA_DIFERENTE/);
+ const lock=source.indexOf('const lockedIntento = await IntentoPagoPedido.findOne');
+ const check=source.indexOf('TRANSACCION_REFERENCIA_CONFLICTIVA');
+ const mark=source.indexOf('lockedIntento.estado = "APROBADO"');
+ assert.ok(lock>=0&&check>lock&&mark>check);
+});
