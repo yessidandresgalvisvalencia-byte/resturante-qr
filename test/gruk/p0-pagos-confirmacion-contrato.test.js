@@ -67,3 +67,13 @@ test('legacy payment publication remains when P0 flag is disabled',()=>{
  assert.match(source,/else ventasPostCommit\.push\(resultado\.venta\)/);
  assert.match(source,/if \(!outboxEnabled && io/);
 });
+
+test('paid order outbox persists even when sale already existed',()=>{
+ const saleGuard=source.indexOf('if (resultado.creada) {');
+ const orderGuard=source.indexOf('if (outboxEnabled) {',saleGuard+1);
+ const paidEvent=source.indexOf("eventId: 'PEDIDO_ACTUALIZADO:'",saleGuard);
+ const marker=source.indexOf('lockedIntento.estado = "APROBADO"',saleGuard);
+ assert.ok(saleGuard>=0&&orderGuard>saleGuard&&paidEvent>orderGuard&&marker>paidEvent);
+ const slice=source.slice(saleGuard,paidEvent);
+ assert.match(slice,/else ventasPostCommit\.push\(resultado\.venta\);\s*}\s*if \(outboxEnabled\)/);
+});
