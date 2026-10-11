@@ -55,7 +55,10 @@ function crearConciliadorWompi({
    try{
     const transaction=await consultar(intento.transactionId);
     if(!transaction||String(transaction.id)!==intento.transactionId||
-       String(transaction.reference)!==intento.reference){
+       String(transaction.reference)!==intento.reference||
+       !Number.isSafeInteger(transaction.amount_in_cents)||
+       transaction.amount_in_cents!==intento.amountInCents||
+       String(transaction.currency||'').toUpperCase()!==intento.currency){
       resultado.failed++;
       errorCode='RESPUESTA_WOMPI_INCONSISTENTE';
       continue;
