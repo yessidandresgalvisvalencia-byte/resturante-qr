@@ -142,7 +142,7 @@ async function iniciarAplicacion() {
     // P0 experimental: disabled in production and unless both flags are explicitly enabled.
     require("./services/p0/outbox.worker").iniciarOutboxWorker({io});
     // Opt-in recovery of already identified Wompi transactions; hard-disabled in production.
-    require("./services/p0/conciliadorWompi.worker").iniciarConciliadorWompi();
+    require("./services/p0/conciliadorWompi.worker").iniciarConciliadorWompi({io});
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`Servidor corriendo en puerto ${PORT}`);
