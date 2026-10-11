@@ -48,7 +48,7 @@ function crearConciliadorWompi({
      conciliacionLeaseUntil:{$gt:new Date()}
     }).lean();
     if(!lease){resultado.failed++;continue;}
-    const applied=await confirmar({transaction,io});
+    const applied=await confirmar({transaction,io,conciliacionToken:token});
     if(!applied?.handled||!applied.ok){resultado.failed++;continue;}
     if(applied.estado==='APROBADO')resultado.approved++;
     else resultado.unchanged++;
