@@ -15,7 +15,11 @@ function codigoConfirmacion(reason){return CODIGOS_CONFIRMACION.has(reason)?reas
 function crearConciliadorWompi({
  IntentoModel=IntentoPagoPedido,
  consultar=async id=>{
-  const response=await axios.get('https://production.wompi.co/v1/transactions/'+encodeURIComponent(id),{timeout:10000});
+  if(typeof id!=='string'||!/^[-a-zA-Z0-9_]{1,120}$/.test(id))
+   throw new Error('WOMPI_ID_INVALIDO');
+  const response=await axios.get('https://production.wompi.co/v1/transactions/'+encodeURIComponent(id),{
+   timeout:10000,maxRedirects:0,maxContentLength:262144
+  });
   return response.data?.data;
  },
  confirmar=confirmarPagoPedidoWompi,
