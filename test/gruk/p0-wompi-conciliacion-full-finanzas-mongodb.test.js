@@ -57,6 +57,16 @@ test('Wompi reconciliation: invalid amount then valid approval -> one ACID sale 
   assert.equal(await Ingreso.countDocuments({ventaId:sale._id,empresaId}),1);
   const income=await Ingreso.findOne({ventaId:sale._id,empresaId}).lean();
   assert.equal(income.importeCentavos,1200000);
+  // At-least-once outbox recovery may redeliver an already processed sale event.
+  // The financial projection must remain exactly once even under forced replay.
+  const event=await Outbox.findOne({empresaId,eventName:'VENTA_COMPLETADA'});
+  assert.ok(event);
+  await Outbox.updateOne({_id:event._id},{$set:{status:'PENDING',nextAttemptAt:new Date(0)}});
+  const replayBatch=await publicarLote({io,workerId:'recovered-approval-replay',limit:10});
+  assert.equal(replayBatch.failed,0);
+  assert.equal(replayBatch.sent,1);
+  assert.equal(await Ingreso.countDocuments({ventaId:sale._id,empresaId}),1);
+  assert.equal(await Venta.countDocuments({origenId:pedido._id}),1);
   // Reordered Wompi callbacks after recovery cannot downgrade a settled payment.
   const settledTransaction={id:txnId,reference,status:'APPROVED',amount_in_cents:1200000,currency:'COP'};
   const replayWebhook=await confirmarPagoPedidoWompi({transaction:settledTransaction});
