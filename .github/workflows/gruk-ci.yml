@@ -18,6 +18,7 @@ concurrency:
 jobs:
   remediation_candidate:
     name: GRUK Safe Dependency Remediation Candidate
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'gruk/p0-pedidos-outbox-staging')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -25,6 +26,8 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: gruk/p0-pedidos-outbox-staging
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -39,7 +42,7 @@ jobs:
           npm run check:syntax
           npm audit --omit=dev --audit-level=critical
       - name: Propose verified dependency updates as draft PR
-        if: github.event_name == 'push' && github.ref == 'refs/heads/gruk/p0-pedidos-outbox-staging'
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'gruk/p0-pedidos-outbox-staging')
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
