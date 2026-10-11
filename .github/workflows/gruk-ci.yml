@@ -115,33 +115,52 @@ jobs:
         run: npm ci
       - name: Start MongoDB replica set
         run: |
-          # Rate limits on anonymous registry pulls are transient. Fail closed if all retries fail.
-          started=false
-          for image in public.ecr.aws/docker/library/mongo:8 mongo:8; do
-            for attempt in 1 2 3; do
-              if docker run -d --name gruk-mongo -p 127.0.0.1:27017:27017 "$image" --replSet rs0 --bind_ip_all; then
-                started=true
-                break 2
-              fi
+          set -euo pipefail
+          ready=false
+          for image in public.ecr.aws/docker/library/mongo:8 mongo:8 public.ecr.aws/docker/library/mongo:7 mongo:7; do
+            for attempt in 1 2; do
               docker rm -f gruk-mongo >/dev/null 2>&1 || true
-              sleep $((attempt * 5))
+              echo "MongoDB image=$image attempt=$attempt"
+              if ! docker run -d --name gruk-mongo -p 127.0.0.1:27017:27017 "$image" --replSet rs0 --bind_ip_all; then
+                sleep 3
+                continue
+              fi
+              live=false
+              for i in {1..25}; do
+                if [ "$(docker inspect --format '{{.State.Running}}' gruk-mongo 2>/dev/null || echo false)" != true ]; then
+                  echo "::warning::MongoDB container exited before readiness"
+                  docker logs --tail 80 gruk-mongo || true
+                  break
+                fi
+                if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' 2>/dev/null | grep -q 1; then
+                  live=true
+                  break
+                fi
+                sleep 1
+              done
+              if [ "$live" != true ]; then
+                docker logs --tail 80 gruk-mongo || true
+                continue
+              fi
+              if ! docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'; then
+                docker logs --tail 80 gruk-mongo || true
+                continue
+              fi
+              for i in {1..30}; do
+                if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null | grep -q true; then
+                  ready=true
+                  break
+                fi
+                sleep 1
+              done
+              if [ "$ready" = true ]; then break 2; fi
+              docker logs --tail 80 gruk-mongo || true
             done
           done
-          if [ "$started" != true ]; then
-            echo "No se pudo obtener la imagen MongoDB: pruebas ACID obligatorias bloqueadas"
+          if [ "$ready" != true ]; then
+            echo "::error::MongoDB replica set did not reach PRIMARY; ACID gate remains blocked"
             exit 1
           fi
-          for i in {1..30}; do
-            if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then break; fi
-            sleep 1
-          done
-          docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
-          for i in {1..30}; do
-            if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then exit 0; fi
-            sleep 1
-          done
-          echo "MongoDB replica set no alcanzo PRIMARY"
-          exit 1
       - name: Production gate
         env:
           NODE_ENV: test
