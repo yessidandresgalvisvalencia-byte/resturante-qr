@@ -34,7 +34,8 @@ function crearConciliadorWompi({
   for(const intento of pendientes){
    const now=new Date();
    const token=randomUUID();
-   const claimed=await IntentoModel.findOneAndUpdate({
+   let claimed;
+   try{claimed=await IntentoModel.findOneAndUpdate({
     _id:intento._id,restaurantId,estado:{$in:['CREADO','PENDIENTE','RECHAZADO']},
     transactionId:intento.transactionId,
     $and:[
@@ -42,6 +43,11 @@ function crearConciliadorWompi({
      {$or:[{conciliacionReintentoAt:null},{conciliacionReintentoAt:{$lte:now}}]}
     ]
    },{$set:{conciliacionLeaseUntil:new Date(now.getTime()+60000),conciliacionToken:token}}, {new:true});
+   }catch(_error){
+    resultado.failed++;
+    console.error('[GRUK P0 CONCILIACION] No se pudo reservar intento',{codigo:'RESERVA_PERSISTENCIA_ERROR'});
+    continue;
+   }
    if(!claimed)continue;
    resultado.checked++;
    let errorCode=null;
@@ -72,12 +78,18 @@ function crearConciliadorWompi({
     console.error('[GRUK P0 CONCILIACION] Fallo recuperable',{codigo:errorCode});
    }finally{
     const intentos=Number.isSafeInteger(intento.conciliacionIntentos)?intento.conciliacionIntentos+1:1;
-    await IntentoModel.updateOne({_id:intento._id,conciliacionToken:token},{$set:{
+    try{
+     await IntentoModel.updateOne({_id:intento._id,conciliacionToken:token},{$set:{
      conciliacionLeaseUntil:null,conciliacionToken:null,
      conciliacionReintentoAt:settled?null:new Date(Date.now()+calcularReintentoMs(intentos)),
      conciliacionUltimoError:errorCode,
      conciliacionIntentos:intentos
     }});
+    }catch(_error){
+     resultado.failed++;
+     console.error('[GRUK P0 CONCILIACION] Fallo guardando reintento',{codigo:'REINTENTO_PERSISTENCIA_ERROR'});
+     // The lease expires in MongoDB; the next worker can reclaim it safely.
+    }
    }
   }
   return resultado;
