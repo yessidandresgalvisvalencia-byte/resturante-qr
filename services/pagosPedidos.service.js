@@ -127,6 +127,9 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
                 metodoPago: 'tarjeta'
               }
             },session);
+          } else ventasPostCommit.push(resultado.venta);
+        }
+        if (outboxEnabled) {
             await registrarEventoEnTransaccion({
               eventId: 'PEDIDO_ACTUALIZADO:'+String(pedido._id)+':PAGADO',
               empresaId: restaurante.empresaId,
@@ -134,9 +137,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
               eventName: 'PEDIDO_ACTUALIZADO',
               aggregateId: pedido._id,
               payload: {pedidoId:String(pedido._id),restaurantId:lockedIntento.restaurantId,estadoPago:'pagado'}
-            },session);
-          } else ventasPostCommit.push(resultado.venta);
-        }
+            },session);        }
       }
 
       lockedIntento.estado = "APROBADO";
