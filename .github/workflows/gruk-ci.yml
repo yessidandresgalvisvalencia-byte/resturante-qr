@@ -16,6 +16,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  remediation_candidate:
+    name: GRUK Safe Dependency Remediation Candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install locked baseline
+        run: npm ci
+      - name: Update compatible dependency resolutions
+        run: npm audit fix
+      - name: Verify updated dependency tree
+        run: |
+          npm ci
+          npm run check:syntax
+          npm audit --omit=dev --audit-level=critical
+      - name: Save candidate manifest and lockfile for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-dependency-remediation-candidate
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 14
+          if-no-files-found: error
   security:
     name: GRUK Production Dependency Audit
     runs-on: ubuntu-latest
