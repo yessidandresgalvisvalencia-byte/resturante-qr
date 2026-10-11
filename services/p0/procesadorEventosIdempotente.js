@@ -13,6 +13,7 @@ function crearProcesadorIdempotente({Receipt=Recibo,mongooseInstance=mongoose}={
   try{
    let applied=false;
    await session.withTransaction(async()=>{
+    applied=false;
     // Receipt and business effects share one transaction, so either both commit or neither does.
     const existing=await Receipt.findOne(scope).session(session).lean();
     if(existing)return;
