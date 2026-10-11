@@ -40,3 +40,15 @@ test('transient transaction retry clears rolled back post-commit notifications',
  const read=source.indexOf('const lockedIntento = await IntentoPagoPedido.findOne',start);
  assert.ok(start>=0 && resetSales>start && resetOrders>start && resetSales<read && resetOrders<read);
 });
+
+test('unknown gateway statuses cannot mutate an existing payment attempt',()=>{
+ const guard=source.indexOf('ESTADO_WOMPI_DESCONOCIDO');
+ const assignment=source.indexOf('intento.transactionId = String(transaction.id || "")');
+ assert.ok(guard>=0 && assignment>guard);
+ assert.match(source,/TRANSACCION_ID_INVALIDO/);
+});
+test('a different gateway transaction cannot take over the payment reference',()=>{
+ const fence=source.indexOf('TRANSACCION_REFERENCIA_CONFLICTIVA');
+ const assignment=source.indexOf('intento.transactionId = String(transaction.id || "")');
+ assert.ok(fence>=0 && assignment>fence);
+});
