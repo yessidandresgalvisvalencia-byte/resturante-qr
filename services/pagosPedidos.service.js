@@ -43,10 +43,15 @@ async function confirmarPagoPedidoWompi({ transaction, io = null, conciliacionTo
     const updated = await IntentoPagoPedido.findOneAndUpdate({
       reference,
       estado: { $ne: "APROBADO" },
-      $or: [{ transactionId: transaction.id }, { transactionId: "" }, { transactionId: null }]
+      $or: [{ transactionId: transaction.id }, { transactionId: "" }, { transactionId: null }],
+      ...(conciliacionToken !== null ? {
+        conciliacionToken,
+        conciliacionLeaseUntil: { $gt: new Date() }
+      } : {})
     }, { $set: cambios }, { new: true });
     if (updated) return { handled: true, ok: true, estado: updated.estado };
     const current = await IntentoPagoPedido.findOne({ reference }).lean();
+    if (conciliacionToken !== null) return { handled: true, ok: false, reason: "CONCILIACION_RESERVA_PERDIDA" };
     if (current?.estado === "APROBADO" && current.transactionId === transaction.id)
       return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
     return { handled: true, ok: false, reason: current?.transactionId && current.transactionId !== transaction.id
