@@ -52,16 +52,19 @@ function crearConciliadorWompi({
     continue;
    }
    if(!claimed)continue;
+   // A concurrent update may change payment economics between the scan and claim.
+   // Fail closed using the atomic claim snapshot rather than stale scan values.
+   const intentoVigente=claimed;
    resultado.checked++;
    let errorCode=null;
    let settled=false;
    try{
-    const transaction=await consultar(intento.transactionId);
-    if(!transaction||String(transaction.id)!==intento.transactionId||
-       String(transaction.reference)!==intento.reference||
+    const transaction=await consultar(intentoVigente.transactionId);
+    if(!transaction||String(transaction.id)!==intentoVigente.transactionId||
+       String(transaction.reference)!==intentoVigente.reference||
        !Number.isSafeInteger(transaction.amount_in_cents)||
-       transaction.amount_in_cents!==intento.amountInCents||
-       String(transaction.currency||'').toUpperCase()!==intento.currency||
+       transaction.amount_in_cents!==intentoVigente.amountInCents||
+       String(transaction.currency||'').toUpperCase()!==intentoVigente.currency||
        !['PENDING','APPROVED','DECLINED','ERROR','VOIDED'].includes(String(transaction.status||'').toUpperCase())){
       resultado.failed++;
       errorCode='RESPUESTA_WOMPI_INCONSISTENTE';
