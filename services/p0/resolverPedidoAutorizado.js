@@ -6,7 +6,8 @@ function createResolverPedidoAutorizado({Menu,ProductoServicio}){
  return async function resolverAutorizado({restaurantId,sedeId='',empresaId,intent,session}){
   if(!session?.inTransaction?.())reject('TRANSACCION_REQUERIDA',500);
   if(!OID.test(String(empresaId||''))||!OID.test(String(intent?.menuItemId||'')))reject('IDENTIDAD_INVALIDA',400);
-  const mesa=Number(intent.mesa),cantidad=Number(intent.cantidad);
+  if(typeof intent.mesa!=='number'||typeof intent.cantidad!=='number')reject('CANTIDAD_O_MESA_INVALIDA',400);
+  const mesa=intent.mesa,cantidad=intent.cantidad;
   if(!Number.isSafeInteger(mesa)||mesa<1||!Number.isSafeInteger(cantidad)||cantidad<1||cantidad>100)reject('CANTIDAD_O_MESA_INVALIDA',400);
   const metodoPago=String(intent.metodoPago||'efectivo');
   if(!['efectivo','transferencia','pse','tarjeta'].includes(metodoPago))reject('METODO_PAGO_INVALIDO',400);
@@ -15,14 +16,16 @@ function createResolverPedidoAutorizado({Menu,ProductoServicio}){
   if(intent.productoServicioId&&String(intent.productoServicioId)!==String(menu.productoServicioId))reject('PRODUCTO_CORE_NO_COINCIDE');
   const core=await ProductoServicio.findOne({_id:menu.productoServicioId,empresaId,tipo:'producto',activo:true}).session(session).lean();
   if(!core)reject('PRODUCTO_CORE_NO_AUTORIZADO',403);
-  const extraSolicitado=String(intent.extra||'').trim();
+  if(intent.extra!=null&&typeof intent.extra!=='string')reject('EXTRA_NO_AUTORIZADO',400);
+  const extraSolicitado=(intent.extra||'').trim();
   let extraNombre='',valorExtraUnitario=0;
   if(extraSolicitado&&extraSolicitado!=='Sin extra'){
    const matches=(menu.extras||[]).filter(e=>String(e.nombre||'').trim().toLowerCase()===extraSolicitado.toLowerCase());
    if(matches.length!==1)reject('EXTRA_NO_AUTORIZADO',400);
    extraNombre=String(matches[0].nombre).trim();valorExtraUnitario=Number(matches[0].precio);
   }
-  const base=Number(menu.precio);
+  if(typeof menu.precio!=='number')reject('PRECIO_INVALIDO');
+  const base=menu.precio;
   if(!Number.isSafeInteger(base)||base<0||!Number.isSafeInteger(valorExtraUnitario)||valorExtraUnitario<0)reject('PRECIO_INVALIDO');
   const precioUnitario=base+valorExtraUnitario,precio=precioUnitario*cantidad;
   if(!Number.isSafeInteger(precio)||precio<0)reject('TOTAL_INVALIDO');
