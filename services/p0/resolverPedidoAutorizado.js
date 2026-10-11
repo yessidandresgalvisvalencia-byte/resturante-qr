@@ -22,7 +22,8 @@ function createResolverPedidoAutorizado({Menu,ProductoServicio}){
   if(extraSolicitado&&extraSolicitado!=='Sin extra'){
    const matches=(menu.extras||[]).filter(e=>String(e.nombre||'').trim().toLowerCase()===extraSolicitado.toLowerCase());
    if(matches.length!==1)reject('EXTRA_NO_AUTORIZADO',400);
-   extraNombre=String(matches[0].nombre).trim();valorExtraUnitario=Number(matches[0].precio);
+   if(typeof matches[0].precio!=='number')reject('PRECIO_INVALIDO');
+   extraNombre=String(matches[0].nombre).trim();valorExtraUnitario=matches[0].precio;
   }
   if(typeof menu.precio!=='number')reject('PRECIO_INVALIDO');
   const base=menu.precio;
