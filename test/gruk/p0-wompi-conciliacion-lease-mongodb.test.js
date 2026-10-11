@@ -33,8 +33,13 @@ test('MongoDB reconciliation lease: competing workers and expired lease recovery
   const released=await Attempt.findById(attempt._id).lean();
   assert.equal(released.conciliacionToken,null);
   assert.equal(released.conciliacionLeaseUntil,null);
+  assert.ok(released.conciliacionReintentoAt>new Date(),'next retry must persist');
+  const notDue=await reconciler({restaurantId:'tenant-test'});
+  assert.equal(notDue.checked,0,'reconciliation must respect persisted retry delay');
   const old=new Date(Date.now()-10000);
-  await Attempt.updateOne({_id:attempt._id},{$set:{conciliacionToken:'crashed-worker',conciliacionLeaseUntil:old}});
+  await Attempt.updateOne({_id:attempt._id},{$set:{
+   conciliacionToken:'crashed-worker',conciliacionLeaseUntil:old,conciliacionReintentoAt:old
+  }});
   const recovered=await reconciler({restaurantId:'tenant-test'});
   assert.equal(recovered.checked,1,'expired lease must be claimable by a new reconciler');
   assert.equal(requests,2);
