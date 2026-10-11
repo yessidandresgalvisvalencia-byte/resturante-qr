@@ -28,7 +28,7 @@ test('transactional settlement refuses conflicting gateway transaction identifie
  assert.match(source,/TRANSACCION_REFERENCIA_CONFLICTIVA/);
  assert.match(source,/TRANSACCION_APROBADA_DIFERENTE/);
  const lock=source.indexOf('const lockedIntento = await IntentoPagoPedido.findOne');
- const check=source.indexOf('TRANSACCION_REFERENCIA_CONFLICTIVA');
+ const check=source.indexOf('TRANSACCION_REFERENCIA_CONFLICTIVA',lock);
  const mark=source.indexOf('lockedIntento.estado = "APROBADO"');
  assert.ok(lock>=0&&check>lock&&mark>check);
 });
