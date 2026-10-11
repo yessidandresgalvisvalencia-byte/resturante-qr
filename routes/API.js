@@ -1124,7 +1124,7 @@ router.post("/pedido-p0", async (req, res) => {
     const resolverAutorizado=createResolverPedidoAutorizado({Menu,ProductoServicio});
     const pedidoService=createPedidoService({mongoose,Pedido,Receipt:Recibo,registrarEventoEnTransaccion});
     const {pedidoId,replayed}=await pedidoService.crear({
-      restaurantId,sedeId:String(req.body?.sedeId||""),empresaId:String(restaurante.empresaId),
+      restaurantId,sedeId:req.body?.sedeId===undefined?"":req.body.sedeId,empresaId:String(restaurante.empresaId),
       key,intent:req.body,resolverAutorizado,resolverSedeCanonica
     });
     const pedido=await Pedido.findOne({_id:pedidoId,restaurantId}).lean();
