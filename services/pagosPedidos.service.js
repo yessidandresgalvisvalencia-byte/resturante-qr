@@ -105,7 +105,8 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
           empresaId: restaurante.empresaId,
           sedeId: sedeObjectId,
           session,
-          emitirEvento: false
+          emitirEvento: false,
+          metodoPagoConfirmado: 'tarjeta'
         });
         pedido.estadoPago = "pagado";
         pedido.metodoPago = "tarjeta";
