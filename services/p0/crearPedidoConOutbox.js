@@ -19,11 +19,12 @@ function createPedidoService({mongoose,Pedido,Receipt,registrarEventoEnTransacci
    if(existing.intentDigest!==intentDigest)throw fail('CLAVE_REUTILIZADA',409);
    return {pedidoId:existing.pedidoId,replayed:true};
   }
-  const existing=await reconciliar();
-  if(existing)return existing;
   if(typeof resolverSedeCanonica!=='function')throw fail('RESOLVER_SEDE_CANONICA_REQUERIDO',500);
   const scopeSede=await resolverSedeCanonica({restaurantId,sedeId,empresaId});
   if(!scopeSede||!(scopeSede.sedeObjectId===null && sedeId==='' || OID.test(String(scopeSede.sedeObjectId||'')))||String(scopeSede.empresaId).toLowerCase()!==String(empresaId).toLowerCase()||scopeSede.restaurantId!==restaurantId||scopeSede.sedeIdOriginal!==sedeId)throw fail('SEDE_CANONICA_NO_AUTORIZADA',403);
+  // A replay is also a tenant-scoped read: verify canonical scope before returning a receipt.
+  const existing=await reconciliar();
+  if(existing)return existing;
   const session=await mongoose.startSession();
   let pedidoId;
   try{
