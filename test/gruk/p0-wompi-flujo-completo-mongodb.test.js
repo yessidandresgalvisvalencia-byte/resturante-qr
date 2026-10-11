@@ -28,6 +28,18 @@ test('Wompi P0 end-to-end: approved webhook -> ACID sale -> outbox -> idempotent
   const reference='GRUK_PEDIDO_'+String(pedido._id);
   await Intento.create({reference,restaurantId:rid,pedidoIds:[pedido._id],amountInCents:2000000,currency:'COP'});
   const transaction={reference,id:'txn-'+String(pedido._id),status:'APPROVED',amount_in_cents:2000000,currency:'COP'};
+  // Lease takeover: a stale reconciler must not commit a paid sale or any outbox event.
+  await Intento.updateOne({reference},{$set:{
+   conciliacionToken:'worker-new',conciliacionLeaseUntil:new Date(Date.now()+60000)
+  }});
+  await assert.rejects(
+   confirmarPagoPedidoWompi({transaction,conciliacionToken:'worker-old'}),
+   /CONCILIACION_RESERVA_PERDIDA/
+  );
+  assert.equal(await Venta.countDocuments({origenId:pedido._id}),0);
+  assert.equal(await Outbox.countDocuments({empresaId}),0);
+  assert.equal((await Intento.findOne({reference}).lean()).estado,'CREADO');
+  await Intento.updateOne({reference},{$set:{conciliacionToken:null,conciliacionLeaseUntil:null}});
   // Two independent webhook deliveries can race for the same payment attempt.
   // A transient MongoDB write conflict is retryable; no duplicate business effect is permitted.
   const raced=await Promise.allSettled([
