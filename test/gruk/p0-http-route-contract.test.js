@@ -18,3 +18,11 @@ test('P0 route is guarded by rollout allowlist',()=>{
  assert.match(route,/pedidoService\.crear/);
  assert.doesNotMatch(route,/io\.emit\(/);
 });
+
+test('P0 requires explicit restaurant scope and does not use rest1 fallback',()=>{
+ const start=src.indexOf('router.post("/pedido-p0"');
+ const end=src.indexOf('router.post("/pedido"',start);
+ const route=src.slice(start,end);
+ assert.match(route,/RESTAURANTE_EXPLICITO_REQUERIDO/);
+ assert.doesNotMatch(route,/getRestaurantId\(req\)/);
+});
