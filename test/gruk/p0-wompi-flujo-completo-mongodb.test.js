@@ -43,6 +43,14 @@ test('Wompi P0 end-to-end: approved webhook -> ACID sale -> outbox -> idempotent
      'unexpected concurrent approval failure: '+String(error));
    }
   }
+  // Conflicting status callbacks may arrive at the same time for the same gateway ID.
+  const conflicting=await Promise.allSettled([
+    confirmarPagoPedidoWompi({transaction:{...transaction,status:'PENDING'}}),
+    confirmarPagoPedidoWompi({transaction})
+  ]);
+  assert.ok(conflicting.some(result=>result.status==='fulfilled'&&result.value.ok));
+  const estadoTrasConflicto=(await Intento.findOne({reference}).lean()).estado;
+  assert.equal(estadoTrasConflicto,'APROBADO');
   const replay=await confirmarPagoPedidoWompi({transaction});
   assert.equal(replay.idempotent,true);
   const delayed=await confirmarPagoPedidoWompi({transaction:{...transaction,status:'DECLINED'}});
