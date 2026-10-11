@@ -5,6 +5,7 @@ const IntentoPagoPedido=require('../../models/IntentoPagoPedido');
 const {confirmarPagoPedidoWompi}=require('../pagosPedidos.service');
 const {isP0PedidoEnabled}=require('./pedidoFeatureFlag');
 
+const MAX_INTENTOS_AUTOMATICOS=12;
 function calcularReintentoMs(intentos){
  const exponent=Math.min(Math.max(0,intentos-1),6);
  return Math.min(3600000,30000*(2**exponent));
@@ -28,6 +29,7 @@ function crearConciliadorWompi({
   const pendientes=await IntentoModel.find({
    restaurantId,estado:{$in:['CREADO','PENDIENTE','RECHAZADO']},
    transactionId:{$type:'string',$ne:''},
+   conciliacionIntentos:{$lt:MAX_INTENTOS_AUTOMATICOS},
    $or:[{conciliacionReintentoAt:null},{conciliacionReintentoAt:{$lte:new Date()}}]
   }).sort({updatedAt:1}).limit(limit).lean();
   const resultado={checked:0,approved:0,unchanged:0,failed:0};
@@ -38,6 +40,7 @@ function crearConciliadorWompi({
    try{claimed=await IntentoModel.findOneAndUpdate({
     _id:intento._id,restaurantId,estado:{$in:['CREADO','PENDIENTE','RECHAZADO']},
     transactionId:intento.transactionId,
+    conciliacionIntentos:{$lt:MAX_INTENTOS_AUTOMATICOS},
     $and:[
      {$or:[{conciliacionLeaseUntil:null},{conciliacionLeaseUntil:{$lte:now}}]},
      {$or:[{conciliacionReintentoAt:null},{conciliacionReintentoAt:{$lte:now}}]}
@@ -99,4 +102,4 @@ function crearConciliadorWompi({
   return resultado;
  };
 }
-module.exports={crearConciliadorWompi,calcularReintentoMs,codigoConfirmacion};
+module.exports={crearConciliadorWompi,calcularReintentoMs,codigoConfirmacion,MAX_INTENTOS_AUTOMATICOS};
