@@ -14,7 +14,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const intento = await IntentoPagoPedido.findOne({ reference });
   if (!intento) return { handled: true, ok: false, reason: "INTENTO_NO_ENCONTRADO" };
 
-  const amountOk = Number(transaction.amount_in_cents) === Number(intento.amountInCents);
+  const amountOk = Number.isSafeInteger(transaction.amount_in_cents) && transaction.amount_in_cents > 0 && transaction.amount_in_cents === intento.amountInCents;
   const currencyOk = String(transaction.currency || "").toUpperCase() === intento.currency;
   if (!amountOk || !currencyOk) {
     console.error("[SEGURIDAD] Pago de pedido con monto/moneda inconsistente", { reference, transactionId: transaction.id });
@@ -52,7 +52,12 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
     await session.withTransaction(async () => {
       const lockedIntento = await IntentoPagoPedido.findOne({ reference }).session(session);
       if (!lockedIntento) throw new Error("INTENTO_NO_ENCONTRADO");
-      if (lockedIntento.estado === "APROBADO") return;
+      if (lockedIntento.estado === "APROBADO") {
+        if (String(lockedIntento.transactionId || "") !== String(transaction.id || "")) throw new Error("TRANSACCION_APROBADA_DIFERENTE");
+        return;
+      }
+      // The same payment reference cannot be settled by a different gateway transaction.
+      if (lockedIntento.transactionId && String(lockedIntento.transactionId) !== String(transaction.id || "")) throw new Error("TRANSACCION_REFERENCIA_CONFLICTIVA");
 
       const restaurante = await Restaurante.findOne({ restaurantId: lockedIntento.restaurantId })
         .select("_id empresaId").session(session).lean();
