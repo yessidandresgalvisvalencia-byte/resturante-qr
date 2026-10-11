@@ -51,7 +51,8 @@ test('Wompi reconciliation: invalid amount then valid approval -> one ACID sale 
   assert.equal(await Outbox.countDocuments({empresaId}),2);
   const replay=await reconciler({restaurantId:rid});
   assert.equal(replay.checked,0);
-  const batch=await publicarLote({workerId:'recovered-approval-test',limit:10});
+  const io={to(){return {emit(){}}}};
+  const batch=await publicarLote({io,workerId:'recovered-approval-test',limit:10});
   assert.equal(batch.failed,0);assert.equal(batch.sent,2);
   assert.equal(await Ingreso.countDocuments({ventaId:sale._id,empresaId}),1);
   const income=await Ingreso.findOne({ventaId:sale._id,empresaId}).lean();
