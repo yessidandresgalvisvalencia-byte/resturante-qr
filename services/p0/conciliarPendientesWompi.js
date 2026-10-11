@@ -58,7 +58,8 @@ function crearConciliadorWompi({
        String(transaction.reference)!==intento.reference||
        !Number.isSafeInteger(transaction.amount_in_cents)||
        transaction.amount_in_cents!==intento.amountInCents||
-       String(transaction.currency||'').toUpperCase()!==intento.currency){
+       String(transaction.currency||'').toUpperCase()!==intento.currency||
+       !['PENDING','APPROVED','DECLINED','ERROR','VOIDED'].includes(String(transaction.status||'').toUpperCase())){
       resultado.failed++;
       errorCode='RESPUESTA_WOMPI_INCONSISTENTE';
       continue;
