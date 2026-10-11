@@ -3,14 +3,15 @@ const express = require("express");
 const crypto = require("crypto");
 const Pedido = require("../models/pedido");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
+const {calcularImportePagoCentavos}=require("../services/p0/calcularImportePago");
 
 const router = express.Router();
 
 router.post("/crear-pago", async (req, res) => {
   try {
-    const restaurantId = String(req.body?.restaurantId || "").trim();
-    const mesa = Number(req.body?.mesa);
-    if (!restaurantId || !Number.isInteger(mesa) || mesa <= 0) {
+    const restaurantId = typeof req.body?.restaurantId==="string"?req.body.restaurantId.trim():"";
+    const mesa = req.body?.mesa;
+    if (!restaurantId || restaurantId.length > 128 || !Number.isSafeInteger(mesa) || mesa <= 0) {
       return res.status(400).json({ ok: false, error: "restaurantId y mesa son obligatorios" });
     }
 
@@ -29,10 +30,7 @@ router.post("/crear-pago", async (req, res) => {
 
     if (!pedidos.length) return res.status(409).json({ ok: false, error: "No hay pedidos pendientes de pago" });
 
-    const amountInCents = pedidos.reduce((sum, p) => sum + Math.round(Number(p.precio) * 100), 0);
-    if (!Number.isSafeInteger(amountInCents) || amountInCents <= 0) {
-      return res.status(409).json({ ok: false, error: "El total del pedido no es válido" });
-    }
+    const amountInCents = calcularImportePagoCentavos(pedidos);
 
     const reference = `GRUK_PEDIDO_${crypto.randomUUID()}`;
     await IntentoPagoPedido.create({
@@ -58,6 +56,7 @@ router.post("/crear-pago", async (req, res) => {
     });
   } catch (error) {
     console.error("[PAGOS] Error creando pago de pedido:", error);
+    if (error.statusCode === 409) return res.status(409).json({ok:false,error:error.message});
     return res.status(500).json({ ok: false, error: "No se pudo iniciar el pago" });
   }
 });
