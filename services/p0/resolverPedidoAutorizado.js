@@ -9,7 +9,8 @@ function createResolverPedidoAutorizado({Menu,ProductoServicio}){
   if(typeof intent.mesa!=='number'||typeof intent.cantidad!=='number')reject('CANTIDAD_O_MESA_INVALIDA',400);
   const mesa=intent.mesa,cantidad=intent.cantidad;
   if(!Number.isSafeInteger(mesa)||mesa<1||!Number.isSafeInteger(cantidad)||cantidad<1||cantidad>100)reject('CANTIDAD_O_MESA_INVALIDA',400);
-  const metodoPago=String(intent.metodoPago||'efectivo');
+  if(intent.metodoPago!==undefined&&(typeof intent.metodoPago!=='string'||!intent.metodoPago.trim()))reject('METODO_PAGO_INVALIDO',400);
+  const metodoPago=intent.metodoPago===undefined?'efectivo':intent.metodoPago;
   if(!['efectivo','transferencia','pse','tarjeta'].includes(metodoPago))reject('METODO_PAGO_INVALIDO',400);
   const menu=await Menu.findOne({_id:intent.menuItemId,restaurantId}).session(session).lean();
   if(!menu||!menu.disponible||!menu.productoServicioId)reject('PRODUCTO_NO_DISPONIBLE');
@@ -30,6 +31,7 @@ function createResolverPedidoAutorizado({Menu,ProductoServicio}){
   if(!Number.isSafeInteger(base)||base<0||!Number.isSafeInteger(valorExtraUnitario)||valorExtraUnitario<0)reject('PRECIO_INVALIDO');
   const precioUnitario=base+valorExtraUnitario,precio=precioUnitario*cantidad;
   if(!Number.isSafeInteger(precio)||precio<0)reject('TOTAL_INVALIDO');
+  if(intent.observaciones!==undefined&&typeof intent.observaciones!=='string')reject('OBSERVACIONES_INVALIDAS',400);
   return {restaurantId,sedeId,menuItemId:menu._id,productoServicioId:core._id,mesa,producto:String(menu.nombre||''),categoria:String(menu.categoria||''),observaciones:String(intent.observaciones||'').slice(0,1000),cantidad,precioUnitario,valorExtraUnitario,extra:extraNombre,precio,metodoPago,estado:'pendiente',estadoPago:'pendiente',tiempoEstimado:Number(menu.tiempoBase)||15};
  };
 }
