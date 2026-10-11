@@ -31,3 +31,15 @@ test('fail closed for disabled tenants and invalid limits',async()=>{
  await assert.rejects(f.conciliar({restaurantId:'allowed',limit:1000}),/CONCILIACION_LIMITE_INVALIDO/);
  assert.equal(f.calls.length,0);
 });
+
+test('locked attempt is skipped before remote Wompi lookup',async()=>{
+ let calls=0;
+ const Model={
+  find(){return {sort(){return {limit(){return {lean:async()=>[{_id:'attempt-locked',reference:'GRUK_PEDIDO_1',transactionId:'tx1'}]};}}}}},
+  async findOneAndUpdate(){return null;},
+  async updateOne(){throw Error('MUST_NOT_RELEASE_UNCLAIMED_ATTEMPT');}
+ };
+ const run=crearConciliadorWompi({IntentoModel:Model,consultar:async()=>{calls++;},confirmar:async()=>{calls++;},habilitado:()=>true});
+ assert.deepEqual(await run({restaurantId:'allowed'}),{checked:0,approved:0,unchanged:0,failed:0});
+ assert.equal(calls,0);
+});
