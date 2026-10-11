@@ -42,6 +42,13 @@ test('Wompi persists retry schedule across independent reconciler restarts',{tim
   const again=await Attempt.findById(attempt._id).lean();
   assert.equal(again.conciliacionIntentos,2);
   assert.ok(again.conciliacionReintentoAt>saved.conciliacionReintentoAt);
+  await Attempt.updateOne({_id:attempt._id},{$set:{conciliacionIntentos:12,conciliacionReintentoAt:new Date(Date.now()-1000)}});
+  const exhausted=await makeWorker()({restaurantId:'restart-tenant'});
+  assert.equal(exhausted.checked,0,'exhausted retries require manual review');
+  assert.equal(lookups,2);
+  const flagged=await Attempt.findById(attempt._id).lean();
+  assert.equal(flagged.conciliacionIntentos,12);
+
  }finally{
   await conn.dropDatabase();
   await conn.close();
