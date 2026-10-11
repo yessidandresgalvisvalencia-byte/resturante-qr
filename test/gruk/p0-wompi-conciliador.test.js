@@ -10,9 +10,9 @@ function fixture(pendientes,consultar,confirmar){
  return {conciliar,calls};
 }
 test('reconciles stored Wompi transaction only when id and reference match',{timeout:10000},async()=>{
- const item={_id:'attempt-1',reference:'GRUK_PEDIDO_1',transactionId:'tx1'};
+ const item={_id:'attempt-1',reference:'GRUK_PEDIDO_1',transactionId:'tx1',amountInCents:10000,currency:'COP'};
  let applied=0;
- const f=fixture([item],async()=>({id:'tx1',reference:item.reference,status:'APPROVED'}),async()=>{applied++;return {handled:true,ok:true,estado:'APROBADO'};});
+ const f=fixture([item],async()=>({id:'tx1',reference:item.reference,status:'APPROVED',amount_in_cents:10000,currency:'COP'}),async()=>{applied++;return {handled:true,ok:true,estado:'APROBADO'};});
  assert.deepEqual(await f.conciliar({restaurantId:'allowed'}),{checked:1,approved:1,unchanged:0,failed:0});
  assert.equal(applied,1);
  assert.deepEqual(f.calls[0].estado,{$in:['CREADO','PENDIENTE','RECHAZADO']});
@@ -21,7 +21,7 @@ test('reconciles stored Wompi transaction only when id and reference match',{tim
 });
 test('rejects mismatched payment reference without applying finance',{timeout:10000},async()=>{
  let applied=0;
- const f=fixture([{_id:'attempt-1',reference:'GRUK_PEDIDO_1',transactionId:'tx1'}],async()=>({id:'tx1',reference:'OTHER'}),async()=>{applied++;return {handled:true,ok:true,estado:'APROBADO'};});
+ const f=fixture([{_id:'attempt-1',reference:'GRUK_PEDIDO_1',transactionId:'tx1',amountInCents:10000,currency:'COP'}],async()=>({id:'tx1',reference:'OTHER'}),async()=>{applied++;return {handled:true,ok:true,estado:'APROBADO'};});
  assert.equal((await f.conciliar({restaurantId:'allowed'})).failed,1);
  assert.equal(applied,0);
 });
@@ -35,7 +35,7 @@ test('fail closed for disabled tenants and invalid limits',async()=>{
 test('locked attempt is skipped before remote Wompi lookup',async()=>{
  let calls=0;
  const Model={
-  find(){return {sort(){return {limit(){return {lean:async()=>[{_id:'attempt-locked',reference:'GRUK_PEDIDO_1',transactionId:'tx1'}]};}}}}},
+  find(){return {sort(){return {limit(){return {lean:async()=>[{_id:'attempt-locked',reference:'GRUK_PEDIDO_1',transactionId:'tx1',amountInCents:10000,currency:'COP'}]};}}}}},
   async findOneAndUpdate(){return null;},
   async updateOne(){throw Error('MUST_NOT_RELEASE_UNCLAIMED_ATTEMPT');}
  };
@@ -46,7 +46,7 @@ test('locked attempt is skipped before remote Wompi lookup',async()=>{
 
 test('expired or stolen lease after gateway response is never settled',async()=>{
  let confirmed=0;
- const attempt={_id:'stale-1',reference:'GRUK_PEDIDO_1',transactionId:'tx1'};
+ const attempt={_id:'stale-1',reference:'GRUK_PEDIDO_1',transactionId:'tx1',amountInCents:10000,currency:'COP'};
  const Model={
   find(){return {sort(){return {limit(){return {lean:async()=>[attempt]};}}}}},
   async findOneAndUpdate(){return attempt;},
@@ -54,7 +54,7 @@ test('expired or stolen lease after gateway response is never settled',async()=>
   async updateOne(){return {modifiedCount:0};}
  };
  const run=crearConciliadorWompi({IntentoModel:Model,habilitado:()=>true,
-  consultar:async()=>({id:'tx1',reference:attempt.reference,status:'APPROVED'}),
+  consultar:async()=>({id:'tx1',reference:attempt.reference,status:'APPROVED',amount_in_cents:10000,currency:'COP'}),
   confirmar:async()=>{confirmed++;return {handled:true,ok:true,estado:'APROBADO'};}});
  const result=await run({restaurantId:'allowed'});
  assert.equal(result.failed,1);
