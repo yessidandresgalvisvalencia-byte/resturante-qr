@@ -137,7 +137,8 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
               eventName: 'PEDIDO_ACTUALIZADO',
               aggregateId: pedido._id,
               payload: {pedidoId:String(pedido._id),restaurantId:lockedIntento.restaurantId,estadoPago:'pagado'}
-            },session);        }
+            },session);
+        }
       }
 
       lockedIntento.estado = "APROBADO";
