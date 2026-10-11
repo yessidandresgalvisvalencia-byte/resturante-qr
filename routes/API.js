@@ -1107,7 +1107,8 @@ router.delete("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
 // GRUK P0: endpoint experimental aislado, desactivado en produccion.
 router.post("/pedido-p0", async (req, res) => {
   const {isP0PedidoEnabled,requireP0IdempotencyKey}=require("../services/p0/pedidoFeatureFlag");
-  const restaurantId=getRestaurantId(req);
+  const restaurantId=typeof req.body?.restaurantId==="string"?req.body.restaurantId.trim():"";
+  if(!restaurantId||restaurantId.length>128||typeof req.query?.restaurantId==="string"&&req.query.restaurantId!==restaurantId)return res.status(400).json({ok:false,error:"RESTAURANTE_EXPLICITO_REQUERIDO"});
   if(!isP0PedidoEnabled({restaurantId}))return res.status(404).json({ok:false,error:"RUTA_NO_DISPONIBLE"});
   try{
     const key=requireP0IdempotencyKey(req.headers);
