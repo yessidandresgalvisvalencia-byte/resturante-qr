@@ -52,3 +52,18 @@ test('a different gateway transaction cannot take over the payment reference',()
  const assignment=source.indexOf('intento.transactionId = String(transaction.id || "")');
  assert.ok(fence>=0 && assignment>fence);
 });
+
+test('P0 stores paid order and sale events durably inside Mongo transaction',()=>{
+ const start=source.indexOf('await session.withTransaction(async () => {');
+ const end=source.indexOf('lockedIntento.estado = "APROBADO"',start);
+ const segment=source.slice(start,end);
+ assert.match(segment,/eventId: 'VENTA_COMPLETADA:'/);
+ assert.match(segment,/eventId: 'PEDIDO_ACTUALIZADO:'/);
+ assert.match(segment,/await registrarEventoEnTransaccion\(/);
+ assert.match(segment,/,session\)/);
+});
+test('legacy payment publication remains when P0 flag is disabled',()=>{
+ assert.match(source,/if \(outboxEnabled\)/);
+ assert.match(source,/else ventasPostCommit\.push\(resultado\.venta\)/);
+ assert.match(source,/if \(!outboxEnabled && io/);
+});
