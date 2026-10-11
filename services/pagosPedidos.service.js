@@ -50,6 +50,10 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   let empresaNotificacionId = null;
   try {
     await session.withTransaction(async () => {
+      // MongoDB can re-run this callback after transient errors. Discard effects from rolled-back attempts.
+      ventasPostCommit.length = 0;
+      pedidosPostCommit.length = 0;
+      empresaNotificacionId = null;
       const lockedIntento = await IntentoPagoPedido.findOne({ reference }).session(session);
       if (!lockedIntento) throw new Error("INTENTO_NO_ENCONTRADO");
       if (lockedIntento.estado === "APROBADO") {
