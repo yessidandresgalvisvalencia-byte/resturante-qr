@@ -31,7 +31,7 @@ jobs:
       - name: Locked baseline
         run: npm ci
       - name: Update dependencies only within compatible semver ranges
-        run: npm audit fix
+        run: npm audit fix --audit-level=critical
       - name: Verify resulting lockfile and runtime
         run: |
           npm ci
