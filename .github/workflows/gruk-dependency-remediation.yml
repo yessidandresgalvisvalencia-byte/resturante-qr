@@ -1,0 +1,56 @@
+name: GRUK Dependency Remediation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: gruk-dependency-remediation
+  cancel-in-progress: false
+
+jobs:
+  remediation:
+    name: Prepare tested dependency remediation PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout protected default branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Locked baseline
+        run: npm ci
+      - name: Update dependencies only within compatible semver ranges
+        run: npm audit fix
+      - name: Verify resulting lockfile and runtime
+        run: |
+          npm ci
+          npm run check:syntax
+      - name: Reject remaining critical production vulnerabilities
+        run: npm audit --omit=dev --audit-level=critical
+      - name: Open remediation pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: gruk/security-dependency-remediation
+          base: main
+          delete-branch: true
+          title: "security: remediate GRUK npm vulnerabilities within supported ranges"
+          commit-message: "security(deps): update vulnerable lockfile resolutions"
+          body: |
+            Automated, non-force npm audit fix. Changes are never pushed to main directly.
+            Required before merge: GRUK CI green, MongoDB ACID gate, deployment review.
+            Check the dependency diff and compatibility before approving.
+          draft: true
+          add-paths: |
+            package.json
+            package-lock.json
