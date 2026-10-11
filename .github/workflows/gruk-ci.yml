@@ -27,6 +27,18 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
+      - name: Capture machine-readable security findings
+        run: |
+          npm audit --omit=dev --json > gruk-production-audit.json || true
+          test -s gruk-production-audit.json
+      - name: Upload dependency audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-production-audit
+          path: gruk-production-audit.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Reject critical production dependencies
         run: npm audit --omit=dev --audit-level=critical
   unit:
