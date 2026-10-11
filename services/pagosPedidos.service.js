@@ -5,6 +5,7 @@ const Restaurante = require("../models/restaurante");
 const Sede = require("../models/sede");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
 const { registrarVentaDesdePedido, emitirVentaCompletada } = require("./ventas.service");
+const { calcularImportePagoCentavos } = require("./p0/calcularImportePago");
 
 async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const reference = String(transaction?.reference || "");
@@ -39,6 +40,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const session = await mongoose.startSession();
   const ventasPostCommit = [];
   const pedidosPostCommit = [];
+  let empresaNotificacionId = null;
   try {
     await session.withTransaction(async () => {
       const lockedIntento = await IntentoPagoPedido.findOne({ reference }).session(session);
@@ -48,6 +50,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
       const restaurante = await Restaurante.findOne({ restaurantId: lockedIntento.restaurantId })
         .select("_id empresaId").session(session).lean();
       if (!restaurante?.empresaId) throw new Error("RESTAURANTE_SIN_EMPRESA");
+      empresaNotificacionId = String(restaurante.empresaId);
 
       const pedidos = await Pedido.find({
         _id: { $in: lockedIntento.pedidoIds },
@@ -56,7 +59,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
 
       if (pedidos.length !== lockedIntento.pedidoIds.length) throw new Error("PEDIDOS_INCOMPLETOS");
 
-      const totalActual = pedidos.reduce((sum, p) => sum + Math.round(Number(p.precio) * 100), 0);
+      const totalActual = calcularImportePagoCentavos(pedidos);
       if (totalActual !== Number(lockedIntento.amountInCents)) throw new Error("MONTO_PEDIDOS_CAMBIO");
 
       for (const pedido of pedidos) {
@@ -96,7 +99,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
     });
 
     for (const venta of ventasPostCommit) emitirVentaCompletada(venta);
-    if (io) for (const pedido of pedidosPostCommit) io.emit("pedido:actualizado", pedido);
+    if (io && empresaNotificacionId) for (const pedido of pedidosPostCommit) io.to(`empresa-${empresaNotificacionId}`).emit("pedido:actualizado", pedido);
     return { handled: true, ok: true, estado: "APROBADO" };
   } finally {
     await session.endSession();
