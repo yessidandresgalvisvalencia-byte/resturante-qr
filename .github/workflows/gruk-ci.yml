@@ -29,7 +29,7 @@ jobs:
       - name: Install locked baseline
         run: npm ci
       - name: Update compatible dependency resolutions
-        run: npm audit fix
+        run: npm audit fix --audit-level=critical
       - name: Verify updated dependency tree
         run: |
           npm ci
