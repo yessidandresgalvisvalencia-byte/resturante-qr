@@ -2934,7 +2934,11 @@ router.post("/wompi/webhook", async (req, res) => {
     const reference = String(transaction.reference || "");
     if (reference.startsWith("GRUK_PEDIDO_")) {
       const resultadoPedido = await confirmarPagoPedidoWompi({ transaction, io: req.app.get("io") });
-      if (!resultadoPedido.ok) console.error("[PAGOS] Evento de pedido no aplicado", resultadoPedido);
+      if (!resultadoPedido.ok) {
+        console.error("[PAGOS] Evento de pedido no aplicado", resultadoPedido);
+        if (resultadoPedido.reason === "INTENTO_NO_ENCONTRADO") return res.status(503).json({ ok: false, error: "PAGO_PENDIENTE_CONCILIACION" });
+        return res.status(200).json({ ok: true, ignored: true });
+      }
       return res.status(200).json({ ok: true });
     }
 
