@@ -5,12 +5,12 @@ const {crearConciliadorWompi}=require('../../services/p0/conciliarPendientesWomp
 
 function fixture(pendientes,consultar,confirmar){
  const calls=[];
- const IntentoModel={find(q){calls.push(q);return {sort(){return {limit(limit){calls.push(limit);return {lean:async()=>pendientes};}}}}}};
+ const IntentoModel={find(q){calls.push(q);return {sort(){return {limit(limit){calls.push(limit);return {lean:async()=>pendientes};}}}}},async findOneAndUpdate(query){calls.push({claim:query});return {_id:query._id}},async updateOne(query){calls.push({release:query});return {modifiedCount:1}}};
  const conciliar=crearConciliadorWompi({IntentoModel,consultar,confirmar,habilitado:({restaurantId})=>restaurantId==='allowed'});
  return {conciliar,calls};
 }
 test('reconciles stored Wompi transaction only when id and reference match',{timeout:10000},async()=>{
- const item={reference:'GRUK_PEDIDO_1',transactionId:'tx1'};
+ const item={_id:'attempt-1',reference:'GRUK_PEDIDO_1',transactionId:'tx1'};
  let applied=0;
  const f=fixture([item],async()=>({id:'tx1',reference:item.reference,status:'APPROVED'}),async()=>{applied++;return {handled:true,ok:true,estado:'APROBADO'};});
  assert.deepEqual(await f.conciliar({restaurantId:'allowed'}),{checked:1,approved:1,unchanged:0,failed:0});
@@ -21,7 +21,7 @@ test('reconciles stored Wompi transaction only when id and reference match',{tim
 });
 test('rejects mismatched payment reference without applying finance',{timeout:10000},async()=>{
  let applied=0;
- const f=fixture([{reference:'GRUK_PEDIDO_1',transactionId:'tx1'}],async()=>({id:'tx1',reference:'OTHER'}),async()=>{applied++;return {handled:true,ok:true,estado:'APROBADO'};});
+ const f=fixture([{_id:'attempt-1',reference:'GRUK_PEDIDO_1',transactionId:'tx1'}],async()=>({id:'tx1',reference:'OTHER'}),async()=>{applied++;return {handled:true,ok:true,estado:'APROBADO'};});
  assert.equal((await f.conciliar({restaurantId:'allowed'})).failed,1);
  assert.equal(applied,0);
 });
