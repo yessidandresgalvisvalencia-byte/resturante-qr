@@ -11,7 +11,8 @@ async function registrarVentaDesdePedido({
   empresaId,
   sedeId = null,
   session = null,
-  emitirEvento = true
+  emitirEvento = true,
+  metodoPagoConfirmado = null
 }) {
   if (!pedido) {
     throw new Error(
@@ -147,7 +148,7 @@ async function registrarVentaDesdePedido({
       margenBruto,
       total,
 
-      metodoPago: pedido.metodoPago || "",
+      metodoPago: metodoPagoConfirmado || pedido.metodoPago || "",
 
       estado: "pagada",
 
