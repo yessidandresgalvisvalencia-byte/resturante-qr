@@ -14,7 +14,6 @@ test('two concurrent outbox workers claim one event at most once',{timeout:40000
  const Event=connection.model(Outbox.modelName,Outbox.schema);
  const empresaId=new mongoose.Types.ObjectId(),pedidoId=new mongoose.Types.ObjectId();
  const session=await connection.startSession();
- try{
   await Event.init();
   // registrarEventoEnTransaccion uses the default Outbox model, so create
   // through this isolated connection while retaining identical schema/indexes.
@@ -40,5 +39,4 @@ test('two concurrent outbox workers claim one event at most once',{timeout:40000
    assert.equal(await Event.countDocuments({status:'DONE'}),1);
    assert.equal(await Event.countDocuments({status:'CLAIMED'}),0);
   }finally{await session.endSession();await connection.dropDatabase();await connection.close();await mongoose.disconnect();}
- }
 });
