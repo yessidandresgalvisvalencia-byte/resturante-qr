@@ -41,6 +41,13 @@ function crearConciliadorWompi({
       resultado.failed++;
       continue;
     }
+    // A slow provider response must not settle a payment after its lease
+    // expired or was reclaimed by another worker.
+    const lease=await IntentoModel.findOne({
+     _id:intento._id,restaurantId,conciliacionToken:token,
+     conciliacionLeaseUntil:{$gt:new Date()}
+    }).lean();
+    if(!lease){resultado.failed++;continue;}
     const applied=await confirmar({transaction,io});
     if(!applied?.handled||!applied.ok){resultado.failed++;continue;}
     if(applied.estado==='APROBADO')resultado.approved++;
