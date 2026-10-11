@@ -30,3 +30,17 @@ test('rechaza precio del catálogo con tipo incorrecto',async()=>{
 test('rechaza precio de extra con tipo incorrecto',async()=>{
  await assert.rejects(resolver(15000,'2000')(base),{statusCode:409});
 });
+
+test('rechaza metodo de pago con tipo de objeto',async()=>{
+ await assert.rejects(resolver()({...base,intent:{...base.intent,metodoPago:{tipo:'tarjeta'}}}),{statusCode:400});
+});
+test('rechaza metodo de pago vacio',async()=>{
+ await assert.rejects(resolver()({...base,intent:{...base.intent,metodoPago:''}}),{statusCode:400});
+});
+test('rechaza observaciones estructuradas',async()=>{
+ await assert.rejects(resolver()({...base,intent:{...base.intent,observaciones:{comentario:'sin sal'}}}),{statusCode:400});
+});
+test('mantiene metodo de pago por defecto solo cuando no se especifica',async()=>{
+ const result=await resolver()(base);
+ assert.equal(result.metodoPago,'efectivo');
+});
