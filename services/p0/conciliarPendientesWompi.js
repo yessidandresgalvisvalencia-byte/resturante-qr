@@ -91,7 +91,7 @@ function crearConciliadorWompi({
     errorCode='CONSULTA_O_CONFIRMACION_ERROR';
     console.error('[GRUK P0 CONCILIACION] Fallo recuperable',{codigo:errorCode});
    }finally{
-    const intentos=Number.isSafeInteger(intento.conciliacionIntentos)?intento.conciliacionIntentos+1:1;
+    const intentos=Number.isSafeInteger(intentoVigente.conciliacionIntentos)?intentoVigente.conciliacionIntentos+1:1;
     try{
      await IntentoModel.updateOne({_id:intento._id,conciliacionToken:token},{$set:{
      conciliacionLeaseUntil:null,conciliacionToken:null,
