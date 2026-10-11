@@ -9,7 +9,7 @@ const { calcularImportePagoCentavos } = require("./p0/calcularImportePago");
 const { registrarEventoEnTransaccion } = require("./p0/outbox.service");
 const { isP0PedidoEnabled } = require("./p0/pedidoFeatureFlag");
 
-async function confirmarPagoPedidoWompi({ transaction, io = null }) {
+async function confirmarPagoPedidoWompi({ transaction, io = null, conciliacionToken = null }) {
   const reference = String(transaction?.reference || "");
   if (!reference.startsWith("GRUK_PEDIDO_")) return { handled: false };
 
@@ -74,6 +74,15 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
         if (String(lockedIntento.transactionId || "") !== String(transaction.id || "")) throw new Error("TRANSACCION_APROBADA_DIFERENTE");
         return;
       }
+      // Reconciliation must retain ownership inside the settlement transaction.
+      // Concurrent lease takeover changes this document and causes a Mongo write conflict.
+      if (conciliacionToken !== null && (
+        typeof conciliacionToken !== "string" ||
+        !conciliacionToken ||
+        lockedIntento.conciliacionToken !== conciliacionToken ||
+        !(lockedIntento.conciliacionLeaseUntil instanceof Date) ||
+        lockedIntento.conciliacionLeaseUntil <= new Date()
+      )) throw new Error("CONCILIACION_RESERVA_PERDIDA");
       // The same payment reference cannot be settled by a different gateway transaction.
       if (lockedIntento.transactionId && String(lockedIntento.transactionId) !== String(transaction.id || "")) throw new Error("TRANSACCION_REFERENCIA_CONFLICTIVA");
 
