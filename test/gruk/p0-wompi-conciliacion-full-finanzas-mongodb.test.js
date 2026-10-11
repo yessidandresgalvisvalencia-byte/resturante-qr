@@ -57,6 +57,12 @@ test('Wompi reconciliation: invalid amount then valid approval -> one ACID sale 
   assert.equal(await Ingreso.countDocuments({ventaId:sale._id,empresaId}),1);
   const income=await Ingreso.findOne({ventaId:sale._id,empresaId}).lean();
   assert.equal(income.importeCentavos,1200000);
+  // Re-delivery of an already completed outbox event must not duplicate income.
+  const duplicateDelivery=await publicarLote({io,workerId:'recovered-approval-replay',limit:10});
+  assert.equal(duplicateDelivery.sent,0);
+  assert.equal(duplicateDelivery.failed,0);
+  assert.equal(await Ingreso.countDocuments({ventaId:sale._id,empresaId}),1);
+  assert.equal(await Venta.countDocuments({origenId:pedido._id}),1);
  }finally{
   await mongoose.connection.dropDatabase();await mongoose.disconnect();
   if(oldFlag===undefined)delete process.env.GRUK_P0_PEDIDOS_ENABLED;else process.env.GRUK_P0_PEDIDOS_ENABLED=oldFlag;
