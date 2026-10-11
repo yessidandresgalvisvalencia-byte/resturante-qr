@@ -159,10 +159,22 @@ async function confirmarPagoPedidoWompi({ transaction, io = null, conciliacionTo
         }
       }
 
-      lockedIntento.estado = "APROBADO";
-      lockedIntento.transactionId = String(transaction.id);
-      lockedIntento.resueltoAt = new Date();
-      await lockedIntento.save({ session });
+      if (conciliacionToken !== null) {
+        // Final fenced write is part of the same ACID transaction as the sale and outbox.
+        // An expired or stolen lease must abort all financial effects, even after a slow operation.
+        const result = await IntentoPagoPedido.updateOne({
+          _id: lockedIntento._id,
+          estado: { $ne: "APROBADO" },
+          conciliacionToken,
+          conciliacionLeaseUntil: { $gt: new Date() }
+        }, { $set: { estado: "APROBADO", transactionId: String(transaction.id), resueltoAt: new Date() } }, { session });
+        if (result.modifiedCount !== 1) throw new Error("CONCILIACION_RESERVA_PERDIDA");
+      } else {
+        lockedIntento.estado = "APROBADO";
+        lockedIntento.transactionId = String(transaction.id);
+        lockedIntento.resueltoAt = new Date();
+        await lockedIntento.save({ session });
+      }
     });
 
     for (const venta of ventasPostCommit) emitirVentaCompletada(venta);
