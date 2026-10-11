@@ -16,3 +16,12 @@ test('payment settlement rechecks lease ownership and expiry inside Mongo transa
  assert.ok(start>=0&&owner>start&&expiry>start&&sale>owner&&sale>expiry);
  assert.match(payments,/CONCILIACION_RESERVA_PERDIDA/);
 });
+
+test('final ACID settlement write is fenced by a live lease after sale and outbox',()=>{
+ const sale=payments.indexOf('const resultado = await registrarVentaDesdePedido');
+ const fence=payments.indexOf('const result = await IntentoPagoPedido.updateOne({',sale);
+ const expiry=payments.indexOf('conciliacionLeaseUntil: { $gt: new Date() }',fence);
+ const commit=payments.indexOf('}, { session });',fence);
+ assert.ok(sale>=0&&fence>sale&&expiry>fence&&commit>expiry);
+ assert.match(payments.slice(fence,commit+130),/if \(result\.modifiedCount !== 1\) throw new Error\("CONCILIACION_RESERVA_PERDIDA"\)/);
+});
