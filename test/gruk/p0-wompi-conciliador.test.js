@@ -77,3 +77,13 @@ test('rejects Wompi amount and currency discrepancies before financial confirmat
   assert.equal(f.calls.find(x=>x.release)?.release?._id,item._id);
  }
 });
+
+test('unknown Wompi status must not enter financial settlement',async()=>{
+ const item={_id:'attempt-invalid-status',reference:'GRUK_PEDIDO_1',transactionId:'tx1',amountInCents:10000,currency:'COP'};
+ let confirmations=0;
+ const f=fixture([item],async()=>({id:'tx1',reference:item.reference,status:'UNKNOWN',amount_in_cents:10000,currency:'COP'}),async()=>{confirmations++;return {handled:true,ok:true,estado:'APROBADO'};});
+ const outcome=await f.conciliar({restaurantId:'allowed'});
+ assert.equal(outcome.failed,1);
+ assert.equal(confirmations,0);
+ assert.equal(f.calls.filter(x=>x.release).length,1);
+});
