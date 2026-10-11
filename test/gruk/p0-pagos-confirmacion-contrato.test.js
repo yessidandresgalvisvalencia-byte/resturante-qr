@@ -15,7 +15,7 @@ test('las actualizaciones de pedidos pagados no se emiten globalmente',()=>{
 
 test('a settled approved intent is protected before any mutable webhook status',()=>{
  const guard=source.indexOf('if (intento.estado === "APROBADO")');
- const mutation=source.indexOf('intento.transactionId = String(transaction.id || "")');
+ const mutation=source.indexOf('const cambios = { estado: nuevoEstado, transactionId: transaction.id }');
  assert.ok(guard>=0&&mutation>guard,'the immutable approved guard must precede status mutation');
  assert.match(source,/TRANSACCION_APROBADA_DIFERENTE/);
 });
@@ -43,13 +43,13 @@ test('transient transaction retry clears rolled back post-commit notifications',
 
 test('unknown gateway statuses cannot mutate an existing payment attempt',()=>{
  const guard=source.indexOf('ESTADO_WOMPI_DESCONOCIDO');
- const assignment=source.indexOf('intento.transactionId = String(transaction.id || "")');
+ const assignment=source.indexOf('const cambios = { estado: nuevoEstado, transactionId: transaction.id }');
  assert.ok(guard>=0 && assignment>guard);
  assert.match(source,/TRANSACCION_ID_INVALIDO/);
 });
 test('a different gateway transaction cannot take over the payment reference',()=>{
  const fence=source.indexOf('TRANSACCION_REFERENCIA_CONFLICTIVA');
- const assignment=source.indexOf('intento.transactionId = String(transaction.id || "")');
+ const assignment=source.indexOf('const cambios = { estado: nuevoEstado, transactionId: transaction.id }');
  assert.ok(fence>=0 && assignment>fence);
 });
 
@@ -76,4 +76,10 @@ test('paid order outbox persists even when sale already existed',()=>{
  assert.ok(saleGuard>=0&&orderGuard>saleGuard&&paidEvent>orderGuard&&marker>paidEvent);
  const slice=source.slice(saleGuard,paidEvent);
  assert.match(slice,/else ventasPostCommit\.push\(resultado\.venta\);\s*}\s*if \(outboxEnabled\)/);
+});
+
+test('late Wompi webhook cannot downgrade approved attempt via stale document save',()=>{
+ assert.match(source,/estado: \{ \$ne: "APROBADO" \}/);
+ assert.match(source,/IntentoPagoPedido\.findOneAndUpdate\(/);
+ assert.doesNotMatch(source,/await intento\.save\(\)/);
 });
