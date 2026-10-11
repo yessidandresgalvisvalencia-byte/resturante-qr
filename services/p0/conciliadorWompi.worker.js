@@ -1,6 +1,4 @@
 'use strict';
-const {randomUUID}=require('node:crypto');
-const Intento=require('../../models/IntentoPagoPedido');
 const {crearConciliadorWompi}=require('./conciliarPendientesWompi');
 const {isP0PedidoEnabled}=require('./pedidoFeatureFlag');
 
@@ -11,14 +9,13 @@ function habilitado(env=process.env){
 }
 function iniciarConciliadorWompi({
  env=process.env,intervalMs=60000,limit=20,
- conciliar=crearConciliadorWompi(),IntentoModel=Intento,
- onError=(error)=>console.error('[GRUK P0 RECONCILIADOR]',error)
+ conciliar=crearConciliadorWompi(),io=null,
+ onError=({codigo,restaurantId})=>console.error('[GRUK P0 RECONCILIADOR]',{codigo,restaurantId})
 }={}){
  if(!habilitado(env))return {started:false,stop(){}};
  if(!Number.isSafeInteger(intervalMs)||intervalMs<15000||intervalMs>3600000)throw Error('CONCILIACION_INTERVALO_INVALIDO');
  if(!Number.isSafeInteger(limit)||limit<1||limit>100)throw Error('CONCILIACION_LIMITE_INVALIDO');
  const allowed=[...new Set(String(env.GRUK_P0_PEDIDOS_RESTAURANTES).split(',').map(x=>x.trim()).filter(Boolean))];
- const workerId=randomUUID();
  let stopped=false,busy=false;
  async function tick(){
   if(stopped||busy)return;
@@ -28,10 +25,13 @@ function iniciarConciliadorWompi({
     if(stopped)break;
     if(!isP0PedidoEnabled({env,restaurantId}))continue;
     // A bounded scan and in-process mutex prevent overlapping ticks. Settlement remains idempotent across hosts.
-    await conciliar({restaurantId,limit});
+    try{
+     await conciliar({restaurantId,limit,io});
+    }catch(_error){
+     try{onError({codigo:'CONCILIACION_RESTAURANTE_ERROR',restaurantId});}catch(_ignored){}
+    }
    }
-  }catch(error){onError(Object.assign(error,{workerId}));}
-  finally{busy=false;}
+  }finally{busy=false;}
  }
  const timer=setInterval(()=>{void tick()},intervalMs);
  timer.unref?.();
