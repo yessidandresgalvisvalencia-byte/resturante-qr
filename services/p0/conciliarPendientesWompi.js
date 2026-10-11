@@ -9,6 +9,8 @@ function calcularReintentoMs(intentos){
  const exponent=Math.min(Math.max(0,intentos-1),6);
  return Math.min(3600000,30000*(2**exponent));
 }
+const CODIGOS_CONFIRMACION=new Set(['INTENTO_NO_ENCONTRADO','INTENTO_ESTADO_CONFLICTIVO','TRANSACCION_REFERENCIA_CONFLICTIVA','INTEGRIDAD_ECONOMICA_INVALIDA','TRANSACCION_ID_INVALIDO','ESTADO_WOMPI_DESCONOCIDO','CONCILIACION_RESERVA_PERDIDA']);
+function codigoConfirmacion(reason){return CODIGOS_CONFIRMACION.has(reason)?reason:'CONFIRMACION_FALLIDA';}
 function crearConciliadorWompi({
  IntentoModel=IntentoPagoPedido,
  consultar=async id=>{
@@ -60,14 +62,14 @@ function crearConciliadorWompi({
     }).lean();
     if(!lease){resultado.failed++;errorCode='RESERVA_PERDIDA';continue;}
     const applied=await confirmar({transaction,io,conciliacionToken:token});
-    if(!applied?.handled||!applied.ok){resultado.failed++;errorCode=String(applied?.reason||'CONFIRMACION_FALLIDA').slice(0,90);continue;}
+    if(!applied?.handled||!applied.ok){resultado.failed++;errorCode=codigoConfirmacion(applied?.reason);continue;}
     if(applied.estado==='APROBADO')resultado.approved++;
     else resultado.unchanged++;
     settled=applied.estado==='APROBADO';
    }catch(error){
     resultado.failed++;
     errorCode='CONSULTA_O_CONFIRMACION_ERROR';
-    console.error('[GRUK P0 CONCILIACION] Fallo recuperable',{reference:intento.reference,error:String(error.message).slice(0,180)});
+    console.error('[GRUK P0 CONCILIACION] Fallo recuperable',{codigo:errorCode});
    }finally{
     const intentos=Number.isSafeInteger(intento.conciliacionIntentos)?intento.conciliacionIntentos+1:1;
     await IntentoModel.updateOne({_id:intento._id,conciliacionToken:token},{$set:{
@@ -81,4 +83,4 @@ function crearConciliadorWompi({
   return resultado;
  };
 }
-module.exports={crearConciliadorWompi,calcularReintentoMs};
+module.exports={crearConciliadorWompi,calcularReintentoMs,codigoConfirmacion};
