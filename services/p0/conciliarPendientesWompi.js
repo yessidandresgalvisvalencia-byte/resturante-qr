@@ -5,6 +5,10 @@ const IntentoPagoPedido=require('../../models/IntentoPagoPedido');
 const {confirmarPagoPedidoWompi}=require('../pagosPedidos.service');
 const {isP0PedidoEnabled}=require('./pedidoFeatureFlag');
 
+function calcularReintentoMs(intentos){
+ const exponent=Math.min(Math.max(0,intentos-1),6);
+ return Math.min(3600000,30000*(2**exponent));
+}
 function crearConciliadorWompi({
  IntentoModel=IntentoPagoPedido,
  consultar=async id=>{
@@ -21,7 +25,8 @@ function crearConciliadorWompi({
   // No payment initiation or lookups by unverified reference. Only stored gateway IDs.
   const pendientes=await IntentoModel.find({
    restaurantId,estado:{$in:['CREADO','PENDIENTE','RECHAZADO']},
-   transactionId:{$type:'string',$ne:''}
+   transactionId:{$type:'string',$ne:''},
+   $or:[{conciliacionReintentoAt:null},{conciliacionReintentoAt:{$lte:new Date()}}]
   }).sort({updatedAt:1}).limit(limit).lean();
   const resultado={checked:0,approved:0,unchanged:0,failed:0};
   for(const intento of pendientes){
@@ -30,15 +35,21 @@ function crearConciliadorWompi({
    const claimed=await IntentoModel.findOneAndUpdate({
     _id:intento._id,restaurantId,estado:{$in:['CREADO','PENDIENTE','RECHAZADO']},
     transactionId:intento.transactionId,
-    $or:[{conciliacionLeaseUntil:null},{conciliacionLeaseUntil:{$lte:now}}]
+    $and:[
+     {$or:[{conciliacionLeaseUntil:null},{conciliacionLeaseUntil:{$lte:now}}]},
+     {$or:[{conciliacionReintentoAt:null},{conciliacionReintentoAt:{$lte:now}}]}
+    ]
    },{$set:{conciliacionLeaseUntil:new Date(now.getTime()+60000),conciliacionToken:token}}, {new:true});
    if(!claimed)continue;
    resultado.checked++;
+   let errorCode=null;
+   let settled=false;
    try{
     const transaction=await consultar(intento.transactionId);
     if(!transaction||String(transaction.id)!==intento.transactionId||
        String(transaction.reference)!==intento.reference){
       resultado.failed++;
+      errorCode='RESPUESTA_WOMPI_INCONSISTENTE';
       continue;
     }
     // A slow provider response must not settle a payment after its lease
@@ -47,19 +58,27 @@ function crearConciliadorWompi({
      _id:intento._id,restaurantId,conciliacionToken:token,
      conciliacionLeaseUntil:{$gt:new Date()}
     }).lean();
-    if(!lease){resultado.failed++;continue;}
+    if(!lease){resultado.failed++;errorCode='RESERVA_PERDIDA';continue;}
     const applied=await confirmar({transaction,io,conciliacionToken:token});
-    if(!applied?.handled||!applied.ok){resultado.failed++;continue;}
+    if(!applied?.handled||!applied.ok){resultado.failed++;errorCode=String(applied?.reason||'CONFIRMACION_FALLIDA').slice(0,90);continue;}
     if(applied.estado==='APROBADO')resultado.approved++;
     else resultado.unchanged++;
+    settled=applied.estado==='APROBADO';
    }catch(error){
     resultado.failed++;
+    errorCode='CONSULTA_O_CONFIRMACION_ERROR';
     console.error('[GRUK P0 CONCILIACION] Fallo recuperable',{reference:intento.reference,error:String(error.message).slice(0,180)});
    }finally{
-    await IntentoModel.updateOne({_id:intento._id,conciliacionToken:token},{$set:{conciliacionLeaseUntil:null,conciliacionToken:null}});
+    const intentos=Number.isSafeInteger(intento.conciliacionIntentos)?intento.conciliacionIntentos+1:1;
+    await IntentoModel.updateOne({_id:intento._id,conciliacionToken:token},{$set:{
+     conciliacionLeaseUntil:null,conciliacionToken:null,
+     conciliacionReintentoAt:settled?null:new Date(Date.now()+calcularReintentoMs(intentos)),
+     conciliacionUltimoError:errorCode,
+     conciliacionIntentos:intentos
+    }});
    }
   }
   return resultado;
  };
 }
-module.exports={crearConciliadorWompi};
+module.exports={crearConciliadorWompi,calcularReintentoMs};
