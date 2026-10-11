@@ -28,8 +28,21 @@ test('Wompi P0 end-to-end: approved webhook -> ACID sale -> outbox -> idempotent
   const reference='GRUK_PEDIDO_'+String(pedido._id);
   await Intento.create({reference,restaurantId:rid,pedidoIds:[pedido._id],amountInCents:2000000,currency:'COP'});
   const transaction={reference,id:'txn-'+String(pedido._id),status:'APPROVED',amount_in_cents:2000000,currency:'COP'};
-  const approval=await confirmarPagoPedidoWompi({transaction});
-  assert.equal(approval.ok,true);
+  // Two independent webhook deliveries can race for the same payment attempt.
+  // A transient MongoDB write conflict is retryable; no duplicate business effect is permitted.
+  const raced=await Promise.allSettled([
+   confirmarPagoPedidoWompi({transaction}),
+   confirmarPagoPedidoWompi({transaction})
+  ]);
+  const approved=raced.filter(x=>x.status==='fulfilled'&&x.value.ok);
+  assert.ok(approved.length>=1,'at least one concurrent approval must complete');
+  for(const outcome of raced){
+   if(outcome.status==='rejected'){
+    const error=outcome.reason;
+    assert.ok(error?.hasErrorLabel?.('TransientTransactionError')||error?.code===112,
+     'unexpected concurrent approval failure: '+String(error));
+   }
+  }
   const replay=await confirmarPagoPedidoWompi({transaction});
   assert.equal(replay.idempotent,true);
   const sale=await Venta.findOne({origen:'restaurante',origenId:pedido._id,empresaId}).lean();
