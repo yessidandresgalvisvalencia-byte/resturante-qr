@@ -60,3 +60,20 @@ test('expired or stolen lease after gateway response is never settled',async()=>
  assert.equal(result.failed,1);
  assert.equal(confirmed,0);
 });
+
+test('rejects Wompi amount and currency discrepancies before financial confirmation',async()=>{
+ const item={_id:'attempt-amount',reference:'GRUK_PEDIDO_1',transactionId:'tx1',amountInCents:10000,currency:'COP'};
+ for(const payload of [
+  {amount_in_cents:9000,currency:'COP'},
+  {amount_in_cents:10000,currency:'USD'},
+  {amount_in_cents:'10000',currency:'COP'}
+ ]){
+  let confirmed=0;
+  const f=fixture([item],async()=>({id:'tx1',reference:item.reference,status:'APPROVED',...payload}),
+   async()=>{confirmed++;return {handled:true,ok:true,estado:'APROBADO'};});
+  const result=await f.conciliar({restaurantId:'allowed'});
+  assert.equal(result.failed,1);
+  assert.equal(confirmed,0);
+  assert.equal(f.calls.find(x=>x.release)?.release?._id,item._id);
+ }
+});
