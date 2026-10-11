@@ -1,5 +1,6 @@
 'use strict';
 const axios=require('axios');
+const {randomUUID}=require('node:crypto');
 const IntentoPagoPedido=require('../../models/IntentoPagoPedido');
 const {confirmarPagoPedidoWompi}=require('../pagosPedidos.service');
 const {isP0PedidoEnabled}=require('./pedidoFeatureFlag');
@@ -24,6 +25,14 @@ function crearConciliadorWompi({
   }).sort({updatedAt:1}).limit(limit).lean();
   const resultado={checked:0,approved:0,unchanged:0,failed:0};
   for(const intento of pendientes){
+   const now=new Date();
+   const token=randomUUID();
+   const claimed=await IntentoModel.findOneAndUpdate({
+    _id:intento._id,restaurantId,estado:{$in:['CREADO','PENDIENTE','RECHAZADO']},
+    transactionId:intento.transactionId,
+    $or:[{conciliacionLeaseUntil:null},{conciliacionLeaseUntil:{$lte:now}}]
+   },{$set:{conciliacionLeaseUntil:new Date(now.getTime()+60000),conciliacionToken:token}}, {new:true});
+   if(!claimed)continue;
    resultado.checked++;
    try{
     const transaction=await consultar(intento.transactionId);
@@ -39,6 +48,8 @@ function crearConciliadorWompi({
    }catch(error){
     resultado.failed++;
     console.error('[GRUK P0 CONCILIACION] Fallo recuperable',{reference:intento.reference,error:String(error.message).slice(0,180)});
+   }finally{
+    await IntentoModel.updateOne({_id:intento._id,conciliacionToken:token},{$set:{conciliacionLeaseUntil:null,conciliacionToken:null}});
    }
   }
   return resultado;
