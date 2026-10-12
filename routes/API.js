@@ -1104,6 +1104,39 @@ router.delete("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
 
 
 
+// GRUK P0: endpoint experimental aislado, desactivado en produccion.
+router.post("/pedido-p0", async (req, res) => {
+  const {isP0PedidoEnabled,requireP0IdempotencyKey}=require("../services/p0/pedidoFeatureFlag");
+  const restaurantId=typeof req.body?.restaurantId==="string"?req.body.restaurantId.trim():"";
+  if(!restaurantId||restaurantId.length>128||typeof req.query?.restaurantId==="string"&&req.query.restaurantId!==restaurantId)return res.status(400).json({ok:false,error:"RESTAURANTE_EXPLICITO_REQUERIDO"});
+  if(!isP0PedidoEnabled({restaurantId}))return res.status(404).json({ok:false,error:"RUTA_NO_DISPONIBLE"});
+  try{
+    const key=requireP0IdempotencyKey(req.headers);
+    const restaurante=await Restaurante.findOne({restaurantId}).select("_id empresaId").lean();
+    if(!restaurante?.empresaId)return res.status(404).json({ok:false,error:"RESTAURANTE_NO_AUTORIZADO"});
+    const {createPedidoService}=require("../services/p0/crearPedidoConOutbox");
+    const {crearResolverSede}=require("../services/p0/resolverSede");
+    const {createResolverPedidoAutorizado}=require("../services/p0/resolverPedidoAutorizado");
+    const Recibo=require("../models/ReciboPedidoIdempotenciaV2");
+    const {registrarEventoEnTransaccion}=require("../services/p0/outbox.service");
+    const Menu=require("../models/menu");
+    const resolverSedeCanonica=crearResolverSede({Sede,permitirSinSede:true});
+    const resolverAutorizado=createResolverPedidoAutorizado({Menu,ProductoServicio});
+    const pedidoService=createPedidoService({mongoose,Pedido,Receipt:Recibo,registrarEventoEnTransaccion});
+    const {pedidoId,replayed}=await pedidoService.crear({
+      restaurantId,sedeId:req.body?.sedeId===undefined?"":req.body.sedeId,empresaId:String(restaurante.empresaId),
+      key,intent:req.body,resolverAutorizado,resolverSedeCanonica
+    });
+    const pedido=await Pedido.findOne({_id:pedidoId,restaurantId}).lean();
+    if(!pedido)return res.status(503).json({ok:false,error:"PEDIDO_PENDIENTE_CONCILIACION"});
+    return res.status(replayed?200:201).json({ok:true,pedido,replayed});
+  }catch(error){
+    const status=[400,403,409,428,503].includes(error.statusCode)?error.statusCode:500;
+    console.error("[GRUK P0] pedido no completado", {code:error.message,status});
+    return res.status(status).json({ok:false,error:status===500?"PEDIDO_NO_COMPLETADO":error.message});
+  }
+});
+
 router.post("/pedido", async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
@@ -1437,7 +1470,7 @@ router.post("/pedido", async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit(
+      io.to(`empresa-${String(restaurante.empresaId)}`).emit(
         "pedido:nuevo",
         pedido
       );
@@ -2896,12 +2929,16 @@ router.post("/wompi/webhook", async (req, res) => {
       `https://production.wompi.co/v1/transactions/${encodeURIComponent(String(transactionId))}`
     );
     const transaction = wompiRes.data?.data;
-    if (!transaction) return res.status(200).json({ ok: true });
+    if (!transaction) return res.status(503).json({ ok: false, error: "WOMPI_TRANSACCION_NO_DISPONIBLE" });
 
     const reference = String(transaction.reference || "");
     if (reference.startsWith("GRUK_PEDIDO_")) {
       const resultadoPedido = await confirmarPagoPedidoWompi({ transaction, io: req.app.get("io") });
-      if (!resultadoPedido.ok) console.error("[PAGOS] Evento de pedido no aplicado", resultadoPedido);
+      if (!resultadoPedido.ok) {
+        console.error("[PAGOS] Evento de pedido no aplicado", resultadoPedido);
+        if (["INTENTO_NO_ENCONTRADO", "INTENTO_ESTADO_CONFLICTIVO"].includes(resultadoPedido.reason)) return res.status(503).json({ ok: false, error: "PAGO_PENDIENTE_CONCILIACION" });
+        return res.status(200).json({ ok: true, ignored: true });
+      }
       return res.status(200).json({ ok: true });
     }
 

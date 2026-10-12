@@ -16,6 +16,89 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  remediation_candidate:
+    name: GRUK Safe Dependency Remediation Candidate
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'gruk/p0-pedidos-outbox-staging')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gruk/p0-pedidos-outbox-staging
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install locked baseline
+        run: npm ci
+      - name: Update compatible dependency resolutions
+        run: npm audit fix --audit-level=critical
+      - name: Verify updated dependency tree
+        run: |
+          npm ci
+          npm run check:syntax
+          npm audit --omit=dev --audit-level=critical
+      - name: Save candidate manifest and lockfile for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-dependency-remediation-candidate
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 14
+          if-no-files-found: error
+  security:
+    name: GRUK Production Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Capture machine-readable security findings
+        run: |
+          npm audit --omit=dev --json > gruk-production-audit.json || true
+          test -s gruk-production-audit.json
+      - name: Upload dependency audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-production-audit
+          path: gruk-production-audit.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Reject critical production dependencies
+        run: npm audit --omit=dev --audit-level=critical
+  unit:
+    name: GRUK Syntax and Independent Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Check production source syntax
+        run: npm run check:syntax
+      - name: Run Mongo-independent unit tests
+        env:
+          NODE_ENV: test
+        run: |
+          node --test \
+            test/gruk/p0-pedido-feature-flag.test.js \
+            test/gruk/p0-outbox-worker.test.js \
+            test/gruk/p0-sede-sin-sede.test.js \
+            test/gruk/p0-sede-idempotencia.test.js \
+            test/gruk/p0-http-route-contract.test.js \
+            test/gruk/p0-pedido-socket-room.test.js \
+            test/gruk/p0-outbox-fencing.test.js \
+            test/gruk/p0-pedido-transaccion.test.js
   gate:
     name: GRUK Production Gate
     runs-on: ubuntu-latest
@@ -32,18 +115,52 @@ jobs:
         run: npm ci
       - name: Start MongoDB replica set
         run: |
-          docker run -d --name gruk-mongo -p 27017:27017 mongo:8 --replSet rs0 --bind_ip_all
-          for i in {1..30}; do
-            if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then break; fi
-            sleep 1
+          set -euo pipefail
+          ready=false
+          for image in public.ecr.aws/docker/library/mongo:8 mongo:8 public.ecr.aws/docker/library/mongo:7 mongo:7; do
+            for attempt in 1 2; do
+              docker rm -f gruk-mongo >/dev/null 2>&1 || true
+              echo "MongoDB image=$image attempt=$attempt"
+              if ! docker run -d --name gruk-mongo -p 127.0.0.1:27017:27017 "$image" --replSet rs0 --bind_ip_all; then
+                sleep 3
+                continue
+              fi
+              live=false
+              for i in {1..25}; do
+                if [ "$(docker inspect --format '{{.State.Running}}' gruk-mongo 2>/dev/null || echo false)" != true ]; then
+                  echo "::warning::MongoDB container exited before readiness"
+                  docker logs --tail 80 gruk-mongo || true
+                  break
+                fi
+                if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' 2>/dev/null | grep -q 1; then
+                  live=true
+                  break
+                fi
+                sleep 1
+              done
+              if [ "$live" != true ]; then
+                docker logs --tail 80 gruk-mongo || true
+                continue
+              fi
+              if ! docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'; then
+                docker logs --tail 80 gruk-mongo || true
+                continue
+              fi
+              for i in {1..30}; do
+                if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null | grep -q true; then
+                  ready=true
+                  break
+                fi
+                sleep 1
+              done
+              if [ "$ready" = true ]; then break 2; fi
+              docker logs --tail 80 gruk-mongo || true
+            done
           done
-          docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
-          for i in {1..30}; do
-            if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then exit 0; fi
-            sleep 1
-          done
-          echo "MongoDB replica set no alcanzo PRIMARY"
-          exit 1
+          if [ "$ready" != true ]; then
+            echo "::error::MongoDB replica set did not reach PRIMARY; ACID gate remains blocked"
+            exit 1
+          fi
       - name: Production gate
         env:
           NODE_ENV: test

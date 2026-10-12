@@ -9,7 +9,14 @@ const intentoPagoPedidoSchema = new mongoose.Schema({
   currency: { type: String, default: "COP", enum: ["COP"] },
   estado: { type: String, default: "CREADO", enum: ["CREADO","PENDIENTE","APROBADO","RECHAZADO"] },
   transactionId: { type: String, default: "", index: true },
-  resueltoAt: { type: Date, default: null }
+  resueltoAt: { type: Date, default: null },
+  conciliacionLeaseUntil: { type: Date, default: null },
+  conciliacionToken: { type: String, default: null },
+  conciliacionReintentoAt: { type: Date, default: null },
+  conciliacionIntentos: { type: Number, default: 0, min: 0 },
+  conciliacionUltimoError: { type: String, default: null }
 }, { timestamps: true });
+
+intentoPagoPedidoSchema.index({ restaurantId: 1, estado: 1, conciliacionLeaseUntil: 1, updatedAt: 1 });
 
 module.exports = mongoose.model("IntentoPagoPedido", intentoPagoPedidoSchema);

@@ -11,7 +11,8 @@ async function registrarVentaDesdePedido({
   empresaId,
   sedeId = null,
   session = null,
-  emitirEvento = true
+  emitirEvento = true,
+  metodoPagoConfirmado = null
 }) {
   if (!pedido) {
     throw new Error(
@@ -147,7 +148,7 @@ async function registrarVentaDesdePedido({
       margenBruto,
       total,
 
-      metodoPago: pedido.metodoPago || "",
+      metodoPago: metodoPagoConfirmado || pedido.metodoPago || "",
 
       estado: "pagada",
 
@@ -208,9 +209,13 @@ costoFuente:
     if (error && error.code === 11000) {
       const ventaExistente = await Venta.findOne({
         origen: "restaurante",
-        origenId: pedido._id
+        origenId: pedido._id,
+        empresaId
       }).session(session);
 
+      // Only an existing sale for the SAME order and company is idempotency.
+      // Never mask another unique-index violation or a missing sale.
+      if (!ventaExistente) throw error;
       return {
         venta: ventaExistente,
         creada: false
