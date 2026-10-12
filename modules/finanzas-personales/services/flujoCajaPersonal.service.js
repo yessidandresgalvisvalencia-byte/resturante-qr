@@ -30,7 +30,12 @@ async function registrarTransaccion(usuarioId,input){
    const delta=input.tipo==="INGRESO"||input.tipo==="PRESTAMO_RECIBIDO"||input.tipo==="COBRO_PRESTAMO"?input.montoMinor:input.tipo==="GASTO"||input.tipo==="PAGO_DEUDA"||input.tipo==="PRESTAMO_OTORGADO"?-input.montoMinor:0;
    if(delta){
     const actualizada=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true,...(delta<0?{saldoMinor:{$gte:-delta}}:{})},{$inc:{saldoMinor:delta}},{new:true,session});
-    if(!actualizada)throw Object.assign(new Error("Saldo insuficiente en "+nombreCuenta),{statusCode:409});
+    if(!actualizada){
+     const esEfectivoHistorico=input.tipo==="GASTO"&&nombreCuenta.toUpperCase()==="EFECTIVO"&&input.medioPago==="EFECTIVO"&&input.fecha&&new Date(input.fecha).getTime()<=Date.now();
+     if(!esEfectivoHistorico)throw Object.assign(new Error("Saldo insuficiente en "+nombreCuenta),{statusCode:409});
+     const pendiente=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true},{$inc:{saldoMinor:delta},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{new:true,session});
+     if(!pendiente)throw Object.assign(new Error("No se pudo reconciliar el efectivo"),{statusCode:409});
+    }
    }
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
  }finally{await session.endSession();}
