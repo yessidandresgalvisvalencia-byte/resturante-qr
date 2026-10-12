@@ -57,6 +57,15 @@ test('Wompi reconciliation: invalid amount then valid approval -> one ACID sale 
   assert.equal(await Ingreso.countDocuments({ventaId:sale._id,empresaId}),1);
   const income=await Ingreso.findOne({ventaId:sale._id,empresaId}).lean();
   assert.equal(income.importeCentavos,1200000);
+  // Re-delivery of the exact financial event must not create a second income.
+  const saleEvent=await Outbox.findOne({eventName:'VENTA_COMPLETADA',empresaId}).lean();
+  assert.ok(saleEvent);
+  const {crearProyectorIngresoWompi}=require('../../services/p0/proyectarIngresoWompi');
+  const projector=crearProyectorIngresoWompi();
+  await projector(saleEvent);
+  await projector(saleEvent);
+  assert.equal(await Ingreso.countDocuments({ventaId:sale._id,empresaId}),1);
+  assert.equal(await Venta.countDocuments({empresaId,origenId:pedido._id}),1);
   const replayBatch=await publicarLote({io,workerId:'recovered-approval-replay',limit:10});
   assert.deepEqual(replayBatch,{sent:0,failed:0});
   assert.equal(await Ingreso.countDocuments({ventaId:sale._id,empresaId}),1);
