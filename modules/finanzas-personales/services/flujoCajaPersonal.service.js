@@ -11,6 +11,7 @@ const {encryptObject}=require("../security/fieldEncryption.service");
 function eventFor(tipo){if(tipo==="GASTO")return PERSONAL_EVENTS.GASTO_REGISTRADO;if(tipo==="INGRESO")return PERSONAL_EVENTS.INGRESO_DETECTADO;if(tipo==="PAGO_DEUDA")return PERSONAL_EVENTS.PAGO_DEUDA;if(tipo==="MOVIMIENTO_CORREGIDO")return PERSONAL_EVENTS.MOVIMIENTO_CORREGIDO;if(tipo==="MOVIMIENTO_ANULADO")return PERSONAL_EVENTS.MOVIMIENTO_ANULADO;if(tipo==="ACCION_PROGRESO_ACTUALIZADA")return PERSONAL_EVENTS.ACCION_PROGRESO_ACTUALIZADA;if(["PRESTAMO_OTORGADO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO"].includes(tipo))return PERSONAL_EVENTS.MOVIMIENTO_PATRIMONIAL;throw new TypeError("Tipo de transacción no soportado");}
 function hashExternalId(usuarioId,externalId){if(!externalId)return null;const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;if(!secret)throw new Error("PERSONAL_IDEMPOTENCY_SECRET requerido");return crypto.createHmac("sha256",secret).update(String(usuarioId)).update(":").update(String(externalId)).digest("hex");}
 async function registrarTransaccion(usuarioId,input){
+ if(input.tipo==="GASTO"&&String(input.cuenta||"EFECTIVO").trim().toUpperCase()==="EFECTIVO"&&input.medioPago==="TRANSFERENCIA")input={...input,medioPago:"EFECTIVO"};
  if(!Number.isSafeInteger(input.montoMinor)||input.montoMinor<=0)throw Object.assign(new Error("montoMinor debe ser un entero positivo exacto"),{statusCode:400});if(input.externalId!==undefined&&input.externalId!==null&&!String(input.externalId).trim())throw Object.assign(new Error("externalId vacío no es válido"),{statusCode:400});
  if(input.tipo==="GASTO"&&input.medioPago==="CREDITO")throw Object.assign(new Error("Un gasto con tarjeta de crédito debe registrar también la obligación de la tarjeta; GRUK no lo descontará de caja como si fuera débito."),{statusCode:422});const session=await mongoose.startSession();let tx,outbox;
  try{
@@ -30,7 +31,12 @@ async function registrarTransaccion(usuarioId,input){
    const delta=input.tipo==="INGRESO"||input.tipo==="PRESTAMO_RECIBIDO"||input.tipo==="COBRO_PRESTAMO"?input.montoMinor:input.tipo==="GASTO"||input.tipo==="PAGO_DEUDA"||input.tipo==="PRESTAMO_OTORGADO"?-input.montoMinor:0;
    if(delta){
     const actualizada=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true,...(delta<0?{saldoMinor:{$gte:-delta}}:{})},{$inc:{saldoMinor:delta}},{new:true,session});
-    if(!actualizada)throw Object.assign(new Error("Saldo insuficiente en "+nombreCuenta),{statusCode:409});
+    if(!actualizada){
+     const esEfectivoHistorico=input.tipo==="GASTO"&&nombreCuenta.toUpperCase()==="EFECTIVO"&&input.medioPago==="EFECTIVO"&&input.fecha&&new Date(input.fecha).getTime()<=Date.now();
+     if(!esEfectivoHistorico)throw Object.assign(new Error("Saldo insuficiente en "+nombreCuenta),{statusCode:409});
+     const pendiente=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true},{$inc:{saldoMinor:delta},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{new:true,session});
+     if(!pendiente)throw Object.assign(new Error("No se pudo reconciliar el efectivo"),{statusCode:409});
+    }
    }
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
  }finally{await session.endSession();}
