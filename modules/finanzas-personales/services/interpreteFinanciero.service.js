@@ -51,8 +51,13 @@ function cuentaPorCobrar(t){
  if(!/\b(?:me debe|me deben|me qued[oó] debiendo|me va a pagar|me van a pagar|por cobrar)\b/i.test(texto))return null;
  const m=monto(texto);if(!m)return null;
  let contraparte="Por identificar";
- const p=texto.match(/^(?:a\s+)?([A-ZÁÉÍÓÚÑ][\p{L}ÁÉÍÓÚÑáéíóúñ]+)(?:\s+[A-ZÁÉÍÓÚÑ][\p{L}ÁÉÍÓÚÑáéíóúñ]+)?\s+me\s+debe/iu)||texto.match(/\b([A-ZÁÉÍÓÚÑ][\p{L}ÁÉÍÓÚÑáéíóúñ]+)\s+me\s+debe/iu);
- if(p)contraparte=p[1];
+ const patrones=[
+  /(?:^|[.!?;]\\s*)(?:a\\s+)?([\\p{L}]+(?:\\s+[\\p{L}]+){0,3})\\s+me\\s+(?:debe|qued[oó]\\s+debiendo)\\b/iu,
+  /\\b(?:me\\s+debe|me\\s+qued[oó]\\s+debiendo)\\s+([\\p{L}]+(?:\\s+[\\p{L}]+){0,3}?)(?=\\s+(?:\\d|un\\b|una\\b|\\$|porque\\b|por\\b|desde\\b|y\\b)|[,.!?;]|$)/iu,
+  /\\b(?:le\\s+prest[eé]|le\\s+fi[eé])\\s+(?:a\\s+)?([\\p{L}]+(?:\\s+[\\p{L}]+){0,3})\\b/iu
+ ];
+ for(const patron of patrones){const match=texto.match(patron);if(match){const candidato=match[1].trim();if(!/^(?:dinero|plata|pesos|mil|millones|alguien)$/i.test(candidato)){contraparte=candidato;break;}}}
+ if(contraparte==="Por identificar")return{tipo:"CUENTA_POR_COBRAR",montoMinor:m,concepto:"Dinero por cobrar",categoria:"Cuenta por cobrar",contraparte,fecha:hoy(),estado:"REQUIERE_REVISION",confianza:50,razonRevision:"Falta identificar el nombre de quien debe el dinero."};
  const dm=texto.match(/(?:me\s+paga|me\s+pagan|paga|pagan)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})/i);
  const dia=dm?Number(dm[1]):null;let fechaVencimiento;
  if(dia&&dia>=1&&dia<=31){const b=hoy();let y=b.getFullYear(),mo=b.getMonth();if(b.getDate()>dia){mo++;if(mo>11){mo=0;y++;}}fechaVencimiento=new Date(y,mo,Math.min(dia,new Date(y,mo+1,0).getDate()),12,0,0,0);}
