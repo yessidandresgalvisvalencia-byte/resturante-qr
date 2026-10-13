@@ -6,8 +6,12 @@ const Sede = require("../models/sede");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
 const { registrarVentaDesdePedido, emitirVentaCompletada } = require("./ventas.service");
 const { validarPedidosIntento } = require("./gruk/validarPedidosIntento");
+const { registrarVentaEnOutbox } = require("./gruk/registrarVentaEnOutbox");
 
-async function confirmarPagoPedidoWompi({ transaction, io = null }) {
+async function confirmarPagoPedidoWompi({ transaction, io = null, outboxWriter = null }) {
+  if (outboxWriter !== null && typeof outboxWriter !== "function") {
+    throw new Error("OUTBOX_WRITER_INVALIDO");
+  }
   const reference = String(transaction?.reference || "");
   if (!reference.startsWith("GRUK_PEDIDO_")) return { handled: false };
 
@@ -147,7 +151,13 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
         pedido.metodoPago = "tarjeta";
         await pedido.save({ session });
         pedidosPostCommit.push(pedido);
-        if (resultado.creada) ventasPostCommit.push(resultado.venta);
+        if (resultado.creada) {
+          if (outboxWriter) {
+            await registrarVentaEnOutbox({ venta: resultado.venta, session, registrarEventoEnTransaccion: outboxWriter });
+          } else {
+            ventasPostCommit.push(resultado.venta);
+          }
+        }
       }
 
       lockedIntento.estado = "APROBADO";
