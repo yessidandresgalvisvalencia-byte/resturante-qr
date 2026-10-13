@@ -51,6 +51,7 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
    const pagos=await Transaccion.find({usuarioId,prestamoId:prestamo._id,estado:"ACTIVA",tipo:{$in:["COBRO_PRESTAMO","INGRESO","PAGO_DEUDA"]}}).session(session).lean();
    const abonadoRegistrado=pagos.reduce((s,p)=>s+p.montoMinor,0);
    if(!Number.isSafeInteger(abonadoRegistrado))throw Object.assign(new Error("Abonos fuera de rango"),{statusCode:422});
+   const principalAnteriorMinor=prestamo.principalMinor;
    const principal=Object.prototype.hasOwnProperty.call(cambios,"principalMinor")?cambios.principalMinor:prestamo.principalMinor;
    if(principal!==prestamo.principalMinor){
     const abonadoInferido=prestamo.principalMinor-prestamo.saldoMinor;
@@ -68,7 +69,7 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
     if(Object.prototype.hasOwnProperty.call(cambios,campo))prestamo[campo]=cambios[campo];
    }
    await prestamo.save({session});
-   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"PRESTAMO_PERSONAL_CORREGIDO",aggregateType:"PRESTAMO_PERSONAL",aggregateId:prestamo._id,payload:{prestamoId:String(prestamo._id),campos:Object.keys(cambios),pagosRegistrados:pagos.length,principalAnteriorMinor:principal===prestamo.principalMinor?undefined:null,principalNuevoMinor:prestamo.principalMinor,saldoMinor:prestamo.saldoMinor,estado:prestamo.estado}}],{session});
+   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"PRESTAMO_PERSONAL_CORREGIDO",aggregateType:"PRESTAMO_PERSONAL",aggregateId:prestamo._id,payload:{prestamoId:String(prestamo._id),campos:Object.keys(cambios),pagosRegistrados:pagos.length,principalAnteriorMinor,principalNuevoMinor:prestamo.principalMinor,saldoMinor:prestamo.saldoMinor,estado:prestamo.estado}}],{session});
    resultado=prestamo.toObject();
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
   return resultado;
