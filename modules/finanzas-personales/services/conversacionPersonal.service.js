@@ -18,6 +18,7 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const t=normalizar(texto);
  if(/(?:zapatos|tenis|calzado)/i.test(t)&&/(?:quiero|comprar|cuotas|financiar|inter[eé]s)/i.test(t)){await ContextoConversacional.findOneAndUpdate({usuarioId},{$set:{ultimaCompraPlanificada:{concepto:"zapatos",descripcion:t.slice(0,500),creadoEn:new Date()},asOf:new Date()}},{upsert:true,setDefaultsOnInsert:true});}
  const historialReciente=await TurnoConversacional.find({usuarioId}).sort({createdAt:-1}).limit(5).select("mensaje clase createdAt").lean();
+ if(/^(?:de qu[eé] est[aá]bamos hablando|qu[eé] te dije antes)[?.! ]*$/i.test(t)){const anterior=historialReciente[0];return{clase:"PREGUNTA",requiereAprobacion:false,mensaje:anterior?"Tu último mensaje fue: «"+anterior.mensaje.slice(0,250)+"». ¿Quieres retomar ese tema?":"Aún no hay mensajes anteriores guardados para esta cuenta.",analisis:{soloLectura:true}};}
  const contexto=await ContextoConversacional.findOne({usuarioId}).select("ultimaCompraPlanificada").lean();
  const compra=contexto?.ultimaCompraPlanificada&&Date.now()-new Date(contexto.ultimaCompraPlanificada.creadoEn).getTime()<7*86400000?contexto.ultimaCompraPlanificada:null;
  const terminosCompra=String(compra?.descripcion||"");
