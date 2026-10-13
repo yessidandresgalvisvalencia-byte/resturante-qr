@@ -14,10 +14,11 @@ test("Wompi: la escritura Outbox se espera dentro de withTransaction", () => {
 });
 
 test("Wompi: modo Outbox no publica en paralelo el evento legacy", () => {
-  assert.match(source, /if \(outboxWriter\) \{[\s\S]*?await registrarVentaEnOutbox\([\s\S]*?\} else \{\s*ventasPostCommit\.push/);
+  assert.match(source, /if \(writer\) \{[\s\S]*?await registrarVentaEnOutbox\([\s\S]*?\} else \{\s*ventasPostCommit\.push/);
 });
 
 test("Wompi: la integración es opcional y no enciende el worker experimental", () => {
   assert.match(source, /outboxWriter = null/);
+  assert.match(source, /resolverOutboxWompi\(\{ env, registrarEventoEnTransaccion: outboxWriter \}\)/);
   assert.doesNotMatch(source, /require\(["']\.\/p0\/outbox\.service/);
 });
