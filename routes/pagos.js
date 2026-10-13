@@ -3,6 +3,7 @@ const express = require("express");
 const crypto = require("crypto");
 const Pedido = require("../models/pedido");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
+const { validarPedidosIntento } = require("../services/gruk/validarPedidosIntento");
 
 const router = express.Router();
 
@@ -28,6 +29,8 @@ router.post("/crear-pago", async (req, res) => {
     }).select("_id precio").sort({ createdAt: 1 }).lean();
 
     if (!pedidos.length) return res.status(409).json({ ok: false, error: "No hay pedidos pendientes de pago" });
+
+    validarPedidosIntento(pedidos.map(p => p._id));
 
     const amountInCents = pedidos.reduce((sum, p) => sum + Math.round(Number(p.precio) * 100), 0);
     if (!Number.isSafeInteger(amountInCents) || amountInCents <= 0) {
