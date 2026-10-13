@@ -5,6 +5,7 @@ const Restaurante = require("../models/restaurante");
 const Sede = require("../models/sede");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
 const { registrarVentaDesdePedido, emitirVentaCompletada } = require("./ventas.service");
+const { validarPedidosIntento } = require("./gruk/validarPedidosIntento");
 
 async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const reference = String(transaction?.reference || "");
@@ -108,6 +109,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
         .select("_id empresaId").session(session).lean();
       if (!restaurante?.empresaId) throw new Error("RESTAURANTE_SIN_EMPRESA");
 
+      validarPedidosIntento(lockedIntento.pedidoIds);
       const pedidos = await Pedido.find({
         _id: { $in: lockedIntento.pedidoIds },
         restaurantId: lockedIntento.restaurantId
