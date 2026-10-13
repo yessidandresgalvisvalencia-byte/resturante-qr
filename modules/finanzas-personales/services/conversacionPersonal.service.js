@@ -19,6 +19,8 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const contexto=await ContextoConversacional.findOne({usuarioId}).select("ultimaCompraPlanificada").lean();
  const compra=contexto?.ultimaCompraPlanificada;
  const terminosCompra=String(compra?.descripcion||"");
+ const tasaCompra=terminosCompra.match(/(\d+(?:[.,]\d+)?)\s*%/);
+ const numeroCuotas=/\b(?:dos|2)\s*cuotas\b/i.test(terminosCompra)?2:null;
  const respuestaPrecio=t.match(/^(?:valen|cuestan|cuesta|vale|son)?\s*\$?\s*(\d+(?:[.,]\d{3})*)(?:\s*(mil))?\s*(?:pesos)?$/i);
  if(compra&&/(?:no quiero afectar|mis obligaciones|me alcanza|puedo pagarlos)/i.test(t))return{clase:"INTENCION",requiereAprobacion:false,mensaje:"Tu prioridad es proteger tus obligaciones. No voy a recomendar financiar esta compra sin verificar cuánto dinero queda libre después de tus pagos esenciales y cuándo vence la primera cuota. ¿Qué fecha tendría el primer pago? No he registrado ninguna deuda.",analisis:{soloLectura:true}};
  if(compra&&respuestaPrecio){const precio=Number(respuestaPrecio[1].replace(/[.,]/g,""))*(respuestaPrecio[2]?1000:1);if(Number.isSafeInteger(precio)&&precio>0){return{clase:"INTENCION",requiereAprobacion:false,mensaje:"Entendido, el precio de la compra que estamos evaluando es "+new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(precio)+". No voy a registrar una deuda. Para calcular las cuotas necesito verificar cómo se aplica el interés que mencionaste.",analisis:{soloLectura:true,precioMinor:precio*100}};}}
