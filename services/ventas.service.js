@@ -25,6 +25,15 @@ async function registrarVentaDesdePedido({
     );
   }
 
+  // Una transacción abierta no autoriza publicación de eventos.
+  // El llamador debe pasar emitirEvento:false y publicar SOLO tras commit.
+  // Para garantía durable entre reinicios se requiere Outbox transaccional.
+  if (session && emitirEvento) {
+    throw new Error(
+      "GRUK Ventas: evento transaccional prohibido antes de commit; use emitirEvento:false y publique después del commit"
+    );
+  }
+
   try {
     if (!pedido.productoServicioId) {
       throw new Error(
