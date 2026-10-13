@@ -26,15 +26,28 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   if (intento.estado === "APROBADO") {
     return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
   }
-  intento.transactionId = String(transaction.id || "");
-  if (status === "PENDING") intento.estado = "PENDIENTE";
-  if (["DECLINED","ERROR","VOIDED"].includes(status)) {
-    intento.estado = "RECHAZADO";
-    intento.resueltoAt = new Date();
-  }
   if (status !== "APPROVED") {
-    await intento.save();
-    return { handled: true, ok: true, estado: intento.estado };
+    if (!["PENDING", "DECLINED", "ERROR", "VOIDED"].includes(status)) {
+      return { handled: true, ok: false, reason: "ESTADO_PROVEEDOR_INVALIDO" };
+    }
+    const estadoNuevo = status === "PENDING" ? "PENDIENTE" : "RECHAZADO";
+    const updated = await IntentoPagoPedido.findOneAndUpdate(
+      { reference, estado: { $ne: "APROBADO" } },
+      { $set: {
+        estado: estadoNuevo,
+        transactionId: String(transaction.id || ""),
+        ...(estadoNuevo === "RECHAZADO" ? { resueltoAt: new Date() } : {})
+      } },
+      { new: true }
+    );
+    if (!updated) {
+      const current = await IntentoPagoPedido.findOne({ reference });
+      if (current?.estado === "APROBADO") {
+        return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
+      }
+      return { handled: true, ok: false, reason: "INTENTO_NO_ENCONTRADO" };
+    }
+    return { handled: true, ok: true, estado: updated.estado };
   }
 
   if (intento.estado === "APROBADO") {
