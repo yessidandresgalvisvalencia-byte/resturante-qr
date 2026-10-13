@@ -20,6 +20,13 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
     return { handled: true, ok: false, reason: "INTEGRIDAD_ECONOMICA_INVALIDA" };
   }
 
+  const transactionId = String(transaction?.id || "").trim();
+  // La referencia, el importe y la moneda no identifican por sí solos
+  // un movimiento individual del proveedor de pagos.
+  if (!transactionId || (intento.transactionId && intento.transactionId !== transactionId)) {
+    return { handled: true, ok: false, reason: "IDENTIDAD_TRANSACCION_INVALIDA" };
+  }
+
   const status = String(transaction.status || "").toUpperCase();
   // Un webhook tardío PENDING/DECLINED nunca revierte un pago ya aprobado.
   // La protección concurrente definitiva debe ser una escritura condicional ACID.
