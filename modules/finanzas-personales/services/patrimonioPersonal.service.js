@@ -10,18 +10,19 @@ async function crearPrestamo(usuarioId,data){const principal=safe(data.principal
 async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,externalId}){
  const monto=safe(montoMinor);
  if(monto===0)throw Object.assign(new Error("El pago debe ser mayor a cero"),{statusCode:400});
+ const externalIdHash=crypto.createHash("sha256").update(String(usuarioId)+":"+externalId).digest("hex");
  const session=await mongoose.startSession();
  try{
   let resultado;
   await session.withTransaction(async()=>{
-   const existente=await Transaccion.findOne({usuarioId,externalId,estado:{$ne:"ANULADA"}}).session(session);
+   const existente=await Transaccion.findOne({usuarioId,externalIdHash,estado:{$ne:"ANULADA"}}).session(session);
    if(existente){if(existente.tipo!=="COBRO_PRESTAMO"||String(existente.prestamoId)!==String(prestamoId)||existente.montoMinor!==monto)throw Object.assign(new Error("Referencia de pago ya utilizada"),{statusCode:409});resultado={transaccion:existente,duplicado:true};return;}
    const prestamo=await Prestamo.findOneAndUpdate({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});
    if(!prestamo)throw Object.assign(new Error("Cuenta por cobrar inexistente o saldo insuficiente"),{statusCode:409});
    if(prestamo.saldoMinor===0){prestamo.estado="PAGADO";await prestamo.save({session});}
    const cuenta=await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});
    if(!cuenta)throw Object.assign(new Error("Selecciona una cuenta de destino válida"),{statusCode:404});
-   const [tx]=await Transaccion.create([{usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO",montoMinor:monto,concepto:"Cobro: "+prestamo.concepto,categoria:"Cuentas por cobrar",contraparte:prestamo.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,medioPago:"TRANSFERENCIA",fecha:new Date(),origen:"MANUAL",externalId}],{session});
+   const [tx]=await Transaccion.create([{usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO",montoMinor:monto,concepto:"Cobro: "+prestamo.concepto,categoria:"Cuentas por cobrar",contraparte:prestamo.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,medioPago:"TRANSFERENCIA",fecha:new Date(),origen:"MANUAL",externalIdHash}],{session});
    await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(prestamo._id),tipo:"COBRO_PRESTAMO",montoMinor:monto}}],{session});
    resultado={prestamo,transaccion:tx,duplicado:false};
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
