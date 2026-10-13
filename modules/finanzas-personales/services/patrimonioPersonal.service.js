@@ -10,7 +10,7 @@ async function crearPrestamo(usuarioId,data){const principal=safe(data.principal
 async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,externalId}){
  const monto=safe(montoMinor);
  if(monto===0)throw Object.assign(new Error("El pago debe ser mayor a cero"),{statusCode:400});
- const externalIdHash=crypto.createHash("sha256").update(String(usuarioId)+":"+externalId).digest("hex");
+ const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;if(!secret)throw new Error("PERSONAL_IDEMPOTENCY_SECRET requerido");const externalIdHash=crypto.createHmac("sha256",secret).update(String(usuarioId)).update(":").update(String(externalId)).digest("hex");
  const session=await mongoose.startSession();
  try{
   let resultado;
