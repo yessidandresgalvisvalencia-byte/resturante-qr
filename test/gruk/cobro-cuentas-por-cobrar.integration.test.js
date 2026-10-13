@@ -24,13 +24,20 @@ test("cobro parcial es atomico, idempotente y aislado por usuario (MongoDB repli
   const repetido=await patrimonio.cobrarCuentaPorCobrar(usuarioId,request);
   assert.equal(repetido.duplicado,true);
   await assert.rejects(()=>patrimonio.cobrarCuentaPorCobrar(otroUsuario,{...request,externalId:require("node:crypto").randomUUID()}));
+  const concurrentKey=require("node:crypto").randomUUID();
+  const concurrentRequests=await Promise.allSettled([
+   patrimonio.cobrarCuentaPorCobrar(usuarioId,{prestamoId:prestamo._id,montoMinor:50000,externalId:concurrentKey}),
+   patrimonio.cobrarCuentaPorCobrar(usuarioId,{prestamoId:prestamo._id,montoMinor:50000,externalId:concurrentKey})
+  ]);
+  assert.equal(concurrentRequests.filter(x=>x.status==="fulfilled").length>=1,true);
+  assert.equal(await Transaccion.countDocuments({usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO"}),2);
   const actualizado=await Prestamo.findById(prestamo._id);
-  assert.equal(actualizado.saldoMinor,300000);
-  assert.equal(await Transaccion.countDocuments({usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO"}),1);
+  assert.equal(actualizado.saldoMinor,250000);
+  assert.equal(await Transaccion.countDocuments({usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO"}),2);
   const cuenta=await Cuenta.findOne({usuarioId,nombre:"EFECTIVO"});
-  assert.equal(cuenta.saldoMinor,200000);
+  assert.equal(cuenta.saldoMinor,250000);
   const snap=await patrimonio.snapshot(usuarioId);
-  assert.equal(snap.cuentasPorCobrarMinor,300000);
+  assert.equal(snap.cuentasPorCobrarMinor,250000);
  }finally{
   await Promise.all([Prestamo.deleteMany({usuarioId,contraparte}),Transaccion.deleteMany({usuarioId,contraparte}),Cuenta.deleteMany({usuarioId,nombre:"EFECTIVO"})]);
   await mongoose.disconnect();
