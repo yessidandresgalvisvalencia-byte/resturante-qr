@@ -65,6 +65,9 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
       if (current?.estado === "APROBADO") {
         return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
       }
+      if (estadoNuevo === "PENDIENTE" && current?.estado === "RECHAZADO") {
+        return { handled: true, ok: true, estado: "RECHAZADO", idempotent: true };
+      }
       return { handled: true, ok: false, reason: "INTENTO_NO_ENCONTRADO" };
     }
     return { handled: true, ok: true, estado: updated.estado };
