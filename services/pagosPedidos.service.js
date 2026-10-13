@@ -72,6 +72,20 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
       pedidosPostCommit.length = 0;
       const lockedIntento = await IntentoPagoPedido.findOne({ reference }).session(session);
       if (!lockedIntento) throw new Error("INTENTO_NO_ENCONTRADO");
+      // Revalidar bajo la misma snapshot transaccional usada para marcar la venta.
+      // La lectura previa al inicio de sesión no es garantía ante concurrencia.
+      if (
+        lockedIntento.transactionId &&
+        lockedIntento.transactionId !== transactionId
+      ) {
+        throw new Error("IDENTIDAD_TRANSACCION_INVALIDA");
+      }
+      if (
+        Number(lockedIntento.amountInCents) !== Number(transaction.amount_in_cents) ||
+        String(lockedIntento.currency).toUpperCase() !== String(transaction.currency || "").toUpperCase()
+      ) {
+        throw new Error("INTEGRIDAD_ECONOMICA_INVALIDA");
+      }
       if (lockedIntento.estado === "APROBADO") return;
 
       const restaurante = await Restaurante.findOne({ restaurantId: lockedIntento.restaurantId })
