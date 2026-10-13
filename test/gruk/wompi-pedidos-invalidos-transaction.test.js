@@ -43,7 +43,8 @@ for (const ids of [[], [oid, oid], ["invalid"]]) {
       },
       "./ventas.service": { async registrarVentaDesdePedido() { salesWritten++; } },
       "./gruk/validarPedidosIntento": require("../../services/gruk/validarPedidosIntento"),
-    "./gruk/registrarVentaEnOutbox": require("../../services/gruk/registrarVentaEnOutbox")
+    "./gruk/registrarVentaEnOutbox": require("../../services/gruk/registrarVentaEnOutbox"),
+    "./gruk/resolverOutboxWompi": require("../../services/gruk/resolverOutboxWompi")
     };
     const mod = { exports: {} };
     vm.runInNewContext(code, {
