@@ -22,8 +22,7 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
   const prev=await Transaccion.findOne({usuarioId,tipo:"INGRESO",estado:{$ne:"ANULADA"}}).sort({fecha:-1}).lean();
   if(!prev)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Ya entendí que recibes dinero el día "+dia+" de cada mes, pero todavía no tengo un ingreso registrado al cual asociar ese patrón. Registra el ingreso exacto una vez y desde ahí lo recordaré."};
   const base=new Date();let y=base.getFullYear(),m=base.getMonth();if(base.getDate()>=dia){m++;if(m>11){m=0;y++;}}const fecha=new Date(y,m,Math.min(dia,new Date(y,m+1,0).getDate()),12,0,0,0);
-  await Transaccion.updateOne({_id:prev._id,usuarioId},{$set:{recurrente:true,frecuencia:"MENSUAL"}}); await Calendario.findOneAndUpdate({usuarioId,tipo:"INGRESO",concepto:prev.concepto,activo:true},{$set:{montoMinor:prev.montoMinor,diaMes:dia,frecuencia:"MENSUAL",origen:"CONVERSACION",sourceId:prev._id}},{upsert:true,new:true,setDefaultsOnInsert:true});
-  return{clase:"CONFIGURACION",requiereAprobacion:false,mensaje:"Listo. Guardé que tu ingreso registrado es mensual y llega el día "+dia+". Tu próximo ingreso será el "+fecha.toLocaleDateString("es-CO",{timeZone:"America/Bogota"})+". Desde ahora GRUK usará ese patrón para calcular Disponible Hoy.",analisis:{diaIngreso:dia,proximoIngreso:fecha,montoMinor:prev.montoMinor}};
+  return{clase:"PROPUESTA_CONFIGURACION",requiereAprobacion:true,mensaje:"Identifiqué una posible programación de ingreso mensual el día "+dia+". No he cambiado tus movimientos ni el calendario. La programación requiere confirmación explícita.",analisis:{diaIngreso:dia,proximoIngreso:fecha,montoMinor:prev.montoMinor,estado:"PENDIENTE_CONFIRMACION"}};
  }
  const interpretacionDeterministica=interprete.interpretarSegmento(t);
  const esHechoContable=interpretacionDeterministica&&interpretacionDeterministica.estado==="LISTO"&&interpretacionDeterministica.tipo!=="POR_CLASIFICAR";
