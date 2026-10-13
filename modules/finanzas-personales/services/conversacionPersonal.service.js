@@ -26,7 +26,8 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
  }
  const interpretacionDeterministica=interprete.interpretarSegmento(t);
  const esHechoContable=interpretacionDeterministica&&interpretacionDeterministica.estado==="LISTO"&&interpretacionDeterministica.tipo!=="POR_CLASIFICAR";
- const clase=asesoria?"PREGUNTA":esHechoContable?"HECHO":clasificar(texto);
+ const consultaExplicita=/[?¿]/.test(t)||/^(?:cómo|como|cuánto|cuanto|qué|que|cuál|cual|por qué|por que|debería|deberia|puedo)\b/i.test(t);
+ const clase=(asesoria||consultaExplicita)?"PREGUNTA":esHechoContable?"HECHO":clasificar(texto);
  if(clase==="HECHO"){const borrador=await interprete.crearBorrador(usuarioId,{texto,canal});const incompletos=borrador.items.filter(x=>x.estado==="REQUIERE_REVISION"||!Number.isSafeInteger(x.montoMinor)||x.montoMinor<1);if(incompletos.length)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Me falta el monto exacto. Dime cuánto fue exactamente; sin ese número te estaría mintiendo.",borrador};return{clase,requiereAprobacion:true,mensaje:"Listo, ya te pillé. Detecté "+borrador.items.length+" movimiento(s) con monto exacto. Revísalos y aprueba antes de afectar tus finanzas.",borrador};}
  const estado=await home.obtener(usuarioId);
  if(clase==="INTENCION")return{clase,requiereAprobacion:false,mensaje:"Lo traté como una intención: no registré ningún gasto ni deuda.",analisis:{disponibleDespuesCompromisosMinor:estado.caja.disponibleDespuesCompromisosMinor,flujoMesMinor:estado.mes.flujoMinor,deudaTotalMinor:estado.patrimonio.deudaTotalMinor,proximaObligacion:estado.proximaObligacion,criterio:"GRUK preserva el ledger: una intención se simula y nunca se contabiliza sin confirmación explícita."}};
