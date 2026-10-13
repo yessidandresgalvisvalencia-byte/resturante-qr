@@ -39,7 +39,11 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
     }
     const estadoNuevo = status === "PENDING" ? "PENDIENTE" : "RECHAZADO";
     const updated = await IntentoPagoPedido.findOneAndUpdate(
-      { reference, estado: { $ne: "APROBADO" } },
+      {
+        reference,
+        estado: { $ne: "APROBADO" },
+        transactionId: { $in: ["", transactionId] }
+      },
       { $set: {
         estado: estadoNuevo,
         transactionId: String(transaction.id || ""),
@@ -49,6 +53,9 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
     );
     if (!updated) {
       const current = await IntentoPagoPedido.findOne({ reference });
+      if (current?.transactionId && current.transactionId !== transactionId) {
+        return { handled: true, ok: false, reason: "IDENTIDAD_TRANSACCION_INVALIDA" };
+      }
       if (current?.estado === "APROBADO") {
         return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
       }
