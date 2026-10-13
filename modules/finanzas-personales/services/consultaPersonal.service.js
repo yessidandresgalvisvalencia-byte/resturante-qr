@@ -32,6 +32,7 @@ async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim()
  }
  if(/(?:y si|y s[ií]|en vez de|mejor uso|ese dinero|esa plata|lo anterior)/.test(q)&&/(?:moto|deuda|pagar|abonar)/.test(q)){
   const deudaRef=await contexto.resolverDeuda(usuarioId,pregunta);
+  if(!deudaRef.deuda)return{tipo:"DEUDA_NO_IDENTIFICADA",respuesta:"Para comparar invertir con abonar necesito identificar la deuda correcta. Indícame su nombre o concepto; no voy a suponer cuál es.",datos:{requiereIdentificarDeuda:true}};
   if(deudaRef.deuda){
    const d=deudaRef.deuda,h=await home.obtener(usuarioId),a=h.asesor||{};
    const libre=a.saldoRealConocido?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
