@@ -7,11 +7,10 @@ const IntentoPagoPedido = require("../models/IntentoPagoPedido");
 const { registrarVentaDesdePedido, emitirVentaCompletada } = require("./ventas.service");
 const { validarPedidosIntento } = require("./gruk/validarPedidosIntento");
 const { registrarVentaEnOutbox } = require("./gruk/registrarVentaEnOutbox");
+const { resolverOutboxWompi } = require("./gruk/resolverOutboxWompi");
 
-async function confirmarPagoPedidoWompi({ transaction, io = null, outboxWriter = null }) {
-  if (outboxWriter !== null && typeof outboxWriter !== "function") {
-    throw new Error("OUTBOX_WRITER_INVALIDO");
-  }
+async function confirmarPagoPedidoWompi({ transaction, io = null, outboxWriter = null, env = process.env }) {
+  const writer = resolverOutboxWompi({ env, registrarEventoEnTransaccion: outboxWriter });
   const reference = String(transaction?.reference || "");
   if (!reference.startsWith("GRUK_PEDIDO_")) return { handled: false };
 
@@ -152,8 +151,8 @@ async function confirmarPagoPedidoWompi({ transaction, io = null, outboxWriter =
         await pedido.save({ session });
         pedidosPostCommit.push(pedido);
         if (resultado.creada) {
-          if (outboxWriter) {
-            await registrarVentaEnOutbox({ venta: resultado.venta, session, registrarEventoEnTransaccion: outboxWriter });
+          if (writer) {
+            await registrarVentaEnOutbox({ venta: resultado.venta, session, registrarEventoEnTransaccion: writer });
           } else {
             ventasPostCommit.push(resultado.venta);
           }
