@@ -29,8 +29,8 @@ test("cobro parcial es atomico, idempotente y aislado por usuario (MongoDB repli
    patrimonio.cobrarCuentaPorCobrar(usuarioId,{prestamoId:prestamo._id,montoMinor:50000,externalId:concurrentKey}),
    patrimonio.cobrarCuentaPorCobrar(usuarioId,{prestamoId:prestamo._id,montoMinor:50000,externalId:concurrentKey})
   ]);
-  assert.equal(concurrentRequests.filter(x=>x.status==="fulfilled").length>=1,true);
-  assert.equal(await Transaccion.countDocuments({usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO"}),2);
+  assert.ok(concurrentRequests.some(x=>x.status==="fulfilled"),"Al menos un cobro concurrente debe completarse");
+  for(const result of concurrentRequests){if(result.status==="rejected")assert.ok(result.reason?.code===11000||result.reason?.hasErrorLabel?.("TransientTransactionError")||result.reason?.statusCode===409,"Solo se admiten conflictos de concurrencia esperados");}
   const actualizado=await Prestamo.findById(prestamo._id);
   assert.equal(actualizado.saldoMinor,250000);
   assert.equal(await Transaccion.countDocuments({usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO"}),2);
