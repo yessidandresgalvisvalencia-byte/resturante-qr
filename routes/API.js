@@ -14,6 +14,7 @@ const {
 const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service");
+const { registrarEventoEnTransaccion } = require("../services/p0/outbox.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
 const { revocarIdentidad } = require("../core/auth/sessionRevocation.service");
@@ -2900,7 +2901,11 @@ router.post("/wompi/webhook", async (req, res) => {
 
     const reference = String(transaction.reference || "");
     if (reference.startsWith("GRUK_PEDIDO_")) {
-      const resultadoPedido = await confirmarPagoPedidoWompi({ transaction, io: req.app.get("io") });
+      const resultadoPedido = await confirmarPagoPedidoWompi({
+        transaction,
+        io: req.app.get("io"),
+        outboxWriter: registrarEventoEnTransaccion
+      });
       if (!resultadoPedido.ok) console.error("[PAGOS] Evento de pedido no aplicado", resultadoPedido);
       return res.status(200).json({ ok: true });
     }
