@@ -29,4 +29,10 @@ router.post("/gmail/desconectar",auth,entitlement,async(req,res)=>{
  try{return res.json({ok:true,desconectado:await conexion.desconectar(req.personalAuth.userId)});}
  catch(e){console.error("[GMAIL_DISCONNECT]",e.message);return res.status(500).json({ok:false,error:"No fue posible desconectar Gmail"});}
 });
+router.post("/gmail/sincronizar",auth,entitlement,async(req,res)=>{
+ try{
+  const resultado=await require("./services/gmailSyncPersonal.service").sincronizar(req.personalAuth.userId);
+  return res.json({ok:true,resultado});
+ }catch(e){console.error("[GMAIL_SYNC]",e.message);return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible sincronizar Gmail"});}
+});
 module.exports=router;
