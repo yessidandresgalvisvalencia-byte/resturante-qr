@@ -3,6 +3,7 @@ const {renovar}=require("./gmailTokenRefreshPersonal.service");
 const {interpretarAviso}=require("./gmailAvisoPersonal.parser");
 const {registrarMovimiento}=require("./financialIngestion.service");
 const Conexion=require("../models/conexionExternaPersonal.model");
+const {remitenteVerificado}=require("./gmailSenderPolicyPersonal.service");
 function decode(value){
  if(typeof value!=="string"||value.length>120000)return"";
  try{return Buffer.from(value.replace(/-/g,"+").replace(/_/g,"/"),"base64").toString("utf8");}catch(_){return"";}
@@ -22,10 +23,11 @@ async function sincronizar(usuarioId,{fetchImpl=fetch,limite=25}={}){
   if(typeof item.id!=="string"||!/^[a-zA-Z0-9_-]{1,128}$/.test(item.id))continue;
   const msg=await gmailGet("messages/"+encodeURIComponent(item.id)+"?format=full",token,fetchImpl);
   const headers=headersMap(msg.payload&&msg.payload.headers);
+  resultados.revisados++;
+  if(!remitenteVerificado(headers)){resultados.omitidos++;continue;}
   const parts=[msg.payload?.body?.data,...(msg.payload?.parts||[]).filter(p=>p.mimeType==="text/plain").map(p=>p.body?.data)];
   const texto=parts.map(decode).join("\n").slice(0,10000);
   const resultado=interpretarAviso({messageId:item.id,from:headers.from||"",subject:headers.subject||"",text:texto,date:headers.date||new Date(Number(msg.internalDate||0)).toISOString(),cuentaFuente:"GMAIL_NOTIFICACIONES"});
-  resultados.revisados++;
   if(!resultado.aceptado){resultados.omitidos++;continue;}
   const registrado=await registrarMovimiento(usuarioId,resultado.movimiento);
   if(registrado.duplicado)resultados.duplicados++;else resultados.detectados++;
