@@ -5,6 +5,7 @@ const home=require("./homePersonal.service");
 const Transaccion=require("../models/TransaccionPersonal");
 const Calendario=require("../models/calendarioFinanciero.model");
 const ContextoConversacional=require("../models/contextoConversacionalPersonal.model");
+const TurnoConversacional=require("../models/turnoConversacionalPersonal.model");
 function normalizar(s){return String(s||"").trim();}
 function clasificar(texto){
  const t=normalizar(texto).toLowerCase();
