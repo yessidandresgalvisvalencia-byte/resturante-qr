@@ -1,0 +1,39 @@
+"use strict";
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const mongoose=require("mongoose");
+const Prestamo=require("../../modules/finanzas-personales/models/prestamoPersonal.model");
+const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
+const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
+const patrimonio=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+
+test("cobro parcial es atomico, idempotente y aislado por usuario (MongoDB replica set)",async t=>{
+ const uri=process.env.GRUK_TEST_MONGODB_URI;
+ if(!uri){t.skip("Configurar GRUK_TEST_MONGODB_URI de replica set aislado");return;}
+ const originalSecret=process.env.PERSONAL_IDEMPOTENCY_SECRET;
+ process.env.PERSONAL_IDEMPOTENCY_SECRET=originalSecret||"test-only-secret-not-for-production";
+ await mongoose.connect(uri,{serverSelectionTimeoutMS:8000});
+ const usuarioId=new mongoose.Types.ObjectId(),otroUsuario=new mongoose.Types.ObjectId();
+ const contraparte="test-cobro-"+new mongoose.Types.ObjectId().toString();
+ try{
+  await Promise.all([Prestamo.init(),Transaccion.init(),Cuenta.init()]);
+  const prestamo=await Prestamo.create({usuarioId,direccion:"POR_COBRAR",origenCuentaPorCobrar:"TRABAJO",contraparte,concepto:"Servicio profesional",principalMinor:500000,saldoMinor:500000,fechaInicio:new Date()});
+  const request={prestamoId:prestamo._id,montoMinor:200000,externalId:require("node:crypto").randomUUID()};
+  const primer=await patrimonio.cobrarCuentaPorCobrar(usuarioId,request);
+  assert.equal(primer.duplicado,false);
+  const repetido=await patrimonio.cobrarCuentaPorCobrar(usuarioId,request);
+  assert.equal(repetido.duplicado,true);
+  await assert.rejects(()=>patrimonio.cobrarCuentaPorCobrar(otroUsuario,{...request,externalId:require("node:crypto").randomUUID()}));
+  const actualizado=await Prestamo.findById(prestamo._id);
+  assert.equal(actualizado.saldoMinor,300000);
+  assert.equal(await Transaccion.countDocuments({usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO"}),1);
+  const cuenta=await Cuenta.findOne({usuarioId,nombre:"EFECTIVO"});
+  assert.equal(cuenta.saldoMinor,200000);
+  const snap=await patrimonio.snapshot(usuarioId);
+  assert.equal(snap.cuentasPorCobrarMinor,300000);
+ }finally{
+  await Promise.all([Prestamo.deleteMany({usuarioId,contraparte}),Transaccion.deleteMany({usuarioId,contraparte}),Cuenta.deleteMany({usuarioId,nombre:"EFECTIVO"})]);
+  await mongoose.disconnect();
+  if(originalSecret===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
+ }
+});
