@@ -2,7 +2,7 @@
 const crypto=require("node:crypto");
 const mongoose=require("mongoose");
 const Movimiento=require("../models/movimientoFuentePersonal.model");
-const Outbox=require("../models/outboxPersonal.model");
+
 const FUENTES=new Set(["GMAIL","BANCO_API","EXTRACTO","ANDROID"]);
 function error(mensaje,statusCode=400){return Object.assign(new Error(mensaje),{statusCode});}
 function validar(d){
@@ -31,7 +31,7 @@ async function registrarMovimiento(usuarioId,d){
     const previo=await Movimiento.findOne({usuarioId,fuente:d.fuente,cuentaFuente:d.cuentaFuente,referenciaHash}).session(session);
     if(previo){if(previo.montoMinor!==d.montoMinor||previo.direccion!==d.direccion||previo.fechaMovimiento.getTime()!==fecha.getTime())throw error("Referencia financiera conflictiva",409);movimiento=previo;duplicado=true;return;}
     [movimiento]=await Movimiento.create([{usuarioId,fuente:d.fuente,cuentaFuente:d.cuentaFuente,referenciaHash,fechaMovimiento:fecha,montoMinor:d.montoMinor,direccion:d.direccion,moneda:"COP",contraparte:d.contraparte||"",descripcion:d.descripcion||"",evidencia:d.evidencia,estado:"DETECTADO"}],{session});
-    await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_FINANCIERO_DETECTADO",aggregateType:"MOVIMIENTO_FUENTE_PERSONAL",aggregateId:movimiento._id,payload:{movimientoId:String(movimiento._id),fuente:d.fuente,evidencia:d.evidencia}}],{session});
+
    },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
   }catch(e){
    if(e.code!==11000)throw e;
