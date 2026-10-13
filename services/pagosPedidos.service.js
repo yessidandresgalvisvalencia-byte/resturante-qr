@@ -21,6 +21,11 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   }
 
   const status = String(transaction.status || "").toUpperCase();
+  // Un webhook tardío PENDING/DECLINED nunca revierte un pago ya aprobado.
+  // La protección concurrente definitiva debe ser una escritura condicional ACID.
+  if (intento.estado === "APROBADO") {
+    return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
+  }
   intento.transactionId = String(transaction.id || "");
   if (status === "PENDING") intento.estado = "PENDIENTE";
   if (["DECLINED","ERROR","VOIDED"].includes(status)) {
