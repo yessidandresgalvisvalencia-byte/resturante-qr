@@ -14,7 +14,8 @@ function clasificar(texto){
 }
 async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const t=normalizar(texto);
- const patronIngreso=t.match(/(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})\s+(?:de\s+)?cada\s+mes|(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)\s+(?:cada\s+mes\s+)?(?:el\s+)?(?:d[ií]a\s+)?(\d{1,2})/i);
+ const asesoria=/\\b(mejor manera|mejor forma|me conviene|qu[eé] recomiendas|recomiendas|aconsejas|estrategia|plan de pago|c[oó]mo deber[ií]a|qu[eé] hago|ay[uú]dame a decidir)\\b/i.test(t);
+ const patronIngreso=asesoria?null:t.match(/(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})\s+(?:de\s+)?cada\s+mes|(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)\s+(?:cada\s+mes\s+)?(?:el\s+)?(?:d[ií]a\s+)?(\d{1,2})/i);
  if(patronIngreso){
   const dia=Number(patronIngreso[1]||patronIngreso[2]);if(dia<1||dia>31)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Ese día del mes no es válido."};
   const prev=await Transaccion.findOne({usuarioId,tipo:"INGRESO",estado:{$ne:"ANULADA"}}).sort({fecha:-1}).lean();
@@ -25,7 +26,7 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
  }
  const interpretacionDeterministica=interprete.interpretarSegmento(t);
  const esHechoContable=interpretacionDeterministica&&interpretacionDeterministica.estado==="LISTO"&&interpretacionDeterministica.tipo!=="POR_CLASIFICAR";
- const clase=esHechoContable?"HECHO":clasificar(texto);
+ const clase=asesoria?"PREGUNTA":esHechoContable?"HECHO":clasificar(texto);
  if(clase==="HECHO"){const borrador=await interprete.crearBorrador(usuarioId,{texto,canal});const incompletos=borrador.items.filter(x=>x.estado==="REQUIERE_REVISION"||!Number.isSafeInteger(x.montoMinor)||x.montoMinor<1);if(incompletos.length)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Me falta el monto exacto. Dime cuánto fue exactamente; sin ese número te estaría mintiendo.",borrador};return{clase,requiereAprobacion:true,mensaje:"Listo, ya te pillé. Detecté "+borrador.items.length+" movimiento(s) con monto exacto. Revísalos y aprueba antes de afectar tus finanzas.",borrador};}
  const estado=await home.obtener(usuarioId);
  if(clase==="INTENCION")return{clase,requiereAprobacion:false,mensaje:"Lo traté como una intención: no registré ningún gasto ni deuda.",analisis:{disponibleDespuesCompromisosMinor:estado.caja.disponibleDespuesCompromisosMinor,flujoMesMinor:estado.mes.flujoMinor,deudaTotalMinor:estado.patrimonio.deudaTotalMinor,proximaObligacion:estado.proximaObligacion,criterio:"GRUK preserva el ledger: una intención se simula y nunca se contabiliza sin confirmación explícita."}};
