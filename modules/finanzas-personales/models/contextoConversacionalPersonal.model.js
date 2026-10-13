@@ -7,6 +7,7 @@ const schema=new mongoose.Schema({
  etiqueta:{type:String,trim:true,maxlength:160,default:""},
  ultimaIntencion:{type:String,trim:true,maxlength:80,default:""},
  ultimaPregunta:{type:String,trim:true,maxlength:500,default:""},
+ ultimaCompraPlanificada:{type:mongoose.Schema.Types.Mixed,default:null},
  asOf:{type:Date,default:Date.now}
 },{timestamps:true,collection:"fin_contexto_conversacional_personal"});
 module.exports=mongoose.models.ContextoConversacionalPersonal||mongoose.model("ContextoConversacionalPersonal",schema);
