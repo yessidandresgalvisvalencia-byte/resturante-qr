@@ -21,7 +21,7 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
    if(!prestamo)throw Object.assign(new Error("Cuenta por cobrar inexistente o saldo insuficiente"),{statusCode:409});
    if(prestamo.saldoMinor===0){prestamo.estado="PAGADO";await prestamo.save({session});}
    let cuenta=cuentaId?await Cuenta.findOne({_id:cuentaId,usuarioId,activa:true}).session(session):await Cuenta.findOne({usuarioId,nombre:"EFECTIVO",activa:true}).session(session);
-   if(!cuenta&&!cuentaId){[cuenta]=await Cuenta.create([{usuarioId,nombre:"EFECTIVO",tipo:"EFECTIVO",moneda:"COP",saldoMinor:0,activa:true}],{session});}
+   if(!cuenta&&!cuentaId){cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:"EFECTIVO"},{$setOnInsert:{usuarioId,nombre:"EFECTIVO",tipo:"EFECTIVO",moneda:"COP",saldoMinor:0,activa:true}},{upsert:true,new:true,session,setDefaultsOnInsert:true});}
    if(!cuenta)throw Object.assign(new Error("Cuenta de destino inválida"),{statusCode:404});
    if(!Number.isSafeInteger(cuenta.saldoMinor+monto))throw Object.assign(new Error("El saldo de destino excede el rango monetario seguro"),{statusCode:422});
    cuenta=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});
