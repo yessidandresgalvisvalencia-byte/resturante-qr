@@ -22,6 +22,22 @@ router.post("/prestamos/reparar-moto",async(req,res)=>{const mongoose=require("m
 router.get("/prestamos",async(req,res)=>{const Prestamo=require("./models/prestamoPersonal.model");const prestamos=await Prestamo.find({usuarioId:req.personalAuth.userId}).sort({estado:1,fechaVencimiento:1,createdAt:-1}).lean();return res.json({ok:true,prestamos});});
 const prestamoSchema=Joi.object({origenCuentaPorCobrar:Joi.string().valid("PRESTAMO","TRABAJO","OTRO").default("PRESTAMO"),direccion:Joi.string().valid("POR_COBRAR","POR_PAGAR").required(),contraparte:Joi.string().trim().max(140).required(),concepto:Joi.string().trim().max(160).default("Préstamo"),principalMinor:Joi.number().integer().min(1).required(),tasaMensualPct:Joi.number().min(0).max(100),cuotaMinor:Joi.number().integer().min(0).default(0),fechaInicio:Joi.date().iso().required(),fechaVencimiento:Joi.date().iso().allow(null),cuentaId:Joi.string().hex().length(24).allow(null)});
 router.post("/prestamos",validate(prestamoSchema),async(req,res)=>{try{return res.status(201).json({ok:true,prestamo:await patrimonioPersonal.crearPrestamo(req.personalAuth.userId,req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+const editarPrestamoSchema=Joi.object({
+ contraparte:Joi.string().trim().min(1).max(140),
+ concepto:Joi.string().trim().min(1).max(160),
+ origenCuentaPorCobrar:Joi.string().valid("PRESTAMO","TRABAJO","OTRO"),
+ principalMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),
+ cuotaMinor:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
+ tasaMensualPct:Joi.number().min(0).max(100),
+ fechaVencimiento:Joi.date().iso().allow(null)
+}).min(1);
+router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
+ try{
+  if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
+  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,req.validated);
+  return res.json({ok:true,prestamo});
+ }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo corregir el préstamo"});}
+});
 const cobroSchema=Joi.object({montoMinor:Joi.number().integer().min(1).required(),cuentaId:Joi.string().hex().length(24).optional(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
 router.post("/prestamos/:id/cobros",validate(cobroSchema),async(req,res)=>{try{if(!/^[0-9a-fA-F]{24}$/.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});const resultado=await patrimonioPersonal.cobrarCuentaPorCobrar(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated});return res.status(resultado.duplicado?200:201).json({ok:true,...resultado});}catch(e){return res.status(e.statusCode|| (e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No se pudo registrar el cobro"});}});
 const transferenciaSchema=Joi.object({origenId:Joi.string().hex().length(24).required(),destinoId:Joi.string().hex().length(24).required(),montoMinor:Joi.number().integer().min(1).required()});
