@@ -29,6 +29,12 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
    resultado={prestamo,transaccion:tx,duplicado:false};
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
   return resultado;
+ }catch(error){
+  if(error.code===11000||error.hasErrorLabel?.("TransientTransactionError")){
+   const existing=await Transaccion.findOne({usuarioId,externalIdHash,estado:{$ne:"ANULADA"}});
+   if(existing){if(existing.tipo==="COBRO_PRESTAMO"&&String(existing.prestamoId)===String(prestamoId)&&existing.montoMinor===monto)return {transaccion:existing,duplicado:true};throw Object.assign(new Error("Referencia de pago ya utilizada"),{statusCode:409});}
+  }
+  throw error;
  }finally{await session.endSession();}
 }
 async function transferir(usuarioId,{origenId,destinoId,montoMinor}){const monto=safe(montoMinor);if(!monto)throw Object.assign(new Error("Monto debe ser mayor a cero"),{statusCode:400});if(String(origenId)===String(destinoId))throw Object.assign(new Error("Las cuentas deben ser diferentes"),{statusCode:400});const session=await mongoose.startSession();try{return await session.withTransaction(async()=>{const origen=await Cuenta.findOneAndUpdate({_id:origenId,usuarioId,activa:true,saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});if(!origen)throw Object.assign(new Error("Cuenta origen inválida o saldo insuficiente"),{statusCode:409});const destino=await Cuenta.findOneAndUpdate({_id:destinoId,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});if(!destino)throw Object.assign(new Error("Cuenta destino inválida"),{statusCode:404});return{origen,destino,montoMinor:monto};},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});}finally{await session.endSession()}}
