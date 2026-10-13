@@ -18,6 +18,18 @@ async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim()
   else recomendaciones.push("El disponible estimado es "+money(libre)+", pero no significa que todo deba invertirse o ahorrarse: confirma que tus próximos gastos estén cubiertos.");
   return{tipo:"ASESORIA_FINANCIERA_ABIERTA",respuesta:"Para "+tema+", te recomiendo este orden: "+recomendaciones.join(" ")+" Para afinar la estrategia, dime tu objetivo, plazo y cuánto riesgo aceptarías. No he ejecutado ninguna operación.",datos:{tema,disponibleConocido:conocido,disponibleMinor:libre,requiereAprobacion:false,orientacionGeneral:true}};
  }
+ if(/vivienda|hipoteca|arriendo|seguro|jubilacion|jubilación|pension|pensión|presupuesto/.test(q)&&/mejor|conviene|recomiendas|como|cómo|que|qué|deberia|debería|plan|estrategia/.test(q)){
+ const h=await home.obtener(usuarioId);
+ const a=h.asesor||{};
+ const libre=a.saldoRealConocido?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
+ const vivienda=/vivienda|hipoteca|arriendo/.test(q);
+ const seguro=/seguro/.test(q);
+ const retiro=/jubilacion|jubilación|pension|pensión/.test(q);
+ const tema=vivienda?"vivienda":seguro?"seguros":retiro?"jubilación":"presupuesto";
+ const criterio=vivienda?"Compara el costo total de comprar y arrendar, incluyendo intereses, seguros, impuestos, mantenimiento y liquidez.":seguro?"Compara cobertura, exclusiones, deducibles y prima según los riesgos que no puedes asumir.":retiro?"Define horizonte de retiro, ahorro periódico, inflación, comisiones y reglas pensionales aplicables.":"Prioriza obligaciones, gastos esenciales, emergencias y objetivos; adapta las proporciones a tus ingresos.";
+ const situacion=libre===null?"Todavía no conozco tu disponible real.":libre===0?"Actualmente no aparece dinero libre para nuevos compromisos.":"Tu disponible estimado después de compromisos es "+money(libre)+", sujeto a conciliación.";
+ return{tipo:"ASESORIA_PLANIFICACION",respuesta:"Para decidir sobre "+tema+": "+criterio+" "+situacion+" Si me indicas tu objetivo, plazo y valores, puedo comparar alternativas. No he registrado ni modificado operaciones.",datos:{tema,disponibleMinor:libre,orientacionGeneral:true}};
+ }
  const referenciaDeuda=await contexto.resolverDeuda(usuarioId,pregunta);
  if(referenciaDeuda.aplica){
   const d=referenciaDeuda.deuda;
