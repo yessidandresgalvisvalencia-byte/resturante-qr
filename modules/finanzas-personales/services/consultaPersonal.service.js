@@ -11,6 +11,19 @@ async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim()
   await contexto.recordar(usuarioId,{foco:"DEUDA",entidadId:d._id,etiqueta:d.concepto||d.contraparte||"Deuda",ultimaIntencion:"CONSULTAR_DEUDA",ultimaPregunta:pregunta});
   const cuota=Number(d.cuotaMinor||0),saldo=Number(d.saldoMinor||0),principal=Number(d.principalMinor||0),abonado=Math.max(0,principal-saldo);
   const partes=["Sobre "+(d.concepto||"esa deuda")+": te faltan "+money(saldo)+".","Monto original "+money(principal)+", abonado "+money(abonado)+(cuota>0?", cuota registrada "+money(cuota):"")+"."]; 
+  if(/(?:mejor manera|mejor forma|c[oó]mo (?:la|lo|puedo|deber[ií]a)? ?pagar|conviene|recomiendas|estrategia|plan de pago|qu[eé] hago)/.test(q)){
+   const h=await home.obtener(usuarioId),a=h.asesor||{};
+   const libre=a.saldoRealConocido?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
+   const meses=cuota>0?Math.ceil(saldo/cuota):null;
+   const opciones=[];
+   if(cuota>0)opciones.push("Mantener la cuota de "+money(cuota)+(meses?" requeriría aproximadamente "+meses+" pagos si no cambian el saldo ni las condiciones.":"") );
+   if(libre===null)opciones.push("No tengo un saldo disponible confiable para recomendar abonos extraordinarios.");
+   else if(libre>0)opciones.push("Podrías considerar un abono adicional de hasta "+money(Math.min(libre,saldo))+" únicamente si ese dinero no está comprometido y el acreedor lo aplica a capital.");
+   else opciones.push("No aparece dinero libre para abonos extraordinarios: protege primero tus gastos esenciales y cuotas próximas.");
+   const interes=Number(d.tasaMensualPct||0);
+   const recomendacion=interes===0?"Como la tasa registrada es 0%, adelantar pagos no ahorra intereses por sí solo. Prioriza cumplir la cuota sin quedarte sin efectivo.":"Si hay intereses, pide una liquidación actualizada y confirma cuánto ahorra un abono directo a capital antes de decidir.";
+   return{tipo:"ASESORIA_DEUDA_CONTEXTUAL",respuesta:"Para "+(d.concepto||"esta deuda")+", mi recomendación es: "+recomendacion+" Saldo pendiente: "+money(saldo)+". "+opciones.join(" ")+" Antes de modificar el plan, confirma fechas, penalidades y condiciones del acreedor. No he registrado ni programado ningún pago.",datos:{deuda:d,saldoMinor:saldo,cuotaMinor:cuota,mesesEstimados:meses,disponibleConocido:libre,opciones,requiereAprobacion:false}};
+  } 
   return{tipo:"DEUDA_CONTEXTUAL",respuesta:partes.join(" "),datos:{deuda:d,saldoMinor:saldo,principalMinor:principal,abonadoMinor:abonado,cuotaMinor:cuota,origenContexto:referenciaDeuda.origen}};
  }
  if(/(?:me deben|por cobrar|quien me debe|quién me debe|plata pendiente)/.test(q)){const cs=await Prestamo.find({usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).sort({fechaVencimiento:1}).lean();const total=cs.reduce((s,x)=>s+x.saldoMinor,0);return{tipo:"CUENTAS_POR_COBRAR",respuesta:cs.length?"Tienes "+money(total)+" pendientes por cobrar. Ese dinero no entra a Disponible Hoy hasta que realmente lo recibas.":"No tienes dinero pendiente por cobrar registrado.",datos:{cuentas:cs,totalMinor:total}};}
