@@ -22,7 +22,8 @@ function fixture({ existingId = "", inputId = "tx-001", state = "PENDIENTE" } = 
     "../models/restaurante": {},
     "../models/sede": {},
     "../models/IntentoPagoPedido": Model,
-    "./ventas.service": {}
+    "./ventas.service": {},
+    "./gruk/validarPedidosIntento": require("../../services/gruk/validarPedidosIntento")
   };
   const mod = { exports: {} };
   vm.runInNewContext(source, {
