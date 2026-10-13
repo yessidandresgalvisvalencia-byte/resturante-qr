@@ -14,7 +14,11 @@ function loadService({ initialState = "PENDIENTE", race = false } = {}) {
     async findOneAndUpdate(filter, update) {
       updateCalls++;
       assert.equal(filter.reference, "GRUK_PEDIDO_TEST");
-      assert.equal(filter.estado.$ne, "APROBADO");
+      if (update.$set.estado === "PENDIENTE") {
+        assert.equal(Array.from(filter.estado.$in).join(","), "CREADO,PENDIENTE");
+      } else {
+        assert.equal(filter.estado.$ne, "APROBADO");
+      }
       if (race) attempt.estado = "APROBADO";
       if (attempt.estado === "APROBADO") return null;
       Object.assign(attempt, update.$set);
@@ -68,5 +72,13 @@ test("Wompi: estado inesperado no modifica intento", async () => {
   const result = await f.call("UNKNOWN");
   assert.equal(result.ok, false);
   assert.equal(result.reason, "ESTADO_PROVEEDOR_INVALIDO");
+  assert.equal(f.updateCalls, 0);
+});
+
+test("Wompi: un PENDING atrasado no reabre un RECHAZADO", async () => {
+  const f = loadService({ initialState: "RECHAZADO" });
+  const result = await f.call("PENDING");
+  assert.equal(result.estado, "RECHAZADO");
+  assert.equal(result.idempotent, true);
   assert.equal(f.updateCalls, 0);
 });
