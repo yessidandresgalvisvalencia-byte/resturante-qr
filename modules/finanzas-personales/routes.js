@@ -27,7 +27,7 @@ router.get("/historial/buscar",async(req,res)=>{
   if(error)return res.status(400).json({ok:false,error:"Filtros inválidos"});
   if(f.desde&&f.hasta&&f.desde>f.hasta)return res.status(400).json({ok:false,error:"Rango de fechas inválido"});
   const Tx=require("./models/TransaccionPersonal"),Prestamo=require("./models/prestamoPersonal.model"),usuarioId=req.personalAuth.userId;
-  const patron=f.q?new RegExp(f.q.replace(/[.*+?^$\x7b\x7d()|[\]\\]/g,"\\router.get("/prestamos","),"i"):null;
+  const patron=f.q?new RegExp(f.q.split("").map(c=>".*+?^$"+"{}()|[]\\".includes(c)?"\\"+c:c).join(""),"i"):null;
   const textoTx=patron?{$or:[{concepto:patron},{categoria:patron},{contraparte:patron},{descripcion:patron}]}:{};
   const textoPrestamo=patron?{$or:[{concepto:patron},{contraparte:patron}]}:{};
   const txFilter={usuarioId,...textoTx},loanFilter={usuarioId,...textoPrestamo};
