@@ -24,7 +24,7 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
    if(!cuenta&&!cuentaId){[cuenta]=await Cuenta.create([{usuarioId,nombre:"EFECTIVO",tipo:"EFECTIVO",moneda:"COP",saldoMinor:0,activa:true}],{session});}
    if(!cuenta)throw Object.assign(new Error("Cuenta de destino inválida"),{statusCode:404});
    cuenta=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});
-   const [tx]=await Transaccion.create([{usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO",montoMinor:monto,concepto:"Cobro: "+prestamo.concepto,categoria:"Cuentas por cobrar",contraparte:prestamo.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,medioPago:"TRANSFERENCIA",fecha:new Date(),origen:"MANUAL",externalIdHash}],{session});
+   const [tx]=await Transaccion.create([{usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO",montoMinor:monto,concepto:("Cobro: "+prestamo.concepto).slice(0,140),categoria:"Cuentas por cobrar",contraparte:prestamo.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,medioPago:cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA",fecha:new Date(),origen:"MANUAL",externalIdHash}],{session});
    await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(prestamo._id),tipo:"COBRO_PRESTAMO",montoMinor:monto}}],{session});
    resultado={prestamo,transaccion:tx,duplicado:false};
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
