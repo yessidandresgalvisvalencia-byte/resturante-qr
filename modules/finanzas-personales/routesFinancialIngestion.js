@@ -19,7 +19,7 @@ router.get("/ingestion/pendientes",async(req,res)=>{
  try{return res.json({ok:true,movimientos:await ingestion.pendientes(req.personalAuth.userId)});}
  catch(e){console.error("[PERSONAL_INGESTION_LIST]",e);return res.status(500).json({ok:false,error:"No fue posible consultar movimientos"});}
 });
-router.post("/ingestion/movimientos",async(req,res)=>{
+router.post("/ingestion/movimientos",(_req,res)=>res.status(403).json({ok:false,error:"Ingestión directa deshabilitada hasta verificar la identidad del proveedor"}));\n/* INGESTION_PROVIDER_ONLY\nrouter.post("/ingestion/movimientos",async(req,res)=>{
  const {value,error}=schema.validate(req.body,{abortEarly:false,stripUnknown:true});
  if(error)return res.status(400).json({ok:false,error:"Datos inválidos"});
  try{
@@ -27,4 +27,4 @@ router.post("/ingestion/movimientos",async(req,res)=>{
   return res.status(resultado.duplicado?200:201).json({ok:true,duplicado:resultado.duplicado,movimiento:resultado.movimiento});
  }catch(e){if(!e.statusCode)console.error("[PERSONAL_INGESTION]",e);return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible registrar el movimiento"});}
 });
-module.exports=router;
+*/\nmodule.exports=router;
