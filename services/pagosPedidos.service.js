@@ -38,10 +38,16 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
       return { handled: true, ok: false, reason: "ESTADO_PROVEEDOR_INVALIDO" };
     }
     const estadoNuevo = status === "PENDING" ? "PENDIENTE" : "RECHAZADO";
+    // Una notificación PENDING fuera de orden no puede reabrir un rechazo.
+    if (estadoNuevo === "PENDIENTE" && intento.estado === "RECHAZADO") {
+      return { handled: true, ok: true, estado: "RECHAZADO", idempotent: true };
+    }
     const updated = await IntentoPagoPedido.findOneAndUpdate(
       {
         reference,
-        estado: { $ne: "APROBADO" },
+        estado: estadoNuevo === "PENDIENTE"
+          ? { $in: ["CREADO", "PENDIENTE"] }
+          : { $ne: "APROBADO" },
         transactionId: { $in: ["", transactionId] }
       },
       { $set: {
