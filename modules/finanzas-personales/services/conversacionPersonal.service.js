@@ -17,6 +17,7 @@ function clasificar(texto){
 async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const t=normalizar(texto);
  if(/(?:zapatos|tenis|calzado)/i.test(t)&&/(?:quiero|comprar|cuotas|financiar|inter[eé]s)/i.test(t)){await ContextoConversacional.findOneAndUpdate({usuarioId},{$set:{ultimaCompraPlanificada:{concepto:"zapatos",descripcion:t.slice(0,500),creadoEn:new Date()},asOf:new Date()}},{upsert:true,setDefaultsOnInsert:true});}
+ const historialReciente=await TurnoConversacional.find({usuarioId}).sort({createdAt:-1}).limit(5).select("mensaje clase createdAt").lean();
  const contexto=await ContextoConversacional.findOne({usuarioId}).select("ultimaCompraPlanificada").lean();
  const compra=contexto?.ultimaCompraPlanificada&&Date.now()-new Date(contexto.ultimaCompraPlanificada.creadoEn).getTime()<7*86400000?contexto.ultimaCompraPlanificada:null;
  const terminosCompra=String(compra?.descripcion||"");
