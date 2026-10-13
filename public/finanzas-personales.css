@@ -25,3 +25,14 @@
 .personalDeudas details.financeForm>summary{font-weight:700;font-size:20px;cursor:pointer;list-style-position:inside}
 .personalDeudas .financeFormBody{margin-top:20px;border-top:1px solid #303a46;padding-top:16px}
 @media(max-width:520px){.personalDeudas>.card{padding:16px}.personalDeudas .debtNumbers{grid-template-columns:1fr 1fr;gap:8px}.personalDeudas .debtNumbers strong{font-size:17px}.personalDeudas .debtActions{display:grid;grid-template-columns:1fr}.personalDeudas .debtTools{display:grid;grid-template-columns:1fr}.personalDeudas .debtHeading strong{font-size:18px}}
+
+.personalDeudas .historyFilters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin-top:16px}
+.personalDeudas .historyFilters .wide{grid-column:1/-1}
+.personalDeudas .historyControls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;grid-column:1/-1}
+.personalDeudas .historyControls button{min-height:44px}
+.personalDeudas .historyResults{display:grid;gap:10px}
+.personalDeudas .historyItem{display:flex;justify-content:space-between;align-items:center;gap:14px;border:1px solid #35404c;border-radius:12px;background:#0e1217;padding:14px;overflow-wrap:anywhere}
+.personalDeudas .historyItem>strong{white-space:nowrap}
+.personalDeudas .historyItem small{display:block;margin-top:8px}
+.personalDeudas #histMas{margin-top:16px}
+@media(max-width:520px){.personalDeudas .historyFilters{grid-template-columns:1fr}.personalDeudas .historyFilters .wide,.personalDeudas .historyControls{grid-column:auto}.personalDeudas .historyControls{display:grid;grid-template-columns:1fr}.personalDeudas .historyItem{align-items:flex-start}.personalDeudas .historyItem>strong{white-space:normal;text-align:right}}
