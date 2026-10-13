@@ -23,7 +23,8 @@ for (const status of ["PENDING", "DECLINED", "ERROR", "VOIDED", "APPROVED"]) {
       "../models/restaurante": {},
       "../models/sede": {},
       "../models/IntentoPagoPedido": { async findOne() { return intento; } },
-      "./ventas.service": {}
+      "./ventas.service": {},
+    "./gruk/validarPedidosIntento": require("../../services/gruk/validarPedidosIntento")
     };
     const mod = { exports: {} };
     vm.runInNewContext(source, {
