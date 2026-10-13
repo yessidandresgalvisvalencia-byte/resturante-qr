@@ -28,7 +28,7 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const interpretacionDeterministica=interprete.interpretarSegmento(t);
  const esHechoContable=interpretacionDeterministica&&interpretacionDeterministica.estado==="LISTO"&&interpretacionDeterministica.tipo!=="POR_CLASIFICAR";
  const consultaExplicita=/[?¿]/.test(t)||/^(?:cómo|como|cuánto|cuanto|qué|que|cuál|cual|por qué|por que|debería|deberia|puedo)\b/i.test(t);
- const clase=(asesoria||consultaExplicita)?"PREGUNTA":esHechoContable?"HECHO":clasificar(texto);
+ const clase=(asesoria||consultaExplicita)?"PREGUNTA":clasificar(texto)==="INTENCION"?"INTENCION":esHechoContable?"HECHO":clasificar(texto);
  if(clase==="HECHO"){const borrador=await interprete.crearBorrador(usuarioId,{texto,canal});const incompletos=borrador.items.filter(x=>x.estado==="REQUIERE_REVISION"||!Number.isSafeInteger(x.montoMinor)||x.montoMinor<1);if(incompletos.length)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Me falta el monto exacto. Dime cuánto fue exactamente; sin ese número te estaría mintiendo.",borrador};return{clase,requiereAprobacion:true,mensaje:"Listo, ya te pillé. Detecté "+borrador.items.length+" movimiento(s) con monto exacto. Revísalos y aprueba antes de afectar tus finanzas.",borrador};}
  const estado=await home.obtener(usuarioId);
  if(clase==="INTENCION"){const resultado=await consulta.consultar(usuarioId,texto);return{clase,requiereAprobacion:false,mensaje:resultado.tipo==="ACLARACION_CONTEXTO"?"Entiendo que estás considerando una decisión, no informando un movimiento realizado. Dime el objetivo, el plazo y el presupuesto para comparar opciones.":resultado.respuesta,analisis:resultado.datos};}
