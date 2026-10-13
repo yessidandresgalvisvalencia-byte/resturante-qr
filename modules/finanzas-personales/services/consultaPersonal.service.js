@@ -30,7 +30,7 @@ async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim()
  const situacion=libre===null?"Todavía no conozco tu disponible real.":libre===0?"Actualmente no aparece dinero libre para nuevos compromisos.":"Tu disponible estimado después de compromisos es "+money(libre)+", sujeto a conciliación.";
  return{tipo:"ASESORIA_PLANIFICACION",respuesta:"Para decidir sobre "+tema+": "+criterio+" "+situacion+" Si me indicas tu objetivo, plazo y valores, puedo comparar alternativas. No he registrado ni modificado operaciones.",datos:{tema,disponibleMinor:libre,orientacionGeneral:true}};
  }
- if(/(?:y si|y s[ií]|en vez de|mejor uso|ese dinero|esa plata|lo anterior)/.test(q)&&/(?:moto|deuda|pagar|abonar)/.test(q)){
+ if((/(?:y si|y s[ií]|en vez de|mejor uso|ese dinero|esa plata|lo anterior)/.test(q)&&/(?:moto|deuda|pagar|abonar)/.test(q))||(/(?:invertir|inversi[oó]n)/.test(q)&&/(?:deuda|cr[eé]dito|pr[eé]stamo|moto|carro|abonar|amortizar|pagar)/.test(q))){
   const deudaRef=await contexto.resolverDeuda(usuarioId,pregunta);
   if(!deudaRef.deuda)return{tipo:"DEUDA_NO_IDENTIFICADA",respuesta:"Para comparar invertir con abonar necesito identificar la deuda correcta. Indícame su nombre o concepto; no voy a suponer cuál es.",datos:{requiereIdentificarDeuda:true}};
   if(deudaRef.deuda){
