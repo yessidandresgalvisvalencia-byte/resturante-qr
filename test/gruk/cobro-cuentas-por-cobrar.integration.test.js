@@ -8,11 +8,11 @@ const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.
 const patrimonio=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
 
 test("cobro parcial es atomico, idempotente y aislado por usuario (MongoDB replica set)",async t=>{
- const uri=process.env.GRUK_TEST_MONGODB_URI;
- if(!uri){t.skip("Configurar GRUK_TEST_MONGODB_URI de replica set aislado");return;}
+ const uri=process.env.GRUK_TEST_MONGODB_URI||process.env.TEST_MONGO_URI;
+ if(!uri)throw new Error("Se requiere GRUK_TEST_MONGODB_URI o TEST_MONGO_URI: la prueba financiera no se puede omitir");
  const originalSecret=process.env.PERSONAL_IDEMPOTENCY_SECRET;
  process.env.PERSONAL_IDEMPOTENCY_SECRET=originalSecret||"test-only-secret-not-for-production";
- await mongoose.connect(uri,{serverSelectionTimeoutMS:8000});
+ await mongoose.connect(uri,{serverSelectionTimeoutMS:8000,dbName:"gruk_cobros_ci"});
  const usuarioId=new mongoose.Types.ObjectId(),otroUsuario=new mongoose.Types.ObjectId();
  const contraparte="test-cobro-"+new mongoose.Types.ObjectId().toString();
  try{
