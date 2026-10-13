@@ -31,7 +31,8 @@ function loadService({ initialState = "PENDIENTE", race = false } = {}) {
     "../models/restaurante": {},
     "../models/sede": {},
     "../models/IntentoPagoPedido": Model,
-    "./ventas.service": {}
+    "./ventas.service": {},
+    "./gruk/validarPedidosIntento": require("../../services/gruk/validarPedidosIntento")
   };
   const moduleObj = { exports: {} };
   vm.runInNewContext(source, {
