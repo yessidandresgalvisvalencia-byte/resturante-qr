@@ -20,8 +20,10 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
    const prestamo=await Prestamo.findOneAndUpdate({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});
    if(!prestamo)throw Object.assign(new Error("Cuenta por cobrar inexistente o saldo insuficiente"),{statusCode:409});
    if(prestamo.saldoMinor===0){prestamo.estado="PAGADO";await prestamo.save({session});}
-   const cuenta=await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});
-   if(!cuenta)throw Object.assign(new Error("Selecciona una cuenta de destino válida"),{statusCode:404});
+   let cuenta=cuentaId?await Cuenta.findOne({_id:cuentaId,usuarioId,activa:true}).session(session):await Cuenta.findOne({usuarioId,nombre:"EFECTIVO",activa:true}).session(session);
+   if(!cuenta&&!cuentaId){[cuenta]=await Cuenta.create([{usuarioId,nombre:"EFECTIVO",tipo:"EFECTIVO",moneda:"COP",saldoMinor:0,activa:true}],{session});}
+   if(!cuenta)throw Object.assign(new Error("Cuenta de destino inválida"),{statusCode:404});
+   cuenta=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});
    const [tx]=await Transaccion.create([{usuarioId,prestamoId:prestamo._id,tipo:"COBRO_PRESTAMO",montoMinor:monto,concepto:"Cobro: "+prestamo.concepto,categoria:"Cuentas por cobrar",contraparte:prestamo.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,medioPago:"TRANSFERENCIA",fecha:new Date(),origen:"MANUAL",externalIdHash}],{session});
    await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(prestamo._id),tipo:"COBRO_PRESTAMO",montoMinor:monto}}],{session});
    resultado={prestamo,transaccion:tx,duplicado:false};
