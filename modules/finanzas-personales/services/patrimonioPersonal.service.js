@@ -62,8 +62,21 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
     prestamo.estado=prestamo.saldoMinor===0?"PAGADO":(prestamo.fechaVencimiento&&prestamo.fechaVencimiento<new Date()?"VENCIDO":"ACTIVO");
    }
    if(Object.prototype.hasOwnProperty.call(cambios,"origenCuentaPorCobrar")&&cambios.origenCuentaPorCobrar!==prestamo.origenCuentaPorCobrar){
-    if(prestamo.direccion!=="POR_COBRAR"||pagos.length)throw Object.assign(new Error("La clasificación de un préstamo cobrado exige conciliación contable independiente"),{statusCode:409});
-    prestamo.origenCuentaPorCobrar=cambios.origenCuentaPorCobrar;
+    if(prestamo.direccion!=="POR_COBRAR")throw Object.assign(new Error("Solo se puede cambiar el origen de cuentas por cobrar"),{statusCode:409});
+    const origenNuevo=cambios.origenCuentaPorCobrar;
+    const pagosAfectados=pagos.filter(x=>["COBRO_PRESTAMO","INGRESO"].includes(x.tipo));
+    const totalPagos=pagosAfectados.reduce((n,x)=>n+x.montoMinor,0);
+    if(pagosAfectados.length&&totalPagos!==prestamo.principalMinor-prestamo.saldoMinor)throw Object.assign(new Error("Los cobros históricos no concuerdan con el saldo; requiere auditoría antes de reclasificar"),{statusCode:409});
+    if(pagosAfectados.length&&origenNuevo==="OTRO")throw Object.assign(new Error("La categoría OTRO requiere revisión individual de cobros anteriores"),{statusCode:409});
+    if(pagosAfectados.length){
+     if(principal!==principalAnteriorMinor)throw Object.assign(new Error("Corrige primero el valor del préstamo; luego reclasifica los cobros"),{statusCode:409});
+     for(const pago of pagosAfectados){
+      const tipoNuevo=origenNuevo==="TRABAJO"?"INGRESO":"COBRO_PRESTAMO";
+      if(pago.tipo===tipoNuevo)continue;
+      await Transaccion.updateOne({_id:pago._id,usuarioId,prestamoId:prestamo._id,estado:"ACTIVA",tipo:pago.tipo},{$set:{tipo:tipoNuevo,categoria:tipoNuevo==="INGRESO"?"Trabajo cobrado":"Cuentas por cobrar"}},{session});
+     }
+    }
+    prestamo.origenCuentaPorCobrar=origenNuevo;
    }
    for(const campo of ["contraparte","concepto","cuotaMinor","tasaMensualPct","fechaVencimiento"]){
     if(Object.prototype.hasOwnProperty.call(cambios,campo))prestamo[campo]=cambios[campo];
