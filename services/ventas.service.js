@@ -214,11 +214,19 @@ costoFuente:
   } catch (error) {
     // Idempotencia:
     // el mismo pedido nunca debe generar dos ventas.
-    if (error && error.code === 11000) {
+    if (
+      error?.code === 11000 &&
+      error.keyPattern?.origen === 1 &&
+      error.keyPattern?.origenId === 1
+    ) {
       const ventaExistente = await Venta.findOne({
+        empresaId,
         origen: "restaurante",
         origenId: pedido._id
       }).session(session);
+
+      // Nunca devolver una venta de otro tenant ni éxito sin registro.
+      if (!ventaExistente) throw error;
 
       return {
         venta: ventaExistente,
