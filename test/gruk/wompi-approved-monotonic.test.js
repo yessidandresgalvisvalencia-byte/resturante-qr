@@ -24,7 +24,8 @@ for (const status of ["PENDING", "DECLINED", "ERROR", "VOIDED", "APPROVED"]) {
       "../models/sede": {},
       "../models/IntentoPagoPedido": { async findOne() { return intento; } },
       "./ventas.service": {},
-    "./gruk/validarPedidosIntento": require("../../services/gruk/validarPedidosIntento")
+    "./gruk/validarPedidosIntento": require("../../services/gruk/validarPedidosIntento"),
+    "./gruk/registrarVentaEnOutbox": require("../../services/gruk/registrarVentaEnOutbox")
     };
     const mod = { exports: {} };
     vm.runInNewContext(source, {
