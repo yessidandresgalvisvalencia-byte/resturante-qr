@@ -16,6 +16,10 @@ function clasificar(texto){
 async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const t=normalizar(texto);
  if(/(?:zapatos|tenis|calzado)/i.test(t)&&/(?:quiero|comprar|cuotas|financiar|inter[eé]s)/i.test(t)){await ContextoConversacional.findOneAndUpdate({usuarioId},{$set:{ultimaCompraPlanificada:{concepto:"zapatos",descripcion:t.slice(0,500),creadoEn:new Date()},asOf:new Date()}},{upsert:true,setDefaultsOnInsert:true});}
+ const contexto=await ContextoConversacional.findOne({usuarioId}).select("ultimaCompraPlanificada").lean();
+ const compra=contexto?.ultimaCompraPlanificada;
+ const respuestaPrecio=t.match(/^(?:valen|cuestan|cuesta|vale|son)?\s*\$?\s*(\d+(?:[.,]\d{3})*)(?:\s*(mil))?\s*(?:pesos)?$/i);
+ if(compra&&respuestaPrecio){const precio=Number(respuestaPrecio[1].replace(/[.,]/g,""))*(respuestaPrecio[2]?1000:1);if(Number.isSafeInteger(precio)&&precio>0){return{clase:"INTENCION",requiereAprobacion:false,mensaje:"Entendido, el precio de la compra que estamos evaluando es "+new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(precio)+". No voy a registrar una deuda. Para calcular las cuotas necesito verificar cómo se aplica el interés que mencionaste.",analisis:{soloLectura:true,precioMinor:precio*100}};}}
  const asesoria=/\b(mejor manera|mejor forma|me conviene|qu[eé] recomiendas|recomiendas|aconsejas|estrategia|plan de pago|c[oó]mo deber[ií]a|qu[eé] hago|ay[uú]dame a decidir)\b/i.test(t);
  const preguntaExplicita=/[?¿]/.test(t)||/^(?:cómo|como|cuánto|cuanto|qué|que|cuál|cual|por qué|por que|debería|deberia|puedo)\b/i.test(t);
  const patronIngreso=(asesoria||preguntaExplicita)?null:t.match(/(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})\s+(?:de\s+)?cada\s+mes|(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)\s+(?:cada\s+mes\s+)?(?:el\s+)?(?:d[ií]a\s+)?(\d{1,2})/i);
