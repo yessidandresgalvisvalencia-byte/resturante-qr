@@ -15,7 +15,8 @@ function clasificar(texto){
 async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const t=normalizar(texto);
  const asesoria=/\b(mejor manera|mejor forma|me conviene|qu[eé] recomiendas|recomiendas|aconsejas|estrategia|plan de pago|c[oó]mo deber[ií]a|qu[eé] hago|ay[uú]dame a decidir)\b/i.test(t);
- const patronIngreso=asesoria?null:t.match(/(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})\s+(?:de\s+)?cada\s+mes|(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)\s+(?:cada\s+mes\s+)?(?:el\s+)?(?:d[ií]a\s+)?(\d{1,2})/i);
+ const preguntaExplicita=/[?¿]/.test(t)||/^(?:cómo|como|cuánto|cuanto|qué|que|cuál|cual|por qué|por que|debería|deberia|puedo)\b/i.test(t);
+ const patronIngreso=(asesoria||preguntaExplicita)?null:t.match(/(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})\s+(?:de\s+)?cada\s+mes|(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)\s+(?:cada\s+mes\s+)?(?:el\s+)?(?:d[ií]a\s+)?(\d{1,2})/i);
  if(patronIngreso){
   const dia=Number(patronIngreso[1]||patronIngreso[2]);if(dia<1||dia>31)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Ese día del mes no es válido."};
   const prev=await Transaccion.findOne({usuarioId,tipo:"INGRESO",estado:{$ne:"ANULADA"}}).sort({fecha:-1}).lean();
