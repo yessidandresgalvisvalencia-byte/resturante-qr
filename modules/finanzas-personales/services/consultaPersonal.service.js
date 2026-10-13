@@ -30,6 +30,18 @@ async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim()
  const situacion=libre===null?"Todavía no conozco tu disponible real.":libre===0?"Actualmente no aparece dinero libre para nuevos compromisos.":"Tu disponible estimado después de compromisos es "+money(libre)+", sujeto a conciliación.";
  return{tipo:"ASESORIA_PLANIFICACION",respuesta:"Para decidir sobre "+tema+": "+criterio+" "+situacion+" Si me indicas tu objetivo, plazo y valores, puedo comparar alternativas. No he registrado ni modificado operaciones.",datos:{tema,disponibleMinor:libre,orientacionGeneral:true}};
  }
+ if(/(?:y si|y s[ií]|en vez de|mejor uso|ese dinero|esa plata|lo anterior)/.test(q)&&/(?:moto|deuda|pagar|abonar)/.test(q)){
+  const deudaRef=await contexto.resolverDeuda(usuarioId,"moto");
+  if(deudaRef.deuda){
+   const d=deudaRef.deuda,h=await home.obtener(usuarioId),a=h.asesor||{};
+   const libre=a.saldoRealConocido?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
+   const saldo=Number(d.saldoMinor||0),cuota=Number(d.cuotaMinor||0);
+   const interes=Number(d.tasaMensualPct||0);
+   const consejo=interes===0?"Como la deuda registrada no tiene intereses, abonar antes no reduce intereses; prioriza conservar liquidez para obligaciones y emergencias.":"Si la deuda tiene intereses, un abono a capital puede reducir el costo total; verifica condiciones y penalidades.";
+   const capacidad=libre===null?"No puedo estimar un abono seguro sin saldo disponible confirmado.":libre===0?"No hay margen libre estimado para un abono adicional.":"El máximo disponible estimado es "+money(Math.min(libre,saldo))+", pero no necesariamente conviene destinarlo completo.";
+   return{tipo:"COMPARACION_ABONO_DEUDA",respuesta:"Si estás comparando invertir con abonar a "+(d.concepto||"tu deuda")+", primero protege los pagos próximos. Saldo pendiente "+money(saldo)+(cuota?", cuota "+money(cuota):"")+". "+consejo+" "+capacidad+" Para comparar numéricamente necesito rentabilidad neta esperada, riesgo, plazo y costos de inversión; no puedo garantizar retornos. No registré pagos.",datos:{saldoMinor:saldo,cuotaMinor:cuota,disponibleMinor:libre,comparacion:true}};
+  }
+ }
  const referenciaDeuda=await contexto.resolverDeuda(usuarioId,pregunta);
  if(referenciaDeuda.aplica){
   const d=referenciaDeuda.deuda;
