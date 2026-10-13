@@ -34,7 +34,7 @@ function makeFixture(patch = {}) {
       _readCount: 0,
       _read() {
         this._readCount++;
-        if (this._readCount === 1) return { ...persisted, transactionId: "" };
+        if (this._readCount === 1) return { ...persisted, transactionId: "", amountInCents: 10000, currency: "COP" };
         return persisted;
       }
     },
@@ -70,10 +70,7 @@ test("Wompi ACID: no procesa venta si el ID persistido cambia tras lectura inici
 
 test("Wompi ACID: no procesa venta si importe persistido es inconsistente en snapshot", async () => {
   const f = makeFixture({ amountInCents: 20000 });
-  // This fixture cannot represent two different snapshots for amount, so it is
-  // deliberately an early rejection before a session is created.
-  const result = await f.call();
-  assert.equal(result.reason, "INTEGRIDAD_ECONOMICA_INVALIDA");
-  assert.equal(f.sessionStarted, 0);
+  await assert.rejects(f.call(), /INTEGRIDAD_ECONOMICA_INVALIDA/);
+  assert.equal(f.sessionStarted, 1);
   assert.equal(f.updatedOrders, 0);
 });
