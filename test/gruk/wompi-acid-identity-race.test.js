@@ -38,7 +38,8 @@ function makeFixture(patch = {}) {
         return persisted;
       }
     },
-    "./ventas.service": {}
+    "./ventas.service": {},
+    "./gruk/validarPedidosIntento": require("../../services/gruk/validarPedidosIntento")
   };
   deps["../models/IntentoPagoPedido"].findOne = function () {
     const v = this._read();
