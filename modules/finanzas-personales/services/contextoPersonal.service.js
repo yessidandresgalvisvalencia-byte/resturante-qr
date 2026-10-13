@@ -16,7 +16,7 @@ async function resolverDeuda(usuarioId,pregunta){
  const ref=detectarReferencia(pregunta);const q=texto(pregunta);let deuda=null;let origen=null;
  if(/\bmoto\b/.test(q)){deuda=await Prestamo.findOne({usuarioId,direccion:"POR_PAGAR",estado:"ACTIVO",$or:[{concepto:/moto/i},{contraparte:/moto/i}]}).sort({updatedAt:-1}).lean();origen="EXPLICITA";}
  if(!deuda&&/carro|vehículo|vehiculo/.test(q)){deuda=await Prestamo.findOne({usuarioId,direccion:"POR_PAGAR",estado:"ACTIVO",$or:[{concepto:/carro|vehículo|vehiculo/i},{contraparte:/carro|vehículo|vehiculo/i}]}).lean();if(deuda)origen="EXPLICITA";}
- if(!deuda&&ref.deudaExplicita){const activas=await Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:"ACTIVO"}).sort({updatedAt:-1}).limit(2).lean();if(activas.length===1){deuda=activas[0];origen="UNICA_ACTIVA";}}
+ if(!deuda&&ref.deudaExplicita&&!/\b(moto|carro|veh[ií]culo)\b/.test(q)){const activas=await Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:"ACTIVO"}).sort({updatedAt:-1}).limit(2).lean();if(activas.length===1){deuda=activas[0];origen="UNICA_ACTIVA";}}
  if(!deuda&&ref.seguimiento){const c=await cargar(usuarioId);if(c&&c.foco==="DEUDA"&&c.entidadId)deuda=await Prestamo.findOne({_id:c.entidadId,usuarioId,direccion:"POR_PAGAR",estado:"ACTIVO"}).lean();if(deuda)origen="CONTEXTO";}
  return{aplica:Boolean(ref.deudaExplicita||ref.seguimiento),deuda,origen,referencia:ref};
 }
