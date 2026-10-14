@@ -33,7 +33,8 @@ test("GRUK Wompi: otro webhook no puede reemplazar transactionId en carrera", as
     "./ventas.service": {},
     "./gruk/validarPedidosIntento": require("../../services/gruk/validarPedidosIntento"),
     "./gruk/registrarVentaEnOutbox": require("../../services/gruk/registrarVentaEnOutbox"),
-    "./gruk/resolverOutboxWompi": require("../../services/gruk/resolverOutboxWompi")
+    "./gruk/resolverOutboxWompi": require("../../services/gruk/resolverOutboxWompi"),
+    "./gruk/totalPedidoCopEnCentavos": require("../../services/gruk/totalPedidoCopEnCentavos")
   };
   const moduleRef = { exports: {} };
   vm.runInNewContext(source, {
