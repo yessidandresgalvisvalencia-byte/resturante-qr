@@ -5,6 +5,7 @@ const importeValido=v=>Number.isSafeInteger(v)&&v>=0;
 const importePositivo=v=>Number.isSafeInteger(v)&&v>0;
 const schema=new mongoose.Schema({
  id:{type:String,required:true,immutable:true},
+ operacionId:{type:String,required:true,immutable:true},
  empresaId:{type:String,required:true,immutable:true},
  sedeId:{type:String,required:true,immutable:true},
  tipo:{type:String,required:true,enum:["CREDITO","DEBITO"],immutable:true},
@@ -20,6 +21,7 @@ const schema=new mongoose.Schema({
  secuencia:{type:Number,required:true,immutable:true,validate:{validator:importePositivo,message:"LEDGER_SECUENCIA_INVALIDA"}}
 },{collection:"gruk_movimientos_ledger_v1000",strict:"throw",versionKey:false});
 schema.index({empresaId:1,sedeId:1,id:1},{unique:true});
+schema.index({empresaId:1,sedeId:1,operacionId:1},{unique:true});
 schema.index({empresaId:1,sedeId:1,secuencia:1},{unique:true});
 schema.index({empresaId:1,sedeId:1,timestamp:1});
 for(const op of ["updateOne","updateMany","findOneAndUpdate","replaceOne","findOneAndReplace","deleteOne","deleteMany","findOneAndDelete"]) {
