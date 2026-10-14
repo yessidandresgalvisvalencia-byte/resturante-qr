@@ -1,21 +1,23 @@
 "use strict";
 const mongoose=require("mongoose");
 // V1000 uses a separate collection to avoid altering legacy ObjectId ledgers.
+const importeValido=v=>Number.isSafeInteger(v)&&v>=0;
+const importePositivo=v=>Number.isSafeInteger(v)&&v>0;
 const schema=new mongoose.Schema({
  id:{type:String,required:true,immutable:true},
  empresaId:{type:String,required:true,immutable:true},
  sedeId:{type:String,required:true,immutable:true},
  tipo:{type:String,required:true,enum:["CREDITO","DEBITO"],immutable:true},
- montoCentavos:{type:Number,required:true,immutable:true},
- antesCentavos:{type:Number,required:true,immutable:true},
- despuesCentavos:{type:Number,required:true,immutable:true},
+ montoCentavos:{type:Number,required:true,immutable:true,validate:{validator:importePositivo,message:"LEDGER_MONTO_INVALIDO"}},
+ antesCentavos:{type:Number,required:true,immutable:true,validate:{validator:importeValido,message:"LEDGER_SALDO_INVALIDO"}},
+ despuesCentavos:{type:Number,required:true,immutable:true,validate:{validator:importeValido,message:"LEDGER_SALDO_INVALIDO"}},
  actorId:{type:String,required:true,immutable:true},
  ip:{type:String,required:true,immutable:true},
  timestamp:{type:Date,required:true,immutable:true},
  hashAnterior:{type:String,required:true,immutable:true},
  hash:{type:String,required:true,immutable:true},
  deletedAt:{type:mongoose.Schema.Types.Mixed,default:null,immutable:true,validate:{validator:value=>value===null,message:"LEDGER_DELETED_AT_PROHIBIDO"}},
- secuencia:{type:Number,required:true,immutable:true,min:1}
+ secuencia:{type:Number,required:true,immutable:true,validate:{validator:importePositivo,message:"LEDGER_SECUENCIA_INVALIDA"}}
 },{collection:"gruk_movimientos_ledger_v1000",strict:"throw",versionKey:false});
 schema.index({empresaId:1,sedeId:1,id:1},{unique:true});
 schema.index({empresaId:1,sedeId:1,secuencia:1},{unique:true});
