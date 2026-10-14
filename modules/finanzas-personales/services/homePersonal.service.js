@@ -74,7 +74,7 @@ async function obtener(usuarioId,now=new Date()){
  const saldoEstado=resolverSaldoAsesor(pat);
  const saldoAsesorMinor=saldoEstado.montoMinor;
  const {colchonMinor,baseMinor:disponibleBaseMinor,disponibleHoyMinor,estaEnRojo}=calcularDisponibleHoy({saldoMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor});
- const disponibleDespuesCompromisosMinor=pat.liquidezMinor-cuotasPendientesMesMinor;
+ const disponibleDespuesCompromisosMinor=pat.saldoVerificado?pat.liquidezMinor-cuotasPendientesMesMinor:null;
  const proxima=deudas.find(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=now&&x.saldoMinor>0)||null;
  const fmt=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(Math.round(Number(n||0)));
  const activosDetalle=(pat.activos||[]).map(x=>({nombre:x.nombre,tipo:x.tipo,valorMinor:x.valorMinor}));
