@@ -42,3 +42,10 @@ Comando de validación de rama: `npm ci && npm run gate`.
 - Tiempo total del lote: **142,84 ms**. Las ocho auditorías verificaron saldo 500 centavos, secuencia 500 y el mismo hash de cabecera.
 - Evidencia: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/38628027867
 - Es una muestra puntual sin escrituras concurrentes y sin distribución de latencia por solicitud. No representa el SLA bajo carga sostenida.
+
+## Replay histórico por encima de 10.000 (CI #1379, 2026-10-14)
+- CI #1379 completado satisfactoriamente: la prueba contra MongoDB registra previamente 10.001 asientos, audita la cadena y reproduce la primera operación sin cambiar el número de asientos ni el saldo.
+- Evidencia: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/38631539149
+- El CI #1378 fue cancelado; no cuenta como aprobación independiente.
+- Capacidad actual configurada: hasta 100.000 asientos en la recuperación. **No significa** latencia aceptable para 100.000 ni validación de 100.000 en integración.
+- Persisten límites O(n) de tiempo y de identificadores de operación retenidos en memoria, así como el bloqueo de historiales superiores a 100.000.
