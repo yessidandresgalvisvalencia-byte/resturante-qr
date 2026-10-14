@@ -59,7 +59,10 @@ const editarPrestamoSchema=Joi.object({
  principalMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),
  cuotaMinor:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
  tasaMensualPct:Joi.number().min(0).max(100),
- fechaVencimiento:Joi.date().iso().allow(null)
+ fechaVencimiento:Joi.date().iso().allow(null),
+ periodicidad:Joi.string().valid("UNICA","SEMANAL","QUINCENAL","MENSUAL"),
+ diaPago:Joi.number().integer().min(1).max(31),
+ periodicidadConfirmada:Joi.boolean()
 }).min(1);
 router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
  try{
