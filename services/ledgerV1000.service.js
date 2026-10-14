@@ -18,7 +18,7 @@ function generarUlid(){
 function hashMovimiento(m){
  const body=[m.empresaId,m.sedeId,m.id,m.tipo,String(m.montoCentavos),
  String(m.antesCentavos),String(m.despuesCentavos),String(m.secuencia),m.actorId,m.ip,
- m.timestamp,m.hashAnterior].join("|");
+ (m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp),m.hashAnterior].join("|");
  return crypto.createHash("sha256").update(body).digest("hex");
 }
 async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,ip}){
