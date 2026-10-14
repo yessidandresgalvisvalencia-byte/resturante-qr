@@ -6,6 +6,7 @@ const schema=new mongoose.Schema({
  prestamoId:{type:mongoose.Schema.Types.ObjectId,ref:"PrestamoPersonal",default:null,index:true},
  cuentaId:{type:mongoose.Schema.Types.ObjectId,ref:"CuentaFinancieraPersonal",default:null,index:true},
  tipo:{type:String,enum:["INGRESO","GASTO","PAGO_DEUDA","PRESTAMO_OTORGADO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO","AJUSTE_SALDO"],required:true,index:true},
+ montoPagadoRealMinor:{type:Number,min:1,default:null,validate:{validator:v=>v===null||Number.isSafeInteger(v),message:"Monto pagado inválido"}},
  montoMinor:{type:Number,required:true,min:1,validate:{validator:Number.isSafeInteger,message:"montoMinor debe ser entero seguro"}},
  moneda:{type:String,default:"COP",enum:["COP"],uppercase:true,trim:true},
  concepto:{type:String,required:true,trim:true,maxlength:140},
