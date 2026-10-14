@@ -7,13 +7,11 @@ function hashAsiento(m){
  fecha,m.hashAnterior];
  return crypto.createHash("sha256").update(campos.join("|")).digest("hex");
 }
-function verificarCadena({empresaId,sedeId,asientos,cabecera}){
- if(!Array.isArray(asientos)||!cabecera||!Number.isSafeInteger(cabecera.secuencia))throw Error("LEDGER_AUDITORIA_INVALIDA");
- let saldo=0,previo="0".repeat(64);
+function crearVerificadorCadena({empresaId,sedeId}){
+ let saldo=0,previo="0".repeat(64),secuencia=0;
  const operaciones=new Set();
- for(let i=0;i<asientos.length;i++){
-  const m=asientos[i];
-  if(m.empresaId!==empresaId||m.sedeId!==sedeId||m.secuencia!==i+1||
+ function agregar(m){
+  if(m.empresaId!==empresaId||m.sedeId!==sedeId||m.secuencia!==secuencia+1||
      !Number.isSafeInteger(m.montoCentavos)||m.montoCentavos<=0||
      !Number.isSafeInteger(m.antesCentavos)||!Number.isSafeInteger(m.despuesCentavos)||
      m.antesCentavos!==saldo||m.hashAnterior!==previo||m.deletedAt!==null||
@@ -24,10 +22,20 @@ function verificarCadena({empresaId,sedeId,asientos,cabecera}){
   const next=BigInt(saldo)+(m.tipo==="CREDITO"?1n:-1n)*BigInt(m.montoCentavos);
   if(next<0n||next>BigInt(Number.MAX_SAFE_INTEGER)||Number(next)!==m.despuesCentavos||
      hashAsiento(m)!==m.hash)throw Error("LEDGER_AUDITORIA_INCONSISTENTE");
-  saldo=m.despuesCentavos;previo=m.hash;
+  saldo=m.despuesCentavos;previo=m.hash;secuencia++;
  }
- if(cabecera.secuencia!==asientos.length||cabecera.saldoCentavos!==saldo||cabecera.hashUltimo!==previo)
-  throw Error("LEDGER_AUDITORIA_CABECERA_DIVERGENTE");
- return {ok:true,secuencia:asientos.length,saldoCentavos:saldo,hashUltimo:previo};
+ function finalizar(cabecera){
+  if(!cabecera||!Number.isSafeInteger(cabecera.secuencia))throw Error("LEDGER_AUDITORIA_INVALIDA");
+  if(cabecera.secuencia!==secuencia||cabecera.saldoCentavos!==saldo||cabecera.hashUltimo!==previo)
+   throw Error("LEDGER_AUDITORIA_CABECERA_DIVERGENTE");
+  return {ok:true,secuencia,saldoCentavos:saldo,hashUltimo:previo};
+ }
+ return {agregar,finalizar};
 }
-module.exports={hashAsiento,verificarCadena};
+function verificarCadena({empresaId,sedeId,asientos,cabecera}){
+ if(!Array.isArray(asientos)||!cabecera||!Number.isSafeInteger(cabecera.secuencia))throw Error("LEDGER_AUDITORIA_INVALIDA");
+ const verifier=crearVerificadorCadena({empresaId,sedeId});
+ for(const asiento of asientos)verifier.agregar(asiento);
+ return verifier.finalizar(cabecera);
+}
+module.exports={hashAsiento,verificarCadena,crearVerificadorCadena};
