@@ -118,7 +118,7 @@ $("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pa
 window.registrarCuota=async id=>{try{
  const [info,pat]=await Promise.all([api("/prestamos/"+encodeURIComponent(id)+"/cuotas"),api("/patrimonio-financiero")]);
  const n=info.proximaCuota,m=info.importeProximaMinor;
- if(!info.periodicidadConfirmada){alert("Para activar el pago de cuotas debes confirmar primero el calendario de esta deuda. No se registrará nada hasta tu aprobación.");await window.configurarPeriodicidad(id);return;}
+ if(!info.periodicidadConfirmada){alert("Para registrar la cuota, confirma primero su valor y cuántas cuotas son. No necesitas indicar una fecha.");await window.configurarPeriodicidad(id);return;}
  if(!Number.isSafeInteger(m)||m<=0)throw Error("Este crédito no tiene una cuota pendiente válida.");
  const cuentas=(pat.snapshot?.cuentas||[]).filter(x=>x.activa!==false);
  const suficientes=cuentas.filter(x=>Number.isSafeInteger(x.saldoMinor)&&x.saldoMinor>=m);
@@ -143,14 +143,10 @@ window.configurarPeriodicidad=async id=>{try{
  const periodicidad=opciones[eleccion.trim()];if(!periodicidad)throw Error("Periodicidad inválida");
  const cuotaTexto=prompt("Valor de cada cuota en COP:",String(p.cuotaMinor||p.saldoMinor));if(cuotaTexto===null)return;
  const cuotaMinor=Number(cuotaTexto);if(!Number.isSafeInteger(cuotaMinor)||cuotaMinor<=0)throw Error("Cuota inválida");
- const fechaTexto=prompt("Próximo vencimiento (AAAA-MM-DD):",p.fechaVencimiento?new Date(p.fechaVencimiento).toISOString().slice(0,10):"");if(fechaTexto===null)return;
- if(!/^\d{4}-\d{2}-\d{2}$/.test(fechaTexto)||Number.isNaN(Date.parse(fechaTexto+"T05:00:00Z")))throw Error("Fecha inválida");
  const numTexto=prompt("Número total de cuotas pactadas:",String(p.numeroCuotas||Math.ceil(p.saldoMinor/cuotaMinor)));if(numTexto===null)return;
  const numeroCuotas=Number(numTexto);if(!Number.isInteger(numeroCuotas)||numeroCuotas<1||numeroCuotas>360)throw Error("Número de cuotas inválido");
- const diaPago=periodicidad==="MENSUAL"?Number(fechaTexto.slice(8)):null;
- const cambios={periodicidad,numeroCuotas,cuotaMinor,fechaVencimiento:fechaTexto+"T05:00:00.000Z",periodicidadConfirmada:true};
- if(diaPago!==null)cambios.diaPago=diaPago;
- if(!confirm("¿Aprobar calendario de "+p.concepto+"? "+periodicidad+", cuota $"+cuotaMinor.toLocaleString("es-CO")+", próximo vencimiento "+fechaTexto+". No se registrarán pagos."))return;
+ const cambios={periodicidad,numeroCuotas,cuotaMinor,periodicidadConfirmada:true};
+ if(!confirm("¿Confirmas "+numeroCuotas+" cuotas de "+money(cuotaMinor)+" para "+p.concepto+"? No necesitas conocer una fecha. No se registrará ningún pago hasta que apruebes la cuota correspondiente."))return;
  await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(cambios)});
  await load();alert("Condiciones de pago confirmadas y guardadas. No se registró ningún pago.");
  }catch(e){alert("No se pudo configurar el calendario: "+e.message)}
