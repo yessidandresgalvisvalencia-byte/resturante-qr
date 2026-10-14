@@ -14,11 +14,12 @@ function harness({existing}){
  const movimiento={...op,id:"01ARZ3NDEKTSV4RRFFQ69G5FAZ",secuencia:1,antesCentavos:0,despuesCentavos:100,timestamp:"2026-10-14T00:00:00.000Z",hashAnterior:"0".repeat(64),deletedAt:null};
  const {hashAsiento,crearVerificadorCadena}=require("../../core/finance/v1000/auditarLedger");
  movimiento.hash=hashAsiento(movimiento);
+ const cursor={async *[Symbol.asyncIterator](){yield movimiento;},close:async()=>{}};
  const fakeMovimiento={
   findOne:()=>{reads++;return query(existing?movimiento:null);},
-  find:()=>({sort:()=>({limit:()=>({session:()=>({lean:()=>({cursor:()=>({
-   async *[Symbol.asyncIterator](){yield movimiento;},close:async()=>{}
-  })})})})})})})
+  find:()=>({sort:()=>({limit:()=>({session:()=>({lean:()=>({
+   cursor:()=>cursor
+  })})})})})
  };
  const fakeSaldo={findOne:()=>query({secuencia:1,saldoCentavos:100,hashUltimo:movimiento.hash})};
  const mocks={
