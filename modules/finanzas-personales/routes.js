@@ -58,6 +58,8 @@ const editarPrestamoSchema=Joi.object({
  origenCuentaPorCobrar:Joi.string().valid("PRESTAMO","TRABAJO","OTRO"),
  principalMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),
  cuotaMinor:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
+ frecuenciaCuota:Joi.string().valid("MENSUAL"),
+ diaPagoCuota:Joi.number().integer().min(1).max(31),
  tasaMensualPct:Joi.number().min(0).max(100),
  fechaVencimiento:Joi.date().iso().allow(null)
 }).min(1);
