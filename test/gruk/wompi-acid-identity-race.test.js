@@ -52,7 +52,7 @@ function makeFixture(patch = {}) {
   vm.runInNewContext(code, {
     module: moduleObj, exports: moduleObj.exports,
     require(id) { assert.ok(Object.hasOwn(deps, id)); return deps[id]; },
-    Date, Number, String, Error, console
+    process: { env: { NODE_ENV: "test" } }, Date, Number, String, Error, console
   }, { filename: "pagosPedidos.service.js", timeout: 1000 });
   return {
     call: () => moduleObj.exports.confirmarPagoPedidoWompi({
