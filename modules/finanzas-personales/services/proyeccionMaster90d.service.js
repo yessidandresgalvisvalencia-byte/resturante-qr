@@ -2,6 +2,7 @@
 const home=require("./homePersonal.service");
 const Calendario=require("../models/calendarioFinanciero.model");
 const Prestamo=require("../models/prestamoPersonal.model");
+const {calendarioObligacion}=require("./calendarioObligacionMaster.service");
 const HORIZONTES=Object.freeze([30,60,90]);
 function proyectarVentanas({corte=new Date(),saldoMinor=null,saldoVerificado=false,ingresos=[],obligaciones=[]}={}){
  const fechaCorte=new Date(corte);
@@ -54,12 +55,14 @@ async function analizar(usuarioId){
   }
  }
  for(const d of deudas){
-  if(!d.fechaVencimiento||deudasConCalendario.has(String(d._id)))continue;
+  if(deudasConCalendario.has(String(d._id)))continue;
+  if(d.periodicidadConfirmada){obligaciones.push(...calendarioObligacion(d,corte,90).map(e=>({...e,fuente:"OBLIGACION_CONFIRMADA"})));continue;}
+  if(!d.fechaVencimiento)continue;
   const venc=new Date(d.fechaVencimiento);
   if(venc<=corte)continue;
   obligaciones.push({fecha:venc,montoMinor:Math.min(d.cuotaMinor||d.saldoMinor,d.saldoMinor),concepto:d.concepto,fuente:"VENCIMIENTO_UNICO_CONOCIDO"});
  }
  const ventanas=proyectarVentanas({corte,saldoMinor:a.saldoRealConocido?a.saldoRealMinor:null,saldoVerificado:a.saldoConfiabilidad==="VERIFICADO",ingresos,obligaciones});
- return{ventanas,cobertura:"CALENDARIOS_MENSUALES_Y_VENCIMIENTOS_CONFIRMADOS",fuente:"CALENDARIO_PERSONAL_Y_PRESTAMOS",ingresosSinProgramar:ingresos.length===0,obligacionesSinFecha:deudas.filter(d=>!d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))).length,deudasSinPeriodicidadConfirmada:deudas.filter(d=>d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))&&d.cuotaMinor>0).length,deudasParaConfirmar:deudas.filter(d=>d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))&&d.cuotaMinor>0).map(d=>({id:String(d._id),concepto:d.concepto,cuotaMinor:d.cuotaMinor,fecha:d.fechaVencimiento})),saldoConfiabilidad:a.saldoConfiabilidad||"NO_VERIFICADO",soloLectura:true};
+ return{ventanas,cobertura:"CALENDARIOS_MENSUALES_Y_VENCIMIENTOS_CONFIRMADOS",fuente:"CALENDARIO_PERSONAL_Y_PRESTAMOS",ingresosSinProgramar:ingresos.length===0,obligacionesSinFecha:deudas.filter(d=>!d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))).length,deudasSinPeriodicidadConfirmada:deudas.filter(d=>d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))&&!d.periodicidadConfirmada&&d.cuotaMinor>0).length,deudasParaConfirmar:deudas.filter(d=>d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))&&d.cuotaMinor>0).map(d=>({id:String(d._id),concepto:d.concepto,cuotaMinor:d.cuotaMinor,fecha:d.fechaVencimiento})),saldoConfiabilidad:a.saldoConfiabilidad||"NO_VERIFICADO",soloLectura:true};
 }
 module.exports={proyectarVentanas,fechasCalendario,analizar};
