@@ -120,8 +120,24 @@ async function confirmarPagoPedidoWompi({ transaction, io = null, outboxWriter =
 
       if (pedidos.length !== lockedIntento.pedidoIds.length) throw new Error("PEDIDOS_INCOMPLETOS");
 
-      const totalActual = pedidos.reduce((sum, p) => sum + Math.round(Number(p.precio) * 100), 0);
-      if (totalActual !== Number(lockedIntento.amountInCents)) throw new Error("MONTO_PEDIDOS_CAMBIO");
+      // Para COP se exige un valor entero verificable antes de crear ventas y proyectar centavos.
+      // Evita que el redondeo por pedido o los números inseguros alteren la conciliación.
+      const totalPesos = pedidos.reduce((sum, p) => {
+        const valor = Number(p.precio);
+        if (!Number.isSafeInteger(valor) || valor <= 0 ||
+            valor > Math.floor(Number.MAX_SAFE_INTEGER / 100)) {
+          throw new Error("MONTO_PEDIDO_NO_REPRESENTABLE");
+        }
+        const resultado = sum + valor;
+        if (!Number.isSafeInteger(resultado) ||
+            resultado > Math.floor(Number.MAX_SAFE_INTEGER / 100)) {
+          throw new Error("MONTO_TOTAL_NO_REPRESENTABLE");
+        }
+        return resultado;
+      }, 0);
+      const totalActual = totalPesos * 100;
+      if (!Number.isSafeInteger(lockedIntento.amountInCents) ||
+          totalActual !== lockedIntento.amountInCents) throw new Error("MONTO_PEDIDOS_CAMBIO");
 
       for (const pedido of pedidos) {
         if (pedido.estadoPago === "pagado") continue;
