@@ -14,7 +14,7 @@ const schema=new mongoose.Schema({
  timestamp:{type:Date,required:true,immutable:true},
  hashAnterior:{type:String,required:true,immutable:true},
  hash:{type:String,required:true,immutable:true},
- deletedAt:{type:null,default:null,immutable:true},
+ deletedAt:{type:mongoose.Schema.Types.Mixed,default:null,immutable:true,validate:{validator:value=>value===null,message:"LEDGER_DELETED_AT_PROHIBIDO"}},
  secuencia:{type:Number,required:true,immutable:true,min:1}
 },{collection:"gruk_movimientos_ledger_v1000",strict:"throw",versionKey:false});
 schema.index({empresaId:1,sedeId:1,id:1},{unique:true});
