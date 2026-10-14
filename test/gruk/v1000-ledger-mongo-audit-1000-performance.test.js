@@ -27,12 +27,21 @@ test("V1000: medir el servicio auditor contra MongoDB con 1000 asientos",async t
   }
   await Movimiento.insertMany(rows,{ordered:true});
   await Saldo.create({empresaId,sedeId,secuencia:1000,saldoCentavos:1000,hashUltimo:previous});
-  const start=performance.now();
-  const result=await auditarLedgerEnMongo({empresaId,sedeId,maxAsientos:1000});
-  const elapsed=performance.now()-start;
-  assert.equal(result.ok,true);
-  assert.equal(result.saldoCentavos,1000);
-  assert.equal(result.secuencia,1000);
-  t.diagnostic("mongo_auditoria_servicio_1000_ms="+elapsed.toFixed(2));
+  // Warm up the driver and query plan before collecting repeatable samples.
+  const warm=await auditarLedgerEnMongo({empresaId,sedeId,maxAsientos:1000});
+  assert.equal(warm.saldoCentavos,1000);
+  const times=[];
+  for(let i=0;i<20;i++){
+   const start=performance.now();
+   const result=await auditarLedgerEnMongo({empresaId,sedeId,maxAsientos:1000});
+   times.push(performance.now()-start);
+   assert.equal(result.ok,true);
+   assert.equal(result.saldoCentavos,1000);
+   assert.equal(result.secuencia,1000);
+  }
+  const sorted=[...times].sort((a,b)=>a-b);
+  const percentile=p=>sorted[Math.ceil(p*sorted.length)-1].toFixed(2);
+  t.diagnostic("mongo_auditoria_1000_n=20_p50_ms="+percentile(0.5)+
+    "_p95_ms="+percentile(0.95)+"_p99_ms="+percentile(0.99));
  }finally{await mongoose.connection.dropDatabase();await mongoose.disconnect();}
 });
