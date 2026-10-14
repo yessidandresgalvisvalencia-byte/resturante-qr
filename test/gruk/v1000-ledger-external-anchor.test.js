@@ -59,3 +59,12 @@ test("V1000: continuidad desde ancla firmada valida nuevos asientos y rechaza hu
  assert.throws(()=>verificarContinuidadDesdeAncla({...args,asientos:[m],cabecera:{...cabecera,saldoCentavos:0}}),/LEDGER_ANCLA_CABECERA_DIVERGENTE/);
  assert.throws(()=>verificarContinuidadDesdeAncla({...args,asientos:[m],cabecera:{...cabecera,secuencia:999}}),/LEDGER_ANCLA_CABECERA_RETROCEDIDA/);
 });
+
+test("V1000: el ancla no sustituye el índice único de operación anterior",()=>{
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const model=fs.readFileSync(path.join(__dirname,"../../models/MovimientoLedgerV1000.js"),"utf8");
+ assert.match(model,/schema\.index\(\{empresaId:1,sedeId:1,operacionId:1\},\{unique:true\}\)/);
+ const svc=fs.readFileSync(path.join(__dirname,"../../services/ledgerV1000.service.js"),"utf8");
+ assert.match(svc,/Movimiento\.findOne\(\{empresaId,sedeId,operacionId\}\)/);
+});
