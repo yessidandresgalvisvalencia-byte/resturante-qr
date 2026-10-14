@@ -80,7 +80,18 @@ const renderPrestamo=x=>{
  html+='<div class="debtNumbers"><div><small>Valor original</small><strong>'+money(x.principalMinor)+'</strong></div><div><small>Saldo por pagar</small><strong>'+money(x.saldoMinor)+'</strong></div></div>';
  if(propia){
   html+='<div class="debtNumbers"><span>Avance del saldo</span><strong>'+progreso+' %</strong></div><progress value="'+progreso+'" max="100" style="width:100%;height:14px"></progress>';
-  html+='<p class="debtKind">'+(pagadas===null?"Pagos: información no disponible":'Cuotas pagadas registradas: '+pagadas)+(totalEstimado!==null?' · Cuotas estimadas del capital: '+totalEstimado:'')+'</p>';
+  const n=Number.isInteger(x.numeroCuotas)?x.numeroCuotas:null;
+  html+='<p class="debtKind">'+(n!==null?'Cuotas '+(pagadas??0)+' / '+n:'Cuotas por confirmar')+'</p>';
+  if(n!==null){
+   html+='<div class="debtKind" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">';
+   for(let i=1;i<=n;i++){
+    const pago=detalle&&!detalle.error?detalle.cuotasPagadas?.find(t=>t.descripcion?.startsWith('Cuota '+i+' ')):null;
+    const estado=pago?'✓ Pagada':i===(siguiente||1)?'● Siguiente':'○ Pendiente';
+    html+='<span style="padding:7px 9px;border:1px solid #354456;border-radius:12px">Cuota #'+i+' · '+estado+'</span>';
+   }
+   html+='</div>';
+  }else if(totalEstimado!==null)html+='<p class="hint">El sistema calcula '+totalEstimado+' cuotas aproximadas. Confirma las cuotas pactadas para visualizarlas y pagarlas aquí.</p>';
+
   if(!x.periodicidadConfirmada)html+='<p class="hint">Confirma la periodicidad antes de registrar cuotas; GRUK no inventará fechas ni pagos anteriores.</p>';
  }
  if(x.fechaVencimiento)html+='<div class="debtDate">Próximo vencimiento informado: '+new Date(x.fechaVencimiento).toLocaleDateString("es-CO")+'</div>';
