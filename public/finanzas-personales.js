@@ -101,7 +101,7 @@ const renderPrestamo=x=>{
   html+='<button class="secondary mini" onclick="window.configurarPeriodicidad(\''+esc(String(x._id))+'\')">Editar cuotas</button>';
   html+='<button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\')">Eliminar</button>';
  }else if(propia&&x.estado==="PAGADO"&&pagadas>0){
-  html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\\''+esc(String(x._id))+'\\')">Deshacer cuota #'+pagadas+'</button>';
+  html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
  }else if(!propia&&x.estado!=="PAGADO"){
   html+='<button class="mini" onclick="window.registrarCobro(\''+esc(String(x._id))+'\','+Number(x.saldoMinor)+')">Registrar pago recibido</button>';
  }
