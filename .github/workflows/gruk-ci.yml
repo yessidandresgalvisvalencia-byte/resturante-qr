@@ -16,6 +16,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dependency-lock:
+    name: Generate V1000 lockfile artifact
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Resolve pinned dependency tree
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Export reproducible lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-v1000-generated-lockfile
+          path: package-lock.json
+          retention-days: 1
   gate:
     name: GRUK Production Gate
     runs-on: ubuntu-latest
