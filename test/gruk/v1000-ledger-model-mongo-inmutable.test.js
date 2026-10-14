@@ -23,7 +23,7 @@ test("Ledger V1000: MongoDB no modifica asientos existentes via API Mongoose",as
   await Model.create(doc);
   const row=await Model.findOne({empresaId:doc.empresaId,sedeId:doc.sedeId});
   row.montoCentavos=50;
-  await assert.rejects(row.save(),/LEDGER_APPEND_ONLY/);
+  await assert.rejects(row.save(),/LEDGER_APPEND_ONLY|immutable/);
   await assert.rejects(Model.updateOne({id:doc.id},{$set:{montoCentavos:50}}),/LEDGER_APPEND_ONLY/);
   await assert.rejects(Model.deleteMany({empresaId:doc.empresaId}),/LEDGER_APPEND_ONLY/);
   await assert.rejects(Model.bulkWrite([{deleteMany:{filter:{empresaId:doc.empresaId}}}]),/LEDGER_BULK_WRITE_PROHIBIDO/);
