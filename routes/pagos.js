@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const Pedido = require("../models/pedido");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
 const { validarPedidosIntento } = require("../services/gruk/validarPedidosIntento");
+const { totalPedidoCopEnCentavos } = require("../services/gruk/totalPedidoCopEnCentavos");
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ router.post("/crear-pago", async (req, res) => {
 
     validarPedidosIntento(pedidos.map(p => p._id));
 
-    const amountInCents = pedidos.reduce((sum, p) => sum + Math.round(Number(p.precio) * 100), 0);
+    const amountInCents = totalPedidoCopEnCentavos(pedidos.map(p => p.precio));
     if (!Number.isSafeInteger(amountInCents) || amountInCents <= 0) {
       return res.status(409).json({ ok: false, error: "El total del pedido no es válido" });
     }
