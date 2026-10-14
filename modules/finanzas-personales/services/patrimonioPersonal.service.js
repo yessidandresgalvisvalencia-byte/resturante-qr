@@ -40,6 +40,33 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
   throw error;
  }finally{await session.endSession();}
 }
+async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId,numeroCuota,externalId}){
+ if(!Number.isInteger(numeroCuota)||numeroCuota<1||numeroCuota>600)throw Object.assign(new Error("Número de cuota inválido"),{statusCode:422});
+ if(typeof externalId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(externalId))throw Object.assign(new Error("Referencia inválida"),{statusCode:400});
+ const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;if(!secret)throw Error("PERSONAL_IDEMPOTENCY_SECRET requerido");
+ const hash=crypto.createHmac("sha256",secret).update(String(usuarioId)+":"+externalId).digest("hex");
+ const session=await mongoose.startSession();let resultado;
+ try{
+  await session.withTransaction(async()=>{
+   const previo=await Transaccion.findOne({usuarioId,externalIdHash:hash}).session(session);
+   if(previo){if(previo.tipo!=="PAGO_DEUDA"||String(previo.prestamoId)!==String(prestamoId)||String(previo.cuentaId)!==String(cuentaId)||!previo.descripcion.includes("Cuota "+numeroCuota+" "))throw Object.assign(new Error("Referencia reutilizada"),{statusCode:409});resultado={transaccion:previo,duplicado:true};return;}
+   const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0},cuotaMinor:{$gt:0},periodicidadConfirmada:true}).session(session);
+   if(!p)throw Object.assign(new Error("Crédito sin cuotas confirmadas o ya cancelado"),{statusCode:409});
+   if(p.tasaMensualPct>0)throw Object.assign(new Error("Este crédito tiene intereses: antes de registrar una cuota hay que separar capital e intereses para evitar errores contables."),{statusCode:409});
+   const pagos=await Transaccion.find({usuarioId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).select("descripcion montoMinor").session(session).lean();
+   if(pagos.some(x=>x.descripcion.startsWith("Cuota "+numeroCuota+" ")))throw Object.assign(new Error("Esta cuota ya está pagada"),{statusCode:409});
+   if(numeroCuota!==pagos.length+1)throw Object.assign(new Error("Debes registrar las cuotas en orden"),{statusCode:409});
+   const monto=Math.min(p.cuotaMinor,p.saldoMinor);
+   const cuenta=await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});
+   if(!cuenta)throw Object.assign(new Error("Cuenta no disponible o fondos insuficientes"),{statusCode:409});
+   p.saldoMinor-=monto;if(p.saldoMinor===0){p.estado="PAGADO";p.periodicidadConfirmada=false;}await p.save({session});
+   const [tx]=await Transaccion.create([{usuarioId,prestamoId:p._id,cuentaId:cuenta._id,cuenta:cuenta.nombre,tipo:"PAGO_DEUDA",montoMinor:monto,concepto:("Pago cuota "+numeroCuota+" · "+p.concepto).slice(0,140),categoria:"Pago de capital de deuda",descripcion:"Cuota "+numeroCuota+" confirmada",contraparte:p.contraparte,medioPago:cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA",fecha:new Date(),origen:"MANUAL",externalIdHash:hash}],{session});
+   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(p._id),tipo:"PAGO_DEUDA",numeroCuota,montoMinor:monto}}],{session});
+   resultado={transaccion:tx,saldoPendienteMinor:p.saldoMinor,duplicado:false};
+  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
+  return resultado;
+ }finally{await session.endSession();}
+}
 async function corregirPrestamo(usuarioId,prestamoId,cambios){
  const session=await mongoose.startSession();
  try{
@@ -117,4 +144,4 @@ async function retirarDeudaVisible(usuarioId,prestamoId){
 }
 async function transferir(usuarioId,{origenId,destinoId,montoMinor}){const monto=safe(montoMinor);if(!monto)throw Object.assign(new Error("Monto debe ser mayor a cero"),{statusCode:400});if(String(origenId)===String(destinoId))throw Object.assign(new Error("Las cuentas deben ser diferentes"),{statusCode:400});const session=await mongoose.startSession();try{return await session.withTransaction(async()=>{const origen=await Cuenta.findOneAndUpdate({_id:origenId,usuarioId,activa:true,saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});if(!origen)throw Object.assign(new Error("Cuenta origen inválida o saldo insuficiente"),{statusCode:409});const destino=await Cuenta.findOneAndUpdate({_id:destinoId,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});if(!destino)throw Object.assign(new Error("Cuenta destino inválida"),{statusCode:404});return{origen,destino,montoMinor:monto};},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});}finally{await session.endSession()}}
 async function snapshot(usuarioId){const [cuentas,activos,prestamos]=await Promise.all([Cuenta.find({usuarioId,activa:true}).lean(),Activo.find({usuarioId}).lean(),Prestamo.find({usuarioId,estado:{$in:["ACTIVO","VENCIDO"]}}).lean()]);const rows=await Transaccion.find({usuarioId,estado:{$ne:"ANULADA"},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA","PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO"]}}).select("tipo montoMinor medioPago fecha cuenta cuentaId").lean();const movimientosCaja=rows.filter(x=>deltaCaja(x)!==0);const hayMovimientosLedger=movimientosCaja.length>0;const saldoDerivadoLedgerMinor=hayMovimientosLedger?movimientosCaja.reduce((s,x)=>s+deltaCaja(x),0):null;const cuentasVerificadas=cuentas.filter(x=>x.saldoVerificadoEn&&!x.requiereReconciliacion);const saldoVerificado=cuentas.length>0&&cuentasVerificadas.length===cuentas.length;const cuentasAncladas=cuentas.filter(x=>Number.isSafeInteger(x.saldoAnclaMinor)&&x.saldoAnclaEn&&!x.requiereReconciliacion);const anclaCompleta=cuentas.length>0&&cuentasAncladas.length===cuentas.length;let liquidez;if(anclaCompleta){liquidez=saldoCuentasDesdeAnclas(cuentasAncladas,movimientosCaja);}else if(cuentasVerificadas.length===0)liquidez=saldoDerivadoLedgerMinor??0;else liquidez=cuentas.reduce((a,x)=>a+x.saldoMinor,0);const activosNoLiquidos=activos.filter(x=>!x.liquido).reduce((a,x)=>a+x.valorMinor,0);const porCobrar=prestamos.filter(x=>x.direccion==="POR_COBRAR").reduce((a,x)=>a+x.saldoMinor,0);const porPagar=prestamos.filter(x=>x.direccion==="POR_PAGAR").reduce((a,x)=>a+x.saldoMinor,0);return{liquidezMinor:liquidez,activosNoLiquidosMinor:activosNoLiquidos,activosTotalesMinor:liquidez+activosNoLiquidos,cuentasPorCobrarMinor:porCobrar,pasivosMinor:porPagar,patrimonioFinancieroNetoMinor:liquidez+activosNoLiquidos+porCobrar-porPagar,cuentas,activos,prestamos,saldoDerivadoLedgerMinor,hayMovimientosLedger,saldoVerificado,cuentasVerificadas:cuentasVerificadas.map(x=>String(x._id)),fuenteLiquidez:anclaCompleta?"ANCLA_RECONCILIADA":(cuentasVerificadas.length===0?"LEDGER_DERIVADO":"CUENTAS_PARCIALMENTE_VERIFICADAS"),anclaCompleta}}
-module.exports={deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,corregirPrestamo,retirarDeudaVisible,transferir,snapshot};
+module.exports={deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,pagarCuotaCredito,corregirPrestamo,retirarDeudaVisible,transferir,snapshot};
