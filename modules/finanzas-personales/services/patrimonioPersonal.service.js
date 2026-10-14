@@ -78,7 +78,7 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
     }
     prestamo.origenCuentaPorCobrar=origenNuevo;
    }
-   for(const campo of ["contraparte","concepto","cuotaMinor","tasaMensualPct","fechaVencimiento"]){
+   for(const campo of ["contraparte","concepto","cuotaMinor","tasaMensualPct","fechaVencimiento","frecuenciaCuota","diaPagoCuota"]){
     if(Object.prototype.hasOwnProperty.call(cambios,campo))prestamo[campo]=cambios[campo];
    }
    await prestamo.save({session});
