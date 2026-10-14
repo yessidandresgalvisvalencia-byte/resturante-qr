@@ -138,7 +138,21 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
   // Duplicate unique-index races and unknown commit results are safe to
   // reconcile by operation identity, never by blindly inserting again.
   if(error?.code===11000||error?.hasErrorLabel?.("UnknownTransactionCommitResult")){
-   const confirmed=await recuperar();
+   let confirmed;
+   try{
+    confirmed=await recuperar();
+   }catch(recoveryError){
+    // The commit status is still unknown when reconciliation also loses MongoDB.
+    // Preserve integrity failures; never disguise corruption as a network issue.
+    const transient=["MongoNetworkError","MongoNetworkTimeoutError","MongoServerSelectionError"];
+    if(error?.hasErrorLabel?.("UnknownTransactionCommitResult")&&
+       transient.includes(recoveryError?.name)){
+     const indeterminado=new Error("LEDGER_CONFIRMACION_INDETERMINADA");
+     indeterminado.cause=recoveryError;
+     throw indeterminado;
+    }
+    throw recoveryError;
+   }
    if(confirmed)return confirmed;
    // An uncertain commit must never be represented as a confirmed failure.
    if(error?.hasErrorLabel?.("UnknownTransactionCommitResult")){
