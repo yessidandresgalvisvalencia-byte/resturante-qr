@@ -2,6 +2,7 @@
 const interprete=require("./interpreteFinanciero.service");
 const consulta=require("./consultaPersonal.service");
 const master=require("./masterAsesorPersonal.service");
+const simuladorMaster=require("./simuladorCuotasMaster.service");
 const home=require("./homePersonal.service");
 const Transaccion=require("../models/TransaccionPersonal");
 const Calendario=require("../models/calendarioFinanciero.model");
@@ -19,6 +20,15 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const t=normalizar(texto);
  if(/(?:zapatos|tenis|calzado)/i.test(t)&&/(?:quiero|comprar|cuotas|financiar|inter[eé]s)/i.test(t)){await ContextoConversacional.findOneAndUpdate({usuarioId},{$set:{ultimaCompraPlanificada:{concepto:"zapatos",descripcion:t.slice(0,500),creadoEn:new Date()},asOf:new Date()}},{upsert:true,setDefaultsOnInsert:true});}
  const historialReciente=await TurnoConversacional.find({usuarioId}).sort({createdAt:-1}).limit(12).select("mensaje clase createdAt").lean();
+ const datosFinanciacion=simuladorMaster.interpretarSimulacion(t);
+ if(datosFinanciacion&&/(\bquiero\b|\bplaneo\b|\bpienso\b|\bconsiderando\b|\bcomprar\b|\bfinanciar\b)/i.test(t)){
+  const calculo=simuladorMaster.simularCuotas(datosFinanciacion);
+  const fmt=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n);
+  const evaluacion=await home.obtener(usuarioId);
+  const asesor=evaluacion.asesor||{};
+  const capacidad=asesor.saldoRealConocido?"Disponible registrado estimado: "+fmt(asesor.disponibleHoyMinor)+".":"Aún no tengo confirmado tu disponible real para comprometer dinero.";
+  return{clase:"INTENCION",requiereAprobacion:false,mensaje:"Simulación, no compra registrada: precio "+fmt(calculo.precio)+", "+calculo.numeroCuotas+" cuotas. Si el "+calculo.tasaPct+"% se aplica una sola vez a cada cuota base, el total sería "+fmt(calculo.total)+" y el costo adicional "+fmt(calculo.intereses)+". Cuota orientativa inicial: "+fmt(calculo.cuotas[0])+". Esta no es una tasa efectiva mensual confirmada: si el interés es mensual sobre saldo o hay cargos, el resultado cambia. "+capacidad+" ¿El porcentaje se cobra una sola vez sobre cada cuota o mensualmente sobre el saldo? No se ha creado ninguna deuda ni pago.",analisis:{soloLectura:true,simulacion:calculo,requiereConfirmarMetodoInteres:true}};
+ }
  if(/^(?:de qu[eé] est[aá]bamos hablando|qu[eé] te dije antes)[?.! ]*$/i.test(t)){const anterior=historialReciente[0];return{clase:"PREGUNTA",requiereAprobacion:false,mensaje:anterior?"Tu último mensaje fue: «"+anterior.mensaje.slice(0,250)+"». ¿Quieres retomar ese tema?":"Aún no hay mensajes anteriores guardados para esta cuenta.",analisis:{soloLectura:true}};}
  const contexto=await ContextoConversacional.findOne({usuarioId}).select("ultimaCompraPlanificada").lean();
  const compra=contexto?.ultimaCompraPlanificada&&Date.now()-new Date(contexto.ultimaCompraPlanificada.creadoEn).getTime()<7*86400000?contexto.ultimaCompraPlanificada:null;
