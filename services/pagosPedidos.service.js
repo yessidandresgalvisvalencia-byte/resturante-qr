@@ -131,7 +131,11 @@ async function confirmarPagoPedidoWompi({ transaction, io = null, outboxWriter =
           totalActual !== lockedIntento.amountInCents) throw new Error("MONTO_PEDIDOS_CAMBIO");
 
       for (const pedido of pedidos) {
-        if (pedido.estadoPago === "pagado") continue;
+        // Nunca aprobar el intento omitiendo un pedido ya pagado por otra ruta:
+        // requiere conciliación explícita para evitar un cobro aprobado sin venta verificable.
+        if (pedido.estadoPago === "pagado") {
+          throw new Error("PEDIDO_YA_PAGADO_REQUIERE_CONCILIACION");
+        }
 
         let sedeObjectId = null;
         if (pedido.sedeId) {
