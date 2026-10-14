@@ -49,3 +49,10 @@ Comando de validación de rama: `npm ci && npm run gate`.
 - El CI #1378 fue cancelado; no cuenta como aprobación independiente.
 - Capacidad actual configurada: hasta 100.000 asientos en la recuperación. **No significa** latencia aceptable para 100.000 ni validación de 100.000 en integración.
 - Persisten límites O(n) de tiempo y de identificadores de operación retenidos en memoria, así como el bloqueo de historiales superiores a 100.000.
+
+## Latencias de escritura ACID auditada (CI #1390, 2026-10-14)
+- Veinte escrituras secuenciales `registrarMovimiento` con historial inicial de 1.000 asientos; cada escritura audita todo el historial dentro de su transacción snapshot.
+- GitHub Actions con MongoDB local: p50 **57,32 ms**; p95 **106,03 ms**; p99 **340,48 ms** (nearest-rank, n=20; el p99 es el máximo observado).
+- Tras las 20 escrituras se verificaron 1.020 asientos y saldo exacto de 1.020 centavos.
+- Evidencia: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/38634860186
+- El p99 observado no permite estimar el p99 poblacional. La variación exige repetir con muestras amplias, carga simultánea y MongoDB Atlas remoto. El costo O(n) de auditar íntegramente cada escritura sigue siendo un bloqueo de producción.
