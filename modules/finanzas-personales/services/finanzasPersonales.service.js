@@ -40,7 +40,18 @@ async function resumen(userId,now=new Date()){
  const pagosDeuda=m.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false).reduce((a,x)=>a+x.montoMinor,0);
  const deudaTotal=deudas.reduce((a,x)=>a+x.saldoMinor,0);
  const cuotasVencenMes=deudas.filter(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=inicio&&new Date(x.fechaVencimiento)<fin).reduce((a,x)=>a+Math.min(x.cuotaMinor||x.saldoMinor,x.saldoMinor),0);
- const cuotasDeuda=Math.max(0,cuotasVencenMes-pagosDeuda);
+ const pagosPorDeuda=new Map();
+ for(const movimiento of m){
+  if(movimiento.tipo!=="PAGO_DEUDA"||!movimiento.prestamoId)continue;
+  const id=String(movimiento.prestamoId);
+  pagosPorDeuda.set(id,(pagosPorDeuda.get(id)||0)+movimiento.montoMinor);
+ }
+ const cuotasDeuda=deudas.reduce((total,deuda)=>{
+  const vence=deuda.fechaVencimiento&&new Date(deuda.fechaVencimiento)>=inicio&&new Date(deuda.fechaVencimiento)<fin;
+  if(!vence)return total;
+  const cuota=Math.min(deuda.cuotaMinor||deuda.saldoMinor,deuda.saldoMinor);
+  return total+Math.max(0,cuota-(pagosPorDeuda.get(String(deuda._id))||0));
+ },0);
  const flujoLibre=ingresos-gastos-pagosDeuda-cuotasDeuda;
  const carga=ingresos?((pagosDeuda+cuotasDeuda)/ingresos)*100:0;
  const gastoBaseMensual=gastos;
