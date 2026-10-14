@@ -16,7 +16,7 @@ async function registrarEventoEnTransaccion(input,session){
  const [event]=await Outbox.create([{eventId:input.eventId,empresaId:input.empresaId,sedeId:input.sedeId||null,eventName:input.eventName,aggregateId:input.aggregateId,payload:input.payload}],{session});
  return event;
 }
-async function publicarLote({io,workerId=crypto.randomUUID(),limit=50,now=new Date(),proyectarIngreso=null}={}){
+async function publicarLote({io,workerId=crypto.randomUUID(),limit=50,proyectarIngreso=null}={}){
  if(!io||typeof io.to!=='function')throw new Error('OUTBOX_SOCKET_NO_DISPONIBLE');
  if(!Number.isInteger(limit)||limit<1||limit>100)throw new Error('OUTBOX_LIMITE_INVALIDO');
  let sent=0,failed=0;
@@ -35,13 +35,14 @@ async function publicarLote({io,workerId=crypto.randomUUID(),limit=50,now=new Da
    const target=io.to('empresa-'+evt.empresaId.toString());
    if(!target||typeof target.emit!=='function')throw new Error('OUTBOX_ROOM_INVALIDO');
    target.emit(EVENT_SOCKET[evt.eventName],{eventId:evt.eventId,empresaId:String(evt.empresaId),sedeId:evt.sedeId?String(evt.sedeId):null,aggregateId:String(evt.aggregateId),data:evt.payload});
-   const updated=await Outbox.updateOne({_id:evt._id,status:'CLAIMED',claimedBy:workerId,claimToken},{$set:{status:'DONE',dispatchedAt:new Date(),leaseUntil:null,claimedBy:null,claimToken:null,lastError:''}});
+   const updated=await Outbox.updateOne({_id:evt._id,status:'CLAIMED',claimedBy:workerId,claimToken,leaseUntil:{$gt:new Date()}},{$set:{status:'DONE',dispatchedAt:new Date(),leaseUntil:null,claimedBy:null,claimToken:null,lastError:''}});
    if(updated.modifiedCount!==1)throw new Error('OUTBOX_ACK_PERDIDO');
    sent++;
   }catch(err){
    failed++;
    const delay=Math.min(300000,1000*2**Math.min(evt.attempts,8));
-   await Outbox.updateOne({_id:evt._id,status:'CLAIMED',claimedBy:workerId,claimToken},{$set:{status:'PENDING',nextAttemptAt:new Date(Date.now()+delay),leaseUntil:null,claimedBy:null,claimToken:null,lastError:String(err.message).slice(0,300)}});
+   // Fencing: a worker whose lease expired must not revert another worker's claim.
+   await Outbox.updateOne({_id:evt._id,status:'CLAIMED',claimedBy:workerId,claimToken,leaseUntil:{$gt:new Date()}},{$set:{status:'PENDING',nextAttemptAt:new Date(Date.now()+delay),leaseUntil:null,claimedBy:null,claimToken:null,lastError:String(err.message).slice(0,300)}});
   }
  }
  return {sent,failed};
