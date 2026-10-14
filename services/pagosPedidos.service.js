@@ -143,6 +143,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null, outboxWriter =
           pedido,
           empresaId: restaurante.empresaId,
           sedeId: sedeObjectId,
+          metodoPagoConfirmado: "tarjeta",
           session,
           emitirEvento: false
         });
