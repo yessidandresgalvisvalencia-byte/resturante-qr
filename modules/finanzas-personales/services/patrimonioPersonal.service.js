@@ -114,7 +114,7 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
     if(prestamo.direccion!=="POR_PAGAR"||prestamo.saldoMinor<=0||prestamo.estado==="PAGADO")throw Object.assign(new Error("Solo pueden programarse deudas propias pendientes"),{statusCode:422});
     if(!frecuencia||!Number.isSafeInteger(monto)||monto<=0||!vencimiento||(frecuencia==="MENSUAL"&&(!Number.isInteger(dia)||dia<1||dia>31)))throw Object.assign(new Error("Faltan las condiciones confirmadas del calendario"),{statusCode:422});
    }
-   for(const campo of ["contraparte","concepto","cuotaMinor","tasaMensualPct","fechaVencimiento","periodicidad","diaPago","periodicidadConfirmada"]){
+   for(const campo of ["contraparte","concepto","cuotaMinor","tasaMensualPct","fechaVencimiento","periodicidad","diaPago","numeroCuotas","periodicidadConfirmada"]){
     if(Object.prototype.hasOwnProperty.call(cambios,campo))prestamo[campo]=cambios[campo];
    }
    await prestamo.save({session});

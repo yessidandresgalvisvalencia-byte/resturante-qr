@@ -60,6 +60,7 @@ const editarPrestamoSchema=Joi.object({
  cuotaMinor:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
  tasaMensualPct:Joi.number().min(0).max(100),
  fechaVencimiento:Joi.date().iso().allow(null),
+ numeroCuotas:Joi.number().integer().min(1).max(360),
  periodicidad:Joi.string().valid("UNICA","SEMANAL","QUINCENAL","MENSUAL"),
  diaPago:Joi.number().integer().min(1).max(31),
  periodicidadConfirmada:Joi.boolean()
