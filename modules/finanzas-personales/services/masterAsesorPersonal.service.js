@@ -3,6 +3,7 @@ const Turno=require("../models/turnoConversacionalPersonal.model");
 const Contexto=require("../models/contextoConversacionalPersonal.model");
 const home=require("./homePersonal.service");
 const consulta=require("./consultaPersonal.service");
+const proyeccion=require("./proyeccionMaster90d.service");
 
 const NORMALIZAR=s=>String(s||"").trim();
 const SEGUIMIENTO=/^(?:¿?\s*(?:y si|entonces|en ese caso|con eso|y con eso|qué pasaría si|que pasaria si|en vez de|mejor|pero si|cuánto sería|cuanto seria|por qué|por que|explícame|explicame|y si no))\b/i;
@@ -33,6 +34,11 @@ async function orientar(usuarioId,pregunta,{turnos=[]}={}){
  const actual=NORMALIZAR(pregunta);
  const anterior=encontrarContexto(turnos,actual);
  const contextoPrevio=anterior?.mensaje?.slice(0,400)||null;
+ if(/(?:proyecci[oó]n|proyecta|pr[oó]ximos? (?:30|60|90) d[ií]as|(?:30|60|90) d[ií]as|futuro de mi caja)/i.test(actual)&&/(?:caja|finanzas|dinero|saldo|ingresos|gastos|pagos|proyecci[oó]n|proyecta)/i.test(actual)){
+  const resultado=await proyeccion.analizar(usuarioId);
+  const partes=resultado.ventanas.map(v=>v.dias+" días: ingresos con fecha "+moneda(v.ingresosConFechaMinor)+", compromisos identificados "+moneda(v.obligacionesConFechaMinor)+", saldo condicional "+(v.saldoCondicionalMinor===null?"no verificable":moneda(v.saldoCondicionalMinor))+".");
+  return{tipo:"PROYECCION_PARCIAL_30_60_90",respuesta:"Proyección parcial basada únicamente en eventos conocidos, no un presupuesto completo. "+partes.join(" ")+" Faltan gastos futuros y posiblemente ingresos recurrentes; esos importes no se han inventado. La cobertura actual de compromisos se limita a los registrados antes del próximo ingreso conocido. No he registrado ni programado movimientos.",datos:resultado};
+ }
  const consultaBase=await consulta.consultar(usuarioId,actual);
  const solicitaDecision=DECISION.test(actual);
  if(!solicitaDecision&&!anterior)return{...consultaBase,contextoPrevio:null};
