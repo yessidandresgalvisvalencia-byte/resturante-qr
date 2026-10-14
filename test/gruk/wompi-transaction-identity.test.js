@@ -25,7 +25,8 @@ function fixture({ existingId = "", inputId = "tx-001", state = "PENDIENTE" } = 
     "./ventas.service": {},
     "./gruk/validarPedidosIntento": require("../../services/gruk/validarPedidosIntento"),
     "./gruk/registrarVentaEnOutbox": require("../../services/gruk/registrarVentaEnOutbox"),
-    "./gruk/resolverOutboxWompi": require("../../services/gruk/resolverOutboxWompi")
+    "./gruk/resolverOutboxWompi": require("../../services/gruk/resolverOutboxWompi"),
+    "./gruk/totalPedidoCopEnCentavos": require("../../services/gruk/totalPedidoCopEnCentavos")
   };
   const mod = { exports: {} };
   vm.runInNewContext(source, {
