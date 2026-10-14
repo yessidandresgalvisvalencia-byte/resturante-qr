@@ -2,7 +2,9 @@
 const {randomUUID}=require('node:crypto');
 const {publicarLote}=require('./outbox.service');
 function habilitado(env=process.env){
- return env.NODE_ENV!=='production'&&env.GRUK_P0_OUTBOX_WORKER_ENABLED==='true'&&env.GRUK_P0_PEDIDOS_ENABLED==='true';
+ return String(env.NODE_ENV||'').toLowerCase()!=='production'&&
+  env.GRUK_P0_OUTBOX_WORKER_ENABLED==='true'&&
+  (env.GRUK_P0_PEDIDOS_ENABLED==='true'||env.GRUK_WOMPI_DURABLE_OUTBOX_ENABLED==='true');
 }
 function iniciarOutboxWorker({io,env=process.env,intervalMs=5000,onError=(err)=>console.error('[GRUK P0 OUTBOX]',err)}={}){
  if(!habilitado(env))return {started:false,stop(){}};
