@@ -34,17 +34,25 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
     hashMovimiento(existing)===existing.hash;
  }
  async function recuperar(){
-  const existing=await Movimiento.findOne({empresaId,sedeId,operacionId}).lean();
-  if(!existing)return null;
-  if(!coincide(existing))throw Error("LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE");
-  // Un asiento existente no basta: comprobar que pertenece a la cadena vigente.
-  const head=await Saldo.findOne({empresaId,sedeId}).lean();
-  if(!head||!Number.isSafeInteger(head.secuencia)||head.secuencia<existing.secuencia)
-    throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
-  if(head.secuencia===existing.secuencia &&
-     (head.hashUltimo!==existing.hash||head.saldoCentavos!==existing.despuesCentavos))
-    throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
-  return existing;
+  const lectura=await mongoose.startSession();
+  try{
+   let existente=null;
+   await lectura.withTransaction(async()=>{
+    const existing=await Movimiento.findOne({empresaId,sedeId,operacionId}).session(lectura).lean();
+    if(!existing)return;
+    if(!coincide(existing))throw Error("LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE");
+    const head=await Saldo.findOne({empresaId,sedeId}).session(lectura).lean();
+    if(!head||!Number.isSafeInteger(head.secuencia)||head.secuencia<existing.secuencia)
+      throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
+    if(head.secuencia===existing.secuencia &&
+       (head.hashUltimo!==existing.hash||head.saldoCentavos!==existing.despuesCentavos))
+      throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
+    existente=existing;
+   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
+   return existente;
+  }finally{
+   await lectura.endSession();
+  }
  }
  const previo=await recuperar();
  if(previo)return previo;
