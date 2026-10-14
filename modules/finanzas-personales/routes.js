@@ -161,7 +161,7 @@ const perfilInv=Joi.object({horizonteMeses:Joi.number().integer().min(1).max(600
 router.put("/perfil-inversion",validate(perfilInv),async(req,res)=>res.json({ok:true,perfil:await service.upsertPerfilInversion(req.personalAuth.userId,req.validated)}));
 router.get("/patrimonio",async(req,res)=>res.json({ok:true,patrimonio:await service.patrimonio(req.personalAuth.userId)}));
 router.get("/plan-financiero",async(req,res)=>res.json({ok:true,plan:await service.planFinanciero(req.personalAuth.userId)}));
-const credito=Joi.object({nombre:Joi.string().max(100).required(),saldo:Joi.number().min(0).required(),tasaMensualPct:Joi.number().min(0).max(100).required(),cuotaMensual:Joi.number().min(0).required(),mesesRestantes:Joi.number().integer().min(0).max(600).required()});
+const credito=Joi.object({nombre:Joi.string().max(100).required(),saldo:Joi.number().min(0).required(),tasaMensualPct:Joi.number().min(0).max(100).required(),cuotaMensual:Joi.number().min(0).required(),mesesRestantes:Joi.number().integer().min(1).max(360).required()});
 router.get("/creditos",async(req,res)=>{
  try{const Credito=require("./models/credito.model");const creditos=await Credito.find({userId:req.personalAuth.userId,activo:true}).sort({createdAt:-1}).select("_id nombre saldo tasaMensualPct cuotaMensual mesesRestantes createdAt").lean();return res.json({ok:true,creditos});}
  catch(e){return res.status(500).json({ok:false,error:"No se pudieron consultar los créditos previos"});}
@@ -204,8 +204,8 @@ router.delete("/prestamos/:id",async(req,res)=>{
 router.post("/creditos",validate(credito),async(req,res)=>{
  try{
   const d=req.validated;
-  if(!Number.isSafeInteger(d.saldo)||d.saldo<=0||!Number.isSafeInteger(d.cuotaMensual)||d.cuotaMensual<0)return res.status(400).json({ok:false,error:"El saldo debe ser un entero positivo y la cuota un entero no negativo"});
-  const prestamo=await patrimonioPersonal.crearPrestamo(req.personalAuth.userId,{direccion:"POR_PAGAR",contraparte:"Acreedor no identificado",concepto:d.nombre,principalMinor:d.saldo,cuotaMinor:d.cuotaMensual,tasaMensualPct:d.tasaMensualPct,fechaInicio:new Date(),fechaVencimiento:null});
+  if(!Number.isSafeInteger(d.saldo)||d.saldo<=0||!Number.isSafeInteger(d.cuotaMensual)||d.cuotaMensual<=0)return res.status(400).json({ok:false,error:"El saldo debe ser un entero positivo y la cuota un entero no negativo"});
+  const prestamo=await patrimonioPersonal.crearPrestamo(req.personalAuth.userId,{direccion:"POR_PAGAR",contraparte:"Acreedor no identificado",concepto:d.nombre,principalMinor:d.saldo,cuotaMinor:d.cuotaMensual,numeroCuotas:d.mesesRestantes,tasaMensualPct:d.tasaMensualPct,fechaInicio:new Date(),fechaVencimiento:null});
   return res.status(201).json({ok:true,prestamo,registro:"DEUDA_CANONICA"});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible registrar el crédito"});}
 });
