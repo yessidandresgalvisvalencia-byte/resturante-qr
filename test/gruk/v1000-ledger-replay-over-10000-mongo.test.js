@@ -65,5 +65,20 @@ test("V1000: replay real de operación histórica tras 10001 asientos conserva s
   );
   assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),cantidad-1);
   assert.equal((await Saldo.findOne({empresaId,sedeId}).lean()).saldoCentavos,cantidad);
+  // Reconstruir el asiento eliminado para probar luego una escritura válida.
+  const original=docs[4999];
+  await Movimiento.collection.insertOne({...original});
+  // Si un asiento antiguo cambia pero la cabecera y el último siguen intactos,
+  // la comprobación local de la cola no detecta por sí sola la corrupción.
+  await Movimiento.collection.updateOne({empresaId,sedeId,secuencia:5000},
+   {$set:{montoCentavos:9}});
+  await assert.rejects(
+   ()=>auditarLedgerEnMongo({empresaId,sedeId,maxAsientos:cantidad}),
+   /LEDGER_AUDITORIA_INCONSISTENTE/
+  );
+  // No dar por íntegra una cadena solo por comparar el último hash.
+  assert.equal((await Saldo.findOne({empresaId,sedeId}).lean()).hashUltimo,anterior);
+  await Movimiento.collection.updateOne({empresaId,sedeId,secuencia:5000},
+   {$set:{montoCentavos:1}});
  }finally{await mongoose.connection.dropDatabase();await mongoose.disconnect();}
 });
