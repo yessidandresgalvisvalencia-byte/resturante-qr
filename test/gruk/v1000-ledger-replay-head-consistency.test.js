@@ -13,7 +13,7 @@ test("Replay V1000 exige cabecera y lectura snapshot consistente",()=>{
 });
 test("Replay verifica cabecera, saldo y hash mediante auditoría íntegra, sin lecturas redundantes",()=>{
  const body=s.slice(s.indexOf("async function recuperar()"),s.indexOf("const previo=await recuperar()"));
- assert.match(body,/verificarCadena\(\{empresaId,sedeId,asientos:historial,cabecera:head\}\)/);
+ assert.match(body,/verificador\.finalizar\(head\)/);
  assert.match(body,/LEDGER_REPLAY_CADENA_INVALIDA/);
  assert.doesNotMatch(body,/const ultimo=await Movimiento\.findOne/);
 });
