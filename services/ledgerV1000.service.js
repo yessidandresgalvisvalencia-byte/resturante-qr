@@ -125,6 +125,12 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
   if(error?.code===11000||error?.hasErrorLabel?.("UnknownTransactionCommitResult")){
    const confirmed=await recuperar();
    if(confirmed)return confirmed;
+   // An uncertain commit must never be represented as a confirmed failure.
+   if(error?.hasErrorLabel?.("UnknownTransactionCommitResult")){
+    const indeterminado=new Error("LEDGER_CONFIRMACION_INDETERMINADA");
+    indeterminado.cause=error;
+    throw indeterminado;
+   }
   }
   throw error;
  }finally{await session.endSession();}
