@@ -139,7 +139,7 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
     const monto=cambios.cuotaMinor===undefined?prestamo.cuotaMinor:cambios.cuotaMinor;
     const cuotas=cambios.numeroCuotas===undefined?prestamo.numeroCuotas:cambios.numeroCuotas;
     if(prestamo.direccion!=="POR_PAGAR"||prestamo.saldoMinor<=0||prestamo.estado==="PAGADO")throw Object.assign(new Error("Solo pueden programarse deudas propias pendientes"),{statusCode:422});
-    if(!frecuencia||!Number.isSafeInteger(monto)||monto<=0||!Number.isInteger(cuotas)||cuotas<1||cuotas>360)throw Object.assign(new Error("Confirma valor, periodicidad y número de cuotas; la fecha no es obligatoria"),{statusCode:422});
+    if(!Number.isSafeInteger(monto)||monto<=0||!Number.isInteger(cuotas)||cuotas<1||cuotas>360)throw Object.assign(new Error("Confirma valor, periodicidad y número de cuotas; la fecha no es obligatoria"),{statusCode:422});
    }
    for(const campo of ["contraparte","concepto","cuotaMinor","tasaMensualPct","fechaVencimiento","periodicidad","diaPago","numeroCuotas","periodicidadConfirmada"]){
     if(Object.prototype.hasOwnProperty.call(cambios,campo))prestamo[campo]=cambios[campo];
