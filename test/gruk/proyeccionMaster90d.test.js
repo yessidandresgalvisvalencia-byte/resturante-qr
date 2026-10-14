@@ -31,3 +31,9 @@ test("ingresos programados mensuales sí se acumulan por ventana",()=>{
  const r=proyectarVentanas({corte:"2026-10-13T00:00:00Z",ingresos});
  assert.deepEqual(r.map(x=>x.ingresosConFechaMinor),[2000000,4000000,6000000]);
 });
+
+test("diferencia los eventos nuevos por tramo de los acumulados",()=>{
+ const r=proyectarVentanas({corte:"2026-10-13T00:00:00Z",obligaciones:[{montoMinor:1000000,fecha:"2026-10-15T00:00:00Z"}]});
+ assert.deepEqual(r.map(x=>x.obligacionesTramoMinor),[1000000,0,0]);
+ assert.deepEqual(r.map(x=>x.numeroObligacionesTramo),[1,0,0]);
+});
