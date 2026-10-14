@@ -8,7 +8,7 @@ const recursos=Object.fromEntries(tipos.map(tipo=>[tipo,tenant.extend({
  id:ulid, tipo:z.literal(tipo),version:z.number().int().positive()
 }).strict()]));
 const movimiento=tenant.extend({
- id:ulid, tipo:z.enum(["CREDITO","DEBITO","AJUSTE"]),
+ id:ulid, secuencia:z.number().int().positive(), tipo:z.enum(["CREDITO","DEBITO","AJUSTE"]),
  montoCentavos:centavos.positive(),
  antesCentavos:centavos,
  despuesCentavos:centavos,
