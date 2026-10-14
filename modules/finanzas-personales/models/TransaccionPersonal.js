@@ -2,6 +2,7 @@
 const mongoose=require("mongoose");
 const schema=new mongoose.Schema({
  usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},
+ impactoCaja:{type:Boolean,default:true},
  prestamoId:{type:mongoose.Schema.Types.ObjectId,ref:"PrestamoPersonal",default:null,index:true},
  cuentaId:{type:mongoose.Schema.Types.ObjectId,ref:"CuentaFinancieraPersonal",default:null,index:true},
  tipo:{type:String,enum:["INGRESO","GASTO","PAGO_DEUDA","PRESTAMO_OTORGADO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO","AJUSTE_SALDO"],required:true,index:true},
