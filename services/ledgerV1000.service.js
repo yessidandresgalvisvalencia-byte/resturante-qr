@@ -1,6 +1,6 @@
 "use strict";
 const crypto=require("node:crypto");
-const {hashAsiento,verificarCadena}=require("../core/finance/v1000/auditarLedger");
+const {hashAsiento,crearVerificadorCadena}=require("../core/finance/v1000/auditarLedger");
 const mongoose=require("mongoose");
 const Saldo=require("../models/SaldoLedgerV1000");
 const Movimiento=require("../models/MovimientoLedgerV1000");
@@ -48,14 +48,20 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
     // Fail closed at the reconciliation capacity limit rather than accepting partial history.
     const MAX_REPLAY_AUDIT=10000;
     if(head.secuencia>MAX_REPLAY_AUDIT)throw Error("LEDGER_REPLAY_REQUIERE_AUDITORIA_PARTICIONADA");
-    const historial=await Movimiento.find({empresaId,sedeId})
-      .sort({secuencia:1}).limit(MAX_REPLAY_AUDIT+1).session(lectura).lean();
-    if(historial.length>MAX_REPLAY_AUDIT)throw Error("LEDGER_REPLAY_REQUIERE_AUDITORIA_PARTICIONADA");
+    const verificador=crearVerificadorCadena({empresaId,sedeId});
+    const cursor=Movimiento.find({empresaId,sedeId})
+      .sort({secuencia:1}).limit(MAX_REPLAY_AUDIT+1).session(lectura).lean().cursor({batchSize:500});
+    let vistos=0;
     try{
-      verificarCadena({empresaId,sedeId,asientos:historial,cabecera:head});
+      for await(const asiento of cursor){
+       if(++vistos>MAX_REPLAY_AUDIT)throw Error("LEDGER_REPLAY_REQUIERE_AUDITORIA_PARTICIONADA");
+       verificador.agregar(asiento);
+      }
+      verificador.finalizar(head);
     }catch(err){
+      if(err.message==="LEDGER_REPLAY_REQUIERE_AUDITORIA_PARTICIONADA")throw err;
       throw new Error("LEDGER_REPLAY_CADENA_INVALIDA",{cause:err});
-    }
+    }finally{await cursor.close();}
     existente=existing;
    },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
    return existente;
