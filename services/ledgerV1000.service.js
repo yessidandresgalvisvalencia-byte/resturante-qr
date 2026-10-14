@@ -98,15 +98,25 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
       typeof head.hashUltimo!=="string"||!/^[a-f0-9]{64}$/.test(head.hashUltimo)){
      throw Error("LEDGER_CABECERA_INVALIDA");
    }
-   if(head.secuencia===0){
-     if(head.saldoCentavos!==0||head.hashUltimo!=="0".repeat(64))
-       throw Error("LEDGER_GENESIS_INCONSISTENTE");
-   }else{
-     const last=await Movimiento.findOne({empresaId,sedeId,secuencia:head.secuencia}).session(session).lean();
-     if(!last||last.hash!==head.hashUltimo||last.despuesCentavos!==head.saldoCentavos||
-        hashMovimiento({...last,timestamp:new Date(last.timestamp).toISOString()})!==last.hash)
-       throw Error("LEDGER_CADENA_INCONSISTENTE");
-   }
+   // Until externally anchored checkpoints exist, never trust the tail alone:
+   // validate every committed entry in this snapshot before adding a new one.
+   // This deliberately fails closed beyond the supported verification capacity.
+   const MAX_WRITE_AUDIT=100000;
+   if(head.secuencia>MAX_WRITE_AUDIT)throw Error("LEDGER_ESCRITURA_REQUIERE_AUDITORIA_PARTICIONADA");
+   const verificadorEscritura=crearVerificadorCadena({empresaId,sedeId});
+   const cursorEscritura=Movimiento.find({empresaId,sedeId})
+     .sort({secuencia:1}).limit(MAX_WRITE_AUDIT+1).session(session).lean().cursor({batchSize:500});
+   let revisados=0;
+   try{
+    for await(const asiento of cursorEscritura){
+     if(++revisados>MAX_WRITE_AUDIT)throw Error("LEDGER_ESCRITURA_REQUIERE_AUDITORIA_PARTICIONADA");
+     verificadorEscritura.agregar(asiento);
+    }
+    verificadorEscritura.finalizar(head);
+   }catch(err){
+    if(err.message==="LEDGER_ESCRITURA_REQUIERE_AUDITORIA_PARTICIONADA")throw err;
+    throw new Error("LEDGER_CADENA_INCONSISTENTE",{cause:err});
+   }finally{await cursorEscritura.close();}
    const antes=BigInt(head.saldoCentavos),delta=BigInt(montoCentavos);
    const despues=tipo==="CREDITO"?antes+delta:antes-delta;
    if(despues<0n||despues>BigInt(Number.MAX_SAFE_INTEGER))throw Error("LEDGER_SALDO_INVALIDO");
