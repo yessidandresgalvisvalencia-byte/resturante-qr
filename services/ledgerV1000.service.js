@@ -70,6 +70,9 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
   let registrado;
   let duplicadoEnTransaccion=false;
   await session.withTransaction(async()=>{
+   // The driver may retry this callback: discard flags from aborted attempts.
+   duplicadoEnTransaccion=false;
+   registrado=undefined;
    // One balance head per tenant and branch. A conditional update serializes
    // writes; transaction write conflicts force the driver to retry.
    await Saldo.updateOne({empresaId,sedeId},{$setOnInsert:{saldoCentavos:0,hashUltimo:"0".repeat(64),secuencia:0}},{upsert:true,session});
