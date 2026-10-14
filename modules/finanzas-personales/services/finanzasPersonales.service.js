@@ -3,6 +3,7 @@ const mongoose=require("mongoose");
 const PrestamoPersonal=require("../models/prestamoPersonal.model");
 const patrimonioFinanciero=require("./patrimonioPersonal.service");
 const Movimiento=require("../models/movimiento.model");const Transaccion=require("../models/TransaccionPersonal");const Credito=require("../models/credito.model");const Perfil=require("../models/perfil.model");const Meta=require("../models/meta.model");const Activo=require("../models/activo.model");const Inversion=require("../models/inversion.model");const PerfilInversion=require("../models/perfilInversion.model");
+const {monthStart,nextMonth}=require("./homePersonal.service")._fechas;
 function gastoAfectaCaja(tx){return Boolean(tx&&tx.tipo==="GASTO"&&tx.medioPago!=="CREDITO");}
 async function registrarMovimiento(userId,data){const session=await mongoose.startSession();try{let doc;await session.withTransaction(async()=>{[doc]=await Movimiento.create([{userId,...data}],{session});});return doc;}finally{await session.endSession();}}
 async function diario(userId,{desde,hasta,limit=100}){const q={usuarioId:userId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}};if(desde||hasta){q.fecha={};if(desde)q.fecha.$gte=new Date(desde);if(hasta)q.fecha.$lte=new Date(hasta);}const rows=await Transaccion.find(q).sort({fecha:-1,createdAt:-1}).limit(Math.min(limit,500)).lean();const porDia={};for(const x of rows){const dia=new Date(x.fecha).toISOString().slice(0,10),monto=x.montoMinor;porDia[dia]??={fecha:dia,ingresos:0,gastos:0,balance:0,movimientos:[]};porDia[dia][x.tipo==="INGRESO"?"ingresos":"gastos"]+=monto;porDia[dia].balance+=x.tipo==="INGRESO"?monto:-monto;porDia[dia].movimientos.push({...x,monto});}return Object.values(porDia).sort((a,b)=>b.fecha.localeCompare(a.fecha));}
@@ -27,7 +28,7 @@ async function planFinanciero(userId){const [r,p,pi,pat]=await Promise.all([resu
 async function registrarCredito(userId,data){return Credito.create({userId,...data});}
 async function crearMeta(userId,data){return Meta.create({userId,...data});}
 async function resumen(userId,now=new Date()){
- const inicio=new Date(now.getFullYear(),now.getMonth(),1),fin=new Date(now.getFullYear(),now.getMonth()+1,1);
+ const inicio=monthStart(now),fin=nextMonth(now);
  const [m,deudas,pat,metas]=await Promise.all([
   Transaccion.find({usuarioId:userId,fecha:{$gte:inicio,$lt:fin},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA"]},estado:{$ne:"ANULADA"}}).lean(),
   PrestamoPersonal.find({usuarioId:userId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).lean(),
@@ -39,7 +40,18 @@ async function resumen(userId,now=new Date()){
  const pagosDeuda=m.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false).reduce((a,x)=>a+x.montoMinor,0);
  const deudaTotal=deudas.reduce((a,x)=>a+x.saldoMinor,0);
  const cuotasVencenMes=deudas.filter(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=inicio&&new Date(x.fechaVencimiento)<fin).reduce((a,x)=>a+Math.min(x.cuotaMinor||x.saldoMinor,x.saldoMinor),0);
- const cuotasDeuda=Math.max(0,cuotasVencenMes-pagosDeuda);
+ const pagosPorDeuda=new Map();
+ for(const movimiento of m){
+  if(movimiento.tipo!=="PAGO_DEUDA"||!movimiento.prestamoId)continue;
+  const id=String(movimiento.prestamoId);
+  pagosPorDeuda.set(id,(pagosPorDeuda.get(id)||0)+movimiento.montoMinor);
+ }
+ const cuotasDeuda=deudas.reduce((total,deuda)=>{
+  const vence=deuda.fechaVencimiento&&new Date(deuda.fechaVencimiento)>=inicio&&new Date(deuda.fechaVencimiento)<fin;
+  if(!vence)return total;
+  const cuota=Math.min(deuda.cuotaMinor||deuda.saldoMinor,deuda.saldoMinor);
+  return total+Math.max(0,cuota-(pagosPorDeuda.get(String(deuda._id))||0));
+ },0);
  const flujoLibre=ingresos-gastos-pagosDeuda-cuotasDeuda;
  const carga=ingresos?((pagosDeuda+cuotasDeuda)/ingresos)*100:0;
  const gastoBaseMensual=gastos;
