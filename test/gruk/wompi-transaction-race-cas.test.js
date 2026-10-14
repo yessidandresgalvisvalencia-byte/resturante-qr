@@ -39,7 +39,7 @@ test("GRUK Wompi: otro webhook no puede reemplazar transactionId en carrera", as
   vm.runInNewContext(source, {
     module: moduleRef, exports: moduleRef.exports,
     require(id) { assert.ok(Object.hasOwn(dependencies, id)); return dependencies[id]; },
-    Date, Number, String, Error, console
+    process: { env: { NODE_ENV: "test" } }, Date, Number, String, Error, console
   }, { timeout: 1000, filename: "pagosPedidos.service.js" });
   const result = await moduleRef.exports.confirmarPagoPedidoWompi({
     transaction: { reference: "GRUK_PEDIDO_TEST", id: "tx-nuevo", status: "DECLINED",
