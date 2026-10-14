@@ -46,7 +46,7 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
       throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
     // A valid predecessor/successor alone cannot prove that middle entries are intact.
     // Fail closed at the reconciliation capacity limit rather than accepting partial history.
-    const MAX_REPLAY_AUDIT=10000;
+    const MAX_REPLAY_AUDIT=100000;
     if(head.secuencia>MAX_REPLAY_AUDIT)throw Error("LEDGER_REPLAY_REQUIERE_AUDITORIA_PARTICIONADA");
     const verificador=crearVerificadorCadena({empresaId,sedeId});
     const cursor=Movimiento.find({empresaId,sedeId})
