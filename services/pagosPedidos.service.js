@@ -22,7 +22,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null, outboxWriter =
     transaction.amount_in_cents > 0 &&
     Number.isSafeInteger(intento.amountInCents) &&
     transaction.amount_in_cents === intento.amountInCents;
-  const currencyOk = String(transaction.currency || "").toUpperCase() === intento.currency;
+  const currencyOk = transaction.currency === "COP" && intento.currency === "COP";
   if (!amountOk || !currencyOk) {
     console.error("[SEGURIDAD] Pago de pedido con monto/moneda inconsistente", { reference, transactionId: transaction.id });
     return { handled: true, ok: false, reason: "INTEGRIDAD_ECONOMICA_INVALIDA" };
@@ -108,7 +108,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null, outboxWriter =
         !Number.isSafeInteger(lockedIntento.amountInCents) ||
         !Number.isSafeInteger(transaction.amount_in_cents) ||
         lockedIntento.amountInCents !== transaction.amount_in_cents ||
-        String(lockedIntento.currency).toUpperCase() !== String(transaction.currency || "").toUpperCase()
+        lockedIntento.currency !== "COP" || transaction.currency !== "COP"
       ) {
         throw new Error("INTEGRIDAD_ECONOMICA_INVALIDA");
       }
