@@ -50,8 +50,8 @@ async function obtener(usuarioId,now=new Date()){
  ]);
  const ingresosMinor=tx.filter(x=>x.tipo==="INGRESO").reduce((s,x)=>s+x.montoMinor,0);
  const cobrosRecibidosMinor=tx.filter(x=>x.tipo==="COBRO_PRESTAMO").reduce((s,x)=>s+x.montoMinor,0);
- const gastosConsumoMinor=tx.filter(x=>x.tipo==="GASTO").filter(x=>!deudas.some(d=>d.principalMinor===x.montoMinor&&/moto/i.test(d.concepto||"")&&/moto/i.test(x.concepto||""))).reduce((s,x)=>s+x.montoMinor,0);
- const gastosMinor=tx.filter(gastoAfectaCaja).filter(x=>!deudas.some(d=>d.principalMinor===x.montoMinor&&/moto/i.test(d.concepto||"")&&/moto/i.test(x.concepto||""))).reduce((s,x)=>s+x.montoMinor,0);
+ const gastosConsumoMinor=tx.filter(x=>x.tipo==="GASTO").reduce((s,x)=>s+x.montoMinor,0);
+ const gastosMinor=tx.filter(gastoAfectaCaja).reduce((s,x)=>s+x.montoMinor,0);
  const pagosDeudaRegistradosMinor=tx.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false).reduce((s,x)=>s+x.montoMinor,0);
  const deudaTotalMinor=deudas.reduce((s,x)=>s+x.saldoMinor,0);
  const cuotasVencenMesMinor=deudas.reduce((s,x)=>s+cuotaDelPeriodo(x,inicio,fin),0);
