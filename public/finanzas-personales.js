@@ -118,7 +118,7 @@ $("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pa
 window.registrarCuota=async id=>{try{
  const info=await api("/prestamos/"+encodeURIComponent(id)+"/cuotas");
  const n=info.proximaCuota,m=info.importeProximaMinor;
- if(!info.periodicidadConfirmada){await window.configurarPeriodicidad(id);return;}
+ if(!info.periodicidadConfirmada){const aprobado=await window.configurarPeriodicidad(id);if(!aprobado)return;return window.registrarCuota(id);}
  if(!Number.isSafeInteger(m)||m<1)throw Error("No hay un valor de cuota pendiente válido.");
  if(!confirm("¿Ya pagaste la cuota #"+n+" por "+money(m)+"? Se descontará de la deuda. Como no has seleccionado cuenta de origen, quedará pendiente de conciliación y NO se descontará nuevamente de tu efectivo."))return;
  const externalId=crypto.randomUUID();
@@ -135,7 +135,7 @@ window.configurarPeriodicidad=async id=>{try{
  if(!Number.isSafeInteger(cuotaMinor)||cuotaMinor<1||!Number.isInteger(numeroCuotas)||numeroCuotas<1||numeroCuotas>360)throw Error("Revisa el importe y la cantidad de cuotas");
  if(!confirm("¿Confirmar "+numeroCuotas+" cuotas de "+money(cuotaMinor)+" para "+p.concepto+"? No se registra ningún pago ahora."))return;
  await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({cuotaMinor,numeroCuotas,periodicidadConfirmada:true})});
- await load();alert("Cuotas confirmadas. Pulsa Pagar cuota #1 solamente si ya la pagaste.");
+ await load();return true;
  }catch(e){alert("No se pudieron confirmar las cuotas: "+e.message)}
 };
 window.incorporarCreditoAnterior=async id=>{try{
