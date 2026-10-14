@@ -96,6 +96,25 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
   return resultado;
  }finally{await session.endSession();}
 }
+async function retirarDeudaVisible(usuarioId,prestamoId){
+ const session=await mongoose.startSession();
+ try{
+  let resultado;
+  await session.withTransaction(async()=>{
+   const prestamo=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR"}).session(session);
+   if(!prestamo)throw Object.assign(new Error("Deuda no encontrada"),{statusCode:404});
+   if(prestamo.estado==="CANCELADO"){resultado={id:String(prestamo._id),yaRetirada:true};return;}
+   const movimientos=await Transaccion.countDocuments({usuarioId,prestamoId:prestamo._id,estado:"ACTIVA"}).session(session);
+   if(movimientos>0)throw Object.assign(new Error("Esta deuda tiene movimientos vinculados y requiere revisión contable antes de retirarla."),{statusCode:409});
+   prestamo.estado="CANCELADO";
+   prestamo.periodicidadConfirmada=false;
+   await prestamo.save({session});
+   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"PRESTAMO_PERSONAL_CORREGIDO",aggregateType:"PRESTAMO_PERSONAL",aggregateId:prestamo._id,payload:{prestamoId:String(prestamo._id),accion:"RETIRAR_DE_VISTA",saldoConservadoMinor:prestamo.saldoMinor}}],{session});
+   resultado={id:String(prestamo._id),retirada:true};
+  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
+  return resultado;
+ }finally{await session.endSession();}
+}
 async function transferir(usuarioId,{origenId,destinoId,montoMinor}){const monto=safe(montoMinor);if(!monto)throw Object.assign(new Error("Monto debe ser mayor a cero"),{statusCode:400});if(String(origenId)===String(destinoId))throw Object.assign(new Error("Las cuentas deben ser diferentes"),{statusCode:400});const session=await mongoose.startSession();try{return await session.withTransaction(async()=>{const origen=await Cuenta.findOneAndUpdate({_id:origenId,usuarioId,activa:true,saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});if(!origen)throw Object.assign(new Error("Cuenta origen inválida o saldo insuficiente"),{statusCode:409});const destino=await Cuenta.findOneAndUpdate({_id:destinoId,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});if(!destino)throw Object.assign(new Error("Cuenta destino inválida"),{statusCode:404});return{origen,destino,montoMinor:monto};},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});}finally{await session.endSession()}}
 async function snapshot(usuarioId){const [cuentas,activos,prestamos]=await Promise.all([Cuenta.find({usuarioId,activa:true}).lean(),Activo.find({usuarioId}).lean(),Prestamo.find({usuarioId,estado:{$in:["ACTIVO","VENCIDO"]}}).lean()]);const rows=await Transaccion.find({usuarioId,estado:{$ne:"ANULADA"},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA","PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO"]}}).select("tipo montoMinor medioPago fecha cuenta cuentaId").lean();const movimientosCaja=rows.filter(x=>deltaCaja(x)!==0);const hayMovimientosLedger=movimientosCaja.length>0;const saldoDerivadoLedgerMinor=hayMovimientosLedger?movimientosCaja.reduce((s,x)=>s+deltaCaja(x),0):null;const cuentasVerificadas=cuentas.filter(x=>x.saldoVerificadoEn&&!x.requiereReconciliacion);const saldoVerificado=cuentas.length>0&&cuentasVerificadas.length===cuentas.length;const cuentasAncladas=cuentas.filter(x=>Number.isSafeInteger(x.saldoAnclaMinor)&&x.saldoAnclaEn&&!x.requiereReconciliacion);const anclaCompleta=cuentas.length>0&&cuentasAncladas.length===cuentas.length;let liquidez;if(anclaCompleta){liquidez=saldoCuentasDesdeAnclas(cuentasAncladas,movimientosCaja);}else if(cuentasVerificadas.length===0)liquidez=saldoDerivadoLedgerMinor??0;else liquidez=cuentas.reduce((a,x)=>a+x.saldoMinor,0);const activosNoLiquidos=activos.filter(x=>!x.liquido).reduce((a,x)=>a+x.valorMinor,0);const porCobrar=prestamos.filter(x=>x.direccion==="POR_COBRAR").reduce((a,x)=>a+x.saldoMinor,0);const porPagar=prestamos.filter(x=>x.direccion==="POR_PAGAR").reduce((a,x)=>a+x.saldoMinor,0);return{liquidezMinor:liquidez,activosNoLiquidosMinor:activosNoLiquidos,activosTotalesMinor:liquidez+activosNoLiquidos,cuentasPorCobrarMinor:porCobrar,pasivosMinor:porPagar,patrimonioFinancieroNetoMinor:liquidez+activosNoLiquidos+porCobrar-porPagar,cuentas,activos,prestamos,saldoDerivadoLedgerMinor,hayMovimientosLedger,saldoVerificado,cuentasVerificadas:cuentasVerificadas.map(x=>String(x._id)),fuenteLiquidez:anclaCompleta?"ANCLA_RECONCILIADA":(cuentasVerificadas.length===0?"LEDGER_DERIVADO":"CUENTAS_PARCIALMENTE_VERIFICADAS"),anclaCompleta}}
-module.exports={deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,corregirPrestamo,transferir,snapshot};
+module.exports={deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,corregirPrestamo,retirarDeudaVisible,transferir,snapshot};
