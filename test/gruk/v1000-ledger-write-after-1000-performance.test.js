@@ -24,14 +24,20 @@ test("V1000: medir latencia de escritura tras auditar historial de 1000 asientos
   }
   await Movimiento.insertMany(docs,{ordered:true});
   await Saldo.create({empresaId,sedeId,secuencia:1000,saldoCentavos:1000,hashUltimo:anterior});
-  const start=performance.now();
-  const result=await registrarMovimiento({empresaId,sedeId,tipo:"CREDITO",montoCentavos:1,actorId,ip,operacionId:id(20001)});
-  const ms=performance.now()-start;
-  assert.equal(result.secuencia,1001);
-  assert.equal(result.despuesCentavos,1001);
-  assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),1001);
-  assert.equal((await Saldo.findOne({empresaId,sedeId}).lean()).saldoCentavos,1001);
-  t.diagnostic("mongo_ledger_write_after_1000_audit_ms="+ms.toFixed(2));
+  const durations=[];
+  for(let i=1;i<=20;i++){
+   const start=performance.now();
+   const result=await registrarMovimiento({empresaId,sedeId,tipo:"CREDITO",montoCentavos:1,actorId,ip,operacionId:id(20000+i)});
+   durations.push(performance.now()-start);
+   assert.equal(result.secuencia,1000+i);
+   assert.equal(result.despuesCentavos,1000+i);
+  }
+  assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),1020);
+  assert.equal((await Saldo.findOne({empresaId,sedeId}).lean()).saldoCentavos,1020);
+  const ordered=[...durations].sort((a,b)=>a-b);
+  const nearest=p=>ordered[Math.ceil(p*ordered.length)-1].toFixed(2);
+  t.diagnostic("mongo_ledger_write_1000_start_n=20_p50_ms="+nearest(0.5)+
+   "_p95_ms="+nearest(0.95)+"_p99_ms="+nearest(0.99));
  }finally{
   await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
