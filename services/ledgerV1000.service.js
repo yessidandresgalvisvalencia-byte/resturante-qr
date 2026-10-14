@@ -68,6 +68,7 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
  const session=await mongoose.startSession();
  try{
   let registrado;
+  let duplicadoEnTransaccion=false;
   await session.withTransaction(async()=>{
    // One balance head per tenant and branch. A conditional update serializes
    // writes; transaction write conflicts force the driver to retry.
@@ -75,7 +76,8 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
    const duplicado=await Movimiento.findOne({empresaId,sedeId,operacionId}).session(session).lean();
    if(duplicado){
     if(!coincide(duplicado))throw Error("LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE");
-    registrado=duplicado;
+    // Confirmar mediante auditoría íntegra antes de entregar un replay.
+    duplicadoEnTransaccion=true;
     return;
    }
    const head=await Saldo.findOne({empresaId,sedeId}).session(session).lean();
@@ -111,6 +113,7 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
    await Movimiento.create([doc],{session});
    registrado=doc;
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
+  if(duplicadoEnTransaccion)return await recuperar();
   return registrado;
  }catch(error){
   // Duplicate unique-index races and unknown commit results are safe to
