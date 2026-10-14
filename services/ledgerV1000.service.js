@@ -17,7 +17,7 @@ function generarUlid(){
 }
 function hashMovimiento(m){
  const body=[m.empresaId,m.sedeId,m.id,m.tipo,String(m.montoCentavos),
- String(m.antesCentavos),String(m.despuesCentavos),m.actorId,m.ip,
+ String(m.antesCentavos),String(m.despuesCentavos),String(m.secuencia),m.actorId,m.ip,
  m.timestamp,m.hashAnterior].join("|");
  return crypto.createHash("sha256").update(body).digest("hex");
 }
@@ -42,7 +42,7 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
    const despues=tipo==="CREDITO"?antes+delta:antes-delta;
    if(despues<0n||despues>BigInt(Number.MAX_SAFE_INTEGER))throw Error("LEDGER_SALDO_INVALIDO");
    const timestamp=new Date().toISOString();
-   const doc={id:generarUlid(),empresaId,sedeId,tipo,montoCentavos,
+   const doc={id:generarUlid(),empresaId,sedeId,tipo,montoCentavos,secuencia:head.secuencia+1,
      antesCentavos:Number(antes),despuesCentavos:Number(despues),
      actorId,ip,timestamp,hashAnterior:head.hashUltimo,deletedAt:null};
    doc.hash=hashMovimiento(doc);
