@@ -1,6 +1,6 @@
 "use strict";
 const crypto=require("node:crypto");
-const {hashAsiento}=require("../core/finance/v1000/auditarLedger");
+const {hashAsiento,verificarCadena}=require("../core/finance/v1000/auditarLedger");
 const mongoose=require("mongoose");
 const Saldo=require("../models/SaldoLedgerV1000");
 const Movimiento=require("../models/MovimientoLedgerV1000");
@@ -44,6 +44,18 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
     const head=await Saldo.findOne({empresaId,sedeId}).session(lectura).lean();
     if(!head||!Number.isSafeInteger(head.secuencia)||head.secuencia<existing.secuencia)
       throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
+    // A valid predecessor/successor alone cannot prove that middle entries are intact.
+    // Fail closed at the reconciliation capacity limit rather than accepting partial history.
+    const MAX_REPLAY_AUDIT=10000;
+    if(head.secuencia>MAX_REPLAY_AUDIT)throw Error("LEDGER_REPLAY_REQUIERE_AUDITORIA_PARTICIONADA");
+    const historial=await Movimiento.find({empresaId,sedeId})
+      .sort({secuencia:1}).limit(MAX_REPLAY_AUDIT+1).session(lectura).lean();
+    if(historial.length>MAX_REPLAY_AUDIT)throw Error("LEDGER_REPLAY_REQUIERE_AUDITORIA_PARTICIONADA");
+    try{
+      verificarCadena({empresaId,sedeId,asientos:historial,cabecera:head});
+    }catch(err){
+      throw new Error("LEDGER_REPLAY_CADENA_INVALIDA",{cause:err});
+    }
     // A replay must not bypass validation of the current persisted head.
     const ultimo=await Movimiento.findOne({empresaId,sedeId,secuencia:head.secuencia})
       .session(lectura).lean();
