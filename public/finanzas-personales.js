@@ -84,14 +84,14 @@ const renderPrestamo=x=>{
    html+='</div>';
   }else if(totalEstimado!==null)html+='<p class="hint">El sistema calcula '+totalEstimado+' cuotas aproximadas. Confirma las cuotas pactadas para visualizarlas y pagarlas aquí.</p>';
 
-  if(!x.periodicidadConfirmada)html+='<p class="hint">Confirma la periodicidad antes de registrar cuotas; GRUK no inventará fechas ni pagos anteriores.</p>';
+  if(!x.periodicidadConfirmada)html+='<p class="hint">Confirma una sola vez las cuotas pendientes. No necesitas indicar fechas.</p>';
  }
  if(x.fechaVencimiento)html+='<div class="debtDate">Próximo vencimiento informado: '+new Date(x.fechaVencimiento).toLocaleDateString("es-CO")+'</div>';
  html+='<div class="debtActions">';
  if(propia&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0){
-  html+='<button class="mini" onclick="window.registrarCuota(\''+esc(String(x._id))+'\')">'+(x.periodicidadConfirmada&&siguiente?'Pagar cuota #'+siguiente:'Configurar y pagar cuotas')+'</button>';
+  html+='<button class="mini" onclick="window.registrarCuota(\''+esc(String(x._id))+'\')">'+(x.periodicidadConfirmada&&siguiente?'Pagar cuota #'+siguiente:'Registrar pago cuota #1')+'</button>';
   if(pagadas>0)html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
-  html+='<button class="secondary mini" onclick="window.configurarPeriodicidad(\''+esc(String(x._id))+'\')">Editar calendario</button>';
+  html+='<button class="secondary mini" onclick="window.configurarPeriodicidad(\''+esc(String(x._id))+'\')">Editar cuotas</button>';
   html+='<button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\')">Eliminar</button>';
  }else if(!propia&&x.estado!=="PAGADO"){
   html+='<button class="mini" onclick="window.registrarCobro(\''+esc(String(x._id))+'\','+Number(x.saldoMinor)+')">Registrar pago recibido</button>';
@@ -116,40 +116,27 @@ $("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pa
  }catch(e){alert("No se pudo deshacer la cuota: "+e.message)}
 };
 window.registrarCuota=async id=>{try{
- const [info,pat]=await Promise.all([api("/prestamos/"+encodeURIComponent(id)+"/cuotas"),api("/patrimonio-financiero")]);
+ const info=await api("/prestamos/"+encodeURIComponent(id)+"/cuotas");
  const n=info.proximaCuota,m=info.importeProximaMinor;
- if(!info.periodicidadConfirmada){alert("Para registrar la cuota, confirma primero su valor y cuántas cuotas son. No necesitas indicar una fecha.");await window.configurarPeriodicidad(id);return;}
- if(!Number.isSafeInteger(m)||m<=0)throw Error("Este crédito no tiene una cuota pendiente válida.");
- const cuentas=(pat.snapshot?.cuentas||[]).filter(x=>x.activa!==false);
- const suficientes=cuentas.filter(x=>Number.isSafeInteger(x.saldoMinor)&&x.saldoMinor>=m);
- const opciones=["0. Ya pagué esta cuota antes, pero no tengo su cuenta de origen conciliada en GRUK",...cuentas.map((x,i)=>(i+1)+". "+x.nombre+" · saldo registrado "+money(x.saldoMinor))].join("\n");
- const seleccion=prompt("¿Cómo se pagó la cuota "+n+" por "+money(m)+"?\n"+opciones+"\n\nElige 0 solo si el pago YA ocurrió; no registra dinero nuevo.",suficientes.length?String(cuentas.indexOf(suficientes[0])+1):"0");if(seleccion===null)return;
- const indice=Number(seleccion)-1;const historico=seleccion.trim()==="0";
- if(!historico&&(!Number.isInteger(indice)||!cuentas[indice]))throw Error("Cuenta inválida");
- if(!historico&&(!Number.isSafeInteger(cuentas[indice].saldoMinor)||cuentas[indice].saldoMinor<m))throw Error("La cuenta seleccionada no tiene saldo registrado suficiente. Si pagaste anteriormente con una cuenta no conciliada, selecciona la opción 0.");
- const advertencia=historico?"Se registrará la cuota como pago histórico informado sin afectar la caja actual. El origen quedará pendiente de conciliación.":"Se descontará el pago de "+cuentas[indice].nombre+" y se reducirá el saldo de la deuda.";
- if(!confirm("¿Confirmas que YA PAGASTE la cuota "+n+" de "+money(m)+"? "+advertencia+" No se enviará dinero a ningún acreedor."))return;
+ if(!info.periodicidadConfirmada){await window.configurarPeriodicidad(id);return;}
+ if(!Number.isSafeInteger(m)||m<1)throw Error("No hay un valor de cuota pendiente válido.");
+ if(!confirm("¿Ya pagaste la cuota #"+n+" por "+money(m)+"? Se descontará de la deuda. Como no has seleccionado cuenta de origen, quedará pendiente de conciliación y NO se descontará nuevamente de tu efectivo."))return;
  const externalId=crypto.randomUUID();
- await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/pagar",{method:"POST",body:JSON.stringify({cuentaId:historico?null:String(cuentas[indice]._id),modo:historico?"HISTORICO":"CUENTA",numeroCuota:n,externalId})});
- await load();alert("Cuota "+n+" registrada. "+(historico?"Pago histórico pendiente de conciliación de origen; sin impacto en la caja actual.":"Pago descontado de la cuenta seleccionada.")+" El capital no se contabilizó como gasto de consumo.");
+ await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/pagar",{method:"POST",body:JSON.stringify({numeroCuota:n,modo:"HISTORICO",cuentaId:null,externalId})});
+ await load();alert("Cuota #"+n+" registrada. Puedes deshacer el último pago desde esta misma tarjeta.");
  }catch(e){alert("No se pudo registrar la cuota: "+e.message)}
 };
 window.configurarPeriodicidad=async id=>{try{
  const datos=await api("/prestamos"),p=(datos.prestamos||[]).find(x=>String(x._id)===String(id));
- if(!p||p.direccion!=="POR_PAGAR"||p.saldoMinor<=0)throw Error("Deuda propia activa no encontrada");
- const opciones={1:"UNICA",2:"SEMANAL",3:"QUINCENAL",4:"MENSUAL"};
- const actual=Object.keys(opciones).find(k=>opciones[k]===p.periodicidad)||"4";
- const eleccion=prompt("Periodicidad: 1 único pago, 2 semanal, 3 cada 15 días, 4 mensual",actual);if(eleccion===null)return;
- const periodicidad=opciones[eleccion.trim()];if(!periodicidad)throw Error("Periodicidad inválida");
- const cuotaTexto=prompt("Valor de cada cuota en COP:",String(p.cuotaMinor||p.saldoMinor));if(cuotaTexto===null)return;
- const cuotaMinor=Number(cuotaTexto);if(!Number.isSafeInteger(cuotaMinor)||cuotaMinor<=0)throw Error("Cuota inválida");
- const numTexto=prompt("Número total de cuotas pactadas:",String(p.numeroCuotas||Math.ceil(p.saldoMinor/cuotaMinor)));if(numTexto===null)return;
- const numeroCuotas=Number(numTexto);if(!Number.isInteger(numeroCuotas)||numeroCuotas<1||numeroCuotas>360)throw Error("Número de cuotas inválido");
- const cambios={periodicidad,numeroCuotas,cuotaMinor,periodicidadConfirmada:true};
- if(!confirm("¿Confirmas "+numeroCuotas+" cuotas de "+money(cuotaMinor)+" para "+p.concepto+"? No necesitas conocer una fecha. No se registrará ningún pago hasta que apruebes la cuota correspondiente."))return;
- await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(cambios)});
- await load();alert("Condiciones de pago confirmadas y guardadas. No se registró ningún pago.");
- }catch(e){alert("No se pudo configurar el calendario: "+e.message)}
+ if(!p||p.direccion!=="POR_PAGAR"||p.saldoMinor<=0)throw Error("Deuda activa no encontrada");
+ let cuotaMinor=p.cuotaMinor,numeroCuotas=p.numeroCuotas;
+ if(!Number.isSafeInteger(cuotaMinor)||cuotaMinor<1){const v=prompt("¿Cuánto vale cada cuota en COP?",String(p.saldoMinor));if(v===null)return;cuotaMinor=Number(v);}
+ if(!Number.isInteger(numeroCuotas)||numeroCuotas<1){const v=prompt("¿Cuántas cuotas pendientes tiene esta deuda?",String(Math.ceil(p.saldoMinor/cuotaMinor)||1));if(v===null)return;numeroCuotas=Number(v);}
+ if(!Number.isSafeInteger(cuotaMinor)||cuotaMinor<1||!Number.isInteger(numeroCuotas)||numeroCuotas<1||numeroCuotas>360)throw Error("Revisa el importe y la cantidad de cuotas");
+ if(!confirm("¿Confirmar "+numeroCuotas+" cuotas de "+money(cuotaMinor)+" para "+p.concepto+"? No se registra ningún pago ahora."))return;
+ await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({cuotaMinor,numeroCuotas,periodicidadConfirmada:true})});
+ await load();alert("Cuotas confirmadas. Pulsa Pagar cuota #1 solamente si ya la pagaste.");
+ }catch(e){alert("No se pudieron confirmar las cuotas: "+e.message)}
 };
 window.incorporarCreditoAnterior=async id=>{try{
  if(!confirm("¿Incorporar este crédito anterior a Mis deudas para gestionar sus cuotas? Revisa antes que no exista ya una deuda equivalente. No registra pagos ni gastos."))return;
