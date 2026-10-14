@@ -56,3 +56,10 @@ Comando de validación de rama: `npm ci && npm run gate`.
 - Tras las 20 escrituras se verificaron 1.020 asientos y saldo exacto de 1.020 centavos.
 - Evidencia: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/38634860186
 - El p99 observado no permite estimar el p99 poblacional. La variación exige repetir con muestras amplias, carga simultánea y MongoDB Atlas remoto. El costo O(n) de auditar íntegramente cada escritura sigue siendo un bloqueo de producción.
+
+## Contrato criptográfico de ancla externa (desarrollo, 2026-10-14)
+- Se incorporó `core/finance/v1000/anclaLedger.js` con firma y verificación Ed25519 para {empresaId, sedeId, secuencia, saldoCentavos, hashUltimo, emitidoEn}; dominio y versión criptográfica explícitos.
+- El contrato **aún no publica anclas en almacenamiento independiente e inmutable**, ni las verifica durante las escrituras; **no constituye seguridad externa desplegada**.
+- Condiciones para activarlo: custodiar llave privada fuera de MongoDB y de los servidores con permisos de escritura al ledger; publicar y retener anclas en servicio WORM/append-only bajo separación de privilegios; verificar monotonicidad de secuencia y continuidad del tramo desde el último anclaje antes de confiar en el saldo.
+- Definir rotación de llaves, revocación, política de disponibilidad y periodo máximo entre anclajes, conciliación de anclas tras fallos y alertas de divergencia.
+- **No desactivar auditoría íntegra de escrituras** hasta certificar el flujo integrado de anclaje externo y su modelo de amenazas. Un atacante con llave privada o privilegios en ambos dominios podría falsificar registros.
