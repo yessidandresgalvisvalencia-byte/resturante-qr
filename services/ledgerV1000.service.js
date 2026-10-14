@@ -44,9 +44,18 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
     const head=await Saldo.findOne({empresaId,sedeId}).session(lectura).lean();
     if(!head||!Number.isSafeInteger(head.secuencia)||head.secuencia<existing.secuencia)
       throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
-    if(head.secuencia===existing.secuencia &&
-       (head.hashUltimo!==existing.hash||head.saldoCentavos!==existing.despuesCentavos))
-      throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
+    if(head.secuencia===existing.secuencia){
+      if(head.hashUltimo!==existing.hash||head.saldoCentavos!==existing.despuesCentavos)
+        throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
+    }else{
+      // An older entry must be linked to its immediate successor.
+      const siguiente=await Movimiento.findOne({empresaId,sedeId,secuencia:existing.secuencia+1})
+        .session(lectura).lean();
+      if(!siguiente||siguiente.hashAnterior!==existing.hash||
+         siguiente.antesCentavos!==existing.despuesCentavos||
+         hashMovimiento(siguiente)!==siguiente.hash)
+        throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
+    }
     existente=existing;
    },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
    return existente;
