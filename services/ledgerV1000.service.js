@@ -26,6 +26,9 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
  ulid.parse(actorId);
  if(!["CREDITO","DEBITO"].includes(tipo)||!Number.isSafeInteger(montoCentavos)||montoCentavos<=0)throw Error("LEDGER_IMPORTE_INVALIDO");
  if(typeof ip!=="string"||!ip.trim())throw Error("LEDGER_IP_INVALIDA");
+ // No permita registrar una IP inválida en la bitácora financiera.
+ const {z}=require("zod");
+ z.string().ip().parse(ip);
  const session=await mongoose.startSession();
  try{
   let registrado;
