@@ -44,6 +44,13 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
     const head=await Saldo.findOne({empresaId,sedeId}).session(lectura).lean();
     if(!head||!Number.isSafeInteger(head.secuencia)||head.secuencia<existing.secuencia)
       throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
+    // A replay must not bypass validation of the current persisted head.
+    const ultimo=await Movimiento.findOne({empresaId,sedeId,secuencia:head.secuencia})
+      .session(lectura).lean();
+    if(!ultimo||ultimo.hash!==head.hashUltimo||
+       ultimo.despuesCentavos!==head.saldoCentavos||
+       hashMovimiento(ultimo)!==ultimo.hash)
+      throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
     if(head.secuencia===existing.secuencia){
       if(head.hashUltimo!==existing.hash||head.saldoCentavos!==existing.despuesCentavos)
         throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
