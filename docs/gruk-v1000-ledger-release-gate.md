@@ -36,3 +36,9 @@ Comando de validación de rama: `npm ci && npm run gate`.
 - Fuente verificable: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/38626932577
 - No es una prueba de concurrencia, de carga sostenida ni de replica MongoDB Atlas remota. Tampoco incluye el recorrido HTTP ni un compromiso de SLA.
 - Mantener la puerta de producción cerrada hasta realizar pruebas representativas con más muestras, distintos tamaños de historial y carga.
+
+## Concurrencia de auditoría (CI #1364, 2026-10-14)
+- Ocho ejecuciones concurrentes de `auditarLedgerEnMongo` sobre la misma cadena de 500 asientos en el MongoDB local del runner.
+- Tiempo total del lote: **142,84 ms**. Las ocho auditorías verificaron saldo 500 centavos, secuencia 500 y el mismo hash de cabecera.
+- Evidencia: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/38628027867
+- Es una muestra puntual sin escrituras concurrentes y sin distribución de latencia por solicitud. No representa el SLA bajo carga sostenida.
