@@ -2,7 +2,7 @@
 const crypto=require("node:crypto");
 function hashAsiento(m){
  const fecha=m.timestamp instanceof Date?m.timestamp.toISOString():m.timestamp;
- const campos=[m.empresaId,m.sedeId,m.id,m.tipo,String(m.montoCentavos),
+ const campos=[m.empresaId,m.sedeId,m.id,m.operacionId,m.tipo,String(m.montoCentavos),
  String(m.antesCentavos),String(m.despuesCentavos),String(m.secuencia),m.actorId,m.ip,
  fecha,m.hashAnterior];
  return crypto.createHash("sha256").update(campos.join("|")).digest("hex");
