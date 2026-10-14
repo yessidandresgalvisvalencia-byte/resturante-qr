@@ -96,7 +96,7 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
      actorId,ip,timestamp,hashAnterior:head.hashUltimo,deletedAt:null};
    doc.hash=hashMovimiento(doc);
    movimiento.parse(doc);
-   const updated=await Saldo.updateOne({_id:head._id,secuencia:head.secuencia,hashUltimo:head.hashUltimo},
+   const updated=await Saldo.updateOne({_id:head._id,empresaId,sedeId,secuencia:head.secuencia,hashUltimo:head.hashUltimo},
      {$set:{saldoCentavos:doc.despuesCentavos,hashUltimo:doc.hash},$inc:{secuencia:1}},{session,runValidators:true});
    if(updated.modifiedCount!==1)throw Error("LEDGER_CONFLICTO_CONCURRENCIA");
    await Movimiento.create([doc],{session});
