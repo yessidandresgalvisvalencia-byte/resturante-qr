@@ -5,7 +5,7 @@ const schema=new mongoose.Schema({
  id:{type:String,required:true,immutable:true},
  empresaId:{type:String,required:true,immutable:true},
  sedeId:{type:String,required:true,immutable:true},
- tipo:{type:String,required:true,enum:["CREDITO","DEBITO","AJUSTE"],immutable:true},
+ tipo:{type:String,required:true,enum:["CREDITO","DEBITO"],immutable:true},
  montoCentavos:{type:Number,required:true,immutable:true},
  antesCentavos:{type:Number,required:true,immutable:true},
  despuesCentavos:{type:Number,required:true,immutable:true},
