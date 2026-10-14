@@ -214,4 +214,16 @@ router.get("/resumen",async(req,res)=>res.json({ok:true,resumen:await service.re
 const simulacion=Joi.object({capital:Joi.number().positive().required(),tasaMensualPct:Joi.number().min(0).max(100).required(),meses:Joi.number().integer().min(1).max(600).required()});
 router.post("/creditos/simular",validate(simulacion),(req,res)=>res.json({ok:true,simulacion:service.simularCredito(req.validated)}));
 router.post("/creditos/evaluar",validate(simulacion),async(req,res)=>res.json({ok:true,evaluacion:await service.evaluarCredito(req.personalAuth.userId,req.validated)}));
+const compromisosCuotas=require("./services/compromisosCuotas.service");
+const nuevoCompromisoSchema=Joi.object({
+ concepto:Joi.string().trim().min(1).max(140).required(),
+ categoria:Joi.string().trim().min(1).max(80).required(),
+ montoTotalMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),
+ numeroCuotas:Joi.number().integer().min(1).max(360).required()
+});
+router.get("/compromisos-cuotas",async(req,res)=>{try{return res.json({ok:true,compromisos:await compromisosCuotas.listar(req.personalAuth.userId)});}catch(e){return res.status(500).json({ok:false,error:"No se pudieron consultar compromisos"});}});
+router.post("/compromisos-cuotas",validate(nuevoCompromisoSchema),async(req,res)=>{try{return res.status(201).json({ok:true,compromiso:await compromisosCuotas.crear(req.personalAuth.userId,req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo crear compromiso"});}});
+const pagoCompromisoSchema=Joi.object({numero:Joi.number().integer().min(1).max(360).required(),cuentaId:Joi.string().hex().length(24).allow(null).default(null),modo:Joi.string().valid("CUENTA","HISTORICO").required(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
+router.post("/compromisos-cuotas/:id/pagar",validate(pagoCompromisoSchema),async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});try{return res.json({ok:true,resultado:await compromisosCuotas.pagar(req.personalAuth.userId,{compromisoId:req.params.id,...req.validated})});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo pagar cuota"});}});
+router.post("/compromisos-cuotas/:id/cuotas/:numero/deshacer",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id)||!/^[0-9]{1,3}$/.test(req.params.numero))return res.status(400).json({ok:false,error:"Identificador inválido"});try{return res.json({ok:true,resultado:await compromisosCuotas.deshacer(req.personalAuth.userId,{compromisoId:req.params.id,numero:Number(req.params.numero)})});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo revertir cuota"});}});
 module.exports=router;
