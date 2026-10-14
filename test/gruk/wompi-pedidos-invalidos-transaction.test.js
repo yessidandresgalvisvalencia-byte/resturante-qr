@@ -50,7 +50,7 @@ for (const ids of [[], [oid, oid], ["invalid"]]) {
     vm.runInNewContext(code, {
       module: mod, exports: mod.exports,
       require(id) { assert.ok(Object.hasOwn(deps, id), id); return deps[id]; },
-      Date, String, Number, Error, Set, console
+      process: { env: { NODE_ENV: "test" } }, Date, String, Number, Error, Set, console
     }, { filename: "pagosPedidos.service.js", timeout: 1000 });
     await assert.rejects(
       mod.exports.confirmarPagoPedidoWompi({ transaction: payment }),
