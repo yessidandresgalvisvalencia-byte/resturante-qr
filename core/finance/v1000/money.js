@@ -8,7 +8,7 @@ function parseCop(value) {
   if (typeof value !== "string" || !/^(0|[1-9]\d*)(\.\d{1,2})?$/.test(value)) throw new Error("COP_FORMATO_INVALIDO");
   const decimal = new Decimal(value);
   const cents = decimal.times(100);
-  if (!cents.isInteger() || !cents.isPositive() || cents.greaterThan(MAX)) throw new Error("COP_FUERA_RANGO");
+  if (!cents.isInteger() || cents.lessThanOrEqualTo(0) || cents.greaterThan(MAX)) throw new Error("COP_FUERA_RANGO");
   return Dinero({amount: cents.toNumber(), currency: "COP", precision: 2});
 }
 function centavos(dinero) {
