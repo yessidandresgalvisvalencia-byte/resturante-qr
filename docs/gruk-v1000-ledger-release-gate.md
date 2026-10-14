@@ -29,3 +29,10 @@ Comando de validación de rama: `npm ci && npm run gate`.
 - Estas muestras no constituyen p95/p99, SLA, medición de un endpoint HTTP, ni predicción de tiempos en Render/MongoDB Atlas.
 - No se ha medido aún la carga combinada de múltiples empresas, reintentos simultáneos, tamaño de documentos acumulado ni réplica distante.
 - Es obligatorio ejecutar repeticiones con calentamiento, distribución de latencias, carga concurrente y telemetría antes de aprobar despliegue.
+
+## Distribución inicial de latencias (CI #1362, 2026-10-14)
+- Servicio `auditarLedgerEnMongo` con **1.000 asientos**, una iteración de calentamiento y 20 muestras secuenciales en réplica MongoDB local de GitHub Actions.
+- **p50:** 21,35 ms; **p95:** 42,00 ms; **p99:** 50,88 ms (estimador nearest-rank; con n=20 el p99 es esencialmente el máximo).
+- Fuente verificable: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/38626932577
+- No es una prueba de concurrencia, de carga sostenida ni de replica MongoDB Atlas remota. Tampoco incluye el recorrido HTTP ni un compromiso de SLA.
+- Mantener la puerta de producción cerrada hasta realizar pruebas representativas con más muestras, distintos tamaños de historial y carga.
