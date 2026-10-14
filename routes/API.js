@@ -15,6 +15,7 @@ const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service");
 const { registrarEventoEnTransaccion } = require("../services/p0/outbox.service");
+const { registrarConflictoWompi } = require("../services/gruk/registrarConflictoWompi");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
 const { revocarIdentidad } = require("../core/auth/sessionRevocation.service");
@@ -2910,6 +2911,7 @@ router.post("/wompi/webhook", async (req, res) => {
         console.error("[PAGOS] Evento de pedido no aplicado; requiere conciliación", {
           reference, transactionId: String(transactionId), reason: resultadoPedido.reason
         });
+        await registrarConflictoWompi({ reference, transactionId: String(transactionId), reason: resultadoPedido.reason || "PROCESAMIENTO_NO_APLICADO" });
         return res.status(503).json({ ok: false, error: "PAGO_PENDIENTE_CONCILIACION" });
       }
       return res.status(200).json({ ok: true });
