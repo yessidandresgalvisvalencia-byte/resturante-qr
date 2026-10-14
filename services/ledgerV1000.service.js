@@ -38,6 +38,22 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
    await Saldo.updateOne({empresaId,sedeId},{$setOnInsert:{saldoCentavos:0,hashUltimo:"0".repeat(64),secuencia:0}},{upsert:true,session});
    const head=await Saldo.findOne({empresaId,sedeId}).session(session).lean();
    if(!head)throw Error("LEDGER_CABECERA_AUSENTE");
+   // Fail closed if the cached head was corrupted, truncated or tampered with.
+   if(!Number.isSafeInteger(head.saldoCentavos)||head.saldoCentavos<0||
+      !Number.isSafeInteger(head.secuencia)||head.secuencia<0||
+      head.secuencia>=Number.MAX_SAFE_INTEGER||
+      typeof head.hashUltimo!=="string"||!/^[a-f0-9]{64}$/.test(head.hashUltimo)){
+     throw Error("LEDGER_CABECERA_INVALIDA");
+   }
+   if(head.secuencia===0){
+     if(head.saldoCentavos!==0||head.hashUltimo!=="0".repeat(64))
+       throw Error("LEDGER_GENESIS_INCONSISTENTE");
+   }else{
+     const last=await Movimiento.findOne({empresaId,sedeId,secuencia:head.secuencia}).session(session).lean();
+     if(!last||last.hash!==head.hashUltimo||last.despuesCentavos!==head.saldoCentavos||
+        hashMovimiento({...last,timestamp:new Date(last.timestamp).toISOString()})!==last.hash)
+       throw Error("LEDGER_CADENA_INCONSISTENTE");
+   }
    const antes=BigInt(head.saldoCentavos),delta=BigInt(montoCentavos);
    const despues=tipo==="CREDITO"?antes+delta:antes-delta;
    if(despues<0n||despues>BigInt(Number.MAX_SAFE_INTEGER))throw Error("LEDGER_SALDO_INVALIDO");
