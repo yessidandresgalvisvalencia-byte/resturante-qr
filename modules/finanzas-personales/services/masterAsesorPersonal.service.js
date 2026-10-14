@@ -36,8 +36,12 @@ async function orientar(usuarioId,pregunta,{turnos=[]}={}){
  const contextoPrevio=anterior?.mensaje?.slice(0,400)||null;
  if(/(?:proyecci[oó]n|proyecta|pr[oó]ximos? (?:30|60|90) d[ií]as|(?:30|60|90) d[ií]as|futuro de mi caja)/i.test(actual)&&/(?:caja|finanzas|dinero|saldo|ingresos|gastos|pagos|proyecci[oó]n|proyecta)/i.test(actual)){
   const resultado=await proyeccion.analizar(usuarioId);
-  const partes=resultado.ventanas.map(v=>v.dias+" días: ingresos con fecha "+moneda(v.ingresosConFechaMinor)+", compromisos identificados "+moneda(v.obligacionesConFechaMinor)+", saldo condicional "+(v.saldoCondicionalMinor===null?"no verificable":moneda(v.saldoCondicionalMinor))+".");
-  return{tipo:"PROYECCION_PARCIAL_30_60_90",respuesta:"Proyección parcial basada únicamente en eventos conocidos, no un presupuesto completo. "+partes.join(" ")+" Faltan gastos futuros y posiblemente ingresos recurrentes; esos importes no se han inventado. La cobertura actual de compromisos se limita a los registrados antes del próximo ingreso conocido. No he registrado ni programado movimientos.",datos:resultado};
+  const partes=resultado.ventanas.map(v=>v.dias+" días: ingresos programados "+moneda(v.ingresosConFechaMinor)+" ("+v.numeroIngresos+"), pagos con fecha "+moneda(v.obligacionesConFechaMinor)+" ("+v.numeroObligaciones+"), saldo "+(v.saldoCondicionalMinor===null?"no verificado":moneda(v.saldoCondicionalMinor))+".");
+  const alertas=[];
+  if(resultado.ingresosSinProgramar)alertas.push("No hay ingresos futuros programados; esto no demuestra ausencia de ingresos.");
+  if(resultado.deudasSinPeriodicidadConfirmada)alertas.push("Hay "+resultado.deudasSinPeriodicidadConfirmada+" cuotas sin recurrencia mensual confirmada; no se repiten automáticamente.");
+  if(resultado.obligacionesSinFecha)alertas.push("Hay "+resultado.obligacionesSinFecha+" deudas sin vencimiento conocido.");
+  return{tipo:"PROYECCION_PARCIAL_30_60_90",respuesta:"Proyección parcial: "+partes.join(" ")+" "+alertas.join(" ")+" Confirma fechas y montos recurrentes para una estimación más completa. No se registraron operaciones.",datos:resultado};
  }
  const consultaBase=await consulta.consultar(usuarioId,actual);
  const solicitaDecision=DECISION.test(actual);
