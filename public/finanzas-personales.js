@@ -60,7 +60,7 @@ if(concEl&&conc){
  concEl.innerHTML="<strong>¿Por qué Balance y Flujo son diferentes?</strong><p>Balance del período: "+money(conc.balancePeriodoMinor)+" · Flujo realizado: "+money(conc.flujoRealizadoMinor)+"</p><p>Conciliación: "+money(conc.balancePeriodoMinor)+" + gastos sin salida de caja "+money(conc.gastosSinSalidaCajaMinor)+" − pagos de deuda desde cuentas "+money(conc.pagosDeudaRegistradosMinor)+" + cobros de préstamos recibidos "+money(conc.cobrosRecibidosMinor)+" = "+money(conc.flujoRealizadoMinor)+"</p><p>Diferencia explicada: "+money(diferencia)+". Un ingreso normal de $10.000 ya forma parte de ingresos; no se presume que sea un cobro de préstamo.</p>";
 }
 const ingresosMes=Number(home.mes.ingresosMinor),gastosMes=Number(home.mes.gastosConsumoMinor),bubble=$("healthBubble");if(bubble){const valido=Number.isSafeInteger(ingresosMes)&&Number.isSafeInteger(gastosMes)&&ingresosMes>=0&&gastosMes>=0;const porcentaje=valido?(ingresosMes===0?(gastosMes>0?-100:null):Math.round((ingresosMes-gastosMes)/ingresosMes*1000)/10):null;bubble.className="healthBubble "+(porcentaje===null?"neutral":porcentaje>0?"positive":porcentaje<0?"negative":"neutral");$("healthArrow").textContent=porcentaje===null||porcentaje===0?"→":porcentaje>0?"↗":"↘";$("healthPercent").textContent=porcentaje===null?"Sin datos suficientes":(porcentaje>0?"+":"")+porcentaje.toLocaleString("es-CO",{maximumFractionDigits:1})+"%";$("healthLabel").textContent=explicarBalancePersonal(ingresosMes,gastosMes,porcentaje);bubble.title="Balance del período: (ingresos − gastos) ÷ ingresos × 100 cuando hay ingresos. Si no hay ingresos y sí gastos, se muestra −100% como señal de alerta convencional, no como porcentaje matemático de variación. Sin movimientos, estado neutral.";}api("/progreso-economico").then(x=>{const o=x.progreso?.ordenes?.[0];if(o&&$("homeGreeting"))$("homeGreeting").textContent=o.palanca==="INGRESOS"?"Tu próxima acción para mejorar caja":"Esto requiere tu atención";}).catch(()=>{});$("homeDecisions").innerHTML=home.decisiones.length?home.decisiones.map(x=>'<div class="decisionCard"><div><small>'+esc(x.prioridad)+' · '+esc(x.tipo)+'</small><b>'+esc(x.titulo)+'</b><p>'+esc(x.detalle)+'</p></div>'+(x.montoMinor?'<strong>'+money(x.montoMinor)+'</strong>':"")+'</div>').join(""):'<div class="decisionCard"><div><b>Sin decisiones críticas pendientes</b><p>GRUK no detecta compromisos inmediatos con los datos registrados.</p></div></div>';$("rIngresos").textContent=money(r.resumen.ingresos);$("rGastos").textContent=money(r.resumen.gastos);$("rFlujo").textContent=money(home.mes.flujoRealizadoMinor);$("rDeuda").textContent=money(r.resumen.deudaTotal);$("homeDecisions").querySelectorAll(".decisionCard").forEach(card=>{const t=card.textContent||"";card.style.cursor="pointer";card.onclick=()=>window.grukExplain(t.includes("FLUJO")?"flujoProyectado":t.includes("CAJA")?"disponible":t.includes("OBLIGACION")?"comprometido":"flujoRealizado")});$("pActivos").textContent=money(p.patrimonio.activosBase);$("pInversiones").textContent=money(p.patrimonio.valorInversiones);$("pDeudas").textContent=money(p.patrimonio.deudas);$("pNeto").textContent=money(p.patrimonio.patrimonioNeto);const pagados=lp.prestamos.filter(x=>x.estado==="PAGADO");const porCobrar=lp.prestamos.filter(x=>x.direccion==="POR_COBRAR"&&x.estado!=="PAGADO"&&x.saldoMinor>0),porPagar=lp.prestamos.filter(x=>x.direccion==="POR_PAGAR"&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0);const detalleCuotas=new Map();
-await Promise.all(porPagar.map(async x=>{try{
+await Promise.all([...porPagar,...pagados.filter(x=>x.direccion==="POR_PAGAR")].map(async x=>{try{
  const r=await api("/prestamos/"+encodeURIComponent(String(x._id))+"/cuotas");
  detalleCuotas.set(String(x._id),r);
  }catch(e){detalleCuotas.set(String(x._id),{error:true});}
@@ -83,10 +83,12 @@ const renderPrestamo=x=>{
    html+='<div class="debtKind" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">';
    for(let i=1;i<=n;i++){
     const pago=detalle&&!detalle.error?detalle.cuotasPagadas?.find(t=>t.descripcion?.startsWith('Cuota '+i+' ')):null;
-    const estado=pago?'✓ Pagada':i===(siguiente||1)?'● Siguiente':'○ Pendiente';
+    const estado=pago?'✓ Pagada · '+money(pago.montoPagadoRealMinor||pago.montoMinor):i===(siguiente||1)?'● Siguiente':'○ Pendiente';
     html+='<span style="padding:7px 9px;border:1px solid #354456;border-radius:12px">Cuota #'+i+' · '+estado+'</span>';
    }
    html+='</div>';
+   if(detalle&&!detalle.error&&detalle.totalPagadoRealMinor>0)html+='<p class="debtKind">Total realmente pagado: '+money(detalle.totalPagadoRealMinor)+'</p>';
+   if(detalle&&!detalle.error&&x.estado==='PAGADO')html+='<p class="debtKind"><b>Pagaste en total '+money(detalle.totalPagadoRealMinor)+'</b> · Valor inicial registrado '+money(x.principalMinor)+' · Diferencia '+money(detalle.totalPagadoRealMinor-x.principalMinor)+'. Esta diferencia no equivale necesariamente al interés ni al precio de contado.</p>';
   }else if(totalEstimado!==null)html+='<p class="hint">El sistema calcula '+totalEstimado+' cuotas aproximadas. Confirma las cuotas pactadas para visualizarlas y pagarlas aquí.</p>';
 
   if(!x.periodicidadConfirmada)html+='<p class="hint">Confirma una sola vez las cuotas pendientes. No necesitas indicar fechas.</p>';
@@ -98,6 +100,8 @@ const renderPrestamo=x=>{
   if(pagadas>0)html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
   html+='<button class="secondary mini" onclick="window.configurarPeriodicidad(\''+esc(String(x._id))+'\')">Editar cuotas</button>';
   html+='<button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\')">Eliminar</button>';
+ }else if(propia&&x.estado==="PAGADO"&&pagadas>0){
+  html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
  }else if(!propia&&x.estado!=="PAGADO"){
   html+='<button class="mini" onclick="window.registrarCobro(\''+esc(String(x._id))+'\','+Number(x.saldoMinor)+')">Registrar pago recibido</button>';
  }
@@ -125,9 +129,12 @@ window.registrarCuota=async id=>{try{
  const n=info.proximaCuota,m=info.importeProximaMinor;
  if(!info.periodicidadConfirmada){const aprobado=await window.configurarPeriodicidad(id);if(!aprobado)return;return window.registrarCuota(id);}
  if(!Number.isSafeInteger(m)||m<1)throw Error("No hay un valor de cuota pendiente válido.");
- if(!confirm("¿Ya pagaste la cuota #"+n+" por "+money(m)+"? Se descontará de la deuda. Como no has seleccionado cuenta de origen, quedará pendiente de conciliación y NO se descontará nuevamente de tu efectivo."))return;
+ const valor=prompt("¿Cuánto pagaste realmente por la cuota #"+n+"? Escribe pesos enteros, sin puntos.",String(m));if(valor===null)return;
+ if(!/^[1-9][0-9]*$/.test(valor.trim()))throw Error("Escribe el monto exacto sin puntos ni comas");
+ const montoPagadoRealMinor=Number(valor.trim());if(!Number.isSafeInteger(montoPagadoRealMinor))throw Error("Monto fuera de rango");
+ if(!confirm("¿Confirmar pago de "+money(montoPagadoRealMinor)+" de la cuota #"+n+"? Queda pendiente conciliar la cuenta de origen; GRUK no descontará dinero nuevamente."))return;
  const externalId=crypto.randomUUID();
- await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/pagar",{method:"POST",body:JSON.stringify({numeroCuota:n,modo:"HISTORICO",cuentaId:null,externalId})});
+ await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/pagar",{method:"POST",body:JSON.stringify({numeroCuota:n,montoPagadoRealMinor,modo:"HISTORICO",cuentaId:null,externalId})});
  await load();alert("Cuota #"+n+" registrada. Puedes deshacer el último pago desde esta misma tarjeta.");
  }catch(e){alert("No se pudo registrar la cuota: "+e.message)}
 };

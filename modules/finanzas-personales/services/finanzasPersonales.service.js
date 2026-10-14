@@ -37,7 +37,7 @@ async function resumen(userId,now=new Date()){
  ]);
  const ingresos=m.filter(x=>x.tipo==="INGRESO").reduce((a,x)=>a+x.montoMinor,0);
  const gastosConsumo=m.filter(x=>x.tipo==="GASTO").reduce((a,x)=>a+x.montoMinor,0);const gastos=m.filter(gastoAfectaCaja).reduce((a,x)=>a+x.montoMinor,0);
- const pagosDeuda=m.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false).reduce((a,x)=>a+x.montoMinor,0);
+ const pagosDeuda=m.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false).reduce((a,x)=>a+(x.montoPagadoRealMinor||x.montoMinor),0);
  const deudaTotal=deudas.reduce((a,x)=>a+x.saldoMinor,0);
  const cuotasVencenMes=deudas.filter(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=inicio&&new Date(x.fechaVencimiento)<fin).reduce((a,x)=>a+Math.min(x.cuotaMinor||x.saldoMinor,x.saldoMinor),0);
  const pagosPorDeuda=new Map();

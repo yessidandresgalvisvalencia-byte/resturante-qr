@@ -2,7 +2,7 @@
 const mongoose=require("mongoose");const Cuenta=require("../models/cuentaFinanciera.model");const Activo=require("../models/ActivoPatrimonial");const Prestamo=require("../models/prestamoPersonal.model");const Transaccion=require("../models/TransaccionPersonal");const Outbox=require("../models/outboxPersonal.model");const crypto=require("crypto");
 function saldoCuentasDesdeAnclas(cuentas,movimientos){return cuentas.reduce((total,cuenta)=>{if(!Number.isSafeInteger(cuenta.saldoAnclaMinor)||!cuenta.saldoAnclaEn)throw new Error("Cuenta sin ancla válida");const posteriores=movimientos.filter(x=>(x.cuentaId?String(x.cuentaId)===String(cuenta._id):x.cuenta===cuenta.nombre)&&x.fecha&&new Date(x.fecha)>new Date(cuenta.saldoAnclaEn));return total+saldoDesdeAncla(cuenta.saldoAnclaMinor,posteriores);},0);}
 function saldoDesdeAncla(saldoAnclaMinor,movimientos){if(!Number.isSafeInteger(saldoAnclaMinor))throw new Error("Ancla de saldo inválida");return movimientos.reduce((s,x)=>s+deltaCaja(x),saldoAnclaMinor);}
-function deltaCaja(x){if(!x||!Number.isSafeInteger(x.montoMinor)||x.impactoCaja===false)return 0;if(x.tipo==="GASTO"&&x.medioPago==="CREDITO")return 0;return ["INGRESO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO"].includes(x.tipo)?x.montoMinor:-x.montoMinor;}
+function deltaCaja(x){if(!x||!Number.isSafeInteger(x.montoMinor)||x.impactoCaja===false)return 0;if(x.tipo==="GASTO"&&x.medioPago==="CREDITO")return 0;return ["INGRESO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO"].includes(x.tipo)?x.montoMinor:-(x.tipo==="PAGO_DEUDA"&&x.montoPagadoRealMinor?x.montoPagadoRealMinor:x.montoMinor);}
 const safe=n=>{if(typeof n==="string"&&!/^\\d+$/.test(n))throw Object.assign(new Error("Monto inválido"),{statusCode:400});n=Number(n);if(!Number.isSafeInteger(n)||n<0)throw Object.assign(new Error("Monto inválido"),{statusCode:400});return n};
 async function crearCuenta(usuarioId,data){return Cuenta.create({usuarioId,...data,saldoMinor:safe(data.saldoMinor||0)})}
 async function reconciliarCuenta(usuarioId,{cuentaId,saldoMinor,fecha=new Date(),origenSaldo="USUARIO"}){const saldo=safe(saldoMinor),momento=new Date(fecha);if(Number.isNaN(momento.getTime())||momento>new Date())throw Object.assign(new Error("Fecha de reconciliación inválida"),{statusCode:400});if(!["USUARIO","OPEN_BANKING","PASARELA"].includes(origenSaldo))throw Object.assign(new Error("Origen de reconciliación inválido"),{statusCode:400});const session=await mongoose.startSession();try{let cuenta;await session.withTransaction(async()=>{cuenta=await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true},{$set:{saldoMinor:saldo,saldoVerificadoEn:momento,saldoAnclaMinor:saldo,saldoAnclaEn:momento,origenSaldo,requiereReconciliacion:false}},{new:true,session,runValidators:true});if(!cuenta)throw Object.assign(new Error("Cuenta no encontrada"),{statusCode:404});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"SALDO_CUENTA_RECONCILIADO",aggregateType:"CUENTA_FINANCIERA_PERSONAL",aggregateId:cuenta._id,payload:{cuentaId:String(cuenta._id),saldoMinor:saldo,saldoAnclaEn:momento.toISOString(),origenSaldo}}],{session});},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return cuenta;}finally{await session.endSession()}}
@@ -40,8 +40,9 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
   throw error;
  }finally{await session.endSession();}
 }
-async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota,externalId,modo="CUENTA"}){
+async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota,montoPagadoRealMinor,externalId,modo="CUENTA"}){
  if(!["CUENTA","HISTORICO"].includes(modo)||modo==="CUENTA"&&!cuentaId||modo==="HISTORICO"&&cuentaId)throw Object.assign(new Error("Modo de pago inválido"),{statusCode:422});
+ if(!Number.isSafeInteger(montoPagadoRealMinor)||montoPagadoRealMinor<=0)throw Object.assign(new Error("Importe pagado inválido"),{statusCode:422});
  if(!Number.isInteger(numeroCuota)||numeroCuota<1||numeroCuota>600)throw Object.assign(new Error("Número de cuota inválido"),{statusCode:422});
  if(typeof externalId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(externalId))throw Object.assign(new Error("Referencia inválida"),{statusCode:400});
  const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;if(!secret)throw Error("PERSONAL_IDEMPOTENCY_SECRET requerido");
@@ -50,19 +51,19 @@ async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota
  try{
   await session.withTransaction(async()=>{
    const previo=await Transaccion.findOne({usuarioId,externalIdHash:hash}).session(session);
-   if(previo){if(previo.tipo!=="PAGO_DEUDA"||String(previo.prestamoId)!==String(prestamoId)||String(previo.cuentaId||"")!==String(cuentaId||"")||previo.impactoCaja===(modo==="HISTORICO")||!previo.descripcion.includes("Cuota "+numeroCuota+" "))throw Object.assign(new Error("Referencia reutilizada"),{statusCode:409});resultado={transaccion:previo,duplicado:true};return;}
+   if(previo){if(previo.tipo!=="PAGO_DEUDA"||String(previo.prestamoId)!==String(prestamoId)||String(previo.cuentaId||"")!==String(cuentaId||"")||previo.impactoCaja===(modo==="HISTORICO")||(previo.montoPagadoRealMinor||previo.montoMinor)!==montoPagadoRealMinor||!previo.descripcion.includes("Cuota "+numeroCuota+" "))throw Object.assign(new Error("Referencia reutilizada"),{statusCode:409});resultado={transaccion:previo,duplicado:true};return;}
    const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0},cuotaMinor:{$gt:0},periodicidadConfirmada:true}).session(session);
    if(!p)throw Object.assign(new Error("Crédito sin cuotas confirmadas o ya cancelado"),{statusCode:409});
    if(p.tasaMensualPct>0)throw Object.assign(new Error("Este crédito tiene intereses: antes de registrar una cuota hay que separar capital e intereses para evitar errores contables."),{statusCode:409});
    const pagos=await Transaccion.find({usuarioId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).select("descripcion montoMinor").session(session).lean();
    if(pagos.some(x=>x.descripcion.startsWith("Cuota "+numeroCuota+" ")))throw Object.assign(new Error("Esta cuota ya está pagada"),{statusCode:409});
    if(numeroCuota!==pagos.length+1)throw Object.assign(new Error("Debes registrar las cuotas en orden"),{statusCode:409});
-   const monto=Math.min(p.cuotaMinor,p.saldoMinor);
-   const cuenta=modo==="CUENTA"?await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session}):null;
+   const montoBase=Math.min(p.cuotaMinor,p.saldoMinor);const monto=Math.min(montoBase,montoPagadoRealMinor);
+   const cuenta=modo==="CUENTA"?await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,saldoMinor:{$gte:montoPagadoRealMinor}},{$inc:{saldoMinor:-montoPagadoRealMinor}},{new:true,session}):null;
    if(modo==="CUENTA"&&!cuenta)throw Object.assign(new Error("Cuenta no disponible o fondos insuficientes"),{statusCode:409});
    p.saldoMinor-=monto;if(p.saldoMinor===0){p.estado="PAGADO";p.periodicidadConfirmada=false;}await p.save({session});
-   const [tx]=await Transaccion.create([{usuarioId,prestamoId:p._id,cuentaId:cuenta?cuenta._id:null,cuenta:cuenta?cuenta.nombre:"PAGO HISTÓRICO SIN CUENTA",impactoCaja:modo==="CUENTA",tipo:"PAGO_DEUDA",montoMinor:monto,concepto:("Pago cuota "+numeroCuota+" · "+p.concepto).slice(0,140),categoria:"Pago de capital de deuda",descripcion:"Cuota "+numeroCuota+" confirmada"+(modo==="HISTORICO"?" · pendiente de conciliación de origen":""),contraparte:p.contraparte,medioPago:cuenta?(cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA"):"OTRO",fecha:new Date(),origen:"MANUAL",externalIdHash:hash}],{session});
-   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(p._id),tipo:"PAGO_DEUDA",numeroCuota,montoMinor:monto,impactoCaja:modo==="CUENTA"}}],{session});
+   const [tx]=await Transaccion.create([{usuarioId,prestamoId:p._id,cuentaId:cuenta?cuenta._id:null,cuenta:cuenta?cuenta.nombre:"PAGO HISTÓRICO SIN CUENTA",impactoCaja:modo==="CUENTA",tipo:"PAGO_DEUDA",montoMinor:monto,montoPagadoRealMinor,concepto:("Pago cuota "+numeroCuota+" · "+p.concepto).slice(0,140),categoria:"Pago de capital de deuda",descripcion:"Cuota "+numeroCuota+" confirmada"+(modo==="HISTORICO"?" · pendiente de conciliación de origen":""),contraparte:p.contraparte,medioPago:cuenta?(cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA"):"OTRO",fecha:new Date(),origen:"MANUAL",externalIdHash:hash}],{session});
+   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(p._id),tipo:"PAGO_DEUDA",numeroCuota,montoMinor:monto,montoPagadoRealMinor,impactoCaja:modo==="CUENTA"}}],{session});
    resultado={transaccion:tx,saldoPendienteMinor:p.saldoMinor,duplicado:false};
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
   return resultado;
@@ -80,7 +81,7 @@ async function deshacerUltimaCuotaCredito(usuarioId,prestamoId){
    const tx=pagos[0],numero=pagos.length;
    if(!tx.descripcion.startsWith("Cuota "+numero+" "))throw Object.assign(new Error("La secuencia de cuotas necesita revisión antes de deshacer"),{statusCode:409});
    if(tx.impactoCaja!==false){
-    const cuenta=await Cuenta.findOneAndUpdate({_id:tx.cuentaId,usuarioId,activa:true},{$inc:{saldoMinor:tx.montoMinor}},{new:true,session});
+    const cuenta=await Cuenta.findOneAndUpdate({_id:tx.cuentaId,usuarioId,activa:true},{$inc:{saldoMinor:tx.montoPagadoRealMinor||tx.montoMinor}},{new:true,session});
     if(!cuenta||!Number.isSafeInteger(cuenta.saldoMinor))throw Object.assign(new Error("No se pudo restaurar la cuenta de origen"),{statusCode:409});
    }
    if(!Number.isSafeInteger(p.saldoMinor+tx.montoMinor)||p.saldoMinor+tx.montoMinor>p.principalMinor)throw Object.assign(new Error("Reversión excede el valor de la deuda"),{statusCode:409});
