@@ -14,9 +14,11 @@ const schema=new mongoose.Schema({
  timestamp:{type:Date,required:true,immutable:true},
  hashAnterior:{type:String,required:true,immutable:true},
  hash:{type:String,required:true,immutable:true},
- deletedAt:{type:null,default:null,immutable:true}
+ deletedAt:{type:null,default:null,immutable:true},
+ secuencia:{type:Number,required:true,immutable:true,min:1}
 },{collection:"gruk_movimientos_ledger_v1000",strict:"throw",versionKey:false});
 schema.index({empresaId:1,sedeId:1,id:1},{unique:true});
+schema.index({empresaId:1,sedeId:1,secuencia:1},{unique:true});
 schema.index({empresaId:1,sedeId:1,timestamp:1});
 for(const op of ["updateOne","updateMany","findOneAndUpdate","replaceOne","findOneAndReplace","deleteOne","deleteMany","findOneAndDelete"]) {
  schema.pre(op,function(){throw new Error("LEDGER_APPEND_ONLY");});
