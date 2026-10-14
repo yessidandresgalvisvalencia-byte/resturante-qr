@@ -52,7 +52,7 @@ async function obtener(usuarioId,now=new Date()){
  const cobrosRecibidosMinor=tx.filter(x=>x.tipo==="COBRO_PRESTAMO").reduce((s,x)=>s+x.montoMinor,0);
  const gastosConsumoMinor=tx.filter(x=>x.tipo==="GASTO").filter(x=>!deudas.some(d=>d.principalMinor===x.montoMinor&&/moto/i.test(d.concepto||"")&&/moto/i.test(x.concepto||""))).reduce((s,x)=>s+x.montoMinor,0);
  const gastosMinor=tx.filter(gastoAfectaCaja).filter(x=>!deudas.some(d=>d.principalMinor===x.montoMinor&&/moto/i.test(d.concepto||"")&&/moto/i.test(x.concepto||""))).reduce((s,x)=>s+x.montoMinor,0);
- const pagosDeudaRegistradosMinor=tx.filter(x=>x.tipo==="PAGO_DEUDA").reduce((s,x)=>s+x.montoMinor,0);
+ const pagosDeudaRegistradosMinor=tx.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false).reduce((s,x)=>s+x.montoMinor,0);
  const deudaTotalMinor=deudas.reduce((s,x)=>s+x.saldoMinor,0);
  const cuotasVencenMesMinor=deudas.reduce((s,x)=>s+cuotaDelPeriodo(x,inicio,fin),0);
  // Una cuota ya pagada en el ledger no puede descontarse otra vez como compromiso.
