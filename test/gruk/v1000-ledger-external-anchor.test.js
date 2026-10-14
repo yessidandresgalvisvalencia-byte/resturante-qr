@@ -2,7 +2,7 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const crypto=require("node:crypto");
-const {firmarAncla,verificarAncla,verificarAnclaContraCabecera}=require("../../core/finance/v1000/anclaLedger");
+const {firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla}=require("../../core/finance/v1000/anclaLedger");
 const {privateKey,publicKey}=crypto.generateKeyPairSync("ed25519");
 const priv=privateKey.export({type:"pkcs8",format:"pem"});
 const pub=publicKey.export({type:"spki",format:"pem"});
@@ -39,4 +39,23 @@ test("V1000: firma auténtica solo avala cabecera del mismo tenant y secuencia e
  assert.throws(()=>verificarAnclaContraCabecera({...args,cabecera:{...cabecera,secuencia:1001}}),/LEDGER_ANCLA_REQUIERE_VERIFICAR_CONTINUIDAD/);
  assert.throws(()=>verificarAnclaContraCabecera({...args,cabecera:{...cabecera,hashUltimo:"b".repeat(64)}}),/LEDGER_ANCLA_CABECERA_DIVERGENTE/);
  assert.throws(()=>verificarAnclaContraCabecera({...args,cabecera:{...cabecera,saldoCentavos:24501}}),/LEDGER_ANCLA_CABECERA_DIVERGENTE/);
+});
+
+test("V1000: continuidad desde ancla firmada valida nuevos asientos y rechaza huecos",()=>{
+ const {hashAsiento}=require("../../core/finance/v1000/auditarLedger");
+ const ancla=firmarAncla(sample,priv);
+ const args={ancla,llavePublicaPem:pub,empresaId:sample.empresaId,sedeId:sample.sedeId};
+ const m={empresaId:sample.empresaId,sedeId:sample.sedeId,id:"01ARZ3NDEKTSV4RRFFQ69G5FAZ",
+  operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FB0",tipo:"CREDITO",montoCentavos:10,
+  antesCentavos:sample.saldoCentavos,despuesCentavos:sample.saldoCentavos+10,
+  secuencia:1001,actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAX",ip:"127.0.0.1",
+  timestamp:"2026-10-14T00:01:00.000Z",hashAnterior:sample.hashUltimo,deletedAt:null};
+ m.hash=hashAsiento(m);
+ const cabecera={secuencia:1001,saldoCentavos:m.despuesCentavos,hashUltimo:m.hash};
+ assert.equal(verificarContinuidadDesdeAncla({...args,asientos:[m],cabecera}).ok,true);
+ assert.throws(()=>verificarContinuidadDesdeAncla({...args,asientos:[],cabecera}),/LEDGER_ANCLA_CABECERA_DIVERGENTE/);
+ assert.throws(()=>verificarContinuidadDesdeAncla({...args,asientos:[{...m,secuencia:1002}],cabecera}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
+ assert.throws(()=>verificarContinuidadDesdeAncla({...args,asientos:[{...m,hashAnterior:"b".repeat(64)}],cabecera}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
+ assert.throws(()=>verificarContinuidadDesdeAncla({...args,asientos:[m],cabecera:{...cabecera,saldoCentavos:0}}),/LEDGER_ANCLA_CABECERA_DIVERGENTE/);
+ assert.throws(()=>verificarContinuidadDesdeAncla({...args,asientos:[m],cabecera:{...cabecera,secuencia:999}}),/LEDGER_ANCLA_CABECERA_RETROCEDIDA/);
 });
