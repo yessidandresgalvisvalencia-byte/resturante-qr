@@ -40,7 +40,7 @@ function loadService({ initialState = "PENDIENTE", race = false } = {}) {
   vm.runInNewContext(source, {
     module: moduleObj, exports: moduleObj.exports,
     require(id) { assert.ok(Object.hasOwn(deps, id)); return deps[id]; },
-    Date, String, Number, Error, console
+    process: { env: { NODE_ENV: "test" } }, Date, String, Number, Error, console
   }, { filename: "pagosPedidos.service.js", timeout: 1000 });
   return {
     call: status => moduleObj.exports.confirmarPagoPedidoWompi({
