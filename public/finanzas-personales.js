@@ -27,15 +27,18 @@ $("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pa
  const n=info.proximaCuota,m=info.importeProximaMinor;
  if(!info.periodicidadConfirmada){alert("Primero confirma el importe, la periodicidad y el próximo vencimiento de este crédito. GRUK abrirá la configuración sin registrar ningún pago.");await window.configurarPeriodicidad(id);return;}
  if(!Number.isSafeInteger(m)||m<=0)throw Error("Este crédito no tiene una cuota pendiente válida.");
- const cuentas=(pat.snapshot?.cuentas||[]).filter(x=>x.activa!==false&&x.saldoMinor>=m);
- if(!cuentas.length)throw Error("No hay una cuenta registrada con saldo suficiente. Revisa tu saldo antes de declarar el pago.");
- const opciones=cuentas.map((x,i)=>(i+1)+". "+x.nombre+" · "+money(x.saldoMinor)).join("\n");
- const seleccion=prompt("Selecciona la cuenta desde la cual ya pagaste la cuota "+n+":\n"+opciones,"1");if(seleccion===null)return;
- const idx=Number(seleccion)-1;if(!Number.isInteger(idx)||!cuentas[idx])throw Error("Cuenta inválida");
- if(!confirm("¿Confirmas que YA PAGASTE la cuota "+n+" por "+money(m)+" desde "+cuentas[idx].nombre+"? Reducirá tu saldo en esa cuenta y el saldo de la deuda. No enviará dinero al acreedor."))return;
+ const cuentas=(pat.snapshot?.cuentas||[]).filter(x=>x.activa!==false);
+ const suficientes=cuentas.filter(x=>Number.isSafeInteger(x.saldoMinor)&&x.saldoMinor>=m);
+ const opciones=["0. Ya pagué esta cuota antes, pero no tengo su cuenta de origen conciliada en GRUK",...cuentas.map((x,i)=>(i+1)+". "+x.nombre+" · saldo registrado "+money(x.saldoMinor))].join("\n");
+ const seleccion=prompt("¿Cómo se pagó la cuota "+n+" por "+money(m)+"?\n"+opciones+"\n\nElige 0 solo si el pago YA ocurrió; no registra dinero nuevo.",suficientes.length?String(cuentas.indexOf(suficientes[0])+1):"0");if(seleccion===null)return;
+ const indice=Number(seleccion)-1;const historico=seleccion.trim()==="0";
+ if(!historico&&(!Number.isInteger(indice)||!cuentas[indice]))throw Error("Cuenta inválida");
+ if(!historico&&(!Number.isSafeInteger(cuentas[indice].saldoMinor)||cuentas[indice].saldoMinor<m))throw Error("La cuenta seleccionada no tiene saldo registrado suficiente. Si pagaste anteriormente con una cuenta no conciliada, selecciona la opción 0.");
+ const advertencia=historico?"Se registrará la cuota como pago histórico informado sin afectar la caja actual. El origen quedará pendiente de conciliación.":"Se descontará el pago de "+cuentas[indice].nombre+" y se reducirá el saldo de la deuda.";
+ if(!confirm("¿Confirmas que YA PAGASTE la cuota "+n+" de "+money(m)+"? "+advertencia+" No se enviará dinero a ningún acreedor."))return;
  const externalId=crypto.randomUUID();
- await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/pagar",{method:"POST",body:JSON.stringify({cuentaId:String(cuentas[idx]._id),numeroCuota:n,externalId})});
- await load();alert("Cuota "+n+" registrada como pago de deuda. No se contabilizó el capital como gasto de consumo.");
+ await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/pagar",{method:"POST",body:JSON.stringify({cuentaId:historico?null:String(cuentas[indice]._id),modo:historico?"HISTORICO":"CUENTA",numeroCuota:n,externalId})});
+ await load();alert("Cuota "+n+" registrada. "+(historico?"Pago histórico pendiente de conciliación de origen; sin impacto en la caja actual.":"Pago descontado de la cuenta seleccionada.")+" El capital no se contabilizó como gasto de consumo.");
  }catch(e){alert("No se pudo registrar la cuota: "+e.message)}
 };
 window.configurarPeriodicidad=async id=>{try{

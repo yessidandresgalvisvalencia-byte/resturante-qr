@@ -15,3 +15,8 @@ test("no permite repetir numero de cuota ni sobregirar cuenta",()=>{
  assert.match(src,/saldoMinor:\{\$gte:monto\}/);
 });
 test("cuota final nunca excede saldo pendiente",()=>assert.match(src,/Math\.min\(p\.cuotaMinor,p\.saldoMinor\)/));
+test("pago historico no modifica caja actual ni inventa cuenta",()=>{
+ assert.match(src,/impactoCaja:modo==="CUENTA"/);
+ assert.match(src,/modo==="HISTORICO"/);
+ assert.match(src,/PAGO HISTÓRICO SIN CUENTA/);
+});

@@ -72,7 +72,7 @@ router.get("/prestamos/:id/cuotas",async(req,res)=>{
  const pagos=await Tx.find({usuarioId:req.personalAuth.userId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).sort({fecha:1,_id:1}).select("descripcion montoMinor fecha").lean();
  return res.json({ok:true,cuotasPagadas:pagos,proximaCuota:pagos.length+1,importeProximaMinor:p.saldoMinor>0?Math.min(p.cuotaMinor||0,p.saldoMinor):0,saldoPendienteMinor:p.saldoMinor,periodicidadConfirmada:Boolean(p.periodicidadConfirmada)});
 });
-const cuotaPagoSchema=Joi.object({cuentaId:Joi.string().hex().length(24).required(),numeroCuota:Joi.number().integer().min(1).max(600).required(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
+const cuotaPagoSchema=Joi.object({cuentaId:Joi.string().hex().length(24).allow(null).default(null),modo:Joi.string().valid("CUENTA","HISTORICO").default("CUENTA"),numeroCuota:Joi.number().integer().min(1).max(600).required(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
 router.post("/prestamos/:id/cuotas/pagar",validate(cuotaPagoSchema),async(req,res)=>{
  if(!/^[0-9a-f]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
  try{return res.json({ok:true,resultado:await patrimonioPersonal.pagarCuotaCredito(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated})});}
