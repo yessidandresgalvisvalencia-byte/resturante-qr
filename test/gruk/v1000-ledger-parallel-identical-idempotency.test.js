@@ -15,14 +15,11 @@ test("V1000: veinte solicitudes simultáneas con la misma operación generan un 
   await Promise.all([Movimiento.init(),Saldo.init()]);
   const results=await Promise.allSettled(Array.from({length:20},()=>registrarMovimiento(request)));
   const successful=results.filter(r=>r.status==="fulfilled");
-  assert.ok(successful.length>=1);
+  assert.equal(successful.length,20,"Todos los reintentos idénticos deben confirmar el mismo asiento");
   for(const result of successful){
    assert.equal(result.value.operacionId,request.operacionId);
    assert.equal(result.value.montoCentavos,100);
    assert.equal(result.value.secuencia,1);
-  }
-  for(const result of results.filter(r=>r.status==="rejected")){
-   assert.ok(result.reason instanceof Error);
   }
   assert.equal(await Movimiento.countDocuments({empresaId,sedeId,operacionId:request.operacionId}),1);
   assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),1);
