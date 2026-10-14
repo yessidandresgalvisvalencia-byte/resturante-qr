@@ -7,7 +7,7 @@ const fs=require("node:fs");
 const path=require("node:path");
 test("Ledger V1000 prohíbe AJUSTE fuera de los tipos auditables",()=>{
  const doc=new Movimiento({
-  id:"01ARZ3NDEKTSV4RRFFQ69G5FAV",empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  id:"01ARZ3NDEKTSV4RRFFQ69G5FAV",operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FBB",empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",
   sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAX",tipo:"AJUSTE",secuencia:1,
   montoCentavos:1,antesCentavos:0,despuesCentavos:1,
   actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAY",ip:"127.0.0.1",timestamp:new Date(),
