@@ -56,7 +56,15 @@ async function obtener(usuarioId,now=new Date()){
  const deudaTotalMinor=deudas.reduce((s,x)=>s+x.saldoMinor,0);
  const cuotasVencenMesMinor=deudas.reduce((s,x)=>s+cuotaDelPeriodo(x,inicio,fin),0);
  // Una cuota ya pagada en el ledger no puede descontarse otra vez como compromiso.
- const {cuotasPendientesMesMinor,flujoRealizadoMinor:flujoOperativoMinor,flujoProyectadoMesMinor:flujoOperativoProyectadoMinor}=calcularFlujoMes({ingresosMinor,gastosMinor,pagosDeudaRegistradosMinor,cuotasVencenMesMinor});
+ const pagosPorDeuda=new Map();
+ for(const t of tx){
+  if(t.tipo!=="PAGO_DEUDA"||!t.prestamoId)continue;
+  const id=String(t.prestamoId);
+  pagosPorDeuda.set(id,(pagosPorDeuda.get(id)||0)+t.montoMinor);
+ }
+ const cuotasPendientesMesMinor=deudas.reduce((total,d)=>total+Math.max(0,cuotaDelPeriodo(d,inicio,fin)-(pagosPorDeuda.get(String(d._id))||0)),0);
+ const flujoOperativoMinor=ingresosMinor-gastosMinor-pagosDeudaRegistradosMinor;
+ const flujoOperativoProyectadoMinor=flujoOperativoMinor-cuotasPendientesMesMinor;
  const flujoRealizadoMinor=flujoOperativoMinor+cobrosRecibidosMinor;
  const flujoProyectadoMesMinor=flujoOperativoProyectadoMinor+cobrosRecibidosMinor;
  const calendarioProximos=calendariosIngreso.map(x=>{const p=partesColombia(now);let y=p.y,m=p.m,d=Math.min(x.diaMes,diasEnMesUTC(y,m));let fecha=fechaCivilColombia(y,m,d);if(fecha<=now){m++;if(m>12){m=1;y++;}d=Math.min(x.diaMes,diasEnMesUTC(y,m));fecha=fechaCivilColombia(y,m,d);}return{tx:{montoMinor:x.montoMinor,concepto:x.concepto},fecha};});
