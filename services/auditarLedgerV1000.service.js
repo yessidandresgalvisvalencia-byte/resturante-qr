@@ -1,7 +1,7 @@
 "use strict";
 const mongoose=require("mongoose");
 const {tenant}=require("../core/finance/v1000/validation");
-const {verificarCadena}=require("../core/finance/v1000/auditarLedger");
+const {crearVerificadorCadena}=require("../core/finance/v1000/auditarLedger");
 const Movimiento=require("../models/MovimientoLedgerV1000");
 const Saldo=require("../models/SaldoLedgerV1000");
 
@@ -20,10 +20,17 @@ async function auditarLedgerEnMongo({empresaId,sedeId,maxAsientos=10000}){
    if(!head)throw Error("LEDGER_AUDITORIA_CABECERA_AUSENTE");
    if(!Number.isSafeInteger(head.secuencia)||head.secuencia<0||head.secuencia>maxAsientos)
      throw Error("LEDGER_AUDITORIA_REQUIERE_PARTICION");
-   const asientos=await Movimiento.find({empresaId,sedeId}).sort({secuencia:1})
-     .limit(maxAsientos+1).session(session).lean();
-   if(asientos.length>maxAsientos)throw Error("LEDGER_AUDITORIA_REQUIERE_PARTICION");
-   auditoria=verificarCadena({empresaId,sedeId,asientos,cabecera:head});
+   const verificador=crearVerificadorCadena({empresaId,sedeId});
+   const cursor=Movimiento.find({empresaId,sedeId}).sort({secuencia:1})
+     .limit(maxAsientos+1).session(session).lean().cursor({batchSize:500});
+   let total=0;
+   try{
+    for await(const asiento of cursor){
+     if(++total>maxAsientos)throw Error("LEDGER_AUDITORIA_REQUIERE_PARTICION");
+     verificador.agregar(asiento);
+    }
+   }finally{await cursor.close();}
+   auditoria=verificador.finalizar(head);
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
   return auditoria;
  }finally{
