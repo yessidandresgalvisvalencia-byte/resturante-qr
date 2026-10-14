@@ -1,6 +1,7 @@
 "use strict";
 const interprete=require("./interpreteFinanciero.service");
 const consulta=require("./consultaPersonal.service");
+const master=require("./masterAsesorPersonal.service");
 const home=require("./homePersonal.service");
 const Transaccion=require("../models/TransaccionPersonal");
 const Calendario=require("../models/calendarioFinanciero.model");
@@ -17,7 +18,7 @@ function clasificar(texto){
 async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const t=normalizar(texto);
  if(/(?:zapatos|tenis|calzado)/i.test(t)&&/(?:quiero|comprar|cuotas|financiar|inter[eé]s)/i.test(t)){await ContextoConversacional.findOneAndUpdate({usuarioId},{$set:{ultimaCompraPlanificada:{concepto:"zapatos",descripcion:t.slice(0,500),creadoEn:new Date()},asOf:new Date()}},{upsert:true,setDefaultsOnInsert:true});}
- const historialReciente=await TurnoConversacional.find({usuarioId}).sort({createdAt:-1}).limit(5).select("mensaje clase createdAt").lean();
+ const historialReciente=await TurnoConversacional.find({usuarioId}).sort({createdAt:-1}).limit(12).select("mensaje clase createdAt").lean();
  if(/^(?:de qu[eé] est[aá]bamos hablando|qu[eé] te dije antes)[?.! ]*$/i.test(t)){const anterior=historialReciente[0];return{clase:"PREGUNTA",requiereAprobacion:false,mensaje:anterior?"Tu último mensaje fue: «"+anterior.mensaje.slice(0,250)+"». ¿Quieres retomar ese tema?":"Aún no hay mensajes anteriores guardados para esta cuenta.",analisis:{soloLectura:true}};}
  const contexto=await ContextoConversacional.findOne({usuarioId}).select("ultimaCompraPlanificada").lean();
  const compra=contexto?.ultimaCompraPlanificada&&Date.now()-new Date(contexto.ultimaCompraPlanificada.creadoEn).getTime()<7*86400000?contexto.ultimaCompraPlanificada:null;
@@ -46,7 +47,7 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const clase=(asesoria||consultaExplicita)?"PREGUNTA":clasificar(texto)==="INTENCION"?"INTENCION":esHechoContable?"HECHO":clasificar(texto);
  if(clase==="HECHO"){const borrador=await interprete.crearBorrador(usuarioId,{texto,canal});const incompletos=borrador.items.filter(x=>x.estado==="REQUIERE_REVISION"||!Number.isSafeInteger(x.montoMinor)||x.montoMinor<1);if(incompletos.length)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Me falta el monto exacto. Dime cuánto fue exactamente; sin ese número te estaría mintiendo.",borrador};return{clase,requiereAprobacion:true,mensaje:"Listo, ya te pillé. Detecté "+borrador.items.length+" movimiento(s) con monto exacto. Revísalos y aprueba antes de afectar tus finanzas.",borrador};}
  const estado=await home.obtener(usuarioId);
- if(clase==="INTENCION"){const resultado=await consulta.consultar(usuarioId,texto);return{clase,requiereAprobacion:false,mensaje:resultado.tipo==="ACLARACION_CONTEXTO"?"Entiendo que estás considerando una decisión, no informando un movimiento realizado. Dime el objetivo, el plazo y el presupuesto para comparar opciones.":resultado.respuesta,analisis:resultado.datos};}
- const resultado=await consulta.consultar(usuarioId,texto);return{clase,requiereAprobacion:false,mensaje:resultado.respuesta,analisis:resultado.datos};
+ if(clase==="INTENCION"){const resultado=await master.orientar(usuarioId,texto,{turnos:historialReciente});return{clase,requiereAprobacion:false,mensaje:resultado.tipo==="ACLARACION_CONTEXTO"?"Entiendo que estás considerando una decisión, no informando un movimiento realizado. Dime el objetivo, el plazo y el presupuesto para comparar opciones.":resultado.respuesta,analisis:resultado.datos};}
+ const resultado=await master.orientar(usuarioId,texto,{turnos:historialReciente});return{clase,requiereAprobacion:false,mensaje:resultado.respuesta,analisis:resultado.datos};
 }
 module.exports={procesar,clasificar};
