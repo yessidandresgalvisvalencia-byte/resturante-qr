@@ -36,5 +36,16 @@ test("V1000: auditorías snapshot concurrentes con créditos observan estados co
   assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),3);
   const head=await Saldo.findOne({empresaId,sedeId}).lean();
   assert.equal(head.hashUltimo,final.hashUltimo);
+  // Si la cabecera se altera fuera del servicio, una escritura nueva debe
+  // fallar antes de registrar el movimiento, sin duplicar ni cambiar saldo.
+  await Saldo.collection.updateOne({empresaId,sedeId},{$set:{hashUltimo:"f".repeat(64)}});
+  await assert.rejects(
+   ()=>registrarMovimiento({...base,montoCentavos:10,operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FB1"}),
+   /LEDGER_CADENA_INCONSISTENTE/
+  );
+  assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),3);
+  const corrupted=await Saldo.findOne({empresaId,sedeId}).lean();
+  assert.equal(corrupted.saldoCentavos,200);
+  assert.equal(corrupted.secuencia,3);
  }finally{await mongoose.connection.dropDatabase();await mongoose.disconnect();}
 });
