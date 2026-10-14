@@ -36,7 +36,7 @@ for (const status of ["PENDING", "DECLINED", "ERROR", "VOIDED", "APPROVED"]) {
         assert.ok(Object.hasOwn(deps, id), `Unexpected dependency: ${id}`);
         return deps[id];
       },
-      Date, String, Number, Error, console
+      process: { env: { NODE_ENV: "test" } }, Date, String, Number, Error, console
     }, { timeout: 1000, filename: "pagosPedidos.service.js" });
     const outcome = await mod.exports.confirmarPagoPedidoWompi({
       transaction: {
