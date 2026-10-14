@@ -90,6 +90,7 @@ const renderPrestamo=x=>{
  html+='<div class="debtActions">';
  if(propia&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0){
   html+='<button class="mini" onclick="window.registrarCuota(\''+esc(String(x._id))+'\')">'+(x.periodicidadConfirmada&&siguiente?'Pagar cuota #'+siguiente:'Configurar y pagar cuotas')+'</button>';
+  if(pagadas>0)html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
   html+='<button class="secondary mini" onclick="window.configurarPeriodicidad(\''+esc(String(x._id))+'\')">Editar calendario</button>';
   html+='<button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\')">Eliminar</button>';
  }else if(!propia&&x.estado!=="PAGADO"){
@@ -104,10 +105,20 @@ const anteriores=creditosAnteriores.creditos||[];
 if(anteriores.length){
  $("listaPorPagar").insertAdjacentHTML("beforeend",'<div class="debtHeading"><h3>Créditos registrados anteriormente</h3><strong>'+money(anteriores.reduce((a,x)=>a+x.saldo,0))+'</strong></div><p class="hint">Estos créditos antiguos aún no están conciliados. Puedes incorporarlos con confirmación para administrar sus cuotas sin crear un duplicado.</p>'+anteriores.map(x=>'<article class="debtItem"><div class="debtTop"><div><strong>'+esc(x.nombre)+'</strong><p class="debtKind">Crédito anterior · pendiente de conciliación</p></div><strong>'+money(x.saldo)+'</strong></div><div class="debtNumbers"><span>Cuotas informadas restantes: '+esc(String(x.mesesRestantes))+'</span><span>Pagos anteriores sin verificar</span></div><progress value="0" max="100" style="width:100%;height:14px"></progress><div class="debtNumbers"><div>Saldo guardado<strong>'+money(x.saldo)+'</strong></div><div>Cuota mensual<strong>'+money(x.cuotaMensual)+'</strong></div></div><small>Tasa mensual: '+esc(String(x.tasaMensualPct))+' % · Meses restantes: '+esc(String(x.mesesRestantes))+'</small><div class="debtActions"><button class="mini" onclick="window.incorporarCreditoAnterior(\''+esc(String(x._id))+'\')">Incorporar y gestionar cuotas</button><button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\',true)">Eliminar</button></div></article>').join(""));
 }
-$("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pagados</h3><strong>'+pagados.length+'</strong></div>'+(pagados.length?pagados.map(renderPrestamo).join(""):'<p class="hint">Sin préstamos pagados.</p>');$("diario").innerHTML=d.dias.length?d.dias.map(x=>'<div class="day"><b>'+x.fecha+'</b><span>'+money(x.balance)+'</span>'+x.movimientos.map(m=>'<div class="row"><span>'+m.tipo+' · '+esc(m.concepto)+' · '+esc(m.categoria)+(m.contraparte?' · '+esc(m.contraparte):'')+'</span><span class="movementActions"><strong>'+money(m.monto)+'</strong><button class="secondary mini" onclick="window.editMovement(\''+m._id+'\',\''+m.tipo+'\','+m.monto+')">Corregir</button><button class="dangerMini" onclick="window.deleteMovement(\''+m._id+'\')">Eliminar</button></span></div>').join("")+'</div>').join(""):"Sin movimientos todavía."}catch(e){if(/autentic|suscrip|token/i.test(e.message)){clearToken();location.reload();return}const live=$("live");if(live)live.textContent="No pude actualizar tus datos: "+e.message;}}window.registrarCuota=async id=>{try{
+$("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pagados</h3><strong>'+pagados.length+'</strong></div>'+(pagados.length?pagados.map(renderPrestamo).join(""):'<p class="hint">Sin préstamos pagados.</p>');$("diario").innerHTML=d.dias.length?d.dias.map(x=>'<div class="day"><b>'+x.fecha+'</b><span>'+money(x.balance)+'</span>'+x.movimientos.map(m=>'<div class="row"><span>'+m.tipo+' · '+esc(m.concepto)+' · '+esc(m.categoria)+(m.contraparte?' · '+esc(m.contraparte):'')+'</span><span class="movementActions"><strong>'+money(m.monto)+'</strong><button class="secondary mini" onclick="window.editMovement(\''+m._id+'\',\''+m.tipo+'\','+m.monto+')">Corregir</button><button class="dangerMini" onclick="window.deleteMovement(\''+m._id+'\')">Eliminar</button></span></div>').join("")+'</div>').join(""):"Sin movimientos todavía."}catch(e){if(/autentic|suscrip|token/i.test(e.message)){clearToken();location.reload();return}const live=$("live");if(live)live.textContent="No pude actualizar tus datos: "+e.message;}}window.deshacerUltimaCuota=async id=>{try{
+ const info=await api("/prestamos/"+encodeURIComponent(id)+"/cuotas");
+ const pagos=info.cuotasPagadas||[];
+ if(!pagos.length)throw Error("No hay una cuota registrada para deshacer");
+ const n=pagos.length,ultimo=pagos[pagos.length-1];
+ if(!confirm("¿Deshacer el pago de la cuota #"+n+" por "+money(ultimo.montoMinor)+"? Se anulará el movimiento y se restaurará el saldo pendiente y la cuenta utilizada."))return;
+ await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/deshacer",{method:"POST"});
+ await load();alert("Cuota #"+n+" revertida correctamente.");
+ }catch(e){alert("No se pudo deshacer la cuota: "+e.message)}
+};
+window.registrarCuota=async id=>{try{
  const [info,pat]=await Promise.all([api("/prestamos/"+encodeURIComponent(id)+"/cuotas"),api("/patrimonio-financiero")]);
  const n=info.proximaCuota,m=info.importeProximaMinor;
- if(!info.periodicidadConfirmada){alert("Primero confirma el importe, la periodicidad y el próximo vencimiento de este crédito. GRUK abrirá la configuración sin registrar ningún pago.");await window.configurarPeriodicidad(id);return;}
+ if(!info.periodicidadConfirmada){alert("Para activar el pago de cuotas debes confirmar primero el calendario de esta deuda. No se registrará nada hasta tu aprobación.");await window.configurarPeriodicidad(id);return;}
  if(!Number.isSafeInteger(m)||m<=0)throw Error("Este crédito no tiene una cuota pendiente válida.");
  const cuentas=(pat.snapshot?.cuentas||[]).filter(x=>x.activa!==false);
  const suficientes=cuentas.filter(x=>Number.isSafeInteger(x.saldoMinor)&&x.saldoMinor>=m);

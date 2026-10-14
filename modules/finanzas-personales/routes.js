@@ -79,6 +79,11 @@ router.post("/prestamos/:id/cuotas/pagar",validate(cuotaPagoSchema),async(req,re
  try{return res.json({ok:true,resultado:await patrimonioPersonal.pagarCuotaCredito(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated})});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo registrar la cuota"});}
 });
+router.post("/prestamos/:id/cuotas/deshacer",async(req,res)=>{
+ if(!/^[0-9a-f]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
+ try{return res.json({ok:true,resultado:await patrimonioPersonal.deshacerUltimaCuotaCredito(req.personalAuth.userId,req.params.id)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo deshacer el pago"});}
+});
 router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
  try{
   if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
