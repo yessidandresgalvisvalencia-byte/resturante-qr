@@ -31,7 +31,14 @@ router.post("/crear-pago", async (req, res) => {
 
     if (!pedidos.length) return res.status(409).json({ ok: false, error: "No hay pedidos pendientes de pago" });
 
-    validarPedidosIntento(pedidos.map(p => p._id));
+    try {
+      validarPedidosIntento(pedidos.map(p => p._id));
+    } catch (error) {
+      if (["PEDIDOS_INTENTO_VACIOS", "PEDIDOS_INTENTO_DUPLICADOS", "PEDIDO_ID_INVALIDO"].includes(error.message)) {
+        return res.status(409).json({ ok: false, error: "Los pedidos requieren revisión antes de pagar" });
+      }
+      throw error;
+    }
 
     let amountInCents;
     try {
