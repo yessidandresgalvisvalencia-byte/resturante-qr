@@ -31,7 +31,7 @@ function fixture({ existingId = "", inputId = "tx-001", state = "PENDIENTE" } = 
   vm.runInNewContext(source, {
     module: mod, exports: mod.exports,
     require(id) { assert.ok(Object.hasOwn(deps, id)); return deps[id]; },
-    Date, String, Number, Error, console
+    process: { env: { NODE_ENV: "test" } }, Date, String, Number, Error, console
   }, { filename: "pagosPedidos.service.js", timeout: 1000 });
   return {
     call: () => mod.exports.confirmarPagoPedidoWompi({
