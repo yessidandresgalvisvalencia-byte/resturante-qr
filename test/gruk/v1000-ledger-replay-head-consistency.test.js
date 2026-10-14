@@ -11,6 +11,8 @@ test("Replay V1000 no devuelve asiento si falta la cabecera o su secuencia retro
  assert.match(body,/Saldo\.findOne\(\{empresaId,sedeId\}\)\.lean\(\)/);
  assert.match(body,/head\.secuencia<existing\.secuencia/);
  assert.match(body,/LEDGER_REPLAY_CADENA_INVALIDA/);
+ assert.match(body,/readConcern:\\{level:"snapshot"\\}/);
+ assert.match(body,/await lectura\\.endSession\\(\\)/);
 });
 test("Replay del último asiento exige hash y saldo compatibles con la cabecera",()=>{
  const start=s.indexOf("async function recuperar()");
