@@ -1,5 +1,6 @@
 "use strict";
 const crypto=require("node:crypto");
+const {hashAsiento}=require("../core/finance/v1000/auditarLedger");
 const mongoose=require("mongoose");
 const Saldo=require("../models/SaldoLedgerV1000");
 const Movimiento=require("../models/MovimientoLedgerV1000");
@@ -15,12 +16,7 @@ function generarUlid(){
  for(let i=0;i<16;i++){random=ALPHABET[Number(bits%32n)]+random;bits/=32n;}
  return time+random;
 }
-function hashMovimiento(m){
- const body=[m.empresaId,m.sedeId,m.id,m.tipo,String(m.montoCentavos),
- String(m.antesCentavos),String(m.despuesCentavos),String(m.secuencia),m.actorId,m.ip,
- (m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp),m.hashAnterior].join("|");
- return crypto.createHash("sha256").update(body).digest("hex");
-}
+const hashMovimiento=hashAsiento;
 async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,ip}){
  tenant.parse({empresaId,sedeId});
  ulid.parse(actorId);
