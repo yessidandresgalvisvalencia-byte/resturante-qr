@@ -36,12 +36,14 @@ async function orientar(usuarioId,pregunta,{turnos=[]}={}){
  const contextoPrevio=anterior?.mensaje?.slice(0,400)||null;
  if(/(?:proyecci[oó]n|proyecta|pr[oó]ximos? (?:30|60|90) d[ií]as|(?:30|60|90) d[ií]as|futuro de mi caja)/i.test(actual)&&/(?:caja|finanzas|dinero|saldo|ingresos|gastos|pagos|proyecci[oó]n|proyecta)/i.test(actual)){
   const resultado=await proyeccion.analizar(usuarioId);
-  const partes=resultado.ventanas.map(v=>v.dias+" días: ingresos programados "+moneda(v.ingresosConFechaMinor)+" ("+v.numeroIngresos+"), pagos con fecha "+moneda(v.obligacionesConFechaMinor)+" ("+v.numeroObligaciones+"), saldo "+(v.saldoCondicionalMinor===null?"no verificado":moneda(v.saldoCondicionalMinor))+".");
+  const partes=resultado.ventanas.map((v,i)=>{const desde=i===0?0:resultado.ventanas[i-1].dias;return "Días "+(desde+1)+" al "+v.dias+": "+v.numeroIngresosTramo+" ingreso(s) programado(s), "+v.numeroObligacionesTramo+" pago(s) con fecha por "+moneda(v.obligacionesTramoMinor)+"; acumulado de obligaciones hasta aquí: "+moneda(v.obligacionesConFechaMinor)+".";});
   const alertas=[];
-  if(resultado.ingresosSinProgramar)alertas.push("No hay ingresos futuros programados; esto no demuestra ausencia de ingresos.");
-  if(resultado.deudasSinPeriodicidadConfirmada)alertas.push("Hay "+resultado.deudasSinPeriodicidadConfirmada+" cuotas sin recurrencia mensual confirmada; no se repiten automáticamente.");
-  if(resultado.obligacionesSinFecha)alertas.push("Hay "+resultado.obligacionesSinFecha+" deudas sin vencimiento conocido.");
-  return{tipo:"PROYECCION_PARCIAL_30_60_90",respuesta:"Proyección parcial: "+partes.join(" ")+" "+alertas.join(" ")+" Confirma fechas y montos recurrentes para una estimación más completa. No se registraron operaciones.",datos:resultado};
+  if(resultado.ingresosSinProgramar)alertas.push("No hay ingresos futuros programados en el calendario: NO significa que tus ingresos sean cero.");
+  if(resultado.deudasSinPeriodicidadConfirmada){const nombres=(resultado.deudasParaConfirmar||[]).map(x=>x.concepto+" (cuota "+moneda(x.cuotaMinor)+")");alertas.push("Falta confirmar si las cuotas de "+nombres.join(", ")+" se repiten cada mes. Por seguridad se consideró solo la fecha registrada.");}
+  if(resultado.obligacionesSinFecha)alertas.push("Hay "+resultado.obligacionesSinFecha+" deuda(s) sin vencimiento conocido.");
+  const conclusion="Estos tramos son diferentes; cuando el acumulado se repite significa que no se registraron eventos adicionales, no que haya nuevos cobros o pagos. Tampoco es un presupuesto completo."; 
+  const paso=resultado.deudasSinPeriodicidadConfirmada?"¿La cuota de la deuda mencionada se paga todos los meses en el mismo día?":resultado.ingresosSinProgramar?"¿Recibes ingresos periódicos? Indícame monto y fecha habitual para evaluar un calendario, sin registrarlo sin tu autorización.":"Revisa tus gastos variables y saldo real antes de comprometer más dinero."; 
+  return{tipo:"PROYECCION_PARCIAL_30_60_90",respuesta:"Análisis por períodos de 30 días. "+partes.join(" ")+" "+conclusion+" "+alertas.join(" ")+" "+paso+" No se registraron operaciones.",datos:resultado};
  }
  const consultaBase=await consulta.consultar(usuarioId,actual);
  const solicitaDecision=DECISION.test(actual);
