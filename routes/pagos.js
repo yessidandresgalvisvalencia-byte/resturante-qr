@@ -33,7 +33,15 @@ router.post("/crear-pago", async (req, res) => {
 
     validarPedidosIntento(pedidos.map(p => p._id));
 
-    const amountInCents = totalPedidoCopEnCentavos(pedidos.map(p => p.precio));
+    let amountInCents;
+    try {
+      amountInCents = totalPedidoCopEnCentavos(pedidos.map(p => p.precio));
+    } catch (error) {
+      if (["PEDIDOS_SIN_PRECIOS", "MONTO_PEDIDO_NO_REPRESENTABLE", "MONTO_TOTAL_NO_REPRESENTABLE"].includes(error.message)) {
+        return res.status(409).json({ ok: false, error: "Los importes del pedido requieren revisión antes de pagar" });
+      }
+      throw error;
+    }
     if (!Number.isSafeInteger(amountInCents) || amountInCents <= 0) {
       return res.status(409).json({ ok: false, error: "El total del pedido no es válido" });
     }
