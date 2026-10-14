@@ -14,3 +14,11 @@ test("Auditoria rechaza historiales truncados o excesivos",()=>{
  assert.match(src,/asientos\.length>maxAsientos/);
  assert.match(src,/verificarCadena\(\{empresaId,sedeId,asientos,cabecera:head\}\)/);
 });
+
+test("Auditoria lee cabecera e historial dentro de una misma snapshot ACID",()=>{
+ assert.match(src,/session\.withTransaction/);
+ assert.match(src,/Saldo\.findOne\(\{empresaId,sedeId\}\)\.session\(session\)/);
+ assert.match(src,/\.limit\(maxAsientos\+1\)\.session\(session\)/);
+ assert.match(src,/readConcern:\{level:"snapshot"\}/);
+ assert.match(src,/await session\.endSession\(\)/);
+});
