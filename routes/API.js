@@ -2906,7 +2906,12 @@ router.post("/wompi/webhook", async (req, res) => {
         io: req.app.get("io"),
         outboxWriter: registrarEventoEnTransaccion
       });
-      if (!resultadoPedido.ok) console.error("[PAGOS] Evento de pedido no aplicado", resultadoPedido);
+      if (!resultadoPedido.ok) {
+        console.error("[PAGOS] Evento de pedido no aplicado; requiere conciliación", {
+          reference, transactionId: String(transactionId), reason: resultadoPedido.reason
+        });
+        return res.status(503).json({ ok: false, error: "PAGO_PENDIENTE_CONCILIACION" });
+      }
       return res.status(200).json({ ok: true });
     }
 
