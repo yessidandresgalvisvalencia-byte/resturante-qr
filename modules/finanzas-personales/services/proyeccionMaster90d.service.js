@@ -16,14 +16,16 @@ function proyectarVentanas({corte=new Date(),saldoMinor=null,saldoVerificado=fal
   }).filter(e=>e.fecha>fechaCorte);
  };
  const eventos=[...normalizar(ingresos,"INGRESO_PROGRAMADO"),...normalizar(obligaciones,"OBLIGACION_PROGRAMADA")];
- return HORIZONTES.map(dias=>{
+ return HORIZONTES.map((dias,indice)=>{
   const fechaLimite=new Date(fechaCorte.getTime()+dias*86400000);
+  const inicioTramo=new Date(fechaCorte.getTime()+(indice?HORIZONTES[indice-1]:0)*86400000);
   const periodo=eventos.filter(e=>e.fecha<=fechaLimite);
+  const tramo=periodo.filter(e=>e.fecha>inicioTramo);
   const ingresosMinor=periodo.filter(e=>e.tipo==="INGRESO_PROGRAMADO").reduce((a,e)=>a+e.montoMinor,0);
   const compromisosMinor=periodo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA").reduce((a,e)=>a+e.montoMinor,0);
   const saldoCondicionalMinor=saldoVerificado&&saldoMinor!==null?saldoMinor+ingresosMinor-compromisosMinor:null;
   if(saldoCondicionalMinor!==null&&!Number.isSafeInteger(saldoCondicionalMinor))throw new RangeError("Proyección fuera de rango");
-  return{dias,fechaLimite,ingresosConFechaMinor:ingresosMinor,obligacionesConFechaMinor:compromisosMinor,saldoCondicionalMinor,numeroIngresos:periodo.filter(e=>e.tipo==="INGRESO_PROGRAMADO").length,numeroObligaciones:periodo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA").length,estado:"PARCIAL",soloLectura:true};
+  return{dias,fechaLimite,ingresosConFechaMinor:ingresosMinor,obligacionesConFechaMinor:compromisosMinor,saldoCondicionalMinor,numeroIngresos:periodo.filter(e=>e.tipo==="INGRESO_PROGRAMADO").length,numeroObligaciones:periodo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA").length,ingresosTramoMinor:tramo.filter(e=>e.tipo==="INGRESO_PROGRAMADO").reduce((a,e)=>a+e.montoMinor,0),obligacionesTramoMinor:tramo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA").reduce((a,e)=>a+e.montoMinor,0),numeroIngresosTramo:tramo.filter(e=>e.tipo==="INGRESO_PROGRAMADO").length,numeroObligacionesTramo:tramo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA").length,estado:"PARCIAL",soloLectura:true};
  });
 }
 function fechasCalendario(item,corte,diasMax=90){
@@ -58,6 +60,6 @@ async function analizar(usuarioId){
   obligaciones.push({fecha:venc,montoMinor:Math.min(d.cuotaMinor||d.saldoMinor,d.saldoMinor),concepto:d.concepto,fuente:"VENCIMIENTO_UNICO_CONOCIDO"});
  }
  const ventanas=proyectarVentanas({corte,saldoMinor:a.saldoRealConocido?a.saldoRealMinor:null,saldoVerificado:a.saldoConfiabilidad==="VERIFICADO",ingresos,obligaciones});
- return{ventanas,cobertura:"CALENDARIOS_MENSUALES_Y_VENCIMIENTOS_CONFIRMADOS",fuente:"CALENDARIO_PERSONAL_Y_PRESTAMOS",ingresosSinProgramar:ingresos.length===0,obligacionesSinFecha:deudas.filter(d=>!d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))).length,deudasSinPeriodicidadConfirmada:deudas.filter(d=>d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))&&d.cuotaMinor>0).length,saldoConfiabilidad:a.saldoConfiabilidad||"NO_VERIFICADO",soloLectura:true};
+ return{ventanas,cobertura:"CALENDARIOS_MENSUALES_Y_VENCIMIENTOS_CONFIRMADOS",fuente:"CALENDARIO_PERSONAL_Y_PRESTAMOS",ingresosSinProgramar:ingresos.length===0,obligacionesSinFecha:deudas.filter(d=>!d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))).length,deudasSinPeriodicidadConfirmada:deudas.filter(d=>d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))&&d.cuotaMinor>0).length,deudasParaConfirmar:deudas.filter(d=>d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))&&d.cuotaMinor>0).map(d=>({id:String(d._id),concepto:d.concepto,cuotaMinor:d.cuotaMinor,fecha:d.fechaVencimiento})),saldoConfiabilidad:a.saldoConfiabilidad||"NO_VERIFICADO",soloLectura:true};
 }
 module.exports={proyectarVentanas,fechasCalendario,analizar};
