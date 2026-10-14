@@ -68,6 +68,34 @@ async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota
   return resultado;
  }finally{await session.endSession();}
 }
+async function deshacerUltimaCuotaCredito(usuarioId,prestamoId){
+ const session=await mongoose.startSession();
+ try{
+  let resultado;
+  await session.withTransaction(async()=>{
+   const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO","PAGADO"]}}).session(session);
+   if(!p)throw Object.assign(new Error("Deuda no encontrada"),{statusCode:404});
+   const pagos=await Transaccion.find({usuarioId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA",descripcion:/^Cuota [0-9]+ confirmada/}).sort({fecha:-1,_id:-1}).session(session);
+   if(!pagos.length)throw Object.assign(new Error("No hay cuotas registradas que se puedan deshacer"),{statusCode:409});
+   const tx=pagos[0],numero=pagos.length;
+   if(!tx.descripcion.startsWith("Cuota "+numero+" "))throw Object.assign(new Error("La secuencia de cuotas necesita revisión antes de deshacer"),{statusCode:409});
+   if(tx.impactoCaja!==false){
+    const cuenta=await Cuenta.findOneAndUpdate({_id:tx.cuentaId,usuarioId,activa:true},{$inc:{saldoMinor:tx.montoMinor}},{new:true,session});
+    if(!cuenta||!Number.isSafeInteger(cuenta.saldoMinor))throw Object.assign(new Error("No se pudo restaurar la cuenta de origen"),{statusCode:409});
+   }
+   if(!Number.isSafeInteger(p.saldoMinor+tx.montoMinor)||p.saldoMinor+tx.montoMinor>p.principalMinor)throw Object.assign(new Error("Reversión excede el valor de la deuda"),{statusCode:409});
+   p.saldoMinor+=tx.montoMinor;
+   if(p.estado==="PAGADO")p.estado="ACTIVO";
+   p.periodicidadConfirmada=true;
+   await p.save({session});
+   tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion="CUOTA_MARCADA_PAGADA_POR_ERROR";
+   await tx.save({session});
+   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{accion:"ANULACION_PAGO_DEUDA",prestamoId:String(p._id),transaccionId:String(tx._id),numeroCuota:numero,montoMinor:tx.montoMinor}}],{session});
+   resultado={numeroCuota:numero,saldoPendienteMinor:p.saldoMinor,transaccionAnuladaId:String(tx._id)};
+  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
+  return resultado;
+ }finally{await session.endSession();}
+}
 async function corregirPrestamo(usuarioId,prestamoId,cambios){
  const session=await mongoose.startSession();
  try{
@@ -145,4 +173,4 @@ async function retirarDeudaVisible(usuarioId,prestamoId){
 }
 async function transferir(usuarioId,{origenId,destinoId,montoMinor}){const monto=safe(montoMinor);if(!monto)throw Object.assign(new Error("Monto debe ser mayor a cero"),{statusCode:400});if(String(origenId)===String(destinoId))throw Object.assign(new Error("Las cuentas deben ser diferentes"),{statusCode:400});const session=await mongoose.startSession();try{return await session.withTransaction(async()=>{const origen=await Cuenta.findOneAndUpdate({_id:origenId,usuarioId,activa:true,saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});if(!origen)throw Object.assign(new Error("Cuenta origen inválida o saldo insuficiente"),{statusCode:409});const destino=await Cuenta.findOneAndUpdate({_id:destinoId,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});if(!destino)throw Object.assign(new Error("Cuenta destino inválida"),{statusCode:404});return{origen,destino,montoMinor:monto};},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});}finally{await session.endSession()}}
 async function snapshot(usuarioId){const [cuentas,activos,prestamos]=await Promise.all([Cuenta.find({usuarioId,activa:true}).lean(),Activo.find({usuarioId}).lean(),Prestamo.find({usuarioId,estado:{$in:["ACTIVO","VENCIDO"]}}).lean()]);const rows=await Transaccion.find({usuarioId,estado:{$ne:"ANULADA"},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA","PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO"]}}).select("tipo montoMinor medioPago fecha cuenta cuentaId").lean();const movimientosCaja=rows.filter(x=>deltaCaja(x)!==0);const hayMovimientosLedger=movimientosCaja.length>0;const saldoDerivadoLedgerMinor=hayMovimientosLedger?movimientosCaja.reduce((s,x)=>s+deltaCaja(x),0):null;const cuentasVerificadas=cuentas.filter(x=>x.saldoVerificadoEn&&!x.requiereReconciliacion);const saldoVerificado=cuentas.length>0&&cuentasVerificadas.length===cuentas.length;const cuentasAncladas=cuentas.filter(x=>Number.isSafeInteger(x.saldoAnclaMinor)&&x.saldoAnclaEn&&!x.requiereReconciliacion);const anclaCompleta=cuentas.length>0&&cuentasAncladas.length===cuentas.length;let liquidez;if(anclaCompleta){liquidez=saldoCuentasDesdeAnclas(cuentasAncladas,movimientosCaja);}else if(cuentasVerificadas.length===0)liquidez=saldoDerivadoLedgerMinor??0;else liquidez=cuentas.reduce((a,x)=>a+x.saldoMinor,0);const activosNoLiquidos=activos.filter(x=>!x.liquido).reduce((a,x)=>a+x.valorMinor,0);const porCobrar=prestamos.filter(x=>x.direccion==="POR_COBRAR").reduce((a,x)=>a+x.saldoMinor,0);const porPagar=prestamos.filter(x=>x.direccion==="POR_PAGAR").reduce((a,x)=>a+x.saldoMinor,0);return{liquidezMinor:liquidez,activosNoLiquidosMinor:activosNoLiquidos,activosTotalesMinor:liquidez+activosNoLiquidos,cuentasPorCobrarMinor:porCobrar,pasivosMinor:porPagar,patrimonioFinancieroNetoMinor:liquidez+activosNoLiquidos+porCobrar-porPagar,cuentas,activos,prestamos,saldoDerivadoLedgerMinor,hayMovimientosLedger,saldoVerificado,cuentasVerificadas:cuentasVerificadas.map(x=>String(x._id)),fuenteLiquidez:anclaCompleta?"ANCLA_RECONCILIADA":(cuentasVerificadas.length===0?"LEDGER_DERIVADO":"CUENTAS_PARCIALMENTE_VERIFICADAS"),anclaCompleta}}
-module.exports={deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,pagarCuotaCredito,corregirPrestamo,retirarDeudaVisible,transferir,snapshot};
+module.exports={deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,pagarCuotaCredito,deshacerUltimaCuotaCredito,corregirPrestamo,retirarDeudaVisible,transferir,snapshot};
