@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, "../../routes/pagos.js"), "u
 
 test("Wompi: la creación de intención valida pedidos antes de calcular el importe", () => {
   const guard = source.indexOf("validarPedidosIntento(pedidos.map(p => p._id))");
-  const calculation = source.indexOf("const amountInCents = totalPedidoCopEnCentavos(");
+  const calculation = source.indexOf("amountInCents = totalPedidoCopEnCentavos(");
   const write = source.indexOf("await IntentoPagoPedido.create(");
   assert.ok(guard > 0, "falta validador de pedidos al crear pago");
   assert.ok(guard < calculation && calculation < write,
