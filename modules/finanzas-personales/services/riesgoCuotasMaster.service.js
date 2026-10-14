@@ -2,8 +2,8 @@
 function diagnosticarRiesgoCuotas({cuotas,disponibleHoyMinor=null,saldoVerificado=false,ingresoMensualLibreMinor=null,cuotasExistentesMinor=null}){
  if(!Array.isArray(cuotas)||cuotas.length===0||cuotas.length>360||cuotas.some(x=>typeof x!=="number"||!Number.isFinite(x)||x<=0))throw new TypeError("Cuotas inválidas");
  for(const n of [disponibleHoyMinor,ingresoMensualLibreMinor,cuotasExistentesMinor])if(n!==null&&(!Number.isSafeInteger(n)||n<0))throw new TypeError("Importe de capacidad inválido");
- const maxCuotaMinor=Math.ceil(Math.max(...cuotas)*100);
- const cuotasMinor=cuotas.map(x=>Math.round(x*100));
+ const maxCuotaMinor=Math.ceil(Math.max(...cuotas));
+ const cuotasMinor=cuotas.map(x=>Math.ceil(x));
  const entradaConocida=saldoVerificado&&disponibleHoyMinor!==null;
  const cubrePrimeraCuota=entradaConocida?disponibleHoyMinor>=cuotasMinor[0]:null;
  const flujoMensualConocido=ingresoMensualLibreMinor!==null&&cuotasExistentesMinor!==null;
