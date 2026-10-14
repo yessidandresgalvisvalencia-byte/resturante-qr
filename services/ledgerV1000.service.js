@@ -17,9 +17,10 @@ function generarUlid(){
  return time+random;
 }
 const hashMovimiento=hashAsiento;
-async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,ip}){
+async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,ip,operacionId}){
  tenant.parse({empresaId,sedeId});
  ulid.parse(actorId);
+ ulid.parse(operacionId);
  if(!["CREDITO","DEBITO"].includes(tipo)||!Number.isSafeInteger(montoCentavos)||montoCentavos<=0)throw Error("LEDGER_IMPORTE_INVALIDO");
  if(typeof ip!=="string"||!ip.trim())throw Error("LEDGER_IP_INVALIDA");
  // No permita registrar una IP inválida en la bitácora financiera.
@@ -54,7 +55,7 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
    const despues=tipo==="CREDITO"?antes+delta:antes-delta;
    if(despues<0n||despues>BigInt(Number.MAX_SAFE_INTEGER))throw Error("LEDGER_SALDO_INVALIDO");
    const timestamp=new Date().toISOString();
-   const doc={id:generarUlid(),empresaId,sedeId,tipo,montoCentavos,secuencia:head.secuencia+1,
+   const doc={id:generarUlid(),operacionId,empresaId,sedeId,tipo,montoCentavos,secuencia:head.secuencia+1,
      antesCentavos:Number(antes),despuesCentavos:Number(despues),
      actorId,ip,timestamp,hashAnterior:head.hashUltimo,deletedAt:null};
    doc.hash=hashMovimiento(doc);
