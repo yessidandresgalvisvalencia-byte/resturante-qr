@@ -11,3 +11,9 @@ test("V1000: un duplicado hallado dentro de una transacción exige recuperar con
  assert.match(transaction,/if\(duplicadoEnTransaccion\)return await recuperar\(\);/);
  assert.doesNotMatch(transaction,/registrado=duplicado/);
 });
+
+test("V1000: reintento automático de transacción limpia bandera de duplicado anterior",()=>{
+ const block=source.slice(source.indexOf("let duplicadoEnTransaccion=false"),source.indexOf("}catch(error){",source.indexOf("let duplicadoEnTransaccion=false")));
+ assert.match(block,/await session\.withTransaction\(async\(\)=>\{\s*\/\/[^\n]*\n\s*duplicadoEnTransaccion=false;\s*registrado=undefined;/);
+ assert.match(block,/if\(duplicadoEnTransaccion\)return await recuperar\(\);/);
+});
