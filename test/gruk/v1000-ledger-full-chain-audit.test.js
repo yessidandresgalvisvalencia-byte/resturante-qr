@@ -4,9 +4,9 @@ const assert=require("node:assert/strict");
 const {hashAsiento,verificarCadena}=require("../../core/finance/v1000/auditarLedger");
 const empresaId="01ARZ3NDEKTSV4RRFFQ69G5FAV",sedeId="01ARZ3NDEKTSV4RRFFQ69G5FAW";
 function construir(){
- const uno={empresaId,sedeId,id:"01ARZ3NDEKTSV4RRFFQ69G5FAX",tipo:"CREDITO",montoCentavos:5200000,antesCentavos:0,despuesCentavos:5200000,secuencia:1,actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAY",ip:"127.0.0.1",timestamp:"2026-10-14T00:00:00.000Z",hashAnterior:"0".repeat(64),deletedAt:null};
+ const uno={empresaId,sedeId,id:"01ARZ3NDEKTSV4RRFFQ69G5FAX",operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FBB",tipo:"CREDITO",montoCentavos:5200000,antesCentavos:0,despuesCentavos:5200000,secuencia:1,actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAY",ip:"127.0.0.1",timestamp:"2026-10-14T00:00:00.000Z",hashAnterior:"0".repeat(64),deletedAt:null};
  uno.hash=hashAsiento(uno);
- const dos={...uno,id:"01ARZ3NDEKTSV4RRFFQ69G5FAZ",tipo:"DEBITO",montoCentavos:1,antesCentavos:5200000,despuesCentavos:5199999,secuencia:2,hashAnterior:uno.hash,timestamp:"2026-10-14T00:01:00.000Z"};
+ const dos={...uno,id:"01ARZ3NDEKTSV4RRFFQ69G5FAZ",operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FBC",tipo:"DEBITO",montoCentavos:1,antesCentavos:5200000,despuesCentavos:5199999,secuencia:2,hashAnterior:uno.hash,timestamp:"2026-10-14T00:01:00.000Z"};
  dos.hash=hashAsiento(dos);
  return {asientos:[uno,dos],cabecera:{secuencia:2,saldoCentavos:5199999,hashUltimo:dos.hash}};
 }
