@@ -6,7 +6,7 @@ const path=require("node:path");
 const vm=require("node:vm");
 const source=fs.readFileSync(path.join(__dirname,"../../services/ledgerV1000.service.js"),"utf8");
 const unknown=()=>{const e=new Error("network timeout at commit");e.hasErrorLabel=x=>x==="UnknownTransactionCommitResult";return e;};
-function harness({existing}){
+function harness({existing,recoveryError}){
  let writeAttempts=0,reads=0,ended=0;
  const fakeSession=()=>({withTransaction:async fn=>{if(fn.toString().includes("const duplicado=await Movimiento.findOne")){writeAttempts++;throw unknown();}return fn();},endSession:async()=>{ended++;}});
  const query=value=>({session:()=>({lean:async()=>value})});
@@ -16,7 +16,7 @@ function harness({existing}){
  movimiento.hash=hashAsiento(movimiento);
  const cursor={async *[Symbol.asyncIterator](){yield movimiento;},close:async()=>{}};
  const fakeMovimiento={
-  findOne:()=>{reads++;return query(existing?movimiento:null);},
+  findOne:()=>{reads++;if(recoveryError)return {session:()=>({lean:async()=>{throw recoveryError;}})};return query(existing?movimiento:null);},
   find:()=>({sort:()=>({limit:()=>({session:()=>({lean:()=>({
    cursor:()=>cursor
   })})})})})
@@ -47,4 +47,18 @@ test("V1000: commit incierto sin operación confirmada nunca declara éxito ni r
  await assert.rejects(h.run(),/LEDGER_CONFIRMACION_INDETERMINADA/);
  assert.equal(h.stats().writeAttempts,1);
  assert.ok(h.stats().ended>=2);
+});
+
+test("V1000: confirmación incierta más caída de red en reconciliación devuelve estado indeterminado",async()=>{
+ const failure=new Error("connection dropped");failure.name="MongoNetworkError";
+ const h=harness({existing:false,recoveryError:failure});
+ await assert.rejects(h.run(),err=>err.message==="LEDGER_CONFIRMACION_INDETERMINADA"&&err.cause===failure);
+ assert.equal(h.stats().writeAttempts,1);
+ assert.ok(h.stats().ended>=2);
+});
+test("V1000: reconciliación con error de integridad no queda encubierta como caída de red",async()=>{
+ const failure=new Error("LEDGER_REPLAY_CADENA_INVALIDA");
+ const h=harness({existing:false,recoveryError:failure});
+ await assert.rejects(h.run(),err=>err===failure);
+ assert.equal(h.stats().writeAttempts,1);
 });
