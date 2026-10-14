@@ -7,4 +7,4 @@ test("cuota exige monto real entero seguro",()=>{
  assert.match(routes,/montoPagadoRealMinor:Joi\.number\(\)\.integer\(\)\.min\(1\)/);
 });
 test("anulación restaura importe real",()=>assert.match(service,/tx\.montoPagadoRealMinor\|\|tx\.montoMinor/));
-test("capital nunca aumenta por pagar",()=>assert.match(service,/Math\.min\(p\.cuotaMinor,p\.saldoMinor,montoPagadoRealMinor\)/));
+test("capital nunca aumenta por pagar",()=>assert.match(service,/Math\.min\(montoBase,montoPagadoRealMinor\)/));
