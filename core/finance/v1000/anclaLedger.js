@@ -32,4 +32,24 @@ function verificarAncla(ancla,llavePublicaPem){
   throw Error("LEDGER_ANCLA_FIRMA_INVALIDA");
  return {ok:true,secuencia:ancla.secuencia,saldoCentavos:ancla.saldoCentavos,hashUltimo:ancla.hashUltimo};
 }
-module.exports={firmarAncla,verificarAncla};
+function verificarAnclaContraCabecera({ancla,llavePublicaPem,empresaId,sedeId,cabecera}){
+ const prueba=verificarAncla(ancla,llavePublicaPem);
+ tenant.parse({empresaId,sedeId});
+ if(ancla.empresaId!==empresaId||ancla.sedeId!==sedeId)
+  throw Error("LEDGER_ANCLA_TENANT_INCONSISTENTE");
+ if(!cabecera||!Number.isSafeInteger(cabecera.secuencia)||cabecera.secuencia<0||
+    !Number.isSafeInteger(cabecera.saldoCentavos)||cabecera.saldoCentavos<0||
+    typeof cabecera.hashUltimo!=="string"||!HASH.test(cabecera.hashUltimo))
+  throw Error("LEDGER_ANCLA_CABECERA_INVALIDA");
+ if(cabecera.secuencia<prueba.secuencia)
+  throw Error("LEDGER_ANCLA_CABECERA_RETROCEDIDA");
+ // A later head requires independent verification of every intermediate link.
+ // Never treat an old signature as a proof of an unverified newer balance.
+ if(cabecera.secuencia>prueba.secuencia)
+  throw Error("LEDGER_ANCLA_REQUIERE_VERIFICAR_CONTINUIDAD");
+ if(cabecera.saldoCentavos!==prueba.saldoCentavos||
+    cabecera.hashUltimo!==prueba.hashUltimo)
+  throw Error("LEDGER_ANCLA_CABECERA_DIVERGENTE");
+ return {ok:true,secuencia:prueba.secuencia,saldoCentavos:prueba.saldoCentavos,hashUltimo:prueba.hashUltimo};
+}
+module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera};
