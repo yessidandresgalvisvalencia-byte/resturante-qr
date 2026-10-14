@@ -137,10 +137,9 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
    if(Object.prototype.hasOwnProperty.call(cambios,"periodicidadConfirmada")&&cambios.periodicidadConfirmada===true){
     const frecuencia=cambios.periodicidad||prestamo.periodicidad;
     const monto=cambios.cuotaMinor===undefined?prestamo.cuotaMinor:cambios.cuotaMinor;
-    const vencimiento=cambios.fechaVencimiento===undefined?prestamo.fechaVencimiento:cambios.fechaVencimiento;
-    const dia=cambios.diaPago===undefined?prestamo.diaPago:cambios.diaPago;
+    const cuotas=cambios.numeroCuotas===undefined?prestamo.numeroCuotas:cambios.numeroCuotas;
     if(prestamo.direccion!=="POR_PAGAR"||prestamo.saldoMinor<=0||prestamo.estado==="PAGADO")throw Object.assign(new Error("Solo pueden programarse deudas propias pendientes"),{statusCode:422});
-    if(!frecuencia||!Number.isSafeInteger(monto)||monto<=0||!vencimiento||(frecuencia==="MENSUAL"&&(!Number.isInteger(dia)||dia<1||dia>31)))throw Object.assign(new Error("Faltan las condiciones confirmadas del calendario"),{statusCode:422});
+    if(!frecuencia||!Number.isSafeInteger(monto)||monto<=0||!Number.isInteger(cuotas)||cuotas<1||cuotas>360)throw Object.assign(new Error("Confirma valor, periodicidad y número de cuotas; la fecha no es obligatoria"),{statusCode:422});
    }
    for(const campo of ["contraparte","concepto","cuotaMinor","tasaMensualPct","fechaVencimiento","periodicidad","diaPago","numeroCuotas","periodicidadConfirmada"]){
     if(Object.prototype.hasOwnProperty.call(cambios,campo))prestamo[campo]=cambios[campo];
