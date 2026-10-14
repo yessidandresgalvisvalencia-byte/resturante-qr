@@ -23,4 +23,8 @@ schema.index({empresaId:1,sedeId:1,timestamp:1});
 for(const op of ["updateOne","updateMany","findOneAndUpdate","replaceOne","findOneAndReplace","deleteOne","deleteMany","findOneAndDelete"]) {
  schema.pre(op,function(){throw new Error("LEDGER_APPEND_ONLY");});
 }
+// A loaded document must never overwrite an existing accounting entry.
+schema.pre("save",function(){if(!this.isNew)throw new Error("LEDGER_APPEND_ONLY");});
+// Block collection-wide bulk mutations at the model API boundary.
+schema.pre("bulkWrite",function(){throw new Error("LEDGER_BULK_WRITE_PROHIBIDO");});
 module.exports=mongoose.models.MovimientoLedgerV1000||mongoose.model("MovimientoLedgerV1000",schema);
