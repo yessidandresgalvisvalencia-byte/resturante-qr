@@ -52,4 +52,39 @@ function verificarAnclaContraCabecera({ancla,llavePublicaPem,empresaId,sedeId,ca
   throw Error("LEDGER_ANCLA_CABECERA_DIVERGENTE");
  return {ok:true,secuencia:prueba.secuencia,saldoCentavos:prueba.saldoCentavos,hashUltimo:prueba.hashUltimo};
 }
-module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera};
+function verificarContinuidadDesdeAncla({ancla,llavePublicaPem,empresaId,sedeId,asientos,cabecera}){
+ const base=verificarAncla(ancla,llavePublicaPem);
+ tenant.parse({empresaId,sedeId});
+ if(ancla.empresaId!==empresaId||ancla.sedeId!==sedeId)
+  throw Error("LEDGER_ANCLA_TENANT_INCONSISTENTE");
+ if(!Array.isArray(asientos)||!cabecera||!Number.isSafeInteger(cabecera.secuencia)||
+    !Number.isSafeInteger(cabecera.saldoCentavos)||
+    cabecera.saldoCentavos<0||typeof cabecera.hashUltimo!=="string"||
+    !HASH.test(cabecera.hashUltimo))
+  throw Error("LEDGER_ANCLA_CABECERA_INVALIDA");
+ if(cabecera.secuencia<base.secuencia)throw Error("LEDGER_ANCLA_CABECERA_RETROCEDIDA");
+ let secuencia=base.secuencia,saldo=base.saldoCentavos,hash=base.hashUltimo;
+ const operaciones=new Set();
+ const {hashAsiento}=require("./auditarLedger");
+ for(const m of asientos){
+  if(!m||m.empresaId!==empresaId||m.sedeId!==sedeId||
+     m.secuencia!==secuencia+1||m.hashAnterior!==hash||
+     m.antesCentavos!==saldo||m.deletedAt!==null||
+     !Number.isSafeInteger(m.montoCentavos)||m.montoCentavos<=0||
+     !["CREDITO","DEBITO"].includes(m.tipo)||
+     typeof m.operacionId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(m.operacionId)||
+     operaciones.has(m.operacionId)||hashAsiento(m)!==m.hash)
+   throw Error("LEDGER_ANCLA_CONTINUIDAD_INVALIDA");
+  const next=BigInt(saldo)+(m.tipo==="CREDITO"?1n:-1n)*BigInt(m.montoCentavos);
+  if(next<0n||next>BigInt(Number.MAX_SAFE_INTEGER)||
+     m.despuesCentavos!==Number(next))
+   throw Error("LEDGER_ANCLA_CONTINUIDAD_INVALIDA");
+  operaciones.add(m.operacionId);
+  secuencia=m.secuencia;saldo=m.despuesCentavos;hash=m.hash;
+ }
+ if(cabecera.secuencia!==secuencia||cabecera.saldoCentavos!==saldo||
+    cabecera.hashUltimo!==hash)
+  throw Error("LEDGER_ANCLA_CABECERA_DIVERGENTE");
+ return {ok:true,secuencia,saldoCentavos:saldo,hashUltimo:hash};
+}
+module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla};
