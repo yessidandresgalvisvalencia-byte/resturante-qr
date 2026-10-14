@@ -35,5 +35,16 @@ test("V1000: replay real de operación histórica tras 10001 asientos conserva s
   assert.equal(replay.despuesCentavos,1);
   assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),cantidad);
   assert.equal((await Saldo.findOne({empresaId,sedeId}).lean()).saldoCentavos,cantidad);
+  // Simular modificación privilegiada de un asiento intermedio sin recomponer
+  // los hashes posteriores. El replay debe fallar, nunca confirmar el pago.
+  await Movimiento.collection.updateOne({empresaId,sedeId,secuencia:5000},
+   {$set:{montoCentavos:9}});
+  await assert.rejects(
+   ()=>registrarMovimiento({empresaId,sedeId,actorId,ip,tipo:"CREDITO",
+    montoCentavos:1,operacionId:id(40001)}),
+   /LEDGER_REPLAY_CADENA_INVALIDA/
+  );
+  assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),cantidad);
+  assert.equal((await Saldo.findOne({empresaId,sedeId}).lean()).saldoCentavos,cantidad);
  }finally{await mongoose.connection.dropDatabase();await mongoose.disconnect();}
 });
