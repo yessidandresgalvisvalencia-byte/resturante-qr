@@ -3,6 +3,7 @@ const interprete=require("./interpreteFinanciero.service");
 const consulta=require("./consultaPersonal.service");
 const master=require("./masterAsesorPersonal.service");
 const simuladorMaster=require("./simuladorCuotasMaster.service");
+const riesgoCuotasMaster=require("./riesgoCuotasMaster.service");
 const home=require("./homePersonal.service");
 const Transaccion=require("../models/TransaccionPersonal");
 const Calendario=require("../models/calendarioFinanciero.model");
@@ -26,8 +27,9 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
   const fmt=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n);
   const evaluacion=await home.obtener(usuarioId);
   const asesor=evaluacion.asesor||{};
-  const capacidad=asesor.saldoRealConocido?"Disponible registrado estimado: "+fmt(asesor.disponibleHoyMinor)+".":"Aún no tengo confirmado tu disponible real para comprometer dinero.";
-  return{clase:"INTENCION",requiereAprobacion:false,mensaje:"Simulación, no compra registrada: precio "+fmt(calculo.precio)+", "+calculo.numeroCuotas+" cuotas. Si el "+calculo.tasaPct+"% se aplica una sola vez a cada cuota base, el total sería "+fmt(calculo.total)+" y el costo adicional "+fmt(calculo.intereses)+". Cuota orientativa inicial: "+fmt(calculo.cuotas[0])+". Esta no es una tasa efectiva mensual confirmada: si el interés es mensual sobre saldo o hay cargos, el resultado cambia. "+capacidad+" ¿El porcentaje se cobra una sola vez sobre cada cuota o mensualmente sobre el saldo? No se ha creado ninguna deuda ni pago.",analisis:{soloLectura:true,simulacion:calculo,requiereConfirmarMetodoInteres:true}};
+  const riesgo=riesgoCuotasMaster.diagnosticarRiesgoCuotas({cuotas:calculo.cuotas,disponibleHoyMinor:Number.isSafeInteger(asesor.disponibleHoyMinor)?asesor.disponibleHoyMinor:null,saldoVerificado:asesor.saldoConfiabilidad==="VERIFICADO"});
+  const capacidad=riesgo.cubrePrimeraCuota===true?"La primera cuota cabe dentro del disponible estimado actual, pero aún no se ha comprobado la capacidad mensual futura.":riesgo.cubrePrimeraCuota===false?"La primera cuota excede el disponible estimado actual.": "No hay saldo disponible verificado para evaluar la primera cuota.";
+  return{clase:"INTENCION",requiereAprobacion:false,mensaje:"Simulación, no compra registrada: precio "+fmt(calculo.precio)+", "+calculo.numeroCuotas+" cuotas. Si el "+calculo.tasaPct+"% se aplica una sola vez a cada cuota base, el total sería "+fmt(calculo.total)+" y el costo adicional "+fmt(calculo.intereses)+". Cuota orientativa inicial: "+fmt(calculo.cuotas[0])+". Esta no es una tasa efectiva mensual confirmada: si el interés es mensual sobre saldo o hay cargos, el resultado cambia. "+capacidad+" ¿El porcentaje se cobra una sola vez sobre cada cuota o mensualmente sobre el saldo? No se ha creado ninguna deuda ni pago.",analisis:{soloLectura:true,simulacion:calculo,requiereConfirmarMetodoInteres:true,riesgoCuotas:riesgo}};
  }
  if(/^(?:de qu[eé] est[aá]bamos hablando|qu[eé] te dije antes)[?.! ]*$/i.test(t)){const anterior=historialReciente[0];return{clase:"PREGUNTA",requiereAprobacion:false,mensaje:anterior?"Tu último mensaje fue: «"+anterior.mensaje.slice(0,250)+"». ¿Quieres retomar ese tema?":"Aún no hay mensajes anteriores guardados para esta cuenta.",analisis:{soloLectura:true}};}
  const contexto=await ContextoConversacional.findOne({usuarioId}).select("ultimaCompraPlanificada").lean();
