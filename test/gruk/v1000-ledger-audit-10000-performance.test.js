@@ -8,7 +8,9 @@ test("V1000: medir auditoría determinística de 10 000 asientos y verificar int
  const rows=[];
  let previous="0".repeat(64);
  for(let i=1;i<=10000;i++){
-  const n=i.toString(32).toUpperCase().padStart(16,"0").replace(/I/g,"J").replace(/L/g,"M").replace(/O/g,"P").replace(/U/g,"V");
+  const alphabet="0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+  let sequence=i,n="";
+  for(let j=0;j<16;j++){n=alphabet[sequence%32]+n;sequence=Math.floor(sequence/32);}
   const id="01ARZ3NDEK"+n;
   const m={id,operacionId:id,empresaId,sedeId,tipo:"CREDITO",montoCentavos:1,antesCentavos:i-1,despuesCentavos:i,secuencia:i,actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAX",ip:"127.0.0.1",timestamp:"2026-10-14T00:00:00.000Z",hashAnterior:previous,deletedAt:null};
   m.hash=hashAsiento(m);previous=m.hash;rows.push(m);
