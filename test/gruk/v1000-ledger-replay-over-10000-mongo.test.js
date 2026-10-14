@@ -46,5 +46,14 @@ test("V1000: replay real de operación histórica tras 10001 asientos conserva s
   );
   assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),cantidad);
   assert.equal((await Saldo.findOne({empresaId,sedeId}).lean()).saldoCentavos,cantidad);
+  // Restaurar el asiento y confirmar que el rechazo anterior no fue causado
+  // por el tamaño del historial ni por un efecto secundario del replay.
+  await Movimiento.collection.updateOne({empresaId,sedeId,secuencia:5000},
+   {$set:{montoCentavos:1}});
+  const recuperado=await registrarMovimiento({empresaId,sedeId,actorId,ip,
+   tipo:"CREDITO",montoCentavos:1,operacionId:id(40001)});
+  assert.equal(recuperado.secuencia,1);
+  assert.equal(await Movimiento.countDocuments({empresaId,sedeId}),cantidad);
+  assert.equal((await Saldo.findOne({empresaId,sedeId}).lean()).saldoCentavos,cantidad);
  }finally{await mongoose.connection.dropDatabase();await mongoose.disconnect();}
 });
