@@ -18,7 +18,7 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
   await session.withTransaction(async()=>{
    const existente=await Transaccion.findOne({usuarioId,externalIdHash,estado:{$ne:"ANULADA"}}).session(session);
    if(existente){if(!["COBRO_PRESTAMO","INGRESO"].includes(existente.tipo)||String(existente.prestamoId)!==String(prestamoId)||existente.montoMinor!==monto||(cuentaId&&String(existente.cuentaId)!==String(cuentaId)))throw Object.assign(new Error("Referencia de pago ya utilizada"),{statusCode:409});resultado={transaccion:existente,duplicado:true};return;}
-   const prestamo=await Prestamo.findOneAndUpdate({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});
+   const prestamo=await Prestamo.findOneAndUpdate({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gte:montoPagadoRealMinor}},{$inc:{saldoMinor:-montoPagadoRealMinor}},{new:true,session});
    if(!prestamo)throw Object.assign(new Error("Cuenta por cobrar inexistente o saldo insuficiente"),{statusCode:409});
    if(prestamo.saldoMinor===0){prestamo.estado="PAGADO";await prestamo.save({session});}
    let cuenta=cuentaId?await Cuenta.findOne({_id:cuentaId,usuarioId,activa:true}).session(session):await Cuenta.findOne({usuarioId,nombre:"EFECTIVO",activa:true}).session(session);
@@ -40,8 +40,9 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
   throw error;
  }finally{await session.endSession();}
 }
-async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota,externalId,modo="CUENTA"}){
+async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota,montoPagadoRealMinor,externalId,modo="CUENTA"}){
  if(!["CUENTA","HISTORICO"].includes(modo)||modo==="CUENTA"&&!cuentaId||modo==="HISTORICO"&&cuentaId)throw Object.assign(new Error("Modo de pago inválido"),{statusCode:422});
+ if(!Number.isSafeInteger(montoPagadoRealMinor)||montoPagadoRealMinor<=0)throw Object.assign(new Error("Importe pagado inválido"),{statusCode:422});
  if(!Number.isInteger(numeroCuota)||numeroCuota<1||numeroCuota>600)throw Object.assign(new Error("Número de cuota inválido"),{statusCode:422});
  if(typeof externalId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(externalId))throw Object.assign(new Error("Referencia inválida"),{statusCode:400});
  const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;if(!secret)throw Error("PERSONAL_IDEMPOTENCY_SECRET requerido");
@@ -50,14 +51,14 @@ async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota
  try{
   await session.withTransaction(async()=>{
    const previo=await Transaccion.findOne({usuarioId,externalIdHash:hash}).session(session);
-   if(previo){if(previo.tipo!=="PAGO_DEUDA"||String(previo.prestamoId)!==String(prestamoId)||String(previo.cuentaId||"")!==String(cuentaId||"")||previo.impactoCaja===(modo==="HISTORICO")||!previo.descripcion.includes("Cuota "+numeroCuota+" "))throw Object.assign(new Error("Referencia reutilizada"),{statusCode:409});resultado={transaccion:previo,duplicado:true};return;}
+   if(previo){if(previo.tipo!=="PAGO_DEUDA"||String(previo.prestamoId)!==String(prestamoId)||String(previo.cuentaId||"")!==String(cuentaId||"")||previo.impactoCaja===(modo==="HISTORICO")||(previo.montoPagadoRealMinor||previo.montoMinor)!==montoPagadoRealMinor||!previo.descripcion.includes("Cuota "+numeroCuota+" "))throw Object.assign(new Error("Referencia reutilizada"),{statusCode:409});resultado={transaccion:previo,duplicado:true};return;}
    const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0},cuotaMinor:{$gt:0},periodicidadConfirmada:true}).session(session);
    if(!p)throw Object.assign(new Error("Crédito sin cuotas confirmadas o ya cancelado"),{statusCode:409});
    if(p.tasaMensualPct>0)throw Object.assign(new Error("Este crédito tiene intereses: antes de registrar una cuota hay que separar capital e intereses para evitar errores contables."),{statusCode:409});
    const pagos=await Transaccion.find({usuarioId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).select("descripcion montoMinor").session(session).lean();
    if(pagos.some(x=>x.descripcion.startsWith("Cuota "+numeroCuota+" ")))throw Object.assign(new Error("Esta cuota ya está pagada"),{statusCode:409});
    if(numeroCuota!==pagos.length+1)throw Object.assign(new Error("Debes registrar las cuotas en orden"),{statusCode:409});
-   const monto=Math.min(p.cuotaMinor,p.saldoMinor);
+   const monto=Math.min(p.cuotaMinor,p.saldoMinor,montoPagadoRealMinor);
    const cuenta=modo==="CUENTA"?await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session}):null;
    if(modo==="CUENTA"&&!cuenta)throw Object.assign(new Error("Cuenta no disponible o fondos insuficientes"),{statusCode:409});
    p.saldoMinor-=monto;if(p.saldoMinor===0){p.estado="PAGADO";p.periodicidadConfirmada=false;}await p.save({session});
