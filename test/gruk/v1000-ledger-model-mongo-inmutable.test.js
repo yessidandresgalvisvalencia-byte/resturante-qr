@@ -11,7 +11,7 @@ test("Ledger V1000: MongoDB no modifica asientos existentes via API Mongoose",as
  }).asPromise();
  const Model=connection.model("MovimientoLedgerV1000",Ledger.schema);
  const doc={
-  id:"01ARZ3NDEKTSV4RRFFQ69G5FAV",empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  id:"01ARZ3NDEKTSV4RRFFQ69G5FAV",operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FBB",empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",
   sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAX",secuencia:1,tipo:"CREDITO",
   montoCentavos:1,antesCentavos:0,despuesCentavos:1,
   actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAY",ip:"127.0.0.1",
