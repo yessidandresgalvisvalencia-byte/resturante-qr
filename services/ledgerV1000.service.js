@@ -26,6 +26,21 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
  // No permita registrar una IP inválida en la bitácora financiera.
  const {z}=require("zod");
  z.string().ip().parse(ip);
+ function coincide(existing){
+  return existing && existing.empresaId===empresaId && existing.sedeId===sedeId &&
+    existing.operacionId===operacionId && existing.tipo===tipo &&
+    existing.montoCentavos===montoCentavos && existing.actorId===actorId &&
+    existing.ip===ip && existing.deletedAt===null &&
+    hashMovimiento(existing)===existing.hash;
+ }
+ async function recuperar(){
+  const existing=await Movimiento.findOne({empresaId,sedeId,operacionId}).lean();
+  if(!existing)return null;
+  if(!coincide(existing))throw Error("LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE");
+  return existing;
+ }
+ const previo=await recuperar();
+ if(previo)return previo;
  const session=await mongoose.startSession();
  try{
   let registrado;
@@ -33,6 +48,12 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
    // One balance head per tenant and branch. A conditional update serializes
    // writes; transaction write conflicts force the driver to retry.
    await Saldo.updateOne({empresaId,sedeId},{$setOnInsert:{saldoCentavos:0,hashUltimo:"0".repeat(64),secuencia:0}},{upsert:true,session});
+   const duplicado=await Movimiento.findOne({empresaId,sedeId,operacionId}).session(session).lean();
+   if(duplicado){
+    if(!coincide(duplicado))throw Error("LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE");
+    registrado=duplicado;
+    return;
+   }
    const head=await Saldo.findOne({empresaId,sedeId}).session(session).lean();
    if(!head)throw Error("LEDGER_CABECERA_AUSENTE");
    // Fail closed if the cached head was corrupted, truncated or tampered with.
@@ -67,6 +88,14 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
    registrado=doc;
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
   return registrado;
+ }catch(error){
+  // Duplicate unique-index races and unknown commit results are safe to
+  // reconcile by operation identity, never by blindly inserting again.
+  if(error?.code===11000||error?.hasErrorLabel?.("UnknownTransactionCommitResult")){
+   const confirmed=await recuperar();
+   if(confirmed)return confirmed;
+  }
+  throw error;
  }finally{await session.endSession();}
 }
 module.exports={registrarMovimiento,generarUlid,hashMovimiento};
