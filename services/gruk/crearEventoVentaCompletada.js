@@ -13,6 +13,7 @@ function crearEventoVentaCompletada(venta) {
       venta?.estado !== "pagada" ||
       venta?.metodoPago !== "tarjeta" ||
       !Number.isSafeInteger(venta?.total) || venta.total <= 0 ||
+      venta.total > Math.floor(Number.MAX_SAFE_INTEGER / 100) ||
       !String(venta?.metadata?.restaurantId || "").trim()) {
     throw new Error("VENTA_OUTBOX_INVALIDA");
   }
