@@ -37,6 +37,13 @@ async function registrarMovimiento({empresaId,sedeId,tipo,montoCentavos,actorId,
   const existing=await Movimiento.findOne({empresaId,sedeId,operacionId}).lean();
   if(!existing)return null;
   if(!coincide(existing))throw Error("LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE");
+  // Un asiento existente no basta: comprobar que pertenece a la cadena vigente.
+  const head=await Saldo.findOne({empresaId,sedeId}).lean();
+  if(!head||!Number.isSafeInteger(head.secuencia)||head.secuencia<existing.secuencia)
+    throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
+  if(head.secuencia===existing.secuencia &&
+     (head.hashUltimo!==existing.hash||head.saldoCentavos!==existing.despuesCentavos))
+    throw Error("LEDGER_REPLAY_CADENA_INVALIDA");
   return existing;
  }
  const previo=await recuperar();
