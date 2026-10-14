@@ -131,8 +131,10 @@ window.configurarPeriodicidad=async id=>{try{
  const cuotaMinor=Number(cuotaTexto);if(!Number.isSafeInteger(cuotaMinor)||cuotaMinor<=0)throw Error("Cuota inválida");
  const fechaTexto=prompt("Próximo vencimiento (AAAA-MM-DD):",p.fechaVencimiento?new Date(p.fechaVencimiento).toISOString().slice(0,10):"");if(fechaTexto===null)return;
  if(!/^\d{4}-\d{2}-\d{2}$/.test(fechaTexto)||Number.isNaN(Date.parse(fechaTexto+"T05:00:00Z")))throw Error("Fecha inválida");
+ const numTexto=prompt("Número total de cuotas pactadas:",String(p.numeroCuotas||Math.ceil(p.saldoMinor/cuotaMinor)));if(numTexto===null)return;
+ const numeroCuotas=Number(numTexto);if(!Number.isInteger(numeroCuotas)||numeroCuotas<1||numeroCuotas>360)throw Error("Número de cuotas inválido");
  const diaPago=periodicidad==="MENSUAL"?Number(fechaTexto.slice(8)):null;
- const cambios={periodicidad,cuotaMinor,fechaVencimiento:fechaTexto+"T05:00:00.000Z",periodicidadConfirmada:true};
+ const cambios={periodicidad,numeroCuotas,cuotaMinor,fechaVencimiento:fechaTexto+"T05:00:00.000Z",periodicidadConfirmada:true};
  if(diaPago!==null)cambios.diaPago=diaPago;
  if(!confirm("¿Aprobar calendario de "+p.concepto+"? "+periodicidad+", cuota $"+cuotaMinor.toLocaleString("es-CO")+", próximo vencimiento "+fechaTexto+". No se registrarán pagos."))return;
  await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(cambios)});
