@@ -22,3 +22,10 @@ Estado: **NO CERTIFICADO / NO DESPLEGAR**. Los CI verdes comprueban escenarios d
 No activar el ledger en producción sin resolución documentada y verificable de cada riesgo anterior. Mantener Finanzas Personales, cobros activos y rama main sin modificaciones hasta superar la puerta.
 
 Comando de validación de rama: `npm ci && npm run gate`.
+
+## Primera línea base de rendimiento (CI #1360, 2026-10-14)
+- Auditoría de **10.000 asientos en memoria:** 69,53 ms, ejecución puntual en GitHub Actions.
+- Servicio de auditoría con **1.000 asientos en MongoDB:** 102,68 ms, ejecución puntual en GitHub Actions con réplica local.
+- Estas muestras no constituyen p95/p99, SLA, medición de un endpoint HTTP, ni predicción de tiempos en Render/MongoDB Atlas.
+- No se ha medido aún la carga combinada de múltiples empresas, reintentos simultáneos, tamaño de documentos acumulado ni réplica distante.
+- Es obligatorio ejecutar repeticiones con calentamiento, distribución de latencias, carga concurrente y telemetría antes de aprobar despliegue.
