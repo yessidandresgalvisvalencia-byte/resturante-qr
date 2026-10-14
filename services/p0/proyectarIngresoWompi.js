@@ -9,7 +9,9 @@ function crearProyectorIngresoWompi({VentaModel=Venta,IngresoModel=Ingreso,proce
  return async function proyectar(evento){
   if(!evento||evento.eventName!=='VENTA_COMPLETADA'||!OID.test(String(evento.empresaId||''))||!OID.test(String(evento.aggregateId||''))||
    evento.eventId!=='VENTA_COMPLETADA:'+String(evento.aggregateId)||
-   String(evento.payload?.ventaId||'')!==String(evento.aggregateId)||typeof evento.payload?.restaurantId!=='string'||!evento.payload.restaurantId.trim())throw invalid('INGRESO_EVENTO_INVALIDO');
+   String(evento.payload?.ventaId||'')!==String(evento.aggregateId)||typeof evento.payload?.restaurantId!=='string'||!evento.payload.restaurantId.trim()||
+   !Number.isSafeInteger(evento.payload?.total)||evento.payload.total<=0||
+   evento.payload.total>Math.floor(Number.MAX_SAFE_INTEGER/100))throw invalid('INGRESO_EVENTO_INVALIDO');
   return procesar({empresaId:evento.empresaId,consumidor:'finanzas_wompi_p0',eventId:evento.eventId,aplicar:async({session})=>{
    const venta=await VentaModel.findOne({_id:evento.aggregateId,empresaId:evento.empresaId,origen:'restaurante',estado:'pagada',metodoPago:'tarjeta'}).session(session).lean();
    if(!venta||String(venta.metadata?.restaurantId||'')!==evento.payload.restaurantId||
