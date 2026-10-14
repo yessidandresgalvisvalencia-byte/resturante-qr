@@ -18,7 +18,7 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
   await session.withTransaction(async()=>{
    const existente=await Transaccion.findOne({usuarioId,externalIdHash,estado:{$ne:"ANULADA"}}).session(session);
    if(existente){if(!["COBRO_PRESTAMO","INGRESO"].includes(existente.tipo)||String(existente.prestamoId)!==String(prestamoId)||existente.montoMinor!==monto||(cuentaId&&String(existente.cuentaId)!==String(cuentaId)))throw Object.assign(new Error("Referencia de pago ya utilizada"),{statusCode:409});resultado={transaccion:existente,duplicado:true};return;}
-   const prestamo=await Prestamo.findOneAndUpdate({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gte:montoPagadoRealMinor}},{$inc:{saldoMinor:-montoPagadoRealMinor}},{new:true,session});
+   const prestamo=await Prestamo.findOneAndUpdate({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});
    if(!prestamo)throw Object.assign(new Error("Cuenta por cobrar inexistente o saldo insuficiente"),{statusCode:409});
    if(prestamo.saldoMinor===0){prestamo.estado="PAGADO";await prestamo.save({session});}
    let cuenta=cuentaId?await Cuenta.findOne({_id:cuentaId,usuarioId,activa:true}).session(session):await Cuenta.findOne({usuarioId,nombre:"EFECTIVO",activa:true}).session(session);
@@ -58,8 +58,8 @@ async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota
    const pagos=await Transaccion.find({usuarioId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).select("descripcion montoMinor").session(session).lean();
    if(pagos.some(x=>x.descripcion.startsWith("Cuota "+numeroCuota+" ")))throw Object.assign(new Error("Esta cuota ya está pagada"),{statusCode:409});
    if(numeroCuota!==pagos.length+1)throw Object.assign(new Error("Debes registrar las cuotas en orden"),{statusCode:409});
-   const monto=Math.min(p.cuotaMinor,p.saldoMinor,montoPagadoRealMinor);
-   const cuenta=modo==="CUENTA"?await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session}):null;
+   const monto=Math.min(Math.min(p.cuotaMinor,p.saldoMinor),montoPagadoRealMinor);
+   const cuenta=modo==="CUENTA"?await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,saldoMinor:{$gte:montoPagadoRealMinor}},{$inc:{saldoMinor:-montoPagadoRealMinor}},{new:true,session}):null;
    if(modo==="CUENTA"&&!cuenta)throw Object.assign(new Error("Cuenta no disponible o fondos insuficientes"),{statusCode:409});
    p.saldoMinor-=monto;if(p.saldoMinor===0){p.estado="PAGADO";p.periodicidadConfirmada=false;}await p.save({session});
    const [tx]=await Transaccion.create([{usuarioId,prestamoId:p._id,cuentaId:cuenta?cuenta._id:null,cuenta:cuenta?cuenta.nombre:"PAGO HISTÓRICO SIN CUENTA",impactoCaja:modo==="CUENTA",tipo:"PAGO_DEUDA",montoMinor:monto,montoPagadoRealMinor,concepto:("Pago cuota "+numeroCuota+" · "+p.concepto).slice(0,140),categoria:"Pago de capital de deuda",descripcion:"Cuota "+numeroCuota+" confirmada"+(modo==="HISTORICO"?" · pendiente de conciliación de origen":""),contraparte:p.contraparte,medioPago:cuenta?(cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA"):"OTRO",fecha:new Date(),origen:"MANUAL",externalIdHash:hash}],{session});
