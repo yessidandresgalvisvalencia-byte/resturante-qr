@@ -34,7 +34,7 @@ router.post("/crear-pago", async (req, res) => {
     try {
       validarPedidosIntento(pedidos.map(p => p._id));
     } catch (error) {
-      if (["PEDIDOS_INTENTO_VACIOS", "PEDIDOS_INTENTO_DUPLICADOS", "PEDIDO_ID_INVALIDO"].includes(error.message)) {
+      if (error.message === "PEDIDOS_DEL_INTENTO_INVALIDOS") {
         return res.status(409).json({ ok: false, error: "Los pedidos requieren revisión antes de pagar" });
       }
       throw error;
