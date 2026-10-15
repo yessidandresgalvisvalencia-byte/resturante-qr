@@ -43,8 +43,11 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
       return { handled: true, ok: false, reason: "ESTADO_PASARELA_DESCONOCIDO" };
     }
     // Never regress a terminal approval due to an out-of-order webhook.
+    const estadosPermitidos = siguienteEstado === "PENDIENTE"
+      ? ["CREADO", "PENDIENTE"]
+      : ["CREADO", "PENDIENTE", "RECHAZADO"];
     const actualizado = await IntentoPagoPedido.findOneAndUpdate(
-      { reference, estado: { $ne: "APROBADO" } },
+      { reference, estado: { $in: estadosPermitidos } },
       {
         $set: {
           estado: siguienteEstado,
@@ -54,12 +57,16 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
       },
       { new: true }
     );
-    return {
-      handled: true,
-      ok: true,
-      estado: actualizado?.estado || "APROBADO",
-      idempotent: !actualizado
-    };
+    if (!actualizado) {
+      const actual = await IntentoPagoPedido.findOne({ reference }).lean();
+      return {
+        handled: true,
+        ok: true,
+        estado: actual?.estado || "DESCONOCIDO",
+        idempotent: true
+      };
+    }
+    return { handled: true, ok: true, estado: actualizado.estado };
   }
 
   if (intento.estado === "APROBADO") {
