@@ -21,6 +21,15 @@ test("V1000: fallo en inserción de movimiento revierte saldo en misma transacci
   assert.equal(await Movimiento.countDocuments({empresaId:params.empresaId,sedeId:params.sedeId}),0);
   const head=await Saldo.findOne({empresaId:params.empresaId,sedeId:params.sedeId}).lean();
   assert.ok(!head||head.saldoCentavos===0&&head.secuencia===0);
+  // After rollback, the same operation ID must remain reusable without duplication.
+  Movimiento.create=originalCreate;
+  const recovered=await registrarMovimiento(params);
+  assert.equal(recovered.despuesCentavos,100);
+  assert.equal(recovered.secuencia,1);
+  assert.equal(await Movimiento.countDocuments({empresaId:params.empresaId,sedeId:params.sedeId}),1);
+  const committedHead=await Saldo.findOne({empresaId:params.empresaId,sedeId:params.sedeId}).lean();
+  assert.equal(committedHead.saldoCentavos,100);
+  assert.equal(committedHead.secuencia,1);
  }finally{
   if(originalCreate)Movimiento.create=originalCreate;
   await mongoose.connection.dropDatabase();
