@@ -15,3 +15,11 @@ test("idempotency recovery requires empresa and sede", () => {
 test("transactional event emission is deferred", () => {
  assert.match(source, /if \(emitirEvento && !session\)/);
 });
+
+test("Wompi order payment emits sales after successful transaction", () => {
+ const payment = fs.readFileSync(path.join(__dirname, "../../services/pagosPedidos.service.js"), "utf8");
+ const transactionStart = payment.indexOf("await session.withTransaction(");
+ const emitAfter = payment.indexOf("for (const venta of ventasPostCommit) emitirVentaCompletada(venta)");
+ assert.ok(transactionStart >= 0 && emitAfter > transactionStart);
+ assert.match(payment, /emitirEvento:\s*false/);
+});
