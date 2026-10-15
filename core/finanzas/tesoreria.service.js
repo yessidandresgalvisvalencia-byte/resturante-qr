@@ -65,7 +65,8 @@ function normalizarMetodoPago(valor) {
 async function resolverCuentaPorMetodo({
   empresaId,
   sedeId = null,
-  metodoPago
+  metodoPago,
+  session = null
 }) {
   if (
     !String(
@@ -96,6 +97,7 @@ async function resolverCuentaPorMetodo({
         metodo
     })
       .select("_id sedeId")
+      .session(session)
       .lean();
 
   if (!cuentas.length) {

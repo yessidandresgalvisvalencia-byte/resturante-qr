@@ -24,10 +24,7 @@ const Restaurante = require("../models/restaurante");
 const Usuario = require("../models/usuario");
 const Sede = require("../models/sede");
 const Empresa = require("../models/Empresa");
-const {
-  registrarVentaDesdePedido,
-  emitirVentaCompletada
-} = require("../services/ventas.service");
+const { registrarVentaDesdePedido } = require("../services/ventas.service");
 const ProductoServicio = require("../models/ProductoServicio");
 const {
   validarObjetivosEmpresa
@@ -1565,10 +1562,11 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
 
   const session = await mongoose.startSession();
   let pedidoFinal = null;
-  let ventaPostCommit = null;
 
   try {
     await session.withTransaction(async () => {
+      // withTransaction may retry this callback; reset stale post-commit effects.
+      pedidoFinal = null;
       const pedido = await Pedido.findById(req.params.id).session(session);
       if (!pedido) {
         const error = new Error("PEDIDO_NO_ENCONTRADO"); error.statusCode = 404; throw error;
@@ -1605,7 +1603,7 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
         if (sede) sedeObjectId = sede._id;
       }
 
-      const resultadoVenta = await registrarVentaDesdePedido({
+      await registrarVentaDesdePedido({
         pedido,
         empresaId: restaurante.empresaId,
         sedeId: sedeObjectId,
@@ -1616,10 +1614,7 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
       pedido.estadoPago = "pagado";
       await pedido.save({ session });
       pedidoFinal = pedido;
-      if (resultadoVenta.creada) ventaPostCommit = resultadoVenta.venta;
     });
-
-    if (ventaPostCommit) emitirVentaCompletada(ventaPostCommit);
 
     const io = req.app.get("io");
     io.emit("pedido:actualizado", pedidoFinal);

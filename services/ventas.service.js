@@ -5,6 +5,7 @@ const Venta = require("../models/Venta");
 const ProductoServicio = require("../models/ProductoServicio");
 const Cliente = require("../models/Cliente");
 const eventBus = require("../core/eventos/eventBus");
+const { registrarVentaEnOutbox } = require("../core/eventos/ventaOutbox.service");
 
 async function registrarVentaDesdePedido({
   pedido,
@@ -23,6 +24,11 @@ async function registrarVentaDesdePedido({
     throw new Error(
       "GRUK Ventas: empresaId requerido para registrar la venta"
     );
+  }
+
+  // Paid order paths must commit the sale and its durable event atomically.
+  if (emitirEvento === false && !session) {
+    throw new Error("GRUK_VENTA_SIN_SESION_TRANSACCIONAL");
   }
 
   try {
@@ -167,7 +173,9 @@ costoFuente:
       }
     }], { session });
 
-    if (emitirEvento) eventBus.emit("VENTA_COMPLETADA", {
+    if (session) await registrarVentaEnOutbox(venta, session);
+
+    if (emitirEvento && !session) eventBus.emit("VENTA_COMPLETADA", {
       ventaId: venta._id,
       empresaId: venta.empresaId,
       sedeId: venta.sedeId,
@@ -207,9 +215,13 @@ costoFuente:
     // el mismo pedido nunca debe generar dos ventas.
     if (error && error.code === 11000) {
       const ventaExistente = await Venta.findOne({
+        empresaId,
+        sedeId,
         origen: "restaurante",
         origenId: pedido._id
       }).session(session);
+
+      if (!ventaExistente) throw error;
 
       return {
         venta: ventaExistente,

@@ -3,7 +3,7 @@
 const { EventEmitter } = require("events");
 
 class GrukEventBus extends EventEmitter {
-  emit(eventName, payload) {
+  emit(eventName, payload, metadata = null) {
     if (!eventName || typeof eventName !== "string") {
       throw new TypeError(
         "GRUK EventBus: eventName debe ser un string válido"
@@ -13,7 +13,8 @@ class GrukEventBus extends EventEmitter {
     const event = {
       eventName,
       occurredAt: new Date(),
-      payload
+      payload,
+      ...(metadata ? { metadata: Object.freeze({ ...metadata }) } : {})
     };
 
     return super.emit(eventName, event);

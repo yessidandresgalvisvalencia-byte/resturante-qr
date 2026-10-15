@@ -4,7 +4,7 @@ const Pedido = require("../models/pedido");
 const Restaurante = require("../models/restaurante");
 const Sede = require("../models/sede");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
-const { registrarVentaDesdePedido, emitirVentaCompletada } = require("./ventas.service");
+const { registrarVentaDesdePedido } = require("./ventas.service");
 
 async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const reference = String(transaction?.reference || "");
@@ -13,37 +13,83 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const intento = await IntentoPagoPedido.findOne({ reference });
   if (!intento) return { handled: true, ok: false, reason: "INTENTO_NO_ENCONTRADO" };
 
-  const amountOk = Number(transaction.amount_in_cents) === Number(intento.amountInCents);
+  const amountCents = transaction?.amount_in_cents;
+  const expectedCents = intento.amountInCents;
+  const amountOk = Number.isSafeInteger(amountCents) &&
+    Number.isSafeInteger(expectedCents) &&
+    amountCents > 0 &&
+    amountCents === expectedCents;
   const currencyOk = String(transaction.currency || "").toUpperCase() === intento.currency;
   if (!amountOk || !currencyOk) {
     console.error("[SEGURIDAD] Pago de pedido con monto/moneda inconsistente", { reference, transactionId: transaction.id });
     return { handled: true, ok: false, reason: "INTEGRIDAD_ECONOMICA_INVALIDA" };
   }
 
-  const status = String(transaction.status || "").toUpperCase();
-  intento.transactionId = String(transaction.id || "");
-  if (status === "PENDING") intento.estado = "PENDIENTE";
-  if (["DECLINED","ERROR","VOIDED"].includes(status)) {
-    intento.estado = "RECHAZADO";
-    intento.resueltoAt = new Date();
+  const transactionId = transaction?.id;
+  if ((typeof transactionId !== "string" && typeof transactionId !== "number") ||
+      !String(transactionId).trim()) {
+    return { handled: true, ok: false, reason: "TRANSACCION_SIN_IDENTIFICADOR" };
   }
+  const status = String(transaction.status || "").toUpperCase();
   if (status !== "APPROVED") {
-    await intento.save();
-    return { handled: true, ok: true, estado: intento.estado };
+    const estados = {
+      PENDING: "PENDIENTE",
+      DECLINED: "RECHAZADO",
+      ERROR: "RECHAZADO",
+      VOIDED: "RECHAZADO"
+    };
+    const siguienteEstado = estados[status];
+    if (!siguienteEstado) {
+      return { handled: true, ok: false, reason: "ESTADO_PASARELA_DESCONOCIDO" };
+    }
+    // Never regress a terminal approval due to an out-of-order webhook.
+    const estadosPermitidos = siguienteEstado === "PENDIENTE"
+      ? ["CREADO", "PENDIENTE"]
+      : ["CREADO", "PENDIENTE", "RECHAZADO"];
+    const actualizado = await IntentoPagoPedido.findOneAndUpdate(
+      { reference, estado: { $in: estadosPermitidos } },
+      {
+        $set: {
+          estado: siguienteEstado,
+          transactionId: String(transaction.id || ""),
+          ...(siguienteEstado === "RECHAZADO" ? { resueltoAt: new Date() } : {})
+        }
+      },
+      { new: true }
+    );
+    if (!actualizado) {
+      const actual = await IntentoPagoPedido.findOne({ reference }).lean();
+      return {
+        handled: true,
+        ok: true,
+        estado: actual?.estado || "DESCONOCIDO",
+        idempotent: true
+      };
+    }
+    return { handled: true, ok: true, estado: actualizado.estado };
   }
 
   if (intento.estado === "APROBADO") {
+    if (intento.transactionId && intento.transactionId !== String(transaction.id || "")) {
+      return { handled: true, ok: false, reason: "TRANSACCION_DIFERENTE_PARA_REFERENCIA" };
+    }
     return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
   }
 
   const session = await mongoose.startSession();
-  const ventasPostCommit = [];
   const pedidosPostCommit = [];
   try {
     await session.withTransaction(async () => {
+      // withTransaction may retry this callback; discard stale post-commit effects.
+      pedidosPostCommit.length = 0;
       const lockedIntento = await IntentoPagoPedido.findOne({ reference }).session(session);
       if (!lockedIntento) throw new Error("INTENTO_NO_ENCONTRADO");
-      if (lockedIntento.estado === "APROBADO") return;
+      if (lockedIntento.estado === "APROBADO") {
+        if (lockedIntento.transactionId && lockedIntento.transactionId !== String(transaction.id || "")) {
+          throw new Error("TRANSACCION_DIFERENTE_PARA_REFERENCIA");
+        }
+        return;
+      }
 
       const restaurante = await Restaurante.findOne({ restaurantId: lockedIntento.restaurantId })
         .select("_id empresaId").session(session).lean();
@@ -75,7 +121,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
           if (sede) sedeObjectId = sede._id;
         }
 
-        const resultado = await registrarVentaDesdePedido({
+        await registrarVentaDesdePedido({
           pedido,
           empresaId: restaurante.empresaId,
           sedeId: sedeObjectId,
@@ -86,7 +132,6 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
         pedido.metodoPago = "tarjeta";
         await pedido.save({ session });
         pedidosPostCommit.push(pedido);
-        if (resultado.creada) ventasPostCommit.push(resultado.venta);
       }
 
       lockedIntento.estado = "APROBADO";
@@ -95,7 +140,6 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
       await lockedIntento.save({ session });
     });
 
-    for (const venta of ventasPostCommit) emitirVentaCompletada(venta);
     if (io) for (const pedido of pedidosPostCommit) io.emit("pedido:actualizado", pedido);
     return { handled: true, ok: true, estado: "APROBADO" };
   } finally {
