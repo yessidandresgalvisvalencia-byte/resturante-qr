@@ -107,3 +107,33 @@ test("Caja movement rolls back when processed receipt insert fails", {
     await mongoose.disconnect();
   }
 });
+
+test("Caja durable consumer rejects a cross-tenant event without financial effects", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Receipt = require("../../models/GrukEventoProcesado");
+  const Movimiento = require("../../core/finanzas/models/MovimientoCaja");
+  const { consumirVentaEnCaja } = require("../../core/eventos/cajaVenta.consumer");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_caja_tenant_test" });
+  const empresaId = new mongoose.Types.ObjectId();
+  const otraEmpresaId = new mongoose.Types.ObjectId();
+  const ventaId = new mongoose.Types.ObjectId();
+  try {
+    await Promise.all([Outbox.init(), Receipt.init(), Movimiento.init()]);
+    const event = await Outbox.create({
+      empresaId, aggregateId: ventaId, eventName: "VENTA_COMPLETADA",
+      payload: { empresaId, ventaId, total: 12000, metodoPago: "",
+        fecha: new Date(), sourceUpdatedAt: new Date() }
+    });
+    await assert.rejects(
+      consumirVentaEnCaja({ eventId: event._id, empresaId: otraEmpresaId }),
+      /CONSUMIDOR_EVENTO_NO_ENCONTRADO/
+    );
+    assert.equal(await Movimiento.countDocuments({ origenId: ventaId }), 0);
+    assert.equal(await Receipt.countDocuments({ eventId: event._id }), 0);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
