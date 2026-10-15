@@ -17,6 +17,8 @@ const entregaSchema = new mongoose.Schema({
 entregaSchema.index({ eventId: 1, consumidor: 1 }, { unique: true });
 entregaSchema.index({ empresaId: 1, eventId: 1, consumidor: 1 });
 entregaSchema.index({ consumidor: 1, estado: 1, leaseHasta: 1 });
+// Tenant-scoped keyset recovery: equality filters first, then stable _id scan.
+entregaSchema.index({ empresaId: 1, consumidor: 1, _id: 1 });
 
 module.exports = mongoose.models.GrukEntregaConsumidor ||
   mongoose.model("GrukEntregaConsumidor", entregaSchema);
