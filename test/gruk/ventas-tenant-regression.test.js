@@ -39,3 +39,10 @@ test("index preflight is read-only and tenant-scoped", () => {
  assert.match(audit, /duplicateCandidateKeyGroups/);
  assert.doesNotMatch(audit, /\.dropIndex\s*\(|\.createIndex\s*\(|\.deleteMany\s*\(|\.updateMany\s*\(/);
 });
+
+test("MongoDB transaction callback retries clear deferred effects", () => {
+ const payment = fs.readFileSync(path.join(__dirname, "../../services/pagosPedidos.service.js"), "utf8");
+ const api = fs.readFileSync(path.join(__dirname, "../../routes/API.js"), "utf8");
+ assert.match(payment, /withTransaction\(async \(\) => \{\s*\/\/[^\n]*\n\s*ventasPostCommit\.length = 0;\s*pedidosPostCommit\.length = 0;/);
+ assert.match(api, /withTransaction\(async \(\) => \{\s*\/\/[^\n]*\n\s*pedidoFinal = null;\s*ventaPostCommit = null;/);
+});
