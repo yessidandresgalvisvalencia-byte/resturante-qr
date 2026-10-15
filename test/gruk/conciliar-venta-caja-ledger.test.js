@@ -32,7 +32,7 @@ test("reconciliation detects duplicate Caja records", async () => {
   const sedeId = new mongoose.Types.ObjectId();
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo", estado: "pagada" }) });
   Caja.find = () => ({ lean: async () => [{}, {}] });
   Ledger.find = () => ({ lean: async () => [{}] });
   Caja.exists = async () => null;
@@ -52,7 +52,7 @@ test("reconciliation accepts exactly matching Caja and ledger amounts", async ()
   const sedeId = new mongoose.Types.ObjectId();
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo", estado: "pagada" }) });
   Caja.find = () => ({ lean: async () => [{
     monto: 52000, direccion: "ENTRADA", moneda: "COP"
   }] });
@@ -75,7 +75,7 @@ test("reconciliation fails closed on amount mismatch", async () => {
   const sedeId = new mongoose.Types.ObjectId();
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo", estado: "pagada" }) });
   Caja.find = () => ({ lean: async () => [{
     monto: 52000, direccion: "ENTRADA", moneda: "COP"
   }] });
@@ -99,7 +99,7 @@ test("reconciliation rejects reversed Caja confirmation", async () => {
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
   const movimientoId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo", estado: "pagada" }) });
   Caja.find = () => ({ lean: async () => [{
     _id: movimientoId, monto: 52000, direccion: "ENTRADA", moneda: "COP"
   }] });
@@ -125,7 +125,7 @@ test("reconciliation refuses unsafe legacy Caja amount", async () => {
   const sedeId = new mongoose.Types.ObjectId();
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo", estado: "pagada" }) });
   Caja.find = () => ({ lean: async () => [{
     _id: new mongoose.Types.ObjectId(),
     monto: Number.MAX_SAFE_INTEGER + 1,
