@@ -2,7 +2,7 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const crypto=require("node:crypto");
-const {firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable}=require("../../core/finance/v1000/anclaLedger");
+const {firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada}=require("../../core/finance/v1000/anclaLedger");
 const {privateKey,publicKey}=crypto.generateKeyPairSync("ed25519");
 const priv=privateKey.export({type:"pkcs8",format:"pem"});
 const pub=publicKey.export({type:"spki",format:"pem"});
@@ -93,4 +93,19 @@ test("V1000: ancla requiere clave pública confiable independiente y tenant expl
  assert.throws(()=>verificarAnclaConClaveConfiable({...base,clavesConfiables:[]}),/LEDGER_ANCLA_CLAVE_CONFIABLE_REQUERIDA/);
  assert.throws(()=>verificarAnclaConClaveConfiable({...base,clavesConfiables:[pub,pub]}),/LEDGER_ANCLA_CLAVE_CONFIABLE_REQUERIDA/);
  assert.throws(()=>verificarAnclaConClaveConfiable({...base,clavesConfiables:[pub],empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"}),/LEDGER_ANCLA_TENANT_INCONSISTENTE/);
+});
+
+test("V1000: ancla solo valida contra clave cuya huella SHA256 fue fijada",()=>{
+ const ancla=firmarAncla(sample,priv);
+ const huellaAutorizada=huellaClaveEd25519(pub);
+ const args={ancla,llavePublicaPem:pub,huellaAutorizada,empresaId:sample.empresaId,sedeId:sample.sedeId};
+ assert.match(huellaAutorizada,/^[a-f0-9]{64}$/);
+ assert.equal(verificarAnclaConClaveFijada(args).ok,true);
+ assert.throws(()=>verificarAnclaConClaveFijada({...args,huellaAutorizada:"0".repeat(64)}),/LEDGER_ANCLA_LLAVE_NO_AUTORIZADA/);
+ assert.throws(()=>verificarAnclaConClaveFijada({...args,huellaAutorizada:""}),/LEDGER_ANCLA_HUELLA_NO_AUTORIZADA/);
+ const alternative=crypto.generateKeyPairSync("ed25519");
+ const altPublic=alternative.publicKey.export({type:"spki",format:"pem"});
+ const altPrivate=alternative.privateKey.export({type:"pkcs8",format:"pem"});
+ const forged=firmarAncla(sample,altPrivate);
+ assert.throws(()=>verificarAnclaConClaveFijada({...args,ancla:forged,llavePublicaPem:altPublic}),/LEDGER_ANCLA_LLAVE_NO_AUTORIZADA/);
 });
