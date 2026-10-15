@@ -39,6 +39,7 @@ async function despacharSiguienteVenta({ now = new Date(), emitir = async (name,
   if (typeof emitir !== "function") {
     throw new TypeError("OUTBOX_EMISOR_INVALIDO");
   }
+  // A lease duration must remain bounded by a safe, finite clock range.
   const leaseToken = randomUUID();
   const leaseHasta = new Date(now.getTime() + LEASE_MS);
   const evento = await OutboxEvent.findOneAndUpdate(
