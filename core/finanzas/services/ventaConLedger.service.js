@@ -32,6 +32,10 @@ async function registrarVentaConLedger({
     throw new Error("VENTA_LEDGER_PRECIO_LEGADO_INSEGURO");
   }
   if (montoMenor === "0") throw new Error("VENTA_LEDGER_MONTO_CERO");
+  if (typeof pedido.metodoPago !== "string" ||
+      !["efectivo", "tarjeta", "transferencia"].includes(pedido.metodoPago.trim().toLowerCase())) {
+    throw new Error("VENTA_LEDGER_MEDIO_PAGO_NO_SOPORTADO");
+  }
   const resultado = await registrarVentaDesdePedido({
     pedido, empresaId, sedeId, session, emitirEvento: false
   });
