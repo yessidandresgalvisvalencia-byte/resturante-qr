@@ -43,3 +43,24 @@ test("V1000: piso confiable impide rollback de evidencia externa firmada",async(
  await assert.rejects(recuperarAnclaExternaConfiable({...args,secuenciaMinimaConfiable:2}),/LEDGER_ANCLA_RETROCESO_DETECTADO/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,secuenciaMinimaConfiable:-1}),/LEDGER_ANCLA_PISO_INVALIDO/);
 });
+
+test("V1000: checkpoint independiente detecta dos anclas válidas pero contradictorias",async()=>{
+ const crypto=require("node:crypto");
+ const {firmarAncla,huellaClaveEd25519}=require("../../core/finance/v1000/anclaLedger");
+ const {privateKey,publicKey}=crypto.generateKeyPairSync("ed25519");
+ const priv=privateKey.export({type:"pkcs8",format:"pem"});
+ const pub=publicKey.export({type:"spki",format:"pem"});
+ const state={empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",secuencia:3,
+  saldoCentavos:120,hashUltimo:"a".repeat(64),emitidoEn:"2026-10-14T00:00:00.000Z"};
+ const forged=firmarAncla({...state,saldoCentavos:121,hashUltimo:"b".repeat(64)},priv);
+ const trusted={secuencia:3,saldoCentavos:120,hashUltimo:"a".repeat(64)};
+ const args={empresaId:state.empresaId,sedeId:state.sedeId,llavePublicaPem:pub,
+  huellaAutorizada:huellaClaveEd25519(pub),checkpointConfiable:trusted,
+  provider:{separacionDePrivilegiosVerificada:true,almacenamientoInmutableVerificado:true,
+   obtenerUltimaAncla:async()=>forged}};
+ await assert.rejects(recuperarAnclaExternaConfiable(args),/LEDGER_ANCLA_EQUIVOCACION_DETECTADA/);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,checkpointConfiable:{...trusted,secuencia:4}}),/LEDGER_ANCLA_RETROCESO_DETECTADO/);
+ assert.equal((await recuperarAnclaExternaConfiable({...args,checkpointConfiable:
+  {secuencia:3,saldoCentavos:121,hashUltimo:"b".repeat(64)}})).hashUltimo,"b".repeat(64));
+});
