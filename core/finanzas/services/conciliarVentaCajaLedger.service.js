@@ -11,6 +11,9 @@ async function conciliarVentaCajaLedger({ empresaId, sedeId, ventaId } = {}) {
   }
   const venta = await Venta.findOne({ _id: ventaId, empresaId, sedeId }).lean();
   if (!venta) return { conciliada: false, estado: "VENTA_NO_ENCONTRADA" };
+  if (venta.estado !== "pagada") {
+    return { conciliada: false, estado: "VENTA_NO_PAGADA" };
+  }
   if (!mongoose.isValidObjectId(venta.origenId) ||
       !Number.isSafeInteger(venta.total) || venta.total <= 0) {
     return { conciliada: false, estado: "VENTA_LEGADA_INSEGURA" };
