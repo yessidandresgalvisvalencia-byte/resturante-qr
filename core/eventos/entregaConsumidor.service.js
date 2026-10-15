@@ -5,6 +5,8 @@ const mongoose = require("mongoose");
 const Entrega = require("../../models/GrukEntregaConsumidor");
 const Outbox = require("../../models/GrukOutboxEvent");
 
+const { evaluarReintentoEntrega } = require("./politicaReintentoEntrega");
+
 const LEASE_MS = 60_000;
 const MAX_CLAIM_ATTEMPTS = 3;
 
@@ -13,7 +15,7 @@ function isTransientWriteConflict(error) {
     error.hasErrorLabel("TransientTransactionError");
 }
 
-async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date() }) {
+async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(), enforceRetryPolicy = false }) {
   if (!mongoose.isValidObjectId(eventId) || !mongoose.isValidObjectId(empresaId)) {
     throw new Error("ENTREGA_IDENTIDAD_INVALIDA");
   }
@@ -22,6 +24,9 @@ async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(
   }
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
     throw new Error("ENTREGA_FECHA_INVALIDA");
+  }
+  if (typeof enforceRetryPolicy !== "boolean") {
+    throw new Error("ENTREGA_POLITICA_INVALIDA");
   }
   for (let attempt = 1; attempt <= MAX_CLAIM_ATTEMPTS; attempt += 1) {
     const session = await mongoose.startSession();
@@ -36,6 +41,24 @@ async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(
       }
       if (!evento) throw new Error("ENTREGA_EVENTO_NO_ENCONTRADO");
       if (evento.estado !== "PENDIENTE") return { reclamada: false };
+      if (enforceRetryPolicy) {
+        const actual = await Entrega.findOne({ eventId, empresaId, consumidor })
+          .session(session).lean();
+        if (!actual) return { reclamada: false, motivo: "ENTREGA_NO_ENCONTRADA" };
+        const policy = evaluarReintentoEntrega({
+          intentos: actual.intentos ?? 0, estado: actual.estado,
+          leaseHasta: actual.leaseHasta ?? null, now
+        });
+        const eligibleAt = policy.accion === "REINTENTAR"
+          ? Math.max(new Date(actual.updatedAt).getTime() + policy.delayMs,
+            actual.estado === "PROCESANDO" && actual.leaseHasta
+              ? new Date(actual.leaseHasta).getTime() : 0)
+          : Infinity;
+        if (policy.accion !== "REINTENTAR" || eligibleAt > now.getTime()) {
+          return { reclamada: false, motivo: policy.accion === "REINTENTAR"
+            ? "ESPERA_REINTENTO" : policy.accion };
+        }
+      }
       const leaseToken = randomUUID();
       const leaseHasta = new Date(now.getTime() + LEASE_MS);
       if (!Number.isFinite(leaseHasta.getTime())) throw new Error("ENTREGA_LEASE_INVALIDO");
