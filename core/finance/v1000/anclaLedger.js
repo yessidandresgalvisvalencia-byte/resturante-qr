@@ -18,6 +18,9 @@ function payload({empresaId,sedeId,secuencia,saldoCentavos,hashUltimo,emitidoEn}
     typeof emitidoEn!=="string"||!Number.isFinite(Date.parse(emitidoEn))||
     new Date(emitidoEn).toISOString()!==emitidoEn)
   throw Error("LEDGER_ANCLA_INVALIDA");
+ if((secuencia===0&&(saldoCentavos!==0||hashUltimo!=="0".repeat(64)))||
+    (secuencia>0&&hashUltimo==="0".repeat(64)))
+  throw Error("LEDGER_ANCLA_GENESIS_INCONSISTENTE");
  return JSON.stringify(["GRUK_LEDGER_V1000_ANCHOR_V1",empresaId,sedeId,secuencia,saldoCentavos,hashUltimo,emitidoEn]);
 }
 function firmarAncla(datos,llavePrivadaPem){
