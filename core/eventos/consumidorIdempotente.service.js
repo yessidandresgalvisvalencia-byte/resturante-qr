@@ -26,9 +26,12 @@ async function consumirEventoUnaVez({ eventId, empresaId, consumidor, aplicar })
       }).session(session).lean();
       if (!evento) throw new Error("CONSUMIDOR_EVENTO_NO_ENCONTRADO");
       const existente = await EventoProcesado.findOne({
-        consumidor, eventId: evento._id
+        empresaId, consumidor, eventId: evento._id
       }).session(session).lean();
       if (existente) return;
+      if (evento.eventName !== "VENTA_COMPLETADA") {
+        throw new Error("CONSUMIDOR_EVENTO_NO_PERMITIDO");
+      }
       await aplicar({ evento, session });
       await EventoProcesado.create([{
         empresaId, consumidor, eventId: evento._id
