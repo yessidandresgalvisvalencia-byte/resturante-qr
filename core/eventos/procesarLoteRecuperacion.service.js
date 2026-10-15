@@ -40,7 +40,7 @@ async function procesarLoteRecuperacion({ empresaId, consumidor, limit = 25, now
       continue;
     }
     try {
-      const result = await handler({ empresaId, eventId: candidate.eventId });
+      const result = await handler({ empresaId, eventId: candidate.eventId, enforceRetryPolicy: true });
       resultados.push({ eventId: candidate.eventId, ok: true, ...result });
     } catch (error) {
       resultados.push({
