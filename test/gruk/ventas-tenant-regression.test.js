@@ -32,3 +32,10 @@ test("manual order payment emits sales after transaction", () => {
  assert.match(tail, /emitirEvento:\s*false/);
  assert.match(tail, /\}\);\s*if \(ventaPostCommit\) emitirVentaCompletada\(ventaPostCommit\)/);
 });
+
+test("index preflight is read-only and tenant-scoped", () => {
+ const audit = fs.readFileSync(path.join(__dirname, "../../scripts/audit-venta-idempotency.js"), "utf8");
+ assert.match(audit, /empresaId: "\$empresaId"/);
+ assert.match(audit, /duplicateCandidateKeyGroups/);
+ assert.doesNotMatch(audit, /\.dropIndex\s*\(|\.createIndex\s*\(|\.deleteMany\s*\(|\.updateMany\s*\(/);
+});
