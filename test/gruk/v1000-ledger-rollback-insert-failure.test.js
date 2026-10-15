@@ -5,6 +5,7 @@ const mongoose=require("mongoose");
 const Movimiento=require("../../models/MovimientoLedgerV1000");
 const Saldo=require("../../models/SaldoLedgerV1000");
 const {registrarMovimiento}=require("../../services/ledgerV1000.service");
+const {verificarCadena}=require("../../core/finance/v1000/auditarLedger");
 test("V1000: fallo en inserción de movimiento revierte saldo en misma transacción",async t=>{
  if(!process.env.TEST_MONGO_URI){t.skip("Mongo replica set requerido");return;}
  await mongoose.connect(process.env.TEST_MONGO_URI,{dbName:"gruk_test_v1000_rollback_atomicity",serverSelectionTimeoutMS:5000});
@@ -39,6 +40,9 @@ test("V1000: fallo en inserción de movimiento revierte saldo en misma transacci
   assert.equal(replayHead.saldoCentavos,100);
   assert.equal(replayHead.secuencia,1);
   assert.equal(replayHead.hashUltimo,recovered.hash);
+  const journal=await Movimiento.find({empresaId:params.empresaId,sedeId:params.sedeId}).sort({secuencia:1}).lean();
+  const audit=verificarCadena({empresaId:params.empresaId,sedeId:params.sedeId,asientos:journal,cabecera:replayHead});
+  assert.equal(audit.ok,true);
  }finally{
   if(originalCreate)Movimiento.create=originalCreate;
   await mongoose.connection.dropDatabase();
