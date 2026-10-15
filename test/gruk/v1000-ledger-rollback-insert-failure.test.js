@@ -1,0 +1,29 @@
+"use strict";
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const mongoose=require("mongoose");
+const Movimiento=require("../../models/MovimientoLedgerV1000");
+const Saldo=require("../../models/SaldoLedgerV1000");
+const {registrarMovimiento}=require("../../services/ledgerV1000.service");
+test("V1000: fallo en inserción de movimiento revierte saldo en misma transacción",async t=>{
+ if(!process.env.TEST_MONGO_URI){t.skip("Mongo replica set requerido");return;}
+ await mongoose.connect(process.env.TEST_MONGO_URI,{dbName:"gruk_test_v1000_rollback_atomicity",serverSelectionTimeoutMS:5000});
+ const params={empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAV",sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAX",operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FAY",
+  tipo:"CREDITO",montoCentavos:100,ip:"127.0.0.1"};
+ let originalCreate;
+ try{
+  await Promise.all([Saldo.init(),Movimiento.init()]);
+  // Fail precisely after the transactional balance update, before ledger insert.
+  originalCreate=Movimiento.create;
+  Movimiento.create=async function(){throw Error("TEST_INYECCION_FALLO_INSERCION");};
+  await assert.rejects(registrarMovimiento(params),/TEST_INYECCION_FALLO_INSERCION/);
+  assert.equal(await Movimiento.countDocuments({empresaId:params.empresaId,sedeId:params.sedeId}),0);
+  const head=await Saldo.findOne({empresaId:params.empresaId,sedeId:params.sedeId}).lean();
+  assert.ok(!head||head.saldoCentavos===0&&head.secuencia===0);
+ }finally{
+  if(originalCreate)Movimiento.create=originalCreate;
+  await mongoose.connection.dropDatabase();
+  await mongoose.disconnect();
+ }
+});
