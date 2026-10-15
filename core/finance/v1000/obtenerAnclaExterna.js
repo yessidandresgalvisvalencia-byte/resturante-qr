@@ -40,6 +40,10 @@ async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePu
   if(ancla.secuencia>c.secuencia){
    if(!Array.isArray(asientosDesdeCheckpoint))
     throw Error("LEDGER_ANCLA_CONTINUIDAD_REQUERIDA");
+   const tramo=ancla.secuencia-c.secuencia;
+   if(tramo>100000)throw Error("LEDGER_ANCLA_CONTINUIDAD_EXCEDE_LIMITE");
+   if(asientosDesdeCheckpoint.length!==tramo)
+    throw Error("LEDGER_ANCLA_CONTINUIDAD_INVALIDA");
    // The independently trusted checkpoint is the start state. Never infer it
    // from the newer anchor or the compromised operational ledger.
    const {hashAsiento}=require("./auditarLedger");
