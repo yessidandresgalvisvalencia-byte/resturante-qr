@@ -52,12 +52,15 @@ async function despacharSiguienteVenta({ now = new Date(), emitir = async (name,
   if (!evento) return { procesado: false };
 
   try {
-    await emitir(evento.eventName, evento.payload, {
+    const confirmacion = await emitir(evento.eventName, evento.payload, {
       eventId: String(evento._id),
       empresaId: String(evento.empresaId),
       aggregateId: String(evento.aggregateId),
       intento: evento.intentos
     });
+    if (confirmacion === false) {
+      throw new Error("OUTBOX_ENTREGA_NO_CONFIRMADA");
+    }
     const actualizado = await OutboxEvent.updateOne(
       { _id: evento._id, estado: "PROCESANDO", leaseToken },
       { $set: { estado: "ENTREGADO", entregadoAt: new Date(), ultimoError: "" },
