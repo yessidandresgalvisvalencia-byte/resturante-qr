@@ -100,4 +100,15 @@ function verificarContinuidadDesdeAncla({ancla,llavePublicaPem,empresaId,sedeId,
   throw Error("LEDGER_ANCLA_CABECERA_DIVERGENTE");
  return {ok:true,secuencia,saldoCentavos:saldo,hashUltimo:hash};
 }
-module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla};
+function verificarAnclaConClaveConfiable({ancla,clavesConfiables,empresaId,sedeId}){
+ tenant.parse({empresaId,sedeId});
+ if(!Array.isArray(clavesConfiables)||clavesConfiables.length!==1||
+    typeof clavesConfiables[0]!=="string"||!clavesConfiables[0].trim())
+  throw Error("LEDGER_ANCLA_CLAVE_CONFIABLE_REQUERIDA");
+ // Trust keys must be provisioned independently of the untrusted anchor.
+ const result=verificarAncla(ancla,clavesConfiables[0]);
+ if(ancla.empresaId!==empresaId||ancla.sedeId!==sedeId)
+  throw Error("LEDGER_ANCLA_TENANT_INCONSISTENTE");
+ return result;
+}
+module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable};
