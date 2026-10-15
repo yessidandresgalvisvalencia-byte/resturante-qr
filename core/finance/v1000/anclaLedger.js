@@ -131,4 +131,8 @@ function verificarCabeceraConClaveFijada({ancla,llavePublicaPem,huellaAutorizada
  verificarAnclaConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId});
  return verificarAnclaContraCabecera({ancla,llavePublicaPem,empresaId,sedeId,cabecera});
 }
-module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada,verificarCabeceraConClaveFijada};
+function verificarContinuidadConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId,asientos,cabecera}){
+ verificarAnclaConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId});
+ return verificarContinuidadDesdeAncla({ancla,llavePublicaPem,empresaId,sedeId,asientos,cabecera});
+}
+module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada,verificarCabeceraConClaveFijada,verificarContinuidadConClaveFijada};
