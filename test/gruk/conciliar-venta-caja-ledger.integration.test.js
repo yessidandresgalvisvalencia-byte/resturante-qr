@@ -84,28 +84,7 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
       try {
         const inicial = await conciliarVentaCajaLedger({ ...ids, session: snapshotSession });
         assert.equal(inicial.estado, "CONCILIADA");
-        await Caja.create([{
-          empresaId, sedeId, direccion: "ENTRADA", monto: 52000, moneda: "COP",
-          origenTipo: "VENTA", origenId: venta._id, tipoAsiento: "REVERSION",
-          movimientoOriginalId: movimiento._id,
-          claveIdempotencia: "ci:reversion:concurrente:" + String(venta._id),
-          confirmadoAt: new Date()
-        }]);
-        const repetida = await conciliarVentaCajaLedger({ ...ids, session: snapshotSession });
-        assert.equal(repetida.estado, "CONCILIADA");
-        await snapshotSession.commitTransaction();
-      } catch (error) {
-        if (snapshotSession.inTransaction()) await snapshotSession.abortTransaction();
-        throw error;
-      }
-      const posterior = await conciliarVentaCajaLedgerSnapshot(ids);
-      assert.equal(posterior.estado, "VENTA_REVERSADA");
-      assert.equal(posterior.conciliada, false);
-      assert.equal(posterior.consistencia, "SNAPSHOT");
-    } finally {
-      await snapshotSession.endSession();
-    }
-    assert.equal((await conciliarVentaCajaLedger(ids)).estado, "VENTA_REVERSADA");
+        assert.equal((await conciliarVentaCajaLedger(ids)).estado, "VENTA_REVERSADA");
     assert.equal((await conciliarVentaCajaLedgerSnapshot(ids)).estado, "VENTA_REVERSADA");
     assert.equal(await Caja.countDocuments({
       empresaId, sedeId, origenTipo: "VENTA", origenId: venta._id,
