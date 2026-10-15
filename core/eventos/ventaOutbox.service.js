@@ -40,7 +40,7 @@ async function registrarVentaEnOutbox(venta, session) {
   await EntregaConsumidor.create([
     { empresaId: venta.empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1" },
     { empresaId: venta.empresaId, eventId: event._id, consumidor: "FACTURACION_VENTA_V1" }
-  ], { session });
+  ], { session, ordered: true });
   return event;
 }
 
