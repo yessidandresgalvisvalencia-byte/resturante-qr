@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const { registrarVentaConLedger } = require("../../core/finanzas/services/ventaConLedger.service");
 
 test("sale and ledger cannot run outside a shared transaction", async () => {
+  await assert.rejects(registrarVentaConLedger(), /VENTA_LEDGER_TRANSACCION_REQUERIDA/);
   await assert.rejects(registrarVentaConLedger({}), /VENTA_LEDGER_TRANSACCION_REQUERIDA/);
   await assert.rejects(registrarVentaConLedger({
     session: { inTransaction: () => false }
