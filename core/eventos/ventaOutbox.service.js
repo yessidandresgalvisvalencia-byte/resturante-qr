@@ -1,6 +1,7 @@
 "use strict";
 
 const OutboxEvent = require("../../models/GrukOutboxEvent");
+const EntregaConsumidor = require("../../models/GrukEntregaConsumidor");
 
 /**
  * Must be invoked inside the same MongoDB transaction as the sale.
@@ -36,6 +37,10 @@ async function registrarVentaEnOutbox(venta, session) {
     aggregateId: venta._id,
     payload
   }], { session });
+  await EntregaConsumidor.create([
+    { empresaId: venta.empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1" },
+    { empresaId: venta.empresaId, eventId: event._id, consumidor: "FACTURACION_VENTA_V1" }
+  ], { session });
   return event;
 }
 
