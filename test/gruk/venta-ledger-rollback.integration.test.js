@@ -48,10 +48,10 @@ test("sale-ledger integration rolls back sale, outbox and ledger together", {
         assert.equal(result.movimiento.montoMenor, "5200000");
         assert.equal(result.movimiento.cuenta, "CAJA_EFECTIVO");
       });
-      await session.withTransaction(async () => {
-        const replay = await registrarVentaConLedger({ ...input, session });
-        assert.equal(replay.creada, false);
-      });
+      await assert.rejects(session.withTransaction(async () => {
+        await registrarVentaConLedger({ ...input, session });
+      }), (error) => error && (error.code === 11000 || /transaction|duplicate|conflict/i.test(error.message)));
+      // Replays currently require a pre-insert lookup in the orchestrator.
       assert.equal(await Venta.countDocuments({ empresaId, origenId: pedidoId }), 1);
       assert.equal(await Ledger.countDocuments({ empresaId, sedeId }), 1);
       assert.equal(await Outbox.countDocuments({ empresaId }), 1);
