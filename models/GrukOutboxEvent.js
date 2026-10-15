@@ -9,6 +9,7 @@ const outboxSchema = new mongoose.Schema({
   payload: { type: mongoose.Schema.Types.Mixed, required: true },
   estado: { type: String, enum: ["PENDIENTE", "PROCESANDO", "ENTREGADO"], default: "PENDIENTE", index: true },
   intentos: { type: Number, default: 0, min: 0 },
+  registroVersion: { type: Number, default: 0, min: 0 },
   leaseHasta: { type: Date, default: null },
   leaseToken: { type: String, default: null },
   ultimoError: { type: String, default: "" },
