@@ -59,7 +59,11 @@ async function registrarVentaConLedger({
         asientoExistente.tipo !== "ABONO" ||
         String(asientoExistente.actorId) !== String(actorId) ||
         asientoExistente.ip !== ip ||
-        existente.total !== Number(pedido.precio)) {
+        existente.total !== Number(pedido.precio) ||
+        String(existente.productoServicioId) !== String(pedido.productoServicioId) ||
+        existente.cantidad !== Number(pedido.cantidad) ||
+        existente.precioUnitario !== Number(pedido.precioUnitario) ||
+        existente.metodoPago.trim().toLowerCase() !== pedido.metodoPago.trim().toLowerCase()) {
       throw new Error("VENTA_LEDGER_REINTENTO_INCONSISTENTE");
     }
     return { venta: existente, movimiento: asientoExistente, creada: false };
