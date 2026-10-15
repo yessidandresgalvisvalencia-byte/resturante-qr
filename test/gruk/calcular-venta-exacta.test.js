@@ -23,3 +23,14 @@ test("inconsistent sale totals are rejected", () => {
     totalCOP: "200.01"
   }), /VENTA_TOTAL_INCONSISTENTE/);
 });
+
+test("sale multiplication rejects amounts exceeding ledger bounds", () => {
+  assert.throws(() => calcularVentaExacta({
+    cantidad: "1000000000", precioUnitarioCOP: "9999999999999999999999.99",
+    costoUnitarioCOP: "0", totalCOP: "0"
+  }), /VENTA_TOTAL_FUERA_DE_RANGO/);
+  assert.throws(() => calcularVentaExacta({
+    cantidad: "2", precioUnitarioCOP: "0",
+    costoUnitarioCOP: "9999999999999999999999.99", totalCOP: "0"
+  }), /VENTA_COSTO_FUERA_DE_RANGO/);
+});
