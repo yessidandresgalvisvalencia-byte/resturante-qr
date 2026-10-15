@@ -15,6 +15,10 @@ test("V1000: rechazar reuso de operacionId con importe distinto, sin alterar asi
   await Promise.all([Movimiento.init(),Saldo.init()]);
   const first=await registrarMovimiento(base);
   assert.equal(first.despuesCentavos,100);
+  const replay=await registrarMovimiento(base);
+  assert.equal(replay.id,first.id);
+  assert.equal(replay.hash,first.hash);
+  assert.equal(replay.secuencia,first.secuencia);
   await assert.rejects(registrarMovimiento({...base,montoCentavos:200}),/LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE/);
   await assert.rejects(registrarMovimiento({...base,tipo:"DEBITO"}),/LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE/);
   await assert.rejects(registrarMovimiento({...base,actorId:"01ARZ3NDEKTSV4RRFFQ69G5FB0"}),/LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE/);
