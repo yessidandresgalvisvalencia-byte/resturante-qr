@@ -61,6 +61,10 @@ async function registrarMovimiento(data, { session } = {}) {
       (ultimo.secuencia === 1 && ultimo.hashAnterior !== GENESIS))) {
     throw new Error("LEDGER_ULTIMO_MOVIMIENTO_CORRUPTO");
   }
+  if (ultimo && (!Number.isSafeInteger(ultimo.secuencia) || ultimo.secuencia < 1 ||
+      ultimo.secuencia >= Number.MAX_SAFE_INTEGER)) {
+    throw new Error("LEDGER_SECUENCIA_INVALIDA");
+  }
   const saldoAntes = ultimo ? ultimo.saldoDespuesMenor : "0";
   if (!INT.test(saldoAntes) || saldoAntes.length > 25) throw new Error("LEDGER_SALDO_INVALIDO");
   const delta = BigInt(data.montoMenor) * (data.tipo === "CARGO" ? -1n : 1n);
