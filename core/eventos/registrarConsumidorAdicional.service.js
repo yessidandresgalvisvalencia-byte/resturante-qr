@@ -35,10 +35,6 @@ async function registrarConsumidorAdicional({ eventId, empresaId, consumidor }) 
       if (touch.modifiedCount !== 1) {
         throw new Error("OUTBOX_REGISTRO_EVENTO_NO_PENDIENTE");
       }
-      const existing = await Entrega.findOne({
-        empresaId, eventId, consumidor
-      }).session(session).lean();
-      if (existing) return { registrada: false, existente: true };
       await Entrega.create([{ empresaId, eventId, consumidor }], { session });
       return { registrada: true };
     });
