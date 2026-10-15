@@ -23,10 +23,9 @@ async function conciliarVentaCajaLedger({ empresaId, sedeId, ventaId, session } 
     tipoAsiento: "CONFIRMACION", deletedAt: null });
   const ledgerQuery = Ledger.find({ empresaId, sedeId,
     claveIdempotencia: "venta:" + String(venta.origenId) });
-  const [caja, ledger] = await Promise.all([
-    (session ? cajaQuery.session(session) : cajaQuery).lean(),
-    (session ? ledgerQuery.session(session) : ledgerQuery).lean()
-  ]);
+  // MongoDB forbids parallel operations within a single transaction.
+  const caja = await (session ? cajaQuery.session(session) : cajaQuery).lean();
+  const ledger = await (session ? ledgerQuery.session(session) : ledgerQuery).lean();
   if (caja.length !== 1 || ledger.length !== 1) {
     return { conciliada: false, estado: "REGISTROS_INCOMPLETOS_O_DUPLICADOS",
       movimientosCaja: caja.length, asientosLedger: ledger.length };
