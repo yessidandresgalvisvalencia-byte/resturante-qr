@@ -37,8 +37,14 @@ async function diagnosticarReintentosEntrega({
         leaseHasta: entrega.leaseHasta ?? null,
         now
       });
+      // Never recommend a retry before either the cooldown or the old
+      // processing lease expires. The claim service remains authoritative.
       const eligibleAt = evaluacion.accion === "REINTENTAR"
-        ? new Date(new Date(entrega.updatedAt).getTime() + evaluacion.delayMs)
+        ? new Date(Math.max(
+          new Date(entrega.updatedAt).getTime() + evaluacion.delayMs,
+          entrega.estado === "PROCESANDO" && entrega.leaseHasta
+            ? new Date(entrega.leaseHasta).getTime() : 0
+        ))
         : null;
       return {
         eventId: String(entrega.eventId),
