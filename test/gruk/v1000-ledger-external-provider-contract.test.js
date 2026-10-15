@@ -54,7 +54,7 @@ test("V1000: checkpoint independiente detecta dos anclas válidas pero contradic
   sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",secuencia:3,
   saldoCentavos:120,hashUltimo:"a".repeat(64),emitidoEn:"2026-10-14T00:00:00.000Z"};
  const forged=firmarAncla({...state,saldoCentavos:121,hashUltimo:"b".repeat(64)},priv);
- const trusted={secuencia:3,saldoCentavos:120,hashUltimo:"a".repeat(64)};
+ const trusted={empresaId:state.empresaId,sedeId:state.sedeId,secuencia:3,saldoCentavos:120,hashUltimo:"a".repeat(64)};
  const args={empresaId:state.empresaId,sedeId:state.sedeId,llavePublicaPem:pub,
   huellaAutorizada:huellaClaveEd25519(pub),checkpointConfiable:trusted,
   provider:{separacionDePrivilegiosVerificada:true,almacenamientoInmutableVerificado:true,
@@ -62,7 +62,7 @@ test("V1000: checkpoint independiente detecta dos anclas válidas pero contradic
  await assert.rejects(recuperarAnclaExternaConfiable(args),/LEDGER_ANCLA_EQUIVOCACION_DETECTADA/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,checkpointConfiable:{...trusted,secuencia:4}}),/LEDGER_ANCLA_RETROCESO_DETECTADO/);
  assert.equal((await recuperarAnclaExternaConfiable({...args,checkpointConfiable:
-  {secuencia:3,saldoCentavos:121,hashUltimo:"b".repeat(64)}})).hashUltimo,"b".repeat(64));
+  {...trusted,saldoCentavos:121,hashUltimo:"b".repeat(64)}})).hashUltimo,"b".repeat(64));
 });
 
 test("V1000: ancla posterior no puede saltar el tramo desde un checkpoint confiable",async()=>{
@@ -81,7 +81,7 @@ test("V1000: ancla posterior no puede saltar el tramo desde un checkpoint confia
  const ancla=firmarAncla({empresaId,sedeId,secuencia:2,saldoCentavos:15,
   hashUltimo:asiento.hash,emitidoEn:"2026-10-14T00:02:00.000Z"},priv);
  const args={empresaId,sedeId,llavePublicaPem:pub,huellaAutorizada:huellaClaveEd25519(pub),
-  checkpointConfiable:{secuencia:1,saldoCentavos:10,hashUltimo:"a".repeat(64)},
+  checkpointConfiable:{empresaId,sedeId,secuencia:1,saldoCentavos:10,hashUltimo:"a".repeat(64)},
   provider:{separacionDePrivilegiosVerificada:true,almacenamientoInmutableVerificado:true,
    obtenerUltimaAncla:async()=>ancla}};
  await assert.rejects(recuperarAnclaExternaConfiable(args),/LEDGER_ANCLA_CONTINUIDAD_REQUERIDA/);
@@ -131,4 +131,16 @@ test("V1000: auditoría estricta exige checkpoint de empresa y sede, nunca solo 
  assert.equal((await recuperarAnclaParaAuditoria({...args,checkpointConfiable:checkpoint})).secuencia,0);
  await assert.rejects(recuperarAnclaParaAuditoria({...args,checkpointConfiable:{...checkpoint,sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"}}),
   /LEDGER_ANCLA_CHECKPOINT_CONFIABLE_REQUERIDO/);
+});
+
+test("V1000: checkpoint sin identidad de empresa o sede se rechaza",async()=>{
+ const crypto=require("node:crypto");
+ const {firmarAncla,huellaClaveEd25519}=require("../../core/finance/v1000/anclaLedger");
+ const pair=crypto.generateKeyPairSync("ed25519");
+ const priv=pair.privateKey.export({type:"pkcs8",format:"pem"});
+ const pub=pair.publicKey.export({type:"spki",format:"pem"});
+ const datos={empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAV",sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",secuencia:0,saldoCentavos:0,hashUltimo:"0".repeat(64),emitidoEn:"2026-10-14T00:00:00.000Z"};
+ const ancla=firmarAncla(datos,priv);
+ const args={empresaId:datos.empresaId,sedeId:datos.sedeId,llavePublicaPem:pub,huellaAutorizada:huellaClaveEd25519(pub),provider:{separacionDePrivilegiosVerificada:true,almacenamientoInmutableVerificado:true,obtenerUltimaAncla:async()=>ancla}};
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,checkpointConfiable:{secuencia:0,saldoCentavos:0,hashUltimo:"0".repeat(64)}}),/LEDGER_ANCLA_CHECKPOINT_TENANT_INCONSISTENTE/);
 });
