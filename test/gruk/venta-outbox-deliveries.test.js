@@ -39,3 +39,32 @@ test("sale outbox creates independent delivery obligations atomically", {
     await mongoose.disconnect();
   }
 });
+
+test("sale outbox and all delivery obligations roll back together", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Entrega = require("../../models/GrukEntregaConsumidor");
+  const { registrarVentaEnOutbox } = require("../../core/eventos/ventaOutbox.service");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_delivery_rollback_test" });
+  const empresaId = new mongoose.Types.ObjectId();
+  const ventaId = new mongoose.Types.ObjectId();
+  const venta = { _id: ventaId, empresaId, total: 12000, cantidad: 1, fecha: new Date() };
+  try {
+    await Promise.all([Outbox.init(), Entrega.init()]);
+    const session = await mongoose.startSession();
+    try {
+      await assert.rejects(session.withTransaction(async () => {
+        await registrarVentaEnOutbox(venta, session);
+        throw new Error("TEST_ROLLBACK_DELIVERIES");
+      }), /TEST_ROLLBACK_DELIVERIES/);
+    } finally {
+      await session.endSession();
+    }
+    assert.equal(await Outbox.countDocuments({ empresaId, aggregateId: ventaId }), 0);
+    assert.equal(await Entrega.countDocuments({ empresaId }), 0);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
