@@ -34,5 +34,13 @@ test("only approved production services import the delivery obligation model", (
     "core/eventos/listarEntregasRecuperables.service.js"), "utf8");
   assert.match(recovery, /Entrega\.find\(/);
   assert.doesNotMatch(recovery, /Entrega\.(?:create|updateOne|updateMany|deleteOne|deleteMany|findOneAndUpdate|findOneAndDelete|bulkWrite|insertMany|replaceOne)\s*\(/);
-  assert.doesNotMatch(recovery, /\.save\s*\(/);
+  assert.doesNotMatch(recovery, /\\.save\\s*\\(/);
+  for (const readOnlyPath of [
+    "core/eventos/obtenerSaludEntregas.service.js",
+    "core/eventos/diagnosticarReintentosEntrega.service.js"
+  ]) {
+    const source = fs.readFileSync(path.join(root, readOnlyPath), "utf8");
+    assert.doesNotMatch(source, /Entrega\\.(?:create|updateOne|updateMany|deleteOne|deleteMany|findOneAndUpdate|findOneAndDelete|bulkWrite|insertMany|replaceOne)\\s*\\(/);
+    assert.doesNotMatch(source, /\\.save\\s*\\(/);
+  }
 });
