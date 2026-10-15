@@ -27,12 +27,11 @@ async function cerrarVentaEntregada({ eventId, empresaId }) {
       }
       if (event.estado === "ENTREGADO") return { cerrado: false, yaEntregado: true };
       if (event.estado !== "PENDIENTE") return { cerrado: false, motivo: "EVENTO_NO_PENDIENTE" };
-      const entregas = await Entrega.find({
-        empresaId, eventId, consumidor: { $in: OBLIGATORIOS }
-      }).session(session).lean();
-      if (entregas.length !== OBLIGATORIOS.length ||
+      const entregas = await Entrega.find({ empresaId, eventId }).session(session).lean();
+      if (entregas.length < OBLIGATORIOS.length ||
           !OBLIGATORIOS.every(name =>
-            entregas.some(e => e.consumidor === name && e.estado === "ENTREGADO"))) {
+            entregas.some(e => e.consumidor === name && e.estado === "ENTREGADO")) ||
+          entregas.some(e => e.estado !== "ENTREGADO")) {
         return { cerrado: false, motivo: "CONSUMIDORES_PENDIENTES" };
       }
       const result = await Outbox.updateOne({
