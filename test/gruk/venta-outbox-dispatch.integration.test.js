@@ -27,12 +27,14 @@ test("outbox dispatcher retries failed delivery without losing durable event", {
     assert.equal(pendiente.intentos, 1);
     const recibidos = [];
     const entregado = await despacharSiguienteVenta({
-      emitir: (nombre, payload) => recibidos.push({ nombre, payload })
+      emitir: (nombre, payload, metadata) => recibidos.push({ nombre, payload, metadata })
     });
     assert.equal(entregado.entregado, true);
     assert.equal(recibidos.length, 1);
     assert.equal(recibidos[0].nombre, "VENTA_COMPLETADA");
     assert.equal(String(recibidos[0].payload.ventaId), String(aggregateId));
+    assert.equal(recibidos[0].metadata.eventId, String(evento._id));
+    assert.equal(recibidos[0].metadata.empresaId, String(empresaId));
     assert.equal((await OutboxEvent.findById(evento._id)).estado, "ENTREGADO");
     assert.equal((await OutboxEvent.findById(evento._id)).intentos, 2);
     const aggregateBloqueado = new mongoose.Types.ObjectId();
