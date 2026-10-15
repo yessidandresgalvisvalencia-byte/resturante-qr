@@ -111,4 +111,20 @@ function verificarAnclaConClaveConfiable({ancla,clavesConfiables,empresaId,sedeI
   throw Error("LEDGER_ANCLA_TENANT_INCONSISTENTE");
  return result;
 }
-module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable};
+function huellaClaveEd25519(llavePublicaPem){
+ if(typeof llavePublicaPem!=="string"||!llavePublicaPem.trim())
+  throw Error("LEDGER_ANCLA_LLAVE_AUSENTE");
+ const key=crypto.createPublicKey(llavePublicaPem);
+ if(key.asymmetricKeyType!=="ed25519")
+  throw Error("LEDGER_ANCLA_ALGORITMO_INVALIDO");
+ return crypto.createHash("sha256").update(key.export({format:"der",type:"spki"})).digest("hex");
+}
+function verificarAnclaConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId}){
+ if(typeof huellaAutorizada!=="string"||!HASH.test(huellaAutorizada))
+  throw Error("LEDGER_ANCLA_HUELLA_NO_AUTORIZADA");
+ const actual=huellaClaveEd25519(llavePublicaPem);
+ if(!crypto.timingSafeEqual(Buffer.from(actual,"hex"),Buffer.from(huellaAutorizada,"hex")))
+  throw Error("LEDGER_ANCLA_LLAVE_NO_AUTORIZADA");
+ return verificarAnclaConClaveConfiable({ancla,clavesConfiables:[llavePublicaPem],empresaId,sedeId});
+}
+module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada};
