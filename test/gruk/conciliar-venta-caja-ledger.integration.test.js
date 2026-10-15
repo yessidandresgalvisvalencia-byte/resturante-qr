@@ -12,6 +12,8 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
   const Ledger = require("../../core/finanzas/models/GrukLedgerV1");
   const { conciliarVentaCajaLedger, conciliarVentaCajaLedgerSnapshot } = require("../../core/finanzas/services/conciliarVentaCajaLedger.service");
   await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_reconciliation_integration_test" });
+  // Complete index initialization before concurrent transactional reads/writes.
+  await Promise.all([Venta.init(), Caja.init(), Ledger.init()]);
   try {
     const empresaId = new mongoose.Types.ObjectId();
     const sedeId = new mongoose.Types.ObjectId();
