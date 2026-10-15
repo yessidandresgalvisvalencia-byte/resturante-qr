@@ -2,7 +2,7 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const crypto=require("node:crypto");
-const {firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada}=require("../../core/finance/v1000/anclaLedger");
+const {firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada,verificarCabeceraConClaveFijada}=require("../../core/finance/v1000/anclaLedger");
 const {privateKey,publicKey}=crypto.generateKeyPairSync("ed25519");
 const priv=privateKey.export({type:"pkcs8",format:"pem"});
 const pub=publicKey.export({type:"spki",format:"pem"});
@@ -108,4 +108,16 @@ test("V1000: ancla solo valida contra clave cuya huella SHA256 fue fijada",()=>{
  const altPrivate=alternative.privateKey.export({type:"pkcs8",format:"pem"});
  const forged=firmarAncla(sample,altPrivate);
  assert.throws(()=>verificarAnclaConClaveFijada({...args,ancla:forged,llavePublicaPem:altPublic}),/LEDGER_ANCLA_LLAVE_NO_AUTORIZADA/);
+});
+
+test("V1000: cabecera exige simultáneamente clave fijada, tenant y estado firmado",()=>{
+ const ancla=firmarAncla(sample,priv);
+ const cabecera={secuencia:sample.secuencia,saldoCentavos:sample.saldoCentavos,hashUltimo:sample.hashUltimo};
+ const args={ancla,llavePublicaPem:pub,huellaAutorizada:huellaClaveEd25519(pub),
+  empresaId:sample.empresaId,sedeId:sample.sedeId,cabecera};
+ assert.equal(verificarCabeceraConClaveFijada(args).ok,true);
+ assert.throws(()=>verificarCabeceraConClaveFijada({...args,huellaAutorizada:"0".repeat(64)}),/LEDGER_ANCLA_LLAVE_NO_AUTORIZADA/);
+ assert.throws(()=>verificarCabeceraConClaveFijada({...args,empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"}),/LEDGER_ANCLA_TENANT_INCONSISTENTE/);
+ assert.throws(()=>verificarCabeceraConClaveFijada({...args,cabecera:{...cabecera,saldoCentavos:24501}}),/LEDGER_ANCLA_CABECERA_DIVERGENTE/);
+ assert.throws(()=>verificarCabeceraConClaveFijada({...args,cabecera:{...cabecera,secuencia:1001}}),/LEDGER_ANCLA_REQUIERE_VERIFICAR_CONTINUIDAD/);
 });
