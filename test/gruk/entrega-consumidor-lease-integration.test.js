@@ -176,7 +176,7 @@ test("non-claimable active lease does not mutate parent version or attempt count
     assert.equal(first.reclamada, true);
     const second = await reclamarEntrega({ empresaId, eventId: event._id,
       consumidor: "CAJA_VENTA_V1", now: new Date(now.getTime() + 1000) });
-    assert.deepEqual(second, { reclamada: false });
+    assert.deepEqual(second, { reclamada: false, motivo: "ESPERAR" });
     const saved = await Entrega.findOne({ empresaId, eventId: event._id }).lean();
     assert.equal(saved.intentos, 1);
     assert.equal(saved.leaseToken, first.leaseToken);
