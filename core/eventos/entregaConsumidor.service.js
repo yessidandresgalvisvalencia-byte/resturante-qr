@@ -24,6 +24,7 @@ async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(
     throw new Error("ENTREGA_EVENTO_IDENTIDAD_INCONSISTENTE");
   }
   if (!evento) throw new Error("ENTREGA_EVENTO_NO_ENCONTRADO");
+  if (evento.estado === "ENTREGADO") return { reclamada: false };
   const leaseToken = randomUUID();
   const leaseHasta = new Date(now.getTime() + LEASE_MS);
   if (!Number.isFinite(leaseHasta.getTime())) throw new Error("ENTREGA_LEASE_INVALIDO");
