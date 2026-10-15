@@ -17,6 +17,9 @@ async function verificarCadena({ empresaId, sedeId, cuenta, session } = {}) {
   let saldo = 0n;
   for (const row of rows) {
     secuencia += 1;
+    if (!Number.isSafeInteger(row.secuencia) || row.secuencia < 1) {
+      return { integra: false, secuencia, movimientoId: String(row._id) };
+    }
     if (typeof row.montoMenor !== "string" || !/^(0|[1-9][0-9]*)$/.test(row.montoMenor) ||
         typeof row.saldoAntesMenor !== "string" || !/^-?(0|[1-9][0-9]*)$/.test(row.saldoAntesMenor) ||
         typeof row.saldoDespuesMenor !== "string" || !/^-?(0|[1-9][0-9]*)$/.test(row.saldoDespuesMenor) ||
