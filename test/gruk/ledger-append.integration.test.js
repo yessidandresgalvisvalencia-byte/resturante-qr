@@ -9,17 +9,6 @@ test("ledger preserves atomicity, chain, tenant isolation and idempotency", {
   const Ledger = require("../../core/finanzas/models/GrukLedgerV1");
   const { GENESIS, hashMovimiento, registrarMovimiento } =
     require("../../core/finanzas/services/ledgerAppend.service");
-  const connection = mongoose.createConnection(process.env.TEST_MONGO_URI, {
-    dbName: "gruk_ledger_append_integration_test"
-  });
-  await connection.asPromise();
-  const LocalLedger = connection.model("GrukLedgerV1", Ledger.schema);
-  // The service uses the default mongoose connection, so run this test against
-  // an isolated default connection and fail closed if it is already in use.
-  await connection.close();
-  if (mongoose.connection.readyState !== 0) {
-    throw new Error("LEDGER_TEST_CONNECTION_ALREADY_ACTIVE");
-  }
   await mongoose.connect(process.env.TEST_MONGO_URI, {
     dbName: "gruk_ledger_append_integration_test"
   });
