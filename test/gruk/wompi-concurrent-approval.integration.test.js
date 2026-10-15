@@ -49,6 +49,20 @@ test("concurrent Wompi approvals create exactly one paid sale", { skip: !uri }, 
     // A write conflict can cause a retryable error to reach the caller; it
     // must never cause a second persisted sale.
     assert.ok(results.some(x => x.status === "fulfilled" && x.value.ok));
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        assert.equal(result.value.handled, true);
+        assert.equal(result.value.ok, true);
+      } else {
+        // A transient write conflict is acceptable only if the payment can be
+        // safely retried; arbitrary failures must fail the integration gate.
+        const error = result.reason;
+        const retryable = error?.hasErrorLabel?.("TransientTransactionError") ||
+          error?.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+          error?.code === 112;
+        assert.equal(Boolean(retryable), true, String(error?.message || error));
+      }
+    }
     assert.equal(await Venta.countDocuments({
       empresaId, origen: "restaurante", origenId: pedido._id
     }), 1);
