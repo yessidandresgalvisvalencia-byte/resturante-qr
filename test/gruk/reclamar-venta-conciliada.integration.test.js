@@ -51,6 +51,28 @@ test("financial claim commits once and rolls back atomically against replica set
         assert.equal(result.conciliada, true);
       });
       assert.equal((await Venta.collection.findOne({ _id: venta._id })).grukControlFinanciero.token, token);
+      const competing = await Promise.allSettled([
+        (async () => {
+          const s = await mongoose.startSession();
+          try {
+            return await s.withTransaction(async () =>
+              reclamarVentaConciliada({ ...ids, token: "orden:claim:parallel:a123", session: s }));
+          } finally {
+            await s.endSession();
+          }
+        })(),
+        (async () => {
+          const s = await mongoose.startSession();
+          try {
+            return await s.withTransaction(async () =>
+              reclamarVentaConciliada({ ...ids, token: "orden:claim:parallel:b123", session: s }));
+          } finally {
+            await s.endSession();
+          }
+        })()
+      ]);
+      assert.equal(competing.filter(x => x.status === "fulfilled").length, 0);
+      assert.equal((await Venta.collection.findOne({ _id: venta._id })).grukControlFinanciero.token, token);
       await assert.rejects(session.withTransaction(async () => {
         await reclamarVentaConciliada({ ...ids, token: "orden:claim:replay:123456", session });
       }), { message: "ORDEN_FINANCIERA_CONFLICTO_CONCURRENCIA" });
