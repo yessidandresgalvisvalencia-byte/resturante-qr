@@ -5,11 +5,12 @@ const Caja = require("../models/MovimientoCaja");
 const Ledger = require("../models/GrukLedgerV1");
 const { copToMinor } = require("./copMinorUnits.service");
 
-async function conciliarVentaCajaLedger({ empresaId, sedeId, ventaId } = {}) {
+async function conciliarVentaCajaLedger({ empresaId, sedeId, ventaId, session } = {}) {
   if (![empresaId, sedeId, ventaId].every(mongoose.isValidObjectId)) {
     throw new Error("CONCILIACION_IDENTIDAD_INVALIDA");
   }
-  const venta = await Venta.findOne({ _id: ventaId, empresaId, sedeId }).lean();
+  const ventaQuery = Venta.findOne({ _id: ventaId, empresaId, sedeId });
+  const venta = await (session ? ventaQuery.session(session) : ventaQuery).lean();
   if (!venta) return { conciliada: false, estado: "VENTA_NO_ENCONTRADA" };
   if (venta.estado !== "pagada") {
     return { conciliada: false, estado: "VENTA_NO_PAGADA" };
@@ -18,21 +19,24 @@ async function conciliarVentaCajaLedger({ empresaId, sedeId, ventaId } = {}) {
       !Number.isSafeInteger(venta.total) || venta.total <= 0) {
     return { conciliada: false, estado: "VENTA_LEGADA_INSEGURA" };
   }
+  const cajaQuery = Caja.find({ empresaId, sedeId, origenTipo: "VENTA", origenId: ventaId,
+    tipoAsiento: "CONFIRMACION", deletedAt: null });
+  const ledgerQuery = Ledger.find({ empresaId, sedeId,
+    claveIdempotencia: "venta:" + String(venta.origenId) });
   const [caja, ledger] = await Promise.all([
-    Caja.find({ empresaId, sedeId, origenTipo: "VENTA", origenId: ventaId,
-      tipoAsiento: "CONFIRMACION", deletedAt: null }).lean(),
-    Ledger.find({ empresaId, sedeId,
-      claveIdempotencia: "venta:" + String(venta.origenId) }).lean()
+    (session ? cajaQuery.session(session) : cajaQuery).lean(),
+    (session ? ledgerQuery.session(session) : ledgerQuery).lean()
   ]);
   if (caja.length !== 1 || ledger.length !== 1) {
     return { conciliada: false, estado: "REGISTROS_INCOMPLETOS_O_DUPLICADOS",
       movimientosCaja: caja.length, asientosLedger: ledger.length };
   }
   const m = caja[0], a = ledger[0];
-  const reversion = await Caja.exists({
+  const reversionQuery = Caja.exists({
     empresaId, sedeId, origenTipo: "VENTA", origenId: ventaId,
     tipoAsiento: "REVERSION", movimientoOriginalId: m._id, deletedAt: null
   });
+  const reversion = await (session ? reversionQuery.session(session) : reversionQuery);
   if (reversion) {
     return { conciliada: false, estado: "VENTA_REVERSADA",
       movimientosCaja: 1, asientosLedger: 1 };
@@ -65,4 +69,23 @@ async function conciliarVentaCajaLedger({ empresaId, sedeId, ventaId } = {}) {
   return { conciliada, estado: conciliada ? "CONCILIADA" : "DIFERENCIA",
     movimientosCaja: 1, asientosLedger: 1 };
 }
-module.exports = { conciliarVentaCajaLedger };
+async function conciliarVentaCajaLedgerSnapshot(ids = {}) {
+  if (![ids.empresaId, ids.sedeId, ids.ventaId].every(mongoose.isValidObjectId)) {
+    throw new Error("CONCILIACION_IDENTIDAD_INVALIDA");
+  }
+  const session = await mongoose.startSession();
+  try {
+    let resultado;
+    await session.withTransaction(async () => {
+      resultado = await conciliarVentaCajaLedger({ ...ids, session });
+    }, {
+      readConcern: { level: "snapshot" },
+      writeConcern: { w: "majority" },
+      readPreference: "primary"
+    });
+    return { ...resultado, consistencia: "SNAPSHOT" };
+  } finally {
+    await session.endSession();
+  }
+}
+module.exports = { conciliarVentaCajaLedger, conciliarVentaCajaLedgerSnapshot };
