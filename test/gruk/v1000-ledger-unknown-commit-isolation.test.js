@@ -16,7 +16,7 @@ function harness({existing,recoveryError}){
  movimiento.hash=hashAsiento(movimiento);
  const cursor={async *[Symbol.asyncIterator](){yield movimiento;},close:async()=>{}};
  const fakeMovimiento={
-  findOne:()=>{reads++;if(recoveryError)return {session:()=>({lean:async()=>{throw recoveryError;}})};return query(existing?movimiento:null);},
+  findOne:()=>{reads++;if(recoveryError&&writeAttempts>0)return {session:()=>({lean:async()=>{throw recoveryError;}})};return query(existing?movimiento:null);},
   find:()=>({sort:()=>({limit:()=>({session:()=>({lean:()=>({
    cursor:()=>cursor
   })})})})})
