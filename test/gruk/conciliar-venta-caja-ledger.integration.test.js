@@ -1,0 +1,53 @@
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+test("reconciliation reads real MongoDB records and rejects a reversal", {
+  skip: !process.env.CI && !process.env.TEST_MONGO_URI
+}, async () => {
+  if (!process.env.TEST_MONGO_URI) throw new Error("CONCILIACION_REQUIERE_MONGO");
+  const mongoose = require("mongoose");
+  const Venta = require("../../models/Venta");
+  const Caja = require("../../core/finanzas/models/MovimientoCaja");
+  const Ledger = require("../../core/finanzas/models/GrukLedgerV1");
+  const { conciliarVentaCajaLedger } = require("../../core/finanzas/services/conciliarVentaCajaLedger.service");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_reconciliation_integration_test" });
+  try {
+    const empresaId = new mongoose.Types.ObjectId();
+    const sedeId = new mongoose.Types.ObjectId();
+    const origenId = new mongoose.Types.ObjectId();
+    const actorId = new mongoose.Types.ObjectId();
+    const [venta] = await Venta.create([{
+      empresaId, sedeId, origen: "restaurante", origenId,
+      productoServicioId: new mongoose.Types.ObjectId(),
+      cantidad: 1, precioUnitario: 52000, total: 52000,
+      costoUnitario: 25000, costoTotal: 25000, utilidadBruta: 27000,
+      margenBruto: 51.92, metodoPago: "efectivo"
+    }]);
+    const [movimiento] = await Caja.create([{
+      empresaId, sedeId, direccion: "ENTRADA", monto: 52000, moneda: "COP",
+      origenTipo: "VENTA", origenId: venta._id, tipoAsiento: "CONFIRMACION",
+      claveIdempotencia: "ci:venta:" + String(venta._id),
+      confirmadoAt: new Date()
+    }]);
+    await Ledger.create([{
+      empresaId, sedeId, cuenta: "CAJA_EFECTIVO", secuencia: 1,
+      tipo: "ABONO", moneda: "COP", montoMenor: "5200000",
+      saldoAntesMenor: "0", saldoDespuesMenor: "5200000",
+      actorId, ip: "127.0.0.1", hashAnterior: "0".repeat(64),
+      hash: "1".repeat(64), claveIdempotencia: "venta:" + String(origenId)
+    }]);
+    const ids = { empresaId, sedeId, ventaId: venta._id };
+    assert.equal((await conciliarVentaCajaLedger(ids)).estado, "CONCILIADA");
+    await Caja.create([{
+      empresaId, sedeId, direccion: "ENTRADA", monto: 52000, moneda: "COP",
+      origenTipo: "VENTA", origenId: venta._id, tipoAsiento: "REVERSION",
+      movimientoOriginalId: movimiento._id,
+      claveIdempotencia: "ci:reversion:" + String(venta._id),
+      confirmadoAt: new Date()
+    }]);
+    assert.equal((await conciliarVentaCajaLedger(ids)).estado, "VENTA_REVERSADA");
+  } finally {
+    await mongoose.disconnect();
+  }
+});
