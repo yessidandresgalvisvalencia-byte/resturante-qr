@@ -1,28 +1,12 @@
 "use strict";
 
-const { despacharSiguienteVenta } = require("./ventaOutbox.dispatcher");
-const { consumirVentaEnCaja } = require("./cajaVenta.consumer");
-
 /**
- * Explicit opt-in Caja delivery. This does not register a legacy EventBus
- * listener or schedule a worker; callers must control invocation.
+ * Fail closed until the shared sale outbox tracks delivery acknowledgements
+ * independently for every required consumer. A Caja-only ACK must never mark
+ * a shared VENTA_COMPLETADA event as globally ENTREGADO.
  */
-async function despacharSiguienteVentaACaja({ now } = {}) {
-  return despacharSiguienteVenta({
-    ...(now === undefined ? {} : { now }),
-    emitir: async (eventName, payload, metadata) => {
-      if (eventName !== "VENTA_COMPLETADA" ||
-          String(payload?.empresaId) !== String(metadata?.empresaId) ||
-          String(payload?.ventaId) !== String(metadata?.aggregateId)) {
-        throw new Error("CAJA_OUTBOX_IDENTIDAD_INCONSISTENTE");
-      }
-      const resultado = await consumirVentaEnCaja({
-        eventId: metadata.eventId,
-        empresaId: metadata.empresaId
-      });
-      return resultado.aplicado === true || resultado.duplicado === true;
-    }
-  });
+async function despacharSiguienteVentaACaja() {
+  throw new Error("CAJA_OUTBOX_REQUIERE_ACK_POR_CONSUMIDOR");
 }
 
 module.exports = { despacharSiguienteVentaACaja };
