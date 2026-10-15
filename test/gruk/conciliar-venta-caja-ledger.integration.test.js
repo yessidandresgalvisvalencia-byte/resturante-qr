@@ -78,7 +78,10 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
     })).estado, "VENTA_NO_ENCONTRADA");
     const snapshotSession = await mongoose.startSession();
     try {
-      await snapshotSession.withTransaction(async () => {
+      snapshotSession.startTransaction({
+        readConcern: { level: "snapshot" }, readPreference: "primary"
+      });
+      try {
         const inicial = await conciliarVentaCajaLedger({ ...ids, session: snapshotSession });
         assert.equal(inicial.estado, "CONCILIADA");
         await Caja.create([{
@@ -90,7 +93,11 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
         }]);
         const repetida = await conciliarVentaCajaLedger({ ...ids, session: snapshotSession });
         assert.equal(repetida.estado, "CONCILIADA");
-      }, { readConcern: { level: "snapshot" }, readPreference: "primary" });
+        await snapshotSession.commitTransaction();
+      } catch (error) {
+        if (snapshotSession.inTransaction()) await snapshotSession.abortTransaction();
+        throw error;
+      }
       const posterior = await conciliarVentaCajaLedgerSnapshot(ids);
       assert.equal(posterior.estado, "VENTA_REVERSADA");
       assert.equal(posterior.conciliada, false);
