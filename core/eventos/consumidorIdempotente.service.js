@@ -9,14 +9,14 @@ const EventoProcesado = require("../../models/GrukEventoProcesado");
  * Consumers must use the provided session for EVERY database write.
  * No external network effects may be performed inside this callback.
  */
-async function consumirEventoUnaVez({ eventId, empresaId, consumidor, aplicar, session: externalSession = null }) {
+async function consumirEventoUnaVez({ eventId, empresaId, consumidor, aplicar }) {
   if (!mongoose.isValidObjectId(eventId) || !mongoose.isValidObjectId(empresaId)) {
     throw new Error("CONSUMIDOR_IDENTIDAD_INVALIDA");
   }
   if (typeof consumidor !== "string" || !consumidor.trim() || typeof aplicar !== "function") {
     throw new Error("CONSUMIDOR_CONFIGURACION_INVALIDA");
   }
-  const session = externalSession || await mongoose.startSession();
+  const session = await mongoose.startSession();
   let aplicado = false;
   try {
     await session.withTransaction(async () => {
@@ -37,7 +37,7 @@ async function consumirEventoUnaVez({ eventId, empresaId, consumidor, aplicar, s
     });
     return { aplicado, duplicado: !aplicado };
   } finally {
-    if (!externalSession) await session.endSession();
+    await session.endSession();
   }
 }
 
