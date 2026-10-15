@@ -46,6 +46,7 @@ test("sale-ledger integration rolls back sale, outbox and ledger together", {
         const result = await registrarVentaConLedger({ ...input, session });
         assert.equal(result.creada, true);
         assert.equal(result.movimiento.montoMenor, "5200000");
+        assert.equal(result.movimiento.cuenta, "CAJA_EFECTIVO");
       });
       await session.withTransaction(async () => {
         const replay = await registrarVentaConLedger({ ...input, session });
