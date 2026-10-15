@@ -24,6 +24,8 @@ async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePu
   throw fallo;
  }
  if(!ancla)throw Error("LEDGER_ANCLA_EXTERNA_AUSENTE");
+ // Never treat an externally fetched anchor as trusted before verifying key pinning.
+ // The monotonic floor is caller supplied and must originate from a separate trust domain.
  verificarAnclaConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId});
  if(secuenciaMinimaConfiable!==undefined&&ancla.secuencia<secuenciaMinimaConfiable)
   throw Error("LEDGER_ANCLA_RETROCESO_DETECTADO");
