@@ -27,8 +27,9 @@ function validarEntrada(data) {
       typeof data.ip !== "string" || !data.ip.trim() || data.ip.length > 128 ||
       typeof data.claveIdempotencia !== "string" ||
       data.claveIdempotencia.length < 8 || data.claveIdempotencia.length > 200 ||
-      !["CARGO", "ABONO", "CORRECCION"].includes(data.tipo) ||
+      !["CARGO", "ABONO"].includes(data.tipo) ||
       typeof data.montoMenor !== "string" || !POS.test(data.montoMenor) ||
+      data.montoMenor === "0" ||
       (data.correccionDe != null && !mongoose.isValidObjectId(data.correccionDe))) {
     throw new Error("LEDGER_ENTRADA_INVALIDA");
   }
@@ -47,6 +48,7 @@ async function registrarMovimiento(data, { session } = {}) {
     if (String(existente.cuenta) !== data.cuenta ||
         existente.tipo !== data.tipo || existente.montoMenor !== data.montoMenor ||
         String(existente.actorId) !== String(data.actorId) ||
+        existente.ip !== data.ip ||
         String(existente.correccionDe || "") !== String(data.correccionDe || "")) {
       throw new Error("LEDGER_IDEMPOTENCIA_CONFLICTO");
     }
