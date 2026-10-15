@@ -78,3 +78,36 @@ test("recovery discovery does not let a closed parent consume the only result sl
     await mongoose.disconnect();
   }
 });
+
+
+test("keyset recovery scans past more than 100 ineligible parent events", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Entrega = require("../../models/GrukEntregaConsumidor");
+  const { listarEntregasRecuperables } = require("../../core/eventos/listarEntregasRecuperables.service");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_recovery_keyset_test" });
+  try {
+    await Promise.all([Outbox.init(), Entrega.init()]);
+    const empresaId = new mongoose.Types.ObjectId();
+    const parents = Array.from({ length: 125 }, () => {
+      const ventaId = new mongoose.Types.ObjectId();
+      return { empresaId, aggregateId: ventaId, eventName: "VENTA_COMPLETADA",
+        estado: "ENTREGADO", payload: { empresaId, ventaId } };
+    });
+    const created = await Outbox.insertMany(parents, { ordered: true });
+    await Entrega.insertMany(created.map(event => ({ empresaId,
+      eventId: event._id, consumidor: "CAJA_VENTA_V1" })), { ordered: true });
+    const ventaId = new mongoose.Types.ObjectId();
+    const target = await Outbox.create({ empresaId, aggregateId: ventaId,
+      eventName: "VENTA_COMPLETADA", payload: { empresaId, ventaId } });
+    await Entrega.create({ empresaId, eventId: target._id, consumidor: "CAJA_VENTA_V1" });
+    const found = await listarEntregasRecuperables({ empresaId,
+      consumidor: "CAJA_VENTA_V1", limit: 1 });
+    assert.equal(found.length, 1);
+    assert.equal(String(found[0].eventId), String(target._id));
+  } finally {
+    await mongoose.disconnect();
+  }
+});
