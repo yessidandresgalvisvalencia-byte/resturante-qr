@@ -7,8 +7,10 @@ const outboxSchema = new mongoose.Schema({
   eventName: { type: String, required: true, enum: ["VENTA_COMPLETADA"] },
   aggregateId: { type: mongoose.Schema.Types.ObjectId, required: true },
   payload: { type: mongoose.Schema.Types.Mixed, required: true },
-  estado: { type: String, enum: ["PENDIENTE", "ENTREGADO"], default: "PENDIENTE", index: true },
+  estado: { type: String, enum: ["PENDIENTE", "PROCESANDO", "ENTREGADO"], default: "PENDIENTE", index: true },
   intentos: { type: Number, default: 0, min: 0 },
+  leaseHasta: { type: Date, default: null },
+  leaseToken: { type: String, default: null },
   ultimoError: { type: String, default: "" },
   entregadoAt: { type: Date, default: null }
 }, { timestamps: true });
