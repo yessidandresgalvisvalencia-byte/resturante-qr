@@ -127,4 +127,8 @@ function verificarAnclaConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,em
   throw Error("LEDGER_ANCLA_LLAVE_NO_AUTORIZADA");
  return verificarAnclaConClaveConfiable({ancla,clavesConfiables:[llavePublicaPem],empresaId,sedeId});
 }
-module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada};
+function verificarCabeceraConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId,cabecera}){
+ verificarAnclaConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId});
+ return verificarAnclaContraCabecera({ancla,llavePublicaPem,empresaId,sedeId,cabecera});
+}
+module.exports={firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada,verificarCabeceraConClaveFijada};
