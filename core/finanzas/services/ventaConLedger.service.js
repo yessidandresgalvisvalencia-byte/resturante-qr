@@ -6,7 +6,7 @@ const { registrarMovimiento } = require("./ledgerAppend.service");
 const { copToMinor } = require("./copMinorUnits.service");
 
 async function registrarVentaConLedger({
-  pedido, empresaId, sedeId, actorId, ip, claveIdempotencia, cuenta = "CAJA",
+  pedido, empresaId, sedeId, actorId, ip, claveIdempotencia, cuenta,
   session
 } = {}) {
   if (!session || !session.inTransaction() ||
@@ -36,11 +36,20 @@ async function registrarVentaConLedger({
       !["efectivo", "tarjeta", "transferencia"].includes(pedido.metodoPago.trim().toLowerCase())) {
     throw new Error("VENTA_LEDGER_MEDIO_PAGO_NO_SOPORTADO");
   }
+  const cuentas = Object.freeze({
+    efectivo: "CAJA_EFECTIVO",
+    tarjeta: "PAGOS_TARJETA_POR_CONCILIAR",
+    transferencia: "TRANSFERENCIAS_POR_CONCILIAR"
+  });
+  const cuentaEsperada = cuentas[pedido.metodoPago.trim().toLowerCase()];
+  if (cuenta !== undefined && cuenta !== cuentaEsperada) {
+    throw new Error("VENTA_LEDGER_CUENTA_MEDIO_PAGO_INCONSISTENTE");
+  }
   const resultado = await registrarVentaDesdePedido({
     pedido, empresaId, sedeId, session, emitirEvento: false
   });
   const asiento = await registrarMovimiento({
-    empresaId, sedeId, actorId, ip, cuenta,
+    empresaId, sedeId, actorId, ip, cuenta: cuentaEsperada,
     tipo: "ABONO", montoMenor, claveIdempotencia
   }, { session });
   if (resultado.creada !== asiento.creado) {
