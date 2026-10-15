@@ -27,4 +27,6 @@ test("ledger refuses writes without a real Mongo transaction", async () => {
   };
   await assert.rejects(registrarMovimiento(data), /LEDGER_TRANSACCION_REQUERIDA/);
   await assert.rejects(registrarMovimiento({ ...data, montoMenor: "0.1" }), /LEDGER_ENTRADA_INVALIDA/);
+  await assert.rejects(registrarMovimiento({ ...data, montoMenor: "0" }), /LEDGER_ENTRADA_INVALIDA/);
+  await assert.rejects(registrarMovimiento({ ...data, tipo: "CORRECCION" }), /LEDGER_ENTRADA_INVALIDA/);
 });
