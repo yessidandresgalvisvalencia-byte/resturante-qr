@@ -2,7 +2,7 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const crypto=require("node:crypto");
-const {firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada,verificarCabeceraConClaveFijada}=require("../../core/finance/v1000/anclaLedger");
+const {firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable,huellaClaveEd25519,verificarAnclaConClaveFijada,verificarCabeceraConClaveFijada,verificarContinuidadConClaveFijada}=require("../../core/finance/v1000/anclaLedger");
 const {privateKey,publicKey}=crypto.generateKeyPairSync("ed25519");
 const priv=privateKey.export({type:"pkcs8",format:"pem"});
 const pub=publicKey.export({type:"spki",format:"pem"});
@@ -120,4 +120,15 @@ test("V1000: cabecera exige simultáneamente clave fijada, tenant y estado firma
  assert.throws(()=>verificarCabeceraConClaveFijada({...args,empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"}),/LEDGER_ANCLA_TENANT_INCONSISTENTE/);
  assert.throws(()=>verificarCabeceraConClaveFijada({...args,cabecera:{...cabecera,saldoCentavos:24501}}),/LEDGER_ANCLA_CABECERA_DIVERGENTE/);
  assert.throws(()=>verificarCabeceraConClaveFijada({...args,cabecera:{...cabecera,secuencia:1001}}),/LEDGER_ANCLA_REQUIERE_VERIFICAR_CONTINUIDAD/);
+});
+
+test("V1000: continuidad anclada exige huella confiable y cabecera correcta",()=>{
+ const ancla=firmarAncla(sample,priv);
+ const base={ancla,llavePublicaPem:pub,huellaAutorizada:huellaClaveEd25519(pub),
+  empresaId:sample.empresaId,sedeId:sample.sedeId,asientos:[],
+  cabecera:{secuencia:sample.secuencia,saldoCentavos:sample.saldoCentavos,hashUltimo:sample.hashUltimo}};
+ assert.equal(verificarContinuidadConClaveFijada(base).ok,true);
+ assert.throws(()=>verificarContinuidadConClaveFijada({...base,huellaAutorizada:"0".repeat(64)}),/LEDGER_ANCLA_LLAVE_NO_AUTORIZADA/);
+ assert.throws(()=>verificarContinuidadConClaveFijada({...base,cabecera:{...base.cabecera,secuencia:1001}}),/LEDGER_ANCLA_CABECERA_DIVERGENTE/);
+ assert.throws(()=>verificarContinuidadConClaveFijada({...base,sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"}),/LEDGER_ANCLA_TENANT_INCONSISTENTE/);
 });
