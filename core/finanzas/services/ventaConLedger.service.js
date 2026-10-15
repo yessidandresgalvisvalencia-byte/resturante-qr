@@ -8,7 +8,7 @@ const { copToMinor } = require("./copMinorUnits.service");
 async function registrarVentaConLedger({
   pedido, empresaId, sedeId, actorId, ip, claveIdempotencia, cuenta = "CAJA",
   session
-}) {
+} = {}) {
   if (!session || !session.inTransaction() ||
       session.client !== mongoose.connection.getClient()) {
     throw new Error("VENTA_LEDGER_TRANSACCION_REQUERIDA");
@@ -22,7 +22,14 @@ async function registrarVentaConLedger({
       typeof pedido.precio !== "string") {
     throw new Error("VENTA_LEDGER_PEDIDO_INVALIDO");
   }
+  if (typeof claveIdempotencia !== "string" ||
+      claveIdempotencia !== "venta:" + String(pedido._id)) {
+    throw new Error("VENTA_LEDGER_IDEMPOTENCIA_PEDIDO_INVALIDA");
+  }
   const montoMenor = copToMinor(pedido.precio);
+  if (!Number.isSafeInteger(Number(pedido.precio))) {
+    throw new Error("VENTA_LEDGER_PRECIO_LEGADO_INSEGURO");
+  }
   if (montoMenor === "0") throw new Error("VENTA_LEDGER_MONTO_CERO");
   const resultado = await registrarVentaDesdePedido({
     pedido, empresaId, sedeId, session, emitirEvento: false
