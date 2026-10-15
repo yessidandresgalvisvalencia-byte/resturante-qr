@@ -108,6 +108,16 @@ margenBruto: {
       index: true
     },
 
+    grukControlFinanciero: {
+      token: { type: String, default: undefined },
+      estado: {
+        type: String,
+        enum: ["RECLAMADA", "REVERSADA"],
+        default: undefined
+      },
+      operacionId: { type: String, default: undefined }
+    },
+
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {}
