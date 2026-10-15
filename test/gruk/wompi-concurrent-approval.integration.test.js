@@ -42,6 +42,18 @@ test("concurrent Wompi approvals create exactly one paid sale", { skip: !uri }, 
       reference, status: "APPROVED", id: "ci-" + reference,
       amount_in_cents: 123400, currency: "COP"
     };
+    // A forged approval with the wrong amount must not change either record.
+    const invalid = await confirmarPagoPedidoWompi({
+      transaction: { ...transaction, amount_in_cents: 123401 }
+    });
+    assert.equal(invalid.ok, false);
+    assert.equal(invalid.reason, "INTEGRIDAD_ECONOMICA_INVALIDA");
+    assert.equal(await Venta.countDocuments({
+      empresaId, origen: "restaurante", origenId: pedido._id
+    }), 0);
+    assert.equal((await Pedido.findById(pedido._id)).estadoPago, "pendiente");
+    assert.equal((await IntentoPagoPedido.findOne({ reference })).estado, "CREADO");
+
     const results = await Promise.allSettled([
       confirmarPagoPedidoWompi({ transaction }),
       confirmarPagoPedidoWompi({ transaction })
