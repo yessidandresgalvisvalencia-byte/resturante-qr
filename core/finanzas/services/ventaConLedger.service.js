@@ -56,6 +56,9 @@ async function registrarVentaConLedger({
     }).session(session);
     if (!asientoExistente || asientoExistente.cuenta !== cuentaEsperada ||
         asientoExistente.montoMenor !== montoMenor ||
+        asientoExistente.tipo !== "ABONO" ||
+        String(asientoExistente.actorId) !== String(actorId) ||
+        asientoExistente.ip !== ip ||
         existente.total !== Number(pedido.precio)) {
       throw new Error("VENTA_LEDGER_REINTENTO_INCONSISTENTE");
     }
