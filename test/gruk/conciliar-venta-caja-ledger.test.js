@@ -32,7 +32,7 @@ test("reconciliation detects duplicate Caja records", async () => {
   const sedeId = new mongoose.Types.ObjectId();
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000 }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
   Caja.find = () => ({ lean: async () => [{}, {}] });
   Ledger.find = () => ({ lean: async () => [{}] });
   Caja.exists = async () => null;
@@ -52,13 +52,13 @@ test("reconciliation accepts exactly matching Caja and ledger amounts", async ()
   const sedeId = new mongoose.Types.ObjectId();
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000 }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
   Caja.find = () => ({ lean: async () => [{
     monto: 52000, direccion: "ENTRADA", moneda: "COP"
   }] });
   Caja.exists = async () => null;
   Ledger.find = () => ({ lean: async () => [{
-    montoMenor: "5200000", tipo: "ABONO", moneda: "COP"
+    montoMenor: "5200000", tipo: "ABONO", moneda: "COP", cuenta: "CAJA_EFECTIVO"
   }] });
   try {
     const result = await conciliarVentaCajaLedger({ empresaId, sedeId, ventaId });
@@ -75,13 +75,13 @@ test("reconciliation fails closed on amount mismatch", async () => {
   const sedeId = new mongoose.Types.ObjectId();
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000 }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
   Caja.find = () => ({ lean: async () => [{
     monto: 52000, direccion: "ENTRADA", moneda: "COP"
   }] });
   Caja.exists = async () => null;
   Ledger.find = () => ({ lean: async () => [{
-    montoMenor: "5300000", tipo: "ABONO", moneda: "COP"
+    montoMenor: "5300000", tipo: "ABONO", moneda: "COP", cuenta: "CAJA_EFECTIVO"
   }] });
   try {
     const result = await conciliarVentaCajaLedger({ empresaId, sedeId, ventaId });
@@ -99,12 +99,12 @@ test("reconciliation rejects reversed Caja confirmation", async () => {
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
   const movimientoId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000 }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
   Caja.find = () => ({ lean: async () => [{
     _id: movimientoId, monto: 52000, direccion: "ENTRADA", moneda: "COP"
   }] });
   Ledger.find = () => ({ lean: async () => [{
-    montoMenor: "5200000", tipo: "ABONO", moneda: "COP"
+    montoMenor: "5200000", tipo: "ABONO", moneda: "COP", cuenta: "CAJA_EFECTIVO"
   }] });
   Caja.exists = async (query) => {
     assert.equal(String(query.movimientoOriginalId), String(movimientoId));
@@ -125,14 +125,14 @@ test("reconciliation refuses unsafe legacy Caja amount", async () => {
   const sedeId = new mongoose.Types.ObjectId();
   const ventaId = new mongoose.Types.ObjectId();
   const origenId = new mongoose.Types.ObjectId();
-  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000 }) });
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000, metodoPago: "efectivo" }) });
   Caja.find = () => ({ lean: async () => [{
     _id: new mongoose.Types.ObjectId(),
     monto: Number.MAX_SAFE_INTEGER + 1,
     direccion: "ENTRADA", moneda: "COP"
   }] });
   Ledger.find = () => ({ lean: async () => [{
-    montoMenor: "5200000", tipo: "ABONO", moneda: "COP"
+    montoMenor: "5200000", tipo: "ABONO", moneda: "COP", cuenta: "CAJA_EFECTIVO"
   }] });
   Caja.exists = async () => null;
   try {
