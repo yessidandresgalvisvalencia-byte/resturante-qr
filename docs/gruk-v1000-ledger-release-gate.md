@@ -63,3 +63,11 @@ Comando de validación de rama: `npm ci && npm run gate`.
 - Condiciones para activarlo: custodiar llave privada fuera de MongoDB y de los servidores con permisos de escritura al ledger; publicar y retener anclas en servicio WORM/append-only bajo separación de privilegios; verificar monotonicidad de secuencia y continuidad del tramo desde el último anclaje antes de confiar en el saldo.
 - Definir rotación de llaves, revocación, política de disponibilidad y periodo máximo entre anclajes, conciliación de anclas tras fallos y alertas de divergencia.
 - **No desactivar auditoría íntegra de escrituras** hasta certificar el flujo integrado de anclaje externo y su modelo de amenazas. Un atacante con llave privada o privilegios en ambos dominios podría falsificar registros.
+
+
+## Interfaz de proveedor externo: solo contrato, NO certificación de custodia
+- `core/finance/v1000/obtenerAnclaExterna.js` modela la recuperación inyectada de un ancla y verifica firma, clave fijada y tenant. **No implementa un proveedor WORM**, no publica anclas, no custodia claves y no prueba la independencia operativa.
+- Los indicadores `separacionDePrivilegiosVerificada` y `almacenamientoInmutableVerificado` son afirmaciones del adaptador. **No son una prueba técnica de separación de permisos ni de retención inmutable**; pueden falsificarse. No se deben usar para habilitar el modo optimizado o suprimir auditoría íntegra.
+- Para certificar: proveedor concreto con identidad/credenciales independientes, políticas de retención bloqueadas y versionadas, permisos de escritura sin capacidad de eliminación, revisión externa de IAM, registro de auditoría fuera del dominio financiero y prueba destructiva controlada de denegación de borrado/modificación.
+- Obtener la última ancla no demuestra completitud del registro externo ni ausencia de truncamiento. Registrar y comprobar monotonicidad/orden de anclas anteriores mediante fuente independiente.
+- Hasta que exista esa integración y su prueba end-to-end, las escrituras ACID conservan el escaneo de auditoría completa y el límite actual de capacidad.
