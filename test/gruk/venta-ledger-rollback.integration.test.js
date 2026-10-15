@@ -68,6 +68,12 @@ test("sale-ledger integration rolls back sale, outbox and ledger together", {
         });
       }), /VENTA_LEDGER_REINTENTO_INCONSISTENTE/);
       assert.equal(await Ledger.countDocuments({ empresaId, sedeId }), 1);
+      await assert.rejects(session.withTransaction(async () => {
+        await registrarVentaConLedger({
+          ...input, actorId: new mongoose.Types.ObjectId(), session
+        });
+      }), /VENTA_LEDGER_REINTENTO_INCONSISTENTE/);
+      assert.equal(await Ledger.countDocuments({ empresaId, sedeId }), 1);
     } finally {
       await session.endSession();
     }
