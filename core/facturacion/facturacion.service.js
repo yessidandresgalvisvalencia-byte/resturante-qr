@@ -6,7 +6,8 @@ function provider(){return new FactusProvider();}
 async function prepararDesdeVenta({empresaId,ventaId,createdBy=null,session=null,emitirEvento=true}){
  if(session&&emitirEvento)throw new Error("FACTURACION_EMISION_DIRECTA_DENTRO_TRANSACCION");
  const eid=oid(empresaId,"empresaId"),vid=oid(ventaId,"ventaId");
- const [empresa,venta]=await Promise.all([Empresa.findById(eid).select("_id nombre correo configuracion fiscal").session(session).lean(),Venta.findOne({_id:vid,empresaId:eid,estado:"pagada"}).session(session).lean()]);
+ const empresa=await Empresa.findById(eid).select("_id nombre correo configuracion fiscal").session(session).lean();
+ const venta=await Venta.findOne({_id:vid,empresaId:eid,estado:"pagada"}).session(session).lean();
  if(!empresa)throw Object.assign(new Error("Empresa no encontrada"),{statusCode:404});
  if(!venta)throw Object.assign(new Error("Venta pagada no encontrada en la empresa"),{statusCode:404});
  const f=empresa.fiscal||{},fe=f.facturacionElectronica||{},clienteFiscal=venta.metadata?.clienteFiscal||null,faltantes=[];
