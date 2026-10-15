@@ -7,6 +7,7 @@ test("ledger preserves atomicity, chain, tenant isolation and idempotency", {
 }, async () => {
   const mongoose = require("mongoose");
   const Ledger = require("../../core/finanzas/models/GrukLedgerV1");
+  const { verificarCadena } = require("../../core/finanzas/services/verificarCadenaLedger.service");
   const { GENESIS, hashMovimiento, registrarMovimiento } =
     require("../../core/finanzas/services/ledgerAppend.service");
   await mongoose.connect(process.env.TEST_MONGO_URI, {
@@ -62,6 +63,9 @@ test("ledger preserves atomicity, chain, tenant isolation and idempotency", {
     }
     const rows = await Ledger.find({ empresaId, sedeId }).sort({ secuencia: 1 }).lean();
     assert.equal(rows.length, 2);
+    assert.deepEqual(await verificarCadena({ empresaId, sedeId, cuenta: "CAJA_PRUEBA" }), {
+      integra: true, movimientos: 2, saldoMenor: "5199900", hashFinal: rows[1].hash
+    });
     for (const row of rows) assert.equal(row.hash, hashMovimiento(row));
     assert.equal(await Ledger.countDocuments({ empresaId: otraEmpresaId, sedeId }), 1);
     await assert.rejects(Ledger.updateOne({ _id: rows[0]._id }, {
