@@ -2,6 +2,14 @@
 const crypto=require("node:crypto");
 const {tenant}=require("./validation");
 const HASH=/^[0-9a-f]{64}$/;
+const CAMPOS_DATOS=["empresaId","sedeId","secuencia","saldoCentavos","hashUltimo","emitidoEn"];
+const CAMPOS_ANCLA=[...CAMPOS_DATOS,"algoritmo","version","firma"];
+function camposExactos(obj,permitidos){
+ if(!obj||typeof obj!=="object"||Array.isArray(obj)||
+    Object.keys(obj).length!==permitidos.length||
+    Object.keys(obj).some(k=>!permitidos.includes(k)))
+  throw Error("LEDGER_ANCLA_CAMPOS_NO_FIRMADOS");
+}
 function payload({empresaId,sedeId,secuencia,saldoCentavos,hashUltimo,emitidoEn}){
  tenant.parse({empresaId,sedeId});
  if(!Number.isSafeInteger(secuencia)||secuencia<0||
@@ -14,6 +22,7 @@ function payload({empresaId,sedeId,secuencia,saldoCentavos,hashUltimo,emitidoEn}
 }
 function firmarAncla(datos,llavePrivadaPem){
  if(typeof llavePrivadaPem!=="string"||!llavePrivadaPem.trim())throw Error("LEDGER_ANCLA_LLAVE_AUSENTE");
+ camposExactos(datos,CAMPOS_DATOS);
  const message=payload(datos);
  const key=crypto.createPrivateKey(llavePrivadaPem);
  if(key.asymmetricKeyType!=="ed25519")throw Error("LEDGER_ANCLA_ALGORITMO_INVALIDO");
@@ -25,6 +34,7 @@ function verificarAncla(ancla,llavePublicaPem){
     typeof ancla.firma!=="string"||!/^[A-Za-z0-9+/]{86}==$/.test(ancla.firma)||
     typeof llavePublicaPem!=="string"||!llavePublicaPem.trim())
    throw Error("LEDGER_ANCLA_FORMATO_INVALIDO");
+ camposExactos(ancla,CAMPOS_ANCLA);
  const key=crypto.createPublicKey(llavePublicaPem);
  if(key.asymmetricKeyType!=="ed25519")throw Error("LEDGER_ANCLA_ALGORITMO_INVALIDO");
  const firma=Buffer.from(ancla.firma,"base64");
