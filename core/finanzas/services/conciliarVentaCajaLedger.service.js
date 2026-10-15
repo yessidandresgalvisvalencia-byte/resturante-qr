@@ -26,6 +26,14 @@ async function conciliarVentaCajaLedger({ empresaId, sedeId, ventaId } = {}) {
       movimientosCaja: caja.length, asientosLedger: ledger.length };
   }
   const m = caja[0], a = ledger[0];
+  const reversion = await Caja.exists({
+    empresaId, sedeId, origenTipo: "VENTA", origenId: ventaId,
+    tipoAsiento: "REVERSION", movimientoOriginalId: m._id, deletedAt: null
+  });
+  if (reversion) {
+    return { conciliada: false, estado: "VENTA_REVERSADA",
+      movimientosCaja: 1, asientosLedger: 1 };
+  }
   if (!Number.isSafeInteger(m.monto) || m.monto <= 0) {
     return { conciliada: false, estado: "MONTO_CAJA_INSEGURO" };
   }
