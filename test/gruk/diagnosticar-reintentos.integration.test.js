@@ -15,24 +15,32 @@ test("retry triage isolates tenant, reports cooldown and advisory quarantine wit
     const empresaId = new mongoose.Types.ObjectId();
     const foreign = new mongoose.Types.ObjectId();
     const now = new Date();
-    const [pending, exhausted] = await Entrega.insertMany([
+    const [pending, exhausted, expired] = await Entrega.insertMany([
       { empresaId, eventId: new mongoose.Types.ObjectId(), consumidor: "CAJA_VENTA_V1",
         estado: "PENDIENTE", intentos: 1 },
       { empresaId, eventId: new mongoose.Types.ObjectId(), consumidor: "CAJA_VENTA_V1",
         estado: "PENDIENTE", intentos: 8 },
+      { empresaId, eventId: new mongoose.Types.ObjectId(), consumidor: "CAJA_VENTA_V1",
+        estado: "PROCESANDO", intentos: 1,
+        leaseHasta: new Date(now.getTime() - 1000) },
       { empresaId: foreign, eventId: new mongoose.Types.ObjectId(), consumidor: "CAJA_VENTA_V1",
         estado: "PENDIENTE", intentos: 8 }
     ]);
     const report = await diagnosticarReintentosEntrega({
       empresaId, consumidor: "CAJA_VENTA_V1", now, limit: 10
     });
-    assert.equal(report.examinadas, 2);
+    assert.equal(report.examinadas, 3);
     const retry = report.diagnosticos.find(x => x.eventId === String(pending.eventId));
     assert.equal(retry.accion, "REINTENTAR");
     assert.equal(retry.listoAhora, false);
     const quarantine = report.diagnosticos.find(x => x.eventId === String(exhausted.eventId));
     assert.equal(quarantine.accion, "CUARENTENA_RECOMENDADA");
     assert.equal(quarantine.listoAhora, false);
+    const processing = report.diagnosticos.find(x => x.eventId === String(expired.eventId));
+    assert.equal(processing.accion, "REINTENTAR");
+    assert.equal(processing.listoAhora, false);
+    assert.ok(new Date(processing.eligibleAt).getTime() >=
+      new Date(expired.leaseHasta).getTime());
     assert.equal((await Entrega.findById(exhausted._id)).estado, "PENDIENTE");
     await assert.rejects(diagnosticarReintentosEntrega({
       empresaId, consumidor: "INVALID"
