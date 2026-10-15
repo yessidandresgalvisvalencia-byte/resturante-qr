@@ -30,6 +30,7 @@ function validarEntrada(data) {
       !["CARGO", "ABONO"].includes(data.tipo) ||
       typeof data.montoMenor !== "string" || !POS.test(data.montoMenor) ||
       data.montoMenor === "0" || data.montoMenor.length > 24 ||
+      (data.correccionDe != null && data.tipo !== "CORRECCION") ||
       (data.correccionDe != null && !mongoose.isValidObjectId(data.correccionDe))) {
     throw new Error("LEDGER_ENTRADA_INVALIDA");
   }
