@@ -5,6 +5,7 @@ const Venta = require("../models/Venta");
 const ProductoServicio = require("../models/ProductoServicio");
 const Cliente = require("../models/Cliente");
 const eventBus = require("../core/eventos/eventBus");
+const { registrarVentaEnOutbox } = require("../core/eventos/ventaOutbox.service");
 
 async function registrarVentaDesdePedido({
   pedido,
@@ -166,6 +167,8 @@ costoFuente:
     : "NO_CONFIGURADO"
       }
     }], { session });
+
+    if (session) await registrarVentaEnOutbox(venta, session);
 
     if (emitirEvento && !session) eventBus.emit("VENTA_COMPLETADA", {
       ventaId: venta._id,
