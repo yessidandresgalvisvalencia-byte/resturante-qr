@@ -75,3 +75,11 @@ test("V1000: ancla rechaza metadatos no firmados aunque firma sea válida",()=>{
  assert.throws(()=>verificarAncla({...ancla,aprobado:true},pub),/LEDGER_ANCLA_CAMPOS_NO_FIRMADOS/);
  assert.throws(()=>verificarAncla({...ancla,revision:"externa"},pub),/LEDGER_ANCLA_CAMPOS_NO_FIRMADOS/);
 });
+
+test("V1000: el origen firmado exige saldo y hash génesis coherentes",()=>{
+ const base={...sample,secuencia:0,saldoCentavos:0,hashUltimo:"0".repeat(64)};
+ assert.equal(verificarAncla(firmarAncla(base,priv),pub).ok,true);
+ assert.throws(()=>firmarAncla({...base,saldoCentavos:1},priv),/LEDGER_ANCLA_GENESIS_INCONSISTENTE/);
+ assert.throws(()=>firmarAncla({...base,hashUltimo:"a".repeat(64)},priv),/LEDGER_ANCLA_GENESIS_INCONSISTENTE/);
+ assert.throws(()=>firmarAncla({...sample,hashUltimo:"0".repeat(64)},priv),/LEDGER_ANCLA_GENESIS_INCONSISTENTE/);
+});
