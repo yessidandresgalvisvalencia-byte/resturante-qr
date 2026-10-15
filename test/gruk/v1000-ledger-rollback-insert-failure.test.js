@@ -30,6 +30,15 @@ test("V1000: fallo en inserción de movimiento revierte saldo en misma transacci
   const committedHead=await Saldo.findOne({empresaId:params.empresaId,sedeId:params.sedeId}).lean();
   assert.equal(committedHead.saldoCentavos,100);
   assert.equal(committedHead.secuencia,1);
+  const repeated=await registrarMovimiento(params);
+  assert.equal(repeated.id,recovered.id);
+  assert.equal(repeated.hash,recovered.hash);
+  assert.equal(repeated.secuencia,1);
+  assert.equal(await Movimiento.countDocuments({empresaId:params.empresaId,sedeId:params.sedeId}),1);
+  const replayHead=await Saldo.findOne({empresaId:params.empresaId,sedeId:params.sedeId}).lean();
+  assert.equal(replayHead.saldoCentavos,100);
+  assert.equal(replayHead.secuencia,1);
+  assert.equal(replayHead.hashUltimo,recovered.hash);
  }finally{
   if(originalCreate)Movimiento.create=originalCreate;
   await mongoose.connection.dropDatabase();
