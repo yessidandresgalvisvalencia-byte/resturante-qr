@@ -1,0 +1,57 @@
+"use strict";
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+test("expired consumer lease is reclaimable and stale owner cannot ACK or release", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Entrega = require("../../models/GrukEntregaConsumidor");
+  const { reclamarEntrega, confirmarEntrega, liberarEntrega } =
+    require("../../core/eventos/entregaConsumidor.service");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_consumer_lease_test" });
+  const empresaId = new mongoose.Types.ObjectId();
+  const ventaId = new mongoose.Types.ObjectId();
+  try {
+    await Promise.all([Outbox.init(), Entrega.init()]);
+    const event = await Outbox.create({
+      empresaId, aggregateId: ventaId, eventName: "VENTA_COMPLETADA",
+      payload: { empresaId, ventaId, total: 1000 }
+    });
+    await Entrega.create({
+      empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1"
+    });
+    const t0 = new Date("2026-01-01T00:00:00.000Z");
+    const first = await reclamarEntrega({
+      empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1", now: t0
+    });
+    assert.equal(first.reclamada, true);
+    const second = await reclamarEntrega({
+      empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1",
+      now: new Date(t0.getTime() + 61000)
+    });
+    assert.equal(second.reclamada, true);
+    assert.notEqual(first.leaseToken, second.leaseToken);
+    assert.equal((await confirmarEntrega({
+      empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1",
+      leaseToken: first.leaseToken, now: new Date(t0.getTime() + 61001)
+    })).confirmado, false);
+    assert.equal((await liberarEntrega({
+      empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1",
+      leaseToken: first.leaseToken, error: "stale"
+    })).liberado, false);
+    assert.equal((await confirmarEntrega({
+      empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1",
+      leaseToken: second.leaseToken, now: new Date(t0.getTime() + 61002)
+    })).confirmado, true);
+    const saved = await Entrega.findOne({
+      empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1"
+    }).lean();
+    assert.equal(saved.estado, "ENTREGADO");
+    assert.equal(saved.intentos, 2);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
