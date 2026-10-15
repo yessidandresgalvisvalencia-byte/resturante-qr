@@ -30,9 +30,14 @@ async function procesarEntregaCaja({ eventId, empresaId }) {
     }
     return { procesado: true, aplicado: consumo.aplicado, duplicado: consumo.duplicado };
   } catch (error) {
-    await liberarEntrega({
-      eventId, empresaId, consumidor: CONSUMIDOR, leaseToken, error
-    });
+    try {
+      await liberarEntrega({
+        eventId, empresaId, consumidor: CONSUMIDOR, leaseToken, error
+      });
+    } catch (liberacionError) {
+      // Preserve the original failure while exposing a secondary cleanup error.
+      error.cause = error.cause || liberacionError;
+    }
     throw error;
   }
 }
