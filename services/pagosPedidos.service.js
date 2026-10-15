@@ -21,18 +21,41 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   }
 
   const status = String(transaction.status || "").toUpperCase();
-  intento.transactionId = String(transaction.id || "");
-  if (status === "PENDING") intento.estado = "PENDIENTE";
-  if (["DECLINED","ERROR","VOIDED"].includes(status)) {
-    intento.estado = "RECHAZADO";
-    intento.resueltoAt = new Date();
-  }
   if (status !== "APPROVED") {
-    await intento.save();
-    return { handled: true, ok: true, estado: intento.estado };
+    const estados = {
+      PENDING: "PENDIENTE",
+      DECLINED: "RECHAZADO",
+      ERROR: "RECHAZADO",
+      VOIDED: "RECHAZADO"
+    };
+    const siguienteEstado = estados[status];
+    if (!siguienteEstado) {
+      return { handled: true, ok: false, reason: "ESTADO_PASARELA_DESCONOCIDO" };
+    }
+    // Never regress a terminal approval due to an out-of-order webhook.
+    const actualizado = await IntentoPagoPedido.findOneAndUpdate(
+      { reference, estado: { $ne: "APROBADO" } },
+      {
+        $set: {
+          estado: siguienteEstado,
+          transactionId: String(transaction.id || ""),
+          ...(siguienteEstado === "RECHAZADO" ? { resueltoAt: new Date() } : {})
+        }
+      },
+      { new: true }
+    );
+    return {
+      handled: true,
+      ok: true,
+      estado: actualizado?.estado || "APROBADO",
+      idempotent: !actualizado
+    };
   }
 
   if (intento.estado === "APROBADO") {
+    if (intento.transactionId && intento.transactionId !== String(transaction.id || "")) {
+      return { handled: true, ok: false, reason: "TRANSACCION_DIFERENTE_PARA_REFERENCIA" };
+    }
     return { handled: true, ok: true, estado: "APROBADO", idempotent: true };
   }
 
