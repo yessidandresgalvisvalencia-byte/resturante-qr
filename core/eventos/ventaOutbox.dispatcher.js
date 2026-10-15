@@ -33,6 +33,12 @@ async function despacharSiguienteVenta({ now = new Date(), emitir = async (name,
   if (fallido) throw fallido.reason;
   return true;
 } } = {}) {
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    throw new TypeError("OUTBOX_FECHA_INVALIDA");
+  }
+  if (typeof emitir !== "function") {
+    throw new TypeError("OUTBOX_EMISOR_INVALIDO");
+  }
   const leaseToken = randomUUID();
   const leaseHasta = new Date(now.getTime() + LEASE_MS);
   const evento = await OutboxEvent.findOneAndUpdate(
