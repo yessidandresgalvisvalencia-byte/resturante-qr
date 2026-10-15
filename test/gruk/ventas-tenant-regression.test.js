@@ -27,7 +27,7 @@ test("Wompi order payment persists outbox without direct post-commit emission", 
 
 test("manual order payment persists transactional outbox without direct emission", () => {
  const api = fs.readFileSync(path.join(__dirname, "../../routes/API.js"), "utf8");
- const registration = api.indexOf("const resultadoVenta = await registrarVentaDesdePedido({");
+ const registration = api.indexOf("await registrarVentaDesdePedido({");
  assert.ok(registration >= 0);
  const tail = api.slice(registration, registration + 1100);
  assert.match(tail, /emitirEvento:\s*false/);
