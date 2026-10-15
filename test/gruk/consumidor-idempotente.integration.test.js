@@ -37,6 +37,42 @@ test("consumer effects and receipt commit once, and rollback together", {
     assert.equal(await ColeccionEfectos.countDocuments({ eventId: evento._id }), 1);
     assert.equal(await Recibo.countDocuments({ eventId: evento._id, consumidor }), 1);
 
+    const concurrenteId = new mongoose.Types.ObjectId();
+    const concurrente = await OutboxEvent.create({
+      empresaId, aggregateId: concurrenteId, eventName: "VENTA_COMPLETADA",
+      payload: { ventaId: concurrenteId, empresaId }
+    });
+    const simultaneos = await Promise.allSettled([
+      consumirEventoUnaVez({
+        eventId: concurrente._id, empresaId, consumidor, aplicar
+      }),
+      consumirEventoUnaVez({
+        eventId: concurrente._id, empresaId, consumidor, aplicar
+      })
+    ]);
+    // MongoDB may abort one racing transaction with a transient write conflict.
+    // The only acceptable outcome is one durable effect and one receipt.
+    assert.ok(simultaneos.some(x => x.status === "fulfilled" && x.value.aplicado));
+    for (const resultado of simultaneos) {
+      if (resultado.status === "fulfilled") {
+        assert.ok(resultado.value.aplicado || resultado.value.duplicado);
+      } else {
+        const error = resultado.reason;
+        const retryable = error?.hasErrorLabel?.("TransientTransactionError") ||
+          error?.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+          error?.code === 112 ||
+          error?.code === 11000;
+        assert.equal(Boolean(retryable), true, String(error?.message || error));
+      }
+    }
+    assert.equal(await ColeccionEfectos.countDocuments({ eventId: concurrente._id }), 1);
+    assert.equal(await Recibo.countDocuments({ eventId: concurrente._id, consumidor }), 1);
+    const reintento = await consumirEventoUnaVez({
+      eventId: concurrente._id, empresaId, consumidor, aplicar
+    });
+    assert.equal(reintento.duplicado, true);
+    assert.equal(await ColeccionEfectos.countDocuments({ eventId: concurrente._id }), 1);
+
     const fallidoId = new mongoose.Types.ObjectId();
     const fallido = await OutboxEvent.create({
       empresaId, aggregateId: fallidoId, eventName: "VENTA_COMPLETADA",
