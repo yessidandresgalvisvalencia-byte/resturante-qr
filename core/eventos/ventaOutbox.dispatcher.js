@@ -31,6 +31,9 @@ async function despacharSiguienteVenta({ now = new Date(), emitir = async (name,
   );
   const fallido = resultados.find(resultado => resultado.status === "rejected");
   if (fallido) throw fallido.reason;
+  if (resultados.some(resultado => resultado.status === "fulfilled" && resultado.value === false)) {
+    throw new Error("OUTBOX_CONSUMIDOR_RECHAZO_ENTREGA");
+  }
   return true;
 } } = {}) {
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
