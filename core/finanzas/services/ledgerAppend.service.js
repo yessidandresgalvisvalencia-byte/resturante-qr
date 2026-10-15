@@ -40,6 +40,9 @@ async function registrarMovimiento(data, { session } = {}) {
   if (!session || typeof session.inTransaction !== "function" || !session.inTransaction()) {
     throw new Error("LEDGER_TRANSACCION_REQUERIDA");
   }
+  if (session.client !== mongoose.connection.getClient()) {
+    throw new Error("LEDGER_SESION_DE_OTRA_CONEXION");
+  }
   const scope = { empresaId: data.empresaId, sedeId: data.sedeId };
   const existente = await Ledger.findOne({
     ...scope, claveIdempotencia: data.claveIdempotencia
