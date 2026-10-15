@@ -11,7 +11,7 @@ test("only approved production services import the delivery obligation model", (
     "core/eventos/entregaConsumidor.service.js",
     "core/eventos/registrarConsumidorAdicional.service.js",
     "core/eventos/cerrarVentaEntregada.service.js",
-    "core/eventos/listarEntregasRecuperables.service.js"
+    "core/eventos/listarEntregasRecuperables.service.js", "core/eventos/obtenerSaludEntregas.service.js", "core/eventos/diagnosticarReintentosEntrega.service.js"
   ]);
   const dirs = ["core", "services", "routes", "jobs", "intelligence", "modules"];
   const violations = [];
