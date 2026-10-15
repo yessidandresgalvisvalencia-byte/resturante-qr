@@ -37,6 +37,12 @@ test("consumer effects and receipt commit once, and rollback together", {
     assert.equal(await ColeccionEfectos.countDocuments({ eventId: evento._id }), 1);
     assert.equal(await Recibo.countDocuments({ eventId: evento._id, consumidor }), 1);
 
+    await assert.rejects(consumirEventoUnaVez({
+      eventId: evento._id, empresaId: new mongoose.Types.ObjectId(),
+      consumidor, aplicar
+    }), /CONSUMIDOR_EVENTO_NO_ENCONTRADO/);
+    assert.equal(await ColeccionEfectos.countDocuments({ eventId: evento._id }), 1);
+
     const concurrenteId = new mongoose.Types.ObjectId();
     const concurrente = await OutboxEvent.create({
       empresaId, aggregateId: concurrenteId, eventName: "VENTA_COMPLETADA",
