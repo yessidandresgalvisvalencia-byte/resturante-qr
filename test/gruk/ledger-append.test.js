@@ -17,6 +17,9 @@ test("ledger hash is deterministic and binds tenant, account, amount and previou
   assert.notEqual(hashMovimiento(d), hashMovimiento({ ...d, montoMenor: "5200001" }));
   assert.notEqual(hashMovimiento(d), hashMovimiento({ ...d, empresaId: "507f1f77bcf86cd799439014" }));
   assert.notEqual(hashMovimiento(d), hashMovimiento({ ...d, hashAnterior: "a".repeat(64) }));
+  assert.notEqual(hashMovimiento(d), hashMovimiento({ ...d, saldoDespuesMenor: "5200001" }));
+  assert.notEqual(hashMovimiento(d), hashMovimiento({ ...d, cuenta: "OTRA_CAJA" }));
+  assert.notEqual(hashMovimiento(d), hashMovimiento({ ...d, claveIdempotencia: "pago-evento-0002" }));
 });
 
 test("ledger refuses writes without a real Mongo transaction", async () => {
