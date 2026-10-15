@@ -38,6 +38,24 @@ async function conciliarVentaCajaLedger({ empresaId, sedeId, ventaId } = {}) {
     return { conciliada: false, estado: "MONTO_CAJA_INSEGURO" };
   }
   const esperado = copToMinor(String(venta.total));
+  const cuentasPorMedio = Object.freeze({
+    efectivo: "CAJA_EFECTIVO",
+    tarjeta: "PAGOS_TARJETA_POR_CONCILIAR",
+    transferencia: "TRANSFERENCIAS_POR_CONCILIAR"
+  });
+  const medioVenta = typeof venta.metodoPago === "string"
+    ? venta.metodoPago.trim().toLowerCase() : "";
+  const medioCaja = typeof m.metodoPago === "string"
+    ? m.metodoPago.trim().toLowerCase() : "";
+  if (!Object.hasOwn(cuentasPorMedio, medioVenta)) {
+    return { conciliada: false, estado: "MEDIO_PAGO_NO_VERIFICABLE" };
+  }
+  if (medioCaja && medioCaja !== medioVenta) {
+    return { conciliada: false, estado: "MEDIO_PAGO_INCONSISTENTE" };
+  }
+  if (a.cuenta !== cuentasPorMedio[medioVenta]) {
+    return { conciliada: false, estado: "CUENTA_LEDGER_INCONSISTENTE" };
+  }
   const conciliada = copToMinor(String(m.monto)) === esperado &&
     a.montoMenor === esperado && m.direccion === "ENTRADA" &&
     m.moneda === "COP" && a.moneda === "COP" && a.tipo === "ABONO";
