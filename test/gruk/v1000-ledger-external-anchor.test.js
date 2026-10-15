@@ -2,7 +2,7 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const crypto=require("node:crypto");
-const {firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla}=require("../../core/finance/v1000/anclaLedger");
+const {firmarAncla,verificarAncla,verificarAnclaContraCabecera,verificarContinuidadDesdeAncla,verificarAnclaConClaveConfiable}=require("../../core/finance/v1000/anclaLedger");
 const {privateKey,publicKey}=crypto.generateKeyPairSync("ed25519");
 const priv=privateKey.export({type:"pkcs8",format:"pem"});
 const pub=publicKey.export({type:"spki",format:"pem"});
@@ -82,4 +82,15 @@ test("V1000: el origen firmado exige saldo y hash génesis coherentes",()=>{
  assert.throws(()=>firmarAncla({...base,saldoCentavos:1},priv),/LEDGER_ANCLA_GENESIS_INCONSISTENTE/);
  assert.throws(()=>firmarAncla({...base,hashUltimo:"a".repeat(64)},priv),/LEDGER_ANCLA_GENESIS_INCONSISTENTE/);
  assert.throws(()=>firmarAncla({...sample,hashUltimo:"0".repeat(64)},priv),/LEDGER_ANCLA_GENESIS_INCONSISTENTE/);
+});
+
+test("V1000: ancla requiere clave pública confiable independiente y tenant explícito",()=>{
+ const ancla=firmarAncla(sample,priv);
+ const base={ancla,empresaId:sample.empresaId,sedeId:sample.sedeId};
+ assert.equal(verificarAnclaConClaveConfiable({...base,clavesConfiables:[pub]}).ok,true);
+ const wrong=crypto.generateKeyPairSync("ed25519").publicKey.export({type:"spki",format:"pem"});
+ assert.throws(()=>verificarAnclaConClaveConfiable({...base,clavesConfiables:[wrong]}),/LEDGER_ANCLA_FIRMA_INVALIDA/);
+ assert.throws(()=>verificarAnclaConClaveConfiable({...base,clavesConfiables:[]}),/LEDGER_ANCLA_CLAVE_CONFIABLE_REQUERIDA/);
+ assert.throws(()=>verificarAnclaConClaveConfiable({...base,clavesConfiables:[pub,pub]}),/LEDGER_ANCLA_CLAVE_CONFIABLE_REQUERIDA/);
+ assert.throws(()=>verificarAnclaConClaveConfiable({...base,clavesConfiables:[pub],empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"}),/LEDGER_ANCLA_TENANT_INCONSISTENTE/);
 });
