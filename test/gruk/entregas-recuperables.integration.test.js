@@ -111,3 +111,11 @@ test("keyset recovery scans past more than 100 ineligible parent events", {
     await mongoose.disconnect();
   }
 });
+
+
+test("recovery keyset index is declared for tenant and consumer scan", () => {
+  const Entrega = require("../../models/GrukEntregaConsumidor");
+  const keys = Entrega.schema.indexes().map(([fields]) => fields);
+  assert.ok(keys.some(fields => fields.empresaId === 1 &&
+    fields.consumidor === 1 && fields._id === 1));
+});
