@@ -14,8 +14,11 @@ function calcularVentaExacta({ cantidad, precioUnitarioCOP, costoUnitarioCOP, to
   const costo = BigInt(copToMinor(costoUnitarioCOP));
   const total = BigInt(copToMinor(totalCOP));
   const esperado = precio * unidades;
+  const MAX = 999999999999999999999999n;
+  if (esperado > MAX) throw new RangeError("VENTA_TOTAL_FUERA_DE_RANGO");
   if (total !== esperado) throw new Error("VENTA_TOTAL_INCONSISTENTE");
   const costoTotal = costo * unidades;
+  if (costoTotal > MAX) throw new RangeError("VENTA_COSTO_FUERA_DE_RANGO");
   const utilidad = total - costoTotal;
   return {
     cantidad,
