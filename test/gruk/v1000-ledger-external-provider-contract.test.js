@@ -25,3 +25,21 @@ test("V1000: falla cerrado si no hay custodia o ancla externa firmada",async()=>
  await assert.rejects(recuperarAnclaExternaConfiable({...args,provider:{...provider,obtenerUltimaAncla:async()=>firmarAncla({...datos,empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"},priv)}}),/LEDGER_ANCLA_TENANT_INCONSISTENTE/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,provider:{...provider,obtenerUltimaAncla:async()=>({...ancla,saldoCentavos:1})}}),/LEDGER_ANCLA_GENESIS_INCONSISTENTE|LEDGER_ANCLA_FIRMA_INVALIDA/);
 });
+
+test("V1000: piso confiable impide rollback de evidencia externa firmada",async()=>{
+ const crypto=require("node:crypto");
+ const {firmarAncla,huellaClaveEd25519}=require("../../core/finance/v1000/anclaLedger");
+ const {privateKey,publicKey}=crypto.generateKeyPairSync("ed25519");
+ const priv=privateKey.export({type:"pkcs8",format:"pem"});
+ const pub=publicKey.export({type:"spki",format:"pem"});
+ const old=firmarAncla({empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",secuencia:1,saldoCentavos:10,
+  hashUltimo:"a".repeat(64),emitidoEn:"2026-10-14T00:00:00.000Z"},priv);
+ const args={empresaId:old.empresaId,sedeId:old.sedeId,llavePublicaPem:pub,
+  huellaAutorizada:huellaClaveEd25519(pub),
+  provider:{separacionDePrivilegiosVerificada:true,almacenamientoInmutableVerificado:true,
+   obtenerUltimaAncla:async()=>old}};
+ assert.equal((await recuperarAnclaExternaConfiable({...args,secuenciaMinimaConfiable:1})).secuencia,1);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,secuenciaMinimaConfiable:2}),/LEDGER_ANCLA_RETROCESO_DETECTADO/);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,secuenciaMinimaConfiable:-1}),/LEDGER_ANCLA_PISO_INVALIDO/);
+});
