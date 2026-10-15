@@ -6,7 +6,7 @@ const {verificarAnclaConClaveFijada}=require("./anclaLedger");
  * The provider is injected by the auditor, never created from ledger data.
  * No database persistence, network client or signing key is implied here.
  */
-async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePublicaPem,huellaAutorizada,secuenciaMinimaConfiable}){
+async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePublicaPem,huellaAutorizada,secuenciaMinimaConfiable,checkpointConfiable}){
  if(secuenciaMinimaConfiable!==undefined&&
     (!Number.isSafeInteger(secuenciaMinimaConfiable)||secuenciaMinimaConfiable<0))
   throw Error("LEDGER_ANCLA_PISO_INVALIDO");
@@ -27,6 +27,17 @@ async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePu
  // Never treat an externally fetched anchor as trusted before verifying key pinning.
  // The monotonic floor is caller supplied and must originate from a separate trust domain.
  verificarAnclaConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId});
+ if(checkpointConfiable!==undefined){
+  const c=checkpointConfiable;
+  if(!c||!Number.isSafeInteger(c.secuencia)||c.secuencia<0||
+     !Number.isSafeInteger(c.saldoCentavos)||c.saldoCentavos<0||
+     typeof c.hashUltimo!=="string"||!/^[0-9a-f]{64}$/.test(c.hashUltimo))
+   throw Error("LEDGER_ANCLA_CHECKPOINT_INVALIDO");
+  if(ancla.secuencia<c.secuencia)throw Error("LEDGER_ANCLA_RETROCESO_DETECTADO");
+  if(ancla.secuencia===c.secuencia&&
+     (ancla.hashUltimo!==c.hashUltimo||ancla.saldoCentavos!==c.saldoCentavos))
+   throw Error("LEDGER_ANCLA_EQUIVOCACION_DETECTADA");
+ }
  if(secuenciaMinimaConfiable!==undefined&&ancla.secuencia<secuenciaMinimaConfiable)
   throw Error("LEDGER_ANCLA_RETROCESO_DETECTADO");
  return ancla;
