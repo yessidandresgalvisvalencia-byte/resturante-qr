@@ -48,5 +48,27 @@ test("V1000: movimientos concurrentes aíslan saldos de empresas y sedes",async 
    /LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE/
   );
   assert.equal(await Movimiento.countDocuments({operacionId:shared}),2);
+  // Same identifier in two branches of the same company remains isolated.
+  const sedeOperation="01ARZ3NDEKTSV4RRFFQ69G5FB4";
+  const branchBase={empresaId:a,operacionId:sedeOperation,tipo:"CREDITO",
+   actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAX",ip:"127.0.0.1"};
+  const [branchX,branchY]=await Promise.all([
+   registrarMovimiento({...branchBase,sedeId:x,montoCentavos:11}),
+   registrarMovimiento({...branchBase,sedeId:y,montoCentavos:22})
+  ]);
+  assert.notEqual(branchX.id,branchY.id);
+  assert.equal((await registrarMovimiento({...branchBase,sedeId:x,montoCentavos:11})).id,branchX.id);
+  assert.equal((await registrarMovimiento({...branchBase,sedeId:y,montoCentavos:22})).id,branchY.id);
+  await assert.rejects(
+   registrarMovimiento({...branchBase,sedeId:x,montoCentavos:22}),
+   /LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE/
+  );
+  assert.equal(await Movimiento.countDocuments({empresaId:a,operacionId:sedeOperation}),2);
+  for(const item of [{sedeId:x,saldo:141},{sedeId:y,saldo:292}]){
+   const cabecera=await Saldo.findOne({empresaId:a,sedeId:item.sedeId}).lean();
+   const asientos=await Movimiento.find({empresaId:a,sedeId:item.sedeId}).sort({secuencia:1}).lean();
+   assert.equal(cabecera.saldoCentavos,item.saldo);
+   assert.equal(verificarCadena({empresaId:a,sedeId:item.sedeId,asientos,cabecera}).ok,true);
+  }
  }finally{await mongoose.connection.dropDatabase();await mongoose.disconnect();}
 });
