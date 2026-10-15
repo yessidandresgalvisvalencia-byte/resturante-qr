@@ -68,3 +68,10 @@ test("V1000: el ancla no sustituye el índice único de operación anterior",()=
  const svc=fs.readFileSync(path.join(__dirname,"../../services/ledgerV1000.service.js"),"utf8");
  assert.match(svc,/Movimiento\.findOne\(\{empresaId,sedeId,operacionId\}\)/);
 });
+
+test("V1000: ancla rechaza metadatos no firmados aunque firma sea válida",()=>{
+ assert.throws(()=>firmarAncla({...sample,nota:"aprobado"},priv),/LEDGER_ANCLA_CAMPOS_NO_FIRMADOS/);
+ const ancla=firmarAncla(sample,priv);
+ assert.throws(()=>verificarAncla({...ancla,aprobado:true},pub),/LEDGER_ANCLA_CAMPOS_NO_FIRMADOS/);
+ assert.throws(()=>verificarAncla({...ancla,revision:"externa"},pub),/LEDGER_ANCLA_CAMPOS_NO_FIRMADOS/);
+});
