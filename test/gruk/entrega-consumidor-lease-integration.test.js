@@ -151,3 +151,37 @@ test("concurrent claims grant one lease and keep one durable owner", {
     await mongoose.disconnect();
   }
 });
+
+
+test("non-claimable active lease does not mutate parent version or attempt count", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Entrega = require("../../models/GrukEntregaConsumidor");
+  const { reclamarEntrega } = require("../../core/eventos/entregaConsumidor.service");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_claim_noop_test" });
+  try {
+    await Promise.all([Outbox.init(), Entrega.init()]);
+    const empresaId = new mongoose.Types.ObjectId();
+    const ventaId = new mongoose.Types.ObjectId();
+    const event = await Outbox.create({
+      empresaId, aggregateId: ventaId, eventName: "VENTA_COMPLETADA",
+      payload: { empresaId, ventaId }
+    });
+    await Entrega.create({ empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1" });
+    const now = new Date("2026-04-01T10:00:00.000Z");
+    const first = await reclamarEntrega({ empresaId, eventId: event._id,
+      consumidor: "CAJA_VENTA_V1", now });
+    assert.equal(first.reclamada, true);
+    const second = await reclamarEntrega({ empresaId, eventId: event._id,
+      consumidor: "CAJA_VENTA_V1", now: new Date(now.getTime() + 1000) });
+    assert.deepEqual(second, { reclamada: false });
+    const saved = await Entrega.findOne({ empresaId, eventId: event._id }).lean();
+    assert.equal(saved.intentos, 1);
+    assert.equal(saved.leaseToken, first.leaseToken);
+    assert.equal((await Outbox.findById(event._id)).registroVersion, 1);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
