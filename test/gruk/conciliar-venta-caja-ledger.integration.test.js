@@ -76,6 +76,26 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
     assert.equal((await conciliarVentaCajaLedger({
       ...ids, sedeId: new mongoose.Types.ObjectId()
     })).estado, "VENTA_NO_ENCONTRADA");
+    const snapshotSession = await mongoose.startSession();
+    try {
+      await snapshotSession.withTransaction(async () => {
+        const inicial = await conciliarVentaCajaLedger({ ...ids, session: snapshotSession });
+        assert.equal(inicial.estado, "CONCILIADA");
+        await Caja.create([{
+          empresaId, sedeId, direccion: "ENTRADA", monto: 52000, moneda: "COP",
+          origenTipo: "VENTA", origenId: venta._id, tipoAsiento: "REVERSION",
+          movimientoOriginalId: movimiento._id,
+          claveIdempotencia: "ci:reversion:concurrente:" + String(venta._id),
+          confirmadoAt: new Date()
+        }]);
+        const repetida = await conciliarVentaCajaLedger({ ...ids, session: snapshotSession });
+        assert.equal(repetida.estado, "CONCILIADA");
+      }, { readConcern: { level: "snapshot" }, readPreference: "primary" });
+      assert.equal((await conciliarVentaCajaLedgerSnapshot(ids)).estado, "VENTA_REVERSADA");
+    } finally {
+      await snapshotSession.endSession();
+    }
+    await Caja.deleteOne({ claveIdempotencia: "ci:reversion:concurrente:" + String(venta._id) });
     await Caja.create([{
       empresaId, sedeId, direccion: "ENTRADA", monto: 52000, moneda: "COP",
       origenTipo: "VENTA", origenId: venta._id, tipoAsiento: "REVERSION",
