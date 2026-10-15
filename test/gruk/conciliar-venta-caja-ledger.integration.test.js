@@ -29,7 +29,7 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
       empresaId, sedeId, direccion: "ENTRADA", monto: 52000, moneda: "COP",
       origenTipo: "VENTA", origenId: venta._id, tipoAsiento: "CONFIRMACION",
       claveIdempotencia: "ci:venta:" + String(venta._id),
-      confirmadoAt: new Date()
+      metodoPago: "efectivo", confirmadoAt: new Date()
     }]);
     await Ledger.create([{
       empresaId, sedeId, cuenta: "CAJA_EFECTIVO", secuencia: 1,
