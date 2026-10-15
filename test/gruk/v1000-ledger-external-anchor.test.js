@@ -132,3 +132,17 @@ test("V1000: continuidad anclada exige huella confiable y cabecera correcta",()=
  assert.throws(()=>verificarContinuidadConClaveFijada({...base,cabecera:{...base.cabecera,secuencia:1001}}),/LEDGER_ANCLA_CABECERA_DIVERGENTE/);
  assert.throws(()=>verificarContinuidadConClaveFijada({...base,sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"}),/LEDGER_ANCLA_TENANT_INCONSISTENTE/);
 });
+
+test("V1000: verificador directo exige cardinalidad exacta y límite seguro",()=>{
+ const ancla=firmarAncla(sample,priv);
+ const base={ancla,llavePublicaPem:pub,empresaId:sample.empresaId,sedeId:sample.sedeId};
+ assert.throws(()=>verificarContinuidadDesdeAncla({...base,asientos:[],cabecera:{
+  secuencia:1001,saldoCentavos:sample.saldoCentavos,hashUltimo:sample.hashUltimo
+ }}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
+ assert.throws(()=>verificarContinuidadDesdeAncla({...base,asientos:[{}],cabecera:{
+  secuencia:sample.secuencia,saldoCentavos:sample.saldoCentavos,hashUltimo:sample.hashUltimo
+ }}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
+ assert.throws(()=>verificarContinuidadDesdeAncla({...base,asientos:[],cabecera:{
+  secuencia:101001,saldoCentavos:sample.saldoCentavos,hashUltimo:sample.hashUltimo
+ }}),/LEDGER_ANCLA_CONTINUIDAD_EXCEDE_LIMITE/);
+});
