@@ -50,7 +50,8 @@ async function listarEntregasRecuperables({
       if (!eligible.has(String(c.eventId))) continue;
       eligibleResults.push({
         eventId: c.eventId, empresaId: c.empresaId, consumidor: c.consumidor,
-        estado: c.estado, intentos: c.intentos
+        estado: c.estado, intentos: c.intentos, updatedAt: c.updatedAt,
+        leaseHasta: c.leaseHasta ?? null
       });
       if (eligibleResults.length === limit) break;
     }
