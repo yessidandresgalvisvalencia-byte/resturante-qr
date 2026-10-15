@@ -4,7 +4,7 @@ Estado: **BLOQUEANTE PARA PRODUCCIÓN**. Este documento no autoriza activar el c
 
 ## Riesgo observado
 
-`conciliarVentaCajaLedger` realiza lecturas independientes de Venta, MovimientoCaja, GrukLedgerV1 y reversiones. Sin una vista consistente, una reversión concurrente puede confirmarse entre las consultas y el resultado `CONCILIADA` puede quedar obsoleto antes de devolverse. Las pruebas actuales verifican estados secuenciales, no una reversión concurrente.
+`conciliarVentaCajaLedger` realiza lecturas independientes de Venta, MovimientoCaja, GrukLedgerV1 y reversiones. Sin una vista consistente, una reversión concurrente puede confirmarse entre las consultas y el resultado `CONCILIADA` puede quedar obsoleto antes de devolverse. La rama contiene ahora una prueba de reversión concurrente con dos sesiones y lecturas snapshot; su aprobación en CI no sustituye la validación de autorización transaccional.
 
 ## Requisitos de activación
 
@@ -18,4 +18,4 @@ Estado: **BLOQUEANTE PARA PRODUCCIÓN**. Este documento no autoriza activar el c
 
 ## Estado de implementación
 
-La rama de trabajo incorpora conciliación de solo lectura y pruebas para importes, duplicados, reversiones, aislamiento de tenant, medio de pago y estado de venta. **No implementa todavía el snapshot transaccional ni la protección de la decisión final contra cambios posteriores.** No conectar el resultado a aprobaciones automáticas.
+La rama de trabajo incorpora conciliación de solo lectura y pruebas para importes, duplicados, reversiones, aislamiento de tenant, medio de pago y estado de venta. También dispone de `conciliarVentaCajaLedgerSnapshot`, que usa una sesión y `readConcern: snapshot`, y de una prueba de reversión concurrente aprobada en GRUK CI #1740. **Sigue sin existir protección demostrada de la decisión final contra cambios posteriores al snapshot.** La función histórica `conciliarVentaCajaLedger` aún permite consultas sin sesión; su resultado no constituye prueba de consistencia temporal. No conectar ninguna de las dos funciones a aprobaciones automáticas ni activar el conciliador en producción.
