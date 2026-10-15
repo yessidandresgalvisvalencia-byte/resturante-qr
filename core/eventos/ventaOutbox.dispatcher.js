@@ -8,7 +8,7 @@ const LEASE_MS = 60_000;
 
 // Delivery is at-least-once. Consumers must deduplicate by stable event id.
 
-async function despacharSiguienteVenta({ now = new Date(), emitir = (name, payload) => eventBus.emit(name, payload) } = {}) {
+async function despacharSiguienteVenta({ now = new Date(), emitir = (name, payload, metadata) => eventBus.emit(name, payload, metadata) } = {}) {
   const leaseToken = randomUUID();
   const leaseHasta = new Date(now.getTime() + LEASE_MS);
   const evento = await OutboxEvent.findOneAndUpdate(
