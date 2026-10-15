@@ -64,3 +64,28 @@ test("V1000: checkpoint independiente detecta dos anclas válidas pero contradic
  assert.equal((await recuperarAnclaExternaConfiable({...args,checkpointConfiable:
   {secuencia:3,saldoCentavos:121,hashUltimo:"b".repeat(64)}})).hashUltimo,"b".repeat(64));
 });
+
+test("V1000: ancla posterior no puede saltar el tramo desde un checkpoint confiable",async()=>{
+ const crypto=require("node:crypto");
+ const {firmarAncla,huellaClaveEd25519}=require("../../core/finance/v1000/anclaLedger");
+ const {hashAsiento}=require("../../core/finance/v1000/auditarLedger");
+ const {privateKey,publicKey}=crypto.generateKeyPairSync("ed25519");
+ const priv=privateKey.export({type:"pkcs8",format:"pem"});
+ const pub=publicKey.export({type:"spki",format:"pem"});
+ const empresaId="01ARZ3NDEKTSV4RRFFQ69G5FAV",sedeId="01ARZ3NDEKTSV4RRFFQ69G5FAW";
+ const asiento={id:"01ARZ3NDEKTSV4RRFFQ69G5FB5",operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FB6",
+  empresaId,sedeId,actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAX",tipo:"CREDITO",montoCentavos:5,
+  antesCentavos:10,despuesCentavos:15,secuencia:2,ip:"127.0.0.1",
+  timestamp:"2026-10-14T00:01:00.000Z",hashAnterior:"a".repeat(64),deletedAt:null};
+ asiento.hash=hashAsiento(asiento);
+ const ancla=firmarAncla({empresaId,sedeId,secuencia:2,saldoCentavos:15,
+  hashUltimo:asiento.hash,emitidoEn:"2026-10-14T00:02:00.000Z"},priv);
+ const args={empresaId,sedeId,llavePublicaPem:pub,huellaAutorizada:huellaClaveEd25519(pub),
+  checkpointConfiable:{secuencia:1,saldoCentavos:10,hashUltimo:"a".repeat(64)},
+  provider:{separacionDePrivilegiosVerificada:true,almacenamientoInmutableVerificado:true,
+   obtenerUltimaAncla:async()=>ancla}};
+ await assert.rejects(recuperarAnclaExternaConfiable(args),/LEDGER_ANCLA_CONTINUIDAD_REQUERIDA/);
+ assert.equal((await recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[asiento]})).secuencia,2);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[{...asiento,montoCentavos:6}]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
+});
