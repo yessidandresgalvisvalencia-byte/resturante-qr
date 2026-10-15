@@ -15,7 +15,7 @@ function isTransientWriteConflict(error) {
     error.hasErrorLabel("TransientTransactionError");
 }
 
-async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(), enforceRetryPolicy = false }) {
+async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(), enforceRetryPolicy = true }) {
   if (!mongoose.isValidObjectId(eventId) || !mongoose.isValidObjectId(empresaId)) {
     throw new Error("ENTREGA_IDENTIDAD_INVALIDA");
   }
