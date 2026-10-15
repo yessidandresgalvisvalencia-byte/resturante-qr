@@ -6,7 +6,10 @@ const {verificarAnclaConClaveFijada}=require("./anclaLedger");
  * The provider is injected by the auditor, never created from ledger data.
  * No database persistence, network client or signing key is implied here.
  */
-async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePublicaPem,huellaAutorizada}){
+async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePublicaPem,huellaAutorizada,secuenciaMinimaConfiable}){
+ if(secuenciaMinimaConfiable!==undefined&&
+    (!Number.isSafeInteger(secuenciaMinimaConfiable)||secuenciaMinimaConfiable<0))
+  throw Error("LEDGER_ANCLA_PISO_INVALIDO");
  if(!provider||typeof provider.obtenerUltimaAncla!=="function")
   throw Error("LEDGER_ANCLA_PROVEEDOR_EXTERNO_REQUERIDO");
  if(!provider.separacionDePrivilegiosVerificada||provider.separacionDePrivilegiosVerificada!==true)
@@ -22,6 +25,8 @@ async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePu
  }
  if(!ancla)throw Error("LEDGER_ANCLA_EXTERNA_AUSENTE");
  verificarAnclaConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId});
+ if(secuenciaMinimaConfiable!==undefined&&ancla.secuencia<secuenciaMinimaConfiable)
+  throw Error("LEDGER_ANCLA_RETROCESO_DETECTADO");
  return ancla;
 }
 module.exports={recuperarAnclaExternaConfiable};
