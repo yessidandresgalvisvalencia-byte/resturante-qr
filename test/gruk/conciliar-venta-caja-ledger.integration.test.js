@@ -21,6 +21,7 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
       empresaId, sedeId, origen: "restaurante", origenId,
       productoServicioId: new mongoose.Types.ObjectId(),
       cantidad: 1, precioUnitario: 52000, total: 52000,
+      concepto: "Venta conciliacion ACID",
       costoUnitario: 25000, costoTotal: 25000, utilidadBruta: 27000,
       margenBruto: 51.92, metodoPago: "efectivo"
     }]);
