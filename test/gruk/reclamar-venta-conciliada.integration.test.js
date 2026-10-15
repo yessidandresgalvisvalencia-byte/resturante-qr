@@ -46,6 +46,41 @@ test("financial claim commits once and rolls back atomically against replica set
         throw new Error("FALLO_SIMULADO");
       }), { message: "FALLO_SIMULADO" });
       assert.equal((await Venta.collection.findOne({ _id: venta._id })).grukControlFinanciero, undefined);
+      const firstRace = await Promise.allSettled([
+        (async () => {
+          const s = await mongoose.startSession();
+          try {
+            return await s.withTransaction(async () =>
+              reclamarVentaConciliada({
+                ...ids, token: "orden:claim:first:a123456", session: s
+              }));
+          } finally {
+            await s.endSession();
+          }
+        })(),
+        (async () => {
+          const s = await mongoose.startSession();
+          try {
+            return await s.withTransaction(async () =>
+              reclamarVentaConciliada({
+                ...ids, token: "orden:claim:first:b123456", session: s
+              }));
+          } finally {
+            await s.endSession();
+          }
+        })()
+      ]);
+      assert.equal(firstRace.filter(x => x.status === "fulfilled").length, 1);
+      const winner = (await Venta.collection.findOne({ _id: venta._id }))
+        .grukControlFinanciero.token;
+      assert.ok([
+        "orden:claim:first:a123456", "orden:claim:first:b123456"
+      ].includes(winner));
+      // Reset the isolated fixture so the existing sequential commit test
+      // can still validate the post-rollback claim independently.
+      await Venta.collection.updateOne({ _id: venta._id }, {
+        $unset: { grukControlFinanciero: "" }
+      });
       await session.withTransaction(async () => {
         const result = await reclamarVentaConciliada({ ...ids, token, session });
         assert.equal(result.conciliada, true);
