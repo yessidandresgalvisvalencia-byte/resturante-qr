@@ -27,7 +27,13 @@ test("sale outbox closure requires both durable consumer ACKs", {
     assert.equal((await cerrarVentaEntregada({ empresaId, eventId: event._id })).cerrado, false);
     assert.equal((await Outbox.findById(event._id)).estado, "PENDIENTE");
     await Entrega.updateOne({ eventId: event._id, consumidor: "FACTURACION_VENTA_V1" },
-      { $set: { estado: "ENTREGADO" } });
+      { $set: { estado: "PROCESANDO", leaseToken: "consumer-in-flight",
+        leaseHasta: new Date(Date.now() + 60000) } });
+    assert.deepEqual(await cerrarVentaEntregada({ empresaId, eventId: event._id }),
+      { cerrado: false, motivo: "CONSUMIDORES_PENDIENTES" });
+    assert.equal((await Outbox.findById(event._id)).estado, "PENDIENTE");
+    await Entrega.updateOne({ eventId: event._id, consumidor: "FACTURACION_VENTA_V1" },
+      { $set: { estado: "ENTREGADO" }, $unset: { leaseToken: "", leaseHasta: "" } });
     await Entrega.create({ empresaId, eventId: event._id, consumidor: "AUDITORIA_VENTA_V1", estado: "PENDIENTE" });
     assert.deepEqual(await cerrarVentaEntregada({ empresaId, eventId: event._id }),
       { cerrado: false, motivo: "CONSUMIDORES_PENDIENTES" });
