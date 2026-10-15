@@ -170,7 +170,10 @@ costoFuente:
 
     if (session) await registrarVentaEnOutbox(venta, session);
 
-    // No direct emission here: a non-transactional sale cannot safely claim\n    // durable event delivery. Legacy callers remain compatible; durable\n    // consumers must use the transactional sale + outbox path.\n
+    // No direct emission here: a non-transactional sale cannot safely claim
+    // durable event delivery. Legacy callers remain compatible; durable
+    // consumers must use the transactional sale + outbox path.
+
 
     return {
       venta,
