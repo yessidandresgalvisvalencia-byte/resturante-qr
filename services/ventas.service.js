@@ -26,6 +26,11 @@ async function registrarVentaDesdePedido({
     );
   }
 
+  // Paid order paths must commit the sale and its durable event atomically.
+  if (emitirEvento === false && !session) {
+    throw new Error("GRUK_VENTA_SIN_SESION_TRANSACCIONAL");
+  }
+
   try {
     if (!pedido.productoServicioId) {
       throw new Error(
