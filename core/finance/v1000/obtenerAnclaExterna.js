@@ -61,7 +61,14 @@ async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePu
        !Number.isSafeInteger(m.montoCentavos)||m.montoCentavos<=0||
        !["CREDITO","DEBITO"].includes(m.tipo)||
        typeof m.operacionId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(m.operacionId)||
-       ids.has(m.operacionId)||hashAsiento(m)!==m.hash)
+       ids.has(m.operacionId)||
+       typeof m.id!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(m.id)||
+       typeof m.actorId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(m.actorId)||
+       require("node:net").isIP(m.ip)===0||
+       !(m.timestamp instanceof Date||typeof m.timestamp==="string")||
+       !Number.isFinite(Date.parse(m.timestamp instanceof Date?m.timestamp.toISOString():m.timestamp))||
+       typeof m.hash!=="string"||!/^[a-f0-9]{64}$/.test(m.hash)||
+       hashAsiento(m)!==m.hash)
      throw Error("LEDGER_ANCLA_CONTINUIDAD_INVALIDA");
     const next=BigInt(saldo)+(m.tipo==="CREDITO"?1n:-1n)*BigInt(m.montoCentavos);
     if(next<0n||next>BigInt(Number.MAX_SAFE_INTEGER)||m.despuesCentavos!==Number(next))
