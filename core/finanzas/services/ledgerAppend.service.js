@@ -54,8 +54,13 @@ async function registrarMovimiento(data, { session } = {}) {
     }
     return { creado: false, movimiento: existente };
   }
+  // Verify the last stored entry before extending the chain. This is not a full audit.
   const ultimo = await Ledger.findOne({ ...scope, cuenta: data.cuenta })
     .sort({ secuencia: -1 }).session(session).lean();
+  if (ultimo && (ultimo.hash !== hashMovimiento(ultimo) ||
+      (ultimo.secuencia === 1 && ultimo.hashAnterior !== GENESIS))) {
+    throw new Error("LEDGER_ULTIMO_MOVIMIENTO_CORRUPTO");
+  }
   const saldoAntes = ultimo ? ultimo.saldoDespuesMenor : "0";
   if (!INT.test(saldoAntes)) throw new Error("LEDGER_SALDO_INVALIDO");
   const delta = BigInt(data.montoMenor) * (data.tipo === "CARGO" ? -1n : 1n);
