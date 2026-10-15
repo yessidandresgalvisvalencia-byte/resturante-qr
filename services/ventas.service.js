@@ -170,10 +170,35 @@ costoFuente:
 
     if (session) await registrarVentaEnOutbox(venta, session);
 
-    // No direct emission here: a non-transactional sale cannot safely claim
-    // durable event delivery. Legacy callers remain compatible; durable
-    // consumers must use the transactional sale + outbox path.
+    if (emitirEvento && !session) eventBus.emit("VENTA_COMPLETADA", {
+      ventaId: venta._id,
+      empresaId: venta.empresaId,
+      sedeId: venta.sedeId,
 
+      productoServicioId:
+        venta.productoServicioId,
+
+      clienteId: venta.clienteId,
+
+      origen: venta.origen,
+      origenId: venta.origenId,
+
+      cantidad: venta.cantidad,
+      precioUnitario: venta.precioUnitario,
+      total: venta.total,
+
+      costoUnitario: venta.costoUnitario,
+      costoTotal: venta.costoTotal,
+      utilidadBruta: venta.utilidadBruta,
+      margenBruto: venta.margenBruto,
+
+      metodoPago: venta.metodoPago,
+      concepto: venta.concepto,
+      fecha: venta.fecha,
+      sourceUpdatedAt: venta.updatedAt,
+      cajaReferencia:
+        venta.metadata?.cajaReferencia || null
+    });
 
     return {
       venta,
