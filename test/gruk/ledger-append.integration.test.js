@@ -3,8 +3,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 test("ledger preserves atomicity, chain, tenant isolation and idempotency", {
-  skip: !process.env.TEST_MONGO_URI
+  skip: !process.env.CI && !process.env.TEST_MONGO_URI
 }, async () => {
+  if (!process.env.TEST_MONGO_URI) throw new Error("GRUK_CI_REQUIERE_MONGO_TRANSACCIONAL");
   const mongoose = require("mongoose");
   const Ledger = require("../../core/finanzas/models/GrukLedgerV1");
   const { verificarCadena } = require("../../core/finanzas/services/verificarCadenaLedger.service");
