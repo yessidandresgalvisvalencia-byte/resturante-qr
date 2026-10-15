@@ -17,7 +17,12 @@ async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
     throw new Error("ENTREGA_FECHA_INVALIDA");
   }
-  const evento = await Outbox.exists({ _id: eventId, empresaId });
+  const evento = await Outbox.findOne({ _id: eventId, empresaId }).lean();
+  if (evento && (evento.eventName !== "VENTA_COMPLETADA" ||
+      String(evento.payload?.empresaId) !== String(empresaId) ||
+      String(evento.payload?.ventaId) !== String(evento.aggregateId))) {
+    throw new Error("ENTREGA_EVENTO_IDENTIDAD_INCONSISTENTE");
+  }
   if (!evento) throw new Error("ENTREGA_EVENTO_NO_ENCONTRADO");
   const leaseToken = randomUUID();
   const leaseHasta = new Date(now.getTime() + LEASE_MS);
