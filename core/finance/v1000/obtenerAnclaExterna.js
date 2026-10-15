@@ -33,6 +33,12 @@ async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePu
      !Number.isSafeInteger(c.saldoCentavos)||c.saldoCentavos<0||
      typeof c.hashUltimo!=="string"||!/^[0-9a-f]{64}$/.test(c.hashUltimo))
    throw Error("LEDGER_ANCLA_CHECKPOINT_INVALIDO");
+  if((c.secuencia===0&&(c.saldoCentavos!==0||c.hashUltimo!=="0".repeat(64)))||
+     (c.secuencia>0&&c.hashUltimo==="0".repeat(64)))
+   throw Error("LEDGER_ANCLA_CHECKPOINT_INVALIDO");
+  if((c.empresaId!==undefined&&c.empresaId!==empresaId)||
+     (c.sedeId!==undefined&&c.sedeId!==sedeId))
+   throw Error("LEDGER_ANCLA_CHECKPOINT_TENANT_INCONSISTENTE");
   if(ancla.secuencia<c.secuencia)throw Error("LEDGER_ANCLA_RETROCESO_DETECTADO");
   if(ancla.secuencia===c.secuencia&&
      (ancla.hashUltimo!==c.hashUltimo||ancla.saldoCentavos!==c.saldoCentavos))
