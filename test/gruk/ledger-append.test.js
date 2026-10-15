@@ -38,6 +38,9 @@ test("ledger refuses writes without a real Mongo transaction", async () => {
   await assert.rejects(registrarMovimiento({ ...data, montoMenor: "0" }), /LEDGER_ENTRADA_INVALIDA/);
   await assert.rejects(registrarMovimiento({ ...data, montoMenor: "9".repeat(25) }), /LEDGER_ENTRADA_INVALIDA/);
   await assert.rejects(registrarMovimiento({ ...data, tipo: "CORRECCION" }), /LEDGER_ENTRADA_INVALIDA/);
+  await assert.rejects(registrarMovimiento({
+    ...data, correccionDe: new mongoose.Types.ObjectId()
+  }), /LEDGER_ENTRADA_INVALIDA/);
   await assert.rejects(registrarMovimiento({ ...data, empresaId: undefined }), /LEDGER_IDENTIDAD_INVALIDA/);
   await assert.rejects(registrarMovimiento({ ...data, sedeId: undefined }), /LEDGER_IDENTIDAD_INVALIDA/);
   await assert.rejects(registrarMovimiento({ ...data, actorId: undefined }), /LEDGER_IDENTIDAD_INVALIDA/);
