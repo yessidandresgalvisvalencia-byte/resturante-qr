@@ -167,7 +167,7 @@ costoFuente:
       }
     }], { session });
 
-    if (emitirEvento) eventBus.emit("VENTA_COMPLETADA", {
+    if (emitirEvento && !session) eventBus.emit("VENTA_COMPLETADA", {
       ventaId: venta._id,
       empresaId: venta.empresaId,
       sedeId: venta.sedeId,
@@ -207,9 +207,13 @@ costoFuente:
     // el mismo pedido nunca debe generar dos ventas.
     if (error && error.code === 11000) {
       const ventaExistente = await Venta.findOne({
+        empresaId,
+        sedeId,
         origen: "restaurante",
         origenId: pedido._id
       }).session(session);
+
+      if (!ventaExistente) throw error;
 
       return {
         venta: ventaExistente,
