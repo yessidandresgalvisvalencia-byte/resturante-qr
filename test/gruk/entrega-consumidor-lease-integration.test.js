@@ -91,3 +91,31 @@ test("closed parent refuses pending consumer claim", {
     await mongoose.disconnect();
   }
 });
+
+
+test("processing parent outbox cannot issue consumer lease", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Entrega = require("../../models/GrukEntregaConsumidor");
+  const { reclamarEntrega } = require("../../core/eventos/entregaConsumidor.service");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_processing_parent_claim_test" });
+  try {
+    await Promise.all([Outbox.init(), Entrega.init()]);
+    const empresaId = new mongoose.Types.ObjectId();
+    const ventaId = new mongoose.Types.ObjectId();
+    const event = await Outbox.create({
+      empresaId, aggregateId: ventaId, eventName: "VENTA_COMPLETADA",
+      estado: "PROCESANDO", payload: { empresaId, ventaId }
+    });
+    await Entrega.create({ empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1" });
+    assert.deepEqual(await reclamarEntrega({ empresaId, eventId: event._id,
+      consumidor: "CAJA_VENTA_V1" }), { reclamada: false });
+    const delivery = await Entrega.findOne({ empresaId, eventId: event._id });
+    assert.equal(delivery.estado, "PENDIENTE");
+    assert.equal(delivery.intentos, 0);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
