@@ -51,6 +51,11 @@ test("expired consumer lease is reclaimable and stale owner cannot ACK or releas
     }).lean();
     assert.equal(saved.estado, "ENTREGADO");
     assert.equal(saved.intentos, 2);
+    assert.equal((await reclamarEntrega({ empresaId, eventId: event._id,
+      consumidor: "CAJA_VENTA_V1", now: new Date(t0.getTime() + 122000) })).reclamada, false);
+    assert.equal((await confirmarEntrega({ empresaId, eventId: event._id,
+      consumidor: "CAJA_VENTA_V1", leaseToken: second.leaseToken,
+      now: new Date(t0.getTime() + 61003) })).confirmado, false);
   } finally {
     await mongoose.disconnect();
   }
