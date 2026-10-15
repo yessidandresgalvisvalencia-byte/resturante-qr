@@ -1,5 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const { iniciarOutboxWorker } = require("./services/p0/outbox.worker");
 const path = require("path");
 require("dotenv").config();
 const http = require("http");
@@ -139,6 +140,8 @@ async function iniciarAplicacion() {
     iniciarCajaJob();
     iniciarCerebroJob();
     iniciarMemoriaJob();
+    // Staging only: worker has fail-closed environment gates; never enabled in production.
+    iniciarOutboxWorker({ io });
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`Servidor corriendo en puerto ${PORT}`);

@@ -25,6 +25,15 @@ async function registrarVentaDesdePedido({
     );
   }
 
+  // Una transacción abierta no autoriza publicación de eventos.
+  // El llamador debe pasar emitirEvento:false y publicar SOLO tras commit.
+  // Para garantía durable entre reinicios se requiere Outbox transaccional.
+  if (session && emitirEvento) {
+    throw new Error(
+      "GRUK Ventas: evento transaccional prohibido antes de commit; use emitirEvento:false y publique después del commit"
+    );
+  }
+
   try {
     if (!pedido.productoServicioId) {
       throw new Error(
@@ -205,11 +214,19 @@ costoFuente:
   } catch (error) {
     // Idempotencia:
     // el mismo pedido nunca debe generar dos ventas.
-    if (error && error.code === 11000) {
+    if (
+      error?.code === 11000 &&
+      error.keyPattern?.origen === 1 &&
+      error.keyPattern?.origenId === 1
+    ) {
       const ventaExistente = await Venta.findOne({
+        empresaId,
         origen: "restaurante",
         origenId: pedido._id
       }).session(session);
+
+      // Nunca devolver una venta de otro tenant ni éxito sin registro.
+      if (!ventaExistente) throw error;
 
       return {
         venta: ventaExistente,

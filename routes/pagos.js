@@ -3,6 +3,8 @@ const express = require("express");
 const crypto = require("crypto");
 const Pedido = require("../models/pedido");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
+const { validarPedidosIntento } = require("../services/gruk/validarPedidosIntento");
+const { totalPedidoCopEnCentavos } = require("../services/gruk/totalPedidoCopEnCentavos");
 
 const router = express.Router();
 
@@ -29,7 +31,24 @@ router.post("/crear-pago", async (req, res) => {
 
     if (!pedidos.length) return res.status(409).json({ ok: false, error: "No hay pedidos pendientes de pago" });
 
-    const amountInCents = pedidos.reduce((sum, p) => sum + Math.round(Number(p.precio) * 100), 0);
+    try {
+      validarPedidosIntento(pedidos.map(p => p._id));
+    } catch (error) {
+      if (error.message === "PEDIDOS_DEL_INTENTO_INVALIDOS") {
+        return res.status(409).json({ ok: false, error: "Los pedidos requieren revisión antes de pagar" });
+      }
+      throw error;
+    }
+
+    let amountInCents;
+    try {
+      amountInCents = totalPedidoCopEnCentavos(pedidos.map(p => p.precio));
+    } catch (error) {
+      if (["PEDIDOS_SIN_PRECIOS", "MONTO_PEDIDO_NO_REPRESENTABLE", "MONTO_TOTAL_NO_REPRESENTABLE"].includes(error.message)) {
+        return res.status(409).json({ ok: false, error: "Los importes del pedido requieren revisión antes de pagar" });
+      }
+      throw error;
+    }
     if (!Number.isSafeInteger(amountInCents) || amountInCents <= 0) {
       return res.status(409).json({ ok: false, error: "El total del pedido no es válido" });
     }
