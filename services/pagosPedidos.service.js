@@ -4,7 +4,7 @@ const Pedido = require("../models/pedido");
 const Restaurante = require("../models/restaurante");
 const Sede = require("../models/sede");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
-const { registrarVentaDesdePedido, emitirVentaCompletada } = require("./ventas.service");
+const { registrarVentaDesdePedido } = require("./ventas.service");
 
 async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const reference = String(transaction?.reference || "");
@@ -77,12 +77,10 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   }
 
   const session = await mongoose.startSession();
-  const ventasPostCommit = [];
   const pedidosPostCommit = [];
   try {
     await session.withTransaction(async () => {
       // withTransaction may retry this callback; discard stale post-commit effects.
-      ventasPostCommit.length = 0;
       pedidosPostCommit.length = 0;
       const lockedIntento = await IntentoPagoPedido.findOne({ reference }).session(session);
       if (!lockedIntento) throw new Error("INTENTO_NO_ENCONTRADO");
@@ -123,7 +121,7 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
           if (sede) sedeObjectId = sede._id;
         }
 
-        const resultado = await registrarVentaDesdePedido({
+        await registrarVentaDesdePedido({
           pedido,
           empresaId: restaurante.empresaId,
           sedeId: sedeObjectId,
@@ -134,7 +132,6 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
         pedido.metodoPago = "tarjeta";
         await pedido.save({ session });
         pedidosPostCommit.push(pedido);
-        if (resultado.creada) ventasPostCommit.push(resultado.venta);
       }
 
       lockedIntento.estado = "APROBADO";
@@ -143,7 +140,6 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
       await lockedIntento.save({ session });
     });
 
-    for (const venta of ventasPostCommit) emitirVentaCompletada(venta);
     if (io) for (const pedido of pedidosPostCommit) io.emit("pedido:actualizado", pedido);
     return { handled: true, ok: true, estado: "APROBADO" };
   } finally {
