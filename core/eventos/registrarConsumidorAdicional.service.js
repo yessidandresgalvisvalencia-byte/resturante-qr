@@ -25,6 +25,10 @@ async function registrarConsumidorAdicional({ eventId, empresaId, consumidor }) 
           String(event.payload?.ventaId) !== String(event.aggregateId)) {
         throw new Error("OUTBOX_REGISTRO_EVENTO_NO_PENDIENTE");
       }
+      const existingBeforeFence = await Entrega.findOne({
+        empresaId, eventId, consumidor
+      }).session(session).lean();
+      if (existingBeforeFence) return { registrada: false, existente: true };
       const touch = await Outbox.updateOne({
         _id: eventId, empresaId, estado: "PENDIENTE"
       }, { $inc: { registroVersion: 1 } }, { session });
