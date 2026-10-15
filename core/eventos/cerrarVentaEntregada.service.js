@@ -27,6 +27,15 @@ async function cerrarVentaEntregada({ eventId, empresaId }) {
       }
       if (event.estado === "ENTREGADO") return { cerrado: false, yaEntregado: true };
       if (event.estado !== "PENDIENTE") return { cerrado: false, motivo: "EVENTO_NO_PENDIENTE" };
+      // Fence concurrent consumer registration against this closure transaction.
+      // Every supported registration updates registroVersion on the parent.
+      const versionFence = await Outbox.updateOne({
+        _id: eventId, empresaId, estado: "PENDIENTE",
+        registroVersion: event.registroVersion || 0
+      }, { $inc: { registroVersion: 1 } }, { session });
+      if (versionFence.modifiedCount !== 1) {
+        throw new Error("OUTBOX_CIERRE_VERSION_CONFLICTO");
+      }
       const entregas = await Entrega.find({ empresaId, eventId }).session(session).lean();
       if (entregas.length < OBLIGATORIOS.length ||
           !OBLIGATORIOS.every(name =>
