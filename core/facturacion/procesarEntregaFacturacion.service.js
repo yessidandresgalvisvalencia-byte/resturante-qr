@@ -6,8 +6,8 @@ const { consumirVentaEnFacturacion } = require("./facturacionVenta.consumer");
 
 const CONSUMIDOR = "FACTURACION_VENTA_V1";
 
-async function procesarEntregaFacturacion({ eventId, empresaId }) {
-  const claim = await reclamarEntrega({ eventId, empresaId, consumidor: CONSUMIDOR });
+async function procesarEntregaFacturacion({ eventId, empresaId, enforceRetryPolicy = false }) {
+  const claim = await reclamarEntrega({ eventId, empresaId, consumidor: CONSUMIDOR, enforceRetryPolicy });
   if (!claim.reclamada) return { procesado: false, motivo: "NO_RECLAMABLE" };
   const leaseToken = claim.leaseToken;
   try {
