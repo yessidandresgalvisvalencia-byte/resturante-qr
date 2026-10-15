@@ -17,28 +17,46 @@ async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
     throw new Error("ENTREGA_FECHA_INVALIDA");
   }
-  const evento = await Outbox.findOne({ _id: eventId, empresaId }).lean();
-  if (evento && (evento.eventName !== "VENTA_COMPLETADA" ||
-      String(evento.payload?.empresaId) !== String(empresaId) ||
-      String(evento.payload?.ventaId) !== String(evento.aggregateId))) {
-    throw new Error("ENTREGA_EVENTO_IDENTIDAD_INCONSISTENTE");
+  const session = await mongoose.startSession();
+  try {
+    return await session.withTransaction(async () => {
+      const evento = await Outbox.findOne({ _id: eventId, empresaId })
+        .session(session).lean();
+      if (evento && (evento.eventName !== "VENTA_COMPLETADA" ||
+          String(evento.payload?.empresaId) !== String(empresaId) ||
+          String(evento.payload?.ventaId) !== String(evento.aggregateId))) {
+        throw new Error("ENTREGA_EVENTO_IDENTIDAD_INCONSISTENTE");
+      }
+      if (!evento) throw new Error("ENTREGA_EVENTO_NO_ENCONTRADO");
+      if (evento.estado !== "PENDIENTE") return { reclamada: false };
+      const leaseToken = randomUUID();
+      const leaseHasta = new Date(now.getTime() + LEASE_MS);
+      if (!Number.isFinite(leaseHasta.getTime())) throw new Error("ENTREGA_LEASE_INVALIDO");
+      const entrega = await Entrega.findOneAndUpdate({
+        eventId, empresaId, consumidor,
+        $or: [
+          { estado: "PENDIENTE" },
+          { estado: "PROCESANDO", leaseHasta: { $lte: now } }
+        ]
+      }, {
+        $set: { estado: "PROCESANDO", leaseToken, leaseHasta },
+        $inc: { intentos: 1 }
+      }, { session, returnDocument: "after" }).lean();
+      if (!entrega) return { reclamada: false };
+      // Parent write fence: closing or registering a consumer must conflict
+      // with this claim rather than commit from an obsolete parent snapshot.
+      const fence = await Outbox.updateOne({
+        _id: eventId, empresaId, estado: "PENDIENTE",
+        registroVersion: evento.registroVersion || 0
+      }, { $inc: { registroVersion: 1 } }, { session });
+      if (fence.modifiedCount !== 1) {
+        throw new Error("ENTREGA_EVENTO_VERSION_CONFLICTO");
+      }
+      return { reclamada: true, leaseToken, entrega };
+    });
+  } finally {
+    await session.endSession();
   }
-  if (!evento) throw new Error("ENTREGA_EVENTO_NO_ENCONTRADO");
-  if (evento.estado !== "PENDIENTE") return { reclamada: false };
-  const leaseToken = randomUUID();
-  const leaseHasta = new Date(now.getTime() + LEASE_MS);
-  if (!Number.isFinite(leaseHasta.getTime())) throw new Error("ENTREGA_LEASE_INVALIDO");
-  const entrega = await Entrega.findOneAndUpdate({
-    eventId, empresaId, consumidor,
-    $or: [
-      { estado: "PENDIENTE" },
-      { estado: "PROCESANDO", leaseHasta: { $lte: now } }
-    ]
-  }, {
-    $set: { estado: "PROCESANDO", leaseToken, leaseHasta },
-    $inc: { intentos: 1 }
-  }, { returnDocument: "after" }).lean();
-  return entrega ? { reclamada: true, leaseToken, entrega } : { reclamada: false };
 }
 
 async function confirmarEntrega({ eventId, empresaId, consumidor, leaseToken, now = new Date() }) {
