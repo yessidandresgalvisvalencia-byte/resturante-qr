@@ -54,6 +54,17 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
       confirmadoAt: new Date()
     }]);
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "VENTA_REVERSADA");
+    assert.equal(await Caja.countDocuments({
+      empresaId, sedeId, origenTipo: "VENTA", origenId: venta._id,
+      tipoAsiento: "CONFIRMACION"
+    }), 1);
+    assert.equal(await Caja.countDocuments({
+      empresaId, sedeId, origenTipo: "VENTA", origenId: venta._id,
+      tipoAsiento: "REVERSION"
+    }), 1);
+    assert.equal(await Ledger.countDocuments({
+      empresaId, sedeId, claveIdempotencia: "venta:" + String(origenId)
+    }), 1);
   } finally {
     await mongoose.disconnect();
   }
