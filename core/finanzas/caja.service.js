@@ -277,7 +277,8 @@ async function buscarConfirmacionActiva({
   origenTipo,
   origenId,
   referenciaEconomica: referencia = null,
-  direccion = null
+  direccion = null,
+  session = null
 }) {
   const filtroOrigen = {
     empresaId,
@@ -295,6 +296,7 @@ async function buscarConfirmacionActiva({
         confirmadoAt: -1,
         createdAt: -1
       })
+      .session(session)
       .lean();
 
   for (const confirmacion of confirmaciones) {
@@ -305,7 +307,7 @@ async function buscarConfirmacionActiva({
         movimientoOriginalId:
           confirmacion._id,
         deletedAt: null
-      });
+      }).session(session);
 
     if (!reversada) {
       return confirmacion;
@@ -331,6 +333,7 @@ async function buscarConfirmacionActiva({
         confirmadoAt: -1,
         createdAt: -1
       })
+      .session(session)
       .lean();
 
   for (
@@ -344,7 +347,7 @@ async function buscarConfirmacionActiva({
         movimientoOriginalId:
           confirmacion._id,
         deletedAt: null
-      });
+      }).session(session);
 
     if (!reversada) {
       return confirmacion;
@@ -389,7 +392,7 @@ async function crearIdempotente(documento, { session = null } = {}) {
   }
 }
 
-async function confirmarMovimiento(candidato) {
+async function confirmarMovimiento(candidato, { session = null } = {}) {
   const existente =
     await buscarConfirmacionActiva({
       empresaId:
@@ -401,7 +404,8 @@ async function confirmarMovimiento(candidato) {
       referenciaEconomica:
         candidato.referenciaEconomica,
       direccion:
-        candidato.direccion
+        candidato.direccion,
+      session
     });
 
   if (existente) {
@@ -419,7 +423,8 @@ async function confirmarMovimiento(candidato) {
       sedeId:
         candidato.sedeId,
       metodoPago:
-        candidato.metodoPago
+        candidato.metodoPago,
+      session
     });
 
   return crearIdempotente({
@@ -458,10 +463,10 @@ async function confirmarMovimiento(candidato) {
       candidato.metadata,
     createdBy: null,
     deletedAt: null
-  });
+  }, { session });
 }
 
-async function reversarMovimiento(candidato) {
+async function reversarMovimiento(candidato, { session = null } = {}) {
   const original =
     await buscarConfirmacionActiva({
       empresaId:
@@ -469,7 +474,8 @@ async function reversarMovimiento(candidato) {
       origenTipo:
         candidato.origenTipo,
       origenId:
-        candidato.origenId
+        candidato.origenId,
+      session
     });
 
   if (!original) {
@@ -528,7 +534,7 @@ async function reversarMovimiento(candidato) {
     },
     createdBy: null,
     deletedAt: null
-  });
+  }, { session });
 }
 
 async function registrarMovimientoDesdeEvento(
@@ -536,8 +542,12 @@ async function registrarMovimientoDesdeEvento(
   opciones = {}
 ) {
   const {
-    emitirEvento = true
+    emitirEvento = true,
+    session = null
   } = opciones;
+  if (session && emitirEvento) {
+    throw new Error("CAJA_EMISION_DIRECTA_DENTRO_TRANSACCION");
+  }
   const candidato =
     construirCandidatoDesdeEvento(
       event
@@ -554,10 +564,10 @@ async function registrarMovimientoDesdeEvento(
   const resultado =
     candidato.accion === "REVERSAR"
       ? await reversarMovimiento(
-          candidato
+          candidato, { session }
         )
       : await confirmarMovimiento(
-          candidato
+          candidato, { session }
         );
 
   if (
