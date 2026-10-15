@@ -20,6 +20,10 @@ test("invalid dispatcher inputs fail before claiming pending outbox events", {
     await assert.rejects(despacharSiguienteVenta({ now: new Date("invalid") }), /OUTBOX_FECHA_INVALIDA/);
     await assert.rejects(despacharSiguienteVenta({ now: "2026-10-15" }), /OUTBOX_FECHA_INVALIDA/);
     await assert.rejects(despacharSiguienteVenta({ emitir: null }), /OUTBOX_EMISOR_INVALIDO/);
+    await assert.rejects(
+      despacharSiguienteVenta({ now: new Date(8640000000000000), emitir: async () => true }),
+      /OUTBOX_LEASE_FECHA_FUERA_DE_RANGO/
+    );
     const almacenado = await OutboxEvent.findById(evento._id).lean();
     assert.equal(almacenado.estado, "PENDIENTE");
     assert.equal(almacenado.intentos, 0);
