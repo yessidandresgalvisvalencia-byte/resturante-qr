@@ -16,3 +16,10 @@ test("sale and ledger reject an unrelated MongoDB client session", async () => {
     session: { inTransaction: () => true, client: {} }
   }), /VENTA_LEDGER_TRANSACCION_REQUERIDA/);
 });
+
+test("sale-ledger validates identities before accessing order data", async () => {
+  const mongoose = require("mongoose");
+  const session = { inTransaction: () => true, client: mongoose.connection.getClient() };
+  await assert.rejects(registrarVentaConLedger({ session }),
+    /VENTA_LEDGER_IDENTIDAD_INVALIDA/);
+});
