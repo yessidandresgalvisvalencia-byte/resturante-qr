@@ -90,6 +90,18 @@ test("V1000: ancla posterior no puede saltar el tramo desde un checkpoint confia
  await assert.rejects(recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[asiento,asiento]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,checkpointConfiable:{...args.checkpointConfiable,secuencia:0},asientosDesdeCheckpoint:[asiento]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[{...asiento,montoCentavos:6}]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
+ for(const malformed of [
+  {...asiento,id:"not-a-ulid"},
+  {...asiento,actorId:"invalid-actor"},
+  {...asiento,ip:"invalid-ip"},
+  {...asiento,timestamp:"not-a-date"}
+ ]){
+  malformed.hash=hashAsiento(malformed);
+  await assert.rejects(
+   recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[malformed]}),
+   /LEDGER_ANCLA_CONTINUIDAD_INVALIDA/
+  );
+ }
 });
 
 test("V1000: checkpoint no acepta génesis falso ni tenant cruzado",async()=>{
