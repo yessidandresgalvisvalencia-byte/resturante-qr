@@ -46,6 +46,29 @@ test("Wompi webhook transitions preserve terminal approval and rejection under c
     assert.equal(mismatched.ok, false);
     assert.equal(mismatched.reason, "TRANSACCION_DIFERENTE_PARA_REFERENCIA");
 
+    const repeated = await confirmarPagoPedidoWompi({
+      transaction: webhook("GRUK_PEDIDO_CI_APPROVED", "APPROVED")
+    });
+    assert.equal(repeated.ok, true);
+    assert.equal(repeated.idempotent, true);
+
+    const missingId = await confirmarPagoPedidoWompi({
+      transaction: webhook("GRUK_PEDIDO_CI_APPROVED", "PENDING", "")
+    });
+    assert.equal(missingId.ok, false);
+    assert.equal(missingId.reason, "TRANSACCION_SIN_IDENTIFICADOR");
+
+    const unknown = await confirmarPagoPedidoWompi({
+      transaction: webhook("GRUK_PEDIDO_CI_APPROVED", "UNKNOWN")
+    });
+    assert.equal(unknown.ok, false);
+    assert.equal(unknown.reason, "ESTADO_PASARELA_DESCONOCIDO");
+
+    const attempts = await IntentoPagoPedido.find({
+      reference: { $in: ["GRUK_PEDIDO_CI_APPROVED", "GRUK_PEDIDO_CI_REJECTED"] }
+    }).lean();
+    assert.equal(attempts.length, 2);
+
     const invalidAmount = await confirmarPagoPedidoWompi({
       transaction: { ...webhook("GRUK_PEDIDO_CI_APPROVED", "APPROVED"), amount_in_cents: "123400" }
     });
