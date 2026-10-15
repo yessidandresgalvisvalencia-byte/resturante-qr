@@ -77,4 +77,15 @@ async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePu
   throw Error("LEDGER_ANCLA_RETROCESO_DETECTADO");
  return ancla;
 }
-module.exports={recuperarAnclaExternaConfiable};
+/**
+ * Strict audit entrypoint: independently supplied checkpoint is mandatory.
+ * A bare valid signature is NOT sufficient evidence of ledger continuity.
+ */
+async function recuperarAnclaParaAuditoria(args){
+ if(!args||!args.checkpointConfiable||
+    args.checkpointConfiable.empresaId!==args.empresaId||
+    args.checkpointConfiable.sedeId!==args.sedeId)
+  throw Error("LEDGER_ANCLA_CHECKPOINT_CONFIABLE_REQUERIDO");
+ return recuperarAnclaExternaConfiable(args);
+}
+module.exports={recuperarAnclaExternaConfiable,recuperarAnclaParaAuditoria};
