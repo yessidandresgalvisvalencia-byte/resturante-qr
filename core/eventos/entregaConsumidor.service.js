@@ -36,7 +36,7 @@ async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(
   }, {
     $set: { estado: "PROCESANDO", leaseToken, leaseHasta },
     $inc: { intentos: 1 }
-  }, { new: true }).lean();
+  }, { returnDocument: "after" }).lean();
   return entrega ? { reclamada: true, leaseToken, entrega } : { reclamada: false };
 }
 
