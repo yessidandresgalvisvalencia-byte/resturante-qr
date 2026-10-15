@@ -13,7 +13,13 @@ async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePu
   throw Error("LEDGER_ANCLA_CUSTODIA_NO_CERTIFICADA");
  if(typeof provider.almacenamientoInmutableVerificado!=="boolean"||!provider.almacenamientoInmutableVerificado)
   throw Error("LEDGER_ANCLA_ALMACENAMIENTO_NO_CERTIFICADO");
- const ancla=await provider.obtenerUltimaAncla({empresaId,sedeId});
+ let ancla;
+ try{
+  ancla=await provider.obtenerUltimaAncla({empresaId,sedeId});
+ }catch(err){
+  const fallo=new Error("LEDGER_ANCLA_EXTERNA_NO_DISPONIBLE",{cause:err});
+  throw fallo;
+ }
  if(!ancla)throw Error("LEDGER_ANCLA_EXTERNA_AUSENTE");
  verificarAnclaConClaveFijada({ancla,llavePublicaPem,huellaAutorizada,empresaId,sedeId});
  return ancla;
