@@ -27,3 +27,11 @@ La existencia de dos registros no prueba que el saldo esté duplicado hoy; el ri
 ## Estado
 
 Bloqueo documental preventivo. No implica despliegue ni cambio en el procesamiento actual.
+
+## Contrato mínimo de conciliación de solo lectura
+
+La consulta se acota por `empresaId`, `sedeId` y `ventaId` y no modifica saldos ni registros. El movimiento de Caja debe tener `origenTipo=VENTA`, `origenId=ventaId`, `tipoAsiento=CONFIRMACION`, `direccion=ENTRADA` y `deletedAt=null`. El asiento ledger debe tener `claveIdempotencia=venta:<origenId>`, `tipo=ABONO` y moneda COP. Cada lado debe devolver exactamente un registro. Se comparan importes normalizados a unidades menores sin redondeo implícito. Cualquier ausencia, multiplicidad o diferencia bloquea la conciliación.
+
+**Precaución:** `MovimientoCaja.monto` es `Number` y `GrukLedgerV1.montoMenor` es `String`; el verificador debe rechazar importes legados inseguros en vez de inventar precisión. La correspondencia entre `ventaId` y `origenId` debe verificarse contra la Venta real, no inferirse del identificador de evento.
+
+La conciliación no constituye autorización para sumar ambos registros en reportes: durante la migración, Caja sigue siendo la fuente operativa de saldos.
