@@ -13,13 +13,23 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const intento = await IntentoPagoPedido.findOne({ reference });
   if (!intento) return { handled: true, ok: false, reason: "INTENTO_NO_ENCONTRADO" };
 
-  const amountOk = Number(transaction.amount_in_cents) === Number(intento.amountInCents);
+  const amountCents = transaction?.amount_in_cents;
+  const expectedCents = intento.amountInCents;
+  const amountOk = Number.isSafeInteger(amountCents) &&
+    Number.isSafeInteger(expectedCents) &&
+    amountCents > 0 &&
+    amountCents === expectedCents;
   const currencyOk = String(transaction.currency || "").toUpperCase() === intento.currency;
   if (!amountOk || !currencyOk) {
     console.error("[SEGURIDAD] Pago de pedido con monto/moneda inconsistente", { reference, transactionId: transaction.id });
     return { handled: true, ok: false, reason: "INTEGRIDAD_ECONOMICA_INVALIDA" };
   }
 
+  const transactionId = transaction?.id;
+  if ((typeof transactionId !== "string" && typeof transactionId !== "number") ||
+      !String(transactionId).trim()) {
+    return { handled: true, ok: false, reason: "TRANSACCION_SIN_IDENTIFICADOR" };
+  }
   const status = String(transaction.status || "").toUpperCase();
   if (status !== "APPROVED") {
     const estados = {
