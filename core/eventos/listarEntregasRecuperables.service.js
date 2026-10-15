@@ -20,29 +20,43 @@ async function listarEntregasRecuperables({
       !Number.isSafeInteger(limit) || limit < 1 || limit > MAX_BATCH) {
     throw new Error("ENTREGA_RECUPERACION_PARAMETROS_INVALIDOS");
   }
-  // Fetch more than the requested output count so ineligible parent records
-  // do not consume the entire recovery batch ahead of eligible deliveries.
-  const candidates = await Entrega.find({
-    empresaId, consumidor,
-    $or: [
-      { estado: "PENDIENTE" },
-      { estado: "PROCESANDO", leaseHasta: { $lte: now } }
-    ]
-  }).sort({ updatedAt: 1, _id: 1 }).limit(Math.min(MAX_BATCH * 10, limit * 10)).lean();
-  if (!candidates.length) return [];
-  const eventIds = candidates.map(c => c.eventId);
-  const events = await Outbox.find({
-    _id: { $in: eventIds }, empresaId,
-    eventName: "VENTA_COMPLETADA", estado: "PENDIENTE"
-  }).select("_id aggregateId payload").lean();
-  const eligible = new Set(events.filter(e =>
-    String(e.payload?.empresaId) === String(empresaId) &&
-    String(e.payload?.ventaId) === String(e.aggregateId)
-  ).map(e => String(e._id)));
-  return candidates.filter(c => eligible.has(String(c.eventId))).slice(0, limit).map(c => ({
-    eventId: c.eventId, empresaId: c.empresaId, consumidor: c.consumidor,
-    estado: c.estado, intentos: c.intentos
-  }));
+  const eligibleResults = [];
+  let cursor = null;
+  const scanSize = Math.min(MAX_BATCH, Math.max(limit, 25));
+  // Keyset pagination avoids permanently starving valid deliveries behind
+  // arbitrary numbers of stale records from already closed parent events.
+  while (eligibleResults.length < limit) {
+    const query = {
+      empresaId, consumidor,
+      $or: [
+        { estado: "PENDIENTE" },
+        { estado: "PROCESANDO", leaseHasta: { $lte: now } }
+      ]
+    };
+    if (cursor) query._id = { $gt: cursor };
+    const candidates = await Entrega.find(query)
+      .sort({ _id: 1 }).limit(scanSize).lean();
+    if (!candidates.length) break;
+    cursor = candidates[candidates.length - 1]._id;
+    const events = await Outbox.find({
+      _id: { $in: candidates.map(c => c.eventId) },
+      empresaId, eventName: "VENTA_COMPLETADA", estado: "PENDIENTE"
+    }).select("_id aggregateId payload").lean();
+    const eligible = new Set(events.filter(e =>
+      String(e.payload?.empresaId) === String(empresaId) &&
+      String(e.payload?.ventaId) === String(e.aggregateId)
+    ).map(e => String(e._id)));
+    for (const c of candidates) {
+      if (!eligible.has(String(c.eventId))) continue;
+      eligibleResults.push({
+        eventId: c.eventId, empresaId: c.empresaId, consumidor: c.consumidor,
+        estado: c.estado, intentos: c.intentos
+      });
+      if (eligibleResults.length === limit) break;
+    }
+    if (candidates.length < scanSize) break;
+  }
+  return eligibleResults;
 }
 
 module.exports = { listarEntregasRecuperables };
