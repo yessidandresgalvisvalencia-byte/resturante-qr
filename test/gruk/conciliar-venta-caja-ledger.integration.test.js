@@ -91,7 +91,10 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
         const repetida = await conciliarVentaCajaLedger({ ...ids, session: snapshotSession });
         assert.equal(repetida.estado, "CONCILIADA");
       }, { readConcern: { level: "snapshot" }, readPreference: "primary" });
-      assert.equal((await conciliarVentaCajaLedgerSnapshot(ids)).estado, "VENTA_REVERSADA");
+      const posterior = await conciliarVentaCajaLedgerSnapshot(ids);
+      assert.equal(posterior.estado, "VENTA_REVERSADA");
+      assert.equal(posterior.conciliada, false);
+      assert.equal(posterior.consistencia, "SNAPSHOT");
     } finally {
       await snapshotSession.endSession();
     }
