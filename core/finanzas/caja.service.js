@@ -354,12 +354,12 @@ async function buscarConfirmacionActiva({
   return null;
 }
 
-async function crearIdempotente(documento) {
+async function crearIdempotente(documento, { session = null } = {}) {
   try {
     const creado =
-      await MovimientoCaja.create(
-        documento
-      );
+      (await MovimientoCaja.create(
+        [documento], { session }
+      ))[0];
 
     return {
       movimiento:
@@ -373,9 +373,10 @@ async function crearIdempotente(documento) {
 
     const existente =
       await MovimientoCaja.findOne({
+        empresaId: documento.empresaId,
         claveIdempotencia:
           documento.claveIdempotencia
-      }).lean();
+      }).session(session).lean();
 
     if (!existente) {
       throw error;
