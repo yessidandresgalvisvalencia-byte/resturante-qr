@@ -32,7 +32,7 @@ test("only approved production services import the delivery obligation model", (
   assert.deepEqual(violations, []);
   const recovery = fs.readFileSync(path.join(root,
     "core/eventos/listarEntregasRecuperables.service.js"), "utf8");
-  assert.match(recovery, /Entrega\\.find\\(/);
-  assert.doesNotMatch(recovery, /Entrega\\.(?:create|updateOne|updateMany|deleteOne|deleteMany|findOneAndUpdate|findOneAndDelete|bulkWrite|insertMany|replaceOne)\\s*\\(/);
-  assert.doesNotMatch(recovery, /\\.save\\s*\\(/);
+  assert.match(recovery, /Entrega\.find\(/);
+  assert.doesNotMatch(recovery, /Entrega\.(?:create|updateOne|updateMany|deleteOne|deleteMany|findOneAndUpdate|findOneAndDelete|bulkWrite|insertMany|replaceOne)\s*\(/);
+  assert.doesNotMatch(recovery, /\.save\s*\(/);
 });
