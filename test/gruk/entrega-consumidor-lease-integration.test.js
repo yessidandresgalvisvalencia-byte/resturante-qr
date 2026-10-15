@@ -60,3 +60,34 @@ test("expired consumer lease is reclaimable and stale owner cannot ACK or releas
     await mongoose.disconnect();
   }
 });
+
+
+test("closed parent refuses pending consumer claim", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Entrega = require("../../models/GrukEntregaConsumidor");
+  const { reclamarEntrega } = require("../../core/eventos/entregaConsumidor.service");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_closed_claim_test" });
+  try {
+    await Promise.all([Outbox.init(), Entrega.init()]);
+    const empresaId = new mongoose.Types.ObjectId();
+    const ventaId = new mongoose.Types.ObjectId();
+    const event = await Outbox.create({
+      empresaId, aggregateId: ventaId, eventName: "VENTA_COMPLETADA",
+      estado: "ENTREGADO", payload: { empresaId, ventaId }
+    });
+    await Entrega.create({
+      empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1"
+    });
+    const result = await reclamarEntrega({ empresaId, eventId: event._id,
+      consumidor: "CAJA_VENTA_V1" });
+    assert.deepEqual(result, { reclamada: false });
+    const delivery = await Entrega.findOne({ empresaId, eventId: event._id });
+    assert.equal(delivery.estado, "PENDIENTE");
+    assert.equal(delivery.intentos, 0);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
