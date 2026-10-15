@@ -104,6 +104,19 @@ test("sale-ledger integration rolls back sale, outbox and ledger together", {
         assert.equal(await Outbox.countDocuments({
           empresaId, "payload.origenId": concurrentOrderId
         }), 1);
+        await sessions[0].withTransaction(async () => {
+          const replay = await registrarVentaConLedger({
+            ...concurrentInput, session: sessions[0]
+          });
+          assert.equal(replay.creada, false);
+          assert.equal(replay.movimiento.montoMenor, "5200000");
+        });
+        assert.equal(await Venta.countDocuments({
+          empresaId, origenId: concurrentOrderId
+        }), 1);
+        assert.equal(await Ledger.countDocuments({
+          empresaId, sedeId, claveIdempotencia: concurrentInput.claveIdempotencia
+        }), 1);
       } finally {
         await Promise.all(sessions.map((activeSession) => activeSession.endSession()));
       }
