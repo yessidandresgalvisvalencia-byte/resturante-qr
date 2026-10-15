@@ -6,6 +6,12 @@ const Entrega = require("../../models/GrukEntregaConsumidor");
 const Outbox = require("../../models/GrukOutboxEvent");
 
 const LEASE_MS = 60_000;
+const MAX_CLAIM_ATTEMPTS = 3;
+
+function isTransientWriteConflict(error) {
+  return typeof error?.hasErrorLabel === "function" &&
+    error.hasErrorLabel("TransientTransactionError");
+}
 
 async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date() }) {
   if (!mongoose.isValidObjectId(eventId) || !mongoose.isValidObjectId(empresaId)) {
@@ -17,9 +23,10 @@ async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
     throw new Error("ENTREGA_FECHA_INVALIDA");
   }
-  const session = await mongoose.startSession();
-  try {
-    return await session.withTransaction(async () => {
+  for (let attempt = 1; attempt <= MAX_CLAIM_ATTEMPTS; attempt += 1) {
+    const session = await mongoose.startSession();
+    try {
+      return await session.withTransaction(async () => {
       const evento = await Outbox.findOne({ _id: eventId, empresaId })
         .session(session).lean();
       if (evento && (evento.eventName !== "VENTA_COMPLETADA" ||
@@ -53,9 +60,15 @@ async function reclamarEntrega({ eventId, empresaId, consumidor, now = new Date(
         throw new Error("ENTREGA_EVENTO_VERSION_CONFLICTO");
       }
       return { reclamada: true, leaseToken, entrega };
-    });
-  } finally {
-    await session.endSession();
+      });
+    } catch (error) {
+      if (!isTransientWriteConflict(error)) throw error;
+      if (attempt === MAX_CLAIM_ATTEMPTS) {
+        throw new Error("ENTREGA_RECLAMACION_CONFLICTO_AGOTADO", { cause: error });
+      }
+    } finally {
+      await session.endSession();
+    }
   }
 }
 
