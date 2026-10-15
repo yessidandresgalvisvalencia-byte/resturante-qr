@@ -8,11 +8,25 @@ const LEASE_MS = 60_000;
 
 // Delivery is at-least-once. Consumers must deduplicate by stable event id.
 
-async function despacharSiguienteVenta({ now = new Date(), emitir = (name, payload, metadata) => {
-  if (eventBus.listenerCount(name) === 0) {
+async function despacharSiguienteVenta({ now = new Date(), emitir = async (name, payload, metadata) => {
+  const consumidores = eventBus.rawListeners(name);
+  if (consumidores.length === 0) {
     throw new Error("OUTBOX_SIN_CONSUMIDORES_REGISTRADOS");
   }
-  return eventBus.emit(name, payload, metadata);
+  const envelope = Object.freeze({
+    eventName: name,
+    occurredAt: new Date(),
+    payload,
+    metadata: Object.freeze({ ...metadata })
+  });
+  // Await every listener: EventEmitter.emit() does not await async handlers.
+  // A failure leaves the outbox pending; all consumers must be idempotent.
+  const resultados = await Promise.allSettled(
+    consumidores.map(listener => Promise.resolve().then(() => listener.call(eventBus, envelope)))
+  );
+  const fallido = resultados.find(resultado => resultado.status === "rejected");
+  if (fallido) throw fallido.reason;
+  return true;
 } } = {}) {
   const leaseToken = randomUUID();
   const leaseHasta = new Date(now.getTime() + LEASE_MS);
