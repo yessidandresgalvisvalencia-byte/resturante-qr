@@ -55,6 +55,8 @@ test("concurrent Wompi approvals create exactly one paid sale", { skip: !uri }, 
     assert.equal((await Pedido.findById(pedido._id)).estadoPago, "pendiente");
     assert.equal((await IntentoPagoPedido.findOne({ reference })).estado, "CREADO");
 
+    assert.equal(await OutboxEvent.countDocuments({ empresaId }), 0);
+
     const results = await Promise.allSettled([
       confirmarPagoPedidoWompi({ transaction }),
       confirmarPagoPedidoWompi({ transaction })
