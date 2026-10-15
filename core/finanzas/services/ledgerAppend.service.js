@@ -29,7 +29,7 @@ function validarEntrada(data) {
       data.claveIdempotencia.length < 8 || data.claveIdempotencia.length > 200 ||
       !["CARGO", "ABONO"].includes(data.tipo) ||
       typeof data.montoMenor !== "string" || !POS.test(data.montoMenor) ||
-      data.montoMenor === "0" ||
+      data.montoMenor === "0" || data.montoMenor.length > 24 ||
       (data.correccionDe != null && !mongoose.isValidObjectId(data.correccionDe))) {
     throw new Error("LEDGER_ENTRADA_INVALIDA");
   }
@@ -62,9 +62,10 @@ async function registrarMovimiento(data, { session } = {}) {
     throw new Error("LEDGER_ULTIMO_MOVIMIENTO_CORRUPTO");
   }
   const saldoAntes = ultimo ? ultimo.saldoDespuesMenor : "0";
-  if (!INT.test(saldoAntes)) throw new Error("LEDGER_SALDO_INVALIDO");
+  if (!INT.test(saldoAntes) || saldoAntes.length > 25) throw new Error("LEDGER_SALDO_INVALIDO");
   const delta = BigInt(data.montoMenor) * (data.tipo === "CARGO" ? -1n : 1n);
   const saldoDespues = (BigInt(saldoAntes) + delta).toString();
+  if (saldoDespues.length > 25) throw new Error("LEDGER_SALDO_FUERA_DE_RANGO");
   const registro = {
     ...scope, cuenta: data.cuenta, secuencia: ultimo ? ultimo.secuencia + 1 : 1,
     tipo: data.tipo, moneda: "COP", montoMenor: data.montoMenor,
