@@ -27,5 +27,9 @@ test("V1000: rechazar reuso de operacionId con importe distinto, sin alterar asi
   assert.equal(head.secuencia,1);
   assert.equal(head.saldoCentavos,100);
   assert.equal(head.hashUltimo,first.hash);
+  const unchanged=await Movimiento.findOne({empresaId:base.empresaId,sedeId:base.sedeId,operacionId:base.operacionId}).lean();
+  assert.equal(unchanged.hash,first.hash);
+  assert.equal(unchanged.id,first.id);
+  assert.equal(unchanged.montoCentavos,100);
  }finally{await mongoose.connection.dropDatabase();await mongoose.disconnect();}
 });
