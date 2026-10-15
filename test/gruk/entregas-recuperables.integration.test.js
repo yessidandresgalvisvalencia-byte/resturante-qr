@@ -48,3 +48,33 @@ test("recovery discovery only returns pending or expired deliveries for eligible
     await mongoose.disconnect();
   }
 });
+
+
+test("recovery discovery does not let a closed parent consume the only result slot", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Entrega = require("../../models/GrukEntregaConsumidor");
+  const { listarEntregasRecuperables } = require("../../core/eventos/listarEntregasRecuperables.service");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_recovery_starvation_test" });
+  try {
+    await Promise.all([Outbox.init(), Entrega.init()]);
+    const empresaId = new mongoose.Types.ObjectId();
+    async function seed(state) {
+      const ventaId = new mongoose.Types.ObjectId();
+      const event = await Outbox.create({ empresaId, aggregateId: ventaId,
+        eventName: "VENTA_COMPLETADA", estado: state, payload: { empresaId, ventaId } });
+      await Entrega.create({ empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1" });
+      return event;
+    }
+    await seed("ENTREGADO");
+    const eligible = await seed("PENDIENTE");
+    const found = await listarEntregasRecuperables({ empresaId,
+      consumidor: "CAJA_VENTA_V1", limit: 1 });
+    assert.equal(found.length, 1);
+    assert.equal(String(found[0].eventId), String(eligible._id));
+  } finally {
+    await mongoose.disconnect();
+  }
+});
