@@ -16,11 +16,12 @@ test("transactional event emission is deferred", () => {
  assert.match(source, /if \(emitirEvento && !session\)/);
 });
 
-test("Wompi order payment emits sales after successful transaction", () => {
+test("Wompi order payment persists outbox without direct post-commit emission", () => {
  const payment = fs.readFileSync(path.join(__dirname, "../../services/pagosPedidos.service.js"), "utf8");
  const transactionStart = payment.indexOf("await session.withTransaction(");
- const emitAfter = payment.indexOf("for (const venta of ventasPostCommit) emitirVentaCompletada(venta)");
- assert.ok(transactionStart >= 0 && emitAfter > transactionStart);
+ assert.ok(transactionStart >= 0);
+ assert.doesNotMatch(payment, /emitirVentaCompletada\(/);
+ assert.match(payment, /await registrarVentaDesdePedido\(/);
  assert.match(payment, /emitirEvento:\s*false/);
 });
 
@@ -43,7 +44,7 @@ test("index preflight is read-only and tenant-scoped", () => {
 test("MongoDB transaction callback retries clear deferred effects", () => {
  const payment = fs.readFileSync(path.join(__dirname, "../../services/pagosPedidos.service.js"), "utf8");
  const api = fs.readFileSync(path.join(__dirname, "../../routes/API.js"), "utf8");
- assert.match(payment, /withTransaction\(async \(\) => \{\s*\/\/[^\n]*\n\s*ventasPostCommit\.length = 0;\s*pedidosPostCommit\.length = 0;/);
+ assert.match(payment, /withTransaction\(async \(\) => \{\s*\/\/[^\n]*\n\s*pedidosPostCommit\.length = 0;/);
  assert.match(api, /withTransaction\(async \(\) => \{\s*\/\/[^\n]*\n\s*pedidoFinal = null;\s*ventaPostCommit = null;/);
 });
 
