@@ -49,7 +49,7 @@ test("MongoDB transaction callback retries clear deferred effects", () => {
 
 test("Wompi late declined webhook cannot overwrite approved payment", () => {
  const payment = fs.readFileSync(path.join(__dirname, "../../services/pagosPedidos.service.js"), "utf8");
- assert.match(payment, /estado: \{ \$ne: "APROBADO" \}/);
+ assert.match(payment, /estado: \{ \$in: estadosPermitidos \}/);
  assert.match(payment, /ESTADO_PASARELA_DESCONOCIDO/);
  assert.match(payment, /TRANSACCION_DIFERENTE_PARA_REFERENCIA/);
  assert.doesNotMatch(payment, /if \(status !== "APPROVED"\) \{\s*await intento\.save\(\)/);
@@ -61,4 +61,10 @@ test("Wompi amount must be an exact safe integer in cents", () => {
  assert.match(payment, /Number\.isSafeInteger\(expectedCents\)/);
  assert.match(payment, /amountCents === expectedCents/);
  assert.match(payment, /TRANSACCION_SIN_IDENTIFICADOR/);
+});
+
+test("pending Wompi updates cannot revert rejected payments", () => {
+ const payment = fs.readFileSync(path.join(__dirname, "../../services/pagosPedidos.service.js"), "utf8");
+ assert.match(payment, /siguienteEstado === "PENDIENTE"\s*\? \["CREADO", "PENDIENTE"\]/);
+ assert.match(payment, /estado: actual\?\.estado \|\| "DESCONOCIDO"/);
 });
