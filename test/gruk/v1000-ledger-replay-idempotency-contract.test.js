@@ -20,5 +20,5 @@ test("Ledger V1000 verifica operación repetida en snapshot y reconcilia confirm
  assert.match(source,/const duplicado=await Movimiento\.findOne\(\{empresaId,sedeId,operacionId\}\)\.session\(session\)/);
  assert.match(source,/UnknownTransactionCommitResult/);
  assert.match(source,/error\?\.code===11000/);
- assert.match(source,/const confirmed=await recuperar\(\)/);
+ assert.match(source,/confirmed=await recuperar\(\)/);
 });
