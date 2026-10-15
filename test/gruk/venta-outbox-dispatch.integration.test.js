@@ -35,6 +35,32 @@ test("outbox dispatcher retries failed delivery without losing durable event", {
     assert.equal(String(recibidos[0].payload.ventaId), String(aggregateId));
     assert.equal((await OutboxEvent.findById(evento._id)).estado, "ENTREGADO");
     assert.equal((await OutboxEvent.findById(evento._id)).intentos, 2);
+    const aggregateBloqueado = new mongoose.Types.ObjectId();
+    const bloqueado = await OutboxEvent.create({
+      empresaId, aggregateId: aggregateBloqueado, eventName: "VENTA_COMPLETADA",
+      payload: { ventaId: aggregateBloqueado, empresaId },
+      estado: "PROCESANDO",
+      leaseHasta: new Date(Date.now() + 60_000),
+      leaseToken: "otro-trabajador"
+    });
+    const noDisponible = await despacharSiguienteVenta({
+      emitir: () => { throw new Error("NO_DEBE_EMITIR"); }
+    });
+    assert.equal(noDisponible.procesado, false);
+    assert.equal((await OutboxEvent.findById(bloqueado._id)).intentos, 0);
+
+    await OutboxEvent.updateOne({ _id: bloqueado._id }, {
+      $set: { leaseHasta: new Date(Date.now() - 60_000) }
+    });
+    const recuperados = [];
+    const recuperado = await despacharSiguienteVenta({
+      emitir: (name, payload) => recuperados.push({ name, payload })
+    });
+    assert.equal(recuperado.entregado, true);
+    assert.equal(recuperados.length, 1);
+    assert.equal(String(recuperados[0].payload.ventaId), String(aggregateBloqueado));
+    assert.equal((await OutboxEvent.findById(bloqueado._id)).estado, "ENTREGADO");
+
   } finally {
     await mongoose.disconnect();
   }
