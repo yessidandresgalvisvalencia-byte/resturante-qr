@@ -6,6 +6,8 @@ const eventBus = require("./eventBus");
 
 const LEASE_MS = 60_000;
 
+// Delivery is at-least-once. Consumers must deduplicate by stable event id.
+
 async function despacharSiguienteVenta({ now = new Date(), emitir = (name, payload) => eventBus.emit(name, payload) } = {}) {
   const leaseToken = randomUUID();
   const leaseHasta = new Date(now.getTime() + LEASE_MS);
@@ -26,7 +28,12 @@ async function despacharSiguienteVenta({ now = new Date(), emitir = (name, paylo
   if (!evento) return { procesado: false };
 
   try {
-    await emitir(evento.eventName, evento.payload);
+    await emitir(evento.eventName, evento.payload, {
+      eventId: String(evento._id),
+      empresaId: String(evento.empresaId),
+      aggregateId: String(evento.aggregateId),
+      intento: evento.intentos
+    });
     const actualizado = await OutboxEvent.updateOne(
       { _id: evento._id, estado: "PROCESANDO", leaseToken },
       { $set: { estado: "ENTREGADO", entregadoAt: new Date(), ultimoError: "" },
