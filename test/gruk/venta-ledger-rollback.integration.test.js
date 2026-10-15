@@ -74,6 +74,10 @@ test("sale-ledger integration rolls back sale, outbox and ledger together", {
         });
       }), /VENTA_LEDGER_REINTENTO_INCONSISTENTE/);
       assert.equal(await Ledger.countDocuments({ empresaId, sedeId }), 1);
+      await assert.rejects(session.withTransaction(async () => {
+        await registrarVentaConLedger({ ...input, ip: "127.0.0.2", session });
+      }), /VENTA_LEDGER_REINTENTO_INCONSISTENTE/);
+      assert.equal(await Ledger.countDocuments({ empresaId, sedeId }), 1);
     } finally {
       await session.endSession();
     }
