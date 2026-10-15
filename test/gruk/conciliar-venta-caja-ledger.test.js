@@ -118,3 +118,28 @@ test("reconciliation rejects reversed Caja confirmation", async () => {
     [Venta.findOne, Caja.find, Ledger.find, Caja.exists] = originals;
   }
 });
+
+test("reconciliation refuses unsafe legacy Caja amount", async () => {
+  const originals = [Venta.findOne, Caja.find, Ledger.find, Caja.exists];
+  const empresaId = new mongoose.Types.ObjectId();
+  const sedeId = new mongoose.Types.ObjectId();
+  const ventaId = new mongoose.Types.ObjectId();
+  const origenId = new mongoose.Types.ObjectId();
+  Venta.findOne = () => ({ lean: async () => ({ origenId, total: 52000 }) });
+  Caja.find = () => ({ lean: async () => [{
+    _id: new mongoose.Types.ObjectId(),
+    monto: Number.MAX_SAFE_INTEGER + 1,
+    direccion: "ENTRADA", moneda: "COP"
+  }] });
+  Ledger.find = () => ({ lean: async () => [{
+    montoMenor: "5200000", tipo: "ABONO", moneda: "COP"
+  }] });
+  Caja.exists = async () => null;
+  try {
+    const result = await conciliarVentaCajaLedger({ empresaId, sedeId, ventaId });
+    assert.equal(result.conciliada, false);
+    assert.equal(result.estado, "MONTO_CAJA_INSEGURO");
+  } finally {
+    [Venta.findOne, Caja.find, Ledger.find, Caja.exists] = originals;
+  }
+});
