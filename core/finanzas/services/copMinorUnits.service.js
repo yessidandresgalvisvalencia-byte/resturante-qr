@@ -2,7 +2,7 @@
 
 const MAX = 999999999999999999999999n;
 const MINOR = /^(0|[1-9][0-9]*)$/;
-const DECIMAL = /^(0|[1-9][0-9]*)(?:\\.[0-9]{1,2})?$/;
+const DECIMAL = new RegExp('^(0|[1-9][0-9]*)([.][0-9]{1,2})?$');
 
 function copToMinor(value) {
   if (typeof value !== "string" || !DECIMAL.test(value)) {
