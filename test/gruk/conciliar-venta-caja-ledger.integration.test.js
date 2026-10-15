@@ -50,6 +50,16 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
       { $set: { cuenta: "CAJA_EFECTIVO" } }
     );
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "CONCILIADA");
+    await Caja.collection.updateOne(
+      { _id: movimiento._id },
+      { $set: { metodoPago: "tarjeta" } }
+    );
+    assert.equal((await conciliarVentaCajaLedger(ids)).estado, "MEDIO_PAGO_INCONSISTENTE");
+    await Caja.collection.updateOne(
+      { _id: movimiento._id },
+      { $set: { metodoPago: "efectivo" } }
+    );
+    assert.equal((await conciliarVentaCajaLedger(ids)).estado, "CONCILIADA");
     assert.equal((await conciliarVentaCajaLedger({
       ...ids, empresaId: new mongoose.Types.ObjectId()
     })).estado, "VENTA_NO_ENCONTRADA");
