@@ -12,7 +12,7 @@ test("Wompi webhook transitions preserve terminal approval and rejection under c
   // Isolated database; Node's test runner executes test files in separate workers.
   await mongoose.connect(uri, { dbName: "gruk_ci_wompi_transitions" });
   try {
-    await mongoose.connection.db.dropDatabase();
+    await mongoose.connection.db.collection("intentopagopedidos").deleteMany({});
     await IntentoPagoPedido.init();
 
     const makeAttempt = async (reference, estado = "CREADO", transactionId = "") =>
