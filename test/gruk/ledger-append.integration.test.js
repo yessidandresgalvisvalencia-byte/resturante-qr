@@ -68,6 +68,8 @@ test("ledger preserves atomicity, chain, tenant isolation and idempotency", {
     });
     for (const row of rows) assert.equal(row.hash, hashMovimiento(row));
     assert.equal(await Ledger.countDocuments({ empresaId: otraEmpresaId, sedeId }), 1);
+    const tampered = { ...rows[1], montoMenor: "100.5" };
+    assert.notEqual(hashMovimiento(tampered), rows[1].hash);
     await assert.rejects(Ledger.updateOne({ _id: rows[0]._id }, {
       $set: { montoMenor: "1" }
     }), /GRUK_LEDGER_APPEND_ONLY/);
