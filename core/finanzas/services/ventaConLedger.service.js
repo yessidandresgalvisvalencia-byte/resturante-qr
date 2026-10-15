@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const { registrarVentaDesdePedido } = require("../../../services/ventas.service");
 const { registrarMovimiento } = require("./ledgerAppend.service");
 const { copToMinor } = require("./copMinorUnits.service");
+const Venta = require("../../../models/Venta");
+const Ledger = require("../models/GrukLedgerV1");
 
 async function registrarVentaConLedger({
   pedido, empresaId, sedeId, actorId, ip, claveIdempotencia, cuenta,
@@ -44,6 +46,20 @@ async function registrarVentaConLedger({
   const cuentaEsperada = cuentas[pedido.metodoPago.trim().toLowerCase()];
   if (cuenta !== undefined && cuenta !== cuentaEsperada) {
     throw new Error("VENTA_LEDGER_CUENTA_MEDIO_PAGO_INCONSISTENTE");
+  }
+  const existente = await Venta.findOne({
+    empresaId, sedeId, origen: "restaurante", origenId: pedido._id
+  }).session(session);
+  if (existente) {
+    const asientoExistente = await Ledger.findOne({
+      empresaId, sedeId, claveIdempotencia
+    }).session(session);
+    if (!asientoExistente || asientoExistente.cuenta !== cuentaEsperada ||
+        asientoExistente.montoMenor !== montoMenor ||
+        existente.total !== Number(pedido.precio)) {
+      throw new Error("VENTA_LEDGER_REINTENTO_INCONSISTENTE");
+    }
+    return { venta: existente, movimiento: asientoExistente, creada: false };
   }
   const resultado = await registrarVentaDesdePedido({
     pedido, empresaId, sedeId, session, emitirEvento: false
