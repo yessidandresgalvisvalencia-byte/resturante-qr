@@ -44,3 +44,31 @@ test("Caja durable consumer commits one movement and one receipt on retry", {
     await mongoose.disconnect();
   }
 });
+
+test("Caja durable consumer rolls back the receipt if its movement cannot be created", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Receipt = require("../../models/GrukEventoProcesado");
+  const Movimiento = require("../../core/finanzas/models/MovimientoCaja");
+  const { consumirVentaEnCaja } = require("../../core/eventos/cajaVenta.consumer");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_caja_rollback_test" });
+  const empresaId = new mongoose.Types.ObjectId();
+  const ventaId = new mongoose.Types.ObjectId();
+  try {
+    await Promise.all([Outbox.init(), Receipt.init(), Movimiento.init()]);
+    const event = await Outbox.create({
+      empresaId, aggregateId: ventaId, eventName: "VENTA_COMPLETADA",
+      payload: { empresaId, ventaId, total: 0, metodoPago: "", fecha: new Date() }
+    });
+    await assert.rejects(
+      consumirVentaEnCaja({ eventId: event._id, empresaId }),
+      /CAJA_VENTA_EVENTO_SIN_MOVIMIENTO/
+    );
+    assert.equal(await Movimiento.countDocuments({ empresaId, origenId: ventaId }), 0);
+    assert.equal(await Receipt.countDocuments({ empresaId, eventId: event._id }), 0);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
