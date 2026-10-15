@@ -78,6 +78,35 @@ test("sale-ledger integration rolls back sale, outbox and ledger together", {
         await registrarVentaConLedger({ ...input, ip: "127.0.0.2", session });
       }), /VENTA_LEDGER_REINTENTO_INCONSISTENTE/);
       assert.equal(await Ledger.countDocuments({ empresaId, sedeId }), 1);
+      const concurrentOrderId = new mongoose.Types.ObjectId();
+      const concurrentInput = {
+        ...input,
+        pedido: { ...pedido, _id: concurrentOrderId },
+        claveIdempotencia: "venta:" + String(concurrentOrderId)
+      };
+      const sessions = await Promise.all([
+        mongoose.startSession(), mongoose.startSession()
+      ]);
+      try {
+        const outcomes = await Promise.allSettled(sessions.map((activeSession) =>
+          activeSession.withTransaction(() =>
+            registrarVentaConLedger({ ...concurrentInput, session: activeSession })
+          )
+        ));
+        const successful = outcomes.filter((outcome) => outcome.status === "fulfilled");
+        assert.ok(successful.length >= 1, "At least one concurrent sale must commit");
+        assert.equal(await Venta.countDocuments({
+          empresaId, origenId: concurrentOrderId
+        }), 1);
+        assert.equal(await Ledger.countDocuments({
+          empresaId, sedeId, claveIdempotencia: concurrentInput.claveIdempotencia
+        }), 1);
+        assert.equal(await Outbox.countDocuments({
+          empresaId, "payload.origenId": String(concurrentOrderId)
+        }) <= 1, true);
+      } finally {
+        await Promise.all(sessions.map((activeSession) => activeSession.endSession()));
+      }
     } finally {
       await session.endSession();
     }
