@@ -12,12 +12,13 @@ test("concurrent Wompi approvals create exactly one paid sale", { skip: !uri }, 
   const ProductoServicio = require("../../models/ProductoServicio");
   const Venta = require("../../models/Venta");
   const OutboxEvent = require("../../models/GrukOutboxEvent");
+  const EntregaConsumidor = require("../../models/GrukEntregaConsumidor");
   const { confirmarPagoPedidoWompi } = require("../../services/pagosPedidos.service");
   await mongoose.connect(uri, { dbName: "gruk_ci_wompi_approval" });
   try {
     await Promise.all([
       IntentoPagoPedido.init(), Pedido.init(), Restaurante.init(),
-      ProductoServicio.init(), Venta.init(), OutboxEvent.init()
+      ProductoServicio.init(), Venta.init(), OutboxEvent.init(), EntregaConsumidor.init()
     ]);
     const empresaId = new mongoose.Types.ObjectId();
     const restaurantId = "ci-approval-" + empresaId.toString();
@@ -90,6 +91,8 @@ test("concurrent Wompi approvals create exactly one paid sale", { skip: !uri }, 
       empresaId, eventName: "VENTA_COMPLETADA",
       aggregateId: ventas[0]._id, estado: "PENDIENTE"
     }), 1);
+    const entregas = await EntregaConsumidor.find({ empresaId, eventId: (await OutboxEvent.findOne({ empresaId, aggregateId: ventas[0]._id }))._id }).lean();
+    assert.deepEqual(entregas.map(e => e.consumidor).sort(), ["CAJA_VENTA_V1", "FACTURACION_VENTA_V1"]);
     const replay = await confirmarPagoPedidoWompi({ transaction });
     assert.equal(replay.ok, true);
     assert.equal(replay.idempotent, true);
