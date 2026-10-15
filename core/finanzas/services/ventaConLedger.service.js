@@ -27,7 +27,8 @@ async function registrarVentaConLedger({
     throw new Error("VENTA_LEDGER_IDEMPOTENCIA_PEDIDO_INVALIDA");
   }
   const montoMenor = copToMinor(pedido.precio);
-  if (!Number.isSafeInteger(Number(pedido.precio))) {
+  if (!/^(0|[1-9][0-9]*)$/.test(pedido.precio) ||
+      BigInt(pedido.precio) > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error("VENTA_LEDGER_PRECIO_LEGADO_INSEGURO");
   }
   if (montoMenor === "0") throw new Error("VENTA_LEDGER_MONTO_CERO");
