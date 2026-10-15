@@ -9,12 +9,7 @@ test("Wompi webhook transitions preserve terminal approval and rejection under c
   const mongoose = require("mongoose");
   const IntentoPagoPedido = require("../../models/IntentoPagoPedido");
   const { confirmarPagoPedidoWompi } = require("../../services/pagosPedidos.service");
-  const connection = await mongoose.createConnection(uri, {
-    dbName: "gruk_ci_wompi_transitions"
-  }).asPromise();
-  // The service uses the default mongoose connection. Use an isolated database
-  // and connect it for this test; the CI suite runs this file in a separate worker.
-  await connection.close();
+  // Isolated database; Node's test runner executes test files in separate workers.
   await mongoose.connect(uri, { dbName: "gruk_ci_wompi_transitions" });
   try {
     await mongoose.connection.db.dropDatabase();
