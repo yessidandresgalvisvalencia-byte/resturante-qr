@@ -76,6 +76,9 @@ function verificarContinuidadDesdeAncla({ancla,llavePublicaPem,empresaId,sedeId,
     !HASH.test(cabecera.hashUltimo))
   throw Error("LEDGER_ANCLA_CABECERA_INVALIDA");
  if(cabecera.secuencia<base.secuencia)throw Error("LEDGER_ANCLA_CABECERA_RETROCEDIDA");
+ const diferencia=cabecera.secuencia-base.secuencia;
+ if(diferencia>100000)throw Error("LEDGER_ANCLA_CONTINUIDAD_EXCEDE_LIMITE");
+ if(asientos.length!==diferencia)throw Error("LEDGER_ANCLA_CONTINUIDAD_INVALIDA");
  let secuencia=base.secuencia,saldo=base.saldoCentavos,hash=base.hashUltimo;
  const operaciones=new Set();
  const {hashAsiento}=require("./auditarLedger");
