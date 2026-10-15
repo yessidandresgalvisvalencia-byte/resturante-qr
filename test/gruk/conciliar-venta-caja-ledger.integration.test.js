@@ -40,6 +40,12 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
     }]);
     const ids = { empresaId, sedeId, ventaId: venta._id };
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "CONCILIADA");
+    assert.equal((await conciliarVentaCajaLedger({
+      ...ids, empresaId: new mongoose.Types.ObjectId()
+    })).estado, "VENTA_NO_ENCONTRADA");
+    assert.equal((await conciliarVentaCajaLedger({
+      ...ids, sedeId: new mongoose.Types.ObjectId()
+    })).estado, "VENTA_NO_ENCONTRADA");
     await Caja.create([{
       empresaId, sedeId, direccion: "ENTRADA", monto: 52000, moneda: "COP",
       origenTipo: "VENTA", origenId: venta._id, tipoAsiento: "REVERSION",
