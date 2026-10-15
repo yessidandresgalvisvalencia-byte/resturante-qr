@@ -11,7 +11,7 @@ const CONSUMIDOR = "CAJA_VENTA_V1";
  * Caja effects and idempotency receipt are committed in a separate ACID
  * transaction before the consumer-specific delivery can be acknowledged.
  */
-async function procesarEntregaCaja({ eventId, empresaId, enforceRetryPolicy = false }) {
+async function procesarEntregaCaja({ eventId, empresaId, enforceRetryPolicy = true }) {
   const claim = await reclamarEntrega({ eventId, empresaId, consumidor: CONSUMIDOR, enforceRetryPolicy });
   if (!claim.reclamada) return { procesado: false, motivo: "NO_RECLAMABLE" };
   const leaseToken = claim.leaseToken;
