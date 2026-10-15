@@ -42,6 +42,8 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "CONCILIADA");
     await Venta.updateOne({ _id: venta._id }, { $set: { estado: "anulada" } });
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "VENTA_NO_PAGADA");
+    await Venta.updateOne({ _id: venta._id }, { $set: { estado: "pendiente" } });
+    assert.equal((await conciliarVentaCajaLedger(ids)).estado, "VENTA_NO_PAGADA");
     await Venta.updateOne({ _id: venta._id }, { $set: { estado: "pagada" } });
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "CONCILIADA");
     await Ledger.collection.updateOne(
