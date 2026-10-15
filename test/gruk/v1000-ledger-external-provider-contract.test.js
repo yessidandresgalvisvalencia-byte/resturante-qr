@@ -91,3 +91,22 @@ test("V1000: ancla posterior no puede saltar el tramo desde un checkpoint confia
  await assert.rejects(recuperarAnclaExternaConfiable({...args,checkpointConfiable:{...args.checkpointConfiable,secuencia:0},asientosDesdeCheckpoint:[asiento]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[{...asiento,montoCentavos:6}]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
 });
+
+test("V1000: checkpoint no acepta génesis falso ni tenant cruzado",async()=>{
+ const crypto=require("node:crypto");
+ const {firmarAncla,huellaClaveEd25519}=require("../../core/finance/v1000/anclaLedger");
+ const pair=crypto.generateKeyPairSync("ed25519");
+ const pub=pair.publicKey.export({type:"spki",format:"pem"});
+ const priv=pair.privateKey.export({type:"pkcs8",format:"pem"});
+ const data={empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  sedeId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",secuencia:0,
+  saldoCentavos:0,hashUltimo:"0".repeat(64),emitidoEn:"2026-10-14T00:00:00.000Z"};
+ const ancla=firmarAncla(data,priv);
+ const args={empresaId:data.empresaId,sedeId:data.sedeId,llavePublicaPem:pub,
+  huellaAutorizada:huellaClaveEd25519(pub),
+  provider:{separacionDePrivilegiosVerificada:true,almacenamientoInmutableVerificado:true,obtenerUltimaAncla:async()=>ancla}};
+ const good={empresaId:data.empresaId,sedeId:data.sedeId,secuencia:0,saldoCentavos:0,hashUltimo:"0".repeat(64)};
+ assert.equal((await recuperarAnclaExternaConfiable({...args,checkpointConfiable:good})).secuencia,0);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,checkpointConfiable:{...good,saldoCentavos:1}}),/LEDGER_ANCLA_CHECKPOINT_INVALIDO/);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,checkpointConfiable:{...good,empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"}}),/LEDGER_ANCLA_CHECKPOINT_TENANT_INCONSISTENTE/);
+});
