@@ -46,3 +46,11 @@ test("MongoDB transaction callback retries clear deferred effects", () => {
  assert.match(payment, /withTransaction\(async \(\) => \{\s*\/\/[^\n]*\n\s*ventasPostCommit\.length = 0;\s*pedidosPostCommit\.length = 0;/);
  assert.match(api, /withTransaction\(async \(\) => \{\s*\/\/[^\n]*\n\s*pedidoFinal = null;\s*ventaPostCommit = null;/);
 });
+
+test("Wompi late declined webhook cannot overwrite approved payment", () => {
+ const payment = fs.readFileSync(path.join(__dirname, "../../services/pagosPedidos.service.js"), "utf8");
+ assert.match(payment, /estado: \{ \$ne: "APROBADO" \}/);
+ assert.match(payment, /ESTADO_PASARELA_DESCONOCIDO/);
+ assert.match(payment, /TRANSACCION_DIFERENTE_PARA_REFERENCIA/);
+ assert.doesNotMatch(payment, /if \(status !== "APPROVED"\) \{\s*await intento\.save\(\)/);
+});
