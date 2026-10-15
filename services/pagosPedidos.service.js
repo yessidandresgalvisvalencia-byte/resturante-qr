@@ -69,7 +69,12 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
       pedidosPostCommit.length = 0;
       const lockedIntento = await IntentoPagoPedido.findOne({ reference }).session(session);
       if (!lockedIntento) throw new Error("INTENTO_NO_ENCONTRADO");
-      if (lockedIntento.estado === "APROBADO") return;
+      if (lockedIntento.estado === "APROBADO") {
+        if (lockedIntento.transactionId && lockedIntento.transactionId !== String(transaction.id || "")) {
+          throw new Error("TRANSACCION_DIFERENTE_PARA_REFERENCIA");
+        }
+        return;
+      }
 
       const restaurante = await Restaurante.findOne({ restaurantId: lockedIntento.restaurantId })
         .select("_id empresaId").session(session).lean();
