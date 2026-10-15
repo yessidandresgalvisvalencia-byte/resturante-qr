@@ -31,3 +31,9 @@ test("per-consumer delivery defaults to pending without acknowledging other cons
   assert.equal(facturacion.estado, "PENDIENTE");
   assert.notEqual(caja.consumidor, facturacion.consumidor);
 });
+
+test("delivery lookups have a tenant event consumer index", () => {
+  const indexes = Entrega.schema.indexes();
+  assert.ok(indexes.some(([keys]) =>
+    keys.empresaId === 1 && keys.eventId === 1 && keys.consumidor === 1));
+});
