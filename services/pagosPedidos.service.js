@@ -41,6 +41,9 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const pedidosPostCommit = [];
   try {
     await session.withTransaction(async () => {
+      // withTransaction may retry this callback; discard stale post-commit effects.
+      ventasPostCommit.length = 0;
+      pedidosPostCommit.length = 0;
       const lockedIntento = await IntentoPagoPedido.findOne({ reference }).session(session);
       if (!lockedIntento) throw new Error("INTENTO_NO_ENCONTRADO");
       if (lockedIntento.estado === "APROBADO") return;
