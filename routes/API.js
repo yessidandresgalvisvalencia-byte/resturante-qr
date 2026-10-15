@@ -1569,6 +1569,9 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
 
   try {
     await session.withTransaction(async () => {
+      // withTransaction may retry this callback; reset stale post-commit effects.
+      pedidoFinal = null;
+      ventaPostCommit = null;
       const pedido = await Pedido.findById(req.params.id).session(session);
       if (!pedido) {
         const error = new Error("PEDIDO_NO_ENCONTRADO"); error.statusCode = 404; throw error;
