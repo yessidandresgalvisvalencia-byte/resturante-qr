@@ -23,7 +23,7 @@ test("expired consumer lease is reclaimable and stale owner cannot ACK or releas
     await Entrega.create({
       empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1"
     });
-    const t0 = new Date("2026-01-01T00:00:00.000Z");
+    const t0 = new Date();
     const first = await reclamarEntrega({
       empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1", now: t0
     });
@@ -170,7 +170,7 @@ test("non-claimable active lease does not mutate parent version or attempt count
       payload: { empresaId, ventaId }
     });
     await Entrega.create({ empresaId, eventId: event._id, consumidor: "CAJA_VENTA_V1" });
-    const now = new Date("2026-04-01T10:00:00.000Z");
+    const now = new Date();
     const first = await reclamarEntrega({ empresaId, eventId: event._id,
       consumidor: "CAJA_VENTA_V1", now });
     assert.equal(first.reclamada, true);
