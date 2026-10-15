@@ -60,6 +60,34 @@ test("outbox dispatcher retries failed delivery without losing durable event", {
     assert.equal(recuperados.length, 1);
     assert.equal(String(recuperados[0].payload.ventaId), String(aggregateBloqueado));
     assert.equal((await OutboxEvent.findById(bloqueado._id)).estado, "ENTREGADO");
+    const agregadoConcurrente = new mongoose.Types.ObjectId();
+    const concurrente = await OutboxEvent.create({
+      empresaId, aggregateId: agregadoConcurrente, eventName: "VENTA_COMPLETADA",
+      payload: { ventaId: agregadoConcurrente, empresaId }
+    });
+    let liberarPrimero;
+    let primeroIniciado;
+    const iniciado = new Promise(resolve => { primeroIniciado = resolve; });
+    const liberar = new Promise(resolve => { liberarPrimero = resolve; });
+    let entregas = 0;
+    const primero = despacharSiguienteVenta({
+      emitir: async () => {
+        entregas += 1;
+        primeroIniciado();
+        await liberar;
+      }
+    });
+    await iniciado;
+    const segundo = await despacharSiguienteVenta({
+      emitir: () => { throw new Error("DUPLICACION_CONCURRENTE"); }
+    });
+    assert.equal(segundo.procesado, false);
+    liberarPrimero();
+    const resultadoPrimero = await primero;
+    assert.equal(resultadoPrimero.entregado, true);
+    assert.equal(entregas, 1);
+    assert.equal((await OutboxEvent.findById(concurrente._id)).intentos, 1);
+
 
   } finally {
     await mongoose.disconnect();
