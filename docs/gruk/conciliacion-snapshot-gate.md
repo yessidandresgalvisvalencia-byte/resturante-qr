@@ -19,3 +19,16 @@ Estado: **BLOQUEANTE PARA PRODUCCIÓN**. Este documento no autoriza activar el c
 ## Estado de implementación
 
 La rama de trabajo incorpora conciliación de solo lectura y pruebas para importes, duplicados, reversiones, aislamiento de tenant, medio de pago y estado de venta. También dispone de `conciliarVentaCajaLedgerSnapshot`, que usa una sesión y `readConcern: snapshot`, y de una prueba de reversión concurrente aprobada en GRUK CI #1740. **Sigue sin existir protección demostrada de la decisión final contra cambios posteriores al snapshot.** La función histórica `conciliarVentaCajaLedger` aún permite consultas sin sesión; su resultado no constituye prueba de consistencia temporal. No conectar ninguna de las dos funciones a aprobaciones automáticas ni activar el conciliador en producción.
+
+## Contrato de autorización de órdenes financieras (pendiente de implementación)
+
+El resultado `CONCILIADA` —incluso con `consistencia: SNAPSHOT`— es evidencia de lectura, **no** un permiso para ejecutar cobros, devoluciones, ajustes, transferencias ni asientos.
+
+1. La orden debe identificar `empresaId`, `sedeId`, `ventaId`, `actorId`, alcance de rol, operación, importe exacto en unidades menores y clave de idempotencia.
+2. El ejecutor debe validar autenticación y autorización de tenant/rol antes de abrir la transacción, y volver a comprobar el estado financiero dentro de la misma transacción que persiste el efecto.
+3. Una reversión y una aprobación que afecten a la misma venta deben competir por **un documento de control compartido** mediante escritura condicional/CAS, con versión o estado esperado. Solo leer snapshot no previene write skew cuando las escrituras son disjuntas.
+4. Si el CAS no coincide, falta el asiento, existe reversión o cambió el importe, abortar la transacción completa. Reintentar solo la operación entera con la misma clave de idempotencia y política acotada para errores transitorios.
+5. Registrar una única obligación durable de outbox dentro del commit, sin emitir efectos externos antes del commit. Los consumidores deben ser idempotentes.
+6. Probar carreras en ambas direcciones (reversión primero y aprobación primero), fallo después de escritura parcial, doble clic, reintentos, tenant cruzado y replay tras timeout. No conectar rutas ni activar órdenes hasta que esas pruebas aprueben.
+
+**Nota de implementación:** el actual `conciliarVentaCajaLedgerSnapshot` crea y cierra su propia sesión. No reutilizar ese resultado para autorizar una transacción distinta; el ejecutor necesita un contrato separado con la misma sesión y una escritura CAS compartida por todos los caminos que revierten/aprueban.
