@@ -25,6 +25,10 @@ async function consumirEventoUnaVez({ eventId, empresaId, consumidor, aplicar })
         _id: eventId, empresaId
       }).session(session).lean();
       if (!evento) throw new Error("CONSUMIDOR_EVENTO_NO_ENCONTRADO");
+      if (!evento.payload || String(evento.payload.empresaId) !== String(empresaId) ||
+          String(evento.payload.ventaId) !== String(evento.aggregateId)) {
+        throw new Error("CONSUMIDOR_PAYLOAD_IDENTIDAD_INCONSISTENTE");
+      }
       const existente = await EventoProcesado.findOne({
         empresaId, consumidor, eventId: evento._id
       }).session(session).lean();
