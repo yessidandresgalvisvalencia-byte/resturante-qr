@@ -102,8 +102,8 @@ test("sale-ledger integration rolls back sale, outbox and ledger together", {
           empresaId, sedeId, claveIdempotencia: concurrentInput.claveIdempotencia
         }), 1);
         assert.equal(await Outbox.countDocuments({
-          empresaId, "payload.origenId": String(concurrentOrderId)
-        }) <= 1, true);
+          empresaId, "payload.origenId": concurrentOrderId
+        }), 1);
       } finally {
         await Promise.all(sessions.map((activeSession) => activeSession.endSession()));
       }
