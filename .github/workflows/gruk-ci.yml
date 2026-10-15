@@ -49,3 +49,10 @@ jobs:
           NODE_ENV: test
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
         run: npm run gate
+      - name: Validate Compose configuration
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+      - name: Build production Docker image
+        run: docker build --pull -t gruk-capa1-ci:${{ github.sha }} .
+
