@@ -10,7 +10,7 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
   const Venta = require("../../models/Venta");
   const Caja = require("../../core/finanzas/models/MovimientoCaja");
   const Ledger = require("../../core/finanzas/models/GrukLedgerV1");
-  const { conciliarVentaCajaLedger } = require("../../core/finanzas/services/conciliarVentaCajaLedger.service");
+  const { conciliarVentaCajaLedger, conciliarVentaCajaLedgerSnapshot } = require("../../core/finanzas/services/conciliarVentaCajaLedger.service");
   await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_reconciliation_integration_test" });
   try {
     const empresaId = new mongoose.Types.ObjectId();
@@ -40,6 +40,10 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
     }]);
     const ids = { empresaId, sedeId, ventaId: venta._id };
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "CONCILIADA");
+    assert.deepEqual(await conciliarVentaCajaLedgerSnapshot(ids), {
+      conciliada: true, estado: "CONCILIADA",
+      movimientosCaja: 1, asientosLedger: 1, consistencia: "SNAPSHOT"
+    });
     await Venta.updateOne({ _id: venta._id }, { $set: { estado: "anulada" } });
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "VENTA_NO_PAGADA");
     await Venta.updateOne({ _id: venta._id }, { $set: { estado: "pendiente" } });
@@ -80,6 +84,7 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
       confirmadoAt: new Date()
     }]);
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "VENTA_REVERSADA");
+    assert.equal((await conciliarVentaCajaLedgerSnapshot(ids)).estado, "VENTA_REVERSADA");
     assert.equal(await Caja.countDocuments({
       empresaId, sedeId, origenTipo: "VENTA", origenId: venta._id,
       tipoAsiento: "CONFIRMACION"
