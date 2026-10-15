@@ -87,5 +87,7 @@ test("V1000: ancla posterior no puede saltar el tramo desde un checkpoint confia
  await assert.rejects(recuperarAnclaExternaConfiable(args),/LEDGER_ANCLA_CONTINUIDAD_REQUERIDA/);
  assert.equal((await recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[asiento]})).secuencia,2);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[asiento,asiento]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,checkpointConfiable:{...args.checkpointConfiable,secuencia:0},asientosDesdeCheckpoint:[asiento]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,asientosDesdeCheckpoint:[{...asiento,montoCentavos:6}]}),/LEDGER_ANCLA_CONTINUIDAD_INVALIDA/);
 });
