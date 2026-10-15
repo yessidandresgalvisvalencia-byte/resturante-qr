@@ -72,3 +72,38 @@ test("Caja durable consumer rolls back the receipt if its movement cannot be cre
     await mongoose.disconnect();
   }
 });
+
+test("Caja movement rolls back when processed receipt insert fails", {
+  skip: !process.env.TEST_MONGO_URI
+}, async () => {
+  const mongoose = require("mongoose");
+  const Outbox = require("../../models/GrukOutboxEvent");
+  const Receipt = require("../../models/GrukEventoProcesado");
+  const Movimiento = require("../../core/finanzas/models/MovimientoCaja");
+  const { consumirVentaEnCaja } = require("../../core/eventos/cajaVenta.consumer");
+  await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "gruk_caja_atomic_rollback_test" });
+  const empresaId = new mongoose.Types.ObjectId();
+  const ventaId = new mongoose.Types.ObjectId();
+  try {
+    await Promise.all([Outbox.init(), Receipt.init(), Movimiento.init()]);
+    const event = await Outbox.create({
+      empresaId, aggregateId: ventaId, eventName: "VENTA_COMPLETADA",
+      payload: { empresaId, ventaId, total: 12000, metodoPago: "",
+        fecha: new Date(), sourceUpdatedAt: new Date() }
+    });
+    const originalCreate = Receipt.create;
+    Receipt.create = async () => { throw new Error("TEST_RECEIPT_WRITE_FAILURE"); };
+    try {
+      await assert.rejects(
+        consumirVentaEnCaja({ eventId: event._id, empresaId }),
+        /TEST_RECEIPT_WRITE_FAILURE/
+      );
+    } finally {
+      Receipt.create = originalCreate;
+    }
+    assert.equal(await Movimiento.countDocuments({ empresaId, origenId: ventaId }), 0);
+    assert.equal(await Receipt.countDocuments({ empresaId, eventId: event._id }), 0);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
