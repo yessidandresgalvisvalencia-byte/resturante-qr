@@ -1,0 +1,33 @@
+"use strict";
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const mongoose=require("mongoose");
+const Movimiento=require("../../models/MovimientoLedgerV1000");
+const Saldo=require("../../models/SaldoLedgerV1000");
+const {registrarMovimiento}=require("../../services/ledgerV1000.service");
+const {verificarCadena}=require("../../core/finance/v1000/auditarLedger");
+test("V1000: movimientos concurrentes aíslan saldos de empresas y sedes",async t=>{
+ if(!process.env.TEST_MONGO_URI){t.skip("Mongo replica set requerido");return;}
+ await mongoose.connect(process.env.TEST_MONGO_URI,{dbName:"gruk_test_v1000_tenant_isolation",serverSelectionTimeoutMS:5000});
+ const a="01ARZ3NDEKTSV4RRFFQ69G5FAV",b="01ARZ3NDEKTSV4RRFFQ69G5FB1";
+ const x="01ARZ3NDEKTSV4RRFFQ69G5FAW",y="01ARZ3NDEKTSV4RRFFQ69G5FB2";
+ const entries=[{empresaId:a,sedeId:x,montoCentavos:120,operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FAY"},
+  {empresaId:a,sedeId:y,montoCentavos:270,operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FAZ"},
+  {empresaId:b,sedeId:x,montoCentavos:390,operacionId:"01ARZ3NDEKTSV4RRFFQ69G5FB0"}];
+ try{
+  await Promise.all([Movimiento.init(),Saldo.init()]);
+  const result=await Promise.all(entries.map(e=>registrarMovimiento({...e,tipo:"CREDITO",
+   actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAX",ip:"127.0.0.1"})));
+  assert.equal(result.length,3);
+  for(const e of entries){
+   const head=await Saldo.findOne({empresaId:e.empresaId,sedeId:e.sedeId}).lean();
+   const journal=await Movimiento.find({empresaId:e.empresaId,sedeId:e.sedeId}).sort({secuencia:1}).lean();
+   assert.equal(head.saldoCentavos,e.montoCentavos);
+   assert.equal(head.secuencia,1);
+   assert.equal(journal.length,1);
+   assert.equal(verificarCadena({empresaId:e.empresaId,sedeId:e.sedeId,asientos:journal,cabecera:head}).ok,true);
+  }
+  assert.equal(await Movimiento.countDocuments({empresaId:a}),2);
+  assert.equal(await Movimiento.countDocuments({empresaId:b}),1);
+ }finally{await mongoose.connection.dropDatabase();await mongoose.disconnect();}
+});
