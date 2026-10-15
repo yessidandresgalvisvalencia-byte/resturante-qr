@@ -87,4 +87,21 @@ async function recuperarAnclaParaAuditoria(args){
   throw Error("LEDGER_ANCLA_CHECKPOINT_CONFIABLE_REQUERIDO");
  return recuperarAnclaExternaConfiable(args);
 }
-module.exports={recuperarAnclaExternaConfiable,recuperarAnclaParaAuditoria};
+/**
+ * Complete independent audit: checkpoint -> signed anchor -> current head.
+ * The auditor supplies snapshot-consistent segments; no operational writes
+ * are performed and this does NOT certify the external storage provider.
+ */
+async function auditarContinuidadConAnclaExterna(args){
+ if(!args||!args.cabecera||!Array.isArray(args.asientosDesdeAncla))
+  throw Error("LEDGER_ANCLA_TRAMO_ACTUAL_REQUERIDO");
+ const ancla=await recuperarAnclaParaAuditoria(args);
+ const {verificarContinuidadConClaveFijada}=require("./anclaLedger");
+ const audit=verificarContinuidadConClaveFijada({
+  ancla,llavePublicaPem:args.llavePublicaPem,huellaAutorizada:args.huellaAutorizada,
+  empresaId:args.empresaId,sedeId:args.sedeId,
+  asientos:args.asientosDesdeAncla,cabecera:args.cabecera
+ });
+ return {...audit,anclaSecuencia:ancla.secuencia,checkpointSecuencia:args.checkpointConfiable.secuencia};
+}
+module.exports={recuperarAnclaExternaConfiable,recuperarAnclaParaAuditoria,auditarContinuidadConAnclaExterna};
