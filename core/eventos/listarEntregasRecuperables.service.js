@@ -20,13 +20,15 @@ async function listarEntregasRecuperables({
       !Number.isSafeInteger(limit) || limit < 1 || limit > MAX_BATCH) {
     throw new Error("ENTREGA_RECUPERACION_PARAMETROS_INVALIDOS");
   }
+  // Fetch more than the requested output count so ineligible parent records
+  // do not consume the entire recovery batch ahead of eligible deliveries.
   const candidates = await Entrega.find({
     empresaId, consumidor,
     $or: [
       { estado: "PENDIENTE" },
       { estado: "PROCESANDO", leaseHasta: { $lte: now } }
     ]
-  }).sort({ updatedAt: 1, _id: 1 }).limit(limit).lean();
+  }).sort({ updatedAt: 1, _id: 1 }).limit(Math.min(MAX_BATCH * 10, limit * 10)).lean();
   if (!candidates.length) return [];
   const eventIds = candidates.map(c => c.eventId);
   const events = await Outbox.find({
@@ -37,7 +39,7 @@ async function listarEntregasRecuperables({
     String(e.payload?.empresaId) === String(empresaId) &&
     String(e.payload?.ventaId) === String(e.aggregateId)
   ).map(e => String(e._id)));
-  return candidates.filter(c => eligible.has(String(c.eventId))).map(c => ({
+  return candidates.filter(c => eligible.has(String(c.eventId))).slice(0, limit).map(c => ({
     eventId: c.eventId, empresaId: c.empresaId, consumidor: c.consumidor,
     estado: c.estado, intentos: c.intentos
   }));
