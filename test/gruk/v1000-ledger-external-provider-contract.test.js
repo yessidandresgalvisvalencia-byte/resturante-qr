@@ -20,5 +20,8 @@ test("V1000: falla cerrado si no hay custodia o ancla externa firmada",async()=>
  await assert.rejects(recuperarAnclaExternaConfiable({...args,provider:{...provider,separacionDePrivilegiosVerificada:false}}),/LEDGER_ANCLA_CUSTODIA_NO_CERTIFICADA/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,provider:{...provider,almacenamientoInmutableVerificado:false}}),/LEDGER_ANCLA_ALMACENAMIENTO_NO_CERTIFICADO/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,provider:{...provider,obtenerUltimaAncla:async()=>null}}),/LEDGER_ANCLA_EXTERNA_AUSENTE/);
+ const red=new Error("socket reset");
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,provider:{...provider,obtenerUltimaAncla:async()=>{throw red;}}}),err=>err.message==="LEDGER_ANCLA_EXTERNA_NO_DISPONIBLE"&&err.cause===red);
+ await assert.rejects(recuperarAnclaExternaConfiable({...args,provider:{...provider,obtenerUltimaAncla:async()=>firmarAncla({...datos,empresaId:"01ARZ3NDEKTSV4RRFFQ69G5FAX"},priv)}}),/LEDGER_ANCLA_TENANT_INCONSISTENTE/);
  await assert.rejects(recuperarAnclaExternaConfiable({...args,provider:{...provider,obtenerUltimaAncla:async()=>({...ancla,saldoCentavos:1})}}),/LEDGER_ANCLA_GENESIS_INCONSISTENTE|LEDGER_ANCLA_FIRMA_INVALIDA/);
 });
