@@ -29,5 +29,24 @@ test("V1000: movimientos concurrentes aíslan saldos de empresas y sedes",async 
   }
   assert.equal(await Movimiento.countDocuments({empresaId:a}),2);
   assert.equal(await Movimiento.countDocuments({empresaId:b}),1);
+  // The same operation identifier has independent identity in another company.
+  // A replay must never return another tenant's accounting entry.
+  const shared="01ARZ3NDEKTSV4RRFFQ69G5FB3";
+  const common={sedeId:x,operacionId:shared,tipo:"CREDITO",
+   actorId:"01ARZ3NDEKTSV4RRFFQ69G5FAX",ip:"127.0.0.1"};
+  const [aMove,bMove]=await Promise.all([
+   registrarMovimiento({...common,empresaId:a,montoCentavos:10}),
+   registrarMovimiento({...common,empresaId:b,montoCentavos:20})
+  ]);
+  assert.notEqual(aMove.id,bMove.id);
+  assert.equal(aMove.despuesCentavos,130);
+  assert.equal(bMove.despuesCentavos,410);
+  assert.equal((await registrarMovimiento({...common,empresaId:a,montoCentavos:10})).id,aMove.id);
+  assert.equal((await registrarMovimiento({...common,empresaId:b,montoCentavos:20})).id,bMove.id);
+  await assert.rejects(
+   registrarMovimiento({...common,empresaId:a,montoCentavos:20}),
+   /LEDGER_OPERACION_REUTILIZADA_INCONSISTENTE/
+  );
+  assert.equal(await Movimiento.countDocuments({operacionId:shared}),2);
  }finally{await mongoose.connection.dropDatabase();await mongoose.disconnect();}
 });
