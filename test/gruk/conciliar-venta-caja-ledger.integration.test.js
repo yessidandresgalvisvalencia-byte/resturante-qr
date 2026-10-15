@@ -95,14 +95,6 @@ test("reconciliation reads real MongoDB records and rejects a reversal", {
     } finally {
       await snapshotSession.endSession();
     }
-    await Caja.deleteOne({ claveIdempotencia: "ci:reversion:concurrente:" + String(venta._id) });
-    await Caja.create([{
-      empresaId, sedeId, direccion: "ENTRADA", monto: 52000, moneda: "COP",
-      origenTipo: "VENTA", origenId: venta._id, tipoAsiento: "REVERSION",
-      movimientoOriginalId: movimiento._id,
-      claveIdempotencia: "ci:reversion:" + String(venta._id),
-      confirmadoAt: new Date()
-    }]);
     assert.equal((await conciliarVentaCajaLedger(ids)).estado, "VENTA_REVERSADA");
     assert.equal((await conciliarVentaCajaLedgerSnapshot(ids)).estado, "VENTA_REVERSADA");
     assert.equal(await Caja.countDocuments({
