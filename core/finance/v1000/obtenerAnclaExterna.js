@@ -6,7 +6,7 @@ const {verificarAnclaConClaveFijada}=require("./anclaLedger");
  * The provider is injected by the auditor, never created from ledger data.
  * No database persistence, network client or signing key is implied here.
  */
-async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePublicaPem,huellaAutorizada,secuenciaMinimaConfiable,checkpointConfiable}){
+async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePublicaPem,huellaAutorizada,secuenciaMinimaConfiable,checkpointConfiable,asientosDesdeCheckpoint}){
  if(secuenciaMinimaConfiable!==undefined&&
     (!Number.isSafeInteger(secuenciaMinimaConfiable)||secuenciaMinimaConfiable<0))
   throw Error("LEDGER_ANCLA_PISO_INVALIDO");
@@ -37,6 +37,31 @@ async function recuperarAnclaExternaConfiable({empresaId,sedeId,provider,llavePu
   if(ancla.secuencia===c.secuencia&&
      (ancla.hashUltimo!==c.hashUltimo||ancla.saldoCentavos!==c.saldoCentavos))
    throw Error("LEDGER_ANCLA_EQUIVOCACION_DETECTADA");
+  if(ancla.secuencia>c.secuencia){
+   if(!Array.isArray(asientosDesdeCheckpoint))
+    throw Error("LEDGER_ANCLA_CONTINUIDAD_REQUERIDA");
+   // The independently trusted checkpoint is the start state. Never infer it
+   // from the newer anchor or the compromised operational ledger.
+   const {hashAsiento}=require("./auditarLedger");
+   let sec=c.secuencia,saldo=c.saldoCentavos,hash=c.hashUltimo;
+   const ids=new Set();
+   for(const m of asientosDesdeCheckpoint){
+    if(!m||m.empresaId!==empresaId||m.sedeId!==sedeId||
+       m.secuencia!==sec+1||m.hashAnterior!==hash||
+       m.antesCentavos!==saldo||m.deletedAt!==null||
+       !Number.isSafeInteger(m.montoCentavos)||m.montoCentavos<=0||
+       !["CREDITO","DEBITO"].includes(m.tipo)||
+       typeof m.operacionId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(m.operacionId)||
+       ids.has(m.operacionId)||hashAsiento(m)!==m.hash)
+     throw Error("LEDGER_ANCLA_CONTINUIDAD_INVALIDA");
+    const next=BigInt(saldo)+(m.tipo==="CREDITO"?1n:-1n)*BigInt(m.montoCentavos);
+    if(next<0n||next>BigInt(Number.MAX_SAFE_INTEGER)||m.despuesCentavos!==Number(next))
+     throw Error("LEDGER_ANCLA_CONTINUIDAD_INVALIDA");
+    ids.add(m.operacionId);sec=m.secuencia;saldo=m.despuesCentavos;hash=m.hash;
+   }
+   if(sec!==ancla.secuencia||saldo!==ancla.saldoCentavos||hash!==ancla.hashUltimo)
+    throw Error("LEDGER_ANCLA_CONTINUIDAD_INVALIDA");
+  }
  }
  if(secuenciaMinimaConfiable!==undefined&&ancla.secuencia<secuenciaMinimaConfiable)
   throw Error("LEDGER_ANCLA_RETROCESO_DETECTADO");
