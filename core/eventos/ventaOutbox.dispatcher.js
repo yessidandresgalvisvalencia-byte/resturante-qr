@@ -13,6 +13,11 @@ async function despacharSiguienteVenta({ now = new Date(), emitir = async (name,
   if (consumidores.length === 0) {
     throw new Error("OUTBOX_SIN_CONSUMIDORES_REGISTRADOS");
   }
+  // A once() listener is removed on its first invocation; a retry would lose it.
+  // Durable outbox consumers must stay subscribed across retries.
+  if (consumidores.some(listener => typeof listener.listener === "function")) {
+    throw new Error("OUTBOX_CONSUMIDOR_ONCE_NO_PERMITIDO");
+  }
   const envelope = Object.freeze({
     eventName: name,
     occurredAt: new Date(),
