@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run check:syntax
+RUN npm run check:syntax && rm -rf node_modules
 
 FROM node:20-bookworm-slim AS production-dependencies
 WORKDIR /app
