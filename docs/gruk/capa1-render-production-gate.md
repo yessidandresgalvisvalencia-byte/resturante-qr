@@ -1,23 +1,53 @@
-# Capa 1 — Gate de despliegue Render (15 octubre 2026)
+# Capa 1 — Gate de producción del servicio oficial
 
-## Evidencia verificada
-- Render `resturante-qr-1` (`srv-d6n2kd75gffc73bq5oqg`): despliegue del commit `921a1c6` marcado `live`.
-- Render `resturante-qr` (`srv-d6n2j07kijhs73e6jrjg`): mismo commit con `update_failed`.
-- Eventos Render del segundo servicio: `build_ended=succeeded`, seguido de `deploy_ended=failed` y `nonZeroExit=1`. La causa concreta no se conoce.
-- Logs de arranque del primer servicio confirman conexión MongoDB y escucha en puerto 10000. No hay evidencia suficiente para certificar el segundo.
-- Ambos servicios siguen `main` con `autoDeploy=yes`. Una fusión afecta ambos.
-- `/health` y `/ready` existen solo en esta rama hasta fusionar. No afirmar que funcionan en producción.
+## Alcance autorizado
+El único servicio objetivo de GRUK Empresarial es `resturante-qr`
+(`srv-d6n2j07kijhs73e6jrjg`; https://resturante-qr.onrender.com).
+El servicio adicional `resturante-qr-1` queda fuera de las verificaciones y operaciones.
+Su eliminación queda a cargo del propietario. No modificar
+`gruk-finanzas-personales` ni su rama.
 
-## Bloqueos de promoción (NO GO)
-1. Identificar y corregir el cierre con código 1 de `resturante-qr`; no atribuir causa a secretos sin evidencia.
-2. Confirmar rol y necesidad de ambos servicios empresariales; acordar estrategia de despliegue para ambos.
-3. Verificar secrets `DEPLOY_HOOK_URL` y `PRODUCTION_HEALTH_URL` en el entorno de GitHub Actions, sin exponer valores.
-4. Evitar dos disparadores de despliegue concurrentes: Render autoDeploy por commit y hook desde GitHub Actions. Desactivar uno solo tras verificar que el otro cubre ambos servicios.
-5. Probar staging y verificar HTTP 200 con JSON `status=ok`, `db=connected`, `version` y `uptime`.
-6. Probar rollback de la revisión previa, sin tocar bases de datos reales.
-7. Aprobar PR después de pasar CI; ninguna aprobación de agente sustituye revisión humana.
+## Evidencia del servicio oficial
+- Render confirma `autoDeploy=yes` desde `main`.
+- En el despliegue del commit `921a1c6` (2 octubre 2026), la compilación
+  terminó correctamente pero el proceso de ejecución terminó con código 1;
+  Render marcó `update_failed`. La excepción concreta sigue sin identificar.
+- Los logs históricos consultados para ese intervalo no estaban disponibles.
+  No atribuir la causa a MongoDB, variables de entorno ni puertos sin evidencia.
+- El endpoint `/health` de este PR todavía no está desplegado.
+- GitHub CI #1778 pasó: `npm run gate`, MongoDB replica set,
+  `docker compose config --quiet` y `docker build`.
 
-## Restricciones
-- No alterar `feature/finanzas-personales` ni el servicio `gruk-finanzas-personales`.
-- No activar el ledger nuevo, operaciones financieras, outbox ni automatismos de cobro.
-- La CI verde prueba solo el alcance que ejecuta; no certifica seguridad total ni disponibilidad de Render.
+## Mecanismo de despliegue
+- Render despliega automáticamente `main`; el workflow
+  `.github/workflows/deploy.yml` **no dispara despliegues**.
+- El workflow manual `workflow_dispatch` ejecuta verificaciones y
+  consulta únicamente `https://resturante-qr.onrender.com/health`.
+  Antes de fusionar, esa consulta no puede certificar la versión del PR.
+- Un merge a `main` puede desplegar inmediatamente, sin esperar el
+  resultado del workflow de GitHub. Por eso la CI verde por sí sola
+  **no constituye un gate de despliegue**.
+- Para una promoción realmente controlada, primero configurar Render
+  para desplegar solamente revisiones aprobadas, verificar staging y
+  conservar un procedimiento de rollback. No cambiar ajustes de Render
+  sin un plan de recuperación comprobado.
+
+## Controles pendientes — NO GO
+1. Diagnosticar el cierre `nonZeroExit=1` del servicio oficial.
+2. Verificar que la aplicación arranca con su configuración real y que
+   `/health` devuelve HTTP 200 y `status=ok`, `db=connected`.
+3. Validar staging y rollback antes de la primera promoción.
+4. Evitar que cualquier cambio del ledger o cobros se active por accidente.
+5. Revisar manualmente el PR, las dependencias y la configuración de seguridad.
+
+## Seguridad de Docker Compose
+`docker-compose.yml` es una referencia **solo para desarrollo aislado**:
+MongoDB y Redis carecen de autenticación y no deben exponerse en redes
+públicas. El `.env.example` contiene secretos ficticios y no es una
+configuración válida para producción. El entorno oficial sigue usando
+su base de datos y configuración gestionadas por Render.
+
+## Estado
+Infraestructura preparada y CI aprobada. **No desplegado ni certificado
+en producción**. No afirmar integridad financiera total ni tolerancia a
+fallos hasta completar las pruebas transaccionales.
