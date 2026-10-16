@@ -58,7 +58,7 @@ async function load(){try{
  const verificacion=await api("/diagnostico-integridad");
  const integridad=verificacion.diagnostico;
  if(!integridad?.identidadExistente)throw Error("No se pudo verificar tu identidad. El tablero no se actualizará.");
- if(integridad.movimientos===0&&integridad.deudas===0&&integridad.cuentas===0){
+ if(integridad.movimientos===0&&integridad.deudas===0&&integridad.cuentas===0&&integridad.fechaCreacionCuenta&&Date.now()-new Date(integridad.fechaCreacionCuenta).getTime()>86400000){
   const live=$("live");if(live){live.textContent="ALERTA DE INTEGRIDAD: el servidor no encuentra movimientos, deudas ni cuentas para esta identidad. No vuelvas a registrar nada; requiere recuperación y revisión del historial.";live.dataset.alert="true";}
   const status=$("captureMsg");if(status){status.textContent="GRUK detectó registros financieros ausentes. No se actualizarán los indicadores a cero hasta revisar la base de datos.";status.className="msg err";}
   return;
