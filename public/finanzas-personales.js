@@ -119,7 +119,10 @@ const renderPrestamo=x=>{
   html+='<button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\')">Eliminar</button>';
  }else if(propia&&x.estado==="PAGADO"&&pagadas>0){
   html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
+ }else if(!propia&&x.estado==="PAGADO"){
+  html+='<button class="secondary mini" onclick="window.corregirOrigenCobro(\''+esc(String(x._id))+'\')">Corregir</button>';
  }else if(!propia&&x.estado!=="PAGADO"){
+  html+='<button class="secondary mini" onclick="window.corregirOrigenCobro(\''+esc(String(x._id))+'\')">Corregir</button>';
   html+='<button class="mini" onclick="window.registrarCobro(\''+esc(String(x._id))+'\','+Number(x.saldoMinor)+')">Registrar pago recibido</button>';
  }
  html+='</div></article>';
@@ -140,6 +143,22 @@ $("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pa
  await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/deshacer",{method:"POST"});
  await load();alert("Cuota #"+n+" revertida correctamente.");
  }catch(e){alert("No se pudo deshacer la cuota: "+e.message)}
+};
+window.corregirOrigenCobro=async id=>{try{
+ const datos=await api("/prestamos");
+ const p=(datos.prestamos||[]).find(x=>String(x._id)===String(id));
+ if(!p||p.direccion!=="POR_COBRAR")throw Error("Cuenta por cobrar no encontrada");
+ const actual=p.origenCuentaPorCobrar||"PRESTAMO";
+ const nuevo=prompt("¿Qué era esta cuenta por cobrar? Escribe TRABAJO, PRESTAMO u OTRO.",actual);
+ if(nuevo===null)return;
+ const origenCuentaPorCobrar=nuevo.trim().toUpperCase();
+ if(!["TRABAJO","PRESTAMO","OTRO"].includes(origenCuentaPorCobrar))throw Error("Elige TRABAJO, PRESTAMO u OTRO");
+ if(actual===origenCuentaPorCobrar)return;
+ if(!confirm("¿Corregir el origen a "+origenCuentaPorCobrar+"? GRUK reclasificará únicamente los cobros relacionados ya existentes. NO recibirá ni registrará dinero otra vez."))return;
+ await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({origenCuentaPorCobrar})});
+ await load();
+ alert("Origen corregido. Los cobros relacionados fueron reclasificados sin duplicarse.");
+ }catch(e){alert("No se pudo corregir: "+e.message)}
 };
 window.registrarCuota=async id=>{try{
  const info=await api("/prestamos/"+encodeURIComponent(id)+"/cuotas");
