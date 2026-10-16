@@ -16,6 +16,11 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      - name: Enforce npm lockfile
+        run: |
+          test -f package-lock.json
+          test ! -f yarn.lock
+          node -e 'const p=require("./package.json"),l=require("./package-lock.json");if(l.name!==p.name||l.version!==p.version||!l.lockfileVersion)process.exit(1)'
       - run: npm ci
       - run: npm run check:syntax
       - name: Start MongoDB replica set
