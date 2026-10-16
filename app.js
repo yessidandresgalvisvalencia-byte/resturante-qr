@@ -164,8 +164,7 @@ async function iniciarAplicacion() {
       ? err.name
       : "StartupError";
     console.error("GRUK_STARTUP_FAILURE", { stage: "mongodb_connect", code, name });
-    process.exitCode = 1;
-    return;
+    process.exit(1);
   }
 }
 
