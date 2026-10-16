@@ -91,7 +91,7 @@ router.get("/prestamos/:id/cuotas",async(req,res)=>{
  const vencimientoOriginal=p.fechaVencimiento?new Date(p.fechaVencimiento):null;
  let proximoVencimiento=null,frecuenciaSinConfirmar=false;
  if(p.saldoMinor>0&&vencimientoOriginal&&!Number.isNaN(vencimientoOriginal.getTime())){
-  if(p.periodicidad==="MENSUAL"||(p.periodicidad==null&&p.numeroCuotas>1)){
+  if(p.periodicidad==="MENSUAL"||(p.periodicidad==null&&pagos.length>0)){
    const anio=vencimientoOriginal.getUTCFullYear(),mes=vencimientoOriginal.getUTCMonth(),dia=vencimientoOriginal.getUTCDate();
    const base=new Date(Date.UTC(anio,mes+pagos.length,1));
    const ultimoDia=new Date(Date.UTC(base.getUTCFullYear(),base.getUTCMonth()+1,0)).getUTCDate();
