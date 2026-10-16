@@ -10,6 +10,9 @@ Su eliminación queda a cargo del propietario. No modificar
 ## Evidencia del servicio oficial
 - Render confirma `autoDeploy=yes` desde `main`.
 - **Configuración real observada en Render:** runtime `node`, comando de compilación `yarn`, comando de inicio `node app.js`, sin `healthCheckPath` configurado, una instancia y plan `free`. Por tanto, **la imagen Docker construida por CI no es la imagen que Render ejecuta actualmente**. No equiparar `docker build` verde con un despliegue Docker en Render.
+- El repositorio dispone de `package-lock.json` y no de `yarn.lock`. CI comprueba ahora el contrato npm/lockfile; **no se ha cambiado todavía la configuración de Render**.
+- **Cambio de configuración recomendado tras validar staging:** Render build command `npm ci` (mantener start command `node app.js`). Esto elimina la divergencia respecto a CI, pero requiere verificar que todas las dependencias y el arranque funcionan con la configuración real del servicio.
+- Configurar `healthCheckPath=/health` únicamente después de desplegar una revisión que implemente ese endpoint y comprobar su respuesta con MongoDB conectado.
 - Antes de promover, alinear el gestor de dependencias del servicio con el lockfile elegido y configurar un health check de Render solo cuando `/health` esté disponible en la revisión desplegada.
 - En el despliegue del commit `921a1c6` (2 octubre 2026), la compilación
   terminó correctamente pero el proceso de ejecución terminó con código 1;
