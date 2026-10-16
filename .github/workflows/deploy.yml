@@ -1,7 +1,5 @@
 name: GRUK guarded production deploy
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -55,11 +53,11 @@ jobs:
         run: |
           test -n "$DEPLOY_HOOK_URL" || { echo "Missing DEPLOY_HOOK_URL"; exit 1; }
           test -n "$PRODUCTION_HEALTH_URL" || { echo "Missing PRODUCTION_HEALTH_URL"; exit 1; }
-      - name: Trigger production deployment
+      - name: Trigger official production deployment
         env:
           DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
         run: curl --fail --show-error --silent --max-time 30 --retry 2 -X POST "$DEPLOY_HOOK_URL"
-      - name: Verify production health
+      - name: Verify official production health
         env:
           PRODUCTION_HEALTH_URL: ${{ secrets.PRODUCTION_HEALTH_URL }}
         run: |
