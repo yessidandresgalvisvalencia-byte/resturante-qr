@@ -46,6 +46,7 @@ app.get("/health", (_req, res) => {
   res.status(db === "connected" ? 200 : 503).json({
     status: db === "connected" ? "ok" : "degraded",
     version: require("./package.json").version,
+    commit: process.env.RENDER_GIT_COMMIT || null,
     uptime: Math.floor(process.uptime()),
     db
   });
