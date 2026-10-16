@@ -102,7 +102,14 @@ const renderPrestamo=x=>{
 
   if(!x.periodicidadConfirmada)html+='<p class="hint">Confirma una sola vez las cuotas pendientes. No necesitas indicar fechas.</p>';
  }
- if(x.fechaVencimiento)html+='<div class="debtDate">Próximo vencimiento informado: '+new Date(x.fechaVencimiento).toLocaleDateString("es-CO")+'</div>';
+ if(propia&&detalle&&!detalle.error&&detalle.proximoVencimiento){
+  const [yyyy,mm,dd]=detalle.proximoVencimiento.split("-");
+  html+='<div class="debtDate">'+(detalle.frecuenciaSinConfirmar?'Próximo vencimiento estimado (si las cuotas son mensuales): ':'Próximo vencimiento: ')+dd+'/'+mm+'/'+yyyy+'</div>';
+ }else if(x.fechaVencimiento&&!propia){
+  html+='<div class="debtDate">Vencimiento informado: '+new Date(x.fechaVencimiento).toLocaleDateString("es-CO")+'</div>';
+ }else if(propia&&x.fechaVencimiento&&x.saldoMinor>0){
+  html+='<div class="debtDate">Fecha registrada: '+new Date(x.fechaVencimiento).toLocaleDateString("es-CO")+' · Confirma la frecuencia para calcular el siguiente vencimiento.</div>';
+ }
  html+='<div class="debtActions">';
  if(propia&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0){
   html+='<button class="mini" onclick="window.registrarCuota(\''+esc(String(x._id))+'\')">'+(x.periodicidadConfirmada&&siguiente?'Pagar cuota #'+siguiente:'Registrar pago cuota #1')+'</button>';
