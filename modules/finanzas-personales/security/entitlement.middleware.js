@@ -1,3 +1,14 @@
 "use strict";
 const Suscripcion=require("../models/suscripcion.model");
-module.exports=async function entitlement(req,res,next){try{const s=await Suscripcion.findOne({userId:req.personalAuth.userId,estado:{$in:["ACTIVA","PRUEBA"]}}).lean();if(!s)return res.status(402).json({ok:false,error:"Finanzas Personales no está activo en tu suscripción"});if(s.vigenteHasta&&new Date(s.vigenteHasta)<new Date())return res.status(402).json({ok:false,error:"La suscripción de Finanzas Personales está vencida"});req.finanzasPersonalesSuscripcion=s;return next();}catch(e){console.error("[FIN_PERSONAL_ENTITLEMENT]",e);return res.status(500).json({ok:false,error:"No fue posible validar la suscripción"});}};
+// Etapa gratuita: se conserva la autenticación y no se altera la suscripción histórica.
+module.exports=async function entitlement(req,res,next){
+ try{
+  const s=await Suscripcion.findOne({userId:req.personalAuth.userId}).lean();
+  req.finanzasPersonalesSuscripcion=s;
+  req.finanzasPersonalesAcceso=Object.freeze({modo:"GRATIS",cobroRequerido:false});
+  return next();
+ }catch(e){
+  console.error("[FIN_PERSONAL_ENTITLEMENT]",e);
+  return res.status(500).json({ok:false,error:"No fue posible validar el acceso"});
+ }
+};
