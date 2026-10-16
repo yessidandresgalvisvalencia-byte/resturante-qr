@@ -88,7 +88,19 @@ router.get("/prestamos/:id/cuotas",async(req,res)=>{
  if(!p)return res.status(404).json({ok:false,error:"Deuda no encontrada"});
  const pagos=await Tx.find({usuarioId:req.personalAuth.userId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).sort({fecha:1,_id:1}).select("descripcion montoMinor montoPagadoRealMinor fecha").lean();
  const totalPagadoRealMinor=pagos.reduce((n,t)=>n+(t.montoPagadoRealMinor||t.montoMinor),0);
- return res.json({ok:true,totalPagadoRealMinor,valorOriginalMinor:p.principalMinor,costoAdicionalObservadoMinor:pagos.length&&p.saldoMinor===0?totalPagadoRealMinor-p.principalMinor:null,cuotasPagadas:pagos,proximaCuota:pagos.length+1,importeProximaMinor:p.saldoMinor>0?Math.min(p.cuotaMinor||0,p.saldoMinor):0,saldoPendienteMinor:p.saldoMinor,periodicidadConfirmada:Boolean(p.periodicidadConfirmada)});
+ const vencimientoOriginal=p.fechaVencimiento?new Date(p.fechaVencimiento):null;
+ let proximoVencimiento=null,frecuenciaSinConfirmar=false;
+ if(p.saldoMinor>0&&vencimientoOriginal&&!Number.isNaN(vencimientoOriginal.getTime())){
+  if(p.periodicidad==="MENSUAL"||(p.periodicidad==null&&pagos.length>0)){
+   const anio=vencimientoOriginal.getUTCFullYear(),mes=vencimientoOriginal.getUTCMonth(),dia=vencimientoOriginal.getUTCDate();
+   const base=new Date(Date.UTC(anio,mes+pagos.length,1));
+   const ultimoDia=new Date(Date.UTC(base.getUTCFullYear(),base.getUTCMonth()+1,0)).getUTCDate();
+   proximoVencimiento=new Date(Date.UTC(base.getUTCFullYear(),base.getUTCMonth(),Math.min(dia,ultimoDia))).toISOString().slice(0,10);
+   frecuenciaSinConfirmar=p.periodicidad!=="MENSUAL";
+  }else if(pagos.length===0)proximoVencimiento=vencimientoOriginal.toISOString().slice(0,10);
+ }
+
+ return res.json({ok:true,proximoVencimiento,frecuenciaSinConfirmar,totalPagadoRealMinor,valorOriginalMinor:p.principalMinor,costoAdicionalObservadoMinor:pagos.length&&p.saldoMinor===0?totalPagadoRealMinor-p.principalMinor:null,cuotasPagadas:pagos,proximaCuota:pagos.length+1,importeProximaMinor:p.saldoMinor>0?Math.min(p.cuotaMinor||0,p.saldoMinor):0,saldoPendienteMinor:p.saldoMinor,periodicidadConfirmada:Boolean(p.periodicidadConfirmada)});
 });
 const cuotaPagoSchema=Joi.object({cuentaId:Joi.string().hex().length(24).allow(null).default(null),modo:Joi.string().valid("CUENTA","HISTORICO").default("CUENTA"),numeroCuota:Joi.number().integer().min(1).max(600).required(),montoPagadoRealMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
 router.post("/prestamos/:id/cuotas/pagar",validate(cuotaPagoSchema),async(req,res)=>{
