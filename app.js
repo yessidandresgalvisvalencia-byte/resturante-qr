@@ -41,6 +41,20 @@ app.use(securityHeaders);
 app.use("/api", noStore, rateLimit({ windowMs: 60 * 1000, max: 180 }));
 app.use(express.json({ limit: "1mb", strict: true }));
 app.use(express.urlencoded({ extended: false, limit: "256kb", parameterLimit: 200 }));
+app.get("/health", (_req, res) => {
+  const db = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+  res.status(db === "connected" ? 200 : 503).json({
+    status: db === "connected" ? "ok" : "degraded",
+    version: require("./package.json").version,
+    commit: process.env.RENDER_GIT_COMMIT || null,
+    uptime: Math.floor(process.uptime()),
+    db
+  });
+});
+app.get("/ready", (_req, res) => {
+  const ready = mongoose.connection.readyState === 1;
+  res.status(ready ? 200 : 503).json({ ready });
+});
 const inventarioRoutes =
 require("./routes/inventario");
 const recetasRoutes = require("./routes/recetas");
@@ -144,7 +158,13 @@ async function iniciarAplicacion() {
       console.log(`Servidor corriendo en puerto ${PORT}`);
     });
   } catch (err) {
-    console.error("Error MongoDB:", err.message);
+    const code = typeof err?.code === "string" && /^[A-Z0-9_]+$/.test(err.code)
+      ? err.code
+      : "UNCLASSIFIED";
+    const name = typeof err?.name === "string" && /^[A-Za-z]+Error$/.test(err.name)
+      ? err.name
+      : "StartupError";
+    console.error("GRUK_STARTUP_FAILURE", { stage: "mongodb_connect", code, name });
     process.exit(1);
   }
 }

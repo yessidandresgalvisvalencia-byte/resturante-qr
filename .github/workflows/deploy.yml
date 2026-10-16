@@ -1,0 +1,68 @@
+name: GRUK guarded production deploy
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gruk-production-deploy
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Enforce npm lockfile
+        run: |
+          test -f package-lock.json
+          test ! -f yarn.lock
+          node -e 'const p=require("./package.json"),l=require("./package-lock.json");if(l.name!==p.name||l.version!==p.version||!l.lockfileVersion)process.exit(1)'
+      - run: npm ci
+      - run: npm run check:syntax
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name gruk-mongo -p 27017:27017 mongo:8 --replSet rs0 --bind_ip_all
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then break; fi
+            sleep 1
+          done
+          docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Test
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          NODE_ENV: test
+        run: npm test
+      - name: Build check
+        run: |
+          if npm run | grep -qE '^  build$'; then npm run build; else echo 'No build script: CommonJS runtime'; fi
+      - name: Docker image build
+        run: docker build -t gruk-enterprise:${{ github.sha }} .
+  production-smoke:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Verify official Render service
+        run: |
+          set -euo pipefail
+          url="https://resturante-qr.onrender.com/health"
+          for i in $(seq 1 12); do
+            if curl --fail --silent --show-error --max-time 15 "$url" > /tmp/gruk-health.json; then
+              if EXPECTED_COMMIT="${{ github.sha }}" node -e 'const x=require("/tmp/gruk-health.json");if(x.status!=="ok"||x.db!=="connected"||x.commit!==process.env.EXPECTED_COMMIT)process.exit(1)'; then
+                echo "Official service health verified"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "Official production health not verified"
+          exit 1
