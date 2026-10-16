@@ -157,8 +157,15 @@ async function iniciarAplicacion() {
       console.log(`Servidor corriendo en puerto ${PORT}`);
     });
   } catch (err) {
-    console.error("Error MongoDB:", err.message);
-    process.exit(1);
+    const code = typeof err?.code === "string" && /^[A-Z0-9_]+$/.test(err.code)
+      ? err.code
+      : "UNCLASSIFIED";
+    const name = typeof err?.name === "string" && /^[A-Za-z]+Error$/.test(err.name)
+      ? err.name
+      : "StartupError";
+    console.error("GRUK_STARTUP_FAILURE", { stage: "mongodb_connect", code, name });
+    process.exitCode = 1;
+    return;
   }
 }
 
