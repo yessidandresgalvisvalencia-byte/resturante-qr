@@ -112,6 +112,7 @@ const renderPrestamo=x=>{
  }
  html+='<div class="debtActions">';
  if(propia&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0){
+  if(detalle?.frecuenciaSinConfirmar)html+='<button class="secondary mini" onclick="window.confirmarFrecuenciaMensual(\\\''+esc(String(x._id))+'\\\')">Confirmar cuotas mensuales</button>';
   html+='<button class="mini" onclick="window.registrarCuota(\''+esc(String(x._id))+'\')">'+(x.periodicidadConfirmada&&siguiente?'Pagar cuota #'+siguiente:'Registrar pago cuota #1')+'</button>';
   if(pagadas>0)html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
   html+='<button class="secondary mini" onclick="window.configurarPeriodicidad(\''+esc(String(x._id))+'\')">Editar cuotas</button>';
@@ -153,6 +154,12 @@ window.registrarCuota=async id=>{try{
  await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/pagar",{method:"POST",body:JSON.stringify({numeroCuota:n,montoPagadoRealMinor,modo:"HISTORICO",cuentaId:null,externalId})});
  await load();alert("Cuota #"+n+" registrada. Puedes deshacer el último pago desde esta misma tarjeta.");
  }catch(e){alert("No se pudo registrar la cuota: "+e.message)}
+};
+window.confirmarFrecuenciaMensual=async id=>{try{
+ if(!confirm("¿Confirmas que esta deuda vence cada mes, el mismo día? No se registrará ningún pago ni se cambiará el saldo."))return;
+ await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({periodicidad:"MENSUAL"})});
+ await load();
+ }catch(e){alert("No se pudo confirmar la periodicidad: "+e.message)}
 };
 window.configurarPeriodicidad=async id=>{try{
  const datos=await api("/prestamos"),p=(datos.prestamos||[]).find(x=>String(x._id)===String(id));
