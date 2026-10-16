@@ -51,7 +51,7 @@ jobs:
           url="https://resturante-qr.onrender.com/health"
           for i in $(seq 1 12); do
             if curl --fail --silent --show-error --max-time 15 "$url" > /tmp/gruk-health.json; then
-              if node -e 'const x=require("/tmp/gruk-health.json");if(x.status!=="ok"||x.db!=="connected")process.exit(1)'; then
+              if EXPECTED_COMMIT="${{ github.sha }}" node -e 'const x=require("/tmp/gruk-health.json");if(x.status!=="ok"||x.db!=="connected"||x.commit!==process.env.EXPECTED_COMMIT)process.exit(1)'; then
                 echo "Official service health verified"
                 exit 0
               fi
