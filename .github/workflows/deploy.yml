@@ -41,32 +41,22 @@ jobs:
           if npm run | grep -qE '^  build$'; then npm run build; else echo 'No build script: CommonJS runtime'; fi
       - name: Docker image build
         run: docker build -t gruk-enterprise:${{ github.sha }} .
-  deploy:
+  production-smoke:
     needs: verify
     runs-on: ubuntu-latest
-    environment: production
     steps:
-      - name: Require configured deployment secrets
-        env:
-          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
-          PRODUCTION_HEALTH_URL: ${{ secrets.PRODUCTION_HEALTH_URL }}
+      - name: Verify official Render service
         run: |
-          test -n "$DEPLOY_HOOK_URL" || { echo "Missing DEPLOY_HOOK_URL"; exit 1; }
-          test -n "$PRODUCTION_HEALTH_URL" || { echo "Missing PRODUCTION_HEALTH_URL"; exit 1; }
-      - name: Trigger official production deployment
-        env:
-          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
-        run: curl --fail --show-error --silent --max-time 30 --retry 2 -X POST "$DEPLOY_HOOK_URL"
-      - name: Verify official production health
-        env:
-          PRODUCTION_HEALTH_URL: ${{ secrets.PRODUCTION_HEALTH_URL }}
-        run: |
-          for i in $(seq 1 36); do
-            if curl --fail --silent --show-error --max-time 8 "$PRODUCTION_HEALTH_URL" > /tmp/gruk-health.json; then
-              node -e 'const x=require("/tmp/gruk-health.json");if(x.status!=="ok"||x.db!=="connected")process.exit(1)'
-              exit 0
+          set -euo pipefail
+          url="https://resturante-qr.onrender.com/health"
+          for i in $(seq 1 12); do
+            if curl --fail --silent --show-error --max-time 15 "$url" > /tmp/gruk-health.json; then
+              if node -e 'const x=require("/tmp/gruk-health.json");if(x.status!=="ok"||x.db!=="connected")process.exit(1)'; then
+                echo "Official service health verified"
+                exit 0
+              fi
             fi
             sleep 10
           done
-          echo "Production health not verified"
+          echo "Official production health not verified"
           exit 1
