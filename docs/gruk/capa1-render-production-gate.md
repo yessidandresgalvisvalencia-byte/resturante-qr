@@ -9,6 +9,8 @@ Su eliminación queda a cargo del propietario. No modificar
 
 ## Evidencia del servicio oficial
 - Render confirma `autoDeploy=yes` desde `main`.
+- **Configuración real observada en Render:** runtime `node`, comando de compilación `yarn`, comando de inicio `node app.js`, sin `healthCheckPath` configurado, una instancia y plan `free`. Por tanto, **la imagen Docker construida por CI no es la imagen que Render ejecuta actualmente**. No equiparar `docker build` verde con un despliegue Docker en Render.
+- Antes de promover, alinear el gestor de dependencias del servicio con el lockfile elegido y configurar un health check de Render solo cuando `/health` esté disponible en la revisión desplegada.
 - En el despliegue del commit `921a1c6` (2 octubre 2026), la compilación
   terminó correctamente pero el proceso de ejecución terminó con código 1;
   Render marcó `update_failed`. La excepción concreta sigue sin identificar.
@@ -22,7 +24,7 @@ Su eliminación queda a cargo del propietario. No modificar
 - Render despliega automáticamente `main`; el workflow
   `.github/workflows/deploy.yml` **no dispara despliegues**.
 - El workflow manual `workflow_dispatch` ejecuta verificaciones y
-  consulta únicamente `https://resturante-qr.onrender.com/health`.
+  consulta únicamente `https://resturante-qr.onrender.com/health` y exige que el campo `commit` coincida exactamente con el SHA verificado.
   Antes de fusionar, esa consulta no puede certificar la versión del PR.
 - Un merge a `main` puede desplegar inmediatamente, sin esperar el
   resultado del workflow de GitHub. Por eso la CI verde por sí sola
@@ -34,11 +36,12 @@ Su eliminación queda a cargo del propietario. No modificar
 
 ## Controles pendientes — NO GO
 1. Diagnosticar el cierre `nonZeroExit=1` del servicio oficial.
-2. Verificar que la aplicación arranca con su configuración real y que
+2. Revisar el comando `yarn` actualmente usado por Render frente a `npm ci` en CI; comprobar la compatibilidad del lockfile antes de cambiar la configuración.
+3. Verificar que la aplicación arranca con su configuración real y que
    `/health` devuelve HTTP 200 y `status=ok`, `db=connected`.
-3. Validar staging y rollback antes de la primera promoción.
-4. Evitar que cualquier cambio del ledger o cobros se active por accidente.
-5. Revisar manualmente el PR, las dependencias y la configuración de seguridad.
+4. Validar staging y rollback antes de la primera promoción.
+5. Evitar que cualquier cambio del ledger o cobros se active por accidente.
+6. Revisar manualmente el PR, las dependencias y la configuración de seguridad.
 
 ## Seguridad de Docker Compose
 `docker-compose.yml` es una referencia **solo para desarrollo aislado**:
