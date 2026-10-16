@@ -157,7 +157,7 @@ window.corregirOrigenCobro=async id=>{try{
  if(!confirm("¿Corregir el origen a "+origenCuentaPorCobrar+"? GRUK reclasificará únicamente los cobros relacionados ya existentes. NO recibirá ni registrará dinero otra vez."))return;
  await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({origenCuentaPorCobrar})});
  await load();
- alert("Origen corregido. Los cobros relacionados fueron reclasificados sin duplicarse.");
+ alert("Origen corregido. Se revisaron los movimientos vinculados sin crear ingresos ni cobros nuevos. Si falta un ingreso, consulta el historial antes de registrarlo.");
  }catch(e){alert("No se pudo corregir: "+e.message)}
 };
 window.registrarCuota=async id=>{try{
