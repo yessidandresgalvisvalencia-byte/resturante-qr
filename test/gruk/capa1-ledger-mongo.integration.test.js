@@ -6,6 +6,7 @@ const { appendMovement, ensureLedgerIndexes } = require("../../core/ledger/appen
 const { verifyLedgerChain } = require("../../core/ledger/verifyLedger.service");
 const { acceptOfflineBatch, ensureInboxIndexes } = require("../../core/offline/offlineInbox.service");
 const { beginReview } = require("../../core/offline/offlineReview.service");
+const { markOfflineApplied } = require("../../core/offline/offlineApply.service");
 
 test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", { timeout: 30000, skip: !process.env.GRUK_TEST_MONGO_URI }, async () => {
   const { MongoClient } = require("mongodb");
@@ -117,6 +118,17 @@ test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", 
       empresaId: "companyA", sedeId: "s1", eventId: offlineEvent.eventId
     });
     assert.equal(storedAfterReview.status, "EN_REVISION");
+    // A real persisted inbox row cannot be finalized without a matching posted ledger movement.
+    await assert.rejects(markOfflineApplied({
+      db, context: reviewer, eventId: offlineEvent.eventId,
+      reviewToken: claims.find(x => x.status === "EN_REVISION").reviewToken,
+      commitReference: { collection: "gruk_ledger_movimientos", eventId: offlineEvent.eventId }
+    }), /OFFLINE_DOMAIN_NOT_COMMITTED/);
+    const notApplied = await db.collection("gruk_offline_inbox").findOne({
+      empresaId: "companyA", sedeId: "s1", eventId: offlineEvent.eventId
+    });
+    assert.equal(notApplied.status, "EN_REVISION");
+
     assert.equal(await db.collection("gruk_ledger_movimientos")
       .countDocuments({ empresaId: "companyA", eventId: offlineEvent.eventId }), 0);
 
