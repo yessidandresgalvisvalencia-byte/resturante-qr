@@ -14,12 +14,6 @@ async function anexarEventoV81(usuarioId,datos){
   let evento;
   await session.withTransaction(async()=>{
    const existente=await Evento.findOne({usuarioId,eventId:datos.id}).session(session).lean();
-   if(existente){
-    const candidato=crearEvento({...datos,userId,version:existente.version},existente.hashAnterior);
-    if(candidato.hashActual!==existente.hashActual)throw Object.assign(new Error("Identificador reutilizado con contenido diferente"),{statusCode:409});
-    evento=candidato;
-    return;
-   }
    let cabeza=await Cabeza.findOne({usuarioId}).session(session).lean();
    if(!cabeza){
     try {
@@ -56,6 +50,13 @@ async function anexarEventoV81(usuarioId,datos){
      validos=verificarCadena(cadena,cabeza.hashActual);
     }catch(_){validos=false;}
     if(!validos)throw Object.assign(new Error("Integridad V81 comprometida: cadena criptográfica inválida"),{statusCode:409});
+   }
+   // Incluso un reintento idempotente debe pasar la auditoría del ledger.
+   if(existente){
+    const candidato=crearEvento({...datos,userId,version:existente.version},existente.hashAnterior);
+    if(candidato.hashActual!==existente.hashActual)throw Object.assign(new Error("Identificador reutilizado con contenido diferente"),{statusCode:409});
+    evento=candidato;
+    return;
    }
    if(datos.tipo==="CORRECCION" || datos.tipo==="ANULACION"){
     if(typeof datos.corrigeId!=="string" || !datos.corrigeId.trim())throw Object.assign(new Error("Referencia de corrección obligatoria"),{statusCode:400});
