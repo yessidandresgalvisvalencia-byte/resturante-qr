@@ -30,5 +30,6 @@ jobs:
           node --check core/offline/offlineInbox.service.js
           node --check core/ledger/copAmounts.js
           node --check core/ledger/appendLedger.service.js
+          node --check core/ledger/verifyLedger.service.js
       - name: Contract and inbox tests (dependency-free)
         run: node --test test/gruk/capa1-offline*.test.js test/gruk/capa1-ledger*.test.js
