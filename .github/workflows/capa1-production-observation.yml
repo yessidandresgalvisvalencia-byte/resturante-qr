@@ -13,18 +13,18 @@ jobs:
     steps:
       - name: Observe both endpoints independently (Render free cold start aware)
         env:
-          GRUK_URL: https://resturante-qr.onrender.com
+          GRUK_URL: https://resturante-qr-1.onrender.com
         shell: bash
         run: |
           set -u
           failures=0
-          echo "Target: resturante-qr; read-only checks; no secrets or response bodies printed"
+          echo "Target: resturante-qr-1; read-only checks; no secrets or response bodies printed"
           for path in / /health; do
             echo "GET ${path}"
             status=$(curl --retry 2 --retry-delay 5 --retry-all-errors -L -sS -o /tmp/gruk-observation-body -w '%{http_code}' --connect-timeout 15 --max-time 65 "${GRUK_URL}${path}") || status=000
             echo "HTTP ${status}"
             if [ "${status}" != "200" ]; then
-              echo "::warning::Render resturante-qr ${path} returned HTTP ${status}"
+              echo "::warning::Render resturante-qr-1 ${path} returned HTTP ${status}"
               failures=1
               continue
             fi
