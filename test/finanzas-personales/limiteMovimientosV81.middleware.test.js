@@ -24,3 +24,27 @@ test("V81 exige configuración válida",()=>{
  assert.throws(()=>crearLimiteMovimientosV81({max:0}),TypeError);
  assert.throws(()=>crearLimiteMovimientosV81({windowMs:100}),TypeError);
 });
+
+test("V81 no permite evadir límite retrocediendo el reloj",()=>{
+ let momento=10000;
+ const mw=crearLimiteMovimientosV81({max:1,windowMs:1000,now:()=>momento});
+ const principal={userId:a,verificado:true};
+ assert.equal(llamar(mw,principal).next,1);
+ momento=9000;
+ assert.equal(llamar(mw,principal).statusCode,429);
+ momento=11000;
+ assert.equal(llamar(mw,principal).next,1);
+});
+test("V81 limita memoria a diez mil cuentas activas y falla cerrado",()=>{
+ let momento=10000;
+ const mw=crearLimiteMovimientosV81({max:2,windowMs:60000,now:()=>momento});
+ for(let i=1;i<=10000;i++){
+  const usuario=i.toString(16).padStart(24,"0");
+  assert.equal(llamar(mw,{userId:usuario,verificado:true}).next,1);
+ }
+ const nuevo={userId:"ffffffffffffffffffffffff",verificado:true};
+ assert.equal(llamar(mw,nuevo).statusCode,503);
+ assert.equal(llamar(mw,{userId:"000000000000000000000001",verificado:true}).next,1);
+ momento+=60000;
+ assert.equal(llamar(mw,nuevo).next,1);
+});
