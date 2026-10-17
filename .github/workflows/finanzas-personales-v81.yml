@@ -34,11 +34,16 @@ jobs:
             const a = require("/tmp/gruk-v81-audit.json");
             const vulnerabilities = a.vulnerabilities || {};
             const items = Object.entries(vulnerabilities)
-              .map(([name, v]) => ({name, severity:v.severity, direct:v.isDirect, via:v.via.filter(x => typeof x === "object").map(x => x.url)}))
+              .map(([name, v]) => ({name, severity:v.severity, direct:v.isDirect, range:v.range, fixAvailable:v.fixAvailable, via:v.via.filter(x => typeof x === "object").map(x => ({url:x.url,range:x.range,severity:x.severity}))}))
               .sort((a,b) => a.name.localeCompare(b.name));
             console.log("Dependencias vulnerables (inventario sin modificaciones):");
             console.log(JSON.stringify(items,null,2));
             console.log("Totales:", JSON.stringify(a.metadata?.vulnerabilities || {}));
+            const lock = require("./package-lock.json");
+            for (const item of items) {
+              const matches = Object.entries(lock.packages || {}).filter(([path]) => path === "node_modules/" + item.name || path.endsWith("/node_modules/" + item.name));
+              console.log("Versiones instaladas:", item.name, matches.map(([path,p]) => ({path, version:p.version})));
+            }
           '
       - name: Probar centavos, cadena SHA256 y proyeccion de ledger
         run: node --test test/finanzas-personales/*.test.js
