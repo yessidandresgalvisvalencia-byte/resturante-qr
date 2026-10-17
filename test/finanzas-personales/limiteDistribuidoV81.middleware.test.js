@@ -29,3 +29,11 @@ test("V81 no oculta los errores del siguiente controlador",async()=>{
  const res={status(){throw Error("No debería responder");},setHeader(){},json(){}};
  await assert.rejects(mw({personalAuth:{userId:id,verificado:true}},res,()=>{throw Error("Error del controlador");}),/Error del controlador/);
 });
+
+test("V81 libera temporizadores al completar Redis sin bloquear el proceso",async()=>{
+ const mw=crearLimiteDistribuidoV81({incrementar:async()=>({cantidad:1,restanteSegundos:60}),timeoutMs:30000});
+ const started=Date.now();
+ const respuesta=await invocar(mw,{userId:id,verificado:true});
+ assert.equal(respuesta.code,200);
+ assert.ok(Date.now()-started<1000);
+});
