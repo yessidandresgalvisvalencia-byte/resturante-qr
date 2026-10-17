@@ -137,6 +137,16 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    "Un reintento idéntico no debe ocultar una adulteración del historial");
   await assert.rejects(anexarEventoV81(usuarioId,datos("tras-adulteracion")),
    e=>e.statusCode===409 && /cadena criptográfica inválida/.test(e.message));
+  // Restaurar importe y alterar solo la referencia de una corrección:
+  // el hash encadenado también protege las relaciones entre movimientos.
+  await Evento.collection.updateOne({_id:primero._id},{$set:{montoCentavos:primero.montoCentavos}});
+  const modificacion=await Evento.findOne({usuarioId,tipo:"CORRECCION"}).lean();
+  await Evento.collection.updateOne({_id:modificacion._id},{$set:{corrigeId:"registro-inexistente"}});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("tras-referencia-adulterada")),
+   e=>e.statusCode===409 && /cadena criptográfica inválida/.test(e.message));
+  await Evento.collection.updateOne({_id:modificacion._id},{$set:{corrigeId:modificacion.corrigeId}});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"VERIFICADA");
   await Evento.collection.deleteOne({_id:primero._id});
   assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
   await assert.rejects(anexarEventoV81(usuarioId,datos("tras-hueco-intermedio")),
