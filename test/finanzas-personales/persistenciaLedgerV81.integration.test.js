@@ -71,6 +71,13 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    e=>e.statusCode===409 && /inexistente para este usuario/.test(e.message)
   );
   assert.equal(await Evento.countDocuments({usuarioId:otroUsuario}),0);
+  // La misma clave de evento puede existir en dos cuentas sin mezclar su historial.
+  const otroMovimiento=await anexarEventoV81(otroUsuario,datos("registro-uno"));
+  assert.equal(otroMovimiento.userId,String(otroUsuario));
+  assert.equal(await Evento.countDocuments({usuarioId:otroUsuario,eventId:"registro-uno"}),1);
+  assert.equal(await Evento.countDocuments({usuarioId,eventId:"registro-uno"}),1);
+  assert.notEqual(otroMovimiento.hashActual,original.hashActual);
+
 
   // Una reclasificación legítima conserva el original y agrega un evento compensatorio.
   await anexarEventoV81(usuarioId,datos("reclasificacion-base"));
@@ -166,6 +173,8 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   // Borrar exclusivamente registros de prueba con usuarioId aleatorio en BD de test.
   await Evento.collection.deleteMany({usuarioId});
   await Cabeza.collection.deleteMany({usuarioId});
+  await Evento.collection.deleteMany({usuarioId:otroUsuario});
+  await Cabeza.collection.deleteMany({usuarioId:otroUsuario});
   await mongoose.disconnect();
  }
 });
