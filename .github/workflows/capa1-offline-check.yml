@@ -35,3 +35,32 @@ jobs:
           node --check core/ledger/verifyLedger.service.js
       - name: Contract and inbox tests (dependency-free)
         run: node --test test/gruk/capa1-offline*.test.js test/gruk/capa1-ledger*.test.js
+
+  mongodb-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Start isolated MongoDB replica set
+        run: |
+          docker run -d --name gruk-test-mongo -p 127.0.0.1:27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 40); do
+            if docker exec gruk-test-mongo mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep -q 1; then break; fi
+            sleep 2
+          done
+          docker exec gruk-test-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+          for i in $(seq 1 40); do
+            if docker exec gruk-test-mongo mongosh --quiet --eval 'rs.status().myState' | grep -q 1; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Verify ledger with real MongoDB transactions
+        env:
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
+        run: node --test test/gruk/capa1-ledger-mongo.integration.test.js
