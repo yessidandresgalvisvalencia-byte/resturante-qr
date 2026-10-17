@@ -62,6 +62,14 @@ El proyecto declara `express@^5.2.1` y Express incorpora `proxy-addr@^2.0.7`. Se
 
 **No se ha confirmado exposición efectiva de la aplicación ni se ha aplicado todavía el parche.** El equipo no debe declarar cerrado el hallazgo solo por actualizar `package.json`: es necesario regenerar `package-lock.json`, ejecutar `npm ci`, pruebas financieras, pruebas empresariales y auditoría de dependencias.
 
+## Parche identificado para proxy-addr
+
+La alerta oficial [GHSA-jqcg-44mw-7w3h](https://github.com/jshttp/proxy-addr/security/advisories/GHSA-jqcg-44mw-7w3h) indica que el rango vulnerable es `>=1.1.0 <2.0.8` y la primera versión corregida es **`proxy-addr@2.0.8`**. La versión instalada **2.0.7** está afectada. La vulnerabilidad afecta la interpretación de subredes IPv6 / IPv4-mapped en la configuración de proxies confiables, permitiendo falsificar IP de cliente mediante `X-Forwarded-For` bajo ciertas configuraciones. Esto puede debilitar rate limiting y controles basados en IP.
+
+Express 5.2.1 declara `proxy-addr@^2.0.7`, rango semver que **admite 2.0.8**. Para remediar, se debe regenerar el lockfile con resolución de 2.0.8 o posterior compatible, comprobar `npm ls proxy-addr`, y correr todos los tests de ambos sistemas antes de fusionar cambios. **Aún no se ha cambiado `package-lock.json` ni desplegado nada**.
+
+Referencia adicional: [historial de proxy-addr v2.0.8](https://github.com/jshttp/proxy-addr/blob/master/HISTORY.md).
+
 ## Procedimiento obligatorio para remediar
 
 1. Capturar para cada alerta versión instalada, rango vulnerable, versión corregida y árbol de dependencias usando `npm ls <paquete>`, `npm audit --omit=dev --json` y `npm explain <paquete>`.
