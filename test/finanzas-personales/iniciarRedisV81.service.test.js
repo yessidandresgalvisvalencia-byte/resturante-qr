@@ -22,3 +22,12 @@ test("V81 producción exige conexión TLS",async()=>{
   await assert.rejects(iniciarRedisV81({locals:{}},{url:"redis://127.0.0.1:6379",crearCliente:()=>({})}),/TLS/);
  }finally{if(antes===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=antes;}
 });
+
+test("V81 elimina cliente obsoleto si la nueva URL o configuración son inválidas",async()=>{
+ const app={locals:{redisV81:{eval:async()=>[1,60]}}};
+ await assert.rejects(iniciarRedisV81(app,{url:"https://invalido",crearCliente:()=>({})}),/Protocolo/);
+ assert.equal(app.locals.redisV81,undefined);
+ app.locals.redisV81={eval:async()=>[1,60]};
+ await assert.rejects(iniciarRedisV81(app,{url:"",crearCliente:()=>({})}),/requerido/);
+ assert.equal(app.locals.redisV81,undefined);
+});
