@@ -18,6 +18,9 @@ on:
       - "test/gruk/capa1-ledger*.test.js"
       - "test/gruk/capa1-offline*.test.js"
       - ".github/workflows/capa1-offline-check.yml"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
 permissions:
   contents: read
 jobs:
@@ -77,3 +80,14 @@ jobs:
         run: docker build --progress=plain --target production -t gruk-capa1-ci:${{ github.sha }} .
       - name: Check Docker Compose configuration
         run: docker compose --env-file .env.example config --quiet
+
+      - name: Audit production dependencies
+        run: |
+          docker run --rm gruk-capa1-ci:${{ github.sha }} npm audit --omit=dev --json > npm-audit-production.json || true
+          node -e 'const r=require("./npm-audit-production.json"); console.log(JSON.stringify(r.metadata?.vulnerabilities || {}))'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gruk-capa1-npm-audit
+          path: npm-audit-production.json
+          if-no-files-found: ignore
