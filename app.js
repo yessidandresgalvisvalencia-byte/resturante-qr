@@ -35,6 +35,14 @@ const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
 const app = express();
 app.disable("x-powered-by");
 const HEALTH_VERSION = require("./package.json").version;
+app.get("/ready", (_req, res) => {
+  const connected = mongoose.connection.readyState === 1;
+  res.set("Cache-Control", "no-store");
+  res.status(connected ? 200 : 503).json({
+    ready: connected,
+    db: connected ? "connected" : "disconnected"
+  });
+});
 app.get("/health", (_req, res) => {
   const connected = mongoose.connection.readyState === 1;
   res.status(connected ? 200 : 503).json({
