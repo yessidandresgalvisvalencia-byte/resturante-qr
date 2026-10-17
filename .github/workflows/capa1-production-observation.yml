@@ -1,0 +1,35 @@
+name: GRUK Production Read-Only Observation
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/capa1-production-observation.yml"
+permissions:
+  contents: read
+jobs:
+  observe-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Observe both endpoints independently (Render free cold start aware)
+        env:
+          GRUK_URL: https://resturante-qr.onrender.com
+        shell: bash
+        run: |
+          set -u
+          failures=0
+          echo "Target: resturante-qr; read-only checks; no secrets or response bodies printed"
+          for path in / /health; do
+            echo "GET ${path}"
+            status=$(curl --retry 2 --retry-delay 5 --retry-all-errors -L -sS -o /tmp/gruk-observation-body -w '%{http_code}' --connect-timeout 15 --max-time 65 "${GRUK_URL}${path}") || status=000
+            echo "HTTP ${status}"
+            if [ "${status}" != "200" ]; then
+              echo "::warning::Render resturante-qr ${path} returned HTTP ${status}"
+              failures=1
+              continue
+            fi
+            if [ "${path}" = "/health" ]; then
+              node -e 'let j;try{j=JSON.parse(require("fs").readFileSync("/tmp/gruk-observation-body","utf8"));}catch{process.exit(1)};if(j.status!=="ok"||j.db!=="connected")process.exit(1);console.log("Health confirmed:",j.status,"DB:",j.db)' || failures=1
+            fi
+          done
+          exit "$failures"

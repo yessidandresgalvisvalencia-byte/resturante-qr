@@ -1,0 +1,15 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict");
+const {verifyLedgerChain}=require("../../core/ledger/verifyLedger.service");
+const {hashMovement,ZERO_HASH}=require("../../core/ledger/appendLedger.service");
+const scope={empresaId:"A",sedeId:"S1",cuentaId:"C1"};
+const first={...scope,secuencia:1,eventId:"e1",tipo:"CREDITO",amountCentavos:"100",beforeCentavos:"0",afterCentavos:"100",actorId:"u",ip:"127.0.0.1",timestamp:new Date("2026-10-17T10:00:00Z"),hashAnterior:ZERO_HASH};
+first.hash=hashMovement(first);
+const second={...scope,secuencia:2,eventId:"e2",tipo:"DEBITO",amountCentavos:"1",beforeCentavos:"100",afterCentavos:"99",actorId:"u",ip:"127.0.0.1",timestamp:new Date("2026-10-17T10:01:00Z"),hashAnterior:first.hash};
+second.hash=hashMovement(second);
+const head={...scope,secuencia:2,balanceCentavos:"99",lastHash:second.hash};
+test("ledger audit validates intact chain",()=>assert.equal(verifyLedgerChain({movements:[first,second],head}).balanceCentavos,"99"));
+test("ledger audit detects modified historic amount",()=>assert.throws(()=>verifyLedgerChain({movements:[{...first,amountCentavos:"101"},second],head}),/LEDGER_BALANCE_BROKEN|LEDGER_HASH_BROKEN/));
+test("ledger audit detects omitted movement",()=>assert.throws(()=>verifyLedgerChain({movements:[second],head}),/LEDGER_SEQUENCE_BROKEN/));
+test("ledger audit detects cross-tenant movement",()=>assert.throws(()=>verifyLedgerChain({movements:[{...first,empresaId:"B"},second],head}),/LEDGER_SCOPE_MISMATCH/));
+test("ledger audit rejects forged head balance",()=>assert.throws(()=>verifyLedgerChain({movements:[first,second],head:{...head,balanceCentavos:"100"}}),/LEDGER_HEAD_MISMATCH/));
