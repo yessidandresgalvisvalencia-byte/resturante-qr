@@ -84,13 +84,9 @@ async function anexarEventoV81(usuarioId,datos){
   return evento;
  } catch(error) {
   if(error && error.code===11000){
-   const existente=await Evento.findOne({usuarioId,eventId:datos.id}).lean();
-   if(existente){
-    const candidato=crearEvento({...datos,userId,version:existente.version},existente.hashAnterior);
-    if(candidato.hashActual===existente.hashActual)return candidato;
-    throw Object.assign(new Error("Identificador reutilizado con contenido diferente"),{statusCode:409});
-   }
-   throw Object.assign(new Error("Conflicto concurrente: reintenta con el mismo eventId"),{statusCode:409});
+   // No confirmar un reintento desde fuera del snapshot auditado.
+   // El cliente puede reintentar con el mismo id; la ruta normal verifica toda la cadena.
+   throw Object.assign(new Error("Conflicto de clave única: reintenta con el mismo eventId"),{statusCode:409});
   }
   throw error;
  } finally {await session.endSession();}
