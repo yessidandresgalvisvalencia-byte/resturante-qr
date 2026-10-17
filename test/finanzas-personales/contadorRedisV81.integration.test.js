@@ -26,10 +26,10 @@ test("Redis real V81: 40 incrementos simultáneos atómicos y expiración",{
    }}));
   });
  }
- const connections=await Promise.all(Array.from({length:8},cliente));
+ const connections=await Promise.all(Array.from({length:40},cliente));
  try{
   const clave="fin:v81:write:507f1f77bcf86cd799439011";
-  const results=await Promise.all(Array.from({length:40},(_,i)=>crearIncrementadorRedisV81(connections[i%connections.length])(clave,10)));
+  const results=await Promise.all(Array.from({length:40},(_,i)=>crearIncrementadorRedisV81(connections[i])(clave,10)));
   assert.deepEqual(results.map(x=>x.cantidad).sort((a,b)=>a-b),Array.from({length:40},(_,i)=>i+1));
   assert.ok(results.every(x=>x.restanteSegundos>=1&&x.restanteSegundos<=10));
  }finally{for(const c of connections)c.socket.destroy();}
