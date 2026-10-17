@@ -20,3 +20,41 @@ test("Registro V81 asigna cuenta del JWT, nunca de cliente",async()=>{
  assert.equal(response.code,201);assert.equal(llamadas[0][0],id);assert.equal(llamadas[0][1].montoCentavos,30n);
  assert.equal(response.payload.evento.montoCentavos,"30");assert.equal(response.headers["Cache-Control"],"no-store");
 });
+
+test("Registro V81 mantiene idempotencia por cuenta en reintentos HTTP",async()=>{
+ const almacen=new Map();
+ const handler=crearRegistroMovimientoV81(async(userId,d)=>{
+  const clave=userId+":"+d.id;
+  if(almacen.has(clave)){
+   const actual=almacen.get(clave);
+   if(actual.montoCentavos!==d.montoCentavos||actual.tipo!==d.tipo)throw Object.assign(new Error("Clave duplicada con datos distintos"),{statusCode:409});
+   return actual;
+  }
+  const evento={...d,version:1,hashActual:"b".repeat(64)};
+  almacen.set(clave,evento);
+  return evento;
+ });
+ const primera=res(),segunda=res();
+ await handler({personalAuth:{userId:id,verificado:true},body},primera);
+ await handler({personalAuth:{userId:id,verificado:true},body},segunda);
+ assert.equal(primera.code,201);assert.equal(segunda.code,201);
+ assert.deepEqual(primera.payload,segunda.payload);
+ assert.equal(almacen.size,1);
+ const conflicto=res();
+ await handler({personalAuth:{userId:id,verificado:true},body:{...body,montoCop:"0.40"}},conflicto);
+ assert.equal(conflicto.code,409);assert.equal(almacen.size,1);
+});
+test("Registro V81 aísla claves idempotentes entre dos usuarios",async()=>{
+ const cuentas=[];
+ const handler=crearRegistroMovimientoV81(async(userId,d)=>{
+  cuentas.push(userId);
+  return {...d,version:1,hashActual:"c".repeat(64)};
+ });
+ const segundo="507f191e810c19729de860ea";
+ for(const userId of [id,segundo]){
+  const response=res();
+  await handler({personalAuth:{userId,verificado:true},body},response);
+  assert.equal(response.code,201);
+ }
+ assert.deepEqual(cuentas,[id,segundo]);
+});
