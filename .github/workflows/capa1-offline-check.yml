@@ -11,6 +11,8 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "docker-compose.yml"
+      - "package.json"
+      - "package-lock.json"
   pull_request:
     paths:
       - "core/offline/**"
@@ -21,6 +23,8 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "docker-compose.yml"
+      - "package.json"
+      - "package-lock.json"
 permissions:
   contents: read
 jobs:
