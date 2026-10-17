@@ -48,6 +48,20 @@ Extraídas del `package-lock.json` en la ejecución [39068688163](https://github
 
 **Acción prioritaria:** rastrear `proxy-addr@2.0.7` hasta el paquete padre, evaluar la versión reparada y revisar la confianza en encabezados de proxy. No asumir que actualizar solo este paquete es seguro: necesita validación de autenticación, controles de IP y limitación de peticiones.
 
+## Origen confirmado del hallazgo crítico
+
+La ejecución [39068842300](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39068842300), commit `d7cd274`, confirmó con `npm ls proxy-addr --all` y `npm explain proxy-addr` la única ruta instalada:
+
+```text
+restaurante@1.0.0
+└── express@5.2.1
+    └── proxy-addr@2.0.7
+```
+
+El proyecto declara `express@^5.2.1` y Express incorpora `proxy-addr@^2.0.7`. Se trata de una dependencia **transitiva del servidor compartido**. Antes de sustituir versiones, hay que determinar el primer parche disponible según el aviso [GHSA-jqcg-44mw-7w3h](https://github.com/advisories/GHSA-jqcg-44mw-7w3h), comprobar que el árbol resuelva a la versión parcheada y verificar los comportamientos de `trust proxy`, IP de cliente y rate limiting.
+
+**No se ha confirmado exposición efectiva de la aplicación ni se ha aplicado todavía el parche.** El equipo no debe declarar cerrado el hallazgo solo por actualizar `package.json`: es necesario regenerar `package-lock.json`, ejecutar `npm ci`, pruebas financieras, pruebas empresariales y auditoría de dependencias.
+
 ## Procedimiento obligatorio para remediar
 
 1. Capturar para cada alerta versión instalada, rango vulnerable, versión corregida y árbol de dependencias usando `npm ls <paquete>`, `npm audit --omit=dev --json` y `npm explain <paquete>`.
