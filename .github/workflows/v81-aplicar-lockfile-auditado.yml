@@ -1,0 +1,50 @@
+name: V81 - Aplicar lockfile auditado (una vez)
+on:
+  push:
+    branches: [feature/finanzas-personales]
+    paths:
+      - '.github/workflows/v81-aplicar-lockfile-auditado.yml'
+permissions:
+  contents: write
+concurrency:
+  group: v81-lockfile-one-shot
+  cancel-in-progress: false
+jobs:
+  aplicar-lockfile:
+    if: github.repository == 'yessidandresgalvisvalencia-byte/resturante-qr' && github.ref == 'refs/heads/feature/finanzas-personales'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/finanzas-personales
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar rama, dependencias iniciales y regenerar solo lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "feature/finanzas-personales"
+          npm ci --ignore-scripts
+          npm audit fix --package-lock-only --ignore-scripts --omit=dev || true
+          npm ci --ignore-scripts
+          npm run gate
+          node --test test/finanzas-personales/*.test.js
+          npm audit --omit=dev --audit-level=low
+          test -z "$(git diff --name-only -- package.json)"
+          test "$(git diff --name-only | grep -v '^package-lock.json$' | wc -l)" -eq 0
+      - name: Registrar exclusivamente package-lock.json tras aprobar controles
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- package-lock.json; then
+            echo "No hay cambios pendientes en lockfile"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- package-lock.json
+          git commit -m "security(finanzas): apply audited production dependency lockfile"
+          git push origin HEAD:feature/finanzas-personales
