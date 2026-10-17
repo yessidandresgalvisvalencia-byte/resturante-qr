@@ -2,10 +2,12 @@
 // This service only FINALIZES an already committed domain operation.
 // It never creates sales, payments, invoices or inventory adjustments.
 const { STATES, assertTransition } = require("./offlineState.contract");
+const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
 async function markOfflineApplied({db,context,eventId,reviewToken,commitReference}) {
-  if (!db?.collection || !context?.empresaId || !context?.sedeId ||
-      !context?.actorId || context.canReview !== true ||
-      typeof eventId !== "string" || !eventId ||
+  if (!db?.collection || !context ||
+      ![context.empresaId, context.sedeId, context.actorId].every(id => typeof id === "string" && SAFE_ID.test(id)) ||
+      context.canReview !== true ||
+      typeof eventId !== "string" || !SAFE_ID.test(eventId) ||
       typeof reviewToken !== "string" || !/^[0-9a-f-]{36}$/.test(reviewToken)) {
     throw new Error("OFFLINE_AUTH_REQUIRED");
   }

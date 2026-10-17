@@ -141,3 +141,24 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     await connection.close();
   }
 });
+
+test("offline ledger finalization rejects unsafe identity before Mongo access", async () => {
+  let queried = false;
+  const db = { collection: () => { queried = true; throw Error("UNEXPECTED_DB_ACCESS"); } };
+  const eventId = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+  const reviewToken = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const commitReference = { collection: "gruk_ledger_movimientos", eventId };
+  const base = {empresaId:"empresaTest",sedeId:"sedeTest",actorId:"cajeroTest",canReview:true};
+  for (const context of [
+    {...base,empresaId:{$ne:null}},
+    {...base,sedeId:"sede.bad"},
+    {...base,actorId:"cajero$ne"},
+    {...base,empresaId:"x".repeat(81)}
+  ]) {
+    await assert.rejects(
+      markOfflineApplied({db,context,eventId,reviewToken,commitReference}),
+      /OFFLINE_AUTH_REQUIRED/
+    );
+  }
+  assert.equal(queried, false);
+});
