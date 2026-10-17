@@ -17,7 +17,8 @@ const schema = new mongoose.Schema({
 }, {collection:"fin_eventos_v81",versionKey:false,strict:"throw"});
 schema.index({usuarioId:1,version:1},{unique:true});
 schema.index({usuarioId:1,eventId:1},{unique:true});
-// Bloqueo de escrituras destructivas por consultas, documentos y operaciones masivas.\nfor(const op of ["updateOne","updateMany","findOneAndUpdate","replaceOne","findOneAndReplace","deleteOne","deleteMany","findOneAndDelete"]) {
+// Bloqueo de escrituras destructivas por consultas, documentos y operaciones masivas.
+for(const op of ["updateOne","updateMany","findOneAndUpdate","replaceOne","findOneAndReplace","deleteOne","deleteMany","findOneAndDelete"]) {
  schema.pre(op,function(){ throw new Error("Ledger V81: operación prohibida; usa eventos compensatorios"); });
 }
 schema.pre("save",function() {
