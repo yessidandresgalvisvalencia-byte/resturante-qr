@@ -43,12 +43,22 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     const crossSede = await readOfflineStatuses({ db, context: { ...context, sedeId: "otraSede" }, eventIds: ids });
     assert.ok(crossSede.every(x => x.status === "NO_ENCONTRADO" && x.applied === false));
     assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId, status: "APLICADO" }), 0);
+    // Two independent companies may legitimately generate identical ULIDs.
+    const secondTenant = { empresaId: empresaId + "_b", sedeId, actorId };
+    const independent = { ...events[0], empresaId: secondTenant.empresaId };
+    const insertedOtherTenant = await acceptOfflineBatch({ db, authenticatedContext: secondTenant, events: [independent] });
+    assert.equal(insertedOtherTenant[0].status, "RECIBIDO");
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId: { $in: [empresaId, secondTenant.empresaId] }, eventId: ids[0] }), 2);
+    const originalVisible = await readOfflineStatuses({ db, context, eventIds: [ids[0]] });
+    const otherVisible = await readOfflineStatuses({ db, context: secondTenant, eventIds: [ids[0]] });
+    assert.equal(originalVisible[0].status, "PENDIENTE");
+    assert.equal(otherVisible[0].status, "PENDIENTE");
     await assert.rejects(
       acceptOfflineBatch({ db, authenticatedContext: context, events: [{ ...events[0], payload: { localOrderId: "tampered" } }] }),
       error => error.code === "OFFLINE_EVENT_CONFLICT"
     );
   } finally {
-    await db.collection("gruk_offline_inbox").deleteMany({ empresaId, sedeId });
+    await db.collection("gruk_offline_inbox").deleteMany({ empresaId: { $in: [empresaId, empresaId + "_b"] }, sedeId });
     await connection.close();
   }
 });
