@@ -62,8 +62,9 @@ async function anexarEventoV81(usuarioId,datos){
     if(typeof datos.corrigeId!=="string" || !datos.corrigeId.trim())throw Object.assign(new Error("Referencia de corrección obligatoria"),{statusCode:400});
     const original=await Evento.findOne({usuarioId,eventId:datos.corrigeId,tipo:{$in:["INGRESO","GASTO"]}}).session(session).lean();
     if(!original)throw Object.assign(new Error("Movimiento original inexistente para este usuario"),{statusCode:409});
-    if(datos.tipo==="CORRECCION" && datos.tipoCorregido!==original.tipo){
-     throw Object.assign(new Error("Corrección V81: tipo corregido debe coincidir con el movimiento original"),{statusCode:409});
+    // La corrección puede reclasificar INGRESO/GASTO, pero nunca dejar importe cero.
+    if(datos.tipo==="CORRECCION" && (typeof datos.montoCentavos!=="bigint" || datos.montoCentavos<=0n)){
+     throw Object.assign(new Error("Corrección V81 exige un monto positivo en centavos"),{statusCode:400});
     }
     const anulado=await Evento.findOne({usuarioId,corrigeId:datos.corrigeId,tipo:"ANULACION"}).session(session).lean();
     if(anulado)throw Object.assign(new Error("Movimiento ya anulado: no admite nuevas compensaciones"),{statusCode:409});
