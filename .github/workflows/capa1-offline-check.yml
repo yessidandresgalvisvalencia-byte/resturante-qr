@@ -11,6 +11,7 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "docker-compose.yml"
+      - ".github/workflows/capa1-controlled-deploy.yml"
       - "package.json"
       - "package-lock.json"
   pull_request:
@@ -23,6 +24,7 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "docker-compose.yml"
+      - ".github/workflows/capa1-controlled-deploy.yml"
       - "package.json"
       - "package-lock.json"
 permissions:
