@@ -88,7 +88,7 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   })),String(usuarioId));
   assert.equal(proyeccion.ingresosCentavos,1800000n);
   assert.equal(proyeccion.gastosCentavos,2500000n+
-   intentos.filter(x=>x.status==="fulfilled").length*2500000n);
+   BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
   // Dos anulaciones simultáneas sobre el mismo gasto no pueden aplicarse dos veces.
   const cancelaciones=await Promise.allSettled([
    anexarEventoV81(usuarioId,{...datos("anulacion-uno"),tipo:"ANULACION",montoCentavos:0n,corrigeId:"registro-uno",motivo:"Movimiento duplicado"}),
