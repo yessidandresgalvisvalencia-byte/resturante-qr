@@ -1,12 +1,6 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const mongoose=require("mongoose");
-const {anexarEventoV81}=require("../../modules/finanzas-personales/services/persistenciaLedgerV81.service");
-const {verificarLedgerPersistidoV81}=require("../../modules/finanzas-personales/services/verificacionLedgerV81.service");
-const Evento=require("../../modules/finanzas-personales/models/eventoV81.model");
-const Cabeza=require("../../modules/finanzas-personales/models/cabezaV81.model");
-
 // Solo se permite ejecutar esta prueba destructiva contra un MongoDB local aislado.
 // La prueba elimina únicamente eventos del usuario temporal que crea.
 const uri=process.env.TEST_MONGO_URI;
@@ -20,6 +14,16 @@ if(configurada) {
     db!=="gruk_v81_test" || parsed.searchParams.has("dbName") || !habilitada) {
   throw new Error("Prueba V81 bloqueada: usa mongodb://127.0.0.1:27017/gruk_v81_test y habilitación explícita");
  }
+}
+// Sin TEST_MONGO_URI: Node registra el test como omitido sin cargar mongoose.
+// Con TEST_MONGO_URI: requiere dependencias y replica set disponibles.
+let mongoose,anexarEventoV81,verificarLedgerPersistidoV81,Evento,Cabeza;
+if(configurada){
+ mongoose=require("mongoose");
+ ({anexarEventoV81}=require("../../modules/finanzas-personales/services/persistenciaLedgerV81.service"));
+ ({verificarLedgerPersistidoV81}=require("../../modules/finanzas-personales/services/verificacionLedgerV81.service"));
+ Evento=require("../../modules/finanzas-personales/models/eventoV81.model");
+ Cabeza=require("../../modules/finanzas-personales/models/cabezaV81.model");
 }
 const datos=(id)=>({
  id,tipo:"GASTO",montoCentavos:2500000n,
