@@ -176,6 +176,47 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    e=>e.statusCode===409 && /cantidad de eventos/.test(e.message));
 
 
+  // Prueba de controlador HTTP con escritura real contra la réplica Mongo aislada.
+  const {crearRegistroMovimientoV81}=require("../../modules/finanzas-personales/services/registroMovimientoV81.handler");
+  const httpUno=new mongoose.Types.ObjectId(),httpDos=new mongoose.Types.ObjectId();
+  const handler=crearRegistroMovimientoV81();
+  const responder=()=>({codigo:200,payload:null,cabeceras:{},
+   status(n){this.codigo=n;return this;},
+   set(k,v){this.cabeceras[k]=v;return this;},
+   json(x){this.payload=x;return this;}});
+  const payloadHttp={id:"http-movimiento-0001",tipo:"GASTO",montoCop:"25000.30",
+   fechaContable:"2026-01-01",timestamp:"2026-01-01T10:00:00-05:00"};
+  const llamar=async(userId,body,verificado=true)=>{
+   const salida=responder();
+   await handler({personalAuth:{userId:String(userId),verificado},body},salida);
+   return salida;
+  };
+  try{
+   const sinSesion=await llamar(httpUno,payloadHttp,false);
+   assert.equal(sinSesion.codigo,401);
+   assert.equal(await Evento.countDocuments({usuarioId:httpUno}),0);
+   const primeroHttp=await llamar(httpUno,payloadHttp);
+   const repetidoHttp=await llamar(httpUno,payloadHttp);
+   assert.equal(primeroHttp.codigo,201);
+   assert.equal(repetidoHttp.codigo,201);
+   assert.deepEqual(primeroHttp.payload,repetidoHttp.payload);
+   assert.equal(primeroHttp.payload.evento.montoCentavos,"2500030");
+   assert.equal(await Evento.countDocuments({usuarioId:httpUno}),1);
+   const conflictoHttp=await llamar(httpUno,{...payloadHttp,montoCop:"25000.31"});
+   assert.equal(conflictoHttp.codigo,409);
+   assert.equal(await Evento.countDocuments({usuarioId:httpUno}),1);
+   const segundaCuenta=await llamar(httpDos,payloadHttp);
+   assert.equal(segundaCuenta.codigo,201);
+   assert.equal(await Evento.countDocuments({usuarioId:httpDos}),1);
+   assert.notEqual(segundaCuenta.payload.evento.hashActual,primeroHttp.payload.evento.hashActual);
+   assert.equal((await verificarLedgerPersistidoV81(httpUno)).integridad,"VERIFICADA");
+   assert.equal((await verificarLedgerPersistidoV81(httpDos)).integridad,"VERIFICADA");
+  }finally{
+   await Evento.collection.deleteMany({usuarioId:{$in:[httpUno,httpDos]}});
+   await Cabeza.collection.deleteMany({usuarioId:{$in:[httpUno,httpDos]}});
+  }
+
+
  }finally{
   // Borrar exclusivamente registros de prueba con usuarioId aleatorio en BD de test.
   await Evento.collection.deleteMany({usuarioId});
