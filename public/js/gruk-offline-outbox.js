@@ -29,7 +29,7 @@
     });
   }
   async function putPending(event) {
-    if(!event||typeof event.eventId!=="string"||!^[0-9A-HJKMNP-TV-Z]{26}$/.test(event.eventId))throw Error("OUTBOX_EVENT_ID");
+    if(!event||typeof event.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(event.eventId))throw Error("OUTBOX_EVENT_ID");
     const db=await open();
     try {
       return await tx(db,"readwrite",store=>{
