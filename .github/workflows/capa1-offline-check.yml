@@ -1,0 +1,30 @@
+name: GRUK Capa 1 Offline Contract
+on:
+  push:
+    branches: [gruk/capa1-offline-core-v4]
+    paths:
+      - "core/offline/**"
+      - "test/gruk/capa1-offline*.test.js"
+      - ".github/workflows/capa1-offline-check.yml"
+  pull_request:
+    paths:
+      - "core/offline/**"
+      - "test/gruk/capa1-offline*.test.js"
+      - ".github/workflows/capa1-offline-check.yml"
+permissions:
+  contents: read
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Syntax checks
+        run: |
+          node --check core/offline/offlineBatch.contract.js
+          node --check core/offline/offlineInbox.service.js
+      - name: Contract and inbox tests (dependency-free)
+        run: node --test test/gruk/capa1-offline.contract.test.js test/gruk/capa1-offline-inbox.test.js
