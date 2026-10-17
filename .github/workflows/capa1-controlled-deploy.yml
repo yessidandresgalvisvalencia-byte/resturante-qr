@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: gruk/capa1-offline-core-v4
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -22,13 +22,18 @@ jobs:
       - name: Resolve expected Git revision
         id: revision
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Restrict deploys to integration branch
+        run: |
+          test "${{ github.ref }}" = "refs/heads/gruk/capa1-offline-core-v4"
       - name: Check staging configuration exists
         env:
           HOOK: ${{ secrets.GRUK_CAPA1_STAGING_DEPLOY_HOOK }}
           URL: ${{ vars.GRUK_CAPA1_STAGING_URL }}
+          ROLLBACK_HOOK: ${{ secrets.GRUK_CAPA1_STAGING_ROLLBACK_HOOK }}
         run: |
           test -n "$HOOK" || { echo "Missing staging hook"; exit 1; }
           test -n "$URL" || { echo "Missing staging URL"; exit 1; }
+          test -n "$ROLLBACK_HOOK" || { echo "Missing rollback hook"; exit 1; }
           case "$URL" in https://*) ;; *) echo "Staging URL must use HTTPS"; exit 1;; esac
       - name: Install and syntax gate
         run: |
@@ -42,9 +47,12 @@ jobs:
           docker build --target production -t gruk-capa1-staging:${{ github.sha }} .
           docker compose --env-file .env.example config --quiet
       - name: Request staging deployment
+        id: deploy
         env:
           HOOK: ${{ secrets.GRUK_CAPA1_STAGING_DEPLOY_HOOK }}
-        run: curl --fail --show-error --silent --max-time 30 --retry 2 -X POST "$HOOK"
+        run: |
+          echo "attempted=true" >> "$GITHUB_OUTPUT"
+          curl --fail --show-error --silent --max-time 30 --retry 2 -X POST "$HOOK"
       - name: Confirm actual staging health
         env:
           BASE_URL: ${{ vars.GRUK_CAPA1_STAGING_URL }}
@@ -63,12 +71,13 @@ jobs:
           echo "Staging /health did not confirm the expected deployment revision"
           exit 1
       - name: Attempt rollback using configured safe hook
-        if: failure()
+        if: failure() && steps.deploy.outputs.attempted == 'true'
         env:
           HOOK: ${{ secrets.GRUK_CAPA1_STAGING_ROLLBACK_HOOK }}
         run: |
           if test -n "$HOOK"; then
             curl --fail --show-error --silent --max-time 30 -X POST "$HOOK"
           else
-            echo "No rollback hook configured; deployment requires manual rollback"
+            echo "Missing rollback hook"
+            exit 1
           fi
