@@ -79,6 +79,9 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   // Adulterar el primer evento ya existente conservando el último hash.
   await Evento.collection.updateOne({_id:primero._id},{$set:{montoCentavos:"9999999"}});
   assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("registro-uno")),
+   e=>e.statusCode===409 && /cadena criptográfica inválida/.test(e.message),
+   "Un reintento idéntico no debe ocultar una adulteración del historial");
   await assert.rejects(anexarEventoV81(usuarioId,datos("tras-adulteracion")),
    e=>e.statusCode===409 && /cadena criptográfica inválida/.test(e.message));
   await Evento.collection.deleteOne({_id:primero._id});
