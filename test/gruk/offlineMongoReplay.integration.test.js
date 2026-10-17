@@ -30,6 +30,15 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     const retry = await acceptOfflineBatch({ db, authenticatedContext: context, events });
     assert.equal(retry.filter(x => x.status === "RECIBIDO").length, 12);
     assert.equal(retry.filter(x => x.status === "YA_RECIBIDO").length, 8);
+    // Simultaneous retries from two connections must leave one durable event per ULID.
+    const [simultaneousA, simultaneousB] = await Promise.all([
+      acceptOfflineBatch({ db, authenticatedContext: context, events }),
+      acceptOfflineBatch({ db, authenticatedContext: context, events })
+    ]);
+    assert.equal(simultaneousA.length, 20);
+    assert.equal(simultaneousB.length, 20);
+    assert.ok([...simultaneousA, ...simultaneousB].every(r => r.status === "YA_RECIBIDO"));
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId }), 20);
     const final = await acceptOfflineBatch({ db, authenticatedContext: context, events });
     assert.equal(final.filter(x => x.status === "YA_RECIBIDO").length, 20);
     assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId }), 20);
