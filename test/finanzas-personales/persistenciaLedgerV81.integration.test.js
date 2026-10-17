@@ -7,12 +7,19 @@ const {verificarLedgerPersistidoV81}=require("../../modules/finanzas-personales/
 const Evento=require("../../modules/finanzas-personales/models/eventoV81.model");
 const Cabeza=require("../../modules/finanzas-personales/models/cabezaV81.model");
 
+// Solo se permite ejecutar esta prueba destructiva contra un MongoDB local aislado.
+// La prueba elimina únicamente eventos del usuario temporal que crea.
 const uri=process.env.TEST_MONGO_URI;
+const habilitada=process.env.GRUK_V81_TEST_DB_CONFIRM==="SOLO_PRUEBAS_LOCALES";
 const configurada=Boolean(uri);
-const db=uri ? new URL(uri).pathname.slice(1) : "";
-// Impide usar por accidente una BD con movimientos reales.
-if(configurada && !/(^test($|_)|_test$|_test_)/i.test(db)) {
- throw new Error("TEST_MONGO_URI debe apuntar explícitamente a una base de prueba");
+if(configurada) {
+ const parsed=new URL(uri);
+ const host=parsed.hostname.toLowerCase();
+ const db=decodeURIComponent(parsed.pathname.slice(1));
+ if(parsed.protocol!=="mongodb:" || !["localhost","127.0.0.1","::1","[::1]"].includes(host) ||
+    db!=="gruk_v81_test" || parsed.searchParams.has("dbName") || !habilitada) {
+  throw new Error("Prueba V81 bloqueada: usa mongodb://127.0.0.1:27017/gruk_v81_test y habilitación explícita");
+ }
 }
 const datos=(id)=>({
  id,tipo:"GASTO",montoCentavos:2500000n,
