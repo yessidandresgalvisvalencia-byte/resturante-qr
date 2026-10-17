@@ -73,3 +73,12 @@ test("offline status rejects unsafe authenticated identity values before Mongo a
   }
   assert.equal(touched, false);
 });
+
+test("status rejects malformed authenticated identity consistently", async () => {
+  let touched = false;
+  const db = { collection: () => { touched = true; throw Error("UNEXPECTED_DB_ACCESS"); } };
+  await assert.rejects(readOfflineStatuses({
+    db, context: { ...context, empresaId: "empresa.$ne" }, eventIds: [ids[0]]
+  }), /OFFLINE_AUTH_REQUIRED/);
+  assert.equal(touched, false);
+});

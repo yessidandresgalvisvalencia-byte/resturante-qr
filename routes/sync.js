@@ -57,6 +57,7 @@ router.post("/status", authMiddleware, async (req,res)=>{
    return res.json({ok:true,events});
  } catch(error) {
    if(error.message==="OFFLINE_INVALID_IDS")return res.status(400).json({ok:false,error:"OFFLINE_INVALID_IDS"});
+   if(error.message==="OFFLINE_AUTH_REQUIRED")return res.status(403).json({ok:false,error:"OFFLINE_SEDE_AUTH_REQUIRED"});
    console.error("[OFFLINE] Status failed",error?.code||error?.name||"unknown");
    return res.status(500).json({ok:false,error:"OFFLINE_STATUS_UNAVAILABLE"});
  }
