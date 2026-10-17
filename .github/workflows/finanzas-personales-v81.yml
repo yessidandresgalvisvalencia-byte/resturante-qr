@@ -4,6 +4,9 @@ on:
     branches: [feature/finanzas-personales]
     paths:
       - 'modules/finanzas-personales/services/*V81.service.js'
+      - 'modules/finanzas-personales/routes.js'
+      - 'modules/finanzas-personales/security/personalAuth.middleware.js'
+      - 'modules/finanzas-personales/services/*V81.handler.js'
       - 'modules/finanzas-personales/models/*V81.model.js'
       - 'test/finanzas-personales/**'
       - '.github/workflows/finanzas-personales-v81.yml'
@@ -12,6 +15,9 @@ on:
   pull_request:
     paths:
       - 'modules/finanzas-personales/services/*V81.service.js'
+      - 'modules/finanzas-personales/routes.js'
+      - 'modules/finanzas-personales/security/personalAuth.middleware.js'
+      - 'modules/finanzas-personales/services/*V81.handler.js'
       - 'modules/finanzas-personales/models/*V81.model.js'
       - 'test/finanzas-personales/**'
       - '.github/workflows/finanzas-personales-v81.yml'
