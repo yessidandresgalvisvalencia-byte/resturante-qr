@@ -42,3 +42,15 @@ test("detecta manipulación del tipo de una corrección",()=>{
  const b=crearEvento({...base,id:"event-2",tipo:"CORRECCION",montoCentavos:2500000n,corrigeId:a.id,motivo:"Ajuste",tipoCorregido:"GASTO",version:2},a.hashActual);
  assert.equal(verificarCadena([a,{...b,tipoCorregido:"INGRESO"}]),false);
 });
+
+test("detecta eliminación del último evento mediante cabeza confiable",()=>{
+ const a=crearEvento(base);
+ const b=crearEvento({...base,id:"event-2",version:2},a.hashActual);
+ assert.equal(verificarCadena([a,b],b.hashActual),true);
+ assert.equal(verificarCadena([a],b.hashActual),false);
+ assert.equal(verificarCadena([a],a.hashActual),true);
+});
+test("rechaza hashes de referencia malformados",()=>{
+ const a=crearEvento(base);
+ assert.throws(()=>verificarCadena([a],"invalido"),TypeError);
+});
