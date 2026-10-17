@@ -3,7 +3,7 @@
 // Amounts must be canonical COP strings; never pass legacy Number values here.
 const { parseCentavos } = require("./copAmounts");
 const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
-const DECIMAL = /^(0|[1-9][0-9]*)(?:\\.([0-9]{1,2}))?$/;
+const DECIMAL = /^(0|[1-9][0-9]*)(?:\.([0-9]{1,2}))?$/;
 function copToCentavos(value) {
   if (typeof value !== "string" || value.length > 34) throw new TypeError("VENTA_COP_STRING_REQUIRED");
   const match = DECIMAL.exec(value);
