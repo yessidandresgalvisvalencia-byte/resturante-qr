@@ -26,7 +26,19 @@ async function iniciarRedisV81(app,{crearCliente,url=process.env.GRUK_V81_REDIS_
   return cliente;
  }catch(e){
   delete app.locals.redisV81;
-  if(cliente&&typeof cliente.quit==="function")try{await cliente.quit();}catch(_){}
+  if(cliente){
+   // La limpieza no debe bloquear el rechazo de un Redis averiado.
+   try {
+    if(typeof cliente.destroy==="function")cliente.destroy();
+    else if(typeof cliente.disconnect==="function")cliente.disconnect();
+    else if(typeof cliente.quit==="function"){
+     await Promise.race([
+      Promise.resolve().then(()=>cliente.quit()),
+      new Promise(resolve=>setTimeout(resolve,Math.min(timeoutMs,1000)))
+     ]);
+    }
+   }catch(_){}
+  }
   throw e;
  }
 }
