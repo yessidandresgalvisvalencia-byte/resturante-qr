@@ -54,4 +54,4 @@ async function acceptOfflineBatch({ db, authenticatedContext, events }) {
   }
   return result;
 }
-module.exports = { ensureInboxIndexes, acceptOfflineBatch };
+module.exports = { ensureInboxIndexes, acceptOfflineBatch, digest };
