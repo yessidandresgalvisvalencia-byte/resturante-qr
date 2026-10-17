@@ -30,11 +30,11 @@
   }
   async function putPending(event) {
     if(!event||typeof event.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(event.eventId))throw Error("OUTBOX_EVENT_ID");
+    if(!["empresaId","sedeId","actorId"].every(k=>typeof event[k]==="string"&&event[k].length>0))throw Error("OUTBOX_TENANT_REQUIRED");
     const db=await open();
     try {
       return await tx(db,"readwrite",store=>{
         const r=store.add({event:JSON.parse(JSON.stringify(event)),eventId:event.eventId,syncStatus:"pending",createdAt:new Date().toISOString()});
-        r.onerror=()=>{};
         return event.eventId;
       });
     }finally{db.close();}
@@ -59,6 +59,7 @@
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readwrite"),s=t.objectStore(STORE),r=s.get(eventId);
       r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(!matchesTenant(v.event,context))return;if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);};
+      r.onerror=()=>reject(r.error);
       t.oncomplete=()=>resolve(true);
       t.onerror=()=>reject(t.error);
     });}finally{db.close();}
