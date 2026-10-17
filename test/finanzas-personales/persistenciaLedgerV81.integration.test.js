@@ -55,6 +55,14 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    x.reason?.statusCode===409 || x.reason?.hasErrorLabel?.("TransientTransactionError"),
    "Solo se permiten conflictos transitorios de concurrencia"
   );
+  // Una corrección de importe cero debe rechazarse sin añadir eventos.
+  const antesCorreccion=await Evento.countDocuments({usuarioId});
+  await assert.rejects(
+   anexarEventoV81(usuarioId,{...datos("correccion-cero"),tipo:"CORRECCION",
+    montoCentavos:0n,corrigeId:"registro-uno",tipoCorregido:"GASTO",motivo:"Corrección inválida"}),
+   e=>e.statusCode===400 && /monto positivo/.test(e.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId}),antesCorreccion);
   // Dos anulaciones simultáneas sobre el mismo gasto no pueden aplicarse dos veces.
   const cancelaciones=await Promise.allSettled([
    anexarEventoV81(usuarioId,{...datos("anulacion-uno"),tipo:"ANULACION",montoCentavos:0n,corrigeId:"registro-uno",motivo:"Movimiento duplicado"}),
