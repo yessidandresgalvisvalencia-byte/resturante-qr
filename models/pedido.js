@@ -1,6 +1,9 @@
 const mongoose = require("mongoose")
 
 const pedidoSchema = new mongoose.Schema({
+    // Optional for legacy orders; mandatory for future offline-created orders.
+    empresaId: { type: mongoose.Schema.Types.ObjectId, ref: "Empresa", default: null, index: true },
+    offlineEventId: { type: String, default: undefined },
     restaurantId: {
         type: String,
         default: "rest1"
@@ -96,5 +99,12 @@ extra: {
 }, {
     timestamps: true
 })
+
+// Partial unique key protects against concurrent retries without changing legacy orders.
+pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
+  unique: true,
+  name: "uniq_pedido_offline_event_tenant",
+  partialFilterExpression: { offlineEventId: { $type: "string" } }
+});
 
 module.exports = mongoose.model("Pedido", pedidoSchema)
