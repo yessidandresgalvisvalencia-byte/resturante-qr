@@ -24,6 +24,30 @@ Fecha de diagnóstico: 2026-10-17. Fuente: workflow **Finanzas Personales V81 - 
 | socket.io-adapter | moderada | no | P2 |
 | body-parser | baja | no | P3 |
 
+## Versiones efectivamente instaladas
+
+Extraídas del `package-lock.json` en la ejecución [39068688163](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39068688163), commit `3e4abc5`. **Todas las 15 alertas indicaron `fixAvailable: true` en npm audit**, pero esto no garantiza que cada corrección sea compatible con el sistema actual.
+
+| Paquete | Versión instalada |
+| --- | --- |
+| proxy-addr | 2.0.7 |
+| axios | 1.13.6 |
+| multer | 2.1.1 |
+| engine.io | 6.6.5 |
+| form-data | 4.0.5 |
+| hoek | 6.1.3 |
+| path-to-regexp | 8.3.0 |
+| socket.io-parser | 4.2.6 |
+| ws | 8.18.3 |
+| joi | 18.2.8 |
+| mongoose | 9.2.4 |
+| follow-redirects | 1.15.11 |
+| qs | 6.15.0 |
+| socket.io-adapter | 2.5.6 |
+| body-parser | 2.2.2 |
+
+**Acción prioritaria:** rastrear `proxy-addr@2.0.7` hasta el paquete padre, evaluar la versión reparada y revisar la confianza en encabezados de proxy. No asumir que actualizar solo este paquete es seguro: necesita validación de autenticación, controles de IP y limitación de peticiones.
+
 ## Procedimiento obligatorio para remediar
 
 1. Capturar para cada alerta versión instalada, rango vulnerable, versión corregida y árbol de dependencias usando `npm ls <paquete>`, `npm audit --omit=dev --json` y `npm explain <paquete>`.
