@@ -91,3 +91,7 @@ jobs:
           name: gruk-capa1-npm-audit
           path: npm-audit-production.json
           if-no-files-found: ignore
+      - name: Block release on high and critical production vulnerabilities
+        run: |
+          node -e 'const r=require("./npm-audit-production.json"); if(r.error || !r.metadata?.vulnerabilities) process.exit(2); const v=r.metadata.vulnerabilities; if(v.high>0 || v.critical>0) {console.error("BLOCKED: production dependency risk: high="+v.high+", critical="+v.critical); process.exit(1)}'
+
