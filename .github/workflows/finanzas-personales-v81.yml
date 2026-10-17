@@ -51,7 +51,7 @@ jobs:
             sleep 2
           done
           exit 1
-      - name: Probar transacciones, anulaciones e integridad MongoDB
+      - name: Verificar configuración de base de pruebas\n        run: test -z "${DATABASE_URL:-}" && test -z "${MONGO_URI:-}"\n      - name: Probar transacciones, anulaciones e integridad MongoDB
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test?replicaSet=rs0
           GRUK_V81_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
