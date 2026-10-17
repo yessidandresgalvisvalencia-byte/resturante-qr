@@ -34,6 +34,17 @@ const iniciarCajaJob = require("./shared/jobs/caja.job");
 const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
 const app = express();
 app.disable("x-powered-by");
+const HEALTH_VERSION = require("./package.json").version;
+app.get("/health", (_req, res) => {
+  const connected = mongoose.connection.readyState === 1;
+  res.status(connected ? 200 : 503).json({
+    status: connected ? "ok" : "degraded",
+    version: HEALTH_VERSION,
+    db: connected ? "connected" : "disconnected",
+    uptime: Math.floor(process.uptime())
+  });
+});
+
 const { securityHeaders, noStore } = require("./core/security/httpSecurity.middleware");
 const rateLimit = require("./core/security/rateLimit.middleware");
 app.set("trust proxy", 1);
