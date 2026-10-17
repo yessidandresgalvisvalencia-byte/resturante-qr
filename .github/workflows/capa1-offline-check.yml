@@ -1,0 +1,103 @@
+name: GRUK Capa 1 Offline Contract
+on:
+  push:
+    branches: [gruk/capa1-integration-main-v5]
+    paths:
+      - "core/offline/**"
+      - "core/ledger/**"
+      - "test/gruk/capa1-offline*.test.js"
+      - "test/gruk/capa1-ledger*.test.js"
+      - ".github/workflows/capa1-offline-check.yml"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - ".github/workflows/capa1-controlled-deploy.yml"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    paths:
+      - "core/offline/**"
+      - "core/ledger/**"
+      - "test/gruk/capa1-ledger*.test.js"
+      - "test/gruk/capa1-offline*.test.js"
+      - ".github/workflows/capa1-offline-check.yml"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - ".github/workflows/capa1-controlled-deploy.yml"
+      - "package.json"
+      - "package-lock.json"
+permissions:
+  contents: read
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Syntax checks
+        run: |
+          node --check core/offline/offlineBatch.contract.js
+          node --check core/offline/offlineInbox.service.js
+          node --check core/ledger/copAmounts.js
+          node --check core/ledger/appendLedger.service.js
+          node --check core/ledger/verifyLedger.service.js
+      - name: Contract and inbox tests (dependency-free)
+        run: node --test test/gruk/capa1-offline*.test.js test/gruk/capa1-ledger*.test.js
+
+  mongodb-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Start isolated MongoDB replica set
+        run: |
+          docker run -d --name gruk-test-mongo -p 127.0.0.1:27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 40); do
+            if docker exec gruk-test-mongo mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep -q 1; then break; fi
+            sleep 2
+          done
+          docker exec gruk-test-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+          for i in $(seq 1 40); do
+            if docker exec gruk-test-mongo mongosh --quiet --eval 'rs.status().myState' | grep -q 1; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Verify ledger with real MongoDB transactions
+        env:
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
+        run: node --test test/gruk/capa1-ledger-mongo.integration.test.js
+
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production Docker image with gated tests
+        run: docker build --progress=plain --target production -t gruk-capa1-ci:${{ github.sha }} .
+      - name: Check Docker Compose configuration
+        run: docker compose --env-file .env.example config --quiet
+
+      - name: Audit production dependencies
+        run: |
+          docker run --rm gruk-capa1-ci:${{ github.sha }} npm audit --omit=dev --json > npm-audit-production.json || true
+          node -e 'const r=require("./npm-audit-production.json"); console.log(JSON.stringify(r.metadata?.vulnerabilities || {}))'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gruk-capa1-npm-audit
+          path: npm-audit-production.json
+          if-no-files-found: ignore
+      - name: Block release on high and critical production vulnerabilities
+        run: |
+          node -e 'const r=require("./npm-audit-production.json"); if(r.error || !r.metadata?.vulnerabilities) process.exit(2); const v=r.metadata.vulnerabilities; if(v.high>0 || v.critical>0) {console.error("BLOCKED: production dependency risk: high="+v.high+", critical="+v.critical); process.exit(1)}'
+
