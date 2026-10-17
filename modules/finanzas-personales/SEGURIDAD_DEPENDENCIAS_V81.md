@@ -109,6 +109,12 @@ La [auditoría de seguridad](https://github.com/yessidandresgalvisvalencia-byte/
 
 **Riesgos pendientes:** identificar el conjunto exacto de las 10 alertas, sus rutas de dependencia y las versiones corregidas. GRUK Gate y pruebas compartidas deben seguir pasando. El parche no está desplegado en Render; no declarar auditoría cerrada.
 
+## Ensayo compatible con cero hallazgos de producción
+
+La ejecución [39076445015](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39076445015), commit `9b6203d`, aprobó los cinco trabajos V81, incluido `evaluar-remediacion-restante-v81`. En ese runner temporal, tras `npm audit fix --package-lock-only --ignore-scripts --omit=dev`, `npm ci`, análisis de sintaxis y pruebas financieras, **`npm audit --omit=dev --json` arrojó 0 críticas, 0 altas, 0 moderadas y 0 bajas**.
+
+Artefacto de propuesta `remedicion-v81-lockfile-candidato`, ID `12117675285`, contiene la resolución ensayada. El resultado **no** corresponde aún a la rama ni producción: la auditoría normal del mismo commit siguió fallando con los hallazgos originales. Antes de aplicar el lockfile se debe contrastar su diferencia exacta, preservar integridad npm, comprobar `npm ci` y repetir toda CI (V81 y GRUK Gate).
+
 ## Procedimiento obligatorio para remediar
 
 1. Capturar para cada alerta versión instalada, rango vulnerable, versión corregida y árbol de dependencias usando `npm ls <paquete>`, `npm audit --omit=dev --json` y `npm explain <paquete>`.
