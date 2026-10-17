@@ -101,6 +101,14 @@ El artefacto `parches-http-v81-lockfile-propuesto` (ID `12116852994`) contiene l
 
 El trabajo temporal confirmó ausencia de alertas npm para **axios, multer y form-data**, pero **no** ausencia de otras vulnerabilidades. Se requiere fusionar `package.json` **junto con su `package-lock.json` exacto** y repetir las validaciones. No se ha incorporado este paquete de parches HTTP al repositorio ni a producción.
 
+## Parche HTTP integrado y auditado
+
+Ejecución [39076080539](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39076080539) del commit `63cb6ee`: cuatro jobs V81 aprobados, incluyendo `npm ci` reproducible, MongoDB con transacciones y compatibilidad de parches HTTP.
+
+La [auditoría de seguridad](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39076080621) del mismo commit contabiliza **0 críticas, 5 altas, 4 moderadas y 1 baja: 10 alertas totales**, frente a las 15 originales. Los cambios definitivos en la rama incluyen `axios@1.20.0`, `multer@2.4.0`, `form-data@4.0.6`, `follow-redirects@1.16.1` y `proxy-addr@2.0.8`, más dependencias transitivas compatibles.
+
+**Riesgos pendientes:** identificar el conjunto exacto de las 10 alertas, sus rutas de dependencia y las versiones corregidas. GRUK Gate y pruebas compartidas deben seguir pasando. El parche no está desplegado en Render; no declarar auditoría cerrada.
+
 ## Procedimiento obligatorio para remediar
 
 1. Capturar para cada alerta versión instalada, rango vulnerable, versión corregida y árbol de dependencias usando `npm ls <paquete>`, `npm audit --omit=dev --json` y `npm explain <paquete>`.
