@@ -35,6 +35,17 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId, eventId: raceEvent.eventId }), 1);
     // Remove only the synthetic race fixture; subsequent assertions require exactly 20 events.
     await db.collection("gruk_offline_inbox").deleteOne({ empresaId, sedeId, eventId: raceEvent.eventId });
+    // Conflicting first arrivals with the same ULID: only one payload survives.
+    const conflictEvent = { ...events[0], eventId: "01ARZ3NDEKTSV4RRFFQ69G5FAZ" };
+    const modifiedEvent = { ...conflictEvent, payload: { localOrderId: "different-content" } };
+    const conflictResults = await Promise.allSettled([
+      acceptOfflineBatch({ db, authenticatedContext: context, events: [conflictEvent] }),
+      acceptOfflineBatch({ db, authenticatedContext: context, events: [modifiedEvent] })
+    ]);
+    assert.equal(conflictResults.filter(x => x.status === "fulfilled").length, 1);
+    assert.equal(conflictResults.filter(x => x.status === "rejected" && x.reason.code === "OFFLINE_EVENT_CONFLICT").length, 1);
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId, eventId: conflictEvent.eventId }), 1);
+    await db.collection("gruk_offline_inbox").deleteOne({ empresaId, sedeId, eventId: conflictEvent.eventId });
     const first = await acceptOfflineBatch({ db, authenticatedContext: context, events: events.slice(0, 8) });
     assert.equal(first.filter(x => x.status === "RECIBIDO").length, 8);
     const retry = await acceptOfflineBatch({ db, authenticatedContext: context, events });
