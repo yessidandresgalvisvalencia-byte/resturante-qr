@@ -1,0 +1,26 @@
+name: Finanzas Personales V81 - Precision e Integridad
+on:
+  push:
+    branches: [feature/finanzas-personales]
+    paths:
+      - 'modules/finanzas-personales/services/*V81.service.js'
+      - 'test/finanzas-personales/**'
+      - '.github/workflows/finanzas-personales-v81.yml'
+  pull_request:
+    paths:
+      - 'modules/finanzas-personales/services/*V81.service.js'
+      - 'test/finanzas-personales/**'
+      - '.github/workflows/finanzas-personales-v81.yml'
+permissions:
+  contents: read
+jobs:
+  test-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Probar centavos, cadena SHA256 y proyeccion de ledger
+        run: node --test test/finanzas-personales/*.test.js
