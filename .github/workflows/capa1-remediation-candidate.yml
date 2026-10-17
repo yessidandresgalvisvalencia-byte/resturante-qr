@@ -5,6 +5,9 @@ on:
     branches: [gruk/capa1-offline-core-v4]
     paths:
       - ".github/workflows/capa1-remediation-candidate.yml"
+  pull_request:
+    paths:
+      - ".github/workflows/capa1-remediation-candidate.yml"
 permissions:
   contents: read
 jobs:
