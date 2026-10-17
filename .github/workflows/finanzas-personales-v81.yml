@@ -28,3 +28,34 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Probar centavos, cadena SHA256 y proyeccion de ledger
         run: node --test test/finanzas-personales/*.test.js
+  mongo-integration-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias fijadas
+        run: npm ci --ignore-scripts
+      - name: Arrancar MongoDB aislado con replica set
+        run: |
+          docker run -d --rm --name mongo-v81-test -p 127.0.0.1:27017:27017 mongo:7 mongod --replSet rs0 --bind_ip_all
+          for i in $(seq 1 40); do
+            if docker exec mongo-v81-test mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec mongo-v81-test mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in $(seq 1 40); do
+            if docker exec mongo-v81-test mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Probar transacciones, anulaciones e integridad MongoDB
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test?replicaSet=rs0
+          GRUK_V81_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
+        run: node --test test/finanzas-personales/persistenciaLedgerV81.integration.test.js
+      - name: Limpiar MongoDB aislado
+        if: always()
+        run: docker rm -f mongo-v81-test || true
