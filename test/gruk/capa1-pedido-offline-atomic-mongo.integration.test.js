@@ -31,6 +31,7 @@ test("atomic offline order and inbox: retry once, rollback on invalid catalog",{
    assert.equal(await raw.collection("pedidos").countDocuments({}),0);
    await raw.collection("menus").updateOne({_id:menuId},{$set:{precio:5000}});
    const first=await processPendingOfflinePedido({db,session,event,context});
+   await assert.rejects(processPendingOfflinePedido({db,session,event:{...event,payload:{...event.payload,cantidad:9}},context}),/OFFLINE_EVENT_CONFLICT/);
    const again=await processPendingOfflinePedido({db,session,event,context});
    assert.equal(first.created,true);assert.equal(first.status,"EN_REVISION");
    assert.equal(again.created,false);assert.equal(again.status,"EN_REVISION");
