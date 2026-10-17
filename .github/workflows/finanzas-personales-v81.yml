@@ -183,6 +183,31 @@ jobs:
             package.json
             package-lock.json
           retention-days: 7
+  redis-integration-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias fijas
+        run: npm ci --ignore-scripts
+      - name: Arrancar Redis local aislado
+        run: |
+          docker run -d --rm --name redis-v81-test -p 127.0.0.1:6379:6379 redis:7-alpine redis-server --save "" --appendonly no
+          for i in $(seq 1 30); do
+            if docker exec redis-v81-test redis-cli ping | grep -q PONG; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Probar cuarenta incrementos concurrentes reales
+        env:
+          GRUK_V81_TEST_REDIS_URL: redis://127.0.0.1:6379/0
+        run: node --test test/finanzas-personales/contadorRedisV81.integration.test.js
+      - name: Eliminar Redis aislado
+        if: always()
+        run: docker rm -f redis-v81-test || true
   mongo-integration-v81:
     runs-on: ubuntu-latest
     timeout-minutes: 12
