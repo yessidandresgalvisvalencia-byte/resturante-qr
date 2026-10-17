@@ -72,8 +72,7 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   // Restaurar el último y borrar un evento intermedio; la cabeza aún coincide.
   await Evento.collection.insertOne(ultimo);
   const primero=await Evento.findOne({usuarioId,version:1}).lean();
-  // Reponer historial y adulterar importe intermedio conservando el último hash.
-  await Evento.collection.insertOne(primero);
+  // Adulterar el primer evento ya existente conservando el último hash.
   await Evento.collection.updateOne({_id:primero._id},{$set:{montoCentavos:"9999999"}});
   assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
   await assert.rejects(anexarEventoV81(usuarioId,datos("tras-adulteracion")),
