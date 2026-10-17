@@ -17,12 +17,13 @@ async function verificarLedgerPersistidoV81(usuarioId) {
         return {integridad:"SIN_MOVIMIENTOS", cantidad:0};
       }
       if (rows.length !== cabeza.version) return {integridad:"FALLIDA", cantidad:rows.length};
-      const eventos = rows.map(e => ({
+      let eventos;
+      try { eventos = rows.map(e => ({
         id:e.eventId,userId:String(e.usuarioId),version:e.version,tipo:e.tipo,
         montoCentavos:BigInt(e.montoCentavos),fechaContable:e.fechaContable,
         timestamp:e.timestamp,corrigeId:e.corrigeId,motivo:e.motivo,
         tipoCorregido:e.tipoCorregido,hashAnterior:e.hashAnterior,hashActual:e.hashActual
-      }));
+      })); } catch (_) { return {integridad:"FALLIDA",cantidad:rows.length}; }
       return {integridad:verificarCadena(eventos,cabeza.hashActual)?"VERIFICADA":"FALLIDA",cantidad:rows.length};
     }, {readConcern:{level:"snapshot"},readPreference:"primary"});
   } finally {await session.endSession();}
