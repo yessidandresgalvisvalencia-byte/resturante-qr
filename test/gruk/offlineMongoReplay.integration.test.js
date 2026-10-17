@@ -46,6 +46,21 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     assert.equal(conflictResults.filter(x => x.status === "rejected" && x.reason.code === "OFFLINE_EVENT_CONFLICT").length, 1);
     assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId, eventId: conflictEvent.eventId }), 1);
     await db.collection("gruk_offline_inbox").deleteOne({ empresaId, sedeId, eventId: conflictEvent.eventId });
+    // Two different tablets send distinct orders concurrently; neither is lost.
+    const tabletOne = { ...events[0], eventId: "01ARZ3NDEKTSV4RRFFQ69G5FB0", deviceId: "tabletOne" };
+    const tabletTwo = { ...events[1], eventId: "01ARZ3NDEKTSV4RRFFQ69G5FB1", deviceId: "tabletTwo" };
+    const [tabletResultOne, tabletResultTwo] = await Promise.all([
+      acceptOfflineBatch({ db, authenticatedContext: context, events: [tabletOne] }),
+      acceptOfflineBatch({ db, authenticatedContext: context, events: [tabletTwo] })
+    ]);
+    assert.equal(tabletResultOne[0].status, "RECIBIDO");
+    assert.equal(tabletResultTwo[0].status, "RECIBIDO");
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
+      empresaId, sedeId, eventId: { $in: [tabletOne.eventId, tabletTwo.eventId] }
+    }), 2);
+    await db.collection("gruk_offline_inbox").deleteMany({
+      empresaId, sedeId, eventId: { $in: [tabletOne.eventId, tabletTwo.eventId] }
+    });
     const first = await acceptOfflineBatch({ db, authenticatedContext: context, events: events.slice(0, 8) });
     assert.equal(first.filter(x => x.status === "RECIBIDO").length, 8);
     const retry = await acceptOfflineBatch({ db, authenticatedContext: context, events });
