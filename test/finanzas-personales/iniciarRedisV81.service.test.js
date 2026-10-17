@@ -40,3 +40,15 @@ test("V81 no publica cliente Redis si PING falla",async()=>{
  assert.equal(app.locals.redisV81,undefined);
  assert.equal(cierre,1);
 });
+
+test("V81 vence un Redis sin respuesta en conexión y PING",async()=>{
+ for(const etapa of ["connect","ping"]){
+  const app={locals:{}};
+  let cierres=0;
+  const client={isReady:true,eval:async()=>[1,60],connect:async()=>{},ping:async()=> "PONG",quit:async()=>{cierres++;}};
+  client[etapa]=()=>new Promise(()=>{});
+  await assert.rejects(iniciarRedisV81(app,{url:"rediss://redis.example.test",crearCliente:()=>client,timeoutMs:100}),/Tiempo de espera/);
+  assert.equal(app.locals.redisV81,undefined);
+  assert.equal(cierres,1);
+ }
+});
