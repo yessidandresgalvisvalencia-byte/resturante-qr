@@ -4,6 +4,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const authMiddleware = require("../core/auth/auth.middleware");
 const { acceptOfflineBatch, ensureInboxIndexes } = require("../core/offline/offlineInbox.service");
+const { readOfflineStatuses } = require("../core/offline/offlineStatus.service");
 const router = express.Router();
 let indexesReady = false;
 router.post("/batch", authMiddleware, async (req, res) => {
@@ -40,5 +41,24 @@ router.post("/batch", authMiddleware, async (req, res) => {
     console.error("[OFFLINE] Error interno al recibir lote:",error?.code || error?.name || "unknown");
     return res.status(500).json({ok:false,error:"OFFLINE_BATCH_UNAVAILABLE"});
   }
+});
+router.post("/status", authMiddleware, async (req,res)=>{
+ if(!req.auth?.empresaId || !req.auth?.sedeId || !req.auth?.usuarioId)
+   return res.status(403).json({ok:false,error:"OFFLINE_SEDE_AUTH_REQUIRED"});
+ if(mongoose.connection.readyState!==1)
+   return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ try {
+   const events=await readOfflineStatuses({
+     db:mongoose.connection.db,
+     context:{empresaId:req.auth.empresaId,sedeId:req.auth.sedeId,actorId:req.auth.usuarioId},
+     eventIds:req.body?.eventIds
+   });
+   res.set("Cache-Control","no-store");
+   return res.json({ok:true,events});
+ } catch(error) {
+   if(error.message==="OFFLINE_INVALID_IDS")return res.status(400).json({ok:false,error:"OFFLINE_INVALID_IDS"});
+   console.error("[OFFLINE] Status failed",error?.code||error?.name||"unknown");
+   return res.status(500).json({ok:false,error:"OFFLINE_STATUS_UNAVAILABLE"});
+ }
 });
 module.exports = router;
