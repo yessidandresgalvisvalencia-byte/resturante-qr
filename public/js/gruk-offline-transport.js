@@ -1,11 +1,12 @@
 /* GRUK offline transport; never posts financial balances or inventory. */
 (function(root){
 "use strict";
-async function synchronize({outbox,token,fetchFn,limit=100}) {
+async function synchronize({outbox,token,fetchFn,context,limit=100}) {
+ if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("SYNC_TENANT_REQUIRED");
  if(!outbox?.listPending || !outbox?.markReceived) throw new Error("SYNC_OUTBOX_REQUIRED");
  if(typeof token!=="string" || !token.trim()) throw new Error("SYNC_AUTH_REQUIRED");
  if(typeof fetchFn!=="function") throw new Error("SYNC_FETCH_REQUIRED");
- const events=await outbox.listPending(limit);
+ const events=await outbox.listPending(limit,context);
  if(events.length===0)return Object.freeze({sent:0,received:0});
  const response=await fetchFn("/api/sync/batch",{
    method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
@@ -23,7 +24,7 @@ async function synchronize({outbox,token,fetchFn,limit=100}) {
    acknowledged.add(ack.eventId);
  }
  // Mark each accepted item as received, not financially applied. Never delete local records.
- for(const eventId of acknowledged)await outbox.markReceived(eventId);
+ for(const eventId of acknowledged)await outbox.markReceived(eventId,context);
  return Object.freeze({sent:events.length,received:acknowledged.size});
 }
 const api=Object.freeze({synchronize});
