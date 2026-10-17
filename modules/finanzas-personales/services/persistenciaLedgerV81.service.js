@@ -27,6 +27,14 @@ async function anexarEventoV81(usuarioId,datos){
     } catch(e) { throw e; } // Un alta concurrente falla: el llamador reintenta toda la operación.
     cabeza={version:0,hashActual:GENESIS};
    }
+   if(datos.tipo==="CORRECCION" || datos.tipo==="ANULACION"){
+    if(typeof datos.corrigeId!=="string" || !datos.corrigeId.trim())throw Object.assign(new Error("Referencia de corrección obligatoria"),{statusCode:400});
+    const original=await Evento.findOne({usuarioId,eventId:datos.corrigeId,tipo:{$in:["INGRESO","GASTO"]}}).session(session).lean();
+    if(!original)throw Object.assign(new Error("Movimiento original inexistente para este usuario"),{statusCode:409});
+    const anulado=await Evento.findOne({usuarioId,corrigeId:datos.corrigeId,tipo:"ANULACION"}).session(session).lean();
+    if(anulado)throw Object.assign(new Error("Movimiento ya anulado: no admite nuevas compensaciones"),{statusCode:409});
+    if(datos.tipo==="ANULACION" && datos.montoCentavos!==0n)throw Object.assign(new Error("Anulación debe tener monto cero"),{statusCode:400});
+   }
    const version=cabeza.version+1;
    evento=crearEvento({...datos,userId,version},cabeza.hashActual);
    // Comparación y sustitución: solo una escritura puede avanzar esta versión.
