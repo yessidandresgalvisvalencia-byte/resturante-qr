@@ -13,7 +13,11 @@ function crearLimiteDistribuidoV81({incrementar,limite=20,ventanaSegundos=60,tim
    return res.status(401).json({ok:false,error:"Autenticación requerida"});
   try{
    // Identificador derivado exclusivamente del JWT personal previamente verificado.
-   const resultado=await Promise.race([incrementar("fin:v81:write:"+p.userId.toLowerCase(),ventanaSegundos),new Promise((_,reject)=>setTimeout(()=>reject(new Error("Timeout Redis")),timeoutMs))]);
+   const resultado=await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error("Timeout Redis")),timeoutMs);
+    Promise.resolve().then(()=>incrementar("fin:v81:write:"+p.userId.toLowerCase(),ventanaSegundos))
+     .then(valor=>{clearTimeout(timer);resolve(valor);},error=>{clearTimeout(timer);reject(error);});
+   });
    if(!resultado||!Number.isSafeInteger(resultado.cantidad)||resultado.cantidad<1||
       !Number.isSafeInteger(resultado.restanteSegundos)||resultado.restanteSegundos<1||
       resultado.restanteSegundos>ventanaSegundos)
