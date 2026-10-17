@@ -55,3 +55,18 @@ test("ledger: changed amount with reused eventId is rejected",async()=>{
  await assert.rejects(appendMovement({...f,...input,amountCentavos:"999"}),/LEDGER_EVENT_CONFLICT/);
  assert.equal(f.entries.length,1);
 });
+
+test("ledger: duplicate event with altered IP is a conflict",async()=>{
+ const f=memoryDb();
+ await appendMovement({...f,...input});
+ await assert.rejects(appendMovement({...f,...input,ip:"10.0.0.2"}),/LEDGER_EVENT_CONFLICT/);
+ assert.equal(f.entries.length,1);
+ assert.equal(f.getHead().balanceCentavos,"101");
+});
+test("ledger: duplicate event with changed account or actor cannot move balance",async()=>{
+ const f=memoryDb();
+ await appendMovement({...f,...input});
+ await assert.rejects(appendMovement({...f,...input,cuentaId:"otraCaja"}),/LEDGER_EVENT_CONFLICT/);
+ await assert.rejects(appendMovement({...f,...input,actorId:"otroUsuario"}),/LEDGER_EVENT_CONFLICT/);
+ assert.equal(f.entries.length,1);
+});
