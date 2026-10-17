@@ -27,3 +27,12 @@ test("corrección es otro evento y el original permanece",()=>{
  assert.equal(verificarCadena([a,b]),true);
  assert.equal(a.montoCentavos,2500000n);
 });
+
+test("rechaza cadena vacía: sin evidencia no hay integridad comprobada",()=>{
+ assert.equal(verificarCadena([]),false);
+});
+test("registro malformado se trata como integridad fallida",()=>{
+ const a=crearEvento(base);
+ assert.equal(verificarCadena([{...a,montoCentavos:"2500000"}]),false);
+ assert.equal(verificarCadena([null]),false);
+});
