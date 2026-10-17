@@ -40,7 +40,8 @@ app.get("/health", (_req,res) => {
     status: connected ? "ok" : "degraded",
     version: process.env.npm_package_version || "1.0.0",
     uptime: Math.floor(process.uptime()),
-    db: connected ? "connected" : "disconnected"
+    db: connected ? "connected" : "disconnected",
+    revision: process.env.RENDER_GIT_COMMIT || process.env.GRUK_DEPLOY_COMMIT || null
   });
 });
 app.get("/ready", (_req,res) => {
