@@ -8,10 +8,18 @@ const {crearEvento,GENESIS}=require("./cadenaEventosV81.service");
 async function anexarEventoV81(usuarioId,datos){
  if(!mongoose.isValidObjectId(usuarioId))throw new TypeError("Usuario inválido");
  const userId=String(usuarioId);
+ if (!datos || typeof datos !== "object" || typeof datos.id !== "string" || !datos.id.trim()) throw new TypeError("eventId obligatorio para idempotencia");
  const session=await mongoose.startSession();
  try {
   let evento;
   await session.withTransaction(async()=>{
+   const existente=await Evento.findOne({usuarioId,eventId:datos.id}).session(session).lean();
+   if(existente){
+    const candidato=crearEvento({...datos,userId,version:existente.version},existente.hashAnterior);
+    if(candidato.hashActual!==existente.hashActual)throw Object.assign(new Error("Identificador reutilizado con contenido diferente"),{statusCode:409});
+    evento=candidato;
+    return;
+   }
    let cabeza=await Cabeza.findOne({usuarioId}).session(session).lean();
    if(!cabeza){
     try {
@@ -31,6 +39,17 @@ async function anexarEventoV81(usuarioId,datos){
     tipoCorregido:evento.tipoCorregido||null,hashAnterior:evento.hashAnterior,hashActual:evento.hashActual}],{session});
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
   return evento;
+ } catch(error) {
+  if(error && error.code===11000){
+   const existente=await Evento.findOne({usuarioId,eventId:datos.id}).lean();
+   if(existente){
+    const candidato=crearEvento({...datos,userId,version:existente.version},existente.hashAnterior);
+    if(candidato.hashActual===existente.hashActual)return candidato;
+    throw Object.assign(new Error("Identificador reutilizado con contenido diferente"),{statusCode:409});
+   }
+   throw Object.assign(new Error("Conflicto concurrente: reintenta con el mismo eventId"),{statusCode:409});
+  }
+  throw error;
  } finally {await session.endSession();}
 }
 module.exports={anexarEventoV81};
