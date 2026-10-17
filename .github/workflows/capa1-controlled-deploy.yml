@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      - name: Resolve expected Git revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Check staging configuration exists
         env:
           HOOK: ${{ secrets.GRUK_CAPA1_STAGING_DEPLOY_HOOK }}
@@ -45,18 +48,19 @@ jobs:
       - name: Confirm actual staging health
         env:
           BASE_URL: ${{ vars.GRUK_CAPA1_STAGING_URL }}
+          EXPECTED_SHA: ${{ steps.revision.outputs.sha }}
         run: |
           for attempt in $(seq 1 30); do
             if curl -fSs --max-time 8 "${BASE_URL%/}/health" | node -e '
               let b="";process.stdin.on("data",c=>b+=c).on("end",()=>{
-                try {const j=JSON.parse(b);process.exit(j.status==="ok" && j.db==="connected"?0:1)}
+                try {const j=JSON.parse(b);process.exit(j.status==="ok" && j.db==="connected" && j.revision===process.env.EXPECTED_SHA?0:1)}
                 catch {process.exit(1)}
               })'; then
               exit 0
             fi
             sleep 10
           done
-          echo "Staging /health did not reach healthy state"
+          echo "Staging /health did not confirm the expected deployment revision"
           exit 1
       - name: Attempt rollback using configured safe hook
         if: failure()
