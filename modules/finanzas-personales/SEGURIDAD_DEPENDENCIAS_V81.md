@@ -78,6 +78,14 @@ GitHub Actions publicó el artefacto **`proxy-addr-208-lockfile-propuesto`** (ID
 
 **Pendiente para remediación definitiva:** revisar los cambios exactos del artefacto, incorporar ambos archivos en un commit consistente, ejecutar `npm ci`, `npm run gate`, las pruebas V81 y MongoDB, y volver a ejecutar `npm audit --omit=dev`. El workflow general de auditoría todavía falla en la rama actual.
 
+## Corrección crítica aplicada y verificada en rama
+
+La ejecución [39075066484](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39075066484), commit `0a108e6`, confirma que `npm ci` y los tres trabajos V81 pasan usando la configuración definitiva `overrides.proxy-addr=2.0.8` y `package-lock.json` actualizado.
+
+La [auditoría de seguridad del mismo commit](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39075066427) registra **0 críticas, 8 altas, 5 moderadas y 1 baja (14 en total)**. Antes de la corrección había 1 crítica y 15 alertas en total. El problema crítico de `proxy-addr` dejó de aparecer en el análisis de producción.
+
+**Importante:** esto confirma mitigación en la rama de GitHub, no que el cambio esté desplegado en Render. La auditoría general continúa fallando por las 14 alertas restantes; no declarar GRUK seguro para producción hasta completar la remediación y pruebas de regresión pertinentes.
+
 ## Procedimiento obligatorio para remediar
 
 1. Capturar para cada alerta versión instalada, rango vulnerable, versión corregida y árbol de dependencias usando `npm ls <paquete>`, `npm audit --omit=dev --json` y `npm explain <paquete>`.
