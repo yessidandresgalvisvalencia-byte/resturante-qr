@@ -16,7 +16,7 @@ test("real Mongo transaction inserts one pending offline pedido after retry",{ti
   await raw.collection("productoservicios").insertOne({_id:productId,empresaId:context.empresaId,tipo:"producto",activo:true});
   await raw.collection("pedidos").createIndex({empresaId:1,sedeId:1,offlineEventId:1},{unique:true,partialFilterExpression:{offlineEventId:{$type:"string"}}});
   const db={collection:name=>raw.collection(name),models:{
-   Menu:{findOne:query=>({session:session=>raw.collection("menus").findOne(query,{session})})},
+   Menu:{findOne:query=>({session:session=>raw.collection("menus").findOne({...query,_id:new ObjectId(query._id)},{session})})},
    ProductoServicio:{findOne:query=>({session:session=>raw.collection("productoservicios").findOne(query,{session})})}
   }};
   const session=client.startSession();
