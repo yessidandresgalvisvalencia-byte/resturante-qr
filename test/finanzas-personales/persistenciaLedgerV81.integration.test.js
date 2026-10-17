@@ -32,6 +32,7 @@ const datos=(id)=>({
 test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!configurada},async()=>{
  await mongoose.connect(uri,{serverSelectionTimeoutMS:10000});
  const usuarioId=new mongoose.Types.ObjectId();
+ const otroUsuario=new mongoose.Types.ObjectId();
  try{
   await Promise.all([Evento.init(),Cabeza.init()]);
   const indices=await Evento.collection.indexes();
@@ -64,7 +65,6 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   );
   assert.equal(await Evento.countDocuments({usuarioId}),antesCorreccion);
   // Ningún usuario puede corregir un movimiento ajeno.
-  const otroUsuario=new mongoose.Types.ObjectId();
   await assert.rejects(
    anexarEventoV81(otroUsuario,{...datos("correccion-ajena"),tipo:"CORRECCION",
     montoCentavos:2000000n,corrigeId:"registro-uno",tipoCorregido:"GASTO",motivo:"Intento ajeno"}),
