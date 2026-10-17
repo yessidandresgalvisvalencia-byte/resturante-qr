@@ -143,6 +143,37 @@ test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", 
       empresaId: "companyA", sedeId: "s1", eventId: offlineEvent.eventId
     });
     assert.equal(stillInReview.status, "EN_REVISION");
+    // A separate legitimate ledger event can be finalized once, with matching actor.
+    const completedEvent = {
+      ...offlineEvent, eventId: "01K7R00YFBPZ7KYP62F4BXM2JQ",
+      payload: { ventaId: "sale3" }
+    };
+    assert.equal((await receive(completedEvent))[0].status, "RECIBIDO");
+    const review = await beginReview({
+      db, context: reviewer, eventId: completedEvent.eventId
+    });
+    assert.equal(review.status, "EN_REVISION");
+    await appendMovement({
+      ...base, eventId: completedEvent.eventId, actorId: completedEvent.actorId,
+      amountCentavos: "150", tipo: "CREDITO"
+    });
+    const applied = await markOfflineApplied({
+      db, context: reviewer, eventId: completedEvent.eventId,
+      reviewToken: review.reviewToken,
+      commitReference: { collection: "gruk_ledger_movimientos", eventId: completedEvent.eventId }
+    });
+    assert.equal(applied.status, "APLICADO");
+    const appliedAgain = await markOfflineApplied({
+      db, context: reviewer, eventId: completedEvent.eventId,
+      reviewToken: review.reviewToken,
+      commitReference: { collection: "gruk_ledger_movimientos", eventId: completedEvent.eventId }
+    });
+    assert.equal(appliedAgain.status, "NO_RECLAMADO");
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
+      empresaId: "companyA", sedeId: "s1",
+      eventId: completedEvent.eventId, status: "APLICADO"
+    }), 1);
+
 
 
     assert.equal(await db.collection("gruk_ledger_movimientos")
