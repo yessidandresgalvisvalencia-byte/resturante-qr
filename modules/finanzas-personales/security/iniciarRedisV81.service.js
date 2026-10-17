@@ -3,6 +3,8 @@
 // El llamador crea el cliente con una URL/credenciales secretas desde su infraestructura.
 async function iniciarRedisV81(app,{crearCliente,url=process.env.GRUK_V81_REDIS_URL}={}){
  if(!app||!app.locals||typeof crearCliente!=="function")throw new TypeError("Configuración Redis V81 inválida");
+ // Invalidar inmediatamente cualquier cliente previo antes de una reinicialización.
+ delete app.locals.redisV81;
  if(typeof url!=="string"||!url.trim())throw new Error("GRUK_V81_REDIS_URL requerido");
  let parsed;
  try{parsed=new URL(url);}catch(_){throw new Error("URL Redis V81 inválida");}
