@@ -27,6 +27,15 @@ async function anexarEventoV81(usuarioId,datos){
     } catch(e) { throw e; } // Un alta concurrente falla: el llamador reintenta toda la operación.
     cabeza={version:0,hashActual:GENESIS};
    }
+   // Antes de anexar, comprobar que la cabeza apunta al último evento real.
+   // Evita seguir escribiendo si se borró o alteró el evento final.
+   const ultimo=cabeza.version>0
+    ? await Evento.findOne({usuarioId,version:cabeza.version}).session(session).lean()
+    : null;
+   if((cabeza.version===0 && cabeza.hashActual!==GENESIS) ||
+      (cabeza.version>0 && (!ultimo || ultimo.hashActual!==cabeza.hashActual))) {
+    throw Object.assign(new Error("Integridad V81 comprometida: cabeza sin último evento coincidente"),{statusCode:409});
+   }
    if(datos.tipo==="CORRECCION" || datos.tipo==="ANULACION"){
     if(typeof datos.corrigeId!=="string" || !datos.corrigeId.trim())throw Object.assign(new Error("Referencia de corrección obligatoria"),{statusCode:400});
     const original=await Evento.findOne({usuarioId,eventId:datos.corrigeId,tipo:{$in:["INGRESO","GASTO"]}}).session(session).lean();
