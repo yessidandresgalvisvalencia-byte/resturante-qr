@@ -12,7 +12,7 @@ test("stored offline order processing: one persisted order and correct retry",{t
   tipo:"PEDIDO_REGISTRADO",occurredAt:"2026-10-17T20:00:00.000Z",schemaVersion:1,
   payload:{restaurantId:"r1",menuItemId:menuId.toHexString(),mesa:1,cantidad:2}};
  try{
-  await client.connect();const raw=client.db("offline_atomic_order");
+  await client.connect();const raw=client.db("offline_stored_order_test");
   await raw.collection("restaurantes").insertOne({restaurantId:"r1",empresaId:context.empresaId});
   await raw.collection("menus").insertOne({_id:menuId,restaurantId:"r1",disponible:true,productoServicioId:productId,precio:5000});
   await raw.collection("productoservicios").insertOne({_id:productId,empresaId:context.empresaId,tipo:"producto",activo:true});
