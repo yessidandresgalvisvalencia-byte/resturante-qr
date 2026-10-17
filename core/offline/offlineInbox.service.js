@@ -43,8 +43,8 @@ async function acceptOfflineBatch({ db, authenticatedContext, events }) {
     }
     if (!inserted) {
       // The same ID with changed contents is an integrity conflict, never a harmless retry.
-      const previous = await inbox.findOne(key, { projection: { eventHash: 1, _id: 0 } });
-      if (!previous || previous.eventHash !== eventHash) {
+      const previous = await inbox.findOne(key, { projection: { eventHash: 1, actorId: 1, _id: 0 } });
+      if (!previous || previous.eventHash !== eventHash || previous.actorId !== authenticatedContext.actorId) {
         const conflict = new Error("OFFLINE_EVENT_CONFLICT");
         conflict.code = "OFFLINE_EVENT_CONFLICT";
         throw conflict;
