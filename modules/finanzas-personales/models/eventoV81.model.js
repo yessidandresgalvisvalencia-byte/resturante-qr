@@ -17,7 +17,16 @@ const schema = new mongoose.Schema({
 }, {collection:"fin_eventos_v81",versionKey:false,strict:"throw"});
 schema.index({usuarioId:1,version:1},{unique:true});
 schema.index({usuarioId:1,eventId:1},{unique:true});
-for(const op of ["updateOne","updateMany","findOneAndUpdate","replaceOne","findOneAndReplace","deleteOne","deleteMany","findOneAndDelete"]) {
+// Bloqueo de escrituras destructivas por consultas, documentos y operaciones masivas.\nfor(const op of ["updateOne","updateMany","findOneAndUpdate","replaceOne","findOneAndReplace","deleteOne","deleteMany","findOneAndDelete"]) {
  schema.pre(op,function(){ throw new Error("Ledger V81: operación prohibida; usa eventos compensatorios"); });
 }
+schema.pre("save",function() {
+ if(!this.isNew)throw new Error("Ledger V81: no se permite sobrescribir eventos existentes");
+});
+schema.pre("bulkWrite",function() {
+ throw new Error("Ledger V81: bulkWrite bloqueado; usar el servicio transaccional");
+});
+schema.pre("insertMany",function() {
+ throw new Error("Ledger V81: insertMany bloqueado; usar el servicio transaccional");
+});
 module.exports=mongoose.models.FinEventoV81||mongoose.model("FinEventoV81",schema);
