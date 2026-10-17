@@ -17,13 +17,15 @@ async function processPendingOfflinePedido({db,session,event,context}){
   const key={empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,eventId:event.eventId,tipo:"PEDIDO_REGISTRADO"};
   const entry=await inbox.findOne(key,{session});
   if(!entry)fail("OFFLINE_EVENT_NOT_FOUND");
+  // Verify the immutable canonical payload before returning an existing status.
+  // A retry with the same event ID but different contents is a conflict, including
+  // when the event has already advanced past PENDIENTE.
+  const {digest}=require("./offlineInbox.service");
+  if(entry.eventHash!==digest(event))fail("OFFLINE_EVENT_CONFLICT");
   if(entry.status!=="PENDIENTE"){
    response={eventId:event.eventId,status:entry.status,created:false};
    return;
   }
-  // The inbox is authoritative: never accept a different payload with a matching eventId.
-  const {digest}=require("./offlineInbox.service");
-  if(entry.eventHash!==digest(event))fail("OFFLINE_EVENT_CONFLICT");
   const prepared=await prepareOfflinePedido({db,session,event,context});
   const companyId=new ObjectId(context.empresaId);
   const orderKey={empresaId:companyId,sedeId:context.sedeId,offlineEventId:event.eventId};
