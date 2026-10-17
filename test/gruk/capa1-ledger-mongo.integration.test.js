@@ -5,6 +5,7 @@ const { randomUUID } = require("node:crypto");
 const { appendMovement, ensureLedgerIndexes } = require("../../core/ledger/appendLedger.service");
 const { verifyLedgerChain } = require("../../core/ledger/verifyLedger.service");
 const { acceptOfflineBatch, ensureInboxIndexes } = require("../../core/offline/offlineInbox.service");
+const { beginReview } = require("../../core/offline/offlineReview.service");
 
 test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", { timeout: 30000, skip: !process.env.GRUK_TEST_MONGO_URI }, async () => {
   const { MongoClient } = require("mongodb");
@@ -97,6 +98,28 @@ test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", 
     assert.equal((await acceptOfflineBatch({ db, authenticatedContext: ctxB, events: [forCompanyB] }))[0].status, "RECIBIDO");
     assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId: "companyA", sedeId: "s1" }), 2);
     assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId: "companyB", sedeId: "s1" }), 1);
+    // No sale is posted merely because an offline event was accepted.
+    const storedBeforeReview = await db.collection("gruk_offline_inbox").findOne({
+      empresaId: "companyA", sedeId: "s1", eventId: offlineEvent.eventId
+    });
+    assert.equal(storedBeforeReview.status, "PENDIENTE");
+    const reviewer = { ...ctxA, canReview: true };
+    await assert.rejects(beginReview({
+      db, context: { ...ctxA, canReview: false }, eventId: offlineEvent.eventId
+    }), /OFFLINE_AUTH_REQUIRED/);
+    const claims = await Promise.all([
+      beginReview({ db, context: reviewer, eventId: offlineEvent.eventId }),
+      beginReview({ db, context: reviewer, eventId: offlineEvent.eventId })
+    ]);
+    assert.equal(claims.filter(r => r.status === "EN_REVISION").length, 1);
+    assert.equal(claims.filter(r => r.status !== "EN_REVISION").length, 1);
+    const storedAfterReview = await db.collection("gruk_offline_inbox").findOne({
+      empresaId: "companyA", sedeId: "s1", eventId: offlineEvent.eventId
+    });
+    assert.equal(storedAfterReview.status, "EN_REVISION");
+    assert.equal(await db.collection("gruk_ledger_movimientos")
+      .countDocuments({ empresaId: "companyA", eventId: offlineEvent.eventId }), 0);
+
 
   } finally {
     await db.dropDatabase();
