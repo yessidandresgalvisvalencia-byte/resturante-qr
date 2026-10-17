@@ -209,10 +209,12 @@ jobs:
             sleep 1
           done
           exit 1
+      - name: Instalar cliente Redis oficial solo para CI
+        run: npm install --no-save --ignore-scripts --package-lock=false redis@5
       - name: Probar cuarenta incrementos concurrentes reales
         env:
           GRUK_V81_TEST_REDIS_URL: redis://127.0.0.1:6379/0
-        run: node --test test/finanzas-personales/contadorRedisV81.integration.test.js
+        run: node --test test/finanzas-personales/contadorRedisV81.integration.test.js test/finanzas-personales/arranqueRedisV81.integration.test.js
       - name: Eliminar Redis aislado
         if: always()
         run: docker rm -f redis-v81-test || true
