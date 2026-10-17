@@ -18,3 +18,19 @@ test("V81 redis usa cliente inyectado del servidor y comparte cuota",async()=>{
  const res=respuesta();await mw(req,res,()=>assert.fail("Debe bloquear"));assert.equal(res.code,429);assert.equal(res.headers["Retry-After"],"30");
 });
 test("V81 rechaza modos desconocidos",()=>assert.throws(()=>crearLimiteSeleccionadoV81({modo:"off"}),TypeError));
+
+test("V81 en producción nunca recurre al contador local",async()=>{
+ const anterior=process.env.NODE_ENV;
+ try{
+  process.env.NODE_ENV="production";
+  for(const modo of [undefined,"local"]){
+   const mw=crearLimiteSeleccionadoV81({modo});
+   const res=respuesta();let llamadas=0;
+   await mw({personalAuth:{userId:id,verificado:true}},res,()=>{llamadas++;});
+   assert.equal(res.code,503);
+   assert.equal(llamadas,0);
+  }
+ }finally{
+  if(anterior===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=anterior;
+ }
+});
