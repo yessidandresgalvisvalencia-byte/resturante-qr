@@ -36,6 +36,11 @@ async function anexarEventoV81(usuarioId,datos){
       (cabeza.version>0 && (!ultimo || ultimo.hashActual!==cabeza.hashActual))) {
     throw Object.assign(new Error("Integridad V81 comprometida: cabeza sin último evento coincidente"),{statusCode:409});
    }
+   // La verificación del último hash por sí sola no detecta eventos intermedios eliminados.
+   const cantidadEventos=await Evento.countDocuments({usuarioId}).session(session);
+   if(cantidadEventos!==cabeza.version){
+    throw Object.assign(new Error("Integridad V81 comprometida: cantidad de eventos distinta de la secuencia"),{statusCode:409});
+   }
    if(datos.tipo==="CORRECCION" || datos.tipo==="ANULACION"){
     if(typeof datos.corrigeId!=="string" || !datos.corrigeId.trim())throw Object.assign(new Error("Referencia de corrección obligatoria"),{statusCode:400});
     const original=await Evento.findOne({usuarioId,eventId:datos.corrigeId,tipo:{$in:["INGRESO","GASTO"]}}).session(session).lean();
