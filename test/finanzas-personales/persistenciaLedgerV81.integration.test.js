@@ -40,6 +40,13 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    x.reason?.statusCode===409 || x.reason?.hasErrorLabel?.("TransientTransactionError"),
    "Solo se permiten conflictos transitorios de concurrencia"
   );
+  // Dos anulaciones simultáneas sobre el mismo gasto no pueden aplicarse dos veces.
+  const cancelaciones=await Promise.allSettled([
+   anexarEventoV81(usuarioId,{...datos("anulacion-uno"),tipo:"ANULACION",montoCentavos:0n,corrigeId:"registro-uno",motivo:"Movimiento duplicado"}),
+   anexarEventoV81(usuarioId,{...datos("anulacion-dos"),tipo:"ANULACION",montoCentavos:0n,corrigeId:"registro-uno",motivo:"Movimiento duplicado"})
+  ]);
+  assert.equal(cancelaciones.filter(x=>x.status==="fulfilled").length,1);
+  assert.equal(await Evento.countDocuments({usuarioId,corrigeId:"registro-uno",tipo:"ANULACION"}),1);
   const auditoria=await verificarLedgerPersistidoV81(usuarioId);
   assert.equal(auditoria.integridad,"VERIFICADA");
   const cabeza=await Cabeza.findOne({usuarioId}).lean();
