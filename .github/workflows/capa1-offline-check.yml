@@ -4,7 +4,9 @@ on:
     branches: [gruk/capa1-offline-core-v4]
     paths:
       - "core/offline/**"
+      - "core/ledger/**"
       - "test/gruk/capa1-offline*.test.js"
+      - "test/gruk/capa1-ledger*.test.js"
       - ".github/workflows/capa1-offline-check.yml"
   pull_request:
     paths:
@@ -26,5 +28,7 @@ jobs:
         run: |
           node --check core/offline/offlineBatch.contract.js
           node --check core/offline/offlineInbox.service.js
+          node --check core/ledger/copAmounts.js
+          node --check core/ledger/appendLedger.service.js
       - name: Contract and inbox tests (dependency-free)
-        run: node --test test/gruk/capa1-offline.contract.test.js test/gruk/capa1-offline-inbox.test.js
+        run: node --test test/gruk/capa1-offline*.test.js test/gruk/capa1-ledger*.test.js
