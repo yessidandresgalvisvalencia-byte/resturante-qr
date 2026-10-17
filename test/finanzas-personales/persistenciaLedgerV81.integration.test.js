@@ -30,6 +30,10 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
  const usuarioId=new mongoose.Types.ObjectId();
  try{
   await Promise.all([Evento.init(),Cabeza.init()]);
+  const indices=await Evento.collection.indexes();
+  assert.ok(indices.some(i=>i.unique===true && i.partialFilterExpression?.tipo==="ANULACION" &&
+    i.key?.usuarioId===1 && i.key?.corrigeId===1 && i.key?.tipo===1),
+    "Debe existir índice único por anulación para proteger escrituras concurrentes");
   const original=await anexarEventoV81(usuarioId,datos("registro-uno"));
   const repetido=await anexarEventoV81(usuarioId,datos("registro-uno"));
   assert.equal(original.hashActual,repetido.hashActual);
