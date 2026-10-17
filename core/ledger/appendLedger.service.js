@@ -9,8 +9,8 @@ function required(value,name) {
  return value;
 }
 function hashMovement(e) {
- const fields=["empresaId","sedeId","cuentaId","eventId","secuencia","tipo","amountCentavos","beforeCentavos","afterCentavos","actorId","hashAnterior"];
- return createHash("sha256").update(JSON.stringify(fields.map(k=>e[k]))).digest("hex");
+ const fields=["empresaId","sedeId","cuentaId","eventId","secuencia","tipo","amountCentavos","beforeCentavos","afterCentavos","actorId","ip","timestamp","hashAnterior"];
+ return createHash("sha256").update(JSON.stringify(fields.map(k=>k==="timestamp" ? new Date(e[k]).toISOString() : e[k]))).digest("hex");
 }
 async function ensureLedgerIndexes(db) {
  await db.collection("gruk_ledger_movimientos").createIndex({empresaId:1,sedeId:1,cuentaId:1,secuencia:1},{unique:true,name:"unique_ledger_sequence"});
