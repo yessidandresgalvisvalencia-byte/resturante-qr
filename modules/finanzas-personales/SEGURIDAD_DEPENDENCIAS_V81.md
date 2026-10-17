@@ -86,6 +86,21 @@ La [auditoría de seguridad del mismo commit](https://github.com/yessidandresgal
 
 **Importante:** esto confirma mitigación en la rama de GitHub, no que el cambio esté desplegado en Render. La auditoría general continúa fallando por las 14 alertas restantes; no declarar GRUK seguro para producción hasta completar la remediación y pruebas de regresión pertinentes.
 
+## Parches HTTP probados y artefacto verificable
+
+Ejecución [39075667793](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39075667793), commit `fe08da6`: cuatro trabajos correctos (`test-v81`, `mongo-integration-v81`, `probar-parche-proxy-v81` y `probar-parches-http-v81`). GRUK Gate también aprobó en el mismo commit.
+
+El artefacto `parches-http-v81-lockfile-propuesto` (ID `12116852994`) contiene los archivos npm generados y probados en un runner desechable. Versiones verificadas al inspeccionar el artefacto:
+
+| Paquete | Versión probada | Definición propuesta |
+| --- | --- | --- |
+| axios | 1.20.0 | `dependencies.axios=1.20.0` |
+| multer | 2.4.0 | `dependencies.multer=^2.3.0` |
+| form-data | 4.0.6 | `overrides.form-data=4.0.6` |
+| proxy-addr | 2.0.8 | `overrides.proxy-addr=2.0.8` (ya aplicado en rama) |
+
+El trabajo temporal confirmó ausencia de alertas npm para **axios, multer y form-data**, pero **no** ausencia de otras vulnerabilidades. Se requiere fusionar `package.json` **junto con su `package-lock.json` exacto** y repetir las validaciones. No se ha incorporado este paquete de parches HTTP al repositorio ni a producción.
+
 ## Procedimiento obligatorio para remediar
 
 1. Capturar para cada alerta versión instalada, rango vulnerable, versión corregida y árbol de dependencias usando `npm ls <paquete>`, `npm audit --omit=dev --json` y `npm explain <paquete>`.
