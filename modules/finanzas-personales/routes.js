@@ -10,7 +10,7 @@ router.use(auth,entitlement);
 // Esta ruta no permite escoger usuario por body, params, query ni headers.
 router.get("/v81/integridad",require("./services/consultaIntegridadV81.handler").crearConsultaIntegridadV81());
 // Escritura V81: la cadena auth + entitlement ya validó el JWT personal.
-router.post("/v81/movimientos",require("./security/limiteMovimientosV81.middleware").crearLimiteMovimientosV81(),require("./services/registroMovimientoV81.handler").crearRegistroMovimientoV81());
+router.post("/v81/movimientos",require("./security/limiteSeleccionadoV81.middleware").crearLimiteSeleccionadoV81({clienteRedis:router.redisV81}),require("./services/registroMovimientoV81.handler").crearRegistroMovimientoV81());
 router.get("/diagnostico-integridad",async(req,res)=>{
  try{
   const Identidad=require("./models/identidadPersonal.model");
