@@ -20,7 +20,8 @@ function crearEvento(datos, hashAnterior = GENESIS) {
   const contenido = textoEvento(datos);
   return Object.freeze({ ...datos, hashAnterior, hashActual: calcularHash(hashAnterior, contenido) });
 }
-function verificarCadena(eventos) {
+function verificarCadena(eventos, hashCabezaEsperado) {
+  if (hashCabezaEsperado !== undefined && (typeof hashCabezaEsperado !== "string" || !/^[a-f0-9]{64}$/.test(hashCabezaEsperado))) throw new TypeError("Hash de referencia inválido");
   if (!Array.isArray(eventos)) throw new TypeError("La cadena debe ser una lista");
   // Sin eventos no hay evidencia de integridad: no dar un falso positivo.
   if (eventos.length === 0) return false;
@@ -32,7 +33,7 @@ function verificarCadena(eventos) {
       if (e.version !== ++version || e.hashAnterior !== anterior || e.hashActual !== calcularHash(anterior, textoEvento(e))) return false;
       anterior = e.hashActual;
     }
-    return true;
+    return hashCabezaEsperado === undefined || anterior === hashCabezaEsperado;
   } catch (_) {
     return false;
   }
