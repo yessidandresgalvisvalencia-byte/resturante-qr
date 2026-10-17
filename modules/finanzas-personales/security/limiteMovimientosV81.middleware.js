@@ -13,12 +13,17 @@ function crearLimiteMovimientosV81({max=20,windowMs=60000,now=Date.now}={}){
   // Las claves se extraen de identidad verificada, nunca de IP/X-Forwarded-For ni body.
   const key=principal.userId.toLowerCase();
   const prev=buckets.get(key);
-  const bucket=!prev||tiempo-prev.start>=windowMs||tiempo<prev.start?{start:tiempo,count:0}:prev;
+  const bucket=!prev||tiempo-prev.start>=windowMs?{start:tiempo,count:0}:prev;
+  // Recolectar expirados antes de admitir un identificador adicional.
+  if(!prev && buckets.size>=10000){
+   for(const [k,v] of buckets)if(tiempo-v.start>=windowMs)buckets.delete(k);
+   if(buckets.size>=10000)return res.status(503).json({ok:false,error:"Control de tráfico temporalmente saturado"});
+  }
   bucket.count++;
   buckets.delete(key);
   buckets.set(key,bucket);
   if(buckets.size>10000){
-   for(const [k,v] of buckets)if(tiempo-v.start>=windowMs||tiempo<v.start)buckets.delete(k);
+   for(const [k,v] of buckets)if(tiempo-v.start>=windowMs)buckets.delete(k);
    // No descartar cuentas activas para liberar cupos: fallar cerrado.
    if(buckets.size>10000)return res.status(503).json({ok:false,error:"Control de tráfico temporalmente saturado"});
   }
