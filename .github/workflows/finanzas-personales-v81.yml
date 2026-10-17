@@ -45,6 +45,15 @@ jobs:
               console.log("Versiones instaladas:", item.name, matches.map(([path,p]) => ({path, version:p.version})));
             }
           '
+      - name: Trazar procedencia de proxy-addr critico
+        shell: bash
+        run: |
+          echo "Arbol de dependencias de proxy-addr:"
+          npm ls proxy-addr --all || true
+          echo "Explicacion de instalacion:"
+          npm explain proxy-addr || true
+          echo "Dependencias directas del padre:"
+          npm ls express proxy-addr --depth=1 || true
       - name: Probar centavos, cadena SHA256 y proyeccion de ledger
         run: node --test test/finanzas-personales/*.test.js
   mongo-integration-v81:
