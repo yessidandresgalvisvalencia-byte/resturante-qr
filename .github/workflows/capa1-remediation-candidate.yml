@@ -41,7 +41,7 @@ jobs:
             candidate-audit.json
 
       - name: Commit clean remediation candidate on integration branch only
-        if: github.event_name == 'push' && github.ref == 'refs/heads/gruk/capa1-offline-core-v4'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/gruk/capa1-offline-core-v4') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'gruk/capa1-offline-core-v4')
         run: |
           node -e 'const r=require("./candidate-audit.json"); const v=r.metadata?.vulnerabilities; if(!v || r.error || v.critical || v.high || v.moderate || v.low) process.exit(1)'
           git config user.name "github-actions[bot]"
