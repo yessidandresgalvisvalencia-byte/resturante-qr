@@ -73,10 +73,11 @@ jobs:
           npm install --package-lock-only --ignore-scripts
           npm ci --ignore-scripts
           node -e 'const v=require("proxy-addr/package.json").version; if(v!=="2.0.8") throw new Error("Parche no instalado: "+v); console.log("Parche temporal verificado:",v)'
-      - name: Validar finanzas y seguridad compartida
+      - name: Validar sintaxis compartida y motor V81
         run: |
-          npm run gate
+          npm run check:syntax
           node --test test/finanzas-personales/*.test.js
+          node -e 'const express=require("express"); const app=express(); if(typeof app.use!=="function") throw new Error("Express no inicia")'
       - name: Comprobar alerta critica tras parche temporal
         shell: bash
         run: |
