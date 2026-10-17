@@ -16,6 +16,7 @@ async function iniciarRedisV81(app,{crearCliente,url=process.env.GRUK_V81_REDIS_
   if(!cliente||typeof cliente.eval!=="function"||typeof cliente.connect!=="function")throw new TypeError("Cliente Redis incompatible");
   await cliente.connect();
   if(cliente.isReady!==true)throw new Error("Redis no confirmó estado listo");
+  if(typeof cliente.ping!=="function"||await cliente.ping()!=="PONG")throw new Error("Redis no respondió a PING");
   app.locals.redisV81=cliente;
   return cliente;
  }catch(e){
