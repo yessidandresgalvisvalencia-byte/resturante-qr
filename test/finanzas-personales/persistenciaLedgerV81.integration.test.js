@@ -96,6 +96,15 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   ]);
   assert.equal(cancelaciones.filter(x=>x.status==="fulfilled").length,1);
   assert.equal(await Evento.countDocuments({usuarioId,corrigeId:"registro-uno",tipo:"ANULACION"}),1);
+  // Un movimiento anulado no admite correcciones posteriores.
+  const totalAntes=await Evento.countDocuments({usuarioId});
+  await assert.rejects(
+   anexarEventoV81(usuarioId,{...datos("correccion-tras-anulacion"),tipo:"CORRECCION",
+    montoCentavos:1000000n,corrigeId:"registro-uno",tipoCorregido:"GASTO",
+    motivo:"No se puede corregir un movimiento anulado"}),
+   e=>e.statusCode===409 && /ya anulado/.test(e.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId}),totalAntes);
   // El gasto anulado deja de afectar el saldo sin eliminar su evento histórico.
   const trasAnulacion=await Evento.find({usuarioId}).sort({version:1}).lean();
   const {proyectarLedger:proyectarDespues}=require("../../modules/finanzas-personales/services/proyeccionLedgerV81.service");
