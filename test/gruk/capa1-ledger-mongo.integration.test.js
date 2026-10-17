@@ -37,6 +37,20 @@ test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", 
       appendMovement({ ...base, amountCentavos: "1" }),
       /LEDGER_EVENT_CONFLICT/
     );
+    // Two concurrent retries for one event must never create two postings.
+    const concurrentEvent = { ...base, eventId: "evt-concurrent-1", amountCentavos: "300" };
+    const attempts = await Promise.allSettled([
+      appendMovement(concurrentEvent),
+      appendMovement(concurrentEvent)
+    ]);
+    // MongoDB may report a write conflict to a contending transaction.
+    // The invariant is one committed posting, with an idempotent retry.
+    assert.ok(attempts.some(x => x.status === "fulfilled"));
+    const storedConcurrent = await db.collection("gruk_ledger_movimientos")
+      .find({ empresaId: "companyA", sedeId: "s1", eventId: "evt-concurrent-1" })
+      .toArray();
+    assert.equal(storedConcurrent.length, 1, "concurrent event cannot be posted twice");
+    assert.equal((await appendMovement(concurrentEvent)).alreadyApplied, true);
     const second = await appendMovement({
       ...base, empresaId: "companyB", eventId: "evt002", amountCentavos: "700"
     });
