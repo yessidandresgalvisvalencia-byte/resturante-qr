@@ -33,8 +33,7 @@ async function appendMovement({client,db,empresaId,sedeId,cuentaId,eventId,tipo,
      const existing=await movements.findOne({empresaId,sedeId,eventId},{session});
      if(existing){
        if(existing.cuentaId!==cuentaId || existing.tipo!==tipo ||
-          existing.amountCentavos!==amountCentavos || existing.actorId!==actorId ||
-          existing.ip!==ip){
+          existing.amountCentavos!==amountCentavos || existing.actorId!==actorId){
          throw new Error("LEDGER_EVENT_CONFLICT");
        }
        inserted={...existing,alreadyApplied:true};
