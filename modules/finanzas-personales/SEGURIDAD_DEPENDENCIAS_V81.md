@@ -70,6 +70,14 @@ Express 5.2.1 declara `proxy-addr@^2.0.7`, rango semver que **admite 2.0.8**. Pa
 
 Referencia adicional: [historial de proxy-addr v2.0.8](https://github.com/jshttp/proxy-addr/blob/master/HISTORY.md).
 
+## Parche probado y lockfile generado
+
+En la ejecución [39069553725](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39069553725), commit `dcb8c54`, **los tres trabajos V81 fueron aprobados**: `test-v81`, `mongo-integration-v81` y `probar-parche-proxy-v81`. El último trabajo resolvió `proxy-addr@2.0.8` mediante `overrides`, ejecutó `npm ci`, comprobó la carga de Express y verificó la desaparición de la alerta de `proxy-addr` en la auditoría temporal.
+
+GitHub Actions publicó el artefacto **`proxy-addr-208-lockfile-propuesto`** (ID `12114781624`) con los archivos `package.json` y `package-lock.json` resultantes, accesible desde la ejecución indicada. El artefacto es una **propuesta**, no una corrección fusionada.
+
+**Pendiente para remediación definitiva:** revisar los cambios exactos del artefacto, incorporar ambos archivos en un commit consistente, ejecutar `npm ci`, `npm run gate`, las pruebas V81 y MongoDB, y volver a ejecutar `npm audit --omit=dev`. El workflow general de auditoría todavía falla en la rama actual.
+
 ## Procedimiento obligatorio para remediar
 
 1. Capturar para cada alerta versión instalada, rango vulnerable, versión corregida y árbol de dependencias usando `npm ls <paquete>`, `npm audit --omit=dev --json` y `npm explain <paquete>`.
