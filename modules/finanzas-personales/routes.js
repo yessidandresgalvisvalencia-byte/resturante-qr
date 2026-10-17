@@ -6,6 +6,19 @@ const loginSchema=Joi.object({email:Joi.string().email().max(254).required(),pas
 router.post("/auth/registro",authLimiter,validate(registroSchema),async(req,res)=>{try{return res.status(201).json({ok:true,...await personalAuthService.registrar(req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 router.post("/auth/login",authLimiter,validate(loginSchema),async(req,res)=>{try{return res.json({ok:true,...await personalAuthService.login(req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 router.use(auth,entitlement);
+// V81: diagnóstico en solo lectura, con identidad obtenida exclusivamente del JWT personal verificado.
+// Esta ruta no permite escoger usuario por body, params, query ni headers.
+router.get("/v81/integridad",async(req,res)=>{
+ try{
+  const {resolverUsuarioAutorizadoV81}=require("./services/autorizacionV81.service");
+  const {verificarLedgerPersistidoV81}=require("./services/verificacionLedgerV81.service");
+  const usuarioId=resolverUsuarioAutorizadoV81({autenticado:true,usuarioId:req.personalAuth.userId});
+  const auditoria=await verificarLedgerPersistidoV81(usuarioId);
+  return res.set("Cache-Control","no-store").json({ok:true,auditoria});
+ }catch(e){
+  return res.status(e.statusCode===401?401:500).json({ok:false,error:e.statusCode===401?"Autenticación requerida":"No fue posible verificar el ledger"});
+ }
+});
 router.get("/diagnostico-integridad",async(req,res)=>{
  try{
   const Identidad=require("./models/identidadPersonal.model");
