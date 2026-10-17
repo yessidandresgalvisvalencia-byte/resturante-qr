@@ -38,6 +38,11 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     assert.ok(statuses.every(x => x.status === "PENDIENTE" && x.applied === false));
     const crossActor = await readOfflineStatuses({ db, context: { ...context, actorId: "otroActor" }, eventIds: ids });
     assert.ok(crossActor.every(x => x.status === "NO_ENCONTRADO"));
+    const crossEmpresa = await readOfflineStatuses({ db, context: { ...context, empresaId: "otraEmpresa" }, eventIds: ids });
+    assert.ok(crossEmpresa.every(x => x.status === "NO_ENCONTRADO" && x.applied === false));
+    const crossSede = await readOfflineStatuses({ db, context: { ...context, sedeId: "otraSede" }, eventIds: ids });
+    assert.ok(crossSede.every(x => x.status === "NO_ENCONTRADO" && x.applied === false));
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId, status: "APLICADO" }), 0);
     await assert.rejects(
       acceptOfflineBatch({ db, authenticatedContext: context, events: [{ ...events[0], payload: { localOrderId: "tampered" } }] }),
       error => error.code === "OFFLINE_EVENT_CONFLICT"
