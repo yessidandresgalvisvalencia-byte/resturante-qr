@@ -63,6 +63,21 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    e=>e.statusCode===400 && /monto positivo/.test(e.message)
   );
   assert.equal(await Evento.countDocuments({usuarioId}),antesCorreccion);
+  // Ningún usuario puede corregir un movimiento ajeno.
+  const otroUsuario=new mongoose.Types.ObjectId();
+  await assert.rejects(
+   anexarEventoV81(otroUsuario,{...datos("correccion-ajena"),tipo:"CORRECCION",
+    montoCentavos:2000000n,corrigeId:"registro-uno",tipoCorregido:"GASTO",motivo:"Intento ajeno"}),
+   e=>e.statusCode===409 && /inexistente para este usuario/.test(e.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId:otroUsuario}),0);
+
+  // Una reclasificación legítima conserva el original y agrega un evento compensatorio.
+  await anexarEventoV81(usuarioId,datos("reclasificacion-base"));
+  const correccion=await anexarEventoV81(usuarioId,{...datos("reclasificacion-ok"),tipo:"CORRECCION",
+   montoCentavos:1800000n,corrigeId:"reclasificacion-base",tipoCorregido:"INGRESO",motivo:"Era ingreso"});
+  assert.equal(correccion.tipoCorregido,"INGRESO");
+  assert.equal(await Evento.countDocuments({usuarioId,eventId:"reclasificacion-base"}),1);
   // Dos anulaciones simultáneas sobre el mismo gasto no pueden aplicarse dos veces.
   const cancelaciones=await Promise.allSettled([
    anexarEventoV81(usuarioId,{...datos("anulacion-uno"),tipo:"ANULACION",montoCentavos:0n,corrigeId:"registro-uno",motivo:"Movimiento duplicado"}),
