@@ -26,6 +26,20 @@ jobs:
           node-version: '22'
       - name: Instalar dependencias reproducibles
         run: npm ci --ignore-scripts
+      - name: Diagnosticar dependencias de produccion sin alterar paquetes
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > /tmp/gruk-v81-audit.json || true
+          node -e '
+            const a = require("/tmp/gruk-v81-audit.json");
+            const vulnerabilities = a.vulnerabilities || {};
+            const items = Object.entries(vulnerabilities)
+              .map(([name, v]) => ({name, severity:v.severity, direct:v.isDirect, via:v.via.filter(x => typeof x === "object").map(x => x.url)}))
+              .sort((a,b) => a.name.localeCompare(b.name));
+            console.log("Dependencias vulnerables (inventario sin modificaciones):");
+            console.log(JSON.stringify(items,null,2));
+            console.log("Totales:", JSON.stringify(a.metadata?.vulnerabilities || {}));
+          '
       - name: Probar centavos, cadena SHA256 y proyeccion de ledger
         run: node --test test/finanzas-personales/*.test.js
   mongo-integration-v81:
