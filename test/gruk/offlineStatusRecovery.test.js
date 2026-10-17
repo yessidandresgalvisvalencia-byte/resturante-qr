@@ -36,3 +36,25 @@ test("status queries reject duplicate IDs and tenantless contexts before queryin
   await assert.rejects(readOfflineStatuses({ db, context: { empresaId: "", sedeId: "sedeA", actorId: "cajeroA" }, eventIds: [ids[0]] }), /OFFLINE_AUTH_REQUIRED/);
   assert.equal(accessed, false);
 });
+
+test("offline status scopes tenant, location and actor; unrelated events are never visible", async () => {
+  const stored = [
+    { empresaId: "empresaA", sedeId: "sedeA", actorId: "cajeroA", eventId: ids[0], status: "APLICADO" },
+    { empresaId: "empresaB", sedeId: "sedeA", actorId: "cajeroA", eventId: ids[1], status: "APLICADO" },
+    { empresaId: "empresaA", sedeId: "sedeB", actorId: "cajeroA", eventId: ids[1], status: "APLICADO" },
+    { empresaId: "empresaA", sedeId: "sedeA", actorId: "cajeroB", eventId: ids[2], status: "APLICADO" }
+  ];
+  const db = { collection: () => ({ find: q => ({
+    toArray: async () => stored.filter(item =>
+      item.empresaId === q.empresaId &&
+      item.sedeId === q.sedeId &&
+      item.actorId === q.actorId &&
+      q.eventId.$in.includes(item.eventId))
+  }) }) };
+  const result = await readOfflineStatuses({ db, context, eventIds: ids });
+  assert.deepEqual(result, [
+    { eventId: ids[0], status: "APLICADO", applied: true },
+    { eventId: ids[1], status: "NO_ENCONTRADO", applied: false },
+    { eventId: ids[2], status: "NO_ENCONTRADO", applied: false }
+  ]);
+});
