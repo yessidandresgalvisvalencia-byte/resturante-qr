@@ -4,7 +4,7 @@ const {authorizeOfflineOrder}=require("../../core/offline/offlineOrderAuthority.
 const context={empresaId:"tenantA",sedeId:"sedeA",actorId:"cajeroA"};
 const event={eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAV",tipo:"PEDIDO_REGISTRADO",...context,payload:{restaurantId:"rest1",menuItemId:"507f1f77bcf86cd799439011",mesa:1,cantidad:2,precio:1}};
 test("server resolves restaurant ownership and never trusts offline price",async()=>{
- let query;const db={collection:name=>{assert.equal(name,"restaurantes");return {findOne:async q=>{query=q;return {restaurantId:"rest1",empresaId:"tenantA"};}}}};
+ let query;const db={toObjectId:id=>id,collection:name=>({findOne:async q=>{if(name==="restaurantes"){query=q;return {restaurantId:"rest1",empresaId:"tenantA"};}if(name==="menus"){assert.equal(q._id,event.payload.menuItemId);return {disponible:true,productoServicioId:"product-core"};}if(name==="productoservicios"){assert.equal(q.empresaId,"tenantA");return {activo:true};}throw Error("unexpected collection");}})};
  const result=await authorizeOfflineOrder({event,context,db});
  assert.deepEqual(query,{restaurantId:"rest1",empresaId:"tenantA"});
  assert.equal(result.requiresAuthoritativePricing,true);
@@ -19,4 +19,11 @@ test("cross-tenant and missing identity fail before DB access",async()=>{
 test("unowned restaurant cannot become offline order",async()=>{
  const db={collection:()=>({findOne:async()=>null})};
  await assert.rejects(authorizeOfflineOrder({event,context,db}),/OFFLINE_RESTAURANT_FORBIDDEN/);
+});
+
+test("unavailable menu and cross-tenant product rejected",async()=>{
+ const db={toObjectId:id=>id,collection:name=>({findOne:async()=>name==="restaurantes"?{empresaId:"tenantA"}:null})};
+ await assert.rejects(authorizeOfflineOrder({event,context,db}),/OFFLINE_MENU_UNAVAILABLE/);
+ const db2={toObjectId:id=>id,collection:name=>({findOne:async()=>name==="restaurantes"?{empresaId:"tenantA"}:name==="menus"?{disponible:true,productoServicioId:"x"}:null})};
+ await assert.rejects(authorizeOfflineOrder({event,context,db:db2}),/OFFLINE_PRODUCT_FORBIDDEN/);
 });
