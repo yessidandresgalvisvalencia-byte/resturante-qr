@@ -96,6 +96,16 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   ]);
   assert.equal(cancelaciones.filter(x=>x.status==="fulfilled").length,1);
   assert.equal(await Evento.countDocuments({usuarioId,corrigeId:"registro-uno",tipo:"ANULACION"}),1);
+  // El gasto anulado deja de afectar el saldo sin eliminar su evento histórico.
+  const trasAnulacion=await Evento.find({usuarioId}).sort({version:1}).lean();
+  const {proyectarLedger:proyectarDespues}=require("../../modules/finanzas-personales/services/proyeccionLedgerV81.service");
+  const saldoFinal=proyectarDespues(trasAnulacion.map(e=>({
+   id:e.eventId,userId:String(e.usuarioId),tipo:e.tipo,montoCentavos:BigInt(e.montoCentavos),
+   corrigeId:e.corrigeId,motivo:e.motivo,tipoCorregido:e.tipoCorregido
+  })),String(usuarioId));
+  assert.equal(saldoFinal.ingresosCentavos,1800000n);
+  assert.equal(saldoFinal.gastosCentavos,BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
+  assert.equal(saldoFinal.saldoCentavos,saldoFinal.ingresosCentavos-saldoFinal.gastosCentavos);
   const auditoria=await verificarLedgerPersistidoV81(usuarioId);
   assert.equal(auditoria.integridad,"VERIFICADA");
   const cabeza=await Cabeza.findOne({usuarioId}).lean();
