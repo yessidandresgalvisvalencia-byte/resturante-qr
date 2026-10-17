@@ -1,0 +1,40 @@
+name: GRUK Production Health Smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-production-health-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Verify Render health after deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://resturante-qr-1.onrender.com/health"
+          for attempt in $(seq 1 36); do
+            status="$(curl --silent --show-error --location --max-time 20 --output /tmp/gruk-health.json --write-out '%{http_code}' "$url" || true)"
+            if [ "$status" = "200" ] && node -e '
+              const fs = require("node:fs");
+              const v = JSON.parse(fs.readFileSync("/tmp/gruk-health.json", "utf8"));
+              if (v.status !== "ok" || v.db !== "connected" || typeof v.uptime !== "number") process.exit(1);
+            '; then
+              echo "Production /health HTTP 200, Mongo connected"
+              cat /tmp/gruk-health.json
+              exit 0
+            fi
+            echo "Attempt $attempt/36: HTTP $status; awaiting healthy service"
+            sleep 15
+          done
+          echo "::error::Production /health did not return HTTP 200 with connected DB"
+          exit 1
