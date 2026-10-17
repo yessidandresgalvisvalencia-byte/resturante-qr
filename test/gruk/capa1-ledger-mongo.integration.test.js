@@ -128,9 +128,25 @@ test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", 
       empresaId: "companyA", sedeId: "s1", eventId: offlineEvent.eventId
     });
     assert.equal(notApplied.status, "EN_REVISION");
+    // Even a posted ledger row with the same event and tenant is insufficient
+    // if it belongs to a different originating actor.
+    await appendMovement({
+      ...base, eventId: offlineEvent.eventId, actorId: "otherUser",
+      amountCentavos: "150", tipo: "CREDITO"
+    });
+    await assert.rejects(markOfflineApplied({
+      db, context: reviewer, eventId: offlineEvent.eventId,
+      reviewToken: claims.find(x => x.status === "EN_REVISION").reviewToken,
+      commitReference: { collection: "gruk_ledger_movimientos", eventId: offlineEvent.eventId }
+    }), /OFFLINE_DOMAIN_NOT_COMMITTED/);
+    const stillInReview = await db.collection("gruk_offline_inbox").findOne({
+      empresaId: "companyA", sedeId: "s1", eventId: offlineEvent.eventId
+    });
+    assert.equal(stillInReview.status, "EN_REVISION");
+
 
     assert.equal(await db.collection("gruk_ledger_movimientos")
-      .countDocuments({ empresaId: "companyA", eventId: offlineEvent.eventId }), 0);
+      .countDocuments({ empresaId: "companyA", eventId: offlineEvent.eventId, actorId: "otherUser" }), 1);
 
 
   } finally {
