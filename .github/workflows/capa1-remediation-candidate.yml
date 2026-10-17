@@ -1,0 +1,38 @@
+name: GRUK Dependency Remediation Candidate
+on:
+  workflow_dispatch:
+  push:
+    branches: [gruk/capa1-offline-core-v4]
+    paths:
+      - ".github/workflows/capa1-remediation-candidate.yml"
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Compute non-breaking npm remediation proposal
+        run: |
+          npm ci
+          npm audit fix --package-lock-only --ignore-scripts --no-fund || true
+          npm audit --omit=dev --json > candidate-audit.json || true
+          node -e 'const x=require("./candidate-audit.json"); console.log(JSON.stringify(x.metadata?.vulnerabilities||{}));'
+      - name: Test candidate dependency tree
+        run: |
+          npm ci
+          npm run check:syntax
+          node --test test/gruk/capa1-offline*.test.js test/gruk/capa1-ledger*.test.js
+      - name: Upload proposed lockfile only (do not auto-merge)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gruk-remediation-candidate
+          path: |
+            package-lock.json
+            candidate-audit.json
