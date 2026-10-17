@@ -25,6 +25,16 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
   }));
   try {
     await ensureInboxIndexes(db);
+    // First-arrival race: same new event on two tablets must be inserted only once.
+    const raceEvent = { ...events[0], eventId: "01ARZ3NDEKTSV4RRFFQ69G5FAY" };
+    const [raceA, raceB] = await Promise.all([
+      acceptOfflineBatch({ db, authenticatedContext: context, events: [raceEvent] }),
+      acceptOfflineBatch({ db, authenticatedContext: context, events: [raceEvent] })
+    ]);
+    assert.deepEqual([raceA[0].status, raceB[0].status].sort(), ["RECIBIDO", "YA_RECIBIDO"]);
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId, eventId: raceEvent.eventId }), 1);
+    // Remove only the synthetic race fixture; subsequent assertions require exactly 20 events.
+    await db.collection("gruk_offline_inbox").deleteOne({ empresaId, sedeId, eventId: raceEvent.eventId });
     const first = await acceptOfflineBatch({ db, authenticatedContext: context, events: events.slice(0, 8) });
     assert.equal(first.filter(x => x.status === "RECIBIDO").length, 8);
     const retry = await acceptOfflineBatch({ db, authenticatedContext: context, events });
