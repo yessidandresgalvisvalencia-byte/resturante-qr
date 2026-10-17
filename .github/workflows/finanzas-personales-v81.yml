@@ -142,6 +142,33 @@ jobs:
         run: |
           npm audit --omit=dev --json > /tmp/http-v81-audit.json || true
           node -e 'const a=require("/tmp/http-v81-audit.json");for(const n of ["axios","multer","form-data"])if(a.vulnerabilities?.[n])throw Error("Persiste vulnerabilidad: "+n);console.log("Sin alertas directas para axios, multer y form-data")'
+  evaluar-remediacion-restante-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias fijadas
+        run: npm ci --ignore-scripts
+      - name: Ensayar parches npm sin cambios persistentes
+        shell: bash
+        run: |
+          npm audit fix --package-lock-only --ignore-scripts
+          npm ci --ignore-scripts
+          npm run check:syntax
+          node --test test/finanzas-personales/*.test.js
+          npm audit --omit=dev --json > /tmp/remaining-v81.json || true
+          node -e 'const a=require("/tmp/remaining-v81.json"); console.log("Alertas tras parches compatibles:",JSON.stringify(a.metadata?.vulnerabilities||{})); console.log("Paquetes pendientes:",Object.keys(a.vulnerabilities||{}).join(", "));'
+      - name: Guardar propuesta de parches compatibles
+        uses: actions/upload-artifact@v4
+        with:
+          name: remedicion-v81-lockfile-candidato
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 7
   mongo-integration-v81:
     runs-on: ubuntu-latest
     timeout-minutes: 12
