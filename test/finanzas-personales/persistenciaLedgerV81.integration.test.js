@@ -111,6 +111,15 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   const cabeza=await Cabeza.findOne({usuarioId}).lean();
   assert.equal(auditoria.cantidad,cabeza.version);
   assert.equal(auditoria.cantidad,await Evento.countDocuments({usuarioId}));
+  // Si alguien adultera la cabeza, ninguna escritura (ni reintento) debe ser aceptada.
+  await Cabeza.collection.updateOne({usuarioId},{$set:{hashActual:"f".repeat(64)}});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("registro-uno")),
+   e=>e.statusCode===409 && /Integridad V81 comprometida/.test(e.message));
+  await assert.rejects(anexarEventoV81(usuarioId,datos("tras-cabeza-adulterada")),
+   e=>e.statusCode===409 && /Integridad V81 comprometida/.test(e.message));
+  await Cabeza.collection.updateOne({usuarioId},{$set:{hashActual:cabeza.hashActual}});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"VERIFICADA");
   // Simular truncamiento malicioso en la base aislada: la siguiente escritura debe bloquearse.
   const ultimo=await Evento.findOne({usuarioId}).sort({version:-1}).lean();
   await Evento.collection.deleteOne({_id:ultimo._id});
