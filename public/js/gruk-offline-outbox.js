@@ -39,21 +39,26 @@
       });
     }finally{db.close();}
   }
-  async function listPending(limit=100) {
+  function matchesTenant(event, context) {
+    return context && ["empresaId","sedeId","actorId"].every(k => typeof context[k] === "string" && context[k].length > 0 && event?.[k] === context[k]);
+  }
+  async function listPending(limit=100, context) {
+    if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
     if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("OUTBOX_LIMIT");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).index("syncStatus").openCursor(IDBKeyRange.only("pending"));
       const events=[];
       r.onerror=()=>reject(r.error);
-      r.onsuccess=()=>{const c=r.result;if(!c||events.length>=limit){resolve(events);return;}events.push(c.value.event);c.continue();};
+      r.onsuccess=()=>{const c=r.result;if(!c||events.length>=limit){resolve(events);return;}if(matchesTenant(c.value.event,context))events.push(c.value.event);c.continue();};
     });}finally{db.close();}
   }
-  async function markReceived(eventId) {
+  async function markReceived(eventId, context) {
+    if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readwrite"),s=t.objectStore(STORE),r=s.get(eventId);
-      r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);};
+      r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(!matchesTenant(v.event,context))return;if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);};
       t.oncomplete=()=>resolve(true);
       t.onerror=()=>reject(t.error);
     });}finally{db.close();}
