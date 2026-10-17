@@ -1,15 +1,13 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {MongoMemoryReplSet}=require("mongodb-memory-server");
 const mongoose=require("mongoose");
 const {acceptOfflineBatch,ensureInboxIndexes}=require("../../core/offline/offlineInbox.service");
 const eventId="01ARZ3NDEKTSV4RRFFQ69G5FAV";
 const ctx={empresaId:"tenantA",sedeId:"sedeA",actorId:"userA"};
 const event={eventId,empresaId:ctx.empresaId,sedeId:ctx.sedeId,actorId:ctx.actorId,deviceId:"tablet1",tipo:"PEDIDO_REGISTRADO",occurredAt:"2026-10-17T19:00:00.000Z",schemaVersion:1,payload:{producto:"prueba",cantidad:1}};
 test("Mongo offline inbox: retries idempotent; changed body conflict; strict tenant isolation",{timeout:120000},async t=>{
- if(process.env.GRUK_TEST_MONGO!=="1"){t.skip("Mongo integration enabled in dedicated CI job");return;}
- const repl=await MongoMemoryReplSet.create({replSet:{count:1}});
- const client=new mongoose.mongo.MongoClient(repl.getUri());
+ if(!process.env.GRUK_TEST_MONGO_URI){t.skip("Mongo integration enabled in dedicated CI job");return;}
+ const client=new mongoose.mongo.MongoClient(process.env.GRUK_TEST_MONGO_URI);
  try{
   await client.connect();
   const db=client.db("offline_guard");
@@ -23,5 +21,5 @@ test("Mongo offline inbox: retries idempotent; changed body conflict; strict ten
   assert.equal(await db.collection("gruk_offline_inbox").countDocuments({empresaId:"tenantB"}),0);
   const one=await db.collection("gruk_offline_inbox").findOne({empresaId:"tenantA",sedeId:"sedeA",eventId});
   assert.equal(one.status,"PENDIENTE");
- }finally{await client.close();await repl.stop();}
+ }finally{await client.close();}
 });
