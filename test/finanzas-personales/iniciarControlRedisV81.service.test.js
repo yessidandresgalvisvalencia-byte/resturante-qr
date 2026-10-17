@@ -16,3 +16,17 @@ test("Inicio aislado de Redis V81 exige modo Redis configurado",async()=>{
   assert.equal(app.locals.redisV81,cliente);
  }finally{if(original===undefined)delete process.env.GRUK_V81_RATE_LIMIT_MODE;else process.env.GRUK_V81_RATE_LIMIT_MODE=original;}
 });
+
+test("V81 no reutiliza clientes previos si falla modo o dependencia",async()=>{
+ const previo=process.env.GRUK_V81_RATE_LIMIT_MODE;
+ const app={locals:{redisV81:{isReady:true}}};
+ try{
+  delete process.env.GRUK_V81_RATE_LIMIT_MODE;
+  await assert.rejects(iniciarControlRedisV81(app,{redis:{createClient(){}}}),/MODE/);
+  assert.equal(app.locals.redisV81,undefined);
+  app.locals.redisV81={isReady:true};
+  process.env.GRUK_V81_RATE_LIMIT_MODE="redis";
+  await assert.rejects(iniciarControlRedisV81(app,{redis:{}}),/instalada/);
+  assert.equal(app.locals.redisV81,undefined);
+ }finally{if(previo===undefined)delete process.env.GRUK_V81_RATE_LIMIT_MODE;else process.env.GRUK_V81_RATE_LIMIT_MODE=previo;}
+});
