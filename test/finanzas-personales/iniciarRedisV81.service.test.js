@@ -52,3 +52,18 @@ test("V81 vence un Redis sin respuesta en conexión y PING",async()=>{
   assert.equal(cierres,1);
  }
 });
+
+test("V81 no se queda bloqueado esperando QUIT de Redis averiado",async()=>{
+ const app={locals:{}};
+ const client={isReady:true,eval:async()=>[1,60],async connect(){throw new Error("conexión fallida");},quit:()=>new Promise(()=>{})};
+ const start=Date.now();
+ await assert.rejects(iniciarRedisV81(app,{url:"rediss://redis.example.test",crearCliente:()=>client,timeoutMs:100}),/conexión fallida/);
+ assert.ok(Date.now()-start<2000,"El cierre de Redis debe finalizar en tiempo acotado");
+ assert.equal(app.locals.redisV81,undefined);
+});
+test("V81 destruye la conexión defectuosa cuando el cliente lo permite",async()=>{
+ let destruidos=0;
+ const client={isReady:false,eval:async()=>[1,60],async connect(){},destroy(){destruidos++;}};
+ await assert.rejects(iniciarRedisV81({locals:{}},{url:"rediss://redis.example.test",crearCliente:()=>client}),/listo/);
+ assert.equal(destruidos,1);
+});
