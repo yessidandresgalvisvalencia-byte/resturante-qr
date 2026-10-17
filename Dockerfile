@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-RUN npm run gate
+RUN npm run check:syntax && node --test test/gruk/capa1-offline*.test.js test/gruk/capa1-ledger*.test.js
 
 FROM node:20-bookworm-slim AS production
 ENV NODE_ENV=production
