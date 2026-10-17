@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const { randomUUID } = require("node:crypto");
 const { acceptOfflineBatch, ensureInboxIndexes } = require("../../core/offline/offlineInbox.service");
 const { readOfflineStatuses } = require("../../core/offline/offlineStatus.service");
+const { markOfflineApplied } = require("../../core/offline/offlineApply.service");
 
 // Never run this integration test against the production MONGO_URI.
 const uri = process.env.GRUK_TEST_MONGO_URI;
@@ -107,6 +108,30 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     const otherVisible = await readOfflineStatuses({ db, context: secondTenant, eventIds: [ids[0]] });
     assert.equal(originalVisible[0].status, "PENDIENTE");
     assert.equal(otherVisible[0].status, "PENDIENTE");
+    // Applying an offline event requires a persisted, tenant-scoped ledger record.
+    const reviewToken = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    const proofEventId = "01ARZ3NDEKTSV4RRFFQ69G5FB2";
+    await db.collection("gruk_offline_inbox").insertOne({
+      empresaId, sedeId, actorId, eventId: proofEventId,
+      status: "EN_REVISION", reviewToken
+    });
+    const review = { ...context, canReview: true };
+    const commitReference = { collection: "gruk_ledger_movimientos", eventId: proofEventId };
+    try {
+      await assert.rejects(markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference }));
+      assert.equal((await db.collection("gruk_offline_inbox").findOne({empresaId,sedeId,eventId:proofEventId})).status, "EN_REVISION");
+      await db.collection("gruk_ledger_movimientos").insertOne({
+        empresaId, sedeId, actorId, eventId: proofEventId, deletedAt: null
+      });
+      const applied = await markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference });
+      assert.equal(applied.status, "APLICADO");
+      assert.equal((await readOfflineStatuses({db,context,eventIds:[proofEventId]}))[0].applied, true);
+      const replayApplied = await markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference });
+      assert.equal(replayApplied.status, "NO_RECLAMADO");
+    } finally {
+      await db.collection("gruk_ledger_movimientos").deleteMany({ empresaId, sedeId, eventId: proofEventId });
+      await db.collection("gruk_offline_inbox").deleteMany({ empresaId, sedeId, eventId: proofEventId });
+    }
     await assert.rejects(
       acceptOfflineBatch({ db, authenticatedContext: context, events: [{ ...events[0], payload: { localOrderId: "tampered" } }] }),
       error => error.code === "OFFLINE_EVENT_CONFLICT"
