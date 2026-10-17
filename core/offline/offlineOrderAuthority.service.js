@@ -17,7 +17,7 @@ async function authorizeOfflineOrder({event,context,db}){
    restaurantId:payload.restaurantId,empresaId:context.empresaId
  });
  if(!restaurant)fail("OFFLINE_RESTAURANT_FORBIDDEN");
- const menu=await db.collection("menus").findOne({_id:new (require("mongodb").ObjectId)(payload.menuItemId),restaurantId:payload.restaurantId});
+ const menu=await db.collection("menus").findOne({_id:(db.toObjectId ? db.toObjectId(payload.menuItemId) : new (require("mongodb").ObjectId)(payload.menuItemId)),restaurantId:payload.restaurantId});
  if(!menu||menu.disponible!==true||!menu.productoServicioId)fail("OFFLINE_MENU_UNAVAILABLE");
  const product=await db.collection("productoservicios").findOne({_id:menu.productoServicioId,empresaId:restaurant.empresaId,tipo:"producto",activo:true});
  if(!product)fail("OFFLINE_PRODUCT_FORBIDDEN");
