@@ -81,6 +81,15 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     const statuses = await readOfflineStatuses({ db, context, eventIds: ids });
     assert.equal(statuses.length, 20);
     assert.ok(statuses.every(x => x.status === "PENDIENTE" && x.applied === false));
+    // Even when the event hash matches, a different authenticated actor cannot claim it.
+    const otherActor = { ...context, actorId: "otroActor" };
+    const actorReplay = { ...events[0], actorId: otherActor.actorId };
+    await assert.rejects(
+      acceptOfflineBatch({ db, authenticatedContext: otherActor, events: [actorReplay] }),
+      error => error.code === "OFFLINE_EVENT_CONFLICT"
+    );
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId, eventId: ids[0] }), 1);
+    assert.equal((await db.collection("gruk_offline_inbox").findOne({ empresaId, sedeId, eventId: ids[0] })).actorId, actorId);
     const crossActor = await readOfflineStatuses({ db, context: { ...context, actorId: "otroActor" }, eventIds: ids });
     assert.ok(crossActor.every(x => x.status === "NO_ENCONTRADO"));
     const crossEmpresa = await readOfflineStatuses({ db, context: { ...context, empresaId: "otraEmpresa" }, eventIds: ids });
