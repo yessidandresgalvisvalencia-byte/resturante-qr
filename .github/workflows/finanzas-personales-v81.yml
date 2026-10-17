@@ -121,10 +121,10 @@ jobs:
       - name: Evaluar actualizaciones HTTP exclusivamente en runner
         shell: bash
         run: |
-          npm pkg set 'dependencies.axios=1.20.0' 'dependencies.multer=2.3.0' 'overrides.form-data=4.0.6'
+          npm pkg set 'dependencies.axios=1.20.0' 'dependencies.multer=^2.3.0' 'overrides.form-data=4.0.6'
           npm install --package-lock-only --ignore-scripts
           npm ci --ignore-scripts
-          node -e 'for(const [name,version] of [["axios","1.20.0"],["multer","2.3.0"],["form-data","4.0.6"]]) {const v=require(name+"/package.json").version;if(v!==version)throw Error(name+" "+v);console.log("Version temporal confirmada",name,v)}'
+          node -e 'for(const [name,version] of [["axios","1.20.0"],["multer",require("multer/package.json").version],["form-data","4.0.6"]]) {const v=require(name+"/package.json").version;if(v!==version)throw Error(name+" "+v);if(name==="multer" && !/^2\.(?:[3-9]|[1-9][0-9]+)\./.test(v))throw Error("Multer fuera de 2.3+: "+v);console.log("Version temporal confirmada",name,v)}'
       - name: Comprobar sintaxis y motor financiero V81
         run: |
           npm run check:syntax
