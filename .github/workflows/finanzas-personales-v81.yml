@@ -78,6 +78,14 @@ jobs:
           npm run check:syntax
           node --test test/finanzas-personales/*.test.js
           node -e 'const express=require("express"); const app=express(); if(typeof app.use!=="function") throw new Error("Express no inicia")'
+      - name: Publicar propuesta reproducible del lockfile corregido
+        uses: actions/upload-artifact@v4
+        with:
+          name: proxy-addr-208-lockfile-propuesto
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 7
       - name: Comprobar alerta critica tras parche temporal
         shell: bash
         run: |
