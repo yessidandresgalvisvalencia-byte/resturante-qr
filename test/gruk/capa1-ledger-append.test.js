@@ -11,7 +11,7 @@ function memoryDb(){
   },
   findOne:async()=>head
  };
- const movements={insertOne:async rec=>{entries.push(rec);}};
+ const movements={insertOne:async rec=>{entries.push(rec);},findOne:async key=>entries.find(e=>e.empresaId===key.empresaId&&e.sedeId===key.sedeId&&e.eventId===key.eventId)||null};
  const db={collection:n=>n==="gruk_ledger_heads"?heads:movements};
  const client={startSession:()=>({withTransaction:async cb=>cb(),endSession:async()=>{}})};
  return {db,client,entries,getHead:()=>head};
@@ -39,4 +39,19 @@ test("ledger: changing actor IP or timestamp invalidates hash",()=>{
  const f={empresaId:"A",sedeId:"s1",cuentaId:"caja",eventId:"e1",secuencia:1,tipo:"CREDITO",amountCentavos:"1",beforeCentavos:"0",afterCentavos:"1",actorId:"u",ip:"1.2.3.4",timestamp:new Date("2026-10-17T12:00:00Z"),hashAnterior:ZERO_HASH};
  assert.notEqual(hashMovement(f),hashMovement({...f,ip:"9.9.9.9"}));
  assert.notEqual(hashMovement(f),hashMovement({...f,timestamp:new Date("2026-10-17T12:01:00Z")}));
+});
+
+test("ledger: identical offline retry does not post a second movement",async()=>{
+ const f=memoryDb();
+ const first=await appendMovement({...f,...input});
+ const retry=await appendMovement({...f,...input});
+ assert.equal(retry.alreadyApplied,true);
+ assert.equal(retry.hash,first.hash);
+ assert.equal(f.entries.length,1);
+ assert.equal(f.getHead().balanceCentavos,"101");
+});
+test("ledger: changed amount with reused eventId is rejected",async()=>{
+ const f=memoryDb();await appendMovement({...f,...input});
+ await assert.rejects(appendMovement({...f,...input,amountCentavos:"999"}),/LEDGER_EVENT_CONFLICT/);
+ assert.equal(f.entries.length,1);
 });
