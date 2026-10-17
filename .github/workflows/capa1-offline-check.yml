@@ -75,7 +75,7 @@ jobs:
       - name: Verify ledger with real MongoDB transactions
         env:
           GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
-        run: node --test test/gruk/capa1-ledger-mongo.integration.test.js test/gruk/capa1-offline-inbox-mongo.integration.test.js test/gruk/capa1-offline-20-orders-mongo.integration.test.js test/gruk/capa1-offline-two-tablets-mongo.integration.test.js
+        run: node --test test/gruk/capa1-ledger-mongo.integration.test.js test/gruk/capa1-offline-inbox-mongo.integration.test.js test/gruk/capa1-offline-20-orders-mongo.integration.test.js test/gruk/capa1-offline-two-tablets-mongo.integration.test.js test/gruk/capa1-pedido-offline-index.integration.test.js
 
   docker-build:
     runs-on: ubuntu-latest
