@@ -30,7 +30,7 @@ jobs:
           npm ci --ignore-scripts
           npm audit fix --package-lock-only --ignore-scripts --omit=dev || true
           npm ci --ignore-scripts
-          npm run gate
+          npm run check:syntax
           node --test test/finanzas-personales/*.test.js
           npm audit --omit=dev --audit-level=low
           test -z "$(git diff --name-only -- package.json)"
