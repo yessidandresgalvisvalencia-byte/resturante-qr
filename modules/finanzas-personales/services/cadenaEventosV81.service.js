@@ -21,13 +21,19 @@ function crearEvento(datos, hashAnterior = GENESIS) {
 }
 function verificarCadena(eventos) {
   if (!Array.isArray(eventos)) throw new TypeError("La cadena debe ser una lista");
+  // Sin eventos no hay evidencia de integridad: no dar un falso positivo.
+  if (eventos.length === 0) return false;
   let anterior = GENESIS, version = 0, usuario = null;
-  for (const e of eventos) {
-    if (usuario !== null && e.userId !== usuario) return false;
-    usuario = e.userId;
-    if (e.version !== ++version || e.hashAnterior !== anterior || e.hashActual !== calcularHash(anterior, textoEvento(e))) return false;
-    anterior = e.hashActual;
+  try {
+    for (const e of eventos) {
+      if (!e || (usuario !== null && e.userId !== usuario)) return false;
+      usuario = e.userId;
+      if (e.version !== ++version || e.hashAnterior !== anterior || e.hashActual !== calcularHash(anterior, textoEvento(e))) return false;
+      anterior = e.hashActual;
+    }
+    return true;
+  } catch (_) {
+    return false;
   }
-  return true;
 }
 module.exports = { GENESIS, crearEvento, verificarCadena };
