@@ -48,4 +48,5 @@ jobs:
         env:
           NODE_ENV: test
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_offline_test?replicaSet=rs0
         run: npm run gate
