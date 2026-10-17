@@ -2,9 +2,10 @@
 // Adaptador para contador atómico distribuido (p. ej., Redis INCR + TTL).
 // La implementación real debe garantizar incremento y expiración atómicos.
 // Nunca recurre al contador local cuando falla el almacén distribuido.
-function crearLimiteDistribuidoV81({incrementar,limite=20,ventanaSegundos=60}={}){
+function crearLimiteDistribuidoV81({incrementar,limite=20,ventanaSegundos=60,timeoutMs=2000}={}){
  if(typeof incrementar!=="function"||!Number.isSafeInteger(limite)||limite<1||
-    !Number.isSafeInteger(ventanaSegundos)||ventanaSegundos<1)
+    !Number.isSafeInteger(ventanaSegundos)||ventanaSegundos<1||
+    !Number.isSafeInteger(timeoutMs)||timeoutMs<100||timeoutMs>30000)
   throw new TypeError("Configuración distribuida inválida");
  return async function limiteDistribuidoV81(req,res,next){
   const p=req.personalAuth;
@@ -12,7 +13,7 @@ function crearLimiteDistribuidoV81({incrementar,limite=20,ventanaSegundos=60}={}
    return res.status(401).json({ok:false,error:"Autenticación requerida"});
   try{
    // Identificador derivado exclusivamente del JWT personal previamente verificado.
-   const resultado=await incrementar("fin:v81:write:"+p.userId.toLowerCase(),ventanaSegundos);
+   const resultado=await Promise.race([incrementar("fin:v81:write:"+p.userId.toLowerCase(),ventanaSegundos),new Promise((_,reject)=>setTimeout(()=>reject(new Error("Timeout Redis")),timeoutMs))]);
    if(!resultado||!Number.isSafeInteger(resultado.cantidad)||resultado.cantidad<1||
       !Number.isSafeInteger(resultado.restanteSegundos)||resultado.restanteSegundos<1||
       resultado.restanteSegundos>ventanaSegundos)
@@ -21,10 +22,10 @@ function crearLimiteDistribuidoV81({incrementar,limite=20,ventanaSegundos=60}={}
     res.setHeader("Retry-After",String(resultado.restanteSegundos));
     return res.status(429).json({ok:false,error:"Demasiados movimientos. Intenta más tarde."});
    }
-   return next();
   }catch(_){
    return res.status(503).json({ok:false,error:"Control de tráfico temporalmente no disponible"});
   }
+  return next();
  };
 }
 module.exports={crearLimiteDistribuidoV81};
