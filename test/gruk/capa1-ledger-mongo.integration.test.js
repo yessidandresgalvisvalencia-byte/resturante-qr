@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
 const { appendMovement, ensureLedgerIndexes } = require("../../core/ledger/appendLedger.service");
 const { verifyLedgerChain } = require("../../core/ledger/verifyLedger.service");
+const { acceptOfflineBatch, ensureInboxIndexes } = require("../../core/offline/offlineInbox.service");
 
 test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", { timeout: 30000, skip: !process.env.GRUK_TEST_MONGO_URI }, async () => {
   const { MongoClient } = require("mongodb");
@@ -61,6 +62,27 @@ test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", 
     const head = await db.collection("gruk_ledger_heads")
       .findOne({ empresaId: "companyA", sedeId: "s1", cuentaId: "cash" });
     assert.equal(verifyLedgerChain({ movements: docs, head }).valid, true);
+    // Real Mongo inbox: tenant isolation and collision detection across reconnects.
+    await ensureInboxIndexes(db);
+    const ctxA = { empresaId: "companyA", sedeId: "s1", actorId: "user1" };
+    const ctxB = { empresaId: "companyB", sedeId: "s1", actorId: "user2" };
+    const offlineEvent = {
+      eventId: "01K7R00YFBPZ7KYP62F4BXM2JN",
+      empresaId: "companyA", sedeId: "s1", actorId: "user1",
+      deviceId: "device1", tipo: "VENTA_REGISTRADA",
+      occurredAt: "2026-10-17T12:00:00.000Z", schemaVersion: 1,
+      payload: { ventaId: "sale1" }
+    };
+    const receive = x => acceptOfflineBatch({ db, authenticatedContext: ctxA, events: [x] });
+    assert.equal((await receive(offlineEvent))[0].status, "RECIBIDO");
+    assert.equal((await receive({ ...offlineEvent, payload: { ventaId: "sale1" } }))[0].status, "YA_RECIBIDO");
+    await assert.rejects(receive({ ...offlineEvent, payload: { ventaId: "tampered" } }), /OFFLINE_EVENT_CONFLICT/);
+    await assert.rejects(receive({ ...offlineEvent, empresaId: "companyB" }), /OFFLINE_TENANT_MISMATCH/);
+    const forCompanyB = { ...offlineEvent, empresaId: "companyB", actorId: "user2" };
+    assert.equal((await acceptOfflineBatch({ db, authenticatedContext: ctxB, events: [forCompanyB] }))[0].status, "RECIBIDO");
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId: "companyA", sedeId: "s1" }), 1);
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId: "companyB", sedeId: "s1" }), 1);
+
   } finally {
     await db.dropDatabase();
     await client.close();
