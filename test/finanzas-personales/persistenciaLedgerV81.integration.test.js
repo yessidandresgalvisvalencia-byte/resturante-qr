@@ -78,6 +78,17 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    montoCentavos:1800000n,corrigeId:"reclasificacion-base",tipoCorregido:"INGRESO",motivo:"Era ingreso"});
   assert.equal(correccion.tipoCorregido,"INGRESO");
   assert.equal(await Evento.countDocuments({usuarioId,eventId:"reclasificacion-base"}),1);
+  // Una corrección posterior debe actualizar la proyección sin cambiar el evento original.
+  const {proyectarLedger}=require("../../modules/finanzas-personales/services/proyeccionLedgerV81.service");
+  const registros=await Evento.find({usuarioId}).sort({version:1}).lean();
+  const proyeccion=proyectarLedger(registros.map(e=>({
+   id:e.eventId,userId:String(e.usuarioId),tipo:e.tipo,
+   montoCentavos:BigInt(e.montoCentavos),corrigeId:e.corrigeId,
+   motivo:e.motivo,tipoCorregido:e.tipoCorregido
+  })),String(usuarioId));
+  assert.equal(proyeccion.ingresosCentavos,1800000n);
+  assert.equal(proyeccion.gastosCentavos,2500000n+
+   intentos.filter(x=>x.status==="fulfilled").length*2500000n);
   // Dos anulaciones simultáneas sobre el mismo gasto no pueden aplicarse dos veces.
   const cancelaciones=await Promise.allSettled([
    anexarEventoV81(usuarioId,{...datos("anulacion-uno"),tipo:"ANULACION",montoCentavos:0n,corrigeId:"registro-uno",motivo:"Movimiento duplicado"}),
