@@ -23,9 +23,9 @@ async function markOfflineApplied({db,context,eventId,reviewToken,commitReferenc
   if (!record) return {status:"NO_RECLAMADO"};
   const ledger = db.collection("gruk_ledger_movimientos");
   const committed = await ledger.findOne({
-    empresaId: context.empresaId, sedeId: context.sedeId, eventId,
-    deletedAt: null
-  }, { projection: {_id:1,eventId:1} });
+    empresaId: record.empresaId, sedeId: record.sedeId, eventId,
+    actorId: record.actorId, deletedAt: null
+  }, { projection: {_id:1,eventId:1,actorId:1} });
   assertTransition({from:record.status,to:STATES.APLICADO,
     verifiedTenant:context,recordTenant:record,authorized:true,domainCommitted:!!committed});
   const update = await inbox.updateOne(key, {$set: {
