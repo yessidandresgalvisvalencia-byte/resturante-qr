@@ -1,0 +1,21 @@
+name: GRUK Live Production Health
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify official Render service and connected database
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=https://resturante-qr-1.onrender.com
+          code=$(curl --retry 3 --retry-all-errors --retry-delay 8 --connect-timeout 15 --max-time 100 -sS -o health.json -w '%{http_code}' "$url/health")
+          echo "Production /health HTTP $code"
+          test "$code" = 200
+          node -e 'const h=JSON.parse(require("fs").readFileSync("health.json","utf8")); if(h.status!=="ok"||h.db!=="connected"){throw Error("GRUK_NOT_READY")} console.log("GRUK production connected",h.version)'
