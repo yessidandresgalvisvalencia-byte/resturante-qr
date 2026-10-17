@@ -29,6 +29,16 @@ async function appendMovement({client,db,empresaId,sedeId,cuentaId,eventId,tipo,
    await session.withTransaction(async()=>{
      const heads=db.collection("gruk_ledger_heads");
      const movements=db.collection("gruk_ledger_movimientos");
+     // Duplicate event IDs must not post additional financial movements.
+     const existing=await movements.findOne({empresaId,sedeId,eventId},{session});
+     if(existing){
+       if(existing.cuentaId!==cuentaId || existing.tipo!==tipo ||
+          existing.amountCentavos!==amountCentavos || existing.actorId!==actorId){
+         throw new Error("LEDGER_EVENT_CONFLICT");
+       }
+       inserted={...existing,alreadyApplied:true};
+       return;
+     }
      const key={empresaId,sedeId,cuentaId};
      // Guard first creation against concurrent transactions.
      await heads.updateOne(key,{$setOnInsert:{...key,secuencia:0,balanceCentavos:"0",lastHash:ZERO_HASH}},{upsert:true,session});
