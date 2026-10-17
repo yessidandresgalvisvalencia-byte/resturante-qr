@@ -1,11 +1,11 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { MongoClient } = require("mongodb");
 const { appendMovement, ensureLedgerIndexes } = require("../../core/ledger/appendLedger.service");
 const { verifyLedgerChain } = require("../../core/ledger/verifyLedger.service");
 
 test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", { timeout: 30000, skip: !process.env.GRUK_TEST_MONGO_URI }, async () => {
+  const { MongoClient } = require("mongodb");
   const uri = process.env.GRUK_TEST_MONGO_URI;
   if (!uri) throw new Error("GRUK_TEST_MONGO_URI_REQUIRED");
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
