@@ -2,7 +2,7 @@
 const mongoose=require("mongoose");
 const Evento=require("../models/eventoV81.model");
 const Cabeza=require("../models/cabezaV81.model");
-const {crearEvento,GENESIS}=require("./cadenaEventosV81.service");
+const {crearEvento,verificarCadena,GENESIS}=require("./cadenaEventosV81.service");
 // Debe invocarse únicamente en una transacción MongoDB con writeConcern majority.
 // No registra efectos en caja: la integración contable requiere conciliación previa.
 async function anexarEventoV81(usuarioId,datos){
@@ -40,6 +40,22 @@ async function anexarEventoV81(usuarioId,datos){
    const cantidadEventos=await Evento.countDocuments({usuarioId}).session(session);
    if(cantidadEventos!==cabeza.version){
     throw Object.assign(new Error("Integridad V81 comprometida: cantidad de eventos distinta de la secuencia"),{statusCode:409});
+   }
+   // Auditoría completa en el snapshot transaccional antes de cada nueva escritura.
+   // Conservador (O(n)): reemplazar por checkpoints verificables antes de escalar.
+   if(cabeza.version>0){
+    const rows=await Evento.find({usuarioId}).sort({version:1}).session(session).lean();
+    let validos=false;
+    try{
+     const cadena=rows.map(e=>({
+      id:e.eventId,userId:String(e.usuarioId),version:e.version,tipo:e.tipo,
+      montoCentavos:BigInt(e.montoCentavos),fechaContable:e.fechaContable,
+      timestamp:e.timestamp,corrigeId:e.corrigeId,motivo:e.motivo,
+      tipoCorregido:e.tipoCorregido,hashAnterior:e.hashAnterior,hashActual:e.hashActual
+     }));
+     validos=verificarCadena(cadena,cabeza.hashActual);
+    }catch(_){validos=false;}
+    if(!validos)throw Object.assign(new Error("Integridad V81 comprometida: cadena criptográfica inválida"),{statusCode:409});
    }
    if(datos.tipo==="CORRECCION" || datos.tipo==="ANULACION"){
     if(typeof datos.corrigeId!=="string" || !datos.corrigeId.trim())throw Object.assign(new Error("Referencia de corrección obligatoria"),{statusCode:400});
