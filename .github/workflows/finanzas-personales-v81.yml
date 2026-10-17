@@ -4,11 +4,13 @@ on:
     branches: [feature/finanzas-personales]
     paths:
       - 'modules/finanzas-personales/services/*V81.service.js'
+      - 'modules/finanzas-personales/models/*V81.model.js'
       - 'test/finanzas-personales/**'
       - '.github/workflows/finanzas-personales-v81.yml'
   pull_request:
     paths:
       - 'modules/finanzas-personales/services/*V81.service.js'
+      - 'modules/finanzas-personales/models/*V81.model.js'
       - 'test/finanzas-personales/**'
       - '.github/workflows/finanzas-personales-v81.yml'
 permissions:
