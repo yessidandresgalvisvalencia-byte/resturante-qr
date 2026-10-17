@@ -73,6 +73,8 @@ jobs:
           '
       - name: Probar centavos, cadena SHA256 y proyeccion de ledger
         run: node --test test/finanzas-personales/*.test.js
+      - name: Exigir cero vulnerabilidades de produccion
+        run: npm audit --omit=dev --audit-level=low
   probar-parche-proxy-v81:
     runs-on: ubuntu-latest
     timeout-minutes: 12
