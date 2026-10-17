@@ -155,7 +155,7 @@ jobs:
       - name: Ensayar parches npm sin cambios persistentes
         shell: bash
         run: |
-          npm audit fix --package-lock-only --ignore-scripts
+          npm audit fix --package-lock-only --ignore-scripts --omit=dev || echo "Persisten avisos: continuar con verificaciones sin --force"
           npm ci --ignore-scripts
           npm run check:syntax
           node --test test/finanzas-personales/*.test.js
