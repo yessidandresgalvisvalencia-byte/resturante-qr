@@ -8,6 +8,14 @@ test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", 
   const { MongoClient } = require("mongodb");
   const uri = process.env.GRUK_TEST_MONGO_URI;
   if (!uri) throw new Error("GRUK_TEST_MONGO_URI_REQUIRED");
+  // This test drops gruk_capa1_ci: refuse any remote or multi-host database URI.
+  const parsed = new URL(uri);
+  if (parsed.protocol !== "mongodb:" ||
+      !["127.0.0.1", "localhost", "[::1]"].includes(parsed.hostname) ||
+      parsed.username || parsed.password ||
+      parsed.host.includes(",")) {
+    throw new Error("GRUK_TEST_MONGO_LOCALHOST_ONLY");
+  }
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
   await client.connect();
   const db = client.db("gruk_capa1_ci");
