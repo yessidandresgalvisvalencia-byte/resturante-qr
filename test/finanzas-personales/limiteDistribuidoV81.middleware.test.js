@@ -18,3 +18,14 @@ test("V81 distribuido falla cerrado y niega identidades inválidas",async()=>{
  const inconsistente=crearLimiteDistribuidoV81({incrementar:async()=>({cantidad:NaN,restanteSegundos:0})});
  assert.equal((await invocar(inconsistente,{userId:id,verificado:true})).code,503);
 });
+
+test("V81 rechaza una consulta Redis que nunca responde",async()=>{
+ const mw=crearLimiteDistribuidoV81({incrementar:()=>new Promise(()=>{}),timeoutMs:100});
+ const respuesta=await invocar(mw,{userId:id,verificado:true});
+ assert.equal(respuesta.code,503);
+});
+test("V81 no oculta los errores del siguiente controlador",async()=>{
+ const mw=crearLimiteDistribuidoV81({incrementar:async()=>({cantidad:1,restanteSegundos:60})});
+ const res={status(){throw Error("No debería responder");},setHeader(){},json(){}};
+ await assert.rejects(mw({personalAuth:{userId:id,verificado:true}},res,()=>{throw Error("Error del controlador");}),/Error del controlador/);
+});
