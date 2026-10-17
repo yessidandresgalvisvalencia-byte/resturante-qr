@@ -6,6 +6,10 @@ const {crearIncrementadorRedisV81}=require("./contadorRedisV81.service");
 // El cliente Redis debe ser suministrado por la infraestructura de la aplicación.
 function crearLimiteSeleccionadoV81({modo=process.env.GRUK_V81_RATE_LIMIT_MODE,clienteRedis,local}={}){
  if(modo!==undefined&&modo!=="local"&&modo!=="redis")throw new TypeError("Modo de limitación V81 inválido");
+ // En producción no se permite la variante en memoria: cada nodo tendría su propia cuota.
+ if(process.env.NODE_ENV==="production"&&modo!=="redis"){
+  return (_req,res)=>res.status(503).json({ok:false,error:"Control distribuido de movimientos V81 requerido"});
+ }
  if(modo==="redis"){
   // Se resuelve por solicitud, después de que el arranque inyecte req.app.locals.redisV81.
   // Nunca aceptar cliente Redis ni modo desde el cuerpo o cabeceras HTTP.
