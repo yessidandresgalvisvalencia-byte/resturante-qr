@@ -1,8 +1,9 @@
 "use strict";
 // Read-only status by authenticated tenant. Never interprets RECIBIDO as posted.
+const ID=/^[A-Za-z0-9_-]{1,80}$/;
 const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 async function readOfflineStatuses({db,context,eventIds}) {
- if(!db?.collection || !context || ![context.empresaId,context.sedeId,context.actorId].every(v=>typeof v==="string"&&v.length>0))throw Error("OFFLINE_AUTH_REQUIRED");
+ if(!db?.collection || !context || ![context.empresaId,context.sedeId,context.actorId].every(v=>typeof v==="string"&&ID.test(v)))throw Error("OFFLINE_AUTH_REQUIRED");
  if(!Array.isArray(eventIds)||eventIds.length<1||eventIds.length>100||
     eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
     new Set(eventIds).size!==eventIds.length)throw Error("OFFLINE_INVALID_IDS");

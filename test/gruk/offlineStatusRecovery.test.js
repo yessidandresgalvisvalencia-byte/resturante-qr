@@ -58,3 +58,18 @@ test("offline status scopes tenant, location and actor; unrelated events are nev
     { eventId: ids[2], status: "NO_ENCONTRADO", applied: false }
   ]);
 });
+
+test("offline status rejects unsafe authenticated identity values before Mongo access", async () => {
+  let touched = false;
+  const db = { collection: () => { touched = true; throw Error("SHOULD_NOT_QUERY"); } };
+  const invalid = [
+    { ...context, empresaId: { "$ne": null } },
+    { ...context, sedeId: "sede.A" },
+    { ...context, actorId: "actor$ne" },
+    { ...context, empresaId: "x".repeat(81) }
+  ];
+  for (const candidate of invalid) {
+    await assert.rejects(readOfflineStatuses({ db, context: candidate, eventIds: [ids[0]] }), /OFFLINE_AUTH_REQUIRED/);
+  }
+  assert.equal(touched, false);
+});
