@@ -77,6 +77,13 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   assert.equal(await Evento.countDocuments({usuarioId:otroUsuario,eventId:"registro-uno"}),1);
   assert.equal(await Evento.countDocuments({usuarioId,eventId:"registro-uno"}),1);
   assert.notEqual(otroMovimiento.hashActual,original.hashActual);
+  // Auditar cada cuenta con su propia cabeza y comprobar que no haya mezcla de eventos.
+  const auditoriaOtro=await verificarLedgerPersistidoV81(otroUsuario);
+  assert.equal(auditoriaOtro.integridad,"VERIFICADA");
+  assert.equal(auditoriaOtro.cantidad,1);
+  const reintentoOtro=await anexarEventoV81(otroUsuario,datos("registro-uno"));
+  assert.equal(reintentoOtro.hashActual,otroMovimiento.hashActual);
+  assert.equal(await Evento.countDocuments({usuarioId:otroUsuario}),1);
 
 
   // Una reclasificación legítima conserva el original y agrega un evento compensatorio.
