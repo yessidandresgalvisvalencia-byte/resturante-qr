@@ -11,7 +11,7 @@ test("V81 redis rechaza si falta cliente sin recurrir al contador local",async()
 });
 test("V81 redis usa cliente inyectado del servidor y comparte cuota",async()=>{
  let count=0;
- const cliente={eval:async()=>[++count,30]};
+ const cliente={isReady:true,eval:async()=>[++count,30]};
  const mw=crearLimiteSeleccionadoV81({modo:"redis"});
  const req={personalAuth:{userId:id,verificado:true},app:{locals:{redisV81:cliente}}};
  for(let i=0;i<20;i++){const res=respuesta();let next=0;await mw(req,res,()=>{next++;});assert.equal(next,1);}
@@ -33,4 +33,17 @@ test("V81 en producción nunca recurre al contador local",async()=>{
  }finally{
   if(anterior===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=anterior;
  }
+});
+
+test("V81 bloquea escrituras tras perder la conexión Redis",async()=>{
+ const cliente={isReady:true,eval:async()=>[1,60]};
+ const mw=crearLimiteSeleccionadoV81({modo:"redis"});
+ const req={personalAuth:{userId:id,verificado:true},app:{locals:{redisV81:cliente}}};
+ const primero=respuesta();let llamadas=0;
+ await mw(req,primero,()=>{llamadas++;});
+ assert.equal(llamadas,1);
+ cliente.isReady=false;
+ const segundo=respuesta();await mw(req,segundo,()=>{llamadas++;});
+ assert.equal(segundo.code,503);
+ assert.equal(llamadas,1);
 });
