@@ -63,6 +63,13 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   const cabeza=await Cabeza.findOne({usuarioId}).lean();
   assert.equal(auditoria.cantidad,cabeza.version);
   assert.equal(auditoria.cantidad,await Evento.countDocuments({usuarioId}));
+  // Simular truncamiento malicioso en la base aislada: la siguiente escritura debe bloquearse.
+  const ultimo=await Evento.findOne({usuarioId}).sort({version:-1}).lean();
+  await Evento.collection.deleteOne({_id:ultimo._id});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("tras-truncamiento")),
+   e=>e.statusCode===409 && /Integridad V81 comprometida/.test(e.message));
+
  }finally{
   // Borrar exclusivamente registros de prueba con usuarioId aleatorio en BD de test.
   await Evento.collection.deleteMany({usuarioId});
