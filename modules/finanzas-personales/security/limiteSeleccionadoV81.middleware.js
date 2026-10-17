@@ -15,7 +15,7 @@ function crearLimiteSeleccionadoV81({modo=process.env.GRUK_V81_RATE_LIMIT_MODE,c
   // Nunca aceptar cliente Redis ni modo desde el cuerpo o cabeceras HTTP.
   return (req,res,next)=>{
    const cliente=clienteRedis||req.app?.locals?.redisV81;
-   if(!cliente||typeof cliente.eval!=="function")
+   if(!cliente||typeof cliente.eval!=="function"||cliente.isReady!==true)
     return res.status(503).json({ok:false,error:"Control de tráfico distribuido no disponible"});
    try {
     return crearLimiteDistribuidoV81({incrementar:crearIncrementadorRedisV81(cliente)})(req,res,next);
