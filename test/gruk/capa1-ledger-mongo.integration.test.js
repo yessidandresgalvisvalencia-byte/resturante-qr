@@ -78,9 +78,24 @@ test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", 
     assert.equal((await receive({ ...offlineEvent, payload: { ventaId: "sale1" } }))[0].status, "YA_RECIBIDO");
     await assert.rejects(receive({ ...offlineEvent, payload: { ventaId: "tampered" } }), /OFFLINE_EVENT_CONFLICT/);
     await assert.rejects(receive({ ...offlineEvent, empresaId: "companyB" }), /OFFLINE_TENANT_MISMATCH/);
+    const concurrentOffline = { ...offlineEvent, eventId: "01K7R00YFBPZ7KYP62F4BXM2JP", payload: { ventaId: "sale2" } };
+    const concurrentResults = await Promise.allSettled([
+      receive(concurrentOffline),
+      receive({ ...concurrentOffline, payload: { ventaId: "sale2" } })
+    ]);
+    assert.equal(concurrentResults.filter(x => x.status === "fulfilled").length, 2,
+      "both identical concurrent deliveries should be acknowledged");
+    const statuses = concurrentResults.map(x => x.value[0].status).sort();
+    assert.deepEqual(statuses, ["RECIBIDO", "YA_RECIBIDO"]);
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
+      empresaId: "companyA", sedeId: "s1", eventId: concurrentOffline.eventId
+    }), 1, "only one durable record for concurrent retries");
+    await assert.rejects(receive({
+      ...concurrentOffline, payload: { ventaId: "altered-on-retry" }
+    }), /OFFLINE_EVENT_CONFLICT/);
     const forCompanyB = { ...offlineEvent, empresaId: "companyB", actorId: "user2" };
     assert.equal((await acceptOfflineBatch({ db, authenticatedContext: ctxB, events: [forCompanyB] }))[0].status, "RECIBIDO");
-    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId: "companyA", sedeId: "s1" }), 1);
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId: "companyA", sedeId: "s1" }), 2);
     assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId: "companyB", sedeId: "s1" }), 1);
 
   } finally {
