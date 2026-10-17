@@ -138,7 +138,7 @@ async function iniciarAplicacion() {
 
   try {
     await mongoose.connect(
-      process.env.MONGO_URI,
+      require("./core/config/mongoUri").normalizeMongoUri(process.env.MONGO_URI),
       process.env.MONGO_DB
         ? { dbName: process.env.MONGO_DB }
         : {}
