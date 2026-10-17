@@ -8,6 +8,9 @@ on:
       - "test/gruk/capa1-offline*.test.js"
       - "test/gruk/capa1-ledger*.test.js"
       - ".github/workflows/capa1-offline-check.yml"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
   pull_request:
     paths:
       - "core/offline/**"
@@ -64,3 +67,13 @@ jobs:
         env:
           GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
         run: node --test test/gruk/capa1-ledger-mongo.integration.test.js
+
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production Docker image with gated tests
+        run: docker build --progress=plain --target production -t gruk-capa1-ci:${{ github.sha }} .
+      - name: Check Docker Compose configuration
+        run: docker compose --env-file .env.example config --quiet
