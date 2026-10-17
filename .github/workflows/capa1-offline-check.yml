@@ -11,6 +11,8 @@ on:
   pull_request:
     paths:
       - "core/offline/**"
+      - "core/ledger/**"
+      - "test/gruk/capa1-ledger*.test.js"
       - "test/gruk/capa1-offline*.test.js"
       - ".github/workflows/capa1-offline-check.yml"
 permissions:
