@@ -8,7 +8,7 @@ test("offline outbox rejects invalid event identifiers before writing",async()=>
 });
 test("offline queue bounds are enforced before database access",async()=>{
  for(const limit of [0,-1,101,1.1,NaN])
-  await assert.rejects(outbox.listPending(limit),/OUTBOX_LIMIT/);
+  await assert.rejects(outbox.listPending(limit,{empresaId:"A",sedeId:"B",actorId:"C"}),/OUTBOX_LIMIT/);
 });
 test("offline outbox exports narrow API",()=>{
  assert.deepEqual(Object.keys(outbox).sort(),["listPending","markReceived","putPending"]);
