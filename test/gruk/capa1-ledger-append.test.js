@@ -56,11 +56,13 @@ test("ledger: changed amount with reused eventId is rejected",async()=>{
  assert.equal(f.entries.length,1);
 });
 
-test("ledger: duplicate event with altered IP is a conflict",async()=>{
+test("ledger: offline retry from a different IP is safe and idempotent",async()=>{
  const f=memoryDb();
- await appendMovement({...f,...input});
- await assert.rejects(appendMovement({...f,...input,ip:"10.0.0.2"}),/LEDGER_EVENT_CONFLICT/);
+ const first=await appendMovement({...f,...input});
+ const retry=await appendMovement({...f,...input,ip:"10.0.0.2"});
+ assert.equal(retry.alreadyApplied,true);
  assert.equal(f.entries.length,1);
+ assert.equal(retry.ip,first.ip);
  assert.equal(f.getHead().balanceCentavos,"101");
 });
 test("ledger: duplicate event with changed account or actor cannot move balance",async()=>{
