@@ -3,12 +3,11 @@
 // It never creates sales, payments, invoices or inventory adjustments.
 const { STATES, assertTransition } = require("./offlineState.contract");
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
-const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 async function markOfflineApplied({db,context,eventId,reviewToken,commitReference}) {
   if (!db?.collection || !context ||
       ![context.empresaId, context.sedeId, context.actorId].every(id => typeof id === "string" && SAFE_ID.test(id)) ||
       context.canReview !== true ||
-      typeof eventId !== "string" || !ULID.test(eventId) ||
+      typeof eventId !== "string" || !SAFE_ID.test(eventId) ||
       typeof reviewToken !== "string" || !/^[0-9a-f-]{36}$/.test(reviewToken)) {
     throw new Error("OFFLINE_AUTH_REQUIRED");
   }
