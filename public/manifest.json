@@ -1,0 +1,11 @@
+{
+  "name": "GRUK Restaurante",
+  "short_name": "GRUK",
+  "description": "GRUK restaurante, acceso a operaciones disponibles",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#162332",
+  "lang": "es-CO"
+}
