@@ -64,6 +64,7 @@ const inventarioRoutes =
 require("./routes/inventario");
 const recetasRoutes = require("./routes/recetas");
 app.use("/api/recetas", recetasRoutes);
+app.use("/api/sync", require("./routes/sync"));
 const mensajesLaboralRoutes = require("./routes/mensajesLaboral");
 
 const iniciarJobSuscripciones = require("./jobs/suscripciones");
