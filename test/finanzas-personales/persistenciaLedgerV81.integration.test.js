@@ -205,6 +205,16 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    const conflictoHttp=await llamar(httpUno,{...payloadHttp,montoCop:"25000.31"});
    assert.equal(conflictoHttp.codigo,409);
    assert.equal(await Evento.countDocuments({usuarioId:httpUno}),1);
+   // Solicitudes concurrentes con la misma clave no pueden duplicar registros.
+   const concurrente={...payloadHttp,id:"http-concurrente-0001"};
+   const simultaneas=await Promise.all([llamar(httpUno,concurrente),llamar(httpUno,concurrente)]);
+   assert.ok(simultaneas.every(x=>[201,409].includes(x.codigo)));
+   assert.ok(simultaneas.some(x=>x.codigo===201));
+   const existentes=await Evento.countDocuments({usuarioId:httpUno,eventId:concurrente.id});
+   assert.equal(existentes,1,"Una clave concurrente debe generar exactamente un evento");
+   const reintentoTrasConflicto=await llamar(httpUno,concurrente);
+   assert.equal(reintentoTrasConflicto.codigo,201);
+   assert.equal(await Evento.countDocuments({usuarioId:httpUno,eventId:concurrente.id}),1);
    const segundaCuenta=await llamar(httpDos,payloadHttp);
    assert.equal(segundaCuenta.codigo,201);
    assert.equal(await Evento.countDocuments({usuarioId:httpDos}),1);
