@@ -120,6 +120,16 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     try {
       await assert.rejects(markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference }));
       assert.equal((await db.collection("gruk_offline_inbox").findOne({empresaId,sedeId,eventId:proofEventId})).status, "EN_REVISION");
+      // An unrelated tenant's ledger entry is never proof of this event.
+      await db.collection("gruk_ledger_movimientos").insertOne({
+        empresaId: empresaId + "_b", sedeId, actorId, eventId: proofEventId, deletedAt: null
+      });
+      try {
+        await assert.rejects(markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference }));
+        assert.equal((await db.collection("gruk_offline_inbox").findOne({empresaId,sedeId,eventId:proofEventId})).status, "EN_REVISION");
+      } finally {
+        await db.collection("gruk_ledger_movimientos").deleteMany({empresaId:empresaId+"_b",sedeId,eventId:proofEventId});
+      }
       await db.collection("gruk_ledger_movimientos").insertOne({
         empresaId, sedeId, actorId, eventId: proofEventId, deletedAt: null
       });
