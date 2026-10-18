@@ -20,7 +20,7 @@ test("Mongo real: APPLIED rolls back after write failure and never duplicates on
  try{
   await db.dropDatabase();
   await db.collection("gruk_offline_inbox").insertOne({
-   ...key,status:"EN_REVISION",reviewToken,reviewActorId:tenant.actorId
+   ...key,status:"EN_REVISION",reviewToken,reviewActorId:tenant.actorId,inventoryApplied:true
   });
   await db.collection("gruk_ledger_movimientos").insertOne({
    ...key,tipo:"VENTA_OFFLINE",deletedAt:null,montoCop:"12000"
