@@ -3,7 +3,8 @@ const test=require("node:test");
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const path=require("node:path");
-const {exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81}=
+const mongoose=require("mongoose");
+const {exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,crearPipelineVinculosPeriodoV81}=
  require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
 test("la conciliación admite exactamente el máximo y no usa datos recortados",()=>{
  assert.equal(MAX_FILAS_CONCILIACION_V81,25000);
@@ -18,9 +19,26 @@ test("todas las consultas históricas están acotadas y bloquean antes de concil
   "../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service.js"),"utf8");
  const cortes=(source.match(/\.limit\(MAX_FILAS_CONCILIACION_V81\+1\)/g)||[]).length;
  assert.equal(cortes,3,"Las tres consultas find deben imponer límites");
- assert.match(source,/\{\$limit:MAX_FILAS_CONCILIACION_V81\+1\}/);
- assert.match(source,/\{\$lookup:\{from:Transaccion\.collection\.name/);
- assert.match(source,/"movimiento\.fecha":\{\$gte:start,\$lt:end\}/);
+ assert.match(source,/Vinculo\.aggregate\(crearPipelineVinculosPeriodoV81\(/);
  const controles=(source.match(/exigirResultadosAcotadosV81\((?:rows|vinculos|heredados|sinVinculo|resueltos|\[\.\.\.rows,\.\.\.heredados\])\)/g)||[]).length;
  assert.equal(controles,5,"Debe abortar si alguna fuente pierde registros");
+});
+
+test("pipeline filtra usuario, cuenta, intervalo colombiano y luego limita",()=>{
+ const usuarioId=new mongoose.Types.ObjectId(),cuentaId=new mongoose.Types.ObjectId();
+ const desde=new Date("2025-01-01T05:00:00Z"),hasta=new Date("2025-02-01T05:00:00Z");
+ const pipeline=crearPipelineVinculosPeriodoV81({usuarioId,cuentaId,desde,hasta});
+ assert.equal(pipeline.length,6);
+ assert.deepEqual(pipeline[0],{$match:{usuarioId,cuentaId}});
+ assert.equal(pipeline[1].$lookup.localField,"movimientoId");
+ assert.equal(pipeline[1].$lookup.foreignField,"_id");
+ assert.deepEqual(pipeline[2],{$unwind:"$movimiento"});
+ assert.equal(String(pipeline[3].$match["movimiento.usuarioId"]),String(usuarioId));
+ assert.equal(pipeline[3].$match["movimiento.cuentaId"],null);
+ assert.equal(pipeline[3].$match["movimiento.moneda"],"COP");
+ assert.deepEqual(pipeline[3].$match["movimiento.fecha"],{$gte:desde,$lt:hasta});
+ assert.deepEqual(pipeline[4],{$replaceRoot:{newRoot:"$movimiento"}});
+ assert.deepEqual(pipeline[5],{$limit:MAX_FILAS_CONCILIACION_V81+1});
+ assert.throws(()=>crearPipelineVinculosPeriodoV81({usuarioId,cuentaId,desde:hasta,hasta:desde}),TypeError);
+ assert.throws(()=>crearPipelineVinculosPeriodoV81({usuarioId:cuentaId,cuentaId:"falso",desde,hasta}),TypeError);
 });
