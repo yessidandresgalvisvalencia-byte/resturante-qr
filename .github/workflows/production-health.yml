@@ -19,6 +19,7 @@ jobs:
     steps:
       - name: Wait for Render deployment and verify health
         env:
+          EXPECTED_COMMIT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           HEALTH_URL: https://resturante-qr-1.onrender.com/health
           READY_URL: https://resturante-qr-1.onrender.com/ready
         run: |
@@ -32,12 +33,13 @@ jobs:
               const r = JSON.parse(fs.readFileSync("/tmp/gruk-ready.json", "utf8"));
               if (r.ready !== true || r.db !== "connected") process.exit(1);
               if (h.status !== "ok" || h.db !== "connected" || !h.version || !Number.isFinite(h.uptime)) process.exit(1);
+              if (!/^[0-9a-f]{40}$/.test(process.env.EXPECTED_COMMIT || "") || h.commit !== process.env.EXPECTED_COMMIT) process.exit(1);
             '; then
-              echo "GRUK /health and /ready: HTTP 200, MongoDB connected"
+              echo "GRUK /health and /ready: HTTP 200, MongoDB connected, commit verified: $EXPECTED_COMMIT"
               cat /tmp/gruk-health.json
               exit 0
             fi
-            echo "Attempt $attempt/30: health HTTP $status, ready HTTP $ready_status; retry in 20s"
+            echo "Attempt $attempt/30: health HTTP $status, ready HTTP $ready_status, expected commit $EXPECTED_COMMIT; retry in 20s"
             sleep 20
           done
           echo "::error::GRUK production /health failed verification"
