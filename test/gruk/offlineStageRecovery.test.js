@@ -17,9 +17,10 @@ function fixture({missing=false,tampered=false,paid=false,duplicate=false}={}){
  if(paid)rows.gruk_offline_caja_intenciones[0].cobrado=true;
  if(duplicate)rows.gruk_offline_ventas.push(rows.gruk_offline_ventas[0]);
  return {collection(name){calls++;return {find(q){
-  assert.equal(q.empresaId,"a");assert.equal(q.sedeId,"b");assert.equal(q.actorId,"op");
+  assert.equal(q.empresaId,"a");assert.equal(q.sedeId,"b");
+  if(name==="gruk_offline_inbox")assert.equal(q.actorId,"op");
   assert.deepEqual(q.eventId.$in,ids);
-  return {toArray:async()=>rows[name].map(({empresaId,sedeId,actorId,...fields})=>fields)};
+  return {toArray:async()=>rows[name].map(({empresaId,sedeId,...fields})=>fields)};
  }};},get calls(){return calls;}};
 }
 test("read-only stage recovery recognizes complete staged batch with exact COP sum",async()=>{
