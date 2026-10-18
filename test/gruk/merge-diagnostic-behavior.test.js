@@ -49,7 +49,7 @@ for(const conflicto of [false,true]){
   try{
    const previo=git(dir,"status","--porcelain");
    const resultado=cp.spawnSync("bash",[script],{cwd:dir,encoding:"utf8"});
-   assert.equal(resultado.status,0,resultado.stderr);
+   assert.equal(resultado.status,conflicto?1:0,resultado.stderr);
    assert.match(resultado.stdout,conflicto?/CONFLICTOS_DE_FUSION_DETECTADOS/:/SIN_CONFLICTOS_DE_FUSION/);
    assert.equal(git(dir,"rev-parse","HEAD"),personal);
    assert.equal(git(dir,"rev-parse","refs/remotes/origin/main"),main);
