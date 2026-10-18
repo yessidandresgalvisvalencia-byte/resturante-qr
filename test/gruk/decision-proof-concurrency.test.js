@@ -89,3 +89,19 @@ test("clasifica como recuperables solo conflictos transaccionales", () => {
  assert.equal(esConflictoTransitorio({code:11000}),false);
  assert.equal(esConflictoTransitorio(new Error("falla permanente")),false);
 });
+
+test("idempotencia: fecha de corte explícita distingue solicitudes", () => {
+ const base={accion:"CONSULTAR",evaluacion:{autorizada:false},actorId:"TEST"};
+ const primera=fingerprint({...base,corte:"2026-10-17T12:00:00.000Z"});
+ const segunda=fingerprint({...base,corte:"2026-10-18T12:00:00.000Z"});
+ assert.notEqual(primera,segunda);
+ assert.equal(primera,fingerprint({...base,corte:new Date("2026-10-17T12:00:00.000Z")}));
+ assert.throws(()=>fingerprint({...base,corte:"fecha-invalida"}),TypeError);
+});
+
+test("idempotencia: nunca acepta un registro previo sin fingerprint", () => {
+ const fp=fingerprint({accion:"CONSULTAR",evaluacion:{autorizada:false}});
+ assert.throws(()=>resolverExistente({requestFingerprint:null},fp),{code:"IDEMPOTENCY_FINGERPRINT_MISSING"});
+ assert.throws(()=>resolverExistente({},fp),{code:"IDEMPOTENCY_FINGERPRINT_MISSING"});
+ assert.equal(resolverExistente(null,fp),null);
+});
