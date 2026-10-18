@@ -71,9 +71,27 @@ async function run() {
       const changed = await api.markReceived(eventId, tenant);
       return { changed, pending: (await api.listPending(100, tenant)).length,
         received: (await api.listReceived(100, tenant)).length,
-        local: (await api.listLocal(100, tenant)).length };
+        local: (await api.listLocal(100, tenant)).length,
+        reservations: (await api.listStockReservations(tenant)).length };
     }, { tenant: tenantA, eventId: ids[0] });
-    assert.deepEqual(received, { changed: true, pending: 19, received: 1, local: 20 });
+    assert.deepEqual(received, { changed: true, pending: 19, received: 1, local: 20, reservations: 20 });
+    await browser.close();
+    browser = null;
+    browser = await chromium.launchPersistentContext(profile, { headless: true });
+    page = await browser.newPage();
+    await page.goto(base);
+    await browser.setOffline(true);
+    const afterAckRestart = await page.evaluate(async tenant => {
+      const api = globalThis.GRUKOfflineOutbox;
+      const reservations = await api.listStockReservations(tenant);
+      return {
+        local: (await api.listLocal(100, tenant)).length,
+        received: (await api.listReceived(100, tenant)).length,
+        reserved: reservations.length,
+        productUnits: reservations.reduce((sum, row) => sum + row.cantidad, 0)
+      };
+    }, tenantA);
+    assert.deepEqual(afterAckRestart, { local: 20, received: 1, reserved: 20, productUnits: 20 });
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 1 }));
   } finally {
