@@ -27,7 +27,7 @@ test("reconcileReceived: invalid, duplicated, or partial response never modifies
   [records[0],records[0]],
   [{...records[0],eventId:"not-requested"},records[1]],
   [{...records[0],applied:true},records[1]],
-  [{...records[0],financiallyReconciled:true},records[1]],
+  [{...records[0],staged:false,financiallyReconciled:true},records[1]],
   [{...records[1],status:"PENDIENTE"},records[0]]
  ];
  for(const events of invalid){
