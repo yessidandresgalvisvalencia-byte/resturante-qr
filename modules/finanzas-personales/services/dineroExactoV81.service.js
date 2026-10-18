@@ -40,4 +40,25 @@ function disponibleHoyConGmf({ saldoCentavos, porVencer7dCentavos, retiroGravado
     reserva4x1000Centavos
   });
 }
-module.exports = { parsearCopACentavos, sumarCentavos, disponibleHoy, reservarGmfCentavos, disponibleHoyConGmf };
+// Máximo gasto cuyo valor y GMF caben juntos en un presupuesto disponible.
+// Para GMF = ceil(gasto / 250), la solución exacta es floor(presupuesto * 250 / 251).
+// Este cálculo NO decide si existe exención: el llamador debe indicarlo.
+function maximoGastoHoyConGmf({ saldoCentavos, porVencer7dCentavos, gravado }) {
+  if (typeof gravado !== "boolean") throw new TypeError("Estado GMF gravado/exento obligatorio");
+  const { disponibleCentavos, colchonCentavos } = disponibleHoy({
+    saldoCentavos, porVencer7dCentavos
+  });
+  const presupuestoCentavos = disponibleCentavos > 0n ? disponibleCentavos : 0n;
+  const gastoMaximoCentavos = gravado
+    ? presupuestoCentavos * 250n / 251n : presupuestoCentavos;
+  const reserva4x1000Centavos = gravado
+    ? reservarGmfCentavos(gastoMaximoCentavos) : 0n;
+  return Object.freeze({
+    presupuestoCentavos,
+    gastoMaximoCentavos,
+    reserva4x1000Centavos,
+    colchonCentavos,
+    deficitCentavos: disponibleCentavos < 0n ? -disponibleCentavos : 0n
+  });
+}
+module.exports = { parsearCopACentavos, sumarCentavos, disponibleHoy, reservarGmfCentavos, disponibleHoyConGmf, maximoGastoHoyConGmf };
