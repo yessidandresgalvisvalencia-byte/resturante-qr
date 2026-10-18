@@ -203,6 +203,26 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   assert.equal(reintentoLegado.yaExistia,true);
   assert.equal(await Vinculo.countDocuments({usuarioId,movimientoId:legado._id}),1);
   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,antes.saldoMinor);
+  // Regresión del JOIN temporal: vinculaciones válidas fuera de enero
+  // no deben aparecer ni alterar el saldo conciliado de enero.
+  for(const fechaFuera of ["2024-12-15T12:00:00Z","2025-02-15T12:00:00Z"]){
+   const fuera=await Movimiento.create({usuarioId,cuentaId:null,tipo:"GASTO",
+    concepto:"Fuera del corte de conciliación",categoria:"PRUEBA",
+    cuenta:cuentaAlterna.nombre,medioPago:"EFECTIVO",montoMinor:125,
+    moneda:"COP",fecha:new Date(fechaFuera)});
+   const clave=crypto.randomUUID();
+   const hash=crypto.createHmac("sha256",process.env.PERSONAL_IDEMPOTENCY_SECRET)
+    .update(String(usuarioId)+":"+clave).digest("hex");
+   await Vinculo.create({usuarioId,movimientoId:fuera._id,cuentaId:cuentaAlterna._id,
+    evidencia:"Vínculo fuera del período de prueba",idempotencyKeyHash:hash});
+  }
+  const eneroAlEnlazarOtrosMeses=await conciliarHistoricoCuentaV81({
+   ...periodo,cuentaId:String(cuentaAlterna._id),
+   saldoObservadoCentavos:segundoEnOriginal?0n:-25000n
+  });
+  assert.equal(eneroAlEnlazarOtrosMeses.estado,"CONCILIADA");
+  assert.equal(eneroAlEnlazarOtrosMeses.movimientosEvaluados,segundoEnOriginal?0:1);
+  assert.equal((await Cuenta.findById(cuentaAlterna._id).lean()).saldoMinor,0);
  }finally{
   try{
    // Destruir SOLAMENTE la base efímera cuyo nombre generó esta prueba.
