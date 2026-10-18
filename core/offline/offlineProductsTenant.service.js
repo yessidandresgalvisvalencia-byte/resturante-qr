@@ -16,7 +16,7 @@ async function verifyOfflineProducts({collection,prepared,context,objectId,sessi
   String(row?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
   row?.activo!==true))fail();
  const valid=new Set(found.map(x=>String(x._id).toLowerCase()));
- if(valid.size!==ids.length||ids.some(id=>!valid.has(id)))fail();
+ if(found.length!==ids.length||valid.size!==ids.length||ids.some(id=>!valid.has(id)))fail();
  return Object.freeze(ids);
 }
 module.exports={verifyOfflineProducts};
