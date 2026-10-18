@@ -3,12 +3,13 @@ const test=require("node:test");
 const assert=require("node:assert/strict");
 const {randomUUID}=require("node:crypto");
 const {acceptOfflineBatch,ensureInboxIndexes}=require("../../core/offline/offlineInbox.service");
-const {stageAuthorizedOfflineOrders}=require("../../core/offline/offlineAdminStage.service");
+
 const uri=process.env.GRUK_TEST_MONGO_URI||process.env.TEST_MONGO_URI;
 test("MongoDB real: dos tablets venden último producto; segunda queda en revisión sin doble débito",{
  skip:!uri&&"Requiere MongoDB replica set aislado",timeout:45000
 },async()=>{
  const {mongo}=require("mongoose");
+ const {stageAuthorizedOfflineOrders}=require("../../core/offline/offlineAdminStage.service");
  const client=new mongo.MongoClient(uri,{serverSelectionTimeoutMS:10000});
  const name="gruk_oversell_tablets_"+randomUUID().replace(/-/g,"");
  const company=new mongo.ObjectId(),site=new mongo.ObjectId(),product=new mongo.ObjectId();
