@@ -38,7 +38,18 @@ test("GMF no se presupone en un retiro exento ni admite floats o negativos",()=>
  const {reservarGmfCentavos,disponibleHoyConGmf}=
   require("../../modules/finanzas-personales/services/dineroExactoV81.service");
  assert.deepEqual(disponibleHoyConGmf({
-  saldoCentavos:50000000n,porVencer7dCentavos:8000000n
+  saldoCentavos:50000000n,porVencer7dCentavos:8000000n,retiroGravadoCentavos:0n
  }),{disponibleCentavos:37000000n,colchonCentavos:5000000n,reserva4x1000Centavos:0n});
  for(const bad of [-1n,0.1,"1000",null])assert.throws(()=>reservarGmfCentavos(bad),TypeError);
+});
+
+test("Disponible Hoy no asume GMF exento si falta clasificación bancaria",()=>{
+ const {disponibleHoyConGmf}=
+  require("../../modules/finanzas-personales/services/dineroExactoV81.service");
+ assert.throws(()=>disponibleHoyConGmf({
+  saldoCentavos:50000000n,porVencer7dCentavos:8000000n
+ }),TypeError);
+ assert.throws(()=>disponibleHoyConGmf({
+  saldoCentavos:50000000n,porVencer7dCentavos:8000000n,retiroGravadoCentavos:null
+ }),TypeError);
 });
