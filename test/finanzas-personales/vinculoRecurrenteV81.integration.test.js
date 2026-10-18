@@ -59,7 +59,14 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
    })),
    e=>e.statusCode===404
   );
+  await assert.rejects(
+   registrar(propietario,movimiento({
+    recurrenteOrigenId:original._id,fecha:new Date(Date.now()+86400000)
+   })),
+   e=>e.statusCode===400
+  );
   assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),2);
+  assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,500000);
  }finally{
   await mongoose.disconnect();
  }
