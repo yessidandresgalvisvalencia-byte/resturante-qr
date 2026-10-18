@@ -274,3 +274,13 @@ test("el banco de concurrencia jamás utiliza URI externas ni MongoDB SRV",()=>{
  assert.throws(()=>exigirMongoDePruebasLocal("mongodb+srv://cluster.mongodb.net/db","SOLO_PRUEBAS_LOCALES"),/MONGO_PRUEBAS_NO_LOCAL/);
  assert.throws(()=>exigirMongoDePruebasLocal("mongodb://127.0.0.1:27017,servidor:27017","SOLO_PRUEBAS_LOCALES"),/MONGO_PRUEBAS_NO_LOCAL|TEST_MONGO_URI_INVALIDA/);
 });
+
+test("DecisionProof rechaza claves enormes y caracteres de control antes de Mongo",async()=>{
+ const id=new mongoose.Types.ObjectId();
+ const base={accion:"CONSULTAR",evaluacion:{autorizada:false},actorId:"TEST"};
+ for(const clave of ["x".repeat(129),"x".repeat(7),
+  "abcd1234\nSALTO","abcd1234\u0000"]){
+  await assert.rejects(()=>registrar(id,{...base,idempotencyKey:clave}),TypeError);
+ }
+ await assert.rejects(()=>registrar(null,{...base,idempotencyKey:"abc12345"}),TypeError);
+});
