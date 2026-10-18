@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy}=require("../../modules/finanzas-personales/services/vinculoRecurrenteV81.service");
+const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,ventanaPagoColombia,validarTotalPeriodoRecurrente}=require("../../modules/finanzas-personales/services/vinculoRecurrenteV81.service");
 
 test("acepta pago actual y atrasado desde el origen exacto",()=>{
  const ahora=new Date("2026-10-18T16:00:00.000Z");
@@ -37,4 +37,29 @@ test("impide doble débito del origen recurrente en el mismo día colombiano",()
  assert.throws(()=>validarNoDuplicarOrigenHoy({
   fechaPago:"inválida",fechaOrigen:origen
  }),{statusCode:400});
+});
+
+test("ventana de abonos usa medianoche colombiana, incluso en cambio de mes",()=>{
+ const a=ventanaPagoColombia("2026-10-19T04:59:59.999Z");
+ assert.equal(a.inicio.toISOString(),"2026-10-18T05:00:00.000Z");
+ assert.equal(a.fin.toISOString(),"2026-10-19T05:00:00.000Z");
+ const b=ventanaPagoColombia("2026-11-01T04:59:59Z");
+ assert.equal(b.inicio.toISOString(),"2026-10-31T05:00:00.000Z");
+ assert.throws(()=>ventanaPagoColombia("invalida"),{statusCode:400});
+});
+test("abonos vinculados no pueden superar el importe previsto",()=>{
+ assert.equal(validarTotalPeriodoRecurrente({
+  importeObligacionMinor:550000,yaPagadoMinor:100000,nuevoPagoMinor:450000
+ }),0);
+ assert.equal(validarTotalPeriodoRecurrente({
+  importeObligacionMinor:550000,yaPagadoMinor:100000,nuevoPagoMinor:200000
+ }),250000);
+ assert.throws(()=>validarTotalPeriodoRecurrente({
+  importeObligacionMinor:550000,yaPagadoMinor:100000,nuevoPagoMinor:450001
+ }),{statusCode:409});
+ for(const bad of [1.5,-1,"500",Number.MAX_SAFE_INTEGER+1]){
+  assert.throws(()=>validarTotalPeriodoRecurrente({
+   importeObligacionMinor:550000,yaPagadoMinor:bad,nuevoPagoMinor:100000
+  }),{statusCode:400});
+ }
 });
