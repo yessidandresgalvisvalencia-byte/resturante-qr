@@ -27,3 +27,10 @@ test("CI publica el informe aun si fallan otras pruebas",()=>{
  assert.match(ci,/name: Guardar informe de conflictos de integración\s*\n\s*if: always\(\) && \(github\.ref == 'refs\/heads\/feature\/finanzas-personales'/);
  assert.match(ci,/gruk-personal-merge-diagnostic\.log/);
 });
+
+test("los workflows principales permiten repetición manual sin nuevos commits",()=>{
+ const v81=fs.readFileSync(path.join(root,".github/workflows/finanzas-personales-v81.yml"),"utf8");
+ for(const [nombre,workflow] of [["GRUK CI",ci],["Finanzas V81",v81]]){
+  assert.match(workflow,/^on:\s*\n\s+workflow_dispatch:\s*$/m,nombre);
+ }
+});
