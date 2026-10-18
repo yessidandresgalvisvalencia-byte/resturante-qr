@@ -42,6 +42,10 @@ code{overflow-wrap:anywhere}small{color:#52616e}#message{white-space:pre-wrap} .
 <input id="unitPrice" name="precioUnitarioCop" inputmode="numeric" pattern="(0|[1-9][0-9]*)" required readonly>
 <button type="submit" id="saveDraft">Guardar en este dispositivo</button>
 </form>
+<p><button type="button" id="refreshStock">Actualizar stock con internet</button>
+<small id="stockInfo">Existencias sin consultar</small></p>
+<p id="stockEstimate" aria-live="polite">Stock local estimado: sin información.</p>
+<p><small>La disponibilidad es estimada por dispositivo; otras tablets pueden vender al mismo tiempo. El servidor valida las existencias al procesar.</small></p>
 <p><small>El precio es orientativo: si no coincide con el catálogo autorizado del servidor, no se registrará la venta.</small></p>
 </section>
 <section>
@@ -57,6 +61,7 @@ code{overflow-wrap:anywhere}small{color:#52616e}#message{white-space:pre-wrap} .
 <script src="/js/gruk-offline-transport.js"></script>
 <script src="/js/gruk-offline-draft.js"></script>
 <script src="/js/gruk-offline-catalog.js"></script>
+<script src="/js/gruk-offline-stock.js"></script>
 <script src="/js/gruk-offline-panel.js"></script>
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("/service-worker.js").catch(()=>{});}</script>
 </body>
