@@ -315,3 +315,22 @@ test("vencimientos atrasados bloquean autorización hasta conciliar pagos",()=>{
  assert.match(src,/Vencimiento atrasado por conciliar/);
  assert.match(src,/vencimientosAtrasados:vencimientosAtrasados\.map/);
 });
+
+test("abono parcial no borra la cuota pendiente del disponible",()=>{
+ const deuda={direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:4000000,
+  cuotaMinor:550000,fechaVencimiento:new Date("2026-10-20T05:00:00Z")};
+ assert.equal(home.saldoCuotaPendienteMinor(deuda,0),550000);
+ assert.equal(home.saldoCuotaPendienteMinor(deuda,100000),450000);
+ assert.equal(home.saldoCuotaPendienteMinor(deuda,550000),0);
+ assert.equal(home.saldoCuotaPendienteMinor(deuda,900000),0);
+ assert.equal(home.saldoCuotaPendienteMinor({...deuda,cuotaMinor:0},100000),0);
+ for(const abono of [-1,0.25,"100000",Number.MAX_SAFE_INTEGER+1])
+  assert.throws(()=>home.saldoCuotaPendienteMinor(deuda,abono),TypeError);
+});
+test("ningún pago parcial elimina el compromiso completo antes del siguiente ingreso",()=>{
+ const fs=require("node:fs"),path=require("node:path");
+ const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
+ assert.doesNotMatch(src,/pagosDeudaIds\.has/);
+ assert.match(src,/montoMinor:saldoCuotaPendienteMinor\(d,pagoAplicado\(d\)\)/);
+ assert.match(src,/cuotaExigibleMinor\(d\)===0\)/);
+});
