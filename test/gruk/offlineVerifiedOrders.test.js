@@ -27,3 +27,17 @@ test("no genera plan ante contexto de otro tenant",async()=>{
  await assert.rejects(prepare({db:db(),context:{...context,empresaId:"507f191e810c19729de860eb"},eventIds:[eventId],objectId:x=>x}),
  e=>e.code==="OFFLINE_ORDERS_NOT_PENDING");
 });
+
+test("preflight offline: comparte una misma sesión Mongo entre inbox y productos",async()=>{
+ const session={tag:"transaction-session"};
+ const seen=[];
+ const connection={collection(name){return {find(q,options){
+   seen.push({name,session:options?.session});
+   if(name==="gruk_offline_inbox")return {toArray:async()=>[event]};
+   if(name==="productoservicios")return {toArray:async()=>[{_id:product}]};
+   throw Error("UNEXPECTED_COLLECTION");
+ }};}};
+ const result=await prepare({db:connection,context,eventIds:[eventId],objectId:x=>x,session});
+ assert.equal(result.totalCop,"3000");
+ assert.deepEqual(seen.map(x=>x.session),[session,session]);
+});
