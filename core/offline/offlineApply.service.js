@@ -44,7 +44,7 @@ async function markOfflineApplied({db,context,eventId,reviewToken,commitReferenc
     ...scope,status:"CONCILIADO",cobrado:true
   },{session,projection:{montoCop:1}});
   const integerCop=value=>typeof value==="string"&&/^(0|[1-9][0-9]*)$/.test(value);
-  const committed=!!(ledger&&sale&&cash&&integerCop(ledger.montoCop)&&
+  const committed=!!(record.inventoryApplied===true&&ledger&&sale&&cash&&integerCop(ledger.montoCop)&&
     integerCop(sale.totalCop)&&integerCop(cash.montoCop)&&
     ledger.montoCop===sale.totalCop&&sale.totalCop===cash.montoCop);
   assertTransition({from:record.status,to:STATES.APLICADO,
