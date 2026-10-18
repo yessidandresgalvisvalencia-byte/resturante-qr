@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {validarFechaPagoVinculado}=require("../../modules/finanzas-personales/services/vinculoRecurrenteV81.service");
+const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy}=require("../../modules/finanzas-personales/services/vinculoRecurrenteV81.service");
 
 test("acepta pago actual y atrasado desde el origen exacto",()=>{
  const ahora=new Date("2026-10-18T16:00:00.000Z");
@@ -20,4 +20,21 @@ test("rechaza pagos futuros, anteriores al origen y fechas inválidas",()=>{
   {fechaPago:ahora,fechaOrigen:"no-fecha",ahora},
   {fechaPago:ahora,fechaOrigen,ahora:"no-fecha"}
  ])assert.throws(()=>validarFechaPagoVinculado(datos),{statusCode:400});
+});
+
+test("impide doble débito del origen recurrente en el mismo día colombiano",()=>{
+ const origen=new Date("2026-10-18T05:00:00Z");
+ for(const pago of ["2026-10-18T05:00:00Z","2026-10-19T04:59:59Z"])
+  assert.throws(()=>validarNoDuplicarOrigenHoy({
+   fechaPago:pago,fechaOrigen:origen,origenImpactoCaja:true
+  }),{statusCode:409});
+ assert.equal(validarNoDuplicarOrigenHoy({
+  fechaPago:"2026-10-19T05:00:00Z",fechaOrigen:origen,origenImpactoCaja:true
+ }),true);
+ assert.equal(validarNoDuplicarOrigenHoy({
+  fechaPago:"2026-10-18T12:00:00Z",fechaOrigen:origen,origenImpactoCaja:false
+ }),true);
+ assert.throws(()=>validarNoDuplicarOrigenHoy({
+  fechaPago:"inválida",fechaOrigen:origen
+ }),{statusCode:400});
 });
