@@ -52,3 +52,24 @@ test("acepta fechas ISO reales con Z y desplazamiento horario", () => {
   fechaOrigen:"2026-10-01T12:00:00Z",fechaPago:"18/10/2026",ahora:"2026-10-18T14:00:00Z",
  }),error=>error.statusCode===400);
 });
+
+test("rechaza fechas civiles imposibles antes de asignar cuotas o afectar caja",()=>{
+ const origen="2026-02-01T12:00:00Z";
+ const ahora="2026-10-18T12:00:00Z";
+ for(const imposible of [
+  "2026-02-30",
+  "2026-02-30T12:00:00Z",
+  "2025-02-29T12:00:00-05:00",
+  "2026-04-31T08:00:00Z",
+  "2026-13-01",
+  "2026-00-15"
+ ]){
+  assert.throws(()=>validarFechaPagoVinculado({fechaOrigen:origen,fechaPago:imposible,ahora}),
+   e=>e.statusCode===400,imposible);
+  assert.throws(()=>periodoRecurrenteColombia({fechaOrigen:origen,fechaPago:imposible,frecuencia:"MENSUAL"}),
+   e=>e.statusCode===400,imposible);
+ }
+ assert.equal(validarFechaPagoVinculado({
+  fechaOrigen:"2024-02-29T12:00:00Z",fechaPago:"2024-03-01T12:00:00Z",ahora
+ }),true);
+});
