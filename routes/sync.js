@@ -1,5 +1,5 @@
 "use strict";
-// Authenticated offline inbox only. No financial, stock or order posting.
+// Authenticated inbox and explicitly authorized offline staging. No cash capture.
 const express = require("express");
 const mongoose = require("mongoose");
 const authMiddleware = require("../core/auth/auth.middleware");
@@ -91,6 +91,36 @@ router.post("/reconciliation",authMiddleware,async(req,res)=>{
   if(error?.code==="OFFLINE_INVALID_IDS")return res.status(400).json({ok:false,error:error.code});
   console.error("[OFFLINE] Reconciliation unavailable",error?.code||error?.name||"unknown");
   return res.status(500).json({ok:false,error:"OFFLINE_RECONCILIATION_UNAVAILABLE"});
+ }
+});
+// Explicit, ADMIN-only posting of OWN pending offline orders: atomic journals+stock.
+// This is NOT a payment, a fiscal sale, nor proof of final reconciliation.
+router.post("/stage-orders",authMiddleware,async(req,res)=>{
+ if(!req.auth?.empresaId||!req.auth?.sedeId||!req.auth?.usuarioId||
+    !["DUEÑO","ADMIN_SEDE"].includes(req.auth.rol))
+  return res.status(403).json({ok:false,error:"OFFLINE_STAGE_PERMISSION_DENIED"});
+ if(mongoose.connection.readyState!==1)
+  return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ try{
+  const {stageAuthorizedOfflineOrders}=require("../core/offline/offlineAdminStage.service");
+  const result=await stageAuthorizedOfflineOrders({
+   db:mongoose.connection.db,auth:req.auth,
+   eventIds:req.body?.eventIds,confirmed:req.body?.confirmed
+  });
+  res.set("Cache-Control","no-store");
+  return res.status(202).json({ok:true,...result});
+ }catch(error){
+  const code=error?.code;
+  if(["OFFLINE_STAGE_PERMISSION_DENIED","OFFLINE_STAGE_IDENTITY_NOT_MAPPED"].includes(code))
+   return res.status(403).json({ok:false,error:code});
+  if(["OFFLINE_INVALID_IDS","OFFLINE_STAGE_CONFIRMATION_REQUIRED"].includes(code))
+   return res.status(400).json({ok:false,error:code});
+  if(["OFFLINE_TRANSACTION_UNAVAILABLE","OFFLINE_INDEX_NOT_READY","OFFLINE_DB_UNAVAILABLE"].includes(code))
+   return res.status(503).json({ok:false,error:code});
+  if(typeof code==="string"&&code.startsWith("OFFLINE_"))
+   return res.status(409).json({ok:false,error:code});
+  console.error("[OFFLINE] Stage orders unavailable",code||error?.name||"unknown");
+  return res.status(500).json({ok:false,error:"OFFLINE_STAGE_UNAVAILABLE"});
  }
 });
 module.exports = router;
