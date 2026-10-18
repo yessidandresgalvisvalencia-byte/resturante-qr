@@ -27,6 +27,15 @@ async function recoverOfflineStagedBatch({db,context,eventIds}){
     typeof sale.totalCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(sale.totalCop))fail();
   total+=BigInt(sale.totalCop);
  }
+ const cash=await db.collection("gruk_offline_caja_intenciones").find(scope,{
+  projection:{_id:0,eventId:1,status:1,cobrado:1,montoCop:1}
+ }).toArray();
+ if(cash.length!==eventIds.length||new Set(cash.map(x=>x.eventId)).size!==eventIds.length||
+   cash.some(x=>!eventIds.includes(x.eventId)||x.status!=="PENDIENTE_CONCILIACION"||
+     x.cobrado!==false||typeof x.montoCop!=="string"||
+     !/^(0|[1-9][0-9]*)$/.test(x.montoCop)))fail();
+ const bySale=new Map(sales.map(x=>[x.eventId,x.totalCop]));
+ if(cash.some(x=>bySale.get(x.eventId)!==x.montoCop))fail();
  if(total>BigInt(Number.MAX_SAFE_INTEGER))fail();
  return Object.freeze({status:"PENDIENTE_CONTABILIZACION",alreadyStaged:true,
   applied:false,cobrado:false,processedEvents:eventIds.length,totalCop:total.toString()});
