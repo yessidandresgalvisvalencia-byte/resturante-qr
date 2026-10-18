@@ -158,7 +158,7 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     const proofEventId = "01ARZ3NDEKTSV4RRFFQ69G5FB2";
     await db.collection("gruk_offline_inbox").insertOne({
       empresaId, sedeId, actorId, eventId: proofEventId,
-      status: "EN_REVISION", reviewToken
+      status: "EN_REVISION", reviewToken, reviewActorId: actorId
     });
     const review = { ...context, canReview: true };
     const commitReference = { collection: "gruk_ledger_movimientos", eventId: proofEventId };
