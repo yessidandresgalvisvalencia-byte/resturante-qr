@@ -195,7 +195,17 @@ async function obtener(usuarioId,now=new Date()){
  for(const g of gastosFijosRecurrentes){const fecha=siguienteFechaRecurrente({...g,tipo:"INGRESO"},now);if(fecha&&fecha<limiteCompromisos)compromisosAntesIngreso.push({concepto:g.concepto,montoMinor:g.montoMinor,fecha});}
  // Un gasto recurrente que vence hoy requiere conciliación; no duplicar
  // descuentos porque el saldo verificado puede reflejar el pago.
- const gastosRecurrentesHoySinConciliar=gastosFijosRecurrentes.filter(g=>gastoRecurrenteVenceHoy(g,now));
+// La transacción recurrente registrada HOY ya forma parte del ledger de gastos.
+ // No inferir pagos posteriores por concepto, categoría o monto: falta un vínculo único.
+ function faltaConfirmarGastoRecurrenteHoy(g){
+  if(!gastoRecurrenteVenceHoy(g,now))return false;
+  const registrado=new Date(g.fecha);
+  if(Number.isNaN(registrado.getTime()))return true;
+  const diaRegistro=partesColombia(registrado),diaHoy=partesColombia(now);
+  return !(diaRegistro.y===diaHoy.y&&diaRegistro.m===diaHoy.m&&diaRegistro.d===diaHoy.d&&
+   g.estado!=="ANULADA"&&g.impactoCaja!==false);
+ }
+ const gastosRecurrentesHoySinConciliar=gastosFijosRecurrentes.filter(faltaConfirmarGastoRecurrenteHoy);
  const gastosFijosAntesProximoIngresoMinor=compromisosAntesIngreso.reduce((s,x)=>s+x.montoMinor,0);
  const saldoEstado=resolverSaldoAsesor(pat);
  const saldoAsesorMinor=saldoEstado.montoMinor;
