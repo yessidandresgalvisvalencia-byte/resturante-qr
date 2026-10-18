@@ -165,10 +165,10 @@ async function obtener(usuarioId,now=new Date()){
  });
  const aptoParaDisponibleHoy=saldoEstado.confiabilidad==="VERIFICADO"&&!saldoEstado.requiereReconciliacion&&cuotasSinDefinir.length===0;
  const disponibleDespuesCompromisosMinor=pat.saldoVerificado?pat.liquidezMinor-cuotasPendientesMesMinor:null;
- const proxima=deudas.find(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=now&&x.saldoMinor>0)||null;
+ const proxima=deudas.find(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=now&&cuotaExigibleMinor(x)>0)||null;
  const fmt=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(Math.round(Number(n||0)));
  const activosDetalle=(pat.activos||[]).map(x=>({nombre:x.nombre,tipo:x.tipo,valorMinor:x.valorMinor}));
- const deudasDetalle=deudas.map(x=>({concepto:x.concepto,principalMinor:x.principalMinor,saldoMinor:x.saldoMinor,abonadoMinor:Math.max(0,(x.principalMinor||0)-(x.saldoMinor||0)),cuotaMinor:x.cuotaMinor||0,fechaVencimiento:x.fechaVencimiento}));
+ const deudasDetalle=deudas.map(x=>({concepto:x.concepto,principalMinor:x.principalMinor,saldoMinor:x.saldoMinor,abonadoMinor:Math.max(0,(x.principalMinor||0)-(x.saldoMinor||0)),cuotaMinor:x.cuotaMinor||0,periodicidad:x.periodicidad,periodicidadConfirmada:x.periodicidadConfirmada,fechaVencimiento:x.fechaVencimiento}));
  const explicaciones={
   escenarioGmf:{
    titulo:"Simulación: gasto si aplica 4×1.000",
