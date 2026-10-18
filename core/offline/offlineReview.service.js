@@ -3,8 +3,13 @@
 const { randomUUID } = require("node:crypto");
 const { assertTransition, STATES } = require("./offlineState.contract");
 const LEASE_MS=60_000;
+const SAFE_ID=/^[A-Za-z0-9_-]{1,80}$/;
+function validReviewer(context){
+  return context?.canReview===true &&
+    ["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&SAFE_ID.test(context[k]));
+}
 async function beginReview({db, context, eventId, now=new Date()}) {
-  if (!db?.collection || !context?.empresaId || !context?.sedeId || !context?.actorId || !eventId || context.canReview !== true) throw new Error("OFFLINE_AUTH_REQUIRED");
+  if (!db?.collection || !validReviewer(context) || typeof eventId!=="string" || !SAFE_ID.test(eventId)) throw new Error("OFFLINE_AUTH_REQUIRED");
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new Error("OFFLINE_INVALID_TIME");
   const coll=db.collection("gruk_offline_inbox");
   const key={empresaId:context.empresaId,sedeId:context.sedeId,eventId,actorId:context.actorId,status:STATES.PENDIENTE};
@@ -18,7 +23,7 @@ async function beginReview({db, context, eventId, now=new Date()}) {
 // Do not reset an expired review automatically: a crashed worker may already
 // have committed a domain transaction. Escalate for reconciliation instead.
 async function findExpiredReviews({db,context,now=new Date(),limit=50}) {
-  if (!db?.collection || !context?.empresaId || !context?.sedeId || context.canReview !== true) throw new Error("OFFLINE_AUTH_REQUIRED");
+  if (!db?.collection || !validReviewer(context)) throw new Error("OFFLINE_AUTH_REQUIRED");
   if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !Number.isInteger(limit) || limit<1 || limit>100) throw new Error("OFFLINE_INVALID_QUERY");
   return db.collection("gruk_offline_inbox").find({
     empresaId:context.empresaId,sedeId:context.sedeId,reviewActorId:context.actorId,status:STATES.EN_REVISION,
