@@ -58,7 +58,8 @@ function errorAgotamientoConcurrenciaV81(error){
  return fallo;
 }
 function validarClaveDecisionProofV81(valor){
- if(typeof valor!=="string")throw new TypeError("idempotencyKey inválida");
+ if(typeof valor!=="string"||/[\x00-\x1f\x7f]/.test(valor))
+  throw new TypeError("idempotencyKey inválida");
  const clave=valor.trim();
  if(!(/^[\x21-\x7e]{8,128}$/.test(clave)))
   throw new TypeError("idempotencyKey inválida");
