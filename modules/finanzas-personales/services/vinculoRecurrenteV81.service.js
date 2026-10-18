@@ -4,7 +4,7 @@
 // comprueba por usuarioId dentro de la transacción MongoDB que persiste el pago.
 function fechaEstrictaRecurrente(valor,etiqueta){
  if(!(valor instanceof Date)&&
-   (typeof valor!=="string"||!/^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2}))?$/.test(valor)))
+   (typeof valor!=="string"||!/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))?$/.test(valor)))
   throw Object.assign(new TypeError(etiqueta+" debe ser fecha ISO o Date"),{statusCode:400});
  const fecha=new Date(valor);
  if(!Number.isFinite(fecha.getTime()))
