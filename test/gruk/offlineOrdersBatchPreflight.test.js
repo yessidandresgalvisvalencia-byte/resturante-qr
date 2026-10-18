@@ -21,3 +21,11 @@ test("pedido inconsistente rechaza el lote entero",()=>{
  assert.throws(()=>prepareOfflineOrders([...orders.slice(0,19),{...orders[19],payload:{...orders[19].payload,totalCop:"2999"}}]),
  e=>e.code==="OFFLINE_ORDER_NOT_POSTABLE");
 });
+
+test("lote offline: rechaza total acumulado fuera del rango entero seguro",()=>{
+ const high={...orders[0],payload:{...orders[0].payload,
+   items:[{productoId:"producto",cantidad:"1",precioUnitarioCop:"9007199254740991",totalCop:"9007199254740991"}],
+   totalCop:"9007199254740991"}};
+ assert.throws(()=>prepareOfflineOrders([high,orders[1]]),
+   error=>error.code==="OFFLINE_ORDER_BATCH_CONFLICT");
+});

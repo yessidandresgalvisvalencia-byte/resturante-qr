@@ -11,6 +11,7 @@ function prepareOfflineOrders(events){
     if(ids.has(order.eventId)||orders.has(order.localOrderId))fail();
     ids.add(order.eventId);orders.add(order.localOrderId);
     total+=BigInt(order.totalCop);
+    if(total>BigInt(Number.MAX_SAFE_INTEGER))fail();
     return order;
   });
   return Object.freeze({orders:Object.freeze(normalized),totalCop:total.toString()});
