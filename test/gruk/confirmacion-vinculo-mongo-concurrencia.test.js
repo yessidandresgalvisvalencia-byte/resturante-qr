@@ -233,6 +233,7 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   assert.equal(eneroAlEnlazarOtrosMeses.estado,"CONCILIADA");
   assert.equal(eneroAlEnlazarOtrosMeses.movimientosEvaluados,segundoEnOriginal?0:1);
   assert.equal((await Cuenta.findById(cuentaAlterna._id).lean()).saldoMinor,0);
+  console.log("[GRUK_V81_MONGO_INTEGRACION] VINCULOS_OK");
  }finally{
   try{
    // Destruir SOLAMENTE la base efímera cuyo nombre generó esta prueba.
