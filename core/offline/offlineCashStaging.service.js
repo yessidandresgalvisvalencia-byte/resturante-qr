@@ -19,7 +19,7 @@ async function stageOfflineCashIntents({db,session,context,plan}){
  if(sum.toString()!==plan.totalCop)fail("OFFLINE_CASH_TOTAL_CONFLICT");
  const cash=db.collection("gruk_offline_caja_intenciones");
  const indexes=await cash.indexes();
- if(!Array.isArray(indexes)||!indexes.some(i=>i.name==="uniq_offline_cash_tenant_event"&&i.unique===true&&
+ if(!Array.isArray(indexes)||!indexes.some(i=>i.name==="uniq_offline_cash_tenant_event"&&i.unique===true&&i.sparse!==true&&!i.partialFilterExpression&&
   ["empresaId","sedeId","eventId"].every((k,n)=>Object.keys(i.key||{})[n]===k&&i.key[k]===1)&&Object.keys(i.key||{}).length===3))
    fail("OFFLINE_CASH_UNIQUE_INDEX_REQUIRED");
  const records=[];
