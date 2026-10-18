@@ -318,3 +318,14 @@ test("agotamiento de concurrencia reporta 503, nunca disfraza conflictos permane
   Object.assign(new Error("error permanente"),{code:42})
  ])assert.equal(errorAgotamientoConcurrenciaV81(error),error);
 });
+
+test("DecisionProof bloquea identidades no Mongo antes de ejecutar consultas",async()=>{
+ const base={accion:"CONSULTAR",evaluacion:{autorizada:false},
+  actorId:"TEST",idempotencyKey:"id-mongo-valid-1234"};
+ for(const invalido of [null,undefined,"", "otro-usuario", "z".repeat(24),42,{},[]]){
+  await assert.rejects(()=>registrar(invalido,base),TypeError);
+ }
+ // Estas representaciones son válidas en la capa de identidad;
+ // no abrimos conexión ni escribimos documentos en esta prueba.
+ assert.match(String(new mongoose.Types.ObjectId()),/^[a-f0-9]{24}$/);
+});
