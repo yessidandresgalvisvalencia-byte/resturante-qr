@@ -221,6 +221,26 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    assert.notEqual(segundaCuenta.payload.evento.hashActual,primeroHttp.payload.evento.hashActual);
    assert.equal((await verificarLedgerPersistidoV81(httpUno)).integridad,"VERIFICADA");
    assert.equal((await verificarLedgerPersistidoV81(httpDos)).integridad,"VERIFICADA");
+   // Saldo calculado desde la misma instantánea verificada, sin confiar en entradas externas.
+   const {consultarSaldoVerificadoV81}=require("../../modules/finanzas-personales/services/consultaSaldoVerificadoV81.service");
+   const saldoUno=await consultarSaldoVerificadoV81(httpUno);
+   const saldoDos=await consultarSaldoVerificadoV81(httpDos);
+   assert.equal(saldoUno.integridad,"VERIFICADA");
+   assert.equal(saldoUno.saldoCentavos,"-5000060");
+   assert.equal(saldoDos.integridad,"VERIFICADA");
+   assert.equal(saldoDos.saldoCentavos,"-2500030");
+   // Manipulación directa que el modelo Mongoose normalmente prohíbe.
+   const alterado=await Evento.findOne({usuarioId:httpDos}).lean();
+   await Evento.collection.updateOne({_id:alterado._id},{$set:{montoCentavos:"999999999"}});
+   const saldoAdulterado=await consultarSaldoVerificadoV81(httpDos);
+   assert.equal(saldoAdulterado.integridad,"FALLIDA");
+   assert.equal(saldoAdulterado.saldoCentavos,undefined,"Nunca publicar un saldo de una cadena adulterada");
+   // El mismo rechazo se aplica a un hueco del ledger.
+   await Evento.collection.deleteOne({_id:alterado._id});
+   const saldoIncompleto=await consultarSaldoVerificadoV81(httpDos);
+   assert.equal(saldoIncompleto.integridad,"FALLIDA");
+   assert.equal(saldoIncompleto.saldoCentavos,undefined);
+
   }finally{
    await Evento.collection.deleteMany({usuarioId:{$in:[httpUno,httpDos]}});
    await Cabeza.collection.deleteMany({usuarioId:{$in:[httpUno,httpDos]}});
