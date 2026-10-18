@@ -356,3 +356,10 @@ test("cálculo real de pagos compartido entre contabilidad y compromisos",()=>{
  assert.match(src,/reduce\(\(s,x\)=>s\+montoPagoDeudaMinor\(x\),0\)/);
  assert.match(src,/pagosPorDeuda\.set\(id,\(pagosPorDeuda\.get\(id\)\|\|0\)\+montoPagoDeudaMinor\(t\)\)/);
 });
+
+test("movimientos futuros no cuentan como pagos ya realizados",()=>{
+ const fs=require("node:fs"),path=require("node:path");
+ const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
+ assert.match(src,/Transaccion\.find\(\{usuarioId,fecha:\{\$gte:inicio,\$lte:now\},tipo:/);
+ assert.doesNotMatch(src,/Transaccion\.find\(\{usuarioId,fecha:\{\$gte:inicio,\$lt:fin\},tipo:/);
+});
