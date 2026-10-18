@@ -17,7 +17,7 @@ async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
  if(typeof collection.indexes!=="function")throw error("OFFLINE_LEDGER_UNIQUE_INDEX_REQUIRED");
  const indexes=await collection.indexes();
  const valid=Array.isArray(indexes)&&indexes.some(index=>
-   index.name==="uniq_offline_ledger_event_type_tenant"&&index.unique===true&&
+   index.name==="uniq_offline_ledger_event_type_tenant"&&index.unique===true&&index.sparse!==true&&!index.partialFilterExpression&&
    Object.keys(index.key||{}).length===4&&
    ["empresaId","sedeId","eventId","tipo"].every((k,i)=>Object.keys(index.key)[i]===k&&index.key[k]===1));
  if(!valid)throw error("OFFLINE_LEDGER_UNIQUE_INDEX_REQUIRED");
