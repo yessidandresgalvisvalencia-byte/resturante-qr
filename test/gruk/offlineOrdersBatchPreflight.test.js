@@ -29,3 +29,15 @@ test("lote offline: rechaza total acumulado fuera del rango entero seguro",()=>{
  assert.throws(()=>prepareOfflineOrders([high,orders[1]]),
    error=>error.code==="OFFLINE_ORDER_BATCH_CONFLICT");
 });
+
+test("preflight multiempresa: valida empresa sede y actor de todos los pedidos",()=>{
+ const {prepareOfflineOrdersForTenant}=require("../../core/offline/offlineOrdersBatch.preflight");
+ const auth={empresaId:"empresaA",sedeId:"sedeA",actorId:"cajeroA"};
+ const scoped=orders.slice(0,2).map(o=>({...o,...auth}));
+ assert.equal(prepareOfflineOrdersForTenant(scoped,auth).totalCop,"6000");
+ for(const wrong of [{empresaId:"empresaB"},{sedeId:"sedeB"},{actorId:"otro"}]){
+   assert.throws(()=>prepareOfflineOrdersForTenant([scoped[0],{...scoped[1],...wrong}],auth),
+      err=>err.code==="OFFLINE_ORDER_BATCH_CONFLICT");
+ }
+ assert.throws(()=>prepareOfflineOrdersForTenant(scoped,{}));
+});
