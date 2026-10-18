@@ -46,6 +46,7 @@ app.get("/ready", (_req, res) => {
 });
 app.get("/health", (_req, res) => {
   const connected = mongoose.connection.readyState === 1;
+  res.set("Cache-Control", "no-store");
   res.status(connected ? 200 : 503).json({
     status: connected ? "ok" : "degraded",
     version: HEALTH_VERSION,
