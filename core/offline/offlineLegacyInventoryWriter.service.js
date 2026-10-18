@@ -27,7 +27,14 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
   const updated=await inventory.updateOne({...key,_id:existing[0]._id,cantidad:old},
    {$inc:{cantidad:-Number(units)}},{session});
   if(updated.matchedCount!==1||updated.modifiedCount!==1)fail("OFFLINE_INVENTORY_CONCURRENT_CHANGE");
-  results.push(Object.freeze({productoId:delta.productoId,antes:String(old),despues:(BigInt(old)-units).toString()}));
+  // Read the persisted balance inside the SAME transaction, not an inferred
+  // balance from the $inc request. Any discrepancy aborts the entire posting.
+  const persisted=await inventory.findOne({...key,_id:existing[0]._id},
+    {session,projection:{cantidad:1}});
+  const expected=BigInt(old)-units;
+  if(!persisted||!Number.isSafeInteger(persisted.cantidad)||persisted.cantidad<0||
+     BigInt(persisted.cantidad)!==expected)fail("OFFLINE_INVENTORY_PERSISTENCE_CONFLICT");
+  results.push(Object.freeze({productoId:delta.productoId,antes:String(old),despues:String(persisted.cantidad)}));
  }
  return Object.freeze(results);
 }
