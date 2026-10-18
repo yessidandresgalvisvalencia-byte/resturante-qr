@@ -19,7 +19,9 @@ const confirmacionVinculoHistoricoV81Schema=Joi.object({
  idempotencyKey:Joi.string().guid({version:["uuidv4","uuidv7"]}).required(),
  confirmacionExplicita:Joi.boolean().valid(true).required()
 });
-router.post("/v81/vinculos-historicos/confirmar",validate(confirmacionVinculoHistoricoV81Schema),
+router.post("/v81/vinculos-historicos/confirmar",
+ require("./security/limiteConfirmacionHistoricaV81.middleware").crearLimiteConfirmacionHistoricaV81(),
+ validate(confirmacionVinculoHistoricoV81Schema),
  require("./services/confirmarVinculoHistoricoV81.handler").crearConfirmacionVinculoHistoricoV81());
 // Escritura V81: la cadena auth + entitlement ya validó el JWT personal.
 router.post("/v81/movimientos",require("./security/limiteSeleccionadoV81.middleware").crearLimiteSeleccionadoV81({clienteRedis:router.redisV81}),require("./services/registroMovimientoV81.handler").crearRegistroMovimientoV81());
