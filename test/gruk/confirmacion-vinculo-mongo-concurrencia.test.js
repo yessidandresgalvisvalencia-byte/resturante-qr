@@ -59,6 +59,27 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   assert.equal(despues.saldoMinor,antes.saldoMinor);
   assert.equal(txDespues.montoMinor,100);
   assert.equal(txDespues.cuentaId,null);
+  // Dos cuentas del mismo usuario reclaman a la vez otro asiento heredado.
+  const cuentaAlterna=await Cuenta.create({usuarioId,nombre:"PRUEBA_ALTERNA_"+crypto.randomUUID(),
+   tipo:"EFECTIVO",moneda:"COP",saldoMinor:0});
+  const segundo=await Movimiento.create({usuarioId,cuentaId:null,tipo:"GASTO",
+   concepto:"Movimiento de concurrencia",categoria:"PRUEBA",cuenta:cuenta.nombre,
+   medioPago:"EFECTIVO",montoMinor:250,moneda:"COP",fecha:new Date("2025-01-16T12:00:00Z")});
+  const solicitud={...operacion,movimientoId:String(segundo._id),
+   idempotencyKey:crypto.randomUUID()};
+  const disputa=await Promise.allSettled([
+   confirmarVinculoHistoricoV81(String(usuarioId),solicitud),
+   confirmarVinculoHistoricoV81(String(usuarioId),{
+    ...solicitud,cuentaId:String(cuentaAlterna._id),idempotencyKey:crypto.randomUUID()
+   })
+  ]);
+  assert.equal(disputa.filter(x=>x.status==="fulfilled").length,1);
+  assert.equal(await Vinculo.countDocuments({usuarioId,movimientoId:segundo._id}),1);
+  const evidencia=await Vinculo.findOne({usuarioId,movimientoId:segundo._id}).lean();
+  assert.ok([String(cuenta._id),String(cuentaAlterna._id)].includes(String(evidencia.cuentaId)));
+  assert.equal((await Movimiento.findById(segundo._id).lean()).cuentaId,null);
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,antes.saldoMinor);
+  assert.equal((await Cuenta.findById(cuentaAlterna._id).lean()).saldoMinor,0);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
