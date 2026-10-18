@@ -14,10 +14,15 @@ async function main() {
  if (!process.env.PERSONAL_MONGO_URI) {
   throw new Error("PERSONAL_MONGO_URI no está configurada");
  }
- await mongoose.connect(
-  process.env.PERSONAL_MONGO_URI,
-  process.env.PERSONAL_MONGO_DB ? {dbName:process.env.PERSONAL_MONGO_DB} : {}
- );
+ // Auditoría estrictamente de solo lectura: no generar índices ni colecciones
+ // automáticamente al inicializar modelos Mongoose.
+ const opciones = {
+  autoIndex: false,
+  autoCreate: false,
+  serverSelectionTimeoutMS: 10000,
+  ...(process.env.PERSONAL_MONGO_DB ? {dbName:process.env.PERSONAL_MONGO_DB} : {})
+ };
+ await mongoose.connect(process.env.PERSONAL_MONGO_URI, opciones);
  try {
   const auditoria = await auditarPrivilegiosHistorial(mongoose.connection.db);
   console.log(JSON.stringify(auditoria));
