@@ -1,6 +1,7 @@
 "use strict";
 const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
+const Cuenta=require("../models/cuentaFinanciera.model");
 const {conciliarPeriodoCuentaV81}=require("./conciliacionPeriodoCuentaV81.service");
 // Reporte de conciliación SOLO LECTURA sobre una instantánea del histórico.
 // Requiere anclas explícitas: el saldo de cuenta no se deduce del flujo.
@@ -12,6 +13,8 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
  const session=await mongoose.startSession();
  try{
   return await session.withTransaction(async()=>{
+   const cuenta=await Cuenta.findOne({_id:new mongoose.Types.ObjectId(cuentaId),usuarioId:new mongoose.Types.ObjectId(usuarioId),activa:true,moneda:"COP"}).session(session).lean();
+   if(!cuenta)throw Object.assign(new Error("Cuenta no autorizada o inexistente"),{statusCode:404});
    const rows=await Transaccion.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId),moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}})
     .session(session).sort({_id:1}).lean();
    const movimientos=rows.map(row=>{
