@@ -36,5 +36,6 @@ for(const operacion of [
 schema.pre("save",function(){
  if(!this.isNew)prohibirMutacion();
 });
-schema.pre("insertMany",function(){ /* INSERT permitido */ });
+// Se bloquea bulkWrite completo: incluso lotes mixtos podrían modificar pruebas.
+schema.pre("bulkWrite",prohibirMutacion);
 module.exports=mongoose.models.DecisionProofPersonal||mongoose.model("DecisionProofPersonal",schema);
