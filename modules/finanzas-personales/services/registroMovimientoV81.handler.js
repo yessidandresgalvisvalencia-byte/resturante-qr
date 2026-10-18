@@ -34,11 +34,13 @@ function crearRegistroMovimientoV81(escribir=anexarEventoV81){
  return async function registrarMovimientoV81(req,res){
   try{
    const usuarioId=resolverUsuarioAutorizadoV81({autenticado:req.personalAuth?.verificado===true,usuarioId:req.personalAuth?.userId});
-   const datos=validarSolicitudV81(req.body);
+   let datos;
+   try{datos=validarSolicitudV81(req.body);}
+   catch(error){if(error instanceof TypeError)error.statusCode=400;throw error;}
    const evento=await escribir(usuarioId,datos);
    return res.set("Cache-Control","no-store").status(201).json({ok:true,evento:{id:evento.id,version:evento.version,tipo:evento.tipo,montoCentavos:evento.montoCentavos.toString(),hashActual:evento.hashActual}});
   }catch(e){
-   const status=[400,401,403,409].includes(e?.statusCode)?e.statusCode:e instanceof TypeError?400:500;
+   const status=[400,401,403,409].includes(e?.statusCode)?e.statusCode:500;
    const reintentar=status===409&&e.codigo==="REINTENTAR_MISMO_ID";
    return res.set("Cache-Control","no-store").status(status).json({ok:false,codigo:reintentar?"REINTENTAR_MISMO_ID":status===409?"CONFLICTO_NO_REINTENTABLE":status===401?"NO_AUTENTICADO":status===403?"ACCESO_DENEGADO":status===400?"DATOS_INVALIDOS":"ERROR_INTERNO",error:reintentar?"Resultado incierto: consulta o reintenta con el mismo ID de movimiento":status===401?"Autenticación requerida":status===403?"Acceso denegado":status===409?"Conflicto de integridad o idempotencia":status===400?"Datos del movimiento inválidos":"No fue posible registrar el movimiento"});
   }
