@@ -6,8 +6,11 @@ const {ensureOfflineStockIndexes}=require("./offlineStockIndexes.service");
 const {ensureOfflineCashIndexes}=require("./offlineCashIndexes.service");
 const {ensureOfflineLedgerIndexes}=require("./offlineLedgerIndexes.service");
 const {assertOfflineStagingIndexes}=require("./offlineIndexesReadiness.service");
+const {auditOfflineIndexDuplicates}=require("./offlineIndexesDuplicateAudit.service");
 async function bootstrapOfflineStagingIndexes(db){
  if(typeof db?.collection!=="function")throw new TypeError("OFFLINE_DATABASE_REQUIRED");
+ const audit=await auditOfflineIndexDuplicates(db);
+ if(!audit.safe){const e=new Error("OFFLINE_INDEX_DUPLICATES_BLOCKED");e.code=e.message;throw e;}
  await ensureOfflineSalesIndexes(db);
  await ensureOfflineStockIndexes(db);
  await ensureOfflineCashIndexes(db);
