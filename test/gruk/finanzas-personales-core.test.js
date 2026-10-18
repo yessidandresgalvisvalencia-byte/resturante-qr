@@ -391,3 +391,22 @@ test("panel bloquea autorización ante gasto periódico que vence hoy",()=>{
  assert.match(src,/Gasto recurrente de hoy por confirmar/);
  assert.match(src,/gastosRecurrentesHoySinConciliar:gastosRecurrentesHoySinConciliar\.map/);
 });
+
+test("gasto recurrente ya registrado en el ledger hoy no bloquea caja",()=>{
+ const hoy=new Date("2026-10-18T16:00:00.000Z");
+ const gasto={tipo:"GASTO",recurrente:true,frecuencia:"MENSUAL",montoMinor:500000,
+  fecha:new Date("2026-10-18T05:00:00.000Z"),estado:"ACTIVA",impactoCaja:true};
+ assert.equal(home.gastoRecurrenteVenceHoy(gasto,hoy),true);
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion(gasto,hoy),false);
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion({...gasto,impactoCaja:false},hoy),true);
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion({...gasto,estado:"ANULADA"},hoy),true);
+});
+test("una repetición antigua no se marca pagada por tener mismo concepto",()=>{
+ const hoy=new Date("2026-10-18T16:00:00.000Z");
+ const gasto={tipo:"GASTO",recurrente:true,frecuencia:"MENSUAL",
+  concepto:"Arriendo",montoMinor:500000,estado:"ACTIVA",impactoCaja:true,
+  fecha:new Date("2024-01-18T05:00:00.000Z")};
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion(gasto,hoy),true);
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion({...gasto,fecha:
+  new Date("2024-01-19T05:00:00.000Z")},hoy),false);
+});
