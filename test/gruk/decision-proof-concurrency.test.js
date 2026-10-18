@@ -8,7 +8,7 @@ const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.mo
 test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:!process.env.TEST_MONGO_URI},async()=>{
  await mongoose.connect(process.env.TEST_MONGO_URI,{dbName:"gruk_chain_concurrency"});
  try{
-  await Promise.all([Proof.deleteMany({}),Head.deleteMany({}),Outbox.deleteMany({})]);
+  // No se borran decisiones: cada ejecución crea un usuario único.
   await Promise.all([Proof.syncIndexes(),Head.syncIndexes(),Outbox.syncIndexes()]);
   const usuarioId=new mongoose.Types.ObjectId();
   const base={evaluacion:{autorizada:false,irreversible:false,motivos:[]},verdades:[],actorId:"TEST"};
@@ -54,6 +54,27 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   assert.deepEqual(final.map(x=>x.secuencia),[1,2,3,4]);
   const headFinal=await Head.findOne({usuarioId}).lean();
   assert.equal(headFinal.headHash,final[3].hash);
+  await assert.rejects(
+    ()=>Proof.updateOne({usuarioId,_id:final[0]._id},{$set:{accion:"ADULTERADO"}}),
+    {code:"DECISION_PROOF_APPEND_ONLY"}
+  );
+  await assert.rejects(
+    ()=>Proof.deleteOne({usuarioId,_id:final[0]._id}),
+    {code:"DECISION_PROOF_APPEND_ONLY"}
+  );
+  await assert.rejects(
+    ()=>Proof.deleteMany({usuarioId}),
+    {code:"DECISION_PROOF_APPEND_ONLY"}
+  );
+  await assert.rejects(
+    ()=>Proof.replaceOne({usuarioId,_id:final[0]._id},{...final[0],accion:"REEMPLAZADO"}),
+    {code:"DECISION_PROOF_APPEND_ONLY"}
+  );
+  const existente=await Proof.findById(final[0]._id);
+  existente.accion="ADULTERADO";
+  await assert.rejects(()=>existente.save(),{code:"DECISION_PROOF_APPEND_ONLY"});
+  assert.equal((await Proof.findById(final[0]._id)).accion,final[0].accion);
+
   const {auditarCadenaUsuario}=require("../../modules/finanzas-personales/services/auditoriaCadenaDecision.service");
   assert.deepEqual(await auditarCadenaUsuario(usuarioId),{valida:true,codigo:"OK",secuencia:4});
   const otroUsuario=new mongoose.Types.ObjectId();
