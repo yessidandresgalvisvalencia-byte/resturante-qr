@@ -9,7 +9,12 @@ async function verifyOfflineProducts({collection,prepared,context,objectId,sessi
    !context||![context.empresaId,context.sedeId].every(x=>typeof x==="string"&&HEX24.test(x)))fail();
  const ids=validateOfflineLegacyProductIds(prepared);
  const query={_id:{$in:ids.map(id=>objectId(id))},empresaId:objectId(context.empresaId),sedeId:objectId(context.sedeId),activo:true};
- const found=await collection.find(query,{projection:{_id:1},...(session?{session}:{})}).toArray();
+ const found=await collection.find(query,{projection:{_id:1,empresaId:1,sedeId:1,activo:1},...(session?{session}:{})}).toArray();
+ // Defense in depth: validate returned records, not only the query predicate.
+ if(!Array.isArray(found)||found.some(row=>
+  String(row?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
+  String(row?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
+  row?.activo!==true))fail();
  const valid=new Set(found.map(x=>String(x._id).toLowerCase()));
  if(valid.size!==ids.length||ids.some(id=>!valid.has(id)))fail();
  return Object.freeze(ids);
