@@ -58,7 +58,7 @@ test("venta: no reportar éxito si el duplicado pertenece a otro tenant",async()
 });
 
 test("venta: reintento con importe diferente se rechaza como conflicto",async()=>{
-  const existing={_id:"venta_1",cantidad:1,precioUnitario:1000,total:950,productoServicioId:"producto_1"};
+  const existing={_id:"venta_1",cantidad:1,precioUnitario:1000,total:950,productoServicioId:"producto_1",estado:"pagada"};
   const {service}=makeService(existing);
   await assert.rejects(
     service.registrarVentaDesdePedido({
