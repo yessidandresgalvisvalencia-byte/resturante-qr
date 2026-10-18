@@ -182,9 +182,11 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
 
   // Conciliación histórica por cuenta real en instantánea de MongoDB.
   const TransaccionHistorica=require("../../modules/finanzas-personales/models/TransaccionPersonal");
+  const CuentaHistorica=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
   const {conciliarHistoricoCuentaV81}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
   const usuarioCuenta=new mongoose.Types.ObjectId(),cuentaPrueba=new mongoose.Types.ObjectId();
   try{
+   await CuentaHistorica.create({_id:cuentaPrueba,usuarioId:usuarioCuenta,nombre:"Prueba V81 "+cuentaPrueba.toString(),tipo:"AHORROS",moneda:"COP",activa:true});
    await TransaccionHistorica.create([
     {usuarioId:usuarioCuenta,cuentaId:cuentaPrueba,tipo:"INGRESO",montoMinor:1000,concepto:"Ingreso prueba V81",categoria:"OTROS",fecha:new Date("2026-10-10T12:00:00Z"),impactoCaja:true},
     {usuarioId:usuarioCuenta,cuentaId:cuentaPrueba,tipo:"GASTO",montoMinor:200,concepto:"Gasto prueba V81",categoria:"OTROS",fecha:new Date("2026-10-11T12:00:00Z"),impactoCaja:true}
@@ -196,8 +198,10 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    const diferente=await conciliarHistoricoCuentaV81({usuarioId:String(usuarioCuenta),cuentaId:String(cuentaPrueba),
     desde:"2026-10-01",hastaExclusivo:"2026-11-01",saldoInicialCentavos:50000n,saldoObservadoCentavos:129999n});
    assert.equal(diferente.diferenciaCentavos,"-1");
+   await assert.rejects(conciliarHistoricoCuentaV81({usuarioId:String(new mongoose.Types.ObjectId()),cuentaId:String(cuentaPrueba),desde:"2026-10-01",hastaExclusivo:"2026-11-01",saldoInicialCentavos:0n,saldoObservadoCentavos:0n}),/Cuenta no autorizada/);
   }finally{
    await TransaccionHistorica.collection.deleteMany({usuarioId:usuarioCuenta});
+   await CuentaHistorica.collection.deleteMany({_id:cuentaPrueba});
   }
 
   // Prueba de controlador HTTP con escritura real contra la réplica Mongo aislada.
