@@ -8,7 +8,7 @@ test("Conciliación V81 toma usuario solo de sesión verificada y montos BigInt"
  let llamadas=0;
  const handler=crearConsultaConciliacionCuentaV81(async input=>{llamadas++;assert.equal(input.usuarioId,userId);assert.equal(input.saldoInicialCentavos,10010n);assert.equal(input.saldoObservadoCentavos,9005n);return {estado:"DIFERENCIA",diferenciaCentavos:"-1005"};});
  assert.equal((await llamar(handler,{userId,verificado:false})).code,401);assert.equal(llamadas,0);
- const ok=await llamar(handler,{userId,verificado:true});assert.equal(ok.code,200);assert.equal(ok.headers["Cache-Control"],"no-store");assert.equal(llamadas,1);
+ const ok=await llamar(handler,{userId,verificado:true});assert.equal(ok.code,200);assert.equal(ok.headers["Cache-Control"],"no-store");assert.equal(ok.data.conciliacion.aptoParaDisponibleHoy,false);assert.equal(ok.data.conciliacion.saldoBancarioVerificado,false);assert.equal(ok.data.conciliacion.usoPermitido,"DIAGNOSTICO_CONTABLE");assert.equal(llamadas,1);
 });
 test("Conciliación V81 rechaza identidad inyectada y montos inseguros",async()=>{
  const handler=crearConsultaConciliacionCuentaV81(async()=>assert.fail("Nunca consultar"));
