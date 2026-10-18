@@ -128,3 +128,21 @@ test("no ignora acciones administrativas peligrosas a nivel clúster",()=>{
  ],db,collection),["anyAction","grantRole"]);
  assert.equal(aplicaAlHistorial({cluster:true},db,collection),true);
 });
+
+test("audita privilegio que permite omitir validación de documentos", async () => {
+ const acciones=detectarPrivilegiosPeligrosos([
+  permiso({db,collection},["find","insert","bypassDocumentValidation"])
+ ],db,collection);
+ assert.deepEqual(acciones,["bypassDocumentValidation"]);
+ const resultado=await auditarPrivilegiosHistorial({
+  databaseName:db,
+  command:async()=>({authInfo:{
+   authenticatedUsers:[{user:"writer",db:"admin"}],
+   authenticatedUserRoles:[{role:"writer",db:"admin"}],
+   authenticatedUserPrivileges:[permiso({db,collection},["find","insert","bypassDocumentValidation"])]
+  }})
+ });
+ assert.equal(resultado.seguro,false);
+ assert.equal(resultado.codigo,"PRIVILEGIOS_PELIGROSOS");
+ assert.deepEqual(resultado.acciones,["bypassDocumentValidation"]);
+});
