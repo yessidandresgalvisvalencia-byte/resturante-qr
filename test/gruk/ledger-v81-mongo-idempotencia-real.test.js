@@ -8,12 +8,13 @@ const {anexarEventoV81}=require("../../modules/finanzas-personales/services/pers
 const {verificarCadena}=require("../../modules/finanzas-personales/services/cadenaEventosV81.service");
 
 const uri=process.env.GRUK_V81_TEST_MONGO_URI;
-const dbName=uri ? (()=>{try{return new URL(uri).pathname.replace(/^\//,"");}catch{return "";}})() : "";
-const seguro=Boolean(uri && /^gruk_v81_test_[a-z0-9_-]+$/i.test(dbName) && process.env.NODE_ENV!=="production");
+const {validarMongoPruebasV81}=require("../../scripts/exigir-mongo-v81-pruebas");
+let seguro=false;
+try{seguro=validarMongoPruebasV81(uri);}catch(_){seguro=false;}
 const base={id:"v81_reintento_igual",tipo:"GASTO",montoCentavos:2500030n,fechaContable:"2026-01-01",timestamp:"2026-01-01T10:00:00-05:00"};
 
 test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuarios",{
- skip:seguro?false:"Requiere GRUK_V81_TEST_MONGO_URI con base exclusiva gruk_v81_test_* y NODE_ENV no productivo",
+ skip:seguro?false:"Requiere MongoDB replica set local (loopback), base gruk_v81_test_*, sin credenciales, NODE_ENV no productivo",
  timeout:60000
 },async()=>{
  const a=new mongoose.Types.ObjectId(),b=new mongoose.Types.ObjectId();
