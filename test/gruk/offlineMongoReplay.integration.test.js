@@ -47,6 +47,23 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     assert.equal(conflictResults.filter(x => x.status === "rejected" && x.reason.code === "OFFLINE_EVENT_CONFLICT").length, 1);
     assert.equal(await db.collection("gruk_offline_inbox").countDocuments({ empresaId, sedeId, eventId: conflictEvent.eventId }), 1);
     await db.collection("gruk_offline_inbox").deleteOne({ empresaId, sedeId, eventId: conflictEvent.eventId });
+    // Existing conflict at the end of a batch must not partially write earlier events.
+    const existingConflict = { ...events[0], eventId:"01ARZ3NDEKTSV4RRFFQ69G5FB4" };
+    const freshBeforeConflict = { ...events[1], eventId:"01ARZ3NDEKTSV4RRFFQ69G5FB5" };
+    await acceptOfflineBatch({db,authenticatedContext:context,events:[existingConflict]});
+    await assert.rejects(
+      acceptOfflineBatch({db,authenticatedContext:context,events:[
+        freshBeforeConflict,
+        {...existingConflict,payload:{localOrderId:"changed-existing-order"}}
+      ]}),
+      error => error.code === "OFFLINE_EVENT_CONFLICT"
+    );
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
+      empresaId,sedeId,eventId:freshBeforeConflict.eventId
+    }),0);
+    await db.collection("gruk_offline_inbox").deleteOne({
+      empresaId,sedeId,eventId:existingConflict.eventId
+    });
     // Two different tablets send distinct orders concurrently; neither is lost.
     const tabletOne = { ...events[0], eventId: "01ARZ3NDEKTSV4RRFFQ69G5FB0", deviceId: "tabletOne" };
     const tabletTwo = { ...events[1], eventId: "01ARZ3NDEKTSV4RRFFQ69G5FB1", deviceId: "tabletTwo" };

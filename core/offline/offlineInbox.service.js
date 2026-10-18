@@ -26,6 +26,20 @@ async function ensureInboxIndexes(db) {
 async function acceptOfflineBatch({ db, authenticatedContext, events }) {
   const validated = validateBatch(events, authenticatedContext);
   const inbox = collectionFor(db);
+  // Preflight conflicts before any inserts so a known conflicting retry
+  // cannot partially accept the earlier events in the same batch.
+  for (const event of validated) {
+    const previous = await inbox.findOne({
+      empresaId: authenticatedContext.empresaId,
+      sedeId: authenticatedContext.sedeId,
+      eventId: event.eventId
+    }, { projection: { eventHash: 1, actorId: 1, _id: 0 } });
+    if (previous && (previous.eventHash !== digest(event) || previous.actorId !== authenticatedContext.actorId)) {
+      const conflict = new Error("OFFLINE_EVENT_CONFLICT");
+      conflict.code = "OFFLINE_EVENT_CONFLICT";
+      throw conflict;
+    }
+  }
   const result = [];
   for (const event of validated) {
     const key = { empresaId: authenticatedContext.empresaId, sedeId: authenticatedContext.sedeId, eventId: event.eventId };
