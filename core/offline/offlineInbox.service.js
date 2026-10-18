@@ -72,8 +72,14 @@ async function insertBatch({ db, authenticatedContext, events, session }) {
 async function acceptOfflineBatch({ db, authenticatedContext, events }) {
   // Validate authorization and payloads before opening a database transaction.
   validateBatch(events, authenticatedContext);
-  if (events.length < 2 || typeof db?.client?.startSession !== "function") {
+  if (events.length < 2) {
     return insertBatch({db, authenticatedContext, events});
+  }
+  // Do not allow another caller to bypass the HTTP route transaction guard.
+  if (typeof db?.client?.startSession !== "function") {
+    const error = new Error("OFFLINE_TRANSACTION_UNAVAILABLE");
+    error.code = "OFFLINE_TRANSACTION_UNAVAILABLE";
+    throw error;
   }
   const session = db.client.startSession();
   try {
