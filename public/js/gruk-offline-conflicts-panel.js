@@ -43,6 +43,21 @@ async function review({token,fetchFn,conflictId,action,note,decisionId}){
   throw Error("OFFLINE_REVIEW_INVALID_RESPONSE");
  return data;
 }
+async function preflight({token,fetchFn,conflictId}){
+ if(typeof token!=="string"||!token.trim())throw Error("OFFLINE_REVIEW_AUTH_REQUIRED");
+ if(!/^offline-stock-[a-f0-9]{64}$/.test(conflictId||""))
+  throw Error("OFFLINE_REVIEW_INVALID_CONFLICT");
+ const response=await fetchFn("/api/sync/stock-conflicts/preflight?conflictId="+encodeURIComponent(conflictId),{
+  method:"GET",headers:{Authorization:"Bearer "+token},cache:"no-store",credentials:"same-origin"
+ });
+ if(response.status!==200)throw Error("OFFLINE_REVIEW_PREFLIGHT_UNAVAILABLE");
+ const result=await response.json();
+ if(result?.ok!==true||result.readOnly!==true||result.conflictId!==conflictId||
+   typeof result.ready!=="boolean"||result.applied!==false||result.cobrado!==false||
+   result.inventoryChanges!==false||!Array.isArray(result.products))
+  throw Error("OFFLINE_REVIEW_INVALID_PREFLIGHT");
+ return result;
+}
 function start({document,storage,fetchFn,cryptoSource}){
  const box=document.getElementById("conflicts"),notice=document.getElementById("notice"),
   button=document.getElementById("loadConflicts");
@@ -61,6 +76,20 @@ function start({document,storage,fetchFn,cryptoSource}){
     summary.textContent=item.issues.map(x=>"Producto "+x.productoId+" · Disponible "+x.disponible+
       " · Solicitado "+x.solicitado+" · Faltante "+x.faltante).join(" | ");
     article.appendChild(summary);
+    const check=document.createElement("button");check.type="button";
+    check.textContent="Verificar stock actual (sin cambios)";
+    const outcome=document.createElement("p");outcome.textContent="Stock actual sin verificar";
+    check.addEventListener("click",async()=>{
+     check.disabled=true;
+     try{
+      const status=await preflight({token,fetchFn,conflictId:item.conflictId});
+      outcome.textContent=status.ready?
+       "Ahora hay stock suficiente para nueva revisión. NO se ha procesado el pedido ni modificado inventario.":
+       "El faltante sigue pendiente o los eventos requieren revisión. No se modificó inventario.";
+     }catch(error){outcome.textContent="No se pudo verificar: "+(error.message||"error");}
+     finally{check.disabled=false;}
+    });
+    article.appendChild(check);article.appendChild(outcome);
     const select=document.createElement("select");
     for(const action of ACTIONS){const option=document.createElement("option");
       option.value=action;option.textContent=action.replace(/_/g," ");select.appendChild(option);}
@@ -84,7 +113,7 @@ function start({document,storage,fetchFn,cryptoSource}){
  button.addEventListener("click",refresh);
  return {refresh};
 }
-const api=Object.freeze({createDecisionId,tokenFrom,list,review,start});
+const api=Object.freeze({createDecisionId,tokenFrom,list,review,preflight,start});
 if(typeof module==="object"&&module.exports)module.exports=api;
 else{root.GRUKOfflineConflictsPanel=api;
  if(root.document){const run=()=>start({document:root.document,storage:root.localStorage,
