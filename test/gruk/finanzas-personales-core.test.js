@@ -437,7 +437,7 @@ test("API protege vínculo recurrente con titularidad y validación explícita",
  assert.match(flujo,/\{_id:input\.recurrenteOrigenId,usuarioId,tipo:"GASTO"/);
  assert.match(home,/recurrenteOrigenId:\{\$in:vencenHoy\.map/);
  assert.match(home,/periodoRecurrenteColombia\(\{fechaOrigen:g\.fecha,fechaPago:now/);
- assert.match(home,/String\(pago\.recurrenteOrigenId\)!==String\(gasto\._id\)/);
+ assert.match(home,/sumarAbonosRecurrentesPeriodo\(\{/);
 });
 
 test("asesor consulta pagos ligados de todo el ciclo, no solo del día actual",()=>{
@@ -445,6 +445,25 @@ test("asesor consulta pagos ligados de todo el ciclo, no solo del día actual",(
  const homeService=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
  assert.match(homeService,/const desde=periodosHoy\.length/);
  assert.match(homeService,/fecha:\{\$gte:desde,\$lte:now\}/);
- assert.match(homeService,/pago\.fecha<inicio\|\|pago\.fecha>=fin/);
+ assert.match(homeService,/fecha<inicio\|\|fecha>=fin/);
  assert.doesNotMatch(homeService,/pagosRecurrentesDeHoy/);
+});
+
+test("suma solo abonos vinculados en el período, sin mezclar otras obligaciones",()=>{
+ const sumar=home.sumarAbonosRecurrentesPeriodo;
+ const inicio=new Date("2026-10-01T05:00:00Z");
+ const fin=new Date("2026-11-01T05:00:00Z");
+ const pagos=[
+  {recurrenteOrigenId:"origen-A",fecha:new Date("2026-10-05T12:00:00Z"),montoMinor:100000},
+  {recurrenteOrigenId:"origen-A",fecha:new Date("2026-10-28T12:00:00Z"),montoMinor:150000},
+  {recurrenteOrigenId:"origen-B",fecha:new Date("2026-10-05T12:00:00Z"),montoMinor:900000},
+  {recurrenteOrigenId:"origen-A",fecha:new Date("2026-09-30T12:00:00Z"),montoMinor:300000},
+  {recurrenteOrigenId:"origen-A",fecha:new Date("2026-11-01T05:00:00Z"),montoMinor:300000}
+ ];
+ assert.equal(sumar({origenId:"origen-A",inicio,fin,pagos}),250000);
+ assert.equal(sumar({origenId:"origen-B",inicio,fin,pagos}),900000);
+ assert.throws(()=>sumar({origenId:"origen-A",inicio,fin,pagos:[
+  {recurrenteOrigenId:"origen-A",fecha:inicio,montoMinor:1.25}
+ ]}),TypeError);
+ assert.throws(()=>sumar({origenId:"origen-A",inicio,fin:inicio,pagos}),TypeError);
 });
