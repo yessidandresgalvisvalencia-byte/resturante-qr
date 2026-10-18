@@ -22,6 +22,6 @@ async function confirmarIntento({Transaccion,usuarioId,externalIdHash,esperado})
   throw Object.assign(new Error("La clave corresponde a otra operación; no se registró ningún movimiento nuevo"),{statusCode:409});
  if(encontrado.estado==="ANULADA")
   return {confirmado:false,estado:"ANULADA",existe:true};
- return {confirmado:true,estado:"ACTIVA",existe:true};
+ return {confirmado:true,estado:"ACTIVA",existe:true,transaccionId:encontrado._id?String(encontrado._id):null};
 }
 module.exports={coincideIntento,confirmarIntento};
