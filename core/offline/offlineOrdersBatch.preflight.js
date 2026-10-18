@@ -16,4 +16,17 @@ function prepareOfflineOrders(events){
   });
   return Object.freeze({orders:Object.freeze(normalized),totalCop:total.toString()});
 }
-module.exports={prepareOfflineOrders};
+// Strict, authenticated scope is mandatory at the domain posting boundary.
+function prepareOfflineOrdersForTenant(events, authenticatedContext){
+  const ID=/^[A-Za-z0-9_-]{1,80}$/;
+  if(!authenticatedContext||!["empresaId","sedeId","actorId"].every(k=>
+    typeof authenticatedContext[k]==="string"&&ID.test(authenticatedContext[k])))fail();
+  if(!Array.isArray(events)||events.length<1||events.length>100)fail();
+  for(const event of events){
+    if(!event||event.empresaId!==authenticatedContext.empresaId||
+      event.sedeId!==authenticatedContext.sedeId||
+      event.actorId!==authenticatedContext.actorId)fail();
+  }
+  return prepareOfflineOrders(events);
+}
+module.exports={prepareOfflineOrders,prepareOfflineOrdersForTenant};
