@@ -6,7 +6,7 @@ const mov={id:"a",tipo:"SALIDA",montoCentavos:100n,fechaContable:"2026-10-17",us
 test("V81 concilia período válido y respeta límites inclusivo/exclusivo",()=>{
  const result=conciliarPeriodoCuentaV81({...base,movimientos:[mov]});
  assert.equal(result.estado,"CONCILIADA");assert.equal(result.desde,base.desde);
- for(const fechaContable of ["2026-09-30","2026-11-01",undefined]){
+ for(const fechaContable of ["2026-09-30","2026-11-01","2026-10-35","2026-10-1",undefined]){
   assert.throws(()=>conciliarPeriodoCuentaV81({...base,movimientos:[{...mov,fechaContable}]}),/período/);
  }
 });
