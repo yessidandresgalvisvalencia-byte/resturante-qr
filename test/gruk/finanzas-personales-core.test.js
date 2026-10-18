@@ -293,3 +293,25 @@ test("próxima obligación exige cuota real y el detalle conserva pago único",(
  assert.match(src,/const proxima=deudas\.find\([^\n]*cuotaExigibleMinor\(x\)>0/);
  assert.match(src,/periodicidad:x\.periodicidad,periodicidadConfirmada:x\.periodicidadConfirmada/);
 });
+
+test("vencimientos atrasados bloquean autorización hasta conciliar pagos",()=>{
+ const now=new Date("2026-10-18T16:00:00.000Z");
+ const deuda={_id:"a",direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:4000000,
+  cuotaMinor:550000,fechaVencimiento:new Date("2026-10-15T05:00:00.000Z")};
+ const listado=[
+  deuda,
+  {...deuda,_id:"b",estado:"VENCIDO"},
+  {...deuda,_id:"c",estado:"PAGADO"},
+  {...deuda,_id:"d",direccion:"POR_COBRAR"},
+  {...deuda,_id:"e",saldoMinor:0},
+  {...deuda,_id:"f",fechaVencimiento:new Date("2026-10-20T05:00:00.000Z")},
+  {...deuda,_id:"g",fechaVencimiento:"invalida"}
+ ];
+ assert.deepEqual(home.seleccionarVencimientosAtrasados(listado,now).map(d=>d._id),["a","b"]);
+ assert.throws(()=>home.seleccionarVencimientosAtrasados(listado,new Date("invalida")),TypeError);
+ const fs=require("node:fs"),path=require("node:path");
+ const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
+ assert.match(src,/vencimientosAtrasados\.length===0/);
+ assert.match(src,/Vencimiento atrasado por conciliar/);
+ assert.match(src,/vencimientosAtrasados:vencimientosAtrasados\.map/);
+});
