@@ -137,6 +137,8 @@ jobs:
               console.log("Diagnóstico",n,JSON.stringify(v?{range:v.range,fixAvailable:v.fixAvailable,via:v.via.filter(x=>typeof x==="object").map(x=>({url:x.url,range:x.range}))}:{status:"sin alerta"}));
             }
           '
+      - name: Verificar sintaxis de servicios financieros y auditorías
+        run: npm run check:personal
       - name: Probar centavos, cadena SHA256 y proyeccion de ledger
         run: |
           node --test test/finanzas-personales/*.test.js
