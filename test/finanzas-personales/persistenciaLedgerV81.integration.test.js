@@ -100,6 +100,10 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    montoCentavos:BigInt(e.montoCentavos),corrigeId:e.corrigeId,
    motivo:e.motivo,tipoCorregido:e.tipoCorregido
   })),String(usuarioId));
+  const {consultarSaldoVerificadoV81}=require("../../modules/finanzas-personales/services/consultaSaldoVerificadoV81.service");
+  const saldoCorregido=await consultarSaldoVerificadoV81(usuarioId);
+  assert.equal(saldoCorregido.integridad,"VERIFICADA","Una corrección legítima no invalida el saldo");
+  assert.equal(saldoCorregido.saldoCentavos,proyeccion.saldoCentavos.toString());
   assert.equal(proyeccion.ingresosCentavos,1800000n);
   assert.equal(proyeccion.gastosCentavos,2500000n+
    BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
