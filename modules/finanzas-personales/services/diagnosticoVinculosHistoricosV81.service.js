@@ -22,11 +22,10 @@ async function diagnosticarVinculosHistoricosV81(usuarioId,{limite=100}={}){
  const session=await mongoose.startSession();
  try{
   return await session.withTransaction(async()=>{
-   const [cuentas,filas]=await Promise.all([
-    Cuenta.find({usuarioId,activa:true,moneda:"COP"}).session(session).select("_id nombre activa moneda").lean(),
-    Transaccion.find(filtro).sort({_id:1}).limit(limite+1).session(session)
-     .select("_id cuenta cuentaId tipo fecha").lean()
-   ]);
+   const cuentas=await Cuenta.find({usuarioId,activa:true,moneda:"COP"})
+    .session(session).select("_id nombre activa moneda").lean();
+   const filas=await Transaccion.find(filtro).sort({_id:1}).limit(limite+1)
+    .session(session).select("_id cuenta cuentaId tipo fecha").lean();
    const truncado=filas.length>limite;
    const movimientos=filas.slice(0,limite).map(f=>({
     movimientoId:String(f._id),cuentaHistorica:f.cuenta||"",
