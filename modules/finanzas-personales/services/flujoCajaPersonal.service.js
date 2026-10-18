@@ -5,6 +5,7 @@ const Transaccion=require("../models/TransaccionPersonal");
 const Outbox=require("../models/outboxPersonal.model");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
+const ReservaCuota=require("../models/reservaCuotaRecurrente.model");
 const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,periodoRecurrenteColombia,validarTotalPeriodoRecurrente}=require("./vinculoRecurrenteV81.service");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
 const {encryptObject}=require("../security/fieldEncryption.service");
@@ -51,6 +52,19 @@ async function registrarTransaccion(usuarioId,input){
      importeObligacionMinor:origen.montoMinor,
      yaPagadoMinor:pagado,nuevoPagoMinor:input.montoMinor
     });
+    // Las lecturas previas no impiden write skew bajo concurrencia. Crear
+    // un único cerrojo por usuario+obligación+período, inicializado con los
+    // pagos previos, y reservar dentro de ESTA transacción.
+    const filtroReserva={usuarioId,origenId:origen._id,periodoInicio:inicio};
+    await ReservaCuota.updateOne(filtroReserva,{
+     $setOnInsert:{...filtroReserva,periodoFin:fin,
+      importeCuotaMinor:origen.montoMinor,reservadoMinor:pagado}
+    },{upsert:true,session});
+    const reserva=await ReservaCuota.findOneAndUpdate({
+     ...filtroReserva,importeCuotaMinor:origen.montoMinor,
+     reservadoMinor:{$lte:origen.montoMinor-input.montoMinor}
+    },{$inc:{reservadoMinor:input.montoMinor}},{new:true,session});
+    if(!reserva)throw Object.assign(new Error("Cuota recurrente sin saldo disponible o reserva concurrente"),{statusCode:409});
     recurrenteOrigenId=origen._id;
    }
    let prestamoId=input.prestamoId||null;if(["PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO"].includes(input.tipo)&&!prestamoId)throw Object.assign(new Error("Este movimiento patrimonial requiere una obligación exacta; usa el flujo de préstamo/cobro para mantener caja y patrimonio sincronizados."),{statusCode:409});if(input.tipo==="PAGO_DEUDA"&&!prestamoId){const candidatas=await Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).select("_id").session(session);if(candidatas.length!==1)throw Object.assign(new Error(candidatas.length?"Indica exactamente qué deuda estás pagando.":"No hay una deuda activa para aplicar este pago."),{statusCode:409});prestamoId=candidatas[0]._id;}const envelope=input.metadatosSensibles?encryptObject(input.metadatosSensibles,{aad:String(usuarioId)}):null;
