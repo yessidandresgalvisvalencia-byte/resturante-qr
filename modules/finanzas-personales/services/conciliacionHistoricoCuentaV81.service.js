@@ -3,6 +3,7 @@ const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const {conciliarPeriodoCuentaV81}=require("./conciliacionPeriodoCuentaV81.service");
+const {exigirSinMovimientosHuerfanos}=require("./guardiaConciliacionCuentaV81.service");
 // Reporte de conciliación SOLO LECTURA sobre una instantánea del histórico.
 // Requiere anclas explícitas: el saldo de cuenta no se deduce del flujo.
 async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclusivo,saldoInicialCentavos,saldoObservadoCentavos}){
@@ -17,6 +18,14 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
    if(!cuenta)throw Object.assign(new Error("Cuenta no autorizada o inexistente"),{statusCode:404});
    const rows=await Transaccion.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId),moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}})
     .session(session).sort({_id:1}).lean();
+   // Consulta en la misma instantánea los asientos heredados sin cuentaId.
+   // De otro modo la conciliación omitiría débitos y podría informar falsos ceros.
+   const sinVinculo=await Transaccion.find({
+    usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:null,
+    cuenta:cuenta.nombre,moneda:"COP",estado:{$ne:"ANULADA"},
+    fecha:{$gte:start,$lt:end}
+   }).session(session).select("_id cuenta cuentaId").lean();
+   exigirSinMovimientosHuerfanos({cuenta,filas:sinVinculo});
    const movimientos=rows.map(row=>{
     if(!Number.isSafeInteger(row.montoMinor)||row.montoMinor<=0||row.impactoCaja!==true||
        !["INGRESO","GASTO"].includes(row.tipo)||row.medioPago==="CREDITO")
