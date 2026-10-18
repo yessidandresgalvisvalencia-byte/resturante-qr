@@ -47,11 +47,21 @@ jobs:
         run: |
           set -o pipefail
           npm run gate 2>&1 | tee "${RUNNER_TEMP}/gruk-gate.log"
+      - name: Verificar ledger personal V81 contra MongoDB real
+        env:
+          NODE_ENV: test
+          GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_integracion?replicaSet=rs0&directConnection=true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:personal:mongo-idempotencia 2>&1 | tee "${RUNNER_TEMP}/gruk-v81-mongo.log"
       - name: Conservar diagnóstico de CI
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gruk-gate-diagnostics-${{ github.run_id }}
-          path: ${{ runner.temp }}/gruk-gate.log
+          path: |
+            ${{ runner.temp }}/gruk-gate.log
+            ${{ runner.temp }}/gruk-v81-mongo.log
           if-no-files-found: ignore
           retention-days: 3
