@@ -49,4 +49,37 @@ async function emitirAnclaDecisionMongo(usuarioId, clave, opciones = {}) {
  }
 }
 
-module.exports = {emitirAnclaDecisionMongo};
+/**
+ * Compara una ancla obtenida de custodia independiente contra el historial
+ * real de MongoDB, leído en una instantánea transaccional.
+ * Nunca acepta registros financieros suministrados por el cliente.
+ */
+async function verificarAnclaDecisionMongo(usuarioId, clave, anclaExterna) {
+ if (!mongoose.isObjectIdOrHexString(usuarioId)) throw new TypeError("usuarioId inválido");
+ if (!Buffer.isBuffer(clave) || clave.length < 32) throw new TypeError("Clave HMAC inválida");
+ if (!anclaExterna || typeof anclaExterna !== "object" || Array.isArray(anclaExterna)) {
+  throw new TypeError("Ancla externa obligatoria");
+ }
+ const id=new mongoose.Types.ObjectId(String(usuarioId));
+ const session=await mongoose.startSession();
+ try {
+  return await session.withTransaction(async()=>{
+   const head=await ChainHead.findOne({usuarioId:id}).session(session).lean();
+   const registros=await DecisionProof.find({usuarioId:id})
+    .sort({secuencia:1,_id:1}).limit(MAX_REGISTROS+1)
+    .session(session).lean();
+   if (registros.length>MAX_REGISTROS) {
+    return {valida:false,codigo:"AUDITORIA_REQUIERE_PAGINACION"};
+   }
+   return verificarAncla(anclaExterna,clave,registros,head,String(id));
+  },{
+   readConcern:{level:"snapshot"},
+   writeConcern:{w:"majority"},
+   readPreference:"primary"
+  });
+ } finally {
+  await session.endSession();
+ }
+}
+
+module.exports = {emitirAnclaDecisionMongo,verificarAnclaDecisionMongo};
