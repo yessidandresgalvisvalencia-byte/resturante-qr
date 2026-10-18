@@ -21,6 +21,8 @@ test("V81 rechaza timestamp sin zona, fecha ambigua y huso no valido",()=>{
   "2026-01-01 10:00:00Z",
   "2026-01-01T10:00Z",
   "2026-01-01T10:00:00+15:00",
+  "2026-01-01T10:00:00+14:30",
+  "2026-01-01T10:00:00-14:01",
   "2026-02-30T10:00:00Z",
   "2026-01-01T24:00:00Z",
   "2026-01-01T10:60:00Z"
@@ -28,4 +30,9 @@ test("V81 rechaza timestamp sin zona, fecha ambigua y huso no valido",()=>{
 });
 test("V81 rechaza marca de tiempo futura",()=>{
  assert.throws(()=>validarSolicitudV81({...base,timestamp:"2099-01-01T10:00:00Z"}),TypeError);
+});
+
+test("V81 permite UTC +14:00 sin aceptar su extensión imposible",()=>{
+ assert.equal(validarSolicitudV81({...base,timestamp:"2026-01-01T10:00:00+14:00"}).timestamp,"2026-01-01T10:00:00+14:00");
+ assert.equal(validarSolicitudV81({...base,timestamp:"2026-01-01T10:00:00-14:00"}).timestamp,"2026-01-01T10:00:00-14:00");
 });
