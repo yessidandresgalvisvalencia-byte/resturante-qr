@@ -84,6 +84,22 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
   assert.equal(cabezaD.version,2);
   assert.equal(new Set(eventosD.map(e=>e.eventId)).size,2);
   assert.equal(eventosD.reduce((s,e)=>s+BigInt(e.montoCentavos),0n),2509930n);
+  // Un replay del primer evento despues del segundo no debe recalcularlo
+  // usando la cabeza actual, ni crear version 3, ni cambiar su hash original.
+  const hashInicial=eventosD.find(e=>e.eventId===entradas[0].id).hashActual;
+  const versionInicial=eventosD.find(e=>e.eventId===entradas[0].id).version;
+  const replayTrasOtro=await anexarEventoV81(d,entradas[0]);
+  assert.equal(replayTrasOtro.hashActual,hashInicial);
+  assert.equal(replayTrasOtro.version,versionInicial);
+  assert.equal(await Evento.countDocuments({usuarioId:d}),2);
+  assert.equal((await Cabeza.findOne({usuarioId:d}).lean()).hashActual,cabezaD.hashActual);
+  await assert.rejects(
+   ()=>anexarEventoV81(d,{...entradas[0],montoCentavos:2500031n}),
+   error=>error.statusCode===409 && error.codigo!=="REINTENTAR_MISMO_ID"
+  );
+  assert.equal(await Evento.countDocuments({usuarioId:d}),2);
+  assert.equal((await Cabeza.findOne({usuarioId:d}).lean()).hashActual,cabezaD.hashActual);
+
   assert.equal(verificarCadena(eventosD.map(e=>({
    id:e.eventId,userId:String(e.usuarioId),version:e.version,tipo:e.tipo,
    montoCentavos:BigInt(e.montoCentavos),fechaContable:e.fechaContable,
