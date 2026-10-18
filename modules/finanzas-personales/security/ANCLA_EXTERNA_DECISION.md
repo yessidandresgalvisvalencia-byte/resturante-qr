@@ -11,6 +11,7 @@ El módulo `anclaExternaDecision.service.js` permite **crear** y **verificar** c
 3. Publicar cada ancla en almacenamiento externo con política **WORM/retención inmutable** y permisos separados de la cuenta de aplicación. Conservar histórico de anclas: nunca sobrescribir una.
 4. Para verificar, obtener de forma independiente la última ancla previamente emitida, llamar a `verificarAncla(ancla, clave, registros, head, usuarioEsperado)` con el identificador del usuario ya autenticado y contrastar contra la cadena completa y la cabeza actual. No extraer `usuarioEsperado` de la propia ancla ni del cuerpo de una petición sin autenticar. Rechazar cualquier retroceso o falta de anclas esperadas.
 5. Automatizar alertas de discrepancias, rotación de clave con identificador de versión, recuperación y auditoría independiente antes de afirmar protección contra borrado total.
+6. Confirmar que cada documento `DecisionProof` y `DecisionChainHeadPersonal` tenga `usuarioId` igual al usuario autenticado; el verificador falla cerrado si falta la titularidad o pertenece a otra cuenta. No aceptar conjuntos de registros enviados por un cliente como fuente confiable.
 
 ## Límites
 
