@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref == 'feature/finanzas-personales' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -39,6 +41,7 @@ jobs:
         env:
           NODE_ENV: test
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_offline_test?replicaSet=rs0&directConnection=true
           GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
         shell: bash
         run: |
