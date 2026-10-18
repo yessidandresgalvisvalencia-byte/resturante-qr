@@ -30,6 +30,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: Diagnosticar fusión real sin alterar ramas
+        env:
+          GRUK_EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           set -o pipefail
