@@ -195,6 +195,15 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
    usuarioId:propietario,origenId:origenConcurrente._id
   }).lean();
   assert.equal(reservaLiberada.reservadoMinor,0);
+  // Una reserva de monto cero sigue teniendo el importe original. No
+  // reescribir el origen aunque ya no existan abonos activos.
+  await assert.rejects(corregir(propietario,origenConcurrente._id,{
+   montoMinor:49999
+  }),e=>e.statusCode===409 && /reservas históricas/.test(e.message));
+  await assert.rejects(corregir(propietario,origenConcurrente._id,{
+   tipo:"INGRESO"
+  }),e=>e.statusCode===409 && /reservas históricas/.test(e.message));
+  assert.equal((await Transaccion.findById(origenConcurrente._id).lean()).montoMinor,50000);
   assert.equal((await Cuenta.findOne({
    usuarioId:propietario,nombre:abonoActivo.cuenta
   }).lean()).saldoMinor,saldoPrevio+40000);
