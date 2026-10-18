@@ -26,6 +26,15 @@ for(const [nombre,v] of Object.entries(vulnerabilidades)){
  const efectos=Array.isArray(v.effects)?v.effects.filter(x=>typeof x==="string").slice(0,5).join(", "):"";
  filas.push({nombre,nivel,correccion,origenes,afectados,camino,efectos});
 }
+const resumenNpm=audit.metadata?.vulnerabilities;
+if(resumenNpm&&typeof resumenNpm==="object"){
+ const alta=Number(resumenNpm.high||0),critica=Number(resumenNpm.critical||0);
+ if(!Number.isSafeInteger(alta)||!Number.isSafeInteger(critica)||alta<0||critica<0||
+  alta!==severidades.high||critica!==severidades.critical){
+  process.stdout.write("### Auditoría GRUK\\nInconsistencia entre resumen npm y detalle de vulnerabilidades. Revisión obligatoria.\\n");
+  process.exit(1);
+ }
+}
 let salida="### Auditoría de dependencias GRUK Finanzas Personales\n\n";
 salida+="Críticas: "+severidades.critical+" · Altas: "+severidades.high+" · Moderadas: "+severidades.moderate+"\n\n";
 salida+="| Paquete | Tipo | Severidad | Rango afectado | Corrección sugerida | Dependientes | Referencias |\n|---|---|---|---|---|---|---|\n";
