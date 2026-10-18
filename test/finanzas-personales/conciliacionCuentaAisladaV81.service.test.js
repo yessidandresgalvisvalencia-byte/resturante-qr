@@ -13,3 +13,10 @@ test("V81 rechaza movimientos de otras cuentas, ajenos o sin cuenta",()=>{
  }
  assert.throws(()=>conciliarCuentaAisladaV81({...base,cuentaId:"",movimientos:[]}),TypeError);
 });
+
+test("V81 no declara cuenta conciliada si falta un movimiento esperado",()=>{
+ const mov={usuarioId,cuentaId:"ahorro-uno",id:"gasto-1",tipo:"SALIDA",montoCentavos:10000n};
+ assert.throws(()=>conciliarCuentaAisladaV81({...base,movimientos:[mov],cantidadEsperadaMovimientos:2}),/incompleta/);
+ assert.equal(conciliarCuentaAisladaV81({...base,movimientos:[mov],cantidadEsperadaMovimientos:1}).estado,"CONCILIADA");
+ assert.throws(()=>conciliarCuentaAisladaV81({...base,movimientos:[mov],cantidadEsperadaMovimientos:-1}),TypeError);
+});
