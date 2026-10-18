@@ -24,11 +24,23 @@ async function markOfflineApplied({db,context,eventId,reviewToken,commitReferenc
     reviewActorId: context.actorId };
   const record = await inbox.findOne(key);
   if (!record) return {status:"NO_RECLAMADO"};
-  const ledger = db.collection("gruk_ledger_movimientos");
-  const committed = await ledger.findOne({
-    empresaId: record.empresaId, sedeId: record.sedeId, eventId,
-    actorId: record.actorId, deletedAt: { $type: 10 }
-  }, { projection: {_id:1,eventId:1,actorId:1} });
+  // A staging ledger entry alone does not prove a settled sale or paid cash.
+  // All three authoritative records must be consistent and final.
+  const ledger = await db.collection("gruk_ledger_movimientos").findOne({
+    empresaId:record.empresaId,sedeId:record.sedeId,eventId,
+    actorId:record.actorId,tipo:"VENTA_OFFLINE",deletedAt:{$type:10}
+  },{projection:{_id:1,montoCop:1}});
+  const scope={empresaId:record.empresaId,sedeId:record.sedeId,eventId,actorId:record.actorId};
+  const sale=await db.collection("gruk_offline_ventas").findOne({
+    ...scope,status:"CONTABILIZADA"
+  },{projection:{totalCop:1}});
+  const cash=await db.collection("gruk_offline_caja_intenciones").findOne({
+    ...scope,status:"CONCILIADO",cobrado:true
+  },{projection:{montoCop:1}});
+  const integerCop=value=>typeof value==="string"&&/^(0|[1-9][0-9]*)$/.test(value);
+  const committed=!!(ledger&&sale&&cash&&integerCop(ledger.montoCop)&&
+    integerCop(sale.totalCop)&&integerCop(cash.montoCop)&&
+    ledger.montoCop===sale.totalCop&&sale.totalCop===cash.montoCop);
   assertTransition({from:record.status,to:STATES.APLICADO,
     verifiedTenant:context,recordTenant:record,authorized:true,domainCommitted:!!committed});
   const update = await inbox.updateOne(key, {$set: {
