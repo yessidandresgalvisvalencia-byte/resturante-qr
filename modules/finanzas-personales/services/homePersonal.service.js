@@ -18,6 +18,18 @@ function siguienteFechaRecurrente(tx,now){
  if(!tx||tx.tipo!=="INGRESO"||!tx.recurrente||tx.frecuencia==="NINGUNA")return null;
  const base=new Date(tx.fecha);if(Number.isNaN(base.getTime()))return null;
  const b=partesColombia(base),n=partesColombia(now);let y=b.y,m=b.m,d=b.d,guard=0;
+ // Saltar directamente al próximo vencimiento, aunque el ingreso tenga muchos años.
+ // Se usan fechas civiles de Bogotá en UTC para evitar deriva por horas o DST.
+ const periodoDias={DIARIA:1,SEMANAL:7,QUINCENAL:15}[tx.frecuencia];
+ if(periodoDias){
+  const inicio=Date.UTC(b.y,b.m-1,b.d);
+  const hoy=Date.UTC(n.y,n.m-1,n.d);
+  const transcurridos=Math.floor((hoy-inicio)/86400000);
+  const pasos=transcurridos>=0?Math.floor(transcurridos/periodoDias)+1:0;
+  const siguiente=new Date(inicio+pasos*periodoDias*86400000);
+  return fechaCivilColombia(siguiente.getUTCFullYear(),siguiente.getUTCMonth()+1,siguiente.getUTCDate());
+ }
+ if(!["MENSUAL","ANUAL"].includes(tx.frecuencia))return null;
  const avanzar=()=>{if(tx.frecuencia==="DIARIA"){const z=new Date(Date.UTC(y,m-1,d+1));y=z.getUTCFullYear();m=z.getUTCMonth()+1;d=z.getUTCDate();}else if(tx.frecuencia==="SEMANAL"||tx.frecuencia==="QUINCENAL"){const z=new Date(Date.UTC(y,m-1,d+(tx.frecuencia==="SEMANAL"?7:15)));y=z.getUTCFullYear();m=z.getUTCMonth()+1;d=z.getUTCDate();}else if(tx.frecuencia==="MENSUAL"){m++;if(m>12){m=1;y++;}d=Math.min(b.d,diasEnMesUTC(y,m));}else if(tx.frecuencia==="ANUAL"){y++;d=Math.min(b.d,diasEnMesUTC(y,m));}};
  let next=fechaCivilColombia(y,m,d);while(next<=now&&guard++<1000){avanzar();next=fechaCivilColombia(y,m,d);}return next>now?next:null;
 }
