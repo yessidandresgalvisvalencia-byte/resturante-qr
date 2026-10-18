@@ -123,4 +123,25 @@ router.post("/stage-orders",authMiddleware,async(req,res)=>{
   return res.status(500).json({ok:false,error:"OFFLINE_STAGE_UNAVAILABLE"});
  }
 });
+// Authenticated read-only product snapshot for this exact tenant+site.
+router.get("/catalog",authMiddleware,async(req,res)=>{
+ if(!req.auth?.empresaId||!req.auth?.sedeId||!req.auth?.usuarioId)
+  return res.status(403).json({ok:false,error:"OFFLINE_SEDE_AUTH_REQUIRED"});
+ if(mongoose.connection.readyState!==1)
+  return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ try{
+  const {readOfflineCatalog}=require("../core/offline/offlineCatalog.service");
+  const result=await readOfflineCatalog({db:mongoose.connection.db,context:{
+   empresaId:req.auth.empresaId,sedeId:req.auth.sedeId,actorId:req.auth.usuarioId
+  }});
+  res.set("Cache-Control","no-store");
+  return res.json({ok:true,...result});
+ }catch(error){
+  if(error?.code==="OFFLINE_CATALOG_AUTH_REQUIRED")return res.status(403).json({ok:false,error:error.code});
+  if(typeof error?.code==="string"&&error.code.startsWith("OFFLINE_CATALOG_"))
+   return res.status(409).json({ok:false,error:error.code});
+  console.error("[OFFLINE] Catalog unavailable",error?.code||error?.name||"unknown");
+  return res.status(500).json({ok:false,error:"OFFLINE_CATALOG_UNAVAILABLE"});
+ }
+});
 module.exports = router;
