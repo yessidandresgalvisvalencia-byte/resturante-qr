@@ -18,8 +18,8 @@ function crearConsultaConciliacionCuentaV81(consultar=conciliarHistoricoCuentaV8
    const conciliacion=await consultar({usuarioId,cuentaId:q.cuentaId,desde:q.desde,hastaExclusivo:q.hastaExclusivo,saldoInicialCentavos,saldoObservadoCentavos});
    return res.set("Cache-Control","no-store").status(200).json({ok:true,conciliacion});
   }catch(e){
-   const status=e.statusCode===401?401:e instanceof TypeError?400:e.message?.includes("no clasificable")?409:500;
-   return res.status(status).json({ok:false,error:status===401?"Autenticación requerida":status===400?"Parámetros de conciliación inválidos":status===409?"Conciliación requiere clasificar movimientos":"Conciliación no disponible"});
+   const status=e.statusCode===401?401:e.statusCode===404?404:e instanceof TypeError?400:e.message?.includes("no clasificable")?409:500;
+   return res.status(status).json({ok:false,error:status===401?"Autenticación requerida":status===400?"Parámetros de conciliación inválidos":status===409?"Conciliación requiere clasificar movimientos":status===404?"Cuenta no encontrada":"Conciliación no disponible"});
   }
  };
 }
