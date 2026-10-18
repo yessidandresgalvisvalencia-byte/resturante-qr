@@ -56,3 +56,11 @@ test("V81 usa la misma versión Node que declara package.json",()=>{
  assert.ok(configured.every(v=>v===expected),
   `Node en CI V81 (${configured.join(",")}) difiere del engine (${expected})`);
 });
+
+test("todos los seis jobs V81 prueban el commit fuente y no el merge temporal bloqueado",()=>{
+ const checkouts=[...yaml.matchAll(/uses: actions\/checkout@v4/g)];
+ const refs=[...yaml.matchAll(/ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/g)];
+ assert.equal(checkouts.length,6,"Debe auditarse cada job V81");
+ assert.equal(refs.length,checkouts.length,
+  "Ningún job puede depender de refs/pull/*/merge en una PR con conflictos");
+});
