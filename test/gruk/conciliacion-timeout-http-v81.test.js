@@ -42,3 +42,25 @@ test("503 originado en capa financiera conserva estado seguro y Retry-After",asy
  assert.equal(res.cabeceras["Retry-After"],"5");
  assert.deepEqual(res.cuerpo,{ok:false,error:"Conciliación temporalmente no disponible; reintenta"});
 });
+
+test("403 de autorización conserva código y no revela cuenta ajena",async()=>{
+ const res=respuesta();
+ await crearConsultaConciliacionCuentaV81(async()=>{
+  throw Object.assign(new Error("Cuenta privada de otro usuario"),{statusCode:403});
+ })(req,res);
+ assert.equal(res.codigo,403);
+ assert.equal(res.cabeceras["Cache-Control"],"no-store");
+ assert.equal(res.cabeceras["Retry-After"],undefined);
+ assert.deepEqual(res.cuerpo,{ok:false,error:"Acceso denegado"});
+ assert.ok(!JSON.stringify(res.cuerpo).includes("Cuenta privada"));
+});
+test("401 sin identidad no ejecuta el motor de conciliación",async()=>{
+ let invocado=false;
+ const res=respuesta();
+ await crearConsultaConciliacionCuentaV81(async()=>{invocado=true;})({
+  ...req,personalAuth:{verificado:false,userId:req.personalAuth.userId}
+ },res);
+ assert.equal(invocado,false);
+ assert.equal(res.codigo,401);
+ assert.deepEqual(res.cuerpo,{ok:false,error:"Autenticación requerida"});
+});
