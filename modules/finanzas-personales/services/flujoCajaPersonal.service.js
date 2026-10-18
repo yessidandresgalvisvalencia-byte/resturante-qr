@@ -75,6 +75,11 @@ async function registrarTransaccion(usuarioId,input){
      reservadoMinor:{$lte:origen.montoMinor-input.montoMinor}
     },{$inc:{reservadoMinor:input.montoMinor}},{new:true,session});
     if(!reserva)throw Object.assign(new Error("Cuota recurrente sin saldo disponible o reserva concurrente"),{statusCode:409});
+    // Detectar desfases por anulaciones históricas, errores de mantenimiento o
+    // escrituras ajenas: el control atómico debe reflejar EXACTAMENTE el ledger.
+    if(!Number.isSafeInteger(reserva.reservadoMinor)||
+       BigInt(reserva.reservadoMinor)!==BigInt(pagado)+BigInt(input.montoMinor))
+     throw Object.assign(new Error("Reserva recurrente desincronizada con los abonos activos; requiere conciliación"),{statusCode:409});
     recurrenteOrigenId=origen._id;
    }
    let prestamoId=input.prestamoId||null;if(["PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO"].includes(input.tipo)&&!prestamoId)throw Object.assign(new Error("Este movimiento patrimonial requiere una obligación exacta; usa el flujo de préstamo/cobro para mantener caja y patrimonio sincronizados."),{statusCode:409});if(input.tipo==="PAGO_DEUDA"&&!prestamoId){const candidatas=await Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).select("_id").session(session);if(candidatas.length!==1)throw Object.assign(new Error(candidatas.length?"Indica exactamente qué deuda estás pagando.":"No hay una deuda activa para aplicar este pago."),{statusCode:409});prestamoId=candidatas[0]._id;}const envelope=input.metadatosSensibles?encryptObject(input.metadatosSensibles,{aad:String(usuarioId)}):null;
