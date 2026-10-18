@@ -9,6 +9,6 @@ test("Un reintento manual con respuesta incierta bloquea cambios de importe o co
  assert.match(guard,/throw new Error\("Hay un envío anterior sin confirmar/);
  assert.doesNotMatch(guard,/confirm\(/);
  assert.match(guard,/manualPayloadPendiente=datosMovimiento;await api\("\/transacciones",body\(datosMovimiento\)\)/);
- assert.match(guard,/manualExternalId=null;manualPayloadPendiente=null;msg\("movMsg","Movimiento guardado\."/);
- assert.match(src,/function clearToken\(\)\{cancelarSolicitudes\(\);manualExternalId=null;manualPayloadPendiente=null/);
+ assert.match(guard,/limpiarIntentoManual\(\);msg\("movMsg","Movimiento guardado\."/);
+ assert.match(src,/function clearToken\(\)\{cancelarSolicitudes\(\);limpiarIntentoManual\(\)/);
 });
