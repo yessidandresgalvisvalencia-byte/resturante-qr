@@ -23,12 +23,18 @@ async function readOfflineReconciliation({db,context,eventIds}){
  ];
  const sets=await Promise.all(specs.map(async([name,projection])=>
   db.collection(name).find(name==="gruk_offline_inbox"?{...scope,actorId:context.actorId}:scope,
-   {projection:{_id:0,actorId:1,...projection}}).toArray()));
+   {projection:{_id:0,empresaId:1,sedeId:1,actorId:1,...projection}}).toArray()));
  const maps=sets.map(rows=>{
   const found=new Map();
   for(const row of rows){
    // Missing/duplicate event identities are ambiguous; never report completion.
    if(typeof row.eventId!=="string")continue;
+   // Trust neither a stale cache nor an incorrectly scoped database adapter.
+   // Returned financial evidence must independently prove the tenant and site.
+   if(row.empresaId!==context.empresaId||row.sedeId!==context.sedeId){
+    found.set(row.eventId,null);
+    continue;
+   }
    // A proof from a different actor within this tenant/site/event poisons the
    // result; never ignore it and report a falsely reconciled operation.
    if(found.has(row.eventId)||row.actorId!==context.actorId)found.set(row.eventId,null);

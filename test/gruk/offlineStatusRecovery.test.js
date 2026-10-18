@@ -16,8 +16,8 @@ test("receipt without financial proof stays unapplied after reconnect", async ()
       query = q;
       assert.equal(options.projection._id, 0);
       return { toArray: async () => [
-        { actorId: context.actorId, eventId: ids[0], status: "PENDIENTE" },
-        { actorId: context.actorId, eventId: ids[1], status: "APLICADO" }
+        { ...context, eventId: ids[0], status: "PENDIENTE" },
+        { ...context, eventId: ids[1], status: "APLICADO" }
       ] };
     }};
   }};
