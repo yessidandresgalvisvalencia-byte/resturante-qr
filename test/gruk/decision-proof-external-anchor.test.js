@@ -52,3 +52,10 @@ test("rechaza versión de ancla adulterada incluso con firma original",()=>{
  const ancla=crearAncla({usuarioId:USER,secuencia:2,headHash:head.headHash,emitidaEn:TIME},KEY);
  assert.equal(verificarAncla({...ancla,version:2},KEY,registros,head,USER).codigo,"ANCLA_INVALIDA");
 });
+
+test("rechaza campos adicionales que no están firmados por HMAC",()=>{
+ const {registros,head}=escenario();
+ const ancla=crearAncla({usuarioId:USER,secuencia:2,headHash:head.headHash,emitidaEn:TIME},KEY);
+ assert.equal(verificarAncla({...ancla,administrador:true},KEY,registros,head,USER).codigo,"ANCLA_INVALIDA");
+ assert.equal(verificarAncla({...ancla,emitidaEn:undefined},KEY,registros,head,USER).codigo,"ANCLA_INVALIDA");
+});
