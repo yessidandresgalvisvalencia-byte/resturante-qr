@@ -5,18 +5,22 @@ test("Cerrar sesión aborta solicitudes financieras pendientes",async()=>{
  const start=src.indexOf("const solicitudesEnCurso=new Set();");
  const end=src.indexOf("function body(",start);
  assert.ok(start>=0&&end>start);
- const snippet=src.slice(start,end);
+ const helperStart=src.indexOf("function limpiarIntentoManual()");
+ const helperEnd=src.indexOf("const persist=",helperStart);
+ assert.ok(helperStart>=0&&helperEnd>helperStart);
+ const snippet='const CLAVE_INTENTO_MANUAL="grukPersonalIntentoManualV1";let manualExternalId=null,manualPayloadPendiente=null;\n'+src.slice(helperStart,helperEnd)+src.slice(start,end);
  const controllerFlags=[];let resolveFetch;
  const fetch=(url,opts)=>new Promise((resolve,reject)=>{
   resolveFetch=resolve;
   opts.signal.addEventListener("abort",()=>reject(Object.assign(new Error("Aborted"),{name:"AbortError"})));
  });
- const storage={removeItem(){}};
+ const eliminadas=[];const storage={removeItem(clave){eliminadas.push(clave);}};
  const ctx={token:"usuario-uno",socket:null,sessionStorage:storage,localStorage:storage,fetch,AbortController,Set,Error,JSON};
  vm.runInNewContext(snippet,ctx);
  const pendiente=ctx.api("/home");
  ctx.clearToken();
  await assert.rejects(pendiente,/Aborted/);
  assert.equal(ctx.token,null);
+ assert.ok(eliminadas.includes("grukPersonalIntentoManualV1"));
  assert.equal(vm.runInNewContext("solicitudesEnCurso.size",ctx),0);
 });
