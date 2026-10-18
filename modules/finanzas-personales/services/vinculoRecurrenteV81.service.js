@@ -6,6 +6,15 @@ function fechaEstrictaRecurrente(valor,etiqueta){
  if(!(valor instanceof Date)&&
    (typeof valor!=="string"||!/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))?$/.test(valor)))
   throw Object.assign(new TypeError(etiqueta+" debe ser fecha ISO o Date"),{statusCode:400});
+ // Validar el calendario civil escrito; Date.parse puede normalizar 30 de febrero.
+ if(typeof valor==="string"){
+  const [anio,mes,dia]=valor.slice(0,10).split("-").map(Number);
+  const civil=new Date(0);
+  civil.setUTCHours(0,0,0,0);
+  civil.setUTCFullYear(anio,mes-1,dia);
+  if(civil.getUTCFullYear()!==anio||civil.getUTCMonth()!==mes-1||civil.getUTCDate()!==dia)
+   throw Object.assign(new TypeError(etiqueta+" contiene una fecha civil inexistente"),{statusCode:400});
+ }
  const fecha=new Date(valor);
  if(!Number.isFinite(fecha.getTime()))
   throw Object.assign(new TypeError(etiqueta+" inválida"),{statusCode:400});
