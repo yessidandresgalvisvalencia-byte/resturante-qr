@@ -12,11 +12,14 @@ async function readOfflineCatalog({db,context,objectId}){
   empresaId:objectId(context.empresaId),
   sedeId:objectId(context.sedeId),
   tipo:"producto",activo:true
- },{projection:{_id:1,nombre:1,precioVenta:1},sort:{nombre:1,_id:1},limit:501});
+ },{projection:{_id:1,empresaId:1,sedeId:1,tipo:1,activo:1,nombre:1,precioVenta:1},sort:{nombre:1,_id:1},limit:501});
  const rows=await cursor.toArray();
  if(rows.length>500)fail("OFFLINE_CATALOG_TOO_LARGE");
  const products=rows.map(row=>{
-  if(!HEX.test(String(row._id))||typeof row.nombre!=="string"||
+  if(String(row.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
+   String(row.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
+   row.tipo!=="producto"||row.activo!==true||
+   !HEX.test(String(row._id))||typeof row.nombre!=="string"||
    !row.nombre.trim()||row.nombre.length>160||
    !Number.isSafeInteger(row.precioVenta)||row.precioVenta<0)
    fail("OFFLINE_CATALOG_INVALID_PRODUCT");
