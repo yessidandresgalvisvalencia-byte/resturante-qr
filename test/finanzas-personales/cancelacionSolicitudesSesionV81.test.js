@@ -18,5 +18,5 @@ test("Cerrar sesión aborta solicitudes financieras pendientes",async()=>{
  ctx.clearToken();
  await assert.rejects(pendiente,/Aborted/);
  assert.equal(ctx.token,null);
- assert.equal(ctx.solicitudesEnCurso.size,0);
+ assert.equal(vm.runInNewContext("solicitudesEnCurso.size",ctx),0);
 });
