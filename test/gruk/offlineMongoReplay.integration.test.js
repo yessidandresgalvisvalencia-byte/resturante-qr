@@ -175,6 +175,16 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
       } finally {
         await db.collection("gruk_ledger_movimientos").deleteMany({empresaId,sedeId,eventId:proofEventId});
       }
+      // Ledger evidence with the wrong event ID is not a valid domain commitment.
+      await db.collection("gruk_ledger_movimientos").insertOne({
+        empresaId, sedeId, actorId, eventId:"01ARZ3NDEKTSV4RRFFQ69G5FB3", deletedAt:null
+      });
+      try {
+        await assert.rejects(markOfflineApplied({db,context:review,eventId:proofEventId,reviewToken,commitReference}));
+        assert.equal((await db.collection("gruk_offline_inbox").findOne({empresaId,sedeId,eventId:proofEventId})).status,"EN_REVISION");
+      } finally {
+        await db.collection("gruk_ledger_movimientos").deleteMany({empresaId,sedeId,eventId:"01ARZ3NDEKTSV4RRFFQ69G5FB3"});
+      }
       await db.collection("gruk_ledger_movimientos").insertOne({
         empresaId, sedeId, actorId, eventId: proofEventId, deletedAt: null
       });
