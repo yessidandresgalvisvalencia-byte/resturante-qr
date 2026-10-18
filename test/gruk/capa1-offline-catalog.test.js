@@ -8,8 +8,8 @@ function db(rows){let reads=0;return {collection(name){assert.equal(name,"produc
  reads++;assert.equal(String(q.empresaId),ctx.empresaId);assert.equal(String(q.sedeId),ctx.sedeId);
  assert.equal(q.tipo,"producto");assert.equal(q.activo,true);
  assert.equal(options.limit,501);
- assert.deepEqual(options.projection,{_id:1,nombre:1,precioVenta:1});
- return {toArray:async()=>rows};
+ assert.deepEqual(options.projection,{_id:1,empresaId:1,sedeId:1,tipo:1,activo:1,nombre:1,precioVenta:1});
+ return {toArray:async()=>rows.map(row=>({empresaId:ctx.empresaId,sedeId:ctx.sedeId,tipo:"producto",activo:true,...row}))};
  }};},get reads(){return reads;}};}
 test("offline catalog: only same-company/site active products with integer COP price",async()=>{
  const source=db([{_id:productId,nombre:"Empanada",precioVenta:3000}]);
