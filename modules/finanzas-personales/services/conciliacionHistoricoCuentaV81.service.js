@@ -5,6 +5,16 @@ const Cuenta=require("../models/cuentaFinanciera.model");
 const Vinculo=require("../models/vinculoHistoricoV81.model");
 const {conciliarPeriodoCuentaV81}=require("./conciliacionPeriodoCuentaV81.service");
 const {exigirSinMovimientosHuerfanos}=require("./guardiaConciliacionCuentaV81.service");
+const MAX_FILAS_CONCILIACION_V81=25000;
+function exigirResultadosAcotadosV81(filas){
+ if(!Array.isArray(filas))throw new TypeError("Consulta histórica inválida");
+ if(filas.length>MAX_FILAS_CONCILIACION_V81){
+  const error=new Error("Límite de consulta histórica excedido: dividir el período y revisar los vínculos");
+  error.statusCode=409;
+  throw error;
+ }
+ return filas;
+}
 function filtrarHuerfanosSinResolver(filas,vinculos){
  if(!Array.isArray(filas)||!Array.isArray(vinculos))throw new TypeError("Histórico inválido");
  const resueltos=new Set(vinculos.map(v=>String(v.movimientoId)));
@@ -28,30 +38,35 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
    const cuenta=await Cuenta.findOne({_id:new mongoose.Types.ObjectId(cuentaId),usuarioId:new mongoose.Types.ObjectId(usuarioId),activa:true,moneda:"COP"}).session(session).lean();
    if(!cuenta)throw Object.assign(new Error("Cuenta no autorizada o inexistente"),{statusCode:404});
    const rows=await Transaccion.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId),moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}})
-    .session(session).sort({_id:1}).lean();
+    .session(session).sort({_id:1}).limit(MAX_FILAS_CONCILIACION_V81+1).lean();
+   exigirResultadosAcotadosV81(rows);
    // Los vínculos son evidencia separada: nunca se reescriben asientos.
    const vinculos=await Vinculo.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),
     cuentaId:new mongoose.Types.ObjectId(cuentaId)})
-    .session(session).select("movimientoId").lean();
+    .session(session).select("movimientoId").limit(MAX_FILAS_CONCILIACION_V81+1).lean();
+   exigirResultadosAcotadosV81(vinculos);
    const idsVinculados=vinculos.map(v=>v.movimientoId);
    const heredados=idsVinculados.length?await Transaccion.find({
     usuarioId:new mongoose.Types.ObjectId(usuarioId),_id:{$in:idsVinculados},
     cuentaId:null,moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}
-   }).session(session).lean():[];
+   }).session(session).limit(MAX_FILAS_CONCILIACION_V81+1).lean():[];
+   exigirResultadosAcotadosV81(heredados);
    const sinVinculo=await Transaccion.find({
     usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:null,
     cuenta:cuenta.nombre,moneda:"COP",estado:{$ne:"ANULADA"},
     fecha:{$gte:start,$lt:end}
-   }).session(session).select("_id cuenta cuentaId").lean();
+   }).session(session).select("_id cuenta cuentaId").limit(MAX_FILAS_CONCILIACION_V81+1).lean();
+   exigirResultadosAcotadosV81(sinVinculo);
    // Una confirmación puede haber asociado el huérfano a otra cuenta.
    // En ese caso tampoco debe bloquear falsamente esta conciliación.
    const resueltos=sinVinculo.length?await Vinculo.find({
     usuarioId:new mongoose.Types.ObjectId(usuarioId),
     movimientoId:{$in:sinVinculo.map(x=>x._id)}
-   }).session(session).select("movimientoId cuentaId").lean():[];
+   }).session(session).select("movimientoId cuentaId").limit(MAX_FILAS_CONCILIACION_V81+1).lean():[];
+   exigirResultadosAcotadosV81(resueltos);
    const sinResolver=filtrarHuerfanosSinResolver(sinVinculo,resueltos);
    exigirSinMovimientosHuerfanos({cuenta,filas:sinResolver});
-   const filasConciliables=[...rows,...heredados];
+   const filasConciliables=exigirResultadosAcotadosV81([...rows,...heredados]);
    const movimientos=filasConciliables.map(row=>{
     if(!Number.isSafeInteger(row.montoMinor)||row.montoMinor<=0||row.impactoCaja!==true||
        !["INGRESO","GASTO"].includes(row.tipo)||row.medioPago==="CREDITO")
@@ -69,4 +84,4 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81};
+module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81};
