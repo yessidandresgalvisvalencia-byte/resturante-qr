@@ -35,3 +35,9 @@ test("los workflows principales permiten repetición manual sin nuevos commits",
   assert.match(workflow,/^on:\s*\n\s+workflow_dispatch:\s*$/m,nombre);
  }
 });
+
+test("merge-readiness exige el SHA exacto del evento GitHub",()=>{
+ assert.match(ci,/GRUK_EXPECTED_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
+ assert.match(script,/DIAGNOSTICO_OBSOLETO/);
+ assert.match(script,/exit 3/);
+});
