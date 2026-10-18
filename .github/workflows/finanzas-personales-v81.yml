@@ -45,6 +45,8 @@ on:
       - 'test/gruk/finanzas-personales-core.test.js'
       - 'test/gruk/shared-entrypoint-contract.test.js'
       - '.github/workflows/finanzas-personales-v81.yml'
+      - 'app.js'
+      - 'core/health/deploymentCommit.contract.js'
       - 'package.json'
       - 'package-lock.json'
   pull_request:
@@ -90,6 +92,8 @@ on:
       - 'test/gruk/finanzas-personales-core.test.js'
       - 'test/gruk/shared-entrypoint-contract.test.js'
       - '.github/workflows/finanzas-personales-v81.yml'
+      - 'app.js'
+      - 'core/health/deploymentCommit.contract.js'
       - 'package.json'
       - 'package-lock.json'
 permissions:
