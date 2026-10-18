@@ -69,6 +69,16 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    x.reason?.statusCode===409 || x.reason?.hasErrorLabel?.("TransientTransactionError"),
    "Solo se permiten conflictos transitorios de concurrencia"
   );
+  // Un reintento tardío conserva el hash original aunque el ledger haya avanzado.
+  const anteriorReintento=await Evento.countDocuments({usuarioId});
+  const reintentoTardio=await anexarEventoV81(usuarioId,datos("doble-clic-mismo-id"));
+  assert.equal(reintentoTardio.hashActual,trasCarrera.hashActual);
+  assert.equal(await Evento.countDocuments({usuarioId}),anteriorReintento);
+  await assert.rejects(
+   anexarEventoV81(usuarioId,{...datos("doble-clic-mismo-id"),montoCentavos:2600000n}),
+   e=>e.statusCode===409 && /contenido diferente/.test(e.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId}),anteriorReintento);
   // Una corrección de importe cero debe rechazarse sin añadir eventos.
   const antesCorreccion=await Evento.countDocuments({usuarioId});
   await assert.rejects(
