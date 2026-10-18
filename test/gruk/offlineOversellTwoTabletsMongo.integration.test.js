@@ -29,7 +29,7 @@ test("real Mongo: two disconnected tablets sell last unit; second is audited wit
   await db.collection("gruk_offline_inbox").insertMany(ids.map((eventId,i)=>({
    empresaId:auth.empresaId,sedeId:auth.sedeId,actorId:auth.usuarioId,
    deviceId:"tablet"+(i+1),eventId,status:"PENDIENTE",tipo:"PEDIDO_REGISTRADO",
-   payload:{localOrderId:eventId,items:[{productoId,cantidad:"1",
+   payload:{localOrderId:eventId,items:[{productoId:productId,cantidad:"1",
     precioUnitarioCop:"3000",totalCop:"3000"}],totalCop:"3000"}
   })));
   const first=await stage({db:scoped,auth,eventIds:[ids[0]],confirmed:true});
@@ -39,7 +39,7 @@ test("real Mongo: two disconnected tablets sell last unit; second is audited wit
   assert.equal(second.status,"REQUIERE_REVISION_STOCK");
   assert.equal(second.applied,false);assert.equal(second.cobrado,false);
   assert.deepEqual(second.issues,[{
-   productoId,disponible:"0",solicitado:"1",faltante:"1"
+   productoId:productId,disponible:"0",solicitado:"1",faltante:"1"
   }]);
   assert.equal((await db.collection("inventarios").findOne(stockKey)).cantidad,0);
   assert.equal(await db.collection("gruk_offline_stock_conflicts").countDocuments({}),1);
