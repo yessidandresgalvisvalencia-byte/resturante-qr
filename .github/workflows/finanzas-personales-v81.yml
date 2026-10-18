@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
       - name: Instalar dependencias reproducibles
         run: npm ci --ignore-scripts
       - name: Diagnosticar dependencias de produccion sin alterar paquetes
@@ -153,7 +153,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
       - name: Instalar dependencias originales
         run: npm ci --ignore-scripts
       - name: Aplicar parche unicamente en runner temporal
@@ -188,7 +188,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
       - name: Instalar dependencias originales
         run: npm ci --ignore-scripts
       - name: Evaluar actualizaciones HTTP exclusivamente en runner
@@ -222,7 +222,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
       - name: Instalar dependencias fijadas
         run: npm ci --ignore-scripts
       - name: Ensayar parches npm sin cambios persistentes
@@ -249,7 +249,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
       - name: Instalar dependencias fijas
         run: npm ci --ignore-scripts
       - name: Arrancar Redis local aislado
@@ -276,7 +276,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
       - name: Instalar dependencias fijadas
         run: npm ci --ignore-scripts
       - name: Arrancar MongoDB aislado con replica set
