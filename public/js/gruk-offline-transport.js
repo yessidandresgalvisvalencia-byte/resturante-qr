@@ -24,7 +24,10 @@ async function synchronize({outbox,token,fetchFn,context,limit=100}) {
    acknowledged.add(ack.eventId);
  }
  // Mark each accepted item as received, not financially applied. Never delete local records.
- for(const eventId of acknowledged)await outbox.markReceived(eventId,context);
+ for(const eventId of acknowledged){
+   const persisted=await outbox.markReceived(eventId,context);
+   if(persisted!==true)throw new Error("SYNC_LOCAL_ACK_NOT_PERSISTED");
+ }
  return Object.freeze({sent:events.length,received:acknowledged.size});
 }
 const api=Object.freeze({synchronize});
