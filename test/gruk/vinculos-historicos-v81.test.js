@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {evaluarCandidatoVinculo}=require("../../modules/finanzas-personales/services/diagnosticoVinculosHistoricosV81.service");
+const {evaluarCandidatoVinculo,evaluarEstadoVinculoHistorico}=require("../../modules/finanzas-personales/services/diagnosticoVinculosHistoricosV81.service");
 const cuentas=[{_id:"cuenta-a",nombre:"Nequi",moneda:"COP",activa:true},
  {_id:"cuenta-b",nombre:"Bancolombia",moneda:"COP",activa:true}];
 test("un nombre único queda como sugerencia, sin vínculo automático",()=>{
@@ -27,4 +27,14 @@ test("cuentas inactivas o de moneda distinta no se sugieren",()=>{
 test("valida entrada malformada",()=>{
  assert.throws(()=>evaluarCandidatoVinculo(null,cuentas),TypeError);
  assert.throws(()=>evaluarCandidatoVinculo({cuenta:"Nequi"},null),TypeError);
+});
+
+test("vínculo confirmado se reconoce aunque el nombre apunte a otra cuenta",()=>{
+ const mov={_id:"mov-1",cuentaId:null,cuenta:"Nequi"};
+ const vinc={movimientoId:"mov-1",cuentaId:"cuenta-b"};
+ assert.deepEqual(evaluarEstadoVinculoHistorico(mov,cuentas,vinc),
+  {estado:"CONFIRMADO",cuentaId:"cuenta-b"});
+ assert.deepEqual(evaluarEstadoVinculoHistorico(mov,cuentas,null),
+  {estado:"REQUIERE_CONFIRMACION",cuentaId:"cuenta-a"});
+ assert.throws(()=>evaluarEstadoVinculoHistorico(mov,cuentas,{...vinc,movimientoId:"otro"}),TypeError);
 });
