@@ -17,7 +17,7 @@ function fixture(failOn,missingIndex){
  let started=0;
  const db={client:{startSession:()=>{started++;return session;}},collection(name){
   if(name==="gruk_offline_inbox")return {find:(_q,opts)=>{assert.equal(opts.session,session);return {toArray:async()=>[inbox]};}};
-  if(name==="productoservicios")return {find:(_q,opts)=>{assert.equal(opts.session,session);return {toArray:async()=>[{_id:productId}]};}};
+  if(name==="productoservicios")return {find:(_q,opts)=>{assert.equal(opts.session,session);return {toArray:async()=>[{_id:productId,empresaId:context.empresaId,sedeId:context.sedeId,activo:true}]};}};
   const index=indices[name];assert.ok(index,"unexpected collection "+name);
   return {indexes:async()=>name===missingIndex?[]:[{name:index[0],key:index[1],unique:true}],
    updateOne:async(_key,update,opts)=>{assert.equal(opts.session,session);assert.equal(session.active,true);
