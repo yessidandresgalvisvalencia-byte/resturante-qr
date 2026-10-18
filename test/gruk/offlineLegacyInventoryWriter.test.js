@@ -1,0 +1,33 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict");
+const {applyOfflineLegacyInventory:apply}=require("../../core/offline/offlineLegacyInventoryWriter.service");
+const empresaId="507f191e810c19729de860ea",sedeId="507f1f77bcf86cd799439012",productoId="507f1f77bcf86cd799439011";
+const context={empresaId,sedeId,actorId:"cajero"},inventoryDeltas=[{productoId,deltaUnidades:"-2"}];
+function fixture({stock=5,records=1}={}){
+ const session={inTransaction:()=>true};let writes=0;const rows=Array.from({length:records},(_,i)=>({_id:String(i),cantidad:stock}));
+ const db={collection(name){assert.equal(name,"inventarios");return{
+  find:(key,opts)=>{assert.equal(opts.session,session);assert.equal(key.empresaId,empresaId);assert.equal(key.sedeId,sedeId);
+   return {limit:n=>{assert.equal(n,2);return {toArray:async()=>rows};}};},
+  updateOne:async(key,update,opts)=>{assert.equal(opts.session,session);assert.equal(key.cantidad,stock);
+   assert.equal(update.$inc.cantidad,-2);writes++;return {matchedCount:1,modifiedCount:1};}
+ };}};
+ return {db,session,writes:()=>writes};
+}
+test("descuenta inventario legado con comparacion de cantidad y tenant",async()=>{
+ const f=fixture();const out=await apply({...f,context,inventoryDeltas,objectId:x=>x});
+ assert.deepEqual(out,[{productoId,antes:"5",despues:"3"}]);assert.equal(f.writes(),1);
+});
+test("rechaza stock insuficiente sin tocar documentos",async()=>{
+ const f=fixture({stock:1});
+ await assert.rejects(apply({...f,context,inventoryDeltas,objectId:x=>x}),e=>e.code==="OFFLINE_INVENTORY_INSUFFICIENT");
+ assert.equal(f.writes(),0);
+});
+test("rechaza asociacion duplicada del producto sin descontar",async()=>{
+ const f=fixture({records:2});
+ await assert.rejects(apply({...f,context,inventoryDeltas,objectId:x=>x}),e=>e.code==="OFFLINE_INVENTORY_MAPPING_AMBIGUOUS");
+ assert.equal(f.writes(),0);
+});
+test("rechaza ejecución fuera de transacción",async()=>{
+ const f=fixture();await assert.rejects(apply({...f,session:{inTransaction:()=>false},context,inventoryDeltas,objectId:x=>x}),
+ e=>e.code==="OFFLINE_INVENTORY_TRANSACTION_REQUIRED");assert.equal(f.writes(),0);
+});

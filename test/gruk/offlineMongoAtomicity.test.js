@@ -15,9 +15,11 @@ test("Mongo replica set: atomic commit and rollback across offline staging colle
  if(!uri){t.skip("GRUK_TEST_MONGO_URI no configurado");return;}
  // Dedicated disposable test database only. Never connect using production MONGO_URI.
  if(!uri.includes("gruk_offline_test"))throw Error("OFFLINE_TEST_DB_NAME_REQUIRED");
+ // Isolate this test from other node:test workers that drop gruk_offline_test.
+ const isolatedDb="gruk_offline_atomicity_test";
  const client=new mongoose.mongo.MongoClient(uri,{serverSelectionTimeoutMS:5000});
  await client.connect();
- const db=client.db("gruk_offline_test");
+ const db=client.db(isolatedDb);
  try{
   await db.dropDatabase();
   await bootstrapOfflineStagingIndexes(db);
