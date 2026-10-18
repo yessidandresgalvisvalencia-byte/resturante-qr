@@ -43,9 +43,14 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
   const rows=await db.collection("inventarios").find({
    empresaId:objectId(auth.empresaId),sedeId:objectId(auth.sedeId),
    productoServicioId:objectId(delta.productoId),anulado:false
-  },{projection:{_id:1,cantidad:1},limit:2}).toArray();
+  },{projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1},limit:2}).toArray();
   const requested=-BigInt(delta.deltaUnidades);
-  if(rows.length!==1||!Number.isSafeInteger(rows[0].cantidad)||rows[0].cantidad<0){
+  if(rows.length!==1||
+     String(rows[0]?.empresaId).toLowerCase()!==auth.empresaId.toLowerCase()||
+     String(rows[0]?.sedeId).toLowerCase()!==auth.sedeId.toLowerCase()||
+     String(rows[0]?.productoServicioId).toLowerCase()!==delta.productoId.toLowerCase()||
+     rows[0]?.anulado!==false||
+     !Number.isSafeInteger(rows[0].cantidad)||rows[0].cantidad<0){
    products.push({productoId:delta.productoId,requested:requested.toString(),
     available:null,shortage:null,ready:false,reason:"STOCK_SIN_MAPEO"});
    continue;
