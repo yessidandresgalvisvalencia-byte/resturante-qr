@@ -64,6 +64,34 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
     await db.collection("gruk_offline_inbox").deleteOne({
       empresaId,sedeId,eventId:existingConflict.eventId
     });
+    // Inject failure on the second Mongo write within a real replica-set transaction.
+    // The first write must roll back, not leave a half-received offline batch.
+    const rollbackFirst = {...events[0], eventId:"01ARZ3NDEKTSV4RRFFQ69G5FB6"};
+    const rollbackSecond = {...events[1], eventId:"01ARZ3NDEKTSV4RRFFQ69G5FB7"};
+    let transactionWrites = 0;
+    const failingDb = {
+      client: db.client,
+      collection(name) {
+        const target = db.collection(name);
+        if (name !== "gruk_offline_inbox") return target;
+        return {
+          findOne: (...args) => target.findOne(...args),
+          async updateOne(...args) {
+            transactionWrites++;
+            if (transactionWrites === 2) throw new Error("SIMULATED_SECOND_WRITE_FAILURE");
+            return target.updateOne(...args);
+          }
+        };
+      }
+    };
+    await assert.rejects(
+      acceptOfflineBatch({db:failingDb,authenticatedContext:context,events:[rollbackFirst,rollbackSecond]}),
+      /SIMULATED_SECOND_WRITE_FAILURE/
+    );
+    assert.equal(transactionWrites,2);
+    assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
+      empresaId,sedeId,eventId:{$in:[rollbackFirst.eventId,rollbackSecond.eventId]}
+    }),0);
     // Two different tablets send distinct orders concurrently; neither is lost.
     const tabletOne = { ...events[0], eventId: "01ARZ3NDEKTSV4RRFFQ69G5FB0", deviceId: "tabletOne" };
     const tabletTwo = { ...events[1], eventId: "01ARZ3NDEKTSV4RRFFQ69G5FB1", deviceId: "tabletTwo" };
