@@ -27,3 +27,19 @@ test("rechaza resúmenes TAP ausentes, duplicados o con fallos",()=>{
  assert.throws(()=>validarEvidenciaMongoV81(resumen+"# tests 2\n"),/RESUMEN_TAP_AUSENTE_O_DUPLICADO/);
  assert.throws(()=>validarEvidenciaMongoV81(resumen.replace("# pass 2","# pass 1").replace("# fail 0","# fail 1")),/MONGO_V81_NO_APROBADO/);
 });
+
+test("rechaza numeración duplicada, plan falso y pruebas no exitosas",()=>{
+ const duplicado=resumen.replace("ok 2 - ","ok 1 - ");
+ assert.throws(()=>validarEvidenciaMongoV81(duplicado),/RESULTADO_TAP_INVALIDO/);
+ assert.throws(()=>validarEvidenciaMongoV81(resumen.replace("1..2","1..3")),/PLAN_TAP_INVALIDO/);
+ assert.throws(()=>validarEvidenciaMongoV81(resumen.replace("ok 2 - ","not ok 2 - ")),/RESULTADO_TAP_INVALIDO/);
+ assert.throws(()=>validarEvidenciaMongoV81(resumen.replace("ok 2 - ","ok 3 - ")),/RESULTADO_TAP_INVALIDO/);
+});
+test("rechaza pruebas omitidas incluso con resumen falsamente aprobado",()=>{
+ const falso=resumen.replace(
+  "ok 2 - DecisionProof serializa dos escrituras concurrentes sin huérfanos",
+  "ok 2 - DecisionProof serializa dos escrituras concurrentes sin huérfanos # SKIP"
+ );
+ assert.throws(()=>validarEvidenciaMongoV81(falso),/RESULTADO_TAP_INVALIDO/);
+ assert.throws(()=>validarEvidenciaMongoV81(resumen.replace("ok 2 - ","ok 2 - Otra prueba: ").replace("1..2\n","")),/PLAN_TAP_INVALIDO/);
+});
