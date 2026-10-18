@@ -11,6 +11,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/finanzas-personales-ci.yml'
+      - 'scripts/resumen-auditoria-personal.js'
 permissions:
   contents: read
 jobs:
@@ -41,7 +42,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          npm audit --json > audit-finanzas.json
+          npm audit --audit-level=high --json > audit-finanzas.json
           status=$?
           set -e
           node scripts/resumen-auditoria-personal.js audit-finanzas.json >> "$GITHUB_STEP_SUMMARY"
