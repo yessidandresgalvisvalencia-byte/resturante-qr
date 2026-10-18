@@ -7,6 +7,8 @@ const Movimiento=require("../../modules/finanzas-personales/models/TransaccionPe
 const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
 const Vinculo=require("../../modules/finanzas-personales/models/vinculoHistoricoV81.model");
 const {confirmarVinculoHistoricoV81}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
+const {diagnosticarVinculosHistoricosV81}=require("../../modules/finanzas-personales/services/diagnosticoVinculosHistoricosV81.service");
+const {conciliarHistoricoCuentaV81}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
 
 function exigirMongoAislado(uri,confirmacion){
  if(confirmacion!=="SOLO_PRUEBAS_LOCALES")throw new Error("CONFIRMACION_DB_PRUEBAS_REQUERIDA");
@@ -80,6 +82,35 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   assert.equal((await Movimiento.findById(segundo._id).lean()).cuentaId,null);
   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,antes.saldoMinor);
   assert.equal((await Cuenta.findById(cuentaAlterna._id).lean()).saldoMinor,0);
+  // El diagnóstico debe reconocer ambos vínculos inmutables, no sugerir otro.
+  const diagnostico=await diagnosticarVinculosHistoricosV81(String(usuarioId));
+  for(const id of [movimiento._id,segundo._id]){
+   const item=diagnostico.movimientos.find(m=>m.movimientoId===String(id));
+   assert.equal(item?.estado,"CONFIRMADO");
+  }
+  // El mismo nombre histórico NO puede bloquear la cuenta a la que un
+  // movimiento se vinculó expresamente, ni contaminar la cuenta original.
+  const periodo={usuarioId:String(usuarioId),desde:"2025-01-01",
+   hastaExclusivo:"2025-02-01",saldoInicialCentavos:0n};
+  const segundoEnOriginal=String(evidencia.cuentaId)===String(cuenta._id);
+  const original=await conciliarHistoricoCuentaV81({...periodo,cuentaId:String(cuenta._id),
+   saldoObservadoCentavos:segundoEnOriginal?-35000n:-10000n});
+  assert.equal(original.estado,"CONCILIADA");
+  assert.equal(original.movimientosEvaluados,segundoEnOriginal?2:1);
+  const alterna=await conciliarHistoricoCuentaV81({...periodo,cuentaId:String(cuentaAlterna._id),
+   saldoObservadoCentavos:segundoEnOriginal?0n:-25000n});
+  assert.equal(alterna.estado,"CONCILIADA");
+  assert.equal(alterna.movimientosEvaluados,segundoEnOriginal?0:1);
+  // Sin prueba individual de vínculo, un tercer movimiento debe bloquear.
+  const pendiente=await Movimiento.create({usuarioId,cuentaId:null,tipo:"GASTO",
+   concepto:"Pendiente intencional",categoria:"PRUEBA",cuenta:cuenta.nombre,
+   medioPago:"EFECTIVO",montoMinor:75,moneda:"COP",fecha:new Date("2025-01-17T12:00:00Z")});
+  await assert.rejects(()=>conciliarHistoricoCuentaV81({...periodo,
+   cuentaId:String(cuenta._id),saldoObservadoCentavos:-999999n}),
+   error=>error.statusCode===409);
+  const diagnosticoPendiente=await diagnosticarVinculosHistoricosV81(String(usuarioId));
+  assert.equal(diagnosticoPendiente.movimientos.find(x=>x.movimientoId===String(pendiente._id))?.estado,
+   "REQUIERE_CONFIRMACION");
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
