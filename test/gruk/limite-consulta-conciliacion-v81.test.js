@@ -68,3 +68,16 @@ test("todas las consultas de conciliación tienen presupuesto temporal y nunca u
  assert.equal(source.split(".limit(MAX_FILAS_CONCILIACION_V81+1)").length-1,3);
  assert.ok(source.includes("{$limit:MAX_FILAS_CONCILIACION_V81+1}"));
 });
+
+test("el período máximo admite año bisiesto y rechaza rangos excesivos antes de Mongo",()=>{
+ const {exigirPeriodoAcotadoV81,MAX_DIAS_CONCILIACION_V81}=
+  require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+ assert.equal(MAX_DIAS_CONCILIACION_V81,366);
+ assert.equal(exigirPeriodoAcotadoV81("2024-01-01","2025-01-01"),true);
+ assert.equal(exigirPeriodoAcotadoV81("2025-01-01","2025-01-02"),true);
+ for(const [desde,hasta] of [
+  ["2024-01-01","2025-01-02"],["2025-01-01","2026-01-03"],
+  ["2025-01-01","2025-01-01"],["2025-02-01","2025-01-01"],
+  ["2025-02-30","2025-03-02"]
+ ])assert.throws(()=>exigirPeriodoAcotadoV81(desde,hasta),TypeError);
+});
