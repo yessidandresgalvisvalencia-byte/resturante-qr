@@ -12,6 +12,12 @@ Opcionalmente, `emitirAnclaDecisionMongo(usuarioId, clave, {anclaPrevia})` verif
 
 Una instantánea coherente evita carreras entre lectura del historial y su encabezado, pero la firma **no demuestra por sí sola** cuándo se tomó la instantánea o si se manipuló la base antes. La publicación externa WORM debe ocurrir tras un commit y protegerse contra sustitución y retroceso de anclas.
 
+## Auditoría independiente desde MongoDB
+
+`verificarAnclaDecisionMongo(usuarioId, clave, anclaExterna)` abre una transacción con lectura snapshot, consulta únicamente el historial del usuario indicado y verifica la ancla externa contra la cadena actual. Devuelve `ANCLA_VERIFICADA` cuando coincide y códigos de error cuando no, sin devolver registros financieros. Rechaza entradas inválidas y no verifica más de 10 000 elementos.
+
+**La aplicación debe obtener `anclaExterna` de un almacén independiente con permisos y retención inmutable**, no del navegador o de la misma base que audita. La función comprueba autenticidad y consistencia, pero no demuestra que el comprobante proporcionado sea el más reciente: esa propiedad depende del almacén externo.
+
 ## Requisitos de custodia (antes de producción)
 
 1. Generar una clave aleatoria de 32 bytes o más mediante un administrador de secretos/KMS, distinta de las claves JWT, cifrado de datos e idempotencia. No incluirla en GitHub, logs o documentos.
