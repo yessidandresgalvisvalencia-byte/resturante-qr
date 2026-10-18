@@ -13,6 +13,14 @@ async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
    typeof movement.montoCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(movement.montoCop)||
    BigInt(movement.montoCop)>BigInt(Number.MAX_SAFE_INTEGER))throw error("OFFLINE_LEDGER_INVALID_MOVEMENT");
  const collection=db.collection("gruk_ledger_movimientos");
+ // Refuse to write before Mongo has confirmed the unique index exists.
+ if(typeof collection.indexes!=="function")throw error("OFFLINE_LEDGER_UNIQUE_INDEX_REQUIRED");
+ const indexes=await collection.indexes();
+ const valid=Array.isArray(indexes)&&indexes.some(index=>
+   index.name==="uniq_offline_ledger_event_type_tenant"&&index.unique===true&&
+   ["empresaId","sedeId","eventId","tipo"].every(k=>index.key?.[k]===1)&&
+   Object.keys(index.key||{}).length===4);
+ if(!valid)throw error("OFFLINE_LEDGER_UNIQUE_INDEX_REQUIRED");
  const key={empresaId:context.empresaId,sedeId:context.sedeId,eventId,tipo:movement.tipo};
  const payload={...key,actorId:context.actorId,montoCop:movement.montoCop,deletedAt:null,createdAt:new Date()};
  // $setOnInsert never mutates an existing ledger entry.
