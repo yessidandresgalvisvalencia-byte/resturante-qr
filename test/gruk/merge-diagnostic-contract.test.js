@@ -45,3 +45,7 @@ test("merge-readiness exige el SHA exacto del evento GitHub",()=>{
 test("checkout de diagnóstico no depende de la referencia merge temporal de una PR bloqueada",()=>{
  assert.match(ci,/name: Checkout con historial completo\s*\n\s*uses: actions\/checkout@v4\s*\n\s*with:\s*\n\s*fetch-depth: 0\s*\n\s*ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
 });
+
+test("gate prueba SHA de la PR personal sin cambiar checkout de otras PR",()=>{
+ assert.match(ci,/name: GRUK Production Gate[\s\S]*?name: Checkout\s*\n\s*uses: actions\/checkout@v4\s*\n\s*with:\s*\n\s*fetch-depth: 0\s*\n\s*#[^\n]*\n\s*ref: \$\{\{ github\.event\.pull_request\.head\.ref == 'feature\/finanzas-personales' && github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
+});
