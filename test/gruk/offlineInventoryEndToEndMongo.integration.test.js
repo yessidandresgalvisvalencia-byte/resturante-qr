@@ -51,7 +51,7 @@ test("Mongo real: two offline orders, retry, and failure after stock update all 
   assert.deepEqual(await counts(db),[2,1,2,2]);
   // An identical replay cannot debit the product again.
   await assert.rejects(post({db:scoped,context,eventIds:[first,second],objectId}),
-   e=>e.code==="OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION");
+   e=>e.code==="OFFLINE_ORDERS_NOT_PENDING");
   assert.equal(await stock(db),2);
   assert.deepEqual(await counts(db),[2,1,2,2]);
   // Inject a crash AFTER Mongo has executed the stock write in its session.
@@ -72,8 +72,28 @@ test("Mongo real: two offline orders, retry, and failure after stock update all 
    /SIMULATED_CRASH_AFTER_STOCK_WRITE/);
   assert.equal(await stock(db),2,"stock update must roll back");
   assert.deepEqual(await counts(db),[2,1,2,2],"new journals must roll back");
+  // Crash after changing inbox status: everything in the transaction rolls back.
+  const failingInbox={client,collection(name){
+   const collection=db.collection(name);
+   if(name!=="gruk_offline_inbox")return collection;
+   return {
+    find:(...args)=>collection.find(...args),
+    findOne:(...args)=>collection.findOne(...args),
+    async updateOne(...args){
+     await collection.updateOne(...args);
+     throw Error("SIMULATED_CRASH_AFTER_INBOX_STAGE");
+    }
+   };
+  }};
+  await assert.rejects(post({db:failingInbox,context,eventIds:[third],objectId}),
+   /SIMULATED_CRASH_AFTER_INBOX_STAGE/);
+  assert.equal(await stock(db),2,"inbox crash must roll back inventory");
+  assert.deepEqual(await counts(db),[2,1,2,2],"inbox crash must roll back all new journals");
+  assert.equal((await db.collection("gruk_offline_inbox").findOne({eventId:third})).status,"PENDIENTE");
   const pending=await db.collection("gruk_offline_inbox").countDocuments({empresaId:context.empresaId,
    sedeId:context.sedeId,status:"PENDIENTE"});
-  assert.equal(pending,3,"staging must never silently mark inbox APPLIED");
+  assert.equal(pending,1,"failed third event must remain pending");
+  assert.equal(await db.collection("gruk_offline_inbox").countDocuments({status:"EN_REVISION",inventoryApplied:true}),2);
+  assert.equal(await db.collection("gruk_offline_inbox").countDocuments({status:"APLICADO"}),0);
  }finally{await db.dropDatabase();await client.close();}
 });
