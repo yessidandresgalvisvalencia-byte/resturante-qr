@@ -55,3 +55,30 @@ test("la confirmación requiere identificador de operación",async()=>{
   Transaccion:repositorio(base),usuarioId:"usuario-a",externalIdHash:null,esperado:base
  }),e=>e.statusCode===400);
 });
+
+test("estado desconocido nunca confirma un pago ni revela su identificador",async()=>{
+ for(const estado of ["PENDIENTE","ERROR",null,undefined]){
+  await assert.rejects(
+   confirmarIntento({
+    Transaccion:repositorio({...base,estado}),
+    usuarioId:"usuario-a",externalIdHash:"hash-a",esperado:base
+   }),
+   e=>e.statusCode===409 && /Estado de transacción no verificable/.test(e.message)
+  );
+ }
+});
+test("un origen recurrente o préstamo distinto no puede confirmar con igual clave",async()=>{
+ for(const cambiado of [
+  {recurrenteOrigenId:"507f1f77bcf86cd799439012"},
+  {prestamoId:"507f1f77bcf86cd799439013"}
+ ]){
+  await assert.rejects(
+   confirmarIntento({
+    Transaccion:repositorio(base),
+    usuarioId:"usuario-a",externalIdHash:"hash-a",
+    esperado:{...base,...cambiado}
+   }),
+   e=>e.statusCode===409
+  );
+ }
+});
