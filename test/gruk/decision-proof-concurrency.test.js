@@ -105,6 +105,26 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   });
 
 
+  // Ataque completo en usuario temporal aislado: se borra toda la cadena
+  // directamente desde MongoDB y se reinicia el head. Un head vacío jamás
+  // constituye evidencia suficiente de integridad.
+  const usuarioBorrado=new mongoose.Types.ObjectId();
+  await registrar(usuarioBorrado,{
+    ...base,accion:"CONSULTAR",idempotencyKey:"attack-delete-all-0001"
+  });
+  assert.deepEqual(await auditarCadenaUsuario(usuarioBorrado),{
+    valida:true,codigo:"OK",secuencia:1
+  });
+  assert.equal((await Proof.collection.deleteMany({usuarioId:usuarioBorrado})).deletedCount,1);
+  const reinicio=await Head.collection.updateOne(
+    {usuarioId:usuarioBorrado},
+    {$set:{secuencia:0,headHash:null}}
+  );
+  assert.equal(reinicio.matchedCount,1);
+  assert.deepEqual(await auditarCadenaUsuario(usuarioBorrado),{
+    valida:false,codigo:"SIN_ANCLA_DE_INTEGRIDAD",secuencia:0
+  });
+
   // Un acceso privilegiado directo a MongoDB elude los hooks de Mongoose.
   // La prueba usa exclusivamente el usuario temporal generado arriba y
   // demuestra que la auditoría detecta la adulteración del historial.
