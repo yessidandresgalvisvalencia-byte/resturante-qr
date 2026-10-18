@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {resolverConfirmacion,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
+const {resolverConfirmacion,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
 const uid="507f1f77bcf86cd799439011";
 const movimiento={_id:"507f1f77bcf86cd799439012",usuarioId:uid,cuentaId:null,
  estado:"ACTIVA",moneda:"COP"};
@@ -54,4 +54,13 @@ test("colisión cruzada no pasa inadvertida aunque un vínculo coincida",()=>{
  assert.deepEqual(decidirReintentoVinculo([igual,otraClave],solicitud),{existe:true,coincide:false});
  assert.deepEqual(decidirReintentoVinculo([otraClave,igual],solicitud),{existe:true,coincide:false});
  assert.deepEqual(decidirReintentoVinculo([otraClave],solicitud),{existe:true,coincide:false});
+});
+
+test("Mongo WriteConflict y commit incierto se identifican para reintento",()=>{
+ assert.equal(conflictoTransitorioMongo({code:112}),true);
+ assert.equal(conflictoTransitorioMongo({code:251}),true);
+ assert.equal(conflictoTransitorioMongo({hasErrorLabel:label=>label==="TransientTransactionError"}),true);
+ assert.equal(conflictoTransitorioMongo({hasErrorLabel:label=>label==="UnknownTransactionCommitResult"}),true);
+ assert.equal(conflictoTransitorioMongo({code:11000}),false);
+ assert.equal(conflictoTransitorioMongo(null),false);
 });
