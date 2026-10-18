@@ -27,7 +27,21 @@ jobs:
       - name: Instalar dependencias reproducibles
         run: npm ci --omit=dev
       - name: Comprobar sintaxis y suite financiera
-        run: npm run check:personal && npm run test:finanzas-personales
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run check:personal 2>&1 | tee check-personal-v81.log
+          npm run test:finanzas-personales 2>&1 | tee pruebas-finanzas-v81.log
+      - name: Conservar evidencia de pruebas y sintaxis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-suite-financiera-v81
+          path: |
+            check-personal-v81.log
+            pruebas-finanzas-v81.log
+          if-no-files-found: ignore
+          retention-days: 14
   auditoria-dependencias:
     runs-on: ubuntu-latest
     timeout-minutes: 10
