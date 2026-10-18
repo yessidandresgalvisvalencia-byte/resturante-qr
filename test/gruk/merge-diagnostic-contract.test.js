@@ -22,6 +22,7 @@ test("CI publica el informe aun si fallan otras pruebas",()=>{
  assert.match(ci,/\+refs\/heads\/feature\/finanzas-personales:refs\/remotes\/origin\/feature\/finanzas-personales/);
  assert.match(ci,/set -o pipefail/);
  assert.match(ci,/bash scripts\/diagnose-personal-merge\.sh/);
- assert.match(ci,/name: Guardar informe de conflictos de integración\s*\n\s*if: always\(\)/);
+ assert.match(ci,/name: Identificar conflictos reales con main sin fusionar\s*\n\s*if: github\.ref == 'refs\/heads\/feature\/finanzas-personales'/);
+ assert.match(ci,/name: Guardar informe de conflictos de integración\s*\n\s*if: always\(\) && \(github\.ref == 'refs\/heads\/feature\/finanzas-personales'/);
  assert.match(ci,/gruk-personal-merge-diagnostic\.log/);
 });
