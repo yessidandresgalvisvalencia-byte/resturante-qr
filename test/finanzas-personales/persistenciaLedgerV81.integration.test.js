@@ -194,6 +194,9 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    const verificado=await conciliarHistoricoCuentaV81({usuarioId:String(usuarioCuenta),cuentaId:String(cuentaPrueba),
     desde:"2026-10-01",hastaExclusivo:"2026-11-01",saldoInicialCentavos:50000n,saldoObservadoCentavos:130000n});
    assert.equal(verificado.estado,"CONCILIADA");
+   assert.equal(verificado.saldoBancarioVerificado,false);
+   assert.equal(verificado.origenSaldos,"REFERENCIAS_APORTADAS");
+   assert.equal(verificado.advertencia,"COINCIDENCIA_ARITMETICA_NO_ACREDITA_SALDO_BANCARIO");
    assert.equal(verificado.movimientosEvaluados,2);
    const diferente=await conciliarHistoricoCuentaV81({usuarioId:String(usuarioCuenta),cuentaId:String(cuentaPrueba),
     desde:"2026-10-01",hastaExclusivo:"2026-11-01",saldoInicialCentavos:50000n,saldoObservadoCentavos:129999n});
