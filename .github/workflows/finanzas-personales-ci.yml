@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          npm audit --omit=dev --json > audit-finanzas.json
+          npm audit --json > audit-finanzas.json
           status=$?
           set -e
           node scripts/resumen-auditoria-personal.js audit-finanzas.json >> "$GITHUB_STEP_SUMMARY"
