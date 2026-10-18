@@ -54,3 +54,23 @@ test("V81 rechaza importe flotante y usuario arbitrario del cuerpo",async()=>{
  assert.equal((await solicitar(escribe,{...entrada,usuarioId:"507f1f77bcf86cd799439012"})).statusCode,400);
  assert.equal(llamadas,0);
 });
+
+test("V81 conserva error de validacion 400 devuelto por la persistencia",async()=>{
+ const res=await solicitar(async()=>{throw Object.assign(new Error("Correccion invalida"),{statusCode:400});});
+ assert.equal(res.statusCode,400);
+ assert.equal(res.body.codigo,"DATOS_INVALIDOS");
+ assert.equal(res.headers["Cache-Control"],"no-store");
+});
+test("V81 conserva rechazo de acceso 403 sin exponer detalles",async()=>{
+ const res=await solicitar(async()=>{throw Object.assign(new Error("Usuario ajeno, detalle privado"),{statusCode:403});});
+ assert.equal(res.statusCode,403);
+ assert.equal(res.body.codigo,"ACCESO_DENEGADO");
+ assert.equal(res.body.error,"Acceso denegado");
+ assert.equal(res.headers["Cache-Control"],"no-store");
+});
+test("V81 no transforma fallas desconocidas en respuestas exitosas",async()=>{
+ const res=await solicitar(async()=>{throw Object.assign(new Error("Storage failure"),{statusCode:503});});
+ assert.equal(res.statusCode,500);
+ assert.equal(res.body.codigo,"ERROR_INTERNO");
+ assert.doesNotMatch(res.body.error,/Storage failure/);
+});
