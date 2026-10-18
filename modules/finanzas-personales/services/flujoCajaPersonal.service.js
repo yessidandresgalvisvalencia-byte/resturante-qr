@@ -153,6 +153,23 @@ async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){i
    reservadoMinor:{$gte:tx.montoMinor}
   },{$inc:{reservadoMinor:-tx.montoMinor}},{new:true,session});
   if(!reserva)throw Object.assign(new Error("No se puede anular: reserva recurrente ausente o inconsistente"),{statusCode:409});
+  // El abono aún está activo en esta lectura; calcular el total antes de
+  // anularlo y comprobar que la reserva posterior coincide con ese reverso.
+  const periodo=await ReservaCuota.findOne({
+   usuarioId,origenId:origen._id,periodoInicio:inicio
+  }).select("periodoFin").session(session).lean();
+  if(!periodo)throw Object.assign(new Error("Reserva de cuota sin período"),{statusCode:409});
+  const vigentes=await Transaccion.find({
+   usuarioId,tipo:"GASTO",recurrenteOrigenId:origen._id,
+   estado:{$ne:"ANULADA"},fecha:{$gte:inicio,$lt:periodo.periodoFin}
+  }).select("montoMinor").session(session).lean();
+  const totalVigente=vigentes.reduce((n,p)=>{
+   const siguiente=n+p.montoMinor;
+   if(!Number.isSafeInteger(siguiente))throw new RangeError("Abonos recurrentes exceden rango seguro");
+   return siguiente;
+  },0);
+  if(BigInt(reserva.reservadoMinor)!==BigInt(totalVigente)-BigInt(tx.montoMinor))
+   throw Object.assign(new Error("No se puede anular: reserva recurrente desincronizada con ledger"),{statusCode:409});
  }
  const reverso=tx.tipo==="INGRESO"?-tx.montoMinor:tx.montoMinor;const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,activa:true,...(reverso<0?{saldoMinor:{$gte:-reverso}}:{})},{$inc:{saldoMinor:reverso}},{new:true,session});if(!cuenta){const esEfectivo=String(tx.cuenta||"").trim().toUpperCase()==="EFECTIVO";if(!esEfectivo||reverso>=0)throw Object.assign(new Error("No se puede anular: cuenta no encontrada o saldo insuficiente. Revisa la cuenta y sus movimientos posteriores."),{statusCode:409});const pendiente=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,tipo:"EFECTIVO",activa:true},{$inc:{saldoMinor:reverso},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{new:true,session});if(!pendiente)throw Object.assign(new Error("No se puede anular: cuenta de efectivo no encontrada"),{statusCode:409});}tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion=String(motivo).slice(0,240);await tx.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_ANULADO",aggregateId:tx._id,payload:{transaccionId:String(tx._id),tipo:tx.tipo,montoMinor:tx.montoMinor,motivo:tx.motivoAnulacion}}],{session});},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
 module.exports={registrarTransaccion,republicarPendientes,flujoPeriodo,anularTransaccion,corregirTransaccion};
