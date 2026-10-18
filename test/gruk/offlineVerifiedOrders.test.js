@@ -10,7 +10,7 @@ const event={...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",payl
 function db(productFound=true){
  return {collection(name){
   if(name==="gruk_offline_inbox")return {find:q=>({toArray:async()=>[event].filter(e=>e.empresaId===q.empresaId&&e.sedeId===q.sedeId&&e.actorId===q.actorId&&e.status===q.status)})};
-  if(name==="productoservicios")return {find:q=>({toArray:async()=>productFound&&q.empresaId===context.empresaId&&q.sedeId===context.sedeId?[{_id:product}]:[]})};
+  if(name==="productoservicios")return {find:q=>({toArray:async()=>productFound&&q.empresaId===context.empresaId&&q.sedeId===context.sedeId?[{_id:product,empresaId:context.empresaId,sedeId:context.sedeId,activo:true}]:[]})};
   throw Error("UNEXPECTED_COLLECTION");
  }};
 }
@@ -34,7 +34,7 @@ test("preflight offline: comparte una misma sesión Mongo entre inbox y producto
  const connection={collection(name){return {find(q,options){
    seen.push({name,session:options?.session});
    if(name==="gruk_offline_inbox")return {toArray:async()=>[event]};
-   if(name==="productoservicios")return {toArray:async()=>[{_id:product}]};
+   if(name==="productoservicios")return {toArray:async()=>[{_id:product,empresaId:context.empresaId,sedeId:context.sedeId,activo:true}]};
    throw Error("UNEXPECTED_COLLECTION");
  }};}};
  const result=await prepare({db:connection,context,eventIds:[eventId],objectId:x=>x,session});
