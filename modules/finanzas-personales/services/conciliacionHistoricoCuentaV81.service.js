@@ -27,8 +27,10 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
     return {id:String(row._id),usuarioId:String(usuarioId),cuentaId:String(cuentaId),fechaContable,
       tipo:row.tipo==="INGRESO"?"ENTRADA":"SALIDA",montoCentavos:BigInt(row.montoMinor)*100n};
    });
-   return conciliarPeriodoCuentaV81({usuarioId:String(usuarioId),cuentaId:String(cuentaId),desde,hastaExclusivo,
+   const resultado=conciliarPeriodoCuentaV81({usuarioId:String(usuarioId),cuentaId:String(cuentaId),desde,hastaExclusivo,
     saldoInicialCentavos,saldoObservadoCentavos,movimientos,cantidadEsperadaMovimientos:rows.length});
+   return Object.freeze({...resultado,origenSaldos:"REFERENCIAS_APORTADAS",saldoBancarioVerificado:false,
+    advertencia:"COINCIDENCIA_ARITMETICA_NO_ACREDITA_SALDO_BANCARIO"});
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
