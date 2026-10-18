@@ -43,8 +43,16 @@ async function markOfflineApplied({db,context,eventId,reviewToken,commitReferenc
   const cash=await db.collection("gruk_offline_caja_intenciones").findOne({
     ...scope,status:"CONCILIADO",cobrado:true
   },{session,projection:{montoCop:1}});
+  // Every journal must contain exactly one proof for this scoped event.
+  // findOne alone could select a valid document while ignoring a duplicate.
+  const [saleProofs,cashProofs,ledgerProofs]=await Promise.all([
+    db.collection("gruk_offline_ventas").countDocuments(scope,{session}),
+    db.collection("gruk_offline_caja_intenciones").countDocuments(scope,{session}),
+    db.collection("gruk_ledger_movimientos").countDocuments(scope,{session})
+  ]);
+  const uniqueProofs=saleProofs===1&&cashProofs===1&&ledgerProofs===1;
   const integerCop=value=>typeof value==="string"&&/^(0|[1-9][0-9]*)$/.test(value);
-  const committed=!!(record.inventoryApplied===true&&ledger&&sale&&cash&&integerCop(ledger.montoCop)&&
+  const committed=!!(record.inventoryApplied===true&&uniqueProofs&&ledger&&sale&&cash&&integerCop(ledger.montoCop)&&
     integerCop(sale.totalCop)&&integerCop(cash.montoCop)&&
     ledger.montoCop===sale.totalCop&&sale.totalCop===cash.montoCop);
   assertTransition({from:record.status,to:STATES.APLICADO,
