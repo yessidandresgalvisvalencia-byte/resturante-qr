@@ -6,6 +6,17 @@ const Vinculo=require("../models/vinculoHistoricoV81.model");
 const {conciliarPeriodoCuentaV81}=require("./conciliacionPeriodoCuentaV81.service");
 const {exigirSinMovimientosHuerfanos}=require("./guardiaConciliacionCuentaV81.service");
 const MAX_FILAS_CONCILIACION_V81=25000;
+const FORMATEADOR_FECHA_BOGOTA_V81=new Intl.DateTimeFormat("en-US",{
+ timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"
+});
+function fechaContableBogotaV81(fecha){
+ if(!(fecha instanceof Date)||!Number.isFinite(fecha.getTime()))
+  throw new TypeError("Fecha del movimiento inválida");
+ const piezas=FORMATEADOR_FECHA_BOGOTA_V81.formatToParts(fecha);
+ const partes=Object.fromEntries(piezas.map(x=>[x.type,x.value]));
+ return `${partes.year}-${partes.month}-${partes.day}`;
+}
+
 function exigirResultadosAcotadosV81(filas){
  if(!Array.isArray(filas))throw new TypeError("Consulta histórica inválida");
  if(filas.length>MAX_FILAS_CONCILIACION_V81){
@@ -81,14 +92,11 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
    const sinResolver=filtrarHuerfanosSinResolver(sinVinculo,resueltos);
    exigirSinMovimientosHuerfanos({cuenta,filas:sinResolver});
    const filasConciliables=exigirResultadosAcotadosV81([...rows,...heredados]);
-   const formateadorFecha=new Intl.DateTimeFormat("en-US",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"});
    const movimientos=filasConciliables.map(row=>{
     if(!Number.isSafeInteger(row.montoMinor)||row.montoMinor<=0||row.impactoCaja!==true||
        !["INGRESO","GASTO"].includes(row.tipo)||row.medioPago==="CREDITO")
       throw new Error("Movimiento histórico no clasificable: conciliación bloqueada");
-    const piezas=formateadorFecha.formatToParts(row.fecha);
-    const partes=Object.fromEntries(piezas.map(x=>[x.type,x.value]));
-    const fechaContable=`${partes.year}-${partes.month}-${partes.day}`;
+    const fechaContable=fechaContableBogotaV81(row.fecha);
     return {id:String(row._id),usuarioId:String(usuarioId),cuentaId:String(cuentaId),fechaContable,
       tipo:row.tipo==="INGRESO"?"ENTRADA":"SALIDA",montoCentavos:BigInt(row.montoMinor)*100n};
    });
@@ -99,4 +107,4 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,crearPipelineVinculosPeriodoV81};
+module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,crearPipelineVinculosPeriodoV81,fechaContableBogotaV81};
