@@ -7,6 +7,7 @@ const patrimonio=require("./patrimonioPersonal.service");
 const Calendario=require("../models/calendarioFinanciero.model");
 const truth=require("./financialTruth.service");
 const {maximoGastoHoyConGmf}=require("./dineroExactoV81.service");
+const {periodoRecurrenteColombia}=require("./vinculoRecurrenteV81.service");
 
 function partesColombia(d=new Date()){const p=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);const v=Object.fromEntries(p.map(x=>[x.type,x.value]));return{y:Number(v.year),m:Number(v.month),d:Number(v.day)};}
 function inicioDiaColombiaUTC(y,m,d){return new Date(Date.UTC(y,m-1,d,5,0,0,0));}
@@ -206,26 +207,28 @@ async function obtener(usuarioId,now=new Date()){
  const vencimientosAtrasados=seleccionarVencimientosAtrasados(deudas,now);
  const gastosFijosRecurrentes=await Transaccion.find({usuarioId,tipo:"GASTO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).limit(100).lean();
  for(const g of gastosFijosRecurrentes){const fecha=siguienteFechaRecurrente({...g,tipo:"INGRESO"},now);if(fecha&&fecha<limiteCompromisos)compromisosAntesIngreso.push({concepto:g.concepto,montoMinor:g.montoMinor,fecha});}
- // Un gasto recurrente que vence hoy requiere conciliación; no duplicar
- // descuentos porque el saldo verificado puede reflejar el pago.
-// La transacción recurrente registrada HOY ya forma parte del ledger de gastos.
- // No inferir pagos posteriores por concepto, categoría o monto: falta un vínculo único.
- // Los pagos tienen relación explícita al documento origen; jamás inferir por texto.
- // Las transacciones futuras no forman parte de tx, y solo cuenta el pago del día civil.
- const hoyCivil=partesColombia(now);
- const pagosRecurrentesDeHoy=new Map();
- for(const movimiento of tx){
-  if(movimiento.tipo!=="GASTO"||!movimiento.recurrenteOrigenId||movimiento.impactoCaja===false)continue;
-  const fechaPago=partesColombia(new Date(movimiento.fecha));
-  if(fechaPago.y!==hoyCivil.y||fechaPago.m!==hoyCivil.m||fechaPago.d!==hoyCivil.d)continue;
-  const id=String(movimiento.recurrenteOrigenId);
-  const total=(pagosRecurrentesDeHoy.get(id)||0)+movimiento.montoMinor;
-  if(!Number.isSafeInteger(total))throw new RangeError("Pagos recurrentes exceden rango seguro");
-  pagosRecurrentesDeHoy.set(id,total);
- }
- const gastosRecurrentesHoySinConciliar=gastosFijosRecurrentes.filter(
-  g=>gastoRecurrenteHoySinConfirmacion(g,now,pagosRecurrentesDeHoy.get(String(g._id))||0)
- );
+ // Conciliar el mismo ciclo definido por el validador de escritura, no solo
+ // la fecha de hoy: un abono ayer también puede cubrir la cuota de hoy.
+ const vencenHoy=gastosFijosRecurrentes.filter(g=>gastoRecurrenteVenceHoy(g,now));
+ const periodosHoy=vencenHoy.map(g=>({
+  gasto:g,...periodoRecurrenteColombia({fechaOrigen:g.fecha,fechaPago:now,frecuencia:g.frecuencia})
+ }));
+ const desde=periodosHoy.length?new Date(Math.min(...periodosHoy.map(x=>x.inicio.getTime()))):null;
+ const pagosVinculados=desde?await Transaccion.find({
+  usuarioId,tipo:"GASTO",recurrenteOrigenId:{$in:vencenHoy.map(x=>x._id)},
+  estado:{$ne:"ANULADA"},impactoCaja:{$ne:false},
+  fecha:{$gte:desde,$lte:now}
+ }).select("recurrenteOrigenId montoMinor fecha").lean():[];
+ const gastosRecurrentesHoySinConciliar=periodosHoy.filter(({gasto,inicio,fin})=>{
+  let total=0;
+  for(const pago of pagosVinculados){
+   if(String(pago.recurrenteOrigenId)!==String(gasto._id)||
+      pago.fecha<inicio||pago.fecha>=fin)continue;
+   total+=pago.montoMinor;
+   if(!Number.isSafeInteger(total))throw new RangeError("Abonos recurrentes exceden rango seguro");
+  }
+  return gastoRecurrenteHoySinConfirmacion(gasto,now,total);
+ }).map(x=>x.gasto);
  const gastosFijosAntesProximoIngresoMinor=compromisosAntesIngreso.reduce((s,x)=>s+x.montoMinor,0);
  const saldoEstado=resolverSaldoAsesor(pat);
  const saldoAsesorMinor=saldoEstado.montoMinor;
