@@ -1,9 +1,11 @@
 "use strict";
 // Aritmética monetaria COP exacta. Entrada en texto; jamás Number ni float.
 function parsearCopACentavos(valor) {
-  if (typeof valor !== "string" || !/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(valor)) {
+  if (typeof valor !== "string" || !/^(?:0|[1-9]\d{0,14})(?:\.\d{1,2})?$/.test(valor)) {
     throw new TypeError("Monto COP inválido: usa texto decimal no negativo, sin separadores de miles");
   }
+  // Máximo 15 dígitos enteros COP: evita BigInt gigantes y entradas abusivas.
+  // No hay conversión a Number; el límite se comprueba sobre el texto.
   const [entero, decimales = ""] = valor.split(".");
   return BigInt(entero) * 100n + BigInt(decimales.padEnd(2, "0"));
 }
