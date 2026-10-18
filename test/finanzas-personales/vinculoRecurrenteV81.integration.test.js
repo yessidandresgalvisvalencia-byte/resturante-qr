@@ -249,6 +249,21 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   assert.equal((await ReservaCuota.findOne({
    usuarioId:propietario,origenId:origenConcurrente._id
   }).lean()).reservadoMinor,41000);
+  // Aun con la reserva monetaria restituida, una fecha de período
+  // alterada invalida tanto nuevos pagos como anulaciones posteriores.
+  await ReservaCuota.updateOne({
+   usuarioId:propietario,origenId:origenConcurrente._id
+  },{$set:{reservadoMinor:40000,periodoFin:new Date("2099-01-01T05:00:00Z")}});
+  await assert.rejects(registrar(propietario,movimiento({
+   recurrenteOrigenId:origenConcurrente._id,externalId:"periodo-alterado",
+   montoMinor:1,cuenta:abonoActivo.cuenta
+  })),e=>e.statusCode===409&&/fin de período inconsistente/.test(e.message));
+  await assert.rejects(anular(propietario,reingreso._id),
+   e=>e.statusCode===409&&/período o importe inconsistente/.test(e.message));
+  assert.equal((await Transaccion.findById(reingreso._id).lean()).estado,"ACTIVA");
+  assert.equal((await Cuenta.findOne({
+   usuarioId:propietario,nombre:abonoActivo.cuenta
+  }).lean()).saldoMinor,cajaAntesInconsistencia);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
