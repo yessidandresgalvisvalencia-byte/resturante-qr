@@ -66,7 +66,14 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
    return {confirmado:true,yaExistia:false,modificaSaldo:false};
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
  }catch(e){
-  if(e.code===11000)throw Object.assign(new Error("Conflicto concurrente de vínculo; consulta su estado antes de reintentar"),{statusCode:409});
+  if(e.code===11000){
+   // El insert duplicado pudo haber sido el mismo intento concurrente.
+   // Solo responder idempotentemente tras leer el registro ya confirmado.
+   const previo=await Vinculo.findOne({usuarioId,$or:[{movimientoId},{idempotencyKeyHash}]}).lean();
+   if(coincideVinculo(previo,{movimientoId,cuentaId,evidencia,idempotencyKeyHash}))
+    return {confirmado:true,yaExistia:true,modificaSaldo:false};
+   throw Object.assign(new Error("Conflicto concurrente de vínculo con otra cuenta o evidencia"),{statusCode:409});
+  }
   throw e;
  }finally{await session.endSession();}
 }
