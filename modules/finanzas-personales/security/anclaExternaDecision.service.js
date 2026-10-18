@@ -24,6 +24,29 @@ function crearAncla({usuarioId,secuencia,headHash,emitidaEn=new Date().toISOStri
  const firma=crypto.createHmac("sha256",clave).update(cuerpo).digest("hex");
  return Object.freeze({...JSON.parse(cuerpo),algoritmo:"HMAC-SHA256",firma});
 }
+/**
+ * Firma exclusivamente una cadena v2 completa ya comprobada.
+ * El llamador debe obtener registros y head de una instantánea confiable y
+ * consistente de MongoDB; esta función no realiza consultas ni publica anclas.
+ */
+function crearAnclaVerificada({registros,head,usuarioId,emitidaEn=new Date().toISOString()},clave) {
+ validarClave(clave);
+ if (typeof usuarioId!=="string" || !/^[a-f0-9]{24}$/.test(usuarioId)) {
+  throw new TypeError("Usuario esperado obligatorio");
+ }
+ if (!Array.isArray(registros) || registros.length===0 || !head) {
+  throw new Error("CADENA_NO_VERIFICABLE");
+ }
+ const {verificarCadena}=require("../services/verificarCadenaDecision.service");
+ const resultado=verificarCadena(registros,head,usuarioId);
+ if (!resultado.valida) {
+  const error=new Error("CADENA_NO_VERIFICABLE");
+  error.code=resultado.codigo;
+  throw error;
+ }
+ return crearAncla({usuarioId,secuencia:head.secuencia,headHash:head.headHash,emitidaEn},clave);
+}
+
 function verificarAncla(ancla,clave,registros,head,usuarioEsperado) {
  if (typeof usuarioEsperado !== "string" || !/^[a-f0-9]{24}$/.test(usuarioEsperado)) throw new TypeError("Usuario esperado obligatorio");
  validarClave(clave);
@@ -53,4 +76,4 @@ function verificarAncla(ancla,clave,registros,head,usuarioEsperado) {
   return {valida:false,codigo:"ANCLA_NO_COINCIDE"};
  return {valida:true,codigo:"ANCLA_VERIFICADA",secuenciaAnclada:ancla.secuencia};
 }
-module.exports={crearAncla,verificarAncla};
+module.exports={crearAncla,crearAnclaVerificada,verificarAncla};
