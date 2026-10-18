@@ -7,6 +7,7 @@ test("V81 normaliza colisiones únicas y conflictos de escritura como 409",()=>{
  for(const code of [11000,112,251]){
   const mapped=normalizarErrorTransaccionalV81(Object.assign(new Error("Mongo conflict"),{code}));
   assert.equal(mapped.statusCode,409);
+  assert.equal(mapped.codigo,"REINTENTAR_MISMO_ID");
   assert.match(mapped.message,/mismo eventId/);
  }
 });
