@@ -70,6 +70,10 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
     ()=>Proof.replaceOne({usuarioId,_id:final[0]._id},{...final[0],accion:"REEMPLAZADO"}),
     {code:"DECISION_PROOF_APPEND_ONLY"}
   );
+  await assert.rejects(
+    ()=>Proof.bulkWrite([{updateOne:{filter:{_id:final[0]._id},update:{$set:{accion:"ADULTERADO"}}}}]),
+    {code:"DECISION_PROOF_APPEND_ONLY"}
+  );
   const existente=await Proof.findById(final[0]._id);
   existente.accion="ADULTERADO";
   await assert.rejects(()=>existente.save(),{code:"DECISION_PROOF_APPEND_ONLY"});
