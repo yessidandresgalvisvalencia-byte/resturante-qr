@@ -40,6 +40,12 @@ function verificarAncla(ancla,clave,registros,head,usuarioEsperado) {
  if (!crypto.timingSafeEqual(firma,Buffer.from(ancla.firma,"hex"))) return {valida:false,codigo:"FIRMA_INVALIDA"};
  if (ancla.usuarioId!==usuarioEsperado) return {valida:false,codigo:"USUARIO_NO_COINCIDE"};
  if (!Array.isArray(registros) || !head || !Number.isSafeInteger(head.secuencia)) return {valida:false,codigo:"CADENA_INVALIDA"};
+ // La firma autentica el ancla; la titularidad de los registros proviene de
+ // MongoDB y debe verificarse de forma independiente para evitar trasplantes.
+ if (String(head.usuarioId ?? "") !== usuarioEsperado ||
+     registros.some(registro => String(registro?.usuarioId ?? "") !== usuarioEsperado)) {
+  return {valida:false,codigo:"PROPIETARIO_CADENA_NO_COINCIDE"};
+ }
  // La cadena completa debe verificarse primero, incluyendo su cabeza actual.
  const {verificarCadena}=require("../services/verificarCadenaDecision.service");
  if (!verificarCadena(registros,head).valida) return {valida:false,codigo:"CADENA_INVALIDA"};
