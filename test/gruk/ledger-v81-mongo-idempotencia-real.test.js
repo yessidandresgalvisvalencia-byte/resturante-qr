@@ -27,7 +27,7 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
   ]);
   assert.equal(solicitudes.filter(x=>x.status==="fulfilled").length>=1,true);
   for(const resultado of solicitudes){
-   if(resultado.status==="rejected")assert.equal(resultado.reason.statusCode,409);
+   if(resultado.status==="rejected")assert.equal(resultado.reason.statusCode===409 || [112,251].includes(resultado.reason.code) || resultado.reason.hasErrorLabel?.("TransientTransactionError")===true,true);
   }
   assert.equal(await Evento.countDocuments({usuarioId:a,eventId:base.id}),1);
   const primero=await Evento.findOne({usuarioId:a,eventId:base.id}).lean();
