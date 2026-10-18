@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#162332">
+<title>GRUK · Estado de pedidos offline</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+body{font-family:system-ui,sans-serif;background:#f5f7fb;color:#172333;margin:0}
+main{max-width:820px;margin:32px auto;padding:20px}
+section{background:white;padding:20px;border-radius:14px;box-shadow:0 2px 12px #0001;margin-bottom:18px}
+button{border:0;border-radius:9px;padding:12px 16px;cursor:pointer;background:#162f53;color:white;font-weight:600;margin:4px}
+button:disabled{opacity:.5;cursor:wait}
+table{width:100%;border-collapse:collapse}th,td{padding:10px;text-align:left;border-bottom:1px solid #dde3ed}
+code{overflow-wrap:anywhere}small{color:#52616e}#message{white-space:pre-wrap} .scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<main>
+<p><a href="/admin.html">← Volver al administrador</a></p>
+<h1>Estado de pedidos sin conexión</h1>
+<p>Consulta la bandeja local y confirma qué recibió el servidor. <strong>«Recibido» no significa «pagado».</strong> Esta pantalla no realiza cobros, ajustes de caja ni descuentos de inventario.</p>
+<section>
+<strong id="connection" role="status">Comprobando conexión…</strong>
+<p id="identity">Verificando sesión…</p>
+<button id="refresh" type="button">Ver pedidos guardados</button>
+<button id="send" type="button">Enviar pendientes</button>
+<button id="reconcile" type="button">Consultar estado en servidor</button>
+<p id="message" aria-live="polite"></p>
+</section>
+<section>
+<h2>Pedidos del operador en este dispositivo</h2>
+<div class="scroll"><table>
+<thead><tr><th>Evento</th><th>Estado local</th><th>Estado servidor</th><th>Conciliación</th></tr></thead>
+<tbody id="rows"><tr><td colspan="4">Sin consultar.</td></tr></tbody>
+</table></div>
+<p><small>La información se conserva en el almacenamiento local. La lista muestra hasta 100 eventos propios; no representa la caja ni la facturación fiscal.</small></p>
+</section>
+</main>
+<script src="/js/gruk-offline-outbox.js"></script>
+<script src="/js/gruk-offline-transport.js"></script>
+<script src="/js/gruk-offline-panel.js"></script>
+</body>
+</html>
