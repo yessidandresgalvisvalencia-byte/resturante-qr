@@ -5,6 +5,8 @@ const assert=require("node:assert/strict");
 // Prueba transaccional destructiva SOLO en base local dedicada y replica set.
 // Cada ejecución utiliza usuarios nuevos; nunca toca cuentas reales.
 const uri=process.env.TEST_MONGO_URI;
+if(process.env.GRUK_REQUIRE_RECURRENT_MONGO_TEST==="1"&&!uri)
+ throw new Error("CI recurrente exige TEST_MONGO_URI: no se permite omitir la integración");
 const confirmacion=process.env.GRUK_V81_TEST_DB_CONFIRM==="SOLO_PRUEBAS_LOCALES";
 if(uri){
  const u=new URL(uri);
