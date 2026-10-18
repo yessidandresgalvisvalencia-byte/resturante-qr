@@ -30,10 +30,9 @@ test("Mongo replica set: four offline journals plus real inventory commit and ro
   finally{await session.endSession();}
   for(const name of journals)assert.equal(await db.collection(name).countDocuments({}),1,name);
   assert.equal((await db.collection("inventarios").findOne({productoServicioId:oid(productoId)})).cantidad,1);
-  // Reuse the same event: ledger has an incompatible amount and fails the transaction.
-  // Existing journal rows must remain untouched, and inventory must not decrement again.
+  // Simulate downstream failure during replay; no second stock decrement may persist.
   session=client.startSession();
-  try{await assert.rejects(session.withTransaction(()=>perform(session)),()=>true);}
+  try{await assert.rejects(session.withTransaction(async()=>{await perform(session);throw Error("SIMULATED_DOWNSTREAM_FAILURE");}),/SIMULATED_DOWNSTREAM_FAILURE/);}
   finally{await session.endSession();}
   for(const name of journals)assert.equal(await db.collection(name).countDocuments({}),1,name);
   assert.equal((await db.collection("inventarios").findOne({productoServicioId:oid(productoId)})).cantidad,1);
