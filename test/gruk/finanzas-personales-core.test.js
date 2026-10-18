@@ -204,3 +204,19 @@ test("asesor advierte GMF hipotético y no presenta escenario sin saldo concilia
  assert.match(source,/reservaGmfSiGravadoMinor:aptoParaDisponibleHoy\?reservaGmfSiGravadoMinor:null/);
  assert.match(source,/entre gasto e impuestos/);
 });
+
+test("ingreso recurrente antiguo no desaparece por superar mil períodos",()=>{
+ const f=home._fechas.siguienteFechaRecurrente;
+ const now=new Date("2026-10-18T16:00:00.000Z");
+ for(const [frecuencia,expected] of [
+  ["DIARIA","2026-10-19T05:00:00.000Z"],
+  ["SEMANAL","2026-10-20T05:00:00.000Z"],
+  ["QUINCENAL","2026-10-25T05:00:00.000Z"]
+ ]){
+  const next=f({tipo:"INGRESO",recurrente:true,frecuencia,
+   fecha:"2010-01-01T05:00:00.000Z"},now);
+  assert.equal(next?.toISOString(),expected,frecuencia);
+ }
+ assert.equal(f({tipo:"INGRESO",recurrente:true,frecuencia:"INVALIDA",
+  fecha:"2010-01-01T05:00:00.000Z"},now),null);
+});
