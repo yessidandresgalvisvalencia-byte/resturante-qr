@@ -8,6 +8,8 @@ El módulo `anclaExternaDecision.service.js` permite **crear** y **verificar** c
 
 La función `emitirAnclaDecisionMongo(usuarioId, clave)` en `services/anclaDecisionMongo.service.js` lee la cabeza y el historial en un snapshot transaccional de MongoDB; comprueba titularidad e integridad antes de firmar. Rechaza cadenas vacías, dañadas y mayores de 10 000 registros. **No hace escrituras ni publica el ancla**. La llamada debe hacerse solo desde un proceso autorizado, con clave custodiada en un administrador de secretos; nunca desde una API pública ni desde el navegador.
 
+Opcionalmente, `emitirAnclaDecisionMongo(usuarioId, clave, {anclaPrevia})` verifica, dentro del mismo snapshot, que la última ancla confiable conservada **fuera** de MongoDB coincida con el prefijo de la cadena y con el propietario. Si hay una firma falsa, retroceso o reescritura de ese prefijo, rechaza la nueva emisión. El argumento `anclaPrevia` **no debe provenir del cliente**: lo debe recuperar un servicio autorizado desde custodia externa independiente. La función no puede comprobar que sea la última ancla realmente publicada si el proveedor externo no garantiza esa consulta. Omitir el argumento mantiene la emisión sin garantía de continuidad, útil solo para inicialización controlada.
+
 Una instantánea coherente evita carreras entre lectura del historial y su encabezado, pero la firma **no demuestra por sí sola** cuándo se tomó la instantánea o si se manipuló la base antes. La publicación externa WORM debe ocurrir tras un commit y protegerse contra sustitución y retroceso de anclas.
 
 ## Requisitos de custodia (antes de producción)
