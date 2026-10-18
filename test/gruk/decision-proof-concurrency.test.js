@@ -97,6 +97,13 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   assert.deepEqual(await auditarCadenaUsuario(usuarioId),{valida:true,codigo:"OK",secuencia:4});
   const otroUsuario=new mongoose.Types.ObjectId();
   assert.deepEqual(await auditarCadenaUsuario(otroUsuario),{valida:false,codigo:"SIN_ANCLA_DE_INTEGRIDAD",secuencia:0});
+  // Crear solo la cabeza en cero simula un reinicio del ledger: no prueba
+  // que la cuenta haya estado siempre vacía y nunca debe aprobar auditoría.
+  await Head.create({usuarioId:otroUsuario,secuencia:0,headHash:null});
+  assert.deepEqual(await auditarCadenaUsuario(otroUsuario),{
+    valida:false,codigo:"SIN_ANCLA_DE_INTEGRIDAD",secuencia:0
+  });
+
 
   // Un acceso privilegiado directo a MongoDB elude los hooks de Mongoose.
   // La prueba usa exclusivamente el usuario temporal generado arriba y
