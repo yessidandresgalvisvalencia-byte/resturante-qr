@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {resolverConfirmacion,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo,hashClaveVinculoV81}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
+const {resolverConfirmacion,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo,hashClaveVinculoV81,hashesCompatiblesVinculoV81}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
 const uid="507f1f77bcf86cd799439011";
 const movimiento={_id:"507f1f77bcf86cd799439012",usuarioId:uid,cuentaId:null,
  estado:"ACTIVA",moneda:"COP"};
@@ -81,4 +81,28 @@ test("UUID con mayúsculas o minúsculas mantiene el mismo HMAC por usuario",()=
  assert.notEqual(lower,hashClaveVinculoV81("507f1f77bcf86cd799439099",clave,secret));
  assert.notEqual(lower,hashClaveVinculoV81(uid,clave,"otra-clave-para-test"));
  assert.throws(()=>hashClaveVinculoV81(uid,"clave-invalida",secret),e=>e.statusCode===400);
+});
+
+test("compatibilidad UUID heredados reconoce firma previa en mayúsculas sin duplicar",()=>{
+ const crypto=require("node:crypto");
+ const clave="1c279cce-fcf1-49e2-9271-9662d2fb2ee7";
+ const secret="clave-de-prueba-historica";
+ const legado=crypto.createHmac("sha256",secret)
+  .update(uid+":"+clave.toUpperCase()).digest("hex");
+ const compatibles=hashesCompatiblesVinculoV81(uid,clave,secret);
+ assert.ok(compatibles.includes(legado));
+ assert.equal(compatibles[0],hashClaveVinculoV81(uid,clave,secret));
+ assert.equal(new Set(compatibles).size,compatibles.length);
+ const previo={movimientoId:movimiento._id,cuentaId:cuenta._id,
+  evidencia:base.evidencia,idempotencyKeyHash:legado};
+ const solicitud={movimientoId:movimiento._id,cuentaId:cuenta._id,
+  evidencia:base.evidencia,idempotencyKeyHash:compatibles[0],
+  idempotencyKeyHashes:compatibles};
+ assert.deepEqual(decidirReintentoVinculo([previo],solicitud),{existe:true,coincide:true});
+ assert.deepEqual(decidirReintentoVinculo([previo],{
+  ...solicitud,movimientoId:"507f1f77bcf86cd799439099"
+ }),{existe:true,coincide:false});
+ assert.deepEqual(decidirReintentoVinculo([previo],{
+  ...solicitud,evidencia:"Otra evidencia bancaria distinta"
+ }),{existe:true,coincide:false});
 });
