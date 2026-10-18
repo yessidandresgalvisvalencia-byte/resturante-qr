@@ -5,7 +5,7 @@ const {markOfflineApplied}=require("../../core/offline/offlineApply.service");
 const ctx={empresaId:"A",sedeId:"1",actorId:"user",canReview:true};
 const eventId="evt1",reviewToken="12345678-1234-1234-1234-123456789abc";
 const commitReference={collection:"gruk_ledger_movimientos",eventId};
-function fixture(committed,{saleStatus="CONTABILIZADA",cashStatus="CONCILIADO",cashCobrado=true,saleAmount="3000",cashAmount="3000",ledgerAmount="3000",inventoryApplied=true,duplicateCollection=null}={}){
+function fixture(committed,{saleStatus="CONTABILIZADA",cashStatus="CONCILIADO",cashCobrado=true,saleAmount="3000",cashAmount="3000",ledgerAmount="3000",inventoryApplied=true,duplicateCollection=null,foreignProofCollection=null}={}){
   const record={empresaId:"A",sedeId:"1",eventId,actorId:"user",status:"EN_REVISION",reviewToken,reviewActorId:"user",inventoryApplied};
   let changes=0,query;
   const session={active:false,inTransaction(){return this.active;},async withTransaction(fn){this.active=true;try{return await fn();}finally{this.active=false;}},async endSession(){}};
@@ -14,9 +14,9 @@ function fixture(committed,{saleStatus="CONTABILIZADA",cashStatus="CONCILIADO",c
       async findOne(q,options){assert.equal(options.session,session);return q.empresaId==="A"&&q.sedeId==="1"&&q.eventId===eventId&&q.reviewToken===reviewToken&&q.actorId===record.actorId&&q.reviewActorId===record.reviewActorId?record:null;},
       async updateOne(q,update,options){assert.equal(options.session,session);query=q;changes++;assert.equal(update.$set.status,"APLICADO");return {modifiedCount:1};}
     };
-    if(name==="gruk_ledger_movimientos")return {async countDocuments(q,options){assert.equal(options.session,session);assert.equal(q.empresaId,"A");assert.equal(q.eventId,eventId);return duplicateCollection==="gruk_ledger_movimientos"?2:1;},async findOne(q,options){assert.equal(options.session,session);assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return committed?{_id:"stored",eventId,montoCop:ledgerAmount}:null;}};
-    if(name==="gruk_offline_ventas")return {async countDocuments(q,options){assert.equal(options.session,session);assert.equal(q.empresaId,"A");assert.equal(q.eventId,eventId);return duplicateCollection==="gruk_offline_ventas"?2:1;},async findOne(q){assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return q.status===saleStatus?{totalCop:saleAmount}:null;}};
-    if(name==="gruk_offline_caja_intenciones")return {async countDocuments(q,options){assert.equal(options.session,session);assert.equal(q.empresaId,"A");assert.equal(q.eventId,eventId);return duplicateCollection==="gruk_offline_caja_intenciones"?2:1;},async findOne(q){assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return q.status===cashStatus&&q.cobrado===cashCobrado?{montoCop:cashAmount}:null;}};
+    if(name==="gruk_ledger_movimientos")return {async countDocuments(q,options){assert.equal(options.session,session);assert.equal(q.empresaId,"A");assert.equal(q.eventId,eventId);return duplicateCollection==="gruk_ledger_movimientos"||foreignProofCollection==="gruk_ledger_movimientos"?2:1;},async findOne(q,options){assert.equal(options.session,session);assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return committed?{_id:"stored",eventId,montoCop:ledgerAmount}:null;}};
+    if(name==="gruk_offline_ventas")return {async countDocuments(q,options){assert.equal(options.session,session);assert.equal(q.empresaId,"A");assert.equal(q.eventId,eventId);return duplicateCollection==="gruk_offline_ventas"||foreignProofCollection==="gruk_offline_ventas"?2:1;},async findOne(q){assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return q.status===saleStatus?{totalCop:saleAmount}:null;}};
+    if(name==="gruk_offline_caja_intenciones")return {async countDocuments(q,options){assert.equal(options.session,session);assert.equal(q.empresaId,"A");assert.equal(q.eventId,eventId);return duplicateCollection==="gruk_offline_caja_intenciones"||foreignProofCollection==="gruk_offline_caja_intenciones"?2:1;},async findOne(q){assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return q.status===cashStatus&&q.cobrado===cashCobrado?{montoCop:cashAmount}:null;}};
     throw Error("unexpected collection");
   }};
   return {db,get changes(){return changes},get query(){return query}};
@@ -90,6 +90,14 @@ test("offline apply: paid sale without inventoryApplied must remain pending",asy
 test("offline apply: duplicated sale, cash or ledger proof cannot finalize",async()=>{
  for(const collection of ["gruk_offline_ventas","gruk_offline_caja_intenciones","gruk_ledger_movimientos"]){
   const f=fixture(true,{duplicateCollection:collection});
+  await assert.rejects(markOfflineApplied({db:f.db,context:ctx,eventId,reviewToken,commitReference}),/OFFLINE_DOMAIN_NOT_COMMITTED/);
+  assert.equal(f.changes,0);
+ }
+});
+
+test("offline apply: proof from another actor or ledger movement type invalidates event",async()=>{
+ for(const collection of ["gruk_offline_ventas","gruk_offline_caja_intenciones","gruk_ledger_movimientos"]){
+  const f=fixture(true,{foreignProofCollection:collection});
   await assert.rejects(markOfflineApplied({db:f.db,context:ctx,eventId,reviewToken,commitReference}),/OFFLINE_DOMAIN_NOT_COMMITTED/);
   assert.equal(f.changes,0);
  }
