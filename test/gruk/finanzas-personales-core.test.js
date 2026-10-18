@@ -410,3 +410,32 @@ test("una repetición antigua no se marca pagada por tener mismo concepto",()=>{
  assert.equal(home.gastoRecurrenteHoySinConfirmacion({...gasto,fecha:
   new Date("2024-01-19T05:00:00.000Z")},hoy),false);
 });
+
+test("pago vinculado completo libera recurrencia y abono parcial no la libera",()=>{
+ const hoy=new Date("2026-10-18T16:00:00.000Z");
+ const gasto={_id:"plantilla",tipo:"GASTO",recurrente:true,frecuencia:"MENSUAL",
+  concepto:"Arriendo",montoMinor:500000,estado:"ACTIVA",impactoCaja:true,
+  fecha:new Date("2024-01-18T05:00:00.000Z")};
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion(gasto,hoy,0),true);
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion(gasto,hoy,200000),true);
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion(gasto,hoy,499999),true);
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion(gasto,hoy,500000),false);
+ assert.equal(home.gastoRecurrenteHoySinConfirmacion(gasto,hoy,600000),false);
+ for(const bad of [-1,0.1,"500000",Number.MAX_SAFE_INTEGER+1])
+  assert.throws(()=>home.gastoRecurrenteHoySinConfirmacion(gasto,hoy,bad),TypeError);
+});
+test("API protege vínculo recurrente con titularidad y validación explícita",()=>{
+ const fs=require("node:fs"),path=require("node:path");
+ const base=path.resolve(__dirname,"../../modules/finanzas-personales");
+ const schema=fs.readFileSync(path.join(base,"models/TransaccionPersonal.js"),"utf8");
+ const flujo=fs.readFileSync(path.join(base,"services/flujoCajaPersonal.service.js"),"utf8");
+ const routes=fs.readFileSync(path.join(base,"routes.js"),"utf8");
+ const home=fs.readFileSync(path.join(base,"services/homePersonal.service.js"),"utf8");
+ assert.match(schema,/recurrenteOrigenId:\{type:mongoose\.Schema\.Types\.ObjectId/);
+ assert.match(routes,/recurrenteOrigenId:Joi\.string\(\)\.hex\(\)\.length\(24\)/);
+ assert.match(flujo,/input\.tipo!=="GASTO"\|\|input\.recurrente===true/);
+ assert.match(flujo,/\{_id:input\.recurrenteOrigenId,usuarioId,tipo:"GASTO"/);
+ assert.match(home,/movimiento\.recurrenteOrigenId/);
+ assert.match(home,/fechaPago\.y!==hoyCivil\.y/);
+ assert.match(home,/pagosRecurrentesDeHoy\.get\(String\(g\._id\)\)/);
+});
