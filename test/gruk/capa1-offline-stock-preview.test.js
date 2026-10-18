@@ -8,7 +8,7 @@ const objectId=id=>id;
 function inventory(rows){return {collection(name){assert.equal(name,"inventarios");return {find(q,options){
  assert.equal(q.empresaId,context.empresaId);assert.equal(q.sedeId,context.sedeId);
  assert.equal(q.anulado,false);assert.equal(options.limit,501);
- return {toArray:async()=>rows};
+ return {toArray:async()=>rows.map(row=>({empresaId:context.empresaId,sedeId:context.sedeId,anulado:false,...row}))};
  }};}};}
 test("stock server: strict tenant+site, only safe quantities, no money writes",async()=>{
  const result=await read({db:inventory([{productoServicioId:product,cantidad:1}]),context,objectId});

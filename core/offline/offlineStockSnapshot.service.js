@@ -10,12 +10,15 @@ async function readOfflineStockSnapshot({db,context,objectId}){
  const rows=await db.collection("inventarios").find({
   empresaId:objectId(context.empresaId),sedeId:objectId(context.sedeId),anulado:false,
   productoServicioId:{$ne:null}
- },{projection:{_id:0,productoServicioId:1,cantidad:1},limit:501}).toArray();
+ },{projection:{_id:0,empresaId:1,sedeId:1,anulado:1,productoServicioId:1,cantidad:1},limit:501}).toArray();
  if(rows.length>500)fail("OFFLINE_STOCK_TOO_LARGE");
  const products=[],seen=new Set();
  for(const row of rows){
   const id=String(row.productoServicioId||"").toLowerCase();
-  if(!HEX.test(id)||seen.has(id)||!Number.isSafeInteger(row.cantidad)||row.cantidad<0)
+  if(String(row.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
+   String(row.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
+   row.anulado!==false||!HEX.test(id)||seen.has(id)||
+   !Number.isSafeInteger(row.cantidad)||row.cantidad<0)
    fail("OFFLINE_STOCK_INVALID_MAPPING");
   seen.add(id);
   products.push(Object.freeze({productoId:id,cantidad:String(row.cantidad)}));
