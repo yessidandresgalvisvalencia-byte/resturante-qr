@@ -24,7 +24,7 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
  const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
  const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
  const ReservaCuota=require("../../modules/finanzas-personales/models/reservaCuotaRecurrente.model");
- const registrar=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service").registrarTransaccion;
+ const {registrarTransaccion:registrar,anularTransaccion:anular,corregirTransaccion:corregir}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
  await mongoose.connect(uri,{serverSelectionTimeoutMS:10000});
  const propietario=new mongoose.Types.ObjectId();
  const intruso=new mongoose.Types.ObjectId();
@@ -173,6 +173,40 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   const reservas=await ReservaCuota.find({usuarioId:propietario,origenId:origenConcurrente._id}).lean();
   assert.equal(reservas.length,1);
   assert.equal(reservas[0].reservadoMinor,40000);
+
+  // Corregir el importe o tipo no puede desincronizar la reserva atómica.
+  const abonoActivo=await Transaccion.findOne({
+   usuarioId:propietario,recurrenteOrigenId:origenConcurrente._id,estado:"ACTIVA"
+  }).lean();
+  await assert.rejects(corregir(propietario,abonoActivo._id,{
+   montoMinor:39999
+  }),e=>e.statusCode===409 && /abono recurrente/.test(e.message));
+  await assert.rejects(corregir(propietario,origenConcurrente._id,{
+   montoMinor:49999
+  }),e=>e.statusCode===409 && /abonos vigentes/.test(e.message));
+  await assert.rejects(anular(propietario,origenConcurrente._id),
+   e=>e.statusCode===409 && /abonos activos/.test(e.message));
+  // La anulación del abono devuelve simultáneamente dinero y cupo.
+  const saldoPrevio=(await Cuenta.findOne({
+   usuarioId:propietario,nombre:abonoActivo.cuenta
+  }).lean()).saldoMinor;
+  await anular(propietario,abonoActivo._id,"Error de registro de prueba");
+  const reservaLiberada=await ReservaCuota.findOne({
+   usuarioId:propietario,origenId:origenConcurrente._id
+  }).lean();
+  assert.equal(reservaLiberada.reservadoMinor,0);
+  assert.equal((await Cuenta.findOne({
+   usuarioId:propietario,nombre:abonoActivo.cuenta
+  }).lean()).saldoMinor,saldoPrevio+40000);
+  const reingreso=await registrar(propietario,movimiento({
+   recurrenteOrigenId:origenConcurrente._id,
+   externalId:"reingreso-despues-anulacion",montoMinor:40000,
+   cuenta:abonoActivo.cuenta
+  }));
+  assert.ok(reingreso._id);
+  assert.equal((await ReservaCuota.findOne({
+   usuarioId:propietario,origenId:origenConcurrente._id
+  }).lean()).reservadoMinor,40000);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
