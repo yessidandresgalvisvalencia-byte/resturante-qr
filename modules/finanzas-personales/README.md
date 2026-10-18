@@ -30,7 +30,7 @@ En `NODE_ENV=production`, la ruta `POST /api/finanzas-personales/v81/movimientos
 Se añadió `test/gruk/ledger-v81-mongo-idempotencia-real.test.js` para comprobar en un replica set de **pruebas** que dos altas simultáneas con la misma clave no generan dos eventos, que un replay con importe modificado da conflicto y que un identificador igual entre usuarios mantiene el aislamiento.
 
 - Requiere `GRUK_V81_TEST_MONGO_URI` con el **nombre de la base de datos dentro de la URL** empezando por `gruk_v81_test_`, por ejemplo `mongodb://127.0.0.1:27017/gruk_v81_test_integracion?replicaSet=rs0`.
-- Nunca ejecutarla con `NODE_ENV=production`. No admite conexión sin nombre de base de pruebas: en ese caso la prueba se marca como **omitida**, lo que NO constituye validación.
-- Ejecutar `npm run test:personal:mongo-idempotencia` tras levantar el replica set local y configurar su URI. Para CI, usar un servicio MongoDB efímero dedicado.
+- Nunca ejecutarla con `NODE_ENV=production`. El test exige un servidor de loopback (`127.0.0.1` o `localhost`), base de pruebas explícita, protocolo `mongodb://`, `replicaSet` y ausencia de credenciales en la URI. Sin estos requisitos la suite general marca la integración como **omitida**, lo que NO constituye validación.
+- Ejecutar `npm run test:personal:mongo-idempotencia` tras levantar el replica set local y configurar su URI. **Este comando exige la URI antes de ejecutar** y falla con código distinto de cero si no se proporcionó una instancia de pruebas válida. Para CI, usar un servicio MongoDB efímero dedicado y revisar que el test termine sin fallos ni omisiones.
 - La limpieza elimina únicamente registros de los dos identificadores aleatorios generados por la prueba; no realiza `dropDatabase`.
 - No alcanza los endpoints HTTP, el JWT real ni el entorno de producción. Esas pruebas siguen pendientes antes del despliegue.
