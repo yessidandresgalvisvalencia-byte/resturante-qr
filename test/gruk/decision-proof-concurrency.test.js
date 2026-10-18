@@ -95,13 +95,21 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
 
   const {auditarCadenaUsuario}=require("../../modules/finanzas-personales/services/auditoriaCadenaDecision.service");
   assert.deepEqual(await auditarCadenaUsuario(usuarioId),{valida:true,codigo:"OK",secuencia:4});
-  const {emitirAnclaDecisionMongo}=require("../../modules/finanzas-personales/services/anclaDecisionMongo.service");
+  const {emitirAnclaDecisionMongo,verificarAnclaDecisionMongo}=require("../../modules/finanzas-personales/services/anclaDecisionMongo.service");
   const {verificarAncla}=require("../../modules/finanzas-personales/security/anclaExternaDecision.service");
   const claveAncla=Buffer.alloc(32,0x71); // Solo para pruebas; jamás usar en producción.
   const anclaMongo=await emitirAnclaDecisionMongo(usuarioId,claveAncla);
   assert.equal(anclaMongo.secuencia,4);
   assert.equal(anclaMongo.headHash,headFinal.headHash);
   assert.equal(verificarAncla(anclaMongo,claveAncla,final,headFinal,String(usuarioId)).codigo,"ANCLA_VERIFICADA");
+  assert.deepEqual(await verificarAnclaDecisionMongo(usuarioId,claveAncla,anclaMongo),{
+    valida:true,codigo:"ANCLA_VERIFICADA",secuenciaAnclada:4
+  });
+  assert.deepEqual(await verificarAnclaDecisionMongo(usuarioId,claveAncla,{
+    ...anclaMongo,firma:"0".repeat(64)
+  }),{valida:false,codigo:"FIRMA_INVALIDA"});
+  await assert.rejects(()=>verificarAnclaDecisionMongo(usuarioId,claveAncla,null),TypeError);
+
   // Continuidad externa: reemitir solo si el comprobante previamente
   // conservado fuera de MongoDB coincide con el historial actual.
   const reemitida=await emitirAnclaDecisionMongo(usuarioId,claveAncla,{anclaPrevia:anclaMongo});
@@ -167,6 +175,10 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   await assert.rejects(()=>emitirAnclaDecisionMongo(usuarioId,claveAncla),{
     message:"CADENA_NO_VERIFICABLE",code:"HASH_INVALIDO"
   });
+  assert.deepEqual(await verificarAnclaDecisionMongo(usuarioId,claveAncla,anclaMongo),{
+    valida:false,codigo:"CADENA_INVALIDA"
+  });
+
   await assert.rejects(()=>emitirAnclaDecisionMongo(usuarioId,claveAncla,{
     anclaPrevia:anclaMongo
   }),{message:"CONTINUIDAD_ANCLA_INVALIDA",code:"CADENA_INVALIDA"});
