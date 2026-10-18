@@ -30,6 +30,11 @@ async function auditarCadenaUsuario(usuarioId) {
           ? { valida: false, codigo: "SIN_ANCLA_DE_INTEGRIDAD", secuencia: 0 }
           : { valida: false, codigo: "HEAD_AUSENTE", secuencia: null };
       }
+      // Un encabezado reiniciado (secuencia cero) no demuestra que nunca
+      // hayan existido movimientos. Sin una prueba externa, no certificarlo.
+      if (head.secuencia === 0 && registros.length === 0) {
+        return { valida: false, codigo: "SIN_ANCLA_DE_INTEGRIDAD", secuencia: 0 };
+      }
       return verificarCadena(registros, head, String(id));
     }, {
       readConcern: { level: "snapshot" },
