@@ -39,4 +39,5 @@ jobs:
         env:
           NODE_ENV: test
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
         run: npm run gate
