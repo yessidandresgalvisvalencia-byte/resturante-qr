@@ -78,3 +78,16 @@ test("integración de pagos recurrentes nunca se omite silenciosamente en CI",()
  assert.match(integration,/GRUK_REQUIRE_RECURRENT_MONGO_TEST==="1"&&!uri/);
  assert.match(integration,/CI recurrente exige TEST_MONGO_URI/);
 });
+
+test("CI V81 vigila modelo transaccional y escrituras de flujo de caja",()=>{
+ const triggers=yaml.split("  pull_request:");
+ assert.equal(triggers.length,2,"Deben existir disparadores push y PR");
+ for(const ruta of [
+  "modules/finanzas-personales/models/TransaccionPersonal.js",
+  "modules/finanzas-personales/services/flujoCajaPersonal.service.js"
+ ]){
+  const linea="      - '"+ruta+"'";
+  assert.equal(yaml.split(linea).length-1,2,
+   ruta+" debe activar tanto push como pull_request");
+ }
+});
