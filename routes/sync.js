@@ -168,4 +168,47 @@ router.get("/stock-snapshot",authMiddleware,async(req,res)=>{
   return res.status(500).json({ok:false,error:"OFFLINE_STOCK_UNAVAILABLE"});
  }
 });
+// Explicit ADMIN-only conflict review, separated from inventory and cash writes.
+router.get("/stock-conflicts",authMiddleware,async(req,res)=>{
+ if(!req.auth?.usuarioId||!["DUEÑO","ADMIN_SEDE"].includes(req.auth.rol))
+  return res.status(403).json({ok:false,error:"OFFLINE_CONFLICT_PERMISSION_DENIED"});
+ if(mongoose.connection.readyState!==1)
+  return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ try{
+  const {listStockConflicts}=require("../core/offline/offlineConflictAdmin.service");
+  const records=await listStockConflicts({db:mongoose.connection.db,auth:req.auth,limit:50});
+  res.set("Cache-Control","no-store");
+  return res.json({ok:true,readOnly:true,conflicts:records});
+ }catch(error){
+  if(error?.code==="OFFLINE_CONFLICT_PERMISSION_DENIED")return res.status(403).json({ok:false,error:error.code});
+  console.error("[OFFLINE] Conflict list unavailable",error?.code||error?.name||"unknown");
+  return res.status(500).json({ok:false,error:"OFFLINE_CONFLICT_LIST_UNAVAILABLE"});
+ }
+});
+router.post("/stock-conflicts/review",authMiddleware,async(req,res)=>{
+ if(!req.auth?.usuarioId||!["DUEÑO","ADMIN_SEDE"].includes(req.auth.rol))
+  return res.status(403).json({ok:false,error:"OFFLINE_CONFLICT_PERMISSION_DENIED"});
+ if(mongoose.connection.readyState!==1)
+  return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ try{
+  const {appendStockConflictReview}=require("../core/offline/offlineConflictAdmin.service");
+  const result=await appendStockConflictReview({db:mongoose.connection.db,auth:req.auth,
+   conflictId:req.body?.conflictId,decisionId:req.body?.decisionId,
+   action:req.body?.action,note:req.body?.note});
+  res.set("Cache-Control","no-store");
+  return res.status(201).json({ok:true,...result});
+ }catch(error){
+  const code=error?.code;
+  if(code==="OFFLINE_CONFLICT_PERMISSION_DENIED")
+   return res.status(403).json({ok:false,error:code});
+  if(code==="OFFLINE_CONFLICT_REVIEW_INVALID")
+   return res.status(400).json({ok:false,error:code});
+  if(code==="OFFLINE_CONFLICT_NOT_FOUND")
+   return res.status(404).json({ok:false,error:code});
+  if(code==="OFFLINE_CONFLICT_REVIEW_IDEMPOTENCY_CONFLICT")
+   return res.status(409).json({ok:false,error:code});
+  console.error("[OFFLINE] Conflict review unavailable",code||error?.name||"unknown");
+  return res.status(500).json({ok:false,error:"OFFLINE_CONFLICT_REVIEW_UNAVAILABLE"});
+ }
+});
 module.exports = router;
