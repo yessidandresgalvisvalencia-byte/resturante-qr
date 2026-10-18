@@ -17,10 +17,10 @@ test("rechaza pago anterior al origen, futuro o con fecha inválida", () => {
 });
 test("impide contabilizar dos veces en el mismo día de Bogotá", () => {
  assert.throws(() => validarNoDuplicarOrigenHoy({
-   fechaOrigen:"2026-10-18T04:30:00Z",fechaPago:"2026-10-18T23:00:00Z",
+   fechaOrigen:"2026-10-18T05:30:00Z",fechaPago:"2026-10-18T23:00:00Z",
  }), error => error.statusCode === 409);
  assert.equal(validarNoDuplicarOrigenHoy({
-   fechaOrigen:"2026-10-18T04:30:00Z",fechaPago:"2026-10-18T23:00:00Z",origenImpactoCaja:false,
+   fechaOrigen:"2026-10-18T05:30:00Z",fechaPago:"2026-10-18T23:00:00Z",origenImpactoCaja:false,
  }), true);
 });
 test("ventana colombiana empieza a las 05:00 UTC y termina 24 horas después", () => {
