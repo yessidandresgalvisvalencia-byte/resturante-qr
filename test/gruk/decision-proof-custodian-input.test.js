@@ -30,3 +30,16 @@ test("custodio recibe id canónico y nunca da éxito con referencia ausente",asy
  assert.deepEqual(consultas,[String(id)]);
  assert.deepEqual(resultado,{valida:false,codigo:"ANCLA_EXTERNA_NO_DISPONIBLE"});
 });
+
+test("custodio canoniza ObjectId hexadecimal en mayúsculas",async()=>{
+ const id="ABCDEF0123456789ABCDEF01";
+ const consultas=[];
+ const resultado=await auditarAnclaCustodiada(id,KEY,{
+  obtenerUltimaAncla:async(usuarioId)=>{
+   consultas.push(usuarioId);
+   return null;
+  }
+ });
+ assert.deepEqual(consultas,["abcdef0123456789abcdef01"]);
+ assert.deepEqual(resultado,{valida:false,codigo:"ANCLA_EXTERNA_NO_DISPONIBLE"});
+});
