@@ -20,6 +20,8 @@ async function registrarTransaccion(usuarioId,input){
    const externalIdHash=hashExternalId(usuarioId,input.externalId);
    let recurrenteOrigenId=null;
    if(input.recurrenteOrigenId!==undefined&&input.recurrenteOrigenId!==null){
+    if(typeof input.externalId!=="string"||!input.externalId.trim()||input.externalId.length>160)
+     throw Object.assign(new Error("Los pagos recurrentes vinculados requieren externalId estable para evitar cobros duplicados"),{statusCode:400});
     if(input.tipo!=="GASTO"||input.recurrente===true||!mongoose.isValidObjectId(input.recurrenteOrigenId))
      throw Object.assign(new Error("El vínculo recurrente requiere un gasto no recurrente e ID válido"),{statusCode:400});
     const origen=await Transaccion.findOne({_id:input.recurrenteOrigenId,usuarioId,tipo:"GASTO",
