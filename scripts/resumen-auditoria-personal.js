@@ -32,7 +32,8 @@ salida+="| Paquete | Tipo | Severidad | Rango afectado | Corrección sugerida | 
 const limpiar=s=>String(s).replace(/[|<>\r\n]/g," ").slice(0,180);
 for(const x of filas){
  const urls=x.origenes.slice(0,3).map((url,i)=>"[Aviso "+(i+1)+"]("+url+")").join(", ");
- salida+="| "+limpiar(x.nombre)+" | "+x.camino+" | "+x.nivel+" | "+limpiar(x.afectados)+" | "+limpiar(x.correccion)+" | "+limpiar(x.efectos)+" | "+urls+" |\n";
+ const rango="`"+String(x.afectados).replace(/[|`\r\n]/g," ").slice(0,180)+"`";
+ salida+="| "+limpiar(x.nombre)+" | "+x.camino+" | "+x.nivel+" | "+rango+" | "+limpiar(x.correccion)+" | "+limpiar(x.efectos)+" | "+urls+" |\n";
 }
 if(filas.length===0)salida+="| Sin alertas altas o críticas | — | — | — | — | — | — |\n";
 process.stdout.write(salida);
