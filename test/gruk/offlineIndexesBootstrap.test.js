@@ -8,9 +8,9 @@ const specs={
  gruk_offline_caja_intenciones:"uniq_offline_cash_tenant_event",
  gruk_ledger_movimientos:"uniq_offline_ledger_event_type_tenant"
 };
-function fakeDb(failOn){
+function fakeDb(failOn,duplicateOn){
  return {collection(name){if(!specs[name])throw Error("UNEXPECTED_COLLECTION");
-  return {async createIndex(key,options){if(name===failOn)throw Error("INDEX_COLLISION");
+  return {aggregate:()=>({toArray:async()=>name===duplicateOn?[{duplicateGroups:2}]:[]}),async createIndex(key,options){if(name===failOn)throw Error("INDEX_COLLISION");
    assert.equal(options.unique,true);collections.set(name,{name:options.name,key,unique:true});return options.name;},
    async indexes(){return collections.has(name)?[collections.get(name)]:[]}};
  }};
@@ -27,4 +27,11 @@ test("un indice rechazado por Mongo interrumpe migración",async()=>{
 });
 test("sin conexion de DB no ejecuta migracion",async()=>{
  await assert.rejects(bootstrap({}),/OFFLINE_DATABASE_REQUIRED/);
+});
+
+test("duplicate groups block index creation before first write",async()=>{
+ collections.clear();
+ await assert.rejects(bootstrap(fakeDb(null,"gruk_offline_caja_intenciones")),
+ e=>e.code==="OFFLINE_INDEX_DUPLICATES_BLOCKED");
+ assert.equal(collections.size,0);
 });
