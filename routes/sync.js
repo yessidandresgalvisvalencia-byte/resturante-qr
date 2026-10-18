@@ -21,6 +21,12 @@ router.post("/batch", authMiddleware, async (req, res) => {
   };
   try {
     const db = mongoose.connection.db;
+    // Multi-event uploads must never fall back to non-atomic writes.
+    // Reply 503 so the offline outbox retries the entire batch later.
+    if (Array.isArray(req.body?.events) && req.body.events.length > 1 &&
+        typeof db?.client?.startSession !== "function") {
+      return res.status(503).json({ok:false,error:"OFFLINE_TRANSACTION_UNAVAILABLE"});
+    }
     if (!indexesReady) {
       await ensureInboxIndexes(db);
       indexesReady = true;
