@@ -47,7 +47,7 @@ test("admin conflict UI: recheck stock only by read-only GET; never stage a sale
  }});
  assert.equal(result.ready,true);
  assert.equal(calls[0].options.method,"GET");
- assert.match(calls[0].url,/stock-conflicts\\/preflight\\?conflictId=/);
+ assert.ok(calls[0].url.includes("/stock-conflicts/preflight?conflictId="));
  assert.equal(calls.length,1);
  await assert.rejects(panel.preflight({token:"jwt",conflictId:"bad",
    fetchFn:async()=>{throw Error("SHOULD_NOT_FETCH");}}),/OFFLINE_REVIEW_INVALID_CONFLICT/);
