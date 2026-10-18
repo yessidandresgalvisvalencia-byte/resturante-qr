@@ -13,8 +13,10 @@ async function start(){validateEnv();const app=buildApp(),server=http.createServ
  transacciones:Transaccion,reservas:ReservaCuota,vinculos:VinculoHistorico
 });console.log("[GRUK_INDICES_V81]",JSON.stringify(auditoria));
 indicesVerificados=auditoria.integridadIndices==="VERIFICADA";
-if(auditoria.integridadIndices!=="VERIFICADA")
- console.error("[GRUK_INDICES_V81] Índices de seguridad no verificados: las escrituras protegidas fallarán cerradas.");
+if(!indicesVerificados){
+ console.error("[GRUK_INDICES_V81] Índices de seguridad no verificados: servicio personal no inicia.");
+ throw new Error("INDICES_FINANCIEROS_NO_VERIFICADOS");
+}
 const port=Number(process.env.PORT||process.env.PERSONAL_PORT||3100);if(!Number.isInteger(port)||port<1||port>65535)throw new Error("Puerto personal inválido");await new Promise((resolve,reject)=>{server.once("error",reject);server.listen(port,"0.0.0.0",resolve);});console.log("GRUK Finanzas Personales escuchando en",port);
 // Estos trabajos son auxiliares. No deben bloquear el arranque ni la
 // disponibilidad del API si el proveedor externo o un lote tarda en responder.
