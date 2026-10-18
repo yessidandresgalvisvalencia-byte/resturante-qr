@@ -84,3 +84,28 @@ test("saldos excesivamente largos se rechazan antes de convertirlos a BigInt",as
  assert.equal(r.statusCode,400);
  assert.equal(r.headers["Cache-Control"],"no-store");
 });
+
+test("fechas inexistentes o períodos invertidos se bloquean antes de Mongo",async()=>{
+ for(const [desde,hastaExclusivo] of [
+  ["2025-02-30","2025-03-01"],
+  ["2026-02-29","2026-03-01"],
+  ["2025-01-10","2025-01-10"],
+  ["2025-02-01","2025-01-01"],
+  ["2025-13-01","2026-01-01"],
+  ["2025-01-01","2025-04-31"]
+ ]){
+  let llamadas=0;
+  const r=await invocar(async()=>{llamadas++;return {};},{
+   ...query,desde,hastaExclusivo
+  });
+  assert.equal(r.statusCode,400,desde+" → "+hastaExclusivo);
+  assert.equal(llamadas,0,"Consulta indebida para "+desde);
+  assert.equal(r.headers["Cache-Control"],"no-store");
+ }
+ let consultasValidas=0;
+ const valido=await invocar(async()=>{consultasValidas++;return {estado:"CONCILIADA"};},{
+  ...query,desde:"2024-02-29",hastaExclusivo:"2024-03-01"
+ });
+ assert.equal(valido.statusCode,200);
+ assert.equal(consultasValidas,1);
+});
