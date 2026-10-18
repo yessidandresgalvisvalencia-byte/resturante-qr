@@ -8,6 +8,7 @@ const DANGEROUS_ACTIONS = new Set([
   "update", "remove", "dropCollection", "dropDatabase",
   "collMod", "anyAction", "grantRole", "revokeRole",
   "createRole", "updateRole", "dropRole", "createUser",
+  "dropIndex", "renameCollectionSameDB", "renameCollection",
   "updateUser", "dropUser", "grantPrivilegesToRole",
   "revokePrivilegesFromRole"
 ]);
@@ -48,12 +49,20 @@ async function auditarPrivilegiosHistorial(db) {
   if (!info || !Array.isArray(info.authenticatedUserPrivileges)) {
     return { seguro: false, codigo: "PRIVILEGIOS_NO_VERIFICABLES", base, coleccion, acciones: [] };
   }
+  // Sin usuarios autenticados, MongoDB puede estar funcionando sin control de acceso.
+  // Una lista vacía de permisos NO demuestra aislamiento en ese escenario.
+  if (!Array.isArray(info.authenticatedUsers) || info.authenticatedUsers.length === 0) {
+    return { seguro: false, codigo: "SIN_AUTENTICACION_VERIFICABLE", base, coleccion, acciones: [] };
+  }
+  if (!Array.isArray(info.authenticatedUserRoles) || info.authenticatedUserRoles.length === 0) {
+    return { seguro: false, codigo: "ROLES_NO_VERIFICABLES", base, coleccion, acciones: [] };
+  }
   const acciones = detectarPrivilegiosPeligrosos(
     info.authenticatedUserPrivileges, base, coleccion
   );
   return {
     seguro: acciones.length === 0,
-    codigo: acciones.length ? "PRIVILEGIOS_PELIGROSOS" : "SOLO_INSERCION_VERIFICADA",
+    codigo: acciones.length ? "PRIVILEGIOS_PELIGROSOS" : "SIN_PRIVILEGIOS_PELIGROSOS_DETECTADOS",
     base, coleccion, acciones
   };
 }
