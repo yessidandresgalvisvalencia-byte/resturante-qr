@@ -120,8 +120,10 @@ async function corregirTransaccion(usuarioId,id,cambios){if(!mongoose.isValidObj
   (permitidos.montoMinor!==undefined&&permitidos.montoMinor!==anterior.montoMinor)||
   (permitidos.tipo!==undefined&&permitidos.tipo!==anterior.tipo)
  ))throw Object.assign(new Error("No se permite cambiar el importe o tipo de un abono recurrente vinculado; anúlalo y registra el correcto"),{statusCode:409});
- if(anterior.recurrente&&anterior.tipo==="GASTO"&&
-   permitidos.montoMinor!==undefined&&permitidos.montoMinor!==anterior.montoMinor){
+ if(anterior.recurrente&&anterior.tipo==="GASTO"&&(
+   (permitidos.montoMinor!==undefined&&permitidos.montoMinor!==anterior.montoMinor)||
+   (permitidos.tipo!==undefined&&permitidos.tipo!==anterior.tipo)
+ )){
   const relacionados=await Transaccion.exists({usuarioId,recurrenteOrigenId:anterior._id,estado:{$ne:"ANULADA"}}).session(session);
   if(relacionados)throw Object.assign(new Error("No se puede modificar el importe de una obligación con abonos vigentes"),{statusCode:409});
  }
