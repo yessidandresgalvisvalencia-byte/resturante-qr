@@ -50,6 +50,10 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   assert.equal(await Vinculo.countDocuments({usuarioId,movimientoId:movimiento._id}),1);
   const repeticion=await confirmarVinculoHistoricoV81(String(usuarioId),operacion);
   assert.equal(repeticion.yaExistia,true);
+  const repeticionMayusculas=await confirmarVinculoHistoricoV81(String(usuarioId),{
+   ...operacion,idempotencyKey:operacion.idempotencyKey.toUpperCase()
+  });
+  assert.equal(repeticionMayusculas.yaExistia,true);
   const contrario=await Promise.allSettled([
    confirmarVinculoHistoricoV81(String(usuarioId),{...operacion,idempotencyKey:crypto.randomUUID()}),
    confirmarVinculoHistoricoV81(String(usuarioId),{...operacion,evidencia:"Otra evidencia controlada",idempotencyKey:crypto.randomUUID()})
