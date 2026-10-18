@@ -3,6 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
 const { stageOfflineFinancialBatch } = require("../../core/offline/offlineFinancialStaging.service");
+const { assertFreshOfflineStaging } = require("../../core/offline/offlineInventoryStagingTransaction.service");
 const { calculateOfflineStockDeltas } = require("../../core/offline/offlineInventoryDeltas.service");
 const { buildOfflineLedgerPlan } = require("../../core/offline/offlineLedgerPlan.service");
 
@@ -64,6 +65,7 @@ test("MongoDB real: caída tras 4 diarios y stock revierte toda la transacción"
         db, session, context, plan, inventoryDeltas: calculateOfflineStockDeltas(plan),
         ledgerMovements: buildOfflineLedgerPlan(plan)
       });
+      assertFreshOfflineStaging(staged, deltas, plan);
       const inventory = await applyOfflineLegacyInventory({
         db, session, context, inventoryDeltas: deltas,
         objectId: id => new mongo.ObjectId(id)
@@ -99,6 +101,31 @@ test("MongoDB real: caída tras 4 diarios y stock revierte toda la transacción"
     const ledgerDoc = await db.collection("gruk_ledger_movimientos").findOne({ empresaId, sedeId, eventId });
     assert.equal(ledgerDoc.montoCop, "7500");
     assert.equal(ledgerDoc.deletedAt, null);
+
+    // The real staging writers return inserted:false on identical retries.
+    // Production guards must abort BEFORE inventory is discounted a second time.
+    const replay = client.startSession();
+    try {
+      await assert.rejects(
+        replay.withTransaction(async () => {
+          const repeated = await stageOfflineFinancialBatch({
+            db, session: replay, context, plan,
+            inventoryDeltas: calculateOfflineStockDeltas(plan),
+            ledgerMovements: buildOfflineLedgerPlan(plan)
+          });
+          assert.equal(repeated.sales.records[0].inserted, false);
+          assert.equal(repeated.cash.records[0].inserted, false);
+          assert.equal(repeated.stock.records[0].inserted, false);
+          assert.equal(repeated.ledger.entries[0].inserted, false);
+          assertFreshOfflineStaging(repeated, deltas, plan);
+          throw Error("REPLAY_MUST_NOT_REACH_INVENTORY");
+        }, transactionOptions),
+        error => error?.code === "OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION"
+      );
+    } finally { await replay.endSession(); }
+    assert.deepEqual(await totals(),
+      { sales: 1, cash: 1, stockJournal: 1, ledger: 1, inventory: 3 },
+      "El reintento no duplica registros ni descuenta otra vez inventario");
   } finally {
     if (connected) {
       try { await client.db(name).dropDatabase(); } finally { await client.close(); }
