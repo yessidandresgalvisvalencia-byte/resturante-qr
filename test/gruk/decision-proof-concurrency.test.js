@@ -298,3 +298,23 @@ test("DecisionProof acepta UUID y claves ASCII sin abrir MongoDB",()=>{
   assert.throws(()=>validarClaveDecisionProofV81(invalida),TypeError);
  }
 });
+
+test("agotamiento de concurrencia reporta 503, nunca disfraza conflictos permanentes",()=>{
+ const {errorAgotamientoConcurrenciaV81}=require(
+  "../../modules/finanzas-personales/services/decisionProofPersistence.service");
+ for(const error of [
+  Object.assign(new Error("write conflict"),{code:112}),
+  Object.assign(new Error("secuencia"),{code:11000,keyPattern:{usuarioId:1,secuencia:1}}),
+  {codeName:"WriteConflict"},
+  {hasErrorLabel:etiqueta=>etiqueta==="TransientTransactionError"}
+ ]){
+  const agotado=errorAgotamientoConcurrenciaV81(error);
+  assert.equal(agotado.statusCode,503);
+  assert.equal(agotado.code,"DECISION_PROOF_CONCURRENCY_RETRY_EXHAUSTED");
+  assert.ok(!JSON.stringify(agotado).includes("write conflict"));
+ }
+ for(const error of [
+  Object.assign(new Error("idempotencia existente"),{code:11000,keyPattern:{usuarioId:1,idempotencyKey:1}}),
+  Object.assign(new Error("error permanente"),{code:42})
+ ])assert.equal(errorAgotamientoConcurrenciaV81(error),error);
+});
