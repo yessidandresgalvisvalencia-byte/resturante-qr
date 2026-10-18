@@ -133,7 +133,7 @@ router.get("/catalog",authMiddleware,async(req,res)=>{
   const {readOfflineCatalog}=require("../core/offline/offlineCatalog.service");
   const result=await readOfflineCatalog({db:mongoose.connection.db,context:{
    empresaId:req.auth.empresaId,sedeId:req.auth.sedeId,actorId:req.auth.usuarioId
-  }});
+  },objectId:id=>new mongoose.Types.ObjectId(id)});
   res.set("Cache-Control","no-store");
   return res.json({ok:true,...result});
  }catch(error){
