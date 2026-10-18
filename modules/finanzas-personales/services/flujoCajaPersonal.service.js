@@ -75,6 +75,8 @@ async function registrarTransaccion(usuarioId,input){
      reservadoMinor:{$lte:origen.montoMinor-input.montoMinor}
     },{$inc:{reservadoMinor:input.montoMinor}},{new:true,session});
     if(!reserva)throw Object.assign(new Error("Cuota recurrente sin saldo disponible o reserva concurrente"),{statusCode:409});
+    if(!(reserva.periodoFin instanceof Date)||reserva.periodoFin.getTime()!==fin.getTime())
+     throw Object.assign(new Error("Reserva recurrente con fin de período inconsistente"),{statusCode:409});
     // Detectar desfases por anulaciones históricas, errores de mantenimiento o
     // escrituras ajenas: el control atómico debe reflejar EXACTAMENTE el ledger.
     if(!Number.isSafeInteger(reserva.reservadoMinor)||
@@ -145,7 +147,7 @@ async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){i
   const origen=await Transaccion.findOne({_id:tx.recurrenteOrigenId,usuarioId,
    tipo:"GASTO",recurrente:true}).select("fecha frecuencia montoMinor").session(session);
   if(!origen)throw Object.assign(new Error("Obligación recurrente de este abono no encontrada"),{statusCode:409});
-  const {inicio}=periodoRecurrenteColombia({
+  const {inicio,fin}=periodoRecurrenteColombia({
    fechaOrigen:origen.fecha,fechaPago:tx.fecha,frecuencia:origen.frecuencia
   });
   const reserva=await ReservaCuota.findOneAndUpdate({
@@ -157,8 +159,10 @@ async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){i
   // anularlo y comprobar que la reserva posterior coincide con ese reverso.
   const periodo=await ReservaCuota.findOne({
    usuarioId,origenId:origen._id,periodoInicio:inicio
-  }).select("periodoFin").session(session).lean();
-  if(!periodo)throw Object.assign(new Error("Reserva de cuota sin período"),{statusCode:409});
+  }).select("periodoFin importeCuotaMinor").session(session).lean();
+  if(!periodo||new Date(periodo.periodoFin).getTime()!==fin.getTime()||
+     periodo.importeCuotaMinor!==origen.montoMinor)
+   throw Object.assign(new Error("Reserva recurrente con período o importe inconsistente"),{statusCode:409});
   const vigentes=await Transaccion.find({
    usuarioId,tipo:"GASTO",recurrenteOrigenId:origen._id,
    estado:{$ne:"ANULADA"},fecha:{$gte:inicio,$lt:periodo.periodoFin}
