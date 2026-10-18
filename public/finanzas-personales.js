@@ -58,8 +58,9 @@ window.deshacerCuotaCompromiso=async(id,numero)=>{try{
 };
 function invalidarIndicadoresFinancieros(){for(const id of ["hDisponible","hComprometido","hFlujo","hPatrimonio"]){const el=$(id);if(el)el.textContent="No actualizado";}const explicacion=$("metricExplanation");if(explicacion)explicacion.hidden=true;window.grukExplain=()=>{};}
 let cargaPanelEnCurso=null;
+let tokenCargaPanel=null;
 async function load(){
- if(cargaPanelEnCurso)return cargaPanelEnCurso;
+ if(cargaPanelEnCurso&&tokenCargaPanel===token)return cargaPanelEnCurso;
  const tokenAlInicio=token;
  const ejecucion=(async()=>{invalidarIndicadoresFinancieros();try{
  const verificacion=await api("/diagnostico-integridad");
@@ -144,7 +145,8 @@ if(anteriores.length){
 }
 $("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pagados</h3><strong>'+pagados.length+'</strong></div>'+(pagados.length?pagados.map(renderPrestamo).join(""):'<p class="hint">Sin préstamos pagados.</p>');$("diario").innerHTML=d.dias.length?d.dias.map(x=>'<div class="day"><b>'+x.fecha+'</b><span>'+money(x.balance)+'</span>'+x.movimientos.map(m=>'<div class="row"><span>'+m.tipo+' · '+esc(m.concepto)+' · '+esc(m.categoria)+(m.contraparte?' · '+esc(m.contraparte):'')+'</span><span class="movementActions"><strong>'+money(m.monto)+'</strong><button class="secondary mini" onclick="window.editMovement(\''+m._id+'\',\''+m.tipo+'\','+m.monto+')">Corregir</button><button class="dangerMini" onclick="window.deleteMovement(\''+m._id+'\')">Eliminar</button></span></div>').join("")+'</div>').join(""):"Sin movimientos todavía."}catch(e){if(e.code==="SESION_CAMBIADA"||token!==tokenAlInicio)return;if(e.statusCode===401){clearToken();$("app").hidden=true;$("logout").hidden=true;$("auth").hidden=false;msg("authMsg","La sesión expiró. Ingresa nuevamente.",false);return}const live=$("live");if(live)live.textContent="No pude actualizar tus datos: "+e.message;}})();
  cargaPanelEnCurso=ejecucion;
- try{return await ejecucion;}finally{if(cargaPanelEnCurso===ejecucion)cargaPanelEnCurso=null;}
+ tokenCargaPanel=tokenAlInicio;
+ try{return await ejecucion;}finally{if(cargaPanelEnCurso===ejecucion){cargaPanelEnCurso=null;tokenCargaPanel=null;}}
 }window.deshacerUltimaCuota=async id=>{try{
  const info=await api("/prestamos/"+encodeURIComponent(id)+"/cuotas");
  const pagos=info.cuotasPagadas||[];
