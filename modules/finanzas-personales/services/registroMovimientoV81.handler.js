@@ -39,7 +39,8 @@ function crearRegistroMovimientoV81(escribir=anexarEventoV81){
    return res.set("Cache-Control","no-store").status(201).json({ok:true,evento:{id:evento.id,version:evento.version,tipo:evento.tipo,montoCentavos:evento.montoCentavos.toString(),hashActual:evento.hashActual}});
   }catch(e){
    const status=e.statusCode===401?401:e.statusCode===409?409:e instanceof TypeError?400:500;
-   return res.status(status).json({ok:false,error:status===401?"Autenticación requerida":status===409?"Conflicto de integridad o idempotencia":status===400?"Datos del movimiento inválidos":"No fue posible registrar el movimiento"});
+   const reintentar=status===409&&e.codigo==="REINTENTAR_MISMO_ID";
+   return res.set("Cache-Control","no-store").status(status).json({ok:false,codigo:reintentar?"REINTENTAR_MISMO_ID":status===409?"CONFLICTO_NO_REINTENTABLE":status===401?"NO_AUTENTICADO":status===400?"DATOS_INVALIDOS":"ERROR_INTERNO",error:reintentar?"Resultado incierto: consulta o reintenta con el mismo ID de movimiento":status===401?"Autenticación requerida":status===409?"Conflicto de integridad o idempotencia":status===400?"Datos del movimiento inválidos":"No fue posible registrar el movimiento"});
   }
  };
 }
