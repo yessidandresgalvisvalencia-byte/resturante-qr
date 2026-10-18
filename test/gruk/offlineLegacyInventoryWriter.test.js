@@ -4,11 +4,11 @@ const {applyOfflineLegacyInventory:apply}=require("../../core/offline/offlineLeg
 const empresaId="507f191e810c19729de860ea",sedeId="507f1f77bcf86cd799439012",productoId="507f1f77bcf86cd799439011";
 const context={empresaId,sedeId,actorId:"cajero"},inventoryDeltas=[{productoId,deltaUnidades:"-2"}];
 function fixture({stock=5,records=1,persistedStock=3}={}){
- const session={inTransaction:()=>true};let writes=0;const rows=Array.from({length:records},(_,i)=>({_id:String(i),cantidad:stock}));
+ const session={inTransaction:()=>true};let writes=0;const rows=Array.from({length:records},(_,i)=>({_id:String(i),empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:stock}));
  const db={collection(name){assert.equal(name,"inventarios");return{
   find:(key,opts)=>{assert.equal(opts.session,session);assert.equal(key.empresaId,empresaId);assert.equal(key.sedeId,sedeId);
    return {limit:n=>{assert.equal(n,2);return {toArray:async()=>rows};}};},
-  findOne:async(key,opts)=>{assert.equal(opts.session,session);assert.ok(key._id!==undefined);return {cantidad:persistedStock};},
+  findOne:async(key,opts)=>{assert.equal(opts.session,session);assert.ok(key._id!==undefined);return {_id:key._id,empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:persistedStock};},
   updateOne:async(key,update,opts)=>{assert.equal(opts.session,session);assert.equal(key.cantidad,stock);
    assert.equal(update.$inc.cantidad,-2);writes++;return {matchedCount:1,modifiedCount:1};}
  };}};
@@ -44,5 +44,41 @@ test("rechaza saldo persistido ausente o invalido",async()=>{
   const f=fixture({persistedStock});
   await assert.rejects(apply({...f,context,inventoryDeltas,objectId:x=>x}),
    e=>e.code==="OFFLINE_INVENTORY_PERSISTENCE_CONFLICT");
+ }
+});
+
+test("Capa 2: a forged pre-debit record never allows inventory writes",async()=>{
+ for(const patch of [{empresaId:"507f191e810c19729de860eb"},
+  {sedeId:"507f1f77bcf86cd799439013"},
+  {productoServicioId:"507f1f77bcf86cd799439014"},
+  {empresaId:undefined},{anulado:true}]){
+  let writes=0;
+  const session={inTransaction:()=>true};
+  const db={collection:()=>({
+   find(){return {limit(){return {toArray:async()=>[{_id:"stock",empresaId,sedeId,
+    productoServicioId:productoId,anulado:false,cantidad:5,...patch}]};}};},
+   async updateOne(){writes++;throw Error("FORBIDDEN_WRITE");}
+  })};
+  await assert.rejects(apply({db,session,context,inventoryDeltas,objectId:x=>x}),
+   {code:"OFFLINE_INVENTORY_MAPPING_AMBIGUOUS"});
+  assert.equal(writes,0);
+ }
+});
+test("Capa 2: post-debit verification rejects a different tenant, product or stock record",async()=>{
+ for(const patch of [{empresaId:"507f191e810c19729de860eb"},
+  {sedeId:"507f1f77bcf86cd799439013"},
+  {productoServicioId:"507f1f77bcf86cd799439014"},
+  {_id:"stock-other"},{anulado:true},{empresaId:undefined}]){
+  let writes=0;
+  const original={_id:"stock-a",empresaId,sedeId,productoServicioId:productoId,
+   anulado:false,cantidad:5};
+  const db={collection:()=>({
+   find(){return {limit(){return {toArray:async()=>[original]};}};},
+   async updateOne(){writes++;return {matchedCount:1,modifiedCount:1};},
+   async findOne(){return {...original,cantidad:3,...patch};}
+  })};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
+   inventoryDeltas,objectId:x=>x}),{code:"OFFLINE_INVENTORY_PERSISTENCE_CONFLICT"});
+  assert.equal(writes,1);
  }
 });
