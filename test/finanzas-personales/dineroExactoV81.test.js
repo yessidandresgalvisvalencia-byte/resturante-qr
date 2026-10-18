@@ -23,3 +23,22 @@ test("saldo negativo no genera colchón", () => {
   assert.deepEqual(disponibleHoy({saldoCentavos: -100n,porVencer7dCentavos: 0n}),
     {disponibleCentavos: -100n,colchonCentavos: 0n});
 });
+
+test("GMF 4x1000 se reserva con BigInt exacto, redondeado arriba",()=>{
+ const {reservarGmfCentavos,disponibleHoyConGmf}=
+  require("../../modules/finanzas-personales/services/dineroExactoV81.service");
+ assert.equal(reservarGmfCentavos(2500000n),10000n);
+ assert.equal(reservarGmfCentavos(1n),1n);
+ assert.equal(reservarGmfCentavos(0n),0n);
+ assert.deepEqual(disponibleHoyConGmf({
+  saldoCentavos:50000000n,porVencer7dCentavos:8000000n,retiroGravadoCentavos:2500000n
+ }),{disponibleCentavos:36990000n,colchonCentavos:5000000n,reserva4x1000Centavos:10000n});
+});
+test("GMF no se presupone en un retiro exento ni admite floats o negativos",()=>{
+ const {reservarGmfCentavos,disponibleHoyConGmf}=
+  require("../../modules/finanzas-personales/services/dineroExactoV81.service");
+ assert.deepEqual(disponibleHoyConGmf({
+  saldoCentavos:50000000n,porVencer7dCentavos:8000000n
+ }),{disponibleCentavos:37000000n,colchonCentavos:5000000n,reserva4x1000Centavos:0n});
+ for(const bad of [-1n,0.1,"1000",null])assert.throws(()=>reservarGmfCentavos(bad),TypeError);
+});
