@@ -103,3 +103,20 @@ test("acepta solo lectura e inserción con identidad y roles verificados",async(
  assert.equal(resultado.seguro,true);
  assert.equal(resultado.codigo,"SIN_PRIVILEGIOS_PELIGROSOS_DETECTADOS");
 });
+
+test("falla cerrado ante privilegios vacíos de estructura inválida",async()=>{
+ const auth={authenticatedUsers:[{user:"personal",db:"admin"}],authenticatedUserRoles:[{role:"personal",db:"admin"}]};
+ for(const invalido of [
+  {resource:{db,collection},actions:"update"},
+  {resource:{},actions:["update"]},
+  {resource:null,actions:["remove"]},
+  {resource:{db,collection},actions:[123]}
+ ]){
+  const resultado=await auditarPrivilegiosHistorial({
+   databaseName:db,
+   command:async()=>({authInfo:{...auth,authenticatedUserPrivileges:[invalido]}})
+  });
+  assert.equal(resultado.seguro,false);
+  assert.equal(resultado.codigo,"PRIVILEGIOS_MALFORMADOS");
+ }
+});
