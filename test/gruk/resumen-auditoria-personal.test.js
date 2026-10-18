@@ -42,3 +42,11 @@ test("el informe distingue dependencia directa, rango vulnerable y versión de c
  for(const valor of ["Tipo","Directa","Rango afectado","<2.3.4","2.3.4","dependenciaY","GHSA-prueba"])
   assert.ok(r.stdout.includes(valor),valor);
 });
+
+test("informe incompleto o sin campo vulnerabilidades falla cerrado",()=>{
+ for(const incompleto of [{}, {metadata:{vulnerabilities:{high:0}}}, {vulnerabilities:null}]){
+  const r=ejecutar(incompleto);
+  assert.equal(r.status,1);
+  assert.match(r.stdout,/Informe incompleto/);
+ }
+});
