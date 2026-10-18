@@ -52,3 +52,24 @@ test("bloquea reportes TAP cancelados, pendientes o sin esos contadores",()=>{
  assert.throws(()=>validarEvidenciaMongoV81(resumen.replace("# cancelled 0\n","")),/RESUMEN_TAP_AUSENTE/);
  assert.throws(()=>validarEvidenciaMongoV81(resumen.replace("# todo 0\n","")),/RESUMEN_TAP_AUSENTE/);
 });
+
+test("valida TAP generado por el propio Node al ejecutar dos archivos",()=>{
+ const fs=require("node:fs"),os=require("node:os"),path=require("node:path");
+ const {spawnSync}=require("node:child_process");
+ const raiz=fs.mkdtempSync(path.join(os.tmpdir(),"gruk-v81-tap-"));
+ try{
+  const primero=path.join(raiz,"vinculos.test.cjs");
+  const segundo=path.join(raiz,"decision.test.cjs");
+  fs.writeFileSync(primero,
+   'const t=require("node:test");t("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",()=>{});\n');
+  fs.writeFileSync(segundo,
+   'const t=require("node:test");t("DecisionProof serializa dos escrituras concurrentes sin huérfanos",()=>{});\n');
+  const ejecucion=spawnSync(process.execPath,
+   ["--test","--test-reporter=tap",primero,segundo],
+   {encoding:"utf8",timeout:10000});
+  assert.equal(ejecucion.status,0,ejecucion.stderr);
+  assert.deepEqual(validarEvidenciaMongoV81(ejecucion.stdout),{
+   pruebas:2,aprobadas:2,fallidas:0,omitidas:0
+  });
+ }finally{fs.rmSync(raiz,{recursive:true,force:true});}
+});
