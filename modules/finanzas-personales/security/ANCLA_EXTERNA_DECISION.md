@@ -18,6 +18,10 @@ Una instantánea coherente evita carreras entre lectura del historial y su encab
 
 **La aplicación debe obtener `anclaExterna` de un almacén independiente con permisos y retención inmutable**, no del navegador o de la misma base que audita. La función comprueba autenticidad y consistencia, pero no demuestra que el comprobante proporcionado sea el más reciente: esa propiedad depende del almacén externo.
 
+## Auditoría con custodio externo obligatorio
+
+`auditarAnclaCustodiada(usuarioId, clave, custodio)` obtiene la última ancla mediante `custodio.obtenerUltimaAncla(usuarioId)` y la coteja contra MongoDB. Si falta el custodio, falla su lectura o no hay un comprobante, responde con `valida:false` y un código explícito. No devuelve una aprobación por defecto. El custodio suministrado debe ser una implementación **del lado del servidor**, autorizada, independiente y con protección real contra retrocesos; una implementación simulada en las pruebas **no equivale a WORM desplegado**.
+
 ## Requisitos de custodia (antes de producción)
 
 1. Generar una clave aleatoria de 32 bytes o más mediante un administrador de secretos/KMS, distinta de las claves JWT, cifrado de datos e idempotencia. No incluirla en GitHub, logs o documentos.
