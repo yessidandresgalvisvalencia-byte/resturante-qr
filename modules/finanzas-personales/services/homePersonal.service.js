@@ -134,7 +134,7 @@ function calcularFlujoMes({ingresosMinor=0,gastosMinor=0,pagosDeudaRegistradosMi
 async function obtener(usuarioId,now=new Date()){
  const inicio=monthStart(now),fin=nextMonth(now);
  const [tx,deudas,tarjetas,pat,ingresosRecurrentes,calendariosIngreso,cobros]=await Promise.all([
-  Transaccion.find({usuarioId,fecha:{$gte:inicio,$lt:fin},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"]},estado:{$ne:"ANULADA"}}).lean(),
+  Transaccion.find({usuarioId,fecha:{$gte:inicio,$lte:now},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"]},estado:{$ne:"ANULADA"}}).lean(),
   Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).sort({fechaVencimiento:1,createdAt:1}).lean(),
   DeudaPersonal.find({usuarioId,tipo:"TARJETA_CREDITO",activa:true,saldoMinor:{$gt:0}}).lean(),
   patrimonio.snapshot(usuarioId),
