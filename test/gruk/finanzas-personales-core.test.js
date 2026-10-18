@@ -286,3 +286,10 @@ test("asesor no transforma el saldo de cuota faltante en falso gasto exigible",(
  assert.match(src,/Cuota pendiente de confirmar/);
  assert.match(src,/cuotasSinDefinir:cuotasSinDefinir\.map/);
 });
+
+test("próxima obligación exige cuota real y el detalle conserva pago único",()=>{
+ const fs=require("node:fs"),path=require("node:path");
+ const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
+ assert.match(src,/const proxima=deudas\.find\([^\n]*cuotaExigibleMinor\(x\)>0/);
+ assert.match(src,/periodicidad:x\.periodicidad,periodicidadConfirmada:x\.periodicidadConfirmada/);
+});
