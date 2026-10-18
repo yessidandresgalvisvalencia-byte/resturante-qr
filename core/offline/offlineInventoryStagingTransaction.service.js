@@ -5,6 +5,7 @@ const {executeOfflinePostingTransaction}=require("./offlinePostingTransaction.se
 const {stageOfflineFinancialBatch}=require("./offlineFinancialStaging.service");
 const {applyOfflineLegacyInventory}=require("./offlineLegacyInventoryWriter.service");
 const {assertOfflineStagingIndexes}=require("./offlineIndexesReadiness.service");
+const {assertOfflineAuthoritativePrices}=require("./offlineAuthoritativePrices.service");
 function assertFreshOfflineStaging(staged,inventoryDeltas,plan){
  const code="OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION";
  const fail=()=>{const error=new Error(code);error.code=code;throw error;};
@@ -61,10 +62,12 @@ function assertAppliedOfflineInventory(inventory,inventoryDeltas){
  }
  return true;
 }
-async function executeOfflineInventoryStagingTransaction({db,context,eventIds,objectId}){
+async function executeOfflineInventoryStagingTransaction({db,context,eventIds,objectId,requireAuthoritativePricing=false}){
  await assertOfflineStagingIndexes(db);
  return executeOfflinePostingTransaction({db,context,eventIds,objectId,
   postDomainOperations:async({plan,inventoryDeltas,ledgerMovements,session,context:verifiedContext})=>{
+   if(requireAuthoritativePricing===true)
+    await assertOfflineAuthoritativePrices({db,session,context:verifiedContext,plan,objectId});
    const staged=await stageOfflineFinancialBatch({
     db,session,context:verifiedContext,plan,inventoryDeltas,ledgerMovements
    });
