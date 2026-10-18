@@ -162,6 +162,19 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
       } finally {
         await db.collection("gruk_ledger_movimientos").deleteMany({empresaId,sedeId,eventId:proofEventId,deletedAt:{$ne:null}});
       }
+      // MongoDB treats {deletedAt:null} as also matching a missing field.
+      // An incomplete ledger record must not validate an offline posting.
+      await db.collection("gruk_ledger_movimientos").insertOne({
+        empresaId, sedeId, actorId, eventId:proofEventId
+      });
+      try {
+        await assert.rejects(
+          markOfflineApplied({db,context:review,eventId:proofEventId,reviewToken,commitReference})
+        );
+        assert.equal((await db.collection("gruk_offline_inbox").findOne({empresaId,sedeId,eventId:proofEventId})).status,"EN_REVISION");
+      } finally {
+        await db.collection("gruk_ledger_movimientos").deleteMany({empresaId,sedeId,eventId:proofEventId});
+      }
       await db.collection("gruk_ledger_movimientos").insertOne({
         empresaId, sedeId, actorId, eventId: proofEventId, deletedAt: null
       });
