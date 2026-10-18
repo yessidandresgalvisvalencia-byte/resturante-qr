@@ -9,6 +9,7 @@ router.use(auth,entitlement);
 // V81: diagnóstico en solo lectura, con identidad obtenida exclusivamente del JWT personal verificado.
 // Esta ruta no permite escoger usuario por body, params, query ni headers.
 router.get("/v81/integridad",require("./services/consultaIntegridadV81.handler").crearConsultaIntegridadV81());
+router.get("/v81/saldo-verificado",require("./services/consultaSaldoV81.handler").crearConsultaSaldoV81());
 // Escritura V81: la cadena auth + entitlement ya validó el JWT personal.
 router.post("/v81/movimientos",require("./security/limiteSeleccionadoV81.middleware").crearLimiteSeleccionadoV81({clienteRedis:router.redisV81}),require("./services/registroMovimientoV81.handler").crearRegistroMovimientoV81());
 router.get("/diagnostico-integridad",async(req,res)=>{
