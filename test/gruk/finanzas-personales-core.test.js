@@ -334,3 +334,25 @@ test("ningún pago parcial elimina el compromiso completo antes del siguiente in
  assert.match(src,/montoMinor:saldoCuotaPendienteMinor\(d,pagoAplicado\(d\)\)/);
  assert.match(src,/cuotaExigibleMinor\(d\)===0\)/);
 });
+
+test("abonos y flujo usan el mismo importe efectivamente pagado",()=>{
+ const pago={tipo:"PAGO_DEUDA",montoMinor:550000,montoPagadoRealMinor:100000};
+ assert.equal(home.montoPagoDeudaMinor(pago),100000);
+ assert.equal(home.montoPagoDeudaMinor({...pago,montoPagadoRealMinor:null}),550000);
+ assert.equal(home.montoPagoDeudaMinor({...pago,montoPagadoRealMinor:undefined}),550000);
+ const deuda={saldoMinor:4000000,cuotaMinor:550000};
+ assert.equal(home.saldoCuotaPendienteMinor(deuda,home.montoPagoDeudaMinor(pago)),450000);
+ assert.equal(home.saldoCuotaPendienteMinor(deuda,home.montoPagoDeudaMinor({
+  ...pago,montoPagadoRealMinor:550000
+ })),0);
+ for(const bad of [0,-1000,0.5,"100000",Number.MAX_SAFE_INTEGER+1]){
+  assert.throws(()=>home.montoPagoDeudaMinor({...pago,montoPagadoRealMinor:bad}),TypeError);
+ }
+ assert.throws(()=>home.montoPagoDeudaMinor({tipo:"GASTO",montoMinor:100000}),TypeError);
+});
+test("cálculo real de pagos compartido entre contabilidad y compromisos",()=>{
+ const fs=require("node:fs"),path=require("node:path");
+ const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
+ assert.match(src,/reduce\(\(s,x\)=>s\+montoPagoDeudaMinor\(x\),0\)/);
+ assert.match(src,/pagosPorDeuda\.set\(id,\(pagosPorDeuda\.get\(id\)\|\|0\)\+montoPagoDeudaMinor\(t\)\)/);
+});
