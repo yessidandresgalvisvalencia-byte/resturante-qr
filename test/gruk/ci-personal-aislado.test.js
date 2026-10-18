@@ -40,7 +40,9 @@ test("CI Mongo conserva TAP verificable y evidencia visible de sus dos integraci
  const bloque=ci.split("  concurrencia-mongo:")[1];
  assert.ok(bloque,"Falta el trabajo de concurrencia");
  assert.match(bloque,/node --test --test-reporter=tap test\/gruk\/confirmacion-vinculo-mongo-concurrencia\.test\.js test\/gruk\/decision-proof-concurrency\.test\.js/);
- assert.match(bloque,/node scripts\/verificar-evidencia-mongo-v81\.js prueba-mongo-v81\.log \| tee -a "\$GITHUB_STEP_SUMMARY"/);
+ assert.ok(bloque.includes('node scripts/verificar-evidencia-mongo-v81.js prueba-mongo-v81.log | tee comprobante-mongo-v81.txt | tee -a "$GITHUB_STEP_SUMMARY"'));
+ assert.ok(bloque.includes("comprobante-mongo-v81.txt"));
+ assert.ok(bloque.includes("if-no-files-found: error"));
  assert.match(bloque,/set -o pipefail/);
  assert.match(bloque,/name: evidencia-concurrencia-mongo-v81/);
 });
