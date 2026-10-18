@@ -140,9 +140,12 @@ jobs:
           GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
         run: |
           set -o pipefail
-          node --test test/gruk/confirmacion-vinculo-mongo-concurrencia.test.js test/gruk/decision-proof-concurrency.test.js 2>&1 | tee prueba-mongo-v81.log
+          node --test --test-reporter=tap test/gruk/confirmacion-vinculo-mongo-concurrencia.test.js test/gruk/decision-proof-concurrency.test.js 2>&1 | tee prueba-mongo-v81.log
       - name: Exigir ambas pruebas Mongo ejecutadas sin omisiones
-        run: node scripts/verificar-evidencia-mongo-v81.js prueba-mongo-v81.log
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verificar-evidencia-mongo-v81.js prueba-mongo-v81.log | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Adjuntar evidencia de concurrencia MongoDB
         if: always()
         uses: actions/upload-artifact@v4
