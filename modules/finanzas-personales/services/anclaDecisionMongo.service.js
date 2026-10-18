@@ -3,7 +3,7 @@
 const mongoose = require("mongoose");
 const DecisionProof = require("../models/decisionProofPersonal.model");
 const ChainHead = require("../models/decisionChainHeadPersonal.model");
-const {crearAnclaVerificada} = require("../security/anclaExternaDecision.service");
+const {crearAnclaVerificada,verificarAncla} = require("../security/anclaExternaDecision.service");
 const {MAX_REGISTROS} = require("./auditoriaCadenaDecision.service");
 
 /**
@@ -11,9 +11,11 @@ const {MAX_REGISTROS} = require("./auditoriaCadenaDecision.service");
  * No publica ni almacena el comprobante: el llamador debe custodiarlo
  * en un servicio externo con retención inmutable y permisos separados.
  */
-async function emitirAnclaDecisionMongo(usuarioId, clave) {
+async function emitirAnclaDecisionMongo(usuarioId, clave, opciones = {}) {
  if (!mongoose.isObjectIdOrHexString(usuarioId)) throw new TypeError("usuarioId inválido");
  if (!Buffer.isBuffer(clave) || clave.length < 32) throw new TypeError("Clave HMAC inválida");
+ if (!opciones || typeof opciones !== "object" || Array.isArray(opciones) ||
+     Object.keys(opciones).some(k => k !== "anclaPrevia")) throw new TypeError("Opciones de ancla inválidas");
  const id = new mongoose.Types.ObjectId(String(usuarioId));
  const session = await mongoose.startSession();
  try {
@@ -26,6 +28,16 @@ async function emitirAnclaDecisionMongo(usuarioId, clave) {
     .sort({secuencia:1,_id:1})
     .limit(MAX_REGISTROS+1).session(session).lean();
    if (registros.length > MAX_REGISTROS) throw new Error("AUDITORIA_REQUIERE_PAGINACION");
+   // La ancla previa debe provenir de custodia externa independiente, nunca
+   // de una petición no autenticada ni de la propia base bajo auditoría.
+   if (Object.hasOwn(opciones,"anclaPrevia")) {
+    const previa=verificarAncla(opciones.anclaPrevia,clave,registros,head,String(id));
+    if (!previa.valida) {
+     const error=new Error("CONTINUIDAD_ANCLA_INVALIDA");
+     error.code=previa.codigo;
+     throw error;
+    }
+   }
    return crearAnclaVerificada({registros,head,usuarioId:String(id)},clave);
   },{
    readConcern:{level:"snapshot"},
