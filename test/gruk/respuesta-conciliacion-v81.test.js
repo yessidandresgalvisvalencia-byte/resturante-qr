@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {crearConsultaConciliacionCuentaV81}=
+const {crearConsultaConciliacionCuentaV81,parsearSaldoFirmadoCopACentavos}=
  require("../../modules/finanzas-personales/services/consultaConciliacionCuentaV81.handler");
 const uid="507f1f77bcf86cd799439011",cuentaId="507f1f77bcf86cd799439013";
 const query={cuentaId,desde:"2025-01-01",hastaExclusivo:"2025-02-01",
@@ -34,4 +34,36 @@ test("conciliación verificada aritméticamente nunca equivale a saldo bancario 
  assert.equal(res.body.conciliacion.saldoBancarioVerificado,false);
  assert.equal(res.body.conciliacion.aptoParaDisponibleHoy,false);
  assert.equal(res.headers["Cache-Control"],"no-store");
+});
+
+test("saldo observado negativo en COP se interpreta exactamente con BigInt",async()=>{
+ assert.equal(parsearSaldoFirmadoCopACentavos("-1250.25"),-125025n);
+ assert.equal(parsearSaldoFirmadoCopACentavos("0.10"),10n);
+ assert.equal(parsearSaldoFirmadoCopACentavos("0.20"),20n);
+ assert.equal(parsearSaldoFirmadoCopACentavos("-0.30"),-30n);
+ assert.equal(parsearSaldoFirmadoCopACentavos("0.10")+parsearSaldoFirmadoCopACentavos("0.20"),30n);
+ const consulta=await invocar(async args=>{
+  assert.equal(args.saldoInicialCentavos,-125025n);
+  assert.equal(args.saldoObservadoCentavos,-130025n);
+  return {estado:"CONCILIADA",movimientosEvaluados:1};
+ },{...query,saldoInicialCop:"-1250.25",saldoObservadoCop:"-1300.25"});
+ assert.equal(consulta.statusCode,200);
+ assert.equal(consulta.body.conciliacion.aptoParaDisponibleHoy,false);
+});
+test("saldos con notación flotante o formato ambiguo se rechazan",()=>{
+ for(const valor of ["-","--1","1e3","-1e3","1,000","-1,000.00","-.5","1.234","+5"," 1","- 1",1,null]){
+  assert.throws(()=>parsearSaldoFirmadoCopACentavos(valor),TypeError,String(valor));
+ }
+});
+test("errores de conciliación no se almacenan en cachés intermedias",async()=>{
+ for(const [error,status] of [
+  [Object.assign(new Error("huérfano"),{statusCode:409}),409],
+  [Object.assign(new Error("sin acceso"),{statusCode:401}),401],
+  [new TypeError("mal formado"),400],
+  [new Error("interno"),500]
+ ]){
+  const r=await invocar(async()=>{throw error;});
+  assert.equal(r.statusCode,status);
+  assert.equal(r.headers["Cache-Control"],"no-store");
+ }
 });
