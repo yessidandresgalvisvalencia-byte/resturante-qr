@@ -1,7 +1,7 @@
 "use strict";
 const {resolverUsuarioAutorizadoV81}=require("./autorizacionV81.service");
 const {parsearCopACentavos}=require("./dineroExactoV81.service");
-const {conciliarHistoricoCuentaV81}=require("./conciliacionHistoricoCuentaV81.service");
+const {conciliarHistoricoCuentaV81,fechaCalendarioValidaV81}=require("./conciliacionHistoricoCuentaV81.service");
 // Los saldos observados pueden ser negativos (sobregiro). Los gastos y
 // movimientos siguen exigiendo montos positivos en sus propios validadores.
 function parsearSaldoFirmadoCopACentavos(valor){
@@ -23,7 +23,7 @@ function crearConsultaConciliacionCuentaV81(consultar=conciliarHistoricoCuentaV8
     throw new TypeError("Parámetros inválidos");
    if(typeof q.cuentaId!=="string"||!/^[a-f0-9]{24}$/i.test(q.cuentaId))throw new TypeError("Cuenta inválida");
    if(typeof q.desde!=="string"||typeof q.hastaExclusivo!=="string"||
-     !/^\d{4}-\d{2}-\d{2}$/.test(q.desde)||!/^\d{4}-\d{2}-\d{2}$/.test(q.hastaExclusivo))
+     !fechaCalendarioValidaV81(q.desde)||!fechaCalendarioValidaV81(q.hastaExclusivo)||q.desde>=q.hastaExclusivo)
     throw new TypeError("Período inválido");
    const saldoInicialCentavos=parsearSaldoFirmadoCopACentavos(q.saldoInicialCop);
    const saldoObservadoCentavos=parsearSaldoFirmadoCopACentavos(q.saldoObservadoCop);
