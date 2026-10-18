@@ -5,6 +5,8 @@ const {validarEvidenciaMongoV81}=require("../../scripts/verificar-evidencia-mong
 const resumen=`TAP version 13
 ok 1 - Mongo local: dos confirmaciones idénticas crean exactamente un vínculo
 ok 2 - DecisionProof serializa dos escrituras concurrentes sin huérfanos
+# [GRUK_V81_MONGO_INTEGRACION] VINCULOS_OK
+# [GRUK_V81_MONGO_INTEGRACION] DECISION_PROOF_OK
 1..2
 # tests 2
 # pass 2
@@ -61,9 +63,9 @@ test("valida TAP generado por el propio Node al ejecutar dos archivos",()=>{
   const primero=path.join(raiz,"vinculos.test.cjs");
   const segundo=path.join(raiz,"decision.test.cjs");
   fs.writeFileSync(primero,
-   'const t=require("node:test");t("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",()=>{});\n');
+   'const t=require("node:test");t("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",()=>{console.log("[GRUK_V81_MONGO_INTEGRACION] VINCULOS_OK");});\n');
   fs.writeFileSync(segundo,
-   'const t=require("node:test");t("DecisionProof serializa dos escrituras concurrentes sin huérfanos",()=>{});\n');
+   'const t=require("node:test");t("DecisionProof serializa dos escrituras concurrentes sin huérfanos",()=>{console.log("[GRUK_V81_MONGO_INTEGRACION] DECISION_PROOF_OK");});\n');
   const ejecucion=spawnSync(process.execPath,
    ["--test","--test-reporter=tap",primero,segundo],
    {encoding:"utf8",timeout:10000,
@@ -98,4 +100,13 @@ test("CLI identifica evidencia Mongo con SHA-256 y commit exacto",()=>{
   assert.equal(evidencia.pruebas,2);
   assert.equal(evidencia.aprobadas,2);
  }finally{fs.rmSync(directorio,{recursive:true,force:true});}
+});
+
+test("bloquea TAP positivo sin ejecución corroborada de Mongo",()=>{
+ for(const marcador of ["VINCULOS_OK","DECISION_PROOF_OK"]){
+  const alterado=resumen.replace("# [GRUK_V81_MONGO_INTEGRACION] "+marcador+"\n","");
+  assert.throws(()=>validarEvidenciaMongoV81(alterado),/INTEGRACION_MONGO_SIN_EVIDENCIA/);
+ }
+ assert.throws(()=>validarEvidenciaMongoV81(resumen+
+  "# [GRUK_V81_MONGO_INTEGRACION] VINCULOS_OK\n"),/INTEGRACION_MONGO_SIN_EVIDENCIA/);
 });
