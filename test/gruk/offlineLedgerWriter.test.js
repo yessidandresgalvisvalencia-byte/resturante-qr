@@ -48,3 +48,16 @@ test("ledger offline: no escribe si índice único todavía no existe",async()=>
   e=>e.code==="OFFLINE_LEDGER_UNIQUE_INDEX_REQUIRED");
  assert.equal(fixture.records.size,0);
 });
+
+test("E11000 no consulta una transacción abortada ni confunde colisión con éxito",async()=>{
+ let findCount=0;
+ const session={inTransaction:()=>true};
+ const db={collection:()=>({
+  indexes:async()=>[{name:"uniq_offline_ledger_event_type_tenant",unique:true,key:{empresaId:1,sedeId:1,eventId:1,tipo:1}}],
+  updateOne:async()=>{const e=new Error("duplicate key");e.code=11000;throw e;},
+  findOne:async()=>{findCount++;throw Error("ABORTED_TRANSACTION");}
+ })};
+ await assert.rejects(append({db,session,context,eventId,movement}),
+  e=>e.code==="OFFLINE_LEDGER_CONCURRENT_RETRY_REQUIRED");
+ assert.equal(findCount,0);
+});
