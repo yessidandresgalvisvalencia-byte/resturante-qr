@@ -251,13 +251,26 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
         empresaId,sedeId,actorId,eventId:proofEventId,status:"CONCILIADO",
         cobrado:true,montoCop:"3000"
       });
+      // A fully paid sale still cannot be finalized if the inventory was not applied.
+      await assert.rejects(
+        markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference }),
+        /OFFLINE_DOMAIN_NOT_COMMITTED/
+      );
+      assert.equal((await db.collection("gruk_offline_inbox").findOne({
+        empresaId, sedeId, eventId: proofEventId
+      })).status, "EN_REVISION");
+      // A successful inventory transaction records this immutable handoff evidence.
+      await db.collection("gruk_offline_inbox").updateOne(
+        { empresaId, sedeId, eventId: proofEventId, status: "EN_REVISION" },
+        { $set: { inventoryApplied: true } }
+      );
       const [appliedA, appliedB] = await Promise.all([
         markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference }),
         markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference })
       ]);
       assert.equal([appliedA.status, appliedB.status].filter(x => x === "APLICADO").length, 1);
       assert.ok([appliedA.status, appliedB.status].every(x => ["APLICADO", "NO_RECLAMADO", "CONFLICTO_CONCURRENCIA"].includes(x)));
-      assert.equal((await readOfflineStatuses({db,context,eventIds:[proofEventId]}))[0].applied, false, "APLICADO sin inventarioApplied no es conciliación completa");
+      assert.equal((await readOfflineStatuses({db,context,eventIds:[proofEventId]}))[0].applied, true, "Finalización con inventario y caja conciliada");
       const replayApplied = await markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference });
       assert.equal(replayApplied.status, "NO_RECLAMADO");
     } finally {
