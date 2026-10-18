@@ -60,6 +60,16 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
    timestamp:e.timestamp,corrigeId:e.corrigeId,motivo:e.motivo,
    tipoCorregido:e.tipoCorregido,hashAnterior:e.hashAnterior,hashActual:e.hashActual
   })),cabeza.hashActual),true);
+
+  // Simulación exclusivamente local de manipulación directa, fuera de Mongoose.
+  // Un atacante que altere un monto almacenado no debe poder anexar otro evento.
+  await Evento.collection.updateOne({_id:primero._id},{$set:{montoCentavos:"2500031"}});
+  await assert.rejects(
+   ()=>anexarEventoV81(a,{...base,id:"v81_despues_de_tamper"}),
+   error=>error.statusCode===409 && /integridad/i.test(error.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId:a}),1);
+  assert.equal((await Cabeza.findOne({usuarioId:a}).lean()).hashActual,cabeza.hashActual);
  }finally{
   // Limpieza exclusiva de los dos ObjectIds generados para esta prueba.
   await Evento.collection.deleteMany({usuarioId:{$in:[a,b]}});
