@@ -29,7 +29,9 @@ function reservarGmfCentavos(retiroGravadoCentavos) {
   }
   return (retiroGravadoCentavos * 4n + 999n) / 1000n;
 }
-function disponibleHoyConGmf({ saldoCentavos, porVencer7dCentavos, retiroGravadoCentavos = 0n }) {
+// El llamador debe determinar antes si el retiro está gravado.
+// Omitir ese dato no equivale a una exención.
+function disponibleHoyConGmf({ saldoCentavos, porVencer7dCentavos, retiroGravadoCentavos }) {
   const base = disponibleHoy({ saldoCentavos, porVencer7dCentavos });
   const reserva4x1000Centavos = reservarGmfCentavos(retiroGravadoCentavos);
   return Object.freeze({
