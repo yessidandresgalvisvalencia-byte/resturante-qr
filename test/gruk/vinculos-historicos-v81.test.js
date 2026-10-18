@@ -38,3 +38,12 @@ test("vínculo confirmado se reconoce aunque el nombre apunte a otra cuenta",()=
   {estado:"REQUIERE_CONFIRMACION",cuentaId:"cuenta-a"});
  assert.throws(()=>evaluarEstadoVinculoHistorico(mov,cuentas,{...vinc,movimientoId:"otro"}),TypeError);
 });
+
+test("cursor histórico evita duplicados y saltos de páginas",()=>{
+ const {cursorHistoricoValidoV81}=require("../../modules/finanzas-personales/services/diagnosticoVinculosHistoricosV81.service");
+ assert.equal(cursorHistoricoValidoV81(undefined),true);
+ assert.equal(cursorHistoricoValidoV81("507f1f77bcf86cd799439011"),true);
+ for(const cursor of [null,"",[],{},123,"507f1f77bcf86cd79943901g","a".repeat(25)]){
+  assert.equal(cursorHistoricoValidoV81(cursor),false);
+ }
+});
