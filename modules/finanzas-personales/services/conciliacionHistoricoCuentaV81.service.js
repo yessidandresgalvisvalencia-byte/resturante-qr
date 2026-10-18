@@ -6,6 +6,7 @@ const Vinculo=require("../models/vinculoHistoricoV81.model");
 const {conciliarPeriodoCuentaV81}=require("./conciliacionPeriodoCuentaV81.service");
 const {exigirSinMovimientosHuerfanos}=require("./guardiaConciliacionCuentaV81.service");
 const MAX_FILAS_CONCILIACION_V81=25000;
+const MAX_TIEMPO_CONSULTA_MONGO_V81_MS=15000;
 const FORMATEADOR_FECHA_BOGOTA_V81=new Intl.DateTimeFormat("en-US",{
  timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"
 });
@@ -67,27 +68,27 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
    const cuenta=await Cuenta.findOne({_id:new mongoose.Types.ObjectId(cuentaId),usuarioId:new mongoose.Types.ObjectId(usuarioId),activa:true,moneda:"COP"}).session(session).lean();
    if(!cuenta)throw Object.assign(new Error("Cuenta no autorizada o inexistente"),{statusCode:404});
    const rows=await Transaccion.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId),moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}})
-    .session(session).sort({_id:1}).limit(MAX_FILAS_CONCILIACION_V81+1).lean();
+    .session(session).sort({_id:1}).limit(MAX_FILAS_CONCILIACION_V81+1).maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS).lean();
    exigirResultadosAcotadosV81(rows);
    // Filtrar por fecha antes de limitar: un usuario puede tener más de
    // 25.000 vínculos históricos de otros meses sin afectar este período.
    // El JOIN utiliza la clave primaria del movimiento y exige mismo usuario.
    const heredados=await Vinculo.aggregate(crearPipelineVinculosPeriodoV81({
     usuarioId,cuentaId,desde:start,hasta:end
-   })).session(session).exec();
+   })).session(session).option({maxTimeMS:MAX_TIEMPO_CONSULTA_MONGO_V81_MS}).exec();
    exigirResultadosAcotadosV81(heredados);
    const sinVinculo=await Transaccion.find({
     usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:null,
     cuenta:cuenta.nombre,moneda:"COP",estado:{$ne:"ANULADA"},
     fecha:{$gte:start,$lt:end}
-   }).session(session).select("_id cuenta cuentaId").limit(MAX_FILAS_CONCILIACION_V81+1).lean();
+   }).session(session).select("_id cuenta cuentaId").limit(MAX_FILAS_CONCILIACION_V81+1).maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS).lean();
    exigirResultadosAcotadosV81(sinVinculo);
    // Una confirmación puede haber asociado el huérfano a otra cuenta.
    // En ese caso tampoco debe bloquear falsamente esta conciliación.
    const resueltos=sinVinculo.length?await Vinculo.find({
     usuarioId:new mongoose.Types.ObjectId(usuarioId),
     movimientoId:{$in:sinVinculo.map(x=>x._id)}
-   }).session(session).select("movimientoId cuentaId").limit(MAX_FILAS_CONCILIACION_V81+1).lean():[];
+   }).session(session).select("movimientoId cuentaId").limit(MAX_FILAS_CONCILIACION_V81+1).maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS).lean():[];
    exigirResultadosAcotadosV81(resueltos);
    const sinResolver=filtrarHuerfanosSinResolver(sinVinculo,resueltos);
    exigirSinMovimientosHuerfanos({cuenta,filas:sinResolver});
@@ -107,4 +108,4 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,crearPipelineVinculosPeriodoV81,fechaContableBogotaV81};
+module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,MAX_TIEMPO_CONSULTA_MONGO_V81_MS,crearPipelineVinculosPeriodoV81,fechaContableBogotaV81};
