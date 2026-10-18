@@ -10,7 +10,7 @@ function escenario(){
  const base={accion:"CONSULTAR",evaluacion:{autorizada:true,motivos:[]},corte:new Date(TIME),version:2};
  const primero=crear({...base,secuencia:1,previousHash:null,idempotencyKey:"decision-0001"});
  const segundo=crear({...base,secuencia:2,previousHash:primero.hash,idempotencyKey:"decision-0002"});
- return {registros:[primero,segundo],head:{secuencia:2,headHash:segundo.hash}};
+ return {registros:[{...primero,usuarioId:USER},{...segundo,usuarioId:USER}],head:{usuarioId:USER,secuencia:2,headHash:segundo.hash}};
 }
 test("ancla firmada comprueba el prefijo aun si la cadena creció",()=>{
  const {registros,head}=escenario();
@@ -58,4 +58,13 @@ test("rechaza campos adicionales que no están firmados por HMAC",()=>{
  const ancla=crearAncla({usuarioId:USER,secuencia:2,headHash:head.headHash,emitidaEn:TIME},KEY);
  assert.equal(verificarAncla({...ancla,administrador:true},KEY,registros,head,USER).codigo,"ANCLA_INVALIDA");
  assert.equal(verificarAncla({...ancla,emitidaEn:undefined},KEY,registros,head,USER).codigo,"ANCLA_INVALIDA");
+});
+
+test("rechaza el trasplante de una cadena de otro usuario aunque su ancla sea válida",()=>{
+ const {registros,head}=escenario();
+ const ancla=crearAncla({usuarioId:USER,secuencia:2,headHash:head.headHash,emitidaEn:TIME},KEY);
+ const otro="abcdef0123456789abcdef01";
+ assert.equal(verificarAncla(ancla,KEY,[{...registros[0],usuarioId:otro},registros[1]],head,USER).codigo,"PROPIETARIO_CADENA_NO_COINCIDE");
+ assert.equal(verificarAncla(ancla,KEY,registros,{...head,usuarioId:otro},USER).codigo,"PROPIETARIO_CADENA_NO_COINCIDE");
+ assert.equal(verificarAncla(ancla,KEY,registros.map(({usuarioId,...resto})=>resto),head,USER).codigo,"PROPIETARIO_CADENA_NO_COINCIDE");
 });
