@@ -9,9 +9,10 @@ function exigirMongoDePruebasLocal(uri, confirmacion) {
  if (confirmacion !== "SOLO_PRUEBAS_LOCALES") throw new Error("CONFIRMACION_DB_PRUEBAS_REQUERIDA");
  let destino;
  try { destino = new URL(uri); } catch { throw new Error("TEST_MONGO_URI_INVALIDA"); }
- const locales = new Set(["127.0.0.1", "localhost", "[::1]"]);
+ const locales = new Set(["127.0.0.1", "[::1]"]);
  if (destino.protocol !== "mongodb:" || !locales.has(destino.hostname) ||
-     !destino.port || destino.host.includes(",")) {
+     !destino.port || destino.host.includes(",") ||
+     destino.searchParams.get("directConnection") !== "true") {
   throw new Error("MONGO_PRUEBAS_NO_LOCAL");
  }
  return true;
@@ -154,8 +155,9 @@ test("reintento selectivo: solo el índice único de secuencia es recuperable",(
 });
 
 test("el banco de concurrencia jamás utiliza URI externas ni MongoDB SRV",()=>{
- assert.equal(exigirMongoDePruebasLocal("mongodb://127.0.0.1:27017/?replicaSet=rs0","SOLO_PRUEBAS_LOCALES"),true);
+ assert.equal(exigirMongoDePruebasLocal("mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true","SOLO_PRUEBAS_LOCALES"),true);
  assert.throws(()=>exigirMongoDePruebasLocal("mongodb://127.0.0.1:27017",""),/CONFIRMACION_DB_PRUEBAS_REQUERIDA/);
+ assert.throws(()=>exigirMongoDePruebasLocal("mongodb://127.0.0.1:27017/?replicaSet=rs0","SOLO_PRUEBAS_LOCALES"),/MONGO_PRUEBAS_NO_LOCAL/);
  assert.throws(()=>exigirMongoDePruebasLocal("mongodb://mongo.empresa.com:27017","SOLO_PRUEBAS_LOCALES"),/MONGO_PRUEBAS_NO_LOCAL/);
  assert.throws(()=>exigirMongoDePruebasLocal("mongodb+srv://cluster.mongodb.net/db","SOLO_PRUEBAS_LOCALES"),/MONGO_PRUEBAS_NO_LOCAL/);
  assert.throws(()=>exigirMongoDePruebasLocal("mongodb://127.0.0.1:27017,servidor:27017","SOLO_PRUEBAS_LOCALES"),/MONGO_PRUEBAS_NO_LOCAL|TEST_MONGO_URI_INVALIDA/);
