@@ -39,6 +39,13 @@ function resolverExistente(doc,fp){
 function esConflictoTransitorio(error) {
  return Boolean(error?.hasErrorLabel?.("TransientTransactionError") || error?.code === 112 || error?.codeName === "WriteConflict");
 }
+function esColisionSecuencia(error) {
+ // Nunca reintentar indiscriminadamente E11000: una clave idempotente
+ // duplicada debe resolverse por fingerprint, no creando otro registro.
+ return Boolean(error?.code===11000 &&
+  error?.keyPattern?.usuarioId===1 && error?.keyPattern?.secuencia===1 &&
+  Object.keys(error.keyPattern).length===2);
+}
 async function registrar(usuarioId,args){
  if(!usuarioId)throw new TypeError("usuarioId obligatorio");
  if(typeof args?.idempotencyKey!=="string"||args.idempotencyKey.trim().length<8)throw new TypeError("idempotencyKey inválida");
@@ -77,9 +84,9 @@ async function registrar(usuarioId,args){
     const recuperada=await DecisionProof.findOne({usuarioId,idempotencyKey:clave}).lean();
     if(recuperada)return resolverExistente(recuperada,fp);
    }
-   if(intento===4 || !esConflictoTransitorio(error))throw error;
+   if(intento===4 || !(esConflictoTransitorio(error) || esColisionSecuencia(error)))throw error;
   } finally {await session.endSession();}
  }
  throw new Error("DECISION_PROOF_RETRY_EXHAUSTED");
 }
-module.exports={fingerprint,resolverExistente,esConflictoTransitorio,registrar};
+module.exports={fingerprint,resolverExistente,esConflictoTransitorio,esColisionSecuencia,registrar};
