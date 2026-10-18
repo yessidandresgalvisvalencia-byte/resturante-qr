@@ -16,6 +16,7 @@ async function executeOfflinePostingTransaction({db,context,eventIds,objectId,po
    // The callback must use this session for EVERY financial write. No auto-apply.
    const inventoryDeltas=calculateOfflineStockDeltas(plan);
    outcome=await postDomainOperations(Object.freeze({plan,inventoryDeltas,session,context}));
+   if(outcome===undefined||outcome===null)throw error("OFFLINE_POSTER_OUTCOME_REQUIRED");
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
   return outcome;
  }finally{
