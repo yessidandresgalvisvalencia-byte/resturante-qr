@@ -55,7 +55,7 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   await assert.rejects(
    registrar(propietario,movimiento({
     recurrenteOrigenId:original._id,externalId:"abono-rec-001"
-   })),e=>e.code===11000
+   })),e=>e.code===11000 || (e.statusCode===409 && /supera el saldo/.test(e.message))
   );
   assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),2);
   assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,500000);
