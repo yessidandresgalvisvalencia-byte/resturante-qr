@@ -70,3 +70,11 @@ test("CI V81 incluye pruebas principales de caja, deudas y asesor",()=>{
  assert.match(steps,/node --test test\/gruk\/finanzas-personales-core\.test\.js/,
   "La suite core debe ejecutarse en test-v81, no solo en npm test general");
 });
+
+test("integración de pagos recurrentes nunca se omite silenciosamente en CI",()=>{
+ const integration=fs.readFileSync(path.resolve(__dirname,"../finanzas-personales/vinculoRecurrenteV81.integration.test.js"),"utf8");
+ assert.match(yaml,/GRUK_REQUIRE_RECURRENT_MONGO_TEST: "1"/);
+ assert.match(yaml,/run: node --test test\/finanzas-personales\/vinculoRecurrenteV81\.integration\.test\.js/);
+ assert.match(integration,/GRUK_REQUIRE_RECURRENT_MONGO_TEST==="1"&&!uri/);
+ assert.match(integration,/CI recurrente exige TEST_MONGO_URI/);
+});
