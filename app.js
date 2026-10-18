@@ -154,6 +154,14 @@ async function iniciarAplicacion() {
     );
 
     console.log("MongoDB conectado");
+    // Explicit migration switch: do not change legacy startup behavior until reviewed.
+    // If enabled, duplicate ledger keys fail startup before the HTTP listener opens.
+    if (process.env.GRUK_OFFLINE_LEDGER_INDEX_BOOTSTRAP === "true") {
+      await require("./core/offline/offlineLedgerIndexes.service")
+        .ensureOfflineLedgerIndexes(mongoose.connection.db);
+      console.log("[GRUK OFFLINE] Índice único de ledger verificado");
+    }
+
 
     iniciarJobSuscripciones();
     iniciarCajaJob();
