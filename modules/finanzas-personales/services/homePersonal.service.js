@@ -17,7 +17,7 @@ function fechaCivilColombia(y,m,d){return inicioDiaColombiaUTC(y,m,Math.min(d,di
 function siguienteFechaRecurrente(tx,now){
  if(!tx||tx.tipo!=="INGRESO"||!tx.recurrente||tx.frecuencia==="NINGUNA")return null;
  const base=new Date(tx.fecha);if(Number.isNaN(base.getTime()))return null;
- const b=partesColombia(base),n=partesColombia(now);let y=b.y,m=b.m,d=b.d,guard=0;
+ const b=partesColombia(base),n=partesColombia(now);
  // Saltar directamente al próximo vencimiento, aunque el ingreso tenga muchos años.
  // Se usan fechas civiles de Bogotá en UTC para evitar deriva por horas o DST.
  const periodoDias={DIARIA:1,SEMANAL:7,QUINCENAL:15}[tx.frecuencia];
