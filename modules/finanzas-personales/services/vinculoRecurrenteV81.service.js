@@ -40,6 +40,49 @@ function ventanaPagoColombia(fecha){
  const inicio=new Date(Date.UTC(dato("year"),dato("month")-1,dato("day"),5));
  return {inicio,fin:new Date(inicio.getTime()+86400000)};
 }
+// Períodos de vencimiento anclados a la fecha civil original en Colombia.
+// Evita que un abono al día siguiente reinicie el cupo de una cuota mensual.
+// La fecha final es exclusiva y usa UTC-5 (Bogotá no observa DST).
+function periodoRecurrenteColombia({fechaOrigen,fechaPago,frecuencia}){
+ const origen=new Date(fechaOrigen),pago=new Date(fechaPago);
+ if(!Number.isFinite(origen.getTime())||!Number.isFinite(pago.getTime()))
+  throw Object.assign(new TypeError("Fecha de recurrencia inválida"),{statusCode:400});
+ const civil=d=>{
+  const p=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);
+  const numero=x=>Number(p.find(v=>v.type===x)?.value);
+  return {y:numero("year"),m:numero("month"),d:numero("day")};
+ };
+ const a=civil(origen),b=civil(pago);
+ const diaUTC=x=>Date.UTC(x.y,x.m-1,x.d);
+ const diaMes=(y,m,d)=>new Date(Date.UTC(y,m-1,Math.min(d,new Date(Date.UTC(y,m,0)).getUTCDate())));
+ const inicioBase=diaUTC(a),pagoDia=diaUTC(b);
+ if(pagoDia<inicioBase)
+  throw Object.assign(new RangeError("Pago anterior a primera recurrencia"),{statusCode:400});
+ let inicio,fin;
+ const duracion=frecuencia==="DIARIA"?1:frecuencia==="SEMANAL"?7:frecuencia==="QUINCENAL"?15:null;
+ if(duracion!==null){
+  const paso=Math.floor((pagoDia-inicioBase)/(86400000*duracion));
+  inicio=new Date(inicioBase+paso*duracion*86400000);
+  fin=new Date(inicioBase+(paso+1)*duracion*86400000);
+ }else if(frecuencia==="MENSUAL"){
+  let n=(b.y-a.y)*12+b.m-a.m;
+  const ocurrencia=k=>{
+   const temp=new Date(Date.UTC(a.y,a.m-1+k,1));
+   return diaMes(temp.getUTCFullYear(),temp.getUTCMonth()+1,a.d);
+  };
+  inicio=ocurrencia(n);
+  if(inicio.getTime()>pagoDia){n--;inicio=ocurrencia(n);}
+  fin=ocurrencia(n+1);
+ }else if(frecuencia==="ANUAL"){
+  let n=b.y-a.y;
+  const ocurrencia=k=>diaMes(a.y+k,a.m,a.d);
+  inicio=ocurrencia(n);
+  if(inicio.getTime()>pagoDia){n--;inicio=ocurrencia(n);}
+  fin=ocurrencia(n+1);
+ }else throw Object.assign(new TypeError("Frecuencia recurrente inválida"),{statusCode:400});
+ const sumarBogota=fecha=>new Date(fecha.getTime()+5*3600000);
+ return {inicio:sumarBogota(inicio),fin:sumarBogota(fin)};
+}
 function validarTotalPeriodoRecurrente({importeObligacionMinor,yaPagadoMinor,nuevoPagoMinor}){
  for(const n of [importeObligacionMinor,yaPagadoMinor,nuevoPagoMinor])
   if(!Number.isSafeInteger(n)||n<0)
@@ -48,4 +91,4 @@ function validarTotalPeriodoRecurrente({importeObligacionMinor,yaPagadoMinor,nue
   throw Object.assign(new RangeError("El pago supera el saldo de esta recurrencia"),{statusCode:409});
  return importeObligacionMinor-yaPagadoMinor-nuevoPagoMinor;
 }
-module.exports={validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,ventanaPagoColombia,validarTotalPeriodoRecurrente};
+module.exports={validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,ventanaPagoColombia,periodoRecurrenteColombia,validarTotalPeriodoRecurrente};
