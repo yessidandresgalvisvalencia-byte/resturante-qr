@@ -5,6 +5,15 @@ const Transaccion=require("../models/TransaccionPersonal");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Vinculo=require("../models/vinculoHistoricoV81.model");
 
+function validarClaveVinculo(idempotencyKey){
+ if(typeof idempotencyKey!=="string"||!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(idempotencyKey))
+  throw Object.assign(new Error("Clave de idempotencia inválida"),{statusCode:400});
+}
+function coincideVinculo(previo,{movimientoId,cuentaId,evidencia,idempotencyKeyHash}){
+ return Boolean(previo&&String(previo.movimientoId)===String(movimientoId)&&
+  String(previo.cuentaId)===String(cuentaId)&&previo.evidencia===evidencia.trim()&&
+  previo.idempotencyKeyHash===idempotencyKeyHash);
+}
 function resolverConfirmacion({usuarioId,movimiento,cuenta,evidencia,idempotencyKey}){
  if(!mongoose.isValidObjectId(usuarioId)||!movimiento||!cuenta)throw Object.assign(new Error("Cuenta o movimiento no encontrado"),{statusCode:404});
  if(String(movimiento.usuarioId)!==String(usuarioId)||String(cuenta.usuarioId)!==String(usuarioId))
@@ -15,8 +24,7 @@ function resolverConfirmacion({usuarioId,movimiento,cuenta,evidencia,idempotency
   throw Object.assign(new Error("Cuenta no apta"),{statusCode:409});
  if(typeof evidencia!=="string"||evidencia.trim().length<12||evidencia.trim().length>240)
   throw Object.assign(new Error("Describe la evidencia de la cuenta de origen"),{statusCode:400});
- if(typeof idempotencyKey!=="string"||!/^[a-f0-9-]{36}$/i.test(idempotencyKey))
-  throw Object.assign(new Error("Clave de idempotencia inválida"),{statusCode:400});
+ validarClaveVinculo(idempotencyKey);
  // La coincidencia de nombre ayuda a proponer, no es una condición de escritura:
  // el usuario debe aportar evidencia específica y confirmar explícitamente.
  return {usuarioId,movimientoId:movimiento._id,cuentaId:cuenta._id,evidencia:evidencia.trim()};
@@ -25,6 +33,9 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
  if(!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(movimientoId)||!mongoose.isValidObjectId(cuentaId))
   throw Object.assign(new Error("Identificadores inválidos"),{statusCode:400});
  if(confirmacionExplicita!==true)throw Object.assign(new Error("Confirmación explícita obligatoria"),{statusCode:400});
+ validarClaveVinculo(idempotencyKey);
+ if(typeof evidencia!=="string"||evidencia.trim().length<12||evidencia.trim().length>240)
+  throw Object.assign(new Error("Describe la evidencia de la cuenta de origen"),{statusCode:400});
  const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;
  if(!secret)throw Object.assign(new Error("Servicio de idempotencia no configurado"),{statusCode:503});
  const idempotencyKeyHash=crypto.createHmac("sha256",secret).update(String(usuarioId)+":"+idempotencyKey).digest("hex");
@@ -47,8 +58,7 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
    // Reintentos de la misma operación no crean evidencia adicional.
    const previo=await Vinculo.findOne({usuarioId,$or:[{movimientoId},{idempotencyKeyHash}]}).session(session).lean();
    if(previo){
-    if(String(previo.movimientoId)!==String(movimientoId)||String(previo.cuentaId)!==String(cuentaId)||
-       previo.evidencia!==campos.evidencia||previo.idempotencyKeyHash!==idempotencyKeyHash)
+    if(!coincideVinculo(previo,{movimientoId,cuentaId,evidencia:campos.evidencia,idempotencyKeyHash}))
      throw Object.assign(new Error("Vínculo existente o clave utilizada para otro destino"),{statusCode:409});
     return {confirmado:true,yaExistia:true,modificaSaldo:false};
    }
@@ -60,4 +70,4 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
   throw e;
  }finally{await session.endSession();}
 }
-module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81};
+module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81,validarClaveVinculo,coincideVinculo};
