@@ -22,7 +22,7 @@ async function stageAuthorizedOfflineOrders({db,auth,eventIds,confirmed}){
  const context=validateAdminStage({auth,eventIds,confirmed});
  if(typeof db?.client?.startSession!=="function")fail("OFFLINE_TRANSACTION_UNAVAILABLE");
  const staged=await executeOfflineInventoryStagingTransaction({
-  db,context,eventIds,objectId:id=>new ObjectId(id)
+  db,context,eventIds,objectId:id=>new ObjectId(id),requireAuthoritativePricing:true
  });
  if(staged.status!=="PENDIENTE_CONTABILIZACION"||staged.inventoryApplied!==true)
   fail("OFFLINE_STAGE_OUTCOME_CONFLICT");
