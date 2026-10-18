@@ -37,7 +37,10 @@ function resolverExistente(doc,fp){
  return doc;
 }
 function esConflictoTransitorio(error) {
- return Boolean(error?.hasErrorLabel?.("TransientTransactionError") || error?.code === 112 || error?.codeName === "WriteConflict");
+ // Commit incierto: releer primero idempotencyKey antes de volver a escribir.
+ return Boolean(error?.hasErrorLabel?.("TransientTransactionError") ||
+  error?.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+  error?.code === 112 || error?.codeName === "WriteConflict");
 }
 function esColisionSecuencia(error) {
  // Nunca reintentar indiscriminadamente E11000: una clave idempotente
