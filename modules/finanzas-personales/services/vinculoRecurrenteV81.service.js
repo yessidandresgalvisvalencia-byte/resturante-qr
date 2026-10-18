@@ -30,4 +30,22 @@ function validarNoDuplicarOrigenHoy({fechaPago,fechaOrigen,origenImpactoCaja=tru
   throw Object.assign(new RangeError("El gasto recurrente original ya afecta caja en esta fecha; un pago adicional lo duplicaría"),{statusCode:409});
  return true;
 }
-module.exports={validarFechaPagoVinculado,validarNoDuplicarOrigenHoy};
+// Rango de fecha civil de Bogotá (UTC-5, sin horario de verano).
+function ventanaPagoColombia(fecha){
+ const instante=new Date(fecha);
+ if(!Number.isFinite(instante.getTime()))
+  throw Object.assign(new TypeError("Fecha de pago inválida"),{statusCode:400});
+ const partes=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(instante);
+ const dato=t=>Number(partes.find(p=>p.type===t)?.value);
+ const inicio=new Date(Date.UTC(dato("year"),dato("month")-1,dato("day"),5));
+ return {inicio,fin:new Date(inicio.getTime()+86400000)};
+}
+function validarTotalPeriodoRecurrente({importeObligacionMinor,yaPagadoMinor,nuevoPagoMinor}){
+ for(const n of [importeObligacionMinor,yaPagadoMinor,nuevoPagoMinor])
+  if(!Number.isSafeInteger(n)||n<0)
+   throw Object.assign(new TypeError("Importes recurrentes requieren enteros seguros"),{statusCode:400});
+ if(importeObligacionMinor===0||nuevoPagoMinor===0||BigInt(yaPagadoMinor)+BigInt(nuevoPagoMinor)>BigInt(importeObligacionMinor))
+  throw Object.assign(new RangeError("El pago supera el saldo de esta recurrencia"),{statusCode:409});
+ return importeObligacionMinor-yaPagadoMinor-nuevoPagoMinor;
+}
+module.exports={validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,ventanaPagoColombia,validarTotalPeriodoRecurrente};
