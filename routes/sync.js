@@ -108,7 +108,8 @@ router.post("/stage-orders",authMiddleware,async(req,res)=>{
    eventIds:req.body?.eventIds,confirmed:req.body?.confirmed
   });
   res.set("Cache-Control","no-store");
-  return res.status(result.alreadyStaged===true?200:202).json({ok:true,...result});
+  return res.status(result.status==="REQUIERE_REVISION_STOCK"?409:result.alreadyStaged===true?200:202)
+   .json({ok:result.status!=="REQUIERE_REVISION_STOCK",...result});
  }catch(error){
   const code=error?.code;
   if(["OFFLINE_STAGE_PERMISSION_DENIED","OFFLINE_STAGE_IDENTITY_NOT_MAPPED"].includes(code))

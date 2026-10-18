@@ -66,3 +66,15 @@ test("stage-orders: idempotent recovery returns 200 without confirming a payment
  assert.equal(response.answer.cobrado,false);
  assert.equal(f.calls,1);
 });
+
+test("stage-orders: insufficient inventory returns an auditable HTTP 409 with no payment",async()=>{
+ const f=load({stage:async()=>({status:"REQUIERE_REVISION_STOCK",
+  conflictId:"offline-stock-abc",issues:[{productoId:"507f1f77bcf86cd799439011",
+   disponible:"0",solicitado:"1",faltante:"1"}],applied:false,cobrado:false})});
+ const response=await send(f.handler);
+ assert.equal(response.code,409);
+ assert.equal(response.answer.ok,false);
+ assert.equal(response.answer.applied,false);
+ assert.equal(response.answer.cobrado,false);
+ assert.equal(response.answer.issues[0].faltante,"1");
+});

@@ -4,6 +4,7 @@
 const {ObjectId}=require("mongodb");
 const {executeOfflineInventoryStagingTransaction}=require("./offlineInventoryStagingTransaction.service");
 const {recoverOfflineStagedBatch}=require("./offlineStageRecovery.service");
+const {recordOfflineOversellConflict}=require("./offlineOversellAudit.service");
 const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 const SAFE=/^[A-Za-z0-9_-]{1,80}$/;
 const ROLES=new Set(["DUEÑO","ADMIN_SEDE"]);
@@ -28,6 +29,8 @@ async function stageAuthorizedOfflineOrders({db,auth,eventIds,confirmed}){
    db,context,eventIds,objectId:id=>new ObjectId(id),requireAuthoritativePricing:true
   });
  }catch(error){
+  if(error?.code==="OFFLINE_INVENTORY_INSUFFICIENT")
+   return recordOfflineOversellConflict({db,context,eventIds,objectId:id=>new ObjectId(id)});
   if(error?.code!=="OFFLINE_ORDERS_NOT_PENDING")throw error;
   // Read-only confirmation only if every requested event is fully staged.
   return recoverOfflineStagedBatch({db,context,eventIds});
