@@ -41,12 +41,13 @@ test("MongoDB real: 20 eventos offline sobreviven desconexión, reconexión y re
       .project({ _id: 0, eventId: 1 }).toArray();
     assert.deepEqual(found.map(e => e.eventId).sort(), events.map(e => e.eventId).sort());
 
-    const retries = await Promise.allSettled(events.map(e => ledger.insertOne({ ...e })));
+    const retries = await Promise.allSettled(events.map(({ _id, ...e }) => ledger.insertOne({ ...e })));
     assert.equal(retries.filter(r => r.status === "fulfilled").length, 0);
     assert.equal(retries.filter(r => r.status === "rejected" && r.reason?.code === 11000).length, 20);
     assert.equal(await ledger.countDocuments({}), 20);
     // The same event identifier in another company is not a duplicate.
-    await ledger.insertOne({ ...events[0], empresaId: "empresa-b" });
+    const { _id: ignoredId, ...otherCompanyEvent } = events[0];
+    await ledger.insertOne({ ...otherCompanyEvent, empresaId: "empresa-b" });
     assert.equal(await ledger.countDocuments({}), 21);
   } finally {
     // Cleanup is restricted to this randomly named test database.
