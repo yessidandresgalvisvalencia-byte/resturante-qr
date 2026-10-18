@@ -76,3 +76,26 @@ test("valida TAP generado por el propio Node al ejecutar dos archivos",()=>{
   });
  }finally{fs.rmSync(raiz,{recursive:true,force:true});}
 });
+
+test("CLI identifica evidencia Mongo con SHA-256 y commit exacto",()=>{
+ const fs=require("node:fs"),os=require("node:os"),path=require("node:path");
+ const crypto=require("node:crypto"),{spawnSync}=require("node:child_process");
+ const directorio=fs.mkdtempSync(path.join(os.tmpdir(),"gruk-v81-evidencia-"));
+ try{
+  const archivo=path.join(directorio,"prueba-mongo-v81.log");
+  fs.writeFileSync(archivo,resumen,"utf8");
+  const sha="a".repeat(40);
+  const cli=spawnSync(process.execPath,
+   [path.join(__dirname,"../../scripts/verificar-evidencia-mongo-v81.js"),archivo],
+   {encoding:"utf8",timeout:10000,env:{...process.env,GITHUB_SHA:sha}});
+  assert.equal(cli.status,0,cli.stderr);
+  const prefijo="[GRUK_V81_MONGO_CI] VALIDADO ";
+  assert.ok(cli.stdout.startsWith(prefijo),cli.stdout);
+  const evidencia=JSON.parse(cli.stdout.trim().slice(prefijo.length));
+  assert.equal(evidencia.commit,sha);
+  assert.equal(evidencia.evidenciaSha256,
+   crypto.createHash("sha256").update(resumen,"utf8").digest("hex"));
+  assert.equal(evidencia.pruebas,2);
+  assert.equal(evidencia.aprobadas,2);
+ }finally{fs.rmSync(directorio,{recursive:true,force:true});}
+});
