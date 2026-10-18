@@ -12,8 +12,10 @@ function conciliarPeriodoCuentaV81({desde,hastaExclusivo,movimientos,...resto}={
     desde>=hastaExclusivo||!Array.isArray(movimientos))
   throw new TypeError("Período de conciliación inválido");
  for(const movimiento of movimientos){
-  if(typeof movimiento?.fechaContable!=="string"||movimiento.fechaContable<desde||
-     movimiento.fechaContable>=hastaExclusivo)
+  if(typeof movimiento?.fechaContable!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(movimiento.fechaContable)||
+     !Number.isFinite(Date.parse(movimiento.fechaContable+"T00:00:00Z"))||
+     new Date(movimiento.fechaContable+"T00:00:00Z").toISOString().slice(0,10)!==movimiento.fechaContable||
+     movimiento.fechaContable<desde||movimiento.fechaContable>=hastaExclusivo)
    throw new Error("Movimiento fuera del período o sin fecha contable");
  }
  return Object.freeze({...conciliarCuentaAisladaV81({...resto,movimientos}),desde,hastaExclusivo});
