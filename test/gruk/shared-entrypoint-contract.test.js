@@ -31,3 +31,14 @@ test("health expone commit real de despliegue sin modificar arranque empresarial
  assert.match(server,/commit: getDeploymentCommit\(process\.env\.RENDER_GIT_COMMIT\)/);
  assert.match(server,/app\.use\("\/api", apiRoutes\)/);
 });
+
+test("contrato de despliegue existe y valida solo commits SHA-1 completos",()=>{
+ const {getDeploymentCommit,verifyDeploymentCommit}=require("../../core/health/deploymentCommit.contract");
+ const sha="a".repeat(40);
+ assert.equal(getDeploymentCommit(sha),sha);
+ assert.equal(verifyDeploymentCommit(sha,sha),true);
+ for(const invalid of ["",null,"a".repeat(39),"g".repeat(40),"A".repeat(40)]){
+  assert.equal(getDeploymentCommit(invalid),null);
+  assert.equal(verifyDeploymentCommit(invalid,sha),false);
+ }
+});
