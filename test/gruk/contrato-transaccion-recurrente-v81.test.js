@@ -8,7 +8,7 @@ const Joi=require("joi");
 const codigo=fs.readFileSync(path.join(__dirname,"../../modules/finanzas-personales/routes.js"),"utf8");
 function esquemaTransaccion(){
  const start=codigo.indexOf("const transaccion=Joi.object(");
- const end=codigo.indexOf(";\n const tarjetaOperacion=",start);
+ const end=codigo.indexOf(";\nconst tarjetaOperacion=",start);
  assert.ok(start>=0&&end>start,"Esquema de transacciones no localizado");
  return vm.runInNewContext(codigo.slice(start,end)+";transaccion",{Joi});
 }
