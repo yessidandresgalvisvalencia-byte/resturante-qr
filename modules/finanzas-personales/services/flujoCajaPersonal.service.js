@@ -34,6 +34,10 @@ async function registrarTransaccion(usuarioId,input){
     const {inicio,fin}=periodoRecurrenteColombia({
      fechaOrigen:origen.fecha,fechaPago:input.fecha,frecuencia:origen.frecuencia
     });
+    // El asiento inicial ya fue debitado. No aceptar pagos adicionales en
+    // ese mismo ciclo aunque estén registrados otro día.
+    if(origen.impactoCaja!==false&&new Date(origen.fecha)>=inicio&&new Date(origen.fecha)<fin)
+     throw Object.assign(new Error("El primer período recurrente ya está asentado en caja"),{statusCode:409});
     const abonosPrevios=await Transaccion.find({
      usuarioId,tipo:"GASTO",recurrenteOrigenId:origen._id,
      estado:{$ne:"ANULADA"},fecha:{$gte:inicio,$lt:fin}
