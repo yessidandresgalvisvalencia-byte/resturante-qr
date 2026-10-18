@@ -4,13 +4,13 @@ const assert=require("node:assert/strict");
 const {readOfflineReconciliation:read}=require("../../core/offline/offlineReconciliation.service");
 const id="01ARZ3NDEKTSV4RRFFQ69G5FA0",other="01ARZ3NDEKTSV4RRFFQ69G5FA1";
 const ctx={empresaId:"empresaA",sedeId:"sedeA",actorId:"operadorA"};
-function fixture({inboxStatus="PENDIENTE",inventoryApplied=false,saleStatus="PENDIENTE_CONTABILIZACION",cashStatus="PENDIENTE_CONCILIACION",paid=false,cashAmount="3000",ledgerAmount="3000",otherTenant=false,duplicate=false,foreignActorProof=false}={}){
+function fixture({inboxStatus="PENDIENTE",inventoryApplied=false,saleStatus="PENDIENTE_CONTABILIZACION",cashStatus="PENDIENTE_CONCILIACION",paid=false,cashAmount="3000",ledgerAmount="3000",saleAmount="3000",otherTenant=false,duplicate=false,foreignActorProof=false}={}){
  let count=0;
  const s={...ctx,eventId:id};
  const tenant=otherTenant?{...s,empresaId:"empresaB"}:s;
  const data={
   gruk_offline_inbox:[{...tenant,status:inboxStatus,inventoryApplied}],
-  gruk_offline_ventas:[{...tenant,status:saleStatus,totalCop:"3000"}],
+  gruk_offline_ventas:[{...tenant,status:saleStatus,totalCop:saleAmount}],
   gruk_offline_caja_intenciones:[{...tenant,status:cashStatus,cobrado:paid,montoCop:cashAmount}],
   gruk_ledger_movimientos:[{...tenant,tipo:"VENTA_OFFLINE",montoCop:ledgerAmount,deletedAt:null}]
  };
@@ -43,7 +43,9 @@ test("offline reconciliation: final requires paid cash, accounted sale and APPLI
  assert.equal(before[0].applied,false);
 });
 test("offline reconciliation: broken money, duplicated proofs and cross-tenant evidence fail closed",async()=>{
- for(const options of [{cashAmount:"2999"},{ledgerAmount:"2999"},{duplicate:true},{foreignActorProof:true},{otherTenant:true}]){
+ for(const options of [{cashAmount:"2999"},{ledgerAmount:"2999"},
+  {saleAmount:"9007199254740992",cashAmount:"9007199254740992",ledgerAmount:"9007199254740992"},
+  {cashAmount:"1e3"},{ledgerAmount:"-3000"},{duplicate:true},{foreignActorProof:true},{otherTenant:true}]){
   const result=await read({db:fixture({...options,inboxStatus:"APLICADO",inventoryApplied:true,saleStatus:"CONTABILIZADA",cashStatus:"CONCILIADO",paid:true}),context:ctx,eventIds:[id,other]});
   assert.equal(result[0].applied,false);
  }

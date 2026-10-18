@@ -53,7 +53,8 @@ async function markOfflineApplied({db,context,eventId,reviewToken,commitReferenc
     db.collection("gruk_ledger_movimientos").countDocuments(eventScope,{session})
   ]);
   const uniqueProofs=saleProofs===1&&cashProofs===1&&ledgerProofs===1;
-  const integerCop=value=>typeof value==="string"&&/^(0|[1-9][0-9]*)$/.test(value);
+  const integerCop=value=>typeof value==="string"&&/^(0|[1-9][0-9]*)$/.test(value)&&
+    BigInt(value)<=BigInt(Number.MAX_SAFE_INTEGER);
   const committed=!!(record.inventoryApplied===true&&uniqueProofs&&ledger&&sale&&cash&&integerCop(ledger.montoCop)&&
     integerCop(sale.totalCop)&&integerCop(cash.montoCop)&&
     ledger.montoCop===sale.totalCop&&sale.totalCop===cash.montoCop);
