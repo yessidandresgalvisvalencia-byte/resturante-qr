@@ -95,8 +95,19 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
 
   const {auditarCadenaUsuario}=require("../../modules/finanzas-personales/services/auditoriaCadenaDecision.service");
   assert.deepEqual(await auditarCadenaUsuario(usuarioId),{valida:true,codigo:"OK",secuencia:4});
+  const {emitirAnclaDecisionMongo}=require("../../modules/finanzas-personales/services/anclaDecisionMongo.service");
+  const {verificarAncla}=require("../../modules/finanzas-personales/security/anclaExternaDecision.service");
+  const claveAncla=Buffer.alloc(32,0x71); // Solo para pruebas; jamás usar en producción.
+  const anclaMongo=await emitirAnclaDecisionMongo(usuarioId,claveAncla);
+  assert.equal(anclaMongo.secuencia,4);
+  assert.equal(anclaMongo.headHash,headFinal.headHash);
+  assert.equal(verificarAncla(anclaMongo,claveAncla,final,headFinal,String(usuarioId)).codigo,"ANCLA_VERIFICADA");
+  await assert.rejects(()=>emitirAnclaDecisionMongo(usuarioId,Buffer.alloc(4)),TypeError);
+
   const otroUsuario=new mongoose.Types.ObjectId();
   assert.deepEqual(await auditarCadenaUsuario(otroUsuario),{valida:false,codigo:"SIN_ANCLA_DE_INTEGRIDAD",secuencia:0});
+  await assert.rejects(()=>emitirAnclaDecisionMongo(otroUsuario,claveAncla),/SIN_ANCLA_DE_INTEGRIDAD/);
+
   // Crear solo la cabeza en cero simula un reinicio del ledger: no prueba
   // que la cuenta haya estado siempre vacía y nunca debe aprobar auditoría.
   await Head.create({usuarioId:otroUsuario,secuencia:0,headHash:null});
@@ -136,6 +147,10 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   assert.deepEqual(await auditarCadenaUsuario(usuarioId),{
     valida:false,codigo:"HASH_INVALIDO",secuencia:1
   });
+  await assert.rejects(()=>emitirAnclaDecisionMongo(usuarioId,claveAncla),{
+    message:"CADENA_NO_VERIFICABLE",code:"HASH_INVALIDO"
+  });
+
 
 
 
