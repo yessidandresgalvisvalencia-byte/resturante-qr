@@ -33,3 +33,10 @@ test("CI V81 ejecuta los contratos offline de seguridad",()=>{
  }
  assert.match(yaml,/node --test test\/finanzas-personales\/\*\.test\.js/);
 });
+
+test("CI V81 prueba DecisionProof contra MongoDB local con confirmación explícita",()=>{
+ assert.match(yaml,/node --test test\/gruk\/decision-proof-concurrency\.test\.js/);
+ assert.match(yaml,/TEST_MONGO_URI: mongodb:\/\/127\.0\.0\.1:27017\/\?replicaSet=rs0&directConnection=true/);
+ assert.match(yaml,/GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES/);
+ assert.match(yaml,/name: Limpiar MongoDB aislado/);
+});
