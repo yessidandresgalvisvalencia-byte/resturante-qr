@@ -16,6 +16,9 @@ function validarSolicitudV81(body){
  if(!Number.isFinite(fecha.getTime())||fecha.toISOString().slice(0,10)!==body.fechaContable||fecha.getTime()>Date.now())throw new TypeError("Fecha inválida o futura");
  // Exigir RFC3339 explícito con zona horaria: nunca depender del huso del servidor.
  if(typeof body.timestamp!=="string"||!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-](?:0\d|1[0-4]):[0-5]\d)$/.test(body.timestamp))throw new TypeError("Timestamp inválido");
+ const offset=body.timestamp.match(/([+-])(\\d{2}):(\\d{2})$/);
+ if(offset && Number(offset[2])===14 && Number(offset[3])!==0)
+  throw new TypeError("Desfase horario fuera del rango UTC válido");
  const partes=body.timestamp.slice(0,10).split("-").map(Number);
  const [anio,mes,dia]=partes;
  const calendario=new Date(0);
