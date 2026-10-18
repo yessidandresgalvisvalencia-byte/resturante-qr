@@ -27,7 +27,7 @@ jobs:
       - name: Instalar dependencias reproducibles
         run: npm ci
       - name: Comprobar sintaxis y suite financiera
-        run: npm run build:personal
+        run: npm run check:personal && npm run test:finanzas-personales
   auditoria-dependencias:
     runs-on: ubuntu-latest
     timeout-minutes: 10
