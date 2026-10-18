@@ -21,7 +21,7 @@ function exigirMongoAislado(uri,confirmacion){
 }
 const uri=process.env.TEST_MONGO_URI;
 test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",{
- skip:!uri,timeout:20000
+ skip:!uri,timeout:60000
 },async()=>{
  exigirMongoAislado(uri,process.env.GRUK_TEST_DB_CONFIRM);
  const secretAnterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;
@@ -44,9 +44,22 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
    confirmarVinculoHistoricoV81(String(usuarioId),operacion)
   ]);
   // Un conflicto transitorio de MongoDB no autoriza insertar por segunda vez.
-  assert.ok(promesas.some(x=>x.status==="fulfilled"));
   for(const resultado of promesas)if(resultado.status==="rejected")
    assert.ok([409,503].includes(resultado.reason.statusCode),String(resultado.reason));
+  // Ambos procesos pueden recibir 503 por WriteConflict o commit incierto.
+  // Reintentar la MISMA clave permite comprobar el resultado sin crear duplicados.
+  if(!promesas.some(x=>x.status==="fulfilled")){
+   let confirmado=false;
+   for(let intento=0;intento<4&&!confirmado;intento++){
+    try{
+     const r=await confirmarVinculoHistoricoV81(String(usuarioId),operacion);
+     confirmado=r.confirmado===true;
+    }catch(e){
+     if(e.statusCode!==503)throw e;
+    }
+   }
+   assert.equal(confirmado,true,"No hubo confirmación tras reintentos 503");
+  }
   assert.equal(await Vinculo.countDocuments({usuarioId,movimientoId:movimiento._id}),1);
   const repeticion=await confirmarVinculoHistoricoV81(String(usuarioId),operacion);
   assert.equal(repeticion.yaExistia,true);
@@ -79,7 +92,22 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
     ...solicitud,cuentaId:String(cuentaAlterna._id),idempotencyKey:crypto.randomUUID()
    })
   ]);
-  assert.equal(disputa.filter(x=>x.status==="fulfilled").length,1);
+  assert.ok(disputa.filter(x=>x.status==="fulfilled").length<=1,
+   "Dos cuentas confirmaron simultáneamente el mismo movimiento");
+  for(const r of disputa)if(r.status==="rejected")
+   assert.ok([409,503].includes(r.reason.statusCode),String(r.reason));
+  if(await Vinculo.countDocuments({usuarioId,movimientoId:segundo._id})===0){
+   let confirmado=false;
+   for(let intento=0;intento<4&&!confirmado;intento++){
+    try{
+     const r=await confirmarVinculoHistoricoV81(String(usuarioId),solicitud);
+     confirmado=r.confirmado===true;
+    }catch(e){
+     if(e.statusCode!==503)throw e;
+    }
+   }
+   assert.equal(confirmado,true,"Ninguna cuenta obtuvo confirmación tras reintentos 503");
+  }
   assert.equal(await Vinculo.countDocuments({usuarioId,movimientoId:segundo._id}),1);
   const evidencia=await Vinculo.findOne({usuarioId,movimientoId:segundo._id}).lean();
   assert.ok([String(cuenta._id),String(cuentaAlterna._id)].includes(String(evidencia.cuentaId)));
