@@ -29,7 +29,8 @@ jobs:
       - name: Identificar conflictos reales con main sin fusionar
         shell: bash
         run: |
-          git fetch --no-tags origin main
+          set -o pipefail
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main +refs/heads/feature/finanzas-personales:refs/remotes/origin/feature/finanzas-personales
           bash scripts/diagnose-personal-merge.sh 2>&1 | tee "${RUNNER_TEMP}/gruk-personal-merge-diagnostic.log"
       - name: Guardar informe de conflictos de integración
         if: always()
