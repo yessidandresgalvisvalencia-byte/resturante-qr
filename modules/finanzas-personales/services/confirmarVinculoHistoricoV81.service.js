@@ -17,10 +17,20 @@ function hashClaveVinculoV81(usuarioId,idempotencyKey,secret){
  return crypto.createHmac("sha256",secret)
   .update(String(usuarioId).toLowerCase()+":"+idempotencyKey.toLowerCase()).digest("hex");
 }
-function coincideVinculo(previo,{movimientoId,cuentaId,evidencia,idempotencyKeyHash}){
+function hashesCompatiblesVinculoV81(usuarioId,idempotencyKey,secret){
+ const canonico=hashClaveVinculoV81(usuarioId,idempotencyKey,secret);
+ // Antes de la normalización se firmaba la grafía enviada. Leer estos
+ // formatos históricos no modifica la evidencia inmutable ni el hash nuevo.
+ const versiones=[idempotencyKey,idempotencyKey.toUpperCase()];
+ const anteriores=versiones.map(clave=>crypto.createHmac("sha256",secret)
+  .update(String(usuarioId)+":"+clave).digest("hex"));
+ return [...new Set([canonico,...anteriores])];
+}
+function coincideVinculo(previo,{movimientoId,cuentaId,evidencia,idempotencyKeyHash,idempotencyKeyHashes}){
+ const admisibles=idempotencyKeyHashes||[idempotencyKeyHash];
  return Boolean(previo&&String(previo.movimientoId)===String(movimientoId)&&
   String(previo.cuentaId)===String(cuentaId)&&previo.evidencia===evidencia.trim()&&
-  previo.idempotencyKeyHash===idempotencyKeyHash);
+  admisibles.includes(previo.idempotencyKeyHash));
 }
 function decidirReintentoVinculo(previos,solicitud){
  if(!Array.isArray(previos))throw new TypeError("Registros de vínculo inválidos");
@@ -57,7 +67,8 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
   throw Object.assign(new Error("Describe la evidencia de la cuenta de origen"),{statusCode:400});
  const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;
  if(!secret)throw Object.assign(new Error("Servicio de idempotencia no configurado"),{statusCode:503});
- const idempotencyKeyHash=hashClaveVinculoV81(usuarioId,idempotencyKey,secret);
+ const idempotencyKeyHashes=hashesCompatiblesVinculoV81(usuarioId,idempotencyKey,secret);
+ const idempotencyKeyHash=idempotencyKeyHashes[0];
  // MongoDB no permite listIndexes dentro de una transacción.
  // Fallar cerrado si los índices únicos requeridos no están presentes.
  let indices;
@@ -75,8 +86,8 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
    ];
    const campos=resolverConfirmacion({usuarioId,movimiento,cuenta,evidencia,idempotencyKey});
    // Reintentos de la misma operación no crean evidencia adicional.
-   const previos=await Vinculo.find({usuarioId,$or:[{movimientoId},{idempotencyKeyHash}]}).session(session).lean();
-   const existente=decidirReintentoVinculo(previos,{movimientoId,cuentaId,evidencia:campos.evidencia,idempotencyKeyHash});
+   const previos=await Vinculo.find({usuarioId,$or:[{movimientoId},{idempotencyKeyHash:{$in:idempotencyKeyHashes}}]}).session(session).lean();
+   const existente=decidirReintentoVinculo(previos,{movimientoId,cuentaId,evidencia:campos.evidencia,idempotencyKeyHash,idempotencyKeyHashes});
    if(existente.existe){
     if(!existente.coincide)
      throw Object.assign(new Error("Vínculo existente o clave utilizada para otro destino"),{statusCode:409});
@@ -89,8 +100,8 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
   if(e.code===11000){
    // El insert duplicado pudo haber sido el mismo intento concurrente.
    // Solo responder idempotentemente tras leer el registro ya confirmado.
-   const previos=await Vinculo.find({usuarioId,$or:[{movimientoId},{idempotencyKeyHash}]}).lean();
-   if(decidirReintentoVinculo(previos,{movimientoId,cuentaId,evidencia,idempotencyKeyHash}).coincide)
+   const previos=await Vinculo.find({usuarioId,$or:[{movimientoId},{idempotencyKeyHash:{$in:idempotencyKeyHashes}}]}).lean();
+   if(decidirReintentoVinculo(previos,{movimientoId,cuentaId,evidencia,idempotencyKeyHash,idempotencyKeyHashes}).coincide)
     return {confirmado:true,yaExistia:true,modificaSaldo:false};
    throw Object.assign(new Error("Conflicto concurrente de vínculo con otra cuenta o evidencia"),{statusCode:409});
   }
@@ -99,4 +110,4 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
   throw e;
  }finally{await session.endSession();}
 }
-module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo,hashClaveVinculoV81};
+module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo,hashClaveVinculoV81,hashesCompatiblesVinculoV81};
