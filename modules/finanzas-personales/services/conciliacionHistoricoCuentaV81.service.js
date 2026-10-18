@@ -40,16 +40,20 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
    const rows=await Transaccion.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId),moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}})
     .session(session).sort({_id:1}).limit(MAX_FILAS_CONCILIACION_V81+1).lean();
    exigirResultadosAcotadosV81(rows);
-   // Los vínculos son evidencia separada: nunca se reescriben asientos.
-   const vinculos=await Vinculo.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),
-    cuentaId:new mongoose.Types.ObjectId(cuentaId)})
-    .session(session).select("movimientoId").limit(MAX_FILAS_CONCILIACION_V81+1).lean();
-   exigirResultadosAcotadosV81(vinculos);
-   const idsVinculados=vinculos.map(v=>v.movimientoId);
-   const heredados=idsVinculados.length?await Transaccion.find({
-    usuarioId:new mongoose.Types.ObjectId(usuarioId),_id:{$in:idsVinculados},
-    cuentaId:null,moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}
-   }).session(session).limit(MAX_FILAS_CONCILIACION_V81+1).lean():[];
+   // Filtrar por fecha antes de limitar: un usuario puede tener más de
+   // 25.000 vínculos históricos de otros meses sin afectar este período.
+   // El JOIN utiliza la clave primaria del movimiento y exige mismo usuario.
+   const heredados=await Vinculo.aggregate([
+    {$match:{usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId)}},
+    {$lookup:{from:Transaccion.collection.name,localField:"movimientoId",foreignField:"_id",as:"movimiento"}},
+    {$unwind:"$movimiento"},
+    {$match:{"movimiento.usuarioId":new mongoose.Types.ObjectId(usuarioId),
+     "movimiento.cuentaId":null,"movimiento.moneda":"COP",
+     "movimiento.estado":{$ne:"ANULADA"},
+     "movimiento.fecha":{$gte:start,$lt:end}}},
+    {$replaceRoot:{newRoot:"$movimiento"}},
+    {$limit:MAX_FILAS_CONCILIACION_V81+1}
+   ]).session(session).exec();
    exigirResultadosAcotadosV81(heredados);
    const sinVinculo=await Transaccion.find({
     usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:null,
