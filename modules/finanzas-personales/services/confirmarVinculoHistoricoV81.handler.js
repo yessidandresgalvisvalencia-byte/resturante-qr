@@ -11,7 +11,7 @@ function crearConfirmacionVinculoHistoricoV81(confirmar=confirmarVinculoHistoric
    return res.set("Cache-Control","no-store").status(resultado.yaExistia?200:201).json({ok:true,...resultado});
   }catch(e){
    const status=[400,401,404,409,503].includes(e.statusCode)?e.statusCode:500;
-   const error=status===500?"No fue posible confirmar el vínculo":status===503?"Índices de seguridad no disponibles":e.message;
+   const error=status===500?"No fue posible confirmar el vínculo":status===503?"Confirmación no verificada. Reintenta con la misma clave de idempotencia.":e.message;
    return res.set("Cache-Control","no-store").status(status).json({ok:false,error});
   }
  };
