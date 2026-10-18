@@ -79,6 +79,15 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    e=>e.statusCode===409 && /contenido diferente/.test(e.message)
   );
   assert.equal(await Evento.countDocuments({usuarioId}),anteriorReintento);
+  // Simulación de respuesta HTTP perdida: el primer commit queda persistido,
+  // el cliente reenvía el mismo eventId sin saber que la escritura ya terminó.
+  const eventoSinRespuesta=await anexarEventoV81(usuarioId,datos("respuesta-perdida"));
+  const totalTrasCommit=await Evento.countDocuments({usuarioId});
+  const recuperado=await anexarEventoV81(usuarioId,datos("respuesta-perdida"));
+  assert.equal(recuperado.hashActual,eventoSinRespuesta.hashActual);
+  assert.equal(recuperado.version,eventoSinRespuesta.version);
+  assert.equal(await Evento.countDocuments({usuarioId}),totalTrasCommit);
+  assert.equal(await Evento.countDocuments({usuarioId,eventId:"respuesta-perdida"}),1);
   // Una corrección de importe cero debe rechazarse sin añadir eventos.
   const antesCorreccion=await Evento.countDocuments({usuarioId});
   await assert.rejects(
@@ -128,7 +137,7 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   assert.equal(saldoCorregido.integridad,"VERIFICADA","Una corrección legítima no invalida el saldo");
   assert.equal(saldoCorregido.saldoCentavos,proyeccion.saldoCentavos.toString());
   assert.equal(proyeccion.ingresosCentavos,1800000n);
-  assert.equal(proyeccion.gastosCentavos,5000000n+
+  assert.equal(proyeccion.gastosCentavos,7500000n+
    BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
   // Dos anulaciones simultáneas sobre el mismo gasto no pueden aplicarse dos veces.
   const cancelaciones=await Promise.allSettled([
@@ -154,7 +163,7 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    corrigeId:e.corrigeId,motivo:e.motivo,tipoCorregido:e.tipoCorregido
   })),String(usuarioId));
   assert.equal(saldoFinal.ingresosCentavos,1800000n);
-  assert.equal(saldoFinal.gastosCentavos,2500000n+BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
+  assert.equal(saldoFinal.gastosCentavos,5000000n+BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
   assert.equal(saldoFinal.saldoCentavos,saldoFinal.ingresosCentavos-saldoFinal.gastosCentavos);
   const auditoria=await verificarLedgerPersistidoV81(usuarioId);
   assert.equal(auditoria.integridad,"VERIFICADA");
