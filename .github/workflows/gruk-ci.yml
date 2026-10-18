@@ -55,6 +55,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Solo la PR personal debe evitar refs/pull/*/merge inexistentes.
+          ref: ${{ github.event.pull_request.head.ref == 'feature/finanzas-personales' && github.event.pull_request.head.sha || github.sha }}
       - name: Node 20
         uses: actions/setup-node@v4
         with:
