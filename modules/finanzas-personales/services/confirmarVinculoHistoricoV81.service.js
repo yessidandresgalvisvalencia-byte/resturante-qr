@@ -9,6 +9,14 @@ function validarClaveVinculo(idempotencyKey){
  if(typeof idempotencyKey!=="string"||!/^[a-f0-9]{8}-[a-f0-9]{4}-[47][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(idempotencyKey))
   throw Object.assign(new Error("Clave de idempotencia inválida"),{statusCode:400});
 }
+function hashClaveVinculoV81(usuarioId,idempotencyKey,secret){
+ validarClaveVinculo(idempotencyKey);
+ if(!mongoose.isValidObjectId(usuarioId)||typeof secret!=="string"||!secret)
+  throw Object.assign(new Error("Parámetros de idempotencia inválidos"),{statusCode:503});
+ // UUID es insensible a mayúsculas: su formato no debe cambiar el HMAC.
+ return crypto.createHmac("sha256",secret)
+  .update(String(usuarioId).toLowerCase()+":"+idempotencyKey.toLowerCase()).digest("hex");
+}
 function coincideVinculo(previo,{movimientoId,cuentaId,evidencia,idempotencyKeyHash}){
  return Boolean(previo&&String(previo.movimientoId)===String(movimientoId)&&
   String(previo.cuentaId)===String(cuentaId)&&previo.evidencia===evidencia.trim()&&
@@ -49,7 +57,7 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
   throw Object.assign(new Error("Describe la evidencia de la cuenta de origen"),{statusCode:400});
  const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;
  if(!secret)throw Object.assign(new Error("Servicio de idempotencia no configurado"),{statusCode:503});
- const idempotencyKeyHash=crypto.createHmac("sha256",secret).update(String(usuarioId)+":"+idempotencyKey).digest("hex");
+ const idempotencyKeyHash=hashClaveVinculoV81(usuarioId,idempotencyKey,secret);
  // MongoDB no permite listIndexes dentro de una transacción.
  // Fallar cerrado si los índices únicos requeridos no están presentes.
  let indices;
@@ -91,4 +99,4 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
   throw e;
  }finally{await session.endSession();}
 }
-module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo};
+module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo,hashClaveVinculoV81};
