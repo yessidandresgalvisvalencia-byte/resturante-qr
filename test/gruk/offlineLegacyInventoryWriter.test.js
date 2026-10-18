@@ -4,11 +4,11 @@ const {applyOfflineLegacyInventory:apply}=require("../../core/offline/offlineLeg
 const empresaId="507f191e810c19729de860ea",sedeId="507f1f77bcf86cd799439012",productoId="507f1f77bcf86cd799439011";
 const context={empresaId,sedeId,actorId:"cajero"},inventoryDeltas=[{productoId,deltaUnidades:"-2"}];
 function fixture({stock=5,records=1,persistedStock=3}={}){
- const session={inTransaction:()=>true};let writes=0;const rows=Array.from({length:records},(_,i)=>({_id:String(i),cantidad:stock}));
+ const session={inTransaction:()=>true};let writes=0;const rows=Array.from({length:records},(_,i)=>({_id:String(i),empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:stock}));
  const db={collection(name){assert.equal(name,"inventarios");return{
   find:(key,opts)=>{assert.equal(opts.session,session);assert.equal(key.empresaId,empresaId);assert.equal(key.sedeId,sedeId);
    return {limit:n=>{assert.equal(n,2);return {toArray:async()=>rows};}};},
-  findOne:async(key,opts)=>{assert.equal(opts.session,session);assert.ok(key._id!==undefined);return {cantidad:persistedStock};},
+  findOne:async(key,opts)=>{assert.equal(opts.session,session);assert.ok(key._id!==undefined);return {_id:key._id,empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:persistedStock};},
   updateOne:async(key,update,opts)=>{assert.equal(opts.session,session);assert.equal(key.cantidad,stock);
    assert.equal(update.$inc.cantidad,-2);writes++;return {matchedCount:1,modifiedCount:1};}
  };}};
