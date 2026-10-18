@@ -26,3 +26,13 @@ test("GRUK CI corre tambien en push a la rama personal, incluso con PR bloqueada
  assert.ok(push, "Falta disparador push");
  assert.match(push[1], /^\s*- feature\/finanzas-personales\s*$/m);
 });
+
+test("ambos gates retienen logs incluso si las pruebas fallan", () => {
+ for (const archivo of workflows) {
+  const yaml = fs.readFileSync(path.join(root, archivo), "utf8");
+  assert.match(yaml, /set -o pipefail/);
+  assert.match(yaml, /npm run gate 2>&1 \| tee/);
+  assert.match(yaml, /if: always\(\)/);
+  assert.match(yaml, /uses: actions\/upload-artifact@v4/);
+ }
+});
