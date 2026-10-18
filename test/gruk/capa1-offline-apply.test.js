@@ -8,12 +8,13 @@ const commitReference={collection:"gruk_ledger_movimientos",eventId};
 function fixture(committed,{saleStatus="CONTABILIZADA",cashStatus="CONCILIADO",cashCobrado=true,saleAmount="3000",cashAmount="3000",ledgerAmount="3000"}={}){
   const record={empresaId:"A",sedeId:"1",eventId,actorId:"user",status:"EN_REVISION",reviewToken,reviewActorId:"user"};
   let changes=0,query;
-  const db={collection(name){
+  const session={active:false,inTransaction(){return this.active;},async withTransaction(fn){this.active=true;try{return await fn();}finally{this.active=false;}},async endSession(){}};
+  const db={client:{startSession:()=>session},collection(name){
     if(name==="gruk_offline_inbox") return {
-      async findOne(q){return q.empresaId==="A"&&q.sedeId==="1"&&q.eventId===eventId&&q.reviewToken===reviewToken&&q.actorId===record.actorId&&q.reviewActorId===record.reviewActorId?record:null;},
-      async updateOne(q,update){query=q;changes++;assert.equal(update.$set.status,"APLICADO");return {modifiedCount:1};}
+      async findOne(q,options){assert.equal(options.session,session);return q.empresaId==="A"&&q.sedeId==="1"&&q.eventId===eventId&&q.reviewToken===reviewToken&&q.actorId===record.actorId&&q.reviewActorId===record.reviewActorId?record:null;},
+      async updateOne(q,update,options){assert.equal(options.session,session);query=q;changes++;assert.equal(update.$set.status,"APLICADO");return {modifiedCount:1};}
     };
-    if(name==="gruk_ledger_movimientos")return {async findOne(q){assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return committed?{_id:"stored",eventId,montoCop:ledgerAmount}:null;}};
+    if(name==="gruk_ledger_movimientos")return {async findOne(q,options){assert.equal(options.session,session);assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return committed?{_id:"stored",eventId,montoCop:ledgerAmount}:null;}};
     if(name==="gruk_offline_ventas")return {async findOne(q){assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return q.status===saleStatus?{totalCop:saleAmount}:null;}};
     if(name==="gruk_offline_caja_intenciones")return {async findOne(q){assert.equal(q.empresaId,"A");assert.equal(q.sedeId,"1");assert.equal(q.eventId,eventId);assert.equal(q.actorId,"user");return q.status===cashStatus&&q.cobrado===cashCobrado?{montoCop:cashAmount}:null;}};
     throw Error("unexpected collection");
@@ -70,4 +71,12 @@ test("offline apply: ledger alone does not qualify as final commitment",async()=
   await assert.rejects(markOfflineApplied({db:f.db,context:ctx,eventId,reviewToken,commitReference}),/OFFLINE_DOMAIN_NOT_COMMITTED/);
   assert.equal(f.changes,0);
  }
+});
+
+test("offline apply: refuses nontransactional database before reading financial proofs",async()=>{
+ let reads=0;
+ const db={collection(){reads++;throw Error("SHOULD_NOT_READ");}};
+ await assert.rejects(markOfflineApplied({db,context:ctx,eventId,reviewToken,commitReference}),
+  /OFFLINE_TRANSACTION_UNAVAILABLE/);
+ assert.equal(reads,0);
 });
