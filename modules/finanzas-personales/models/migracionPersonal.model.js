@@ -1,0 +1,5 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},version:{type:String,required:true},estado:{type:String,enum:["INICIADA","RECONCILIADA","ERROR"],required:true,index:true},legacyCount:{type:Number,default:0},ledgerCount:{type:Number,default:0},legacyIngresosMinor:{type:Number,default:0},legacyGastosMinor:{type:Number,default:0},ledgerIngresosMinor:{type:Number,default:0},ledgerGastosMinor:{type:Number,default:0},diferenciaMinor:{type:Number,default:0},detalle:{type:String,maxlength:500,default:""}},{timestamps:true,collection:"fin_migraciones_personales"});
+schema.index({usuarioId:1,version:1},{unique:true});
+module.exports=mongoose.models.FinMigracionPersonal||mongoose.model("FinMigracionPersonal",schema);

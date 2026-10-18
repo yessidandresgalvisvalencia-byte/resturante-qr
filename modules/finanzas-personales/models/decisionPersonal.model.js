@@ -1,0 +1,4 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},generadaEn:{type:Date,default:Date.now,index:true},situacion_patrimonial:{salud_financiera_score:{type:Number,min:0,max:100},diagnostico_clave:String},ordenes_de_accion:[{categoria:{type:String,enum:["FLUJO","DEUDA","LIQUIDEZ","AHORRO","INVERSION"]},tarea:String,prioridad:{type:String,enum:["CRITICA","ALTA","MEDIA"]},automatizable:{type:Boolean,default:false},impacto_estimado_minor:{type:Number,default:0}}],impacto_financiero_a_12_meses_minor:{type:Number,default:0},riesgo_si_no_se_ejecuta:String,estado:{type:String,enum:["PENDIENTE","APROBADA","DESCARTADA"],default:"PENDIENTE",index:true}},{collection:"cerebro_decisiones_personales"});
+schema.index({usuarioId:1,generadaEn:-1});module.exports=mongoose.models.DecisionPersonal||mongoose.model("DecisionPersonal",schema);

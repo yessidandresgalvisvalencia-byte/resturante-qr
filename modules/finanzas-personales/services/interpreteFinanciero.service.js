@@ -1,0 +1,89 @@
+"use strict";
+const Borrador=require("../models/borradorFinanciero.model");
+const colombia=require("./colombiaFinanciero.service");
+const semanticFrame=require("./semanticAccountingFrame.service");
+const hoy=()=>colombia.fechaColombia(0);
+function monto(s){
+ const raw=String(s).toLowerCase().trim();
+ if(/\b(?:m[aá]s o menos|aprox(?:imadamente)?|por ah[ií]|como unos?|como unas?)\b/i.test(raw))return null;
+ if(/\bmedio\s+(?:palo|barra)\b/i.test(raw))return 500000;
+ const escrito=numeroPalabras(raw);if(escrito&&escrito>31&&/\b(?:mil|millon|millones)\b/i.test(raw.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"")))return escrito;
+ const m=raw.match(/(?:\$\s*)?(\d+(?:[.,]\d+)?)\s*(millones?|mill[oó]n|lucas?|palos?|barras?|mil|m|k)?\b/i);
+ if(!m){const p=numeroPalabras(raw);return p&&p>31?p:null;}
+ const unit=(m[2]||"").toLowerCase();
+ const factor=/(?:palo|barra|^m$|mill)/i.test(unit)?1000000:/^(?:luca|mil|k)/i.test(unit)?1000:1;
+ if(factor===1){const digits=m[1].replace(/\D/g,"");const n=Number(digits);return Number.isSafeInteger(n)&&n>0?n:null;}
+ let parts;
+ if(factor===1000&&/^\d{1,3}[.,]\d{3}$/.test(m[1]))parts=[m[1].replace(/[.,]/g,"")];
+ else parts=m[1].split(/[.,]/);
+ let valor=BigInt(parts[0])*BigInt(factor);
+ if(parts[1]){const scale=10n**BigInt(parts[1].length);valor+=(BigInt(parts[1])*BigInt(factor))/scale;}
+ if(valor<=0n||valor>BigInt(Number.MAX_SAFE_INTEGER))return null;
+ return Number(valor);
+}
+function categoria(t,tipo){if(/ahorr|guardar plata/i.test(t))return"Ahorro";if(/prest/i.test(t)&&!/gota a gota/i.test(t))return"Préstamo";return colombia.clasificar(t,tipo)}
+function numeroPalabras(s){const t=String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");const nums={un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,veinte:20,treinta:30,cuarenta:40,cincuenta:50,cien:100,doscientos:200,trescientos:300,cuatrocientos:400,quinientos:500,seiscientos:600,setecientos:700,ochocientos:800,novecientos:900};let total=0,current=0,seen=false,huboMillon=false,huboMilDespues=false;for(const w of t.split(/\s+/)){if(/^\d+(?:[.,]\d+)?$/.test(w)){current+=Number(w.replace(",","."));seen=true;continue}if(nums[w]!=null){current+=nums[w];seen=true;continue}if(w==="mil"){current=(current||1)*1000;if(huboMillon)huboMilDespues=true;seen=true;continue}if(w==="millon"||w==="millones"){total+=(current||1)*1000000;current=0;huboMillon=true;huboMilDespues=false;seen=true;continue}}if(huboMillon&&!huboMilDespues&&current>=100&&current<1000)current*=1000;return seen?Math.round(total+current):null}
+function valorDespues(t,re){const m=t.match(re);if(!m)return null;const frag=(m[1]||m[2]).trim();const limpio=frag.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");const abreviado=limpio.match(/^(\d+|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve)\s+millones?\s+(\d+|cien|doscientos|trescientos|cuatrocientos|quinientos|seiscientos|setecientos|ochocientos|novecientos)(?!\s+mil)/);if(abreviado){const base=/^\d+$/.test(abreviado[1])?Number(abreviado[1]):numeroPalabras(abreviado[1]);const resto=/^\d+$/.test(abreviado[2])?Number(abreviado[2]):numeroPalabras(abreviado[2]);if(base&&resto!=null)return base*1000000+resto*1000}const numeric=monto(frag);if(numeric&&numeric>31)return numeric;return numeroPalabras(frag)}
+function deudaEstructurada(t){
+  if(!/(?:deuda|financ|credito|cr[eé]dito|moto|carro|veh[ií]culo|pr[eé]stamo)/i.test(t))return null;
+  const texto=String(t).replace(/\s+/g," ").trim();
+  const dm=texto.match(/(?:cada|el)\s+(?:d[ií]a\s+)?(\d{1,2})\s+(?:de\s+)?cada\s+mes|(?:cada|el)\s+d[ií]a\s+(\d{1,2})/i);
+  const dia=dm?Number(dm[1]||dm[2]):null;
+  const buscar=res=>{for(const re of res){const v=valorDespues(texto,re);if(v!=null)return v}return null};
+  const principal=buscar([
+    /(?:me\s+cost[oó]|cost[oó]|valor\s+(?:original|total)(?:\s+de)?|precio(?:\s+de)?|por\s+un\s+valor\s+de)\s*([^,;.]+?)(?=\s+(?:y|sin|con|cada|pago|cuota|pero)|[,;.]|$)/i,
+    /(?:moto|carro|veh[ií]culo|deuda|credito|cr[eé]dito|pr[eé]stamo)\s+(?:de|por)\s*([^,;.]+?)(?=\s+(?:y|sin|con|cada|pago|cuota|pero)|[,;.]|$)/i
+  ]);
+  const abono=buscar([/(?:ya\s+)?(?:he|hab[ií]a)?\s*(?:abonado|abon[eé]|pagado|pagu[eé])\s*([^,;.]+?)(?=\s+(?:y|sin|con|cada|pero)|[,;.]|$)/i]);
+  const cuotaDirecta=texto.match(/(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}\s+(?:de\s+)?cada\s+mes(?:\s+me\s+toca\s+pagar)?\s*[,;:]?\s*((?:\d+(?:[.,]\d+)?|un|uno|una)\s*(?:millones?|mill[oó]n|lucas?|palos?|barras?|mil|m|k)?)(?:\s+de\s+pesos)?/i)||texto.match(/(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}(?:\s+de\s+cada\s+mes)?\s*(?:me\s+toca\s+)?pagar\s+([^,;.]+?)(?=\s+(?:y|sin|con|pero)|[,;.]|$)/i);
+  const cuotaInversa=texto.match(/(?:pago|pagar|cuota(?:\s+de)?)\s+([^,;.]+?)\s+(?:cada|el)\s+(?:d[ií]a\s+)?\d{1,2}(?=\s|[,;.]|$)/i);const cuota=cuotaDirecta?(monto(cuotaDirecta[1])||numeroPalabras(cuotaDirecta[1])):cuotaInversa?(monto(cuotaInversa[1])||numeroPalabras(cuotaInversa[1])):buscar([
+    /(?:cuota(?:\s+(?:mensual|de))?|pago\s+mensual|me\s+toca\s+pagar)\s*(?:de\s*)?([^,;.]+?)(?=\s+(?:y|sin|con|cada|el\s+d[ií]a|pero)|[,;.]|$)/i
+  ]);
+  if(!principal||!dia||dia<1||dia>31)return null;
+  const abonado=abono||0,saldo=principal-abonado;
+  if(saldo<0||(cuota!=null&&cuota>principal))return null;
+  const concepto=/moto/i.test(texto)?"Moto":/carro|veh[ií]culo/i.test(texto)?"Vehículo":"Deuda";
+  return{tipo:"DEUDA_POR_PAGAR",montoMinor:principal,principalMinor:principal,saldoMinor:saldo,abonadoMinor:abonado,cuotaMinor:cuota||0,diaPago:dia,frecuencia:"MENSUAL",concepto,categoria:"Deuda",contraparte:"",fecha:hoy(),estado:"LISTO",confianza:99,razonRevision:"",tasaMensualPct:/sin\s+inter[eé]s/i.test(texto)?0:undefined};
+}
+function cobroCuenta(t){const texto=String(t).replace(/\s+/g," ").trim();const m=texto.match(/^([\p{L}ÁÉÍÓÚÑáéíóúñ]+)(?:\s+[\p{L}ÁÉÍÓÚÑáéíóúñ]+)?\s+me\s+(?:pag[oó]|consign[oó]|transfiri[oó])/iu);if(!m)return null;const v=monto(texto);if(!v)return null;return{tipo:"COBRO_CUENTA_POR_COBRAR",montoMinor:v,concepto:"Cobro recibido",categoria:"Cuenta por cobrar",contraparte:m[1],fecha:hoy(),estado:"LISTO",confianza:98,razonRevision:""};}
+function cuentaPorCobrar(t){
+ const texto=String(t).replace(/\s+/g," ").trim();
+ if(!/\b(?:me debe|me deben|me qued[oó] debiendo|me va a pagar|me van a pagar|por cobrar)\b/i.test(texto))return null;
+ const m=monto(texto);if(!m)return null;
+ let contraparte="Por identificar";
+ const patrones=[
+  /(?:^|[.!?;]\\s*)(?:a\\s+)?([\\p{L}]+(?:\\s+[\\p{L}]+){0,3})\\s+me\\s+(?:debe|qued[oó]\\s+debiendo)\\b/iu,
+  /\\b(?:me\\s+debe|me\\s+qued[oó]\\s+debiendo)\\s+([\\p{L}]+(?:\\s+[\\p{L}]+){0,3}?)(?=\\s+(?:\\d|un\\b|una\\b|\\$|porque\\b|por\\b|desde\\b|y\\b)|[,.!?;]|$)/iu,
+  /\\b(?:le\\s+prest[eé]|le\\s+fi[eé])\\s+(?:a\\s+)?([\\p{L}]+(?:\\s+[\\p{L}]+){0,3})\\b/iu
+ ];
+ for(const patron of patrones){const match=texto.match(patron);if(match){const candidato=match[1].trim();if(!/^(?:dinero|plata|pesos|mil|millones|alguien)$/i.test(candidato)){contraparte=candidato;break;}}}
+ if(contraparte==="Por identificar")return{tipo:"CUENTA_POR_COBRAR",montoMinor:m,concepto:"Dinero por cobrar",categoria:"Cuenta por cobrar",contraparte,fecha:hoy(),estado:"REQUIERE_REVISION",confianza:50,razonRevision:"Falta identificar el nombre de quien debe el dinero."};
+ const dm=texto.match(/(?:me\s+paga|me\s+pagan|paga|pagan)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})/i);
+ const dia=dm?Number(dm[1]):null;let fechaVencimiento;
+ if(dia&&dia>=1&&dia<=31){const b=hoy();let y=b.getFullYear(),mo=b.getMonth();if(b.getDate()>dia){mo++;if(mo>11){mo=0;y++;}}fechaVencimiento=new Date(y,mo,Math.min(dia,new Date(y,mo+1,0).getDate()),12,0,0,0);}
+ return{tipo:"CUENTA_POR_COBRAR",montoMinor:m,concepto:"Dinero por cobrar",categoria:"Cuenta por cobrar",contraparte,fecha:hoy(),fechaVencimiento,estado:"LISTO",confianza:95,razonRevision:""};
+}
+function ajusteSaldo(t){const texto=String(t).replace(/\s+/g," ").trim();if(!/(?:tengo|hay|cuento con).*(?:efectivo|billetera|cartera)|(?:efectivo|billetera|cartera).*(?:no hab[ií]a registrado|sin registrar|saldo)/i.test(texto))return null;const v=monto(texto);if(!v)return null;return{tipo:"AJUSTE_SALDO",montoMinor:v,concepto:"Reconciliación de efectivo",categoria:"Saldo inicial",contraparte:"",fecha:hoy(),estado:"LISTO",confianza:99,razonRevision:""};}
+function señalesPatrimoniales(t){const texto=String(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();const posesion=/\b(?:tengo|tenia|tenemos|cuento con|contaba con|dispongo de|disponia de|hay|me quedan?|me quedaron|mantengo|conservo)\b/.test(texto);const ahorro=/\b(?:ahorro|ahorros|ahorrad[oa]s?|guardad[oa]s?|guardadit[oa]s?|plata aparte|platica aparte|dinero aparte|fondo|colchon)\b/.test(texto);const preexistente=/\b(?:ya tenia|ya estaba|desde antes|de antes|preexistente|existente|no habia registrado|sin registrar|no estaba registrado|se me olvido registrar|se me habia olvidado|no lo habia metido|no lo habia anotado|no te habia dicho|se me paso decir|me falto registrar|saldo)\b/.test(texto);const movimiento=/\b(?:hoy|ayer|acabo de|ahorre|guarde|meti|pase|transferi|consigne|deposite)\b/.test(texto);return{posesion,ahorro,preexistente,movimiento};}
+function ajusteSaldoAhorro(t){const texto=String(t).replace(/\s+/g," ").trim(),s=señalesPatrimoniales(texto);if(!s.ahorro||(!s.preexistente&&!s.posesion)||s.movimiento&&!s.preexistente)return null;const v=monto(texto);if(!v)return null;return{tipo:"AJUSTE_SALDO_AHORRO",montoMinor:v,concepto:"Reconciliación de ahorro existente",categoria:"Ahorro",contraparte:"",cuentaDestino:"AHORRO",fecha:hoy(),estado:"LISTO",confianza:s.preexistente?99:94,razonRevision:""};}
+function transferenciaPropia(t){const texto=String(t).replace(/\s+/g," ").trim();if(!/(?:pas[eé]|transfer[ií]|mov[ií]|mand[eé]).*(?:nequi|daviplata|bancolombia|cuenta|ahorros?)/i.test(texto))return null;if(/(?:pag[ué]|compr[eé]|gast[eé]|me pagaron|me consignaron)/i.test(texto))return null;const v=monto(texto);if(!v)return null;const nombres=["Nequi","Daviplata","Bancolombia","Cuenta de ahorros"];const presentes=nombres.filter(n=>new RegExp(n.replace("Cuenta de ahorros","cuenta(?: de)? ahorros?"),"i").test(texto));return{tipo:"TRANSFERENCIA_PROPIA",montoMinor:v,concepto:"Transferencia entre cuentas propias",categoria:"Traspaso",contraparte:"",cuentaOrigen:presentes[0]||"",cuentaDestino:presentes[1]||"",fecha:hoy(),estado:presentes.length>=2?"LISTO":"REQUIERE_REVISION",confianza:presentes.length>=2?98:60,razonRevision:presentes.length>=2?"":"Necesito identificar cuenta origen y destino."};}
+function ahorroActivo(t){const texto=String(t).replace(/\s+/g," ").trim();if(!/(?:ahorr[eé]|guard[eé]|met[ií]).*(?:ahorro|inversi[oó]n|fondo|cuenta)|(?:pas[eé]|transfer[ií]).*(?:ahorro|inversi[oó]n)/i.test(texto))return null;if(/(?:compr[eé]|gast[eé]|pag[ué]).*(?:mercado|servicio|arriendo|comida)/i.test(texto))return null;const v=monto(texto);if(!v)return null;return{tipo:"AHORRO_ACTIVO",montoMinor:v,concepto:"Aporte a ahorro o activo financiero",categoria:"Ahorro",contraparte:"",cuentaOrigen:"",cuentaDestino:"AHORRO",fecha:hoy(),estado:"LISTO",confianza:95,razonRevision:""};}
+function naturalezaEsperada(tipo){
+ if(["AJUSTE_SALDO","AJUSTE_SALDO_AHORRO","CUENTA_POR_COBRAR"].includes(tipo))return"PATRIMONIO";
+ if(["TRANSFERENCIA_PROPIA","AHORRO_ACTIVO"].includes(tipo))return"TRASPASO";
+ if(["DEUDA_POR_PAGAR","PRESTAMO_RECIBIDO","PAGO_DEUDA"].includes(tipo))return"PASIVO";
+ if(["INGRESO","GASTO"].includes(tipo))return"FLUJO";
+ return null;
+}
+function validarConFrame(raw,resultado){
+ if(!resultado||resultado.estado!=="LISTO")return resultado;
+ const frame=semanticFrame.construirFrame(raw,{montoMinor:resultado.montoMinor||resultado.principalMinor||null});
+ const esperada=naturalezaEsperada(resultado.tipo);
+ if(frame.acto==="CONSULTAR")return{...resultado,estado:"REQUIERE_REVISION",confianza:20,razonRevision:"El texto parece una consulta, no un hecho financiero para registrar.",semanticFrame:frame};
+ if(esperada&&frame.naturaleza!=="NO_CLASIFICADO"&&frame.naturaleza!==esperada)return{...resultado,estado:"REQUIERE_REVISION",confianza:20,razonRevision:"La interpretación verbal contradice la naturaleza contable detectada.",semanticFrame:frame};
+ return{...resultado,semanticFrame:frame};
+}
+function interpretarSegmentoBase(raw){const ajuste=ajusteSaldo(raw);if(ajuste)return ajuste;const ajusteAhorro=ajusteSaldoAhorro(raw);if(ajusteAhorro)return ajusteAhorro;const traspaso=transferenciaPropia(raw);if(traspaso)return traspaso;const ahorro=ahorroActivo(raw);if(ahorro)return ahorro;const cobrado=cobroCuenta(raw);if(cobrado)return cobrado;const deuda=deudaEstructurada(raw);if(deuda)return deuda;const cobrar=cuentaPorCobrar(raw);if(cobrar)return cobrar;const t=raw.trim();if(!t)return null;const m=monto(t);const montoSinUnidad=/(?:^|\s)(?:\$\s*)?\d{1,3}(?:\s|$)/.test(t)&&!/\$|cop|pesos?|lucas?|palos?|barras?|mill[oó]n|millones|\bmil\b|\bk\b|\bm\b/i.test(t);let tipo=null,concepto=t.slice(0,140),conf=90,razon="";if(montoSinUnidad){conf=30;razon="El monto es ambiguo en Colombia: confirma si son pesos, miles/lucas o millones."}if(/me deben|quedaron (?:en |de )?pagarme|me lo pagan despu[eé]s|por cobrar/i.test(t))tipo="CUENTA_POR_COBRAR";else if(/le prest[eé]|prest[eé].*(?:a |al )/i.test(t))tipo="PRESTAMO_OTORGADO";else if(/me prestaron|ped[ií] prestado/i.test(t))tipo="PRESTAMO_RECIBIDO";else if(/me devolvi[oó]|me pag[oó].*prest|cobr[eé].*prest/i.test(t))tipo="COBRO_PRESTAMO";else if(/pagu[eé].*(?:deuda|tarjeta|cr[eé]dito|cuota)/i.test(t))tipo="PAGO_DEUDA";else if(/gast[eé]|compr[eé]|pagu[eé]|me cost[oó]|egreso/i.test(t))tipo="GASTO";else if(/gan[eé]|recib[ií]|me pagaron|ingres[oó]|vend[ií]/i.test(t))tipo="INGRESO";if(!m){conf=30;razon=razon||"No pude determinar un monto confiable."}if(!tipo){conf=Math.min(conf,40);razon=razon||"No pude determinar la naturaleza financiera."}return{tipo:tipo||"POR_CLASIFICAR",montoMinor:m||0,concepto,categoria:tipo?categoria(t,tipo):"Por clasificar",contraparte:"",fecha:(/\b(?:ayer|anoche)\b/i.test(t)?colombia.fechaColombia(-1):hoy()),estado:tipo&&conf>=80?"LISTO":"REQUIERE_REVISION",confianza:conf,razonRevision:razon}}
+function interpretarSegmento(raw){return validarConFrame(raw,interpretarSegmentoBase(raw));}
+async function crearBorrador(usuarioId,{texto,canal="TEXTO"}){const partes=String(texto).split(/\n+|;|\s+y\s+(?=(?:hoy|ayer|tambi[eé]n|despu[eé]s|luego|gast[eé]|gan[eé]|recib[ií]|pagu[eé]|compr[eé]|prest[eé]))/i).map(x=>x.trim()).filter(Boolean);const items=partes.map(interpretarSegmento).filter(Boolean);if(!items.length)throw Object.assign(new Error("No detecté hechos financieros"),{statusCode:422});return Borrador.create({usuarioId,canal,textoOriginal:texto,items})}
+module.exports={crearBorrador,interpretarSegmento,interpretarSegmentoBase,validarConFrame,naturalezaEsperada,deudaEstructurada,cuentaPorCobrar,cobroCuenta,ajusteSaldo,transferenciaPropia,ahorroActivo,ajusteSaldoAhorro,señalesPatrimoniales,parseMontoExacto:monto};

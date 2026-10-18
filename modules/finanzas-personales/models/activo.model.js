@@ -1,0 +1,4 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({userId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},nombre:{type:String,required:true,trim:true,maxlength:120},tipo:{type:String,enum:["EFECTIVO","CUENTA","INVERSION","INMUEBLE","VEHICULO","OTRO"],required:true,index:true},valorActual:{type:Number,required:true,min:0},liquido:{type:Boolean,default:false},institucion:{type:String,trim:true,maxlength:120,default:""},actualizadoEn:{type:Date,default:Date.now}},{timestamps:true,collection:"fin_activos"});
+schema.index({userId:1,tipo:1});module.exports=mongoose.models.FinActivo||mongoose.model("FinActivo",schema);

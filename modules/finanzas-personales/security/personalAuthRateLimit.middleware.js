@@ -1,0 +1,5 @@
+"use strict";
+const crypto=require("crypto");
+const buckets=new Map();
+function key(req){const ip=String(req.ip||req.socket?.remoteAddress||"unknown");const email=String(req.body?.email||"").trim().toLowerCase();const secret=process.env.PERSONAL_RATE_LIMIT_SECRET||process.env.PERSONAL_JWT_SECRET;if(!secret)throw new Error("PERSONAL_RATE_LIMIT_SECRET/PERSONAL_JWT_SECRET requerido");return crypto.createHmac("sha256",secret).update(ip+"|"+email).digest("hex");}
+module.exports=function personalAuthRateLimit({windowMs=15*60*1000,max=8}={}){return(req,res,next)=>{try{const now=Date.now(),k=key(req);let b=buckets.get(k);if(!b||now-b.start>=windowMs)b={start:now,count:0};b.count++;buckets.set(k,b);if(b.count>max){res.setHeader("Retry-After",String(Math.ceil((b.start+windowMs-now)/1000)));return res.status(429).json({ok:false,error:"Demasiados intentos. Intenta más tarde."});}if(buckets.size>20000)for(const [x,v] of buckets)if(now-v.start>=windowMs)buckets.delete(x);return next();}catch(err){console.error("[FIN_PERSONAL_RATE_LIMIT]",err.message);return res.status(500).json({ok:false,error:"Seguridad de autenticación no disponible"});}};};

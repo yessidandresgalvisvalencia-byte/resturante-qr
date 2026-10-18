@@ -1,0 +1,49 @@
+"use strict";
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const {crearLimiteSeleccionadoV81}=require("../../modules/finanzas-personales/security/limiteSeleccionadoV81.middleware");
+const id="507f1f77bcf86cd799439011";
+function respuesta(){return {code:200,headers:{},status(n){this.code=n;return this;},setHeader(k,v){this.headers[k]=v;},json(o){this.body=o;return this;}};}
+test("V81 redis rechaza si falta cliente sin recurrir al contador local",async()=>{
+ const mw=crearLimiteSeleccionadoV81({modo:"redis"});
+ const res=respuesta();await mw({personalAuth:{userId:id,verificado:true},app:{locals:{}}},res,()=>assert.fail("No permitir"));
+ assert.equal(res.code,503);
+});
+test("V81 redis usa cliente inyectado del servidor y comparte cuota",async()=>{
+ let count=0;
+ const cliente={isReady:true,eval:async()=>[++count,30]};
+ const mw=crearLimiteSeleccionadoV81({modo:"redis"});
+ const req={personalAuth:{userId:id,verificado:true},app:{locals:{redisV81:cliente}}};
+ for(let i=0;i<20;i++){const res=respuesta();let next=0;await mw(req,res,()=>{next++;});assert.equal(next,1);}
+ const res=respuesta();await mw(req,res,()=>assert.fail("Debe bloquear"));assert.equal(res.code,429);assert.equal(res.headers["Retry-After"],"30");
+});
+test("V81 rechaza modos desconocidos",()=>assert.throws(()=>crearLimiteSeleccionadoV81({modo:"off"}),TypeError));
+
+test("V81 en producción nunca recurre al contador local",async()=>{
+ const anterior=process.env.NODE_ENV;
+ try{
+  process.env.NODE_ENV="production";
+  for(const modo of [undefined,"local"]){
+   const mw=crearLimiteSeleccionadoV81({modo});
+   const res=respuesta();let llamadas=0;
+   await mw({personalAuth:{userId:id,verificado:true}},res,()=>{llamadas++;});
+   assert.equal(res.code,503);
+   assert.equal(llamadas,0);
+  }
+ }finally{
+  if(anterior===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=anterior;
+ }
+});
+
+test("V81 bloquea escrituras tras perder la conexión Redis",async()=>{
+ const cliente={isReady:true,eval:async()=>[1,60]};
+ const mw=crearLimiteSeleccionadoV81({modo:"redis"});
+ const req={personalAuth:{userId:id,verificado:true},app:{locals:{redisV81:cliente}}};
+ const primero=respuesta();let llamadas=0;
+ await mw(req,primero,()=>{llamadas++;});
+ assert.equal(llamadas,1);
+ cliente.isReady=false;
+ const segundo=respuesta();await mw(req,segundo,()=>{llamadas++;});
+ assert.equal(segundo.code,503);
+ assert.equal(llamadas,1);
+});

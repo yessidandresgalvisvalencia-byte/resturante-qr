@@ -1,0 +1,4 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({email:{type:String,required:true,unique:true,index:true,lowercase:true,trim:true,maxlength:254},nombre:{type:String,required:true,trim:true,maxlength:120},passwordHash:{type:String,required:true,select:false},estado:{type:String,enum:["ACTIVA","BLOQUEADA"],default:"ACTIVA",index:true},tokenVersion:{type:Number,default:1,min:1},ultimoLoginEn:{type:Date,default:null}},{timestamps:true,collection:"fin_identidades_personales"});
+module.exports=mongoose.models.FinIdentidadPersonal||mongoose.model("FinIdentidadPersonal",schema);

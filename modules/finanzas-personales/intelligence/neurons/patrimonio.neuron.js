@@ -1,0 +1,5 @@
+"use strict";
+const patrimonio=require("../../services/patrimonioPersonal.service");const Reporte=require("../../models/reporteNeuronaPersonal.model");
+function getRequiredEvents(){return["MOVIMIENTO_PATRIMONIAL","GASTO_REGISTRADO","INGRESO_DETECTADO","PAGO_DEUDA"]}
+async function analyze(usuarioId){const s=await patrimonio.snapshot(usuarioId);const base=s.liquidezMinor+s.cuentasPorCobrarMinor,ratio=base>0?s.pasivosMinor/base*100:(s.pasivosMinor>0?100:0);const estado=s.patrimonioFinancieroNetoMinor<0?"CRITICO":ratio>50?"ALERTA":"OK";const hallazgos=[];if(estado!=="OK")hallazgos.push({tipo:"PATRIMONIO_APALANCADO",evidencia:"Los pasivos registrados son elevados frente a los activos financieros líquidos y cuentas por cobrar.",impacto_anual_estimado:0,confianza:100});return Reporte.create({usuarioId,neurona:"PATRIMONIO",periodo:{desde:new Date(),hasta:new Date()},kpi_principal:{nombre:"Pasivos sobre activos financieros",valor_actual:Number(ratio.toFixed(2)),valor_objetivo:50,estado},hallazgos,necesita_decision_de_cerebro:estado!=="OK"})}
+module.exports={getRequiredEvents,analyze};

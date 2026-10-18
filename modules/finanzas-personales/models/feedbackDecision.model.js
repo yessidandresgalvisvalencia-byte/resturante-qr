@@ -1,0 +1,3 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},decisionId:{type:String,required:true,index:true},rubro:{type:String,default:"GENERAL"},accion:{type:String,enum:["ACEPTADA","RECHAZADA"],required:true},motivo:{type:String,maxlength:240,default:""}},{timestamps:true,collection:"fin_feedback_decisiones"});schema.index({usuarioId:1,decisionId:1},{unique:true});module.exports=mongoose.models.FeedbackDecisionPersonal||mongoose.model("FeedbackDecisionPersonal",schema);

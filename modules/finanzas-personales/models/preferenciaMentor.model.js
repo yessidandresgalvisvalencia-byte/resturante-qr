@@ -1,0 +1,3 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,unique:true,index:true},nivelFinanciero:{type:String,enum:["INICIAL","INTERMEDIO","AVANZADO"],default:"INICIAL"},tono:{type:String,enum:["CALIDO","NEUTRO","TECNICO"],default:"CALIDO"},rubrosProtegidos:[{rubro:String,peso:{type:Number,min:0,max:1,default:.5},evidencia:{type:Number,min:0,default:0}}],aceptadas:{type:Number,min:0,default:0},rechazadas:{type:Number,min:0,default:0},microVictorias:{type:Number,min:0,default:0}},{timestamps:true,collection:"fin_preferencias_mentor"});module.exports=mongoose.models.PreferenciaMentorPersonal||mongoose.model("PreferenciaMentorPersonal",schema);

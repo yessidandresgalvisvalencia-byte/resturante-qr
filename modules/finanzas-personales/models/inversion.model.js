@@ -1,0 +1,4 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({userId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},nombre:{type:String,required:true,trim:true,maxlength:140},clase:{type:String,enum:["EFECTIVO_RENTABLE","RENTA_FIJA","RENTA_VARIABLE","FONDO","ETF","CRIPTO","INMOBILIARIA","OTRA"],required:true,index:true},capitalAportado:{type:Number,required:true,min:0},valorActual:{type:Number,required:true,min:0},moneda:{type:String,default:"COP",uppercase:true},liquidezDias:{type:Number,default:null,min:0},riesgoDeclarado:{type:String,enum:["BAJO","MEDIO","ALTO","NO_CLASIFICADO"],default:"NO_CLASIFICADO"},institucion:{type:String,trim:true,maxlength:120,default:""}},{timestamps:true,collection:"fin_inversiones"});
+schema.index({userId:1,clase:1});module.exports=mongoose.models.FinInversion||mongoose.model("FinInversion",schema);

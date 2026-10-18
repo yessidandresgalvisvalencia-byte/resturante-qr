@@ -1,0 +1,3 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},timestamp:{type:Date,default:Date.now,index:true},perfil_riesgo:String,horizonte_meses:Number,moneda_base:{type:String,default:"COP"},capital_minor:Number,drawdown_max_pct:Number,datos_corte:Date,metodologia:{type:String,required:true},opciones_evaluadas:[mongoose.Schema.Types.Mixed],recomendacion_estrella:{type:mongoose.Schema.Types.Mixed,default:null},advertencias_calidad_datos:[String]},{collection:"cerebro_recomendaciones_inversion"});schema.index({usuarioId:1,timestamp:-1});module.exports=mongoose.models.RecomendacionInversionPersonal||mongoose.model("RecomendacionInversionPersonal",schema);

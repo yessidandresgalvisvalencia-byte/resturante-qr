@@ -1,0 +1,286 @@
+name: Finanzas Personales V81 - Precision e Integridad
+on:
+  push:
+    branches: [feature/finanzas-personales]
+    paths:
+      - 'modules/finanzas-personales/services/*V81.service.js'
+      - 'modules/finanzas-personales/routes.js'
+      - 'public/finanzas-personales.js'
+      - 'public/finanzas-personales.html'
+      - 'modules/finanzas-personales/services/homePersonal.service.js'
+      - 'modules/finanzas-personales/services/consultaPersonal.service.js'
+      - 'modules/finanzas-personales/security/personalAuth.middleware.js'
+      - 'modules/finanzas-personales/security/limiteMovimientosV81.middleware.js'
+      - 'modules/finanzas-personales/security/limiteDistribuidoV81.middleware.js'
+      - 'modules/finanzas-personales/security/contadorRedisV81.service.js'
+      - 'modules/finanzas-personales/security/iniciarRedisV81.service.js'
+      - 'modules/finanzas-personales/security/fabricaClienteRedisV81.service.js'
+      - 'modules/finanzas-personales/security/iniciarControlRedisV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionCuentaV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionCuentaAisladaV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionPeriodoCuentaV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service.js'
+      - 'modules/finanzas-personales/services/consultaConciliacionCuentaV81.handler.js'
+      - 'modules/finanzas-personales/services/comparacionSaldosV81.service.js'
+      - 'modules/finanzas-personales/services/flujoHistoricoV81.service.js'
+      - 'modules/finanzas-personales/services/consultaSaldoVerificadoV81.service.js'
+      - 'modules/finanzas-personales/services/consultaSaldoV81.handler.js'
+      - 'modules/finanzas-personales/security/limiteSeleccionadoV81.middleware.js'
+      - 'modules/finanzas-personales/services/*V81.handler.js'
+      - 'modules/finanzas-personales/models/*V81.model.js'
+      - 'test/finanzas-personales/**'
+      - '.github/workflows/finanzas-personales-v81.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    paths:
+      - 'modules/finanzas-personales/services/*V81.service.js'
+      - 'modules/finanzas-personales/routes.js'
+      - 'public/finanzas-personales.js'
+      - 'public/finanzas-personales.html'
+      - 'modules/finanzas-personales/services/homePersonal.service.js'
+      - 'modules/finanzas-personales/services/consultaPersonal.service.js'
+      - 'modules/finanzas-personales/security/personalAuth.middleware.js'
+      - 'modules/finanzas-personales/security/limiteMovimientosV81.middleware.js'
+      - 'modules/finanzas-personales/security/limiteDistribuidoV81.middleware.js'
+      - 'modules/finanzas-personales/security/contadorRedisV81.service.js'
+      - 'modules/finanzas-personales/security/iniciarRedisV81.service.js'
+      - 'modules/finanzas-personales/security/fabricaClienteRedisV81.service.js'
+      - 'modules/finanzas-personales/security/iniciarControlRedisV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionCuentaV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionCuentaAisladaV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionPeriodoCuentaV81.service.js'
+      - 'modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service.js'
+      - 'modules/finanzas-personales/services/consultaConciliacionCuentaV81.handler.js'
+      - 'modules/finanzas-personales/services/comparacionSaldosV81.service.js'
+      - 'modules/finanzas-personales/services/flujoHistoricoV81.service.js'
+      - 'modules/finanzas-personales/services/consultaSaldoVerificadoV81.service.js'
+      - 'modules/finanzas-personales/services/consultaSaldoV81.handler.js'
+      - 'modules/finanzas-personales/security/limiteSeleccionadoV81.middleware.js'
+      - 'modules/finanzas-personales/services/*V81.handler.js'
+      - 'modules/finanzas-personales/models/*V81.model.js'
+      - 'test/finanzas-personales/**'
+      - '.github/workflows/finanzas-personales-v81.yml'
+      - 'package.json'
+      - 'package-lock.json'
+permissions:
+  contents: read
+jobs:
+  test-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias reproducibles
+        run: npm ci --ignore-scripts
+      - name: Diagnosticar dependencias de produccion sin alterar paquetes
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > /tmp/gruk-v81-audit.json || true
+          node -e '
+            const a = require("/tmp/gruk-v81-audit.json");
+            const vulnerabilities = a.vulnerabilities || {};
+            const items = Object.entries(vulnerabilities)
+              .map(([name, v]) => ({name, severity:v.severity, direct:v.isDirect, range:v.range, fixAvailable:v.fixAvailable, via:v.via.filter(x => typeof x === "object").map(x => ({url:x.url,range:x.range,severity:x.severity}))}))
+              .sort((a,b) => a.name.localeCompare(b.name));
+            console.log("Dependencias vulnerables (inventario sin modificaciones):");
+            console.log(JSON.stringify(items,null,2));
+            console.log("Totales:", JSON.stringify(a.metadata?.vulnerabilities || {}));
+            const lock = require("./package-lock.json");
+            for (const item of items) {
+              const matches = Object.entries(lock.packages || {}).filter(([path]) => path === "node_modules/" + item.name || path.endsWith("/node_modules/" + item.name));
+              console.log("Versiones instaladas:", item.name, matches.map(([path,p]) => ({path, version:p.version})));
+            }
+          '
+      - name: Trazar procedencia de proxy-addr critico
+        shell: bash
+        run: |
+          echo "Arbol de dependencias de proxy-addr:"
+          npm ls proxy-addr --all || true
+          echo "Explicacion de instalacion:"
+          npm explain proxy-addr || true
+          echo "Dependencias directas del padre:"
+          npm ls express proxy-addr --depth=1 || true
+      - name: Diagnosticar rutas axios y multer
+        shell: bash
+        run: |
+          npm explain axios || true
+          npm explain multer || true
+          npm ls axios multer follow-redirects form-data --all || true
+          node -e '
+            const a=require("/tmp/gruk-v81-audit.json");
+            for(const n of ["axios","multer","follow-redirects","form-data"]){
+              const v=a.vulnerabilities?.[n];
+              console.log("Diagnóstico",n,JSON.stringify(v?{range:v.range,fixAvailable:v.fixAvailable,via:v.via.filter(x=>typeof x==="object").map(x=>({url:x.url,range:x.range}))}:{status:"sin alerta"}));
+            }
+          '
+      - name: Probar centavos, cadena SHA256 y proyeccion de ledger
+        run: node --test test/finanzas-personales/*.test.js
+      - name: Exigir cero vulnerabilidades de produccion
+        run: npm audit --omit=dev --audit-level=low
+  probar-parche-proxy-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias originales
+        run: npm ci --ignore-scripts
+      - name: Aplicar parche unicamente en runner temporal
+        shell: bash
+        run: |
+          npm pkg set 'overrides.proxy-addr=2.0.8'
+          npm install --package-lock-only --ignore-scripts
+          npm ci --ignore-scripts
+          node -e 'const v=require("proxy-addr/package.json").version; if(v!=="2.0.8") throw new Error("Parche no instalado: "+v); console.log("Parche temporal verificado:",v)'
+      - name: Validar sintaxis compartida y motor V81
+        run: |
+          npm run check:syntax
+          node --test test/finanzas-personales/*.test.js
+          node -e 'const express=require("express"); const app=express(); if(typeof app.use!=="function") throw new Error("Express no inicia")'
+      - name: Publicar propuesta reproducible del lockfile corregido
+        uses: actions/upload-artifact@v4
+        with:
+          name: proxy-addr-208-lockfile-propuesto
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 7
+      - name: Comprobar alerta critica tras parche temporal
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > /tmp/audit-parche-v81.json || true
+          node -e 'const a=require("/tmp/audit-parche-v81.json"); if(a.vulnerabilities?.["proxy-addr"]) throw new Error("proxy-addr sigue vulnerable"); console.log("Sin alerta proxy-addr en auditoria temporal")'
+  probar-parches-http-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias originales
+        run: npm ci --ignore-scripts
+      - name: Evaluar actualizaciones HTTP exclusivamente en runner
+        shell: bash
+        run: |
+          npm pkg set 'dependencies.axios=1.20.0' 'dependencies.multer=^2.3.0' 'overrides.form-data=4.0.6'
+          npm install --package-lock-only --ignore-scripts
+          npm ci --ignore-scripts
+          node -e 'for(const [name,version] of [["axios","1.20.0"],["multer",require("multer/package.json").version],["form-data","4.0.6"]]) {const v=require(name+"/package.json").version;if(v!==version)throw Error(name+" "+v);if(name==="multer" && !/^2\.(?:[3-9]|[1-9][0-9]+)\./.test(v))throw Error("Multer fuera de 2.3+: "+v);console.log("Version temporal confirmada",name,v)}'
+      - name: Comprobar sintaxis y motor financiero V81
+        run: |
+          npm run check:syntax
+          node --test test/finanzas-personales/*.test.js
+      - name: Guardar lockfile HTTP candidato para revision
+        uses: actions/upload-artifact@v4
+        with:
+          name: parches-http-v81-lockfile-propuesto
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 7
+      - name: Comprobar eliminación de alertas HTTP
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > /tmp/http-v81-audit.json || true
+          node -e 'const a=require("/tmp/http-v81-audit.json");for(const n of ["axios","multer","form-data"])if(a.vulnerabilities?.[n])throw Error("Persiste vulnerabilidad: "+n);console.log("Sin alertas directas para axios, multer y form-data")'
+  evaluar-remediacion-restante-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias fijadas
+        run: npm ci --ignore-scripts
+      - name: Ensayar parches npm sin cambios persistentes
+        shell: bash
+        run: |
+          npm audit fix --package-lock-only --ignore-scripts --omit=dev || echo "Persisten avisos: continuar con verificaciones sin --force"
+          npm ci --ignore-scripts
+          npm run check:syntax
+          node --test test/finanzas-personales/*.test.js
+          npm audit --omit=dev --json > /tmp/remaining-v81.json || true
+          node -e 'const a=require("/tmp/remaining-v81.json"); console.log("Alertas tras parches compatibles:",JSON.stringify(a.metadata?.vulnerabilities||{})); console.log("Paquetes pendientes:",Object.keys(a.vulnerabilities||{}).join(", "));'
+      - name: Guardar propuesta de parches compatibles
+        uses: actions/upload-artifact@v4
+        with:
+          name: remedicion-v81-lockfile-candidato
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 7
+  redis-integration-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias fijas
+        run: npm ci --ignore-scripts
+      - name: Arrancar Redis local aislado
+        run: |
+          docker run -d --rm --name redis-v81-test -p 127.0.0.1:6379:6379 redis:7-alpine redis-server --save "" --appendonly no
+          for i in $(seq 1 30); do
+            if docker exec redis-v81-test redis-cli ping | grep -q PONG; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Instalar cliente Redis oficial solo para CI
+        run: npm install --no-save --ignore-scripts --package-lock=false redis@5
+      - name: Probar cuarenta incrementos concurrentes reales
+        env:
+          GRUK_V81_TEST_REDIS_URL: redis://127.0.0.1:6379/0
+        run: node --test test/finanzas-personales/contadorRedisV81.integration.test.js test/finanzas-personales/arranqueRedisV81.integration.test.js
+      - name: Eliminar Redis aislado
+        if: always()
+        run: docker rm -f redis-v81-test || true
+  mongo-integration-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias fijadas
+        run: npm ci --ignore-scripts
+      - name: Arrancar MongoDB aislado con replica set
+        run: |
+          docker run -d --rm --name mongo-v81-test -p 127.0.0.1:27017:27017 mongo:7 mongod --replSet rs0 --bind_ip_all
+          for i in $(seq 1 40); do
+            if docker exec mongo-v81-test mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec mongo-v81-test mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in $(seq 1 40); do
+            if docker exec mongo-v81-test mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Verificar configuración de base de pruebas
+        shell: bash
+        run: |
+          if [[ -n "${DATABASE_URL:-}" || -n "${MONGO_URI:-}" ]]; then
+            echo "Variable de conexión externa detectada; prueba bloqueada"
+            exit 1
+          fi
+      - name: Probar transacciones, anulaciones e integridad MongoDB
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test?replicaSet=rs0
+          GRUK_V81_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
+        run: node --test test/finanzas-personales/persistenciaLedgerV81.integration.test.js
+      - name: Limpiar MongoDB aislado
+        if: always()
+        run: docker rm -f mongo-v81-test || true

@@ -1,0 +1,4 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({userId:{type:mongoose.Schema.Types.ObjectId,required:true,unique:true,index:true},horizonteMeses:{type:Number,required:true,min:1,max:600},toleranciaRiesgo:{type:String,enum:["CONSERVADOR","MODERADO","AGRESIVO"],required:true},necesidadLiquidez:{type:String,enum:["ALTA","MEDIA","BAJA"],required:true},objetivoPrincipal:{type:String,enum:["PRESERVAR","CRECER","INGRESO","META_ESPECIFICA"],required:true}},{timestamps:true,collection:"fin_perfiles_inversion"});
+module.exports=mongoose.models.FinPerfilInversion||mongoose.model("FinPerfilInversion",schema);

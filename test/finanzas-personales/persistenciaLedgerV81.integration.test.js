@@ -1,0 +1,321 @@
+"use strict";
+const test=require("node:test");
+const assert=require("node:assert/strict");
+// Solo se permite ejecutar esta prueba destructiva contra un MongoDB local aislado.
+// La prueba elimina únicamente eventos del usuario temporal que crea.
+const uri=process.env.TEST_MONGO_URI;
+const habilitada=process.env.GRUK_V81_TEST_DB_CONFIRM==="SOLO_PRUEBAS_LOCALES";
+const configurada=Boolean(uri);
+if(configurada) {
+ const parsed=new URL(uri);
+ const host=parsed.hostname.toLowerCase();
+ const db=decodeURIComponent(parsed.pathname.slice(1));
+ if(parsed.protocol!=="mongodb:" || !["localhost","127.0.0.1","::1","[::1]"].includes(host) ||
+    db!=="gruk_v81_test" || parsed.searchParams.has("dbName") || !habilitada) {
+  throw new Error("Prueba V81 bloqueada: usa mongodb://127.0.0.1:27017/gruk_v81_test y habilitación explícita");
+ }
+}
+// Sin TEST_MONGO_URI: Node registra el test como omitido sin cargar mongoose.
+// Con TEST_MONGO_URI: requiere dependencias y replica set disponibles.
+let mongoose,anexarEventoV81,verificarLedgerPersistidoV81,Evento,Cabeza;
+if(configurada){
+ mongoose=require("mongoose");
+ ({anexarEventoV81}=require("../../modules/finanzas-personales/services/persistenciaLedgerV81.service"));
+ ({verificarLedgerPersistidoV81}=require("../../modules/finanzas-personales/services/verificacionLedgerV81.service"));
+ Evento=require("../../modules/finanzas-personales/models/eventoV81.model");
+ Cabeza=require("../../modules/finanzas-personales/models/cabezaV81.model");
+}
+const datos=(id)=>({
+ id,tipo:"GASTO",montoCentavos:2500000n,
+ fechaContable:"2026-10-17",timestamp:"2026-10-17T14:00:00-05:00"
+});
+test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!configurada},async()=>{
+ await mongoose.connect(uri,{serverSelectionTimeoutMS:10000});
+ const usuarioId=new mongoose.Types.ObjectId();
+ const otroUsuario=new mongoose.Types.ObjectId();
+ try{
+  await Promise.all([Evento.init(),Cabeza.init()]);
+  const indices=await Evento.collection.indexes();
+  assert.ok(indices.some(i=>i.unique===true && i.partialFilterExpression?.tipo==="ANULACION" &&
+    i.key?.usuarioId===1 && i.key?.corrigeId===1 && i.key?.tipo===1),
+    "Debe existir índice único por anulación para proteger escrituras concurrentes");
+  const original=await anexarEventoV81(usuarioId,datos("registro-uno"));
+  const repetido=await anexarEventoV81(usuarioId,datos("registro-uno"));
+  assert.equal(original.hashActual,repetido.hashActual);
+  assert.equal(await Evento.countDocuments({usuarioId}),1);
+  // Dos envíos simultáneos con el mismo eventId: máximo un INSERT, y el reintento es estable.
+  const mismoId=await Promise.allSettled([
+   anexarEventoV81(usuarioId,datos("doble-clic-mismo-id")),
+   anexarEventoV81(usuarioId,datos("doble-clic-mismo-id"))
+  ]);
+  assert.ok(mismoId.some(x=>x.status==="fulfilled"));
+  for(const intento of mismoId)if(intento.status==="rejected")assert.ok(
+   intento.reason?.statusCode===409 || intento.reason?.hasErrorLabel?.("TransientTransactionError"),
+   "Una carrera con eventId igual solo puede fallar por conflicto de concurrencia"
+  );
+  const trasCarrera=await anexarEventoV81(usuarioId,datos("doble-clic-mismo-id"));
+  assert.equal(await Evento.countDocuments({usuarioId,eventId:"doble-clic-mismo-id"}),1);
+  assert.equal(trasCarrera.hashActual,mismoId.find(x=>x.status==="fulfilled").value.hashActual);
+  await assert.rejects(
+   anexarEventoV81(usuarioId,{...datos("registro-uno"),montoCentavos:3000000n}),
+   e=>e.statusCode===409
+  );
+  const intentos=await Promise.allSettled([
+   anexarEventoV81(usuarioId,datos("registro-dos")),
+   anexarEventoV81(usuarioId,datos("registro-tres"))
+  ]);
+  assert.ok(intentos.some(x=>x.status==="fulfilled"));
+  for(const x of intentos) if(x.status==="rejected") assert.ok(
+   x.reason?.statusCode===409 || x.reason?.hasErrorLabel?.("TransientTransactionError"),
+   "Solo se permiten conflictos transitorios de concurrencia"
+  );
+  // Un reintento tardío conserva el hash original aunque el ledger haya avanzado.
+  const anteriorReintento=await Evento.countDocuments({usuarioId});
+  const reintentoTardio=await anexarEventoV81(usuarioId,datos("doble-clic-mismo-id"));
+  assert.equal(reintentoTardio.hashActual,trasCarrera.hashActual);
+  assert.equal(await Evento.countDocuments({usuarioId}),anteriorReintento);
+  await assert.rejects(
+   anexarEventoV81(usuarioId,{...datos("doble-clic-mismo-id"),montoCentavos:2600000n}),
+   e=>e.statusCode===409 && /contenido diferente/.test(e.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId}),anteriorReintento);
+  // Simulación de respuesta HTTP perdida: el primer commit queda persistido,
+  // el cliente reenvía el mismo eventId sin saber que la escritura ya terminó.
+  const eventoSinRespuesta=await anexarEventoV81(usuarioId,datos("respuesta-perdida"));
+  const totalTrasCommit=await Evento.countDocuments({usuarioId});
+  const recuperado=await anexarEventoV81(usuarioId,datos("respuesta-perdida"));
+  assert.equal(recuperado.hashActual,eventoSinRespuesta.hashActual);
+  assert.equal(recuperado.version,eventoSinRespuesta.version);
+  assert.equal(await Evento.countDocuments({usuarioId}),totalTrasCommit);
+  assert.equal(await Evento.countDocuments({usuarioId,eventId:"respuesta-perdida"}),1);
+  // Una corrección de importe cero debe rechazarse sin añadir eventos.
+  const antesCorreccion=await Evento.countDocuments({usuarioId});
+  await assert.rejects(
+   anexarEventoV81(usuarioId,{...datos("correccion-cero"),tipo:"CORRECCION",
+    montoCentavos:0n,corrigeId:"registro-uno",tipoCorregido:"GASTO",motivo:"Corrección inválida"}),
+   e=>e.statusCode===400 && /monto positivo/.test(e.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId}),antesCorreccion);
+  // Ningún usuario puede corregir un movimiento ajeno.
+  await assert.rejects(
+   anexarEventoV81(otroUsuario,{...datos("correccion-ajena"),tipo:"CORRECCION",
+    montoCentavos:2000000n,corrigeId:"registro-uno",tipoCorregido:"GASTO",motivo:"Intento ajeno"}),
+   e=>e.statusCode===409 && /inexistente para este usuario/.test(e.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId:otroUsuario}),0);
+  // La misma clave de evento puede existir en dos cuentas sin mezclar su historial.
+  const otroMovimiento=await anexarEventoV81(otroUsuario,datos("registro-uno"));
+  assert.equal(otroMovimiento.userId,String(otroUsuario));
+  assert.equal(await Evento.countDocuments({usuarioId:otroUsuario,eventId:"registro-uno"}),1);
+  assert.equal(await Evento.countDocuments({usuarioId,eventId:"registro-uno"}),1);
+  assert.notEqual(otroMovimiento.hashActual,original.hashActual);
+  // Auditar cada cuenta con su propia cabeza y comprobar que no haya mezcla de eventos.
+  const auditoriaOtro=await verificarLedgerPersistidoV81(otroUsuario);
+  assert.equal(auditoriaOtro.integridad,"VERIFICADA");
+  assert.equal(auditoriaOtro.cantidad,1);
+  const reintentoOtro=await anexarEventoV81(otroUsuario,datos("registro-uno"));
+  assert.equal(reintentoOtro.hashActual,otroMovimiento.hashActual);
+  assert.equal(await Evento.countDocuments({usuarioId:otroUsuario}),1);
+
+
+  // Una reclasificación legítima conserva el original y agrega un evento compensatorio.
+  await anexarEventoV81(usuarioId,datos("reclasificacion-base"));
+  const correccion=await anexarEventoV81(usuarioId,{...datos("reclasificacion-ok"),tipo:"CORRECCION",
+   montoCentavos:1800000n,corrigeId:"reclasificacion-base",tipoCorregido:"INGRESO",motivo:"Era ingreso"});
+  assert.equal(correccion.tipoCorregido,"INGRESO");
+  assert.equal(await Evento.countDocuments({usuarioId,eventId:"reclasificacion-base"}),1);
+  // Una corrección posterior debe actualizar la proyección sin cambiar el evento original.
+  const {proyectarLedger}=require("../../modules/finanzas-personales/services/proyeccionLedgerV81.service");
+  const registros=await Evento.find({usuarioId}).sort({version:1}).lean();
+  const proyeccion=proyectarLedger(registros.map(e=>({
+   id:e.eventId,userId:String(e.usuarioId),tipo:e.tipo,
+   montoCentavos:BigInt(e.montoCentavos),corrigeId:e.corrigeId,
+   motivo:e.motivo,tipoCorregido:e.tipoCorregido
+  })),String(usuarioId));
+  const {consultarSaldoVerificadoV81}=require("../../modules/finanzas-personales/services/consultaSaldoVerificadoV81.service");
+  const saldoCorregido=await consultarSaldoVerificadoV81(usuarioId);
+  assert.equal(saldoCorregido.integridad,"VERIFICADA","Una corrección legítima no invalida el saldo");
+  assert.equal(saldoCorregido.saldoCentavos,proyeccion.saldoCentavos.toString());
+  assert.equal(proyeccion.ingresosCentavos,1800000n);
+  assert.equal(proyeccion.gastosCentavos,7500000n+
+   BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
+  // Dos anulaciones simultáneas sobre el mismo gasto no pueden aplicarse dos veces.
+  const cancelaciones=await Promise.allSettled([
+   anexarEventoV81(usuarioId,{...datos("anulacion-uno"),tipo:"ANULACION",montoCentavos:0n,corrigeId:"registro-uno",motivo:"Movimiento duplicado"}),
+   anexarEventoV81(usuarioId,{...datos("anulacion-dos"),tipo:"ANULACION",montoCentavos:0n,corrigeId:"registro-uno",motivo:"Movimiento duplicado"})
+  ]);
+  assert.equal(cancelaciones.filter(x=>x.status==="fulfilled").length,1);
+  assert.equal(await Evento.countDocuments({usuarioId,corrigeId:"registro-uno",tipo:"ANULACION"}),1);
+  // Un movimiento anulado no admite correcciones posteriores.
+  const totalAntes=await Evento.countDocuments({usuarioId});
+  await assert.rejects(
+   anexarEventoV81(usuarioId,{...datos("correccion-tras-anulacion"),tipo:"CORRECCION",
+    montoCentavos:1000000n,corrigeId:"registro-uno",tipoCorregido:"GASTO",
+    motivo:"No se puede corregir un movimiento anulado"}),
+   e=>e.statusCode===409 && /ya anulado/.test(e.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId}),totalAntes);
+  // El gasto anulado deja de afectar el saldo sin eliminar su evento histórico.
+  const trasAnulacion=await Evento.find({usuarioId}).sort({version:1}).lean();
+  const {proyectarLedger:proyectarDespues}=require("../../modules/finanzas-personales/services/proyeccionLedgerV81.service");
+  const saldoFinal=proyectarDespues(trasAnulacion.map(e=>({
+   id:e.eventId,userId:String(e.usuarioId),tipo:e.tipo,montoCentavos:BigInt(e.montoCentavos),
+   corrigeId:e.corrigeId,motivo:e.motivo,tipoCorregido:e.tipoCorregido
+  })),String(usuarioId));
+  assert.equal(saldoFinal.ingresosCentavos,1800000n);
+  assert.equal(saldoFinal.gastosCentavos,5000000n+BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
+  assert.equal(saldoFinal.saldoCentavos,saldoFinal.ingresosCentavos-saldoFinal.gastosCentavos);
+  const auditoria=await verificarLedgerPersistidoV81(usuarioId);
+  assert.equal(auditoria.integridad,"VERIFICADA");
+  const cabeza=await Cabeza.findOne({usuarioId}).lean();
+  assert.equal(auditoria.cantidad,cabeza.version);
+  assert.equal(auditoria.cantidad,await Evento.countDocuments({usuarioId}));
+  // Si alguien adultera la cabeza, ninguna escritura (ni reintento) debe ser aceptada.
+  await Cabeza.collection.updateOne({usuarioId},{$set:{hashActual:"f".repeat(64)}});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("registro-uno")),
+   e=>e.statusCode===409 && /Integridad V81 comprometida/.test(e.message));
+  await assert.rejects(anexarEventoV81(usuarioId,datos("tras-cabeza-adulterada")),
+   e=>e.statusCode===409 && /Integridad V81 comprometida/.test(e.message));
+  await Cabeza.collection.updateOne({usuarioId},{$set:{hashActual:cabeza.hashActual}});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"VERIFICADA");
+  // Simular truncamiento malicioso en la base aislada: la siguiente escritura debe bloquearse.
+  const ultimo=await Evento.findOne({usuarioId}).sort({version:-1}).lean();
+  await Evento.collection.deleteOne({_id:ultimo._id});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("tras-truncamiento")),
+   e=>e.statusCode===409 && /Integridad V81 comprometida/.test(e.message));
+  // Restaurar el último y borrar un evento intermedio; la cabeza aún coincide.
+  await Evento.collection.insertOne(ultimo);
+  const primero=await Evento.findOne({usuarioId,version:1}).lean();
+  // Adulterar el primer evento ya existente conservando el último hash.
+  await Evento.collection.updateOne({_id:primero._id},{$set:{montoCentavos:"9999999"}});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("registro-uno")),
+   e=>e.statusCode===409 && /cadena criptográfica inválida/.test(e.message),
+   "Un reintento idéntico no debe ocultar una adulteración del historial");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("tras-adulteracion")),
+   e=>e.statusCode===409 && /cadena criptográfica inválida/.test(e.message));
+  // Restaurar importe y alterar solo la referencia de una corrección:
+  // el hash encadenado también protege las relaciones entre movimientos.
+  await Evento.collection.updateOne({_id:primero._id},{$set:{montoCentavos:primero.montoCentavos}});
+  const modificacion=await Evento.findOne({usuarioId,tipo:"CORRECCION"}).lean();
+  await Evento.collection.updateOne({_id:modificacion._id},{$set:{corrigeId:"registro-inexistente"}});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("tras-referencia-adulterada")),
+   e=>e.statusCode===409 && /cadena criptográfica inválida/.test(e.message));
+  await Evento.collection.updateOne({_id:modificacion._id},{$set:{corrigeId:modificacion.corrigeId}});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"VERIFICADA");
+  await Evento.collection.deleteOne({_id:primero._id});
+  assert.equal((await verificarLedgerPersistidoV81(usuarioId)).integridad,"FALLIDA");
+  await assert.rejects(anexarEventoV81(usuarioId,datos("tras-hueco-intermedio")),
+   e=>e.statusCode===409 && /cantidad de eventos/.test(e.message));
+
+
+  // Conciliación histórica por cuenta real en instantánea de MongoDB.
+  const TransaccionHistorica=require("../../modules/finanzas-personales/models/TransaccionPersonal");
+  const CuentaHistorica=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
+  const {conciliarHistoricoCuentaV81}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+  const usuarioCuenta=new mongoose.Types.ObjectId(),cuentaPrueba=new mongoose.Types.ObjectId();
+  try{
+   await CuentaHistorica.create({_id:cuentaPrueba,usuarioId:usuarioCuenta,nombre:"Prueba V81 "+cuentaPrueba.toString(),tipo:"AHORROS",moneda:"COP",activa:true});
+   await TransaccionHistorica.create([
+    {usuarioId:usuarioCuenta,cuentaId:cuentaPrueba,tipo:"INGRESO",montoMinor:1000,concepto:"Ingreso prueba V81",categoria:"OTROS",fecha:new Date("2026-10-10T12:00:00Z"),impactoCaja:true},
+    {usuarioId:usuarioCuenta,cuentaId:cuentaPrueba,tipo:"GASTO",montoMinor:200,concepto:"Gasto prueba V81",categoria:"OTROS",fecha:new Date("2026-10-11T12:00:00Z"),impactoCaja:true}
+   ]);
+   const verificado=await conciliarHistoricoCuentaV81({usuarioId:String(usuarioCuenta),cuentaId:String(cuentaPrueba),
+    desde:"2026-10-01",hastaExclusivo:"2026-11-01",saldoInicialCentavos:50000n,saldoObservadoCentavos:130000n});
+   assert.equal(verificado.estado,"CONCILIADA");
+   assert.equal(verificado.saldoBancarioVerificado,false);
+   assert.equal(verificado.origenSaldos,"REFERENCIAS_APORTADAS");
+   assert.equal(verificado.advertencia,"COINCIDENCIA_ARITMETICA_NO_ACREDITA_SALDO_BANCARIO");
+   assert.equal(verificado.movimientosEvaluados,2);
+   const diferente=await conciliarHistoricoCuentaV81({usuarioId:String(usuarioCuenta),cuentaId:String(cuentaPrueba),
+    desde:"2026-10-01",hastaExclusivo:"2026-11-01",saldoInicialCentavos:50000n,saldoObservadoCentavos:129999n});
+   assert.equal(diferente.diferenciaCentavos,"-1");
+   await assert.rejects(conciliarHistoricoCuentaV81({usuarioId:String(new mongoose.Types.ObjectId()),cuentaId:String(cuentaPrueba),desde:"2026-10-01",hastaExclusivo:"2026-11-01",saldoInicialCentavos:0n,saldoObservadoCentavos:0n}),/Cuenta no autorizada/);
+  }finally{
+   await TransaccionHistorica.collection.deleteMany({usuarioId:usuarioCuenta});
+   await CuentaHistorica.collection.deleteMany({_id:cuentaPrueba});
+  }
+
+  // Prueba de controlador HTTP con escritura real contra la réplica Mongo aislada.
+  const {crearRegistroMovimientoV81}=require("../../modules/finanzas-personales/services/registroMovimientoV81.handler");
+  const httpUno=new mongoose.Types.ObjectId(),httpDos=new mongoose.Types.ObjectId();
+  const handler=crearRegistroMovimientoV81();
+  const responder=()=>({codigo:200,payload:null,cabeceras:{},
+   status(n){this.codigo=n;return this;},
+   set(k,v){this.cabeceras[k]=v;return this;},
+   json(x){this.payload=x;return this;}});
+  const payloadHttp={id:"http-movimiento-0001",tipo:"GASTO",montoCop:"25000.30",
+   fechaContable:"2026-01-01",timestamp:"2026-01-01T10:00:00-05:00"};
+  const llamar=async(userId,body,verificado=true)=>{
+   const salida=responder();
+   await handler({personalAuth:{userId:String(userId),verificado},body},salida);
+   return salida;
+  };
+  try{
+   const sinSesion=await llamar(httpUno,payloadHttp,false);
+   assert.equal(sinSesion.codigo,401);
+   assert.equal(await Evento.countDocuments({usuarioId:httpUno}),0);
+   const primeroHttp=await llamar(httpUno,payloadHttp);
+   const repetidoHttp=await llamar(httpUno,payloadHttp);
+   assert.equal(primeroHttp.codigo,201);
+   assert.equal(repetidoHttp.codigo,201);
+   assert.deepEqual(primeroHttp.payload,repetidoHttp.payload);
+   assert.equal(primeroHttp.payload.evento.montoCentavos,"2500030");
+   assert.equal(await Evento.countDocuments({usuarioId:httpUno}),1);
+   const conflictoHttp=await llamar(httpUno,{...payloadHttp,montoCop:"25000.31"});
+   assert.equal(conflictoHttp.codigo,409);
+   assert.equal(await Evento.countDocuments({usuarioId:httpUno}),1);
+   // Solicitudes concurrentes con la misma clave no pueden duplicar registros.
+   const concurrente={...payloadHttp,id:"http-concurrente-0001"};
+   const simultaneas=await Promise.all([llamar(httpUno,concurrente),llamar(httpUno,concurrente)]);
+   assert.ok(simultaneas.every(x=>[201,409].includes(x.codigo)));
+   assert.ok(simultaneas.some(x=>x.codigo===201));
+   const existentes=await Evento.countDocuments({usuarioId:httpUno,eventId:concurrente.id});
+   assert.equal(existentes,1,"Una clave concurrente debe generar exactamente un evento");
+   const reintentoTrasConflicto=await llamar(httpUno,concurrente);
+   assert.equal(reintentoTrasConflicto.codigo,201);
+   assert.equal(await Evento.countDocuments({usuarioId:httpUno,eventId:concurrente.id}),1);
+   const segundaCuenta=await llamar(httpDos,payloadHttp);
+   assert.equal(segundaCuenta.codigo,201);
+   assert.equal(await Evento.countDocuments({usuarioId:httpDos}),1);
+   assert.notEqual(segundaCuenta.payload.evento.hashActual,primeroHttp.payload.evento.hashActual);
+   assert.equal((await verificarLedgerPersistidoV81(httpUno)).integridad,"VERIFICADA");
+   assert.equal((await verificarLedgerPersistidoV81(httpDos)).integridad,"VERIFICADA");
+   // Saldo calculado desde la misma instantánea verificada, sin confiar en entradas externas.
+   const {consultarSaldoVerificadoV81}=require("../../modules/finanzas-personales/services/consultaSaldoVerificadoV81.service");
+   const saldoUno=await consultarSaldoVerificadoV81(httpUno);
+   const saldoDos=await consultarSaldoVerificadoV81(httpDos);
+   assert.equal(saldoUno.integridad,"VERIFICADA");
+   assert.equal(saldoUno.saldoCentavos,"-5000060");
+   assert.equal(saldoDos.integridad,"VERIFICADA");
+   assert.equal(saldoDos.saldoCentavos,"-2500030");
+   // Manipulación directa que el modelo Mongoose normalmente prohíbe.
+   const alterado=await Evento.findOne({usuarioId:httpDos}).lean();
+   await Evento.collection.updateOne({_id:alterado._id},{$set:{montoCentavos:"999999999"}});
+   const saldoAdulterado=await consultarSaldoVerificadoV81(httpDos);
+   assert.equal(saldoAdulterado.integridad,"FALLIDA");
+   assert.equal(saldoAdulterado.saldoCentavos,undefined,"Nunca publicar un saldo de una cadena adulterada");
+   // El mismo rechazo se aplica a un hueco del ledger.
+   await Evento.collection.deleteOne({_id:alterado._id});
+   const saldoIncompleto=await consultarSaldoVerificadoV81(httpDos);
+   assert.equal(saldoIncompleto.integridad,"FALLIDA");
+   assert.equal(saldoIncompleto.saldoCentavos,undefined);
+
+  }finally{
+   await Evento.collection.deleteMany({usuarioId:{$in:[httpUno,httpDos]}});
+   await Cabeza.collection.deleteMany({usuarioId:{$in:[httpUno,httpDos]}});
+  }
+
+
+ }finally{
+  // Borrar exclusivamente registros de prueba con usuarioId aleatorio en BD de test.
+  await Evento.collection.deleteMany({usuarioId});
+  await Cabeza.collection.deleteMany({usuarioId});
+  await Evento.collection.deleteMany({usuarioId:otroUsuario});
+  await Cabeza.collection.deleteMany({usuarioId:otroUsuario});
+  await mongoose.disconnect();
+ }
+});

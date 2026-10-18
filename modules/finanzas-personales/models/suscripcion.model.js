@@ -1,0 +1,4 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({userId:{type:mongoose.Schema.Types.ObjectId,required:true,unique:true,index:true},producto:{type:String,enum:["FINANZAS_PERSONALES"],default:"FINANZAS_PERSONALES"},estado:{type:String,enum:["ACTIVA","PRUEBA","VENCIDA","CANCELADA"],default:"PRUEBA",index:true},vigenteHasta:{type:Date,default:null},proveedor:{type:String,default:null},externalSubscriptionId:{type:String,default:null}},{timestamps:true,collection:"fin_suscripciones"});
+module.exports=mongoose.models.FinSuscripcion||mongoose.model("FinSuscripcion",schema);

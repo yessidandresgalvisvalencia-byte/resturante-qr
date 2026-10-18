@@ -1,0 +1,4 @@
+"use strict";
+const ALLOWED=new Set(["RENTA_FIJA","RENTA_VARIABLE","INMOBILIARIO","MERCADO_MONETARIO","FONDO_COLECTIVO"]);
+function validateSnapshot(x){if(!x||!x.activoId||!x.activo||!ALLOWED.has(x.categoria)||!/^[A-Z]{3}$/.test(x.moneda||""))throw new Error("Identidad de snapshot inválida");const d=new Date(x.fechaCorte);if(Number.isNaN(d.getTime())||d>Date.now()+300000)throw new Error("Fecha de corte inválida");for(const k of ["retornoEsperadoAnualPct","volatilidadAnualPct","maxDrawdownHistoricoPct","liquidezDias","costoAnualPct"])if(!Number.isFinite(Number(x[k]??0)))throw new Error("Métrica inválida: "+k);if(x.volatilidadAnualPct<0||x.maxDrawdownHistoricoPct<0||x.liquidezDias<0||x.costoAnualPct<0)throw new Error("Métricas negativas no permitidas");if(!/^https:\/\//i.test(x.fuente))throw new Error("Fuente debe ser HTTPS y auditable");return true}
+module.exports={validateSnapshot};
