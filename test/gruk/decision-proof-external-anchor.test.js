@@ -2,7 +2,7 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const {crear}=require("../../modules/finanzas-personales/services/decisionProof.service");
-const {crearAncla,verificarAncla}=require("../../modules/finanzas-personales/security/anclaExternaDecision.service");
+const {crearAncla,crearAnclaVerificada,verificarAncla}=require("../../modules/finanzas-personales/security/anclaExternaDecision.service");
 const KEY=Buffer.alloc(32,0x41);
 const USER="0123456789abcdef01234567";
 const TIME="2026-10-17T12:00:00.000Z";
@@ -84,4 +84,33 @@ test("ancla externa rechaza reescritura completa de una cadena autoconsistente",
  assert.equal(verificarCadena(falsificados,headFalso,USER).valida,true);
  assert.equal(verificarAncla(ancla,KEY,falsificados,headFalso,USER).codigo,"ANCLA_NO_COINCIDE");
  assert.notEqual(registros[0].hash,primero.hash);
+});
+
+test("emisión segura firma únicamente una cadena completa e íntegra",()=>{
+ const {registros,head}=escenario();
+ const ancla=crearAnclaVerificada({registros,head,usuarioId:USER,emitidaEn:TIME},KEY);
+ assert.deepEqual(verificarAncla(ancla,KEY,registros,head,USER),{
+  valida:true,codigo:"ANCLA_VERIFICADA",secuenciaAnclada:2
+ });
+ assert.equal(ancla.headHash,head.headHash);
+ assert.equal(ancla.secuencia,2);
+});
+
+test("emisión segura nunca firma una cadena adulterada, parcial o ajena",()=>{
+ const {registros,head}=escenario();
+ const otro="abcdef0123456789abcdef01";
+ const solicitar=(r,h,u=USER)=>crearAnclaVerificada({
+  registros:r,head:h,usuarioId:u,emitidaEn:TIME
+ },KEY);
+ assert.throws(()=>solicitar([{...registros[0],accion:"FALSIFICADO"},registros[1]],head),
+  {message:"CADENA_NO_VERIFICABLE",code:"HASH_INVALIDO"});
+ assert.throws(()=>solicitar(registros.slice(0,1),head),
+  {message:"CADENA_NO_VERIFICABLE",code:"HEAD_NO_COINCIDE"});
+ assert.throws(()=>solicitar(registros,{...head,usuarioId:otro}),
+  {message:"CADENA_NO_VERIFICABLE",code:"PROPIETARIO_HEAD_NO_COINCIDE"});
+ assert.throws(()=>solicitar([{...registros[0],usuarioId:otro},registros[1]],head),
+  {message:"CADENA_NO_VERIFICABLE",code:"PROPIETARIO_REGISTRO_NO_COINCIDE"});
+ assert.throws(()=>solicitar([],{usuarioId:USER,secuencia:0,headHash:null}),
+  /CADENA_NO_VERIFICABLE/);
+ assert.throws(()=>solicitar(registros,head,"mal"),TypeError);
 });
