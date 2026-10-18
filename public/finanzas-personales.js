@@ -54,7 +54,8 @@ window.deshacerCuotaCompromiso=async(id,numero)=>{try{
  await cargarCompromisosCuotas();await load();alert("Pago revertido y movimiento anulado.");
  }catch(e){alert("No se pudo deshacer la cuota: "+e.message)}
 };
-async function load(){try{
+function invalidarIndicadoresFinancieros(){for(const id of ["hDisponible","hComprometido","hFlujo","hPatrimonio"]){const el=$(id);if(el)el.textContent="No actualizado";}const explicacion=$("metricExplanation");if(explicacion)explicacion.hidden=true;window.grukExplain=()=>{};}
+async function load(){invalidarIndicadoresFinancieros();try{
  const verificacion=await api("/diagnostico-integridad");
  const integridad=verificacion.diagnostico;
  if(!integridad?.identidadExistente)throw Error("No se pudo verificar tu identidad. El tablero no se actualizará.");
