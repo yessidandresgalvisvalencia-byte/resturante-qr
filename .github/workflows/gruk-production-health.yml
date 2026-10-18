@@ -26,16 +26,19 @@ jobs:
           url="https://resturante-qr-1.onrender.com/health"
           for attempt in $(seq 1 36); do
             status="$(curl --silent --show-error --location --max-time 20 --output /tmp/gruk-health.json --write-out '%{http_code}' "$url" || true)"
-            if [ "$status" = "200" ] && node -e '
+            ready_status="$(curl --silent --show-error --location --max-time 20 --output /tmp/gruk-ready.json --write-out '%{http_code}' "https://resturante-qr-1.onrender.com/ready" || true)"
+            if [ "$status" = "200" ] && [ "$ready_status" = "200" ] && node -e '
               const fs = require("node:fs");
               const v = JSON.parse(fs.readFileSync("/tmp/gruk-health.json", "utf8"));
+              const ready = JSON.parse(fs.readFileSync("/tmp/gruk-ready.json", "utf8"));
+              if (ready.ready !== true || ready.db !== "connected") process.exit(1);
               if (v.status !== "ok" || v.db !== "connected" || typeof v.uptime !== "number") process.exit(1);
             '; then
-              echo "Production /health HTTP 200, Mongo connected"
+              echo "Production /health and /ready HTTP 200, Mongo connected"
               cat /tmp/gruk-health.json
               exit 0
             fi
-            echo "Attempt $attempt/36: HTTP $status; awaiting healthy service"
+            echo "Attempt $attempt/36: health HTTP $status, ready HTTP $ready_status; awaiting healthy service"
             sleep 15
           done
           echo "::error::Production /health did not return HTTP 200 with connected DB"
