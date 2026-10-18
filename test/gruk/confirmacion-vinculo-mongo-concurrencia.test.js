@@ -33,6 +33,16 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   // createIndexes jamás borra índices existentes. Todos los documentos usan
   // identidades nuevas y no contienen información personal real.
   await Vinculo.createIndexes();
+  await Movimiento.createIndexes();
+  const indicesMovimientos=await Movimiento.collection.indexes();
+  for(const [nombre,clave] of [
+   ["fp_conciliacion_cuenta_periodo_v81",{usuarioId:1,cuentaId:1,fecha:1}],
+   ["fp_conciliacion_huerfanos_periodo_v81",{usuarioId:1,cuentaId:1,cuenta:1,fecha:1}]
+  ]){
+   const indice=indicesMovimientos.find(x=>x.name===nombre);
+   assert.ok(indice,"Índice Mongo de conciliación ausente: "+nombre);
+   assert.deepEqual(indice.key,clave);
+  }
   const usuarioId=new mongoose.Types.ObjectId();
   const [cuenta]=await Cuenta.create([{usuarioId,nombre:"PRUEBA_"+crypto.randomUUID(),tipo:"EFECTIVO",moneda:"COP",saldoMinor:0}]);
   const [movimiento]=await Movimiento.create([{usuarioId,cuentaId:null,tipo:"GASTO",
