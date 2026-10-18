@@ -211,4 +211,30 @@ router.post("/stock-conflicts/review",authMiddleware,async(req,res)=>{
   return res.status(500).json({ok:false,error:"OFFLINE_CONFLICT_REVIEW_UNAVAILABLE"});
  }
 });
+// Read-only recheck of current server stock versus the ORIGINAL pending orders.
+// A positive result is informational, never an authorization to mutate stock.
+router.get("/stock-conflicts/preflight",authMiddleware,async(req,res)=>{
+ if(!req.auth?.usuarioId||!["DUEÑO","ADMIN_SEDE"].includes(req.auth.rol))
+  return res.status(403).json({ok:false,error:"OFFLINE_CONFLICT_PERMISSION_DENIED"});
+ if(mongoose.connection.readyState!==1)
+  return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ try{
+  const {preflightOfflineConflict}=require("../core/offline/offlineConflictPreflight.service");
+  const result=await preflightOfflineConflict({
+   db:mongoose.connection.db,auth:req.auth,conflictId:req.query?.conflictId,
+   objectId:id=>new mongoose.Types.ObjectId(id)
+  });
+  res.set("Cache-Control","no-store");
+  return res.json({ok:true,readOnly:true,...result});
+ }catch(error){
+  if(error?.code==="OFFLINE_CONFLICT_PERMISSION_DENIED")
+   return res.status(403).json({ok:false,error:error.code});
+  if(error?.code==="OFFLINE_CONFLICT_INVALID_ID")
+   return res.status(400).json({ok:false,error:error.code});
+  if(error?.code==="OFFLINE_CONFLICT_NOT_FOUND")
+   return res.status(404).json({ok:false,error:error.code});
+  console.error("[OFFLINE] Stock preflight unavailable",error?.code||error?.name||"unknown");
+  return res.status(500).json({ok:false,error:"OFFLINE_CONFLICT_PREFLIGHT_UNAVAILABLE"});
+ }
+});
 module.exports = router;

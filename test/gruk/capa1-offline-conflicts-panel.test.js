@@ -37,3 +37,18 @@ test("admin conflict UI uses strong random ULID, never Math.random",()=>{
  assert.match(panel.createDecisionId(cryptoSource,1750000000000),/^[0-9A-HJKMNP-TV-Z]{26}$/);
  assert.throws(()=>panel.createDecisionId(null),/OFFLINE_REVIEW_CRYPTO_REQUIRED/);
 });
+
+test("admin conflict UI: recheck stock only by read-only GET; never stage a sale",async()=>{
+ const calls=[];
+ const result=await panel.preflight({token:"jwt",conflictId:cid,fetchFn:async(url,options)=>{
+  calls.push({url,options});
+  return {status:200,json:async()=>({ok:true,readOnly:true,conflictId:cid,
+   ready:true,applied:false,cobrado:false,inventoryChanges:false,products:[]})};
+ }});
+ assert.equal(result.ready,true);
+ assert.equal(calls[0].options.method,"GET");
+ assert.ok(calls[0].url.includes("/stock-conflicts/preflight?conflictId="));
+ assert.equal(calls.length,1);
+ await assert.rejects(panel.preflight({token:"jwt",conflictId:"bad",
+   fetchFn:async()=>{throw Error("SHOULD_NOT_FETCH");}}),/OFFLINE_REVIEW_INVALID_CONFLICT/);
+});
