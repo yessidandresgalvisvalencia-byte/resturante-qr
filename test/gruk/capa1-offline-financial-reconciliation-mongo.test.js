@@ -12,7 +12,7 @@ test("MongoDB real: 20 recibidos nunca son cobros; conciliación exige evidencia
 }, async () => {
   const { mongo } = require("mongoose");
   const client = new mongo.MongoClient(uri, { serverSelectionTimeoutMS: 10000 });
-  const name = "gruk_offline_financial_reconcile_" + randomUUID().replace(/-/g, "");
+  const name = "gruk_fin_rec_" + randomUUID().replace(/-/g, "");
   const context = { empresaId: "empresa-uno", sedeId: "sede-uno", actorId: "operador-uno" };
   const eventIds = Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(26, "0"));
   const events = eventIds.map(eventId => ({
