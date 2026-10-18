@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(__dirname,"../../routes/sync.js"),"utf8
 test("sync batch multi-evento rechaza sesión transaccional no disponible sin guardar",async()=>{
   let writes = 0;
   const handlers = {};
-  const router = {post(route,...fns){handlers[route]=fns.at(-1);}};
+  const router = {post(route,...fns){handlers[route]=fns.at(-1);},get(route,...fns){handlers[route]=fns.at(-1);}};
   const mongoose = {connection:{readyState:1,db:{collection(){writes++;throw Error("unexpected write");}}}};
   const module = {exports:{}};
   const imports = {
@@ -37,7 +37,7 @@ test("sync batch multi-evento rechaza sesión transaccional no disponible sin gu
 
 test("sync batch: fallo de sesión del núcleo responde 503 reintentable",async()=>{
   const handlers={};
-  const router={post(route,...handlersList){handlers[route]=handlersList.at(-1);}};
+  const router={post(route,...handlersList){handlers[route]=handlersList.at(-1);},get(route,...handlersList){handlers[route]=handlersList.at(-1);}};
   const mongoose={connection:{readyState:1,db:{client:{startSession:()=>({})}}}};
   const unavailable=Object.assign(new Error("unavailable"),{code:"OFFLINE_TRANSACTION_UNAVAILABLE"});
   const imports={
