@@ -20,4 +20,21 @@ const schema=new mongoose.Schema({
 schema.index({usuarioId:1,idempotencyKey:1},{unique:true});
 schema.index({usuarioId:1,hash:1},{unique:true});
 schema.index({usuarioId:1,secuencia:1},{unique:true,partialFilterExpression:{secuencia:{$type:"number"}}});
+// Defensa en profundidad: el modelo de aplicación solo permite INSERT.
+// Los permisos de base de datos deben prohibir UPDATE/DELETE por separado.
+function prohibirMutacion(){
+ const error=new Error("DECISION_PROOF_APPEND_ONLY");
+ error.code="DECISION_PROOF_APPEND_ONLY";
+ throw error;
+}
+for(const operacion of [
+ "updateOne","updateMany","replaceOne","findOneAndUpdate",
+ "findOneAndReplace","deleteOne","deleteMany","findOneAndDelete"
+]){
+ schema.pre(operacion,prohibirMutacion);
+}
+schema.pre("save",function(){
+ if(!this.isNew)prohibirMutacion();
+});
+schema.pre("insertMany",function(){ /* INSERT permitido */ });
 module.exports=mongoose.models.DecisionProofPersonal||mongoose.model("DecisionProofPersonal",schema);
