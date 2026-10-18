@@ -1,5 +1,6 @@
 "use strict";
 const fs=require("node:fs");
+const crypto=require("node:crypto");
 function validarEvidenciaMongoV81(contenido){
  if(typeof contenido!=="string")throw new TypeError("Evidencia TAP inválida");
  const marcador=(clave)=>{
@@ -45,8 +46,14 @@ if(require.main===module){
  try{
   const ruta=process.argv[2];
   if(!ruta)throw new Error("RUTA_EVIDENCIA_REQUERIDA");
-  const resultado=validarEvidenciaMongoV81(fs.readFileSync(ruta,"utf8"));
-  console.log("[GRUK_V81_MONGO_CI] VALIDADO",JSON.stringify(resultado));
+  const contenido=fs.readFileSync(ruta,"utf8");
+  const resultado=validarEvidenciaMongoV81(contenido);
+  const evidenciaSha256=crypto.createHash("sha256").update(contenido,"utf8").digest("hex");
+  const commit=process.env.GITHUB_SHA&&/^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA)?
+   process.env.GITHUB_SHA:"SIN_SHA_GITHUB";
+  console.log("[GRUK_V81_MONGO_CI] VALIDADO",JSON.stringify({
+   ...resultado,evidenciaSha256,commit
+  }));
  }catch(e){
   console.error("[GRUK_V81_MONGO_CI] BLOQUEADO",e.message);
   process.exitCode=1;
