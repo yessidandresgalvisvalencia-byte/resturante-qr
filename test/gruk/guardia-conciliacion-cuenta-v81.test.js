@@ -41,3 +41,12 @@ test("un huérfano confirmado para otra cuenta no bloquea esta conciliación",()
   cuenta,filas:filtrarHuerfanosSinResolver([filas[0]],vinculados)
  }),true);
 });
+
+test("períodos inválidos se rechazan sin acceder a saldos",()=>{
+ const {fechaCalendarioValidaV81}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+ for(const fecha of ["2026-02-29","2025-02-30","2026-04-31","2026-13-01","2026-00-01","2026-01-00","2026-1-01","texto",""]){
+  assert.equal(fechaCalendarioValidaV81(fecha),false,fecha);
+ }
+ for(const fecha of ["2024-02-29","2026-02-28","2026-12-31","2026-01-01"])
+  assert.equal(fechaCalendarioValidaV81(fecha),true,fecha);
+});
