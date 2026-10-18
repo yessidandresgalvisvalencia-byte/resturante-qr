@@ -76,3 +76,14 @@ test("venta: una venta anulada no acredita reintento de pedido pagado",async()=>
     err=>err.code==="GRUK_VENTA_REPLAY_STATE_CONFLICT"
   );
 });
+
+test("venta: método de pago diferente no puede reutilizar una venta anterior",async()=>{
+  const existing={_id:"venta_1",cantidad:1,precioUnitario:1000,total:1000,
+    productoServicioId:"producto_1",estado:"pagada",metodoPago:"efectivo"};
+  const {service}=makeService(existing);
+  await assert.rejects(
+    service.registrarVentaDesdePedido({pedido:{...pedido,metodoPago:"tarjeta"},
+      empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false}),
+    err=>err.code==="GRUK_VENTA_REPLAY_CONFLICT"
+  );
+});
