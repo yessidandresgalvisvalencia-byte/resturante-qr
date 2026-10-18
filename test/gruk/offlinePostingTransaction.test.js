@@ -7,7 +7,7 @@ const event={...context,eventId:id,tipo:"PEDIDO_REGISTRADO",payload:{localOrderI
 function createDb(){
  let closed=false,committed=false;
  const session={withTransaction:async(fn,opts)=>{assert.equal(opts.readConcern.level,"snapshot");await fn();committed=true;},endSession:async()=>{closed=true;}};
- const db={client:{startSession:()=>session},collection:name=>({find:(q,opts)=>{assert.equal(opts.session,session);return {toArray:async()=>name==="gruk_offline_inbox"?[event]:[{_id:product}]};}})};
+ const db={client:{startSession:()=>session},collection:name=>({find:(q,opts)=>{assert.equal(opts.session,session);return {toArray:async()=>name==="gruk_offline_inbox"?[event]:[{_id:product,empresaId:context.empresaId,sedeId:context.sedeId,activo:true}]};}})};
  return {db,session,state:()=>({closed,committed})};
 }
 test("posteo por callback recibe plan y sesión dentro de misma transacción",async()=>{
