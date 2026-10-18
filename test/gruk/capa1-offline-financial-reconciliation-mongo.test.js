@@ -54,6 +54,9 @@ test("MongoDB real: 20 recibidos nunca son cobros; conciliación exige evidencia
     assert.equal(state.applied, false); // Inbox is still PENDIENTE, not APPLICADO.
     await db.collection("gruk_offline_inbox").updateOne(identity, { $set: { status: "APLICADO" } });
     state = await single();
+    assert.equal(state.applied, false, "APLICADO sin inventario no es una venta aplicada");
+    await db.collection("gruk_offline_inbox").updateOne(identity, { $set: { inventoryApplied: true } });
+    state = await single();
     assert.equal(state.applied, true);
 
     // A duplicate journal or compromised cash amount must fail closed, not count as applied.

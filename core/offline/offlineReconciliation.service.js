@@ -16,7 +16,7 @@ async function readOfflineReconciliation({db,context,eventIds}){
  const scope={empresaId:context.empresaId,sedeId:context.sedeId,
   actorId:context.actorId,eventId:{$in:eventIds}};
  const specs=[
-  ["gruk_offline_inbox",{eventId:1,status:1}],
+  ["gruk_offline_inbox",{eventId:1,status:1,inventoryApplied:1}],
   ["gruk_offline_ventas",{eventId:1,status:1,totalCop:1}],
   ["gruk_offline_caja_intenciones",{eventId:1,status:1,cobrado:1,montoCop:1}],
   ["gruk_ledger_movimientos",{eventId:1,tipo:1,montoCop:1,deletedAt:1}]
@@ -42,7 +42,7 @@ async function readOfflineReconciliation({db,context,eventIds}){
    cop(ledger.montoCop)&&sale.totalCop===cash.montoCop&&cash.montoCop===ledger.montoCop);
   const financiallyReconciled=!!(staged&&sale.status==="CONTABILIZADA"&&
    cash.status==="CONCILIADO"&&cash.cobrado===true);
-  const applied=inbox.status==="APLICADO"&&financiallyReconciled;
+  const applied=inbox.status==="APLICADO"&&inbox.inventoryApplied===true&&financiallyReconciled;
   return {eventId,status:inbox.status,staged,financiallyReconciled,applied};
  });
 }
