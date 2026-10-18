@@ -1,7 +1,7 @@
 "use strict";
 // GRUK app shell: no offline sales, payments, API or sensitive documents cached.
-const CACHE_NAME="gruk-static-shell-v3";
-const SAFE_ASSETS=new Set(["/style.css","/js/gruk-offline-outbox.js","/js/gruk-offline-transport.js","/js/gruk-offline-draft.js","/js/gruk-offline-panel.js","/offline-status.html"]);
+const CACHE_NAME="gruk-static-shell-v4";
+const SAFE_ASSETS=new Set(["/style.css","/js/gruk-offline-outbox.js","/js/gruk-offline-transport.js","/js/gruk-offline-catalog.js","/js/gruk-offline-draft.js","/js/gruk-offline-panel.js","/offline-status.html"]);
 self.addEventListener("install",event=>{event.waitUntil(self.skipWaiting());});
 self.addEventListener("activate",event=>{event.waitUntil(self.clients.claim());});
 self.addEventListener("fetch",event=>{
