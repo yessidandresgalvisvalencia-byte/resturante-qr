@@ -1,0 +1,20 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
+const code=fs.readFileSync(path.join(__dirname,"../../public/finanzas-personales.js"),"utf8");
+test("Eventos de socket viejo o sesión cerrada no actualizan datos financieros",()=>{
+ const a=code.indexOf("function connect(){"),b=code.indexOf("async function cargarCompromisosCuotas()",a);
+ assert.ok(a>=0&&b>a);
+ const snippet=code.slice(a,b);
+ assert.match(snippet,/const tokenConexion=token/);
+ assert.match(snippet,/socket===conexion/);
+ assert.match(snippet,/token===tokenConexion/);
+ assert.match(snippet,/if\(!vigente\(\)\)return/);
+ const events={};let actualToken="uno",actualSocket,appHidden=false,loads=0,live={textContent:"",dataset:{}};
+ const io=()=>{const s={on(name,cb){events[name]=cb;return s;},disconnect(){}};return s;};
+ const ctx={io,token:actualToken,socket:null,$:id=>id==="app"?{hidden:appHidden}:live,load:()=>{loads++;}};
+ vm.runInNewContext(snippet+";connect();",ctx);
+ assert.equal(typeof events["finanzas:evento"],"function");
+ const oldEvent=events["finanzas:evento"];
+ ctx.token="dos";oldEvent({eventName:"RECORDATORIO_COBRO",payload:{mensaje:"privado"}});
+ assert.equal(loads,0);assert.equal(live.textContent,"");
+});
