@@ -220,7 +220,8 @@ costoFuente:
         Number(ventaExistente.precioUnitario) === Number(pedido.precioUnitario) &&
         Number(ventaExistente.total) === Number(pedido.precio) &&
         String(ventaExistente.productoServicioId) === String(pedido.productoServicioId) &&
-        String(ventaExistente.metodoPago || "") === String(pedido.metodoPago || "");
+        String(ventaExistente.metodoPago || "") === String(pedido.metodoPago || "") &&
+        String(ventaExistente.clienteId || "") === String(pedido.clienteId || "");
       // Cancelled or unpaid sales cannot satisfy a paid-order replay.
       if (ventaExistente.estado !== "pagada") {
         const conflict = new Error("GRUK_VENTA_REPLAY_STATE_CONFLICT");
