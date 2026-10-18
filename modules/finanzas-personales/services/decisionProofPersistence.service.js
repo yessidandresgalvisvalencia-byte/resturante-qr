@@ -46,13 +46,19 @@ function esColisionSecuencia(error) {
   error?.keyPattern?.usuarioId===1 && error?.keyPattern?.secuencia===1 &&
   Object.keys(error.keyPattern).length===2);
 }
+function validarClaveDecisionProofV81(valor){
+ if(typeof valor!=="string")throw new TypeError("idempotencyKey inválida");
+ const clave=valor.trim();
+ if(!(/^[\x21-\x7e]{8,128}$/.test(clave)))
+  throw new TypeError("idempotencyKey inválida");
+ return clave;
+}
 async function registrar(usuarioId,args){
  if(!usuarioId)throw new TypeError("usuarioId obligatorio");
- if(typeof args?.idempotencyKey!=="string"||!(/^[\x21-\x7e]{8,128}$/.test(args.idempotencyKey.trim())))throw new TypeError("idempotencyKey inválida");
+ const clave=validarClaveDecisionProofV81(args?.idempotencyKey);
  const fp=fingerprint(args);
- const existente=await DecisionProof.findOne({usuarioId,idempotencyKey:args.idempotencyKey.trim()}).lean();
+ const existente=await DecisionProof.findOne({usuarioId,idempotencyKey:clave}).lean();
  if(existente)return resolverExistente(existente,fp);
- const clave=args.idempotencyKey.trim();
  // La inicialización se hace fuera de la transacción; una creación simultánea
  // puede devolver E11000 aun cuando la otra solicitud haya creado el head.
  try {
@@ -89,4 +95,4 @@ async function registrar(usuarioId,args){
  }
  throw new Error("DECISION_PROOF_RETRY_EXHAUSTED");
 }
-module.exports={fingerprint,resolverExistente,esConflictoTransitorio,esColisionSecuencia,registrar};
+module.exports={validarClaveDecisionProofV81,fingerprint,resolverExistente,esConflictoTransitorio,esColisionSecuencia,registrar};
