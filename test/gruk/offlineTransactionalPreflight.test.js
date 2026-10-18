@@ -7,7 +7,7 @@ const event={...context,eventId:id,tipo:"PEDIDO_REGISTRADO",payload:{localOrderI
 test("usa snapshot y misma sesión en ambas colecciones, y la libera",async()=>{
  let closed=false,options,seen=[];
  const session={withTransaction:async(fn,opts)=>{options=opts;await fn();},endSession:async()=>{closed=true;}};
- const db={client:{startSession:()=>session},collection:name=>({find:(query,opts)=>{seen.push(opts.session);return {toArray:async()=>name==="gruk_offline_inbox"?[event]:[{_id:product}]};}})};
+ const db={client:{startSession:()=>session},collection:name=>({find:(query,opts)=>{seen.push(opts.session);return {toArray:async()=>name==="gruk_offline_inbox"?[event]:[{_id:product,empresaId:context.empresaId,sedeId:context.sedeId,activo:true}]};}})};
  const result=await prepare({db,context,eventIds:[id],objectId:x=>x});
  assert.equal(result.totalCop,"3000");
  assert.deepEqual(seen,[session,session]);assert.equal(options.readConcern.level,"snapshot");assert.equal(closed,true);
