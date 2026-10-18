@@ -2,7 +2,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
-const { mongo } = require("mongoose");
 const { ensureOfflineLedgerIndexes } = require("../../core/offline/offlineLedgerIndexes.service");
 
 const mongoUri = process.env.GRUK_TEST_MONGO_URI || process.env.TEST_MONGO_URI;
@@ -11,6 +10,7 @@ test("MongoDB real: ledger offline evita duplicados por empresa, sede, evento y 
   skip: !mongoUri && "Requiere MongoDB de prueba; nunca conectar a producción",
   timeout: 30000
 }, async () => {
+  const { mongo } = require("mongoose");
   const client = new mongo.MongoClient(mongoUri, { serverSelectionTimeoutMS: 10000 });
   const database = "gruk_ledger_index_test_" + randomUUID().replace(/-/g, "");
   let connected = false;
