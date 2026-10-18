@@ -12,7 +12,7 @@ const {verificarAnclaDecisionMongo} = require("./anclaDecisionMongo.service");
 async function auditarAnclaCustodiada(usuarioId, clave, custodio) {
  if (!mongoose.isObjectIdOrHexString(usuarioId)) throw new TypeError("usuarioId inválido");
  if (!Buffer.isBuffer(clave) || clave.length < 32) throw new TypeError("Clave HMAC inválida");
- const usuarioCanonico = String(usuarioId);
+ const usuarioCanonico = new mongoose.Types.ObjectId(String(usuarioId)).toHexString();
  if (!custodio || typeof custodio.obtenerUltimaAncla !== "function") {
   return {valida:false,codigo:"CUSTODIO_EXTERNO_NO_CONFIGURADO"};
  }
