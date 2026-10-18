@@ -59,7 +59,7 @@
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readwrite"),s=t.objectStore(STORE),r=s.get(eventId);
       let updated=false;
-      r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(!matchesTenant(v.event,context))return;if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);updated=true;};
+      r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(!matchesTenant(v.event,context))return;if(v.syncStatus==="received"){updated=true;return;}if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);updated=true;};
       r.onerror=()=>reject(r.error);
       t.oncomplete=()=>resolve(updated);
       t.onerror=()=>reject(t.error);
