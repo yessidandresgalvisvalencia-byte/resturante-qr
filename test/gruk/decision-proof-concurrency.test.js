@@ -105,6 +105,20 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   assert.deepEqual(await verificarAnclaDecisionMongo(usuarioId,claveAncla,anclaMongo),{
     valida:true,codigo:"ANCLA_VERIFICADA",secuenciaAnclada:4
   });
+  const {auditarAnclaCustodiada}=require("../../modules/finanzas-personales/services/auditoriaAnclaCustodiada.service");
+  assert.deepEqual(await auditarAnclaCustodiada(usuarioId,claveAncla),{
+    valida:false,codigo:"CUSTODIO_EXTERNO_NO_CONFIGURADO"
+  });
+  assert.deepEqual(await auditarAnclaCustodiada(usuarioId,claveAncla,{
+    obtenerUltimaAncla:async()=>null
+  }),{valida:false,codigo:"ANCLA_EXTERNA_NO_DISPONIBLE"});
+  assert.deepEqual(await auditarAnclaCustodiada(usuarioId,claveAncla,{
+    obtenerUltimaAncla:async()=>{throw new Error("almacen no disponible");}
+  }),{valida:false,codigo:"CUSTODIO_EXTERNO_NO_DISPONIBLE"});
+  assert.deepEqual(await auditarAnclaCustodiada(usuarioId,claveAncla,{
+    obtenerUltimaAncla:async(id)=>{assert.equal(String(id),String(usuarioId));return anclaMongo;}
+  }),{valida:true,codigo:"ANCLA_VERIFICADA",secuenciaAnclada:4});
+
   assert.deepEqual(await verificarAnclaDecisionMongo(usuarioId,claveAncla,{
     ...anclaMongo,firma:"0".repeat(64)
   }),{valida:false,codigo:"FIRMA_INVALIDA"});
