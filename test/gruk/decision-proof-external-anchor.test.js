@@ -69,3 +69,19 @@ test("rechaza el trasplante de una cadena de otro usuario aunque su ancla sea vÃ
  assert.equal(verificarAncla(ancla,KEY,registros,{...head,usuarioId:otro},USER).codigo,"PROPIETARIO_CADENA_NO_COINCIDE");
  assert.equal(verificarAncla(ancla,KEY,registros.map(({usuarioId,...resto})=>resto),head,USER).codigo,"PROPIETARIO_CADENA_NO_COINCIDE");
 });
+
+test("ancla externa rechaza reescritura completa de una cadena autoconsistente",()=>{
+ const {registros,head}=escenario();
+ const ancla=crearAncla({usuarioId:USER,secuencia:2,headHash:head.headHash,emitidaEn:TIME},KEY);
+ // Un atacante con acceso total a MongoDB puede reconstruir TODOS los hashes.
+ // La cadena nueva se verifica internamente; el ancla firmada antigua no coincide.
+ const base={accion:"RECONSTRUIDO",evaluacion:{autorizada:true,motivos:[]},corte:new Date(TIME),version:2};
+ const primero=crear({...base,secuencia:1,previousHash:null,idempotencyKey:"decision-0001"});
+ const segundo=crear({...base,secuencia:2,previousHash:primero.hash,idempotencyKey:"decision-0002"});
+ const falsificados=[{...primero,usuarioId:USER},{...segundo,usuarioId:USER}];
+ const headFalso={usuarioId:USER,secuencia:2,headHash:segundo.hash};
+ const {verificarCadena}=require("../../modules/finanzas-personales/services/verificarCadenaDecision.service");
+ assert.equal(verificarCadena(falsificados,headFalso,USER).valida,true);
+ assert.equal(verificarAncla(ancla,KEY,falsificados,headFalso,USER).codigo,"ANCLA_NO_COINCIDE");
+ assert.notEqual(registros[0].hash,primero.hash);
+});
