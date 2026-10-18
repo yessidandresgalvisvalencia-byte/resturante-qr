@@ -15,7 +15,7 @@
     "build:personal": "npm run check:syntax && npm run test:finanzas-personales",
     "ci:personal": "npm run build:personal",
     "audit:personal:mongo-privileges": "node scripts/audit-personal-mongo-privileges.js",
-    "postinstall": "node scripts/auditoria-instalacion-personal.js"
+    "postinstall": "node scripts/auditoria-instalacion-personal.js && node scripts/gate-construccion-finanzas-personales.js"
   },
   "engines": {
     "node": "20.x"
