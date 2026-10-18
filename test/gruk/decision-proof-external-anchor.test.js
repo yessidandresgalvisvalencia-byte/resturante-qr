@@ -27,7 +27,7 @@ test("detecta cadena reescrita aunque head coincida con la cadena nueva",()=>{
  const {registros,head}=escenario();
  const ancla=crearAncla({usuarioId:USER,secuencia:2,headHash:head.headHash,emitidaEn:TIME},KEY);
  const nuevo=crear({accion:"SIMULAR",evaluacion:{autorizada:true,motivos:[]},corte:new Date(TIME),version:2,secuencia:2,previousHash:registros[0].hash,idempotencyKey:"decision-0002"});
- assert.equal(verificarAncla(ancla,KEY,[registros[0],nuevo],{secuencia:2,headHash:nuevo.hash},USER).codigo,"ANCLA_NO_COINCIDE");
+ assert.equal(verificarAncla(ancla,KEY,[registros[0],{...nuevo,usuarioId:USER}],{usuarioId:USER,secuencia:2,headHash:nuevo.hash},USER).codigo,"ANCLA_NO_COINCIDE");
 });
 test("rechaza borrado completo del historial",()=>{
  const {head}=escenario();
