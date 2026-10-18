@@ -70,7 +70,10 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
   const carrera=await Promise.allSettled(entradas.map(datos=>anexarEventoV81(d,datos)));
   assert.ok(carrera.some(r=>r.status==="fulfilled"));
   for(const resultado of carrera){
-   if(resultado.status==="rejected")assert.equal(resultado.reason.statusCode,409);
+   if(resultado.status==="rejected"){
+    assert.equal(resultado.reason.statusCode,409);
+    assert.equal(resultado.reason.codigo,"REINTENTAR_MISMO_ID");
+   }
   }
   // El resultado de la carrera no implica que un fallo sea definitivo:
   // repetir con la misma clave resuelve tanto escrituras confirmadas como abortadas.
