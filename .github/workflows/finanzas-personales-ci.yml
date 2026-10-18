@@ -37,5 +37,20 @@ jobs:
           node-version: '20'
           cache: npm
       - run: npm ci
-      - name: Bloquear vulnerabilidades altas o críticas
-        run: npm audit --omit=dev --audit-level=high
+      - name: Identificar paquetes vulnerables y bloquear severidad alta
+        shell: bash
+        run: |
+          set +e
+          npm audit --omit=dev --json > audit-finanzas.json
+          status=$?
+          set -e
+          node scripts/resumen-auditoria-personal.js audit-finanzas.json >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - name: Adjuntar evidencia del escaneo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auditoria-dependencias-finanzas
+          path: audit-finanzas.json
+          if-no-files-found: ignore
+          retention-days: 7
