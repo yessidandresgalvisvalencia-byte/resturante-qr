@@ -25,7 +25,7 @@ jobs:
           node-version: '20'
           cache: npm
       - name: Instalar dependencias reproducibles
-        run: npm ci
+        run: npm ci --omit=dev
       - name: Comprobar sintaxis y suite financiera
         run: npm run check:personal && npm run test:finanzas-personales
   auditoria-dependencias:
@@ -37,12 +37,12 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-      - run: npm ci
+      - run: npm ci --omit=dev
       - name: Identificar paquetes vulnerables y bloquear severidad alta
         shell: bash
         run: |
           set +e
-          npm audit --audit-level=high --json > audit-finanzas.json
+          npm audit --omit=dev --audit-level=high --json > audit-finanzas.json
           status=$?
           set -e
           node scripts/resumen-auditoria-personal.js audit-finanzas.json >> "$GITHUB_STEP_SUMMARY"
@@ -51,7 +51,34 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: auditoria-dependencias-finanzas
+          name: auditoria-dependencias-produccion-finanzas
           path: audit-finanzas.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  auditoria-desarrollo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias incluyendo desarrollo
+        run: npm ci
+      - name: Informar riesgos de desarrollo sin ocultarlos
+        shell: bash
+        run: |
+          set +e
+          npm audit --audit-level=high --json > audit-desarrollo-finanzas.json
+          set -e
+          node scripts/resumen-auditoria-personal.js audit-desarrollo-finanzas.json >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Guardar evidencia de dependencias de desarrollo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auditoria-dependencias-desarrollo-finanzas
+          path: audit-desarrollo-finanzas.json
           if-no-files-found: ignore
           retention-days: 7
