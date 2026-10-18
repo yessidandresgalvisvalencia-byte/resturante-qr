@@ -22,8 +22,7 @@ function crearConsultaConciliacionCuentaV81(consultar=conciliarHistoricoCuentaV8
    if(!q||typeof q!=="object"||Object.keys(q).some(k=>!["cuentaId","desde","hastaExclusivo","saldoInicialCop","saldoObservadoCop"].includes(k)))
     throw new TypeError("Parámetros inválidos");
    if(typeof q.cuentaId!=="string"||!/^[a-f0-9]{24}$/i.test(q.cuentaId))throw new TypeError("Cuenta inválida");
-   if(typeof q.desde!=="string"||typeof q.hastaExclusivo!=="string"||
-     false)
+   if(typeof q.desde!=="string"||typeof q.hastaExclusivo!=="string")
     throw new TypeError("Período inválido");
    exigirPeriodoAcotadoV81(q.desde,q.hastaExclusivo);
    const saldoInicialCentavos=parsearSaldoFirmadoCopACentavos(q.saldoInicialCop);
