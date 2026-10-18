@@ -38,3 +38,10 @@ test("aplicador recibe los deltas de inventario dentro de la transacción",async
  assert.equal(result,"PREPARADO");
  assert.equal(fixture.state().committed,true);
 });
+
+test("posteo sin resultado explícito aborta transacción y libera sesión",async()=>{
+ const fixture=createDb();
+ await assert.rejects(execute({db:fixture.db,context,eventIds:[id],objectId:x=>x,
+ postDomainOperations:async()=>undefined}),e=>e.code==="OFFLINE_POSTER_OUTCOME_REQUIRED");
+ assert.deepEqual(fixture.state(),{closed:true,committed:false});
+});
