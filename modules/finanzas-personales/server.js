@@ -13,6 +13,20 @@ async function start(){validateEnv();const app=buildApp(),server=http.createServ
 });console.log("[GRUK_INDICES_V81]",JSON.stringify(auditoria));
 if(auditoria.integridadIndices!=="VERIFICADA")
  console.error("[GRUK_INDICES_V81] Índices de seguridad no verificados: las escrituras protegidas fallarán cerradas.");
-const port=Number(process.env.PORT||process.env.PERSONAL_PORT||3100);if(!Number.isInteger(port)||port<1||port>65535)throw new Error("Puerto personal inválido");await new Promise((resolve,reject)=>{server.once("error",reject);server.listen(port,"0.0.0.0",resolve);});console.log("GRUK Finanzas Personales escuchando en",port);try{await macroCollector.persistColombia();console.log("GRUK macro CO actualizado");}catch(e){console.error("[MACRO_COLLECTOR]",e.message)}const runCobros=()=>recordatoriosCobro.ejecutar().catch(e=>console.error("[RECORDATORIOS_COBRO]",e.message));await runCobros();const recordatoriosTimer=setInterval(runCobros,60*60*1000);recordatoriosTimer.unref();const runOutbox=()=>flujoCaja.republicarPendientes(100).catch(e=>console.error("[FIN_PERSONAL_OUTBOX]",e.message));await runOutbox();const outboxTimer=setInterval(runOutbox,60*1000);outboxTimer.unref();return{app,server,io};}
+const port=Number(process.env.PORT||process.env.PERSONAL_PORT||3100);if(!Number.isInteger(port)||port<1||port>65535)throw new Error("Puerto personal inválido");await new Promise((resolve,reject)=>{server.once("error",reject);server.listen(port,"0.0.0.0",resolve);});console.log("GRUK Finanzas Personales escuchando en",port);
+// Estos trabajos son auxiliares. No deben bloquear el arranque ni la
+// disponibilidad del API si el proveedor externo o un lote tarda en responder.
+Promise.resolve().then(()=>macroCollector.persistColombia())
+ .then(()=>console.log("GRUK macro CO actualizado"))
+ .catch(e=>console.error("[MACRO_COLLECTOR]",e.message));
+const runCobros=()=>Promise.resolve().then(()=>recordatoriosCobro.ejecutar())
+ .catch(e=>console.error("[RECORDATORIOS_COBRO]",e.message));
+void runCobros();
+const recordatoriosTimer=setInterval(runCobros,60*60*1000);recordatoriosTimer.unref();
+const runOutbox=()=>Promise.resolve().then(()=>flujoCaja.republicarPendientes(100))
+ .catch(e=>console.error("[FIN_PERSONAL_OUTBOX]",e.message));
+void runOutbox();
+const outboxTimer=setInterval(runOutbox,60*1000);outboxTimer.unref();
+return{app,server,io};}
 if(require.main===module)start().catch(err=>{console.error("[FIN_PERSONAL_BOOT]",err.message);process.exit(1);});
 module.exports={buildApp,start,validateEnv};
