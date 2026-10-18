@@ -83,13 +83,18 @@ async function acceptOfflineBatch({ db, authenticatedContext, events }) {
   }
   const session = db.client.startSession();
   try {
+    if (!session || typeof session.withTransaction !== "function") {
+      const error = new Error("OFFLINE_TRANSACTION_UNAVAILABLE");
+      error.code = "OFFLINE_TRANSACTION_UNAVAILABLE";
+      throw error;
+    }
     let result;
     await session.withTransaction(async () => {
       result = await insertBatch({db, authenticatedContext, events, session});
     });
     return result;
   } finally {
-    await session.endSession();
+    if (session && typeof session.endSession === "function") await session.endSession();
   }
 }
 module.exports = { ensureInboxIndexes, acceptOfflineBatch, digest };
