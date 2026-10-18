@@ -36,6 +36,21 @@ function resolverSaldoAsesor(pat){
  return{montoMinor:Number(pat?.liquidezMinor||0),conocido:false,confiabilidad:"NO_VERIFICADO",fuente:pat?.fuenteLiquidez||"NO_VERIFICADO",requiereReconciliacion:true};
 }
 function calcularDisponibleHoy({saldoMinor,gastosFijosAntesProximoIngresoMinor=0}){for(const n of [saldoMinor,gastosFijosAntesProximoIngresoMinor])if(!Number.isSafeInteger(n)||n<0)throw new TypeError("Disponible Hoy requiere enteros seguros no negativos");const colchonMinor=Math.floor(saldoMinor/10);const baseMinor=saldoMinor-gastosFijosAntesProximoIngresoMinor-colchonMinor;if(!Number.isSafeInteger(baseMinor))throw new RangeError("Disponible Hoy excede el rango monetario seguro");return{colchonMinor,baseMinor,disponibleHoyMinor:Math.max(0,baseMinor),estaEnRojo:baseMinor<0};}
+function calcularEscenarioGmfGravado({saldoMinor,gastosFijosAntesProximoIngresoMinor=0}){
+ const base=calcularDisponibleHoy({saldoMinor,gastosFijosAntesProximoIngresoMinor});
+ const escenario=maximoGastoHoyConGmf({
+  saldoCentavos:BigInt(saldoMinor),
+  porVencer7dCentavos:BigInt(gastosFijosAntesProximoIngresoMinor),
+  gravado:true
+ });
+ const gastoMaximoSiGravadoMinor=Number(escenario.gastoMaximoCentavos);
+ const reservaGmfSiGravadoMinor=Number(escenario.reserva4x1000Centavos);
+ if(!Number.isSafeInteger(gastoMaximoSiGravadoMinor)||!Number.isSafeInteger(reservaGmfSiGravadoMinor))
+  throw new RangeError("Escenario GMF excede rango monetario seguro");
+ if(gastoMaximoSiGravadoMinor+reservaGmfSiGravadoMinor>base.disponibleHoyMinor)
+  throw new Error("Escenario GMF supera disponible");
+ return {gastoMaximoSiGravadoMinor,reservaGmfSiGravadoMinor};
+}
 function calcularFlujoMes({ingresosMinor=0,gastosMinor=0,pagosDeudaRegistradosMinor=0,cuotasVencenMesMinor=0}){for(const n of [ingresosMinor,gastosMinor,pagosDeudaRegistradosMinor,cuotasVencenMesMinor])if(!Number.isSafeInteger(n)||n<0)throw new TypeError("Los importes del flujo deben ser enteros seguros no negativos");const cuotasPendientesMesMinor=Math.max(0,cuotasVencenMesMinor-pagosDeudaRegistradosMinor);const flujoRealizadoMinor=ingresosMinor-gastosMinor-pagosDeudaRegistradosMinor;const flujoProyectadoMesMinor=flujoRealizadoMinor-cuotasPendientesMesMinor;if(!Number.isSafeInteger(flujoRealizadoMinor)||!Number.isSafeInteger(flujoProyectadoMesMinor))throw new RangeError("El flujo calculado excede el rango monetario seguro");return{cuotasPendientesMesMinor,flujoRealizadoMinor,flujoProyectadoMesMinor};}
 
 async function obtener(usuarioId,now=new Date()){
@@ -87,17 +102,9 @@ async function obtener(usuarioId,now=new Date()){
  const saldoEstado=resolverSaldoAsesor(pat);
  const saldoAsesorMinor=saldoEstado.montoMinor;
  const {colchonMinor,baseMinor:disponibleBaseMinor,disponibleHoyMinor,estaEnRojo}=calcularDisponibleHoy({saldoMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor});
- // Escenario conservador para movimientos gravados. No presume que la cuenta está exenta.
- // Los importes del panel son enteros minor (centavos COP), convertidos exactamente a BigInt.
- const escenarioGmfGravado=maximoGastoHoyConGmf({
-  saldoCentavos:BigInt(saldoAsesorMinor),
-  porVencer7dCentavos:BigInt(gastosFijosAntesProximoIngresoMinor),
-  gravado:true
+ const {gastoMaximoSiGravadoMinor,reservaGmfSiGravadoMinor}=calcularEscenarioGmfGravado({
+  saldoMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor
  });
- const gastoMaximoSiGravadoMinor=Number(escenarioGmfGravado.gastoMaximoCentavos);
- const reservaGmfSiGravadoMinor=Number(escenarioGmfGravado.reserva4x1000Centavos);
- if(!Number.isSafeInteger(gastoMaximoSiGravadoMinor)||!Number.isSafeInteger(reservaGmfSiGravadoMinor))
-  throw new RangeError("Escenario GMF excede rango monetario seguro");
  const aptoParaDisponibleHoy=saldoEstado.confiabilidad==="VERIFICADO"&&!saldoEstado.requiereReconciliacion;
  const disponibleDespuesCompromisosMinor=pat.saldoVerificado?pat.liquidezMinor-cuotasPendientesMesMinor:null;
  const proxima=deudas.find(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=now&&x.saldoMinor>0)||null;
@@ -122,4 +129,4 @@ async function obtener(usuarioId,now=new Date()){
  const verdadFinanciera={saldo:saldoEstado.confiabilidad==="VERIFICADO"?truth.hecho({montoMinor:saldoAsesorMinor,fuente:saldoEstado.fuente,corte:now,confianza:"VERIFICADO"}):truth.inferencia({montoMinor:saldoAsesorMinor,fuente:saldoEstado.fuente,corte:now,confianza:saldoEstado.conocido?"MEDIA":"NO_VERIFICADO",requiereReconciliacion:true}),flujoMes:truth.hecho({montoMinor:flujoRealizadoMinor,fuente:"LEDGER_PERSONAL",corte:now,confianza:"ALTA"}),flujoProyectado:truth.proyeccion({montoMinor:flujoProyectadoMesMinor,fuente:"LEDGER_MAS_COMPROMISOS",corte:now,confianza:saldoEstado.conocido?"MEDIA":"BAJA"}),disponibleHoy:truth.decision({montoMinor:disponibleHoyMinor,fuente:"REGLA_DISPONIBLE_HOY",corte:now,confianza:saldoEstado.confiabilidad==="VERIFICADO"?"ALTA":"MEDIA",requiereReconciliacion:saldoEstado.requiereReconciliacion})};
  return{corte:now,moneda:"COP",verdadFinanciera,asesor:{disponibleHoyMinor:aptoParaDisponibleHoy?disponibleHoyMinor:null,gastoMaximoSiGravadoMinor:aptoParaDisponibleHoy?gastoMaximoSiGravadoMinor:null,reservaGmfSiGravadoMinor:aptoParaDisponibleHoy?reservaGmfSiGravadoMinor:null,escenarioGmf:"SIMULACION_GRAVADO_NO_VERIFICADO",aptoParaDisponibleHoy,colchonMinor,estaEnRojo:aptoParaDisponibleHoy?estaEnRojo:null,formula:"saldo_real - gastos_fijos_antes_proximo_ingreso - colchon_10pct",saldoRealMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor,proximoIngreso:proximoIngreso?{fecha:proximoIngreso.fecha,montoMinor:proximoIngreso.tx.montoMinor,concepto:proximoIngreso.tx.concepto}:null,proximoIngresoConocido:Boolean(proximoIngreso),compromisosAntesProximoIngreso:compromisosAntesIngreso,saldoRealConocido:saldoEstado.conocido,saldoRequiereReconciliacion:saldoEstado.requiereReconciliacion,saldoDerivadoLedger:saldoEstado.confiabilidad==="RECONSTRUIDO_SIN_ANCLA",saldoConfiabilidad:saldoEstado.confiabilidad,fuenteSaldo:saldoEstado.fuente,fuentesSaldo:(pat.cuentas||[]).map(x=>({nombre:x.nombre,saldoMinor:x.saldoMinor}))},mes:{balancePeriodoMinor,diferenciaBalanceFlujoMinor,gastosSinSalidaCajaMinor,conciliacionBalanceFlujo:{balancePeriodoMinor,gastosSinSalidaCajaMinor,pagosDeudaRegistradosMinor,cobrosRecibidosMinor,flujoRealizadoMinor,diferenciaBalanceFlujoMinor},ingresosMinor,cobrosCuentasPorCobrarMinor:cobrosRecibidosMinor,gastosMinor,gastosConsumoMinor,pagosDeudaRegistradosMinor,cuotasPendientesMesMinor,flujoRealizadoMinor,flujoMinor:flujoProyectadoMesMinor},caja:{saldoLiquidoMinor:pat.liquidezMinor,comprometidoMinor:cuotasPendientesMesMinor,disponibleDespuesCompromisosMinor,liquidezConciliada:Boolean(pat.saldoVerificado)},patrimonio:{netoMinor:pat.patrimonioFinancieroNetoMinor,deudaTotalMinor:pat.pasivosMinor,liquidezMinor:pat.liquidezMinor,cuentasPorCobrarMinor:pat.cuentasPorCobrarMinor},proximaObligacion:proxima?{id:proxima._id,concepto:proxima.concepto,montoMinor:Math.min(proxima.cuotaMinor||proxima.saldoMinor,proxima.saldoMinor),fecha:proxima.fechaVencimiento}:null,decisiones:decisiones.slice(0,5),explicaciones,fuente:"ledger_personal_canonico"};
 }
-module.exports={obtener,cuotaDelPeriodo,gastoAfectaCaja,resolverSaldoAsesor,calcularDisponibleHoy,calcularFlujoMes,_fechas:{partesColombia,monthStart,nextMonth,fechaCivilColombia,siguienteFechaRecurrente}};
+module.exports={obtener,cuotaDelPeriodo,gastoAfectaCaja,resolverSaldoAsesor,calcularDisponibleHoy,calcularEscenarioGmfGravado,calcularFlujoMes,_fechas:{partesColombia,monthStart,nextMonth,fechaCivilColombia,siguienteFechaRecurrente}};
