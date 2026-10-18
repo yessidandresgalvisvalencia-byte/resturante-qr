@@ -75,7 +75,7 @@ async function anexarEventoV81(usuarioId,datos){
    // Comparación y sustitución: solo una escritura puede avanzar esta versión.
    const update=await Cabeza.updateOne({usuarioId,version:cabeza.version,hashActual:cabeza.hashActual},
      {$set:{version,hashActual:evento.hashActual}},{session});
-   if(update.modifiedCount!==1)throw Object.assign(new Error("Conflicto de concurrencia en ledger V81"),{statusCode:409});
+   if(update.modifiedCount!==1)throw Object.assign(new Error("Conflicto de concurrencia en ledger V81: reintenta con el mismo eventId"),{statusCode:409,codigo:"REINTENTAR_MISMO_ID"});
    await Evento.create([{usuarioId,eventId:evento.id,version,tipo:evento.tipo,
     montoCentavos:evento.montoCentavos.toString(),fechaContable:evento.fechaContable,
     timestamp:evento.timestamp,corrigeId:evento.corrigeId||null,motivo:evento.motivo||null,
