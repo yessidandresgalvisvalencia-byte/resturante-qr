@@ -1,5 +1,6 @@
 name: Finanzas Personales V81 - Precision e Integridad
 on:
+  workflow_dispatch:
   push:
     branches: [feature/finanzas-personales]
     paths:
