@@ -14,6 +14,12 @@ function coincideVinculo(previo,{movimientoId,cuentaId,evidencia,idempotencyKeyH
   String(previo.cuentaId)===String(cuentaId)&&previo.evidencia===evidencia.trim()&&
   previo.idempotencyKeyHash===idempotencyKeyHash);
 }
+function decidirReintentoVinculo(previos,solicitud){
+ if(!Array.isArray(previos))throw new TypeError("Registros de vínculo inválidos");
+ if(!previos.length)return {existe:false,coincide:false};
+ // No confiar en findOne($or): puede ocultar otro conflicto simultáneo.
+ return {existe:true,coincide:previos.length===1&&coincideVinculo(previos[0],solicitud)};
+}
 function resolverConfirmacion({usuarioId,movimiento,cuenta,evidencia,idempotencyKey}){
  if(!mongoose.isValidObjectId(usuarioId)||!movimiento||!cuenta)throw Object.assign(new Error("Cuenta o movimiento no encontrado"),{statusCode:404});
  if(String(movimiento.usuarioId)!==String(usuarioId)||String(cuenta.usuarioId)!==String(usuarioId))
@@ -56,9 +62,10 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
    ];
    const campos=resolverConfirmacion({usuarioId,movimiento,cuenta,evidencia,idempotencyKey});
    // Reintentos de la misma operación no crean evidencia adicional.
-   const previo=await Vinculo.findOne({usuarioId,$or:[{movimientoId},{idempotencyKeyHash}]}).session(session).lean();
-   if(previo){
-    if(!coincideVinculo(previo,{movimientoId,cuentaId,evidencia:campos.evidencia,idempotencyKeyHash}))
+   const previos=await Vinculo.find({usuarioId,$or:[{movimientoId},{idempotencyKeyHash}]}).session(session).lean();
+   const existente=decidirReintentoVinculo(previos,{movimientoId,cuentaId,evidencia:campos.evidencia,idempotencyKeyHash});
+   if(existente.existe){
+    if(!existente.coincide)
      throw Object.assign(new Error("Vínculo existente o clave utilizada para otro destino"),{statusCode:409});
     return {confirmado:true,yaExistia:true,modificaSaldo:false};
    }
@@ -69,12 +76,12 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
   if(e.code===11000){
    // El insert duplicado pudo haber sido el mismo intento concurrente.
    // Solo responder idempotentemente tras leer el registro ya confirmado.
-   const previo=await Vinculo.findOne({usuarioId,$or:[{movimientoId},{idempotencyKeyHash}]}).lean();
-   if(coincideVinculo(previo,{movimientoId,cuentaId,evidencia,idempotencyKeyHash}))
+   const previos=await Vinculo.find({usuarioId,$or:[{movimientoId},{idempotencyKeyHash}]}).lean();
+   if(decidirReintentoVinculo(previos,{movimientoId,cuentaId,evidencia,idempotencyKeyHash}).coincide)
     return {confirmado:true,yaExistia:true,modificaSaldo:false};
    throw Object.assign(new Error("Conflicto concurrente de vínculo con otra cuenta o evidencia"),{statusCode:409});
   }
   throw e;
  }finally{await session.endSession();}
 }
-module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81,validarClaveVinculo,coincideVinculo};
+module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo};
