@@ -28,3 +28,20 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   assert.deepEqual(new Set(outbox.map(x=>String(x.aggregateId))).size,2);
  }finally{await mongoose.disconnect();}
 });
+
+const { fingerprint, resolverExistente } = require("../../modules/finanzas-personales/services/decisionProofPersistence.service");
+
+test("idempotencia: misma solicitud conserva la huella sin depender del orden de propiedades", () => {
+ const a = {accion:"CONSULTAR", evaluacion:{autorizada:false, motivos:["CAJA_INSUFICIENTE"]}, verdades:[{tipo:"CAJA", montoMinor:1000}], actorId:"TEST"};
+ const b = {actorId:"TEST", verdades:[{montoMinor:1000,tipo:"CAJA"}], evaluacion:{motivos:["CAJA_INSUFICIENTE"],autorizada:false},accion:"CONSULTAR"};
+ assert.equal(fingerprint(a),fingerprint(b));
+ const guardado={idempotencyKey:"misma-clave",requestFingerprint:fingerprint(a),hash:"abc"};
+ assert.equal(resolverExistente(guardado,fingerprint(b)),guardado);
+});
+
+test("idempotencia: rechaza reutilizar la clave para una solicitud distinta", () => {
+ const original=fingerprint({accion:"CONSULTAR",evaluacion:{autorizada:false},actorId:"TEST"});
+ const distinta=fingerprint({accion:"SIMULAR",evaluacion:{autorizada:false},actorId:"TEST"});
+ assert.notEqual(original,distinta);
+ assert.throws(()=>resolverExistente({requestFingerprint:original},distinta),{code:"IDEMPOTENCY_KEY_CONFLICT"});
+});
