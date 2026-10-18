@@ -9,6 +9,9 @@ function crearConsultaVinculosHistoricosV81(consultar=diagnosticarVinculosHistor
    });
    const q=req.query||{};
    if(Object.keys(q).some(k=>!["limite","cursor"].includes(k)))throw new TypeError("Parámetros inválidos");
+   // Evitar coerciones como "1e2", espacios o arreglos en parámetros HTTP.
+   if(q.limite!==undefined&&(typeof q.limite!=="string"||!/^(?:[1-9]|[1-9][0-9]|100)$/.test(q.limite)))
+    throw new TypeError("Límite inválido");
    const limite=q.limite===undefined?100:Number(q.limite);
    if(!Number.isSafeInteger(limite)||limite<1||limite>100)throw new TypeError("Límite inválido");
    if(q.cursor!==undefined&&(typeof q.cursor!=="string"||!/^[0-9a-f]{24}$/i.test(q.cursor)))
