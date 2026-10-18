@@ -117,10 +117,21 @@ jobs:
           echo "MongoDB de pruebas no llegó a PRIMARY" >&2
           exit 1
       - name: Validar concurrencia real y saldos intactos
+        shell: bash
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/?directConnection=true
           GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
-        run: node --test test/gruk/confirmacion-vinculo-mongo-concurrencia.test.js
+        run: |
+          set -o pipefail
+          node --test test/gruk/confirmacion-vinculo-mongo-concurrencia.test.js 2>&1 | tee prueba-mongo-v81.log
+      - name: Adjuntar evidencia de concurrencia MongoDB
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-concurrencia-mongo-v81
+          path: prueba-mongo-v81.log
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Detener MongoDB temporal
         if: always()
         run: docker rm --force gruk-v81-mongo || true
