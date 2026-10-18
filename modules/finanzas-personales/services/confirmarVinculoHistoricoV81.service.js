@@ -28,14 +28,17 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
  const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;
  if(!secret)throw Object.assign(new Error("Servicio de idempotencia no configurado"),{statusCode:503});
  const idempotencyKeyHash=crypto.createHmac("sha256",secret).update(String(usuarioId)+":"+idempotencyKey).digest("hex");
+ // MongoDB no permite listIndexes dentro de una transacción.
+ // Fallar cerrado si los índices únicos requeridos no están presentes.
+ let indices;
+ try{indices=await Vinculo.collection.indexes();}
+ catch(_){throw Object.assign(new Error("No se pudieron verificar índices de vínculo"),{statusCode:503});}
+ if(!indices.some(i=>i.unique===true&&Object.keys(i.key).length===2&&i.key.usuarioId===1&&i.key.movimientoId===1)||
+    !indices.some(i=>i.unique===true&&Object.keys(i.key).length===2&&i.key.usuarioId===1&&i.key.idempotencyKeyHash===1))
+  throw Object.assign(new Error("Índices de vínculo únicos no disponibles"),{statusCode:503});
  const session=await mongoose.startSession();
  try{
   return await session.withTransaction(async()=>{
-   const indice=await Vinculo.collection.indexes();
-   const requerido=["usuarioId","movimientoId"];
-   if(!indice.some(i=>i.unique===true&&Object.keys(i.key).length===2&&requerido.every(k=>i.key[k]===1))||
-      !indice.some(i=>i.unique===true&&Object.keys(i.key).length===2&&i.key.usuarioId===1&&i.key.idempotencyKeyHash===1))
-    throw Object.assign(new Error("Índices de vínculo únicos no disponibles"),{statusCode:503});
    const [movimiento,cuenta]=[
     await Transaccion.findOne({_id:movimientoId,usuarioId}).session(session).lean(),
     await Cuenta.findOne({_id:cuentaId,usuarioId}).session(session).lean()
