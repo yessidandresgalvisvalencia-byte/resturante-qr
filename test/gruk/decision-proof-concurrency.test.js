@@ -130,3 +130,12 @@ test("idempotencia: nunca acepta un registro previo sin fingerprint", () => {
  assert.throws(()=>resolverExistente({},fp),{code:"IDEMPOTENCY_FINGERPRINT_MISSING"});
  assert.equal(resolverExistente(null,fp),null);
 });
+
+test("reintento selectivo: solo el índice único de secuencia es recuperable",()=>{
+ const {esColisionSecuencia}=require("../../modules/finanzas-personales/services/decisionProofPersistence.service");
+ assert.equal(esColisionSecuencia({code:11000,keyPattern:{usuarioId:1,secuencia:1}}),true);
+ assert.equal(esColisionSecuencia({code:11000,keyPattern:{usuarioId:1,idempotencyKey:1}}),false);
+ assert.equal(esColisionSecuencia({code:11000,keyPattern:{usuarioId:1,hash:1}}),false);
+ assert.equal(esColisionSecuencia({code:11000}),false);
+ assert.equal(esColisionSecuencia({code:112,keyPattern:{usuarioId:1,secuencia:1}}),false);
+});
