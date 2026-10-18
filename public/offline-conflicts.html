@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GRUK · Revisión de faltantes offline</title><style>
+body{font-family:system-ui,sans-serif;background:#f5f7fb;color:#172333;margin:0}
+main{max-width:850px;margin:32px auto;padding:18px}section{background:white;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 2px 12px #0001}
+button,select,textarea{font:inherit;padding:10px;border-radius:8px;margin:5px 0}
+button{background:#162f53;color:white;border:0;cursor:pointer}textarea{width:95%;min-height:72px}
+article{border-top:1px solid #ddd;padding:14px 0}small{color:#52616e}
+</style></head><body><main>
+<a href="/admin.html">← Administración</a>
+<h1>Faltantes por ventas sin conexión</h1>
+<p>Consulta las diferencias de inventario generadas al sincronizar tablets. Registrar una decisión de revisión <strong>no descuenta stock, no cancela pedidos, no cobra y no contabiliza ventas</strong>.</p>
+<section><button id="loadConflicts" type="button">Actualizar incidencias</button>
+<p id="notice" aria-live="polite">Inicia sesión como administrador para consultar.</p>
+<div id="conflicts"></div></section>
+</main>
+<script src="/js/gruk-offline-conflicts-panel.js"></script>
+</body></html>
