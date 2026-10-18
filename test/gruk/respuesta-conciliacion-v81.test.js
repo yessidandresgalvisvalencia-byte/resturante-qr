@@ -67,3 +67,20 @@ test("errores de conciliación no se almacenan en cachés intermedias",async()=>
   assert.equal(r.headers["Cache-Control"],"no-store");
  }
 });
+
+test("saldos excesivamente largos se rechazan antes de convertirlos a BigInt",async()=>{
+ const maximo="9".repeat(15);
+ assert.equal(parsearSaldoFirmadoCopACentavos(maximo+".99"),
+  BigInt(maximo)*100n+99n);
+ assert.equal(parsearSaldoFirmadoCopACentavos("-"+maximo+".99"),
+  -(BigInt(maximo)*100n+99n));
+ for(const valor of ["9".repeat(16),"9".repeat(200000),
+   "-"+("9".repeat(16)),"0".repeat(500),"0.123","-0.001"]){
+  assert.throws(()=>parsearSaldoFirmadoCopACentavos(valor),TypeError);
+ }
+ const r=await invocar(async()=>{throw Error("No debe consultar la base");},{
+  ...query,saldoInicialCop:"9".repeat(200000)
+ });
+ assert.equal(r.statusCode,400);
+ assert.equal(r.headers["Cache-Control"],"no-store");
+});
