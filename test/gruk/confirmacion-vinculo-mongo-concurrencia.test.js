@@ -125,6 +125,23 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
    [...pagina1.movimientos,...pagina2.movimientos].map(x=>x.movimientoId),
    diagnosticoPendiente.movimientos.map(x=>x.movimientoId)
   );
+  // Multitenencia: una segunda identidad con el mismo nombre de cuenta no
+  // hereda ni puede confirmar los movimientos del usuario anterior.
+  const otroUsuarioId=new mongoose.Types.ObjectId();
+  const otraCuenta=await Cuenta.create({usuarioId:otroUsuarioId,nombre:cuenta.nombre,
+   tipo:"EFECTIVO",moneda:"COP",saldoMinor:0});
+  const diagnosticoAjeno=await diagnosticarVinculosHistoricosV81(String(otroUsuarioId));
+  assert.deepEqual(diagnosticoAjeno.movimientos,[]);
+  assert.equal(diagnosticoAjeno.siguienteCursor,null);
+  await assert.rejects(()=>confirmarVinculoHistoricoV81(String(otroUsuarioId),{
+   ...operacion,cuentaId:String(otraCuenta._id),idempotencyKey:crypto.randomUUID()
+  }),e=>e.statusCode===404);
+  await assert.rejects(()=>confirmarVinculoHistoricoV81(String(usuarioId),{
+   ...operacion,movimientoId:String(pendiente._id),cuentaId:String(otraCuenta._id),
+   idempotencyKey:crypto.randomUUID()
+  }),e=>e.statusCode===404);
+  assert.equal(await Vinculo.countDocuments({usuarioId:otroUsuarioId}),0);
+  assert.equal((await Cuenta.findById(otraCuenta._id).lean()).saldoMinor,0);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
