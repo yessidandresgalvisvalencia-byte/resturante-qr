@@ -10,7 +10,7 @@ function setup(stock,pendiente=true){
  const db={collection(name){
   if(name==="gruk_offline_stock_conflicts")return {async findOne(query){
    reads++;assert.equal(query.empresaId,auth.empresaId);assert.equal(query.sedeId,auth.sedeId);
-   return {actorId:"operator",eventIds:[eventId]};}};
+   return {_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,status:"REQUIERE_REVISION",applied:false,cobrado:false,actorId:"operator",eventIds:[eventId]};}};
   if(name==="gruk_offline_inbox")return {find(q){
    reads++;assert.equal(q.actorId,"operator");assert.equal(q.empresaId,auth.empresaId);
    return {toArray:async()=>pendiente?[{
