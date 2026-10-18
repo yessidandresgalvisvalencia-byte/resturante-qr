@@ -30,7 +30,7 @@ async function auditarCadenaUsuario(usuarioId) {
           ? { valida: false, codigo: "SIN_ANCLA_DE_INTEGRIDAD", secuencia: 0 }
           : { valida: false, codigo: "HEAD_AUSENTE", secuencia: null };
       }
-      return verificarCadena(registros, head);
+      return verificarCadena(registros, head, String(id));
     }, {
       readConcern: { level: "snapshot" },
       writeConcern: { w: "majority" },
