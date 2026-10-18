@@ -36,7 +36,8 @@ async function readOfflineReconciliation({db,context,eventIds}){
   }
   return found;
  });
- const cop=x=>typeof x==="string"&&/^(0|[1-9][0-9]*)$/.test(x);
+ const cop=x=>typeof x==="string"&&/^(0|[1-9][0-9]*)$/.test(x)&&
+  BigInt(x)<=BigInt(Number.MAX_SAFE_INTEGER);
  return eventIds.map(eventId=>{
   const [inbox,sale,cash,ledger]=maps.map(m=>m.get(eventId));
   if(!inbox)return {eventId,status:"NO_ENCONTRADO",applied:false,staged:false,financiallyReconciled:false};
