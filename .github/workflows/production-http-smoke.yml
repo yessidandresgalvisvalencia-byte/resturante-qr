@@ -21,8 +21,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          evidence="$RUNNER_TEMP/gruk-production-http-smoke.log"
+          : > "$evidence"
           for attempt in $(seq 1 20); do
-            if node <<'NODE'
+            if node 2>&1 <<'NODE' | tee -a "$evidence"
           const base = process.env.GRUK_PRODUCTION_URL;
           const expected = process.env.EXPECTED_SHA;
           async function probe(path) {
@@ -64,11 +66,19 @@ jobs:
           });
           NODE
             then
-              echo "GRUK production HTTP smoke passed"
+              echo "GRUK production HTTP smoke passed" | tee -a "$evidence"
               exit 0
             fi
-            echo "Production not yet on expected commit: attempt $attempt/20"
+            echo "Production not yet on expected commit: attempt $attempt/20" | tee -a "$evidence"
             if [ "$attempt" -lt 20 ]; then sleep 20; fi
           done
-          echo "::error::GRUK production health/ready/commit verification failed"
+          echo "::error::GRUK production health/ready/commit verification failed" | tee -a "$evidence"
           exit 1
+      - name: Preserve production HTTP evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-production-http-evidence
+          path: ${{ runner.temp }}/gruk-production-http-smoke.log
+          if-no-files-found: error
+          retention-days: 30
