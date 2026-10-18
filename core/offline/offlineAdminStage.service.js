@@ -1,7 +1,7 @@
 "use strict";
 // Explicit operator-authorized posting of OWN received offline orders.
 // Changes legacy inventory transactionally. NEVER settles payment or marks APPLIED.
-const {ObjectId}=require("mongodb");
+const {mongo:{ObjectId}}=require("mongoose");
 const {executeOfflineInventoryStagingTransaction}=require("./offlineInventoryStagingTransaction.service");
 const {recoverOfflineStagedBatch}=require("./offlineStageRecovery.service");
 const {recordOfflineOversellConflict}=require("./offlineOversellAudit.service");
