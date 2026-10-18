@@ -91,3 +91,14 @@ test("CI V81 vigila modelo transaccional y escrituras de flujo de caja",()=>{
    ruta+" debe activar tanto push como pull_request");
  }
 });
+
+test("CI audita el modelo de reserva atómica y su índice único",()=>{
+ const ruta="modules/finanzas-personales/models/reservaCuotaRecurrente.model.js";
+ assert.equal(yaml.split("      - '"+ruta+"'").length-1,2,
+  "El modelo de reserva debe activar CI tanto en push como en PR");
+ const model=fs.readFileSync(path.resolve(__dirname,"../../"+ruta),"utf8");
+ const flujo=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/flujoCajaPersonal.service.js"),"utf8");
+ assert.match(model,/schema\.index\(\{usuarioId:1,origenId:1,periodoInicio:1\},\{unique:true\}\)/);
+ assert.match(flujo,/await exigirIndiceUnicoReservaRecurrente\(\)/);
+ assert.match(flujo,/reserva=await ReservaCuota\.findOneAndUpdate/);
+});
