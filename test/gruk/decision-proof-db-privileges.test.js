@@ -50,7 +50,7 @@ test("audita permisos efectivos sin realizar escrituras",async()=>{
   command:async(comando)=>{
    consultas++;
    assert.deepEqual(comando,{connectionStatus:1,showPrivileges:true});
-   return {authInfo:{authenticatedUserPrivileges:[
+   return {authInfo:{authenticatedUsers:[{user:"personal_writer",db:"admin"}],authenticatedUserRoles:[{role:"customPersonal",db:"admin"}],authenticatedUserPrivileges:[
     permiso({db:"",collection:""},["find","insert","remove"])
    ]}};
   }
@@ -58,4 +58,48 @@ test("audita permisos efectivos sin realizar escrituras",async()=>{
  assert.equal(consultas,1);
  assert.equal(resultado.seguro,false);
  assert.deepEqual(resultado.acciones,["remove"]);
+});
+
+test("falla cerrado si MongoDB responde sin usuario autenticado",async()=>{
+ const resultado=await auditarPrivilegiosHistorial({
+  databaseName:db,
+  command:async()=>({authInfo:{
+   authenticatedUsers:[],authenticatedUserRoles:[],
+   authenticatedUserPrivileges:[]
+  }})
+ });
+ assert.equal(resultado.seguro,false);
+ assert.equal(resultado.codigo,"SIN_AUTENTICACION_VERIFICABLE");
+});
+
+test("falla cerrado si no puede verificar los roles autenticados",async()=>{
+ const resultado=await auditarPrivilegiosHistorial({
+  databaseName:db,
+  command:async()=>({authInfo:{
+   authenticatedUsers:[{user:"personal_writer",db:"admin"}],
+   authenticatedUserRoles:[],
+   authenticatedUserPrivileges:[]
+  }})
+ });
+ assert.equal(resultado.seguro,false);
+ assert.equal(resultado.codigo,"ROLES_NO_VERIFICABLES");
+});
+
+test("detecta riesgo de suprimir índices de integridad",()=>{
+ assert.deepEqual(detectarPrivilegiosPeligrosos([
+  permiso({db,collection},["dropIndex","renameCollectionSameDB"])
+ ],db,collection),["dropIndex","renameCollectionSameDB"]);
+});
+
+test("acepta solo lectura e inserción con identidad y roles verificados",async()=>{
+ const resultado=await auditarPrivilegiosHistorial({
+  databaseName:db,
+  command:async()=>({authInfo:{
+   authenticatedUsers:[{user:"personal_writer",db:"admin"}],
+   authenticatedUserRoles:[{role:"personal_writer",db:"admin"}],
+   authenticatedUserPrivileges:[permiso({db,collection},["find","insert"])]
+  }})
+ });
+ assert.equal(resultado.seguro,true);
+ assert.equal(resultado.codigo,"SIN_PRIVILEGIOS_PELIGROSOS_DETECTADOS");
 });
