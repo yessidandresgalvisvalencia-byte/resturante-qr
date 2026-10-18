@@ -62,7 +62,9 @@ function validarClaveDecisionProofV81(valor){
  return clave;
 }
 async function registrar(usuarioId,args){
- if(!usuarioId)throw new TypeError("usuarioId obligatorio");
+ if(!(usuarioId instanceof mongoose.Types.ObjectId) &&
+    !(typeof usuarioId==="string"&&/^[a-f0-9]{24}$/i.test(usuarioId)))
+  throw new TypeError("usuarioId MongoDB inválido");
  const clave=validarClaveDecisionProofV81(args?.idempotencyKey);
  const fp=fingerprint(args);
  const existente=await DecisionProof.findOne({usuarioId,idempotencyKey:clave}).lean();
