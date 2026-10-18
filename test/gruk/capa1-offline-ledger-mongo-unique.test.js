@@ -42,6 +42,21 @@ test("MongoDB real: ledger offline evita duplicados por empresa, sede, evento y 
     assert.equal(await ledger.countDocuments({}), 5);
     assert.equal(await ledger.countDocuments(identity), 1);
 
+    // Concurrent retry storm from offline tablets must persist one journal entry.
+    const concurrentIdentity = { ...identity, eventId: "evento-concurrente" };
+    const attempts = await Promise.allSettled(Array.from({ length: 20 }, (_, index) =>
+      ledger.insertOne({ ...concurrentIdentity, montoCentavos: 10000, attempt: index })
+    ));
+    const accepted = attempts.filter(result => result.status === "fulfilled");
+    const rejected = attempts.filter(result => result.status === "rejected");
+    assert.equal(accepted.length, 1, "Solo un movimiento de veinte reintentos puede persistir");
+    assert.equal(rejected.length, 19);
+    for (const result of rejected) assert.equal(result.reason.code, 11000);
+    assert.equal(await ledger.countDocuments(concurrentIdentity), 1);
+    // The same event in a different tenant remains independent.
+    await ledger.insertOne({ ...concurrentIdentity, empresaId: "empresa-B", montoCentavos: 10000 });
+    assert.equal(await ledger.countDocuments({ eventId: "evento-concurrente" }), 2);
+
     const indexes = await ledger.indexes();
     assert.ok(indexes.some(index =>
       index.name === "uniq_offline_ledger_event_type_tenant" &&
