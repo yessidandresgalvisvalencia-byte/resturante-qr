@@ -30,6 +30,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Inspect development dependency advisories
+        run: npm audit --audit-level=high || true
       - name: Validate Docker Compose configuration
         run: docker compose -f docker-compose.yml config --quiet
       - name: Start MongoDB replica set
