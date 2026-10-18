@@ -9,6 +9,7 @@ function fixture(failOn){
  const writes=[];const session={inTransaction:()=>true};const collections={
   gruk_offline_ventas:{name:"uniq_offline_sale_tenant_event",key:{empresaId:1,sedeId:1,eventId:1}},
   gruk_offline_stock_movimientos:{name:"uniq_offline_stock_tenant_batch_product",key:{empresaId:1,sedeId:1,batchId:1,productoId:1}},
+  gruk_offline_caja_intenciones:{name:"uniq_offline_cash_tenant_event",key:{empresaId:1,sedeId:1,eventId:1}},
   gruk_ledger_movimientos:{name:"uniq_offline_ledger_event_type_tenant",key:{empresaId:1,sedeId:1,eventId:1,tipo:1}}
  };
  const db={collection(name){const i=collections[name];assert.ok(i);return{
@@ -18,19 +19,25 @@ function fixture(failOn){
  };}};
  return {db,session,writes};
 }
-test("venta stock y ledger usan misma sesión y concilian COP",async()=>{
+test("ventas inventario caja y ledger usan misma sesión y monto COP",async()=>{
  const f=fixture();const result=await stage({...f,context,plan,inventoryDeltas,ledgerMovements});
  assert.equal(result.status,"PENDIENTE_CONTABILIZACION");
- assert.equal(result.sales.totalCop,"3000");assert.equal(result.ledger.totalCop,"3000");
- assert.deepEqual(f.writes.map(x=>x.collection),["gruk_offline_ventas","gruk_offline_stock_movimientos","gruk_ledger_movimientos"]);
+ assert.equal(result.sales.totalCop,"3000");assert.equal(result.cash.totalCop,"3000");
+ assert.equal(result.ledger.totalCop,"3000");assert.equal(result.cash.records.length,1);
+ assert.equal(f.writes.find(x=>x.collection==="gruk_offline_caja_intenciones").payload.cobrado,false);
+ assert.deepEqual(f.writes.map(x=>x.collection),["gruk_offline_ventas","gruk_offline_stock_movimientos","gruk_offline_caja_intenciones","gruk_ledger_movimientos"]);
 });
-test("si stock falla no intenta ledger",async()=>{
+test("si stock falla no llega a caja ni ledger",async()=>{
  const f=fixture("gruk_offline_stock_movimientos");
  await assert.rejects(stage({...f,context,plan,inventoryDeltas,ledgerMovements}),/POSTING_FAILED/);
  assert.deepEqual(f.writes.map(x=>x.collection),["gruk_offline_ventas"]);
- // The enclosing Mongo withTransaction is responsible for rolling back the first insert.
 });
-test("invalida sesión fuera de transacción antes de tocar BD",async()=>{
+test("si caja falla no llega al ledger",async()=>{
+ const f=fixture("gruk_offline_caja_intenciones");
+ await assert.rejects(stage({...f,context,plan,inventoryDeltas,ledgerMovements}),/POSTING_FAILED/);
+ assert.deepEqual(f.writes.map(x=>x.collection),["gruk_offline_ventas","gruk_offline_stock_movimientos"]);
+});
+test("rechaza sesión sin transacción antes de hacer operaciones",async()=>{
  const f=fixture();await assert.rejects(stage({...f,session:{inTransaction:()=>false},context,plan,inventoryDeltas,ledgerMovements}),
  e=>e.code==="OFFLINE_STAGING_TOTAL_CONFLICT");assert.equal(f.writes.length,0);
 });
