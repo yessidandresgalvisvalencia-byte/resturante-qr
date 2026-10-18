@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {resolverConfirmacion,validarClaveVinculo,coincideVinculo}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
+const {resolverConfirmacion,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
 const uid="507f1f77bcf86cd799439011";
 const movimiento={_id:"507f1f77bcf86cd799439012",usuarioId:uid,cuentaId:null,
  estado:"ACTIVA",moneda:"COP"};
@@ -41,4 +41,17 @@ test("confirmación concurrente idéntica se reconoce sin otra escritura",()=>{
  for(const diferencia of [{cuentaId:"otra"},{movimientoId:"otro"},{evidencia:"Otra prueba documental"},{idempotencyKeyHash:"b".repeat(64)}]){
   assert.equal(coincideVinculo(previo,{movimientoId:movimiento._id,cuentaId:cuenta._id,evidencia:base.evidencia,idempotencyKeyHash:hash,...diferencia}),false);
  }
+});
+
+test("colisión cruzada no pasa inadvertida aunque un vínculo coincida",()=>{
+ const h="f".repeat(64);
+ const solicitud={movimientoId:movimiento._id,cuentaId:cuenta._id,evidencia:base.evidencia,idempotencyKeyHash:h};
+ const igual={...solicitud};
+ const otraClave={movimientoId:"507f1f77bcf86cd799439099",cuentaId:cuenta._id,
+  evidencia:base.evidencia,idempotencyKeyHash:h};
+ assert.deepEqual(decidirReintentoVinculo([],solicitud),{existe:false,coincide:false});
+ assert.deepEqual(decidirReintentoVinculo([igual],solicitud),{existe:true,coincide:true});
+ assert.deepEqual(decidirReintentoVinculo([igual,otraClave],solicitud),{existe:true,coincide:false});
+ assert.deepEqual(decidirReintentoVinculo([otraClave,igual],solicitud),{existe:true,coincide:false});
+ assert.deepEqual(decidirReintentoVinculo([otraClave],solicitud),{existe:true,coincide:false});
 });
