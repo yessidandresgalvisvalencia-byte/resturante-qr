@@ -9,13 +9,15 @@ function indexedDbHarness() {
   const persisted = new Map();
   let initialized = false;
   const onNextTick = callback => queueMicrotask(callback);
+  let currentTransaction = null;
   const store = {
     add(record) {
       const request = {};
       onNextTick(() => {
         if (persisted.has(record.eventId)) {
           request.error = new Error("ConstraintError");
-          request.onerror?.();
+          currentTransaction.error = request.error;
+          currentTransaction.onerror?.();
         } else {
           persisted.set(record.eventId, structuredClone(record));
           request.onsuccess?.();
@@ -60,7 +62,8 @@ function indexedDbHarness() {
         abort() { t.onabort?.(); }
       };
       // Transaction completion is dispatched after queued IDB store requests.
-      if (mode === "readwrite") setImmediate(() => t.oncomplete?.());
+      currentTransaction = t;
+      if (mode === "readwrite") setImmediate(() => { if (!t.error) t.oncomplete?.(); });
       return t;
     },
     close() {}
@@ -100,7 +103,7 @@ test("IndexedDB offline: 20 eventos siguen pendientes tras reabrir la app sin in
   const appAfterRestart = loadFreshOutbox(indexedDB);
   const pending = await appAfterRestart.listPending(100, contextA);
   assert.equal(pending.length, 20);
-  assert.deepEqual(pending.map(x => x.eventId).sort(), ids.sort());
+  assert.deepEqual(Array.from(pending, x => x.eventId).sort(), ids.sort());
   assert.equal((await appAfterRestart.listPending(100, contextB)).length, 0);
   await assert.rejects(appAfterRestart.putPending({ ...contextA, eventId: ids[0] }));
   assert.equal((await appAfterRestart.listPending(100, contextA)).length, 20);
