@@ -22,7 +22,7 @@ async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim()
  if(/vivienda|hipoteca|arriendo|seguro|jubilacion|jubilación|pension|pensión|presupuesto/.test(q)&&/mejor|conviene|recomiendas|como|cómo|que|qué|deberia|debería|plan|estrategia/.test(q)){
  const h=await home.obtener(usuarioId);
  const a=h.asesor||{};
- const libre=a.saldoRealConocido?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
+ const libre=a.saldoRealConocido&&a.saldoConfiabilidad==="VERIFICADO"&&!a.saldoRequiereReconciliacion?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
  const vivienda=/vivienda|hipoteca|arriendo/.test(q);
  const seguro=/seguro/.test(q);
  const retiro=/jubilacion|jubilación|pension|pensión/.test(q);
@@ -36,7 +36,7 @@ async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim()
   if(!deudaRef.deuda)return{tipo:"DEUDA_NO_IDENTIFICADA",respuesta:"Para comparar invertir con abonar necesito identificar la deuda correcta. Indícame su nombre o concepto; no voy a suponer cuál es.",datos:{requiereIdentificarDeuda:true}};
   if(deudaRef.deuda){
    const d=deudaRef.deuda,h=await home.obtener(usuarioId),a=h.asesor||{};
-   const libre=a.saldoRealConocido?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
+   const libre=a.saldoRealConocido&&a.saldoConfiabilidad==="VERIFICADO"&&!a.saldoRequiereReconciliacion?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
    const saldo=Number(d.saldoMinor||0),cuota=Number(d.cuotaMinor||0);
    const interes=d.tasaConfirmada===true&&d.tasaMensualPct!=null?Number(d.tasaMensualPct):null;
    const consejo=interes===null?"La tasa de interés no está confirmada; revisa el contrato antes de comparar costos.":interes===0?"Como la deuda registrada no tiene intereses, abonar antes no reduce intereses; prioriza conservar liquidez para obligaciones y emergencias.":"Si la deuda tiene intereses, un abono a capital puede reducir el costo total; verifica condiciones y penalidades.";
@@ -55,7 +55,7 @@ async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim()
   const partes=["Sobre "+(d.concepto||"esa deuda")+": te faltan "+money(saldo)+".","Monto original "+money(principal)+", abonado "+money(abonado)+(cuota>0?", cuota registrada "+money(cuota):"")+"."]; 
   if(/(?:mejor manera|mejor forma|c[oó]mo (?:la|lo|puedo|deber[ií]a)? ?pagar|conviene|recomiendas|estrategia|plan de pago|qu[eé] hago)/.test(q)){
    const h=await home.obtener(usuarioId),a=h.asesor||{};
-   const libre=a.saldoRealConocido?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
+   const libre=a.saldoRealConocido&&a.saldoConfiabilidad==="VERIFICADO"&&!a.saldoRequiereReconciliacion?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
    const meses=cuota>0?Math.ceil(saldo/cuota):null;
    const opciones=[];
    if(cuota>0)opciones.push("Mantener la cuota de "+money(cuota)+(meses?" requeriría aproximadamente "+meses+" pagos si no cambian el saldo ni las condiciones.":"") );
