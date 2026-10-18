@@ -11,7 +11,7 @@ async function assertOfflineStagingIndexes(db){
  if(typeof db?.collection!=="function")fail("OFFLINE_INDEX_DB_REQUIRED");
  for(const [collection,name,keys] of SPECS){
   const list=await db.collection(collection).indexes();
-  const valid=Array.isArray(list)&&list.some(i=>i.name===name&&i.unique===true&&
+  const valid=Array.isArray(list)&&list.some(i=>i.name===name&&i.unique===true&&i.sparse!==true&&!i.partialFilterExpression&&
    Object.keys(i.key||{}).length===keys.length&&
    keys.every((key,idx)=>Object.keys(i.key)[idx]===key&&i.key[key]===1));
   if(!valid)fail("OFFLINE_INDEX_NOT_READY");
