@@ -7,7 +7,7 @@ const vm=require("node:vm");
 const {webcrypto}=require("node:crypto");
 const fuente=fs.readFileSync(path.join(__dirname,"../../public/finanzas-personales.js"),"utf8");
 const inicio=fuente.indexOf('const CLAVE_INTENTO_MANUAL=');
-const fin=fuente.indexOf('function persist()',inicio);
+const fin=fuente.indexOf('const persist=',inicio);
 assert.ok(inicio>0&&fin>inicio,"Debe existir el módulo de intento manual");
 const modulo=fuente.slice(inicio,fin);
 function preparar(almacen){
