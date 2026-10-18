@@ -154,6 +154,25 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   }),e=>e.statusCode===404);
   assert.equal(await Vinculo.countDocuments({usuarioId:otroUsuarioId}),0);
   assert.equal((await Cuenta.findById(otraCuenta._id).lean()).saldoMinor,0);
+  // Compatibilidad: vínculo escrito por la versión anterior con UUID en
+  // mayúsculas debe responder como reintento, jamás producir otro INSERT.
+  const legado=await Movimiento.create({usuarioId,cuentaId:null,tipo:"GASTO",
+   concepto:"Vínculo previo mayúsculas",categoria:"PRUEBA",cuenta:cuenta.nombre,
+   medioPago:"EFECTIVO",montoMinor:90,moneda:"COP",fecha:new Date("2025-01-18T12:00:00Z")});
+  const claveLegada=crypto.randomUUID().toUpperCase();
+  const evidenciaLegada="Documento bancario histórico controlado";
+  const hashLegado=crypto.createHmac("sha256",process.env.PERSONAL_IDEMPOTENCY_SECRET)
+   .update(String(usuarioId)+":"+claveLegada).digest("hex");
+  await Vinculo.create({usuarioId,movimientoId:legado._id,cuentaId:cuenta._id,
+   evidencia:evidenciaLegada,idempotencyKeyHash:hashLegado});
+  const reintentoLegado=await confirmarVinculoHistoricoV81(String(usuarioId),{
+   movimientoId:String(legado._id),cuentaId:String(cuenta._id),
+   evidencia:evidenciaLegada,idempotencyKey:claveLegada.toLowerCase(),
+   confirmacionExplicita:true
+  });
+  assert.equal(reintentoLegado.yaExistia,true);
+  assert.equal(await Vinculo.countDocuments({usuarioId,movimientoId:legado._id}),1);
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,antes.saldoMinor);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
