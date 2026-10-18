@@ -4,6 +4,7 @@ const schema=new mongoose.Schema({
  usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},
  impactoCaja:{type:Boolean,default:true},
  prestamoId:{type:mongoose.Schema.Types.ObjectId,ref:"PrestamoPersonal",default:null,index:true},
+ recurrenteOrigenId:{type:mongoose.Schema.Types.ObjectId,ref:"TransaccionPersonal",default:null,index:true},
  cuentaId:{type:mongoose.Schema.Types.ObjectId,ref:"CuentaFinancieraPersonal",default:null,index:true},
  tipo:{type:String,enum:["INGRESO","GASTO","PAGO_DEUDA","PRESTAMO_OTORGADO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO","AJUSTE_SALDO"],required:true,index:true},
  montoPagadoRealMinor:{type:Number,min:1,default:null,validate:{validator:v=>v===null||Number.isSafeInteger(v),message:"Monto pagado inválido"}},
@@ -27,6 +28,6 @@ const schema=new mongoose.Schema({
  anuladaEn:{type:Date,default:null},
  motivoAnulacion:{type:String,trim:true,maxlength:240,default:""}
 },{timestamps:true,collection:"fin_transacciones_personales"});
-schema.index({usuarioId:1,fecha:-1});schema.index({usuarioId:1,tipo:1,categoria:1,fecha:-1});
+schema.index({usuarioId:1,recurrenteOrigenId:1,fecha:1});schema.index({usuarioId:1,fecha:-1});schema.index({usuarioId:1,tipo:1,categoria:1,fecha:-1});
 schema.index({usuarioId:1,externalIdHash:1},{unique:true,partialFilterExpression:{externalIdHash:{$type:"string"}}});
 module.exports=mongoose.models.TransaccionPersonal||mongoose.model("TransaccionPersonal",schema);
