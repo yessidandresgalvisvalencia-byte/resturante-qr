@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,ventanaPagoColombia,validarTotalPeriodoRecurrente}=require("../../modules/finanzas-personales/services/vinculoRecurrenteV81.service");
+const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,ventanaPagoColombia,periodoRecurrenteColombia,validarTotalPeriodoRecurrente}=require("../../modules/finanzas-personales/services/vinculoRecurrenteV81.service");
 
 test("acepta pago actual y atrasado desde el origen exacto",()=>{
  const ahora=new Date("2026-10-18T16:00:00.000Z");
@@ -62,4 +62,33 @@ test("abonos vinculados no pueden superar el importe previsto",()=>{
    importeObligacionMinor:550000,yaPagadoMinor:bad,nuevoPagoMinor:100000
   }),{statusCode:400});
  }
+});
+
+test("abonos mensuales hechos en dos fechas pertenecen a la misma cuota",()=>{
+ const origen="2024-01-31T05:00:00Z";
+ const a=periodoRecurrenteColombia({fechaOrigen:origen,fechaPago:"2026-02-28T16:00:00Z",frecuencia:"MENSUAL"});
+ const b=periodoRecurrenteColombia({fechaOrigen:origen,fechaPago:"2026-03-15T16:00:00Z",frecuencia:"MENSUAL"});
+ assert.equal(a.inicio.toISOString(),"2026-02-28T05:00:00.000Z");
+ assert.equal(a.fin.toISOString(),"2026-03-31T05:00:00.000Z");
+ assert.equal(b.inicio.getTime(),a.inicio.getTime());
+ assert.equal(b.fin.getTime(),a.fin.getTime());
+});
+test("períodos semanales, quincenales y años bisiestos están anclados al origen",()=>{
+ const a=periodoRecurrenteColombia({
+  fechaOrigen:"2026-10-01T05:00:00Z",fechaPago:"2026-10-14T16:00:00Z",frecuencia:"SEMANAL"
+ });
+ assert.equal(a.inicio.toISOString(),"2026-10-08T05:00:00.000Z");
+ assert.equal(a.fin.toISOString(),"2026-10-15T05:00:00.000Z");
+ const b=periodoRecurrenteColombia({
+  fechaOrigen:"2026-10-01T05:00:00Z",fechaPago:"2026-10-17T16:00:00Z",frecuencia:"QUINCENAL"
+ });
+ assert.equal(b.inicio.toISOString(),"2026-10-16T05:00:00.000Z");
+ const c=periodoRecurrenteColombia({
+  fechaOrigen:"2020-02-29T05:00:00Z",fechaPago:"2028-02-28T12:00:00Z",frecuencia:"ANUAL"
+ });
+ assert.equal(c.inicio.toISOString(),"2027-02-28T05:00:00.000Z");
+ assert.equal(c.fin.toISOString(),"2028-02-29T05:00:00.000Z");
+ assert.throws(()=>periodoRecurrenteColombia({
+  fechaOrigen:"2026-10-18T05:00:00Z",fechaPago:"2026-10-17T16:00:00Z",frecuencia:"MENSUAL"
+ }),{statusCode:400});
 });
