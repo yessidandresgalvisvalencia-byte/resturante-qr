@@ -41,3 +41,24 @@ test("recovery never opens Mongo for invalid ID inputs",async()=>{
  await assert.rejects(recover({db,context:ctx,eventIds:[]}),/OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW/);
  assert.equal(queries,0);
 });
+
+test("recovery rejects financial rows whose returned tenant, site or actor differs",async()=>{
+ for(const name of ["gruk_offline_inbox","gruk_offline_ventas","gruk_offline_caja_intenciones"]){
+  for(const key of ["empresaId","sedeId","actorId"]){
+   const base=fixture();
+   const adapter={collection(collectionName){
+    const collection=base.collection(collectionName);
+    return {find(query,options){
+     const cursor=collection.find(query,options);
+     return {async toArray(){
+      const result=await cursor.toArray();
+      if(collectionName===name)result[0][key]="foreign";
+      return result;
+     }};
+    }};
+   }};
+   await assert.rejects(recover({db:adapter,context:ctx,eventIds:ids}),
+    {code:"OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW"});
+  }
+ }
+});

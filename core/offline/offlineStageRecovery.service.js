@@ -2,6 +2,10 @@
 // Idempotent READ-ONLY recovery for an already staged offline batch.
 // Never retries stock writes; rejects partial or mismatched evidence.
 const {readOfflineReconciliation}=require("./offlineReconciliation.service");
+function validRecord(row,context){
+ return row&&row.empresaId===context.empresaId&&
+  row.sedeId===context.sedeId&&row.actorId===context.actorId;
+}
 function fail(){const e=new Error("OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW");e.code=e.message;throw e;}
 async function recoverOfflineStagedBatch({db,context,eventIds}){
  if(!db?.collection||!context||!Array.isArray(eventIds)||!eventIds.length)fail();
@@ -12,26 +16,26 @@ async function recoverOfflineStagedBatch({db,context,eventIds}){
  const scope={empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,
    eventId:{$in:eventIds}};
  const inbox=await db.collection("gruk_offline_inbox").find(scope,{
-  projection:{_id:0,eventId:1,status:1,financialStageStatus:1,inventoryApplied:1,stagedBy:1}
+  projection:{_id:0,empresaId:1,sedeId:1,actorId:1,eventId:1,status:1,financialStageStatus:1,inventoryApplied:1,stagedBy:1}
  }).toArray();
  if(inbox.length!==eventIds.length||new Set(inbox.map(x=>x.eventId)).size!==eventIds.length||
-   inbox.some(x=>x.status!=="EN_REVISION"||x.financialStageStatus!=="PENDIENTE_CONTABILIZACION"||
+   inbox.some(x=>!validRecord(x,context)||!eventIds.includes(x.eventId)||x.status!=="EN_REVISION"||x.financialStageStatus!=="PENDIENTE_CONTABILIZACION"||
      x.inventoryApplied!==true||x.stagedBy!==context.actorId))fail();
  const sales=await db.collection("gruk_offline_ventas").find(scope,{
-  projection:{_id:0,eventId:1,status:1,totalCop:1}
+  projection:{_id:0,empresaId:1,sedeId:1,actorId:1,eventId:1,status:1,totalCop:1}
  }).toArray();
  if(sales.length!==eventIds.length||new Set(sales.map(x=>x.eventId)).size!==eventIds.length)fail();
  let total=0n;
  for(const sale of sales){
-  if(!eventIds.includes(sale.eventId)||sale.status!=="PENDIENTE_CONTABILIZACION"||
+  if(!validRecord(sale,context)||!eventIds.includes(sale.eventId)||sale.status!=="PENDIENTE_CONTABILIZACION"||
     typeof sale.totalCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(sale.totalCop))fail();
   total+=BigInt(sale.totalCop);
  }
  const cash=await db.collection("gruk_offline_caja_intenciones").find(scope,{
-  projection:{_id:0,eventId:1,status:1,cobrado:1,montoCop:1}
+  projection:{_id:0,empresaId:1,sedeId:1,actorId:1,eventId:1,status:1,cobrado:1,montoCop:1}
  }).toArray();
  if(cash.length!==eventIds.length||new Set(cash.map(x=>x.eventId)).size!==eventIds.length||
-   cash.some(x=>!eventIds.includes(x.eventId)||x.status!=="PENDIENTE_CONCILIACION"||
+   cash.some(x=>!validRecord(x,context)||!eventIds.includes(x.eventId)||x.status!=="PENDIENTE_CONCILIACION"||
      x.cobrado!==false||typeof x.montoCop!=="string"||
      !/^(0|[1-9][0-9]*)$/.test(x.montoCop)))fail();
  const bySale=new Map(sales.map(x=>[x.eventId,x.totalCop]));
