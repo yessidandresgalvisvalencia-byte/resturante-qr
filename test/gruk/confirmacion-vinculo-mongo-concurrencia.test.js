@@ -25,9 +25,11 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
 },async()=>{
  exigirMongoAislado(uri,process.env.GRUK_TEST_DB_CONFIRM);
  const secretAnterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;
+ // Base exclusiva por ejecución; nunca reutilizar colecciones anteriores.
+ const baseTemporal="gruk_v81_test_"+crypto.randomUUID().replace(/-/g,"");
  process.env.PERSONAL_IDEMPOTENCY_SECRET="SOLO_PRUEBAS_INTEGRACION_"+crypto.randomUUID();
  try{
-  await mongoose.connect(uri,{dbName:"gruk_v81_vinculos_concurrencia",serverSelectionTimeoutMS:5000});
+  await mongoose.connect(uri,{dbName:baseTemporal,serverSelectionTimeoutMS:5000});
   // createIndexes jamás borra índices existentes. Todos los documentos usan
   // identidades nuevas y no contienen información personal real.
   await Vinculo.createIndexes();
@@ -202,9 +204,17 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   assert.equal(await Vinculo.countDocuments({usuarioId,movimientoId:legado._id}),1);
   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,antes.saldoMinor);
  }finally{
-  await mongoose.disconnect();
-  if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
-  else process.env.PERSONAL_IDEMPOTENCY_SECRET=secretAnterior;
+  try{
+   // Destruir SOLAMENTE la base efímera cuyo nombre generó esta prueba.
+   // Nunca se ejecuta sobre el URI de producción o una base preexistente.
+   if(mongoose.connection.readyState===1&&
+      mongoose.connection.db?.databaseName===baseTemporal)
+    await mongoose.connection.dropDatabase();
+  }finally{
+   await mongoose.disconnect();
+   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
+   else process.env.PERSONAL_IDEMPOTENCY_SECRET=secretAnterior;
+  }
  }
 });
 test("las pruebas integradas requieren destino Mongo local explícito",()=>{
