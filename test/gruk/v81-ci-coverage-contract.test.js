@@ -44,3 +44,15 @@ test("CI V81 prueba DecisionProof contra MongoDB local con confirmación explíc
 test("el trabajo V81 verifica sintaxis de todo el vertical financiero",()=>{
  assert.match(yaml,/name: Verificar sintaxis de servicios financieros y auditorías\s*\n\s*run: npm run check:personal/);
 });
+
+test("V81 usa la misma versión Node que declara package.json",()=>{
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const manifest=require(path.resolve(__dirname,"../../package.json"));
+ const expected=manifest.engines.node.match(/^(\d+)/)?.[1];
+ assert.ok(expected,"package.json debe declarar la versión mayor de Node");
+ const configured=[...yaml.matchAll(/node-version:\s*['"]?(\d+)/g)].map(m=>m[1]);
+ assert.ok(configured.length>=1,"No existen runners Node configurados");
+ assert.ok(configured.every(v=>v===expected),
+  `Node en CI V81 (${configured.join(",")}) difiere del engine (${expected})`);
+});
