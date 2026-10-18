@@ -236,6 +236,19 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   assert.equal((await ReservaCuota.findOne({
    usuarioId:propietario,origenId:origenConcurrente._id
   }).lean()).reservadoMinor,39999,"La transacción fallida debe revertir su incremento");
+  // Un exceso artificial tampoco puede liberarse durante una anulación.
+  await ReservaCuota.updateOne({
+   usuarioId:propietario,origenId:origenConcurrente._id
+  },{$set:{reservadoMinor:41000}});
+  await assert.rejects(anular(propietario,reingreso._id),
+   e=>e.statusCode===409 && /desincronizada/.test(e.message));
+  assert.equal((await Transaccion.findById(reingreso._id).lean()).estado,"ACTIVA");
+  assert.equal((await Cuenta.findOne({
+   usuarioId:propietario,nombre:abonoActivo.cuenta
+  }).lean()).saldoMinor,cajaAntesInconsistencia);
+  assert.equal((await ReservaCuota.findOne({
+   usuarioId:propietario,origenId:origenConcurrente._id
+  }).lean()).reservadoMinor,41000);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
