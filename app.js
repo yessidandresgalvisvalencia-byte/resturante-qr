@@ -34,27 +34,8 @@ const iniciarCajaJob = require("./shared/jobs/caja.job");
 const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
 const app = express();
 app.disable("x-powered-by");
-const HEALTH_VERSION = require("./package.json").version;
-const {getDeploymentCommit}=require("./core/health/deploymentCommit.contract");
-app.get("/ready", (_req, res) => {
-  const connected = mongoose.connection.readyState === 1;
-  res.set("Cache-Control", "no-store");
-  res.status(connected ? 200 : 503).json({
-    ready: connected,
-    db: connected ? "connected" : "disconnected"
-  });
-});
-app.get("/health", (_req, res) => {
-  const connected = mongoose.connection.readyState === 1;
-  res.set("Cache-Control", "no-store");
-  res.status(connected ? 200 : 503).json({
-    status: connected ? "ok" : "degraded",
-    version: HEALTH_VERSION,
-    commit: getDeploymentCommit(process.env.RENDER_GIT_COMMIT),
-    db: connected ? "connected" : "disconnected",
-    uptime: Math.floor(process.uptime())
-  });
-});
+const {registerHttpHealthRoutes}=require("./core/health/httpHealth.routes");
+registerHttpHealthRoutes(app,mongoose,{version:require("./package.json").version});
 
 const { securityHeaders, noStore } = require("./core/security/httpSecurity.middleware");
 const rateLimit = require("./core/security/rateLimit.middleware");
