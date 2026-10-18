@@ -64,3 +64,15 @@ test("401 sin identidad no ejecuta el motor de conciliación",async()=>{
  assert.equal(res.codigo,401);
  assert.deepEqual(res.cuerpo,{ok:false,error:"Autenticación requerida"});
 });
+
+test("rangos de más de 366 días se rechazan antes de consultar Mongo",async()=>{
+ let invocado=false;
+ const res=respuesta();
+ await crearConsultaConciliacionCuentaV81(async()=>{invocado=true;})({
+  ...req,query:{...req.query,desde:"2024-01-01",hastaExclusivo:"2025-01-02"}
+ },res);
+ assert.equal(invocado,false);
+ assert.equal(res.codigo,400);
+ assert.equal(res.cabeceras["Cache-Control"],"no-store");
+ assert.deepEqual(res.cuerpo,{ok:false,error:"Parámetros de conciliación inválidos"});
+});
