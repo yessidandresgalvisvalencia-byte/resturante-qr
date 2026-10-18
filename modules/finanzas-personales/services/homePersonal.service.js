@@ -149,7 +149,7 @@ async function obtener(usuarioId,now=new Date()){
   const id=String(t.prestamoId);
   pagosPorDeuda.set(id,(pagosPorDeuda.get(id)||0)+t.montoMinor);
  }
- const cuotasPendientesMesMinor=deudas.reduce((total,d)=>total+saldoCuotaPendienteMinor({...d,cuotaMinor:cuotaDelPeriodo(d,inicio,fin),periodicidad:null},pagosPorDeuda.get(String(d._id))||0),0);
+ const cuotasPendientesMesMinor=deudas.reduce((total,d)=>total+Math.max(0,cuotaDelPeriodo(d,inicio,fin)-(pagosPorDeuda.get(String(d._id))||0)),0);
  const flujoOperativoMinor=ingresosMinor-gastosMinor-pagosDeudaRegistradosMinor;
  const flujoOperativoProyectadoMinor=flujoOperativoMinor-cuotasPendientesMesMinor;
  const flujoRealizadoMinor=flujoOperativoMinor+cobrosRecibidosMinor;
