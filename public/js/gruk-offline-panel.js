@@ -27,24 +27,42 @@ function statusLabel(event){
  if(event.serverStatus==="PENDIENTE")return "Recibido · pendiente";
  return "Recibido · por verificar";
 }
-async function launch({document,window,storage,outbox,transport,fetchFn,draft=root.GRUKOfflineDraft}){
+async function launch({document,window,storage,outbox,transport,fetchFn,draft=root.GRUKOfflineDraft,catalog=root.GRUKOfflineCatalog}){
  const nodes={rows:document.getElementById("rows"),message:document.getElementById("message"),
   connection:document.getElementById("connection"),identity:document.getElementById("identity"),
   refresh:document.getElementById("refresh"),send:document.getElementById("send"),
   reconcile:document.getElementById("reconcile"),
   draftForm:document.getElementById("offlineDraftForm"),saveDraft:document.getElementById("saveDraft"),
   productId:document.getElementById("productId"),quantity:document.getElementById("quantity"),
-  unitPrice:document.getElementById("unitPrice")};
+  unitPrice:document.getElementById("unitPrice"),
+  refreshCatalog:document.getElementById("refreshCatalog"),catalogInfo:document.getElementById("catalogInfo")};
  if(Object.values(nodes).some(x=>!x))throw Error("PANEL_DOM_REQUIRED");
  let credentials;
  try{credentials=readSession(storage);}
  catch(e){
   nodes.identity.textContent="Inicia sesión para acceder a los pedidos de tu empresa y sede.";
   nodes.send.disabled=true;nodes.reconcile.disabled=true;nodes.refresh.disabled=true;
-  nodes.saveDraft.disabled=true;
+  nodes.saveDraft.disabled=true;nodes.refreshCatalog.disabled=true;
   return {authenticated:false};
  }
  const {token,context}=credentials;
+ let localProducts=[];
+ function presentCatalog(snapshot){
+  localProducts=snapshot.products;
+  nodes.productId.replaceChildren();
+  const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Selecciona un producto";
+  nodes.productId.appendChild(placeholder);
+  for(const product of localProducts){
+   const option=document.createElement("option");option.value=product.productoId;
+   option.textContent=product.nombre+" · $"+product.precioUnitarioCop+" COP";nodes.productId.appendChild(option);
+  }
+  nodes.unitPrice.value="";
+  nodes.catalogInfo.textContent=snapshot.updatedAt?"Copia local: "+snapshot.updatedAt:"Sin catálogo local";
+ }
+ nodes.productId.addEventListener("change",()=>{
+  const selected=localProducts.find(x=>x.productoId===nodes.productId.value);
+  nodes.unitPrice.value=selected?selected.precioUnitarioCop:"";
+ });
  nodes.identity.textContent="Bandeja privada del operador · "+context.sedeId;
  const showConnection=()=>{nodes.connection.textContent=window.navigator.onLine?"Conexión disponible":"Sin conexión · pedidos locales conservados";};
  window.addEventListener("online",showConnection);
@@ -69,7 +87,7 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
   return records.length;
  }
  async function perform(action){
-  for(const name of ["send","reconcile","refresh","saveDraft"])nodes[name].disabled=true;
+  for(const name of ["send","reconcile","refresh","saveDraft","refreshCatalog"])nodes[name].disabled=true;
   try{
    const result=await action();
    await render();
@@ -90,6 +108,13 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
   if(!window.navigator.onLine)throw Error("SIN_CONEXION");
   return transport.reconcileReceived({outbox,token,fetchFn,context});
  }));
+ nodes.refreshCatalog.addEventListener("click",()=>perform(async()=>{
+  if(!window.navigator.onLine)throw Error("SIN_CONEXION");
+  if(typeof catalog?.refresh!=="function")throw Error("OFFLINE_CATALOG_UNAVAILABLE");
+  await catalog.refresh({context,token,fetchFn});
+  presentCatalog(await catalog.readSnapshot(context));
+  return "Catálogo autorizado actualizado en este dispositivo.";
+ }));
  nodes.draftForm.addEventListener("submit",event=>{
   event.preventDefault();
   perform(async()=>{
@@ -101,6 +126,8 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
     deviceId="device_"+window.crypto.randomUUID().replace(/-/g,"");
     storage.setItem(deviceKey,deviceId);
    }
+   const selected=localProducts.find(x=>x.productoId===nodes.productId.value);
+   if(!selected||nodes.unitPrice.value!==selected.precioUnitarioCop)throw Error("OFFLINE_CATALOG_SELECTION_REQUIRED");
    const result=await draft.saveOfflineOrder({
     outbox,context,deviceId,
     productoId:nodes.productId.value.trim(),cantidad:nodes.quantity.value.trim(),
@@ -109,6 +136,10 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
    return "Pedido guardado localmente. No cobrado ni aplicado: "+result.eventId;
   });
  });
+ if(typeof catalog?.readSnapshot==="function"){
+  try{presentCatalog(await catalog.readSnapshot(context));}
+  catch(_){nodes.catalogInfo.textContent="Catálogo local no disponible; actualiza con internet";}
+ }
  await render();
  return {authenticated:true,refresh:render};
 }
@@ -119,7 +150,7 @@ else {
  if(root.document&&root.GRUKOfflineOutbox&&root.GRUKOfflineTransport){
   const start=()=>api.launch({document:root.document,window:root,
     storage:root.localStorage,outbox:root.GRUKOfflineOutbox,
-    transport:root.GRUKOfflineTransport,draft:root.GRUKOfflineDraft,fetchFn:root.fetch.bind(root)}).catch(e=>{
+    transport:root.GRUKOfflineTransport,draft:root.GRUKOfflineDraft,catalog:root.GRUKOfflineCatalog,fetchFn:root.fetch.bind(root)}).catch(e=>{
      const node=root.document.getElementById("message");
      if(node)node.textContent="No fue posible abrir el panel: "+String(e.message||"error");
     });

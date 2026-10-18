@@ -7,7 +7,7 @@ const vm=require("node:vm");
 const source=fs.readFileSync(path.join(__dirname,"../../routes/sync.js"),"utf8");
 test("recepción offline devuelve 202 pero nunca confirma venta aplicada",async()=>{
   const handlers={};
-  const router={post(path,...args){handlers[path]=args.at(-1);}};
+  const router={post(path,...args){handlers[path]=args.at(-1);},get(path,...args){handlers[path]=args.at(-1);}};
   let called=0;
   const inbox={
     ensureInboxIndexes:async()=>{},

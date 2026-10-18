@@ -33,12 +33,13 @@ code{overflow-wrap:anywhere}small{color:#52616e}#message{white-space:pre-wrap} .
 <h2>Guardar pedido offline</h2>
 <p><small>Registro técnico local sujeto a validación posterior del catálogo, existencia y precio en el servidor. No descuenta stock ni cobra dinero.</small></p>
 <form id="offlineDraftForm">
-<label for="productId">ID del producto (24 caracteres hexadecimales)</label>
-<input id="productId" name="productoId" pattern="[0-9a-fA-F]{24}" required maxlength="24" autocomplete="off">
+<p><button type="button" id="refreshCatalog">Actualizar catálogo con internet</button> <small id="catalogInfo">Catálogo sin consultar</small></p>
+<label for="productId">Producto del catálogo autorizado</label>
+<select id="productId" name="productoId" required><option value="">Selecciona un producto</option></select>
 <label for="quantity">Cantidad</label>
 <input id="quantity" name="cantidad" type="number" min="1" max="1000" step="1" required value="1">
 <label for="unitPrice">Precio de referencia en COP (sin decimales)</label>
-<input id="unitPrice" name="precioUnitarioCop" inputmode="numeric" pattern="(0|[1-9][0-9]*)" required>
+<input id="unitPrice" name="precioUnitarioCop" inputmode="numeric" pattern="(0|[1-9][0-9]*)" required readonly>
 <button type="submit" id="saveDraft">Guardar en este dispositivo</button>
 </form>
 <p><small>El precio es orientativo: si no coincide con el catálogo autorizado del servidor, no se registrará la venta.</small></p>
@@ -55,6 +56,7 @@ code{overflow-wrap:anywhere}small{color:#52616e}#message{white-space:pre-wrap} .
 <script src="/js/gruk-offline-outbox.js"></script>
 <script src="/js/gruk-offline-transport.js"></script>
 <script src="/js/gruk-offline-draft.js"></script>
+<script src="/js/gruk-offline-catalog.js"></script>
 <script src="/js/gruk-offline-panel.js"></script>
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("/service-worker.js").catch(()=>{});}</script>
 </body>

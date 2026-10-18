@@ -6,7 +6,7 @@ function load({dbReady=true,stage}={}){
  const handlers={};let calls=0;
  const db={client:{startSession:()=>({})}};
  const imports={
-  express:{Router:()=>({post(url,...fns){handlers[url]=fns.at(-1);}})},
+  express:{Router:()=>({post(url,...fns){handlers[url]=fns.at(-1);},get(url,...fns){handlers[url]=fns.at(-1);}})},
   mongoose:{connection:{readyState:dbReady?1:0,db}},
   "../core/auth/auth.middleware":()=>{},
   "../core/offline/offlineInbox.service":{acceptOfflineBatch:async()=>[],ensureInboxIndexes:async()=>{}},
