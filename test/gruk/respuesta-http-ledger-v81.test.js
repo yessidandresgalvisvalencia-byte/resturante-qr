@@ -89,3 +89,13 @@ test("V81 mantiene HTTP 400 para fecha inválida antes de persistir",async()=>{
  assert.equal(res.body.codigo,"DATOS_INVALIDOS");
  assert.equal(escrituras,0);
 });
+
+test("V81 propaga como reintentable el conflicto optimista de cabeza",async()=>{
+ const conflicto=Object.assign(new Error("Conflicto de concurrencia"),{
+  statusCode:409,codigo:"REINTENTAR_MISMO_ID"
+ });
+ const res=await solicitar(async()=>{throw conflicto;});
+ assert.equal(res.statusCode,409);
+ assert.equal(res.body.codigo,"REINTENTAR_MISMO_ID");
+ assert.equal(res.headers["Cache-Control"],"no-store");
+});
