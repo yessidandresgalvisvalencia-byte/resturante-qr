@@ -17,8 +17,10 @@ function assertAuthorization(auth,conflictId,confirmed,note){
  if(confirmed!==true)fail("OFFLINE_CONFLICT_RETRY_CONFIRMATION_REQUIRED");
  return {empresaId:auth.empresaId,sedeId:auth.sedeId};
 }
-function validateSource(doc){
- if(!doc||!ID.test(doc.actorId||"")||!Array.isArray(doc.eventIds)||
+function validateSource(doc,query){
+ if(!doc||doc._id!==query._id||doc.empresaId!==query.empresaId||
+   doc.sedeId!==query.sedeId||doc.status!==query.status||
+   doc.applied!==false||doc.cobrado!==false||!ID.test(doc.actorId||"")||!Array.isArray(doc.eventIds)||
    doc.eventIds.length<1||doc.eventIds.length>100||
    doc.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
    new Set(doc.eventIds).size!==doc.eventIds.length)
@@ -30,14 +32,16 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
  const query={_id:conflictId,...tenant,status:"REQUIERE_REVISION",applied:false,cobrado:false};
  const conflictCollection=db.collection("gruk_offline_stock_conflicts");
  const resolutionCollection=db.collection("gruk_offline_stock_resolutions");
- const source=await conflictCollection.findOne(query,{projection:{actorId:1,eventIds:1}});
+ const source=await conflictCollection.findOne(query,{projection:{_id:1,empresaId:1,sedeId:1,status:1,applied:1,cobrado:1,actorId:1,eventIds:1}});
  if(!source)fail("OFFLINE_CONFLICT_NOT_FOUND");
- validateSource(source);
+ validateSource(source,query);
  const context={...tenant,actorId:source.actorId},eventIds=source.eventIds;
  const resolutionKey={_id:conflictId,...tenant};
  const existing=await resolutionCollection.findOne(resolutionKey);
  if(existing){
-  if(existing.status!=="STAGED"||existing.actorId!==context.actorId||
+  if(existing._id!==conflictId||existing.empresaId!==tenant.empresaId||
+     existing.sedeId!==tenant.sedeId||existing.status!=="STAGED"||
+     existing.actorId!==context.actorId||!Array.isArray(existing.eventIds)||
      existing.eventIds.join(",")!==eventIds.join(","))fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
   const statuses=await readOfflineReconciliation({db,context,eventIds});
   if(statuses.length!==eventIds.length||statuses.some(x=>
@@ -54,8 +58,11 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
      plan.orders.some(x=>!eventIds.includes(x.eventId)))
     fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
   // Re-read source under transaction: may not resolve a changed/revoked conflict.
-  const valid=await conflictCollection.findOne(query,{session,projection:{_id:1}});
-  if(!valid)fail("OFFLINE_CONFLICT_NOT_FOUND");
+  const valid=await conflictCollection.findOne(query,{session,projection:{_id:1,empresaId:1,sedeId:1,status:1,applied:1,cobrado:1,actorId:1,eventIds:1}});
+  validateSource(valid,query);
+  if(valid.actorId!==source.actorId||
+     valid.eventIds.join(",")!==eventIds.join(","))
+   fail("OFFLINE_CONFLICT_RETRY_SOURCE_INVALID");
   try{
    await resolutionCollection.insertOne({
     ...resolutionKey,actorId:source.actorId,eventIds:[...eventIds],
