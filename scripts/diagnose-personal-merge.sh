@@ -7,18 +7,23 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "ERROR: no es un repositorio Git" >&2
   exit 2
 fi
-if ! git cat-file -e refs/remotes/origin/main^{commit} 2>/dev/null; then
+if ! git cat-file -e "refs/remotes/origin/main^{commit}" 2>/dev/null; then
   echo "ERROR: referencia origin/main no disponible; ejecutar git fetch origin main" >&2
+  exit 2
+fi
+
+if ! git cat-file -e "refs/remotes/origin/feature/finanzas-personales^{commit}" 2>/dev/null; then
+  echo "ERROR: referencia personal no disponible; ejecutar git fetch origin feature/finanzas-personales" >&2
   exit 2
 fi
 
 echo "GRUK FP: diagnóstico de fusión de solo lectura"
 echo "Rama actual: $(git rev-parse --abbrev-ref HEAD)"
-echo "Head: $(git rev-parse HEAD)"
+echo "Head de la rama personal: $(git rev-parse origin/feature/finanzas-personales)"
 echo "Base: $(git rev-parse origin/main)"
 
 set +e
-result=$(git merge-tree --write-tree --messages origin/main HEAD 2>&1)
+result=$(git merge-tree --write-tree --messages origin/main origin/feature/finanzas-personales 2>&1)
 status=$?
 set -e
 printf '%s\n' "$result"
