@@ -54,6 +54,11 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   assert.deepEqual(final.map(x=>x.secuencia),[1,2,3,4]);
   const headFinal=await Head.findOne({usuarioId}).lean();
   assert.equal(headFinal.headHash,final[3].hash);
+  const {auditarCadenaUsuario}=require("../../modules/finanzas-personales/services/auditoriaCadenaDecision.service");
+  assert.deepEqual(await auditarCadenaUsuario(usuarioId),{valida:true,codigo:"OK",secuencia:4});
+  const otroUsuario=new mongoose.Types.ObjectId();
+  assert.deepEqual(await auditarCadenaUsuario(otroUsuario),{valida:true,codigo:"SIN_DECISIONES",secuencia:0});
+
 
 
  }finally{await mongoose.disconnect();}
