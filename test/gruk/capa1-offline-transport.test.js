@@ -3,7 +3,7 @@ const test=require("node:test"),assert=require("node:assert/strict");
 const {synchronize}=require("../../public/js/gruk-offline-transport");
 const ctx={empresaId:"empresaA",sedeId:"sedeA",actorId:"actorA"};
 const a={eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAV"};
-function stub(){const pending=[a],received=[];return {pending,received,listPending:async()=>pending,markReceived:async id=>{received.push(id);}};}
+function stub(){const pending=[a],received=[];return {pending,received,listPending:async()=>pending,markReceived:async id=>{received.push(id);return true;}};}
 test("only complete authenticated 202 inbox acknowledgement marks received",async()=>{
  const o=stub();
  const result=await synchronize({outbox:o,context:ctx,token:"jwt",fetchFn:async(url,options)=>{
