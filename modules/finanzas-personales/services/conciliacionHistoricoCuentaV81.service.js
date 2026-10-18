@@ -7,6 +7,18 @@ const {conciliarPeriodoCuentaV81}=require("./conciliacionPeriodoCuentaV81.servic
 const {exigirSinMovimientosHuerfanos}=require("./guardiaConciliacionCuentaV81.service");
 const MAX_FILAS_CONCILIACION_V81=25000;
 const MAX_TIEMPO_CONSULTA_MONGO_V81_MS=15000;
+const MAX_DIAS_CONCILIACION_V81=366;
+function exigirPeriodoAcotadoV81(desde,hastaExclusivo){
+ if(!fechaCalendarioValidaV81(desde)||!fechaCalendarioValidaV81(hastaExclusivo))
+  throw new TypeError("Período inválido");
+ const inicio=new Date(desde+"T00:00:00Z");
+ const fin=new Date(hastaExclusivo+"T00:00:00Z");
+ const dias=(fin.getTime()-inicio.getTime())/86400000;
+ if(!Number.isSafeInteger(dias)||dias<1||dias>MAX_DIAS_CONCILIACION_V81)
+  throw new TypeError("Período de conciliación fuera del límite de 366 días");
+ return true;
+}
+
 const FORMATEADOR_FECHA_BOGOTA_V81=new Intl.DateTimeFormat("en-US",{
  timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"
 });
@@ -59,7 +71,7 @@ function fechaCalendarioValidaV81(fecha){
 // Requiere anclas explícitas: el saldo de cuenta no se deduce del flujo.
 async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclusivo,saldoInicialCentavos,saldoObservadoCentavos}){
  if(!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(cuentaId))throw new TypeError("Cuenta o usuario inválido");
- if(!fechaCalendarioValidaV81(desde)||!fechaCalendarioValidaV81(hastaExclusivo))throw new TypeError("Período inválido");
+ exigirPeriodoAcotadoV81(desde,hastaExclusivo);
  const start=new Date(desde+"T05:00:00Z"),end=new Date(hastaExclusivo+"T05:00:00Z");
  if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())||start>=end)throw new TypeError("Período inválido");
  const session=await mongoose.startSession();
@@ -108,4 +120,4 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,MAX_TIEMPO_CONSULTA_MONGO_V81_MS,crearPipelineVinculosPeriodoV81,fechaContableBogotaV81};
+module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,MAX_TIEMPO_CONSULTA_MONGO_V81_MS,MAX_DIAS_CONCILIACION_V81,exigirPeriodoAcotadoV81,crearPipelineVinculosPeriodoV81,fechaContableBogotaV81};
