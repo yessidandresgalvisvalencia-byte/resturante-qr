@@ -56,3 +56,15 @@ test("el formato de Bogotá se construye una vez y no por movimiento",()=>{
  assert.equal(source.split("new Intl.DateTimeFormat(").length-1,1);
  assert.ok(source.includes("const fechaContable=fechaContableBogotaV81(row.fecha);"));
 });
+
+test("todas las consultas de conciliación tienen presupuesto temporal y nunca usan resultados parciales",()=>{
+ const source=fs.readFileSync(path.join(__dirname,
+  "../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service.js"),"utf8");
+ const {MAX_TIEMPO_CONSULTA_MONGO_V81_MS}=require(
+  "../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+ assert.equal(MAX_TIEMPO_CONSULTA_MONGO_V81_MS,15000);
+ assert.equal(source.split(".maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS)").length-1,3);
+ assert.equal(source.split(".option({maxTimeMS:MAX_TIEMPO_CONSULTA_MONGO_V81_MS})").length-1,1);
+ assert.equal(source.split(".limit(MAX_FILAS_CONCILIACION_V81+1)").length-1,3);
+ assert.ok(source.includes("{$limit:MAX_FILAS_CONCILIACION_V81+1}"));
+});
