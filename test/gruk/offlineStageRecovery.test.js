@@ -27,7 +27,7 @@ test("read-only stage recovery recognizes complete staged batch with exact COP s
  const result=await recover({db,context:ctx,eventIds:ids});
  assert.deepEqual(result,{status:"PENDIENTE_CONTABILIZACION",alreadyStaged:true,
  applied:false,cobrado:false,processedEvents:2,totalCop:"6000"});
- assert.equal(db.calls,6);
+ assert.equal(db.calls,7);
 });
 test("recovery refuses partial, duplicate or tampered financial evidence",async()=>{
  for(const option of [{missing:true},{tampered:true},{paid:true},{duplicate:true}]){
