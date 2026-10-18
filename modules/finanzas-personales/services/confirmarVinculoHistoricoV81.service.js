@@ -20,6 +20,11 @@ function decidirReintentoVinculo(previos,solicitud){
  // No confiar en findOne($or): puede ocultar otro conflicto simultáneo.
  return {existe:true,coincide:previos.length===1&&coincideVinculo(previos[0],solicitud)};
 }
+function conflictoTransitorioMongo(e){
+ return Boolean(e&&(e.code===112||e.code===251||
+  (typeof e.hasErrorLabel==="function"&&
+   (e.hasErrorLabel("TransientTransactionError")||e.hasErrorLabel("UnknownTransactionCommitResult")))));
+}
 function resolverConfirmacion({usuarioId,movimiento,cuenta,evidencia,idempotencyKey}){
  if(!mongoose.isValidObjectId(usuarioId)||!movimiento||!cuenta)throw Object.assign(new Error("Cuenta o movimiento no encontrado"),{statusCode:404});
  if(String(movimiento.usuarioId)!==String(usuarioId)||String(cuenta.usuarioId)!==String(usuarioId))
@@ -81,7 +86,9 @@ async function confirmarVinculoHistoricoV81(usuarioId,{movimientoId,cuentaId,evi
     return {confirmado:true,yaExistia:true,modificaSaldo:false};
    throw Object.assign(new Error("Conflicto concurrente de vínculo con otra cuenta o evidencia"),{statusCode:409});
   }
+  if(conflictoTransitorioMongo(e))
+   throw Object.assign(new Error("Operación concurrente sin confirmación verificable; reintenta con la misma clave"),{statusCode:503});
   throw e;
  }finally{await session.endSession();}
 }
-module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo};
+module.exports={resolverConfirmacion,confirmarVinculoHistoricoV81,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo};
