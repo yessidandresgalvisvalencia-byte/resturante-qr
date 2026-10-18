@@ -1,0 +1,26 @@
+name: GRUK quality gate
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: gruk-gate-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    name: Syntax and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run GRUK quality gate
+        run: npm run gate
