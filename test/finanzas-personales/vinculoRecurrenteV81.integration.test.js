@@ -18,6 +18,8 @@ if(uri){
 test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad",{
  skip:!uri
 },async()=>{
+ const secretAnterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;
+ process.env.PERSONAL_IDEMPOTENCY_SECRET="CLAVE_SOLO_PARA_TEST_LOCAL_NO_PRODUCCION_32_BYTES";
  const mongoose=require("mongoose");
  const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
  const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
@@ -41,15 +43,28 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
    concepto:"Arriendo recurrente"
   }));
   const pago=await registrar(propietario,movimiento({
-   recurrente:false,recurrenteOrigenId:original._id
+   recurrente:false,recurrenteOrigenId:original._id,externalId:"abono-rec-001"
   }));
   const persistido=await Transaccion.findOne({_id:pago._id,usuarioId:propietario}).lean();
   assert.equal(String(persistido.recurrenteOrigenId),String(original._id));
   assert.equal(persistido.montoMinor,200000);
   const cuentaPropietario=await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean();
   assert.equal(cuentaPropietario.saldoMinor,500000);
+  // Doble clic/reintento: la misma clave nunca debe crear otro débito.
   await assert.rejects(
-   registrar(intruso,movimiento({recurrenteOrigenId:original._id})),
+   registrar(propietario,movimiento({
+    recurrenteOrigenId:original._id,externalId:"abono-rec-001"
+   })),e=>e.code===11000
+  );
+  assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),2);
+  assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,500000);
+  await assert.rejects(
+   registrar(propietario,movimiento({recurrenteOrigenId:original._id})),
+   e=>e.statusCode===400 && /externalId estable/.test(e.message)
+  );
+
+  await assert.rejects(
+   registrar(intruso,movimiento({recurrenteOrigenId:original._id,externalId:"intruso-001"})),
    e=>e.statusCode===404
   );
   assert.equal(await Transaccion.countDocuments({usuarioId:intruso}),0);
@@ -57,13 +72,13 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   assert.equal(saldoIntruso.saldoMinor,900000);
   await assert.rejects(
    registrar(propietario,movimiento({
-    recurrenteOrigenId:new mongoose.Types.ObjectId()
+    recurrenteOrigenId:new mongoose.Types.ObjectId(),externalId:"origen-inexistente-001"
    })),
    e=>e.statusCode===404
   );
   await assert.rejects(
    registrar(propietario,movimiento({
-    recurrenteOrigenId:original._id,fecha:new Date(Date.now()+86400000)
+    recurrenteOrigenId:original._id,externalId:"futuro-001",fecha:new Date(Date.now()+86400000)
    })),
    e=>e.statusCode===400
   );
@@ -71,5 +86,7 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,500000);
  }finally{
   await mongoose.disconnect();
+  if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
+  else process.env.PERSONAL_IDEMPOTENCY_SECRET=secretAnterior;
  }
 });
