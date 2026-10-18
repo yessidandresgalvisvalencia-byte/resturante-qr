@@ -34,6 +34,25 @@ const iniciarCajaJob = require("./shared/jobs/caja.job");
 const iniciarMemoriaJob = require("./shared/jobs/memoria.job");
 const app = express();
 app.disable("x-powered-by");
+const HEALTH_VERSION = require("./package.json").version;
+app.get("/ready", (_req, res) => {
+  const connected = mongoose.connection.readyState === 1;
+  res.set("Cache-Control", "no-store");
+  res.status(connected ? 200 : 503).json({
+    ready: connected,
+    db: connected ? "connected" : "disconnected"
+  });
+});
+app.get("/health", (_req, res) => {
+  const connected = mongoose.connection.readyState === 1;
+  res.status(connected ? 200 : 503).json({
+    status: connected ? "ok" : "degraded",
+    version: HEALTH_VERSION,
+    db: connected ? "connected" : "disconnected",
+    uptime: Math.floor(process.uptime())
+  });
+});
+
 const { securityHeaders, noStore } = require("./core/security/httpSecurity.middleware");
 const rateLimit = require("./core/security/rateLimit.middleware");
 app.set("trust proxy", 1);
@@ -45,6 +64,7 @@ const inventarioRoutes =
 require("./routes/inventario");
 const recetasRoutes = require("./routes/recetas");
 app.use("/api/recetas", recetasRoutes);
+app.use("/api/sync", require("./routes/sync"));
 const mensajesLaboralRoutes = require("./routes/mensajesLaboral");
 
 const iniciarJobSuscripciones = require("./jobs/suscripciones");
@@ -127,13 +147,21 @@ async function iniciarAplicacion() {
 
   try {
     await mongoose.connect(
-      process.env.MONGO_URI,
+      require("./core/config/mongoUri").normalizeMongoUri(process.env.MONGO_URI),
       process.env.MONGO_DB
         ? { dbName: process.env.MONGO_DB }
         : {}
     );
 
     console.log("MongoDB conectado");
+    // Explicit migration switch: do not change legacy startup behavior until reviewed.
+    // If enabled, duplicate ledger keys fail startup before the HTTP listener opens.
+    if (process.env.GRUK_OFFLINE_LEDGER_INDEX_BOOTSTRAP === "true") {
+      await require("./core/offline/offlineLedgerIndexes.service")
+        .ensureOfflineLedgerIndexes(mongoose.connection.db);
+      console.log("[GRUK OFFLINE] Índice único de ledger verificado");
+    }
+
 
     iniciarJobSuscripciones();
     iniciarCajaJob();
