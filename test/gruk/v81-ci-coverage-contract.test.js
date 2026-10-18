@@ -102,3 +102,11 @@ test("CI audita el modelo de reserva atómica y su índice único",()=>{
  assert.match(flujo,/await exigirIndiceUnicoReservaRecurrente\(\)/);
  assert.match(flujo,/reserva=await ReservaCuota\.findOneAndUpdate/);
 });
+
+test("CI V81 observa entrada compartida y contrato de despliegue",()=>{
+ for(const ruta of ["app.js","core/health/deploymentCommit.contract.js","test/gruk/shared-entrypoint-contract.test.js"]){
+  const linea="      - '"+ruta+"'";
+  assert.equal(yaml.split(linea).length-1,2,
+   "Cambiar "+ruta+" debe activar CI en push y pull_request");
+ }
+});
