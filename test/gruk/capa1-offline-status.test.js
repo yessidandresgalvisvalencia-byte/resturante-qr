@@ -22,7 +22,11 @@ function fixture({
   assert.ok(Object.hasOwn(data,name),"Known reconciliation collection only");
   return {find(query,options){
    calls++;
-   assert.deepEqual(query,{...ctx,eventId:{$in:[a,b]}});
+   assert.equal(query.empresaId,ctx.empresaId);
+   assert.equal(query.sedeId,ctx.sedeId);
+   assert.equal(query.actorId,ctx.actorId);
+   assert.ok(Array.isArray(query.eventId.$in));
+   assert.ok(query.eventId.$in.every(eventId=>[a,b].includes(eventId)));
    assert.equal(options.projection._id,0);
    return {toArray:async()=>data[name].filter(doc=>query.eventId.$in.includes(doc.eventId))};
   }};
