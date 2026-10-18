@@ -82,3 +82,20 @@ test("el período máximo admite año bisiesto y rechaza rangos excesivos antes 
   ["2025-02-30","2025-03-02"]
  ])assert.throws(()=>exigirPeriodoAcotadoV81(desde,hasta),TypeError);
 });
+
+test("los saldos de referencia exigen BigInt antes de abrir Mongo",async()=>{
+ const {conciliarHistoricoCuentaV81}=require(
+  "../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+ const id=String(new mongoose.Types.ObjectId());
+ const base={usuarioId:id,cuentaId:String(new mongoose.Types.ObjectId()),
+  desde:"2025-01-01",hastaExclusivo:"2025-02-01",
+  saldoInicialCentavos:10000n,saldoObservadoCentavos:-2000n};
+ for(const invalido of [0,0.1,10000,"10000",null,undefined,{},NaN,Infinity]){
+  await assert.rejects(()=>conciliarHistoricoCuentaV81({
+   ...base,saldoInicialCentavos:invalido
+  }),TypeError);
+  await assert.rejects(()=>conciliarHistoricoCuentaV81({
+   ...base,saldoObservadoCentavos:invalido
+  }),TypeError);
+ }
+});
