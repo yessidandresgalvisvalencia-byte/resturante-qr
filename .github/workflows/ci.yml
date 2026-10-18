@@ -27,7 +27,6 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Audit production dependency vulnerabilities
-        continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
       - name: Start isolated MongoDB replica set
         run: |
