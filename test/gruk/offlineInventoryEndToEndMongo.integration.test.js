@@ -16,7 +16,7 @@ const objectId=value=>new ObjectId(value);
 function order(eventId,quantity){
  const sum=quantity*3000;
  return {...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",
-  payload:{localOrderId:eventId,items:[{productoId,cantidad:String(quantity),precioUnitarioCop:"3000",totalCop:String(sum)}],totalCop:String(sum)}};
+  payload:{localOrderId:eventId,items:[{productoId:productId,cantidad:String(quantity),precioUnitarioCop:"3000",totalCop:String(sum)}],totalCop:String(sum)}};
 }
 async function counts(db){
  return Promise.all(tables.map(t=>db.collection(t).countDocuments({empresaId:context.empresaId,sedeId:context.sedeId})));
