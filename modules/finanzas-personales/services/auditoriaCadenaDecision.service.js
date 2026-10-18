@@ -24,8 +24,10 @@ async function auditarCadenaUsuario(usuarioId) {
         return { valida: false, codigo: "AUDITORIA_REQUIERE_PAGINACION", secuencia: null };
       }
       if (!head) {
+        // No es posible distinguir una cuenta nueva de un borrado total
+        // sin evidencia externa. Nunca certificar una cadena ausente.
         return registros.length === 0
-          ? { valida: true, codigo: "SIN_DECISIONES", secuencia: 0 }
+          ? { valida: false, codigo: "SIN_ANCLA_DE_INTEGRIDAD", secuencia: 0 }
           : { valida: false, codigo: "HEAD_AUSENTE", secuencia: null };
       }
       return verificarCadena(registros, head);
