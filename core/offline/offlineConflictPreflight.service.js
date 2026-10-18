@@ -16,8 +16,11 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
  const tenant={empresaId:auth.empresaId,sedeId:auth.sedeId};
  const source=await db.collection("gruk_offline_stock_conflicts").findOne({
   _id:conflictId,...tenant,status:"REQUIERE_REVISION",applied:false,cobrado:false
- },{projection:{actorId:1,eventIds:1}});
- if(!source||typeof source.actorId!=="string"||
+ },{projection:{_id:1,empresaId:1,sedeId:1,status:1,applied:1,cobrado:1,actorId:1,eventIds:1}});
+ if(!source||source._id!==conflictId||
+    source.empresaId!==tenant.empresaId||source.sedeId!==tenant.sedeId||
+    source.status!=="REQUIERE_REVISION"||source.applied!==false||source.cobrado!==false||
+    typeof source.actorId!=="string"||
     !/^[A-Za-z0-9_-]{1,80}$/.test(source.actorId)||
     !Array.isArray(source.eventIds)||source.eventIds.length===0||
     source.eventIds.length>100)
