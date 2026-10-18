@@ -36,6 +36,31 @@ function assertFreshOfflineStaging(staged,inventoryDeltas,plan){
  }
  return true;
 }
+function assertAppliedOfflineInventory(inventory,inventoryDeltas){
+ const code="OFFLINE_INVENTORY_RESULT_CONFLICT";
+ const fail=()=>{const error=new Error(code);error.code=code;throw error;};
+ if(!Array.isArray(inventory)||!Array.isArray(inventoryDeltas)||
+    inventory.length===0||inventory.length!==inventoryDeltas.length)fail();
+ const expected=new Map();
+ for(const delta of inventoryDeltas){
+   if(typeof delta?.productoId!=="string"||!delta.productoId||
+      typeof delta.deltaUnidades!=="string"||!/^-[1-9][0-9]*$/.test(delta.deltaUnidades)||
+      expected.has(delta.productoId))fail();
+   expected.set(delta.productoId,-BigInt(delta.deltaUnidades));
+ }
+ const seen=new Set();
+ for(const result of inventory){
+   if(typeof result?.productoId!=="string"||!expected.has(result.productoId)||
+      seen.has(result.productoId)||typeof result.antes!=="string"||
+      typeof result.despues!=="string"||
+      !/^(0|[1-9][0-9]*)$/.test(result.antes)||
+      !/^(0|[1-9][0-9]*)$/.test(result.despues))fail();
+   const before=BigInt(result.antes),after=BigInt(result.despues);
+   if(before-after!==expected.get(result.productoId))fail();
+   seen.add(result.productoId);
+ }
+ return true;
+}
 async function executeOfflineInventoryStagingTransaction({db,context,eventIds,objectId}){
  await assertOfflineStagingIndexes(db);
  return executeOfflinePostingTransaction({db,context,eventIds,objectId,
@@ -49,8 +74,11 @@ async function executeOfflineInventoryStagingTransaction({db,context,eventIds,ob
    const inventory=await applyOfflineLegacyInventory({
     db,session,context:verifiedContext,inventoryDeltas,objectId
    });
+   // A database writer may only authorize commit after confirming the exact
+   // product-by-product quantities actually debited in this transaction.
+   assertAppliedOfflineInventory(inventory,inventoryDeltas);
    return Object.freeze({...staged,inventory,inventoryApplied:true});
   }
  });
 }
-module.exports={executeOfflineInventoryStagingTransaction,assertFreshOfflineStaging};
+module.exports={executeOfflineInventoryStagingTransaction,assertFreshOfflineStaging,assertAppliedOfflineInventory};
