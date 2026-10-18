@@ -216,6 +216,28 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   assert.equal((await ReservaCuota.findOne({
    usuarioId:propietario,origenId:origenConcurrente._id
   }).lean()).reservadoMinor,40000);
+  // Caja insuficiente DESPUÉS de reservar: la transacción ACID revierte
+  // reserva, asiento y outbox sin permitir cargos fantasmas.
+  const cuentaSinSaldo=cuenta+"_SIN_SALDO";
+  await Cuenta.create({usuarioId:propietario,nombre:cuentaSinSaldo,tipo:"OTRA",saldoMinor:0});
+  const reservaAntesFallo=await ReservaCuota.findOne({
+   usuarioId:propietario,origenId:origenConcurrente._id
+  }).lean();
+  const txAntesFallo=await Transaccion.countDocuments({usuarioId:propietario});
+  const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");
+  const outboxAntesFallo=await Outbox.countDocuments({usuarioId:propietario});
+  await assert.rejects(registrar(propietario,movimiento({
+   recurrenteOrigenId:origenConcurrente._id,
+   externalId:"reserva-sin-saldo-en-cuenta",montoMinor:1000,cuenta:cuentaSinSaldo
+  })),e=>e.statusCode===409 && /Saldo insuficiente/.test(e.message));
+  assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),txAntesFallo);
+  assert.equal(await Outbox.countDocuments({usuarioId:propietario}),outboxAntesFallo);
+  assert.equal((await ReservaCuota.findOne({
+   usuarioId:propietario,origenId:origenConcurrente._id
+  }).lean()).reservadoMinor,reservaAntesFallo.reservadoMinor);
+  assert.equal((await Cuenta.findOne({
+   usuarioId:propietario,nombre:cuentaSinSaldo
+  }).lean()).saldoMinor,0);
   // Simular una reserva desincronizada fuera del servicio: el siguiente abono
   // no debe confirmar un débito ni ocultar el desajuste del ledger.
   await ReservaCuota.updateOne({
