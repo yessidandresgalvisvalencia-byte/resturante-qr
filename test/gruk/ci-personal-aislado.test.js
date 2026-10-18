@@ -34,3 +34,13 @@ test("los cambios a las guardias financieras no pueden evadir el CI de pull requ
   "scripts/auditoria-instalacion-personal.js"
  ])assert.ok(pullRequest.includes("'"+ruta+"'"),"CI no cubre cambios en "+ruta);
 });
+
+test("CI Mongo conserva TAP verificable y evidencia visible de sus dos integraciones",()=>{
+ const ci=fs.readFileSync(path.join(root,".github/workflows/finanzas-personales-ci.yml"),"utf8");
+ const bloque=ci.split("  concurrencia-mongo:")[1];
+ assert.ok(bloque,"Falta el trabajo de concurrencia");
+ assert.match(bloque,/node --test --test-reporter=tap test\/gruk\/confirmacion-vinculo-mongo-concurrencia\.test\.js test\/gruk\/decision-proof-concurrency\.test\.js/);
+ assert.match(bloque,/node scripts\/verificar-evidencia-mongo-v81\.js prueba-mongo-v81\.log \| tee -a "\$GITHUB_STEP_SUMMARY"/);
+ assert.match(bloque,/set -o pipefail/);
+ assert.match(bloque,/name: evidencia-concurrencia-mongo-v81/);
+});
