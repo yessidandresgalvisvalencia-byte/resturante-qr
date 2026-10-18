@@ -3,6 +3,7 @@
 // Changes legacy inventory transactionally. NEVER settles payment or marks APPLIED.
 const {ObjectId}=require("mongodb");
 const {executeOfflineInventoryStagingTransaction}=require("./offlineInventoryStagingTransaction.service");
+const {recoverOfflineStagedBatch}=require("./offlineStageRecovery.service");
 const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 const SAFE=/^[A-Za-z0-9_-]{1,80}$/;
 const ROLES=new Set(["DUEÑO","ADMIN_SEDE"]);
@@ -21,9 +22,16 @@ function validateAdminStage({auth,eventIds,confirmed}){
 async function stageAuthorizedOfflineOrders({db,auth,eventIds,confirmed}){
  const context=validateAdminStage({auth,eventIds,confirmed});
  if(typeof db?.client?.startSession!=="function")fail("OFFLINE_TRANSACTION_UNAVAILABLE");
- const staged=await executeOfflineInventoryStagingTransaction({
-  db,context,eventIds,objectId:id=>new ObjectId(id),requireAuthoritativePricing:true
- });
+ let staged;
+ try{
+  staged=await executeOfflineInventoryStagingTransaction({
+   db,context,eventIds,objectId:id=>new ObjectId(id),requireAuthoritativePricing:true
+  });
+ }catch(error){
+  if(error?.code!=="OFFLINE_ORDERS_NOT_PENDING")throw error;
+  // Read-only confirmation only if every requested event is fully staged.
+  return recoverOfflineStagedBatch({db,context,eventIds});
+ }
  if(staged.status!=="PENDIENTE_CONTABILIZACION"||staged.inventoryApplied!==true)
   fail("OFFLINE_STAGE_OUTCOME_CONFLICT");
  return Object.freeze({

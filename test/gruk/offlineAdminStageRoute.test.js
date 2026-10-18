@@ -55,3 +55,14 @@ test("stage-orders: Mongo disconnected returns 503 before any domain call",async
  const f=load({dbReady:false,stage:()=>{throw Error("MUST_NOT_STAGE");}});
  const r=await send(f.handler);assert.equal(r.code,503);assert.equal(f.calls,0);
 });
+
+test("stage-orders: idempotent recovery returns 200 without confirming a payment",async()=>{
+ const f=load({stage:async()=>({status:"PENDIENTE_CONTABILIZACION",alreadyStaged:true,
+  cobrado:false,applied:false,processedEvents:1,totalCop:"3000"})});
+ const response=await send(f.handler);
+ assert.equal(response.code,200);
+ assert.equal(response.answer.alreadyStaged,true);
+ assert.equal(response.answer.applied,false);
+ assert.equal(response.answer.cobrado,false);
+ assert.equal(f.calls,1);
+});
