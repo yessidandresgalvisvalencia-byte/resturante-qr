@@ -10,7 +10,7 @@ const DANGEROUS_ACTIONS = new Set([
   "createRole", "updateRole", "dropRole", "createUser",
   "dropIndex", "renameCollectionSameDB", "renameCollection",
   "updateUser", "dropUser", "grantPrivilegesToRole",
-  "revokePrivilegesFromRole"
+  "revokePrivilegesFromRole", "bypassDocumentValidation"
 ]);
 
 function aplicaAlHistorial(resource, dbName, collectionName) {
