@@ -23,11 +23,12 @@ for(const [nombre,v] of Object.entries(vulnerabilidades)){
 }
 let salida="### Auditoría de dependencias GRUK Finanzas Personales\n\n";
 salida+="Críticas: "+severidades.critical+" · Altas: "+severidades.high+" · Moderadas: "+severidades.moderate+"\n\n";
-salida+="| Paquete | Severidad | Corrección | Referencias |\n|---|---|---|---|\n";
+salida+="| Paquete | Tipo | Severidad | Rango afectado | Corrección sugerida | Dependientes | Referencias |\n|---|---|---|---|---|---|---|\n";
+const limpiar=s=>String(s).replace(/[|<>\r\n]/g," ").slice(0,180);
 for(const x of filas){
  const urls=x.origenes.slice(0,3).map((url,i)=>"[Aviso "+(i+1)+"]("+url+")").join(", ");
- salida+="| "+x.nombre.replace(/[|<>]/g,"")+" | "+x.nivel+" | "+x.correccion+" | "+urls+" |\n";
+ salida+="| "+limpiar(x.nombre)+" | "+x.camino+" | "+x.nivel+" | "+limpiar(x.afectados)+" | "+limpiar(x.correccion)+" | "+limpiar(x.efectos)+" | "+urls+" |\n";
 }
-if(filas.length===0)salida+="| Sin alertas altas o críticas | — | — | — |\n";
+if(filas.length===0)salida+="| Sin alertas altas o críticas | — | — | — | — | — | — |\n";
 process.stdout.write(salida);
 if(severidades.high||severidades.critical)process.exitCode=1;
