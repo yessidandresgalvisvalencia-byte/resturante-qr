@@ -257,7 +257,7 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
       ]);
       assert.equal([appliedA.status, appliedB.status].filter(x => x === "APLICADO").length, 1);
       assert.ok([appliedA.status, appliedB.status].every(x => ["APLICADO", "NO_RECLAMADO", "CONFLICTO_CONCURRENCIA"].includes(x)));
-      assert.equal((await readOfflineStatuses({db,context,eventIds:[proofEventId]}))[0].applied, true);
+      assert.equal((await readOfflineStatuses({db,context,eventIds:[proofEventId]}))[0].applied, false, "APLICADO sin inventarioApplied no es conciliación completa");
       const replayApplied = await markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference });
       assert.equal(replayApplied.status, "NO_RECLAMADO");
     } finally {
