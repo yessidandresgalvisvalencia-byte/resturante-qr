@@ -18,6 +18,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+
+  merge-readiness:
+    name: GRUK Personal Merge Readiness
+    if: github.ref == 'refs/heads/feature/finanzas-personales' || (github.event_name == 'pull_request' && github.head_ref == 'feature/finanzas-personales')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout con historial completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Diagnosticar fusión real sin alterar ramas
+        shell: bash
+        run: |
+          set -o pipefail
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main +refs/heads/feature/finanzas-personales:refs/remotes/origin/feature/finanzas-personales
+          bash scripts/diagnose-personal-merge.sh 2>&1 | tee "${RUNNER_TEMP}/gruk-personal-merge-diagnostic.log"
+      - name: Publicar informe aunque existan conflictos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-personal-merge-diagnostic-${{ github.run_id }}
+          path: ${{ runner.temp }}/gruk-personal-merge-diagnostic.log
+          if-no-files-found: ignore
+          retention-days: 7
   gate:
     name: GRUK Production Gate
     runs-on: ubuntu-latest
@@ -27,21 +52,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Identificar conflictos reales con main sin fusionar
-        if: github.ref == 'refs/heads/feature/finanzas-personales' || (github.event_name == 'pull_request' && github.head_ref == 'feature/finanzas-personales')
-        shell: bash
-        run: |
-          set -o pipefail
-          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main +refs/heads/feature/finanzas-personales:refs/remotes/origin/feature/finanzas-personales
-          bash scripts/diagnose-personal-merge.sh 2>&1 | tee "${RUNNER_TEMP}/gruk-personal-merge-diagnostic.log"
-      - name: Guardar informe de conflictos de integración
-        if: always() && (github.ref == 'refs/heads/feature/finanzas-personales' || (github.event_name == 'pull_request' && github.head_ref == 'feature/finanzas-personales'))
-        uses: actions/upload-artifact@v4
-        with:
-          name: gruk-personal-merge-diagnostic-${{ github.run_id }}
-          path: ${{ runner.temp }}/gruk-personal-merge-diagnostic.log
-          if-no-files-found: ignore
-          retention-days: 7
       - name: Node 20
         uses: actions/setup-node@v4
         with:
