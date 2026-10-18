@@ -14,14 +14,16 @@ async function assertOfflineAuthoritativePrices({db,session,context,plan,objectI
  const ids=[...new Set(items.map(item=>item.productoId.toLowerCase()))];
  const rows=await db.collection("productoservicios").find({
    _id:{$in:ids.map(objectId)},empresaId:objectId(context.empresaId),sedeId:objectId(context.sedeId),activo:true
- },{session,projection:{_id:1,precioVenta:1}}).toArray();
+ },{session,projection:{_id:1,empresaId:1,sedeId:1,activo:1,precioVenta:1}}).toArray();
  if(rows.length!==ids.length)fail();
  const prices=new Map();
  for(const row of rows){
    // Legacy product schema stores COP prices as JS numbers; do not round cents.
-   if(!Number.isSafeInteger(row?.precioVenta)||row.precioVenta<0)fail();
+   if(String(row?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
+      String(row?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
+      row?.activo!==true||!Number.isSafeInteger(row?.precioVenta)||row.precioVenta<0)fail();
    const key=String(row._id).toLowerCase();
-   if(prices.has(key))fail();
+   if(!ids.includes(key)||prices.has(key))fail();
    prices.set(key,BigInt(row.precioVenta));
  }
  for(const item of items){
