@@ -15,6 +15,7 @@ for (const archivo of workflows) {
     const yaml = fs.readFileSync(path.join(root, archivo), "utf8");
     assert.match(yaml, /^\s*TEST_MONGO_URI:\s*mongodb:\/\/127\.0\.0\.1:27017\/\?replicaSet=rs0&directConnection=true\s*$/m);
     assert.match(yaml, /^\s*GRUK_TEST_DB_CONFIRM:\s*SOLO_PRUEBAS_LOCALES\s*$/m);
+    assert.match(yaml, /^\\s*GRUK_TEST_MONGO_URI:\\s*mongodb:\\/\\/127\\.0\\.0\\.1:27017\\/gruk_offline_test\\?replicaSet=rs0&directConnection=true\\s*$/m);
     assert.match(yaml, /run:\s*npm run gate|npm run gate 2>&1/);
     assert.doesNotMatch(yaml, /^\s*TEST_MONGO_URI:.*mongodb\+srv:/m);
   });
@@ -41,4 +42,9 @@ test("GRUK CI conserva base Mongo local para las pruebas offline empresariales",
  const yaml=fs.readFileSync(path.join(root,".github/workflows/gruk-ci.yml"),"utf8");
  assert.match(yaml,/^\s*GRUK_TEST_MONGO_URI:\s*mongodb:\/\/127\.0\.0\.1:27017\/gruk_offline_test\?replicaSet=rs0&directConnection=true\s*$/m);
  assert.match(yaml,/^\s*GRUK_TEST_DB_CONFIRM:\s*SOLO_PRUEBAS_LOCALES\s*$/m);
+});
+
+test("GRUK Gate toma SHA fuente de la PR personal sin alterar otras PR",()=>{
+ const yaml=fs.readFileSync(path.join(root,".github/workflows/ci.yml"),"utf8");
+ assert.match(yaml,/ref: \$\{\{ github\.event\.pull_request\.head\.ref == 'feature\/finanzas-personales' && github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
 });
