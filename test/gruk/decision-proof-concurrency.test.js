@@ -237,6 +237,7 @@ test("clasifica como recuperables solo conflictos transaccionales", () => {
  assert.equal(esConflictoTransitorio({code:112}),true);
  assert.equal(esConflictoTransitorio({codeName:"WriteConflict"}),true);
  assert.equal(esConflictoTransitorio({hasErrorLabel:label=>label==="TransientTransactionError"}),true);
+ assert.equal(esConflictoTransitorio({hasErrorLabel:label=>label==="UnknownTransactionCommitResult"}),true);
  assert.equal(esConflictoTransitorio({code:11000}),false);
  assert.equal(esConflictoTransitorio(new Error("falla permanente")),false);
 });
@@ -328,4 +329,18 @@ test("DecisionProof bloquea identidades no Mongo antes de ejecutar consultas",as
  // Estas representaciones son válidas en la capa de identidad;
  // no abrimos conexión ni escribimos documentos en esta prueba.
  assert.match(String(new mongoose.Types.ObjectId()),/^[a-f0-9]{24}$/);
+});
+
+test("commit Mongo incierto exige 503 tras relecturas sin tratar fallos arbitrarios como reintentables",()=>{
+ const {esConflictoTransitorio,errorAgotamientoConcurrenciaV81}=require(
+  "../../modules/finanzas-personales/services/decisionProofPersistence.service");
+ const commitIncierto={
+  hasErrorLabel:label=>label==="UnknownTransactionCommitResult"
+ };
+ assert.equal(esConflictoTransitorio(commitIncierto),true);
+ const agotado=errorAgotamientoConcurrenciaV81(commitIncierto);
+ assert.equal(agotado.statusCode,503);
+ assert.equal(agotado.code,"DECISION_PROOF_CONCURRENCY_RETRY_EXHAUSTED");
+ assert.equal(esConflictoTransitorio({code:11000}),false);
+ assert.equal(esConflictoTransitorio({hasErrorLabel:()=>false}),false);
 });
