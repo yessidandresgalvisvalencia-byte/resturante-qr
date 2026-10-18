@@ -50,4 +50,15 @@ jobs:
           NODE_ENV: test
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
           GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
-        run: npm run gate
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run gate 2>&1 | tee "${RUNNER_TEMP}/gruk-ci-gate.log"
+      - name: Conservar evidencia del gate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-ci-gate-${{ github.run_id }}
+          path: ${{ runner.temp }}/gruk-ci-gate.log
+          if-no-files-found: ignore
+          retention-days: 3
