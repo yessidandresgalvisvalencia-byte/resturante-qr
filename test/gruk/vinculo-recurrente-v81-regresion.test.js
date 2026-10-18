@@ -41,3 +41,14 @@ test("un abono parcial no permite exceder la cuota del período", () => {
  assert.throws(()=>validarTotalPeriodoRecurrente({importeObligacionMinor:100000,yaPagadoMinor:40000,nuevoPagoMinor:0}),error=>error.statusCode===409);
  assert.throws(()=>validarTotalPeriodoRecurrente({importeObligacionMinor:100000,yaPagadoMinor:0.1,nuevoPagoMinor:100}),error=>error.statusCode===400);
 });
+
+test("acepta fechas ISO reales con Z y desplazamiento horario", () => {
+ assert.equal(validarFechaPagoVinculado({
+  fechaOrigen:"2026-10-01T12:00:00Z",
+  fechaPago:"2026-10-18T08:00:00-05:00",
+  ahora:"2026-10-18T14:00:00Z",
+ }),true);
+ assert.throws(()=>validarFechaPagoVinculado({
+  fechaOrigen:"2026-10-01T12:00:00Z",fechaPago:"18/10/2026",ahora:"2026-10-18T14:00:00Z",
+ }),error=>error.statusCode===400);
+});
