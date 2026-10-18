@@ -5,7 +5,7 @@ const Transaccion=require("../models/TransaccionPersonal");
 const Outbox=require("../models/outboxPersonal.model");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
-const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,ventanaPagoColombia,validarTotalPeriodoRecurrente}=require("./vinculoRecurrenteV81.service");
+const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,periodoRecurrenteColombia,validarTotalPeriodoRecurrente}=require("./vinculoRecurrenteV81.service");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
 const {encryptObject}=require("../security/fieldEncryption.service");
 
@@ -25,13 +25,15 @@ async function registrarTransaccion(usuarioId,input){
     if(input.tipo!=="GASTO"||input.recurrente===true||!mongoose.isValidObjectId(input.recurrenteOrigenId))
      throw Object.assign(new Error("El vínculo recurrente requiere un gasto no recurrente e ID válido"),{statusCode:400});
     const origen=await Transaccion.findOne({_id:input.recurrenteOrigenId,usuarioId,tipo:"GASTO",
-     recurrente:true,estado:{$ne:"ANULADA"}}).select("_id fecha impactoCaja montoMinor").session(session);
+     recurrente:true,estado:{$ne:"ANULADA"}}).select("_id fecha impactoCaja montoMinor frecuencia").session(session);
     if(!origen)throw Object.assign(new Error("Obligación recurrente no encontrada para esta cuenta"),{statusCode:404});
     validarFechaPagoVinculado({fechaPago:input.fecha,fechaOrigen:origen.fecha});
     validarNoDuplicarOrigenHoy({fechaPago:input.fecha,fechaOrigen:origen.fecha,origenImpactoCaja:origen.impactoCaja});
-    // Registrar varios abonos es válido, pero su suma para la fecha colombiana
-    // no debe exceder la cuota prevista. No inferir vínculos por concepto.
-    const {inicio,fin}=ventanaPagoColombia(input.fecha);
+    // Todos los abonos de la MISMA cuota periódica comparten cupo,
+    // incluso cuando ocurren en fechas civiles diferentes.
+    const {inicio,fin}=periodoRecurrenteColombia({
+     fechaOrigen:origen.fecha,fechaPago:input.fecha,frecuencia:origen.frecuencia
+    });
     const abonosPrevios=await Transaccion.find({
      usuarioId,tipo:"GASTO",recurrenteOrigenId:origen._id,
      estado:{$ne:"ANULADA"},fecha:{$gte:inicio,$lt:fin}
