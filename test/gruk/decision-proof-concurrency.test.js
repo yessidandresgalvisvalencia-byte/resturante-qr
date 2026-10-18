@@ -26,6 +26,19 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   const outbox=await Outbox.find({usuarioId,eventName:"DECISION_PROOF_REGISTRADA"}).lean();
   assert.equal(outbox.length,2);
   assert.deepEqual(new Set(outbox.map(x=>String(x.aggregateId))).size,2);
+  // Misma clave, misma petición: solo una decisión y un evento outbox.
+  const peticion={...base,accion:"CONSULTAR",idempotencyKey:"race-same-key-0003"};
+  const [uno,dos]=await Promise.all([
+   registrar(usuarioId,peticion),
+   registrar(usuarioId,peticion)
+  ]);
+  assert.equal(String(uno._id),String(dos._id));
+  assert.equal(await Proof.countDocuments({usuarioId,idempotencyKey:peticion.idempotencyKey}),1);
+  assert.equal(await Outbox.countDocuments({usuarioId,eventName:"DECISION_PROOF_REGISTRADA"}),3);
+  const cadena=await Proof.find({usuarioId}).sort({secuencia:1}).lean();
+  assert.deepEqual(cadena.map(x=>x.secuencia),[1,2,3]);
+  assert.equal(cadena[2].previousHash,cadena[1].hash);
+
  }finally{await mongoose.disconnect();}
 });
 
@@ -44,4 +57,13 @@ test("idempotencia: rechaza reutilizar la clave para una solicitud distinta", ()
  const distinta=fingerprint({accion:"SIMULAR",evaluacion:{autorizada:false},actorId:"TEST"});
  assert.notEqual(original,distinta);
  assert.throws(()=>resolverExistente({requestFingerprint:original},distinta),{code:"IDEMPOTENCY_KEY_CONFLICT"});
+});
+
+test("clasifica como recuperables solo conflictos transaccionales", () => {
+ const {esConflictoTransitorio}=require("../../modules/finanzas-personales/services/decisionProofPersistence.service");
+ assert.equal(esConflictoTransitorio({code:112}),true);
+ assert.equal(esConflictoTransitorio({codeName:"WriteConflict"}),true);
+ assert.equal(esConflictoTransitorio({hasErrorLabel:label=>label==="TransientTransactionError"}),true);
+ assert.equal(esConflictoTransitorio({code:11000}),false);
+ assert.equal(esConflictoTransitorio(new Error("falla permanente")),false);
 });
