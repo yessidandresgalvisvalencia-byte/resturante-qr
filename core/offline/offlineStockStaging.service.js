@@ -23,7 +23,7 @@ async function stageOfflineStockMovements({db,session,context,plan,inventoryDelt
  const stock=db.collection("gruk_offline_stock_movimientos");
  const indexes=await stock.indexes();
  if(!Array.isArray(indexes)||!indexes.some(i=>i.name==="uniq_offline_stock_tenant_batch_product"&&i.unique===true&&
- ["empresaId","sedeId","batchId","productoId"].every(k=>i.key?.[k]===1)&&Object.keys(i.key||{}).length===4))
+ ["empresaId","sedeId","batchId","productoId"].every((k,n)=>Object.keys(i.key||{})[n]===k&&i.key[k]===1)&&Object.keys(i.key||{}).length===4))
   fail("OFFLINE_STOCK_UNIQUE_INDEX_REQUIRED");
  // Batch ID is deterministic: sorted event IDs, hashed so retries resolve to same key.
  const {createHash}=require("node:crypto");
