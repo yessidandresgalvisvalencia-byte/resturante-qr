@@ -46,6 +46,14 @@ function esColisionSecuencia(error) {
   error?.keyPattern?.usuarioId===1 && error?.keyPattern?.secuencia===1 &&
   Object.keys(error.keyPattern).length===2);
 }
+function errorAgotamientoConcurrenciaV81(error){
+ const recuperable=esConflictoTransitorio(error)||esColisionSecuencia(error);
+ if(!recuperable)return error;
+ const fallo=new Error("DECISION_PROOF_CONCURRENCY_RETRY_EXHAUSTED");
+ fallo.code="DECISION_PROOF_CONCURRENCY_RETRY_EXHAUSTED";
+ fallo.statusCode=503;
+ return fallo;
+}
 function validarClaveDecisionProofV81(valor){
  if(typeof valor!=="string")throw new TypeError("idempotencyKey inválida");
  const clave=valor.trim();
@@ -90,9 +98,10 @@ async function registrar(usuarioId,args){
     const recuperada=await DecisionProof.findOne({usuarioId,idempotencyKey:clave}).lean();
     if(recuperada)return resolverExistente(recuperada,fp);
    }
-   if(intento===4 || !(esConflictoTransitorio(error) || esColisionSecuencia(error)))throw error;
+   if(intento===4)throw errorAgotamientoConcurrenciaV81(error);
+   if(!(esConflictoTransitorio(error)||esColisionSecuencia(error)))throw error;
   } finally {await session.endSession();}
  }
  throw new Error("DECISION_PROOF_RETRY_EXHAUSTED");
 }
-module.exports={validarClaveDecisionProofV81,fingerprint,resolverExistente,esConflictoTransitorio,esColisionSecuencia,registrar};
+module.exports={errorAgotamientoConcurrenciaV81,validarClaveDecisionProofV81,fingerprint,resolverExistente,esConflictoTransitorio,esColisionSecuencia,registrar};
