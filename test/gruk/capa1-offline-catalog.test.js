@@ -13,14 +13,14 @@ function db(rows){let reads=0;return {collection(name){assert.equal(name,"produc
  }};},get reads(){return reads;}};}
 test("offline catalog: only same-company/site active products with integer COP price",async()=>{
  const source=db([{_id:productId,nombre:"Empanada",precioVenta:3000}]);
- const result=await readOfflineCatalog({db:source,context:ctx});
+ const result=await readOfflineCatalog({db:source,context:ctx,objectId:x=>x});
  assert.deepEqual(result,{products:[{productoId:productId,nombre:"Empanada",precioUnitarioCop:"3000"}],readOnly:true});
  assert.equal(source.reads,1);
 });
 test("offline catalog: invalid identity must fail before DB query",async()=>{
  let calls=0;const source={collection(){calls++;throw Error("QUERY_BLOCKED");}};
  for(const bad of [{...ctx,empresaId:"$ne"},{...ctx,sedeId:undefined},{...ctx,actorId:"admin.$ne"}])
-  await assert.rejects(readOfflineCatalog({db:source,context:bad}),/OFFLINE_CATALOG_AUTH_REQUIRED/);
+  await assert.rejects(readOfflineCatalog({db:source,context:bad,objectId:x=>x}),/OFFLINE_CATALOG_AUTH_REQUIRED/);
  assert.equal(calls,0);
 });
 test("offline catalog: missing, fractional, oversized or duplicate rows fail closed",async()=>{
@@ -31,7 +31,7 @@ test("offline catalog: missing, fractional, oversized or duplicate rows fail clo
  [{_id:productId,nombre:"",precioVenta:3000}],
  Array.from({length:501},()=>({_id:productId,nombre:"Duplicado",precioVenta:100})),
  [{_id:productId,nombre:"Uno",precioVenta:3000},{_id:productId,nombre:"Dos",precioVenta:3000}]
- ])await assert.rejects(readOfflineCatalog({db:db(rows),context:ctx}),/OFFLINE_CATALOG_/);
+ ])await assert.rejects(readOfflineCatalog({db:db(rows),context:ctx,objectId:x=>x}),/OFFLINE_CATALOG_/);
 });
 test("local catalog: isolate by operator; reject tampered prices before writing IndexedDB",()=>{
  assert.notEqual(client.keyFor(ctx),client.keyFor({...ctx,actorId:"other"}));
