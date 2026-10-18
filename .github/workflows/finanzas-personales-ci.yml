@@ -138,6 +138,8 @@ jobs:
         run: |
           set -o pipefail
           node --test test/gruk/confirmacion-vinculo-mongo-concurrencia.test.js test/gruk/decision-proof-concurrency.test.js 2>&1 | tee prueba-mongo-v81.log
+      - name: Exigir ambas pruebas Mongo ejecutadas sin omisiones
+        run: node scripts/verificar-evidencia-mongo-v81.js prueba-mongo-v81.log
       - name: Adjuntar evidencia de concurrencia MongoDB
         if: always()
         uses: actions/upload-artifact@v4
