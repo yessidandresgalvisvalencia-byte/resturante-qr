@@ -20,4 +20,22 @@ function disponibleHoy({ saldoCentavos, porVencer7dCentavos }) {
   const disponibleCentavos = saldoCentavos - porVencer7dCentavos - colchonCentavos;
   return Object.freeze({ disponibleCentavos, colchonCentavos });
 }
-module.exports = { parsearCopACentavos, sumarCentavos, disponibleHoy };
+// GMF 4x1000: estimación conservadora, redondeada hacia arriba al centavo.
+// Se aplica únicamente al valor que el llamador identifica como retiro gravado;
+// una cuenta o transferencia exenta debe suministrar 0n.
+function reservarGmfCentavos(retiroGravadoCentavos) {
+  if (typeof retiroGravadoCentavos !== "bigint" || retiroGravadoCentavos < 0n) {
+    throw new TypeError("Retiro gravado debe ser BigInt no negativo");
+  }
+  return (retiroGravadoCentavos * 4n + 999n) / 1000n;
+}
+function disponibleHoyConGmf({ saldoCentavos, porVencer7dCentavos, retiroGravadoCentavos = 0n }) {
+  const base = disponibleHoy({ saldoCentavos, porVencer7dCentavos });
+  const reserva4x1000Centavos = reservarGmfCentavos(retiroGravadoCentavos);
+  return Object.freeze({
+    disponibleCentavos: base.disponibleCentavos - reserva4x1000Centavos,
+    colchonCentavos: base.colchonCentavos,
+    reserva4x1000Centavos
+  });
+}
+module.exports = { parsearCopACentavos, sumarCentavos, disponibleHoy, reservarGmfCentavos, disponibleHoyConGmf };
