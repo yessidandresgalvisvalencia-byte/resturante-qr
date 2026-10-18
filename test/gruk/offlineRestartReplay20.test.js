@@ -24,7 +24,9 @@ function durableFakeInbox() {
       return data ? { eventHash: data.eventHash, actorId: data.actorId } : null;
     }
   };
-  return { db: { collection: () => collection }, saved };
+  return { db: { collection: () => collection, client: { startSession: () => ({
+    withTransaction: async fn => fn(), endSession: async () => {}
+  }) } }, saved };
 }
 test("20 offline events survive simulated tablet restart and repeated batch delivery without duplicates", async () => {
   const { db, saved } = durableFakeInbox();
