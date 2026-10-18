@@ -1,0 +1,23 @@
+"use strict";
+
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const path=require("node:path");
+
+const root=path.resolve(__dirname,"../..");
+const script=fs.readFileSync(path.join(root,"scripts/diagnose-personal-merge.sh"),"utf8");
+const ci=fs.readFileSync(path.join(root,".github/workflows/gruk-ci.yml"),"utf8");
+
+test("diagnóstico de PR usa merge-tree sin mutar ni fusionar ramas",()=>{
+ assert.match(script,/git merge-tree --write-tree --messages origin\/main HEAD/);
+ assert.match(script,/CONFLICTOS_DE_FUSION_DETECTADOS/);
+ assert.doesNotMatch(script,/^\s*git (?:merge|reset|push|checkout|rebase)\s/m);
+});
+
+test("CI publica el informe aun si fallan otras pruebas",()=>{
+ assert.match(ci,/git fetch --no-tags --depth=1 origin main/);
+ assert.match(ci,/bash scripts\/diagnose-personal-merge\.sh/);
+ assert.match(ci,/name: Guardar informe de conflictos de integración\s*\n\s*if: always\(\)/);
+ assert.match(ci,/gruk-personal-merge-diagnostic\.log/);
+});
