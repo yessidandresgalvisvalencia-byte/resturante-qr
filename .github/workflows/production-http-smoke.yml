@@ -1,0 +1,74 @@
+name: GRUK Production HTTP Smoke
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gruk-production-http-smoke
+  cancel-in-progress: true
+jobs:
+  smoke:
+    name: Verify production /health and /ready
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GRUK_PRODUCTION_URL: https://resturante-qr-1.onrender.com
+      EXPECTED_SHA: ${{ github.sha }}
+    steps:
+      - name: Verify live deployment commit and Mongo readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 20); do
+            if node <<'NODE'
+          const base = process.env.GRUK_PRODUCTION_URL;
+          const expected = process.env.EXPECTED_SHA;
+          async function probe(path) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 12000);
+            try {
+              const response = await fetch(base + path, {
+                signal: controller.signal,
+                headers: { "Cache-Control": "no-cache" }
+              });
+              let body = null;
+              try { body = await response.json(); } catch {}
+              return { status: response.status, body };
+            } finally { clearTimeout(timer); }
+          }
+          (async () => {
+            const health = await probe("/health");
+            const ready = await probe("/ready");
+            const good = health.status === 200 &&
+              health.body?.status === "ok" &&
+              health.body?.db === "connected" &&
+              health.body?.commit === expected &&
+              ready.status === 200 &&
+              ready.body?.ready === true &&
+              ready.body?.db === "connected";
+            console.log(JSON.stringify({
+              healthHTTP: health.status, readyHTTP: ready.status,
+              healthState: health.body?.status ?? null,
+              mongo: health.body?.db ?? null,
+              expectedSHA: expected,
+              deployedSHA: health.body?.commit ?? null,
+              ready: ready.body?.ready ?? null,
+              verified: good
+            }));
+            if (!good) process.exitCode = 1;
+          })().catch(error => {
+            console.error("Production probe failed:", error.message);
+            process.exitCode = 1;
+          });
+          NODE
+            then
+              echo "GRUK production HTTP smoke passed"
+              exit 0
+            fi
+            echo "Production not yet on expected commit: attempt $attempt/20"
+            if [ "$attempt" -lt 20 ]; then sleep 20; fi
+          done
+          echo "::error::GRUK production health/ready/commit verification failed"
+          exit 1
