@@ -19,3 +19,10 @@ for (const archivo of workflows) {
     assert.doesNotMatch(yaml, /^\s*TEST_MONGO_URI:.*mongodb\+srv:/m);
   });
 }
+
+test("GRUK CI corre tambien en push a la rama personal, incluso con PR bloqueada", () => {
+ const yaml = fs.readFileSync(path.join(root, ".github/workflows/gruk-ci.yml"), "utf8");
+ const push = yaml.match(/^  push:\s*\n([\s\S]*?)(?=^\S|^  [a-zA-Z_-]+:)/m);
+ assert.ok(push, "Falta disparador push");
+ assert.match(push[1], /^\s*- feature\/finanzas-personales\s*$/m);
+});
