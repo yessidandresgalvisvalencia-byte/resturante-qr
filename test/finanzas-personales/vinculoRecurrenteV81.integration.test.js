@@ -114,6 +114,35 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   })),e=>e.statusCode===409&&/supera el saldo/.test(e.message));
   assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),6);
   assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,150000);
+  // Dos días distintos del mismo período mensual comparten presupuesto.
+  const origenPeriodo=await registrar(propietario,movimiento({
+   recurrente:true,frecuencia:"MENSUAL",fecha:new Date("2024-01-01T05:00:00Z"),
+   concepto:"Recurrencia con abonos cruzados",montoMinor:30000
+  }));
+  const pasado=new Date();
+  pasado.setUTCDate(1);
+  pasado.setUTCMonth(pasado.getUTCMonth()-1);
+  pasado.setUTCHours(16,0,0,0);
+  const diaDos=new Date(pasado.getTime()+86400000);
+  await registrar(propietario,movimiento({
+   recurrenteOrigenId:origenPeriodo._id,externalId:"mes-abono-dia1",
+   fecha:pasado,montoMinor:10000
+  }));
+  await registrar(propietario,movimiento({
+   recurrenteOrigenId:origenPeriodo._id,externalId:"mes-abono-dia2",
+   fecha:diaDos,montoMinor:20000
+  }));
+  await assert.rejects(registrar(propietario,movimiento({
+   recurrenteOrigenId:origenPeriodo._id,externalId:"mes-sobrepago-dia3",
+   fecha:new Date(diaDos.getTime()+86400000),montoMinor:1
+  })),e=>e.statusCode===409&&/supera el saldo/.test(e.message));
+  // El asiento inicial ya afectó caja: ni con otra fecha del primer ciclo.
+  await assert.rejects(registrar(propietario,movimiento({
+   recurrenteOrigenId:origenPeriodo._id,externalId:"primer-ciclo-duplicado",
+   fecha:new Date("2024-01-02T10:00:00Z"),montoMinor:1
+  })),e=>e.statusCode===409);
+  assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),9);
+  assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,90000);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
