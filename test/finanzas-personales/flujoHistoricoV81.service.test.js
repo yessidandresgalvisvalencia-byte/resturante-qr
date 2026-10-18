@@ -11,7 +11,7 @@ test("V81 lee solo las transacciones del usuario y distingue flujo de saldo",asy
   {tipo:"GASTO",montoMinor:200,impactoCaja:true,medioPago:"DEBITO"},
   {tipo:"GASTO",montoMinor:300,impactoCaja:true,medioPago:"CREDITO"},
   {tipo:"PAGO_DEUDA",montoMinor:150,impactoCaja:true}
- ]})}};};
+ ]})};};
  t.after(()=>{Transaccion.find=original;});
  const data=await consultarFlujoHistoricoV81(id);
  assert.equal(String(query.usuarioId),id);assert.equal(query.moneda,"COP");assert.deepEqual(query.estado,{$ne:"ANULADA"});
