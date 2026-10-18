@@ -236,3 +236,13 @@ test("recurrencia anual recupera el 29 de febrero en año bisiesto",()=>{
  assert.equal(f(tx,new Date("2028-02-27T16:00:00Z")).toISOString(),"2028-02-29T05:00:00.000Z");
  assert.equal(f(tx,new Date("2028-02-29T16:00:00Z")).toISOString(),"2029-02-28T05:00:00.000Z");
 });
+
+test("frecuencias heredadas de Object.prototype no se interpretan como ingresos",()=>{
+ const proximo=home._fechas.siguienteFechaRecurrente;
+ const ahora=new Date("2026-10-18T16:00:00.000Z");
+ for(const frecuencia of ["constructor","toString","__proto__","valueOf","hasOwnProperty"]){
+  assert.equal(proximo({
+   tipo:"INGRESO",recurrente:true,frecuencia,fecha:"2010-01-01T05:00:00.000Z"
+  },ahora),null,frecuencia);
+ }
+});
