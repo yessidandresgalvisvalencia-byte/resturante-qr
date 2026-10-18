@@ -20,7 +20,8 @@ async function markOfflineApplied({db,context,eventId,reviewToken,commitReferenc
       commitReference.eventId !== eventId) throw new Error("OFFLINE_COMMIT_PROOF_REQUIRED");
   const inbox = db.collection("gruk_offline_inbox");
   const key = { empresaId: context.empresaId, sedeId: context.sedeId, eventId,
-    status: STATES.EN_REVISION, reviewToken };
+    status: STATES.EN_REVISION, reviewToken, actorId: context.actorId,
+    reviewActorId: context.actorId };
   const record = await inbox.findOne(key);
   if (!record) return {status:"NO_RECLAMADO"};
   const ledger = db.collection("gruk_ledger_movimientos");
