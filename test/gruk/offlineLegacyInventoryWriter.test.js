@@ -46,3 +46,39 @@ test("rechaza saldo persistido ausente o invalido",async()=>{
    e=>e.code==="OFFLINE_INVENTORY_PERSISTENCE_CONFLICT");
  }
 });
+
+test("Capa 2: a forged pre-debit record never allows inventory writes",async()=>{
+ for(const patch of [{empresaId:"507f191e810c19729de860eb"},
+  {sedeId:"507f1f77bcf86cd799439013"},
+  {productoServicioId:"507f1f77bcf86cd799439014"},
+  {empresaId:undefined},{anulado:true}]){
+  let writes=0;
+  const session={inTransaction:()=>true};
+  const db={collection:()=>({
+   find(){return {limit(){return {toArray:async()=>[{_id:"stock",empresaId,sedeId,
+    productoServicioId:productoId,anulado:false,cantidad:5,...patch}]};}};},
+   async updateOne(){writes++;throw Error("FORBIDDEN_WRITE");}
+  })};
+  await assert.rejects(apply({db,session,context,inventoryDeltas,objectId:x=>x}),
+   {code:"OFFLINE_INVENTORY_MAPPING_AMBIGUOUS"});
+  assert.equal(writes,0);
+ }
+});
+test("Capa 2: post-debit verification rejects a different tenant, product or stock record",async()=>{
+ for(const patch of [{empresaId:"507f191e810c19729de860eb"},
+  {sedeId:"507f1f77bcf86cd799439013"},
+  {productoServicioId:"507f1f77bcf86cd799439014"},
+  {_id:"stock-other"},{anulado:true},{empresaId:undefined}]){
+  let writes=0;
+  const original={_id:"stock-a",empresaId,sedeId,productoServicioId:productoId,
+   anulado:false,cantidad:5};
+  const db={collection:()=>({
+   find(){return {limit(){return {toArray:async()=>[original]};}};},
+   async updateOne(){writes++;return {matchedCount:1,modifiedCount:1};},
+   async findOne(){return {...original,cantidad:3,...patch};}
+  })};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
+   inventoryDeltas,objectId:x=>x}),{code:"OFFLINE_INVENTORY_PERSISTENCE_CONFLICT"});
+  assert.equal(writes,1);
+ }
+});
