@@ -5,6 +5,8 @@ on:
     paths:
       - 'modules/finanzas-personales/services/*V81.service.js'
       - 'modules/finanzas-personales/routes.js'
+      - 'public/finanzas-personales.js'
+      - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
       - 'modules/finanzas-personales/services/consultaPersonal.service.js'
       - 'modules/finanzas-personales/security/personalAuth.middleware.js'
@@ -35,6 +37,8 @@ on:
     paths:
       - 'modules/finanzas-personales/services/*V81.service.js'
       - 'modules/finanzas-personales/routes.js'
+      - 'public/finanzas-personales.js'
+      - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
       - 'modules/finanzas-personales/services/consultaPersonal.service.js'
       - 'modules/finanzas-personales/security/personalAuth.middleware.js'
