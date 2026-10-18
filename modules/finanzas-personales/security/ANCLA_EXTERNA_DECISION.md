@@ -13,6 +13,12 @@ El módulo `anclaExternaDecision.service.js` permite **crear** y **verificar** c
 5. Automatizar alertas de discrepancias, rotación de clave con identificador de versión, recuperación y auditoría independiente antes de afirmar protección contra borrado total.
 6. Confirmar que cada documento `DecisionProof` y `DecisionChainHeadPersonal` tenga `usuarioId` igual al usuario autenticado; el verificador falla cerrado si falta la titularidad o pertenece a otra cuenta. No aceptar conjuntos de registros enviados por un cliente como fuente confiable.
 
+## Prueba de reescritura completa
+
+La suite `decision-proof-external-anchor.test.js` incluye un ataque de reconstrucción completa: se sustituyen todos los registros por otros con hashes SHA-256 y enlaces válidos y se actualiza el encabezado para que coincida. La comprobación de la cadena reconstruida por sí sola resulta válida, pero `verificarAncla` debe devolver `ANCLA_NO_COINCIDE` al cotejar con el comprobante HMAC previo.
+
+**Condición indispensable:** el comprobante anterior debe haberse conservado fuera de la base comprometida y su clave HMAC debe seguir protegida. La prueba no demuestra que esa custodia externa esté desplegada.
+
 ## Límites
 
 - HMAC prueba autenticidad **solo mientras la clave no sea comprometida**; no aporta no repudio.
