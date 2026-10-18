@@ -102,6 +102,23 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   assert.equal(anclaMongo.secuencia,4);
   assert.equal(anclaMongo.headHash,headFinal.headHash);
   assert.equal(verificarAncla(anclaMongo,claveAncla,final,headFinal,String(usuarioId)).codigo,"ANCLA_VERIFICADA");
+  // Continuidad externa: reemitir solo si el comprobante previamente
+  // conservado fuera de MongoDB coincide con el historial actual.
+  const reemitida=await emitirAnclaDecisionMongo(usuarioId,claveAncla,{anclaPrevia:anclaMongo});
+  assert.equal(reemitida.secuencia,4);
+  await assert.rejects(
+    ()=>emitirAnclaDecisionMongo(usuarioId,claveAncla,{
+      anclaPrevia:{...anclaMongo,headHash:"0".repeat(64)}
+    }),
+    {message:"CONTINUIDAD_ANCLA_INVALIDA",code:"FIRMA_INVALIDA"}
+  );
+  await assert.rejects(
+    ()=>emitirAnclaDecisionMongo(usuarioId,claveAncla,{
+      anclaPrevia:{...anclaMongo,usuarioId:String(new mongoose.Types.ObjectId())}
+    }),
+    {message:"CONTINUIDAD_ANCLA_INVALIDA",code:"FIRMA_INVALIDA"}
+  );
+
   await assert.rejects(()=>emitirAnclaDecisionMongo(usuarioId,Buffer.alloc(4)),TypeError);
 
   const otroUsuario=new mongoose.Types.ObjectId();
@@ -150,6 +167,10 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   await assert.rejects(()=>emitirAnclaDecisionMongo(usuarioId,claveAncla),{
     message:"CADENA_NO_VERIFICABLE",code:"HASH_INVALIDO"
   });
+  await assert.rejects(()=>emitirAnclaDecisionMongo(usuarioId,claveAncla,{
+    anclaPrevia:anclaMongo
+  }),{message:"CONTINUIDAD_ANCLA_INVALIDA",code:"CADENA_INVALIDA"});
+
 
 
 
