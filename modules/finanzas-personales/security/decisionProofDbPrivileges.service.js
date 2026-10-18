@@ -16,7 +16,9 @@ const DANGEROUS_ACTIONS = new Set([
 function aplicaAlHistorial(resource, dbName, collectionName) {
   if (!resource || typeof resource !== "object") return false;
   if (resource.anyResource === true) return true;
-  if (resource.cluster === true) return false;
+  // Privilegios administrativos de ámbito clúster también requieren revisión.
+  // Las acciones inocuas continúan filtrándose mediante DANGEROUS_ACTIONS.
+  if (resource.cluster === true) return true;
   const db = resource.db;
   const collection = resource.collection;
   // Un recurso con db "" cubre todas las bases de datos.
