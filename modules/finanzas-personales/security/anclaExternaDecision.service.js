@@ -28,6 +28,12 @@ function verificarAncla(ancla,clave,registros,head,usuarioEsperado) {
  if (typeof usuarioEsperado !== "string" || !/^[a-f0-9]{24}$/.test(usuarioEsperado)) throw new TypeError("Usuario esperado obligatorio");
  validarClave(clave);
  if (!ancla || ancla.version!==1 || ancla.algoritmo!=="HMAC-SHA256" || !validarHash(ancla.firma)) return {valida:false,codigo:"ANCLA_INVALIDA"};
+ // No aceptar metadatos adicionales no cubiertos por la firma HMAC.
+ // Evita que los consumidores confíen accidentalmente en campos falsificables.
+ const campos=["algoritmo","emitidaEn","firma","headHash","secuencia","usuarioId","version"];
+ if (Object.keys(ancla).sort().join(",")!==campos.join(",")) {
+  return {valida:false,codigo:"ANCLA_INVALIDA"};
+ }
  let cuerpo;
  try { cuerpo=payloadAncla(ancla); } catch {return {valida:false,codigo:"ANCLA_INVALIDA"};}
  const firma=crypto.createHmac("sha256",clave).update(cuerpo).digest();
