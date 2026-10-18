@@ -7,6 +7,7 @@ const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
 const ReservaCuota=require("../models/reservaCuotaRecurrente.model");
 const {exigirIndiceIdempotencia}=require("./indiceIdempotenciaPersonal.service");
+const {confirmarIntento}=require("./confirmacionIntentoPersonal.service");
 const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,periodoRecurrenteColombia,validarTotalPeriodoRecurrente}=require("./vinculoRecurrenteV81.service");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
 const {encryptObject}=require("../security/fieldEncryption.service");
@@ -20,6 +21,14 @@ async function exigirIndiceUnicoReservaRecurrente(){
  const unico=indices.some(i=>i.unique===true&&i.key?.usuarioId===1&&
   i.key?.origenId===1&&i.key?.periodoInicio===1&&Object.keys(i.key).length===3);
  if(!unico)throw Object.assign(new Error("Índice único de cuotas recurrentes no configurado"),{statusCode:503});
+}
+async function confirmarRegistroIntento(usuarioId,input){
+ if(typeof input.externalId!=="string"||!input.externalId.trim())
+  throw Object.assign(new Error("externalId obligatorio para confirmar"),{statusCode:400});
+ return confirmarIntento({
+  Transaccion,usuarioId,externalIdHash:hashExternalId(usuarioId,input.externalId),
+  esperado:input
+ });
 }
 async function registrarTransaccion(usuarioId,input){
  if(input.tipo==="GASTO"&&String(input.cuenta||"EFECTIVO").trim().toUpperCase()==="EFECTIVO"&&input.medioPago==="TRANSFERENCIA")input={...input,medioPago:"EFECTIVO"};
@@ -179,4 +188,4 @@ async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){i
    throw Object.assign(new Error("No se puede anular: reserva recurrente desincronizada con ledger"),{statusCode:409});
  }
  const reverso=tx.tipo==="INGRESO"?-tx.montoMinor:tx.montoMinor;const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,activa:true,...(reverso<0?{saldoMinor:{$gte:-reverso}}:{})},{$inc:{saldoMinor:reverso}},{new:true,session});if(!cuenta){const esEfectivo=String(tx.cuenta||"").trim().toUpperCase()==="EFECTIVO";if(!esEfectivo||reverso>=0)throw Object.assign(new Error("No se puede anular: cuenta no encontrada o saldo insuficiente. Revisa la cuenta y sus movimientos posteriores."),{statusCode:409});const pendiente=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,tipo:"EFECTIVO",activa:true},{$inc:{saldoMinor:reverso},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{new:true,session});if(!pendiente)throw Object.assign(new Error("No se puede anular: cuenta de efectivo no encontrada"),{statusCode:409});}tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion=String(motivo).slice(0,240);await tx.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_ANULADO",aggregateId:tx._id,payload:{transaccionId:String(tx._id),tipo:tx.tipo,montoMinor:tx.montoMinor,motivo:tx.motivoAnulacion}}],{session});},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
-module.exports={registrarTransaccion,republicarPendientes,flujoPeriodo,anularTransaccion,corregirTransaccion};
+module.exports={registrarTransaccion,confirmarRegistroIntento,republicarPendientes,flujoPeriodo,anularTransaccion,corregirTransaccion};
