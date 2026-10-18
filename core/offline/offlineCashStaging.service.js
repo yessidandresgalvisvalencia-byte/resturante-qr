@@ -20,7 +20,7 @@ async function stageOfflineCashIntents({db,session,context,plan}){
  const cash=db.collection("gruk_offline_caja_intenciones");
  const indexes=await cash.indexes();
  if(!Array.isArray(indexes)||!indexes.some(i=>i.name==="uniq_offline_cash_tenant_event"&&i.unique===true&&
-  ["empresaId","sedeId","eventId"].every(k=>i.key?.[k]===1)&&Object.keys(i.key||{}).length===3))
+  ["empresaId","sedeId","eventId"].every((k,n)=>Object.keys(i.key||{})[n]===k&&i.key[k]===1)&&Object.keys(i.key||{}).length===3))
    fail("OFFLINE_CASH_UNIQUE_INDEX_REQUIRED");
  const records=[];
  for(const order of plan.orders){
