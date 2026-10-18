@@ -72,6 +72,10 @@ function fechaCalendarioValidaV81(fecha){
 async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclusivo,saldoInicialCentavos,saldoObservadoCentavos}){
  if(!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(cuentaId))throw new TypeError("Cuenta o usuario inválido");
  exigirPeriodoAcotadoV81(desde,hastaExclusivo);
+ // No abrir transacción ni consultar datos si las anclas carecen de precisión exacta.
+ // Los saldos negativos se permiten por sobregiro; los Number no son moneda válida.
+ if(typeof saldoInicialCentavos!=="bigint"||typeof saldoObservadoCentavos!=="bigint")
+  throw new TypeError("Saldos de conciliación obligatorios en BigInt");
  const start=new Date(desde+"T05:00:00Z"),end=new Date(hastaExclusivo+"T05:00:00Z");
  if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())||start>=end)throw new TypeError("Período inválido");
  const session=await mongoose.startSession();
