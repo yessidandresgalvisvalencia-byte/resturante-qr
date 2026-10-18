@@ -4,12 +4,13 @@ const {appendOfflineLedgerEvent:append}=require("../../core/offline/offlineLedge
 const context={empresaId:"empresa",sedeId:"sede",actorId:"cajero"};
 const eventId="01ARZ3NDEKTSV4RRFFQ69G5FA0";
 const movement={tipo:"VENTA",montoCop:"3000"};
-function setup(){
+function setup(indexReady=true){
  const records=new Map();
  const session={inTransaction:()=>true};
  const db={collection(name){
   assert.equal(name,"gruk_ledger_movimientos");
   return {
+   async indexes(){return indexReady?[{name:"uniq_offline_ledger_event_type_tenant",unique:true,key:{empresaId:1,sedeId:1,eventId:1,tipo:1}}]:[];},
    async updateOne(key,update,opts){
     assert.equal(opts.session,session);
     const id=key.empresaId+":"+key.sedeId+":"+key.eventId+":"+key.tipo;
@@ -39,4 +40,11 @@ test("ledger offline: prohíbe escribir sin transacción real y rechaza montos f
   e=>e.code==="OFFLINE_LEDGER_TRANSACTION_REQUIRED");
  await assert.rejects(append({...fixture,context,eventId,movement:{tipo:"VENTA",montoCop:3.5}}),
   e=>e.code==="OFFLINE_LEDGER_INVALID_MOVEMENT");
+});
+
+test("ledger offline: no escribe si índice único todavía no existe",async()=>{
+ const fixture=setup(false);
+ await assert.rejects(append({...fixture,context,eventId,movement}),
+  e=>e.code==="OFFLINE_LEDGER_UNIQUE_INDEX_REQUIRED");
+ assert.equal(fixture.records.size,0);
 });
