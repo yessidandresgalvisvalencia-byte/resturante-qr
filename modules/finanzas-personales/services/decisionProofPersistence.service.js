@@ -4,8 +4,38 @@ const DecisionProof=require("../models/decisionProofPersonal.model");
 const Outbox=require("../models/outboxPersonal.model");
 const ChainHead=require("../models/decisionChainHeadPersonal.model");
 const proof=require("./decisionProof.service");
-function fingerprint(args){const payload={accion:String(args?.accion||"").trim(),evaluacion:args?.evaluacion||null,verdades:args?.verdades||[],actorId:args?.actorId?String(args.actorId):null};return crypto.createHash("sha256").update(JSON.stringify(proof.canonical(payload))).digest("hex");}
-function resolverExistente(doc,fp){if(!doc)return null;if(doc.requestFingerprint&&doc.requestFingerprint!==fp){const e=new Error("IDEMPOTENCY_KEY_CONFLICT");e.code="IDEMPOTENCY_KEY_CONFLICT";throw e;}return doc;}
+function fingerprint(args){
+ const payload={
+  accion:String(args?.accion||"").trim(),
+  evaluacion:args?.evaluacion||null,
+  verdades:args?.verdades||[],
+  actorId:args?.actorId?String(args.actorId):null
+ };
+ // La fecha explícita cambia la semántica de una solicitud y debe firmarse.
+ // Omitirla conserva la idempotencia cuando el servidor fija el instante.
+ if(args?.corte!==undefined){
+  const corte=new Date(args.corte);
+  if(Number.isNaN(corte.getTime()))throw new TypeError("Fecha de corte inválida");
+  payload.corte=corte.toISOString();
+ }
+ return crypto.createHash("sha256").update(JSON.stringify(proof.canonical(payload))).digest("hex");
+}
+function resolverExistente(doc,fp){
+ if(!doc)return null;
+ // Los registros sin huella no pueden verificarse: bloquear su reutilización
+ // en lugar de entregar una decisión que podría corresponder a otra solicitud.
+ if(!doc.requestFingerprint){
+  const error=new Error("IDEMPOTENCY_FINGERPRINT_MISSING");
+  error.code="IDEMPOTENCY_FINGERPRINT_MISSING";
+  throw error;
+ }
+ if(doc.requestFingerprint!==fp){
+  const error=new Error("IDEMPOTENCY_KEY_CONFLICT");
+  error.code="IDEMPOTENCY_KEY_CONFLICT";
+  throw error;
+ }
+ return doc;
+}
 function esConflictoTransitorio(error) {
  return Boolean(error?.hasErrorLabel?.("TransientTransactionError") || error?.code === 112 || error?.codeName === "WriteConflict");
 }
