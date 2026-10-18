@@ -24,7 +24,7 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
  const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
  const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
  const ReservaCuota=require("../../modules/finanzas-personales/models/reservaCuotaRecurrente.model");
- const {registrarTransaccion:registrar,anularTransaccion:anular,corregirTransaccion:corregir}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+ const {registrarTransaccion:registrar,anularTransaccion:anular,corregirTransaccion:corregir,confirmarRegistroIntento:confirmar}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
  await mongoose.connect(uri,{serverSelectionTimeoutMS:10000});
  const propietario=new mongoose.Types.ObjectId();
  const intruso=new mongoose.Types.ObjectId();
@@ -56,6 +56,27 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
    registrar(propietario,movimiento({
     recurrenteOrigenId:original._id,externalId:"abono-rec-001"
    })),e=>e.code===11000 || (e.statusCode===409 && /supera el saldo/.test(e.message))
+  );
+  assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),2);
+  assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,500000);
+  // Un resultado incierto se consulta con el mismo externalId: confirmar
+  // jamás debe escribir un segundo débito ni revelar un movimiento ajeno.
+  const intentoConfirmacion={
+   tipo:persistido.tipo,montoMinor:persistido.montoMinor,moneda:persistido.moneda,
+   concepto:persistido.concepto,categoria:persistido.categoria,
+   subcategoria:persistido.subcategoria,cuenta:persistido.cuenta,
+   medioPago:persistido.medioPago,contraparte:persistido.contraparte,
+   descripcion:persistido.descripcion,recurrente:persistido.recurrente,
+   frecuencia:persistido.frecuencia,origen:persistido.origen,fecha:persistido.fecha,
+   recurrenteOrigenId:original._id,externalId:"abono-rec-001"
+  };
+  const confirmado=await confirmar(propietario,intentoConfirmacion);
+  assert.equal(confirmado.confirmado,true);
+  assert.equal(confirmado.transaccionId,String(pago._id));
+  assert.equal((await confirmar(intruso,intentoConfirmacion)).confirmado,false);
+  await assert.rejects(
+   confirmar(propietario,{...intentoConfirmacion,montoMinor:200001}),
+   e=>e.statusCode===409
   );
   assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),2);
   assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,500000);
