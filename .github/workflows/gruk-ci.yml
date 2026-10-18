@@ -24,6 +24,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Identificar conflictos reales con main sin fusionar
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          bash scripts/diagnose-personal-merge.sh 2>&1 | tee "${RUNNER_TEMP}/gruk-personal-merge-diagnostic.log"
+      - name: Guardar informe de conflictos de integración
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-personal-merge-diagnostic-${{ github.run_id }}
+          path: ${{ runner.temp }}/gruk-personal-merge-diagnostic.log
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Node 20
         uses: actions/setup-node@v4
         with:
