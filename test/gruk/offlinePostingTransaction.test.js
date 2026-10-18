@@ -25,3 +25,16 @@ test("fallo de posteo interrumpe transacción y libera sesión",async()=>{
  postDomainOperations:async()=>{throw Error("DOMAIN_POSTING_FAILED");}}),/DOMAIN_POSTING_FAILED/);
  assert.deepEqual(fixture.state(),{closed:true,committed:false});
 });
+
+test("aplicador recibe los deltas de inventario dentro de la transacción",async()=>{
+ const fixture=createDb();
+ const result=await execute({db:fixture.db,context,eventIds:[id],objectId:x=>x,
+ postDomainOperations:async({plan,inventoryDeltas,session})=>{
+  assert.equal(plan.totalCop,"3000");
+  assert.equal(session,fixture.session);
+  assert.deepEqual(inventoryDeltas,[{productoId:product,deltaUnidades:"-1"}]);
+  return "PREPARADO";
+ }});
+ assert.equal(result,"PREPARADO");
+ assert.equal(fixture.state().committed,true);
+});
