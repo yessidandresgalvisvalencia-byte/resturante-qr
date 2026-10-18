@@ -57,6 +57,22 @@ async function auditarPrivilegiosHistorial(db) {
   if (!Array.isArray(info.authenticatedUserRoles) || info.authenticatedUserRoles.length === 0) {
     return { seguro: false, codigo: "ROLES_NO_VERIFICABLES", base, coleccion, acciones: [] };
   }
+  // Una respuesta parcial o mal formada no puede interpretarse como
+  // ausencia de permisos peligrosos (fail closed).
+  const datosValidos = info.authenticatedUserPrivileges.every(permiso =>
+    permiso && typeof permiso === "object" &&
+    permiso.resource && typeof permiso.resource === "object" &&
+    Array.isArray(permiso.actions) &&
+    permiso.actions.every(accion => typeof accion === "string") &&
+    (
+      permiso.resource.anyResource === true ||
+      permiso.resource.cluster === true ||
+      (typeof permiso.resource.db === "string" && typeof permiso.resource.collection === "string")
+    )
+  );
+  if (!datosValidos) {
+    return { seguro: false, codigo: "PRIVILEGIOS_MALFORMADOS", base, coleccion, acciones: [] };
+  }
   const acciones = detectarPrivilegiosPeligrosos(
     info.authenticatedUserPrivileges, base, coleccion
   );
