@@ -66,8 +66,11 @@ test("valida TAP generado por el propio Node al ejecutar dos archivos",()=>{
    'const t=require("node:test");t("DecisionProof serializa dos escrituras concurrentes sin huérfanos",()=>{});\n');
   const ejecucion=spawnSync(process.execPath,
    ["--test","--test-reporter=tap",primero,segundo],
-   {encoding:"utf8",timeout:10000});
+   {encoding:"utf8",timeout:10000,
+    env:Object.fromEntries(Object.entries(process.env).filter(([k])=>k!=="NODE_TEST_CONTEXT"))});
   assert.equal(ejecucion.status,0,ejecucion.stderr);
+  assert.match(ejecucion.stdout,/^# tests 2$/m,
+   "El subproceso Node no emitió el resumen TAP esperado: "+ejecucion.stdout+" "+ejecucion.stderr);
   assert.deepEqual(validarEvidenciaMongoV81(ejecucion.stdout),{
    pruebas:2,aprobadas:2,fallidas:0,omitidas:0
   });
