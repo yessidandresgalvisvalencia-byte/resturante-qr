@@ -3,11 +3,12 @@ const test=require("node:test"),assert=require("node:assert/strict");
 const {applyOfflineLegacyInventory:apply}=require("../../core/offline/offlineLegacyInventoryWriter.service");
 const empresaId="507f191e810c19729de860ea",sedeId="507f1f77bcf86cd799439012",productoId="507f1f77bcf86cd799439011";
 const context={empresaId,sedeId,actorId:"cajero"},inventoryDeltas=[{productoId,deltaUnidades:"-2"}];
-function fixture({stock=5,records=1}={}){
+function fixture({stock=5,records=1,persistedStock=3}={}){
  const session={inTransaction:()=>true};let writes=0;const rows=Array.from({length:records},(_,i)=>({_id:String(i),cantidad:stock}));
  const db={collection(name){assert.equal(name,"inventarios");return{
   find:(key,opts)=>{assert.equal(opts.session,session);assert.equal(key.empresaId,empresaId);assert.equal(key.sedeId,sedeId);
    return {limit:n=>{assert.equal(n,2);return {toArray:async()=>rows};}};},
+  findOne:async(key,opts)=>{assert.equal(opts.session,session);assert.ok(key._id!==undefined);return {cantidad:persistedStock};},
   updateOne:async(key,update,opts)=>{assert.equal(opts.session,session);assert.equal(key.cantidad,stock);
    assert.equal(update.$inc.cantidad,-2);writes++;return {matchedCount:1,modifiedCount:1};}
  };}};
@@ -30,4 +31,18 @@ test("rechaza asociacion duplicada del producto sin descontar",async()=>{
 test("rechaza ejecución fuera de transacción",async()=>{
  const f=fixture();await assert.rejects(apply({...f,session:{inTransaction:()=>false},context,inventoryDeltas,objectId:x=>x}),
  e=>e.code==="OFFLINE_INVENTORY_TRANSACTION_REQUIRED");assert.equal(f.writes(),0);
+});
+
+test("rechaza saldo persistido diferente aunque Mongo confirme updateOne",async()=>{
+ const f=fixture({persistedStock:4});
+ await assert.rejects(apply({...f,context,inventoryDeltas,objectId:x=>x}),
+  e=>e.code==="OFFLINE_INVENTORY_PERSISTENCE_CONFLICT");
+ assert.equal(f.writes(),1);
+});
+test("rechaza saldo persistido ausente o invalido",async()=>{
+ for(const persistedStock of [null,-1,2.5]){
+  const f=fixture({persistedStock});
+  await assert.rejects(apply({...f,context,inventoryDeltas,objectId:x=>x}),
+   e=>e.code==="OFFLINE_INVENTORY_PERSISTENCE_CONFLICT");
+ }
 });
