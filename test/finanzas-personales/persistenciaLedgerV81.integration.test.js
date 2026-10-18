@@ -43,6 +43,19 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   const repetido=await anexarEventoV81(usuarioId,datos("registro-uno"));
   assert.equal(original.hashActual,repetido.hashActual);
   assert.equal(await Evento.countDocuments({usuarioId}),1);
+  // Dos envíos simultáneos con el mismo eventId: máximo un INSERT, y el reintento es estable.
+  const mismoId=await Promise.allSettled([
+   anexarEventoV81(usuarioId,datos("doble-clic-mismo-id")),
+   anexarEventoV81(usuarioId,datos("doble-clic-mismo-id"))
+  ]);
+  assert.ok(mismoId.some(x=>x.status==="fulfilled"));
+  for(const intento of mismoId)if(intento.status==="rejected")assert.ok(
+   intento.reason?.statusCode===409 || intento.reason?.hasErrorLabel?.("TransientTransactionError"),
+   "Una carrera con eventId igual solo puede fallar por conflicto de concurrencia"
+  );
+  const trasCarrera=await anexarEventoV81(usuarioId,datos("doble-clic-mismo-id"));
+  assert.equal(await Evento.countDocuments({usuarioId,eventId:"doble-clic-mismo-id"}),1);
+  assert.equal(trasCarrera.hashActual,mismoId.find(x=>x.status==="fulfilled").value.hashActual);
   await assert.rejects(
    anexarEventoV81(usuarioId,{...datos("registro-uno"),montoCentavos:3000000n}),
    e=>e.statusCode===409
