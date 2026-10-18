@@ -214,7 +214,7 @@ async function obtener(usuarioId,now=new Date()){
    titulo:"Simulación: gasto si aplica 4×1.000",
    calculo:aptoParaDisponibleHoy
     ?fmt(gastoMaximoSiGravadoMinor)+" de gasto + "+fmt(reservaGmfSiGravadoMinor)+" de GMF, dentro de "+fmt(disponibleHoyMinor)+" de disponible"
-    :"Saldo o cuota sin confirmar: no se calcula gasto máximo autorizado",
+    :"Saldo u obligación sin conciliar: no se calcula gasto máximo autorizado",
    origen:{escenario:"SALIDA_TOTAL_GRAVADA",baseDisponibleMinor:aptoParaDisponibleHoy?disponibleHoyMinor:null,
     gastoMaximoSiGravadoMinor:aptoParaDisponibleHoy?gastoMaximoSiGravadoMinor:null,
     reservaGmfSiGravadoMinor:aptoParaDisponibleHoy?reservaGmfSiGravadoMinor:null},
