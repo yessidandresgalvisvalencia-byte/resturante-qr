@@ -29,8 +29,10 @@ async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
    const result=await collection.updateOne(key,{$setOnInsert:payload},{upsert:true,session});
    inserted=result.upsertedCount===1;
  } catch(err) {
-   // A concurrent unique-key winner can already exist. Compare content, never assume success.
-   if(err?.code!==11000)throw err;
+   // E11000 inside Mongo transaction can abort the session: do not query/retry here.
+   // Caller must retry in a fresh transaction and compare the committed entry.
+   if(err?.code===11000)throw error("OFFLINE_LEDGER_CONCURRENT_RETRY_REQUIRED");
+   throw err;
  }
  if(!inserted){
    const prior=await collection.findOne(key,{session,projection:{actorId:1,montoCop:1,deletedAt:1}});
