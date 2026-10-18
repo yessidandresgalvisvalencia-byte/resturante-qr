@@ -114,7 +114,29 @@
       t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
     });}finally{db.close();}
   }
-  const api=Object.freeze({putPending,listPending,markReceived,listReceived,markReconciled});
+  // Operator's own local events only; never delete or expose another tenant's orders.
+  async function listLocal(limit=100,context){
+    if(!context||["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("OUTBOX_LIMIT");
+    const db=await open();
+    try{return await new Promise((resolve,reject)=>{
+      const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).openCursor();
+      const records=[];
+      r.onerror=()=>reject(r.error);
+      r.onsuccess=()=>{const cursor=r.result;
+        if(!cursor||records.length>=limit){resolve(records);return;}
+        const v=cursor.value;
+        if(matchesTenant(v.event,context))records.push({
+          eventId:v.eventId,syncStatus:v.syncStatus,
+          serverStatus:v.serverStatus||null,serverApplied:v.serverApplied===true,
+          serverStaged:v.serverStaged===true,
+          serverFinanciallyReconciled:v.serverFinanciallyReconciled===true
+        });
+        cursor.continue();
+      };
+    });}finally{db.close();}
+  }
+  const api=Object.freeze({putPending,listPending,markReceived,listReceived,markReconciled,listLocal});
   if(typeof module==="object"&&module.exports)module.exports=api;
   else root.GRUKOfflineOutbox=api;
 })(typeof globalThis!=="undefined"?globalThis:this);
