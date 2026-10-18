@@ -13,7 +13,13 @@ for(const [nombre,v] of Object.entries(vulnerabilidades)){
  if(Object.hasOwn(severidades,nivel))severidades[nivel]++;
  if(!["critical","high"].includes(nivel))continue;
  const origenes=(Array.isArray(v.via)?v.via:[]).filter(x=>x&&typeof x==="object").map(x=>x.url).filter(x=>typeof x==="string"&&x.startsWith("https://"));
- filas.push({nombre,nivel,correccion:v.fixAvailable===false?"No automática":typeof v.fixAvailable==="object"?"Requiere actualización mayor":"Disponible",origenes});
+ const correccion=v.fixAvailable===false?"No automática":typeof v.fixAvailable==="object"?
+  "Actualizar "+String(v.fixAvailable.name||nombre)+" a "+String(v.fixAvailable.version||"versión no informada"):
+  "Disponible con npm audit fix";
+ const afectados=typeof v.range==="string"?v.range:"No informado";
+ const camino=v.isDirect===true?"Directa":"Transitiva";
+ const efectos=Array.isArray(v.effects)?v.effects.filter(x=>typeof x==="string").slice(0,5).join(", "):"";
+ filas.push({nombre,nivel,correccion,origenes,afectados,camino,efectos});
 }
 let salida="### Auditoría de dependencias GRUK Finanzas Personales\n\n";
 salida+="Críticas: "+severidades.critical+" · Altas: "+severidades.high+" · Moderadas: "+severidades.moderate+"\n\n";
