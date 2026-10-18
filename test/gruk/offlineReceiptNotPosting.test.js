@@ -18,7 +18,8 @@ test("recepción offline devuelve 202 pero nunca confirma venta aplicada",async(
     mongoose:{connection:{readyState:1,db:{client:{startSession(){}}}}},
     "../core/auth/auth.middleware":()=>{},
     "../core/offline/offlineInbox.service":inbox,
-    "../core/offline/offlineStatus.service":{readOfflineStatuses:async()=>[]}
+    "../core/offline/offlineStatus.service":{readOfflineStatuses:async()=>[]},
+    "../core/offline/offlineReconciliation.service":{readOfflineReconciliation:async()=>[]}
   };
   const module={exports:{}};
   vm.runInNewContext(source,{module,exports:module.exports,

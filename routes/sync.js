@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const authMiddleware = require("../core/auth/auth.middleware");
 const { acceptOfflineBatch, ensureInboxIndexes } = require("../core/offline/offlineInbox.service");
 const { readOfflineStatuses } = require("../core/offline/offlineStatus.service");
+const { readOfflineReconciliation } = require("../core/offline/offlineReconciliation.service");
 const router = express.Router();
 let indexesReady = false;
 router.post("/batch", authMiddleware, async (req, res) => {
@@ -69,6 +70,27 @@ router.post("/status", authMiddleware, async (req,res)=>{
    if(error.message==="OFFLINE_AUTH_REQUIRED")return res.status(403).json({ok:false,error:"OFFLINE_SEDE_AUTH_REQUIRED"});
    console.error("[OFFLINE] Status failed",error?.code||error?.name||"unknown");
    return res.status(500).json({ok:false,error:"OFFLINE_STATUS_UNAVAILABLE"});
+ }
+});
+// Read-only, tenant/actor-scoped reconciliation. Does not post payments or stock.
+router.post("/reconciliation",authMiddleware,async(req,res)=>{
+ if(!req.auth?.empresaId||!req.auth?.sedeId||!req.auth?.usuarioId)
+  return res.status(403).json({ok:false,error:"OFFLINE_SEDE_AUTH_REQUIRED"});
+ if(mongoose.connection.readyState!==1)
+  return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ try{
+  const events=await readOfflineReconciliation({
+   db:mongoose.connection.db,
+   context:{empresaId:req.auth.empresaId,sedeId:req.auth.sedeId,actorId:req.auth.usuarioId},
+   eventIds:req.body?.eventIds
+  });
+  res.set("Cache-Control","no-store");
+  return res.json({ok:true,readOnly:true,events});
+ }catch(error){
+  if(error?.code==="OFFLINE_AUTH_REQUIRED")return res.status(403).json({ok:false,error:error.code});
+  if(error?.code==="OFFLINE_INVALID_IDS")return res.status(400).json({ok:false,error:error.code});
+  console.error("[OFFLINE] Reconciliation unavailable",error?.code||error?.name||"unknown");
+  return res.status(500).json({ok:false,error:"OFFLINE_RECONCILIATION_UNAVAILABLE"});
  }
 });
 module.exports = router;
