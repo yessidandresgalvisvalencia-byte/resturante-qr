@@ -20,10 +20,13 @@ function exigirMongoDePruebasLocal(uri, confirmacion) {
 
 test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:!process.env.TEST_MONGO_URI},async()=>{
  exigirMongoDePruebasLocal(process.env.TEST_MONGO_URI,process.env.GRUK_TEST_DB_CONFIRM);
- await mongoose.connect(process.env.TEST_MONGO_URI,{dbName:"gruk_chain_concurrency"});
+ const baseTemporal="gruk_v81_decision_test_"+crypto.randomUUID().replace(/-/g,"");
+ await mongoose.connect(process.env.TEST_MONGO_URI,{
+  dbName:baseTemporal,serverSelectionTimeoutMS:5000
+ });
  try{
-  // No se borran decisiones: cada ejecución crea un usuario único.
-  await Promise.all([Proof.syncIndexes(),Head.syncIndexes(),Outbox.syncIndexes()]);
+  // Base exclusiva: los índices nunca se sincronizan sobre datos existentes.
+  await Promise.all([Proof.createIndexes(),Head.createIndexes(),Outbox.createIndexes()]);
   const usuarioId=new mongoose.Types.ObjectId();
   const base={evaluacion:{autorizada:false,irreversible:false,motivos:[]},verdades:[],actorId:"TEST"};
   const [a,b]=await Promise.all([
@@ -201,7 +204,15 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
 
 
 
- }finally{await mongoose.disconnect();}
+ }finally{
+  try{
+   if(mongoose.connection.readyState===1&&
+      mongoose.connection.db?.databaseName===baseTemporal)
+    await mongoose.connection.dropDatabase();
+  }finally{
+   await mongoose.disconnect();
+  }
+ }
 });
 
 const { fingerprint, resolverExistente } = require("../../modules/finanzas-personales/services/decisionProofPersistence.service");
