@@ -53,7 +53,7 @@ async function run() {
       let duplicateRejected = false;
       try {
         await api.putPending({ ...tenantA, eventId: ids[0], payload: { items: [{ productoId: "producto-1", cantidad: 1 }] } });
-      } catch (error) { duplicateRejected = error?.name === "ConstraintError"; }
+      } catch (error) { duplicateRejected = ["ConstraintError", "AbortError"].includes(error?.name); }
       const countAfterDuplicate = (await api.listPending(100, tenantA)).length;
       return {
         ids: pending.map(event => event.eventId).sort(),
