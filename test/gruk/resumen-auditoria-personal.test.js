@@ -31,3 +31,14 @@ test("no revela datos financieros ni tokens: solo campos npm audit",()=>{
  assert.match(r.stdout,/dependencia/);
  assert.match(r.stdout,/Críticas: 1/);
 });
+
+test("el informe distingue dependencia directa, rango vulnerable y versión de corrección",()=>{
+ const r=ejecutar({vulnerabilities:{
+  dependenciaX:{severity:"high",isDirect:true,range:"<2.3.4",effects:["dependenciaY"],
+   via:[{url:"https://github.com/advisories/GHSA-prueba"}],
+   fixAvailable:{name:"dependenciaX",version:"2.3.4"}}
+ }});
+ assert.equal(r.status,1);
+ for(const valor of ["Tipo","Directa","Rango afectado","<2.3.4","2.3.4","dependenciaY","GHSA-prueba"])
+  assert.ok(r.stdout.includes(valor),valor);
+});
