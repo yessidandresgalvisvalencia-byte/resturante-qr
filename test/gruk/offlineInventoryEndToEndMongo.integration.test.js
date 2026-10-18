@@ -72,6 +72,24 @@ test("Mongo real: two offline orders, retry, and failure after stock update all 
    /SIMULATED_CRASH_AFTER_STOCK_WRITE/);
   assert.equal(await stock(db),2,"stock update must roll back");
   assert.deepEqual(await counts(db),[2,1,2,2],"new journals must roll back");
+  // Crash after changing inbox status: everything in the transaction rolls back.
+  const failingInbox={client,collection(name){
+   const collection=db.collection(name);
+   if(name!=="gruk_offline_inbox")return collection;
+   return {
+    find:(...args)=>collection.find(...args),
+    findOne:(...args)=>collection.findOne(...args),
+    async updateOne(...args){
+     await collection.updateOne(...args);
+     throw Error("SIMULATED_CRASH_AFTER_INBOX_STAGE");
+    }
+   };
+  }};
+  await assert.rejects(post({db:failingInbox,context,eventIds:[third],objectId}),
+   /SIMULATED_CRASH_AFTER_INBOX_STAGE/);
+  assert.equal(await stock(db),2,"inbox crash must roll back inventory");
+  assert.deepEqual(await counts(db),[2,1,2,2],"inbox crash must roll back all new journals");
+  assert.equal((await db.collection("gruk_offline_inbox").findOne({eventId:third})).status,"PENDIENTE");
   const pending=await db.collection("gruk_offline_inbox").countDocuments({empresaId:context.empresaId,
    sedeId:context.sedeId,status:"PENDIENTE"});
   assert.equal(pending,1,"failed third event must remain pending");
