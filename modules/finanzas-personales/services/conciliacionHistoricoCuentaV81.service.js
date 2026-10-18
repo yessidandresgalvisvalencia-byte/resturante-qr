@@ -15,6 +15,24 @@ function exigirResultadosAcotadosV81(filas){
  }
  return filas;
 }
+function crearPipelineVinculosPeriodoV81({usuarioId,cuentaId,desde,hasta}) {
+ if(!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(cuentaId)||
+    !(desde instanceof Date)||Number.isNaN(desde.getTime())||
+    !(hasta instanceof Date)||Number.isNaN(hasta.getTime())||desde>=hasta)
+  throw new TypeError("Período o identidad de conciliación inválidos");
+ const usuario=new mongoose.Types.ObjectId(usuarioId);
+ const cuenta=new mongoose.Types.ObjectId(cuentaId);
+ return [
+  {$match:{usuarioId:usuario,cuentaId:cuenta}},
+  {$lookup:{from:Transaccion.collection.name,localField:"movimientoId",foreignField:"_id",as:"movimiento"}},
+  {$unwind:"$movimiento"},
+  {$match:{"movimiento.usuarioId":usuario,"movimiento.cuentaId":null,
+   "movimiento.moneda":"COP","movimiento.estado":{$ne:"ANULADA"},
+   "movimiento.fecha":{$gte:desde,$lt:hasta}}},
+  {$replaceRoot:{newRoot:"$movimiento"}},
+  {$limit:MAX_FILAS_CONCILIACION_V81+1}
+ ];
+}
 function filtrarHuerfanosSinResolver(filas,vinculos){
  if(!Array.isArray(filas)||!Array.isArray(vinculos))throw new TypeError("Histórico inválido");
  const resueltos=new Set(vinculos.map(v=>String(v.movimientoId)));
@@ -43,17 +61,9 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
    // Filtrar por fecha antes de limitar: un usuario puede tener más de
    // 25.000 vínculos históricos de otros meses sin afectar este período.
    // El JOIN utiliza la clave primaria del movimiento y exige mismo usuario.
-   const heredados=await Vinculo.aggregate([
-    {$match:{usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId)}},
-    {$lookup:{from:Transaccion.collection.name,localField:"movimientoId",foreignField:"_id",as:"movimiento"}},
-    {$unwind:"$movimiento"},
-    {$match:{"movimiento.usuarioId":new mongoose.Types.ObjectId(usuarioId),
-     "movimiento.cuentaId":null,"movimiento.moneda":"COP",
-     "movimiento.estado":{$ne:"ANULADA"},
-     "movimiento.fecha":{$gte:start,$lt:end}}},
-    {$replaceRoot:{newRoot:"$movimiento"}},
-    {$limit:MAX_FILAS_CONCILIACION_V81+1}
-   ]).session(session).exec();
+   const heredados=await Vinculo.aggregate(crearPipelineVinculosPeriodoV81({
+    usuarioId,cuentaId,desde:start,hasta:end
+   })).session(session).exec();
    exigirResultadosAcotadosV81(heredados);
    const sinVinculo=await Transaccion.find({
     usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:null,
@@ -88,4 +98,4 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81};
+module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,crearPipelineVinculosPeriodoV81};
