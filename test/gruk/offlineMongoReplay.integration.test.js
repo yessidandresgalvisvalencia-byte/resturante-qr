@@ -241,7 +241,15 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
         await db.collection("gruk_ledger_movimientos").deleteMany({empresaId,sedeId,eventId:"01ARZ3NDEKTSV4RRFFQ69G5FB3"});
       }
       await db.collection("gruk_ledger_movimientos").insertOne({
-        empresaId, sedeId, actorId, eventId: proofEventId, deletedAt: null
+        empresaId, sedeId, actorId, eventId: proofEventId, deletedAt: null,
+        tipo:"VENTA_OFFLINE",montoCop:"3000"
+      });
+      await db.collection("gruk_offline_ventas").insertOne({
+        empresaId,sedeId,actorId,eventId:proofEventId,status:"CONTABILIZADA",totalCop:"3000"
+      });
+      await db.collection("gruk_offline_caja_intenciones").insertOne({
+        empresaId,sedeId,actorId,eventId:proofEventId,status:"CONCILIADO",
+        cobrado:true,montoCop:"3000"
       });
       const [appliedA, appliedB] = await Promise.all([
         markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference }),
@@ -254,6 +262,8 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
       assert.equal(replayApplied.status, "NO_RECLAMADO");
     } finally {
       await db.collection("gruk_ledger_movimientos").deleteMany({ empresaId, sedeId, eventId: proofEventId });
+      await db.collection("gruk_offline_ventas").deleteMany({empresaId,sedeId,eventId:proofEventId});
+      await db.collection("gruk_offline_caja_intenciones").deleteMany({empresaId,sedeId,eventId:proofEventId});
       await db.collection("gruk_offline_inbox").deleteMany({ empresaId, sedeId, eventId: proofEventId });
     }
     await assert.rejects(
