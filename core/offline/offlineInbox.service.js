@@ -23,7 +23,7 @@ async function ensureInboxIndexes(db) {
   await collection.createIndex({ empresaId: 1, sedeId: 1, eventId: 1 }, { unique: true, name: "uniq_offline_event_per_tenant" });
   await collection.createIndex({ empresaId: 1, sedeId: 1, status: 1, receivedAt: 1 }, { name: "offline_pending_by_tenant" });
 }
-async function acceptOfflineBatch({ db, authenticatedContext, events }) {
+async function insertBatch({ db, authenticatedContext, events, session }) {
   const validated = validateBatch(events, authenticatedContext);
   const inbox = collectionFor(db);
   // Preflight conflicts before any inserts so a known conflicting retry
@@ -33,7 +33,7 @@ async function acceptOfflineBatch({ db, authenticatedContext, events }) {
       empresaId: authenticatedContext.empresaId,
       sedeId: authenticatedContext.sedeId,
       eventId: event.eventId
-    }, { projection: { eventHash: 1, actorId: 1, _id: 0 } });
+    }, { projection: { eventHash: 1, actorId: 1, _id: 0 }, ...(session ? {session} : {}) });
     if (previous && (previous.eventHash !== digest(event) || previous.actorId !== authenticatedContext.actorId)) {
       const conflict = new Error("OFFLINE_EVENT_CONFLICT");
       conflict.code = "OFFLINE_EVENT_CONFLICT";
@@ -50,14 +50,14 @@ async function acceptOfflineBatch({ db, authenticatedContext, events }) {
         ...event, empresaId: key.empresaId, sedeId: key.sedeId,
         actorId: authenticatedContext.actorId, eventHash,
         receivedAt: new Date(), status: "PENDIENTE"
-      } }, { upsert: true });
+      } }, { upsert: true, ...(session ? {session} : {}) });
       inserted = response.upsertedCount === 1;
     } catch (error) {
       if (!error || error.code !== 11000) throw error;
     }
     if (!inserted) {
       // The same ID with changed contents is an integrity conflict, never a harmless retry.
-      const previous = await inbox.findOne(key, { projection: { eventHash: 1, actorId: 1, _id: 0 } });
+      const previous = await inbox.findOne(key, { projection: { eventHash: 1, actorId: 1, _id: 0 }, ...(session ? {session} : {}) });
       if (!previous || previous.eventHash !== eventHash || previous.actorId !== authenticatedContext.actorId) {
         const conflict = new Error("OFFLINE_EVENT_CONFLICT");
         conflict.code = "OFFLINE_EVENT_CONFLICT";
@@ -67,5 +67,23 @@ async function acceptOfflineBatch({ db, authenticatedContext, events }) {
     result.push({ eventId: event.eventId, status: inserted ? "RECIBIDO" : "YA_RECIBIDO" });
   }
   return result;
+}
+// A multi-event upload must commit as a unit when MongoDB transaction support is available.
+async function acceptOfflineBatch({ db, authenticatedContext, events }) {
+  // Validate authorization and payloads before opening a database transaction.
+  validateBatch(events, authenticatedContext);
+  if (events.length < 2 || typeof db?.client?.startSession !== "function") {
+    return insertBatch({db, authenticatedContext, events});
+  }
+  const session = db.client.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      result = await insertBatch({db, authenticatedContext, events, session});
+    });
+    return result;
+  } finally {
+    await session.endSession();
+  }
 }
 module.exports = { ensureInboxIndexes, acceptOfflineBatch, digest };
