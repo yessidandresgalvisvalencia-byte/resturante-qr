@@ -1,0 +1,40 @@
+name: GRUK production health
+on:
+  workflow_run:
+    workflows: ["GRUK CI"]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  health:
+    name: Verify production /health
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Wait for Render deployment and verify health
+        env:
+          HEALTH_URL: https://resturante-qr-1.onrender.com/health
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            status=$(curl --silent --show-error --location --max-time 15 --output /tmp/gruk-health.json --write-out '%{http_code}' "$HEALTH_URL") || status="000"
+            if [ "$status" = "200" ] && node -e '
+              const fs = require("node:fs");
+              const h = JSON.parse(fs.readFileSync("/tmp/gruk-health.json", "utf8"));
+              if (h.status !== "ok" || h.db !== "connected" || !h.version || !Number.isFinite(h.uptime)) process.exit(1);
+            '; then
+              echo "GRUK /health: HTTP 200, status ok, db connected"
+              cat /tmp/gruk-health.json
+              exit 0
+            fi
+            echo "Attempt $attempt/30: HTTP $status; retry in 20s"
+            sleep 20
+          done
+          echo "::error::GRUK production /health failed verification"
+          exit 1
