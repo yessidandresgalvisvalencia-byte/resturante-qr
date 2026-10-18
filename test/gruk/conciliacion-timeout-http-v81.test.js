@@ -20,6 +20,7 @@ test("timeout real de Mongo responde 503 sin filtrar montos ni datos parciales",
   await crearConsultaConciliacionCuentaV81(async()=>{throw error;})(req,res);
   assert.equal(res.codigo,503);
   assert.equal(res.cabeceras["Cache-Control"],"no-store");
+  assert.equal(res.cabeceras["Retry-After"],"5");
   assert.deepEqual(res.cuerpo,{ok:false,error:"Conciliación temporalmente no disponible; reintenta"});
   assert.equal(JSON.stringify(res.cuerpo).includes("saldo"),false);
  }
@@ -29,4 +30,15 @@ test("fallo de Mongo distinto no se disfraza como timeout",async()=>{
  await crearConsultaConciliacionCuentaV81(async()=>{throw new Error("interno");})(req,res);
  assert.equal(res.codigo,500);
  assert.deepEqual(res.cuerpo,{ok:false,error:"Conciliación no disponible"});
+});
+
+test("503 originado en capa financiera conserva estado seguro y Retry-After",async()=>{
+ const res=respuesta();
+ await crearConsultaConciliacionCuentaV81(async()=>{
+  throw Object.assign(new Error("Mongo temporalmente ocupado"),{statusCode:503});
+ })(req,res);
+ assert.equal(res.codigo,503);
+ assert.equal(res.cabeceras["Cache-Control"],"no-store");
+ assert.equal(res.cabeceras["Retry-After"],"5");
+ assert.deepEqual(res.cuerpo,{ok:false,error:"Conciliación temporalmente no disponible; reintenta"});
 });
