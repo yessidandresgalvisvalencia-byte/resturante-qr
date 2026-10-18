@@ -12,6 +12,9 @@ on:
       - 'package-lock.json'
       - '.github/workflows/finanzas-personales-ci.yml'
       - 'scripts/resumen-auditoria-personal.js'
+      - 'scripts/verificar-evidencia-mongo-v81.js'
+      - 'scripts/gate-construccion-finanzas-personales.js'
+      - 'scripts/auditoria-instalacion-personal.js'
 permissions:
   contents: read
 jobs:
