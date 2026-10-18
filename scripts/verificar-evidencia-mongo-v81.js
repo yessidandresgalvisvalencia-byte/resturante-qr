@@ -11,14 +11,28 @@ function validarEvidenciaMongoV81(contenido){
  const fallidas=marcador("fail"),omitidas=marcador("skipped");
  if(pruebas<2||aprobadas!==pruebas||fallidas!==0||omitidas!==0)
   throw new Error("MONGO_V81_NO_APROBADO: "+JSON.stringify({pruebas,aprobadas,fallidas,omitidas}));
+ const lineas=contenido.split(/\r?\n/);
+ const planes=lineas.filter(x=>/^1\.\.[0-9]+\s*$/.test(x));
+ if(planes.length!==1||planes[0]!==("1.."+pruebas))
+  throw new Error("PLAN_TAP_INVALIDO");
+ // No basta el resumen del runner: contrastar cada caso y su numeración.
+ const casos=lineas.filter(x=>/^(?:ok|not ok) [0-9]+ - /.test(x));
+ if(casos.length!==pruebas)throw new Error("RESULTADOS_TAP_INCOMPLETOS");
+ const vistos=new Set();
+ for(const linea of casos){
+  const m=/^(ok|not ok) ([0-9]+) - (.+)$/.exec(linea);
+  const id=Number(m[2]);
+  if(m[1]!=="ok"||!Number.isSafeInteger(id)||id<1||id>pruebas||
+     vistos.has(id)||/#\s*(?:SKIP|TODO)\b/i.test(m[3]))
+   throw new Error("RESULTADO_TAP_INVALIDO");
+  vistos.add(id);
+ }
  const obligatorias=[
   "Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   "DecisionProof serializa dos escrituras concurrentes sin huérfanos"
  ];
  for(const nombre of obligatorias){
-  const linea=contenido.split(/\r?\n/).find(x=>/^ok \d+ - /.test(x)&&
-   x.includes(" - "+nombre));
-  if(!linea||/# SKIP|# TODO/.test(linea))
+  if(casos.filter(x=>x.replace(/^ok [0-9]+ - /,"")===nombre).length!==1)
    throw new Error("PRUEBA_MONGO_OBLIGATORIA_AUSENTE: "+nombre);
  }
  return {pruebas,aprobadas,fallidas,omitidas};
