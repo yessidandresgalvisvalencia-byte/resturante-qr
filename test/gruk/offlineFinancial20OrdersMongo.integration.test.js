@@ -62,11 +62,12 @@ test("20 offline orders across two tablets: Mongo financial journals, exact COP,
   // Replaying the same batch cannot create sales or debit the legacy inventory twice.
   await assert.rejects(executeOfflineInventoryStagingTransaction({
    db:scoped,context:tenant,eventIds:ids,objectId:asObjectId
-  }),e=>e.code==="OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION");
+  }),e=>e.code==="OFFLINE_ORDERS_NOT_PENDING");
   assert.equal(await inventory(db),10);
   assert.equal(await db.collection("gruk_offline_ventas").countDocuments({}),20);
   assert.equal(await db.collection("gruk_ledger_movimientos").countDocuments({}),20);
-  assert.equal(await db.collection("gruk_offline_inbox").countDocuments({status:"PENDIENTE"}),20,
-   "staging must not silently mark events as APPLIED");
+  assert.equal(await db.collection("gruk_offline_inbox").countDocuments({status:"EN_REVISION",inventoryApplied:true}),20,
+   "each staged event must be in review, not APPLIED");
+  assert.equal(await db.collection("gruk_offline_inbox").countDocuments({status:"APLICADO"}),0);
  }finally{await db.dropDatabase();await client.close();}
 });
