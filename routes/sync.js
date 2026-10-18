@@ -237,4 +237,31 @@ router.get("/stock-conflicts/preflight",authMiddleware,async(req,res)=>{
   return res.status(500).json({ok:false,error:"OFFLINE_CONFLICT_PREFLIGHT_UNAVAILABLE"});
  }
 });
+// Explicit supervisor retry: recheck stock and record resolution within the
+// SAME Mongo transaction. Does not charge payments or mark final APPLIED.
+router.post("/stock-conflicts/retry",authMiddleware,async(req,res)=>{
+ if(!req.auth?.usuarioId||!["DUEÑO","ADMIN_SEDE"].includes(req.auth.rol))
+  return res.status(403).json({ok:false,error:"OFFLINE_CONFLICT_PERMISSION_DENIED"});
+ if(mongoose.connection.readyState!==1)
+  return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ try{
+  const {retryOfflineConflict}=require("../core/offline/offlineConflictRetry.service");
+  const result=await retryOfflineConflict({db:mongoose.connection.db,auth:req.auth,
+   conflictId:req.body?.conflictId,confirmed:req.body?.confirmed,note:req.body?.note});
+  res.set("Cache-Control","no-store");
+  return res.status(result.alreadyResolved?200:202).json({ok:true,...result});
+ }catch(error){
+  const code=error?.code;
+  if(code==="OFFLINE_CONFLICT_PERMISSION_DENIED")return res.status(403).json({ok:false,error:code});
+  if(["OFFLINE_CONFLICT_RETRY_INVALID","OFFLINE_CONFLICT_RETRY_CONFIRMATION_REQUIRED"].includes(code))
+   return res.status(400).json({ok:false,error:code});
+  if(code==="OFFLINE_CONFLICT_NOT_FOUND")return res.status(404).json({ok:false,error:code});
+  if(["OFFLINE_TRANSACTION_UNAVAILABLE","OFFLINE_INDEX_NOT_READY"].includes(code))
+   return res.status(503).json({ok:false,error:code});
+  if(typeof code==="string"&&code.startsWith("OFFLINE_"))
+   return res.status(409).json({ok:false,error:code,applied:false,cobrado:false});
+  console.error("[OFFLINE] Conflict retry failed",code||error?.name||"unknown");
+  return res.status(500).json({ok:false,error:"OFFLINE_CONFLICT_RETRY_UNAVAILABLE"});
+ }
+});
 module.exports = router;

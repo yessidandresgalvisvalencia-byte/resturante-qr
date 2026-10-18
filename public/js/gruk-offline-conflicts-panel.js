@@ -58,6 +58,25 @@ async function preflight({token,fetchFn,conflictId}){
   throw Error("OFFLINE_REVIEW_INVALID_PREFLIGHT");
  return result;
 }
+async function retry({token,fetchFn,conflictId,note,confirmed}){
+ if(typeof token!=="string"||!token.trim()||
+  !/^offline-stock-[a-f0-9]{64}$/.test(conflictId||"")||
+  confirmed!==true||typeof note!=="string"||
+  note.trim().length<10||note.trim().length>500)
+  throw Error("OFFLINE_REVIEW_RETRY_INVALID");
+ const response=await fetchFn("/api/sync/stock-conflicts/retry",{
+  method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
+  cache:"no-store",credentials:"same-origin",
+  body:JSON.stringify({conflictId,confirmed:true,note:note.trim()})
+ });
+ if(![200,202].includes(response.status))throw Error("OFFLINE_REVIEW_RETRY_UNAVAILABLE");
+ const result=await response.json();
+ if(result?.ok!==true||result.conflictId!==conflictId||result.status!=="STAGED"||
+  result.applied!==false||result.cobrado!==false||
+  result.inventoryApplied!==true)
+  throw Error("OFFLINE_REVIEW_RETRY_INVALID_RESPONSE");
+ return result;
+}
 function start({document,storage,fetchFn,cryptoSource}){
  const box=document.getElementById("conflicts"),notice=document.getElementById("notice"),
   button=document.getElementById("loadConflicts");
@@ -90,6 +109,30 @@ function start({document,storage,fetchFn,cryptoSource}){
      finally{check.disabled=false;}
     });
     article.appendChild(check);article.appendChild(outcome);
+    // A fresh preflight is informational; operator must explicitly opt into
+    // a second, transactional verification with the ORIGINAL order data.
+    const approved=document.createElement("input");approved.type="checkbox";approved.checked=false;
+    const approvalLabel=document.createElement("label");
+    approvalLabel.textContent=" Confirmo reintentar el pedido pendiente, validar stock de nuevo y descontarlo si alcanza. No registrar cobros. ";
+    approvalLabel.prepend(approved);article.appendChild(approvalLabel);
+    const reason=document.createElement("textarea");
+    reason.placeholder="Motivo de la resolución supervisada (10 a 500 caracteres)";
+    article.appendChild(reason);
+    const retryButton=document.createElement("button");retryButton.type="button";
+    retryButton.textContent="Reintentar con transacción";
+    retryButton.addEventListener("click",async()=>{
+     if(approved.checked!==true){outcome.textContent="Se requiere confirmación explícita.";return;}
+     retryButton.disabled=true;
+     try{
+      const result=await retry({token,fetchFn,conflictId:item.conflictId,
+       note:reason.value,confirmed:true});
+      outcome.textContent=result.alreadyResolved?
+       "Operación ya registrada anteriormente, sin segundo descuento. Cobro pendiente.":
+       "Stock descontado y diarios preparados en transacción. Cobro pendiente de conciliación.";
+      approved.checked=false;
+     }catch(error){outcome.textContent="No se realizó el reintento: "+(error.message||"error");}
+     finally{retryButton.disabled=false;}
+    });article.appendChild(retryButton);
     const select=document.createElement("select");
     for(const action of ACTIONS){const option=document.createElement("option");
       option.value=action;option.textContent=action.replace(/_/g," ");select.appendChild(option);}
@@ -113,7 +156,7 @@ function start({document,storage,fetchFn,cryptoSource}){
  button.addEventListener("click",refresh);
  return {refresh};
 }
-const api=Object.freeze({createDecisionId,tokenFrom,list,review,preflight,start});
+const api=Object.freeze({createDecisionId,tokenFrom,list,review,preflight,retry,start});
 if(typeof module==="object"&&module.exports)module.exports=api;
 else{root.GRUKOfflineConflictsPanel=api;
  if(root.document){const run=()=>start({document:root.document,storage:root.localStorage,
