@@ -5,8 +5,8 @@ const {markOfflineApplied}=require("../../core/offline/offlineApply.service");
 const ctx={empresaId:"A",sedeId:"1",actorId:"user",canReview:true};
 const eventId="evt1",reviewToken="12345678-1234-1234-1234-123456789abc";
 const commitReference={collection:"gruk_ledger_movimientos",eventId};
-function fixture(committed,{saleStatus="CONTABILIZADA",cashStatus="CONCILIADO",cashCobrado=true,saleAmount="3000",cashAmount="3000",ledgerAmount="3000"}={}){
-  const record={empresaId:"A",sedeId:"1",eventId,actorId:"user",status:"EN_REVISION",reviewToken,reviewActorId:"user"};
+function fixture(committed,{saleStatus="CONTABILIZADA",cashStatus="CONCILIADO",cashCobrado=true,saleAmount="3000",cashAmount="3000",ledgerAmount="3000",inventoryApplied=true}={}){
+  const record={empresaId:"A",sedeId:"1",eventId,actorId:"user",status:"EN_REVISION",reviewToken,reviewActorId:"user",inventoryApplied};
   let changes=0,query;
   const session={active:false,inTransaction(){return this.active;},async withTransaction(fn){this.active=true;try{return await fn();}finally{this.active=false;}},async endSession(){}};
   const db={client:{startSession:()=>session},collection(name){
@@ -79,4 +79,10 @@ test("offline apply: refuses nontransactional database before reading financial 
  await assert.rejects(markOfflineApplied({db,context:ctx,eventId,reviewToken,commitReference}),
   /OFFLINE_TRANSACTION_UNAVAILABLE/);
  assert.equal(reads,0);
+});
+
+test("offline apply: paid sale without inventoryApplied must remain pending",async()=>{
+ const f=fixture(true,{inventoryApplied:false});
+ await assert.rejects(markOfflineApplied({db:f.db,context:ctx,eventId,reviewToken,commitReference}),/OFFLINE_DOMAIN_NOT_COMMITTED/);
+ assert.equal(f.changes,0);
 });
