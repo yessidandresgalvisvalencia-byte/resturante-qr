@@ -2,10 +2,19 @@
 // Validador puro del corte temporal para pagos de obligaciones recurrentes.
 // No autoriza pagos futuros ni fechas inválidas; la propiedad del origen se
 // comprueba por usuarioId dentro de la transacción MongoDB que persiste el pago.
+function fechaEstricaRecurrente(valor,etiqueta){
+ if(!(valor instanceof Date)&&
+   (typeof valor!=="string"||!valor.trim()))
+  throw Object.assign(new TypeError(etiqueta+" debe ser fecha ISO o Date"),{statusCode:400});
+ const fecha=new Date(valor);
+ if(!Number.isFinite(fecha.getTime()))
+  throw Object.assign(new TypeError(etiqueta+" inválida"),{statusCode:400});
+ return fecha;
+}
 function validarFechaPagoVinculado({fechaPago,fechaOrigen,ahora=new Date()}){
- const pago=new Date(fechaPago);
- const origen=new Date(fechaOrigen);
- const corte=new Date(ahora);
+ const pago=fechaEstricaRecurrente(fechaPago,"fechaPago");
+ const origen=fechaEstricaRecurrente(fechaOrigen,"fechaOrigen");
+ const corte=fechaEstricaRecurrente(ahora,"ahora");
  if(!Number.isFinite(pago.getTime())||!Number.isFinite(origen.getTime())||
     !Number.isFinite(corte.getTime()))
   throw Object.assign(new TypeError("Fechas inválidas para pago recurrente"),{statusCode:400});
@@ -18,7 +27,7 @@ function validarFechaPagoVinculado({fechaPago,fechaOrigen,ahora=new Date()}){
 // El movimiento original GASTO es un asiento de caja. Otro pago ligado
 // a ese mismo origen y fecha civil duplicaría el débito ya registrado.
 function validarNoDuplicarOrigenHoy({fechaPago,fechaOrigen,origenImpactoCaja=true}){
- const pago=new Date(fechaPago),origen=new Date(fechaOrigen);
+ const pago=fechaEstricaRecurrente(fechaPago,"fechaPago"),origen=fechaEstricaRecurrente(fechaOrigen,"fechaOrigen");
  if(!Number.isFinite(pago.getTime())||!Number.isFinite(origen.getTime()))
   throw Object.assign(new TypeError("Fechas inválidas del movimiento"),{statusCode:400});
  if(origenImpactoCaja!==true)return true;
@@ -32,7 +41,7 @@ function validarNoDuplicarOrigenHoy({fechaPago,fechaOrigen,origenImpactoCaja=tru
 }
 // Rango de fecha civil de Bogotá (UTC-5, sin horario de verano).
 function ventanaPagoColombia(fecha){
- const instante=new Date(fecha);
+ const instante=fechaEstricaRecurrente(fecha,"fecha");
  if(!Number.isFinite(instante.getTime()))
   throw Object.assign(new TypeError("Fecha de pago inválida"),{statusCode:400});
  const partes=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(instante);
@@ -44,7 +53,7 @@ function ventanaPagoColombia(fecha){
 // Evita que un abono al día siguiente reinicie el cupo de una cuota mensual.
 // La fecha final es exclusiva y usa UTC-5 (Bogotá no observa DST).
 function periodoRecurrenteColombia({fechaOrigen,fechaPago,frecuencia}){
- const origen=new Date(fechaOrigen),pago=new Date(fechaPago);
+ const origen=fechaEstricaRecurrente(fechaOrigen,"fechaOrigen"),pago=fechaEstricaRecurrente(fechaPago,"fechaPago");
  if(!Number.isFinite(origen.getTime())||!Number.isFinite(pago.getTime()))
   throw Object.assign(new TypeError("Fecha de recurrencia inválida"),{statusCode:400});
  const civil=d=>{
