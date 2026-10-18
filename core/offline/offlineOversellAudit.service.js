@@ -49,9 +49,11 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
  // On a retry, expose the original durable record rather than implying a
  // second correction or replacing the first observation.
  const persisted=await collection.findOne(key,{projection:{
-  _id:1,status:1,eventIds:1,issues:1,applied:1,cobrado:1
+  _id:1,empresaId:1,sedeId:1,actorId:1,status:1,eventIds:1,issues:1,applied:1,cobrado:1
  }});
- if(!persisted||persisted.status!=="REQUIERE_REVISION"||
+ if(!persisted||persisted._id!==conflictId||
+  persisted.empresaId!==context.empresaId||persisted.sedeId!==context.sedeId||
+  persisted.actorId!==context.actorId||persisted.status!=="REQUIERE_REVISION"||
   persisted.applied!==false||persisted.cobrado!==false||
   !Array.isArray(persisted.eventIds)||persisted.eventIds.join(",")!==sorted.join(",")||
   !Array.isArray(persisted.issues)||persisted.issues.length===0)
