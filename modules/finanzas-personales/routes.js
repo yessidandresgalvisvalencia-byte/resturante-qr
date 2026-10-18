@@ -12,6 +12,15 @@ router.get("/v81/integridad",require("./services/consultaIntegridadV81.handler")
 router.get("/v81/saldo-verificado",require("./services/consultaSaldoV81.handler").crearConsultaSaldoV81());
 router.get("/v81/conciliacion-cuenta",require("./services/consultaConciliacionCuentaV81.handler").crearConsultaConciliacionCuentaV81());
 router.get("/v81/vinculos-historicos",require("./services/consultaVinculosHistoricosV81.handler").crearConsultaVinculosHistoricosV81());
+const confirmacionVinculoHistoricoV81Schema=Joi.object({
+ movimientoId:Joi.string().hex().length(24).required(),
+ cuentaId:Joi.string().hex().length(24).required(),
+ evidencia:Joi.string().trim().min(12).max(240).required(),
+ idempotencyKey:Joi.string().guid({version:["uuidv4","uuidv7"]}).required(),
+ confirmacionExplicita:Joi.boolean().valid(true).required()
+});
+router.post("/v81/vinculos-historicos/confirmar",validate(confirmacionVinculoHistoricoV81Schema),
+ require("./services/confirmarVinculoHistoricoV81.handler").crearConfirmacionVinculoHistoricoV81());
 // Escritura V81: la cadena auth + entitlement ya validó el JWT personal.
 router.post("/v81/movimientos",require("./security/limiteSeleccionadoV81.middleware").crearLimiteSeleccionadoV81({clienteRedis:router.redisV81}),require("./services/registroMovimientoV81.handler").crearRegistroMovimientoV81());
 router.get("/diagnostico-integridad",async(req,res)=>{
