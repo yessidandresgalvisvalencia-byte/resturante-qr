@@ -20,7 +20,7 @@ function fixture({missing=false,tampered=false,paid=false,duplicate=false}={}){
   assert.equal(q.empresaId,"a");assert.equal(q.sedeId,"b");
   if(name==="gruk_offline_inbox")assert.equal(q.actorId,"op");
   assert.deepEqual(q.eventId.$in,ids);
-  return {toArray:async()=>rows[name].map(({empresaId,sedeId,...fields})=>fields)};
+  return {toArray:async()=>rows[name].map(row=>({...row}))};
  }};},get calls(){return calls;}};
 }
 test("read-only stage recovery recognizes complete staged batch with exact COP sum",async()=>{
