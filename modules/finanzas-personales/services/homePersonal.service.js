@@ -20,7 +20,9 @@ function siguienteFechaRecurrente(tx,now){
  const b=partesColombia(base),n=partesColombia(now);
  // Saltar directamente al próximo vencimiento, aunque el ingreso tenga muchos años.
  // Se usan fechas civiles de Bogotá en UTC para evitar deriva por horas o DST.
- const periodoDias={DIARIA:1,SEMANAL:7,QUINCENAL:15}[tx.frecuencia];
+ const periodoDias=tx.frecuencia==="DIARIA"?1:
+  tx.frecuencia==="SEMANAL"?7:
+  tx.frecuencia==="QUINCENAL"?15:null;
  if(periodoDias){
   const inicio=Date.UTC(b.y,b.m-1,b.d);
   const hoy=Date.UTC(n.y,n.m-1,n.d);
