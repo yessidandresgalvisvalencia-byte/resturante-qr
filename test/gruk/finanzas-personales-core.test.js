@@ -175,3 +175,20 @@ test("Accounting Frame bloquea contradicción antes de persistencia automática"
  assert.equal(x.semanticFrame.naturaleza,"PATRIMONIO");
  assert.match(x.razonRevision,/contradice/i);
 });
+
+test("asesor ofrece escenario GMF gravado sin alterar disponible base",()=>{
+ const input={saldoMinor:1000000,gastosFijosAntesProximoIngresoMinor:100000};
+ const base=home.calcularDisponibleHoy(input);
+ const gmf=home.calcularEscenarioGmfGravado(input);
+ assert.equal(base.disponibleHoyMinor,800000);
+ assert.ok(gmf.gastoMaximoSiGravadoMinor<base.disponibleHoyMinor);
+ assert.ok(gmf.gastoMaximoSiGravadoMinor+gmf.reservaGmfSiGravadoMinor<=base.disponibleHoyMinor);
+ assert.deepEqual(home.calcularEscenarioGmfGravado({
+  saldoMinor:10000,gastosFijosAntesProximoIngresoMinor:20000
+ }),{gastoMaximoSiGravadoMinor:0,reservaGmfSiGravadoMinor:0});
+ for(const monto of [1.5,-1,Number.MAX_SAFE_INTEGER+1]){
+  assert.throws(()=>home.calcularEscenarioGmfGravado({
+   saldoMinor:monto,gastosFijosAntesProximoIngresoMinor:0
+  }),/enteros seguros/);
+ }
+});
