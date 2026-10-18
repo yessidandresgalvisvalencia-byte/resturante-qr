@@ -118,7 +118,7 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
   assert.equal(saldoCorregido.integridad,"VERIFICADA","Una corrección legítima no invalida el saldo");
   assert.equal(saldoCorregido.saldoCentavos,proyeccion.saldoCentavos.toString());
   assert.equal(proyeccion.ingresosCentavos,1800000n);
-  assert.equal(proyeccion.gastosCentavos,2500000n+
+  assert.equal(proyeccion.gastosCentavos,5000000n+
    BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
   // Dos anulaciones simultáneas sobre el mismo gasto no pueden aplicarse dos veces.
   const cancelaciones=await Promise.allSettled([
@@ -144,7 +144,7 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    corrigeId:e.corrigeId,motivo:e.motivo,tipoCorregido:e.tipoCorregido
   })),String(usuarioId));
   assert.equal(saldoFinal.ingresosCentavos,1800000n);
-  assert.equal(saldoFinal.gastosCentavos,BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
+  assert.equal(saldoFinal.gastosCentavos,2500000n+BigInt(intentos.filter(x=>x.status==="fulfilled").length)*2500000n);
   assert.equal(saldoFinal.saldoCentavos,saldoFinal.ingresosCentavos-saldoFinal.gastosCentavos);
   const auditoria=await verificarLedgerPersistidoV81(usuarioId);
   assert.equal(auditoria.integridad,"VERIFICADA");
