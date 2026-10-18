@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {resolverConfirmacion}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
+const {resolverConfirmacion,validarClaveVinculo,coincideVinculo}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
 const uid="507f1f77bcf86cd799439011";
 const movimiento={_id:"507f1f77bcf86cd799439012",usuarioId:uid,cuentaId:null,
  estado:"ACTIVA",moneda:"COP"};
@@ -26,4 +26,19 @@ test("movimientos anulados y cuentas inactivas se rechazan",()=>{
 test("sin evidencia o clave idempotente válida se bloquea",()=>{
  assert.throws(()=>resolverConfirmacion({...base,evidencia:"sin prueba"}),e=>e.statusCode===400);
  assert.throws(()=>resolverConfirmacion({...base,idempotencyKey:"cualquier cosa"}),e=>e.statusCode===400);
+});
+
+test("UUID de idempotencia tiene estructura y variante válidas",()=>{
+ assert.doesNotThrow(()=>validarClaveVinculo(base.idempotencyKey));
+ for(const invalido of [undefined,null,"-".repeat(36),"00000000-0000-0000-0000-000000000000","1c279cce-fcf1-49e2-0271-9662d2fb2ee7"]){
+  assert.throws(()=>validarClaveVinculo(invalido),e=>e.statusCode===400);
+ }
+});
+test("confirmación concurrente idéntica se reconoce sin otra escritura",()=>{
+ const hash="a".repeat(64);
+ const previo={movimientoId:movimiento._id,cuentaId:cuenta._id,evidencia:base.evidencia,idempotencyKeyHash:hash};
+ assert.equal(coincideVinculo(previo,{movimientoId:movimiento._id,cuentaId:cuenta._id,evidencia:base.evidencia,idempotencyKeyHash:hash}),true);
+ for(const diferencia of [{cuentaId:"otra"},{movimientoId:"otro"},{evidencia:"Otra prueba documental"},{idempotencyKeyHash:"b".repeat(64)}]){
+  assert.equal(coincideVinculo(previo,{movimientoId:movimiento._id,cuentaId:cuenta._id,evidencia:base.evidencia,idempotencyKeyHash:hash,...diferencia}),false);
+ }
 });
