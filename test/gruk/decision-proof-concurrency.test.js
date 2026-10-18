@@ -5,7 +5,20 @@ const Proof=require("../../modules/finanzas-personales/models/decisionProofPerso
 const Head=require("../../modules/finanzas-personales/models/decisionChainHeadPersonal.model");
 const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");
 
+function exigirMongoDePruebasLocal(uri, confirmacion) {
+ if (confirmacion !== "SOLO_PRUEBAS_LOCALES") throw new Error("CONFIRMACION_DB_PRUEBAS_REQUERIDA");
+ let destino;
+ try { destino = new URL(uri); } catch { throw new Error("TEST_MONGO_URI_INVALIDA"); }
+ const locales = new Set(["127.0.0.1", "localhost", "[::1]"]);
+ if (destino.protocol !== "mongodb:" || !locales.has(destino.hostname) ||
+     !destino.port || destino.host.includes(",")) {
+  throw new Error("MONGO_PRUEBAS_NO_LOCAL");
+ }
+ return true;
+}
+
 test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:!process.env.TEST_MONGO_URI},async()=>{
+ exigirMongoDePruebasLocal(process.env.TEST_MONGO_URI,process.env.GRUK_TEST_DB_CONFIRM);
  await mongoose.connect(process.env.TEST_MONGO_URI,{dbName:"gruk_chain_concurrency"});
  try{
   // No se borran decisiones: cada ejecución crea un usuario único.
@@ -138,4 +151,12 @@ test("reintento selectivo: solo el índice único de secuencia es recuperable",(
  assert.equal(esColisionSecuencia({code:11000,keyPattern:{usuarioId:1,hash:1}}),false);
  assert.equal(esColisionSecuencia({code:11000}),false);
  assert.equal(esColisionSecuencia({code:112,keyPattern:{usuarioId:1,secuencia:1}}),false);
+});
+
+test("el banco de concurrencia jamás utiliza URI externas ni MongoDB SRV",()=>{
+ assert.equal(exigirMongoDePruebasLocal("mongodb://127.0.0.1:27017/?replicaSet=rs0","SOLO_PRUEBAS_LOCALES"),true);
+ assert.throws(()=>exigirMongoDePruebasLocal("mongodb://127.0.0.1:27017",""),/CONFIRMACION_DB_PRUEBAS_REQUERIDA/);
+ assert.throws(()=>exigirMongoDePruebasLocal("mongodb://mongo.empresa.com:27017","SOLO_PRUEBAS_LOCALES"),/MONGO_PRUEBAS_NO_LOCAL/);
+ assert.throws(()=>exigirMongoDePruebasLocal("mongodb+srv://cluster.mongodb.net/db","SOLO_PRUEBAS_LOCALES"),/MONGO_PRUEBAS_NO_LOCAL/);
+ assert.throws(()=>exigirMongoDePruebasLocal("mongodb://127.0.0.1:27017,servidor:27017","SOLO_PRUEBAS_LOCALES"),/MONGO_PRUEBAS_NO_LOCAL|TEST_MONGO_URI_INVALIDA/);
 });
