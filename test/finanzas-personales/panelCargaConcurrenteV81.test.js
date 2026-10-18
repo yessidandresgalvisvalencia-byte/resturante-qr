@@ -6,7 +6,7 @@ test("Panel V81 conserva una sola carga concurrente y libera bloqueo tras resolv
  const end=source.indexOf("}window.deshacerUltimaCuota",begin);
  assert.ok(begin>=0&&end>begin);
  const snippet=source.slice(begin,end);
- assert.match(snippet,/if\(cargaPanelEnCurso\)return cargaPanelEnCurso/);
- assert.match(snippet,/finally\{if\(cargaPanelEnCurso===ejecucion\)cargaPanelEnCurso=null/);
+ assert.match(snippet,/if\(cargaPanelEnCurso&&tokenCargaPanel===token\)return cargaPanelEnCurso/);
+ assert.match(snippet,/finally\{if\(cargaPanelEnCurso===ejecucion\)\{cargaPanelEnCurso=null;tokenCargaPanel=null/);
  assert.match(snippet,/const ejecucion=\(async\(\)=>\{invalidarIndicadoresFinancieros\(\);try\{/);
 });
