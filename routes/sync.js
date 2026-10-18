@@ -38,6 +38,9 @@ router.post("/batch", authMiddleware, async (req, res) => {
     });
     return res.status(202).json({ok:true,applied:false,events:result});
   } catch(error) {
+    if (error?.code === "OFFLINE_TRANSACTION_UNAVAILABLE") {
+      return res.status(503).json({ok:false,applied:false,error:"OFFLINE_TRANSACTION_UNAVAILABLE"});
+    }
     if (error?.code === "OFFLINE_EVENT_CONFLICT") {
       return res.status(409).json({ok:false,error:"OFFLINE_EVENT_CONFLICT"});
     }
