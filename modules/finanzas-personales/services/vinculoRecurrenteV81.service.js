@@ -15,4 +15,19 @@ function validarFechaPagoVinculado({fechaPago,fechaOrigen,ahora=new Date()}){
   throw Object.assign(new RangeError("Pago recurrente futuro no puede registrarse como realizado"),{statusCode:400});
  return true;
 }
-module.exports={validarFechaPagoVinculado};
+// El movimiento original GASTO es un asiento de caja. Otro pago ligado
+// a ese mismo origen y fecha civil duplicaría el débito ya registrado.
+function validarNoDuplicarOrigenHoy({fechaPago,fechaOrigen,origenImpactoCaja=true}){
+ const pago=new Date(fechaPago),origen=new Date(fechaOrigen);
+ if(!Number.isFinite(pago.getTime())||!Number.isFinite(origen.getTime()))
+  throw Object.assign(new TypeError("Fechas inválidas del movimiento"),{statusCode:400});
+ if(origenImpactoCaja!==true)return true;
+ const dia=d=>{
+  const fmt=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"});
+  return fmt.formatToParts(d).filter(p=>["year","month","day"].includes(p.type)).map(p=>p.value).join("-");
+ };
+ if(dia(pago)===dia(origen))
+  throw Object.assign(new RangeError("El gasto recurrente original ya afecta caja en esta fecha; un pago adicional lo duplicaría"),{statusCode:409});
+ return true;
+}
+module.exports={validarFechaPagoVinculado,validarNoDuplicarOrigenHoy};
