@@ -100,6 +100,20 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   );
   assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),3);
   assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,450000);
+  const otroOrigen=await registrar(propietario,movimiento({
+   recurrente:true,frecuencia:"MENSUAL",fecha:fechaOrigen,
+   concepto:"Servicio recurrente",montoMinor:150000
+  }));
+  for(const [externalId,montoMinor] of [["abono-uno",80000],["abono-dos",70000]]){
+   await registrar(propietario,movimiento({
+    recurrenteOrigenId:otroOrigen._id,externalId,montoMinor
+   }));
+  }
+  await assert.rejects(registrar(propietario,movimiento({
+   recurrenteOrigenId:otroOrigen._id,externalId:"abono-sobrepasado",montoMinor:1
+  })),e=>e.statusCode===409&&/supera el saldo/.test(e.message));
+  assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),6);
+  assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,150000);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
