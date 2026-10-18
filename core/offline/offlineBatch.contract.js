@@ -25,7 +25,11 @@ function validateBatch(events, authenticatedContext) {
   if (!Array.isArray(events) || events.length < 1 || events.length > 100) fail("OFFLINE_BATCH_SIZE");
   const seen = new Set();
   return events.map(event => {
-    if (!event || typeof event !== "object" || Array.isArray(event) || Object.keys(event).some(k => !EXACT_KEYS.has(k))) fail("OFFLINE_INVALID_EVENT");
+    if (!event || typeof event !== "object" || Array.isArray(event) ||
+        Object.getPrototypeOf(event) !== Object.prototype ||
+        Object.keys(event).length !== EXACT_KEYS.size ||
+        Object.keys(event).some(k => !EXACT_KEYS.has(k)) ||
+        [...EXACT_KEYS].some(k => !Object.prototype.hasOwnProperty.call(event,k))) fail("OFFLINE_INVALID_EVENT");
     if (!ULID.test(event.eventId) || ![event.empresaId,event.sedeId,event.actorId,event.deviceId].every(v => typeof v === "string" && ID.test(v))) fail("OFFLINE_INVALID_ID");
     if (event.empresaId !== authenticatedContext.empresaId || event.sedeId !== authenticatedContext.sedeId || event.actorId !== authenticatedContext.actorId) fail("OFFLINE_TENANT_MISMATCH");
     if (event.schemaVersion !== 1 || !TYPES.has(event.tipo)) fail("OFFLINE_INVALID_TYPE");
