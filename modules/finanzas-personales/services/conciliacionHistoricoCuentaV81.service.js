@@ -2,6 +2,7 @@
 const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
 const Cuenta=require("../models/cuentaFinanciera.model");
+const Vinculo=require("../models/vinculoHistoricoV81.model");
 const {conciliarPeriodoCuentaV81}=require("./conciliacionPeriodoCuentaV81.service");
 const {exigirSinMovimientosHuerfanos}=require("./guardiaConciliacionCuentaV81.service");
 // Reporte de conciliación SOLO LECTURA sobre una instantánea del histórico.
@@ -18,15 +19,25 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
    if(!cuenta)throw Object.assign(new Error("Cuenta no autorizada o inexistente"),{statusCode:404});
    const rows=await Transaccion.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId),moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}})
     .session(session).sort({_id:1}).lean();
-   // Consulta en la misma instantánea los asientos heredados sin cuentaId.
-   // De otro modo la conciliación omitiría débitos y podría informar falsos ceros.
+   // Los vínculos son evidencia separada: nunca se reescriben asientos.
+   const vinculos=await Vinculo.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),
+    cuentaId:new mongoose.Types.ObjectId(cuentaId)})
+    .session(session).select("movimientoId").lean();
+   const idsVinculados=vinculos.map(v=>v.movimientoId);
+   const heredados=idsVinculados.length?await Transaccion.find({
+    usuarioId:new mongoose.Types.ObjectId(usuarioId),_id:{$in:idsVinculados},
+    cuentaId:null,moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}
+   }).session(session).lean():[];
    const sinVinculo=await Transaccion.find({
     usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:null,
     cuenta:cuenta.nombre,moneda:"COP",estado:{$ne:"ANULADA"},
     fecha:{$gte:start,$lt:end}
    }).session(session).select("_id cuenta cuentaId").lean();
-   exigirSinMovimientosHuerfanos({cuenta,filas:sinVinculo});
-   const movimientos=rows.map(row=>{
+   const asociados=new Set(heredados.map(x=>String(x._id)));
+   const sinResolver=sinVinculo.filter(x=>!asociados.has(String(x._id)));
+   exigirSinMovimientosHuerfanos({cuenta,filas:sinResolver});
+   const filasConciliables=[...rows,...heredados];
+   const movimientos=filasConciliables.map(row=>{
     if(!Number.isSafeInteger(row.montoMinor)||row.montoMinor<=0||row.impactoCaja!==true||
        !["INGRESO","GASTO"].includes(row.tipo)||row.medioPago==="CREDITO")
       throw new Error("Movimiento histórico no clasificable: conciliación bloqueada");
@@ -37,7 +48,7 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
       tipo:row.tipo==="INGRESO"?"ENTRADA":"SALIDA",montoCentavos:BigInt(row.montoMinor)*100n};
    });
    const resultado=conciliarPeriodoCuentaV81({usuarioId:String(usuarioId),cuentaId:String(cuentaId),desde,hastaExclusivo,
-    saldoInicialCentavos,saldoObservadoCentavos,movimientos,cantidadEsperadaMovimientos:rows.length});
+    saldoInicialCentavos,saldoObservadoCentavos,movimientos,cantidadEsperadaMovimientos:filasConciliables.length});
    return Object.freeze({...resultado,origenSaldos:"REFERENCIAS_APORTADAS",saldoBancarioVerificado:false,
     advertencia:"COINCIDENCIA_ARITMETICA_NO_ACREDITA_SALDO_BANCARIO"});
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
