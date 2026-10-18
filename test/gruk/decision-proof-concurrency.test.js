@@ -98,6 +98,18 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   const otroUsuario=new mongoose.Types.ObjectId();
   assert.deepEqual(await auditarCadenaUsuario(otroUsuario),{valida:false,codigo:"SIN_ANCLA_DE_INTEGRIDAD",secuencia:0});
 
+  // Un acceso privilegiado directo a MongoDB elude los hooks de Mongoose.
+  // La prueba usa exclusivamente el usuario temporal generado arriba y
+  // demuestra que la auditoría detecta la adulteración del historial.
+  const alteracion=await Proof.collection.updateOne(
+    {_id:final[0]._id,usuarioId},
+    {$set:{accion:"ADULTERADO_POR_DB"}}
+  );
+  assert.equal(alteracion.modifiedCount,1);
+  assert.deepEqual(await auditarCadenaUsuario(usuarioId),{
+    valida:false,codigo:"HASH_INVALIDO",secuencia:1
+  });
+
 
 
  }finally{await mongoose.disconnect();}
