@@ -27,17 +27,21 @@ function statusLabel(event){
  if(event.serverStatus==="PENDIENTE")return "Recibido · pendiente";
  return "Recibido · por verificar";
 }
-async function launch({document,window,storage,outbox,transport,fetchFn}){
+async function launch({document,window,storage,outbox,transport,fetchFn,draft=root.GRUKOfflineDraft}){
  const nodes={rows:document.getElementById("rows"),message:document.getElementById("message"),
   connection:document.getElementById("connection"),identity:document.getElementById("identity"),
   refresh:document.getElementById("refresh"),send:document.getElementById("send"),
-  reconcile:document.getElementById("reconcile")};
+  reconcile:document.getElementById("reconcile"),
+  draftForm:document.getElementById("offlineDraftForm"),saveDraft:document.getElementById("saveDraft"),
+  productId:document.getElementById("productId"),quantity:document.getElementById("quantity"),
+  unitPrice:document.getElementById("unitPrice")};
  if(Object.values(nodes).some(x=>!x))throw Error("PANEL_DOM_REQUIRED");
  let credentials;
  try{credentials=readSession(storage);}
  catch(e){
   nodes.identity.textContent="Inicia sesión para acceder a los pedidos de tu empresa y sede.";
   nodes.send.disabled=true;nodes.reconcile.disabled=true;nodes.refresh.disabled=true;
+  nodes.saveDraft.disabled=true;
   return {authenticated:false};
  }
  const {token,context}=credentials;
@@ -65,7 +69,7 @@ async function launch({document,window,storage,outbox,transport,fetchFn}){
   return records.length;
  }
  async function perform(action){
-  for(const name of ["send","reconcile","refresh"])nodes[name].disabled=true;
+  for(const name of ["send","reconcile","refresh","saveDraft"])nodes[name].disabled=true;
   try{
    const result=await action();
    await render();
@@ -86,6 +90,25 @@ async function launch({document,window,storage,outbox,transport,fetchFn}){
   if(!window.navigator.onLine)throw Error("SIN_CONEXION");
   return transport.reconcileReceived({outbox,token,fetchFn,context});
  }));
+ nodes.draftForm.addEventListener("submit",event=>{
+  event.preventDefault();
+  perform(async()=>{
+   if(typeof draft?.saveOfflineOrder!=="function")throw Error("OFFLINE_DRAFT_UNAVAILABLE");
+   const deviceKey="grukOfflineDeviceId";
+   let deviceId=storage.getItem(deviceKey);
+   if(!/^[A-Za-z0-9_-]{1,80}$/.test(deviceId||"")){
+    if(typeof window.crypto?.randomUUID!=="function")throw Error("OFFLINE_DEVICE_ID_UNAVAILABLE");
+    deviceId="device_"+window.crypto.randomUUID().replace(/-/g,"");
+    storage.setItem(deviceKey,deviceId);
+   }
+   const result=await draft.saveOfflineOrder({
+    outbox,context,deviceId,
+    productoId:nodes.productId.value.trim(),cantidad:nodes.quantity.value.trim(),
+    precioUnitarioCop:nodes.unitPrice.value.trim(),cryptoSource:window.crypto
+   });
+   return "Pedido guardado localmente. No cobrado ni aplicado: "+result.eventId;
+  });
+ });
  await render();
  return {authenticated:true,refresh:render};
 }
@@ -96,7 +119,7 @@ else {
  if(root.document&&root.GRUKOfflineOutbox&&root.GRUKOfflineTransport){
   const start=()=>api.launch({document:root.document,window:root,
     storage:root.localStorage,outbox:root.GRUKOfflineOutbox,
-    transport:root.GRUKOfflineTransport,fetchFn:root.fetch.bind(root)}).catch(e=>{
+    transport:root.GRUKOfflineTransport,draft:root.GRUKOfflineDraft,fetchFn:root.fetch.bind(root)}).catch(e=>{
      const node=root.document.getElementById("message");
      if(node)node.textContent="No fue posible abrir el panel: "+String(e.message||"error");
     });
