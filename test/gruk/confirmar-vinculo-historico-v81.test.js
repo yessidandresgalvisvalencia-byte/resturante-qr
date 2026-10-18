@@ -30,6 +30,12 @@ test("sin evidencia o clave idempotente válida se bloquea",()=>{
 
 test("UUID de idempotencia tiene estructura y variante válidas",()=>{
  assert.doesNotThrow(()=>validarClaveVinculo(base.idempotencyKey));
+ assert.doesNotThrow(()=>validarClaveVinculo("018f4f15-7ddc-7e38-8912-9b37dadc1db7")); // UUIDv7
+ for(const versionNoPermitida of ["1c279cce-fcf1-19e2-9271-9662d2fb2ee7",
+  "1c279cce-fcf1-59e2-9271-9662d2fb2ee7",
+  "1c279cce-fcf1-89e2-9271-9662d2fb2ee7"]){
+  assert.throws(()=>validarClaveVinculo(versionNoPermitida),e=>e.statusCode===400);
+ }
  for(const invalido of [undefined,null,"-".repeat(36),"00000000-0000-0000-0000-000000000000","1c279cce-fcf1-49e2-0271-9662d2fb2ee7"]){
   assert.throws(()=>validarClaveVinculo(invalido),e=>e.statusCode===400);
  }
