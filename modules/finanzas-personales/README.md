@@ -24,3 +24,13 @@ Las rutas del ledger V81 están protegidas por `personalAuth` y `entitlement` (J
 ## Limitador de escrituras V81 — requisitos de producción
 
 En `NODE_ENV=production`, la ruta `POST /api/finanzas-personales/v81/movimientos` exige `GRUK_V81_RATE_LIMIT_MODE=redis` y un cliente Redis listo e inyectado en `app.locals.redisV81`. Si falta cualquiera, responde `503` y no escribe movimientos. El modo local queda reservado para desarrollo y pruebas: **no** asegura una cuota global entre servidores. El cliente debe inicializarse con `iniciarRedisV81(app,{crearCliente})` usando `GRUK_V81_REDIS_URL` con esquema `rediss://` (TLS en producción). El proyecto compartido todavía **no** incorpora una dependencia concreta de Redis ni llama ese inicializador en `app.js`: no activar el modo distribuido en producción hasta implementar y verificar ambos pasos.
+
+## Prueba de concurrencia V81 con MongoDB real (aislada)
+
+Se añadió `test/gruk/ledger-v81-mongo-idempotencia-real.test.js` para comprobar en un replica set de **pruebas** que dos altas simultáneas con la misma clave no generan dos eventos, que un replay con importe modificado da conflicto y que un identificador igual entre usuarios mantiene el aislamiento.
+
+- Requiere `GRUK_V81_TEST_MONGO_URI` con el **nombre de la base de datos dentro de la URL** empezando por `gruk_v81_test_`, por ejemplo `mongodb://127.0.0.1:27017/gruk_v81_test_integracion?replicaSet=rs0`.
+- Nunca ejecutarla con `NODE_ENV=production`. No admite conexión sin nombre de base de pruebas: en ese caso la prueba se marca como **omitida**, lo que NO constituye validación.
+- Ejecutar `npm run test:personal:mongo-idempotencia` tras levantar el replica set local y configurar su URI. Para CI, usar un servicio MongoDB efímero dedicado.
+- La limpieza elimina únicamente registros de los dos identificadores aleatorios generados por la prueba; no realiza `dropDatabase`.
+- No alcanza los endpoints HTTP, el JWT real ni el entorno de producción. Esas pruebas siguen pendientes antes del despliegue.
