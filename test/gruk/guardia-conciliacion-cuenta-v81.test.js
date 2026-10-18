@@ -26,3 +26,18 @@ test("registro nuevo siempre vincula cuenta antes del asiento",()=>{
  assert.ok(bloque.indexOf("const nombreCuenta=")<bloque.indexOf("[tx]=await Transaccion.create("));
  assert.match(bloque,/recurrenteOrigenId,cuentaId:cuenta\._id,tipo:input\.tipo/);
 });
+
+test("un huérfano confirmado para otra cuenta no bloquea esta conciliación",()=>{
+ const {filtrarHuerfanosSinResolver}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+ const filas=[{_id:"m-1",cuenta:"Nequi",cuentaId:null},
+              {_id:"m-2",cuenta:"Nequi",cuentaId:null}];
+ const vinculados=[{movimientoId:"m-1",cuentaId:"otra-cuenta"}];
+ assert.deepEqual(filtrarHuerfanosSinResolver(filas,vinculados),[filas[1]]);
+ assert.throws(()=>exigirSinMovimientosHuerfanos({
+  cuenta,filas:filtrarHuerfanosSinResolver(filas,vinculados)
+ }),e=>e.statusCode===409);
+ assert.deepEqual(filtrarHuerfanosSinResolver([filas[0]],vinculados),[]);
+ assert.equal(exigirSinMovimientosHuerfanos({
+  cuenta,filas:filtrarHuerfanosSinResolver([filas[0]],vinculados)
+ }),true);
+});
