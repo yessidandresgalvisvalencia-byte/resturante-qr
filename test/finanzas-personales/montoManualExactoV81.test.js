@@ -10,5 +10,5 @@ test("El formulario manual rechaza decimales y cifras inseguras antes de enviar"
  assert.match(save,/Number\.isSafeInteger\(Number\(montoTexto\)\)/);
  assert.match(save,/montoMinor:Number\(montoTexto\)/);
  assert.doesNotMatch(save,/Math\.round/);
- assert.ok(save.indexOf("const montoTexto=")<save.indexOf("manualExternalId=manualExternalId"));
+ assert.ok(save.indexOf("const montoTexto=")<save.indexOf("manualExternalId=await resolverIntentoManual(datosMovimiento)"));
 });
