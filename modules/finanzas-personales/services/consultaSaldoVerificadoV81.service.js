@@ -3,7 +3,7 @@ const mongoose=require("mongoose");
 const Evento=require("../models/eventoV81.model");
 const Cabeza=require("../models/cabezaV81.model");
 const {verificarCadena}=require("./cadenaEventosV81.service");
-const {proyectarSaldoV81}=require("./conciliacionV81.service");
+const {proyectarLedger}=require("./proyeccionLedgerV81.service");
 // La verificación y la proyección comparten la misma instantánea de MongoDB.
 async function consultarSaldoVerificadoV81(usuarioId){
  if(!mongoose.isValidObjectId(usuarioId))throw new TypeError("Usuario inválido");
@@ -19,7 +19,7 @@ async function consultarSaldoVerificadoV81(usuarioId){
    catch(_){return {integridad:"FALLIDA",cantidad:rows.length};}
    if(!verificarCadena(eventos,cabeza.hashActual))return {integridad:"FALLIDA",cantidad:rows.length};
    try{
-    const proyeccion=proyectarSaldoV81(eventos);
+    const proyeccion=proyectarLedger(eventos,String(usuarioId));
     return {integridad:"VERIFICADA",cantidad:rows.length,saldoCentavos:proyeccion.saldoCentavos.toString(),ingresosCentavos:proyeccion.ingresosCentavos.toString(),gastosCentavos:proyeccion.gastosCentavos.toString()};
    }catch(_){return {integridad:"NO_CONCILIABLE",cantidad:rows.length};}
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
