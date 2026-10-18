@@ -29,9 +29,27 @@ function siguienteFechaRecurrente(tx,now){
   const siguiente=new Date(inicio+pasos*periodoDias*86400000);
   return fechaCivilColombia(siguiente.getUTCFullYear(),siguiente.getUTCMonth()+1,siguiente.getUTCDate());
  }
- if(!["MENSUAL","ANUAL"].includes(tx.frecuencia))return null;
- const avanzar=()=>{if(tx.frecuencia==="DIARIA"){const z=new Date(Date.UTC(y,m-1,d+1));y=z.getUTCFullYear();m=z.getUTCMonth()+1;d=z.getUTCDate();}else if(tx.frecuencia==="SEMANAL"||tx.frecuencia==="QUINCENAL"){const z=new Date(Date.UTC(y,m-1,d+(tx.frecuencia==="SEMANAL"?7:15)));y=z.getUTCFullYear();m=z.getUTCMonth()+1;d=z.getUTCDate();}else if(tx.frecuencia==="MENSUAL"){m++;if(m>12){m=1;y++;}d=Math.min(b.d,diasEnMesUTC(y,m));}else if(tx.frecuencia==="ANUAL"){y++;d=Math.min(b.d,diasEnMesUTC(y,m));}};
- let next=fechaCivilColombia(y,m,d);while(next<=now&&guard++<1000){avanzar();next=fechaCivilColombia(y,m,d);}return next>now?next:null;
+ if(tx.frecuencia==="MENSUAL"){
+  // Se calcula por diferencia de meses, siempre anclada al día original.
+  // Ej.: día 31 -> 28/29 de febrero -> vuelve al 31 en marzo.
+  let meses=Math.max(0,(n.y-b.y)*12+n.m-b.m);
+  const candidato=(offset)=>{
+   const fecha=new Date(Date.UTC(b.y,b.m-1+offset,1));
+   return fechaCivilColombia(fecha.getUTCFullYear(),fecha.getUTCMonth()+1,b.d);
+  };
+  let proxima=candidato(meses);
+  if(proxima<=now)proxima=candidato(++meses);
+  return proxima;
+ }
+ if(tx.frecuencia==="ANUAL"){
+  // El 29 de febrero reaparece en el siguiente año bisiesto, no se fija al 28.
+  let anios=Math.max(0,n.y-b.y);
+  const candidato=(offset)=>fechaCivilColombia(b.y+offset,b.m,b.d);
+  let proxima=candidato(anios);
+  if(proxima<=now)proxima=candidato(++anios);
+  return proxima;
+ }
+ return null;
 }
 function cuotaDelPeriodo(deuda,inicio,fin){
  if(!deuda||deuda.direccion!=="POR_PAGAR"||!["ACTIVO","VENCIDO"].includes(deuda.estado)||deuda.saldoMinor<=0)return 0;
