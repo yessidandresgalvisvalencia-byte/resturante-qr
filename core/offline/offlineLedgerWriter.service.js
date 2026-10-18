@@ -24,12 +24,19 @@ async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
  const key={empresaId:context.empresaId,sedeId:context.sedeId,eventId,tipo:movement.tipo};
  const payload={...key,actorId:context.actorId,montoCop:movement.montoCop,deletedAt:null,createdAt:new Date()};
  // $setOnInsert never mutates an existing ledger entry.
- const result=await collection.updateOne(key,{$setOnInsert:payload},{upsert:true,session});
- if(result.upsertedCount!==1){
+ let inserted=false;
+ try {
+   const result=await collection.updateOne(key,{$setOnInsert:payload},{upsert:true,session});
+   inserted=result.upsertedCount===1;
+ } catch(err) {
+   // A concurrent unique-key winner can already exist. Compare content, never assume success.
+   if(err?.code!==11000)throw err;
+ }
+ if(!inserted){
    const prior=await collection.findOne(key,{session,projection:{actorId:1,montoCop:1,deletedAt:1}});
    if(!prior||prior.actorId!==context.actorId||prior.montoCop!==movement.montoCop||prior.deletedAt!==null)
      throw error("OFFLINE_LEDGER_REPLAY_CONFLICT");
  }
- return Object.freeze({eventId,tipo:movement.tipo,inserted:result.upsertedCount===1});
+ return Object.freeze({eventId,tipo:movement.tipo,inserted});
 }
 module.exports={appendOfflineLedgerEvent};
