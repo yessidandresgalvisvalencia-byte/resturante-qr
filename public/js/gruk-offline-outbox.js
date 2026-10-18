@@ -65,7 +65,56 @@
       t.onerror=()=>reject(t.error);
     });}finally{db.close();}
   }
-  const api=Object.freeze({putPending,listPending,markReceived});
+  // These events remain stored in IndexedDB after the server acknowledges receipt.
+  async function listReceived(limit=100,context) {
+    if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("OUTBOX_LIMIT");
+    const db=await open();
+    try{return await new Promise((resolve,reject)=>{
+      const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).index("syncStatus").openCursor(IDBKeyRange.only("received"));
+      const records=[];
+      r.onerror=()=>reject(r.error);
+      r.onsuccess=()=>{const cursor=r.result;
+        if(!cursor||records.length>=limit){resolve(records);return;}
+        if(matchesTenant(cursor.value.event,context))records.push({eventId:cursor.value.eventId});
+        cursor.continue();
+      };
+    });}finally{db.close();}
+  }
+  // This stores the authoritative reconciliation result as metadata ONLY.
+  // Local offline events are NEVER deleted, nor interpreted as settled cash.
+  async function markReconciled(eventId,context,result) {
+    if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(!result||result.eventId!==eventId||!["PENDIENTE","EN_REVISION","APLICADO","RECHAZADO"].includes(result.status)||
+      typeof result.applied!=="boolean"||typeof result.staged!=="boolean"||
+      typeof result.financiallyReconciled!=="boolean"||
+      (result.applied===true&&(result.status!=="APLICADO"||result.financiallyReconciled!==true))||
+      (result.financiallyReconciled===true&&result.staged!==true)||
+      (result.status==="APLICADO"&&result.applied!==true))throw Error("OUTBOX_INVALID_RECONCILIATION");
+    const db=await open();
+    try{return await new Promise((resolve,reject)=>{
+      const t=db.transaction(STORE,"readwrite"),store=t.objectStore(STORE),r=store.get(eventId);
+      let updated=false;
+      r.onsuccess=()=>{
+        const v=r.result;
+        if(!v||!matchesTenant(v.event,context)||v.syncStatus!=="received")return;
+        // Never regress a confirmed terminal state on a later stale response.
+        if(v.serverStatus==="APLICADO"&&result.status!=="APLICADO")return;
+        if(v.serverStatus==="RECHAZADO"&&result.status!=="RECHAZADO")return;
+        v.serverStatus=result.status;
+        v.serverStaged=result.staged;
+        v.serverFinanciallyReconciled=result.financiallyReconciled;
+        v.serverApplied=result.applied;
+        v.lastReconciledAt=new Date().toISOString();
+        store.put(v);updated=true;
+      };
+      r.onerror=()=>reject(r.error);
+      t.oncomplete=()=>resolve(updated);
+      t.onerror=()=>reject(t.error);
+      t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
+    });}finally{db.close();}
+  }
+  const api=Object.freeze({putPending,listPending,markReceived,listReceived,markReconciled});
   if(typeof module==="object"&&module.exports)module.exports=api;
   else root.GRUKOfflineOutbox=api;
 })(typeof globalThis!=="undefined"?globalThis:this);
