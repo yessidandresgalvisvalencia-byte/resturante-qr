@@ -24,13 +24,15 @@ function crearAncla({usuarioId,secuencia,headHash,emitidaEn=new Date().toISOStri
  const firma=crypto.createHmac("sha256",clave).update(cuerpo).digest("hex");
  return Object.freeze({...JSON.parse(cuerpo),algoritmo:"HMAC-SHA256",firma});
 }
-function verificarAncla(ancla,clave,registros,head) {
+function verificarAncla(ancla,clave,registros,head,usuarioEsperado) {
+ if (typeof usuarioEsperado !== "string" || !/^[a-f0-9]{24}$/.test(usuarioEsperado)) throw new TypeError("Usuario esperado obligatorio");
  validarClave(clave);
- if (!ancla || ancla.algoritmo!=="HMAC-SHA256" || !validarHash(ancla.firma)) return {valida:false,codigo:"ANCLA_INVALIDA"};
+ if (!ancla || ancla.version!==1 || ancla.algoritmo!=="HMAC-SHA256" || !validarHash(ancla.firma)) return {valida:false,codigo:"ANCLA_INVALIDA"};
  let cuerpo;
  try { cuerpo=payloadAncla(ancla); } catch {return {valida:false,codigo:"ANCLA_INVALIDA"};}
  const firma=crypto.createHmac("sha256",clave).update(cuerpo).digest();
  if (!crypto.timingSafeEqual(firma,Buffer.from(ancla.firma,"hex"))) return {valida:false,codigo:"FIRMA_INVALIDA"};
+ if (ancla.usuarioId!==usuarioEsperado) return {valida:false,codigo:"USUARIO_NO_COINCIDE"};
  if (!Array.isArray(registros) || !head || !Number.isSafeInteger(head.secuencia)) return {valida:false,codigo:"CADENA_INVALIDA"};
  // La cadena completa debe verificarse primero, incluyendo su cabeza actual.
  const {verificarCadena}=require("../services/verificarCadenaDecision.service");
