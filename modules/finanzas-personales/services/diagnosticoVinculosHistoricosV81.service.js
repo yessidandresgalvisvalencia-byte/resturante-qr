@@ -23,10 +23,15 @@ function evaluarEstadoVinculoHistorico(movimiento,cuentas,vinculo){
   throw new TypeError("Evidencia de vínculo de otro movimiento");
  return {estado:"CONFIRMADO",cuentaId:String(vinculo.cuentaId)};
 }
-async function diagnosticarVinculosHistoricosV81(usuarioId,{limite=100}={}){
- if(!mongoose.isValidObjectId(usuarioId)||!Number.isSafeInteger(limite)||limite<1||limite>100)
+function cursorHistoricoValidoV81(cursor){
+ return cursor===undefined||typeof cursor==="string"&&/^[0-9a-f]{24}$/i.test(cursor);
+}
+async function diagnosticarVinculosHistoricosV81(usuarioId,{limite=100,cursor}={}){
+ if(!mongoose.isValidObjectId(usuarioId)||!Number.isSafeInteger(limite)||limite<1||limite>100||
+    !cursorHistoricoValidoV81(cursor))
   throw Object.assign(new TypeError("Parámetros inválidos"),{statusCode:400});
  const filtro={usuarioId,cuentaId:null,estado:{$ne:"ANULADA"},moneda:"COP"};
+ if(cursor!==undefined)filtro._id={$gt:new mongoose.Types.ObjectId(cursor)};
  const session=await mongoose.startSession();
  try{
   return await session.withTransaction(async()=>{
@@ -44,10 +49,13 @@ async function diagnosticarVinculosHistoricosV81(usuarioId,{limite=100}={}){
     movimientoId:String(f._id),cuentaHistorica:f.cuenta||"",
     ...evaluarEstadoVinculoHistorico(f,cuentas,porMovimiento.get(String(f._id)))
    }));
+   // El cursor proviene de la última fila efectivamente entregada, nunca del
+   // centinela (limite+1); así no se salta ningún movimiento histórico.
+   const siguienteCursor=truncado&&visibles.length?String(visibles[visibles.length-1]._id):null;
    return {soloLectura:true,modificaSaldos:false,vinculaAutomaticamente:false,
-    requiereConfirmacionIndividual:true,truncado,movimientos,
+    requiereConfirmacionIndividual:true,truncado,siguienteCursor,movimientos,
     advertencia:"El nombre de una cuenta no constituye evidencia suficiente para vincular automáticamente un asiento histórico."};
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={evaluarCandidatoVinculo,evaluarEstadoVinculoHistorico,diagnosticarVinculosHistoricosV81};
+module.exports={evaluarCandidatoVinculo,evaluarEstadoVinculoHistorico,diagnosticarVinculosHistoricosV81,cursorHistoricoValidoV81};
