@@ -59,3 +59,18 @@ for(const conflicto of [false,true]){
   }
  });
 }
+
+test("diagnóstico rechaza una referencia que avanzó después de iniciar el workflow",()=>{
+ const {dir,personal}=escenario({conflicto:false});
+ try{
+  const resultado=cp.spawnSync("bash",[script],{
+   cwd:dir,encoding:"utf8",
+   env:{...process.env,GRUK_EXPECTED_HEAD_SHA:"0".repeat(40)}
+  });
+  assert.equal(resultado.status,3);
+  assert.match(resultado.stderr,/DIAGNOSTICO_OBSOLETO/);
+  assert.equal(git(dir,"rev-parse","HEAD"),personal);
+ }finally{
+  fs.rmSync(dir,{recursive:true,force:true});
+ }
+});
