@@ -16,7 +16,8 @@ test("diagnóstico de PR usa merge-tree sin mutar ni fusionar ramas",()=>{
 });
 
 test("CI publica el informe aun si fallan otras pruebas",()=>{
- assert.match(ci,/git fetch --no-tags --depth=1 origin main/);
+ assert.match(ci,/fetch-depth: 0/);
+ assert.match(ci,/git fetch --no-tags origin main/);
  assert.match(ci,/bash scripts\/diagnose-personal-merge\.sh/);
  assert.match(ci,/name: Guardar informe de conflictos de integración\s*\n\s*if: always\(\)/);
  assert.match(ci,/gruk-personal-merge-diagnostic\.log/);
