@@ -7,7 +7,7 @@ const {conciliarHistoricoCuentaV81}=require("./conciliacionHistoricoCuentaV81.se
 function parsearSaldoFirmadoCopACentavos(valor){
  // Limitar la entrada antes de BigInt evita procesar importes de tamaño
  // arbitrario; 15 cifras enteras superan ampliamente el uso personal COP.
- if(typeof valor!=="string"||!(/^-?(?:0|[1-9][0-9]{0,14})(?:\\.[0-9]{1,2})?$/.test(valor)))
+ if(typeof valor!=="string"||!(/^-?(?:0|[1-9][0-9]{0,14})(?:\.[0-9]{1,2})?$/.test(valor)))
   throw new TypeError("Saldo COP inválido o demasiado grande");
  const negativo=valor.startsWith("-");
  const sinSigno=negativo?valor.slice(1):valor;
