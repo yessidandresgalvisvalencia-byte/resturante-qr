@@ -133,6 +133,14 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   const diagnosticoAjeno=await diagnosticarVinculosHistoricosV81(String(otroUsuarioId));
   assert.deepEqual(diagnosticoAjeno.movimientos,[]);
   assert.equal(diagnosticoAjeno.siguienteCursor,null);
+  const paginaAjenaConCursor=await diagnosticarVinculosHistoricosV81(String(otroUsuarioId),{
+   limite:1,cursor:pagina1.siguienteCursor
+  });
+  assert.deepEqual(paginaAjenaConCursor.movimientos,[]);
+  await assert.rejects(()=>conciliarHistoricoCuentaV81({
+   ...periodo,usuarioId:String(otroUsuarioId),cuentaId:String(cuenta._id),
+   saldoObservadoCentavos:0n
+  }),e=>e.statusCode===404);
   await assert.rejects(()=>confirmarVinculoHistoricoV81(String(otroUsuarioId),{
    ...operacion,cuentaId:String(otraCuenta._id),idempotencyKey:crypto.randomUUID()
   }),e=>e.statusCode===404);
