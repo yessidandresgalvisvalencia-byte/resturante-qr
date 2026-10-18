@@ -120,3 +120,11 @@ test("falla cerrado ante privilegios vacíos de estructura inválida",async()=>{
   assert.equal(resultado.codigo,"PRIVILEGIOS_MALFORMADOS");
  }
 });
+
+test("no ignora acciones administrativas peligrosas a nivel clúster",()=>{
+ assert.deepEqual(detectarPrivilegiosPeligrosos([
+  permiso({cluster:true},["anyAction","killop"]),
+  permiso({cluster:true},["grantRole"])
+ ],db,collection),["anyAction","grantRole"]);
+ assert.equal(aplicaAlHistorial({cluster:true},db,collection),true);
+});
