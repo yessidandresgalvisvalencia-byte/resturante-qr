@@ -23,6 +23,7 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
  const mongoose=require("mongoose");
  const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
  const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
+ const ReservaCuota=require("../../modules/finanzas-personales/models/reservaCuotaRecurrente.model");
  const registrar=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service").registrarTransaccion;
  await mongoose.connect(uri,{serverSelectionTimeoutMS:10000});
  const propietario=new mongoose.Types.ObjectId();
@@ -35,7 +36,7 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   categoria:"HOGAR",cuenta,medioPago:"DEBITO",fecha:fechaPago,...extra
  });
  try{
-  await Promise.all([Cuenta.init(),Transaccion.init()]);
+  await Promise.all([Cuenta.init(),Transaccion.init(),ReservaCuota.init()]);
   await Cuenta.create({usuarioId:propietario,nombre:cuenta,tipo:"OTRA",saldoMinor:900000});
   await Cuenta.create({usuarioId:intruso,nombre:cuenta,tipo:"OTRA",saldoMinor:900000});
   const original=await registrar(propietario,movimiento({
@@ -143,6 +144,35 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   })),e=>e.statusCode===409);
   assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),9);
   assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,90000);
+  // Dos conexiones lógicas (cuentas diferentes) compiten por el mismo
+  // cupo, con claves distintas. Solo una puede reservar los 40.000.
+  const otraCuenta=cuenta+"_OTRA";
+  await Cuenta.create({usuarioId:propietario,nombre:otraCuenta,tipo:"OTRA",saldoMinor:100000});
+  const origenConcurrente=await registrar(propietario,movimiento({
+   recurrente:true,frecuencia:"MENSUAL",fecha:fechaOrigen,
+   montoMinor:50000,concepto:"Cuota concurrente"
+  }));
+  const intentos=await Promise.allSettled([
+   registrar(propietario,movimiento({
+    recurrenteOrigenId:origenConcurrente._id,
+    externalId:"competencia-uno",montoMinor:40000,cuenta
+   })),
+   registrar(propietario,movimiento({
+    recurrenteOrigenId:origenConcurrente._id,
+    externalId:"competencia-dos",montoMinor:40000,cuenta:otraCuenta
+   }))
+  ]);
+  assert.equal(intentos.filter(x=>x.status==="fulfilled").length,1,
+   "Dos pagos simultáneos no pueden consumir la misma cuota");
+  assert.equal(intentos.filter(x=>x.status==="rejected").length,1);
+  assert.equal(await Transaccion.countDocuments({
+   usuarioId:propietario,recurrenteOrigenId:origenConcurrente._id
+  }),1);
+  const saldos=await Cuenta.find({usuarioId:propietario,nombre:{$in:[cuenta,otraCuenta]}}).lean();
+  assert.equal(saldos.reduce((n,x)=>n+x.saldoMinor,0),100000);
+  const reservas=await ReservaCuota.find({usuarioId:propietario,origenId:origenConcurrente._id}).lean();
+  assert.equal(reservas.length,1);
+  assert.equal(reservas[0].reservadoMinor,40000);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
