@@ -111,6 +111,20 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
   const diagnosticoPendiente=await diagnosticarVinculosHistoricosV81(String(usuarioId));
   assert.equal(diagnosticoPendiente.movimientos.find(x=>x.movimientoId===String(pendiente._id))?.estado,
    "REQUIERE_CONFIRMACION");
+  const pagina1=await diagnosticarVinculosHistoricosV81(String(usuarioId),{limite:2});
+  assert.equal(pagina1.movimientos.length,2);
+  assert.equal(pagina1.truncado,true);
+  assert.ok(pagina1.siguienteCursor);
+  const pagina2=await diagnosticarVinculosHistoricosV81(String(usuarioId),{
+   limite:2,cursor:pagina1.siguienteCursor
+  });
+  assert.equal(pagina2.movimientos.length,1);
+  assert.equal(pagina2.truncado,false);
+  assert.equal(pagina2.siguienteCursor,null);
+  assert.deepEqual(
+   [...pagina1.movimientos,...pagina2.movimientos].map(x=>x.movimientoId),
+   diagnosticoPendiente.movimientos.map(x=>x.movimientoId)
+  );
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
