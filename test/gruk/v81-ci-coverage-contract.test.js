@@ -40,3 +40,7 @@ test("CI V81 prueba DecisionProof contra MongoDB local con confirmación explíc
  assert.match(yaml,/GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES/);
  assert.match(yaml,/name: Limpiar MongoDB aislado/);
 });
+
+test("el trabajo V81 verifica sintaxis de todo el vertical financiero",()=>{
+ assert.match(yaml,/name: Verificar sintaxis de servicios financieros y auditorías\s*\n\s*run: npm run check:personal/);
+});
