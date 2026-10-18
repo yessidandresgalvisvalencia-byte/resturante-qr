@@ -21,7 +21,7 @@ async function stageOfflineSales({db,session,context,plan}){
  // A unique tenant/event index must exist before any write.
  const indexes=await sales.indexes();
  if(!indexes.some(i=>i.name==="uniq_offline_sale_tenant_event"&&i.unique===true&&
-   ["empresaId","sedeId","eventId"].every(k=>i.key?.[k]===1)&&Object.keys(i.key||{}).length===3))
+   ["empresaId","sedeId","eventId"].every((k,n)=>Object.keys(i.key||{})[n]===k&&i.key[k]===1)&&Object.keys(i.key||{}).length===3))
    fail("OFFLINE_SALES_UNIQUE_INDEX_REQUIRED");
  const records=[];
  for(const order of plan.orders){
