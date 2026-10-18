@@ -17,7 +17,7 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
  skip:seguro?false:"Requiere MongoDB replica set local (loopback), base gruk_v81_test_*, sin credenciales, NODE_ENV no productivo",
  timeout:60000
 },async()=>{
- const a=new mongoose.Types.ObjectId(),b=new mongoose.Types.ObjectId(),c=new mongoose.Types.ObjectId();
+ const a=new mongoose.Types.ObjectId(),b=new mongoose.Types.ObjectId(),c=new mongoose.Types.ObjectId(),d=new mongoose.Types.ObjectId();
  await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
  try{
   // El índice compuesto es una condición de la garantía, no una suposición.
@@ -61,6 +61,36 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
    tipoCorregido:e.tipoCorregido,hashAnterior:e.hashAnterior,hashActual:e.hashActual
   })),cabeza.hashActual),true);
 
+  // Dos IDs distintos compiten por la misma cabeza; ambos deben poder recuperarse
+  // mediante el ID original sin perder un evento ni repetirlo.
+  const entradas=[
+   {...base,id:"v81_concurrente_uno"},
+   {...base,id:"v81_concurrente_dos",montoCentavos:9900n}
+  ];
+  const carrera=await Promise.allSettled(entradas.map(datos=>anexarEventoV81(d,datos)));
+  assert.ok(carrera.some(r=>r.status==="fulfilled"));
+  for(const resultado of carrera){
+   if(resultado.status==="rejected")assert.equal(resultado.reason.statusCode,409);
+  }
+  // El resultado de la carrera no implica que un fallo sea definitivo:
+  // repetir con la misma clave resuelve tanto escrituras confirmadas como abortadas.
+  for(const datos of entradas){
+   const resuelto=await anexarEventoV81(d,datos);
+   assert.equal(resuelto.id,datos.id);
+  }
+  const eventosD=await Evento.find({usuarioId:d}).sort({version:1}).lean();
+  const cabezaD=await Cabeza.findOne({usuarioId:d}).lean();
+  assert.equal(eventosD.length,2);
+  assert.equal(cabezaD.version,2);
+  assert.equal(new Set(eventosD.map(e=>e.eventId)).size,2);
+  assert.equal(eventosD.reduce((s,e)=>s+BigInt(e.montoCentavos),0n),2509930n);
+  assert.equal(verificarCadena(eventosD.map(e=>({
+   id:e.eventId,userId:String(e.usuarioId),version:e.version,tipo:e.tipo,
+   montoCentavos:BigInt(e.montoCentavos),fechaContable:e.fechaContable,
+   timestamp:e.timestamp,corrigeId:e.corrigeId,motivo:e.motivo,
+   tipoCorregido:e.tipoCorregido,hashAnterior:e.hashAnterior,hashActual:e.hashActual
+  })),cabezaD.hashActual),true);
+
   // Simulación exclusivamente local de manipulación directa, fuera de Mongoose.
   // Un atacante que altere un monto almacenado no debe poder anexar otro evento.
   await Evento.collection.updateOne({_id:primero._id},{$set:{montoCentavos:"2500031"}});
@@ -91,9 +121,9 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
   assert.equal((await Cabeza.findOne({usuarioId:c}).lean()).version,3);
   assert.equal((await Cabeza.findOne({usuarioId:c}).lean()).hashActual,cabezaAntes.hashActual);
  }finally{
-  // Limpieza exclusiva de los dos ObjectIds generados para esta prueba.
-  await Evento.collection.deleteMany({usuarioId:{$in:[a,b,c]}});
-  await Cabeza.collection.deleteMany({usuarioId:{$in:[a,b,c]}});
+  // Limpieza exclusiva de los cuatro ObjectIds generados para esta prueba.
+  await Evento.collection.deleteMany({usuarioId:{$in:[a,b,c,d]}});
+  await Cabeza.collection.deleteMany({usuarioId:{$in:[a,b,c,d]}});
   await mongoose.disconnect();
  }
 });
