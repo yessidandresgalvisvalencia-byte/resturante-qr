@@ -23,3 +23,14 @@ test("el script de arranque de producción no necesita nodemon",()=>{
  const p=JSON.parse(fs.readFileSync(path.join(root,"package.json"),"utf8"));
  assert.equal(p.scripts["start:personal"],"node modules/finanzas-personales/server.js");
 });
+
+test("los cambios a las guardias financieras no pueden evadir el CI de pull requests",()=>{
+ const ci=fs.readFileSync(path.join(root,".github/workflows/finanzas-personales-ci.yml"),"utf8");
+ const pullRequest=ci.split("  pull_request:")[1]?.split("\npermissions:")[0];
+ assert.ok(pullRequest,"Falta configuración pull_request");
+ for(const ruta of [
+  "scripts/verificar-evidencia-mongo-v81.js",
+  "scripts/gate-construccion-finanzas-personales.js",
+  "scripts/auditoria-instalacion-personal.js"
+ ])assert.ok(pullRequest.includes("'"+ruta+"'"),"CI no cubre cambios en "+ruta);
+});
