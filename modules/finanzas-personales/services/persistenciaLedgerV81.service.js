@@ -83,12 +83,23 @@ async function anexarEventoV81(usuarioId,datos){
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
   return evento;
  } catch(error) {
-  if(error && error.code===11000){
-   // No confirmar un reintento desde fuera del snapshot auditado.
-   // El cliente puede reintentar con el mismo id; la ruta normal verifica toda la cadena.
-   throw Object.assign(new Error("Conflicto de clave única: reintenta con el mismo eventId"),{statusCode:409});
-  }
-  throw error;
+  throw normalizarErrorTransaccionalV81(error);
  } finally {await session.endSession();}
 }
-module.exports={anexarEventoV81};
+// Los conflictos transitorios no prueban que la operación no se haya confirmado.
+// El cliente debe recuperar el resultado reintentando con exactamente el mismo eventId.
+function normalizarErrorTransaccionalV81(error){
+ if(error && error.code===11000)
+  return Object.assign(new Error("Conflicto de clave única: reintenta con el mismo eventId"),{statusCode:409});
+ if(error && (
+  error.code===112 || error.code===251 ||
+  error.hasErrorLabel?.("TransientTransactionError")===true ||
+  error.hasErrorLabel?.("UnknownTransactionCommitResult")===true ||
+  error.errorLabels?.includes?.("TransientTransactionError") ||
+  error.errorLabels?.includes?.("UnknownTransactionCommitResult")
+ )){
+  return Object.assign(new Error("Resultado transaccional incierto: reintenta con el mismo eventId"),{statusCode:409});
+ }
+ return error;
+}
+module.exports={anexarEventoV81,normalizarErrorTransaccionalV81};
