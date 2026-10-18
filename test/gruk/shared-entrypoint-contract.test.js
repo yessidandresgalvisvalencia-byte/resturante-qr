@@ -25,3 +25,9 @@ test("el menú empresarial conserva manifest y registro del service worker",()=>
  assert.match(index,/rel="manifest"[^>]*href="\/manifest\.json"/);
  assert.match(index,/navigator\.serviceWorker\.register\("\/service-worker\.js"\)/);
 });
+
+test("health expone commit real de despliegue sin modificar arranque empresarial",()=>{
+ assert.match(server,/const \{getDeploymentCommit\}=require\("\.\/core\/health\/deploymentCommit\.contract"\)/);
+ assert.match(server,/commit: getDeploymentCommit\(process\.env\.RENDER_GIT_COMMIT\)/);
+ assert.match(server,/app\.use\("\/api", apiRoutes\)/);
+});
