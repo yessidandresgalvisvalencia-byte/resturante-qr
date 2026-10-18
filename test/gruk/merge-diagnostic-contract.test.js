@@ -10,9 +10,10 @@ const script=fs.readFileSync(path.join(root,"scripts/diagnose-personal-merge.sh"
 const ci=fs.readFileSync(path.join(root,".github/workflows/gruk-ci.yml"),"utf8");
 
 test("diagnóstico de PR usa merge-tree sin mutar ni fusionar ramas",()=>{
- assert.match(script,/git merge-tree --write-tree --messages origin\/main origin\/feature\/finanzas-personales/);
+ assert.match(script,/git merge-tree --write-tree --name-only --messages origin\/main origin\/feature\/finanzas-personales/);
  assert.doesNotMatch(script,/git merge-tree[^\n]*\sHEAD/);
  assert.match(script,/CONFLICTOS_DE_FUSION_DETECTADOS/);
+ assert.match(script,/--name-only/);
  assert.doesNotMatch(script,/^\s*git (?:merge|reset|push|checkout|rebase)\s/m);
 });
 
