@@ -65,7 +65,10 @@ test("offline apply: ledger alone does not qualify as final commitment",async()=
   {saleAmount:"2999"},
   {cashAmount:"2999"},
   {ledgerAmount:"2999"},
-  {cashAmount:"3000.0"}
+  {cashAmount:"3000.0"},
+  {saleAmount:"9007199254740992",cashAmount:"9007199254740992",ledgerAmount:"9007199254740992"},
+  {cashAmount:"1e3"},
+  {ledgerAmount:"-3000"}
  ]){
   const f=fixture(true,opts);
   await assert.rejects(markOfflineApplied({db:f.db,context:ctx,eventId,reviewToken,commitReference}),/OFFLINE_DOMAIN_NOT_COMMITTED/);
