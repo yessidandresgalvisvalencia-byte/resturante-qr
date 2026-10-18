@@ -22,7 +22,7 @@ test("receipt without financial proof stays unapplied after reconnect", async ()
     }};
   }};
   const result = await readOfflineStatuses({ db, context, eventIds: ids });
-  assert.deepEqual(query, { ...context, eventId: { $in: ids } });
+  assert.deepEqual(query, { empresaId:context.empresaId,sedeId:context.sedeId,eventId: { $in: ids } });
   assert.deepEqual(result, [
     { eventId: ids[0], status: "PENDIENTE", applied: false },
     { eventId: ids[1], status: "APLICADO", applied: false },
