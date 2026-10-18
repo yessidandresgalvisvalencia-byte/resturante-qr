@@ -5,7 +5,7 @@ const productId="507f1f77bcf86cd799439011";
 const ctx={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd799439012"};
 const session={inTransaction:()=>true};
 const objectId=id=>id;
-function plan(price="3000"){return {orders:[{items:[{productoId,cantidad:"2",precioUnitarioCop:price,totalCop:"6000"}]}]};}
+function plan(price="3000"){return {orders:[{items:[{productoId:productId,cantidad:"2",precioUnitarioCop:price,totalCop:"6000"}]}]};}
 function db(price=3000){let called=false;return {collection(name){assert.equal(name,"productoservicios");return {find(q,options){called=true;assert.equal(options.session,session);assert.equal(q.empresaId,ctx.empresaId);assert.equal(q.sedeId,ctx.sedeId);assert.equal(q.activo,true);return {toArray:async()=>[{_id:productId,precioVenta:price}]};}};},get called(){return called;}};}
 async function check(database,order=plan()){return verify({db:database,session,context:ctx,plan:order,objectId});}
 test("offline pricing: accepts integer COP catalog price within same Mongo transaction",async()=>{
