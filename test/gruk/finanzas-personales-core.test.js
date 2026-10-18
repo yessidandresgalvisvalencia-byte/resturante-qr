@@ -220,3 +220,19 @@ test("ingreso recurrente antiguo no desaparece por superar mil períodos",()=>{
  assert.equal(f({tipo:"INGRESO",recurrente:true,frecuencia:"INVALIDA",
   fecha:"2010-01-01T05:00:00.000Z"},now),null);
 });
+
+test("recurrencia mensual antigua conserva día de pago sin límite de mil meses",()=>{
+ const f=home._fechas.siguienteFechaRecurrente;
+ const tx={tipo:"INGRESO",recurrente:true,frecuencia:"MENSUAL",fecha:"1900-01-31T05:00:00.000Z"};
+ assert.equal(f(tx,new Date("2026-10-18T16:00:00Z")).toISOString(),"2026-10-31T05:00:00.000Z");
+ const reciente={...tx,fecha:"2024-01-31T05:00:00.000Z"};
+ assert.equal(f(reciente,new Date("2024-02-12T16:00:00Z")).toISOString(),"2024-02-29T05:00:00.000Z");
+ assert.equal(f(reciente,new Date("2024-02-29T16:00:00Z")).toISOString(),"2024-03-31T05:00:00.000Z");
+});
+test("recurrencia anual recupera el 29 de febrero en año bisiesto",()=>{
+ const f=home._fechas.siguienteFechaRecurrente;
+ const tx={tipo:"INGRESO",recurrente:true,frecuencia:"ANUAL",fecha:"2020-02-29T05:00:00.000Z"};
+ assert.equal(f(tx,new Date("2025-01-01T16:00:00Z")).toISOString(),"2025-02-28T05:00:00.000Z");
+ assert.equal(f(tx,new Date("2028-02-27T16:00:00Z")).toISOString(),"2028-02-29T05:00:00.000Z");
+ assert.equal(f(tx,new Date("2028-02-29T16:00:00Z")).toISOString(),"2029-02-28T05:00:00.000Z");
+});
