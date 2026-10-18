@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {resolverConfirmacion,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
+const {resolverConfirmacion,validarClaveVinculo,coincideVinculo,decidirReintentoVinculo,conflictoTransitorioMongo,hashClaveVinculoV81}=require("../../modules/finanzas-personales/services/confirmarVinculoHistoricoV81.service");
 const uid="507f1f77bcf86cd799439011";
 const movimiento={_id:"507f1f77bcf86cd799439012",usuarioId:uid,cuentaId:null,
  estado:"ACTIVA",moneda:"COP"};
@@ -69,4 +69,16 @@ test("Mongo WriteConflict y commit incierto se identifican para reintento",()=>{
  assert.equal(conflictoTransitorioMongo({hasErrorLabel:label=>label==="UnknownTransactionCommitResult"}),true);
  assert.equal(conflictoTransitorioMongo({code:11000}),false);
  assert.equal(conflictoTransitorioMongo(null),false);
+});
+
+test("UUID con mayúsculas o minúsculas mantiene el mismo HMAC por usuario",()=>{
+ const clave="1c279cce-fcf1-49e2-9271-9662d2fb2ee7";
+ const secret="clave-local-exclusiva-para-test";
+ const lower=hashClaveVinculoV81(uid,clave,secret);
+ const upper=hashClaveVinculoV81(uid,clave.toUpperCase(),secret);
+ assert.equal(lower,upper);
+ assert.match(lower,/^[0-9a-f]{64}$/);
+ assert.notEqual(lower,hashClaveVinculoV81("507f1f77bcf86cd799439099",clave,secret));
+ assert.notEqual(lower,hashClaveVinculoV81(uid,clave,"otra-clave-para-test"));
+ assert.throws(()=>hashClaveVinculoV81(uid,"clave-invalida",secret),e=>e.statusCode===400);
 });
