@@ -6,7 +6,7 @@ const prepared={orders:[{items:[{productoId:product}]}]},context={empresaId:empr
 const objectId=x=>x;
 function collection(records,inspect){return {find(q){inspect?.(q);return {toArray:async()=>records};}};}
 test("producto offline: exige match por empresa, sede y activo",async()=>{
- const ids=await verify({collection:collection([{_id:product}],q=>{
+ const ids=await verify({collection:collection([{_id:product,empresaId:empresa,sedeId:sede,activo:true}],q=>{
  assert.equal(q.empresaId,empresa);assert.equal(q.sedeId,sede);assert.equal(q.activo,true);
  assert.deepEqual(q._id.$in,[product]);
  }),prepared,context,objectId});
