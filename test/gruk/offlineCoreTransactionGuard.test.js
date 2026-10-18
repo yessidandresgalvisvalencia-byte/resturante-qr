@@ -18,3 +18,17 @@ test("núcleo offline: sin sesiones Mongo rechaza 2 eventos antes de escribir",a
   );
   assert.equal(writes,0);
 });
+
+test("núcleo offline: sesión sin withTransaction rechaza lote y libera sesión",async()=>{
+  let writes=0,closed=0;
+  const db={
+    client:{startSession:()=>({endSession:async()=>{closed++;}})},
+    collection(){writes++;throw new Error("WRITE_FORBIDDEN");}
+  };
+  await assert.rejects(
+    acceptOfflineBatch({db,authenticatedContext:context,events}),
+    err=>err.code==="OFFLINE_TRANSACTION_UNAVAILABLE"
+  );
+  assert.equal(writes,0);
+  assert.equal(closed,1);
+});
