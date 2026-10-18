@@ -33,3 +33,28 @@ test("sync batch multi-evento rechaza sesión transaccional no disponible sin gu
   assert.equal(response.error,"OFFLINE_TRANSACTION_UNAVAILABLE");
   assert.equal(writes,0);
 });
+
+test("sync batch: fallo de sesión del núcleo responde 503 reintentable",async()=>{
+  const handlers={};
+  const router={post(route,...handlersList){handlers[route]=handlersList.at(-1);}};
+  const mongoose={connection:{readyState:1,db:{client:{startSession:()=>({})}}}};
+  const unavailable=Object.assign(new Error("unavailable"),{code:"OFFLINE_TRANSACTION_UNAVAILABLE"});
+  const imports={
+    express:{Router:()=>router},mongoose,
+    "../core/auth/auth.middleware":()=>{},
+    "../core/offline/offlineInbox.service":{
+      ensureInboxIndexes:async()=>{},
+      acceptOfflineBatch:async()=>{throw unavailable;}
+    },
+    "../core/offline/offlineStatus.service":{readOfflineStatuses:async()=>[]}
+  };
+  const module={exports:{}};
+  vm.runInNewContext(source,{module,exports:module.exports,require:name=>imports[name],console});
+  let statusCode=0,body=null;
+  const res={status(code){statusCode=code;return this;},json(value){body=value;return this;}};
+  await handlers["/batch"]({auth:{empresaId:"a",sedeId:"b",usuarioId:"c"},
+    body:{events:[{eventId:"a"},{eventId:"b"}]}},res);
+  assert.equal(statusCode,503);
+  assert.equal(body.error,"OFFLINE_TRANSACTION_UNAVAILABLE");
+  assert.equal(body.applied,false);
+});
