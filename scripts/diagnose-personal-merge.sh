@@ -17,6 +17,18 @@ if ! git cat-file -e "refs/remotes/origin/feature/finanzas-personales^{commit}" 
   exit 2
 fi
 
+# En CI, la referencia remota puede avanzar mientras el job está en cola.
+# No certificar una versión distinta del commit que inició el workflow.
+if [ -n "${GRUK_EXPECTED_HEAD_SHA:-}" ]; then
+  actual=$(git rev-parse origin/feature/finanzas-personales)
+  if [ "$actual" != "$GRUK_EXPECTED_HEAD_SHA" ]; then
+    echo "DIAGNOSTICO_OBSOLETO: la rama personal avanzó desde el SHA del workflow" >&2
+    echo "Esperado: $GRUK_EXPECTED_HEAD_SHA" >&2
+    echo "Actual: $actual" >&2
+    exit 3
+  fi
+fi
+
 echo "GRUK FP: diagnóstico de fusión de solo lectura"
 echo "Rama actual: $(git rev-parse --abbrev-ref HEAD)"
 echo "Head de la rama personal: $(git rev-parse origin/feature/finanzas-personales)"
