@@ -50,3 +50,9 @@ test("informe incompleto o sin campo vulnerabilidades falla cerrado",()=>{
   assert.match(r.stdout,/Informe incompleto/);
  }
 });
+
+test("el resumen npm no puede contradecir el detalle sin bloquear el escaneo",()=>{
+ const r=ejecutar({metadata:{vulnerabilities:{high:5,critical:0}},vulnerabilities:{}});
+ assert.equal(r.status,1);
+ assert.match(r.stdout,/Inconsistencia/);
+});
