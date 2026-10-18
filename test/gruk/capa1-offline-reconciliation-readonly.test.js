@@ -4,7 +4,7 @@ const assert=require("node:assert/strict");
 const {readOfflineReconciliation:read}=require("../../core/offline/offlineReconciliation.service");
 const id="01ARZ3NDEKTSV4RRFFQ69G5FA0",other="01ARZ3NDEKTSV4RRFFQ69G5FA1";
 const ctx={empresaId:"empresaA",sedeId:"sedeA",actorId:"operadorA"};
-function fixture({inboxStatus="PENDIENTE",inventoryApplied=false,saleStatus="PENDIENTE_CONTABILIZACION",cashStatus="PENDIENTE_CONCILIACION",paid=false,cashAmount="3000",ledgerAmount="3000",otherTenant=false,duplicate=false}={}){
+function fixture({inboxStatus="PENDIENTE",inventoryApplied=false,saleStatus="PENDIENTE_CONTABILIZACION",cashStatus="PENDIENTE_CONCILIACION",paid=false,cashAmount="3000",ledgerAmount="3000",otherTenant=false,duplicate=false,foreignActorProof=false}={}){
  let count=0;
  const s={...ctx,eventId:id};
  const tenant=otherTenant?{...s,empresaId:"empresaB"}:s;
@@ -15,12 +15,13 @@ function fixture({inboxStatus="PENDIENTE",inventoryApplied=false,saleStatus="PEN
   gruk_ledger_movimientos:[{...tenant,tipo:"VENTA_OFFLINE",montoCop:ledgerAmount,deletedAt:null}]
  };
  if(duplicate)data.gruk_offline_ventas.push({...data.gruk_offline_ventas[0]});
+ if(foreignActorProof)data.gruk_ledger_movimientos.push({...data.gruk_ledger_movimientos[0],actorId:"operadorB"});
  return {collection(name){
   count++;
   assert.ok(Object.hasOwn(data,name));
   return {find(query){
-   assert.deepEqual(query,{empresaId:ctx.empresaId,sedeId:ctx.sedeId,actorId:ctx.actorId,eventId:{$in:[id,other]}});
-   return {async toArray(){return data[name].filter(v=>v.empresaId===query.empresaId&&query.eventId.$in.includes(v.eventId));}};
+   assert.deepEqual(query,{empresaId:ctx.empresaId,sedeId:ctx.sedeId,...(name==="gruk_offline_inbox"?{actorId:ctx.actorId}:{}),eventId:{$in:[id,other]}});
+   return {async toArray(){return data[name].filter(v=>v.empresaId===query.empresaId&&v.sedeId===query.sedeId&&(!query.actorId||v.actorId===query.actorId)&&query.eventId.$in.includes(v.eventId));}};
   }};
  },get count(){return count;}};
 }
@@ -42,7 +43,7 @@ test("offline reconciliation: final requires paid cash, accounted sale and APPLI
  assert.equal(before[0].applied,false);
 });
 test("offline reconciliation: broken money, duplicated proofs and cross-tenant evidence fail closed",async()=>{
- for(const options of [{cashAmount:"2999"},{ledgerAmount:"2999"},{duplicate:true},{otherTenant:true}]){
+ for(const options of [{cashAmount:"2999"},{ledgerAmount:"2999"},{duplicate:true},{foreignActorProof:true},{otherTenant:true}]){
   const result=await read({db:fixture({...options,inboxStatus:"APLICADO",inventoryApplied:true,saleStatus:"CONTABILIZADA",cashStatus:"CONCILIADO",paid:true}),context:ctx,eventIds:[id,other]});
   assert.equal(result[0].applied,false);
  }
