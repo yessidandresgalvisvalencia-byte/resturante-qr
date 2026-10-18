@@ -3,7 +3,7 @@ const test=require("node:test"),assert=require("node:assert/strict");
 const {executeOfflineStagingTransaction:execute}=require("../../core/offline/offlineStagingTransaction.service");
 const eventId="01ARZ3NDEKTSV4RRFFQ69G5FA0",productId="507f1f77bcf86cd799439011";
 const context={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd799439012",actorId:"cajero"};
-const inbox={...context,eventId,tipo:"PEDIDO_REGISTRADO",payload:{localOrderId:eventId,items:[{productoId:productId,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}],totalCop:"3000"}};
+const inbox={...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",payload:{localOrderId:eventId,items:[{productoId:productId,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}],totalCop:"3000"}};
 const indices={
  gruk_offline_ventas:["uniq_offline_sale_tenant_event",{empresaId:1,sedeId:1,eventId:1}],
  gruk_offline_stock_movimientos:["uniq_offline_stock_tenant_batch_product",{empresaId:1,sedeId:1,batchId:1,productoId:1}],

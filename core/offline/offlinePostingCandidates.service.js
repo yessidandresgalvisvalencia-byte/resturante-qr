@@ -14,8 +14,12 @@ async function readOfflineOrderCandidates({db,context,eventIds,session}){
   const docs=await db.collection("gruk_offline_inbox").find({
     empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,
     tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",eventId:{$in:eventIds}
-  },{projection:{_id:0,eventId:1,empresaId:1,sedeId:1,actorId:1,tipo:1,payload:1},...(session?{session}:{})}).toArray();
-  if(docs.length!==eventIds.length)fail("OFFLINE_ORDERS_NOT_PENDING");
+  },{projection:{_id:0,eventId:1,empresaId:1,sedeId:1,actorId:1,tipo:1,status:1,payload:1},...(session?{session}:{})}).toArray();
+  if(!Array.isArray(docs)||docs.length!==eventIds.length||docs.some(x=>
+    !x||x.empresaId!==context.empresaId||x.sedeId!==context.sedeId||
+    x.actorId!==context.actorId||x.tipo!=="PEDIDO_REGISTRADO"||
+    x.status!=="PENDIENTE"||!eventIds.includes(x.eventId)))
+    fail("OFFLINE_ORDERS_NOT_PENDING");
   const byId=new Map(docs.map(x=>[x.eventId,x]));
   if(byId.size!==eventIds.length)fail("OFFLINE_ORDERS_NOT_PENDING");
   const ordered=eventIds.map(id=>byId.get(id));

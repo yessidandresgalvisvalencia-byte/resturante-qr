@@ -15,7 +15,7 @@ function setup(stock,pendiente=true,stockPatch={}){
    reads++;assert.equal(q.actorId,"operator");assert.equal(q.empresaId,auth.empresaId);
    return {toArray:async()=>pendiente?[{
     eventId,...{empresaId:auth.empresaId,sedeId:auth.sedeId,actorId:"operator"},
-    tipo:"PEDIDO_REGISTRADO",payload:{localOrderId:eventId,
+    tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",payload:{localOrderId:eventId,
      items:[{productoId:productId,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}],totalCop:"3000"}
    }]:[]};}};
   if(name==="inventarios")return {find(q){

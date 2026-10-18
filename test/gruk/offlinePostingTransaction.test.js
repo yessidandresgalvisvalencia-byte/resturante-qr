@@ -3,7 +3,7 @@ const test=require("node:test"),assert=require("node:assert/strict");
 const {executeOfflinePostingTransaction:execute}=require("../../core/offline/offlinePostingTransaction.service");
 const id="01ARZ3NDEKTSV4RRFFQ69G5FA0",product="507f1f77bcf86cd799439011";
 const context={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd799439012",actorId:"cajero"};
-const event={...context,eventId:id,tipo:"PEDIDO_REGISTRADO",payload:{localOrderId:id,items:[{productoId:product,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}],totalCop:"3000"}};
+const event={...context,eventId:id,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",payload:{localOrderId:id,items:[{productoId:product,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}],totalCop:"3000"}};
 function createDb(){
  let closed=false,committed=false;
  const session={withTransaction:async(fn,opts)=>{assert.equal(opts.readConcern.level,"snapshot");await fn();committed=true;},endSession:async()=>{closed=true;}};
