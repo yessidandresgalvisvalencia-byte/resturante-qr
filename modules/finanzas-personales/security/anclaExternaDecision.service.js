@@ -12,7 +12,7 @@ function payloadAncla({usuarioId, secuencia, headHash, emitidaEn}) {
  if (typeof usuarioId !== "string" || !/^[a-f0-9]{24}$/.test(usuarioId)) throw new TypeError("Usuario inválido");
  if (!Number.isSafeInteger(secuencia) || secuencia < 1) throw new TypeError("Secuencia inválida");
  if (!validarHash(headHash)) throw new TypeError("Hash inválido");
- if (typeof emitidaEn !== "string" || !/^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{3}Z$/.test(emitidaEn) ||
+ if (typeof emitidaEn !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(emitidaEn) ||
      !Number.isFinite(Date.parse(emitidaEn)) || new Date(emitidaEn).toISOString() !== emitidaEn) {
   throw new TypeError("Fecha de ancla inválida");
  }
