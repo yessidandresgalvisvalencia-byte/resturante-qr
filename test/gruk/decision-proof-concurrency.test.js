@@ -199,6 +199,7 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   await assert.rejects(()=>emitirAnclaDecisionMongo(usuarioId,claveAncla,{
     anclaPrevia:anclaMongo
   }),{message:"CONTINUIDAD_ANCLA_INVALIDA",code:"CADENA_INVALIDA"});
+  console.log("[GRUK_V81_MONGO_INTEGRACION] DECISION_PROOF_OK");
 
 
 
