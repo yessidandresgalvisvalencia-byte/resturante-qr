@@ -284,3 +284,17 @@ test("DecisionProof rechaza claves enormes y caracteres de control antes de Mong
  }
  await assert.rejects(()=>registrar(null,{...base,idempotencyKey:"abc12345"}),TypeError);
 });
+
+test("DecisionProof acepta UUID y claves ASCII sin abrir MongoDB",()=>{
+ const {validarClaveDecisionProofV81}=require(
+  "../../modules/finanzas-personales/services/decisionProofPersistence.service");
+ for(const clave of ["race-key-0001","12345678","A".repeat(128),
+  "01234567-89ab-4cde-8fab-0123456789ab"]){
+  assert.equal(validarClaveDecisionProofV81(clave),clave);
+ }
+ assert.equal(validarClaveDecisionProofV81(" race-key-0001 "),"race-key-0001");
+ for(const invalida of ["a".repeat(7),"a".repeat(129),
+  "1234567\nA","1234567\u0000","contraseña_1234",null,42]){
+  assert.throws(()=>validarClaveDecisionProofV81(invalida),TypeError);
+ }
+});
