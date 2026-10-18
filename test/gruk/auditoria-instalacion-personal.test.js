@@ -16,7 +16,8 @@ test("auditoría de instalación se puede omitir explícitamente sin contactar e
 });
 test("GRUK configura el inventario npm después de npm ci",()=>{
  const p=JSON.parse(fs.readFileSync(path.join(raiz,"package.json"),"utf8"));
- assert.equal(p.scripts.postinstall,"node scripts/auditoria-instalacion-personal.js");
+ assert.equal(p.scripts.postinstall,
+  "node scripts/auditoria-instalacion-personal.js && node scripts/gate-construccion-finanzas-personales.js");
 });
 test("auditoría de instalación nunca reescribe el lockfile",()=>{
  const fuente=fs.readFileSync(script,"utf8");
