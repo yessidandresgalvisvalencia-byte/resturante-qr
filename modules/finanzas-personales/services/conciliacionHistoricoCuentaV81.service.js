@@ -39,6 +39,20 @@ function exigirResultadosAcotadosV81(filas){
  }
  return filas;
 }
+function exigirMovimientosUnicosV81(filas){
+ if(!Array.isArray(filas))throw new TypeError("Histórico de conciliación inválido");
+ const vistos=new Set();
+ for(const fila of filas){
+  const id=fila?._id;
+  if(!id||!mongoose.isValidObjectId(id)||vistos.has(String(id))){
+   const error=new Error("Histórico inconsistente: movimiento duplicado o sin identidad");
+   error.statusCode=409;
+   throw error;
+  }
+  vistos.add(String(id));
+ }
+ return filas;
+}
 function crearPipelineVinculosPeriodoV81({usuarioId,cuentaId,desde,hasta}) {
  if(!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(cuentaId)||
     !(desde instanceof Date)||Number.isNaN(desde.getTime())||
@@ -108,7 +122,7 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
    exigirResultadosAcotadosV81(resueltos);
    const sinResolver=filtrarHuerfanosSinResolver(sinVinculo,resueltos);
    exigirSinMovimientosHuerfanos({cuenta,filas:sinResolver});
-   const filasConciliables=exigirResultadosAcotadosV81([...rows,...heredados]);
+   const filasConciliables=exigirMovimientosUnicosV81(exigirResultadosAcotadosV81([...rows,...heredados]));
    const movimientos=filasConciliables.map(row=>{
     if(!Number.isSafeInteger(row.montoMinor)||row.montoMinor<=0||row.impactoCaja!==true||
        !["INGRESO","GASTO"].includes(row.tipo)||row.medioPago==="CREDITO")
@@ -124,4 +138,4 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,MAX_TIEMPO_CONSULTA_MONGO_V81_MS,MAX_DIAS_CONCILIACION_V81,exigirPeriodoAcotadoV81,crearPipelineVinculosPeriodoV81,fechaContableBogotaV81};
+module.exports={exigirMovimientosUnicosV81,conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,MAX_TIEMPO_CONSULTA_MONGO_V81_MS,MAX_DIAS_CONCILIACION_V81,exigirPeriodoAcotadoV81,crearPipelineVinculosPeriodoV81,fechaContableBogotaV81};
