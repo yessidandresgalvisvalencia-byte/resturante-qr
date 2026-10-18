@@ -84,6 +84,22 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   );
   assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),2);
   assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,500000);
+  // El asiento original de hoy ya descontó caja; rechazar pago ligado al
+  // mismo asiento en la fecha civil, incluso si utiliza otra clave.
+  const fechaHoy=new Date(Date.now()-10000);
+  const origenHoy=await registrar(propietario,movimiento({
+   recurrente:true,frecuencia:"DIARIA",fecha:fechaHoy,
+   montoMinor:50000,concepto:"Gasto recurrente registrado hoy"
+  }));
+  await assert.rejects(
+   registrar(propietario,movimiento({
+    recurrenteOrigenId:origenHoy._id,externalId:"doble-origen-hoy-001",
+    fecha:fechaHoy,montoMinor:50000
+   })),
+   e=>e.statusCode===409 && /ya afecta caja/.test(e.message)
+  );
+  assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),3);
+  assert.equal((await Cuenta.findOne({usuarioId:propietario,nombre:cuenta}).lean()).saldoMinor,450000);
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
