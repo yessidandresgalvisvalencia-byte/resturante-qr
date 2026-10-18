@@ -27,7 +27,8 @@ async function readOfflineReconciliation({db,context,eventIds}){
   const found=new Map();
   for(const row of rows){
    // Missing/duplicate event identities are ambiguous; never report completion.
-   if(typeof row.eventId!=="string"||found.has(row.eventId))found.set(row.eventId,null);
+   if(typeof row.eventId!=="string")continue;
+   if(found.has(row.eventId))found.set(row.eventId,null);
    else found.set(row.eventId,row);
   }
   return found;
