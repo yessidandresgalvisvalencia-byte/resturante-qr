@@ -65,6 +65,15 @@ function gastoRecurrenteVenceHoy(tx,now){
  const proxima=siguienteFechaRecurrente({...tx,tipo:"INGRESO"},previa);
  return Boolean(proxima&&proxima.getTime()===inicio.getTime());
 }
+function gastoRecurrenteHoySinConfirmacion(g,now){
+ if(!gastoRecurrenteVenceHoy(g,now))return false;
+ const registrado=new Date(g.fecha);
+ if(Number.isNaN(registrado.getTime()))return true;
+ const diaRegistro=partesColombia(registrado),diaHoy=partesColombia(now);
+ // Solo el MISMO evento de ledger con fecha de hoy prueba un registro actual.
+ return !(diaRegistro.y===diaHoy.y&&diaRegistro.m===diaHoy.m&&diaRegistro.d===diaHoy.d&&
+  g.estado!=="ANULADA"&&g.impactoCaja!==false);
+}
 function cuotaExigibleMinor(deuda){
  if(!deuda||!Number.isSafeInteger(deuda.saldoMinor)||deuda.saldoMinor<=0)return 0;
  if(Number.isSafeInteger(deuda.cuotaMinor)&&deuda.cuotaMinor>0)
@@ -197,15 +206,7 @@ async function obtener(usuarioId,now=new Date()){
  // descuentos porque el saldo verificado puede reflejar el pago.
 // La transacción recurrente registrada HOY ya forma parte del ledger de gastos.
  // No inferir pagos posteriores por concepto, categoría o monto: falta un vínculo único.
- function faltaConfirmarGastoRecurrenteHoy(g){
-  if(!gastoRecurrenteVenceHoy(g,now))return false;
-  const registrado=new Date(g.fecha);
-  if(Number.isNaN(registrado.getTime()))return true;
-  const diaRegistro=partesColombia(registrado),diaHoy=partesColombia(now);
-  return !(diaRegistro.y===diaHoy.y&&diaRegistro.m===diaHoy.m&&diaRegistro.d===diaHoy.d&&
-   g.estado!=="ANULADA"&&g.impactoCaja!==false);
- }
- const gastosRecurrentesHoySinConciliar=gastosFijosRecurrentes.filter(faltaConfirmarGastoRecurrenteHoy);
+ const gastosRecurrentesHoySinConciliar=gastosFijosRecurrentes.filter(g=>gastoRecurrenteHoySinConfirmacion(g,now));
  const gastosFijosAntesProximoIngresoMinor=compromisosAntesIngreso.reduce((s,x)=>s+x.montoMinor,0);
  const saldoEstado=resolverSaldoAsesor(pat);
  const saldoAsesorMinor=saldoEstado.montoMinor;
@@ -264,4 +265,4 @@ async function obtener(usuarioId,now=new Date()){
  const verdadFinanciera={saldo:saldoEstado.confiabilidad==="VERIFICADO"?truth.hecho({montoMinor:saldoAsesorMinor,fuente:saldoEstado.fuente,corte:now,confianza:"VERIFICADO"}):truth.inferencia({montoMinor:saldoAsesorMinor,fuente:saldoEstado.fuente,corte:now,confianza:saldoEstado.conocido?"MEDIA":"NO_VERIFICADO",requiereReconciliacion:true}),flujoMes:truth.hecho({montoMinor:flujoRealizadoMinor,fuente:"LEDGER_PERSONAL",corte:now,confianza:"ALTA"}),flujoProyectado:truth.proyeccion({montoMinor:flujoProyectadoMesMinor,fuente:"LEDGER_MAS_COMPROMISOS",corte:now,confianza:saldoEstado.conocido?"MEDIA":"BAJA"}),disponibleHoy:crearDecisionDisponibleHoy({disponibleHoyMinor,aptoParaDisponibleHoy,corte:now})};
  return{corte:now,moneda:"COP",verdadFinanciera,asesor:{gastosRecurrentesHoySinConciliar:gastosRecurrentesHoySinConciliar.map(g=>({id:String(g._id),concepto:g.concepto,montoMinor:g.montoMinor})),vencimientosAtrasados:vencimientosAtrasados.map(d=>({id:String(d._id),concepto:d.concepto,fecha:d.fechaVencimiento})),cuotasSinDefinir:cuotasSinDefinir.map(d=>({id:String(d._id),concepto:d.concepto,fecha:d.fechaVencimiento})),disponibleHoyMinor:aptoParaDisponibleHoy?disponibleHoyMinor:null,gastoMaximoSiGravadoMinor:aptoParaDisponibleHoy?gastoMaximoSiGravadoMinor:null,reservaGmfSiGravadoMinor:aptoParaDisponibleHoy?reservaGmfSiGravadoMinor:null,escenarioGmf:"SIMULACION_GRAVADO_NO_VERIFICADO",aptoParaDisponibleHoy,colchonMinor,estaEnRojo:aptoParaDisponibleHoy?estaEnRojo:null,formula:"saldo_real - gastos_fijos_antes_proximo_ingreso - colchon_10pct",saldoRealMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor,proximoIngreso:proximoIngreso?{fecha:proximoIngreso.fecha,montoMinor:proximoIngreso.tx.montoMinor,concepto:proximoIngreso.tx.concepto}:null,proximoIngresoConocido:Boolean(proximoIngreso),compromisosAntesProximoIngreso:compromisosAntesIngreso,saldoRealConocido:saldoEstado.conocido,saldoRequiereReconciliacion:saldoEstado.requiereReconciliacion,saldoDerivadoLedger:saldoEstado.confiabilidad==="RECONSTRUIDO_SIN_ANCLA",saldoConfiabilidad:saldoEstado.confiabilidad,fuenteSaldo:saldoEstado.fuente,fuentesSaldo:(pat.cuentas||[]).map(x=>({nombre:x.nombre,saldoMinor:x.saldoMinor}))},mes:{balancePeriodoMinor,diferenciaBalanceFlujoMinor,gastosSinSalidaCajaMinor,conciliacionBalanceFlujo:{balancePeriodoMinor,gastosSinSalidaCajaMinor,pagosDeudaRegistradosMinor,cobrosRecibidosMinor,flujoRealizadoMinor,diferenciaBalanceFlujoMinor},ingresosMinor,cobrosCuentasPorCobrarMinor:cobrosRecibidosMinor,gastosMinor,gastosConsumoMinor,pagosDeudaRegistradosMinor,cuotasPendientesMesMinor,flujoRealizadoMinor,flujoMinor:flujoProyectadoMesMinor},caja:{saldoLiquidoMinor:pat.liquidezMinor,comprometidoMinor:cuotasPendientesMesMinor,disponibleDespuesCompromisosMinor,liquidezConciliada:Boolean(pat.saldoVerificado)},patrimonio:{netoMinor:pat.patrimonioFinancieroNetoMinor,deudaTotalMinor:pat.pasivosMinor,liquidezMinor:pat.liquidezMinor,cuentasPorCobrarMinor:pat.cuentasPorCobrarMinor},proximaObligacion:proxima?{id:proxima._id,concepto:proxima.concepto,montoMinor:saldoCuotaPendienteMinor(proxima,pagoAplicado(proxima)),fecha:proxima.fechaVencimiento}:null,decisiones:decisiones.slice(0,5),explicaciones,fuente:"ledger_personal_canonico"};
 }
-module.exports={obtener,gastoRecurrenteVenceHoy,seleccionarVencimientosAtrasados,saldoCuotaPendienteMinor,montoPagoDeudaMinor,cuotaDelPeriodo,gastoAfectaCaja,resolverSaldoAsesor,cuotaExigibleMinor,calcularDisponibleHoy,calcularEscenarioGmfGravado,crearDecisionDisponibleHoy,calcularFlujoMes,_fechas:{partesColombia,monthStart,nextMonth,fechaCivilColombia,siguienteFechaRecurrente}};
+module.exports={obtener,gastoRecurrenteVenceHoy,gastoRecurrenteHoySinConfirmacion,seleccionarVencimientosAtrasados,saldoCuotaPendienteMinor,montoPagoDeudaMinor,cuotaDelPeriodo,gastoAfectaCaja,resolverSaldoAsesor,cuotaExigibleMinor,calcularDisponibleHoy,calcularEscenarioGmfGravado,crearDecisionDisponibleHoy,calcularFlujoMes,_fechas:{partesColombia,monthStart,nextMonth,fechaCivilColombia,siguienteFechaRecurrente}};
