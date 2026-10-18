@@ -43,12 +43,14 @@ async function markOfflineApplied({db,context,eventId,reviewToken,commitReferenc
   const cash=await db.collection("gruk_offline_caja_intenciones").findOne({
     ...scope,status:"CONCILIADO",cobrado:true
   },{session,projection:{montoCop:1}});
-  // Every journal must contain exactly one proof for this scoped event.
+  // Every journal must contain exactly one proof for the tenant/site/event,
+  // including entries with unexpected actors or ledger movement types.
   // findOne alone could select a valid document while ignoring a duplicate.
+  const eventScope={empresaId:record.empresaId,sedeId:record.sedeId,eventId};
   const [saleProofs,cashProofs,ledgerProofs]=await Promise.all([
-    db.collection("gruk_offline_ventas").countDocuments(scope,{session}),
-    db.collection("gruk_offline_caja_intenciones").countDocuments(scope,{session}),
-    db.collection("gruk_ledger_movimientos").countDocuments(scope,{session})
+    db.collection("gruk_offline_ventas").countDocuments(eventScope,{session}),
+    db.collection("gruk_offline_caja_intenciones").countDocuments(eventScope,{session}),
+    db.collection("gruk_ledger_movimientos").countDocuments(eventScope,{session})
   ]);
   const uniqueProofs=saleProofs===1&&cashProofs===1&&ledgerProofs===1;
   const integerCop=value=>typeof value==="string"&&/^(0|[1-9][0-9]*)$/.test(value);
