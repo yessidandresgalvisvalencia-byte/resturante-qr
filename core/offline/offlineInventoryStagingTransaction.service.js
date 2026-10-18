@@ -63,7 +63,7 @@ function assertAppliedOfflineInventory(inventory,inventoryDeltas){
  }
  return true;
 }
-async function executeOfflineInventoryStagingTransaction({db,context,eventIds,objectId,requireAuthoritativePricing=false}){
+async function executeOfflineInventoryStagingTransaction({db,context,eventIds,objectId,requireAuthoritativePricing=false,onStaged=null}){
  await assertOfflineStagingIndexes(db);
  return executeOfflinePostingTransaction({db,context,eventIds,objectId,
   postDomainOperations:async({plan,inventoryDeltas,ledgerMovements,session,context:verifiedContext})=>{
@@ -83,6 +83,10 @@ async function executeOfflineInventoryStagingTransaction({db,context,eventIds,ob
    assertAppliedOfflineInventory(inventory,inventoryDeltas);
    // Fail closed if even one inbox status cannot be advanced with these writes.
    const handoffs=await markOfflineStagedInTransaction({db,session,context:verifiedContext,plan});
+   if(onStaged!==null){
+    if(typeof onStaged!=="function")throw Error("OFFLINE_STAGE_HOOK_INVALID");
+    await onStaged({db,session,context:verifiedContext,plan,inventory,staged});
+   }
    return Object.freeze({...staged,inventory,inventoryApplied:true,handoffs});
   }
  });
