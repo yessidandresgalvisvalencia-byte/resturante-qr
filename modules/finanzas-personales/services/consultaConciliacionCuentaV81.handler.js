@@ -5,7 +5,11 @@ const {conciliarHistoricoCuentaV81}=require("./conciliacionHistoricoCuentaV81.se
 // Los saldos observados pueden ser negativos (sobregiro). Los gastos y
 // movimientos siguen exigiendo montos positivos en sus propios validadores.
 function parsearSaldoFirmadoCopACentavos(valor){
- const negativo=typeof valor==="string"&&valor.startsWith("-");
+ // Limitar la entrada antes de BigInt evita procesar importes de tamaño
+ // arbitrario; 15 cifras enteras superan ampliamente el uso personal COP.
+ if(typeof valor!=="string"||!(/^-?(?:0|[1-9][0-9]{0,14})(?:\\.[0-9]{1,2})?$/.test(valor)))
+  throw new TypeError("Saldo COP inválido o demasiado grande");
+ const negativo=valor.startsWith("-");
  const sinSigno=negativo?valor.slice(1):valor;
  const centavos=parsearCopACentavos(sinSigno);
  return negativo?-centavos:centavos;
