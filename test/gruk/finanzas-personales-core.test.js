@@ -266,3 +266,23 @@ test("verdad financiera no publica dinero gastable con saldo no conciliado",()=>
   disponibleHoyMinor:800000,corte
  }),TypeError);
 });
+
+test("cuota cero no equivale al saldo completo de la deuda",()=>{
+ const base={direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:4000000,
+  cuotaMinor:0,fechaVencimiento:new Date("2026-10-20T05:00:00.000Z")};
+ const ini=new Date("2026-10-01T05:00:00.000Z"),fin=new Date("2026-11-01T05:00:00.000Z");
+ assert.equal(home.cuotaExigibleMinor(base),0);
+ assert.equal(home.cuotaDelPeriodo(base,ini,fin),0);
+ assert.equal(home.cuotaDelPeriodo({...base,cuotaMinor:550000},ini,fin),550000);
+ assert.equal(home.cuotaExigibleMinor({...base,cuotaMinor:9000000}),4000000);
+ assert.equal(home.cuotaExigibleMinor({...base,periodicidad:"UNICA",periodicidadConfirmada:true}),4000000);
+ assert.equal(home.cuotaExigibleMinor({...base,periodicidad:"UNICA",periodicidadConfirmada:false}),0);
+});
+test("asesor no transforma el saldo de cuota faltante en falso gasto exigible",()=>{
+ const fs=require("node:fs"),path=require("node:path");
+ const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
+ assert.doesNotMatch(src,/cuotaMinor\|\|(?:d\.|x\.|proxima\.|deuda\.)?saldoMinor/);
+ assert.match(src,/cuotasSinDefinir\.length===0/);
+ assert.match(src,/Cuota pendiente de confirmar/);
+ assert.match(src,/cuotasSinDefinir:cuotasSinDefinir\.map/);
+});
