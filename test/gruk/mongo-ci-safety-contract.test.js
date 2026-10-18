@@ -36,3 +36,9 @@ test("ambos gates retienen logs incluso si las pruebas fallan", () => {
   assert.match(yaml, /uses: actions\/upload-artifact@v4/);
  }
 });
+
+test("GRUK CI conserva base Mongo local para las pruebas offline empresariales",()=>{
+ const yaml=fs.readFileSync(path.join(root,".github/workflows/gruk-ci.yml"),"utf8");
+ assert.match(yaml,/^\s*GRUK_TEST_MONGO_URI:\s*mongodb:\/\/127\.0\.0\.1:27017\/gruk_offline_test\?replicaSet=rs0&directConnection=true\s*$/m);
+ assert.match(yaml,/^\s*GRUK_TEST_DB_CONFIRM:\s*SOLO_PRUEBAS_LOCALES\s*$/m);
+});
