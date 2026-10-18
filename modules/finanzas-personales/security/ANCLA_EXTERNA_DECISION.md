@@ -4,6 +4,12 @@
 
 El módulo `anclaExternaDecision.service.js` permite **crear** y **verificar** comprobantes HMAC-SHA256 de una cabeza de cadena DecisionProof. Para nuevas emisiones debe utilizarse `crearAnclaVerificada({registros,head,usuarioId,emitidaEn},clave)`, que comprueba la cadena completa, su cabeza y titularidad antes de firmar; `crearAncla` es una primitiva de bajo nivel que no valida el historial. Su prueba se incluye en `npm run test:finanzas-personales`. **Aún no existe un publicador automático ni almacenamiento externo integrado**, por lo cual esto no habilita por sí solo detección de borrado integral en producción.
 
+## Emisión desde MongoDB
+
+La función `emitirAnclaDecisionMongo(usuarioId, clave)` en `services/anclaDecisionMongo.service.js` lee la cabeza y el historial en un snapshot transaccional de MongoDB; comprueba titularidad e integridad antes de firmar. Rechaza cadenas vacías, dañadas y mayores de 10 000 registros. **No hace escrituras ni publica el ancla**. La llamada debe hacerse solo desde un proceso autorizado, con clave custodiada en un administrador de secretos; nunca desde una API pública ni desde el navegador.
+
+Una instantánea coherente evita carreras entre lectura del historial y su encabezado, pero la firma **no demuestra por sí sola** cuándo se tomó la instantánea o si se manipuló la base antes. La publicación externa WORM debe ocurrir tras un commit y protegerse contra sustitución y retroceso de anclas.
+
 ## Requisitos de custodia (antes de producción)
 
 1. Generar una clave aleatoria de 32 bytes o más mediante un administrador de secretos/KMS, distinta de las claves JWT, cifrado de datos e idempotencia. No incluirla en GitHub, logs o documentos.
