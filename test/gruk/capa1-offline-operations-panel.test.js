@@ -36,7 +36,7 @@ test("panel shell links from existing admin, reuses core transport and never ini
 });
 test("missing auth disables all operational controls and does not read the outbox",async()=>{
  const elems={};
- for(const name of ["rows","message","connection","identity","refresh","send","reconcile","draftForm","saveDraft","productId","quantity","unitPrice"]){
+ for(const name of ["rows","message","connection","identity","refresh","send","reconcile","draftForm","saveDraft","productId","quantity","unitPrice","refreshCatalog","catalogInfo"]){
   elems[name]={disabled:false,textContent:""};
  }
  const result=await launch({document:{getElementById:name=>elems[name==="offlineDraftForm"?"draftForm":name]},window:{navigator:{onLine:true}},
@@ -45,4 +45,5 @@ test("missing auth disables all operational controls and does not read the outbo
  assert.equal(result.authenticated,false);
  assert.equal(elems.send.disabled,true);assert.equal(elems.refresh.disabled,true);
  assert.equal(elems.saveDraft.disabled,true);
+ assert.equal(elems.refreshCatalog.disabled,true);
 });
