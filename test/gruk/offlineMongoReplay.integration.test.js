@@ -155,8 +155,12 @@ test("MongoDB real: 20 offline events survive retries, status isolation and cont
       await db.collection("gruk_ledger_movimientos").insertOne({
         empresaId, sedeId, actorId, eventId: proofEventId, deletedAt: null
       });
-      const applied = await markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference });
-      assert.equal(applied.status, "APLICADO");
+      const [appliedA, appliedB] = await Promise.all([
+        markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference }),
+        markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference })
+      ]);
+      assert.equal([appliedA.status, appliedB.status].filter(x => x === "APLICADO").length, 1);
+      assert.ok([appliedA.status, appliedB.status].every(x => ["APLICADO", "NO_RECLAMADO", "CONFLICTO_CONCURRENCIA"].includes(x)));
       assert.equal((await readOfflineStatuses({db,context,eventIds:[proofEventId]}))[0].applied, true);
       const replayApplied = await markOfflineApplied({ db, context: review, eventId: proofEventId, reviewToken, commitReference });
       assert.equal(replayApplied.status, "NO_RECLAMADO");
