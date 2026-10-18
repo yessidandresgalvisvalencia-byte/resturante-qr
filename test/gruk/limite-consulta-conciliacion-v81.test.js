@@ -99,3 +99,23 @@ test("los saldos de referencia exigen BigInt antes de abrir Mongo",async()=>{
   }),TypeError);
  }
 });
+
+test("el histórico bloquea dos referencias al mismo movimiento sin proyectar saldo",()=>{
+ const {exigirMovimientosUnicosV81}=require(
+  "../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+ const id=new mongoose.Types.ObjectId();
+ const otro=new mongoose.Types.ObjectId();
+ const distintos=[{_id:id},{_id:otro}];
+ assert.equal(exigirMovimientosUnicosV81(distintos),distintos);
+ for(const duplicados of [
+  [{_id:id},{_id:id}],
+  [{_id:id},{_id:id.toHexString()}],
+  [{_id:null}],
+  [{_id:"no-es-object-id"}],
+  [{}]
+ ]){
+  assert.throws(()=>exigirMovimientosUnicosV81(duplicados),
+   e=>e.statusCode===409&&/Histórico inconsistente/.test(e.message));
+ }
+ assert.throws(()=>exigirMovimientosUnicosV81(null),TypeError);
+});
