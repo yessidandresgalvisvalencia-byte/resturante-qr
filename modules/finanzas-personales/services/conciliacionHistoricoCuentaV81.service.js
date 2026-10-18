@@ -10,11 +10,16 @@ function filtrarHuerfanosSinResolver(filas,vinculos){
  const resueltos=new Set(vinculos.map(v=>String(v.movimientoId)));
  return filas.filter(f=>!resueltos.has(String(f._id)));
 }
+function fechaCalendarioValidaV81(fecha){
+ if(typeof fecha!=="string"||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha))return false;
+ const d=new Date(fecha+"T00:00:00Z");
+ return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===fecha;
+}
 // Reporte de conciliación SOLO LECTURA sobre una instantánea del histórico.
 // Requiere anclas explícitas: el saldo de cuenta no se deduce del flujo.
 async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclusivo,saldoInicialCentavos,saldoObservadoCentavos}){
  if(!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(cuentaId))throw new TypeError("Cuenta o usuario inválido");
- if(typeof desde!=="string"||typeof hastaExclusivo!=="string"||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(desde)||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(hastaExclusivo))throw new TypeError("Período inválido");
+ if(!fechaCalendarioValidaV81(desde)||!fechaCalendarioValidaV81(hastaExclusivo))throw new TypeError("Período inválido");
  const start=new Date(desde+"T05:00:00Z"),end=new Date(hastaExclusivo+"T05:00:00Z");
  if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())||start>=end)throw new TypeError("Período inválido");
  const session=await mongoose.startSession();
@@ -64,4 +69,4 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver};
+module.exports={conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81};
