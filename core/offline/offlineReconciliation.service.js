@@ -14,7 +14,7 @@ async function readOfflineReconciliation({db,context,eventIds}){
  if(typeof db?.collection!=="function")fail("OFFLINE_DB_UNAVAILABLE");
  validate(context,eventIds);
  const scope={empresaId:context.empresaId,sedeId:context.sedeId,
-  actorId:context.actorId,eventId:{$in:eventIds}};
+  eventId:{$in:eventIds}};
  const specs=[
   ["gruk_offline_inbox",{eventId:1,status:1,inventoryApplied:1}],
   ["gruk_offline_ventas",{eventId:1,status:1,totalCop:1}],
@@ -22,13 +22,16 @@ async function readOfflineReconciliation({db,context,eventIds}){
   ["gruk_ledger_movimientos",{eventId:1,tipo:1,montoCop:1,deletedAt:1}]
  ];
  const sets=await Promise.all(specs.map(async([name,projection])=>
-  db.collection(name).find(scope,{projection:{_id:0,...projection}}).toArray()));
+  db.collection(name).find(name==="gruk_offline_inbox"?{...scope,actorId:context.actorId}:scope,
+   {projection:{_id:0,actorId:1,...projection}}).toArray()));
  const maps=sets.map(rows=>{
   const found=new Map();
   for(const row of rows){
    // Missing/duplicate event identities are ambiguous; never report completion.
    if(typeof row.eventId!=="string")continue;
-   if(found.has(row.eventId))found.set(row.eventId,null);
+   // A proof from a different actor within this tenant/site/event poisons the
+   // result; never ignore it and report a falsely reconciled operation.
+   if(found.has(row.eventId)||row.actorId!==context.actorId)found.set(row.eventId,null);
    else found.set(row.eventId,row);
   }
   return found;
