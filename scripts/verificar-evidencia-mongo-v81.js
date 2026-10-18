@@ -40,6 +40,13 @@ function validarEvidenciaMongoV81(contenido){
   if(casos.filter(x=>x.replace(/^ok [0-9]+ - /,"")===nombre).length!==1)
    throw new Error("PRUEBA_MONGO_OBLIGATORIA_AUSENTE: "+nombre);
  }
+ // El nombre del test no basta: cada integración confirma que completó
+ // verificaciones sobre la instancia local antes de emitir su marcador.
+ for(const marcadorIntegracion of ["VINCULOS_OK","DECISION_PROOF_OK"]){
+  const literal="# [GRUK_V81_MONGO_INTEGRACION] "+marcadorIntegracion;
+  if(lineas.filter(x=>x===literal).length!==1)
+   throw new Error("INTEGRACION_MONGO_SIN_EVIDENCIA: "+marcadorIntegracion);
+ }
  return {pruebas,aprobadas,fallidas,omitidas};
 }
 if(require.main===module){
