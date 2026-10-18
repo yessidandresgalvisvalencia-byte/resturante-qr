@@ -7,7 +7,11 @@ const usuarioSchema = new mongoose.Schema({
   default: null,
   index: true
 },
-  restauranteId: {\n    type: String,\n    default: null,\n    index: true\n  },
+  restauranteId: {
+    type: String,
+    default: null,
+    index: true
+  },
   sedeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Sede",
