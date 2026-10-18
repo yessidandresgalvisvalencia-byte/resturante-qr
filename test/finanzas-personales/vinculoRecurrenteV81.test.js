@@ -92,3 +92,15 @@ test("períodos semanales, quincenales y años bisiestos están anclados al orig
   fechaOrigen:"2026-10-18T05:00:00Z",fechaPago:"2026-10-17T16:00:00Z",frecuencia:"MENSUAL"
  }),{statusCode:400});
 });
+
+test("rechaza fecha null, epoch numérico y cadena vacía en todos los cortes",()=>{
+ const origen=new Date("2024-01-18T05:00:00Z");
+ const pago=new Date("2026-10-18T15:00:00Z");
+ for(const malo of [null,0,1700000000000,"","   ",false]){
+  assert.throws(()=>validarFechaPagoVinculado({fechaPago:malo,fechaOrigen:origen,ahora:pago}),{statusCode:400});
+  assert.throws(()=>validarFechaPagoVinculado({fechaPago:pago,fechaOrigen:malo,ahora:pago}),{statusCode:400});
+  assert.throws(()=>validarFechaPagoVinculado({fechaPago:pago,fechaOrigen:origen,ahora:malo}),{statusCode:400});
+  assert.throws(()=>periodoRecurrenteColombia({fechaOrigen:origen,fechaPago:malo,frecuencia:"MENSUAL"}),{statusCode:400});
+  assert.throws(()=>ventanaPagoColombia(malo),{statusCode:400});
+ }
+});
