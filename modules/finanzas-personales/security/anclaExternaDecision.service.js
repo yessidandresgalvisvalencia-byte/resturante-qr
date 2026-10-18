@@ -1,0 +1,42 @@
+"use strict";
+
+const crypto = require("node:crypto");
+
+function validarClave(clave) {
+ if (!Buffer.isBuffer(clave) || clave.length < 32) throw new TypeError("Clave HMAC de al menos 32 bytes obligatoria");
+}
+function validarHash(hash) {
+ return typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash);
+}
+function payloadAncla({usuarioId, secuencia, headHash, emitidaEn}) {
+ if (typeof usuarioId !== "string" || !/^[a-f0-9]{24}$/.test(usuarioId)) throw new TypeError("Usuario inválido");
+ if (!Number.isSafeInteger(secuencia) || secuencia < 1) throw new TypeError("Secuencia inválida");
+ if (!validarHash(headHash)) throw new TypeError("Hash inválido");
+ if (typeof emitidaEn !== "string" || !/^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{3}Z$/.test(emitidaEn) ||
+     !Number.isFinite(Date.parse(emitidaEn)) || new Date(emitidaEn).toISOString() !== emitidaEn) {
+  throw new TypeError("Fecha de ancla inválida");
+ }
+ return JSON.stringify({version:1,usuarioId,secuencia,headHash,emitidaEn});
+}
+function crearAncla({usuarioId,secuencia,headHash,emitidaEn=new Date().toISOString()},clave) {
+ validarClave(clave);
+ const cuerpo=payloadAncla({usuarioId,secuencia,headHash,emitidaEn});
+ const firma=crypto.createHmac("sha256",clave).update(cuerpo).digest("hex");
+ return Object.freeze({...JSON.parse(cuerpo),algoritmo:"HMAC-SHA256",firma});
+}
+function verificarAncla(ancla,clave,registros,head) {
+ validarClave(clave);
+ if (!ancla || ancla.algoritmo!=="HMAC-SHA256" || !validarHash(ancla.firma)) return {valida:false,codigo:"ANCLA_INVALIDA"};
+ let cuerpo;
+ try { cuerpo=payloadAncla(ancla); } catch {return {valida:false,codigo:"ANCLA_INVALIDA"};}
+ const firma=crypto.createHmac("sha256",clave).update(cuerpo).digest();
+ if (!crypto.timingSafeEqual(firma,Buffer.from(ancla.firma,"hex"))) return {valida:false,codigo:"FIRMA_INVALIDA"};
+ if (!Array.isArray(registros) || !head || !Number.isSafeInteger(head.secuencia)) return {valida:false,codigo:"CADENA_INVALIDA"};
+ // La cadena completa debe verificarse primero, incluyendo su cabeza actual.
+ const {verificarCadena}=require("../services/verificarCadenaDecision.service");
+ if (!verificarCadena(registros,head).valida) return {valida:false,codigo:"CADENA_INVALIDA"};
+ if (registros.length < ancla.secuencia || registros[ancla.secuencia-1].hash !== ancla.headHash)
+  return {valida:false,codigo:"ANCLA_NO_COINCIDE"};
+ return {valida:true,codigo:"ANCLA_VERIFICADA",secuenciaAnclada:ancla.secuencia};
+}
+module.exports={crearAncla,verificarAncla};
