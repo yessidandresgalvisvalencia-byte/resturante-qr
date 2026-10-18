@@ -370,3 +370,24 @@ test("próxima obligación informa solo saldo exigible después de abonos",()=>{
  assert.match(src,/const cuota=saldoCuotaPendienteMinor\(proxima,pagoAplicado\(proxima\)\)/);
  assert.match(src,/montoMinor:saldoCuotaPendienteMinor\(proxima,pagoAplicado\(proxima\)\)/);
 });
+
+test("vencimiento recurrente hoy exige confirmación antes de permitir gasto",()=>{
+ const hoy=new Date("2026-10-18T16:00:00.000Z");
+ const gasto={tipo:"GASTO",recurrente:true,frecuencia:"MENSUAL",
+  fecha:"2024-01-18T05:00:00.000Z"};
+ assert.equal(home.gastoRecurrenteVenceHoy(gasto,hoy),true);
+ assert.equal(home.gastoRecurrenteVenceHoy({...gasto,fecha:"2024-01-19T05:00:00.000Z"},hoy),false);
+ assert.equal(home.gastoRecurrenteVenceHoy({...gasto,recurrente:false},hoy),false);
+ assert.equal(home.gastoRecurrenteVenceHoy({...gasto,tipo:"INGRESO"},hoy),false);
+ assert.equal(home.gastoRecurrenteVenceHoy({...gasto,frecuencia:"INVALIDA"},hoy),false);
+ assert.equal(home.gastoRecurrenteVenceHoy({
+  tipo:"GASTO",recurrente:true,frecuencia:"DIARIA",fecha:"2020-01-01T05:00:00.000Z"
+ },hoy),true);
+});
+test("panel bloquea autorización ante gasto periódico que vence hoy",()=>{
+ const fs=require("node:fs"),path=require("node:path");
+ const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
+ assert.match(src,/gastosRecurrentesHoySinConciliar\.length===0/);
+ assert.match(src,/Gasto recurrente de hoy por confirmar/);
+ assert.match(src,/gastosRecurrentesHoySinConciliar:gastosRecurrentesHoySinConciliar\.map/);
+});
