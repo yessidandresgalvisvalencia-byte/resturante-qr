@@ -202,7 +202,7 @@ const perfilInv=Joi.object({horizonteMeses:Joi.number().integer().min(1).max(600
 router.put("/perfil-inversion",validate(perfilInv),async(req,res)=>res.json({ok:true,perfil:await service.upsertPerfilInversion(req.personalAuth.userId,req.validated)}));
 router.get("/patrimonio",async(req,res)=>res.json({ok:true,patrimonio:await service.patrimonio(req.personalAuth.userId)}));
 router.get("/plan-financiero",async(req,res)=>res.json({ok:true,plan:await service.planFinanciero(req.personalAuth.userId)}));
-const credito=Joi.object({nombre:Joi.string().max(100).required(),saldo:Joi.number().min(0).required(),tasaMensualPct:Joi.number().min(0).max(100).required(),cuotaMensual:Joi.number().min(0).required(),mesesRestantes:Joi.number().integer().min(1).max(360).required()});
+const credito=Joi.object({nombre:Joi.string().max(100).required(),saldo:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),tasaMensualPct:Joi.number().min(0).max(100).required(),cuotaMensual:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),mesesRestantes:Joi.number().integer().min(1).max(360).required()});
 router.get("/creditos",async(req,res)=>{
  try{const Credito=require("./models/credito.model");const creditos=await Credito.find({userId:req.personalAuth.userId,activo:true}).sort({createdAt:-1}).select("_id nombre saldo tasaMensualPct cuotaMensual mesesRestantes createdAt").lean();return res.json({ok:true,creditos});}
  catch(e){return res.status(500).json({ok:false,error:"No se pudieron consultar los créditos previos"});}
@@ -250,7 +250,7 @@ router.post("/creditos",validate(credito),async(req,res)=>{
   return res.status(201).json({ok:true,prestamo,registro:"DEUDA_CANONICA"});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible registrar el crédito"});}
 });
-const meta=Joi.object({nombre:Joi.string().max(120).required(),objetivo:Joi.number().positive().required(),acumulado:Joi.number().min(0).default(0),fechaObjetivo:Joi.date().iso().allow(null)});
+const meta=Joi.object({nombre:Joi.string().max(120).required(),objetivo:Joi.number().integer().positive().max(Number.MAX_SAFE_INTEGER).required(),acumulado:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),fechaObjetivo:Joi.date().iso().allow(null)});
 router.post("/metas",validate(meta),async(req,res)=>res.status(201).json({ok:true,meta:await service.crearMeta(req.personalAuth.userId,req.validated)}));
 router.get("/resumen",async(req,res)=>res.json({ok:true,resumen:await service.resumen(req.personalAuth.userId)}));router.get("/analisis",async(req,res)=>res.json({ok:true,analisis:await brain.analizar(req.personalAuth.userId)}));
 const simulacion=Joi.object({capital:Joi.number().positive().required(),tasaMensualPct:Joi.number().min(0).max(100).required(),meses:Joi.number().integer().min(1).max(600).required()});
