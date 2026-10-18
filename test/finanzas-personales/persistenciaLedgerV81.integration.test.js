@@ -180,6 +180,26 @@ test("integración MongoDB V81: reintentos, concurrencia e integridad", {skip:!c
    e=>e.statusCode===409 && /cantidad de eventos/.test(e.message));
 
 
+  // Conciliación histórica por cuenta real en instantánea de MongoDB.
+  const TransaccionHistorica=require("../../modules/finanzas-personales/models/TransaccionPersonal");
+  const {conciliarHistoricoCuentaV81}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+  const usuarioCuenta=new mongoose.Types.ObjectId(),cuentaPrueba=new mongoose.Types.ObjectId();
+  try{
+   await TransaccionHistorica.create([
+    {usuarioId:usuarioCuenta,cuentaId:cuentaPrueba,tipo:"INGRESO",montoMinor:1000,concepto:"Ingreso prueba V81",categoria:"OTROS",fecha:new Date("2026-10-10T12:00:00Z"),impactoCaja:true},
+    {usuarioId:usuarioCuenta,cuentaId:cuentaPrueba,tipo:"GASTO",montoMinor:200,concepto:"Gasto prueba V81",categoria:"OTROS",fecha:new Date("2026-10-11T12:00:00Z"),impactoCaja:true}
+   ]);
+   const verificado=await conciliarHistoricoCuentaV81({usuarioId:String(usuarioCuenta),cuentaId:String(cuentaPrueba),
+    desde:"2026-10-01",hastaExclusivo:"2026-11-01",saldoInicialCentavos:50000n,saldoObservadoCentavos:130000n});
+   assert.equal(verificado.estado,"CONCILIADA");
+   assert.equal(verificado.movimientosEvaluados,2);
+   const diferente=await conciliarHistoricoCuentaV81({usuarioId:String(usuarioCuenta),cuentaId:String(cuentaPrueba),
+    desde:"2026-10-01",hastaExclusivo:"2026-11-01",saldoInicialCentavos:50000n,saldoObservadoCentavos:129999n});
+   assert.equal(diferente.diferenciaCentavos,"-1");
+  }finally{
+   await TransaccionHistorica.collection.deleteMany({usuarioId:usuarioCuenta});
+  }
+
   // Prueba de controlador HTTP con escritura real contra la réplica Mongo aislada.
   const {crearRegistroMovimientoV81}=require("../../modules/finanzas-personales/services/registroMovimientoV81.handler");
   const httpUno=new mongoose.Types.ObjectId(),httpDos=new mongoose.Types.ObjectId();
