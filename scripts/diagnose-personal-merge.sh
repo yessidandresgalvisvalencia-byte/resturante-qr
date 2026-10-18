@@ -23,14 +23,14 @@ echo "Head de la rama personal: $(git rev-parse origin/feature/finanzas-personal
 echo "Base: $(git rev-parse origin/main)"
 
 set +e
-result=$(git merge-tree --write-tree --messages origin/main origin/feature/finanzas-personales 2>&1)
+result=$(git merge-tree --write-tree --name-only --messages origin/main origin/feature/finanzas-personales 2>&1)
 status=$?
 set -e
 printf '%s\n' "$result"
 if [ "$status" -eq 0 ]; then
-  echo "SIN_CONFLICTOS_DE_TEXTO"
+  echo "SIN_CONFLICTOS_DE_FUSION"
 elif [ "$status" -eq 1 ]; then
-  echo "CONFLICTOS_DE_FUSION_DETECTADOS"
+  echo "CONFLICTOS_DE_FUSION_DETECTADOS: revisar las rutas enumeradas arriba antes de fusionar"
 else
   echo "ERROR_DIAGNOSTICO_MERGE_TREE"
   exit "$status"
