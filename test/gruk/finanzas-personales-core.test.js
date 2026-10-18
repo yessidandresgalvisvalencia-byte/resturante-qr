@@ -192,3 +192,15 @@ test("asesor ofrece escenario GMF gravado sin alterar disponible base",()=>{
   }),/enteros seguros/);
  }
 });
+
+test("asesor advierte GMF hipotético y no presenta escenario sin saldo conciliado",()=>{
+ const fs=require("node:fs");
+ const path=require("node:path");
+ const source=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
+ assert.match(source,/escenarioGmf:\s*\{/);
+ assert.match(source,/Simulación conservadora: supone que todo el gasto está gravado/);
+ assert.match(source,/No confirma que la cuenta tenga o no exención de GMF/);
+ assert.match(source,/gastoMaximoSiGravadoMinor:aptoParaDisponibleHoy\?gastoMaximoSiGravadoMinor:null/);
+ assert.match(source,/reservaGmfSiGravadoMinor:aptoParaDisponibleHoy\?reservaGmfSiGravadoMinor:null/);
+ assert.match(source,/entre gasto e impuestos/);
+});
