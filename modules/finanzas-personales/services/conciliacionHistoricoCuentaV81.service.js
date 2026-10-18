@@ -77,7 +77,7 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
  const session=await mongoose.startSession();
  try{
   return await session.withTransaction(async()=>{
-   const cuenta=await Cuenta.findOne({_id:new mongoose.Types.ObjectId(cuentaId),usuarioId:new mongoose.Types.ObjectId(usuarioId),activa:true,moneda:"COP"}).session(session).lean();
+   const cuenta=await Cuenta.findOne({_id:new mongoose.Types.ObjectId(cuentaId),usuarioId:new mongoose.Types.ObjectId(usuarioId),activa:true,moneda:"COP"}).session(session).maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS).lean();
    if(!cuenta)throw Object.assign(new Error("Cuenta no autorizada o inexistente"),{statusCode:404});
    const rows=await Transaccion.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId),moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}})
     .session(session).sort({_id:1}).limit(MAX_FILAS_CONCILIACION_V81+1).maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS).lean();
