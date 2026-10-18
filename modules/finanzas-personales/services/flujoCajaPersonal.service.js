@@ -6,6 +6,7 @@ const Outbox=require("../models/outboxPersonal.model");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
 const ReservaCuota=require("../models/reservaCuotaRecurrente.model");
+const {exigirIndiceIdempotencia}=require("./indiceIdempotenciaPersonal.service");
 const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,periodoRecurrenteColombia,validarTotalPeriodoRecurrente}=require("./vinculoRecurrenteV81.service");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
 const {encryptObject}=require("../security/fieldEncryption.service");
@@ -23,6 +24,8 @@ async function exigirIndiceUnicoReservaRecurrente(){
 async function registrarTransaccion(usuarioId,input){
  if(input.tipo==="GASTO"&&String(input.cuenta||"EFECTIVO").trim().toUpperCase()==="EFECTIVO"&&input.medioPago==="TRANSFERENCIA")input={...input,medioPago:"EFECTIVO"};
  if(!Number.isSafeInteger(input.montoMinor)||input.montoMinor<=0)throw Object.assign(new Error("montoMinor debe ser un entero positivo exacto"),{statusCode:400});if(input.externalId!==undefined&&input.externalId!==null&&!String(input.externalId).trim())throw Object.assign(new Error("externalId vacío no es válido"),{statusCode:400});
+ if(input.externalId!==undefined&&input.externalId!==null)
+  await exigirIndiceIdempotencia(Transaccion);
  if(input.recurrenteOrigenId!==undefined&&input.recurrenteOrigenId!==null)
   await exigirIndiceUnicoReservaRecurrente();
  if(input.tipo==="GASTO"&&input.medioPago==="CREDITO")throw Object.assign(new Error("Un gasto con tarjeta de crédito debe registrar también la obligación de la tarjeta; GRUK no lo descontará de caja como si fuera débito."),{statusCode:422});const session=await mongoose.startSession();let tx,outbox;
