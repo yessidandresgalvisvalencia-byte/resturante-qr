@@ -18,7 +18,8 @@ test("sync batch multi-evento rechaza sesión transaccional no disponible sin gu
       ensureInboxIndexes:async()=>{writes++;},
       acceptOfflineBatch:async()=>{writes++;}
     },
-    "../core/offline/offlineStatus.service":{readOfflineStatuses:async()=>[]}
+    "../core/offline/offlineStatus.service":{readOfflineStatuses:async()=>[]},
+    "../core/offline/offlineReconciliation.service":{readOfflineReconciliation:async()=>[]}
   };
   vm.runInNewContext(source,{module,exports:module.exports,require:name=>{
     if (!(name in imports))throw Error(name);
@@ -46,7 +47,8 @@ test("sync batch: fallo de sesión del núcleo responde 503 reintentable",async(
       ensureInboxIndexes:async()=>{},
       acceptOfflineBatch:async()=>{throw unavailable;}
     },
-    "../core/offline/offlineStatus.service":{readOfflineStatuses:async()=>[]}
+    "../core/offline/offlineStatus.service":{readOfflineStatuses:async()=>[]},
+    "../core/offline/offlineReconciliation.service":{readOfflineReconciliation:async()=>[]}
   };
   const module={exports:{}};
   vm.runInNewContext(source,{module,exports:module.exports,require:name=>imports[name],console});
