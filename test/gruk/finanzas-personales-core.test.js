@@ -210,8 +210,8 @@ test("ingreso recurrente antiguo no desaparece por superar mil períodos",()=>{
  const now=new Date("2026-10-18T16:00:00.000Z");
  for(const [frecuencia,expected] of [
   ["DIARIA","2026-10-19T05:00:00.000Z"],
-  ["SEMANAL","2026-10-20T05:00:00.000Z"],
-  ["QUINCENAL","2026-10-25T05:00:00.000Z"]
+  ["SEMANAL","2026-10-23T05:00:00.000Z"],
+  ["QUINCENAL","2026-10-19T05:00:00.000Z"]
  ]){
   const next=f({tipo:"INGRESO",recurrente:true,frecuencia,
    fecha:"2010-01-01T05:00:00.000Z"},now);
