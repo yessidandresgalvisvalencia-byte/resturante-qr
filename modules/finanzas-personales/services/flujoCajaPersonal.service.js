@@ -5,6 +5,7 @@ const Transaccion=require("../models/TransaccionPersonal");
 const Outbox=require("../models/outboxPersonal.model");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
+const {validarFechaPagoVinculado}=require("./vinculoRecurrenteV81.service");
 const {personalEventBus,PERSONAL_EVENTS}=require("../events/eventBusPersonal");
 const {encryptObject}=require("../security/fieldEncryption.service");
 
@@ -24,8 +25,7 @@ async function registrarTransaccion(usuarioId,input){
     const origen=await Transaccion.findOne({_id:input.recurrenteOrigenId,usuarioId,tipo:"GASTO",
      recurrente:true,estado:{$ne:"ANULADA"}}).select("_id fecha").session(session);
     if(!origen)throw Object.assign(new Error("Obligación recurrente no encontrada para esta cuenta"),{statusCode:404});
-    if(new Date(input.fecha)<new Date(origen.fecha))
-     throw Object.assign(new Error("Un pago no puede preceder al gasto recurrente original"),{statusCode:400});
+    validarFechaPagoVinculado({fechaPago:input.fecha,fechaOrigen:origen.fecha});
     recurrenteOrigenId=origen._id;
    }
    let prestamoId=input.prestamoId||null;if(["PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO"].includes(input.tipo)&&!prestamoId)throw Object.assign(new Error("Este movimiento patrimonial requiere una obligación exacta; usa el flujo de préstamo/cobro para mantener caja y patrimonio sincronizados."),{statusCode:409});if(input.tipo==="PAGO_DEUDA"&&!prestamoId){const candidatas=await Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).select("_id").session(session);if(candidatas.length!==1)throw Object.assign(new Error(candidatas.length?"Indica exactamente qué deuda estás pagando.":"No hay una deuda activa para aplicar este pago."),{statusCode:409});prestamoId=candidatas[0]._id;}const envelope=input.metadatosSensibles?encryptObject(input.metadatosSensibles,{aad:String(usuarioId)}):null;
