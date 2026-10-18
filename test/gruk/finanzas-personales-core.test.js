@@ -246,3 +246,23 @@ test("frecuencias heredadas de Object.prototype no se interpretan como ingresos"
   },ahora),null,frecuencia);
  }
 });
+
+test("verdad financiera no publica dinero gastable con saldo no conciliado",()=>{
+ const corte=new Date("2026-10-18T12:00:00.000Z");
+ const insegura=home.crearDecisionDisponibleHoy({
+  disponibleHoyMinor:800000,aptoParaDisponibleHoy:false,corte
+ });
+ assert.equal(insegura.montoMinor,0);
+ assert.equal(insegura.confianza,"NO_VERIFICADO");
+ assert.equal(insegura.requiereReconciliacion,true);
+ assert.equal(insegura.tipo,"DECISION");
+ const segura=home.crearDecisionDisponibleHoy({
+  disponibleHoyMinor:800000,aptoParaDisponibleHoy:true,corte
+ });
+ assert.equal(segura.montoMinor,800000);
+ assert.equal(segura.confianza,"ALTA");
+ assert.equal(segura.requiereReconciliacion,false);
+ assert.throws(()=>home.crearDecisionDisponibleHoy({
+  disponibleHoyMinor:800000,corte
+ }),TypeError);
+});
