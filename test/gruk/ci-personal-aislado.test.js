@@ -9,7 +9,9 @@ test("la puerta de producción instala solamente dependencias necesarias",()=>{
  assert.match(ci,/pruebas-financieras:[\s\S]*?npm ci --omit=dev/);
  assert.match(ci,/auditoria-dependencias:[\s\S]*?npm ci --omit=dev/);
  assert.match(ci,/npm audit --omit=dev --audit-level=high --json/);
- assert.match(ci,/npm run check:personal && npm run test:finanzas-personales/);
+ assert.match(ci,/npm run check:personal 2>&1/);
+ assert.match(ci,/npm run test:finanzas-personales 2>&1/);
+ assert.match(ci,/set -o pipefail/);
 });
 test("la auditoría de desarrollo mantiene una evidencia independiente",()=>{
  const ci=fs.readFileSync(path.join(root,".github/workflows/finanzas-personales-ci.yml"),"utf8");
