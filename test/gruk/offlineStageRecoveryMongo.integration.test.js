@@ -30,7 +30,7 @@ test("real Mongo: operator retries staged batch without second stock decrement o
   await db.collection("gruk_offline_inbox").insertMany(ids.map((eventId,i)=>({
    empresaId:auth.empresaId,sedeId:auth.sedeId,actorId:auth.usuarioId,
    eventId,status:"PENDIENTE",tipo:"PEDIDO_REGISTRADO",payload:{
-    localOrderId:eventId,items:[{productoId,cantidad:String(i+1),
+    localOrderId:eventId,items:[{productoId:productId,cantidad:String(i+1),
      precioUnitarioCop:"3000",totalCop:String((i+1)*3000)}],totalCop:String((i+1)*3000)
    }
   })));
