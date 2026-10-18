@@ -11,6 +11,6 @@ test("offline queue bounds are enforced before database access",async()=>{
   await assert.rejects(outbox.listPending(limit,{empresaId:"A",sedeId:"B",actorId:"C"}),/OUTBOX_LIMIT/);
 });
 test("offline outbox exports narrow API",()=>{
- assert.deepEqual(Object.keys(outbox).sort(),["listLocal","listPending","listReceived","markReceived","markReconciled","putPending"]);
+ assert.deepEqual(Object.keys(outbox).sort(),["listLocal","listPending","listReceived","listStockReservations","markReceived","markReconciled","putPending"]);
  assert.ok(Object.isFrozen(outbox));
 });

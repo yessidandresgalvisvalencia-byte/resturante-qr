@@ -136,7 +136,33 @@
       };
     });}finally{db.close();}
   }
-  const api=Object.freeze({putPending,listPending,markReceived,listReceived,markReconciled,listLocal});
+  // Non-destructive local stock reservations, derived from durable events.
+  // Include received events until authoritative reconciliation proves inventory applied.
+  async function listStockReservations(context){
+    if(!context||["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))
+      throw Error("OUTBOX_TENANT_REQUIRED");
+    const db=await open();
+    try{return await new Promise((resolve,reject)=>{
+      const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).openCursor();
+      const entries=[];
+      r.onerror=()=>reject(r.error);
+      r.onsuccess=()=>{
+        const cursor=r.result;
+        if(!cursor){resolve(entries);return;}
+        const v=cursor.value;
+        if(matchesTenant(v.event,context)&&
+          (v.syncStatus==="pending"||v.syncStatus==="received")&&
+          v.serverStaged!==true&&v.serverApplied!==true){
+          const items=v.event?.payload?.items;
+          if(!Array.isArray(items)||items.length<1) {reject(Error("OUTBOX_STOCK_EVENT_INVALID"));return;}
+          for(const item of items)entries.push({eventId:v.eventId,
+            productoId:item.productoId,cantidad:item.cantidad});
+        }
+        cursor.continue();
+      };
+    });}finally{db.close();}
+  }
+  const api=Object.freeze({putPending,listPending,markReceived,listReceived,markReconciled,listLocal,listStockReservations});
   if(typeof module==="object"&&module.exports)module.exports=api;
   else root.GRUKOfflineOutbox=api;
 })(typeof globalThis!=="undefined"?globalThis:this);
