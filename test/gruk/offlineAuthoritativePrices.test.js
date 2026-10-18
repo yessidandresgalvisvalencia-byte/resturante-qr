@@ -28,3 +28,28 @@ test("offline pricing: incomplete product list, wrong tenant or absent transacti
  await assert.rejects(verify({db:db(),session,context:{...ctx,sedeId:"otro"},plan:plan(),objectId}),
   /OFFLINE_AUTHORITATIVE_PRICE_CONFLICT/);
 });
+
+test("Capa 2: pricing rejects foreign company, site, inactive and unexpected products",async()=>{
+ const own={_id:productId,empresaId:ctx.empresaId,sedeId:ctx.sedeId,activo:true,precioVenta:3000};
+ const poisoned=[
+  {...own,empresaId:"507f191e810c19729de860eb"},
+  {...own,sedeId:"507f1f77bcf86cd799439013"},
+  {...own,empresaId:undefined},
+  {...own,sedeId:undefined},
+  {...own,activo:false},
+  {...own,activo:undefined},
+  {...own,_id:"507f1f77bcf86cd799439014"}
+ ];
+ for(const row of poisoned){
+  const database={collection:()=>({find:(q,options)=>{
+   assert.equal(options.session,session);
+   assert.equal(q.empresaId,ctx.empresaId);
+   assert.equal(q.sedeId,ctx.sedeId);
+   assert.equal(options.projection.empresaId,1);
+   assert.equal(options.projection.sedeId,1);
+   assert.equal(options.projection.activo,1);
+   return {toArray:async()=>[row]};
+  }})};
+  await assert.rejects(check(database),{code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+ }
+});
