@@ -3,7 +3,7 @@ const test=require("node:test");
 const assert=require("node:assert/strict");
 const {coincideIntento,confirmarIntento}=
  require("../../modules/finanzas-personales/services/confirmacionIntentoPersonal.service");
-const base={tipo:"GASTO",montoMinor:25000,moneda:"COP",concepto:"Rappi",
+const base={_id:"507f1f77bcf86cd799439011",tipo:"GASTO",montoMinor:25000,moneda:"COP",concepto:"Rappi",
  categoria:"ALIMENTACION",subcategoria:"",cuenta:"EFECTIVO",medioPago:"EFECTIVO",
  contraparte:"",descripcion:"",recurrente:false,frecuencia:"NINGUNA",
  origen:"MANUAL",fecha:new Date("2026-10-18T00:00:00.000Z"),
@@ -22,12 +22,14 @@ test("la misma transacción se confirma sin crear un segundo débito",async()=>{
  });
  assert.equal(resultado.confirmado,true);
  assert.equal(resultado.estado,"ACTIVA");
+ assert.equal(resultado.transaccionId,base._id);
 });
 test("sin movimiento, no confirma y no inventa un saldo",async()=>{
  const resultado=await confirmarIntento({
   Transaccion:repositorio(null),usuarioId:"usuario-a",externalIdHash:"hash-a",esperado:base
  });
  assert.equal(resultado.confirmado,false);
+ assert.equal(resultado.transaccionId,undefined);
 });
 test("la misma clave con monto, fecha, concepto o cuenta distintos nunca confirma",async()=>{
  for(const cambiado of [{montoMinor:25001},{fecha:"2026-10-19"},
@@ -46,6 +48,7 @@ test("movimiento anulado no aparece como pago activo confirmado",async()=>{
  });
  assert.equal(r.confirmado,false);
  assert.equal(r.estado,"ANULADA");
+ assert.equal(r.transaccionId,undefined);
 });
 test("la confirmación requiere identificador de operación",async()=>{
  await assert.rejects(confirmarIntento({
