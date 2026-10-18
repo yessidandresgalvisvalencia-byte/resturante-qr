@@ -145,6 +145,7 @@ jobs:
       - name: Probar centavos, cadena SHA256 y proyeccion de ledger
         run: |
           node --test test/finanzas-personales/*.test.js
+          node --test test/gruk/finanzas-personales-core.test.js
           node --test test/gruk/decision-proof-chain-integrity.test.js test/gruk/decision-proof-external-anchor.test.js test/gruk/decision-proof-db-privileges.test.js test/gruk/decision-proof-custodian-input.test.js test/gruk/package-lock-contract.test.js test/gruk/shared-entrypoint-contract.test.js test/gruk/v81-ci-coverage-contract.test.js
       - name: Exigir cero vulnerabilidades de produccion
         run: npm audit --omit=dev --audit-level=low
