@@ -7,7 +7,7 @@ try{audit=JSON.parse(fs.readFileSync(file,"utf8"));}
 catch(_){process.stdout.write("### Auditoría de dependencias GRUK\nNo se pudo leer el informe JSON; revisar el log de npm audit.\n");process.exit(1);}
 if(!audit||typeof audit!=="object"||Array.isArray(audit)||!audit.vulnerabilities||
    typeof audit.vulnerabilities!=="object"||Array.isArray(audit.vulnerabilities)){
- process.stdout.write("### Auditoría de dependencias GRUK\\nInforme incompleto: no se puede certificar ausencia de alertas.\\n");
+ process.stdout.write("### Auditoría de dependencias GRUK\nInforme incompleto: no se puede certificar ausencia de alertas.\n");
  process.exit(1);
 }
 const vulnerabilidades=audit.vulnerabilities;
