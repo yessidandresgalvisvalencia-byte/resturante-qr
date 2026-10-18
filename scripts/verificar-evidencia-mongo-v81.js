@@ -9,8 +9,12 @@ function validarEvidenciaMongoV81(contenido){
  };
  const pruebas=marcador("tests"),aprobadas=marcador("pass");
  const fallidas=marcador("fail"),omitidas=marcador("skipped");
- if(pruebas<2||aprobadas!==pruebas||fallidas!==0||omitidas!==0)
-  throw new Error("MONGO_V81_NO_APROBADO: "+JSON.stringify({pruebas,aprobadas,fallidas,omitidas}));
+ const canceladas=marcador("cancelled"),pendientes=marcador("todo");
+ if(pruebas<2||aprobadas!==pruebas||fallidas!==0||omitidas!==0||
+    canceladas!==0||pendientes!==0)
+  throw new Error("MONGO_V81_NO_APROBADO: "+JSON.stringify({
+   pruebas,aprobadas,fallidas,omitidas,canceladas,pendientes
+  }));
  const lineas=contenido.split(/\r?\n/);
  const planes=lineas.filter(x=>/^1\.\.[0-9]+\s*$/.test(x));
  if(planes.length!==1||planes[0]!==("1.."+pruebas))
