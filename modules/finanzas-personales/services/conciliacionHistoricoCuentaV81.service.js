@@ -18,7 +18,9 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
     if(!Number.isSafeInteger(row.montoMinor)||row.montoMinor<=0||row.impactoCaja!==true||
        !["INGRESO","GASTO"].includes(row.tipo)||row.medioPago==="CREDITO")
       throw new Error("Movimiento histórico no clasificable: conciliación bloqueada");
-    const fechaContable=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(row.fecha);
+    const piezas=new Intl.DateTimeFormat("en-US",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(row.fecha);
+    const partes=Object.fromEntries(piezas.map(x=>[x.type,x.value]));
+    const fechaContable=`${partes.year}-${partes.month}-${partes.day}`;
     return {id:String(row._id),usuarioId:String(usuarioId),cuentaId:String(cuentaId),fechaContable,
       tipo:row.tipo==="INGRESO"?"ENTRADA":"SALIDA",montoCentavos:BigInt(row.montoMinor)*100n};
    });
