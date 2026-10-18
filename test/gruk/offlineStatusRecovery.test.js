@@ -8,13 +8,13 @@ const ids = [
   "01ARZ3NDEKTSV4RRFFQ69G5FAW",
   "01ARZ3NDEKTSV4RRFFQ69G5FAX"
 ];
-test("receipt without posting stays unapplied after reconnect; only APLICADO is applied", async () => {
+test("receipt without financial proof stays unapplied after reconnect", async () => {
   let query;
   const db = { collection: name => {
-    assert.equal(name, "gruk_offline_inbox");
+    assert.ok(["gruk_offline_inbox","gruk_offline_ventas","gruk_offline_caja_intenciones","gruk_ledger_movimientos"].includes(name));
     return { find: (q, options) => {
       query = q;
-      assert.deepEqual(options.projection, { _id: 0, eventId: 1, status: 1 });
+      assert.equal(options.projection._id, 0);
       return { toArray: async () => [
         { eventId: ids[0], status: "PENDIENTE" },
         { eventId: ids[1], status: "APLICADO" }
@@ -25,7 +25,7 @@ test("receipt without posting stays unapplied after reconnect; only APLICADO is 
   assert.deepEqual(query, { ...context, eventId: { $in: ids } });
   assert.deepEqual(result, [
     { eventId: ids[0], status: "PENDIENTE", applied: false },
-    { eventId: ids[1], status: "APLICADO", applied: true },
+    { eventId: ids[1], status: "APLICADO", applied: false },
     { eventId: ids[2], status: "NO_ENCONTRADO", applied: false }
   ]);
 });
@@ -53,7 +53,7 @@ test("offline status scopes tenant, location and actor; unrelated events are nev
   }) }) };
   const result = await readOfflineStatuses({ db, context, eventIds: ids });
   assert.deepEqual(result, [
-    { eventId: ids[0], status: "APLICADO", applied: true },
+    { eventId: ids[0], status: "APLICADO", applied: false },
     { eventId: ids[1], status: "NO_ENCONTRADO", applied: false },
     { eventId: ids[2], status: "NO_ENCONTRADO", applied: false }
   ]);
