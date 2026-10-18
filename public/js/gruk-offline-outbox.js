@@ -58,9 +58,10 @@
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readwrite"),s=t.objectStore(STORE),r=s.get(eventId);
-      r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(!matchesTenant(v.event,context))return;if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);};
+      let updated=false;
+      r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(!matchesTenant(v.event,context))return;if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);updated=true;};
       r.onerror=()=>reject(r.error);
-      t.oncomplete=()=>resolve(true);
+      t.oncomplete=()=>resolve(updated);
       t.onerror=()=>reject(t.error);
     });}finally{db.close();}
   }
