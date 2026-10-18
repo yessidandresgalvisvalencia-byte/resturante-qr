@@ -6,6 +6,7 @@ const {stageOfflineFinancialBatch}=require("./offlineFinancialStaging.service");
 const {applyOfflineLegacyInventory}=require("./offlineLegacyInventoryWriter.service");
 const {assertOfflineStagingIndexes}=require("./offlineIndexesReadiness.service");
 const {assertOfflineAuthoritativePrices}=require("./offlineAuthoritativePrices.service");
+const {markOfflineStagedInTransaction}=require("./offlineInboxStaged.service");
 function assertFreshOfflineStaging(staged,inventoryDeltas,plan){
  const code="OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION";
  const fail=()=>{const error=new Error(code);error.code=code;throw error;};
@@ -80,7 +81,9 @@ async function executeOfflineInventoryStagingTransaction({db,context,eventIds,ob
    // A database writer may only authorize commit after confirming the exact
    // product-by-product quantities actually debited in this transaction.
    assertAppliedOfflineInventory(inventory,inventoryDeltas);
-   return Object.freeze({...staged,inventory,inventoryApplied:true});
+   // Fail closed if even one inbox status cannot be advanced with these writes.
+   const handoffs=await markOfflineStagedInTransaction({db,session,context:verifiedContext,plan});
+   return Object.freeze({...staged,inventory,inventoryApplied:true,handoffs});
   }
  });
 }
