@@ -10,7 +10,7 @@ const { verificarCadena } = require("./verificarCadenaDecision.service");
 const MAX_REGISTROS = 10000;
 
 async function auditarCadenaUsuario(usuarioId) {
-  if (!mongoose.isValidObjectId(usuarioId)) throw new TypeError("usuarioId inválido");
+  if (!mongoose.isObjectIdOrHexString(usuarioId)) throw new TypeError("usuarioId inválido");
   const id = new mongoose.Types.ObjectId(String(usuarioId));
   const session = await mongoose.startSession();
   try {
