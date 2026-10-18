@@ -65,8 +65,12 @@ function gastoRecurrenteVenceHoy(tx,now){
  const proxima=siguienteFechaRecurrente({...tx,tipo:"INGRESO"},previa);
  return Boolean(proxima&&proxima.getTime()===inicio.getTime());
 }
-function gastoRecurrenteHoySinConfirmacion(g,now){
+function gastoRecurrenteHoySinConfirmacion(g,now,pagosVinculadosMinor=0){
+ if(!Number.isSafeInteger(pagosVinculadosMinor)||pagosVinculadosMinor<0)
+  throw new TypeError("Pagos vinculados requieren monto entero seguro no negativo");
  if(!gastoRecurrenteVenceHoy(g,now))return false;
+ if(Number.isSafeInteger(g.montoMinor)&&g.montoMinor>0&&pagosVinculadosMinor>=g.montoMinor)
+  return false;
  const registrado=new Date(g.fecha);
  if(Number.isNaN(registrado.getTime()))return true;
  const diaRegistro=partesColombia(registrado),diaHoy=partesColombia(now);
@@ -206,7 +210,22 @@ async function obtener(usuarioId,now=new Date()){
  // descuentos porque el saldo verificado puede reflejar el pago.
 // La transacción recurrente registrada HOY ya forma parte del ledger de gastos.
  // No inferir pagos posteriores por concepto, categoría o monto: falta un vínculo único.
- const gastosRecurrentesHoySinConciliar=gastosFijosRecurrentes.filter(g=>gastoRecurrenteHoySinConfirmacion(g,now));
+ // Los pagos tienen relación explícita al documento origen; jamás inferir por texto.
+ // Las transacciones futuras no forman parte de tx, y solo cuenta el pago del día civil.
+ const hoyCivil=partesColombia(now);
+ const pagosRecurrentesDeHoy=new Map();
+ for(const movimiento of tx){
+  if(movimiento.tipo!=="GASTO"||!movimiento.recurrenteOrigenId||movimiento.impactoCaja===false)continue;
+  const fechaPago=partesColombia(new Date(movimiento.fecha));
+  if(fechaPago.y!==hoyCivil.y||fechaPago.m!==hoyCivil.m||fechaPago.d!==hoyCivil.d)continue;
+  const id=String(movimiento.recurrenteOrigenId);
+  const total=(pagosRecurrentesDeHoy.get(id)||0)+movimiento.montoMinor;
+  if(!Number.isSafeInteger(total))throw new RangeError("Pagos recurrentes exceden rango seguro");
+  pagosRecurrentesDeHoy.set(id,total);
+ }
+ const gastosRecurrentesHoySinConciliar=gastosFijosRecurrentes.filter(
+  g=>gastoRecurrenteHoySinConfirmacion(g,now,pagosRecurrentesDeHoy.get(String(g._id))||0)
+ );
  const gastosFijosAntesProximoIngresoMinor=compromisosAntesIngreso.reduce((s,x)=>s+x.montoMinor,0);
  const saldoEstado=resolverSaldoAsesor(pat);
  const saldoAsesorMinor=saldoEstado.montoMinor;
