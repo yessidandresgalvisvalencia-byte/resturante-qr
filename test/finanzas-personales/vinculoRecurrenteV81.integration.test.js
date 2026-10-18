@@ -216,6 +216,26 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   assert.equal((await ReservaCuota.findOne({
    usuarioId:propietario,origenId:origenConcurrente._id
   }).lean()).reservadoMinor,40000);
+  // Simular una reserva desincronizada fuera del servicio: el siguiente abono
+  // no debe confirmar un débito ni ocultar el desajuste del ledger.
+  await ReservaCuota.updateOne({
+   usuarioId:propietario,origenId:origenConcurrente._id
+  },{$set:{reservadoMinor:39999}});
+  const cajaAntesInconsistencia=(await Cuenta.findOne({
+   usuarioId:propietario,nombre:abonoActivo.cuenta
+  }).lean()).saldoMinor;
+  const transaccionesAntes=await Transaccion.countDocuments({usuarioId:propietario});
+  await assert.rejects(registrar(propietario,movimiento({
+   recurrenteOrigenId:origenConcurrente._id,externalId:"reserva-adulterada",
+   montoMinor:1,cuenta:abonoActivo.cuenta
+  })),e=>e.statusCode===409 && /desincronizada/.test(e.message));
+  assert.equal(await Transaccion.countDocuments({usuarioId:propietario}),transaccionesAntes);
+  assert.equal((await Cuenta.findOne({
+   usuarioId:propietario,nombre:abonoActivo.cuenta
+  }).lean()).saldoMinor,cajaAntesInconsistencia);
+  assert.equal((await ReservaCuota.findOne({
+   usuarioId:propietario,origenId:origenConcurrente._id
+  }).lean()).reservadoMinor,39999,"La transacción fallida debe revertir su incremento");
  }finally{
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
