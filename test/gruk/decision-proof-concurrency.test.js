@@ -38,6 +38,23 @@ test("DecisionProof serializa dos escrituras concurrentes sin huérfanos",{skip:
   const cadena=await Proof.find({usuarioId}).sort({secuencia:1}).lean();
   assert.deepEqual(cadena.map(x=>x.secuencia),[1,2,3]);
   assert.equal(cadena[2].previousHash,cadena[1].hash);
+  // Misma clave, peticiones diferentes: no puede retornar una decisión ajena.
+  const [izquierda,derecha]=await Promise.allSettled([
+   registrar(usuarioId,{...base,accion:"CONSULTAR",idempotencyKey:"race-conflict-key-0004"}),
+   registrar(usuarioId,{...base,accion:"SIMULAR",idempotencyKey:"race-conflict-key-0004"})
+  ]);
+  const exitos=[izquierda,derecha].filter(x=>x.status==="fulfilled");
+  const rechazados=[izquierda,derecha].filter(x=>x.status==="rejected");
+  assert.equal(exitos.length,1);
+  assert.equal(rechazados.length,1);
+  assert.equal(rechazados[0].reason.code,"IDEMPOTENCY_KEY_CONFLICT");
+  assert.equal(await Proof.countDocuments({usuarioId,idempotencyKey:"race-conflict-key-0004"}),1);
+  assert.equal(await Outbox.countDocuments({usuarioId,eventName:"DECISION_PROOF_REGISTRADA"}),4);
+  const final=await Proof.find({usuarioId}).sort({secuencia:1}).lean();
+  assert.deepEqual(final.map(x=>x.secuencia),[1,2,3,4]);
+  const headFinal=await Head.findOne({usuarioId}).lean();
+  assert.equal(headFinal.headHash,final[3].hash);
+
 
  }finally{await mongoose.disconnect();}
 });
