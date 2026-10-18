@@ -157,22 +157,20 @@ test("ledger: real MongoDB transaction, idempotent retry and tenant isolation", 
       ...base, eventId: completedEvent.eventId, actorId: completedEvent.actorId,
       amountCentavos: "150", tipo: "CREDITO"
     });
-    const applied = await markOfflineApplied({
+    await assert.rejects(markOfflineApplied({
       db, context: reviewer, eventId: completedEvent.eventId,
       reviewToken: review.reviewToken,
       commitReference: { collection: "gruk_ledger_movimientos", eventId: completedEvent.eventId }
-    });
-    assert.equal(applied.status, "APLICADO");
-    const appliedAgain = await markOfflineApplied({
+    }), /OFFLINE_DOMAIN_NOT_COMMITTED/);
+    await assert.rejects(markOfflineApplied({
       db, context: reviewer, eventId: completedEvent.eventId,
       reviewToken: review.reviewToken,
       commitReference: { collection: "gruk_ledger_movimientos", eventId: completedEvent.eventId }
-    });
-    assert.equal(appliedAgain.status, "NO_RECLAMADO");
+    }), /OFFLINE_DOMAIN_NOT_COMMITTED/);
     assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
       empresaId: "companyA", sedeId: "s1",
       eventId: completedEvent.eventId, status: "APLICADO"
-    }), 1);
+    }), 0);
 
 
 
