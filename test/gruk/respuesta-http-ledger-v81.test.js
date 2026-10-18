@@ -74,3 +74,18 @@ test("V81 no transforma fallas desconocidas en respuestas exitosas",async()=>{
  assert.equal(res.body.codigo,"ERROR_INTERNO");
  assert.doesNotMatch(res.body.error,/Storage failure/);
 });
+
+test("V81 no confunde TypeError interno de persistencia con entrada inválida",async()=>{
+ const res=await solicitar(async()=>{throw new TypeError("Fallo interno del adaptador Mongo");});
+ assert.equal(res.statusCode,500);
+ assert.equal(res.body.codigo,"ERROR_INTERNO");
+ assert.equal(res.body.error,"No fue posible registrar el movimiento");
+ assert.equal(res.headers["Cache-Control"],"no-store");
+});
+test("V81 mantiene HTTP 400 para fecha inválida antes de persistir",async()=>{
+ let escrituras=0;
+ const res=await solicitar(async()=>{escrituras++;}, {...entrada,fechaContable:"2026-02-30"});
+ assert.equal(res.statusCode,400);
+ assert.equal(res.body.codigo,"DATOS_INVALIDOS");
+ assert.equal(escrituras,0);
+});
