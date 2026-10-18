@@ -17,7 +17,7 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
  skip:seguro?false:"Requiere MongoDB replica set local (loopback), base gruk_v81_test_*, sin credenciales, NODE_ENV no productivo",
  timeout:60000
 },async()=>{
- const a=new mongoose.Types.ObjectId(),b=new mongoose.Types.ObjectId();
+ const a=new mongoose.Types.ObjectId(),b=new mongoose.Types.ObjectId(),c=new mongoose.Types.ObjectId();
  await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
  try{
   // El índice compuesto es una condición de la garantía, no una suposición.
@@ -70,10 +70,30 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
   );
   assert.equal(await Evento.countDocuments({usuarioId:a}),1);
   assert.equal((await Cabeza.findOne({usuarioId:a}).lean()).hashActual,cabeza.hashActual);
+
+  // Borrado simulado del segundo de tres eventos. La cabeza conserva el hash final.
+  for(const [i,id] of ["v81_primero","v81_intermedio","v81_tercero"].entries()){
+   const agregado=await anexarEventoV81(c,{...base,id});
+   assert.equal(agregado.version,i+1);
+  }
+  const cabezaAntes=await Cabeza.findOne({usuarioId:c}).lean();
+  const terceroAntes=await Evento.findOne({usuarioId:c,version:3}).lean();
+  assert.equal(cabezaAntes.hashActual,terceroAntes.hashActual);
+  const borrado=await Evento.collection.deleteOne({usuarioId:c,version:2});
+  assert.equal(borrado.deletedCount,1);
+  assert.equal(await Evento.countDocuments({usuarioId:c}),2);
+  assert.equal((await Cabeza.findOne({usuarioId:c}).lean()).hashActual,cabezaAntes.hashActual);
+  await assert.rejects(
+   ()=>anexarEventoV81(c,{...base,id:"v81_despues_de_borrado"}),
+   error=>error.statusCode===409 && /integridad/i.test(error.message)
+  );
+  assert.equal(await Evento.countDocuments({usuarioId:c}),2);
+  assert.equal((await Cabeza.findOne({usuarioId:c}).lean()).version,3);
+  assert.equal((await Cabeza.findOne({usuarioId:c}).lean()).hashActual,cabezaAntes.hashActual);
  }finally{
   // Limpieza exclusiva de los dos ObjectIds generados para esta prueba.
-  await Evento.collection.deleteMany({usuarioId:{$in:[a,b]}});
-  await Cabeza.collection.deleteMany({usuarioId:{$in:[a,b]}});
+  await Evento.collection.deleteMany({usuarioId:{$in:[a,b,c]}});
+  await Cabeza.collection.deleteMany({usuarioId:{$in:[a,b,c]}});
   await mongoose.disconnect();
  }
 });
