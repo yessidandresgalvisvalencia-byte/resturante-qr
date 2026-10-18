@@ -344,3 +344,14 @@ test("commit Mongo incierto exige 503 tras relecturas sin tratar fallos arbitrar
  assert.equal(esConflictoTransitorio({code:11000}),false);
  assert.equal(esConflictoTransitorio({hasErrorLabel:()=>false}),false);
 });
+
+test("la idempotencia no normaliza saltos de línea ni controles periféricos",()=>{
+ const {validarClaveDecisionProofV81}=require(
+  "../../modules/finanzas-personales/services/decisionProofPersistence.service");
+ for(const invalida of [
+  "\nclave-segura-1234","clave-segura-1234\n",
+  "\tclave-segura-1234","clave-segura-1234\r",
+  "clave-segura-1234\u007f","\u0000clave-segura-1234"
+ ])assert.throws(()=>validarClaveDecisionProofV81(invalida),TypeError);
+ assert.equal(validarClaveDecisionProofV81(" clave-segura-1234 "),"clave-segura-1234");
+});
