@@ -48,7 +48,7 @@ function esColisionSecuencia(error) {
 }
 async function registrar(usuarioId,args){
  if(!usuarioId)throw new TypeError("usuarioId obligatorio");
- if(typeof args?.idempotencyKey!=="string"||!(/^[\\x21-\\x7e]{8,128}$/.test(args.idempotencyKey.trim())))throw new TypeError("idempotencyKey inválida");
+ if(typeof args?.idempotencyKey!=="string"||!(/^[\x21-\x7e]{8,128}$/.test(args.idempotencyKey.trim())))throw new TypeError("idempotencyKey inválida");
  const fp=fingerprint(args);
  const existente=await DecisionProof.findOne({usuarioId,idempotencyKey:args.idempotencyKey.trim()}).lean();
  if(existente)return resolverExistente(existente,fp);
