@@ -42,3 +42,16 @@ test("detecta cabeza alterada o registros truncados", () => {
   assert.equal(verificarCadena(registros, { ...head, headHash: registros[0].hash }).codigo, "HEAD_NO_COINCIDE");
   assert.equal(verificarCadena(registros, { secuencia: 0, headHash: registros[1].hash }).codigo, "HEAD_INVALIDO");
 });
+
+test("auditoría con identidad rechaza head y registros de otra cuenta", () => {
+  const { registros, head } = cadena();
+  const usuario = "0123456789abcdef01234567";
+  const otro = "abcdef0123456789abcdef01";
+  const propios = registros.map(registro => ({ ...registro, usuarioId: usuario }));
+  const headPropio = { ...head, usuarioId: usuario };
+  assert.equal(verificarCadena(propios, headPropio, usuario).codigo, "OK");
+  assert.equal(verificarCadena(propios, { ...headPropio, usuarioId: otro }, usuario).codigo, "PROPIETARIO_HEAD_NO_COINCIDE");
+  assert.equal(verificarCadena([{ ...propios[0], usuarioId: otro }, propios[1]], headPropio, usuario).codigo, "PROPIETARIO_REGISTRO_NO_COINCIDE");
+  assert.equal(verificarCadena(registros, headPropio, usuario).codigo, "PROPIETARIO_REGISTRO_NO_COINCIDE");
+  assert.throws(() => verificarCadena(propios, headPropio, "usuario-malformado"), TypeError);
+});
