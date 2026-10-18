@@ -1,0 +1,41 @@
+name: GRUK Finanzas Personales - Seguridad y Pruebas
+on:
+  push:
+    branches:
+      - feature/finanzas-personales
+  pull_request:
+    paths:
+      - 'modules/finanzas-personales/**'
+      - 'test/gruk/**'
+      - 'public/finanzas-personales.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/finanzas-personales-ci.yml'
+permissions:
+  contents: read
+jobs:
+  pruebas-financieras:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias reproducibles
+        run: npm ci
+      - name: Comprobar sintaxis y suite financiera
+        run: npm run build:personal
+  auditoria-dependencias:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Bloquear vulnerabilidades altas o críticas
+        run: npm audit --omit=dev --audit-level=high
