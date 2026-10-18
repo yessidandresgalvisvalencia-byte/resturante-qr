@@ -214,6 +214,17 @@ costoFuente:
       };
       const ventaExistente = await Venta.findOne(filtroExistente).session(session);
       if (!ventaExistente) throw error;
+      // A duplicate order ID with different economic contents is a conflict,
+      // not an idempotent replay. Never silently return a different sale.
+      const sameSale = Number(ventaExistente.cantidad) === Number(pedido.cantidad) &&
+        Number(ventaExistente.precioUnitario) === Number(pedido.precioUnitario) &&
+        Number(ventaExistente.total) === Number(pedido.precio) &&
+        String(ventaExistente.productoServicioId) === String(pedido.productoServicioId);
+      if (!sameSale) {
+        const conflict = new Error("GRUK_VENTA_REPLAY_CONFLICT");
+        conflict.code = "GRUK_VENTA_REPLAY_CONFLICT";
+        throw conflict;
+      }
 
       return {
         venta: ventaExistente,

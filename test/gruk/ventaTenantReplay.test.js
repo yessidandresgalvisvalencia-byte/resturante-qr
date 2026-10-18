@@ -36,7 +36,7 @@ const pedido={
   producto:"producto",restaurantId:"rest1",mesa:1
 };
 test("venta: reintento duplicado consulta exclusivamente empresa y sede correctas",async()=>{
-  const fake={_id:"venta_1"};
+  const fake={_id:"venta_1",cantidad:1,precioUnitario:1000,total:1000,productoServicioId:"producto_1"};
   const {service,seen}=makeService(fake);
   const result=await service.registrarVentaDesdePedido({
     pedido,empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
@@ -54,5 +54,16 @@ test("venta: no reportar éxito si el duplicado pertenece a otro tenant",async()
   await assert.rejects(
     service.registrarVentaDesdePedido({pedido,empresaId:"empresa_B",sedeId:"sede_B",emitirEvento:false}),
     err=>err===collision
+  );
+});
+
+test("venta: reintento con importe diferente se rechaza como conflicto",async()=>{
+  const existing={_id:"venta_1",cantidad:1,precioUnitario:1000,total:950,productoServicioId:"producto_1"};
+  const {service}=makeService(existing);
+  await assert.rejects(
+    service.registrarVentaDesdePedido({
+      pedido,empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+    }),
+    err=>err.code==="GRUK_VENTA_REPLAY_CONFLICT"
   );
 });
