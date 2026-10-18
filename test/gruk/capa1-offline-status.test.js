@@ -24,7 +24,8 @@ function fixture({
    calls++;
    assert.equal(query.empresaId,ctx.empresaId);
    assert.equal(query.sedeId,ctx.sedeId);
-   assert.equal(query.actorId,ctx.actorId);
+   if(name==="gruk_offline_inbox")assert.equal(query.actorId,ctx.actorId);
+   else assert.equal(query.actorId,undefined);
    assert.ok(Array.isArray(query.eventId.$in));
    assert.ok(query.eventId.$in.every(eventId=>[a,b].includes(eventId)));
    assert.equal(options.projection._id,0);
