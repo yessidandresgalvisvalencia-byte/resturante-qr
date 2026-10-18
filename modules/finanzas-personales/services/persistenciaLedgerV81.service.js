@@ -90,7 +90,7 @@ async function anexarEventoV81(usuarioId,datos){
 // El cliente debe recuperar el resultado reintentando con exactamente el mismo eventId.
 function normalizarErrorTransaccionalV81(error){
  if(error && error.code===11000)
-  return Object.assign(new Error("Conflicto de clave única: reintenta con el mismo eventId"),{statusCode:409});
+  return Object.assign(new Error("Conflicto de clave única: reintenta con el mismo eventId"),{statusCode:409,codigo:"REINTENTAR_MISMO_ID"});
  if(error && (
   error.code===112 || error.code===251 ||
   error.hasErrorLabel?.("TransientTransactionError")===true ||
@@ -98,7 +98,7 @@ function normalizarErrorTransaccionalV81(error){
   error.errorLabels?.includes?.("TransientTransactionError") ||
   error.errorLabels?.includes?.("UnknownTransactionCommitResult")
  )){
-  return Object.assign(new Error("Resultado transaccional incierto: reintenta con el mismo eventId"),{statusCode:409});
+  return Object.assign(new Error("Resultado transaccional incierto: reintenta con el mismo eventId"),{statusCode:409,codigo:"REINTENTAR_MISMO_ID"});
  }
  return error;
 }
