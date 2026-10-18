@@ -36,7 +36,7 @@ const pedido={
   producto:"producto",restaurantId:"rest1",mesa:1
 };
 test("venta: reintento duplicado consulta exclusivamente empresa y sede correctas",async()=>{
-  const fake={_id:"venta_1",cantidad:1,precioUnitario:1000,total:1000,productoServicioId:"producto_1"};
+  const fake={_id:"venta_1",cantidad:1,precioUnitario:1000,total:1000,productoServicioId:"producto_1",estado:"pagada"};
   const {service,seen}=makeService(fake);
   const result=await service.registrarVentaDesdePedido({
     pedido,empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
@@ -58,12 +58,21 @@ test("venta: no reportar éxito si el duplicado pertenece a otro tenant",async()
 });
 
 test("venta: reintento con importe diferente se rechaza como conflicto",async()=>{
-  const existing={_id:"venta_1",cantidad:1,precioUnitario:1000,total:950,productoServicioId:"producto_1"};
+  const existing={_id:"venta_1",cantidad:1,precioUnitario:1000,total:950,productoServicioId:"producto_1",estado:"pagada"};
   const {service}=makeService(existing);
   await assert.rejects(
     service.registrarVentaDesdePedido({
       pedido,empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
     }),
     err=>err.code==="GRUK_VENTA_REPLAY_CONFLICT"
+  );
+});
+
+test("venta: una venta anulada no acredita reintento de pedido pagado",async()=>{
+  const cancelled={_id:"venta_anulada",cantidad:1,precioUnitario:1000,total:1000,productoServicioId:"producto_1",estado:"anulada"};
+  const {service}=makeService(cancelled);
+  await assert.rejects(
+    service.registrarVentaDesdePedido({pedido,empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false}),
+    err=>err.code==="GRUK_VENTA_REPLAY_STATE_CONFLICT"
   );
 });
