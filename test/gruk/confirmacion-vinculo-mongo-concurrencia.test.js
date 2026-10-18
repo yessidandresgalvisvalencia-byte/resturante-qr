@@ -24,8 +24,8 @@ test("Mongo local: dos confirmaciones idénticas crean exactamente un vínculo",
  exigirMongoAislado(uri,process.env.GRUK_TEST_DB_CONFIRM);
  const secretAnterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;
  process.env.PERSONAL_IDEMPOTENCY_SECRET="SOLO_PRUEBAS_INTEGRACION_"+crypto.randomUUID();
- await mongoose.connect(uri,{dbName:"gruk_v81_vinculos_concurrencia",serverSelectionTimeoutMS:5000});
  try{
+  await mongoose.connect(uri,{dbName:"gruk_v81_vinculos_concurrencia",serverSelectionTimeoutMS:5000});
   // createIndexes jamás borra índices existentes. Todos los documentos usan
   // identidades nuevas y no contienen información personal real.
   await Vinculo.createIndexes();
