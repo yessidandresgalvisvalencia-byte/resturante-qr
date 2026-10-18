@@ -20,8 +20,11 @@ async function listStockConflicts({db,auth,limit=50}){
  if(typeof db?.collection!=="function")fail("OFFLINE_CONFLICT_DATABASE_UNAVAILABLE");
  const records=await db.collection("gruk_offline_stock_conflicts").find({
   ...tenant,status:"REQUIERE_REVISION"
- },{projection:{_id:1,actorId:1,eventIds:1,issues:1,createdAt:1,status:1},
+ },{projection:{_id:1,empresaId:1,sedeId:1,actorId:1,eventIds:1,issues:1,createdAt:1,status:1},
   sort:{createdAt:-1,_id:1},limit}).toArray();
+ if(!Array.isArray(records)||records.some(x=>
+  x?.empresaId!==tenant.empresaId||x?.sedeId!==tenant.sedeId||
+  x?.status!=="REQUIERE_REVISION"))fail("OFFLINE_CONFLICT_SCOPE_MISMATCH");
  return Object.freeze(records.filter(x=>SHA.test(x._id||"")).map(x=>Object.freeze({
   conflictId:x._id,actorId:x.actorId,eventIds:x.eventIds,issues:x.issues,
   status:x.status,createdAt:x.createdAt
@@ -36,8 +39,11 @@ async function appendStockConflictReview({db,auth,conflictId,decisionId,action,n
  if(typeof db?.collection!=="function")fail("OFFLINE_CONFLICT_DATABASE_UNAVAILABLE");
  const original=await db.collection("gruk_offline_stock_conflicts").findOne({
   _id:conflictId,...tenant,status:"REQUIERE_REVISION",applied:false,cobrado:false
- },{projection:{_id:1,issues:1}});
- if(!original||!Array.isArray(original.issues)||original.issues.length===0)
+ },{projection:{_id:1,empresaId:1,sedeId:1,status:1,applied:1,cobrado:1,issues:1}});
+ if(!original||original._id!==conflictId||
+  original.empresaId!==tenant.empresaId||original.sedeId!==tenant.sedeId||
+  original.status!=="REQUIERE_REVISION"||original.applied!==false||
+  original.cobrado!==false||!Array.isArray(original.issues)||original.issues.length===0)
   fail("OFFLINE_CONFLICT_NOT_FOUND");
  // One decision per client ULID, scoped to tenant+site. Unique _id guarantees
  // retries do not create another decision. No modification of original record.
@@ -49,9 +55,11 @@ async function appendStockConflictReview({db,auth,conflictId,decisionId,action,n
   await reviews.updateOne(key,{$setOnInsert:record},{upsert:true});
  }catch(error){if(error?.code!==11000)throw error;}
  const persisted=await reviews.findOne(key,{projection:{
-  _id:1,conflictId:1,action:1,note:1,reviewerId:1,applied:1,cobrado:1
+  _id:1,empresaId:1,sedeId:1,conflictId:1,action:1,note:1,reviewerId:1,applied:1,cobrado:1
  }});
- if(!persisted||persisted.conflictId!==conflictId||
+ if(!persisted||persisted._id!==decisionId||
+  persisted.empresaId!==tenant.empresaId||persisted.sedeId!==tenant.sedeId||
+  persisted.conflictId!==conflictId||
   persisted.action!==action||persisted.note!==record.note||
   persisted.reviewerId!==auth.usuarioId||persisted.applied!==false||
   persisted.cobrado!==false)
