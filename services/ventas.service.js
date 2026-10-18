@@ -206,10 +206,14 @@ costoFuente:
     // Idempotencia:
     // el mismo pedido nunca debe generar dos ventas.
     if (error && error.code === 11000) {
-      const ventaExistente = await Venta.findOne({
+      const filtroExistente = {
         origen: "restaurante",
-        origenId: pedido._id
-      }).session(session);
+        origenId: pedido._id,
+        empresaId,
+        sedeId
+      };
+      const ventaExistente = await Venta.findOne(filtroExistente).session(session);
+      if (!ventaExistente) throw error;
 
       return {
         venta: ventaExistente,
