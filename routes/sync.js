@@ -144,4 +144,27 @@ router.get("/catalog",authMiddleware,async(req,res)=>{
   return res.status(500).json({ok:false,error:"OFFLINE_CATALOG_UNAVAILABLE"});
  }
 });
+// Read-only inventory baseline; never apply tablet estimates as ledger mutations.
+router.get("/stock-snapshot",authMiddleware,async(req,res)=>{
+ if(!req.auth?.empresaId||!req.auth?.sedeId||!req.auth?.usuarioId)
+  return res.status(403).json({ok:false,error:"OFFLINE_SEDE_AUTH_REQUIRED"});
+ if(mongoose.connection.readyState!==1)
+  return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ try{
+  const {readOfflineStockSnapshot}=require("../core/offline/offlineStockSnapshot.service");
+  const snapshot=await readOfflineStockSnapshot({
+   db:mongoose.connection.db,
+   context:{empresaId:req.auth.empresaId,sedeId:req.auth.sedeId,actorId:req.auth.usuarioId},
+   objectId:id=>new mongoose.Types.ObjectId(id)
+  });
+  res.set("Cache-Control","no-store");
+  return res.json({ok:true,...snapshot});
+ }catch(error){
+  if(error?.code==="OFFLINE_STOCK_AUTH_REQUIRED")return res.status(403).json({ok:false,error:error.code});
+  if(typeof error?.code==="string"&&error.code.startsWith("OFFLINE_STOCK_"))
+   return res.status(409).json({ok:false,error:error.code});
+  console.error("[OFFLINE] Stock snapshot unavailable",error?.code||error?.name||"unknown");
+  return res.status(500).json({ok:false,error:"OFFLINE_STOCK_UNAVAILABLE"});
+ }
+});
 module.exports = router;
