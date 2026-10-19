@@ -295,3 +295,20 @@ test("préstamos y transferencias no admiten saldos desbordados en cuentas",()=>
  assert.ok(transferir.includes("exigirSaldoCuentaSeguro(origen);"));
  assert.ok(transferir.includes("exigirSaldoCuentaSeguro(destino);"));
 });
+
+test("transferencia propia audita ambas cuentas e invalida anclas sin crear ingreso ficticio",()=>{
+ const fs=require("node:fs");
+ const source=fs.readFileSync(require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ const inicio=source.indexOf("async function transferir(");
+ const fin=source.indexOf("function sumaPatrimonialSegura(",inicio);
+ const transfer=source.slice(inicio,fin);
+ assert.ok(inicio>=0&&fin>inicio);
+ assert.match(transfer,/\$inc:\{saldoMinor:-monto\},\$set:\{requiereReconciliacion:true\}/);
+ assert.match(transfer,/\$inc:\{saldoMinor:monto\},\$set:\{requiereReconciliacion:true\}/);
+ assert.ok(transfer.includes('eventName:"MOVIMIENTO_PATRIMONIAL"'));
+ assert.ok(transfer.includes('aggregateType:"TRANSFERENCIA_PROPIA"'));
+ assert.ok(transfer.includes('origenId:String(origen._id),destinoId:String(destino._id),montoMinor:monto'));
+ assert.ok(transfer.includes("},{session})"));
+ assert.ok(!transfer.includes("Transaccion.create("),"la transferencia propia no debe disfrazarse de ingreso ni gasto");
+ assert.ok(transfer.includes("requiereReconciliacion:true};"));
+});
