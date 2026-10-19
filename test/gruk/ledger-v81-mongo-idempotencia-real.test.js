@@ -200,6 +200,17 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   assert.equal(destinoFinal.saldoMinor,55000);
   assert.equal(origenFinal.saldoMinor+destinoFinal.saldoMinor,120000,"la transferencia conserva el total");
   assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),2);
+  // Completar la conciliación después de las transferencias no debe volver a sumar el dinero.
+  const patrimonio=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+  await patrimonio.reconciliarCuenta(usuarioId,{cuentaId:origen._id,saldoMinor:65000,fecha:new Date()});
+  await patrimonio.reconciliarCuenta(usuarioId,{cuentaId:destino._id,saldoMinor:55000,fecha:new Date()});
+  const confirmado=await patrimonio.snapshot(usuarioId);
+  assert.equal(confirmado.saldoVerificado,true);
+  assert.equal(confirmado.anclaCompleta,true);
+  assert.equal(confirmado.liquidezMinor,120000,"la transferencia no crea ni pierde dinero al reconciliar");
+  assert.equal(confirmado.fuenteLiquidez,"ANCLA_RECONCILIADA");
+  assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),2);
+  assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"}),2);
   // Una cuenta antigua corrupta en USD no puede mezclarse con caja COP.
   await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"USD"}});
   await assert.rejects(
