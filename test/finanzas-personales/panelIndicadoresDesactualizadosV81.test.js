@@ -37,3 +37,14 @@ test("El formateador de COP nunca inventa $0, no redondea ni pierde precisión",
   assert.equal(money(valor),"No actualizado",String(valor)+" nunca puede convertirse a pesos");
  assert.match(money("120000"),/120/);
 });
+
+test("Cambio de sesión también invalida semáforo, balance y explicación anterior",()=>{
+ const inicio=codigo.indexOf("function invalidarIndicadoresFinancieros()");
+ const fin=codigo.indexOf("let cargaPanelEnCurso=",inicio);
+ const bloque=codigo.slice(inicio,fin);
+ for(const id of ["healthPercent","healthLabel","healthArrow","healthBubble","metricExplanation"])
+  assert.ok(bloque.includes('$("'+id+'")'),"Debe limpiarse "+id);
+ assert.match(bloque,/burbuja\.className="healthBubble neutral"/);
+ assert.match(bloque,/Sin datos confirmados/);
+ assert.match(codigo,/function clearToken\(\)[\s\S]*?invalidarIndicadoresFinancieros\(\)/);
+});
