@@ -253,7 +253,6 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   await patrimonio.reconciliarCuenta(usuarioId,{cuentaId:cuentaConMovimiento._id,
    saldoMinor:10000,fecha:new Date(fechaMovimiento.getTime()+1000)});
   assert.equal((await Cuenta.findById(cuentaConMovimiento._id)).requiereReconciliacion,false);
-  await Transaccion.deleteMany({usuarioId,cuentaId:cuentaConMovimiento._id});
   // Una cuenta antigua corrupta en USD no puede mezclarse con caja COP.
   await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"USD"}});
   await assert.rejects(
@@ -265,6 +264,7 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),2);
   await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"COP"}});
  }finally{
+  await require("../../modules/finanzas-personales/models/TransaccionPersonal").deleteMany({usuarioId});
   await Outbox.deleteMany({usuarioId});
   await Cuenta.deleteMany({usuarioId});
   await mongoose.disconnect();
