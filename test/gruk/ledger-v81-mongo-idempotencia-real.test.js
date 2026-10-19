@@ -231,6 +231,29 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   assert.equal(cuentaTrasRechazo.saldoAnclaMinor,cuentaVerificada.saldoAnclaMinor);
   assert.equal(cuentaTrasRechazo.saldoAnclaEn.getTime(),cuentaVerificada.saldoAnclaEn.getTime());
   assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"}),2);
+  // Un movimiento de caja posterior a la fecha declarada impide certificar un saldo antiguo.
+  const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
+  const cuentaConMovimiento=await Cuenta.create({usuarioId,nombre:"MOVIMIENTO-"+crypto.randomUUID(),
+   tipo:"AHORROS",moneda:"COP",saldoMinor:10000,requiereReconciliacion:true});
+  const fechaMovimiento=new Date(Date.now()-5000);
+  await Transaccion.create({usuarioId,cuentaId:cuentaConMovimiento._id,tipo:"GASTO",
+   montoMinor:1000,concepto:"Compra de prueba",categoria:"Pruebas",cuenta:cuentaConMovimiento.nombre,
+   fecha:fechaMovimiento,estado:"ACTIVA",medioPago:"DEBITO"});
+  const auditoriaAnterior=await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"});
+  await assert.rejects(()=>patrimonio.reconciliarCuenta(usuarioId,{
+   cuentaId:cuentaConMovimiento._id,saldoMinor:10000,
+   fecha:new Date(fechaMovimiento.getTime()-1000)}),e=>e.statusCode===409);
+  await assert.rejects(()=>patrimonio.reconciliarCuenta(usuarioId,{
+   cuentaId:cuentaConMovimiento._id,saldoMinor:10000,
+   fecha:fechaMovimiento}),e=>e.statusCode===409);
+  assert.equal((await Cuenta.findById(cuentaConMovimiento._id)).requiereReconciliacion,true);
+  assert.equal((await Cuenta.findById(cuentaConMovimiento._id)).saldoMinor,10000);
+  assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"}),auditoriaAnterior);
+  // Una fecha efectivamente posterior al movimiento sí puede conciliarse.
+  await patrimonio.reconciliarCuenta(usuarioId,{cuentaId:cuentaConMovimiento._id,
+   saldoMinor:10000,fecha:new Date(fechaMovimiento.getTime()+1000)});
+  assert.equal((await Cuenta.findById(cuentaConMovimiento._id)).requiereReconciliacion,false);
+  await Transaccion.deleteMany({usuarioId,cuentaId:cuentaConMovimiento._id});
   // Una cuenta antigua corrupta en USD no puede mezclarse con caja COP.
   await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"USD"}});
   await assert.rejects(
