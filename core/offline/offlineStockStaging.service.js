@@ -36,8 +36,10 @@ async function stageOfflineStockMovements({db,session,context,plan,inventoryDelt
   try{result=await stock.updateOne(key,{$setOnInsert:payload},{upsert:true,session});}
   catch(err){if(err?.code===11000)fail("OFFLINE_STOCK_CONCURRENT_RETRY_REQUIRED");throw err;}
   if(result.upsertedCount!==1){
-   const old=await stock.findOne(key,{session,projection:{actorId:1,deltaUnidades:1,status:1}});
-   if(!old||old.actorId!==payload.actorId||old.deltaUnidades!==payload.deltaUnidades||
+   const old=await stock.findOne(key,{session,projection:{empresaId:1,sedeId:1,batchId:1,productoId:1,actorId:1,deltaUnidades:1,status:1}});
+   if(!old||old.empresaId!==key.empresaId||old.sedeId!==key.sedeId||
+      old.batchId!==key.batchId||old.productoId!==key.productoId||
+      old.actorId!==payload.actorId||old.deltaUnidades!==payload.deltaUnidades||
       old.status!=="PENDIENTE_APLICACION")fail("OFFLINE_STOCK_REPLAY_CONFLICT");
   }
   records.push(Object.freeze({productoId:d.productoId,inserted:result.upsertedCount===1}));
