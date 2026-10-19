@@ -116,7 +116,7 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
  nodes.refresh.addEventListener("click",()=>perform(async()=>("Pedidos locales actualizados.")));
  nodes.send.addEventListener("click",()=>perform(async()=>{
   if(!window.navigator.onLine)throw Error("SIN_CONEXION");
-  return transport.synchronize({outbox,token,fetchFn,context});
+  return transport.synchronizeAll({outbox,token,fetchFn,context});
  }));
  nodes.reconcile.addEventListener("click",()=>perform(async()=>{
   if(!window.navigator.onLine)throw Error("SIN_CONEXION");
