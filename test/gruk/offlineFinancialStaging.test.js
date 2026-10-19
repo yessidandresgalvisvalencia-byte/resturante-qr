@@ -63,3 +63,18 @@ test("Capa 2: ledger movement amount must match exact originating sale before an
   assert.equal(f.writes.length,0);
  }
 });
+
+test("Capa 2: incorrect inventory product or quantity rejects the batch before any journal write",async()=>{
+ for(const forged of [
+  [{productoId:"507f1f77bcf86cd799439012",deltaUnidades:"-1"}],
+  [{productoId:p,deltaUnidades:"-2"}],
+  [{productoId:p,deltaUnidades:"-1"},{productoId:p,deltaUnidades:"-1"}],
+  [{productoId:p,deltaUnidades:"-1"},{productoId:"507f1f77bcf86cd799439012",deltaUnidades:"-1"}],
+  [],null
+ ]){
+  const f=fixture();
+  await assert.rejects(stage({...f,context,plan,inventoryDeltas:forged,ledgerMovements}),
+   {code:"OFFLINE_STAGING_TOTAL_CONFLICT"});
+  assert.deepEqual(f.writes,[]);
+ }
+});
