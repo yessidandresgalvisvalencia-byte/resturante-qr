@@ -222,6 +222,7 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"}),2);
   // Nunca retroceder una ancla verificada: preserva saldo, fecha y auditoría.
   const cuentaVerificada=await Cuenta.findById(origen._id).lean();
+  await assert.rejects(()=>patrimonio.reconciliarCuenta(usuarioId,{cuentaId:origen._id,saldoMinor:1,fecha:cuentaVerificada.saldoAnclaEn}),e=>e.statusCode===409);
   await assert.rejects(()=>patrimonio.reconciliarCuenta(usuarioId,{
    cuentaId:origen._id,saldoMinor:1,fecha:new Date("2026-10-01T00:00:00Z")
   }),e=>e.statusCode===409);
