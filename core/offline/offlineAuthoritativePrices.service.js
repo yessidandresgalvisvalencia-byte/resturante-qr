@@ -3,16 +3,23 @@
 // Reads authoritative products inside the SAME MongoDB snapshot transaction.
 const HEX24=/^[a-fA-F0-9]{24}$/;
 const MAX=BigInt(Number.MAX_SAFE_INTEGER);
+const MAX_BATCH_ORDERS=1000,MAX_BATCH_ITEMS=10000;
 function fail(){const e=new Error("OFFLINE_AUTHORITATIVE_PRICE_CONFLICT");e.code=e.message;throw e;}
 async function assertOfflineAuthoritativePrices({db,session,context,plan,objectId}){
  if(!db?.collection||session?.inTransaction?.()!==true||typeof objectId!=="function"||
     typeof context?.empresaId!=="string"||typeof context?.sedeId!=="string"||
     !HEX24.test(context.empresaId)||!HEX24.test(context.sedeId)||
-    !Array.isArray(plan?.orders)||plan.orders.length===0)fail();
+    !Array.isArray(plan?.orders)||plan.orders.length===0||
+    plan.orders.length>MAX_BATCH_ORDERS)fail();
  // Every order must contain a nonempty item array; never silently skip malformed orders.
  if(!Array.from({length:plan.orders.length},(_,i)=>Object.prototype.hasOwnProperty.call(plan.orders,i)).every(Boolean))fail();
- if(plan.orders.some(order=>!order||!Array.isArray(order.items)||order.items.length===0||
-    !Array.from({length:order.items.length},(_,i)=>Object.prototype.hasOwnProperty.call(order.items,i)).every(Boolean)))fail();
+ let totalItems=0;
+ for(const order of plan.orders){
+  if(!order||!Array.isArray(order.items)||order.items.length===0||
+     order.items.length>MAX_BATCH_ITEMS||
+     (totalItems+=order.items.length)>MAX_BATCH_ITEMS||
+     !Array.from({length:order.items.length},(_,i)=>Object.prototype.hasOwnProperty.call(order.items,i)).every(Boolean))fail();
+ }
  const items=plan.orders.flatMap(order=>order.items);
  if(!items.length||items.some(item=>typeof item?.productoId!=="string"||
    !HEX24.test(item.productoId)||
