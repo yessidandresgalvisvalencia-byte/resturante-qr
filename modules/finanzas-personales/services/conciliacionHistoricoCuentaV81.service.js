@@ -73,10 +73,20 @@ function crearPipelineVinculosPeriodoV81({usuarioId,cuentaId,desde,hasta}) {
 }
 function filtrarHuerfanosSinResolver(filas,vinculos){
  if(!Array.isArray(filas)||!Array.isArray(vinculos))throw new TypeError("Histórico inválido");
- // Una asociación sin cuenta destino válida no resuelve el asiento histórico.
- const resueltos=new Set(vinculos.filter(v=>v?.movimientoId!=null&&v?.cuentaId!=null&&
-  mongoose.isValidObjectId(v.movimientoId)&&mongoose.isValidObjectId(v.cuentaId))
-  .map(v=>String(v.movimientoId)));
+ // Una asociación incompleta no resuelve el movimiento. Más de un vínculo
+ // para el mismo asiento es una anomalía de integridad, aunque apunten a la
+ // misma cuenta: fallar cerrado antes de dar por conciliado el histórico.
+ const resueltos=new Set();
+ const vistos=new Set();
+ for(const vinculo of vinculos){
+  if(!vinculo?.movimientoId||!mongoose.isValidObjectId(vinculo.movimientoId))continue;
+  const id=String(vinculo.movimientoId);
+  if(vistos.has(id)){
+   throw Object.assign(new Error("Vínculos históricos duplicados o contradictorios; requiere conciliación manual"),{statusCode:409});
+  }
+  vistos.add(id);
+  if(vinculo.cuentaId!=null&&mongoose.isValidObjectId(vinculo.cuentaId))resueltos.add(id);
+ }
  return filas.filter(f=>!resueltos.has(String(f._id)));
 }
 function fechaCalendarioValidaV81(fecha){
