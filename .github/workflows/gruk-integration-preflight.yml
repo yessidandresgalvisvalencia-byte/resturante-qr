@@ -1,0 +1,30 @@
+name: GRUK Integration Preflight (read only)
+on:
+  push:
+    branches:
+      - integration/finanzas-personales-safe-20261018-v2
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-integration:
+    name: Verify refs and real Git conflicts
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout complete history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check integration candidate without merging
+        shell: bash
+        run: |
+          bash scripts/check-finanzas-integration-candidate.sh 2>&1 | tee "${RUNNER_TEMP}/integration-preflight.log"
+      - name: Preserve evidence, including blocked result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-preflight-${{ github.run_id }}
+          path: ${{ runner.temp }}/integration-preflight.log
+          if-no-files-found: warn
+          retention-days: 7
