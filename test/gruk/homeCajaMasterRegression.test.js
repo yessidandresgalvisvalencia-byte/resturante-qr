@@ -62,3 +62,10 @@ test("un saldo marcado verificado pero inseguro jamás autoriza dinero para gast
  assert.equal(valido.confiabilidad,"VERIFICADO");
  assert.equal(valido.montoMinor,850000);
 });
+
+test("liquidez verificada exige que todas las cuentas tengan ancla válida",()=>{
+ const fuente=fs.readFileSync(require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ assert.match(fuente,/const anclaCompleta=cuentas\.length>0&&cuentasAncladas\.length===cuentas\.length/);
+ assert.match(fuente,/const saldoVerificado=anclaCompleta&&cuentasVerificadas\.length===cuentas\.length/);
+ assert.match(fuente,/fuenteLiquidez:anclaCompleta\?"ANCLA_RECONCILIADA"/);
+});
