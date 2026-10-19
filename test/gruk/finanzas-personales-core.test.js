@@ -560,3 +560,21 @@ test("snapshot patrimonial rechaza movimientos con estado o moneda corruptos",()
   require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
  assert.ok(source.includes("exigirMovimientosActivosCopPatrimonio(rows);"));
 });
+
+test("el patrimonio completo rechaza montos corruptos y desbordamientos",()=>{
+ const {sumaPatrimonialSegura}=patrimonioPersonal;
+ const max=Number.MAX_SAFE_INTEGER;
+ assert.equal(sumaPatrimonialSegura([100000,25000,-5000]),120000);
+ assert.equal(sumaPatrimonialSegura([max-1,1]),max);
+ assert.throws(()=>sumaPatrimonialSegura([max,1]),e=>e.statusCode===409);
+ assert.throws(()=>sumaPatrimonialSegura([-max,-1]),e=>e.statusCode===409);
+ assert.throws(()=>sumaPatrimonialSegura([max,1,-1]),e=>e.statusCode===409);
+ for(const invalido of [NaN,Infinity,"1000",0.1,undefined,null,max+1]){
+  assert.throws(()=>sumaPatrimonialSegura([1,invalido]),e=>e.statusCode===409,String(invalido));
+ }
+ assert.throws(()=>sumaPatrimonialSegura(null),TypeError);
+ const source=require("node:fs").readFileSync(
+  require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ assert.ok(source.includes("patrimonioFinancieroNetoMinor:patrimonioNeto"));
+ assert.ok(source.includes("activosTotalesMinor:activosTotales"));
+});
