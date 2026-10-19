@@ -26,7 +26,7 @@ test("offline inbox rejects a replay when stored actor ownership differs, even w
 test("offline inbox still accepts an exact replay by original actor", async () => {
   const collection = {
     updateOne: async () => ({ upsertedCount: 0 }),
-    findOne: async () => ({ eventHash: digest(event), actorId: context.actorId })
+    findOne: async () => ({ eventHash: digest(event), actorId: context.actorId, empresaId:context.empresaId,sedeId:context.sedeId,eventId:event.eventId })
   };
   const result = await acceptOfflineBatch({ db: { collection: () => collection }, authenticatedContext: context, events: [event] });
   assert.deepEqual(result, [{ eventId: event.eventId, status: "YA_RECIBIDO" }]);
@@ -35,7 +35,7 @@ test("offline inbox still accepts an exact replay by original actor", async () =
 test("duplicate-key race returns YA_RECIBIDO only when stored event and actor match", async () => {
   const db = { collection: () => ({
     updateOne: async () => { const error = new Error("duplicate key"); error.code = 11000; throw error; },
-    findOne: async () => ({ eventHash: digest(event), actorId: context.actorId })
+    findOne: async () => ({ eventHash: digest(event), actorId: context.actorId, empresaId:context.empresaId,sedeId:context.sedeId,eventId:event.eventId })
   }) };
   const result = await acceptOfflineBatch({ db, authenticatedContext: context, events: [event] });
   assert.equal(result[0].status, "YA_RECIBIDO");
