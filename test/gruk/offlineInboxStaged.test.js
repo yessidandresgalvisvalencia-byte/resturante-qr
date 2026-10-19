@@ -10,7 +10,7 @@ function fixture(modifiedCount=1){
   assert.equal(name,"gruk_offline_inbox");
   return {
    async findOne(key,options){assert.equal(options.session,session);assert.equal(key.status,"PENDIENTE");
-    return {...context,status:"PENDIENTE"};},
+    return {...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE"};},
    async updateOne(key,patch,options){
     assert.equal(options.session,session);
     assert.equal(patch.$set.status,"EN_REVISION");
@@ -45,4 +45,29 @@ test("inbox staging: transaction and valid event IDs are mandatory before Mongo 
   await assert.rejects(mark(args),e=>e.code==="OFFLINE_STAGE_INBOX_CONFLICT");
  }
  assert.equal(calls,0);
+});
+
+test("Capa 2: staged inbox refuses foreign identity and different event before any write",async()=>{
+ for(const patch of [
+  {empresaId:"empresa-ajena"},{sedeId:"sede-ajena"},{actorId:"operador-ajeno"},
+  {eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1"},{tipo:"OTRO"},{status:"APLICADO"},
+  {empresaId:undefined},{sedeId:undefined},{actorId:undefined},{eventId:undefined}
+ ]){
+  let writes=0;
+  const session={inTransaction:()=>true};
+  const db={collection(name){assert.equal(name,"gruk_offline_inbox");return{
+   async findOne(query,options){
+    assert.equal(query.empresaId,context.empresaId);
+    assert.equal(query.sedeId,context.sedeId);
+    assert.equal(query.actorId,context.actorId);
+    for(const field of ["empresaId","sedeId","actorId","eventId","tipo","status"])
+     assert.equal(options.projection[field],1);
+    return {...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",...patch};
+   },
+   async updateOne(){writes++;throw Error("UNAUTHORIZED_WRITE");}
+  };}};
+  await assert.rejects(mark({db,session,context,plan:{orders:[{eventId}]}}),
+   {code:"OFFLINE_STAGE_INBOX_CONFLICT"});
+  assert.equal(writes,0);
+ }
 });

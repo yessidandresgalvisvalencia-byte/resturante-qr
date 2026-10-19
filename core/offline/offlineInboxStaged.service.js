@@ -18,8 +18,10 @@ async function markOfflineStagedInTransaction({db,session,context,plan,now=new D
  for(const eventId of ids){
   const key={empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,
    eventId,tipo:"PEDIDO_REGISTRADO",status:STATES.PENDIENTE};
-  const record=await inbox.findOne(key,{session,projection:{empresaId:1,sedeId:1,status:1}});
-  if(!record)fail();
+  const record=await inbox.findOne(key,{session,projection:{empresaId:1,sedeId:1,actorId:1,eventId:1,tipo:1,status:1}});
+  if(!record||record.empresaId!==context.empresaId||record.sedeId!==context.sedeId||
+    record.actorId!==context.actorId||record.eventId!==eventId||
+    record.tipo!=="PEDIDO_REGISTRADO"||record.status!==STATES.PENDIENTE)fail();
   assertTransition({from:record.status,to:STATES.EN_REVISION,
    verifiedTenant:context,recordTenant:record,authorized:true});
   const token=randomUUID();
