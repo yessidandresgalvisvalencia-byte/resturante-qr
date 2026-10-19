@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {executeOfflineInventoryStagingTransaction:execute,assertAppliedOfflineInventory:verifyApplied}=require("../../core/offline/offlineInventoryStagingTransaction.service");
+const {executeOfflineInventoryStagingTransaction:execute,assertAppliedOfflineInventory:verifyApplied,assertFreshOfflineStaging:verifyFresh}=require("../../core/offline/offlineInventoryStagingTransaction.service");
 test("no inicia sesión ni modifica inventario si faltan índices únicos",async()=>{
  let started=0,inventoryAccess=0;
  const db={client:{startSession(){started++;throw Error("should not start");}},
@@ -77,5 +77,38 @@ test("Capa 2: persisted stock evidence must be safely bounded and exact",()=>{
   assert.throws(()=>verifyApplied([{productoId,antes:"5",despues:"3"}],
     [{productoId,deltaUnidades:invalidDelta}]),
     {code:"OFFLINE_INVENTORY_RESULT_CONFLICT"});
+ }
+});
+
+test("Capa 2: sparse eventIds are rejected before any database index read",async()=>{
+ const context={empresaId:"507f191e810c19729de860ea",
+  sedeId:"507f1f77bcf86cd799439012",actorId:"cajero"};
+ const valid="01ARZ3NDEKTSV4RRFFQ69G5FA0";
+ for(const eventIds of [[valid,,],[,valid],new Array(1)]){
+  let reads=0;
+  const db={collection(){reads++;throw Error("FORBIDDEN_READ");}};
+  await assert.rejects(execute({db,context,eventIds,objectId:x=>x}),
+   {code:"OFFLINE_INVENTORY_TENANT_REQUIRED"});
+  assert.equal(reads,0);
+ }
+});
+test("Capa 2: sparse staged order and product plans cannot pass journal checks",()=>{
+ const eventId="01ARZ3NDEKTSV4RRFFQ69G5FA0",productoId="507f1f77bcf86cd799439011";
+ const plan={orders:[{eventId}]},deltas=[{productoId,deltaUnidades:"-1"}];
+ const staged={
+  sales:{records:[{eventId,inserted:true}]},
+  cash:{records:[{eventId,inserted:true}]},
+  ledger:{entries:[{eventId,inserted:true}]},
+  stock:{records:[{productoId,inserted:true}]}
+ };
+ assert.equal(verifyFresh(staged,deltas,plan),true);
+ for(const bad of [
+  {plan:{orders:[plan.orders[0],,plan.orders[0]]},deltas},
+  {plan,deltas:[deltas[0],,deltas[0]]},
+  {plan:{orders:new Array(1)},deltas},
+  {plan,deltas:new Array(1)}
+ ]){
+  assert.throws(()=>verifyFresh(staged,bad.deltas,bad.plan),
+   {code:"OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION"});
  }
 });
