@@ -47,7 +47,7 @@ function resolverConfirmacion({usuarioId,movimiento,cuenta,evidencia,idempotency
  if(!mongoose.isValidObjectId(usuarioId)||!movimiento||!cuenta)throw Object.assign(new Error("Cuenta o movimiento no encontrado"),{statusCode:404});
  if(String(movimiento.usuarioId)!==String(usuarioId)||String(cuenta.usuarioId)!==String(usuarioId))
   throw Object.assign(new Error("Cuenta o movimiento no pertenece al usuario"),{statusCode:404});
- if(movimiento.cuentaId!=null||movimiento.estado==="ANULADA"||movimiento.moneda!=="COP")
+ if(movimiento.cuentaId!=null||movimiento.estado!=="ACTIVA"||movimiento.moneda!=="COP")
   throw Object.assign(new Error("Movimiento no elegible para vínculo"),{statusCode:409});
  if(!cuenta.activa||cuenta.moneda!=="COP")
   throw Object.assign(new Error("Cuenta no apta"),{statusCode:409});
