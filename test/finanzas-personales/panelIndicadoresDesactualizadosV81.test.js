@@ -4,6 +4,7 @@ const codigo=fs.readFileSync(path.join(__dirname,"../../public/finanzas-personal
 test("El panel invalida indicadores anteriores antes de consultar la red",()=>{
  assert.match(codigo,/function invalidarIndicadoresFinancieros\(\)/);
  assert.match(codigo,/const ejecucion=\(async\(\)=>\{invalidarIndicadoresFinancieros\(\);try\{/);
- for(const id of ["hDisponible","hComprometido","hFlujo","hPatrimonio"])assert.ok(codigo.includes('"'+id+'"'));
+ const invalidacion=codigo.slice(codigo.indexOf("function invalidarIndicadoresFinancieros()"),codigo.indexOf("let cargaPanelEnCurso="));
+ for(const id of ["hDisponibleHoy","hDisponible","hComprometido","hFlujo","hPatrimonio","rIngresos","rGastos","rFlujo","rDeuda"])assert.ok(invalidacion.includes('"'+id+'"'),"No debe quedar en $0 el indicador "+id);
  assert.match(codigo,/el\.textContent="No actualizado"/);
 });
