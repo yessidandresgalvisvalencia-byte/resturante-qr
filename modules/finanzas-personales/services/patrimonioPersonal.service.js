@@ -26,14 +26,19 @@ function saldoCuentasDesdeAnclas(cuentas,movimientos){
   return cuenta.saldoAnclaEn.getTime();
  });
  const primeraAncla=anclas.length?Math.min(...anclas):null;
+ const idsActivos=new Set(cuentas.map(c=>String(c._id)));
  for(const movimiento of movimientos){
   if(movimiento?.fecha==null)
    throw Object.assign(new Error("Movimiento sin fecha; requiere conciliación"),{statusCode:409});
   const fecha=new Date(movimiento.fecha);
   if(!Number.isFinite(fecha.getTime()))
    throw Object.assign(new Error("Movimiento con fecha inválida; requiere conciliación"),{statusCode:409});
-  if(primeraAncla!==null&&fecha.getTime()>primeraAncla&&movimiento.cuentaId==null)
-   throw Object.assign(new Error("Movimiento histórico sin cuentaId; requiere conciliación manual"),{statusCode:409});
+  if(primeraAncla!==null&&fecha.getTime()>primeraAncla){
+   if(movimiento.cuentaId==null)
+    throw Object.assign(new Error("Movimiento histórico sin cuentaId; requiere conciliación manual"),{statusCode:409});
+   if(!mongoose.isValidObjectId(movimiento.cuentaId)||!idsActivos.has(String(movimiento.cuentaId)))
+    throw Object.assign(new Error("Movimiento dirigido a cuenta inactiva, inexistente o no autorizada; requiere conciliación"),{statusCode:409});
+  }
  }
  let total=0;
  for(const cuenta of cuentas){
