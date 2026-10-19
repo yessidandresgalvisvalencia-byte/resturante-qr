@@ -105,7 +105,8 @@ test("un movimiento huérfano con nombre coincidente nunca entra silenciosamente
  assert.throws(()=>saldoCuentasDesdeAnclas([cuenta],[huerfano]),
   e=>e.statusCode===409&&/sin cuentaId/.test(e.message));
  assert.equal(saldoCuentasDesdeAnclas([cuenta],[{...huerfano,fecha:new Date("2026-09-30T05:00:00Z")}]),100000);
- assert.equal(saldoCuentasDesdeAnclas([cuenta],[{...ingreso,cuentaId:"507f1f77bcf86cd799439012"}]),100000);
+ assert.throws(()=>saldoCuentasDesdeAnclas([cuenta],[{...ingreso,cuentaId:"507f1f77bcf86cd799439012"}]),
+  e=>e.statusCode===409&&/inactiva, inexistente/.test(e.message));
 });
 test("la suma de cuentas ancladas no admite desbordamientos de enteros seguros",()=>{
  const {saldoCuentasDesdeAnclas}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
