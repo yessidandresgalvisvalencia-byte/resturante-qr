@@ -138,3 +138,30 @@ test("Capa 2: rejects oversized offline inventory deltas before Mongo access",as
   assert.equal(reads,0);assert.equal(writes,0);
  }
 });
+
+test("Capa 2: missing or blank legacy inventory record identifiers never reach updateOne",async()=>{
+ for(const id of [undefined,null,"","  "]){
+  let writes=0;
+  const db={collection:()=>({
+   find(){return {limit(){return {toArray:async()=>[{
+    _id:id,empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:5
+   }]};}};},
+   updateOne(){writes++;throw Error("FORBIDDEN_WRITE");}
+  })};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
+    inventoryDeltas,objectId:x=>x}),{code:"OFFLINE_INVENTORY_MAPPING_AMBIGUOUS"});
+  assert.equal(writes,0);
+ }
+});
+test("Capa 2: invalid inventory result set fails closed without writes",async()=>{
+ for(const records of [null,{},undefined]){
+  let writes=0;
+  const db={collection:()=>({
+   find(){return {limit(){return {toArray:async()=>records};}};},
+   updateOne(){writes++;throw Error("FORBIDDEN_WRITE");}
+  })};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
+    inventoryDeltas,objectId:x=>x}),{code:"OFFLINE_INVENTORY_MAPPING_AMBIGUOUS"});
+  assert.equal(writes,0);
+ }
+});
