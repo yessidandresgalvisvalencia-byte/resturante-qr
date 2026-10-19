@@ -328,7 +328,7 @@ jobs:
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test?replicaSet=rs0
           GRUK_V81_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
-        run: node --test test/finanzas-personales/persistenciaLedgerV81.integration.test.js
+        run: node --test test/finanzas-personales/persistenciaLedgerV81.integration.test.js test/finanzas-personales/aislamiento-compromisos-mongo.integration.test.js
       - name: Probar pagos recurrentes vinculados con transacciones MongoDB
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test?replicaSet=rs0
