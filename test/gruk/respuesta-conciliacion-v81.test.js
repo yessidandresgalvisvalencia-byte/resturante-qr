@@ -59,7 +59,7 @@ test("errores de conciliación no se almacenan en cachés intermedias",async()=>
  for(const [error,status] of [
   [Object.assign(new Error("huérfano"),{statusCode:409}),409],
   [Object.assign(new Error("sin acceso"),{statusCode:401}),401],
-  [new TypeError("mal formado"),400],
+  [new TypeError("fallo interno del motor de conciliación"),500],
   [new Error("interno"),500]
  ]){
   const r=await invocar(async()=>{throw error;});
@@ -108,4 +108,15 @@ test("fechas inexistentes o períodos invertidos se bloquean antes de Mongo",asy
  });
  assert.equal(valido.statusCode,200);
  assert.equal(consultasValidas,1);
+});
+
+test("TypeError del motor no se atribuye al usuario, pero importe inválido sí",async()=>{
+ const interno=await invocar(async()=>{throw new TypeError("Mongo adapter error: dato privado");});
+ assert.equal(interno.statusCode,500);
+ assert.equal(interno.body.error,"Conciliación no disponible");
+ assert.equal(interno.headers["Cache-Control"],"no-store");
+ let consultas=0;
+ const invalido=await invocar(async()=>{consultas++;return {};},{...query,saldoInicialCop:"0.001"});
+ assert.equal(invalido.statusCode,400);
+ assert.equal(consultas,0);
 });
