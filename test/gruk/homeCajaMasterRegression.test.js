@@ -38,9 +38,9 @@ test("la interfaz no publica Disponible Hoy sin aptitud explícita",()=>{
  assert.match(html,/id="hDisponibleHoy">Pendiente de conciliación/);
  assert.match(html,/Disponible después de compromisos \(no es autorización de gasto\)/);
  assert.match(js,/home\.asesor\?\.aptoParaDisponibleHoy===true&&Number\.isSafeInteger\(home\.asesor\?\.disponibleHoyMinor\)/);
- assert.match(js,/home\\.asesor\\.disponibleHoyMinor>=0&&home\\.verdadFinanciera\\?\\.disponibleHoy\\?\\.montoMinor===home\\.asesor\\.disponibleHoyMinor/);
- assert.match(js,/home\\.verdadFinanciera\\.disponibleHoy\\.requiereReconciliacion===false/);
- assert.match(js,/home\\.verdadFinanciera\\.disponibleHoy\\.confianza==="ALTA"\\?money\\(home\\.asesor\\.disponibleHoyMinor\\):"Pendiente de conciliación"/);
+ assert.ok(js.includes('home.asesor.disponibleHoyMinor>=0&&home.verdadFinanciera?.disponibleHoy?.montoMinor===home.asesor.disponibleHoyMinor'));
+ assert.ok(js.includes('home.verdadFinanciera.disponibleHoy.requiereReconciliacion===false'));
+ assert.ok(js.includes('home.verdadFinanciera.disponibleHoy.confianza==="ALTA"?money(home.asesor.disponibleHoyMinor):"Pendiente de conciliación"'));
  assert.match(js,/\["hDisponibleHoy","disponibleHoy"\]/);
  assert.match(js,/\["hDisponibleHoy","hDisponible","hComprometido"/);
 });
