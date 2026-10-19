@@ -21,7 +21,7 @@ function durableFakeInbox() {
     },
     findOne: async key => {
       const data = saved.get([key.empresaId, key.sedeId, key.eventId].join("/"));
-      return data ? { eventHash: data.eventHash, actorId: data.actorId } : null;
+      return data ? { eventHash: data.eventHash, actorId: data.actorId, empresaId:data.empresaId,sedeId:data.sedeId,eventId:data.eventId } : null;
     }
   };
   return { db: { collection: () => collection, client: { startSession: () => ({
