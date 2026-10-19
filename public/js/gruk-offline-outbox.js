@@ -31,10 +31,19 @@
   async function putPending(event) {
     if(!event||typeof event.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(event.eventId))throw Error("OUTBOX_EVENT_ID");
     if(!["empresaId","sedeId","actorId"].every(k=>typeof event[k]==="string"&&event[k].length>0))throw Error("OUTBOX_TENANT_REQUIRED");
+    // Verify the serialized snapshot, not just the caller object: custom toJSON
+    // must never replace the event identity or authenticated tenant on disk.
+    let snapshot;
+    try { snapshot=JSON.parse(JSON.stringify(event)); }
+    catch (_error) { throw Error("OUTBOX_INVALID_EVENT_SNAPSHOT"); }
+    if(!snapshot||typeof snapshot!=="object"||Array.isArray(snapshot)||
+       snapshot.eventId!==event.eventId||
+       !["empresaId","sedeId","actorId"].every(k=>snapshot[k]===event[k]))
+      throw Error("OUTBOX_INVALID_EVENT_SNAPSHOT");
     const db=await open();
     try {
       return await tx(db,"readwrite",store=>{
-        const r=store.add({event:JSON.parse(JSON.stringify(event)),eventId:event.eventId,syncStatus:"pending",createdAt:new Date().toISOString()});
+        const r=store.add({event:snapshot,eventId:snapshot.eventId,syncStatus:"pending",createdAt:new Date().toISOString()});
         return event.eventId;
       });
     }finally{db.close();}
