@@ -307,8 +307,30 @@ test("transferencia propia audita ambas cuentas e invalida anclas sin crear ingr
  assert.match(transfer,/\$inc:\{saldoMinor:monto\},\$set:\{requiereReconciliacion:true\}/);
  assert.ok(transfer.includes('eventName:"MOVIMIENTO_PATRIMONIAL"'));
  assert.ok(transfer.includes('aggregateType:"TRANSFERENCIA_PROPIA"'));
- assert.ok(transfer.includes('origenId:String(origen._id),destinoId:String(destino._id),montoMinor:monto'));
+ assert.match(transfer,/origenId:String\(origen\._id\),destinoId:String\(destino\._id\),\s*montoMinor:monto/);
  assert.ok(transfer.includes("}],{session})"));
  assert.ok(!transfer.includes("Transaccion.create("),"la transferencia propia no debe disfrazarse de ingreso ni gasto");
- assert.ok(transfer.includes("requiereReconciliacion:true};"));
+ assert.match(transfer,/requiereReconciliacion:true\s*\}/);
+});
+
+test("transferencia propia exige clave idempotente y detecta replay con conflicto",()=>{
+ const {validarReplayTransferenciaPersonal}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const datos={origenId:"507f1f77bcf86cd799439011",destinoId:"507f1f77bcf86cd799439012",monto:15000};
+ const evento={eventName:"MOVIMIENTO_PATRIMONIAL",payload:{
+  tipo:"TRANSFERENCIA_PROPIA",origenId:datos.origenId,destinoId:datos.destinoId,montoMinor:15000
+ }};
+ assert.deepEqual(validarReplayTransferenciaPersonal(evento,datos),{
+  duplicado:true,origenId:datos.origenId,destinoId:datos.destinoId,
+  montoMinor:15000,requiereReconciliacion:true
+ });
+ for(const incorrecto of [{...datos,monto:16000},{...datos,destinoId:datos.origenId}]){
+  assert.throws(()=>validarReplayTransferenciaPersonal(evento,incorrecto),e=>e.statusCode===409);
+ }
+ const fs=require("node:fs");
+ const service=fs.readFileSync(require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ const routes=fs.readFileSync(require.resolve("../../modules/finanzas-personales/routes"),"utf8");
+ assert.ok(service.includes('const eventId="fp-transfer-"+crypto.createHmac("sha256",secret)'));
+ assert.ok(service.includes("await Outbox.findOne({usuarioId,eventId})"));
+ assert.ok(service.includes("const repetido=await Outbox.findOne({usuarioId,eventId})"));
+ assert.ok(routes.includes('externalId:Joi.string().guid({version:"uuidv4"}).required()'));
 });
