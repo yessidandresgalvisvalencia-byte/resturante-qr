@@ -26,3 +26,12 @@ test("no permite cantidades negativas, floats ni desbordamiento acumulado",()=>{
   {productoId:"prod1",cantidad:"9007199254740991"},
   {productoId:"prod1",cantidad:"1"}]}]}),e=>e.code==="OFFLINE_STOCK_PLAN_INVALID");
 });
+
+test("Capa 2: cantidades de 10000 digitos se rechazan antes de calcular deltas",()=>{
+ for(const cantidad of ["9".repeat(10000),"1".repeat(10000)+"x","0".repeat(10000)]){
+  assert.throws(()=>calculate({orders:[{items:[{productoId:"prod1",cantidad}]}]}),
+    {code:"OFFLINE_STOCK_PLAN_INVALID"});
+ }
+ assert.deepEqual(calculate({orders:[{items:[{productoId:"prod1",cantidad:"9007199254740991"}]}]}),
+  [{productoId:"prod1",deltaUnidades:"-9007199254740991"}]);
+});
