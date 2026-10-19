@@ -11,7 +11,8 @@ function owned(row,context,product){
 }
 async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,objectId}){
  if(session?.inTransaction?.()!==true||typeof db?.collection!=="function")fail("OFFLINE_INVENTORY_TRANSACTION_REQUIRED");
- if(!HEX.test(context?.empresaId||"")||!HEX.test(context?.sedeId||"")||typeof objectId!=="function")
+ if(typeof context?.empresaId!=="string"||typeof context?.sedeId!=="string"||
+    !HEX.test(context.empresaId)||!HEX.test(context.sedeId)||typeof objectId!=="function")
   fail("OFFLINE_INVENTORY_TENANT_REQUIRED");
  if(!Array.isArray(inventoryDeltas)||inventoryDeltas.length===0||inventoryDeltas.length>100)fail("OFFLINE_INVENTORY_INVALID_PLAN");
  const ids=new Set();

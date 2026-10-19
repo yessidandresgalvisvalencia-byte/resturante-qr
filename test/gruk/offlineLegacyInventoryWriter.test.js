@@ -165,3 +165,17 @@ test("Capa 2: invalid inventory result set fails closed without writes",async()=
   assert.equal(writes,0);
  }
 });
+
+test("Capa 2: rejects nonstring tenant identifiers before Mongo or ObjectId adapter",async()=>{
+ for(const field of ["empresaId","sedeId"]){
+  for(const invalid of [null,undefined,123,{},[],{toString:()=>context[field]}]){
+   let reads=0, conversions=0;
+   const db={collection(){reads++;throw Error("FORBIDDEN_DB_READ");}};
+   await assert.rejects(apply({db,session:{inTransaction:()=>true},
+    context:{...context,[field]:invalid},inventoryDeltas,
+    objectId:()=>{conversions++;throw Error("FORBIDDEN_CONVERSION");}}),
+    {code:"OFFLINE_INVENTORY_TENANT_REQUIRED"});
+   assert.equal(reads,0);assert.equal(conversions,0);
+  }
+ }
+});
