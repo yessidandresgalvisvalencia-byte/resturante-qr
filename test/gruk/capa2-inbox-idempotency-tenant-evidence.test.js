@@ -4,7 +4,7 @@ const assert=require("node:assert/strict");
 const {acceptOfflineBatch,digest}=require("../../core/offline/offlineInbox.service");
 const tenant={empresaId:"empresaA",sedeId:"sedeA",actorId:"operator"};
 const id="01ARZ3NDEKTSV4RRFFQ69G5FA0";
-const event={...tenant,eventId:id,tipo:"PEDIDO_REGISTRADO",payload:{localOrderId:id,items:[{productoId:"507f1f77bcf86cd799439011",cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}],totalCop:"3000"}};
+const event={...tenant,eventId:id,deviceId:"tabletA",occurredAt:"2026-10-18T12:00:00.000Z",schemaVersion:1,tipo:"PEDIDO_REGISTRADO",payload:{localOrderId:id,items:[{productoId:"507f1f77bcf86cd799439011",cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}],totalCop:"3000"}};
 function store(patch={},mode="preflight"){
  let writes=0;
  return {get writes(){return writes;},db:{collection(name){
