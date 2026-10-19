@@ -68,8 +68,10 @@ async function executeOfflineInventoryStagingTransaction({db,context,eventIds,ob
  // A missing tenant must never reach a database read at the posting boundary.
  const HEX=/^[a-fA-F0-9]{24}$/,ID=/^[A-Za-z0-9_-]{1,80}$/,
   ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
- if(!context||!HEX.test(context.empresaId||"")||
-    !HEX.test(context.sedeId||"")||!ID.test(context.actorId||"")||
+ if(!context||typeof context.empresaId!=="string"||
+    typeof context.sedeId!=="string"||typeof context.actorId!=="string"||
+    !HEX.test(context.empresaId)||
+    !HEX.test(context.sedeId)||!ID.test(context.actorId)||
     !Array.isArray(eventIds)||eventIds.length<1||eventIds.length>100||
     eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
     new Set(eventIds).size!==eventIds.length||
