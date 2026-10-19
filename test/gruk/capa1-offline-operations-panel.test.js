@@ -31,7 +31,7 @@ test("panel shell links from existing admin, reuses core transport and never ini
  assert.match(html,/gruk-offline-transport\.js/);
  assert.match(sw,/offline-status\.html/);
  assert.doesNotMatch(controller,/\/pagos\/|\/api\/sync\/stage-orders|deleteDatabase\(/);
- assert.match(controller,/transport\.synchronize\(/);
+ assert.match(controller,/transport\.synchronizeAll\(/);
  assert.match(controller,/transport\.reconcileReceived\(/);
 });
 test("missing auth disables all operational controls and does not read the outbox",async()=>{
