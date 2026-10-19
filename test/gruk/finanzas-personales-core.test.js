@@ -488,3 +488,18 @@ test("ningún movimiento con monto corrupto desaparece del cálculo de caja",()=
   tipo:"PAGO_DEUDA",montoMinor:5000,montoPagadoRealMinor:5500
  }),-5500);
 });
+
+test("snapshot recupera banderas reales de caja y pagos efectivamente realizados",()=>{
+ const fs=require("node:fs");
+ const source=fs.readFileSync(require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ assert.match(source,/\.select\("tipo montoMinor montoPagadoRealMinor impactoCaja medioPago fecha cuenta cuentaId"\)\.lean\(\)/);
+ assert.equal(patrimonioPersonal.deltaCaja({
+  tipo:"PAGO_DEUDA",montoMinor:5000,montoPagadoRealMinor:6500,impactoCaja:false
+ }),0);
+ assert.equal(patrimonioPersonal.deltaCaja({
+  tipo:"PAGO_DEUDA",montoMinor:5000,montoPagadoRealMinor:6500,impactoCaja:true
+ }),-6500);
+ assert.equal(patrimonioPersonal.deltaCaja({
+  tipo:"GASTO",montoMinor:12500,medioPago:"CREDITO",impactoCaja:true
+ }),0);
+});
