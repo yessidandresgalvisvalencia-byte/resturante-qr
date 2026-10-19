@@ -6,7 +6,12 @@ async function synchronize({outbox,token,fetchFn,context,limit=100}) {
  if(!outbox?.listPending || !outbox?.markReceived) throw new Error("SYNC_OUTBOX_REQUIRED");
  if(typeof token!=="string" || !token.trim()) throw new Error("SYNC_AUTH_REQUIRED");
  if(typeof fetchFn!=="function") throw new Error("SYNC_FETCH_REQUIRED");
+ if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("SYNC_LIMIT");
  const events=await outbox.listPending(limit,context);
+ if(!Array.isArray(events)||events.length>limit||
+    events.some(e=>typeof e?.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(e.eventId))||
+    new Set(events.map(e=>e.eventId)).size!==events.length)
+   throw Error("SYNC_INVALID_LOCAL_EVENTS");
  if(events.length===0)return Object.freeze({sent:0,received:0});
  const response=await fetchFn("/api/sync/batch",{
    method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
