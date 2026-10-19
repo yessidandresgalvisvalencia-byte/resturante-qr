@@ -11,7 +11,9 @@ function assertFreshOfflineStaging(staged,inventoryDeltas,plan){
  const code="OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION";
  const fail=()=>{const error=new Error(code);error.code=code;throw error;};
  if(!Array.isArray(plan?.orders)||plan.orders.length===0||
-    !Array.isArray(inventoryDeltas)||inventoryDeltas.length===0)fail();
+    !Array.isArray(inventoryDeltas)||inventoryDeltas.length===0||
+    !Array.from({length:plan.orders.length},(_,i)=>Object.hasOwn(plan.orders,i)).every(Boolean)||
+    !Array.from({length:inventoryDeltas.length},(_,i)=>Object.hasOwn(inventoryDeltas,i)).every(Boolean))fail();
  const eventIds=plan.orders.map(order=>order?.eventId);
  const productIds=inventoryDeltas.map(delta=>delta?.productoId);
  if(eventIds.some(id=>typeof id!=="string"||!id)||
@@ -79,6 +81,7 @@ async function executeOfflineInventoryStagingTransaction({db,context,eventIds,ob
     !HEX.test(context.empresaId)||
     !HEX.test(context.sedeId)||!ID.test(context.actorId)||
     !Array.isArray(eventIds)||eventIds.length<1||eventIds.length>100||
+    !Array.from({length:eventIds.length},(_,i)=>Object.hasOwn(eventIds,i)).every(Boolean)||
     eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
     new Set(eventIds).size!==eventIds.length||
     typeof objectId!=="function"){
