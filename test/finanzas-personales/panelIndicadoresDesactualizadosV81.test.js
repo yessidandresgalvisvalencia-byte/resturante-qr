@@ -23,3 +23,17 @@ test("El panel rechaza indicadores ausentes antes de dibujar cifras financieras"
  assert.match(fragmento,/indicadoresObligatorios\.every\(Number\.isSafeInteger\)/);
  assert.match(fragmento,/No se mostrarán como \$0/);
 });
+
+test("El formateador de COP nunca inventa $0, no redondea ni pierde precisión",()=>{
+ const vm=require("node:vm");
+ const inicio=codigo.indexOf("money=n=>{");
+ const fin=codigo.indexOf(";async function api",inicio);
+ assert.ok(inicio>0&&fin>inicio,"formateador personal presente");
+ const money=vm.runInNewContext("("+codigo.slice(inicio,fin)+")",{Intl,Number,NaN});
+ assert.match(money(0),/0/);
+ assert.match(money(120000),/120/);
+ assert.match(money(-5000),/5/);
+ for(const valor of [undefined,null,"",false,0.1,1.25,Number.MAX_SAFE_INTEGER+1,"1.5","1e3","NaN",{},Infinity])
+  assert.equal(money(valor),"No actualizado",String(valor)+" nunca puede convertirse a pesos");
+ assert.match(money("120000"),/120/);
+});
