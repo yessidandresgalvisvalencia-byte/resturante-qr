@@ -18,6 +18,23 @@ function evaluarIntegridadAnclasPersonales(cuentas){
 }
 function saldoCuentasDesdeAnclas(cuentas,movimientos){
  if(!Array.isArray(cuentas)||!Array.isArray(movimientos))throw new TypeError("Datos de cuentas inválidos");
+ // El nombre libre no prueba pertenencia: un huérfano posterior a cualquier
+ // ancla podría alterar la caja de una cuenta, aunque su etiqueta no coincida.
+ const anclas=cuentas.map(cuenta=>{
+  if(!Number.isSafeInteger(cuenta?.saldoAnclaMinor)||!fechaContableValidaPersonal(cuenta?.saldoAnclaEn))
+   throw Object.assign(new Error("Cuenta sin ancla válida"),{statusCode:409});
+  return cuenta.saldoAnclaEn.getTime();
+ });
+ const primeraAncla=anclas.length?Math.min(...anclas):null;
+ for(const movimiento of movimientos){
+  if(movimiento?.fecha==null)
+   throw Object.assign(new Error("Movimiento sin fecha; requiere conciliación"),{statusCode:409});
+  const fecha=new Date(movimiento.fecha);
+  if(!Number.isFinite(fecha.getTime()))
+   throw Object.assign(new Error("Movimiento con fecha inválida; requiere conciliación"),{statusCode:409});
+  if(primeraAncla!==null&&fecha.getTime()>primeraAncla&&movimiento.cuentaId==null)
+   throw Object.assign(new Error("Movimiento histórico sin cuentaId; requiere conciliación manual"),{statusCode:409});
+ }
  let total=0;
  for(const cuenta of cuentas){
   if(!Number.isSafeInteger(cuenta?.saldoAnclaMinor)||!fechaContableValidaPersonal(cuenta?.saldoAnclaEn))
@@ -30,8 +47,6 @@ function saldoCuentasDesdeAnclas(cuentas,movimientos){
    if(!Number.isFinite(fecha.getTime()))
     throw Object.assign(new Error("Movimiento con fecha inválida; requiere conciliación"),{statusCode:409});
    if(fecha<=cuenta.saldoAnclaEn)continue;
-   if(x.cuentaId==null&&x.cuenta===cuenta.nombre)
-    throw Object.assign(new Error("Movimiento histórico sin cuentaId; requiere conciliación manual"),{statusCode:409});
    if(x.cuentaId!=null&&String(x.cuentaId)===String(cuenta._id))posteriores.push(x);
   }
   const parcial=saldoDesdeAncla(cuenta.saldoAnclaMinor,posteriores);
