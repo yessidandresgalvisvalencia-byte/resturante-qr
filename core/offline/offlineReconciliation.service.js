@@ -25,10 +25,16 @@ async function readOfflineReconciliation({db,context,eventIds}){
   db.collection(name).find(name==="gruk_offline_inbox"?{...scope,actorId:context.actorId}:scope,
    {projection:{_id:0,empresaId:1,sedeId:1,actorId:1,...projection}}).toArray()));
  const maps=sets.map(rows=>{
+  if(!Array.isArray(rows))fail("OFFLINE_RECONCILIATION_EVIDENCE_INVALID");
   const found=new Map();
+  let ambiguousUnidentified=false;
   for(const row of rows){
    // Missing/duplicate event identities are ambiguous; never report completion.
-   if(typeof row.eventId!=="string")continue;
+   if(!row||typeof row!=="object"||typeof row.eventId!=="string"||
+     !ULID.test(row.eventId)||!eventIds.includes(row.eventId)){
+    ambiguousUnidentified=true;
+    continue;
+   }
    // Trust neither a stale cache nor an incorrectly scoped database adapter.
    // Returned financial evidence must independently prove the tenant and site.
    if(row.empresaId!==context.empresaId||row.sedeId!==context.sedeId){
@@ -40,6 +46,7 @@ async function readOfflineReconciliation({db,context,eventIds}){
    if(found.has(row.eventId)||row.actorId!==context.actorId)found.set(row.eventId,null);
    else found.set(row.eventId,row);
   }
+  if(ambiguousUnidentified)for(const eventId of eventIds)found.set(eventId,null);
   return found;
  });
  const cop=x=>typeof x==="string"&&/^(0|[1-9][0-9]*)$/.test(x)&&
