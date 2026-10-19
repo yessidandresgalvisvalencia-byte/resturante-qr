@@ -66,7 +66,7 @@ test("todos los seis jobs V81 prueban el commit fuente y no el merge temporal bl
 });
 
 test("CI V81 incluye pruebas principales de caja, deudas y asesor",()=>{
- const steps=yaml.split("name: Probar centavos, cadena SHA256 y proyeccion de ledger")[1]?.split("      - name:")[0]||"";
+ const steps=yaml.split("  test-v81:")[1]?.split("  probar-parche-proxy-v81:")[0]||"";
  assert.match(steps,/node --test test\/gruk\/finanzas-personales-core\.test\.js/,
   "La suite core debe ejecutarse en test-v81, no solo en npm test general");
 });
