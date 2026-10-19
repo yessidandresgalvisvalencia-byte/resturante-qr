@@ -266,3 +266,15 @@ test("montos monetarios no admiten coerción y convierten texto decimal entero e
   require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
  assert.ok(source.includes("data.saldoMinor===undefined?0:data.saldoMinor"));
 });
+
+test("cuotas de préstamo nulas no se convierten silenciosamente en cero",()=>{
+ const {safeMontoPatrimonial}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const fuente=require("node:fs").readFileSync(
+  require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ assert.ok(fuente.includes("cuotaMinor:safe(data.cuotaMinor===undefined?0:data.cuotaMinor)"));
+ assert.equal(safeMontoPatrimonial(0),0);
+ assert.equal(safeMontoPatrimonial("0"),0);
+ for(const valor of [null,false,"",NaN,-1,1.5]){
+  assert.throws(()=>safeMontoPatrimonial(valor),e=>e.statusCode===400);
+ }
+});
