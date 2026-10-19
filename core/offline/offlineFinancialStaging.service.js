@@ -43,7 +43,27 @@ async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDelt
  const ledger=await postOfflineLedgerBatch({db,session,context,ledgerMovements});
  if(sales.totalCop!==plan.totalCop||cash.totalCop!==sales.totalCop||
    ledger.totalCop!==sales.totalCop||
-   sales.records.length!==cash.records.length||sales.records.length!==ledger.entries.length)fail();
+   !Array.isArray(sales.records)||!Array.isArray(cash.records)||
+   !Array.isArray(ledger.entries)||!Array.isArray(stock.records)||
+   sales.records.length!==plan.orders.length||cash.records.length!==plan.orders.length||
+   ledger.entries.length!==plan.orders.length||stock.records.length!==expectedStock.length)fail();
+ // The journals must attest to the exact events and products, not merely
+ // matching total counts; otherwise one journal could contain a foreign event.
+ const matches=(records,ids,field)=>{
+  const requested=new Set(ids),seen=new Set();
+  return records.every(record=>{
+   const id=record?.[field];
+   if(typeof id!=="string"||!requested.has(id)||seen.has(id)||
+      typeof record.inserted!=="boolean")return false;
+   seen.add(id);return true;
+  });
+ };
+ const eventIds=plan.orders.map(order=>order.eventId);
+ if(!matches(sales.records,eventIds,"eventId")||
+    !matches(cash.records,eventIds,"eventId")||
+    !matches(ledger.entries,eventIds,"eventId")||
+    !matches(stock.records,expectedStock.map(d=>d.productoId),"productoId")||
+    ledger.entries.some(entry=>entry.tipo!=="VENTA_OFFLINE"))fail();
  return Object.freeze({status:"PENDIENTE_CONTABILIZACION",sales,stock,cash,ledger});
 }
 module.exports={stageOfflineFinancialBatch};

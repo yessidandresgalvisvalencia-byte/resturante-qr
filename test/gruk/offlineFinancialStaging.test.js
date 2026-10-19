@@ -78,3 +78,45 @@ test("Capa 2: incorrect inventory product or quantity rejects the batch before a
   assert.deepEqual(f.writes,[]);
  }
 });
+
+test("Capa 2: financial journal attestation rejects foreign event/product and malformed replay evidence",async()=>{
+ const modules=[
+  ["offlineSalesStaging.service","stageOfflineSales"],
+  ["offlineStockStaging.service","stageOfflineStockMovements"],
+  ["offlineCashStaging.service","stageOfflineCashIntents"],
+  ["offlineLedgerBatchPoster.service","postOfflineLedgerBatch"]
+ ];
+ const paths=modules.map(([file])=>require.resolve("../../core/offline/"+file));
+ const original=paths.map(path=>require.cache[path].exports);
+ const stagePath=require.resolve("../../core/offline/offlineFinancialStaging.service");
+ const initial=require.cache[stagePath];
+ const base=[
+  {totalCop:"3000",records:[{eventId:id,inserted:true}]},
+  {records:[{productoId:p,inserted:true}]},
+  {totalCop:"3000",records:[{eventId:id,inserted:true}]},
+  {totalCop:"3000",entries:[{eventId:id,tipo:"VENTA_OFFLINE",inserted:true}]}
+ ];
+ const cases=[
+  [0,{totalCop:"3000",records:[{eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1",inserted:true}]}],
+  [1,{records:[{productoId:"507f1f77bcf86cd799439012",inserted:true}]}],
+  [2,{totalCop:"3000",records:[{eventId:id,inserted:"true"}]}],
+  [3,{totalCop:"3000",entries:[{eventId:id,tipo:"OTRO",inserted:true}]}],
+  [3,{totalCop:"3000",entries:[{eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1",tipo:"VENTA_OFFLINE",inserted:true}]}]
+ ];
+ try{
+  for(const [replaceIndex,poisoned] of cases){
+   const proof=base.map((value,i)=>i===replaceIndex?poisoned:value);
+   for(let i=0;i<paths.length;i++)require.cache[paths[i]].exports={
+    ...original[i],[modules[i][1]]:async()=>proof[i]
+   };
+   delete require.cache[stagePath];
+   const {stageOfflineFinancialBatch:check}=require(stagePath);
+   await assert.rejects(check({db:{},session:{inTransaction:()=>true},context,
+    plan,inventoryDeltas,ledgerMovements}),
+    {code:"OFFLINE_STAGING_TOTAL_CONFLICT"});
+  }
+ }finally{
+  for(let i=0;i<paths.length;i++)require.cache[paths[i]].exports=original[i];
+  if(initial)require.cache[stagePath]=initial;else delete require.cache[stagePath];
+ }
+});
