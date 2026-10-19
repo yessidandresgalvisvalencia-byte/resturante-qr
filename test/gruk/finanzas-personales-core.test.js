@@ -523,3 +523,22 @@ test("movimientos sin fecha o con fecha inválida bloquean saldo anclado",()=>{
   {...ingreso,fecha:new Date("2026-10-02T05:00:00Z")}
  ]),101000);
 });
+
+test("saldo anclado y ledger derivado rechazan desbordamiento en cualquier paso",()=>{
+ const max=Number.MAX_SAFE_INTEGER;
+ const ingreso=(montoMinor)=>({tipo:"INGRESO",montoMinor,medioPago:"TRANSFERENCIA"});
+ const gasto=(montoMinor)=>({tipo:"GASTO",montoMinor,medioPago:"DEBITO"});
+ assert.equal(patrimonioPersonal.saldoDesdeAncla(max-10,[ingreso(10)]),max);
+ assert.throws(()=>patrimonioPersonal.saldoDesdeAncla(max-10,[ingreso(11)]),
+  e=>e.statusCode===409&&/rango monetario/.test(e.message));
+ assert.throws(()=>patrimonioPersonal.saldoDesdeAncla(0,[ingreso(max),ingreso(1),gasto(1)]),
+  e=>e.statusCode===409);
+ assert.throws(()=>patrimonioPersonal.saldoDesdeAncla(0,[gasto(max),gasto(1),ingreso(1)]),
+  e=>e.statusCode===409);
+ assert.equal(patrimonioPersonal.saldoDesdeAncla(0,[ingreso(max),gasto(max)]),0);
+ assert.throws(()=>patrimonioPersonal.saldoDesdeAncla(0,null),
+  e=>e.statusCode===409);
+ const source=require("node:fs").readFileSync(
+  require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ assert.ok(source.includes("saldoDerivadoLedgerMinor=hayMovimientosLedger?saldoDesdeAncla(0,movimientosCaja):null"));
+});
