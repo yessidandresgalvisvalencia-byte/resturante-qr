@@ -182,6 +182,24 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   await assert.rejects(()=>transferir(usuarioId,{...args,montoMinor:30001}),e=>e.statusCode===409);
   assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),1);
   assert.equal((await Cuenta.findById(origen._id)).saldoMinor,70000);
+  // Un usuario ajeno no puede operar las cuentas de otro, aunque conozca sus IDs.
+  const ajeno=new mongoose.Types.ObjectId();
+  await assert.rejects(()=>transferir(ajeno,{...args,externalId:crypto.randomUUID()}),
+   e=>e.statusCode===409);
+  assert.equal(await Outbox.countDocuments({usuarioId:ajeno,aggregateType:"TRANSFERENCIA_PROPIA"}),0);
+  assert.equal((await Cuenta.findById(origen._id)).saldoMinor,70000);
+  assert.equal((await Cuenta.findById(destino._id)).saldoMinor,50000);
+  // Una operación posterior con UUID distinto sí debe aplicarse exactamente una vez.
+  const segunda={...args,montoMinor:5000,externalId:crypto.randomUUID()};
+  const nueva=await transferir(usuarioId,segunda);
+  assert.equal(nueva.duplicado,false);
+  assert.equal((await transferir(usuarioId,segunda)).duplicado,true);
+  const [origenFinal,destinoFinal]=await Promise.all([
+   Cuenta.findById(origen._id).lean(),Cuenta.findById(destino._id).lean()]);
+  assert.equal(origenFinal.saldoMinor,65000);
+  assert.equal(destinoFinal.saldoMinor,55000);
+  assert.equal(origenFinal.saldoMinor+destinoFinal.saldoMinor,120000,"la transferencia conserva el total");
+  assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),2);
  }finally{
   await Outbox.deleteMany({usuarioId});
   await Cuenta.deleteMany({usuarioId});
