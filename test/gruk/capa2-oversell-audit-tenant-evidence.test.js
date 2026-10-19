@@ -57,3 +57,29 @@ test("Capa 2: returned audit conflict from other tenant, site or actor is denied
   assert.equal(stub.audits,1);
  }
 });
+
+test("Capa 2: forged stock deficit never leaks through persisted audit replay",async()=>{
+ const valid={productoId:product,disponible:"1",solicitado:"2",faltante:"1"};
+ for(const issues of [
+  [{...valid,productoId:"507f1f77bcf86cd799439014"}],
+  [{...valid,disponible:"999999"}],
+  [{...valid,faltante:"0"}],
+  [{...valid,solicitado:"1"}],
+  [{...valid,disponible:"-1"}],
+  [{...valid,disponible:"1e3"}],
+  [{...valid,solicitado:"9007199254740992"}],
+  [valid,valid],
+  [{}],[],null
+ ]){
+  const stub=fake({issues});
+  await assert.rejects(recordOfflineOversellConflict(args(stub.db)),{
+   code:"OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED"
+  });
+  assert.equal(stub.audits,1);
+ }
+});
+test("Capa 2: original historical shortage can remain visible after a later stock change",async()=>{
+ const stub=fake({issues:[{productoId:product,disponible:"0",solicitado:"2",faltante:"2"}]});
+ const result=await recordOfflineOversellConflict(args(stub.db));
+ assert.equal(result.issues[0].faltante,"2");
+});
