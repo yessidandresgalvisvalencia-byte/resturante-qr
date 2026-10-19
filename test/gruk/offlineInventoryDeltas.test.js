@@ -48,3 +48,19 @@ test("Capa 2: planes masivos de stock fallan antes de acumular unidades",()=>{
  assert.deepEqual(calculate({orders:[{items:[item]},{items:[item]}]}),
   [{productoId:"prod1",deltaUnidades:"-2"}]);
 });
+
+test("Capa 2: pedidos y renglones dispersos no se omiten silenciosamente",()=>{
+ const item={productoId:"prod1",cantidad:"1"};
+ const sparseOrders=[{items:[item]},,{items:[item]}];
+ const sparseItems=[item,,item];
+ for(const orders of [
+  sparseOrders,
+  [{items:sparseItems}],
+  new Array(1),
+  [{items:new Array(2)}]
+ ]){
+  assert.throws(()=>calculate({orders}),{code:"OFFLINE_STOCK_PLAN_INVALID"});
+ }
+ assert.deepEqual(calculate({orders:[{items:[item]},{items:[item]}]}),
+  [{productoId:"prod1",deltaUnidades:"-2"}]);
+});
