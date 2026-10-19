@@ -22,7 +22,7 @@ test("receipt without financial proof stays unapplied after reconnect", async ()
     }};
   }};
   const result = await readOfflineStatuses({ db, context, eventIds: ids });
-  assert.deepEqual(query, { empresaId:context.empresaId,sedeId:context.sedeId,eventId: { $in: ids } });
+  assert.deepEqual(query, { empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,eventId: { $in: ids } });
   assert.deepEqual(result, [
     { eventId: ids[0], status: "PENDIENTE", applied: false },
     { eventId: ids[1], status: "APLICADO", applied: false },
@@ -81,4 +81,24 @@ test("status rejects malformed authenticated identity consistently", async () =>
     db, context: { ...context, empresaId: "empresa.$ne" }, eventIds: [ids[0]]
   }), /OFFLINE_AUTH_REQUIRED/);
   assert.equal(touched, false);
+});
+
+test("Capa 2: every financial reconciliation query is tenant, site, actor and event scoped",async()=>{
+ const queries=[];
+ const db={collection(name){
+  assert.ok(["gruk_offline_inbox","gruk_offline_ventas",
+   "gruk_offline_caja_intenciones","gruk_ledger_movimientos"].includes(name));
+  return {find(query,options){
+   queries.push({name,query});
+   assert.equal(options.projection.actorId,1);
+   return {toArray:async()=>[]};
+  }};
+ }};
+ const result=await readOfflineStatuses({db,context,eventIds:[ids[0]]});
+ assert.deepEqual(result,[{eventId:ids[0],status:"NO_ENCONTRADO",applied:false}]);
+ assert.equal(queries.length,4);
+ for(const {query} of queries){
+  assert.deepEqual(query,{empresaId:context.empresaId,sedeId:context.sedeId,
+   actorId:context.actorId,eventId:{$in:[ids[0]]}});
+ }
 });
