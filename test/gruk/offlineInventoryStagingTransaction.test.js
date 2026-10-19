@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {executeOfflineInventoryStagingTransaction:execute}=require("../../core/offline/offlineInventoryStagingTransaction.service");
+const {executeOfflineInventoryStagingTransaction:execute,assertAppliedOfflineInventory:verifyApplied}=require("../../core/offline/offlineInventoryStagingTransaction.service");
 test("no inicia sesión ni modifica inventario si faltan índices únicos",async()=>{
  let started=0,inventoryAccess=0;
  const db={client:{startSession(){started++;throw Error("should not start");}},
@@ -55,5 +55,27 @@ test("Capa 2: object-shaped tenant or actor identities never reach staging metad
     {code:"OFFLINE_INVENTORY_TENANT_REQUIRED"});
    assert.equal(collections,0);assert.equal(sessions,0);assert.equal(conversions,0);
   }
+ }
+});
+
+test("Capa 2: persisted stock evidence must be safely bounded and exact",()=>{
+ const productoId="507f1f77bcf86cd799439011";
+ const delta=[{productoId,deltaUnidades:"-2"}];
+ assert.equal(verifyApplied([{productoId,antes:"5",despues:"3"}],delta),true);
+ for(const invalid of [
+  {productoId,antes:"9".repeat(10000),despues:"3"},
+  {productoId,antes:"9007199254740993",despues:"9007199254740991"},
+  {productoId,antes:"9007199254740992",despues:"9007199254740990"},
+  {productoId,antes:"5",despues:"0".repeat(10000)},
+  {productoId,antes:"5",despues:"4"},
+  {productoId,antes:"3",despues:"5"}
+ ]){
+  assert.throws(()=>verifyApplied([invalid],delta),
+   {code:"OFFLINE_INVENTORY_RESULT_CONFLICT"});
+ }
+ for(const invalidDelta of ["-9".repeat(10000),"-9007199254740992","-9007199254740993"]){
+  assert.throws(()=>verifyApplied([{productoId,antes:"5",despues:"3"}],
+    [{productoId,deltaUnidades:invalidDelta}]),
+    {code:"OFFLINE_INVENTORY_RESULT_CONFLICT"});
  }
 });
