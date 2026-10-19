@@ -41,3 +41,25 @@ test("rechaza sesión sin transacción antes de hacer operaciones",async()=>{
  const f=fixture();await assert.rejects(stage({...f,session:{inTransaction:()=>false},context,plan,inventoryDeltas,ledgerMovements}),
  e=>e.code==="OFFLINE_STAGING_TOTAL_CONFLICT");assert.equal(f.writes.length,0);
 });
+
+test("Capa 2: ledger movement cannot belong to another event even with matching total COP",async()=>{
+ const f=fixture();
+ const foreign=[{eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1",tipo:"VENTA_OFFLINE",montoCop:"3000"}];
+ await assert.rejects(stage({...f,context,plan,inventoryDeltas,ledgerMovements:foreign}),
+  {code:"OFFLINE_STAGING_TOTAL_CONFLICT"});
+ assert.equal(f.writes.length,0);
+});
+test("Capa 2: ledger movement amount must match exact originating sale before any write",async()=>{
+ for(const mismatch of [
+  [{...ledgerMovements[0],montoCop:"2999"}],
+  [{...ledgerMovements[0],montoCop:"3001"}],
+  [{...ledgerMovements[0],tipo:"OTRO"}],
+  [...ledgerMovements,ledgerMovements[0]],
+  []
+ ]){
+  const f=fixture();
+  await assert.rejects(stage({...f,context,plan,inventoryDeltas,ledgerMovements:mismatch}),
+   {code:"OFFLINE_STAGING_TOTAL_CONFLICT"});
+  assert.equal(f.writes.length,0);
+ }
+});
