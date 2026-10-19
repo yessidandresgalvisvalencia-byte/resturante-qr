@@ -75,3 +75,15 @@ test("Capa 2: authoritative pricing rejects broken converters and malformed data
  const database={collection(){return {find(){return {toArray:async()=>null};}};}};
  await assert.rejects(check(database),{code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
 });
+
+test("Capa 2: every offline pricing order must have a nonempty items array before Mongo reads",async()=>{
+ const malformed=[null,{}, {items:null},{items:{}},{items:"invalid"},{items:[]},{items:0}];
+ for(const bad of malformed){
+  let calls=0;
+  const database={collection(){calls++;throw Error("FORBIDDEN_DB_READ");}};
+  const batch={orders:[plan().orders[0],bad]};
+  await assert.rejects(verify({db:database,session,context:ctx,plan:batch,objectId}),
+   {code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+  assert.equal(calls,0);
+ }
+});
