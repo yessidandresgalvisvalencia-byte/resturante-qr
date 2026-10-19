@@ -8,7 +8,9 @@ async function assertOfflineAuthoritativePrices({db,session,context,plan,objectI
  if(!db?.collection||session?.inTransaction?.()!==true||typeof objectId!=="function"||
     !HEX24.test(context?.empresaId||"")||!HEX24.test(context?.sedeId||"")||
     !Array.isArray(plan?.orders)||plan.orders.length===0)fail();
- const items=plan.orders.flatMap(order=>order?.items||[]);
+ // Every order must contain a nonempty item array; never silently skip malformed orders.
+ if(plan.orders.some(order=>!order||!Array.isArray(order.items)||order.items.length===0))fail();
+ const items=plan.orders.flatMap(order=>order.items);
  if(!items.length||items.some(item=>!HEX24.test(item?.productoId||"")||
    typeof item.precioUnitarioCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(item.precioUnitarioCop)))fail();
  const ids=[...new Set(items.map(item=>item.productoId.toLowerCase()))];
