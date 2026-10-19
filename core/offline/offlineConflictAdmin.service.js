@@ -7,6 +7,22 @@ const ID=/^[A-Za-z0-9_-]{1,80}$/;
 const HEX=/^[a-fA-F0-9]{24}$/;
 const ACTIONS=new Set(["ACUSAR_RECIBO","SOLICITAR_REABASTECIMIENTO","ESCALAR_AUDITORIA"]);
 function fail(code){const e=new Error(code);e.code=code;throw e;}
+const MAX=BigInt(Number.MAX_SAFE_INTEGER);
+function validIssues(issues){
+ if(!Array.isArray(issues)||issues.length===0||issues.length>100)return false;
+ const products=new Set();
+ for(const issue of issues){
+  if(!issue||typeof issue.productoId!=="string"||!HEX.test(issue.productoId))return false;
+  const product=issue.productoId.toLowerCase();
+  if(products.has(product))return false;
+  products.add(product);
+  const fields=[issue.disponible,issue.solicitado,issue.faltante];
+  if(fields.some(n=>typeof n!=="string"||!/^(0|[1-9][0-9]*)$/.test(n)||BigInt(n)>MAX))return false;
+  const [available,requested,shortage]=fields.map(BigInt);
+  if(requested<=available||shortage!==requested-available)return false;
+ }
+ return true;
+}
 function scope(auth){
  if(!auth||!["DUEÑO","ADMIN_SEDE"].includes(auth.rol)||
   !HEX.test(auth.empresaId||"")||!HEX.test(auth.sedeId||"")||
@@ -29,7 +45,7 @@ async function listStockConflicts({db,auth,limit=50}){
   !Array.isArray(x?.eventIds)||x.eventIds.length===0||x.eventIds.length>100||
   x.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
   new Set(x.eventIds).size!==x.eventIds.length||
-  !Array.isArray(x?.issues)||x.issues.length===0))fail("OFFLINE_CONFLICT_SCOPE_MISMATCH");
+  !validIssues(x?.issues)))fail("OFFLINE_CONFLICT_SCOPE_MISMATCH");
  return Object.freeze(records.map(x=>Object.freeze({
   conflictId:x._id,actorId:x.actorId,eventIds:x.eventIds,issues:x.issues,
   status:x.status,createdAt:x.createdAt
@@ -52,7 +68,7 @@ async function appendStockConflictReview({db,auth,conflictId,decisionId,action,n
   !Array.isArray(original.eventIds)||original.eventIds.length===0||original.eventIds.length>100||
   original.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
   new Set(original.eventIds).size!==original.eventIds.length||
-  !Array.isArray(original.issues)||original.issues.length===0)
+  !validIssues(original.issues))
   fail("OFFLINE_CONFLICT_NOT_FOUND");
  // One decision per client ULID, scoped to tenant+site. Unique _id guarantees
  // retries do not create another decision. No modification of original record.
