@@ -89,6 +89,18 @@ function filtrarHuerfanosSinResolver(filas,vinculos){
  }
  return filas.filter(f=>!resueltos.has(String(f._id)));
 }
+function exigirDestinosVinculosAutorizadosV81(vinculos,cuentas){
+ if(!Array.isArray(vinculos)||!Array.isArray(cuentas))
+  throw new TypeError("Destinos de conciliación inválidos");
+ const autorizadas=new Set(cuentas.filter(c=>c&&c.activa===true&&c.moneda==="COP"&&
+  mongoose.isValidObjectId(c._id)).map(c=>String(c._id)));
+ for(const vinculo of vinculos){
+  if(!vinculo||!mongoose.isValidObjectId(vinculo.movimientoId)||
+     !mongoose.isValidObjectId(vinculo.cuentaId)||!autorizadas.has(String(vinculo.cuentaId)))
+   throw Object.assign(new Error("Vínculo histórico sin cuenta de destino autorizada; requiere conciliación manual"),{statusCode:409});
+ }
+ return true;
+}
 function fechaCalendarioValidaV81(fecha){
  if(typeof fecha!=="string"||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha))return false;
  const d=new Date(fecha+"T00:00:00Z");
@@ -133,6 +145,18 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
     movimientoId:{$in:sinVinculo.map(x=>x._id)}
    }).session(session).select("movimientoId cuentaId").limit(MAX_FILAS_CONCILIACION_V81+1).maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS).lean():[];
    exigirResultadosAcotadosV81(resueltos);
+   // El usuario no debe perder un movimiento de su conciliación si el vínculo
+   // apunta a una cuenta borrada, inactiva o de otra identidad.
+   if(resueltos.length){
+    const destinos=[...new Set(resueltos.filter(v=>v?.cuentaId!=null).map(v=>String(v.cuentaId)))];
+    const cuentasDestino=await Cuenta.find({
+     _id:{$in:destinos},usuarioId:new mongoose.Types.ObjectId(usuarioId),
+     activa:true,moneda:"COP"
+    }).session(session).select("_id activa moneda").limit(MAX_FILAS_CONCILIACION_V81+1)
+     .maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS).lean();
+    exigirResultadosAcotadosV81(cuentasDestino);
+    exigirDestinosVinculosAutorizadosV81(resueltos,cuentasDestino);
+   }
    const sinResolver=filtrarHuerfanosSinResolver(sinVinculo,resueltos);
    exigirSinMovimientosHuerfanos({cuenta,filas:sinResolver});
    const filasConciliables=exigirMovimientosUnicosV81(exigirResultadosAcotadosV81([...rows,...heredados]));
@@ -151,4 +175,4 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={exigirMovimientosUnicosV81,conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,MAX_TIEMPO_CONSULTA_MONGO_V81_MS,MAX_DIAS_CONCILIACION_V81,exigirPeriodoAcotadoV81,crearPipelineVinculosPeriodoV81,fechaContableBogotaV81};
+module.exports={exigirDestinosVinculosAutorizadosV81,exigirMovimientosUnicosV81,conciliarHistoricoCuentaV81,filtrarHuerfanosSinResolver,fechaCalendarioValidaV81,exigirResultadosAcotadosV81,MAX_FILAS_CONCILIACION_V81,MAX_TIEMPO_CONSULTA_MONGO_V81_MS,MAX_DIAS_CONCILIACION_V81,exigirPeriodoAcotadoV81,crearPipelineVinculosPeriodoV81,fechaContableBogotaV81};
