@@ -211,3 +211,16 @@ test("verificación anterior al ancla no certifica saldo de una cuenta personal"
  const posterior={...cuenta,saldoVerificadoEn:new Date("2026-10-02T05:00:00Z")};
  assert.equal(evaluarIntegridadAnclasPersonales([posterior]).saldoVerificado,true);
 });
+
+test("ningún movimiento futuro puede incorporarse a Disponible Hoy desde el historial",()=>{
+ const {exigirFechasCajaNoFuturasPatrimonio}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const pasado={fecha:new Date("2026-10-01T05:00:00Z"),tipo:"INGRESO",montoMinor:50000};
+ assert.equal(exigirFechasCajaNoFuturasPatrimonio([pasado]),true);
+ for(const fecha of [null,undefined,"fecha mala",new Date("invalida"),new Date("2099-01-01T00:00:00Z")]){
+  assert.throws(()=>exigirFechasCajaNoFuturasPatrimonio([{...pasado,fecha}]),
+   e=>e.statusCode===409&&/futuro/.test(e.message));
+ }
+ const source=require("node:fs").readFileSync(
+  require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ assert.ok(source.includes("exigirFechasCajaNoFuturasPatrimonio(movimientosCaja);"));
+});
