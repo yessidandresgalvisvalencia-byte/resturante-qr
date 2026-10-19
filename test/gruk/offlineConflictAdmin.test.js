@@ -88,3 +88,36 @@ test("Capa 2: administrative list refuses poisoned or incomplete persisted confl
   await assert.rejects(listStockConflicts({db,auth}),{code:"OFFLINE_CONFLICT_SCOPE_MISMATCH"});
  }
 });
+
+test("Capa 2: review decisions reject unowned or malformed conflict source events",async()=>{
+ const source={_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,
+  status:"REQUIERE_REVISION",applied:false,cobrado:false,actorId:"operator",
+  eventIds:["01ARZ3NDEKTSV4RRFFQ69G5FA1"],issues:[{productoId:"507f1f77bcf86cd799439011"}]};
+ for(const patch of [
+  {actorId:undefined},{actorId:"other.actor"},
+  {eventIds:undefined},{eventIds:[]},{eventIds:["invalid"]},
+  {eventIds:[source.eventIds[0],source.eventIds[0]]}
+ ]){
+  let writes=0,reads=0;
+  const db={collection(name){
+   if(name==="gruk_offline_stock_conflicts")return {
+    async findOne(query,opts){
+     reads++;
+     assert.equal(query.empresaId,auth.empresaId);
+     assert.equal(query.sedeId,auth.sedeId);
+     assert.equal(opts.projection.actorId,1);
+     assert.equal(opts.projection.eventIds,1);
+     return {...source,...patch};
+    }
+   };
+   if(name==="gruk_offline_stock_conflict_reviews")return {
+    async updateOne(){writes++;throw Error("WRITE_NOT_AUTHORIZED");}
+   };
+   throw Error("UNEXPECTED_COLLECTION");
+  }};
+  await assert.rejects(appendStockConflictReview({
+   db,auth,conflictId,decisionId,action:"ACUSAR_RECIBO",note:"Verificación completa del conflicto"
+  }),{code:"OFFLINE_CONFLICT_NOT_FOUND"});
+  assert.equal(reads,1);assert.equal(writes,0);
+ }
+});

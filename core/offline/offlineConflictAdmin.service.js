@@ -44,11 +44,15 @@ async function appendStockConflictReview({db,auth,conflictId,decisionId,action,n
  if(typeof db?.collection!=="function")fail("OFFLINE_CONFLICT_DATABASE_UNAVAILABLE");
  const original=await db.collection("gruk_offline_stock_conflicts").findOne({
   _id:conflictId,...tenant,status:"REQUIERE_REVISION",applied:false,cobrado:false
- },{projection:{_id:1,empresaId:1,sedeId:1,status:1,applied:1,cobrado:1,issues:1}});
+ },{projection:{_id:1,empresaId:1,sedeId:1,status:1,applied:1,cobrado:1,actorId:1,eventIds:1,issues:1}});
  if(!original||original._id!==conflictId||
   original.empresaId!==tenant.empresaId||original.sedeId!==tenant.sedeId||
   original.status!=="REQUIERE_REVISION"||original.applied!==false||
-  original.cobrado!==false||!Array.isArray(original.issues)||original.issues.length===0)
+  original.cobrado!==false||!ID.test(original.actorId||"")||
+  !Array.isArray(original.eventIds)||original.eventIds.length===0||original.eventIds.length>100||
+  original.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
+  new Set(original.eventIds).size!==original.eventIds.length||
+  !Array.isArray(original.issues)||original.issues.length===0)
   fail("OFFLINE_CONFLICT_NOT_FOUND");
  // One decision per client ULID, scoped to tenant+site. Unique _id guarantees
  // retries do not create another decision. No modification of original record.
