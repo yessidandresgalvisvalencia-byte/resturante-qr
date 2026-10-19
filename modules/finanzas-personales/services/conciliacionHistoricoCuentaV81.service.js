@@ -73,7 +73,10 @@ function crearPipelineVinculosPeriodoV81({usuarioId,cuentaId,desde,hasta}) {
 }
 function filtrarHuerfanosSinResolver(filas,vinculos){
  if(!Array.isArray(filas)||!Array.isArray(vinculos))throw new TypeError("Histórico inválido");
- const resueltos=new Set(vinculos.map(v=>String(v.movimientoId)));
+ // Una asociación sin cuenta destino válida no resuelve el asiento histórico.
+ const resueltos=new Set(vinculos.filter(v=>v?.movimientoId!=null&&v?.cuentaId!=null&&
+  mongoose.isValidObjectId(v.movimientoId)&&mongoose.isValidObjectId(v.cuentaId))
+  .map(v=>String(v.movimientoId)));
  return filas.filter(f=>!resueltos.has(String(f._id)));
 }
 function fechaCalendarioValidaV81(fecha){
