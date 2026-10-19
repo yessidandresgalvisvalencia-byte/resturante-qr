@@ -8,7 +8,17 @@ async function verifyOfflineProducts({collection,prepared,context,objectId,sessi
  if(!collection||typeof collection.find!=="function"||typeof objectId!=="function"||
    !context||![context.empresaId,context.sedeId].every(x=>typeof x==="string"&&HEX24.test(x)))fail();
  const ids=validateOfflineLegacyProductIds(prepared);
- const query={_id:{$in:ids.map(id=>objectId(id))},empresaId:objectId(context.empresaId),sedeId:objectId(context.sedeId),activo:true};
+ // Verify the ObjectId adapter did not replace tenant, site or product identity.
+ // Fail before the query even when an upstream converter is defective.
+ const asId=value=>{
+  let converted;
+  try{converted=objectId(value);}catch(_error){fail();}
+  if(converted===null||converted===undefined||
+     String(converted).toLowerCase()!==value.toLowerCase())fail();
+  return converted;
+ };
+ const query={_id:{$in:ids.map(asId)},empresaId:asId(context.empresaId),
+  sedeId:asId(context.sedeId),activo:true};
  const found=await collection.find(query,{projection:{_id:1,empresaId:1,sedeId:1,activo:1},...(session?{session}:{})}).toArray();
  // Defense in depth: validate returned records, not only the query predicate.
  if(!Array.isArray(found)||found.some(row=>
