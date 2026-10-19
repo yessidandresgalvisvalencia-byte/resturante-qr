@@ -253,6 +253,25 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   await patrimonio.reconciliarCuenta(usuarioId,{cuentaId:cuentaConMovimiento._id,
    saldoMinor:10000,fecha:new Date(fechaMovimiento.getTime()+1000)});
   assert.equal((await Cuenta.findById(cuentaConMovimiento._id)).requiereReconciliacion,false);
+  // Dos verificaciones simultáneas con el mismo instante no pueden certificar dos importes.
+  const cuentaConcurrente=await Cuenta.create({usuarioId,nombre:"CONCURRENCIA-"+crypto.randomUUID(),
+   tipo:"AHORROS",moneda:"COP",saldoMinor:30000,requiereReconciliacion:true});
+  const fechaConcurrente=new Date(Date.now()-1000);
+  const intentosConcurrentes=await Promise.allSettled([
+   patrimonio.reconciliarCuenta(usuarioId,{cuentaId:cuentaConcurrente._id,saldoMinor:31000,fecha:fechaConcurrente}),
+   patrimonio.reconciliarCuenta(usuarioId,{cuentaId:cuentaConcurrente._id,saldoMinor:32000,fecha:fechaConcurrente})
+  ]);
+  const confirmados=intentosConcurrentes.filter(x=>x.status==="fulfilled");
+  assert.equal(confirmados.length,1,"una única conciliación debe ser aceptada");
+  const balanceGanador=confirmados[0].value.saldoMinor;
+  assert.ok(balanceGanador===31000||balanceGanador===32000);
+  const cuentaTrasCarrera=await Cuenta.findById(cuentaConcurrente._id).lean();
+  assert.equal(cuentaTrasCarrera.saldoMinor,balanceGanador);
+  assert.equal(cuentaTrasCarrera.saldoAnclaMinor,balanceGanador);
+  assert.equal(cuentaTrasCarrera.saldoAnclaEn.getTime(),fechaConcurrente.getTime());
+  const eventosConcurrentes=await Outbox.find({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO",
+   aggregateId:cuentaConcurrente._id}).lean();
+  assert.equal(eventosConcurrentes.length,1,"no pueden existir dos certificaciones contables simultáneas");
   // Una cuenta antigua corrupta en USD no puede mezclarse con caja COP.
   await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"USD"}});
   await assert.rejects(
