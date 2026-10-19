@@ -130,3 +130,21 @@ test("Capa 2: financial journal attestation rejects foreign event/product and ma
   if(initial)require.cache[stagePath]=initial;else delete require.cache[stagePath];
  }
 });
+
+test("Capa 2: planes dispersos se rechazan antes de escribir los cuatro diarios",async()=>{
+ const candidates=[
+  {plan:{...plan,orders:new Array(1)},inventoryDeltas,ledgerMovements},
+  {plan:{...plan,orders:[plan.orders[0],,plan.orders[0]]},
+   inventoryDeltas,ledgerMovements},
+  {plan,inventoryDeltas,ledgerMovements:new Array(1)},
+  {plan,inventoryDeltas,ledgerMovements:[ledgerMovements[0],,ledgerMovements[0]]},
+  {plan,inventoryDeltas:new Array(1),ledgerMovements},
+  {plan,inventoryDeltas:[inventoryDeltas[0],,inventoryDeltas[0]],ledgerMovements}
+ ];
+ for(const args of candidates){
+  const f=fixture();
+  await assert.rejects(stage({...f,context,...args}),
+   {code:"OFFLINE_STAGING_TOTAL_CONFLICT"});
+  assert.deepEqual(f.writes,[]);
+ }
+});

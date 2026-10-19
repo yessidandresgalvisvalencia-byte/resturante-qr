@@ -11,8 +11,11 @@ async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDelt
  if(session?.inTransaction?.()!==true)fail();
  // Journal totals alone cannot prove that the ledger belongs to the same orders.
  // Reject a mismatched event or amount before ANY of the four writes.
+ const dense=items=>Array.isArray(items)&&
+   Array.from({length:items.length},(_,i)=>Object.hasOwn(items,i)).every(Boolean);
  if(!Array.isArray(plan?.orders)||!plan.orders.length||plan.orders.length>100||
-    !Array.isArray(ledgerMovements)||ledgerMovements.length!==plan.orders.length)fail();
+    !dense(plan.orders)||!dense(ledgerMovements)||
+    ledgerMovements.length!==plan.orders.length)fail();
  const expected=new Map();
  for(const order of plan.orders){
   if(typeof order?.eventId!=="string"||expected.has(order.eventId)||
@@ -29,7 +32,7 @@ async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDelt
  // Stock evidence must match the verified order quantities before any journal
  // writer is called; do not rely on a later writer to detect foreign products.
  const expectedStock=calculateOfflineStockDeltas(plan);
- if(!Array.isArray(inventoryDeltas)||inventoryDeltas.length!==expectedStock.length)fail();
+ if(!dense(inventoryDeltas)||inventoryDeltas.length!==expectedStock.length)fail();
  const deltas=new Map();
  for(const d of inventoryDeltas){
   if(typeof d?.productoId!=="string"||deltas.has(d.productoId)||
