@@ -1,7 +1,7 @@
 "use strict";
 const mongoose=require("mongoose");const Cuenta=require("../models/cuentaFinanciera.model");const Activo=require("../models/ActivoPatrimonial");const Prestamo=require("../models/prestamoPersonal.model");const Transaccion=require("../models/TransaccionPersonal");const Outbox=require("../models/outboxPersonal.model");const crypto=require("crypto");
 function fechaContableValidaPersonal(fecha){
- return fecha instanceof Date&&Number.isFinite(fecha.getTime());
+ return fecha instanceof Date&&Number.isFinite(fecha.getTime())&&fecha.getTime()<=Date.now();
 }
 function evaluarIntegridadAnclasPersonales(cuentas){
  if(!Array.isArray(cuentas))throw new TypeError("Cuentas de patrimonio inválidas");
