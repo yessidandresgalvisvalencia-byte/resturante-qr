@@ -320,7 +320,52 @@ async function retirarDeudaVisible(usuarioId,prestamoId){
   return resultado;
  }finally{await session.endSession();}
 }
-async function transferir(usuarioId,{origenId,destinoId,montoMinor}){const monto=safe(montoMinor);if(!monto)throw Object.assign(new Error("Monto debe ser mayor a cero"),{statusCode:400});if(String(origenId)===String(destinoId))throw Object.assign(new Error("Las cuentas deben ser diferentes"),{statusCode:400});const session=await mongoose.startSession();try{return await session.withTransaction(async()=>{const origen=await Cuenta.findOneAndUpdate({_id:origenId,usuarioId,activa:true,saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto},$set:{requiereReconciliacion:true}},{new:true,session});if(!origen)throw Object.assign(new Error("Cuenta origen inválida o saldo insuficiente"),{statusCode:409});exigirSaldoCuentaSeguro(origen);const destino=await Cuenta.findOneAndUpdate({_id:destinoId,usuarioId,activa:true},{$inc:{saldoMinor:monto},$set:{requiereReconciliacion:true}},{new:true,session});if(!destino)throw Object.assign(new Error("Cuenta destino inválida"),{statusCode:404});exigirSaldoCuentaSeguro(destino);await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateType:"TRANSFERENCIA_PROPIA",aggregateId:origen._id,payload:{tipo:"TRANSFERENCIA_PROPIA",origenId:String(origen._id),destinoId:String(destino._id),montoMinor:monto,saldoOrigenPosteriorMinor:origen.saldoMinor,saldoDestinoPosteriorMinor:destino.saldoMinor,requiereReconciliacion:true}}],{session});return{origen,destino,montoMinor:monto,requiereReconciliacion:true};},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});}finally{await session.endSession()}}
+function validarReplayTransferenciaPersonal(evento,{origenId,destinoId,monto}){
+ const p=evento?.payload;
+ if(evento?.eventName!=="MOVIMIENTO_PATRIMONIAL"||p?.tipo!=="TRANSFERENCIA_PROPIA"||
+    p.origenId!==String(origenId)||p.destinoId!==String(destinoId)||p.montoMinor!==monto)
+  throw Object.assign(new Error("Referencia de transferencia reutilizada con datos diferentes"),{statusCode:409});
+ return {duplicado:true,origenId:p.origenId,destinoId:p.destinoId,montoMinor:monto,requiereReconciliacion:true};
+}
+async function transferir(usuarioId,{origenId,destinoId,montoMinor,externalId}){
+ const monto=safe(montoMinor);
+ if(!monto)throw Object.assign(new Error("Monto debe ser mayor a cero"),{statusCode:400});
+ if(String(origenId)===String(destinoId))throw Object.assign(new Error("Las cuentas deben ser diferentes"),{statusCode:400});
+ if(typeof externalId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(externalId))
+  throw Object.assign(new Error("Referencia de transferencia UUIDv4 requerida"),{statusCode:400});
+ const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;
+ if(!secret)throw new Error("PERSONAL_IDEMPOTENCY_SECRET requerido");
+ const eventId="fp-transfer-"+crypto.createHmac("sha256",secret).update(String(usuarioId)+":"+externalId.toLowerCase()).digest("hex");
+ const existente=await Outbox.findOne({usuarioId,eventId});
+ if(existente)return validarReplayTransferenciaPersonal(existente,{origenId,destinoId,monto});
+ const session=await mongoose.startSession();
+ try{
+  return await session.withTransaction(async()=>{
+   const previo=await Outbox.findOne({usuarioId,eventId}).session(session);
+   if(previo)return validarReplayTransferenciaPersonal(previo,{origenId,destinoId,monto});
+   const origen=await Cuenta.findOneAndUpdate({_id:origenId,usuarioId,activa:true,saldoMinor:{$gte:monto}},
+    {$inc:{saldoMinor:-monto},$set:{requiereReconciliacion:true}},{new:true,session});
+   if(!origen)throw Object.assign(new Error("Cuenta origen inválida o saldo insuficiente"),{statusCode:409});
+   exigirSaldoCuentaSeguro(origen);
+   const destino=await Cuenta.findOneAndUpdate({_id:destinoId,usuarioId,activa:true},
+    {$inc:{saldoMinor:monto},$set:{requiereReconciliacion:true}},{new:true,session});
+   if(!destino)throw Object.assign(new Error("Cuenta destino inválida"),{statusCode:404});
+   exigirSaldoCuentaSeguro(destino);
+   await Outbox.create([{usuarioId,eventId,eventName:"MOVIMIENTO_PATRIMONIAL",
+    aggregateType:"TRANSFERENCIA_PROPIA",aggregateId:origen._id,
+    payload:{tipo:"TRANSFERENCIA_PROPIA",origenId:String(origen._id),destinoId:String(destino._id),
+     montoMinor:monto,saldoOrigenPosteriorMinor:origen.saldoMinor,
+     saldoDestinoPosteriorMinor:destino.saldoMinor,requiereReconciliacion:true}}],{session});
+   return {origen,destino,montoMinor:monto,duplicado:false,requiereReconciliacion:true};
+  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
+ }catch(error){
+  if(error?.code===11000||error?.hasErrorLabel?.("TransientTransactionError")){
+   const repetido=await Outbox.findOne({usuarioId,eventId});
+   if(repetido)return validarReplayTransferenciaPersonal(repetido,{origenId,destinoId,monto});
+  }
+  throw error;
+ }finally{await session.endSession();}
+}
 function sumaPatrimonialSegura(valores){
  if(!Array.isArray(valores))throw new TypeError("Valores patrimoniales inválidos");
  let total=0n;
@@ -334,4 +379,4 @@ function sumaPatrimonialSegura(valores){
  return Number(total);
 }
 async function snapshot(usuarioId){const [cuentas,activos,prestamos]=await Promise.all([Cuenta.find({usuarioId,activa:true}).lean(),Activo.find({usuarioId}).lean(),Prestamo.find({usuarioId,estado:{$in:["ACTIVO","VENCIDO"]}}).lean()]);exigirCuentasCopPatrimonio(cuentas);const rows=await Transaccion.find({usuarioId,estado:{$ne:"ANULADA"},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA","PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO"]}}).select("estado moneda tipo montoMinor montoPagadoRealMinor impactoCaja medioPago fecha cuenta cuentaId").lean();exigirMovimientosActivosCopPatrimonio(rows);exigirMovimientosUnicosPatrimonio(rows,{exigirId:true});const movimientosCaja=rows.filter(x=>deltaCaja(x)!==0);exigirFechasCajaNoFuturasPatrimonio(movimientosCaja);const hayMovimientosLedger=movimientosCaja.length>0;const saldoDerivadoLedgerMinor=hayMovimientosLedger?saldoDesdeAncla(0,movimientosCaja):null;const {cuentasVerificadas,cuentasAncladas,anclaCompleta,saldoVerificado}=evaluarIntegridadAnclasPersonales(cuentas);let liquidez;if(anclaCompleta){liquidez=saldoCuentasDesdeAnclas(cuentasAncladas,movimientosCaja);}else if(cuentasVerificadas.length===0)liquidez=saldoDerivadoLedgerMinor??0;else liquidez=sumaPatrimonialSegura(cuentas.map(x=>x.saldoMinor));const activosNoLiquidos=sumaPatrimonialSegura(activos.filter(x=>!x.liquido).map(x=>x.valorMinor));const porCobrar=sumaPatrimonialSegura(prestamos.filter(x=>x.direccion==="POR_COBRAR").map(x=>x.saldoMinor));const porPagar=sumaPatrimonialSegura(prestamos.filter(x=>x.direccion==="POR_PAGAR").map(x=>x.saldoMinor));const activosTotales=sumaPatrimonialSegura([liquidez,activosNoLiquidos]);const patrimonioNeto=sumaPatrimonialSegura([activosTotales,porCobrar,-porPagar]);return{liquidezMinor:liquidez,activosNoLiquidosMinor:activosNoLiquidos,activosTotalesMinor:activosTotales,cuentasPorCobrarMinor:porCobrar,pasivosMinor:porPagar,patrimonioFinancieroNetoMinor:patrimonioNeto,cuentas,activos,prestamos,saldoDerivadoLedgerMinor,hayMovimientosLedger,saldoVerificado,cuentasVerificadas:cuentasVerificadas.map(x=>String(x._id)),fuenteLiquidez:anclaCompleta?"ANCLA_RECONCILIADA":(cuentasVerificadas.length===0?"LEDGER_DERIVADO":"CUENTAS_PARCIALMENTE_VERIFICADAS"),anclaCompleta}}
-module.exports={exigirSaldoCuentaSeguro,safeMontoPatrimonial:safe,exigirCuentasCopPatrimonio,exigirFechasCajaNoFuturasPatrimonio,sumaPatrimonialSegura,exigirMovimientosActivosCopPatrimonio,exigirMovimientosUnicosPatrimonio,evaluarIntegridadAnclasPersonales,deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,pagarCuotaCredito,deshacerUltimaCuotaCredito,corregirPrestamo,retirarDeudaVisible,transferir,snapshot};
+module.exports={validarReplayTransferenciaPersonal,exigirSaldoCuentaSeguro,safeMontoPatrimonial:safe,exigirCuentasCopPatrimonio,exigirFechasCajaNoFuturasPatrimonio,sumaPatrimonialSegura,exigirMovimientosActivosCopPatrimonio,exigirMovimientosUnicosPatrimonio,evaluarIntegridadAnclasPersonales,deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,pagarCuotaCredito,deshacerUltimaCuotaCredito,corregirPrestamo,retirarDeudaVisible,transferir,snapshot};
