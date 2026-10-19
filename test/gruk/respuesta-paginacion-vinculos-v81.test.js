@@ -43,3 +43,31 @@ test("sesión sin verificar nunca consulta datos de otro usuario",async()=>{
  assert.equal(res.statusCode,401);
  assert.equal(llamadas,0);
 });
+
+test("asociaciones contradictorias retornan HTTP 409 sin datos de otra cuenta",async()=>{
+ const {res}=await (async()=>{
+  const res={statusCode:200,body:null,headers:{},
+   set(k,v){this.headers[k]=v;return this;},
+   status(n){this.statusCode=n;return this;},
+   json(x){this.body=x;return this;}};
+  await crearConsultaVinculosHistoricosV81(async()=>{
+   throw Object.assign(new Error("Cuenta privada: 507f1f77bcf86cd799439099"),{statusCode:409});
+  })({query:{limite:"10"},personalAuth:{verificado:true,userId:usuario}},res);
+  return {res};
+ })();
+ assert.equal(res.statusCode,409);
+ assert.equal(res.headers["Cache-Control"],"no-store");
+ assert.equal(res.body.ok,false);
+ assert.doesNotMatch(JSON.stringify(res.body),/507f1f77bcf86cd799439099/);
+});
+test("un TypeError interno del motor nunca se reporta como parámetros malos",async()=>{
+ const res={statusCode:200,body:null,headers:{},
+  set(k,v){this.headers[k]=v;return this;},
+  status(n){this.statusCode=n;return this;},
+  json(x){this.body=x;return this;}};
+ await crearConsultaVinculosHistoricosV81(async()=>{
+  throw new TypeError("Fallo interno: conexión Mongo");
+ })({query:{limite:"10"},personalAuth:{verificado:true,userId:usuario}},res);
+ assert.equal(res.statusCode,500);
+ assert.equal(res.body.error,"Diagnóstico no disponible");
+});
