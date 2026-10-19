@@ -63,9 +63,33 @@ test("un saldo marcado verificado pero inseguro jamás autoriza dinero para gast
  assert.equal(valido.montoMinor,850000);
 });
 
-test("liquidez verificada exige que todas las cuentas tengan ancla válida",()=>{
- const fuente=fs.readFileSync(require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
- assert.match(fuente,/const anclaCompleta=cuentas\.length>0&&cuentasAncladas\.length===cuentas\.length/);
- assert.match(fuente,/const saldoVerificado=anclaCompleta&&cuentasVerificadas\.length===cuentas\.length/);
- assert.match(fuente,/fuenteLiquidez:anclaCompleta\?"ANCLA_RECONCILIADA"/);
+test("liquidez verificada exige anclas, saldos y fechas realmente válidos",()=>{
+ const {evaluarIntegridadAnclasPersonales}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const cuenta={_id:"507f1f77bcf86cd799439011",saldoMinor:500000,
+  saldoAnclaMinor:400000,saldoAnclaEn:new Date("2026-10-01T12:00:00Z"),
+  saldoVerificadoEn:new Date("2026-10-01T12:00:00Z"),requiereReconciliacion:false};
+ const verificada=evaluarIntegridadAnclasPersonales([cuenta]);
+ assert.equal(verificada.saldoVerificado,true);
+ assert.equal(verificada.anclaCompleta,true);
+ for(const parcial of [
+  {...cuenta,saldoAnclaEn:null},
+  {...cuenta,saldoAnclaEn:new Date("invalida")},
+  {...cuenta,saldoAnclaMinor:0.1},
+  {...cuenta,saldoVerificadoEn:null},
+  {...cuenta,saldoVerificadoEn:new Date("invalida")},
+  {...cuenta,saldoMinor:NaN},
+  {...cuenta,saldoMinor:Number.MAX_SAFE_INTEGER+1},
+  {...cuenta,requiereReconciliacion:true}
+ ]){
+  const estado=evaluarIntegridadAnclasPersonales([cuenta,parcial]);
+  assert.equal(estado.saldoVerificado,false);
+  const saldo=resolverSaldoAsesorParaPrueba(estado);
+  assert.notEqual(saldo.confiabilidad,"VERIFICADO");
+ }
+ assert.equal(evaluarIntegridadAnclasPersonales([]).saldoVerificado,false);
 });
+function resolverSaldoAsesorParaPrueba(estado){
+ const {resolverSaldoAsesor}=require("../../modules/finanzas-personales/services/homePersonal.service");
+ return resolverSaldoAsesor({saldoVerificado:estado.saldoVerificado,
+  liquidezMinor:500000,hayMovimientosLedger:false});
+}
