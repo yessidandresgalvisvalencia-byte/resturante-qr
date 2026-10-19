@@ -546,6 +546,8 @@ test("saldo anclado y ledger derivado rechazan desbordamiento en cualquier paso"
 test("snapshot patrimonial rechaza movimientos con estado o moneda corruptos",()=>{
  const {exigirMovimientosActivosCopPatrimonio}=patrimonioPersonal;
  assert.equal(exigirMovimientosActivosCopPatrimonio([{estado:"ACTIVA",moneda:"COP"}]),true);
+ assert.equal(exigirMovimientosActivosCopPatrimonio([{}, {estado:"ACTIVA"}, {moneda:"COP"}]),true);
+ assert.throws(()=>exigirMovimientosActivosCopPatrimonio([null]),e=>e.statusCode===409);
  for(const movimiento of [
   {estado:"ANULADA",moneda:"COP"},
   {estado:"PENDIENTE",moneda:"COP"},
