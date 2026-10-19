@@ -53,3 +53,25 @@ test("Capa 2: pricing rejects foreign company, site, inactive and unexpected pro
   await assert.rejects(check(database),{code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
  }
 });
+
+test("Capa 2: authoritative COP lookup rejects identity-substituting ObjectId converter before Mongo",async()=>{
+ const another="507f1f77bcf86cd799439014";
+ for(const substituted of [productId,ctx.empresaId,ctx.sedeId]){
+  let calls=0;
+  const database={collection(){calls++;throw Error("FORBIDDEN_DB_READ");}};
+  await assert.rejects(verify({db:database,session,context:ctx,plan:plan(),
+   objectId:value=>value===substituted?another:value}),{code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+  assert.equal(calls,0);
+ }
+});
+test("Capa 2: authoritative pricing rejects broken converters and malformed database rows",async()=>{
+ for(const converter of [()=>null,()=>undefined,()=>{throw Error("BROKEN_ADAPTER");}]){
+  let calls=0;
+  const database={collection(){calls++;throw Error("FORBIDDEN_DB_READ");}};
+  await assert.rejects(verify({db:database,session,context:ctx,plan:plan(),objectId:converter}),
+   {code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+  assert.equal(calls,0);
+ }
+ const database={collection(){return {find(){return {toArray:async()=>null};}};}};
+ await assert.rejects(check(database),{code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+});
