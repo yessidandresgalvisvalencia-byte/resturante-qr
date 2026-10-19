@@ -35,3 +35,27 @@ test("rechaza importe agregado incorrecto antes de escribir",async()=>{
  await assert.rejects(stage({...f,context,plan:{...plan,totalCop:"2999"}}),e=>e.code==="OFFLINE_SALES_TOTAL_CONFLICT");
  assert.equal(f.data.size,0);
 });
+
+test("Capa 2: replay of a persisted sale from another tenant or event is rejected",async()=>{
+ for(const patch of [
+  {empresaId:"otra"},{sedeId:"otra"},{eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1"},
+  {empresaId:undefined},{sedeId:undefined},{eventId:undefined}
+ ]){
+  const session={inTransaction:()=>true};
+  let writes=0;
+  const db={collection(name){assert.equal(name,"gruk_offline_ventas");return {
+   async indexes(){return [{name:"uniq_offline_sale_tenant_event",unique:true,key:{empresaId:1,sedeId:1,eventId:1}}];},
+   async updateOne(key){writes++;assert.equal(key.empresaId,context.empresaId);assert.equal(key.sedeId,context.sedeId);return {upsertedCount:0};},
+   async findOne(key,options){
+    assert.equal(options.session,session);
+    assert.equal(options.projection.empresaId,1);
+    assert.equal(options.projection.sedeId,1);
+    assert.equal(options.projection.eventId,1);
+    return {...context,eventId,localOrderId:eventId,totalCop:"3000",items:plan.orders[0].items,
+      status:"PENDIENTE_CONTABILIZACION",...patch};
+   }
+  };}};
+  await assert.rejects(stage({db,session,context,plan}),{code:"OFFLINE_SALES_REPLAY_CONFLICT"});
+  assert.equal(writes,1);
+ }
+});

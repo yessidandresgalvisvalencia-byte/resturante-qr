@@ -32,8 +32,9 @@ async function stageOfflineSales({db,session,context,plan}){
   try{result=await sales.updateOne(key,{$setOnInsert:payload},{upsert:true,session});}
   catch(e){if(e?.code===11000)fail("OFFLINE_SALES_CONCURRENT_RETRY_REQUIRED");throw e;}
   if(result.upsertedCount!==1){
-   const prior=await sales.findOne(key,{session,projection:{actorId:1,localOrderId:1,totalCop:1,items:1,status:1}});
-   if(!prior||prior.actorId!==payload.actorId||prior.localOrderId!==payload.localOrderId||
+   const prior=await sales.findOne(key,{session,projection:{empresaId:1,sedeId:1,eventId:1,actorId:1,localOrderId:1,totalCop:1,items:1,status:1}});
+   if(!prior||prior.empresaId!==key.empresaId||prior.sedeId!==key.sedeId||
+     prior.eventId!==key.eventId||prior.actorId!==payload.actorId||prior.localOrderId!==payload.localOrderId||
      prior.totalCop!==payload.totalCop||JSON.stringify(prior.items)!==JSON.stringify(payload.items)||
      prior.status!=="PENDIENTE_CONTABILIZACION")fail("OFFLINE_SALES_REPLAY_CONFLICT");
   }
