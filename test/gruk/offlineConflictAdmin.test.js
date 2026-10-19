@@ -65,7 +65,7 @@ test("stock conflict: invalid decisions do not access database",async()=>{
 test("Capa 2: administrative list refuses poisoned or incomplete persisted conflicts",async()=>{
  const valid={_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,
   actorId:"operator",status:"REQUIERE_REVISION",applied:false,cobrado:false,
-  eventIds:["01ARZ3NDEKTSV4RRFFQ69G5FA1"],issues:[{productoId:"507f1f77bcf86cd799439011"}]};
+  eventIds:["01ARZ3NDEKTSV4RRFFQ69G5FA1"],issues:[{productoId:"507f1f77bcf86cd799439011",disponible:"0",solicitado:"1",faltante:"1"}]};
  for(const patch of [
   {empresaId:"507f191e810c19729de860eb"},
   {sedeId:"507f1f77bcf86cd799439013"},
@@ -92,7 +92,7 @@ test("Capa 2: administrative list refuses poisoned or incomplete persisted confl
 test("Capa 2: review decisions reject unowned or malformed conflict source events",async()=>{
  const source={_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,
   status:"REQUIERE_REVISION",applied:false,cobrado:false,actorId:"operator",
-  eventIds:["01ARZ3NDEKTSV4RRFFQ69G5FA1"],issues:[{productoId:"507f1f77bcf86cd799439011"}]};
+  eventIds:["01ARZ3NDEKTSV4RRFFQ69G5FA1"],issues:[{productoId:"507f1f77bcf86cd799439011",disponible:"0",solicitado:"1",faltante:"1"}]};
  for(const patch of [
   {actorId:undefined},{actorId:"other.actor"},
   {eventIds:undefined},{eventIds:[]},{eventIds:["invalid"]},
@@ -119,5 +119,38 @@ test("Capa 2: review decisions reject unowned or malformed conflict source event
    db,auth,conflictId,decisionId,action:"ACUSAR_RECIBO",note:"Verificación completa del conflicto"
   }),{code:"OFFLINE_CONFLICT_NOT_FOUND"});
   assert.equal(reads,1);assert.equal(writes,0);
+ }
+});
+
+test("Capa 2: malformed deficit proof cannot be listed or approved",async()=>{
+ const issue={productoId:"507f1f77bcf86cd799439011",disponible:"0",solicitado:"2",faltante:"2"};
+ const base={_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,
+  status:"REQUIERE_REVISION",applied:false,cobrado:false,actorId:"operator",
+  eventIds:["01ARZ3NDEKTSV4RRFFQ69G5FA1"],issues:[issue]};
+ for(const issues of [
+  [{...issue,productoId:"foreign-product"}],
+  [{...issue,disponible:"9007199254740992"}],
+  [{...issue,solicitado:"-1"}],
+  [{...issue,faltante:"3"}],
+  [{...issue,disponible:"2"}],
+  [{...issue,solicitado:"2.0"}],
+  [issue,issue],
+  [],null
+ ]){
+  let writes=0;
+  const db={collection(name){
+   if(name==="gruk_offline_stock_conflicts")return {
+    find(query){assert.equal(query.empresaId,auth.empresaId);return {toArray:async()=>[{...base,issues}]};},
+    async findOne(query){assert.equal(query.sedeId,auth.sedeId);return {...base,issues};}
+   };
+   if(name==="gruk_offline_stock_conflict_reviews")return {
+    async updateOne(){writes++;throw Error("UNEXPECTED_WRITE");}
+   };
+   throw Error("UNEXPECTED_COLLECTION");
+  }};
+  await assert.rejects(listStockConflicts({db,auth}),{code:"OFFLINE_CONFLICT_SCOPE_MISMATCH"});
+  await assert.rejects(appendStockConflictReview({db,auth,conflictId,decisionId,
+   action:"ACUSAR_RECIBO",note:"Verificación de faltantes registrada"}),{code:"OFFLINE_CONFLICT_NOT_FOUND"});
+  assert.equal(writes,0);
  }
 });
