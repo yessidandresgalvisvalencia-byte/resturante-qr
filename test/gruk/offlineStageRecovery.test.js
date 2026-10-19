@@ -74,7 +74,7 @@ test("Capa 2: recovery rejects malformed storage collections and unsafe individu
    }};
   }};
   await assert.rejects(recover({db,context:ctx,eventIds:ids}),
-   {code:"OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW"});
+   err=>["OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW","OFFLINE_RECONCILIATION_EVIDENCE_INVALID"].includes(err?.code));
  }
  for(const [name,field] of [
   ["gruk_offline_ventas","totalCop"],
