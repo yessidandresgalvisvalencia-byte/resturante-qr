@@ -106,3 +106,24 @@ test("compatibilidad UUID heredados reconoce firma previa en mayúsculas sin dup
   ...solicitud,evidencia:"Otra evidencia bancaria distinta"
  }),{existe:true,coincide:false});
 });
+
+test("solo movimientos activos permiten asociación histórica",()=>{
+ for(const estado of ["PENDIENTE","DESCONOCIDO",null,undefined,"ANULADA"]){
+  assert.throws(
+   ()=>resolverConfirmacion({...base,movimiento:{...movimiento,estado}}),
+   error=>error.statusCode===409,
+   String(estado)
+  );
+ }
+});
+test("cuenta y movimiento ajenos no generan asociación ni filtran datos",()=>{
+ const intruso="507f1f77bcf86cd799439099";
+ for(const solicitud of [
+  {...base,movimiento:{...movimiento,usuarioId:intruso}},
+  {...base,cuenta:{...cuenta,usuarioId:intruso}},
+  {...base,movimiento:{...movimiento,usuarioId:intruso},cuenta:{...cuenta,usuarioId:intruso}}
+ ]){
+  assert.throws(()=>resolverConfirmacion(solicitud),
+   error=>error.statusCode===404);
+ }
+});
