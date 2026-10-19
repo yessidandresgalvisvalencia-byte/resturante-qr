@@ -84,7 +84,7 @@ test("status rejects malformed authenticated identity consistently", async () =>
 });
 
 test("Capa 2: rejects forged or missing inbox states before replying to tablets",async()=>{
- for(const status of ["COBRADO","OTRA_EMPRESA","NO_ENCONTRADO","__proto__",undefined,null]){
+ for(const status of ["COBRADO","OTRA_EMPRESA","__proto__",undefined,null]){
   const db={collection(name){return {find(query,options){
    assert.equal(query.empresaId,context.empresaId);
    assert.equal(query.sedeId,context.sedeId);
@@ -101,4 +101,11 @@ test("Capa 2: rejected orders are reported without falsely acknowledging invento
   [{...context,eventId:ids[0],status:"RECHAZADO",inventoryApplied:false}]:[]})};}};
  assert.deepEqual(await readOfflineStatuses({db,context,eventIds:[ids[0]]}),
   [{eventId:ids[0],status:"RECHAZADO",applied:false}]);
+});
+
+test("Capa 2: NO_ENCONTRADO cannot acknowledge an offline event as applied",async()=>{
+ const db={collection(name){return {find:()=>({toArray:async()=>name==="gruk_offline_inbox"?
+  [{...context,eventId:ids[0],status:"NO_ENCONTRADO",inventoryApplied:true}]:[]})};}};
+ assert.deepEqual(await readOfflineStatuses({db,context,eventIds:[ids[0]]}),
+  [{eventId:ids[0],status:"NO_ENCONTRADO",applied:false}]);
 });
