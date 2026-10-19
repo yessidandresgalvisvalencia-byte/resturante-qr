@@ -12,10 +12,18 @@ async function assertOfflineAuthoritativePrices({db,session,context,plan,objectI
  if(!items.length||items.some(item=>!HEX24.test(item?.productoId||"")||
    typeof item.precioUnitarioCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(item.precioUnitarioCop)))fail();
  const ids=[...new Set(items.map(item=>item.productoId.toLowerCase()))];
+ // Reject a converter that redirects a scoped lookup to a different identity.
+ const asId=value=>{
+  let converted;
+  try{converted=objectId(value);}catch(_error){fail();}
+  if(converted===null||converted===undefined||
+    String(converted).toLowerCase()!==value.toLowerCase())fail();
+  return converted;
+ };
  const rows=await db.collection("productoservicios").find({
-   _id:{$in:ids.map(objectId)},empresaId:objectId(context.empresaId),sedeId:objectId(context.sedeId),activo:true
+   _id:{$in:ids.map(asId)},empresaId:asId(context.empresaId),sedeId:asId(context.sedeId),activo:true
  },{session,projection:{_id:1,empresaId:1,sedeId:1,activo:1,precioVenta:1}}).toArray();
- if(rows.length!==ids.length)fail();
+ if(!Array.isArray(rows)||rows.length!==ids.length)fail();
  const prices=new Map();
  for(const row of rows){
    // Legacy product schema stores COP prices as JS numbers; do not round cents.
