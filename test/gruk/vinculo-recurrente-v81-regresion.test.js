@@ -73,3 +73,19 @@ test("rechaza fechas civiles imposibles antes de asignar cuotas o afectar caja",
   fechaOrigen:"2024-02-29T12:00:00Z",fechaPago:"2024-03-01T12:00:00Z",ahora
  }),true);
 });
+
+test("rechaza husos horarios fuera del máximo UTC 14 y conserva zona colombiana",()=>{
+ const origen="2026-10-01T12:00:00Z",ahora="2026-10-18T18:00:00Z";
+ for(const fechaPago of [
+  "2026-10-18T08:00:00+14:01",
+  "2026-10-18T08:00:00-14:30",
+  "2026-10-18T08:00:00+15:00",
+  "2026-10-18T08:00:00-23:59"
+ ]){
+  assert.throws(()=>validarFechaPagoVinculado({fechaOrigen:origen,fechaPago,ahora}),
+   e=>e.statusCode===400,fechaPago);
+ }
+ assert.equal(validarFechaPagoVinculado({
+  fechaOrigen:origen,fechaPago:"2026-10-18T08:00:00-05:00",ahora
+ }),true);
+});
