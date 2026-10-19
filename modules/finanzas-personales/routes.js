@@ -6,6 +6,13 @@ const loginSchema=Joi.object({email:Joi.string().email().max(254).required(),pas
 router.post("/auth/registro",authLimiter,validate(registroSchema),async(req,res)=>{try{return res.status(201).json({ok:true,...await personalAuthService.registrar(req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 router.post("/auth/login",authLimiter,validate(loginSchema),async(req,res)=>{try{return res.json({ok:true,...await personalAuthService.login(req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 router.use(auth,entitlement);
+// Las respuestas privadas no deben persistir en cachés del navegador ni de intermediarios.
+router.use((req,res,next)=>{
+ res.set("Cache-Control","private, no-store, max-age=0");
+ res.set("Pragma","no-cache");
+ res.set("Expires","0");
+ return next();
+});
 // V81: diagnóstico en solo lectura, con identidad obtenida exclusivamente del JWT personal verificado.
 // Esta ruta no permite escoger usuario por body, params, query ni headers.
 router.get("/v81/integridad",require("./services/consultaIntegridadV81.handler").crearConsultaIntegridadV81());
