@@ -224,3 +224,19 @@ test("ningún movimiento futuro puede incorporarse a Disponible Hoy desde el his
   require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
  assert.ok(source.includes("exigirFechasCajaNoFuturasPatrimonio(movimientosCaja);"));
 });
+
+test("snapshot rechaza cuentas inactivas o en moneda distinta de COP",()=>{
+ const {exigirCuentasCopPatrimonio}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const cuenta={_id:"507f1f77bcf86cd799439011",moneda:"COP",activa:true};
+ assert.equal(exigirCuentasCopPatrimonio([cuenta]),true);
+ assert.equal(exigirCuentasCopPatrimonio([]),true);
+ for(const invalida of [
+  {...cuenta,moneda:"USD"},{...cuenta,moneda:null},
+  {...cuenta,moneda:undefined},{...cuenta,activa:false},{...cuenta,activa:null}
+ ]){
+  assert.throws(()=>exigirCuentasCopPatrimonio([invalida]),e=>e.statusCode===409);
+ }
+ const source=require("node:fs").readFileSync(
+  require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ assert.ok(source.includes("exigirCuentasCopPatrimonio(cuentas);"));
+});
