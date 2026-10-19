@@ -200,8 +200,14 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   assert.equal(destinoFinal.saldoMinor,55000);
   assert.equal(origenFinal.saldoMinor+destinoFinal.saldoMinor,120000,"la transferencia conserva el total");
   assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),2);
-  // Completar la conciliación después de las transferencias no debe volver a sumar el dinero.
+  // Una ancla fechada antes de las transferencias no puede marcarse como verificada.
   const patrimonio=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+  await assert.rejects(()=>patrimonio.reconciliarCuenta(usuarioId,{cuentaId:origen._id,saldoMinor:65000,fecha:new Date("2026-10-01T00:00:00Z")}),e=>e.statusCode===409);
+  await assert.rejects(()=>patrimonio.reconciliarCuenta(usuarioId,{cuentaId:destino._id,saldoMinor:55000,fecha:new Date("2026-10-01T00:00:00Z")}),e=>e.statusCode===409);
+  assert.equal((await Cuenta.findById(origen._id)).requiereReconciliacion,true);
+  assert.equal((await Cuenta.findById(destino._id)).requiereReconciliacion,true);
+  assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"}),0);
+  // Completar la conciliación después de las transferencias no debe volver a sumar el dinero.
   await patrimonio.reconciliarCuenta(usuarioId,{cuentaId:origen._id,saldoMinor:65000,fecha:new Date()});
   await patrimonio.reconciliarCuenta(usuarioId,{cuentaId:destino._id,saldoMinor:55000,fecha:new Date()});
   const confirmado=await patrimonio.snapshot(usuarioId);
