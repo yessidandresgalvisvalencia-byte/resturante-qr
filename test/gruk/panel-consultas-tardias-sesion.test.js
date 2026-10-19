@@ -17,6 +17,6 @@ test("historial, borradores y chat rechazan respuestas tardias de otra identidad
   assert.ok(fn.includes(endpoint),"endpoint esperado: "+endpoint);
   assert.match(fn,/if\(!tokenConsulta\|\|token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return/);
   assert.match(fn,/catch\(e\)\{/);
-  assert.match(fn,/token===tokenConsulta/,"los avisos de error no deben aparecer en cuenta distinta");
+  assert.match(fn,/catch\(e\)\{(?:if\(!tokenConsulta\|\|token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return|if\(tokenConsulta&&token===tokenConsulta&&!\$\("app"\)\.hidden\))/,"los avisos de error no deben aparecer en cuenta distinta");
  }
 });
