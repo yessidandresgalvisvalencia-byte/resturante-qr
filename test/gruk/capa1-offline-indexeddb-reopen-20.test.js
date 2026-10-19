@@ -108,3 +108,24 @@ test("IndexedDB offline: 20 eventos siguen pendientes tras reabrir la app sin in
   await assert.rejects(appAfterRestart.putPending({ ...contextA, eventId: ids[0] }));
   assert.equal((await appAfterRestart.listPending(100, contextA)).length, 20);
 });
+
+test("Capa 2: serialized event may not rewrite tenant or ULID before IndexedDB persistence",async()=>{
+ const indexedDB=indexedDbHarness(),outbox=loadFreshOutbox(indexedDB);
+ const tenant={empresaId:"empresa-A",sedeId:"sede-1",actorId:"operador-1"};
+ const id="01ARZ3NDEKTSV4RRFFQ69G5FAV";
+ const originals=[
+  {eventId:id,...tenant,toJSON(){return {eventId:id,...tenant,empresaId:"empresa-B"};}},
+  {eventId:id,...tenant,toJSON(){return {eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAW",...tenant};}},
+  {eventId:id,...tenant,toJSON(){return null;}},
+  {eventId:id,...tenant,toJSON(){throw Error("SERIALIZATION_FAILED");}}
+ ];
+ for(const event of originals){
+  await assert.rejects(outbox.putPending(event),/OUTBOX_INVALID_EVENT_SNAPSHOT/);
+ }
+ assert.equal((await outbox.listPending(100,tenant)).length,0);
+ assert.equal((await outbox.listPending(100,{...tenant,empresaId:"empresa-B"})).length,0);
+ await outbox.putPending({eventId:id,...tenant});
+ const reopened=loadFreshOutbox(indexedDB);
+ assert.equal((await reopened.listPending(100,tenant)).length,1);
+ assert.equal((await reopened.listPending(100,{...tenant,empresaId:"empresa-B"})).length,0);
+});

@@ -64,6 +64,15 @@ async function run() {
     assert.equal(after.otherTenant, 0);
     assert.equal(after.duplicateRejected, true);
     assert.equal(after.countAfterDuplicate, 20);
+    // After browser restart, another tenant cannot acknowledge or hide these events.
+    const foreignAck = await page.evaluate(async ({tenantB,eventId}) => {
+      const api=globalThis.GRUKOfflineOutbox;
+      return {changed:await api.markReceived(eventId,tenantB),
+        foreignPending:(await api.listPending(100,tenantB)).length};
+    },{tenantB,eventId:ids[0]});
+    assert.deepEqual(foreignAck,{changed:false,foreignPending:0});
+    assert.equal((await page.evaluate(async tenant =>
+      (await globalThis.GRUKOfflineOutbox.listPending(100,tenant)).length,tenantA)),20);
 
     // Acknowledgment records must remain durable, without deleting local events.
     const received = await page.evaluate(async ({ tenant, eventId }) => {
