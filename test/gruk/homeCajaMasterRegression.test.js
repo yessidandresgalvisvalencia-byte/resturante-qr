@@ -164,3 +164,19 @@ test("una cuenta duplicada no puede contar dos veces su saldo anclado",()=>{
   e=>e.statusCode===409&&/identidad inválida/.test(e.message));
  assert.equal(saldoCuentasDesdeAnclas([cuenta],[]),100000);
 });
+
+test("la reconstrucción patrimonial nunca suma dos veces el mismo movimiento",()=>{
+ const {exigirMovimientosUnicosPatrimonio,saldoCuentasDesdeAnclas}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const cuenta={_id:"507f1f77bcf86cd799439011",nombre:"Nequi",
+  saldoAnclaMinor:100000,saldoAnclaEn:new Date("2026-10-01T05:00:00Z")};
+ const mov={_id:"507f1f77bcf86cd799439021",cuentaId:cuenta._id,
+  fecha:new Date("2026-10-02T05:00:00Z"),tipo:"INGRESO",montoMinor:5000,impactoCaja:true};
+ assert.equal(saldoCuentasDesdeAnclas([cuenta],[mov]),105000);
+ assert.throws(()=>saldoCuentasDesdeAnclas([cuenta],[mov,{...mov}]),
+  e=>e.statusCode===409&&/duplicados/.test(e.message));
+ assert.throws(()=>exigirMovimientosUnicosPatrimonio([{...mov,_id:null}],{exigirId:true}),
+  e=>e.statusCode===409&&/sin identidad/.test(e.message));
+ assert.throws(()=>exigirMovimientosUnicosPatrimonio([{...mov,_id:"inválido"}],{exigirId:true}),
+  e=>e.statusCode===409&&/identidad inválida/.test(e.message));
+ assert.equal(exigirMovimientosUnicosPatrimonio([mov],{exigirId:true}),true);
+});
