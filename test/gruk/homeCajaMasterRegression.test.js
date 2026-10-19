@@ -240,3 +240,15 @@ test("snapshot rechaza cuentas inactivas o en moneda distinta de COP",()=>{
   require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
  assert.ok(source.includes("exigirCuentasCopPatrimonio(cuentas);"));
 });
+
+test("un movimiento con el mismo instante del ancla exige conciliación",()=>{
+ const {saldoCuentasDesdeAnclas}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const ancla=new Date("2026-10-01T05:00:00.000Z");
+ const cuenta={_id:"507f1f77bcf86cd799439011",nombre:"Nequi",saldoAnclaMinor:100000,saldoAnclaEn:ancla};
+ const ingreso={_id:"507f1f77bcf86cd799439021",cuentaId:cuenta._id,
+  fecha:new Date(ancla),tipo:"INGRESO",montoMinor:5000,impactoCaja:true};
+ assert.throws(()=>saldoCuentasDesdeAnclas([cuenta],[ingreso]),
+  e=>e.statusCode===409&&/simultáneo/.test(e.message));
+ assert.equal(saldoCuentasDesdeAnclas([cuenta],[{...ingreso,fecha:new Date(ancla.getTime()-1)}]),100000);
+ assert.equal(saldoCuentasDesdeAnclas([cuenta],[{...ingreso,fecha:new Date(ancla.getTime()+1)}]),105000);
+});
