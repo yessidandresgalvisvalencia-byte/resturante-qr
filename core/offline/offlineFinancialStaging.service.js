@@ -5,6 +5,7 @@ const {stageOfflineSales}=require("./offlineSalesStaging.service");
 const {stageOfflineStockMovements}=require("./offlineStockStaging.service");
 const {stageOfflineCashIntents}=require("./offlineCashStaging.service");
 const {postOfflineLedgerBatch}=require("./offlineLedgerBatchPoster.service");
+const {calculateOfflineStockDeltas}=require("./offlineInventoryDeltas.service");
 function fail(){const e=new Error("OFFLINE_STAGING_TOTAL_CONFLICT");e.code=e.message;throw e;}
 async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDeltas,ledgerMovements}){
  if(session?.inTransaction?.()!==true)fail();
@@ -25,6 +26,17 @@ async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDelt
      !expected.has(movement.eventId)||movement.montoCop!==expected.get(movement.eventId))fail();
   matched.add(movement.eventId);
  }
+ // Stock evidence must match the verified order quantities before any journal
+ // writer is called; do not rely on a later writer to detect foreign products.
+ const expectedStock=calculateOfflineStockDeltas(plan);
+ if(!Array.isArray(inventoryDeltas)||inventoryDeltas.length!==expectedStock.length)fail();
+ const deltas=new Map();
+ for(const d of inventoryDeltas){
+  if(typeof d?.productoId!=="string"||deltas.has(d.productoId)||
+     typeof d.deltaUnidades!=="string")fail();
+  deltas.set(d.productoId,d.deltaUnidades);
+ }
+ if(expectedStock.some(d=>deltas.get(d.productoId)!==d.deltaUnidades))fail();
  const sales=await stageOfflineSales({db,session,context,plan});
  const stock=await stageOfflineStockMovements({db,session,context,plan,inventoryDeltas});
  const cash=await stageOfflineCashIntents({db,session,context,plan});
