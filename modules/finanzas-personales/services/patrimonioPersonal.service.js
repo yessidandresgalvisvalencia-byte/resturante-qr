@@ -320,17 +320,25 @@ async function retirarDeudaVisible(usuarioId,prestamoId){
   return resultado;
  }finally{await session.endSession();}
 }
+function normalizarIdCuentaTransferencia(id){
+ const valor=String(id??"");
+ if(!/^[0-9a-f]{24}$/i.test(valor))
+  throw Object.assign(new Error("Identificador de cuenta inválido"),{statusCode:400});
+ return valor.toLowerCase();
+}
 function validarReplayTransferenciaPersonal(evento,{origenId,destinoId,monto}){
  const p=evento?.payload;
  if(evento?.eventName!=="MOVIMIENTO_PATRIMONIAL"||p?.tipo!=="TRANSFERENCIA_PROPIA"||
-    p.origenId!==String(origenId)||p.destinoId!==String(destinoId)||p.montoMinor!==monto)
+    p.origenId!==normalizarIdCuentaTransferencia(origenId)||p.destinoId!==normalizarIdCuentaTransferencia(destinoId)||p.montoMinor!==monto)
   throw Object.assign(new Error("Referencia de transferencia reutilizada con datos diferentes"),{statusCode:409});
  return {duplicado:true,origenId:p.origenId,destinoId:p.destinoId,montoMinor:monto,requiereReconciliacion:true};
 }
 async function transferir(usuarioId,{origenId,destinoId,montoMinor,externalId}){
  const monto=safe(montoMinor);
  if(!monto)throw Object.assign(new Error("Monto debe ser mayor a cero"),{statusCode:400});
- if(String(origenId)===String(destinoId))throw Object.assign(new Error("Las cuentas deben ser diferentes"),{statusCode:400});
+ const origenCanonico=normalizarIdCuentaTransferencia(origenId);
+ const destinoCanonico=normalizarIdCuentaTransferencia(destinoId);
+ if(origenCanonico===destinoCanonico)throw Object.assign(new Error("Las cuentas deben ser diferentes"),{statusCode:400});
  if(typeof externalId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(externalId))
   throw Object.assign(new Error("Referencia de transferencia UUIDv4 requerida"),{statusCode:400});
  const secret=process.env.PERSONAL_IDEMPOTENCY_SECRET;
@@ -379,4 +387,4 @@ function sumaPatrimonialSegura(valores){
  return Number(total);
 }
 async function snapshot(usuarioId){const [cuentas,activos,prestamos]=await Promise.all([Cuenta.find({usuarioId,activa:true}).lean(),Activo.find({usuarioId}).lean(),Prestamo.find({usuarioId,estado:{$in:["ACTIVO","VENCIDO"]}}).lean()]);exigirCuentasCopPatrimonio(cuentas);const rows=await Transaccion.find({usuarioId,estado:{$ne:"ANULADA"},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA","PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO"]}}).select("estado moneda tipo montoMinor montoPagadoRealMinor impactoCaja medioPago fecha cuenta cuentaId").lean();exigirMovimientosActivosCopPatrimonio(rows);exigirMovimientosUnicosPatrimonio(rows,{exigirId:true});const movimientosCaja=rows.filter(x=>deltaCaja(x)!==0);exigirFechasCajaNoFuturasPatrimonio(movimientosCaja);const hayMovimientosLedger=movimientosCaja.length>0;const saldoDerivadoLedgerMinor=hayMovimientosLedger?saldoDesdeAncla(0,movimientosCaja):null;const {cuentasVerificadas,cuentasAncladas,anclaCompleta,saldoVerificado}=evaluarIntegridadAnclasPersonales(cuentas);let liquidez;if(anclaCompleta){liquidez=saldoCuentasDesdeAnclas(cuentasAncladas,movimientosCaja);}else if(cuentasVerificadas.length===0)liquidez=saldoDerivadoLedgerMinor??0;else liquidez=sumaPatrimonialSegura(cuentas.map(x=>x.saldoMinor));const activosNoLiquidos=sumaPatrimonialSegura(activos.filter(x=>!x.liquido).map(x=>x.valorMinor));const porCobrar=sumaPatrimonialSegura(prestamos.filter(x=>x.direccion==="POR_COBRAR").map(x=>x.saldoMinor));const porPagar=sumaPatrimonialSegura(prestamos.filter(x=>x.direccion==="POR_PAGAR").map(x=>x.saldoMinor));const activosTotales=sumaPatrimonialSegura([liquidez,activosNoLiquidos]);const patrimonioNeto=sumaPatrimonialSegura([activosTotales,porCobrar,-porPagar]);return{liquidezMinor:liquidez,activosNoLiquidosMinor:activosNoLiquidos,activosTotalesMinor:activosTotales,cuentasPorCobrarMinor:porCobrar,pasivosMinor:porPagar,patrimonioFinancieroNetoMinor:patrimonioNeto,cuentas,activos,prestamos,saldoDerivadoLedgerMinor,hayMovimientosLedger,saldoVerificado,cuentasVerificadas:cuentasVerificadas.map(x=>String(x._id)),fuenteLiquidez:anclaCompleta?"ANCLA_RECONCILIADA":(cuentasVerificadas.length===0?"LEDGER_DERIVADO":"CUENTAS_PARCIALMENTE_VERIFICADAS"),anclaCompleta}}
-module.exports={validarReplayTransferenciaPersonal,exigirSaldoCuentaSeguro,safeMontoPatrimonial:safe,exigirCuentasCopPatrimonio,exigirFechasCajaNoFuturasPatrimonio,sumaPatrimonialSegura,exigirMovimientosActivosCopPatrimonio,exigirMovimientosUnicosPatrimonio,evaluarIntegridadAnclasPersonales,deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,pagarCuotaCredito,deshacerUltimaCuotaCredito,corregirPrestamo,retirarDeudaVisible,transferir,snapshot};
+module.exports={normalizarIdCuentaTransferencia,validarReplayTransferenciaPersonal,exigirSaldoCuentaSeguro,safeMontoPatrimonial:safe,exigirCuentasCopPatrimonio,exigirFechasCajaNoFuturasPatrimonio,sumaPatrimonialSegura,exigirMovimientosActivosCopPatrimonio,exigirMovimientosUnicosPatrimonio,evaluarIntegridadAnclasPersonales,deltaCaja,saldoDesdeAncla,saldoCuentasDesdeAnclas,crearCuenta,reconciliarCuenta,crearPrestamo,cobrarCuentaPorCobrar,pagarCuotaCredito,deshacerUltimaCuotaCredito,corregirPrestamo,retirarDeudaVisible,transferir,snapshot};
