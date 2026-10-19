@@ -146,3 +146,47 @@ test("MongoDB real: reintento concurrente idempotente e aislamiento entre usuari
   await mongoose.disconnect();
  }
 });
+
+test("MongoDB real: transferencia propia simultánea aplica un solo débito y un solo outbox",{
+ skip:seguro?false:"Requiere MongoDB aislado y validado en loopback",timeout:60000
+},async()=>{
+ const crypto=require("node:crypto");
+ const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
+ const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");
+ const {transferir}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const usuarioId=new mongoose.Types.ObjectId();
+ const secretAnterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;
+ process.env.PERSONAL_IDEMPOTENCY_SECRET="gruk-v81-prueba-local-transferencia-no-produccion";
+ await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
+ try{
+  await Promise.all([Cuenta.init(),Outbox.init()]);
+  const [origen,destino]=await Cuenta.create([
+   {usuarioId,nombre:"ORIGEN-"+crypto.randomUUID(),tipo:"AHORROS",moneda:"COP",activa:true,saldoMinor:100000,
+    saldoAnclaMinor:100000,saldoAnclaEn:new Date("2026-10-01T00:00:00Z"),saldoVerificadoEn:new Date("2026-10-01T00:00:00Z"),requiereReconciliacion:false},
+   {usuarioId,nombre:"DESTINO-"+crypto.randomUUID(),tipo:"AHORROS",moneda:"COP",activa:true,saldoMinor:20000,
+    saldoAnclaMinor:20000,saldoAnclaEn:new Date("2026-10-01T00:00:00Z"),saldoVerificadoEn:new Date("2026-10-01T00:00:00Z"),requiereReconciliacion:false}
+  ]);
+  const args={origenId:origen._id,destinoId:destino._id,montoMinor:30000,externalId:crypto.randomUUID()};
+  const simultaneas=await Promise.allSettled([transferir(usuarioId,args),transferir(usuarioId,args)]);
+  assert.ok(simultaneas.some(x=>x.status==="fulfilled"),"al menos un envío confirma");
+  const repetido=await transferir(usuarioId,args);
+  assert.equal(repetido.duplicado,true);
+  const [o,d]=await Promise.all([Cuenta.findById(origen._id).lean(),Cuenta.findById(destino._id).lean()]);
+  assert.equal(o.saldoMinor,70000);
+  assert.equal(d.saldoMinor,50000);
+  assert.equal(o.requiereReconciliacion,true);
+  assert.equal(d.requiereReconciliacion,true);
+  const eventos=await Outbox.find({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}).lean();
+  assert.equal(eventos.length,1);
+  assert.equal(eventos[0].payload.montoMinor,30000);
+  await assert.rejects(()=>transferir(usuarioId,{...args,montoMinor:30001}),e=>e.statusCode===409);
+  assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),1);
+  assert.equal((await Cuenta.findById(origen._id)).saldoMinor,70000);
+ }finally{
+  await Outbox.deleteMany({usuarioId});
+  await Cuenta.deleteMany({usuarioId});
+  await mongoose.disconnect();
+  if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
+  else process.env.PERSONAL_IDEMPOTENCY_SECRET=secretAnterior;
+ }
+});
