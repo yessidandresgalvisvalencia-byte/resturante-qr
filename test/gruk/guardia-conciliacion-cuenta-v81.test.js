@@ -29,9 +29,9 @@ test("registro nuevo siempre vincula cuenta antes del asiento",()=>{
 
 test("un huérfano confirmado para otra cuenta no bloquea esta conciliación",()=>{
  const {filtrarHuerfanosSinResolver}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
- const filas=[{_id:"m-1",cuenta:"Nequi",cuentaId:null},
-              {_id:"m-2",cuenta:"Nequi",cuentaId:null}];
- const vinculados=[{movimientoId:"m-1",cuentaId:"otra-cuenta"}];
+ const filas=[{_id:"507f1f77bcf86cd799439011",cuenta:"Nequi",cuentaId:null},
+              {_id:"507f1f77bcf86cd799439012",cuenta:"Nequi",cuentaId:null}];
+ const vinculados=[{movimientoId:"507f1f77bcf86cd799439011",cuentaId:"507f1f77bcf86cd799439013"}];
  assert.deepEqual(filtrarHuerfanosSinResolver(filas,vinculados),[filas[1]]);
  assert.throws(()=>exigirSinMovimientosHuerfanos({
   cuenta,filas:filtrarHuerfanosSinResolver(filas,vinculados)
@@ -49,4 +49,19 @@ test("períodos inválidos se rechazan sin acceder a saldos",()=>{
  }
  for(const fecha of ["2024-02-29","2026-02-28","2026-12-31","2026-01-01"])
   assert.equal(fechaCalendarioValidaV81(fecha),true,fecha);
+});
+
+test("asociaciones incompletas no ocultan un movimiento huérfano",()=>{
+ const {filtrarHuerfanosSinResolver}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+ const movimiento={_id:"507f1f77bcf86cd799439011",cuenta:"Nequi",cuentaId:null};
+ for(const vinculo of [
+  {movimientoId:movimiento._id,cuentaId:null},
+  {movimientoId:movimiento._id},
+  {movimientoId:movimiento._id,cuentaId:"cuenta-invalida"},
+  {movimientoId:"invalido",cuentaId:"507f1f77bcf86cd799439013"}
+ ]){
+  const sinResolver=filtrarHuerfanosSinResolver([movimiento],[vinculo]);
+  assert.deepEqual(sinResolver,[movimiento]);
+  assert.throws(()=>exigirSinMovimientosHuerfanos({cuenta,filas:sinResolver}),e=>e.statusCode===409);
+ }
 });
