@@ -14,6 +14,18 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
  if(!SHA.test(conflictId||""))fail("OFFLINE_CONFLICT_INVALID_ID");
  if(typeof db?.collection!=="function"||typeof objectId!=="function")
   fail("OFFLINE_CONFLICT_DATABASE_UNAVAILABLE");
+ // Verify all conversions before reading stock; an adapter must not redirect tenant/product scope.
+ const asId=value=>{
+  let converted;
+  try{
+   converted=objectId(value);
+   if(converted===null||converted===undefined||
+      String(converted).toLowerCase()!==value.toLowerCase())
+     fail("OFFLINE_CONFLICT_INVALID_STOCK_PLAN");
+  }catch(_error){fail("OFFLINE_CONFLICT_INVALID_STOCK_PLAN");}
+  return converted;
+ };
+ const scopedEmpresa=asId(auth.empresaId),scopedSede=asId(auth.sedeId);
  const tenant={empresaId:auth.empresaId,sedeId:auth.sedeId};
  const source=await db.collection("gruk_offline_stock_conflicts").findOne({
   _id:conflictId,...tenant,status:"REQUIERE_REVISION",applied:false,cobrado:false
@@ -39,13 +51,20 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
   throw error;
  }
  const deltas=calculateOfflineStockDeltas(prepared);
+ // Check every product conversion before the first inventory lookup.
+ const convertedProducts=deltas.map(delta=>{
+  if(typeof delta?.productoId!=="string"||!HEX.test(delta.productoId)||
+     typeof delta.deltaUnidades!=="string"||!/^-\d+$/.test(delta.deltaUnidades))
+    fail("OFFLINE_CONFLICT_INVALID_STOCK_PLAN");
+  return asId(delta.productoId);
+ });
  const products=[];
- for(const delta of deltas){
+ for(const [index,delta] of deltas.entries()){
   if(!HEX.test(delta.productoId)||!/^-\d+$/.test(delta.deltaUnidades))
    fail("OFFLINE_CONFLICT_INVALID_STOCK_PLAN");
   const rows=await db.collection("inventarios").find({
-   empresaId:objectId(auth.empresaId),sedeId:objectId(auth.sedeId),
-   productoServicioId:objectId(delta.productoId),anulado:false
+   empresaId:scopedEmpresa,sedeId:scopedSede,
+   productoServicioId:convertedProducts[index],anulado:false
   },{projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1},limit:2}).toArray();
   const requested=-BigInt(delta.deltaUnidades);
   if(!Array.isArray(rows)||rows.length!==1||
