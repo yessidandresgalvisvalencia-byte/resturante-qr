@@ -35,7 +35,7 @@ function exigirMovimientosActivosCopPatrimonio(movimientos){
  for(const m of movimientos){
   // Documentos históricos pueden omitir campos que el esquema define por defecto.
   // Nunca aceptar un estado o moneda explícitamente inconsistente.
-  if(!m||(m.estado!=null&&m.estado!=="ACTIVA")||(m.moneda!=null&&m.moneda!=="COP"))
+  if(!m||(m.estado!==undefined&&m.estado!=="ACTIVA")||(m.moneda!==undefined&&m.moneda!=="COP"))
    throw Object.assign(new Error("Movimiento con estado o moneda inconsistente; requiere conciliación"),{statusCode:409});
  }
  return true;
