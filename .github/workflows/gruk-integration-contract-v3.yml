@@ -1,0 +1,21 @@
+name: GRUK Integration Contract V3
+on:
+  push:
+    branches:
+      - integration/finanzas-personales-safe-20261018-v3
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Verify app syntax
+        run: node --check app.js
+      - name: Verify enterprise compatibility contracts
+        run: node --test test/gruk/integration-health-contract.test.js
