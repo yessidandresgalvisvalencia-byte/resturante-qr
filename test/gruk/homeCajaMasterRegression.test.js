@@ -334,3 +334,17 @@ test("transferencia propia exige clave idempotente y detecta replay con conflict
  assert.ok(service.includes("const repetido=await Outbox.findOne({usuarioId,eventId})"));
  assert.ok(routes.includes('externalId:Joi.string().guid({version:"uuidv4"}).required()'));
 });
+
+test("outbox admite el evento que genera reconciliarCuenta dentro de transacción",()=>{
+ const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");
+ const evento=new Outbox({
+  usuarioId:"507f1f77bcf86cd799439011",
+  aggregateId:"507f1f77bcf86cd799439012",
+  aggregateType:"CUENTA_FINANCIERA_PERSONAL",
+  eventId:"test-reconciliacion-cuenta-v81",
+  eventName:"SALDO_CUENTA_RECONCILIADO",
+  payload:{cuentaId:"507f1f77bcf86cd799439012",saldoMinor:120000,
+    saldoAnclaEn:"2026-10-01T00:00:00.000Z",origenSaldo:"USUARIO"}
+ });
+ assert.equal(evento.validateSync(),undefined);
+});
