@@ -9,7 +9,8 @@ function calculateOfflineStockDeltas(prepared){
   if(!order||!Array.isArray(order.items)||order.items.length<1)invalid();
   for(const item of order.items){
    if(!item||typeof item.productoId!=="string"||!/^[A-Za-z0-9_-]{1,80}$/.test(item.productoId)||
-      typeof item.cantidad!=="string"||!/^[1-9][0-9]*$/.test(item.cantidad))invalid();
+      typeof item.cantidad!=="string"||item.cantidad.length>16||
+      !/^[1-9][0-9]*$/.test(item.cantidad))invalid();
    const delta=BigInt(item.cantidad);
    if(delta>BigInt(Number.MAX_SAFE_INTEGER))invalid();
    const sum=(totals.get(item.productoId)||0n)+delta;
