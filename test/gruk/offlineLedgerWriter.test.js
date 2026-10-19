@@ -61,3 +61,39 @@ test("E11000 no consulta una transacción abortada ni confunde colisión con éx
   e=>e.code==="OFFLINE_LEDGER_CONCURRENT_RETRY_REQUIRED");
  assert.equal(findCount,0);
 });
+
+test("Capa 2: ledger replay rejects cross-tenant or altered persisted identity",async()=>{
+ for(const patch of [
+  {empresaId:"empresa-ajena"},{sedeId:"sede-ajena"},
+  {eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1"},{tipo:"AJUSTE"},
+  {actorId:"actor-ajeno"},{empresaId:undefined},{sedeId:undefined},
+  {eventId:undefined},{tipo:undefined},{deletedAt:new Date()}
+ ]){
+  let writes=0;
+  const session={inTransaction:()=>true};
+  const db={collection(name){
+   assert.equal(name,"gruk_ledger_movimientos");
+   return {
+    async indexes(){return [{name:"uniq_offline_ledger_event_type_tenant",unique:true,
+      key:{empresaId:1,sedeId:1,eventId:1,tipo:1}}];},
+    async updateOne(key,update,opts){
+     assert.equal(opts.session,session);
+     assert.equal(key.empresaId,context.empresaId);
+     assert.equal(key.sedeId,context.sedeId);
+     writes++;
+     return {upsertedCount:0};
+    },
+    async findOne(key,opts){
+     assert.equal(opts.session,session);
+     for(const field of ["empresaId","sedeId","eventId","tipo"])
+      assert.equal(opts.projection[field],1);
+     return {...key,actorId:context.actorId,montoCop:movement.montoCop,
+      deletedAt:null,...patch};
+    }
+   };
+  }};
+  await assert.rejects(append({db,session,context,eventId,movement}),
+    {code:"OFFLINE_LEDGER_REPLAY_CONFLICT"});
+  assert.equal(writes,1);
+ }
+});

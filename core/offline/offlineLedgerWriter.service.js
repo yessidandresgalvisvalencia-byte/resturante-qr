@@ -35,8 +35,10 @@ async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
    throw err;
  }
  if(!inserted){
-   const prior=await collection.findOne(key,{session,projection:{actorId:1,montoCop:1,deletedAt:1}});
-   if(!prior||prior.actorId!==context.actorId||prior.montoCop!==movement.montoCop||prior.deletedAt!==null)
+   const prior=await collection.findOne(key,{session,projection:{empresaId:1,sedeId:1,eventId:1,tipo:1,actorId:1,montoCop:1,deletedAt:1}});
+   if(!prior||prior.empresaId!==key.empresaId||prior.sedeId!==key.sedeId||
+     prior.eventId!==key.eventId||prior.tipo!==key.tipo||
+     prior.actorId!==context.actorId||prior.montoCop!==movement.montoCop||prior.deletedAt!==null)
      throw error("OFFLINE_LEDGER_REPLAY_CONFLICT");
  }
  return Object.freeze({eventId,tipo:movement.tipo,inserted});
