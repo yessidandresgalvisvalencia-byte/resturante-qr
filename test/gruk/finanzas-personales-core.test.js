@@ -503,3 +503,23 @@ test("snapshot recupera banderas reales de caja y pagos efectivamente realizados
   tipo:"GASTO",montoMinor:12500,medioPago:"CREDITO",impactoCaja:true
  }),0);
 });
+
+test("movimientos sin fecha o con fecha inválida bloquean saldo anclado",()=>{
+ const cuenta={_id:"507f1f77bcf86cd799439011",nombre:"Nequi",
+  saldoAnclaMinor:100000,saldoAnclaEn:new Date("2026-10-01T05:00:00Z")};
+ const ingreso={cuentaId:cuenta._id,cuenta:"Nequi",tipo:"INGRESO",
+  montoMinor:1000,medioPago:"TRANSFERENCIA",impactoCaja:true};
+ for(const fecha of [undefined,null,new Date("fecha-invalida"),"no-es-fecha"]){
+  assert.throws(
+   ()=>patrimonioPersonal.saldoCuentasDesdeAnclas([cuenta],[{...ingreso,fecha}]),
+   e=>e.statusCode===409,
+   String(fecha)
+  );
+ }
+ assert.equal(patrimonioPersonal.saldoCuentasDesdeAnclas([cuenta],[
+  {...ingreso,fecha:new Date("2026-09-30T05:00:00Z")}
+ ]),100000);
+ assert.equal(patrimonioPersonal.saldoCuentasDesdeAnclas([cuenta],[
+  {...ingreso,fecha:new Date("2026-10-02T05:00:00Z")}
+ ]),101000);
+});
