@@ -21,6 +21,8 @@ jobs:
         run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main +refs/heads/feature/finanzas-personales:refs/remotes/origin/feature/finanzas-personales
       - name: Report package differences without merging
         run: node scripts/audit-finanzas-package-compat.js
+      - name: Verify manifest comparison tests
+        run: node --test test/gruk/integration-package-compat.test.js
       - name: Ensure enterprise lockfile remains reproducible
         run: npm ci --ignore-scripts
       - name: Verify enterprise app syntax and integration script
