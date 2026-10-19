@@ -272,6 +272,42 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   const eventosConcurrentes=await Outbox.find({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO",
    aggregateId:cuentaConcurrente._id}).lean();
   assert.equal(eventosConcurrentes.length,1,"no pueden existir dos certificaciones contables simultáneas");
+  // Carrera entre transferencia y conciliación: nunca se declara verificado un saldo
+  // cuya cuenta ya recibió una transferencia posterior a la fecha verificada.
+  const [origenCarrera,destinoCarrera]=await Cuenta.create([
+   {usuarioId,nombre:"CARRERA-ORIGEN-"+crypto.randomUUID(),tipo:"AHORROS",
+    moneda:"COP",saldoMinor:50000,requiereReconciliacion:true},
+   {usuarioId,nombre:"CARRERA-DESTINO-"+crypto.randomUUID(),tipo:"AHORROS",
+    moneda:"COP",saldoMinor:5000,requiereReconciliacion:true}
+  ]);
+  const fechaVerificacionCarrera=new Date(Date.now()-3000);
+  const transferirCarrera={origenId:origenCarrera._id,destinoId:destinoCarrera._id,
+   montoMinor:10000,externalId:crypto.randomUUID()};
+  const carrera=await Promise.allSettled([
+   transferir(usuarioId,transferirCarrera),
+   patrimonio.reconciliarCuenta(usuarioId,{cuentaId:origenCarrera._id,
+    saldoMinor:50000,fecha:fechaVerificacionCarrera})
+  ]);
+  const [transferenciaResultado,conciliacionResultado]=carrera;
+  assert.ok(carrera.some(r=>r.status==="fulfilled"),"alguna operación concurrente debe finalizar");
+  const [origenTrasCarrera,destinoTrasCarrera]=await Promise.all([
+   Cuenta.findById(origenCarrera._id).lean(),Cuenta.findById(destinoCarrera._id).lean()]);
+  const transferenciaAplicada=transferenciaResultado.status==="fulfilled";
+  assert.equal(origenTrasCarrera.saldoMinor,transferenciaAplicada?40000:50000);
+  assert.equal(destinoTrasCarrera.saldoMinor,transferenciaAplicada?15000:5000);
+  assert.equal(origenTrasCarrera.saldoMinor+destinoTrasCarrera.saldoMinor,55000,
+   "la carrera no debe crear ni destruir dinero");
+  if(transferenciaAplicada){
+   assert.equal(origenTrasCarrera.requiereReconciliacion,true,
+    "no se puede certificar un saldo anterior a una transferencia confirmada");
+   assert.equal(destinoTrasCarrera.requiereReconciliacion,true);
+  }else if(conciliacionResultado.status==="fulfilled"){
+   assert.equal(origenTrasCarrera.requiereReconciliacion,false);
+  }
+  assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA",
+   aggregateId:origenCarrera._id}),transferenciaAplicada?1:0);
+  assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO",
+   aggregateId:origenCarrera._id}),conciliacionResultado.status==="fulfilled"?1:0);
   // Una cuenta antigua corrupta en USD no puede mezclarse con caja COP.
   await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"USD"}});
   await assert.rejects(
