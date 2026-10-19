@@ -101,7 +101,12 @@ test("Capa 2: financial journal attestation rejects foreign event/product and ma
   [1,{records:[{productoId:"507f1f77bcf86cd799439012",inserted:true}]}],
   [2,{totalCop:"3000",records:[{eventId:id,inserted:"true"}]}],
   [3,{totalCop:"3000",entries:[{eventId:id,tipo:"OTRO",inserted:true}]}],
-  [3,{totalCop:"3000",entries:[{eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1",tipo:"VENTA_OFFLINE",inserted:true}]}]
+  [3,{totalCop:"3000",entries:[{eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1",tipo:"VENTA_OFFLINE",inserted:true}]}],
+  // Each journal must reject a missing array slot, not silently skip it.
+  [0,{totalCop:"3000",records:new Array(1)}],
+  [1,{records:new Array(1)}],
+  [2,{totalCop:"3000",records:new Array(1)}],
+  [3,{totalCop:"3000",entries:new Array(1)}]
  ];
  try{
   for(const [replaceIndex,poisoned] of cases){

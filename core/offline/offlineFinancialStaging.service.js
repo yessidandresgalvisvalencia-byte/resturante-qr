@@ -51,12 +51,16 @@ async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDelt
  // matching total counts; otherwise one journal could contain a foreign event.
  const matches=(records,ids,field)=>{
   const requested=new Set(ids),seen=new Set();
-  return records.every(record=>{
-   const id=record?.[field];
+  if(records.length!==ids.length)return false;
+  for(let index=0;index<records.length;index++){
+   // Array.every and Array.some skip holes; a missing journal record is never proof.
+   if(!Object.hasOwn(records,index))return false;
+   const record=records[index],id=record?.[field];
    if(typeof id!=="string"||!requested.has(id)||seen.has(id)||
       typeof record.inserted!=="boolean")return false;
-   seen.add(id);return true;
-  });
+   seen.add(id);
+  }
+  return seen.size===requested.size;
  };
  const eventIds=plan.orders.map(order=>order.eventId);
  if(!matches(sales.records,eventIds,"eventId")||
