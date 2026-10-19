@@ -82,3 +82,30 @@ test("status rejects malformed authenticated identity consistently", async () =>
   }), /OFFLINE_AUTH_REQUIRED/);
   assert.equal(touched, false);
 });
+
+test("Capa 2: rejects forged or missing inbox states before replying to tablets",async()=>{
+ for(const status of ["COBRADO","OTRA_EMPRESA","__proto__",undefined,null]){
+  const db={collection(name){return {find(query,options){
+   assert.equal(query.empresaId,context.empresaId);
+   assert.equal(query.sedeId,context.sedeId);
+   if(name==="gruk_offline_inbox")assert.equal(query.actorId,context.actorId);
+   return {toArray:async()=>name==="gruk_offline_inbox"?
+    [{...context,eventId:ids[0],status,inventoryApplied:false}]:[]};
+  }};}};
+  await assert.rejects(readOfflineStatuses({db,context,eventIds:[ids[0]]}),
+   {code:"OFFLINE_STATUS_EVIDENCE_INVALID"});
+ }
+});
+test("Capa 2: rejected orders are reported without falsely acknowledging inventory",async()=>{
+ const db={collection(name){return {find:()=>({toArray:async()=>name==="gruk_offline_inbox"?
+  [{...context,eventId:ids[0],status:"RECHAZADO",inventoryApplied:false}]:[]})};}};
+ assert.deepEqual(await readOfflineStatuses({db,context,eventIds:[ids[0]]}),
+  [{eventId:ids[0],status:"RECHAZADO",applied:false}]);
+});
+
+test("Capa 2: NO_ENCONTRADO cannot acknowledge an offline event as applied",async()=>{
+ const db={collection(name){return {find:()=>({toArray:async()=>name==="gruk_offline_inbox"?
+  [{...context,eventId:ids[0],status:"NO_ENCONTRADO",inventoryApplied:true}]:[]})};}};
+ assert.deepEqual(await readOfflineStatuses({db,context,eventIds:[ids[0]]}),
+  [{eventId:ids[0],status:"NO_ENCONTRADO",applied:false}]);
+});
