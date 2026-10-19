@@ -308,7 +308,7 @@ test("transferencia propia audita ambas cuentas e invalida anclas sin crear ingr
  assert.ok(transfer.includes('eventName:"MOVIMIENTO_PATRIMONIAL"'));
  assert.ok(transfer.includes('aggregateType:"TRANSFERENCIA_PROPIA"'));
  assert.ok(transfer.includes('origenId:String(origen._id),destinoId:String(destino._id),montoMinor:monto'));
- assert.ok(transfer.includes("},{session})"));
+ assert.ok(transfer.includes("}],{session})"));
  assert.ok(!transfer.includes("Transaccion.create("),"la transferencia propia no debe disfrazarse de ingreso ni gasto");
  assert.ok(transfer.includes("requiereReconciliacion:true};"));
 });
