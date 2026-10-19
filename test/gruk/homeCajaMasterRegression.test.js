@@ -252,3 +252,17 @@ test("un movimiento con el mismo instante del ancla exige conciliación",()=>{
  assert.equal(saldoCuentasDesdeAnclas([cuenta],[{...ingreso,fecha:new Date(ancla.getTime()-1)}]),100000);
  assert.equal(saldoCuentasDesdeAnclas([cuenta],[{...ingreso,fecha:new Date(ancla.getTime()+1)}]),105000);
 });
+
+test("montos monetarios no admiten coerción y convierten texto decimal entero exactamente",()=>{
+ const {safeMontoPatrimonial}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ assert.equal(safeMontoPatrimonial(1000),1000);
+ assert.equal(safeMontoPatrimonial("1000"),1000);
+ assert.equal(safeMontoPatrimonial("0001000"),1000);
+ assert.equal(safeMontoPatrimonial("9007199254740991"),Number.MAX_SAFE_INTEGER);
+ for(const monto of [null,false,true,{},[],1.5,NaN,Infinity,-1,"-1","1.5","1e3"," 1000","1000 ","9007199254740992"]){
+  assert.throws(()=>safeMontoPatrimonial(monto),e=>e.statusCode===400,String(monto));
+ }
+ const source=require("node:fs").readFileSync(
+  require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ assert.ok(source.includes("data.saldoMinor===undefined?0:data.saldoMinor"));
+});
