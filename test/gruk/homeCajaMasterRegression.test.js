@@ -153,3 +153,14 @@ test("cuentas inexistentes o inactivas bloquean saldos anclados en vez de desapa
  assert.equal(saldoCuentasDesdeAnclas(cuentas,[{...movimiento,
   cuentaId:"507f1f77bcf86cd799439012",fecha:new Date("2026-09-30T05:00:00Z")}]),100000);
 });
+
+test("una cuenta duplicada no puede contar dos veces su saldo anclado",()=>{
+ const {saldoCuentasDesdeAnclas}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const cuenta={_id:"507f1f77bcf86cd799439011",nombre:"Nequi",
+  saldoAnclaMinor:100000,saldoAnclaEn:new Date("2026-10-01T05:00:00Z")};
+ assert.throws(()=>saldoCuentasDesdeAnclas([cuenta,{...cuenta}],[]),
+  e=>e.statusCode===409&&/duplicadas/.test(e.message));
+ assert.throws(()=>saldoCuentasDesdeAnclas([{...cuenta,_id:"invalido"}],[]),
+  e=>e.statusCode===409&&/identidad inválida/.test(e.message));
+ assert.equal(saldoCuentasDesdeAnclas([cuenta],[]),100000);
+});
