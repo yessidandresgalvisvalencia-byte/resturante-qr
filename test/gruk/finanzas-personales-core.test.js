@@ -492,7 +492,7 @@ test("ningún movimiento con monto corrupto desaparece del cálculo de caja",()=
 test("snapshot recupera banderas reales de caja y pagos efectivamente realizados",()=>{
  const fs=require("node:fs");
  const source=fs.readFileSync(require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
- assert.match(source,/\.select\("tipo montoMinor montoPagadoRealMinor impactoCaja medioPago fecha cuenta cuentaId"\)\.lean\(\)/);
+ assert.match(source,/\.select\("estado moneda tipo montoMinor montoPagadoRealMinor impactoCaja medioPago fecha cuenta cuentaId"\)\.lean\(\)/);
  assert.equal(patrimonioPersonal.deltaCaja({
   tipo:"PAGO_DEUDA",montoMinor:5000,montoPagadoRealMinor:6500,impactoCaja:false
  }),0);
@@ -541,4 +541,22 @@ test("saldo anclado y ledger derivado rechazan desbordamiento en cualquier paso"
  const source=require("node:fs").readFileSync(
   require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
  assert.ok(source.includes("saldoDerivadoLedgerMinor=hayMovimientosLedger?saldoDesdeAncla(0,movimientosCaja):null"));
+});
+
+test("snapshot patrimonial rechaza movimientos con estado o moneda corruptos",()=>{
+ const {exigirMovimientosActivosCopPatrimonio}=patrimonioPersonal;
+ assert.equal(exigirMovimientosActivosCopPatrimonio([{estado:"ACTIVA",moneda:"COP"}]),true);
+ for(const movimiento of [
+  {estado:"ANULADA",moneda:"COP"},
+  {estado:"PENDIENTE",moneda:"COP"},
+  {estado:"ACTIVA",moneda:"USD"},
+  {estado:"ACTIVA",moneda:null},
+  {estado:null,moneda:"COP"}
+ ]){
+  assert.throws(()=>exigirMovimientosActivosCopPatrimonio([movimiento]),
+   e=>e.statusCode===409);
+ }
+ const source=require("node:fs").readFileSync(
+  require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ assert.ok(source.includes("exigirMovimientosActivosCopPatrimonio(rows);"));
 });
