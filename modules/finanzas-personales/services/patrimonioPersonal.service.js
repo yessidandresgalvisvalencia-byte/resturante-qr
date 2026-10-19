@@ -13,7 +13,13 @@ function evaluarIntegridadAnclasPersonales(cuentas){
   fechaContableValidaPersonal(x.saldoAnclaEn)&&
   x.requiereReconciliacion===false);
  const anclaCompleta=cuentas.length>0&&cuentasAncladas.length===cuentas.length;
- const saldoVerificado=anclaCompleta&&cuentasVerificadas.length===cuentas.length;
+ // No certificar un saldo con una verificación anterior a la última ancla.
+ // La reconciliación real escribe ambas marcas en el mismo instante.
+ const fechasCoherentes=cuentas.every(x=>x&&
+  fechaContableValidaPersonal(x.saldoVerificadoEn)&&
+  fechaContableValidaPersonal(x.saldoAnclaEn)&&
+  x.saldoVerificadoEn.getTime()>=x.saldoAnclaEn.getTime());
+ const saldoVerificado=anclaCompleta&&cuentasVerificadas.length===cuentas.length&&fechasCoherentes;
  return {cuentasVerificadas,cuentasAncladas,anclaCompleta,saldoVerificado};
 }
 function exigirMovimientosActivosCopPatrimonio(movimientos){
