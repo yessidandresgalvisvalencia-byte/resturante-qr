@@ -122,3 +122,17 @@ test("Capa 2: invalid or throwing converters are rejected before stock lookup",a
   assert.equal(stockReads,0);
  }
 });
+
+test("Capa 2: spoofed object tenant IDs are rejected before conflict DB access",async()=>{
+ const fake=value=>({toString:()=>value});
+ for(const field of ["empresaId","sedeId"]){
+  for(const invalid of [fake(auth[field]),null,undefined,123,[],{}]){
+   let reads=0,conversions=0;
+   const db={collection(){reads++;throw Error("FORBIDDEN_DB_READ");}};
+   await assert.rejects(preflight({db,auth:{...auth,[field]:invalid},conflictId,
+     objectId:()=>{conversions++;throw Error("FORBIDDEN_OBJECT_ID");}}),
+     {code:"OFFLINE_CONFLICT_PERMISSION_DENIED"});
+   assert.equal(reads,0);assert.equal(conversions,0);
+  }
+ }
+});
