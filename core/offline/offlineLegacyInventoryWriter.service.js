@@ -45,7 +45,10 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
    productoServicioId:scopedProducts[index],anulado:false};
   const inventory=db.collection("inventarios");
   const existing=await inventory.find(key,{session,projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1}}).limit(2).toArray();
-  if(existing.length!==1||!owned(existing[0],context,delta.productoId))
+  if(!Array.isArray(existing)||existing.length!==1||
+     existing[0]?._id===null||existing[0]?._id===undefined||
+     String(existing[0]._id).trim().length===0||
+     !owned(existing[0],context,delta.productoId))
    fail("OFFLINE_INVENTORY_MAPPING_AMBIGUOUS");
   const old=existing[0].cantidad;
   if(!Number.isSafeInteger(old)||old<0)fail("OFFLINE_INVENTORY_QUANTITY_UNSUPPORTED");
