@@ -27,6 +27,8 @@ function saldoCuentasDesdeAnclas(cuentas,movimientos){
  });
  const primeraAncla=anclas.length?Math.min(...anclas):null;
  const idsActivos=new Set(cuentas.map(c=>String(c._id)));
+ if(idsActivos.size!==cuentas.length||cuentas.some(c=>!mongoose.isValidObjectId(c?._id)))
+  throw Object.assign(new Error("Cuentas de conciliación duplicadas o con identidad inválida"),{statusCode:409});
  for(const movimiento of movimientos){
   if(movimiento?.fecha==null)
    throw Object.assign(new Error("Movimiento sin fecha; requiere conciliación"),{statusCode:409});
