@@ -65,3 +65,33 @@ test("Capa 2: corrupted resolution never certifies retry idempotency",async()=>{
   assert.equal(f.reads,2);
  }
 });
+
+test("Capa 2: replay cannot declare an already reconciled cash event unpaid",async()=>{
+ const base={_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,
+  actorId:"operator",status:"STAGED",eventIds:[eventId],applied:false,cobrado:false};
+ let writes=0,queries=0;
+ const key={empresaId:auth.empresaId,sedeId:auth.sedeId,actorId:"operator",eventId};
+ const rows={
+  gruk_offline_inbox:[{...key,status:"EN_REVISION",inventoryApplied:true}],
+  gruk_offline_ventas:[{...key,status:"CONTABILIZADA",totalCop:"3000"}],
+  gruk_offline_caja_intenciones:[{...key,status:"CONCILIADO",montoCop:"3000",cobrado:true}],
+  gruk_ledger_movimientos:[{...key,tipo:"VENTA_OFFLINE",montoCop:"3000",deletedAt:null}]
+ };
+ const db={client:{startSession(){throw Error("UNEXPECTED_TRANSACTION");}},
+  collection(name){
+   if(name==="gruk_offline_stock_conflicts")return {async findOne(){return source;}};
+   if(name==="gruk_offline_stock_resolutions")return {async findOne(){return base;}};
+   if(Object.hasOwn(rows,name))return {find(q){
+    queries++;
+    assert.equal(q.empresaId,auth.empresaId);
+    assert.equal(q.sedeId,auth.sedeId);
+    return {toArray:async()=>rows[name]};
+   }};
+   writes++;throw Error("UNEXPECTED_WRITE");
+  }};
+ await assert.rejects(retryOfflineConflict(args(db)),{
+  code:"OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT"
+ });
+ assert.equal(queries,4);
+ assert.equal(writes,0);
+});
