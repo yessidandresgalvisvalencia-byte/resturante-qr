@@ -134,3 +134,14 @@ test("Capa 2: COP pricing rejects tenant and product IDs spoofed through toStrin
   assert.equal(reads,0);assert.equal(conversions,0);
  }
 });
+
+test("Capa 2: extremely long COP prices are rejected before Mongo access",async()=>{
+ for(const price of ["9".repeat(10000),"1".repeat(10000)+"x","0".repeat(10000)]){
+  let reads=0,conversions=0;
+  const database={collection(){reads++;throw Error("FORBIDDEN_DB_READ");}};
+  await assert.rejects(verify({db:database,session,context:ctx,plan:plan(price),
+   objectId:()=>{conversions++;throw Error("FORBIDDEN_CONVERSION");}}),
+   {code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+  assert.equal(reads,0);assert.equal(conversions,0);
+ }
+});
