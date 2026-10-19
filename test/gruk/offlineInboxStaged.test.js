@@ -4,12 +4,14 @@ const {markOfflineStagedInTransaction:mark}=require("../../core/offline/offlineI
 const eventId="01ARZ3NDEKTSV4RRFFQ69G5FA0";
 const context={empresaId:"a",sedeId:"b",actorId:"operator"};
 function fixture(modifiedCount=1){
- let updates=0;
+ let updates=0,staged=null;
  const session={inTransaction:()=>true};
  const db={collection(name){
   assert.equal(name,"gruk_offline_inbox");
   return {
-   async findOne(key,options){assert.equal(options.session,session);assert.equal(key.status,"PENDIENTE");
+   async findOne(key,options){assert.equal(options.session,session);
+    if(key.status==="EN_REVISION")return staged;
+    assert.equal(key.status,"PENDIENTE");
     return {...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE"};},
    async updateOne(key,patch,options){
     assert.equal(options.session,session);
@@ -18,7 +20,8 @@ function fixture(modifiedCount=1){
     assert.equal(patch.$set.inventoryApplied,true);
     assert.equal(patch.$set.reviewActorId,context.actorId);
     assert.match(patch.$set.reviewToken,/^[0-9a-f-]{36}$/);
-    updates++;return {matchedCount:1,modifiedCount};
+    updates++;staged={...context,eventId,tipo:"PEDIDO_REGISTRADO",...patch.$set};
+    return {matchedCount:1,modifiedCount};
    }
   };
  }};
@@ -69,5 +72,40 @@ test("Capa 2: staged inbox refuses foreign identity and different event before a
   await assert.rejects(mark({db,session,context,plan:{orders:[{eventId}]}}),
    {code:"OFFLINE_STAGE_INBOX_CONFLICT"});
   assert.equal(writes,0);
+ }
+});
+
+test("Capa 2: persisted stage handoff cannot be accepted with foreign or missing proof",async()=>{
+ const patches=[
+  {empresaId:"another-company"},{sedeId:"another-site"},
+  {actorId:"another-operator"},{eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1"},
+  {status:"APLICADO"},{financialStageStatus:"CONCILIADO"},
+  {inventoryApplied:false},{stagedBy:"another-operator"},
+  {reviewActorId:"another-operator"},{reviewToken:"forged-token"},
+  {reviewToken:undefined},{tipo:"OTRO"}
+ ];
+ for(const patch of patches){
+  let writes=0;
+  const session={inTransaction:()=>true};
+  const db={collection(name){
+   assert.equal(name,"gruk_offline_inbox");
+   let staged=null;
+   return {
+    async findOne(query,options){
+     assert.equal(options.session,session);
+     if(query.status==="PENDIENTE")return {...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE"};
+     assert.equal(query.status,"EN_REVISION");
+     return {...staged,...patch};
+    },
+    async updateOne(key,update,options){
+     assert.equal(options.session,session);writes++;
+     staged={...context,eventId,tipo:"PEDIDO_REGISTRADO",...update.$set};
+     return {matchedCount:1,modifiedCount:1};
+    }
+   };
+  }};
+  await assert.rejects(mark({db,session,context,plan:{orders:[{eventId}]}}),
+   {code:"OFFLINE_STAGE_INBOX_CONFLICT"});
+  assert.equal(writes,1);
  }
 });
