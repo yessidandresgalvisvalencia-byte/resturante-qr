@@ -16,8 +16,8 @@ async function assertOfflineAuthoritativePrices({db,session,context,plan,objectI
  const items=plan.orders.flatMap(order=>order.items);
  if(!items.length||items.some(item=>typeof item?.productoId!=="string"||
    !HEX24.test(item.productoId)||
-   typeof item.precioUnitarioCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(item.precioUnitarioCop)||
-   item.precioUnitarioCop.length>16||BigInt(item.precioUnitarioCop)>MAX))fail();
+   typeof item.precioUnitarioCop!=="string"||item.precioUnitarioCop.length>16||
+   !/^(0|[1-9][0-9]*)$/.test(item.precioUnitarioCop)||BigInt(item.precioUnitarioCop)>MAX))fail();
  const ids=[...new Set(items.map(item=>item.productoId.toLowerCase()))];
  // Reject a converter that redirects a scoped lookup to a different identity.
  const asId=value=>{
