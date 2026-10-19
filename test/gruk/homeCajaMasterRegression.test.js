@@ -195,3 +195,19 @@ test("las anclas y verificaciones futuras no autorizan Disponible Hoy",()=>{
  assert.throws(()=>saldoCuentasDesdeAnclas([{...cuenta,saldoAnclaEn:fechaFutura}],[]),
   e=>e.statusCode===409);
 });
+
+test("verificación anterior al ancla no certifica saldo de una cuenta personal",()=>{
+ const {evaluarIntegridadAnclasPersonales}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const instante=new Date("2026-10-01T05:00:00Z");
+ const cuenta={_id:"507f1f77bcf86cd799439011",nombre:"Nequi",saldoMinor:100000,
+  saldoAnclaMinor:100000,saldoAnclaEn:instante,saldoVerificadoEn:instante,
+  requiereReconciliacion:false};
+ assert.equal(evaluarIntegridadAnclasPersonales([cuenta]).saldoVerificado,true);
+ const desactualizada={...cuenta,saldoVerificadoEn:new Date("2026-09-30T05:00:00Z")};
+ const revision=evaluarIntegridadAnclasPersonales([desactualizada]);
+ assert.equal(revision.anclaCompleta,true);
+ assert.equal(revision.saldoVerificado,false);
+ assert.equal(evaluarIntegridadAnclasPersonales([cuenta,desactualizada]).saldoVerificado,false);
+ const posterior={...cuenta,saldoVerificadoEn:new Date("2026-10-02T05:00:00Z")};
+ assert.equal(evaluarIntegridadAnclasPersonales([posterior]).saldoVerificado,true);
+});
