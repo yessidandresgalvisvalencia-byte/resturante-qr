@@ -16,7 +16,30 @@ function evaluarIntegridadAnclasPersonales(cuentas){
  const saldoVerificado=anclaCompleta&&cuentasVerificadas.length===cuentas.length;
  return {cuentasVerificadas,cuentasAncladas,anclaCompleta,saldoVerificado};
 }
-function saldoCuentasDesdeAnclas(cuentas,movimientos){return cuentas.reduce((total,cuenta)=>{if(!Number.isSafeInteger(cuenta.saldoAnclaMinor)||!cuenta.saldoAnclaEn)throw new Error("Cuenta sin ancla válida");const posteriores=movimientos.filter(x=>(x.cuentaId?String(x.cuentaId)===String(cuenta._id):x.cuenta===cuenta.nombre)&&x.fecha&&new Date(x.fecha)>new Date(cuenta.saldoAnclaEn));return total+saldoDesdeAncla(cuenta.saldoAnclaMinor,posteriores);},0);}
+function saldoCuentasDesdeAnclas(cuentas,movimientos){
+ if(!Array.isArray(cuentas)||!Array.isArray(movimientos))throw new TypeError("Datos de cuentas inválidos");
+ let total=0;
+ for(const cuenta of cuentas){
+  if(!Number.isSafeInteger(cuenta?.saldoAnclaMinor)||!fechaContableValidaPersonal(cuenta?.saldoAnclaEn))
+   throw Object.assign(new Error("Cuenta sin ancla válida"),{statusCode:409});
+  const posteriores=[];
+  for(const x of movimientos){
+   if(!x?.fecha)continue;
+   const fecha=new Date(x.fecha);
+   if(!Number.isFinite(fecha.getTime()))
+    throw Object.assign(new Error("Movimiento con fecha inválida; requiere conciliación"),{statusCode:409});
+   if(fecha<=cuenta.saldoAnclaEn)continue;
+   if(x.cuentaId==null&&x.cuenta===cuenta.nombre)
+    throw Object.assign(new Error("Movimiento histórico sin cuentaId; requiere conciliación manual"),{statusCode:409});
+   if(x.cuentaId!=null&&String(x.cuentaId)===String(cuenta._id))posteriores.push(x);
+  }
+  const parcial=saldoDesdeAncla(cuenta.saldoAnclaMinor,posteriores);
+  if(!Number.isSafeInteger(parcial)||!Number.isSafeInteger(total+parcial))
+   throw Object.assign(new Error("Suma patrimonial fuera de rango"),{statusCode:409});
+  total+=parcial;
+ }
+ return total;
+}
 function saldoDesdeAncla(saldoAnclaMinor,movimientos){if(!Number.isSafeInteger(saldoAnclaMinor))throw new Error("Ancla de saldo inválida");return movimientos.reduce((s,x)=>s+deltaCaja(x),saldoAnclaMinor);}
 function deltaCaja(x){if(!x||!Number.isSafeInteger(x.montoMinor)||x.impactoCaja===false)return 0;if(x.tipo==="GASTO"&&x.medioPago==="CREDITO")return 0;return ["INGRESO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO"].includes(x.tipo)?x.montoMinor:-(x.tipo==="PAGO_DEUDA"&&x.montoPagadoRealMinor?x.montoPagadoRealMinor:x.montoMinor);}
 const safe=n=>{if(typeof n==="string"&&!/^\\d+$/.test(n))throw Object.assign(new Error("Monto inválido"),{statusCode:400});n=Number(n);if(!Number.isSafeInteger(n)||n<0)throw Object.assign(new Error("Monto inválido"),{statusCode:400});return n};
