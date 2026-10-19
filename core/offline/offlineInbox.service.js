@@ -23,6 +23,11 @@ async function ensureInboxIndexes(db) {
   await collection.createIndex({ empresaId: 1, sedeId: 1, eventId: 1 }, { unique: true, name: "uniq_offline_event_per_tenant" });
   await collection.createIndex({ empresaId: 1, sedeId: 1, status: 1, receivedAt: 1 }, { name: "offline_pending_by_tenant" });
 }
+function matchesEvent(previous, event, context) {
+  return previous && previous.empresaId === context.empresaId &&
+    previous.sedeId === context.sedeId && previous.eventId === event.eventId &&
+    previous.actorId === context.actorId && previous.eventHash === digest(event);
+}
 async function insertBatch({ db, authenticatedContext, events, session }) {
   const validated = validateBatch(events, authenticatedContext);
   const inbox = collectionFor(db);
@@ -33,8 +38,8 @@ async function insertBatch({ db, authenticatedContext, events, session }) {
       empresaId: authenticatedContext.empresaId,
       sedeId: authenticatedContext.sedeId,
       eventId: event.eventId
-    }, { projection: { eventHash: 1, actorId: 1, _id: 0 }, ...(session ? {session} : {}) });
-    if (previous && (previous.eventHash !== digest(event) || previous.actorId !== authenticatedContext.actorId)) {
+    }, { projection: { eventHash: 1, actorId: 1, empresaId: 1, sedeId: 1, eventId: 1, _id: 0 }, ...(session ? {session} : {}) });
+    if (previous && !matchesEvent(previous, event, authenticatedContext)) {
       const conflict = new Error("OFFLINE_EVENT_CONFLICT");
       conflict.code = "OFFLINE_EVENT_CONFLICT";
       throw conflict;
@@ -57,8 +62,8 @@ async function insertBatch({ db, authenticatedContext, events, session }) {
     }
     if (!inserted) {
       // The same ID with changed contents is an integrity conflict, never a harmless retry.
-      const previous = await inbox.findOne(key, { projection: { eventHash: 1, actorId: 1, _id: 0 }, ...(session ? {session} : {}) });
-      if (!previous || previous.eventHash !== eventHash || previous.actorId !== authenticatedContext.actorId) {
+      const previous = await inbox.findOne(key, { projection: { eventHash: 1, actorId: 1, empresaId: 1, sedeId: 1, eventId: 1, _id: 0 }, ...(session ? {session} : {}) });
+      if (!matchesEvent(previous, event, authenticatedContext)) {
         const conflict = new Error("OFFLINE_EVENT_CONFLICT");
         conflict.code = "OFFLINE_EVENT_CONFLICT";
         throw conflict;
