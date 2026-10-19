@@ -16,7 +16,7 @@ function mock(stock=1){
   if(name==="inventarios")return {find(query){
    assert.equal(query.empresaId,context.empresaId);assert.equal(query.sedeId,context.sedeId);
    assert.equal(query.productoServicioId,productId);
-   return {toArray:async()=>[{_id:"inventory",cantidad:stock}]};
+   return {toArray:async()=>[{_id:"inventory",empresaId:context.empresaId,sedeId:context.sedeId,productoServicioId:productId,anulado:false,cantidad:stock}]};
   }};
   if(name==="gruk_offline_stock_conflicts")return {
    async updateOne(key,update,options){
@@ -51,4 +51,35 @@ test("oversell audit: cross-tenant identity and duplicate events reject before w
  await assert.rejects(record({db:fixture.db,context:{...context,empresaId:"$ne"},
   eventIds:[eventId],objectId:x=>x}),/OFFLINE_STOCK_AUDIT_UNAVAILABLE/);
  assert.equal(fixture.writes,0);
+});
+
+test("Capa 2: foreign or deleted inventory evidence cannot create oversell audits",async()=>{
+ const patches=[
+  {empresaId:"507f191e810c19729de860eb"},
+  {sedeId:"507f1f77bcf86cd799439013"},
+  {productoServicioId:"507f1f77bcf86cd799439014"},
+  {empresaId:undefined},{sedeId:undefined},{productoServicioId:undefined},
+  {anulado:true},{anulado:undefined}
+ ];
+ for(const patch of patches){
+  const source=mock(1);
+  const db={collection(name){
+   const collection=source.db.collection(name);
+   if(name!=="inventarios")return collection;
+   return {find(query,options){
+    assert.equal(query.empresaId,context.empresaId);
+    assert.equal(query.sedeId,context.sedeId);
+    assert.equal(options.projection.empresaId,1);
+    assert.equal(options.projection.sedeId,1);
+    assert.equal(options.projection.productoServicioId,1);
+    assert.equal(options.projection.anulado,1);
+    return {toArray:async()=>[{_id:"inventory",empresaId:context.empresaId,
+     sedeId:context.sedeId,productoServicioId:productId,anulado:false,
+     cantidad:1,...patch}]};
+   }};
+  }};
+  await assert.rejects(record({db,context,eventIds:[eventId],objectId:x=>x}),
+   {code:"OFFLINE_STOCK_AUDIT_MAPPING_UNAVAILABLE"});
+  assert.equal(source.writes,0);
+ }
 });

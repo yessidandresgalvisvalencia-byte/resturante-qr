@@ -17,7 +17,7 @@ function fake(pollute={}){
   }};
   if(name==="inventarios")return {find(query){assert.equal(query.empresaId,context.empresaId);
    assert.equal(query.sedeId,context.sedeId);
-   return {async toArray(){return [{_id:"stock-1",cantidad:1}];}};
+   return {async toArray(){return [{_id:"stock-1",empresaId:context.empresaId,sedeId:context.sedeId,productoServicioId:product,anulado:false,cantidad:1}];}};
   }};
   if(name==="gruk_offline_stock_conflicts")return {
    async updateOne(key,update,opts){

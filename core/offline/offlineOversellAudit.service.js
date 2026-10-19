@@ -20,8 +20,13 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
   const rows=await db.collection("inventarios").find({
    empresaId:objectId(context.empresaId),sedeId:objectId(context.sedeId),
    productoServicioId:objectId(delta.productoId),anulado:false
-  },{projection:{_id:1,cantidad:1},limit:2}).toArray();
-  if(rows.length!==1||!Number.isSafeInteger(rows[0].cantidad)||rows[0].cantidad<0)
+  },{projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1},limit:2}).toArray();
+  if(rows.length!==1||
+   String(rows[0]?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
+   String(rows[0]?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
+   String(rows[0]?.productoServicioId).toLowerCase()!==delta.productoId.toLowerCase()||
+   rows[0]?.anulado!==false||
+   !Number.isSafeInteger(rows[0].cantidad)||rows[0].cantidad<0)
    conflict("OFFLINE_STOCK_AUDIT_MAPPING_UNAVAILABLE");
   const requested=-BigInt(delta.deltaUnidades),available=BigInt(rows[0].cantidad);
   if(requested>MAX)conflict("OFFLINE_STOCK_AUDIT_INVALID_QUANTITY");
