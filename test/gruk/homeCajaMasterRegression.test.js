@@ -31,3 +31,14 @@ test("Disponible Hoy no autoriza gasto positivo si la conciliación es insuficie
  });
  assert.equal(apta.montoMinor,600000);
 });
+
+test("la interfaz no publica Disponible Hoy sin aptitud explícita",()=>{
+ const html=fs.readFileSync(require.resolve("../../public/finanzas-personales.html"),"utf8");
+ const js=fs.readFileSync(require.resolve("../../public/finanzas-personales.js"),"utf8");
+ assert.match(html,/id="hDisponibleHoy">Pendiente de conciliación/);
+ assert.match(html,/Disponible después de compromisos \(no es autorización de gasto\)/);
+ assert.match(js,/home\.asesor\?\.aptoParaDisponibleHoy===true&&Number\.isSafeInteger\(home\.asesor\?\.disponibleHoyMinor\)/);
+ assert.match(js,/home\.asesor\.disponibleHoyMinor>=0\?money\(home\.asesor\.disponibleHoyMinor\):"Pendiente de conciliación"/);
+ assert.match(js,/\["hDisponibleHoy","disponibleHoy"\]/);
+ assert.match(js,/\["hDisponibleHoy","hDisponible","hComprometido"/);
+});
