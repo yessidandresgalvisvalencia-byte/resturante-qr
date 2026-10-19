@@ -51,5 +51,8 @@ test("Cambio de sesión también invalida semáforo, balance y explicación ante
  for(const id of ["chatHistory","drafts","histResultados","answer","iiResultado"])assert.ok(bloque.includes('"'+id+'"'),"Debe limpiar información privada visible: "+id);
  for(const id of ["captureText","histQ","histMonto","histDesde","histHasta"])assert.ok(bloque.includes('"'+id+'"'),"Debe limpiar texto del usuario anterior: "+id);
  assert.match(bloque,/el\.replaceChildren\(\)/);
+ for(const id of ["homeGreeting","captureMsg","iiMsg","live"])assert.ok(bloque.includes('"'+id+'"'),"Debe limpiar mensajes de la cuenta anterior: "+id);
+ assert.match(bloque,/mas\.hidden=true/);
+ assert.match(bloque,/el\.dataset\.alert="false"/);
  assert.match(codigo,/function clearToken\(\)[\s\S]*?invalidarIndicadoresFinancieros\(\)/);
 });
