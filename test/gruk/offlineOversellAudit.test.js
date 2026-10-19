@@ -16,7 +16,7 @@ function mock(stock=1){
   if(name==="inventarios")return {find(query){
    assert.equal(query.empresaId,context.empresaId);assert.equal(query.sedeId,context.sedeId);
    assert.equal(query.productoServicioId,productId);
-   return {toArray:async()=>[{_id:"inventory",cantidad:stock}]};
+   return {toArray:async()=>[{_id:"inventory",empresaId:context.empresaId,sedeId:context.sedeId,productoServicioId:productId,anulado:false,cantidad:stock}]};
   }};
   if(name==="gruk_offline_stock_conflicts")return {
    async updateOne(key,update,options){
