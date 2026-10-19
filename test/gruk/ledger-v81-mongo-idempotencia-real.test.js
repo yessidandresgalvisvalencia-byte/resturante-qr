@@ -308,6 +308,22 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
    aggregateId:origenCarrera._id}),transferenciaAplicada?1:0);
   assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO",
    aggregateId:origenCarrera._id}),conciliacionResultado.status==="fulfilled"?1:0);
+  // Aislamiento entre usuarios: conocer el ID de una cuenta no autoriza conciliarla.
+  const intruso=new mongoose.Types.ObjectId();
+  const ajenaAntes=await Cuenta.findById(origen._id).lean();
+  const conteoAuditoriaAntes=await Outbox.countDocuments({usuarioId,
+   eventName:"SALDO_CUENTA_RECONCILIADO",aggregateId:origen._id});
+  await assert.rejects(()=>patrimonio.reconciliarCuenta(intruso,{
+   cuentaId:origen._id,saldoMinor:1,fecha:new Date()}),e=>e.statusCode===404);
+  const ajenaDespues=await Cuenta.findById(origen._id).lean();
+  assert.equal(ajenaDespues.saldoMinor,ajenaAntes.saldoMinor);
+  assert.equal(ajenaDespues.saldoAnclaMinor,ajenaAntes.saldoAnclaMinor);
+  assert.equal(ajenaDespues.saldoAnclaEn.getTime(),ajenaAntes.saldoAnclaEn.getTime());
+  assert.equal(ajenaDespues.requiereReconciliacion,ajenaAntes.requiereReconciliacion);
+  assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO",
+   aggregateId:origen._id}),conteoAuditoriaAntes);
+  assert.equal(await Outbox.countDocuments({usuarioId:intruso,
+   eventName:"SALDO_CUENTA_RECONCILIADO"}),0);
   // Una cuenta antigua corrupta en USD no puede mezclarse con caja COP.
   await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"USD"}});
   await assert.rejects(
