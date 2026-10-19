@@ -6,7 +6,7 @@ const auth={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd79943901
 const conflictId="offline-stock-"+"a".repeat(64),decisionId="01ARZ3NDEKTSV4RRFFQ69G5FA0";
 const original={_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,
  actorId:"operator",status:"REQUIERE_REVISION",applied:false,cobrado:false,
- issues:[{productoId:"507f1f77bcf86cd799439011",faltante:"1"}],eventIds:[decisionId]};
+ issues:[{productoId:"507f1f77bcf86cd799439011",disponible:"0",solicitado:"1",faltante:"1"}],eventIds:[decisionId]};
 function fake({listRow=original,sourceRow=original,reviewPatch={}}={}){
  let writes=0;
  return {get writes(){return writes;},db:{collection(name){
