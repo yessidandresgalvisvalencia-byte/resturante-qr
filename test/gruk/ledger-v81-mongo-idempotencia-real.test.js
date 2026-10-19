@@ -200,6 +200,16 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   assert.equal(destinoFinal.saldoMinor,55000);
   assert.equal(origenFinal.saldoMinor+destinoFinal.saldoMinor,120000,"la transferencia conserva el total");
   assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),2);
+  // Una cuenta antigua corrupta en USD no puede mezclarse con caja COP.
+  await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"USD"}});
+  await assert.rejects(
+   ()=>transferir(usuarioId,{...args,montoMinor:1000,externalId:crypto.randomUUID()}),
+   e=>e.statusCode===404
+  );
+  assert.equal((await Cuenta.findById(origen._id)).saldoMinor,65000);
+  assert.equal((await Cuenta.findById(destino._id)).saldoMinor,55000);
+  assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),2);
+  await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"COP"}});
  }finally{
   await Outbox.deleteMany({usuarioId});
   await Cuenta.deleteMany({usuarioId});
