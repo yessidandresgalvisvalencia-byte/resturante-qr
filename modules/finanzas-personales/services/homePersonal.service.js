@@ -135,10 +135,11 @@ function seleccionarVencimientosAtrasados(deudas,now){
 }
 function gastoAfectaCaja(tx){return Boolean(tx&&tx.tipo==="GASTO"&&tx.medioPago!=="CREDITO");}
 function resolverSaldoAsesor(pat){
+ const saldoSeguro=Number.isSafeInteger(pat?.liquidezMinor)&&pat.liquidezMinor>=0;
  const derivado=pat&&pat.hayMovimientosLedger&&Number.isSafeInteger(pat.saldoDerivadoLedgerMinor);
- if(pat&&pat.saldoVerificado)return{montoMinor:pat.liquidezMinor,conocido:true,confiabilidad:"VERIFICADO",fuente:pat.fuenteLiquidez||"CUENTAS",requiereReconciliacion:false};
+ if(pat?.saldoVerificado&&saldoSeguro)return{montoMinor:pat.liquidezMinor,conocido:true,confiabilidad:"VERIFICADO",fuente:pat.fuenteLiquidez||"CUENTAS",requiereReconciliacion:false};
  if(derivado)return{montoMinor:Math.max(0,pat.saldoDerivadoLedgerMinor),conocido:true,confiabilidad:"RECONSTRUIDO_SIN_ANCLA",fuente:"LEDGER_DERIVADO",requiereReconciliacion:true};
- return{montoMinor:Number(pat?.liquidezMinor||0),conocido:false,confiabilidad:"NO_VERIFICADO",fuente:pat?.fuenteLiquidez||"NO_VERIFICADO",requiereReconciliacion:true};
+ return{montoMinor:saldoSeguro?pat.liquidezMinor:0,conocido:false,confiabilidad:"NO_VERIFICADO",fuente:pat?.fuenteLiquidez||"NO_VERIFICADO",requiereReconciliacion:true};
 }
 function calcularDisponibleHoy({saldoMinor,gastosFijosAntesProximoIngresoMinor=0}){for(const n of [saldoMinor,gastosFijosAntesProximoIngresoMinor])if(!Number.isSafeInteger(n)||n<0)throw new TypeError("Disponible Hoy requiere enteros seguros no negativos");const colchonMinor=Math.floor(saldoMinor/10);const baseMinor=saldoMinor-gastosFijosAntesProximoIngresoMinor-colchonMinor;if(!Number.isSafeInteger(baseMinor))throw new RangeError("Disponible Hoy excede el rango monetario seguro");return{colchonMinor,baseMinor,disponibleHoyMinor:Math.max(0,baseMinor),estaEnRojo:baseMinor<0};}
 function calcularEscenarioGmfGravado({saldoMinor,gastosFijosAntesProximoIngresoMinor=0}){
