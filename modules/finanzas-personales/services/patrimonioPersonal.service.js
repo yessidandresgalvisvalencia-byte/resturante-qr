@@ -41,7 +41,18 @@ function saldoCuentasDesdeAnclas(cuentas,movimientos){
  return total;
 }
 function saldoDesdeAncla(saldoAnclaMinor,movimientos){if(!Number.isSafeInteger(saldoAnclaMinor))throw new Error("Ancla de saldo inválida");return movimientos.reduce((s,x)=>s+deltaCaja(x),saldoAnclaMinor);}
-function deltaCaja(x){if(!x||!Number.isSafeInteger(x.montoMinor)||x.impactoCaja===false)return 0;if(x.tipo==="GASTO"&&x.medioPago==="CREDITO")return 0;return ["INGRESO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO"].includes(x.tipo)?x.montoMinor:-(x.tipo==="PAGO_DEUDA"&&x.montoPagadoRealMinor?x.montoPagadoRealMinor:x.montoMinor);}
+function deltaCaja(x){
+ if(!x||!Number.isSafeInteger(x.montoMinor)||x.montoMinor<=0)
+  throw Object.assign(new Error("Movimiento sin monto entero positivo; requiere conciliación"),{statusCode:409});
+ if(x.impactoCaja===false||(x.tipo==="GASTO"&&x.medioPago==="CREDITO"))return 0;
+ if(!["INGRESO","GASTO","PAGO_DEUDA","PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO"].includes(x.tipo))
+  throw Object.assign(new Error("Tipo de movimiento no clasificable para caja"),{statusCode:409});
+ if(x.tipo==="PAGO_DEUDA"&&x.montoPagadoRealMinor!=null&&
+   (!Number.isSafeInteger(x.montoPagadoRealMinor)||x.montoPagadoRealMinor<=0))
+  throw Object.assign(new Error("Pago real de deuda inválido; requiere conciliación"),{statusCode:409});
+ return ["INGRESO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO"].includes(x.tipo)?x.montoMinor:
+  -(x.tipo==="PAGO_DEUDA"&&x.montoPagadoRealMinor!=null?x.montoPagadoRealMinor:x.montoMinor);
+}
 const safe=n=>{if(typeof n==="string"&&!/^\\d+$/.test(n))throw Object.assign(new Error("Monto inválido"),{statusCode:400});n=Number(n);if(!Number.isSafeInteger(n)||n<0)throw Object.assign(new Error("Monto inválido"),{statusCode:400});return n};
 async function crearCuenta(usuarioId,data){return Cuenta.create({usuarioId,...data,saldoMinor:safe(data.saldoMinor||0)})}
 async function reconciliarCuenta(usuarioId,{cuentaId,saldoMinor,fecha=new Date(),origenSaldo="USUARIO"}){const saldo=safe(saldoMinor),momento=new Date(fecha);if(Number.isNaN(momento.getTime())||momento>new Date())throw Object.assign(new Error("Fecha de reconciliación inválida"),{statusCode:400});if(!["USUARIO","OPEN_BANKING","PASARELA"].includes(origenSaldo))throw Object.assign(new Error("Origen de reconciliación inválido"),{statusCode:400});const session=await mongoose.startSession();try{let cuenta;await session.withTransaction(async()=>{cuenta=await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true},{$set:{saldoMinor:saldo,saldoVerificadoEn:momento,saldoAnclaMinor:saldo,saldoAnclaEn:momento,origenSaldo,requiereReconciliacion:false}},{new:true,session,runValidators:true});if(!cuenta)throw Object.assign(new Error("Cuenta no encontrada"),{statusCode:404});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"SALDO_CUENTA_RECONCILIADO",aggregateType:"CUENTA_FINANCIERA_PERSONAL",aggregateId:cuenta._id,payload:{cuentaId:String(cuenta._id),saldoMinor:saldo,saldoAnclaEn:momento.toISOString(),origenSaldo}}],{session});},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return cuenta;}finally{await session.endSession()}}
