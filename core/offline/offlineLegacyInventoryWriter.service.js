@@ -25,11 +25,23 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
      -BigInt(delta.deltaUnidades)>MAX)fail("OFFLINE_INVENTORY_INVALID_PLAN");
   ids.add(delta.productoId.toLowerCase());
  }
+ // Resolve and verify the entire tenant/product identity set before any database access.
+ const asId=value=>{
+  let converted;
+  try{converted=objectId(value);}catch(_error){fail("OFFLINE_INVENTORY_TENANT_REQUIRED");}
+  if(converted===null||converted===undefined||
+     String(converted).toLowerCase()!==value.toLowerCase())
+    fail("OFFLINE_INVENTORY_TENANT_REQUIRED");
+  return converted;
+ };
+ const scopedEmpresaId=asId(context.empresaId);
+ const scopedSedeId=asId(context.sedeId);
+ const scopedProducts=inventoryDeltas.map(delta=>asId(delta.productoId));
  const results=[];
- for(const delta of inventoryDeltas){
+ for(const [index,delta] of inventoryDeltas.entries()){
   const units=-BigInt(delta.deltaUnidades);
-  const key={empresaId:objectId(context.empresaId),sedeId:objectId(context.sedeId),
-   productoServicioId:objectId(delta.productoId),anulado:false};
+  const key={empresaId:scopedEmpresaId,sedeId:scopedSedeId,
+   productoServicioId:scopedProducts[index],anulado:false};
   const inventory=db.collection("inventarios");
   const existing=await inventory.find(key,{session,projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1}}).limit(2).toArray();
   if(existing.length!==1||!owned(existing[0],context,delta.productoId))

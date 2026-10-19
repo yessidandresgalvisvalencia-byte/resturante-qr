@@ -105,3 +105,24 @@ test("Capa 2: all product identifiers and units validated before any inventory a
   assert.equal(writes,0);
  }
 });
+
+test("Capa 2: identity substitution in Mongo ObjectId conversion is rejected before inventory access",async()=>{
+ const replacement="507f1f77bcf86cd799439099";
+ const secondProduct="507f1f77bcf86cd799439013";
+ const plan=[inventoryDeltas[0],{productoId:secondProduct,deltaUnidades:"-1"}];
+ for(const target of [empresaId,sedeId,productoId,secondProduct]){
+  let reads=0,writes=0;
+  const db={collection(){reads++;return {updateOne(){writes++;throw Error("FORBIDDEN_WRITE");}};}};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
+   inventoryDeltas:plan,objectId:value=>value===target?replacement:value}),
+   {code:"OFFLINE_INVENTORY_TENANT_REQUIRED"});
+  assert.equal(reads,0);assert.equal(writes,0);
+ }
+ for(const objectId of [()=>null,()=>undefined,()=>{throw Error("INVALID_CONVERTER");}]){
+  let reads=0;
+  const db={collection(){reads++;throw Error("FORBIDDEN_READ");}};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
+   inventoryDeltas,objectId}),{code:"OFFLINE_INVENTORY_TENANT_REQUIRED"});
+  assert.equal(reads,0);
+ }
+});
