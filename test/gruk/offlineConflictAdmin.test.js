@@ -61,3 +61,30 @@ test("stock conflict: invalid decisions do not access database",async()=>{
  }
  assert.equal(fixture.reads,0);assert.equal(fixture.writes,0);
 });
+
+test("Capa 2: administrative list refuses poisoned or incomplete persisted conflicts",async()=>{
+ const valid={_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,
+  actorId:"operator",status:"REQUIERE_REVISION",applied:false,cobrado:false,
+  eventIds:["01ARZ3NDEKTSV4RRFFQ69G5FA1"],issues:[{productoId:"507f1f77bcf86cd799439011"}]};
+ for(const patch of [
+  {empresaId:"507f191e810c19729de860eb"},
+  {sedeId:"507f1f77bcf86cd799439013"},
+  {status:"APLICADO"},{applied:true},{cobrado:true},
+  {applied:undefined},{cobrado:undefined},
+  {_id:"invalid"},{actorId:undefined},
+  {eventIds:[]},{eventIds:["invalid"]},
+  {eventIds:[valid.eventIds[0],valid.eventIds[0]]},{issues:[]}
+ ]){
+  const db={collection(name){
+   assert.equal(name,"gruk_offline_stock_conflicts");
+   return {find(query,options){
+    assert.equal(query.empresaId,auth.empresaId);
+    assert.equal(query.sedeId,auth.sedeId);
+    assert.equal(options.projection.applied,1);
+    assert.equal(options.projection.cobrado,1);
+    return {toArray:async()=>[{...valid,...patch}]};
+   }};
+  }};
+  await assert.rejects(listStockConflicts({db,auth}),{code:"OFFLINE_CONFLICT_SCOPE_MISMATCH"});
+ }
+});
