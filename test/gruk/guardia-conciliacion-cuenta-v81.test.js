@@ -80,3 +80,22 @@ test("dos vínculos para el mismo movimiento bloquean conciliación aunque uno s
  }
  assert.deepEqual(filtrarHuerfanosSinResolver(filas,[{movimientoId:id,cuentaId:cuentaA}]),[]);
 });
+
+test("un vínculo a cuenta borrada, inactiva o ajena nunca resuelve la conciliación",()=>{
+ const {exigirDestinosVinculosAutorizadosV81}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+ const movimientoId="507f1f77bcf86cd799439011";
+ const cuentaId="507f1f77bcf86cd799439013";
+ const vinculos=[{movimientoId,cuentaId}];
+ assert.equal(exigirDestinosVinculosAutorizadosV81(vinculos,[{_id:cuentaId,activa:true,moneda:"COP"}]),true);
+ for(const cuentas of [
+  [],
+  [{_id:cuentaId,activa:false,moneda:"COP"}],
+  [{_id:cuentaId,activa:true,moneda:"USD"}],
+  [{_id:"507f1f77bcf86cd799439014",activa:true,moneda:"COP"}]
+ ]){
+  assert.throws(()=>exigirDestinosVinculosAutorizadosV81(vinculos,cuentas),
+   e=>e.statusCode===409,JSON.stringify(cuentas));
+ }
+ assert.throws(()=>exigirDestinosVinculosAutorizadosV81([{movimientoId,cuentaId:null}],
+  [{_id:cuentaId,activa:true,moneda:"COP"}]),e=>e.statusCode===409);
+});
