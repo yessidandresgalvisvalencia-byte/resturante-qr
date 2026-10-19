@@ -31,6 +31,23 @@ async function synchronize({outbox,token,fetchFn,context,limit=100}) {
  return Object.freeze({sent:events.length,received:acknowledged.size});
 }
 
+// Drain the durable outbox in bounded, server-idempotent pages. A failure stops
+// immediately; unacknowledged events stay pending for an operator retry.
+async function synchronizeAll({outbox,token,fetchFn,context,limit=100,maxBatches=100}) {
+ if(!Number.isInteger(limit)||limit<1||limit>100||
+    !Number.isInteger(maxBatches)||maxBatches<1||maxBatches>100)
+   throw Error("SYNC_LIMIT");
+ let sent=0,received=0,batches=0;
+ while(batches<maxBatches){
+  const result=await synchronize({outbox,token,fetchFn,context,limit});
+  if(result.sent===0)return Object.freeze({sent,received,batches,complete:true});
+  sent+=result.sent;received+=result.received;batches++;
+  if(result.sent<limit)return Object.freeze({sent,received,batches,complete:true});
+ }
+ // An exact full final batch may leave more local events; do not claim drained.
+ return Object.freeze({sent,received,batches,complete:false});
+}
+
 async function reconcileReceived({outbox,token,fetchFn,context,limit=100}) {
  if(!context||["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("SYNC_TENANT_REQUIRED");
  if(typeof outbox?.listReceived!=="function"||typeof outbox?.markReconciled!=="function")throw Error("SYNC_OUTBOX_REQUIRED");
@@ -70,7 +87,7 @@ async function reconcileReceived({outbox,token,fetchFn,context,limit=100}) {
  }
  return Object.freeze({checked:ids.length,updated});
 }
-const api=Object.freeze({synchronize,reconcileReceived});
+const api=Object.freeze({synchronize,synchronizeAll,reconcileReceived});
 if(typeof module==="object"&&module.exports)module.exports=api;
 else root.GRUKOfflineTransport=api;
 })(typeof globalThis!=="undefined"?globalThis:this);
