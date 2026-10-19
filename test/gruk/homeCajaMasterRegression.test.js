@@ -115,3 +115,24 @@ test("la suma de cuentas ancladas no admite desbordamientos de enteros seguros",
  assert.throws(()=>saldoCuentasDesdeAnclas([cuenta, {...cuenta,_id:"507f1f77bcf86cd799439012",saldoAnclaMinor:1}],[]),
   e=>e.statusCode===409);
 });
+
+test("un huérfano posterior a la primera ancla bloquea el saldo aunque cambie el nombre de cuenta",()=>{
+ const {saldoCuentasDesdeAnclas}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const cuentas=[
+  {_id:"507f1f77bcf86cd799439011",nombre:"Nequi",
+   saldoAnclaMinor:100000,saldoAnclaEn:new Date("2026-10-01T05:00:00Z")},
+  {_id:"507f1f77bcf86cd799439012",nombre:"Banco",
+   saldoAnclaMinor:250000,saldoAnclaEn:new Date("2026-10-10T05:00:00Z")}
+ ];
+ const huerfano={cuentaId:null,cuenta:"CUENTA DESCONOCIDA",
+  fecha:new Date("2026-10-05T05:00:00Z"),tipo:"INGRESO",
+  montoMinor:15000,impactoCaja:true};
+ assert.throws(()=>saldoCuentasDesdeAnclas(cuentas,[huerfano]),
+  e=>e.statusCode===409&&/sin cuentaId/.test(e.message));
+ assert.equal(saldoCuentasDesdeAnclas(cuentas,[{
+  ...huerfano,fecha:new Date("2026-09-30T05:00:00Z")
+ }]),350000);
+ assert.equal(saldoCuentasDesdeAnclas(cuentas,[{
+  ...huerfano,cuentaId:cuentas[0]._id
+ }]),365000);
+});
