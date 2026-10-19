@@ -2,7 +2,7 @@
 const test=require("node:test"),assert=require("node:assert/strict");
 const {synchronize,synchronizeAll}=require("../../public/js/gruk-offline-transport");
 const ctx={empresaId:"empresaA",sedeId:"sedeA",actorId:"actorA"};
-const a={eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAV"};
+const a={...ctx,eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAV"};
 function stub(){const pending=[a],received=[];return {pending,received,listPending:async()=>pending,markReceived:async id=>{received.push(id);return true;}};}
 test("only complete authenticated 202 inbox acknowledgement marks received",async()=>{
  const o=stub();
@@ -31,7 +31,7 @@ test("missing authentication fails without network access",async()=>{
 });
 
 test("Capa 2: one send drains 250 local events as 100+100+50 without deletion",async()=>{
- const pending=Array.from({length:250},(_,i)=>({eventId:"01ARZ3NDEKTSV4RRFFQ69G5"+String(i).padStart(3,"0")}));
+ const pending=Array.from({length:250},(_,i)=>({...ctx,eventId:"01ARZ3NDEKTSV4RRFFQ69G5"+String(i).padStart(3,"0")}));
  const acknowledged=new Set(), sizes=[];
  const outbox={
   listPending:async limit=>pending.filter(e=>!acknowledged.has(e.eventId)).slice(0,limit),
@@ -47,7 +47,7 @@ test("Capa 2: one send drains 250 local events as 100+100+50 without deletion",a
  assert.deepEqual(sizes,[100,100,50]);assert.equal(acknowledged.size,250);
 });
 test("Capa 2: failed later batch retains every unacknowledged event for retry",async()=>{
- const pending=Array.from({length:150},(_,i)=>({eventId:"01ARZ3NDEKTSV4RRFFQ69G5"+String(i).padStart(3,"0")}));
+ const pending=Array.from({length:150},(_,i)=>({...ctx,eventId:"01ARZ3NDEKTSV4RRFFQ69G5"+String(i).padStart(3,"0")}));
  const acknowledged=new Set();let requests=0;
  const outbox={
   listPending:async limit=>pending.filter(e=>!acknowledged.has(e.eventId)).slice(0,limit),
@@ -64,7 +64,7 @@ test("Capa 2: failed later batch retains every unacknowledged event for retry",a
  assert.equal((await outbox.listPending(100)).length,50);
 });
 test("Capa 2: bounded batch count never falsely claims a drained outbox",async()=>{
- const pending=Array.from({length:250},(_,i)=>({eventId:"01ARZ3NDEKTSV4RRFFQ69G5"+String(i).padStart(3,"0")}));
+ const pending=Array.from({length:250},(_,i)=>({...ctx,eventId:"01ARZ3NDEKTSV4RRFFQ69G5"+String(i).padStart(3,"0")}));
  const done=new Set();
  const result=await synchronizeAll({context:ctx,token:"jwt",maxBatches:2,
   outbox:{listPending:async limit=>pending.filter(e=>!done.has(e.eventId)).slice(0,limit),
@@ -76,13 +76,13 @@ test("Capa 2: bounded batch count never falsely claims a drained outbox",async()
 });
 
 test("Capa 2: malformed or repeated local event IDs never cross network",async()=>{
- const good={eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAV"};
+ const good={...ctx,eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAV"};
  for(const events of [
   [good,good],
-  [{eventId:"invalid"}],
-  [{eventId:7}],
+  [{...ctx,eventId:"invalid"}],
+  [{...ctx,eventId:7}],
   [null],
-  Array.from({length:101},(_,i)=>({eventId:"01ARZ3NDEKTSV4RRFFQ69G5"+String(i).padStart(3,"0")})),
+  Array.from({length:101},(_,i)=>({...ctx,eventId:"01ARZ3NDEKTSV4RRFFQ69G5"+String(i).padStart(3,"0")})),
   null,
   {}
  ]){
@@ -101,4 +101,39 @@ test("Capa 2: invalid page limits reject before accessing local outbox",async()=
     {message:"SYNC_LIMIT"});
   assert.equal(reads,0);
  }
+});
+
+test("Capa 2: an outbox event from another company, site or actor never reaches server",async()=>{
+ for(const field of ["empresaId","sedeId","actorId"]){
+  for(const value of ["other",undefined,null]){
+   let calls=0,marked=0;
+   const event={...a,[field]:value};
+   const outbox={listPending:async()=>[event],markReceived:async()=>{marked++;return true;}};
+   await assert.rejects(synchronize({outbox,context:ctx,token:"jwt",
+    fetchFn:async()=>{calls++;throw Error("FORBIDDEN_NETWORK");}}),{message:"SYNC_INVALID_LOCAL_EVENTS"});
+   assert.equal(calls,0);assert.equal(marked,0);
+  }
+ }
+});
+test("Capa 2: lost acknowledgement is safely recovered by idempotent YA_RECIBIDO retry",async()=>{
+ const pending=[{...a}],done=new Set();
+ const outbox={
+  listPending:async()=>pending.filter(e=>!done.has(e.eventId)),
+  markReceived:async id=>{done.add(id);return true;}
+ };
+ let requests=0;
+ const fetchFn=async(_url,options)=>{
+  requests++;
+  const events=JSON.parse(options.body).events;
+  assert.equal(events.length,1);
+  if(requests===1)throw Error("NETWORK_INTERRUPTED_AFTER_SERVER_RECEIPT");
+  return {status:202,json:async()=>({ok:true,applied:false,
+   events:[{eventId:events[0].eventId,status:"YA_RECIBIDO"}]})};
+ };
+ await assert.rejects(synchronize({outbox,context:ctx,token:"jwt",fetchFn}),
+  /NETWORK_INTERRUPTED_AFTER_SERVER_RECEIPT/);
+ assert.equal(done.size,0);
+ assert.deepEqual(await synchronizeAll({outbox,context:ctx,token:"jwt",fetchFn}),
+  {sent:1,received:1,batches:1,complete:true});
+ assert.equal(done.size,1);assert.equal(requests,2);
 });

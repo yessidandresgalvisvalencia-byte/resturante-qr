@@ -9,7 +9,8 @@ async function synchronize({outbox,token,fetchFn,context,limit=100}) {
  if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("SYNC_LIMIT");
  const events=await outbox.listPending(limit,context);
  if(!Array.isArray(events)||events.length>limit||
-    events.some(e=>typeof e?.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(e.eventId))||
+    events.some(e=>typeof e?.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(e.eventId)||
+      ["empresaId","sedeId","actorId"].some(k=>e[k]!==context[k]))||
     new Set(events.map(e=>e.eventId)).size!==events.length)
    throw Error("SYNC_INVALID_LOCAL_EVENTS");
  if(events.length===0)return Object.freeze({sent:0,received:0});
