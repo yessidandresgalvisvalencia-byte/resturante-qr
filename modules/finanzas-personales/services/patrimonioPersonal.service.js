@@ -101,6 +101,8 @@ function saldoCuentasDesdeAnclas(cuentas,movimientos){
    const fecha=new Date(x.fecha);
    if(!Number.isFinite(fecha.getTime()))
     throw Object.assign(new Error("Movimiento con fecha inválida; requiere conciliación"),{statusCode:409});
+   if(x.cuentaId!=null&&String(x.cuentaId)===String(cuenta._id)&&fecha.getTime()===cuenta.saldoAnclaEn.getTime())
+    throw Object.assign(new Error("Movimiento simultáneo al ancla; orden contable no verificable"),{statusCode:409});
    if(fecha<=cuenta.saldoAnclaEn)continue;
    if(x.cuentaId!=null&&String(x.cuentaId)===String(cuenta._id))posteriores.push(x);
   }
