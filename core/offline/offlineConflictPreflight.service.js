@@ -69,6 +69,8 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
   },{projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1},limit:2}).toArray();
   const requested=-BigInt(delta.deltaUnidades);
   if(!Array.isArray(rows)||rows.length!==1||
+     rows[0]?._id===null||rows[0]?._id===undefined||
+     String(rows[0]._id).trim().length===0||
      String(rows[0]?.empresaId).toLowerCase()!==auth.empresaId.toLowerCase()||
      String(rows[0]?.sedeId).toLowerCase()!==auth.sedeId.toLowerCase()||
      String(rows[0]?.productoServicioId).toLowerCase()!==delta.productoId.toLowerCase()||

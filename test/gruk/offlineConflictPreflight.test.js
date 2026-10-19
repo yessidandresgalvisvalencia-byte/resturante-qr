@@ -136,3 +136,18 @@ test("Capa 2: spoofed object tenant IDs are rejected before conflict DB access",
   }
  }
 });
+
+test("Capa 2: stock without a stable Mongo document identity cannot be marked ready",async()=>{
+ for(const id of [null,undefined,"","   "]){
+  const fixture=setup(500,true,{_id:id});
+  const result=await preflight({db:fixture.db,auth,conflictId,objectId:x=>x});
+  assert.equal(result.ready,false);
+  assert.equal(result.applied,false);
+  assert.equal(result.cobrado,false);
+  assert.equal(result.inventoryChanges,false);
+  assert.equal(result.products[0].reason,"STOCK_SIN_MAPEO");
+  assert.equal(result.products[0].available,null);
+  assert.equal(result.products[0].shortage,null);
+  assert.equal(fixture.writes,0);
+ }
+});
