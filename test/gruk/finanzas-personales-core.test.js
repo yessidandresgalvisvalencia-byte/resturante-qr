@@ -598,3 +598,14 @@ test("V81 normaliza ObjectId de transferencias y replay sin diferencias por mayÃ
  assert.throws(()=>validarReplayTransferenciaPersonal(previo,{origenId:origen,destinoId:destino,monto:25001}),e=>e.statusCode===409);
  assert.throws(()=>validarReplayTransferenciaPersonal(previo,{origenId:destino,destinoId:origen,monto:25000}),e=>e.statusCode===409);
 });
+
+test("V81 rechaza transferencia hacia la misma cuenta aunque el ObjectId cambie mayÃºsculas",async()=>{
+ const id="507F1F77BCF86CD799439011";
+ await assert.rejects(
+  patrimonioPersonal.transferir("507f191e810c19729de860ea",{
+   origenId:id,destinoId:id.toLowerCase(),montoMinor:1000,
+   externalId:"123e4567-e89b-42d3-a456-426614174000"
+  }),
+  e=>e.statusCode===400&&/diferentes/.test(e.message)
+ );
+});
