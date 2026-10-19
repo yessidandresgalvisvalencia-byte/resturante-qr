@@ -44,3 +44,21 @@ test("la interfaz no publica Disponible Hoy sin aptitud explícita",()=>{
  assert.match(js,/\["hDisponibleHoy","disponibleHoy"\]/);
  assert.match(js,/\["hDisponibleHoy","hDisponible","hComprometido"/);
 });
+
+test("un saldo marcado verificado pero inseguro jamás autoriza dinero para gastar",()=>{
+ const {resolverSaldoAsesor,crearDecisionDisponibleHoy}=require("../../modules/finanzas-personales/services/homePersonal.service");
+ for(const liquidezMinor of [NaN,Infinity,-1,0.1,"850000",Number.MAX_SAFE_INTEGER+1,null,undefined]){
+  const estado=resolverSaldoAsesor({saldoVerificado:true,liquidezMinor});
+  assert.equal(estado.confiabilidad,"NO_VERIFICADO",String(liquidezMinor));
+  assert.equal(estado.montoMinor,0,String(liquidezMinor));
+  assert.equal(estado.requiereReconciliacion,true);
+  const decision=crearDecisionDisponibleHoy({disponibleHoyMinor:0,
+   aptoParaDisponibleHoy:estado.confiabilidad==="VERIFICADO"&&!estado.requiereReconciliacion,
+   corte:new Date("2026-10-18T12:00:00Z")});
+  assert.equal(decision.montoMinor,0);
+  assert.equal(decision.requiereReconciliacion,true);
+ }
+ const valido=resolverSaldoAsesor({saldoVerificado:true,liquidezMinor:850000});
+ assert.equal(valido.confiabilidad,"VERIFICADO");
+ assert.equal(valido.montoMinor,850000);
+});
