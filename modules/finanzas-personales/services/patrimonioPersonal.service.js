@@ -24,7 +24,8 @@ function saldoCuentasDesdeAnclas(cuentas,movimientos){
    throw Object.assign(new Error("Cuenta sin ancla válida"),{statusCode:409});
   const posteriores=[];
   for(const x of movimientos){
-   if(!x?.fecha)continue;
+   if(x?.fecha==null)
+    throw Object.assign(new Error("Movimiento sin fecha; requiere conciliación"),{statusCode:409});
    const fecha=new Date(x.fecha);
    if(!Number.isFinite(fecha.getTime()))
     throw Object.assign(new Error("Movimiento con fecha inválida; requiere conciliación"),{statusCode:409});
