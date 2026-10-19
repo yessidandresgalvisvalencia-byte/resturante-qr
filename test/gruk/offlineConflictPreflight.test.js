@@ -5,12 +5,12 @@ const auth={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd79943901
  usuarioId:"admin",rol:"ADMIN_SEDE"};
 const conflictId="offline-stock-"+"a".repeat(64);
 const productId="507f1f77bcf86cd799439011",eventId="01ARZ3NDEKTSV4RRFFQ69G5FA0";
-function setup(stock,pendiente=true,stockPatch={}){
+function setup(stock,pendiente=true,stockPatch={},sourcePatch={}){
  let reads=0,writes=0;
  const db={collection(name){
   if(name==="gruk_offline_stock_conflicts")return {async findOne(query){
    reads++;assert.equal(query.empresaId,auth.empresaId);assert.equal(query.sedeId,auth.sedeId);
-   return {_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,status:"REQUIERE_REVISION",applied:false,cobrado:false,actorId:"operator",eventIds:[eventId]};}};
+   return {_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,status:"REQUIERE_REVISION",applied:false,cobrado:false,actorId:"operator",eventIds:[eventId],...sourcePatch};}};
   if(name==="gruk_offline_inbox")return {find(q){
    reads++;assert.equal(q.actorId,"operator");assert.equal(q.empresaId,auth.empresaId);
    return {toArray:async()=>pendiente?[{
@@ -66,4 +66,30 @@ test("Capa 2: foreign stock evidence never makes conflict ready or exposes its q
   assert.equal(result.products[0].shortage,null);
   assert.equal(fixture.writes,0);
  }
+});
+
+test("Capa 2: forged conflict event identities reject before inbox or inventory reads",async()=>{
+ for(const sourcePatch of [
+  {eventIds:["bad"]},{eventIds:[eventId,eventId]},
+  {eventIds:[eventId,"01ARZ3NDEKTSV4RRFFQ69G5FA1".toLowerCase()]},
+  {eventIds:[undefined]},{eventIds:[null]}
+ ]){
+  const f=setup(99,true,{},sourcePatch);
+  await assert.rejects(preflight({db:f.db,auth,conflictId,objectId:id=>id}),
+   {code:"OFFLINE_CONFLICT_NOT_FOUND"});
+  assert.equal(f.reads,1);
+  assert.equal(f.writes,0);
+ }
+});
+test("Capa 2: malformed inventory response cannot validate conflict readiness",async()=>{
+ const original=setup(5);
+ const db={collection(name){
+  const source=original.db.collection(name);
+  if(name!=="inventarios")return source;
+  return {find(){return {toArray:async()=>null};}};
+ }};
+ const result=await preflight({db,auth,conflictId,objectId:id=>id});
+ assert.equal(result.ready,false);
+ assert.equal(result.products[0].reason,"STOCK_SIN_MAPEO");
+ assert.equal(result.products[0].available,null);
 });
