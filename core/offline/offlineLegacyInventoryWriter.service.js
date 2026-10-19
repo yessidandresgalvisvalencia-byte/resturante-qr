@@ -14,13 +14,20 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
  if(!HEX.test(context?.empresaId||"")||!HEX.test(context?.sedeId||"")||typeof objectId!=="function")
   fail("OFFLINE_INVENTORY_TENANT_REQUIRED");
  if(!Array.isArray(inventoryDeltas)||inventoryDeltas.length===0||inventoryDeltas.length>100)fail("OFFLINE_INVENTORY_INVALID_PLAN");
- const ids=new Set(),results=[];
+ const ids=new Set();
+ // Validate the ENTIRE plan before any inventory read/write. A forged second
+ // product must not cause the first product to be debited in this transaction.
  for(const delta of inventoryDeltas){
-  if(!HEX.test(delta?.productoId||"")||ids.has(delta.productoId)||
-   !/^-[1-9]\d*$/.test(delta?.deltaUnidades||""))fail("OFFLINE_INVENTORY_INVALID_PLAN");
-  ids.add(delta.productoId);
+  if(typeof delta?.productoId!=="string"||!HEX.test(delta.productoId)||
+     ids.has(delta.productoId.toLowerCase())||
+     typeof delta.deltaUnidades!=="string"||
+     !/^-[1-9]\d*$/.test(delta.deltaUnidades)||
+     -BigInt(delta.deltaUnidades)>MAX)fail("OFFLINE_INVENTORY_INVALID_PLAN");
+  ids.add(delta.productoId.toLowerCase());
+ }
+ const results=[];
+ for(const delta of inventoryDeltas){
   const units=-BigInt(delta.deltaUnidades);
-  if(units>MAX)fail("OFFLINE_INVENTORY_INVALID_PLAN");
   const key={empresaId:objectId(context.empresaId),sedeId:objectId(context.sedeId),
    productoServicioId:objectId(delta.productoId),anulado:false};
   const inventory=db.collection("inventarios");
