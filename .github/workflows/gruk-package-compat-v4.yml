@@ -1,0 +1,27 @@
+name: GRUK Package Compatibility V4
+on:
+  push:
+    branches:
+      - integration/finanzas-personales-safe-20261018-v4
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare-packages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Refresh exact source refs
+        run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main +refs/heads/feature/finanzas-personales:refs/remotes/origin/feature/finanzas-personales
+      - name: Report package differences without merging
+        run: node scripts/audit-finanzas-package-compat.js
+      - name: Ensure enterprise lockfile remains reproducible
+        run: npm ci --ignore-scripts
+      - name: Verify enterprise app syntax and integration script
+        run: node --check app.js && node --check scripts/audit-finanzas-package-compat.js
