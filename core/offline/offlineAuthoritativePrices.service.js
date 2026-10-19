@@ -20,9 +20,10 @@ async function assertOfflineAuthoritativePrices({db,session,context,plan,objectI
     String(converted).toLowerCase()!==value.toLowerCase())fail();
   return converted;
  };
- const rows=await db.collection("productoservicios").find({
-   _id:{$in:ids.map(asId)},empresaId:asId(context.empresaId),sedeId:asId(context.sedeId),activo:true
- },{session,projection:{_id:1,empresaId:1,sedeId:1,activo:1,precioVenta:1}}).toArray();
+ const query={_id:{$in:ids.map(asId)},empresaId:asId(context.empresaId),
+  sedeId:asId(context.sedeId),activo:true};
+ const rows=await db.collection("productoservicios").find(query,
+  {session,projection:{_id:1,empresaId:1,sedeId:1,activo:1,precioVenta:1}}).toArray();
  if(!Array.isArray(rows)||rows.length!==ids.length)fail();
  const prices=new Map();
  for(const row of rows){
