@@ -102,25 +102,21 @@ test("MongoDB real: caída tras 4 diarios y stock revierte toda la transacción"
     assert.equal(ledgerDoc.montoCop, "7500");
     assert.equal(ledgerDoc.deletedAt, null);
 
-    // The real staging writers return inserted:false on identical retries.
-    // Production guards must abort BEFORE inventory is discounted a second time.
+    // On identical retries journals attest inserted:false.
+    // Staging itself must abort BEFORE any second inventory debit.
     const replay = client.startSession();
     try {
       await assert.rejects(
         replay.withTransaction(async () => {
-          const repeated = await stageOfflineFinancialBatch({
+          // A reused journal is rejected by staging itself, before inventory debit.
+          await stageOfflineFinancialBatch({
             db, session: replay, context, plan,
             inventoryDeltas: calculateOfflineStockDeltas(plan),
             ledgerMovements: buildOfflineLedgerPlan(plan)
           });
-          assert.equal(repeated.sales.records[0].inserted, false);
-          assert.equal(repeated.cash.records[0].inserted, false);
-          assert.equal(repeated.stock.records[0].inserted, false);
-          assert.equal(repeated.ledger.entries[0].inserted, false);
-          assertFreshOfflineStaging(repeated, deltas, plan);
           throw Error("REPLAY_MUST_NOT_REACH_INVENTORY");
         }, transactionOptions),
-        error => error?.code === "OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION"
+        error => error?.code === "OFFLINE_STAGING_TOTAL_CONFLICT"
       );
     } finally { await replay.endSession(); }
     assert.deepEqual(await totals(),

@@ -106,7 +106,12 @@ test("Capa 2: financial journal attestation rejects foreign event/product and ma
   [0,{totalCop:"3000",records:new Array(1)}],
   [1,{records:new Array(1)}],
   [2,{totalCop:"3000",records:new Array(1)}],
-  [3,{totalCop:"3000",entries:new Array(1)}]
+  [3,{totalCop:"3000",entries:new Array(1)}],
+  // A replay is not a fresh insert, even when the event, amount and count match.
+  [0,{totalCop:"3000",records:[{eventId:id,inserted:false}]}],
+  [1,{records:[{productoId:p,inserted:false}]}],
+  [2,{totalCop:"3000",records:[{eventId:id,inserted:false}]}],
+  [3,{totalCop:"3000",entries:[{eventId:id,tipo:"VENTA_OFFLINE",inserted:false}]}]
  ];
  try{
   for(const [replaceIndex,poisoned] of cases){

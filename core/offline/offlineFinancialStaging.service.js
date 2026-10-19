@@ -57,7 +57,7 @@ async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDelt
    if(!Object.hasOwn(records,index))return false;
    const record=records[index],id=record?.[field];
    if(typeof id!=="string"||!requested.has(id)||seen.has(id)||
-      typeof record.inserted!=="boolean")return false;
+      record.inserted!==true)return false;
    seen.add(id);
   }
   return seen.size===requested.size;
