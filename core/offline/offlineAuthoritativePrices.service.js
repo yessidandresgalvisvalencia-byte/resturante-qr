@@ -6,14 +6,16 @@ const MAX=BigInt(Number.MAX_SAFE_INTEGER);
 function fail(){const e=new Error("OFFLINE_AUTHORITATIVE_PRICE_CONFLICT");e.code=e.message;throw e;}
 async function assertOfflineAuthoritativePrices({db,session,context,plan,objectId}){
  if(!db?.collection||session?.inTransaction?.()!==true||typeof objectId!=="function"||
-    !HEX24.test(context?.empresaId||"")||!HEX24.test(context?.sedeId||"")||
+    typeof context?.empresaId!=="string"||typeof context?.sedeId!=="string"||
+    !HEX24.test(context.empresaId)||!HEX24.test(context.sedeId)||
     !Array.isArray(plan?.orders)||plan.orders.length===0)fail();
  // Every order must contain a nonempty item array; never silently skip malformed orders.
  if(!Array.from({length:plan.orders.length},(_,i)=>Object.prototype.hasOwnProperty.call(plan.orders,i)).every(Boolean))fail();
  if(plan.orders.some(order=>!order||!Array.isArray(order.items)||order.items.length===0||
     !Array.from({length:order.items.length},(_,i)=>Object.prototype.hasOwnProperty.call(order.items,i)).every(Boolean)))fail();
  const items=plan.orders.flatMap(order=>order.items);
- if(!items.length||items.some(item=>!HEX24.test(item?.productoId||"")||
+ if(!items.length||items.some(item=>typeof item?.productoId!=="string"||
+   !HEX24.test(item.productoId)||
    typeof item.precioUnitarioCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(item.precioUnitarioCop)||
    item.precioUnitarioCop.length>16||BigInt(item.precioUnitarioCop)>MAX))fail();
  const ids=[...new Set(items.map(item=>item.productoId.toLowerCase()))];
