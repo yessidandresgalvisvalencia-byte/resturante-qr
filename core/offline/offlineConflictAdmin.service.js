@@ -20,12 +20,17 @@ async function listStockConflicts({db,auth,limit=50}){
  if(typeof db?.collection!=="function")fail("OFFLINE_CONFLICT_DATABASE_UNAVAILABLE");
  const records=await db.collection("gruk_offline_stock_conflicts").find({
   ...tenant,status:"REQUIERE_REVISION"
- },{projection:{_id:1,empresaId:1,sedeId:1,actorId:1,eventIds:1,issues:1,createdAt:1,status:1},
+ },{projection:{_id:1,empresaId:1,sedeId:1,actorId:1,eventIds:1,issues:1,createdAt:1,status:1,applied:1,cobrado:1},
   sort:{createdAt:-1,_id:1},limit}).toArray();
  if(!Array.isArray(records)||records.some(x=>
   x?.empresaId!==tenant.empresaId||x?.sedeId!==tenant.sedeId||
-  x?.status!=="REQUIERE_REVISION"))fail("OFFLINE_CONFLICT_SCOPE_MISMATCH");
- return Object.freeze(records.filter(x=>SHA.test(x._id||"")).map(x=>Object.freeze({
+  x?.status!=="REQUIERE_REVISION"||x?.applied!==false||x?.cobrado!==false||
+  !SHA.test(x?._id||"")||!ID.test(x?.actorId||"")||
+  !Array.isArray(x?.eventIds)||x.eventIds.length===0||x.eventIds.length>100||
+  x.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
+  new Set(x.eventIds).size!==x.eventIds.length||
+  !Array.isArray(x?.issues)||x.issues.length===0))fail("OFFLINE_CONFLICT_SCOPE_MISMATCH");
+ return Object.freeze(records.map(x=>Object.freeze({
   conflictId:x._id,actorId:x.actorId,eventIds:x.eventIds,issues:x.issues,
   status:x.status,createdAt:x.createdAt
  })));
