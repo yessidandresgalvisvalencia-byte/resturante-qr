@@ -343,11 +343,11 @@ async function transferir(usuarioId,{origenId,destinoId,montoMinor,externalId}){
   return await session.withTransaction(async()=>{
    const previo=await Outbox.findOne({usuarioId,eventId}).session(session);
    if(previo)return validarReplayTransferenciaPersonal(previo,{origenId,destinoId,monto});
-   const origen=await Cuenta.findOneAndUpdate({_id:origenId,usuarioId,activa:true,saldoMinor:{$gte:monto}},
+   const origen=await Cuenta.findOneAndUpdate({_id:origenId,usuarioId,activa:true,moneda:"COP",saldoMinor:{$gte:monto}},
     {$inc:{saldoMinor:-monto},$set:{requiereReconciliacion:true}},{new:true,session});
    if(!origen)throw Object.assign(new Error("Cuenta origen inválida o saldo insuficiente"),{statusCode:409});
    exigirSaldoCuentaSeguro(origen);
-   const destino=await Cuenta.findOneAndUpdate({_id:destinoId,usuarioId,activa:true},
+   const destino=await Cuenta.findOneAndUpdate({_id:destinoId,usuarioId,activa:true,moneda:"COP"},
     {$inc:{saldoMinor:monto},$set:{requiereReconciliacion:true}},{new:true,session});
    if(!destino)throw Object.assign(new Error("Cuenta destino inválida"),{statusCode:404});
    exigirSaldoCuentaSeguro(destino);
