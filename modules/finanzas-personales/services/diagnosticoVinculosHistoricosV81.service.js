@@ -20,8 +20,26 @@ function evaluarEstadoVinculoHistorico(movimiento,cuentas,vinculo){
  if(!movimiento||!Array.isArray(cuentas))throw new TypeError("Datos de vínculo inválidos");
  if(!vinculo)return evaluarCandidatoVinculo(movimiento,cuentas);
  if(String(vinculo.movimientoId)!==String(movimiento._id))
-  throw new TypeError("Evidencia de vínculo de otro movimiento");
- return {estado:"CONFIRMADO",cuentaId:String(vinculo.cuentaId)};
+  throw Object.assign(new Error("Evidencia histórica inconsistente: movimiento ajeno"),{statusCode:409});
+ const cuenta=cuentas.find(c=>c&&c.activa===true&&c.moneda==="COP"&&
+  String(c._id)===String(vinculo.cuentaId));
+ if(!cuenta)
+  throw Object.assign(new Error("Vínculo histórico apunta a cuenta no disponible para este usuario"),{statusCode:409});
+ return {estado:"CONFIRMADO",cuentaId:String(cuenta._id)};
+}
+function indexarVinculosHistoricosV81(vinculos){
+ if(!Array.isArray(vinculos))throw new TypeError("Vínculos históricos inválidos");
+ const porMovimiento=new Map();
+ for(const vinculo of vinculos){
+  if(!vinculo||!mongoose.isValidObjectId(vinculo.movimientoId)||
+     !mongoose.isValidObjectId(vinculo.cuentaId))
+   throw Object.assign(new Error("Vínculo histórico sin identificadores válidos"),{statusCode:409});
+  const id=String(vinculo.movimientoId);
+  if(porMovimiento.has(id))
+   throw Object.assign(new Error("Vínculos históricos duplicados para un movimiento"),{statusCode:409});
+  porMovimiento.set(id,vinculo);
+ }
+ return porMovimiento;
 }
 function cursorHistoricoValidoV81(cursor){
  return cursor===undefined||typeof cursor==="string"&&/^[0-9a-f]{24}$/i.test(cursor);
@@ -44,7 +62,7 @@ async function diagnosticarVinculosHistoricosV81(usuarioId,{limite=100,cursor}={
    const vinculos=visibles.length?await Vinculo.find({usuarioId,
     movimientoId:{$in:visibles.map(f=>f._id)}})
     .session(session).select("movimientoId cuentaId").lean():[];
-   const porMovimiento=new Map(vinculos.map(v=>[String(v.movimientoId),v]));
+   const porMovimiento=indexarVinculosHistoricosV81(vinculos);
    const movimientos=visibles.map(f=>({
     movimientoId:String(f._id),cuentaHistorica:f.cuenta||"",
     ...evaluarEstadoVinculoHistorico(f,cuentas,porMovimiento.get(String(f._id)))
@@ -58,4 +76,4 @@ async function diagnosticarVinculosHistoricosV81(usuarioId,{limite=100,cursor}={
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
  }finally{await session.endSession();}
 }
-module.exports={evaluarCandidatoVinculo,evaluarEstadoVinculoHistorico,diagnosticarVinculosHistoricosV81,cursorHistoricoValidoV81};
+module.exports={evaluarCandidatoVinculo,evaluarEstadoVinculoHistorico,indexarVinculosHistoricosV81,diagnosticarVinculosHistoricosV81,cursorHistoricoValidoV81};
