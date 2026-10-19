@@ -62,3 +62,37 @@ test("recovery rejects financial rows whose returned tenant, site or actor diffe
   }
  }
 });
+
+test("Capa 2: recovery rejects malformed storage collections and unsafe individual COP values",async()=>{
+ for(const name of ["gruk_offline_inbox","gruk_offline_ventas","gruk_offline_caja_intenciones"]){
+  const base=fixture();
+  const db={collection(collectionName){
+   const collection=base.collection(collectionName);
+   return {find(query,options){
+    const original=collection.find(query,options);
+    return {toArray:async()=>collectionName===name?null:original.toArray()};
+   }};
+  }};
+  await assert.rejects(recover({db,context:ctx,eventIds:ids}),
+   {code:"OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW"});
+ }
+ for(const [name,field] of [
+  ["gruk_offline_ventas","totalCop"],
+  ["gruk_offline_caja_intenciones","montoCop"]
+ ]){
+  const base=fixture();
+  const db={collection(collectionName){
+   const collection=base.collection(collectionName);
+   return {find(query,options){
+    const original=collection.find(query,options);
+    return {toArray:async()=>{
+     const rows=await original.toArray();
+     if(collectionName===name)rows[0][field]="9007199254740992";
+     return rows;
+    }};
+   }};
+  }};
+  await assert.rejects(recover({db,context:ctx,eventIds:ids}),
+   {code:"OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW"});
+ }
+});
