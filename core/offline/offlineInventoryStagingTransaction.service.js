@@ -46,19 +46,25 @@ function assertAppliedOfflineInventory(inventory,inventoryDeltas){
  const expected=new Map();
  for(const delta of inventoryDeltas){
    if(typeof delta?.productoId!=="string"||!delta.productoId||
-      typeof delta.deltaUnidades!=="string"||!/^-[1-9][0-9]*$/.test(delta.deltaUnidades)||
+      typeof delta.deltaUnidades!=="string"||delta.deltaUnidades.length>17||
+      !/^-[1-9][0-9]*$/.test(delta.deltaUnidades)||
       expected.has(delta.productoId))fail();
-   expected.set(delta.productoId,-BigInt(delta.deltaUnidades));
+   const units=-BigInt(delta.deltaUnidades);
+   if(units>BigInt(Number.MAX_SAFE_INTEGER))fail();
+   expected.set(delta.productoId,units);
  }
  const seen=new Set();
  for(const result of inventory){
    if(typeof result?.productoId!=="string"||!expected.has(result.productoId)||
       seen.has(result.productoId)||typeof result.antes!=="string"||
       typeof result.despues!=="string"||
+      result.antes.length>16||result.despues.length>16||
       !/^(0|[1-9][0-9]*)$/.test(result.antes)||
       !/^(0|[1-9][0-9]*)$/.test(result.despues))fail();
    const before=BigInt(result.antes),after=BigInt(result.despues);
-   if(before-after!==expected.get(result.productoId))fail();
+   if(before>BigInt(Number.MAX_SAFE_INTEGER)||
+      after>BigInt(Number.MAX_SAFE_INTEGER)||
+      before-after!==expected.get(result.productoId))fail();
    seen.add(result.productoId);
  }
  return true;
