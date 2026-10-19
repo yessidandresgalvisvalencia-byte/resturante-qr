@@ -82,3 +82,26 @@ test("Capa 2: post-debit verification rejects a different tenant, product or sto
   assert.equal(writes,1);
  }
 });
+
+test("Capa 2: all product identifiers and units validated before any inventory access",async()=>{
+ const session={inTransaction:()=>true};
+ for(const invalid of [
+  {productoId:"invalid",deltaUnidades:"-1"},
+  {productoId:productoId.toUpperCase(),deltaUnidades:"-2"},
+  {productoId:"507f1f77bcf86cd799439013",deltaUnidades:"0"},
+  {productoId:"507f1f77bcf86cd799439013",deltaUnidades:"-9007199254740992"},
+  {productoId:"507f1f77bcf86cd799439013",deltaUnidades:"-1.5"},
+  {productoId:"507f1f77bcf86cd799439013",deltaUnidades:null}
+ ]){
+  let reads=0,writes=0;
+  const db={collection(){reads++;return {
+   find(){throw Error("UNEXPECTED_DB_READ");},
+   updateOne(){writes++;throw Error("UNEXPECTED_DB_WRITE");}
+  };}};
+  await assert.rejects(apply({db,session,context,
+   inventoryDeltas:[inventoryDeltas[0],invalid],objectId:x=>x}),
+   {code:"OFFLINE_INVENTORY_INVALID_PLAN"});
+  assert.equal(reads,0);
+  assert.equal(writes,0);
+ }
+});
