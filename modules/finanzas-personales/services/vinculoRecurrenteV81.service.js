@@ -8,6 +8,10 @@ function fechaEstrictaRecurrente(valor,etiqueta){
   throw Object.assign(new TypeError(etiqueta+" debe ser fecha ISO o Date"),{statusCode:400});
  // Validar el calendario civil escrito; Date.parse puede normalizar 30 de febrero.
  if(typeof valor==="string"){
+  const offset=valor.match(/([+-])(\d{2}):(\d{2})$/);
+  if(offset&&(Number(offset[2])>14||Number(offset[3])>59||
+     (Number(offset[2])===14&&Number(offset[3])!==0)))
+   throw Object.assign(new TypeError(etiqueta+" tiene un desfase horario inválido"),{statusCode:400});
   const [anio,mes,dia]=valor.slice(0,10).split("-").map(Number);
   const civil=new Date(0);
   civil.setUTCHours(0,0,0,0);
