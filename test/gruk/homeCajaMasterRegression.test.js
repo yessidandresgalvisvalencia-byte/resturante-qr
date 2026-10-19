@@ -180,3 +180,18 @@ test("la reconstrucción patrimonial nunca suma dos veces el mismo movimiento",(
   e=>e.statusCode===409&&/identidad inválida/.test(e.message));
  assert.equal(exigirMovimientosUnicosPatrimonio([mov],{exigirId:true}),true);
 });
+
+test("las anclas y verificaciones futuras no autorizan Disponible Hoy",()=>{
+ const {evaluarIntegridadAnclasPersonales,saldoCuentasDesdeAnclas}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const cuenta={_id:"507f1f77bcf86cd799439011",nombre:"Nequi",saldoMinor:100000,
+  saldoAnclaMinor:100000,saldoAnclaEn:new Date("2026-10-01T05:00:00Z"),
+  saldoVerificadoEn:new Date("2026-10-01T05:00:00Z"),requiereReconciliacion:false};
+ const fechaFutura=new Date("2099-01-01T00:00:00Z");
+ assert.equal(evaluarIntegridadAnclasPersonales([cuenta]).saldoVerificado,true);
+ const anclaFutura=evaluarIntegridadAnclasPersonales([{...cuenta,saldoAnclaEn:fechaFutura}]);
+ assert.equal(anclaFutura.saldoVerificado,false);
+ assert.equal(anclaFutura.anclaCompleta,false);
+ assert.equal(evaluarIntegridadAnclasPersonales([{...cuenta,saldoVerificadoEn:fechaFutura}]).saldoVerificado,false);
+ assert.throws(()=>saldoCuentasDesdeAnclas([{...cuenta,saldoAnclaEn:fechaFutura}],[]),
+  e=>e.statusCode===409);
+});
