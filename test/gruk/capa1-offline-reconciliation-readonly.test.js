@@ -57,3 +57,29 @@ test("offline reconciliation: invalid identity/ids never touches Mongo",async()=
  await assert.rejects(read({db,context:ctx,eventIds:["bad"]}),/OFFLINE_INVALID_IDS/);
  assert.equal(calls,0);
 });
+
+test("Capa 2: malformed or unsolicited financial proof poisons reconciliation rather than confirming payment",async()=>{
+ const base={...ctx,eventId:id};
+ const source={
+  gruk_offline_inbox:[{...base,status:"APLICADO",inventoryApplied:true}],
+  gruk_offline_ventas:[{...base,status:"CONTABILIZADA",totalCop:"3000"}],
+  gruk_offline_caja_intenciones:[{...base,status:"CONCILIADO",cobrado:true,montoCop:"3000"}],
+  gruk_ledger_movimientos:[{...base,tipo:"VENTA_OFFLINE",montoCop:"3000",deletedAt:null}]
+ };
+ for(const poison of [null,{}, {empresaId:ctx.empresaId,sedeId:ctx.sedeId,actorId:ctx.actorId},
+  {...base,eventId:other,status:"CONTABILIZADA"},
+  {...base,eventId:"bad",status:"CONTABILIZADA"}]){
+  const db={collection(name){return {find:()=>({
+   toArray:async()=>name==="gruk_offline_ventas"?[...source[name],poison]:source[name]
+  })};}};
+  const result=await read({db,context:ctx,eventIds:[id]});
+  assert.equal(result[0].applied,false);
+  assert.equal(result[0].financiallyReconciled,false);
+  assert.equal(result[0].staged,false);
+ }
+});
+test("Capa 2: malformed reconciliation collection response is rejected",async()=>{
+ const db={collection(name){return {find:()=>({toArray:async()=>name==="gruk_offline_ventas"?null:[]})};}};
+ await assert.rejects(read({db,context:ctx,eventIds:[id]}),
+  {code:"OFFLINE_RECONCILIATION_EVIDENCE_INVALID"});
+});
