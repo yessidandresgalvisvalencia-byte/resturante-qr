@@ -179,3 +179,62 @@ test("Capa 2: rejects nonstring tenant identifiers before Mongo or ObjectId adap
   }
  }
 });
+
+test("Capa 2: two offline tablets racing for last unit cannot debit it twice",async()=>{
+ let remaining=1,writes=0;
+ const bothRead=[];
+ let releaseReads;
+ const gate=new Promise(resolve=>{releaseReads=resolve;});
+ const db={collection(name){
+  assert.equal(name,"inventarios");
+  return {
+   find(key,options){
+    assert.equal(key.empresaId,empresaId);
+    assert.equal(key.sedeId,sedeId);
+    assert.equal(key.productoServicioId,productoId);
+    assert.equal(options.session.inTransaction(),true);
+    return {limit(n){
+     assert.equal(n,2);
+     return {async toArray(){
+      const observed=remaining;
+      bothRead.push(observed);
+      if(bothRead.length===2)releaseReads();
+      await gate;
+      return [{_id:"shared-stock",empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:observed}];
+     }};
+    }};
+   },
+   async updateOne(key,update,options){
+    assert.equal(options.session.inTransaction(),true);
+    assert.equal(update.$inc.cantidad,-1);
+    if(remaining!==key.cantidad)return {matchedCount:0,modifiedCount:0};
+    remaining--;writes++;
+    return {matchedCount:1,modifiedCount:1};
+   },
+   async findOne(key){
+    return {_id:key._id,empresaId,sedeId,productoServicioId:productoId,
+      anulado:false,cantidad:remaining};
+   }
+  };
+ }};
+ const tablet=()=>apply({db,session:{inTransaction:()=>true},context,
+  inventoryDeltas:[{productoId,deltaUnidades:"-1"}],objectId:x=>x});
+ const outcomes=await Promise.allSettled([tablet(),tablet()]);
+ assert.equal(outcomes.filter(x=>x.status==="fulfilled").length,1);
+ assert.equal(outcomes.filter(x=>x.status==="rejected"&&
+   x.reason.code==="OFFLINE_INVENTORY_CONCURRENT_CHANGE").length,1);
+ assert.deepEqual(bothRead,[1,1]);
+ assert.equal(writes,1);
+ assert.equal(remaining,0);
+});
+test("Capa 2: absent Mongo conditional update result is a controlled conflict",async()=>{
+ const db={collection:()=>({
+  find:()=>({limit:()=>({toArray:async()=>[{_id:"stock",empresaId,sedeId,
+   productoServicioId:productoId,anulado:false,cantidad:1}]})}),
+  updateOne:async()=>null,
+  findOne:()=>{throw Error("FORBIDDEN_RECHECK");}
+ })};
+ await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
+  inventoryDeltas:[{productoId,deltaUnidades:"-1"}],objectId:x=>x}),
+  {code:"OFFLINE_INVENTORY_CONCURRENT_CHANGE"});
+});
