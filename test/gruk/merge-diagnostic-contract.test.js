@@ -13,7 +13,8 @@ test("diagnóstico de PR usa merge-tree sin mutar ni fusionar ramas",()=>{
  assert.match(script,/git merge-tree --write-tree --name-only --messages origin\/main origin\/feature\/finanzas-personales/);
  assert.doesNotMatch(script,/git merge-tree[^\n]*\sHEAD/);
  assert.match(script,/CONFLICTOS_DE_FUSION_DETECTADOS/);
- assert.match(script,/echo "CONFLICTOS_DE_FUSION_DETECTADOS[^\n]*\n\s*exit 1/);
+ assert.match(script,/echo "CONFLICTOS_DE_FUSION_DETECTADOS[^\n]*\n(?:\s*echo "[^\n]*"\n)*\s*exit 1/);
+ assert.match(script,/RUTA_GUIA: docs\/finanzas-personales\/integracion-segura-main\.md/);
  assert.match(script,/--name-only/);
  assert.doesNotMatch(script,/^\s*git (?:merge|reset|push|checkout|rebase)\s/m);
 });
