@@ -148,3 +148,22 @@ test("Capa 2: planes dispersos se rechazan antes de escribir los cuatro diarios"
   assert.deepEqual(f.writes,[]);
  }
 });
+
+test("Capa 2: total COP del lote debe sumar exactamente pedidos antes de escribir",async()=>{
+ const invalidPlans=[
+  {...plan,totalCop:"2999"},
+  {...plan,totalCop:"3001"},
+  {...plan,totalCop:"03000"},
+  {...plan,totalCop:"3000.00"},
+  {...plan,totalCop:"9".repeat(10000)},
+  {...plan,totalCop:3000},
+  {...plan,orders:[{...plan.orders[0],totalCop:"2999"}]},
+  {...plan,orders:[{...plan.orders[0],totalCop:"3e3"}]}
+ ];
+ for(const forged of invalidPlans){
+  const f=fixture();
+  await assert.rejects(stage({...f,context,plan:forged,inventoryDeltas,ledgerMovements}),
+   {code:"OFFLINE_STAGING_TOTAL_CONFLICT"});
+  assert.deepEqual(f.writes,[]);
+ }
+});

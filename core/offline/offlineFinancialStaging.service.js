@@ -16,12 +16,20 @@ async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDelt
  if(!Array.isArray(plan?.orders)||!plan.orders.length||plan.orders.length>100||
     !dense(plan.orders)||!dense(ledgerMovements)||
     ledgerMovements.length!==plan.orders.length)fail();
+ // The batch total is checked before any journal write, not just compared
+ // against totals independently reported by journal writers.
+ const validCop=value=>typeof value==="string"&&value.length<=18&&
+   /^(0|[1-9][0-9]*)$/.test(value);
+ if(!validCop(plan.totalCop))fail();
  const expected=new Map();
+ let computedTotal=0n;
  for(const order of plan.orders){
   if(typeof order?.eventId!=="string"||expected.has(order.eventId)||
-     typeof order.totalCop!=="string")fail();
+     !validCop(order.totalCop))fail();
   expected.set(order.eventId,order.totalCop);
+  computedTotal+=BigInt(order.totalCop);
  }
+ if(computedTotal!==BigInt(plan.totalCop))fail();
  const matched=new Set();
  for(const movement of ledgerMovements){
   if(typeof movement?.eventId!=="string"||matched.has(movement.eventId)||
