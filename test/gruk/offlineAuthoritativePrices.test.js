@@ -145,3 +145,20 @@ test("Capa 2: extremely long COP prices are rejected before Mongo access",async(
   assert.equal(reads,0);assert.equal(conversions,0);
  }
 });
+
+test("Capa 2: offline pricing rejects oversized synchronization batches before Mongo access",async()=>{
+ const good=plan().orders[0];
+ const batches=[
+  {orders:Array.from({length:1001},()=>good)},
+  {orders:[{items:Array.from({length:10001},()=>good.items[0])}]},
+  {orders:Array.from({length:11},()=>({items:Array.from({length:1000},()=>good.items[0])}))}
+ ];
+ for(const batch of batches){
+  let reads=0,conversions=0;
+  const database={collection(){reads++;throw Error("FORBIDDEN_DB_READ");}};
+  await assert.rejects(verify({db:database,session,context:ctx,plan:batch,
+    objectId:()=>{conversions++;throw Error("FORBIDDEN_CONVERSION");}}),
+    {code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+  assert.equal(reads,0);assert.equal(conversions,0);
+ }
+});
