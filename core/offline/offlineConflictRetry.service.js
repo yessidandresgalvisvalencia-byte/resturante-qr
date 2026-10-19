@@ -45,8 +45,9 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
      existing.actorId!==context.actorId||!Array.isArray(existing.eventIds)||
      existing.eventIds.join(",")!==eventIds.join(","))fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
   const statuses=await readOfflineReconciliation({db,context,eventIds});
-  if(statuses.length!==eventIds.length||statuses.some(x=>
-    x.status!=="EN_REVISION"||x.staged!==true||x.applied!==false))
+  if(!Array.isArray(statuses)||statuses.length!==eventIds.length||statuses.some((x,i)=>
+    x?.eventId!==eventIds[i]||x.status!=="EN_REVISION"||
+    x.staged!==true||x.financiallyReconciled!==false||x.applied!==false))
     fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
   return Object.freeze({conflictId,alreadyResolved:true,status:"STAGED",
    events:eventIds.length,inventoryApplied:true,applied:false,cobrado:false});
