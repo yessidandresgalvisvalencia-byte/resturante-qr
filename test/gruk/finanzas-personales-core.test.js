@@ -467,3 +467,24 @@ test("suma solo abonos vinculados en el período, sin mezclar otras obligaciones
  ]}),TypeError);
  assert.throws(()=>sumar({origenId:"origen-A",inicio,fin:inicio,pagos}),TypeError);
 });
+
+test("ningún movimiento con monto corrupto desaparece del cálculo de caja",()=>{
+ for(const montoMinor of [0,-1,0.1,NaN,Infinity,"1000",null,undefined,Number.MAX_SAFE_INTEGER+1]){
+  assert.throws(()=>patrimonioPersonal.deltaCaja({
+   tipo:"INGRESO",montoMinor,medioPago:"TRANSFERENCIA"
+  }),e=>e.statusCode===409,String(montoMinor));
+ }
+ for(const montoPagadoRealMinor of [0,-1,0.5,NaN,"5000",Number.MAX_SAFE_INTEGER+1]){
+  assert.throws(()=>patrimonioPersonal.deltaCaja({
+   tipo:"PAGO_DEUDA",montoMinor:5000,montoPagadoRealMinor,medioPago:"DEBITO"
+  }),e=>e.statusCode===409,String(montoPagadoRealMinor));
+ }
+ assert.throws(()=>patrimonioPersonal.deltaCaja({tipo:"SIN_CLASIFICAR",montoMinor:1000}),
+  e=>e.statusCode===409);
+ assert.equal(patrimonioPersonal.deltaCaja({
+  tipo:"GASTO",montoMinor:1000,medioPago:"CREDITO"
+ }),0);
+ assert.equal(patrimonioPersonal.deltaCaja({
+  tipo:"PAGO_DEUDA",montoMinor:5000,montoPagadoRealMinor:5500
+ }),-5500);
+});
