@@ -31,8 +31,10 @@ async function stageOfflineCashIntents({db,session,context,plan}){
   try{result=await cash.updateOne(key,{$setOnInsert:payload},{upsert:true,session});}
   catch(err){if(err?.code===11000)fail("OFFLINE_CASH_CONCURRENT_RETRY_REQUIRED");throw err;}
   if(result.upsertedCount!==1){
-   const prior=await cash.findOne(key,{session,projection:{actorId:1,montoCop:1,status:1,cobrado:1}});
-   if(!prior||prior.actorId!==payload.actorId||prior.montoCop!==payload.montoCop||
+   const prior=await cash.findOne(key,{session,projection:{empresaId:1,sedeId:1,eventId:1,actorId:1,montoCop:1,status:1,cobrado:1}});
+   if(!prior||prior.empresaId!==key.empresaId||prior.sedeId!==key.sedeId||
+      prior.eventId!==key.eventId||prior.actorId!==payload.actorId||
+      prior.montoCop!==payload.montoCop||
       prior.status!=="PENDIENTE_CONCILIACION"||prior.cobrado!==false)
      fail("OFFLINE_CASH_REPLAY_CONFLICT");
   }
