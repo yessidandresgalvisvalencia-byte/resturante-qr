@@ -26,3 +26,7 @@
 
 ## Veredicto actual
 **NO APTO PARA FUSIÓN.** Esta rama es un espacio seguro de preparación, no una integración completada. No presupone que los cambios personales sean compatibles con las 244 confirmaciones exclusivas de `main`.
+
+
+## Advertencia de deriva detectada
+Tras crear esta rama, `main` avanzó de `66194960e0b5b2c02ffdea06cfa369db0d218da8` a `e967a8a30c8ed9a6df2ee2d1b536672c8aea860f` durante la misma sesión. **Esta candidatura está obsoleta y debe permanecer bloqueada.** No actualizar los SHA esperados ni reinterpretar el archivo base como compatible: se debe generar otra candidatura desde el nuevo `main`, diagnosticar conflictos nuevamente y repetir las pruebas. No fue un cambio realizado sobre `main` por esta tarea.
