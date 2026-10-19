@@ -35,3 +35,16 @@ test("Capa 2: cantidades de 10000 digitos se rechazan antes de calcular deltas",
  assert.deepEqual(calculate({orders:[{items:[{productoId:"prod1",cantidad:"9007199254740991"}]}]}),
   [{productoId:"prod1",deltaUnidades:"-9007199254740991"}]);
 });
+
+test("Capa 2: planes masivos de stock fallan antes de acumular unidades",()=>{
+ const item={productoId:"prod1",cantidad:"1"};
+ for(const orders of [
+  Array.from({length:1001},()=>({items:[item]})),
+  [{items:Array.from({length:10001},()=>item)}],
+  Array.from({length:11},()=>({items:Array.from({length:1000},()=>item)}))
+ ]){
+  assert.throws(()=>calculate({orders}),{code:"OFFLINE_STOCK_PLAN_INVALID"});
+ }
+ assert.deepEqual(calculate({orders:[{items:[item]},{items:[item]}]}),
+  [{productoId:"prod1",deltaUnidades:"-2"}]);
+});
