@@ -51,12 +51,13 @@ test("Capa 2: retry rejects forged source before reading resolutions or opening 
 });
 test("Capa 2: corrupted resolution never certifies retry idempotency",async()=>{
  const base={_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,
-  actorId:"operator",status:"STAGED",eventIds:[eventId]};
+  actorId:"operator",status:"STAGED",eventIds:[eventId],applied:false,cobrado:false};
  for(const patch of [
   {empresaId:"507f191e810c19729de860eb"},
   {sedeId:"507f1f77bcf86cd799439013"},
   {_id:"offline-stock-"+"b".repeat(64)},{eventIds:undefined},
-  {empresaId:undefined}
+  {empresaId:undefined},{applied:true},{cobrado:true},
+  {applied:undefined},{cobrado:undefined}
  ]){
   const f=fake({}, {...base,...patch});
   await assert.rejects(retryOfflineConflict(args(f.db)),
