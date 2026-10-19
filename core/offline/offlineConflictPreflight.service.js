@@ -4,6 +4,7 @@
 const {readOfflineOrderCandidates}=require("./offlinePostingCandidates.service");
 const {calculateOfflineStockDeltas}=require("./offlineInventoryDeltas.service");
 const SHA=/^offline-stock-[a-f0-9]{64}$/,HEX=/^[a-f0-9]{24}$/i;
+const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 function fail(code){const error=new Error(code);error.code=code;throw error;}
 async function preflightOfflineConflict({db,auth,conflictId,objectId}){
  if(!auth||!["DUEÑO","ADMIN_SEDE"].includes(auth.rol)||
@@ -23,7 +24,9 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
     typeof source.actorId!=="string"||
     !/^[A-Za-z0-9_-]{1,80}$/.test(source.actorId)||
     !Array.isArray(source.eventIds)||source.eventIds.length===0||
-    source.eventIds.length>100)
+    source.eventIds.length>100||
+    source.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
+    new Set(source.eventIds).size!==source.eventIds.length)
   fail("OFFLINE_CONFLICT_NOT_FOUND");
  const context={...tenant,actorId:source.actorId};
  let prepared;
@@ -45,7 +48,7 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
    productoServicioId:objectId(delta.productoId),anulado:false
   },{projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1},limit:2}).toArray();
   const requested=-BigInt(delta.deltaUnidades);
-  if(rows.length!==1||
+  if(!Array.isArray(rows)||rows.length!==1||
      String(rows[0]?.empresaId).toLowerCase()!==auth.empresaId.toLowerCase()||
      String(rows[0]?.sedeId).toLowerCase()!==auth.sedeId.toLowerCase()||
      String(rows[0]?.productoServicioId).toLowerCase()!==delta.productoId.toLowerCase()||
