@@ -6,6 +6,20 @@ const {readOfflineOrderCandidates}=require("./offlinePostingCandidates.service")
 const {calculateOfflineStockDeltas}=require("./offlineInventoryDeltas.service");
 const HEX=/^[0-9a-f]{24}$/i,MAX=BigInt(Number.MAX_SAFE_INTEGER);
 function conflict(code){const e=new Error(code);e.code=code;throw e;}
+function validIssues(issues,deltas){
+ if(!Array.isArray(issues)||issues.length===0||issues.length>deltas.length)return false;
+ const allowed=new Set(deltas.map(d=>d.productoId.toLowerCase())),seen=new Set();
+ for(const issue of issues){
+  if(!issue||typeof issue.productoId!=="string"||!HEX.test(issue.productoId)||
+     !allowed.has(issue.productoId.toLowerCase())||seen.has(issue.productoId.toLowerCase()))return false;
+  seen.add(issue.productoId.toLowerCase());
+  const amounts=[issue.disponible,issue.solicitado,issue.faltante];
+  if(amounts.some(v=>typeof v!=="string"||!/^(0|[1-9][0-9]*)$/.test(v)||BigInt(v)>MAX))return false;
+  const [available,requested,shortage]=amounts.map(BigInt);
+  if(requested<=available||shortage!==requested-available)return false;
+ }
+ return true;
+}
 async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
  if(typeof db?.collection!=="function"||typeof objectId!=="function"||
   !HEX.test(context?.empresaId||"")||!HEX.test(context?.sedeId||""))
@@ -61,7 +75,7 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
   persisted.actorId!==context.actorId||persisted.status!=="REQUIERE_REVISION"||
   persisted.applied!==false||persisted.cobrado!==false||
   !Array.isArray(persisted.eventIds)||persisted.eventIds.join(",")!==sorted.join(",")||
-  !Array.isArray(persisted.issues)||persisted.issues.length===0)
+  !validIssues(persisted.issues,deltas))
   conflict("OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED");
  return Object.freeze({
   status:"REQUIERE_REVISION_STOCK",conflictId,applied:false,cobrado:false,
