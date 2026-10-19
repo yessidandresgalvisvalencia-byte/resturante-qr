@@ -5,11 +5,18 @@ function invalid(){const e=new Error("OFFLINE_STOCK_PLAN_INVALID");e.code="OFFLI
 function calculateOfflineStockDeltas(prepared){
  if(!prepared||!Array.isArray(prepared.orders)||prepared.orders.length<1||
     prepared.orders.length>1000)invalid();
- const totals=new Map();
+ // Array iteration skips holes; never silently omit an offline order or item.
+ if(!Array.from({length:prepared.orders.length},(_,i)=>
+    Object.prototype.hasOwnProperty.call(prepared.orders,i)).every(Boolean))invalid();
  let totalItems=0;
  for(const order of prepared.orders){
   if(!order||!Array.isArray(order.items)||order.items.length<1||
      order.items.length>10000||(totalItems+=order.items.length)>10000)invalid();
+  if(!Array.from({length:order.items.length},(_,i)=>
+     Object.prototype.hasOwnProperty.call(order.items,i)).every(Boolean))invalid();
+ }
+ const totals=new Map();
+ for(const order of prepared.orders){
   for(const item of order.items){
    if(!item||typeof item.productoId!=="string"||!/^[A-Za-z0-9_-]{1,80}$/.test(item.productoId)||
       typeof item.cantidad!=="string"||item.cantidad.length>16||
