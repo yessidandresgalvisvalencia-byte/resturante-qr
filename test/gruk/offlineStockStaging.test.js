@@ -29,3 +29,38 @@ test("rechaza si no existe índice único",async()=>{
  await assert.rejects(stage({...f,context,plan,inventoryDeltas}),e=>e.code==="OFFLINE_STOCK_UNIQUE_INDEX_REQUIRED");
  assert.equal(f.rows.size,0);
 });
+
+test("Capa 2: movimiento persistido de otro ámbito nunca valida reintentos",async()=>{
+ const forged=[
+  {empresaId:"otraEmpresa"},{sedeId:"otraSede"},
+  {batchId:"otroLote"},{productoId:"507f1f77bcf86cd799439012"},
+  {actorId:"otroOperador"},{empresaId:undefined},
+  {sedeId:undefined},{batchId:undefined},{productoId:undefined}
+ ];
+ for(const patch of forged){
+  let writes=0;
+  const session={inTransaction:()=>true};
+  const db={collection(name){
+   assert.equal(name,"gruk_offline_stock_movimientos");
+   return {
+    async indexes(){return [{name:"uniq_offline_stock_tenant_batch_product",
+      unique:true,key:{empresaId:1,sedeId:1,batchId:1,productoId:1}}];},
+    async updateOne(key,update,options){
+     writes++;
+     assert.equal(options.session,session);
+     return {upsertedCount:0};
+    },
+    async findOne(key,options){
+     assert.equal(options.session,session);
+     for(const field of ["empresaId","sedeId","batchId","productoId"])
+       assert.equal(options.projection[field],1);
+     return {...key,actorId:context.actorId,deltaUnidades:"-2",
+      status:"PENDIENTE_APLICACION",...patch};
+    }
+   };
+  }};
+  await assert.rejects(stage({db,session,context,plan,inventoryDeltas}),
+   {code:"OFFLINE_STOCK_REPLAY_CONFLICT"});
+  assert.equal(writes,1);
+ }
+});
