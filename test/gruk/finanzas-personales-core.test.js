@@ -580,3 +580,21 @@ test("el patrimonio completo rechaza montos corruptos y desbordamientos",()=>{
  assert.ok(source.includes("patrimonioFinancieroNetoMinor:patrimonioNeto"));
  assert.ok(source.includes("activosTotalesMinor:activosTotales"));
 });
+
+test("V81 normaliza ObjectId de transferencias y replay sin diferencias por mayúsculas",()=>{
+ const {normalizarIdCuentaTransferencia,validarReplayTransferenciaPersonal}=patrimonioPersonal;
+ const origen="507F1F77BCF86CD799439011",destino="507F1F77BCF86CD799439012";
+ assert.equal(normalizarIdCuentaTransferencia(origen),origen.toLowerCase());
+ assert.equal(normalizarIdCuentaTransferencia(origen.toLowerCase()),origen.toLowerCase());
+ assert.equal(normalizarIdCuentaTransferencia(destino),destino.toLowerCase());
+ for(const id of [null,undefined,"", "123", "Z".repeat(24),{},42])
+  assert.throws(()=>normalizarIdCuentaTransferencia(id),e=>e.statusCode===400);
+ const previo={eventName:"MOVIMIENTO_PATRIMONIAL",payload:{
+  tipo:"TRANSFERENCIA_PROPIA",origenId:origen.toLowerCase(),destinoId:destino.toLowerCase(),montoMinor:25000
+ }};
+ const replay=validarReplayTransferenciaPersonal(previo,{origenId:origen,destinoId:destino,monto:25000});
+ assert.equal(replay.duplicado,true);
+ assert.equal(replay.montoMinor,25000);
+ assert.throws(()=>validarReplayTransferenciaPersonal(previo,{origenId:origen,destinoId:destino,monto:25001}),e=>e.statusCode===409);
+ assert.throws(()=>validarReplayTransferenciaPersonal(previo,{origenId:destino,destinoId:origen,monto:25000}),e=>e.statusCode===409);
+});
