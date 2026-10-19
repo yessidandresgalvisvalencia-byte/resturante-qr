@@ -16,6 +16,7 @@ function parsearSaldoFirmadoCopACentavos(valor){
 }
 function crearConsultaConciliacionCuentaV81(consultar=conciliarHistoricoCuentaV81){
  return async(req,res)=>{
+  let parametrosValidados=false;
   try{
    const usuarioId=resolverUsuarioAutorizadoV81({autenticado:req.personalAuth?.verificado===true,usuarioId:req.personalAuth?.userId});
    const q=req.query;
@@ -27,12 +28,13 @@ function crearConsultaConciliacionCuentaV81(consultar=conciliarHistoricoCuentaV8
    exigirPeriodoAcotadoV81(q.desde,q.hastaExclusivo);
    const saldoInicialCentavos=parsearSaldoFirmadoCopACentavos(q.saldoInicialCop);
    const saldoObservadoCentavos=parsearSaldoFirmadoCopACentavos(q.saldoObservadoCop);
+   parametrosValidados=true;
    const conciliacion=await consultar({usuarioId,cuentaId:q.cuentaId,desde:q.desde,hastaExclusivo:q.hastaExclusivo,saldoInicialCentavos,saldoObservadoCentavos});
    // Un saldo aportado por el solicitante no autoriza recomendaciones ni se convierte en saldo verificado.
    return res.set("Cache-Control","no-store").status(200).json({ok:true,conciliacion:{...conciliacion,saldoBancarioVerificado:false,aptoParaDisponibleHoy:false,usoPermitido:"DIAGNOSTICO_CONTABLE"}});
   }catch(e){
    const timeoutMongo=e?.code===50||e?.codeName==="MaxTimeMSExpired";
-   const status=timeoutMongo||e?.statusCode===503?503:e?.statusCode===401?401:e?.statusCode===403?403:e?.statusCode===404?404:e?.statusCode===409?409:e instanceof TypeError?400:e?.message?.includes("no clasificable")?409:500;
+   const status=timeoutMongo||e?.statusCode===503?503:e?.statusCode===401?401:e?.statusCode===403?403:e?.statusCode===404?404:e?.statusCode===409?409:(e instanceof TypeError&&!parametrosValidados)?400:e?.message?.includes("no clasificable")?409:500;
    res.set("Cache-Control","no-store");
    if(status===503)res.set("Retry-After","5");
    return res.status(status).json({ok:false,error:status===401?"Autenticación requerida":status===403?"Acceso denegado":status===400?"Parámetros de conciliación inválidos":status===409?"Conciliación bloqueada: existen movimientos sin vincular o sin clasificar":status===404?"Cuenta no encontrada":status===503?"Conciliación temporalmente no disponible; reintenta":"Conciliación no disponible"});
