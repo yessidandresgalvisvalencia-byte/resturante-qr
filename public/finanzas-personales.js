@@ -71,7 +71,7 @@ window.deshacerCuotaCompromiso=async(id,numero)=>{try{
  await cargarCompromisosCuotas();await load();alert("Pago revertido y movimiento anulado.");
  }catch(e){alert("No se pudo deshacer la cuota: "+e.message)}
 };
-function invalidarIndicadoresFinancieros(){for(const id of ["hDisponibleHoy","hDisponible","hComprometido","hFlujo","hPatrimonio","rIngresos","rGastos","rFlujo","rDeuda"]){const el=$(id);if(el)el.textContent="No actualizado";}for(const id of ["diario","listaPorCobrar","listaPorPagar","listaPrestamosPagados","homeDecisions"]){const el=$(id);if(el)el.textContent="No actualizado";}const explicacion=$("metricExplanation");if(explicacion)explicacion.hidden=true;window.grukExplain=()=>{};}
+function invalidarIndicadoresFinancieros(){for(const id of ["hDisponibleHoy","hDisponible","hComprometido","hFlujo","hPatrimonio","rIngresos","rGastos","rFlujo","rDeuda"]){const el=$(id);if(el)el.textContent="No actualizado";}for(const id of ["diario","listaPorCobrar","listaPorPagar","listaPrestamosPagados","homeDecisions","compromisosActivos","flujoConciliacion"]){const el=$(id);if(el)el.textContent="No actualizado";}const explicacion=$("metricExplanation");if(explicacion)explicacion.hidden=true;window.grukExplain=()=>{};}
 let cargaPanelEnCurso=null;
 let tokenCargaPanel=null;
 async function load(){
