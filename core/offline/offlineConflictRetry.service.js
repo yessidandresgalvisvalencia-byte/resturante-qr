@@ -41,6 +41,7 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
  if(existing){
   if(existing._id!==conflictId||existing.empresaId!==tenant.empresaId||
      existing.sedeId!==tenant.sedeId||existing.status!=="STAGED"||
+     existing.applied!==false||existing.cobrado!==false||
      existing.actorId!==context.actorId||!Array.isArray(existing.eventIds)||
      existing.eventIds.join(",")!==eventIds.join(","))fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
   const statuses=await readOfflineReconciliation({db,context,eventIds});
