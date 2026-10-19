@@ -126,3 +126,15 @@ test("Capa 2: identity substitution in Mongo ObjectId conversion is rejected bef
   assert.equal(reads,0);
  }
 });
+
+test("Capa 2: rejects oversized offline inventory deltas before Mongo access",async()=>{
+ const invalidUnits=["-9007199254740992","-999999999999999999999999999999999999","-"+("9".repeat(10000))];
+ for(const deltaUnidades of invalidUnits){
+  let reads=0,writes=0;
+  const db={collection(){reads++;return {updateOne(){writes++;throw Error("FORBIDDEN_WRITE");}};}};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
+   inventoryDeltas:[inventoryDeltas[0],{productoId:"507f1f77bcf86cd799439013",deltaUnidades}],
+   objectId:x=>x}),{code:"OFFLINE_INVENTORY_INVALID_PLAN"});
+  assert.equal(reads,0);assert.equal(writes,0);
+ }
+});

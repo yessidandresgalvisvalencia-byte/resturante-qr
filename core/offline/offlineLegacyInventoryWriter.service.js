@@ -21,6 +21,7 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
   if(typeof delta?.productoId!=="string"||!HEX.test(delta.productoId)||
      ids.has(delta.productoId.toLowerCase())||
      typeof delta.deltaUnidades!=="string"||
+     delta.deltaUnidades.length>17||
      !/^-[1-9]\d*$/.test(delta.deltaUnidades)||
      -BigInt(delta.deltaUnidades)>MAX)fail("OFFLINE_INVENTORY_INVALID_PLAN");
   ids.add(delta.productoId.toLowerCase());
