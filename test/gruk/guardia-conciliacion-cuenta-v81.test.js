@@ -65,3 +65,18 @@ test("asociaciones incompletas no ocultan un movimiento huérfano",()=>{
   assert.throws(()=>exigirSinMovimientosHuerfanos({cuenta,filas:sinResolver}),e=>e.statusCode===409);
  }
 });
+
+test("dos vínculos para el mismo movimiento bloquean conciliación aunque uno sea correcto",()=>{
+ const {filtrarHuerfanosSinResolver}=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
+ const id="507f1f77bcf86cd799439011",cuentaA="507f1f77bcf86cd799439013",cuentaB="507f1f77bcf86cd799439014";
+ const filas=[{_id:id,cuenta:"Nequi",cuentaId:null}];
+ for(const vinculos of [
+  [{movimientoId:id,cuentaId:cuentaA},{movimientoId:id,cuentaId:cuentaB}],
+  [{movimientoId:id,cuentaId:cuentaA},{movimientoId:id,cuentaId:cuentaA}],
+  [{movimientoId:id,cuentaId:null},{movimientoId:id,cuentaId:cuentaA}]
+ ]){
+  assert.throws(()=>filtrarHuerfanosSinResolver(filas,vinculos),
+   e=>e.statusCode===409&&/duplicados o contradictorios/.test(e.message));
+ }
+ assert.deepEqual(filtrarHuerfanosSinResolver(filas,[{movimientoId:id,cuentaId:cuentaA}]),[]);
+});
