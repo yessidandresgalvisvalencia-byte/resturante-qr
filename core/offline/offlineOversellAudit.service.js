@@ -75,7 +75,7 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
   persisted.actorId!==context.actorId||persisted.status!=="REQUIERE_REVISION"||
   persisted.applied!==false||persisted.cobrado!==false||
   !Array.isArray(persisted.eventIds)||persisted.eventIds.join(",")!==sorted.join(",")||
-  !validIssues(persisted.issues,deltas)
+  !validIssues(persisted.issues,deltas))
   conflict("OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED");
  return Object.freeze({
   status:"REQUIERE_REVISION_STOCK",conflictId,applied:false,cobrado:false,
