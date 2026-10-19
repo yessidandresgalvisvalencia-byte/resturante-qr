@@ -43,6 +43,13 @@ if [ "$status" -eq 0 ]; then
   echo "SIN_CONFLICTOS_DE_FUSION"
 elif [ "$status" -eq 1 ]; then
   echo "CONFLICTOS_DE_FUSION_DETECTADOS: revisar las rutas enumeradas arriba antes de fusionar"
+  echo "PLAN_SEGURO: no fusionar directamente ni sobrescribir archivos compartidos"
+  echo "CI_YAML: conservar controles de main y pruebas exclusivas de Finanzas Personales"
+  echo "APP_JS: mantener montaje y rutas empresariales; aislar el módulo personal y Socket.IO"
+  echo "PACKAGE_JSON: unir scripts y dependencias; regenerar package-lock.json con npm install --package-lock-only"
+  echo "LOCKFILE: no escoger unilateralmente un lockfile; exigir npm ci y ambos gates"
+  echo "VALIDACION: ejecutar pruebas de ambos productos antes de cualquier integracion a main"
+  echo "RUTA_GUIA: docs/finanzas-personales/integracion-segura-main.md"
   exit 1
 else
   echo "ERROR_DIAGNOSTICO_MERGE_TREE"
