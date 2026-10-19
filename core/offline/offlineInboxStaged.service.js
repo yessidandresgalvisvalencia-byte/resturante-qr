@@ -32,6 +32,21 @@ async function markOfflineStagedInTransaction({db,session,context,plan,now=new D
    reviewToken:token,reviewActorId:context.actorId
   }},{session});
   if(updated?.matchedCount!==1||updated?.modifiedCount!==1)fail();
+  // Confirm the durable transition inside the transaction, rather than
+  // accepting driver write counts as proof of the authorized final state.
+  const persisted=await inbox.findOne({
+   empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,
+   eventId,tipo:"PEDIDO_REGISTRADO",status:STATES.EN_REVISION
+  },{session,projection:{empresaId:1,sedeId:1,actorId:1,eventId:1,tipo:1,
+   status:1,financialStageStatus:1,inventoryApplied:1,stagedBy:1,
+   reviewActorId:1,reviewToken:1}});
+  if(!persisted||persisted.empresaId!==context.empresaId||
+   persisted.sedeId!==context.sedeId||persisted.actorId!==context.actorId||
+   persisted.eventId!==eventId||persisted.tipo!=="PEDIDO_REGISTRADO"||
+   persisted.status!==STATES.EN_REVISION||
+   persisted.financialStageStatus!=="PENDIENTE_CONTABILIZACION"||
+   persisted.inventoryApplied!==true||persisted.stagedBy!==context.actorId||
+   persisted.reviewActorId!==context.actorId||persisted.reviewToken!==token)fail();
   handoffs.push(Object.freeze({eventId,status:STATES.EN_REVISION}));
  }
  return Object.freeze(handoffs);
