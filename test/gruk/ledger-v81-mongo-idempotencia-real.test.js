@@ -207,6 +207,9 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   assert.equal((await Cuenta.findById(origen._id)).requiereReconciliacion,true);
   assert.equal((await Cuenta.findById(destino._id)).requiereReconciliacion,true);
   assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"}),0);
+  await assert.rejects(()=>patrimonio.reconciliarCuenta(usuarioId,{cuentaId:String(origen._id).toUpperCase(),saldoMinor:65000,fecha:new Date("2026-10-01T00:00:00Z")}),e=>e.statusCode===409);
+  await assert.rejects(()=>patrimonio.reconciliarCuenta(usuarioId,{cuentaId:String(destino._id).toUpperCase(),saldoMinor:55000,fecha:new Date("2026-10-01T00:00:00Z")}),e=>e.statusCode===409);
+  assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"}),0);
   // Completar la conciliación después de las transferencias no debe volver a sumar el dinero.
   await patrimonio.reconciliarCuenta(usuarioId,{cuentaId:origen._id,saldoMinor:65000,fecha:new Date()});
   await patrimonio.reconciliarCuenta(usuarioId,{cuentaId:destino._id,saldoMinor:55000,fecha:new Date()});
