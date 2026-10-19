@@ -111,3 +111,26 @@ test("Capa 2: oversized or noncanonical COP unit prices fail before any Mongo ac
   assert.equal(reads,0);
  }
 });
+
+test("Capa 2: COP pricing rejects tenant and product IDs spoofed through toString before Mongo",async()=>{
+ const fakeId=value=>({toString:()=>value});
+ for(const field of ["empresaId","sedeId"]){
+  for(const invalid of [fakeId(ctx[field]),null,[],123]){
+   let reads=0, conversions=0;
+   const database={collection(){reads++;throw Error("FORBIDDEN_DB_READ");}};
+   await assert.rejects(verify({db:database,session,context:{...ctx,[field]:invalid},
+     plan:plan(),objectId:()=>{conversions++;throw Error("FORBIDDEN_CONVERSION");}}),
+     {code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+   assert.equal(reads,0);assert.equal(conversions,0);
+  }
+ }
+ for(const invalid of [fakeId(productId),null,[],123]){
+  let reads=0,conversions=0;
+  const database={collection(){reads++;throw Error("FORBIDDEN_DB_READ");}};
+  const forged=plan();forged.orders[0].items[0].productoId=invalid;
+  await assert.rejects(verify({db:database,session,context:ctx,plan:forged,
+    objectId:()=>{conversions++;throw Error("FORBIDDEN_CONVERSION");}}),
+    {code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+  assert.equal(reads,0);assert.equal(conversions,0);
+ }
+});
