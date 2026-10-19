@@ -136,3 +136,19 @@ test("un huérfano posterior a la primera ancla bloquea el saldo aunque cambie e
   ...huerfano,cuentaId:cuentas[0]._id
  }]),365000);
 });
+
+test("cuentas inexistentes o inactivas bloquean saldos anclados en vez de desaparecer",()=>{
+ const {saldoCuentasDesdeAnclas}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const cuentas=[{_id:"507f1f77bcf86cd799439011",nombre:"Nequi",
+  saldoAnclaMinor:100000,saldoAnclaEn:new Date("2026-10-01T05:00:00Z")}];
+ const movimiento={tipo:"INGRESO",montoMinor:15000,impactoCaja:true,
+  cuenta:"Cuenta cerrada",fecha:new Date("2026-10-02T05:00:00Z")};
+ for(const cuentaId of ["507f1f77bcf86cd799439012","no-es-object-id"]){
+  assert.throws(()=>saldoCuentasDesdeAnclas(cuentas,[{...movimiento,cuentaId}]),
+   e=>e.statusCode===409&&/inactiva, inexistente/.test(e.message));
+ }
+ assert.equal(saldoCuentasDesdeAnclas(cuentas,[{...movimiento,
+  cuentaId:cuentas[0]._id}]),115000);
+ assert.equal(saldoCuentasDesdeAnclas(cuentas,[{...movimiento,
+  cuentaId:"507f1f77bcf86cd799439012",fecha:new Date("2026-09-30T05:00:00Z")}]),100000);
+});
