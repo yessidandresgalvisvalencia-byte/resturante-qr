@@ -220,6 +220,16 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   assert.equal(confirmado.fuenteLiquidez,"ANCLA_RECONCILIADA");
   assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA"}),2);
   assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"}),2);
+  // Nunca retroceder una ancla verificada: preserva saldo, fecha y auditoría.
+  const cuentaVerificada=await Cuenta.findById(origen._id).lean();
+  await assert.rejects(()=>patrimonio.reconciliarCuenta(usuarioId,{
+   cuentaId:origen._id,saldoMinor:1,fecha:new Date("2026-10-01T00:00:00Z")
+  }),e=>e.statusCode===409);
+  const cuentaTrasRechazo=await Cuenta.findById(origen._id).lean();
+  assert.equal(cuentaTrasRechazo.saldoMinor,cuentaVerificada.saldoMinor);
+  assert.equal(cuentaTrasRechazo.saldoAnclaMinor,cuentaVerificada.saldoAnclaMinor);
+  assert.equal(cuentaTrasRechazo.saldoAnclaEn.getTime(),cuentaVerificada.saldoAnclaEn.getTime());
+  assert.equal(await Outbox.countDocuments({usuarioId,eventName:"SALDO_CUENTA_RECONCILIADO"}),2);
   // Una cuenta antigua corrupta en USD no puede mezclarse con caja COP.
   await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"USD"}});
   await assert.rejects(
