@@ -40,3 +40,20 @@ test("Capa 2: unscoped and forged inventory staging requests never read any coll
  assert.equal(calls,0);
  assert.equal(sessions,0);
 });
+
+test("Capa 2: object-shaped tenant or actor identities never reach staging metadata",async()=>{
+ const valid={empresaId:"507f191e810c19729de860ea",
+  sedeId:"507f1f77bcf86cd799439012",actorId:"cajero"};
+ const eventId="01ARZ3NDEKTSV4RRFFQ69G5FA0";
+ for(const field of ["empresaId","sedeId","actorId"]){
+  for(const invalid of [{toString:()=>valid[field]},null,undefined,123,[],{}]){
+   let collections=0,sessions=0,conversions=0;
+   const db={collection(){collections++;throw Error("FORBIDDEN_READ");},
+    client:{startSession(){sessions++;throw Error("FORBIDDEN_SESSION");}}};
+   await assert.rejects(execute({db,context:{...valid,[field]:invalid},
+    eventIds:[eventId],objectId:()=>{conversions++;throw Error("FORBIDDEN_CONVERSION");}}),
+    {code:"OFFLINE_INVENTORY_TENANT_REQUIRED"});
+   assert.equal(collections,0);assert.equal(sessions,0);assert.equal(conversions,0);
+  }
+ }
+});
