@@ -146,6 +146,15 @@ jobs:
         run: |
           set -o pipefail
           node scripts/verificar-evidencia-mongo-v81.js prueba-mongo-v81.log | tee comprobante-mongo-v81.txt | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Probar transferencias reales e idempotencia del ledger V81
+        shell: bash
+        env:
+          NODE_ENV: test
+          GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_transferencias?replicaSet=rs0&directConnection=true
+        run: |
+          set -o pipefail
+          node scripts/exigir-mongo-v81-pruebas.js
+          node --test --test-reporter=tap test/gruk/ledger-v81-mongo-idempotencia-real.test.js 2>&1 | tee prueba-transferencias-mongo-v81.log
       - name: Adjuntar evidencia de concurrencia MongoDB
         if: always()
         uses: actions/upload-artifact@v4
@@ -154,6 +163,7 @@ jobs:
           path: |
             prueba-mongo-v81.log
             comprobante-mongo-v81.txt
+            prueba-transferencias-mongo-v81.log
           if-no-files-found: error
           retention-days: 14
       - name: Detener MongoDB temporal
