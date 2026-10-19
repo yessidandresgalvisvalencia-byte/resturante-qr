@@ -87,3 +87,16 @@ test("Capa 2: every offline pricing order must have a nonempty items array befor
   assert.equal(calls,0);
  }
 });
+
+test("Capa 2: sparse arrays cannot hide orders or products before Mongo access",async()=>{
+ const good=plan().orders[0];
+ const sparseOrders=[good,,good];
+ const sparseItems=[good.items[0],,good.items[0]];
+ for(const orders of [sparseOrders,[{...good,items:sparseItems}]]) {
+  let reads=0;
+  const database={collection(){reads++;throw Error("FORBIDDEN_DB_READ");}};
+  await assert.rejects(verify({db:database,session,context:ctx,plan:{orders},objectId}),
+   {code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+  assert.equal(reads,0);
+ }
+});
