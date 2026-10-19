@@ -100,3 +100,14 @@ test("Capa 2: sparse arrays cannot hide orders or products before Mongo access",
   assert.equal(reads,0);
  }
 });
+
+test("Capa 2: oversized or noncanonical COP unit prices fail before any Mongo access",async()=>{
+ const prices=["9007199254740992","9999999999999999999999999999999999","0001","1.50","-1"];
+ for(const price of prices){
+  let reads=0;
+  const database={collection(){reads++;throw Error("FORBIDDEN_DB_READ");}};
+  await assert.rejects(verify({db:database,session,context:ctx,plan:plan(price),objectId}),
+   {code:"OFFLINE_AUTHORITATIVE_PRICE_CONFLICT"});
+  assert.equal(reads,0);
+ }
+});
