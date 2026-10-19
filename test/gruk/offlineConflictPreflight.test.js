@@ -93,3 +93,32 @@ test("Capa 2: malformed inventory response cannot validate conflict readiness",a
  assert.equal(result.products[0].reason,"STOCK_SIN_MAPEO");
  assert.equal(result.products[0].available,null);
 });
+
+test("Capa 2: substituted tenant or product ObjectId fails before any stock read",async()=>{
+ const different="507f1f77bcf86cd799439099";
+ for(const target of [auth.empresaId,auth.sedeId,productId]){
+  let stockReads=0;
+  const original=setup(5);
+  const db={collection(name){
+   if(name==="inventarios"){stockReads++;throw Error("FORBIDDEN_STOCK_READ");}
+   return original.db.collection(name);
+  }};
+  await assert.rejects(preflight({db,auth,conflictId,
+   objectId:value=>value===target?different:value}),
+   {code:"OFFLINE_CONFLICT_INVALID_STOCK_PLAN"});
+  assert.equal(stockReads,0);
+ }
+});
+test("Capa 2: invalid or throwing converters are rejected before stock lookup",async()=>{
+ for(const objectId of [()=>null,()=>undefined,()=>{throw Error("BROKEN_ADAPTER");}]){
+  let stockReads=0;
+  const original=setup(5);
+  const db={collection(name){
+   if(name==="inventarios"){stockReads++;throw Error("FORBIDDEN_STOCK_READ");}
+   return original.db.collection(name);
+  }};
+  await assert.rejects(preflight({db,auth,conflictId,objectId}),
+   {code:"OFFLINE_CONFLICT_INVALID_STOCK_PLAN"});
+  assert.equal(stockReads,0);
+ }
+});
