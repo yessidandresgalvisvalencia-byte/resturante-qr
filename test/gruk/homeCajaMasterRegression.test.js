@@ -278,3 +278,20 @@ test("cuotas de préstamo nulas no se convierten silenciosamente en cero",()=>{
   assert.throws(()=>safeMontoPatrimonial(valor),e=>e.statusCode===400);
  }
 });
+
+test("préstamos y transferencias no admiten saldos desbordados en cuentas",()=>{
+ const {exigirSaldoCuentaSeguro}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ assert.equal(exigirSaldoCuentaSeguro({saldoMinor:0}),0);
+ assert.equal(exigirSaldoCuentaSeguro({saldoMinor:Number.MAX_SAFE_INTEGER}),Number.MAX_SAFE_INTEGER);
+ for(const cuenta of [null,{}, {saldoMinor:-1},{saldoMinor:0.5},
+  {saldoMinor:Number.MAX_SAFE_INTEGER+1},{saldoMinor:NaN},{saldoMinor:Infinity}]){
+  assert.throws(()=>exigirSaldoCuentaSeguro(cuenta),e=>e.statusCode===409);
+ }
+ const fuente=require("node:fs").readFileSync(
+  require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
+ const crearPrestamo=fuente.slice(fuente.indexOf("async function crearPrestamo("),fuente.indexOf("async function cobrarCuentaPorCobrar("));
+ const transferir=fuente.slice(fuente.indexOf("async function transferir("),fuente.indexOf("function sumaPatrimonialSegura("));
+ assert.ok(crearPrestamo.includes("exigirSaldoCuentaSeguro(cuenta);"));
+ assert.ok(transferir.includes("exigirSaldoCuentaSeguro(origen);"));
+ assert.ok(transferir.includes("exigirSaldoCuentaSeguro(destino);"));
+});
