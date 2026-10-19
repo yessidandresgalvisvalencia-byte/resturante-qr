@@ -8,7 +8,8 @@ const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 function fail(code){const error=new Error(code);error.code=code;throw error;}
 async function preflightOfflineConflict({db,auth,conflictId,objectId}){
  if(!auth||!["DUEÑO","ADMIN_SEDE"].includes(auth.rol)||
-    !HEX.test(auth.empresaId||"")||!HEX.test(auth.sedeId||"")||
+    typeof auth.empresaId!=="string"||typeof auth.sedeId!=="string"||
+    !HEX.test(auth.empresaId)||!HEX.test(auth.sedeId)||
     typeof auth.usuarioId!=="string"||!/^[A-Za-z0-9_-]{1,80}$/.test(auth.usuarioId))
   fail("OFFLINE_CONFLICT_PERMISSION_DENIED");
  if(!SHA.test(conflictId||""))fail("OFFLINE_CONFLICT_INVALID_ID");
