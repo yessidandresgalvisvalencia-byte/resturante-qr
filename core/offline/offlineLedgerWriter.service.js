@@ -10,7 +10,8 @@ async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
  if(!db?.collection||!context||![context.empresaId,context.sedeId,context.actorId].every(v=>typeof v==="string"&&ID.test(v))||
    typeof eventId!=="string"||!ULID.test(eventId))throw error("OFFLINE_LEDGER_INVALID_CONTEXT");
  if(!movement||typeof movement.tipo!=="string"||!ID.test(movement.tipo)||
-   typeof movement.montoCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(movement.montoCop)||
+   typeof movement.montoCop!=="string"||movement.montoCop.length>16||
+   !/^(0|[1-9][0-9]*)$/.test(movement.montoCop)||
    BigInt(movement.montoCop)>BigInt(Number.MAX_SAFE_INTEGER))throw error("OFFLINE_LEDGER_INVALID_MOVEMENT");
  const collection=db.collection("gruk_ledger_movimientos");
  // Refuse to write before Mongo has confirmed the unique index exists.
