@@ -9,6 +9,7 @@ async function readOfflineOrderCandidates({db,context,eventIds,session}){
   if(!db?.collection||!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&ID.test(context[k])))
     fail("OFFLINE_AUTH_REQUIRED");
   if(!Array.isArray(eventIds)||eventIds.length<1||eventIds.length>100||
+    !Array.from({length:eventIds.length},(_,i)=>Object.hasOwn(eventIds,i)).every(Boolean)||
     eventIds.some(x=>typeof x!=="string"||!ULID.test(x))||new Set(eventIds).size!==eventIds.length)
     fail("OFFLINE_INVALID_IDS");
   const docs=await db.collection("gruk_offline_inbox").find({
