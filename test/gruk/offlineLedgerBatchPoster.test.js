@@ -50,3 +50,21 @@ test("Capa 2: ledger offline rechaza COP enormes y planes dispersos sin escribir
  assert.equal(ok.totalCop,"9007199254740991");
  assert.equal(f.writes.length,1);
 });
+
+test("Capa 2: ledger rejects unscoped company, site, actor and invalid ULIDs before Mongo",async()=>{
+ const invalid=[
+  {context:null,ledgerMovements:movements},
+  {context:{...context,empresaId:undefined},ledgerMovements:movements},
+  {context:{...context,sedeId:{$ne:null}},ledgerMovements:movements},
+  {context:{...context,actorId:"$admin"},ledgerMovements:movements},
+  {context,ledgerMovements:[{...movements[0],eventId:"not-an-ulid"}]},
+  {context,ledgerMovements:[movements[0],{...movements[1],eventId:"wrong"}]}
+ ];
+ for(const args of invalid){
+  let access=0;
+  const db={collection(){access++;throw Error("UNAUTHORIZED_LEDGER_WRITE");}};
+  await assert.rejects(post({db,session:{inTransaction:()=>true},...args}),
+    {code:"OFFLINE_LEDGER_BATCH_INVALID"});
+  assert.equal(access,0);
+ }
+});
