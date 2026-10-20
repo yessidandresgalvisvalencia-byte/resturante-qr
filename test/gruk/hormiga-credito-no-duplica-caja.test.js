@@ -30,6 +30,15 @@ test("rechaza suma total que exceda entero seguro aunque caja y crédito sean v�
  const y=gasto("c1","Rappi",mitad,"CREDITO");
  assert.throws(()=>resumir([x,y],ahora),/Consumo hormiga total excede rango monetario seguro/);
 });
+test("movimiento sin identificador verificable no contamina sumas ni se cuenta dos veces",()=>{
+ const origen=gasto("id-valido","Rappi",18000,"CREDITO");
+ for(const id of [null,undefined,"",{}]){
+  assert.throws(()=>resumir([{...origen,_id:id}],ahora),/INTEGRIDAD_HORMIGA: movimiento sin identificador verificable/);
+ }
+ const r=resumir([origen,{...origen}],ahora);
+ assert.equal(r.creditoSemanaMinor,18000);
+ assert.equal(r.consumoTotalSemanaMinor,18000);
+});
 test("el servicio consulta únicamente el usuario autenticado y conserva la explicación",()=>{
  const s=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/gastosHormigaResumen.service.js"),"utf8");
  const j=fs.readFileSync(path.resolve(__dirname,"../../public/finanzas-personales.js"),"utf8");
