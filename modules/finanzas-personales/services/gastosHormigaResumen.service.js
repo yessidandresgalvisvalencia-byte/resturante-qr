@@ -24,15 +24,21 @@ function resumir(transacciones,ahora=new Date()){
  if(!Array.isArray(transacciones))throw new TypeError("Se requiere lista de movimientos");
  const r=limites(ahora);
  let semana=0,mes=0,cantidadSemana=0,cantidadMes=0;
- const vistos=new Set();
+ const vistos=new Map();
  for(const tx of transacciones){
   if(!esHormiga(tx))continue;
-  const id=tx._id==null?null:String(tx._id);
-  if(id&&vistos.has(id))continue;
-  if(id)vistos.add(id);
   if(!Number.isSafeInteger(tx.montoMinor)||tx.montoMinor<=0)throw new TypeError("Monto hormiga inválido");
+  if(tx.fecha===null||tx.fecha===undefined||tx.fecha==="")throw new TypeError("Fecha hormiga inválida");
   const fecha=new Date(tx.fecha);
-  if(Number.isNaN(fecha.getTime())||fecha>ahora)continue;
+  if(Number.isNaN(fecha.getTime()))throw new TypeError("Fecha hormiga inválida");
+  const id=tx._id==null?null:String(tx._id);
+  const firma=JSON.stringify([fecha.toISOString(),tx.montoMinor,tx.concepto,tx.categoria,tx.estado,tx.impactoCaja,tx.medioPago]);
+  if(id&&vistos.has(id)){
+   if(vistos.get(id)!==firma)throw new Error("INTEGRIDAD_HORMIGA: movimiento duplicado con datos contradictorios");
+   continue;
+  }
+  if(id)vistos.set(id,firma);
+  if(fecha>ahora)continue;
   if(fecha>=r.inicioSiete){semana+=tx.montoMinor;cantidadSemana++;}
   if(fecha>=r.inicioMes){mes+=tx.montoMinor;cantidadMes++;}
   if(!Number.isSafeInteger(semana)||!Number.isSafeInteger(mes))throw new RangeError("Acumulado hormiga excede rango seguro");
