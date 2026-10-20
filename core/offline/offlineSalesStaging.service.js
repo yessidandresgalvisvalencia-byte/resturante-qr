@@ -18,20 +18,14 @@ async function stageOfflineSales({db,session,context,plan}){
        order.items[i]!==null&&typeof order.items[i]==="object"&&!Array.isArray(order.items[i])).every(Boolean)||
      typeof order.totalCop!=="string"||order.totalCop.length>16||
      !/^(0|[1-9][0-9]*)$/.test(order.totalCop))fail("OFFLINE_SALES_INVALID_PLAN");
-  let lineTotal=0n;
+  // Existing offline orders may legitimately omit unit pricing or include discounts.
+  // Validate stock-relevant identifiers and quantities without altering pricing semantics.
   for(const item of order.items){
    if(typeof item.productoId!=="string"||!ID.test(item.productoId)||
-      typeof item.cantidad!=="string"||!/^[1-9][0-9]*$/.test(item.cantidad)||item.cantidad.length>16||
-      typeof item.precioUnitarioCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(item.precioUnitarioCop)||item.precioUnitarioCop.length>16||
-      typeof item.totalCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(item.totalCop)||item.totalCop.length>16)
-     fail("OFFLINE_SALES_INVALID_PLAN");
-   const quantity=BigInt(item.cantidad),unit=BigInt(item.precioUnitarioCop),line=BigInt(item.totalCop);
-   if(quantity>MAX||unit>MAX||line>MAX||quantity*unit!==line)
-     fail("OFFLINE_SALES_LINE_TOTAL_CONFLICT");
-   lineTotal+=line;
-   if(lineTotal>MAX)fail("OFFLINE_SALES_INVALID_PLAN");
+      typeof item.cantidad!=="string"||item.cantidad.length>16||
+      !/^[1-9][0-9]*$/.test(item.cantidad)||
+      BigInt(item.cantidad)>MAX)fail("OFFLINE_SALES_INVALID_PLAN");
   }
-  if(lineTotal!==BigInt(order.totalCop))fail("OFFLINE_SALES_LINE_TOTAL_CONFLICT");
   total+=BigInt(order.totalCop);ids.add(order.eventId);
   if(total>MAX)fail("OFFLINE_SALES_INVALID_PLAN");
  }
