@@ -40,3 +40,18 @@ test("Capa 2: conversor ObjectId nulo o inválido no alcanza ninguna consulta",a
   assert.equal(reads,0);
  }
 });
+
+test("Capa 2: respuestas de productos incompletas, repetidas o ajenas fallan cerradas",async()=>{
+ const own={_id:product,empresaId:empresa,sedeId:sede,activo:true};
+ for(const rows of [
+  new Array(1),[,own],
+  [null],[{}],[{...own,_id:undefined}],
+  [{...own,_id:"507f1f77bcf86cd799439014"}],
+  [{...own,empresaId:"507f191e810c19729de860eb"}],
+  [{...own,sedeId:"507f1f77bcf86cd799439013"}],
+  [{...own,activo:false}],[own,own]
+ ]){
+  await assert.rejects(verify({collection:collection(rows),prepared,context,objectId}),
+   {code:"OFFLINE_PRODUCTS_NOT_AUTHORIZED"});
+ }
+});
