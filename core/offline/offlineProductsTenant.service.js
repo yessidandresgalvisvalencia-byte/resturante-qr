@@ -21,12 +21,20 @@ async function verifyOfflineProducts({collection,prepared,context,objectId,sessi
   sedeId:asId(context.sedeId),activo:true};
  const found=await collection.find(query,{projection:{_id:1,empresaId:1,sedeId:1,activo:1},...(session?{session}:{})}).toArray();
  // Defense in depth: validate returned records, not only the query predicate.
- if(!Array.isArray(found)||found.some(row=>
-  String(row?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
-  String(row?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
-  row?.activo!==true))fail();
- const valid=new Set(found.map(x=>String(x._id).toLowerCase()));
- if(found.length!==ids.length||valid.size!==ids.length||ids.some(id=>!valid.has(id)))fail();
+ if(!Array.isArray(found)||found.length!==ids.length)fail();
+ const valid=new Set();
+ for(let index=0;index<found.length;index++){
+  if(!Object.hasOwn(found,index))fail();
+  const row=found[index];
+  if(typeof row?._id!=="string"&&!row?._id?.toHexString)fail();
+  const id=String(row._id).toLowerCase();
+  if(!HEX24.test(id)||!ids.includes(id)||valid.has(id)||
+     String(row?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
+     String(row?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
+     row?.activo!==true)fail();
+  valid.add(id);
+ }
+ if(valid.size!==ids.length||ids.some(id=>!valid.has(id)))fail();
  return Object.freeze(ids);
 }
 module.exports={verifyOfflineProducts};
