@@ -180,3 +180,21 @@ test("Capa 2: identidades multiempresa inválidas se rechazan antes de cualquier
   }
  }
 });
+
+test("Capa 2: COP fuera de entero seguro nunca llega a los cuatro diarios",async()=>{
+ const max="9007199254740991";
+ const over="9007199254740992";
+ const forged=[
+  {orders:[{...plan.orders[0],totalCop:over}],totalCop:over},
+  {orders:[{...plan.orders[0],totalCop:"999999999999999999"}],totalCop:"999999999999999999"},
+  {orders:[{...plan.orders[0],totalCop:max}],totalCop:over},
+  {orders:[{...plan.orders[0],totalCop:over}],totalCop:max}
+ ];
+ for(const invalid of forged){
+  const f=fixture();
+  await assert.rejects(stage({...f,context,plan:invalid,
+    inventoryDeltas,ledgerMovements:[{...ledgerMovements[0],montoCop:invalid.orders[0].totalCop}]}),
+   {code:"OFFLINE_STAGING_TOTAL_CONFLICT"});
+  assert.deepEqual(f.writes,[]);
+ }
+});
