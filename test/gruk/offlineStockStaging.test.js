@@ -101,3 +101,32 @@ test("Capa 2: stock rejects sparse forged and huge deltas before DB",async()=>{
   assert.equal(dbReads,0);
  }
 });
+
+test("Capa 2: acuses de stock ambiguos no acreditan inserción ni replay",async()=>{
+ for(const ack of [null,undefined,{}, {upsertedCount:null},
+   {upsertedCount:-1},{upsertedCount:2},{upsertedCount:"1"}]){
+  let reads=0;
+  const db={collection:()=>({
+   indexes:async()=>[{name:"uniq_offline_stock_tenant_batch_product",
+     unique:true,key:{empresaId:1,sedeId:1,batchId:1,productoId:1}}],
+   updateOne:async()=>ack,
+   findOne:async()=>{reads++;throw Error("UNAUTHORIZED_STOCK_REPLAY_READ");}
+  })};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,plan,inventoryDeltas}),
+   {code:"OFFLINE_STOCK_WRITE_UNVERIFIED"});
+  assert.equal(reads,0);
+ }
+});
+
+test("Capa 2: índices stock ausentes o corruptos impiden escrituras",async()=>{
+ for(const metadata of [undefined,null,{},[null],[false],[undefined],[{name:"otro"},null]]){
+  let writes=0;
+  const db={collection:()=>({
+   ...(metadata===undefined?{}:{indexes:async()=>metadata}),
+   updateOne:async()=>{writes++;throw Error("UNEXPECTED_STOCK_WRITE");}
+  })};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,plan,inventoryDeltas}),
+   {code:"OFFLINE_STOCK_UNIQUE_INDEX_REQUIRED"});
+  assert.equal(writes,0);
+ }
+});
