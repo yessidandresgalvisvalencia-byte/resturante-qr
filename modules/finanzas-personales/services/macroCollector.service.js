@@ -8,5 +8,20 @@ function parseDane(raw){const t=normalized(raw),m=t.match(/En\s+([A-Za-záéíó
 function parseIbr(raw){const t=normalized(raw),m=t.match(/Indicador bancario de referencia \(IBR\) Overnight[\s\S]{0,300}?Tasa nominal[\s\S]{0,120}?([0-9]+[,.][0-9]+)%[\s\S]{0,120}?(\d{2}\/\d{2}\/20\d{2})/i);if(!m)throw new Error("NO_CALCULABLE: BanRep sin IBR Overnight verificable");return{value:decimal(m[1]),period:m[2]}}
 async function consultarIbrOficial(){let ultimaCausa;for(const fuente of [SOURCES.ibr,SOURCES.ibrAlternativa]){try{const dato=parseIbr(await html(fuente));return{...dato,fuente};}catch(error){ultimaCausa=error;}}throw new Error("NO_CALCULABLE: BanRep sin IBR Overnight verificable en fuentes oficiales",{cause:ultimaCausa});}
 async function collectColombia(){const [daneRaw,ibr]=await Promise.all([html(SOURCES.inflacion),consultarIbrOficial()]),dane=parseDane(daneRaw);if(dane.value<0||dane.value>100||ibr.value<0||ibr.value>100)throw new Error("NO_CALCULABLE: macro fuera de rango");const dm=dane.period.toLowerCase().match(/^([^ ]+) (20\d{2})$/),id=ibr.period.split("/");if(!dm||MONTHS[dm[1]]==null||id.length!==3)throw new Error("NO_CALCULABLE: fecha macro inválida");const daneDate=new Date(Date.UTC(Number(dm[2]),MONTHS[dm[1]]+1,0)),ibrDate=new Date(Date.UTC(Number(id[2]),Number(id[1])-1,Number(id[0]))),fechaCorte=new Date(Math.min(daneDate.getTime(),ibrDate.getTime()));return{pais:"CO",moneda:"COP",fechaCorte,inflacionAnualPct:dane.value,tasaLibreRiesgoPct:ibr.value,fuenteInflacion:SOURCES.inflacion,fuenteTasa:ibr.fuente,metodologiaTasa:"Proxy monetario COP: IBR Overnight nominal observado ("+ibr.period+"). IPC anual DANE: "+dane.period+". El IBR es referencia interbancaria de corto plazo y no equivale a un rendimiento soberano libre de riesgo a 5 años."}}
-async function persistColombia(){const x=await collectColombia();return Macro.create(x)}
-module.exports={collectColombia,persistColombia,parseDane,parseIbr,SOURCES};
+// El índice único en producción protege pais+fechaCorte. Una relectura idéntica
+// es idempotente; nunca sobrescribir una observación financiera ya publicada.
+async function persistirSnapshot(snapshot,{modelo=Macro}={}){
+ try{return await modelo.create(snapshot);}
+ catch(error){
+  if(error?.code!==11000)throw error;
+  const anterior=await modelo.findOne({pais:snapshot.pais,fechaCorte:snapshot.fechaCorte}).lean();
+  if(!anterior)throw error; // Conflicto de otro índice único: no ocultarlo.
+  const iguales=anterior.moneda===snapshot.moneda&&
+    anterior.inflacionAnualPct===snapshot.inflacionAnualPct&&
+    anterior.tasaLibreRiesgoPct===snapshot.tasaLibreRiesgoPct;
+  if(!iguales)throw Object.assign(new Error("CONFLICTO_MACRO: ya existe una observación diferente para el mismo corte"),{code:"MACRO_SNAPSHOT_CONFLICT"});
+  return anterior; // Mismo dato oficial y fecha; no actualizar ni eliminar.
+ }
+}
+async function persistColombia(){const x=await collectColombia();return persistirSnapshot(x)}
+module.exports={collectColombia,persistColombia,persistirSnapshot,parseDane,parseIbr,SOURCES};
