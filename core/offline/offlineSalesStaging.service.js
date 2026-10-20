@@ -8,11 +8,13 @@ function fail(code){const e=new Error(code);e.code=code;throw e;}
 async function stageOfflineSales({db,session,context,plan}){
  if(!db?.collection||session?.inTransaction?.()!==true)fail("OFFLINE_SALES_TRANSACTION_REQUIRED");
  if(!context||![context.empresaId,context.sedeId,context.actorId].every(x=>typeof x==="string"&&ID.test(x)))fail("OFFLINE_SALES_AUTH_REQUIRED");
- if(!Array.isArray(plan?.orders)||plan.orders.length<1||plan.orders.length>100)fail("OFFLINE_SALES_INVALID_PLAN");
+ if(!Array.isArray(plan?.orders)||plan.orders.length<1||plan.orders.length>100||
+  !Array.from({length:plan.orders.length},(_,i)=>Object.hasOwn(plan.orders,i)).every(Boolean))fail("OFFLINE_SALES_INVALID_PLAN");
  let total=0n;const ids=new Set();
  for(const order of plan.orders){
   if(!ULID.test(order?.eventId||"")||!ULID.test(order?.localOrderId||"")||ids.has(order.eventId)||
-     typeof order.totalCop!=="string"||!/^(0|[1-9][0-9]*)$/.test(order.totalCop))fail("OFFLINE_SALES_INVALID_PLAN");
+     typeof order.totalCop!=="string"||order.totalCop.length>16||
+     !/^(0|[1-9][0-9]*)$/.test(order.totalCop))fail("OFFLINE_SALES_INVALID_PLAN");
   total+=BigInt(order.totalCop);ids.add(order.eventId);
   if(total>MAX)fail("OFFLINE_SALES_INVALID_PLAN");
  }
