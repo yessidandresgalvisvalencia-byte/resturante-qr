@@ -39,8 +39,9 @@ async function stageOfflineStockMovements({db,session,context,plan,inventoryDelt
  if(expected.length!==supplied.size||expected.some(d=>supplied.get(d.productoId)!==d.deltaUnidades))
    fail("OFFLINE_STOCK_TOTAL_CONFLICT");
  const stock=db.collection("gruk_offline_stock_movimientos");
+ if(typeof stock.indexes!=="function")fail("OFFLINE_STOCK_UNIQUE_INDEX_REQUIRED");
  const indexes=await stock.indexes();
- if(!Array.isArray(indexes)||!indexes.some(i=>i.name==="uniq_offline_stock_tenant_batch_product"&&i.unique===true&&i.sparse!==true&&!i.partialFilterExpression&&
+ if(!Array.isArray(indexes)||!indexes.some(i=>i&&typeof i==="object"&&i.name==="uniq_offline_stock_tenant_batch_product"&&i.unique===true&&i.sparse!==true&&!i.partialFilterExpression&&
  ["empresaId","sedeId","batchId","productoId"].every((k,n)=>Object.keys(i.key||{})[n]===k&&i.key[k]===1)&&Object.keys(i.key||{}).length===4))
   fail("OFFLINE_STOCK_UNIQUE_INDEX_REQUIRED");
  // Batch ID is deterministic: sorted event IDs, hashed so retries resolve to same key.
@@ -53,6 +54,9 @@ async function stageOfflineStockMovements({db,session,context,plan,inventoryDelt
   let result;
   try{result=await stock.updateOne(key,{$setOnInsert:payload},{upsert:true,session});}
   catch(err){if(err?.code===11000)fail("OFFLINE_STOCK_CONCURRENT_RETRY_REQUIRED");throw err;}
+  if(!result||!Number.isInteger(result.upsertedCount)||
+    (result.upsertedCount!==0&&result.upsertedCount!==1))
+    fail("OFFLINE_STOCK_WRITE_UNVERIFIED");
   if(result.upsertedCount!==1){
    const old=await stock.findOne(key,{session,projection:{empresaId:1,sedeId:1,batchId:1,productoId:1,actorId:1,deltaUnidades:1,status:1}});
    if(!old||old.empresaId!==key.empresaId||old.sedeId!==key.sedeId||
