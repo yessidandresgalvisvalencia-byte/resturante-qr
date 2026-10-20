@@ -10,6 +10,7 @@ async function markOfflineStagedInTransaction({db,session,context,plan,now=new D
  if(!db?.collection||session?.inTransaction?.()!==true||
    !context||![context.empresaId,context.sedeId,context.actorId].every(id=>typeof id==="string"&&ID.test(id))||
    !Array.isArray(plan?.orders)||!plan.orders.length||plan.orders.length>100||
+   !Array.from({length:plan.orders.length},(_,i)=>Object.hasOwn(plan.orders,i)).every(Boolean)||
    !(now instanceof Date)||!Number.isFinite(now.getTime()))fail();
  const ids=plan.orders.map(order=>order?.eventId);
  if(ids.some(id=>typeof id!=="string"||!ULID.test(id))||new Set(ids).size!==ids.length)fail();
