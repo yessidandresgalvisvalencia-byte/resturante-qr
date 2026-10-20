@@ -13,6 +13,9 @@ async function stageOfflineSales({db,session,context,plan}){
  let total=0n;const ids=new Set();
  for(const order of plan.orders){
   if(!ULID.test(order?.eventId||"")||!ULID.test(order?.localOrderId||"")||ids.has(order.eventId)||
+     !Array.isArray(order.items)||order.items.length===0||order.items.length>1000||
+     !Array.from({length:order.items.length},(_,i)=>Object.hasOwn(order.items,i)&&
+       order.items[i]!==null&&typeof order.items[i]==="object"&&!Array.isArray(order.items[i])).every(Boolean)||
      typeof order.totalCop!=="string"||order.totalCop.length>16||
      !/^(0|[1-9][0-9]*)$/.test(order.totalCop))fail("OFFLINE_SALES_INVALID_PLAN");
   total+=BigInt(order.totalCop);ids.add(order.eventId);
