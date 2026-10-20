@@ -48,3 +48,17 @@ test("sin identidad verificada no consulta ni devuelve gastos de otro usuario",a
   assert.equal(consultas,0);
  }finally{Transaccion.find=original;}
 });
+
+test("respuesta de base con tipo contradictorio o fila nula nunca se convierte en gasto cero",async()=>{
+ const original=Transaccion.find;
+ let rows=[];
+ Transaccion.find=()=>({select(){return {limit(){return {lean:async()=>rows};}};}});
+ try{
+  for(const row of [null,undefined,{_id:"ingreso",tipo:"INGRESO",concepto:"Rappi",montoMinor:50000},{}]){
+   rows=[registro("usuario-A","real",12000,"DEBITO"),row];
+   await assert.rejects(obtener("usuario-A",{ahora}),/INTEGRIDAD_HORMIGA: consulta devolvió registros incompletos o tipo contradictorio/);
+  }
+  rows=[registro("usuario-A","real",12000,"DEBITO")];
+  assert.equal((await obtener("usuario-A",{ahora})).semanaMinor,12000);
+ }finally{Transaccion.find=original;}
+});
