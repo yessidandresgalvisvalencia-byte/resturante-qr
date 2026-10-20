@@ -83,3 +83,21 @@ test("Capa 2: batch stock requires unique canonical event ULIDs before Mongo",as
   assert.equal(collections,0);
  }
 });
+
+test("Capa 2: stock rejects sparse forged and huge deltas before DB",async()=>{
+ const candidates=[
+  new Array(1),
+  [{productoId:{toString:()=>p},deltaUnidades:"-2"}],
+  [{productoId:p,deltaUnidades:"-"+("9".repeat(10000))}],
+  [{productoId:p,deltaUnidades:"-9007199254740992"}],
+  [{productoId:p,deltaUnidades:"-2"},,]
+ ];
+ for(const deltas of candidates){
+  let dbReads=0;
+  const db={collection(){dbReads++;throw Error("UNAUTHORIZED_MONGO_ACCESS");}};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},
+   context,plan,inventoryDeltas:deltas}),e=>e?.code==="OFFLINE_STOCK_INVALID_PLAN"||
+   e?.code==="OFFLINE_STOCK_TOTAL_CONFLICT");
+  assert.equal(dbReads,0);
+ }
+});
