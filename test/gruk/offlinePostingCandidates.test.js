@@ -75,3 +75,25 @@ test("Capa 2: financial preflight cannot skip sparse events or omit their amount
  assert.equal(valid.totalCop,"6000");
  assert.equal(valid.orders.length,2);
 });
+
+test("Capa 2: pedido rechaza artículos dispersos y COP enormes antes del cálculo",()=>{
+ const {validateOfflineOrderForPosting:validate}=
+  require("../../core/offline/offlineOrderPosting.contract");
+ const base=doc;
+ const good=base.payload.items[0];
+ const broken=[
+  {...base,payload:{...base.payload,items:new Array(1)}},
+  {...base,payload:{...base.payload,items:[good,,good]}},
+  {...base,payload:{...base.payload,items:[good,,]}},
+  {...base,payload:{...base.payload,totalCop:"9".repeat(10000)}},
+  {...base,payload:{...base.payload,items:[{...good,cantidad:"9".repeat(10000)}]}},
+  {...base,payload:{...base.payload,items:[{...good,precioUnitarioCop:"9".repeat(10000)}]}},
+  {...base,payload:{...base.payload,items:[{...good,totalCop:"9".repeat(10000)}]}}
+ ];
+ for(const invalid of broken){
+  assert.throws(()=>validate(invalid),{code:"OFFLINE_ORDER_NOT_POSTABLE"});
+ }
+ const expected=validate(base);
+ assert.equal(expected.totalCop,"3000");
+ assert.equal(expected.items.length,1);
+});
