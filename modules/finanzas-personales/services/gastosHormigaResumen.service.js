@@ -97,7 +97,7 @@ async function obtener(usuarioId,{ahora=new Date()}={}){
  if(!usuarioId)throw new TypeError("La identidad autenticada es obligatoria");
  const periodo=limites(ahora);
  const transacciones=await Transaccion.find({usuarioId,tipo:"GASTO",estado:{$ne:"ANULADA"},
-  fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}})
+  fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}},null,{maxTimeMS:5000})
   .select("_id fecha tipo moneda montoMinor categoria concepto estado impactoCaja medioPago")
   .limit(MAX_MOVIMIENTOS_CONSULTA+1).lean();
  if(!Array.isArray(transacciones)||transacciones.length>MAX_MOVIMIENTOS_CONSULTA)
