@@ -105,3 +105,16 @@ test("Capa 2: índice ausente o entradas corruptas no provocan escritura",async(
   assert.equal(writes,0);
  }
 });
+
+test("Capa 2: rechazo de escritura no reconocida sin lectura de replay",async()=>{
+ for(const upsertedCount of [0,1]){
+  let replayReads=0;
+  const db={collection:()=>({
+   indexes:async()=>[{name:"uniq_offline_cash_tenant_event",unique:true,key:{empresaId:1,sedeId:1,eventId:1}}],
+   updateOne:async()=>({acknowledged:false,upsertedCount}),
+   findOne:async()=>{replayReads++;throw Error("UNCONFIRMED_REPLAY_READ");}
+  })};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,plan}),{code:"OFFLINE_CASH_WRITE_UNVERIFIED"});
+  assert.equal(replayReads,0);
+ }
+});
