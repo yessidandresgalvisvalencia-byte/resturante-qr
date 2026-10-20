@@ -64,3 +64,22 @@ test("Capa 2: movimiento persistido de otro ámbito nunca valida reintentos",asy
   assert.equal(writes,1);
  }
 });
+
+test("Capa 2: batch stock requires unique canonical event ULIDs before Mongo",async()=>{
+ const invalid=[
+  [{items:plan.orders[0].items}],
+  [{eventId:"bad-id",items:plan.orders[0].items}],
+  [{eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAO",items:plan.orders[0].items}],
+  [plan.orders[0],plan.orders[0]],
+  [plan.orders[0],,plan.orders[0]],
+  new Array(1),
+  Array.from({length:101},()=>plan.orders[0])
+ ];
+ for(const orders of invalid){
+  let collections=0;
+  const db={collection(){collections++;throw Error("UNAUTHORIZED_STOCK_COLLECTION");}};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,
+   plan:{orders},inventoryDeltas}),{code:"OFFLINE_STOCK_INVALID_PLAN"});
+  assert.equal(collections,0);
+ }
+});
