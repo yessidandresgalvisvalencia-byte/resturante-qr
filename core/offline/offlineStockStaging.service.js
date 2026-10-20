@@ -8,7 +8,18 @@ function fail(code){const e=new Error(code);e.code=code;throw e;}
 async function stageOfflineStockMovements({db,session,context,plan,inventoryDeltas}){
  if(!db?.collection||session?.inTransaction?.()!==true)fail("OFFLINE_STOCK_TRANSACTION_REQUIRED");
  if(!context||![context.empresaId,context.sedeId,context.actorId].every(x=>typeof x==="string"&&ID.test(x)))fail("OFFLINE_STOCK_AUTH_REQUIRED");
- if(!Array.isArray(plan?.orders)||plan.orders.length===0||!Array.isArray(inventoryDeltas))fail("OFFLINE_STOCK_INVALID_PLAN");
+ if(!Array.isArray(plan?.orders)||plan.orders.length===0||
+   plan.orders.length>100||!Array.isArray(inventoryDeltas))fail("OFFLINE_STOCK_INVALID_PLAN");
+ // The batch hash must come from an unambiguous set of genuine offline event IDs.
+ const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
+ const eventIds=new Set();
+ for(let i=0;i<plan.orders.length;i++){
+  if(!Object.hasOwn(plan.orders,i))fail("OFFLINE_STOCK_INVALID_PLAN");
+  const eventId=plan.orders[i]?.eventId;
+  if(typeof eventId!=="string"||!ULID.test(eventId)||eventIds.has(eventId))
+    fail("OFFLINE_STOCK_INVALID_PLAN");
+  eventIds.add(eventId);
+ }
  // Recalculate the inventory plan independently to prevent caller-provided deltas.
  const {calculateOfflineStockDeltas}=require("./offlineInventoryDeltas.service");
  const expected=calculateOfflineStockDeltas(plan);
