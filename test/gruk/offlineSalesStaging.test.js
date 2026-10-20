@@ -59,3 +59,20 @@ test("Capa 2: replay of a persisted sale from another tenant or event is rejecte
   assert.equal(writes,1);
  }
 });
+
+test("Capa 2: sales rejects huge COP and sparse orders before Mongo",async()=>{
+ const badOrders=[
+  [{...plan.orders[0],totalCop:"9".repeat(10000)}],
+  [{...plan.orders[0],totalCop:"9007199254740992"}],
+  new Array(1),
+  [plan.orders[0],,plan.orders[0]]
+ ];
+ for(const orders of badOrders){
+  let accesses=0;
+  const db={collection(){accesses++;throw Error("UNEXPECTED_DB_ACCESS");}};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,
+   plan:{...plan,orders,totalCop:orders[0]?.totalCop||plan.totalCop}}),
+   {code:"OFFLINE_SALES_INVALID_PLAN"});
+  assert.equal(accesses,0);
+ }
+});

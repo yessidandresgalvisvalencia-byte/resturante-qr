@@ -8,10 +8,11 @@ async function stageOfflineCashIntents({db,session,context,plan}){
  if(!db?.collection||session?.inTransaction?.()!==true)fail("OFFLINE_CASH_TRANSACTION_REQUIRED");
  if(!context||![context.empresaId,context.sedeId,context.actorId].every(v=>typeof v==="string"&&ID.test(v)))
   fail("OFFLINE_CASH_AUTH_REQUIRED");
- if(!Array.isArray(plan?.orders)||!plan.orders.length||plan.orders.length>100)fail("OFFLINE_CASH_INVALID_PLAN");
+ if(!Array.isArray(plan?.orders)||!plan.orders.length||plan.orders.length>100||
+  !Array.from({length:plan.orders.length},(_,i)=>Object.hasOwn(plan.orders,i)).every(Boolean))fail("OFFLINE_CASH_INVALID_PLAN");
  const ids=new Set();let sum=0n;
  for(const order of plan.orders){
-  if(!ULID.test(order?.eventId||"")||ids.has(order.eventId)||typeof order.totalCop!=="string"||
+  if(!ULID.test(order?.eventId||"")||ids.has(order.eventId)||typeof order.totalCop!=="string"||order.totalCop.length>16||
     !/^(0|[1-9][0-9]*)$/.test(order.totalCop))fail("OFFLINE_CASH_INVALID_PLAN");
   ids.add(order.eventId);sum+=BigInt(order.totalCop);
   if(sum>MAX)fail("OFFLINE_CASH_INVALID_PLAN");
