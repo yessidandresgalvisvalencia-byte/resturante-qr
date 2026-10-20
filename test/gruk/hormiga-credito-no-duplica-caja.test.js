@@ -109,3 +109,14 @@ test("contrato de pantalla rechaza cifras descuadradas antes de escribir el resu
  assert.match(validacion,/\.some\(n=>n<0\)/);
  assert.match(validacion,/throw Error\("Resumen descuadrado: requiere verificación"\)/);
 });
+
+test("gastos con estado pendiente, vacío o desconocido nunca se toman como confirmados",()=>{
+ const compra=gasto("estado","Rappi",15000,"CREDITO");
+ for(const estado of ["PENDIENTE","",undefined,null,"REVISION"]){
+  assert.throws(()=>resumir([{...compra,estado}],ahora),/INTEGRIDAD_HORMIGA: estado financiero no confirmado/);
+ }
+ const anulada=resumir([{...compra,estado:"ANULADA"}],ahora);
+ assert.equal(anulada.consumoTotalSemanaMinor,0);
+ const activa=resumir([compra],ahora);
+ assert.equal(activa.creditoSemanaMinor,15000);
+});
