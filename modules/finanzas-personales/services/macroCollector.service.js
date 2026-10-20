@@ -1,6 +1,6 @@
 "use strict";
 const Macro=require("../models/macroSnapshot.model");const MONTHS={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
-const SOURCES={inflacion:"https://www.dane.gov.co/index.php/estadisticas-por-tema/precios-y-costos/indice-de-precios-al-consumidor-ipc/ipc-informacion-tecnica",ibr:"https://www.banrep.gov.co/es/glosario/indicador-bancario-referencia-ibr",ibrAlternativa:"https://www.banrep.gov.co/es"};
+const SOURCES={inflacion:"https://www.dane.gov.co/index.php/estadisticas-por-tema/precios-y-costos/indice-de-precios-al-consumidor-ipc/ipc-informacion-tecnica",ibr:"https://www.banrep.gov.co/es/glosario/indicador-bancario-referencia-ibr",ibrAlternativa:"https://d1b4gd4m8561gs.cloudfront.net/es/glosario/indicador-bancario-referencia-ibr"};
 async function html(url){const r=await fetch(url,{headers:{"user-agent":"GRUK-MacroCollector/1.1","accept":"text/html"},signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error("Fuente oficial HTTP "+r.status);return r.text()}
 function normalized(s){return s.replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/gi," ").replace(/\s+/g," ").trim()}
 function decimal(s){const n=Number(String(s).replace(",","."));if(!Number.isFinite(n))throw new Error("NO_CALCULABLE: valor oficial inválido");return n}
