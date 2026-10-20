@@ -34,13 +34,14 @@ function resumir(transacciones,ahora=new Date()){
   if(tx.fecha===null||tx.fecha===undefined||tx.fecha==="")throw new TypeError("Fecha hormiga inválida");
   const fecha=new Date(tx.fecha);
   if(Number.isNaN(fecha.getTime()))throw new TypeError("Fecha hormiga inválida");
-  const id=tx._id==null?null:String(tx._id);
+  const id=tx._id==null?"":String(tx._id);
+  if(!id||id==="[object Object]")throw new Error("INTEGRIDAD_HORMIGA: movimiento sin identificador verificable");
   const firma=JSON.stringify([fecha.toISOString(),tx.montoMinor,tx.concepto,tx.categoria,tx.estado,tx.impactoCaja,tx.medioPago]);
-  if(id&&vistos.has(id)){
+  if(vistos.has(id)){
    if(vistos.get(id)!==firma)throw new Error("INTEGRIDAD_HORMIGA: movimiento duplicado con datos contradictorios");
    continue;
   }
-  if(id)vistos.set(id,firma);
+  vistos.set(id,firma);
   if(fecha>ahora)continue;
   if(fecha>=r.inicioSiete){
    if(esCaja){semana+=tx.montoMinor;cantidadSemana++;}
