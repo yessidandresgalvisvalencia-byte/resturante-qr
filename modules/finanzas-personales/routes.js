@@ -56,6 +56,25 @@ router.patch("/progreso-economico/acciones/:id",validate(accionProgresoSchema),a
 router.get("/progreso-economico",async(req,res)=>{try{return res.json({ok:true,progreso:await progresoEconomico.analizar(req.personalAuth.userId)});}catch(e){console.error("[FIN_PERSONAL_PROGRESO]",e);return res.status(500).json({ok:false,error:"No fue posible medir el progreso económico"});}});
 const obligacionSchema=Joi.object({montoMinor:Joi.number().integer().min(1).required(),concepto:Joi.string().trim().max(140).allow("").default(""),costoRenegociarMinor:Joi.number().integer().min(0),consecuenciaRenegociar:Joi.string().trim().max(240).allow(""),costoReprogramarMinor:Joi.number().integer().min(0),consecuenciaReprogramar:Joi.string().trim().max(240).allow(""),costoSustituirMinor:Joi.number().integer().min(0),consecuenciaSustituir:Joi.string().trim().max(240).allow("")});router.post("/obligaciones/evaluar",validate(obligacionSchema),async(req,res)=>{try{return res.json({ok:true,evaluacion:await obligacionesPersonal.evaluar(req.personalAuth.userId,req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible evaluar la obligación"});}});
 router.get("/notificaciones",async(req,res)=>{const N=require("./models/notificacionPersonal.model");const rows=await N.find({usuarioId:req.personalAuth.userId,leidaEn:null}).sort({createdAt:-1}).limit(50).lean();return res.json({ok:true,notificaciones:rows});});router.post("/notificaciones/:id/leida",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});const N=require("./models/notificacionPersonal.model");const n=await N.findOneAndUpdate({_id:req.params.id,usuarioId:req.personalAuth.userId},{$set:{leidaEn:new Date()}},{new:true});return n?res.json({ok:true}):res.status(404).json({ok:false,error:"Notificación no encontrada"});});
+// Evaluacion preventiva de compra: solo lectura y usuario exclusivamente del JWT personal.
+const gastoInteligente=require("./services/gastoInteligentePersonal.service");
+const evaluarCompraSchema=Joi.object({
+ montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),
+ obligatorio:Joi.boolean().default(false),
+ credito:Joi.object({
+  interesesMinor:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),
+  cargosMinor:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),
+  cuotas:Joi.number().integer().min(1).max(600).required()
+ }).optional()
+}).required();
+router.post("/gastos/evaluar",validate(evaluarCompraSchema),async(req,res)=>{
+ try{
+  const evaluacion=await gastoInteligente.evaluar(req.personalAuth.userId,req.validated);
+  return res.set("Cache-Control","private, no-store, max-age=0").json({ok:true,evaluacion,soloLectura:true});
+ }catch(e){
+  return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo evaluar el gasto"});
+ }
+});
 router.get("/home",async(req,res)=>{try{return res.json({ok:true,home:await homePersonal.obtener(req.personalAuth.userId)});}catch(e){console.error("[FIN_PERSONAL_HOME]",e);return res.status(500).json({ok:false,error:"No fue posible construir el estado financiero personal"});}});
 const cuentaSchema=Joi.object({nombre:Joi.string().trim().min(1).max(100).required(),tipo:Joi.string().valid("EFECTIVO","AHORROS","CORRIENTE","BILLETERA","INVERSION","OTRA").required(),institucion:Joi.string().trim().max(120).allow("").default(""),moneda:Joi.string().valid("COP").default("COP"),saldoMinor:Joi.number().integer().min(0).default(0),saldoVerificado:Joi.boolean().default(false)});
 router.post("/cuentas",validate(cuentaSchema),async(req,res)=>{try{return res.status(201).json({ok:true,cuenta:await patrimonioPersonal.crearCuenta(req.personalAuth.userId,{...req.validated,saldoVerificadoEn:req.validated.saldoVerificado?new Date():null,origenSaldo:req.validated.saldoVerificado?"USUARIO":"NO_VERIFICADO",requiereReconciliacion:!req.validated.saldoVerificado})});}catch(e){return res.status(e.code===11000?409:e.statusCode||500).json({ok:false,error:e.code===11000?"Ya existe una cuenta con ese nombre":e.statusCode?e.message:"Error interno"});}});
