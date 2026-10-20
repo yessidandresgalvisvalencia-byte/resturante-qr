@@ -130,3 +130,16 @@ test("Capa 2: acuse de escritura ledger ausente o ambiguo falla sin reinterpreta
   assert.equal(lookups,0);
  }
 });
+
+test("Capa 2: índices ledger con entradas corruptas fallan cerrado sin escrituras",async()=>{
+ for(const metadata of [null,undefined,{},[null],[false],[undefined],[{name:"irrelevant"},null]]){
+  let writes=0;
+  const db={collection:()=>({
+   indexes:async()=>metadata,
+   updateOne:async()=>{writes++;throw Error("FORBIDDEN_LEDGER_WRITE");}
+  })};
+  await assert.rejects(append({db,session:{inTransaction:()=>true},context,eventId,movement}),
+   {code:"OFFLINE_LEDGER_UNIQUE_INDEX_REQUIRED"});
+  assert.equal(writes,0);
+ }
+});
