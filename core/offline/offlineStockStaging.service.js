@@ -24,9 +24,16 @@ async function stageOfflineStockMovements({db,session,context,plan,inventoryDelt
  const {calculateOfflineStockDeltas}=require("./offlineInventoryDeltas.service");
  const expected=calculateOfflineStockDeltas(plan);
  const supplied=new Map();
- for(const d of inventoryDeltas){
-   if(!d||!PRODUCT.test(d.productoId||"")||typeof d.deltaUnidades!=="string"||
-     !/^-[1-9][0-9]*$/.test(d.deltaUnidades)||supplied.has(d.productoId))fail("OFFLINE_STOCK_INVALID_PLAN");
+ if(inventoryDeltas.length!==expected.length)fail("OFFLINE_STOCK_TOTAL_CONFLICT");
+ for(let i=0;i<inventoryDeltas.length;i++){
+   if(!Object.hasOwn(inventoryDeltas,i))fail("OFFLINE_STOCK_INVALID_PLAN");
+   const d=inventoryDeltas[i];
+   if(!d||typeof d.productoId!=="string"||!PRODUCT.test(d.productoId)||
+     typeof d.deltaUnidades!=="string"||d.deltaUnidades.length>17||
+     !/^-[1-9][0-9]*$/.test(d.deltaUnidades)||
+     supplied.has(d.productoId))fail("OFFLINE_STOCK_INVALID_PLAN");
+   const units=-BigInt(d.deltaUnidades);
+   if(units>MAX)fail("OFFLINE_STOCK_INVALID_PLAN");
    supplied.set(d.productoId,d.deltaUnidades);
  }
  if(expected.length!==supplied.size||expected.some(d=>supplied.get(d.productoId)!==d.deltaUnidades))
