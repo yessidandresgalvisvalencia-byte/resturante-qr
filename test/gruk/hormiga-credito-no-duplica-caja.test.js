@@ -18,9 +18,10 @@ test("distingue gasto hormiga pagado a crédito de salida inmediata de caja",()=
 test("promedio diario observado divide exactamente por siete sin sumar ventanas",()=>{
  const rows=[gasto("debito","Juan Valdez",10000,"DEBITO"),gasto("credito","Rappi",25000,"CREDITO")];
  const r=resumir(rows,ahora);
- assert.equal(r.promedioDiarioCajaMinor,1428);
+ assert.equal(r.promedioDiarioCajaMinor,1429);
  assert.equal(r.promedioDiarioCreditoMinor,3571);
  assert.equal(r.promedioDiarioConsumoMinor,5000);
+ assert.equal(r.promedioDiarioCajaMinor+r.promedioDiarioCreditoMinor,r.promedioDiarioConsumoMinor);
  assert.equal(r.consumoTotalSemanaMinor,35000);
 });
 test("promedio diario no inventa gastos futuros ni predicciones",()=>{
@@ -81,4 +82,17 @@ test("un gasto sin impacto de caja no se vuelve salida efectiva por ser débito"
  const resultado=resumir([compra],ahora);
  assert.equal(resultado.semanaMinor,0);
  assert.equal(resultado.creditoSemanaMinor,0);
+});
+
+test("promedio reconciliado nunca descuadra caja y crédito en los siete días",()=>{
+ for(let caja=0;caja<14;caja++){
+  for(let credito=0;credito<14;credito++){
+   const tx=[];
+   if(caja)tx.push(gasto("a","Rappi",caja,"DEBITO"));
+   if(credito)tx.push(gasto("b","Rappi",credito,"CREDITO"));
+   const r=resumir(tx,ahora);
+   assert.equal(r.promedioDiarioCajaMinor+r.promedioDiarioCreditoMinor,r.promedioDiarioConsumoMinor);
+   assert.equal(r.promedioDiarioConsumoMinor,Math.floor((caja+credito)/7));
+  }
+ }
 });
