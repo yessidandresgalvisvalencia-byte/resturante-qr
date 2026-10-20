@@ -134,3 +134,34 @@ test("Capa 2: ventas offline sin líneas válidas se rechazan antes de consultar
   assert.equal(collectionCalls,0);
  }
 });
+
+test("Capa 2: bloquea descuadres entre líneas, cantidad, precio y total antes de Mongo",async()=>{
+ const base=plan.orders[0],item=base.items[0];
+ const bad=[
+  [{...item,cantidad:"2"}],
+  [{...item,precioUnitarioCop:"3100"}],
+  [{...item,totalCop:"2999"}],
+  [{...item,cantidad:"1.5"}],
+  [{...item,cantidad:"0"}],
+  [{...item,precioUnitarioCop:3000}],
+  [{...item,productoId:{$ne:null}}],
+  [{...item,productoId:"$admin"}],
+  [{...item,totalCop:"9007199254740992"}]
+ ];
+ for(const items of bad){
+  let calls=0;
+  const db={collection(){calls++;throw Error("UNEXPECTED_DB_ACCESS");}};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,
+   plan:{...plan,orders:[{...base,items} ]}}),
+   e=>["OFFLINE_SALES_INVALID_PLAN","OFFLINE_SALES_LINE_TOTAL_CONFLICT"].includes(e.code));
+  assert.equal(calls,0);
+ }
+});
+test("Capa 2: suma exactamente múltiples artículos expresados en COP enteros",async()=>{
+ const f=fixture(),item=plan.orders[0].items[0];
+ const valid={...plan,orders:[{...plan.orders[0],totalCop:"9000",items:[
+  {...item,cantidad:"2",totalCop:"6000"},item]}],totalCop:"9000"};
+ const result=await stage({...f,context,plan:valid});
+ assert.equal(result.totalCop,"9000");
+ assert.equal(f.data.size,1);
+});
