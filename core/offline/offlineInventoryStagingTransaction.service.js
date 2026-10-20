@@ -29,7 +29,8 @@ function assertFreshOfflineStaging(staged,inventoryDeltas,plan){
    [staged?.stock?.records,productIds,"productoId"]
  ];
  for(const [records,ids,field] of expected){
-   if(!Array.isArray(records)||records.length!==ids.length)fail();
+   if(!Array.isArray(records)||records.length!==ids.length||
+      !Array.from({length:records.length},(_,i)=>Object.hasOwn(records,i)).every(Boolean))fail();
    const expectedIds=new Set(ids);
    const actualIds=new Set();
    for(const record of records){
@@ -37,6 +38,7 @@ function assertFreshOfflineStaging(staged,inventoryDeltas,plan){
      if(record?.inserted!==true||!expectedIds.has(id)||actualIds.has(id))fail();
      actualIds.add(id);
    }
+   if(actualIds.size!==expectedIds.size)fail();
  }
  return true;
 }
@@ -44,7 +46,9 @@ function assertAppliedOfflineInventory(inventory,inventoryDeltas){
  const code="OFFLINE_INVENTORY_RESULT_CONFLICT";
  const fail=()=>{const error=new Error(code);error.code=code;throw error;};
  if(!Array.isArray(inventory)||!Array.isArray(inventoryDeltas)||
-    inventory.length===0||inventory.length!==inventoryDeltas.length)fail();
+    inventory.length===0||inventory.length!==inventoryDeltas.length||
+    !Array.from({length:inventory.length},(_,i)=>Object.hasOwn(inventory,i)).every(Boolean)||
+    !Array.from({length:inventoryDeltas.length},(_,i)=>Object.hasOwn(inventoryDeltas,i)).every(Boolean))fail();
  const expected=new Map();
  for(const delta of inventoryDeltas){
    if(typeof delta?.productoId!=="string"||!delta.productoId||
@@ -69,6 +73,7 @@ function assertAppliedOfflineInventory(inventory,inventoryDeltas){
       before-after!==expected.get(result.productoId))fail();
    seen.add(result.productoId);
  }
+ if(seen.size!==expected.size)fail();
  return true;
 }
 async function executeOfflineInventoryStagingTransaction({db,context,eventIds,objectId,requireAuthoritativePricing=false,onStaged=null}){
