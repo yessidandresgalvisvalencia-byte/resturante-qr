@@ -11,7 +11,10 @@ function inspectPayload(value, depth = 0) {
   if (typeof value === "number" && Number.isFinite(value)) return;
   if (Array.isArray(value)) {
     if (value.length > 1000) fail("OFFLINE_INVALID_PAYLOAD");
-    for (const v of value) inspectPayload(v, depth+1);
+    for (let i = 0; i < value.length; i++) {
+      if (!Object.prototype.hasOwnProperty.call(value, i)) fail("OFFLINE_INVALID_PAYLOAD");
+      inspectPayload(value[i], depth+1);
+    }
     return;
   }
   if (typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype) fail("OFFLINE_INVALID_PAYLOAD");
@@ -23,6 +26,10 @@ function inspectPayload(value, depth = 0) {
 function validateBatch(events, authenticatedContext) {
   if (!authenticatedContext || !["empresaId","sedeId","actorId"].every(k => typeof authenticatedContext[k] === "string" && ID.test(authenticatedContext[k]))) fail("OFFLINE_AUTH_REQUIRED");
   if (!Array.isArray(events) || events.length < 1 || events.length > 100) fail("OFFLINE_BATCH_SIZE");
+  // Array.map silently skips holes; a batch must account for every position.
+  for (let i = 0; i < events.length; i++) {
+    if (!Object.prototype.hasOwnProperty.call(events, i)) fail("OFFLINE_INVALID_EVENT");
+  }
   const seen = new Set();
   return events.map(event => {
     if (!event || typeof event !== "object" || Array.isArray(event) ||
