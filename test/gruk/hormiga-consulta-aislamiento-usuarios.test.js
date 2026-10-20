@@ -25,7 +25,7 @@ test("consulta real del servicio nunca mezcla cuentas de usuario A y usuario B",
   assert.ok(filtro.fecha.$gte instanceof Date&&filtro.fecha.$lte instanceof Date);
   return {select(campos){
    assert.match(campos,/montoMinor/);
-   return {lean:async()=>datos.filter(x=>x.usuarioId===filtro.usuarioId&&x.fecha>=filtro.fecha.$gte&&x.fecha<=filtro.fecha.$lte)};
+   return {limit(max){assert.equal(max,5001);return {lean:async()=>datos.filter(x=>x.usuarioId===filtro.usuarioId&&x.fecha>=filtro.fecha.$gte&&x.fecha<=filtro.fecha.$lte)};}};
   }};
  };
  try{
