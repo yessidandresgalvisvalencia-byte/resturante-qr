@@ -31,6 +31,10 @@ async function stageOfflineCashIntents({db,session,context,plan}){
   let result;
   try{result=await cash.updateOne(key,{$setOnInsert:payload},{upsert:true,session});}
   catch(err){if(err?.code===11000)fail("OFFLINE_CASH_CONCURRENT_RETRY_REQUIRED");throw err;}
+  // An ambiguous Mongo acknowledgement is never proof of insertion or replay.
+  if(!result||!Number.isInteger(result.upsertedCount)||
+     (result.upsertedCount!==0&&result.upsertedCount!==1))
+    fail("OFFLINE_CASH_WRITE_UNVERIFIED");
   if(result.upsertedCount!==1){
    const prior=await cash.findOne(key,{session,projection:{empresaId:1,sedeId:1,eventId:1,actorId:1,montoCop:1,status:1,cobrado:1}});
    if(!prior||prior.empresaId!==key.empresaId||prior.sedeId!==key.sedeId||
