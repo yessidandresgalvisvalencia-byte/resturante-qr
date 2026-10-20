@@ -5,7 +5,7 @@ const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 const SAFE=/^[A-Za-z0-9_-]{1,80}$/;
 function fail(){const e=new Error("OFFLINE_ORDER_NOT_POSTABLE");e.code="OFFLINE_ORDER_NOT_POSTABLE";throw e;}
 function integer(value,min=0){
-  if(typeof value!=="string"||!/^(0|[1-9][0-9]*)$/.test(value))fail();
+  if(typeof value!=="string"||value.length>16||!/^(0|[1-9][0-9]*)$/.test(value))fail();
   const n=BigInt(value);
   if(n<BigInt(min)||n>BigInt(Number.MAX_SAFE_INTEGER))fail();
   return n;
@@ -14,7 +14,8 @@ function validateOfflineOrderForPosting(event){
   if(!event||event.tipo!=="PEDIDO_REGISTRADO"||!ULID.test(event.eventId||""))fail();
   const p=event.payload;
   if(!p||typeof p!=="object"||Array.isArray(p))fail();
-  if(!ULID.test(p.localOrderId||"")||!Array.isArray(p.items)||p.items.length<1||p.items.length>100)fail();
+  if(!ULID.test(p.localOrderId||"")||!Array.isArray(p.items)||p.items.length<1||p.items.length>100||
+     !Array.from({length:p.items.length},(_,i)=>Object.hasOwn(p.items,i)).every(Boolean))fail();
   let calculated=0n;
   const items=p.items.map(item=>{
     if(!item||!SAFE.test(item.productoId||""))fail();
