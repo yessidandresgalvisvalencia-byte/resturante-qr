@@ -10,9 +10,9 @@ function serviceWorkerTest(){
  const callbacks={};
  const saved=new Map();
  const cache={addAll:async()=>{},put:async(request,response)=>saved.set(request.url,response),match:async(request)=>saved.get(request.url)};
- const caches={open:async()=>cache,keys:async()=>["gruk-shell-v5","gruk-shell-v6"],delete:async()=>true,match:async request=>saved.get(request.url)};
+ const caches={open:async()=>cache,keys:async()=>["gruk-shell-v6","gruk-shell-v7"],delete:async()=>true,match:async request=>saved.get(request.url)};
  const worker={location:{origin:"https://example.test"},addEventListener:(type,fn)=>callbacks[type]=fn,skipWaiting:()=>{},clients:{claim:()=>{}}};
- const context={self:worker,caches,Response,URL,fetch:async()=>{throw new Error("NETWORK_DOWN")},Promise};
+ const context={self:worker,caches,Response,URL,AbortController,setTimeout,clearTimeout,fetch:async()=>{throw new Error("NETWORK_DOWN")},Promise};
  vm.runInNewContext(source,context,{filename:"sw.js"});
  return {callbacks,cache,saved};
 }
