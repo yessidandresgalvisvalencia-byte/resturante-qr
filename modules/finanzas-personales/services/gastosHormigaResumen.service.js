@@ -57,7 +57,7 @@ function resumir(transacciones,ahora=new Date()){
   movimientosSemana:cantidadSemana,movimientosMes:cantidadMes,
   creditoSemanaMinor:creditoSemana,creditoMesMinor:creditoMes,
   movimientosCreditoSemana:cantidadCreditoSemana,movimientosCreditoMes:cantidadCreditoMes,
-  nota:"Los períodos se solapan y no se suman. Caja: solo salidas efectivas. Crédito: consumo que aumenta deuda, separado de caja. Los pagos posteriores de tarjeta no se cuentan como nuevos consumos.",
+  nota:"Las ventanas se solapan: los totales no deben sumarse. Caja: solo salidas efectivas. Crédito: consumo que aumenta deuda, separado de caja. Los pagos posteriores de tarjeta no se cuentan como nuevos consumos.",
   accion:cantidadSemana+cantidadCreditoSemana>0?"Revisa tus compras pequeñas, incluidas las que pagaste con tarjeta, antes de repetirlas.":"Registra únicamente tus gastos reales para revisar el consumo hormiga."};
 }
 async function obtener(usuarioId,{ahora=new Date()}={}){
