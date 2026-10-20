@@ -4,7 +4,7 @@ const assert=require("node:assert/strict");
 const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
 const {obtener}=require("../../modules/finanzas-personales/services/gastosHormigaResumen.service");
 const ahora=new Date("2026-10-20T15:00:00Z");
-const tx=i=>({_id:String(i),tipo:"GASTO",concepto:"Rappi",categoria:"Alimentación",montoMinor:100,
+const tx=i=>({_id:String(i),usuarioId:"persona-1",tipo:"GASTO",concepto:"Rappi",categoria:"Alimentación",montoMinor:100,
  medioPago:"DEBITO",impactoCaja:true,estado:"ACTIVA",fecha:new Date("2026-10-20T10:00:00Z")});
 test("consulta limita documentos y nunca devuelve total truncado",async()=>{
  const original=Transaccion.find;
