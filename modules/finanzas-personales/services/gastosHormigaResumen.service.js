@@ -43,13 +43,14 @@ function resumir(transacciones,ahora=new Date()){
   const medio=medioHormigaVerificado(tx);
   if(medio===null)continue;
   const esCaja=medio==="CAJA";
+  if(tx.moneda!=null&&tx.moneda!=="COP")throw new Error("INTEGRIDAD_HORMIGA: moneda distinta de COP");
   if(!Number.isSafeInteger(tx.montoMinor)||tx.montoMinor<=0)throw new TypeError("Monto hormiga inválido");
   if(tx.fecha===null||tx.fecha===undefined||tx.fecha==="")throw new TypeError("Fecha hormiga inválida");
   const fecha=new Date(tx.fecha);
   if(Number.isNaN(fecha.getTime()))throw new TypeError("Fecha hormiga inválida");
   const id=tx._id==null?"":String(tx._id);
   if(!id||id==="[object Object]")throw new Error("INTEGRIDAD_HORMIGA: movimiento sin identificador verificable");
-  const firma=JSON.stringify([fecha.toISOString(),tx.montoMinor,tx.concepto,tx.categoria,tx.estado,tx.impactoCaja,tx.medioPago]);
+  const firma=JSON.stringify([fecha.toISOString(),tx.moneda??"COP",tx.montoMinor,tx.concepto,tx.categoria,tx.estado,tx.impactoCaja,tx.medioPago]);
   if(vistos.has(id)){
    if(vistos.get(id)!==firma)throw new Error("INTEGRIDAD_HORMIGA: movimiento duplicado con datos contradictorios");
    continue;
@@ -95,7 +96,7 @@ async function obtener(usuarioId,{ahora=new Date()}={}){
  const periodo=limites(ahora);
  const transacciones=await Transaccion.find({usuarioId,tipo:"GASTO",estado:{$ne:"ANULADA"},
   fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}})
-  .select("_id fecha tipo montoMinor categoria concepto estado impactoCaja medioPago")
+  .select("_id fecha tipo moneda montoMinor categoria concepto estado impactoCaja medioPago")
   .limit(MAX_MOVIMIENTOS_CONSULTA+1).lean();
  if(!Array.isArray(transacciones)||transacciones.length>MAX_MOVIMIENTOS_CONSULTA)
   throw new Error("INTEGRIDAD_HORMIGA: consulta excede límite verificable; no se publica resumen parcial");
