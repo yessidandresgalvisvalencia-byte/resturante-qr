@@ -76,3 +76,20 @@ test("Capa 2: sales rejects huge COP and sparse orders before Mongo",async()=>{
   assert.equal(accesses,0);
  }
 });
+
+test("Capa 2: acuses de ventas nulos o malformados no se aceptan como reintento",async()=>{
+ for(const ack of [null,undefined,{}, {upsertedCount:null},
+  {upsertedCount:2},{upsertedCount:-1},{upsertedCount:"1"}]){
+  let lookups=0;
+  const session={inTransaction:()=>true};
+  const db={collection:()=>({
+   indexes:async()=>[{name:"uniq_offline_sale_tenant_event",
+     unique:true,key:{empresaId:1,sedeId:1,eventId:1}}],
+   updateOne:async()=>ack,
+   findOne:async()=>{lookups++;throw Error("UNAUTHORIZED_REPLAY_READ");}
+  })};
+  await assert.rejects(stage({db,session,context,plan}),
+   {code:"OFFLINE_SALES_WRITE_UNVERIFIED"});
+  assert.equal(lookups,0);
+ }
+});
