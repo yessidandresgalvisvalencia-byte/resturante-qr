@@ -122,3 +122,15 @@ test("Capa 2: índice ausente o entradas corruptas no provocan escritura",async(
   assert.equal(writes,0);
  }
 });
+
+test("Capa 2: ventas offline sin líneas válidas se rechazan antes de consultar Mongo",async()=>{
+ const badItems=[undefined,null,{},[],[null],[false],[[]],new Array(1),[plan.orders[0].items[0],,plan.orders[0].items[0]]];
+ for(const items of badItems){
+  let collectionCalls=0;
+  const db={collection(){collectionCalls++;throw Error("UNEXPECTED_SALE_DB_ACCESS");}};
+  const invalid={...plan,orders:[{...plan.orders[0],items}]};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,plan:invalid}),
+   {code:"OFFLINE_SALES_INVALID_PLAN"});
+  assert.equal(collectionCalls,0);
+ }
+});
