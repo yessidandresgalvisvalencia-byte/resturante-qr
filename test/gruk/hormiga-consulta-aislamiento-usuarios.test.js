@@ -62,3 +62,27 @@ test("respuesta de base con tipo contradictorio o fila nula nunca se convierte e
   assert.equal((await obtener("usuario-A",{ahora})).semanaMinor,12000);
  }finally{Transaccion.find=original;}
 });
+
+test("consulta rechaza filas de otro usuario o sin propietario aunque Mongo reporte éxito",async()=>{
+ const original=Transaccion.find;
+ let rows=[];
+ Transaccion.find=filtro=>({
+  select(campos){
+   assert.match(campos,/\busuarioId\b/);
+   return {limit(){return {lean:async()=>rows};}};
+  }
+ });
+ try{
+  const legítima=registro("usuario-A","mov-A",12500,"DEBITO");
+  for(const ajena of [
+   registro("usuario-B","mov-B",99000,"CREDITO"),
+   {...legítima,_id:"sin-propietario",usuarioId:undefined},
+   {...legítima,_id:"nulo",usuarioId:null}
+  ]){
+   rows=[legítima,ajena];
+   await assert.rejects(obtener("usuario-A",{ahora}),/INTEGRIDAD_HORMIGA: movimiento ajeno a la identidad autenticada/);
+  }
+  rows=[legítima];
+  assert.equal((await obtener("usuario-A",{ahora})).semanaMinor,12500);
+ }finally{Transaccion.find=original;}
+});
