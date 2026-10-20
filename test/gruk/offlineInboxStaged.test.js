@@ -82,7 +82,12 @@ test("Capa 2: persisted stage handoff cannot be accepted with foreign or missing
   {status:"APLICADO"},{financialStageStatus:"CONCILIADO"},
   {inventoryApplied:false},{stagedBy:"another-operator"},
   {reviewActorId:"another-operator"},{reviewToken:"forged-token"},
-  {reviewToken:undefined},{tipo:"OTRO"}
+  {reviewToken:undefined},{tipo:"OTRO"},
+  {stagedAt:undefined},{reviewStartedAt:undefined},{reviewLeaseUntil:undefined},
+  {stagedAt:new Date(0)},{reviewStartedAt:new Date(0)},
+  {reviewLeaseUntil:new Date(0)},
+  {stagedAt:"2026-10-20T00:00:00Z"},
+  {reviewLeaseUntil:"2026-10-20T00:01:00Z"}
  ];
  for(const patch of patches){
   let writes=0;
@@ -95,6 +100,8 @@ test("Capa 2: persisted stage handoff cannot be accepted with foreign or missing
      assert.equal(options.session,session);
      if(query.status==="PENDIENTE")return {...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE"};
      assert.equal(query.status,"EN_REVISION");
+     for(const field of ["stagedAt","reviewStartedAt","reviewLeaseUntil"])
+       assert.equal(options.projection[field],1);
      return {...staged,...patch};
     },
     async updateOne(key,update,options){
@@ -122,4 +129,13 @@ test("Capa 2: sparse inbox staging plans cannot query or update another tenant",
     context,plan:{orders}}),{code:"OFFLINE_STAGE_INBOX_CONFLICT"});
   assert.equal(reads,0);
  }
+});
+
+test("Capa 2: review lease and staging timestamps are attested after Mongo write",async()=>{
+ const f=fixture();
+ const now=new Date("2026-10-20T12:00:00.000Z");
+ const result=await mark({db:f.db,session:f.session,context,
+  plan:{orders:[{eventId}]},now});
+ assert.deepEqual(result,[{eventId,status:"EN_REVISION"}]);
+ assert.equal(f.updates,1);
 });

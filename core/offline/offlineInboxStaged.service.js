@@ -40,6 +40,7 @@ async function markOfflineStagedInTransaction({db,session,context,plan,now=new D
    eventId,tipo:"PEDIDO_REGISTRADO",status:STATES.EN_REVISION
   },{session,projection:{empresaId:1,sedeId:1,actorId:1,eventId:1,tipo:1,
    status:1,financialStageStatus:1,inventoryApplied:1,stagedBy:1,
+   stagedAt:1,reviewStartedAt:1,reviewLeaseUntil:1,
    reviewActorId:1,reviewToken:1}});
   if(!persisted||persisted.empresaId!==context.empresaId||
    persisted.sedeId!==context.sedeId||persisted.actorId!==context.actorId||
@@ -47,7 +48,11 @@ async function markOfflineStagedInTransaction({db,session,context,plan,now=new D
    persisted.status!==STATES.EN_REVISION||
    persisted.financialStageStatus!=="PENDIENTE_CONTABILIZACION"||
    persisted.inventoryApplied!==true||persisted.stagedBy!==context.actorId||
-   persisted.reviewActorId!==context.actorId||persisted.reviewToken!==token)fail();
+   persisted.reviewActorId!==context.actorId||persisted.reviewToken!==token||
+   !(persisted.stagedAt instanceof Date)||persisted.stagedAt.getTime()!==now.getTime()||
+   !(persisted.reviewStartedAt instanceof Date)||persisted.reviewStartedAt.getTime()!==now.getTime()||
+   !(persisted.reviewLeaseUntil instanceof Date)||
+   persisted.reviewLeaseUntil.getTime()!==now.getTime()+LEASE_MS)fail();
   handoffs.push(Object.freeze({eventId,status:STATES.EN_REVISION}));
  }
  return Object.freeze(handoffs);
