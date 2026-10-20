@@ -45,3 +45,26 @@ test("posteo sin resultado explícito aborta transacción y libera sesión",asyn
  postDomainOperations:async()=>undefined}),e=>e.code==="OFFLINE_POSTER_OUTCOME_REQUIRED");
  assert.deepEqual(fixture.state(),{closed:true,committed:false});
 });
+
+test("Capa 2: posting rejects forged tenants and sparse events before opening session",async()=>{
+ const other="01ARZ3NDEKTSV4RRFFQ69G5FA1";
+ const cases=[
+  {context:{...context,empresaId:{$ne:null}},eventIds:[id],objectId:x=>x},
+  {context:{...context,sedeId:"foreign"},eventIds:[id],objectId:x=>x},
+  {context:{...context,actorId:"$admin"},eventIds:[id],objectId:x=>x},
+  {context:null,eventIds:[id],objectId:x=>x},
+  {context,eventIds:new Array(1),objectId:x=>x},
+  {context,eventIds:[id,,other],objectId:x=>x},
+  {context,eventIds:[id,id],objectId:x=>x},
+  {context,eventIds:["not-an-ulid"],objectId:x=>x},
+  {context,eventIds:[id],objectId:null}
+ ];
+ for(const args of cases){
+  let sessions=0;
+  const db={client:{startSession(){sessions++;throw Error("UNAUTHORIZED_SESSION");}}};
+  await assert.rejects(execute({db,...args,
+   postDomainOperations:async()=>{throw Error("UNAUTHORIZED_POST");}}),
+   {code:"OFFLINE_POSTING_TENANT_REQUIRED"});
+  assert.equal(sessions,0);
+ }
+});
