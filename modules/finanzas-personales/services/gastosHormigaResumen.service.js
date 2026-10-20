@@ -98,12 +98,14 @@ async function obtener(usuarioId,{ahora=new Date()}={}){
  const periodo=limites(ahora);
  const transacciones=await Transaccion.find({usuarioId,tipo:"GASTO",estado:{$ne:"ANULADA"},
   fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}},null,{maxTimeMS:5000})
-  .select("_id fecha tipo moneda montoMinor categoria concepto estado impactoCaja medioPago")
+  .select("_id usuarioId fecha tipo moneda montoMinor categoria concepto estado impactoCaja medioPago")
   .limit(MAX_MOVIMIENTOS_CONSULTA+1).lean();
  if(!Array.isArray(transacciones)||transacciones.length>MAX_MOVIMIENTOS_CONSULTA)
   throw new Error("INTEGRIDAD_HORMIGA: consulta excede límite verificable; no se publica resumen parcial");
  if(transacciones.some(tx=>!tx||typeof tx!=="object"||tx.tipo!=="GASTO"))
   throw new Error("INTEGRIDAD_HORMIGA: consulta devolvió registros incompletos o tipo contradictorio");
+ if(transacciones.some(tx=>tx.usuarioId==null||String(tx.usuarioId)!==String(usuarioId)))
+  throw new Error("INTEGRIDAD_HORMIGA: movimiento ajeno a la identidad autenticada");
  return resumir(transacciones,ahora);
 }
 module.exports={obtener,resumir,esHormiga,esHormigaCredito,limites};
