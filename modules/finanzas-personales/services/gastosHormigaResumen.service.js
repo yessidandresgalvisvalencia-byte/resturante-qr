@@ -66,17 +66,23 @@ function resumir(transacciones,ahora=new Date()){
   if(![semana,mes,creditoSemana,creditoMes].every(Number.isSafeInteger))
    throw new RangeError("Acumulado hormiga excede rango seguro");
  }
- // Promedio observado de siete fechas civiles; no proyectar el resultado al mes.
- const promedioDiarioCajaMinor=Math.floor(semana/7);
- const promedioDiarioCreditoMinor=Math.floor(creditoSemana/7);
+ // Primero verificar la suma total; no operar con enteros fuera de rango seguro.
  const consumoTotalSemanaMinor=semana+creditoSemana;
  const consumoTotalMesMinor=mes+creditoMes;
  if(!Number.isSafeInteger(consumoTotalSemanaMinor)||!Number.isSafeInteger(consumoTotalMesMinor))
   throw new RangeError("Consumo hormiga total excede rango monetario seguro");
+ // Prorrateo entero reconciliado: el peso residual se asigna al mayor resto.
+ // Caja + crédito = total diario, sin redondeos que descuadren un peso.
+ const promedioDiarioConsumoMinor=Math.floor(consumoTotalSemanaMinor/7);
+ const baseCaja=Math.floor(semana/7);
+ const baseCredito=Math.floor(creditoSemana/7);
+ const residuo=promedioDiarioConsumoMinor-baseCaja-baseCredito;
+ const promedioDiarioCajaMinor=baseCaja+(residuo>0&&semana%7>=creditoSemana%7?1:0);
+ const promedioDiarioCreditoMinor=promedioDiarioConsumoMinor-promedioDiarioCajaMinor;
  return {periodo:"ULTIMOS_7_DIAS_Y_MES_COLOMBIA",semanaMinor:semana,mesMinor:mes,
   consumoTotalSemanaMinor,consumoTotalMesMinor,
   promedioDiarioCajaMinor,promedioDiarioCreditoMinor,
-  promedioDiarioConsumoMinor:Math.floor(consumoTotalSemanaMinor/7),
+  promedioDiarioConsumoMinor,
   movimientosSemana:cantidadSemana,movimientosMes:cantidadMes,
   creditoSemanaMinor:creditoSemana,creditoMesMinor:creditoMes,
   movimientosCreditoSemana:cantidadCreditoSemana,movimientosCreditoMes:cantidadCreditoMes,
