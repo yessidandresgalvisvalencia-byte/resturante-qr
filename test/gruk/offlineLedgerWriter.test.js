@@ -97,3 +97,19 @@ test("Capa 2: ledger replay rejects cross-tenant or altered persisted identity",
   assert.equal(writes,1);
  }
 });
+
+test("Capa 2: ledger writer rechaza montos enormes antes de leer Mongo",async()=>{
+ for(const montoCop of ["9".repeat(10000),"1".repeat(10000)+"x","9007199254740992"]){
+  let collections=0;
+  const db={collection(){collections++;throw Error("FORBIDDEN_DB_ACCESS");}};
+  await assert.rejects(append({db,session:{inTransaction:()=>true},
+   context,eventId,movement:{...movement,montoCop}}),
+   {code:"OFFLINE_LEDGER_INVALID_MOVEMENT"});
+  assert.equal(collections,0);
+ }
+ const f=setup();
+ const accepted=await append({...f,context,eventId,
+  movement:{...movement,montoCop:"9007199254740991"}});
+ assert.equal(accepted.inserted,true);
+ assert.equal(f.records.size,1);
+});
