@@ -15,6 +15,20 @@ test("distingue gasto hormiga pagado a crédito de salida inmediata de caja",()=
  assert.equal(r.movimientosCreditoSemana,2);assert.equal(r.movimientosSemana,1);
  assert.equal(esHormiga(rows[0]),false);assert.equal(esHormigaCredito(rows[0]),true);
 });
+test("promedio diario observado divide exactamente por siete sin sumar ventanas",()=>{
+ const rows=[gasto("debito","Juan Valdez",10000,"DEBITO"),gasto("credito","Rappi",25000,"CREDITO")];
+ const r=resumir(rows,ahora);
+ assert.equal(r.promedioDiarioCajaMinor,1428);
+ assert.equal(r.promedioDiarioCreditoMinor,3571);
+ assert.equal(r.promedioDiarioConsumoMinor,5000);
+ assert.equal(r.consumoTotalSemanaMinor,35000);
+});
+test("promedio diario no inventa gastos futuros ni predicciones",()=>{
+ const r=resumir([],ahora);
+ assert.equal(r.promedioDiarioCajaMinor,0);
+ assert.equal(r.promedioDiarioCreditoMinor,0);
+ assert.equal(r.promedioDiarioConsumoMinor,0);
+});
 test("pagar la tarjeta no duplica el consumo y no cuenta como café",()=>{
  const r=resumir([gasto("c1","Rappi",25000,"CREDITO"),gasto("pago","Pago tarjeta de crédito",25000,"DEBITO","PAGO_DEUDA")],ahora);
  assert.equal(r.creditoMesMinor,25000);assert.equal(r.mesMinor,0);
