@@ -46,3 +46,16 @@ test("Capa 2: poisoned inbox response cannot bypass tenant, actor, pending statu
    {code:"OFFLINE_ORDERS_NOT_PENDING"});
  }
 });
+
+test("Capa 2: event ID arrays with holes are rejected before inbox access",async()=>{
+ const other="01ARZ3NDEKTSV4RRFFQ69G5FA1";
+ for(const eventIds of [
+  new Array(1),[eventId,,],[,eventId],[eventId,,other]
+ ]){
+  let queries=0;
+  const db={collection(){queries++;throw Error("UNAUTHORIZED_INBOX_READ");}};
+  await assert.rejects(read({db,context:ctx,eventIds}),
+   {code:"OFFLINE_INVALID_IDS"});
+  assert.equal(queries,0);
+ }
+});
