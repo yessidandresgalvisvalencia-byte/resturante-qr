@@ -86,7 +86,7 @@ async function registrarTransaccion(usuarioId,input){
     const reserva=await ReservaCuota.findOneAndUpdate({
      ...filtroReserva,importeCuotaMinor:origen.montoMinor,
      reservadoMinor:{$lte:origen.montoMinor-input.montoMinor}
-    },{$inc:{reservadoMinor:input.montoMinor}},{new:true,session});
+    },{$inc:{reservadoMinor:input.montoMinor}},{returnDocument:"after",session});
     if(!reserva)throw Object.assign(new Error("Cuota recurrente sin saldo disponible o reserva concurrente"),{statusCode:409});
     if(!(reserva.periodoFin instanceof Date)||reserva.periodoFin.getTime()!==fin.getTime())
      throw Object.assign(new Error("Reserva recurrente con fin de período inconsistente"),{statusCode:409});
@@ -111,11 +111,11 @@ async function registrarTransaccion(usuarioId,input){
    // Si el usuario aún no tiene la cuenta indicada, se crea con saldo cero y luego se aplica el movimiento.
    const delta=input.tipo==="INGRESO"||input.tipo==="PRESTAMO_RECIBIDO"||input.tipo==="COBRO_PRESTAMO"?input.montoMinor:input.tipo==="GASTO"||input.tipo==="PAGO_DEUDA"||input.tipo==="PRESTAMO_OTORGADO"?-input.montoMinor:0;
    if(delta){
-    const actualizada=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true,...filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{new:true,session});
+    const actualizada=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true,...filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{returnDocument:"after",session});
     if(!actualizada){
      const esEfectivoHistorico=input.tipo==="GASTO"&&nombreCuenta.toUpperCase()==="EFECTIVO"&&input.medioPago==="EFECTIVO"&&input.fecha&&new Date(input.fecha).getTime()<=Date.now();
      if(!esEfectivoHistorico)throw Object.assign(new Error("Saldo insuficiente en "+nombreCuenta),{statusCode:409});
-     const pendiente=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true,...filtroSaldoSeguro(delta,{permitirNegativo:true})},{$inc:{saldoMinor:delta},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{new:true,session});
+     const pendiente=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true,...filtroSaldoSeguro(delta,{permitirNegativo:true})},{$inc:{saldoMinor:delta},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{returnDocument:"after",session});
      if(!pendiente)throw Object.assign(new Error("No se pudo reconciliar el efectivo"),{statusCode:409});
     }
    }
@@ -125,7 +125,7 @@ async function registrarTransaccion(usuarioId,input){
  return tx;
 }
 async function publicarEvento(outbox){
- try{const claimed=await Outbox.findOneAndUpdate({_id:outbox._id,estado:{$in:["PENDIENTE","ERROR"]}},{$set:{estado:"PUBLICANDO",reclamadoEn:new Date()},$inc:{intentos:1}},{new:true});if(!claimed)return false;personalEventBus.emitFinancial(claimed.eventName,{eventId:claimed.eventId,usuarioId:claimed.usuarioId.toString(),aggregateId:claimed.aggregateId.toString(),payload:claimed.payload});
+ try{const claimed=await Outbox.findOneAndUpdate({_id:outbox._id,estado:{$in:["PENDIENTE","ERROR"]}},{$set:{estado:"PUBLICANDO",reclamadoEn:new Date()},$inc:{intentos:1}},{returnDocument:"after"});if(!claimed)return false;personalEventBus.emitFinancial(claimed.eventName,{eventId:claimed.eventId,usuarioId:claimed.usuarioId.toString(),aggregateId:claimed.aggregateId.toString(),payload:claimed.payload});
   await Outbox.updateOne({_id:claimed._id,estado:"PUBLICANDO"},{$set:{estado:"PUBLICADO",publicadoEn:new Date(),reclamadoEn:null,ultimoError:null}});return true;
  }catch(err){await Outbox.updateOne({_id:outbox._id,estado:"PUBLICANDO"},{$set:{estado:"ERROR",reclamadoEn:null,ultimoError:String(err.message||err).slice(0,500)}});throw err;}
 }
@@ -151,7 +151,7 @@ async function corregirTransaccion(usuarioId,id,cambios){if(!mongoose.isValidObj
   const reservaHistorica=await ReservaCuota.exists({usuarioId,origenId:anterior._id}).session(session);
   if(reservaHistorica)throw Object.assign(new Error("No se puede modificar el importe o tipo de una obligación con reservas históricas; usa una obligación nueva"),{statusCode:409});
  }
- const signo=t=>t==="INGRESO"?1:-1,delta=(signo(permitidos.tipo||anterior.tipo)*(permitidos.montoMinor??anterior.montoMinor))-(signo(anterior.tipo)*anterior.montoMinor);if(delta){const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:anterior.cuenta,activa:true,...filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{new:true,session});if(!cuenta)throw Object.assign(new Error("No se puede corregir: saldo insuficiente o cuenta no encontrada"),{statusCode:409});}const antes={tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria};Object.assign(anterior,permitidos);await anterior.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_CORREGIDO",aggregateId:anterior._id,payload:{transaccionId:String(anterior._id),antes,despues:{tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria}}}],{session});tx=anterior;},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
+ const signo=t=>t==="INGRESO"?1:-1,delta=(signo(permitidos.tipo||anterior.tipo)*(permitidos.montoMinor??anterior.montoMinor))-(signo(anterior.tipo)*anterior.montoMinor);if(delta){const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:anterior.cuenta,activa:true,...filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{returnDocument:"after",session});if(!cuenta)throw Object.assign(new Error("No se puede corregir: saldo insuficiente o cuenta no encontrada"),{statusCode:409});}const antes={tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria};Object.assign(anterior,permitidos);await anterior.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_CORREGIDO",aggregateId:anterior._id,payload:{transaccionId:String(anterior._id),antes,despues:{tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria}}}],{session});tx=anterior;},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
 async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{tx=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!tx)throw Object.assign(new Error("Movimiento no disponible o ya eliminado"),{statusCode:404});if(tx.recurrente&&tx.tipo==="GASTO"){
   const abonoActivo=await Transaccion.exists({usuarioId,recurrenteOrigenId:tx._id,estado:{$ne:"ANULADA"}}).session(session);
   if(abonoActivo)throw Object.assign(new Error("No se puede anular la obligación mientras tenga abonos activos"),{statusCode:409});
@@ -166,7 +166,7 @@ async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){i
   const reserva=await ReservaCuota.findOneAndUpdate({
    usuarioId,origenId:origen._id,periodoInicio:inicio,
    reservadoMinor:{$gte:tx.montoMinor}
-  },{$inc:{reservadoMinor:-tx.montoMinor}},{new:true,session});
+  },{$inc:{reservadoMinor:-tx.montoMinor}},{returnDocument:"after",session});
   if(!reserva)throw Object.assign(new Error("No se puede anular: reserva recurrente ausente o inconsistente"),{statusCode:409});
   // El abono aún está activo en esta lectura; calcular el total antes de
   // anularlo y comprobar que la reserva posterior coincide con ese reverso.
@@ -188,5 +188,5 @@ async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){i
   if(BigInt(reserva.reservadoMinor)!==BigInt(totalVigente)-BigInt(tx.montoMinor))
    throw Object.assign(new Error("No se puede anular: reserva recurrente desincronizada con ledger"),{statusCode:409});
  }
- const reverso=tx.tipo==="INGRESO"?-tx.montoMinor:tx.montoMinor;const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,activa:true,...filtroSaldoSeguro(reverso)},{$inc:{saldoMinor:reverso}},{new:true,session});if(!cuenta){const esEfectivo=String(tx.cuenta||"").trim().toUpperCase()==="EFECTIVO";if(!esEfectivo||reverso>=0)throw Object.assign(new Error("No se puede anular: cuenta no encontrada o saldo insuficiente. Revisa la cuenta y sus movimientos posteriores."),{statusCode:409});const pendiente=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,tipo:"EFECTIVO",activa:true,...filtroSaldoSeguro(reverso,{permitirNegativo:true})},{$inc:{saldoMinor:reverso},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{new:true,session});if(!pendiente)throw Object.assign(new Error("No se puede anular: cuenta de efectivo no encontrada"),{statusCode:409});}tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion=String(motivo).slice(0,240);await tx.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_ANULADO",aggregateId:tx._id,payload:{transaccionId:String(tx._id),tipo:tx.tipo,montoMinor:tx.montoMinor,motivo:tx.motivoAnulacion}}],{session});},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
+ const reverso=tx.tipo==="INGRESO"?-tx.montoMinor:tx.montoMinor;const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,activa:true,...filtroSaldoSeguro(reverso)},{$inc:{saldoMinor:reverso}},{returnDocument:"after",session});if(!cuenta){const esEfectivo=String(tx.cuenta||"").trim().toUpperCase()==="EFECTIVO";if(!esEfectivo||reverso>=0)throw Object.assign(new Error("No se puede anular: cuenta no encontrada o saldo insuficiente. Revisa la cuenta y sus movimientos posteriores."),{statusCode:409});const pendiente=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,tipo:"EFECTIVO",activa:true,...filtroSaldoSeguro(reverso,{permitirNegativo:true})},{$inc:{saldoMinor:reverso},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{returnDocument:"after",session});if(!pendiente)throw Object.assign(new Error("No se puede anular: cuenta de efectivo no encontrada"),{statusCode:409});}tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion=String(motivo).slice(0,240);await tx.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_ANULADO",aggregateId:tx._id,payload:{transaccionId:String(tx._id),tipo:tx.tipo,montoMinor:tx.montoMinor,motivo:tx.motivoAnulacion}}],{session});},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
 module.exports={registrarTransaccion,confirmarRegistroIntento,republicarPendientes,flujoPeriodo,anularTransaccion,corregirTransaccion};
