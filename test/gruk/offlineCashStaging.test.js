@@ -76,3 +76,20 @@ test("Capa 2: cash rejects huge COP and sparse orders before Mongo",async()=>{
   assert.equal(accesses,0);
  }
 });
+
+test("Capa 2: acuses de caja nulos o malformados no acreditan conciliación ni replay",async()=>{
+ for(const ack of [null,undefined,{}, {upsertedCount:null},
+   {upsertedCount:2},{upsertedCount:-1},{upsertedCount:"1"}]){
+  let reads=0;
+  const session={inTransaction:()=>true};
+  const db={collection:()=>({
+   indexes:async()=>[{name:"uniq_offline_cash_tenant_event",
+     unique:true,key:{empresaId:1,sedeId:1,eventId:1}}],
+   updateOne:async()=>ack,
+   findOne:async()=>{reads++;throw Error("UNAUTHORIZED_CASH_REPLAY_READ");}
+  })};
+  await assert.rejects(stage({db,session,context,plan}),
+   {code:"OFFLINE_CASH_WRITE_UNVERIFIED"});
+  assert.equal(reads,0);
+ }
+});
