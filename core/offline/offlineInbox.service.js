@@ -56,6 +56,13 @@ async function insertBatch({ db, authenticatedContext, events, session }) {
         actorId: authenticatedContext.actorId, eventHash,
         receivedAt: new Date(), status: "PENDIENTE"
       } }, { upsert: true, ...(session ? {session} : {}) });
+      if (!response || response.acknowledged === false ||
+          !Number.isInteger(response.upsertedCount) ||
+          (response.upsertedCount !== 0 && response.upsertedCount !== 1)) {
+        const err = new Error("OFFLINE_INBOX_WRITE_UNVERIFIED");
+        err.code = "OFFLINE_INBOX_WRITE_UNVERIFIED";
+        throw err;
+      }
       inserted = response.upsertedCount === 1;
     } catch (error) {
       if (!error || error.code !== 11000) throw error;
