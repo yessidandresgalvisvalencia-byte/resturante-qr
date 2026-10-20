@@ -40,6 +40,8 @@ function resumir(transacciones,ahora=new Date()){
  let semana=0,mes=0,cantidadSemana=0,cantidadMes=0,creditoSemana=0,creditoMes=0,cantidadCreditoSemana=0,cantidadCreditoMes=0;
  const vistos=new Map();
  for(const tx of transacciones){
+  if(!tx||typeof tx!=="object"||tx.tipo!=="GASTO")
+   throw new Error("INTEGRIDAD_HORMIGA: registro de gasto incompleto o tipo contradictorio");
   const medio=medioHormigaVerificado(tx);
   if(medio===null)continue;
   const esCaja=medio==="CAJA";
