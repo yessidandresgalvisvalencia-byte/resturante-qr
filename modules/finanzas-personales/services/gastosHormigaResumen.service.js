@@ -14,19 +14,22 @@ function limites(ahora=new Date()){
  return {inicioSiete:new Date(hoy-6*86400000+5*3600000),inicioMes:new Date(primerMes+5*3600000),fin:ahora,
   inicioConsulta:new Date(Math.min(hoy-6*86400000,primerMes)+5*3600000)};
 }
-function esHormiga(tx){
- if(!tx||tx.tipo!=="GASTO"||tx.estado==="ANULADA"||tx.impactoCaja===false||tx.medioPago==="CREDITO")return false;
+function esConsumoHormiga(tx){
+ if(!tx||tx.tipo!=="GASTO"||tx.estado==="ANULADA")return false;
  const clase=clasificar(tx.concepto||"","GASTO");
  if(clase==="Deuda"||clase==="Gastos fijos")return false;
  return clase==="Gastos hormiga"||String(tx.categoria||"").trim().toLowerCase()==="gastos hormiga";
 }
+function esHormiga(tx){return esConsumoHormiga(tx)&&tx.medioPago!=="CREDITO"&&tx.impactoCaja!==false;}
+function esHormigaCredito(tx){return esConsumoHormiga(tx)&&tx.medioPago==="CREDITO";}
 function resumir(transacciones,ahora=new Date()){
  if(!Array.isArray(transacciones))throw new TypeError("Se requiere lista de movimientos");
  const r=limites(ahora);
- let semana=0,mes=0,cantidadSemana=0,cantidadMes=0;
+ let semana=0,mes=0,cantidadSemana=0,cantidadMes=0,creditoSemana=0,creditoMes=0,cantidadCreditoSemana=0,cantidadCreditoMes=0;
  const vistos=new Map();
  for(const tx of transacciones){
-  if(!esHormiga(tx))continue;
+  const esCaja=esHormiga(tx),esCredito=esHormigaCredito(tx);
+  if(!esCaja&&!esCredito)continue;
   if(!Number.isSafeInteger(tx.montoMinor)||tx.montoMinor<=0)throw new TypeError("Monto hormiga inválido");
   if(tx.fecha===null||tx.fecha===undefined||tx.fecha==="")throw new TypeError("Fecha hormiga inválida");
   const fecha=new Date(tx.fecha);
@@ -39,21 +42,30 @@ function resumir(transacciones,ahora=new Date()){
   }
   if(id)vistos.set(id,firma);
   if(fecha>ahora)continue;
-  if(fecha>=r.inicioSiete){semana+=tx.montoMinor;cantidadSemana++;}
-  if(fecha>=r.inicioMes){mes+=tx.montoMinor;cantidadMes++;}
-  if(!Number.isSafeInteger(semana)||!Number.isSafeInteger(mes))throw new RangeError("Acumulado hormiga excede rango seguro");
+  if(fecha>=r.inicioSiete){
+   if(esCaja){semana+=tx.montoMinor;cantidadSemana++;}
+   else {creditoSemana+=tx.montoMinor;cantidadCreditoSemana++;}
+  }
+  if(fecha>=r.inicioMes){
+   if(esCaja){mes+=tx.montoMinor;cantidadMes++;}
+   else {creditoMes+=tx.montoMinor;cantidadCreditoMes++;}
+  }
+  if(![semana,mes,creditoSemana,creditoMes].every(Number.isSafeInteger))
+   throw new RangeError("Acumulado hormiga excede rango seguro");
  }
  return {periodo:"ULTIMOS_7_DIAS_Y_MES_COLOMBIA",semanaMinor:semana,mesMinor:mes,
   movimientosSemana:cantidadSemana,movimientosMes:cantidadMes,
-  nota:"Las ventanas se solapan: los totales no deben sumarse. Solo gastos reales no anulados; se excluyen pagos de deuda y movimientos sin salida de caja.",
-  accion:cantidadSemana>0?"Revisa los gastos pequeños de esta semana antes de repetirlos.":"Registra únicamente tus gastos reales para revisar el consumo hormiga."};
+  creditoSemanaMinor:creditoSemana,creditoMesMinor:creditoMes,
+  movimientosCreditoSemana:cantidadCreditoSemana,movimientosCreditoMes:cantidadCreditoMes,
+  nota:"Los períodos se solapan y no se suman. Caja: solo salidas efectivas. Crédito: consumo que aumenta deuda, separado de caja. Los pagos posteriores de tarjeta no se cuentan como nuevos consumos.",
+  accion:cantidadSemana+cantidadCreditoSemana>0?"Revisa tus compras pequeñas, incluidas las que pagaste con tarjeta, antes de repetirlas.":"Registra únicamente tus gastos reales para revisar el consumo hormiga."};
 }
 async function obtener(usuarioId,{ahora=new Date()}={}){
  if(!usuarioId)throw new TypeError("La identidad autenticada es obligatoria");
  const periodo=limites(ahora);
  const transacciones=await Transaccion.find({usuarioId,tipo:"GASTO",estado:{$ne:"ANULADA"},
-  impactoCaja:{$ne:false},medioPago:{$ne:"CREDITO"},fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}})
+  fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}})
   .select("_id fecha tipo montoMinor categoria concepto estado impactoCaja medioPago").lean();
  return resumir(transacciones,ahora);
 }
-module.exports={obtener,resumir,esHormiga,limites};
+module.exports={obtener,resumir,esHormiga,esHormigaCredito,limites};
