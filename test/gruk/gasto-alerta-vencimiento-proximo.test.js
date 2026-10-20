@@ -32,10 +32,12 @@ test("elige primero el vencimiento más cercano sin sumar ni duplicar compromiso
 });
 test("evaluación solo lectura integra advertencia de compromiso protegido sin alterar Disponible Hoy",async()=>{
  const original=home.obtener;
+ const fechaProxima=new Date(Date.now()+12*86400000).toISOString();
+ const fechaArriendo=new Date(Date.now()+2*86400000).toISOString();
  home.obtener=async()=>({asesor:{
   aptoParaDisponibleHoy:true,disponibleHoyMinor:25000000,proximoIngresoConocido:true,
-  proximoIngreso:{fecha:"2026-11-01T05:00:00Z"},
-  compromisosAntesProximoIngreso:[c("Arriendo",80000000,"2026-10-22T05:00:00Z")]
+  proximoIngreso:{fecha:fechaProxima},
+  compromisosAntesProximoIngreso:[c("Arriendo",80000000,fechaArriendo)]
  }});
  delete require.cache[servicio];
  try{
