@@ -3,7 +3,8 @@
 const {validateOfflineOrderForPosting}=require("./offlineOrderPosting.contract");
 function fail(){const e=new Error("OFFLINE_ORDER_BATCH_CONFLICT");e.code="OFFLINE_ORDER_BATCH_CONFLICT";throw e;}
 function prepareOfflineOrders(events){
-  if(!Array.isArray(events)||events.length<1||events.length>100)fail();
+  if(!Array.isArray(events)||events.length<1||events.length>100||
+    !Array.from({length:events.length},(_,i)=>Object.hasOwn(events,i)).every(Boolean))fail();
   const ids=new Set(),orders=new Set();
   let total=0n;
   const normalized=events.map(event=>{
@@ -21,7 +22,8 @@ function prepareOfflineOrdersForTenant(events, authenticatedContext){
   const ID=/^[A-Za-z0-9_-]{1,80}$/;
   if(!authenticatedContext||!["empresaId","sedeId","actorId"].every(k=>
     typeof authenticatedContext[k]==="string"&&ID.test(authenticatedContext[k])))fail();
-  if(!Array.isArray(events)||events.length<1||events.length>100)fail();
+  if(!Array.isArray(events)||events.length<1||events.length>100||
+    !Array.from({length:events.length},(_,i)=>Object.hasOwn(events,i)).every(Boolean))fail();
   for(const event of events){
     if(!event||event.empresaId!==authenticatedContext.empresaId||
       event.sedeId!==authenticatedContext.sedeId||
