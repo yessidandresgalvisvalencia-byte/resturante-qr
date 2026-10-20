@@ -13,7 +13,8 @@ test("V81: navegación de app instalada no espera indefinidamente a Render",()=>
 });
 test("V81: red sin conexión no muestra datos financieros almacenados y API nunca entra al caché",()=>{
  assert.match(sw,/request\.method!=="GET"/);
- assert.match(sw,/\^\\\/\(api\|internal\|socket\\\.io\)/);
+ assert.ok(sw.includes("url.origin!==self.location.origin"));
+ assert.ok(sw.includes("internal|socket"));
  assert.doesNotMatch(sw,/caches\.match\(.*saldo/i);
  assert.match(sw,/Tus saldos no se reemplazarán por ceros/);
 });
