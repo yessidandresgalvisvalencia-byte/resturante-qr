@@ -113,3 +113,20 @@ test("Capa 2: ledger writer rechaza montos enormes antes de leer Mongo",async()=
  assert.equal(accepted.inserted,true);
  assert.equal(f.records.size,1);
 });
+
+test("Capa 2: acuse de escritura ledger ausente o ambiguo falla sin reinterpretar replay",async()=>{
+ for(const result of [null,undefined,{}, {upsertedCount:null},
+   {upsertedCount:2},{upsertedCount:-1},{upsertedCount:"1"}]){
+  let lookups=0;
+  const session={inTransaction:()=>true};
+  const db={collection:()=>({
+   indexes:async()=>[{name:"uniq_offline_ledger_event_type_tenant",
+     unique:true,key:{empresaId:1,sedeId:1,eventId:1,tipo:1}}],
+   updateOne:async()=>result,
+   findOne:async()=>{lookups++;throw Error("FORBIDDEN_REPLAY_LOOKUP");}
+  })};
+  await assert.rejects(append({db,session,context,eventId,movement}),
+   {code:"OFFLINE_LEDGER_WRITE_UNVERIFIED"});
+  assert.equal(lookups,0);
+ }
+});
