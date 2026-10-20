@@ -93,3 +93,20 @@ test("Capa 2: acuses de ventas nulos o malformados no se aceptan como reintento"
   assert.equal(lookups,0);
  }
 });
+
+test("Capa 2: metadatos de índices nulos o malformados bloquean ventas antes de escritura",async()=>{
+ for(const metadata of [null,undefined,{}, {indexes:[]}, false, "invalid"]){
+  let writes=0;
+  const session={inTransaction:()=>true};
+  const db={collection(name){
+   assert.equal(name,"gruk_offline_ventas");
+   return {
+    indexes:async()=>metadata,
+    updateOne:async()=>{writes++;throw Error("UNEXPECTED_SALE_WRITE");}
+   };
+  }};
+  await assert.rejects(stage({db,session,context,plan}),
+   {code:"OFFLINE_SALES_UNIQUE_INDEX_REQUIRED"});
+  assert.equal(writes,0);
+ }
+});
