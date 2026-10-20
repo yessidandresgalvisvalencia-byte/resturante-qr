@@ -3,7 +3,11 @@ const test=require("node:test");
 const assert=require("node:assert/strict");
 const {collectColombia,SOURCES}=require("../../modules/finanzas-personales/services/macroCollector.service");
 const dane="<html>En septiembre de 2026, la variación anual fue 5,10%</html>";
-const ibr="<html>Indicador bancario de referencia (IBR) Overnight Tasa nominal 11,409% 16/10/2026</html>";
+const ibr="<html><h3>Indicador bancario de referencia (IBR) Overnight</h3><div>Tasa nominal</div><p>11,409%</p><time>16/10/2026</time></html>";
+test("la segunda fuente corresponde al glosario IBR, no a la portada genérica",()=>{
+ assert.equal(new URL(SOURCES.ibrAlternativa).pathname,"/es/glosario/indicador-bancario-referencia-ibr");
+ assert.equal(new URL(SOURCES.ibrAlternativa).hostname,"d1b4gd4m8561gs.cloudfront.net");
+});
 async function simular(paginas){
  const anterior=globalThis.fetch;
  const llamadas=[];
