@@ -109,3 +109,17 @@ test("Capa 2: persisted stage handoff cannot be accepted with foreign or missing
   assert.equal(writes,1);
  }
 });
+
+test("Capa 2: sparse inbox staging plans cannot query or update another tenant",async()=>{
+ const other="01ARZ3NDEKTSV4RRFFQ69G5FA1";
+ for(const orders of [
+  new Array(1),[{eventId},,],[,{eventId:other}],
+  [{eventId},, {eventId:other}]
+ ]){
+  let reads=0;
+  const db={collection(){reads++;throw Error("UNAUTHORIZED_INBOX_ACCESS");}};
+  await assert.rejects(mark({db,session:{inTransaction:()=>true},
+    context,plan:{orders}}),{code:"OFFLINE_STAGE_INBOX_CONFLICT"});
+  assert.equal(reads,0);
+ }
+});
