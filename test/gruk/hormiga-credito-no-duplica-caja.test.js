@@ -46,3 +46,25 @@ test("el servicio consulta únicamente el usuario autenticado y conserva la expl
  assert.doesNotMatch(s,/medioPago:\{\$ne:"CREDITO"\}/);
  assert.match(j,/Crédito no es salida de caja hoy/);
 });
+
+test("no inventa salida de caja para medio de pago faltante o desconocido",()=>{
+ const compra=gasto("desconocido","Rappi",25000,"DEBITO");
+ for(const medioPago of [null,undefined,"", "MODO_DESCONOCIDO"]){
+  const tx={...compra,medioPago};
+  assert.throws(()=>resumir([tx],ahora),/medio de pago desconocido/);
+  assert.throws(()=>esHormiga(tx),/medio de pago desconocido/);
+ }
+});
+test("las compras hormiga con crédito se cuentan como consumo, no como caja",()=>{
+ const compra={...gasto("credito","Rappi",28000,"CREDITO"),impactoCaja:false};
+ const resultado=resumir([compra],ahora);
+ assert.equal(resultado.semanaMinor,0);
+ assert.equal(resultado.creditoSemanaMinor,28000);
+ assert.equal(resultado.consumoTotalSemanaMinor,28000);
+});
+test("un gasto sin impacto de caja no se vuelve salida efectiva por ser débito",()=>{
+ const compra={...gasto("no-caja","Rappi",29000,"DEBITO"),impactoCaja:false};
+ const resultado=resumir([compra],ahora);
+ assert.equal(resultado.semanaMinor,0);
+ assert.equal(resultado.creditoSemanaMinor,0);
+});
