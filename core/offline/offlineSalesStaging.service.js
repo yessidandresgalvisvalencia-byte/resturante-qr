@@ -21,8 +21,9 @@ async function stageOfflineSales({db,session,context,plan}){
  if(total.toString()!==plan.totalCop)fail("OFFLINE_SALES_TOTAL_CONFLICT");
  const sales=db.collection("gruk_offline_ventas");
  // A unique tenant/event index must exist before any write.
+ if(typeof sales.indexes!=="function")fail("OFFLINE_SALES_UNIQUE_INDEX_REQUIRED");
  const indexes=await sales.indexes();
- if(!Array.isArray(indexes)||!indexes.some(i=>i.name==="uniq_offline_sale_tenant_event"&&i.unique===true&&i.sparse!==true&&!i.partialFilterExpression&&
+ if(!Array.isArray(indexes)||!indexes.some(i=>i&&typeof i==="object"&&i.name==="uniq_offline_sale_tenant_event"&&i.unique===true&&i.sparse!==true&&!i.partialFilterExpression&&
    ["empresaId","sedeId","eventId"].every((k,n)=>Object.keys(i.key||{})[n]===k&&i.key[k]===1)&&Object.keys(i.key||{}).length===3))
    fail("OFFLINE_SALES_UNIQUE_INDEX_REQUIRED");
  const records=[];
