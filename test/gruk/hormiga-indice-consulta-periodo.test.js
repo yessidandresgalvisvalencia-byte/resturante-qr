@@ -17,7 +17,10 @@ test("el resumen aplica usuario y período verificables sin depender de la categ
  const original=Transaccion.find;
  let filterCaptured;
  let queryLimit;
- Transaccion.find=filter=>{
+ let queryOptions;
+ Transaccion.find=(filter,projection,options)=>{
+  assert.equal(projection,null);
+  queryOptions=options;
   filterCaptured=filter;
   return {select(projection){
    assert.match(projection,/\bmoneda\b/);
@@ -37,7 +40,20 @@ test("el resumen aplica usuario y período verificables sin depender de la categ
   assert.ok(filterCaptured.fecha.$lte instanceof Date);
   assert.equal(Object.hasOwn(filterCaptured,"categoria"),false);
   assert.equal(queryLimit,5001);
+  assert.deepEqual(queryOptions,{maxTimeMS:5000});
  }finally{
   Transaccion.find=original;
  }
+});
+
+test("fallos y timeouts de MongoDB se propagan sin producir falsa respuesta de cero",async()=>{
+ const original=Transaccion.find;
+ const timeout=Object.assign(new Error("operation exceeded time limit"),{code:50});
+ Transaccion.find=(_,__,options)=>{
+  assert.deepEqual(options,{maxTimeMS:5000});
+  return {select(){return {limit(){return {lean:async()=>{throw timeout;}};}};}};
+ };
+ try{
+  await assert.rejects(obtener("persona-uno",{ahora:new Date("2026-10-20T15:00:00Z")}),error=>error===timeout);
+ }finally{Transaccion.find=original;}
 });
