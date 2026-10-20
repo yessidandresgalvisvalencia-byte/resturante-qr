@@ -13,7 +13,7 @@ test("Cancelar solicitudes de cuenta A no cancela consultas iniciadas por cuenta
  const ctx={token:"A",fetch,AbortController,Set,Error,JSON,sessionStorage:storage,localStorage:storage,socket:null};
  vm.runInNewContext(source.slice(from,to),ctx);
  const old=ctx.api("/home");
- const rejected=assert.rejects(old,/Aborted/);
+ const rejected=assert.rejects(old,/Aborted|La sesión cambió durante la solicitud/);
  ctx.cancelarSolicitudes();
  ctx.token="B";
  const current=ctx.api("/home");

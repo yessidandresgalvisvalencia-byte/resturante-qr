@@ -155,9 +155,13 @@ jobs:
       - name: Verificar sintaxis de servicios financieros y auditorías
         run: npm run check:personal
       - name: Probar centavos, cadena SHA256 y proyeccion de ledger
+        run: node --test test/finanzas-personales/*.test.js
+      - name: Verificar nucleo financiero GRUK
+        if: success() || failure()
+        run: node --test test/gruk/finanzas-personales-core.test.js
+      - name: Verificar contratos de seguridad y despliegue V81
+        if: success() || failure()
         run: |
-          node --test test/finanzas-personales/*.test.js
-          node --test test/gruk/finanzas-personales-core.test.js
           node --test test/gruk/decision-proof-chain-integrity.test.js test/gruk/decision-proof-external-anchor.test.js test/gruk/decision-proof-db-privileges.test.js test/gruk/decision-proof-custodian-input.test.js test/gruk/package-lock-contract.test.js test/gruk/shared-entrypoint-contract.test.js test/gruk/v81-ci-coverage-contract.test.js
       - name: Exigir cero vulnerabilidades de produccion
         run: npm audit --omit=dev --audit-level=low
@@ -328,7 +332,7 @@ jobs:
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test?replicaSet=rs0
           GRUK_V81_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
-        run: node --test test/finanzas-personales/persistenciaLedgerV81.integration.test.js
+        run: node --test test/finanzas-personales/persistenciaLedgerV81.integration.test.js test/finanzas-personales/aislamiento-compromisos-mongo.integration.test.js
       - name: Probar pagos recurrentes vinculados con transacciones MongoDB
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test?replicaSet=rs0

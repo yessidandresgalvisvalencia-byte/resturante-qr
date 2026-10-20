@@ -1,15 +1,17 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
 const codigo=fs.readFileSync(path.join(__dirname,"../../public/finanzas-personales.js"),"utf8");
-test("El panel invalida indicadores anteriores antes de consultar la red",()=>{
+test("El panel conserva lectura de la misma cuenta y la invalida al cambiar de sesión",()=>{
  assert.match(codigo,/function invalidarIndicadoresFinancieros\(\)/);
- assert.match(codigo,/const ejecucion=\(async\(\)=>\{invalidarIndicadoresFinancieros\(\);try\{/);
+ assert.match(codigo,/const ejecucion=\(async\(\)=>\{const liveAlCargar=/);
+ assert.doesNotMatch(codigo,/const ejecucion=\(async\(\)=>\{invalidarIndicadoresFinancieros\(\);try\{/);
+ assert.match(codigo,/if\(token!==j\.token\)\{cancelarSolicitudes\(\);limpiarIntentoManual\(\);invalidarIndicadoresFinancieros\(\)/);
  const invalidacion=codigo.slice(codigo.indexOf("function invalidarIndicadoresFinancieros()"),codigo.indexOf("let cargaPanelEnCurso="));
- for(const id of ["hDisponibleHoy","hDisponible","hComprometido","hFlujo","hPatrimonio","rIngresos","rGastos","rFlujo","rDeuda"])assert.ok(invalidacion.includes('"'+id+'"'),"No debe quedar en $0 el indicador "+id);
- for(const id of ["diario","listaPorCobrar","listaPorPagar","listaPrestamosPagados","homeDecisions","compromisosActivos","flujoConciliacion"])assert.ok(invalidacion.includes('"'+id+'"'),"No debe mostrar datos de la sesión anterior: "+id);
+ for(const id of ["hDisponibleHoy","hDisponible","hComprometido","hFlujo","hPatrimonio","rIngresos","rGastos","rFlujo","rDeuda","pActivos","pInversiones","pDeudas","pNeto"])assert.ok(invalidacion.includes('"'+id+'"'),"No debe quedar en $0 el indicador "+id);
+ for(const id of ["diario","listaPorCobrar","listaPorPagar","listaPrestamosPagados","homeDecisions","compromisosActivos","compromisosArchivados","flujoConciliacion"])assert.ok(invalidacion.includes('"'+id+'"'),"No debe mostrar datos de la sesión anterior: "+id);
  assert.match(codigo,/el\.textContent="No actualizado"/);
- assert.match(codigo,/catch\(e\)\{if\(e\.code==="SESION_CAMBIADA"[\s\S]*?invalidarIndicadoresFinancieros\(\);const live=\$\("live"\)/);
- assert.match(codigo,/Los indicadores no representan saldos confirmados/);
+ assert.match(codigo,/catch\(e\)\{if\(e\.code==="SESION_CAMBIADA"[\s\S]*?const live=\$\("live"\)/);
+ assert.match(codigo,/Las cifras visibles pueden corresponder a una consulta anterior/);
 });
 
 test("El panel rechaza indicadores ausentes antes de dibujar cifras financieras",()=>{
@@ -46,5 +48,11 @@ test("Cambio de sesión también invalida semáforo, balance y explicación ante
   assert.ok(bloque.includes('$("'+id+'")'),"Debe limpiarse "+id);
  assert.match(bloque,/burbuja\.className="healthBubble neutral"/);
  assert.match(bloque,/Sin datos confirmados/);
+ for(const id of ["chatHistory","drafts","histResultados","answer","iiResultado"])assert.ok(bloque.includes('"'+id+'"'),"Debe limpiar información privada visible: "+id);
+ for(const id of ["captureText","histQ","histMonto","histDesde","histHasta"])assert.ok(bloque.includes('"'+id+'"'),"Debe limpiar texto del usuario anterior: "+id);
+ assert.match(bloque,/el\.replaceChildren\(\)/);
+ for(const id of ["homeGreeting","captureMsg","iiMsg","live"])assert.ok(bloque.includes('"'+id+'"'),"Debe limpiar mensajes de la cuenta anterior: "+id);
+ assert.match(bloque,/mas\.hidden=true/);
+ assert.match(bloque,/el\.dataset\.alert="false"/);
  assert.match(codigo,/function clearToken\(\)[\s\S]*?invalidarIndicadoresFinancieros\(\)/);
 });
