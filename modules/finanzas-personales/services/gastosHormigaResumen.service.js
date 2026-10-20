@@ -21,16 +21,27 @@ function esConsumoHormiga(tx){
  if(clase==="Deuda"||clase==="Gastos fijos")return false;
  return clase==="Gastos hormiga"||String(tx.categoria||"").trim().toLowerCase()==="gastos hormiga";
 }
-function esHormiga(tx){return esConsumoHormiga(tx)&&tx.medioPago!=="CREDITO"&&tx.impactoCaja!==false;}
-function esHormigaCredito(tx){return esConsumoHormiga(tx)&&tx.medioPago==="CREDITO";}
+const MEDIOS_CAJA=new Set(["EFECTIVO","DEBITO","TRANSFERENCIA","PSE","OTRO"]);
+function medioHormigaVerificado(tx){
+ if(!esConsumoHormiga(tx))return null;
+ if(tx.medioPago==="CREDITO")return "CREDITO";
+ if(MEDIOS_CAJA.has(tx.medioPago)){
+  if(tx.impactoCaja===false)return null;
+  return "CAJA";
+ }
+ throw new Error("INTEGRIDAD_HORMIGA: medio de pago desconocido, no se puede afirmar salida de caja");
+}
+function esHormiga(tx){return medioHormigaVerificado(tx)==="CAJA";}
+function esHormigaCredito(tx){return medioHormigaVerificado(tx)==="CREDITO";}
 function resumir(transacciones,ahora=new Date()){
  if(!Array.isArray(transacciones))throw new TypeError("Se requiere lista de movimientos");
  const r=limites(ahora);
  let semana=0,mes=0,cantidadSemana=0,cantidadMes=0,creditoSemana=0,creditoMes=0,cantidadCreditoSemana=0,cantidadCreditoMes=0;
  const vistos=new Map();
  for(const tx of transacciones){
-  const esCaja=esHormiga(tx),esCredito=esHormigaCredito(tx);
-  if(!esCaja&&!esCredito)continue;
+  const medio=medioHormigaVerificado(tx);
+  if(medio===null)continue;
+  const esCaja=medio==="CAJA";
   if(!Number.isSafeInteger(tx.montoMinor)||tx.montoMinor<=0)throw new TypeError("Monto hormiga inválido");
   if(tx.fecha===null||tx.fecha===undefined||tx.fecha==="")throw new TypeError("Fecha hormiga inválida");
   const fecha=new Date(tx.fecha);
