@@ -134,3 +134,37 @@ test("Capa 2: ventas offline sin líneas válidas se rechazan antes de consultar
   assert.equal(collectionCalls,0);
  }
 });
+
+test("Capa 2: producto y cantidad inválidos no alcanzan MongoDB",async()=>{
+ const base=plan.orders[0],item=base.items[0];
+ const bad=[
+  [{...item,productoId:{$ne:null}}],
+  [{...item,productoId:"$admin"}],
+  [{...item,productoId:undefined}],
+  [{...item,cantidad:"0"}],
+  [{...item,cantidad:"1.5"}],
+  [{...item,cantidad:1}],
+  [{...item,cantidad:"9007199254740992"}]
+ ];
+ for(const items of bad){
+  let calls=0;
+  const db={collection(){calls++;throw Error("UNEXPECTED_DB_ACCESS");}};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,
+   plan:{...plan,orders:[{...base,items} ]}}),{code:"OFFLINE_SALES_INVALID_PLAN"});
+  assert.equal(calls,0);
+ }
+});
+test("Capa 2: contrato antiguo sin precios por línea sigue aceptado",async()=>{
+ const f=fixture(),base=plan.orders[0],item=base.items[0];
+ const order={...base,items:[{productoId:item.productoId,cantidad:"2"}]};
+ const result=await stage({...f,context,plan:{...plan,orders:[order]}});
+ assert.equal(result.totalCop,"3000");
+ assert.equal(f.data.size,1);
+});
+test("Capa 2: no se prohíben descuentos legítimos por usar neto diferente al bruto",async()=>{
+ const f=fixture(),base=plan.orders[0],item=base.items[0];
+ const discount={...plan,orders:[{...base,totalCop:"2700",items:[
+  {...item,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}]}],totalCop:"2700"};
+ const result=await stage({...f,context,plan:discount});
+ assert.equal(result.totalCop,"2700");
+});

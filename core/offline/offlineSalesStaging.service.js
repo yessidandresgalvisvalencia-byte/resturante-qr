@@ -18,6 +18,14 @@ async function stageOfflineSales({db,session,context,plan}){
        order.items[i]!==null&&typeof order.items[i]==="object"&&!Array.isArray(order.items[i])).every(Boolean)||
      typeof order.totalCop!=="string"||order.totalCop.length>16||
      !/^(0|[1-9][0-9]*)$/.test(order.totalCop))fail("OFFLINE_SALES_INVALID_PLAN");
+  // Existing offline orders may legitimately omit unit pricing or include discounts.
+  // Validate stock-relevant identifiers and quantities without altering pricing semantics.
+  for(const item of order.items){
+   if(typeof item.productoId!=="string"||!ID.test(item.productoId)||
+      typeof item.cantidad!=="string"||item.cantidad.length>16||
+      !/^[1-9][0-9]*$/.test(item.cantidad)||
+      BigInt(item.cantidad)>MAX)fail("OFFLINE_SALES_INVALID_PLAN");
+  }
   total+=BigInt(order.totalCop);ids.add(order.eventId);
   if(total>MAX)fail("OFFLINE_SALES_INVALID_PLAN");
  }
