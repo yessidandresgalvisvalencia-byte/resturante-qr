@@ -42,6 +42,27 @@ test("no calcula cifras monetarias inválidas, fuera de rango o futuras",()=>{
  assert.equal(resumir([gasto("x","2026-10-21T10:00:00Z",100000)],ahora).mesMinor,0);
  assert.throws(()=>resumir([gasto("a","2026-10-20T10:00:00Z",Number.MAX_SAFE_INTEGER),gasto("b","2026-10-20T11:00:00Z",1)],ahora),/rango seguro/);
 });
+test("fecha inválida no se omite silenciosamente como si el gasto fuera cero",()=>{
+ assert.throws(()=>resumir([gasto("x","fecha-invalida",25000)],ahora),/Fecha hormiga inválida/);
+ assert.throws(()=>resumir([gasto("y",null,10000)],ahora),/Fecha hormiga inválida/);
+});
+test("el mismo ID con distinta cifra o fecha bloquea un resumen aparentemente conciliado",()=>{
+ assert.throws(()=>resumir([
+  gasto("mismo","2026-10-20T10:00:00Z",25000),
+  gasto("mismo","2026-10-20T10:00:00Z",35000)
+ ],ahora),/INTEGRIDAD_HORMIGA/);
+ assert.throws(()=>resumir([
+  gasto("mismo","2026-10-20T10:00:00Z",25000),
+  gasto("mismo","2026-10-19T10:00:00Z",25000)
+ ],ahora),/INTEGRIDAD_HORMIGA/);
+});
+test("repetición exacta del mismo movimiento se cuenta solo una vez",()=>{
+ const repetido=gasto("repetido","2026-10-20T10:00:00Z",12500);
+ const r=resumir([repetido,{...repetido}],ahora);
+ assert.equal(r.semanaMinor,12500);
+ assert.equal(r.mesMinor,12500);
+ assert.equal(r.movimientosSemana,1);
+});
 test("API de lectura filtra exclusivamente por JWT y frontend descarta sesión anterior",()=>{
  const fs=require("node:fs"),path=require("node:path");
  const root=path.join(__dirname,"../..");
