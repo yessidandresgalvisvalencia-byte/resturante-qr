@@ -8,8 +8,8 @@ const homePath=path.resolve(__dirname,"../../modules/finanzas-personales/service
 const {consecuenciaDiaria}=require(servicePath);
 const ahora=new Date("2026-10-20T15:00:00.000Z");
 test("compra preventiva divide solo dinero libre en dias civiles de Bogotá con enteros",()=>{
- const r=consecuenciaDiaria({disponibleMinor:25000000,montoMinor:8000000,fechaIngreso:new Date("2026-11-01T05:00:00Z"),ahora});
- assert.deepEqual(r,{restanteMinor:17000000,diasHastaIngreso:12,promedioDiarioMinor:1416666,estimacion:"PROYECCION_NO_PRESUPUESTO"});
+ const r=consecuenciaDiaria({disponibleMinor:250000,montoMinor:80000,fechaIngreso:new Date("2026-11-01T05:00:00Z"),ahora});
+ assert.deepEqual(r,{restanteMinor:170000,diasHastaIngreso:12,promedioDiarioMinor:14166,estimacion:"PROYECCION_NO_PRESUPUESTO"});
  assert.equal(Number.isInteger(r.promedioDiarioMinor),true);
 });
 test("gasto superior al disponible nunca presenta cupo diario positivo",()=>{
