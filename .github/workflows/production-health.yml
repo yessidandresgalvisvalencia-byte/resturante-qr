@@ -1,7 +1,7 @@
 name: GRUK production health
 on:
   workflow_run:
-    workflows: ["GRUK CI"]
+    workflows: ["GRUK quality gate"]
     types: [completed]
   workflow_dispatch:
 permissions:
