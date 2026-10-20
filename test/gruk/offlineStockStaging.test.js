@@ -130,3 +130,18 @@ test("Capa 2: índices stock ausentes o corruptos impiden escrituras",async()=>{
   assert.equal(writes,0);
  }
 });
+
+test("Capa 2: stock no acepta acuses explícitamente no reconocidos por Mongo",async()=>{
+ for(const upsertedCount of [0,1]){
+  let replayReads=0;
+  const db={collection:()=>({
+   indexes:async()=>[{name:"uniq_offline_stock_tenant_batch_product",
+     unique:true,key:{empresaId:1,sedeId:1,batchId:1,productoId:1}}],
+   updateOne:async()=>({acknowledged:false,upsertedCount}),
+   findOne:async()=>{replayReads++;throw Error("UNVERIFIED_STOCK_READ");}
+  })};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,plan,inventoryDeltas}),
+   {code:"OFFLINE_STOCK_WRITE_UNVERIFIED"});
+  assert.equal(replayReads,0);
+ }
+});
