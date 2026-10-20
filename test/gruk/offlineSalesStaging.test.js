@@ -168,3 +168,16 @@ test("Capa 2: no se prohíben descuentos legítimos por usar neto diferente al b
  const result=await stage({...f,context,plan:discount});
  assert.equal(result.totalCop,"2700");
 });
+
+test("Capa 2: rechazo de escritura no reconocida sin lectura de replay",async()=>{
+ for(const upsertedCount of [0,1]){
+  let replayReads=0;
+  const db={collection:()=>({
+   indexes:async()=>[{name:"uniq_offline_sale_tenant_event",unique:true,key:{empresaId:1,sedeId:1,eventId:1}}],
+   updateOne:async()=>({acknowledged:false,upsertedCount}),
+   findOne:async()=>{replayReads++;throw Error("UNCONFIRMED_REPLAY_READ");}
+  })};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,plan}),{code:"OFFLINE_SALES_WRITE_UNVERIFIED"});
+  assert.equal(replayReads,0);
+ }
+});
