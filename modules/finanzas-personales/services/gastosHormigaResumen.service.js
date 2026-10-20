@@ -17,6 +17,7 @@ function limites(ahora=new Date()){
 }
 function esConsumoHormiga(tx){
  if(!tx||tx.tipo!=="GASTO"||tx.estado==="ANULADA")return false;
+ if(tx.estado!=="ACTIVA")throw new Error("INTEGRIDAD_HORMIGA: estado financiero no confirmado");
  const clase=clasificar(tx.concepto||"","GASTO");
  if(clase==="Deuda"||clase==="Gastos fijos")return false;
  return clase==="Gastos hormiga"||String(tx.categoria||"").trim().toLowerCase()==="gastos hormiga";
