@@ -66,12 +66,17 @@ function resumir(transacciones,ahora=new Date()){
   if(![semana,mes,creditoSemana,creditoMes].every(Number.isSafeInteger))
    throw new RangeError("Acumulado hormiga excede rango seguro");
  }
+ // Promedio observado de siete fechas civiles; no proyectar el resultado al mes.
+ const promedioDiarioCajaMinor=Math.floor(semana/7);
+ const promedioDiarioCreditoMinor=Math.floor(creditoSemana/7);
  const consumoTotalSemanaMinor=semana+creditoSemana;
  const consumoTotalMesMinor=mes+creditoMes;
  if(!Number.isSafeInteger(consumoTotalSemanaMinor)||!Number.isSafeInteger(consumoTotalMesMinor))
   throw new RangeError("Consumo hormiga total excede rango monetario seguro");
  return {periodo:"ULTIMOS_7_DIAS_Y_MES_COLOMBIA",semanaMinor:semana,mesMinor:mes,
   consumoTotalSemanaMinor,consumoTotalMesMinor,
+  promedioDiarioCajaMinor,promedioDiarioCreditoMinor,
+  promedioDiarioConsumoMinor:Math.floor(consumoTotalSemanaMinor/7),
   movimientosSemana:cantidadSemana,movimientosMes:cantidadMes,
   creditoSemanaMinor:creditoSemana,creditoMesMinor:creditoMes,
   movimientosCreditoSemana:cantidadCreditoSemana,movimientosCreditoMes:cantidadCreditoMes,
