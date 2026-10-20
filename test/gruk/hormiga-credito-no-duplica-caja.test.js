@@ -133,3 +133,11 @@ test("inconsistencia de moneda en el mismo ID también bloquea el resumen",()=>{
  const compra=gasto("moneda","Rappi",25000,"CREDITO");
  assert.throws(()=>resumir([{...compra,moneda:"COP"},{...compra,moneda:"USD"}],ahora),/INTEGRIDAD_HORMIGA: moneda distinta de COP/);
 });
+
+test("una respuesta de consulta con filas nulas o tipos contradictorios nunca se publica como total parcial",()=>{
+ const válida=gasto("real","Rappi",25000,"DEBITO");
+ for(const inválida of [null,undefined,{},{"tipo":"INGRESO",concepto:"Rappi",montoMinor:30000},false]){
+  assert.throws(()=>resumir([válida,inválida],ahora),/INTEGRIDAD_HORMIGA: registro de gasto incompleto o tipo contradictorio/);
+ }
+ assert.equal(resumir([válida],ahora).semanaMinor,25000);
+});
