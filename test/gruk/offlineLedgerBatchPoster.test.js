@@ -29,3 +29,24 @@ test("rechaza la ejecución fuera de una transacción abierta",async()=>{
  e=>e.code==="OFFLINE_LEDGER_BATCH_INVALID");
  assert.equal(f.writes.length,0);
 });
+
+test("Capa 2: ledger offline rechaza COP enormes y planes dispersos sin escribir",async()=>{
+ const malformed=[
+  [{...movements[0],montoCop:"9".repeat(10000)}],
+  [{...movements[0],montoCop:"9".repeat(10000)+"x"}],
+  [{...movements[0],montoCop:"9007199254740992"}],
+  [movements[0],,movements[1]],
+  new Array(1)
+ ];
+ for(const ledgerMovements of malformed){
+  const f=fixture();
+  await assert.rejects(post({...f,context,ledgerMovements}),
+   {code:"OFFLINE_LEDGER_BATCH_INVALID"});
+  assert.deepEqual(f.writes,[]);
+ }
+ const f=fixture();
+ const ok=await post({...f,context,ledgerMovements:[{...movements[0],
+  montoCop:"9007199254740991"}]});
+ assert.equal(ok.totalCop,"9007199254740991");
+ assert.equal(f.writes.length,1);
+});
