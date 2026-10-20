@@ -9,6 +9,9 @@ const {calculateOfflineStockDeltas}=require("./offlineInventoryDeltas.service");
 function fail(){const e=new Error("OFFLINE_STAGING_TOTAL_CONFLICT");e.code=e.message;throw e;}
 async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDeltas,ledgerMovements}){
  if(session?.inTransaction?.()!==true)fail();
+ const scopedId=/^[A-Za-z0-9_-]{1,80}$/;
+ if(!context||![context.empresaId,context.sedeId,context.actorId].every(
+   value=>typeof value==="string"&&scopedId.test(value)))fail();
  // Journal totals alone cannot prove that the ledger belongs to the same orders.
  // Reject a mismatched event or amount before ANY of the four writes.
  const dense=items=>Array.isArray(items)&&

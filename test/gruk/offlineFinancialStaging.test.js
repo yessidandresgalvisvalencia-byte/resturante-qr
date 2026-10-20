@@ -167,3 +167,16 @@ test("Capa 2: total COP del lote debe sumar exactamente pedidos antes de escribi
   assert.deepEqual(f.writes,[]);
  }
 });
+
+test("Capa 2: identidades multiempresa inválidas se rechazan antes de cualquier diario",async()=>{
+ for(const field of ["empresaId","sedeId","actorId"]){
+  for(const invalid of [undefined,null,{},[],123,"$ne","bad.tenant","", "x".repeat(81),
+    {toString:()=>context[field]}]){
+   const f=fixture();
+   await assert.rejects(stage({...f,context:{...context,[field]:invalid},plan,
+    inventoryDeltas,ledgerMovements}),
+    {code:"OFFLINE_STAGING_TOTAL_CONFLICT"});
+   assert.deepEqual(f.writes,[]);
+  }
+ }
+});
