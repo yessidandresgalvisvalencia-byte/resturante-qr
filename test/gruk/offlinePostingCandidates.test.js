@@ -59,3 +59,19 @@ test("Capa 2: event ID arrays with holes are rejected before inbox access",async
   assert.equal(queries,0);
  }
 });
+
+test("Capa 2: financial preflight cannot skip sparse events or omit their amount",()=>{
+ const {prepareOfflineOrders,prepareOfflineOrdersForTenant}=
+  require("../../core/offline/offlineOrdersBatch.preflight");
+ const second={...doc,eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1",
+  payload:{...doc.payload,localOrderId:"01ARZ3NDEKTSV4RRFFQ69G5FA1"}};
+ for(const events of [new Array(1),[doc,,second],[,doc],[doc,,]]){
+  assert.throws(()=>prepareOfflineOrders(events),
+   {code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+  assert.throws(()=>prepareOfflineOrdersForTenant(events,ctx),
+   {code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+ }
+ const valid=prepareOfflineOrdersForTenant([doc,second],ctx);
+ assert.equal(valid.totalCop,"6000");
+ assert.equal(valid.orders.length,2);
+});
