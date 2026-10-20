@@ -11,3 +11,19 @@ function db(tamper){let reads=0;return {collection:name=>({indexes:async()=>{rea
 test("verifica cuatro indices sin crear nada",async()=>{const f=db();assert.deepEqual(await check(f),{ready:true,collections:4});assert.equal(f.reads(),4);});
 test("indice no unico impide habilitar transaccion",async()=>{const f=db("gruk_offline_caja_intenciones");await assert.rejects(check(f),e=>e.code==="OFFLINE_INDEX_NOT_READY");});
 test("ausencia de db falla cerrada",async()=>{await assert.rejects(check(null),e=>e.code==="OFFLINE_INDEX_DB_REQUIRED");});
+
+test("Capa 2: readiness cierra ante índices ausentes o metadatos inválidos",async()=>{
+ for(const name of Object.keys(specs)){
+  for(const metadata of [undefined,null,{},[null],[undefined],[false],[{name:"other"},null]]){
+   let accesses=0;
+   const store={collection:collection=>{
+    accesses++;
+    const [index,key]=specs[collection];
+    if(collection!==name)return {indexes:async()=>[{name:index,key,unique:true}]};
+    return metadata===undefined?{}:{indexes:async()=>metadata};
+   }};
+   await assert.rejects(check(store),{code:"OFFLINE_INDEX_NOT_READY"});
+   assert.ok(accesses>=1&&accesses<=4);
+  }
+ }
+});
