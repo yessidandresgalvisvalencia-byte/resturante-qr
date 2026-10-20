@@ -110,3 +110,15 @@ test("Capa 2: metadatos de índices nulos o malformados bloquean ventas antes de
   assert.equal(writes,0);
  }
 });
+
+test("Capa 2: índice ausente o entradas corruptas no provocan escritura",async()=>{
+ for(const indexMetadata of [undefined,null,[null],[undefined],[false],[{name:"irrelevant"},null]]){
+  let writes=0;
+  const db={collection:()=>({
+   ...(indexMetadata===undefined?{}:{indexes:async()=>indexMetadata}),
+   updateOne:async()=>{writes++;throw Error("UNEXPECTED_FINANCIAL_WRITE");}
+  })};
+  await assert.rejects(stage({db,session:{inTransaction:()=>true},context,plan}),{code:"OFFLINE_SALES_UNIQUE_INDEX_REQUIRED"});
+  assert.equal(writes,0);
+ }
+});
