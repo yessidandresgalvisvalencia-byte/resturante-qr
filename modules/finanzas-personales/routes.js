@@ -75,6 +75,15 @@ router.post("/gastos/evaluar",validate(evaluarCompraSchema),async(req,res)=>{
   return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo evaluar el gasto"});
  }
 });
+// Agregado de consumo hormiga del usuario autenticado; nunca acepta identidad del cliente.
+router.get("/gastos/hormiga/resumen",async(req,res)=>{
+ try{
+  const resumen=await require("./services/gastosHormigaResumen.service").obtener(req.personalAuth.userId);
+  return res.set("Cache-Control","private, no-store, max-age=0").json({ok:true,resumen,soloLectura:true});
+ }catch(e){
+  return res.status(503).json({ok:false,error:"No se pudo verificar el resumen de gastos hormiga"});
+ }
+});
 router.get("/home",async(req,res)=>{try{return res.json({ok:true,home:await homePersonal.obtener(req.personalAuth.userId)});}catch(e){console.error("[FIN_PERSONAL_HOME]",e);return res.status(500).json({ok:false,error:"No fue posible construir el estado financiero personal"});}});
 const cuentaSchema=Joi.object({nombre:Joi.string().trim().min(1).max(100).required(),tipo:Joi.string().valid("EFECTIVO","AHORROS","CORRIENTE","BILLETERA","INVERSION","OTRA").required(),institucion:Joi.string().trim().max(120).allow("").default(""),moneda:Joi.string().valid("COP").default("COP"),saldoMinor:Joi.number().integer().min(0).default(0),saldoVerificado:Joi.boolean().default(false)});
 router.post("/cuentas",validate(cuentaSchema),async(req,res)=>{try{return res.status(201).json({ok:true,cuenta:await patrimonioPersonal.crearCuenta(req.personalAuth.userId,{...req.validated,saldoVerificadoEn:req.validated.saldoVerificado?new Date():null,origenSaldo:req.validated.saldoVerificado?"USUARIO":"NO_VERIFICADO",requiereReconciliacion:!req.validated.saldoVerificado})});}catch(e){return res.status(e.code===11000?409:e.statusCode||500).json({ok:false,error:e.code===11000?"Ya existe una cuenta con ese nombre":e.statusCode?e.message:"Error interno"});}});

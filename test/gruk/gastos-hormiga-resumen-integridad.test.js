@@ -1,0 +1,57 @@
+"use strict";
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const {resumir,esHormiga,limites}=require("../../modules/finanzas-personales/services/gastosHormigaResumen.service");
+const ahora=new Date("2026-10-20T15:00:00.000Z");
+const gasto=(id,fecha,montoMinor,concepto="Rappi",extras={})=>({_id:id,fecha,tipo:"GASTO",estado:"ACTIVA",impactoCaja:true,medioPago:"DEBITO",montoMinor,concepto,categoria:"Alimentación",...extras});
+test("siete días y mes Colombia no se suman ni duplican movimientos",()=>{
+ const entrada=[
+  gasto("a","2026-10-20T10:00:00Z",25000,"Rappi"),
+  gasto("a","2026-10-20T10:00:00Z",25000,"Rappi"),
+  gasto("b","2026-10-10T10:00:00Z",10000,"Juan Valdez"),
+  gasto("c","2026-09-30T10:00:00Z",5000,"Pergamino")
+ ];
+ const r=resumir(entrada,ahora);
+ assert.equal(r.semanaMinor,25000);assert.equal(r.mesMinor,35000);
+ assert.equal(r.movimientosSemana,1);assert.equal(r.movimientosMes,2);
+ assert.match(r.nota,/no deben sumarse/);
+});
+test("exclude arriendo, deudas, crédito sin caja, anulados, ingresos y egresos sin caja",()=>{
+ const tx=[
+  gasto("a","2026-10-20T10:00:00Z",800000,"Arriendo", {categoria:"Gastos hormiga"}),
+  gasto("b","2026-10-20T10:00:00Z",25000,"Rappi",{tipo:"INGRESO"}),
+  gasto("c","2026-10-20T10:00:00Z",30000,"Rappi",{estado:"ANULADA"}),
+  gasto("d","2026-10-20T10:00:00Z",30000,"Rappi",{medioPago:"CREDITO"}),
+  gasto("e","2026-10-20T10:00:00Z",30000,"Rappi",{impactoCaja:false}),
+  gasto("f","2026-10-20T10:00:00Z",50000,"Cuota tarjeta",{categoria:"Gastos hormiga"}),
+  gasto("g","2026-10-20T10:00:00Z",25000,"Mecato")
+ ];
+ assert.equal(resumir(tx,ahora).semanaMinor,25000);
+ assert.equal(esHormiga(tx[0]),false);
+});
+test("cortes por zona Bogotá, no por medianoche UTC",()=>{
+ const r=limites(ahora);
+ assert.equal(r.inicioMes.toISOString(),"2026-10-01T05:00:00.000Z");
+ assert.equal(r.inicioSiete.toISOString(),"2026-10-14T05:00:00.000Z");
+ const tx=[gasto("a","2026-10-01T04:59:59Z",1000,"Rappi"),
+           gasto("b","2026-10-01T05:00:00Z",2000,"Rappi")];
+ assert.equal(resumir(tx,ahora).mesMinor,2000);
+});
+test("no calcula cifras monetarias inválidas, fuera de rango o futuras",()=>{
+ assert.throws(()=>resumir([gasto("x","2026-10-20T10:00:00Z",0.1)],ahora),/Monto hormiga inválido/);
+ assert.equal(resumir([gasto("x","2026-10-21T10:00:00Z",100000)],ahora).mesMinor,0);
+ assert.throws(()=>resumir([gasto("a","2026-10-20T10:00:00Z",Number.MAX_SAFE_INTEGER),gasto("b","2026-10-20T11:00:00Z",1)],ahora),/rango seguro/);
+});
+test("API de lectura filtra exclusivamente por JWT y frontend descarta sesión anterior",()=>{
+ const fs=require("node:fs"),path=require("node:path");
+ const root=path.join(__dirname,"../..");
+ const routes=fs.readFileSync(path.join(root,"modules/finanzas-personales/routes.js"),"utf8");
+ const js=fs.readFileSync(path.join(root,"public/finanzas-personales.js"),"utf8");
+ const html=fs.readFileSync(path.join(root,"public/finanzas-personales.html"),"utf8");
+ const start=routes.indexOf('router.get("/gastos/hormiga/resumen"');
+ assert.ok(start>routes.indexOf("router.use(auth,entitlement)"));
+ assert.match(routes.slice(start,start+400),/obtener\(req\.personalAuth\.userId\)/);
+ assert.match(js,/api\("\/gastos\/hormiga\/resumen"\)/);
+ assert.match(js,/if\(token!==tokenAlInicio\|\|!tokenAlInicio\|\|\$\("app"\)\.hidden\)return/);
+ assert.match(html,/id="hormigaResumen"/);
+});
