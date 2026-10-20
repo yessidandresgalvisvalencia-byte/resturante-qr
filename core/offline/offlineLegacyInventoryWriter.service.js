@@ -14,7 +14,9 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
  if(typeof context?.empresaId!=="string"||typeof context?.sedeId!=="string"||
     !HEX.test(context.empresaId)||!HEX.test(context.sedeId)||typeof objectId!=="function")
   fail("OFFLINE_INVENTORY_TENANT_REQUIRED");
- if(!Array.isArray(inventoryDeltas)||inventoryDeltas.length===0||inventoryDeltas.length>100)fail("OFFLINE_INVENTORY_INVALID_PLAN");
+ if(!Array.isArray(inventoryDeltas)||inventoryDeltas.length===0||inventoryDeltas.length>100||
+    !Array.from({length:inventoryDeltas.length},(_,i)=>Object.hasOwn(inventoryDeltas,i)).every(Boolean))
+  fail("OFFLINE_INVENTORY_INVALID_PLAN");
  const ids=new Set();
  // Validate the ENTIRE plan before any inventory read/write. A forged second
  // product must not cause the first product to be debited in this transaction.

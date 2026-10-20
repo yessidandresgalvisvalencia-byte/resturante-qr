@@ -238,3 +238,16 @@ test("Capa 2: absent Mongo conditional update result is a controlled conflict",a
   inventoryDeltas:[{productoId,deltaUnidades:"-1"}],objectId:x=>x}),
   {code:"OFFLINE_INVENTORY_CONCURRENT_CHANGE"});
 });
+
+test("Capa 2: el escritor legado rechaza descuentos dispersos sin tocar Mongo ni convertir IDs",async()=>{
+ const valid=inventoryDeltas[0];
+ for(const deltas of [new Array(1),[valid,,],[,valid],[valid,,{productoId:"507f1f77bcf86cd799439013",deltaUnidades:"-1"}]]){
+  let reads=0,conversions=0;
+  const db={collection(){reads++;throw Error("FORBIDDEN_INVENTORY_READ");}};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
+   inventoryDeltas:deltas,objectId:()=>{conversions++;throw Error("FORBIDDEN_CONVERSION");}}),
+   {code:"OFFLINE_INVENTORY_INVALID_PLAN"});
+  assert.equal(reads,0);
+  assert.equal(conversions,0);
+ }
+});
