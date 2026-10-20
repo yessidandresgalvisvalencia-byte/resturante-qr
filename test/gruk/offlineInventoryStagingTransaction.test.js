@@ -112,3 +112,31 @@ test("Capa 2: sparse staged order and product plans cannot pass journal checks",
    {code:"OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION"});
  }
 });
+
+test("Capa 2: nunca admite pruebas contables incompletas con huecos",()=>{
+ const a="01ARZ3NDEKTSV4RRFFQ69G5FA0",b="01ARZ3NDEKTSV4RRFFQ69G5FA1";
+ const p="507f1f77bcf86cd799439011",q="507f1f77bcf86cd799439012";
+ const plan={orders:[{eventId:a},{eventId:b}]};
+ const deltas=[{productoId:p,deltaUnidades:"-1"},{productoId:q,deltaUnidades:"-1"}];
+ const staged={
+  sales:{records:[{eventId:a,inserted:true},{eventId:b,inserted:true}]},
+  cash:{records:[{eventId:a,inserted:true},{eventId:b,inserted:true}]},
+  ledger:{entries:[{eventId:a,inserted:true},{eventId:b,inserted:true}]},
+  stock:{records:[{productoId:p,inserted:true},{productoId:q,inserted:true}]}
+ };
+ assert.equal(verifyFresh(staged,deltas,plan),true);
+ for(const journal of ["sales","cash","ledger","stock"]){
+  const field=journal==="ledger"?"entries":"records";
+  const forged={...staged,[journal]:{[field]:[staged[journal][field][0],,]}};
+  assert.throws(()=>verifyFresh(forged,deltas,plan),
+   {code:"OFFLINE_INVENTORY_REPLAY_REQUIRES_RECONCILIATION"});
+ }
+ const applied=[{productoId:p,antes:"5",despues:"4"},{productoId:q,antes:"3",despues:"2"}];
+ assert.equal(verifyApplied(applied,deltas),true);
+ for(const [rows,items] of [
+  [[applied[0],,],deltas],
+  [applied,[deltas[0],,]]
+ ]){
+  assert.throws(()=>verifyApplied(rows,items),{code:"OFFLINE_INVENTORY_RESULT_CONFLICT"});
+ }
+});
