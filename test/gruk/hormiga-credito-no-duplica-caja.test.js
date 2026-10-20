@@ -120,3 +120,16 @@ test("gastos con estado pendiente, vacío o desconocido nunca se toman como conf
  const activa=resumir([compra],ahora);
  assert.equal(activa.creditoSemanaMinor,15000);
 });
+
+test("nunca muestra USD o EUR como pesos colombianos del resumen hormiga",()=>{
+ const compra=gasto("cop","Rappi",25000,"DEBITO");
+ for(const moneda of ["USD","EUR","cop","",0]){
+  assert.throws(()=>resumir([{...compra,moneda}],ahora),/INTEGRIDAD_HORMIGA: moneda distinta de COP/);
+ }
+ const pesos=resumir([{...compra,moneda:"COP"}],ahora);
+ assert.equal(pesos.semanaMinor,25000);
+});
+test("inconsistencia de moneda en el mismo ID también bloquea el resumen",()=>{
+ const compra=gasto("moneda","Rappi",25000,"CREDITO");
+ assert.throws(()=>resumir([{...compra,moneda:"COP"},{...compra,moneda:"USD"}],ahora),/INTEGRIDAD_HORMIGA: moneda distinta de COP/);
+});
