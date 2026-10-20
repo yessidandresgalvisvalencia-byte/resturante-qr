@@ -21,8 +21,9 @@ async function stageOfflineFinancialBatch({db,session,context,plan,inventoryDelt
     ledgerMovements.length!==plan.orders.length)fail();
  // The batch total is checked before any journal write, not just compared
  // against totals independently reported by journal writers.
- const validCop=value=>typeof value==="string"&&value.length<=18&&
-   /^(0|[1-9][0-9]*)$/.test(value);
+ const MAX_COP=BigInt(Number.MAX_SAFE_INTEGER);
+ const validCop=value=>typeof value==="string"&&value.length<=16&&
+   /^(0|[1-9][0-9]*)$/.test(value)&&BigInt(value)<=MAX_COP;
  if(!validCop(plan.totalCop))fail();
  const expected=new Map();
  let computedTotal=0n;
