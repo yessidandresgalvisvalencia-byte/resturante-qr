@@ -2,6 +2,7 @@
 const Transaccion=require("../models/TransaccionPersonal");
 const {clasificar}=require("./colombiaFinanciero.service");
 const TZ="America/Bogota";
+const MAX_MOVIMIENTOS_CONSULTA=5000; // límite por usuario y período; jamás publicar sumas truncadas.
 function fechaCivilUTC(fecha){
  if(!(fecha instanceof Date)||Number.isNaN(fecha.getTime()))throw new TypeError("Fecha inválida");
  const partes=new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(fecha);
@@ -71,7 +72,10 @@ async function obtener(usuarioId,{ahora=new Date()}={}){
  const periodo=limites(ahora);
  const transacciones=await Transaccion.find({usuarioId,tipo:"GASTO",estado:{$ne:"ANULADA"},
   fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}})
-  .select("_id fecha tipo montoMinor categoria concepto estado impactoCaja medioPago").lean();
+  .select("_id fecha tipo montoMinor categoria concepto estado impactoCaja medioPago")
+  .limit(MAX_MOVIMIENTOS_CONSULTA+1).lean();
+ if(!Array.isArray(transacciones)||transacciones.length>MAX_MOVIMIENTOS_CONSULTA)
+  throw new Error("INTEGRIDAD_HORMIGA: consulta excede límite verificable; no se publica resumen parcial");
  return resumir(transacciones,ahora);
 }
 module.exports={obtener,resumir,esHormiga,esHormigaCredito,limites};
