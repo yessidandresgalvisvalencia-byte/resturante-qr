@@ -96,3 +96,16 @@ test("promedio reconciliado nunca descuadra caja y crédito en los siete días",
   }
  }
 });
+
+test("contrato de pantalla rechaza cifras descuadradas antes de escribir el resumen",()=>{
+ const pantalla=fs.readFileSync(path.resolve(__dirname,"../../public/finanzas-personales.js"),"utf8");
+ const inicio=pantalla.indexOf('api("/gastos/hormiga/resumen").then(result=>{');
+ const fin=pantalla.indexOf('Gastos hormiga · Últimos 7 días:',inicio);
+ assert.ok(inicio>=0&&fin>inicio);
+ const validacion=pantalla.slice(inicio,fin);
+ assert.match(validacion,/resumen\.semanaMinor\+resumen\.creditoSemanaMinor!==resumen\.consumoTotalSemanaMinor/);
+ assert.match(validacion,/resumen\.mesMinor\+resumen\.creditoMesMinor!==resumen\.consumoTotalMesMinor/);
+ assert.match(validacion,/resumen\.promedioDiarioCajaMinor\+resumen\.promedioDiarioCreditoMinor!==resumen\.promedioDiarioConsumoMinor/);
+ assert.match(validacion,/\.some\(n=>n<0\)/);
+ assert.match(validacion,/throw Error\("Resumen descuadrado: requiere verificación"\)/);
+});
