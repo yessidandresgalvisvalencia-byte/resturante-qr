@@ -14,13 +14,18 @@ function flujoCompensadoPuro({usuarioId,movimientos,eventos=[],desde,hasta}){
  if(!verificarCadena(eventos,{prevHash:GENESIS}))integridad("cadena inválida");
  const estados=comprobarHistorialCompensatorio(eventos,{usuarioId});
  const vistos=new Set();
+ const primeros=new Map();
+ for(const e of eventos)if(!primeros.has(e.movimientoId))primeros.set(e.movimientoId,e);
  const acumulado={INGRESO:0n,GASTO:0n,PRESTAMO_RECIBIDO:0n,COBRO_PRESTAMO:0n,PRESTAMO_OTORGADO:0n,PAGO_DEUDA:0n};
  for(const m of movimientos){
   if(!m||String(m.usuarioId)!==usuarioId)integridad("movimiento ajeno");
   const id=String(m._id??m.movimientoId??"");
   if(!id||vistos.has(id))integridad("ID de movimiento duplicado");
   vistos.add(id);
+  if(!["ACTIVA","ANULADA"].includes(m.estado))integridad("estado de movimiento inválido");
   const estado=estados.get(id);
+  if(estado&&m.estado!=="ACTIVA")
+   integridad("movimiento original alterado por ruta legada y compensatoria");
   let actual=m;
   if(estado){
    let inicial;
@@ -28,7 +33,7 @@ function flujoCompensadoPuro({usuarioId,movimientos,eventos=[],desde,hasta}){
     inicial=originalVerificado({usuarioId,movimientoId:id,tipo:m.tipo,
      montoMinor:m.montoMinor,concepto:m.concepto,categoria:m.categoria});
    }catch(_){integridad("asiento original inválido");}
-   const primero=eventos.find(e=>e.movimientoId===id);
+   const primero=primeros.get(id);
    if(!primero||canon(inicial)!==canon(primero.original))
     integridad("asiento original y eventos contradictorios");
    if(estado.anulado)continue;
