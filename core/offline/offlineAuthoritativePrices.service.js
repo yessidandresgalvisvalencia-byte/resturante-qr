@@ -46,8 +46,10 @@ async function assertOfflineAuthoritativePrices({db,session,context,plan,objectI
    if(String(row?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
       String(row?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
       row?.activo!==true||!Number.isSafeInteger(row?.precioVenta)||row.precioVenta<0)fail();
+   if(typeof row?._id!=="string"&&
+      !(row?._id&&typeof row._id.toHexString==="function"))fail();
    const key=String(row._id).toLowerCase();
-   if(!ids.includes(key)||prices.has(key))fail();
+   if(!HEX24.test(key)||!ids.includes(key)||prices.has(key))fail();
    prices.set(key,BigInt(row.precioVenta));
  }
  for(const item of items){
