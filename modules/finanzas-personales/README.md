@@ -34,3 +34,16 @@ Se añadió `test/gruk/ledger-v81-mongo-idempotencia-real.test.js` para comproba
 - Ejecutar `npm run test:personal:mongo-idempotencia` tras levantar el replica set local y configurar su URI. **Este comando exige la URI antes de ejecutar** y falla con código distinto de cero si no se proporcionó una instancia de pruebas válida. Para CI, usar un servicio MongoDB efímero dedicado y revisar que el test termine sin fallos ni omisiones.
 - La limpieza elimina únicamente registros de los dos identificadores aleatorios generados por la prueba; no realiza `dropDatabase`.
 - No alcanza los endpoints HTTP, el JWT real ni el entorno de producción. Esas pruebas siguen pendientes antes del despliegue.
+
+## Compensaciones inmutables — protección de despliegue
+
+La ruta autenticada `POST /v81/transacciones/:id/compensaciones` queda **desactivada por defecto**.
+En ausencia de `GRUK_FP_COMPENSACIONES_HTTP_ENABLED=true` (valor literal y sensible a mayúsculas), devuelve HTTP 503 con
+`FP_COMPENSACIONES_NO_HABILITADAS`, sin ejecutar el registrador ni ajustar ninguna cuenta.
+El `GET /v81/transacciones/:id/estado-compensado` es de solo lectura y verifica el historial y la titularidad.
+
+**No activar el POST en Render** hasta cerrar [issue #407](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/issues/407):
+sustituir las mutaciones legadas PATCH/DELETE por eventos compensatorios, integrar proyecciones verificadas
+en todos los resúmenes, resolver obligaciones recurrentes y comprobar end-to-end autenticación,
+autorización, idempotencia y conciliación con MongoDB real. Un CI aprobado en esta rama
+**no equivale** a la autorización de exposición pública de la ruta.
