@@ -2,6 +2,8 @@
 // Read-only reconciliation. Receipt/staging never means money has been captured.
 const ID=/^[A-Za-z0-9_-]{1,80}$/;
 const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
+const {STATES}=require("./offlineState.contract");
+const VALID_STATES=new Set(Object.values(STATES));
 function fail(code){const e=new Error(code);e.code=code;throw e;}
 function validate(context,eventIds){
  if(!context||![context.empresaId,context.sedeId,context.actorId].every(x=>typeof x==="string"&&ID.test(x)))
@@ -56,6 +58,7 @@ async function readOfflineReconciliation({db,context,eventIds}){
  return eventIds.map(eventId=>{
   const [inbox,sale,cash,ledger]=maps.map(m=>m.get(eventId));
   if(!inbox)return {eventId,status:"NO_ENCONTRADO",applied:false,staged:false,financiallyReconciled:false};
+  if(!VALID_STATES.has(inbox.status))fail("OFFLINE_RECONCILIATION_EVIDENCE_INVALID");
   const staged=!!(sale&&cash&&ledger&&ledger.tipo==="VENTA_OFFLINE"&&
    ledger.deletedAt===null&&cop(sale.totalCop)&&cop(cash.montoCop)&&
    cop(ledger.montoCop)&&sale.totalCop===cash.montoCop&&cash.montoCop===ledger.montoCop);
