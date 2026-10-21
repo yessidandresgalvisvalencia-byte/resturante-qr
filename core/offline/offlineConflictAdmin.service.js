@@ -9,7 +9,8 @@ const ACTIONS=new Set(["ACUSAR_RECIBO","SOLICITAR_REABASTECIMIENTO","ESCALAR_AUD
 function fail(code){const e=new Error(code);e.code=code;throw e;}
 const MAX=BigInt(Number.MAX_SAFE_INTEGER);
 function validIssues(issues){
- if(!Array.isArray(issues)||issues.length===0||issues.length>100)return false;
+ if(!Array.isArray(issues)||issues.length===0||issues.length>100||
+  !Array.from({length:issues.length},(_,i)=>Object.hasOwn(issues,i)).every(Boolean))return false;
  const products=new Set();
  for(const issue of issues){
   if(!issue||typeof issue.productoId!=="string"||!HEX.test(issue.productoId))return false;
@@ -43,6 +44,7 @@ async function listStockConflicts({db,auth,limit=50}){
   x?.status!=="REQUIERE_REVISION"||x?.applied!==false||x?.cobrado!==false||
   !SHA.test(x?._id||"")||!ID.test(x?.actorId||"")||
   !Array.isArray(x?.eventIds)||x.eventIds.length===0||x.eventIds.length>100||
+  !Array.from({length:x.eventIds.length},(_,i)=>Object.hasOwn(x.eventIds,i)).every(Boolean)||
   x.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
   new Set(x.eventIds).size!==x.eventIds.length||
   !validIssues(x?.issues)))fail("OFFLINE_CONFLICT_SCOPE_MISMATCH");
@@ -66,6 +68,7 @@ async function appendStockConflictReview({db,auth,conflictId,decisionId,action,n
   original.status!=="REQUIERE_REVISION"||original.applied!==false||
   original.cobrado!==false||!ID.test(original.actorId||"")||
   !Array.isArray(original.eventIds)||original.eventIds.length===0||original.eventIds.length>100||
+  !Array.from({length:original.eventIds.length},(_,i)=>Object.hasOwn(original.eventIds,i)).every(Boolean)||
   original.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
   new Set(original.eventIds).size!==original.eventIds.length||
   !validIssues(original.issues))
