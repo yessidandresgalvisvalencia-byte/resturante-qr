@@ -2,6 +2,8 @@
 const {eventoCompensatorio,canon}=require("./eventoCompensatorioPersonal.service");
 const GENESIS="0".repeat(64);
 const HEX=/^[a-f0-9]{64}$/;
+// Mongo agrega _id a cada documento; no forma parte de la firma contable.
+const METADATOS_PERSISTENCIA=new Set(["_id"]);
 function fallo(){throw new Error("INTEGRIDAD_LEDGER: cadena compensatoria inconsistente");}
 function auditarCompensaciones({usuarioId,originales,eventos,cursor}){
  if(typeof usuarioId!=="string"||!usuarioId||
@@ -30,7 +32,7 @@ function auditarCompensaciones({usuarioId,originales,eventos,cursor}){
   }catch(_){fallo();}
   const campos=Object.keys(esperado).sort();
   if(canon(esperado)!==canon(Object.fromEntries(campos.map(k=>[k,e[k]])))||
-   Object.keys(e).some(k=>!campos.includes(k)))fallo();
+   Object.keys(e).some(k=>!campos.includes(k)&&!METADATOS_PERSISTENCIA.has(k)))fallo();
   claves.add(e.idempotencyKey);
   if(e.tipo==="ANULACION")estado.anulado=true;
   else estado.actual={...estado.actual,...e.cambios};
