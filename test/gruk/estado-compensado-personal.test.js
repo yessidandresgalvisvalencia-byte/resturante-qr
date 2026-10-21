@@ -52,3 +52,18 @@ test("el estado sin eventos conserva copia independiente del original",()=>{
  assert.notEqual(r.actual,original);
  assert.equal(r.anulado,false);
 });
+
+test("proyección acepta documento Mongo con _id sin incluirlo en la firma",()=>{
+ const e=crear(original,"CORRECCION",{montoMinor:22000},"mongo_1",1,zero);
+ const r=vigente(original,[{...e,_id:"507f1f77bcf86cd799439099"}]);
+ assert.equal(r.actual.montoMinor,22000);
+});
+test("proyección rechaza campos ocultos, claves duplicadas y originales extraños",()=>{
+ const a=crear(original,"CORRECCION",{montoMinor:22000},"duplicada",1,zero);
+ const siguiente={...original,montoMinor:22000};
+ const b=crear(siguiente,"CORRECCION",{montoMinor:20000},"duplicada",2,a.hashActual);
+ assert.throws(()=>vigente(original,[a,b]),/INTEGRIDAD_LEDGER/);
+ assert.throws(()=>vigente(original,[{...a,administrador:true}]),/INTEGRIDAD_LEDGER/);
+ assert.throws(()=>vigente({...original,campoInesperado:1},[]),/INTEGRIDAD_LEDGER/);
+ assert.throws(()=>vigente({...original,montoMinor:0},[]),/INTEGRIDAD_LEDGER/);
+});
