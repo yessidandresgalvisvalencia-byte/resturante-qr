@@ -176,6 +176,42 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    assert.ok(r.reason.statusCode===409||[112,251].includes(r.reason.code)||
     r.reason.hasErrorLabel?.("TransientTransactionError")===true,
     "Error inesperado en carrera legada: "+String(r.reason));
+  // La entrada HTTP real debe registrar evento+saldo+outbox sin aceptar
+  // usuario ni movimiento desde el body (solamente auth + URL).
+  const {crearCompensacionPersonalHandler}=require(
+   "../../modules/finanzas-personales/services/compensacionPersonal.handler");
+  const [asientoHttp]=await Movimiento.create([{
+   usuarioId,cuentaId:cuenta._id,cuenta:cuenta.nombre,
+   tipo:"GASTO",montoMinor:5000,concepto:"Prueba API",categoria:"Pruebas",
+   fecha:new Date("2026-10-20T14:30:00.000Z"),estado:"ACTIVA",impactoCaja:true
+  }]);
+  const http=crearCompensacionPersonalHandler();
+  const salida={status:200,body:null};
+  const response={status(code){salida.status=code;return response;},
+   json(body){salida.body=body;return response;}};
+  const saldoPrevioHttp=(await Cuenta.findById(cuenta._id).lean()).saldoMinor;
+  const previoOutbox=await Outbox.countDocuments({usuarioId});
+  await http({personalAuth:{userId:String(usuarioId)},
+   params:{id:String(asientoHttp._id)},
+   validated:{idempotencyKey:"compensacion_desde_http",tipo:"CORRECCION",
+    original:{tipo:"GASTO",montoMinor:5000,concepto:"Prueba API",categoria:"Pruebas"},
+    cambios:{montoMinor:4500},usuarioId:"identidad_falsa"}},response);
+  assert.equal(salida.status,201);
+  assert.equal(salida.body.compensacion.deltaCajaMinor,"500");
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,saldoPrevioHttp+500);
+  assert.equal(await Outbox.countDocuments({usuarioId}),previoOutbox+1);
+  assert.equal((await Movimiento.findById(asientoHttp._id).lean()).montoMinor,5000);
+  assert.equal(await Evento.countDocuments({usuarioId:String(usuarioId),
+   movimientoId:String(asientoHttp._id)}),1);
+  // El segundo intento con idéntica clave nunca crea un evento ni carga doble.
+  await http({personalAuth:{userId:String(usuarioId)},
+   params:{id:String(asientoHttp._id)},
+   validated:{idempotencyKey:"compensacion_desde_http",tipo:"CORRECCION",
+    original:{tipo:"GASTO",montoMinor:5000,concepto:"Prueba API",categoria:"Pruebas"},
+    cambios:{montoMinor:4500}}},response);
+  assert.equal(salida.status,409);
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,saldoPrevioHttp+500);
+  assert.equal(await Outbox.countDocuments({usuarioId}),previoOutbox+1);
   // Suprimir un evento del extremo deja una cadena con hashes válidos, pero
   // el cursor revela el borrado: nunca devolver un flujo parcial.
   await Evento.collection.deleteOne({_id:eventos.at(-1)._id});
