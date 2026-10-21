@@ -141,7 +141,7 @@ test("no registra compensación con cursor avanzado y último evento ausente",as
  await registrar(entrada("corr_1"));
  data.eventos.length=0;
  await assert.rejects(registrar({...entrada("corr_2"),original:{...original,montoMinor:22000},cambios:{montoMinor:20000}}),
-  /Cursor y eventos compensatorios desincronizados/);
+  /Cursor y cadena compensatoria completa desincronizados/);
  assert.equal(data.cursor.secuencia,1);
  assert.equal(data.eventos.length,0);
 });
@@ -149,7 +149,7 @@ test("bloquea evento borrado conservando cursor en génesis",async()=>{
  const {data,registrar}=bancoSimulado();
  await registrar(entrada("corr_1"));
  data.cursor={_id:original.usuarioId,secuencia:0,hashActual:GENESIS};
- await assert.rejects(registrar(entrada("corr_2")),/Cursor y eventos compensatorios desincronizados/);
+ await assert.rejects(registrar(entrada("corr_2")),/Cursor y cadena compensatoria completa desincronizados/);
  assert.equal(data.eventos.length,1);
 });
 test("no acepta último evento manipulado aunque cursor coincida con su hash",async()=>{
@@ -157,7 +157,7 @@ test("no acepta último evento manipulado aunque cursor coincida con su hash",as
  await registrar(entrada("corr_1"));
  data.eventos[0]={...data.eventos[0],deltaCajaMinor:"123456"};
  await assert.rejects(registrar({...entrada("corr_2"),original:{...original,montoMinor:22000},cambios:{montoMinor:20000}}),
-  /Cursor y eventos compensatorios desincronizados/);
+  /Cursor y cadena compensatoria completa desincronizados/);
  assert.equal(data.eventos.length,1);
 });
 
