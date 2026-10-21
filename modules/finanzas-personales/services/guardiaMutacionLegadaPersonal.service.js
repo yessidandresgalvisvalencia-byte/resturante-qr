@@ -18,7 +18,7 @@ async function exigirSinCompensacionesHeredadas({
   if(error.statusCode)throw error;
   throw Object.assign(new Error("No se pudo comprobar el ledger compensatorio"),{statusCode:503});
  }
- if(evento)conflicto();
+ if(evento)throw conflicto();
  return true;
 }
 module.exports={exigirSinCompensacionesHeredadas};
