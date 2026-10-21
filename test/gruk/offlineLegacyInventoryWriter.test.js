@@ -305,3 +305,50 @@ test("Capa 2: ObjectId BSON legítimo preserva descuento transaccional",async()=
   [{productoId,antes:"5",despues:"3"}]);
  assert.equal(writes,1);
 });
+
+test("Capa 2: _id del inventario como operador Mongo nunca llega al descuento",async()=>{
+ for(const id of [
+  {$ne:null,toString:()=>"stock-a"},{$eq:"stock-a",toString:()=>"stock-a"},
+  {toString:()=>"stock-a"},["stock-a"],new String("stock-a"),{}
+ ]){
+  let writes=0,postReads=0;
+  const row={_id:id,empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:5};
+  const db={collection:()=>({
+   find(){return {limit(){return {toArray:async()=>[row]};}};},
+   async updateOne(){writes++;throw Error("UNAUTHORIZED_INVENTORY_WRITE");},
+   async findOne(){postReads++;throw Error("UNAUTHORIZED_POST_READ");}
+  })};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},
+   context,inventoryDeltas,objectId:x=>x}),{code:"OFFLINE_INVENTORY_MAPPING_AMBIGUOUS"});
+  assert.equal(writes,0);assert.equal(postReads,0);
+ }
+});
+test("Capa 2: validación de saldo no confía en _id persistido de tipo operador",async()=>{
+ let writes=0;
+ const original={_id:"stock-a",empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:5};
+ const db={collection:()=>({
+  find(){return {limit(){return {toArray:async()=>[original]};}};},
+  async updateOne(){writes++;return {acknowledged:true,matchedCount:1,modifiedCount:1};},
+  async findOne(){return {...original,_id:{$eq:"stock-a",toString:()=>"stock-a"},cantidad:3};}
+ })};
+ await assert.rejects(apply({db,session:{inTransaction:()=>true},
+  context,inventoryDeltas,objectId:x=>x}),{code:"OFFLINE_INVENTORY_PERSISTENCE_CONFLICT"});
+ assert.equal(writes,1);
+});
+test("Capa 2: identificación BSON legítima del inventario permite el débito",async()=>{
+ const bsonId={_bsontype:"ObjectId",toHexString:()=>"507f1f77bcf86cd799439019",
+  toString:()=>"507f1f77bcf86cd799439019"};
+ const original={_id:bsonId,empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:5};
+ let writes=0;
+ const db={collection:()=>({
+  find(){return {limit(){return {toArray:async()=>[original]};}};},
+  async updateOne(filter,update){
+   assert.equal(filter._id,bsonId);assert.equal(update.$inc.cantidad,-2);
+   writes++;return {acknowledged:true,matchedCount:1,modifiedCount:1};
+  },
+  async findOne(){return {...original,cantidad:3};}
+ })};
+ assert.deepEqual(await apply({db,session:{inTransaction:()=>true},
+  context,inventoryDeltas,objectId:x=>x}),[{productoId,antes:"5",despues:"3"}]);
+ assert.equal(writes,1);
+});
