@@ -84,5 +84,6 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
  }
 });
 test("la integración de Mongo requiere destino loopback y autorización expresa",()=>{
- assert.throws(()=>exigirAislamiento(),/CONFIRMACION|MONGO_REMOTO|URI_DE_PRUEBAS/);
+ if(uri&&autorizado)assert.doesNotThrow(()=>exigirAislamiento());
+ else assert.throws(()=>exigirAislamiento(),/CONFIRMACION|MONGO_REMOTO|URI_DE_PRUEBAS/);
 });
