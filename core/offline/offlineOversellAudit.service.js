@@ -6,6 +6,11 @@ const {readOfflineOrderCandidates}=require("./offlinePostingCandidates.service")
 const {calculateOfflineStockDeltas}=require("./offlineInventoryDeltas.service");
 const HEX=/^[0-9a-f]{24}$/i,MAX=BigInt(Number.MAX_SAFE_INTEGER);
 function conflict(code){const e=new Error(code);e.code=code;throw e;}
+function safeInventoryId(value){
+ return (typeof value==="string"&&value.trim().length>0)||
+  (value&&value._bsontype==="ObjectId"&&
+   typeof value.toHexString==="function"&&HEX.test(value.toHexString()));
+}
 function validIssues(issues,deltas){
  if(!Array.isArray(issues)||issues.length===0||issues.length>deltas.length||
     !Array.from({length:issues.length},(_,i)=>Object.hasOwn(issues,i)).every(Boolean))return false;
@@ -35,7 +40,8 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
  const asId=value=>{
   let converted;
   try{converted=objectId(value);}catch(_error){conflict("OFFLINE_STOCK_AUDIT_IDENTITY_INVALID");}
-  if(converted===null||converted===undefined||
+  if(!(typeof converted==="string"||
+      (converted&&converted._bsontype==="ObjectId"&&typeof converted.toHexString==="function"))||
     String(converted).toLowerCase()!==value.toLowerCase())
     conflict("OFFLINE_STOCK_AUDIT_IDENTITY_INVALID");
   return converted;
@@ -54,8 +60,7 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
   },{projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1},limit:2}).toArray();
   if(!Array.isArray(rows)||rows.length!==1||!Object.hasOwn(rows,0)||
    !rows[0]||typeof rows[0]!=="object"||
-   rows[0]._id===null||rows[0]._id===undefined||
-   String(rows[0]._id).trim().length===0||
+   !safeInventoryId(rows[0]._id)||
    String(rows[0]?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
    String(rows[0]?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
    String(rows[0]?.productoServicioId).toLowerCase()!==delta.productoId.toLowerCase()||
