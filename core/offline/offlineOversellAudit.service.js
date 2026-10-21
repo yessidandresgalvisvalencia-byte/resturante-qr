@@ -63,7 +63,11 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
   ...key,eventIds:sorted,issues,status:"REQUIERE_REVISION",createdAt:new Date(),
   source:"OFFLINE_INVENTORY_INSUFFICIENT",applied:false,cobrado:false
  }},{upsert:true});
- if(result?.upsertedCount!==1&&result?.matchedCount!==1)
+ if(result?.acknowledged!==true||
+    !Number.isInteger(result.upsertedCount)||
+    !Number.isInteger(result.matchedCount)||
+    !((result.upsertedCount===1&&result.matchedCount===0)||
+      (result.upsertedCount===0&&result.matchedCount===1)))
   conflict("OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED");
  // On a retry, expose the original durable record rather than implying a
  // second correction or replacing the first observation.

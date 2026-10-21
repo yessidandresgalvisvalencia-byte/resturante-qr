@@ -24,7 +24,7 @@ function fake(pollute={}){
     audited++;assert.equal(opts.upsert,true);
     assert.equal(key.empresaId,context.empresaId);
     assert.equal(key.sedeId,context.sedeId);
-    return {upsertedCount:1};
+    return {acknowledged:true,upsertedCount:1,matchedCount:0};
    },
    async findOne(key,opts){
     assert.equal(opts.projection.empresaId,1);
