@@ -58,7 +58,7 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
   if(BigInt(old)<units)fail("OFFLINE_INVENTORY_INSUFFICIENT");
   const updated=await inventory.updateOne({...key,_id:existing[0]._id,cantidad:old},
    {$inc:{cantidad:-Number(units)}},{session});
-  if(!updated||updated.matchedCount!==1||updated.modifiedCount!==1)
+  if(updated?.acknowledged!==true||updated.matchedCount!==1||updated.modifiedCount!==1)
    fail("OFFLINE_INVENTORY_CONCURRENT_CHANGE");
   // Read the persisted balance inside the SAME transaction, not an inferred
   // balance from the $inc request. Any discrepancy aborts the entire posting.
