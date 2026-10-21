@@ -212,6 +212,24 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   assert.equal(salida.status,409);
   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,saldoPrevioHttp+500);
   assert.equal(await Outbox.countDocuments({usuarioId}),previoOutbox+1);
+  // Regresión: dos correcciones adicionales de metadatos no pueden
+  // olvidar el nuevo importe ni un concepto corregido previamente.
+  const descriptorUno={usuarioId:String(usuarioId),
+   movimientoId:String(asientoHttp._id),tipo:"GASTO",montoMinor:4500,
+   concepto:"Prueba API",categoria:"Pruebas"};
+  await registrar({original:descriptorUno,tipo:"CORRECCION",
+   cambios:{concepto:"Prueba API rectificada"},
+   idempotencyKey:"http_concepto_v2",fechaISO:"2026-10-20T19:00:00.000Z"});
+  const descriptorDos={...descriptorUno,concepto:"Prueba API rectificada"};
+  await assert.rejects(()=>registrar({original:descriptorUno,tipo:"CORRECCION",
+   cambios:{categoria:"Otros"},idempotencyKey:"http_obsoleto",
+   fechaISO:"2026-10-20T19:01:00.000Z"}),/Movimiento desactualizado/);
+  await registrar({original:descriptorDos,tipo:"CORRECCION",
+   cambios:{categoria:"Otros"},idempotencyKey:"http_categoria_v3",
+   fechaISO:"2026-10-20T19:02:00.000Z"});
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,saldoPrevioHttp+500);
+  assert.equal(await Outbox.countDocuments({usuarioId}),previoOutbox+3);
+  assert.equal((await Movimiento.findById(asientoHttp._id).lean()).montoMinor,5000);
   // Suprimir un evento del extremo deja una cadena con hashes válidos, pero
   // el cursor revela el borrado: nunca devolver un flujo parcial.
   await Evento.collection.deleteOne({_id:eventos.at(-1)._id});
