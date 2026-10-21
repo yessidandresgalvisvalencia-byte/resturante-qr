@@ -9,8 +9,8 @@ function fixture(indexReady=true){
  const db={collection:name=>{
   assert.equal(name,"gruk_offline_ventas");
   return {indexes:async()=>indexReady?[{name:"uniq_offline_sale_tenant_event",unique:true,key:{empresaId:1,sedeId:1,eventId:1}}]:[],
-  updateOne:async(key,update,opts)=>{assert.equal(opts.session,session);if(data.has(key.eventId))return {upsertedCount:0};
-   data.set(key.eventId,update.$setOnInsert);return {upsertedCount:1};},
+  updateOne:async(key,update,opts)=>{assert.equal(opts.session,session);if(data.has(key.eventId))return {acknowledged:true,upsertedCount:0};
+   data.set(key.eventId,update.$setOnInsert);return {acknowledged:true,upsertedCount:1};},
   findOne:async key=>data.get(key.eventId)};
  }};
  return {db,session,data};
@@ -45,7 +45,7 @@ test("Capa 2: replay of a persisted sale from another tenant or event is rejecte
   let writes=0;
   const db={collection(name){assert.equal(name,"gruk_offline_ventas");return {
    async indexes(){return [{name:"uniq_offline_sale_tenant_event",unique:true,key:{empresaId:1,sedeId:1,eventId:1}}];},
-   async updateOne(key){writes++;assert.equal(key.empresaId,context.empresaId);assert.equal(key.sedeId,context.sedeId);return {upsertedCount:0};},
+   async updateOne(key){writes++;assert.equal(key.empresaId,context.empresaId);assert.equal(key.sedeId,context.sedeId);return {acknowledged:true,upsertedCount:0};},
    async findOne(key,options){
     assert.equal(options.session,session);
     assert.equal(options.projection.empresaId,1);
