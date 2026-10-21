@@ -97,3 +97,46 @@ test("Capa 2: pedido rechaza artículos dispersos y COP enormes antes del cálcu
  assert.equal(expected.totalCop,"3000");
  assert.equal(expected.items.length,1);
 });
+
+test("Capa 2: consultas de candidatos siempre acotadas al lote y su empresa",async()=>{
+ const other="01ARZ3NDEKTSV4RRFFQ69G5FA1";
+ let reads=0;
+ const db={collection(name){
+  assert.equal(name,"gruk_offline_inbox");reads++;
+  return {find(query,options){
+   assert.deepEqual(query,{empresaId:ctx.empresaId,sedeId:ctx.sedeId,
+    actorId:ctx.actorId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",
+    eventId:{$in:[eventId,other]}});
+   assert.equal(options.limit,3);
+   assert.equal(options.projection.empresaId,1);
+   assert.equal(options.projection.sedeId,1);
+   assert.equal(options.projection.actorId,1);
+   return {toArray:async()=>[]};
+  }};
+ }};
+ await assert.rejects(read({db,context:ctx,eventIds:[eventId,other]}),
+  {code:"OFFLINE_ORDERS_NOT_PENDING"});
+ assert.equal(reads,1);
+});
+test("Capa 2: eventos con permisos heredados del prototipo no se pueden contabilizar",async()=>{
+ for(const missing of ["empresaId","sedeId","actorId","tipo","status","eventId","payload"]){
+  const record=Object.assign(Object.create({[missing]:doc[missing]}),doc);
+  delete record[missing];
+  let queries=0;
+  const db={collection(){queries++;return {find(){return {toArray:async()=>[record]};}};}};
+  await assert.rejects(read({db,context:ctx,eventIds:[eventId]}),
+   {code:"OFFLINE_ORDERS_NOT_PENDING"});
+  assert.equal(queries,1);
+ }
+});
+test("Capa 2: respuesta inbox mayor que la solicitada se rechaza sin preflight financiero",async()=>{
+ const tooMany=[doc,{...doc}];
+ let requests=0;
+ const db={collection(){requests++;return {find(query,options){
+  assert.equal(options.limit,2);
+  return {toArray:async()=>tooMany};
+ }};}};
+ await assert.rejects(read({db,context:ctx,eventIds:[eventId]}),
+  {code:"OFFLINE_ORDERS_NOT_PENDING"});
+ assert.equal(requests,1);
+});
