@@ -57,9 +57,17 @@ function verificarCadena(eventos,{prevHash,secuenciaInicial=1}={}){
  const claves=new Set();
  for(const e of eventos){
   if(!e||e.prevHash!==h||e.secuencia!==s||claves.has(e.idempotencyKey))return false;
-  const {hashActual,...payload}=e;
-  if(typeof hashActual!=="string"||!HEX.test(hashActual)||
-   crypto.createHash("sha256").update(canon(payload)).digest("hex")!==hashActual)return false;
+  // Mongo incorpora _id después de insertar; _id no forma parte del payload firmado.
+  // Un campo adicional distinto de _id sí invalida el asiento.
+  const {hashActual,_id,...payload}=e;
+  const campos=["version","usuarioId","movimientoId","tipo","secuencia","fechaISO",
+   "idempotencyKey","prevHash","original","cambios","deltaCajaMinor"];
+  if(Object.keys(payload).length!==campos.length||
+     !campos.every(k=>Object.prototype.hasOwnProperty.call(payload,k))||
+     typeof hashActual!=="string"||!HEX.test(hashActual))return false;
+  try{
+   if(crypto.createHash("sha256").update(canon(payload)).digest("hex")!==hashActual)return false;
+  }catch(_){return false;}
   claves.add(e.idempotencyKey);h=hashActual;s++;
  }
  return true;
