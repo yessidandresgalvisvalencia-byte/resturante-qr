@@ -73,3 +73,17 @@ test("auditor comprueba una sola cadena por usuario aunque se alternen movimient
  assert.throws(()=>auditar([dos,uno],cursor,[original,segundo]),/INTEGRIDAD_LEDGER/);
  assert.throws(()=>auditar([uno,dos],cursor,[original]),/INTEGRIDAD_LEDGER/);
 });
+
+test("auditor rechaza asientos originales inválidos aun sin eventos",()=>{
+ const cursor={_id:usuarioId,secuencia:0,hashActual:genesis};
+ for(const alterado of [
+  {...original,montoMinor:0},
+  {...original,montoMinor:1.5},
+  {...original,tipo:"TRANSFERENCIA"},
+  {...original,concepto:" "},
+  {...original,categoria:" "},
+  {...original,campoExtra:"inyectado"}
+ ]){
+  assert.throws(()=>auditar([],cursor,[alterado]),/INTEGRIDAD_LEDGER/);
+ }
+});
