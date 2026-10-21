@@ -43,6 +43,20 @@ function crearConsultaMovimientoCompensado({
       throw fallo("INTEGRIDAD_LEDGER: cursor y cadena inconsistentes");
     }else if(eventos.length)throw fallo("INTEGRIDAD_LEDGER: eventos sin cursor");
     const actuales=comprobarHistorialCompensatorio(eventos,{usuarioId:uid});
+    // Las operaciones patrimoniales o de deuda NO admiten este mecanismo.
+    // Se pueden consultar sin falsificar un descriptor INGRESO/GASTO.
+    const ordinario=["INGRESO","GASTO"].includes(asiento.tipo);
+    if(!ordinario){
+     if(actuales.has(mid))
+      throw fallo("INTEGRIDAD_LEDGER: evento sobre tipo patrimonial no admitido");
+     resultado=Object.freeze({
+      movimientoId:mid,original:null,anulado:asiento.estado==="ANULADA",
+      elegibleParaCompensar:false,ultimaSecuencia:0,
+      hashCadena:cursor?.hashActual||GENESIS,
+      motivo:"TIPO_NO_ADMITIDO_POR_LEDGER_COMPENSATORIO"
+     });
+     return;
+    }
     let original;
     try{
      original=originalVerificado({
@@ -50,7 +64,7 @@ function crearConsultaMovimientoCompensado({
       montoMinor:asiento.montoMinor,concepto:asiento.concepto,
       categoria:asiento.categoria
      });
-    }catch(_){throw fallo("Movimiento no apto para compensación");}
+    }catch(_){throw fallo("Movimiento original inválido para compensación");}
     const primerEvento=eventos.find(e=>e.movimientoId===mid);
     if(primerEvento&&canon(primerEvento.original)!==canon(original))
      throw fallo("INTEGRIDAD_LEDGER: original alterado");
