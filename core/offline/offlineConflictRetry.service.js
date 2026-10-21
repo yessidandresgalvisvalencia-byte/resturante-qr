@@ -13,6 +13,22 @@ function assertResolutionInsertAcknowledged(result,conflictId){
   fail("OFFLINE_CONFLICT_RESOLUTION_WRITE_UNVERIFIED");
  return true;
 }
+function assertExactResolvedOrders(orders,eventIds){
+ if(!Array.isArray(orders)||!Array.isArray(eventIds)||
+    orders.length!==eventIds.length||orders.length===0||
+    !Array.from({length:orders.length},(_,i)=>Object.hasOwn(orders,i)).every(Boolean)||
+    !Array.from({length:eventIds.length},(_,i)=>Object.hasOwn(eventIds,i)).every(Boolean))
+  fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
+ const expected=new Set(eventIds),seen=new Set();
+ if(expected.size!==eventIds.length)fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
+ for(const order of orders){
+  if(!order||typeof order.eventId!=="string"||
+     !expected.has(order.eventId)||seen.has(order.eventId))
+   fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
+  seen.add(order.eventId);
+ }
+ return true;
+}
 function assertAuthorization(auth,conflictId,confirmed,note){
  if(!auth||!["DUEÑO","ADMIN_SEDE"].includes(auth.rol)||
   !HEX.test(auth.empresaId||"")||!HEX.test(auth.sedeId||"")||
@@ -61,11 +77,11 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
  }
  const onStaged=async({session,context:verifiedContext,plan})=>{
   if(session?.inTransaction?.()!==true||
-     verifiedContext.actorId!==source.actorId||
-     plan.orders.length!==eventIds.length||
-     new Set(plan.orders.map(x=>x.eventId)).size!==eventIds.length||
-     plan.orders.some(x=>!eventIds.includes(x.eventId)))
+     verifiedContext?.empresaId!==tenant.empresaId||
+     verifiedContext?.sedeId!==tenant.sedeId||
+     verifiedContext?.actorId!==source.actorId)
     fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
+  assertExactResolvedOrders(plan?.orders,eventIds);
   // Re-read source under transaction: may not resolve a changed/revoked conflict.
   const valid=await conflictCollection.findOne(query,{session,projection:{_id:1,empresaId:1,sedeId:1,status:1,applied:1,cobrado:1,actorId:1,eventIds:1}});
   validateSource(valid,query);
@@ -94,4 +110,4 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
   events:eventIds.length,inventoryApplied:true,applied:false,cobrado:false,
   totalCop:staged.sales.totalCop});
 }
-module.exports={retryOfflineConflict,assertAuthorization,assertResolutionInsertAcknowledged};
+module.exports={retryOfflineConflict,assertAuthorization,assertResolutionInsertAcknowledged,assertExactResolvedOrders};
