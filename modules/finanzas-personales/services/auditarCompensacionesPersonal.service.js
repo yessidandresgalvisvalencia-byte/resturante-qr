@@ -1,5 +1,5 @@
 "use strict";
-const {eventoCompensatorio,canon}=require("./eventoCompensatorioPersonal.service");
+const {eventoCompensatorio,canon,originalVerificado}=require("./eventoCompensatorioPersonal.service");
 const GENESIS="0".repeat(64);
 const HEX=/^[a-f0-9]{64}$/;
 // Mongo agrega _id a cada documento; no forma parte de la firma contable.
@@ -12,7 +12,10 @@ function auditarCompensaciones({usuarioId,originales,eventos,cursor}){
  for(const o of originales){
   if(!o||o.usuarioId!==usuarioId||typeof o.movimientoId!=="string"||
    estados.has(o.movimientoId))fallo();
-  estados.set(o.movimientoId,{actual:{...o},anulado:false});
+  let validado;
+  try{validado=originalVerificado(o);if(canon(validado)!==canon(o))fallo();}
+  catch(_){fallo();}
+  estados.set(o.movimientoId,{actual:{...validado},anulado:false});
  }
  let hash=GENESIS,secuencia=0;
  const claves=new Set();
