@@ -7,7 +7,9 @@ function validate(context,eventIds){
  if(!context||![context.empresaId,context.sedeId,context.actorId].every(x=>typeof x==="string"&&ID.test(x)))
   fail("OFFLINE_AUTH_REQUIRED");
  if(!Array.isArray(eventIds)||eventIds.length===0||eventIds.length>100||
-    eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
+    Array.from({length:eventIds.length},(_,i)=>i).some(i=>
+      !Object.prototype.hasOwnProperty.call(eventIds,i)||
+      typeof eventIds[i]!=="string"||!ULID.test(eventIds[i]))||
     new Set(eventIds).size!==eventIds.length)fail("OFFLINE_INVALID_IDS");
 }
 async function readOfflineReconciliation({db,context,eventIds}){
