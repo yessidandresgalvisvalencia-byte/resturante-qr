@@ -239,6 +239,14 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   assert.equal(vigenteHttp.original.concepto,"Prueba API rectificada");
   assert.equal(vigenteHttp.original.categoria,"Otros");
   assert.equal(vigenteHttp.elegibleParaCompensar,true);
+  // La consulta de estado no debe recomendar operaciones financieras
+  // cuando la cuenta requiere conciliación, aunque la cadena sea válida.
+  await Cuenta.updateOne({_id:cuenta._id},{$set:{requiereReconciliacion:true}});
+  const noConciliado=await leerEstado(String(usuarioId),String(asientoHttp._id));
+  assert.equal(noConciliado.elegibleParaCompensar,false);
+  await Cuenta.updateOne({_id:cuenta._id},{$set:{requiereReconciliacion:false}});
+  assert.equal((await leerEstado(String(usuarioId),String(asientoHttp._id)))
+   .elegibleParaCompensar,true);
   const ajenoEstado=await assert.rejects(
    leerEstado(String(new mongoose.Types.ObjectId()),String(asientoHttp._id)),
    error=>error.statusCode===404
