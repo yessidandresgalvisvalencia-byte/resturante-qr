@@ -217,7 +217,7 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   await Evento.collection.deleteOne({_id:eventos.at(-1)._id});
   await assert.rejects(()=>consultar(String(usuarioId),intervalo),
    e=>e.statusCode===409&&/cursor y eventos desincronizados/.test(e.message));
-  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaFinal.saldoMinor);
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,saldoPrevioHttp+500);
 
  }finally{
   try{
