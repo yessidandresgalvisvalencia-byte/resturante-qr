@@ -72,18 +72,19 @@ function crearRegistrador({
       throw conflicto("Cursor y cadena compensatoria completa desincronizados");
     // Un hash válido no basta: cada evento debe partir del estado vigente
     // del mismo movimiento y ninguna anulación puede recibir sucesores.
-    comprobarHistorialCompensatorio(cadena,{usuarioId:original.usuarioId});
-    // La lectura y el CAS posterior ocurren en el mismo snapshot Mongo.
-    const ultimo=await EventoModelo.findOne({usuarioId:original.usuarioId,
-      movimientoId:original.movimientoId}).sort({secuencia:-1}).session(session).lean();
-    if(ultimo){
-      if(ultimo.tipo==="ANULACION"||
-         !verificarCadena([ultimo],{prevHash:ultimo.prevHash,secuenciaInicial:ultimo.secuencia}))
-        throw conflicto("Movimiento anulado o última compensación inconsistente");
-      const actual={...ultimo.original,...ultimo.cambios};
+    const estadosVigentes=comprobarHistorialCompensatorio(cadena,{usuarioId:original.usuarioId});
+    // El estado vigente proviene de TODAS las compensaciones consecutivas.
+    // El último evento por sí solo no puede recuperar campos heredados de
+    // compensaciones anteriores sobre el mismo movimiento.
+    const estadoVigente=estadosVigentes.get(original.movimientoId);
+    if(estadoVigente?.anulado)
+      throw conflicto("Movimiento anulado o última compensación inconsistente");
+    if(estadoVigente){
       let valido=false;
-      try{valido=canon(originalVerificado(actual))===canon(originalVerificado(original));}
-      catch(_){valido=false;}
+      try{
+        valido=canon(originalVerificado(estadoVigente.actual))===
+         canon(originalVerificado(original));
+      }catch(_){valido=false;}
       if(!valido)throw conflicto("Movimiento desactualizado; reconstruye su estado vigente");
     }
     // Ningún original aportado por el cliente se considera fuente de verdad.
