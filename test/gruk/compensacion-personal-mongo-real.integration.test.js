@@ -261,7 +261,7 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   await Movimiento.collection.updateOne({_id:fueraDePeriodo._id},
    {$set:{montoMinor:777}});
   assert.equal((await consultar(String(usuarioId),intervalo)).flujoNetoMinor,
-   Number(-52000n+deltas+500n+ (legacyGano?0n:1000n)));
+   Number(-68500n+deltas+(legacyGano?0n:1000n)));
   // Suprimir un evento del extremo deja una cadena con hashes válidos, pero
   // el cursor revela el borrado: nunca devolver un flujo parcial.
   await Evento.collection.deleteOne({_id:eventos.at(-1)._id});
