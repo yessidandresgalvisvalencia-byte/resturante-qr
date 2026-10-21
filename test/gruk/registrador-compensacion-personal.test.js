@@ -7,7 +7,7 @@ const {verificarCadena}=require("../../modules/finanzas-personales/services/even
 const original={usuarioId:"507f1f77bcf86cd799439011",movimientoId:"507f1f77bcf86cd799439012",
  tipo:"GASTO",montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion"};
 const fechaISO="2026-10-20T15:00:00.000Z";
-function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={}){
+function bancoSimulado({colision=false,repetido=false,romperInsercion=false,asientoAusente=false,asientoAjeno=false,asientoAlterado=false}={}){
  const data={cursor:null,eventos:[],cerradas:0,abortadas:0,indices:0};
  let staged=null;
  const ModeloCursor={
@@ -46,6 +46,17 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
    staged.eventos.push(...rows);return rows;
   }
  };
+ const ModeloTransaccion={
+  findOne(filter){
+   return {session(){return {lean:async()=>{
+    if(asientoAusente||asientoAjeno||String(filter._id)!==original.movimientoId||
+       String(filter.usuarioId)!==original.usuarioId)return null;
+    return {_id:original.movimientoId,usuarioId:original.usuarioId,
+     tipo:original.tipo,montoMinor:asientoAlterado?25001:original.montoMinor,
+     concepto:original.concepto,categoria:original.categoria,estado:"ACTIVA"};
+   }};}};
+  }
+ };
  const nuevaSesion=async()=>({
   async withTransaction(fn){
    staged={cursor:data.cursor&&{...data.cursor},eventos:[...data.eventos]};
@@ -54,7 +65,7 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
   },
   async endSession(){data.cerradas++;}
  });
- const registrar=crearRegistrador({EventoModelo:ModeloEvento,CursorModelo:ModeloCursor,nuevaSesion,
+ const registrar=crearRegistrador({EventoModelo:ModeloEvento,CursorModelo:ModeloCursor,TransaccionModelo:ModeloTransaccion,nuevaSesion,
   revisarIndices:async()=>{data.indices++;}});
  return {data,registrar};
 }
@@ -181,4 +192,25 @@ test("no avanza el cursor si el hash de un evento intermedio fue manipulado",asy
  await assert.rejects(registrar({...entrada("tercera"),original:{...original,montoMinor:20000},
   cambios:{montoMinor:19000}}),/cadena compensatoria completa desincronizados/);
  assert.equal(data.cursor.secuencia,2);
+});
+
+test("rechaza movimiento ausente o de otro usuario sin insertar evento",async()=>{
+ for(const opciones of [{asientoAusente:true},{asientoAjeno:true}]){
+  const {data,registrar}=bancoSimulado(opciones);
+  await assert.rejects(registrar(entrada("sin_asiento")),/Movimiento original inexistente o ajeno/);
+  assert.equal(data.eventos.length,0);
+  assert.equal(data.cursor,null);
+ }
+});
+test("bloquea compensación si el importe persistido difiere del original",async()=>{
+ const {data,registrar}=bancoSimulado({asientoAlterado:true});
+ await assert.rejects(registrar(entrada("alterado")),/Movimiento original distinto al ledger/);
+ assert.equal(data.eventos.length,0);
+ assert.equal(data.cursor,null);
+});
+test("bloquea un original proporcionado con campos financieros inventados",async()=>{
+ const {data,registrar}=bancoSimulado();
+ await assert.rejects(registrar({...entrada("inventado"),original:{...original,montoMinor:999}}),
+  /Movimiento original distinto al ledger/);
+ assert.equal(data.eventos.length,0);
 });
