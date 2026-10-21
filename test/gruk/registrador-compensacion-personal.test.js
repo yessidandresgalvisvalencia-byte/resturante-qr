@@ -146,6 +146,8 @@ test("el verificador exige índices únicos exactos y falla cerrado sin conexió
  ];
  assert.equal(verificarIndices(idx,"fp_compensacion_orden_usuario_v1",[["usuarioId",1],["secuencia",1]]),true);
  assert.equal(verificarIndices([{...idx[1],unique:false}],"fp_compensacion_orden_usuario_v1",[["usuarioId",1],["secuencia",1]]),false);
+ assert.equal(verificarIndices([{name:"_id_",key:{_id:1}}],"_id_",[["_id",1]]),true);
+ assert.equal(verificarIndices([{name:"_id_",unique:false,key:{_id:1}}],"_id_",[["_id",1]]),false);
  const CursorModelo={collection:{indexes:async()=>[{name:"_id_",unique:true,key:{_id:1}}]}};
  const EventoModelo={collection:{indexes:async()=>idx}};
  await exigirIndices({EventoModelo,CursorModelo});
