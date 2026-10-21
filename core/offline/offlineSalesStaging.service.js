@@ -47,7 +47,7 @@ async function stageOfflineSales({db,session,context,plan}){
   catch(e){if(e?.code===11000)fail("OFFLINE_SALES_CONCURRENT_RETRY_REQUIRED");throw e;}
   // Reject ambiguous Mongo acknowledgments: only 0 (replay) or 1 (insert)
   // can be reconciled without risking a false posting success.
-  if(!result||result.acknowledged===false||!Number.isInteger(result.upsertedCount)||
+  if(!result||result.acknowledged!==true||!Number.isInteger(result.upsertedCount)||
      (result.upsertedCount!==0&&result.upsertedCount!==1))
     fail("OFFLINE_SALES_WRITE_UNVERIFIED");
   if(result.upsertedCount!==1){
