@@ -19,7 +19,7 @@ async function verifyOfflineProducts({collection,prepared,context,objectId,sessi
  };
  const query={_id:{$in:ids.map(asId)},empresaId:asId(context.empresaId),
   sedeId:asId(context.sedeId),activo:true};
- const found=await collection.find(query,{projection:{_id:1,empresaId:1,sedeId:1,activo:1},...(session?{session}:{})}).toArray();
+ const found=await collection.find(query,{projection:{_id:1,empresaId:1,sedeId:1,activo:1},limit:ids.length+1,...(session?{session}:{})}).toArray();
  // Defense in depth: validate returned records, not only the query predicate.
  if(!Array.isArray(found)||found.length!==ids.length)fail();
  const valid=new Set();
