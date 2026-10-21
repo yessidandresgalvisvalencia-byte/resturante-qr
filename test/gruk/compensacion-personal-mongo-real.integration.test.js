@@ -74,8 +74,40 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   assert.equal(await Outbox.countDocuments({usuarioId}),1);
   assert.deepEqual(await Cursor.findById(String(usuarioId)).lean(),cabeza);
   assert.equal((await Movimiento.findById(asiento._id).lean()).montoMinor,25000);
+  // Dos correcciones compiten sobre la MISMA cuenta y cursor del usuario.
+  // Una operación que reciba WriteConflict no puede dejar saldo ni outbox sueltos.
+  const [asientoSegundo]=await Movimiento.create([{
+   usuarioId,cuentaId:cuenta._id,cuenta:cuenta.nombre,
+   tipo:"GASTO",montoMinor:30000,concepto:"Transporte",categoria:"Movilidad",
+   fecha:new Date("2026-10-20T13:00:00.000Z"),estado:"ACTIVA",
+   impactoCaja:true,recurrente:false
+  }]);
+  const segundo={usuarioId:String(usuarioId),movimientoId:String(asientoSegundo._id),
+   tipo:"GASTO",montoMinor:30000,concepto:"Transporte",categoria:"Movilidad"};
+  const propuestas=[
+   {original:segundoOriginal,tipo:"CORRECCION",cambios:{montoMinor:21000},
+    idempotencyKey:"concurrente_uno",fechaISO:"2026-10-20T17:00:00.000Z"},
+   {original:segundo,tipo:"CORRECCION",cambios:{montoMinor:28000},
+    idempotencyKey:"concurrente_dos",fechaISO:"2026-10-20T17:00:00.000Z"}
+  ];
+  const carrera=await Promise.allSettled(propuestas.map(p=>registrar(p)));
+  const confirmados=carrera.filter(p=>p.status==="fulfilled");
+  assert.ok(confirmados.length>=1,"Debe confirmarse al menos una compensación concurrente");
+  for(const fallo of carrera.filter(p=>p.status==="rejected"))
+   assert.ok(fallo.reason.statusCode===409||[112,251].includes(fallo.reason.code)||
+    fallo.reason.hasErrorLabel?.("TransientTransactionError")===true,
+    "Fallo concurrente inesperado: "+String(fallo.reason));
+  const deltas=confirmados.reduce((n,r)=>n+BigInt(r.value.deltaCajaMinor),0n);
+  const cuentaFinal=await Cuenta.findById(cuenta._id).lean();
+  assert.equal(BigInt(cuentaFinal.saldoMinor),103000n+deltas);
+  assert.equal(await Evento.countDocuments({usuarioId:String(usuarioId)}),1+confirmados.length);
+  assert.equal(await Outbox.countDocuments({usuarioId}),1+confirmados.length);
+  const cabezaFinal=await Cursor.findById(String(usuarioId)).lean();
+  assert.equal(cabezaFinal.secuencia,1+confirmados.length);
+  assert.equal((await Movimiento.findById(asientoSegundo._id).lean()).montoMinor,30000);
   const eventos=await Evento.find({usuarioId:String(usuarioId)}).sort({secuencia:1}).lean();
   assert.equal(verificarCadena(eventos,{prevHash:"0".repeat(64)}),true);
+  assert.equal(eventos.at(-1).hashActual,cabezaFinal.hashActual);
  }finally{
   try{
    if(mongoose.connection.readyState===1&&mongoose.connection.db.databaseName===dbName)
