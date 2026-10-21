@@ -51,7 +51,10 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
    empresaId:scopedEmpresaId,sedeId:scopedSedeId,
    productoServicioId:products[index],anulado:false
   },{projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1},limit:2}).toArray();
-  if(rows.length!==1||
+  if(!Array.isArray(rows)||rows.length!==1||!Object.hasOwn(rows,0)||
+   !rows[0]||typeof rows[0]!=="object"||
+   rows[0]._id===null||rows[0]._id===undefined||
+   String(rows[0]._id).trim().length===0||
    String(rows[0]?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
    String(rows[0]?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
    String(rows[0]?.productoServicioId).toLowerCase()!==delta.productoId.toLowerCase()||
