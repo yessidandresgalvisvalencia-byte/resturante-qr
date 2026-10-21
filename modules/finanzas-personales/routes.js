@@ -16,6 +16,17 @@ router.use((req,res,next)=>{
 // V81: diagnóstico en solo lectura, con identidad obtenida exclusivamente del JWT personal verificado.
 // Esta ruta no permite escoger usuario por body, params, query ni headers.
 router.get("/v81/integridad",require("./services/consultaIntegridadV81.handler").crearConsultaIntegridadV81());
+router.get("/v81/transacciones/:id/estado-compensado",async(req,res)=>{
+ try{
+  const consultar=require("./services/consultaMovimientoCompensadoPersonal.service")
+   .crearConsultaMovimientoCompensado();
+  const estado=await consultar(req.personalAuth.userId,req.params.id);
+  return res.json({ok:true,estado});
+ }catch(e){
+  return res.status(e.statusCode||500).json({ok:false,
+   error:e.statusCode?e.message:"No fue posible verificar el movimiento"});
+ }
+});
 router.get("/v81/flujo-compensado",async(req,res)=>{
  try{
   const {desde,hasta}=req.query;
