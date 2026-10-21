@@ -18,7 +18,10 @@ function evento(o,tipo,cambios,prevHash,secuencia){
 const primero=evento(original,"CORRECCION",{montoMinor:22000},GENESIS,1);
 const segundo=evento({...original,montoMinor:22000},"CORRECCION",
  {concepto:"Mercado"},primero.hashActual,2);
-function db({asientoActual=asiento,eventos=[],cursor=null}={}){
+function db({asientoActual=asiento,eventos=[],cursor=null,cuenta={
+ _id:"507f1f77bcf86cd799439013",usuarioId,activa:true,
+ moneda:"COP",requiereReconciliacion:false,saldoMinor:100000
+}}={}){
  const cuenta={sessionCount:0,closed:0,queries:[]};
  const sesion={async withTransaction(fn){cuenta.sessionCount++;await fn();},
   async endSession(){cuenta.closed++;}};
@@ -28,6 +31,7 @@ function db({asientoActual=asiento,eventos=[],cursor=null}={}){
  return {cuenta,
   MovimientoModelo:{findOne(){return query(asientoActual);}},
   EventoModelo:{find(){return query(eventos);}},
+  CuentaModelo:{findOne(){return query(cuenta);}},
   CursorModelo:{findById(){return query(cursor);}},
   nuevaSesion:async()=>sesion
  };
@@ -39,7 +43,7 @@ test("sin compensaciones devuelve original como versión vigente bajo snapshot",
  assert.equal(r.elegibleParaCompensar,true);
  assert.equal(r.ultimaSecuencia,0);
  assert.equal(r.hashCadena,GENESIS);
- assert.equal(d.cuenta.queries.length,3);
+ assert.equal(d.cuenta.queries.length,4);
  assert.equal(d.cuenta.closed,1);
 });
 test("dos cambios sucesivos conservan monto y concepto del historial",async()=>{
@@ -83,4 +87,19 @@ test("ruta de consulta de estado protegida por autenticación personal",()=>{
  assert.ok(s.indexOf("router.use(auth,entitlement)")<
   s.indexOf('router.get("/v81/transacciones/:id/estado-compensado"'));
  assert.ok(s.includes("consultar(req.personalAuth.userId,req.params.id)"));
+});
+
+test("consulta no ofrece corrección de préstamo, cuota vinculada ni saldo sin conciliar",async()=>{
+ for(const args of [
+  {asientoActual:{...asiento,recurrenteOrigenId:"507f1f77bcf86cd799439099"}},
+  {asientoActual:{...asiento,prestamoId:"507f1f77bcf86cd799439099"}},
+  {asientoActual:{...asiento,recurrente:true}},
+  {asientoActual:{...asiento,impactoCaja:false}},
+  {cuenta:{_id:asiento.cuentaId,usuarioId,activa:true,
+   moneda:"COP",requiereReconciliacion:true,saldoMinor:10000}},
+  {cuenta:null}
+ ]){
+  const r=await crearConsultaMovimientoCompensado(db(args))(usuarioId,mid);
+  assert.equal(r.elegibleParaCompensar,false);
+ }
 });
