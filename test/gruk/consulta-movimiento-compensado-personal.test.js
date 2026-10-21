@@ -103,3 +103,22 @@ test("consulta no ofrece corrección de préstamo, cuota vinculada ni saldo sin 
   assert.equal(r.elegibleParaCompensar,false);
  }
 });
+
+test("deudas y préstamos se consultan sin exponer corrección inmutable no soportada",async()=>{
+ for(const tipo of ["PAGO_DEUDA","PRESTAMO_RECIBIDO","PRESTAMO_OTORGADO","COBRO_PRESTAMO","AJUSTE_SALDO"]){
+  const d=db({asientoActual:{...asiento,tipo}});
+  const r=await crearConsultaMovimientoCompensado(d)(usuarioId,mid);
+  assert.equal(r.elegibleParaCompensar,false);
+  assert.equal(r.original,null);
+  assert.equal(r.motivo,"TIPO_NO_ADMITIDO_POR_LEDGER_COMPENSATORIO");
+  assert.equal(d.cuenta.closed,1);
+ }
+});
+test("un evento compensatorio sobre préstamo implica corrupción, no elegibilidad",async()=>{
+ const d=db({asientoActual:{...asiento,tipo:"PAGO_DEUDA"},
+  eventos:[primero],cursor:{secuencia:1,hashActual:primero.hashActual}});
+ await assert.rejects(
+  crearConsultaMovimientoCompensado(d)(usuarioId,mid),
+  e=>e.statusCode===409&&/evento sobre tipo patrimonial/.test(e.message)
+ );
+});
