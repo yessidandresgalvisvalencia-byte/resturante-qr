@@ -251,3 +251,28 @@ test("Capa 2: el escritor legado rechaza descuentos dispersos sin tocar Mongo ni
   assert.equal(conversions,0);
  }
 });
+
+test("Capa 2: el adaptador no puede insertar operadores Mongo en descuento offline",async()=>{
+ const operators=[
+  value=>({$ne:null,toString:()=>value}),
+  value=>({$eq:value,toString:()=>value}),
+  value=>({toString:()=>value}),
+  value=>({toHexString:()=>value,toString:()=>value}),
+  value=>new String(value),
+  value=>[value]
+ ];
+ for(const objectId of operators){
+  let reads=0;
+  const db={collection(){reads++;throw Error("FORBIDDEN_INVENTORY_ACCESS");}};
+  await assert.rejects(apply({db,session:{inTransaction:()=>true},
+   context,inventoryDeltas,objectId}),{code:"OFFLINE_INVENTORY_TENANT_REQUIRED"});
+  assert.equal(reads,0);
+ }
+});
+test("Capa 2: ObjectId BSON legítimo preserva descuento transaccional",async()=>{
+ const f=fixture();
+ const asBson=value=>({_bsontype:"ObjectId",toHexString:()=>value,toString:()=>value});
+ assert.deepEqual(await apply({...f,context,inventoryDeltas,objectId:asBson}),
+  [{productoId,antes:"5",despues:"3"}]);
+ assert.equal(f.writes(),1);
+});
