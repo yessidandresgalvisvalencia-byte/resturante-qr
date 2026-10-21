@@ -81,3 +81,25 @@ test("no oculta estados históricos desconocidos ni acepta doble anulación",()=
  const e=crear(descriptor(gasto),"ANULACION",{},"anular_con_evento",1,genesis);
  assert.equal(flujoCompensadoPuro({...periodo,movimientos:[gasto],eventos:[e]}).gastosMinor,0);
 });
+
+test("anulación no esconde fecha, moneda ni monto histórico adulterados",()=>{
+ const e=crear(descriptor(gasto),"ANULACION",{},"anulado_verificado",1,genesis);
+ for(const cambio of [
+  {fecha:"inválida"},{moneda:"USD"},{montoMinor:0},{montoMinor:0.5}
+ ]){
+  assert.throws(()=>flujoCompensadoPuro({...periodo,
+   movimientos:[{...gasto,...cambio}],eventos:[e]}),/INTEGRIDAD_LEDGER/);
+ }
+});
+test("filtro del período no esconde corrupción en otros meses",()=>{
+ const fuera={...ingreso,fecha:"2026-11-02T00:00:00.000Z"};
+ for(const cambio of [{montoMinor:-10},{montoMinor:0.1},{moneda:"USD"}]){
+  assert.throws(()=>flujoCompensadoPuro({...periodo,
+   movimientos:[gasto,{...fuera,...cambio}]}),/INTEGRIDAD_LEDGER/);
+ }
+});
+test("anulación heredada también comprueba metadatos antes de descartarse",()=>{
+ assert.throws(()=>flujoCompensadoPuro({...periodo,
+  movimientos:[{...gasto,estado:"ANULADA",fecha:"incorrecta"}]}),
+  /INTEGRIDAD_LEDGER: fecha inválida/);
+});
