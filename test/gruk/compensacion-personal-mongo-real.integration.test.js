@@ -246,6 +246,20 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   const pruebaUltimo=await Evento.find({usuarioId:String(usuarioId)})
    .sort({secuencia:1}).lean();
   assert.equal(vigenteHttp.hashCadena,pruebaUltimo.at(-1).hashActual);
+  // Una cuota recurrente prevista no es gasto de caja realizado.
+  const flujoAntesPendiente=await consultar(String(usuarioId),intervalo);
+  const [obligacionPendiente]=await Movimiento.create([{
+   usuarioId,cuentaId:cuenta._id,cuenta:cuenta.nombre,
+   tipo:"GASTO",montoMinor:500000,concepto:"Arriendo previsto",
+   categoria:"Vivienda",fecha:new Date("2026-10-20T14:40:00.000Z"),
+   recurrente:true,frecuencia:"MENSUAL",impactoCaja:false,
+   estado:"ACTIVA"
+  }]);
+  const flujoDespuesPendiente=await consultar(String(usuarioId),intervalo);
+  assert.equal(flujoDespuesPendiente.gastosMinor,flujoAntesPendiente.gastosMinor,
+   "Compromiso futuro no debe sumarse como egreso de caja ya realizado");
+  assert.equal(flujoDespuesPendiente.flujoNetoMinor,flujoAntesPendiente.flujoNetoMinor);
+  assert.equal((await Movimiento.findById(obligacionPendiente._id).lean()).impactoCaja,false);
   // Prueba forense en base EFÍMERA: un movimiento de OTRO período
   // corrompido no puede pasar inadvertido en un resumen mensual válido.
   const [fueraDePeriodo]=await Movimiento.create([{
