@@ -75,3 +75,26 @@ test("bloquea historial con eventos sin cursor",async()=>{
  await assert.rejects(()=>crearConsultaFlujoCompensado(db)(usuarioId,periodo),
   e=>e.statusCode===409&&/eventos sin cursor/.test(e.message));
 });
+
+test("diagnóstico reutiliza el mismo snapshot y detecta obligación no pagada",async()=>{
+ const pendiente={...monto,_id:"507f1f77bcf86cd799439099",
+  montoMinor:500000,concepto:"Arriendo previsto",impactoCaja:false,recurrente:true};
+ const db=modelos({movimientos:[monto,pendiente]});
+ const consultar=crearConsultaFlujoCompensado(db);
+ const r=await consultar(usuarioId,{...periodo,diagnostico:true});
+ assert.equal(r.coincide,false);
+ assert.equal(r.legado.gastosMinor,501000);
+ assert.equal(r.verificado.gastosMinor,1000);
+ assert.equal(r.diferenciaVerificadoMenosLegado.flujoNetoMinor,500000);
+ assert.equal(r.obligacionesNoCajaIncluidasPorLegado,1);
+ assert.equal(db.estado.transacciones,1);
+ assert.equal(db.estado.cerradas,1);
+ assert.equal(db.sesiones.length,3);
+ assert.equal(new Set(db.sesiones).size,1);
+});
+test("diagnóstico no cambia respuesta original de flujo compensado",async()=>{
+ const consultar=crearConsultaFlujoCompensado(modelos());
+ const r=await consultar(usuarioId,{...periodo,diagnostico:false});
+ assert.equal(r.flujoNetoMinor,-1000);
+ assert.equal(r.coincide,undefined);
+});
