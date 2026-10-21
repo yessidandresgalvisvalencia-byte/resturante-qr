@@ -64,4 +64,4 @@ function verificarCadena(eventos,{prevHash,secuenciaInicial=1}={}){
  }
  return true;
 }
-module.exports={eventoCompensatorio,verificarCadena,canon};
+module.exports={eventoCompensatorio,verificarCadena,canon,originalVerificado};
