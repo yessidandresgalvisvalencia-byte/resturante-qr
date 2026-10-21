@@ -246,6 +246,22 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   const pruebaUltimo=await Evento.find({usuarioId:String(usuarioId)})
    .sort({secuencia:1}).lean();
   assert.equal(vigenteHttp.hashCadena,pruebaUltimo.at(-1).hashActual);
+  // Prueba forense en base EFÍMERA: un movimiento de OTRO período
+  // corrompido no puede pasar inadvertido en un resumen mensual válido.
+  const [fueraDePeriodo]=await Movimiento.create([{
+   usuarioId,cuentaId:cuenta._id,cuenta:cuenta.nombre,
+   tipo:"GASTO",montoMinor:777,concepto:"Fuera de ventana",
+   categoria:"Pruebas",fecha:new Date("2026-12-05T12:00:00.000Z"),
+   estado:"ACTIVA",impactoCaja:true
+  }]);
+  await Movimiento.collection.updateOne({_id:fueraDePeriodo._id},
+   {$set:{montoMinor:0}});
+  await assert.rejects(()=>consultar(String(usuarioId),intervalo),
+   e=>e.statusCode===409&&/importe histórico inválido/.test(e.message));
+  await Movimiento.collection.updateOne({_id:fueraDePeriodo._id},
+   {$set:{montoMinor:777}});
+  assert.equal((await consultar(String(usuarioId),intervalo)).flujoNetoMinor,
+   Number(-52000n+deltas+500n+ (legacyGano?0n:1000n)));
   // Suprimir un evento del extremo deja una cadena con hashes válidos, pero
   // el cursor revela el borrado: nunca devolver un flujo parcial.
   await Evento.collection.deleteOne({_id:eventos.at(-1)._id});
