@@ -129,3 +129,65 @@ test("Capa 2: conversor ObjectId roto o nulo falla antes de lectura de inventari
   assert.equal(inventoryReads,0);
  }
 });
+
+test("Capa 2: auditoría niega adaptador de identidad con operadores antes de leer inventario",async()=>{
+ for(const converter of [
+  value=>({$ne:null,toString:()=>value}),
+  value=>({$eq:value,toString:()=>value}),
+  value=>({toString:()=>value}),
+  value=>({toHexString:()=>value,toString:()=>value}),
+  value=>new String(value),
+  value=>[value]
+ ]){
+  const source=mock(1);
+  let inventoryReads=0,conflictWrites=0;
+  const db={collection(name){
+   if(name==="inventarios"){inventoryReads++;throw Error("FORBIDDEN_INVENTORY_READ");}
+   if(name==="gruk_offline_stock_conflicts"){conflictWrites++;throw Error("FORBIDDEN_AUDIT_WRITE");}
+   return source.db.collection(name);
+  }};
+  await assert.rejects(record({db,context,eventIds:[eventId],objectId:converter}),
+   {code:"OFFLINE_STOCK_AUDIT_IDENTITY_INVALID"});
+  assert.equal(inventoryReads,0);assert.equal(conflictWrites,0);
+ }
+});
+test("Capa 2: auditoría niega _id con operador Mongo sin registrar faltantes",async()=>{
+ for(const id of [
+  {$ne:null,toString:()=>"inventory"},{$eq:"inventory",toString:()=>"inventory"},
+  {toString:()=>"inventory"},["inventory"],new String("inventory"),{}
+ ]){
+  let writes=0;
+  const source=mock(1);
+  const db={collection(name){
+   if(name==="inventarios")return {find(){return {toArray:async()=>[{
+    _id:id,empresaId:context.empresaId,sedeId:context.sedeId,
+    productoServicioId:productId,anulado:false,cantidad:1
+   }]};}};
+   if(name==="gruk_offline_stock_conflicts"){writes++;throw Error("FORBIDDEN_AUDIT_WRITE");}
+   return source.db.collection(name);
+  }};
+  await assert.rejects(record({db,context,eventIds:[eventId],objectId:x=>x}),
+   {code:"OFFLINE_STOCK_AUDIT_MAPPING_UNAVAILABLE"});
+  assert.equal(writes,0);
+ }
+});
+test("Capa 2: BSON ObjectId legítimo mantiene auditoría y registro idempotente",async()=>{
+ const id=value=>({_bsontype:"ObjectId",toHexString:()=>value,toString:()=>value});
+ const fixture=mock(1);
+ const db={collection(name){
+  if(name==="inventarios")return {find(query){
+   assert.equal(String(query.empresaId),context.empresaId);
+   assert.equal(String(query.sedeId),context.sedeId);
+   assert.equal(String(query.productoServicioId),productId);
+   return {toArray:async()=>[{
+    _id:id("507f1f77bcf86cd799439019"),empresaId:context.empresaId,
+    sedeId:context.sedeId,productoServicioId:productId,anulado:false,cantidad:1
+   }]};
+  }};
+  return fixture.db.collection(name);
+ }};
+ const r=await record({db,context,eventIds:[eventId],objectId:id});
+ assert.equal(r.status,"REQUIERE_REVISION_STOCK");
+ assert.equal(fixture.writes,1);
+ assert.deepEqual(r.issues,[{productoId:productId,disponible:"1",solicitado:"2",faltante:"1"}]);
+});
