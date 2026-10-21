@@ -38,6 +38,8 @@ function flujoCompensadoPuro({usuarioId,movimientos,eventos=[],desde,hasta}){
   if(!Number.isFinite(fecha.getTime()))integridad("fecha inválida");
   if(fecha<inicio||fecha>=fin)continue;
   if(m.moneda!=="COP")integridad("moneda no autorizada");
+  // Un ajuste manual de saldo no equivale a ingreso/gasto del período.
+  if(actual.tipo==="AJUSTE_SALDO")continue;
   if(Object.prototype.hasOwnProperty.call(acumulado,actual.tipo))
    acumulado[actual.tipo]+=entero(actual.montoMinor);
   else integridad("tipo de movimiento desconocido");
