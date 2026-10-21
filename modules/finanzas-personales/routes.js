@@ -221,6 +221,31 @@ const tarjetaOperacion=Joi.object({deudaId:Joi.string().hex().length(24).require
  }
 });
 router.post("/transacciones",validate(transaccion),async(req,res)=>{try{return res.status(201).json({ok:true,transaccion:await flujoCaja.registrarTransaccion(req.personalAuth.userId,req.validated)});}catch(e){if(e?.code===11000)return res.status(409).json({ok:false,error:"Transacción duplicada"});return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+// V81: ruta aditiva append-only. No reemplaza el PATCH/DELETE legado mientras
+// sus proyecciones y reservas recurrentes no hayan completado la migración.
+const compensacionTx=Joi.object({
+ idempotencyKey:Joi.string().pattern(/^[A-Za-z0-9_-]{1,128}$/).required(),
+ tipo:Joi.string().valid("CORRECCION","ANULACION").required(),
+ original:Joi.object({
+  tipo:Joi.string().valid("INGRESO","GASTO").required(),
+  montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),
+  concepto:Joi.string().trim().min(1).max(140).required(),
+  categoria:Joi.string().trim().min(1).max(80).required()
+ }).unknown(false).required(),
+ cambios:Joi.object({
+  tipo:Joi.string().valid("INGRESO","GASTO"),
+  montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),
+  concepto:Joi.string().trim().min(1).max(140),
+  categoria:Joi.string().trim().min(1).max(80)
+ }).unknown(false).default({})
+}).unknown(false).custom((value,helpers)=>{
+ const keys=Object.keys(value.cambios||{});
+ if(value.tipo==="ANULACION"&&keys.length)return helpers.error("any.invalid");
+ if(value.tipo==="CORRECCION"&&!keys.length)return helpers.error("any.invalid");
+ return value;
+});
+router.post("/v81/transacciones/:id/compensaciones",validate(compensacionTx),
+ require("./services/compensacionPersonal.handler").crearCompensacionPersonalHandler());
 const correccionTx=Joi.object({tipo:Joi.string().valid("INGRESO","GASTO"),montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),concepto:Joi.string().trim().max(140),categoria:Joi.string().trim().max(80)}).min(1);
 router.patch("/transacciones/:id",validate(correccionTx),async(req,res)=>{try{const tx=await flujoCaja.corregirTransaccion(req.personalAuth.userId,req.params.id,req.validated);return tx?res.json({ok:true,transaccion:tx}):res.status(404).json({ok:false,error:"Movimiento no encontrado"});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir el movimiento"});}});
 router.delete("/transacciones/:id",async(req,res)=>{try{return res.json({ok:true,transaccion:await flujoCaja.anularTransaccion(req.personalAuth.userId,req.params.id,"Eliminada manualmente por el usuario")});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible eliminar el movimiento"});}});
