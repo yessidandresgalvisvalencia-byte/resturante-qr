@@ -19,7 +19,9 @@ function dbMock(){
   if(name==="gruk_offline_stock_conflict_reviews")return {
    async updateOne(key,patch,options){
     writes++;assert.equal(options.upsert,true);assert.equal(key.empresaId,auth.empresaId);
-    if(!stored)stored=patch.$setOnInsert;return stored?{matchedCount:1}:{upsertedCount:1};
+    if(stored)return {acknowledged:true,upsertedCount:0};
+    stored=patch.$setOnInsert;
+    return {acknowledged:true,upsertedCount:1};
    },async findOne(){return stored;}
   };
   throw Error("UNKNOWN_COLLECTION");
