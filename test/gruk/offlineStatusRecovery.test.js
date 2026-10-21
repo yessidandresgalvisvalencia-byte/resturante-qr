@@ -106,6 +106,6 @@ test("Capa 2: rejected orders are reported without falsely acknowledging invento
 test("Capa 2: NO_ENCONTRADO cannot acknowledge an offline event as applied",async()=>{
  const db={collection(name){return {find:()=>({toArray:async()=>name==="gruk_offline_inbox"?
   [{...context,eventId:ids[0],status:"NO_ENCONTRADO",inventoryApplied:true}]:[]})};}};
- assert.deepEqual(await readOfflineStatuses({db,context,eventIds:[ids[0]]}),
-  [{eventId:ids[0],status:"NO_ENCONTRADO",applied:false}]);
+ await assert.rejects(readOfflineStatuses({db,context,eventIds:[ids[0]]}),
+  {code:"OFFLINE_STATUS_EVIDENCE_INVALID"});
 });
