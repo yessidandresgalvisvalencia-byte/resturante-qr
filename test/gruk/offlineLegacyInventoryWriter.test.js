@@ -10,7 +10,7 @@ function fixture({stock=5,records=1,persistedStock=3}={}){
    return {limit:n=>{assert.equal(n,2);return {toArray:async()=>rows};}};},
   findOne:async(key,opts)=>{assert.equal(opts.session,session);assert.ok(key._id!==undefined);return {_id:key._id,empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:persistedStock};},
   updateOne:async(key,update,opts)=>{assert.equal(opts.session,session);assert.equal(key.cantidad,stock);
-   assert.equal(update.$inc.cantidad,-2);writes++;return {matchedCount:1,modifiedCount:1};}
+   assert.equal(update.$inc.cantidad,-2);writes++;return {acknowledged:true,matchedCount:1,modifiedCount:1};}
  };}};
  return {db,session,writes:()=>writes};
 }
@@ -74,7 +74,7 @@ test("Capa 2: post-debit verification rejects a different tenant, product or sto
    anulado:false,cantidad:5};
   const db={collection:()=>({
    find(){return {limit(){return {toArray:async()=>[original]};}};},
-   async updateOne(){writes++;return {matchedCount:1,modifiedCount:1};},
+   async updateOne(){writes++;return {acknowledged:true,matchedCount:1,modifiedCount:1};},
    async findOne(){return {...original,cantidad:3,...patch};}
   })};
   await assert.rejects(apply({db,session:{inTransaction:()=>true},context,
@@ -207,9 +207,9 @@ test("Capa 2: two offline tablets racing for last unit cannot debit it twice",as
    async updateOne(key,update,options){
     assert.equal(options.session.inTransaction(),true);
     assert.equal(update.$inc.cantidad,-1);
-    if(remaining!==key.cantidad)return {matchedCount:0,modifiedCount:0};
+    if(remaining!==key.cantidad)return {acknowledged:true,matchedCount:0,modifiedCount:0};
     remaining--;writes++;
-    return {matchedCount:1,modifiedCount:1};
+    return {acknowledged:true,matchedCount:1,modifiedCount:1};
    },
    async findOne(key){
     return {_id:key._id,empresaId,sedeId,productoServicioId:productoId,
