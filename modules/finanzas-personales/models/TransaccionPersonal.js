@@ -29,6 +29,8 @@ const schema=new mongoose.Schema({
  motivoAnulacion:{type:String,trim:true,maxlength:240,default:""}
 },{timestamps:true,collection:"fin_transacciones_personales"});
 schema.index({usuarioId:1,recurrenteOrigenId:1,fecha:1});schema.index({usuarioId:1,fecha:-1});schema.index({usuarioId:1,tipo:1,categoria:1,fecha:-1});
+// Resúmenes por persona/tipo/ventana: sin escanear categorías ajenas ni otras identidades.
+schema.index({usuarioId:1,tipo:1,fecha:-1},{name:"fp_gastos_periodo_usuario_v81"});
 // Consultas de conciliación histórica: aislar por usuario/cuenta antes del período.
 schema.index({usuarioId:1,cuentaId:1,fecha:1},{name:"fp_conciliacion_cuenta_periodo_v81"});
 schema.index({usuarioId:1,cuentaId:1,cuenta:1,fecha:1},{name:"fp_conciliacion_huerfanos_periodo_v81"});
