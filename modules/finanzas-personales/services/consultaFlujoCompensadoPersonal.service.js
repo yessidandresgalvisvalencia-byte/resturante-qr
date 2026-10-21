@@ -4,6 +4,7 @@ const Transaccion=require("../models/TransaccionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const {flujoCompensadoPuro}=require("./flujoCompensadoPersonal.service");
+const {compararProyeccionesPersonal}=require("./compararProyeccionesPersonal.service");
 const LIMITE=10000,GENESIS="0".repeat(64);
 function errorVolumen(){throw Object.assign(new Error("Historial demasiado extenso para verificación completa; requiere reconciliación"),{statusCode:503});}
 function integridad(mensaje){throw Object.assign(new Error("INTEGRIDAD_LEDGER: "+mensaje),{statusCode:409});}
@@ -11,7 +12,7 @@ function crearConsultaFlujoCompensado({
  TransaccionModelo=Transaccion,EventoModelo=Evento,CursorModelo=Cursor,
  nuevaSesion=()=>mongoose.startSession()
 }={}){
- return async function consultar(usuarioId,{desde,hasta}={}){
+ return async function consultar(usuarioId,{desde,hasta,diagnostico=false}={}){
   if(!mongoose.isValidObjectId(usuarioId))
    throw Object.assign(new Error("Identidad no válida"),{statusCode:400});
   const inicio=new Date(desde),fin=new Date(hasta);
@@ -40,9 +41,12 @@ function crearConsultaFlujoCompensado({
       cursor.hashActual!==(eventos.length?eventos.at(-1).hashActual:GENESIS))
        integridad("cursor y eventos desincronizados");
     }else if(eventos.length)integridad("eventos sin cursor");
-    resultado=flujoCompensadoPuro({
+    const verificado=flujoCompensadoPuro({
      usuarioId:String(usuarioId),movimientos,eventos,desde:inicio,hasta:fin
     });
+    resultado=diagnostico===true?compararProyeccionesPersonal({
+     usuarioId:String(usuarioId),movimientos,desde:inicio,hasta:fin,verificado
+    }):verificado;
    },{readConcern:{level:"snapshot"},readPreference:"primary"});
    return resultado;
   }finally{await session.endSession();}
