@@ -15,8 +15,10 @@ async function readOfflineOrderCandidates({db,context,eventIds,session}){
   const docs=await db.collection("gruk_offline_inbox").find({
     empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,
     tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",eventId:{$in:eventIds}
-  },{projection:{_id:0,eventId:1,empresaId:1,sedeId:1,actorId:1,tipo:1,status:1,payload:1},...(session?{session}:{})}).toArray();
-  if(!Array.isArray(docs)||docs.length!==eventIds.length||docs.some(x=>
+  },{projection:{_id:0,eventId:1,empresaId:1,sedeId:1,actorId:1,tipo:1,status:1,payload:1},limit:101,...(session?{session}:{})}).toArray();
+  if(!Array.isArray(docs)||docs.length!==eventIds.length||
+    !Array.from({length:docs.length},(_,i)=>Object.hasOwn(docs,i)).every(Boolean)||
+    docs.some(x=>
     !x||x.empresaId!==context.empresaId||x.sedeId!==context.sedeId||
     x.actorId!==context.actorId||x.tipo!=="PEDIDO_REGISTRADO"||
     x.status!=="PENDIENTE"||!eventIds.includes(x.eventId)))
