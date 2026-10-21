@@ -21,8 +21,13 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
   }
  };
  const ModeloEvento={
-  findOne(filter){return {session(){return {lean:async()=>
-   repetido?{idempotencyKey:filter.idempotencyKey}:staged.eventos.find(e=>e.idempotencyKey===filter.idempotencyKey)||null};}};},
+  findOne(filter){
+   const leer=async()=>filter.idempotencyKey!==undefined?
+     (repetido?{idempotencyKey:filter.idempotencyKey}:staged.eventos.find(e=>e.idempotencyKey===filter.idempotencyKey)||null):
+     ([...staged.eventos].reverse().find(e=>e.usuarioId===filter.usuarioId&&e.movimientoId===filter.movimientoId)||null);
+   return {sort(){return {session(){return {lean:leer};}};},
+    session(){return {lean:leer};}};
+  },
   async create(rows){
    if(romperInsercion)throw new Error("Fallo de inserción");
    staged.eventos.push(...rows);return rows;
@@ -45,7 +50,7 @@ const entrada=(key="operacion_1")=>({original,tipo:"CORRECCION",
 test("primer evento crea cursor y evento; segundo enlaza hash y secuencia",async()=>{
  const {data,registrar}=bancoSimulado();
  const a=await registrar(entrada("operacion_1"));
- const b=await registrar(entrada("operacion_2"));
+ const b=await registrar({...entrada("operacion_2"),original:{...original,montoMinor:22000},cambios:{montoMinor:20000}});
  assert.deepEqual([a.secuencia,b.secuencia],[1,2]);
  assert.equal(a.prevHash,GENESIS);
  assert.equal(b.prevHash,a.hashActual);
@@ -101,4 +106,19 @@ test("el verificador exige índices únicos exactos y falla cerrado sin conexió
  await assert.rejects(exigirIndices({
   EventoModelo:{collection:{indexes:async()=>{throw Error("sin mongo");}}},CursorModelo
  }),/no verificables/);
+});
+
+test("un segundo evento con importe obsoleto se rechaza dentro del snapshot",async()=>{
+ const {data,registrar}=bancoSimulado();
+ await registrar(entrada("primero"));
+ await assert.rejects(registrar(entrada("segundo")),/Movimiento desactualizado/);
+ assert.equal(data.eventos.length,1);
+ assert.equal(data.cursor.secuencia,1);
+});
+test("una anulación cierra permanentemente el movimiento para nuevas compensaciones",async()=>{
+ const {data,registrar}=bancoSimulado();
+ await registrar({...entrada("anular"),tipo:"ANULACION",cambios:{}});
+ await assert.rejects(registrar(entrada("corregir_despues")),/Movimiento anulado/);
+ await assert.rejects(registrar({...entrada("anular_dos"),tipo:"ANULACION",cambios:{}}),/Movimiento anulado/);
+ assert.equal(data.eventos.length,1);
 });
