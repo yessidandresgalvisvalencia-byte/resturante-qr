@@ -39,9 +39,20 @@ function resumir(transacciones,ahora=new Date()){
  const r=limites(ahora);
  let semana=0,mes=0,cantidadSemana=0,cantidadMes=0,creditoSemana=0,creditoMes=0,cantidadCreditoSemana=0,cantidadCreditoMes=0;
  const vistos=new Map();
+ const estadosPorId=new Map();
  for(const tx of transacciones){
   if(!tx||typeof tx!=="object")
    throw new Error("INTEGRIDAD_HORMIGA: registro de gasto incompleto o tipo contradictorio");
+  // Dos estados para el mismo ID invalidan la lectura, incluso si una copia está ANULADA.
+  // No basta omitir la copia anulada: eso podría publicar un gasto ya revertido.
+  if(tx.tipo==="GASTO"&&tx._id!=null){
+   const idEstado=String(tx._id).trim();
+   if(idEstado&&idEstado!=="[object Object]"){
+    if(estadosPorId.has(idEstado)&&estadosPorId.get(idEstado)!==tx.estado)
+     throw new Error("INTEGRIDAD_HORMIGA: mismo movimiento con estados contradictorios");
+    estadosPorId.set(idEstado,tx.estado);
+   }
+  }
   const medio=medioHormigaVerificado(tx);
   if(medio===null)continue;
   const esCaja=medio==="CAJA";
