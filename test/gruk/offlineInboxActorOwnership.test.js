@@ -11,7 +11,7 @@ const event = {
 };
 test("offline inbox rejects a replay when stored actor ownership differs, even with matching digest", async () => {
   const collection = {
-    updateOne: async () => ({ upsertedCount: 0 }),
+    updateOne: async () => ({ acknowledged:true,upsertedCount: 0 }),
     findOne: async () => ({ eventHash: digest(event), actorId: "otroCajero" })
   };
   const db = { collection: name => {
@@ -25,7 +25,7 @@ test("offline inbox rejects a replay when stored actor ownership differs, even w
 });
 test("offline inbox still accepts an exact replay by original actor", async () => {
   const collection = {
-    updateOne: async () => ({ upsertedCount: 0 }),
+    updateOne: async () => ({ acknowledged:true,upsertedCount: 0 }),
     findOne: async () => ({ eventHash: digest(event), actorId: context.actorId, empresaId:context.empresaId,sedeId:context.sedeId,eventId:event.eventId })
   };
   const result = await acceptOfflineBatch({ db: { collection: () => collection }, authenticatedContext: context, events: [event] });
