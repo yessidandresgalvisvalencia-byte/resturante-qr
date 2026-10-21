@@ -22,7 +22,7 @@ function fake({listRow=original,sourceRow=original,reviewPatch={}}={}){
    }
   };
   if(name==="gruk_offline_stock_conflict_reviews")return {
-   async updateOne(key,patch){writes++;this.record=patch.$setOnInsert;return {upsertedCount:1};},
+   async updateOne(key,patch){writes++;this.record=patch.$setOnInsert;return {acknowledged:true,upsertedCount:1};},
    async findOne(q,opts){
     assert.equal(q.empresaId,auth.empresaId);assert.equal(q.sedeId,auth.sedeId);
     assert.equal(opts.projection.empresaId,1);assert.equal(opts.projection.sedeId,1);

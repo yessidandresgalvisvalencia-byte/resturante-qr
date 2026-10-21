@@ -77,7 +77,11 @@ async function appendStockConflictReview({db,auth,conflictId,decisionId,action,n
  const record={...key,conflictId,action,note:note.trim(),
   reviewerId:auth.usuarioId,createdAt:new Date(),applied:false,cobrado:false};
  try{
-  await reviews.updateOne(key,{$setOnInsert:record},{upsert:true});
+  const response=await reviews.updateOne(key,{$setOnInsert:record},{upsert:true});
+  if(!response||response.acknowledged!==true||
+     !Number.isInteger(response.upsertedCount)||
+     (response.upsertedCount!==0&&response.upsertedCount!==1))
+   fail("OFFLINE_CONFLICT_REVIEW_WRITE_UNVERIFIED");
  }catch(error){if(error?.code!==11000)throw error;}
  const persisted=await reviews.findOne(key,{projection:{
   _id:1,empresaId:1,sedeId:1,conflictId:1,action:1,note:1,reviewerId:1,applied:1,cobrado:1

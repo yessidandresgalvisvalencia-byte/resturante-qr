@@ -204,6 +204,8 @@ router.post("/stock-conflicts/review",authMiddleware,async(req,res)=>{
    return res.status(403).json({ok:false,error:code});
   if(code==="OFFLINE_CONFLICT_REVIEW_INVALID")
    return res.status(400).json({ok:false,error:code});
+  if(code==="OFFLINE_CONFLICT_REVIEW_WRITE_UNVERIFIED")
+   return res.status(503).json({ok:false,retryable:true,error:code});
   if(code==="OFFLINE_CONFLICT_NOT_FOUND")
    return res.status(404).json({ok:false,error:code});
   if(code==="OFFLINE_CONFLICT_REVIEW_IDEMPOTENCY_CONFLICT")
