@@ -23,6 +23,13 @@ function flujoCompensadoPuro({usuarioId,movimientos,eventos=[],desde,hasta}){
   if(!id||vistos.has(id))integridad("ID de movimiento duplicado");
   vistos.add(id);
   if(!["ACTIVA","ANULADA"].includes(m.estado))integridad("estado de movimiento inválido");
+  // Comprobar TODO asiento, incluso anulado o fuera del período: un filtro
+  // temporal o una anulación jamás deben ocultar datos históricos inválidos.
+  if(!Number.isSafeInteger(m.montoMinor)||m.montoMinor<=0)
+   integridad("importe histórico inválido");
+  if(m.moneda!=="COP")integridad("moneda no autorizada");
+  const fecha=new Date(m.fecha);
+  if(!Number.isFinite(fecha.getTime()))integridad("fecha inválida");
   const estado=estados.get(id);
   if(estado&&m.estado!=="ACTIVA")
    integridad("movimiento original alterado por ruta legada y compensatoria");
@@ -39,10 +46,7 @@ function flujoCompensadoPuro({usuarioId,movimientos,eventos=[],desde,hasta}){
    if(estado.anulado)continue;
    actual=estado.actual;
   }else if(m.estado==="ANULADA")continue;
-  const fecha=new Date(m.fecha);
-  if(!Number.isFinite(fecha.getTime()))integridad("fecha inválida");
   if(fecha<inicio||fecha>=fin)continue;
-  if(m.moneda!=="COP")integridad("moneda no autorizada");
   // Un ajuste manual de saldo no equivale a ingreso/gasto del período.
   if(actual.tipo==="AJUSTE_SALDO")continue;
   if(Object.prototype.hasOwnProperty.call(acumulado,actual.tipo))
