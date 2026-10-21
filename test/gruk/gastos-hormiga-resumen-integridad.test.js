@@ -105,3 +105,18 @@ test("los ID vacíos o solo espacios nunca producen sumas aparentemente confiabl
   assert.throws(()=>resumir([gasto(_id,"2026-10-20T10:00:00Z",1500)],ahora),/INTEGRIDAD_HORMIGA: movimiento sin identificador/);
  }
 });
+
+test("un mismo ID activo y anulado bloquea el resumen en ambos órdenes",()=>{
+ const activa=gasto("mismo","2026-10-20T10:00:00Z",25000,"Rappi");
+ const anulada={...activa,estado:"ANULADA"};
+ for(const filas of [[activa,anulada],[anulada,activa]]){
+  assert.throws(()=>resumir(filas,ahora),/INTEGRIDAD_HORMIGA: mismo movimiento con estados contradictorios/);
+ }
+ assert.equal(resumir([anulada],ahora).semanaMinor,0);
+ assert.equal(resumir([activa],ahora).semanaMinor,25000);
+});
+test("una anulación contradictoria no se oculta por una clasificación no hormiga",()=>{
+ const gastoActivo=gasto("conflicto","2026-10-20T10:00:00Z",25000,"Rappi");
+ const anulada={...gastoActivo,estado:"ANULADA",concepto:"Arriendo"};
+ assert.throws(()=>resumir([anulada,gastoActivo],ahora),/estados contradictorios/);
+});
