@@ -14,8 +14,8 @@ function setup(indexReady=true){
    async updateOne(key,update,opts){
     assert.equal(opts.session,session);
     const id=key.empresaId+":"+key.sedeId+":"+key.eventId+":"+key.tipo;
-    if(records.has(id))return {upsertedCount:0};
-    records.set(id,update.$setOnInsert);return {upsertedCount:1};
+    if(records.has(id))return {acknowledged:true,upsertedCount:0};
+    records.set(id,update.$setOnInsert);return {acknowledged:true,upsertedCount:1};
    },
    async findOne(key){return records.get(key.empresaId+":"+key.sedeId+":"+key.eventId+":"+key.tipo);}
   };
@@ -81,7 +81,7 @@ test("Capa 2: ledger replay rejects cross-tenant or altered persisted identity",
      assert.equal(key.empresaId,context.empresaId);
      assert.equal(key.sedeId,context.sedeId);
      writes++;
-     return {upsertedCount:0};
+     return {acknowledged:true,upsertedCount:0};
     },
     async findOne(key,opts){
      assert.equal(opts.session,session);
