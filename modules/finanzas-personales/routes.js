@@ -255,7 +255,9 @@ const compensacionTx=Joi.object({
  if(value.tipo==="CORRECCION"&&!keys.length)return helpers.error("any.invalid");
  return value;
 });
-router.post("/v81/transacciones/:id/compensaciones",validate(compensacionTx),
+router.post("/v81/transacciones/:id/compensaciones",
+ require("./security/barreraCompensacionesHttp.middleware").crearBarreraCompensacionesHttp(),
+ validate(compensacionTx),
  require("./services/compensacionPersonal.handler").crearCompensacionPersonalHandler());
 const correccionTx=Joi.object({tipo:Joi.string().valid("INGRESO","GASTO"),montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),concepto:Joi.string().trim().max(140),categoria:Joi.string().trim().max(80)}).min(1);
 router.patch("/transacciones/:id",validate(correccionTx),async(req,res)=>{try{const tx=await flujoCaja.corregirTransaccion(req.personalAuth.userId,req.params.id,req.validated);return tx?res.json({ok:true,transaccion:tx}):res.status(404).json({ok:false,error:"Movimiento no encontrado"});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir el movimiento"});}});
