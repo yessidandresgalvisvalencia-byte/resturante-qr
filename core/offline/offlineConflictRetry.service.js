@@ -22,6 +22,7 @@ function validateSource(doc,query){
    doc.sedeId!==query.sedeId||doc.status!==query.status||
    doc.applied!==false||doc.cobrado!==false||!ID.test(doc.actorId||"")||!Array.isArray(doc.eventIds)||
    doc.eventIds.length<1||doc.eventIds.length>100||
+   !Array.from({length:doc.eventIds.length},(_,i)=>Object.hasOwn(doc.eventIds,i)).every(Boolean)||
    doc.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
    new Set(doc.eventIds).size!==doc.eventIds.length)
    fail("OFFLINE_CONFLICT_RETRY_SOURCE_INVALID");
@@ -43,6 +44,7 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
      existing.sedeId!==tenant.sedeId||existing.status!=="STAGED"||
      existing.applied!==false||existing.cobrado!==false||
      existing.actorId!==context.actorId||!Array.isArray(existing.eventIds)||
+     !Array.from({length:existing.eventIds.length},(_,i)=>Object.hasOwn(existing.eventIds,i)).every(Boolean)||
      existing.eventIds.join(",")!==eventIds.join(","))fail("OFFLINE_CONFLICT_RESOLUTION_INCONSISTENT");
   const statuses=await readOfflineReconciliation({db,context,eventIds});
   if(!Array.isArray(statuses)||statuses.length!==eventIds.length||statuses.some((x,i)=>
