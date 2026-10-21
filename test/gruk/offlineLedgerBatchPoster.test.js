@@ -8,7 +8,7 @@ function fixture(){
  const writes=[];const session={inTransaction:()=>true};
  const db={collection(name){assert.equal(name,"gruk_ledger_movimientos");return {
   indexes:async()=>[{name:"uniq_offline_ledger_event_type_tenant",unique:true,key:{empresaId:1,sedeId:1,eventId:1,tipo:1}}],
-  updateOne:async(k,u,o)=>{assert.equal(o.session,session);writes.push({key:k,payload:u.$setOnInsert});return {upsertedCount:1};}
+  updateOne:async(k,u,o)=>{assert.equal(o.session,session);writes.push({key:k,payload:u.$setOnInsert});return {acknowledged:true,upsertedCount:1};}
  };}};
  return {db,session,writes};
 }

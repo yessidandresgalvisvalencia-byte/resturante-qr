@@ -30,7 +30,7 @@ async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
    const result=await collection.updateOne(key,{$setOnInsert:payload},{upsert:true,session});
    // Mongo must explicitly attest an insert or an existing matching entry.
    // Missing/malformed acknowledgements must not be treated as replay success.
-   if(!result||result.acknowledged===false||!Number.isInteger(result.upsertedCount)||
+   if(!result||result.acknowledged!==true||!Number.isInteger(result.upsertedCount)||
       (result.upsertedCount!==0&&result.upsertedCount!==1))
      throw error("OFFLINE_LEDGER_WRITE_UNVERIFIED");
    inserted=result.upsertedCount===1;
