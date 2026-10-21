@@ -4,6 +4,7 @@ const Cursor=require("../models/CursorCompensacionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
 const {eventoCompensatorio,verificarCadena,canon,originalVerificado}=require("./eventoCompensatorioPersonal.service");
 const GENESIS="0".repeat(64);
+const {comprobarHistorialCompensatorio}=require("./comprobarHistorialCompensatorio.service");
 const ID=/^[A-Za-z0-9_-]{1,128}$/;
 
 function conflicto(mensaje){
@@ -62,6 +63,9 @@ function crearRegistrador({
        cursor.hashActual!==(cadena.length?cadena[cadena.length-1].hashActual:GENESIS)||
        !verificarCadena(cadena,{prevHash:GENESIS}))
       throw conflicto("Cursor y cadena compensatoria completa desincronizados");
+    // Un hash válido no basta: cada evento debe partir del estado vigente
+    // del mismo movimiento y ninguna anulación puede recibir sucesores.
+    comprobarHistorialCompensatorio(cadena,{usuarioId:original.usuarioId});
     // La lectura y el CAS posterior ocurren en el mismo snapshot Mongo.
     const ultimo=await EventoModelo.findOne({usuarioId:original.usuarioId,
       movimientoId:original.movimientoId}).sort({secuencia:-1}).session(session).lean();
