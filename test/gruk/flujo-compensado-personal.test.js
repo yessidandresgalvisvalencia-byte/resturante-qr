@@ -67,3 +67,17 @@ test("AJUSTE_SALDO es conciliación patrimonial, no ingreso ni gasto del períod
  assert.equal(r.gastosMinor,25000);
  assert.equal(r.flujoNetoMinor,75000);
 });
+
+test("detecta anulación legada sobre asiento previamente compensado",()=>{
+ const e=crear(descriptor(gasto),"CORRECCION",{montoMinor:22000},"doble_estado",1,genesis);
+ assert.throws(()=>flujoCompensadoPuro({...periodo,
+  movimientos:[{...gasto,estado:"ANULADA"}],eventos:[e]}),
+  /INTEGRIDAD_LEDGER: movimiento original alterado/);
+});
+test("no oculta estados históricos desconocidos ni acepta doble anulación",()=>{
+ assert.throws(()=>flujoCompensadoPuro({...periodo,
+  movimientos:[{...gasto,estado:"BORRADA"}]}),
+  /INTEGRIDAD_LEDGER: estado de movimiento inválido/);
+ const e=crear(descriptor(gasto),"ANULACION",{},"anular_con_evento",1,genesis);
+ assert.equal(flujoCompensadoPuro({...periodo,movimientos:[gasto],eventos:[e]}).gastosMinor,0);
+});
