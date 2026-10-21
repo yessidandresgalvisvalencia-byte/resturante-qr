@@ -87,6 +87,8 @@ function crearRegistrador({
       tipo:{$in:["INGRESO","GASTO"]}
     }).session(session).lean();
     if(!asiento)throw conflicto("Movimiento original inexistente o ajeno");
+    if(asiento.estado!=="ACTIVA"||asiento.impactoCaja===false)
+      throw conflicto("Movimiento original ya alterado o sin impacto de caja");
     let canonico;
     try{
       canonico=originalVerificado({
@@ -96,8 +98,8 @@ function crearRegistrador({
       });
       const primera=cadena.find(e=>e.movimientoId===original.movimientoId);
       const esperado=primera?primera.original:original;
-      if(canon(canonico)!==canon(originalVerificado(esperado))||
-         (!primera&&asiento.estado==="ANULADA"))throw new Error("Original o estado inconsistentes");
+      if(canon(canonico)!==canon(originalVerificado(esperado)))
+        throw new Error("Original o estado inconsistentes");
     }catch(_){throw conflicto("Movimiento original distinto al ledger o inválido");}
     const evento=construir({original,tipo,cambios,idempotencyKey,fechaISO,
       prevHash:cursor.hashActual,secuencia:cursor.secuencia+1});
