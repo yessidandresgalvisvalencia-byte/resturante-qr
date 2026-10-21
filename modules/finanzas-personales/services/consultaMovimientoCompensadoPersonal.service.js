@@ -3,6 +3,8 @@ const mongoose=require("mongoose");
 const Movimiento=require("../models/TransaccionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
 const Cursor=require("../models/CursorCompensacionPersonal");
+const Cuenta=require("../models/cuentaFinanciera.model");
+const {elegibilidadCompensacion}=require("./elegibilidadCompensacionPersonal.service");
 const {canon,originalVerificado}=require("./eventoCompensatorioPersonal.service");
 const {comprobarHistorialCompensatorio}=require("./comprobarHistorialCompensatorio.service");
 const GENESIS="0".repeat(64),LIMITE=10000;
@@ -12,7 +14,7 @@ function fallo(msg,statusCode=409){
 // GET de la versión actual requerida para compensación optimista.
 // Lee asiento original, TODA la cadena y cursor en el mismo snapshot Mongo.
 function crearConsultaMovimientoCompensado({
- MovimientoModelo=Movimiento,EventoModelo=Evento,CursorModelo=Cursor,
+ MovimientoModelo=Movimiento,EventoModelo=Evento,CursorModelo=Cursor,CuentaModelo=Cuenta,
  nuevaSesion=()=>mongoose.startSession()
 }={}){
  return async function consultar(usuarioId,movimientoId){
@@ -27,6 +29,9 @@ function crearConsultaMovimientoCompensado({
      _id:mid,usuarioId:new mongoose.Types.ObjectId(uid)
     }).session(session).lean();
     if(!asiento)throw fallo("Movimiento no encontrado",404);
+    const cuenta=asiento.cuentaId?await CuentaModelo.findOne({
+     _id:asiento.cuentaId,usuarioId:new mongoose.Types.ObjectId(uid)
+    }).session(session).lean():null;
     const eventos=await EventoModelo.find({usuarioId:uid})
      .sort({secuencia:1}).limit(LIMITE+1).session(session).lean();
     const cursor=await CursorModelo.findById(uid).session(session).lean();
@@ -51,9 +56,7 @@ function crearConsultaMovimientoCompensado({
      throw fallo("INTEGRIDAD_LEDGER: original alterado");
     const estado=actuales.get(mid);
     const version=estado?.actual||original;
-    const elegible=asiento.estado==="ACTIVA"&&asiento.impactoCaja===true&&
-     !asiento.recurrente&&!asiento.recurrenteOrigenId&&!asiento.prestamoId&&
-     Boolean(asiento.cuentaId);
+    const elegible=elegibilidadCompensacion({asiento,cuenta,usuarioId:uid});
     resultado=Object.freeze({
      movimientoId:mid,
      original:version,
