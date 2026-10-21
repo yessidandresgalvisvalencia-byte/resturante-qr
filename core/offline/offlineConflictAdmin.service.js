@@ -27,7 +27,8 @@ function validIssues(issues){
 }
 function scope(auth){
  if(!auth||!["DUEÑO","ADMIN_SEDE"].includes(auth.rol)||
-  !HEX.test(auth.empresaId||"")||!HEX.test(auth.sedeId||"")||
+  typeof auth.empresaId!=="string"||typeof auth.sedeId!=="string"||
+  !HEX.test(auth.empresaId)||!HEX.test(auth.sedeId)||
   typeof auth.usuarioId!=="string"||!ID.test(auth.usuarioId))
   fail("OFFLINE_CONFLICT_PERMISSION_DENIED");
  return Object.freeze({empresaId:auth.empresaId,sedeId:auth.sedeId});
@@ -58,7 +59,8 @@ async function listStockConflicts({db,auth,limit=50}){
 }
 async function appendStockConflictReview({db,auth,conflictId,decisionId,action,note}){
  const tenant=scope(auth);
- if(!SHA.test(conflictId||"")||!ULID.test(decisionId||"")||
+ if(typeof conflictId!=="string"||typeof decisionId!=="string"||
+  !SHA.test(conflictId)||!ULID.test(decisionId)||
   !ACTIONS.has(action)||typeof note!=="string"||
   note.trim().length<10||note.trim().length>500)
   fail("OFFLINE_CONFLICT_REVIEW_INVALID");
