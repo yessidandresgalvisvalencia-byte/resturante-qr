@@ -120,3 +120,21 @@ test("una anulación contradictoria no se oculta por una clasificación no hormi
  const anulada={...gastoActivo,estado:"ANULADA",concepto:"Arriendo"};
  assert.throws(()=>resumir([anulada,gastoActivo],ahora),/estados contradictorios/);
 });
+
+test("una misma transacción no puede ser Rappi y arriendo con el mismo ID",()=>{
+ const hormiga=gasto("id-conflicto","2026-10-20T10:00:00Z",25000,"Rappi");
+ const fijo={...hormiga,concepto:"Arriendo",categoria:"Vivienda"};
+ for(const filas of [[hormiga,fijo],[fijo,hormiga]])
+  assert.throws(()=>resumir(filas,ahora),/INTEGRIDAD_HORMIGA: movimiento duplicado con datos contradictorios/);
+});
+test("una copia no hormiga con mismo ID y distinto monto tampoco se omite",()=>{
+ const fijo=gasto("id-fijo","2026-10-20T10:00:00Z",800000,"Arriendo");
+ const otro={...fijo,montoMinor:850000};
+ assert.throws(()=>resumir([fijo,otro],ahora),/INTEGRIDAD_HORMIGA: movimiento duplicado con datos contradictorios/);
+});
+test("duplicar exactamente un gasto fijo no dispara falsa alerta ni lo convierte en hormiga",()=>{
+ const fijo=gasto("id-fijo","2026-10-20T10:00:00Z",800000,"Arriendo");
+ const r=resumir([fijo,{...fijo}],ahora);
+ assert.equal(r.semanaMinor,0);
+ assert.equal(r.creditoSemanaMinor,0);
+});
