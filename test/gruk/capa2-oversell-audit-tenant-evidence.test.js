@@ -103,3 +103,13 @@ test("Capa 2: eventIds históricos incompletos no constituyen evidencia idempote
   {code:"OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED"});
  assert.equal(stub.audits,1);
 });
+
+test("Capa 2: cantidades históricas excesivas no pueden validarse como evidencia",async()=>{
+ const baseline={productoId:product,disponible:"1",solicitado:"2",faltante:"1"};
+ for(const field of ["disponible","solicitado","faltante"]){
+  const stub=fake({issues:[{...baseline,[field]:"9".repeat(100000)}]});
+  await assert.rejects(recordOfflineOversellConflict(args(stub.db)),
+   {code:"OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED"});
+  assert.equal(stub.audits,1);
+ }
+});

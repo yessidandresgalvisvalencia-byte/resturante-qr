@@ -15,7 +15,8 @@ function validIssues(issues,deltas){
      !allowed.has(issue.productoId.toLowerCase())||seen.has(issue.productoId.toLowerCase()))return false;
   seen.add(issue.productoId.toLowerCase());
   const amounts=[issue.disponible,issue.solicitado,issue.faltante];
-  if(amounts.some(v=>typeof v!=="string"||!/^(0|[1-9][0-9]*)$/.test(v)||BigInt(v)>MAX))return false;
+  if(amounts.some(v=>typeof v!=="string"||v.length>16||
+    !/^(0|[1-9][0-9]*)$/.test(v)||BigInt(v)>MAX))return false;
   const [available,requested,shortage]=amounts.map(BigInt);
   if(requested!==allowed.get(issue.productoId.toLowerCase())||
      requested<=available||shortage!==requested-available)return false;
