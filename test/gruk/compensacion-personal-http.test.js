@@ -66,7 +66,43 @@ test("la ruta protegida valida idempotencia y rechaza campos desconocidos",()=>{
  const auth=rutas.indexOf("router.use(auth,entitlement);");
  const endpoint=rutas.indexOf('router.post("/v81/transacciones/:id/compensaciones"');
  assert.ok(endpoint>auth);
- assert.ok(rutas.slice(endpoint,endpoint+220).includes("validate(compensacionTx)"));
+ assert.ok(rutas.slice(endpoint,endpoint+300).includes("validate(compensacionTx)"));
  assert.ok(rutas.includes('idempotencyKey:Joi.string().pattern(/^[A-Za-z0-9_-]{1,128}$/).required()'));
  assert.ok(rutas.includes('}).unknown(false).custom((value,helpers)=>'));
+});
+
+test("barrera de compensaciones falla cerrada y no ejecuta handler siguiente",()=>{
+ const {crearBarreraCompensacionesHttp}=
+  require("../../modules/finanzas-personales/security/barreraCompensacionesHttp.middleware");
+ const anterior=process.env.GRUK_FP_COMPENSACIONES_HTTP_ENABLED;
+ try{
+  let llamadas=0;
+  delete process.env.GRUK_FP_COMPENSACIONES_HTTP_ENABLED;
+  const barrera=crearBarreraCompensacionesHttp();
+  for(const valor of [undefined,"false","TRUE","1"," true "]){
+   if(valor===undefined)delete process.env.GRUK_FP_COMPENSACIONES_HTTP_ENABLED;
+   else process.env.GRUK_FP_COMPENSACIONES_HTTP_ENABLED=valor;
+   const {res,salida}=respuesta();
+   barrera({},res,()=>{llamadas++;});
+   assert.equal(salida.code,503);
+   assert.equal(salida.payload.codigo,"FP_COMPENSACIONES_NO_HABILITADAS");
+  }
+  assert.equal(llamadas,0);
+  process.env.GRUK_FP_COMPENSACIONES_HTTP_ENABLED="true";
+  const {res,salida}=respuesta();
+  barrera({},res,()=>{llamadas++;});
+  assert.equal(llamadas,1);
+  assert.equal(salida.payload,null);
+ }finally{
+  if(anterior===undefined)delete process.env.GRUK_FP_COMPENSACIONES_HTTP_ENABLED;
+  else process.env.GRUK_FP_COMPENSACIONES_HTTP_ENABLED=anterior;
+ }
+});
+test("ruta HTTP exige barrera antes de validar o registrar compensación",()=>{
+ const rutas=fs.readFileSync(path.join(__dirname,"../../modules/finanzas-personales/routes.js"),"utf8");
+ const endpoint=rutas.indexOf('router.post("/v81/transacciones/:id/compensaciones"');
+ const bloque=rutas.slice(endpoint,endpoint+370);
+ assert.ok(bloque.indexOf("crearBarreraCompensacionesHttp()")>=0);
+ assert.ok(bloque.indexOf("crearBarreraCompensacionesHttp()")<bloque.indexOf("validate(compensacionTx)"));
+ assert.ok(bloque.indexOf("validate(compensacionTx)")<bloque.indexOf("crearCompensacionPersonalHandler()"));
 });
