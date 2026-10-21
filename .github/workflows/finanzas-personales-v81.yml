@@ -333,6 +333,11 @@ jobs:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test?replicaSet=rs0
           GRUK_V81_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
         run: node --test test/finanzas-personales/persistenciaLedgerV81.integration.test.js test/finanzas-personales/aislamiento-compromisos-mongo.integration.test.js
+      - name: Verificar compensaciones ACID de GRUK Personal sobre MongoDB real
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
+          GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
+        run: node --test test/gruk/compensacion-personal-mongo-real.integration.test.js
       - name: Probar pagos recurrentes vinculados con transacciones MongoDB
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test?replicaSet=rs0
