@@ -21,10 +21,10 @@ function fixture(status){
 test("Capa 2: estado persistido desconocido no se expone como reconciliado ni válido",async()=>{
  for(const status of ["RECIBIDO","APLICADO_FALSO","CONCILIADO","",null,undefined,{},true]){
   const f=fixture(status);
-  for(const reader of [readOfflineReconciliation,readOfflineStatuses]){
-   await assert.rejects(reader({db:f.db,context,eventIds:[eventId]}),
-    {code:"OFFLINE_RECONCILIATION_EVIDENCE_INVALID"});
-  }
+  await assert.rejects(readOfflineReconciliation({db:f.db,context,eventIds:[eventId]}),
+   {code:"OFFLINE_RECONCILIATION_EVIDENCE_INVALID"});
+  await assert.rejects(readOfflineStatuses({db:f.db,context,eventIds:[eventId]}),
+   {code:"OFFLINE_STATUS_EVIDENCE_INVALID"});
   assert.equal(f.queries,8);
  }
 });
