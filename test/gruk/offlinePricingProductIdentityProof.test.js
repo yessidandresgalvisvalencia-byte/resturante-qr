@@ -4,7 +4,7 @@ const {assertOfflineAuthoritativePrices}=require("../../core/offline/offlineAuth
 const productId="507f1f77bcf86cd799439011";
 const context={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd799439012"};
 const session={inTransaction:()=>true};
-const plan={orders:[{items:[{productoId,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}]}]};
+const plan={orders:[{items:[{productoId:productId,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"}]}]};
 const base={empresaId:context.empresaId,sedeId:context.sedeId,activo:true,precioVenta:3000};
 function fixture(id){
  let read=0;
