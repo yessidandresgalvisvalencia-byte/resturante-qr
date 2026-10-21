@@ -41,7 +41,6 @@ router.post("/batch", authMiddleware, async (req, res) => {
   } catch(error) {
     if (error?.code === "OFFLINE_TRANSACTION_UNAVAILABLE" ||
         error?.code === "OFFLINE_INBOX_WRITE_UNVERIFIED") {
-      res.set("Cache-Control","no-store");
       return res.status(503).json({ok:false,applied:false,retryable:true,error:error.code});
     }
     if (error?.code === "OFFLINE_EVENT_CONFLICT") {
