@@ -254,6 +254,18 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   const pruebaUltimo=await Evento.find({usuarioId:String(usuarioId)})
    .sort({secuencia:1}).lean();
   assert.equal(vigenteHttp.hashCadena,pruebaUltimo.at(-1).hashActual);
+  // Una operación patrimonial se puede consultar, pero jamás ofrecer
+  // como compensación ordinaria (no ha de tocar préstamos/deudas).
+  const [patrimonial]=await Movimiento.create([{
+   usuarioId,cuentaId:cuenta._id,cuenta:cuenta.nombre,
+   tipo:"AJUSTE_SALDO",montoMinor:1000,concepto:"Conciliación",
+   categoria:"Ajustes",fecha:new Date("2026-10-20T14:35:00.000Z"),
+   estado:"ACTIVA",impactoCaja:false
+  }]);
+  const noAdmitido=await leerEstado(String(usuarioId),String(patrimonial._id));
+  assert.equal(noAdmitido.original,null);
+  assert.equal(noAdmitido.elegibleParaCompensar,false);
+  assert.equal(noAdmitido.motivo,"TIPO_NO_ADMITIDO_POR_LEDGER_COMPENSATORIO");
   // Una cuota recurrente prevista no es gasto de caja realizado.
   const flujoAntesPendiente=await consultar(String(usuarioId),intervalo);
   const [obligacionPendiente]=await Movimiento.create([{
