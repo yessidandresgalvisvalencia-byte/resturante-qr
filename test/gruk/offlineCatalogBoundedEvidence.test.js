@@ -6,7 +6,7 @@ const productId="507f1f77bcf86cd799439011";
 const company="507f191e810c19729de860ea",site="507f1f77bcf86cd799439012";
 const context={empresaId:company,sedeId:site};
 const session={inTransaction:()=>true};
-const item={productoId,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"};
+const item={productoId:productId,cantidad:"1",precioUnitarioCop:"3000",totalCop:"3000"};
 const prepared={orders:[{items:[item]}]},plan={orders:[{items:[item]}]};
 const row={_id:productId,empresaId:company,sedeId:site,activo:true,precioVenta:3000};
 const objectId=value=>value;
