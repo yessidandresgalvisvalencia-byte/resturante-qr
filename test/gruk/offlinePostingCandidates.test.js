@@ -140,3 +140,29 @@ test("Capa 2: respuesta inbox mayor que la solicitada se rechaza sin preflight f
   {code:"OFFLINE_ORDERS_NOT_PENDING"});
  assert.equal(requests,1);
 });
+
+test("Capa 2: identidad de cajero heredada del prototipo nunca consulta inbox",async()=>{
+ for(const key of ["empresaId","sedeId","actorId"]){
+  const inherited=Object.assign(Object.create({[key]:ctx[key]}),ctx);
+  delete inherited[key];
+  assert.equal(inherited[key],ctx[key]);
+  assert.equal(Object.hasOwn(inherited,key),false);
+  let reads=0;
+  const db={collection(){reads++;throw Error("CROSS_TENANT_INBOX_READ");}};
+  await assert.rejects(read({db,context:inherited,eventIds:[eventId]}),
+   {code:"OFFLINE_AUTH_REQUIRED"});
+  assert.equal(reads,0);
+ }
+});
+test("Capa 2: identidad propia válida mantiene búsqueda delimitada y recibo exacto",async()=>{
+ let queries=0;
+ const db=fake([doc],query=>{
+  queries++;
+  assert.equal(query.empresaId,ctx.empresaId);
+  assert.equal(query.sedeId,ctx.sedeId);
+  assert.equal(query.actorId,ctx.actorId);
+ });
+ const result=await read({db,context:{...ctx},eventIds:[eventId]});
+ assert.equal(queries,1);
+ assert.equal(result.totalCop,"3000");
+});

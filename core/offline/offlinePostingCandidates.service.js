@@ -6,7 +6,8 @@ const ID=/^[A-Za-z0-9_-]{1,80}$/;
 const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 function fail(code){const e=new Error(code);e.code=code;throw e;}
 async function readOfflineOrderCandidates({db,context,eventIds,session}){
-  if(!db?.collection||!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&ID.test(context[k])))
+  if(!db?.collection||!context||!["empresaId","sedeId","actorId"].every(k=>
+    Object.hasOwn(context,k)&&typeof context[k]==="string"&&ID.test(context[k])))
     fail("OFFLINE_AUTH_REQUIRED");
   if(!Array.isArray(eventIds)||eventIds.length<1||eventIds.length>100||
     !Array.from({length:eventIds.length},(_,i)=>Object.hasOwn(eventIds,i)).every(Boolean)||
