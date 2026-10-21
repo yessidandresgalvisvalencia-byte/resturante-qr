@@ -4,7 +4,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const authMiddleware = require("../core/auth/auth.middleware");
 const { acceptOfflineBatch, ensureInboxIndexes } = require("../core/offline/offlineInbox.service");
-const { isRetryableOfflineBatchError } = require("../core/offline/offlineBatchHttpErrors.service");
 const { readOfflineStatuses } = require("../core/offline/offlineStatus.service");
 const { readOfflineReconciliation } = require("../core/offline/offlineReconciliation.service");
 const router = express.Router();
@@ -40,7 +39,8 @@ router.post("/batch", authMiddleware, async (req, res) => {
     });
     return res.status(202).json({ok:true,applied:false,events:result});
   } catch(error) {
-    if (isRetryableOfflineBatchError(error)) {
+    if (error?.code === "OFFLINE_TRANSACTION_UNAVAILABLE" ||
+        error?.code === "OFFLINE_INBOX_WRITE_UNVERIFIED") {
       res.set("Cache-Control","no-store");
       return res.status(503).json({ok:false,applied:false,retryable:true,error:error.code});
     }
