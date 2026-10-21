@@ -280,6 +280,18 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    "Compromiso futuro no debe sumarse como egreso de caja ya realizado");
   assert.equal(flujoDespuesPendiente.flujoNetoMinor,flujoAntesPendiente.flujoNetoMinor);
   assert.equal((await Movimiento.findById(obligacionPendiente._id).lean()).impactoCaja,false);
+  // Diagnóstico de migración: ambos agregados proceden del MISMO snapshot.
+  const comparacion=await consultar(String(usuarioId),{
+   ...intervalo,diagnostico:true
+  });
+  assert.equal(comparacion.verificado.flujoNetoMinor,
+   flujoDespuesPendiente.flujoNetoMinor);
+  assert.equal(comparacion.obligacionesNoCajaIncluidasPorLegado,1);
+  assert.equal(comparacion.coincide,false);
+  assert.equal(comparacion.diferenciaVerificadoMenosLegado.flujoNetoMinor,500500);
+  assert.equal(comparacion.estado,"DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO");
+  assert.equal((await consultar(String(usuarioId),intervalo)).fuente,
+   "EVENTOS_COMPENSATORIOS_VERIFICADOS");
   // Prueba forense en base EFÍMERA: un movimiento de OTRO período
   // corrompido no puede pasar inadvertido en un resumen mensual válido.
   const [fueraDePeriodo]=await Movimiento.create([{
