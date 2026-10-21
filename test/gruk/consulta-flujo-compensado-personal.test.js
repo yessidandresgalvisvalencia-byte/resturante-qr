@@ -9,12 +9,21 @@ const usuarioId="507f1f77bcf86cd799439011";
 const monto={_id:"507f1f77bcf86cd799439012",usuarioId,tipo:"GASTO",montoMinor:1000,
  concepto:"Café",categoria:"Hormiga",moneda:"COP",estado:"ACTIVA",
  fecha:"2026-10-20T11:00:00.000Z"};
-function modelos({movimientos=[monto],eventos=[]}={}){
- const filtros=[];
- function query(datos){return {limit(n){filtros.push(n);return {lean:async()=>datos};},
- sort(){return this;}};}
- return {filtros,TransaccionModelo:{find(){return query(movimientos);}},
-  EventoModelo:{find(){return query(eventos);}}};
+function modelos({movimientos=[monto],eventos=[],cursor=null}={}){
+ const filtros=[],sesiones=[],estado={cerradas:0,transacciones:0};
+ function query(datos){
+  const q={limit(n){filtros.push(n);return q;},sort(){return q;},
+   session(session){sesiones.push(session);return q;},async lean(){return datos;}};
+  return q;
+ }
+ const nuevaSesion=async()=>({
+  async withTransaction(fn){estado.transacciones++;await fn();},
+  async endSession(){estado.cerradas++;}
+ });
+ return {filtros,sesiones,estado,nuevaSesion,
+  TransaccionModelo:{find(){return query(movimientos);}},
+  EventoModelo:{find(){return query(eventos);}},
+  CursorModelo:{findById(){return query(cursor);}}};
 }
 const periodo={desde:"2026-10-01",hasta:"2026-11-01"};
 test("consulta compensada produce neto exacto sin recuperar otro usuario",async()=>{
@@ -45,4 +54,24 @@ test("endpoint personal de flujo compensado está detrás de autenticación glob
  const endpoint=rutas.indexOf('router.get("/v81/flujo-compensado"');
  assert.ok(auth>=0&&endpoint>auth);
  assert.ok(rutas.slice(endpoint,endpoint+650).includes("req.personalAuth.userId"));
+});
+
+test("consulta movimientos, cadena y cursor bajo la misma sesión snapshot",async()=>{
+ const db=modelos(),consultar=crearConsultaFlujoCompensado(db);
+ await consultar(usuarioId,periodo);
+ assert.equal(db.estado.transacciones,1);
+ assert.equal(db.estado.cerradas,1);
+ assert.equal(db.sesiones.length,3);
+ assert.equal(new Set(db.sesiones).size,1);
+});
+test("si faltan eventos respecto al cursor no devuelve flujo parcial",async()=>{
+ const db=modelos({cursor:{secuencia:1,hashActual:"a".repeat(64)}});
+ await assert.rejects(()=>crearConsultaFlujoCompensado(db)(usuarioId,periodo),
+  e=>e.statusCode===409&&/cursor y eventos desincronizados/.test(e.message));
+ assert.equal(db.estado.cerradas,1);
+});
+test("bloquea historial con eventos sin cursor",async()=>{
+ const db=modelos({eventos:[{secuencia:1}]});
+ await assert.rejects(()=>crearConsultaFlujoCompensado(db)(usuarioId,periodo),
+  e=>e.statusCode===409&&/eventos sin cursor/.test(e.message));
 });
