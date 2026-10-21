@@ -30,9 +30,13 @@ function crearRegistrador({
  EventoModelo=Evento,CursorModelo=Cursor,TransaccionModelo=Transaccion,
  nuevaSesion=()=>mongoose.startSession(),
  revisarIndices=()=>exigirIndices({EventoModelo,CursorModelo}),
- construir=eventoCompensatorio,aplicarAtomico=null
+ construir=eventoCompensatorio,aplicarAtomico=null,exigirAplicacionAtomica=false
 }={}){
  if(aplicarAtomico!==null&&typeof aplicarAtomico!=="function")throw new TypeError("Aplicador atómico inválido");
+ if(exigirAplicacionAtomica!==false&&exigirAplicacionAtomica!==true)
+  throw new TypeError("Política de aplicación atómica inválida");
+ if(exigirAplicacionAtomica&&typeof aplicarAtomico!=="function")
+  throw Object.assign(new Error("APLICADOR_ATOMICO_REQUERIDO: prohibido registrar evento financiero sin saldo y outbox"),{statusCode:503});
  return async function registrar({original,tipo,cambios={},idempotencyKey,fechaISO}){
   if(!original||typeof original.usuarioId!=="string"||!ID.test(original.usuarioId)||
     typeof idempotencyKey!=="string"||!ID.test(idempotencyKey))
