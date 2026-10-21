@@ -38,7 +38,7 @@ test("bloquea desbordamiento de saldo aunque el delta sea entero seguro",()=>{
  assert.throws(()=>calcular(1.5),/entero seguro/);
 });
 test("rechaza cambio de tipo si consume más caja que la disponible",()=>{
- assert.throws(()=>calcular(10000,{cambios:{tipo:"INGRESO",montoMinor:22000},saldoMinor:10000,
+ assert.throws(()=>calcular(10000,{cambios:{tipo:"GASTO",montoMinor:22000},saldoMinor:10000,
   originales:[{...original,tipo:"INGRESO"}],tipo:"CORRECCION"}),/COMPENSACION_NO_APLICABLE|INTEGRIDAD_LEDGER/);
 });
 test("repetir idempotencia o anulación no genera plan contable",()=>{
