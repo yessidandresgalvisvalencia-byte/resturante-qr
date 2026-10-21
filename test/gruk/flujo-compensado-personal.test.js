@@ -58,3 +58,12 @@ test("movimientos fuera de periodo no afectan el resumen y se rechazan fechas in
  assert.throws(()=>flujoCompensadoPuro({...periodo,movimientos:[{...gasto,fecha:"inválida"}]}),/INTEGRIDAD_LEDGER/);
  assert.throws(()=>flujoCompensadoPuro({...periodo,hasta:periodo.desde,movimientos:[]}),/Periodo inválido/);
 });
+
+test("AJUSTE_SALDO es conciliación patrimonial, no ingreso ni gasto del período",()=>{
+ const ajuste={...gasto,_id:"507f1f77bcf86cd799439014",tipo:"AJUSTE_SALDO",
+  concepto:"Conciliación",montoMinor:50000};
+ const r=flujoCompensadoPuro({...periodo,movimientos:[gasto,ajuste,ingreso]});
+ assert.equal(r.ingresosMinor,100000);
+ assert.equal(r.gastosMinor,25000);
+ assert.equal(r.flujoNetoMinor,75000);
+});
