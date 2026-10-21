@@ -6,7 +6,7 @@ const productId="507f1f77bcf86cd799439011";
 const context={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd799439012",actorId:"operator"};
 const event={...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",
  payload:{localOrderId:eventId,items:[{productoId:productId,cantidad:"2",precioUnitarioCop:"3000",totalCop:"6000"}],totalCop:"6000"}};
-function mock(stock=1){
+function mock(stock=1,writeResponse=null){
  let writes=0;let stored=null;
  return {db:{collection(name){
   if(name==="gruk_offline_inbox")return {find(query){
@@ -22,8 +22,8 @@ function mock(stock=1){
    async updateOne(key,update,options){
     writes++;assert.equal(options.upsert,true);
     if(!stored)stored=update.$setOnInsert;
-    return writes===1?{acknowledged:true,upsertedCount:1,matchedCount:0}:
-     {acknowledged:true,upsertedCount:0,matchedCount:1};
+    return writeResponse??(writes===1?{acknowledged:true,upsertedCount:1,matchedCount:0}:
+     {acknowledged:true,upsertedCount:0,matchedCount:1});
    },
    async findOne(key){assert.equal(key.actorId,context.actorId);return stored;}
   };
@@ -82,5 +82,20 @@ test("Capa 2: foreign or deleted inventory evidence cannot create oversell audit
   await assert.rejects(record({db,context,eventIds:[eventId],objectId:x=>x}),
    {code:"OFFLINE_STOCK_AUDIT_MAPPING_UNAVAILABLE"});
   assert.equal(source.writes,0);
+ }
+});
+
+test("Capa 2: auditoría no afirma persistencia con acuse Mongo incompleto o falso",async()=>{
+ const invalid=[{}, {upsertedCount:1,matchedCount:0},
+  {acknowledged:false,upsertedCount:1,matchedCount:0},
+  {acknowledged:1,upsertedCount:1,matchedCount:0},
+  {acknowledged:true,upsertedCount:1,matchedCount:1},
+  {acknowledged:true,upsertedCount:2,matchedCount:0},
+  {acknowledged:true,upsertedCount:0,matchedCount:0}];
+ for(const response of invalid){
+  const source=mock(1,response);
+  await assert.rejects(record({db:source.db,context,eventIds:[eventId],objectId:x=>x}),
+   {code:"OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED"});
+  assert.equal(source.writes,1);
  }
 });
