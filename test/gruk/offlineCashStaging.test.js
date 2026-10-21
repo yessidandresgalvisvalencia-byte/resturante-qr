@@ -8,7 +8,7 @@ function fixture(indexReady=true){
  const rows=new Map(),session={inTransaction:()=>true};
  const db={collection(name){assert.equal(name,"gruk_offline_caja_intenciones");return{
   indexes:async()=>indexReady?[{name:"uniq_offline_cash_tenant_event",unique:true,key:{empresaId:1,sedeId:1,eventId:1}}]:[],
-  updateOne:async(key,update,opts)=>{assert.equal(opts.session,session);if(rows.has(key.eventId))return {upsertedCount:0};rows.set(key.eventId,update.$setOnInsert);return {upsertedCount:1};},
+  updateOne:async(key,update,opts)=>{assert.equal(opts.session,session);if(rows.has(key.eventId))return {acknowledged:true,upsertedCount:0};rows.set(key.eventId,update.$setOnInsert);return {acknowledged:true,upsertedCount:1};},
   findOne:async key=>rows.get(key.eventId)
  };}};return {db,session,rows};
 }
@@ -45,7 +45,7 @@ test("Capa 2: rejects foreign cash intent evidence on offline retries",async()=>
      assert.equal(key.empresaId,context.empresaId);
      assert.equal(key.sedeId,context.sedeId);
      writes++;
-     return {upsertedCount:0};
+     return {acknowledged:true,upsertedCount:0};
     },
     async findOne(key,options){
      assert.equal(options.session,session);
