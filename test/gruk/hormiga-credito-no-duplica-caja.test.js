@@ -141,3 +141,22 @@ test("una respuesta de consulta con filas nulas o tipos contradictorios nunca se
  }
  assert.equal(resumir([válida],ahora).semanaMinor,25000);
 });
+
+test("el impacto de caja debe ser booleano verificable antes de afirmar una salida",()=>{
+ const compra=gasto("efectivo","Rappi",25000,"DEBITO");
+ for(const impactoCaja of [undefined,null,"true",1,0,"",{}]){
+  assert.throws(()=>resumir([{...compra,impactoCaja}],ahora),/INTEGRIDAD_HORMIGA: impacto de caja no verificable/);
+ }
+ const conCaja=resumir([{...compra,impactoCaja:true}],ahora);
+ assert.equal(conCaja.semanaMinor,25000);
+ const sinCaja=resumir([{...compra,impactoCaja:false}],ahora);
+ assert.equal(sinCaja.semanaMinor,0);
+});
+test("consumo financiado no se convierte en caja por la marca impactoCaja",()=>{
+ const compra=gasto("credito-impacto","Rappi",25000,"CREDITO");
+ for(const impactoCaja of [undefined,null,true,false]){
+  const r=resumir([{...compra,impactoCaja}],ahora);
+  assert.equal(r.semanaMinor,0);
+  assert.equal(r.creditoSemanaMinor,25000);
+ }
+});
