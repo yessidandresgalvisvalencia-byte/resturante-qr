@@ -21,6 +21,11 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
   }
  };
  const ModeloEvento={
+  find(filter){
+   return {sort(){return {limit(n){return {session(){return {lean:async()=>
+    staged.eventos.filter(e=>e.usuarioId===filter.usuarioId)
+     .sort((a,b)=>a.secuencia-b.secuencia).slice(0,n)};}};}};}};
+  },
   findOne(filter){
    const leer=async()=>filter.idempotencyKey!==undefined?
      (repetido?{idempotencyKey:filter.idempotencyKey}:staged.eventos.find(e=>e.idempotencyKey===filter.idempotencyKey)||null):
@@ -146,4 +151,26 @@ test("no acepta último evento manipulado aunque cursor coincida con su hash",as
  await assert.rejects(registrar({...entrada("corr_2"),original:{...original,montoMinor:22000},cambios:{montoMinor:20000}}),
   /Cursor y eventos compensatorios desincronizados/);
  assert.equal(data.eventos.length,1);
+});
+
+test("no avanza el cursor si se ha eliminado una compensación intermedia",async()=>{
+ const {data,registrar}=bancoSimulado();
+ await registrar(entrada("primera"));
+ await registrar({...entrada("segunda"),original:{...original,montoMinor:22000},
+  cambios:{montoMinor:20000}});
+ data.eventos.splice(0,1);
+ await assert.rejects(registrar({...entrada("tercera"),original:{...original,montoMinor:20000},
+  cambios:{montoMinor:19000}}),/cadena compensatoria completa desincronizados/);
+ assert.equal(data.cursor.secuencia,2);
+ assert.equal(data.eventos.length,1);
+});
+test("no avanza el cursor si el hash de un evento intermedio fue manipulado",async()=>{
+ const {data,registrar}=bancoSimulado();
+ await registrar(entrada("primera"));
+ await registrar({...entrada("segunda"),original:{...original,montoMinor:22000},
+  cambios:{montoMinor:20000}});
+ data.eventos[0]={...data.eventos[0],deltaCajaMinor:"999999"};
+ await assert.rejects(registrar({...entrada("tercera"),original:{...original,montoMinor:20000},
+  cambios:{montoMinor:19000}}),/cadena compensatoria completa desincronizados/);
+ assert.equal(data.cursor.secuencia,2);
 });
