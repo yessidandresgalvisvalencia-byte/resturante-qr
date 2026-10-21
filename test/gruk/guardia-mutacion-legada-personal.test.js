@@ -8,7 +8,14 @@ const {exigirSinCompensacionesHeredadas}=
 const usuarioId="507f1f77bcf86cd799439011";
 const movimientoId="507f1f77bcf86cd799439012";
 function dobles({evento=null,fallo=false}={}){
- const recibido={};
+ const recibido={revision:0,escrituras:0};
+ const CursorModelo={
+  findById(){return {session(){return {lean:async()=>recibido.cursor||null};}};},
+  async create(rows){recibido.cursor={...rows[0]};return rows;},
+  async findOneAndUpdate(){recibido.escrituras++;recibido.revision++;
+   recibido.cursor={...recibido.cursor,revisionLegada:recibido.revision};
+   return recibido.cursor;}
+ };
  const EventoModelo={
   findOne(filtro){
    recibido.filtro=filtro;
@@ -21,31 +28,36 @@ function dobles({evento=null,fallo=false}={}){
    }};
   }
  };
- return {EventoModelo,recibido};
+ return {EventoModelo,CursorModelo,recibido};
 }
 test("bloquea mutación antigua ante cualquier compensación existente en el mismo usuario",async()=>{
- const {EventoModelo,recibido}=dobles({evento:{tipo:"CORRECCION"}});
+ const {EventoModelo,CursorModelo,recibido}=dobles({evento:{tipo:"CORRECCION"}});
  const session={marker:"transaccion_activa"};
  await assert.rejects(exigirSinCompensacionesHeredadas({
-  usuarioId,movimientoId,session,EventoModelo
+  usuarioId,movimientoId,session,EventoModelo,CursorModelo
  }),e=>e.statusCode===409&&/protegido por ledger/.test(e.message));
  assert.equal(recibido.session,session);
  assert.deepEqual(recibido.filtro,{usuarioId,movimientoId});
+ assert.equal(recibido.escrituras,0);
 });
 test("permite ruta heredada solo cuando no existe evento y consulta responde",async()=>{
- const {EventoModelo}=dobles();
+ const {EventoModelo,CursorModelo,recibido}=dobles();
  assert.equal(await exigirSinCompensacionesHeredadas({
-  usuarioId,movimientoId,session:{},EventoModelo
+  usuarioId,movimientoId,session:{},EventoModelo,CursorModelo
  }),true);
+ assert.equal(recibido.escrituras,1);
+ assert.equal(recibido.cursor.secuencia,0);
+ assert.equal(recibido.cursor.hashActual,"0".repeat(64));
 });
 test("falla cerrado si Mongo no permite comprobar el movimiento",async()=>{
- const {EventoModelo}=dobles({fallo:true});
+ const {EventoModelo,CursorModelo,recibido}=dobles({fallo:true});
  await assert.rejects(exigirSinCompensacionesHeredadas({
   usuarioId,movimientoId,session:{},EventoModelo
  }),e=>e.statusCode===503);
  await assert.rejects(exigirSinCompensacionesHeredadas({
-  usuarioId,movimientoId,EventoModelo
+  usuarioId,movimientoId,EventoModelo,CursorModelo
  }),e=>e.statusCode===409);
+ assert.equal(recibido.escrituras,0);
 });
 test("las dos rutas heredadas verifican guardia dentro del transaction callback antes de mutar",()=>{
  const texto=fs.readFileSync(path.join(__dirname,
