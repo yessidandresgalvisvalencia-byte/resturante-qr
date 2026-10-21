@@ -279,3 +279,31 @@ test("integración simulada: cuenta rechazada no crea evento financiero",async()
  assert.equal(data.eventos.length,0);
  assert.equal(data.outbox.length,0);
 });
+
+test("tres correcciones del mismo movimiento conservan cambios anteriores",async()=>{
+ const {data,registrar}=bancoSimulado({conAplicador:true});
+ const a=await registrar({...entrada("tres_1"),cambios:{montoMinor:22000}});
+ const versionUno={...original,montoMinor:22000};
+ const b=await registrar({...entrada("tres_2"),original:versionUno,
+  cambios:{concepto:"Mercado"}});
+ const versionDos={...versionUno,concepto:"Mercado"};
+ const tercero=await registrar({...entrada("tres_3"),original:versionDos,
+  cambios:{categoria:"Alimentos"}});
+ assert.deepEqual([a.secuencia,b.secuencia,tercero.secuencia],[1,2,3]);
+ assert.equal(tercero.deltaCajaMinor,"0");
+ assert.equal(data.saldoMinor,103000);
+ assert.equal(data.outbox.length,3);
+ assert.equal(verificarCadena(data.eventos,{prevHash:GENESIS}),true);
+});
+test("rechaza corregir con estado parcial que omita un cambio histórico anterior",async()=>{
+ const {data,registrar}=bancoSimulado({conAplicador:true});
+ await registrar({...entrada("parcial_1"),cambios:{montoMinor:22000}});
+ await registrar({...entrada("parcial_2"),original:{...original,montoMinor:22000},
+  cambios:{concepto:"Mercado"}});
+ await assert.rejects(registrar({...entrada("parcial_3"),
+  original:{...original,montoMinor:22000},
+  cambios:{categoria:"Alimentos"}}),/Movimiento desactualizado/);
+ assert.equal(data.eventos.length,2);
+ assert.equal(data.cursor.secuencia,2);
+ assert.equal(data.saldoMinor,103000);
+});
