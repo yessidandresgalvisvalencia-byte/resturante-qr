@@ -22,9 +22,9 @@ function inventoryDb(rows){
    async updateOne(query,change,options){
     queries.push({type:"write",query,options});assert.equal(options.session,session);
     const row=rows.find(x=>Object.entries(query).every(([k,v])=>x[k]===v));
-    if(!row)return {matchedCount:0,modifiedCount:0};
+    if(!row)return {acknowledged:true,matchedCount:0,modifiedCount:0};
     row.cantidad+=change.$inc.cantidad;writes++;
-    return {matchedCount:1,modifiedCount:1};
+    return {acknowledged:true,matchedCount:1,modifiedCount:1};
    },
    async findOne(query,options){queries.push({type:"verify",query,options});
     assert.equal(options.session,session);
