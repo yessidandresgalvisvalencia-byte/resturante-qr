@@ -56,7 +56,7 @@ async function insertBatch({ db, authenticatedContext, events, session }) {
         actorId: authenticatedContext.actorId, eventHash,
         receivedAt: new Date(), status: "PENDIENTE"
       } }, { upsert: true, ...(session ? {session} : {}) });
-      if (!response || response.acknowledged === false ||
+      if (!response || response.acknowledged !== true ||
           !Number.isInteger(response.upsertedCount) ||
           (response.upsertedCount !== 0 && response.upsertedCount !== 1)) {
         const err = new Error("OFFLINE_INBOX_WRITE_UNVERIFIED");
