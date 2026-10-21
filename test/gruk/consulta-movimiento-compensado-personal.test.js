@@ -22,13 +22,13 @@ function db({asientoActual=asiento,eventos=[],cursor=null,cuenta={
  _id:"507f1f77bcf86cd799439013",usuarioId,activa:true,
  moneda:"COP",requiereReconciliacion:false,saldoMinor:100000
 }}={}){
- const cuenta={sessionCount:0,closed:0,queries:[]};
- const sesion={async withTransaction(fn){cuenta.sessionCount++;await fn();},
-  async endSession(){cuenta.closed++;}};
+ const seguimiento={sessionCount:0,closed:0,queries:[]};
+ const sesion={async withTransaction(fn){seguimiento.sessionCount++;await fn();},
+  async endSession(){seguimiento.closed++;}};
  const query=datos=>({sort(){return this;},limit(){return this;},
-  session(s){assert.equal(s,sesion);cuenta.queries.push(s);return this;},
+  session(s){assert.equal(s,sesion);seguimiento.queries.push(s);return this;},
   async lean(){return datos;}});
- return {cuenta,
+ return {cuenta:seguimiento,
   MovimientoModelo:{findOne(){return query(asientoActual);}},
   EventoModelo:{find(){return query(eventos);}},
   CuentaModelo:{findOne(){return query(cuenta);}},
@@ -43,8 +43,8 @@ test("sin compensaciones devuelve original como versión vigente bajo snapshot",
  assert.equal(r.elegibleParaCompensar,true);
  assert.equal(r.ultimaSecuencia,0);
  assert.equal(r.hashCadena,GENESIS);
- assert.equal(d.cuenta.queries.length,4);
- assert.equal(d.cuenta.closed,1);
+ assert.equal(d.seguimiento.queries.length,4);
+ assert.equal(d.seguimiento.closed,1);
 });
 test("dos cambios sucesivos conservan monto y concepto del historial",async()=>{
  const d=db({eventos:[primero,segundo],cursor:{secuencia:2,hashActual:segundo.hashActual}});
@@ -73,7 +73,7 @@ test("se niega a devolver estado si falta extremo o se adulteró original",async
   const d=db(args);
   await assert.rejects(crearConsultaMovimientoCompensado(d)(usuarioId,mid),
    e=>e.statusCode===409);
-  assert.equal(d.cuenta.closed,1);
+  assert.equal(d.seguimiento.closed,1);
  }
 });
 test("rechaza consultas ajenas e identificadores inválidos",async()=>{
@@ -111,7 +111,7 @@ test("deudas y préstamos se consultan sin exponer corrección inmutable no sopo
   assert.equal(r.elegibleParaCompensar,false);
   assert.equal(r.original,null);
   assert.equal(r.motivo,"TIPO_NO_ADMITIDO_POR_LEDGER_COMPENSATORIO");
-  assert.equal(d.cuenta.closed,1);
+  assert.equal(d.seguimiento.closed,1);
  }
 });
 test("un evento compensatorio sobre préstamo implica corrupción, no elegibilidad",async()=>{
