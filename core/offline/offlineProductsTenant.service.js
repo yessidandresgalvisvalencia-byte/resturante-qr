@@ -26,7 +26,8 @@ async function verifyOfflineProducts({collection,prepared,context,objectId,sessi
  for(let index=0;index<found.length;index++){
   if(!Object.hasOwn(found,index))fail();
   const row=found[index];
-  if(typeof row?._id!=="string"&&!row?._id?.toHexString)fail();
+  if(typeof row?._id!=="string"&&
+     !(row?._id&&typeof row._id.toHexString==="function"))fail();
   const id=String(row._id).toLowerCase();
   if(!HEX24.test(id)||!ids.includes(id)||valid.has(id)||
      String(row?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
