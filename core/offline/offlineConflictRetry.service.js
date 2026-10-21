@@ -8,6 +8,11 @@ const {readOfflineReconciliation}=require("./offlineReconciliation.service");
 const SHA=/^offline-stock-[a-f0-9]{64}$/,HEX=/^[a-fA-F0-9]{24}$/,ID=/^[A-Za-z0-9_-]{1,80}$/;
 const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 function fail(code){const e=new Error(code);e.code=code;throw e;}
+function assertResolutionInsertAcknowledged(result,conflictId){
+ if(result?.acknowledged!==true||result.insertedId!==conflictId)
+  fail("OFFLINE_CONFLICT_RESOLUTION_WRITE_UNVERIFIED");
+ return true;
+}
 function assertAuthorization(auth,conflictId,confirmed,note){
  if(!auth||!["DUEÑO","ADMIN_SEDE"].includes(auth.rol)||
   !HEX.test(auth.empresaId||"")||!HEX.test(auth.sedeId||"")||
@@ -73,9 +78,7 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
     status:"STAGED",approvedBy:auth.usuarioId,note:note.trim(),
     stagedAt:new Date(),applied:false,cobrado:false
    },{session});
-   if(writeResult?.acknowledged!==true||
-      writeResult.insertedId!==conflictId)
-    fail("OFFLINE_CONFLICT_RESOLUTION_WRITE_UNVERIFIED");
+   assertResolutionInsertAcknowledged(writeResult,conflictId);
   }catch(error){
    if(error?.code===11000)fail("OFFLINE_CONFLICT_RESOLUTION_ALREADY_EXISTS");
    throw error;
@@ -91,4 +94,4 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
   events:eventIds.length,inventoryApplied:true,applied:false,cobrado:false,
   totalCop:staged.sales.totalCop});
 }
-module.exports={retryOfflineConflict,assertAuthorization};
+module.exports={retryOfflineConflict,assertAuthorization,assertResolutionInsertAcknowledged};
