@@ -28,12 +28,26 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
  // amounts or products submitted alongside a request to create an audit entry.
  const prepared=await readOfflineOrderCandidates({db,context,eventIds});
  const deltas=calculateOfflineStockDeltas(prepared);
+ // Reject a faulty ObjectId adapter before accessing inventory of another tenant.
+ const asId=value=>{
+  let converted;
+  try{converted=objectId(value);}catch(_error){conflict("OFFLINE_STOCK_AUDIT_IDENTITY_INVALID");}
+  if(converted===null||converted===undefined||
+    String(converted).toLowerCase()!==value.toLowerCase())
+    conflict("OFFLINE_STOCK_AUDIT_IDENTITY_INVALID");
+  return converted;
+ };
+ const scopedEmpresaId=asId(context.empresaId),scopedSedeId=asId(context.sedeId);
+ const products=deltas.map(delta=>{
+  if(typeof delta?.productoId!=="string"||!HEX.test(delta.productoId))
+    conflict("OFFLINE_STOCK_AUDIT_INVALID_PRODUCT");
+  return asId(delta.productoId);
+ });
  const issues=[];
- for(const delta of deltas){
-  if(!HEX.test(delta.productoId))conflict("OFFLINE_STOCK_AUDIT_INVALID_PRODUCT");
+ for(const [index,delta] of deltas.entries()){
   const rows=await db.collection("inventarios").find({
-   empresaId:objectId(context.empresaId),sedeId:objectId(context.sedeId),
-   productoServicioId:objectId(delta.productoId),anulado:false
+   empresaId:scopedEmpresaId,sedeId:scopedSedeId,
+   productoServicioId:products[index],anulado:false
   },{projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1},limit:2}).toArray();
   if(rows.length!==1||
    String(rows[0]?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
