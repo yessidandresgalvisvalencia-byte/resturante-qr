@@ -288,7 +288,8 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    flujoDespuesPendiente.flujoNetoMinor);
   assert.equal(comparacion.obligacionesNoCajaIncluidasPorLegado,1);
   assert.equal(comparacion.coincide,false);
-  assert.equal(comparacion.diferenciaVerificadoMenosLegado.flujoNetoMinor,500500);
+  assert.equal(comparacion.diferenciaVerificadoMenosLegado.flujoNetoMinor,
+   Number(503500n+deltas+(legacyGano?0n:1000n)));
   assert.equal(comparacion.estado,"DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO");
   assert.equal((await consultar(String(usuarioId),intervalo)).fuente,
    "EVENTOS_COMPENSATORIOS_VERIFICADOS");
