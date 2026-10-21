@@ -23,7 +23,7 @@ test("Capa 2: candidatos offline acotan la lectura de MongoDB",async()=>{
  await assert.rejects(readOfflineOrderCandidates({db:fixture.db,context,eventIds:[eventId]}),
   {code:"OFFLINE_ORDERS_NOT_PENDING"});
  assert.equal(fixture.count,1);
- assert.equal(fixture.options.limit,101);
+ assert.equal(fixture.options.limit,2);
 });
 test("Capa 2: no se acepta un arreglo disperso aunque declare cantidad correcta",async()=>{
  const sparse=new Array(1);
