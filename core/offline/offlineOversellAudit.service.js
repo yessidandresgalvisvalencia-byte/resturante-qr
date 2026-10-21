@@ -7,8 +7,9 @@ const {calculateOfflineStockDeltas}=require("./offlineInventoryDeltas.service");
 const HEX=/^[0-9a-f]{24}$/i,MAX=BigInt(Number.MAX_SAFE_INTEGER);
 function conflict(code){const e=new Error(code);e.code=code;throw e;}
 function validIssues(issues,deltas){
- if(!Array.isArray(issues)||issues.length===0||issues.length>deltas.length)return false;
- const allowed=new Set(deltas.map(d=>d.productoId.toLowerCase())),seen=new Set();
+ if(!Array.isArray(issues)||issues.length===0||issues.length>deltas.length||
+    !Array.from({length:issues.length},(_,i)=>Object.hasOwn(issues,i)).every(Boolean))return false;
+ const allowed=new Map(deltas.map(d=>[d.productoId.toLowerCase(),-BigInt(d.deltaUnidades)])),seen=new Set();
  for(const issue of issues){
   if(!issue||typeof issue.productoId!=="string"||!HEX.test(issue.productoId)||
      !allowed.has(issue.productoId.toLowerCase())||seen.has(issue.productoId.toLowerCase()))return false;
@@ -16,7 +17,8 @@ function validIssues(issues,deltas){
   const amounts=[issue.disponible,issue.solicitado,issue.faltante];
   if(amounts.some(v=>typeof v!=="string"||!/^(0|[1-9][0-9]*)$/.test(v)||BigInt(v)>MAX))return false;
   const [available,requested,shortage]=amounts.map(BigInt);
-  if(requested<=available||shortage!==requested-available)return false;
+  if(requested!==allowed.get(issue.productoId.toLowerCase())||
+     requested<=available||shortage!==requested-available)return false;
  }
  return true;
 }
@@ -92,7 +94,9 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
   persisted.empresaId!==context.empresaId||persisted.sedeId!==context.sedeId||
   persisted.actorId!==context.actorId||persisted.status!=="REQUIERE_REVISION"||
   persisted.applied!==false||persisted.cobrado!==false||
-  !Array.isArray(persisted.eventIds)||persisted.eventIds.join(",")!==sorted.join(",")||
+  !Array.isArray(persisted.eventIds)||persisted.eventIds.length!==sorted.length||
+  !Array.from({length:persisted.eventIds.length},(_,i)=>Object.hasOwn(persisted.eventIds,i)).every(Boolean)||
+  persisted.eventIds.join(",")!==sorted.join(",")||
   !validIssues(persisted.issues,deltas))
   conflict("OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED");
  return Object.freeze({
