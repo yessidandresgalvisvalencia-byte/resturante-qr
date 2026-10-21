@@ -22,7 +22,8 @@ function mock(stock=1){
    async updateOne(key,update,options){
     writes++;assert.equal(options.upsert,true);
     if(!stored)stored=update.$setOnInsert;
-    return writes===1?{upsertedCount:1}:{matchedCount:1};
+    return writes===1?{acknowledged:true,upsertedCount:1,matchedCount:0}:
+     {acknowledged:true,upsertedCount:0,matchedCount:1};
    },
    async findOne(key){assert.equal(key.actorId,context.actorId);return stored;}
   };
