@@ -28,6 +28,8 @@ function medioHormigaVerificado(tx){
  if(tx.medioPago==="CREDITO")return "CREDITO";
  if(MEDIOS_CAJA.has(tx.medioPago)){
   if(tx.impactoCaja===false)return null;
+  if(tx.impactoCaja!==true)
+   throw new Error("INTEGRIDAD_HORMIGA: impacto de caja no verificable");
   return "CAJA";
  }
  throw new Error("INTEGRIDAD_HORMIGA: medio de pago desconocido, no se puede afirmar salida de caja");
