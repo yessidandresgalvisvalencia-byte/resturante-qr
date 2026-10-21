@@ -7,7 +7,7 @@ const {verificarCadena}=require("../../modules/finanzas-personales/services/even
 const original={usuarioId:"507f1f77bcf86cd799439011",movimientoId:"507f1f77bcf86cd799439012",
  tipo:"GASTO",montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion"};
 const fechaISO="2026-10-20T15:00:00.000Z";
-function bancoSimulado({colision=false,repetido=false,romperInsercion=false,asientoAusente=false,asientoAjeno=false,asientoAlterado=false}={}){
+function bancoSimulado({colision=false,repetido=false,romperInsercion=false,asientoAusente=false,asientoAjeno=false,asientoAlterado=false,asientoAnulado=false,sinImpactoCaja=false}={}){
  const data={cursor:null,eventos:[],cerradas:0,abortadas:0,indices:0};
  let staged=null;
  const ModeloCursor={
@@ -53,7 +53,8 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false,asie
        String(filter.usuarioId)!==original.usuarioId)return null;
     return {_id:original.movimientoId,usuarioId:original.usuarioId,
      tipo:original.tipo,montoMinor:asientoAlterado?25001:original.montoMinor,
-     concepto:original.concepto,categoria:original.categoria,estado:"ACTIVA"};
+     concepto:original.concepto,categoria:original.categoria,
+     estado:asientoAnulado?"ANULADA":"ACTIVA",impactoCaja:!sinImpactoCaja};
    }};}};
   }
  };
@@ -213,4 +214,13 @@ test("bloquea un original proporcionado con campos financieros inventados",async
  await assert.rejects(registrar({...entrada("inventado"),original:{...original,montoMinor:999}}),
   /Movimiento original distinto al ledger/);
  assert.equal(data.eventos.length,0);
+});
+
+test("no compensa movimiento ya anulado por legado o sin impacto de caja",async()=>{
+ for(const opciones of [{asientoAnulado:true},{sinImpactoCaja:true}]){
+  const {data,registrar}=bancoSimulado(opciones);
+  await assert.rejects(registrar(entrada("sin_caja")),/Movimiento original ya alterado o sin impacto/);
+  assert.equal(data.cursor,null);
+  assert.equal(data.eventos.length,0);
+ }
 });
