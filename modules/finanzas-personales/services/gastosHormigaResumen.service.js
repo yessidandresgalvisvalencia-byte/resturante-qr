@@ -50,7 +50,7 @@ function resumir(transacciones,ahora=new Date()){
   if(tx.fecha===null||tx.fecha===undefined||tx.fecha==="")throw new TypeError("Fecha hormiga inválida");
   const fecha=new Date(tx.fecha);
   if(Number.isNaN(fecha.getTime()))throw new TypeError("Fecha hormiga inválida");
-  const id=tx._id==null?"":String(tx._id);
+  const id=tx._id==null?"":String(tx._id).trim();
   if(!id||id==="[object Object]")throw new Error("INTEGRIDAD_HORMIGA: movimiento sin identificador verificable");
   const firma=JSON.stringify([fecha.toISOString(),tx.moneda??"COP",tx.montoMinor,tx.concepto,tx.categoria,tx.estado,tx.impactoCaja,tx.medioPago]);
   if(vistos.has(id)){
@@ -94,7 +94,8 @@ function resumir(transacciones,ahora=new Date()){
   accion:cantidadSemana+cantidadCreditoSemana>0?"Revisa tus compras pequeñas, incluidas las que pagaste con tarjeta, antes de repetirlas.":"Registra únicamente tus gastos reales para revisar el consumo hormiga."};
 }
 async function obtener(usuarioId,{ahora=new Date()}={}){
- if(!usuarioId)throw new TypeError("La identidad autenticada es obligatoria");
+ if(!usuarioId||(typeof usuarioId==="string"&&!usuarioId.trim()))
+  throw new TypeError("La identidad autenticada es obligatoria");
  const periodo=limites(ahora);
  const transacciones=await Transaccion.find({usuarioId,tipo:"GASTO",estado:{$ne:"ANULADA"},
   fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}},null,{maxTimeMS:5000})
