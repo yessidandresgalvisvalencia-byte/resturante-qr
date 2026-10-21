@@ -60,6 +60,15 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   const preservado=await Movimiento.findById(asiento._id).lean();
   assert.equal(preservado.montoMinor,25000);
   assert.equal(preservado.estado,"ACTIVA");
+  // Las rutas heredadas no pueden mutar el original cuando ya está compensado.
+  const flujoLegado=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+  await assert.rejects(()=>flujoLegado.corregirTransaccion(usuarioId,String(asiento._id),
+   {montoMinor:20000}),e=>e.statusCode===409&&/ledger compensatorio/.test(e.message));
+  await assert.rejects(()=>flujoLegado.anularTransaccion(usuarioId,String(asiento._id)),
+   e=>e.statusCode===409&&/ledger compensatorio/.test(e.message));
+  assert.equal((await Movimiento.findById(asiento._id).lean()).montoMinor,25000);
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,103000);
+  assert.equal(await Outbox.countDocuments({usuarioId}),1);
   const segundoOriginal={...original,montoMinor:22000};
   const registrarFalla=crearRegistrador({aplicarAtomico:async contexto=>{
    await aplicar(contexto);
