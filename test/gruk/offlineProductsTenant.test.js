@@ -55,3 +55,32 @@ test("Capa 2: respuestas de productos incompletas, repetidas o ajenas fallan cer
    {code:"OFFLINE_PRODUCTS_NOT_AUTHORIZED"});
  }
 });
+
+test("Capa 2: productos rechaza pseudo ObjectId con toHexString falsificado",async()=>{
+ const base={empresaId:empresa,sedeId:sede,activo:true};
+ for(const id of [
+  {toHexString:product,toString:()=>product},
+  {toHexString:true,toString:()=>product},
+  {toHexString:1,toString:()=>product},
+  {toHexString:null,toString:()=>product},
+  {toString:()=>product},
+  [product],new String(product)
+ ]){
+  let reads=0;
+  const db={find(query,options){
+   reads++;
+   assert.equal(query.empresaId,empresa);assert.equal(query.sedeId,sede);
+   assert.equal(options.limit,2);
+   return {toArray:async()=>[{...base,_id:id}]};
+  }};
+  await assert.rejects(verify({collection:db,prepared,context,objectId}),
+   {code:"OFFLINE_PRODUCTS_NOT_AUTHORIZED"});
+  assert.equal(reads,1);
+ }
+});
+test("Capa 2: conserva compatibilidad con ObjectId BSON verdadero",async()=>{
+ const base={empresaId:empresa,sedeId:sede,activo:true};
+ const bsonId={toHexString:()=>product,toString:()=>product};
+ assert.deepEqual(await verify({collection:collection([{...base,_id:bsonId}]),
+  prepared,context,objectId}),[product]);
+});
