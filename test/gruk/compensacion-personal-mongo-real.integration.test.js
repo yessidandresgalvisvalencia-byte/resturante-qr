@@ -230,6 +230,22 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,saldoPrevioHttp+500);
   assert.equal(await Outbox.countDocuments({usuarioId}),previoOutbox+3);
   assert.equal((await Movimiento.findById(asientoHttp._id).lean()).montoMinor,5000);
+  // El cliente obtiene su estado vigente real antes de la próxima operación.
+  const {crearConsultaMovimientoCompensado}=require(
+   "../../modules/finanzas-personales/services/consultaMovimientoCompensadoPersonal.service");
+  const leerEstado=crearConsultaMovimientoCompensado();
+  const vigenteHttp=await leerEstado(String(usuarioId),String(asientoHttp._id));
+  assert.equal(vigenteHttp.original.montoMinor,4500);
+  assert.equal(vigenteHttp.original.concepto,"Prueba API rectificada");
+  assert.equal(vigenteHttp.original.categoria,"Otros");
+  assert.equal(vigenteHttp.elegibleParaCompensar,true);
+  const ajenoEstado=await assert.rejects(
+   leerEstado(String(new mongoose.Types.ObjectId()),String(asientoHttp._id)),
+   error=>error.statusCode===404
+  );
+  const pruebaUltimo=await Evento.find({usuarioId:String(usuarioId)})
+   .sort({secuencia:1}).lean();
+  assert.equal(vigenteHttp.hashCadena,pruebaUltimo.at(-1).hashActual);
   // Suprimir un evento del extremo deja una cadena con hashes válidos, pero
   // el cursor revela el borrado: nunca devolver un flujo parcial.
   await Evento.collection.deleteOne({_id:eventos.at(-1)._id});
