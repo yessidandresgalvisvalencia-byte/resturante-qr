@@ -68,11 +68,14 @@ async function retryOfflineConflict({db,auth,conflictId,confirmed,note}){
      valid.eventIds.join(",")!==eventIds.join(","))
    fail("OFFLINE_CONFLICT_RETRY_SOURCE_INVALID");
   try{
-   await resolutionCollection.insertOne({
+   const writeResult=await resolutionCollection.insertOne({
     ...resolutionKey,actorId:source.actorId,eventIds:[...eventIds],
     status:"STAGED",approvedBy:auth.usuarioId,note:note.trim(),
     stagedAt:new Date(),applied:false,cobrado:false
    },{session});
+   if(writeResult?.acknowledged!==true||
+      writeResult.insertedId!==conflictId)
+    fail("OFFLINE_CONFLICT_RESOLUTION_WRITE_UNVERIFIED");
   }catch(error){
    if(error?.code===11000)fail("OFFLINE_CONFLICT_RESOLUTION_ALREADY_EXISTS");
    throw error;
