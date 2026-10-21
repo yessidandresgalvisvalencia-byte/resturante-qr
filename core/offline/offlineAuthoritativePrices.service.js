@@ -30,7 +30,8 @@ async function assertOfflineAuthoritativePrices({db,session,context,plan,objectI
  const asId=value=>{
   let converted;
   try{converted=objectId(value);}catch(_error){fail();}
-  if(converted===null||converted===undefined||
+  if(!(typeof converted==="string"||
+       (converted&&converted._bsontype==="ObjectId"&&typeof converted.toHexString==="function"))||
     String(converted).toLowerCase()!==value.toLowerCase())fail();
   return converted;
  };
