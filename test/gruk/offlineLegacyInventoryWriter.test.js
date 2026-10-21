@@ -270,9 +270,38 @@ test("Capa 2: el adaptador no puede insertar operadores Mongo en descuento offli
  }
 });
 test("Capa 2: ObjectId BSON legítimo preserva descuento transaccional",async()=>{
- const f=fixture();
+ let writes=0;
+ const session={inTransaction:()=>true};
  const asBson=value=>({_bsontype:"ObjectId",toHexString:()=>value,toString:()=>value});
- assert.deepEqual(await apply({...f,context,inventoryDeltas,objectId:asBson}),
+ const row={_id:"stock-a",empresaId,sedeId,productoServicioId:productoId,anulado:false,cantidad:5};
+ const db={collection(name){
+  assert.equal(name,"inventarios");
+  return {
+   find(query,opts){
+    assert.equal(String(query.empresaId),empresaId);
+    assert.equal(String(query.sedeId),sedeId);
+    assert.equal(String(query.productoServicioId),productoId);
+    assert.equal(opts.session,session);
+    return {limit:n=>{assert.equal(n,2);return {toArray:async()=>[row]};}};
+   },
+   async updateOne(query,update,opts){
+    assert.equal(String(query.empresaId),empresaId);
+    assert.equal(String(query.sedeId),sedeId);
+    assert.equal(query.cantidad,5);
+    assert.equal(update.$inc.cantidad,-2);
+    assert.equal(opts.session,session);
+    writes++;
+    return {acknowledged:true,matchedCount:1,modifiedCount:1};
+   },
+   async findOne(query,opts){
+    assert.equal(String(query.empresaId),empresaId);
+    assert.equal(String(query.sedeId),sedeId);
+    assert.equal(opts.session,session);
+    return {...row,cantidad:3};
+   }
+  };
+ }};
+ assert.deepEqual(await apply({db,session,context,inventoryDeltas,objectId:asBson}),
   [{productoId,antes:"5",despues:"3"}]);
- assert.equal(f.writes(),1);
+ assert.equal(writes,1);
 });
