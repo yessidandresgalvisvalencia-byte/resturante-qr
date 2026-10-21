@@ -134,6 +134,45 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   const usuarioAjeno=new mongoose.Types.ObjectId();
   const ajeno=await consultar(String(usuarioAjeno),intervalo);
   assert.equal(ajeno.flujoNetoMinor,0);
+  // Carrera de escritura REAL: corrección LEGADA de solo concepto (sin delta)
+  // contra el ledger compensatorio. Deben disputar el MISMO cursor/fence.
+  const [asientoCarrera]=await Movimiento.create([{
+   usuarioId,cuentaId:cuenta._id,cuenta:cuenta.nombre,tipo:"GASTO",
+   montoMinor:12000,concepto:"Compra original",categoria:"Hogar",
+   fecha:new Date("2026-10-20T14:00:00.000Z"),estado:"ACTIVA",
+   impactoCaja:true,recurrente:false
+  }]);
+  const descriptorCarrera={
+   usuarioId:String(usuarioId),movimientoId:String(asientoCarrera._id),
+   tipo:"GASTO",montoMinor:12000,concepto:"Compra original",categoria:"Hogar"
+  };
+  const totalAntes=await Evento.countDocuments({usuarioId:String(usuarioId),
+   movimientoId:String(asientoCarrera._id)});
+  assert.equal(totalAntes,0);
+  const saldoAntesCarrera=(await Cuenta.findById(cuenta._id).lean()).saldoMinor;
+  const choque=await Promise.allSettled([
+   flujoLegado.corregirTransaccion(usuarioId,String(asientoCarrera._id),
+    {concepto:"Compra rectificada legacy"}),
+   registrar({original:descriptorCarrera,tipo:"CORRECCION",
+    cambios:{montoMinor:11000},idempotencyKey:"carrera_legacy_vs_compensacion",
+    fechaISO:"2026-10-20T18:00:00.000Z"})
+  ]);
+  const exitos=choque.filter(r=>r.status==="fulfilled").length;
+  assert.equal(exitos,1,
+   "Legacy y ledger no pueden confirmar a la vez sobre el mismo asiento");
+  const carreraOriginal=await Movimiento.findById(asientoCarrera._id).lean();
+  const carreraEventos=await Evento.find({usuarioId:String(usuarioId),
+   movimientoId:String(asientoCarrera._id)}).lean();
+  const legacyGano=carreraOriginal.concepto==="Compra rectificada legacy";
+  assert.equal(carreraEventos.length,legacyGano?0:1);
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,
+   saldoAntesCarrera+(legacyGano?0:1000));
+  assert.equal(await Outbox.countDocuments({usuarioId}),
+   1+confirmados.length+1);
+  for(const r of choque.filter(r=>r.status==="rejected"))
+   assert.ok(r.reason.statusCode===409||[112,251].includes(r.reason.code)||
+    r.reason.hasErrorLabel?.("TransientTransactionError")===true,
+    "Error inesperado en carrera legada: "+String(r.reason));
   // Suprimir un evento del extremo deja una cadena con hashes válidos, pero
   // el cursor revela el borrado: nunca devolver un flujo parcial.
   await Evento.collection.deleteOne({_id:eventos.at(-1)._id});
