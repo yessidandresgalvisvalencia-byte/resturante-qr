@@ -33,7 +33,8 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
  const asId=value=>{
   let converted;
   try{converted=objectId(value);}catch(_error){fail("OFFLINE_INVENTORY_TENANT_REQUIRED");}
-  if(converted===null||converted===undefined||
+  if(!(typeof converted==="string"||
+       (converted&&converted._bsontype==="ObjectId"&&typeof converted.toHexString==="function"))||
      String(converted).toLowerCase()!==value.toLowerCase())
     fail("OFFLINE_INVENTORY_TENANT_REQUIRED");
   return converted;
