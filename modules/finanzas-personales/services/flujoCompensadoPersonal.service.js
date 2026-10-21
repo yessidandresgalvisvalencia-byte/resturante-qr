@@ -30,7 +30,11 @@ function flujoCompensadoPuro({usuarioId,movimientos,eventos=[],desde,hasta}){
   if(m.moneda!=="COP")integridad("moneda no autorizada");
   const fecha=new Date(m.fecha);
   if(!Number.isFinite(fecha.getTime()))integridad("fecha inválida");
+  if(m.impactoCaja!==undefined&&typeof m.impactoCaja!=="boolean")
+   integridad("indicador de impacto de caja inválido");
   const estado=estados.get(id);
+  if(estado&&m.impactoCaja===false)
+   integridad("compensación sobre asiento sin impacto real de caja");
   if(estado&&m.estado!=="ACTIVA")
    integridad("movimiento original alterado por ruta legada y compensatoria");
   let actual=m;
@@ -46,6 +50,9 @@ function flujoCompensadoPuro({usuarioId,movimientos,eventos=[],desde,hasta}){
    if(estado.anulado)continue;
    actual=estado.actual;
   }else if(m.estado==="ANULADA")continue;
+  // Una obligación futura todavía no pagada NO reduce la caja realizada.
+  // Se conserva en compromisos/proyecciones de vencimientos, no aquí.
+  if(m.impactoCaja===false)continue;
   if(fecha<inicio||fecha>=fin)continue;
   // Un ajuste manual de saldo no equivale a ingreso/gasto del período.
   if(actual.tipo==="AJUSTE_SALDO")continue;
