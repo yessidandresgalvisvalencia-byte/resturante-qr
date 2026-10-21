@@ -2,6 +2,7 @@
 const mongoose=require("mongoose");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
+const Transaccion=require("../models/TransaccionPersonal");
 const {eventoCompensatorio,verificarCadena,canon,originalVerificado}=require("./eventoCompensatorioPersonal.service");
 const GENESIS="0".repeat(64);
 const {comprobarHistorialCompensatorio}=require("./comprobarHistorialCompensatorio.service");
@@ -25,7 +26,7 @@ async function exigirIndices({EventoModelo=Evento,CursorModelo=Cursor}={}){
   throw Object.assign(new Error("Falta un índice único para la seguridad del ledger"),{statusCode:503});
 }
 function crearRegistrador({
- EventoModelo=Evento,CursorModelo=Cursor,
+ EventoModelo=Evento,CursorModelo=Cursor,TransaccionModelo=Transaccion,
  nuevaSesion=()=>mongoose.startSession(),
  revisarIndices=()=>exigirIndices({EventoModelo,CursorModelo}),
  construir=eventoCompensatorio
@@ -79,6 +80,25 @@ function crearRegistrador({
       catch(_){valido=false;}
       if(!valido)throw conflicto("Movimiento desactualizado; reconstruye su estado vigente");
     }
+    // Ningún original aportado por el cliente se considera fuente de verdad.
+    // Verificar la identidad y la primera versión contra la transacción persistida.
+    const asiento=await TransaccionModelo.findOne({
+      _id:original.movimientoId,usuarioId:original.usuarioId,
+      tipo:{$in:["INGRESO","GASTO"]}
+    }).session(session).lean();
+    if(!asiento)throw conflicto("Movimiento original inexistente o ajeno");
+    let canonico;
+    try{
+      canonico=originalVerificado({
+        usuarioId:String(asiento.usuarioId),movimientoId:String(asiento._id),
+        tipo:asiento.tipo,montoMinor:asiento.montoMinor,
+        concepto:asiento.concepto,categoria:asiento.categoria
+      });
+      const primera=cadena.find(e=>e.movimientoId===original.movimientoId);
+      const esperado=primera?primera.original:original;
+      if(canon(canonico)!==canon(originalVerificado(esperado))||
+         (!primera&&asiento.estado==="ANULADA"))throw new Error("Original o estado inconsistentes");
+    }catch(_){throw conflicto("Movimiento original distinto al ledger o inválido");}
     const evento=construir({original,tipo,cambios,idempotencyKey,fechaISO,
       prevHash:cursor.hashActual,secuencia:cursor.secuencia+1});
     // El cursor CAS coordina la escritura por usuario. Una carrera aborta toda la transacción.
