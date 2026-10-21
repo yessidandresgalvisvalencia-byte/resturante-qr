@@ -18,7 +18,8 @@ function validIssues(issues){
   if(products.has(product))return false;
   products.add(product);
   const fields=[issue.disponible,issue.solicitado,issue.faltante];
-  if(fields.some(n=>typeof n!=="string"||!/^(0|[1-9][0-9]*)$/.test(n)||BigInt(n)>MAX))return false;
+  if(fields.some(n=>typeof n!=="string"||n.length>16||
+    !/^(0|[1-9][0-9]*)$/.test(n)||BigInt(n)>MAX))return false;
   const [available,requested,shortage]=fields.map(BigInt);
   if(requested<=available||shortage!==requested-available)return false;
  }
@@ -39,7 +40,9 @@ async function listStockConflicts({db,auth,limit=50}){
   ...tenant,status:"REQUIERE_REVISION"
  },{projection:{_id:1,empresaId:1,sedeId:1,actorId:1,eventIds:1,issues:1,createdAt:1,status:1,applied:1,cobrado:1},
   sort:{createdAt:-1,_id:1},limit}).toArray();
- if(!Array.isArray(records)||records.some(x=>
+ if(!Array.isArray(records)||records.length>limit||
+  !Array.from({length:records.length},(_,i)=>Object.hasOwn(records,i)).every(Boolean)||
+  records.some(x=>
   x?.empresaId!==tenant.empresaId||x?.sedeId!==tenant.sedeId||
   x?.status!=="REQUIERE_REVISION"||x?.applied!==false||x?.cobrado!==false||
   !SHA.test(x?._id||"")||!ID.test(x?.actorId||"")||
