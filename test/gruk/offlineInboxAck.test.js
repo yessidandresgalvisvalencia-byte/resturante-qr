@@ -7,7 +7,9 @@ const event={eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA0",...context,deviceId:"tablet_1"
  schemaVersion:1,payload:{pedidoId:"local_1"}};
 test("Capa 2: inbox rechaza acuse de escritura desconocido sin afirmar recibido",async()=>{
  for(const response of [null,undefined,{}, {upsertedCount:-1},{upsertedCount:2},
-  {upsertedCount:"1"},{acknowledged:false,upsertedCount:0},
+  {upsertedCount:"1"},{upsertedCount:0},{upsertedCount:1},
+  {acknowledged:null,upsertedCount:1},{acknowledged:0,upsertedCount:1},
+  {acknowledged:false,upsertedCount:0},
   {acknowledged:false,upsertedCount:1}]){
   let reads=0,writes=0;
   const db={collection:()=>({
