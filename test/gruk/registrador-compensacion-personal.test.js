@@ -4,11 +4,12 @@ const assert=require("node:assert/strict");
 const {crearRegistrador,verificarIndices,exigirIndices,GENESIS}=
  require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
+const {crearAplicadorAtomicoPersonal}=require("../../modules/finanzas-personales/services/aplicarCompensacionCajaAtomica.service");
 const original={usuarioId:"507f1f77bcf86cd799439011",movimientoId:"507f1f77bcf86cd799439012",
  tipo:"GASTO",montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion"};
 const fechaISO="2026-10-20T15:00:00.000Z";
-function bancoSimulado({colision=false,repetido=false,romperInsercion=false,asientoAusente=false,asientoAjeno=false,asientoAlterado=false,asientoAnulado=false,sinImpactoCaja=false}={}){
- const data={cursor:null,eventos:[],cerradas:0,abortadas:0,indices:0};
+function bancoSimulado({colision=false,repetido=false,romperInsercion=false,asientoAusente=false,asientoAjeno=false,asientoAlterado=false,asientoAnulado=false,sinImpactoCaja=false,conAplicador=false,fallarOutbox=false,cuentaInsuficiente=false}={}){
+ const data={cursor:null,eventos:[],saldoMinor:100000,outbox:[],cerradas:0,abortadas:0,indices:0};
  let staged=null;
  const ModeloCursor={
   findById(){return {session(){return {lean:async()=>staged.cursor};}};},
@@ -54,20 +55,43 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false,asie
     return {_id:original.movimientoId,usuarioId:original.usuarioId,
      tipo:original.tipo,montoMinor:asientoAlterado?25001:original.montoMinor,
      concepto:original.concepto,categoria:original.categoria,
-     estado:asientoAnulado?"ANULADA":"ACTIVA",impactoCaja:!sinImpactoCaja};
+     estado:asientoAnulado?"ANULADA":"ACTIVA",impactoCaja:!sinImpactoCaja,
+     cuentaId:"507f1f77bcf86cd799439013",recurrente:false};
    }};}};
   }
  };
+ const CuentaModelo={
+  async findOneAndUpdate(filtro,actualizacion,opciones){
+   if(!opciones.session||cuentaInsuficiente||filtro.usuarioId!==original.usuarioId)return null;
+   const siguiente=staged.saldoMinor+actualizacion.$inc.saldoMinor;
+   if(siguiente<0||!Number.isSafeInteger(siguiente))return null;
+   staged.saldoMinor=siguiente;
+   return {_id:"507f1f77bcf86cd799439013",saldoMinor:siguiente};
+  }
+ };
+ const OutboxModelo={
+  async create(rows,opciones){
+   if(!opciones.session)throw Error("Sesión de outbox ausente");
+   if(fallarOutbox)throw Error("Fallo simulado outbox");
+   staged.outbox.push(rows[0]);
+   return [{_id:"507f1f77bcf86cd799439014"}];
+  }
+ };
+ const aplicador=crearAplicadorAtomicoPersonal({
+  CuentaModelo,OutboxModelo,nuevoEventId:()=>"evento_unico"
+ });
  const nuevaSesion=async()=>({
   async withTransaction(fn){
-   staged={cursor:data.cursor&&{...data.cursor},eventos:[...data.eventos]};
-   try{await fn();data.cursor=staged.cursor;data.eventos=staged.eventos;}
+   staged={cursor:data.cursor&&{...data.cursor},eventos:[...data.eventos],
+    saldoMinor:data.saldoMinor,outbox:[...data.outbox]};
+   try{await fn();data.cursor=staged.cursor;data.eventos=staged.eventos;
+    data.saldoMinor=staged.saldoMinor;data.outbox=staged.outbox;}
    catch(error){data.abortadas++;throw error;}
   },
   async endSession(){data.cerradas++;}
  });
  const registrar=crearRegistrador({EventoModelo:ModeloEvento,CursorModelo:ModeloCursor,TransaccionModelo:ModeloTransaccion,nuevaSesion,
-  revisarIndices:async()=>{data.indices++;}});
+  revisarIndices:async()=>{data.indices++;},aplicarAtomico:conAplicador?aplicador:null});
  return {data,registrar};
 }
 const entrada=(key="operacion_1")=>({original,tipo:"CORRECCION",
@@ -223,4 +247,33 @@ test("no compensa movimiento ya anulado por legado o sin impacto de caja",async(
   assert.equal(data.cursor,null);
   assert.equal(data.eventos.length,0);
  }
+});
+
+test("integración simulada: evento, cursor, saldo y outbox se confirman juntos",async()=>{
+ const {data,registrar}=bancoSimulado({conAplicador:true});
+ const e=await registrar(entrada("atomico_1"));
+ assert.equal(e.deltaCajaMinor,"3000");
+ assert.equal(data.saldoMinor,103000);
+ assert.equal(data.cursor.hashActual,e.hashActual);
+ assert.equal(data.eventos.length,1);
+ assert.equal(data.outbox.length,1);
+ assert.equal(data.outbox[0].payload.compensacionHash,e.hashActual);
+});
+test("integración simulada: error de outbox revierte simultáneamente todos los estados",async()=>{
+ const {data,registrar}=bancoSimulado({conAplicador:true,fallarOutbox:true});
+ await assert.rejects(registrar(entrada("atomico_fallo")),/Fallo simulado outbox/);
+ assert.equal(data.saldoMinor,100000);
+ assert.equal(data.cursor,null);
+ assert.equal(data.eventos.length,0);
+ assert.equal(data.outbox.length,0);
+ assert.equal(data.abortadas,1);
+ assert.equal(data.cerradas,1);
+});
+test("integración simulada: cuenta rechazada no crea evento financiero",async()=>{
+ const {data,registrar}=bancoSimulado({conAplicador:true,cuentaInsuficiente:true});
+ await assert.rejects(registrar(entrada("sin_cuenta")),/CAJA_COMPENSACION_NO_APLICABLE/);
+ assert.equal(data.saldoMinor,100000);
+ assert.equal(data.cursor,null);
+ assert.equal(data.eventos.length,0);
+ assert.equal(data.outbox.length,0);
 });
