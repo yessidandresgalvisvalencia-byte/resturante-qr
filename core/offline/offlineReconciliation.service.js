@@ -29,7 +29,7 @@ async function readOfflineReconciliation({db,context,eventIds}){
   db.collection(name).find(name==="gruk_offline_inbox"?{...scope,actorId:context.actorId}:scope,
    {projection:{_id:0,empresaId:1,sedeId:1,actorId:1,...projection},limit:101}).toArray()));
  const maps=sets.map(rows=>{
-  if(!Array.isArray(rows)||rows.length>eventIds.length)
+  if(!Array.isArray(rows)||rows.length>100)
    fail("OFFLINE_RECONCILIATION_EVIDENCE_INVALID");
   const found=new Map();
   let ambiguousUnidentified=false;
