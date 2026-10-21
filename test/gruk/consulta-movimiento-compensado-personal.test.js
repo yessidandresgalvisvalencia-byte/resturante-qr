@@ -19,7 +19,9 @@ const primero=evento(original,"CORRECCION",{montoMinor:22000},GENESIS,1);
 const segundo=evento({...original,montoMinor:22000},"CORRECCION",
  {concepto:"Mercado"},primero.hashActual,2);
 function db({asientoActual=asiento,eventos=[],cursor=null}={}){
- const cuenta={sessionCount:0,closed:0,queries:[]};const sesion={};
+ const cuenta={sessionCount:0,closed:0,queries:[]};
+ const sesion={async withTransaction(fn){cuenta.sessionCount++;await fn();},
+  async endSession(){cuenta.closed++;}};
  const query=datos=>({sort(){return this;},limit(){return this;},
   session(s){assert.equal(s,sesion);cuenta.queries.push(s);return this;},
   async lean(){return datos;}});
@@ -27,8 +29,7 @@ function db({asientoActual=asiento,eventos=[],cursor=null}={}){
   MovimientoModelo:{findOne(){return query(asientoActual);}},
   EventoModelo:{find(){return query(eventos);}},
   CursorModelo:{findById(){return query(cursor);}},
-  nuevaSesion:async()=>({...sesion,async withTransaction(fn){cuenta.sessionCount++;await fn();},
-   async endSession(){cuenta.closed++;}})
+  nuevaSesion:async()=>sesion
  };
 }
 test("sin compensaciones devuelve original como versión vigente bajo snapshot",async()=>{
