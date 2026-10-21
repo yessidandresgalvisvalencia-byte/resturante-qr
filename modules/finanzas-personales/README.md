@@ -47,3 +47,20 @@ sustituir las mutaciones legadas PATCH/DELETE por eventos compensatorios, integr
 en todos los resúmenes, resolver obligaciones recurrentes y comprobar end-to-end autenticación,
 autorización, idempotencia y conciliación con MongoDB real. Un CI aprobado en esta rama
 **no equivale** a la autorización de exposición pública de la ruta.
+
+## Diagnóstico de reconciliación entre lecturas
+
+`GET /v81/diagnostico-proyecciones?desde=<ISO>&hasta=<ISO>` se encuentra tras el
+JWT y entitlement personales. Lee movimientos, eventos y cursor desde **un mismo
+snapshot MongoDB** y valida toda la cadena SHA-256 antes de comparar:
+`legado` reproduce la suma histórica usada por `flujoPeriodo` (incluidos compromisos
+con `impactoCaja:false`); `verificado` aplica las compensaciones firmadas y
+excluye obligaciones pendientes. `diferenciaVerificadoMenosLegado` es una resta
+exacta sobre enteros, y `obligacionesNoCajaIncluidasPorLegado` cuenta posibles
+dobles conteos.
+
+La respuesta es **diagnóstica** (marca `DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO`),
+NO sustituye el saldo de una cuenta ni modifica dinero. Si hay adulteración,
+historial incompleto o desbordamiento, la consulta falla cerrada. El comparador
+NO reconcilia reservas recurrentes ni justifica habilitar el POST compensatorio
+hasta cerrar #407.
