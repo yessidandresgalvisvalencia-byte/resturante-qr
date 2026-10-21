@@ -120,6 +120,27 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   const eventos=await Evento.find({usuarioId:String(usuarioId)}).sort({secuencia:1}).lean();
   assert.equal(verificarCadena(eventos,{prevHash:"0".repeat(64)}),true);
   assert.equal(eventos.at(-1).hashActual,cabezaFinal.hashActual);
+  // Ejercitar la consulta REAL: movimientos, eventos y cursor bajo snapshot.
+  const {crearConsultaFlujoCompensado}=require(
+   "../../modules/finanzas-personales/services/consultaFlujoCompensadoPersonal.service");
+  const consultar=crearConsultaFlujoCompensado();
+  const intervalo={desde:"2026-10-01T00:00:00.000Z",hasta:"2026-11-01T00:00:00.000Z"};
+  const compensado=await consultar(String(usuarioId),intervalo);
+  // Dos gastos originales: 25.000 + 30.000; el ajuste inicial devuelve 3.000.
+  // Solo las operaciones concurrentes confirmadas afectan el total final.
+  assert.equal(compensado.flujoNetoMinor,Number(-52000n+deltas));
+  assert.equal(compensado.gastosMinor,Number(52000n-deltas));
+  assert.equal(compensado.fuente,"EVENTOS_COMPENSATORIOS_VERIFICADOS");
+  const usuarioAjeno=new mongoose.Types.ObjectId();
+  const ajeno=await consultar(String(usuarioAjeno),intervalo);
+  assert.equal(ajeno.flujoNetoMinor,0);
+  // Suprimir un evento del extremo deja una cadena con hashes válidos, pero
+  // el cursor revela el borrado: nunca devolver un flujo parcial.
+  await Evento.collection.deleteOne({_id:eventos.at(-1)._id});
+  await assert.rejects(()=>consultar(String(usuarioId),intervalo),
+   e=>e.statusCode===409&&/cursor y eventos desincronizados/.test(e.message));
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaFinal.saldoMinor);
+
  }finally{
   try{
    if(mongoose.connection.readyState===1&&mongoose.connection.db.databaseName===dbName)
