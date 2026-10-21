@@ -27,6 +27,20 @@ router.get("/v81/transacciones/:id/estado-compensado",async(req,res)=>{
    error:e.statusCode?e.message:"No fue posible verificar el movimiento"});
  }
 });
+// Diagnóstico NO transaccional: compara vista heredada y ledger completo
+// en un snapshot consistente; nunca altera saldos ni activa escrituras.
+router.get("/v81/diagnostico-proyecciones",async(req,res)=>{
+ try{
+  const {desde,hasta}=req.query;
+  const consultar=require("./services/consultaFlujoCompensadoPersonal.service")
+   .crearConsultaFlujoCompensado();
+  const diagnostico=await consultar(req.personalAuth.userId,{desde,hasta,diagnostico:true});
+  return res.json({ok:true,diagnostico});
+ }catch(e){
+  return res.status(e.statusCode||500).json({ok:false,
+   error:e.statusCode?e.message:"No fue posible comparar las proyecciones"});
+ }
+});
 router.get("/v81/flujo-compensado",async(req,res)=>{
  try{
   const {desde,hasta}=req.query;
