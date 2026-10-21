@@ -54,3 +54,22 @@ test("auditor rechaza modificaciones extra y movimientos originales repetidos",(
  assert.throws(()=>auditar([{...uno,admin:true}],cursor),/INTEGRIDAD_LEDGER/);
  assert.throws(()=>auditar([],{_id:usuarioId,secuencia:0,hashActual:genesis},[original,original]),/INTEGRIDAD_LEDGER/);
 });
+
+test("auditor acepta _id persistido en Mongo sin firmar metadatos del almacenamiento",()=>{
+ const uno=evento(original,"CORRECCION",{montoMinor:22000},"corr_mongo_1",1,genesis);
+ const cursor={_id:usuarioId,secuencia:1,hashActual:uno.hashActual};
+ const persistido={...uno,_id:"507f1f77bcf86cd799439099"};
+ assert.equal(auditar([persistido],cursor).estados[0].actual.montoMinor,22000);
+ assert.throws(()=>auditar([{...persistido,__v:1}],cursor),/INTEGRIDAD_LEDGER/);
+});
+test("auditor comprueba una sola cadena por usuario aunque se alternen movimientos",()=>{
+ const segundo={...original,movimientoId:"507f1f77bcf86cd799439013",tipo:"INGRESO",montoMinor:90000,concepto:"Nomina"};
+ const uno=evento(original,"CORRECCION",{montoMinor:22000},"corr_gasto",1,genesis);
+ const dos=evento(segundo,"CORRECCION",{montoMinor:95000},"corr_ingreso",2,uno.hashActual);
+ const cursor={_id:usuarioId,secuencia:2,hashActual:dos.hashActual};
+ const result=auditar([uno,dos],cursor,[original,segundo]);
+ assert.equal(result.estados.find(e=>e.movimientoId===original.movimientoId).actual.montoMinor,22000);
+ assert.equal(result.estados.find(e=>e.movimientoId===segundo.movimientoId).actual.montoMinor,95000);
+ assert.throws(()=>auditar([dos,uno],cursor,[original,segundo]),/INTEGRIDAD_LEDGER/);
+ assert.throws(()=>auditar([uno,dos],cursor,[original]),/INTEGRIDAD_LEDGER/);
+});
