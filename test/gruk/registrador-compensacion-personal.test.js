@@ -22,9 +22,17 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
  };
  const ModeloEvento={
   find(filter){
-   return {sort(){return {limit(n){return {session(){return {lean:async()=>
-    staged.eventos.filter(e=>e.usuarioId===filter.usuarioId)
-     .sort((a,b)=>a.secuencia-b.secuencia).slice(0,n)};}};}};}};
+   let limite=Infinity;
+   const consulta={
+    sort(){return consulta;},
+    limit(n){limite=n;return consulta;},
+    session(){return consulta;},
+    async lean(){
+     return staged.eventos.filter(e=>e.usuarioId===filter.usuarioId)
+      .sort((a,b)=>a.secuencia-b.secuencia).slice(0,limite);
+    }
+   };
+   return consulta;
   },
   findOne(filter){
    const leer=async()=>filter.idempotencyKey!==undefined?
