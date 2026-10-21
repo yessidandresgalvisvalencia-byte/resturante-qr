@@ -9,6 +9,7 @@ const Cursor=require("../../modules/finanzas-personales/models/CursorCompensacio
 const Evento=require("../../modules/finanzas-personales/models/EventoCompensatorioPersonal");
 const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");
 const {crearRegistrador}=require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
+const {crearRegistradorFinancieroPersonal}=require("../../modules/finanzas-personales/services/registradorFinancieroPersonal.service");
 const {crearAplicadorAtomicoPersonal}=require("../../modules/finanzas-personales/services/aplicarCompensacionCajaAtomica.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
 const uri=process.env.TEST_MONGO_URI;
@@ -47,7 +48,7 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    tipo:"GASTO",montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion"
   };
   const aplicar=crearAplicadorAtomicoPersonal();
-  const registrar=crearRegistrador({aplicarAtomico:aplicar});
+  const registrar=crearRegistradorFinancieroPersonal();
   const primera=await registrar({original,tipo:"CORRECCION",cambios:{montoMinor:22000},
    idempotencyKey:"primera",fechaISO:"2026-10-20T15:00:00.000Z"});
   assert.equal(primera.deltaCajaMinor,"3000");
@@ -73,10 +74,12 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,103000);
   assert.equal(await Outbox.countDocuments({usuarioId}),1);
   const segundoOriginal={...original,montoMinor:22000};
-  const registrarFalla=crearRegistrador({aplicarAtomico:async contexto=>{
-   await aplicar(contexto);
-   throw Error("FALLO_SIMULADO_DESPUES_DE_OUTBOX");
-  }});
+  const registrarFalla=crearRegistradorFinancieroPersonal({
+   crearAplicador:()=>async contexto=>{
+    await aplicar(contexto);
+    throw Error("FALLO_SIMULADO_DESPUES_DE_OUTBOX");
+   }
+  });
   await assert.rejects(()=>registrarFalla({
    original:segundoOriginal,tipo:"CORRECCION",cambios:{montoMinor:20000},
    idempotencyKey:"segunda",fechaISO:"2026-10-20T16:00:00.000Z"
