@@ -12,7 +12,8 @@ function conflicto(mensaje){
  return Object.assign(new Error(mensaje),{statusCode:409});
 }
 function verificarIndices(indices,nombre,campos){
- return indices.some(i=>i.name===nombre&&i.unique===true&&
+ return indices.some(i=>i.name===nombre&&
+  (i.unique===true||(nombre==="_id_"&&i.unique!==false))&&
   Object.keys(i.key||{}).length===campos.length&&campos.every(([k,v])=>i.key[k]===v));
 }
 async function exigirIndices({EventoModelo=Evento,CursorModelo=Cursor}={}){
