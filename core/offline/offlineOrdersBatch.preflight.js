@@ -21,11 +21,14 @@ function prepareOfflineOrders(events){
 function prepareOfflineOrdersForTenant(events, authenticatedContext){
   const ID=/^[A-Za-z0-9_-]{1,80}$/;
   if(!authenticatedContext||!["empresaId","sedeId","actorId"].every(k=>
+    Object.hasOwn(authenticatedContext,k)&&
     typeof authenticatedContext[k]==="string"&&ID.test(authenticatedContext[k])))fail();
   if(!Array.isArray(events)||events.length<1||events.length>100||
     !Array.from({length:events.length},(_,i)=>Object.hasOwn(events,i)).every(Boolean))fail();
   for(const event of events){
-    if(!event||event.empresaId!==authenticatedContext.empresaId||
+    if(!event||typeof event!=="object"||
+      !["empresaId","sedeId","actorId"].every(k=>Object.hasOwn(event,k))||
+      event.empresaId!==authenticatedContext.empresaId||
       event.sedeId!==authenticatedContext.sedeId||
       event.actorId!==authenticatedContext.actorId)fail();
   }
