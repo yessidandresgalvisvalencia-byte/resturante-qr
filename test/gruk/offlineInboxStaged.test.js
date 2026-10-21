@@ -21,7 +21,7 @@ function fixture(modifiedCount=1){
     assert.equal(patch.$set.reviewActorId,context.actorId);
     assert.match(patch.$set.reviewToken,/^[0-9a-f-]{36}$/);
     updates++;staged={...context,eventId,tipo:"PEDIDO_REGISTRADO",...patch.$set};
-    return {matchedCount:1,modifiedCount};
+    return {acknowledged:true,matchedCount:1,modifiedCount};
    }
   };
  }};
@@ -107,7 +107,7 @@ test("Capa 2: persisted stage handoff cannot be accepted with foreign or missing
     async updateOne(key,update,options){
      assert.equal(options.session,session);writes++;
      staged={...context,eventId,tipo:"PEDIDO_REGISTRADO",...update.$set};
-     return {matchedCount:1,modifiedCount:1};
+     return {acknowledged:true,matchedCount:1,modifiedCount:1};
     }
    };
   }};
@@ -138,4 +138,25 @@ test("Capa 2: review lease and staging timestamps are attested after Mongo write
   plan:{orders:[{eventId}]},now});
  assert.deepEqual(result,[{eventId,status:"EN_REVISION"}]);
  assert.equal(f.updates,1);
+});
+
+test("Capa 2: no se acepta un handoff sin acuse explícito de MongoDB",async()=>{
+ for(const response of [null,undefined,{},
+  {matchedCount:1,modifiedCount:1},
+  {acknowledged:false,matchedCount:1,modifiedCount:1},
+  {acknowledged:1,matchedCount:1,modifiedCount:1},
+  {acknowledged:true,matchedCount:0,modifiedCount:1}]){
+  let readAfterWrite=0;
+  const session={inTransaction:()=>true};
+  const db={collection:()=>({
+   async findOne(key){
+    if(key.status==="EN_REVISION"){readAfterWrite++;throw Error("UNEXPECTED_PERSISTENCE_PROOF");}
+    return {...context,eventId,tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE"};
+   },
+   async updateOne(){return response;}
+  })};
+  await assert.rejects(mark({db,session,context,plan:{orders:[{eventId}]}}),
+   {code:"OFFLINE_STAGE_INBOX_CONFLICT"});
+  assert.equal(readAfterWrite,0);
+ }
 });

@@ -32,7 +32,7 @@ async function markOfflineStagedInTransaction({db,session,context,plan,now=new D
    reviewStartedAt:now,reviewLeaseUntil:new Date(now.getTime()+LEASE_MS),
    reviewToken:token,reviewActorId:context.actorId
   }},{session});
-  if(updated?.matchedCount!==1||updated?.modifiedCount!==1)fail();
+  if(updated?.acknowledged!==true||updated.matchedCount!==1||updated.modifiedCount!==1)fail();
   // Confirm the durable transition inside the transaction, rather than
   // accepting driver write counts as proof of the authorized final state.
   const persisted=await inbox.findOne({
