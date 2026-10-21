@@ -14,6 +14,7 @@ function validateAdminStage({auth,eventIds,confirmed}){
   fail("OFFLINE_STAGE_PERMISSION_DENIED");
  if(confirmed!==true)fail("OFFLINE_STAGE_CONFIRMATION_REQUIRED");
  if(!Array.isArray(eventIds)||eventIds.length<1||eventIds.length>100||
+   !Array.from({length:eventIds.length},(_,i)=>Object.hasOwn(eventIds,i)).every(Boolean)||
    eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
    new Set(eventIds).size!==eventIds.length)fail("OFFLINE_INVALID_IDS");
  if(!ObjectId.isValid(auth.empresaId)||!ObjectId.isValid(auth.sedeId))
