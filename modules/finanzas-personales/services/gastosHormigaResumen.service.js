@@ -40,6 +40,7 @@ function resumir(transacciones,ahora=new Date()){
  let semana=0,mes=0,cantidadSemana=0,cantidadMes=0,creditoSemana=0,creditoMes=0,cantidadCreditoSemana=0,cantidadCreditoMes=0;
  const vistos=new Map();
  const estadosPorId=new Map();
+ const firmasPorId=new Map();
  for(const tx of transacciones){
   if(!tx||typeof tx!=="object")
    throw new Error("INTEGRIDAD_HORMIGA: registro de gasto incompleto o tipo contradictorio");
@@ -51,6 +52,15 @@ function resumir(transacciones,ahora=new Date()){
     if(estadosPorId.has(idEstado)&&estadosPorId.get(idEstado)!==tx.estado)
      throw new Error("INTEGRIDAD_HORMIGA: mismo movimiento con estados contradictorios");
     estadosPorId.set(idEstado,tx.estado);
+    // Verificar el mismo identificador ANTES de clasificar u omitir un gasto.
+    // De lo contrario Rappi vs arriendo, o ACTIVA vs ANULADA, puede falsear el total.
+    const fechaDuplicado=new Date(tx.fecha);
+    const fechaFirma=Number.isNaN(fechaDuplicado.getTime())?String(tx.fecha):fechaDuplicado.toISOString();
+    const firmaUniversal=JSON.stringify([String(tx.usuarioId??""),fechaFirma,tx.moneda??"COP",
+     tx.tipo,tx.montoMinor,tx.concepto,tx.categoria,tx.estado,tx.impactoCaja,tx.medioPago]);
+    if(firmasPorId.has(idEstado)&&firmasPorId.get(idEstado)!==firmaUniversal)
+     throw new Error("INTEGRIDAD_HORMIGA: movimiento duplicado con datos contradictorios");
+    firmasPorId.set(idEstado,firmaUniversal);
    }
   }
   const medio=medioHormigaVerificado(tx);
