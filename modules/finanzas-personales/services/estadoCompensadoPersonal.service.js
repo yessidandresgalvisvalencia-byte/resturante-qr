@@ -1,6 +1,6 @@
 "use strict";
 const crypto=require("node:crypto");
-const {canon,eventоCompensatorio}=(()=>{const m=require("./eventoCompensatorioPersonal.service");return {canon:m.canon,eventоCompensatorio:m.eventoCompensatorio};})();
+const {canon,eventoCompensatorio}=(()=>{const m=require("./eventoCompensatorioPersonal.service");return {canon:m.canon,eventoCompensatorio:m.eventoCompensatorio};})();
 const CAMPOS=["usuarioId","movimientoId","tipo","montoMinor","concepto","categoria"];
 function iguales(a,b){return CAMPOS.every(k=>a[k]===b[k]);}
 function vigente(original,eventos=[]){
@@ -15,7 +15,7 @@ function vigente(original,eventos=[]){
   if(typeof hashActual!=="string"||
    crypto.createHash("sha256").update(canon(payload)).digest("hex")!==hashActual)
    throw new Error("INTEGRIDAD_LEDGER: firma de evento alterada");
-  const esperado=eventоCompensatorio({original:actual,tipo:e.tipo,cambios:e.cambios,
+  const esperado=eventoCompensatorio({original:actual,tipo:e.tipo,cambios:e.cambios,
    idempotencyKey:e.idempotencyKey,prevHash:e.prevHash,secuencia:e.secuencia,fechaISO:e.fechaISO});
   if(esperado.hashActual!==hashActual||esperado.deltaCajaMinor!==e.deltaCajaMinor)
    throw new Error("INTEGRIDAD_LEDGER: delta o contenido inconsistente");
