@@ -41,3 +41,22 @@ test("preflight multiempresa: valida empresa sede y actor de todos los pedidos",
  }
  assert.throws(()=>prepareOfflineOrdersForTenant(scoped,{}));
 });
+
+test("Capa 2: rechaza lote completo si tenant o actor solo existen en prototipo",()=>{
+ const {prepareOfflineOrdersForTenant:prepare}=require("../../core/offline/offlineOrdersBatch.preflight");
+ const auth={empresaId:"empresaA",sedeId:"sedeA",actorId:"cajeroA"};
+ const valid=orders.slice(0,2).map(row=>({...row,...auth}));
+ for(const field of ["empresaId","sedeId","actorId"]){
+  const foreign=Object.assign(Object.create({[field]:auth[field]}),valid[1]);
+  delete foreign[field];
+  assert.equal(foreign[field],auth[field]);
+  assert.equal(Object.hasOwn(foreign,field),false);
+  assert.throws(()=>prepare([valid[0],foreign],auth),
+   {code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+  const inheritedAuth=Object.assign(Object.create({[field]:auth[field]}),auth);
+  delete inheritedAuth[field];
+  assert.throws(()=>prepare(valid,inheritedAuth),
+   {code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+ }
+ assert.equal(prepare(valid,auth).totalCop,"6000");
+});
