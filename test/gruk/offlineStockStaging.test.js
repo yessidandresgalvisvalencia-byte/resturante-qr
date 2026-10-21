@@ -9,7 +9,7 @@ function make(ready=true){
  const rows=new Map();const session={inTransaction:()=>true};
  const db={collection:()=>({
   indexes:async()=>ready?[{name:"uniq_offline_stock_tenant_batch_product",unique:true,key:{empresaId:1,sedeId:1,batchId:1,productoId:1}}]:[],
-  updateOne:async(k,u,opt)=>{assert.equal(opt.session,session);const id=k.batchId+":"+k.productoId;if(rows.has(id))return {upsertedCount:0};rows.set(id,u.$setOnInsert);return {upsertedCount:1};},
+  updateOne:async(k,u,opt)=>{assert.equal(opt.session,session);const id=k.batchId+":"+k.productoId;if(rows.has(id))return {acknowledged:true,upsertedCount:0};rows.set(id,u.$setOnInsert);return {acknowledged:true,upsertedCount:1};},
   findOne:async k=>rows.get(k.batchId+":"+k.productoId)
  })};return {db,session,rows};
 }
@@ -48,7 +48,7 @@ test("Capa 2: movimiento persistido de otro ámbito nunca valida reintentos",asy
     async updateOne(key,update,options){
      writes++;
      assert.equal(options.session,session);
-     return {upsertedCount:0};
+     return {acknowledged:true,upsertedCount:0};
     },
     async findOne(key,options){
      assert.equal(options.session,session);

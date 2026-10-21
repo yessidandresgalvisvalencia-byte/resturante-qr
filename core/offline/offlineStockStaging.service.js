@@ -55,7 +55,7 @@ async function stageOfflineStockMovements({db,session,context,plan,inventoryDelt
   try{result=await stock.updateOne(key,{$setOnInsert:payload},{upsert:true,session});}
   catch(err){if(err?.code===11000)fail("OFFLINE_STOCK_CONCURRENT_RETRY_REQUIRED");throw err;}
   // An explicitly unacknowledged Mongo write is never evidence of insert or replay.
-  if(!result||result.acknowledged===false||!Number.isInteger(result.upsertedCount)||
+  if(!result||result.acknowledged!==true||!Number.isInteger(result.upsertedCount)||
     (result.upsertedCount!==0&&result.upsertedCount!==1))
     fail("OFFLINE_STOCK_WRITE_UNVERIFIED");
   if(result.upsertedCount!==1){

@@ -22,7 +22,7 @@ function fixture(failOn,missingIndex){
   return {indexes:async()=>name===missingIndex?[]:[{name:index[0],key:index[1],unique:true}],
    updateOne:async(_key,update,opts)=>{assert.equal(opts.session,session);assert.equal(session.active,true);
     if(name===failOn)throw Error("SIMULATED_WRITE_FAILURE");
-    session.pending.push({name,document:update.$setOnInsert});return {upsertedCount:1};}};
+    session.pending.push({name,document:update.$setOnInsert});return {acknowledged:true,upsertedCount:1};}};
  }};
  return {db,session,committed,started:()=>started};
 }

@@ -15,7 +15,7 @@ function fixture(failOn){
  const db={collection(name){const i=collections[name];assert.ok(i);return{
   indexes:async()=>[{name:i.name,key:i.key,unique:true}],
   updateOne:async(_key,update,opts)=>{assert.equal(opts.session,session);if(name===failOn)throw Error("POSTING_FAILED");
-   writes.push({collection:name,payload:update.$setOnInsert});return {upsertedCount:1};}
+   writes.push({collection:name,payload:update.$setOnInsert});return {acknowledged:true,upsertedCount:1};}
  };}};
  return {db,session,writes};
 }
