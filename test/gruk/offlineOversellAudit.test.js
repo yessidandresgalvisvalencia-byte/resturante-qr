@@ -99,3 +99,33 @@ test("Capa 2: auditoría no afirma persistencia con acuse Mongo incompleto o fal
   assert.equal(source.writes,1);
  }
 });
+
+test("Capa 2: adaptador ObjectId malicioso no consulta inventario ni crea auditorías",async()=>{
+ const foreign="507f191e810c19729de860eb";
+ for(const target of [context.empresaId,context.sedeId,productId]){
+  let inventoryReads=0,conflictWrites=0;
+  const source=mock(1);
+  const db={collection(name){
+   if(name==="inventarios"){inventoryReads++;throw Error("UNAUTHORIZED_INVENTORY_READ");}
+   if(name==="gruk_offline_stock_conflicts"){conflictWrites++;throw Error("UNAUTHORIZED_AUDIT_WRITE");}
+   return source.db.collection(name);
+  }};
+  await assert.rejects(record({db,context,eventIds:[eventId],
+   objectId:value=>value===target?foreign:value}),
+   {code:"OFFLINE_STOCK_AUDIT_IDENTITY_INVALID"});
+  assert.equal(inventoryReads,0);assert.equal(conflictWrites,0);
+ }
+});
+test("Capa 2: conversor ObjectId roto o nulo falla antes de lectura de inventario",async()=>{
+ for(const convert of [()=>null,()=>undefined,()=>{throw Error("BAD_ADAPTER");}]){
+  let inventoryReads=0;
+  const source=mock(1);
+  const db={collection(name){
+   if(name==="inventarios"){inventoryReads++;throw Error("UNAUTHORIZED_READ");}
+   return source.db.collection(name);
+  }};
+  await assert.rejects(record({db,context,eventIds:[eventId],objectId:convert}),
+   {code:"OFFLINE_STOCK_AUDIT_IDENTITY_INVALID"});
+  assert.equal(inventoryReads,0);
+ }
+});
