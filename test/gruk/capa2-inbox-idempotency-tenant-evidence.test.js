@@ -23,7 +23,7 @@ function store(patch={},mode="preflight"){
     assert.equal(query.empresaId,tenant.empresaId);
     assert.equal(query.sedeId,tenant.sedeId);
     writes++;
-    return {upsertedCount:0};
+    return {acknowledged:true,upsertedCount:0};
    }
   };
  }}};
