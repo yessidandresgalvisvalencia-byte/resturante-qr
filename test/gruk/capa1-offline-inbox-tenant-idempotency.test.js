@@ -14,9 +14,9 @@ function memoryDb() {
     async updateOne(query, update, options) {
       assert.equal(options.upsert, true);
       assert.deepEqual(Object.keys(query).sort(), ["empresaId", "eventId", "sedeId"]);
-      if (await this.findOne(query)) return {upsertedCount: 0};
+      if (await this.findOne(query)) return {acknowledged:true,upsertedCount: 0};
       rows.push({...update.$setOnInsert});
-      return {upsertedCount: 1};
+      return {acknowledged:true,upsertedCount: 1};
     }
   };
   return {db: {collection(name) { assert.equal(name, "gruk_offline_inbox"); return collection; }}, rows, indexes};

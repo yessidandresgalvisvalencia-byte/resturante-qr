@@ -15,9 +15,9 @@ function durableFakeInbox() {
   const collection = {
     updateOne: async (key, update) => {
       const id = [key.empresaId, key.sedeId, key.eventId].join("/");
-      if (saved.has(id)) return { upsertedCount: 0 };
+      if (saved.has(id)) return { acknowledged:true,upsertedCount: 0 };
       saved.set(id, structuredClone(update.$setOnInsert));
-      return { upsertedCount: 1 };
+      return { acknowledged:true,upsertedCount: 1 };
     },
     findOne: async key => {
       const data = saved.get([key.empresaId, key.sedeId, key.eventId].join("/"));
