@@ -29,8 +29,9 @@ function crearRegistrador({
  EventoModelo=Evento,CursorModelo=Cursor,TransaccionModelo=Transaccion,
  nuevaSesion=()=>mongoose.startSession(),
  revisarIndices=()=>exigirIndices({EventoModelo,CursorModelo}),
- construir=eventoCompensatorio
+ construir=eventoCompensatorio,aplicarAtomico=null
 }={}){
+ if(aplicarAtomico!==null&&typeof aplicarAtomico!=="function")throw new TypeError("Aplicador atómico inválido");
  return async function registrar({original,tipo,cambios={},idempotencyKey,fechaISO}){
   if(!original||typeof original.usuarioId!=="string"||!ID.test(original.usuarioId)||
     typeof idempotencyKey!=="string"||!ID.test(idempotencyKey))
@@ -113,6 +114,9 @@ function crearRegistrador({
     const insertados=await EventoModelo.create([evento],{session});
     if(!Array.isArray(insertados)||insertados.length!==1)
      throw new Error("No se confirmó inserción del evento compensatorio");
+    // Un aplicador financiero opcional se ejecuta DENTRO de la transacción;
+    // cualquier fallo debe abortar cursor, evento, saldo y outbox juntos.
+    if(aplicarAtomico)await aplicarAtomico({session,evento,asiento});
     resultado=evento;
    },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
    return resultado;
