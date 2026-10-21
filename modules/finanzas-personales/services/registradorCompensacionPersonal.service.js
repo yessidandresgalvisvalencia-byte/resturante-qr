@@ -2,7 +2,7 @@
 const mongoose=require("mongoose");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
-const {eventoCompensatorio}=require("./eventoCompensatorioPersonal.service");
+const {eventoCompensatorio,verificarCadena,canon,originalVerificado}=require("./eventoCompensatorioPersonal.service");
 const GENESIS="0".repeat(64);
 const ID=/^[A-Za-z0-9_-]{1,128}$/;
 
@@ -50,6 +50,19 @@ function crearRegistrador({
        typeof cursor.hashActual!=="string"||!(/^[a-f0-9]{64}$/).test(cursor.hashActual)||
        cursor.secuencia>=Number.MAX_SAFE_INTEGER)
      throw conflicto("Cursor del ledger inconsistente");
+    // La lectura y el CAS posterior ocurren en el mismo snapshot Mongo.
+    const ultimo=await EventoModelo.findOne({usuarioId:original.usuarioId,
+      movimientoId:original.movimientoId}).sort({secuencia:-1}).session(session).lean();
+    if(ultimo){
+      if(ultimo.tipo==="ANULACION"||
+         !verificarCadena([ultimo],{prevHash:ultimo.prevHash,secuenciaInicial:ultimo.secuencia}))
+        throw conflicto("Movimiento anulado o última compensación inconsistente");
+      const actual={...ultimo.original,...ultimo.cambios};
+      let valido=false;
+      try{valido=canon(originalVerificado(actual))===canon(originalVerificado(original));}
+      catch(_){valido=false;}
+      if(!valido)throw conflicto("Movimiento desactualizado; reconstruye su estado vigente");
+    }
     const evento=construir({original,tipo,cambios,idempotencyKey,fechaISO,
       prevHash:cursor.hashActual,secuencia:cursor.secuencia+1});
     // El cursor CAS coordina la escritura por usuario. Una carrera aborta toda la transacción.
