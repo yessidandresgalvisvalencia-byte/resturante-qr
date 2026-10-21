@@ -4,6 +4,11 @@
 // a separate explicit exception/correction workflow; fail closed until reviewed.
 const HEX=/^[a-f\d]{24}$/i,MAX=BigInt(Number.MAX_SAFE_INTEGER);
 function fail(code){const e=new Error(code);e.code=code;throw e;}
+function safeDocumentId(id){
+ return (typeof id==="string"&&id.trim().length>0)||
+  (id&&id._bsontype==="ObjectId"&&typeof id.toHexString==="function"&&
+   /^[a-f0-9]{24}$/i.test(id.toHexString()));
+}
 function owned(row,context,product){
  return row&&String(row.empresaId).toLowerCase()===context.empresaId.toLowerCase()&&
   String(row.sedeId).toLowerCase()===context.sedeId.toLowerCase()&&
@@ -50,8 +55,7 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
   const inventory=db.collection("inventarios");
   const existing=await inventory.find(key,{session,projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1}}).limit(2).toArray();
   if(!Array.isArray(existing)||existing.length!==1||
-     existing[0]?._id===null||existing[0]?._id===undefined||
-     String(existing[0]._id).trim().length===0||
+     !Object.hasOwn(existing,0)||!safeDocumentId(existing[0]?._id)||
      !owned(existing[0],context,delta.productoId))
    fail("OFFLINE_INVENTORY_MAPPING_AMBIGUOUS");
   const old=existing[0].cantidad;
@@ -67,6 +71,7 @@ async function applyOfflineLegacyInventory({db,session,context,inventoryDeltas,o
     {session,projection:{_id:1,empresaId:1,sedeId:1,productoServicioId:1,anulado:1,cantidad:1}});
   const expected=BigInt(old)-units;
   if(!owned(persisted,context,delta.productoId)||
+     !safeDocumentId(persisted?._id)||
      String(persisted._id)!==String(existing[0]._id)||
      !Number.isSafeInteger(persisted.cantidad)||persisted.cantidad<0||
      BigInt(persisted.cantidad)!==expected)fail("OFFLINE_INVENTORY_PERSISTENCE_CONFLICT");
