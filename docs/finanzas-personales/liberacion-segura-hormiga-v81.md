@@ -41,6 +41,19 @@ La cifra anterior es solo un **indicador de compatibilidad, no equivale a gastos
 4. Comprobar que el HTML referencia el JS vigente `hormiga-caja-credito-integridad-v81`; recargar en sesión antigua y nueva.
 5. Ejecutar verificación de índices/plan de consulta (`explain`) con usuario de pruebas. El índice en el esquema no demuestra que ya exista en producción.
 
+## Puerta 3B — bloqueo explícito de certificación append-only
+
+**Hallazgo #407 (crítico):** `flujoCajaPersonal.service.js` todavía modifica `anterior` con `Object.assign(...)` y `.save()` durante correcciones, y modifica `tx.estado` y `.save()` durante anulaciones. El Outbox aporta evidencia adicional, pero **no vuelve inmutable el asiento original**. No describir este ledger como "solo INSERT" ni prometer trazabilidad criptográfica integral.
+
+Comprobar el estado exacto con el verificador de patrones:
+
+```bash
+node scripts/gruk-personal-ledger-mutability-audit.js
+node scripts/gruk-personal-ledger-mutability-audit.js --enforce
+```
+
+El segundo comando debe **salir con código distinto de cero** mientras persistan estos patrones, y es una **puerta manual obligatoria para certificar GRUK V1000 como ledger append-only**. No es parte de los jobs regulares de CI ni debe confundirse con un test de invariantes completo: detectar la ausencia de patrones no demuestra inmutabilidad por sí sola. Corregir la arquitectura y agregar pruebas de eventos compensatorios antes de retirar esta reserva.
+
 ## Puerta 4 — Render y verificación posterior
 
 - Requerir estado de deploy **`live`**, SHA exacto y verificaciones HTTP de salud y comportamiento con cuenta de ensayo. Un deploy `build_failed` o `deploying` no es éxito.
