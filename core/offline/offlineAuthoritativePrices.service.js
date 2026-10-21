@@ -37,8 +37,9 @@ async function assertOfflineAuthoritativePrices({db,session,context,plan,objectI
  const query={_id:{$in:ids.map(asId)},empresaId:asId(context.empresaId),
   sedeId:asId(context.sedeId),activo:true};
  const rows=await db.collection("productoservicios").find(query,
-  {session,projection:{_id:1,empresaId:1,sedeId:1,activo:1,precioVenta:1}}).toArray();
- if(!Array.isArray(rows)||rows.length!==ids.length)fail();
+  {session,projection:{_id:1,empresaId:1,sedeId:1,activo:1,precioVenta:1},limit:ids.length+1}).toArray();
+ if(!Array.isArray(rows)||rows.length!==ids.length||
+    !Array.from({length:rows.length},(_,i)=>Object.hasOwn(rows,i)).every(Boolean))fail();
  const prices=new Map();
  for(const row of rows){
    // Legacy product schema stores COP prices as JS numbers; do not round cents.
