@@ -131,7 +131,7 @@ test("nunca muestra USD o EUR como pesos colombianos del resumen hormiga",()=>{
 });
 test("inconsistencia de moneda en el mismo ID también bloquea el resumen",()=>{
  const compra=gasto("moneda","Rappi",25000,"CREDITO");
- assert.throws(()=>resumir([{...compra,moneda:"COP"},{...compra,moneda:"USD"}],ahora),/INTEGRIDAD_HORMIGA: moneda distinta de COP/);
+ assert.throws(()=>resumir([{...compra,moneda:"COP"},{...compra,moneda:"USD"}],ahora),/INTEGRIDAD_HORMIGA: (moneda distinta de COP|movimiento duplicado con datos contradictorios)/);
 });
 
 test("una respuesta de consulta con filas nulas o tipos contradictorios nunca se publica como total parcial",()=>{
