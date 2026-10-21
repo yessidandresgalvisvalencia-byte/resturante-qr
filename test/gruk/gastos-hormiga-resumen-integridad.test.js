@@ -76,3 +76,32 @@ test("API de lectura filtra exclusivamente por JWT y frontend descarta sesión a
  assert.match(js,/if\(token!==tokenAlInicio\|\|!tokenAlInicio\|\|\$\("app"\)\.hidden\)return/);
  assert.match(html,/id="hormigaResumen"/);
 });
+
+test("límites Colombia: semana cruza fin de mes sin perder octubre al iniciar noviembre",()=>{
+ const inicioNoviembre=new Date("2026-11-01T05:15:00Z");
+ const rango=limites(inicioNoviembre);
+ assert.equal(rango.inicioSiete.toISOString(),"2026-10-26T05:00:00.000Z");
+ assert.equal(rango.inicioMes.toISOString(),"2026-11-01T05:00:00.000Z");
+ assert.equal(rango.inicioConsulta.toISOString(),"2026-10-26T05:00:00.000Z");
+ const filas=[
+  gasto("oct","2026-10-31T23:59:00Z",7000),
+  gasto("nov","2026-11-01T05:00:00Z",8000),
+  gasto("fut","2026-11-01T05:16:00Z",9000)
+ ];
+ const r=resumir(filas,inicioNoviembre);
+ assert.equal(r.semanaMinor,15000);
+ assert.equal(r.mesMinor,8000);
+});
+test("cortes de siete días por medianoche Bogotá son inclusivos y exactos",()=>{
+ const filas=[
+  gasto("antes","2026-10-14T04:59:59.999Z",1000),
+  gasto("justo","2026-10-14T05:00:00.000Z",2000),
+  gasto("después","2026-10-14T05:00:00.001Z",3000)
+ ];
+ assert.equal(resumir(filas,ahora).semanaMinor,5000);
+});
+test("los ID vacíos o solo espacios nunca producen sumas aparentemente confiables",()=>{
+ for(const _id of [null,undefined,""," ","  ","[object Object]"]){
+  assert.throws(()=>resumir([gasto(_id,"2026-10-20T10:00:00Z",1500)],ahora),/INTEGRIDAD_HORMIGA: movimiento sin identificador/);
+ }
+});
