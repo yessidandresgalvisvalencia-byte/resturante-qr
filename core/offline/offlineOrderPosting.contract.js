@@ -11,14 +11,15 @@ function integer(value,min=0){
   return n;
 }
 function validateOfflineOrderForPosting(event){
-  if(!event||event.tipo!=="PEDIDO_REGISTRADO"||!ULID.test(event.eventId||""))fail();
+  if(!event||event.tipo!=="PEDIDO_REGISTRADO"||
+     typeof event.eventId!=="string"||!ULID.test(event.eventId))fail();
   const p=event.payload;
   if(!p||typeof p!=="object"||Array.isArray(p))fail();
-  if(!ULID.test(p.localOrderId||"")||!Array.isArray(p.items)||p.items.length<1||p.items.length>100||
+  if(typeof p.localOrderId!=="string"||!ULID.test(p.localOrderId)||!Array.isArray(p.items)||p.items.length<1||p.items.length>100||
      !Array.from({length:p.items.length},(_,i)=>Object.hasOwn(p.items,i)).every(Boolean))fail();
   let calculated=0n;
   const items=p.items.map(item=>{
-    if(!item||!SAFE.test(item.productoId||""))fail();
+    if(!item||typeof item.productoId!=="string"||!SAFE.test(item.productoId))fail();
     const qty=integer(item.cantidad,1);
     const unit=integer(item.precioUnitarioCop);
     const line=integer(item.totalCop);
