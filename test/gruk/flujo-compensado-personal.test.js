@@ -103,3 +103,25 @@ test("anulación heredada también comprueba metadatos antes de descartarse",()=
   movimientos:[{...gasto,estado:"ANULADA",fecha:"incorrecta"}]}),
   /INTEGRIDAD_LEDGER: fecha inválida/);
 });
+
+test("una obligación recurrente sin impacto de caja no figura como gasto pagado",()=>{
+ const pendiente={...gasto,_id:"507f1f77bcf86cd799439015",
+  recurrente:true,impactoCaja:false,montoMinor:500000,concepto:"Arriendo"};
+ const pago={...gasto,_id:"507f1f77bcf86cd799439016",
+  recurrente:false,recurrenteOrigenId:pendiente._id,impactoCaja:true,
+  montoMinor:200000,concepto:"Abono arriendo"};
+ const r=flujoCompensadoPuro({...periodo,movimientos:[pendiente,pago]});
+ assert.equal(r.gastosMinor,200000);
+ assert.equal(r.flujoNetoMinor,-200000);
+});
+test("asiento sin impacto de caja no puede recibir compensación monetaria",()=>{
+ const e=crear(descriptor(gasto),"CORRECCION",{montoMinor:22000},"sin_impacto",1,genesis);
+ assert.throws(()=>flujoCompensadoPuro({...periodo,
+  movimientos:[{...gasto,impactoCaja:false}],eventos:[e]}),
+  /INTEGRIDAD_LEDGER: compensación sobre asiento sin impacto/);
+});
+test("rechaza indicador de caja adulterado incluso fuera del período",()=>{
+ const fuera={...ingreso,impactoCaja:"false",fecha:"2026-12-05T12:00:00.000Z"};
+ assert.throws(()=>flujoCompensadoPuro({...periodo,movimientos:[fuera]}),
+  /INTEGRIDAD_LEDGER: indicador de impacto/);
+});
