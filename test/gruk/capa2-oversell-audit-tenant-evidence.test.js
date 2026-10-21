@@ -83,3 +83,23 @@ test("Capa 2: original historical shortage can remain visible after a later stoc
  const result=await recordOfflineOversellConflict(args(stub.db));
  assert.equal(result.issues[0].faltante,"2");
 });
+
+test("Capa 2: evidencia histórica no puede inventar unidades distintas del pedido",async()=>{
+ for(const issues of [
+  [{productoId:product,disponible:"1",solicitado:"3",faltante:"2"}],
+  [{productoId:product,disponible:"0",solicitado:"1",faltante:"1"}],
+  new Array(1)
+ ]){
+  const stub=fake({issues});
+  await assert.rejects(recordOfflineOversellConflict(args(stub.db)),
+   {code:"OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED"});
+  assert.equal(stub.audits,1);
+ }
+});
+test("Capa 2: eventIds históricos incompletos no constituyen evidencia idempotente",async()=>{
+ const sparse=new Array(1);
+ const stub=fake({eventIds:sparse});
+ await assert.rejects(recordOfflineOversellConflict(args(stub.db)),
+  {code:"OFFLINE_STOCK_AUDIT_PERSISTENCE_FAILED"});
+ assert.equal(stub.audits,1);
+});
