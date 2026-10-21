@@ -50,21 +50,18 @@ function crearRegistrador({
        typeof cursor.hashActual!=="string"||!(/^[a-f0-9]{64}$/).test(cursor.hashActual)||
        cursor.secuencia>=Number.MAX_SAFE_INTEGER)
      throw conflicto("Cursor del ledger inconsistente");
-    // No continuar si el cursor apunta a una secuencia que no existe,
-    // o si el último evento real no coincide con el extremo de la cadena.
-    const ultimoGlobal=await EventoModelo.findOne({usuarioId:original.usuarioId})
-      .sort({secuencia:-1}).session(session).lean();
-    if(cursor.secuencia===0){
-      if(cursor.hashActual!==GENESIS||ultimoGlobal)
-        throw conflicto("Cursor y eventos compensatorios desincronizados");
-    }else{
-      if(!ultimoGlobal||ultimoGlobal.secuencia!==cursor.secuencia||
-         ultimoGlobal.hashActual!==cursor.hashActual||
-         !verificarCadena([ultimoGlobal],{
-          prevHash:ultimoGlobal.prevHash,secuenciaInicial:ultimoGlobal.secuencia
-         }))
-        throw conflicto("Cursor y eventos compensatorios desincronizados");
-    }
+    // Auditar la cadena COMPLETA desde génesis en el snapshot de la transacción.
+    // Límite explícito: no procesar históricos arbitrariamente grandes por petición.
+    // Para escala mayor se necesitarán checkpoints verificables y anclaje independiente.
+    const LIMITE_AUDITORIA=10000;
+    const cadena=await EventoModelo.find({usuarioId:original.usuarioId})
+      .sort({secuencia:1}).limit(LIMITE_AUDITORIA+1).session(session).lean();
+    if(!Array.isArray(cadena)||cadena.length>LIMITE_AUDITORIA)
+      throw Object.assign(new Error("Auditoría de cadena requiere reconciliación por volumen"),{statusCode:503});
+    if(cursor.secuencia!==cadena.length||
+       cursor.hashActual!==(cadena.length?cadena[cadena.length-1].hashActual:GENESIS)||
+       !verificarCadena(cadena,{prevHash:GENESIS}))
+      throw conflicto("Cursor y cadena compensatoria completa desincronizados");
     // La lectura y el CAS posterior ocurren en el mismo snapshot Mongo.
     const ultimo=await EventoModelo.findOne({usuarioId:original.usuarioId,
       movimientoId:original.movimientoId}).sort({secuencia:-1}).session(session).lean();
