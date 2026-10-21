@@ -42,7 +42,7 @@ test("sin identidad verificada no consulta ni devuelve gastos de otro usuario",a
  let consultas=0;
  Transaccion.find=()=>{consultas++;throw Error("No debe consultar");};
  try{
-  for(const id of [undefined,null,""]){
+  for(const id of [undefined,null,""," ","    ","\t"]){
    await assert.rejects(obtener(id,{ahora}),/identidad autenticada/);
   }
   assert.equal(consultas,0);
