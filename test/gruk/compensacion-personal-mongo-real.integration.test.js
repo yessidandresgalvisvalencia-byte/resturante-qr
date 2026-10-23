@@ -292,6 +292,7 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   assert.equal(comparacion.diferenciaResidualMinor,
    Number(3500n+deltas+(legacyGano?0n:1000n)));
   assert.equal(comparacion.coincide,false);
+  assert.equal(comparacion.totalesCoinciden,false);
   assert.equal(comparacion.diferenciaVerificadoMenosLegado.flujoNetoMinor,
    Number(503500n+deltas+(legacyGano?0n:1000n)));
   assert.equal(comparacion.estado,"DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO");
