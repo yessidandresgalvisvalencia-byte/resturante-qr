@@ -72,3 +72,14 @@ NO sustituye el saldo de una cuenta ni modifica dinero. Si hay adulteración,
 historial incompleto o desbordamiento, la consulta falla cerrada. El comparador
 NO reconcilia reservas recurrentes ni justifica habilitar el POST compensatorio
 hasta cerrar #407.
+
+## Operaciones heredadas sobre compromisos sin pago
+
+Mientras siga abierto #407, los métodos heredados de corrección y anulación
+rechazan con HTTP 409 los movimientos `impactoCaja:false`. Un compromiso
+pendiente no produjo débito y no debe generar un reverso ficticio en la cuenta.
+La verificación se realiza dentro de la transacción y **antes de modificar
+movimiento, saldo o outbox**. Es una restricción temporal de seguridad: la
+edición y cancelación de obligaciones planificadas necesitará un flujo propio
+que conserve historial y reservas de cuotas. No cambiar manualmente
+`impactoCaja` para eludir el bloqueo.
