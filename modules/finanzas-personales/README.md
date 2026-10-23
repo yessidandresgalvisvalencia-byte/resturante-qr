@@ -56,8 +56,11 @@ snapshot MongoDB** y valida toda la cadena SHA-256 antes de comparar:
 `legado` reproduce la suma histórica usada por `flujoPeriodo` (incluidos compromisos
 con `impactoCaja:false`); `verificado` aplica las compensaciones firmadas y
 excluye obligaciones pendientes. `diferenciaVerificadoMenosLegado` es una resta
-exacta sobre enteros, y `obligacionesNoCajaIncluidasPorLegado` cuenta posibles
-dobles conteos.
+exacta sobre enteros. `obligacionesNoCajaIncluidasPorLegado` cuenta asientos
+sin impacto real de caja incluidos en la lectura legada, e
+`importeObligacionesNoCajaMinor` cuantifica exactamente su importe en COP.
+El comparador también exige que el flujo verificado cuadre con ingresos menos gastos
+menos pagos de deuda antes de emitir el diagnóstico.
 
 La respuesta es **diagnóstica** (marca `DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO`),
 NO sustituye el saldo de una cuenta ni modifica dinero. Si hay adulteración,
