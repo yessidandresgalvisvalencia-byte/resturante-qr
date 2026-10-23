@@ -2,12 +2,21 @@
 // Financial preflight of offline orders only. Does not post sales, inventory or cash.
 const {validateOfflineOrderForPosting}=require("./offlineOrderPosting.contract");
 function fail(){const e=new Error("OFFLINE_ORDER_BATCH_CONFLICT");e.code="OFFLINE_ORDER_BATCH_CONFLICT";throw e;}
+function captureEvents(events){
+  if(!Array.isArray(events)||events.length<1||events.length>100)fail();
+  const captured=[];
+  for(let i=0;i<events.length;i++){
+    const descriptor=Object.getOwnPropertyDescriptor(events,String(i));
+    if(!descriptor||!("value" in descriptor))fail();
+    captured.push(descriptor.value);
+  }
+  return captured;
+}
 function prepareOfflineOrders(events){
-  if(!Array.isArray(events)||events.length<1||events.length>100||
-    !Array.from({length:events.length},(_,i)=>Object.hasOwn(events,i)).every(Boolean))fail();
+  const captured=captureEvents(events);
   const ids=new Set(),orders=new Set();
   let total=0n;
-  const normalized=events.map(event=>{
+  const normalized=captured.map(event=>{
     const order=validateOfflineOrderForPosting(event);
     if(ids.has(order.eventId)||orders.has(order.localOrderId))fail();
     ids.add(order.eventId);orders.add(order.localOrderId);
@@ -28,9 +37,8 @@ function prepareOfflineOrdersForTenant(events, authenticatedContext){
        typeof descriptor.value!=="string"||!ID.test(descriptor.value))fail();
     identity[key]=descriptor.value;
   }
-  if(!Array.isArray(events)||events.length<1||events.length>100||
-    !Array.from({length:events.length},(_,i)=>Object.hasOwn(events,i)).every(Boolean))fail();
-  for(const event of events){
+  const captured=captureEvents(events);
+  for(const event of captured){
     if(!event||typeof event!=="object"||Array.isArray(event))fail();
     // Reject accessors before the domain validator reads any financial payload.
     for(const key of ["empresaId","sedeId","actorId"]){
@@ -38,6 +46,6 @@ function prepareOfflineOrdersForTenant(events, authenticatedContext){
       if(!descriptor||!("value" in descriptor)||descriptor.value!==identity[key])fail();
     }
   }
-  return prepareOfflineOrders(events);
+  return prepareOfflineOrders(captured);
 }
 module.exports={prepareOfflineOrders,prepareOfflineOrdersForTenant};
