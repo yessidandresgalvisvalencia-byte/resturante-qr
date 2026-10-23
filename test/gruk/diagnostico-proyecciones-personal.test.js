@@ -46,6 +46,7 @@ test("arriendo pendiente no pagado se identifica sin duplicarlo como caja real",
  assert.equal(r.verificado.gastosMinor,200000);
  assert.equal(r.diferenciaVerificadoMenosLegado.flujoNetoMinor,500000);
  assert.equal(r.obligacionesNoCajaIncluidasPorLegado,1);
+ assert.equal(r.importeObligacionesNoCajaMinor,500000);
 });
 test("diagnóstico usa BigInt y rechaza sumas que exceden enteros seguros",()=>{
  const a={...gasto,montoMinor:Number.MAX_SAFE_INTEGER};
@@ -64,4 +65,30 @@ test("ruta de diagnóstico solo lectura está detrás de auth y usa el propietar
  assert.ok(auth>=0&&ep>auth);
  assert.ok(s.slice(ep,ep+650).includes("req.personalAuth.userId"));
  assert.ok(s.slice(ep,ep+650).includes("diagnostico:true"));
+});
+
+test("no muestra un diagnóstico si el flujo verificado llega inconsistente",()=>{
+ const valido={fuente:"EVENTOS_COMPENSATORIOS_VERIFICADOS",
+  ingresosMinor:1000,gastosMinor:200,pagosDeudaMinor:100,flujoNetoMinor:700};
+ for(const cambio of [
+  {flujoNetoMinor:701},
+  {gastosMinor:0.1},
+  {pagosDeudaMinor:Number.MAX_SAFE_INTEGER+1},
+  {ingresosMinor:undefined}
+ ]){
+  assert.throws(()=>compararProyeccionesPersonal({
+   usuarioId:uid,movimientos:[gasto],desde,hasta,
+   verificado:{...valido,...cambio}
+  }),/INTEGRIDAD_DIAGNOSTICO/);
+ }
+});
+test("diagnóstico cuenta obligaciones pendientes solo dentro de la ventana",()=>{
+ const fuera={...compromiso,_id:"507f1f77bcf86cd799439097",
+  fecha:"2026-12-20T12:00:00Z",montoMinor:999999};
+ const anulada={...compromiso,_id:"507f1f77bcf86cd799439098",
+  estado:"ANULADA",montoMinor:900000};
+ const r=revisar([gasto,compromiso,fuera,anulada]);
+ assert.equal(r.obligacionesNoCajaIncluidasPorLegado,1);
+ assert.equal(r.importeObligacionesNoCajaMinor,500000);
+ assert.equal(r.verificado.flujoNetoMinor,-25000);
 });
