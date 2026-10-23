@@ -281,3 +281,35 @@ test("Capa 2: resultados inbox válidos mantienen identidad y COP exactos",async
  assert.equal(result.orders.length,1);
  assert.equal(result.totalCop,"3000");
 });
+
+test("Capa 2: IDs de eventos con getters se rechazan antes de Mongo",async()=>{
+ let invoked=0,queried=0;
+ const ids=[eventId];
+ Object.defineProperty(ids,0,{configurable:true,enumerable:true,
+   get(){invoked++;return invoked===1?eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1";}});
+ const db={collection(){queried++;throw Error("UNAUTHORIZED_READ");}};
+ await assert.rejects(read({db,context:ctx,eventIds:ids}),{code:"OFFLINE_INVALID_IDS"});
+ assert.equal(invoked,0);
+ assert.equal(queried,0);
+});
+test("Capa 2: resultados Mongo con getters en índice son rechazados",async()=>{
+ let invoked=0;
+ const results=[doc];
+ Object.defineProperty(results,0,{configurable:true,enumerable:true,
+   get(){invoked++;return doc;}});
+ const db={collection(){return {find(){return {toArray:async()=>results};}};}};
+ await assert.rejects(read({db,context:ctx,eventIds:[eventId]}),
+   {code:"OFFLINE_ORDERS_NOT_PENDING"});
+ assert.equal(invoked,0);
+});
+test("Capa 2: cambio de ID durante consulta no cambia el lote validado",async()=>{
+ const ids=[eventId];
+ const db={collection(){return {find(query){
+  assert.deepEqual(query.eventId.$in,[eventId]);
+  ids[0]="01ARZ3NDEKTSV4RRFFQ69G5FA1";
+  return {toArray:async()=>[doc]};
+ }};}};
+ const result=await read({db,context:ctx,eventIds:ids});
+ assert.equal(result.totalCop,"3000");
+ assert.equal(result.orders[0].eventId,eventId);
+});
