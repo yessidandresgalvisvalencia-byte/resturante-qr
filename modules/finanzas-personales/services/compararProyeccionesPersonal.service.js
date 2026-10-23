@@ -11,7 +11,14 @@ function compararProyeccionesPersonal({usuarioId,movimientos,desde,hasta,verific
  const inicio=new Date(desde),fin=new Date(hasta);
  if(!Number.isFinite(inicio.getTime())||!Number.isFinite(fin.getTime())||inicio>=fin)
   fallo("período inválido");
+ const campos=["ingresosMinor","gastosMinor","pagosDeudaMinor","flujoNetoMinor"];
+ if(campos.some(c=>!Number.isSafeInteger(verificado[c])))
+  fallo("total verificado inseguro o incompleto");
+ if(BigInt(verificado.ingresosMinor)-BigInt(verificado.gastosMinor)-
+    BigInt(verificado.pagosDeudaMinor)!==BigInt(verificado.flujoNetoMinor))
+  fallo("flujo verificado descuadrado");
  let ingresos=0n,gastos=0n,deuda=0n,obligacionesNoCaja=0;
+ let totalObligacionesNoCaja=0n;
  for(const m of movimientos){
   if(String(m.usuarioId)!==String(usuarioId))fallo("identidad incompatible");
   if(!Number.isSafeInteger(m.montoMinor)||m.montoMinor<=0)
@@ -24,7 +31,10 @@ function compararProyeccionesPersonal({usuarioId,movimientos,desde,hasta,verific
   if(["INGRESO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO"].includes(m.tipo))ingresos+=n;
   else if(["GASTO","PRESTAMO_OTORGADO"].includes(m.tipo))gastos+=n;
   else if(m.tipo==="PAGO_DEUDA")deuda+=n;
-  if(m.impactoCaja===false&&m.tipo!=="AJUSTE_SALDO")obligacionesNoCaja++;
+  if(m.impactoCaja===false&&m.tipo!=="AJUSTE_SALDO"){
+   obligacionesNoCaja++;
+   totalObligacionesNoCaja+=n;
+  }
  }
  const legado={
   ingresosMinor:numero(ingresos),gastosMinor:numero(gastos),
@@ -42,6 +52,7 @@ function compararProyeccionesPersonal({usuarioId,movimientos,desde,hasta,verific
   verificado,
   diferenciaVerificadoMenosLegado:Object.freeze(diferencia),
   obligacionesNoCajaIncluidasPorLegado:obligacionesNoCaja,
+  importeObligacionesNoCajaMinor:numero(totalObligacionesNoCaja),
   estado:"DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO"
  });
 }
