@@ -38,3 +38,14 @@ Aislamiento entre empresas y sedes demostrado; usuario de anulación verificable
 
 ## Restricciones
 No hacer merge a main ni desplegar producción automáticamente.
+
+## Seguimiento del 2026-10-23
+
+Revalidado contra `main` `221a78c21e2b60a1935e056c3c901a3ad2a8356f`:
+- `routes/inventario.js` sigue sin aplicar `sedeId` en la consulta de inventario y en la anulación por objeto.
+- `PUT /anular/:id` todavía acepta `usuario` del cuerpo en lugar de derivarlo de `req.auth.usuarioId`; no exige `anulado:false` en el filtro de actualización.
+- `POST /` copia el cuerpo antes de fijar empresa y no valida integralmente la relación restaurante/sede.
+- `models/Inventario.js` permite `sedeId:null`; definir compatibilidad histórica antes de filtrar registros existentes.
+- No se ha demostrado explotación ni se han realizado cambios funcionales en esta rama.
+
+**Próxima acción:** diseñar tests HTTP + MongoDB de acceso cruzado, anulación repetida y compatibilidad histórica; abrir PR en borrador solo con cambios probados. No merge ni despliegue automático.
