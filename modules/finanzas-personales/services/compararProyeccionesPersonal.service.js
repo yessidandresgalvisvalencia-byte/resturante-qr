@@ -1,6 +1,8 @@
 "use strict";
-// Replica únicamente la semántica del agregado histórico de flujoPeriodo.
-// No es un segundo libro contable ni una fuente autorizada de caja.
+// Reproduce una BASE HISTORICA anterior al filtro de impactoCaja:false.
+// flujoPeriodo ya excluye obligaciones sin caja. Este diagnóstico compara
+// contra esa base histórica para medir el efecto de la migración, NO
+// representa el resultado en vivo del flujo realizado ni un saldo bancario.
 const MAX=BigInt(Number.MAX_SAFE_INTEGER);
 function fallo(mensaje){throw Object.assign(new Error("INTEGRIDAD_DIAGNOSTICO: "+mensaje),{statusCode:409});}
 function numero(n){if(typeof n!=="bigint"||n>MAX||n< -MAX)fallo("total fuera de rango seguro");return Number(n);}
@@ -69,6 +71,7 @@ function compararProyeccionesPersonal({usuarioId,movimientos,desde,hasta,verific
   // Efecto que tendría quitar del legado exclusivamente operaciones sin caja.
   diferenciaExplicadaPorNoCajaMinor,
   diferenciaResidualMinor,
+  fuenteLegado:"BASE_HISTORICA_PRE_FILTRO_IMPACTO_CAJA",
   estado:"DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO"
  });
 }
