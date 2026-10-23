@@ -275,6 +275,20 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    recurrente:true,frecuencia:"MENSUAL",impactoCaja:false,
    estado:"ACTIVA"
   }]);
+  // Evitar que PATCH/DELETE heredados reviertan caja sobre un compromiso
+  // que nunca descontó dinero. Debe permanecer intacto el asiento.
+  const saldoAntesMutacionPendiente=(await Cuenta.findById(cuenta._id).lean()).saldoMinor;
+  await assert.rejects(()=>flujoLegado.corregirTransaccion(usuarioId,
+   String(obligacionPendiente._id),{montoMinor:400000}),
+   e=>e.statusCode===409&&/sin impacto de caja/.test(e.message));
+  await assert.rejects(()=>flujoLegado.anularTransaccion(usuarioId,
+   String(obligacionPendiente._id)),
+   e=>e.statusCode===409&&/sin impacto de caja/.test(e.message));
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,
+   saldoAntesMutacionPendiente);
+  const pendienteIntacto=await Movimiento.findById(obligacionPendiente._id).lean();
+  assert.equal(pendienteIntacto.montoMinor,500000);
+  assert.equal(pendienteIntacto.estado,"ACTIVA");
   const flujoDespuesPendiente=await consultar(String(usuarioId),intervalo);
   assert.equal(flujoDespuesPendiente.gastosMinor,flujoAntesPendiente.gastosMinor,
    "Compromiso futuro no debe sumarse como egreso de caja ya realizado");
