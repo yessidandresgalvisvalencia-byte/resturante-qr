@@ -288,6 +288,9 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    flujoDespuesPendiente.flujoNetoMinor);
   assert.equal(comparacion.obligacionesNoCajaIncluidasPorLegado,1);
   assert.equal(comparacion.importeObligacionesNoCajaMinor,500000);
+  assert.equal(comparacion.diferenciaExplicadaPorNoCajaMinor,500000);
+  assert.equal(comparacion.diferenciaResidualMinor,
+   Number(3500n+deltas+(legacyGano?0n:1000n)));
   assert.equal(comparacion.coincide,false);
   assert.equal(comparacion.diferenciaVerificadoMenosLegado.flujoNetoMinor,
    Number(503500n+deltas+(legacyGano?0n:1000n)));
