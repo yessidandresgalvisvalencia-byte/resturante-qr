@@ -18,7 +18,7 @@ function compararProyeccionesPersonal({usuarioId,movimientos,desde,hasta,verific
     BigInt(verificado.pagosDeudaMinor)!==BigInt(verificado.flujoNetoMinor))
   fallo("flujo verificado descuadrado");
  let ingresos=0n,gastos=0n,deuda=0n,obligacionesNoCaja=0;
- let totalObligacionesNoCaja=0n;
+ let totalObligacionesNoCaja=0n,impactoLegadoSinCaja=0n;
  for(const m of movimientos){
   if(String(m.usuarioId)!==String(usuarioId))fallo("identidad incompatible");
   if(!Number.isSafeInteger(m.montoMinor)||m.montoMinor<=0)
@@ -34,17 +34,22 @@ function compararProyeccionesPersonal({usuarioId,movimientos,desde,hasta,verific
   if(m.impactoCaja===false&&m.tipo!=="AJUSTE_SALDO"){
    obligacionesNoCaja++;
    totalObligacionesNoCaja+=n;
+   if(["INGRESO","PRESTAMO_RECIBIDO","COBRO_PRESTAMO"].includes(m.tipo))
+    impactoLegadoSinCaja+=n;
+   else if(["GASTO","PRESTAMO_OTORGADO","PAGO_DEUDA"].includes(m.tipo))
+    impactoLegadoSinCaja-=n;
   }
  }
  const legado={
   ingresosMinor:numero(ingresos),gastosMinor:numero(gastos),
   pagosDeudaMinor:numero(deuda),flujoNetoMinor:numero(ingresos-gastos-deuda)
  };
+ const netoLegado=ingresos-gastos-deuda;
  const diferencia={
   ingresosMinor:numero(BigInt(verificado.ingresosMinor)-ingresos),
   gastosMinor:numero(BigInt(verificado.gastosMinor)-gastos),
   pagosDeudaMinor:numero(BigInt(verificado.pagosDeudaMinor)-deuda),
-  flujoNetoMinor:numero(BigInt(verificado.flujoNetoMinor)-(ingresos-gastos-deuda))
+  flujoNetoMinor:numero(BigInt(verificado.flujoNetoMinor)-netoLegado)
  };
  return Object.freeze({
   coincide:Object.values(diferencia).every(n=>n===0),
@@ -53,6 +58,10 @@ function compararProyeccionesPersonal({usuarioId,movimientos,desde,hasta,verific
   diferenciaVerificadoMenosLegado:Object.freeze(diferencia),
   obligacionesNoCajaIncluidasPorLegado:obligacionesNoCaja,
   importeObligacionesNoCajaMinor:numero(totalObligacionesNoCaja),
+  // Efecto que tendría quitar del legado exclusivamente operaciones sin caja.
+  diferenciaExplicadaPorNoCajaMinor:numero(-impactoLegadoSinCaja),
+  diferenciaResidualMinor:numero(BigInt(verificado.flujoNetoMinor)-netoLegado+
+   impactoLegadoSinCaja),
   estado:"DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO"
  });
 }
