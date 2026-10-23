@@ -94,3 +94,13 @@ una devolución o descuento a una cuenta diferente. Los asientos antiguos sin
 `cuentaId` verificable se bloquean con HTTP 409 y requieren conciliación;
 no debe reconstruirse ni adivinarse automáticamente la cuenta de origen.
 La transacción revierte todos sus cambios si la validación no se satisface.
+
+## Precisión de correcciones heredadas
+
+Los deltas de `corregirTransaccion` y los reversos de `anularTransaccion`
+se calculan con `BigInt` antes de actualizar la cuenta. Aunque los importes
+original y corregido sean enteros seguros por separado, cambiar de `GASTO`
+a `INGRESO` puede exceder `Number.MAX_SAFE_INTEGER` en la diferencia;
+eso produce conflicto HTTP 409 y aborta la operación completa sin cambiar
+saldo, documento u outbox. Esta protección no reemplaza la migración a
+asientos inmutables pendiente en #407.
