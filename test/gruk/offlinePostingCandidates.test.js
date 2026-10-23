@@ -242,10 +242,10 @@ test("Capa 2: getters en importes y datos financieros no se ejecutan",()=>{
   [()=>({...doc,payload:{...doc.payload}}),"payload.totalCop"],
   [()=>({...doc,payload:{...doc.payload}}),"payload.localOrderId"],
   [()=>({...doc,payload:{...doc.payload}}),"payload.items"],
-  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"items.0.cantidad"],
-  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"items.0.precioUnitarioCop"],
-  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"items.0.totalCop"],
-  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"items.0.productoId"]
+  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"payload.items.0.cantidad"],
+  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"payload.items.0.precioUnitarioCop"],
+  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"payload.items.0.totalCop"],
+  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"payload.items.0.productoId"]
  ];
  for(const [factory,path] of cases){
   const order=factory();
