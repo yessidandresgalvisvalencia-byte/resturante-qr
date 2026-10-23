@@ -75,3 +75,18 @@ test("las dos rutas heredadas verifican guardia dentro del transaction callback 
    "La guardia debe preceder toda mutación del original");
  }
 });
+
+test("PATCH y DELETE legados se detienen antes de ajustar caja sin pago real",()=>{
+ const source=fs.readFileSync(path.join(__dirname,
+  "../../modules/finanzas-personales/services/flujoCajaPersonal.service.js"),"utf8");
+ for(const [inicio,fin,variable] of [
+  ["async function corregirTransaccion","async function anularTransaccion","anterior"],
+  ["async function anularTransaccion","module.exports=","tx"]
+ ]){
+  const cuerpo=source.slice(source.indexOf(inicio),source.indexOf(fin,source.indexOf(inicio)));
+  const guardia=`if(${variable}.impactoCaja===false)`;
+  assert.ok(cuerpo.includes(guardia),`Falta protección de movimientos no monetarios en ${inicio}`);
+  assert.ok(cuerpo.indexOf(guardia)<cuerpo.indexOf("Cuenta.findOneAndUpdate"));
+  assert.ok(cuerpo.indexOf(guardia)<cuerpo.indexOf(".save({session})"));
+ }
+});
