@@ -83,3 +83,14 @@ movimiento, saldo o outbox**. Es una restricción temporal de seguridad: la
 edición y cancelación de obligaciones planificadas necesitará un flujo propio
 que conserve historial y reservas de cuotas. No cambiar manualmente
 `impactoCaja` para eludir el bloqueo.
+
+## Vinculación inalterable de la cuenta de origen en operaciones heredadas
+
+Mientras se completa la migración de #407, las correcciones y anulaciones
+heredadas que impactan caja deben identificar la cuenta por `cuentaId` del
+asiento original **y** confirmar titular, nombre, estado activo y moneda COP.
+No basta con buscar por etiqueta: dos cuentas desincronizadas podrían provocar
+una devolución o descuento a una cuenta diferente. Los asientos antiguos sin
+`cuentaId` verificable se bloquean con HTTP 409 y requieren conciliación;
+no debe reconstruirse ni adivinarse automáticamente la cuenta de origen.
+La transacción revierte todos sus cambios si la validación no se satisface.
