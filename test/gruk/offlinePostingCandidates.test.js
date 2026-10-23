@@ -231,3 +231,33 @@ test("Capa 2: eventos offline con getters tenant nunca pasan preflight",()=>{
  const valid=prepare([{...doc}],ctx);
  assert.equal(valid.totalCop,"3000");
 });
+
+test("Capa 2: getters en importes y datos financieros no se ejecutan",()=>{
+ const {validateOfflineOrderForPosting:validate}=
+  require("../../core/offline/offlineOrderPosting.contract");
+ const cases=[
+  [()=>({...doc}),"tipo"],
+  [()=>({...doc}),"eventId"],
+  [()=>({...doc}),"payload"],
+  [()=>({...doc,payload:{...doc.payload}}),"payload.totalCop"],
+  [()=>({...doc,payload:{...doc.payload}}),"payload.localOrderId"],
+  [()=>({...doc,payload:{...doc.payload}}),"payload.items"],
+  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"items.0.cantidad"],
+  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"items.0.precioUnitarioCop"],
+  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"items.0.totalCop"],
+  [()=>({...doc,payload:{...doc.payload,items:[{...doc.payload.items[0]}]}}),"items.0.productoId"]
+ ];
+ for(const [factory,path] of cases){
+  const order=factory();
+  const parts=path.split(".");
+  let owner=order;
+  for(const part of parts.slice(0,-1))owner=owner[part];
+  const key=parts.at(-1);
+  let invoked=0;
+  Object.defineProperty(owner,key,{enumerable:true,configurable:true,
+   get(){invoked++;return "3000";}});
+  assert.throws(()=>validate(order),{code:"OFFLINE_ORDER_NOT_POSTABLE"});
+  assert.equal(invoked,0,path);
+ }
+ assert.equal(validate(doc).totalCop,"3000");
+});
