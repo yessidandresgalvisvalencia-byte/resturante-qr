@@ -65,8 +65,7 @@ menos pagos de deuda antes de emitir el diagnóstico.
 movimientos que no cambiaron la caja; `diferenciaResidualMinor` muestra la
 parte restante atribuible a otras discrepancias, incluidas compensaciones.
 Estos dos componentes suman exactamente `diferenciaVerificadoMenosLegado.flujoNetoMinor`.
-Un `coincide:true` no elimina las discrepancias compensadas entre sí: consultar
-ambas magnitudes antes de declarar la conciliación completa.
+`totalesCoinciden:true` solo indica que las columnas agregadas son iguales.\n`coincide:true` requiere además que las divergencias por operaciones sin caja y\nel residual sean ambos cero. Si los errores opuestos se cancelan, devuelve\n`totalesCoinciden:true` pero **`coincide:false`**; ninguna vista debe\nmostrar esos datos como plenamente conciliados.
 
 La respuesta es **diagnóstica** (marca `DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO`),
 NO sustituye el saldo de una cuenta ni modifica dinero. Si hay adulteración,
