@@ -195,3 +195,24 @@ test("Capa 2: identidad valida se fija aunque el objeto original cambie durante 
  assert.equal(reads,1);
  assert.equal(result.totalCop,"3000");
 });
+
+test("Capa 2: preflight financiero rechaza identidad autenticada con getters",()=>{
+ const {prepareOfflineOrdersForTenant:prepare}=
+  require("../../core/offline/offlineOrdersBatch.preflight");
+ for(const field of ["empresaId","sedeId","actorId"]){
+  let reads=0;
+  const dynamic={...ctx};
+  Object.defineProperty(dynamic,field,{enumerable:true,configurable:true,
+   get(){reads++;return reads===1?ctx[field]:"empresaB";}});
+  assert.throws(()=>prepare([doc],dynamic),{code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+  assert.equal(reads,0);
+ }
+});
+test("Capa 2: preflight financiero conserva identidad propia y COP exactos",()=>{
+ const {prepareOfflineOrdersForTenant:prepare}=
+  require("../../core/offline/offlineOrdersBatch.preflight");
+ const identity=Object.assign(Object.create({empresaId:"empresaB"}),ctx);
+ const result=prepare([doc],identity);
+ assert.equal(result.orders.length,1);
+ assert.equal(result.totalCop,"3000");
+});
