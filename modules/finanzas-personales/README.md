@@ -61,6 +61,12 @@ sin impacto real de caja incluidos en la lectura legada, e
 `importeObligacionesNoCajaMinor` cuantifica exactamente su importe en COP.
 El comparador también exige que el flujo verificado cuadre con ingresos menos gastos
 menos pagos de deuda antes de emitir el diagnóstico.
+`diferenciaExplicadaPorNoCajaMinor` resta del legado el efecto firmado de
+movimientos que no cambiaron la caja; `diferenciaResidualMinor` muestra la
+parte restante atribuible a otras discrepancias, incluidas compensaciones.
+Estos dos componentes suman exactamente `diferenciaVerificadoMenosLegado.flujoNetoMinor`.
+Un `coincide:true` no elimina las discrepancias compensadas entre sí: consultar
+ambas magnitudes antes de declarar la conciliación completa.
 
 La respuesta es **diagnóstica** (marca `DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO`),
 NO sustituye el saldo de una cuenta ni modifica dinero. Si hay adulteración,
