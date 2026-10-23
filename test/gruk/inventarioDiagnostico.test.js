@@ -66,10 +66,10 @@ test("planificador conserva vencimientos nulos y no inventa porcentajes de deman
   const html = elementos.get("planInventarioMensual").innerHTML;
   assert.match(html, /Bebida sin fecha/);
   assert.match(html, /Sin vencimiento/);
-  assert.doesNotMatch(html, /10%|25%|Factor de demanda|1\\.25x|0 días/);
+  assert.doesNotMatch(html, /10%|25%|Factor de demanda|1\.25x|0 días/);
   assert.match(html, /No se calcula sin historial de ventas validado/);
   assert.match(html, /Revisar demanda estacional/);
-  const filaVencida = html.match(/<td>Bebida vencida<\\/td>([\\s\\S]*?)<\\/tr>/);
+  const filaVencida = html.match(/<td>Bebida vencida<\/td>([\s\S]*?)<\/tr>/);
   assert.ok(filaVencida, "la fila vencida debe renderizarse");
   assert.match(filaVencida[1], /No comprar más/);
   assert.doesNotMatch(filaVencida[1], /Revisar demanda estacional/);
@@ -79,8 +79,8 @@ test("diagnóstico excluye productos sin vencimiento del capital en riesgo", asy
   const { contexto, elementos } = entorno(productos);
   await contexto.diagnosticoInventarioGRUK();
   const html = elementos.get("resultadoDiagnosticoGRUK").innerHTML;
-  assert.match(html, /Hay <strong>1<\\/strong> producto\\(s\\) próximos a vencer/);
-  assert.match(html, /Capital en riesgo por vencimiento:[\\s\\S]*?<strong>\\$600<\\/strong>/);
+  assert.match(html, /Hay <strong>1<\/strong> producto\(s\) próximos a vencer/);
+  assert.match(html, /Capital en riesgo por vencimiento:[\s\S]*?<strong>\$600<\/strong>/);
   const usarPrimero = html.split("<h3>✅ Usa primero</h3>")[1].split("<h3>✔ Para el próximo mes compra</h3>")[0];
   assert.match(usarPrimero, /Bebida próxima/);
   assert.doesNotMatch(usarPrimero, /Bebida sin fecha|Bebida vencida|Agotado/);
