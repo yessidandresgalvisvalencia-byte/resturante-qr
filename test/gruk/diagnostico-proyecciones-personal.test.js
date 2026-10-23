@@ -123,3 +123,17 @@ test("una operación de ingreso sin caja aporta diferencia con signo correcto",(
  assert.equal(r.diferenciaExplicadaPorNoCajaMinor,-12500);
  assert.equal(r.diferenciaResidualMinor,0);
 });
+
+test("flujoPeriodo actual excluye no-caja; comparador conserva base histórica identificable",()=>{
+ const fuente=fs.readFileSync(path.join(__dirname,
+  "../../modules/finanzas-personales/services/flujoCajaPersonal.service.js"),"utf8");
+ const inicio=fuente.indexOf("async function flujoPeriodo(");
+ const fin=fuente.indexOf("async function corregirTransaccion",inicio);
+ const bloque=fuente.slice(inicio,fin);
+ assert.ok(inicio>=0&&fin>inicio);
+ assert.ok(bloque.includes("impactoCaja:{$ne:false}"));
+ const diagnostico=revisar([compromiso,pago]);
+ assert.equal(diagnostico.fuenteLegado,"BASE_HISTORICA_PRE_FILTRO_IMPACTO_CAJA");
+ assert.equal(diagnostico.legado.gastosMinor,700000);
+ assert.equal(diagnostico.verificado.gastosMinor,200000);
+});
