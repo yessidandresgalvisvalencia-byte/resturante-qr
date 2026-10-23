@@ -21,6 +21,7 @@ function revisar(movimientos,eventos=[]){
 test("sin compensaciones ni obligaciones pendientes las proyecciones coinciden",()=>{
  const r=revisar([gasto]);
  assert.equal(r.coincide,true);
+ assert.equal(r.totalesCoinciden,true);
  assert.equal(r.diferenciaVerificadoMenosLegado.flujoNetoMinor,0);
  assert.equal(r.legado.gastosMinor,25000);
 });
@@ -108,7 +109,8 @@ test("diferencias opuestas no se disfrazan como reconciliación completa",()=>{
   secuencia:1,fechaISO:"2026-10-20T16:00:00.000Z"
  });
  const r=revisar([gasto,noCaja],[e]);
- assert.equal(r.coincide,true);
+ assert.equal(r.totalesCoinciden,true);
+ assert.equal(r.coincide,false);
  assert.equal(r.diferenciaVerificadoMenosLegado.flujoNetoMinor,0);
  assert.equal(r.diferenciaExplicadaPorNoCajaMinor,3000);
  assert.equal(r.diferenciaResidualMinor,-3000);
