@@ -51,17 +51,24 @@ function compararProyeccionesPersonal({usuarioId,movimientos,desde,hasta,verific
   pagosDeudaMinor:numero(BigInt(verificado.pagosDeudaMinor)-deuda),
   flujoNetoMinor:numero(BigInt(verificado.flujoNetoMinor)-netoLegado)
  };
+ const diferenciaExplicadaPorNoCajaMinor=numero(-impactoLegadoSinCaja);
+ const diferenciaResidualMinor=numero(BigInt(verificado.flujoNetoMinor)-netoLegado+
+  impactoLegadoSinCaja);
+ const totalesCoinciden=Object.values(diferencia).every(n=>n===0);
+ // Un neto coincidente puede ocultar causas opuestas (p.ej. cuota sin pago
+ // y corrección que la cancela). La vista pública nunca debe decir "conciliado".
+ const coincide=totalesCoinciden&&diferenciaExplicadaPorNoCajaMinor===0&&
+  diferenciaResidualMinor===0;
  return Object.freeze({
-  coincide:Object.values(diferencia).every(n=>n===0),
+  coincide,totalesCoinciden,
   legado:Object.freeze(legado),
   verificado,
   diferenciaVerificadoMenosLegado:Object.freeze(diferencia),
   obligacionesNoCajaIncluidasPorLegado:obligacionesNoCaja,
   importeObligacionesNoCajaMinor:numero(totalObligacionesNoCaja),
   // Efecto que tendría quitar del legado exclusivamente operaciones sin caja.
-  diferenciaExplicadaPorNoCajaMinor:numero(-impactoLegadoSinCaja),
-  diferenciaResidualMinor:numero(BigInt(verificado.flujoNetoMinor)-netoLegado+
-   impactoLegadoSinCaja),
+  diferenciaExplicadaPorNoCajaMinor,
+  diferenciaResidualMinor,
   estado:"DIAGNOSTICO_NO_APTO_COMO_SALDO_BANCARIO"
  });
 }
