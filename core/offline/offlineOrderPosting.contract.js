@@ -26,10 +26,16 @@ function validateOfflineOrderForPosting(event){
   const itemsInput=ownData(p,"items");
   const totalInput=ownData(p,"totalCop");
   if(typeof localOrderId!=="string"||!ULID.test(localOrderId)||
-     !Array.isArray(itemsInput)||itemsInput.length<1||itemsInput.length>100||
-     !Array.from({length:itemsInput.length},(_,i)=>Object.hasOwn(itemsInput,i)).every(Boolean))fail();
+     !Array.isArray(itemsInput)||itemsInput.length<1||itemsInput.length>100)fail();
+  // Snapshot each array entry via its own data descriptor; never execute getters.
+  const itemSnapshots=[];
+  for(let i=0;i<itemsInput.length;i++){
+    const descriptor=Object.getOwnPropertyDescriptor(itemsInput,String(i));
+    if(!descriptor||!("value" in descriptor))fail();
+    itemSnapshots.push(descriptor.value);
+  }
   let calculated=0n;
-  const items=itemsInput.map(item=>{
+  const items=itemSnapshots.map(item=>{
     const productoId=ownData(item,"productoId");
     const cantidad=ownData(item,"cantidad");
     const precioUnitarioCop=ownData(item,"precioUnitarioCop");
