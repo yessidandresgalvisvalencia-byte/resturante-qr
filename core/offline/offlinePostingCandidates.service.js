@@ -26,15 +26,27 @@ async function readOfflineOrderCandidates({db,context,eventIds,session}){
     tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",eventId:{$in:eventIds}
   },{projection:{_id:0,eventId:1,empresaId:1,sedeId:1,actorId:1,tipo:1,status:1,payload:1},limit:eventIds.length+1,...(session?{session}:{})}).toArray();
   if(!Array.isArray(docs)||docs.length!==eventIds.length||
-    !Array.from({length:docs.length},(_,i)=>Object.hasOwn(docs,i)).every(Boolean)||
-    docs.some(x=>
-    !x||typeof x!=="object"||
-    !["eventId","empresaId","sedeId","actorId","tipo","status","payload"].every(k=>Object.hasOwn(x,k))||
-    x.empresaId!==identity.empresaId||x.sedeId!==identity.sedeId||
-    x.actorId!==identity.actorId||x.tipo!=="PEDIDO_REGISTRADO"||
-    x.status!=="PENDIENTE"||!eventIds.includes(x.eventId)))
+    !Array.from({length:docs.length},(_,i)=>Object.hasOwn(docs,i)).every(Boolean))
     fail("OFFLINE_ORDERS_NOT_PENDING");
-  const byId=new Map(docs.map(x=>[x.eventId,x]));
+  // Never execute a Mongo adapter's accessors while checking tenant identity.
+  // Snapshot every projected field once, then validate and post only the snapshot.
+  const checked=docs.map(record=>{
+    if(!record||typeof record!=="object"||Array.isArray(record))
+      fail("OFFLINE_ORDERS_NOT_PENDING");
+    const snapshot={};
+    for(const key of ["eventId","empresaId","sedeId","actorId","tipo","status","payload"]){
+      const descriptor=Object.getOwnPropertyDescriptor(record,key);
+      if(!descriptor||!("value" in descriptor))
+        fail("OFFLINE_ORDERS_NOT_PENDING");
+      snapshot[key]=descriptor.value;
+    }
+    if(snapshot.empresaId!==identity.empresaId||snapshot.sedeId!==identity.sedeId||
+       snapshot.actorId!==identity.actorId||snapshot.tipo!=="PEDIDO_REGISTRADO"||
+       snapshot.status!=="PENDIENTE"||!eventIds.includes(snapshot.eventId))
+      fail("OFFLINE_ORDERS_NOT_PENDING");
+    return snapshot;
+  });
+  const byId=new Map(checked.map(x=>[x.eventId,x]));
   if(byId.size!==eventIds.length)fail("OFFLINE_ORDERS_NOT_PENDING");
   const ordered=eventIds.map(id=>byId.get(id));
   if(ordered.some(x=>!x))fail("OFFLINE_ORDERS_NOT_PENDING");

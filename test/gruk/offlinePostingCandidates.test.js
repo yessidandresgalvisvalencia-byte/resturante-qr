@@ -261,3 +261,23 @@ test("Capa 2: getters en importes y datos financieros no se ejecutan",()=>{
  }
  assert.equal(validate(doc).totalCop,"3000");
 });
+
+test("Capa 2: respuesta de Mongo con accessors tenant es rechazada sin ejecutarlos",async()=>{
+ for(const field of ["eventId","empresaId","sedeId","actorId","tipo","status","payload"]){
+  let invoked=0;
+  const poisoned={...doc};
+  Object.defineProperty(poisoned,field,{enumerable:true,configurable:true,
+   get(){invoked++;return field==="empresaId"?"empresaB":doc[field];}});
+  const db={collection(name){assert.equal(name,"gruk_offline_inbox");return{
+   find(){return {toArray:async()=>[poisoned]};}
+  };}};
+  await assert.rejects(read({db,context:ctx,eventIds:[eventId]}),
+   {code:"OFFLINE_ORDERS_NOT_PENDING"});
+  assert.equal(invoked,0,field);
+ }
+});
+test("Capa 2: resultados inbox válidos mantienen identidad y COP exactos",async()=>{
+ const result=await read({db:fake([doc]),context:{...ctx},eventIds:[eventId]});
+ assert.equal(result.orders.length,1);
+ assert.equal(result.totalCop,"3000");
+});
