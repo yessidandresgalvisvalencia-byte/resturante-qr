@@ -66,6 +66,27 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    movimientoId:String(asiento._id)}).lean(),
    "El evento del asiento debe encontrarse por identidad antes del bloqueo");
   const flujoLegado=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+  // Los montos individuales son safe, pero cambiar GASTO a INGRESO
+  // puede producir un delta > MAX_SAFE_INTEGER. Nunca $inc ni UPDATE.
+  const [asientoLimite]=await Movimiento.create([{
+   usuarioId,cuentaId:cuenta._id,cuenta:cuenta.nombre,
+   tipo:"GASTO",montoMinor:Number.MAX_SAFE_INTEGER,
+   concepto:"Simulación de borde",categoria:"Pruebas",
+   fecha:new Date("2026-12-05T12:00:00.000Z"),
+   estado:"ACTIVA",impactoCaja:true
+  }]);
+  const saldoAntesOverflow=(await Cuenta.findById(cuenta._id).lean()).saldoMinor;
+  const outboxAntesOverflow=await Outbox.countDocuments({usuarioId});
+  await assert.rejects(()=>flujoLegado.corregirTransaccion(
+   usuarioId,String(asientoLimite._id),
+   {tipo:"INGRESO",montoMinor:Number.MAX_SAFE_INTEGER}
+  ),e=>e.statusCode===409&&/DELTA_LEGADO_INVALIDO/.test(e.message));
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,saldoAntesOverflow);
+  assert.equal(await Outbox.countDocuments({usuarioId}),outboxAntesOverflow);
+  const limiteIntacto=await Movimiento.findById(asientoLimite._id).lean();
+  assert.equal(limiteIntacto.tipo,"GASTO");
+  assert.equal(limiteIntacto.montoMinor,Number.MAX_SAFE_INTEGER);
+  await Movimiento.deleteOne({_id:asientoLimite._id}); // Solo base aislada de prueba.
   await assert.rejects(()=>flujoLegado.corregirTransaccion(usuarioId,String(asiento._id),
    {montoMinor:20000}),e=>e.statusCode===409&&/ledger compensatorio/.test(e.message));
   await assert.rejects(()=>flujoLegado.anularTransaccion(usuarioId,String(asiento._id)),
