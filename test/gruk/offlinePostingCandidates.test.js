@@ -313,3 +313,38 @@ test("Capa 2: cambio de ID durante consulta no cambia el lote validado",async()=
  assert.equal(result.totalCop,"3000");
  assert.equal(result.orders[0].eventId,eventId);
 });
+
+test("Capa 2: getters en posiciones de items son rechazados sin ejecución",()=>{
+ const {validateOfflineOrderForPosting:validate}=
+  require("../../core/offline/offlineOrderPosting.contract");
+ let hits=0;
+ const items=[{...doc.payload.items[0]}];
+ Object.defineProperty(items,0,{configurable:true,enumerable:true,
+  get(){hits++;return doc.payload.items[0];}});
+ assert.throws(()=>validate({...doc,payload:{...doc.payload,items}}),
+  {code:"OFFLINE_ORDER_NOT_POSTABLE"});
+ assert.equal(hits,0);
+});
+test("Capa 2: getters en posiciones del lote no se ejecutan",()=>{
+ const {prepareOfflineOrders,prepareOfflineOrdersForTenant}=
+  require("../../core/offline/offlineOrdersBatch.preflight");
+ const events=[doc];
+ let hits=0;
+ Object.defineProperty(events,0,{configurable:true,enumerable:true,
+  get(){hits++;return doc;}});
+ assert.throws(()=>prepareOfflineOrders(events),{code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+ assert.throws(()=>prepareOfflineOrdersForTenant(events,ctx),{code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+ assert.equal(hits,0);
+});
+test("Capa 2: el preflight valida snapshot ante mutación de lote",()=>{
+ const {prepareOfflineOrdersForTenant:prepare}=
+  require("../../core/offline/offlineOrdersBatch.preflight");
+ const events=[doc];
+ const original=doc;
+ const first={...doc};
+ Object.defineProperty(first,"empresaId",{enumerable:true,configurable:true,
+  get(){ events[0]={...original,empresaId:"empresaB"};return "empresaA";}});
+ events[0]=first;
+ assert.throws(()=>prepare(events,ctx),{code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+ assert.equal(events[0],first);
+});
