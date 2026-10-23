@@ -31,11 +31,12 @@ function prepareOfflineOrdersForTenant(events, authenticatedContext){
   if(!Array.isArray(events)||events.length<1||events.length>100||
     !Array.from({length:events.length},(_,i)=>Object.hasOwn(events,i)).every(Boolean))fail();
   for(const event of events){
-    if(!event||typeof event!=="object"||
-      !["empresaId","sedeId","actorId"].every(k=>Object.hasOwn(event,k))||
-      event.empresaId!==identity.empresaId||
-      event.sedeId!==identity.sedeId||
-      event.actorId!==identity.actorId)fail();
+    if(!event||typeof event!=="object"||Array.isArray(event))fail();
+    // Reject accessors before the domain validator reads any financial payload.
+    for(const key of ["empresaId","sedeId","actorId"]){
+      const descriptor=Object.getOwnPropertyDescriptor(event,key);
+      if(!descriptor||!("value" in descriptor)||descriptor.value!==identity[key])fail();
+    }
   }
   return prepareOfflineOrders(events);
 }
