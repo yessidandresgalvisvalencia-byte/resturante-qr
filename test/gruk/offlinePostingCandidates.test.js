@@ -166,3 +166,32 @@ test("Capa 2: identidad propia válida mantiene búsqueda delimitada y recibo ex
  assert.equal(queries,1);
  assert.equal(result.totalCop,"3000");
 });
+
+test("Capa 2: identidades dinamicas con getters se rechazan antes de leer Mongo",async()=>{
+ for(const field of ["empresaId","sedeId","actorId"]){
+  let accesses=0,queries=0;
+  const context={...ctx};
+  Object.defineProperty(context,field,{enumerable:true,configurable:true,
+   get(){accesses++;return accesses===1?ctx[field]:"empresaB";}});
+  const db={collection(){queries++;throw Error("CROSS_TENANT_READ");}};
+  await assert.rejects(read({db,context,eventIds:[eventId]}),
+   {code:"OFFLINE_AUTH_REQUIRED"});
+  assert.equal(accesses,0);
+  assert.equal(queries,0);
+ }
+});
+test("Capa 2: identidad valida se fija aunque el objeto original cambie durante consulta",async()=>{
+ const context={...ctx};
+ let reads=0;
+ const db={collection(){return {find(query){
+  assert.equal(query.empresaId,"empresaA");
+  assert.equal(query.sedeId,"sedeA");
+  assert.equal(query.actorId,"cajeroA");
+  Object.assign(context,{empresaId:"empresaB",sedeId:"sedeB",actorId:"otro"});
+  reads++;
+  return {toArray:async()=>[doc]};
+ }};}};
+ const result=await read({db,context,eventIds:[eventId]});
+ assert.equal(reads,1);
+ assert.equal(result.totalCop,"3000");
+});
