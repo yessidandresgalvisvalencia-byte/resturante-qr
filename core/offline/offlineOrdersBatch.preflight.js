@@ -20,17 +20,22 @@ function prepareOfflineOrders(events){
 // Strict, authenticated scope is mandatory at the domain posting boundary.
 function prepareOfflineOrdersForTenant(events, authenticatedContext){
   const ID=/^[A-Za-z0-9_-]{1,80}$/;
-  if(!authenticatedContext||!["empresaId","sedeId","actorId"].every(k=>
-    Object.hasOwn(authenticatedContext,k)&&
-    typeof authenticatedContext[k]==="string"&&ID.test(authenticatedContext[k])))fail();
+  if(!authenticatedContext||typeof authenticatedContext!=="object")fail();
+  const identity={};
+  for(const key of ["empresaId","sedeId","actorId"]){
+    const descriptor=Object.getOwnPropertyDescriptor(authenticatedContext,key);
+    if(!descriptor||!("value" in descriptor)||
+       typeof descriptor.value!=="string"||!ID.test(descriptor.value))fail();
+    identity[key]=descriptor.value;
+  }
   if(!Array.isArray(events)||events.length<1||events.length>100||
     !Array.from({length:events.length},(_,i)=>Object.hasOwn(events,i)).every(Boolean))fail();
   for(const event of events){
     if(!event||typeof event!=="object"||
       !["empresaId","sedeId","actorId"].every(k=>Object.hasOwn(event,k))||
-      event.empresaId!==authenticatedContext.empresaId||
-      event.sedeId!==authenticatedContext.sedeId||
-      event.actorId!==authenticatedContext.actorId)fail();
+      event.empresaId!==identity.empresaId||
+      event.sedeId!==identity.sedeId||
+      event.actorId!==identity.actorId)fail();
   }
   return prepareOfflineOrders(events);
 }
