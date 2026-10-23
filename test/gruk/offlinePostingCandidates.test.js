@@ -216,3 +216,18 @@ test("Capa 2: preflight financiero conserva identidad propia y COP exactos",()=>
  assert.equal(result.orders.length,1);
  assert.equal(result.totalCop,"3000");
 });
+
+test("Capa 2: eventos offline con getters tenant nunca pasan preflight",()=>{
+ const {prepareOfflineOrdersForTenant:prepare}=
+  require("../../core/offline/offlineOrdersBatch.preflight");
+ for(const field of ["empresaId","sedeId","actorId"]){
+  let reads=0;
+  const poisoned={...doc};
+  Object.defineProperty(poisoned,field,{enumerable:true,configurable:true,
+   get(){reads++;return reads===1?ctx[field]:"empresaB";}});
+  assert.throws(()=>prepare([poisoned],ctx),{code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+  assert.equal(reads,0);
+ }
+ const valid=prepare([{...doc}],ctx);
+ assert.equal(valid.totalCop,"3000");
+});
