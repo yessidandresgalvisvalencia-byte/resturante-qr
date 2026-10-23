@@ -115,3 +115,14 @@ sí impactan caja siguen contándose una vez. La respuesta de
 previa al filtro**, identificada como `BASE_HISTORICA_PRE_FILTRO_IMPACTO_CAJA`,
 para medir el error que existía y los efectos de compensaciones; el campo
 `legado` del diagnóstico **no debe presentarse como una lectura en vivo**.
+
+## Alta de obligaciones previstas: protección contra cobro ficticio
+
+`registrarTransaccion` rechaza con HTTP 422 una solicitud explícita con
+`impactoCaja:false`. El alta vigente crea un movimiento con impacto en
+cuenta y no dispone todavía de un procedimiento transaccional separado
+para obligaciones planificadas. **Nunca** debe convertir silenciosamente
+`impactoCaja:false` en un gasto pagado o ingreso recibido. La restricción
+ocurre antes de iniciar MongoDB y aplica incluso a llamadas internas.
+Registrar obligaciones sin pago requiere un servicio propio que conserve
+vencimientos y cuotas sin alterar la caja, pendiente de #407.
