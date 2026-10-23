@@ -37,6 +37,8 @@ test("corrección inmutable aparece como diferencia, sin mutar el asiento",()=>{
  assert.equal(r.legado.gastosMinor,25000);
  assert.equal(r.verificado.gastosMinor,22000);
  assert.equal(r.diferenciaVerificadoMenosLegado.flujoNetoMinor,3000);
+ assert.equal(r.diferenciaExplicadaPorNoCajaMinor,0);
+ assert.equal(r.diferenciaResidualMinor,3000);
  assert.equal(gasto.montoMinor,25000);
 });
 test("arriendo pendiente no pagado se identifica sin duplicarlo como caja real",()=>{
@@ -47,6 +49,8 @@ test("arriendo pendiente no pagado se identifica sin duplicarlo como caja real",
  assert.equal(r.diferenciaVerificadoMenosLegado.flujoNetoMinor,500000);
  assert.equal(r.obligacionesNoCajaIncluidasPorLegado,1);
  assert.equal(r.importeObligacionesNoCajaMinor,500000);
+ assert.equal(r.diferenciaExplicadaPorNoCajaMinor,500000);
+ assert.equal(r.diferenciaResidualMinor,0);
 });
 test("diagnóstico usa BigInt y rechaza sumas que exceden enteros seguros",()=>{
  const a={...gasto,montoMinor:Number.MAX_SAFE_INTEGER};
@@ -91,4 +95,29 @@ test("diagnóstico cuenta obligaciones pendientes solo dentro de la ventana",()=
  assert.equal(r.obligacionesNoCajaIncluidasPorLegado,1);
  assert.equal(r.importeObligacionesNoCajaMinor,500000);
  assert.equal(r.verificado.flujoNetoMinor,-25000);
+});
+
+test("diferencias opuestas no se disfrazan como reconciliación completa",()=>{
+ const noCaja={...gasto,_id:"507f1f77bcf86cd799439090",
+  impactoCaja:false,montoMinor:3000};
+ const e=eventoCompensatorio({
+  original:{usuarioId:uid,movimientoId:gasto._id,tipo:"GASTO",
+   montoMinor:25000,concepto:"Rappi",categoria:"Comida"},
+  tipo:"CORRECCION",cambios:{montoMinor:28000},
+  idempotencyKey:"cancelacion_aparente",prevHash:"0".repeat(64),
+  secuencia:1,fechaISO:"2026-10-20T16:00:00.000Z"
+ });
+ const r=revisar([gasto,noCaja],[e]);
+ assert.equal(r.coincide,true);
+ assert.equal(r.diferenciaVerificadoMenosLegado.flujoNetoMinor,0);
+ assert.equal(r.diferenciaExplicadaPorNoCajaMinor,3000);
+ assert.equal(r.diferenciaResidualMinor,-3000);
+});
+test("una operación de ingreso sin caja aporta diferencia con signo correcto",()=>{
+ const ingreso={...gasto,_id:"507f1f77bcf86cd799439091",
+  impactoCaja:false,tipo:"INGRESO",montoMinor:12500};
+ const r=revisar([ingreso]);
+ assert.equal(r.diferenciaVerificadoMenosLegado.flujoNetoMinor,-12500);
+ assert.equal(r.diferenciaExplicadaPorNoCajaMinor,-12500);
+ assert.equal(r.diferenciaResidualMinor,0);
 });
