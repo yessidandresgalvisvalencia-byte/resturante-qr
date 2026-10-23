@@ -73,6 +73,33 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   assert.equal((await Movimiento.findById(asiento._id).lean()).montoMinor,25000);
   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,103000);
   assert.equal(await Outbox.countDocuments({usuarioId}),1);
+  // Un nombre copiado no puede redirigir correcciones ni reversos a una
+  // cuenta distinta del ID asociado al asiento original.
+  const [cuentaAjenaDestino]=await Cuenta.create([{
+   usuarioId,nombre:"NO-ES-LA-CUENTA-DEL-ASIENTO",tipo:"AHORROS",
+   saldoMinor:250000,moneda:"COP",activa:true,requiereReconciliacion:false
+  }]);
+  const [asientoDesvinculado]=await Movimiento.create([{
+   usuarioId,cuentaId:cuenta._id,cuenta:cuentaAjenaDestino.nombre,
+   tipo:"GASTO",montoMinor:10000,concepto:"Cuenta alterada",
+   categoria:"Pruebas",fecha:new Date("2026-10-20T12:25:00.000Z"),
+   estado:"ACTIVA",impactoCaja:true
+  }]);
+  const antesCuentaCorrecta=(await Cuenta.findById(cuenta._id).lean()).saldoMinor;
+  const antesCuentaDestino=(await Cuenta.findById(cuentaAjenaDestino._id).lean()).saldoMinor;
+  await assert.rejects(()=>flujoLegado.corregirTransaccion(usuarioId,
+   String(asientoDesvinculado._id),{montoMinor:9000}),
+   e=>e.statusCode===409);
+  await assert.rejects(()=>flujoLegado.anularTransaccion(usuarioId,
+   String(asientoDesvinculado._id)),e=>e.statusCode===409);
+  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,antesCuentaCorrecta);
+  assert.equal((await Cuenta.findById(cuentaAjenaDestino._id).lean()).saldoMinor,
+   antesCuentaDestino);
+  assert.equal((await Movimiento.findById(asientoDesvinculado._id).lean()).montoMinor,10000);
+  assert.equal((await Movimiento.findById(asientoDesvinculado._id).lean()).estado,"ACTIVA");
+  // No debe contaminar otros escenarios del test (que miden totales exactos).
+  await Movimiento.deleteOne({_id:asientoDesvinculado._id});
+  await Cuenta.deleteOne({_id:cuentaAjenaDestino._id});
   const segundoOriginal={...original,montoMinor:22000};
   const registrarFalla=crearRegistradorFinancieroPersonal({
    crearAplicador:()=>async contexto=>{
