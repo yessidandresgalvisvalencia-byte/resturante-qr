@@ -53,8 +53,8 @@ autorización, idempotencia y conciliación con MongoDB real. Un CI aprobado en 
 `GET /v81/diagnostico-proyecciones?desde=<ISO>&hasta=<ISO>` se encuentra tras el
 JWT y entitlement personales. Lee movimientos, eventos y cursor desde **un mismo
 snapshot MongoDB** y valida toda la cadena SHA-256 antes de comparar:
-`legado` reproduce la suma histórica usada por `flujoPeriodo` (incluidos compromisos
-con `impactoCaja:false`); `verificado` aplica las compensaciones firmadas y
+`legado` reproduce la **base histórica anterior al arreglo** del agregado (incluidos compromisos
+con `impactoCaja:false`); el `flujoPeriodo` actual ya excluye expresamente esos compromisos. `verificado` aplica las compensaciones firmadas y
 excluye obligaciones pendientes. `diferenciaVerificadoMenosLegado` es una resta
 exacta sobre enteros. `obligacionesNoCajaIncluidasPorLegado` cuenta asientos
 sin impacto real de caja incluidos en la lectura legada, e
@@ -104,3 +104,14 @@ a `INGRESO` puede exceder `Number.MAX_SAFE_INTEGER` en la diferencia;
 eso produce conflicto HTTP 409 y aborta la operación completa sin cambiar
 saldo, documento u outbox. Esta protección no reemplaza la migración a
 asientos inmutables pendiente en #407.
+
+## Flujo realizado corregido
+
+El agregado heredado `flujoPeriodo` **ya excluye** movimientos con
+`impactoCaja:false`, de modo que registrar una cuota de arriendo prevista no
+altera los ingresos, gastos o flujo neto realizados. Los pagos vinculados que
+sí impactan caja siguen contándose una vez. La respuesta de
+`/v81/diagnostico-proyecciones` mantiene intencionalmente la **base histórica
+previa al filtro**, identificada como `BASE_HISTORICA_PRE_FILTRO_IMPACTO_CAJA`,
+para medir el error que existía y los efectos de compensaciones; el campo
+`legado` del diagnóstico **no debe presentarse como una lectura en vivo**.
