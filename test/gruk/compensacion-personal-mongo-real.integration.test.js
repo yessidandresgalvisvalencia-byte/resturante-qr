@@ -315,6 +315,7 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   assert.equal(noAdmitido.elegibleParaCompensar,false);
   assert.equal(noAdmitido.motivo,"TIPO_NO_ADMITIDO_POR_LEDGER_COMPENSATORIO");
   // Una cuota recurrente prevista no es gasto de caja realizado.
+  const flujoLegacyAntesPendiente=await flujoLegado.flujoPeriodo(String(usuarioId),intervalo);
   const flujoAntesPendiente=await consultar(String(usuarioId),intervalo);
   const [obligacionPendiente]=await Movimiento.create([{
    usuarioId,cuentaId:cuenta._id,cuenta:cuenta.nombre,
@@ -337,6 +338,12 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
   const pendienteIntacto=await Movimiento.findById(obligacionPendiente._id).lean();
   assert.equal(pendienteIntacto.montoMinor,500000);
   assert.equal(pendienteIntacto.estado,"ACTIVA");
+  const flujoLegacyDespuesPendiente=await flujoLegado.flujoPeriodo(String(usuarioId),intervalo);
+  assert.equal(flujoLegacyDespuesPendiente.gastosMinor,
+   flujoLegacyAntesPendiente.gastosMinor,
+   "El agregado heredado de caja realizada no debe imputar el arriendo pendiente");
+  assert.equal(flujoLegacyDespuesPendiente.flujoNetoMinor,
+   flujoLegacyAntesPendiente.flujoNetoMinor);
   const flujoDespuesPendiente=await consultar(String(usuarioId),intervalo);
   assert.equal(flujoDespuesPendiente.gastosMinor,flujoAntesPendiente.gastosMinor,
    "Compromiso futuro no debe sumarse como egreso de caja ya realizado");
