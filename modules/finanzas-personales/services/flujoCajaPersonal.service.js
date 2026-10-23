@@ -35,7 +35,7 @@ async function confirmarRegistroIntento(usuarioId,input){
  });
 }
 async function registrarTransaccion(usuarioId,input){
- if(input?.impactoCaja===false)throw Object.assign(new Error("El alta de obligaciones sin impacto de caja requiere un flujo específico; no se registrará como dinero pagado"),{statusCode:422});
+ if(input&&Object.prototype.hasOwnProperty.call(input,"impactoCaja")&&input.impactoCaja!==true)throw Object.assign(new Error("El alta no admite impactoCaja falso o inválido: usa un flujo específico para obligaciones sin pago"),{statusCode:422});
  if(input.tipo==="GASTO"&&String(input.cuenta||"EFECTIVO").trim().toUpperCase()==="EFECTIVO"&&input.medioPago==="TRANSFERENCIA")input={...input,medioPago:"EFECTIVO"};
  if(!Number.isSafeInteger(input.montoMinor)||input.montoMinor<=0)throw Object.assign(new Error("montoMinor debe ser un entero positivo exacto"),{statusCode:400});if(input.externalId!==undefined&&input.externalId!==null&&!String(input.externalId).trim())throw Object.assign(new Error("externalId vacío no es válido"),{statusCode:400});
  if(input.externalId!==undefined&&input.externalId!==null)
