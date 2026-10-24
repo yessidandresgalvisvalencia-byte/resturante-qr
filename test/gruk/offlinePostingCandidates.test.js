@@ -348,3 +348,23 @@ test("Capa 2: el preflight valida snapshot ante mutación de lote",()=>{
  assert.throws(()=>prepare(events,ctx),{code:"OFFLINE_ORDER_BATCH_CONFLICT"});
  assert.equal(events[0],first);
 });
+
+test("Capa 2: bloquea colisiones cruzadas de ULID entre evento y pedido",()=>{
+ const {prepareOfflineOrders,prepareOfflineOrdersForTenant}=
+  require("../../core/offline/offlineOrdersBatch.preflight");
+ const firstId="01ARZ3NDEKTSV4RRFFQ69G5FA0";
+ const secondId="01ARZ3NDEKTSV4RRFFQ69G5FA1";
+ const thirdId="01ARZ3NDEKTSV4RRFFQ69G5FA2";
+ const fourthId="01ARZ3NDEKTSV4RRFFQ69G5FA3";
+ const first={...doc,eventId:firstId,payload:{...doc.payload,localOrderId:secondId}};
+ const swapped={...doc,eventId:secondId,payload:{...doc.payload,localOrderId:firstId}};
+ const collision={...doc,eventId:thirdId,payload:{...doc.payload,localOrderId:firstId}};
+ for(const list of [[first,swapped],[first,collision]]){
+  assert.throws(()=>prepareOfflineOrders(list),{code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+  assert.throws(()=>prepareOfflineOrdersForTenant(list,ctx),{code:"OFFLINE_ORDER_BATCH_CONFLICT"});
+ }
+ const valid={...doc,eventId:thirdId,payload:{...doc.payload,localOrderId:fourthId}};
+ const result=prepareOfflineOrdersForTenant([first,valid],ctx);
+ assert.equal(result.totalCop,"6000");
+ assert.equal(result.orders.length,2);
+});
