@@ -126,3 +126,26 @@ para obligaciones planificadas. **Nunca** debe convertir silenciosamente
 ocurre antes de iniciar MongoDB y aplica incluso a llamadas internas.
 Registrar obligaciones sin pago requiere un servicio propio que conserve
 vencimientos y cuotas sin alterar la caja, pendiente de #407.
+
+## Alta de obligaciones previstas (V81, rama de desarrollo)
+
+`POST /v81/obligaciones-previstas` acepta exclusivamente
+`montoMinor` entero positivo COP, `concepto`, `categoria`,
+`fecha` de vencimiento, `recurrente`, `frecuencia` coherente
+y `externalId` estable. La identidad proviene del JWT personal.
+
+Inserta el compromiso en `fin_transacciones_personales` con
+`impactoCaja:false`, `cuentaId:null` y `cuenta:"SIN_CAJA"`.
+NO modifica el saldo de ninguna cuenta, NO ejecuta un evento de
+`GASTO_REGISTRADO` ni lo incluye en el flujo realizado.
+Requiere `PERSONAL_IDEMPOTENCY_SECRET`, índice único real
+`{usuarioId,externalIdHash}` y transacción MongoDB snapshot/majority;
+el reintento con la misma clave devuelve 409 sin segunda inserción.
+La fecha futura es válida porque representa vencimiento, no gasto ejecutado.
+
+**Pendiente antes de producción:** definir cómo listar y cancelar
+compromisos futuros sin mutar asientos originales, consolidar
+proyecciones recurrentes y controles de autorización end-to-end.
+El registrador antiguo `POST /transacciones` continúa rechazando
+`impactoCaja:false`: usar solo la ruta específica para compromisos.
+La nueva ruta vive únicamente en el PR hasta revisión y despliegue autorizado.
