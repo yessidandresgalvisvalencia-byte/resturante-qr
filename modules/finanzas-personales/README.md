@@ -175,3 +175,25 @@ externa y sintaxis. Los jobs dedicados V81 y Seguridad también aprobaron
 tras aplicar los archivos. La remediación no equivale a desplegar
 ni a cerrar el pendiente de migración contable #407.
 Véase el issue de seguimiento #453.
+
+## Cancelación append-only de obligaciones previstas (servicio interno)
+
+`crearCanceladorObligacion` crea un documento en
+`fin_cancelaciones_obligaciones_previstas_v1` dentro de MongoDB ACID,
+con `usuarioId`, `obligacionId`, hash HMAC de clave idempotente, motivo,
+fecha y snapshot del compromiso original. Exige índices únicos
+`(usuarioId,obligacionId)` y `(usuarioId,idempotencyHash)`; la
+repetición o cancelación concurrente devuelve conflicto. No realiza
+`UPDATE`/`DELETE` del asiento original ni altera cuentas.
+
+**Fail-closed:** si el compromiso tiene abonos o reservas históricas,
+rechaza la cancelación; su anulación exige un procedimiento de
+conciliación especializado. La protección de solo inserción necesita
+además privilegios MongoDB restrictivos: middleware Mongoose por sí solo
+no impide modificaciones directas por administradores de la base.
+
+**NO habilitado en HTTP ni producción:** la cancelación aún no se
+proyecta en los vencimientos, y el historial carece de un anclaje
+criptográfico externo específico. No conectar esta operación al
+frontend ni declarar el ledger íntegramente inmutable hasta
+integrar proyección, auditoría y pruebas Mongo reales (#407).
