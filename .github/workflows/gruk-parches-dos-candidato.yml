@@ -5,7 +5,7 @@ on:
       - '.github/workflows/gruk-parches-dos-candidato.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   resolver-y-auditar:
     runs-on: ubuntu-latest
@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          persist-credentials: false
+          persist-credentials: true
       - uses: actions/setup-node@v4
         with:
           node-version-file: package.json
@@ -33,6 +33,21 @@ jobs:
           NODE
       - name: Auditar dependencias de produccion
         run: npm audit --omit=dev --audit-level=low
+      - name: Pruebas de compatibilidad del repositorio compartido
+        run: |
+          npm run check:syntax
+          npm test
+      - name: Commit exacto a rama PR (nunca producción)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/fp-hormiga-creditos-separados-20261020'
+        env:
+          TARGET_BRANCH: feature/fp-hormiga-creditos-separados-20261020
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git diff --cached --exit-code && exit 0 || true
+          git commit -m "fix(security): actualizar multer y body-parser con lockfile npm auditado"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
       - name: Exportar par sin editar repositorio fuente
         if: always()
         uses: actions/upload-artifact@v4
