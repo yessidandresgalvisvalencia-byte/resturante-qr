@@ -72,3 +72,18 @@ test("respuesta HTTP expone campos permitidos, jamás hash interno",()=>{
  assert.ok(!block.includes("externalIdHash"));
  assert.ok(!block.includes("obligacion,impactoCaja:false"));
 });
+
+test("vencimientos no aceptan epochs ni formatos sin zona horaria",()=>{
+ for(const fecha of [
+  1794744000000,"2026-11-15","2026-11-15T12:00:00",
+  "11/15/2026",null,{},true
+ ])assert.throws(()=>validarObligacion(uid,{...input,fecha}),
+  e=>e.statusCode===400);
+});
+test("admite fecha ISO con zona y Date emitido por Joi",()=>{
+ for(const fecha of ["2026-11-15T12:00:00Z",
+  "2026-11-15T07:00:00-05:00",new Date("2026-11-15T12:00:00Z")]){
+  const v=validarObligacion(uid,{...input,fecha});
+  assert.equal(v.fecha.toISOString(),"2026-11-15T12:00:00.000Z");
+ }
+});
