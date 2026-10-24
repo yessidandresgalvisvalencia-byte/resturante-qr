@@ -276,3 +276,22 @@ no hay ruta HTTP de consulta, y responde
 `aptoParaDisponibleHoy:false`. El verificador de hash no sustituye
 la reconciliación de reservas ni impide adulteración por quienes
 controlan la base de datos sin anclaje independiente (#407).
+
+## Consulta íntegra de cuotas recurrentes — snapshot MongoDB
+
+`consultaCuotasConciliadasPersonal.service.js` es una consulta interna
+de **solo lectura** que obtiene secuencialmente, dentro de la misma
+transacción MongoDB con `readConcern:snapshot`, el origen previsto,
+todos sus pagos vinculados, la cadena compensatoria completa del usuario,
+el cursor, las reservas recurrentes y cualquier cancelación del origen.
+Rechaza lecturas truncadas, cancelaciones, importes o rangos de reservas
+discordantes, abonos sin reserva, hash/cursor contradictorios y eventos
+compensatorios asociados con pagos no reconciliados. El período de cada
+reserva debe coincidir con el período civil de Bogotá.
+
+Nunca actualiza `Cuenta`, `Transaccion`, `ReservaCuota` ni otros
+saldos. Excluye de forma preventiva obligaciones canceladas y retorna
+`aptoParaDisponibleHoy:false`; no es una ruta HTTP, ni cálculo de deuda
+completa, ni sustituye los controles del ledger de producción. La
+conciliación de compensaciones con reservas y el control de privilegios
+de base de datos siguen pendientes en #407.
