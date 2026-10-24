@@ -59,3 +59,12 @@ test("repite importes seguros, sin redondeos",()=>{
  const a=validarReservas({usuarioId,origen:original,pagos:[pago],reservas:[reserva]});
  assert.equal(a,true);
 });
+
+test("un abono decimal o fechas corruptas de reserva se bloquean con 409",async()=>{
+ for(const escenario of [
+  {pagos:[{...pago,montoMinor:0.25}]},
+  {reservas:[{...reserva,periodoInicio:"invalido"}]},
+  {reservas:[{...reserva,periodoFin:"invalido"}]}
+ ])await assert.rejects(
+  ()=>crearLectura(escenario)(usuarioId,id,rango),e=>e.statusCode===409);
+});
