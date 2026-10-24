@@ -8,6 +8,7 @@ const Movimiento=require("../../modules/finanzas-personales/models/TransaccionPe
 const Cursor=require("../../modules/finanzas-personales/models/CursorCompensacionPersonal");
 const Evento=require("../../modules/finanzas-personales/models/EventoCompensatorioPersonal");
 const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");
+const CancelacionPrevista=require("../../modules/finanzas-personales/models/CancelacionObligacionPrevistaPersonal");
 const {crearRegistrador}=require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {crearRegistradorFinancieroPersonal}=require("../../modules/finanzas-personales/services/registradorFinancieroPersonal.service");
 const {crearAplicadorAtomicoPersonal}=require("../../modules/finanzas-personales/services/aplicarCompensacionCajaAtomica.service");
@@ -30,7 +31,7 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
  const dbName="gruk_fp_comp_test_"+crypto.randomUUID().replace(/-/g,"");
  await mongoose.connect(uri,{dbName,serverSelectionTimeoutMS:7000});
  try{
-  await Promise.all([Cuenta.init(),Movimiento.init(),Cursor.init(),Evento.init(),Outbox.init()]);
+  await Promise.all([Cuenta.init(),Movimiento.init(),Cursor.init(),Evento.init(),Outbox.init(),CancelacionPrevista.init()]);
   const usuarioId=new mongoose.Types.ObjectId();
   const [cuenta]=await Cuenta.create([{
    usuarioId,nombre:"COMP-PRUEBA",tipo:"AHORROS",saldoMinor:100000,
@@ -58,6 +59,23 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    await assert.rejects(()=>registrarObligacion(String(usuarioId),prevista),
     e=>e.statusCode===409);
    assert.equal(await Movimiento.countDocuments({_id:creada._id}),1);
+   const {crearCanceladorObligacion}=require(
+    "../../modules/finanzas-personales/services/cancelarObligacionPrevistaPersonal.service");
+   const cancelar=crearCanceladorObligacion();
+   const eventoCancelacion=await cancelar(String(usuarioId),String(creada._id),{
+    idempotencyKey:"cancelacion-arriendo-test",motivo:"Compromiso retirado"
+   });
+   assert.equal(eventoCancelacion.tipo,"CANCELACION_OBLIGACION_PREVISTA");
+   assert.equal(eventoCancelacion.snapshot.montoMinor,500000);
+   assert.equal((await Movimiento.findById(creada._id).lean()).estado,"ACTIVA");
+   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
+   assert.equal(await Outbox.countDocuments({usuarioId}),outboxPrevio);
+   await assert.rejects(()=>cancelar(String(usuarioId),String(creada._id),{
+    idempotencyKey:"cancelacion-arriendo-test-2",motivo:"Segundo intento"
+   }),e=>e.statusCode===409);
+   assert.equal(await CancelacionPrevista.countDocuments({
+    usuarioId,obligacionId:creada._id
+   }),1);
    await Movimiento.deleteOne({_id:creada._id}); // Base efímera exclusiva de prueba.
   }finally{
    if(claveAntesObligacion===undefined)
