@@ -33,7 +33,7 @@ test("la validación de impacto ocurre antes de abrir transacción o tocar Mongo
  assert.ok(alta.includes('input.impactoCaja!==true'));
  assert.ok(alta.indexOf("input.impactoCaja!==true")<
   alta.indexOf("mongoose.startSession()"));
- assert.ok(alta.indexOf("if(input?.impactoCaja===false)")<
+ assert.ok(alta.indexOf("input.impactoCaja!==true")<
   alta.indexOf("Transaccion.create("));
 });
 
