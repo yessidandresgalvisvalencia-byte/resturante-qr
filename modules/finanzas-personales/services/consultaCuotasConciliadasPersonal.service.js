@@ -14,6 +14,8 @@ function fallo(m,statusCode=409){throw Object.assign(new Error("CONSULTA_CUOTAS:
 function validarReservas({usuarioId,origen,pagos,reservas}){
  const esperado=new Map(),visitados=new Set();
  for(const pago of pagos){
+  if(!Number.isSafeInteger(pago?.montoMinor)||pago.montoMinor<=0)
+   fallo("importe de abono inválido");
   const p=periodoRecurrenteColombia({
    fechaOrigen:origen.fecha,fechaPago:pago.fecha,frecuencia:origen.frecuencia
   });
@@ -29,7 +31,10 @@ function validarReservas({usuarioId,origen,pagos,reservas}){
    reserva.reservadoMinor<0||
    reserva.importeCuotaMinor!==origen.montoMinor)
    fallo("reserva no verificable");
-  const clave=new Date(reserva.periodoInicio).toISOString();
+  const inicio=new Date(reserva.periodoInicio),fin=new Date(reserva.periodoFin);
+  if(!Number.isFinite(inicio.getTime())||!Number.isFinite(fin.getTime()))
+   fallo("fechas de reserva inválidas");
+  const clave=inicio.toISOString();
   const importe=esperado.get(clave);
   if(visitados.has(clave)||importe===undefined||
    BigInt(reserva.reservadoMinor)!==importe||
@@ -42,7 +47,7 @@ function validarReservas({usuarioId,origen,pagos,reservas}){
   const periodo=periodoRecurrenteColombia({
    fechaOrigen:origen.fecha,fechaPago:primero.fecha,frecuencia:origen.frecuencia
   });
-  if(new Date(reserva.periodoFin).getTime()!==periodo.fin.getTime())
+  if(fin.getTime()!==periodo.fin.getTime())
    fallo("fin de reserva inconsistente");
  }
  if(visitados.size!==esperado.size)
