@@ -197,3 +197,21 @@ proyecta en los vencimientos, y el historial carece de un anclaje
 criptográfico externo específico. No conectar esta operación al
 frontend ni declarar el ledger íntegramente inmutable hasta
 integrar proyección, auditoría y pruebas Mongo reales (#407).
+
+## Proyección aislada de obligaciones previstas y canceladas (V81)
+
+`proyeccionObligacionesPrevistasPersonal.service.js` consulta los asientos
+originales `SIN_CAJA` y los eventos de cancelación en **el mismo snapshot
+MongoDB**. Verifica identidad de usuario, unicidad por obligación, ausencia
+de eventos huérfanos y coincidencia exacta de sus snapshots; ante cualquier
+inconsistencia **no entrega un saldo parcial**. Los totales se agregan
+con `BigInt` y se entregan como cadenas decimales
+(`pendienteMinor` y `canceladoMinor`), no como flotantes.
+
+Alcance restringido: suma **solo obligaciones originalmente registradas
+con fecha dentro del período solicitado**. No expande todavía cuotas
+mensuales futuras ni compensa cuotas efectivamente pagadas. No reemplaza
+el cálculo de `Disponible Hoy`, `homePersonal` ni el calendario existente.
+Esta consulta permanece interna hasta integrarse con conciliación recurrente
+y controles de autorización HTTP (#407). No presentar los totales como
+deuda completa ni modificar caja con sus resultados.
