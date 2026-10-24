@@ -14,12 +14,16 @@ function captureEvents(events){
 }
 function prepareOfflineOrders(events){
   const captured=captureEvents(events);
-  const ids=new Set(),orders=new Set();
+  const ids=new Set(),orders=new Set(),usedUlids=new Set();
   let total=0n;
   const normalized=captured.map(event=>{
     const order=validateOfflineOrderForPosting(event);
-    if(ids.has(order.eventId)||orders.has(order.localOrderId))fail();
+    // ULIDs share a global namespace: an order must not reuse another
+    // event's identifier, even when eventId and localOrderId are swapped.
+    if(ids.has(order.eventId)||orders.has(order.localOrderId)||
+       usedUlids.has(order.eventId)||usedUlids.has(order.localOrderId))fail();
     ids.add(order.eventId);orders.add(order.localOrderId);
+    usedUlids.add(order.eventId);usedUlids.add(order.localOrderId);
     total+=BigInt(order.totalCop);
     if(total>BigInt(Number.MAX_SAFE_INTEGER))fail();
     return order;
