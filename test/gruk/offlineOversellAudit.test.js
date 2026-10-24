@@ -191,3 +191,57 @@ test("Capa 2: BSON ObjectId legítimo mantiene auditoría y registro idempotente
  assert.equal(fixture.writes,1);
  assert.deepEqual(r.issues,[{productoId:productId,disponible:"1",solicitado:"2",faltante:"1"}]);
 });
+
+test("Capa 2: auditoría fija tenant e IDs aunque cambien durante la lectura",async()=>{
+ const ctx={...context},ids=[eventId];
+ const fixture=mock(1);
+ let staged=false;
+ const db={collection(name){
+  const collection=fixture.db.collection(name);
+  if(name==="inventarios")return {find(query){
+   assert.equal(query.empresaId,context.empresaId);
+   Object.assign(ctx,{empresaId:"507f191e810c19729de860eb",
+    sedeId:"507f1f77bcf86cd799439013",actorId:"intruso"});
+   ids[0]="01ARZ3NDEKTSV4RRFFQ69G5FA1";
+   return collection.find(query);
+  }};
+  if(name==="gruk_offline_stock_conflicts")return {
+   updateOne(key,update,options){
+    staged=true;
+    assert.equal(key.empresaId,context.empresaId);
+    assert.equal(key.sedeId,context.sedeId);
+    assert.equal(key.actorId,context.actorId);
+    assert.deepEqual(update.$setOnInsert.eventIds,[eventId]);
+    return collection.updateOne(key,update,options);
+   },
+   findOne:key=>collection.findOne(key)
+  };
+  return collection;
+ }};
+ const result=await record({db,context:ctx,eventIds:ids,objectId:x=>x});
+ assert.equal(staged,true);
+ assert.equal(result.status,"REQUIERE_REVISION_STOCK");
+ assert.deepEqual(result.issues,[{productoId:productId,disponible:"1",
+  solicitado:"2",faltante:"1"}]);
+});
+test("Capa 2: getters de identidad e índices de IDs no ejecutan operaciones",async()=>{
+ for(const key of ["empresaId","sedeId","actorId"]){
+  let invoked=0,access=0;
+  const ctx={...context};
+  Object.defineProperty(ctx,key,{enumerable:true,configurable:true,
+   get(){invoked++;return context[key];}});
+  await assert.rejects(record({db:{get collection(){access++;throw Error("DB_READ");}},
+   context:ctx,eventIds:[eventId],objectId:x=>x}),
+   {code:"OFFLINE_STOCK_AUDIT_UNAVAILABLE"});
+  assert.equal(access,0);
+  assert.equal(invoked,0);
+ }
+ let invoked=0,access=0;
+ const ids=[eventId];
+ Object.defineProperty(ids,0,{enumerable:true,configurable:true,
+  get(){invoked++;return eventId;}});
+ await assert.rejects(record({db:{get collection(){access++;throw Error("DB_READ");}},
+  context,eventIds:ids,objectId:x=>x}),{code:"OFFLINE_INVALID_IDS"});
+ assert.equal(invoked,0);
+ assert.equal(access,0);
+});
