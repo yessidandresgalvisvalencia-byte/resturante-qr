@@ -245,6 +245,27 @@ const tarjetaOperacion=Joi.object({deudaId:Joi.string().hex().length(24).require
   return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar el intento"});
  }
 });
+// Obligaciones previstas: asiento insert-only; NO débito, NO outbox de pago.
+const obligacionPrevista=Joi.object({
+ montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),
+ concepto:Joi.string().trim().min(1).max(140).required(),
+ categoria:Joi.string().trim().min(1).max(80).required(),
+ fecha:Joi.date().iso().required(),
+ recurrente:Joi.boolean().required(),
+ frecuencia:Joi.string().valid("NINGUNA","DIARIA","SEMANAL","QUINCENAL","MENSUAL","ANUAL").required(),
+ externalId:Joi.string().trim().min(1).max(160).required()
+}).unknown(false);
+router.post("/v81/obligaciones-previstas",validate(obligacionPrevista),async(req,res)=>{
+ try{
+  const {crearRegistradorObligacionPersonal}=require("./services/registrarObligacionPersonal.service");
+  const obligacion=await crearRegistradorObligacionPersonal()(
+   req.personalAuth.userId,req.validated);
+  return res.status(201).json({ok:true,obligacion,impactoCaja:false});
+ }catch(e){
+  return res.status(e?.statusCode||500).json({ok:false,
+   error:e?.statusCode?e.message:"No fue posible registrar la obligación"});
+ }
+});
 router.post("/transacciones",validate(transaccion),async(req,res)=>{try{return res.status(201).json({ok:true,transaccion:await flujoCaja.registrarTransaccion(req.personalAuth.userId,req.validated)});}catch(e){if(e?.code===11000)return res.status(409).json({ok:false,error:"Transacción duplicada"});return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 // V81: ruta aditiva append-only. No reemplaza el PATCH/DELETE legado mientras
 // sus proyecciones y reservas recurrentes no hayan completado la migración.
