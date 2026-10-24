@@ -17,8 +17,15 @@ function validarObligacion(usuarioId,input){
     input.concepto.length>140||typeof input.categoria!=="string"||
     !input.categoria.trim()||input.categoria.length>80)
   throw fallo("Concepto o categoría inválidos");
+ // La fecha puede llegar como Date tras Joi o como ISO estricto
+ // desde un consumidor interno. No aceptar epochs, objetos ni cadenas
+ // ambiguas que Date.parse normaliza en silencio.
+ if(!(input.fecha instanceof Date)&&
+    !(typeof input.fecha==="string"&&
+      /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?(?:Z|[+-]\\d{2}:\\d{2})$/.test(input.fecha)))
+  throw fallo("Vencimiento requiere ISO-8601 con zona horaria");
  const fecha=new Date(input.fecha);
- if(!input.fecha||!Number.isFinite(fecha.getTime()))
+ if(!Number.isFinite(fecha.getTime()))
   throw fallo("Vencimiento inválido");
  if(typeof input.recurrente!=="boolean"||
     !FRECUENCIAS.has(input.frecuencia)||
