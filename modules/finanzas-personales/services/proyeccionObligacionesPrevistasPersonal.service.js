@@ -2,6 +2,7 @@
 const mongoose=require("mongoose");
 const Movimiento=require("../models/TransaccionPersonal");
 const Cancelacion=require("../models/CancelacionObligacionPrevistaPersonal");
+const {programarVencimientosBrutos}=require("./programarVencimientosBrutosPersonal.service");
 const LIMITE=10000;
 function error(mensaje,statusCode=409){throw Object.assign(new Error(mensaje),{statusCode});}
 function proyectarObligaciones({usuarioId,movimientos,cancelaciones,desde,hasta}){
@@ -53,6 +54,33 @@ function proyectarObligaciones({usuarioId,movimientos,cancelaciones,desde,hasta}
   compromisos:items,soloLectura:true,
   alcance:"OBLIGACIONES_PREVISTAS_V81_NO_INCLUYE_CUOTAS_RECURRENTES_GENERADAS"};
 }
+// Este calendario es BRUTO y no representa deuda restante: los pagos
+// vinculados todavía no están descontados. Se mantiene aislado de home.
+function proyectarCalendarioBruto({usuarioId,movimientos,cancelaciones,desde,hasta}){
+ // Primero verificar TODOS los originales y TODOS los eventos, incluso
+ // si quedan fuera de la ventana solicitada.
+ proyectarObligaciones({usuarioId,movimientos,cancelaciones,desde,hasta});
+ const canceladas=new Set(cancelaciones.map(c=>String(c.obligacionId)));
+ let bruto=0n;
+ const vencimientos=[];
+ for(const m of movimientos){
+  const cuotas=programarVencimientosBrutos({origen:m,desde,hasta,
+   cancelada:canceladas.has(String(m._id))});
+  for(const cuota of cuotas){
+   bruto+=BigInt(cuota.montoMinor);
+   if(vencimientos.length>=LIMITE)error("Calendario excede límite seguro",503);
+   vencimientos.push({obligacionId:String(m._id),concepto:m.concepto,
+    fecha:cuota.fecha.toISOString(),montoMinor:String(cuota.montoMinor),
+    cobroRealizado:false,estado:"TEORICO_NO_CONCILIADO"});
+  }
+ }
+ vencimientos.sort((a,b)=>a.fecha.localeCompare(b.fecha)||
+  a.obligacionId.localeCompare(b.obligacionId));
+ return {desde:new Date(desde).toISOString(),hasta:new Date(hasta).toISOString(),
+  totalBrutoTeoricoMinor:bruto.toString(),vencimientos,
+  soloLectura:true,aptoParaDisponibleHoy:false,
+  pagosParcialesConciliados:false};
+}
 function crearConsultaObligaciones({
  MovimientoModelo=Movimiento,CancelacionModelo=Cancelacion,
  nuevaSesion=()=>mongoose.startSession()
@@ -82,4 +110,4 @@ function crearConsultaObligaciones({
   }finally{await session.endSession();}
  };
 }
-module.exports={proyectarObligaciones,crearConsultaObligaciones,LIMITE};
+module.exports={proyectarObligaciones,proyectarCalendarioBruto,crearConsultaObligaciones,LIMITE};
