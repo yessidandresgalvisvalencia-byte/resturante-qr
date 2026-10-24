@@ -237,3 +237,21 @@ por otra vía. Responde `aptoParaDisponibleHoy:false` y
 `pagosParcialesConciliados:false`. Es un cálculo interno, no conectado
 a `homePersonal`, al frontend ni a la API pública de cancelación.
 Falta conciliación recurrente antes de usarlo en una decisión de gasto (#407).
+
+## Conciliación pura de abonos explícitos (V81)
+
+`conciliarCuotasPrevistasPersonal.service.js` parte de una obligación
+`SIN_CAJA` y de una lista explícita de pagos vinculados a su mismo
+`recurrenteOrigenId`. Para cada período civil colombiano genera el
+importe teórico, suma abonos reales de ese ciclo con `BigInt` y
+calcula `pendiente = max(cuota - abonos, 0)`. Rechaza IDs repetidos,
+pagos ajenos, anulados, sin caja, importes inválidos y sobrepagos.
+Los resultados se devuelven como cadenas decimales exactas.
+
+**Límite de seguridad:** es un conciliador interno puro, aún no lee
+automáticamente ni verifica una cadena compensatoria completa ni reservas
+históricas. Tampoco asigna pagos anticipados a ciclos futuros. Su salida
+indica `aptoParaDisponibleHoy:false` y NO alimenta `homePersonal`,
+ni autoriza editar saldos; antes de producción debe leerse toda la
+historia relevante en un snapshot MongoDB y resolver pagos compensados
+y compromisos cancelados (#407).
