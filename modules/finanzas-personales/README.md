@@ -163,3 +163,15 @@ un pago realizado.
 **Bloqueos de entrega:** #453 (dependencias HTTP compartidas vulnerables)
 y #407 (cancelaciones/proyecciones inmutables). No fusionar ni desplegar
 hasta que auditoría de producción y pruebas integrales estén verdes.
+
+## Parche de dependencias compartidas — octubre de 2026
+
+En el PR #381, GitHub Actions generó con `npm install --package-lock-only`
+la actualización reproducible del manifiesto y `package-lock.json`:
+`multer@2.5.0` y `body-parser@2.4.0` (override transitorio por ser
+dependencia transitiva de Express). Se verificaron `npm ci`,
+`npm audit --omit=dev --audit-level=low`, pruebas unitarias sin base
+externa y sintaxis. Los jobs dedicados V81 y Seguridad también aprobaron
+tras aplicar los archivos. La remediación no equivale a desplegar
+ni a cerrar el pendiente de migración contable #407.
+Véase el issue de seguimiento #453.
