@@ -61,3 +61,14 @@ test("ruta prevista está detrás de autenticación global y no llama registrado
  assert.ok(block.includes("crearRegistradorObligacionPersonal"));
  assert.ok(!block.includes("registrarTransaccion("));
 });
+
+test("respuesta HTTP expone campos permitidos, jamás hash interno",()=>{
+ const src=fs.readFileSync(path.join(__dirname,"../../modules/finanzas-personales/routes.js"),"utf8");
+ const start=src.indexOf('router.post("/v81/obligaciones-previstas"');
+ const end=src.indexOf('router.post("/transacciones"',start);
+ const block=src.slice(start,end);
+ assert.ok(block.includes("id:String(obligacion._id)"));
+ assert.ok(block.includes("impactoCaja:false"));
+ assert.ok(!block.includes("externalIdHash"));
+ assert.ok(!block.includes("obligacion,impactoCaja:false"));
+});
