@@ -107,6 +107,48 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    assert.equal(conciliacion.totalPagadoMinor,"200000");
    assert.equal(conciliacion.totalPendienteMinor,"800000");
    assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
+   // Consulta ACID real en origen INDEPENDIENTE no cancelado.
+   const Reserva=require(
+    "../../modules/finanzas-personales/models/reservaCuotaRecurrente.model");
+   await Reserva.init();
+   const [origenVigente]=await Movimiento.create([{
+    usuarioId,tipo:"GASTO",impactoCaja:false,cuentaId:null,
+    cuenta:"SIN_CAJA",montoMinor:500000,moneda:"COP",
+    concepto:"Cuota conciliada",categoria:"Vivienda",
+    fecha:new Date("2026-11-15T12:00:00Z"),
+    recurrente:true,frecuencia:"MENSUAL",estado:"ACTIVA"
+   }]);
+   const [abonoVigente]=await Movimiento.create([{
+    usuarioId,tipo:"GASTO",impactoCaja:true,
+    recurrenteOrigenId:origenVigente._id,cuentaId:cuenta._id,
+    cuenta:cuenta.nombre,montoMinor:200000,moneda:"COP",
+    concepto:"Pago parcial",categoria:"Vivienda",
+    fecha:new Date("2026-11-16T12:00:00Z"),estado:"ACTIVA"
+   }]);
+   const [reservaVigente]=await Reserva.create([{
+    usuarioId,origenId:origenVigente._id,
+    periodoInicio:new Date("2026-11-15T05:00:00Z"),
+    periodoFin:new Date("2026-12-15T05:00:00Z"),
+    importeCuotaMinor:500000,reservadoMinor:200000
+   }]);
+   const {crearConsultaCuotasConciliadas}=require(
+    "../../modules/finanzas-personales/services/consultaCuotasConciliadasPersonal.service");
+   const consultarCuotas=crearConsultaCuotasConciliadas();
+   const rangoCuotas={desde:"2026-11-01T05:00:00Z",
+    hasta:"2027-01-01T05:00:00Z"};
+   const calculoSeguro=await consultarCuotas(String(usuarioId),
+    String(origenVigente._id),rangoCuotas);
+   assert.equal(calculoSeguro.totalPendienteMinor,"800000");
+   assert.equal(calculoSeguro.aptoParaDisponibleHoy,false);
+   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
+   await Reserva.updateOne({_id:reservaVigente._id},
+    {$set:{reservadoMinor:199999}});
+   await assert.rejects(()=>consultarCuotas(String(usuarioId),
+    String(origenVigente._id),rangoCuotas),
+    e=>e.statusCode===409&&/reserva inconsistente/.test(e.message));
+   await Reserva.deleteOne({_id:reservaVigente._id});
+   await Movimiento.deleteOne({_id:abonoVigente._id});
+   await Movimiento.deleteOne({_id:origenVigente._id});
    await Movimiento.deleteOne({_id:pagoParcial._id}); // Solo fixture aislado.
 
 
