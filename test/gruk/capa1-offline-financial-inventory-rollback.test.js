@@ -175,3 +175,79 @@ test("MongoDB real: caída tras 4 diarios y stock revierte toda la transacción"
     } else await client.close();
   }
 });
+
+test("Capa 2 Mongo real: dos tablets compiten por una unidad, solo una contabiliza",{
+ skip: !uri && "Requiere replica set MongoDB de pruebas",timeout:90000
+},async()=>{
+ const {mongo}=require("mongoose");
+ const client=new mongo.MongoClient(uri,{serverSelectionTimeoutMS:10000});
+ const name="gruk_stock_race_"+randomUUID().replace(/-/g,"");
+ const empresa=new mongo.ObjectId(),sede=new mongo.ObjectId(),producto=new mongo.ObjectId();
+ const scope={empresaId:empresa.toHexString(),sedeId:sede.toHexString(),actorId:"cajero"};
+ const productoId=producto.toHexString();
+ const ids=["01ARZ3NDEKTSV4RRFFQ69G5FA0","01ARZ3NDEKTSV4RRFFQ69G5FA1"];
+ let connected=false;
+ try{
+  await client.connect();connected=true;
+  const db=client.db(name);
+  await Promise.all([
+   db.collection("gruk_offline_ventas").createIndex({empresaId:1,sedeId:1,eventId:1},
+    {unique:true,name:"uniq_offline_sale_tenant_event"}),
+   db.collection("gruk_offline_caja_intenciones").createIndex({empresaId:1,sedeId:1,eventId:1},
+    {unique:true,name:"uniq_offline_cash_tenant_event"}),
+   db.collection("gruk_offline_stock_movimientos").createIndex(
+    {empresaId:1,sedeId:1,batchId:1,productoId:1},
+    {unique:true,name:"uniq_offline_stock_tenant_batch_product"}),
+   db.collection("gruk_ledger_movimientos").createIndex(
+    {empresaId:1,sedeId:1,eventId:1,tipo:1},
+    {unique:true,name:"uniq_offline_ledger_event_type_tenant"})
+  ]);
+  await db.collection("inventarios").insertOne({
+   empresaId:empresa,sedeId:sede,productoServicioId:producto,anulado:false,cantidad:1
+  });
+  const run=async eventId=>{
+   const session=client.startSession();
+   const plan={orders:[{eventId,localOrderId:eventId,totalCop:"1500",
+    items:[{productoId,cantidad:"1"}]}],totalCop:"1500"};
+   try{
+    return await session.withTransaction(async()=>{
+     const deltas=calculateOfflineStockDeltas(plan);
+     const staged=await stageOfflineFinancialBatch({
+      db,session,context:scope,plan,inventoryDeltas:deltas,
+      ledgerMovements:buildOfflineLedgerPlan(plan)
+     });
+     assertFreshOfflineStaging(staged,deltas,plan);
+     await applyOfflineLegacyInventory({
+      db,session,context:scope,inventoryDeltas:deltas,
+      objectId:id=>new mongo.ObjectId(id)
+     });
+     return eventId;
+    },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
+   }finally{await session.endSession();}
+  };
+  const results=await Promise.allSettled(ids.map(run));
+  const successes=results.filter(x=>x.status==="fulfilled");
+  const failures=results.filter(x=>x.status==="rejected");
+  assert.equal(successes.length,1,JSON.stringify(results));
+  assert.equal(failures.length,1,JSON.stringify(results));
+  assert(["OFFLINE_INVENTORY_INSUFFICIENT","OFFLINE_INVENTORY_CONCURRENT_CHANGE"].includes(
+   failures[0].reason?.code),String(failures[0].reason));
+  const winner=successes[0].value;
+  const journalCollections=[
+   "gruk_offline_ventas","gruk_offline_stock_movimientos",
+   "gruk_offline_caja_intenciones","gruk_ledger_movimientos"
+  ];
+  for(const collection of journalCollections){
+   assert.equal(await db.collection(collection).countDocuments({empresaId:scope.empresaId,
+    sedeId:scope.sedeId}),1,collection);
+  }
+  const sale=await db.collection("gruk_offline_ventas").findOne({
+   empresaId:scope.empresaId,sedeId:scope.sedeId});
+  assert.equal(sale.eventId,winner);
+  assert.equal((await db.collection("inventarios").findOne({
+   empresaId:empresa,sedeId:sede,productoServicioId:producto})).cantidad,0);
+ }finally{
+  if(connected){try{await client.db(name).dropDatabase();}finally{await client.close();}}
+  else await client.close();
+ }
+});
