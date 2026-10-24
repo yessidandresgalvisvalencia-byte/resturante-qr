@@ -10,9 +10,11 @@ test("arriendo día 31 se ajusta a febrero y vuelve a 31 en marzo",()=>{
  assert.deepEqual(d,["2027-02-28T22:00:00.000Z","2027-03-31T22:00:00.000Z"]);
 });
 test("año bisiesto conserva 29 de febrero cuando corresponde",()=>{
- const d=fechas({origen:origen("2024-02-29T07:00:00-05:00","ANUAL"),
-  desde:"2027-01-01T05:00:00Z",hasta:"2029-01-01T05:00:00Z"});
- assert.deepEqual(d,["2027-02-28T12:00:00.000Z","2028-02-29T12:00:00.000Z"]);
+ const a=origen("2024-02-29T07:00:00-05:00","ANUAL");
+ const d2027=fechas({origen:a,desde:"2027-01-01T05:00:00Z",hasta:"2028-01-01T05:00:00Z"});
+ const d2028=fechas({origen:a,desde:"2028-01-01T05:00:00Z",hasta:"2029-01-01T05:00:00Z"});
+ assert.deepEqual(d2027,["2027-02-28T12:00:00.000Z"]);
+ assert.deepEqual(d2028,["2028-02-29T12:00:00.000Z"]);
 });
 test("frecuencias diaria, semanal y quincenal avanzan sin dobles cobros",()=>{
  for(const [frecuencia,cantidad] of [["DIARIA",5],["SEMANAL",1],["QUINCENAL",1]]){
