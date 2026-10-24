@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict");
-const {proyectarObligaciones,crearConsultaObligaciones}=require(
+const {proyectarObligaciones,proyectarCalendarioBruto,crearConsultaObligaciones}=require(
  "../../modules/finanzas-personales/services/proyeccionObligacionesPrevistasPersonal.service");
 const usuarioId="507f1f77bcf86cd799439011",id="507f1f77bcf86cd799439012";
 const m={_id:id,usuarioId,tipo:"GASTO",impactoCaja:false,cuentaId:null,
@@ -59,4 +59,29 @@ test("lectura usa un único snapshot para originales y eventos",async()=>{
   CancelacionModelo:Can,nuevaSesion:async()=>session});
  const r=await consultar(usuarioId,rango);
  assert.equal(r.canceladoMinor,"500000");
+});
+
+test("calendario bruto genera 3 arriendos futuros sin duplicar primera cuota",()=>{
+ const r=proyectarCalendarioBruto({usuarioId,movimientos:[m],
+  cancelaciones:[],desde:"2026-11-01T05:00:00Z",
+  hasta:"2027-02-01T05:00:00Z"});
+ assert.equal(r.totalBrutoTeoricoMinor,"1500000");
+ assert.equal(r.vencimientos.length,3);
+ assert.equal(r.aptoParaDisponibleHoy,false);
+ assert.equal(r.pagosParcialesConciliados,false);
+ assert.ok(r.vencimientos.every(v=>v.estado==="TEORICO_NO_CONCILIADO"));
+});
+test("cancelación elimina recurrencias de vista teórica sin alterar original",()=>{
+ const r=proyectarCalendarioBruto({usuarioId,movimientos:[m],
+  cancelaciones:[e],desde:"2026-11-01T05:00:00Z",
+  hasta:"2027-02-01T05:00:00Z"});
+ assert.equal(r.totalBrutoTeoricoMinor,"0");
+ assert.deepEqual(r.vencimientos,[]);
+ assert.equal(m.estado,"ACTIVA");
+});
+test("calendario bruto rechaza cancelación huérfana antes de generar",()=>{
+ assert.throws(()=>proyectarCalendarioBruto({usuarioId,movimientos:[m],
+  cancelaciones:[{...e,obligacionId:"507f1f77bcf86cd799439014"}],
+  desde:"2026-11-01T05:00:00Z",hasta:"2027-02-01T05:00:00Z"}),
+  err=>err.statusCode===409);
 });
