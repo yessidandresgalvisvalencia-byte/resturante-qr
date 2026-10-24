@@ -31,9 +31,9 @@ function comprobarPagosSinCompensacionesPendientes({
    error("abono duplicado, ajeno o mal vinculado");
   pagosPorId.set(id,p);
  }
- // Comprobar todos los eventos, no solamente el último, y prohibir
- // compensaciones sobre pagos fuera de la lista presentada. De otro modo
- // se podría excluir una anulación y contar indebidamente la cuota.
+ // Verificar cada evento relativo a uno de los pagos suministrados.
+ // La completitud de pagos debe garantizarla una consulta Mongo del origen
+ // en el mismo snapshot: este método puro no puede descubrir pagos omitidos.
  for(const e of eventos){
   if(e.usuarioId!==usuarioId)error("evento ajeno");
   const pago=pagosPorId.get(String(e.movimientoId));
