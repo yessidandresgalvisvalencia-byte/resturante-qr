@@ -68,3 +68,73 @@ test("Capa 2: posting rejects forged tenants and sparse events before opening se
   assert.equal(sessions,0);
  }
 });
+
+test("Capa 2: getters de identidad e indices ULID nunca abren sesión Mongo",async()=>{
+ for(const field of ["empresaId","sedeId","actorId"]){
+  let getters=0,sessions=0;
+  const poisoned={...context};
+  Object.defineProperty(poisoned,field,{enumerable:true,configurable:true,
+   get(){getters++;return context[field];}});
+  const db={client:{startSession(){sessions++;throw Error("SESSION_BEFORE_AUTH");}}};
+  await assert.rejects(execute({db,context:poisoned,eventIds:[id],
+   objectId:x=>x,postDomainOperations:async()=>true}),
+   {code:"OFFLINE_POSTING_TENANT_REQUIRED"});
+  assert.equal(getters,0,field);
+  assert.equal(sessions,0,field);
+ }
+ let accesses=0,sessions=0;
+ const poisonedIds=[id];
+ Object.defineProperty(poisonedIds,0,{enumerable:true,configurable:true,
+  get(){accesses++;return id;}});
+ await assert.rejects(execute({db:{client:{startSession(){sessions++;}}},
+  context,eventIds:poisonedIds,objectId:x=>x,postDomainOperations:async()=>true}),
+  {code:"OFFLINE_POSTING_TENANT_REQUIRED"});
+ assert.equal(accesses,0);
+ assert.equal(sessions,0);
+});
+test("Capa 2: contexto e IDs quedan estables tras abrir sesión transaccional",async()=>{
+ let closed=false,posted=false;
+ const originalContext={...context};
+ const originalIds=[id];
+ let reads=0;
+ const session={
+  withTransaction:async(fn)=>{await fn();},
+  endSession:async()=>{closed=true;}
+ };
+ const db={
+  client:{startSession(){
+   Object.assign(originalContext,{empresaId:"000000000000000000000000",
+    sedeId:"111111111111111111111111",actorId:"intruso"});
+   originalIds[0]="01ARZ3NDEKTSV4RRFFQ69G5FA1";
+   return session;
+  }},
+  collection(name){return {find(query,opts){
+   assert.equal(opts.session,session);
+   reads++;
+   if(name==="gruk_offline_inbox"){
+    assert.equal(query.empresaId,context.empresaId);
+    assert.equal(query.sedeId,context.sedeId);
+    assert.deepEqual(query.eventId.$in,[id]);
+    return {toArray:async()=>[event]};
+   }
+   assert.equal(query.empresaId,context.empresaId);
+   return {toArray:async()=>[{_id:product,empresaId:context.empresaId,
+    sedeId:context.sedeId,activo:true}]};
+  }};}
+ };
+ const outcome=await execute({db,context:originalContext,eventIds:originalIds,
+  objectId:x=>x,postDomainOperations:async({context:scope,plan,session:s})=>{
+   posted=true;
+   assert.equal(s,session);
+   assert.equal(scope.empresaId,context.empresaId);
+   assert.equal(scope.sedeId,context.sedeId);
+   assert.equal(scope.actorId,context.actorId);
+   assert.equal(Object.isFrozen(scope),true);
+   assert.equal(plan.totalCop,"3000");
+   return "POSTED";
+  }});
+ assert.equal(outcome,"POSTED");
+ assert.equal(posted,true);
+ assert.equal(closed,true);
+ assert(reads>=2);
+});
