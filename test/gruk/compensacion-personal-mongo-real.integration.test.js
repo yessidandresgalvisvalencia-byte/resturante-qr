@@ -76,6 +76,17 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    assert.equal(await CancelacionPrevista.countDocuments({
     usuarioId,obligacionId:creada._id
    }),1);
+   const {crearConsultaObligaciones}=require(
+    "../../modules/finanzas-personales/services/proyeccionObligacionesPrevistasPersonal.service");
+   const proyectar=crearConsultaObligaciones();
+   const resumenPrevistas=await proyectar(String(usuarioId),{
+    desde:"2026-11-01T00:00:00Z",hasta:"2026-12-01T00:00:00Z"
+   });
+   assert.equal(resumenPrevistas.pendienteMinor,"0");
+   assert.equal(resumenPrevistas.canceladoMinor,"500000");
+   assert.ok(resumenPrevistas.compromisos.some(x=>
+    x.id===String(creada._id)&&x.estado==="CANCELADA"));
+
    await Movimiento.deleteOne({_id:creada._id}); // Base efímera exclusiva de prueba.
   }finally{
    if(claveAntesObligacion===undefined)
