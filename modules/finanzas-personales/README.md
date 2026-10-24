@@ -215,3 +215,25 @@ el cálculo de `Disponible Hoy`, `homePersonal` ni el calendario existente.
 Esta consulta permanece interna hasta integrarse con conciliación recurrente
 y controles de autorización HTTP (#407). No presentar los totales como
 deuda completa ni modificar caja con sus resultados.
+
+## Recurrencias previstas — calendario bruto, no saldo
+
+`programarVencimientosBrutosPersonal.service.js` genera vencimientos
+teóricos para frecuencias diaria, semanal, quincenal, mensual y anual,
+anclados a la fecha civil y hora de Colombia (UTC-05). Las cuotas
+mensuales del día 31 se ajustan al último día de febrero y recuperan
+el día 31 en marzo; los años bisiestos se calculan desde la fecha base,
+sin deriva por repetir sumas sobre la fecha anterior.
+
+`proyectarCalendarioBruto` exige verificar originales y eventos de
+cancelación mediante `proyectarObligaciones` antes de generar. Las
+cancelaciones ya registradas excluyen los vencimientos teóricos de
+la vista. La ventana máxima es 366 días y cada origen tiene límite
+de 1000 ocurrencias; se rechaza la solicitud fuera del rango.
+
+**No representa dinero realmente pendiente:** el calendario aún NO
+descuenta abonos parciales, cuotas pagadas ni deudas formalizadas
+por otra vía. Responde `aptoParaDisponibleHoy:false` y
+`pagosParcialesConciliados:false`. Es un cálculo interno, no conectado
+a `homePersonal`, al frontend ni a la API pública de cancelación.
+Falta conciliación recurrente antes de usarlo en una decisión de gasto (#407).
