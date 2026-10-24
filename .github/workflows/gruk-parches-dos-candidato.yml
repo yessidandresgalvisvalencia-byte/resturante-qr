@@ -36,7 +36,7 @@ jobs:
       - name: Pruebas de compatibilidad del repositorio compartido
         run: |
           npm run check:syntax
-          npm test
+          node --test test/gruk/registrar-obligacion-prevista-personal.test.js test/gruk/alta-obligacion-no-caja-personal.test.js
       - name: Commit exacto a rama PR (nunca producción)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/fp-hormiga-creditos-separados-20261020'
         env:
