@@ -87,3 +87,21 @@ test("admite fecha ISO con zona y Date emitido por Joi",()=>{
   assert.equal(v.fecha.toISOString(),"2026-11-15T12:00:00.000Z");
  }
 });
+
+test("rechaza vencimientos calendario imposibles aunque Date los normalice",()=>{
+ for(const fecha of [
+  "2026-02-30T12:00:00Z",
+  "2026-04-31T12:00:00-05:00",
+  "2026-13-01T12:00:00Z",
+  "2026-11-15T25:00:00Z",
+  "2026-11-15T12:60:00Z",
+  "2026-11-15T12:00:00+24:00",
+  "2026-11-15T12:00:00-05:60"
+ ])assert.throws(()=>validarObligacion(uid,{...input,fecha}),
+  e=>e.statusCode===400);
+});
+test("acepta 29 de febrero bisiesto con offset colombiano",()=>{
+ const v=validarObligacion(uid,{...input,
+  fecha:"2028-02-29T07:15:00-05:00"});
+ assert.equal(v.fecha.toISOString(),"2028-02-29T12:15:00.000Z");
+});
