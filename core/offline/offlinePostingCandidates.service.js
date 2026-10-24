@@ -8,7 +8,9 @@ function fail(code){const e=new Error(code);e.code=code;throw e;}
 async function readOfflineOrderCandidates({db,context,eventIds,session}){
   // Snapshot only own data properties: accessor getters may mutate tenant
   // identity between validation, inbox lookup and financial preflight.
-  if(!db?.collection||!context||typeof context!=="object")
+  // Reject absent or malformed authenticated identity before touching the DB
+  // adapter (its collection accessor could otherwise run before authorization).
+  if(!context||typeof context!=="object"||Array.isArray(context))
     fail("OFFLINE_AUTH_REQUIRED");
   const identity={};
   for(const key of ["empresaId","sedeId","actorId"]){
@@ -27,6 +29,8 @@ async function readOfflineOrderCandidates({db,context,eventIds,session}){
     ids.push(descriptor.value);
   }
   if(new Set(ids).size!==ids.length)fail("OFFLINE_INVALID_IDS");
+  if(!db||typeof db!=="object"||typeof db.collection!=="function")
+    fail("OFFLINE_AUTH_REQUIRED");
   const docs=await db.collection("gruk_offline_inbox").find({
     empresaId:identity.empresaId,sedeId:identity.sedeId,actorId:identity.actorId,
     tipo:"PEDIDO_REGISTRADO",status:"PENDIENTE",eventId:{$in:ids}
