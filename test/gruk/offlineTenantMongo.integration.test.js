@@ -89,7 +89,9 @@ test("Capa 2 Mongo real: límite de 100 eventos ordenados y rechazo de lote mixt
   const retry=await readOfflineOrderCandidates({db,context:scope,eventIds:requestIds});
   assert.equal(retry.totalCop,result.totalCop);
   assert.deepEqual(retry.orders,result.orders);
-  const foreign={...events[0],empresaId:"empresaB",eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAZ",
+  // insertMany assigns _id to source records; never reuse that Mongo _id.
+  const {_id:insertedId,...source}=events[0];
+  const foreign={...source,empresaId:"empresaB",eventId:"01ARZ3NDEKTSV4RRFFQ69G5FAZ",
    payload:{...events[0].payload,localOrderId:"01ARZ3NDEKTSV4RRFFQ69G5FAZ"}};
   await db.collection("gruk_offline_inbox").insertOne(foreign);
   await assert.rejects(readOfflineOrderCandidates({
