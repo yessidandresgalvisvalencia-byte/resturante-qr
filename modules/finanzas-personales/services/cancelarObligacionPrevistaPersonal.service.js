@@ -3,6 +3,7 @@ const crypto=require("node:crypto");
 const mongoose=require("mongoose");
 const Movimiento=require("../models/TransaccionPersonal");
 const Cancelacion=require("../models/CancelacionObligacionPrevistaPersonal");
+const Reserva=require("../models/reservaCuotaRecurrente.model");
 function conflicto(m,statusCode=409){return Object.assign(new Error(m),{statusCode});}
 const KEYS=[["usuarioId",1],["obligacionId",1]];
 function tieneIndice(indices,campos){
@@ -17,7 +18,7 @@ async function exigirIndices(Modelo){
   throw conflicto("Índices únicos de cancelación no disponibles",503);
 }
 function crearCanceladorObligacion({
- MovimientoModelo=Movimiento,CancelacionModelo=Cancelacion,
+ MovimientoModelo=Movimiento,CancelacionModelo=Cancelacion,ReservaModelo=Reserva,
  nuevaSesion=()=>mongoose.startSession(),
  verificar=()=>exigirIndices(CancelacionModelo)
 }={}){
@@ -42,6 +43,18 @@ function crearCanceladorObligacion({
      origen:"MANUAL"
     }).session(session).lean();
     if(!original)throw conflicto("Obligación prevista no disponible");
+    // No cancelar de forma silenciosa una obligación que ya recibió
+    // abonos o reservas históricas. El cierre de esas relaciones necesita
+    // un flujo compensatorio completo.
+    const abonada=await MovimientoModelo.exists({
+     usuarioId,recurrenteOrigenId:original._id
+    }).session(session);
+    const reservada=await ReservaModelo.exists({
+     usuarioId,origenId:original._id
+    }).session(session);
+    if(abonada||reservada)
+     throw conflicto("Obligación con pagos o reservas: requiere conciliación");
+
     const evento={
      usuarioId:original.usuarioId,obligacionId:original._id,
      idempotencyHash,tipo:"CANCELACION_OBLIGACION_PREVISTA",
