@@ -28,7 +28,7 @@ function validarObligacion(usuarioId,input){
  // Comparar los componentes locales originales con el instante calculado
  // evita que un vencimiento se desplace silenciosamente al mes siguiente.
  if(typeof input.fecha==="string"){
-  const p=/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.(\\d{1,3}))?(Z|([+-])(\\d{2}):(\\d{2}))$/.exec(input.fecha);
+  const p=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/.exec(input.fecha);
   if(!p)throw fallo("Vencimiento ISO inválido");
   const [anio,mes,dia,hora,minuto,segundo]=p.slice(1,7).map(Number);
   const offHoras=p[9]?Number(p[10]):0,offMin=p[9]?Number(p[11]):0;
