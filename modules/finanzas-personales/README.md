@@ -149,3 +149,17 @@ proyecciones recurrentes y controles de autorización end-to-end.
 El registrador antiguo `POST /transacciones` continúa rechazando
 `impactoCaja:false`: usar solo la ruta específica para compromisos.
 La nueva ruta vive únicamente en el PR hasta revisión y despliegue autorizado.
+
+## Integridad del vencimiento de obligaciones
+
+El servicio de obligaciones verifica que la fecha sea un instante ISO-8601
+con zona explícita, o un objeto `Date` ya validado por Joi. Además valida
+los componentes del calendario local antes de aceptar el vencimiento:
+no normaliza silenciosamente fechas imposibles (por ejemplo, 30 de febrero)
+ni offsets inválidos. La zona `-05:00` permite representar vencimientos
+colombianos sin desplazar el día del compromiso. No altera caja ni constituye
+un pago realizado.
+
+**Bloqueos de entrega:** #453 (dependencias HTTP compartidas vulnerables)
+y #407 (cancelaciones/proyecciones inmutables). No fusionar ni desplegar
+hasta que auditoría de producción y pruebas integrales estén verdes.
