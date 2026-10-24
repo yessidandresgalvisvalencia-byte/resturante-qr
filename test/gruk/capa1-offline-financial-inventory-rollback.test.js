@@ -90,6 +90,53 @@ test("MongoDB real: caída tras 4 diarios y stock revierte toda la transacción"
     assert.deepEqual(await totals(), { sales: 0, cash: 0, stockJournal: 0, ledger: 0, inventory: 5 },
       "La falla debe revertir ventas, caja e inventario");
 
+    // Inject a failure AFTER Mongo acknowledges a write in each journal.
+    // withTransaction must roll back that write and every preceding journal.
+    for (const failedJournal of [
+      "gruk_offline_ventas",
+      "gruk_offline_stock_movimientos",
+      "gruk_offline_caja_intenciones",
+      "gruk_ledger_movimientos"
+    ]) {
+      let injected = 0;
+      const failingDb = {
+        collection(collectionName) {
+          const underlying = db.collection(collectionName);
+          if (collectionName !== failedJournal) return underlying;
+          return new Proxy(underlying, {
+            get(target, property) {
+              if (property === "updateOne") {
+                return async (...args) => {
+                  const result = await target.updateOne(...args);
+                  injected++;
+                  throw new Error("INJECTED_JOURNAL_FAILURE:" + failedJournal);
+                };
+              }
+              const value = Reflect.get(target, property, target);
+              return typeof value === "function" ? value.bind(target) : value;
+            }
+          });
+        }
+      };
+      const failingJournalSession = client.startSession();
+      try {
+        await assert.rejects(
+          failingJournalSession.withTransaction(() => stageOfflineFinancialBatch({
+            db: failingDb, session: failingJournalSession, context, plan,
+            inventoryDeltas: calculateOfflineStockDeltas(plan),
+            ledgerMovements: buildOfflineLedgerPlan(plan)
+          }), transactionOptions),
+          new RegExp("INJECTED_JOURNAL_FAILURE:" + failedJournal)
+        );
+      } finally {
+        await failingJournalSession.endSession();
+      }
+      assert.equal(injected, 1, "The targeted journal must have attempted its write");
+      assert.deepEqual(await totals(),
+        { sales: 0, cash: 0, stockJournal: 0, ledger: 0, inventory: 5 },
+        "Rollback must erase all partial financial staging after " + failedJournal);
+    }
+
     const committed = client.startSession();
     try {
       await committed.withTransaction(() => stage(committed), transactionOptions);
