@@ -29,12 +29,35 @@ function validIssues(issues,deltas){
  return true;
 }
 async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
- if(typeof db?.collection!=="function"||typeof objectId!=="function"||
-  !HEX.test(context?.empresaId||"")||!HEX.test(context?.sedeId||""))
+ // Capture authenticated scope and event IDs once. Do not reuse mutable caller
+ // objects after asynchronous Mongo reads, especially when writing the audit.
+ const scoped={};
+ if(!context||typeof context!=="object"||Array.isArray(context))
   conflict("OFFLINE_STOCK_AUDIT_UNAVAILABLE");
- // Re-validate original inbox events in their authenticated scope. Never trust
- // amounts or products submitted alongside a request to create an audit entry.
- const prepared=await readOfflineOrderCandidates({db,context,eventIds});
+ for(const field of ["empresaId","sedeId","actorId"]){
+  const descriptor=Object.getOwnPropertyDescriptor(context,field);
+  if(!descriptor||!("value" in descriptor)||typeof descriptor.value!=="string"||
+    !(field==="actorId"?/^[A-Za-z0-9_-]{1,80}$/:HEX).test(descriptor.value))
+   conflict("OFFLINE_STOCK_AUDIT_UNAVAILABLE");
+  scoped[field]=descriptor.value;
+ }
+ if(!Array.isArray(eventIds)||eventIds.length===0||eventIds.length>100)
+  conflict("OFFLINE_INVALID_IDS");
+ const ids=[];
+ for(let i=0;i<eventIds.length;i++){
+  const descriptor=Object.getOwnPropertyDescriptor(eventIds,String(i));
+  if(!descriptor||!("value" in descriptor)||typeof descriptor.value!=="string"||
+    !/^[0-9A-HJKMNP-TV-Z]{26}$/.test(descriptor.value))
+   conflict("OFFLINE_INVALID_IDS");
+  ids.push(descriptor.value);
+ }
+ if(new Set(ids).size!==ids.length)conflict("OFFLINE_INVALID_IDS");
+ const identity=Object.freeze(scoped);
+ const capturedIds=Object.freeze(ids);
+ if(!db||typeof db.collection!=="function"||typeof objectId!=="function")
+  conflict("OFFLINE_STOCK_AUDIT_UNAVAILABLE");
+ // Read pending orders only within the captured authenticated tenant scope.
+ const prepared=await readOfflineOrderCandidates({db,context:identity,eventIds:capturedIds});
  const deltas=calculateOfflineStockDeltas(prepared);
  // Reject a faulty ObjectId adapter before accessing inventory of another tenant.
  const asId=value=>{
@@ -46,7 +69,7 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
     conflict("OFFLINE_STOCK_AUDIT_IDENTITY_INVALID");
   return converted;
  };
- const scopedEmpresaId=asId(context.empresaId),scopedSedeId=asId(context.sedeId);
+ const scopedEmpresaId=asId(identity.empresaId),scopedSedeId=asId(identity.sedeId);
  const products=deltas.map(delta=>{
   if(typeof delta?.productoId!=="string"||!HEX.test(delta.productoId))
     conflict("OFFLINE_STOCK_AUDIT_INVALID_PRODUCT");
@@ -61,8 +84,8 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
   if(!Array.isArray(rows)||rows.length!==1||!Object.hasOwn(rows,0)||
    !rows[0]||typeof rows[0]!=="object"||
    !safeInventoryId(rows[0]._id)||
-   String(rows[0]?.empresaId).toLowerCase()!==context.empresaId.toLowerCase()||
-   String(rows[0]?.sedeId).toLowerCase()!==context.sedeId.toLowerCase()||
+   String(rows[0]?.empresaId).toLowerCase()!==identity.empresaId.toLowerCase()||
+   String(rows[0]?.sedeId).toLowerCase()!==identity.sedeId.toLowerCase()||
    String(rows[0]?.productoServicioId).toLowerCase()!==delta.productoId.toLowerCase()||
    rows[0]?.anulado!==false||
    !Number.isSafeInteger(rows[0].cantidad)||rows[0].cantidad<0)
@@ -77,13 +100,13 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
  // Never create a false conflict if the stock recovered between failed staging
  // and this read; the caller should retry with a NEW explicit confirmation.
  if(issues.length===0)conflict("OFFLINE_STOCK_CONFLICT_NO_LONGER_PRESENT");
- const sorted=[...eventIds].sort();
+ const sorted=[...capturedIds].sort();
  const fingerprint=createHash("sha256").update(JSON.stringify([
-  context.empresaId,context.sedeId,context.actorId,sorted
+  identity.empresaId,identity.sedeId,identity.actorId,sorted
  ])).digest("hex");
  const conflictId="offline-stock-"+fingerprint;
  const collection=db.collection("gruk_offline_stock_conflicts");
- const key={_id:conflictId,empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId};
+ const key={_id:conflictId,empresaId:identity.empresaId,sedeId:identity.sedeId,actorId:identity.actorId};
  const result=await collection.updateOne(key,{$setOnInsert:{
   ...key,eventIds:sorted,issues,status:"REQUIERE_REVISION",createdAt:new Date(),
   source:"OFFLINE_INVENTORY_INSUFFICIENT",applied:false,cobrado:false
@@ -100,8 +123,8 @@ async function recordOfflineOversellConflict({db,context,eventIds,objectId}){
   _id:1,empresaId:1,sedeId:1,actorId:1,status:1,eventIds:1,issues:1,applied:1,cobrado:1
  }});
  if(!persisted||persisted._id!==conflictId||
-  persisted.empresaId!==context.empresaId||persisted.sedeId!==context.sedeId||
-  persisted.actorId!==context.actorId||persisted.status!=="REQUIERE_REVISION"||
+  persisted.empresaId!==identity.empresaId||persisted.sedeId!==identity.sedeId||
+  persisted.actorId!==identity.actorId||persisted.status!=="REQUIERE_REVISION"||
   persisted.applied!==false||persisted.cobrado!==false||
   !Array.isArray(persisted.eventIds)||persisted.eventIds.length!==sorted.length||
   !Array.from({length:persisted.eventIds.length},(_,i)=>Object.hasOwn(persisted.eventIds,i)).every(Boolean)||
