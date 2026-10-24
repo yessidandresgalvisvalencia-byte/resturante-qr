@@ -255,3 +255,24 @@ indica `aptoParaDisponibleHoy:false` y NO alimenta `homePersonal`,
 ni autoriza editar saldos; antes de producción debe leerse toda la
 historia relevante en un snapshot MongoDB y resolver pagos compensados
 y compromisos cancelados (#407).
+
+## Barrera de pagos compensados antes de conciliar cuotas
+
+`guardiaCuotasCompensadasPersonal.service.js` verifica la cadena
+SHA256 de eventos compensatorios desde génesis y la correspondencia
+exacta del cursor antes de revisar abonos asociados con una obligación
+recurrente. Cualquier corrección o anulación de un abono vinculado
+bloquea por error `409 CUOTA_COMPENSADA_NO_CONCILIADA`: la reserva
+de cuota todavía puede conservar el importe anterior y no es seguro
+presentar un saldo pendiente. No se extrapola una corrección como
+nuevo abono hasta verificar la reserva y su aplicación ACID.
+
+`conciliarCuotasConCadenaPersonal.service.js` permite combinar esta
+barrera con el conciliador puro. **Precondición obligatoria:** quien
+lo invoque debe obtener la totalidad de los pagos vinculados,
+historial completo de compensaciones y cursor dentro del mismo
+snapshot MongoDB. Esta funcionalidad es exclusivamente interna;
+no hay ruta HTTP de consulta, y responde
+`aptoParaDisponibleHoy:false`. El verificador de hash no sustituye
+la reconciliación de reservas ni impide adulteración por quienes
+controlan la base de datos sin anclaje independiente (#407).
