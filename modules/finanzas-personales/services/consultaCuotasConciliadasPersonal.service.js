@@ -66,17 +66,19 @@ function crearConsultaCuotasConciliadas({
      cuentaId:null,cuenta:"SIN_CAJA",estado:"ACTIVA"
     }).session(session).lean();
     if(!origen)fallo("obligación no encontrada",404);
-    const [pagos,eventos,cursor,reservas,cancelacion]=await Promise.all([
-     MovimientoModelo.find({usuarioId,recurrenteOrigenId:origen._id})
-      .limit(MAX+1).session(session).lean(),
-     EventoModelo.find({usuarioId:uid}).sort({secuencia:1})
-      .limit(MAX+1).session(session).lean(),
-     CursorModelo.findById(uid).session(session).lean(),
-     ReservaModelo.find({usuarioId,origenId:origen._id})
-      .limit(MAX+1).session(session).lean(),
-     CancelacionModelo.findOne({usuarioId,obligacionId:origen._id})
-      .session(session).lean()
-    ]);
+    // Evitar Promise.all dentro de una misma sesión: el driver Mongo
+    // no garantiza operaciones paralelas en transacciones.
+    const pagos=await MovimientoModelo.find({
+     usuarioId,recurrenteOrigenId:origen._id
+    }).limit(MAX+1).session(session).lean();
+    const eventos=await EventoModelo.find({usuarioId:uid})
+     .sort({secuencia:1}).limit(MAX+1).session(session).lean();
+    const cursor=await CursorModelo.findById(uid).session(session).lean();
+    const reservas=await ReservaModelo.find({usuarioId,origenId:origen._id})
+     .limit(MAX+1).session(session).lean();
+    const cancelacion=await CancelacionModelo.findOne({
+     usuarioId,obligacionId:origen._id
+    }).session(session).lean();
     if([pagos,eventos,reservas].some(x=>!Array.isArray(x)||x.length>MAX))
      fallo("historial no verificable o truncado",503);
     if(cancelacion)fallo("obligación cancelada; no conciliar abonos contra ella");
