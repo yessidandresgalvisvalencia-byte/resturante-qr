@@ -22,7 +22,7 @@ function validarObligacion(usuarioId,input){
  // ambiguas que Date.parse normaliza en silencio.
  if(!(input.fecha instanceof Date)&&
     !(typeof input.fecha==="string"&&
-      /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?(?:Z|[+-]\\d{2}:\\d{2})$/.test(input.fecha)))
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(input.fecha)))
   throw fallo("Vencimiento requiere ISO-8601 con zona horaria");
  const fecha=new Date(input.fecha);
  if(!Number.isFinite(fecha.getTime()))
