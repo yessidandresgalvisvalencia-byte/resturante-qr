@@ -37,6 +37,33 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    moneda:"COP",activa:true,requiereReconciliacion:false,
    saldoVerificadoEn:new Date(),origenSaldo:"USUARIO"
   }]);
+  // Alta de obligación prevista en Mongo real: ni centavo de saldo,
+  // ni evento financiero de pago, y replay con misma clave bloqueado.
+  const {crearRegistradorObligacionPersonal}=require(
+   "../../modules/finanzas-personales/services/registrarObligacionPersonal.service");
+  const claveAntesObligacion=process.env.PERSONAL_IDEMPOTENCY_SECRET;
+  process.env.PERSONAL_IDEMPOTENCY_SECRET="solo-test-obligaciones";
+  try{
+   const registrarObligacion=crearRegistradorObligacionPersonal();
+   const prevista={montoMinor:500000,concepto:"Arriendo futuro",
+    categoria:"Vivienda",fecha:"2026-11-15T12:00:00Z",
+    recurrente:true,frecuencia:"MENSUAL",externalId:"arriendo-noviembre-test"};
+   const cuentaPrevia=(await Cuenta.findById(cuenta._id).lean()).saldoMinor;
+   const outboxPrevio=await Outbox.countDocuments({usuarioId});
+   const creada=await registrarObligacion(String(usuarioId),prevista);
+   assert.equal(creada.impactoCaja,false);
+   assert.equal(creada.cuentaId,null);
+   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
+   assert.equal(await Outbox.countDocuments({usuarioId}),outboxPrevio);
+   await assert.rejects(()=>registrarObligacion(String(usuarioId),prevista),
+    e=>e.statusCode===409);
+   assert.equal(await Movimiento.countDocuments({_id:creada._id}),1);
+   await Movimiento.deleteOne({_id:creada._id}); // Base efímera exclusiva de prueba.
+  }finally{
+   if(claveAntesObligacion===undefined)
+    delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
+   else process.env.PERSONAL_IDEMPOTENCY_SECRET=claveAntesObligacion;
+  }
   const [asiento]=await Movimiento.create([{
    usuarioId,cuentaId:cuenta._id,cuenta:cuenta.nombre,
    tipo:"GASTO",montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion",
