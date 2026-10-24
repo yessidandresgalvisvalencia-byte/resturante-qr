@@ -1,0 +1,27 @@
+name: GRUK temporary lockfile regeneration
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-lockfile-refresh.yml'
+      - 'package.json'
+permissions:
+  contents: read
+jobs:
+  generate-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Resolve patched packages and lockfile
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts
+          npm audit --omit=dev --audit-level=high
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gruk-patched-package-lock
+          path: package-lock.json
+          retention-days: 1
