@@ -260,7 +260,12 @@ router.post("/v81/obligaciones-previstas",validate(obligacionPrevista),async(req
   const {crearRegistradorObligacionPersonal}=require("./services/registrarObligacionPersonal.service");
   const obligacion=await crearRegistradorObligacionPersonal()(
    req.personalAuth.userId,req.validated);
-  return res.status(201).json({ok:true,obligacion,impactoCaja:false});
+  return res.status(201).json({ok:true,obligacion:{
+   id:String(obligacion._id),tipo:"GASTO",montoMinor:obligacion.montoMinor,
+   concepto:obligacion.concepto,categoria:obligacion.categoria,
+   fecha:obligacion.fecha,recurrente:obligacion.recurrente,
+   frecuencia:obligacion.frecuencia,impactoCaja:false,estado:"ACTIVA"
+  }});
  }catch(e){
   return res.status(e?.statusCode||500).json({ok:false,
    error:e?.statusCode?e.message:"No fue posible registrar la obligación"});
