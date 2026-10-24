@@ -24,6 +24,30 @@ function validarObligacion(usuarioId,input){
     !(typeof input.fecha==="string"&&
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(input.fecha)))
   throw fallo("Vencimiento requiere ISO-8601 con zona horaria");
+ // Date.parse normaliza fechas imposibles (ej. 30 de febrero).
+ // Comparar los componentes locales originales con el instante calculado
+ // evita que un vencimiento se desplace silenciosamente al mes siguiente.
+ if(typeof input.fecha==="string"){
+  const p=/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.(\\d{1,3}))?(Z|([+-])(\\d{2}):(\\d{2}))$/.exec(input.fecha);
+  if(!p)throw fallo("Vencimiento ISO inválido");
+  const [anio,mes,dia,hora,minuto,segundo]=p.slice(1,7).map(Number);
+  const offHoras=p[9]?Number(p[10]):0,offMin=p[9]?Number(p[11]):0;
+  if(offHoras>23||offMin>59)throw fallo("Zona horaria inválida");
+  const offset=(p[9]==="-"?-1:1)*(offHoras*60+offMin);
+  const local=Date.UTC(anio,mes-1,dia,hora,minuto,segundo);
+  const fechaLocal=new Date(local);
+  if(!Number.isFinite(local)||fechaLocal.getUTCFullYear()!==anio||
+    fechaLocal.getUTCMonth()!==mes-1||fechaLocal.getUTCDate()!==dia||
+    fechaLocal.getUTCHours()!==hora||fechaLocal.getUTCMinutes()!==minuto||
+    fechaLocal.getUTCSeconds()!==segundo)
+   throw fallo("Fecha calendario inexistente");
+  // Mantener la validación por componentes incluso con offset.
+  const real=new Date(input.fecha);
+  if(!Number.isFinite(real.getTime())||
+     real.getTime()!==local-offset*60000+
+       (p[7]?Number(p[7].padEnd(3,"0")):0))
+   throw fallo("Vencimiento incompatible con la zona horaria");
+ }
  const fecha=new Date(input.fecha);
  if(!Number.isFinite(fecha.getTime()))
   throw fallo("Vencimiento inválido");
