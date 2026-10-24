@@ -4,15 +4,30 @@
 const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 const ID=/^[A-Za-z0-9_-]{1,80}$/;
 function error(code){const e=new Error(code);e.code=code;return e;}
+function own(record,key,code){
+ if(!record||typeof record!=="object"||Array.isArray(record))throw error(code);
+ const descriptor=Object.getOwnPropertyDescriptor(record,key);
+ if(!descriptor||!("value" in descriptor))throw error(code);
+ return descriptor.value;
+}
 async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
  if(!session||typeof session.inTransaction!=="function"||session.inTransaction()!==true)
    throw error("OFFLINE_LEDGER_TRANSACTION_REQUIRED");
- if(!db?.collection||!context||![context.empresaId,context.sedeId,context.actorId].every(v=>typeof v==="string"&&ID.test(v))||
-   typeof eventId!=="string"||!ULID.test(eventId))throw error("OFFLINE_LEDGER_INVALID_CONTEXT");
- if(!movement||typeof movement.tipo!=="string"||!ID.test(movement.tipo)||
-   typeof movement.montoCop!=="string"||movement.montoCop.length>16||
-   !/^(0|[1-9][0-9]*)$/.test(movement.montoCop)||
-   BigInt(movement.montoCop)>BigInt(Number.MAX_SAFE_INTEGER))throw error("OFFLINE_LEDGER_INVALID_MOVEMENT");
+ const identity={};
+ for(const field of ["empresaId","sedeId","actorId"]){
+   const value=own(context,field,"OFFLINE_LEDGER_INVALID_CONTEXT");
+   if(typeof value!=="string"||!ID.test(value))throw error("OFFLINE_LEDGER_INVALID_CONTEXT");
+   identity[field]=value;
+ }
+ if(typeof eventId!=="string"||!ULID.test(eventId))throw error("OFFLINE_LEDGER_INVALID_CONTEXT");
+ const tipo=own(movement,"tipo","OFFLINE_LEDGER_INVALID_MOVEMENT");
+ const montoCop=own(movement,"montoCop","OFFLINE_LEDGER_INVALID_MOVEMENT");
+ if(typeof tipo!=="string"||!ID.test(tipo)||
+    typeof montoCop!=="string"||montoCop.length>16||
+    !/^(0|[1-9][0-9]*)$/.test(montoCop)||
+    BigInt(montoCop)>BigInt(Number.MAX_SAFE_INTEGER))
+   throw error("OFFLINE_LEDGER_INVALID_MOVEMENT");
+ if(!db||typeof db.collection!=="function")throw error("OFFLINE_LEDGER_INVALID_CONTEXT");
  const collection=db.collection("gruk_ledger_movimientos");
  // Refuse to write before Mongo has confirmed the unique index exists.
  if(typeof collection.indexes!=="function")throw error("OFFLINE_LEDGER_UNIQUE_INDEX_REQUIRED");
@@ -22,8 +37,8 @@ async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
    Object.keys(index.key||{}).length===4&&
    ["empresaId","sedeId","eventId","tipo"].every((k,i)=>Object.keys(index.key)[i]===k&&index.key[k]===1));
  if(!valid)throw error("OFFLINE_LEDGER_UNIQUE_INDEX_REQUIRED");
- const key={empresaId:context.empresaId,sedeId:context.sedeId,eventId,tipo:movement.tipo};
- const payload={...key,actorId:context.actorId,montoCop:movement.montoCop,deletedAt:null,createdAt:new Date()};
+ const key={empresaId:identity.empresaId,sedeId:identity.sedeId,eventId,tipo};
+ const payload={...key,actorId:identity.actorId,montoCop,deletedAt:null,createdAt:new Date()};
  // $setOnInsert never mutates an existing ledger entry.
  let inserted=false;
  try {
@@ -42,11 +57,18 @@ async function appendOfflineLedgerEvent({db,session,context,eventId,movement}){
  }
  if(!inserted){
    const prior=await collection.findOne(key,{session,projection:{empresaId:1,sedeId:1,eventId:1,tipo:1,actorId:1,montoCop:1,deletedAt:1}});
-   if(!prior||prior.empresaId!==key.empresaId||prior.sedeId!==key.sedeId||
-     prior.eventId!==key.eventId||prior.tipo!==key.tipo||
-     prior.actorId!==context.actorId||prior.montoCop!==movement.montoCop||prior.deletedAt!==null)
+   const fields=["empresaId","sedeId","eventId","tipo","actorId","montoCop","deletedAt"];
+   const priorSnapshot={};
+   if(!prior||typeof prior!=="object"||Array.isArray(prior))
+     throw error("OFFLINE_LEDGER_REPLAY_CONFLICT");
+   for(const field of fields)
+     priorSnapshot[field]=own(prior,field,"OFFLINE_LEDGER_REPLAY_CONFLICT");
+   if(priorSnapshot.empresaId!==key.empresaId||priorSnapshot.sedeId!==key.sedeId||
+      priorSnapshot.eventId!==key.eventId||priorSnapshot.tipo!==key.tipo||
+      priorSnapshot.actorId!==identity.actorId||priorSnapshot.montoCop!==montoCop||
+      priorSnapshot.deletedAt!==null)
      throw error("OFFLINE_LEDGER_REPLAY_CONFLICT");
  }
- return Object.freeze({eventId,tipo:movement.tipo,inserted});
+ return Object.freeze({eventId,tipo,inserted});
 }
 module.exports={appendOfflineLedgerEvent};

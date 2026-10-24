@@ -156,3 +156,59 @@ test("Capa 2: rechazo de escritura no reconocida sin lectura de replay",async()=
   assert.equal(replayReads,0);
  }
 });
+
+test("Capa 2: ledger individual rechaza getters de identidad e importe antes de Mongo",async()=>{
+ for(const field of ["empresaId","sedeId","actorId","tipo","montoCop"]){
+  let getters=0,reads=0;
+  const scope={...context},m={...movement};
+  Object.defineProperty(["tipo","montoCop"].includes(field)?m:scope,field,{
+   enumerable:true,configurable:true,get(){getters++;return "empresa";}});
+  const db={collection(){reads++;throw Error("UNAUTHORIZED_MONGO_ACCESS");}};
+  await assert.rejects(append({db,session:{inTransaction:()=>true},context:scope,
+   eventId,movement:m}),{code:["tipo","montoCop"].includes(field)?
+    "OFFLINE_LEDGER_INVALID_MOVEMENT":"OFFLINE_LEDGER_INVALID_CONTEXT"});
+  assert.equal(getters,0,field);
+  assert.equal(reads,0,field);
+ }
+});
+test("Capa 2: el replay rechazado no ejecuta getters de Mongo",async()=>{
+ for(const field of ["empresaId","sedeId","eventId","tipo","actorId","montoCop","deletedAt"]){
+  let getters=0;
+  const prior={...context,...movement,eventId,deletedAt:null};
+  Object.defineProperty(prior,field,{enumerable:true,configurable:true,
+   get(){getters++;return "intruso";}});
+  const session={inTransaction:()=>true};
+  const db={collection:()=>({
+    indexes:async()=>[{name:"uniq_offline_ledger_event_type_tenant",unique:true,
+     key:{empresaId:1,sedeId:1,eventId:1,tipo:1}}],
+    updateOne:async()=>({acknowledged:true,upsertedCount:0}),
+    findOne:async()=>prior
+  })};
+  await assert.rejects(append({db,session,context,eventId,movement}),
+   {code:"OFFLINE_LEDGER_REPLAY_CONFLICT"});
+  assert.equal(getters,0,field);
+ }
+});
+test("Capa 2: identidad y dinero se conservan tras mutación durante índices Mongo",async()=>{
+ const scope={...context},m={...movement},writes=[];
+ const session={inTransaction:()=>true};
+ const db={collection:()=>({
+  async indexes(){
+   Object.assign(scope,{empresaId:"intruso",sedeId:"otra",actorId:"otro"});
+   Object.assign(m,{tipo:"ALTERADO",montoCop:"999999"});
+   return [{name:"uniq_offline_ledger_event_type_tenant",unique:true,
+    key:{empresaId:1,sedeId:1,eventId:1,tipo:1}}];
+  },
+  async updateOne(key,update){
+   writes.push({key,payload:update.$setOnInsert});
+   return {acknowledged:true,upsertedCount:1};
+  }
+ })};
+ const result=await append({db,session,context:scope,eventId,movement:m});
+ assert.deepEqual(result,{eventId,tipo:"VENTA",inserted:true});
+ assert.equal(writes.length,1);
+ assert.equal(writes[0].key.empresaId,"empresa");
+ assert.equal(writes[0].key.sedeId,"sede");
+ assert.equal(writes[0].payload.actorId,"cajero");
+ assert.equal(writes[0].payload.montoCop,"3000");
+});
