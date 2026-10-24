@@ -86,6 +86,29 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    assert.equal(resumenPrevistas.canceladoMinor,"500000");
    assert.ok(resumenPrevistas.compromisos.some(x=>
     x.id===String(creada._id)&&x.estado==="CANCELADA"));
+   const {conciliarCuotasPrevistas}=require(
+    "../../modules/finanzas-personales/services/conciliarCuotasPrevistasPersonal.service");
+   // El conciliador opera con abonos reales leídos de Mongo dentro del
+   // fixture aislado, nunca modifica caja ni cancela el original.
+   const [pagoParcial]=await Movimiento.create([{
+    usuarioId,recurrenteOrigenId:creada._id,
+    cuentaId:cuenta._id,cuenta:cuenta.nombre,
+    tipo:"GASTO",impactoCaja:true,montoMinor:200000,
+    concepto:"Abono arriendo",categoria:"Vivienda",
+    fecha:new Date("2026-11-16T12:00:00Z"),estado:"ACTIVA"
+   }]);
+   const abonos=await Movimiento.find({usuarioId,
+    recurrenteOrigenId:creada._id}).lean();
+   const conciliacion=conciliarCuotasPrevistas({
+    usuarioId:String(usuarioId),origen:await Movimiento.findById(creada._id).lean(),
+    pagos:abonos,desde:"2026-11-01T05:00:00Z",hasta:"2027-01-01T05:00:00Z"
+   });
+   assert.equal(conciliacion.totalBrutoMinor,"1000000");
+   assert.equal(conciliacion.totalPagadoMinor,"200000");
+   assert.equal(conciliacion.totalPendienteMinor,"800000");
+   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
+   await Movimiento.deleteOne({_id:pagoParcial._id}); // Solo fixture aislado.
+
 
    await Movimiento.deleteOne({_id:creada._id}); // Base efímera exclusiva de prueba.
   }finally{
