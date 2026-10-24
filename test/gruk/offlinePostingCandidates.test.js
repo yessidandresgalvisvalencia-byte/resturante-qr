@@ -368,3 +368,40 @@ test("Capa 2: bloquea colisiones cruzadas de ULID entre evento y pedido",()=>{
  assert.equal(result.totalCop,"6000");
  assert.equal(result.orders.length,2);
 });
+
+test("Capa 2: no accede a adaptador Mongo antes de autenticar empresa sede actor",async()=>{
+ for(const field of ["empresaId","sedeId","actorId"]){
+  let adapterReads=0;
+  const db={get collection(){adapterReads++;throw Error("DB_ACCESSED_BEFORE_AUTH");}};
+  const invalid={...ctx};
+  delete invalid[field];
+  await assert.rejects(read({db,context:invalid,eventIds:[eventId]}),
+   {code:"OFFLINE_AUTH_REQUIRED"});
+  assert.equal(adapterReads,0,field);
+ }
+});
+test("Capa 2: IDs malformados se rechazan antes de leer adaptador Mongo",async()=>{
+ let adapterReads=0;
+ const db={get collection(){adapterReads++;throw Error("DB_ACCESSED_WITH_INVALID_IDS");}};
+ await assert.rejects(read({db,context:ctx,eventIds:["INVALID_ID"]}),
+  {code:"OFFLINE_INVALID_IDS"});
+ assert.equal(adapterReads,0);
+});
+test("Capa 2: sesión con identidad válida conserva filtro tenant y monto COP",async()=>{
+ let calls=0;
+ const session={};
+ const db={collection(name){
+  calls++;
+  assert.equal(name,"gruk_offline_inbox");
+  return {find(query,opts){
+   assert.equal(query.empresaId,ctx.empresaId);
+   assert.equal(query.sedeId,ctx.sedeId);
+   assert.equal(query.actorId,ctx.actorId);
+   assert.equal(opts.session,session);
+   return {toArray:async()=>[doc]};
+  }};
+ }};
+ const result=await read({db,context:ctx,eventIds:[eventId],session});
+ assert.equal(calls,1);
+ assert.equal(result.totalCop,"3000");
+});
