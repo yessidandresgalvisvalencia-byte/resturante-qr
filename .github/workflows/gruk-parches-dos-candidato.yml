@@ -1,0 +1,44 @@
+name: GRUK propuesta temporal parches DoS 2026
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/gruk-parches-dos-candidato.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  resolver-y-auditar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Actualizar manifiesto y lockfile mediante npm (no manual)
+        run: |
+          npm pkg set 'dependencies.multer=^2.5.0' 'overrides.body-parser=^2.4.0'
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Confirmar lockfile reproducible
+        run: |
+          npm ci --ignore-scripts --no-fund --no-audit
+          node - <<'NODE'
+          const p=require('./package-lock.json');
+          if(p.packages['node_modules/multer']?.version!=='2.5.0')throw Error('Multer sin parche');
+          if(p.packages['node_modules/body-parser']?.version!=='2.4.0')throw Error('Body-parser sin parche');
+          console.log('Dependencias parcheadas presentes en lockfile');
+          NODE
+      - name: Auditar dependencias de produccion
+        run: npm audit --omit=dev --audit-level=low
+      - name: Exportar par sin editar repositorio fuente
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-lockfile-dos-candidato
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 3
