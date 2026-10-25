@@ -57,3 +57,18 @@ test("bloquea obligación cancelada, volumen truncado y cursor corrupto",async()
 test("rechaza identidad inválida antes de consultar",async()=>{
  await assert.rejects(()=>dobles()("invalid",mid),e=>e.statusCode===400);
 });
+
+test("snapshot rechaza huella previa cuando la reserva cambió un peso",async()=>{
+ const antes=await dobles({reservas:[{...reserva,reservadoMinor:199999}]})(
+  uid,mid);
+ const huellaEsperada=antes.planReparacion.huellaDiagnostico;
+ const vigente=await dobles({reservas:[{...reserva,reservadoMinor:199999}]})(
+  uid,mid,{huellaEsperada});
+ assert.equal(vigente.vigenciaPlan.vigente,true);
+ assert.equal(vigente.vigenciaPlan.autorizaEscritura,false);
+ await assert.rejects(()=>dobles({
+  reservas:[{...reserva,reservadoMinor:199998}]
+ })(uid,mid,{huellaEsperada}),e=>e.statusCode===409);
+ await assert.rejects(()=>dobles()(uid,mid,{huellaEsperada}),
+  e=>e.statusCode===409);
+});
