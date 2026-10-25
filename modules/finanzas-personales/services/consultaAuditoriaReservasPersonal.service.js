@@ -8,6 +8,7 @@ const Cancelacion=require("../models/CancelacionObligacionPrevistaPersonal");
 const {auditarReservasRecurrencia}=require("./auditarReservasRecurrenciaPersonal.service");
 const {planearReparacionReservas}=require("./planReparacionReservasPersonal.service");
 const {verificarVigenciaPlanReservas}=require("./verificarVigenciaPlanReservasPersonal.service");
+const {huellaEstadoReservas,verificarHuellaEstado}=require("./huellaEstadoReservasPersonal.service");
 const MAX=10000;
 function fallo(m,statusCode=409){
  return Object.assign(new Error("AUDITORIA_RESERVAS_SNAPSHOT: "+m),{statusCode});
@@ -20,7 +21,7 @@ function crearConsultaAuditoriaReservas({
  CursorModelo=Cursor,CancelacionModelo=Cancelacion,
  nuevaSesion=()=>mongoose.startSession()
 }={}){
- return async function consultar(usuarioId,origenId,{huellaEsperada}={}){
+ return async function consultar(usuarioId,origenId,{huellaEsperada,huellaEstadoEsperada}={}){
   if(!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(origenId))
    throw fallo("identificadores inválidos",400);
   const uid=String(usuarioId);
@@ -50,6 +51,11 @@ function crearConsultaAuditoriaReservas({
     if([pagos,reservas,eventos].some(a=>!Array.isArray(a)||a.length>MAX))
      throw fallo("historial incompleto o truncado",503);
     if(cancelacion)throw fallo("obligación cancelada; revisión especial requerida");
+    const huellaEstado=huellaEstadoReservas({
+     usuarioId:uid,origen,pagos,reservas,eventos,cursor,cancelacion
+    });
+    if(huellaEstadoEsperada!==undefined)
+     verificarHuellaEstado(huellaEstado,huellaEstadoEsperada);
     const auditoria=auditarReservasRecurrencia({
      usuarioId:uid,origen,pagos,reservas,eventos,cursor
     });
@@ -60,7 +66,7 @@ function crearConsultaAuditoriaReservas({
      usuarioId:uid,origenId:String(origen._id),huellaEsperada,
      auditoriaActual:auditoria
     });
-    resultado={...auditoria,planReparacion:plan,
+    resultado={...auditoria,huellaEstado,planReparacion:plan,
      ...(vigencia?{vigenciaPlan:vigencia}:{}),
      fuenteDatos:"SNAPSHOT_MONGO_AUDITORIA",
      soloLectura:true,aptoParaDisponibleHoy:false};
