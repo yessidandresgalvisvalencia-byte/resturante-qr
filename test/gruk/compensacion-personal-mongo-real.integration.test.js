@@ -145,6 +145,7 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    const dictamenSnapshot=await auditarSnapshot(String(usuarioId),
     String(origenVigente._id));
    assert.equal(dictamenSnapshot.estado,"COHERENTE");
+   assert.equal(dictamenSnapshot.planReparacion.estado,"SIN_DIFERENCIAS");
    assert.equal(dictamenSnapshot.aptoParaDisponibleHoy,false);
 
    const {auditarReservasRecurrencia}=require(
@@ -172,6 +173,8 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    const dictamenDescuadre=await auditarSnapshot(String(usuarioId),
     String(origenVigente._id));
    assert.equal(dictamenDescuadre.estado,"REQUIERE_CONCILIACION");
+   assert.equal(dictamenDescuadre.planReparacion.acciones[0].deltaMinor,"1");
+   assert.equal(dictamenDescuadre.planReparacion.autorizaEscritura,false);
    assert.ok(dictamenDescuadre.anomalías.some(
     x=>x.codigo==="RESERVA_DESCUADRADA"));
 
