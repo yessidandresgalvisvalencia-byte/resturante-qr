@@ -470,6 +470,45 @@ async function run() {
       bReceived:(await globalThis.GRUKOfflineOutbox.listReceived(100,b)).length
     }),{a:tenantA,b:tenantB});
     assert.deepEqual(crossTabDurable,{aLocal:25,aReceived:25,bLocal:1,bReceived:1});
+    // The session context switches while an HTTP 202 is in flight.
+    // Even a valid ACK for the original ULID must NOT mark either tenant.
+    const switchId="01ARZ3NDEKTSV4RRFFQ69G5FA8";
+    const sessionSwitch=await page.evaluate(async({original,other,eventId})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      await outbox.putPending({...original,eventId,
+       payload:{items:[{productoId:"producto-1",cantidad:1}]}});
+      const mutable={...original};
+      let sent=[];
+      let error=null;
+      try{
+       await globalThis.GRUKOfflineTransport.synchronize({
+        outbox,context:mutable,token:"test-token",
+        fetchFn:async(_url,options)=>{
+         sent=JSON.parse(options.body).events.map(x=>x.eventId);
+         Object.assign(mutable,other);
+         return {status:202,json:async()=>({ok:true,applied:false,
+          events:[{eventId,status:"RECIBIDO"}]})};
+        }
+       });
+      }catch(e){error=e.message;}
+      return {error,sent,
+       aPending:(await outbox.listPending(100,original)).map(x=>x.eventId),
+       aReceived:(await outbox.listReceived(100,original)).length,
+       bReceived:(await outbox.listReceived(100,other)).length};
+    },{original:tenantA,other:tenantB,eventId:switchId});
+    assert.deepEqual(sessionSwitch,{error:"SYNC_SESSION_CHANGED",sent:[switchId],
+      aPending:[switchId],aReceived:25,bReceived:1});
+    await browser.close();
+    browser=null;
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    const switchedDurable=await page.evaluate(async({a,b,eventId})=>({
+      aPending:(await globalThis.GRUKOfflineOutbox.listPending(100,a)).map(x=>x.eventId),
+      aLocal:(await globalThis.GRUKOfflineOutbox.listLocal(100,a)).length,
+      bLocal:(await globalThis.GRUKOfflineOutbox.listLocal(100,b)).length
+    }),{a:tenantA,b:tenantB,eventId:switchId});
+    assert.deepEqual(switchedDurable,{aPending:[switchId],aLocal:26,bLocal:1});
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 21, abortedAckRecovered: true }));
   } finally {

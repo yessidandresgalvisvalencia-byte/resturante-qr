@@ -196,3 +196,33 @@ test("Capa 2: HTTP 503, JSON truncado y ACK parcial mantienen cola sin acuses lo
   assert.equal((await outbox.listPending(100)).length,2);
  }
 });
+
+test("Capa 2: cambio de empresa durante HTTP invalida ACK y conserva eventos pendientes",async()=>{
+ const mutable={...ctx};
+ const done=new Set(),outbox={
+  listPending:async()=>[{...a}],
+  markReceived:async id=>{done.add(id);return true;}
+ };
+ await assert.rejects(synchronize({context:mutable,outbox,token:"jwt",
+  fetchFn:async()=>{mutable.empresaId="empresaB";
+   return {status:202,json:async()=>({ok:true,applied:false,
+    events:[{eventId:a.eventId,status:"RECIBIDO"}]})};}
+ }),{message:"SYNC_SESSION_CHANGED"});
+ assert.equal(done.size,0,"Old ACK cannot alter local state after session switches");
+ mutable.empresaId=ctx.empresaId;
+ assert.deepEqual(await synchronize({context:mutable,outbox,token:"jwt",
+  fetchFn:async()=>({status:202,json:async()=>({ok:true,applied:false,
+   events:[{eventId:a.eventId,status:"YA_RECIBIDO"}]})})}),
+  {sent:1,received:1});
+ assert.equal(done.size,1);
+});
+test("Capa 2: mutación de identidad durante lectura local nunca realiza solicitud",async()=>{
+ const mutable={...ctx},pending=[{...a}];
+ let calls=0,acks=0;
+ await assert.rejects(synchronize({context:mutable,token:"jwt",
+  outbox:{listPending:async()=>{mutable.actorId="other";return pending;},
+   markReceived:async()=>{acks++;return true;}},
+  fetchFn:async()=>{calls++;throw Error("FORBIDDEN_NETWORK");}
+ }),{message:"SYNC_SESSION_CHANGED"});
+ assert.equal(calls,0);assert.equal(acks,0);
+});
