@@ -7,11 +7,21 @@ const SHA=/^offline-stock-[a-f0-9]{64}$/,HEX=/^[a-f0-9]{24}$/i;
 const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 function fail(code){const error=new Error(code);error.code=code;throw error;}
 async function preflightOfflineConflict({db,auth,conflictId,objectId}){
- if(!auth||!["DUEÑO","ADMIN_SEDE"].includes(auth.rol)||
-    typeof auth.empresaId!=="string"||typeof auth.sedeId!=="string"||
-    !HEX.test(auth.empresaId)||!HEX.test(auth.sedeId)||
-    typeof auth.usuarioId!=="string"||!/^[A-Za-z0-9_-]{1,80}$/.test(auth.usuarioId))
+ const identity={};
+ if(!auth||typeof auth!=="object"||Array.isArray(auth))
   fail("OFFLINE_CONFLICT_PERMISSION_DENIED");
+ for(const field of ["rol","empresaId","sedeId","usuarioId"]){
+  const descriptor=Object.getOwnPropertyDescriptor(auth,field);
+  if(!descriptor||!("value" in descriptor))
+   fail("OFFLINE_CONFLICT_PERMISSION_DENIED");
+  identity[field]=descriptor.value;
+ }
+ if(!["DUEÑO","ADMIN_SEDE"].includes(identity.rol)||
+    typeof identity.empresaId!=="string"||typeof identity.sedeId!=="string"||
+    !HEX.test(identity.empresaId)||!HEX.test(identity.sedeId)||
+    typeof identity.usuarioId!=="string"||!/^[A-Za-z0-9_-]{1,80}$/.test(identity.usuarioId))
+  fail("OFFLINE_CONFLICT_PERMISSION_DENIED");
+ Object.freeze(identity);
  if(!SHA.test(conflictId||""))fail("OFFLINE_CONFLICT_INVALID_ID");
  if(typeof db?.collection!=="function"||typeof objectId!=="function")
   fail("OFFLINE_CONFLICT_DATABASE_UNAVAILABLE");
@@ -26,8 +36,8 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
   }catch(_error){fail("OFFLINE_CONFLICT_INVALID_STOCK_PLAN");}
   return converted;
  };
- const scopedEmpresa=asId(auth.empresaId),scopedSede=asId(auth.sedeId);
- const tenant={empresaId:auth.empresaId,sedeId:auth.sedeId};
+ const scopedEmpresa=asId(identity.empresaId),scopedSede=asId(identity.sedeId);
+ const tenant={empresaId:identity.empresaId,sedeId:identity.sedeId};
  const source=await db.collection("gruk_offline_stock_conflicts").findOne({
   _id:conflictId,...tenant,status:"REQUIERE_REVISION",applied:false,cobrado:false
  },{projection:{_id:1,empresaId:1,sedeId:1,status:1,applied:1,cobrado:1,actorId:1,eventIds:1}});
@@ -41,10 +51,28 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
     source.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
     new Set(source.eventIds).size!==source.eventIds.length)
   fail("OFFLINE_CONFLICT_NOT_FOUND");
- const context={...tenant,actorId:source.actorId};
+ // The returned Mongo document may be mutable: keep a validated snapshot of
+ // the source actor and event IDs before awaiting inbox/inventory operations.
+ const actorDescriptor=Object.getOwnPropertyDescriptor(source,"actorId");
+ const idsDescriptor=Object.getOwnPropertyDescriptor(source,"eventIds");
+ if(!actorDescriptor||!("value" in actorDescriptor)||
+    !idsDescriptor||!("value" in idsDescriptor)||
+    typeof actorDescriptor.value!=="string"||
+    !/^[A-Za-z0-9_-]{1,80}$/.test(actorDescriptor.value)||
+    !Array.isArray(idsDescriptor.value)||idsDescriptor.value.length===0||
+    idsDescriptor.value.length>100)fail("OFFLINE_CONFLICT_NOT_FOUND");
+ const capturedIds=[];
+ for(let i=0;i<idsDescriptor.value.length;i++){
+  const d=Object.getOwnPropertyDescriptor(idsDescriptor.value,String(i));
+  if(!d||!("value" in d)||typeof d.value!=="string"||!ULID.test(d.value))
+   fail("OFFLINE_CONFLICT_NOT_FOUND");
+  capturedIds.push(d.value);
+ }
+ if(new Set(capturedIds).size!==capturedIds.length)fail("OFFLINE_CONFLICT_NOT_FOUND");
+ const context=Object.freeze({...tenant,actorId:actorDescriptor.value});
  let prepared;
  try{
-  prepared=await readOfflineOrderCandidates({db,context,eventIds:source.eventIds});
+  prepared=await readOfflineOrderCandidates({db,context,eventIds:capturedIds});
  }catch(error){
   if(["OFFLINE_ORDERS_NOT_PENDING","OFFLINE_INVALID_IDS"].includes(error?.code))
    return Object.freeze({conflictId,ready:false,reason:"EVENTOS_NO_PENDIENTES",
@@ -71,8 +99,8 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
   if(!Array.isArray(rows)||rows.length!==1||
      rows[0]?._id===null||rows[0]?._id===undefined||
      String(rows[0]._id).trim().length===0||
-     String(rows[0]?.empresaId).toLowerCase()!==auth.empresaId.toLowerCase()||
-     String(rows[0]?.sedeId).toLowerCase()!==auth.sedeId.toLowerCase()||
+     String(rows[0]?.empresaId).toLowerCase()!==identity.empresaId.toLowerCase()||
+     String(rows[0]?.sedeId).toLowerCase()!==identity.sedeId.toLowerCase()||
      String(rows[0]?.productoServicioId).toLowerCase()!==delta.productoId.toLowerCase()||
      rows[0]?.anulado!==false||
      !Number.isSafeInteger(rows[0].cantidad)||rows[0].cantidad<0){
