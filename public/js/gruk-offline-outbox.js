@@ -24,7 +24,7 @@
       let result;
       try{result=work(store);}catch(e){transaction.abort();reject(e);return;}
       transaction.oncomplete=()=>resolve(result);
-      transaction.onerror=()=>reject(transaction.error);
+      transaction.onerror=()=>reject(transaction.error||new Error("OUTBOX_ABORT"));
       transaction.onabort=()=>reject(transaction.error||new Error("OUTBOX_ABORT"));
     });
   }
@@ -71,7 +71,7 @@
       r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(!matchesTenant(v.event,context))return;if(v.syncStatus==="received"){updated=true;return;}if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);updated=true;};
       r.onerror=()=>reject(r.error);
       t.oncomplete=()=>resolve(updated);
-      t.onerror=()=>reject(t.error);
+      t.onerror=()=>reject(t.error||new Error("OUTBOX_ABORT"));
     });}finally{db.close();}
   }
   // These events remain stored in IndexedDB after the server acknowledges receipt.
