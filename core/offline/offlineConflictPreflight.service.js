@@ -41,35 +41,30 @@ async function preflightOfflineConflict({db,auth,conflictId,objectId}){
  const source=await db.collection("gruk_offline_stock_conflicts").findOne({
   _id:conflictId,...tenant,status:"REQUIERE_REVISION",applied:false,cobrado:false
  },{projection:{_id:1,empresaId:1,sedeId:1,status:1,applied:1,cobrado:1,actorId:1,eventIds:1}});
- if(!source||source._id!==conflictId||
-    source.empresaId!==tenant.empresaId||source.sedeId!==tenant.sedeId||
-    source.status!=="REQUIERE_REVISION"||source.applied!==false||source.cobrado!==false||
-    typeof source.actorId!=="string"||
-    !/^[A-Za-z0-9_-]{1,80}$/.test(source.actorId)||
-    !Array.isArray(source.eventIds)||source.eventIds.length===0||
-    source.eventIds.length>100||
-    source.eventIds.some(id=>typeof id!=="string"||!ULID.test(id))||
-    new Set(source.eventIds).size!==source.eventIds.length)
+ if(!source||typeof source!=="object"||Array.isArray(source))
   fail("OFFLINE_CONFLICT_NOT_FOUND");
- // The returned Mongo document may be mutable: keep a validated snapshot of
- // the source actor and event IDs before awaiting inbox/inventory operations.
- const actorDescriptor=Object.getOwnPropertyDescriptor(source,"actorId");
- const idsDescriptor=Object.getOwnPropertyDescriptor(source,"eventIds");
- if(!actorDescriptor||!("value" in actorDescriptor)||
-    !idsDescriptor||!("value" in idsDescriptor)||
-    typeof actorDescriptor.value!=="string"||
-    !/^[A-Za-z0-9_-]{1,80}$/.test(actorDescriptor.value)||
-    !Array.isArray(idsDescriptor.value)||idsDescriptor.value.length===0||
-    idsDescriptor.value.length>100)fail("OFFLINE_CONFLICT_NOT_FOUND");
+ const captured={};
+ for(const field of ["_id","empresaId","sedeId","status","applied","cobrado","actorId","eventIds"]){
+  const d=Object.getOwnPropertyDescriptor(source,field);
+  if(!d||!("value" in d))fail("OFFLINE_CONFLICT_NOT_FOUND");
+  captured[field]=d.value;
+ }
+ if(captured._id!==conflictId||
+    captured.empresaId!==tenant.empresaId||captured.sedeId!==tenant.sedeId||
+    captured.status!=="REQUIERE_REVISION"||captured.applied!==false||
+    captured.cobrado!==false||typeof captured.actorId!=="string"||
+    !/^[A-Za-z0-9_-]{1,80}$/.test(captured.actorId)||
+    !Array.isArray(captured.eventIds)||captured.eventIds.length===0||
+    captured.eventIds.length>100)fail("OFFLINE_CONFLICT_NOT_FOUND");
  const capturedIds=[];
- for(let i=0;i<idsDescriptor.value.length;i++){
-  const d=Object.getOwnPropertyDescriptor(idsDescriptor.value,String(i));
+ for(let i=0;i<captured.eventIds.length;i++){
+  const d=Object.getOwnPropertyDescriptor(captured.eventIds,String(i));
   if(!d||!("value" in d)||typeof d.value!=="string"||!ULID.test(d.value))
    fail("OFFLINE_CONFLICT_NOT_FOUND");
   capturedIds.push(d.value);
  }
  if(new Set(capturedIds).size!==capturedIds.length)fail("OFFLINE_CONFLICT_NOT_FOUND");
- const context=Object.freeze({...tenant,actorId:actorDescriptor.value});
+ const context=Object.freeze({...tenant,actorId:captured.actorId});
  let prepared;
  try{
   prepared=await readOfflineOrderCandidates({db,context,eventIds:capturedIds});
