@@ -102,6 +102,16 @@ test("real Mongo: 503, interrupted writes and lost HTTP ack replay without dupli
    assert.equal(second.applied,false);assert.equal(second.cobrado,false);
    assert.equal(second.totalCop,"9000");
    assert.equal((await db.collection("inventarios").findOne(inventoryKey)).cantidad,2);
+   for(const [collection,expected] of [
+    ["gruk_offline_ventas",2],
+    ["gruk_offline_stock_movimientos",1],
+    ["gruk_offline_caja_intenciones",2],
+    ["gruk_ledger_movimientos",2]
+   ])assert.equal(await db.collection(collection).countDocuments({}),expected,
+    collection+" duplicated after lost-ack replay "+attempt);
+   assert.equal(await db.collection("gruk_offline_caja_intenciones").countDocuments({
+    cobrado:true
+   }),0,"Lost-ack replay must never mark cash charged");
   }
   assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
    empresaId:auth.empresaId,sedeId:auth.sedeId,status:"EN_REVISION",inventoryApplied:true
