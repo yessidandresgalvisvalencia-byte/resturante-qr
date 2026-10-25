@@ -246,6 +246,36 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    await assert.rejects(()=>consultarCuotas(String(usuarioId),
     String(origenVigente._id),rangoCuotas),
     e=>e.statusCode===409&&/reserva inconsistente/.test(e.message));
+   // Ejecutor interno ACID: no admite una propuesta obsoleta y después
+   // confirma CAS + evidencia + fence de cursor como una sola transacción.
+   const {crearEjecutorReparacionReserva}=require(
+    "../../modules/finanzas-personales/services/ejecutarReparacionReservaPersonal.service");
+   const ejecutarReserva=crearEjecutorReparacionReserva();
+   const antiguo={usuarioId:String(usuarioId),origenId:String(origenVigente._id),
+    reservaId:String(reservaVigente._id),
+    huellaEstadoEsperada:estadoAnterior,
+    huellaDiagnostico:huellaAnterior,idempotencyHash:"d".repeat(64),
+    fecha:new Date("2026-10-25T15:00:00Z")};
+   await assert.rejects(()=>ejecutarReserva(antiguo),
+    e=>e.statusCode===409);
+   await Reserva.updateOne({_id:reservaVigente._id},
+    {$set:{reservadoMinor:199999}});
+   const previoReparacion=await auditarSnapshot(String(usuarioId),
+    String(origenVigente._id));
+   const solicitud={...antiguo,
+    huellaEstadoEsperada:previoReparacion.huellaEstado,
+    huellaDiagnostico:previoReparacion.planReparacion.huellaDiagnostico};
+   const salidaReparacion=await ejecutarReserva(solicitud);
+   assert.equal(salidaReparacion.deltaMinor,"1");
+   assert.equal(salidaReparacion.saldoCajaAlterado,false);
+   assert.equal((await Reserva.findById(reservaVigente._id).lean()).reservadoMinor,200000);
+   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
+   assert.equal(await EventoReparacion.countDocuments({usuarioId,
+    idempotencyHash:solicitud.idempotencyHash}),1);
+   await assert.rejects(()=>ejecutarReserva(solicitud),e=>e.statusCode===409);
+   assert.equal(await EventoReparacion.countDocuments({usuarioId,
+    idempotencyHash:solicitud.idempotencyHash}),1);
+   assert.equal((await Reserva.findById(reservaVigente._id).lean()).reservadoMinor,200000);
    await Reserva.deleteOne({_id:reservaVigente._id});
    // El ledger compensatorio genérico NO puede alterar abonos
    // recurrentes dejando su reserva desincronizada. Debe fallar
