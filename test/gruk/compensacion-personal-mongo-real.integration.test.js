@@ -139,6 +139,14 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    const calculoSeguro=await consultarCuotas(String(usuarioId),
     String(origenVigente._id),rangoCuotas);
    assert.equal(calculoSeguro.totalPendienteMinor,"800000");
+   const {crearConsultaAuditoriaReservas}=require(
+    "../../modules/finanzas-personales/services/consultaAuditoriaReservasPersonal.service");
+   const auditarSnapshot=crearConsultaAuditoriaReservas();
+   const dictamenSnapshot=await auditarSnapshot(String(usuarioId),
+    String(origenVigente._id));
+   assert.equal(dictamenSnapshot.estado,"COHERENTE");
+   assert.equal(dictamenSnapshot.aptoParaDisponibleHoy,false);
+
    const {auditarReservasRecurrencia}=require(
     "../../modules/finanzas-personales/services/auditarReservasRecurrenciaPersonal.service");
    const forense=async()=>auditarReservasRecurrencia({
@@ -161,6 +169,12 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
     {$set:{reservadoMinor:199999}});
    const avisoForense=await forense();
    assert.equal(avisoForense.estado,"REQUIERE_CONCILIACION");
+   const dictamenDescuadre=await auditarSnapshot(String(usuarioId),
+    String(origenVigente._id));
+   assert.equal(dictamenDescuadre.estado,"REQUIERE_CONCILIACION");
+   assert.ok(dictamenDescuadre.anomalías.some(
+    x=>x.codigo==="RESERVA_DESCUADRADA"));
+
    assert.ok(avisoForense.anomalías.some(x=>x.codigo==="RESERVA_DESCUADRADA"));
 
    await assert.rejects(()=>consultarCuotas(String(usuarioId),
