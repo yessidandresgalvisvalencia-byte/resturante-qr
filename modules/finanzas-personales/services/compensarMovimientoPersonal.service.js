@@ -8,6 +8,7 @@ const Evento=require("../models/EventoCompensatorioPersonal");
 const {crearRegistrador}=require("./registradorCompensacionPersonal.service");
 const {vigente}=require("./estadoCompensadoPersonal.service");
 const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
+const {liberarReserva}=require("./liberarReservaCompensadaPersonal.service");
 const registrar=crearRegistrador();
 const error=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
 // Preparación de integración: NO conectado a rutas. Las consultas actuales todavía necesitan
@@ -29,14 +30,17 @@ function crearAplicador({OutboxModelo=Outbox}={}){
     if(!fuente)throw error("Movimiento no disponible",404);
     if(fuente.estado!=="ACTIVA"||!["INGRESO","GASTO"].includes(fuente.tipo)||
        fuente.moneda!=="COP"||fuente.impactoCaja!==true||fuente.medioPago==="CREDITO"||
-       fuente.recurrente||fuente.recurrenteOrigenId||fuente.prestamoId||!fuente.cuentaId)
+       fuente.recurrente||fuente.prestamoId||!fuente.cuentaId)
      throw error("Movimiento requiere tratamiento especial; compensación de caja bloqueada");
+    if(fuente.recurrenteOrigenId&&(tipo!=="ANULACION"||fuente.tipo!=="GASTO"))
+     throw error("El abono vinculado solo admite anulación compensatoria");
     const original={usuarioId:String(fuente.usuarioId),movimientoId:String(fuente._id),
      tipo:fuente.tipo,montoMinor:fuente.montoMinor,concepto:fuente.concepto,categoria:fuente.categoria};
     const historial=await Evento.find({usuarioId:original.usuarioId,movimientoId:original.movimientoId},
      {_id:0}).sort({secuencia:1}).session(session).lean();
     const estado=vigente(original,historial);
     if(estado.anulado)throw error("Movimiento ya anulado");
+    if(fuente.recurrenteOrigenId)await liberarReserva({usuarioId,fuente,montoMinor:estado.actual.montoMinor,session});
     evento=await registrar({original:estado.actual,tipo,cambios,idempotencyKey,
      fechaISO:new Date().toISOString()},{session});
     const delta=Number(BigInt(evento.deltaCajaMinor));

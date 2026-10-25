@@ -47,7 +47,7 @@ function proyectarCaja(datos){
  for(const e of datos.eventos){
   const fuente=porId.get(e.movimientoId);if(!fuente)continue;
   if(fuente.impactoCaja!==true||fuente.medioPago==="CREDITO"||fuente.recurrente||
-     fuente.recurrenteOrigenId||fuente.prestamoId)integridad();
+     (fuente.recurrenteOrigenId&&e.tipo!=="ANULACION")||fuente.prestamoId)integridad();
   const delta=BigInt(e.deltaCajaMinor);if(delta===0n)continue;
   const monto=Number(delta<0n?-delta:delta);
   if(!Number.isSafeInteger(monto))integridad();

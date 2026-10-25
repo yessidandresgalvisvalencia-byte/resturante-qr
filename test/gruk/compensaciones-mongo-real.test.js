@@ -15,6 +15,8 @@ const finanzas=require("../../modules/finanzas-personales/services/finanzasPerso
 const hormiga=require("../../modules/finanzas-personales/services/gastosHormigaResumen.service");
 const patrimonio=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
 const home=require("../../modules/finanzas-personales/services/homePersonal.service");
+const Reserva=require("../../modules/finanzas-personales/models/reservaCuotaRecurrente.model");
+const {periodoRecurrenteColombia}=require("../../modules/finanzas-personales/services/vinculoRecurrenteV81.service");
 const {crearRegistrador,GENESIS}=require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
 const {validarMongoPruebasV81}=require("../../scripts/exigir-mongo-v81-pruebas");
@@ -25,13 +27,13 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
 },async()=>{
  validarMongoPruebasV81(uri);
  await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
- const usuarios=Array.from({length:5},()=>new mongoose.Types.ObjectId().toString());
+ const usuarios=Array.from({length:6},()=>new mongoose.Types.ObjectId().toString());
  const movimientoId=new mongoose.Types.ObjectId().toString();
  const original={usuarioId:usuarios[0],movimientoId,tipo:"GASTO",montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion"};
  const registrar=crearRegistrador();
  const solicitud=(key,orig=original)=>({original:orig,tipo:"CORRECCION",cambios:{montoMinor:22000},idempotencyKey:key,fechaISO:"2026-10-25T15:00:00.000Z"});
  try{
-  await Promise.all([Evento.init(),Cursor.init(),Cuenta.init(),Transaccion.init(),Outbox.init()]);
+  await Promise.all([Evento.init(),Cursor.init(),Cuenta.init(),Transaccion.init(),Outbox.init(),Reserva.init()]);
   const primero=await registrar(solicitud("correccion"));
   assert.equal(primero.deltaCajaMinor,"3000");
   await assert.rejects(registrar(solicitud("obsoleta")),/desactualizado/);
@@ -85,7 +87,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   }finally{await session.endSession();}
   // Orquestador real: fuente inalterada, cuenta por ID y outbox en la misma transacción.
   const aplicar=crearAplicador();
-  for(const usuarioId of usuarios.slice(3)){
+  for(const usuarioId of usuarios.slice(3,5)){
    const ancla=new Date(Date.now()-3600000);
    const cuenta=await Cuenta.create({usuarioId,nombre:"CAJA",tipo:"EFECTIVO",saldoMinor:50000,
     saldoAnclaMinor:50000,saldoAnclaEn:ancla,saldoVerificadoEn:ancla,requiereReconciliacion:false});
@@ -163,6 +165,38 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     await assert.rejects(consultarPeriodo({...periodo,incluirAnuladas:true}),/INTEGRIDAD_LEDGER/);
    }
   }
+  const usuarioId=usuarios[5];
+  const cuentaRecurrente=await Cuenta.create({usuarioId,nombre:"RECURRENTE",tipo:"EFECTIVO",saldoMinor:60000});
+  const origen=await Transaccion.create({usuarioId,cuentaId:cuentaRecurrente._id,tipo:"GASTO",montoMinor:100000,
+   concepto:"Arriendo",categoria:"Fijos",recurrente:true,frecuencia:"MENSUAL",impactoCaja:false,fecha:new Date("2026-09-01T15:00:00Z")});
+  const abonos=await Transaccion.create([25000,15000].map((montoMinor,i)=>({usuarioId,cuentaId:cuentaRecurrente._id,
+   cuenta:"RECURRENTE",tipo:"GASTO",montoMinor,concepto:"Abono arriendo",categoria:"Fijos",
+   recurrenteOrigenId:origen._id,fecha:new Date(`2026-10-${15+i}T15:00:00Z`)})));
+  const abonoOriginal=await Transaccion.findById(abonos[0]._id).lean();
+  const {inicio,fin}=periodoRecurrenteColombia({fechaOrigen:origen.fecha,fechaPago:abonos[0].fecha,frecuencia:"MENSUAL"});
+  const reserva=await Reserva.create({usuarioId,origenId:origen._id,periodoInicio:inicio,periodoFin:fin,
+   importeCuotaMinor:100000,reservadoMinor:40000});
+  const anularAbono=(id,key)=>({usuarioId,movimientoId:String(id),tipo:"ANULACION",idempotencyKey:key});
+  await assert.rejects(aplicar({...anularAbono(abonos[0]._id,"corregir_abono"),tipo:"CORRECCION",cambios:{montoMinor:20000}}),/solo admite anulación/);
+  await Reserva.updateOne({_id:reserva._id},{$set:{reservadoMinor:39000}});
+  await assert.rejects(aplicar(anularAbono(abonos[0]._id,"reserva_inconsistente")),/desincronizada/);
+  assert.equal(await Evento.countDocuments({usuarioId}),0);
+  await Reserva.updateOne({_id:reserva._id},{$set:{reservadoMinor:40000}});
+  const falloRecurrente=crearAplicador({OutboxModelo:{create:async()=>{throw Error("AUDITORIA_RECURRENTE_FALLIDA");}}});
+  await assert.rejects(falloRecurrente(anularAbono(abonos[0]._id,"fallar_abono")),/AUDITORIA_RECURRENTE_FALLIDA/);
+  assert.equal((await Reserva.findById(reserva._id).lean()).reservadoMinor,40000);
+  assert.equal((await Cuenta.findById(cuentaRecurrente._id).lean()).saldoMinor,60000);
+  assert.equal(await Evento.countDocuments({usuarioId}),0);
+  const carreraAbonos=await Promise.allSettled([
+   aplicar(anularAbono(abonos[0]._id,"anular_abono_a")),aplicar(anularAbono(abonos[0]._id,"anular_abono_b"))]);
+  assert.equal(carreraAbonos.filter(x=>x.status==="fulfilled").length,1);
+  assert.equal((await Reserva.findById(reserva._id).lean()).reservadoMinor,15000);
+  assert.equal((await Cuenta.findById(cuentaRecurrente._id).lean()).saldoMinor,85000);
+  await aplicar(anularAbono(abonos[1]._id,"anular_segundo_abono"));
+  assert.equal((await Reserva.findById(reserva._id).lean()).reservadoMinor,0);
+  assert.equal((await Cuenta.findById(cuentaRecurrente._id).lean()).saldoMinor,100000);
+  assert.equal(await Evento.countDocuments({usuarioId}),2);
+  assert.deepEqual(await Transaccion.findById(abonos[0]._id).lean(),abonoOriginal);
  }finally{
   // Los modelos rechazan deletes: limpieza directa SOLO tras validar el destino loopback de pruebas.
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios}});
@@ -170,6 +204,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   await Cuenta.deleteMany({usuarioId:{$in:usuarios}});
   await Transaccion.deleteMany({usuarioId:{$in:usuarios}});
   await Outbox.deleteMany({usuarioId:{$in:usuarios}});
+  await Reserva.deleteMany({usuarioId:{$in:usuarios}});
   await mongoose.disconnect();
  }
 });
