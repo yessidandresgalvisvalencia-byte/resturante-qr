@@ -174,6 +174,17 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
     String(origenVigente._id));
    assert.equal(dictamenDescuadre.estado,"REQUIERE_CONCILIACION");
    assert.equal(dictamenDescuadre.planReparacion.acciones[0].deltaMinor,"1");
+   const huellaAnterior=dictamenDescuadre.planReparacion.huellaDiagnostico;
+   const revisado=await auditarSnapshot(String(usuarioId),
+    String(origenVigente._id),{huellaEsperada:huellaAnterior});
+   assert.equal(revisado.vigenciaPlan.vigente,true);
+   assert.equal(revisado.vigenciaPlan.autorizaEscritura,false);
+   await Reserva.updateOne({_id:reservaVigente._id},
+    {$set:{reservadoMinor:199998}});
+   await assert.rejects(()=>auditarSnapshot(String(usuarioId),
+    String(origenVigente._id),{huellaEsperada:huellaAnterior}),
+    e=>e.statusCode===409&&/desactualizado/.test(e.message));
+
    assert.equal(dictamenDescuadre.planReparacion.autorizaEscritura,false);
    assert.ok(dictamenDescuadre.anomalías.some(
     x=>x.codigo==="RESERVA_DESCUADRADA"));
