@@ -8,6 +8,7 @@ const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.
 const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
 const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");
 const {crearAplicador}=require("../../modules/finanzas-personales/services/compensarMovimientoPersonal.service");
+const {consultarPeriodo}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
 const {crearRegistrador,GENESIS}=require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
 const {validarMongoPruebasV81}=require("../../scripts/exigir-mongo-v81-pruebas");
@@ -84,16 +85,26 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion",fecha:new Date()});
    const fuenteAntes=await Transaccion.findById(tx._id).lean();
    const solicitud={usuarioId,movimientoId:String(tx._id),tipo:"CORRECCION",
-    cambios:{montoMinor:22000},idempotencyKey:"ajuste_caja"};
+    cambios:{montoMinor:22000,categoria:"Otros"},idempotencyKey:"ajuste_caja"};
+   const periodo={usuarioId,desde:new Date(+fuenteAntes.fecha-1).toISOString(),
+    hasta:new Date(+fuenteAntes.fecha+1).toISOString()};
    if(usuarioId===usuarios[3]){
     await assert.rejects(aplicar({...solicitud,usuarioId:usuarios[4]}),e=>e.statusCode===404);
     await aplicar(solicitud);
     assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,53000);
+    const lectura=await consultarPeriodo({...periodo,categoria:"Otros"});
+    assert.equal(lectura.length,1);
+    assert.equal(lectura[0].montoMinor,22000);
+    assert.equal((await consultarPeriodo({...periodo,categoria:"Alimentacion"})).length,0);
     await assert.rejects(aplicar(solicitud),/Idempotencia/);
     await aplicar({...solicitud,tipo:"ANULACION",cambios:{},idempotencyKey:"anular_caja"});
     assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,75000);
     assert.equal(await Outbox.countDocuments({usuarioId}),2);
     assert.equal(await Evento.countDocuments({usuarioId}),2);
+    assert.equal((await consultarPeriodo(periodo)).length,0);
+    const anuladas=await consultarPeriodo({...periodo,incluirAnuladas:true});
+    assert.equal(anuladas.length,1);
+    assert.equal(anuladas[0].estado,"ANULADA");
    }else{
     const fallarAuditoria=crearAplicador({OutboxModelo:{create:async()=>{throw Error("OUTBOX_FALLIDO");}}});
     await assert.rejects(fallarAuditoria(solicitud),/OUTBOX_FALLIDO/);
@@ -105,6 +116,10 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     await assert.rejects(aplicar({...solicitud,movimientoId:String(recurrente._id)}),/tratamiento especial/);
    }
    assert.deepEqual(await Transaccion.findById(tx._id).lean(),fuenteAntes);
+   if(usuarioId===usuarios[3]){
+    await Evento.collection.deleteOne({usuarioId,secuencia:1});
+    await assert.rejects(consultarPeriodo({...periodo,incluirAnuladas:true}),/INTEGRIDAD_LEDGER/);
+   }
   }
  }finally{
   // Los modelos rechazan deletes: limpieza directa SOLO tras validar el destino loopback de pruebas.
