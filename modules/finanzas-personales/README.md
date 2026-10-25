@@ -445,3 +445,28 @@ ficticia en una base de pruebas efímera, sin tocar ningún saldo.
 Antes de habilitar reparaciones se requieren autorización,
 transacción ACID, reauditoría en el mismo snapshot, fence de
 concurrencia, verificación del índice y permisos insert-only (#407).
+
+## Ejecutor ACID restringido de reserva — interno, sin API pública
+
+`ejecutarReparacionReservaPersonal.service.js` implementa un caso
+limitado de reparación: **una sola reserva existente con un único
+RESERVA_DESCUADRADA**. Verifica el índice único de idempotencia ya
+instalado, abre transacción MongoDB `snapshot` + `majority`,
+consulta de manera secuencial obligación, todos sus pagos, reservas,
+cadena, cursor y cancelación; contrasta la huella completa y el
+diagnóstico esperado, y reaudita con el motor forense dentro de la
+misma sesión. Exige importe entero, CAS de reserva con identidad y
+período completos y toma un fence sobre el cursor del usuario.
+Confirma la reserva y la evidencia append-only en esa transacción;
+si una falla, se revierte todo. Nunca cambia `Cuenta.saldoMinor`
+ni escribe en `TransaccionPersonal`.
+
+**No implementar un endpoint sin revisión adicional:** el ejecutor
+actualmente no verifica la autorización de un actor invocante ni
+gestiona la aprobación administrativa del plan; solo acepta
+identificadores y huellas. Mantenerlo inaccesible desde HTTP.
+No atiende reservas faltantes, dos o más anomalías, períodos corruptos
+ni abonos con compensaciones no conciliadas. Una reparación de una
+reserva no autoriza `Disponible Hoy`; aún falta revisar privilegios
+Mongo insert-only, límites de escalamiento, trazabilidad de actor y
+controles de acceso, y rutas heredadas que mutan el ledger (#407).
