@@ -3,6 +3,7 @@ const test=require("node:test"),assert=require("node:assert/strict");
 const {construirEventoReconciliacionReserva,verificarEventoReconciliacionReserva}=
  require("../../modules/finanzas-personales/services/eventoReconciliacionReservaPersonal.service");
 const args={
+ actorId:"507f1f77bcf86cd799439015",
  usuarioId:"507f1f77bcf86cd799439011",
  origenId:"507f1f77bcf86cd799439012",
  reservaId:"507f1f77bcf86cd799439013",
@@ -28,7 +29,8 @@ test("rechaza adulteración de datos, hashes y campos no autorizados",()=>{
   {...e,deltaMinor:"9000"},
   {...e,hashEvento:"0".repeat(64)},
   {...e,otroDato:"forjado"},
-  {...e,usuarioId:"507f1f77bcf86cd799439099"}
+  {...e,usuarioId:"507f1f77bcf86cd799439099"},
+  {...e,actorId:"507f1f77bcf86cd799439099"}
  ])assert.equal(verificarEventoReconciliacionReserva(tampered),false);
 });
 test("permite delta negativo exacto y rechaza propuesta sin efecto",()=>{
@@ -49,6 +51,7 @@ test("nunca permite float, importes negativos ni fuera del rango seguro",()=>{
 test("identificador, período, idempotencia y fecha son obligatorios",()=>{
  for(const mod of [
   {usuarioId:"admin"},
+  {actorId:"no-autenticado"},
   {reservaId:"otro"},
   {idempotencyHash:"mal"},
   {periodoInicio:new Date("inválido")},
