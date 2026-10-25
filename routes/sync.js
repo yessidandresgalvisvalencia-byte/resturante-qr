@@ -117,7 +117,12 @@ router.post("/stage-orders",authMiddleware,async(req,res)=>{
    return res.status(403).json({ok:false,error:code});
   if(["OFFLINE_INVALID_IDS","OFFLINE_STAGE_CONFIRMATION_REQUIRED"].includes(code))
    return res.status(400).json({ok:false,error:code});
-  if(["OFFLINE_TRANSACTION_UNAVAILABLE","OFFLINE_INDEX_NOT_READY","OFFLINE_DB_UNAVAILABLE"].includes(code))
+  if(code==="OFFLINE_TRANSACTION_UNAVAILABLE"){
+   res.set("Cache-Control","no-store");
+   return res.status(503).json({ok:false,applied:false,cobrado:false,
+    retryable:true,error:code});
+  }
+  if(["OFFLINE_INDEX_NOT_READY","OFFLINE_DB_UNAVAILABLE"].includes(code))
    return res.status(503).json({ok:false,error:code});
   if(typeof code==="string"&&code.startsWith("OFFLINE_"))
    return res.status(409).json({ok:false,error:code});
