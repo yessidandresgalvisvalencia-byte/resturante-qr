@@ -27,7 +27,7 @@ function validate(context,eventIds){
  if(new Set(ids).size!==ids.length)fail("OFFLINE_INVALID_IDS");
  return {identity:Object.freeze(scope),ids:Object.freeze(ids)};
 }
-async function readOfflineReconciliation({db,context,eventIds}){
+async function readOfflineReconciliation({db,context,eventIds,session=null}){
  // Authorization and ULIDs must be immutable before touching any adapter.
  const {identity,ids}=validate(context,eventIds);
  if(!db||typeof db.collection!=="function")fail("OFFLINE_DB_UNAVAILABLE");
@@ -41,7 +41,7 @@ async function readOfflineReconciliation({db,context,eventIds}){
  ];
  const sets=await Promise.all(specs.map(async([name,projection])=>
   db.collection(name).find(name==="gruk_offline_inbox"?{...scope,actorId:identity.actorId}:scope,
-   {projection:{_id:0,empresaId:1,sedeId:1,actorId:1,...projection},limit:101}).toArray()));
+   {projection:{_id:0,empresaId:1,sedeId:1,actorId:1,...projection},limit:101,...(session?{session}:{})}).toArray()));
  const maps=sets.map((rows,setIndex)=>{
   if(!Array.isArray(rows)||rows.length>100)
    fail("OFFLINE_RECONCILIATION_EVIDENCE_INVALID");

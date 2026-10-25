@@ -33,20 +33,21 @@ async function recoverOfflineStagedBatch({db,context,eventIds}){
  if(new Set(ids).size!==ids.length)fail();
  if(!db||typeof db.collection!=="function")fail();
  const scopedContext=Object.freeze(identity),scopedIds=Object.freeze(ids);
- const statuses=await readOfflineReconciliation({db,context:scopedContext,eventIds:scopedIds});
+ async function verifyInSnapshot(session){
+ const statuses=await readOfflineReconciliation({db,context:scopedContext,eventIds:scopedIds,session});
  if(!Array.isArray(statuses)||statuses.length!==scopedIds.length||
     statuses.some(r=>r.status!=="EN_REVISION"||r.staged!==true||
      r.applied!==false||r.financiallyReconciled!==false))fail();
  const scope={empresaId:scopedContext.empresaId,sedeId:scopedContext.sedeId,
   actorId:scopedContext.actorId,eventId:{$in:scopedIds}};
  const inbox=await db.collection("gruk_offline_inbox").find(scope,{
-  projection:{_id:0,empresaId:1,sedeId:1,actorId:1,eventId:1,status:1,financialStageStatus:1,inventoryApplied:1,stagedBy:1}
+  projection:{_id:0,empresaId:1,sedeId:1,actorId:1,eventId:1,status:1,financialStageStatus:1,inventoryApplied:1,stagedBy:1},...(session?{session}:{})
  }).toArray();
  if(!completeRecords(inbox,scopedIds.length)||new Set(inbox.map(x=>x.eventId)).size!==scopedIds.length||
    inbox.some(x=>!validRecord(x,scopedContext)||!scopedIds.includes(x.eventId)||x.status!=="EN_REVISION"||x.financialStageStatus!=="PENDIENTE_CONTABILIZACION"||
      x.inventoryApplied!==true||x.stagedBy!==scopedContext.actorId))fail();
  const sales=await db.collection("gruk_offline_ventas").find(scope,{
-  projection:{_id:0,empresaId:1,sedeId:1,actorId:1,eventId:1,status:1,totalCop:1}
+  projection:{_id:0,empresaId:1,sedeId:1,actorId:1,eventId:1,status:1,totalCop:1},...(session?{session}:{})
  }).toArray();
  if(!completeRecords(sales,scopedIds.length)||new Set(sales.map(x=>x.eventId)).size!==scopedIds.length)fail();
  let total=0n;
@@ -57,7 +58,7 @@ async function recoverOfflineStagedBatch({db,context,eventIds}){
   total+=BigInt(sale.totalCop);
  }
  const cash=await db.collection("gruk_offline_caja_intenciones").find(scope,{
-  projection:{_id:0,empresaId:1,sedeId:1,actorId:1,eventId:1,status:1,cobrado:1,montoCop:1}
+  projection:{_id:0,empresaId:1,sedeId:1,actorId:1,eventId:1,status:1,cobrado:1,montoCop:1},...(session?{session}:{})
  }).toArray();
  if(!completeRecords(cash,scopedIds.length)||new Set(cash.map(x=>x.eventId)).size!==scopedIds.length||
    cash.some(x=>!validRecord(x,scopedContext)||!scopedIds.includes(x.eventId)||x.status!=="PENDIENTE_CONCILIACION"||
@@ -69,5 +70,25 @@ async function recoverOfflineStagedBatch({db,context,eventIds}){
  if(total>BigInt(Number.MAX_SAFE_INTEGER))fail();
  return Object.freeze({status:"PENDIENTE_CONTABILIZACION",alreadyStaged:true,
   applied:false,cobrado:false,processedEvents:scopedIds.length,totalCop:total.toString()});
+ }
+ // Real Mongo supports a stable snapshot across all seven journal reads.
+ // Keep a single session and fail closed on transaction or session errors.
+ if(typeof db.client?.startSession==="function"){
+  const session=db.client.startSession();
+  try{
+   if(!session||typeof session.withTransaction!=="function")fail();
+   let verified;
+   await session.withTransaction(async()=>{
+    verified=await verifyInSnapshot(session);
+   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
+   if(!verified)fail();
+   return verified;
+  }finally{
+   if(session&&typeof session.endSession==="function")await session.endSession();
+  }
+ }
+ // Legacy in-memory adapters without Mongo sessions are used in unit tests.
+ // They cannot provide cross-collection snapshot guarantees.
+ return verifyInSnapshot(null);
 }
 module.exports={recoverOfflineStagedBatch};
