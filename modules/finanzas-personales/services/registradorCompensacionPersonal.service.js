@@ -11,6 +11,7 @@ function conflicto(mensaje){
 }
 function verificarIndices(indices,nombre,campos){
  return indices.some(i=>i.name===nombre&&i.unique===true&&
+  !i.partialFilterExpression&&i.sparse!==true&&
   Object.keys(i.key||{}).length===campos.length&&campos.every(([k,v])=>i.key[k]===v));
 }
 async function exigirIndices({EventoModelo=Evento,CursorModelo=Cursor}={}){
