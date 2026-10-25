@@ -268,6 +268,24 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    const solicitud={...antiguo,
     huellaEstadoEsperada:previoReparacion.huellaEstado,
     huellaDiagnostico:previoReparacion.planReparacion.huellaDiagnostico};
+   const sinAcceso=crearEjecutorReparacionReserva({
+    autorizarActor:async()=>false
+   });
+   await assert.rejects(()=>sinAcceso(solicitud),
+    e=>e.statusCode===403);
+   let verificacion=0;
+   const accesoRevocado=crearEjecutorReparacionReserva({
+    autorizarActor:async()=>{
+     verificacion+=1;
+     return verificacion===1;
+    }
+   });
+   await assert.rejects(()=>accesoRevocado(solicitud),
+    e=>e.statusCode===403);
+   assert.equal((await Reserva.findById(reservaVigente._id).lean()).reservadoMinor,
+    199999);
+   assert.equal(await EventoReparacion.countDocuments({
+    usuarioId,idempotencyHash:solicitud.idempotencyHash}),0);
    const salidaReparacion=await ejecutarReserva(solicitud);
    assert.equal(salidaReparacion.deltaMinor,"1");
    assert.equal(salidaReparacion.saldoCajaAlterado,false);
