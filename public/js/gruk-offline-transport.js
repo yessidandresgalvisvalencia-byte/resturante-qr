@@ -13,14 +13,20 @@ function requireSameIdentity(context,identity){
  if(IDENTITY_FIELDS.some(k=>context[k]!==identity[k]))
    throw Error("SYNC_SESSION_CHANGED");
 }
-async function synchronize({outbox,token,fetchFn,context,limit=100}) {
+function requireActiveSession(isSessionCurrent){
+ if(isSessionCurrent!==undefined&&typeof isSessionCurrent!=="function")throw Error("SYNC_SESSION_GUARD_REQUIRED");
+ if(isSessionCurrent&&!isSessionCurrent())throw Error("SYNC_SESSION_CHANGED");
+}
+async function synchronize({outbox,token,fetchFn,context,limit=100,isSessionCurrent}) {
  const identity=captureIdentity(context);
+ requireActiveSession(isSessionCurrent);
  if(!outbox?.listPending || !outbox?.markReceived) throw new Error("SYNC_OUTBOX_REQUIRED");
  if(typeof token!=="string" || !token.trim()) throw new Error("SYNC_AUTH_REQUIRED");
  if(typeof fetchFn!=="function") throw new Error("SYNC_FETCH_REQUIRED");
  if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("SYNC_LIMIT");
  const events=await outbox.listPending(limit,identity);
  requireSameIdentity(context,identity);
+ requireActiveSession(isSessionCurrent);
  if(!Array.isArray(events)||events.length>limit||
     events.some(e=>typeof e?.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(e.eventId)||
       IDENTITY_FIELDS.some(k=>e[k]!==identity[k]))||
@@ -45,8 +51,10 @@ async function synchronize({outbox,token,fetchFn,context,limit=100}) {
  // Fail closed if the user switches company/session while the HTTP reply is in flight.
  // A new session can retry these original ULIDs with its own verified identity.
  requireSameIdentity(context,identity);
+ requireActiveSession(isSessionCurrent);
  for(const eventId of acknowledged){
    requireSameIdentity(context,identity);
+   requireActiveSession(isSessionCurrent);
    const persisted=await outbox.markReceived(eventId,identity);
    if(persisted!==true)throw new Error("SYNC_LOCAL_ACK_NOT_PERSISTED");
  }
@@ -55,13 +63,13 @@ async function synchronize({outbox,token,fetchFn,context,limit=100}) {
 
 // Drain the durable outbox in bounded, server-idempotent pages. A failure stops
 // immediately; unacknowledged events stay pending for an operator retry.
-async function synchronizeAll({outbox,token,fetchFn,context,limit=100,maxBatches=100}) {
+async function synchronizeAll({outbox,token,fetchFn,context,limit=100,maxBatches=100,isSessionCurrent}) {
  if(!Number.isInteger(limit)||limit<1||limit>100||
     !Number.isInteger(maxBatches)||maxBatches<1||maxBatches>100)
    throw Error("SYNC_LIMIT");
  let sent=0,received=0,batches=0;
  while(batches<maxBatches){
-  const result=await synchronize({outbox,token,fetchFn,context,limit});
+  const result=await synchronize({outbox,token,fetchFn,context,limit,isSessionCurrent});
   if(result.sent===0)return Object.freeze({sent,received,batches,complete:true});
   sent+=result.sent;received+=result.received;batches++;
   if(result.sent<limit)return Object.freeze({sent,received,batches,complete:true});
@@ -70,14 +78,16 @@ async function synchronizeAll({outbox,token,fetchFn,context,limit=100,maxBatches
  return Object.freeze({sent,received,batches,complete:false});
 }
 
-async function reconcileReceived({outbox,token,fetchFn,context,limit=100}) {
+async function reconcileReceived({outbox,token,fetchFn,context,limit=100,isSessionCurrent}) {
  const identity=captureIdentity(context);
+ requireActiveSession(isSessionCurrent);
  if(typeof outbox?.listReceived!=="function"||typeof outbox?.markReconciled!=="function")throw Error("SYNC_OUTBOX_REQUIRED");
  if(typeof token!=="string"||!token.trim())throw Error("SYNC_AUTH_REQUIRED");
  if(typeof fetchFn!=="function")throw Error("SYNC_FETCH_REQUIRED");
  if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("SYNC_LIMIT");
  const received=await outbox.listReceived(limit,identity);
  requireSameIdentity(context,identity);
+ requireActiveSession(isSessionCurrent);
  if(received.length===0)return Object.freeze({checked:0,updated:0});
  const ids=received.map(x=>x?.eventId);
  if(ids.some(x=>typeof x!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(x))||
@@ -103,9 +113,11 @@ async function reconcileReceived({outbox,token,fetchFn,context,limit=100}) {
   validated.add(event.eventId);
  }
  requireSameIdentity(context,identity);
+ requireActiveSession(isSessionCurrent);
  let updated=0;
  for(const event of result.events){
   requireSameIdentity(context,identity);
+  requireActiveSession(isSessionCurrent);
   // Ambiguous missing remote identity must not overwrite the local receipt.
   if(event.status==="NO_ENCONTRADO")continue;
   if(await outbox.markReconciled(event.eventId,identity,event)===true)updated++;
