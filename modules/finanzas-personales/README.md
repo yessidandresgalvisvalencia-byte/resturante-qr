@@ -422,3 +422,26 @@ seguridad de un ejecutor concurrente. Antes de activar reparaciones
 faltan: transacción ACID con fence compartido frente a escrituras
 legadas, reauditoría dentro de esa transacción, índice de idempotencia,
 evento append-only, rollback, prueba de carreras y permisos. #407.
+
+## Evento de reconciliación de reserva (evidencia, aún sin ejecución)
+
+`models/EventoReconciliacionReservaPersonal.js` define un
+documento append-only con índice único de
+`(usuarioId, idempotencyHash)`, identidad de obligación/reserva,
+período, huellas previas y de diagnóstico, importes antes/después,
+delta y hash SHA-256. `eventoReconciliacionReservaPersonal.service.js`
+construye y comprueba el payload canónico de forma determinística,
+con acumulados BigInt y límites monetarios seguros.
+
+Se prueban las restricciones del modelo en MongoDB real aislado:
+una segunda inserción con la misma idempotencia falla, y Mongoose
+rechaza UPDATE y DELETE. Estas defensas de aplicación NO bastan
+contra privilegios directos en MongoDB. La huella del evento NO forma
+una cadena global ni está anclada fuera de la base.
+
+**Importante:** hoy no existe ejecutor que escriba estos eventos
+junto con una actualización de reserva. Los tests insertan evidencia
+ficticia en una base de pruebas efímera, sin tocar ningún saldo.
+Antes de habilitar reparaciones se requieren autorización,
+transacción ACID, reauditoría en el mismo snapshot, fence de
+concurrencia, verificación del índice y permisos insert-only (#407).
