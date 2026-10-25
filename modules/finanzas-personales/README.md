@@ -317,3 +317,16 @@ servicio puro no realiza por sí mismo la lectura transaccional.
 No se conecta a `Disponible Hoy` ni a ninguna API pública y devuelve
 `aptoParaDisponibleHoy:false`; la remediación de reservas con
 historial append-only sigue pendiente (#407).
+
+## Fence de escritura para compensaciones de cuotas recurrentes
+
+`registradorCompensacionPersonal.service.js` bloquea ANTES de
+actualizar el cursor, insertar eventos o aplicar deltas de caja cualquier
+compensación genérica cuyo asiento tenga `recurrenteOrigenId` o
+`recurrente:true`. Estos movimientos requieren un aplicador propio
+que sincronice **evento, saldo y reserva recurrente** en una sola
+transacción ACID. Hasta que exista, ni el registrador de bajo nivel
+ni la fábrica financiera deben producir compensaciones sobre ellos.
+La prueba MongoDB real verifica rechazo 409, saldo y eventos intactos.
+La ruta legada de anulación de abonos continúa siendo otra deuda técnica
+de inmutabilidad (#407), no se ha migrado automáticamente.
