@@ -96,6 +96,12 @@ function crearRegistrador({
     if(!asiento)throw conflicto("Movimiento original inexistente o ajeno");
     if(asiento.estado!=="ACTIVA"||asiento.impactoCaja===false)
       throw conflicto("Movimiento original ya alterado o sin impacto de caja");
+    // Una cuota recurrente utiliza un cerrojo mutable de reserva por
+    // período. Este ledger no tiene aplicador ACID para esa reserva:
+    // rechazarlo antes de tocar cursor, hash, cuenta u outbox, incluso
+    // si se usa accidentalmente el registrador de bajo nivel.
+    if(asiento.recurrenteOrigenId||asiento.recurrente===true)
+      throw conflicto("Abono u obligación recurrente exige compensación de reservas dedicada");
     let canonico;
     try{
       canonico=originalVerificado({
