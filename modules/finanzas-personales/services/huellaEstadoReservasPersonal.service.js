@@ -46,7 +46,7 @@ function huellaEstadoReservas({usuarioId,origen,pagos,reservas,eventos,cursor,ca
  const cierres=ordenarUnico(reservas.map(r=>{
   if(oid(r.usuarioId)!==uid||oid(r.origenId)!==id)
    fallo("reserva ajena");
-  return {id:oid(r._id),inicio:fecha(r.periodoInicio),
+  return {inicio:fecha(r.periodoInicio),
    fin:fecha(r.periodoFin),reservadoMinor:entero(r.reservadoMinor),
    importeCuotaMinor:entero(r.importeCuotaMinor,{positivo:true})};
  }),"inicio");
