@@ -16,7 +16,12 @@ function fixture({missing=false,tampered=false,paid=false,duplicate=false}={}){
  if(tampered)rows.gruk_offline_inbox[0].inventoryApplied=false;
  if(paid)rows.gruk_offline_caja_intenciones[0].cobrado=true;
  if(duplicate)rows.gruk_offline_ventas.push(rows.gruk_offline_ventas[0]);
- return {collection(name){calls++;return {find(q){
+ return {client:{startSession:()=>({
+  withTransaction:async(fn,options)=>{
+   assert.equal(options.readConcern.level,"snapshot");
+   await fn();
+  },endSession:async()=>{}
+ })},collection(name){calls++;return {find(q){
   assert.equal(q.empresaId,"a");assert.equal(q.sedeId,"b");
   if(name==="gruk_offline_inbox")assert.equal(q.actorId,"op");
   assert.deepEqual(q.eventId.$in,ids);
@@ -46,7 +51,7 @@ test("recovery rejects financial rows whose returned tenant, site or actor diffe
  for(const name of ["gruk_offline_inbox","gruk_offline_ventas","gruk_offline_caja_intenciones"]){
   for(const key of ["empresaId","sedeId","actorId"]){
    const base=fixture();
-   const adapter={collection(collectionName){
+   const adapter={client:base.client,collection(collectionName){
     const collection=base.collection(collectionName);
     return {find(query,options){
      const cursor=collection.find(query,options);
@@ -66,7 +71,7 @@ test("recovery rejects financial rows whose returned tenant, site or actor diffe
 test("Capa 2: recovery rejects malformed storage collections and unsafe individual COP values",async()=>{
  for(const name of ["gruk_offline_inbox","gruk_offline_ventas","gruk_offline_caja_intenciones"]){
   const base=fixture();
-  const db={collection(collectionName){
+  const db={client:base.client,collection(collectionName){
    const collection=base.collection(collectionName);
    return {find(query,options){
     const original=collection.find(query,options);
@@ -117,7 +122,7 @@ test("Capa 2: recuperación niega getters tenant e IDs antes de consultar Mongo"
 test("Capa 2: recuperación fija scope y ULIDs aunque cambie el caller durante reconciliación",async()=>{
  const context={...ctx},eventIds=[...ids],base=fixture();
  let mutated=false;
- const db={collection(name){
+ const db={client:base.client,collection(name){
   const collection=base.collection(name);
   if(name==="gruk_offline_inbox")return {find(query,opts){
    assert.equal(query.empresaId,ctx.empresaId);
@@ -138,6 +143,17 @@ test("Capa 2: recuperación fija scope y ULIDs aunque cambie el caller durante r
  assert.equal(outcome.processedEvents,2);
  assert.equal(outcome.applied,false);
  assert.equal(outcome.cobrado,false);
+});
+
+test("Capa 2: sin sesión Mongo no se consultan diarios ni se confirma replay",async()=>{
+ for(const client of [undefined,{}, {startSession:()=>null},
+  {startSession:()=>({endSession:async()=>{}})}]){
+  let reads=0;
+  const db={client,collection(){reads++;throw Error("UNAUTHORIZED_READ");}};
+  await assert.rejects(recover({db,context:ctx,eventIds:ids}),
+   {code:"OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW"});
+  assert.equal(reads,0);
+ }
 });
 
 test("Capa 2: recuperación comparte snapshot transaccional en los siete diarios",async()=>{

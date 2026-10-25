@@ -11,7 +11,12 @@ const evidence={
 };
 function fixture(poisonName){
  const counts=new Map();
- return {collection(name){
+ return {client:{startSession:()=>({
+  withTransaction:async(fn,options)=>{
+   assert.equal(options.readConcern.level,"snapshot");
+   await fn();
+  },endSession:async()=>{}
+ })},collection(name){
   const number=counts.get(name)||0;counts.set(name,number+1);
   return {find(q){
    assert.equal(q.empresaId,context.empresaId);
