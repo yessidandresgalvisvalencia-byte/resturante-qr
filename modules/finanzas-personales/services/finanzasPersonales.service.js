@@ -1,13 +1,31 @@
 "use strict";
 const mongoose=require("mongoose");
+const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
+const {resumenDesde,diarioDesde}=require("./reportesCompensadosPersonal.service");
 const PrestamoPersonal=require("../models/prestamoPersonal.model");
 const patrimonioFinanciero=require("./patrimonioPersonal.service");
 const Movimiento=require("../models/movimiento.model");const Transaccion=require("../models/TransaccionPersonal");const Credito=require("../models/credito.model");const Perfil=require("../models/perfil.model");const Meta=require("../models/meta.model");const Activo=require("../models/activo.model");const Inversion=require("../models/inversion.model");const PerfilInversion=require("../models/perfilInversion.model");
 const {monthStart,nextMonth}=require("./homePersonal.service")._fechas;
 function gastoAfectaCaja(tx){return Boolean(tx&&tx.tipo==="GASTO"&&tx.medioPago!=="CREDITO");}
 async function registrarMovimiento(userId,data){const session=await mongoose.startSession();try{let doc;await session.withTransaction(async()=>{[doc]=await Movimiento.create([{userId,...data}],{session});});return doc;}finally{await session.endSession();}}
-async function diario(userId,{desde,hasta,limit=100}){const q={usuarioId:userId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}};if(desde||hasta){q.fecha={};if(desde)q.fecha.$gte=new Date(desde);if(hasta)q.fecha.$lte=new Date(hasta);}const rows=await Transaccion.find(q).sort({fecha:-1,createdAt:-1}).limit(Math.min(limit,500)).lean();const porDia={};for(const x of rows){const dia=new Date(x.fecha).toISOString().slice(0,10),monto=x.montoMinor;porDia[dia]??={fecha:dia,ingresos:0,gastos:0,balance:0,movimientos:[]};porDia[dia][x.tipo==="INGRESO"?"ingresos":"gastos"]+=monto;porDia[dia].balance+=x.tipo==="INGRESO"?monto:-monto;porDia[dia].movimientos.push({...x,monto});}return Object.values(porDia).sort((a,b)=>b.fecha.localeCompare(a.fecha));}
-async function resumenPeriodo(userId,{desde,hasta}){const inicio=new Date(desde),fin=new Date(hasta);if(Number.isNaN(inicio.getTime())||Number.isNaN(fin.getTime())||inicio>fin)throw Object.assign(new Error("Periodo inválido"),{statusCode:400});const q={usuarioId:userId,fecha:{$gte:inicio,$lte:fin},tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}};const m=await Transaccion.find(q).lean();const ingresos=m.filter(x=>x.tipo==="INGRESO").reduce((a,x)=>a+x.montoMinor,0),gastos=m.filter(x=>x.tipo==="GASTO").reduce((a,x)=>a+x.montoMinor,0);const categorias={};for(const x of m){const k=x.categoria||"Sin categoría";categorias[k]??={ingresos:0,gastos:0};categorias[k][x.tipo==="INGRESO"?"ingresos":"gastos"]+=x.montoMinor;}return{desde,hasta,ingresos,gastos,balance:ingresos-gastos,categorias,fuente:"ledger_canonico"};}
+function periodoInclusivo(desde,hasta){
+ const inicio=new Date(desde??"0001-01-01T00:00:00.000Z");
+ const ultimo=new Date(hasta??"9999-12-31T23:59:59.998Z");
+ const fin=new Date(+ultimo+1);
+ if(!Number.isFinite(+inicio)||!Number.isFinite(+fin)||inicio>=fin)
+  throw Object.assign(new Error("Periodo inválido"),{statusCode:400});
+ return{desde:inicio.toISOString(),hasta:fin.toISOString()};
+}
+async function diario(userId,{desde,hasta,limit=100}={}){
+ if(!Number.isSafeInteger(limit)||limit<1)throw Object.assign(new Error("Límite inválido"),{statusCode:400});
+ const rows=await consultarPeriodo({usuarioId:userId,...periodoInclusivo(desde,hasta)});
+ return diarioDesde(rows,Math.min(limit,500));
+}
+async function resumenPeriodo(userId,{desde,hasta}){
+ if(desde==null||hasta==null)throw Object.assign(new Error("Periodo obligatorio"),{statusCode:400});
+ const rows=await consultarPeriodo({usuarioId:userId,...periodoInclusivo(desde,hasta)});
+ return{desde,hasta,...resumenDesde(rows),fuente:"ledger_canonico"};
+}
 async function upsertPerfil(userId,data){return Perfil.findOneAndUpdate({userId},{$set:data,$setOnInsert:{userId}},{new:true,upsert:true,runValidators:true});}
 async function registrarActivo(userId,data){
  const session=await mongoose.startSession();
