@@ -11,7 +11,8 @@ function conflicto(mensaje){
  return Object.assign(new Error(mensaje),{statusCode:409});
 }
 function verificarIndices(indices,nombre,campos){
- return indices.some(i=>i.name===nombre&&i.unique===true&&
+ // MongoDB omite `unique` en la especificación del índice _id_, que es único por definición.
+ return indices.some(i=>i.name===nombre&&(i.unique===true||(nombre==="_id_"&&i.unique===undefined))&&
   !i.partialFilterExpression&&i.sparse!==true&&
   Object.keys(i.key||{}).length===campos.length&&campos.every(([k,v])=>i.key[k]===v));
 }

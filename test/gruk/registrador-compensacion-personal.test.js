@@ -138,7 +138,7 @@ test("el verificador exige índices únicos exactos y falla cerrado sin conexió
    CursorModelo:{collection:{indexes:async()=>[{name:"_id_",unique:true,key:{_id:1}}]}}
   }),/Falta un índice único/);
  }
- const CursorModelo={collection:{indexes:async()=>[{name:"_id_",unique:true,key:{_id:1}}]}};
+ const CursorModelo={collection:{indexes:async()=>[{name:"_id_",key:{_id:1}}]}};
  const EventoModelo={collection:{indexes:async()=>idx}};
  await exigirIndices({EventoModelo,CursorModelo});
  await assert.rejects(exigirIndices({

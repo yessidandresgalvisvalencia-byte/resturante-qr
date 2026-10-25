@@ -344,6 +344,11 @@ jobs:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
           GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
         run: node --test test/gruk/decision-proof-concurrency.test.js
+      - name: Probar compensaciones personales con MongoDB real
+        env:
+          GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_compensaciones?replicaSet=rs0
+          GRUK_REQUIRE_COMPENSACION_MONGO_TEST: "1"
+        run: node --test test/gruk/compensaciones-mongo-real.test.js
       - name: Limpiar MongoDB aislado
         if: always()
         run: docker rm -f mongo-v81-test || true
