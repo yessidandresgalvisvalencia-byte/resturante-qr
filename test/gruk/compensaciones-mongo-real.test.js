@@ -13,6 +13,8 @@ const {flujoPeriodo}=require("../../modules/finanzas-personales/services/flujoCa
 const resumenLedger=require("../../modules/finanzas-personales/services/resumenLedgerPersonal.service");
 const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
 const hormiga=require("../../modules/finanzas-personales/services/gastosHormigaResumen.service");
+const patrimonio=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+const home=require("../../modules/finanzas-personales/services/homePersonal.service");
 const {crearRegistrador,GENESIS}=require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
 const {validarMongoPruebasV81}=require("../../scripts/exigir-mongo-v81-pruebas");
@@ -84,9 +86,11 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   // Orquestador real: fuente inalterada, cuenta por ID y outbox en la misma transacción.
   const aplicar=crearAplicador();
   for(const usuarioId of usuarios.slice(3)){
-   const cuenta=await Cuenta.create({usuarioId,nombre:"CAJA",tipo:"EFECTIVO",saldoMinor:50000});
+   const ancla=new Date(Date.now()-3600000);
+   const cuenta=await Cuenta.create({usuarioId,nombre:"CAJA",tipo:"EFECTIVO",saldoMinor:50000,
+    saldoAnclaMinor:50000,saldoAnclaEn:ancla,saldoVerificadoEn:ancla,requiereReconciliacion:false});
    const tx=await Transaccion.create({usuarioId,cuentaId:cuenta._id,cuenta:"CAJA",tipo:"GASTO",
-    montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion",fecha:new Date()});
+    montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion",fecha:new Date(Date.now()-7200000)});
    const fuenteAntes=await Transaccion.findById(tx._id).lean();
    const solicitud={usuarioId,movimientoId:String(tx._id),tipo:"CORRECCION",
     cambios:{montoMinor:22000,categoria:"Otros"},idempotencyKey:"ajuste_caja"};
@@ -96,6 +100,9 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     await assert.rejects(aplicar({...solicitud,usuarioId:usuarios[4]}),e=>e.statusCode===404);
     await aplicar(solicitud);
     assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,53000);
+    assert.equal((await patrimonio.snapshot(usuarioId)).liquidezMinor,53000);
+    const pantalla=await home.obtener(usuarioId);
+    assert.equal(pantalla.caja.saldoLiquidoMinor,53000);
     const lectura=await consultarPeriodo({...periodo,categoria:"Otros"});
     assert.equal(lectura.length,1);
     assert.equal(lectura[0].montoMinor,22000);
@@ -118,6 +125,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     assert.equal(reclasificado.gastos,0);
     assert.equal(reclasificado.ingresos,22000);
     assert.equal(reclasificado.categorias.Otros.ingresos,22000);
+    assert.equal((await patrimonio.snapshot(usuarioId)).liquidezMinor,97000);
     assert.equal((await finanzas.diario(usuarioId,periodo))[0].ingresos,22000);
     const mensual=await finanzas.resumen(usuarioId,fuenteAntes.fecha);
     assert.equal(mensual.ingresos,22000);
@@ -125,6 +133,8 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     assert.equal((await hormiga.obtener(usuarioId,{ahora:new Date(+fuenteAntes.fecha+1)})).mesMinor,0);
     await aplicar({...solicitud,tipo:"ANULACION",cambios:{},idempotencyKey:"anular_caja"});
     assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,75000);
+    assert.equal((await patrimonio.snapshot(usuarioId)).liquidezMinor,75000);
+    assert.equal((await home.obtener(usuarioId)).caja.saldoLiquidoMinor,75000);
     assert.equal(await Outbox.countDocuments({usuarioId}),3);
     assert.equal(await Evento.countDocuments({usuarioId}),3);
     assert.equal((await consultarPeriodo(periodo)).length,0);

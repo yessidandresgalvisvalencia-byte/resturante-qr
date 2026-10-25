@@ -37,9 +37,31 @@ function proyectar({usuarioId,fuentes,eventos,cursor}){
    compensacionHash:historial.at(-1).hashActual});
  });
 }
+// Para reconstruir saldos desde anclas se conserva el flujo original y se añaden
+// los deltas en la fecha de compensación. No reubicar el efecto en la fecha del gasto.
+function proyectarCaja(datos){
+ proyectar(datos); // valida cadena completa, cursor, fuente y estado de cada movimiento.
+ const porId=new Map(datos.fuentes.map(f=>[String(f._id),f]));
+ if(datos.eventos.some(e=>!porId.has(e.movimientoId)))integridad();
+ const rows=datos.fuentes.filter(f=>f.estado!=="ANULADA").map(f=>({...f}));
+ for(const e of datos.eventos){
+  const fuente=porId.get(e.movimientoId);if(!fuente)continue;
+  if(fuente.impactoCaja!==true||fuente.medioPago==="CREDITO"||fuente.recurrente||
+     fuente.recurrenteOrigenId||fuente.prestamoId)integridad();
+  const delta=BigInt(e.deltaCajaMinor);if(delta===0n)continue;
+  const monto=Number(delta<0n?-delta:delta);
+  if(!Number.isSafeInteger(monto))integridad();
+  rows.push({_id:new mongoose.Types.ObjectId(e.hashActual.slice(0,24)),
+   usuarioId:fuente.usuarioId,cuentaId:fuente.cuentaId,cuenta:fuente.cuenta,moneda:"COP",
+   tipo:delta>0n?"INGRESO":"GASTO",montoMinor:monto,impactoCaja:true,
+   medioPago:fuente.medioPago,estado:"ACTIVA",fecha:new Date(e.fechaISO),
+   compensacionHash:e.hashActual,movimientoOrigenId:fuente._id});
+ }
+ return rows;
+}
 // Consulta de transición, acotada y sin rutas: fallar explícitamente antes de devolver un
 // resultado parcial. Filtros mutables se aplican DESPUÉS de reconstruir el estado vigente.
-async function consultarPeriodo({usuarioId,desde,hasta,tipo,categoria,incluirAnuladas=false}){
+async function consultarPeriodo({usuarioId,desde,hasta,tipo,categoria,incluirAnuladas=false},{session:externa,modoCaja=false}={}){
  if(!mongoose.isObjectIdOrHexString(usuarioId))throw new TypeError("Usuario inválido");
  if(typeof desde!=="string"||typeof hasta!=="string")throw new TypeError("Período inválido");
  const inicio=new Date(desde),fin=new Date(hasta);
@@ -47,10 +69,11 @@ async function consultarPeriodo({usuarioId,desde,hasta,tipo,categoria,incluirAnu
  if(tipo!==undefined&&!["INGRESO","GASTO"].includes(tipo)||
     categoria!==undefined&&(typeof categoria!=="string"||!categoria.trim()||categoria.length>80)||
     typeof incluirAnuladas!=="boolean")throw new TypeError("Filtros inválidos");
- const session=await mongoose.startSession();
+ if(externa&&(typeof externa.inTransaction!=="function"||!externa.inTransaction()))throw new TypeError("Transacción externa activa requerida");
+ const session=externa||await mongoose.startSession();
  try{
   let resultado;
-  await session.withTransaction(async()=>{
+  const leer=async()=>{
    const fuentes=await Transaccion.find({usuarioId,moneda:"COP",fecha:{$gte:inicio,$lt:fin}})
     .sort({fecha:1,_id:1}).limit(MAX_MOVIMIENTOS+1).maxTimeMS(5000).session(session).lean();
    const eventos=await Evento.find({usuarioId:String(usuarioId)},{_id:0}).sort({secuencia:1})
@@ -58,11 +81,17 @@ async function consultarPeriodo({usuarioId,desde,hasta,tipo,categoria,incluirAnu
    if(fuentes.length>MAX_MOVIMIENTOS||eventos.length>MAX_EVENTOS)
     throw Object.assign(new Error("Consulta compensada excede el límite verificable"),{statusCode:422});
    const cursor=await Cursor.findById(String(usuarioId)).maxTimeMS(5000).session(session).lean();
-   resultado=proyectar({usuarioId:String(usuarioId),fuentes,eventos,cursor}).filter(f=>
+   resultado=(modoCaja?proyectarCaja:proyectar)({usuarioId:String(usuarioId),fuentes,eventos,cursor}).filter(f=>
     (incluirAnuladas||f.estado!=="ANULADA")&&(tipo===undefined||f.tipo===tipo)&&
     (categoria===undefined||f.categoria===categoria));
-  },{readConcern:{level:"snapshot"},readPreference:"primary"});
+  };
+  if(externa)await leer();
+  else await session.withTransaction(leer,{readConcern:{level:"snapshot"},readPreference:"primary"});
   return resultado;
- }finally{await session.endSession();}
+ }finally{if(!externa)await session.endSession();}
 }
-module.exports={proyectar,consultarPeriodo};
+async function consultarCaja(usuarioId,{session}={}){
+ return consultarPeriodo({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"},
+  {session,modoCaja:true});
+}
+module.exports={proyectar,proyectarCaja,consultarPeriodo,consultarCaja};

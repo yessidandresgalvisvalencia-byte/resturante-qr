@@ -1,5 +1,6 @@
 "use strict";
 const Transaccion=require("../models/TransaccionPersonal");
+const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const Prestamo=require("../models/prestamoPersonal.model");
 const DeudaPersonal=require("../models/DeudaPersonal");
 const {pagoExigible}=require("./tarjetaCreditoPersonal.service");
@@ -175,7 +176,7 @@ function calcularFlujoMes({ingresosMinor=0,gastosMinor=0,pagosDeudaRegistradosMi
 async function obtener(usuarioId,now=new Date()){
  const inicio=monthStart(now),fin=nextMonth(now);
  const [tx,deudas,tarjetas,pat,ingresosRecurrentes,calendariosIngreso,cobros]=await Promise.all([
-  Transaccion.find({usuarioId,fecha:{$gte:inicio,$lte:now},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"]},estado:{$ne:"ANULADA"}}).lean(),
+  consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:new Date(+now+1).toISOString()}).then(rows=>rows.filter(x=>["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"].includes(x.tipo))),
   Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).sort({fechaVencimiento:1,createdAt:1}).lean(),
   DeudaPersonal.find({usuarioId,tipo:"TARJETA_CREDITO",activa:true,saldoMinor:{$gt:0}}).lean(),
   patrimonio.snapshot(usuarioId),

@@ -23,3 +23,18 @@ test("anulación se proyecta conservando el documento original",()=>{
 test("lectura sin compensaciones mantiene estado histórico",()=>{
  assert.deepEqual(proyectar({...entrada,eventos:[],cursor:null}),[fuente]);
 });
+test("saldo desde un ancla anterior a la corrección incluye el delta en su fecha real",()=>{
+ const mongoose=require("mongoose");
+ const {proyectarCaja}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
+ const {saldoCuentasDesdeAnclas}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+ const cuentaId=new mongoose.Types.ObjectId(),id=new mongoose.Types.ObjectId();
+ const orig={...original,movimientoId:String(id)};
+ const evento=eventoCompensatorio({original:orig,tipo:"CORRECCION",cambios:{montoMinor:22000},idempotencyKey:"ajuste_ancla",prevHash:"0".repeat(64),secuencia:1,fechaISO:"2026-10-25T15:00:00.000Z"});
+ const datos={usuarioId,fuentes:[{...orig,_id:id,cuentaId,cuenta:"CAJA",fecha:new Date("2026-10-23T15:00:00Z"),estado:"ACTIVA",impactoCaja:true,medioPago:"EFECTIVO"}],eventos:[evento],cursor:{_id:usuarioId,secuencia:1,hashActual:evento.hashActual}};
+ const rows=proyectarCaja(datos);
+ assert.equal(rows[0].montoMinor,25000);
+ assert.equal(rows[1].montoMinor,3000);
+ assert.equal(rows[1].fecha.toISOString(),evento.fechaISO);
+ assert.equal(saldoCuentasDesdeAnclas([{_id:cuentaId,saldoAnclaMinor:50000,saldoAnclaEn:new Date("2026-10-24T15:00:00Z")}],rows),53000);
+ assert.throws(()=>proyectarCaja({...datos,fuentes:[]}),/INTEGRIDAD_LEDGER/);
+});
