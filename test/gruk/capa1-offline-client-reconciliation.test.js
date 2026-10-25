@@ -5,7 +5,7 @@ const ctx={empresaId:"A",sedeId:"S",actorId:"U"};
 const a="01ARZ3NDEKTSV4RRFFQ69G5FA0",b="01ARZ3NDEKTSV4RRFFQ69G5FA1";
 function outbox(){
  const updates=[];return {updates,listReceived:async()=>[{eventId:a},{eventId:b}],
-  markReconciled:async(id,scope,event)=>{assert.equal(scope,ctx);updates.push({id,event});return true;}};
+  markReconciled:async(id,scope,event)=>{assert.deepEqual(scope,ctx);updates.push({id,event});return true;}};
 }
 const records=[
  {eventId:a,status:"EN_REVISION",staged:true,financiallyReconciled:false,applied:false},
