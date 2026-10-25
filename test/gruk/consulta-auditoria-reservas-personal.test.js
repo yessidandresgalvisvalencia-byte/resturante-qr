@@ -72,3 +72,27 @@ test("snapshot rechaza huella previa cuando la reserva cambió un peso",async()=
  await assert.rejects(()=>dobles()(uid,mid,{huellaEsperada}),
   e=>e.statusCode===409);
 });
+
+test("huella del estado cambia con abono aunque el plan de ajuste sea igual",async()=>{
+ const antes=await dobles({reservas:[{...reserva,reservadoMinor:199999}]})(
+  uid,mid);
+ const otroPago={...pago,_id:"507f1f77bcf86cd799439014",montoMinor:100000};
+ const cambio=await dobles({pagos:[{...pago,montoMinor:100000},otroPago],
+  reservas:[{...reserva,reservadoMinor:199999}]})(uid,mid);
+ assert.equal(cambio.planReparacion.huellaDiagnostico,
+  antes.planReparacion.huellaDiagnostico);
+ assert.notEqual(cambio.huellaEstado,antes.huellaEstado);
+ await assert.rejects(()=>dobles({pagos:[{...pago,montoMinor:100000},otroPago],
+  reservas:[{...reserva,reservadoMinor:199999}]})(
+  uid,mid,{huellaEstadoEsperada:antes.huellaEstado}),
+  e=>e.statusCode===409&&/estado financiero modificado/.test(e.message));
+ const verificado=await dobles({reservas:[{...reserva,reservadoMinor:199999}]})(
+  uid,mid,{huellaEstadoEsperada:antes.huellaEstado});
+ assert.equal(verificado.huellaEstado,antes.huellaEstado);
+});
+test("huella de estado rechaza duplicados y hashes de tamaño incorrecto",async()=>{
+ await assert.rejects(()=>dobles({pagos:[pago,pago]})(uid,mid),
+  e=>e.statusCode===409);
+ await assert.rejects(()=>dobles()(uid,mid,{huellaEstadoEsperada:"abc"}),
+  e=>e.statusCode===400);
+});
