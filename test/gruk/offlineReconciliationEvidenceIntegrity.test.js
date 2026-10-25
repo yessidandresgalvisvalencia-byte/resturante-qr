@@ -76,3 +76,34 @@ test("Capa 2: registros duplicados o de otra empresa nunca confirman staging",as
   }
  }
 });
+
+test("Capa 2: Mongo desordenado concilia por eventId, jamás por posición",async()=>{
+ const ids=[eventId,"01ARZ3NDEKTSV4RRFFQ69G5FA1"];
+ const totals=["1200","3400"];
+ const rows={
+  gruk_offline_inbox:ids.map(id=>({...context,eventId:id,status:"EN_REVISION",inventoryApplied:true})),
+  gruk_offline_ventas:ids.map((id,i)=>({...context,eventId:id,status:"PENDIENTE_CONTABILIZACION",totalCop:totals[i]})),
+  gruk_offline_caja_intenciones:ids.map((id,i)=>({...context,eventId:id,status:"PENDIENTE_CONCILIACION",cobrado:false,montoCop:totals[i]})),
+  gruk_ledger_movimientos:ids.map((id,i)=>({...context,eventId:id,tipo:"VENTA_OFFLINE",deletedAt:null,montoCop:totals[i]}))
+ };
+ const db={collection(name){return {find(query){
+  assert.equal(query.empresaId,context.empresaId);
+  assert.equal(query.sedeId,context.sedeId);
+  return {toArray:async()=>name==="gruk_offline_inbox"?rows[name]:
+   [...rows[name]].reverse()};
+ }}}};
+ const valid=await read({db,context,eventIds:ids});
+ assert.deepEqual(valid.map(x=>[x.eventId,x.staged]),ids.map(id=>[id,true]));
+ assert(valid.every(x=>x.financiallyReconciled===false&&x.applied===false));
+ // Both ledgers still sum to the same COP total, but each belongs to the wrong order.
+ [rows.gruk_ledger_movimientos[0].montoCop,rows.gruk_ledger_movimientos[1].montoCop]=
+  [rows.gruk_ledger_movimientos[1].montoCop,rows.gruk_ledger_movimientos[0].montoCop];
+ const swapped=await read({db,context,eventIds:ids});
+ assert(swapped.every(x=>x.staged===false&&x.financiallyReconciled===false&&x.applied===false));
+ // An equal batch total cannot mask a cash mismatch either.
+ rows.gruk_ledger_movimientos.forEach((entry,i)=>{entry.montoCop=totals[i];});
+ [rows.gruk_offline_caja_intenciones[0].montoCop,rows.gruk_offline_caja_intenciones[1].montoCop]=
+  [rows.gruk_offline_caja_intenciones[1].montoCop,rows.gruk_offline_caja_intenciones[0].montoCop];
+ const swappedCash=await read({db,context,eventIds:ids});
+ assert(swappedCash.every(x=>x.staged===false&&x.applied===false));
+});
