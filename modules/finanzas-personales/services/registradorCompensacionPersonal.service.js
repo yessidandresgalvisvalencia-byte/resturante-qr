@@ -32,17 +32,21 @@ function crearRegistrador({
  revisarIndices=()=>exigirIndices({EventoModelo,CursorModelo}),
  construir=eventoCompensatorio
 }={}){
- return async function registrar({original,tipo,cambios={},idempotencyKey,fechaISO}){
+ // Una sesión externa pertenece al llamador: este debe propagar errores y confirmar/abortar
+ // la unidad completa (evento, saldo, reserva y outbox). El retorno NO confirma esa transacción.
+ return async function registrar({original,tipo,cambios={},idempotencyKey,fechaISO},{session:externa}={}){
   if(!original||typeof original.usuarioId!=="string"||!ID.test(original.usuarioId)||
     typeof original.movimientoId!=="string"||!ID.test(original.movimientoId)||
     typeof idempotencyKey!=="string"||!ID.test(idempotencyKey))
    throw new TypeError("Usuario e idempotencia obligatorios");
+  if(externa&&(typeof externa.inTransaction!=="function"||externa.inTransaction()!==true))
+   throw new TypeError("Se requiere una transacción externa activa");
   // Exigir índices REALMENTE instalados antes de cualquier escritura, no solo declarados en Mongoose.
   await revisarIndices();
-  const session=await nuevaSesion();
+  const session=externa||await nuevaSesion();
   try{
    let resultado;
-   await session.withTransaction(async()=>{
+   const anexar=async()=>{
     const repetido=await EventoModelo.findOne({usuarioId:original.usuarioId,idempotencyKey}).session(session).lean();
     if(repetido)throw conflicto("Idempotencia ya utilizada; no repetir la compensación");
     // Leer dentro del snapshot: el CAS posterior serializa también este historial por usuario.
@@ -69,19 +73,21 @@ function crearRegistrador({
     const avance=await CursorModelo.findOneAndUpdate(
       {_id:original.usuarioId,secuencia:cursor.secuencia,hashActual:cursor.hashActual},
       {$set:{secuencia:evento.secuencia,hashActual:evento.hashActual}},
-      {session,new:true,runValidators:true}
+      {session,returnDocument:"after",runValidators:true}
     );
     if(!avance)throw conflicto("Cadena financiera modificada concurrentemente; reintenta con nueva lectura");
     const insertados=await EventoModelo.create([evento],{session});
     if(!Array.isArray(insertados)||insertados.length!==1)
      throw new Error("No se confirmó inserción del evento compensatorio");
     resultado=evento;
-   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
+   };
+   if(externa)await anexar();
+   else await session.withTransaction(anexar,{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
    return resultado;
   }catch(error){
    if(error?.code===11000)throw conflicto("Idempotencia o secuencia duplicada; no repetir sin conciliar");
    throw error;
-  }finally{await session.endSession();}
+  }finally{if(!externa)await session.endSession();}
  };
 }
 module.exports={crearRegistrador,exigirIndices,verificarIndices,GENESIS};

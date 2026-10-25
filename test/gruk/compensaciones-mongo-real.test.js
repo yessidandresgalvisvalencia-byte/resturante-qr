@@ -4,6 +4,7 @@ const assert=require("node:assert/strict");
 const mongoose=require("mongoose");
 const Evento=require("../../modules/finanzas-personales/models/EventoCompensatorioPersonal");
 const Cursor=require("../../modules/finanzas-personales/models/CursorCompensacionPersonal");
+const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
 const {crearRegistrador,GENESIS}=require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
 const {validarMongoPruebasV81}=require("../../scripts/exigir-mongo-v81-pruebas");
@@ -20,7 +21,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
  const registrar=crearRegistrador();
  const solicitud=(key,orig=original)=>({original:orig,tipo:"CORRECCION",cambios:{montoMinor:22000},idempotencyKey:key,fechaISO:"2026-10-25T15:00:00.000Z"});
  try{
-  await Promise.all([Evento.init(),Cursor.init()]);
+  await Promise.all([Evento.init(),Cursor.init(),Cuenta.init()]);
   const primero=await registrar(solicitud("correccion"));
   assert.equal(primero.deltaCajaMinor,"3000");
   await assert.rejects(registrar(solicitud("obsoleta")),/desactualizado/);
@@ -49,10 +50,34 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   await assert.rejects(fallido(solicitud("fallo",{...original,usuarioId:usuarios[2]})),/INSERCION_SIMULADA_FALLIDA/);
   assert.equal(await Cursor.findById(usuarios[2]).lean(),null);
   assert.equal(await Evento.countDocuments({usuarioId:usuarios[2]}),0);
+  const cuenta=await Cuenta.create({usuarioId:usuarios[2],nombre:"PRUEBA",tipo:"EFECTIVO",saldoMinor:100000});
+  const session=await mongoose.startSession();
+  const opciones={readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"};
+  try{
+   // El fallo posterior al evento Y al saldo debe revertir ambas escrituras reales.
+   await assert.rejects(session.withTransaction(async()=>{
+    const e=await registrar(solicitud("unidad_atomica",{...original,usuarioId:usuarios[2]}),{session});
+    assert.equal(session.inTransaction(),true);
+    await Cuenta.updateOne({_id:cuenta._id},{$inc:{saldoMinor:Number(e.deltaCajaMinor)}},{session});
+    throw new Error("FALLO_DESPUES_DEL_SALDO");
+   },opciones),/FALLO_DESPUES_DEL_SALDO/);
+   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,100000);
+   assert.equal(await Cursor.findById(usuarios[2]).lean(),null);
+   assert.equal(await Evento.countDocuments({usuarioId:usuarios[2]}),0);
+   // La misma clave queda disponible tras abortar; confirmar aplica exactamente un ajuste.
+   await session.withTransaction(async()=>{
+    const e=await registrar(solicitud("unidad_atomica",{...original,usuarioId:usuarios[2]}),{session});
+    await Cuenta.updateOne({_id:cuenta._id},{$inc:{saldoMinor:Number(e.deltaCajaMinor)}},{session});
+   },opciones);
+   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,103000);
+   assert.equal((await Cursor.findById(usuarios[2]).lean()).secuencia,1);
+   assert.equal(await Evento.countDocuments({usuarioId:usuarios[2]}),1);
+  }finally{await session.endSession();}
  }finally{
   // Los modelos rechazan deletes: limpieza directa SOLO tras validar el destino loopback de pruebas.
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios}});
   await Cursor.collection.deleteMany({_id:{$in:usuarios}});
+  await Cuenta.deleteMany({usuarioId:{$in:usuarios}});
   await mongoose.disconnect();
  }
 });

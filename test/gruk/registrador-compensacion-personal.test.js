@@ -123,6 +123,13 @@ test("se rechazan operaciones sin usuario o idempotencia antes de consultar índ
  await assert.rejects(registrar({...entrada(),idempotencyKey:" "}),/Usuario e idempotencia/);
  assert.equal(data.indices,0);
 });
+test("sesión externa sin transacción activa se rechaza antes de consultar o escribir",async()=>{
+ const {data,registrar}=bancoSimulado();
+ for(const session of [{},{inTransaction:()=>false}])
+  await assert.rejects(registrar(entrada(),{session}),/transacción externa activa/);
+ assert.equal(data.indices,0);
+ assert.equal(data.cerradas,0);
+});
 test("el verificador exige índices únicos exactos y falla cerrado sin conexión",async()=>{
  const idx=[
   {name:"fp_compensacion_idempotencia_usuario_v1",unique:true,key:{usuarioId:1,idempotencyKey:1}},
