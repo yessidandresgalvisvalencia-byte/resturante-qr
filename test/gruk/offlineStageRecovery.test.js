@@ -151,9 +151,31 @@ test("Capa 2: sin sesión Mongo no se consultan diarios ni se confirma replay",a
   let reads=0;
   const db={client,collection(){reads++;throw Error("UNAUTHORIZED_READ");}};
   await assert.rejects(recover({db,context:ctx,eventIds:ids}),
-   {code:"OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW"});
+   {code:"OFFLINE_TRANSACTION_UNAVAILABLE"});
   assert.equal(reads,0);
  }
+});
+
+test("Capa 2: Mongo standalone rechaza transacciones sin consultar ni alterar diarios",async()=>{
+ let reads=0,closed=false;
+ const session={
+  withTransaction:async()=>{const e=new Error("Transaction numbers are only allowed on a replica set member or mongos");e.code=20;throw e;},
+  endSession:async()=>{closed=true;}
+ };
+ const db={client:{startSession:()=>session},collection(){reads++;throw Error("FORBIDDEN_READ");}};
+ await assert.rejects(recover({db,context:ctx,eventIds:ids}),
+  {code:"OFFLINE_TRANSACTION_UNAVAILABLE"});
+ assert.equal(reads,0);
+ assert.equal(closed,true);
+});
+test("Capa 2: errores Mongo no relacionados no se ocultan como falta de soporte",async()=>{
+ let closed=false;
+ const original=Object.assign(new Error("Illegal operation unrelated to transactions"),{code:20});
+ const db={client:{startSession:()=>({
+  withTransaction:async()=>{throw original;},endSession:async()=>{closed=true;}
+ })},collection(){throw Error("FORBIDDEN_READ");}};
+ await assert.rejects(recover({db,context:ctx,eventIds:ids}),error=>error===original);
+ assert.equal(closed,true);
 });
 
 test("Capa 2: recuperación comparte snapshot transaccional en los siete diarios",async()=>{
