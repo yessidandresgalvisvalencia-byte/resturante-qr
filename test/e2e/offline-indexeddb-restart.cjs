@@ -403,6 +403,73 @@ async function run() {
       local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length
     }),tenantA);
     assert.deepEqual(afterParallelRestart,{pending:0,received:25,local:25});
+    // Two open tabs share one real IndexedDB origin, but use separate tenant
+    // contexts. A pending in-flight ACK for tenant A must not change tenant B.
+    const tenantBId="01ARZ3NDEKTSV4RRFFQ69G5FA7";
+    const tabB=await browser.newPage();
+    await tabB.goto(base);
+    const crossTabStarted=await tabB.evaluate(async ({tenant,eventId})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      await outbox.putPending({...tenant,eventId,
+        payload:{items:[{productoId:"producto-1",cantidad:1}]}});
+      return {pending:(await outbox.listPending(100,tenant)).map(x=>x.eventId),
+        local:(await outbox.listLocal(100,tenant)).length};
+    },{tenant:tenantB,eventId:tenantBId});
+    assert.deepEqual(crossTabStarted,{pending:[tenantBId],local:1});
+    const fromA=await page.evaluate(async ({tenantA,tenantB,eventId})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      const foreignAck=await outbox.markReceived(eventId,tenantA);
+      const foreignVisible=await outbox.listPending(100,tenantA);
+      const foreignLocal=await outbox.listLocal(100,tenantA);
+      let requests=0;
+      const result=await globalThis.GRUKOfflineTransport.synchronize({
+        outbox,context:tenantA,token:"test-token",fetchFn:async()=>{requests++;throw Error("FOREIGN_SENT");}
+      });
+      return {foreignAck,requests,result,
+        bInA:foreignVisible.some(x=>x.eventId===eventId),
+        foreignLocal:foreignLocal.some(x=>x.eventId===eventId)};
+    },{tenantA,tenantB,eventId:tenantBId});
+    assert.deepEqual(fromA,{foreignAck:false,requests:0,
+      result:{sent:0,received:0},bInA:false,foreignLocal:false});
+    const fromB=await tabB.evaluate(async ({tenant,eventId,foreign})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      const aVisible=(await outbox.listLocal(100,foreign)).length;
+      let sent=[];
+      const result=await globalThis.GRUKOfflineTransport.synchronize({
+        outbox,context:tenant,token:"test-token",
+        fetchFn:async(_url,options)=>{
+          sent=JSON.parse(options.body).events.map(x=>x.eventId);
+          return {status:202,json:async()=>({ok:true,applied:false,
+            events:[{eventId,status:"RECIBIDO"}]})};
+        }
+      });
+      return {aVisible,sent,result,
+        pending:(await outbox.listPending(100,tenant)).length,
+        received:(await outbox.listReceived(100,tenant)).length};
+    },{tenant:tenantB,eventId:tenantBId,foreign:tenantA});
+    assert.deepEqual(fromB,{aVisible:25,sent:[tenantBId],
+      result:{sent:1,received:1},pending:0,received:1});
+    // Attempting a cross-tenant ACK in either tab leaves both rows intact.
+    const noCrossAck=await tabB.evaluate(async({own,foreign,eventId})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      return {changed:await outbox.markReceived(eventId,foreign),
+        own:(await outbox.listLocal(100,own)).length,
+        foreign:(await outbox.listLocal(100,foreign)).length};
+    },{own:tenantB,foreign:tenantA,eventId:tenantBId});
+    assert.deepEqual(noCrossAck,{changed:false,own:1,foreign:25});
+    await tabB.close();
+    await browser.close();
+    browser=null;
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    const crossTabDurable=await page.evaluate(async({a,b})=>({
+      aLocal:(await globalThis.GRUKOfflineOutbox.listLocal(100,a)).length,
+      aReceived:(await globalThis.GRUKOfflineOutbox.listReceived(100,a)).length,
+      bLocal:(await globalThis.GRUKOfflineOutbox.listLocal(100,b)).length,
+      bReceived:(await globalThis.GRUKOfflineOutbox.listReceived(100,b)).length
+    }),{a:tenantA,b:tenantB});
+    assert.deepEqual(crossTabDurable,{aLocal:25,aReceived:25,bLocal:1,bReceived:1});
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 21, abortedAckRecovered: true }));
   } finally {
