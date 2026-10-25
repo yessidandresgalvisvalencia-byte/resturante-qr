@@ -8,14 +8,20 @@ const { chromium } = require("playwright");
 
 async function run() {
   const script = await readFile(path.join(__dirname, "../../public/js/gruk-offline-outbox.js"));
+  const transportScript = await readFile(path.join(__dirname, "../../public/js/gruk-offline-transport.js"));
   const server = createServer((req, res) => {
+    if (req.url === "/gruk-offline-transport.js") {
+      res.writeHead(200, { "Content-Type": "text/javascript", "Cache-Control": "no-store" });
+      res.end(transportScript);
+      return;
+    }
     if (req.url === "/gruk-offline-outbox.js") {
       res.writeHead(200, { "Content-Type": "text/javascript", "Cache-Control": "no-store" });
       res.end(script);
       return;
     }
     res.writeHead(200, { "Content-Type": "text/html", "Cache-Control": "no-store" });
-    res.end('<!doctype html><meta charset="utf-8"><title>GRUK isolated offline test</title><script src="/gruk-offline-outbox.js"></script>');
+    res.end('<!doctype html><meta charset="utf-8"><title>GRUK isolated offline test</title><script src="/gruk-offline-outbox.js"></script><script src="/gruk-offline-transport.js"></script>');
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   const base = "http://127.0.0.1:" + server.address().port + "/";
@@ -101,6 +107,58 @@ async function run() {
       };
     }, tenantA);
     assert.deepEqual(afterAckRestart, { local: 20, received: 1, reserved: 20, productUnits: 20 });
+    // Simulated lost response after remote acceptance: local ACK must remain pending.
+    const failedSend = await page.evaluate(async tenant => {
+      try {
+        await globalThis.GRUKOfflineTransport.synchronizeAll({
+          outbox: globalThis.GRUKOfflineOutbox, context: tenant, token: "test-token",
+          fetchFn: async () => { throw Error("NETWORK_LOST_AFTER_SERVER_COMMIT"); }
+        });
+      } catch (error) {
+        return {error: error.message,
+          pending: (await globalThis.GRUKOfflineOutbox.listPending(100,tenant)).length,
+          received: (await globalThis.GRUKOfflineOutbox.listReceived(100,tenant)).length};
+      }
+      throw Error("NETWORK_FAILURE_MUST_REJECT");
+    }, tenantA);
+    assert.deepEqual(failedSend,{error:"NETWORK_LOST_AFTER_SERVER_COMMIT",pending:19,received:1});
+    await browser.close();
+    browser=null;
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    await browser.setOffline(true);
+    const recovered=await page.evaluate(async tenant=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      let requests=0;
+      const result=await globalThis.GRUKOfflineTransport.synchronizeAll({
+        outbox,context:tenant,token:"test-token",
+        fetchFn:async (_url,options)=>{
+          requests++;
+          const sent=JSON.parse(options.body).events;
+          return {status:202,json:async()=>({ok:true,applied:false,
+            events:sent.map(event=>({eventId:event.eventId,status:"YA_RECIBIDO"}))})};
+        }
+      });
+      return {result,requests,
+        pending:(await outbox.listPending(100,tenant)).length,
+        received:(await outbox.listReceived(100,tenant)).length,
+        local:(await outbox.listLocal(100,tenant)).length};
+    },tenantA);
+    assert.deepEqual(recovered,{result:{sent:19,received:19,batches:1,complete:true},
+      requests:1,pending:0,received:20,local:20});
+    await browser.close();
+    browser=null;
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    await browser.setOffline(true);
+    const durable=await page.evaluate(async tenant=>({
+      pending:(await globalThis.GRUKOfflineOutbox.listPending(100,tenant)).length,
+      received:(await globalThis.GRUKOfflineOutbox.listReceived(100,tenant)).length,
+      local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length
+    }),tenantA);
+    assert.deepEqual(durable,{pending:0,received:20,local:20});
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 1 }));
   } finally {
