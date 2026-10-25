@@ -137,3 +137,62 @@ test("Capa 2: lost acknowledgement is safely recovered by idempotent YA_RECIBIDO
   {sent:1,received:1,batches:1,complete:true});
  assert.equal(done.size,1);assert.equal(requests,2);
 });
+
+test("Capa 2: fallo de IndexedDB tras guardar un acuse conserva el segundo pendiente",async()=>{
+ const events=[{...a},{...ctx,eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1"}];
+ const received=new Set(),sent=[],server=new Set();
+ let failSecondAck=true;
+ const outbox={
+  listPending:async limit=>events.filter(e=>!received.has(e.eventId)).slice(0,limit),
+  markReceived:async id=>{
+   if(id===events[1].eventId&&failSecondAck){
+    failSecondAck=false;
+    throw Error("INDEXEDDB_ACK_WRITE_ABORT");
+   }
+   received.add(id);return true;
+  }
+ };
+ const fetchFn=async(_url,options)=>{
+  const outgoing=JSON.parse(options.body).events;
+  sent.push(outgoing.map(e=>e.eventId));
+  const acks=outgoing.map(e=>{
+   const status=server.has(e.eventId)?"YA_RECIBIDO":"RECIBIDO";
+   server.add(e.eventId);
+   return {eventId:e.eventId,status};
+  });
+  return {status:202,json:async()=>({ok:true,applied:false,events:acks})};
+ };
+ await assert.rejects(synchronizeAll({outbox,context:ctx,token:"jwt",fetchFn}),
+  /INDEXEDDB_ACK_WRITE_ABORT/);
+ assert.deepEqual([...received],[events[0].eventId]);
+ assert.deepEqual((await outbox.listPending(100)).map(e=>e.eventId),[events[1].eventId]);
+ const result=await synchronizeAll({outbox,context:ctx,token:"jwt",fetchFn});
+ assert.deepEqual(result,{sent:1,received:1,batches:1,complete:true});
+ assert.deepEqual(sent,[[events[0].eventId,events[1].eventId],[events[1].eventId]]);
+ assert.equal(received.size,2);
+ assert.equal(server.size,2,"No second financial or inbox event after idempotent replay");
+});
+
+test("Capa 2: HTTP 503, JSON truncado y ACK parcial mantienen cola sin acuses locales",async()=>{
+ const records=[{...a},{...ctx,eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1"}];
+ for(const failure of ["network","503","invalid-json","partial","duplicate"]){
+  const received=new Set(),outbox={
+   listPending:async()=>records.filter(e=>!received.has(e.eventId)),
+   markReceived:async id=>{received.add(id);return true;}
+  };
+  const fetchFn=async()=>{
+   if(failure==="network")throw Error("NETWORK_LOST");
+   if(failure==="503")return {status:503,json:async()=>({ok:false,retryable:true})};
+   if(failure==="invalid-json")return {status:202,json:async()=>{throw SyntaxError("TRUNCATED_RESPONSE");}};
+   if(failure==="partial")return {status:202,json:async()=>({ok:true,applied:false,
+    events:[{eventId:records[0].eventId,status:"RECIBIDO"}]})};
+   return {status:202,json:async()=>({ok:true,applied:false,events:[
+    {eventId:records[0].eventId,status:"RECIBIDO"},
+    {eventId:records[0].eventId,status:"YA_RECIBIDO"}
+   ]})};
+  };
+  await assert.rejects(synchronizeAll({outbox,context:ctx,token:"jwt",fetchFn}));
+  assert.equal(received.size,0,failure+" must not alter local state");
+  assert.equal((await outbox.listPending(100)).length,2);
+ }
+});
