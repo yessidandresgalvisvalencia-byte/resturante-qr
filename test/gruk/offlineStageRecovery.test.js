@@ -86,7 +86,7 @@ test("Capa 2: recovery rejects malformed storage collections and unsafe individu
   ["gruk_offline_caja_intenciones","montoCop"]
  ]){
   const base=fixture();
-  const db={collection(collectionName){
+  const db={client:base.client,collection(collectionName){
    const collection=base.collection(collectionName);
    return {find(query,options){
     const original=collection.find(query,options);
