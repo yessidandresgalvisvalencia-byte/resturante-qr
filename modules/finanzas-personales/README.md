@@ -346,3 +346,23 @@ La auditoría continúa como servicio interno de solo lectura:
 `aptoParaDisponibleHoy:false`. Detectar una discrepancia no equivale
 a autorizar su reparación; el procedimiento de reverso financiero
 append-only y conciliación de saldos permanece bloqueado por #407.
+
+## Previsualización forense de reparación (sin escrituras)
+
+`planReparacionReservasPersonal.service.js` convierte el dictamen de
+auditoría verificado en propuestas de solo lectura: para una
+`RESERVA_DESCUADRADA` determina `deltaMinor=esperado-observado`
+utilizando `BigInt`; para `FALTA_RESERVA` propone crear una reserva
+**solo tras verificación**. Para `PERIODO_INCORRECTO` y
+`RESERVA_SIN_ABONOS` exige revisión manual. Rechaza anomalías
+contradictorias, importes no enteros y períodos duplicados; retorna
+`huellaDiagnostico` SHA-256 para identificar el plan, no para
+autorizar operaciones. `consultaAuditoriaReservasPersonal.service.js`
+adjunta este plan a su resultado dentro del **mismo snapshot**.
+
+La salida establece `autorizaEscritura:false`,
+`requiereReauditoriaAtomica:true` y `aptoParaDisponibleHoy:false`.
+No se ha construido ni habilitado ningún endpoint ni ejecutor de
+reparaciones. El futuro ejecutor deberá autorizar la operación, volver
+a validar bajo bloqueo transaccional y dejar un evento inmutable con
+su correspondiente reserva actualizada de forma atómica (#407).
