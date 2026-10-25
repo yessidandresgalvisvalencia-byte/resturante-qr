@@ -462,9 +462,9 @@ si una falla, se revierte todo. Nunca cambia `Cuenta.saldoMinor`
 ni escribe en `TransaccionPersonal`.
 
 **No implementar un endpoint sin revisión adicional:** el ejecutor
-actualmente no verifica la autorización de un actor invocante ni
-gestiona la aprobación administrativa del plan; solo acepta
-identificadores y huellas. Mantenerlo inaccesible desde HTTP.
+verifica un proveedor de autorización inyectado, pero todavía NO tiene
+un proveedor de identidad y permisos de producción ni un flujo de
+aprobación administrativa de reparaciones. Mantenerlo inaccesible desde HTTP.
 No atiende reservas faltantes, dos o más anomalías, períodos corruptos
 ni abonos con compensaciones no conciliadas. Una reparación de una
 reserva no autoriza `Disponible Hoy`; aún falta revisar privilegios
@@ -490,3 +490,13 @@ La prueba usa un proveedor aislado inyectado. La autorización
 externa tampoco sustituye permisos insert-only de MongoDB, control
 de aprobaciones de operaciones sensibles, ni bloqueo de rutas heredadas
 (#407). No exponer este ejecutor por HTTP ni desplegarlo.
+
+## Regresión de permisos y atribución del evento
+
+`test/gruk/ejecutor-reparacion-autorizacion-personal.test.js`
+comprueba denegación por defecto, exigencia de `true` estricto,
+validación de `actorId` y revocación antes de cualquier lectura
+financiera. El test de MongoDB real también lee el evento creado,
+comprueba el campo `actorId` persistido y verifica que alterarlo
+invalida la evidencia SHA-256. Esto confirma atribución técnica,
+**no** identidad autenticada ni aprobación para producción (#407).
