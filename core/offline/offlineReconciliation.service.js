@@ -39,9 +39,17 @@ async function readOfflineReconciliation({db,context,eventIds,session=null}){
   ["gruk_offline_caja_intenciones",{eventId:1,status:1,cobrado:1,montoCop:1}],
   ["gruk_ledger_movimientos",{eventId:1,tipo:1,montoCop:1,deletedAt:1}]
  ];
- const sets=await Promise.all(specs.map(async([name,projection])=>
+ const load=async([name,projection])=>
   db.collection(name).find(name==="gruk_offline_inbox"?{...scope,actorId:identity.actorId}:scope,
-   {projection:{_id:0,empresaId:1,sedeId:1,actorId:1,...projection},limit:101,...(session?{session}:{})}).toArray()));
+   {projection:{_id:0,empresaId:1,sedeId:1,actorId:1,...projection},limit:101,...(session?{session}:{})}).toArray();
+ // MongoDB does not support concurrent operations on a single transaction/session.
+ // Sequential reads retain the same snapshot and avoid transaction-number races.
+ const sets=[];
+ if(session){
+  for(const spec of specs)sets.push(await load(spec));
+ }else{
+  sets.push(...await Promise.all(specs.map(load)));
+ }
  const maps=sets.map((rows,setIndex)=>{
   if(!Array.isArray(rows)||rows.length>100)
    fail("OFFLINE_RECONCILIATION_EVIDENCE_INVALID");
