@@ -356,6 +356,53 @@ async function run() {
       local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length
     }),tenantA);
     assert.deepEqual(afterConcurrentRestart,{pending:concurrentIds,received:23,local:25});
+    // Two synchronized calls can capture exactly the same pending ULIDs
+    // before either HTTP response arrives. Concurrent ACK persistence must be
+    // idempotent and must never create or delete any local orders.
+    const parallelSync=await page.evaluate(async ({tenant,expectedIds})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      let arrived=0,release;
+      const barrier=new Promise(resolve=>{release=resolve;});
+      const sent=[];
+      const fetchFn=async (_url,options)=>{
+        const events=JSON.parse(options.body).events;
+        sent.push(events.map(e=>e.eventId));
+        if(++arrived===2)release();
+        await barrier;
+        return {status:202,json:async()=>({ok:true,applied:false,
+          events:events.map(e=>({eventId:e.eventId,
+            status:arrived===2?"YA_RECIBIDO":"RECIBIDO"}))})};
+      };
+      const results=await Promise.all([
+        globalThis.GRUKOfflineTransport.synchronize({
+          outbox,token:"test-token",context:tenant,fetchFn
+        }),
+        globalThis.GRUKOfflineTransport.synchronize({
+          outbox,token:"test-token",context:tenant,fetchFn
+        })
+      ]);
+      const local=await outbox.listLocal(100,tenant);
+      return {sent,results,
+        pending:(await outbox.listPending(100,tenant)).length,
+        received:(await outbox.listReceived(100,tenant)).length,
+        local:local.length,unique:new Set(local.map(e=>e.eventId)).size};
+    },{tenant:tenantA,expectedIds:concurrentIds});
+    assert.deepEqual(parallelSync.sent,[concurrentIds,concurrentIds]);
+    assert.deepEqual(parallelSync.results,[{sent:2,received:2},{sent:2,received:2}]);
+    assert.deepEqual({pending:parallelSync.pending,received:parallelSync.received,
+      local:parallelSync.local,unique:parallelSync.unique},
+      {pending:0,received:25,local:25,unique:25});
+    await browser.close();
+    browser=null;
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    const afterParallelRestart=await page.evaluate(async tenant=>({
+      pending:(await globalThis.GRUKOfflineOutbox.listPending(100,tenant)).length,
+      received:(await globalThis.GRUKOfflineOutbox.listReceived(100,tenant)).length,
+      local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length
+    }),tenantA);
+    assert.deepEqual(afterParallelRestart,{pending:0,received:25,local:25});
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 21, abortedAckRecovered: true }));
   } finally {
