@@ -83,10 +83,13 @@ test("real Mongo: 503, interrupted writes and lost HTTP ack replay without dupli
   },/SIMULATED_LOST_HTTP_RESPONSE_AFTER_COMMIT/);
   assert.equal(committedButUnacknowledged,true);
   assert.equal((await db.collection("inventarios").findOne(inventoryKey)).cantidad,2);
-  for(const collection of ["gruk_offline_ventas","gruk_offline_stock_movimientos",
-   "gruk_offline_caja_intenciones","gruk_ledger_movimientos"])
-   assert.equal(await db.collection(collection).countDocuments({}),2,
-    collection+" must be committed once before a response reaches client");
+  for(const [collection,expected] of [
+   ["gruk_offline_ventas",2],
+   ["gruk_offline_stock_movimientos",1], // aggregated per product per batch
+   ["gruk_offline_caja_intenciones",2],
+   ["gruk_ledger_movimientos",2]
+  ])assert.equal(await db.collection(collection).countDocuments({}),expected,
+   collection+" must be committed once before a response reaches client");
   assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
    empresaId:auth.empresaId,sedeId:auth.sedeId,status:"EN_REVISION",inventoryApplied:true
   }),2);
