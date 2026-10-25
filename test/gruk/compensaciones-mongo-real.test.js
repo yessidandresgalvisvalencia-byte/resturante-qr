@@ -5,6 +5,9 @@ const mongoose=require("mongoose");
 const Evento=require("../../modules/finanzas-personales/models/EventoCompensatorioPersonal");
 const Cursor=require("../../modules/finanzas-personales/models/CursorCompensacionPersonal");
 const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
+const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
+const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");
+const {crearAplicador}=require("../../modules/finanzas-personales/services/compensarMovimientoPersonal.service");
 const {crearRegistrador,GENESIS}=require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
 const {validarMongoPruebasV81}=require("../../scripts/exigir-mongo-v81-pruebas");
@@ -15,13 +18,13 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
 },async()=>{
  validarMongoPruebasV81(uri);
  await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
- const usuarios=Array.from({length:3},()=>new mongoose.Types.ObjectId().toString());
+ const usuarios=Array.from({length:5},()=>new mongoose.Types.ObjectId().toString());
  const movimientoId=new mongoose.Types.ObjectId().toString();
  const original={usuarioId:usuarios[0],movimientoId,tipo:"GASTO",montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion"};
  const registrar=crearRegistrador();
  const solicitud=(key,orig=original)=>({original:orig,tipo:"CORRECCION",cambios:{montoMinor:22000},idempotencyKey:key,fechaISO:"2026-10-25T15:00:00.000Z"});
  try{
-  await Promise.all([Evento.init(),Cursor.init(),Cuenta.init()]);
+  await Promise.all([Evento.init(),Cursor.init(),Cuenta.init(),Transaccion.init(),Outbox.init()]);
   const primero=await registrar(solicitud("correccion"));
   assert.equal(primero.deltaCajaMinor,"3000");
   await assert.rejects(registrar(solicitud("obsoleta")),/desactualizado/);
@@ -73,11 +76,43 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
    assert.equal((await Cursor.findById(usuarios[2]).lean()).secuencia,1);
    assert.equal(await Evento.countDocuments({usuarioId:usuarios[2]}),1);
   }finally{await session.endSession();}
+  // Orquestador real: fuente inalterada, cuenta por ID y outbox en la misma transacción.
+  const aplicar=crearAplicador();
+  for(const usuarioId of usuarios.slice(3)){
+   const cuenta=await Cuenta.create({usuarioId,nombre:"CAJA",tipo:"EFECTIVO",saldoMinor:50000});
+   const tx=await Transaccion.create({usuarioId,cuentaId:cuenta._id,cuenta:"CAJA",tipo:"GASTO",
+    montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion",fecha:new Date()});
+   const fuenteAntes=await Transaccion.findById(tx._id).lean();
+   const solicitud={usuarioId,movimientoId:String(tx._id),tipo:"CORRECCION",
+    cambios:{montoMinor:22000},idempotencyKey:"ajuste_caja"};
+   if(usuarioId===usuarios[3]){
+    await assert.rejects(aplicar({...solicitud,usuarioId:usuarios[4]}),e=>e.statusCode===404);
+    await aplicar(solicitud);
+    assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,53000);
+    await assert.rejects(aplicar(solicitud),/Idempotencia/);
+    await aplicar({...solicitud,tipo:"ANULACION",cambios:{},idempotencyKey:"anular_caja"});
+    assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,75000);
+    assert.equal(await Outbox.countDocuments({usuarioId}),2);
+    assert.equal(await Evento.countDocuments({usuarioId}),2);
+   }else{
+    const fallarAuditoria=crearAplicador({OutboxModelo:{create:async()=>{throw Error("OUTBOX_FALLIDO");}}});
+    await assert.rejects(fallarAuditoria(solicitud),/OUTBOX_FALLIDO/);
+    assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,50000);
+    assert.equal(await Evento.countDocuments({usuarioId}),0);
+    assert.equal(await Cursor.findById(usuarioId).lean(),null);
+    assert.equal(await Outbox.countDocuments({usuarioId}),0);
+    const recurrente=await Transaccion.create({usuarioId,cuentaId:cuenta._id,tipo:"GASTO",montoMinor:25000,concepto:"Arriendo",categoria:"Fijos",fecha:new Date(),recurrente:true});
+    await assert.rejects(aplicar({...solicitud,movimientoId:String(recurrente._id)}),/tratamiento especial/);
+   }
+   assert.deepEqual(await Transaccion.findById(tx._id).lean(),fuenteAntes);
+  }
  }finally{
   // Los modelos rechazan deletes: limpieza directa SOLO tras validar el destino loopback de pruebas.
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios}});
   await Cursor.collection.deleteMany({_id:{$in:usuarios}});
   await Cuenta.deleteMany({usuarioId:{$in:usuarios}});
+  await Transaccion.deleteMany({usuarioId:{$in:usuarios}});
+  await Outbox.deleteMany({usuarioId:{$in:usuarios}});
   await mongoose.disconnect();
  }
 });
