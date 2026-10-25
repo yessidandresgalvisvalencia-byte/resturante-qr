@@ -1,16 +1,29 @@
 /* GRUK offline transport; never posts financial balances or inventory. */
 (function(root){
 "use strict";
+const IDENTITY_FIELDS=["empresaId","sedeId","actorId"];
+function captureIdentity(context){
+ if(!context||typeof context!=="object"||IDENTITY_FIELDS.some(k=>
+   !Object.prototype.hasOwnProperty.call(context,k)||
+   typeof context[k]!=="string"||!context[k]))
+   throw Error("SYNC_TENANT_REQUIRED");
+ return Object.freeze(Object.fromEntries(IDENTITY_FIELDS.map(k=>[k,context[k]])));
+}
+function requireSameIdentity(context,identity){
+ if(IDENTITY_FIELDS.some(k=>context[k]!==identity[k]))
+   throw Error("SYNC_SESSION_CHANGED");
+}
 async function synchronize({outbox,token,fetchFn,context,limit=100}) {
- if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("SYNC_TENANT_REQUIRED");
+ const identity=captureIdentity(context);
  if(!outbox?.listPending || !outbox?.markReceived) throw new Error("SYNC_OUTBOX_REQUIRED");
  if(typeof token!=="string" || !token.trim()) throw new Error("SYNC_AUTH_REQUIRED");
  if(typeof fetchFn!=="function") throw new Error("SYNC_FETCH_REQUIRED");
  if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("SYNC_LIMIT");
- const events=await outbox.listPending(limit,context);
+ const events=await outbox.listPending(limit,identity);
+ requireSameIdentity(context,identity);
  if(!Array.isArray(events)||events.length>limit||
     events.some(e=>typeof e?.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(e.eventId)||
-      ["empresaId","sedeId","actorId"].some(k=>e[k]!==context[k]))||
+      IDENTITY_FIELDS.some(k=>e[k]!==identity[k]))||
     new Set(events.map(e=>e.eventId)).size!==events.length)
    throw Error("SYNC_INVALID_LOCAL_EVENTS");
  if(events.length===0)return Object.freeze({sent:0,received:0});
@@ -29,9 +42,12 @@ async function synchronize({outbox,token,fetchFn,context,limit=100}) {
      !["RECIBIDO","YA_RECIBIDO"].includes(ack.status))throw new Error("SYNC_INVALID_ACK");
    acknowledged.add(ack.eventId);
  }
- // Mark each accepted item as received, not financially applied. Never delete local records.
+ // Fail closed if the user switches company/session while the HTTP reply is in flight.
+ // A new session can retry these original ULIDs with its own verified identity.
+ requireSameIdentity(context,identity);
  for(const eventId of acknowledged){
-   const persisted=await outbox.markReceived(eventId,context);
+   requireSameIdentity(context,identity);
+   const persisted=await outbox.markReceived(eventId,identity);
    if(persisted!==true)throw new Error("SYNC_LOCAL_ACK_NOT_PERSISTED");
  }
  return Object.freeze({sent:events.length,received:acknowledged.size});
@@ -55,12 +71,13 @@ async function synchronizeAll({outbox,token,fetchFn,context,limit=100,maxBatches
 }
 
 async function reconcileReceived({outbox,token,fetchFn,context,limit=100}) {
- if(!context||["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("SYNC_TENANT_REQUIRED");
+ const identity=captureIdentity(context);
  if(typeof outbox?.listReceived!=="function"||typeof outbox?.markReconciled!=="function")throw Error("SYNC_OUTBOX_REQUIRED");
  if(typeof token!=="string"||!token.trim())throw Error("SYNC_AUTH_REQUIRED");
  if(typeof fetchFn!=="function")throw Error("SYNC_FETCH_REQUIRED");
  if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("SYNC_LIMIT");
- const received=await outbox.listReceived(limit,context);
+ const received=await outbox.listReceived(limit,identity);
+ requireSameIdentity(context,identity);
  if(received.length===0)return Object.freeze({checked:0,updated:0});
  const ids=received.map(x=>x?.eventId);
  if(ids.some(x=>typeof x!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(x))||
@@ -85,11 +102,13 @@ async function reconcileReceived({outbox,token,fetchFn,context,limit=100}) {
     throw Error("SYNC_INVALID_RECONCILIATION");
   validated.add(event.eventId);
  }
+ requireSameIdentity(context,identity);
  let updated=0;
  for(const event of result.events){
+  requireSameIdentity(context,identity);
   // Ambiguous missing remote identity must not overwrite the local receipt.
   if(event.status==="NO_ENCONTRADO")continue;
-  if(await outbox.markReconciled(event.eventId,context,event)===true)updated++;
+  if(await outbox.markReconciled(event.eventId,identity,event)===true)updated++;
  }
  return Object.freeze({checked:ids.length,updated});
 }
