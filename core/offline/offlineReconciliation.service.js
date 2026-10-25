@@ -42,12 +42,31 @@ async function readOfflineReconciliation({db,context,eventIds}){
  const sets=await Promise.all(specs.map(async([name,projection])=>
   db.collection(name).find(name==="gruk_offline_inbox"?{...scope,actorId:identity.actorId}:scope,
    {projection:{_id:0,empresaId:1,sedeId:1,actorId:1,...projection},limit:101}).toArray()));
- const maps=sets.map(rows=>{
+ const maps=sets.map((rows,setIndex)=>{
   if(!Array.isArray(rows)||rows.length>100)
    fail("OFFLINE_RECONCILIATION_EVIDENCE_INVALID");
+  // Snapshot every projected field; a malicious/stale Mongo adapter must not
+  // make a row change identity, tenant, actor, amount or state via getters.
+  const fields=["empresaId","sedeId","actorId","eventId",
+   ...Object.keys(specs[setIndex][1])];
   const found=new Map();
   let ambiguousUnidentified=false;
-  for(const row of rows){
+  for(let i=0;i<rows.length;i++){
+   const slot=Object.getOwnPropertyDescriptor(rows,String(i));
+   if(!slot||!("value" in slot))
+    fail("OFFLINE_RECONCILIATION_EVIDENCE_INVALID");
+   const original=slot.value;
+   if(!original||typeof original!=="object"||Array.isArray(original)){
+    ambiguousUnidentified=true;
+    continue;
+   }
+   const row={};
+   for(const field of fields){
+    const descriptor=Object.getOwnPropertyDescriptor(original,field);
+    if(descriptor&&!("value" in descriptor))
+     fail("OFFLINE_RECONCILIATION_EVIDENCE_INVALID");
+    row[field]=descriptor?.value;
+   }
    // Missing/duplicate event identities are ambiguous; never report completion.
    if(!row||typeof row!=="object"||typeof row.eventId!=="string"||
      !ULID.test(row.eventId)||!ids.includes(row.eventId)){
@@ -68,7 +87,7 @@ async function readOfflineReconciliation({db,context,eventIds}){
   if(ambiguousUnidentified)for(const eventId of ids)found.set(eventId,null);
   return found;
  });
- const cop=x=>typeof x==="string"&&/^(0|[1-9][0-9]*)$/.test(x)&&
+ const cop=x=>typeof x==="string"&&x.length<=16&&/^(0|[1-9][0-9]*)$/.test(x)&&
   BigInt(x)<=BigInt(Number.MAX_SAFE_INTEGER);
  return ids.map(eventId=>{
   const [inbox,sale,cash,ledger]=maps.map(m=>m.get(eventId));
