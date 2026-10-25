@@ -385,3 +385,22 @@ reanudar toda la verificación y asegurar atomicidad con un documento de
 control de concurrencia, permisos, evento append-only e idempotencia.
 La salida confirma explícitamente `autorizaEscritura:false` y
 `aptoParaDisponibleHoy:false` (#407).
+
+## Control de concurrencia previo: huella del estado completo
+
+`huellaEstadoReservasPersonal.service.js` construye una huella SHA-256
+determinística de la obligación, TODOS los abonos vinculados (activos y
+anulados), reservas por período y cursor de la cadena compensatoria,
+ordenando registros antes del hash y validando identidades y duplicados.
+`consultaAuditoriaReservasPersonal.service.js` devuelve
+`huellaEstado` y permite compararla mediante
+`huellaEstadoEsperada` dentro del mismo snapshot MongoDB. La
+comparación detecta cambios que dejarían invariable el delta del
+diagnóstico anterior, como sustituir un pago por dos abonos de igual suma.
+
+**NO es todavía un bloqueo CAS:** un SHA-256 del estado no autentica
+ni garantiza inmutabilidad externa; tampoco impide una escritura
+concurrente posterior al snapshot. Este token no habilita endpoint,
+`Disponible Hoy` ni reparación alguna. Toda ejecución futura debe
+volver a validar con bloqueo transaccional, índices únicos y un
+evento de reparación append-only (#407).
