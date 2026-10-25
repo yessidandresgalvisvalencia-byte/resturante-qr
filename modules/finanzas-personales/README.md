@@ -330,3 +330,19 @@ ni la fábrica financiera deben producir compensaciones sobre ellos.
 La prueba MongoDB real verifica rechazo 409, saldo y eventos intactos.
 La ruta legada de anulación de abonos continúa siendo otra deuda técnica
 de inmutabilidad (#407), no se ha migrado automáticamente.
+
+## Auditoría forense con lector transaccional propio
+
+`consultaAuditoriaReservasPersonal.service.js` obtiene origen SIN_CAJA,
+histórico completo de sus abonos (incluidas anulaciones legadas),
+reservas, cadena compensatoria del usuario, cursor y cancelación en un
+**único snapshot MongoDB**, con lecturas secuenciales y límite de 10.000.
+No acepta listas suministradas por frontend, ni expone un endpoint.
+Si existe una cancelación, un cursor corrupto o un histórico truncado,
+rechaza el dictamen. Permite identificar una diferencia de un peso en
+`reservadoMinor` sin tocar caja, ledger ni reservas.
+
+La auditoría continúa como servicio interno de solo lectura:
+`aptoParaDisponibleHoy:false`. Detectar una discrepancia no equivale
+a autorizar su reparación; el procedimiento de reverso financiero
+append-only y conciliación de saldos permanece bloqueado por #407.
