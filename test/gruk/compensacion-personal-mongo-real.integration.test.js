@@ -139,6 +139,7 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    // Solo prueba de inserción en base efímera: NO se aplica la reparación
    // ni se modifica ninguna reserva, cuenta ni asiento financiero.
    const evidencia=construirEventoReconciliacionReserva({
+    actorId:String(usuarioId),
     usuarioId:String(usuarioId),origenId:String(origenVigente._id),
     reservaId:String(reservaVigente._id),
     periodoInicio:new Date("2026-11-15T05:00:00Z"),
@@ -250,8 +251,10 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    // confirma CAS + evidencia + fence de cursor como una sola transacción.
    const {crearEjecutorReparacionReserva}=require(
     "../../modules/finanzas-personales/services/ejecutarReparacionReservaPersonal.service");
-   const ejecutarReserva=crearEjecutorReparacionReserva();
-   const antiguo={usuarioId:String(usuarioId),origenId:String(origenVigente._id),
+   const ejecutarReserva=crearEjecutorReparacionReserva({
+    autorizarActor:async({actorId,usuarioId:uid})=>actorId===uid
+   });
+   const antiguo={actorId:String(usuarioId),usuarioId:String(usuarioId),origenId:String(origenVigente._id),
     reservaId:String(reservaVigente._id),
     huellaEstadoEsperada:estadoAnterior,
     huellaDiagnostico:huellaAnterior,idempotencyHash:"d".repeat(64),
