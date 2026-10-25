@@ -159,8 +159,87 @@ async function run() {
       local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length
     }),tenantA);
     assert.deepEqual(durable,{pending:0,received:20,local:20});
+    // Inject an ACTUAL IndexedDB transaction abort after a successful server
+    // acknowledgement, just as the local markReceived() write is queued.
+    // The aborted transaction must not persist the 'received' transition.
+    const extraId = "01ARZ3NDEKTSV4RRFFQ69G5FA2";
+    const aborted = await page.evaluate(async ({tenant,eventId})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      await outbox.putPending({...tenant,eventId,
+        payload:{items:[{productoId:"producto-1",cantidad:1}]}});
+      const original=IDBObjectStore.prototype.put;
+      let injected=0,serverCalls=0,caught=false;
+      IDBObjectStore.prototype.put=function(value,...args){
+        const request=original.call(this,value,...args);
+        if(injected===0&&value?.eventId===eventId&&value?.syncStatus==="received"){
+          injected++;
+          this.transaction.abort();
+        }
+        return request;
+      };
+      try{
+        await globalThis.GRUKOfflineTransport.synchronize({
+          outbox,context:tenant,token:"test-token",
+          fetchFn:async (_url,options)=>{
+            serverCalls++;
+            const sent=JSON.parse(options.body).events;
+            if(sent.length!==1||sent[0].eventId!==eventId)throw Error("WRONG_EVENT");
+            return {status:202,json:async()=>({ok:true,applied:false,
+              events:[{eventId,status:"RECIBIDO"}]})};
+          }
+        });
+      }catch(_error){caught=true;}
+      finally{IDBObjectStore.prototype.put=original;}
+      return {caught,injected,serverCalls,
+        pending:(await outbox.listPending(100,tenant)).map(x=>x.eventId),
+        received:(await outbox.listReceived(100,tenant)).length,
+        local:(await outbox.listLocal(100,tenant)).length};
+    },{tenant:tenantA,eventId:extraId});
+    assert.deepEqual(aborted,{caught:true,injected:1,serverCalls:1,
+      pending:[extraId],received:20,local:21});
+    await browser.close();
+    browser=null;
+
+    // Fresh Chromium process, same profile: the rejected ACK remains pending.
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    await browser.setOffline(true);
+    const afterAbortRestart=await page.evaluate(async ({tenant,eventId})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      const pending=await outbox.listPending(100,tenant);
+      let requests=0;
+      const outcome=await globalThis.GRUKOfflineTransport.synchronizeAll({
+        outbox,context:tenant,token:"test-token",
+        fetchFn:async (_url,options)=>{
+          requests++;
+          const sent=JSON.parse(options.body).events;
+          if(sent.length!==1||sent[0].eventId!==eventId)throw Error("WRONG_RETRY");
+          return {status:202,json:async()=>({ok:true,applied:false,
+            events:[{eventId,status:"YA_RECIBIDO"}]})};
+        }
+      });
+      return {pendingBefore:pending.map(x=>x.eventId),requests,outcome,
+        pendingAfter:(await outbox.listPending(100,tenant)).length,
+        received:(await outbox.listReceived(100,tenant)).length,
+        local:(await outbox.listLocal(100,tenant)).length};
+    },{tenant:tenantA,eventId:extraId});
+    assert.deepEqual(afterAbortRestart,{pendingBefore:[extraId],requests:1,
+      outcome:{sent:1,received:1,batches:1,complete:true},
+      pendingAfter:0,received:21,local:21});
+    await browser.close();
+    browser=null;
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    const afterSecondRestart=await page.evaluate(async tenant=>({
+      local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length,
+      received:(await globalThis.GRUKOfflineOutbox.listReceived(100,tenant)).length,
+      pending:(await globalThis.GRUKOfflineOutbox.listPending(100,tenant)).length
+    }),tenantA);
+    assert.deepEqual(afterSecondRestart,{local:21,received:21,pending:0});
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
-      browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 1 }));
+      browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 21, abortedAckRecovered: true }));
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));
