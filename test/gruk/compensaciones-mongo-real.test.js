@@ -9,6 +9,8 @@ const Transaccion=require("../../modules/finanzas-personales/models/TransaccionP
 const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.model");
 const {crearAplicador}=require("../../modules/finanzas-personales/services/compensarMovimientoPersonal.service");
 const {consultarPeriodo}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
+const {flujoPeriodo}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+const resumenLedger=require("../../modules/finanzas-personales/services/resumenLedgerPersonal.service");
 const {crearRegistrador,GENESIS}=require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
 const {validarMongoPruebasV81}=require("../../scripts/exigir-mongo-v81-pruebas");
@@ -95,6 +97,12 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     const lectura=await consultarPeriodo({...periodo,categoria:"Otros"});
     assert.equal(lectura.length,1);
     assert.equal(lectura[0].montoMinor,22000);
+    const flujo=await flujoPeriodo(usuarioId,periodo);
+    assert.equal(flujo.gastosMinor,22000);
+    assert.equal(flujo.flujoNetoMinor,-22000);
+    const resumen=await resumenLedger.resumen(usuarioId,periodo);
+    assert.equal(resumen.gastosMinor,22000);
+    assert.equal(resumen.flujoLibreMinor,-22000);
     assert.equal((await consultarPeriodo({...periodo,categoria:"Alimentacion"})).length,0);
     await assert.rejects(aplicar(solicitud),/Idempotencia/);
     await aplicar({...solicitud,tipo:"ANULACION",cambios:{},idempotencyKey:"anular_caja"});
@@ -102,6 +110,8 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     assert.equal(await Outbox.countDocuments({usuarioId}),2);
     assert.equal(await Evento.countDocuments({usuarioId}),2);
     assert.equal((await consultarPeriodo(periodo)).length,0);
+    assert.equal((await flujoPeriodo(usuarioId,periodo)).gastosMinor,0);
+    assert.equal((await resumenLedger.resumen(usuarioId,periodo)).flujoLibreMinor,0);
     const anuladas=await consultarPeriodo({...periodo,incluirAnuladas:true});
     assert.equal(anuladas.length,1);
     assert.equal(anuladas[0].estado,"ANULADA");

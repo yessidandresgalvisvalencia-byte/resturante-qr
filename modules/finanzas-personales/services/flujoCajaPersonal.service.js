@@ -1,5 +1,7 @@
 "use strict";
 const crypto=require("crypto");
+const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
+const {calcularFlujo}=require("./totalesFlujoCompensadoPersonal.service");
 const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
 const Outbox=require("../models/outboxPersonal.model");
@@ -132,9 +134,8 @@ async function publicarEvento(outbox){
 async function republicarPendientes(limite=100){const expirado=new Date(Date.now()-5*60*1000);await Outbox.updateMany({estado:"PUBLICANDO",reclamadoEn:{$lte:expirado}},{$set:{estado:"ERROR",reclamadoEn:null,ultimoError:"Lease de publicación expirado; reintento seguro"}});const docs=await Outbox.find({estado:{$in:["PENDIENTE","ERROR"]}}).sort({createdAt:1}).limit(Math.min(limite,500));let publicados=0;for(const doc of docs){try{if(await publicarEvento(doc))publicados++;}catch(_){}}return publicados;}
 async function flujoPeriodo(usuarioId,{desde,hasta}){
  const inicio=new Date(desde),fin=new Date(hasta);if(Number.isNaN(inicio.getTime())||Number.isNaN(fin.getTime())||inicio>=fin)throw Object.assign(new Error("Periodo inválido"),{statusCode:400});
- const rows=await Transaccion.aggregate([{$match:{usuarioId:new mongoose.Types.ObjectId(usuarioId),estado:{$ne:"ANULADA"},moneda:"COP",fecha:{$gte:inicio,$lt:fin}}},{$group:{_id:"$tipo",total:{$sum:"$montoMinor"}}}]);
- const totals=Object.fromEntries(rows.map(x=>[x._id,x.total]));const ingresos=(totals.INGRESO||0)+(totals.PRESTAMO_RECIBIDO||0)+(totals.COBRO_PRESTAMO||0),gastos=(totals.GASTO||0)+(totals.PRESTAMO_OTORGADO||0),pagosDeuda=totals.PAGO_DEUDA||0;
- return{ingresosMinor:ingresos,gastosMinor:gastos,pagosDeudaMinor:pagosDeuda,flujoNetoMinor:ingresos-gastos-pagosDeuda,moneda:"COP"};
+ const rows=await consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:fin.toISOString()});
+ return calcularFlujo(rows,{incluirPrestamos:true});
 }
 async function corregirTransaccion(usuarioId,id,cambios){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const permitidos={};for(const k of ["tipo","montoMinor","concepto","categoria"])if(cambios[k]!==undefined)permitidos[k]=cambios[k];if(!Object.keys(permitidos).length)throw Object.assign(new Error("No hay cambios válidos"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{const anterior=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!anterior)throw Object.assign(new Error("Movimiento no disponible"),{statusCode:404});if(anterior.recurrenteOrigenId&&(
   (permitidos.montoMinor!==undefined&&permitidos.montoMinor!==anterior.montoMinor)||
