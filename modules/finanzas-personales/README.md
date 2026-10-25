@@ -295,3 +295,25 @@ saldos. Excluye de forma preventiva obligaciones canceladas y retorna
 completa, ni sustituye los controles del ledger de producción. La
 conciliación de compensaciones con reservas y el control de privilegios
 de base de datos siguen pendientes en #407.
+
+## Auditoría forense de reservas históricas (servicio interno)
+
+`auditarReservasRecurrenciaPersonal.service.js` analiza asientos de pagos
+vinculados, incluidos aquellos que la ruta legada marcó `ANULADA`,
+y compara la suma exacta de pagos vigentes por período civil Bogotá
+contra `reservadoMinor`. Reporta los códigos
+`RESERVA_DESCUADRADA`, `FALTA_RESERVA`,
+`RESERVA_SIN_ABONOS` o `PERIODO_INCORRECTO`
+sin hacer `UPDATE` ni inventar movimientos compensatorios. Si detecta
+compensaciones sobre esos pagos, cadena/cursor inconsistente,
+un pago ajeno, duplicado o malformado, se bloquea con 409.
+
+Las anomalías contienen importes como cadenas decimales exactas;
+su diagnóstico no autoriza modificar ni liberar compromisos.
+**Precondición:** todas las listas deben proceder de un único snapshot
+transaccional completo del usuario, sin recortes por fecha; el test
+MongoDB aislado demuestra detección sobre registros reales, pero el
+servicio puro no realiza por sí mismo la lectura transaccional.
+No se conecta a `Disponible Hoy` ni a ninguna API pública y devuelve
+`aptoParaDisponibleHoy:false`; la remediación de reservas con
+historial append-only sigue pendiente (#407).
