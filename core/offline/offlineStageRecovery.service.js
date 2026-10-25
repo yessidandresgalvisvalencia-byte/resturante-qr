@@ -31,7 +31,8 @@ async function recoverOfflineStagedBatch({db,context,eventIds}){
   ids.push(d.value);
  }
  if(new Set(ids).size!==ids.length)fail();
- if(!db||typeof db.collection!=="function")fail();
+ if(!db||typeof db.collection!=="function"||
+    typeof db.client?.startSession!=="function")fail();
  const scopedContext=Object.freeze(identity),scopedIds=Object.freeze(ids);
  async function verifyInSnapshot(session){
  const statuses=await readOfflineReconciliation({db,context:scopedContext,eventIds:scopedIds,session});
@@ -73,22 +74,18 @@ async function recoverOfflineStagedBatch({db,context,eventIds}){
  }
  // Real Mongo supports a stable snapshot across all seven journal reads.
  // Keep a single session and fail closed on transaction or session errors.
- if(typeof db.client?.startSession==="function"){
-  const session=db.client.startSession();
-  try{
-   if(!session||typeof session.withTransaction!=="function")fail();
-   let verified;
-   await session.withTransaction(async()=>{
-    verified=await verifyInSnapshot(session);
-   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
-   if(!verified)fail();
-   return verified;
-  }finally{
-   if(session&&typeof session.endSession==="function")await session.endSession();
-  }
+ const session=db.client.startSession();
+ try{
+  if(!session||typeof session.withTransaction!=="function"||
+     typeof session.endSession!=="function")fail();
+  let verified;
+  await session.withTransaction(async()=>{
+   verified=await verifyInSnapshot(session);
+  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
+  if(!verified)fail();
+  return verified;
+ }finally{
+  if(session&&typeof session.endSession==="function")await session.endSession();
  }
- // Legacy in-memory adapters without Mongo sessions are used in unit tests.
- // They cannot provide cross-collection snapshot guarantees.
- return verifyInSnapshot(null);
 }
 module.exports={recoverOfflineStagedBatch};
