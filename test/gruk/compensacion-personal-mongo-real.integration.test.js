@@ -125,12 +125,43 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
     concepto:"Pago parcial",categoria:"Vivienda",
     fecha:new Date("2026-11-16T12:00:00Z"),estado:"ACTIVA"
    }]);
+   const EventoReparacion=require(
+    "../../modules/finanzas-personales/models/EventoReconciliacionReservaPersonal");
+   const {construirEventoReconciliacionReserva}=require(
+    "../../modules/finanzas-personales/services/eventoReconciliacionReservaPersonal.service");
+   await EventoReparacion.init();
    const [reservaVigente]=await Reserva.create([{
     usuarioId,origenId:origenVigente._id,
     periodoInicio:new Date("2026-11-15T05:00:00Z"),
     periodoFin:new Date("2026-12-15T05:00:00Z"),
     importeCuotaMinor:500000,reservadoMinor:200000
    }]);
+   // Solo prueba de inserción en base efímera: NO se aplica la reparación
+   // ni se modifica ninguna reserva, cuenta ni asiento financiero.
+   const evidencia=construirEventoReconciliacionReserva({
+    usuarioId:String(usuarioId),origenId:String(origenVigente._id),
+    reservaId:String(reservaVigente._id),
+    periodoInicio:new Date("2026-11-15T05:00:00Z"),
+    huellaEstadoPrevio:"a".repeat(64),
+    huellaDiagnostico:"b".repeat(64),idempotencyHash:"c".repeat(64),
+    importeAnteriorMinor:"200000",importeNuevoMinor:"199999",
+    fecha:new Date("2026-10-25T15:00:00Z")
+   });
+   const [guardado]=await EventoReparacion.create([{
+    ...evidencia,periodoInicio:new Date(evidencia.periodoInicio),
+    fecha:new Date(evidencia.fecha)
+   }]);
+   assert.equal(guardado.deltaMinor,"-1");
+   await assert.rejects(()=>EventoReparacion.create([{
+    ...evidencia,periodoInicio:new Date(evidencia.periodoInicio),
+    fecha:new Date(evidencia.fecha)
+   }]),e=>e.code===11000);
+   await assert.rejects(()=>EventoReparacion.updateOne({_id:guardado._id},
+    {$set:{importeNuevoMinor:"1"}}),/APPEND_ONLY/);
+   await assert.rejects(()=>EventoReparacion.deleteOne({_id:guardado._id}),
+    /APPEND_ONLY/);
+   assert.equal((await Reserva.findById(reservaVigente._id).lean()).reservadoMinor,
+    200000);
    const {crearConsultaCuotasConciliadas}=require(
     "../../modules/finanzas-personales/services/consultaCuotasConciliadasPersonal.service");
    const consultarCuotas=crearConsultaCuotasConciliadas();
