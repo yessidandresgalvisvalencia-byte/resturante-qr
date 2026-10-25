@@ -9,7 +9,7 @@ const auth={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd79943901
 const productId="507f1f77bcf86cd799439011";
 const ids=["01ARZ3NDEKTSV4RRFFQ69G5FA0","01ARZ3NDEKTSV4RRFFQ69G5FA1"];
 const objectId=value=>new ObjectId(value);
-test("real Mongo: HTTP 503-compatible outage leaves pending orders; retry posts once without duplicate stock or charge",{timeout:60000},async t=>{
+test("real Mongo: 503, interrupted writes and lost HTTP ack replay without duplicate stock or charge",{timeout:60000},async t=>{
  const uri=process.env.GRUK_TEST_MONGO_URI;
  if(!uri){t.skip("Isolated GRUK_TEST_MONGO_URI required");return;}
  if(!uri.includes("gruk_offline_test"))throw Error("OFFLINE_TEST_DB_NAME_REQUIRED");
@@ -70,11 +70,31 @@ test("real Mongo: HTTP 503-compatible outage leaves pending orders; retry posts 
     empresaId:auth.empresaId,sedeId:auth.sedeId,status:"PENDIENTE"
    }),2,"The two original inbox orders must remain retryable");
   }
-  const first=await stageAuthorizedOfflineOrders(args);
-  assert.equal(first.status,"PENDIENTE_CONTABILIZACION");
-  assert.equal(first.applied,false);assert.equal(first.cobrado,false);
-  assert.equal(first.totalCop,"9000");
+  // Simulate a lost TCP/HTTP acknowledgement AFTER the server has committed.
+  // The client never receives the success body and retries its original ULIDs.
+  let committedButUnacknowledged=false;
+  await assert.rejects(async()=>{
+   const internal=await stageAuthorizedOfflineOrders(args);
+   assert.equal(internal.status,"PENDIENTE_CONTABILIZACION");
+   assert.equal(internal.applied,false);assert.equal(internal.cobrado,false);
+   assert.equal(internal.totalCop,"9000");
+   committedButUnacknowledged=true;
+   throw new Error("SIMULATED_LOST_HTTP_RESPONSE_AFTER_COMMIT");
+  },/SIMULATED_LOST_HTTP_RESPONSE_AFTER_COMMIT/);
+  assert.equal(committedButUnacknowledged,true);
   assert.equal((await db.collection("inventarios").findOne(inventoryKey)).cantidad,2);
+  for(const [collection,expected] of [
+   ["gruk_offline_ventas",2],
+   ["gruk_offline_stock_movimientos",1], // aggregated per product per batch
+   ["gruk_offline_caja_intenciones",2],
+   ["gruk_ledger_movimientos",2]
+  ])assert.equal(await db.collection(collection).countDocuments({}),expected,
+   collection+" must be committed once before a response reaches client");
+  assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
+   empresaId:auth.empresaId,sedeId:auth.sedeId,status:"EN_REVISION",inventoryApplied:true
+  }),2);
+  // The first client-visible reply is from the replay: it must identify
+  // already-staged events without a second financial write or stock debit.
   for(let attempt=0;attempt<5;attempt++){
    const second=await stageAuthorizedOfflineOrders(args);
    assert.equal(second.alreadyStaged,true,"Replay "+attempt+" must be idempotent");
@@ -82,6 +102,16 @@ test("real Mongo: HTTP 503-compatible outage leaves pending orders; retry posts 
    assert.equal(second.applied,false);assert.equal(second.cobrado,false);
    assert.equal(second.totalCop,"9000");
    assert.equal((await db.collection("inventarios").findOne(inventoryKey)).cantidad,2);
+   for(const [collection,expected] of [
+    ["gruk_offline_ventas",2],
+    ["gruk_offline_stock_movimientos",1],
+    ["gruk_offline_caja_intenciones",2],
+    ["gruk_ledger_movimientos",2]
+   ])assert.equal(await db.collection(collection).countDocuments({}),expected,
+    collection+" duplicated after lost-ack replay "+attempt);
+   assert.equal(await db.collection("gruk_offline_caja_intenciones").countDocuments({
+    cobrado:true
+   }),0,"Lost-ack replay must never mark cash charged");
   }
   assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
    empresaId:auth.empresaId,sedeId:auth.sedeId,status:"EN_REVISION",inventoryApplied:true
