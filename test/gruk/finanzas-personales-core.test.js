@@ -360,7 +360,7 @@ test("cálculo real de pagos compartido entre contabilidad y compromisos",()=>{
 test("movimientos futuros no cuentan como pagos ya realizados",()=>{
  const fs=require("node:fs"),path=require("node:path");
  const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
- assert.match(src,/Transaccion\.find\(\{usuarioId,fecha:\{\$gte:inicio,\$lte:now\},tipo:/);
+ assert.match(src,/consultarPeriodo\(\{usuarioId,desde:inicio\.toISOString\(\),hasta:new Date\(\+now\+1\)\.toISOString\(\)\}/);
  assert.doesNotMatch(src,/Transaccion\.find\(\{usuarioId,fecha:\{\$gte:inicio,\$lt:fin\},tipo:/);
 });
 
@@ -492,7 +492,7 @@ test("ningún movimiento con monto corrupto desaparece del cálculo de caja",()=
 test("snapshot recupera banderas reales de caja y pagos efectivamente realizados",()=>{
  const fs=require("node:fs");
  const source=fs.readFileSync(require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
- assert.match(source,/\.select\("estado moneda tipo montoMinor montoPagadoRealMinor impactoCaja medioPago fecha cuenta cuentaId"\)\.lean\(\)/);
+ assert.match(source,/consultarCaja\(usuarioId,\{session\}\)/);
  assert.equal(patrimonioPersonal.deltaCaja({
   tipo:"PAGO_DEUDA",montoMinor:5000,montoPagadoRealMinor:6500,impactoCaja:false
  }),0);
