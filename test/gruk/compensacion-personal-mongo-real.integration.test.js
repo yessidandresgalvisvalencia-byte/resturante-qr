@@ -293,6 +293,31 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
    assert.equal(await EventoReparacion.countDocuments({usuarioId,
     idempotencyHash:solicitud.idempotencyHash}),1);
+   const evidenciaFirmada=await EventoReparacion.findOne({
+    usuarioId,idempotencyHash:solicitud.idempotencyHash
+   }).lean();
+   assert.equal(String(evidenciaFirmada.actorId),String(usuarioId));
+   const {verificarEventoReconciliacionReserva}=require(
+    "../../modules/finanzas-personales/services/eventoReconciliacionReservaPersonal.service");
+   const payloadFirmado={
+    version:evidenciaFirmada.version,tipo:evidenciaFirmada.tipo,
+    actorId:String(evidenciaFirmada.actorId),
+    usuarioId:String(evidenciaFirmada.usuarioId),
+    origenId:String(evidenciaFirmada.origenId),
+    reservaId:String(evidenciaFirmada.reservaId),
+    periodoInicio:evidenciaFirmada.periodoInicio,
+    idempotencyHash:evidenciaFirmada.idempotencyHash,
+    huellaEstadoPrevio:evidenciaFirmada.huellaEstadoPrevio,
+    huellaDiagnostico:evidenciaFirmada.huellaDiagnostico,
+    importeAnteriorMinor:evidenciaFirmada.importeAnteriorMinor,
+    importeNuevoMinor:evidenciaFirmada.importeNuevoMinor,
+    deltaMinor:evidenciaFirmada.deltaMinor,fecha:evidenciaFirmada.fecha,
+    hashEvento:evidenciaFirmada.hashEvento
+   };
+   assert.equal(verificarEventoReconciliacionReserva(payloadFirmado),true);
+   assert.equal(verificarEventoReconciliacionReserva({
+    ...payloadFirmado,actorId:"507f1f77bcf86cd799439099"
+   }),false);
    await assert.rejects(()=>ejecutarReserva(solicitud),e=>e.statusCode===409);
    assert.equal(await EventoReparacion.countDocuments({usuarioId,
     idempotencyHash:solicitud.idempotencyHash}),1);
