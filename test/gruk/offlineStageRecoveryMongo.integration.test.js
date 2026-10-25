@@ -8,7 +8,7 @@ const auth={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd79943901
 const productId="507f1f77bcf86cd799439011";
 const ids=["01ARZ3NDEKTSV4RRFFQ69G5FA0","01ARZ3NDEKTSV4RRFFQ69G5FA1"];
 const objectId=value=>new ObjectId(value);
-test("real Mongo: operator retries staged batch without second stock decrement or charge",{timeout:60000},async t=>{
+test("real Mongo: HTTP 503-compatible outage leaves pending orders; retry posts once without duplicate stock or charge",{timeout:60000},async t=>{
  const uri=process.env.GRUK_TEST_MONGO_URI;
  if(!uri){t.skip("Isolated GRUK_TEST_MONGO_URI required");return;}
  if(!uri.includes("gruk_offline_test"))throw Error("OFFLINE_TEST_DB_NAME_REQUIRED");
@@ -34,6 +34,18 @@ test("real Mongo: operator retries staged batch without second stock decrement o
      precioUnitarioCop:"3000",totalCop:String((i+1)*3000)}],totalCop:String((i+1)*3000)
    }
   })));
+  // Simulate missing transaction support while Mongo data itself remains intact.
+  // The HTTP /stage-orders handler maps this domain error to retryable 503.
+  const unavailable={...args,db:{collection:name=>db.collection(name)}};
+  await assert.rejects(stageAuthorizedOfflineOrders(unavailable),
+   {code:"OFFLINE_TRANSACTION_UNAVAILABLE"});
+  assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
+   empresaId:auth.empresaId,sedeId:auth.sedeId,status:"PENDIENTE"
+  }),2,"An unavailable transaction must not consume pending events");
+  assert.equal((await db.collection("inventarios").findOne(inventoryKey)).cantidad,5);
+  for(const name of ["gruk_offline_ventas","gruk_offline_caja_intenciones",
+   "gruk_ledger_movimientos"])
+   assert.equal(await db.collection(name).countDocuments({}),0,name+" cannot post on a 503");
   const first=await stageAuthorizedOfflineOrders(args);
   assert.equal(first.status,"PENDIENTE_CONTABILIZACION");
   assert.equal(first.applied,false);assert.equal(first.cobrado,false);
@@ -51,5 +63,12 @@ test("real Mongo: operator retries staged batch without second stock decrement o
   assert.equal(await db.collection("gruk_offline_ventas").countDocuments({}),2);
   assert.equal(await db.collection("gruk_offline_caja_intenciones").countDocuments({cobrado:true}),0);
   assert.equal(await db.collection("gruk_ledger_movimientos").countDocuments({}),2);
+  assert.equal(await db.collection("gruk_offline_caja_intenciones").countDocuments({}),2);
+  assert.equal(await db.collection("gruk_offline_ventas").countDocuments({
+   empresaId:auth.empresaId,sedeId:auth.sedeId,actorId:auth.usuarioId
+  }),2);
+  assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
+   empresaId:auth.empresaId,sedeId:auth.sedeId,status:"PENDIENTE"
+  }),0);
  }finally{await db.dropDatabase();await client.close();}
 });
