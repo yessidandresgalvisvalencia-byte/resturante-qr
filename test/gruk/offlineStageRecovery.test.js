@@ -96,3 +96,46 @@ test("Capa 2: recovery rejects malformed storage collections and unsafe individu
    {code:"OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW"});
  }
 });
+
+test("Capa 2: recuperación niega getters tenant e IDs antes de consultar Mongo",async()=>{
+ for(const field of ["empresaId","sedeId","actorId"]){
+  const identity={...ctx};let invoked=0,reads=0;
+  Object.defineProperty(identity,field,{enumerable:true,configurable:true,
+   get(){invoked++;return ctx[field];}});
+  const db={get collection(){reads++;throw Error("UNAUTHORIZED_DB");}};
+  await assert.rejects(recover({db,context:identity,eventIds:ids}),
+   {code:"OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW"});
+  assert.equal(invoked,0);assert.equal(reads,0);
+ }
+ const eventIds=[ids[0]];let invoked=0,reads=0;
+ Object.defineProperty(eventIds,0,{enumerable:true,configurable:true,
+  get(){invoked++;return ids[0];}});
+ await assert.rejects(recover({db:{get collection(){reads++;throw Error("UNAUTHORIZED_DB");}},
+  context:ctx,eventIds}),{code:"OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW"});
+ assert.equal(invoked,0);assert.equal(reads,0);
+});
+test("Capa 2: recuperación fija scope y ULIDs aunque cambie el caller durante reconciliación",async()=>{
+ const context={...ctx},eventIds=[...ids],base=fixture();
+ let mutated=false;
+ const db={collection(name){
+  const collection=base.collection(name);
+  if(name==="gruk_offline_inbox")return {find(query,opts){
+   assert.equal(query.empresaId,ctx.empresaId);
+   assert.equal(query.sedeId,ctx.sedeId);
+   assert.equal(query.actorId,ctx.actorId);
+   assert.deepEqual(query.eventId.$in,ids);
+   if(!mutated){
+    mutated=true;
+    Object.assign(context,{empresaId:"tenantForeign",sedeId:"siteForeign",actorId:"intruso"});
+    eventIds[0]="01ARZ3NDEKTSV4RRFFQ69G5FA2";
+   }
+   return collection.find(query,opts);
+  }};
+  return collection;
+ }};
+ const outcome=await recover({db,context,eventIds});
+ assert.equal(outcome.totalCop,"6000");
+ assert.equal(outcome.processedEvents,2);
+ assert.equal(outcome.applied,false);
+ assert.equal(outcome.cobrado,false);
+});
