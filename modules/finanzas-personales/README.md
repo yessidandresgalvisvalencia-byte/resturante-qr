@@ -366,3 +366,22 @@ No se ha construido ni habilitado ningún endpoint ni ejecutor de
 reparaciones. El futuro ejecutor deberá autorizar la operación, volver
 a validar bajo bloqueo transaccional y dejar un evento inmutable con
 su correspondiente reserva actualizada de forma atómica (#407).
+
+## Verificador de vigencia de planes (interno y sin escrituras)
+
+`verificarVigenciaPlanReservasPersonal.service.js` recalcula la huella
+SHA-256 del diagnóstico actual y la compara en tiempo constante con la
+huella anterior. La consulta `consultaAuditoriaReservasPersonal`
+puede recibir la opción `huellaEsperada` y realiza esa comparación
+**dentro del snapshot MongoDB** donde obtuvo pagos, reservas, cursor,
+eventos y cancelaciones. Si cambia siquiera un peso, si el problema
+desapareció, la huella está malformada o requiere revisión manual,
+responde con error en vez de declarar vigente una propuesta antigua.
+
+**No autoriza escrituras:** la huella SHA-256 no autentica al usuario,
+no reemplaza un bloqueo CAS ni una firma; no puede impedir que los datos
+cambien DESPUÉS de la comprobación. Un eventual ejecutor tendrá que
+reanudar toda la verificación y asegurar atomicidad con un documento de
+control de concurrencia, permisos, evento append-only e idempotencia.
+La salida confirma explícitamente `autorizaEscritura:false` y
+`aptoParaDisponibleHoy:false` (#407).
