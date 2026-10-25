@@ -29,16 +29,23 @@ function comprobarIndice(indices){
 function crearEjecutorReparacionReserva({
  MovimientoModelo=Movimiento,ReservaModelo=Reserva,EventoModelo=Evento,
  CursorModelo=Cursor,CancelacionModelo=Cancelacion,EvidenciaModelo=Evidencia,
- nuevaSesion=()=>mongoose.startSession()
+ nuevaSesion=()=>mongoose.startSession(),autorizarActor=null
 }={}){
- return async function ejecutar({usuarioId,origenId,reservaId,huellaEstadoEsperada,
+ if(typeof autorizarActor!=="function")throw fallo("proveedor de autorización requerido",503);
+ return async function ejecutar({actorId,usuarioId,origenId,reservaId,huellaEstadoEsperada,
   huellaDiagnostico,idempotencyHash,fecha=new Date()}={}){
-  if(!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(origenId)||
+  if(!mongoose.isValidObjectId(actorId)||!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(origenId)||
      !mongoose.isValidObjectId(reservaId)||
      ![huellaEstadoEsperada,huellaDiagnostico,idempotencyHash]
       .every(x=>typeof x==="string"&&HEX.test(x))||
      !(fecha instanceof Date)||!Number.isFinite(fecha.getTime()))
    throw fallo("identidad, huellas o fecha inválidas",400);
+  // El adaptador de confianza obtiene permisos del sistema de identidad,
+  // nunca de un booleano aportado por cliente. Denegar antes de leer índices.
+  const autorizado=await autorizarActor({actorId:String(actorId),
+   usuarioId:String(usuarioId),origenId:String(origenId),
+   accion:"RECONCILIAR_RESERVA_PERSONAL"});
+  if(autorizado!==true)throw fallo("actor sin permiso para reparar reserva",403);
   // Un índice declarado en Mongoose pero no creado en DB no es garantía.
   let indices;
   try{indices=await EvidenciaModelo.collection.indexes();}
@@ -48,6 +55,11 @@ function crearEjecutorReparacionReserva({
   try{
    let resultado;
    await session.withTransaction(async()=>{
+    // Segundo chequeo transaccional para retirar acceso revocado.
+    const vigente=await autorizarActor({actorId:String(actorId),
+     usuarioId:uid,origenId:String(origenId),
+     accion:"RECONCILIAR_RESERVA_PERSONAL",session});
+    if(vigente!==true)throw fallo("permisos revocados",403);
     const duplicado=await EvidenciaModelo.findOne({
      usuarioId,idempotencyHash
     }).session(session).lean();
@@ -96,7 +108,7 @@ function crearEjecutorReparacionReserva({
      importeEsperadoMinor:reserva.reservadoMinor,importeNuevoMinor:Number(nuevo)
     });
     const evidencia=construirEventoReconciliacionReserva({
-     usuarioId:uid,origenId:String(origen._id),reservaId:String(reserva._id),
+     actorId:String(actorId),usuarioId:uid,origenId:String(origen._id),reservaId:String(reserva._id),
      periodoInicio:new Date(reserva.periodoInicio),
      huellaEstadoPrevio:huellaEstadoEsperada,
      huellaDiagnostico,idempotencyHash,
