@@ -166,8 +166,20 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
 
    assert.equal(calculoSeguro.aptoParaDisponibleHoy,false);
    assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
+   const {prepararCondicionCasReserva}=require(
+    "../../modules/finanzas-personales/services/condicionCasReservaPersonal.service");
+   const filtroCas=prepararCondicionCasReserva({
+    usuarioId:String(usuarioId),origenId:String(origenVigente._id),
+    reserva:await Reserva.findById(reservaVigente._id).lean(),
+    importeEsperadoMinor:200000,importeNuevoMinor:199999
+   }).filtro;
+   assert.ok(await Reserva.findOne(filtroCas).lean(),
+    "CAS debe coincidir con reserva sin cambiar");
    await Reserva.updateOne({_id:reservaVigente._id},
     {$set:{reservadoMinor:199999}});
+   assert.equal(await Reserva.findOne(filtroCas).lean(),null,
+    "un filtro CAS antiguo no debe emparejar una reserva cambiada");
+
    const avisoForense=await forense();
    assert.equal(avisoForense.estado,"REQUIERE_CONCILIACION");
    const dictamenDescuadre=await auditarSnapshot(String(usuarioId),
