@@ -226,3 +226,28 @@ test("Capa 2: mutación de identidad durante lectura local nunca realiza solicit
  }),{message:"SYNC_SESSION_CHANGED"});
  assert.equal(calls,0);assert.equal(acks,0);
 });
+
+test("Capa 2: invalidar ACK si cambia token entre pestañas mientras HTTP está en vuelo",async()=>{
+ let current="token-A";const received=[];
+ const outbox={listPending:async()=>[{...a}],markReceived:async id=>{received.push(id);return true;}};
+ await assert.rejects(synchronize({outbox,context:ctx,token:"token-A",
+  isSessionCurrent:()=>current==="token-A",
+  fetchFn:async()=>{current="token-B";return {status:202,json:async()=>({ok:true,applied:false,
+   events:[{eventId:a.eventId,status:"RECIBIDO"}]})};}
+ }),{message:"SYNC_SESSION_CHANGED"});
+ assert.deepEqual(received,[]);
+ current="token-A";
+ assert.deepEqual(await synchronize({outbox,context:ctx,token:"token-A",
+  isSessionCurrent:()=>current==="token-A",
+  fetchFn:async()=>({status:202,json:async()=>({ok:true,applied:false,
+   events:[{eventId:a.eventId,status:"YA_RECIBIDO"}]})})}),
+  {sent:1,received:1});
+ assert.deepEqual(received,[a.eventId]);
+});
+test("Capa 2: guard de sesión inválido rechaza antes de solicitar red",async()=>{
+ let calls=0;
+ await assert.rejects(synchronize({outbox:stub(),context:ctx,token:"jwt",
+  isSessionCurrent:false,fetchFn:async()=>{calls++;}
+ }),{message:"SYNC_SESSION_GUARD_REQUIRED"});
+ assert.equal(calls,0);
+});
