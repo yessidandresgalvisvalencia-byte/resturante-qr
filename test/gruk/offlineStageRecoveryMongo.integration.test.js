@@ -3,6 +3,7 @@ const test=require("node:test"),assert=require("node:assert/strict");
 const {MongoClient,ObjectId}=require("mongodb");
 const {bootstrapOfflineStagingIndexes}=require("../../core/offline/offlineIndexesBootstrap.service");
 const {stageAuthorizedOfflineOrders}=require("../../core/offline/offlineAdminStage.service");
+const {executeOfflineInventoryStagingTransaction}=require("../../core/offline/offlineInventoryStagingTransaction.service");
 const auth={empresaId:"507f191e810c19729de860ea",sedeId:"507f1f77bcf86cd799439012",
  usuarioId:"adminA",rol:"ADMIN_SEDE"};
 const productId="507f1f77bcf86cd799439011";
@@ -46,17 +47,42 @@ test("real Mongo: HTTP 503-compatible outage leaves pending orders; retry posts 
   for(const name of ["gruk_offline_ventas","gruk_offline_caja_intenciones",
    "gruk_ledger_movimientos"])
    assert.equal(await db.collection(name).countDocuments({}),0,name+" cannot post on a 503");
+  // The failure is injected AFTER the four journals, inventory debit and
+  // inbox handoff were acknowledged inside the transaction, before commit.
+  // Three repeated interruptions must leave absolutely no partial posting.
+  for(let attempt=0;attempt<3;attempt++){
+   let stagedHookCalls=0;
+   await assert.rejects(executeOfflineInventoryStagingTransaction({
+    db:scoped,context:{empresaId:auth.empresaId,sedeId:auth.sedeId,
+     actorId:auth.usuarioId},eventIds:ids,objectId,requireAuthoritativePricing:true,
+    onStaged:async()=>{
+     stagedHookCalls++;
+     throw Error("INJECTED_INTERRUPTION_AFTER_ALL_WRITES");
+    }
+   }),/INJECTED_INTERRUPTION_AFTER_ALL_WRITES/);
+   assert.equal(stagedHookCalls,1,"Failure must run after the journal and stock writes");
+   assert.equal((await db.collection("inventarios").findOne(inventoryKey)).cantidad,5);
+   for(const collection of ["gruk_offline_ventas","gruk_offline_stock_movimientos",
+    "gruk_offline_caja_intenciones","gruk_ledger_movimientos"])
+    assert.equal(await db.collection(collection).countDocuments({}),0,
+     collection+" must roll back on interruption "+attempt);
+   assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
+    empresaId:auth.empresaId,sedeId:auth.sedeId,status:"PENDIENTE"
+   }),2,"The two original inbox orders must remain retryable");
+  }
   const first=await stageAuthorizedOfflineOrders(args);
   assert.equal(first.status,"PENDIENTE_CONTABILIZACION");
   assert.equal(first.applied,false);assert.equal(first.cobrado,false);
   assert.equal(first.totalCop,"9000");
   assert.equal((await db.collection("inventarios").findOne(inventoryKey)).cantidad,2);
-  const second=await stageAuthorizedOfflineOrders(args);
-  assert.equal(second.alreadyStaged,true);
-  assert.equal(second.status,"PENDIENTE_CONTABILIZACION");
-  assert.equal(second.applied,false);assert.equal(second.cobrado,false);
-  assert.equal(second.totalCop,"9000");
-  assert.equal((await db.collection("inventarios").findOne(inventoryKey)).cantidad,2);
+  for(let attempt=0;attempt<5;attempt++){
+   const second=await stageAuthorizedOfflineOrders(args);
+   assert.equal(second.alreadyStaged,true,"Replay "+attempt+" must be idempotent");
+   assert.equal(second.status,"PENDIENTE_CONTABILIZACION");
+   assert.equal(second.applied,false);assert.equal(second.cobrado,false);
+   assert.equal(second.totalCop,"9000");
+   assert.equal((await db.collection("inventarios").findOne(inventoryKey)).cantidad,2);
+  }
   assert.equal(await db.collection("gruk_offline_inbox").countDocuments({
    empresaId:auth.empresaId,sedeId:auth.sedeId,status:"EN_REVISION",inventoryApplied:true
   }),2);
