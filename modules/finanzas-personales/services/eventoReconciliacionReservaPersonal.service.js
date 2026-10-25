@@ -53,7 +53,10 @@ function verificarEventoReconciliacionReserva(evento){
   });
   if(Object.keys(datos).length!==Object.keys(reconstruido).length-1||
     Object.keys(datos).some(k=>!(k in reconstruido))||
-    hashEvento!==reconstruido.hashEvento)return false;
+    Object.keys(datos).some(k=>{
+     const original=datos[k] instanceof Date?datos[k].toISOString():datos[k];
+     return original!==reconstruido[k];
+    })||hashEvento!==reconstruido.hashEvento)return false;
   return true;
  }catch(_){return false;}
 }
