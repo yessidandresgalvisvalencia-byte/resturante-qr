@@ -7,6 +7,7 @@ const SIGNED=/^-?(0|[1-9][0-9]*)$/;
 // El evento es evidencia append-only, NO autorización para ejecutar una
 // reparación ni sustituto del asiento original y de un control ACID.
 const schema=new Schema({
+ actorId:{type:Schema.Types.ObjectId,required:true},
  usuarioId:{type:Schema.Types.ObjectId,required:true},
  origenId:{type:Schema.Types.ObjectId,required:true},
  reservaId:{type:Schema.Types.ObjectId,required:true},
