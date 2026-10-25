@@ -139,3 +139,57 @@ test("Capa 2: recuperación fija scope y ULIDs aunque cambie el caller durante r
  assert.equal(outcome.applied,false);
  assert.equal(outcome.cobrado,false);
 });
+
+test("Capa 2: recuperación comparte snapshot transaccional en los siete diarios",async()=>{
+ const base=fixture();
+ let active=false,closed=false,queries=0;
+ const session={
+  withTransaction:async(fn,opts)=>{
+   assert.equal(opts.readConcern.level,"snapshot");
+   assert.equal(opts.writeConcern.w,"majority");
+   active=true;
+   try{await fn();}finally{active=false;}
+  },
+  endSession:async()=>{closed=true;}
+ };
+ const db={
+  client:{startSession:()=>session},
+  collection(name){
+   const col=base.collection(name);
+   return {find(query,opts){
+    assert.equal(active,true,"consulta fuera de snapshot "+name);
+    assert.equal(opts.session,session,"sesión inconsistente en "+name);
+    queries++;
+    return col.find(query,opts);
+   }};
+  }
+ };
+ const result=await recover({db,context:ctx,eventIds:ids});
+ assert.equal(result.totalCop,"6000");
+ assert.equal(result.alreadyStaged,true);
+ assert.equal(result.applied,false);
+ assert.equal(queries,7);
+ assert.equal(closed,true);
+});
+test("Capa 2: excepción de snapshot no confirma recuperación y cierra sesión",async()=>{
+ const base=fixture();
+ let closed=false,queries=0;
+ const session={
+  withTransaction:async(fn)=>{
+   await fn();
+   throw Error("SNAPSHOT_COMMIT_FAILED");
+  },
+  endSession:async()=>{closed=true;}
+ };
+ const db={client:{startSession:()=>session},collection(name){
+  const col=base.collection(name);
+  return {find(q,opts){
+   assert.equal(opts.session,session);
+   queries++;
+   return col.find(q,opts);
+  }};
+ }};
+ await assert.rejects(recover({db,context:ctx,eventIds:ids}),/SNAPSHOT_COMMIT_FAILED/);
+ assert.equal(queries,7);
+ assert.equal(closed,true);
+});
