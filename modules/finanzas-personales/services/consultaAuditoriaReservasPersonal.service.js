@@ -5,7 +5,7 @@ const Reserva=require("../models/reservaCuotaRecurrente.model");
 const Evento=require("../models/EventoCompensatorioPersonal");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const Cancelacion=require("../models/CancelacionObligacionPrevistaPersonal");
-const {auditarReservasRecurrencia}=require("./auditarReservasRecurrenciaPersonal");
+const {auditarReservasRecurrencia}=require("./auditarReservasRecurrenciaPersonal.service");
 const MAX=10000;
 function fallo(m,statusCode=409){
  return Object.assign(new Error("AUDITORIA_RESERVAS_SNAPSHOT: "+m),{statusCode});
