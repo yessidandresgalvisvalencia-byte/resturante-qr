@@ -167,6 +167,26 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
     String(origenVigente._id),rangoCuotas),
     e=>e.statusCode===409&&/reserva inconsistente/.test(e.message));
    await Reserva.deleteOne({_id:reservaVigente._id});
+   // El ledger compensatorio genérico NO puede alterar abonos
+   // recurrentes dejando su reserva desincronizada. Debe fallar
+   // antes de crear un evento, aplicar un delta o tocar el cursor.
+   const saldoAntesIntento=(await Cuenta.findById(cuenta._id).lean()).saldoMinor;
+   const eventosAntesIntento=await Evento.countDocuments({
+    usuarioId:String(usuarioId)
+   });
+   const registrarNoApto=crearRegistradorFinancieroPersonal();
+   await assert.rejects(()=>registrarNoApto({
+    original:{usuarioId:String(usuarioId),
+     movimientoId:String(abonoVigente._id),tipo:"GASTO",
+     montoMinor:200000,concepto:"Pago parcial",categoria:"Vivienda"},
+    tipo:"CORRECCION",cambios:{montoMinor:100000},
+    idempotencyKey:"cuota-recurrente-no-apta",
+    fechaISO:"2026-11-16T13:00:00.000Z"
+   }),e=>e.statusCode===409&&/reserva/.test(e.message));
+   assert.equal(await Evento.countDocuments({
+    usuarioId:String(usuarioId)}),eventosAntesIntento);
+   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,
+    saldoAntesIntento);
    await Movimiento.deleteOne({_id:abonoVigente._id});
    await Movimiento.deleteOne({_id:origenVigente._id});
    await Movimiento.deleteOne({_id:pagoParcial._id}); // Solo fixture aislado.
