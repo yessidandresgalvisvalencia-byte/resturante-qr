@@ -238,6 +238,75 @@ async function run() {
       pending:(await globalThis.GRUKOfflineOutbox.listPending(100,tenant)).length
     }),tenantA);
     assert.deepEqual(afterSecondRestart,{local:21,received:21,pending:0});
+    // Fail the first NEW event with an injected QuotaExceededError, and
+    // abort a second event's actual IndexedDB transaction AFTER add().
+    // Both putPending() promises must reject, never report a saved order.
+    const unsavedIds=["01ARZ3NDEKTSV4RRFFQ69G5FA3","01ARZ3NDEKTSV4RRFFQ69G5FA4"];
+    const rejectedWrites=await page.evaluate(async ({tenant,eventIds})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      const original=IDBObjectStore.prototype.add;
+      const attempts=[];
+      for(const [index,eventId] of eventIds.entries()){
+        let injected=0,rejected=false,errorName=null;
+        IDBObjectStore.prototype.add=function(value,...args){
+          if(injected===0&&value?.eventId===eventId){
+            injected++;
+            if(index===0)throw new DOMException("Storage quota exhausted","QuotaExceededError");
+            const request=original.call(this,value,...args);
+            this.transaction.abort();
+            return request;
+          }
+          return original.call(this,value,...args);
+        };
+        try{
+          await outbox.putPending({...tenant,eventId,
+            payload:{items:[{productoId:"producto-1",cantidad:1}]}});
+        }catch(error){rejected=true;errorName=error.name;}
+        finally{IDBObjectStore.prototype.add=original;}
+        attempts.push({rejected,errorName,injected});
+      }
+      return {attempts,
+        pending:(await outbox.listPending(100,tenant)).map(x=>x.eventId),
+        local:(await outbox.listLocal(100,tenant)).length,
+        reservations:(await outbox.listStockReservations(tenant)).length};
+    },{tenant:tenantA,eventIds:unsavedIds});
+    assert.deepEqual(rejectedWrites.attempts.map(x=>[x.rejected,x.injected]),
+      [[true,1],[true,1]]);
+    assert.equal(rejectedWrites.attempts[0].errorName,"QuotaExceededError");
+    assert.deepEqual(rejectedWrites.pending,[]);
+    assert.equal(rejectedWrites.local,21);
+    assert.equal(rejectedWrites.reservations,21);
+    await browser.close();
+    browser=null;
+
+    // Prove failed writes are still absent from disk after a full restart.
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    await browser.setOffline(true);
+    const persistedFailure=await page.evaluate(async ({tenant,eventIds})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      const before=await outbox.listLocal(100,tenant);
+      for(const eventId of eventIds)
+        await outbox.putPending({...tenant,eventId,
+          payload:{items:[{productoId:"producto-1",cantidad:1}]}});
+      return {before:before.length,absent:eventIds.every(id=>!before.some(x=>x.eventId===id)),
+        pending:(await outbox.listPending(100,tenant)).map(x=>x.eventId),
+        local:(await outbox.listLocal(100,tenant)).length};
+    },{tenant:tenantA,eventIds:unsavedIds});
+    assert.deepEqual(persistedFailure,{before:21,absent:true,
+      pending:unsavedIds,local:23});
+    await browser.close();
+    browser=null;
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    const durableNewOrders=await page.evaluate(async tenant=>({
+      local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length,
+      pending:(await globalThis.GRUKOfflineOutbox.listPending(100,tenant)).length,
+      received:(await globalThis.GRUKOfflineOutbox.listReceived(100,tenant)).length
+    }),tenantA);
+    assert.deepEqual(durableNewOrders,{local:23,pending:2,received:21});
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 21, abortedAckRecovered: true }));
   } finally {
