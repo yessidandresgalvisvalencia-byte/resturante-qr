@@ -1,5 +1,5 @@
 "use strict";
-const Transaccion=require("../models/TransaccionPersonal");
+const consultaCompensada=require("./consultaCompensadaPersonal.service");
 const {clasificar}=require("./colombiaFinanciero.service");
 const TZ="America/Bogota";
 const MAX_MOVIMIENTOS_CONSULTA=5000; // límite por usuario y período; jamás publicar sumas truncadas.
@@ -120,10 +120,8 @@ async function obtener(usuarioId,{ahora=new Date()}={}){
  if(!usuarioId||(typeof usuarioId==="string"&&!usuarioId.trim()))
   throw new TypeError("La identidad autenticada es obligatoria");
  const periodo=limites(ahora);
- const transacciones=await Transaccion.find({usuarioId,tipo:"GASTO",estado:{$ne:"ANULADA"},
-  fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}},null,{maxTimeMS:5000})
-  .select("_id usuarioId fecha tipo moneda montoMinor categoria concepto estado impactoCaja medioPago")
-  .limit(MAX_MOVIMIENTOS_CONSULTA+1).lean();
+ const transacciones=await consultaCompensada.consultarPeriodo({usuarioId,tipo:"GASTO",
+  desde:periodo.inicioConsulta.toISOString(),hasta:new Date(+periodo.fin+1).toISOString()});
  if(!Array.isArray(transacciones)||transacciones.length>MAX_MOVIMIENTOS_CONSULTA)
   throw new Error("INTEGRIDAD_HORMIGA: consulta excede límite verificable; no se publica resumen parcial");
  if(transacciones.some(tx=>!tx||typeof tx!=="object"||tx.tipo!=="GASTO"))

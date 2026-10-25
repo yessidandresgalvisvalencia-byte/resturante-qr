@@ -12,6 +12,7 @@ const {consultarPeriodo}=require("../../modules/finanzas-personales/services/con
 const {flujoPeriodo}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
 const resumenLedger=require("../../modules/finanzas-personales/services/resumenLedgerPersonal.service");
 const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
+const hormiga=require("../../modules/finanzas-personales/services/gastosHormigaResumen.service");
 const {crearRegistrador,GENESIS}=require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
 const {validarMongoPruebasV81}=require("../../scripts/exigir-mongo-v81-pruebas");
@@ -108,6 +109,8 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     assert.equal(informe.categorias.Otros.gastos,22000);
     const diario=await finanzas.diario(usuarioId,{...periodo,limit:100});
     assert.equal(diario[0].gastos,22000);
+    assert.equal((await finanzas.resumen(usuarioId,fuenteAntes.fecha)).gastos,22000);
+    assert.equal((await hormiga.obtener(usuarioId,{ahora:new Date(+fuenteAntes.fecha+1)})).mesMinor,22000);
     assert.equal((await consultarPeriodo({...periodo,categoria:"Alimentacion"})).length,0);
     await assert.rejects(aplicar(solicitud),/Idempotencia/);
     await aplicar({...solicitud,cambios:{tipo:"INGRESO"},idempotencyKey:"cambio_tipo"});
@@ -116,6 +119,10 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     assert.equal(reclasificado.ingresos,22000);
     assert.equal(reclasificado.categorias.Otros.ingresos,22000);
     assert.equal((await finanzas.diario(usuarioId,periodo))[0].ingresos,22000);
+    const mensual=await finanzas.resumen(usuarioId,fuenteAntes.fecha);
+    assert.equal(mensual.ingresos,22000);
+    assert.equal(mensual.gastos,0);
+    assert.equal((await hormiga.obtener(usuarioId,{ahora:new Date(+fuenteAntes.fecha+1)})).mesMinor,0);
     await aplicar({...solicitud,tipo:"ANULACION",cambios:{},idempotencyKey:"anular_caja"});
     assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,75000);
     assert.equal(await Outbox.countDocuments({usuarioId}),3);
@@ -125,6 +132,8 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     assert.equal((await resumenLedger.resumen(usuarioId,periodo)).flujoLibreMinor,0);
     assert.deepEqual(await finanzas.diario(usuarioId,periodo),[]);
     assert.equal((await finanzas.resumenPeriodo(usuarioId,periodo)).balance,0);
+    assert.equal((await finanzas.resumen(usuarioId,fuenteAntes.fecha)).ingresos,0);
+    assert.equal((await hormiga.obtener(usuarioId,{ahora:new Date(+fuenteAntes.fecha+1)})).mesMinor,0);
     const anuladas=await consultarPeriodo({...periodo,incluirAnuladas:true});
     assert.equal(anuladas.length,1);
     assert.equal(anuladas[0].estado,"ANULADA");

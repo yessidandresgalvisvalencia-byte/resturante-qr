@@ -57,7 +57,7 @@ test("movimiento sin identificador verificable no contamina sumas ni se cuenta d
 test("el servicio consulta únicamente el usuario autenticado y conserva la explicación",()=>{
  const s=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/gastosHormigaResumen.service.js"),"utf8");
  const j=fs.readFileSync(path.resolve(__dirname,"../../public/finanzas-personales.js"),"utf8");
- assert.match(s,/Transaccion\.find\(\{usuarioId,tipo:"GASTO"/);
+ assert.match(s,/consultaCompensada\.consultarPeriodo\(\{usuarioId,tipo:"GASTO"/);
  assert.doesNotMatch(s,/medioPago:\{\$ne:"CREDITO"\}/);
  assert.match(j,/Crédito no es salida de caja hoy/);
 });

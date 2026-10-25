@@ -48,7 +48,7 @@ async function crearMeta(userId,data){return Meta.create({userId,...data});}
 async function resumen(userId,now=new Date()){
  const inicio=monthStart(now),fin=nextMonth(now);
  const [m,deudas,pat,metas]=await Promise.all([
-  Transaccion.find({usuarioId:userId,fecha:{$gte:inicio,$lt:fin},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA"]},estado:{$ne:"ANULADA"}}).lean(),
+  consultarPeriodo({usuarioId:userId,desde:inicio.toISOString(),hasta:fin.toISOString()}).then(rows=>rows.filter(x=>["INGRESO","GASTO","PAGO_DEUDA"].includes(x.tipo))),
   PrestamoPersonal.find({usuarioId:userId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).lean(),
   patrimonioFinanciero.snapshot(userId),
   Meta.find({userId,estado:"ACTIVA"}).lean()

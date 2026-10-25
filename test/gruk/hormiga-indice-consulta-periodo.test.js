@@ -1,59 +1,23 @@
 "use strict";
-const test=require("node:test");
-const assert=require("node:assert/strict");
+const test=require("node:test"),assert=require("node:assert/strict");
 const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
+const consulta=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
 const {obtener}=require("../../modules/finanzas-personales/services/gastosHormigaResumen.service");
-
-test("índice del resumen filtra por persona, tipo y fecha con prefijo selectivo",()=>{
- const indexes=Transaccion.schema.indexes();
- const coincidentes=indexes.filter(([keys,options])=>
-  options.name==="fp_gastos_periodo_usuario_v81");
- assert.equal(coincidentes.length,1);
- assert.deepEqual(coincidentes[0][0],{usuarioId:1,tipo:1,fecha:-1});
- assert.notEqual(coincidentes[0][1].unique,true);
+test("existe índice de lectura por usuario y fecha sin filtrar campos compensables",()=>{
+ assert.ok(Transaccion.schema.indexes().some(([k])=>k.usuarioId===1&&k.fecha===-1&&Object.keys(k).length===2));
 });
-
-test("el resumen aplica usuario y período verificables sin depender de la categoría",async()=>{
- const original=Transaccion.find;
- let filterCaptured;
- let queryLimit;
- let queryOptions;
- Transaccion.find=(filter,projection,options)=>{
-  assert.equal(projection,null);
-  queryOptions=options;
-  filterCaptured=filter;
-  return {select(projection){
-   assert.match(projection,/\bmoneda\b/);
-   return {limit(n){
-    queryLimit=n;
-    return {lean:async()=>[]};
-   }};
-  }};
- };
+test("resumen solicita identidad y ventana exactas al lector compensado",async()=>{
+ const original=consulta.consultarPeriodo;let capturado;
+ consulta.consultarPeriodo=async p=>{capturado=p;return [];};
  try{
-  const result=await obtener("persona-uno",{ahora:new Date("2026-10-20T15:00:00Z")});
-  assert.equal(result.consumoTotalSemanaMinor,0);
-  assert.equal(filterCaptured.usuarioId,"persona-uno");
-  assert.equal(filterCaptured.tipo,"GASTO");
-  assert.deepEqual(filterCaptured.estado,{$ne:"ANULADA"});
-  assert.ok(filterCaptured.fecha.$gte instanceof Date);
-  assert.ok(filterCaptured.fecha.$lte instanceof Date);
-  assert.equal(Object.hasOwn(filterCaptured,"categoria"),false);
-  assert.equal(queryLimit,5001);
-  assert.deepEqual(queryOptions,{maxTimeMS:5000});
- }finally{
-  Transaccion.find=original;
- }
+  const r=await obtener("persona-uno",{ahora:new Date("2026-10-20T15:00:00Z")});
+  assert.equal(r.consumoTotalSemanaMinor,0);
+  assert.deepEqual(capturado,{usuarioId:"persona-uno",tipo:"GASTO",desde:"2026-10-01T05:00:00.000Z",hasta:"2026-10-20T15:00:00.001Z"});
+ }finally{consulta.consultarPeriodo=original;}
 });
-
-test("fallos y timeouts de MongoDB se propagan sin producir falsa respuesta de cero",async()=>{
- const original=Transaccion.find;
- const timeout=Object.assign(new Error("operation exceeded time limit"),{code:50});
- Transaccion.find=(_,__,options)=>{
-  assert.deepEqual(options,{maxTimeMS:5000});
-  return {select(){return {limit(){return {lean:async()=>{throw timeout;}};}};}};
- };
- try{
-  await assert.rejects(obtener("persona-uno",{ahora:new Date("2026-10-20T15:00:00Z")}),error=>error===timeout);
- }finally{Transaccion.find=original;}
+test("fallos y timeouts del lector se propagan sin publicar ceros",async()=>{
+ const original=consulta.consultarPeriodo,timeout=Object.assign(Error("operation exceeded time limit"),{code:50});
+ consulta.consultarPeriodo=async()=>{throw timeout;};
+ try{await assert.rejects(obtener("persona-uno",{ahora:new Date("2026-10-20T15:00:00Z")}),e=>e===timeout);}
+ finally{consulta.consultarPeriodo=original;}
 });
