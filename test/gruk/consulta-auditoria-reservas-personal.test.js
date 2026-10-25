@@ -36,11 +36,15 @@ test("lector único devuelve auditoría coherente sin tocar caja",async()=>{
  assert.equal(r.estado,"COHERENTE");
  assert.equal(r.fuenteDatos,"SNAPSHOT_MONGO_AUDITORIA");
  assert.equal(r.aptoParaDisponibleHoy,false);
+ assert.equal(r.planReparacion.estado,"SIN_DIFERENCIAS");
+ assert.equal(r.planReparacion.autorizaEscritura,false);
 });
 test("detecta reserva con diferencia de un peso",async()=>{
  const r=await dobles({reservas:[{...reserva,reservadoMinor:199999}]})(uid,mid);
  assert.equal(r.estado,"REQUIERE_CONCILIACION");
  assert.ok(r.anomalías.some(a=>a.codigo==="RESERVA_DESCUADRADA"));
+ assert.equal(r.planReparacion.acciones[0].deltaMinor,"1");
+ assert.equal(r.planReparacion.requiereReauditoriaAtomica,true);
 });
 test("bloquea obligación cancelada, volumen truncado y cursor corrupto",async()=>{
  for(const props of [
