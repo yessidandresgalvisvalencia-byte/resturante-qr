@@ -509,6 +509,45 @@ async function run() {
       bLocal:(await globalThis.GRUKOfflineOutbox.listLocal(100,b)).length
     }),{a:tenantA,b:tenantB,eventId:switchId});
     assert.deepEqual(switchedDurable,{aPending:[switchId],aLocal:26,bLocal:1});
+    // Actual localStorage storage event from a second tab invalidates the
+    // first tab's in-flight ACK, even though its context object did not mutate.
+    const tokenSwitchId="01ARZ3NDEKTSV4RRFFQ69G5FA9";
+    const sessionTab=await browser.newPage();
+    await sessionTab.goto(base);
+    await page.evaluate(async({tenant,eventId})=>{
+      localStorage.setItem("grukAuthToken","token-tenant-A");
+      await globalThis.GRUKOfflineOutbox.putPending({...tenant,eventId,
+       payload:{items:[{productoId:"producto-1",cantidad:1}]}});
+      let entered,release;
+      const waiting=new Promise(resolve=>{entered=resolve;});
+      const gate=new Promise(resolve=>{release=resolve;});
+      globalThis.__releaseAck=release;
+      globalThis.__ackResult=globalThis.GRUKOfflineTransport.synchronize({
+        outbox:globalThis.GRUKOfflineOutbox,context:tenant,token:"token-tenant-A",
+        isSessionCurrent:()=>localStorage.getItem("grukAuthToken")==="token-tenant-A",
+        fetchFn:async(_url,options)=>{
+          const sent=JSON.parse(options.body).events;
+          if(sent.length!==1||sent[0].eventId!==eventId)throw Error("BAD_TOKEN_SWITCH_TEST");
+          entered();
+          await gate;
+          return {status:202,json:async()=>({ok:true,applied:false,
+           events:[{eventId,status:"RECIBIDO"}]})};
+        }
+      }).then(()=>({ok:true}),e=>({ok:false,error:e.message}));
+      await waiting;
+    },{tenant:tenantA,eventId:tokenSwitchId});
+    await sessionTab.evaluate(()=>localStorage.setItem("grukAuthToken","token-tenant-B"));
+    const stopped=await page.evaluate(async({tenant,eventId})=>{
+      if(localStorage.getItem("grukAuthToken")!=="token-tenant-B")
+       throw Error("CROSS_TAB_STORAGE_EVENT_NOT_VISIBLE");
+      globalThis.__releaseAck();
+      const result=await globalThis.__ackResult;
+      return {result,pending:(await globalThis.GRUKOfflineOutbox.listPending(100,tenant)).map(x=>x.eventId),
+       local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length};
+    },{tenant:tenantA,eventId:tokenSwitchId});
+    assert.deepEqual(stopped,{result:{ok:false,error:"SYNC_SESSION_CHANGED"},
+      pending:[tokenSwitchId],local:27});
+    await sessionTab.close();
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 21, abortedAckRecovered: true }));
   } finally {
