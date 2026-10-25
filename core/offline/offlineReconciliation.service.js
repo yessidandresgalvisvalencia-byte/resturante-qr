@@ -6,19 +6,33 @@ const {STATES}=require("./offlineState.contract");
 const VALID_STATES=new Set(Object.values(STATES));
 function fail(code){const e=new Error(code);e.code=code;throw e;}
 function validate(context,eventIds){
- if(!context||![context.empresaId,context.sedeId,context.actorId].every(x=>typeof x==="string"&&ID.test(x)))
+ if(!context||typeof context!=="object"||Array.isArray(context))
   fail("OFFLINE_AUTH_REQUIRED");
- if(!Array.isArray(eventIds)||eventIds.length===0||eventIds.length>100||
-    Array.from({length:eventIds.length},(_,i)=>i).some(i=>
-      !Object.prototype.hasOwnProperty.call(eventIds,i)||
-      typeof eventIds[i]!=="string"||!ULID.test(eventIds[i]))||
-    new Set(eventIds).size!==eventIds.length)fail("OFFLINE_INVALID_IDS");
+ const scope={};
+ for(const field of ["empresaId","sedeId","actorId"]){
+  const d=Object.getOwnPropertyDescriptor(context,field);
+  if(!d||!("value" in d)||typeof d.value!=="string"||!ID.test(d.value))
+   fail("OFFLINE_AUTH_REQUIRED");
+  scope[field]=d.value;
+ }
+ if(!Array.isArray(eventIds)||eventIds.length===0||eventIds.length>100)
+  fail("OFFLINE_INVALID_IDS");
+ const ids=[];
+ for(let i=0;i<eventIds.length;i++){
+  const d=Object.getOwnPropertyDescriptor(eventIds,String(i));
+  if(!d||!("value" in d)||typeof d.value!=="string"||!ULID.test(d.value))
+   fail("OFFLINE_INVALID_IDS");
+  ids.push(d.value);
+ }
+ if(new Set(ids).size!==ids.length)fail("OFFLINE_INVALID_IDS");
+ return {identity:Object.freeze(scope),ids:Object.freeze(ids)};
 }
 async function readOfflineReconciliation({db,context,eventIds}){
- if(typeof db?.collection!=="function")fail("OFFLINE_DB_UNAVAILABLE");
- validate(context,eventIds);
- const scope={empresaId:context.empresaId,sedeId:context.sedeId,
-  eventId:{$in:eventIds}};
+ // Authorization and ULIDs must be immutable before touching any adapter.
+ const {identity,ids}=validate(context,eventIds);
+ if(!db||typeof db.collection!=="function")fail("OFFLINE_DB_UNAVAILABLE");
+ const scope={empresaId:identity.empresaId,sedeId:identity.sedeId,
+  eventId:{$in:ids}};
  const specs=[
   ["gruk_offline_inbox",{eventId:1,status:1,inventoryApplied:1}],
   ["gruk_offline_ventas",{eventId:1,status:1,totalCop:1}],
@@ -26,7 +40,7 @@ async function readOfflineReconciliation({db,context,eventIds}){
   ["gruk_ledger_movimientos",{eventId:1,tipo:1,montoCop:1,deletedAt:1}]
  ];
  const sets=await Promise.all(specs.map(async([name,projection])=>
-  db.collection(name).find(name==="gruk_offline_inbox"?{...scope,actorId:context.actorId}:scope,
+  db.collection(name).find(name==="gruk_offline_inbox"?{...scope,actorId:identity.actorId}:scope,
    {projection:{_id:0,empresaId:1,sedeId:1,actorId:1,...projection},limit:101}).toArray()));
  const maps=sets.map(rows=>{
   if(!Array.isArray(rows)||rows.length>100)
@@ -36,27 +50,27 @@ async function readOfflineReconciliation({db,context,eventIds}){
   for(const row of rows){
    // Missing/duplicate event identities are ambiguous; never report completion.
    if(!row||typeof row!=="object"||typeof row.eventId!=="string"||
-     !ULID.test(row.eventId)||!eventIds.includes(row.eventId)){
+     !ULID.test(row.eventId)||!ids.includes(row.eventId)){
     ambiguousUnidentified=true;
     continue;
    }
    // Trust neither a stale cache nor an incorrectly scoped database adapter.
    // Returned financial evidence must independently prove the tenant and site.
-   if(row.empresaId!==context.empresaId||row.sedeId!==context.sedeId){
+   if(row.empresaId!==identity.empresaId||row.sedeId!==identity.sedeId){
     found.set(row.eventId,null);
     continue;
    }
    // A proof from a different actor within this tenant/site/event poisons the
    // result; never ignore it and report a falsely reconciled operation.
-   if(found.has(row.eventId)||row.actorId!==context.actorId)found.set(row.eventId,null);
+   if(found.has(row.eventId)||row.actorId!==identity.actorId)found.set(row.eventId,null);
    else found.set(row.eventId,row);
   }
-  if(ambiguousUnidentified)for(const eventId of eventIds)found.set(eventId,null);
+  if(ambiguousUnidentified)for(const eventId of ids)found.set(eventId,null);
   return found;
  });
  const cop=x=>typeof x==="string"&&/^(0|[1-9][0-9]*)$/.test(x)&&
   BigInt(x)<=BigInt(Number.MAX_SAFE_INTEGER);
- return eventIds.map(eventId=>{
+ return ids.map(eventId=>{
   const [inbox,sale,cash,ledger]=maps.map(m=>m.get(eventId));
   if(!inbox)return {eventId,status:"NO_ENCONTRADO",applied:false,staged:false,financiallyReconciled:false};
   if(!VALID_STATES.has(inbox.status))fail("OFFLINE_RECONCILIATION_EVIDENCE_INVALID");
