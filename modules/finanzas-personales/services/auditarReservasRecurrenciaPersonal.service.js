@@ -11,6 +11,7 @@ function auditarReservasRecurrencia({usuarioId,origen,pagos,reservas,eventos,cur
   origen.tipo!=="GASTO"||origen.cuentaId!=null||origen.cuenta!=="SIN_CAJA"||
   origen.estado!=="ACTIVA"||!origen.recurrente||
   !Number.isSafeInteger(origen.montoMinor)||origen.montoMinor<=0||
+  !["DIARIA","SEMANAL","QUINCENAL","MENSUAL","ANUAL"].includes(origen.frecuencia)||
   !Array.isArray(pagos)||!Array.isArray(reservas)||!Array.isArray(eventos))
   fallo("parámetros incompletos o obligación no verificable");
  // Solo se aceptan listas completas leídas en un mismo snapshot Mongo.
@@ -23,6 +24,8 @@ function auditarReservasRecurrencia({usuarioId,origen,pagos,reservas,eventos,cur
    p.impactoCaja!==true||!Number.isSafeInteger(p.montoMinor)||p.montoMinor<=0)
    fallo("abono duplicado o inconsistente");
   ids.add(id);
+  if(!Number.isFinite(new Date(p.fecha).getTime())||
+     new Date(p.fecha)<new Date(origen.fecha))fallo("fecha de abono inválida");
   const periodo=periodoRecurrenteColombia({
    fechaOrigen:origen.fecha,fechaPago:p.fecha,frecuencia:origen.frecuencia
   });
@@ -50,8 +53,10 @@ function auditarReservasRecurrencia({usuarioId,origen,pagos,reservas,eventos,cur
  if(compensaciones.length)fallo("compensación de abonos sin conciliar");
  const observadas=new Map(),anomalías=[];
  for(const r of reservas){
-  const clave=new Date(r?.periodoInicio).toISOString();
-  const fin=new Date(r?.periodoFin).toISOString();
+  const ri=new Date(r?.periodoInicio),rf=new Date(r?.periodoFin);
+  if(!Number.isFinite(ri.getTime())||!Number.isFinite(rf.getTime()))
+   fallo("fechas de reserva inválidas");
+  const clave=ri.toISOString(),fin=rf.toISOString();
   if(String(r.usuarioId)!==usuarioId||
    String(r.origenId)!==String(origen._id)||
    observadas.has(clave)||!Number.isSafeInteger(r.reservadoMinor)||
