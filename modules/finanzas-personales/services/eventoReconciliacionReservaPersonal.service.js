@@ -15,11 +15,11 @@ function convertirFecha(d){
  return d.toISOString();
 }
 function construirEventoReconciliacionReserva({
- usuarioId,origenId,reservaId,periodoInicio,huellaEstadoPrevio,
+ actorId,usuarioId,origenId,reservaId,periodoInicio,huellaEstadoPrevio,
  huellaDiagnostico,idempotencyHash,importeAnteriorMinor,
  importeNuevoMinor,fecha
 }){
- for(const id of [usuarioId,origenId,reservaId])
+ for(const id of [actorId,usuarioId,origenId,reservaId])
   if(typeof id!=="string"||!ID.test(id))fallo("identidad inválida",400);
  for(const hash of [huellaEstadoPrevio,huellaDiagnostico,idempotencyHash])
   if(typeof hash!=="string"||!HEX.test(hash))
@@ -34,7 +34,7 @@ function construirEventoReconciliacionReserva({
  const inicio=convertirFecha(periodoInicio),instante=convertirFecha(fecha);
  const payload={
   version:1,tipo:"RECONCILIACION_RESERVA",
-  usuarioId:usuarioId.toLowerCase(),origenId:origenId.toLowerCase(),
+  actorId:actorId.toLowerCase(),usuarioId:usuarioId.toLowerCase(),origenId:origenId.toLowerCase(),
   reservaId:reservaId.toLowerCase(),periodoInicio:inicio,
   idempotencyHash,huellaEstadoPrevio,huellaDiagnostico,
   importeAnteriorMinor,importeNuevoMinor,
