@@ -92,9 +92,14 @@ async function load(){
  api("/gastos/hormiga/resumen").then(result=>{
   if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;
   const resumen=result.resumen;
-  if(!resumen||!Number.isSafeInteger(resumen.semanaMinor)||!Number.isSafeInteger(resumen.mesMinor)||!Number.isSafeInteger(resumen.movimientosSemana)||!Number.isSafeInteger(resumen.movimientosMes))
+  if(!resumen||!Number.isSafeInteger(resumen.semanaMinor)||!Number.isSafeInteger(resumen.mesMinor)||!Number.isSafeInteger(resumen.movimientosSemana)||!Number.isSafeInteger(resumen.movimientosMes)||!Number.isSafeInteger(resumen.creditoSemanaMinor)||!Number.isSafeInteger(resumen.creditoMesMinor)||!Number.isSafeInteger(resumen.movimientosCreditoSemana)||!Number.isSafeInteger(resumen.movimientosCreditoMes)||!Number.isSafeInteger(resumen.consumoTotalSemanaMinor)||!Number.isSafeInteger(resumen.consumoTotalMesMinor)||!Number.isSafeInteger(resumen.promedioDiarioConsumoMinor)||!Number.isSafeInteger(resumen.promedioDiarioCajaMinor)||!Number.isSafeInteger(resumen.promedioDiarioCreditoMinor))
    throw Error("Resumen no verificable");
-  if(hormigaEl)hormigaEl.textContent="Gastos hormiga · Últimos 7 días: "+money(resumen.semanaMinor)+" ("+resumen.movimientosSemana+" movimientos). Mes actual: "+money(resumen.mesMinor)+" ("+resumen.movimientosMes+" movimientos). Los períodos se solapan: no sumes los totales. "+resumen.accion;
+  if([resumen.semanaMinor,resumen.mesMinor,resumen.creditoSemanaMinor,resumen.creditoMesMinor,resumen.consumoTotalSemanaMinor,resumen.consumoTotalMesMinor,resumen.promedioDiarioCajaMinor,resumen.promedioDiarioCreditoMinor,resumen.promedioDiarioConsumoMinor].some(n=>n<0)||
+     resumen.semanaMinor+resumen.creditoSemanaMinor!==resumen.consumoTotalSemanaMinor||
+     resumen.mesMinor+resumen.creditoMesMinor!==resumen.consumoTotalMesMinor||
+     resumen.promedioDiarioCajaMinor+resumen.promedioDiarioCreditoMinor!==resumen.promedioDiarioConsumoMinor)
+   throw Error("Resumen descuadrado: requiere verificación");
+  if(hormigaEl)hormigaEl.textContent="Gastos hormiga · Últimos 7 días: "+money(resumen.semanaMinor)+" ("+resumen.movimientosSemana+" movimientos). Mes actual: "+money(resumen.mesMinor)+" ("+resumen.movimientosMes+" movimientos). A crédito en últimos 7 días: "+money(resumen.creditoSemanaMinor)+" ("+resumen.movimientosCreditoSemana+" compras); a crédito en el mes: "+money(resumen.creditoMesMinor)+" ("+resumen.movimientosCreditoMes+" compras). Consumo identificado (caja + crédito) en últimos 7 días: "+money(resumen.consumoTotalSemanaMinor)+"; en el mes: "+money(resumen.consumoTotalMesMinor)+". Promedio diario observado de los últimos 7 días: "+money(resumen.promedioDiarioConsumoMinor)+" (caja "+money(resumen.promedioDiarioCajaMinor)+", crédito "+money(resumen.promedioDiarioCreditoMinor)+"). No es una predicción ni un presupuesto. Crédito no es salida de caja hoy; el pago posterior no se cuenta como una compra nueva. Los períodos se solapan: no sumes los totales. "+resumen.accion;
  }).catch(()=>{
   if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;
   if(hormigaEl)hormigaEl.textContent="Gastos hormiga: información no verificada. Actualiza para intentarlo de nuevo.";

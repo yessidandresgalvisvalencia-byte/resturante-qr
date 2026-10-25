@@ -16,6 +16,43 @@ router.use((req,res,next)=>{
 // V81: diagnóstico en solo lectura, con identidad obtenida exclusivamente del JWT personal verificado.
 // Esta ruta no permite escoger usuario por body, params, query ni headers.
 router.get("/v81/integridad",require("./services/consultaIntegridadV81.handler").crearConsultaIntegridadV81());
+router.get("/v81/transacciones/:id/estado-compensado",async(req,res)=>{
+ try{
+  const consultar=require("./services/consultaMovimientoCompensadoPersonal.service")
+   .crearConsultaMovimientoCompensado();
+  const estado=await consultar(req.personalAuth.userId,req.params.id);
+  return res.json({ok:true,estado});
+ }catch(e){
+  return res.status(e.statusCode||500).json({ok:false,
+   error:e.statusCode?e.message:"No fue posible verificar el movimiento"});
+ }
+});
+// Diagnóstico NO transaccional: compara vista heredada y ledger completo
+// en un snapshot consistente; nunca altera saldos ni activa escrituras.
+router.get("/v81/diagnostico-proyecciones",async(req,res)=>{
+ try{
+  const {desde,hasta}=req.query;
+  const consultar=require("./services/consultaFlujoCompensadoPersonal.service")
+   .crearConsultaFlujoCompensado();
+  const diagnostico=await consultar(req.personalAuth.userId,{desde,hasta,diagnostico:true});
+  return res.json({ok:true,diagnostico});
+ }catch(e){
+  return res.status(e.statusCode||500).json({ok:false,
+   error:e.statusCode?e.message:"No fue posible comparar las proyecciones"});
+ }
+});
+router.get("/v81/flujo-compensado",async(req,res)=>{
+ try{
+  const {desde,hasta}=req.query;
+  const consultar=require("./services/consultaFlujoCompensadoPersonal.service")
+   .crearConsultaFlujoCompensado();
+  const flujo=await consultar(req.personalAuth.userId,{desde,hasta});
+  return res.json({ok:true,flujo});
+ }catch(e){
+  return res.status(e.statusCode||500).json({ok:false,
+   error:e.statusCode?e.message:"No fue posible verificar el flujo compensado"});
+ }
+});
 router.get("/v81/saldo-verificado",require("./services/consultaSaldoV81.handler").crearConsultaSaldoV81());
 router.get("/v81/conciliacion-cuenta",require("./services/consultaConciliacionCuentaV81.handler").crearConsultaConciliacionCuentaV81());
 router.get("/v81/vinculos-historicos",require("./services/consultaVinculosHistoricosV81.handler").crearConsultaVinculosHistoricosV81());
@@ -208,7 +245,60 @@ const tarjetaOperacion=Joi.object({deudaId:Joi.string().hex().length(24).require
   return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar el intento"});
  }
 });
+// Obligaciones previstas: asiento insert-only; NO débito, NO outbox de pago.
+const obligacionPrevista=Joi.object({
+ montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),
+ concepto:Joi.string().trim().min(1).max(140).required(),
+ categoria:Joi.string().trim().min(1).max(80).required(),
+ fecha:Joi.date().iso().required(),
+ recurrente:Joi.boolean().required(),
+ frecuencia:Joi.string().valid("NINGUNA","DIARIA","SEMANAL","QUINCENAL","MENSUAL","ANUAL").required(),
+ externalId:Joi.string().trim().min(1).max(160).required()
+}).unknown(false);
+router.post("/v81/obligaciones-previstas",validate(obligacionPrevista),async(req,res)=>{
+ try{
+  const {crearRegistradorObligacionPersonal}=require("./services/registrarObligacionPersonal.service");
+  const obligacion=await crearRegistradorObligacionPersonal()(
+   req.personalAuth.userId,req.validated);
+  return res.status(201).json({ok:true,obligacion:{
+   id:String(obligacion._id),tipo:"GASTO",montoMinor:obligacion.montoMinor,
+   concepto:obligacion.concepto,categoria:obligacion.categoria,
+   fecha:obligacion.fecha,recurrente:obligacion.recurrente,
+   frecuencia:obligacion.frecuencia,impactoCaja:false,estado:"ACTIVA"
+  }});
+ }catch(e){
+  return res.status(e?.statusCode||500).json({ok:false,
+   error:e?.statusCode?e.message:"No fue posible registrar la obligación"});
+ }
+});
 router.post("/transacciones",validate(transaccion),async(req,res)=>{try{return res.status(201).json({ok:true,transaccion:await flujoCaja.registrarTransaccion(req.personalAuth.userId,req.validated)});}catch(e){if(e?.code===11000)return res.status(409).json({ok:false,error:"Transacción duplicada"});return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+// V81: ruta aditiva append-only. No reemplaza el PATCH/DELETE legado mientras
+// sus proyecciones y reservas recurrentes no hayan completado la migración.
+const compensacionTx=Joi.object({
+ idempotencyKey:Joi.string().pattern(/^[A-Za-z0-9_-]{1,128}$/).required(),
+ tipo:Joi.string().valid("CORRECCION","ANULACION").required(),
+ original:Joi.object({
+  tipo:Joi.string().valid("INGRESO","GASTO").required(),
+  montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),
+  concepto:Joi.string().trim().min(1).max(140).required(),
+  categoria:Joi.string().trim().min(1).max(80).required()
+ }).unknown(false).required(),
+ cambios:Joi.object({
+  tipo:Joi.string().valid("INGRESO","GASTO"),
+  montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),
+  concepto:Joi.string().trim().min(1).max(140),
+  categoria:Joi.string().trim().min(1).max(80)
+ }).unknown(false).default({})
+}).unknown(false).custom((value,helpers)=>{
+ const keys=Object.keys(value.cambios||{});
+ if(value.tipo==="ANULACION"&&keys.length)return helpers.error("any.invalid");
+ if(value.tipo==="CORRECCION"&&!keys.length)return helpers.error("any.invalid");
+ return value;
+});
+router.post("/v81/transacciones/:id/compensaciones",
+ require("./security/barreraCompensacionesHttp.middleware").crearBarreraCompensacionesHttp(),
+ validate(compensacionTx),
+ require("./services/compensacionPersonal.handler").crearCompensacionPersonalHandler());
 const correccionTx=Joi.object({tipo:Joi.string().valid("INGRESO","GASTO"),montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),concepto:Joi.string().trim().max(140),categoria:Joi.string().trim().max(80)}).min(1);
 router.patch("/transacciones/:id",validate(correccionTx),async(req,res)=>{try{const tx=await flujoCaja.corregirTransaccion(req.personalAuth.userId,req.params.id,req.validated);return tx?res.json({ok:true,transaccion:tx}):res.status(404).json({ok:false,error:"Movimiento no encontrado"});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir el movimiento"});}});
 router.delete("/transacciones/:id",async(req,res)=>{try{return res.json({ok:true,transaccion:await flujoCaja.anularTransaccion(req.personalAuth.userId,req.params.id,"Eliminada manualmente por el usuario")});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible eliminar el movimiento"});}});

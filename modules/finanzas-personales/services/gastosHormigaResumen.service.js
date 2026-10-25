@@ -2,6 +2,7 @@
 const Transaccion=require("../models/TransaccionPersonal");
 const {clasificar}=require("./colombiaFinanciero.service");
 const TZ="America/Bogota";
+const MAX_MOVIMIENTOS_CONSULTA=5000; // límite por usuario y período; jamás publicar sumas truncadas.
 function fechaCivilUTC(fecha){
  if(!(fecha instanceof Date)||Number.isNaN(fecha.getTime()))throw new TypeError("Fecha inválida");
  const partes=new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(fecha);
@@ -14,46 +15,121 @@ function limites(ahora=new Date()){
  return {inicioSiete:new Date(hoy-6*86400000+5*3600000),inicioMes:new Date(primerMes+5*3600000),fin:ahora,
   inicioConsulta:new Date(Math.min(hoy-6*86400000,primerMes)+5*3600000)};
 }
-function esHormiga(tx){
- if(!tx||tx.tipo!=="GASTO"||tx.estado==="ANULADA"||tx.impactoCaja===false||tx.medioPago==="CREDITO")return false;
+function esConsumoHormiga(tx){
+ if(!tx||tx.tipo!=="GASTO"||tx.estado==="ANULADA")return false;
+ if(tx.estado!=="ACTIVA")throw new Error("INTEGRIDAD_HORMIGA: estado financiero no confirmado");
  const clase=clasificar(tx.concepto||"","GASTO");
  if(clase==="Deuda"||clase==="Gastos fijos")return false;
  return clase==="Gastos hormiga"||String(tx.categoria||"").trim().toLowerCase()==="gastos hormiga";
 }
+const MEDIOS_CAJA=new Set(["EFECTIVO","DEBITO","TRANSFERENCIA","PSE","OTRO"]);
+function medioHormigaVerificado(tx){
+ if(!esConsumoHormiga(tx))return null;
+ if(tx.medioPago==="CREDITO")return "CREDITO";
+ if(MEDIOS_CAJA.has(tx.medioPago)){
+  if(tx.impactoCaja===false)return null;
+  if(tx.impactoCaja!==true)
+   throw new Error("INTEGRIDAD_HORMIGA: impacto de caja no verificable");
+  return "CAJA";
+ }
+ throw new Error("INTEGRIDAD_HORMIGA: medio de pago desconocido, no se puede afirmar salida de caja");
+}
+function esHormiga(tx){return medioHormigaVerificado(tx)==="CAJA";}
+function esHormigaCredito(tx){return medioHormigaVerificado(tx)==="CREDITO";}
 function resumir(transacciones,ahora=new Date()){
  if(!Array.isArray(transacciones))throw new TypeError("Se requiere lista de movimientos");
  const r=limites(ahora);
- let semana=0,mes=0,cantidadSemana=0,cantidadMes=0;
+ let semana=0,mes=0,cantidadSemana=0,cantidadMes=0,creditoSemana=0,creditoMes=0,cantidadCreditoSemana=0,cantidadCreditoMes=0;
  const vistos=new Map();
+ const estadosPorId=new Map();
+ const firmasPorId=new Map();
  for(const tx of transacciones){
-  if(!esHormiga(tx))continue;
+  if(!tx||typeof tx!=="object")
+   throw new Error("INTEGRIDAD_HORMIGA: registro de gasto incompleto o tipo contradictorio");
+  // Dos estados para el mismo ID invalidan la lectura, incluso si una copia está ANULADA.
+  // No basta omitir la copia anulada: eso podría publicar un gasto ya revertido.
+  if(tx.tipo==="GASTO"&&tx._id!=null){
+   const idEstado=String(tx._id).trim();
+   if(idEstado&&idEstado!=="[object Object]"){
+    if(estadosPorId.has(idEstado)&&estadosPorId.get(idEstado)!==tx.estado)
+     throw new Error("INTEGRIDAD_HORMIGA: mismo movimiento con estados contradictorios");
+    estadosPorId.set(idEstado,tx.estado);
+    // Verificar el mismo identificador ANTES de clasificar u omitir un gasto.
+    // De lo contrario Rappi vs arriendo, o ACTIVA vs ANULADA, puede falsear el total.
+    const fechaDuplicado=new Date(tx.fecha);
+    const fechaFirma=Number.isNaN(fechaDuplicado.getTime())?String(tx.fecha):fechaDuplicado.toISOString();
+    const firmaUniversal=JSON.stringify([String(tx.usuarioId??""),fechaFirma,tx.moneda??"COP",
+     tx.tipo,tx.montoMinor,tx.concepto,tx.categoria,tx.estado,tx.impactoCaja,tx.medioPago]);
+    if(firmasPorId.has(idEstado)&&firmasPorId.get(idEstado)!==firmaUniversal)
+     throw new Error("INTEGRIDAD_HORMIGA: movimiento duplicado con datos contradictorios");
+    firmasPorId.set(idEstado,firmaUniversal);
+   }
+  }
+  const medio=medioHormigaVerificado(tx);
+  if(medio===null)continue;
+  const esCaja=medio==="CAJA";
+  if(tx.moneda!=null&&tx.moneda!=="COP")throw new Error("INTEGRIDAD_HORMIGA: moneda distinta de COP");
   if(!Number.isSafeInteger(tx.montoMinor)||tx.montoMinor<=0)throw new TypeError("Monto hormiga inválido");
   if(tx.fecha===null||tx.fecha===undefined||tx.fecha==="")throw new TypeError("Fecha hormiga inválida");
   const fecha=new Date(tx.fecha);
   if(Number.isNaN(fecha.getTime()))throw new TypeError("Fecha hormiga inválida");
-  const id=tx._id==null?null:String(tx._id);
-  const firma=JSON.stringify([fecha.toISOString(),tx.montoMinor,tx.concepto,tx.categoria,tx.estado,tx.impactoCaja,tx.medioPago]);
-  if(id&&vistos.has(id)){
+  const id=tx._id==null?"":String(tx._id).trim();
+  if(!id||id==="[object Object]")throw new Error("INTEGRIDAD_HORMIGA: movimiento sin identificador verificable");
+  const firma=JSON.stringify([fecha.toISOString(),tx.moneda??"COP",tx.montoMinor,tx.concepto,tx.categoria,tx.estado,tx.impactoCaja,tx.medioPago]);
+  if(vistos.has(id)){
    if(vistos.get(id)!==firma)throw new Error("INTEGRIDAD_HORMIGA: movimiento duplicado con datos contradictorios");
    continue;
   }
-  if(id)vistos.set(id,firma);
+  vistos.set(id,firma);
   if(fecha>ahora)continue;
-  if(fecha>=r.inicioSiete){semana+=tx.montoMinor;cantidadSemana++;}
-  if(fecha>=r.inicioMes){mes+=tx.montoMinor;cantidadMes++;}
-  if(!Number.isSafeInteger(semana)||!Number.isSafeInteger(mes))throw new RangeError("Acumulado hormiga excede rango seguro");
+  if(fecha>=r.inicioSiete){
+   if(esCaja){semana+=tx.montoMinor;cantidadSemana++;}
+   else {creditoSemana+=tx.montoMinor;cantidadCreditoSemana++;}
+  }
+  if(fecha>=r.inicioMes){
+   if(esCaja){mes+=tx.montoMinor;cantidadMes++;}
+   else {creditoMes+=tx.montoMinor;cantidadCreditoMes++;}
+  }
+  if(![semana,mes,creditoSemana,creditoMes].every(Number.isSafeInteger))
+   throw new RangeError("Acumulado hormiga excede rango seguro");
  }
+ // Primero verificar la suma total; no operar con enteros fuera de rango seguro.
+ const consumoTotalSemanaMinor=semana+creditoSemana;
+ const consumoTotalMesMinor=mes+creditoMes;
+ if(!Number.isSafeInteger(consumoTotalSemanaMinor)||!Number.isSafeInteger(consumoTotalMesMinor))
+  throw new RangeError("Consumo hormiga total excede rango monetario seguro");
+ // Prorrateo entero reconciliado: el peso residual se asigna al mayor resto.
+ // Caja + crédito = total diario, sin redondeos que descuadren un peso.
+ const promedioDiarioConsumoMinor=Math.floor(consumoTotalSemanaMinor/7);
+ const baseCaja=Math.floor(semana/7);
+ const baseCredito=Math.floor(creditoSemana/7);
+ const residuo=promedioDiarioConsumoMinor-baseCaja-baseCredito;
+ const promedioDiarioCajaMinor=baseCaja+(residuo>0&&semana%7>=creditoSemana%7?1:0);
+ const promedioDiarioCreditoMinor=promedioDiarioConsumoMinor-promedioDiarioCajaMinor;
  return {periodo:"ULTIMOS_7_DIAS_Y_MES_COLOMBIA",semanaMinor:semana,mesMinor:mes,
+  consumoTotalSemanaMinor,consumoTotalMesMinor,
+  promedioDiarioCajaMinor,promedioDiarioCreditoMinor,
+  promedioDiarioConsumoMinor,
   movimientosSemana:cantidadSemana,movimientosMes:cantidadMes,
-  nota:"Las ventanas se solapan: los totales no deben sumarse. Solo gastos reales no anulados; se excluyen pagos de deuda y movimientos sin salida de caja.",
-  accion:cantidadSemana>0?"Revisa los gastos pequeños de esta semana antes de repetirlos.":"Registra únicamente tus gastos reales para revisar el consumo hormiga."};
+  creditoSemanaMinor:creditoSemana,creditoMesMinor:creditoMes,
+  movimientosCreditoSemana:cantidadCreditoSemana,movimientosCreditoMes:cantidadCreditoMes,
+  nota:"Las ventanas se solapan: los totales no deben sumarse. Caja: solo salidas efectivas. Crédito: consumo que aumenta deuda, separado de caja. Los pagos posteriores de tarjeta no se cuentan como nuevos consumos.",
+  accion:cantidadSemana+cantidadCreditoSemana>0?"Revisa tus compras pequeñas, incluidas las que pagaste con tarjeta, antes de repetirlas.":"Registra únicamente tus gastos reales para revisar el consumo hormiga."};
 }
 async function obtener(usuarioId,{ahora=new Date()}={}){
- if(!usuarioId)throw new TypeError("La identidad autenticada es obligatoria");
+ if(!usuarioId||(typeof usuarioId==="string"&&!usuarioId.trim()))
+  throw new TypeError("La identidad autenticada es obligatoria");
  const periodo=limites(ahora);
  const transacciones=await Transaccion.find({usuarioId,tipo:"GASTO",estado:{$ne:"ANULADA"},
-  impactoCaja:{$ne:false},medioPago:{$ne:"CREDITO"},fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}})
-  .select("_id fecha tipo montoMinor categoria concepto estado impactoCaja medioPago").lean();
+  fecha:{$gte:periodo.inicioConsulta,$lte:periodo.fin}},null,{maxTimeMS:5000})
+  .select("_id usuarioId fecha tipo moneda montoMinor categoria concepto estado impactoCaja medioPago")
+  .limit(MAX_MOVIMIENTOS_CONSULTA+1).lean();
+ if(!Array.isArray(transacciones)||transacciones.length>MAX_MOVIMIENTOS_CONSULTA)
+  throw new Error("INTEGRIDAD_HORMIGA: consulta excede límite verificable; no se publica resumen parcial");
+ if(transacciones.some(tx=>!tx||typeof tx!=="object"||tx.tipo!=="GASTO"))
+  throw new Error("INTEGRIDAD_HORMIGA: consulta devolvió registros incompletos o tipo contradictorio");
+ if(transacciones.some(tx=>tx.usuarioId==null||String(tx.usuarioId)!==String(usuarioId)))
+  throw new Error("INTEGRIDAD_HORMIGA: movimiento ajeno a la identidad autenticada");
  return resumir(transacciones,ahora);
 }
-module.exports={obtener,resumir,esHormiga,limites};
+module.exports={obtener,resumir,esHormiga,esHormigaCredito,limites};
