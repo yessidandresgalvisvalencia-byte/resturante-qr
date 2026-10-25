@@ -7,6 +7,7 @@ const Cursor=require("../models/CursorCompensacionPersonal");
 const Cancelacion=require("../models/CancelacionObligacionPrevistaPersonal");
 const {auditarReservasRecurrencia}=require("./auditarReservasRecurrenciaPersonal.service");
 const {planearReparacionReservas}=require("./planReparacionReservasPersonal.service");
+const {verificarVigenciaPlanReservas}=require("./verificarVigenciaPlanReservasPersonal.service");
 const MAX=10000;
 function fallo(m,statusCode=409){
  return Object.assign(new Error("AUDITORIA_RESERVAS_SNAPSHOT: "+m),{statusCode});
@@ -19,7 +20,7 @@ function crearConsultaAuditoriaReservas({
  CursorModelo=Cursor,CancelacionModelo=Cancelacion,
  nuevaSesion=()=>mongoose.startSession()
 }={}){
- return async function consultar(usuarioId,origenId){
+ return async function consultar(usuarioId,origenId,{huellaEsperada}={}){
   if(!mongoose.isValidObjectId(usuarioId)||!mongoose.isValidObjectId(origenId))
    throw fallo("identificadores inválidos",400);
   const uid=String(usuarioId);
@@ -55,7 +56,12 @@ function crearConsultaAuditoriaReservas({
     const plan=planearReparacionReservas({
      usuarioId:uid,origenId:String(origen._id),auditoria
     });
+    const vigencia=huellaEsperada===undefined?null:verificarVigenciaPlanReservas({
+     usuarioId:uid,origenId:String(origen._id),huellaEsperada,
+     auditoriaActual:auditoria
+    });
     resultado={...auditoria,planReparacion:plan,
+     ...(vigencia?{vigenciaPlan:vigencia}:{}),
      fuenteDatos:"SNAPSHOT_MONGO_AUDITORIA",
      soloLectura:true,aptoParaDisponibleHoy:false};
    },{readConcern:{level:"snapshot"},readPreference:"primary"});
