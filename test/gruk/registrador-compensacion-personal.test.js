@@ -21,6 +21,9 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
   }
  };
  const ModeloEvento={
+  find(filter){return {sort(){return {session(){return {lean:async()=>
+   staged.eventos.filter(e=>e.usuarioId===filter.usuarioId&&e.movimientoId===filter.movimientoId)
+    .sort((a,b)=>a.secuencia-b.secuencia)};}};}};},
   findOne(filter){return {session(){return {lean:async()=>
    repetido?{idempotencyKey:filter.idempotencyKey}:staged.eventos.find(e=>e.idempotencyKey===filter.idempotencyKey)||null};}};},
   async create(rows){
@@ -45,7 +48,7 @@ const entrada=(key="operacion_1")=>({original,tipo:"CORRECCION",
 test("primer evento crea cursor y evento; segundo enlaza hash y secuencia",async()=>{
  const {data,registrar}=bancoSimulado();
  const a=await registrar(entrada("operacion_1"));
- const b=await registrar(entrada("operacion_2"));
+ const b=await registrar({...entrada("operacion_2"),original:{...original,montoMinor:22000},cambios:{montoMinor:20000}});
  assert.deepEqual([a.secuencia,b.secuencia],[1,2]);
  assert.equal(a.prevHash,GENESIS);
  assert.equal(b.prevHash,a.hashActual);
@@ -55,6 +58,24 @@ test("primer evento crea cursor y evento; segundo enlaza hash y secuencia",async
  assert.equal(verificarCadena(data.eventos,{prevHash:GENESIS}),true);
  assert.equal(data.cerradas,2);
 });
+test("corrección con estado obsoleto aborta sin agregar eventos ni avanzar cursor",async()=>{
+ const {data,registrar}=bancoSimulado();
+ const primero=await registrar(entrada());
+ await assert.rejects(registrar(entrada("otra_clave")),/desactualizado/);
+ assert.equal(data.eventos.length,1);
+ assert.equal(data.cursor.hashActual,primero.hashActual);
+});
+test("anulación usa el importe vigente y bloquea nuevos reversos con otra clave",async()=>{
+ const {data,registrar}=bancoSimulado();
+ await registrar(entrada());
+ const solicitud={...entrada("anular"),original:{...original,montoMinor:22000},tipo:"ANULACION",cambios:{}};
+ const reverso=await registrar(solicitud);
+ assert.equal(reverso.deltaCajaMinor,"22000");
+ await assert.rejects(registrar({...solicitud,idempotencyKey:"anular_otra"}),/ya anulado/);
+ await assert.rejects(registrar({...entrada("corregir_anulada"),original:solicitud.original}),/ya anulado/);
+ assert.equal(data.eventos.length,2);
+ assert.equal(data.cursor.hashActual,reverso.hashActual);
+});
 test("clave idempotente repetida aborta sin avanzar la cadena",async()=>{
  const {data,registrar}=bancoSimulado();
  await registrar(entrada());
@@ -63,6 +84,22 @@ test("clave idempotente repetida aborta sin avanzar la cadena",async()=>{
  assert.equal(data.eventos.length,1);
  assert.equal(data.abortadas,1);
  assert.equal(data.cerradas,2);
+});
+test("historial alterado bloquea la escritura antes de avanzar el cursor",async()=>{
+ const {data,registrar}=bancoSimulado();
+ await registrar(entrada());
+ data.eventos[0]={...data.eventos[0],deltaCajaMinor:"999999"};
+ const hash=data.cursor.hashActual;
+ await assert.rejects(registrar({...entrada("otra"),original:{...original,montoMinor:22000}}),/INTEGRIDAD_LEDGER/);
+ assert.equal(data.eventos.length,1);
+ assert.equal(data.cursor.hashActual,hash);
+});
+test("una anulación no bloquea un movimiento distinto del mismo usuario",async()=>{
+ const {data,registrar}=bancoSimulado();
+ await registrar({...entrada("anular"),tipo:"ANULACION",cambios:{}});
+ await registrar({...entrada("distinto"),original:{...original,movimientoId:"otro_movimiento"}});
+ assert.equal(data.eventos.length,2);
+ assert.equal(data.cursor.secuencia,2);
 });
 test("una actualización concurrente del cursor impide insertar evento huérfano",async()=>{
  const {data,registrar}=bancoSimulado({colision:true});
@@ -82,6 +119,7 @@ test("un fallo de insert revierte el cursor y cierra sesión",async()=>{
 test("se rechazan operaciones sin usuario o idempotencia antes de consultar índices",async()=>{
  const {data,registrar}=bancoSimulado();
  await assert.rejects(registrar({...entrada(),original:{...original,usuarioId:" "}}),/Usuario e idempotencia/);
+ await assert.rejects(registrar({...entrada(),original:{...original,movimientoId:undefined}}),/Usuario e idempotencia/);
  await assert.rejects(registrar({...entrada(),idempotencyKey:" "}),/Usuario e idempotencia/);
  assert.equal(data.indices,0);
 });
