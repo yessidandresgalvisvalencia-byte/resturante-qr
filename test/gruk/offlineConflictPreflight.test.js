@@ -151,3 +151,57 @@ test("Capa 2: stock without a stable Mongo document identity cannot be marked re
   assert.equal(fixture.writes,0);
  }
 });
+
+test("Capa 2: getters de autorización se rechazan antes de Mongo y conversiones",async()=>{
+ for(const field of ["rol","empresaId","sedeId","usuarioId"]){
+  let calls=0,dbReads=0,conversions=0;
+  const poisoned={...auth};
+  Object.defineProperty(poisoned,field,{enumerable:true,configurable:true,
+   get(){calls++;return auth[field];}});
+  await assert.rejects(preflight({
+   db:{get collection(){dbReads++;throw Error("UNAUTHORIZED_READ");}},
+   auth:poisoned,conflictId,objectId:()=>{conversions++;throw Error("UNAUTHORIZED_CONVERSION");}
+  }),{code:"OFFLINE_CONFLICT_PERMISSION_DENIED"});
+  assert.equal(calls,0,field);
+  assert.equal(dbReads,0);
+  assert.equal(conversions,0);
+ }
+});
+test("Capa 2: rechazo de getters Mongo en conflicto y posiciones de eventos",async()=>{
+ for(const field of ["_id","empresaId","sedeId","status","applied","cobrado","actorId","eventIds","0"]){
+  let hits=0,inboxReads=0;
+  const source={_id:conflictId,empresaId:auth.empresaId,sedeId:auth.sedeId,
+   status:"REQUIERE_REVISION",applied:false,cobrado:false,
+   actorId:"operator",eventIds:[eventId]};
+  const target=field==="0"?source.eventIds:source;
+  Object.defineProperty(target,field,{enumerable:true,configurable:true,
+   get(){hits++;return field==="0"?eventId:source[field];}});
+  const db={collection(name){
+   if(name==="gruk_offline_stock_conflicts")return {findOne:async()=>source};
+   inboxReads++;throw Error("FORBIDDEN_INBOX_READ");
+  }};
+  await assert.rejects(preflight({db,auth,conflictId,objectId:x=>x}),
+   {code:"OFFLINE_CONFLICT_NOT_FOUND"});
+  assert.equal(hits,0,field);
+  assert.equal(inboxReads,0);
+ }
+});
+test("Capa 2: contexto capturado se conserva si auth cambia durante consulta",async()=>{
+ const scope={...auth};let checked=false;
+ const original=setup(0);
+ const db={collection(name){
+  const source=original.db.collection(name);
+  if(name!=="gruk_offline_stock_conflicts")return source;
+  return {async findOne(query){
+   const found=await source.findOne(query);
+   Object.assign(scope,{empresaId:"507f191e810c19729de860eb",
+    sedeId:"507f1f77bcf86cd799439013",usuarioId:"intruso",rol:"EMPLEADO"});
+   checked=true;return found;
+  }};
+ }};
+ const result=await preflight({db,auth:scope,conflictId,objectId:x=>x});
+ assert.equal(checked,true);
+ assert.equal(result.ready,false);
+ assert.equal(result.products[0].shortage,"1");
+ assert.equal(result.inventoryChanges,false);
+});
