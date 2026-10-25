@@ -307,6 +307,55 @@ async function run() {
       received:(await globalThis.GRUKOfflineOutbox.listReceived(100,tenant)).length
     }),tenantA);
     assert.deepEqual(durableNewOrders,{local:23,pending:2,received:21});
+    // A request captures the two old pending events, then pauses before ACK.
+    // A second operation concurrently persists two NEW orders in IndexedDB.
+    // The old ACK must not acknowledge events created while the request flies.
+    const concurrentIds=["01ARZ3NDEKTSV4RRFFQ69G5FA5","01ARZ3NDEKTSV4RRFFQ69G5FA6"];
+    const concurrent=await page.evaluate(async ({tenant,newIds,oldIds})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      let releaseRequest,startedRequest;
+      const started=new Promise(resolve=>{startedRequest=resolve;});
+      const release=new Promise(resolve=>{releaseRequest=resolve;});
+      const sent=[];
+      const sync=globalThis.GRUKOfflineTransport.synchronize({
+        outbox,context:tenant,token:"test-token",
+        fetchFn:async (_url,options)=>{
+          const events=JSON.parse(options.body).events;
+          sent.push(events.map(e=>e.eventId));
+          startedRequest();
+          await release;
+          return {status:202,json:async()=>({ok:true,applied:false,
+            events:events.map(e=>({eventId:e.eventId,status:"RECIBIDO"}))})};
+        }
+      });
+      await started;
+      await Promise.all(newIds.map(eventId=>outbox.putPending({...tenant,eventId,
+        payload:{items:[{productoId:"producto-1",cantidad:1}]}})));
+      const during=(await outbox.listPending(100,tenant)).map(e=>e.eventId);
+      releaseRequest();
+      const result=await sync;
+      const remaining=(await outbox.listPending(100,tenant)).map(e=>e.eventId);
+      const all=await outbox.listLocal(100,tenant);
+      return {sent,during,result,remaining,local:all.length,
+        newEventsPending:newIds.every(id=>all.some(e=>e.eventId===id&&e.syncStatus==="pending"))};
+    },{tenant:tenantA,newIds:concurrentIds,oldIds:unsavedIds});
+    assert.deepEqual(concurrent.sent,[unsavedIds]);
+    assert.deepEqual(concurrent.during,[...unsavedIds,...concurrentIds]);
+    assert.deepEqual(concurrent.result,{sent:2,received:2});
+    assert.deepEqual(concurrent.remaining,concurrentIds);
+    assert.equal(concurrent.local,25);
+    assert.equal(concurrent.newEventsPending,true);
+    await browser.close();
+    browser=null;
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    const afterConcurrentRestart=await page.evaluate(async tenant=>({
+      pending:(await globalThis.GRUKOfflineOutbox.listPending(100,tenant)).map(e=>e.eventId),
+      received:(await globalThis.GRUKOfflineOutbox.listReceived(100,tenant)).length,
+      local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length
+    }),tenantA);
+    assert.deepEqual(afterConcurrentRestart,{pending:concurrentIds,received:23,local:25});
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 21, abortedAckRecovered: true }));
   } finally {
