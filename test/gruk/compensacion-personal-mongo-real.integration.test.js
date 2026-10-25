@@ -276,6 +276,26 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    assert.equal(await EventoReparacion.countDocuments({usuarioId,
     idempotencyHash:solicitud.idempotencyHash}),1);
    assert.equal((await Reserva.findById(reservaVigente._id).lean()).reservadoMinor,200000);
+   // Carrera real: dos transacciones intentan reconciliar el mismo
+   // snapshot con claves diferentes; solo una puede confirmar el CAS.
+   await Reserva.updateOne({_id:reservaVigente._id},
+    {$set:{reservadoMinor:199999}});
+   const contraCarrera=await auditarSnapshot(String(usuarioId),
+    String(origenVigente._id));
+   const comun={...solicitud,
+    huellaEstadoEsperada:contraCarrera.huellaEstado,
+    huellaDiagnostico:contraCarrera.planReparacion.huellaDiagnostico};
+   const enCarrera=await Promise.allSettled([
+    ejecutarReserva({...comun,idempotencyHash:"e".repeat(64)}),
+    ejecutarReserva({...comun,idempotencyHash:"f".repeat(64)})
+   ]);
+   assert.equal(enCarrera.filter(r=>r.status==="fulfilled").length,1);
+   assert.equal(enCarrera.filter(r=>r.status==="rejected").length,1);
+   assert.equal(await EventoReparacion.countDocuments({
+    usuarioId,reservaId:reservaVigente._id}),3,
+    "prueba de inserción aislada + primera reparación + solo una carrera");
+   assert.equal((await Reserva.findById(reservaVigente._id).lean()).reservadoMinor,200000);
+   assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
    await Reserva.deleteOne({_id:reservaVigente._id});
    // El ledger compensatorio genérico NO puede alterar abonos
    // recurrentes dejando su reserva desincronizada. Debe fallar
