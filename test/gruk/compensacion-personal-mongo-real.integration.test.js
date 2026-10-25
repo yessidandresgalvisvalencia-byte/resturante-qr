@@ -139,10 +139,30 @@ test("Mongo real aislado: cursor, evento, caja y outbox se confirman o revierten
    const calculoSeguro=await consultarCuotas(String(usuarioId),
     String(origenVigente._id),rangoCuotas);
    assert.equal(calculoSeguro.totalPendienteMinor,"800000");
+   const {auditarReservasRecurrencia}=require(
+    "../../modules/finanzas-personales/services/auditarReservasRecurrenciaPersonal.service");
+   const forense=async()=>auditarReservasRecurrencia({
+    usuarioId:String(usuarioId),
+    origen:await Movimiento.findById(origenVigente._id).lean(),
+    pagos:await Movimiento.find({usuarioId,
+     recurrenteOrigenId:origenVigente._id}).lean(),
+    reservas:await Reserva.find({usuarioId,origenId:origenVigente._id}).lean(),
+    eventos:await Evento.find({usuarioId:String(usuarioId)})
+     .sort({secuencia:1}).lean(),
+    cursor:await Cursor.findById(String(usuarioId)).lean()
+   });
+   // Test-only sequential fixture reads: production caller must use
+   // the existing single-snapshot consultation adapter instead.
+   assert.equal((await forense()).estado,"COHERENTE");
+
    assert.equal(calculoSeguro.aptoParaDisponibleHoy,false);
    assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,cuentaPrevia);
    await Reserva.updateOne({_id:reservaVigente._id},
     {$set:{reservadoMinor:199999}});
+   const avisoForense=await forense();
+   assert.equal(avisoForense.estado,"REQUIERE_CONCILIACION");
+   assert.ok(avisoForense.anomalías.some(x=>x.codigo==="RESERVA_DESCUADRADA"));
+
    await assert.rejects(()=>consultarCuotas(String(usuarioId),
     String(origenVigente._id),rangoCuotas),
     e=>e.statusCode===409&&/reserva inconsistente/.test(e.message));
