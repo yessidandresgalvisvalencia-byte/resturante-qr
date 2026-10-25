@@ -6,6 +6,7 @@ const Evento=require("../models/EventoCompensatorioPersonal");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const Cancelacion=require("../models/CancelacionObligacionPrevistaPersonal");
 const {auditarReservasRecurrencia}=require("./auditarReservasRecurrenciaPersonal.service");
+const {planearReparacionReservas}=require("./planReparacionReservasPersonal.service");
 const MAX=10000;
 function fallo(m,statusCode=409){
  return Object.assign(new Error("AUDITORIA_RESERVAS_SNAPSHOT: "+m),{statusCode});
@@ -48,10 +49,14 @@ function crearConsultaAuditoriaReservas({
     if([pagos,reservas,eventos].some(a=>!Array.isArray(a)||a.length>MAX))
      throw fallo("historial incompleto o truncado",503);
     if(cancelacion)throw fallo("obligación cancelada; revisión especial requerida");
-    resultado=auditarReservasRecurrencia({
+    const auditoria=auditarReservasRecurrencia({
      usuarioId:uid,origen,pagos,reservas,eventos,cursor
     });
-    resultado={...resultado,fuenteDatos:"SNAPSHOT_MONGO_AUDITORIA",
+    const plan=planearReparacionReservas({
+     usuarioId:uid,origenId:String(origen._id),auditoria
+    });
+    resultado={...auditoria,planReparacion:plan,
+     fuenteDatos:"SNAPSHOT_MONGO_AUDITORIA",
      soloLectura:true,aptoParaDisponibleHoy:false};
    },{readConcern:{level:"snapshot"},readPreference:"primary"});
    return resultado;
