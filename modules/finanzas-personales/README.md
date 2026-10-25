@@ -470,3 +470,23 @@ ni abonos con compensaciones no conciliadas. Una reparación de una
 reserva no autoriza `Disponible Hoy`; aún falta revisar privilegios
 Mongo insert-only, límites de escalamiento, trazabilidad de actor y
 controles de acceso, y rutas heredadas que mutan el ledger (#407).
+
+## Autorización del actor para la reparación ACID interna
+
+El ejecutor `crearEjecutorReparacionReserva` ahora **deniega por
+defecto** su construcción sin un proveedor de autorización confiable
+`autorizarActor`. El proveedor debe consultar identidad y permisos
+reales desde el servidor, no aceptar una afirmación del cliente.
+Se comprueba permiso `RECONCILIAR_RESERVA_PERSONAL` tanto antes de
+consultar índices como **nuevamente dentro de la transacción MongoDB**.
+En caso de denegación o revocación, aborta sin afectar reservas,
+cuentas ni eventos. Los eventos nuevos exigen `actorId` y lo incluyen
+en su huella SHA-256; su adulteración invalida la verificación.
+
+**Pendiente para uso real:** aún NO hay un proveedor de autorización
+de producción conectado ni un origen de identidad autenticada que
+impida suplantar el campo `actorId` suministrado al servicio.
+La prueba usa un proveedor aislado inyectado. La autorización
+externa tampoco sustituye permisos insert-only de MongoDB, control
+de aprobaciones de operaciones sensibles, ni bloqueo de rutas heredadas
+(#407). No exponer este ejecutor por HTTP ni desplegarlo.
