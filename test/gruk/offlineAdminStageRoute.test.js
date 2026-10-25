@@ -78,3 +78,18 @@ test("stage-orders: insufficient inventory returns an auditable HTTP 409 with no
  assert.equal(response.answer.cobrado,false);
  assert.equal(response.answer.issues[0].faltante,"1");
 });
+
+test("stage-orders: Mongo sin transacciones responde 503 reintentable y sin cobros",async()=>{
+ const failure=Object.assign(new Error("OFFLINE_TRANSACTION_UNAVAILABLE"),
+  {code:"OFFLINE_TRANSACTION_UNAVAILABLE"});
+ const f=load({stage:async()=>{throw failure;}});
+ const response=await send(f.handler);
+ assert.equal(response.code,503);
+ assert.equal(response.cache,"no-store");
+ assert.equal(response.answer.ok,false);
+ assert.equal(response.answer.retryable,true);
+ assert.equal(response.answer.applied,false);
+ assert.equal(response.answer.cobrado,false);
+ assert.equal(response.answer.error,"OFFLINE_TRANSACTION_UNAVAILABLE");
+ assert.equal(f.calls,1);
+});

@@ -7,6 +7,13 @@ function validRecord(row,context){
   row.sedeId===context.sedeId&&row.actorId===context.actorId;
 }
 function fail(){const e=new Error("OFFLINE_STAGE_REPLAY_REQUIRES_REVIEW");e.code=e.message;throw e;}
+function unavailable(){const e=new Error("OFFLINE_TRANSACTION_UNAVAILABLE");e.code=e.message;throw e;}
+function isUnsupportedTransaction(error){
+ // MongoDB standalone deployments reject transaction numbers with code 20.
+ // Do not reclassify arbitrary IllegalOperation errors as topology failures.
+ return error?.code===20&&typeof error.message==="string"&&
+   /Transaction numbers are only allowed on a replica set member or mongos/i.test(error.message);
+}
 function completeRecords(rows,count){
  return Array.isArray(rows)&&rows.length===count&&
   Array.from({length:count},(_,i)=>Object.hasOwn(rows,i)).every(Boolean);
@@ -32,7 +39,7 @@ async function recoverOfflineStagedBatch({db,context,eventIds}){
  }
  if(new Set(ids).size!==ids.length)fail();
  if(!db||typeof db.collection!=="function"||
-    typeof db.client?.startSession!=="function")fail();
+    typeof db.client?.startSession!=="function")unavailable();
  const scopedContext=Object.freeze(identity),scopedIds=Object.freeze(ids);
  async function verifyInSnapshot(session){
  const statuses=await readOfflineReconciliation({db,context:scopedContext,eventIds:scopedIds,session});
@@ -77,11 +84,16 @@ async function recoverOfflineStagedBatch({db,context,eventIds}){
  const session=db.client.startSession();
  try{
   if(!session||typeof session.withTransaction!=="function"||
-     typeof session.endSession!=="function")fail();
+     typeof session.endSession!=="function")unavailable();
   let verified;
-  await session.withTransaction(async()=>{
-   verified=await verifyInSnapshot(session);
-  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
+  try{
+   await session.withTransaction(async()=>{
+    verified=await verifyInSnapshot(session);
+   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
+  }catch(error){
+   if(isUnsupportedTransaction(error))unavailable();
+   throw error;
+  }
   if(!verified)fail();
   return verified;
  }finally{
