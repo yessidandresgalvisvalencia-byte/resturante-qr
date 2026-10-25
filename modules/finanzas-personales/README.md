@@ -404,3 +404,21 @@ concurrente posterior al snapshot. Este token no habilita endpoint,
 `Disponible Hoy` ni reparación alguna. Toda ejecución futura debe
 volver a validar con bloqueo transaccional, índices únicos y un
 evento de reparación append-only (#407).
+
+## Preparación de CAS de reservas (sin escrituras)
+
+`condicionCasReservaPersonal.service.js` construye un filtro
+compare-and-swap (CAS) que obliga a coincidir exactamente con
+`_id`, `usuarioId`, `origenId`, `periodoInicio`,
+`periodoFin`, `importeCuotaMinor` y `reservadoMinor`
+anterior. Rechaza importes no enteros, períodos inválidos, reservas
+ajenas y propuestas superiores a la cuota. Devuelve un delta BigInt
+decimal, **sin ejecutar UPDATE** ni permitir una reparación todavía.
+
+La integración MongoDB real comprueba que un filtro preparado contra
+una reserva de $200.000 no encuentra el mismo documento cuando ha
+cambiado a $199.999. Esto demuestra la semántica del filtro, NO la
+seguridad de un ejecutor concurrente. Antes de activar reparaciones
+faltan: transacción ACID con fence compartido frente a escrituras
+legadas, reauditoría dentro de esa transacción, índice de idempotencia,
+evento append-only, rollback, prueba de carreras y permisos. #407.
