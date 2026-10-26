@@ -47,3 +47,13 @@ test("missing auth disables all operational controls and does not read the outbo
  assert.equal(elems.saveDraft.disabled,true);
  assert.equal(elems.refreshCatalog.disabled,true);
 });
+
+test("Capa 2: JWT vencido o exp malformado no abre el panel offline",()=>{
+ const now=Math.floor(Date.now()/1000);
+ for(const exp of [now-1,now,0,"9999999999",null,1.5]){
+  assert.throws(()=>readSession({getItem:()=>token({...payload,exp})}),
+   /PANEL_AUTH_EXPIRED/);
+ }
+ const valid=readSession({getItem:()=>token({...payload,exp:now+3600})});
+ assert.equal(valid.context.empresaId,payload.empresaId);
+});
