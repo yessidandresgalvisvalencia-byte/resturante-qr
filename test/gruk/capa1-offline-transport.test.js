@@ -251,3 +251,34 @@ test("Capa 2: guard de sesión inválido rechaza antes de solicitar red",async()
  }),{message:"SYNC_SESSION_GUARD_REQUIRED"});
  assert.equal(calls,0);
 });
+
+test("Capa 2: cambio de sesión entre dos ACK detiene el segundo y recupera ULID",async()=>{
+ const second={...ctx,eventId:"01ARZ3NDEKTSV4RRFFQ69G5FA1"};
+ const events=[a,second],received=new Set(),sent=[];
+ let active=true;
+ const outbox={
+  listPending:async()=>events.filter(e=>!received.has(e.eventId)),
+  markReceived:async id=>{
+   received.add(id);
+   if(id===a.eventId)active=false; // another tab invalidates the session after first durable ACK
+   return true;
+  }
+ };
+ const fetchFn=async(_url,options)=>{
+  const batch=JSON.parse(options.body).events;
+  sent.push(batch.map(e=>e.eventId));
+  return {status:202,json:async()=>({ok:true,applied:false,
+   events:batch.map(e=>({eventId:e.eventId,status:received.has(e.eventId)?"YA_RECIBIDO":"RECIBIDO"}))})};
+ };
+ await assert.rejects(synchronize({
+  outbox,context:ctx,token:"old-jwt",isSessionCurrent:()=>active,fetchFn
+ }),{message:"SYNC_SESSION_CHANGED"});
+ assert.deepEqual([...received],[a.eventId],"First ACK persists, second cannot cross revoked session");
+ assert.deepEqual((await outbox.listPending()).map(e=>e.eventId),[second.eventId]);
+ active=true;
+ const retried=await synchronize({outbox,context:ctx,token:"new-jwt",
+  isSessionCurrent:()=>active,fetchFn});
+ assert.deepEqual(retried,{sent:1,received:1});
+ assert.deepEqual(sent,[[a.eventId,second.eventId],[second.eventId]]);
+ assert.equal(received.size,2);
+});
