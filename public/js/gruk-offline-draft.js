@@ -34,12 +34,21 @@ function createOfflineOrder({context,deviceId,productoId,cantidad,precioUnitario
    precioUnitarioCop,totalCop:amount.toString()}],totalCop:amount.toString()}
  });
 }
-async function saveOfflineOrder({outbox,...input}){
+async function saveOfflineOrder({outbox,isSessionCurrent,...input}){
  if(typeof outbox?.putPending!=="function")fail("OFFLINE_DRAFT_OUTBOX_REQUIRED");
+ if(isSessionCurrent!==undefined&&typeof isSessionCurrent!=="function")
+  fail("OFFLINE_DRAFT_SESSION_GUARD_REQUIRED");
+ // Never begin a write when the session has changed or expired.
+ if(isSessionCurrent&&!isSessionCurrent())fail("OFFLINE_DRAFT_SESSION_CHANGED");
  const event=createOfflineOrder(input);
+ if(isSessionCurrent&&!isSessionCurrent())fail("OFFLINE_DRAFT_SESSION_CHANGED");
  // Await IndexedDB transaction completion BEFORE presenting the event as saved.
  const saved=await outbox.putPending(event);
  if(saved!==event.eventId)fail("OFFLINE_DRAFT_SAVE_FAILED");
+ // The event remains durable and recoverable even if the session changed
+ // during the transaction. Do not report successful capture in the old panel.
+ if(isSessionCurrent&&!isSessionCurrent())
+  fail("OFFLINE_DRAFT_SESSION_CHANGED_AFTER_SAVE");
  return Object.freeze({eventId:event.eventId,status:"pending",totalCop:event.payload.totalCop});
 }
 const api=Object.freeze({newUlid,createOfflineOrder,saveOfflineOrder});
