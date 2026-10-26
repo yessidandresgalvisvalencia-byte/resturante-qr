@@ -185,7 +185,7 @@ async function run() {
             const sent=JSON.parse(options.body).events;
             if(sent.length!==1||sent[0].eventId!==eventId)throw Error("WRONG_EVENT");
             return {status:202,json:async()=>({ok:true,applied:false,
-              events:[{eventId,status:"RECIBIDO"}]})};
+              events:sent.map(x=>({eventId:x.eventId,status:"RECIBIDO"}))})};
           }
         });
       }catch(_error){caught=true;}
