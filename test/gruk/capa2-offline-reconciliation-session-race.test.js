@@ -7,7 +7,7 @@ const ids=["01ARZ3NDEKTSV4RRFFQ69G5FA0","01ARZ3NDEKTSV4RRFFQ69G5FA1"];
 const proof=id=>({eventId:id,status:"APLICADO",applied:true,
  staged:true,financiallyReconciled:true});
 test("Capa 2: revocación entre dos conciliaciones conserva segunda sin actualización bajo sesión anterior",async()=>{
- let active=true;
+ let active=true,revokedOnce=false;
  const persisted=new Map(),requests=[];
  const outbox={
   listReceived:async()=>ids.map(eventId=>({eventId})),
@@ -15,7 +15,7 @@ test("Capa 2: revocación entre dos conciliaciones conserva segunda sin actualiz
    assert.deepEqual(identity,ctx);
    assert.deepEqual(result,proof(eventId));
    persisted.set(eventId,result);
-   if(eventId===ids[0])active=false;
+   if(eventId===ids[0]&&!revokedOnce){active=false;revokedOnce=true;}
    return true;
   }
  };
