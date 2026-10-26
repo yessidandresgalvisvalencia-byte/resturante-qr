@@ -48,6 +48,22 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
   return {authenticated:false};
  }
  const {token,context}=credentials;
+ const isSessionCurrent=()=>storage?.getItem("grukAuthToken")===token;
+ function assertSessionCurrent(){
+  if(!isSessionCurrent())throw Error("SYNC_SESSION_CHANGED");
+ }
+ function disableOldSession(){
+  for(const name of ["send","reconcile","refresh","saveDraft","refreshCatalog","refreshStock"])
+   nodes[name].disabled=true;
+  nodes.rows.replaceChildren();
+  nodes.identity.textContent="La sesión cambió. Recarga el panel e inicia sesión de nuevo.";
+  nodes.message.textContent="La sesión cambió. Ningún pedido antiguo fue confirmado por este panel.";
+ }
+ window.addEventListener("storage",event=>{
+  if(event.key==="grukAuthToken"||event.key===null){
+   if(!isSessionCurrent())disableOldSession();
+  }
+ });
  let localProducts=[];
  function presentCatalog(snapshot){
   localProducts=snapshot.products;
@@ -82,7 +98,9 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
  window.addEventListener("offline",showConnection);
  showConnection();
  async function render(){
+  assertSessionCurrent();
   const records=await outbox.listLocal(100,context);
+  assertSessionCurrent();
   nodes.rows.replaceChildren();
   if(records.length===0){
    const row=document.createElement("tr"),cell=document.createElement("td");
@@ -102,25 +120,29 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
  async function perform(action){
   for(const name of ["send","reconcile","refresh","saveDraft","refreshCatalog","refreshStock"])nodes[name].disabled=true;
   try{
+   assertSessionCurrent();
    const result=await action();
+   assertSessionCurrent();
    await render();
    await showStock().catch(()=>{nodes.stockEstimate.textContent="Stock local no disponible";});
    nodes.message.textContent=typeof result==="string"?result:JSON.stringify(result);
   }catch(e){
    nodes.message.textContent="No se completó la operación: "+String(e.message||"error");
   }finally{
-   for(const name of ["send","reconcile","refresh"])nodes[name].disabled=false;
+   if(isSessionCurrent()){
+    for(const name of ["send","reconcile","refresh"])nodes[name].disabled=false;
+   }else disableOldSession();
    showConnection();
   }
  }
  nodes.refresh.addEventListener("click",()=>perform(async()=>("Pedidos locales actualizados.")));
  nodes.send.addEventListener("click",()=>perform(async()=>{
   if(!window.navigator.onLine)throw Error("SIN_CONEXION");
-  return transport.synchronizeAll({outbox,token,fetchFn,context});
+  return transport.synchronizeAll({outbox,token,fetchFn,context,isSessionCurrent});
  }));
  nodes.reconcile.addEventListener("click",()=>perform(async()=>{
   if(!window.navigator.onLine)throw Error("SIN_CONEXION");
-  return transport.reconcileReceived({outbox,token,fetchFn,context});
+  return transport.reconcileReceived({outbox,token,fetchFn,context,isSessionCurrent});
  }));
  nodes.refreshCatalog.addEventListener("click",()=>perform(async()=>{
   if(!window.navigator.onLine)throw Error("SIN_CONEXION");
