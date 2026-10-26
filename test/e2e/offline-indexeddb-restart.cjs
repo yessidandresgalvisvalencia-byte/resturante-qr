@@ -527,11 +527,12 @@ async function run() {
         isSessionCurrent:()=>localStorage.getItem("grukAuthToken")==="token-tenant-A",
         fetchFn:async(_url,options)=>{
           const sent=JSON.parse(options.body).events;
-          if(sent.length!==1||sent[0].eventId!==eventId)throw Error("BAD_TOKEN_SWITCH_TEST");
+          if(sent.length!==2||!sent.some(e=>e.eventId===eventId))
+           throw Error("BAD_TOKEN_SWITCH_TEST");
           entered();
           await gate;
           return {status:202,json:async()=>({ok:true,applied:false,
-           events:[{eventId,status:"RECIBIDO"}]})};
+           events:sent.map(e=>({eventId:e.eventId,status:"RECIBIDO"}))})};
         }
       }).then(()=>({ok:true}),e=>({ok:false,error:e.message}));
       await waiting;
@@ -546,7 +547,7 @@ async function run() {
        local:(await globalThis.GRUKOfflineOutbox.listLocal(100,tenant)).length};
     },{tenant:tenantA,eventId:tokenSwitchId});
     assert.deepEqual(stopped,{result:{ok:false,error:"SYNC_SESSION_CHANGED"},
-      pending:[tokenSwitchId],local:27});
+      pending:["01ARZ3NDEKTSV4RRFFQ69G5FA8",tokenSwitchId],local:27});
     await sessionTab.close();
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 21, abortedAckRecovered: true }));
