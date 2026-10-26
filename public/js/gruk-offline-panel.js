@@ -16,6 +16,8 @@ function readSession(storage){
   actorId:payload.sub
  };
  if(!Object.values(context).every(x=>typeof x==="string"&&validate.test(x)))throw Error("PANEL_SEDE_REQUIRED");
+ if(payload.exp!==undefined&&(!Number.isSafeInteger(payload.exp)||payload.exp<=Math.floor(Date.now()/1000)))
+  throw Error("PANEL_AUTH_EXPIRED");
  // JWT claims here only filter IndexedDB; server always authenticates bearer token independently.
  return {token,context};
 }
@@ -48,7 +50,10 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
   return {authenticated:false};
  }
  const {token,context}=credentials;
- const isSessionCurrent=()=>storage?.getItem("grukAuthToken")===token;
+ const isSessionCurrent=()=>{
+  if(storage?.getItem("grukAuthToken")!==token)return false;
+  try{return readSession(storage).token===token;}catch(_){return false;}
+ };
  function assertSessionCurrent(){
   if(!isSessionCurrent())throw Error("SYNC_SESSION_CHANGED");
  }
@@ -171,7 +176,7 @@ async function launch({document,window,storage,outbox,transport,fetchFn,draft=ro
    const selected=localProducts.find(x=>x.productoId===nodes.productId.value);
    if(!selected||nodes.unitPrice.value!==selected.precioUnitarioCop)throw Error("OFFLINE_CATALOG_SELECTION_REQUIRED");
    const result=await draft.saveOfflineOrder({
-    outbox,context,deviceId,
+    outbox,context,deviceId,isSessionCurrent,
     productoId:nodes.productId.value.trim(),cantidad:nodes.quantity.value.trim(),
     precioUnitarioCop:nodes.unitPrice.value.trim(),cryptoSource:window.crypto
    });
