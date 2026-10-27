@@ -13,6 +13,7 @@ const {flujoPeriodo}=require("../../modules/finanzas-personales/services/flujoCa
 const flujoCaja=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
 const historialCompensado=require("../../modules/finanzas-personales/services/historialCompensadoPersonal.service");
 const neuronaFlujo=require("../../modules/finanzas-personales/intelligence/neurons/flujoDeCaja.neuron");
+const conciliacionHistorica=require("../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
 const resumenLedger=require("../../modules/finanzas-personales/services/resumenLedgerPersonal.service");
 const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
 const hormiga=require("../../modules/finanzas-personales/services/gastosHormigaResumen.service");
@@ -129,7 +130,11 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     assert.equal((await finanzas.resumen(usuarioId,fuenteAntes.fecha)).gastos,22000);
     assert.equal((await hormiga.obtener(usuarioId,{ahora:new Date(+fuenteAntes.fecha+1)})).mesMinor,22000);
     assert.equal((await consultarPeriodo({...periodo,categoria:"Alimentacion"})).length,0);
-    await assert.rejects(aplicar(solicitud),/Idempotencia/);
+    const replay=await aplicar(solicitud);
+    assert.equal(replay.hashActual,lectura[0].compensacionHash);
+    assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,53000);
+    assert.equal(await Outbox.countDocuments({usuarioId}),1);
+    await assert.rejects(aplicar({...solicitud,cambios:{montoMinor:21000}}),/datos distintos/);
     await aplicar({...solicitud,cambios:{tipo:"INGRESO"},idempotencyKey:"cambio_tipo"});
     const reclasificado=await finanzas.resumenPeriodo(usuarioId,periodo);
     assert.equal(reclasificado.gastos,0);
@@ -159,6 +164,16 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     const anuladas=await consultarPeriodo({...periodo,incluirAnuladas:true});
     assert.equal(anuladas.length,1);
     assert.equal(anuladas[0].estado,"ANULADA");
+    const repetirAnulacion=await aplicar({...solicitud,tipo:"ANULACION",cambios:{},idempotencyKey:"anular_caja"});
+    assert.equal(repetirAnulacion.hashActual,anuladas[0].compensacionHash);
+    assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,75000);
+    assert.equal(await Outbox.countDocuments({usuarioId}),3);
+    const dia=conciliacionHistorica.fechaContableBogotaV81(fuenteAntes.fecha);
+    const hoyConciliacion=conciliacionHistorica.fechaContableBogotaV81(new Date());
+    const siguiente=new Date(+new Date(hoyConciliacion+"T00:00:00Z")+86400000).toISOString().slice(0,10);
+    const conciliacion=await conciliacionHistorica.conciliarHistoricoCuentaV81({usuarioId,cuentaId:String(cuenta._id),
+     desde:dia,hastaExclusivo:siguiente,saldoInicialCentavos:0n,saldoObservadoCentavos:0n});
+    assert.equal(conciliacion.diferenciaCentavos,"0");
    }else{
     const fallarAuditoria=crearAplicador({OutboxModelo:{create:async()=>{throw Error("OUTBOX_FALLIDO");}}});
     await assert.rejects(fallarAuditoria(solicitud),/OUTBOX_FALLIDO/);

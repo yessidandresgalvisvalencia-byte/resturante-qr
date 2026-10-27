@@ -9,6 +9,7 @@ const {crearRegistrador}=require("./registradorCompensacionPersonal.service");
 const {vigente}=require("./estadoCompensadoPersonal.service");
 const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const {liberarReserva}=require("./liberarReservaCompensadaPersonal.service");
+const {canon}=require("./eventoCompensatorioPersonal.service");
 const registrar=crearRegistrador();
 const error=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
 // Preparación de integración: NO conectado a rutas. Las consultas actuales todavía necesitan
@@ -39,6 +40,12 @@ function crearAplicador({OutboxModelo=Outbox}={}){
     const historial=await Evento.find({usuarioId:original.usuarioId,movimientoId:original.movimientoId},
      {_id:0}).sort({secuencia:1}).session(session).lean();
     const estado=vigente(original,historial);
+    const repetido=historial.find(e=>e.idempotencyKey===idempotencyKey);
+    if(repetido){
+     if(repetido.tipo!==tipo||canon(repetido.cambios)!==canon(cambios))
+      throw error("Clave idempotente reutilizada con datos distintos");
+     evento=repetido;return; // Ya fue confirmado: no volver a tocar cuenta, reserva ni outbox.
+    }
     if(estado.anulado)throw error("Movimiento ya anulado");
     if(fuente.recurrenteOrigenId)await liberarReserva({usuarioId,fuente,montoMinor:estado.actual.montoMinor,session});
     evento=await registrar({original:estado.actual,tipo,cambios,idempotencyKey,
