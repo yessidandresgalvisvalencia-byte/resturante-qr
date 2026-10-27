@@ -79,6 +79,14 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(ownerVisible.data.resumen.totalProductos,3);
   assert.equal(ownerVisible.data.productos.some(x=>x.nombre==="histórico sin sede"),true);
 
+  // Compatibilidad con inventario general previo del DUEÑO.
+  const altaGeneral=await call("POST","/",owner,{
+   nombre:"inventario general",categoria:"prueba",cantidad:1
+  });
+  assert.equal(altaGeneral.status,200,JSON.stringify(altaGeneral));
+  assert.equal(altaGeneral.data.inventario.restaurantId,null);
+  assert.equal(String(altaGeneral.data.inventario.empresaId),A);
+
   const createSpoof=await call("POST","/",adminA,{
     empresaId:B,restaurantId:"restaurant-a",sedeId:SA,nombre:"falsa",categoria:"prueba",cantidad:1
   });
