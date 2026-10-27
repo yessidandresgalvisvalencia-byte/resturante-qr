@@ -113,6 +113,25 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(forbiddenCompany.status,404);
   const forbiddenLegacy=await call("PUT","/anular/"+legacy.id,adminA,{motivo:"no corresponde"});
   assert.equal(forbiddenLegacy.status,404);
+  // Carrera real: una transacción reasigna la sede mientras se solicita
+  // anular el producto del restaurante anterior.
+  const raceItem=await item(A,SA,"restaurant-a","race-reasignación");
+  const reassignment=await mongoose.startSession();
+  try{
+   reassignment.startTransaction();
+   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}},{session:reassignment});
+   const pendingAnnul=call("PUT","/anular/"+raceItem.id,adminA,{motivo:"operación durante reasignación"});
+   // La reasignación tiene ya el write lock del documento Sede.
+   await reassignment.commitTransaction();
+   const raced=await pendingAnnul;
+   assert.ok([404,409].includes(raced.status),JSON.stringify(raced));
+   assert.equal((await Inventario.findById(raceItem.id)).anulado,false);
+   assert.equal((await Sede.findById(SA)).restauranteId,"restaurant-b");
+  }finally{
+   if(reassignment.inTransaction())await reassignment.abortTransaction();
+   await reassignment.endSession();
+  }
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
   const fenceBefore=(await Sede.findById(SA)).authFence||0;
   const annulled=await call("PUT","/anular/"+own.id,adminA,{motivo:"control",usuario:"suplantado"});
   assert.equal(annulled.status,200);
