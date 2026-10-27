@@ -14,7 +14,16 @@ async function crearInventarioAutorizado({auth,body}){
     (typeof datos.restaurantId!=="string" || !datos.restaurantId.trim()))return null;
  const alcanceRestaurante={restaurantId:datos.restaurantId,empresaId:auth.empresaId};
  if(auth.rol==="DUEÑO"){
-  // Compatibilidad: el dueño puede registrar inventario general sin restaurantId.
+  // Compatibilidad: inventario general e históricos sin sede permanecen válidos.
+  // Sin embargo, una sede explícita debe existir en la empresa del JWT.
+  if(datos.sedeId!==undefined && datos.sedeId!==null){
+   if(typeof datos.sedeId!=="string" || !mongoose.isValidObjectId(datos.sedeId))return null;
+   const sede=await Sede.exists({
+    _id:datos.sedeId,empresaId:auth.empresaId,
+    ...(datos.restaurantId?{restauranteId:datos.restaurantId}:{})
+   });
+   if(!sede)return null;
+  }
   if(datos.restaurantId){
    const existe=await Restaurante.exists(alcanceRestaurante);
    if(!existe)return null;
