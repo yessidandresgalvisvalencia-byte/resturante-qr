@@ -549,6 +549,79 @@ async function run() {
     assert.deepEqual(stopped,{result:{ok:false,error:"SYNC_SESSION_CHANGED"},
       pending:["01ARZ3NDEKTSV4RRFFQ69G5FA8",tokenSwitchId],local:27});
     await sessionTab.close();
+    // A second tab revokes the original token WHILE the read-only financial
+    // reconciliation is in flight. A valid old response must not update any
+    // stored financial metadata or accidentally touch another tenant.
+    const reconciliationTab=await browser.newPage();
+    await reconciliationTab.goto(base);
+    await page.evaluate(async tenant=>{
+      localStorage.setItem("grukAuthToken","finance-token-A");
+      let notify,release;
+      const started=new Promise(resolve=>{notify=resolve;});
+      const gate=new Promise(resolve=>{release=resolve;});
+      globalThis.__resumeFinance=release;
+      globalThis.__financeResult=globalThis.GRUKOfflineTransport.reconcileReceived({
+        outbox:globalThis.GRUKOfflineOutbox,context:tenant,token:"finance-token-A",
+        isSessionCurrent:()=>localStorage.getItem("grukAuthToken")==="finance-token-A",
+        fetchFn:async(_url,options)=>{
+          const eventIds=JSON.parse(options.body).eventIds;
+          if(eventIds.length!==25)throw Error("BAD_RECONCILIATION_BATCH");
+          notify();
+          await gate;
+          return {status:200,json:async()=>({ok:true,readOnly:true,
+            events:eventIds.map(eventId=>({eventId,status:"PENDIENTE",
+              applied:false,staged:false,financiallyReconciled:false}))})};
+        }
+      }).then(value=>({ok:true,value}),error=>({ok:false,error:error.message}));
+      await started;
+    },tenantA);
+    await reconciliationTab.evaluate(()=>localStorage.setItem("grukAuthToken","finance-token-B"));
+    const rejectedReconciliation=await page.evaluate(async tenant=>{
+      if(localStorage.getItem("grukAuthToken")!=="finance-token-B")
+        throw Error("CROSS_TAB_FINANCE_TOKEN_NOT_CHANGED");
+      globalThis.__resumeFinance();
+      const result=await globalThis.__financeResult;
+      const local=await globalThis.GRUKOfflineOutbox.listLocal(100,tenant);
+      return {result,received:local.filter(x=>x.syncStatus==="received").length,
+        unchanged:local.every(x=>x.serverStatus===null&&x.serverApplied===false)};
+    },tenantA);
+    assert.deepEqual(rejectedReconciliation,{result:{ok:false,error:"SYNC_SESSION_CHANGED"},
+      received:25,unchanged:true});
+    await reconciliationTab.evaluate(()=>localStorage.setItem("grukAuthToken","finance-token-A"));
+    const authorizedReconciliation=await page.evaluate(async tenant=>{
+      const result=await globalThis.GRUKOfflineTransport.reconcileReceived({
+        outbox:globalThis.GRUKOfflineOutbox,context:tenant,token:"finance-token-A",
+        isSessionCurrent:()=>localStorage.getItem("grukAuthToken")==="finance-token-A",
+        fetchFn:async(_url,options)=>{
+          const eventIds=JSON.parse(options.body).eventIds;
+          return {status:200,json:async()=>({ok:true,readOnly:true,
+            events:eventIds.map(eventId=>({eventId,status:"PENDIENTE",
+              applied:false,staged:false,financiallyReconciled:false}))})};
+        }
+      });
+      const local=await globalThis.GRUKOfflineOutbox.listLocal(100,tenant);
+      return {result,updated:local.filter(x=>x.serverStatus==="PENDIENTE").length,
+        financiallyApplied:local.some(x=>x.serverApplied===true)};
+    },tenantA);
+    assert.deepEqual(authorizedReconciliation,{
+      result:{checked:25,updated:25},updated:25,financiallyApplied:false});
+    await reconciliationTab.close();
+    await browser.close();
+    browser=null;
+    browser=await chromium.launchPersistentContext(profile,{headless:true});
+    page=await browser.newPage();
+    await page.goto(base);
+    const durableReconciliation=await page.evaluate(async ({a,b})=>{
+      const outbox=globalThis.GRUKOfflineOutbox;
+      const own=await outbox.listLocal(100,a);
+      const foreign=await outbox.listLocal(100,b);
+      return {ownRecords:own.length,ownPending:own.filter(x=>x.syncStatus==="pending").length,
+        ownReconciled:own.filter(x=>x.serverStatus==="PENDIENTE").length,
+        ownFinanciallyApplied:own.some(x=>x.serverApplied===true),
+        foreignRecords:foreign.length,foreignReconciled:foreign.some(x=>x.serverStatus!==null)};
+    },{a:tenantA,b:tenantB});
+    assert.deepEqual(durableReconciliation,{ownRecords:27,ownPending:2,
+      ownReconciled:25,ownFinanciallyApplied:false,foreignRecords:1,foreignReconciled:false});
     console.log(JSON.stringify({ result: "ok", browser: "chromium", events: 20,
       browserRestart: true, isolatedTenant: true, duplicatedEvents: 0, retainedReceived: 21, abortedAckRecovered: true }));
   } finally {
