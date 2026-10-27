@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const ROLES_VALIDOS = new Set(["DUEÑO","ADMIN_SEDE","EMPLEADO"]);
+const { claimsValidas } = require("./jwtClaims.guard");
 const { validarVersionSesion } = require("./sessionVersion.service");
 
 async function authMiddleware(req, res, next) {
@@ -43,7 +43,7 @@ async function authMiddleware(req, res, next) {
       algorithms: ["HS256"]
     });
 
-    if (!payload.sub || !payload.empresaId || !payload.rol || !ROLES_VALIDOS.has(String(payload.rol))) {
+    if (!claimsValidas(payload)) {
       return res.status(401).json({
         ok: false,
         error: "Token de autenticación inválido"
@@ -65,7 +65,7 @@ async function authMiddleware(req, res, next) {
         : null,
       rol: String(payload.rol),
       identityType: payload.identityType ? String(payload.identityType) : null,
-      tokenVersion: Number(payload.tokenVersion || 0)
+      tokenVersion: payload.tokenVersion === undefined ? 0 : payload.tokenVersion
     });
 
     return next();
