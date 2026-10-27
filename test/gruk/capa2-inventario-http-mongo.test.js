@@ -6,6 +6,7 @@ const express=require("express");
 const jwt=require("jsonwebtoken");
 const Inventario=require("../../models/Inventario");
 const Restaurante=require("../../models/restaurante");
+const Sede=require("../../models/sede");
 const router=require("../../routes/inventario");
 
 const A="507f1f77bcf86cd799439011",B="507f1f77bcf86cd799439012";
@@ -26,12 +27,18 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   connected=true;
   await Inventario.deleteMany({});
   await Restaurante.deleteMany({});
+  await Sede.deleteMany({});
   for(const [restaurantId,empresaId] of [["restaurant-a",A],["restaurant-b",B]]){
    await Restaurante.create({
     restaurantId,empresaId,nombreRestaurante:restaurantId,correo:restaurantId+"@example.test",
     usuarioAdmin:restaurantId,passwordAdmin:"test-password-not-live"
    });
   }
+  await Sede.create([
+   {_id:SA,empresaId:A,restauranteId:"restaurant-a",nombreSede:"sede A",codigoSede:"gruk-ci-a"},
+   {_id:SB,empresaId:A,restauranteId:"restaurant-a",nombreSede:"sede B",codigoSede:"gruk-ci-b"},
+   {_id:"507f191e810c19729de860ec",empresaId:B,restauranteId:"restaurant-b",nombreSede:"sede empresa B",codigoSede:"gruk-ci-c"}
+  ]);
   async function item(empresaId,sedeId,restaurantId,nombre){
    return Inventario.create({empresaId,sedeId,restaurantId,nombre,categoria:"prueba",cantidad:3,costo:100});
   }
@@ -61,6 +68,10 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   const otherVisible=await call("GET","/restaurant-a",adminB);
   assert.equal(otherVisible.status,200);
   assert.deepEqual(otherVisible.data.productos.map(x=>x.nombre),["sede B"]);
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
+  assert.equal((await call("GET","/restaurant-a",adminA)).status,403);
+  assert.equal((await call("POST","/",adminA,{restaurantId:"restaurant-a",nombre:"sin vínculo",categoria:"prueba",cantidad:1})).status,403);
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
   const deniedCompany=await call("GET","/restaurant-b",adminA);
   assert.equal(deniedCompany.status,403);
   const ownerVisible=await call("GET","/restaurant-a",owner);
@@ -98,7 +109,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:"repetir"})).status,404);
   assert.equal((await Inventario.findById(own.id)).usuarioAnulacion,"usuario-sede-a");
  }finally{
-  if(connected){await Inventario.deleteMany({});await Restaurante.deleteMany({});await mongoose.disconnect();}
+  if(connected){await Inventario.deleteMany({});await Restaurante.deleteMany({});await Sede.deleteMany({});await mongoose.disconnect();}
   await new Promise(resolve=>server.close(resolve));
   if(prior===undefined)delete process.env.JWT_SECRET;else process.env.JWT_SECRET=prior;
  }
