@@ -97,6 +97,25 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(createOk.status,200,JSON.stringify(createOk.data));
   assert.equal(String(createOk.data.inventario.sedeId),SA);
 
+  // Alta bajo reasignación concurrente: no debe dejar un producto en la sede antigua.
+  const altaConcurrente=await mongoose.startSession();
+  try{
+   altaConcurrente.startTransaction();
+   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}},{session:altaConcurrente});
+   const requestAlta=call("POST","/",adminA,{
+    restaurantId:"restaurant-a",nombre:"alta durante traslado",
+    categoria:"prueba",cantidad:1
+   });
+   await altaConcurrente.commitTransaction();
+   const respuestaAlta=await requestAlta;
+   assert.ok([403,409].includes(respuestaAlta.status),JSON.stringify(respuestaAlta));
+   assert.equal(await Inventario.countDocuments({nombre:"alta durante traslado"}),0);
+  }finally{
+   if(altaConcurrente.inTransaction())await altaConcurrente.abortTransaction();
+   await altaConcurrente.endSession();
+  }
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
+
   // La sede puede cambiar de restaurante después de crear el producto.
   // La anulación debe verificar también el vínculo actual, no solo sedeId.
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
