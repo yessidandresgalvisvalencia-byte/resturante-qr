@@ -2,11 +2,12 @@
 const Admin=require("../../models/admin");
 const Personal=require("../../models/personal");
 const Restaurante=require("../../models/restaurante");
-const {versionCoincide}=require("./tokenVersion.guard");
+const {versionCoincide,payloadSesionValido}=require("./tokenVersion.guard");
 const MODELOS=Object.freeze({ADMIN:Admin,PERSONAL:Personal,RESTAURANTE:Restaurante});
 async function validarVersionSesion(payload){
- const tipo=String(payload.identityType||"");
- if(!tipo) return true;
+ if(!payloadSesionValido(payload))return false;
+ const tipo=payload.identityType||"";
+ if(!tipo)return true;
  const Modelo=MODELOS[tipo];
  if(!Modelo)return false;
  const identidad=await Modelo.findById(payload.sub).select("tokenVersion").lean();
