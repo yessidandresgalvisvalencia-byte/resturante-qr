@@ -16,6 +16,16 @@ test("modelo representa el mismo payload firmado con hash SHA256",async()=>{
  assert.equal(doc.usuarioId,original.usuarioId);
  assert.equal(doc.original.montoMinor,25000);
  assert.equal(Model.collection.name,"fin_eventos_compensatorios_personales_v1");
+ assert.equal(Object.hasOwn(doc.toObject().original,"impactoCaja"),false);
+});
+test("modelo V2 conserva el efecto de caja firmado, incluido false",async()=>{
+ for(const impactoCaja of [true,false]){
+  const e=eventoCompensatorio({...evt(),original:{...original,tipo:"PAGO_DEUDA",impactoCaja},tipo:"ANULACION",cambios:{}});
+  const doc=new Model(e);await doc.validate();
+  assert.equal(doc.toObject().original.impactoCaja,impactoCaja);
+  assert.equal(doc.version,2);
+ }
+ await assert.rejects(new Model({...evt(),version:2,original:{...original,tipo:"PAGO_DEUDA"}}).validate());
 });
 test("índices únicos garantizan intención de idempotencia y orden por usuario",()=>{
  const indexes=Model.schema.indexes();

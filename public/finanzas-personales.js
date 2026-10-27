@@ -42,7 +42,7 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
    '<div class="debtNumbers"><span>Cuotas '+x.cuotasPagadas+' / '+x.numeroCuotas+'</span><span>'+progreso+'%</span></div>'+
    '<progress value="'+x.cuotasPagadas+'" max="'+x.numeroCuotas+'" style="width:100%"></progress>'+
    '<div class="debtActions">'+(proxima?'<button class="mini" onclick="window.pagarCuotaCompromiso(\''+esc(String(x._id))+'\','+proxima.numero+')">Pagar cuota #'+proxima.numero+' · '+money(proxima.montoMinor)+'</button>':'')+
-   (ultima?'<button class="secondary mini" onclick="window.deshacerCuotaCompromiso(\''+esc(String(x._id))+'\','+ultima.numero+')">Deshacer cuota #'+ultima.numero+'</button>':'')+'</div>'+
+   (ultima?'<button class="secondary mini" onclick="window.deshacerCuotaCompromiso(\''+esc(String(x._id))+'\','+ultima.numero+',\''+esc(String(ultima.transaccionId))+'\')">Deshacer cuota #'+ultima.numero+'</button>':'')+'</div>'+
    '<div class="debtKind">'+x.cuotas.map(c=>'<span style="display:inline-block;margin:4px">'+(c.estado==="PAGADA"?"✓ ":"○ ")+c.numero+': '+esc(c.estado)+'</span>').join("")+'</div></article>';
  };
  $("compromisosActivos").innerHTML=compromisos.filter(x=>x.estado==="ACTIVA").map(render).join("")||'<p class="hint">No tienes compras a cuotas activas.</p>';
@@ -65,11 +65,19 @@ window.pagarCuotaCompromiso=async(id,numero)=>{try{
  alert("Cuota #"+numero+" marcada como pagada. Se registró la salida por compra financiada sin duplicar gasto de consumo.");
  }catch(e){alert("No se pudo registrar el pago: "+e.message)}
 };
-window.deshacerCuotaCompromiso=async(id,numero)=>{try{
- if(!confirm("¿Deshacer el pago de la cuota #"+numero+"? Se anulará el movimiento asociado y se restaurará el saldo de la obligación."))return;
- await api("/compromisos-cuotas/"+encodeURIComponent(id)+"/cuotas/"+numero+"/deshacer",{method:"POST"});
- await cargarCompromisosCuotas();await load();alert("Pago revertido y movimiento anulado.");
- }catch(e){alert("No se pudo deshacer la cuota: "+e.message)}
+window.deshacerCuotaCompromiso=async(id,numero,movimientoId)=>{
+ if(!/^[a-f0-9]{24}$/i.test(movimientoId||"")){alert("Actualiza las cuotas antes de revertir este pago.");return;}
+ if(mutacionesMovimientoEnCurso.has(movimientoId))return;mutacionesMovimientoEnCurso.add(movimientoId);
+ const k="CUOTA:"+token+":"+movimientoId;
+ try{
+  if(!confirm("¿Deshacer el pago de la cuota #"+numero+"? Se conservará el asiento original y se registrará su reversión."))return;
+  await api("/compromisos-cuotas/"+encodeURIComponent(id)+"/cuotas/"+numero+"/deshacer",{
+   method:"POST",headers:{"Idempotency-Key":claveCompensacion(k)},body:JSON.stringify({movimientoId})
+  });
+  await cargarCompromisosCuotas();await load();clavesCompensacionPendientes.delete(k);
+  alert("Pago revertido. El asiento original permanece en el historial.");
+ }catch(e){alert("No se pudo deshacer la cuota: "+e.message);}
+ finally{mutacionesMovimientoEnCurso.delete(movimientoId);}
 };
 function invalidarIndicadoresFinancieros(){for(const id of ["hDisponibleHoy","hDisponible","hComprometido","hFlujo","hPatrimonio","rIngresos","rGastos","rFlujo","rDeuda","pActivos","pInversiones","pDeudas","pNeto"]){const el=$(id);if(el)el.textContent="No actualizado";}for(const id of ["hormigaResumen","diario","listaPorCobrar","listaPorPagar","listaPrestamosPagados","homeDecisions","compromisosActivos","compromisosArchivados","flujoConciliacion"]){const el=$(id);if(el)el.textContent="No actualizado";}const porcentaje=$("healthPercent");if(porcentaje)porcentaje.textContent="Sin datos confirmados";const detalle=$("healthLabel");if(detalle)detalle.textContent="Esperando actualización segura";const flecha=$("healthArrow");if(flecha)flecha.textContent="→";const burbuja=$("healthBubble");if(burbuja){burbuja.className="healthBubble neutral";burbuja.title="";}const explicacion=$("metricExplanation");if(explicacion)explicacion.hidden=true;for(const id of ["chatHistory","drafts","histResultados","answer","iiResultado"]){const el=$(id);if(el)el.replaceChildren();}for(const id of ["captureText","histQ","histMonto","histDesde","histHasta"]){const el=$(id);if(el)el.value="";}const histMensaje=$("histMensaje");if(histMensaje)histMensaje.textContent="";for(const id of ["homeGreeting","captureMsg","iiMsg","live"]){const el=$(id);if(el){el.textContent="";if(id==="live")el.dataset.alert="false";}}const mas=$("histMas");if(mas)mas.hidden=true;window.grukExplain=()=>{};}
 let cargaPanelEnCurso=null;

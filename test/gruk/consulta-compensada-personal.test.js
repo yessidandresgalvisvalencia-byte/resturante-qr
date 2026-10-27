@@ -23,6 +23,20 @@ test("anulación se proyecta conservando el documento original",()=>{
 test("lectura sin compensaciones mantiene estado histórico",()=>{
  assert.deepEqual(proyectar({...entrada,eventos:[],cursor:null}),[fuente]);
 });
+test("reversión V2 de cuota preserva la salida original y fecha la devolución",()=>{
+ const {proyectarCaja}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
+ for(const impactoCaja of [true,false]){
+  const orig={...original,tipo:"PAGO_DEUDA",impactoCaja};
+  const evento=eventoCompensatorio({original:orig,tipo:"ANULACION",idempotencyKey:"cuota",prevHash:"0".repeat(64),secuencia:1,fechaISO:e.fechaISO});
+  const src={...fuente,...orig,medioPago:impactoCaja?"TRANSFERENCIA":"OTRO"};
+  const datos={usuarioId,fuentes:[src],eventos:[evento],cursor:{_id:usuarioId,secuencia:1,hashActual:evento.hashActual}};
+  assert.equal(proyectar(datos)[0].estado,"ANULADA");assert.equal(src.estado,"ACTIVA");
+  const caja=proyectarCaja(datos);
+  assert.equal(caja.length,impactoCaja?2:1);
+  if(impactoCaja){assert.equal(caja[1].montoMinor,25000);assert.equal(caja[1].fecha.toISOString(),evento.fechaISO);}
+  assert.throws(()=>proyectar({...datos,fuentes:[{...src,impactoCaja:!impactoCaja}]}),/INTEGRIDAD_LEDGER/);
+ }
+});
 test("saldo desde un ancla anterior a la corrección incluye el delta en su fecha real",()=>{
  const mongoose=require("mongoose");
  const {proyectarCaja}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");

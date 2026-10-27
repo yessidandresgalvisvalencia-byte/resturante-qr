@@ -10,16 +10,21 @@ function canon(v){
  throw new TypeError("Dato no determinístico o inseguro en evento");
 }
 function originalVerificado(o){
- if(!o||typeof o!=="object"||!["INGRESO","GASTO"].includes(o.tipo)||
+ if(!o||typeof o!=="object"||!["INGRESO","GASTO","PAGO_DEUDA"].includes(o.tipo)||
+  o.tipo==="PAGO_DEUDA"&&typeof o.impactoCaja!=="boolean"||
   !Number.isSafeInteger(o.montoMinor)||o.montoMinor<=0||
   !/^[a-zA-Z0-9_-]{1,128}$/.test(o.usuarioId)||
   !/^[a-zA-Z0-9_-]{1,128}$/.test(o.movimientoId)||
   typeof o.concepto!=="string"||!o.concepto.trim()||
   typeof o.categoria!=="string"||!o.categoria.trim())throw new TypeError("Movimiento original no verificable");
- return Object.freeze({usuarioId:o.usuarioId,movimientoId:o.movimientoId,tipo:o.tipo,montoMinor:o.montoMinor,concepto:o.concepto,categoria:o.categoria});
+ return Object.freeze({usuarioId:o.usuarioId,movimientoId:o.movimientoId,tipo:o.tipo,montoMinor:o.montoMinor,concepto:o.concepto,categoria:o.categoria,
+  ...(o.tipo==="PAGO_DEUDA"?{impactoCaja:o.impactoCaja}:{})});
 }
 function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,secuencia,fechaISO}){
  const anterior=originalVerificado(original);
+ // V2 añade únicamente reversión de pagos de deuda, con su efecto de caja explícito.
+ // Conservar el payload V1 de ingresos/gastos mantiene verificables los hashes históricos.
+ if(anterior.tipo==="PAGO_DEUDA"&&tipo!=="ANULACION")throw new TypeError("Pago de deuda solo admite anulación");
  if(!["CORRECCION","ANULACION"].includes(tipo)||typeof idempotencyKey!=="string"||
   !/^[a-zA-Z0-9_-]{1,128}$/.test(idempotencyKey)||!HEX.test(prevHash)||
   !Number.isSafeInteger(secuencia)||secuencia<1||
@@ -41,11 +46,11 @@ function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,s
   nuevo[key]=v;
  }
  if(tipo==="CORRECCION"&&keys.every(k=>nuevo[k]===anterior[k]))throw new TypeError("Corrección sin efecto");
- const signed=o=>(o.tipo==="INGRESO"?1n:-1n)*BigInt(o.montoMinor);
+ const signed=o=>o.tipo==="PAGO_DEUDA"&&!o.impactoCaja?0n:(o.tipo==="INGRESO"?1n:-1n)*BigInt(o.montoMinor);
  const delta=tipo==="ANULACION"?-signed(anterior):signed(nuevo)-signed(anterior);
  if(delta>BigInt(Number.MAX_SAFE_INTEGER)||delta<BigInt(Number.MIN_SAFE_INTEGER))
   throw new RangeError("Delta fuera de rango seguro");
- const payload={version:1,usuarioId:anterior.usuarioId,movimientoId:anterior.movimientoId,tipo,secuencia,fechaISO,
+ const payload={version:anterior.tipo==="PAGO_DEUDA"?2:1,usuarioId:anterior.usuarioId,movimientoId:anterior.movimientoId,tipo,secuencia,fechaISO,
   idempotencyKey,prevHash,original:anterior,cambios:Object.freeze({...cambios}),deltaCajaMinor:String(delta)};
  const hashActual=crypto.createHash("sha256").update(canon(payload)).digest("hex");
  return Object.freeze({...payload,hashActual});

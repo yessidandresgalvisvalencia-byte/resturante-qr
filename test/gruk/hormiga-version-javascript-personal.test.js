@@ -8,7 +8,7 @@ const js=fs.readFileSync(path.resolve(__dirname,"../../public/finanzas-personale
 test("HTML referencia versión actualizada de JavaScript financiero personal",()=>{
  const scripts=[...html.matchAll(/<script\s+src="([^"]*finanzas-personales\.js\?v=[^"]+)"/g)];
  assert.equal(scripts.length,1,"solo un script de la aplicación personal");
- assert.equal(scripts[0][1],"/finanzas-personales.js?v=20261026-hormiga-caja-credito-integridad-v81-compensaciones-idempotentes");
+ assert.equal(scripts[0][1],"/finanzas-personales.js?v=20261026-hormiga-caja-credito-integridad-v81-reversion-cuotas-compensadas");
  assert.doesNotMatch(html,/finanzas-personales\.js\?v=20261020-hormiga-semana-mes/);
 });
 test("versión nueva contiene interfaz de tarjeta, promedio y conciliación defensiva",()=>{

@@ -14,6 +14,9 @@ const Cursor=require("../../modules/finanzas-personales/models/CursorCompensacio
 const Evento=require("../../modules/finanzas-personales/models/EventoCompensatorioPersonal");
 const {personalEventBus,PERSONAL_EVENTS}=require("../../modules/finanzas-personales/events/eventBusPersonal");
 const {republicarPendientes}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+const {consultarPeriodo,consultarCaja}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
+const historial=require("../../modules/finanzas-personales/services/historialCompensadoPersonal.service");
+const {saldoCuentasDesdeAnclas,reconciliarCuenta}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
 const uri=process.env.GRUK_V81_TEST_MONGO_URI;
 
 test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento y atomicidad",{
@@ -32,7 +35,7 @@ test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento 
   const padre=await service.crear(usuarioId,{concepto:"Compra financiada",categoria:"HOGAR",montoTotalMinor:total,numeroCuotas:n});
   const solicitud={compromisoId:String(padre._id),numero:1,modo,cuentaId:modo==="CUENTA"?cuenta._id:null,externalId:crypto.randomUUID()};
   const pago=pagada?await service.pagar(usuarioId,solicitud):null;
-  return {usuarioId,cuenta,padre,solicitud,pago};
+  return {usuarioId,cuenta,padre,solicitud,pago,reversionKey:crypto.randomUUID()};
  }
  async function estado(f){
   // Lecturas posteriores al commit/rollback: también detectan cambios de timestamps y auditoría.
@@ -42,10 +45,11 @@ test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento 
    cuenta:await Cuenta.findById(f.cuenta._id).lean(),
    tx:await Tx.find({usuarioId:f.usuarioId}).sort({_id:1}).lean(),
    outbox:await Outbox.find({usuarioId:f.usuarioId}).sort({_id:1}).lean(),
-   cursor:await Cursor.findById(String(f.usuarioId)).lean()
+   cursor:await Cursor.findById(String(f.usuarioId)).lean(),
+   eventos:await Evento.find({usuarioId:String(f.usuarioId)}).sort({secuencia:1}).lean()
   };
  }
- const revertir=f=>service.deshacer(f.usuarioId,{compromisoId:f.solicitud.compromisoId,numero:1});
+ const revertir=(f,key=f.reversionKey)=>service.deshacer(f.usuarioId,{compromisoId:f.solicitud.compromisoId,numero:1,movimientoId:f.pago.transaccion._id,idempotencyKey:key});
  async function rechazoSinCambios(f,operacion=revertir){
   const antes=await estado(f);
   await assert.rejects(operacion(f),e=>e.statusCode===409);
@@ -59,21 +63,48 @@ test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento 
   assert.equal((await Cuenta.findById(f.cuenta._id)).saldoMinor,9666);
   const dup=await service.pagar(f.usuarioId,f.solicitud);
   assert.equal(dup.duplicado,true);
+  const original=await Tx.findById(f.pago.transaccion._id).lean();
   const reversion=await revertir(f);
   assert.equal(reversion.compromiso.saldoMinor,1001);
   assert.equal(reversion.compromiso.cuotasPagadas,0);
   assert.equal(reversion.cuota.estado,"PENDIENTE");
   assert.equal((await Cuenta.findById(f.cuenta._id)).saldoMinor,10000);
-  await rechazoSinCambios(f);
+  assert.deepEqual(await Tx.findById(f.pago.transaccion._id).lean(),original);
+  assert.equal(reversion.compensacion.version,2);
+  assert.equal(reversion.compensacion.deltaCajaMinor,"334");
+  const eventoUnico=await Evento.findOne({usuarioId:String(f.usuarioId)}).lean();
+  assert.equal(eventoUnico.original.impactoCaja,true);
+  await rechazoSinCambios(f,x=>revertir(x,crypto.randomUUID()));
+  const replay=await revertir(f);
+  assert.equal(replay.duplicado,true);
+  assert.equal(replay.compensacion.hashActual,reversion.compensacion.hashActual);
+  assert.equal(await Evento.countDocuments({usuarioId:String(f.usuarioId)}),1);
+  const rango={usuarioId:f.usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"};
+  assert.equal((await consultarPeriodo(rango)).length,0);
+  assert.equal((await consultarPeriodo({...rango,incluirAnuladas:true}))[0].estado,"ANULADA");
+  assert.equal((await historial.buscar(f.usuarioId,{estado:"ANULADA",tipo:"TODOS",pagina:1}))[0].estado,"ANULADA");
+  const caja=await consultarCaja(f.usuarioId);
+  assert.equal(caja.length,2);
+  assert.equal(caja[1].fecha.toISOString(),reversion.compensacion.fechaISO);
+  assert.equal(saldoCuentasDesdeAnclas([{_id:f.cuenta._id,saldoAnclaMinor:10000,saldoAnclaEn:new Date(+original.fecha-1)}],caja),10000);
+  // Una conciliación anterior a la devolución no puede sobrescribir sus efectos.
+  await assert.rejects(reconciliarCuenta(f.usuarioId,{cuentaId:f.cuenta._id,saldoMinor:9666,fecha:new Date(+new Date(reversion.compensacion.fechaISO)-1)}),e=>e.statusCode===409);
   // El identificador de pago anulado no puede reutilizarse para volver a descontar.
   await rechazoSinCambios(f,x=>service.pagar(x.usuarioId,x.solicitud));
   const nuevo=await service.pagar(f.usuarioId,{...f.solicitud,externalId:crypto.randomUUID()});
   assert.equal(nuevo.duplicado,false);
   assert.equal((await Cuenta.findById(f.cuenta._id)).saldoMinor,9666);
+  // La misma solicitud original, incluso después de repagar, solo devuelve el recibo.
+  await revertir(f);
+  assert.equal((await Cuenta.findById(f.cuenta._id)).saldoMinor,9666);
+  assert.equal((await Cuota.findById(nuevo.cuota._id)).estado,"PAGADA");
+  await rechazoSinCambios(f,x=>revertir(x,crypto.randomUUID()));
 
   const historico=await fixture({modo:"HISTORICO",total:10,n:1});
   assert.equal((await Padre.findById(historico.padre._id)).estado,"FINALIZADA");
-  await revertir(historico);
+  const h=await revertir(historico);
+  assert.equal(h.compensacion.deltaCajaMinor,"0");
+  assert.equal((await consultarCaja(historico.usuarioId)).length,1);
   assert.equal((await Cuenta.findById(historico.cuenta._id)).saldoMinor,10000);
   assert.equal((await Padre.findById(historico.padre._id)).estado,"ACTIVA");
 
@@ -116,7 +147,7 @@ test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento 
 
   // Dos reversiones simultáneas solo pueden devolver el dinero una vez.
   const concurrente=await fixture();
-  const carrera=await Promise.allSettled([revertir(concurrente),revertir(concurrente)]);
+  const carrera=await Promise.allSettled([revertir(concurrente,"carrera_a"),revertir(concurrente,"carrera_b")]);
   assert.equal(carrera.filter(x=>x.status==="fulfilled").length,1);
   assert.equal(carrera.filter(x=>x.status==="rejected").length,1);
   assert.equal((await Cuenta.findById(concurrente.cuenta._id)).saldoMinor,10000);
@@ -143,6 +174,7 @@ test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento 
   Outbox.create=outboxCreate;
   // Solo en base local validada y exclusivamente identidades aleatorias de esta prueba.
   for(const Modelo of [Cuota,Padre,Tx,Cuenta,Outbox])await Modelo.deleteMany({usuarioId:{$in:usuarios}});
+  await Evento.collection.deleteMany({usuarioId:{$in:usuarios.map(String)}});
   await Cursor.deleteMany({_id:{$in:usuarios.map(String)}});
   await mongoose.disconnect();
   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;

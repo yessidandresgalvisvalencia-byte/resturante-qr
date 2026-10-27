@@ -18,6 +18,18 @@ test("reversos conservan COP exactos y el tipo de la operación",()=>{
  assert.equal(eventoCompensatorio({...base,original:{...original,tipo:"INGRESO"},tipo:"ANULACION"}).deltaCajaMinor,"-25000");
  assert.equal(eventoCompensatorio({...base,tipo:"CORRECCION",cambios:{tipo:"INGRESO"}}).deltaCajaMinor,"50000");
 });
+test("V2 revierte deuda con caja explícita y conserva el formato V1 anterior",()=>{
+ const deuda={...original,tipo:"PAGO_DEUDA",impactoCaja:true};
+ const efectivo=eventoCompensatorio({...base,original:deuda,tipo:"ANULACION"});
+ const historico=eventoCompensatorio({...base,original:{...deuda,impactoCaja:false},tipo:"ANULACION"});
+ assert.equal(efectivo.version,2);assert.equal(efectivo.deltaCajaMinor,"25000");
+ assert.equal(historico.deltaCajaMinor,"0");
+ assert.notEqual(efectivo.hashActual,historico.hashActual);
+ assert.throws(()=>eventoCompensatorio({...base,original:{...original,tipo:"PAGO_DEUDA"},tipo:"ANULACION"}));
+ assert.throws(()=>eventoCompensatorio({...base,original:deuda,tipo:"CORRECCION",cambios:{tipo:"INGRESO"}}));
+ const viejo=eventoCompensatorio({...base,tipo:"ANULACION"});
+ assert.equal(viejo.version,1);assert.equal(Object.hasOwn(viejo.original,"impactoCaja"),false);
+});
 test("cadena detecta alteraciones, reordenamiento y clave duplicada",()=>{
  const a=eventoCompensatorio({...base,tipo:"CORRECCION",cambios:{montoMinor:23000}});
  const b=eventoCompensatorio({...base,tipo:"ANULACION",prevHash:a.hashActual,secuencia:2,idempotencyKey:"anulacion_02"});

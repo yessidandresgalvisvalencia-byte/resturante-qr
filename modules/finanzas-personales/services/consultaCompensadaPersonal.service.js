@@ -30,7 +30,7 @@ function proyectar({usuarioId,fuentes,eventos,cursor}){
   if(!historial.length)return Object.freeze({...f});
   if(f.estado!=="ACTIVA")integridad();
   const original={usuarioId,movimientoId:id,tipo:f.tipo,montoMinor:f.montoMinor,
-   concepto:f.concepto,categoria:f.categoria};
+   concepto:f.concepto,categoria:f.categoria,...(f.tipo==="PAGO_DEUDA"?{impactoCaja:f.impactoCaja}:{})};
   const estado=vigente(original,historial);
   const {usuarioId:_,movimientoId:__,...campos}=estado.actual;
   return Object.freeze({...f,...campos,estado:estado.anulado?"ANULADA":"ACTIVA",
@@ -46,7 +46,9 @@ function proyectarCaja(datos){
  const rows=datos.fuentes.filter(f=>f.estado!=="ANULADA").map(f=>({...f}));
  for(const e of datos.eventos){
   const fuente=porId.get(e.movimientoId);if(!fuente)continue;
-  if(fuente.impactoCaja!==true||fuente.medioPago==="CREDITO"||fuente.recurrente||
+  const deuda=fuente.tipo==="PAGO_DEUDA";
+  if((fuente.impactoCaja!==true&&!(deuda&&fuente.impactoCaja===false))||
+     (deuda&&e.tipo!=="ANULACION")||fuente.medioPago==="CREDITO"||fuente.recurrente||
      (fuente.recurrenteOrigenId&&e.tipo!=="ANULACION")||fuente.prestamoId)integridad();
   const delta=BigInt(e.deltaCajaMinor);if(delta===0n)continue;
   const monto=Number(delta<0n?-delta:delta);

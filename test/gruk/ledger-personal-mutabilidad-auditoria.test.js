@@ -18,7 +18,7 @@ test("auditoría actual revela la deuda técnica y no presenta ledger como inmut
  const pendientes=auditoria.auditarProyecto();
  assert.ok(pendientes.some(h=>h.archivo==="routes.js"));
  assert.ok(pendientes.some(h=>h.archivo==="services/patrimonioPersonal.service.js"));
- assert.ok(pendientes.some(h=>h.archivo==="services/compromisosCuotas.service.js"));
+ assert.equal(pendientes.some(h=>h.archivo==="services/compromisosCuotas.service.js"),false);
 });
 test("gate --enforce falla cerradamente mientras los originales sean editables",()=>{
  const file=path.resolve(__dirname,"../../scripts/gruk-personal-ledger-mutability-audit.js");
