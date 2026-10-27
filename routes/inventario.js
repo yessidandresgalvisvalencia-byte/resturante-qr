@@ -254,8 +254,17 @@ producto
 
 }catch(error){
 
+// Un conflicto entre transacciones no se debe presentar como éxito.
+// El cliente debe consultar el estado actual antes de reintentar.
+if (typeof error?.hasErrorLabel === "function" &&
+    (error.hasErrorLabel("TransientTransactionError") ||
+     error.hasErrorLabel("UnknownTransactionCommitResult"))) {
+  return res.status(409).json({
+    ok:false,
+    error:"Conflicto de concurrencia; consulta el estado antes de reintentar"
+  });
+}
 console.log(error);
-
 res.status(500).json({
 ok:false,
 error:"Error anulando producto"
