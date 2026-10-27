@@ -7,7 +7,7 @@ const Inventario =
 require("../models/Inventario");
 const Restaurante = require("../models/restaurante");
 const authMiddleware = require("../core/auth/auth.middleware");
-const { sedeAutorizada, prepararAlta } = require("../core/security/inventarioSede.scope");
+const { sedeAutorizada, sedeRestauranteAutorizada, prepararAlta } = require("../core/security/inventarioSede.scope");
 const {
   ROLES_GRUK,
   roleCheck
@@ -70,6 +70,10 @@ router.post(
       return res.status(403).json({ok:false,error:"Restaurante obligatorio para inventario de sede"});
     }
 
+    if (req.auth.rol === "ADMIN_SEDE" && !(await sedeRestauranteAutorizada(req.auth, datos.restaurantId))) {
+      return res.status(403).json({ok:false,error:"Sede no vinculada al restaurante"});
+    }
+
     const inventario = new Inventario(datos);
 
     await inventario.save();
@@ -121,6 +125,9 @@ router.get(
         });
       }
 
+      if (!(await sedeRestauranteAutorizada(req.auth, req.params.restaurantId))) {
+        return res.status(403).json({ok:false,error:"Sede no vinculada al restaurante"});
+      }
       const alcance = sedeAutorizada(req.auth);
       if (!alcance) return res.status(403).json({ok:false,error:"Sede no autorizada"});
       const query = {
