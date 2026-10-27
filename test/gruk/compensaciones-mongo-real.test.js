@@ -11,6 +11,8 @@ const {crearAplicador}=require("../../modules/finanzas-personales/services/compe
 const {consultarPeriodo}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
 const {flujoPeriodo}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
 const flujoCaja=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+const historialCompensado=require("../../modules/finanzas-personales/services/historialCompensadoPersonal.service");
+const neuronaFlujo=require("../../modules/finanzas-personales/intelligence/neurons/flujoDeCaja.neuron");
 const resumenLedger=require("../../modules/finanzas-personales/services/resumenLedgerPersonal.service");
 const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
 const hormiga=require("../../modules/finanzas-personales/services/gastosHormigaResumen.service");
@@ -115,6 +117,11 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     const resumen=await resumenLedger.resumen(usuarioId,periodo);
     assert.equal(resumen.gastosMinor,22000);
     assert.equal(resumen.flujoLibreMinor,-22000);
+    const filtrosHistorial={q:"Rappi",tipo:"GASTO",estado:"TODOS",monto:22000,pagina:1};
+    assert.equal((await historialCompensado.buscar(usuarioId,filtrosHistorial)).length,1);
+    assert.equal((await historialCompensado.buscar(usuarioId,{...filtrosHistorial,monto:25000})).length,0);
+    const reporte=await neuronaFlujo.analyze(usuarioId,periodo);
+    assert.equal(reporte.hallazgos[0].impacto_anual_estimado,264000);
     const informe=await finanzas.resumenPeriodo(usuarioId,periodo);
     assert.equal(informe.categorias.Otros.gastos,22000);
     const diario=await finanzas.diario(usuarioId,{...periodo,limit:100});
@@ -145,6 +152,8 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
     assert.equal((await resumenLedger.resumen(usuarioId,periodo)).flujoLibreMinor,0);
     assert.deepEqual(await finanzas.diario(usuarioId,periodo),[]);
     assert.equal((await finanzas.resumenPeriodo(usuarioId,periodo)).balance,0);
+    assert.equal((await historialCompensado.buscar(usuarioId,{q:"Rappi",tipo:"TODOS",estado:"ANULADA",pagina:1}))[0].estado,"ANULADA");
+    assert.equal((await historialCompensado.buscar(usuarioId,{q:"Rappi",tipo:"TODOS",estado:"TODOS",pagina:1})).length,0);
     assert.equal((await finanzas.resumen(usuarioId,fuenteAntes.fecha)).ingresos,0);
     assert.equal((await hormiga.obtener(usuarioId,{ahora:new Date(+fuenteAntes.fecha+1)})).mesMinor,0);
     const anuladas=await consultarPeriodo({...periodo,incluirAnuladas:true});
@@ -225,6 +234,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   await Transaccion.deleteMany({usuarioId:{$in:usuarios}});
   await Outbox.deleteMany({usuarioId:{$in:usuarios}});
   await Reserva.deleteMany({usuarioId:{$in:usuarios}});
+  await require("../../modules/finanzas-personales/models/reporteNeuronaPersonal.model").deleteMany({usuarioId:{$in:usuarios}});
   await mongoose.disconnect();
  }
 });

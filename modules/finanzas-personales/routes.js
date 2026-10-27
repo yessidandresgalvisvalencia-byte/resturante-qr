@@ -96,15 +96,12 @@ router.get("/historial/buscar",async(req,res)=>{
   const {value:f,error}=schema.validate(req.query,{stripUnknown:true});
   if(error)return res.status(400).json({ok:false,error:"Filtros inválidos"});
   if(f.desde&&f.hasta&&f.desde>f.hasta)return res.status(400).json({ok:false,error:"Rango de fechas inválido"});
-  const Tx=require("./models/TransaccionPersonal"),Prestamo=require("./models/prestamoPersonal.model"),usuarioId=req.personalAuth.userId;
+  const historial=require("./services/historialCompensadoPersonal.service"),Prestamo=require("./models/prestamoPersonal.model"),usuarioId=req.personalAuth.userId;
   const patron=f.q?new RegExp(f.q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"i"):null;
-  const textoTx=patron?{$or:[{concepto:patron},{categoria:patron},{contraparte:patron},{descripcion:patron}]}:{};
   const textoPrestamo=patron?{$or:[{concepto:patron},{contraparte:patron}]}:{};
-  const txFilter={usuarioId,...textoTx},loanFilter={usuarioId,...textoPrestamo};
-  if(f.estado==="ANULADA")txFilter.estado="ANULADA";else txFilter.estado={$ne:"ANULADA"};
-  if(f.monto!==undefined){txFilter.montoMinor=f.monto;loanFilter.principalMinor=f.monto;}
-  if(f.desde||f.hasta){const desde=f.desde?new Date(f.desde):null,hasta=f.hasta?new Date(f.hasta):null;if(hasta)hasta.setUTCHours(23,59,59,999);txFilter.fecha={...(desde?{$gte:desde}:{}),...(hasta?{$lte:hasta}:{})};loanFilter.fechaInicio={...(desde?{$gte:desde}:{}),...(hasta?{$lte:hasta}:{})};}
-  if(f.tipo==="INGRESO"||f.tipo==="GASTO"||f.tipo==="COBRO_PRESTAMO")txFilter.tipo=f.tipo;
+  const loanFilter={usuarioId,...textoPrestamo};
+  if(f.monto!==undefined)loanFilter.principalMinor=f.monto;
+  if(f.desde||f.hasta){const desde=f.desde?new Date(f.desde):null,hasta=f.hasta?new Date(f.hasta):null;if(hasta)hasta.setUTCHours(23,59,59,999);loanFilter.fechaInicio={...(desde?{$gte:desde}:{}),...(hasta?{$lte:hasta}:{})};}
   if(f.tipo==="PRESTAMO")loanFilter.origenCuentaPorCobrar="PRESTAMO";
   if(f.tipo==="TRABAJO")loanFilter.origenCuentaPorCobrar="TRABAJO";
   if(["ACTIVO","PAGADO","VENCIDO"].includes(f.estado))loanFilter.estado=f.estado;
@@ -112,7 +109,7 @@ router.get("/historial/buscar",async(req,res)=>{
   const buscarPrestamos=!["INGRESO","GASTO","COBRO_PRESTAMO","ANULADA"].includes(f.tipo==="TODOS"?f.estado:f.tipo);
   const pageSize=20,skip=(f.pagina-1)*pageSize;
   const [transacciones,prestamos]=await Promise.all([
-   buscarTx?Tx.find(txFilter).sort({fecha:-1,_id:-1}).skip(skip).limit(pageSize+1).select("_id tipo montoMinor concepto categoria contraparte fecha estado prestamoId").lean():[],
+   buscarTx?historial.buscar(usuarioId,f):[],
    buscarPrestamos?Prestamo.find(loanFilter).sort({createdAt:-1,_id:-1}).skip(skip).limit(pageSize+1).select("_id direccion origenCuentaPorCobrar contraparte concepto principalMinor saldoMinor estado fechaInicio fechaVencimiento createdAt").lean():[]
   ]);
   const items=[...transacciones.slice(0,pageSize).map(t=>({...t,clase:"MOVIMIENTO"})),...prestamos.slice(0,pageSize).map(p=>({...p,clase:"CUENTA_POR_COBRAR"}))].sort((a,b)=>new Date(b.fecha||b.fechaInicio)-new Date(a.fecha||a.fechaInicio));
