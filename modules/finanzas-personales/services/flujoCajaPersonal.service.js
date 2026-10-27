@@ -4,7 +4,6 @@ const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const {calcularFlujo}=require("./totalesFlujoCompensadoPersonal.service");
 const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
-const {exigirOriginalSinCompensaciones}=require("./proteccionOriginalCompensadoPersonal.service");
 const Outbox=require("../models/outboxPersonal.model");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
@@ -136,55 +135,10 @@ async function flujoPeriodo(usuarioId,{desde,hasta}){
  const rows=await consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:fin.toISOString()});
  return calcularFlujo(rows,{incluirPrestamos:true});
 }
-async function corregirTransaccion(usuarioId,id,cambios){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const permitidos={};for(const k of ["tipo","montoMinor","concepto","categoria"])if(cambios[k]!==undefined)permitidos[k]=cambios[k];if(!Object.keys(permitidos).length)throw Object.assign(new Error("No hay cambios válidos"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{const anterior=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!anterior)throw Object.assign(new Error("Movimiento no disponible"),{statusCode:404});await exigirOriginalSinCompensaciones(usuarioId,id,session);if(anterior.recurrenteOrigenId&&(
-  (permitidos.montoMinor!==undefined&&permitidos.montoMinor!==anterior.montoMinor)||
-  (permitidos.tipo!==undefined&&permitidos.tipo!==anterior.tipo)
- ))throw Object.assign(new Error("No se permite cambiar el importe o tipo de un abono recurrente vinculado; anúlalo y registra el correcto"),{statusCode:409});
- if(anterior.recurrente&&anterior.tipo==="GASTO"&&(
-   (permitidos.montoMinor!==undefined&&permitidos.montoMinor!==anterior.montoMinor)||
-   (permitidos.tipo!==undefined&&permitidos.tipo!==anterior.tipo)
- )){
-  const relacionados=await Transaccion.exists({usuarioId,recurrenteOrigenId:anterior._id,estado:{$ne:"ANULADA"}}).session(session);
-  if(relacionados)throw Object.assign(new Error("No se puede modificar el importe de una obligación con abonos vigentes"),{statusCode:409});
-  // Aun después de anular todos los abonos, las reservas conservan
-  // importeCuotaMinor. Cambiar el origen rompería ese invariante.
-  const reservaHistorica=await ReservaCuota.exists({usuarioId,origenId:anterior._id}).session(session);
-  if(reservaHistorica)throw Object.assign(new Error("No se puede modificar el importe o tipo de una obligación con reservas históricas; usa una obligación nueva"),{statusCode:409});
- }
- const signo=t=>t==="INGRESO"?1:-1,delta=(signo(permitidos.tipo||anterior.tipo)*(permitidos.montoMinor??anterior.montoMinor))-(signo(anterior.tipo)*anterior.montoMinor);if(delta){const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:anterior.cuenta,activa:true,...filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{returnDocument:"after",session});if(!cuenta)throw Object.assign(new Error("No se puede corregir: saldo insuficiente o cuenta no encontrada"),{statusCode:409});}const antes={tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria};Object.assign(anterior,permitidos);await anterior.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_CORREGIDO",aggregateId:anterior._id,payload:{transaccionId:String(anterior._id),antes,despues:{tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria}}}],{session});tx=anterior;},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
-async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{tx=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!tx)throw Object.assign(new Error("Movimiento no disponible o ya eliminado"),{statusCode:404});await exigirOriginalSinCompensaciones(usuarioId,id,session);if(tx.recurrente&&tx.tipo==="GASTO"){
-  const abonoActivo=await Transaccion.exists({usuarioId,recurrenteOrigenId:tx._id,estado:{$ne:"ANULADA"}}).session(session);
-  if(abonoActivo)throw Object.assign(new Error("No se puede anular la obligación mientras tenga abonos activos"),{statusCode:409});
- }
- if(tx.recurrenteOrigenId){
-  const origen=await Transaccion.findOne({_id:tx.recurrenteOrigenId,usuarioId,
-   tipo:"GASTO",recurrente:true}).select("fecha frecuencia montoMinor").session(session);
-  if(!origen)throw Object.assign(new Error("Obligación recurrente de este abono no encontrada"),{statusCode:409});
-  const {inicio,fin}=periodoRecurrenteColombia({
-   fechaOrigen:origen.fecha,fechaPago:tx.fecha,frecuencia:origen.frecuencia
-  });
-  const reserva=await ReservaCuota.findOneAndUpdate({
-   usuarioId,origenId:origen._id,periodoInicio:inicio,
-   reservadoMinor:{$gte:tx.montoMinor}
-  },{$inc:{reservadoMinor:-tx.montoMinor}},{returnDocument:"after",session});
-  if(!reserva)throw Object.assign(new Error("No se puede anular: reserva recurrente ausente o inconsistente"),{statusCode:409});
-  // El abono aún está activo en esta lectura; calcular el total antes de
-  // anularlo y comprobar que la reserva posterior coincide con ese reverso.
-  const periodo=await ReservaCuota.findOne({
-   usuarioId,origenId:origen._id,periodoInicio:inicio
-  }).select("periodoFin importeCuotaMinor").session(session).lean();
-  if(!periodo||new Date(periodo.periodoFin).getTime()!==fin.getTime()||
-     periodo.importeCuotaMinor!==origen.montoMinor)
-   throw Object.assign(new Error("Reserva recurrente con período o importe inconsistente"),{statusCode:409});
-  const vigentes=(await consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:periodo.periodoFin.toISOString(),tipo:"GASTO"},{session}))
-   .filter(x=>String(x.recurrenteOrigenId)===String(origen._id));
-  const totalVigente=vigentes.reduce((n,p)=>{
-   const siguiente=n+p.montoMinor;
-   if(!Number.isSafeInteger(siguiente))throw new RangeError("Abonos recurrentes exceden rango seguro");
-   return siguiente;
-  },0);
-  if(BigInt(reserva.reservadoMinor)!==BigInt(totalVigente)-BigInt(tx.montoMinor))
-   throw Object.assign(new Error("No se puede anular: reserva recurrente desincronizada con ledger"),{statusCode:409});
- }
- const reverso=tx.tipo==="INGRESO"?-tx.montoMinor:tx.montoMinor;const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,activa:true,...filtroSaldoSeguro(reverso)},{$inc:{saldoMinor:reverso}},{returnDocument:"after",session});if(!cuenta){const esEfectivo=String(tx.cuenta||"").trim().toUpperCase()==="EFECTIVO";if(!esEfectivo||reverso>=0)throw Object.assign(new Error("No se puede anular: cuenta no encontrada o saldo insuficiente. Revisa la cuenta y sus movimientos posteriores."),{statusCode:409});const pendiente=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,tipo:"EFECTIVO",activa:true,...filtroSaldoSeguro(reverso,{permitirNegativo:true})},{$inc:{saldoMinor:reverso},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{returnDocument:"after",session});if(!pendiente)throw Object.assign(new Error("No se puede anular: cuenta de efectivo no encontrada"),{statusCode:409});}tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion=String(motivo).slice(0,240);await tx.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_ANULADO",aggregateId:tx._id,payload:{transaccionId:String(tx._id),tipo:tx.tipo,montoMinor:tx.montoMinor,motivo:tx.motivoAnulacion}}],{session});},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
+// Compatibilidad explícita: impedir que consumidores antiguos reescriban asientos.
+async function operacionHeredadaRetirada(){
+ throw Object.assign(new Error("La operación heredada fue retirada; utiliza la compensación con clave idempotente"),{statusCode:410});
+}
+const corregirTransaccion=operacionHeredadaRetirada;
+const anularTransaccion=operacionHeredadaRetirada;
 module.exports={registrarTransaccion,confirmarRegistroIntento,republicarPendientes,flujoPeriodo,anularTransaccion,corregirTransaccion};

@@ -222,8 +222,8 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   assert.equal((await Cuenta.findById(cuentaRecurrente._id).lean()).saldoMinor,100000);
   assert.equal(await Evento.countDocuments({usuarioId}),2);
   assert.deepEqual(await Transaccion.findById(abonos[0]._id).lean(),abonoOriginal);
-  await assert.rejects(flujoCaja.anularTransaccion(usuarioId,String(abonos[0]._id)),/heredada bloqueada/);
-  await assert.rejects(flujoCaja.corregirTransaccion(usuarioId,String(abonos[0]._id),{categoria:"Otra"}),/heredada bloqueada/);
+  await assert.rejects(flujoCaja.anularTransaccion(usuarioId,String(abonos[0]._id)),/retirada/);
+  await assert.rejects(flujoCaja.corregirTransaccion(usuarioId,String(abonos[0]._id),{categoria:"Otra"}),/retirada/);
   const secretAnterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;
   process.env.PERSONAL_IDEMPOTENCY_SECRET="SOLO_PRUEBA_LOCAL_REEMPLAZO_RECURRENTE_32_BYTES";
   try{
@@ -272,9 +272,16 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   const carreraTx=await Transaccion.create({usuarioId:carreraUsuario,cuentaId:carreraCuenta._id,cuenta:"CARRERA",
    tipo:"GASTO",montoMinor:25000,concepto:"Fuente inicial",categoria:"Otros",fecha:new Date()});
   await Cursor.create({_id:carreraUsuario,secuencia:0,hashActual:GENESIS});
+  const editarConGuardia=async concepto=>{
+   const session=await mongoose.startSession();
+   try{await session.withTransaction(async()=>{
+    await require("../../modules/finanzas-personales/services/proteccionOriginalCompensadoPersonal.service").exigirOriginalSinCompensaciones(carreraUsuario,carreraTx._id,session);
+    await Transaccion.updateOne({_id:carreraTx._id,usuarioId:carreraUsuario},{$set:{concepto}},{session});
+   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});}finally{await session.endSession();}
+  };
   const resultadosCarrera=await Promise.allSettled([
    aplicar({usuarioId:carreraUsuario,movimientoId:String(carreraTx._id),tipo:"CORRECCION",cambios:{montoMinor:22000},idempotencyKey:"carrera_compatible"}),
-   flujoCaja.corregirTransaccion(carreraUsuario,String(carreraTx._id),{concepto:"Texto heredado anterior"})
+   editarConGuardia("Texto heredado anterior")
   ]);
   assert.equal(resultadosCarrera[0].status,"fulfilled");
   if(resultadosCarrera[1].status==="rejected")assert.equal(resultadosCarrera[1].reason.statusCode,409);
@@ -282,7 +289,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   const eventoCarrera=await Evento.findOne({usuarioId:carreraUsuario}).lean();
   assert.equal(eventoCarrera.original.concepto,fuenteCarrera.concepto);
   assert.equal((await Cuenta.findById(carreraCuenta._id).lean()).saldoMinor,53000);
-  await assert.rejects(flujoCaja.corregirTransaccion(carreraUsuario,String(carreraTx._id),{concepto:"Cambio posterior prohibido"}),/heredada bloqueada/);
+  await assert.rejects(editarConGuardia("Cambio posterior prohibido"),/heredada bloqueada/);
   assert.equal((await Transaccion.findById(carreraTx._id).lean()).concepto,fuenteCarrera.concepto);
  }finally{
   // Los modelos rechazan deletes: limpieza directa SOLO tras validar el destino loopback de pruebas.
