@@ -22,6 +22,9 @@ async function anularInventarioAutorizado({auth,id,motivo}){
  let producto=null;
  try{
   await session.withTransaction(async()=>{
+   // withTransaction puede ejecutar este callback más de una vez.
+   // No devolver un producto de una tentativa transaccional abortada.
+   producto=null;
    const candidato=await Inventario.findOne({_id:id,...alcance,anulado:false})
     .select("restaurantId").session(session).lean();
    if(!candidato?.restaurantId)return;
