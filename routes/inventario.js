@@ -7,8 +7,9 @@ const Inventario =
 require("../models/Inventario");
 const Restaurante = require("../models/restaurante");
 const authMiddleware = require("../core/auth/auth.middleware");
-const { sedeAutorizada, sedeRestauranteAutorizada, prepararAlta } = require("../core/security/inventarioSede.scope");
+const { sedeAutorizada, sedeRestauranteAutorizada } = require("../core/security/inventarioSede.scope");
 const { anularInventarioAutorizado } = require("../core/security/anularInventarioAutorizado.service");
+const { crearInventarioAutorizado } = require("../core/security/crearInventarioAutorizado.service");
 const {
   ROLES_GRUK,
   roleCheck
@@ -58,26 +59,10 @@ router.post(
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
   async (req, res) => {
   try {
-    const datos = prepararAlta(req.auth, req.body || {});
-    if (!datos) return res.status(403).json({ok:false,error:"Sin acceso al inventario de esta sede"});
-    // Restaurantes se resuelven siempre dentro de la empresa autenticada.
-    if (datos.restaurantId) {
-      const restaurante = await Restaurante.findOne({
-        restaurantId:datos.restaurantId, empresaId:req.auth.empresaId
-      });
-      if (!restaurante) return res.status(403).json({ok:false,error:"Restaurante fuera de alcance"});
-    }
-    if (req.auth.rol === "ADMIN_SEDE" && !datos.restaurantId) {
-      return res.status(403).json({ok:false,error:"Restaurante obligatorio para inventario de sede"});
-    }
-
-    if (req.auth.rol === "ADMIN_SEDE" && !(await sedeRestauranteAutorizada(req.auth, datos.restaurantId))) {
-      return res.status(403).json({ok:false,error:"Sede no vinculada al restaurante"});
-    }
-
-    const inventario = new Inventario(datos);
-
-    await inventario.save();
+    const inventario = await crearInventarioAutorizado({auth:req.auth,body:req.body});
+    if (!inventario) return res.status(403).json({
+      ok:false,error:"Sin acceso a crear inventario en este restaurante y sede"
+    });
 
     res.json({
       ok: true,
