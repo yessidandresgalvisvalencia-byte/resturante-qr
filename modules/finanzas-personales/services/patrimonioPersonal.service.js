@@ -1,5 +1,6 @@
 "use strict";
 const mongoose=require("mongoose");
+const {exigirOriginalSinCompensaciones}=require("./proteccionOriginalCompensadoPersonal.service");
 const {consultarCaja}=require("./consultaCompensadaPersonal.service");const Cuenta=require("../models/cuentaFinanciera.model");const Activo=require("../models/ActivoPatrimonial");const Prestamo=require("../models/prestamoPersonal.model");const Transaccion=require("../models/TransaccionPersonal");const Outbox=require("../models/outboxPersonal.model");const crypto=require("crypto");
 function fechaContableValidaPersonal(fecha){
  return fecha instanceof Date&&Number.isFinite(fecha.getTime())&&fecha.getTime()<=Date.now();
@@ -241,6 +242,7 @@ async function deshacerUltimaCuotaCredito(usuarioId,prestamoId){
    if(p.estado==="PAGADO")p.estado="ACTIVO";
    p.periodicidadConfirmada=true;
    await p.save({session});
+   await exigirOriginalSinCompensaciones(usuarioId,tx._id,session);
    tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion="CUOTA_MARCADA_PAGADA_POR_ERROR";
    await tx.save({session});
    await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{accion:"ANULACION_PAGO_DEUDA",prestamoId:String(p._id),transaccionId:String(tx._id),numeroCuota:numero,montoMinor:tx.montoMinor}}],{session});
@@ -282,6 +284,7 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
      for(const pago of pagosAfectados){
       const tipoNuevo=origenNuevo==="TRABAJO"?"INGRESO":"COBRO_PRESTAMO";
       if(pago.tipo===tipoNuevo)continue;
+      await exigirOriginalSinCompensaciones(usuarioId,pago._id,session);
       await Transaccion.updateOne({_id:pago._id,usuarioId,prestamoId:prestamo._id,estado:"ACTIVA",tipo:pago.tipo},{$set:{tipo:tipoNuevo,categoria:tipoNuevo==="INGRESO"?"Trabajo cobrado":"Cuentas por cobrar"}},{session});
      }
     }

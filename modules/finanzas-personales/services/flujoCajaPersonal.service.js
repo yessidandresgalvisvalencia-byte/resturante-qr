@@ -4,7 +4,7 @@ const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const {calcularFlujo}=require("./totalesFlujoCompensadoPersonal.service");
 const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
-const EventoCompensatorio=require("../models/EventoCompensatorioPersonal");
+const {exigirOriginalSinCompensaciones}=require("./proteccionOriginalCompensadoPersonal.service");
 const Outbox=require("../models/outboxPersonal.model");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
@@ -136,11 +136,7 @@ async function flujoPeriodo(usuarioId,{desde,hasta}){
  const rows=await consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:fin.toISOString()});
  return calcularFlujo(rows,{incluirPrestamos:true});
 }
-async function exigirSinCompensaciones(usuarioId,id,session){
- const existe=await EventoCompensatorio.exists({usuarioId:String(usuarioId),movimientoId:String(id)}).session(session);
- if(existe)throw Object.assign(new Error("Movimiento con compensaciones: modificación heredada bloqueada"),{statusCode:409});
-}
-async function corregirTransaccion(usuarioId,id,cambios){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const permitidos={};for(const k of ["tipo","montoMinor","concepto","categoria"])if(cambios[k]!==undefined)permitidos[k]=cambios[k];if(!Object.keys(permitidos).length)throw Object.assign(new Error("No hay cambios válidos"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{const anterior=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!anterior)throw Object.assign(new Error("Movimiento no disponible"),{statusCode:404});await exigirSinCompensaciones(usuarioId,id,session);if(anterior.recurrenteOrigenId&&(
+async function corregirTransaccion(usuarioId,id,cambios){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const permitidos={};for(const k of ["tipo","montoMinor","concepto","categoria"])if(cambios[k]!==undefined)permitidos[k]=cambios[k];if(!Object.keys(permitidos).length)throw Object.assign(new Error("No hay cambios válidos"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{const anterior=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!anterior)throw Object.assign(new Error("Movimiento no disponible"),{statusCode:404});await exigirOriginalSinCompensaciones(usuarioId,id,session);if(anterior.recurrenteOrigenId&&(
   (permitidos.montoMinor!==undefined&&permitidos.montoMinor!==anterior.montoMinor)||
   (permitidos.tipo!==undefined&&permitidos.tipo!==anterior.tipo)
  ))throw Object.assign(new Error("No se permite cambiar el importe o tipo de un abono recurrente vinculado; anúlalo y registra el correcto"),{statusCode:409});
@@ -156,7 +152,7 @@ async function corregirTransaccion(usuarioId,id,cambios){if(!mongoose.isValidObj
   if(reservaHistorica)throw Object.assign(new Error("No se puede modificar el importe o tipo de una obligación con reservas históricas; usa una obligación nueva"),{statusCode:409});
  }
  const signo=t=>t==="INGRESO"?1:-1,delta=(signo(permitidos.tipo||anterior.tipo)*(permitidos.montoMinor??anterior.montoMinor))-(signo(anterior.tipo)*anterior.montoMinor);if(delta){const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:anterior.cuenta,activa:true,...filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{returnDocument:"after",session});if(!cuenta)throw Object.assign(new Error("No se puede corregir: saldo insuficiente o cuenta no encontrada"),{statusCode:409});}const antes={tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria};Object.assign(anterior,permitidos);await anterior.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_CORREGIDO",aggregateId:anterior._id,payload:{transaccionId:String(anterior._id),antes,despues:{tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria}}}],{session});tx=anterior;},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
-async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{tx=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!tx)throw Object.assign(new Error("Movimiento no disponible o ya eliminado"),{statusCode:404});await exigirSinCompensaciones(usuarioId,id,session);if(tx.recurrente&&tx.tipo==="GASTO"){
+async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{tx=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!tx)throw Object.assign(new Error("Movimiento no disponible o ya eliminado"),{statusCode:404});await exigirOriginalSinCompensaciones(usuarioId,id,session);if(tx.recurrente&&tx.tipo==="GASTO"){
   const abonoActivo=await Transaccion.exists({usuarioId,recurrenteOrigenId:tx._id,estado:{$ne:"ANULADA"}}).session(session);
   if(abonoActivo)throw Object.assign(new Error("No se puede anular la obligación mientras tenga abonos activos"),{statusCode:409});
  }

@@ -31,7 +31,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
 },async()=>{
  validarMongoPruebasV81(uri);
  await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
- const usuarios=Array.from({length:7},()=>new mongoose.Types.ObjectId().toString());
+ const usuarios=Array.from({length:8},()=>new mongoose.Types.ObjectId().toString());
  const movimientoId=new mongoose.Types.ObjectId().toString();
  const original={usuarioId:usuarios[0],movimientoId,tipo:"GASTO",montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion"};
  const registrar=crearRegistrador();
@@ -266,6 +266,24 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
    assert.equal(await Outbox.countDocuments({usuarioId:httpUsuario}),2);
    assert.equal((await Transaccion.findById(httpTx._id).lean()).montoMinor,25000);
   }finally{await new Promise(resolve=>server.close(resolve));}
+  // Una edición heredada de metadatos y una compensación deben compartir orden de escritura.
+  const carreraUsuario=usuarios[7];
+  const carreraCuenta=await Cuenta.create({usuarioId:carreraUsuario,nombre:"CARRERA",tipo:"EFECTIVO",saldoMinor:50000});
+  const carreraTx=await Transaccion.create({usuarioId:carreraUsuario,cuentaId:carreraCuenta._id,cuenta:"CARRERA",
+   tipo:"GASTO",montoMinor:25000,concepto:"Fuente inicial",categoria:"Otros",fecha:new Date()});
+  await Cursor.create({_id:carreraUsuario,secuencia:0,hashActual:GENESIS});
+  const resultadosCarrera=await Promise.allSettled([
+   aplicar({usuarioId:carreraUsuario,movimientoId:String(carreraTx._id),tipo:"CORRECCION",cambios:{montoMinor:22000},idempotencyKey:"carrera_compatible"}),
+   flujoCaja.corregirTransaccion(carreraUsuario,String(carreraTx._id),{concepto:"Texto heredado anterior"})
+  ]);
+  assert.equal(resultadosCarrera[0].status,"fulfilled");
+  if(resultadosCarrera[1].status==="rejected")assert.equal(resultadosCarrera[1].reason.statusCode,409);
+  const fuenteCarrera=await Transaccion.findById(carreraTx._id).lean();
+  const eventoCarrera=await Evento.findOne({usuarioId:carreraUsuario}).lean();
+  assert.equal(eventoCarrera.original.concepto,fuenteCarrera.concepto);
+  assert.equal((await Cuenta.findById(carreraCuenta._id).lean()).saldoMinor,53000);
+  await assert.rejects(flujoCaja.corregirTransaccion(carreraUsuario,String(carreraTx._id),{concepto:"Cambio posterior prohibido"}),/heredada bloqueada/);
+  assert.equal((await Transaccion.findById(carreraTx._id).lean()).concepto,fuenteCarrera.concepto);
  }finally{
   // Los modelos rechazan deletes: limpieza directa SOLO tras validar el destino loopback de pruebas.
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios}});

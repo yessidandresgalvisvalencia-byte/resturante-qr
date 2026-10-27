@@ -1,4 +1,5 @@
 "use strict";
+const {exigirOriginalSinCompensaciones}=require("./proteccionOriginalCompensadoPersonal.service");
 const mongoose=require("mongoose");
 const crypto=require("crypto");
 const Padre=require("../models/compromisoCuotas.model");
@@ -62,6 +63,7 @@ async function deshacer(usuarioId,{compromisoId,numero}){
    const cuenta=await Cuenta.findOneAndUpdate({_id:tx.cuentaId,usuarioId,activa:true},{$inc:{saldoMinor:tx.montoMinor}},{new:true,session});
    if(!cuenta||!Number.isSafeInteger(cuenta.saldoMinor))throw problema("No se puede restaurar la cuenta");
   }
+  await exigirOriginalSinCompensaciones(usuarioId,tx._id,session);
   tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion="REVERSIÓN_CUOTA_COMPROMISO";await tx.save({session});
   cuota.estado="PENDIENTE";cuota.pagadaEn=null;cuota.transaccionId=null;await cuota.save({session});
   padre.saldoMinor+=cuota.montoMinor;padre.cuotasPagadas--;padre.estado="ACTIVA";await padre.save({session});

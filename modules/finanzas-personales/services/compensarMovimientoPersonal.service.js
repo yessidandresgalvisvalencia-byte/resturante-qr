@@ -10,6 +10,7 @@ const {vigente}=require("./estadoCompensadoPersonal.service");
 const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const {liberarReserva}=require("./liberarReservaCompensadaPersonal.service");
 const {canon}=require("./eventoCompensatorioPersonal.service");
+const {serializarEscrituraFuente}=require("./proteccionOriginalCompensadoPersonal.service");
 const registrar=crearRegistrador();
 const error=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
 // Preparación de integración: NO conectado a rutas. Las consultas actuales todavía necesitan
@@ -27,6 +28,7 @@ function crearAplicador({OutboxModelo=Outbox}={}){
   try{
    let evento;
    await session.withTransaction(async()=>{
+    await serializarEscrituraFuente(usuarioId,session);
     const fuente=await Transaccion.findOne({_id:movimientoId,usuarioId}).session(session).lean();
     if(!fuente)throw error("Movimiento no disponible",404);
     if(fuente.estado!=="ACTIVA"||!["INGRESO","GASTO"].includes(fuente.tipo)||
