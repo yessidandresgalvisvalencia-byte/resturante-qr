@@ -113,11 +113,14 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(forbiddenCompany.status,404);
   const forbiddenLegacy=await call("PUT","/anular/"+legacy.id,adminA,{motivo:"no corresponde"});
   assert.equal(forbiddenLegacy.status,404);
+  const fenceBefore=(await Sede.findById(SA)).authFence||0;
   const annulled=await call("PUT","/anular/"+own.id,adminA,{motivo:"control",usuario:"suplantado"});
   assert.equal(annulled.status,200);
   assert.equal(annulled.data.producto.usuarioAnulacion,"usuario-sede-a");
+  assert.equal((await Sede.findById(SA)).authFence,fenceBefore+1);
   assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:"repetir"})).status,404);
   assert.equal((await Inventario.findById(own.id)).usuarioAnulacion,"usuario-sede-a");
+  assert.equal((await Sede.findById(SA)).authFence,fenceBefore+1);
  }finally{
   if(connected){await Inventario.deleteMany({});await Restaurante.deleteMany({});await Sede.deleteMany({});await mongoose.disconnect();}
   await new Promise(resolve=>server.close(resolve));
