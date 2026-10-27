@@ -10,16 +10,20 @@ const {prepararAlta}=require("./inventarioSede.scope");
 async function crearInventarioAutorizado({auth,body}){
  const datos=prepararAlta(auth,body||{});
  if(!datos)return null;
- if(typeof datos.restaurantId!=="string" || !datos.restaurantId.trim())return null;
+ if(datos.restaurantId!==undefined && datos.restaurantId!==null &&
+    (typeof datos.restaurantId!=="string" || !datos.restaurantId.trim()))return null;
  const alcanceRestaurante={restaurantId:datos.restaurantId,empresaId:auth.empresaId};
  if(auth.rol==="DUEÑO"){
-  const existe=await Restaurante.exists(alcanceRestaurante);
-  if(!existe)return null;
+  // Compatibilidad: el dueño puede registrar inventario general sin restaurantId.
+  if(datos.restaurantId){
+   const existe=await Restaurante.exists(alcanceRestaurante);
+   if(!existe)return null;
+  }
   const creado=new Inventario(datos);
   await creado.save();
   return creado;
  }
- if(auth.rol!=="ADMIN_SEDE")return null;
+ if(auth.rol!=="ADMIN_SEDE" || !datos.restaurantId)return null;
  const session=await mongoose.startSession();
  let creado=null;
  try{
