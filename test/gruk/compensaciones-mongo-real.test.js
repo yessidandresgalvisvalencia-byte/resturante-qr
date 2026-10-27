@@ -10,6 +10,7 @@ const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.mo
 const {crearAplicador}=require("../../modules/finanzas-personales/services/compensarMovimientoPersonal.service");
 const {consultarPeriodo}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
 const {flujoPeriodo}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+const flujoCaja=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
 const resumenLedger=require("../../modules/finanzas-personales/services/resumenLedgerPersonal.service");
 const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
 const hormiga=require("../../modules/finanzas-personales/services/gastosHormigaResumen.service");
@@ -197,6 +198,25 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   assert.equal((await Cuenta.findById(cuentaRecurrente._id).lean()).saldoMinor,100000);
   assert.equal(await Evento.countDocuments({usuarioId}),2);
   assert.deepEqual(await Transaccion.findById(abonos[0]._id).lean(),abonoOriginal);
+  await assert.rejects(flujoCaja.anularTransaccion(usuarioId,String(abonos[0]._id)),/heredada bloqueada/);
+  await assert.rejects(flujoCaja.corregirTransaccion(usuarioId,String(abonos[0]._id),{categoria:"Otra"}),/heredada bloqueada/);
+  const secretAnterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;
+  process.env.PERSONAL_IDEMPOTENCY_SECRET="SOLO_PRUEBA_LOCAL_REEMPLAZO_RECURRENTE_32_BYTES";
+  try{
+   const reemplazo=await flujoCaja.registrarTransaccion(usuarioId,{tipo:"GASTO",montoMinor:100000,
+    concepto:"Reemplazo de abonos anulados",categoria:"Fijos",cuenta:"RECURRENTE",medioPago:"EFECTIVO",
+    fecha:abonos[1].fecha,recurrenteOrigenId:origen._id,externalId:"reemplazo_compensado"});
+   assert.equal(reemplazo.montoMinor,100000);
+   assert.equal((await Reserva.findById(reserva._id).lean()).reservadoMinor,100000);
+   assert.equal((await Cuenta.findById(cuentaRecurrente._id).lean()).saldoMinor,0);
+   const actuales=await consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:fin.toISOString(),tipo:"GASTO"});
+   const vinculados=actuales.filter(x=>String(x.recurrenteOrigenId)===String(origen._id));
+   assert.equal(vinculados.length,1);
+   assert.equal(String(vinculados[0]._id),String(reemplazo._id));
+  }finally{
+   if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
+   else process.env.PERSONAL_IDEMPOTENCY_SECRET=secretAnterior;
+  }
  }finally{
   // Los modelos rechazan deletes: limpieza directa SOLO tras validar el destino loopback de pruebas.
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios}});

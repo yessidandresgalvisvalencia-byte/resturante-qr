@@ -232,11 +232,10 @@ async function obtener(usuarioId,now=new Date()){
   gasto:g,...periodoRecurrenteColombia({fechaOrigen:g.fecha,fechaPago:now,frecuencia:g.frecuencia})
  }));
  const desde=periodosHoy.length?new Date(Math.min(...periodosHoy.map(x=>x.inicio.getTime()))):null;
- const pagosVinculados=desde?await Transaccion.find({
-  usuarioId,tipo:"GASTO",recurrenteOrigenId:{$in:vencenHoy.map(x=>x._id)},
-  estado:{$ne:"ANULADA"},impactoCaja:{$ne:false},
-  fecha:{$gte:desde,$lte:now}
- }).select("recurrenteOrigenId montoMinor fecha").lean():[];
+ const origenesHoy=new Set(vencenHoy.map(x=>String(x._id)));
+ const pagosVinculados=desde?(await consultarPeriodo({usuarioId,desde:desde.toISOString(),
+  hasta:new Date(+now+1).toISOString(),tipo:"GASTO"})).filter(x=>
+   origenesHoy.has(String(x.recurrenteOrigenId))&&x.impactoCaja!==false):[];
  const gastosRecurrentesHoySinConciliar=periodosHoy.filter(({gasto,inicio,fin})=>{
   const total=sumarAbonosRecurrentesPeriodo({
    origenId:gasto._id,inicio,fin,pagos:pagosVinculados

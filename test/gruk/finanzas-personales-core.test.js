@@ -435,7 +435,7 @@ test("API protege vínculo recurrente con titularidad y validación explícita",
  assert.match(routes,/recurrenteOrigenId:Joi\.string\(\)\.hex\(\)\.length\(24\)/);
  assert.match(flujo,/input\.tipo!=="GASTO"\|\|input\.recurrente===true/);
  assert.match(flujo,/\{_id:input\.recurrenteOrigenId,usuarioId,tipo:"GASTO"/);
- assert.match(home,/recurrenteOrigenId:\{\$in:vencenHoy\.map/);
+ assert.match(home,/origenesHoy\.has\(String\(x\.recurrenteOrigenId\)\)/);
  assert.match(home,/periodoRecurrenteColombia\(\{fechaOrigen:g\.fecha,fechaPago:now/);
  assert.match(home,/sumarAbonosRecurrentesPeriodo\(\{/);
 });
@@ -444,7 +444,8 @@ test("asesor consulta pagos ligados de todo el ciclo, no solo del día actual",(
  const fs=require("node:fs"),path=require("node:path");
  const homeService=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
  assert.match(homeService,/const desde=periodosHoy\.length/);
- assert.match(homeService,/fecha:\{\$gte:desde,\$lte:now\}/);
+ assert.match(homeService,/consultarPeriodo\(\{usuarioId,desde:desde\.toISOString\(\)/);
+ assert.match(homeService,/hasta:new Date\(\+now\+1\)\.toISOString\(\),tipo:"GASTO"/);
  assert.match(homeService,/fecha<inicio\|\|fecha>=fin/);
  assert.doesNotMatch(homeService,/pagosRecurrentesDeHoy/);
 });
