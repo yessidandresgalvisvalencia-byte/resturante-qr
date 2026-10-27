@@ -7,12 +7,31 @@ const Cuota=require("../models/cuotaHija.model");
 const Tx=require("../models/TransaccionPersonal");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Outbox=require("../models/outboxPersonal.model");
+const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const problema=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
 const txConfig={readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"};
 function importes(monto,n){
  if(!Number.isSafeInteger(monto)||monto<1||!Number.isInteger(n)||n<1||n>360||monto<n)throw problema("Monto y número de cuotas inválidos",422);
- const base=Math.floor(monto/n),resto=monto%n;
+ const base=Number(BigInt(monto)/BigInt(n)),resto=Number(BigInt(monto)%BigInt(n));
  return Array.from({length:n},(_,i)=>base+(i<resto?1:0));
+}
+function validarCuota(padre,cuota,pagada){
+ const inconsistente=()=>{throw problema("Cuota y saldo del compromiso no conciliables");};
+ let valores;
+ try{valores=importes(padre.montoTotalMinor,padre.numeroCuotas);}catch{inconsistente();}
+ const pagadas=padre.cuotasPagadas;
+ if(!Number.isInteger(pagadas)||pagadas<0||pagadas>valores.length||
+  !Number.isSafeInteger(padre.saldoMinor)||padre.saldoMinor<0||
+  padre.estado!==(pagadas===valores.length?"FINALIZADA":"ACTIVA"))inconsistente();
+ const saldo=valores.slice(pagadas).reduce((n,v)=>n+BigInt(v),0n);
+ if(BigInt(padre.saldoMinor)!==saldo||!cuota||
+  cuota.numero!==(pagada?pagadas:pagadas+1)||
+  cuota.estado!==(pagada?"PAGADA":"PENDIENTE")||
+  !Number.isSafeInteger(cuota.montoMinor)||cuota.montoMinor!==valores[cuota.numero-1]||
+  String(cuota.compromisoId)!==String(padre._id)||String(cuota.usuarioId)!==String(padre.usuarioId))inconsistente();
+ if(pagada){
+  if(!cuota.transaccionId||!(cuota.pagadaEn instanceof Date)||!Number.isFinite(cuota.pagadaEn.getTime()))inconsistente();
+ }else if(cuota.transaccionId||cuota.pagadaEn)inconsistente();
 }
 async function crear(usuarioId,{concepto,categoria,montoTotalMinor,numeroCuotas}){
  const valores=importes(montoTotalMinor,numeroCuotas),session=await mongoose.startSession();
@@ -37,10 +56,11 @@ async function pagar(usuarioId,{compromisoId,numero,cuentaId=null,modo="HISTORIC
   if(!padre)throw problema("Compromiso no activo");
   const cuota=await Cuota.findOne({usuarioId,compromisoId,numero}).session(session);
   if(!cuota||cuota.estado!=="PENDIENTE"||numero!==padre.cuotasPagadas+1)throw problema("Esta cuota ya fue pagada o hay una anterior pendiente");
+  validarCuota(padre,cuota,false);
   const importe=cuota.montoMinor;
   let cuenta=null;
-  if(modo==="CUENTA"){cuenta=await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,saldoMinor:{$gte:importe}},{$inc:{saldoMinor:-importe}},{new:true,session});
-   if(!cuenta)throw problema("Saldo insuficiente o cuenta inválida");}
+  if(modo==="CUENTA"){cuenta=await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,moneda:"COP",...filtroSaldoSeguro(-importe)},{$inc:{saldoMinor:-importe}},{new:true,session});
+   if(!cuenta||!Number.isSafeInteger(cuenta.saldoMinor))throw problema("Saldo insuficiente o cuenta inválida");}
   const [t]=await Tx.create([{usuarioId,tipo:"PAGO_DEUDA",montoMinor:importe,concepto:("Cuota "+numero+" de "+padre.concepto).slice(0,140),categoria:"Pago de compra financiada",subcategoria:padre.categoria,cuenta:cuenta?cuenta.nombre:"PAGO HISTÓRICO NO CONCILIADO",cuentaId:cuenta?cuenta._id:null,impactoCaja:modo==="CUENTA",descripcion:"Compromiso "+compromisoId+" cuota "+numero,medioPago:cuenta?(cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA"):"OTRO",fecha:new Date(),origen:"MANUAL",externalIdHash}],{session});
   cuota.estado="PAGADA";cuota.pagadaEn=t.fecha;cuota.transaccionId=t._id;await cuota.save({session});
   padre.saldoMinor-=importe;padre.cuotasPagadas++;
@@ -51,19 +71,26 @@ async function pagar(usuarioId,{compromisoId,numero,cuentaId=null,modo="HISTORIC
  },txConfig);return resultado;}finally{await session.endSession();}
 }
 async function deshacer(usuarioId,{compromisoId,numero}){
+ if(!Number.isInteger(numero)||numero<1||numero>360)throw problema("Cuota inválida",422);
  const session=await mongoose.startSession();
  try{let resultado;await session.withTransaction(async()=>{
   const padre=await Padre.findOne({_id:compromisoId,usuarioId}).session(session);
   if(!padre||numero!==padre.cuotasPagadas)throw problema("Solo se puede deshacer la última cuota pagada");
   const cuota=await Cuota.findOne({usuarioId,compromisoId,numero,estado:"PAGADA"}).session(session);
   if(!cuota||!cuota.transaccionId)throw problema("Cuota no conciliable");
-  const tx=await Tx.findOne({_id:cuota.transaccionId,usuarioId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).session(session);
-  if(!tx||tx.descripcion!=="Compromiso "+compromisoId+" cuota "+numero)throw problema("Movimiento no conciliable");
-  if(tx.impactoCaja!==false){
-   const cuenta=await Cuenta.findOneAndUpdate({_id:tx.cuentaId,usuarioId,activa:true},{$inc:{saldoMinor:tx.montoMinor}},{new:true,session});
+  validarCuota(padre,cuota,true);
+  const tx=await Tx.findOne({_id:cuota.transaccionId,usuarioId,tipo:"PAGO_DEUDA",estado:"ACTIVA",moneda:"COP",impactoCaja:{$in:[true,false]}}).session(session);
+  if(!tx||tx.descripcion!=="Compromiso "+compromisoId+" cuota "+numero||
+   !Number.isSafeInteger(tx.montoMinor)||tx.montoMinor!==cuota.montoMinor||
+   tx.prestamoId||tx.recurrente||tx.recurrenteOrigenId||
+   tx.montoPagadoRealMinor!=null&&tx.montoPagadoRealMinor!==tx.montoMinor||
+   tx.impactoCaja&&!tx.cuentaId||!tx.impactoCaja&&tx.cuentaId||
+   !(tx.fecha instanceof Date)||tx.fecha.getTime()!==cuota.pagadaEn.getTime())throw problema("Movimiento no conciliable");
+  await exigirOriginalSinCompensaciones(usuarioId,tx._id,session);
+  if(tx.impactoCaja){
+   const cuenta=await Cuenta.findOneAndUpdate({_id:tx.cuentaId,usuarioId,activa:true,moneda:"COP",...filtroSaldoSeguro(tx.montoMinor)},{$inc:{saldoMinor:tx.montoMinor}},{new:true,session});
    if(!cuenta||!Number.isSafeInteger(cuenta.saldoMinor))throw problema("No se puede restaurar la cuenta");
   }
-  await exigirOriginalSinCompensaciones(usuarioId,tx._id,session);
   tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion="REVERSIÓN_CUOTA_COMPROMISO";await tx.save({session});
   cuota.estado="PENDIENTE";cuota.pagadaEn=null;cuota.transaccionId=null;await cuota.save({session});
   padre.saldoMinor+=cuota.montoMinor;padre.cuotasPagadas--;padre.estado="ACTIVA";await padre.save({session});

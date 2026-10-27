@@ -349,6 +349,11 @@ jobs:
           GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_compensaciones?replicaSet=rs0
           GRUK_REQUIRE_COMPENSACION_MONGO_TEST: "1"
         run: node --test test/gruk/compensaciones-mongo-real.test.js test/gruk/consulta-compensada-personal.test.js
+      - name: Probar integridad y reversiones de compromisos con MongoDB real
+        env:
+          GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_cuotas?replicaSet=rs0
+          GRUK_REQUIRE_COMPENSACION_MONGO_TEST: "1"
+        run: node --test test/finanzas-personales/compromisosIntegridadMongoV81.integration.test.js
       - name: Limpiar MongoDB aislado
         if: always()
         run: docker rm -f mongo-v81-test || true
