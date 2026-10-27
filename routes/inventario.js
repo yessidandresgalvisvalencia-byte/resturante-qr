@@ -237,13 +237,19 @@ error:"Debes escribir un motivo de anulación"
 
 const alcance = sedeAutorizada(req.auth);
 if (!alcance || !req.auth.usuarioId) return res.status(403).json({ok:false,error:"Sede no autorizada"});
+// El ID del producto no sustituye la autorización sobre su restaurante.
+// No mutar si la sede no está realmente vinculada al restaurante del producto.
+const filtro = {_id:req.params.id,...alcance,anulado:false};
+if (req.auth.rol === "ADMIN_SEDE") {
+  const candidato = await Inventario.findOne(filtro).select("restaurantId").lean();
+  if (!candidato || !(await sedeRestauranteAutorizada(req.auth,candidato.restaurantId))) {
+    return res.status(404).json({ok:false,error:"Producto no encontrado"});
+  }
+  filtro.restaurantId = candidato.restaurantId;
+}
 const producto =
 await Inventario.findOneAndUpdate(
-{
-_id:req.params.id,
-...alcance,
-anulado:false
-},
+filtro,
 {
 anulado:true,
 motivoAnulacion:motivo,
