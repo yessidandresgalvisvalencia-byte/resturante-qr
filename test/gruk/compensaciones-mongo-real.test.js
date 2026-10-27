@@ -31,7 +31,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
 },async()=>{
  validarMongoPruebasV81(uri);
  await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
- const usuarios=Array.from({length:6},()=>new mongoose.Types.ObjectId().toString());
+ const usuarios=Array.from({length:7},()=>new mongoose.Types.ObjectId().toString());
  const movimientoId=new mongoose.Types.ObjectId().toString();
  const original={usuarioId:usuarios[0],movimientoId,tipo:"GASTO",montoMinor:25000,concepto:"Rappi",categoria:"Alimentacion"};
  const registrar=crearRegistrador();
@@ -241,6 +241,31 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
    if(secretAnterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
    else process.env.PERSONAL_IDEMPOTENCY_SECRET=secretAnterior;
   }
+  // HTTP real sobre el handler de producción y MongoDB local, identidad fijada por middleware de ensayo.
+  const httpUsuario=usuarios[6];
+  const httpCuenta=await Cuenta.create({usuarioId:httpUsuario,nombre:"HTTP",tipo:"EFECTIVO",saldoMinor:50000});
+  const httpTx=await Transaccion.create({usuarioId:httpUsuario,cuentaId:httpCuenta._id,cuenta:"HTTP",
+   tipo:"GASTO",montoMinor:25000,concepto:"Café HTTP",categoria:"Otros",fecha:new Date()});
+  const express=require("express"),{crearHandler}=require("../../modules/finanzas-personales/services/compensacionPersonal.handler");
+  const app=express();app.use(express.json(),(req,res,next)=>{req.personalAuth={userId:httpUsuario};req.validated=req.body;next();});
+  app.patch("/transacciones/:id",crearHandler({tipo:"CORRECCION"}));
+  app.delete("/transacciones/:id",crearHandler({tipo:"ANULACION"}));
+  const server=await new Promise((resolve,reject)=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));s.on("error",reject);});
+  try{
+   const url=`http://127.0.0.1:${server.address().port}/transacciones/${httpTx._id}`;
+   const opciones={method:"PATCH",headers:{"Content-Type":"application/json","Idempotency-Key":"http_corregir"},body:JSON.stringify({montoMinor:22000})};
+   const sinClave=await fetch(url,{...opciones,headers:{"Content-Type":"application/json"}});
+   assert.equal(sinClave.status,400);
+   const primera=await fetch(url,opciones);assert.equal(primera.status,200);const json=await primera.json();
+   const repeticion=await fetch(url,opciones);assert.equal(repeticion.status,200);
+   assert.equal((await repeticion.json()).compensacion.hashActual,json.compensacion.hashActual);
+   assert.equal((await Cuenta.findById(httpCuenta._id).lean()).saldoMinor,53000);
+   for(let n=0;n<2;n++)assert.equal((await fetch(url,{method:"DELETE",headers:{"Idempotency-Key":"http_anular"}})).status,200);
+   assert.equal((await Cuenta.findById(httpCuenta._id).lean()).saldoMinor,75000);
+   assert.equal(await Evento.countDocuments({usuarioId:httpUsuario}),2);
+   assert.equal(await Outbox.countDocuments({usuarioId:httpUsuario}),2);
+   assert.equal((await Transaccion.findById(httpTx._id).lean()).montoMinor,25000);
+  }finally{await new Promise(resolve=>server.close(resolve));}
  }finally{
   // Los modelos rechazan deletes: limpieza directa SOLO tras validar el destino loopback de pruebas.
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios}});
