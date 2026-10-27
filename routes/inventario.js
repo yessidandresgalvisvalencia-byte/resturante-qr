@@ -70,9 +70,14 @@ router.post(
     });
 
   } catch (error) {
-
+    if (typeof error?.hasErrorLabel === "function" &&
+      (error.hasErrorLabel("TransientTransactionError") ||
+       error.hasErrorLabel("UnknownTransactionCommitResult"))) {
+      return res.status(409).json({
+        ok:false,error:"Conflicto de concurrencia; verifica la sede antes de reintentar"
+      });
+    }
     console.log(error);
-
     res.status(500).json({
       ok: false,
       error: "Error guardando inventario"
