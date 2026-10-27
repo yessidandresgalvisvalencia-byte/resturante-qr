@@ -1,6 +1,6 @@
 "use strict";
-// Evita que valores como null, "", "0" o false se acepten como version 0.
-// La ausencia del campo en JWT históricos se trata como versión 0.
+// Evita coerción implícita en tokens y documentos Mongo.
+// La ausencia de tokenVersion en sesiones históricas equivale a cero.
 function parseVersion(value,{legacy=false}={}){
  if(value===undefined && legacy)return 0;
  if(typeof value!=="number" || !Number.isSafeInteger(value) || value<0)return null;
@@ -11,4 +11,12 @@ function versionCoincide(tokenVersion,dbVersion){
  const stored=parseVersion(dbVersion,{legacy:true});
  return token!==null && stored!==null && token===stored;
 }
-module.exports={parseVersion,versionCoincide};
+function payloadSesionValido(payload){
+ if(!payload || typeof payload!=="object" || Array.isArray(payload))return false;
+ if(payload.identityType!==undefined && typeof payload.identityType!=="string")return false;
+ const tipo=payload.identityType||"";
+ // Se conserva compatibilidad con sesiones antiguas sin identityType.
+ if(!tipo)return true;
+ return typeof payload.sub==="string" && payload.sub.trim().length>0;
+}
+module.exports={parseVersion,versionCoincide,payloadSesionValido};
