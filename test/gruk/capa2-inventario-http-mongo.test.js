@@ -97,6 +97,16 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(createOk.status,200,JSON.stringify(createOk.data));
   assert.equal(String(createOk.data.inventario.sedeId),SA);
 
+  // La sede puede cambiar de restaurante después de crear el producto.
+  // La anulación debe verificar también el vínculo actual, no solo sedeId.
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
+  assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:"sin vínculo"})).status,404);
+  assert.equal((await Inventario.findById(own.id)).anulado,false);
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
+  // Producto mal clasificado con sede correcta, pero restaurante de empresa distinta.
+  const irregular=await item(A,SA,"restaurant-b","objeto no autorizado");
+  assert.equal((await call("PUT","/anular/"+irregular.id,adminA,{motivo:"forzado"})).status,404);
+  assert.equal((await Inventario.findById(irregular.id)).anulado,false);
   const forbiddenSede=await call("PUT","/anular/"+other.id,adminA,{motivo:"no corresponde",usuario:"suplantado"});
   assert.equal(forbiddenSede.status,404);
   const forbiddenCompany=await call("PUT","/anular/"+foreign.id,adminA,{motivo:"no corresponde"});
