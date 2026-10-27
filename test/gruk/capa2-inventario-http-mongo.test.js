@@ -121,6 +121,18 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:"repetir"})).status,404);
   assert.equal((await Inventario.findById(own.id)).usuarioAnulacion,"usuario-sede-a");
   assert.equal((await Sede.findById(SA)).authFence,fenceBefore+1);
+  // Peticiones concurrentes del mismo administrador: una sola anulación.
+  const simultaneo=await item(A,SA,"restaurant-a","anulación concurrente");
+  const fenceConcurrent=(await Sede.findById(SA)).authFence;
+  const respuestas=await Promise.all(Array.from({length:4},()=>
+    call("PUT","/anular/"+simultaneo.id,adminA,{motivo:"petición simultánea"})
+  ));
+  assert.equal(respuestas.filter(x=>x.status===200).length,1,
+    JSON.stringify(respuestas.map(x=>({status:x.status,error:x.data.error}))));
+  assert.equal(respuestas.every(x=>[200,404,409].includes(x.status)),true,
+    JSON.stringify(respuestas.map(x=>({status:x.status,error:x.data.error}))));
+  assert.equal((await Sede.findById(SA)).authFence,fenceConcurrent+1);
+  assert.equal((await Inventario.findById(simultaneo.id)).anulado,true);
  }finally{
   if(connected){await Inventario.deleteMany({});await Restaurante.deleteMany({});await Sede.deleteMany({});await mongoose.disconnect();}
   await new Promise(resolve=>server.close(resolve));
