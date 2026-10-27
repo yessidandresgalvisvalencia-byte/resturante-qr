@@ -87,6 +87,26 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(altaGeneral.data.inventario.restaurantId,null);
   assert.equal(String(altaGeneral.data.inventario.empresaId),A);
 
+  // El dueño no puede adjuntar inventario de su empresa a una sede ajena.
+  const otraSede="507f191e810c19729de860ec";
+  const forjarSedeDueno=await call("POST","/",owner,{
+    restaurantId:"restaurant-a",sedeId:otraSede,
+    nombre:"sede extranjera",categoria:"prueba",cantidad:1
+  });
+  assert.equal(forjarSedeDueno.status,403,JSON.stringify(forjarSedeDueno));
+  assert.equal(await Inventario.countDocuments({nombre:"sede extranjera"}),0);
+  const mismatchedOwner=await call("POST","/",owner,{
+    restaurantId:"restaurant-b",sedeId:SA,
+    nombre:"restaurante ajeno",categoria:"prueba",cantidad:1
+  });
+  assert.equal(mismatchedOwner.status,403,JSON.stringify(mismatchedOwner));
+  const ownerSameCompany=await call("POST","/",owner,{
+    restaurantId:"restaurant-a",sedeId:SA,
+    nombre:"sede propia",categoria:"prueba",cantidad:1
+  });
+  assert.equal(ownerSameCompany.status,200,JSON.stringify(ownerSameCompany));
+  assert.equal(String(ownerSameCompany.data.inventario.sedeId),SA);
+
   const createSpoof=await call("POST","/",adminA,{
     empresaId:B,restaurantId:"restaurant-a",sedeId:SA,nombre:"falsa",categoria:"prueba",cantidad:1
   });
