@@ -17,13 +17,14 @@ test("auditoría actual revela la deuda técnica y no presenta ledger como inmut
  assert.deepEqual(ids,[]);
  const pendientes=auditoria.auditarProyecto();
  assert.equal(pendientes.some(h=>h.archivo==="routes.js"),false);
- assert.ok(pendientes.some(h=>h.archivo==="services/patrimonioPersonal.service.js"));
+ assert.equal(pendientes.some(h=>h.archivo==="services/patrimonioPersonal.service.js"),false);
  assert.equal(pendientes.some(h=>h.archivo==="services/compromisosCuotas.service.js"),false);
 });
-test("gate --enforce falla cerradamente mientras los originales sean editables",()=>{
+test("gate --enforce conserva el bloqueo aunque la búsqueda de patrones esté vacía",()=>{
  const file=path.resolve(__dirname,"../../scripts/gruk-personal-ledger-mutability-audit.js");
  const run=spawnSync(process.execPath,[file,"--enforce"],{encoding:"utf8"});
  assert.equal(run.status,1);
  assert.match(run.stderr,/NO certificado append-only/);
  assert.match(run.stderr,/issues\/407/);
+ assert.match(run.stderr,/permisos MongoDB/);
 });

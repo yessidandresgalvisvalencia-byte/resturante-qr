@@ -2,6 +2,13 @@
 const test=require("node:test"),assert=require("node:assert/strict");
 const {calcularFlujo}=require("../../modules/finanzas-personales/services/totalesFlujoCompensadoPersonal.service");
 const row=(tipo,montoMinor,estado="ACTIVA")=>({tipo,montoMinor,estado});
+test("el flujo usa el pago real y conserva separado el capital abonado",()=>{
+ const pago={...row("PAGO_DEUDA",400),montoPagadoRealMinor:450};
+ assert.equal(calcularFlujo([pago]).pagosDeudaMinor,450);
+ assert.equal(calcularFlujo([pago]).flujoNetoMinor,-450);
+ assert.equal(pago.montoMinor,400);
+ assert.throws(()=>calcularFlujo([{...pago,montoPagadoRealMinor:399}]),/inseguro/);
+});
 test("flujo excluye anulaciones y preserva préstamos solo en el informe correspondiente",()=>{
  const rows=[row("INGRESO",100000),row("GASTO",22000),row("PAGO_DEUDA",5000),row("GASTO",25000,"ANULADA"),row("PRESTAMO_RECIBIDO",20000),row("PRESTAMO_OTORGADO",1000)];
  assert.equal(calcularFlujo(rows).flujoNetoMinor,73000);

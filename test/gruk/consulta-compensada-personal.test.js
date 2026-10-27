@@ -23,6 +23,17 @@ test("anulación se proyecta conservando el documento original",()=>{
 test("lectura sin compensaciones mantiene estado histórico",()=>{
  assert.deepEqual(proyectar({...entrada,eventos:[],cursor:null}),[fuente]);
 });
+test("V4 valida el pago real y mantiene su devolución en la fecha del evento",()=>{
+ const {originalDesdeFuente}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
+ const {proyectarCaja}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
+ const src={...fuente,tipo:"PAGO_DEUDA",prestamoId:"507f1f77bcf86cd799439011",descripcion:"Cuota 1 confirmada",montoMinor:400,montoPagadoRealMinor:450,impactoCaja:true,medioPago:"TRANSFERENCIA"};
+ const evento=eventoCompensatorio({original:originalDesdeFuente(src),tipo:"ANULACION",idempotencyKey:"credito",prevHash:"0".repeat(64),secuencia:1,fechaISO:e.fechaISO});
+ const datos={usuarioId,fuentes:[src],eventos:[evento],cursor:{_id:usuarioId,secuencia:1,hashActual:evento.hashActual}};
+ const caja=proyectarCaja(datos);
+ assert.equal(proyectar(datos)[0].estado,"ANULADA");assert.equal(src.estado,"ACTIVA");
+ assert.equal(caja[1].montoMinor,450);assert.equal(caja[1].fecha.toISOString(),evento.fechaISO);
+ assert.throws(()=>proyectar({...datos,fuentes:[{...src,montoPagadoRealMinor:451}]}),/INTEGRIDAD_LEDGER/);
+});
 test("cobro de trabajo V3 cambia el informe de ingreso sin alterar el flujo original de caja",()=>{
  const {proyectarCaja}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
  const orig={...original,tipo:"COBRO_PRESTAMO"};

@@ -1,7 +1,7 @@
 "use strict";
 const crypto=require("node:crypto");
 const {canon,eventoCompensatorio}=(()=>{const m=require("./eventoCompensatorioPersonal.service");return {canon:m.canon,eventoCompensatorio:m.eventoCompensatorio};})();
-const CAMPOS=["usuarioId","movimientoId","tipo","montoMinor","concepto","categoria","impactoCaja"];
+const CAMPOS=["usuarioId","movimientoId","tipo","montoMinor","concepto","categoria","impactoCaja","prestamoId","numeroCuota","montoPagadoRealMinor"];
 function iguales(a,b){return CAMPOS.every(k=>a[k]===b[k]);}
 function vigente(original,eventos=[]){
  if(!original||!Array.isArray(eventos))throw new TypeError("Historial obligatorio");

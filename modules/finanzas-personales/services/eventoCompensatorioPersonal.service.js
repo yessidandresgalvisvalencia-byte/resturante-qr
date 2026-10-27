@@ -17,8 +17,26 @@ function originalVerificado(o){
   !/^[a-zA-Z0-9_-]{1,128}$/.test(o.movimientoId)||
   typeof o.concepto!=="string"||!o.concepto.trim()||
   typeof o.categoria!=="string"||!o.categoria.trim())throw new TypeError("Movimiento original no verificable");
+ const credito=o.tipo==="PAGO_DEUDA"&&(o.prestamoId!==undefined||o.montoPagadoRealMinor!==undefined||o.numeroCuota!==undefined);
+ if(credito&&(!/^[a-f0-9]{24}$/i.test(o.prestamoId||"")||
+  !Number.isInteger(o.numeroCuota)||o.numeroCuota<1||o.numeroCuota>600||
+  !Number.isSafeInteger(o.montoPagadoRealMinor)||o.montoPagadoRealMinor<o.montoMinor))
+  throw new TypeError("Capital, pago real e identidad del crédito no verificables");
  return Object.freeze({usuarioId:o.usuarioId,movimientoId:o.movimientoId,tipo:o.tipo,montoMinor:o.montoMinor,concepto:o.concepto,categoria:o.categoria,
-  ...(o.tipo==="PAGO_DEUDA"?{impactoCaja:o.impactoCaja}:{})});
+  ...(o.tipo==="PAGO_DEUDA"?{impactoCaja:o.impactoCaja}:{}),
+  ...(credito?{prestamoId:o.prestamoId,numeroCuota:o.numeroCuota,montoPagadoRealMinor:o.montoPagadoRealMinor}:{})});
+}
+function originalDesdeFuente(f){
+ const o={usuarioId:String(f.usuarioId),movimientoId:String(f._id),tipo:f.tipo,montoMinor:f.montoMinor,concepto:f.concepto,categoria:f.categoria};
+ if(f.tipo==="PAGO_DEUDA"){
+  o.impactoCaja=f.impactoCaja;
+  if(f.prestamoId){
+   const numero=/^Cuota ([1-9][0-9]{0,2}) confirmada(?: · pendiente de conciliación de origen)?$/.exec(f.descripcion||"");
+   o.prestamoId=String(f.prestamoId);o.numeroCuota=numero?Number(numero[1]):NaN;
+   o.montoPagadoRealMinor=f.montoPagadoRealMinor??f.montoMinor;
+  }
+ }
+ return originalVerificado(o);
 }
 function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,secuencia,fechaISO}){
  const anterior=originalVerificado(original);
@@ -51,11 +69,11 @@ function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,s
   nuevo[key]=v;
  }
  if(tipo==="CORRECCION"&&keys.every(k=>nuevo[k]===anterior[k]))throw new TypeError("Corrección sin efecto");
- const signed=o=>o.tipo==="PAGO_DEUDA"&&!o.impactoCaja?0n:(["INGRESO","COBRO_PRESTAMO"].includes(o.tipo)?1n:-1n)*BigInt(o.montoMinor);
+ const signed=o=>o.tipo==="PAGO_DEUDA"&&!o.impactoCaja?0n:(["INGRESO","COBRO_PRESTAMO"].includes(o.tipo)?1n:-1n)*BigInt(o.montoPagadoRealMinor??o.montoMinor);
  const delta=tipo==="ANULACION"?-signed(anterior):signed(nuevo)-signed(anterior);
  if(delta>BigInt(Number.MAX_SAFE_INTEGER)||delta<BigInt(Number.MIN_SAFE_INTEGER))
   throw new RangeError("Delta fuera de rango seguro");
- const payload={version:reclasificacion?3:anterior.tipo==="PAGO_DEUDA"?2:1,usuarioId:anterior.usuarioId,movimientoId:anterior.movimientoId,tipo,secuencia,fechaISO,
+ const payload={version:reclasificacion?3:anterior.tipo==="PAGO_DEUDA"?(anterior.prestamoId?4:2):1,usuarioId:anterior.usuarioId,movimientoId:anterior.movimientoId,tipo,secuencia,fechaISO,
   idempotencyKey,prevHash,original:anterior,cambios:Object.freeze({...cambios}),deltaCajaMinor:String(delta)};
  const hashActual=crypto.createHash("sha256").update(canon(payload)).digest("hex");
  return Object.freeze({...payload,hashActual});
@@ -74,4 +92,4 @@ function verificarCadena(eventos,{prevHash,secuenciaInicial=1}={}){
  }
  return true;
 }
-module.exports={eventoCompensatorio,verificarCadena,canon};
+module.exports={eventoCompensatorio,verificarCadena,canon,originalDesdeFuente};

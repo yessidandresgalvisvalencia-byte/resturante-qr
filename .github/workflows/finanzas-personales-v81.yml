@@ -359,6 +359,11 @@ jobs:
           GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_trabajos?replicaSet=rs0
           GRUK_REQUIRE_COMPENSACION_MONGO_TEST: "1"
         run: node --test test/finanzas-personales/reclasificarTrabajoMongoV81.integration.test.js
+      - name: Probar reversión de crédito con capital y pago real separados
+        env:
+          GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_creditos?replicaSet=rs0
+          GRUK_REQUIRE_COMPENSACION_MONGO_TEST: "1"
+        run: node --test test/finanzas-personales/reversionCreditoMongoV81.integration.test.js
       - name: Limpiar MongoDB aislado
         if: always()
         run: docker rm -f mongo-v81-test || true

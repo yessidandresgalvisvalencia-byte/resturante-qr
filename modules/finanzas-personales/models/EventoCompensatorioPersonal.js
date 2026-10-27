@@ -9,6 +9,9 @@ const original=new Schema({
  movimientoId:{type:String,required:true,match:NONEMPTY},
  tipo:{type:String,required:true,enum:["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"]},
  impactoCaja:{type:Boolean,required:function(){return this.tipo==="PAGO_DEUDA";},default:undefined},
+ prestamoId:{type:String,match:/^[a-f0-9]{24}$/i,default:undefined},
+ numeroCuota:{type:Number,min:1,max:600,validate:Number.isInteger,default:undefined},
+ montoPagadoRealMinor:{type:Number,min:1,validate:Number.isSafeInteger,default:undefined},
  montoMinor:{type:Number,required:true,validate:Number.isSafeInteger,min:1},
  concepto:{type:String,required:true,minlength:1},
  categoria:{type:String,required:true,minlength:1}
@@ -20,7 +23,7 @@ const cambios=new Schema({
  categoria:{type:String,minlength:1}
 },{_id:false,strict:"throw"});
 const schema=new Schema({
- version:{type:Number,required:true,enum:[1,2,3]},
+ version:{type:Number,required:true,enum:[1,2,3,4]},
  usuarioId:{type:String,required:true,match:NONEMPTY},
  movimientoId:{type:String,required:true,match:NONEMPTY},
  tipo:{type:String,required:true,enum:["CORRECCION","ANULACION"]},

@@ -40,6 +40,14 @@ test("V3 reclasifica cobros como ingresos sin sumar dinero ni permitir cambios d
   assert.throws(()=>eventoCompensatorio({...base,original:cobro,tipo:"CORRECCION",cambios}));
  assert.throws(()=>eventoCompensatorio({...base,original:cobro,tipo:"ANULACION"}));
 });
+test("V4 restaura capital por separado del dinero realmente pagado",()=>{
+ const credito={...original,tipo:"PAGO_DEUDA",montoMinor:400,montoPagadoRealMinor:450,prestamoId:"507f1f77bcf86cd799439011",numeroCuota:1,impactoCaja:true};
+ const e=eventoCompensatorio({...base,original:credito,tipo:"ANULACION"});
+ assert.equal(e.version,4);assert.equal(e.original.montoMinor,400);assert.equal(e.deltaCajaMinor,"450");
+ assert.equal(eventoCompensatorio({...base,original:{...credito,impactoCaja:false},tipo:"ANULACION"}).deltaCajaMinor,"0");
+ for(const cambio of [{montoPagadoRealMinor:399},{numeroCuota:0},{prestamoId:"ajeno"}])
+  assert.throws(()=>eventoCompensatorio({...base,original:{...credito,...cambio},tipo:"ANULACION"}));
+});
 test("cadena detecta alteraciones, reordenamiento y clave duplicada",()=>{
  const a=eventoCompensatorio({...base,tipo:"CORRECCION",cambios:{montoMinor:23000}});
  const b=eventoCompensatorio({...base,tipo:"ANULACION",prevHash:a.hashActual,secuencia:2,idempotencyKey:"anulacion_02"});

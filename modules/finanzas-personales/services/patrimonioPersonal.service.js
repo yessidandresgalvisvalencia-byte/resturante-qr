@@ -1,6 +1,7 @@
 "use strict";
 const mongoose=require("mongoose");
-const {exigirOriginalSinCompensaciones}=require("./proteccionOriginalCompensadoPersonal.service");
+const {serializarEscrituraFuente}=require("./proteccionOriginalCompensadoPersonal.service");
+const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const {consultarCaja,consultarPeriodo}=require("./consultaCompensadaPersonal.service");const Cuenta=require("../models/cuentaFinanciera.model");const Activo=require("../models/ActivoPatrimonial");const Prestamo=require("../models/prestamoPersonal.model");const Transaccion=require("../models/TransaccionPersonal");const Outbox=require("../models/outboxPersonal.model");const crypto=require("crypto");
 function fechaContableValidaPersonal(fecha){
  return fecha instanceof Date&&Number.isFinite(fecha.getTime())&&fecha.getTime()<=Date.now();
@@ -203,17 +204,20 @@ async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota
  const session=await mongoose.startSession();let resultado;
  try{
   await session.withTransaction(async()=>{
+   await serializarEscrituraFuente(usuarioId,session);
    const previo=await Transaccion.findOne({usuarioId,externalIdHash:hash}).session(session);
-   if(previo){if(previo.tipo!=="PAGO_DEUDA"||String(previo.prestamoId)!==String(prestamoId)||String(previo.cuentaId||"")!==String(cuentaId||"")||previo.impactoCaja===(modo==="HISTORICO")||(previo.montoPagadoRealMinor||previo.montoMinor)!==montoPagadoRealMinor||!previo.descripcion.includes("Cuota "+numeroCuota+" "))throw Object.assign(new Error("Referencia reutilizada"),{statusCode:409});resultado={transaccion:previo,duplicado:true};return;}
+   if(previo){if(previo.estado!=="ACTIVA"||await require("../models/EventoCompensatorioPersonal").exists({usuarioId:String(usuarioId),movimientoId:String(previo._id)}).session(session)||previo.tipo!=="PAGO_DEUDA"||String(previo.prestamoId)!==String(prestamoId)||String(previo.cuentaId||"")!==String(cuentaId||"")||previo.impactoCaja===(modo==="HISTORICO")||(previo.montoPagadoRealMinor||previo.montoMinor)!==montoPagadoRealMinor||!previo.descripcion.includes("Cuota "+numeroCuota+" "))throw Object.assign(new Error("Referencia reutilizada"),{statusCode:409});resultado={transaccion:previo,duplicado:true};return;}
    const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0},cuotaMinor:{$gt:0},periodicidadConfirmada:true}).session(session);
    if(!p)throw Object.assign(new Error("Crédito sin cuotas confirmadas o ya cancelado"),{statusCode:409});
    if(p.tasaMensualPct>0)throw Object.assign(new Error("Este crédito tiene intereses: antes de registrar una cuota hay que separar capital e intereses para evitar errores contables."),{statusCode:409});
-   const pagos=await Transaccion.find({usuarioId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).select("descripcion montoMinor").session(session).lean();
+   const cuotaService=require("./reversionCuotaCreditoPersonal.service");
+   const {pagos}=cuotaService.validarPagosCredito(p,await cuotaService.pagosCreditoVigentes(usuarioId,p._id,{session}));
+   if(!Number.isSafeInteger(p.cuotaMinor)||p.cuotaMinor<1)throw Object.assign(new Error("Cuota del crédito no conciliable"),{statusCode:409});
    if(pagos.some(x=>x.descripcion.startsWith("Cuota "+numeroCuota+" ")))throw Object.assign(new Error("Esta cuota ya está pagada"),{statusCode:409});
    if(numeroCuota!==pagos.length+1)throw Object.assign(new Error("Debes registrar las cuotas en orden"),{statusCode:409});
    const montoBase=Math.min(p.cuotaMinor,p.saldoMinor);const monto=Math.min(montoBase,montoPagadoRealMinor);
-   const cuenta=modo==="CUENTA"?await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,saldoMinor:{$gte:montoPagadoRealMinor}},{$inc:{saldoMinor:-montoPagadoRealMinor}},{new:true,session}):null;
-   if(modo==="CUENTA"&&!cuenta)throw Object.assign(new Error("Cuenta no disponible o fondos insuficientes"),{statusCode:409});
+   const cuenta=modo==="CUENTA"?await Cuenta.findOneAndUpdate({_id:cuentaId,usuarioId,activa:true,moneda:"COP",...filtroSaldoSeguro(-montoPagadoRealMinor)},{$inc:{saldoMinor:-montoPagadoRealMinor}},{new:true,session}):null;
+   if(modo==="CUENTA"&&(!cuenta||!Number.isSafeInteger(cuenta.saldoMinor)))throw Object.assign(new Error("Cuenta no disponible o fondos insuficientes"),{statusCode:409});
    p.saldoMinor-=monto;if(p.saldoMinor===0){p.estado="PAGADO";p.periodicidadConfirmada=false;}await p.save({session});
    const [tx]=await Transaccion.create([{usuarioId,prestamoId:p._id,cuentaId:cuenta?cuenta._id:null,cuenta:cuenta?cuenta.nombre:"PAGO HISTÓRICO SIN CUENTA",impactoCaja:modo==="CUENTA",tipo:"PAGO_DEUDA",montoMinor:monto,montoPagadoRealMinor,concepto:("Pago cuota "+numeroCuota+" · "+p.concepto).slice(0,140),categoria:"Pago de capital de deuda",descripcion:"Cuota "+numeroCuota+" confirmada"+(modo==="HISTORICO"?" · pendiente de conciliación de origen":""),contraparte:p.contraparte,medioPago:cuenta?(cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA"):"OTRO",fecha:new Date(),origen:"MANUAL",externalIdHash:hash}],{session});
    await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(p._id),tipo:"PAGO_DEUDA",numeroCuota,montoMinor:monto,montoPagadoRealMinor,impactoCaja:modo==="CUENTA"}}],{session});
@@ -222,34 +226,8 @@ async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota
   return resultado;
  }finally{await session.endSession();}
 }
-async function deshacerUltimaCuotaCredito(usuarioId,prestamoId){
- const session=await mongoose.startSession();
- try{
-  let resultado;
-  await session.withTransaction(async()=>{
-   const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO","PAGADO"]}}).session(session);
-   if(!p)throw Object.assign(new Error("Deuda no encontrada"),{statusCode:404});
-   const pagos=await Transaccion.find({usuarioId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA",descripcion:/^Cuota [0-9]+ confirmada/}).sort({fecha:-1,_id:-1}).session(session);
-   if(!pagos.length)throw Object.assign(new Error("No hay cuotas registradas que se puedan deshacer"),{statusCode:409});
-   const tx=pagos[0],numero=pagos.length;
-   if(!tx.descripcion.startsWith("Cuota "+numero+" "))throw Object.assign(new Error("La secuencia de cuotas necesita revisión antes de deshacer"),{statusCode:409});
-   if(tx.impactoCaja!==false){
-    const cuenta=await Cuenta.findOneAndUpdate({_id:tx.cuentaId,usuarioId,activa:true},{$inc:{saldoMinor:tx.montoPagadoRealMinor||tx.montoMinor}},{new:true,session});
-    if(!cuenta||!Number.isSafeInteger(cuenta.saldoMinor))throw Object.assign(new Error("No se pudo restaurar la cuenta de origen"),{statusCode:409});
-   }
-   if(!Number.isSafeInteger(p.saldoMinor+tx.montoMinor)||p.saldoMinor+tx.montoMinor>p.principalMinor)throw Object.assign(new Error("Reversión excede el valor de la deuda"),{statusCode:409});
-   p.saldoMinor+=tx.montoMinor;
-   if(p.estado==="PAGADO")p.estado="ACTIVO";
-   p.periodicidadConfirmada=true;
-   await p.save({session});
-   await exigirOriginalSinCompensaciones(usuarioId,tx._id,session);
-   tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion="CUOTA_MARCADA_PAGADA_POR_ERROR";
-   await tx.save({session});
-   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{accion:"ANULACION_PAGO_DEUDA",prestamoId:String(p._id),transaccionId:String(tx._id),numeroCuota:numero,montoMinor:tx.montoMinor}}],{session});
-   resultado={numeroCuota:numero,saldoPendienteMinor:p.saldoMinor,transaccionAnuladaId:String(tx._id)};
-  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
-  return resultado;
- }finally{await session.endSession();}
+async function deshacerUltimaCuotaCredito(usuarioId,prestamoId,solicitud){
+ return require("./reversionCuotaCreditoPersonal.service").deshacer(usuarioId,prestamoId,solicitud);
 }
 async function corregirPrestamo(usuarioId,prestamoId,cambios){
  const session=await mongoose.startSession();

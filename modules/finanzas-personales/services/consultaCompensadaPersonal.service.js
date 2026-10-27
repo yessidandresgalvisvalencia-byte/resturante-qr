@@ -4,7 +4,7 @@ const Transaccion=require("../models/TransaccionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const {vigente}=require("./estadoCompensadoPersonal.service");
-const {verificarCadena}=require("./eventoCompensatorioPersonal.service");
+const {verificarCadena,originalDesdeFuente}=require("./eventoCompensatorioPersonal.service");
 const GENESIS="0".repeat(64),MAX_MOVIMIENTOS=5000,MAX_EVENTOS=10000;
 function integridad(){throw new Error("INTEGRIDAD_LEDGER: lectura compensada inconsistente");}
 // Recibe la cadena COMPLETA del usuario. Un subconjunto no permite verificar el cursor.
@@ -29,8 +29,7 @@ function proyectar({usuarioId,fuentes,eventos,cursor}){
   const historial=porMovimiento.get(id)||[];
   if(!historial.length)return Object.freeze({...f});
   if(f.estado!=="ACTIVA")integridad();
-  const original={usuarioId,movimientoId:id,tipo:f.tipo,montoMinor:f.montoMinor,
-   concepto:f.concepto,categoria:f.categoria,...(f.tipo==="PAGO_DEUDA"?{impactoCaja:f.impactoCaja}:{})};
+  const original=originalDesdeFuente(f);
   const estado=vigente(original,historial);
   const {usuarioId:_,movimientoId:__,...campos}=estado.actual;
   return Object.freeze({...f,...campos,estado:estado.anulado?"ANULADA":"ACTIVA",
@@ -51,9 +50,10 @@ function proyectarCaja(datos){
    ((e.original.tipo==="COBRO_PRESTAMO"&&e.cambios.tipo==="INGRESO")||
     (e.original.tipo==="INGRESO"&&e.cambios.tipo==="COBRO_PRESTAMO")))continue;
   const deuda=fuente.tipo==="PAGO_DEUDA";
+  const credito=deuda&&e.version===4&&e.tipo==="ANULACION"&&e.original.prestamoId===String(fuente.prestamoId);
   if((fuente.impactoCaja!==true&&!(deuda&&fuente.impactoCaja===false))||
      (deuda&&e.tipo!=="ANULACION")||fuente.medioPago==="CREDITO"||fuente.recurrente||
-     (fuente.recurrenteOrigenId&&e.tipo!=="ANULACION")||fuente.prestamoId)integridad();
+     (fuente.recurrenteOrigenId&&e.tipo!=="ANULACION")||(fuente.prestamoId&&!credito))integridad();
   const delta=BigInt(e.deltaCajaMinor);if(delta===0n)continue;
   const monto=Number(delta<0n?-delta:delta);
   if(!Number.isSafeInteger(monto))integridad();

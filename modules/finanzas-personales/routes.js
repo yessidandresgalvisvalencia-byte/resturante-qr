@@ -139,11 +139,9 @@ const editarPrestamoSchema=Joi.object({
 }).min(1);
 router.get("/prestamos/:id/cuotas",async(req,res)=>{
  if(!/^[0-9a-f]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- const Prestamo=require("./models/prestamoPersonal.model"),Tx=require("./models/TransaccionPersonal");
- const p=await Prestamo.findOne({_id:req.params.id,usuarioId:req.personalAuth.userId,direccion:"POR_PAGAR"}).lean();
- if(!p)return res.status(404).json({ok:false,error:"Deuda no encontrada"});
- const pagos=await Tx.find({usuarioId:req.personalAuth.userId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).sort({fecha:1,_id:1}).select("descripcion montoMinor montoPagadoRealMinor fecha").lean();
- const totalPagadoRealMinor=pagos.reduce((n,t)=>n+(t.montoPagadoRealMinor||t.montoMinor),0);
+ try{
+ const {prestamo:p,pagos:vigentes,totalPagadoRealMinor}=await require("./services/reversionCuotaCreditoPersonal.service").obtenerPagosCredito(req.personalAuth.userId,req.params.id);
+ const pagos=vigentes.map(t=>({_id:t._id,descripcion:t.descripcion,montoMinor:t.montoMinor,montoPagadoRealMinor:t.montoPagadoRealMinor,fecha:t.fecha}));
  const vencimientoOriginal=p.fechaVencimiento?new Date(p.fechaVencimiento):null;
  let proximoVencimiento=null,frecuenciaSinConfirmar=false;
  if(p.saldoMinor>0&&vencimientoOriginal&&!Number.isNaN(vencimientoOriginal.getTime())){
@@ -157,6 +155,7 @@ router.get("/prestamos/:id/cuotas",async(req,res)=>{
  }
 
  return res.json({ok:true,proximoVencimiento,frecuenciaSinConfirmar,totalPagadoRealMinor,valorOriginalMinor:p.principalMinor,costoAdicionalObservadoMinor:pagos.length&&p.saldoMinor===0?totalPagadoRealMinor-p.principalMinor:null,cuotasPagadas:pagos,proximaCuota:pagos.length+1,importeProximaMinor:p.saldoMinor>0?Math.min(p.cuotaMinor||0,p.saldoMinor):0,saldoPendienteMinor:p.saldoMinor,periodicidadConfirmada:Boolean(p.periodicidadConfirmada)});
+ }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudieron consultar las cuotas"});}
 });
 const cuotaPagoSchema=Joi.object({cuentaId:Joi.string().hex().length(24).allow(null).default(null),modo:Joi.string().valid("CUENTA","HISTORICO").default("CUENTA"),numeroCuota:Joi.number().integer().min(1).max(600).required(),montoPagadoRealMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
 router.post("/prestamos/:id/cuotas/pagar",validate(cuotaPagoSchema),async(req,res)=>{
@@ -164,11 +163,7 @@ router.post("/prestamos/:id/cuotas/pagar",validate(cuotaPagoSchema),async(req,re
  try{return res.json({ok:true,resultado:await patrimonioPersonal.pagarCuotaCredito(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated})});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo registrar la cuota"});}
 });
-router.post("/prestamos/:id/cuotas/deshacer",async(req,res)=>{
- if(!/^[0-9a-f]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- try{return res.json({ok:true,resultado:await patrimonioPersonal.deshacerUltimaCuotaCredito(req.personalAuth.userId,req.params.id)});}
- catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo deshacer el pago"});}
-});
+router.post("/prestamos/:id/cuotas/deshacer",require("./services/reversionCuotaCredito.handler").crearReversionCuotaCredito());
 router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
  try{
   if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});

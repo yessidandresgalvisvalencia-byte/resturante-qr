@@ -14,7 +14,11 @@ function calcularFlujo(rows,{incluirPrestamos=false}={}){
   const monto=BigInt(x.montoMinor);
   if(x.tipo==="INGRESO"||incluirPrestamos&&["PRESTAMO_RECIBIDO","COBRO_PRESTAMO"].includes(x.tipo))ingresos+=monto;
   if(x.tipo==="GASTO"||incluirPrestamos&&x.tipo==="PRESTAMO_OTORGADO")gastos+=monto;
-  if(x.tipo==="PAGO_DEUDA")pagos+=monto;
+  if(x.tipo==="PAGO_DEUDA"){
+   const real=x.montoPagadoRealMinor??x.montoMinor;
+   if(!Number.isSafeInteger(real)||real<x.montoMinor)throw new TypeError("Pago real de deuda inseguro");
+   pagos+=BigInt(real);
+  }
  }
  return {ingresosMinor:exacto(ingresos),gastosMinor:exacto(gastos),pagosDeudaMinor:exacto(pagos),
   flujoNetoMinor:exacto(ingresos-gastos-pagos),moneda:"COP"};

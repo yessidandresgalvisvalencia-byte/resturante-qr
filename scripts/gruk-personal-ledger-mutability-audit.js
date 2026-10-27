@@ -29,8 +29,13 @@ function main(args=process.argv.slice(2)){
  if(hallazgos.length){
   process.stderr.write("[GRUK PERSONAL] Ledger NO certificado append-only: "+hallazgos.map(h=>h.archivo+":"+h.id).join(", ")+"\n");
   process.stderr.write("Bloqueador de liberación: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/issues/407\n");
- }else process.stdout.write("[GRUK PERSONAL] No se encontraron estos patrones de mutación; requiere auditoría adicional.\n");
- if(args.includes("--enforce")&&hallazgos.length)process.exitCode=1;
+ }else{
+  process.stdout.write("[GRUK PERSONAL] No se encontraron estos patrones de mutación en los archivos revisados.\n");
+  process.stderr.write("[GRUK PERSONAL] Ledger NO certificado append-only: faltan evidencias de permisos MongoDB, anclajes independientes y cobertura completa de escrituras.\n");
+  process.stderr.write("Bloqueador de liberación: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/issues/407\n");
+ }
+ // Una búsqueda de patrones vacía no acredita los requisitos externos de #407.
+ if(args.includes("--enforce"))process.exitCode=1;
  return hallazgos;
 }
 if(require.main===module)main();

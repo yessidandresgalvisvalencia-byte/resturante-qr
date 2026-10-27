@@ -164,11 +164,11 @@ const renderPrestamo=x=>{
  if(propia&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0){
   if(detalle?.frecuenciaSinConfirmar)html+='<button class="secondary mini" onclick="window.confirmarFrecuenciaMensual(\''+esc(String(x._id))+'\')">Confirmar cuotas mensuales</button>';
   html+='<button class="mini" onclick="window.registrarCuota(\''+esc(String(x._id))+'\')">'+(x.periodicidadConfirmada&&siguiente?'Pagar cuota #'+siguiente:'Registrar pago cuota #1')+'</button>';
-  if(pagadas>0)html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
+  if(pagadas>0)html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\',\''+esc(String(detalle.cuotasPagadas.at(-1)._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
   html+='<button class="secondary mini" onclick="window.configurarPeriodicidad(\''+esc(String(x._id))+'\')">Editar cuotas</button>';
   html+='<button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\')">Eliminar</button>';
  }else if(propia&&x.estado==="PAGADO"&&pagadas>0){
-  html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
+  html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\',\''+esc(String(detalle.cuotasPagadas.at(-1)._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
  }else if(!propia&&x.estado==="PAGADO"){
   html+='<button class="secondary mini" onclick="window.corregirOrigenCobro(\''+esc(String(x._id))+'\')">Corregir</button>';
  }else if(!propia&&x.estado!=="PAGADO"){
@@ -188,15 +188,18 @@ $("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pa
  cargaPanelEnCurso=ejecucion;
  tokenCargaPanel=tokenAlInicio;
  try{return await ejecucion;}finally{if(cargaPanelEnCurso===ejecucion){cargaPanelEnCurso=null;tokenCargaPanel=null;}}
-}window.deshacerUltimaCuota=async id=>{try{
- const info=await api("/prestamos/"+encodeURIComponent(id)+"/cuotas");
- const pagos=info.cuotasPagadas||[];
- if(!pagos.length)throw Error("No hay una cuota registrada para deshacer");
- const n=pagos.length,ultimo=pagos[pagos.length-1];
- if(!confirm("¿Deshacer el pago de la cuota #"+n+" por "+money(ultimo.montoMinor)+"? Se anulará el movimiento y se restaurará el saldo pendiente y la cuenta utilizada."))return;
- await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/deshacer",{method:"POST"});
- await load();alert("Cuota #"+n+" revertida correctamente.");
- }catch(e){alert("No se pudo deshacer la cuota: "+e.message)}
+}window.deshacerUltimaCuota=async(id,movimientoId)=>{
+ if(!/^[a-f0-9]{24}$/i.test(movimientoId||"")){alert("Actualiza las cuotas antes de revertir este pago.");return;}
+ if(mutacionesMovimientoEnCurso.has(movimientoId))return;mutacionesMovimientoEnCurso.add(movimientoId);
+ const k="CREDITO:"+token+":"+movimientoId;
+ try{
+  if(!confirm("¿Revertir el registro de este pago? Se conservará el asiento original, se restaurará el capital de la deuda y se devolverá a la cuenta el importe realmente registrado."))return;
+  await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/deshacer",{
+   method:"POST",headers:{"Idempotency-Key":claveCompensacion(k)},body:JSON.stringify({movimientoId})
+  });
+  await load();clavesCompensacionPendientes.delete(k);alert("Pago revertido. El asiento original permanece en el historial.");
+ }catch(e){alert("No se pudo deshacer la cuota: "+e.message);}
+ finally{mutacionesMovimientoEnCurso.delete(movimientoId);}
 };
 window.corregirOrigenCobro=async id=>{try{
  const datos=await api("/prestamos");
