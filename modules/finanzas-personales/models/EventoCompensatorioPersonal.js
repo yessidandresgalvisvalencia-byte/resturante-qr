@@ -7,20 +7,20 @@ const moneySigned=/^-?(0|[1-9][0-9]*)$/;
 const original=new Schema({
  usuarioId:{type:String,required:true,match:NONEMPTY},
  movimientoId:{type:String,required:true,match:NONEMPTY},
- tipo:{type:String,required:true,enum:["INGRESO","GASTO","PAGO_DEUDA"]},
+ tipo:{type:String,required:true,enum:["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"]},
  impactoCaja:{type:Boolean,required:function(){return this.tipo==="PAGO_DEUDA";},default:undefined},
  montoMinor:{type:Number,required:true,validate:Number.isSafeInteger,min:1},
  concepto:{type:String,required:true,minlength:1},
  categoria:{type:String,required:true,minlength:1}
 },{_id:false,strict:"throw"});
 const cambios=new Schema({
- tipo:{type:String,enum:["INGRESO","GASTO"]},
+ tipo:{type:String,enum:["INGRESO","GASTO","COBRO_PRESTAMO"]},
  montoMinor:{type:Number,validate:{validator:v=>v==null||Number.isSafeInteger(v)&&v>0}},
  concepto:{type:String,minlength:1},
  categoria:{type:String,minlength:1}
 },{_id:false,strict:"throw"});
 const schema=new Schema({
- version:{type:Number,required:true,enum:[1,2]},
+ version:{type:Number,required:true,enum:[1,2,3]},
  usuarioId:{type:String,required:true,match:NONEMPTY},
  movimientoId:{type:String,required:true,match:NONEMPTY},
  tipo:{type:String,required:true,enum:["CORRECCION","ANULACION"]},

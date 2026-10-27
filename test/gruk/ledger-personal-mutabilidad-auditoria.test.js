@@ -16,7 +16,7 @@ test("auditoría actual revela la deuda técnica y no presenta ledger como inmut
  const ids=auditoria.analizarMutacionesLedger(src).map(x=>x.id);
  assert.deepEqual(ids,[]);
  const pendientes=auditoria.auditarProyecto();
- assert.ok(pendientes.some(h=>h.archivo==="routes.js"));
+ assert.equal(pendientes.some(h=>h.archivo==="routes.js"),false);
  assert.ok(pendientes.some(h=>h.archivo==="services/patrimonioPersonal.service.js"));
  assert.equal(pendientes.some(h=>h.archivo==="services/compromisosCuotas.service.js"),false);
 });

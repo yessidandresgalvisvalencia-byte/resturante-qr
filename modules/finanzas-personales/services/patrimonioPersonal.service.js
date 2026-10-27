@@ -1,7 +1,7 @@
 "use strict";
 const mongoose=require("mongoose");
 const {exigirOriginalSinCompensaciones}=require("./proteccionOriginalCompensadoPersonal.service");
-const {consultarCaja}=require("./consultaCompensadaPersonal.service");const Cuenta=require("../models/cuentaFinanciera.model");const Activo=require("../models/ActivoPatrimonial");const Prestamo=require("../models/prestamoPersonal.model");const Transaccion=require("../models/TransaccionPersonal");const Outbox=require("../models/outboxPersonal.model");const crypto=require("crypto");
+const {consultarCaja,consultarPeriodo}=require("./consultaCompensadaPersonal.service");const Cuenta=require("../models/cuentaFinanciera.model");const Activo=require("../models/ActivoPatrimonial");const Prestamo=require("../models/prestamoPersonal.model");const Transaccion=require("../models/TransaccionPersonal");const Outbox=require("../models/outboxPersonal.model");const crypto=require("crypto");
 function fechaContableValidaPersonal(fecha){
  return fecha instanceof Date&&Number.isFinite(fecha.getTime())&&fecha.getTime()<=Date.now();
 }
@@ -259,7 +259,8 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
    const prestamo=await Prestamo.findOne({_id:prestamoId,usuarioId}).session(session);
    if(!prestamo)throw Object.assign(new Error("Préstamo no encontrado"),{statusCode:404});
    if(prestamo.estado==="CANCELADO")throw Object.assign(new Error("Un préstamo cancelado requiere revisión manual"),{statusCode:409});
-   const pagos=await Transaccion.find({usuarioId,prestamoId:prestamo._id,estado:"ACTIVA",tipo:{$in:["COBRO_PRESTAMO","INGRESO","PAGO_DEUDA"]}}).session(session).lean();
+   const pagos=(await consultarPeriodo({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"},{session}))
+    .filter(x=>String(x.prestamoId)===String(prestamo._id)&&["COBRO_PRESTAMO","INGRESO","PAGO_DEUDA"].includes(x.tipo));
    const abonadoRegistrado=pagos.reduce((s,p)=>s+p.montoMinor,0);
    if(!Number.isSafeInteger(abonadoRegistrado))throw Object.assign(new Error("Abonos fuera de rango"),{statusCode:422});
    const principalAnteriorMinor=prestamo.principalMinor;
@@ -281,12 +282,7 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
     if(pagosAfectados.length&&origenNuevo==="OTRO")throw Object.assign(new Error("La categoría OTRO requiere revisión individual de cobros anteriores"),{statusCode:409});
     if(pagosAfectados.length){
      if(principal!==principalAnteriorMinor)throw Object.assign(new Error("Corrige primero el valor del préstamo; luego reclasifica los cobros"),{statusCode:409});
-     for(const pago of pagosAfectados){
-      const tipoNuevo=origenNuevo==="TRABAJO"?"INGRESO":"COBRO_PRESTAMO";
-      if(pago.tipo===tipoNuevo)continue;
-      await exigirOriginalSinCompensaciones(usuarioId,pago._id,session);
-      await Transaccion.updateOne({_id:pago._id,usuarioId,prestamoId:prestamo._id,estado:"ACTIVA",tipo:pago.tipo},{$set:{tipo:tipoNuevo,categoria:tipoNuevo==="INGRESO"?"Trabajo cobrado":"Cuentas por cobrar"}},{session});
-     }
+     await require("./reclasificarTrabajoCompensadoPersonal.service").reclasificarOrigenEnSesion(usuarioId,prestamo,origenNuevo,session);
     }
     prestamo.origenCuentaPorCobrar=origenNuevo;
    }

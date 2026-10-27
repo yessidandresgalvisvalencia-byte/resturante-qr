@@ -23,6 +23,17 @@ test("anulación se proyecta conservando el documento original",()=>{
 test("lectura sin compensaciones mantiene estado histórico",()=>{
  assert.deepEqual(proyectar({...entrada,eventos:[],cursor:null}),[fuente]);
 });
+test("cobro de trabajo V3 cambia el informe de ingreso sin alterar el flujo original de caja",()=>{
+ const {proyectarCaja}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
+ const orig={...original,tipo:"COBRO_PRESTAMO"};
+ const evento=eventoCompensatorio({original:orig,tipo:"CORRECCION",cambios:{tipo:"INGRESO",categoria:"Trabajo cobrado"},idempotencyKey:"trabajo",prevHash:"0".repeat(64),secuencia:1,fechaISO:e.fechaISO});
+ const src={...fuente,...orig,prestamoId:"prestamo_1",impactoCaja:true,medioPago:"TRANSFERENCIA"};
+ const datos={usuarioId,fuentes:[src],eventos:[evento],cursor:{_id:usuarioId,secuencia:1,hashActual:evento.hashActual}};
+ assert.equal(proyectar(datos)[0].tipo,"INGRESO");
+ assert.equal(src.tipo,"COBRO_PRESTAMO");
+ assert.deepEqual(proyectarCaja(datos),[src]);
+ assert.throws(()=>proyectar({...datos,fuentes:[{...src,montoMinor:26000}]}),/INTEGRIDAD_LEDGER/);
+});
 test("reversión V2 de cuota preserva la salida original y fecha la devolución",()=>{
  const {proyectarCaja}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
  for(const impactoCaja of [true,false]){

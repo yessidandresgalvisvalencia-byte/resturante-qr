@@ -40,6 +40,6 @@ test("retirar la reparación elimina sus anulaciones pero conserva el bloqueo re
  const pendientes=auditarProyecto();
  const rutas=pendientes.filter(x=>x.archivo==="routes.js");
  assert.equal(rutas.some(x=>["ANULACION_ESTADO","SAVE_ANULACION"].includes(x.id)),false);
- assert.ok(rutas.some(x=>x.id==="MUTACION_MODELO_ORIGINAL"));
+ assert.equal(rutas.some(x=>x.id==="MUTACION_MODELO_ORIGINAL"),false);
  assert.ok(pendientes.some(x=>x.archivo==="services/patrimonioPersonal.service.js"));
 });

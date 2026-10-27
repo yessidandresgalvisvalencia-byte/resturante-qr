@@ -30,6 +30,16 @@ test("V2 revierte deuda con caja explícita y conserva el formato V1 anterior",(
  const viejo=eventoCompensatorio({...base,tipo:"ANULACION"});
  assert.equal(viejo.version,1);assert.equal(Object.hasOwn(viejo.original,"impactoCaja"),false);
 });
+test("V3 reclasifica cobros como ingresos sin sumar dinero ni permitir cambios de importe",()=>{
+ const cobro={...original,tipo:"COBRO_PRESTAMO"};
+ const e=eventoCompensatorio({...base,original:cobro,tipo:"CORRECCION",cambios:{tipo:"INGRESO",categoria:"Trabajo cobrado"}});
+ assert.equal(e.version,3);assert.equal(e.deltaCajaMinor,"0");
+ const vuelta=eventoCompensatorio({...base,tipo:"CORRECCION",original:{...original,tipo:"INGRESO"},cambios:{tipo:"COBRO_PRESTAMO",categoria:"Cuentas por cobrar"}});
+ assert.equal(vuelta.version,3);assert.equal(vuelta.deltaCajaMinor,"0");
+ for(const cambios of [{tipo:"INGRESO",montoMinor:1},{tipo:"GASTO"},{categoria:"Trabajo cobrado"},{tipo:"INGRESO",concepto:"Distinto"}])
+  assert.throws(()=>eventoCompensatorio({...base,original:cobro,tipo:"CORRECCION",cambios}));
+ assert.throws(()=>eventoCompensatorio({...base,original:cobro,tipo:"ANULACION"}));
+});
 test("cadena detecta alteraciones, reordenamiento y clave duplicada",()=>{
  const a=eventoCompensatorio({...base,tipo:"CORRECCION",cambios:{montoMinor:23000}});
  const b=eventoCompensatorio({...base,tipo:"ANULACION",prevHash:a.hashActual,secuencia:2,idempotencyKey:"anulacion_02"});

@@ -46,6 +46,10 @@ function proyectarCaja(datos){
  const rows=datos.fuentes.filter(f=>f.estado!=="ANULADA").map(f=>({...f}));
  for(const e of datos.eventos){
   const fuente=porId.get(e.movimientoId);if(!fuente)continue;
+  // Reclasificar un cobro de trabajo no cambia la caja ni su fecha de entrada.
+  if(e.version===3&&e.tipo==="CORRECCION"&&e.deltaCajaMinor==="0"&&fuente.prestamoId&&
+   ((e.original.tipo==="COBRO_PRESTAMO"&&e.cambios.tipo==="INGRESO")||
+    (e.original.tipo==="INGRESO"&&e.cambios.tipo==="COBRO_PRESTAMO")))continue;
   const deuda=fuente.tipo==="PAGO_DEUDA";
   if((fuente.impactoCaja!==true&&!(deuda&&fuente.impactoCaja===false))||
      (deuda&&e.tipo!=="ANULACION")||fuente.medioPago==="CREDITO"||fuente.recurrente||

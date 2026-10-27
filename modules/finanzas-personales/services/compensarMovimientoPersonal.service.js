@@ -21,6 +21,8 @@ function crearAplicador({OutboxModelo=Outbox}={}){
    throw error("Usuario o movimiento inválido",400);
   if(typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey))
    throw error("Idempotencia obligatoria",400);
+  if(cambios?.tipo!==undefined&&!["INGRESO","GASTO"].includes(cambios.tipo))
+   throw error("Reclasificación requiere el flujo de cuentas por cobrar",400);
   if(cambios?.concepto!==undefined&&(typeof cambios.concepto!=="string"||cambios.concepto.length>140)||
      cambios?.categoria!==undefined&&(typeof cambios.categoria!=="string"||cambios.categoria.length>80))
    throw error("Texto de corrección inválido",400);
