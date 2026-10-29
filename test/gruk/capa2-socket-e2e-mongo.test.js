@@ -142,9 +142,36 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
    "WebSocket nativo debe rechazar una empresa falsificada");
   assert.equal(conectados.size,2,"Solo polling y WebSocket legítimos pueden unirse");
 
+  // Carga moderada con transportes WebSocket REALES y MongoDB de pruebas.
+  // CI mide latencias observadas: no se proclama SLA sin carga de staging.
+  const totalAdicionales=16;
+  const inicioConexiones=Date.now();
+  const adicionales=await Promise.all(Array.from({length:totalAdicionales},async()=>{
+   const inicio=Date.now();
+   const sesion=await handshakeWebsocket(valid);
+   assert.match(sesion.packet,/^40\\{/);
+   return {id:JSON.parse(sesion.packet.slice(2)).sid,latenciaMs:Date.now()-inicio};
+  }));
+  const idsAdicionales=adicionales.map(x=>x.id);
+  await esperar(()=>idsAdicionales.every(id=>
+   conectados.get(id)?.rooms.has("empresa-"+A)),6000);
+  assert.equal(new Set(idsAdicionales).size,totalAdicionales);
+  assert.equal(conectados.size,totalAdicionales+2);
+  assert.equal(idsAdicionales.every(id=>!conectados.get(id).rooms.has("empresa-"+B)),true);
+  const latenciasConexion=adicionales.map(x=>x.latenciaMs).sort((a,b)=>a-b);
+  const p95Conexion=latenciasConexion[Math.ceil(latenciasConexion.length*.95)-1];
+  const inicioRevocacion=Date.now();
+
   await Usuario.updateOne({_id:user._id},{$inc:{tokenVersion:1}});
   await esperar(()=>!conectados.get(socketId)?.connected &&
-   !conectados.get(websocketId)?.connected,5000);
+   !conectados.get(websocketId)?.connected &&
+   idsAdicionales.every(id=>!conectados.get(id)?.connected),7000);
+  const latenciaRevocacionMs=Date.now()-inicioRevocacion;
+  console.log("[GRUK CI SOCKET LOAD]",JSON.stringify({
+   conexionesReales:totalAdicionales+2,
+   transporte:"websocket+polling",tiempoConexionesMs:inicioRevocacion-inicioConexiones,
+   p95HandshakeMs:p95Conexion,latenciaRevocacionMs
+  }));
   assert.equal(io.sockets.adapter.rooms.has("empresa-"+A),false,
    "El socket revocado ya no puede permanecer en el canal de la empresa");
  }finally{
