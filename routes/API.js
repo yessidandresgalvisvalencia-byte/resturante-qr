@@ -3152,104 +3152,55 @@ router.post("/sede/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (r
 });
 router.post("/usuarios/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE), async (req, res) => {
   try {
-    const validacion = crearUsuarioSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
-    if (validacion.error) {
-      return res.status(400).json({ ok: false, error: "Datos de usuario inválidos" });
+    const {error, value} = crearUsuarioSchema.validate(req.body, {abortEarly:false, stripUnknown:true});
+    if(error)return res.status(400).json({ok:false,error:"Datos de usuario inválidos"});
+    const {restauranteId,sedeId,nombre,usuario,password,rol}=value;
+    const empresaId=req.auth.empresaId;
+    if(req.auth.rol===ROLES_GRUK.ADMIN_SEDE &&
+       (!sedeId || String(req.auth.sedeId||"")!==String(sedeId))) {
+      return res.status(403).json({ok:false,error:"ADMIN_SEDE solo puede crear usuarios en su propia sede"});
     }
-    const { restauranteId, sedeId, nombre, usuario, password, rol } = validacion.value;
+    const rolesPermitidos=req.auth.rol===ROLES_GRUK.DUENO?["admin_sede","mesero"]:["mesero"];
+    if(!rolesPermitidos.includes(rol))return res.status(403).json({ok:false,error:"No puedes asignar ese rol"});
+    const restaurante=await Restaurante.exists({restaurantId:restauranteId,empresaId});
+    if(!restaurante)return res.status(404).json({ok:false,error:"Restaurante no encontrado"});
+    if(await Usuario.exists({usuario}))return res.status(400).json({ok:false,error:"Ese usuario ya existe"});
 
-    // Buscar restaurante para obtener empresaId
-    const restaurante = await Restaurante.findOne({
-      restaurantId: restauranteId,
-      empresaId: req.auth.empresaId
-    });
-
-    if (!restaurante) {
-      return res.status(404).json({
-        ok: false,
-        error: "Restaurante no encontrado"
-      });
+    const passwordHash=await bcrypt.hash(String(password),12);
+    let nuevoUsuario=null;
+    if(sedeId){
+      if(!mongoose.isValidObjectId(sedeId))return res.status(400).json({ok:false,error:"sedeId inválido"});
+      const session=await mongoose.startSession();
+      try{
+        await session.withTransaction(async()=>{
+          nuevoUsuario=null;
+          const sede=await Sede.findOneAndUpdate({
+            _id:sedeId,empresaId,restauranteId
+          },{$inc:{authFence:1}},{new:true,session});
+          if(!sede)return;
+          nuevoUsuario=new Usuario({empresaId,restauranteId,sedeId,nombre,usuario,password:passwordHash,rol});
+          await nuevoUsuario.save({session});
+        },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
+      }finally{await session.endSession();}
+      if(!nuevoUsuario)return res.status(403).json({ok:false,error:"La sede no pertenece a este restaurante y empresa"});
+    }else{
+      // Compatibilidad: el dueño puede crear personal sin sede explícita.
+      nuevoUsuario=await Usuario.create({empresaId,restauranteId,sedeId:null,nombre,usuario,password:passwordHash,rol});
     }
-
-    if (sedeId) {
-      if (!mongoose.Types.ObjectId.isValid(sedeId)) {
-        return res.status(400).json({
-          ok: false,
-          error: "sedeId inválido"
-        });
-      }
-
-      const sedeAutorizada = await Sede.findOne({
-        _id: sedeId,
-        empresaId: req.auth.empresaId,
-        restauranteId
-      }).select("_id").lean();
-
-      if (!sedeAutorizada) {
-        return res.status(403).json({
-          ok: false,
-          error: "La sede no pertenece a este restaurante y empresa"
-        });
-      }
+    // No exponer hash de credenciales ni documentos internos.
+    return res.json({ok:true,usuario:{
+      _id:nuevoUsuario._id,empresaId:nuevoUsuario.empresaId,restauranteId:nuevoUsuario.restauranteId,
+      sedeId:nuevoUsuario.sedeId,nombre:nuevoUsuario.nombre,usuario:nuevoUsuario.usuario,
+      rol:nuevoUsuario.rol,estado:nuevoUsuario.estado
+    }});
+  }catch(error){
+    if(typeof error?.hasErrorLabel==="function" &&
+      (error.hasErrorLabel("TransientTransactionError")||error.hasErrorLabel("UnknownTransactionCommitResult"))){
+      return res.status(409).json({ok:false,error:"Conflicto de concurrencia al asignar usuario; consulta antes de reintentar"});
     }
-
-    if (
-      req.auth.rol === ROLES_GRUK.ADMIN_SEDE &&
-      String(req.auth.sedeId || "") !== String(sedeId || "")
-    ) {
-      return res.status(403).json({
-        ok: false,
-        error: "ADMIN_SEDE solo puede crear usuarios en su propia sede"
-      });
-    }
-
-    const rolesPermitidos =
-      req.auth.rol === ROLES_GRUK.DUENO
-        ? ["admin_sede", "mesero"]
-        : ["mesero"];
-
-    if (!rolesPermitidos.includes(rol)) {
-      return res.status(403).json({
-        ok: false,
-        error: "No puedes asignar ese rol"
-      });
-    }
-
-    const existe = await Usuario.findOne({ usuario });
-
-    if (existe) {
-      return res.status(400).json({
-        ok: false,
-        error: "Ese usuario ya existe"
-      });
-    }
-
-    const passwordHash = await bcrypt.hash(String(password), 12);
-
-    const nuevoUsuario = new Usuario({
-      empresaId: restaurante.empresaId || null,
-      restauranteId,
-      sedeId: sedeId || null,
-      nombre,
-      usuario,
-      password: passwordHash,
-      rol
-    });
-
-    await nuevoUsuario.save();
-
-    res.json({
-      ok: true,
-      usuario: nuevoUsuario
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    res.status(500).json({
-      ok: false,
-      error: "Error creando usuario"
-    });
+    if(error?.code===11000)return res.status(409).json({ok:false,error:"Ese usuario ya existe"});
+    console.error("Error creando usuario:",error?.message);
+    return res.status(500).json({ok:false,error:"Error creando usuario"});
   }
 });
 router.post("/usuarios/login", async (req, res) => {
