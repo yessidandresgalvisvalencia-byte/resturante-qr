@@ -47,7 +47,10 @@ function vigilarSesionSocket(socket,{
      if(typeof deadline?.unref==="function")deadline.unref();
     })
    ]);
-   if(!vigente)detener();
+   if(!vigente){
+    if(socket.connected)socket.disconnect(true);
+    detener();
+   }
   }catch{
    // Mongo lento/caído o timeout: no mantener acceso empresarial abierto.
    if(socket.connected)socket.disconnect(true);
