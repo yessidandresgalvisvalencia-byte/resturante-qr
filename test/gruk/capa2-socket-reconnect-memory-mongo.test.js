@@ -15,7 +15,8 @@ const {vigilarSesionSocket}=require("../../core/auth/socketSessionWatchdog.servi
 const {crearLimiteValidaciones}=require("../../core/auth/socketValidationLimiter.service");
 const {crearVerificadorCompartido}=require("../../core/auth/socketSharedVerifier.service");
 const mongo=process.env.GRUK_TEST_MONGO_URI||process.env.TEST_MONGO_URI;
-const ciclos=8,socketsPorCiclo=24;
+const stressGc=process.env.GRUK_CYCLE_GC_STRESS==="1";
+const ciclos=stressGc?20:8,socketsPorCiclo=24;
 
 function local(uri){
  try{
@@ -56,7 +57,7 @@ async function conectar(url,token){
   return ws;
  }catch(err){ws.terminate();throw err;}
 }
-test("Capa 2: ocho ciclos de 24 WebSockets reales liberan todos los sockets y validaciones",{
+test("Capa 2: ciclos reales de 24 WebSockets liberan todos los sockets y validaciones",{
  skip:!mongo&&!process.env.CI,timeout:65000
 },async()=>{
  assert.ok(local(mongo),"Solo se permite MongoDB local de pruebas");
@@ -132,6 +133,11 @@ test("Capa 2: ocho ciclos de 24 WebSockets reales liberan todos los sockets y va
    await esperar(()=>sockets.size===0&&ticks.size===0);
    assert.equal(limitador.estadisticas().activas,0);
    assert.equal(io.sockets.adapter.rooms.has("empresa-"+empresaId),false);
+   if(stressGc){
+    assert.equal(typeof global.gc,"function","La ejecución aislada requiere --expose-gc");
+    await new Promise(resolve=>setImmediate(resolve));
+    global.gc();global.gc();
+   }
    const m=process.memoryUsage();
    memoria.push({ciclo,rssBytes:m.rss,heapUsedBytes:m.heapUsed,
     sockets:io.engine.clientsCount,verificacionesActivas:limitador.estadisticas().activas});
@@ -145,16 +151,24 @@ test("Capa 2: ocho ciclos de 24 WebSockets reales liberan todos los sockets y va
   const crecimientoRssBytes=rssFinalBytes-rssInicialBytes;
   assert.ok(crecimientoRssBytes<128*1024*1024,
    "Ciclos reales superaron umbral amplio de 128 MiB RSS");
+  if(stressGc){
+   const heapIncrease=memoria.at(-1).heapUsedBytes-memoria[0].heapUsedBytes;
+   assert.ok(heapIncrease<16*1024*1024,
+    "Los ciclos aislados excedieron el umbral de heap retenido de 16 MiB");
+  }
   assert.equal(limitador.estadisticas().rechazadas,0);
   assert.equal(verificador.estadisticas().entradas,0);
   console.log("[GRUK CI SOCKET RECONNECT MEMORY]",JSON.stringify({
    ciclos,socketsPorCiclo,conexionesTotales:ciclos*socketsPorCiclo,
    rssInicialBytes,rssFinalBytes,crecimientoRssBytes,
    rssPorCicloBytes:memoria.map(x=>x.rssBytes),
+   heapPorCicloBytes:memoria.map(x=>x.heapUsedBytes),
+   gcForzado:stressGc,
    conexionesFinales:io.engine.clientsCount,
    verificacionesFinales:limitador.estadisticas().activas,
    entradasCacheFinales:verificador.estadisticas().entradas,
-   nota:"RSS de proceso CI sin GC forzado; umbral de alarma, no SLA"
+   nota:stressGc?"RSS y heap tras GC en proceso de prueba dedicado; no SLA":
+    "RSS de proceso CI sin GC forzado; umbral de alarma, no SLA"
   }));
  }finally{
   for(const ws of clientes)ws.terminate();
