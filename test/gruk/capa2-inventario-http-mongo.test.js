@@ -99,6 +99,13 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(noForeign.status,200);
   assert.equal(noForeign.data.paginacion.total,0);
   assert.equal(noForeign.data.productos.length,0);
+  // Parámetros y motivos malformados: no deben provocar 500 ni alterar el ledger de inventario.
+  assert.equal((await call("PUT","/anular/invalid-object-id",adminA,{motivo:"prueba"})).status,400);
+  assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:{$ne:null}})).status,400);
+  assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:["inyectado"]})).status,400);
+  assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:"  "})).status,400);
+  assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:"x".repeat(501)})).status,400);
+  assert.equal((await Inventario.findById(own.id)).anulado,false);
   const visible=await call("GET","/restaurant-a",adminA);
   assert.equal(visible.status,200,JSON.stringify(visible.data));
   assert.deepEqual(visible.data.productos.map(x=>x.nombre),["sede A"]);
