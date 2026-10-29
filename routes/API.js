@@ -3218,7 +3218,7 @@ router.post("/usuarios/login", async (req, res) => {
     const user = await Usuario.findOne({
       usuario,
       estado: "activo"
-    }).populate("sedeId");
+    });
 
     if (!user) {
       return res.status(401).json({
@@ -3257,12 +3257,11 @@ router.post("/usuarios/login", async (req, res) => {
     }
 
     // No entregar JWT de usuario asignado a sede reasignada o de otra empresa.
+    let sedeVigente=null;
     if(user.sedeId){
-      const sedeVigente=await Sede.exists({
-        _id:user.sedeId._id,
-        empresaId:user.empresaId,
-        restauranteId:user.restauranteId
-      });
+      sedeVigente=await Sede.findOne({
+        _id:user.sedeId,empresaId:user.empresaId,restauranteId:user.restauranteId
+      }).select("_id nombreSede").lean();
       if(!sedeVigente)return res.status(403).json({
         ok:false,error:"La sede del usuario ya no está vinculada a este restaurante"
       });
@@ -3285,7 +3284,7 @@ router.post("/usuarios/login", async (req, res) => {
       {
         empresaId: String(user.empresaId),
         restaurantId: String(user.restauranteId || ""),
-        sedeId: user.sedeId ? String(user.sedeId._id) : null,
+        sedeId: sedeVigente ? String(sedeVigente._id) : null,
         rol: rolJwt
       },
       jwtSecret,
@@ -3306,8 +3305,8 @@ router.post("/usuarios/login", async (req, res) => {
         rol: user.rol,
         rolGruk: rolJwt,
         restauranteId: user.restauranteId,
-        sedeId: user.sedeId ? user.sedeId._id : null,
-        nombreSede: user.sedeId ? user.sedeId.nombreSede : null
+        sedeId: sedeVigente ? sedeVigente._id : null,
+        nombreSede: sedeVigente ? sedeVigente.nombreSede : null
       }
     });
   } catch (error) {
