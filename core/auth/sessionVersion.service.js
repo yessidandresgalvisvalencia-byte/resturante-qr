@@ -29,6 +29,31 @@ async function validarVersionSesion(payload){
   }
   return true;
  }
+ if(tipo==="PERSONAL"){
+  const identidad=await Personal.findById(payload.sub)
+   .select("tokenVersion restaurantId sedeId estado cargo").lean();
+  if(!identidad || !versionCoincide(payload.tokenVersion,identidad.tokenVersion) ||
+     String(identidad.estado||"").toLowerCase()==="inactivo" ||
+     !["mesero","mesera"].includes(identidad.cargo) ||
+     payload.rol!=="EMPLEADO" ||
+     String(identidad.restaurantId||"")!==String(payload.restaurantId||"") ||
+     String(identidad.sedeId||"")!==String(payload.sedeId||""))return false;
+  const restaurante=await Restaurante.exists({
+   restaurantId:identidad.restaurantId,empresaId:payload.empresaId
+  });
+  if(!restaurante)return false;
+  if(identidad.sedeId){
+   const sedeFiltro={
+    empresaId:payload.empresaId,restauranteId:identidad.restaurantId,
+    $or:[{codigoSede:String(identidad.sedeId)}]
+   };
+   if(require("mongoose").isValidObjectId(identidad.sedeId)){
+    sedeFiltro.$or.push({_id:identidad.sedeId});
+   }
+   if(!(await Sede.exists(sedeFiltro)))return false;
+  }
+  return true;
+ }
  if(tipo==="ADMIN" || tipo==="RESTAURANTE"){
   const Modelo=MODELOS[tipo];
   const identidad=await Modelo.findById(payload.sub)
