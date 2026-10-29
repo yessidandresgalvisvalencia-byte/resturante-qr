@@ -5,7 +5,7 @@
 ## Estado de partida
 
 - Último deploy confirmado `live`: `fb83d3ead474bd28c9de63d151556e4863da6f69`.
-- La fusión #378 (`f44a0535ad86ac7f10a90be6a700cfc8618a43e0`) no llegó a producción: Render devolvió `build_failed` por límite de minutos.
+- La fusión #378 (`f44a0535ad86ac7f10a90be6a700cfc8618a43e0`) no llegó a producción. Es un fallo histórico; la capacidad de compilación actual debe comprobarse de nuevo, sin asumir que sigue agotada.
 - Cambios pendientes: #380 (clasificador), #381 (caja, crédito y controles), #389 (integración y regresiones conjuntas). #389 **no debe publicarse junto a #380 y #381 mediante fusiones duplicadas**; escoger una secuencia final de un solo conjunto validado.
 - **No habilitar pagos, alterar gasto máximo ni aumentar el plan de Render sin autorización expresa del titular.**
 
@@ -31,28 +31,43 @@ const filtro = {
 db.fin_transacciones_personales.countDocuments(filtro);
 ```
 
-La cifra anterior es solo un **indicador de compatibilidad, no equivale a gastos hormiga afectados**: incluye gastos de otras categorías y no mide el porcentaje exacto de usuarios bloqueados. Si el conteo es mayor que cero, analizar por qué falta la marca mediante conciliación autorizada, sin inferir salidas ni actualizar registros automáticamente. Evaluar migración de metadatos auditada y reversible en entorno de prueba; por diseño la aplicación debe **fallar cerrada** ante datos inciertos.
+La cifra anterior es solo un **indicador de compatibilidad, no equivale a gastos hormiga afectados**: incluye gastos de otras categorías y no mide el porcentaje exacto de usuarios bloqueados. Si el conteo es mayor que cero, analizar por qué falta la marca mediante conciliación autorizada, sin inferir salidas ni actualizar registros automáticamente. Definir una transición auditada y probarla en un entorno aislado sin sobrescribir los asientos originales; por diseño la aplicación debe **fallar cerrada** ante datos inciertos.
 
 ## Puerta 3 — pruebas de integración
 
 1. Combinar los cambios del clasificador y el resumen **una sola vez** sobre la rama personal, sin modificar `main`.
 2. Confirmar GitHub Actions: seguridad, precisión e integridad V81 y GRUK Gate todos `success` para **el commit exacto a desplegar**.
 3. En una cuenta de ensayo, registrar solo movimientos ficticios: Rappi de caja, Rappi con crédito, café, cafetera, arriendo, pago de tarjeta, una anulación y una repetición por idempotencia. Comprobar que consumo = caja + crédito, promedio diario reconciliado, cuentas separadas, visibilidad por usuario, ventana Bogotá y banner cuando falla la consulta.
-4. Comprobar que el HTML referencia el JS vigente `hormiga-caja-credito-integridad-v81`; recargar en sesión antigua y nueva.
+4. Comprobar que el HTML referencia exactamente la versión del JS incluida en el commit candidato; recargar en sesión antigua y nueva. No usar una versión de caché copiada de una liberación anterior.
 5. Ejecutar verificación de índices/plan de consulta (`explain`) con usuario de pruebas. El índice en el esquema no demuestra que ya exista en producción.
 
 ## Puerta 3B — bloqueo explícito de certificación append-only
 
-**Hallazgo #407 (crítico):** `flujoCajaPersonal.service.js` todavía modifica `anterior` con `Object.assign(...)` y `.save()` durante correcciones, y modifica `tx.estado` y `.save()` durante anulaciones. El Outbox aporta evidencia adicional, pero **no vuelve inmutable el asiento original**. No describir este ledger como "solo INSERT" ni prometer trazabilidad criptográfica integral.
+El [bloqueo #407](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/issues/407) sigue abierto. Sus ejemplos de `Object.assign(anterior, ...)` y cambios de `tx.estado` describen el hallazgo original, no el estado actual del PR #389. Las rutas de corrección/anulación ya usan eventos compensatorios y el modelo original bloquea modificaciones por Mongoose. Esto no demuestra por sí solo la inmutabilidad del despliegue real.
 
-Comprobar el estado exacto con el verificador de patrones:
+| Criterio de #407 | Evidencia disponible en el PR | Pendiente para liberar |
+| --- | --- | --- |
+| Preservar originales | Eventos compensatorios; hooks del modelo; pruebas de conservación de fuentes | Verificar las cinco colecciones con las credenciales reales y revisar accesos por driver nativo, scripts y otras credenciales |
+| Atomicidad e idempotencia | Transacciones MongoDB para evento, caja, reservas y outbox; reintentos probados | Confirmar compatibilidad de todas las rutas de escritura con el rol real y los datos existentes |
+| Cadena y concurrencia | Cadena completa y cursor verificados antes de anexar y responder reintentos; pruebas de huecos y adulteración | Definir e implementar custodia independiente para el historial compensatorio y demostrar su verificación; SHA256 local no impide una reescritura coherente por un administrador |
+| Históricos sin reescritura | Migración v1 por inserciones, repetición, reconciliación por fuente y rollback probados | Auditar compatibilidad y alcance de históricos reales; la migración v1 no reconstruye vínculos de cuenta ni prueba completitud histórica |
+| Regresiones financieras | CI con replica set y autorización: aislamiento, saldos, rollback, conservación de fuentes y reintentos | Revisar evidencia del SHA final y ejecutar ensayo con datos ficticios; no sustituir las pruebas con casos omitidos |
+| Gate y despliegue | `--enforce` conserva bloqueo; servicio y SHA live identificados | Revisar evidencia externa, configurar/verificar salud HTTP y confirmar el SHA candidato live y su comportamiento antes de anunciar disponibilidad |
+
+Comprobar el estado de la búsqueda limitada de patrones:
 
 ```bash
 node scripts/gruk-personal-ledger-mutability-audit.js
 node scripts/gruk-personal-ledger-mutability-audit.js --enforce
 ```
 
-El segundo comando debe **salir con código distinto de cero** mientras persistan estos patrones, y es una **puerta manual obligatoria para certificar GRUK V1000 como ledger append-only**. No es parte de los jobs regulares de CI ni debe confundirse con un test de invariantes completo: detectar la ausencia de patrones no demuestra inmutabilidad por sí sola. Corregir la arquitectura y agregar pruebas de eventos compensatorios antes de retirar esta reserva.
+`--enforce` **siempre termina con código 1 en esta implementación**, incluso si no encuentra patrones. Es un bloqueo deliberado por evidencia externa pendiente; no es una suite de regresiones ni debe convertirse en éxito cambiando una bandera o eliminando la condición. La búsqueda revisa cinco archivos y no rastrea todos los alias, escrituras nativas ni procesos administrativos.
+
+La revisión de privilegios puede ejecutarse con la credencial real de aplicación mediante `npm run audit:personal:mongo-privileges`, en un entorno autorizado que ya tenga sus variables configuradas. No imprimir URI, claves, identidades ni documentos. El resultado `compatible: true` sigue llevando `certificaInmutabilidad: false`; no prueba que no existan otros usuarios privilegiados ni que haya custodia externa. Ver [privilegios-ledger.md](privilegios-ledger.md).
+
+La provisión administrativa es una operación separada y requiere su propia planificación. No ejecutar `provision:personal:mongo -- --apply`, cambiar roles o migrar datos simplemente para completar esta lista. Las pruebas locales autenticadas no acreditan la configuración de producción.
+
+Las anclas de DecisionProof, la cadena compensatoria y el outbox tienen alcances distintos. No presentar un ancla guardada con las mismas credenciales o en la misma base como custodia independiente de todo el historial. La aceptación debe identificar qué registros cubre, quién custodia el compromiso, cómo se verifica y cómo se detectan truncamientos o reescrituras.
 
 ## Puerta 4 — Render y verificación posterior
 
@@ -60,3 +75,9 @@ El segundo comando debe **salir con código distinto de cero** mientras persista
 - No migrar ni cambiar saldos reales para facilitar el despliegue.
 - Si falla, detener nuevas fusiones, conservar evidencia, volver al último deploy `live` si el proveedor permite una restauración segura, y comparar datos sin editarlos.
 - Registrar fecha, SHA, estado de pruebas, estado Render y responsable antes de anunciar al usuario que puede probar.
+
+## Comprobación operativa registrada el 29 de octubre de 2026
+
+Render informó `live` para `fb83d3ead474bd28c9de63d151556e4863da6f69`, del servicio personal enlazado a `feature/finanzas-personales`. La petición directa a `/healthz` devolvió HTTP 200 y el identificador del servicio; no acredita índices, permisos ni integridad financiera. La configuración de Render tenía `healthCheckPath` vacío. La consulta de logs de nivel error no devolvió entradas en la ventana retornada, sin demostrar ausencia de errores.
+
+Antes de liberar, volver a comprobar estas observaciones. Los cambios del PR #389 no estaban desplegados en esa verificación. No se alteró configuración ni se inició un deploy.
