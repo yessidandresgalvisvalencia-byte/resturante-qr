@@ -4,6 +4,10 @@ function stagingOrigin(raw){
  if(typeof raw!=="string")throw Error("STAGING_URL_REQUIRED");
  let parsed;
  try{parsed=new URL(raw);}catch{throw Error("STAGING_URL_INVALID");}
+ // Nunca permitir que el smoke de staging se configure apuntando al
+ // servicio productivo oficial de GRUK, aunque su /health sea 200.
+ if(parsed.hostname.toLowerCase()==="resturante-qr-1.onrender.com")
+  throw Error("STAGING_PRODUCTION_ORIGIN_FORBIDDEN");
  const local=["localhost","127.0.0.1","[::1]"].includes(parsed.hostname);
  if((parsed.protocol!=="https:"&&!(local&&parsed.protocol==="http:"))||
     parsed.username||parsed.password||parsed.search||parsed.hash||
