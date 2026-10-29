@@ -10,6 +10,7 @@ const Restaurante=require("../../models/restaurante");
 const Sede=require("../../models/sede");
 const Admin=require("../../models/admin");
 const Usuario=require("../../models/usuario");
+const Personal=require("../../models/personal");
 const Empresa=require("../../models/Empresa");
 const bcrypt=require("bcrypt");
 const router=require("../../routes/inventario");
@@ -92,13 +93,45 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   const empleado=auth(A,SA,"EMPLEADO","empleado-a");
   const ownerB=auth(B,undefined,"DUEÑO","dueno-b");
   async function call(method,path,token,body){
-   const base=(path.startsWith("/sede/") || path.startsWith("/restaurante/") || path.startsWith("/usuarios/") || path.startsWith("/auth/") || path.startsWith("/admin/"))?endpoint.replace(/\/inventario$/,""):endpoint;
+   const base=(path.startsWith("/sede/") || path.startsWith("/restaurante/") || path.startsWith("/usuarios/") || path.startsWith("/auth/") || path.startsWith("/admin/") || path.startsWith("/mesero/"))?endpoint.replace(/\/inventario$/,""):endpoint;
    const response=await fetch(base+path,{method,headers:{
     authorization:token,...(body?{"content-type":"application/json"}:{})
    },...(body?{body:JSON.stringify(body)}:{})});
    return {status:response.status,data:await response.json()};
   }
 
+  // PERSONAL soporta sede por codigoSede, con revalidación en cada solicitud.
+  const personalUsuario="mesero-personal-"+randomUUID();
+  const personal=await Personal.create({
+    restaurantId:"restaurant-a",sedeId:"gruk-ci-a",
+    nombre:"Mesero de prueba",cargo:"mesero",estado:"disponible",
+    usuario:personalUsuario,password:await bcrypt.hash("ClavePersonal123!",12)
+  });
+  const personalLogin=await call("POST","/mesero/login","",{
+    usuario:personalUsuario,password:"ClavePersonal123!"
+  });
+  assert.equal(personalLogin.status,200,JSON.stringify(personalLogin));
+  const tokenPersonal="Bearer "+personalLogin.data.token;
+  assert.equal(jwt.verify(personalLogin.data.token,process.env.JWT_SECRET).identityType,"PERSONAL");
+  assert.equal((await call("POST","/auth/cerrar-todas-sesiones",tokenPersonal,{})).status,200);
+  assert.equal((await call("POST","/auth/cerrar-todas-sesiones",tokenPersonal,{})).status,401);
+  const personalLogin2=await call("POST","/mesero/login","",{
+    usuario:personalUsuario,password:"ClavePersonal123!"
+  });
+  assert.equal(personalLogin2.status,200);
+  const tokenPersonal2="Bearer "+personalLogin2.data.token;
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
+  assert.equal((await call("POST","/auth/cerrar-todas-sesiones",tokenPersonal2,{})).status,401);
+  assert.equal((await call("POST","/mesero/login","",{
+    usuario:personalUsuario,password:"ClavePersonal123!"
+  })).status,403);
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
+  await Personal.updateOne({_id:personal._id},{$set:{estado:"inactivo"}});
+  assert.equal((await call("POST","/auth/cerrar-todas-sesiones",tokenPersonal2,{})).status,401);
+  await Personal.updateOne({_id:personal._id},{$set:{estado:"disponible"}});
+  await Restaurante.updateOne({restaurantId:"restaurant-a"},{$set:{empresaId:B}});
+  assert.equal((await call("POST","/auth/cerrar-todas-sesiones",tokenPersonal2,{})).status,401);
+  await Restaurante.updateOne({restaurantId:"restaurant-a"},{$set:{empresaId:A}});
   // Registro heredado: todos los objetos nacen en el mismo tenant, hash no expuesto.
   const legacyId="legacy-"+randomUUID();
   const registro=await call("POST","/restaurante/registro","",{
