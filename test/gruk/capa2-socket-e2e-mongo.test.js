@@ -6,6 +6,7 @@ const mongoose=require("mongoose");
 const jwt=require("jsonwebtoken");
 const {randomUUID}=require("node:crypto");
 const {Server}=require("socket.io");
+const WebSocket=require("ws");
 const Usuario=require("../../models/usuario");
 const Restaurante=require("../../models/restaurante");
 const Sede=require("../../models/sede");
@@ -40,8 +41,9 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
  const SA="507f191e810c19729de860ea";
  const secret="capa2-socket-real-ci-secret-32-chars";
  const server=http.createServer((req,res)=>{res.writeHead(404);res.end();});
- const io=new Server(server,{transports:["polling"],pingInterval:15000,pingTimeout:6000});
+ const io=new Server(server,{transports:["polling","websocket"],pingInterval:15000,pingTimeout:6000});
  const conectados=new Map();
+ const wsClients=[];
  io.use(async(socket,next)=>{
   const auth=await autenticarSocket({token:socket.handshake.auth?.token,secret});
   if(!auth)return next(new Error("UNAUTHORIZED"));
@@ -65,6 +67,28 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
    body:packet,signal:AbortSignal.timeout(7000)});
   assert.equal(r.status,200);
   assert.equal(await r.text(),"ok");
+ }
+ async function handshakeWebsocket(token){
+  const address="ws://127.0.0.1:"+server.address().port+
+   "/socket.io/?EIO=4&transport=websocket";
+  const ws=new WebSocket(address);
+  wsClients.push(ws);
+  const packet=await new Promise((resolve,reject)=>{
+   const timeout=setTimeout(()=>reject(Error("WebSocket handshake sin respuesta")),7000);
+   const done=(err,payload)=>{
+    clearTimeout(timeout);
+    if(err)reject(err);else resolve(payload);
+   };
+   ws.once("error",error=>done(error));
+   ws.on("message",data=>{
+    const frame=data.toString();
+    if(frame.startsWith("0"))ws.send("40"+JSON.stringify({token}));
+    else if(frame==="2")ws.send("3");
+    else if(frame.startsWith("40{")||frame.startsWith("44{"))done(null,frame);
+   });
+   ws.once("close",()=>done(Error("WebSocket cerrado durante handshake")));
+  });
+  return {ws,packet};
  }
  async function handshake(token){
   const open=await get(urlBase());
@@ -107,11 +131,24 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   const rejected=await handshake(forged);
   assert.match(rejected.response,/44\{/,"El tenant falsificado debe ser rechazado en el handshake");
   assert.equal(conectados.size,1,"El token falsificado no debe crear un socket");
+  // Transporte WebSocket nativo: handshake Engine.IO y namespace Socket.IO.
+  const wsValido=await handshakeWebsocket(valid);
+  assert.match(wsValido.packet,/^40\\{/,"El WebSocket nativo debe autenticarse");
+  const websocketId=JSON.parse(wsValido.packet.slice(2)).sid;
+  await esperar(()=>conectados.get(websocketId)?.rooms.has("empresa-"+A));
+  assert.equal(conectados.get(websocketId).rooms.has("empresa-"+B),false);
+  const wsFalso=await handshakeWebsocket(forged);
+  assert.match(wsFalso.packet,/^44\\{/,
+   "WebSocket nativo debe rechazar una empresa falsificada");
+  assert.equal(conectados.size,2,"Solo polling y WebSocket legítimos pueden unirse");
+
   await Usuario.updateOne({_id:user._id},{$inc:{tokenVersion:1}});
-  await esperar(()=>!conectados.get(socketId)?.connected,5000);
+  await esperar(()=>!conectados.get(socketId)?.connected &&
+   !conectados.get(websocketId)?.connected,5000);
   assert.equal(io.sockets.adapter.rooms.has("empresa-"+A),false,
    "El socket revocado ya no puede permanecer en el canal de la empresa");
  }finally{
+  for(const ws of wsClients){if(ws.readyState!==WebSocket.CLOSED)ws.terminate();}
   for(const socket of conectados.values())socket.disconnect(true);
   await new Promise(resolve=>io.close(resolve));
   if(dbConnected){await mongoose.connection.dropDatabase();await mongoose.disconnect();}
