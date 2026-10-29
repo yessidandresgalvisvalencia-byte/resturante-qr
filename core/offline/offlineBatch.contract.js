@@ -19,7 +19,7 @@ function inspectPayload(value, depth = 0) {
   }
   if (typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype) fail("OFFLINE_INVALID_PAYLOAD");
   for (const [k,v] of Object.entries(value)) {
-    if (k === "__proto__" || k === "prototype" || k === "constructor" || k.startsWith("$") || k.includes(".")) fail("OFFLINE_UNSAFE_KEY");
+    if (k === "__proto__" || k === "prototype" || k === "constructor" || k.startsWith("$") || k.includes(".") || /[\x00-\x1f\x7f]/u.test(k)) fail("OFFLINE_UNSAFE_KEY");
     inspectPayload(v, depth+1);
   }
 }
