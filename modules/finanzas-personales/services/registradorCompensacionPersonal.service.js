@@ -2,10 +2,11 @@
 const mongoose=require("mongoose");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
-const {eventoCompensatorio}=require("./eventoCompensatorioPersonal.service");
+const {eventoCompensatorio,verificarCadena}=require("./eventoCompensatorioPersonal.service");
 const {vigente}=require("./estadoCompensadoPersonal.service");
 const {indiceExacto}=require("../security/auditoriaIndicesMongoV81.service");
 const GENESIS="0".repeat(64);
+const MAX_EVENTOS=10000;
 const ID=/^[A-Za-z0-9_-]{1,128}$/;
 
 function conflicto(mensaje){
@@ -49,16 +50,26 @@ function crearRegistrador({
    const anexar=async()=>{
     const repetido=await EventoModelo.findOne({usuarioId:original.usuarioId,idempotencyKey}).session(session).lean();
     if(repetido)throw conflicto("Idempotencia ya utilizada; no repetir la compensación");
-    // Leer dentro del snapshot: el CAS posterior serializa también este historial por usuario.
-    const historial=await EventoModelo.find({usuarioId:original.usuarioId,
-      movimientoId:original.movimientoId},{_id:0}).sort({secuencia:1}).session(session).lean();
+    // Verificar toda la cadena del usuario dentro del mismo snapshot que el CAS.
+    // El historial de un solo movimiento no detecta huecos en otros movimientos.
+    const cadena=await EventoModelo.find({usuarioId:original.usuarioId},{_id:0})
+      .sort({secuencia:1}).limit(MAX_EVENTOS+1).maxTimeMS(5000).session(session).lean();
+    if(cadena.length>=MAX_EVENTOS)
+     throw Object.assign(new Error("Ledger compensatorio alcanza el límite verificable; requiere ampliación de capacidad"),{statusCode:422});
+    let cursor=await CursorModelo.findById(original.usuarioId).session(session).lean();
+    let cadenaValida=false;
+    try{cadenaValida=verificarCadena(cadena,{prevHash:GENESIS});}catch(_){}
+    if(!cadenaValida||cadena.some(e=>e.usuarioId!==original.usuarioId)||
+       (!cursor&&cadena.length)||
+       (cursor&&(cursor.secuencia!==cadena.length||cursor.hashActual!==(cadena.at(-1)?.hashActual||GENESIS))))
+     throw conflicto("INTEGRIDAD_LEDGER: cadena completa y cursor no coinciden");
+    const historial=cadena.filter(e=>e.movimientoId===original.movimientoId);
     if(historial.length){
      const estado=vigente(historial[0].original,historial);
      if(estado.anulado)throw conflicto("Movimiento ya anulado; no repetir el reverso");
      if(Object.keys(estado.actual).some(k=>estado.actual[k]!==original[k]))
       throw conflicto("Estado del movimiento desactualizado; vuelve a consultar antes de corregir");
     }
-    let cursor=await CursorModelo.findById(original.usuarioId).session(session).lean();
     if(!cursor){
      await CursorModelo.create([{_id:original.usuarioId,secuencia:0,hashActual:GENESIS}],{session});
      cursor={_id:original.usuarioId,secuencia:0,hashActual:GENESIS};

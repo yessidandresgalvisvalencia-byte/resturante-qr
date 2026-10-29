@@ -145,4 +145,55 @@ async function probarIndicesEnCaliente(db){
  assert.equal(await Evento.countDocuments({usuarioId:String(usuarioId)}),1);
  assert.deepEqual(await Tx.find({usuarioId}).sort({_id:1}).lean(),antes.fuentes);
 }
-module.exports={probarCajaAutorizada,probarCadenaV81Autorizada,probarIndicesEnCaliente};
+async function probarCadenaCompensatoriaAlterada(db){
+ const usuarioId=new mongoose.Types.ObjectId();
+ const input={tipo:"INGRESO",montoMinor:10000,concepto:"Integridad global",categoria:"OTROS",
+  cuenta:"CADENA_AUTH",medioPago:"TRANSFERENCIA",fecha:new Date(Date.now()-60000)};
+ const ingreso=await registrarTransaccion(usuarioId,{...input,externalId:"cadena-ingreso"});
+ const gastoA=await registrarTransaccion(usuarioId,{...input,tipo:"GASTO",montoMinor:1000,externalId:"cadena-gasto-a"});
+ const gastoB=await registrarTransaccion(usuarioId,{...input,tipo:"GASTO",montoMinor:2000,externalId:"cadena-gasto-b"});
+ const aplicar=crearAplicador();
+ const corregir=(movimientoId,montoMinor,idempotencyKey)=>({usuarioId,movimientoId:String(movimientoId),
+  tipo:"CORRECCION",cambios:{montoMinor},idempotencyKey});
+ await aplicar(corregir(gastoA._id,900,"cadena-a"));
+ await aplicar(corregir(gastoB._id,1900,"cadena-b"));
+ const eventos=db.collection("fin_eventos_compensatorios_personales_v1");
+ const cursores=db.collection("fin_cursor_compensaciones_personales_v1");
+ const cadena=await eventos.find({usuarioId:String(usuarioId)}).sort({secuencia:1}).toArray();
+ const cursor=await cursores.findOne({_id:String(usuarioId)});
+ assert.equal(cadena.length,2);
+ const estado=async()=>({
+  fuentes:await Tx.find({usuarioId}).sort({_id:1}).lean(),
+  cuentas:await Cuenta.find({usuarioId}).sort({_id:1}).lean(),
+  eventos:await eventos.find({usuarioId:String(usuarioId)}).sort({secuencia:1}).toArray(),
+  cursor:await cursores.findOne({_id:String(usuarioId)}),
+  outbox:await Outbox.find({usuarioId}).sort({_id:1}).lean()
+ });
+ const intacto=await estado();
+ const solicitud=corregir(ingreso._id,9000,"tras-alteracion");
+ // Solo el administrador del fixture puede simular daños históricos. El
+ // movimiento objetivo aún no tiene compensaciones: la verificación debe ser global.
+ const ataques=[
+  [()=>eventos.deleteOne({_id:cadena[0]._id}),()=>eventos.insertOne(cadena[0])],
+  [()=>eventos.deleteOne({_id:cadena[1]._id}),()=>eventos.insertOne(cadena[1])],
+  [()=>eventos.updateOne({_id:cadena[0]._id},{$set:{deltaCajaMinor:"1"}}),
+   ()=>eventos.replaceOne({_id:cadena[0]._id},cadena[0])],
+  [()=>cursores.updateOne({_id:cursor._id},{$set:{hashActual:"f".repeat(64)}}),
+   ()=>cursores.replaceOne({_id:cursor._id},cursor)],
+  [()=>cursores.deleteOne({_id:cursor._id}),()=>cursores.insertOne(cursor)]
+ ];
+ for(const [alterar,restaurar] of ataques){
+  await alterar();
+  try{
+   const antes=await estado();
+   await assert.rejects(aplicar(solicitud),e=>e.statusCode===409&&/INTEGRIDAD_LEDGER/.test(e.message));
+   assert.deepEqual(await estado(),antes);
+  }finally{await restaurar();}
+  assert.deepEqual(await estado(),intacto);
+ }
+ const confirmado=await aplicar(solicitud);
+ assert.equal(confirmado.secuencia,3);
+ assert.equal((await Cuenta.findOne({usuarioId}).lean()).saldoMinor,6200);
+ assert.deepEqual(await Tx.find({usuarioId}).sort({_id:1}).lean(),intacto.fuentes);
+}
+module.exports={probarCajaAutorizada,probarCadenaV81Autorizada,probarIndicesEnCaliente,probarCadenaCompensatoriaAlterada};

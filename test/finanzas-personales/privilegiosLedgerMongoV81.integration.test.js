@@ -57,10 +57,11 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await db.collection("fin_transacciones_personales").dropIndex("usuarioId_1_externalIdHash_1");
   await assert.rejects(migracion.migrar(b),e=>e.statusCode===503);assert.equal(await Tx.countDocuments({usuarioId:b}),0);
   await provisionarMongoPersonal(db);assert.equal((await migracion.migrar(b)).ledgerCount,1);
-  const {probarCajaAutorizada,probarCadenaV81Autorizada,probarIndicesEnCaliente}=require("./helpers/operacionesLedgerAutorizadas");
+  const {probarCajaAutorizada,probarCadenaV81Autorizada,probarIndicesEnCaliente,probarCadenaCompensatoriaAlterada}=require("./helpers/operacionesLedgerAutorizadas");
   await t.test("caja, compensaciones, reintentos y rollback con rol restringido",probarCajaAutorizada);
   await t.test("cadena V81 y anulación con rol restringido",probarCadenaV81Autorizada);
   await t.test("índices cambiados en caliente bloquean escrituras sin alterar caja ni historial",()=>probarIndicesEnCaliente(db));
+  await t.test("cadena compensatoria incompleta o alterada bloquea escrituras en otros movimientos",()=>probarCadenaCompensatoriaAlterada(db));
  }finally{
   await mongoose.disconnect();if(anterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=anterior;
  }

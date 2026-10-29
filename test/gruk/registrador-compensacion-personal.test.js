@@ -21,9 +21,10 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
   }
  };
  const ModeloEvento={
-  find(filter){return {sort(){return {session(){return {lean:async()=>
-   staged.eventos.filter(e=>e.usuarioId===filter.usuarioId&&e.movimientoId===filter.movimientoId)
-    .sort((a,b)=>a.secuencia-b.secuencia)};}};}};},
+  find(filter){return {sort(){return this;},limit(n){assert.equal(n,10001);return this;},
+   maxTimeMS(n){assert.equal(n,5000);return this;},session(){return this;},lean:async()=>
+   staged.eventos.filter(e=>e.usuarioId===filter.usuarioId)
+    .sort((a,b)=>a.secuencia-b.secuencia)};},
   findOne(filter){return {session(){return {lean:async()=>
    repetido?{idempotencyKey:filter.idempotencyKey}:staged.eventos.find(e=>e.idempotencyKey===filter.idempotencyKey)||null};}};},
   async create(rows){
@@ -93,6 +94,30 @@ test("historial alterado bloquea la escritura antes de avanzar el cursor",async(
  await assert.rejects(registrar({...entrada("otra"),original:{...original,montoMinor:22000}}),/INTEGRIDAD_LEDGER/);
  assert.equal(data.eventos.length,1);
  assert.equal(data.cursor.hashActual,hash);
+});
+test("un hueco en otro movimiento o un cursor alterado impiden seguir la cadena",async()=>{
+ for(const alterar of [
+  d=>{d.eventos.shift();},d=>{d.eventos.pop();},
+  d=>{d.cursor.hashActual="f".repeat(64);},d=>{d.cursor=null;},
+  d=>{d.cursor.secuencia=0;},d=>{d.eventos[0]={...d.eventos[0],deltaCajaMinor:"1"};}
+ ]){
+  const {data,registrar}=bancoSimulado();
+  await registrar(entrada());
+  await registrar({...entrada("otro_movimiento"),original:{...original,movimientoId:"otro"}});
+  alterar(data);
+  const antes=structuredClone({cursor:data.cursor,eventos:data.eventos});
+  await assert.rejects(registrar({...entrada("tercero"),original:{...original,movimientoId:"nuevo"}}),
+   e=>e.statusCode===409&&/INTEGRIDAD_LEDGER/.test(e.message));
+  assert.deepEqual({cursor:data.cursor,eventos:data.eventos},antes);
+ }
+});
+test("un ledger lleno no añade un evento que las lecturas acotadas no podrían verificar",async()=>{
+ const {data,registrar}=bancoSimulado();
+ const evento=await registrar(entrada());
+ data.eventos=Array.from({length:10000},()=>evento);
+ const cursor={...data.cursor};
+ await assert.rejects(registrar({...entrada("limite"),original:{...original,movimientoId:"nuevo"}}),e=>e.statusCode===422);
+ assert.deepEqual(data.cursor,cursor);assert.equal(data.eventos.length,10000);
 });
 test("una anulación no bloquea un movimiento distinto del mismo usuario",async()=>{
  const {data,registrar}=bancoSimulado();
