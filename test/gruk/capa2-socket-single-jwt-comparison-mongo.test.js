@@ -174,7 +174,7 @@ test("Capa 2 Mongo: 32 JWT distintos, 32 WebSockets, sin ahorro ficticio entre e
   await Promise.all([...ticks.values()].map(fn=>fn()));
   await esperar(()=>io.sockets.adapter.rooms.has("empresa-"+empresas[0].id)===false);
   assert.equal(io.sockets.adapter.rooms.get("empresa-"+empresas[1].id)?.size,16);
-  assert.equal(ticks.size,32);
+  assert.equal(ticks.size,16,"Solo deben quedar las 16 sesiones legítimas de B");
   const b=identidades.filter(x=>x.empresaId===empresas[1].id);
   await Usuario.updateMany({_id:{$in:b.map(x=>x.usuarioId)}},
    {$inc:{tokenVersion:1}});
