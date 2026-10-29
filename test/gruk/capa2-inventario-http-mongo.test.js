@@ -74,7 +74,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   const empleado=auth(A,SA,"EMPLEADO","empleado-a");
   const ownerB=auth(B,undefined,"DUEÑO","dueno-b");
   async function call(method,path,token,body){
-   const base=(path.startsWith("/sede/") || path.startsWith("/restaurante/") || path.startsWith("/usuarios/"))?endpoint.replace(/\/inventario$/,""):endpoint;
+   const base=(path.startsWith("/sede/") || path.startsWith("/restaurante/") || path.startsWith("/usuarios/") || path.startsWith("/auth/"))?endpoint.replace(/\/inventario$/,""):endpoint;
    const response=await fetch(base+path,{method,headers:{
     authorization:token,...(body?{"content-type":"application/json"}:{})
    },...(body?{body:JSON.stringify(body)}:{})});
