@@ -68,6 +68,8 @@ async function probarMigracionAutorizada(db,uri,password,t){
    require("./helpers/cobrosConversacionalesAutorizados").probarCobrosConversacionalesAutorizados);
   await t.test("transferencias conversacionales conservan dinero y bloquean conciliaciones anteriores",
    require("./helpers/transferenciasConversacionalesAutorizadas").probarTransferenciasConversacionalesAutorizadas);
+  await t.test("ajustes conversacionales respetan movimientos posteriores y revierten lotes fallidos",
+   require("./helpers/saldosConversacionalesAutorizados").probarSaldosConversacionalesAutorizados);
  }finally{
   await mongoose.disconnect();if(anterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=anterior;
  }
