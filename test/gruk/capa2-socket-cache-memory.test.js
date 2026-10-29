@@ -4,7 +4,7 @@ const assert=require("node:assert/strict");
 const path=require("node:path");
 const {spawnSync}=require("node:child_process");
 
-test("Capa 2: heap real medido tras GC en 12 ciclos de JWT únicos",{
+test("Capa 2: heap y RSS reales medidos tras GC en 36 ciclos de JWT únicos",{
  timeout:30000
 },()=>{
  const ruta=path.join(__dirname,"helpers/capa2-socket-cache-memory-worker.js");
@@ -20,11 +20,15 @@ test("Capa 2: heap real medido tras GC en 12 ciclos de JWT únicos",{
  const salida=child.stdout.split("\n").find(x=>x.includes("[GRUK CI SOCKET CACHE HEAP]"));
  assert.ok(salida,"La medición de heap debe aparecer en el log CI");
  const data=JSON.parse(salida.slice(salida.indexOf("{")));
- assert.equal(data.ciclos,12);
- assert.equal(data.jwtDistintos,6144);
+ assert.equal(data.ciclos,36);
+ assert.equal(data.jwtDistintos,18432);
  assert.equal(data.capacidad,512);
  assert.equal(data.entradasFinales,1);
- assert.equal(data.rechazos,12);
+ assert.equal(data.rechazos,36);
  assert.ok(data.crecimientoHeapBytes<data.limiteCrecimientoBytes);
+ assert.ok(Number.isFinite(data.rssInicialBytes)&&data.rssInicialBytes>0);
+ assert.ok(Number.isFinite(data.rssFinalBytes)&&data.rssFinalBytes>0);
+ assert.ok(data.picoRssObservadoBytes>=data.rssInicialBytes);
+ assert.ok(data.crecimientoRssBytes<data.limiteCrecimientoRssBytes);
  console.log(salida);
 });
