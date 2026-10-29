@@ -28,6 +28,9 @@ function crearVerificadorCompartido({
    return signal?.aborted?null:valor;
   }
   if(existente)entradas.delete(clave);
+  for(const [k,v] of entradas){
+   if(!v.pendiente && v.hasta<=ahora())entradas.delete(k);
+  }
   if(entradas.size>=maxEntradas){
    rechazos++;
    return null; // Fail closed: nunca cola ilimitada ni autorización obsoleta.
@@ -38,7 +41,8 @@ function crearVerificadorCompartido({
   const plazo=setTimeout(()=>controller.abort(),tiempoConsultaMs);
   const pendiente=(async()=>{
    try{
-    const resultado=await verificar({token,secret,signal:controller.signal});
+    const resultado=await Promise.resolve().then(()=>
+     verificar({token,secret,signal:controller.signal}));
     if(!controller.signal.aborted && resultado){
      entrada.resultado=resultado;
      entrada.hasta=ahora()+ttlMs;
