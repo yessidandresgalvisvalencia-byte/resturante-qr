@@ -13,7 +13,8 @@ const A="507f1f77bcf86cd799439011",B="507f1f77bcf86cd799439012";
 const SA="507f191e810c19729de860ea",SB="507f191e810c19729de860eb";
 const mongo=process.env.GRUK_TEST_MONGO_URI||process.env.TEST_MONGO_URI;
 
-test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente", {skip:!mongo},async()=>{
+test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente", {skip:!mongo && !process.env.CI},async()=>{
+ assert.ok(mongo,"CI requiere MongoDB: nunca omitir las pruebas de aislamiento");
  const prior=process.env.JWT_SECRET;
  process.env.JWT_SECRET="gruk-tests-only-jwt-secret-32-characters";
  const app=express();
@@ -54,6 +55,8 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   const adminA=auth(A,SA,"ADMIN_SEDE","usuario-sede-a");
   const adminB=auth(A,SB,"ADMIN_SEDE","usuario-sede-b");
   const owner=auth(A,undefined,"DUEÑO","dueno-a");
+  const empleado=auth(A,SA,"EMPLEADO","empleado-a");
+  const ownerB=auth(B,undefined,"DUEÑO","dueno-b");
   async function call(method,path,token,body){
    const response=await fetch(endpoint+path,{method,headers:{
     authorization:token,...(body?{"content-type":"application/json"}:{})
@@ -61,6 +64,15 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
    return {status:response.status,data:await response.json()};
   }
 
+  // Negación por rol, empresa y ausencia de credenciales.
+  assert.equal((await call("GET","/restaurant-a",empleado)).status,403);
+  assert.equal((await call("POST","/",empleado,{
+    restaurantId:"restaurant-a",nombre:"empleado-no-autorizado",categoria:"prueba",cantidad:1
+  })).status,403);
+  assert.equal((await call("PUT","/anular/"+own.id,empleado,{motivo:"sin permiso"})).status,403);
+  assert.equal((await call("GET","/restaurant-a",ownerB)).status,403);
+  assert.equal((await call("PUT","/anular/"+own.id,ownerB,{motivo:"otra empresa"})).status,404);
+  assert.equal((await Inventario.findById(own.id)).anulado,false);
   const visible=await call("GET","/restaurant-a",adminA);
   assert.equal(visible.status,200,JSON.stringify(visible.data));
   assert.deepEqual(visible.data.productos.map(x=>x.nombre),["sede A"]);
