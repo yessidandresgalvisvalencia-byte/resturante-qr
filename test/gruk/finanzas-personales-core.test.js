@@ -6,6 +6,21 @@ const patrimonioPersonal=require("../../modules/finanzas-personales/services/pat
 const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
 const home=require("../../modules/finanzas-personales/services/homePersonal.service");
 
+test("listados del panel exigen lectura acotada completa sin recortar resultados",async()=>{
+ for(const cantidad of [0,101,5000,5001]){
+  const rows=Array.from({length:cantidad},(_,id)=>({id})),llamadas=[];
+  const consulta={limit(n){llamadas.push(["limit",n]);return this;},
+   maxTimeMS(n){llamadas.push(["maxTimeMS",n]);return this;},async lean(){return rows;}};
+  if(cantidad>5000)await assert.rejects(home.leerListadoHome(consulta),
+   e=>e.statusCode===422&&e.code==="LIMITE_LECTURA_PANEL_PERSONAL");
+  else assert.equal(await home.leerListadoHome(consulta),rows);
+  assert.deepEqual(llamadas,[["limit",5001],["maxTimeMS",5000]]);
+ }
+ const fallo=Error("tiempo agotado");
+ const consulta={limit(){return this;},maxTimeMS(){return this;},async lean(){throw fallo;}};
+ await assert.rejects(home.leerListadoHome(consulta),e=>e===fallo);
+});
+
 test("panel suma importes con cancelación exacta y rechaza totales inseguros",()=>{
  const max=Number.MAX_SAFE_INTEGER;
  // Number pierde una unidad con este orden aunque el resultado final sea seguro.

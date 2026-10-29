@@ -72,6 +72,8 @@ async function probarMigracionAutorizada(db,uri,password,t){
    require("./helpers/saldosConversacionalesAutorizados").probarSaldosConversacionalesAutorizados);
   await t.test("progreso económico usa compensaciones y respeta acciones aprobadas",
    require("./helpers/progresoEconomicoAutorizado").probarProgresoEconomicoAutorizado);
+  await t.test("panel conserva compromisos recurrentes más allá de los cien registros recientes",
+   require("./helpers/lecturasHomeAutorizadas").probarLecturasHomeAutorizadas);
   await t.test("completar acciones exige evidencia vigente y revierte fallos de auditoría",
    require("./helpers/evidenciaProgresoAutorizada").probarEvidenciaProgresoAutorizada);
   await t.test("deudas conversacionales validan saldos sin inventar activos y revierten fallos",
