@@ -119,31 +119,50 @@ test("Capa 2: SIGKILL y reinicio no restauran JWT revocados; B sigue aislada",{
   await esperar(()=>p.messages.some(m=>m.tipo==="listo"||m.tipo==="fallo"),12000);
   listo=p.messages.find(m=>m.tipo==="listo");
   assert.ok(listo,JSON.stringify(p.messages));
+  // Ataque de reconexión masiva: el token A quedó invalidado mientras
+  // el primer proceso estaba caído. Ninguna instancia nueva puede usar
+  // la caché previa; cada handshake debe consultar Mongo.
+  const intentosPorEmpresa=32;
+  let rechazadosMasivos=0,aceptadosMasivos=0;
+  for(let inicio=0;inicio<intentosPorEmpresa;inicio+=8){
+   const lote=await Promise.all([
+    ...Array.from({length:8},()=>conectar(listo.puerto,viejoA,clients)),
+    ...Array.from({length:8},()=>conectar(listo.puerto,validoB,clients))
+   ]);
+   rechazadosMasivos+=lote.filter((frame,i)=>i<8&&frame.startsWith("44{")).length;
+   aceptadosMasivos+=lote.filter((frame,i)=>i>=8&&frame.startsWith("40{")).length;
+   assert.equal(rechazadosMasivos,inicio+8,"A no puede reutilizar autorizaciones de antes del crash");
+   assert.equal(aceptadosMasivos,inicio+8,"B debe reconectar sin contaminación de A");
+  }
+  assert.equal(rechazadosMasivos,32);
+  assert.equal(aceptadosMasivos,32);
   const rechazado=await conectar(listo.puerto,viejoA,clients);
   assert.ok(rechazado.startsWith("44{"),"JWT A revocado debe fallar antes de entrar a rooms");
   const bReautenticado=await conectar(listo.puerto,validoB,clients);
   assert.ok(bReautenticado.startsWith("40{"),"JWT B sigue válido tras caída de A");
   s=await estado(p);
   assert.equal(s.salas["empresa-"+A],undefined);
-  assert.equal(s.salas["empresa-"+B],1);
+  assert.equal(s.salas["empresa-"+B],33);
   const nuevoA=firmar(userA,A,"restart-a",SA,1);
   const renovado=await conectar(listo.puerto,nuevoA,clients);
   assert.ok(renovado.startsWith("40{"),"Token A renovado debe entrar tras comprobar Mongo");
   s=await estado(p);
   assert.equal(s.salas["empresa-"+A],1);
-  assert.equal(s.salas["empresa-"+B],1);
+  assert.equal(s.salas["empresa-"+B],33);
   // Revocar de nuevo A después del reinicio: B no debe perder conexión.
   await Usuario.updateOne({_id:userA._id},{$inc:{tokenVersion:1}});
   await esperar(()=>p.messages.some(m=>m.tipo==="desconectado"&&m.usuarioId===String(userA._id)),7000);
   s=await estado(p);
   assert.equal(s.salas["empresa-"+A],undefined);
-  assert.equal(s.salas["empresa-"+B],1);
+  assert.equal(s.salas["empresa-"+B],33);
   assert.equal(s.limite.activas,0);
   console.log("[GRUK CI SOCKET CRASH RESTART]",JSON.stringify({
    procesosSucesivos:2,signalInicial:"SIGKILL",empresas:2,
    tokenRevocadoDuranteCaidaRechazado:true,
    nuevoTokenVerificadoMongo:true,empresaBSinInterrupcionTrasReinicio:true,
-   roomsEmpresaATrasRevocacion:0,roomsEmpresaB:1,
+   roomsEmpresaATrasRevocacion:0,roomsEmpresaB:33,
+   reconexionesARevocadasRechazadas:rechazadosMasivos,
+   reconexionesBAutorizadas:aceptadosMasivos,
    verificacionesActivas:s.limite.activas
   }));
  }finally{
