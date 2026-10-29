@@ -14,23 +14,35 @@ async function crearInventarioAutorizado({auth,body}){
     (typeof datos.restaurantId!=="string" || !datos.restaurantId.trim()))return null;
  const alcanceRestaurante={restaurantId:datos.restaurantId,empresaId:auth.empresaId};
  if(auth.rol==="DUEÑO"){
-  // Compatibilidad: inventario general e históricos sin sede permanecen válidos.
-  // Sin embargo, una sede explícita debe existir en la empresa del JWT.
-  if(datos.sedeId!==undefined && datos.sedeId!==null){
-   if(typeof datos.sedeId!=="string" || !mongoose.isValidObjectId(datos.sedeId))return null;
-   const sede=await Sede.exists({
-    _id:datos.sedeId,empresaId:auth.empresaId,
-    ...(datos.restaurantId?{restauranteId:datos.restaurantId}:{})
-   });
-   if(!sede)return null;
+  // Inventario general o sin sede explícita: conservar el contrato legado.
+  const tieneSede=datos.sedeId!==undefined && datos.sedeId!==null;
+  if(!tieneSede){
+   if(datos.restaurantId && !(await Restaurante.exists(alcanceRestaurante)))return null;
+   const nuevo=new Inventario(datos);
+   await nuevo.save();
+   return nuevo;
   }
-  if(datos.restaurantId){
-   const existe=await Restaurante.exists(alcanceRestaurante);
-   if(!existe)return null;
+  // El dueño también necesita una valla transaccional para sedes explícitas.
+  if(typeof datos.sedeId!=="string" || !mongoose.isValidObjectId(datos.sedeId))return null;
+  const session=await mongoose.startSession();
+  let creado=null;
+  try{
+   await session.withTransaction(async()=>{
+    creado=null;
+    if(datos.restaurantId && !(await Restaurante.exists(alcanceRestaurante).session(session)))return;
+    const sede=await Sede.findOneAndUpdate({
+     _id:datos.sedeId,empresaId:auth.empresaId,
+     ...(datos.restaurantId?{restauranteId:datos.restaurantId}:{})
+    },{$inc:{authFence:1}},{new:true,session});
+    if(!sede)return;
+    const nuevo=new Inventario(datos);
+    await nuevo.save({session});
+    creado=nuevo;
+   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"}});
+   return creado;
+  }finally{
+   await session.endSession();
   }
-  const creado=new Inventario(datos);
-  await creado.save();
-  return creado;
  }
  if(auth.rol!=="ADMIN_SEDE" || !datos.restaurantId)return null;
  const session=await mongoose.startSession();
