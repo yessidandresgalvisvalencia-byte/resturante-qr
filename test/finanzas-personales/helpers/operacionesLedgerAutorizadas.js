@@ -76,6 +76,14 @@ async function probarCajaAutorizada(){
  // Pasar por el driver evita hooks: es MongoDB quien rechaza estas escrituras.
  await assert.rejects(Tx.collection.updateOne({_id:gasto._id},{$set:{montoMinor:1}}),e=>e.code===13);
  await assert.rejects(Evento.collection.deleteOne({usuarioId:String(usuarioId)}),e=>e.code===13);
+ const cargado=await Tx.findById(gasto._id);
+ await assert.rejects(cargado.updateOne({$set:{montoMinor:1}}),e=>e.code==="TRANSACCION_PERSONAL_APPEND_ONLY");
+ // Mongoose permite omitir hooks: el rol MongoDB debe bloquear aun así.
+ await assert.rejects(Tx.updateOne({_id:gasto._id},{$set:{montoMinor:1}},{middleware:false}),e=>e.code===13);
+ await assert.rejects(cargado.updateOne({$set:{montoMinor:1}},{middleware:false}),e=>e.code===13);
+ await assert.rejects(Tx.deleteOne({_id:gasto._id},{middleware:false}),e=>e.code===13);
+ await assert.rejects(Tx.bulkWrite([{updateOne:{filter:{_id:gasto._id},update:{$set:{montoMinor:1}}}}],{middleware:false}),e=>e.code===13);
+ assert.deepEqual(await Tx.find({usuarioId}).sort({_id:1}).lean(),fuentes);
 }
 
 async function probarCadenaV81Autorizada(){

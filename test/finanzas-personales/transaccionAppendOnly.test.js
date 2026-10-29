@@ -15,5 +15,6 @@ test("documentos existentes no se guardan ni borran, pero nuevos documentos vali
  const doc=new Tx({usuarioId:id,tipo:"INGRESO",montoMinor:100,concepto:"Prueba",categoria:"OTROS",fecha:new Date()});
  await doc.validate();assert.equal(doc.isNew,true);
  doc.isNew=false;
+ await assert.rejects(doc.updateOne({$set:{montoMinor:1}}),bloqueado);
  await assert.rejects(doc.save(),bloqueado);await assert.rejects(doc.deleteOne(),bloqueado);
 });
