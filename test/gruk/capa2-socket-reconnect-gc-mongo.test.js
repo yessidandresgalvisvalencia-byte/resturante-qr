@@ -19,11 +19,11 @@ test("Capa 2: 20 ciclos reales de WebSocket y Mongo en proceso aislado con GC",{
  assert.equal(child.status,0,[
   "El ensayo GC falló",child.stdout.slice(-5000),child.stderr.slice(-5000)
  ].join("\n"));
- const registro=child.stdout.split("\n").find(s=>
-  s.includes("[GRUK CI SOCKET RECONNECT MEMORY]")
+ const registro=child.stdout.match(
+  /\[GRUK CI SOCKET RECONNECT MEMORY\]\s*(\{[^\r\n]*\})/
  );
- assert.ok(registro,"La medición real debe dejar evidencia en CI");
- const datos=JSON.parse(registro.slice(registro.indexOf("{")));
+ assert.ok(registro,"La medición real debe dejar evidencia en CI: "+child.stdout.slice(-1200));
+ const datos=JSON.parse(registro[1]);
  assert.equal(datos.ciclos,20);
  assert.equal(datos.conexionesTotales,480);
  assert.equal(datos.gcForzado,true);
