@@ -30,6 +30,8 @@ Antes de anexar una compensación, el registrador comprueba toda la cadena del u
 
 Las correcciones/anulaciones de caja y las reversiones de cuotas de compras y préstamos comparten esa lectura verificada antes de devolver un reintento exitoso. Un recibo intacto no oculta una cadena truncada en otro movimiento ni un cursor alterado. Un reintento válido conserva el evento y evita duplicar sus efectos financieros; puede avanzar la revisión interna del control de concurrencia. El límite de 10.000 eventos permite verificar recibos existentes, aunque impide añadir nuevos eventos hasta ampliar la capacidad.
 
+La aprobación conversacional de ingresos y gastos inserta el ID de la cuenta EFECTIVO junto al asiento y ajusta su saldo con el predicado de enteros seguros, dentro de la misma transacción que el borrador y el outbox. CI con rol restringido comprueba su posterior corrección/anulación sin modificar fuentes, aislamiento entre usuarios, rechazo de fracciones/desbordamientos y rollback de un lote completo por saldo insuficiente. Los tipos patrimoniales genéricos sin una obligación identificada se rechazan y requieren el flujo específico de préstamos; esta prueba no acredita las ramas conversacionales de transferencias, ajustes ni cobros.
+
 ## Provisión separada y arranque
 
 El servidor abre la conexión con `autoCreate: false` y `autoIndex: false`. Antes de escuchar peticiones exige una política de privilegios compatible, los índices de seguridad V81 y los índices únicos del registrador compensatorio. Si la comprobación falla, cierra Socket.IO y MongoDB. `/healthz` permanece condicionado a conexión, privilegios e índices verificados.
