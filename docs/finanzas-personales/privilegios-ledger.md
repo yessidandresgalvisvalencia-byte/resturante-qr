@@ -22,7 +22,21 @@ El resultado tiene `compatible`, un código y los permisos faltantes o no permit
 
 En CI, un contenedor independiente con autorización habilitada comprueba que un usuario restringido puede insertar y consultar, pero MongoDB rechaza realmente actualizaciones, reemplazos, eliminaciones y DDL sobre las cinco colecciones. La prueba también confirma que las proyecciones mutables pueden actualizarse y que los perfiles `readWrite`, administrador y solo lectura no pasan la política. Esta evidencia pertenece exclusivamente al entorno de pruebas.
 
-No aplicar roles de producción ni retirar permisos de una conexión existente a partir de este informe solamente. Antes debe revisarse la compatibilidad del arranque y de todas las rutas de escritura: actualmente el servidor no separa explícitamente la provisión automática de Mongoose de la conexión de aplicación. La creación de colecciones e índices necesita una fase administrativa independiente.
+## Provisión separada y arranque
+
+El servidor abre la conexión con `autoCreate: false` y `autoIndex: false`. Antes de escuchar peticiones exige una política de privilegios compatible, los índices de seguridad V81 y los índices únicos del registrador compensatorio. Si la comprobación falla, cierra Socket.IO y MongoDB. `/healthz` permanece condicionado a conexión, privilegios e índices verificados.
+
+La provisión se ejecuta separadamente con una credencial administrativa en `PERSONAL_MONGO_PROVISION_URI` y una base explícita en `PERSONAL_MONGO_DB`. No se reutiliza `PERSONAL_MONGO_URI`. El comando es:
+
+```sh
+npm run provision:personal:mongo -- --apply
+```
+
+El manifiesto carga exclusivamente los modelos de `modules/finanzas-personales/models/`. Crea sus colecciones e índices declarados, sin modificar documentos ni retirar índices. Repetir la misma definición es idempotente. Los conflictos se propagan; una provisión interrumpida puede haber creado parte de las colecciones o índices anteriores al fallo. No ejecuta `syncIndexes` ni concede roles.
+
+La prueba con autorización activada provisiona primero con una cuenta administrativa local y después arranca el servidor real con el usuario restringido. Comprueba salud HTTP 200, DDL automático desactivado, rechazo de un perfil `readWrite` y rechazo de un índice compensatorio ausente. Los servicios auxiliares externos se sustituyen únicamente dentro del proceso de prueba.
+
+No aplicar roles de producción ni retirar permisos de una conexión existente a partir de este informe solamente. Todavía deben comprobarse las credenciales y rutas de escritura del despliegue real, los índices existentes, sus datos y la custodia independiente de anclas.
 
 El bloqueo de liberación [#407](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/issues/407) sigue abierto. El informe no cambia la decisión de `gruk-personal-ledger-mutability-audit.js --enforce` ni autoriza un despliegue.
 

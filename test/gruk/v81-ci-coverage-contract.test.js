@@ -98,7 +98,10 @@ test("CI V81 vigila modelo transaccional y escrituras de flujo de caja",()=>{
  assert.equal(triggers.length,2,"Deben existir disparadores push y PR");
  for(const ruta of [
   "modules/finanzas-personales/models/TransaccionPersonal.js",
-  "modules/finanzas-personales/services/flujoCajaPersonal.service.js"
+  "modules/finanzas-personales/services/flujoCajaPersonal.service.js",
+  "modules/finanzas-personales/server.js",
+  "scripts/provision-personal-mongo.js",
+  "scripts/audit-personal-mongo-privileges.js"
  ]){
   const linea="      - '"+ruta+"'";
   assert.equal(yaml.split(linea).length-1,2,
