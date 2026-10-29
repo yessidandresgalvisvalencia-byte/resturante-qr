@@ -64,9 +64,27 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   const foreign=await item(B,SB,"restaurant-b","otra empresa");
   const legacy=await item(A,null,"restaurant-a","histórico sin sede");
   const endpoint="http://127.0.0.1:"+server.address().port+"/api/inventario";
+  // Los tokens de integración se expiden únicamente para identidades reales.
+  const sujetos={
+   "usuario-sede-a":new mongoose.Types.ObjectId(),
+   "usuario-sede-b":new mongoose.Types.ObjectId(),
+   "dueno-a":new mongoose.Types.ObjectId(),
+   "empleado-a":new mongoose.Types.ObjectId(),
+   "dueno-b":new mongoose.Types.ObjectId()
+  };
+  await Usuario.insertMany([
+   {_id:sujetos["usuario-sede-a"],empresaId:A,restauranteId:"restaurant-a",sedeId:SA,nombre:"Admin A",usuario:"fixture-admin-a",password:"fixture-test",rol:"admin_sede"},
+   {_id:sujetos["usuario-sede-b"],empresaId:A,restauranteId:"restaurant-a",sedeId:SB,nombre:"Admin B",usuario:"fixture-admin-b",password:"fixture-test",rol:"admin_sede"},
+   {_id:sujetos["dueno-a"],empresaId:A,restauranteId:"restaurant-a",sedeId:null,nombre:"Dueño A",usuario:"fixture-owner-a",password:"fixture-test",rol:"admin_general"},
+   {_id:sujetos["empleado-a"],empresaId:A,restauranteId:"restaurant-a",sedeId:SA,nombre:"Empleado",usuario:"fixture-employee-a",password:"fixture-test",rol:"mesero"},
+   {_id:sujetos["dueno-b"],empresaId:B,restauranteId:"restaurant-b",sedeId:null,nombre:"Dueño B",usuario:"fixture-owner-b",password:"fixture-test",rol:"admin_general"}
+  ]);
   function auth(empresaId,sedeId,rol,sub){
-   return "Bearer "+jwt.sign({sub,empresaId,sedeId,rol},process.env.JWT_SECRET,
-     {algorithm:"HS256",expiresIn:"5m"});
+   const restaurantId=empresaId===B?"restaurant-b":"restaurant-a";
+   return "Bearer "+jwt.sign({
+     sub:String(sujetos[sub]),empresaId,restaurantId,sedeId,rol,
+     identityType:"USUARIO",tokenVersion:0
+   },process.env.JWT_SECRET,{algorithm:"HS256",expiresIn:"5m"});
   }
   const adminA=auth(A,SA,"ADMIN_SEDE","usuario-sede-a");
   const adminB=auth(A,SB,"ADMIN_SEDE","usuario-sede-b");
@@ -231,6 +249,11 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
     await userRace.endSession();
   }
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
+  // Los JWT anteriores sin identityType no pueden saltarse la revocación.
+  const legacyToken="Bearer "+jwt.sign({
+   sub:String(sujetos["dueno-a"]),empresaId:A,restaurantId:"restaurant-a",rol:"DUEÑO"
+  },process.env.JWT_SECRET,{algorithm:"HS256",expiresIn:"5m"});
+  assert.equal((await call("GET","/restaurant-a",legacyToken)).status,401);
   // Negación por rol, empresa y ausencia de credenciales.
   assert.equal((await call("GET","/restaurant-a",empleado)).status,403);
   assert.equal((await call("POST","/",empleado,{
@@ -409,10 +432,10 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   const fenceBefore=(await Sede.findById(SA)).authFence||0;
   const annulled=await call("PUT","/anular/"+own.id,adminA,{motivo:"control",usuario:"suplantado"});
   assert.equal(annulled.status,200);
-  assert.equal(annulled.data.producto.usuarioAnulacion,"usuario-sede-a");
+  assert.equal(annulled.data.producto.usuarioAnulacion,String(sujetos["usuario-sede-a"]));
   assert.equal((await Sede.findById(SA)).authFence,fenceBefore+1);
   assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:"repetir"})).status,404);
-  assert.equal((await Inventario.findById(own.id)).usuarioAnulacion,"usuario-sede-a");
+  assert.equal((await Inventario.findById(own.id)).usuarioAnulacion,String(sujetos["usuario-sede-a"]));
   assert.equal((await Sede.findById(SA)).authFence,fenceBefore+1);
   // Peticiones concurrentes del mismo administrador: una sola anulación.
   const simultaneo=await item(A,SA,"restaurant-a","anulación concurrente");
