@@ -5,7 +5,7 @@ const {crearVerificadorCompartido}=require("../../../core/auth/socketSharedVerif
 async function main(){
  if(typeof global.gc!=="function")throw Error("GC_NO_DISPONIBLE");
  let clock=1000;
- const maxEntradas=512, ttlMs=350, ciclos=12;
+ const maxEntradas=512, ttlMs=350, ciclos=36;
  const verifier=crearVerificadorCompartido({
   maxEntradas,ttlMs,ahora:()=>clock,
   verificar:async({token})=>({
@@ -15,7 +15,7 @@ async function main(){
  });
  global.gc();
  const inicial=process.memoryUsage();
- let pico=0;
+ let pico=0, picoRss=0;
  for(let ciclo=0;ciclo<ciclos;ciclo++){
   const tokens=Array.from({length:maxEntradas},(_,i)=>
    "jwt-"+ciclo+"-"+(i%2?"B":"A")+"-"+i+"-"+("x".repeat(240))
@@ -29,7 +29,9 @@ async function main(){
   const otro=await verifier.autenticar({token:"jwt-rechazado-"+ciclo,secret:"secret-solo-ci"});
   assert.equal(otro,null,"Caché al límite rechaza el JWT adicional sin autorizarlo");
   assert.equal(verifier.estadisticas().entradas,maxEntradas);
-  pico=Math.max(pico,process.memoryUsage().heapUsed);
+  const muestra=process.memoryUsage();
+  pico=Math.max(pico,muestra.heapUsed);
+  picoRss=Math.max(picoRss,muestra.rss);
   clock+=ttlMs+1;
  }
  // Se podan todas las entradas expiradas durante el siguiente acceso.
@@ -38,11 +40,15 @@ async function main(){
  global.gc();global.gc();
  const final=process.memoryUsage();
  const crecimientoHeapBytes=final.heapUsed-inicial.heapUsed;
+ const crecimientoRssBytes=final.rss-inicial.rss;
+ const limiteRssBytes=128*1024*1024;
  // Umbral deliberadamente holgado para detectar retenciones masivas;
  // NO reemplaza perfilado de memoria / estrés en producción.
  const limiteBytes=16*1024*1024;
  assert.ok(crecimientoHeapBytes<limiteBytes,
   "El heap retenido superó el umbral de seguridad de CI de 16 MiB");
+ assert.ok(crecimientoRssBytes<limiteRssBytes,
+  "El crecimiento RSS superó el umbral conservador de CI de 128 MiB");
  assert.equal(verifier.estadisticas().rechazos,ciclos);
  console.log("[GRUK CI SOCKET CACHE HEAP]",JSON.stringify({
   ciclos,jwtDistintos:ciclos*maxEntradas,capacidad:maxEntradas,
@@ -52,7 +58,10 @@ async function main(){
   heapFinalBytes:final.heapUsed,
   crecimientoHeapBytes,picoHeapObservadoBytes:pico,
   limiteCrecimientoBytes:limiteBytes,
-  nota:"heapUsed tras GC aislado; no es medición RSS ni SLA"
+  rssInicialBytes:inicial.rss,rssFinalBytes:final.rss,
+  crecimientoRssBytes,picoRssObservadoBytes:picoRss,
+  limiteCrecimientoRssBytes:limiteRssBytes,
+  nota:"heapUsed y RSS en proceso aislado; RSS incluye memoria nativa y no disminuye necesariamente tras GC; no es SLA"
  }));
 }
 main().catch(error=>{
