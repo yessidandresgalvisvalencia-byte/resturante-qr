@@ -131,6 +131,7 @@ await Promise.all([...porPagar,...pagados.filter(x=>x.direccion==="POR_PAGAR")].
  detalleCuotas.set(String(x._id),r);
  }catch(e){detalleCuotas.set(String(x._id),{error:true});}
 }));
+if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;
 const renderPrestamo=x=>{
  const propia=x.direccion==="POR_PAGAR",detalle=detalleCuotas.get(String(x._id));
  const valido=Number.isSafeInteger(x.principalMinor)&&x.principalMinor>0&&Number.isSafeInteger(x.saldoMinor)&&x.saldoMinor>=0;
