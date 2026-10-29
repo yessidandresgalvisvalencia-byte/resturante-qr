@@ -1,6 +1,57 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
 const codigo=fs.readFileSync(path.join(__dirname,"../../public/finanzas-personales.js"),"utf8");
+function panelSimulado(api){
+ const vm=require("node:vm"),elementos=new Map();
+ const $=id=>{
+  if(!elementos.has(id))elementos.set(id,{textContent:"Anterior",hidden:false,dataset:{},value:"Borrador pendiente"});
+  return elementos.get(id);
+ };
+ $("hDisponibleHoy").textContent="$500.000";$("hDisponible").textContent="$600.000";
+ $("hPatrimonio").textContent="$800.000";$("homeDecisions").textContent="Puedes gastar";
+ const contexto=vm.createContext({$,api,token:"sesion-uno",cargaPanelEnCurso:null,tokenCargaPanel:null,
+  window:{grukExplain:()=>{$("metricExplanation").hidden=false;}},Date,Error});
+ const inicio=codigo.indexOf("function invalidarAutorizacionDisponible()");
+ const fin=codigo.indexOf("function invalidarIndicadoresFinancieros()",inicio);
+ vm.runInContext(codigo.slice(inicio,fin),contexto);
+ const inicioCarga=codigo.indexOf("async function load(){"),finCarga=codigo.indexOf("}window.deshacerUltimaCuota=",inicioCarga);
+ assert.ok(inicio>0&&fin>inicio&&inicioCarga>0&&finCarga>inicioCarga);
+ vm.runInContext(codigo.slice(inicioCarga,finCarga+1),contexto);
+ return {$,contexto};
+}
+test("una actualización pendiente retira el monto autorizado y un fallo no lo restaura",async()=>{
+ let rechazar;const pendiente=new Promise((_,reject)=>{rechazar=reject;});
+ const {$,contexto}=panelSimulado(()=>pendiente);
+ const carga=contexto.load();
+ assert.equal($("hDisponibleHoy").textContent,"No actualizado");
+ assert.equal($("hDisponible").textContent,"No actualizado");
+ assert.equal($("hPatrimonio").textContent,"$800.000");
+ assert.equal($("captureText").value,"Borrador pendiente");
+ contexto.window.grukExplain("disponibleHoy");assert.equal($("metricExplanation").hidden,true);
+ rechazar(Object.assign(Error("Consulta incompleta"),{statusCode:422}));await carga;
+ assert.equal($("hDisponibleHoy").textContent,"No actualizado");
+ assert.match($("homeDecisions").textContent,/No hay una recomendación de gasto confirmada/);
+ assert.match($("live").textContent,/Las cifras visibles pueden corresponder a una consulta anterior/);
+ assert.equal($("live").dataset.alert,"true");
+});
+test("una alerta de registros ausentes tampoco conserva la autorización anterior",async()=>{
+ const {$,contexto}=panelSimulado(async()=>({diagnostico:{identidadExistente:true,movimientos:0,deudas:0,cuentas:0,
+  fechaCreacionCuenta:"2020-01-01T00:00:00.000Z"}}));
+ await contexto.load();
+ assert.equal($("hDisponibleHoy").textContent,"No actualizado");
+ assert.match($("live").textContent,/ALERTA DE INTEGRIDAD/);
+ assert.equal($("hPatrimonio").textContent,"$800.000");
+});
+test("un error tardío de otra sesión no invalida el disponible del usuario actual",async()=>{
+ let rechazar;const pendiente=new Promise((_,reject)=>{rechazar=reject;});
+ const {$,contexto}=panelSimulado(()=>pendiente),carga=contexto.load();
+ contexto.token="sesion-dos";$("hDisponibleHoy").textContent="$250.000";
+ $("homeDecisions").textContent="Datos del usuario actual";$("live").textContent="Sesión actual";
+ rechazar(Error("Error de sesión anterior"));await carga;
+ assert.equal($("hDisponibleHoy").textContent,"$250.000");
+ assert.equal($("homeDecisions").textContent,"Datos del usuario actual");
+ assert.equal($("live").textContent,"Sesión actual");
+});
 test("El panel conserva lectura de la misma cuenta y la invalida al cambiar de sesión",()=>{
  assert.match(codigo,/function invalidarIndicadoresFinancieros\(\)/);
  assert.match(codigo,/const ejecucion=\(async\(\)=>\{const liveAlCargar=/);
