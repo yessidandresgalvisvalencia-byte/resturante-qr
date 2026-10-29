@@ -26,6 +26,8 @@ En CI, un contenedor independiente con autorización habilitada comprueba que un
 
 El servidor abre la conexión con `autoCreate: false` y `autoIndex: false`. Antes de escuchar peticiones exige una política de privilegios compatible, los índices de seguridad V81 y los índices únicos del registrador compensatorio. Si la comprobación falla, cierra Socket.IO y MongoDB. `/healthz` permanece condicionado a conexión, privilegios e índices verificados.
 
+La auditoría de índices V81 exige las claves en el orden declarado y rechaza índices únicos `sparse`, TTL o con collation distinta de `simple`. Las reservas y vínculos requieren cobertura completa; la idempotencia transaccional admite únicamente el filtro `{ externalIdHash: { $type: "string" } }`, sin condiciones adicionales. Un índice único oculto sigue imponiendo unicidad. Los índices de consulta parciales, sparse u ocultos se informan como no verificados para rendimiento, sin bloquear por sí solos el arranque. Esta comprobación de metadatos no demuestra la configuración de producción ni la completitud de sus datos.
+
 La provisión se ejecuta separadamente con una credencial administrativa en `PERSONAL_MONGO_PROVISION_URI` y una base explícita en `PERSONAL_MONGO_DB`. No se reutiliza `PERSONAL_MONGO_URI`. El comando es:
 
 ```sh

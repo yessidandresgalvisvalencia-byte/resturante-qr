@@ -156,6 +156,22 @@ test("MongoDB con autorización: rol insert-only bloquea modificación y borrado
   await db.collection("fin_eventos_compensatorios_personales_v1").dropIndex("fp_compensacion_orden_usuario_v1");
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
+  // El índice existe y es único, pero su filtro deja fuera parte del historial.
+  const transacciones=db.collection("fin_transacciones_personales");
+  await transacciones.dropIndex("usuarioId_1_externalIdHash_1");
+  await transacciones.createIndex({usuarioId:1,externalIdHash:1},{unique:true,
+   partialFilterExpression:{externalIdHash:{$type:"string"},estado:"ACTIVA"}});
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await transacciones.dropIndex("usuarioId_1_externalIdHash_1");
+  await provisionarMongoPersonal(db);
+  const reservas=db.collection("fin_reservas_cuotas_recurrentes");
+  const claveReserva={usuarioId:1,origenId:1,periodoInicio:1};
+  await reservas.dropIndex("usuarioId_1_origenId_1_periodoInicio_1");
+  await reservas.createIndex(claveReserva,{unique:true,sparse:true});
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await reservas.dropIndex("usuarioId_1_origenId_1_periodoInicio_1");
+  await provisionarMongoPersonal(db);
+  assert.deepEqual(arranque("writer"),{status:200,autoCreate:false,autoIndex:false});
   assert.deepEqual((await db.listCollections({},{nameOnly:true}).toArray()).map(c=>c.name).sort(),nombresAntes);
   await probarMigracionAutorizada(db,uri,password);
  }finally{
