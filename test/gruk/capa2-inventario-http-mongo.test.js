@@ -150,6 +150,18 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(String(crearUsuario.data.usuario.sedeId),SA);
   const guardadoUsuario=await Usuario.findOne({usuario:nuevoUsuarioNombre});
   assert.equal(await bcrypt.compare("ContrasenaValida123!",guardadoUsuario.password),true);
+  const loginValido=await call("POST","/usuarios/login","",{
+    usuario:nuevoUsuarioNombre,password:"ContrasenaValida123!"
+  });
+  assert.equal(loginValido.status,200,JSON.stringify(loginValido));
+  assert.equal(jwt.verify(loginValido.data.token,process.env.JWT_SECRET).empresaId,A);
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
+  const loginDesvinculado=await call("POST","/usuarios/login","",{
+    usuario:nuevoUsuarioNombre,password:"ContrasenaValida123!"
+  });
+  assert.equal(loginDesvinculado.status,403,JSON.stringify(loginDesvinculado));
+  assert.equal(loginDesvinculado.data.token,undefined);
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
   const fueraDeSede=await call("POST","/usuarios/crear",adminA,{
     restauranteId:"restaurant-a",sedeId:SB,nombre:"Intruso sede B",
     usuario:"intruso-"+randomUUID(),password:"ContrasenaValida123!",rol:"mesero"
