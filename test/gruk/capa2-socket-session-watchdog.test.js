@@ -97,3 +97,27 @@ test("Capa 2: valida timeout máximo acotado al intervalo",()=>{
  assert.throws(()=>vigilarSesionSocket(socket(),{timeoutMs:99}),/Tiempo máximo/);
  assert.throws(()=>vigilarSesionSocket(socket(),{intervalMs:5000,timeoutMs:5000}),/Tiempo máximo/);
 });
+
+test("Capa 2: vencimiento aborta la consulta de autorización pendiente",async()=>{
+ const s=socket();
+ let intervalo,limiteTiempo,observada=false,abortos=0;
+ vigilarSesionSocket(s,{
+  secret:"test",intervalMs:5000,timeoutMs:500,
+  autenticar:async({signal})=>{
+   assert.ok(signal,"Debe propagarse AbortSignal");
+   return new Promise(resolve=>{
+    if(signal.aborted){abortos++;return resolve(null);}
+    signal.addEventListener("abort",()=>{abortos++;resolve(null);},{once:true});
+   });
+  },
+  programar:fn=>{intervalo=fn;return 1;},cancelar:()=>{},
+  programarTimeout:fn=>{limiteTiempo=fn;return 2;},cancelarTimeout:()=>{}
+ });
+ const pendiente=intervalo();
+ await Promise.resolve();
+ await Promise.resolve();
+ limiteTiempo();
+ await pendiente;
+ assert.equal(abortos,1,"El timeout debe abortar la operación, no solo la espera");
+ assert.equal(s.connected,false);
+});
