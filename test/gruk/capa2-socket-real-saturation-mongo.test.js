@@ -13,6 +13,7 @@ const Restaurante=require("../../models/restaurante");
 const {autenticarSocket}=require("../../core/auth/socketHandshake.service");
 const {vigilarSesionSocket}=require("../../core/auth/socketSessionWatchdog.service");
 const {crearLimiteValidaciones}=require("../../core/auth/socketValidationLimiter.service");
+const {crearVerificadorCompartido}=require("../../core/auth/socketSharedVerifier.service");
 const mongo=process.env.GRUK_TEST_MONGO_URI||process.env.TEST_MONGO_URI;
 function local(uri){
  try{
@@ -65,8 +66,12 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
  let dbConnected=false,liberar,onMongoCommand,mongoClient;
  const consultasPorColeccion=new Map();
  const bloqueo=new Promise(resolve=>liberar=resolve);
- let verificaciones=0;
+ let verificaciones=0,modoCompartido=false;
+ // ttlMs=0: deduplicar SOLAMENTE consultas simultáneas, nunca cachear
+ // resultados entre rondas; obliga a consultar Mongo en cada vuelta.
+ const compartido=crearVerificadorCompartido({ttlMs:0,tiempoConsultaMs:1500});
  const autenticar=async({token,secret:clave,signal})=>{
+  if(modoCompartido)return compartido.autenticar({token,secret:clave,signal});
   verificaciones++;
   await bloqueo;
   if(signal.aborted)return null;
@@ -159,6 +164,45 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
    consultasPorColeccion:Object.fromEntries(consultasPorColeccion),
    maxConcurrentObserved:limitador.estadisticas().maxObservado,
    medicion:"find en Mongo local CI; no es SLA de producción"
+  }));
+  // Comparación A/B dentro de ESTE MISMO servidor, 64 conexiones y
+  // cuatro rondas. Sólo cambia el verificador (sin TTL entre rondas).
+  modoCompartido=true;
+  const consultasCompartidas=new Map();
+  onMongoCommand=event=>{
+   if(event.commandName!=="find")return;
+   const nombre=String(event.command?.find||"desconocida");
+   consultasCompartidas.set(nombre,(consultasCompartidas.get(nombre)||0)+1);
+  };
+  mongoClient.on("commandStarted",onMongoCommand);
+  const inicioCompartido=Date.now();
+  const llamadasAntes=compartido.estadisticas().consultas;
+  for(let ronda=0;ronda<rondasAdicionales+1;ronda++){
+   assert.equal(ticks.size,64);
+   await Promise.all([...ticks.values()].map(tick=>tick()));
+   assert.equal(limitador.estadisticas().activas,0);
+   assert.equal([...sockets.values()].filter(s=>s.connected).length,64,
+    "El verificador compartido no puede desconectar sesiones válidas");
+  }
+  const duracionCompartidaMs=Date.now()-inicioCompartido;
+  mongoClient.off("commandStarted",onMongoCommand);
+  onMongoCommand=null;
+  const comandosCompartidos=[...consultasCompartidas.values()].reduce((a,b)=>a+b,0);
+  const verificacionesCompartidas=compartido.estadisticas().consultas-llamadasAntes;
+  assert.equal(verificacionesCompartidas,rondasAdicionales+1,
+   "Cada ronda debe hacer una validación nueva y compartirla entre los 64 sockets");
+  assert.equal(comandosCompartidos,2*(rondasAdicionales+1),
+   "Cada ronda debe consultar usuario y sede una vez, sin TTL interronda");
+  assert.ok(comandosCompartidos<consultasMongo);
+  console.log("[GRUK CI SOCKET REAL DEDUP COMPARISON]",JSON.stringify({
+   socketsReales:64,rondasPorModo:rondasAdicionales+1,
+   consultasSinDeduplicacion:consultasMongo,
+   consultasConDeduplicacion:comandosCompartidos,
+   porColeccionCompartidas:Object.fromEntries(consultasCompartidas),
+   duracionSinDeduplicacionMs:duracionMedicionMs,
+   duracionConDeduplicacionMs:duracionCompartidaMs,
+   reduccionPorcentual:Math.round(100*(1-comandosCompartidos/consultasMongo)*100)/100,
+   ttlMs:0,limite:64,nota:"Mongo local CI, mismo JWT; no extrapolar a JWT distintos"
   }));
   // Ahora Mongo revoca el JWT y la segunda vuelta de revalidación debe
   // expulsar todas las conexiones restantes sin fuga entre resultados.
