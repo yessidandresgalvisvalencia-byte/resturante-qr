@@ -22,6 +22,8 @@ async function auditarAnclaCompensaciones({usuarioId,clavePublica,custodio}={}){
   ancla=structuredClone(ancla);
  }catch{return fallo("CUSTODIO_EXTERNO_NO_DISPONIBLE");}
  finally{clearTimeout(timer);}
+ // Evitar el buffer de conexión de startSession cuando MongoDB no está listo.
+ if(mongoose.connection.readyState!==1)return fallo("LECTURA_LEDGER_NO_DISPONIBLE");
  let session;
  try{
   session=await mongoose.startSession();let resultado;
