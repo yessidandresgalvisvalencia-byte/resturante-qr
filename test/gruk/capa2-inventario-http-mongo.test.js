@@ -9,6 +9,7 @@ const Inventario=require("../../models/Inventario");
 const Restaurante=require("../../models/restaurante");
 const Sede=require("../../models/sede");
 const router=require("../../routes/inventario");
+const apiRouter=require("../../routes/API");
 
 const A="507f1f77bcf86cd799439011",B="507f1f77bcf86cd799439012";
 const SA="507f191e810c19729de860ea",SB="507f191e810c19729de860eb";
@@ -32,6 +33,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
  const app=express();
  app.use(express.json());
  app.use("/api/inventario",router);
+ app.use("/api",apiRouter);
  const server=app.listen(0,"127.0.0.1");
  let connected=false;
  try{
@@ -74,6 +76,22 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
    return {status:response.status,data:await response.json()};
   }
 
+  // La ruta de mantenimiento de sedes debe respetar el tenant del JWT.
+  const sedeAjena=await call("POST","/sede/crear",ownerB,{
+    restauranteId:"restaurant-a",nombreSede:"invasión",direccion:""
+  });
+  assert.equal(sedeAjena.status,404,JSON.stringify(sedeAjena));
+  const sedeSinRol=await call("POST","/sede/crear",adminA,{
+    restauranteId:"restaurant-a",nombreSede:"sin privilegios",direccion:""
+  });
+  assert.equal(sedeSinRol.status,403,JSON.stringify(sedeSinRol));
+  const sedeValida=await call("POST","/sede/crear",owner,{
+    restauranteId:"restaurant-a",nombreSede:"sede nueva",direccion:""
+  });
+  assert.equal(sedeValida.status,200,JSON.stringify(sedeValida));
+  assert.equal(String(sedeValida.data.sede.empresaId),A);
+  assert.equal(sedeValida.data.sede.restauranteId,"restaurant-a");
+  assert.equal(await Sede.countDocuments({empresaId:B,restauranteId:"restaurant-a"}),0);
   // Negación por rol, empresa y ausencia de credenciales.
   assert.equal((await call("GET","/restaurant-a",empleado)).status,403);
   assert.equal((await call("POST","/",empleado,{
