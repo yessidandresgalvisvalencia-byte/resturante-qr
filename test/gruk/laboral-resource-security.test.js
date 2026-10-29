@@ -20,7 +20,7 @@ test("socket io exige JWT compartido y canal empresarial",()=>{
 test("socket valida revocacion y roles canonicos mediante middleware compartido",()=>{
  const guard=src("core/auth/socketHandshake.service.js");
  const claims=src("core/auth/jwtClaims.guard.js");
- assert.match(guard,/verificarSesion\(payload\)/);
+ assert.match(guard,/verificarSesion\(payload,\{signal\}\)/);
  assert.match(guard,/validarVersionSesion/);
  assert.match(claims,/DUEÑO.*ADMIN_SEDE.*EMPLEADO/);
 });
