@@ -1,5 +1,6 @@
 "use strict";
 const {autenticarSocket}=require("./socketHandshake.service");
+const {limiteGlobal}=require("./socketValidationLimiter.service");
 
 // Cada conexión abierta se vuelve a autenticar; una revocación corta el canal.
 async function comprobarSocketVigente(socket,{secret,autenticar=autenticarSocket}={}){
@@ -21,7 +22,8 @@ async function comprobarSocketVigente(socket,{secret,autenticar=autenticarSocket
 function vigilarSesionSocket(socket,{
  secret,intervalMs=5000,timeoutMs=2000,autenticar=autenticarSocket,
  programar=setInterval,cancelar=clearInterval,
- programarTimeout=setTimeout,cancelarTimeout=clearTimeout
+ programarTimeout=setTimeout,cancelarTimeout=clearTimeout,
+ limite=limiteGlobal
 }={}){
  if(!Number.isInteger(intervalMs)||intervalMs<1000)throw Error("Intervalo inválido");
  if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>=intervalMs)
@@ -39,7 +41,7 @@ function vigilarSesionSocket(socket,{
   let deadline;
   try{
    const vigente=await Promise.race([
-    comprobarSocketVigente(socket,{secret,autenticar}),
+    limite.ejecutar(()=>comprobarSocketVigente(socket,{secret,autenticar})),
     new Promise((_,reject)=>{
      deadline=programarTimeout(()=>reject(Error("SESSION_VALIDATION_TIMEOUT")),timeoutMs);
      if(typeof deadline?.unref==="function")deadline.unref();
