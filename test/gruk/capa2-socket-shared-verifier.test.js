@@ -177,3 +177,85 @@ test("Capa 2: error de Mongo no se cachea como autorización",async()=>{
  assert.equal(await v.autenticar({token:"A",secret:"s"}),perfil);
  assert.equal(consultas,2);
 });
+
+test("Capa 2: 700 JWT concurrentes ocupan máximo 512 entradas y 188 fallan cerrado",async()=>{
+ let resolver;
+ const retener=new Promise(resolve=>resolver=resolve);
+ let consultas=0;
+ const v=crearVerificadorCompartido({
+  maxEntradas:512,tiempoConsultaMs:1500,
+  verificar:async()=>{consultas++;await retener;return perfil;}
+ });
+ const pendientes=Array.from({length:700},(_,i)=>v.autenticar({
+  token:"jwt-unique-"+i,secret:"secret-1"
+ }));
+ assert.equal(v.estadisticas().entradas,512);
+ assert.equal(v.estadisticas().rechazos,188);
+ await Promise.resolve();
+ assert.equal(consultas,512,"No se lanzan consultas para los 188 rechazados");
+ resolver();
+ const resultados=await Promise.all(pendientes);
+ assert.equal(resultados.filter(Boolean).length,512);
+ assert.equal(resultados.filter(x=>x===null).length,188);
+ assert.equal(v.estadisticas().entradas,512);
+ assert.equal(v.estadisticas().consultas,512);
+ // Luego de expirar, 700 JWT NUEVOS no deben acumular otros 700 registros.
+ // La caché se poda al llegar una nueva solicitud; nunca crece sin límite.
+ const reloj=v.estadisticas();
+ assert.equal(reloj.entradas<=512,true);
+});
+
+test("Capa 2: limpia 512 JWT expirados y recupera capacidad para nuevas identidades",async()=>{
+ let t=1000,consultas=0;
+ const v=crearVerificadorCompartido({
+  maxEntradas:512,ttlMs:350,ahora:()=>t,
+  verificar:async({token})=>{
+   consultas++;
+   return {...perfil,usuarioId:token,empresaId:token.startsWith("b-")?"B":"A"};
+  }
+ });
+ const primera=await Promise.all(Array.from({length:512},(_,i)=>
+  v.autenticar({token:"a-"+i,secret:"test"})
+ ));
+ assert.equal(primera.length,512);
+ assert.equal(v.estadisticas().entradas,512);
+ assert.equal(await v.autenticar({token:"b-new",secret:"test"}),null);
+ assert.equal(v.estadisticas().rechazos,1);
+ t+=351;
+ const nuevas=await Promise.all(Array.from({length:512},(_,i)=>
+  v.autenticar({token:"b-"+i,secret:"test"})
+ ));
+ assert.equal(nuevas.every(u=>u?.empresaId==="B"),true);
+ assert.equal(v.estadisticas().entradas,512);
+ assert.equal(v.estadisticas().rechazos,1);
+ assert.equal(consultas,1024);
+ t+=351;
+ assert.equal((await v.autenticar({token:"a-0",secret:"test"})).empresaId,"A");
+ assert.equal(v.estadisticas().entradas,1,
+  "La recuperación poda las 512 entradas expiradas antes de reautorizar");
+});
+
+test("Capa 2: expiración de 512 verificaciones bloqueadas libera cupos y niega resultados tardíos",async()=>{
+ let liberar;
+ const retenida=new Promise(resolve=>liberar=resolve);
+ const v=crearVerificadorCompartido({
+  maxEntradas:512,tiempoConsultaMs:100,
+  verificar:async({token})=>token.startsWith("old-")
+   ?retenida:{...perfil,usuarioId:token}
+ });
+ const solicitudes=Array.from({length:512},(_,i)=>
+  v.autenticar({token:"old-"+i,secret:"test"})
+ );
+ assert.equal(v.estadisticas().entradas,512);
+ const resultados=await Promise.race([
+  Promise.all(solicitudes),
+  new Promise((_,reject)=>setTimeout(()=>reject(Error("Timeout no liberó las 512 entradas")),1500))
+ ]);
+ assert.equal(resultados.every(x=>x===null),true);
+ assert.equal(v.estadisticas().entradas,0);
+ assert.equal((await v.autenticar({token:"new-0",secret:"test"})).usuarioId,"new-0");
+ liberar(perfil);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(v.estadisticas().entradas,1);
+ assert.equal(v.estadisticas().maxEntradas,undefined);
+});
