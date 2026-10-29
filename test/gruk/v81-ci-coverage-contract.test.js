@@ -57,12 +57,26 @@ test("V81 usa la misma versión Node que declara package.json",()=>{
   `Node en CI V81 (${configured.join(",")}) difiere del engine (${expected})`);
 });
 
-test("todos los seis jobs V81 prueban el commit fuente y no el merge temporal bloqueado",()=>{
- const checkouts=[...yaml.matchAll(/uses: actions\/checkout@v4/g)];
- const refs=[...yaml.matchAll(/ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/g)];
- assert.equal(checkouts.length,6,"Debe auditarse cada job V81");
- assert.equal(refs.length,checkouts.length,
-  "Ningún job puede depender de refs/pull/*/merge en una PR con conflictos");
+test("cada job V81, incluida la prueba de privilegios, ejecuta el commit fuente",()=>{
+ const section=yaml.split("\njobs:")[1];assert.ok(section);
+ const jobs=[...section.matchAll(/^  ([a-zA-Z0-9_-]+):\s*$/gm)];
+ assert.deepEqual(jobs.map(j=>j[1]).sort(),[
+  "test-v81","probar-parche-proxy-v81","probar-parches-http-v81","evaluar-remediacion-restante-v81",
+  "redis-integration-v81","mongo-integration-v81","mongo-privileges-v81"
+ ].sort(),"Cada job nuevo requiere revisar su cobertura");
+ for(const [i,job] of jobs.entries()){
+  const block=section.slice(job.index,jobs[i+1]?.index??section.length);
+  assert.equal([...block.matchAll(/uses: actions\/checkout@v4/g)].length,1,job[1]);
+  assert.match(block,/ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/,job[1]+" debe comprobar el commit fuente");
+ }
+});
+test("la prueba de privilegios exige MongoDB con autorización y no omite su integración",()=>{
+ const job=yaml.split("  mongo-privileges-v81:")[1];assert.ok(job);
+ assert.match(job,/127\.0\.0\.1:27018:27017/);
+ assert.match(job,/mongo:7 mongod --auth --bind_ip_all/);
+ assert.match(job,/GRUK_REQUIRE_PRIVILEGIOS_MONGO_TEST: "1"/);
+ assert.match(job,/node --test test\/gruk\/ledger-personal-db-privileges\.test\.js test\/finanzas-personales\/privilegiosLedgerMongoV81\.integration\.test\.js/);
+ assert.match(job,/if: always\(\)[\s\S]*docker rm -f mongo-v81-auth-test/);
 });
 
 test("CI V81 incluye pruebas principales de caja, deudas y asesor",()=>{
