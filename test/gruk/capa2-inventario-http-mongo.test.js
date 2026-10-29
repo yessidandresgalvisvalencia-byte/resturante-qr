@@ -98,6 +98,29 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.ok(adminLegado);
   assert.equal(await bcrypt.compare("ContrasenaDePrueba123!",adminLegado.password),true);
   assert.equal(restauranteLegado.aceptaPlan,true);
+  // Fallo deliberado al insertar Admin: rollback de todo el onboarding.
+  // El Admin ya existe, pero no existe Restaurante con ese usuario.
+  await Admin.init(); // Verificar índice unique real antes de provocar el fallo.
+  const usuarioReservado="reservado-"+randomUUID();
+  await Admin.create({
+    restaurantId:"reservado-"+randomUUID(),
+    usuario:usuarioReservado,
+    password:"solo-prueba-no-es-credencial-vigente"
+  });
+  const fallidoId="legacy-rollback-"+randomUUID();
+  const empresasAntes=await Empresa.countDocuments({});
+  const solicitudFallida=await call("POST","/restaurante/registro","",{
+    restaurantId:fallidoId,nombreRestaurante:"Registro a revertir",
+    correo:fallidoId+"@example.test",
+    usuarioAdmin:usuarioReservado,
+    passwordAdmin:"ContrasenaDePrueba123!",aceptaPlan:true
+  });
+  assert.equal(solicitudFallida.status,500,JSON.stringify(solicitudFallida));
+  assert.equal(await Empresa.countDocuments({}),empresasAntes,
+    "La transacción no debe crear una empresa huérfana");
+  assert.equal(await Restaurante.countDocuments({restaurantId:fallidoId}),0);
+  assert.equal(await Sede.countDocuments({restauranteId:fallidoId}),0);
+  assert.equal(await Admin.countDocuments({restaurantId:fallidoId}),0);
   // La ruta de mantenimiento de sedes debe respetar el tenant del JWT.
   const sedeAjena=await call("POST","/sede/crear",ownerB,{
     restauranteId:"restaurant-a",nombreSede:"invasión",direccion:""
