@@ -10,6 +10,7 @@ function claimsValidas(payload){
  const TENANT_ID=/^[A-Za-z0-9_-]{1,80}$/;
  if(!TENANT_ID.test(payload.empresaId))return false;
  if(payload.sedeId!==undefined&&payload.sedeId!==null&&!TENANT_ID.test(payload.sedeId))return false;
+ if(payload.restaurantId!==undefined&&payload.restaurantId!==null&&!TENANT_ID.test(payload.restaurantId))return false;
  if(typeof payload.rol!=="string"||!ROLES.has(payload.rol))return false;
  for(const key of ["sedeId","restaurantId","identityType"]){
   if(payload[key]!==undefined&&payload[key]!==null&&!nonempty(payload[key]))return false;
