@@ -4,6 +4,7 @@ const assert=require("node:assert/strict");
 const mongoose=require("mongoose");
 const express=require("express");
 const jwt=require("jsonwebtoken");
+const {randomUUID}=require("node:crypto");
 const Inventario=require("../../models/Inventario");
 const Restaurante=require("../../models/restaurante");
 const Sede=require("../../models/sede");
@@ -12,9 +13,20 @@ const router=require("../../routes/inventario");
 const A="507f1f77bcf86cd799439011",B="507f1f77bcf86cd799439012";
 const SA="507f191e810c19729de860ea",SB="507f191e810c19729de860eb";
 const mongo=process.env.GRUK_TEST_MONGO_URI||process.env.TEST_MONGO_URI;
+function uriMongoSegura(uri){
+ if(typeof uri!=="string" || !uri.startsWith("mongodb://"))return false;
+ try{
+  const parsed=new URL(uri);
+  return !parsed.username && !parsed.password &&
+    ["127.0.0.1","localhost","::1","[::1]"].includes(parsed.hostname) &&
+    (!parsed.port || parsed.port==="27017");
+ }catch{return false;}
+}
 
 test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente", {skip:!mongo && !process.env.CI},async()=>{
  assert.ok(mongo,"CI requiere MongoDB: nunca omitir las pruebas de aislamiento");
+ assert.ok(uriMongoSegura(mongo),"Prohibidas pruebas destructivas sobre MongoDB remoto o autenticado");
+ const database="gruk_capa2_ci_"+randomUUID().replace(/-/g,"");
  const prior=process.env.JWT_SECRET;
  process.env.JWT_SECRET="gruk-tests-only-jwt-secret-32-characters";
  const app=express();
@@ -24,11 +36,9 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
  let connected=false;
  try{
   await new Promise(resolve=>server.once("listening",resolve));
-  await mongoose.connect(mongo,{dbName:"gruk_capa2_inventario_http_tests",serverSelectionTimeoutMS:15000});
+  await mongoose.connect(mongo,{dbName:database,serverSelectionTimeoutMS:15000});
   connected=true;
-  await Inventario.deleteMany({});
-  await Restaurante.deleteMany({});
-  await Sede.deleteMany({});
+  // Base temporal exclusiva por ejecución; no tocar datos preexistentes.
   for(const [restaurantId,empresaId] of [["restaurant-a",A],["restaurant-b",B]]){
    await Restaurante.create({
     restaurantId,empresaId,nombreRestaurante:restaurantId,correo:restaurantId+"@example.test",
@@ -212,7 +222,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal((await Sede.findById(SA)).authFence,fenceConcurrent+1);
   assert.equal((await Inventario.findById(simultaneo.id)).anulado,true);
  }finally{
-  if(connected){await Inventario.deleteMany({});await Restaurante.deleteMany({});await Sede.deleteMany({});await mongoose.disconnect();}
+  if(connected){await mongoose.connection.dropDatabase();await mongoose.disconnect();}
   await new Promise(resolve=>server.close(resolve));
   if(prior===undefined)delete process.env.JWT_SECRET;else process.env.JWT_SECRET=prior;
  }
