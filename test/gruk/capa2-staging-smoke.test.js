@@ -50,3 +50,15 @@ test("Capa 2 staging: exige JSON y contrato de /health",async()=>{
  const sinVersion=fakeFetcher(respuesta(200,{...health,version:null}));
  await assert.rejects(()=>verificarStaging({url:"https://staging.example.com",commit:sha,fetcher:sinVersion.fetcher}),/STAGING_HEALTH_CONTRACT_INVALID/);
 });
+
+test("Capa 2 staging: impide usar producción como staging aunque responda 200",async()=>{
+ const url="https://resturante-qr-1.onrender.com/";
+ assert.throws(()=>stagingOrigin(url),/STAGING_PRODUCTION_ORIGIN_FORBIDDEN/);
+ const f=fakeFetcher();
+ await assert.rejects(
+  ()=>verificarStaging({url,commit:sha,fetcher:f.fetcher}),
+  /STAGING_PRODUCTION_ORIGIN_FORBIDDEN/
+ );
+ assert.equal(f.solicitadas.length,0,
+  "La configuración equivocada debe fallar antes de cualquier solicitud HTTP");
+});
