@@ -1,5 +1,6 @@
 const express = require("express");
 const Joi = require("joi");
+const mongoose = require("mongoose");
 
 const router = express.Router();
 
@@ -7,6 +8,9 @@ const Inventario =
 require("../models/Inventario");
 const Restaurante = require("../models/restaurante");
 const authMiddleware = require("../core/auth/auth.middleware");
+const { sedeAutorizada, sedeRestauranteAutorizada } = require("../core/security/inventarioSede.scope");
+const { anularInventarioAutorizado } = require("../core/security/anularInventarioAutorizado.service");
+const { crearInventarioAutorizado } = require("../core/security/crearInventarioAutorizado.service");
 const {
   ROLES_GRUK,
   roleCheck
@@ -56,60 +60,10 @@ router.post(
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
   async (req, res) => {
   try {
-    const datos = { ...req.body };
-
-    // Compatibilidad con GRUK Restaurantes:
-    // si llega restaurantId, resolvemos automáticamente empresaId.
-    if (datos.restaurantId && !datos.empresaId) {
-
-      const restaurante = await Restaurante.findOne({
-        restaurantId: datos.restaurantId
-      });
-
-      if (!restaurante) {
-        return res.status(404).json({
-          ok: false,
-          error: "Restaurante no encontrado"
-        });
-      }
-
-      if (
-        !restaurante.empresaId ||
-        String(restaurante.empresaId) !== String(req.auth.empresaId)
-      ) {
-        return res.status(403).json({
-          ok: false,
-          error: "No tienes acceso al inventario de este restaurante"
-        });
-      }
-
-      datos.empresaId = req.auth.empresaId;
-    }
-
-    if (
-      datos.empresaId &&
-      String(datos.empresaId) !== String(req.auth.empresaId)
-    ) {
-      return res.status(403).json({
-        ok: false,
-        error: "No tienes acceso a crear inventario en esta empresa"
-      });
-    }
-
-    // El JWT es la autoridad final del tenant.
-    datos.empresaId = req.auth.empresaId;
-
-    // Todo inventario nuevo debe pertenecer a una empresa.
-    if (!datos.empresaId) {
-      return res.status(400).json({
-        ok: false,
-        error: "No se pudo determinar la empresa del inventario"
-      });
-    }
-
-    const inventario = new Inventario(datos);
-
-    await inventario.save();
+    const inventario = await crearInventarioAutorizado({auth:req.auth,body:req.body});
+    if (!inventario) return res.status(403).json({
+      ok:false,error:"Sin acceso a crear inventario en este restaurante y sede"
+    });
 
     res.json({
       ok: true,
@@ -117,9 +71,14 @@ router.post(
     });
 
   } catch (error) {
-
+    if (typeof error?.hasErrorLabel === "function" &&
+      (error.hasErrorLabel("TransientTransactionError") ||
+       error.hasErrorLabel("UnknownTransactionCommitResult"))) {
+      return res.status(409).json({
+        ok:false,error:"Conflicto de concurrencia; verifica la sede antes de reintentar"
+      });
+    }
     console.log(error);
-
     res.status(500).json({
       ok: false,
       error: "Error guardando inventario"
@@ -158,8 +117,13 @@ router.get(
         });
       }
 
+      if (!(await sedeRestauranteAutorizada(req.auth, req.params.restaurantId))) {
+        return res.status(403).json({ok:false,error:"Sede no vinculada al restaurante"});
+      }
+      const alcance = sedeAutorizada(req.auth);
+      if (!alcance) return res.status(403).json({ok:false,error:"Sede no autorizada"});
       const query = {
-        empresaId: req.auth.empresaId,
+        ...alcance,
         restaurantId: req.params.restaurantId,
         anulado: false
       };
@@ -254,29 +218,20 @@ async (req,res)=>{
 
 try{
 
-const { motivo, usuario } = req.body;
-
-if(!motivo){
-return res.status(400).json({
-ok:false,
-error:"Debes escribir un motivo de anulación"
-});
+const { error: errorAnulacion, value: datosAnulacion } = Joi.object({
+  motivo: Joi.string().trim().min(1).max(500).required()
+}).unknown(true).validate(req.body, { abortEarly: false, convert: true });
+if (errorAnulacion || !mongoose.isValidObjectId(req.params.id)) {
+  return res.status(400).json({
+    ok:false,
+    error:"Identificador inválido o motivo de anulación requerido (máximo 500 caracteres)"
+  });
 }
+const { motivo } = datosAnulacion;
 
-const producto =
-await Inventario.findOneAndUpdate(
-{
-_id:req.params.id,
-empresaId:req.auth.empresaId
-},
-{
-anulado:true,
-motivoAnulacion:motivo,
-usuarioAnulacion:usuario || "admin",
-fechaAnulacion:new Date()
-},
-{ new:true }
-);
+const producto = await anularInventarioAutorizado({
+ auth:req.auth,id:req.params.id,motivo
+});
 
 if(!producto){
 return res.status(404).json({
@@ -292,8 +247,17 @@ producto
 
 }catch(error){
 
+// Un conflicto entre transacciones no se debe presentar como éxito.
+// El cliente debe consultar el estado actual antes de reintentar.
+if (typeof error?.hasErrorLabel === "function" &&
+    (error.hasErrorLabel("TransientTransactionError") ||
+     error.hasErrorLabel("UnknownTransactionCommitResult"))) {
+  return res.status(409).json({
+    ok:false,
+    error:"Conflicto de concurrencia; consulta el estado antes de reintentar"
+  });
+}
 console.log(error);
-
 res.status(500).json({
 ok:false,
 error:"Error anulando producto"

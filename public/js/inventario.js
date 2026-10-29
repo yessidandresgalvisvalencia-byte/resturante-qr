@@ -26,8 +26,8 @@ async function guardarInventario() {
 
     const data = await res.json();
 
-    if (!data.ok) {
-      alert("Error guardando");
+    if (!res.ok || !data.ok) {
+      alert(data.error || "No fue posible guardar el inventario. Verifica tus permisos de sede.");
       return;
     }
 
@@ -127,7 +127,14 @@ async function cargarInventario() {
     const res = await grukFetch(`/api/inventario/${encodeURIComponent(restaurantId)}?${queryInventario}`);
     const data = await res.json();
 
-    if (!data.ok) return;
+    if (!res.ok || !data.ok) {
+      const mensaje = data.error || "No fue posible consultar el inventario de esta sede.";
+      const contenedorError = document.getElementById("inventarioLista");
+      const resumenError = document.getElementById("inventarioResumen");
+      if (contenedorError) contenedorError.textContent = mensaje;
+      if (resumenError) resumenError.textContent = "";
+      return;
+    }
 
     const contenedor = document.getElementById("inventarioLista");
     const resumen = document.getElementById("inventarioResumen");
@@ -263,24 +270,19 @@ async function anularInventario(id) {
     return;
   }
 
-  const usuario =
-    localStorage.getItem("adminUsuario") || "admin";
-
+  // La auditoría siempre identifica al actor desde el JWT, nunca desde localStorage.
   const res = await grukFetch(`/api/inventario/anular/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      motivo,
-      usuario
-    })
+    body: JSON.stringify({ motivo })
   });
 
   const data = await res.json();
 
-  if (!data.ok) {
-    alert(data.error || "No se pudo anular");
+  if (!res.ok || !data.ok) {
+    alert(data.error || "No se pudo anular; consulta el estado del producto antes de reintentar.");
     return;
   }
 

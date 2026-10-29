@@ -1,0 +1,28 @@
+name: GRUK Staging Smoke
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit:
+        description: "SHA completo de 40 caracteres desplegado en staging"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  staging-health:
+    name: Staging /health + /ready + commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Verify staging endpoint and deployed commit
+        env:
+          GRUK_STAGING_URL: ${{ secrets.GRUK_STAGING_URL }}
+          GRUK_EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: node scripts/staging-smoke.js
