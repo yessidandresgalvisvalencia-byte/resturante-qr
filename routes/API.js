@@ -2783,7 +2783,13 @@ router.post("/restaurante/registro", async (req, res) => {
     res.json({
       ok: true,
       mensaje: "Restaurante registrado correctamente",
-      restaurante: nuevoRestaurante
+      restaurante: {
+        _id: nuevoRestaurante._id,
+        restaurantId: nuevoRestaurante.restaurantId,
+        nombreRestaurante: nuevoRestaurante.nombreRestaurante,
+        empresaId: nuevoRestaurante.empresaId,
+        estadoSuscripcion: nuevoRestaurante.estadoSuscripcion
+      }
     });
   } catch (error) {
     console.log("Error registrando restaurante:", error);
