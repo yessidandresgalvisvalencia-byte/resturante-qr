@@ -2730,38 +2730,55 @@ router.post("/restaurante/registro", async (req, res) => {
       });
     }
 
-    const nuevoRestaurante = new Restaurante({
-      restaurantId,
-      nombreRestaurante,
-      correo,
-      usuarioAdmin,
-      passwordAdmin,
-      plan: "mensual",
-      precioMensual: 220000,
-      estadoSuscripcion: "pendiente",
-      aceptaPlan: false
-    });
+    // Onboarding legado: crear tenant, restaurante, sede y administrador atómicamente.
+    const passwordHash = await bcrypt.hash(passwordAdmin, 12);
+    const session = await mongoose.startSession();
+    let nuevoRestaurante;
+    try {
+      await session.withTransaction(async () => {
+        const empresa = new Empresa({
+          empresaId: `emp_${crypto.randomUUID()}`,
+          nombre: nombreRestaurante,
+          correo,
+          tipoNegocio: "restaurante",
+          estado: "activa",
+          modulos: { restaurante: true, inventario: true, finanzas: true }
+        });
+        await empresa.save({ session });
 
-    await nuevoRestaurante.save();
-    console.log("GUARDADO REAL:",
-      nuevoRestaurante);
-  
+        nuevoRestaurante = new Restaurante({
+          empresaId: empresa._id,
+          restaurantId,
+          nombreRestaurante,
+          correo,
+          usuarioAdmin,
+          passwordAdmin: passwordHash,
+          plan: "mensual",
+          precioMensual: 220000,
+          estadoSuscripcion: "pendiente",
+          aceptaPlan: true
+        });
+        await nuevoRestaurante.save({ session });
 
-await Sede.create({
-  restauranteId: nuevoRestaurante.restaurantId,
-  nombreSede: "Principal",
-  codigoSede: `${nuevoRestaurante.restaurantId}_principal`,
-  direccion: ""
-});
+        const sedePrincipal = new Sede({
+          empresaId: empresa._id,
+          restauranteId: restaurantId,
+          nombreSede: "Principal",
+          codigoSede: `${restaurantId}_principal`,
+          direccion: ""
+        });
+        await sedePrincipal.save({ session });
 
-
-    const nuevoAdmin = new Admin({
-      restaurantId,
-      usuario: usuarioAdmin,
-    password: passwordHash,
-    });
-
-    await nuevoAdmin.save();
+        const nuevoAdmin = new Admin({
+          restaurantId,
+          usuario: usuarioAdmin,
+          password: passwordHash
+        });
+        await nuevoAdmin.save({ session });
+      }, { readConcern: { level: "snapshot" }, writeConcern: { w: "majority" } });
+    } finally {
+      await session.endSession();
+    }
 
     res.json({
       ok: true,
