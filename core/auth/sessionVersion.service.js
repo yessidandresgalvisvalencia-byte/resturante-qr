@@ -9,7 +9,7 @@ const MODELOS=Object.freeze({ADMIN:Admin,PERSONAL:Personal,RESTAURANTE:Restauran
 async function validarVersionSesion(payload){
  if(!payloadSesionValido(payload))return false;
  const tipo=payload.identityType||"";
- if(!tipo)return true;
+ // El tipo de identidad es obligatorio: no aceptar JWT que omitan la\n // verificación de revocación y pertenencia a un sujeto real.\n if(!tipo)return false;
  if(tipo==="USUARIO"){
   const identidad=await Usuario.findById(payload.sub)
    .select("tokenVersion empresaId restauranteId sedeId rol estado").lean();
