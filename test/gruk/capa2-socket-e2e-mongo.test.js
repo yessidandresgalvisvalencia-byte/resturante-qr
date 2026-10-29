@@ -32,7 +32,7 @@ async function esperar(check,maxMs=6000){
  assert.fail("Socket.IO no alcanzó estado esperado dentro del plazo de prueba");
 }
 test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
- skip:!mongo&&!process.env.CI,timeout:30000
+ skip:!mongo&&!process.env.CI,timeout:45000
 },async()=>{
  assert.ok(mongo,"CI exige MongoDB para verificar transportes reales");
  assert.ok(mongoLocal(mongo),"Solo se permiten pruebas destructivas sobre MongoDB local");
@@ -53,7 +53,7 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
  io.on("connection",socket=>{
   conectados.set(socket.id,socket);
   socket.join("empresa-"+socket.auth.empresaId);
-  vigilarSesionSocket(socket,{secret,intervalMs:1000,timeoutMs:500});
+  vigilarSesionSocket(socket,{secret,intervalMs:2000,timeoutMs:1000});
  });
  let dbConnected=false;
  const urlBase=()=> "http://127.0.0.1:"+server.address().port+"/socket.io/?EIO=4&transport=polling";
@@ -144,14 +144,23 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
 
   // Carga moderada con transportes WebSocket REALES y MongoDB de pruebas.
   // CI mide latencias observadas: no se proclama SLA sin carga de staging.
-  const totalAdicionales=16;
+  // Carga real en lotes: evita picos de apertura del runner que ocultan
+  // la medición de revalidación de sesiones contra MongoDB.
+  const totalAdicionales=98;
+  const tamanoLote=14;
   const inicioConexiones=Date.now();
-  const adicionales=await Promise.all(Array.from({length:totalAdicionales},async()=>{
-   const inicio=Date.now();
-   const sesion=await handshakeWebsocket(valid);
-   assert.equal(sesion.packet.startsWith('40{'),true);
-   return {id:JSON.parse(sesion.packet.slice(2)).sid,latenciaMs:Date.now()-inicio};
-  }));
+  const adicionales=[];
+  for(let desde=0;desde<totalAdicionales;desde+=tamanoLote){
+   const lote=await Promise.all(Array.from({
+    length:Math.min(tamanoLote,totalAdicionales-desde)
+   },async()=>{
+    const inicio=Date.now();
+    const sesion=await handshakeWebsocket(valid);
+    assert.equal(sesion.packet.startsWith("40{"),true);
+    return {id:JSON.parse(sesion.packet.slice(2)).sid,latenciaMs:Date.now()-inicio};
+   }));
+   adicionales.push(...lote);
+  }
   const idsAdicionales=adicionales.map(x=>x.id);
   await esperar(()=>idsAdicionales.every(id=>
    conectados.get(id)?.rooms.has("empresa-"+A)),6000);
@@ -160,17 +169,21 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   assert.equal(idsAdicionales.every(id=>!conectados.get(id).rooms.has("empresa-"+B)),true);
   const latenciasConexion=adicionales.map(x=>x.latenciaMs).sort((a,b)=>a-b);
   const p95Conexion=latenciasConexion[Math.ceil(latenciasConexion.length*.95)-1];
+  // Dos comprobaciones periódicas para confirmar conexiones sostenidas.
+  await new Promise(resolve=>setTimeout(resolve,4400));
+  assert.equal(idsAdicionales.every(id=>conectados.get(id)?.connected),true,
+   "Las conexiones legítimas deben sobrevivir a la revalidación periódica");
   const inicioRevocacion=Date.now();
 
   await Usuario.updateOne({_id:user._id},{$inc:{tokenVersion:1}});
   await esperar(()=>!conectados.get(socketId)?.connected &&
    !conectados.get(websocketId)?.connected &&
-   idsAdicionales.every(id=>!conectados.get(id)?.connected),7000);
+   idsAdicionales.every(id=>!conectados.get(id)?.connected),10000);
   const latenciaRevocacionMs=Date.now()-inicioRevocacion;
   console.log("[GRUK CI SOCKET LOAD]",JSON.stringify({
    conexionesReales:totalAdicionales+2,
    transporte:"websocket+polling",tiempoConexionesMs:inicioRevocacion-inicioConexiones,
-   p95HandshakeMs:p95Conexion,latenciaRevocacionMs
+   p95HandshakeMs:p95Conexion,latenciaRevocacionMs,\n   duracionSostenidaMs:4400,limiteDeCarga:"CI local, sin SLA"
   }));
   assert.equal(io.sockets.adapter.rooms.has("empresa-"+A),false,
    "El socket revocado ya no puede permanecer en el canal de la empresa");
