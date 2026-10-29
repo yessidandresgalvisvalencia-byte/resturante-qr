@@ -135,8 +135,9 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
     token:tokenPersonal2,secret:process.env.JWT_SECRET,signal:abortado.signal
   }),null,"Se rechaza autorización abortada antes de consultar Mongo");
   const claimsAjeno=jwt.verify(personalLogin2.data.token,process.env.JWT_SECRET);
+  const {exp:expAnterior,iat:iatAnterior,...claimsSinTiempo}=claimsAjeno;
   const tokenEmpresaFalsa=jwt.sign({
-    ...claimsAjeno,empresaId:B,exp:undefined,iat:undefined
+    ...claimsSinTiempo,empresaId:B
   },process.env.JWT_SECRET,{algorithm:"HS256",expiresIn:"5m"});
   assert.equal(await autenticarSocket({
     token:tokenEmpresaFalsa,secret:process.env.JWT_SECRET
