@@ -14,7 +14,7 @@ function analizarMutacionesLedger(codigo){
 }
 function auditarProyecto(raiz=path.resolve(__dirname,"..")){
  const archivos=["services/flujoCajaPersonal.service.js","routes.js",
-  "services/patrimonioPersonal.service.js","services/compromisosCuotas.service.js"];
+  "services/patrimonioPersonal.service.js","services/compromisosCuotas.service.js","services/migracionLedgerPersonal.service.js"];
  return archivos.flatMap(archivo=>{
   const codigo=fs.readFileSync(path.join(raiz,"modules/finanzas-personales",archivo),"utf8");
   const mutaciones=analizarMutacionesLedger(codigo).filter(h=>archivo.startsWith("services/flujoCaja")||

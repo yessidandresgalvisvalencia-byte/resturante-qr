@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),crypto=require("node:crypto"),path=require("node:path");
 const {spawnSync}=require("node:child_process");
-const {MongoClient}=require("mongoose").mongo;
+const mongoose=require("mongoose"),{MongoClient}=mongoose.mongo;
 const {COLECCIONES,auditarPrivilegiosLedgerPersonal:auditar}=require("../../modules/finanzas-personales/security/ledgerPersonalDbPrivileges.service");
 const {modelosPersonales,provisionarMongoPersonal}=require("../../modules/finanzas-personales/security/provisionMongoPersonal.service");
 const base="gruk_v81_test_privilegios";
@@ -17,6 +17,50 @@ test("la prueba de roles rechaza destinos externos, credenciales y otras bases",
  assert.throws(()=>validarDestino(`mongodb://127.0.0.1:27018/${base}`,"production"));
 });
 const uri=process.env.GRUK_V81_TEST_MONGO_AUTH_URI;
+async function probarMigracionAutorizada(db,uri,password){
+ validarDestino(uri);
+ const Legacy=require("../../modules/finanzas-personales/models/movimiento.model");
+ const Tx=require("../../modules/finanzas-personales/models/TransaccionPersonal");
+ const Reporte=require("../../modules/finanzas-personales/models/migracionPersonal.model");
+ const migracion=require("../../modules/finanzas-personales/services/migracionLedgerPersonal.service");
+ const anterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;process.env.PERSONAL_IDEMPOTENCY_SECRET=crypto.randomBytes(32).toString("hex");
+ const uid=()=>new mongoose.Types.ObjectId();
+ const datos=(userId,tipo,monto)=>({userId,tipo,monto,concepto:"Dato histórico",categoria:"Prueba",fecha:new Date(Date.now()-60000)});
+ try{
+  await mongoose.connect(uri,{auth:{username:"writer",password},authSource:base,autoCreate:false,autoIndex:false,serverSelectionTimeoutMS:7000});
+  const a=uid(),b=uid();
+  const fuentes=await Legacy.create([datos(a,"INGRESO",1000),datos(a,"GASTO",250),datos(b,"INGRESO",700)]);
+  const antesLegacy=await Legacy.find({userId:a}).sort({_id:1}).lean();
+  const primero=await migracion.migrar(a);assert.equal(primero.estado,"RECONCILIADA");assert.equal(primero.ledgerCount,2);
+  const antesTx=await Tx.find({usuarioId:a}).sort({_id:1}).lean();
+  assert.equal(antesTx.length,2);assert.equal(await Tx.countDocuments({usuarioId:b}),0);
+  assert.equal((await migracion.migrar(a)).estado,"RECONCILIADA");
+  assert.deepEqual(await Tx.find({usuarioId:a}).sort({_id:1}).lean(),antesTx);
+  assert.deepEqual(await Legacy.find({userId:a}).sort({_id:1}).lean(),antesLegacy);
+  // Totales compensados no deben ocultar cambios en dos fuentes distintas.
+  await Legacy.updateOne({_id:fuentes[0]._id},{$set:{monto:1010}});await Legacy.updateOne({_id:fuentes[1]._id},{$set:{monto:260}});
+  const alterado=await migracion.reconciliar(a);assert.equal(alterado.diferenciaMinor,0);assert.equal(alterado.estado,"ERROR");
+  await assert.rejects(migracion.migrar(a),e=>e.statusCode===409);
+  assert.deepEqual(await Tx.find({usuarioId:a}).sort({_id:1}).lean(),antesTx);
+  for(const monto of [0,1.5,Number.MAX_SAFE_INTEGER+1]){
+   const user=uid();await Legacy.create(datos(user,"GASTO",monto));
+   await assert.rejects(migracion.migrar(user),e=>e.statusCode===422);assert.equal(await Tx.countDocuments({usuarioId:user}),0);
+  }
+  const carrera=uid();await Legacy.create([datos(carrera,"INGRESO",100),datos(carrera,"GASTO",30)]);
+  const intentos=await Promise.allSettled([migracion.migrar(carrera),migracion.migrar(carrera)]);
+  assert.ok(intentos.some(x=>x.status==="fulfilled"));
+  assert.equal((await migracion.migrar(carrera)).ledgerCount,2);assert.equal(await Tx.countDocuments({usuarioId:carrera}),2);
+  const rollback=uid();await Legacy.create(datos(rollback,"INGRESO",10));
+  const guardar=Reporte.findOneAndUpdate;Reporte.findOneAndUpdate=()=>Promise.reject(Error("Fallo simulado del reporte"));
+  try{await assert.rejects(migracion.migrar(rollback),/Fallo simulado/);}finally{Reporte.findOneAndUpdate=guardar;}
+  assert.equal(await Tx.countDocuments({usuarioId:rollback}),0);assert.equal(await Reporte.countDocuments({usuarioId:rollback}),0);
+  await db.collection("fin_transacciones_personales").dropIndex("usuarioId_1_externalIdHash_1");
+  await assert.rejects(migracion.migrar(b),e=>e.statusCode===503);assert.equal(await Tx.countDocuments({usuarioId:b}),0);
+  await provisionarMongoPersonal(db);assert.equal((await migracion.migrar(b)).ledgerCount,1);
+ }finally{
+  await mongoose.disconnect();if(anterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=anterior;
+ }
+}
 test("MongoDB con autorización: rol insert-only bloquea modificación y borrado reales",{
  skip:!uri&&process.env.GRUK_REQUIRE_PRIVILEGIOS_MONGO_TEST!=="1"?"Requiere MongoDB local con --auth":false,timeout:60000
 },async()=>{
@@ -113,6 +157,7 @@ test("MongoDB con autorización: rol insert-only bloquea modificación y borrado
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   assert.deepEqual((await db.listCollections({},{nameOnly:true}).toArray()).map(c=>c.name).sort(),nombresAntes);
+  await probarMigracionAutorizada(db,uri,password);
  }finally{
   await Promise.all(clientes.map(c=>c.close()));
   for(const user of creados)await root.db(base).command({dropUser:user});

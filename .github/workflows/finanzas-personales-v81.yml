@@ -13,6 +13,7 @@ on:
       - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
       - 'modules/finanzas-personales/services/flujoCajaPersonal.service.js'
+      - 'modules/finanzas-personales/services/migracionLedgerPersonal.service.js'
       - 'modules/finanzas-personales/models/TransaccionPersonal.js'
       - 'modules/finanzas-personales/models/reservaCuotaRecurrente.model.js'
       - 'modules/finanzas-personales/services/consultaPersonal.service.js'
@@ -63,6 +64,7 @@ on:
       - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
       - 'modules/finanzas-personales/services/flujoCajaPersonal.service.js'
+      - 'modules/finanzas-personales/services/migracionLedgerPersonal.service.js'
       - 'modules/finanzas-personales/models/TransaccionPersonal.js'
       - 'modules/finanzas-personales/models/reservaCuotaRecurrente.model.js'
       - 'modules/finanzas-personales/services/consultaPersonal.service.js'
@@ -387,17 +389,23 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Arrancar MongoDB con autorización en contenedor independiente
         run: |
-          docker run -d --rm --name mongo-v81-auth-test -p 127.0.0.1:27018:27017 \
-            -e MONGO_INITDB_ROOT_USERNAME=gruk_test_root \
-            -e MONGO_INITDB_ROOT_PASSWORD=gruk_test_root_local_only \
-            mongo:7 mongod --auth --bind_ip_all
+          docker run -d --rm --name mongo-v81-auth-test -p 127.0.0.1:27018:27018 \
+            --user mongodb --entrypoint bash mongo:7 -c \
+            'head -c 756 /dev/urandom | base64 > /tmp/gruk-test-key; chmod 400 /tmp/gruk-test-key; exec mongod --port 27018 --replSet rs0 --auth --keyFile /tmp/gruk-test-key --bind_ip_all'
           for i in $(seq 1 45); do
-            if docker exec mongo-v81-auth-test mongosh --quiet --host 127.0.0.1 \
-              -u gruk_test_root -p gruk_test_root_local_only --authenticationDatabase admin \
-              --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then exit 0; fi
+            if docker exec mongo-v81-auth-test mongosh --quiet --port 27018 \
+              --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then break; fi
             sleep 1
           done
-          exit 1
+          docker exec mongo-v81-auth-test mongosh --quiet --port 27018 \
+            --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27018"}]})'
+          for i in $(seq 1 45); do
+            if docker exec mongo-v81-auth-test mongosh --quiet --port 27018 \
+              --eval 'db.hello().isWritablePrimary' | grep -q true; then break; fi
+            sleep 1
+          done
+          docker exec mongo-v81-auth-test mongosh --quiet --port 27018 \
+            --eval 'db.getSiblingDB("admin").createUser({user:"gruk_test_root",pwd:"gruk_test_root_local_only",roles:["root"]})'
       - name: Probar privilegios efectivos y rechazos reales de MongoDB
         env:
           GRUK_V81_TEST_MONGO_AUTH_URI: mongodb://127.0.0.1:27018/gruk_v81_test_privilegios

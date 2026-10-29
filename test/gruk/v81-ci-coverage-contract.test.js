@@ -72,8 +72,9 @@ test("cada job V81, incluida la prueba de privilegios, ejecuta el commit fuente"
 });
 test("la prueba de privilegios exige MongoDB con autorización y no omite su integración",()=>{
  const job=yaml.split("  mongo-privileges-v81:")[1];assert.ok(job);
- assert.match(job,/127\.0\.0\.1:27018:27017/);
- assert.match(job,/mongo:7 mongod --auth --bind_ip_all/);
+ assert.match(job,/127\.0\.0\.1:27018:27018/);
+ assert.match(job,/mongod --port 27018 --replSet rs0 --auth --keyFile/);
+ assert.match(job,/rs\.initiate\(\{_id:"rs0",members:\[\{_id:0,host:"127\.0\.0\.1:27018"\}\]\}\)/);
  assert.match(job,/GRUK_REQUIRE_PRIVILEGIOS_MONGO_TEST: "1"/);
  assert.match(job,/node --test test\/gruk\/ledger-personal-db-privileges\.test\.js test\/finanzas-personales\/privilegiosLedgerMongoV81\.integration\.test\.js/);
  assert.match(job,/if: always\(\)[\s\S]*docker rm -f mongo-v81-auth-test/);
@@ -99,6 +100,7 @@ test("CI V81 vigila modelo transaccional y escrituras de flujo de caja",()=>{
  for(const ruta of [
   "modules/finanzas-personales/models/TransaccionPersonal.js",
   "modules/finanzas-personales/services/flujoCajaPersonal.service.js",
+  "modules/finanzas-personales/services/migracionLedgerPersonal.service.js",
   "modules/finanzas-personales/server.js",
   "scripts/provision-personal-mongo.js",
   "scripts/audit-personal-mongo-privileges.js"
