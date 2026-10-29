@@ -12,16 +12,39 @@ function analizarMutacionesLedger(codigo){
  ];
  return patrones.filter(p=>p.detecta.test(codigo)).map(p=>({id:p.id,descripcion:p.descripcion}));
 }
+const MODELOS=["TransaccionPersonal","EventoCompensatorioPersonal","decisionProofPersonal.model","eventoV81.model","vinculoHistoricoV81.model"];
+const METODOS="updateOne|updateMany|findOneAndUpdate|findByIdAndUpdate|replaceOne|findOneAndReplace|deleteOne|deleteMany|findOneAndDelete|findByIdAndDelete|bulkWrite";
+const escapar=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+function analizarAccesosModelos(codigo){
+ const nombres=MODELOS.map(escapar).join("|");
+ const cargar=String.raw`require\s*\(\s*["'][^"']*/models/(?:${nombres})(?:\.js)?["']\s*\)`;
+ const aliases=new Set([...codigo.matchAll(new RegExp(String.raw`\b([A-Za-z_$][\w$]*)\s*=\s*${cargar}`,"g"))].map(m=>m[1]));
+ const hallazgos=[];
+ const registrar=re=>{for(const m of codigo.matchAll(re))hallazgos.push({id:"MUTACION_MODELO_PROTEGIDO",
+  descripcion:"candidato de modificación sobre modelo protegido; requiere revisión",linea:codigo.slice(0,m.index).split("\n").length});};
+ const operacion=String.raw`\s*\.\s*(?:${METODOS})\s*\(`;
+ for(const alias of aliases)registrar(new RegExp(String.raw`\b${escapar(alias)}(?:\s*\.\s*collection)?${operacion}`,"g"));
+ registrar(new RegExp(String.raw`${cargar}(?:\s*\.\s*collection)?${operacion}`,"g"));
+ const colecciones="fin_transacciones_personales|fin_eventos_compensatorios_personales_v1|decisionproofpersonals|fin_eventos_v81|fin_vinculos_historicos_v81";
+ registrar(new RegExp(String.raw`\.\s*collection\s*\(\s*["'](?:${colecciones})["']\s*\)${operacion}`,"g"));
+ return [...new Map(hallazgos.map(h=>[h.id+":"+h.linea,h])).values()];
+}
+function archivosJavascript(directorio,prefijo=""){
+ return fs.readdirSync(directorio,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name)).flatMap(e=>{
+  const relativo=prefijo+e.name;
+  if(e.isDirectory())return archivosJavascript(path.join(directorio,e.name),relativo+"/");
+  return e.isFile()&&e.name.endsWith(".js")?[relativo]:[];
+ });
+}
 function auditarProyecto(raiz=path.resolve(__dirname,"..")){
- const archivos=["services/flujoCajaPersonal.service.js","routes.js",
-  "services/patrimonioPersonal.service.js","services/compromisosCuotas.service.js","services/migracionLedgerPersonal.service.js"];
- return archivos.flatMap(archivo=>{
-  const codigo=fs.readFileSync(path.join(raiz,"modules/finanzas-personales",archivo),"utf8");
-  const mutaciones=analizarMutacionesLedger(codigo).filter(h=>archivo.startsWith("services/flujoCaja")||
-   ["ANULACION_ESTADO","SAVE_ANULACION"].includes(h.id));
-  for(const m of codigo.matchAll(/\b(?:Transaccion|Tx)\.(?:updateOne|updateMany|findOneAndUpdate|replaceOne|deleteOne|deleteMany)\s*\(/g))
-   mutaciones.push({id:"MUTACION_MODELO_ORIGINAL",descripcion:"operación de modificación sobre el modelo financiero",linea:codigo.slice(0,m.index).split("\n").length});
-  return mutaciones.map(h=>({archivo,...h}));
+ const base=path.join(raiz,"modules/finanzas-personales");
+ const heredados=new Set(["services/flujoCajaPersonal.service.js","routes.js",
+  "services/patrimonioPersonal.service.js","services/compromisosCuotas.service.js","services/migracionLedgerPersonal.service.js"]);
+ return archivosJavascript(base).flatMap(archivo=>{
+  const codigo=fs.readFileSync(path.join(base,archivo),"utf8");
+  const mutaciones=heredados.has(archivo)?analizarMutacionesLedger(codigo).filter(h=>archivo.startsWith("services/flujoCaja")||
+   ["ANULACION_ESTADO","SAVE_ANULACION"].includes(h.id)):[];
+  return [...mutaciones,...analizarAccesosModelos(codigo)].map(h=>({archivo,...h}));
  });
 }
 function main(args=process.argv.slice(2)){
@@ -39,4 +62,4 @@ function main(args=process.argv.slice(2)){
  return hallazgos;
 }
 if(require.main===module)main();
-module.exports={analizarMutacionesLedger,auditarProyecto,main};
+module.exports={analizarMutacionesLedger,analizarAccesosModelos,archivosJavascript,auditarProyecto,main};

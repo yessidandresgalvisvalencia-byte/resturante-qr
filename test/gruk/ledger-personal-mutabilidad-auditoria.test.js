@@ -5,6 +5,28 @@ const fs=require("node:fs");
 const path=require("node:path");
 const {spawnSync}=require("node:child_process");
 const auditoria=require("../../scripts/gruk-personal-ledger-mutability-audit");
+test("detecta alias, acceso inline y driver nativo de los cinco modelos protegidos",()=>{
+ for(const modelo of ["TransaccionPersonal","EventoCompensatorioPersonal","decisionProofPersonal.model","eventoV81.model","vinculoHistoricoV81.model"]){
+  for(const acceso of [
+   `const Libro=require('../models/${modelo}'); Libro.updateMany({},{});`,
+   `const Fuente=require('../models/${modelo}.js'); Fuente.collection.deleteOne({});`,
+   `require('../models/${modelo}').bulkWrite([]);`
+  ])assert.equal(auditoria.analizarAccesosModelos(acceso).length,1,acceso);
+ }
+ assert.equal(auditoria.analizarAccesosModelos(`db.collection('fin_transacciones_personales').replaceOne({},{});`).length,1);
+ assert.deepEqual(auditoria.analizarAccesosModelos(`const Evento=require('../models/eventoProcesadoPersonal.model'); Evento.deleteOne({});`),[]);
+ assert.deepEqual(auditoria.analizarAccesosModelos(`const Tx=require('../models/TransaccionPersonal'); Tx.create([]); Tx.collection.indexes();`),[]);
+});
+test("recorre archivos anidados fuera de los cinco archivos históricos",()=>{
+ const os=require("node:os");
+ const raiz=fs.mkdtempSync(path.join(os.tmpdir(),"gruk-auditoria-"));
+ try{
+  const carpeta=path.join(raiz,"modules/finanzas-personales/nuevo/submodulo");fs.mkdirSync(carpeta,{recursive:true});
+  fs.writeFileSync(path.join(carpeta,"escritura.js"),`const Libro=require('../../models/TransaccionPersonal');\nLibro.findByIdAndUpdate(id,{});`);
+  const resultado=auditoria.auditarProyecto(raiz);
+  assert.deepEqual(resultado.map(h=>({archivo:h.archivo,linea:h.linea})),[{archivo:"nuevo/submodulo/escritura.js",linea:2}]);
+ }finally{fs.rmSync(raiz,{recursive:true,force:true});}
+});
 test("detector descubre mutaciones del original en corrección y anulación",()=>{
  const codigo='Object.assign(anterior,permitidos);await anterior.save({session});tx.estado="ANULADA";await tx.save({session});';
  assert.deepEqual(auditoria.analizarMutacionesLedger(codigo).map(x=>x.id),

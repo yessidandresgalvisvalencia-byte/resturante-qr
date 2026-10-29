@@ -10,6 +10,8 @@ on:
       - 'modules/finanzas-personales/server.js'
       - 'scripts/provision-personal-mongo.js'
       - 'scripts/audit-personal-mongo-privileges.js'
+      - 'scripts/gruk-personal-ledger-mutability-audit.js'
+      - 'test/gruk/ledger-personal-mutabilidad-auditoria.test.js'
       - 'public/finanzas-personales.js'
       - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
@@ -62,6 +64,8 @@ on:
       - 'modules/finanzas-personales/server.js'
       - 'scripts/provision-personal-mongo.js'
       - 'scripts/audit-personal-mongo-privileges.js'
+      - 'scripts/gruk-personal-ledger-mutability-audit.js'
+      - 'test/gruk/ledger-personal-mutabilidad-auditoria.test.js'
       - 'public/finanzas-personales.js'
       - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
@@ -172,7 +176,7 @@ jobs:
       - name: Verificar contratos de seguridad y despliegue V81
         if: success() || failure()
         run: |
-          node --test test/gruk/decision-proof-chain-integrity.test.js test/gruk/decision-proof-external-anchor.test.js test/gruk/decision-proof-db-privileges.test.js test/gruk/decision-proof-custodian-input.test.js test/gruk/package-lock-contract.test.js test/gruk/shared-entrypoint-contract.test.js test/gruk/v81-ci-coverage-contract.test.js
+          node --test test/gruk/ledger-personal-mutabilidad-auditoria.test.js test/gruk/decision-proof-chain-integrity.test.js test/gruk/decision-proof-external-anchor.test.js test/gruk/decision-proof-db-privileges.test.js test/gruk/decision-proof-custodian-input.test.js test/gruk/package-lock-contract.test.js test/gruk/shared-entrypoint-contract.test.js test/gruk/v81-ci-coverage-contract.test.js
       - name: Exigir cero vulnerabilidades de produccion
         run: npm audit --omit=dev --audit-level=low
   probar-parche-proxy-v81:
