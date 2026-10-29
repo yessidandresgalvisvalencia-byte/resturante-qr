@@ -29,6 +29,18 @@ async function validarVersionSesion(payload){
   }
   return true;
  }
+ if(tipo==="ADMIN" || tipo==="RESTAURANTE"){
+  const Modelo=MODELOS[tipo];
+  const identidad=await Modelo.findById(payload.sub)
+   .select(tipo==="ADMIN"?"tokenVersion restaurantId":"tokenVersion restaurantId empresaId").lean();
+  if(!identidad || !versionCoincide(payload.tokenVersion,identidad.tokenVersion))return false;
+  if(String(identidad.restaurantId||"")!==String(payload.restaurantId||""))return false;
+  if(tipo==="RESTAURANTE" && String(identidad.empresaId||"")!==String(payload.empresaId||""))return false;
+  const vinculo=await Restaurante.exists({
+   restaurantId:identidad.restaurantId,empresaId:payload.empresaId
+  });
+  return Boolean(vinculo);
+ }
  const Modelo=MODELOS[tipo];
  if(!Modelo)return false;
  const identidad=await Modelo.findById(payload.sub).select("tokenVersion").lean();
