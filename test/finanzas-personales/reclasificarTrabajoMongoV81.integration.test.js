@@ -94,8 +94,8 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   for(const corromper of [
    async x=>Prestamo.updateOne({_id:x.p._id},{$set:{saldoMinor:2000}}),
    async x=>Prestamo.updateOne({_id:x.p._id},{$set:{estado:"CANCELADO"}}),
-   async x=>Tx.updateOne({_id:x.fuentes[0]._id},{$set:{montoMinor:401}}),
-   async x=>Tx.updateOne({_id:x.fuentes[0]._id},{$set:{recurrente:true}}),
+   async x=>Tx.collection.updateOne({_id:x.fuentes[0]._id},{$set:{montoMinor:401}}),
+   async x=>Tx.collection.updateOne({_id:x.fuentes[0]._id},{$set:{recurrente:true}}),
    async x=>Tx.collection.updateOne({_id:x.fuentes[0]._id},{$unset:{impactoCaja:""}})
   ]){
    const x=await fixture();await corromper(x);const previo=await estado(x);

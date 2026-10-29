@@ -115,18 +115,18 @@ test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento 
 
   // Corrupciones independientes: no devolver caja si no coincide el asiento con su cuota.
   const corrupciones=[
-   async x=>Tx.updateOne({_id:x.pago.transaccion._id},{$set:{montoMinor:335}}),
+   async x=>Tx.collection.updateOne({_id:x.pago.transaccion._id},{$set:{montoMinor:335}}),
    async x=>Cuota.updateOne({_id:x.pago.cuota._id},{$set:{montoMinor:333}}),
    async x=>Padre.updateOne({_id:x.padre._id},{$set:{saldoMinor:666}}),
    async x=>Padre.updateOne({_id:x.padre._id},{$set:{cuotasPagadas:1.5}}),
-   async x=>Tx.updateOne({_id:x.pago.transaccion._id},{$set:{prestamoId:new mongoose.Types.ObjectId()}}),
+   async x=>Tx.collection.updateOne({_id:x.pago.transaccion._id},{$set:{prestamoId:new mongoose.Types.ObjectId()}}),
    async x=>Tx.collection.updateOne({_id:x.pago.transaccion._id},{$unset:{impactoCaja:""}}),
-   async x=>Tx.updateOne({_id:x.pago.transaccion._id},{$set:{fecha:new Date(0)}}),
-   async x=>Tx.updateOne({_id:x.pago.transaccion._id},{$set:{cuentaId:null}})
+   async x=>Tx.collection.updateOne({_id:x.pago.transaccion._id},{$set:{fecha:new Date(0)}}),
+   async x=>Tx.collection.updateOne({_id:x.pago.transaccion._id},{$set:{cuentaId:null}})
   ];
   for(const corromper of corrupciones){const x=await fixture();await corromper(x);await rechazoSinCambios(x);}
   const falsoHistorico=await fixture({modo:"HISTORICO"});
-  await Tx.updateOne({_id:falsoHistorico.pago.transaccion._id},{$set:{cuentaId:falsoHistorico.cuenta._id}});
+  await Tx.collection.updateOne({_id:falsoHistorico.pago.transaccion._id},{$set:{cuentaId:falsoHistorico.cuenta._id}});
   await rechazoSinCambios(falsoHistorico);
   const overflow=await fixture();
   await Cuenta.updateOne({_id:overflow.cuenta._id},{$set:{saldoMinor:Number.MAX_SAFE_INTEGER-333}});

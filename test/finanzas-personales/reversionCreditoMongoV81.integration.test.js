@@ -74,12 +74,12 @@ test("MongoDB real: reversión de créditos conserva capital, pago real, fuentes
   const h=await fixture({modo:"HISTORICO"});const historico=await revertir(h);
   assert.equal(historico.compensacion.deltaCajaMinor,"0");assert.equal((await Cuenta.findById(h.cuenta._id)).saldoMinor,10000);
   assert.equal((await Prestamo.findById(h.p._id)).saldoMinor,1000);
-  const legado=await fixture({real:400});await Tx.updateOne({_id:legado.pago.transaccion._id},{$set:{montoPagadoRealMinor:null}});
+  const legado=await fixture({real:400});await Tx.collection.updateOne({_id:legado.pago.transaccion._id},{$set:{montoPagadoRealMinor:null}});
   await revertir(legado);assert.equal((await Cuenta.findById(legado.cuenta._id)).saldoMinor,10000);
 
   for(const corromper of [
-   async x=>Tx.updateOne({_id:x.pago.transaccion._id},{$set:{montoPagadoRealMinor:399}}),
-   async x=>Tx.updateOne({_id:x.pago.transaccion._id},{$set:{descripcion:"Cuota 2 confirmada"}}),
+   async x=>Tx.collection.updateOne({_id:x.pago.transaccion._id},{$set:{montoPagadoRealMinor:399}}),
+   async x=>Tx.collection.updateOne({_id:x.pago.transaccion._id},{$set:{descripcion:"Cuota 2 confirmada"}}),
    async x=>Prestamo.updateOne({_id:x.p._id},{$set:{saldoMinor:700}}),
    async x=>Cuenta.updateOne({_id:x.cuenta._id},{$set:{saldoMinor:Number.MAX_SAFE_INTEGER-449}}),
    async x=>Tx.collection.updateOne({_id:x.pago.transaccion._id},{$unset:{impactoCaja:""}}),

@@ -40,7 +40,7 @@ test("cobro parcial es atomico, idempotente y aislado por usuario (MongoDB repli
   const snap=await patrimonio.snapshot(usuarioId);
   assert.equal(snap.cuentasPorCobrarMinor,250000);
  }finally{
-  await Promise.all([Prestamo.deleteMany({usuarioId,contraparte}),Transaccion.deleteMany({usuarioId,contraparte}),Cuenta.deleteMany({usuarioId,nombre:"EFECTIVO"})]);
+  await Promise.all([Prestamo.deleteMany({usuarioId,contraparte}),Transaccion.collection.deleteMany({usuarioId,contraparte}),Cuenta.deleteMany({usuarioId,nombre:"EFECTIVO"})]);
   await mongoose.disconnect();
   if(originalSecret===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
  }

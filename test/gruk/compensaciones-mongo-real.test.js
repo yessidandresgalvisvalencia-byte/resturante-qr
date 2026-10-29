@@ -296,7 +296,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios}});
   await Cursor.collection.deleteMany({_id:{$in:usuarios}});
   await Cuenta.deleteMany({usuarioId:{$in:usuarios}});
-  await Transaccion.deleteMany({usuarioId:{$in:usuarios}});
+  await Transaccion.collection.deleteMany({usuarioId:{$in:usuarios.map(id=>new mongoose.Types.ObjectId(id))}});
   await Outbox.deleteMany({usuarioId:{$in:usuarios}});
   await Reserva.deleteMany({usuarioId:{$in:usuarios}});
   await require("../../modules/finanzas-personales/models/reporteNeuronaPersonal.model").deleteMany({usuarioId:{$in:usuarios}});
