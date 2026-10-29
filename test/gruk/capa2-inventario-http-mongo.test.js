@@ -15,6 +15,8 @@ const Empresa=require("../../models/Empresa");
 const bcrypt=require("bcrypt");
 const router=require("../../routes/inventario");
 const apiRouter=require("../../routes/API");
+const {autenticarSocket}=require("../../core/auth/socketHandshake.service");
+const {validarVersionSesion}=require("../../core/auth/sessionVersion.service");
 
 const A="507f1f77bcf86cd799439011",B="507f1f77bcf86cd799439012";
 const SA="507f191e810c19729de860ea",SB="507f191e810c19729de860eb";
@@ -120,7 +122,28 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   });
   assert.equal(personalLogin2.status,200);
   const tokenPersonal2="Bearer "+personalLogin2.data.token;
+  // Verificación Socket.IO respaldada por Mongo real (no validador simulado).
+  const sesionSocket=await autenticarSocket({
+    token:tokenPersonal2,secret:process.env.JWT_SECRET
+  });
+  assert.ok(sesionSocket,"Mongo debe confirmar identidad PERSONAL válida");
+  assert.equal(sesionSocket.empresaId,A);
+  assert.equal(sesionSocket.identityType,"PERSONAL");
+  const abortado=new AbortController();
+  abortado.abort();
+  assert.equal(await autenticarSocket({
+    token:tokenPersonal2,secret:process.env.JWT_SECRET,signal:abortado.signal
+  }),null,"Se rechaza autorización abortada antes de consultar Mongo");
+  const claimsAjeno=jwt.verify(personalLogin2.data.token,process.env.JWT_SECRET);
+  const tokenEmpresaFalsa=jwt.sign({
+    ...claimsAjeno,empresaId:B,exp:undefined,iat:undefined
+  },process.env.JWT_SECRET,{algorithm:"HS256",expiresIn:"5m"});
+  assert.equal(await autenticarSocket({
+    token:tokenEmpresaFalsa,secret:process.env.JWT_SECRET
+  }),null,"El JWT con firma válida no puede cambiar al mesero a empresa B");
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
+  assert.equal(await autenticarSocket({token:tokenPersonal2,secret:process.env.JWT_SECRET}),null,
+    "Socket con JWT previo debe perder autorización tras traslado de sede");
   assert.equal((await call("POST","/auth/cerrar-todas-sesiones",tokenPersonal2,{})).status,401);
   assert.equal((await call("POST","/mesero/login","",{
     usuario:personalUsuario,password:"ClavePersonal123!"
