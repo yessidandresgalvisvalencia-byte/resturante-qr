@@ -8,6 +8,9 @@ const {randomUUID}=require("node:crypto");
 const Inventario=require("../../models/Inventario");
 const Restaurante=require("../../models/restaurante");
 const Sede=require("../../models/sede");
+const Admin=require("../../models/admin");
+const Empresa=require("../../models/Empresa");
+const bcrypt=require("bcrypt");
 const router=require("../../routes/inventario");
 const apiRouter=require("../../routes/API");
 
@@ -70,13 +73,31 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   const empleado=auth(A,SA,"EMPLEADO","empleado-a");
   const ownerB=auth(B,undefined,"DUEÑO","dueno-b");
   async function call(method,path,token,body){
-   const base=path.startsWith("/sede/")?endpoint.replace(/\/inventario$/,""):endpoint;
+   const base=(path.startsWith("/sede/") || path.startsWith("/restaurante/"))?endpoint.replace(/\/inventario$/,""):endpoint;
    const response=await fetch(base+path,{method,headers:{
     authorization:token,...(body?{"content-type":"application/json"}:{})
    },...(body?{body:JSON.stringify(body)}:{})});
    return {status:response.status,data:await response.json()};
   }
 
+  // Registro heredado: todos los objetos nacen en el mismo tenant, hash no expuesto.
+  const legacyId="legacy-"+randomUUID();
+  const registro=await call("POST","/restaurante/registro","",{
+    restaurantId:legacyId,nombreRestaurante:"Restaurante Legado",
+    correo:legacyId+"@example.test",usuarioAdmin:"admin-"+legacyId,
+    passwordAdmin:"ContrasenaDePrueba123!",aceptaPlan:true
+  });
+  assert.equal(registro.status,200,JSON.stringify(registro));
+  assert.equal(registro.data.restaurante.passwordAdmin,undefined);
+  const restauranteLegado=await Restaurante.findOne({restaurantId:legacyId});
+  assert.ok(restauranteLegado?.empresaId);
+  assert.equal(await bcrypt.compare("ContrasenaDePrueba123!",restauranteLegado.passwordAdmin),true);
+  assert.ok(await Empresa.exists({_id:restauranteLegado.empresaId}));
+  assert.ok(await Sede.exists({empresaId:restauranteLegado.empresaId,restauranteId:legacyId}));
+  const adminLegado=await Admin.findOne({restaurantId:legacyId});
+  assert.ok(adminLegado);
+  assert.equal(await bcrypt.compare("ContrasenaDePrueba123!",adminLegado.password),true);
+  assert.equal(restauranteLegado.aceptaPlan,true);
   // La ruta de mantenimiento de sedes debe respetar el tenant del JWT.
   const sedeAjena=await call("POST","/sede/crear",ownerB,{
     restauranteId:"restaurant-a",nombreSede:"invasión",direccion:""
