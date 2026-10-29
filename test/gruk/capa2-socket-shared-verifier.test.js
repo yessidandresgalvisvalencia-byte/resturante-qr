@@ -76,3 +76,62 @@ test("Capa 2: rechaza exceso de entradas, limpia expiradas y no acumula errores"
  assert.ok(await v.autenticar({token:"B",secret:"s"}));
  assert.equal(v.estadisticas().entradas,1);
 });
+
+test("Capa 2: dos instancias tienen caches independientes y detectan revocación",async()=>{
+ let tiempo=1000,version=0;
+ const llamadas=[0,0];
+ function instancia(indice){
+  return crearVerificadorCompartido({
+   ttlMs:350,ahora:()=>tiempo,
+   verificar:async({token})=>{
+    llamadas[indice]++;
+    return token==="usuario-A"&&version===0?perfil:null;
+   }
+  });
+ }
+ const proceso1=instancia(0);
+ const proceso2=instancia(1);
+ const args={token:"usuario-A",secret:"secreto-firmado"};
+ const validos=await Promise.all([
+  ...Array.from({length:24},()=>proceso1.autenticar(args)),
+  ...Array.from({length:24},()=>proceso2.autenticar(args))
+ ]);
+ assert.equal(validos.every(Boolean),true);
+ assert.deepEqual(llamadas,[1,1],
+  "Cada proceso valida Mongo independientemente, sin cache compartida");
+ version=1;
+ assert.ok(await proceso1.autenticar(args),
+  "El TTL introduce ventana máxima de autorización ya comprobada");
+ tiempo+=351;
+ assert.equal(await proceso1.autenticar(args),null);
+ assert.equal(await proceso2.autenticar(args),null);
+ assert.deepEqual(llamadas,[2,2]);
+ assert.equal(await proceso1.autenticar(args),null,
+  "Nunca se almacena como válido un rechazo de revocación");
+});
+
+test("Capa 2: validaciones distintas no comparten el mismo resultado entre procesos",async()=>{
+ let tiempo=1000,consultas=0;
+ const proceso1=crearVerificadorCompartido({
+  ahora:()=>tiempo,verificar:async({token})=>{
+   consultas++;
+   return token==="empresa-A"?perfil:{...perfil,usuarioId:"b",empresaId:"B"};
+  }
+ });
+ const proceso2=crearVerificadorCompartido({
+  ahora:()=>tiempo,verificar:async({token})=>{
+   consultas++;
+   return token==="empresa-A"?perfil:{...perfil,usuarioId:"b",empresaId:"B"};
+  }
+ });
+ const [a,b]=await Promise.all([
+  proceso1.autenticar({token:"empresa-A",secret:"secreto"}),
+  proceso2.autenticar({token:"empresa-B",secret:"secreto"})
+ ]);
+ assert.equal(a.empresaId,"A");
+ assert.equal(b.empresaId,"B");
+ assert.equal(consultas,2);
+ tiempo+=351;
+ assert.equal((await proceso1.autenticar({token:"empresa-B",secret:"secreto"})).empresaId,"B");
+ assert.equal((await proceso2.autenticar({token:"empresa-A",secret:"secreto"})).empresaId,"A");
+});
