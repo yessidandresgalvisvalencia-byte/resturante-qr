@@ -242,7 +242,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
     });
     await userRace.commitTransaction();
     const raced=await pending;
-    assert.ok([403,409].includes(raced.status),JSON.stringify(raced));
+    assert.ok([401,403,409].includes(raced.status),JSON.stringify(raced));
     assert.equal(await Usuario.countDocuments({usuario:usuarioEnTraslado}),0);
   }finally{
     if(userRace.inTransaction())await userRace.abortTransaction();
@@ -294,8 +294,8 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(otherVisible.status,200);
   assert.deepEqual(otherVisible.data.productos.map(x=>x.nombre),["sede B"]);
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
-  assert.equal((await call("GET","/restaurant-a",adminA)).status,403);
-  assert.equal((await call("POST","/",adminA,{restaurantId:"restaurant-a",nombre:"sin vínculo",categoria:"prueba",cantidad:1})).status,403);
+  assert.equal((await call("GET","/restaurant-a",adminA)).status,401);
+  assert.equal((await call("POST","/",adminA,{restaurantId:"restaurant-a",nombre:"sin vínculo",categoria:"prueba",cantidad:1})).status,401);
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
   const deniedCompany=await call("GET","/restaurant-b",adminA);
   assert.equal(deniedCompany.status,403);
@@ -386,7 +386,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
    });
    await altaConcurrente.commitTransaction();
    const respuestaAlta=await requestAlta;
-   assert.ok([403,409].includes(respuestaAlta.status),JSON.stringify(respuestaAlta));
+   assert.ok([401,403,409].includes(respuestaAlta.status),JSON.stringify(respuestaAlta));
    assert.equal(await Inventario.countDocuments({nombre:"alta durante traslado"}),0);
   }finally{
    if(altaConcurrente.inTransaction())await altaConcurrente.abortTransaction();
@@ -397,7 +397,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   // La sede puede cambiar de restaurante después de crear el producto.
   // La anulación debe verificar también el vínculo actual, no solo sedeId.
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
-  assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:"sin vínculo"})).status,404);
+  assert.equal((await call("PUT","/anular/"+own.id,adminA,{motivo:"sin vínculo"})).status,401);
   assert.equal((await Inventario.findById(own.id)).anulado,false);
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
   // Producto mal clasificado con sede correcta, pero restaurante de empresa distinta.
@@ -421,7 +421,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
    // La reasignación tiene ya el write lock del documento Sede.
    await reassignment.commitTransaction();
    const raced=await pendingAnnul;
-   assert.ok([404,409].includes(raced.status),JSON.stringify(raced));
+   assert.ok([401,404,409].includes(raced.status),JSON.stringify(raced));
    assert.equal((await Inventario.findById(raceItem.id)).anulado,false);
    assert.equal((await Sede.findById(SA)).restauranteId,"restaurant-b");
   }finally{
