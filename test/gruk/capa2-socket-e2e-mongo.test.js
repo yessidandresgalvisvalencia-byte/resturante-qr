@@ -189,6 +189,28 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   await esperar(()=>sesionesB.every(id=>conectados.get(id)?.rooms.has("empresa-"+B)));
   assert.equal(sesionesB.every(id=>!conectados.get(id).rooms.has("empresa-"+A)),true);
   assert.equal(conectados.size,totalAdicionales+12);
+  // Veinte usuarios distintos de A: cada uno tiene JWT, identidad y
+  // revocación propias; evita atribuir la deduplicación a usuarios únicos.
+  const usuariosIndependientes=await Usuario.insertMany(Array.from({length:20},(_,i)=>({
+   empresaId:A,restauranteId:"socket-a",sedeId:SA,
+   nombre:"Socket independiente "+i,usuario:"socket-unique-"+randomUUID(),
+   password:"test-only",rol:"mesero",estado:"activo"
+  })));
+  const sesionesIndependientes=await Promise.all(usuariosIndependientes.map(async(u)=>{
+   const token=jwt.sign({
+    sub:String(u._id),empresaId:A,restaurantId:"socket-a",sedeId:SA,
+    rol:"EMPLEADO",identityType:"USUARIO",tokenVersion:0
+   },secret,{algorithm:"HS256",expiresIn:"5m"});
+   const sesion=await handshakeWebsocket(token);
+   assert.equal(sesion.packet.startsWith("40{"),true);
+   return {usuarioId:u._id,socketId:JSON.parse(sesion.packet.slice(2)).sid};
+  }));
+  await esperar(()=>sesionesIndependientes.every(({socketId:id})=>
+   conectados.get(id)?.rooms.has("empresa-"+A)));
+  assert.equal(new Set(sesionesIndependientes.map(s=>s.socketId)).size,20);
+  assert.equal(conectados.size,totalAdicionales+32);
+  assert.equal(sesionesIndependientes.every(({socketId:id})=>
+   !conectados.get(id).rooms.has("empresa-"+B)),true);
   // MongoDB command monitoring: medir consultas del watchdog en un periodo
   // estable (sin confundir las conexiones/handshakes con la revalidación).
   const mongoClient=mongoose.connection.getClient();
@@ -216,10 +238,10 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   assert.equal(idsAdicionales.every(id=>conectados.get(id)?.connected),true,
    "Las conexiones legítimas deben sobrevivir a la revalidación periódica");
   console.log("[GRUK CI SOCKET MONGO]",JSON.stringify({
-   conexionesSimultaneas:totalAdicionales+12,
+   conexionesSimultaneas:totalAdicionales+32,
    duracionObservadaMs,consultasMongo,
    consultasPorColeccion:Object.fromEntries(consultasPorColeccion),
-   consultasPorConexion:Math.round(consultasMongo/(totalAdicionales+12)*100)/100,
+   consultasPorConexion:Math.round(consultasMongo/(totalAdicionales+32)*100)/100,
    observacion:"solo comandos find con monitorCommands activo"
   }));
   const inicioRevocacion=Date.now();
@@ -235,8 +257,24 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
    p95HandshakeMs:p95Conexion,latenciaRevocacionMs,
    duracionSostenidaMs:4400,limiteDeCarga:"CI local, sin SLA"
   }));
+  // Invalidar el JWT compartido no debe expulsar identidades independientes.
+  assert.equal(sesionesIndependientes.every(({socketId:id})=>
+   conectados.get(id)?.connected),true);
+  assert.equal(io.sockets.adapter.rooms.get("empresa-"+A)?.size,20,
+   "A conserva exclusivamente sus 20 usuarios independientes");
+  const inicioRevocacionIndividual=Date.now();
+  await Usuario.updateMany({
+   _id:{$in:sesionesIndependientes.map(s=>s.usuarioId)}
+  },{$inc:{tokenVersion:1}});
+  await esperar(()=>sesionesIndependientes.every(({socketId:id})=>
+   !conectados.get(id)?.connected),10000);
+  const latenciaRevocacionIndividualMs=Date.now()-inicioRevocacionIndividual;
   assert.equal(io.sockets.adapter.rooms.has("empresa-"+A),false,
-   "El socket revocado ya no puede permanecer en el canal de la empresa");
+   "El canal A desaparece cuando sus identidades independientes son revocadas");
+  console.log("[GRUK CI SOCKET UNIQUE TOKENS]",JSON.stringify({
+   tokensIndependientes:20,latenciaRevocacionIndividualMs,
+   empresaBConectada:sesionesB.every(id=>conectados.get(id)?.connected)
+  }));
   assert.equal(sesionesB.every(id=>conectados.get(id)?.connected),true,
    "La revocación de A no debe desconectar empleados legítimos de B");
   assert.equal(io.sockets.adapter.rooms.get("empresa-"+B)?.size,10);
