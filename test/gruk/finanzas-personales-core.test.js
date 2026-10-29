@@ -5,6 +5,25 @@ const colombia=require("../../modules/finanzas-personales/services/colombiaFinan
 const patrimonioPersonal=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
 const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
 const home=require("../../modules/finanzas-personales/services/homePersonal.service");
+
+test("panel suma importes con cancelación exacta y rechaza totales inseguros",()=>{
+ const max=Number.MAX_SAFE_INTEGER;
+ // Number pierde una unidad con este orden aunque el resultado final sea seguro.
+ assert.equal(home.sumarImportesHome([max,2,-max]),2);
+ assert.equal(home.sumarImportesHome([max,-max,17]),17);
+ assert.equal(home.sumarImportesHome([]),0);
+ assert.equal(home.sumarImportesHome([-max]),-max);
+ for(const valores of [[max,1],[-max,-1],[1.5],["100"],[null],[undefined],[Infinity],[NaN]])
+  assert.throws(()=>home.sumarImportesHome(valores));
+});
+
+test("panel valida cada monto y no acepta sumas redondeadas de ingresos o compromisos",()=>{
+ assert.equal(home.sumarMontosHome([{montoMinor:0},{montoMinor:1200},{montoMinor:800}]),2000);
+ assert.equal(home.sumarMontosHome([{saldoMinor:200},{saldoMinor:300}],x=>x.saldoMinor),500);
+ for(const montoMinor of [-1,0.1,"100",null,undefined,Number.MAX_SAFE_INTEGER+1])
+  assert.throws(()=>home.sumarMontosHome([{montoMinor}]),TypeError);
+ assert.throws(()=>home.sumarMontosHome([{montoMinor:Number.MAX_SAFE_INTEGER},{montoMinor:2}]),RangeError);
+});
 const authorizationRisk=require("../../modules/finanzas-personales/services/authorizationRisk.service");
 const decisionProof=require("../../modules/finanzas-personales/services/decisionProof.service");
 test("colombianismos monetarios exactos",()=>{assert.equal(interprete.interpretarSegmento("gasté 25 lucas en Rappi").montoMinor,25000);assert.equal(interprete.interpretarSegmento("recibí 3 palos de salario").montoMinor,3000000);assert.equal(interprete.interpretarSegmento("me pagaron medio palo").montoMinor,500000);});
@@ -353,8 +372,11 @@ test("abonos y flujo usan el mismo importe efectivamente pagado",()=>{
 test("cálculo real de pagos compartido entre contabilidad y compromisos",()=>{
  const fs=require("node:fs"),path=require("node:path");
  const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
- assert.match(src,/reduce\(\(s,x\)=>s\+montoPagoDeudaMinor\(x\),0\)/);
- assert.match(src,/pagosPorDeuda\.set\(id,\(pagosPorDeuda\.get\(id\)\|\|0\)\+montoPagoDeudaMinor\(t\)\)/);
+ assert.match(src,/sumarMontosHome\(tx\.filter\([^\n]+,montoPagoDeudaMinor\)/);
+ assert.match(src,/pagosPorDeuda\.set\(id,sumarImportesHome\(\[pagosPorDeuda\.get\(id\)\|\|0,montoPagoDeudaMinor\(t\)\]\)\)/);
+ const pagos=[{tipo:"PAGO_DEUDA",montoMinor:400,montoPagadoRealMinor:450},
+  {tipo:"PAGO_DEUDA",montoMinor:200,montoPagadoRealMinor:220}];
+ assert.equal(home.sumarMontosHome(pagos,home.montoPagoDeudaMinor),670);
 });
 
 test("movimientos futuros no cuentan como pagos ya realizados",()=>{
