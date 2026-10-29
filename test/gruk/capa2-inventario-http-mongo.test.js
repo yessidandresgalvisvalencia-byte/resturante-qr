@@ -170,6 +170,17 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   });
   assert.equal(segundaSesion.status,200,JSON.stringify(segundaSesion));
   assert.equal(jwt.verify(segundaSesion.data.token,process.env.JWT_SECRET).tokenVersion,1);
+  // La sesión recién emitida debe invalidarse inmediatamente ante cambios de rol o sede.
+  const tokenActivo="Bearer "+segundaSesion.data.token;
+  await Usuario.updateOne({usuario:nuevoUsuarioNombre},{$set:{rol:"admin_sede"}});
+  assert.equal((await call("POST","/auth/cerrar-todas-sesiones",tokenActivo,{})).status,401);
+  await Usuario.updateOne({usuario:nuevoUsuarioNombre},{$set:{rol:"mesero"}});
+  await Usuario.updateOne({usuario:nuevoUsuarioNombre},{$set:{estado:"inactivo"}});
+  assert.equal((await call("POST","/auth/cerrar-todas-sesiones",tokenActivo,{})).status,401);
+  await Usuario.updateOne({usuario:nuevoUsuarioNombre},{$set:{estado:"activo"}});
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
+  assert.equal((await call("POST","/auth/cerrar-todas-sesiones",tokenActivo,{})).status,401);
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
   const loginDesvinculado=await call("POST","/usuarios/login","",{
     usuario:nuevoUsuarioNombre,password:"ContrasenaValida123!"
