@@ -117,6 +117,16 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
    nombre:"Empleado socket",usuario:"socket-"+randomUUID(),
    password:"test-only",rol:"mesero",estado:"activo"
   });
+  // Identidad independiente de empresa B: la revocación de A no debe afectarla.
+  const userB=await Usuario.create({
+   empresaId:B,restauranteId:"socket-b",sedeId:null,
+   nombre:"Empleado socket B",usuario:"socket-b-"+randomUUID(),
+   password:"test-only",rol:"admin_general",estado:"activo"
+  });
+  const tokenB=jwt.sign({
+   sub:String(userB._id),empresaId:B,restaurantId:"socket-b",
+   sedeId:null,rol:"DUEÑO",identityType:"USUARIO",tokenVersion:0
+  },secret,{algorithm:"HS256",expiresIn:"5m"});
   const claims={sub:String(user._id),empresaId:A,
    restaurantId:"socket-a",sedeId:SA,rol:"EMPLEADO",
    identityType:"USUARIO",tokenVersion:0};
@@ -169,6 +179,16 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   assert.equal(idsAdicionales.every(id=>!conectados.get(id).rooms.has("empresa-"+B)),true);
   const latenciasConexion=adicionales.map(x=>x.latenciaMs).sort((a,b)=>a-b);
   const p95Conexion=latenciasConexion[Math.ceil(latenciasConexion.length*.95)-1];
+  // Diez WebSockets genuinos de B operan en paralelo a los 100 de A.
+  const sesionesB=await Promise.all(Array.from({length:10},async()=>{
+   const sesion=await handshakeWebsocket(tokenB);
+   assert.equal(sesion.packet.startsWith("40{"),true);
+   return JSON.parse(sesion.packet.slice(2)).sid;
+  }));
+  assert.equal(new Set(sesionesB).size,10);
+  await esperar(()=>sesionesB.every(id=>conectados.get(id)?.rooms.has("empresa-"+B)));
+  assert.equal(sesionesB.every(id=>!conectados.get(id).rooms.has("empresa-"+A)),true);
+  assert.equal(conectados.size,totalAdicionales+12);
   // Dos comprobaciones periódicas para confirmar conexiones sostenidas.
   await new Promise(resolve=>setTimeout(resolve,4400));
   assert.equal(idsAdicionales.every(id=>conectados.get(id)?.connected),true,
@@ -188,6 +208,16 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   }));
   assert.equal(io.sockets.adapter.rooms.has("empresa-"+A),false,
    "El socket revocado ya no puede permanecer en el canal de la empresa");
+  assert.equal(sesionesB.every(id=>conectados.get(id)?.connected),true,
+   "La revocación de A no debe desconectar empleados legítimos de B");
+  assert.equal(io.sockets.adapter.rooms.get("empresa-"+B)?.size,10);
+  await Usuario.updateOne({_id:userB._id},{$inc:{tokenVersion:1}});
+  await esperar(()=>sesionesB.every(id=>!conectados.get(id)?.connected),10000);
+  assert.equal(io.sockets.adapter.rooms.has("empresa-"+B),false);
+  console.log("[GRUK CI SOCKET ISOLATION]",JSON.stringify({
+   sesionesEmpresaA:totalAdicionales+2,sesionesEmpresaB:sesionesB.length,
+   BPermaneceConectadaAlRevocarA:true,revocacionIndependienteB:true
+  }));
  }finally{
   for(const ws of wsClients){if(ws.readyState!==WebSocket.CLOSED)ws.terminate();}
   for(const socket of conectados.values())socket.disconnect(true);
