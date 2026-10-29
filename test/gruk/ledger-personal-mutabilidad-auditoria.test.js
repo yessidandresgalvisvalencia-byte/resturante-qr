@@ -33,6 +33,17 @@ test("detector descubre mutaciones del original en corrección y anulación",()=
  ["CORRECCION_ORIGINAL","SAVE_CORRECCION","ANULACION_ESTADO","SAVE_ANULACION"]);
  assert.deepEqual(auditoria.analizarMutacionesLedger("await Libro.insertMany([eventoReverso]);"),[]);
 });
+test("revisa scripts, rutas compartidas, controladores y entradas sin confundir modelos mutables",()=>{
+ const raiz=fs.mkdtempSync(path.join(require("node:os").tmpdir(),"gruk-auditoria-externa-"));
+ try{
+  fs.mkdirSync(path.join(raiz,"modules/finanzas-personales"),{recursive:true});
+  for(const carpeta of ["scripts","routes","controllers"])fs.mkdirSync(path.join(raiz,carpeta));
+  for(const archivo of ["app.js","scripts/correccion.js","routes/compartida.js","controllers/accion.js"])
+   fs.writeFileSync(path.join(raiz,archivo),`const Libro=require('../modules/finanzas-personales/models/TransaccionPersonal'); Libro.deleteMany({});`);
+  fs.writeFileSync(path.join(raiz,"scripts/mutable.js"),`const Cuenta=require('../modules/finanzas-personales/models/cuentaFinanciera.model'); Cuenta.updateOne({},{});`);
+  assert.deepEqual(auditoria.auditarProyecto(raiz).map(h=>h.archivo),["app.js","controllers/accion.js","routes/compartida.js","scripts/correccion.js"]);
+ }finally{fs.rmSync(raiz,{recursive:true,force:true});}
+});
 test("auditoría actual revela la deuda técnica y no presenta ledger como inmutable",()=>{
  const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/flujoCajaPersonal.service.js"),"utf8");
  const ids=auditoria.analizarMutacionesLedger(src).map(x=>x.id);

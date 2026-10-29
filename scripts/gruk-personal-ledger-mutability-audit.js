@@ -40,12 +40,20 @@ function auditarProyecto(raiz=path.resolve(__dirname,"..")){
  const base=path.join(raiz,"modules/finanzas-personales");
  const heredados=new Set(["services/flujoCajaPersonal.service.js","routes.js",
   "services/patrimonioPersonal.service.js","services/compromisosCuotas.service.js","services/migracionLedgerPersonal.service.js"]);
- return archivosJavascript(base).flatMap(archivo=>{
-  const codigo=fs.readFileSync(path.join(base,archivo),"utf8");
-  const mutaciones=heredados.has(archivo)?analizarMutacionesLedger(codigo).filter(h=>archivo.startsWith("services/flujoCaja")||
+ const externos=fs.readdirSync(raiz,{withFileTypes:true})
+  .filter(e=>e.isFile()&&e.name.endsWith(".js")).map(e=>e.name);
+ for(const carpeta of ["scripts","routes","controllers"]){
+  const directorio=path.join(raiz,carpeta);
+  if(fs.existsSync(directorio)&&fs.statSync(directorio).isDirectory())
+   externos.push(...archivosJavascript(directorio).map(a=>carpeta+"/"+a));
+ }
+ const revisar=(archivo,codigo,esPersonal)=>{
+  const mutaciones=esPersonal&&heredados.has(archivo)?analizarMutacionesLedger(codigo).filter(h=>archivo.startsWith("services/flujoCaja")||
    ["ANULACION_ESTADO","SAVE_ANULACION"].includes(h.id)):[];
   return [...mutaciones,...analizarAccesosModelos(codigo)].map(h=>({archivo,...h}));
- });
+ };
+ return [...archivosJavascript(base).flatMap(archivo=>revisar(archivo,fs.readFileSync(path.join(base,archivo),"utf8"),true)),
+  ...externos.sort().flatMap(archivo=>revisar(archivo,fs.readFileSync(path.join(raiz,archivo),"utf8"),false))];
 }
 function main(args=process.argv.slice(2)){
  const hallazgos=auditarProyecto();
