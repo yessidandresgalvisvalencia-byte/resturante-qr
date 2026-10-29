@@ -133,12 +133,12 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   assert.equal(conectados.size,1,"El token falsificado no debe crear un socket");
   // Transporte WebSocket nativo: handshake Engine.IO y namespace Socket.IO.
   const wsValido=await handshakeWebsocket(valid);
-  assert.match(wsValido.packet,/^40\\{/,"El WebSocket nativo debe autenticarse");
+  assert.match(wsValido.packet,/^40\{/,"El WebSocket nativo debe autenticarse");
   const websocketId=JSON.parse(wsValido.packet.slice(2)).sid;
   await esperar(()=>conectados.get(websocketId)?.rooms.has("empresa-"+A));
   assert.equal(conectados.get(websocketId).rooms.has("empresa-"+B),false);
   const wsFalso=await handshakeWebsocket(forged);
-  assert.match(wsFalso.packet,/^44\\{/,
+  assert.match(wsFalso.packet,/^44\{/,
    "WebSocket nativo debe rechazar una empresa falsificada");
   assert.equal(conectados.size,2,"Solo polling y WebSocket legítimos pueden unirse");
 
