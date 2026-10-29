@@ -1,5 +1,6 @@
 const express = require("express");
 const Joi = require("joi");
+const mongoose = require("mongoose");
 
 const router = express.Router();
 
@@ -217,14 +218,16 @@ async (req,res)=>{
 
 try{
 
-const { motivo } = req.body || {};
-
-if(!motivo){
-return res.status(400).json({
-ok:false,
-error:"Debes escribir un motivo de anulación"
-});
+const { error: errorAnulacion, value: datosAnulacion } = Joi.object({
+  motivo: Joi.string().trim().min(1).max(500).required()
+}).unknown(true).validate(req.body, { abortEarly: false, convert: true });
+if (errorAnulacion || !mongoose.isValidObjectId(req.params.id)) {
+  return res.status(400).json({
+    ok:false,
+    error:"Identificador inválido o motivo de anulación requerido (máximo 500 caracteres)"
+  });
 }
+const { motivo } = datosAnulacion;
 
 const producto = await anularInventarioAutorizado({
  auth:req.auth,id:req.params.id,motivo
