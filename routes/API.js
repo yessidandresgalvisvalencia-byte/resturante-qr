@@ -3256,6 +3256,24 @@ router.post("/usuarios/login", async (req, res) => {
       });
     }
 
+    // No entregar JWT de usuario asignado a sede reasignada o de otra empresa.
+    if(user.sedeId){
+      const sedeVigente=await Sede.exists({
+        _id:user.sedeId._id,
+        empresaId:user.empresaId,
+        restauranteId:user.restauranteId
+      });
+      if(!sedeVigente)return res.status(403).json({
+        ok:false,error:"La sede del usuario ya no está vinculada a este restaurante"
+      });
+    }
+    const restauranteVigente=await Restaurante.exists({
+      restaurantId:user.restauranteId,empresaId:user.empresaId
+    });
+    if(!restauranteVigente)return res.status(403).json({
+      ok:false,error:"El restaurante ya no está vinculado a la empresa del usuario"
+    });
+
     const rolJwt =
       user.rol === "admin_general"
         ? ROLES_GRUK.DUENO
