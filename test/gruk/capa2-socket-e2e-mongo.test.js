@@ -32,7 +32,7 @@ async function esperar(check,maxMs=6000){
  assert.fail("Socket.IO no alcanzó estado esperado dentro del plazo de prueba");
 }
 test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
- skip:!mongo&&!process.env.CI,timeout:45000
+ skip:!mongo&&!process.env.CI,timeout:65000
 },async()=>{
  assert.ok(mongo,"CI exige MongoDB para verificar transportes reales");
  assert.ok(mongoLocal(mongo),"Solo se permiten pruebas destructivas sobre MongoDB local");
@@ -189,26 +189,32 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   await esperar(()=>sesionesB.every(id=>conectados.get(id)?.rooms.has("empresa-"+B)));
   assert.equal(sesionesB.every(id=>!conectados.get(id).rooms.has("empresa-"+A)),true);
   assert.equal(conectados.size,totalAdicionales+12);
-  // Veinte usuarios distintos de A: cada uno tiene JWT, identidad y
+  // Ochenta usuarios distintos de A: cada uno tiene JWT, identidad y
   // revocación propias; evita atribuir la deduplicación a usuarios únicos.
-  const usuariosIndependientes=await Usuario.insertMany(Array.from({length:20},(_,i)=>({
+  const totalUsuariosIndependientes=80;
+  const usuariosIndependientes=await Usuario.insertMany(Array.from({length:totalUsuariosIndependientes},(_,i)=>({
    empresaId:A,restauranteId:"socket-a",sedeId:SA,
    nombre:"Socket independiente "+i,usuario:"socket-unique-"+randomUUID(),
    password:"test-only",rol:"mesero",estado:"activo"
   })));
-  const sesionesIndependientes=await Promise.all(usuariosIndependientes.map(async(u)=>{
-   const token=jwt.sign({
-    sub:String(u._id),empresaId:A,restaurantId:"socket-a",sedeId:SA,
-    rol:"EMPLEADO",identityType:"USUARIO",tokenVersion:0
-   },secret,{algorithm:"HS256",expiresIn:"5m"});
-   const sesion=await handshakeWebsocket(token);
-   assert.equal(sesion.packet.startsWith("40{"),true);
-   return {usuarioId:u._id,socketId:JSON.parse(sesion.packet.slice(2)).sid};
-  }));
+  const sesionesIndependientes=[];
+  // Abrir lotes para distinguir la presión Mongo de un pico de 80 handshakes.
+  for(let i=0;i<usuariosIndependientes.length;i+=10){
+   const lote=await Promise.all(usuariosIndependientes.slice(i,i+10).map(async(u)=>{
+    const token=jwt.sign({
+     sub:String(u._id),empresaId:A,restaurantId:"socket-a",sedeId:SA,
+     rol:"EMPLEADO",identityType:"USUARIO",tokenVersion:0
+    },secret,{algorithm:"HS256",expiresIn:"5m"});
+    const sesion=await handshakeWebsocket(token);
+    assert.equal(sesion.packet.startsWith("40{"),true);
+    return {usuarioId:u._id,socketId:JSON.parse(sesion.packet.slice(2)).sid};
+   }));
+   sesionesIndependientes.push(...lote);
+  }
   await esperar(()=>sesionesIndependientes.every(({socketId:id})=>
    conectados.get(id)?.rooms.has("empresa-"+A)));
-  assert.equal(new Set(sesionesIndependientes.map(s=>s.socketId)).size,20);
-  assert.equal(conectados.size,totalAdicionales+32);
+  assert.equal(new Set(sesionesIndependientes.map(s=>s.socketId)).size,totalUsuariosIndependientes);
+  assert.equal(conectados.size,totalAdicionales+12+totalUsuariosIndependientes);
   assert.equal(sesionesIndependientes.every(({socketId:id})=>
    !conectados.get(id).rooms.has("empresa-"+B)),true);
   // MongoDB command monitoring: medir consultas del watchdog en un periodo
@@ -238,10 +244,10 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   assert.equal(idsAdicionales.every(id=>conectados.get(id)?.connected),true,
    "Las conexiones legítimas deben sobrevivir a la revalidación periódica");
   console.log("[GRUK CI SOCKET MONGO]",JSON.stringify({
-   conexionesSimultaneas:totalAdicionales+32,
+   conexionesSimultaneas:totalAdicionales+12+totalUsuariosIndependientes,
    duracionObservadaMs,consultasMongo,
    consultasPorColeccion:Object.fromEntries(consultasPorColeccion),
-   consultasPorConexion:Math.round(consultasMongo/(totalAdicionales+32)*100)/100,
+   consultasPorConexion:Math.round(consultasMongo/(totalAdicionales+12+totalUsuariosIndependientes)*100)/100,
    observacion:"solo comandos find con monitorCommands activo"
   }));
   const inicioRevocacion=Date.now();
@@ -260,8 +266,8 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   // Invalidar el JWT compartido no debe expulsar identidades independientes.
   assert.equal(sesionesIndependientes.every(({socketId:id})=>
    conectados.get(id)?.connected),true);
-  assert.equal(io.sockets.adapter.rooms.get("empresa-"+A)?.size,20,
-   "A conserva exclusivamente sus 20 usuarios independientes");
+  assert.equal(io.sockets.adapter.rooms.get("empresa-"+A)?.size,totalUsuariosIndependientes,
+   "A conserva exclusivamente sus usuarios independientes");
   const inicioRevocacionIndividual=Date.now();
   await Usuario.updateMany({
    _id:{$in:sesionesIndependientes.map(s=>s.usuarioId)}
@@ -272,7 +278,7 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   assert.equal(io.sockets.adapter.rooms.has("empresa-"+A),false,
    "El canal A desaparece cuando sus identidades independientes son revocadas");
   console.log("[GRUK CI SOCKET UNIQUE TOKENS]",JSON.stringify({
-   tokensIndependientes:20,latenciaRevocacionIndividualMs,
+   tokensIndependientes:totalUsuariosIndependientes,latenciaRevocacionIndividualMs,
    empresaBConectada:sesionesB.every(id=>conectados.get(id)?.connected)
   }));
   assert.equal(sesionesB.every(id=>conectados.get(id)?.connected),true,
