@@ -3104,7 +3104,7 @@ router.post("/sede/crear", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (r
     const codigoSede = `${restauranteId}_${Date.now()}`;
 
     const nueva = new Sede({
-      empresaId: restaurante.empresaId || null,
+      empresaId: req.auth.empresaId,
       restauranteId,
       nombreSede,
       codigoSede,
