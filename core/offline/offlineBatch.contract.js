@@ -23,6 +23,22 @@ function inspectPayload(value, depth = 0) {
     inspectPayload(v, depth+1);
   }
 }
+function validOccurredAt(value) {
+  if (typeof value !== "string") return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!m) return false;
+  const [year,month,day,hour,minute,second] = m.slice(1,7).map(Number);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28,31,30,31,30,31,31,30,31,30,31];
+  if (year < 1 || month < 1 || month > 12 || day < 1 || day > days[month-1] ||
+      hour > 23 || minute > 59 || second > 59) return false;
+  const zone = m[7];
+  if (zone !== "Z") {
+    const zh = Number(zone.slice(1,3)), zm = Number(zone.slice(4,6));
+    if (zh > 23 || zm > 59) return false;
+  }
+  return Number.isFinite(Date.parse(value));
+}
 function validateBatch(events, authenticatedContext) {
   if (!authenticatedContext || !["empresaId","sedeId","actorId"].every(k => typeof authenticatedContext[k] === "string" && ID.test(authenticatedContext[k]))) fail("OFFLINE_AUTH_REQUIRED");
   if (!Array.isArray(events) || events.length < 1 || events.length > 100) fail("OFFLINE_BATCH_SIZE");
@@ -40,7 +56,7 @@ function validateBatch(events, authenticatedContext) {
     if (!ULID.test(event.eventId) || ![event.empresaId,event.sedeId,event.actorId,event.deviceId].every(v => typeof v === "string" && ID.test(v))) fail("OFFLINE_INVALID_ID");
     if (event.empresaId !== authenticatedContext.empresaId || event.sedeId !== authenticatedContext.sedeId || event.actorId !== authenticatedContext.actorId) fail("OFFLINE_TENANT_MISMATCH");
     if (event.schemaVersion !== 1 || !TYPES.has(event.tipo)) fail("OFFLINE_INVALID_TYPE");
-    if (typeof event.occurredAt !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(event.occurredAt) || !Number.isFinite(Date.parse(event.occurredAt))) fail("OFFLINE_INVALID_TIMESTAMP");
+    if (!validOccurredAt(event.occurredAt)) fail("OFFLINE_INVALID_TIMESTAMP");
     if (!event.payload || typeof event.payload !== "object" || Array.isArray(event.payload)) fail("OFFLINE_INVALID_PAYLOAD");
     inspectPayload(event.payload);
     if (Buffer.byteLength(JSON.stringify(event), "utf8") > 65536) fail("OFFLINE_PAYLOAD_TOO_LARGE");
