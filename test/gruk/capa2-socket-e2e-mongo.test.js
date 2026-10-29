@@ -149,7 +149,7 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   const adicionales=await Promise.all(Array.from({length:totalAdicionales},async()=>{
    const inicio=Date.now();
    const sesion=await handshakeWebsocket(valid);
-   assert.match(sesion.packet,/^40\\{/);
+   assert.equal(sesion.packet.startsWith('40{'),true);
    return {id:JSON.parse(sesion.packet.slice(2)).sid,latenciaMs:Date.now()-inicio};
   }));
   const idsAdicionales=adicionales.map(x=>x.id);
