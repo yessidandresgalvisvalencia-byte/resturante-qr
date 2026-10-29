@@ -84,8 +84,10 @@ function construirIntervencionNeurona(reporte) {
     (h) => Number(h.impacto_financiero_estimado) || 0
   );
   const confianzas = hallazgos
-    .map((h) => Number(h.confianza))
-    .filter(Number.isFinite);
+    .map((h) => h.confianza)
+    .filter((valor) => valor !== null && valor !== undefined && valor !== "")
+    .map(Number)
+    .filter((valor) => Number.isFinite(valor) && valor >= 0 && valor <= 100);
 
   const impacto = impactos.reduce(
     (suma, valor) => suma + Math.max(0, valor),
@@ -96,7 +98,7 @@ function construirIntervencionNeurona(reporte) {
         confianzas.reduce((suma, valor) => suma + valor, 0) /
         confianzas.length
       )
-    : 100;
+    : null;
 
   const actual = formatearNumero(reporte.kpi_principal?.valor_actual);
   const objetivo = formatearNumero(reporte.kpi_principal?.valor_objetivo);
