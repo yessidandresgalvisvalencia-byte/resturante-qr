@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {crearRegistrador,verificarIndices,exigirIndices,GENESIS}=
+const {crearRegistrador,verificarIndices,exigirIndices,leerCadenaVerificada,GENESIS}=
  require("../../modules/finanzas-personales/services/registradorCompensacionPersonal.service");
 const {verificarCadena}=require("../../modules/finanzas-personales/services/eventoCompensatorioPersonal.service");
 const original={usuarioId:"507f1f77bcf86cd799439011",movimientoId:"507f1f77bcf86cd799439012",
@@ -33,6 +33,7 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
   }
  };
  const nuevaSesion=async()=>({
+  inTransaction:()=>staged!==null,
   async withTransaction(fn){
    staged={cursor:data.cursor&&{...data.cursor},eventos:[...data.eventos]};
    try{await fn();data.cursor=staged.cursor;data.eventos=staged.eventos;}
@@ -46,6 +47,12 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
 }
 const entrada=(key="operacion_1")=>({original,tipo:"CORRECCION",
  cambios:{montoMinor:22000},idempotencyKey:key,fechaISO});
+test("la lectura compartida exige usuario y transacción activa antes de consultar",async()=>{
+ for(const opciones of [{},{session:{}},{session:{inTransaction:()=>false}}]){
+  await assert.rejects(leerCadenaVerificada(original.usuarioId,opciones),/transacción activa/);
+ }
+ await assert.rejects(leerCadenaVerificada(" ",{session:{inTransaction:()=>true}}),/Usuario/);
+});
 test("primer evento crea cursor y evento; segundo enlaza hash y secuencia",async()=>{
  const {data,registrar}=bancoSimulado();
  const a=await registrar(entrada("operacion_1"));

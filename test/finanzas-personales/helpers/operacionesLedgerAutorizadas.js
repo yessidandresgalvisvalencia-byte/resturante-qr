@@ -182,11 +182,14 @@ async function probarCadenaCompensatoriaAlterada(db){
    ()=>cursores.replaceOne({_id:cursor._id},cursor)],
   [()=>cursores.deleteOne({_id:cursor._id}),()=>cursores.insertOne(cursor)]
  ];
- for(const [alterar,restaurar] of ataques){
+ for(const [indice,[alterar,restaurar]] of ataques.entries()){
   await alterar();
   try{
    const antes=await estado();
    await assert.rejects(aplicar(solicitud),e=>e.statusCode===409&&/INTEGRIDAD_LEDGER/.test(e.message));
+   // Reintentar un evento intacto tampoco debe ocultar daños en otro movimiento.
+   const replay=indice===1?corregir(gastoA._id,900,"cadena-a"):corregir(gastoB._id,1900,"cadena-b");
+   await assert.rejects(aplicar(replay),e=>e.statusCode===409&&/INTEGRIDAD_LEDGER/.test(e.message));
    assert.deepEqual(await estado(),antes);
   }finally{await restaurar();}
   assert.deepEqual(await estado(),intacto);

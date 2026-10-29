@@ -9,7 +9,7 @@ const Cuenta=require("../models/cuentaFinanciera.model");
 const Outbox=require("../models/outboxPersonal.model");
 const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const Evento=require("../models/EventoCompensatorioPersonal");
-const {crearRegistrador}=require("./registradorCompensacionPersonal.service");
+const {crearRegistrador,leerCadenaVerificada}=require("./registradorCompensacionPersonal.service");
 const {vigente}=require("./estadoCompensadoPersonal.service");
 const registrarCompensacion=crearRegistrador();
 const problema=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
@@ -97,9 +97,10 @@ async function deshacer(usuarioId,{compromisoId,numero,movimientoId,idempotencyK
    !(tx.fecha instanceof Date)||!Number.isFinite(tx.fecha.getTime())||tx.fecha.getTime()>Date.now())throw problema("Movimiento no conciliable");
   const original={usuarioId:String(usuarioId),movimientoId:String(tx._id),tipo:tx.tipo,
    montoMinor:tx.montoMinor,concepto:tx.concepto,categoria:tx.categoria,impactoCaja:tx.impactoCaja};
-  const historial=await Evento.find({usuarioId:String(usuarioId),movimientoId:String(tx._id)},{_id:0}).sort({secuencia:1}).session(session).lean();
+  const {cadena}=await leerCadenaVerificada(String(usuarioId),{session});
+  const historial=cadena.filter(e=>e.movimientoId===String(tx._id));
   const estado=vigente(original,historial);
-  const repetido=await Evento.findOne({usuarioId:String(usuarioId),idempotencyKey},{_id:0}).session(session).lean();
+  const repetido=cadena.find(e=>e.idempotencyKey===idempotencyKey);
   if(repetido){
    if(repetido.movimientoId!==String(tx._id)||repetido.tipo!=="ANULACION"||!estado.anulado||
     !historial.some(e=>e.hashActual===repetido.hashActual))throw problema("Clave idempotente utilizada para otra operación");

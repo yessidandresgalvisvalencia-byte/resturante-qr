@@ -4,8 +4,7 @@ const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Outbox=require("../models/outboxPersonal.model");
-const Evento=require("../models/EventoCompensatorioPersonal");
-const {crearRegistrador}=require("./registradorCompensacionPersonal.service");
+const {crearRegistrador,leerCadenaVerificada}=require("./registradorCompensacionPersonal.service");
 const {vigente}=require("./estadoCompensadoPersonal.service");
 const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const {liberarReserva}=require("./liberarReservaCompensadaPersonal.service");
@@ -13,8 +12,7 @@ const {canon}=require("./eventoCompensatorioPersonal.service");
 const {serializarEscrituraFuente}=require("./proteccionOriginalCompensadoPersonal.service");
 const registrar=crearRegistrador();
 const error=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
-// Preparación de integración: NO conectado a rutas. Las consultas actuales todavía necesitan
-// proyectar compensaciones antes de activar este flujo. No modificar la transacción original.
+// Evento, saldo, reserva y outbox se confirman juntos sin modificar el asiento original.
 function crearAplicador({OutboxModelo=Outbox}={}){
  return async function compensar({usuarioId,movimientoId,tipo,cambios={},idempotencyKey}){
   if(!mongoose.isObjectIdOrHexString(usuarioId)||!mongoose.isObjectIdOrHexString(movimientoId))
@@ -41,8 +39,8 @@ function crearAplicador({OutboxModelo=Outbox}={}){
      throw error("El abono vinculado solo admite anulación compensatoria");
     const original={usuarioId:String(fuente.usuarioId),movimientoId:String(fuente._id),
      tipo:fuente.tipo,montoMinor:fuente.montoMinor,concepto:fuente.concepto,categoria:fuente.categoria};
-    const historial=await Evento.find({usuarioId:original.usuarioId,movimientoId:original.movimientoId},
-     {_id:0}).sort({secuencia:1}).session(session).lean();
+    const {cadena}=await leerCadenaVerificada(original.usuarioId,{session});
+    const historial=cadena.filter(e=>e.movimientoId===original.movimientoId);
     const estado=vigente(original,historial);
     const repetido=historial.find(e=>e.idempotencyKey===idempotencyKey);
     if(repetido){

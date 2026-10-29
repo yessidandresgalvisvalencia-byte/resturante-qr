@@ -27,6 +27,21 @@ async function exigirIndices({EventoModelo=Evento,CursorModelo=Cursor}={}){
   !verificarIndices(cursores,"_id_",[["_id",1]]))
   throw Object.assign(new Error("Falta un índice único para la seguridad del ledger"),{statusCode:503});
 }
+async function leerCadenaVerificada(usuarioId,{session,EventoModelo=Evento,CursorModelo=Cursor,paraAnexar=false}={}){
+ if(typeof usuarioId!=="string"||!ID.test(usuarioId)||!session?.inTransaction?.())
+  throw new TypeError("Usuario y transacción activa requeridos para verificar la cadena");
+ const cadena=await EventoModelo.find({usuarioId},{_id:0})
+  .sort({secuencia:1}).limit(MAX_EVENTOS+1).maxTimeMS(5000).session(session).lean();
+ if(cadena.length>MAX_EVENTOS||paraAnexar&&cadena.length===MAX_EVENTOS)
+  throw Object.assign(new Error("Ledger compensatorio alcanza el límite verificable; requiere ampliación de capacidad"),{statusCode:422});
+ const cursor=await CursorModelo.findById(usuarioId).session(session).lean();
+ let cadenaValida=false;
+ try{cadenaValida=verificarCadena(cadena,{prevHash:GENESIS});}catch(_){}
+ if(!cadenaValida||cadena.some(e=>e.usuarioId!==usuarioId)||(!cursor&&cadena.length)||
+    (cursor&&(cursor.secuencia!==cadena.length||cursor.hashActual!==(cadena.at(-1)?.hashActual||GENESIS))))
+  throw conflicto("INTEGRIDAD_LEDGER: cadena completa y cursor no coinciden");
+ return {cadena,cursor};
+}
 function crearRegistrador({
  EventoModelo=Evento,CursorModelo=Cursor,
  nuevaSesion=()=>mongoose.startSession(),
@@ -52,17 +67,7 @@ function crearRegistrador({
     if(repetido)throw conflicto("Idempotencia ya utilizada; no repetir la compensación");
     // Verificar toda la cadena del usuario dentro del mismo snapshot que el CAS.
     // El historial de un solo movimiento no detecta huecos en otros movimientos.
-    const cadena=await EventoModelo.find({usuarioId:original.usuarioId},{_id:0})
-      .sort({secuencia:1}).limit(MAX_EVENTOS+1).maxTimeMS(5000).session(session).lean();
-    if(cadena.length>=MAX_EVENTOS)
-     throw Object.assign(new Error("Ledger compensatorio alcanza el límite verificable; requiere ampliación de capacidad"),{statusCode:422});
-    let cursor=await CursorModelo.findById(original.usuarioId).session(session).lean();
-    let cadenaValida=false;
-    try{cadenaValida=verificarCadena(cadena,{prevHash:GENESIS});}catch(_){}
-    if(!cadenaValida||cadena.some(e=>e.usuarioId!==original.usuarioId)||
-       (!cursor&&cadena.length)||
-       (cursor&&(cursor.secuencia!==cadena.length||cursor.hashActual!==(cadena.at(-1)?.hashActual||GENESIS))))
-     throw conflicto("INTEGRIDAD_LEDGER: cadena completa y cursor no coinciden");
+    let {cadena,cursor}=await leerCadenaVerificada(original.usuarioId,{session,EventoModelo,CursorModelo,paraAnexar:true});
     const historial=cadena.filter(e=>e.movimientoId===original.movimientoId);
     if(historial.length){
      const estado=vigente(historial[0].original,historial);
@@ -101,4 +106,4 @@ function crearRegistrador({
   }finally{if(!externa)await session.endSession();}
  };
 }
-module.exports={crearRegistrador,exigirIndices,verificarIndices,GENESIS};
+module.exports={crearRegistrador,exigirIndices,verificarIndices,leerCadenaVerificada,GENESIS};

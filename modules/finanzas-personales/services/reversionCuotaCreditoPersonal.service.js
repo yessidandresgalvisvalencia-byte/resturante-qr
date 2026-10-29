@@ -2,11 +2,10 @@
 const mongoose=require("mongoose"),crypto=require("node:crypto");
 const Prestamo=require("../models/prestamoPersonal.model"),Tx=require("../models/TransaccionPersonal");
 const Cuenta=require("../models/cuentaFinanciera.model"),Outbox=require("../models/outboxPersonal.model");
-const Evento=require("../models/EventoCompensatorioPersonal");
 const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const {originalDesdeFuente}=require("./eventoCompensatorioPersonal.service");
 const {vigente}=require("./estadoCompensadoPersonal.service");
-const {crearRegistrador}=require("./registradorCompensacionPersonal.service");
+const {crearRegistrador,leerCadenaVerificada}=require("./registradorCompensacionPersonal.service");
 const {serializarEscrituraFuente}=require("./proteccionOriginalCompensadoPersonal.service");
 const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const registrar=crearRegistrador(),problema=(m,statusCode=409)=>Object.assign(new Error(m),{statusCode});
@@ -58,9 +57,10 @@ async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={}){
   if(!fuente)throw problema("Pago de crédito no encontrado",404);
   let original;
   try{original=originalDesdeFuente(fuente);}catch{throw problema("Capital y pago real no conciliables");}
-  const historial=await Evento.find({usuarioId:String(usuarioId),movimientoId:String(movimientoId)},{_id:0}).sort({secuencia:1}).session(session).lean();
+  const {cadena}=await leerCadenaVerificada(String(usuarioId),{session});
+  const historial=cadena.filter(e=>e.movimientoId===String(movimientoId));
   const estado=vigente(original,historial);
-  const repetido=await Evento.findOne({usuarioId:String(usuarioId),idempotencyKey},{_id:0}).session(session).lean();
+  const repetido=cadena.find(e=>e.idempotencyKey===idempotencyKey);
   if(repetido){
    if(repetido.movimientoId!==String(movimientoId)||repetido.tipo!=="ANULACION"||!estado.anulado||
     !historial.some(e=>e.hashActual===repetido.hashActual))throw problema("Clave idempotente utilizada para otra operación");

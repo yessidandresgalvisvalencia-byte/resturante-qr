@@ -50,6 +50,11 @@ test("MongoDB real: reversión de créditos conserva capital, pago real, fuentes
   assert.equal((await flujoPeriodo(f.usuarioId,rango(f.usuarioId))).pagosDeudaMinor,450);
   assert.equal(patrimonio.saldoCuentasDesdeAnclas([await Cuenta.findById(f.cuenta._id).lean()],await consultarCaja(f.usuarioId)),9550);
   assert.equal((await revertir(f,f.key,segundo.transaccion._id)).duplicado,true);
+  const cursorReplay=await Cursor.findById(String(f.usuarioId)).lean();
+  await Cursor.collection.updateOne({_id:cursorReplay._id},{$set:{hashActual:"f".repeat(64)}});
+  try{await rechaza(f,()=>revertir(f,f.key,segundo.transaccion._id));}finally{
+   await Cursor.collection.replaceOne({_id:cursorReplay._id},cursorReplay);
+  }
   await rechaza(f,()=>patrimonio.pagarCuotaCredito(f.usuarioId,solicitudSegunda));
   // La referencia original del primer pago activo sigue siendo idempotente.
   assert.equal((await patrimonio.pagarCuotaCredito(f.usuarioId,f.solicitud)).duplicado,true);

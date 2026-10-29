@@ -78,6 +78,11 @@ test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento 
   const replay=await revertir(f);
   assert.equal(replay.duplicado,true);
   assert.equal(replay.compensacion.hashActual,reversion.compensacion.hashActual);
+  const cursorReplay=await Cursor.findById(String(f.usuarioId)).lean();
+  await Cursor.collection.updateOne({_id:cursorReplay._id},{$set:{hashActual:"f".repeat(64)}});
+  try{await rechazoSinCambios(f);}finally{
+   await Cursor.collection.replaceOne({_id:cursorReplay._id},cursorReplay);
+  }
   assert.equal(await Evento.countDocuments({usuarioId:String(f.usuarioId)}),1);
   const rango={usuarioId:f.usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"};
   assert.equal((await consultarPeriodo(rango)).length,0);

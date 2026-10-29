@@ -28,6 +28,8 @@ La confirmación de un intento manual compara primero la solicitud con el asient
 
 Antes de anexar una compensación, el registrador comprueba toda la cadena del usuario desde génesis y su coincidencia con el cursor dentro de la transacción. Un hueco o una alteración en otro movimiento también bloquean la escritura; no se reinicia un cursor ausente si ya existen eventos. CI simula estos daños con el administrador local y verifica que el usuario restringido no cambie fuentes, caja, eventos, cursor ni outbox. La consulta tiene timeout de cinco segundos y admite hasta 10.000 eventos: al alcanzar ese límite no se añade otro que las lecturas de transición no puedan verificar. Esta revisión O(n) no sustituye anclajes independientes ni demuestra resistencia ante una reescritura coherente por un administrador.
 
+Las correcciones/anulaciones de caja y las reversiones de cuotas de compras y préstamos comparten esa lectura verificada antes de devolver un reintento exitoso. Un recibo intacto no oculta una cadena truncada en otro movimiento ni un cursor alterado. Un reintento válido conserva el evento y evita duplicar sus efectos financieros; puede avanzar la revisión interna del control de concurrencia. El límite de 10.000 eventos permite verificar recibos existentes, aunque impide añadir nuevos eventos hasta ampliar la capacidad.
+
 ## Provisión separada y arranque
 
 El servidor abre la conexión con `autoCreate: false` y `autoIndex: false`. Antes de escuchar peticiones exige una política de privilegios compatible, los índices de seguridad V81 y los índices únicos del registrador compensatorio. Si la comprobación falla, cierra Socket.IO y MongoDB. `/healthz` permanece condicionado a conexión, privilegios e índices verificados.
