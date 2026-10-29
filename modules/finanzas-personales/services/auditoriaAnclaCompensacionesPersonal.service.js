@@ -24,9 +24,9 @@ async function auditarAnclaCompensaciones({usuarioId,clavePublica,custodio}={}){
  finally{clearTimeout(timer);}
  // Evitar el buffer de conexión de startSession cuando MongoDB no está listo.
  if(mongoose.connection.readyState!==1)return fallo("LECTURA_LEDGER_NO_DISPONIBLE");
- let session;
+ let session,resultado;
  try{
-  session=await mongoose.startSession();let resultado;
+  session=await mongoose.startSession();
   await session.withTransaction(async()=>{
    const eventos=await Evento.find({usuarioId:usuario},{_id:0}).sort({secuencia:1})
     .limit(10001).maxTimeMS(5000).session(session).lean();
@@ -34,8 +34,11 @@ async function auditarAnclaCompensaciones({usuarioId,clavePublica,custodio}={}){
    const cursor=await Cursor.findById(usuario).maxTimeMS(5000).session(session).lean();
    resultado=verificarAnclaCompensaciones({ancla,clavePublica,eventos,cursor,usuarioId:usuario});
   },{readConcern:{level:"snapshot"},readPreference:"primary"});
-  return resultado;
- }catch{return fallo("LECTURA_LEDGER_NO_DISPONIBLE");}
- finally{if(session)await session.endSession();}
+ }catch{resultado=fallo("LECTURA_LEDGER_NO_DISPONIBLE");}
+ finally{
+  if(session)try{await session.endSession();}
+  catch{resultado=fallo("LECTURA_LEDGER_NO_DISPONIBLE");}
+ }
+ return resultado;
 }
 module.exports={auditarAnclaCompensaciones};
