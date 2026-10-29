@@ -33,6 +33,9 @@ test("CI V81 ejecuta los contratos offline de seguridad",()=>{
  }
  assert.match(yaml,/node --test test\/finanzas-personales\/\*\.test\.js/);
 });
+test("todo cambio en servicios financieros activa CI V81 en push y PR",()=>{
+ assert.equal(yaml.split("      - 'modules/finanzas-personales/services/**'").length-1,2);
+});
 
 test("CI V81 prueba DecisionProof contra MongoDB local con confirmación explícita",()=>{
  assert.match(yaml,/node --test test\/gruk\/decision-proof-concurrency\.test\.js/);

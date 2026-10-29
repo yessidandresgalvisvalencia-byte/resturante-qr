@@ -4,6 +4,7 @@ on:
   push:
     branches: [feature/finanzas-personales]
     paths:
+      - 'modules/finanzas-personales/services/**'
       - 'modules/finanzas-personales/services/*V81.service.js'
       - 'modules/finanzas-personales/routes.js'
       - 'modules/finanzas-personales/server.js'
@@ -55,6 +56,7 @@ on:
       - 'package-lock.json'
   pull_request:
     paths:
+      - 'modules/finanzas-personales/services/**'
       - 'modules/finanzas-personales/services/*V81.service.js'
       - 'modules/finanzas-personales/routes.js'
       - 'modules/finanzas-personales/server.js'
