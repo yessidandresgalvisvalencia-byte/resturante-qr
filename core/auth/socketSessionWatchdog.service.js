@@ -19,10 +19,13 @@ async function comprobarSocketVigente(socket,{secret,autenticar=autenticarSocket
  return true;
 }
 function vigilarSesionSocket(socket,{
- secret,intervalMs=5000,autenticar=autenticarSocket,
- programar=setInterval,cancelar=clearInterval
+ secret,intervalMs=5000,timeoutMs=2000,autenticar=autenticarSocket,
+ programar=setInterval,cancelar=clearInterval,
+ programarTimeout=setTimeout,cancelarTimeout=clearTimeout
 }={}){
  if(!Number.isInteger(intervalMs)||intervalMs<1000)throw Error("Intervalo inválido");
+ if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>=intervalMs)
+  throw Error("Tiempo máximo de validación inválido");
  let cerrado=false;
  let comprobando=false;
  const detener=()=>{
@@ -33,13 +36,24 @@ function vigilarSesionSocket(socket,{
  const timer=programar(async()=>{
   if(cerrado||comprobando)return;
   comprobando=true;
+  let deadline;
   try{
-   if(!(await comprobarSocketVigente(socket,{secret,autenticar})))detener();
+   const vigente=await Promise.race([
+    comprobarSocketVigente(socket,{secret,autenticar}),
+    new Promise((_,reject)=>{
+     deadline=programarTimeout(()=>reject(Error("SESSION_VALIDATION_TIMEOUT")),timeoutMs);
+     if(typeof deadline?.unref==="function")deadline.unref();
+    })
+   ]);
+   if(!vigente)detener();
   }catch{
-   // Fallar cerrado ante errores de base de datos o control de sesión.
+   // Mongo lento/caído o timeout: no mantener acceso empresarial abierto.
    if(socket.connected)socket.disconnect(true);
    detener();
-  }finally{comprobando=false;}
+  }finally{
+   if(deadline!==undefined)cancelarTimeout(deadline);
+   comprobando=false;
+  }
  },intervalMs);
  if(typeof timer?.unref==="function")timer.unref();
  socket.once("disconnect",detener);
