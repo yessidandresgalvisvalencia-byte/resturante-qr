@@ -102,7 +102,7 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
  }
  try{
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
-  await mongoose.connect(mongo,{dbName,serverSelectionTimeoutMS:15000});
+  await mongoose.connect(mongo,{dbName,serverSelectionTimeoutMS:15000,monitorCommands:true});
   dbConnected=true;
   await Restaurante.create([
    {restaurantId:"socket-a",empresaId:A,nombreRestaurante:"Socket A",
@@ -189,10 +189,39 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   await esperar(()=>sesionesB.every(id=>conectados.get(id)?.rooms.has("empresa-"+B)));
   assert.equal(sesionesB.every(id=>!conectados.get(id).rooms.has("empresa-"+A)),true);
   assert.equal(conectados.size,totalAdicionales+12);
+  // MongoDB command monitoring: medir consultas del watchdog en un periodo
+  // estable (sin confundir las conexiones/handshakes con la revalidación).
+  const mongoClient=mongoose.connection.getClient();
+  const consultasPorColeccion=new Map();
+  const onMongoCommand=(event)=>{
+   if(event.commandName!=="find")return;
+   const coleccion=String(event.command?.find||"desconocida");
+   consultasPorColeccion.set(coleccion,(consultasPorColeccion.get(coleccion)||0)+1);
+  };
+  mongoClient.on("commandStarted",onMongoCommand);
+  const inicioObservacion=Date.now();
   // Dos comprobaciones periódicas para confirmar conexiones sostenidas.
-  await new Promise(resolve=>setTimeout(resolve,4400));
+  try{
+   await new Promise(resolve=>setTimeout(resolve,4400));
+  }finally{
+   mongoClient.off("commandStarted",onMongoCommand);
+  }
+  const duracionObservadaMs=Date.now()-inicioObservacion;
+  const consultasMongo=Array.from(consultasPorColeccion.values())
+   .reduce((total,cantidad)=>total+cantidad,0);
+  assert.ok(consultasMongo>0,
+   "El monitor debe observar consultas reales a Mongo al revalidar sesiones");
+  assert.ok(consultasMongo<1500,
+   "Revalidación genera demasiadas consultas Mongo en la ventana medida");
   assert.equal(idsAdicionales.every(id=>conectados.get(id)?.connected),true,
    "Las conexiones legítimas deben sobrevivir a la revalidación periódica");
+  console.log("[GRUK CI SOCKET MONGO]",JSON.stringify({
+   conexionesSimultaneas:totalAdicionales+12,
+   duracionObservadaMs,consultasMongo,
+   consultasPorColeccion:Object.fromEntries(consultasPorColeccion),
+   consultasPorConexion:Math.round(consultasMongo/(totalAdicionales+12)*100)/100,
+   observacion:"solo comandos find con monitorCommands activo"
+  }));
   const inicioRevocacion=Date.now();
 
   await Usuario.updateOne({_id:user._id},{$inc:{tokenVersion:1}});
