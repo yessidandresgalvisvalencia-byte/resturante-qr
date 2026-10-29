@@ -28,10 +28,22 @@ async function exigirIndiceUnicoReservaRecurrente(){
 async function confirmarRegistroIntento(usuarioId,input){
  if(typeof input.externalId!=="string"||!input.externalId.trim())
   throw Object.assign(new Error("externalId obligatorio para confirmar"),{statusCode:400});
- return confirmarIntento({
-  Transaccion,usuarioId,externalIdHash:hashExternalId(usuarioId,input.externalId),
-  esperado:input
- });
+ const session=await mongoose.startSession();
+ try{
+  let resultado;
+  await session.withTransaction(async()=>{
+   resultado=await confirmarIntento({
+    Transaccion,usuarioId,externalIdHash:hashExternalId(usuarioId,input.externalId),esperado:input,session,
+    resolverEstado:async fuente=>{
+     const fecha=new Date(fuente.fecha);
+     const rows=await consultarPeriodo({usuarioId,desde:fecha.toISOString(),
+      hasta:new Date(+fecha+1).toISOString(),incluirAnuladas:true},{session});
+     return rows.find(row=>String(row._id)===String(fuente._id));
+    }
+   });
+  },{readConcern:{level:"snapshot"},readPreference:"primary"});
+  return resultado;
+ }finally{await session.endSession();}
 }
 async function registrarTransaccion(usuarioId,input){
  if(input.tipo==="GASTO"&&String(input.cuenta||"EFECTIVO").trim().toUpperCase()==="EFECTIVO"&&input.medioPago==="TRANSFERENCIA")input={...input,medioPago:"EFECTIVO"};

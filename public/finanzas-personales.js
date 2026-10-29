@@ -370,6 +370,10 @@ $("refresh").onclick=load;$("saveMovimiento").onclick=async()=>{const boton=$("s
     msg("movMsg","Este intento corresponde a un movimiento anulado. No vuelvas a registrarlo sin revisar el historial.",false);
     return;
    }
+   if(confirmado.estado==="CORREGIDA"){
+    msg("movMsg","Este intento corresponde a un movimiento que ya fue corregido. Revisa sus datos actuales en el historial antes de volver a registrarlo.",false);
+    return;
+   }
   }catch(consultaError){
    if(consultaError.statusCode===409){
     msg("movMsg","Conflicto de idempotencia: el identificador corresponde a otro movimiento. Revisa el historial.",false);

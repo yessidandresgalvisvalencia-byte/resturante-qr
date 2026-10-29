@@ -31,6 +31,25 @@ test("sin movimiento, no confirma y no inventa un saldo",async()=>{
  assert.equal(resultado.confirmado,false);
  assert.equal(resultado.transaccionId,undefined);
 });
+test("un original activo con compensación informa su estado vigente sin confirmarlo",async()=>{
+ for(const [actual,estado] of [
+  [{...base,estado:"ANULADA",compensacionHash:"a".repeat(64)},"ANULADA"],
+  [{...base,montoMinor:20000,compensacionHash:"b".repeat(64)},"CORREGIDA"]
+ ]){
+  const r=await confirmarIntento({Transaccion:repositorio(base),usuarioId:"usuario-a",
+   externalIdHash:"hash-a",esperado:base,resolverEstado:async fuente=>{
+    assert.equal(fuente,base);return actual;
+   }});
+  assert.deepEqual(r,{confirmado:false,estado,existe:true});
+ }
+});
+test("la confirmación falla cerrado si la lectura verificada falla o no devuelve el original",async()=>{
+ const args={Transaccion:repositorio(base),usuarioId:"usuario-a",externalIdHash:"hash-a",esperado:base};
+ await assert.rejects(confirmarIntento({...args,resolverEstado:async()=>{throw Error("INTEGRIDAD_LEDGER");}}),/INTEGRIDAD_LEDGER/);
+ for(const actual of [null,{...base,_id:"otro"},{...base,estado:"ERROR"}]){
+  await assert.rejects(confirmarIntento({...args,resolverEstado:async()=>actual}),e=>e.statusCode===409);
+ }
+});
 test("la misma clave con monto, fecha, concepto o cuenta distintos nunca confirma",async()=>{
  for(const cambiado of [{montoMinor:25001},{fecha:"2026-10-19"},
   {concepto:"Otro gasto"},{cuenta:"BANCO"},{tipo:"INGRESO"}]){

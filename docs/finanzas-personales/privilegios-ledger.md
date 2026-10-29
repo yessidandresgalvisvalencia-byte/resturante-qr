@@ -24,6 +24,8 @@ En CI, un contenedor independiente con autorización habilitada comprueba que un
 
 En ese mismo replica set autenticado, los servicios reales registran ingresos y gastos, corrigen y anulan mediante eventos compensatorios, reconstruyen el saldo y publican el outbox. Se comprueban reintentos sin duplicar caja, aislamiento entre usuarios, rechazo por saldo insuficiente, rollback ante fallo del outbox y conservación de los asientos originales. También se anexa, reintenta y anula un evento del ledger V81 conservando su cadena verificable. Estas pruebas utilizan la conexión restringida con DDL automático desactivado; no acreditan todas las rutas financieras ni las credenciales del despliegue real.
 
+La confirmación de un intento manual compara primero la solicitud con el asiento original y reconstruye su estado compensado dentro de la misma instantánea MongoDB. Un original con compensación no se presenta como activo confirmado: devuelve `CORREGIDA` o `ANULADA`, con `confirmado: false`. La interfaz conserva la clave pendiente y pide revisar el historial. Una lectura que no pueda verificar la integridad falla sin confirmar el movimiento.
+
 ## Provisión separada y arranque
 
 El servidor abre la conexión con `autoCreate: false` y `autoIndex: false`. Antes de escuchar peticiones exige una política de privilegios compatible, los índices de seguridad V81 y los índices únicos del registrador compensatorio. Si la comprobación falla, cierra Socket.IO y MongoDB. `/healthz` permanece condicionado a conexión, privilegios e índices verificados.

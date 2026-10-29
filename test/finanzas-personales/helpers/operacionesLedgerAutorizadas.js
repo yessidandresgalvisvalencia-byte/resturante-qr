@@ -26,8 +26,9 @@ async function probarCajaAutorizada(){
  assert.equal(await Outbox.countDocuments({usuarioId}),1);
  await assert.rejects(confirmarRegistroIntento(usuarioId,{...input,montoMinor:10001}),e=>e.statusCode===409);
  assert.equal((await confirmarRegistroIntento(otro,input)).confirmado,false);
- const gasto=await registrarTransaccion(usuarioId,{...input,tipo:"GASTO",montoMinor:3000,
-  concepto:"Gasto de prueba",externalId:"gasto-auth"});
+ const gastoInput={...input,tipo:"GASTO",montoMinor:3000,
+  concepto:"Gasto de prueba",externalId:"gasto-auth"};
+ const gasto=await registrarTransaccion(usuarioId,gastoInput);
  const original=await Tx.findById(gasto._id).lean();
  const fuentes=await Tx.find({usuarioId}).sort({_id:1}).lean();
  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,7000);
@@ -40,6 +41,8 @@ async function probarCajaAutorizada(){
   cambios:{montoMinor:2500},idempotencyKey:"correccion-auth"};
  await assert.rejects(aplicar({...solicitud,usuarioId:otro}),e=>e.statusCode===404);
  const corregido=await aplicar(solicitud);
+ assert.deepEqual(await confirmarRegistroIntento(usuarioId,gastoInput),{confirmado:false,estado:"CORREGIDA",existe:true});
+ await assert.rejects(confirmarRegistroIntento(usuarioId,{...gastoInput,montoMinor:2500}),e=>e.statusCode===409);
  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,7500);
  assert.equal((await aplicar(solicitud)).hashActual,corregido.hashActual);
  await assert.rejects(aplicar({...solicitud,cambios:{montoMinor:2400}}),e=>e.statusCode===409);
@@ -57,6 +60,7 @@ async function probarCajaAutorizada(){
  assert.equal(await Outbox.countDocuments({usuarioId}),3);
  const anulacion={...solicitud,tipo:"ANULACION",cambios:{},idempotencyKey:"anulacion-auth"};
  const anulado=await aplicar(anulacion);
+ assert.deepEqual(await confirmarRegistroIntento(usuarioId,gastoInput),{confirmado:false,estado:"ANULADA",existe:true});
  assert.equal((await aplicar(anulacion)).hashActual,anulado.hashActual);
  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,10000);
  assert.equal((await consultarPeriodo(periodo)).length,1);
