@@ -183,7 +183,8 @@ test("Capa 2 Socket.IO real: canales por empresa y revocación con MongoDB",{
   console.log("[GRUK CI SOCKET LOAD]",JSON.stringify({
    conexionesReales:totalAdicionales+2,
    transporte:"websocket+polling",tiempoConexionesMs:inicioRevocacion-inicioConexiones,
-   p95HandshakeMs:p95Conexion,latenciaRevocacionMs,\n   duracionSostenidaMs:4400,limiteDeCarga:"CI local, sin SLA"
+   p95HandshakeMs:p95Conexion,latenciaRevocacionMs,
+   duracionSostenidaMs:4400,limiteDeCarga:"CI local, sin SLA"
   }));
   assert.equal(io.sockets.adapter.rooms.has("empresa-"+A),false,
    "El socket revocado ya no puede permanecer en el canal de la empresa");
