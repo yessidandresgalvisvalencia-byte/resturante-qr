@@ -63,6 +63,17 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
  const io=new Server(httpServer,{transports:["websocket"],pingInterval:15000,pingTimeout:6000});
  const sockets=new Map(),ticks=new Map(),clients=[];
  const limitador=crearLimiteValidaciones({maxConcurrent:64});
+ // Medición de proceso real: incluye las demás suites paralelas del runner.
+ // Son snapshots, no un perfil aislado ni una medida del RSS por socket.
+ const memoria={};
+ function medirMemoria(etapa){
+  const {rss,heapUsed,external,arrayBuffers}=process.memoryUsage();
+  memoria[etapa]={rssBytes:rss,heapUsedBytes:heapUsed,
+   externalBytes:external,arrayBuffersBytes:arrayBuffers};
+  assert.ok([rss,heapUsed,external,arrayBuffers].every(
+   n=>Number.isSafeInteger(n)&&n>=0
+  ),"Node debe reportar contadores de memoria válidos");
+ }
  let dbConnected=false,liberar,onMongoCommand,mongoClient;
  const consultasPorColeccion=new Map();
  const bloqueo=new Promise(resolve=>liberar=resolve);
@@ -111,12 +122,14 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
    sub:String(user._id),empresaId,restaurantId:"socket-stress",
    sedeId,rol:"EMPLEADO",identityType:"USUARIO",tokenVersion:0
   },secret,{algorithm:"HS256",expiresIn:"5m"});
+  medirMemoria("despuesDeMongo");
   const url="ws://127.0.0.1:"+httpServer.address().port+"/socket.io/?EIO=4&transport=websocket";
   for(let lote=0;lote<96;lote+=12){
    const resultado=await Promise.all(Array.from({length:12},()=>websocket(url,token,clients)));
    assert.equal(resultado.every(p=>p.startsWith("40{")),true);
   }
   await esperar(()=>ticks.size===96);
+  medirMemoria("con96WebSockets");
   assert.equal(sockets.size,96);
   const entradas=[...ticks.entries()];
   const pendientes=entradas.map(([,fn])=>fn());
@@ -150,6 +163,7 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
    assert.equal([...sockets.values()].filter(s=>s.connected).length,64,
     "Una conexión legítima no debe perder acceso sin revocación");
   }
+  medirMemoria("trasCuatroRondasIndividuales");
   const duracionMedicionMs=Date.now()-inicioMedicion;
   mongoClient.off("commandStarted",onMongoCommand);
   onMongoCommand=null;
@@ -184,6 +198,7 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
    assert.equal([...sockets.values()].filter(s=>s.connected).length,64,
     "El verificador compartido no puede desconectar sesiones válidas");
   }
+  medirMemoria("trasCuatroRondasCompartidas");
   const duracionCompartidaMs=Date.now()-inicioCompartido;
   mongoClient.off("commandStarted",onMongoCommand);
   onMongoCommand=null;
@@ -211,7 +226,24 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
   await Promise.all(segundas);
   await esperar(()=>[...sockets.values()].every(s=>!s.connected));
   assert.equal(io.sockets.adapter.rooms.has("empresa-"+empresaId),false);
+  medirMemoria("trasRevocacion");
   assert.equal(limitador.estadisticas().activas,0);
+  const etapas=Object.entries(memoria);
+  assert.equal(etapas.length,5);
+  const base=memoria.despuesDeMongo;
+  const rssPicoBytes=Math.max(...etapas.map(([,m])=>m.rssBytes));
+  const heapPicoBytes=Math.max(...etapas.map(([,m])=>m.heapUsedBytes));
+  const aumentoRssPicoBytes=rssPicoBytes-base.rssBytes;
+  // Alerta muy holgada para detectar explosión de memoria, no un SLA.
+  // El RSS puede mantenerse alto incluso después de desconectar sockets.
+  assert.ok(aumentoRssPicoBytes<256*1024*1024,
+   "La prueba real superó 256 MiB adicionales de RSS");
+  console.log("[GRUK CI SOCKET REAL MEMORY]",JSON.stringify({
+   socketsReales:96,revalidacionesPorModo:4,
+   etapas:memoria,rssPicoBytes,heapPicoBytes,
+   aumentoRssPicoBytes,umbralAumentoRssBytes:256*1024*1024,
+   nota:"RSS y heap del proceso CI compartido; no es memoria por socket ni SLA"
+  }));
   console.log("[GRUK CI SOCKET REAL SATURATION]",JSON.stringify({
    socketsReales:96,limite:64,rechazadosSinCapacidad:32,
    conexionesTrasPrimeraRonda:64,conexionesTrasRevocacion:0,
