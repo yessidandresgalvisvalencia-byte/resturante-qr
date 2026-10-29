@@ -31,12 +31,12 @@ async function validarVersionSesion(payload,{signal}={}){
    }),signal);
    if(signal?.aborted || !sede)return false;
   }
-  return true;
+  return !signal?.aborted;
  }
  if(tipo==="PERSONAL"){
   const identidad=await consultaCancelable(Personal.findById(payload.sub)
    .select("tokenVersion restaurantId sedeId estado cargo").lean(),signal);
-  if(!identidad || !versionCoincide(payload.tokenVersion,identidad.tokenVersion) ||
+  if(signal?.aborted || !identidad || !versionCoincide(payload.tokenVersion,identidad.tokenVersion) ||
      String(identidad.estado||"").toLowerCase()==="inactivo" ||
      !["mesero","mesera"].includes(identidad.cargo) ||
      payload.rol!=="EMPLEADO" ||
@@ -65,7 +65,7 @@ async function validarVersionSesion(payload,{signal}={}){
   if(!identidad || !versionCoincide(payload.tokenVersion,identidad.tokenVersion))return false;
   if(String(identidad.restaurantId||"")!==String(payload.restaurantId||""))return false;
   if(tipo==="RESTAURANTE" && String(identidad.empresaId||"")!==String(payload.empresaId||""))return false;
-  const vinculo=await Restaurante.exists({
+  const vinculo=await consultaCancelable(Restaurante.exists({
    restaurantId:identidad.restaurantId,empresaId:payload.empresaId
   }),signal);
   return !signal?.aborted && Boolean(vinculo);
