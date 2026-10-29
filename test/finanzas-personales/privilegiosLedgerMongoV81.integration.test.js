@@ -64,6 +64,8 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("cadena compensatoria incompleta o alterada bloquea escrituras en otros movimientos",()=>probarCadenaCompensatoriaAlterada(db));
   await t.test("aprobación conversacional vincula la cuenta y conserva atomicidad con rol restringido",
    require("./helpers/aprobacionConversacionalAutorizada").probarAprobacionConversacionalAutorizada);
+  await t.test("cobros conversacionales conservan préstamo, caja y clasificación con rol restringido",
+   require("./helpers/cobrosConversacionalesAutorizados").probarCobrosConversacionalesAutorizados);
  }finally{
   await mongoose.disconnect();if(anterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=anterior;
  }
