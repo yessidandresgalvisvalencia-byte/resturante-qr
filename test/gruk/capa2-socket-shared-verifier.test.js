@@ -135,3 +135,45 @@ test("Capa 2: validaciones distintas no comparten el mismo resultado entre proce
  assert.equal((await proceso1.autenticar({token:"empresa-B",secret:"secreto"})).empresaId,"B");
  assert.equal((await proceso2.autenticar({token:"empresa-A",secret:"secreto"})).empresaId,"A");
 });
+
+test("Capa 2: timeout real libera entradas si Mongo ignora AbortSignal",async()=>{
+ let completarTarde;
+ const consultaBloqueada=new Promise(resolve=>completarTarde=resolve);
+ let consultas=0;
+ const v=crearVerificadorCompartido({
+  tiempoConsultaMs:100,maxEntradas:1,
+  verificar:async({token})=>{
+   consultas++;
+   if(token==="bloqueado")return consultaBloqueada;
+   return {...perfil,usuarioId:"recuperado"};
+  }
+ });
+ const pendientes=Array.from({length:12},()=>v.autenticar({
+  token:"bloqueado",secret:"test"
+ }));
+ const respuestas=await Promise.race([
+  Promise.all(pendientes),
+  new Promise((_,reject)=>setTimeout(()=>reject(Error("La consulta bloqueada no terminó")),900))
+ ]);
+ assert.equal(respuestas.every(x=>x===null),true);
+ assert.equal(v.estadisticas().entradas,0,"El timeout libera el límite de entradas");
+ assert.equal(consultas,1,"Solo se ejecuta una verificación Mongo bloqueada");
+ const recuperado=await v.autenticar({token:"nuevo",secret:"test"});
+ assert.equal(recuperado.usuarioId,"recuperado");
+ completarTarde(perfil);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(await v.autenticar({token:"bloqueado",secret:"test"}),null,
+  "No reutilizar como válido un resultado tardío después del timeout");
+});
+test("Capa 2: error de Mongo no se cachea como autorización",async()=>{
+ let fallar=true,consultas=0;
+ const v=crearVerificadorCompartido({verificar:async()=>{
+  consultas++;
+  if(fallar)throw Error("Mongo unavailable");
+  return perfil;
+ }});
+ assert.equal(await v.autenticar({token:"A",secret:"s"}),null);
+ fallar=false;
+ assert.equal(await v.autenticar({token:"A",secret:"s"}),perfil);
+ assert.equal(consultas,2);
+});
