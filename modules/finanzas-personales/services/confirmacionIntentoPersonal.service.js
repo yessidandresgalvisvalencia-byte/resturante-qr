@@ -14,9 +14,10 @@ function coincideIntento(original,esperado){
  if(id(original.prestamoId)!==id(esperado.prestamoId))return false;
  return true;
 }
-async function confirmarIntento({Transaccion,usuarioId,externalIdHash,esperado}){
+async function confirmarIntento({Transaccion,usuarioId,externalIdHash,esperado,session,resolverEstado}){
  if(!externalIdHash)throw Object.assign(new Error("Identificador de operación obligatorio"),{statusCode:400});
- const encontrado=await Transaccion.findOne({usuarioId,externalIdHash}).lean();
+ const consulta=Transaccion.findOne({usuarioId,externalIdHash});
+ const encontrado=await (session?consulta.session(session):consulta).lean();
  if(!encontrado)return {confirmado:false};
  if(!coincideIntento(encontrado,esperado))
   throw Object.assign(new Error("La clave corresponde a otra operación; no se registró ningún movimiento nuevo"),{statusCode:409});
@@ -25,6 +26,12 @@ async function confirmarIntento({Transaccion,usuarioId,externalIdHash,esperado})
  // Fail-closed: un estado ausente o inesperado nunca constituye prueba de pago.
  if(encontrado.estado!=="ACTIVA")
   throw Object.assign(new Error("Estado de transacción no verificable; requiere conciliación"),{statusCode:409});
+ const actual=resolverEstado?await resolverEstado(encontrado):encontrado;
+ if(!actual||String(actual._id)!==String(encontrado._id)||
+    !["ACTIVA","ANULADA"].includes(actual.estado))
+  throw Object.assign(new Error("Estado de transacción no verificable; requiere conciliación"),{statusCode:409});
+ if(actual.estado==="ANULADA")return {confirmado:false,estado:"ANULADA",existe:true};
+ if(actual.compensacionHash)return {confirmado:false,estado:"CORREGIDA",existe:true};
  return {confirmado:true,estado:"ACTIVA",existe:true,transaccionId:encontrado._id?String(encontrado._id):null};
 }
 module.exports={coincideIntento,confirmarIntento};

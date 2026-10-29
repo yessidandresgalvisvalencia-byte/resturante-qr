@@ -5,6 +5,40 @@ const colombia=require("../../modules/finanzas-personales/services/colombiaFinan
 const patrimonioPersonal=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
 const finanzas=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
 const home=require("../../modules/finanzas-personales/services/homePersonal.service");
+
+test("listados del panel exigen lectura acotada completa sin recortar resultados",async()=>{
+ for(const cantidad of [0,101,5000,5001]){
+  const rows=Array.from({length:cantidad},(_,id)=>({id})),llamadas=[];
+  const consulta={limit(n){llamadas.push(["limit",n]);return this;},
+   maxTimeMS(n){llamadas.push(["maxTimeMS",n]);return this;},async lean(){return rows;}};
+  if(cantidad>5000)await assert.rejects(home.leerListadoHome(consulta),
+   e=>e.statusCode===422&&e.code==="LIMITE_LECTURA_PANEL_PERSONAL");
+  else assert.equal(await home.leerListadoHome(consulta),rows);
+  assert.deepEqual(llamadas,[["limit",5001],["maxTimeMS",5000]]);
+ }
+ const fallo=Error("tiempo agotado");
+ const consulta={limit(){return this;},maxTimeMS(){return this;},async lean(){throw fallo;}};
+ await assert.rejects(home.leerListadoHome(consulta),e=>e===fallo);
+});
+
+test("panel suma importes con cancelación exacta y rechaza totales inseguros",()=>{
+ const max=Number.MAX_SAFE_INTEGER;
+ // Number pierde una unidad con este orden aunque el resultado final sea seguro.
+ assert.equal(home.sumarImportesHome([max,2,-max]),2);
+ assert.equal(home.sumarImportesHome([max,-max,17]),17);
+ assert.equal(home.sumarImportesHome([]),0);
+ assert.equal(home.sumarImportesHome([-max]),-max);
+ for(const valores of [[max,1],[-max,-1],[1.5],["100"],[null],[undefined],[Infinity],[NaN]])
+  assert.throws(()=>home.sumarImportesHome(valores));
+});
+
+test("panel valida cada monto y no acepta sumas redondeadas de ingresos o compromisos",()=>{
+ assert.equal(home.sumarMontosHome([{montoMinor:0},{montoMinor:1200},{montoMinor:800}]),2000);
+ assert.equal(home.sumarMontosHome([{saldoMinor:200},{saldoMinor:300}],x=>x.saldoMinor),500);
+ for(const montoMinor of [-1,0.1,"100",null,undefined,Number.MAX_SAFE_INTEGER+1])
+  assert.throws(()=>home.sumarMontosHome([{montoMinor}]),TypeError);
+ assert.throws(()=>home.sumarMontosHome([{montoMinor:Number.MAX_SAFE_INTEGER},{montoMinor:2}]),RangeError);
+});
 const authorizationRisk=require("../../modules/finanzas-personales/services/authorizationRisk.service");
 const decisionProof=require("../../modules/finanzas-personales/services/decisionProof.service");
 test("colombianismos monetarios exactos",()=>{assert.equal(interprete.interpretarSegmento("gasté 25 lucas en Rappi").montoMinor,25000);assert.equal(interprete.interpretarSegmento("recibí 3 palos de salario").montoMinor,3000000);assert.equal(interprete.interpretarSegmento("me pagaron medio palo").montoMinor,500000);});
@@ -353,14 +387,17 @@ test("abonos y flujo usan el mismo importe efectivamente pagado",()=>{
 test("cálculo real de pagos compartido entre contabilidad y compromisos",()=>{
  const fs=require("node:fs"),path=require("node:path");
  const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
- assert.match(src,/reduce\(\(s,x\)=>s\+montoPagoDeudaMinor\(x\),0\)/);
- assert.match(src,/pagosPorDeuda\.set\(id,\(pagosPorDeuda\.get\(id\)\|\|0\)\+montoPagoDeudaMinor\(t\)\)/);
+ assert.match(src,/sumarMontosHome\(tx\.filter\([^\n]+,montoPagoDeudaMinor\)/);
+ assert.match(src,/pagosPorDeuda\.set\(id,sumarImportesHome\(\[pagosPorDeuda\.get\(id\)\|\|0,montoPagoDeudaMinor\(t\)\]\)\)/);
+ const pagos=[{tipo:"PAGO_DEUDA",montoMinor:400,montoPagadoRealMinor:450},
+  {tipo:"PAGO_DEUDA",montoMinor:200,montoPagadoRealMinor:220}];
+ assert.equal(home.sumarMontosHome(pagos,home.montoPagoDeudaMinor),670);
 });
 
 test("movimientos futuros no cuentan como pagos ya realizados",()=>{
  const fs=require("node:fs"),path=require("node:path");
  const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
- assert.match(src,/Transaccion\.find\(\{usuarioId,fecha:\{\$gte:inicio,\$lte:now\},tipo:/);
+ assert.match(src,/consultarPeriodo\(\{usuarioId,desde:inicio\.toISOString\(\),hasta:new Date\(\+now\+1\)\.toISOString\(\)\}/);
  assert.doesNotMatch(src,/Transaccion\.find\(\{usuarioId,fecha:\{\$gte:inicio,\$lt:fin\},tipo:/);
 });
 
@@ -435,7 +472,7 @@ test("API protege vínculo recurrente con titularidad y validación explícita",
  assert.match(routes,/recurrenteOrigenId:Joi\.string\(\)\.hex\(\)\.length\(24\)/);
  assert.match(flujo,/input\.tipo!=="GASTO"\|\|input\.recurrente===true/);
  assert.match(flujo,/\{_id:input\.recurrenteOrigenId,usuarioId,tipo:"GASTO"/);
- assert.match(home,/recurrenteOrigenId:\{\$in:vencenHoy\.map/);
+ assert.match(home,/origenesHoy\.has\(String\(x\.recurrenteOrigenId\)\)/);
  assert.match(home,/periodoRecurrenteColombia\(\{fechaOrigen:g\.fecha,fechaPago:now/);
  assert.match(home,/sumarAbonosRecurrentesPeriodo\(\{/);
 });
@@ -444,7 +481,8 @@ test("asesor consulta pagos ligados de todo el ciclo, no solo del día actual",(
  const fs=require("node:fs"),path=require("node:path");
  const homeService=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
  assert.match(homeService,/const desde=periodosHoy\.length/);
- assert.match(homeService,/fecha:\{\$gte:desde,\$lte:now\}/);
+ assert.match(homeService,/consultarPeriodo\(\{usuarioId,desde:desde\.toISOString\(\)/);
+ assert.match(homeService,/hasta:new Date\(\+now\+1\)\.toISOString\(\),tipo:"GASTO"/);
  assert.match(homeService,/fecha<inicio\|\|fecha>=fin/);
  assert.doesNotMatch(homeService,/pagosRecurrentesDeHoy/);
 });
@@ -492,7 +530,7 @@ test("ningún movimiento con monto corrupto desaparece del cálculo de caja",()=
 test("snapshot recupera banderas reales de caja y pagos efectivamente realizados",()=>{
  const fs=require("node:fs");
  const source=fs.readFileSync(require.resolve("../../modules/finanzas-personales/services/patrimonioPersonal.service"),"utf8");
- assert.match(source,/\.select\("estado moneda tipo montoMinor montoPagadoRealMinor impactoCaja medioPago fecha cuenta cuentaId"\)\.lean\(\)/);
+ assert.match(source,/consultarCaja\(usuarioId,\{session\}\)/);
  assert.equal(patrimonioPersonal.deltaCaja({
   tipo:"PAGO_DEUDA",montoMinor:5000,montoPagadoRealMinor:6500,impactoCaja:false
  }),0);

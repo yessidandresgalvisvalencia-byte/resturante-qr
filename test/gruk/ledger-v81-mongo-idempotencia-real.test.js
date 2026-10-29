@@ -335,7 +335,7 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
   assert.equal(await Outbox.countDocuments({usuarioId,aggregateType:"TRANSFERENCIA_PROPIA",aggregateId:origen._id}),2);
   await Cuenta.collection.updateOne({_id:destino._id},{$set:{moneda:"COP"}});
  }finally{
-  await require("../../modules/finanzas-personales/models/TransaccionPersonal").deleteMany({usuarioId});
+  await require("../../modules/finanzas-personales/models/TransaccionPersonal").collection.deleteMany({usuarioId});
   await Outbox.deleteMany({usuarioId});
   await Cuenta.deleteMany({usuarioId});
   await mongoose.disconnect();

@@ -5,7 +5,7 @@ const master=require("./masterAsesorPersonal.service");
 const simuladorMaster=require("./simuladorCuotasMaster.service");
 const riesgoCuotasMaster=require("./riesgoCuotasMaster.service");
 const home=require("./homePersonal.service");
-const Transaccion=require("../models/TransaccionPersonal");
+const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const Calendario=require("../models/calendarioFinanciero.model");
 const ContextoConversacional=require("../models/contextoConversacionalPersonal.model");
 const TurnoConversacional=require("../models/turnoConversacionalPersonal.model");
@@ -48,7 +48,8 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const patronIngreso=(asesoria||preguntaExplicita)?null:t.match(/(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})\s+(?:de\s+)?cada\s+mes|(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)\s+(?:cada\s+mes\s+)?(?:el\s+)?(?:d[ií]a\s+)?(\d{1,2})/i);
  if(patronIngreso){
   const dia=Number(patronIngreso[1]||patronIngreso[2]);if(dia<1||dia>31)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Ese día del mes no es válido."};
-  const prev=await Transaccion.findOne({usuarioId,tipo:"INGRESO",estado:{$ne:"ANULADA"}}).sort({fecha:-1}).lean();
+  const ingresos=await consultarPeriodo({usuarioId,tipo:"INGRESO",desde:"0001-01-01T00:00:00.000Z",hasta:new Date(Date.now()+1).toISOString()});
+  const prev=ingresos.sort((a,b)=>+new Date(b.fecha)-+new Date(a.fecha))[0];
   if(!prev)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Ya entendí que recibes dinero el día "+dia+" de cada mes, pero todavía no tengo un ingreso registrado al cual asociar ese patrón. Registra el ingreso exacto una vez y desde ahí lo recordaré."};
   const base=new Date();let y=base.getFullYear(),m=base.getMonth();if(base.getDate()>=dia){m++;if(m>11){m=0;y++;}}const fecha=new Date(y,m,Math.min(dia,new Date(y,m+1,0).getDate()),12,0,0,0);
   return{clase:"PROPUESTA_CONFIGURACION",requiereAprobacion:true,mensaje:"Identifiqué una posible programación de ingreso mensual el día "+dia+". No he cambiado tus movimientos ni el calendario. La programación requiere confirmación explícita.",analisis:{diaIngreso:dia,proximoIngreso:fecha,montoMinor:prev.montoMinor,estado:"PENDIENTE_CONFIRMACION"}};

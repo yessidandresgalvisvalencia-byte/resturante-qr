@@ -4,12 +4,19 @@ on:
   push:
     branches: [feature/finanzas-personales]
     paths:
+      - 'modules/finanzas-personales/services/**'
       - 'modules/finanzas-personales/services/*V81.service.js'
       - 'modules/finanzas-personales/routes.js'
+      - 'modules/finanzas-personales/server.js'
+      - 'scripts/provision-personal-mongo.js'
+      - 'scripts/audit-personal-mongo-privileges.js'
+      - 'scripts/gruk-personal-ledger-mutability-audit.js'
+      - 'test/gruk/ledger-personal-mutabilidad-auditoria.test.js'
       - 'public/finanzas-personales.js'
       - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
       - 'modules/finanzas-personales/services/flujoCajaPersonal.service.js'
+      - 'modules/finanzas-personales/services/migracionLedgerPersonal.service.js'
       - 'modules/finanzas-personales/models/TransaccionPersonal.js'
       - 'modules/finanzas-personales/models/reservaCuotaRecurrente.model.js'
       - 'modules/finanzas-personales/services/consultaPersonal.service.js'
@@ -51,12 +58,19 @@ on:
       - 'package-lock.json'
   pull_request:
     paths:
+      - 'modules/finanzas-personales/services/**'
       - 'modules/finanzas-personales/services/*V81.service.js'
       - 'modules/finanzas-personales/routes.js'
+      - 'modules/finanzas-personales/server.js'
+      - 'scripts/provision-personal-mongo.js'
+      - 'scripts/audit-personal-mongo-privileges.js'
+      - 'scripts/gruk-personal-ledger-mutability-audit.js'
+      - 'test/gruk/ledger-personal-mutabilidad-auditoria.test.js'
       - 'public/finanzas-personales.js'
       - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
       - 'modules/finanzas-personales/services/flujoCajaPersonal.service.js'
+      - 'modules/finanzas-personales/services/migracionLedgerPersonal.service.js'
       - 'modules/finanzas-personales/models/TransaccionPersonal.js'
       - 'modules/finanzas-personales/models/reservaCuotaRecurrente.model.js'
       - 'modules/finanzas-personales/services/consultaPersonal.service.js'
@@ -162,7 +176,7 @@ jobs:
       - name: Verificar contratos de seguridad y despliegue V81
         if: success() || failure()
         run: |
-          node --test test/gruk/decision-proof-chain-integrity.test.js test/gruk/decision-proof-external-anchor.test.js test/gruk/decision-proof-db-privileges.test.js test/gruk/decision-proof-custodian-input.test.js test/gruk/package-lock-contract.test.js test/gruk/shared-entrypoint-contract.test.js test/gruk/v81-ci-coverage-contract.test.js
+          node --test test/gruk/ledger-personal-mutabilidad-auditoria.test.js test/gruk/decision-proof-chain-integrity.test.js test/gruk/decision-proof-external-anchor.test.js test/gruk/decision-proof-db-privileges.test.js test/gruk/decision-proof-custodian-input.test.js test/gruk/package-lock-contract.test.js test/gruk/shared-entrypoint-contract.test.js test/gruk/v81-ci-coverage-contract.test.js
       - name: Exigir cero vulnerabilidades de produccion
         run: npm audit --omit=dev --audit-level=low
   probar-parche-proxy-v81:
@@ -344,6 +358,65 @@ jobs:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
           GRUK_TEST_DB_CONFIRM: SOLO_PRUEBAS_LOCALES
         run: node --test test/gruk/decision-proof-concurrency.test.js
+      - name: Probar compensaciones personales con MongoDB real
+        env:
+          GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_compensaciones?replicaSet=rs0
+          GRUK_REQUIRE_COMPENSACION_MONGO_TEST: "1"
+        run: node --test test/gruk/compensaciones-mongo-real.test.js test/gruk/consulta-compensada-personal.test.js
+      - name: Probar integridad y reversiones de compromisos con MongoDB real
+        env:
+          GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_cuotas?replicaSet=rs0
+          GRUK_REQUIRE_COMPENSACION_MONGO_TEST: "1"
+        run: node --test test/finanzas-personales/compromisosIntegridadMongoV81.integration.test.js
+      - name: Probar reclasificación de trabajos sin mutar cobros ni caja
+        env:
+          GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_trabajos?replicaSet=rs0
+          GRUK_REQUIRE_COMPENSACION_MONGO_TEST: "1"
+        run: node --test test/finanzas-personales/reclasificarTrabajoMongoV81.integration.test.js
+      - name: Probar reversión de crédito con capital y pago real separados
+        env:
+          GRUK_V81_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_v81_test_creditos?replicaSet=rs0
+          GRUK_REQUIRE_COMPENSACION_MONGO_TEST: "1"
+        run: node --test test/finanzas-personales/reversionCreditoMongoV81.integration.test.js
       - name: Limpiar MongoDB aislado
         if: always()
         run: docker rm -f mongo-v81-test || true
+  mongo-privileges-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar dependencias fijadas
+        run: npm ci --ignore-scripts
+      - name: Arrancar MongoDB con autorización en contenedor independiente
+        run: |
+          docker run -d --rm --name mongo-v81-auth-test -p 127.0.0.1:27018:27018 \
+            --user mongodb --entrypoint bash mongo:7 -c \
+            'head -c 756 /dev/urandom | base64 > /tmp/gruk-test-key; chmod 400 /tmp/gruk-test-key; exec mongod --port 27018 --replSet rs0 --auth --keyFile /tmp/gruk-test-key --bind_ip_all'
+          for i in $(seq 1 45); do
+            if docker exec mongo-v81-auth-test mongosh --quiet --port 27018 \
+              --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec mongo-v81-auth-test mongosh --quiet --port 27018 \
+            --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27018"}]})'
+          for i in $(seq 1 45); do
+            if docker exec mongo-v81-auth-test mongosh --quiet --port 27018 \
+              --eval 'db.hello().isWritablePrimary' | grep -q true; then break; fi
+            sleep 1
+          done
+          docker exec mongo-v81-auth-test mongosh --quiet --port 27018 \
+            --eval 'db.getSiblingDB("admin").createUser({user:"gruk_test_root",pwd:"gruk_test_root_local_only",roles:["root"]})'
+      - name: Probar privilegios efectivos y rechazos reales de MongoDB
+        env:
+          GRUK_V81_TEST_MONGO_AUTH_URI: mongodb://127.0.0.1:27018/gruk_v81_test_privilegios
+          GRUK_REQUIRE_PRIVILEGIOS_MONGO_TEST: "1"
+        run: node --test test/gruk/ledger-personal-db-privileges.test.js test/finanzas-personales/privilegiosLedgerMongoV81.integration.test.js
+      - name: Limpiar MongoDB con autorización
+        if: always()
+        run: docker rm -f mongo-v81-auth-test || true

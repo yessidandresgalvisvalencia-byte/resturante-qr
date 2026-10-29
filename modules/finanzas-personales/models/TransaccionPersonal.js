@@ -29,8 +29,19 @@ const schema=new mongoose.Schema({
  motivoAnulacion:{type:String,trim:true,maxlength:240,default:""}
 },{timestamps:true,collection:"fin_transacciones_personales"});
 schema.index({usuarioId:1,recurrenteOrigenId:1,fecha:1});schema.index({usuarioId:1,fecha:-1});schema.index({usuarioId:1,tipo:1,categoria:1,fecha:-1});
+// Resúmenes por persona/tipo/ventana: sin escanear categorías ajenas ni otras identidades.
+schema.index({usuarioId:1,tipo:1,fecha:-1},{name:"fp_gastos_periodo_usuario_v81"});
 // Consultas de conciliación histórica: aislar por usuario/cuenta antes del período.
 schema.index({usuarioId:1,cuentaId:1,fecha:1},{name:"fp_conciliacion_cuenta_periodo_v81"});
 schema.index({usuarioId:1,cuentaId:1,cuenta:1,fecha:1},{name:"fp_conciliacion_huerfanos_periodo_v81"});
 schema.index({usuarioId:1,externalIdHash:1},{unique:true,partialFilterExpression:{externalIdHash:{$type:"string"}}});
+function prohibirMutacion(){
+ throw Object.assign(new Error("TRANSACCION_PERSONAL_APPEND_ONLY"),{code:"TRANSACCION_PERSONAL_APPEND_ONLY",statusCode:409});
+}
+for(const operacion of ["updateOne","updateMany","replaceOne","findOneAndUpdate","findOneAndReplace",
+ "deleteOne","deleteMany","findOneAndDelete","bulkWrite"])
+ schema.pre(operacion,prohibirMutacion);
+schema.pre("deleteOne",{document:true,query:false},prohibirMutacion);
+schema.pre("save",function(){if(!this.isNew)prohibirMutacion();});
+// Defensa de aplicación: collection/driver nativos siguen sujetos al rol MongoDB.
 module.exports=mongoose.models.TransaccionPersonal||mongoose.model("TransaccionPersonal",schema);
