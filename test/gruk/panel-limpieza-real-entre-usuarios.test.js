@@ -30,8 +30,15 @@ test("cambio de cuenta: se borran efectivamente todos los datos privados renderi
   $: id => nodes[id] || null,
   window:{grukExplain:() => "CONFIDENCIAL"}
  };
- vm.runInNewContext(src.slice(start,end),ctx);
+ const histStart=src.indexOf("let histPagina="),histEnd=src.indexOf("async function buscarHistorial",histStart);
+ assert.ok(histStart>0&&histEnd>histStart);
+ vm.createContext(ctx);
+ vm.runInContext(src.slice(histStart,histEnd)+src.slice(start,end),ctx);
+ vm.runInContext("histPagina=7;histCargando=true;histRevision=2;",ctx);
  ctx.invalidarIndicadoresFinancieros();
+ assert.equal(vm.runInContext("histPagina",ctx),1);
+ assert.equal(vm.runInContext("histCargando",ctx),false);
+ assert.equal(vm.runInContext("histRevision",ctx),3);
  for(const id of numbers) assert.equal(nodes[id].textContent,"No actualizado",id);
  for(const id of lists) assert.equal(nodes[id].textContent,"No actualizado",id);
  for(const id of privateContent) {
