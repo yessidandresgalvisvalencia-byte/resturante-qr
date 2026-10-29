@@ -6,6 +6,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const { autenticarSocket } = require("./core/auth/socketHandshake.service");
+const { vigilarSesionSocket } = require("./core/auth/socketSessionWatchdog.service");
 const eventBus = require("./core/eventos/eventBus");
 const { registrarFinanzasListener } = require("./intelligence/listeners/finanzas.listener");
 const { registrarCajaListener } = require("./intelligence/listeners/caja.listener");
@@ -173,6 +174,7 @@ io.use(async (socket, next) => {
 
 io.on("connection", (socket) => {
   socket.join(`empresa-${socket.auth.empresaId}`);
+  vigilarSesionSocket(socket,{secret:process.env.JWT_SECRET,intervalMs:5000});
 });
 
 iniciarAplicacion();
