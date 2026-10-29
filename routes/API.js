@@ -2649,6 +2649,18 @@ router.post("/mesero/login", async (req, res) => {
     if (!restauranteMesero?.empresaId || !process.env.JWT_SECRET) {
       return res.status(500).json({ ok:false, error:"Identidad empresarial no configurada" });
     }
+    // PERSONAL conserva sedeId como string: puede referirse al ObjectId o al codigoSede.
+    if(mesero.sedeId){
+      const filtros=[{codigoSede:String(mesero.sedeId)}];
+      if(mongoose.isValidObjectId(mesero.sedeId))filtros.push({_id:mesero.sedeId});
+      const sede=await Sede.exists({
+        empresaId:restauranteMesero.empresaId,restauranteId:mesero.restaurantId,
+        $or:filtros
+      });
+      if(!sede)return res.status(403).json({
+        ok:false,error:"La sede del empleado ya no pertenece a este restaurante"
+      });
+    }
     const token = jwt.sign({ empresaId:String(restauranteMesero.empresaId), restaurantId:String(mesero.restaurantId), sedeId:mesero.sedeId ? String(mesero.sedeId) : null, rol:"EMPLEADO", identityType:"PERSONAL", tokenVersion:Number(mesero.tokenVersion || 0) }, process.env.JWT_SECRET, { algorithm:"HS256", subject:String(mesero._id), expiresIn:"8h" });
 
     res.json({
