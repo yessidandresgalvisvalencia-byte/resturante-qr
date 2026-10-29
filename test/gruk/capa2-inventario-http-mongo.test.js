@@ -92,7 +92,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   const empleado=auth(A,SA,"EMPLEADO","empleado-a");
   const ownerB=auth(B,undefined,"DUEÑO","dueno-b");
   async function call(method,path,token,body){
-   const base=(path.startsWith("/sede/") || path.startsWith("/restaurante/") || path.startsWith("/usuarios/") || path.startsWith("/auth/"))?endpoint.replace(/\/inventario$/,""):endpoint;
+   const base=(path.startsWith("/sede/") || path.startsWith("/restaurante/") || path.startsWith("/usuarios/") || path.startsWith("/auth/") || path.startsWith("/admin/"))?endpoint.replace(/\/inventario$/,""):endpoint;
    const response=await fetch(base+path,{method,headers:{
     authorization:token,...(body?{"content-type":"application/json"}:{})
    },...(body?{body:JSON.stringify(body)}:{})});
@@ -117,6 +117,20 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.ok(adminLegado);
   assert.equal(await bcrypt.compare("ContrasenaDePrueba123!",adminLegado.password),true);
   assert.equal(restauranteLegado.aceptaPlan,true);
+  // Un JWT ADMIN queda revocado cuando su restaurante cambia de empresa.
+  const adminLogin=await call("POST","/admin/login","",{
+    usuario:"admin-"+legacyId,password:"ContrasenaDePrueba123!"
+  });
+  assert.equal(adminLogin.status,200,JSON.stringify(adminLogin));
+  assert.ok(adminLogin.data.token);
+  const adminClaims=jwt.verify(adminLogin.data.token,process.env.JWT_SECRET);
+  assert.equal(adminClaims.identityType,"ADMIN");
+  const adminBearer="Bearer "+adminLogin.data.token;
+  assert.equal((await call("GET","/"+legacyId,adminBearer)).status,200);
+  await Restaurante.updateOne({restaurantId:legacyId},{$set:{empresaId:B}});
+  assert.equal((await call("GET","/"+legacyId,adminBearer)).status,401);
+  await Restaurante.updateOne({restaurantId:legacyId},{$set:{empresaId:restauranteLegado.empresaId}});
+
   // Fallo deliberado al insertar Admin: rollback de todo el onboarding.
   // El Admin ya existe, pero no existe Restaurante con ese usuario.
   await Admin.init(); // Verificar índice unique real antes de provocar el fallo.
