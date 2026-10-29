@@ -17,7 +17,7 @@ test("la prueba de roles rechaza destinos externos, credenciales y otras bases",
  assert.throws(()=>validarDestino(`mongodb://127.0.0.1:27018/${base}`,"production"));
 });
 const uri=process.env.GRUK_V81_TEST_MONGO_AUTH_URI;
-async function probarMigracionAutorizada(db,uri,password){
+async function probarMigracionAutorizada(db,uri,password,t){
  validarDestino(uri);
  const Legacy=require("../../modules/finanzas-personales/models/movimiento.model");
  const Tx=require("../../modules/finanzas-personales/models/TransaccionPersonal");
@@ -57,13 +57,16 @@ async function probarMigracionAutorizada(db,uri,password){
   await db.collection("fin_transacciones_personales").dropIndex("usuarioId_1_externalIdHash_1");
   await assert.rejects(migracion.migrar(b),e=>e.statusCode===503);assert.equal(await Tx.countDocuments({usuarioId:b}),0);
   await provisionarMongoPersonal(db);assert.equal((await migracion.migrar(b)).ledgerCount,1);
+  const {probarCajaAutorizada,probarCadenaV81Autorizada}=require("./helpers/operacionesLedgerAutorizadas");
+  await t.test("caja, compensaciones, reintentos y rollback con rol restringido",probarCajaAutorizada);
+  await t.test("cadena V81 y anulación con rol restringido",probarCadenaV81Autorizada);
  }finally{
   await mongoose.disconnect();if(anterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=anterior;
  }
 }
 test("MongoDB con autorización: rol insert-only bloquea modificación y borrado reales",{
  skip:!uri&&process.env.GRUK_REQUIRE_PRIVILEGIOS_MONGO_TEST!=="1"?"Requiere MongoDB local con --auth":false,timeout:60000
-},async()=>{
+},async t=>{
  validarDestino(uri);
  // Credenciales exclusivas del contenedor efímero de CI, nunca del despliegue.
  const root=new MongoClient(uri,{auth:{username:"gruk_test_root",password:"gruk_test_root_local_only"},authSource:"admin",serverSelectionTimeoutMS:7000});
@@ -173,7 +176,7 @@ test("MongoDB con autorización: rol insert-only bloquea modificación y borrado
   await provisionarMongoPersonal(db);
   assert.deepEqual(arranque("writer"),{status:200,autoCreate:false,autoIndex:false});
   assert.deepEqual((await db.listCollections({},{nameOnly:true}).toArray()).map(c=>c.name).sort(),nombresAntes);
-  await probarMigracionAutorizada(db,uri,password);
+  await probarMigracionAutorizada(db,uri,password,t);
  }finally{
   await Promise.all(clientes.map(c=>c.close()));
   for(const user of creados)await root.db(base).command({dropUser:user});
