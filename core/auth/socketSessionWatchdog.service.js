@@ -3,9 +3,9 @@ const {autenticarSocket}=require("./socketHandshake.service");
 const {limiteGlobal}=require("./socketValidationLimiter.service");
 
 // Cada conexión abierta se vuelve a autenticar; una revocación corta el canal.
-async function comprobarSocketVigente(socket,{secret,autenticar=autenticarSocket}={}){
+async function comprobarSocketVigente(socket,{secret,signal,autenticar=autenticarSocket}={}){
  if(!socket.connected)return false;
- const actual=await autenticar({token:socket.handshake.auth?.token,secret});
+ const actual=await autenticar({token:socket.handshake.auth?.token,secret,signal});
  if(!socket.connected)return false;
  if(!actual || !socket.auth ||
     actual.usuarioId!==socket.auth.usuarioId ||
@@ -39,11 +39,15 @@ function vigilarSesionSocket(socket,{
   if(cerrado||comprobando)return;
   comprobando=true;
   let deadline;
+  const controlador=new AbortController();
   try{
    const vigente=await Promise.race([
-    limite.ejecutar(()=>comprobarSocketVigente(socket,{secret,autenticar})),
+    limite.ejecutar(()=>comprobarSocketVigente(socket,{secret,autenticar,signal:controlador.signal})),
     new Promise((_,reject)=>{
-     deadline=programarTimeout(()=>reject(Error("SESSION_VALIDATION_TIMEOUT")),timeoutMs);
+     deadline=programarTimeout(()=>{
+      controlador.abort();
+      reject(Error("SESSION_VALIDATION_TIMEOUT"));
+     },timeoutMs);
      if(typeof deadline?.unref==="function")deadline.unref();
     })
    ]);
@@ -52,6 +56,7 @@ function vigilarSesionSocket(socket,{
     detener();
    }
   }catch{
+   controlador.abort();
    // Mongo lento/caído o timeout: no mantener acceso empresarial abierto.
    if(socket.connected)socket.disconnect(true);
    detener();
