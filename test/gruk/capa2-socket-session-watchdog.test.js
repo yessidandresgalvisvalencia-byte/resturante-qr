@@ -53,3 +53,47 @@ test("Capa 2: watchdog falla cerrado ante error de base de datos y cancela timer
 test("Capa 2: watchdog no programa intervalos inseguros",()=>{
  assert.throws(()=>vigilarSesionSocket(socket(),{intervalMs:1}),/Intervalo inválido/);
 });
+
+test("Capa 2: timeout de Mongo pendiente desconecta y limpia verificación",async()=>{
+ const s=socket();
+ let intervalo,limite,limpios=0,cancelados=0;
+ const verificar=new Promise(()=>{});
+ vigilarSesionSocket(s,{
+  secret:"test",intervalMs:5000,timeoutMs:500,
+  autenticar:async()=>verificar,
+  programar:fn=>{intervalo=fn;return 17;},
+  cancelar:()=>cancelados++,
+  programarTimeout:fn=>{limite=fn;return 19;},
+  cancelarTimeout:()=>limpios++
+ });
+ const enCurso=intervalo();
+ await Promise.resolve();
+ limite();
+ await enCurso;
+ assert.equal(s.disconnected,1);
+ assert.equal(s.connected,false);
+ assert.equal(limpios,1);
+ assert.equal(cancelados,1);
+});
+test("Capa 2: no apila verificaciones cuando una consulta está pendiente",async()=>{
+ const s=socket();
+ let intervalo,liberar,consultas=0;
+ const enEspera=new Promise(resolve=>liberar=resolve);
+ const detener=vigilarSesionSocket(s,{
+  secret:"test",intervalMs:5000,
+  autenticar:async()=>{consultas++;await enEspera;return s.auth;},
+  programar:fn=>{intervalo=fn;return 9;},
+  cancelar:()=>{}
+ });
+ const pendiente=intervalo();
+ await intervalo();
+ await intervalo();
+ assert.equal(consultas,1);
+ liberar();
+ await pendiente;
+ detener();
+});
+test("Capa 2: valida timeout máximo acotado al intervalo",()=>{
+ assert.throws(()=>vigilarSesionSocket(socket(),{timeoutMs:99}),/Tiempo máximo/);
+ assert.throws(()=>vigilarSesionSocket(socket(),{intervalMs:5000,timeoutMs:5000}),/Tiempo máximo/);
+});
