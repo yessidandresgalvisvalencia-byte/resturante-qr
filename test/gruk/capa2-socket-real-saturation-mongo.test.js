@@ -62,7 +62,8 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
  const io=new Server(httpServer,{transports:["websocket"],pingInterval:15000,pingTimeout:6000});
  const sockets=new Map(),ticks=new Map(),clients=[];
  const limitador=crearLimiteValidaciones({maxConcurrent:64});
- let dbConnected=false,liberar;
+ let dbConnected=false,liberar,onMongoCommand,mongoClient;
+ const consultasPorColeccion=new Map();
  const bloqueo=new Promise(resolve=>liberar=resolve);
  let verificaciones=0;
  const autenticar=async({token,secret:clave,signal})=>{
@@ -87,7 +88,7 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
  });
  try{
   await new Promise(resolve=>httpServer.listen(0,"127.0.0.1",resolve));
-  await mongoose.connect(mongo,{dbName,serverSelectionTimeoutMS:15000});
+  await mongoose.connect(mongo,{dbName,serverSelectionTimeoutMS:15000,monitorCommands:true});
   dbConnected=true;
   await Restaurante.create({
    restaurantId:"socket-stress",empresaId,nombreRestaurante:"Socket CI",
@@ -119,10 +120,46 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
   assert.equal(verificaciones,64);
   assert.equal(limitador.estadisticas().rechazadas,32);
   assert.equal(limitador.estadisticas().maxObservado,64);
+  // Medir comandos de Mongo durante varias rondas de autorización, sin
+  // incluir ni los 96 handshakes ni el alta de datos en esta medición.
+  mongoClient=mongoose.connection.getClient();
+  onMongoCommand=event=>{
+   if(event.commandName!=="find")return;
+   const nombre=String(event.command?.find||"desconocida");
+   consultasPorColeccion.set(nombre,(consultasPorColeccion.get(nombre)||0)+1);
+  };
+  mongoClient.on("commandStarted",onMongoCommand);
+  const inicioMedicion=Date.now();
   liberar();
   await Promise.all(pendientes);
   assert.equal(limitador.estadisticas().activas,0);
   assert.equal([...sockets.values()].filter(s=>s.connected).length,64);
+  // Mantener 64 conexiones vivas y repetir tres verificaciones efectivas
+  // adicionales. El watchdog reutiliza el mismo límite de concurrencia.
+  const rondasAdicionales=3;
+  for(let ronda=0;ronda<rondasAdicionales;ronda++){
+   const activas=[...ticks.values()];
+   assert.equal(activas.length,64);
+   await Promise.all(activas.map(tick=>tick()));
+   assert.equal(limitador.estadisticas().activas,0);
+   assert.equal([...sockets.values()].filter(s=>s.connected).length,64,
+    "Una conexión legítima no debe perder acceso sin revocación");
+  }
+  const duracionMedicionMs=Date.now()-inicioMedicion;
+  mongoClient.off("commandStarted",onMongoCommand);
+  onMongoCommand=null;
+  const consultasMongo=[...consultasPorColeccion.values()].reduce((a,b)=>a+b,0);
+  assert.ok(consultasMongo>=64*2*(rondasAdicionales+1),
+   "Cada ronda real debe verificar usuario y sede en Mongo sin omitir consultas");
+  assert.ok(consultasMongo<1200,
+   "El estrés controlado no debe disparar consultas adicionales inesperadas");
+  console.log("[GRUK CI SOCKET REAL MONGO PRESSURE]",JSON.stringify({
+   socketsPersistentes:64,rondasRevalidacion:rondasAdicionales+1,
+   duracionMedicionMs,consultasMongo,
+   consultasPorColeccion:Object.fromEntries(consultasPorColeccion),
+   maxConcurrentObserved:limitador.estadisticas().maxObservado,
+   medicion:"find en Mongo local CI; no es SLA de producción"
+  }));
   // Ahora Mongo revoca el JWT y la segunda vuelta de revalidación debe
   // expulsar todas las conexiones restantes sin fuga entre resultados.
   await Usuario.updateOne({_id:user._id},{$inc:{tokenVersion:1}});
@@ -137,6 +174,7 @@ test("Capa 2: 96 WebSockets reales saturan 64 revalidaciones, rechazan 32 y recu
    maxConcurrentObserved:limitador.estadisticas().maxObservado
   }));
  }finally{
+  if(mongoClient&&onMongoCommand)mongoClient.off("commandStarted",onMongoCommand);
   liberar();
   for(const ws of clients)if(ws.readyState!==WebSocket.CLOSED)ws.terminate();
   for(const s of sockets.values())s.disconnect(true);
