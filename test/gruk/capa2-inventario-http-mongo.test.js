@@ -162,6 +162,15 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(loginDesvinculado.status,403,JSON.stringify(loginDesvinculado));
   assert.equal(loginDesvinculado.data.token,undefined);
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
+  // Referencia colgante de sede: no debe convertirse en permiso sin sede.
+  const sedeInexistente=new mongoose.Types.ObjectId();
+  await Usuario.updateOne({usuario:nuevoUsuarioNombre},{$set:{sedeId:sedeInexistente}});
+  const loginSedeBorrada=await call("POST","/usuarios/login","",{
+    usuario:nuevoUsuarioNombre,password:"ContrasenaValida123!"
+  });
+  assert.equal(loginSedeBorrada.status,403,JSON.stringify(loginSedeBorrada));
+  assert.equal(loginSedeBorrada.data.token,undefined);
+  await Usuario.updateOne({usuario:nuevoUsuarioNombre},{$set:{sedeId:SA}});
   const fueraDeSede=await call("POST","/usuarios/crear",adminA,{
     restauranteId:"restaurant-a",sedeId:SB,nombre:"Intruso sede B",
     usuario:"intruso-"+randomUUID(),password:"ContrasenaValida123!",rol:"mesero"
