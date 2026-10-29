@@ -155,6 +155,21 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   });
   assert.equal(loginValido.status,200,JSON.stringify(loginValido));
   assert.equal(jwt.verify(loginValido.data.token,process.env.JWT_SECRET).empresaId,A);
+  const sesionUsuario=jwt.verify(loginValido.data.token,process.env.JWT_SECRET);
+  assert.equal(sesionUsuario.identityType,"USUARIO");
+  assert.equal(sesionUsuario.tokenVersion,0);
+  assert.equal((await call("GET","/restaurant-a","Bearer "+loginValido.data.token)).status,403);
+  const logout=await call("POST","/auth/cerrar-todas-sesiones",
+    "Bearer "+loginValido.data.token,{});
+  assert.equal(logout.status,200,JSON.stringify(logout));
+  assert.equal((await Usuario.findOne({usuario:nuevoUsuarioNombre})).tokenVersion,1);
+  assert.equal((await call("POST","/auth/cerrar-todas-sesiones",
+    "Bearer "+loginValido.data.token,{})).status,401);
+  const segundaSesion=await call("POST","/usuarios/login","",{
+    usuario:nuevoUsuarioNombre,password:"ContrasenaValida123!"
+  });
+  assert.equal(segundaSesion.status,200,JSON.stringify(segundaSesion));
+  assert.equal(jwt.verify(segundaSesion.data.token,process.env.JWT_SECRET).tokenVersion,1);
   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}});
   const loginDesvinculado=await call("POST","/usuarios/login","",{
     usuario:nuevoUsuarioNombre,password:"ContrasenaValida123!"
