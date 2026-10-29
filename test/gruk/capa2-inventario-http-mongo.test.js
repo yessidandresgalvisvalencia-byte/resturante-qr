@@ -152,6 +152,31 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(ownerSameCompany.status,200,JSON.stringify(ownerSameCompany));
   assert.equal(String(ownerSameCompany.data.inventario.sedeId),SA);
 
+  // El dueño debe enfrentar la misma valla que ADMIN_SEDE al reasignar una sede.
+  const ownerFenceBefore=(await Sede.findById(SA)).authFence||0;
+  assert.equal((await Sede.findById(SA)).restauranteId,"restaurant-a");
+  assert.equal((await call("POST","/",owner,{
+    restaurantId:"restaurant-a",sedeId:SA,
+    nombre:"alta propietario con sede",categoria:"prueba",cantidad:1
+  })).status,200);
+  assert.equal((await Sede.findById(SA)).authFence,ownerFenceBefore+1);
+  const ownerRace=await mongoose.startSession();
+  try{
+   ownerRace.startTransaction();
+   await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}},{session:ownerRace});
+   const requestOwner=call("POST","/",owner,{
+    restaurantId:"restaurant-a",sedeId:SA,
+    nombre:"dueño durante traslado",categoria:"prueba",cantidad:1
+   });
+   await ownerRace.commitTransaction();
+   const ownerResult=await requestOwner;
+   assert.ok([403,409].includes(ownerResult.status),JSON.stringify(ownerResult));
+   assert.equal(await Inventario.countDocuments({nombre:"dueño durante traslado"}),0);
+  }finally{
+   if(ownerRace.inTransaction())await ownerRace.abortTransaction();
+   await ownerRace.endSession();
+  }
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
   const createSpoof=await call("POST","/",adminA,{
     empresaId:B,restaurantId:"restaurant-a",sedeId:SA,nombre:"falsa",categoria:"prueba",cantidad:1
   });
