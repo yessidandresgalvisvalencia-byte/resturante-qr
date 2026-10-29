@@ -15,8 +15,27 @@ async function validarVersionSesion(payload,{signal}={}){
  const tipo=payload.identityType||"";
  // El tipo de identidad es obligatorio: no aceptar JWT que omitan la\n // verificación de revocación y pertenencia a un sujeto real.\n if(!tipo)return false;
  if(tipo==="USUARIO"){
-  const identidad=await consultaCancelable(Usuario.findById(payload.sub)
-   .select("tokenVersion empresaId restauranteId sedeId rol estado").lean(),signal);
+  // Un único roundtrip Mongo: usuario y vínculo de sede deben concordar
+  // simultáneamente con el tenant. No confiar en la sede enviada por JWT.
+  const mongoose=require("mongoose");
+  if(!mongoose.isValidObjectId(payload.sub))return false;
+  const usuarios=await Usuario.aggregate([
+   {$match:{_id:new mongoose.Types.ObjectId(payload.sub)}},
+   {$limit:1},
+   {$lookup:{
+    from:Sede.collection.name,
+    let:{sede:"$sedeId",empresa:"$empresaId",restaurante:"$restauranteId"},
+    pipeline:[{$match:{$expr:{$and:[
+     {$eq:["$_id","$sede"]},
+     {$eq:["$empresaId","$empresa"]},
+     {$eq:["$restauranteId","$restaurante"]}
+    ]}}},{$project:{_id:1}}],
+    as:"sedeValidada"
+   }},
+   {$project:{tokenVersion:1,empresaId:1,restauranteId:1,sedeId:1,
+    rol:1,estado:1,sedeValidada:1}}
+  ]).option(signal?{signal}:{});
+  const identidad=usuarios[0];
   if(signal?.aborted || !identidad || identidad.estado!=="activo" ||
      !versionCoincide(payload.tokenVersion,identidad.tokenVersion))return false;
   const roles={admin_general:"DUEÑO",admin_sede:"ADMIN_SEDE",mesero:"EMPLEADO"};
@@ -24,13 +43,7 @@ async function validarVersionSesion(payload,{signal}={}){
      String(identidad.empresaId||"")!==payload.empresaId ||
      String(identidad.restauranteId||"")!==String(payload.restaurantId||"") ||
      String(identidad.sedeId||"")!==String(payload.sedeId||""))return false;
-  if(identidad.sedeId){
-   const sede=await consultaCancelable(Sede.exists({
-    _id:identidad.sedeId,empresaId:identidad.empresaId,
-    restauranteId:identidad.restauranteId
-   }),signal);
-   if(signal?.aborted || !sede)return false;
-  }
+  if(identidad.sedeId && identidad.sedeValidada?.length!==1)return false;
   return !signal?.aborted;
  }
  if(tipo==="PERSONAL"){
