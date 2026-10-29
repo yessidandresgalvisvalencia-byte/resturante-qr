@@ -38,24 +38,31 @@ function crearVerificadorCompartido({
   consultas++;
   const controller=new AbortController();
   const entrada={pendiente:null,hasta:0,resultado:null};
-  const plazo=setTimeout(()=>controller.abort(),tiempoConsultaMs);
-  const pendiente=(async()=>{
-   try{
-    const resultado=await Promise.resolve().then(()=>
-     verificar({token,secret,signal:controller.signal}));
-    if(!controller.signal.aborted && resultado){
-     entrada.resultado=resultado;
-     entrada.hasta=ahora()+ttlMs;
-     return resultado;
-    }
-    return null;
-   }catch{return null;}
-   finally{
-    clearTimeout(plazo);
-    entrada.pendiente=null;
-    if(!entrada.resultado||ttlMs===0)entradas.delete(clave);
+  let plazo;
+  // Race real: abortar no basta si un driver/adapter ignora AbortSignal.
+  // Una operación tardía jamás vuelve a poblar el caché tras vencer el plazo.
+  const trabajo=Promise.resolve().then(()=>
+   verificar({token,secret,signal:controller.signal})
+  ).catch(()=>null);
+  const vencimiento=new Promise(resolve=>{
+   plazo=setTimeout(()=>{
+    controller.abort();
+    resolve(null);
+   },tiempoConsultaMs);
+   if(typeof plazo.unref==="function")plazo.unref();
+  });
+  const pendiente=Promise.race([trabajo,vencimiento]).then(resultado=>{
+   if(!controller.signal.aborted && resultado){
+    entrada.resultado=resultado;
+    entrada.hasta=ahora()+ttlMs;
+    return resultado;
    }
-  })();
+   return null;
+  }).finally(()=>{
+   clearTimeout(plazo);
+   entrada.pendiente=null;
+   if(!entrada.resultado||ttlMs===0)entradas.delete(clave);
+  });
   entrada.pendiente=pendiente;
   entradas.set(clave,entrada);
   const resultado=await pendiente;
