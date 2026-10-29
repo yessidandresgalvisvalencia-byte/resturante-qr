@@ -9,6 +9,7 @@ const Inventario=require("../../models/Inventario");
 const Restaurante=require("../../models/restaurante");
 const Sede=require("../../models/sede");
 const Admin=require("../../models/admin");
+const Usuario=require("../../models/usuario");
 const Empresa=require("../../models/Empresa");
 const bcrypt=require("bcrypt");
 const router=require("../../routes/inventario");
@@ -73,7 +74,7 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   const empleado=auth(A,SA,"EMPLEADO","empleado-a");
   const ownerB=auth(B,undefined,"DUEÑO","dueno-b");
   async function call(method,path,token,body){
-   const base=(path.startsWith("/sede/") || path.startsWith("/restaurante/"))?endpoint.replace(/\/inventario$/,""):endpoint;
+   const base=(path.startsWith("/sede/") || path.startsWith("/restaurante/") || path.startsWith("/usuarios/"))?endpoint.replace(/\/inventario$/,""):endpoint;
    const response=await fetch(base+path,{method,headers:{
     authorization:token,...(body?{"content-type":"application/json"}:{})
    },...(body?{body:JSON.stringify(body)}:{})});
@@ -137,6 +138,52 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal(String(sedeValida.data.sede.empresaId),A);
   assert.equal(sedeValida.data.sede.restauranteId,"restaurant-a");
   assert.equal(await Sede.countDocuments({empresaId:B,restauranteId:"restaurant-a"}),0);
+  // Gestión de usuarios: el servidor define tenant y nunca revela password hash.
+  const nuevoUsuarioNombre="mesero-"+randomUUID();
+  const crearUsuario=await call("POST","/usuarios/crear",adminA,{
+    restauranteId:"restaurant-a",sedeId:SA,nombre:"Mesero sede A",
+    usuario:nuevoUsuarioNombre,password:"ContrasenaValida123!",rol:"mesero"
+  });
+  assert.equal(crearUsuario.status,200,JSON.stringify(crearUsuario));
+  assert.equal(crearUsuario.data.usuario.password,undefined);
+  assert.equal(String(crearUsuario.data.usuario.empresaId),A);
+  assert.equal(String(crearUsuario.data.usuario.sedeId),SA);
+  const guardadoUsuario=await Usuario.findOne({usuario:nuevoUsuarioNombre});
+  assert.equal(await bcrypt.compare("ContrasenaValida123!",guardadoUsuario.password),true);
+  const fueraDeSede=await call("POST","/usuarios/crear",adminA,{
+    restauranteId:"restaurant-a",sedeId:SB,nombre:"Intruso sede B",
+    usuario:"intruso-"+randomUUID(),password:"ContrasenaValida123!",rol:"mesero"
+  });
+  assert.equal(fueraDeSede.status,403);
+  const rolProhibido=await call("POST","/usuarios/crear",adminA,{
+    restauranteId:"restaurant-a",sedeId:SA,nombre:"Administrador falso",
+    usuario:"admin-falso-"+randomUUID(),password:"ContrasenaValida123!",rol:"admin_sede"
+  });
+  assert.equal(rolProhibido.status,403);
+  const otraEmpresaUsuario=await call("POST","/usuarios/crear",ownerB,{
+    restauranteId:"restaurant-a",sedeId:SA,nombre:"Cruce de empresa",
+    usuario:"cruce-"+randomUUID(),password:"ContrasenaValida123!",rol:"mesero"
+  });
+  assert.equal(otraEmpresaUsuario.status,404);
+  // Reasignación concurrente: el usuario no puede quedar en la sede anterior.
+  const userRace=await mongoose.startSession();
+  const usuarioEnTraslado="traslado-"+randomUUID();
+  try{
+    userRace.startTransaction();
+    await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-b"}},{session:userRace});
+    const pending=call("POST","/usuarios/crear",adminA,{
+      restauranteId:"restaurant-a",sedeId:SA,nombre:"Durante traslado",
+      usuario:usuarioEnTraslado,password:"ContrasenaValida123!",rol:"mesero"
+    });
+    await userRace.commitTransaction();
+    const raced=await pending;
+    assert.ok([403,409].includes(raced.status),JSON.stringify(raced));
+    assert.equal(await Usuario.countDocuments({usuario:usuarioEnTraslado}),0);
+  }finally{
+    if(userRace.inTransaction())await userRace.abortTransaction();
+    await userRace.endSession();
+  }
+  await Sede.updateOne({_id:SA},{$set:{restauranteId:"restaurant-a"}});
   // Negación por rol, empresa y ausencia de credenciales.
   assert.equal((await call("GET","/restaurant-a",empleado)).status,403);
   assert.equal((await call("POST","/",empleado,{
