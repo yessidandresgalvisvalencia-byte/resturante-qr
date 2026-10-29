@@ -83,6 +83,22 @@ test("Capa 2 HTTP Mongo: 2 empresas x 2 sedes, legado y anulación idempotente",
   assert.equal((await call("GET","/restaurant-a",ownerB)).status,403);
   assert.equal((await call("PUT","/anular/"+own.id,ownerB,{motivo:"otra empresa"})).status,404);
   assert.equal((await Inventario.findById(own.id)).anulado,false);
+  // Ausencia de token: ninguna operación administrativa revela o modifica datos.
+  assert.equal((await call("GET","/restaurant-a","")).status,401);
+  assert.equal((await call("POST","/","",{
+    restaurantId:"restaurant-a",nombre:"sin autenticación",categoria:"prueba",cantidad:1
+  })).status,401);
+  assert.equal((await call("PUT","/anular/"+own.id,"",{motivo:"sin autenticación"})).status,401);
+  assert.equal(await Inventario.countDocuments({nombre:"sin autenticación"}),0);
+  // El paginado y las búsquedas también deben conservar el filtro sede+empresa.
+  const paged=await call("GET","/restaurant-a?page=1&limit=1&q=sede",adminA);
+  assert.equal(paged.status,200,JSON.stringify(paged));
+  assert.equal(paged.data.paginacion.total,1);
+  assert.deepEqual(paged.data.productos.map(p=>p.nombre),["sede A"]);
+  const noForeign=await call("GET","/restaurant-a?limit=1&page=1&q=otra",adminA);
+  assert.equal(noForeign.status,200);
+  assert.equal(noForeign.data.paginacion.total,0);
+  assert.equal(noForeign.data.productos.length,0);
   const visible=await call("GET","/restaurant-a",adminA);
   assert.equal(visible.status,200,JSON.stringify(visible.data));
   assert.deepEqual(visible.data.productos.map(x=>x.nombre),["sede A"]);
