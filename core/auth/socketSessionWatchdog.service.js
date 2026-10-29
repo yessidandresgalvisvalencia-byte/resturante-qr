@@ -1,6 +1,7 @@
 "use strict";
 const {autenticarSocket}=require("./socketHandshake.service");
 const {limiteGlobal}=require("./socketValidationLimiter.service");
+const {verificadorCompartido}=require("./socketSharedVerifier.service");
 
 // Cada conexión abierta se vuelve a autenticar; una revocación corta el canal.
 async function comprobarSocketVigente(socket,{secret,signal,autenticar=autenticarSocket}={}){
@@ -20,7 +21,8 @@ async function comprobarSocketVigente(socket,{secret,signal,autenticar=autentica
  return true;
 }
 function vigilarSesionSocket(socket,{
- secret,intervalMs=5000,timeoutMs=2000,autenticar=autenticarSocket,
+ secret,intervalMs=5000,timeoutMs=2000,
+ autenticar=verificadorCompartido.autenticar,
  programar=setInterval,cancelar=clearInterval,
  programarTimeout=setTimeout,cancelarTimeout=clearTimeout,
  limite=limiteGlobal
