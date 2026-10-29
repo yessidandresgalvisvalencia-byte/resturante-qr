@@ -178,7 +178,7 @@ test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento 
  }finally{
   Outbox.create=outboxCreate;
   // Solo en base local validada y exclusivamente identidades aleatorias de esta prueba.
-  for(const Modelo of [Cuota,Padre,Tx,Cuenta,Outbox])await Modelo.deleteMany({usuarioId:{$in:usuarios}});
+  for(const Modelo of [Cuota,Padre,Tx,Cuenta,Outbox])await Modelo.collection.deleteMany({usuarioId:{$in:usuarios}});
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios.map(String)}});
   await Cursor.deleteMany({_id:{$in:usuarios.map(String)}});
   await mongoose.disconnect();

@@ -111,7 +111,7 @@ test("MongoDB real: reversión de créditos conserva capital, pago real, fuentes
   await republicarPendientes(500);assert.equal(await Outbox.countDocuments({usuarioId:{$in:usuarios},estado:{$ne:"PUBLICADO"}}),0);
  }finally{
   Outbox.create=crearOutbox;if(server)await new Promise(resolve=>server.close(resolve));
-  for(const Modelo of [Prestamo,Tx,Cuenta,Outbox])await Modelo.deleteMany({usuarioId:{$in:usuarios}});
+  for(const Modelo of [Prestamo,Tx,Cuenta,Outbox])await Modelo.collection.deleteMany({usuarioId:{$in:usuarios}});
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios.map(String)}});await Cursor.deleteMany({_id:{$in:usuarios.map(String)}});
   await mongoose.disconnect();if(secreto===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=secreto;
  }

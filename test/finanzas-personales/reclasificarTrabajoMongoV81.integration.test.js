@@ -158,7 +158,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
  }finally{
   Outbox.create=outboxCreate;
   if(server)await new Promise(resolve=>server.close(resolve));
-  for(const Modelo of [Prestamo,Tx,Cuenta,Outbox])await Modelo.deleteMany({usuarioId:{$in:usuarios}});
+  for(const Modelo of [Prestamo,Tx,Cuenta,Outbox])await Modelo.collection.deleteMany({usuarioId:{$in:usuarios}});
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios.map(String)}});
   await Cursor.deleteMany({_id:{$in:usuarios.map(String)}});
   await mongoose.disconnect();
