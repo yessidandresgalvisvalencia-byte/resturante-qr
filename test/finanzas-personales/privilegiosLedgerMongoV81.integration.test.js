@@ -74,6 +74,8 @@ async function probarMigracionAutorizada(db,uri,password,t){
    require("./helpers/progresoEconomicoAutorizado").probarProgresoEconomicoAutorizado);
   await t.test("completar acciones exige evidencia vigente y revierte fallos de auditoría",
    require("./helpers/evidenciaProgresoAutorizada").probarEvidenciaProgresoAutorizada);
+  await t.test("deudas conversacionales validan saldos sin inventar activos y revierten fallos",
+   require("./helpers/deudasConversacionalesAutorizadas").probarDeudasConversacionalesAutorizadas);
  }finally{
   await mongoose.disconnect();if(anterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=anterior;
  }
