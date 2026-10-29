@@ -11,4 +11,18 @@ function validarDeudaConversacional(x){
  return {principalMinor,saldoMinor,cuotaMinor,tasaMensualPct:tasaConfirmada?x.tasaMensualPct:0,
   tasaConfirmada,estado:saldoMinor===0?"PAGADO":"ACTIVO"};
 }
-module.exports={validarDeudaConversacional};
+function calendarioDeudaConversacional(x,ahora=new Date()){
+ if(x.diaPago===undefined||x.diaPago===null)
+  return {diaPago:null,periodicidad:null,periodicidadConfirmada:false,fechaVencimiento:null};
+ if(!Number.isInteger(x.diaPago)||x.diaPago<1||x.diaPago>31||
+  x.frecuencia!==undefined&&x.frecuencia!=="MENSUAL"||!(ahora instanceof Date)||!Number.isFinite(+ahora))
+  throw Object.assign(new Error("Calendario de deuda inválido"),{statusCode:422});
+ const partes=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",
+  year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(ahora).map(p=>[p.type,p.value]));
+ const year=Number(partes.year),mes=Number(partes.month)-1,dia=Number(partes.day);
+ const fecha=mes=>new Date(Date.UTC(year,mes,Math.min(x.diaPago,new Date(Date.UTC(year,mes+1,0)).getUTCDate()),17));
+ const vencimiento=fecha(mes);
+ return {diaPago:x.diaPago,periodicidad:"MENSUAL",periodicidadConfirmada:Number.isSafeInteger(x.cuotaMinor)&&x.cuotaMinor>0,
+  fechaVencimiento:vencimiento.getUTCDate()<dia?fecha(mes+1):vencimiento};
+}
+module.exports={validarDeudaConversacional,calendarioDeudaConversacional};

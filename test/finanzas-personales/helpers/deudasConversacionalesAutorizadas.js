@@ -17,6 +17,12 @@ async function probarDeudasConversacionalesAutorizadas(){
  const b=await crear({});await aprobar(usuarioId,b._id);
  const p=await Prestamo.findOne({usuarioId}).lean();
  assert.equal(p.principalMinor,1000);assert.equal(p.saldoMinor,600);assert.equal(p.tasaConfirmada,false);
+ assert.equal(p.fechaVencimiento,null);assert.equal(p.periodicidadConfirmada,false);
+ const programada=await crear({diaPago:31,frecuencia:"MENSUAL"});
+ const aprobada=await aprobar(usuarioId,programada._id);
+ const calendario=await Prestamo.findById(aprobada.operaciones[0].id).lean();
+ assert.equal(calendario.diaPago,31);assert.equal(calendario.periodicidad,"MENSUAL");
+ assert.equal(calendario.periodicidadConfirmada,true);assert.ok(calendario.fechaVencimiento instanceof Date);
  assert.equal(await Activo.countDocuments({usuarioId}),0,"La deuda de una moto no demuestra su valor actual");
  assert.equal(await Tx.countDocuments({usuarioId}),0,"Registrar deuda existente no genera caja");
  const pagada=await crear({saldoMinor:0,abonadoMinor:1000});await aprobar(usuarioId,pagada._id);
