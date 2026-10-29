@@ -9,6 +9,7 @@ const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
 const ReservaCuota=require("../models/reservaCuotaRecurrente.model");
 const {exigirIndiceIdempotencia}=require("./indiceIdempotenciaPersonal.service");
+const {indiceExacto}=require("../security/auditoriaIndicesMongoV81.service");
 const {confirmarIntento}=require("./confirmacionIntentoPersonal.service");
 const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,periodoRecurrenteColombia,validarTotalPeriodoRecurrente}=require("./vinculoRecurrenteV81.service");
@@ -21,8 +22,7 @@ async function exigirIndiceUnicoReservaRecurrente(){
  let indices;
  try{indices=await ReservaCuota.collection.indexes();}
  catch(_){throw Object.assign(new Error("Índice único de cuotas recurrentes no disponible"),{statusCode:503});}
- const unico=indices.some(i=>i.unique===true&&i.key?.usuarioId===1&&
-  i.key?.origenId===1&&i.key?.periodoInicio===1&&Object.keys(i.key).length===3);
+ const unico=indiceExacto(indices,["usuarioId","origenId","periodoInicio"]);
  if(!unico)throw Object.assign(new Error("Índice único de cuotas recurrentes no configurado"),{statusCode:503});
 }
 async function confirmarRegistroIntento(usuarioId,input){

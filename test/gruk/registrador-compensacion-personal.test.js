@@ -137,7 +137,9 @@ test("el verificador exige índices únicos exactos y falla cerrado sin conexió
  ];
  assert.equal(verificarIndices(idx,"fp_compensacion_orden_usuario_v1",[["usuarioId",1],["secuencia",1]]),true);
  assert.equal(verificarIndices([{...idx[1],unique:false}],"fp_compensacion_orden_usuario_v1",[["usuarioId",1],["secuencia",1]]),false);
- for(const opciones of [{partialFilterExpression:{secuencia:{$gt:100}}},{sparse:true}]){
+ for(const opciones of [{partialFilterExpression:{secuencia:{$gt:100}}},{sparse:true},
+  {expireAfterSeconds:0},{collation:{locale:"es",strength:1}},
+  {key:{secuencia:1,usuarioId:1}}]){
   const incompleto={...idx[1],...opciones};
   assert.equal(verificarIndices([incompleto],"fp_compensacion_orden_usuario_v1",[["usuarioId",1],["secuencia",1]]),false);
   await assert.rejects(exigirIndices({

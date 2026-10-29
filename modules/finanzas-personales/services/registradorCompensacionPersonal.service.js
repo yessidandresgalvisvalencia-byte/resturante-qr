@@ -4,6 +4,7 @@ const Cursor=require("../models/CursorCompensacionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
 const {eventoCompensatorio}=require("./eventoCompensatorioPersonal.service");
 const {vigente}=require("./estadoCompensadoPersonal.service");
+const {indiceExacto}=require("../security/auditoriaIndicesMongoV81.service");
 const GENESIS="0".repeat(64);
 const ID=/^[A-Za-z0-9_-]{1,128}$/;
 
@@ -12,9 +13,8 @@ function conflicto(mensaje){
 }
 function verificarIndices(indices,nombre,campos){
  // MongoDB omite `unique` en la especificación del índice _id_, que es único por definición.
- return indices.some(i=>i.name===nombre&&(i.unique===true||(nombre==="_id_"&&i.unique===undefined))&&
-  !i.partialFilterExpression&&i.sparse!==true&&
-  Object.keys(i.key||{}).length===campos.length&&campos.every(([k,v])=>i.key[k]===v));
+ return Array.isArray(indices)&&campos.every(([,v])=>v===1)&&indices.some(i=>i?.name===nombre&&
+  indiceExacto([{...i,unique:nombre==="_id_"&&i.unique===undefined?true:i.unique}],campos.map(([k])=>k)));
 }
 async function exigirIndices({EventoModelo=Evento,CursorModelo=Cursor}={}){
  let indices,cursores;

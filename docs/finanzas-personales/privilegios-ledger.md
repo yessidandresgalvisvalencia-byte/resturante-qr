@@ -32,6 +32,8 @@ El servidor abre la conexión con `autoCreate: false` y `autoIndex: false`. Ante
 
 La auditoría de índices V81 exige las claves en el orden declarado y rechaza índices únicos `sparse`, TTL o con collation distinta de `simple`. Las reservas y vínculos requieren cobertura completa; la idempotencia transaccional admite únicamente el filtro `{ externalIdHash: { $type: "string" } }`, sin condiciones adicionales. Un índice único oculto sigue imponiendo unicidad. Los índices de consulta parciales, sparse u ocultos se informan como no verificados para rendimiento, sin bloquear por sí solos el arranque. Esta comprobación de metadatos no demuestra la configuración de producción ni la completitud de sus datos.
 
+El registro idempotente, las reservas recurrentes y el registrador compensatorio reutilizan esa comprobación estricta antes de escribir. CI sustituye índices reales por un filtro adicional, un índice sparse y una collation no binaria: las operaciones con el usuario restringido responden 503 sin modificar fuentes, saldo, eventos, cursor ni outbox; tras restaurarlos, la compensación se confirma. La comprobación previa no bloquea cambios administrativos concurrentes entre la revisión del índice y la escritura; no acredita protección contra una credencial administrativa hostil.
+
 La provisión se ejecuta separadamente con una credencial administrativa en `PERSONAL_MONGO_PROVISION_URI` y una base explícita en `PERSONAL_MONGO_DB`. No se reutiliza `PERSONAL_MONGO_URI`. El comando es:
 
 ```sh

@@ -96,4 +96,53 @@ async function probarCadenaV81Autorizada(){
  assert.deepEqual(await Eventos.findOne({usuarioId,eventId:datos.id}).lean(),fuente);
  await assert.rejects(Eventos.collection.updateOne({_id:fuente._id},{$set:{montoCentavos:"1"}}),e=>e.code===13);
 }
-module.exports={probarCajaAutorizada,probarCadenaV81Autorizada};
+
+async function probarIndicesEnCaliente(db){
+ const {provisionarMongoPersonal}=require("../../../modules/finanzas-personales/security/provisionMongoPersonal.service");
+ const usuarioId=new mongoose.Types.ObjectId();
+ const input={tipo:"INGRESO",montoMinor:10000,concepto:"Prueba índices",categoria:"OTROS",
+  cuenta:"INDICES_AUTH",medioPago:"TRANSFERENCIA",fecha:new Date(Date.now()-60000),externalId:"base-indices"};
+ const tx=await registrarTransaccion(usuarioId,input);
+ const estado=async()=>({
+  fuentes:await Tx.find({usuarioId}).sort({_id:1}).lean(),
+  cuentas:await Cuenta.find({usuarioId}).sort({_id:1}).lean(),
+  eventos:await Evento.find({usuarioId:String(usuarioId)}).sort({secuencia:1}).lean(),
+  cursor:await Cursor.findById(String(usuarioId)).lean(),
+  outbox:await Outbox.find({usuarioId}).sort({_id:1}).lean()
+ });
+ const antes=await estado();
+ // El administrador cambia índices; todas las operaciones de negocio siguen
+ // usando la conexión restringida. Restaurar incluso si una aserción falla.
+ async function conIndiceAlterado(coleccion,nombre,key,opciones,operacion){
+  const col=db.collection(coleccion);
+  await col.dropIndex(nombre);
+  try{
+   await col.createIndex(key,{...opciones,name:nombre});
+   await assert.rejects(operacion(),e=>e.statusCode===503);
+   assert.deepEqual(await estado(),antes);
+  }finally{
+   const indices=await col.indexes();
+   if(indices.some(i=>i.name===nombre))await col.dropIndex(nombre);
+   await provisionarMongoPersonal(db);
+  }
+ }
+ await conIndiceAlterado("fin_transacciones_personales","usuarioId_1_externalIdHash_1",
+  {usuarioId:1,externalIdHash:1},{unique:true,
+   partialFilterExpression:{externalIdHash:{$type:"string"},origen:"MANUAL"}},
+  ()=>registrarTransaccion(usuarioId,{...input,externalId:"rechazo-idempotencia"}));
+ await conIndiceAlterado("fin_reservas_cuotas_recurrentes","usuarioId_1_origenId_1_periodoInicio_1",
+  {usuarioId:1,origenId:1,periodoInicio:1},{unique:true,sparse:true},
+  ()=>registrarTransaccion(usuarioId,{...input,tipo:"GASTO",externalId:"rechazo-reserva",
+   recurrenteOrigenId:new mongoose.Types.ObjectId()}));
+ await conIndiceAlterado("fin_eventos_compensatorios_personales_v1","fp_compensacion_orden_usuario_v1",
+  {usuarioId:1,secuencia:1},{unique:true,collation:{locale:"en",strength:2}},
+  ()=>crearAplicador()({usuarioId,movimientoId:String(tx._id),tipo:"CORRECCION",
+   cambios:{montoMinor:9000},idempotencyKey:"rechazo-compensacion"}));
+ // Restaurados los índices, la misma solicitud sí puede confirmarse.
+ await crearAplicador()({usuarioId,movimientoId:String(tx._id),tipo:"CORRECCION",
+  cambios:{montoMinor:9000},idempotencyKey:"rechazo-compensacion"});
+ assert.equal((await Cuenta.findOne({usuarioId}).lean()).saldoMinor,9000);
+ assert.equal(await Evento.countDocuments({usuarioId:String(usuarioId)}),1);
+ assert.deepEqual(await Tx.find({usuarioId}).sort({_id:1}).lean(),antes.fuentes);
+}
+module.exports={probarCajaAutorizada,probarCadenaV81Autorizada,probarIndicesEnCaliente};
