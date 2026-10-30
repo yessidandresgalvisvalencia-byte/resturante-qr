@@ -5,7 +5,7 @@ const IDENTITY_FIELDS=["empresaId","sedeId","actorId"];
 function captureIdentity(context){
  if(!context||typeof context!=="object"||IDENTITY_FIELDS.some(k=>
    !Object.prototype.hasOwnProperty.call(context,k)||
-   typeof context[k]!=="string"||!context[k]))
+   typeof context[k]!=="string"||!/^[A-Za-z0-9_-]{1,80}$/.test(context[k])))
    throw Error("SYNC_TENANT_REQUIRED");
  return Object.freeze(Object.fromEntries(IDENTITY_FIELDS.map(k=>[k,context[k]])));
 }
