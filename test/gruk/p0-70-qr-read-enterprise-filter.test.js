@@ -106,3 +106,34 @@ test("QR with a valid signature from tenant B cannot read tenant A's site", asyn
   assert.equal(scope.status, 403);
   assert.equal(scope.filter, undefined);
 });
+
+test("QR site query excludes cross-tenant and unowned historical orders despite matching site alias", async () => {
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4, sedeId: site }, { secret, now }).token;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: "local", qrToken: token }, {
+    secret, now, RestauranteModel: mockFind({ _id: "restaurant-A" }),
+    SedeModel: mockFind({ _id: site, codigoSede: "local" })
+  });
+  assert.equal(scope.status, 200);
+  const records = [
+    { empresaId: e, restaurantId, mesa: 4, sedeId: "local" },
+    { empresaId: other, restaurantId, mesa: 4, sedeId: "local" },
+    { restaurantId, mesa: 4, sedeId: "local" },
+    { empresaId: e, restaurantId, mesa: 4, sedeId: "unrelated" }
+  ];
+  const matched = records.filter(record =>
+    record.empresaId === scope.filter.empresaId &&
+    record.restaurantId === scope.filter.restaurantId &&
+    record.mesa === scope.filter.mesa &&
+    scope.filter.sedeId.$in.includes(record.sedeId)
+  );
+  assert.deepEqual(matched, [records[0]]);
+});
+
+test("QR site-less query rejects a site-scoped request without leaking its filter", async () => {
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4 }, { secret, now }).token;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: site, qrToken: token }, {
+    secret, now, RestauranteModel: mockFind({ _id: "restaurant-A" })
+  });
+  assert.equal(scope.status, 403);
+  assert.equal(scope.filter, undefined);
+});
