@@ -53,6 +53,13 @@
       Object.prototype.hasOwnProperty.call(context,k) &&
       typeof context[k]==="string" && /^[A-Za-z0-9_-]{1,80}$/.test(context[k]));
   }
+  // A corrupted IndexedDB row must never make an ACK target a different ULID.
+  function ensureRecordKey(record) {
+    if(!record || typeof record.eventId!=="string" ||
+       !/^[0-9A-HJKMNP-TV-Z]{26}$/.test(record.eventId) ||
+       record.event?.eventId!==record.eventId)
+      throw Error("OUTBOX_EVENT_ID_MISMATCH");
+  }
   function matchesTenant(event, context) {
     return validTenantContext(context) && ["empresaId","sedeId","actorId"].every(k => event?.[k] === context[k]);
   }
@@ -66,7 +73,7 @@
       r.onerror=()=>reject(r.error||Error("OUTBOX_READ_FAILED"));
       t.onerror=()=>reject(t.error||Error("OUTBOX_ABORT"));
       t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
-      r.onsuccess=()=>{const c=r.result;if(!c||events.length>=limit){resolve(events);return;}if(matchesTenant(c.value.event,context))events.push(c.value.event);c.continue();};
+      r.onsuccess=()=>{const c=r.result;if(!c||events.length>=limit){resolve(events);return;}if(matchesTenant(c.value.event,context)){ensureRecordKey(c.value);events.push(c.value.event);}c.continue();};
     });}finally{db.close();}
   }
   async function markReceived(eventId, context) {
@@ -76,7 +83,7 @@
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readwrite"),s=t.objectStore(STORE),r=s.get(eventId);
       let updated=false;
-      r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(!matchesTenant(v.event,context))return;if(v.syncStatus==="received"){updated=true;return;}if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);updated=true;};
+      r.onsuccess=()=>{if(!r.result)return;const v=r.result;if(!matchesTenant(v.event,context))return;ensureRecordKey(v);if(v.syncStatus==="received"){updated=true;return;}if(v.syncStatus!=="pending")return;v.syncStatus="received";v.receivedAt=new Date().toISOString();s.put(v);updated=true;};
       r.onerror=()=>reject(r.error);
       t.oncomplete=()=>resolve(updated);
       t.onerror=()=>reject(t.error||new Error("OUTBOX_ABORT"));
@@ -96,7 +103,7 @@
       t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
       r.onsuccess=()=>{const cursor=r.result;
         if(!cursor||records.length>=limit){resolve(records);return;}
-        if(matchesTenant(cursor.value.event,context))records.push({eventId:cursor.value.eventId});
+        if(matchesTenant(cursor.value.event,context)){ensureRecordKey(cursor.value);records.push({eventId:cursor.value.eventId});}
         cursor.continue();
       };
     });}finally{db.close();}
@@ -119,6 +126,7 @@
       r.onsuccess=()=>{
         const v=r.result;
         if(!v||!matchesTenant(v.event,context)||v.syncStatus!=="received")return;
+        ensureRecordKey(v);
         // Never regress a confirmed terminal state on a later stale response.
         if(v.serverStatus==="APLICADO"&&result.status!=="APLICADO")return;
         if(v.serverStatus==="RECHAZADO"&&result.status!=="RECHAZADO")return;
@@ -149,12 +157,12 @@
       r.onsuccess=()=>{const cursor=r.result;
         if(!cursor||records.length>=limit){resolve(records);return;}
         const v=cursor.value;
-        if(matchesTenant(v.event,context))records.push({
+        if(matchesTenant(v.event,context)){ensureRecordKey(v);records.push({
           eventId:v.eventId,syncStatus:v.syncStatus,
           serverStatus:v.serverStatus||null,serverApplied:v.serverApplied===true,
           serverStaged:v.serverStaged===true,
           serverFinanciallyReconciled:v.serverFinanciallyReconciled===true
-        });
+        });}
         cursor.continue();
       };
     });}finally{db.close();}
@@ -181,6 +189,7 @@
         if(matchesTenant(v.event,context)&&
           (v.syncStatus==="pending"||v.syncStatus==="received")&&
           v.serverApplied!==true){
+          ensureRecordKey(v);
           const items=v.event?.payload?.items;
           if(!Array.isArray(items)||items.length<1) {reject(Error("OUTBOX_STOCK_EVENT_INVALID"));return;}
           for(const item of items){
