@@ -185,7 +185,10 @@
             if(!item||typeof item!=="object"||Array.isArray(item)||
                typeof item.productoId!=="string"||!item.productoId.trim()||
                !Object.prototype.hasOwnProperty.call(item,"cantidad")||
-               item.cantidad===null||item.cantidad===undefined){
+               !(typeof item.cantidad==="number"?
+                 Number.isSafeInteger(item.cantidad)&&item.cantidad>0:
+                 typeof item.cantidad==="string"&&/^[1-9][0-9]*$/.test(item.cantidad)&&
+                 Number.isSafeInteger(Number(item.cantidad)))){
               reject(Error("OUTBOX_STOCK_EVENT_INVALID"));return;
             }
             entries.push({eventId:v.eventId,
