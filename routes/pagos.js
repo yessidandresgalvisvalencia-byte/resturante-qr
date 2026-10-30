@@ -3,16 +3,25 @@ const express = require("express");
 const crypto = require("crypto");
 const Pedido = require("../models/pedido");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
+const { resolveMesaQrRead } = require("../core/security/qrMesaRead.service");
 
 const router = express.Router();
 
 router.post("/crear-pago", async (req, res) => {
+  res.set("Cache-Control", "no-store");
   try {
     const restaurantId = String(req.body?.restaurantId || "").trim();
     const mesa = Number(req.body?.mesa);
     if (!restaurantId || !Number.isInteger(mesa) || mesa <= 0) {
       return res.status(400).json({ ok: false, error: "restaurantId y mesa son obligatorios" });
     }
+
+    const scope = await resolveMesaQrRead({
+      restaurantId, mesa, sedeId: req.body?.sedeId,
+      qrToken: req.body?.qrToken
+    });
+    if (scope.status !== 200)
+      return res.status(scope.status).json({ ok: false, error: scope.error });
 
     const publicKey = process.env.WOMPI_PUBLIC_KEY;
     const integrityKey = process.env.WOMPI_INTEGRITY_KEY;
@@ -22,8 +31,7 @@ router.post("/crear-pago", async (req, res) => {
     }
 
     const pedidos = await Pedido.find({
-      restaurantId,
-      mesa,
+      ...scope.filter,
       estadoPago: "pendiente"
     }).select("_id precio").sort({ createdAt: 1 }).lean();
 
