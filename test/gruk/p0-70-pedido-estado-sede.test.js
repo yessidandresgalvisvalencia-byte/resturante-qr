@@ -85,6 +85,14 @@ test("P0-70: otro tenant, otro restaurante y usuario sin sede no escriben", asyn
   }
 });
 
+test("P0-70: pedido legacy sin sede no se entrega a empleados de sede", async () => {
+  const h = makeHarness({ _id: pedidoId, restaurantId: "restA", sedeId: "" });
+  const result = await updatePedidoEstado({ pedidoId, auth: staffA, estado: "listo" }, h.deps);
+  assert.equal(result.status, 404);
+  const ownerResult = await updatePedidoEstado({ pedidoId, auth: owner, estado: "listo" }, h.deps);
+  assert.equal(ownerResult.status, 200);
+});
+
 test("P0-70: dueño puede operar pedido de su empresa, no de otra", async () => {
   const h = makeHarness();
   const result = await updatePedidoEstado({ pedidoId, auth: owner, estado: "entregado" }, h.deps);
