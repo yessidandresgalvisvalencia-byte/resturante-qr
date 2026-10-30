@@ -1,3 +1,12 @@
+// QR messages and waiter names are untrusted. Never interpolate raw values
+// into the staff panel's innerHTML while a JWT is present in the browser.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;"
+  })[char]);
+}
+
 function mostrarToast(mensaje, tipo = "info") {
   let container = document.getElementById("toastContainer");
 
@@ -44,7 +53,12 @@ function vibrar() {
     navigator.vibrate(100);
   }
 }
-const socket = io();
+// The server authenticates both Socket.IO and operational HTTP calls with JWT.
+const meseroToken = localStorage.getItem("grukAuthToken") || "";
+const socket = io({ auth: { token: meseroToken } });
+function meseroAuthHeaders() {
+  return { Authorization: "Bearer " + meseroToken };
+}
 
 function getRestaurantId() {
   const fromUrl = new URLSearchParams(window.location.search).get("restaurantId");
@@ -65,10 +79,11 @@ async function atendiendoLlamado(id) {
   try {
     const restaurantId = getRestaurantId();
 
-    const res = await fetch(`/api/llamados/${id}/atendiendo?restaurantId=${restaurantId}`, {
+    const res = await fetch(`/api/llamados/${encodeURIComponent(id)}/atendiendo?restaurantId=${encodeURIComponent(restaurantId)}`, {
       method: "PUT",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        ...meseroAuthHeaders()
       }
     });
 
@@ -89,10 +104,11 @@ async function atendiendoLlamado(id) {
 
 async function entregarPedido(id) {
   try {
-    const res = await fetch(`/api/pedido/${id}/estado`, {
+    const res = await fetch(`/api/pedido/${encodeURIComponent(id)}/estado`, {
       method: "PUT",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        ...meseroAuthHeaders()
       },
       body: JSON.stringify({ estado: "entregado" })
     });
@@ -116,7 +132,7 @@ async function cargarMesero() {
     const restaurantId = getRestaurantId();
     const nombreMesero = getMeseroNombreActual();
 
-    const res = await fetch(`/api/mesero/mesas?restaurantId=${restaurantId}`);
+    const res = await fetch(`/api/mesero/mesas?restaurantId=${encodeURIComponent(restaurantId)}`, { headers: meseroAuthHeaders() });
     if (!res.ok) {
       console.log("Error cargando solicitudes del mesero");
       return;
@@ -135,18 +151,21 @@ async function cargarMesero() {
       if (!llamadasDelMesero.length) {
         listaLlamados.innerHTML = `
           <div class="card">
-            <p>No hay solicitudes para ${nombreMesero || "este mesero"}.</p>
+            <p>No hay solicitudes para ${escapeHtml(nombreMesero || "este mesero")}.</p>
           </div>
         `;
       } else {
         llamadasDelMesero.forEach(l => {
+          // Inline handler receives only a canonical Mongo ObjectId, never HTML.
+          if (!/^[a-f0-9]{24}$/i.test(String(l._id))) return;
+          const safeId = String(l._id);
           listaLlamados.innerHTML += `
             <div class="card">
-              <h3>Mesa ${l.mesa}</h3>
-              <p>${l.mensaje || "Solicitud de mesero"}</p>
-              <p><strong>Mesero asignado:</strong> ${l.meseroNombre || "Sin asignar"}</p>
+              <h3>Mesa ${escapeHtml(l.mesa)}</h3>
+              <p>${escapeHtml(l.mensaje || "Solicitud de mesero")}</p>
+              <p><strong>Mesero asignado:</strong> ${escapeHtml(l.meseroNombre || "Sin asignar")}</p>
               <p>Estado: ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
-              <button onclick="atendiendoLlamado('${l._id}')" ${l.estado === "atendiendo" ? "disabled" : ""}>
+              <button onclick="atendiendoLlamado('${safeId}')" ${l.estado === "atendiendo" ? "disabled" : ""}>
                 ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "Atendiendo"}
               </button>
             </div>
@@ -155,8 +174,12 @@ async function cargarMesero() {
       }
     }
 
-    const pedidosRes = await fetch(`/api/pedidos?restaurantId=${restaurantId}`);
+    const pedidosRes = await fetch(`/api/pedidos?restaurantId=${encodeURIComponent(restaurantId)}`, {
+      headers: meseroAuthHeaders()
+    });
+    if (!pedidosRes.ok) throw Error("PEDIDOS_NO_AUTORIZADOS");
     const pedidos = await pedidosRes.json();
+    if (!Array.isArray(pedidos)) throw Error("PEDIDOS_RESPUESTA_INVALIDA");
 
     const listos = pedidos.filter(p => p.estado === "listo");
 
@@ -172,12 +195,14 @@ async function cargarMesero() {
         `;
       } else {
         listos.forEach(p => {
+          if (!/^[a-f0-9]{24}$/i.test(String(p._id))) return;
+          const safePedidoId = String(p._id);
           listaListos.innerHTML += `
             <div class="card">
-              <h3>Mesa ${p.mesa}</h3>
-              <p>${p.producto}</p>
-              <p>$${p.precio}</p>
-              <button onclick="entregarPedido('${p._id}')">Entregado</button>
+              <h3>Mesa ${escapeHtml(p.mesa)}</h3>
+              <p>${escapeHtml(p.producto)}</p>
+              <p>$${escapeHtml(p.precio)}</p>
+              <button onclick="entregarPedido('${safePedidoId}')">Entregado</button>
             </div>
           `;
         });
@@ -193,7 +218,7 @@ async function cargarEstadoMesas() {
     const restaurantId = getRestaurantId();
     const nombreMesero = getMeseroNombreActual();
 
-    const res = await fetch(`/api/mesero/mesas?restaurantId=${restaurantId}`);
+    const res = await fetch(`/api/mesero/mesas?restaurantId=${encodeURIComponent(restaurantId)}`, { headers: meseroAuthHeaders() });
     if (!res.ok) return;
 
     const data = await res.json();
@@ -209,7 +234,7 @@ async function cargarEstadoMesas() {
     if (!mesasDelMesero.length) {
       lista.innerHTML = `
         <div class="card">
-          <p>No hay mesas con solicitudes para ${nombreMesero || "este mesero"}.</p>
+          <p>No hay mesas con solicitudes para ${escapeHtml(nombreMesero || "este mesero")}.</p>
         </div>
       `;
       return;
@@ -218,9 +243,9 @@ async function cargarEstadoMesas() {
     mesasDelMesero.forEach(item => {
       lista.innerHTML += `
         <div class="card">
-          <h3>Mesa ${item.mesa}</h3>
-          <p>${item.mensaje || "Solicitud de mesero"}</p>
-          <p><strong>Mesero asignado:</strong> ${item.meseroNombre || "Sin asignar"}</p>
+          <h3>Mesa ${escapeHtml(item.mesa)}</h3>
+          <p>${escapeHtml(item.mensaje || "Solicitud de mesero")}</p>
+          <p><strong>Mesero asignado:</strong> ${escapeHtml(item.meseroNombre || "Sin asignar")}</p>
           <p>Estado: ${item.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
         </div>
       `;

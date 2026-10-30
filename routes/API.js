@@ -14,6 +14,13 @@ const {
 const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service");
+const { emitRestaurantRealtime } = require("../core/realtime/tenantRealtime.service");
+const { resolveLlamadosScope, validRestaurantId } = require("../core/realtime/llamadosTenant.service");
+const { updatePedidoEstado } = require("../core/security/pedidoEstadoTenant.service");
+const { resolvePedidoPagoScope } = require("../core/security/pedidoPagoTenant.service");
+const { resolvePedidoListadoScope } = require("../core/security/pedidoListadoTenant.service");
+const { issueMesaQr, resolveMesaQrRead } = require("../core/security/qrMesaRead.service");
+const { issueCallCapability, hashCallCapability, validMesa } = require("../core/realtime/llamadosCapability.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
 const { revocarIdentidad } = require("../core/auth/sessionRevocation.service");
@@ -408,9 +415,7 @@ router.post("/menu", ...seguridadMenuAdmin, async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit("menu:actualizado", {
-        restaurantId
-      });
+      await emitRestaurantRealtime(io, { restaurantId, event: "menu:actualizado", payload: { restaurantId } });
     }
 
     console.log(
@@ -787,9 +792,7 @@ router.put("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit("menu:actualizado", {
-        restaurantId
-      });
+      await emitRestaurantRealtime(io, { restaurantId, event: "menu:actualizado", payload: { restaurantId } });
     }
 
     console.log(
@@ -894,9 +897,7 @@ router.put("/menu/:id/stock", ...seguridadMenuAdmin, async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit("menu:actualizado", {
-        restaurantId
-      });
+      await emitRestaurantRealtime(io, { restaurantId, event: "menu:actualizado", payload: { restaurantId } });
     }
 
     return res.json({
@@ -1069,9 +1070,7 @@ router.delete("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit("menu:actualizado", {
-        restaurantId
-      });
+      await emitRestaurantRealtime(io, { restaurantId, event: "menu:actualizado", payload: { restaurantId } });
     }
 
     return res.json({
@@ -1437,10 +1436,7 @@ router.post("/pedido", async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit(
-        "pedido:nuevo",
-        pedido
-      );
+      await emitRestaurantRealtime(io, { restaurantId: pedido.restaurantId, sedeId: pedido.sedeId, event: "pedido:nuevo", payload: pedido });
     }
 
     console.log(
@@ -1488,72 +1484,62 @@ router.post("/pedido", async (req, res) => {
     });
   }
 });
-router.get("/pedidos", async (req, res) => {
+router.get("/pedidos", authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO),
+  async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
-    const sedeId = req.query.sedeId || "";
-
-    const filtro = { restaurantId };
-
-    // Ã°Å¸â€˜â€¡ SOLO si viene sedeId, filtra por sede
-    if (sedeId) {
-      filtro.sedeId = sedeId;
-    }
-
-    const pedidos = await Pedido.find(filtro).sort({ createdAt: -1 });
-
-    res.json(pedidos);
-  } catch (error) {
-    res.status(500).json({
-      mensaje: "Error obteniendo pedidos",
-      error
+    const scope = await resolvePedidoListadoScope({
+      auth: req.auth, restaurantId: req.query.restaurantId
     });
+    if (scope.status !== 200)
+      return res.status(scope.status).json({ ok: false, error: scope.error });
+
+    const pedidos = await Pedido.find(scope.filter).sort({ createdAt: -1 });
+    return res.json(pedidos);
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar el listado de pedidos" });
   }
 });
 
 router.get("/pedidos/mesa/:mesa", async (req, res) => {
+  res.set("Cache-Control", "no-store");
   try {
-    const restaurantId = getRestaurantId(req);
-    const mesa = Number(req.params.mesa);
-
-    const pedidos = await Pedido.find({ restaurantId, mesa }).sort({ createdAt: -1 });
-
-    const subtotal = pedidos
-      .filter(p => p.estado !== "entregado")
-      .reduce((acc, p) => acc + p.precio, 0);
-
-    res.json({ pedidos, subtotal });
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error obteniendo pedidos por mesa", error });
+    const scope = await resolveMesaQrRead({
+      restaurantId: req.query.restaurantId, mesa: req.params.mesa,
+      sedeId: req.query.sedeId, qrToken: req.query.qrToken
+    });
+    if (scope.status !== 200)
+      return res.status(scope.status).json({ ok: false, error: scope.error });
+    const pedidos = await Pedido.find(scope.filter)
+      .select("producto observaciones precio estado estadoPago metodoPago tiempoEstimado mesa createdAt")
+      .sort({ createdAt: -1 }).lean();
+    const subtotal = pedidos.filter(p => p.estado !== "entregado")
+      .reduce((acc, p) => acc + Number(p.precio || 0), 0);
+    return res.json({ pedidos, subtotal });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar la mesa" });
   }
 });
 
 router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO), async (req, res) => {
   try {
-    const { estado, tiempoEstimado } = req.body;
-    if (!["pendiente","preparando","listo","entregado"].includes(String(estado))) return res.status(400).json({ok:false,error:"Estado de pedido inválido"});
-    const actual = await Pedido.findById(req.params.id).select("restaurantId").lean();
-    if (!actual) return res.status(404).json({ok:false,error:"Pedido no encontrado"});
-    const tenant = await Restaurante.findOne({restaurantId:actual.restaurantId,empresaId:req.auth.empresaId}).select("_id").lean();
-    if (!tenant) return res.status(403).json({ok:false,error:"Pedido fuera del tenant autorizado"});
-
-    const update = { estado };
-    if (tiempoEstimado) {
-      update.tiempoEstimado = Number(tiempoEstimado);
-    }
-
-    const pedido = await Pedido.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true }
-    );
-
+    const resultado = await updatePedidoEstado({
+      pedidoId: req.params.id,
+      auth: req.auth,
+      estado: req.body?.estado,
+      tiempoEstimado: req.body?.tiempoEstimado
+    });
+    if (resultado.status !== 200)
+      return res.status(resultado.status).json({ ok: false, error: resultado.error });
+    const pedido = resultado.pedido;
     const io = req.app.get("io");
-    io.emit("pedido:actualizado", pedido);
-
-    res.json(pedido);
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error actualizando pedido", error });
+    await emitRestaurantRealtime(io, {
+      restaurantId: pedido.restaurantId, sedeId: pedido.sedeId,
+      event: "pedido:actualizado", payload: pedido
+    });
+    return res.json(pedido);
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar o actualizar el pedido" });
   }
 });
 
@@ -1563,13 +1549,25 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
     return res.status(400).json({ ok: false, error: "Estado de pago inválido" });
   }
 
+  // Authorization is derived from JWT + persisted restaurant/site, never from
+  // a client-supplied sedeId. Fail closed before opening a financial transaction.
+  let scopePago;
+  try {
+    scopePago = await resolvePedidoPagoScope({ pedidoId: req.params.id, auth: req.auth });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar el ámbito del pedido" });
+  }
+  if (scopePago.status !== 200)
+    return res.status(scopePago.status).json({ ok: false, error: scopePago.error });
+
   const session = await mongoose.startSession();
   let pedidoFinal = null;
   let ventaPostCommit = null;
 
   try {
     await session.withTransaction(async () => {
-      const pedido = await Pedido.findById(req.params.id).session(session);
+      // Scope is enforced by MongoDB within the same transaction as the sale.
+      const pedido = await Pedido.findOne(scopePago.filter).session(session);
       if (!pedido) {
         const error = new Error("PEDIDO_NO_ENCONTRADO"); error.statusCode = 404; throw error;
       }
@@ -1602,7 +1600,12 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
             { _id: mongoose.Types.ObjectId.isValid(pedido.sedeId) ? pedido.sedeId : null }
           ]
         }).session(session).lean();
-        if (sede) sedeObjectId = sede._id;
+        if (!sede) {
+          const error = new Error("SEDE_PAGO_NO_VERIFICADA");
+          error.statusCode = 422;
+          throw error;
+        }
+        sedeObjectId = sede._id;
       }
 
       const resultadoVenta = await registrarVentaDesdePedido({
@@ -1622,7 +1625,7 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
     if (ventaPostCommit) emitirVentaCompletada(ventaPostCommit);
 
     const io = req.app.get("io");
-    io.emit("pedido:actualizado", pedidoFinal);
+    await emitRestaurantRealtime(io, { restaurantId: pedidoFinal.restaurantId, sedeId: pedidoFinal.sedeId, event: "pedido:actualizado", payload: pedidoFinal });
 
     return res.json({ ok: true, pedido: pedidoFinal });
   } catch (error) {
@@ -1631,7 +1634,8 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
     const mensajes = {
       403: "Pedido fuera del tenant autorizado",
       404: "Pedido no encontrado",
-      409: "Un pago confirmado no puede revertirse desde este endpoint"
+      409: "Un pago confirmado no puede revertirse desde este endpoint",
+      422: "La sede del pedido no pudo verificarse"
     };
     return res.status(status).json({
       ok: false,
@@ -1646,10 +1650,35 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
    LLAMADOS / MESERO
 ========================= */
 
+// The QR call endpoint is public, but cannot assign a waiter from another restaurant.
+const seguridadLlamados = [
+  authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO),
+  async (req, res, next) => {
+    const restaurantId = req.query?.restaurantId;
+    if (!validRestaurantId(restaurantId))
+      return res.status(400).json({ ok: false, error: "restaurantId inválido" });
+    try {
+      const scope = await resolveLlamadosScope(req.auth, restaurantId);
+      if (!scope) return res.status(403).json({ ok: false, error: "Llamados fuera del ámbito autorizado" });
+      req.llamadosScope = scope;
+      return next();
+    } catch (_error) {
+      return res.status(503).json({ ok: false, error: "No se pudo verificar el ámbito de llamados" });
+    }
+  }
+];
+
 router.post("/llamar-mesero", async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
-    const { mesa, mensaje, meseroId } = req.body;
+    const restaurantId = req.body?.restaurantId;
+    const { mesa, mensaje, meseroId } = req.body || {};
+    if (!validRestaurantId(restaurantId) ||
+        !validMesa(mesa) ||
+        typeof meseroId !== "string" || !mongoose.isValidObjectId(meseroId) ||
+        (mensaje !== undefined && (typeof mensaje !== "string" || mensaje.length > 500))) {
+      return res.status(400).json({ ok: false, error: "Datos de llamado inválidos" });
+    }
 
     if (!meseroId) {
       return res.status(400).json({
@@ -1660,7 +1689,7 @@ router.post("/llamar-mesero", async (req, res) => {
 
     const Personal = require("../models/personal");
 
-    const mesero = await Personal.findById(meseroId);
+    const mesero = await Personal.findOne({ _id: meseroId, restaurantId });
 
     if (!mesero) {
       return res.status(404).json({
@@ -1676,8 +1705,10 @@ router.post("/llamar-mesero", async (req, res) => {
       });
     }
 
+    const sedeId = typeof mesero.sedeId === "string" ? mesero.sedeId : "";
     const llamadaActiva = await Llamado.findOne({
       restaurantId,
+      sedeId,
       mesa: Number(mesa),
       estado: { $in: ["pendiente", "atendiendo"] }
     }).sort({ createdAt: -1 });
@@ -1690,8 +1721,11 @@ router.post("/llamar-mesero", async (req, res) => {
       });
     }
 
+    const capability = issueCallCapability();
     const llamado = new Llamado({
       restaurantId,
+      sedeId,
+      capabilityHash: capability.hash,
       mesa: Number(mesa),
       mensaje: mensaje || "Mesa necesita atenciÃƒÂ³n",
       estado: "pendiente",
@@ -1705,12 +1739,12 @@ router.post("/llamar-mesero", async (req, res) => {
     await mesero.save();
 
     const io = req.app.get("io");
-    io.emit("llamado:nuevo", llamado);
+    await emitRestaurantRealtime(io, { restaurantId: llamado.restaurantId, sedeId: llamado.sedeId, event: "llamado:nuevo", payload: llamado });
 
-    res.json({
-      ok: true,
-      llamado
-    });
+    // Never serialize capabilityHash, including on the newly created document.
+    const publico = llamado.toObject();
+    delete publico.capabilityHash;
+    res.json({ ok: true, llamado: publico, callToken: capability.token });
   } catch (error) {
     console.log("Error creando llamado:", error);
     res.status(500).json({
@@ -1721,24 +1755,74 @@ router.post("/llamar-mesero", async (req, res) => {
   }
 });
 
-router.get("/llamados", async (req, res) => {
+
+// A public QR page can only read or acknowledge its own call with the random
+// token returned at creation. Restaurant/table IDs alone are not authorization.
+function publicCallFilter(req) {
+  const restaurantId = req.query?.restaurantId;
+  const callId = req.query?.callId;
+  const mesa = req.params?.mesa;
+  const hash = hashCallCapability(req.headers?.["x-gruk-call-token"]);
+  if (!validRestaurantId(restaurantId) || !validMesa(mesa) ||
+      typeof callId !== "string" || !/^[a-f0-9]{24}$/i.test(callId) || !hash) return null;
+  return { _id: callId, restaurantId, mesa: Number(mesa), capabilityHash: hash };
+}
+async function liberarMeseroLlamado(llamado) {
+  if (!llamado?.meseroId || !mongoose.isValidObjectId(llamado.meseroId)) return;
+  const Personal = require("../models/personal");
+  await Personal.findOneAndUpdate({
+    _id: llamado.meseroId,
+    restaurantId: llamado.restaurantId,
+    ...(llamado.sedeId ? { sedeId: llamado.sedeId } : {})
+  }, { estado: "disponible" });
+}
+router.get("/llamados/mesa/:mesa/estado-publico", async (req, res) => {
+  const filter = publicCallFilter(req);
+  if (!filter) return res.status(401).json({ ok: false, error: "Capacidad de llamado requerida" });
   try {
-    const restaurantId = getRestaurantId(req);
-    const llamados = await Llamado.find({ restaurantId }).sort({ createdAt: -1 });
+    const llamado = await Llamado.findOne(filter).select("estado mesa").lean();
+    if (!llamado) return res.status(404).json({ ok: false, error: "Llamado no encontrado" });
+    return res.json({ ok: true, llamado: { estado: llamado.estado, mesa: llamado.mesa } });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo consultar el llamado" });
+  }
+});
+router.put("/llamados/mesa/:mesa/atendido-publico", async (req, res) => {
+  const filter = publicCallFilter(req);
+  if (!filter) return res.status(401).json({ ok: false, error: "Capacidad de llamado requerida" });
+  try {
+    const llamado = await Llamado.findOneAndUpdate({
+      ...filter, estado: { $in: ["pendiente", "atendiendo"] }
+    }, { estado: "atendido" }, { new: true });
+    if (!llamado) return res.status(404).json({ ok: false, error: "Llamado no encontrado o ya atendido" });
+    await liberarMeseroLlamado(llamado);
+    await emitRestaurantRealtime(req.app.get("io"), {
+      restaurantId: llamado.restaurantId, sedeId: llamado.sedeId,
+      event: "llamado:actualizado", payload: llamado
+    });
+    return res.json({ ok: true, estado: "atendido" });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo confirmar el llamado" });
+  }
+});
+
+router.get("/llamados", ...seguridadLlamados, async (req, res) => {
+  try {
+    const llamados = await Llamado.find(req.llamadosScope).sort({ createdAt: -1 });
     res.json(llamados);
   } catch (error) {
     res.status(500).json({ mensaje: "Error obteniendo llamados", error });
   }
 });
 
-router.get("/llamados/mesa/:mesa", async (req, res) => {
+router.get("/llamados/mesa/:mesa", ...seguridadLlamados, async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
     const mesa = Number(req.params.mesa);
+    if (!validMesa(req.params.mesa))
+      return res.status(400).json({ ok: false, error: "Mesa inválida" });
 
     const llamado = await Llamado.findOne({
-      restaurantId,
-      mesa
+      ...req.llamadosScope, mesa
     }).sort({ createdAt: -1 });
 
     res.json({
@@ -1754,10 +1838,12 @@ router.get("/llamados/mesa/:mesa", async (req, res) => {
   }
 });
 
-router.put("/llamados/:id/atendiendo", async (req, res) => {
+router.put("/llamados/:id/atendiendo", ...seguridadLlamados, async (req, res) => {
   try {
-    const llamado = await Llamado.findByIdAndUpdate(
-      req.params.id,
+    if (!mongoose.isValidObjectId(req.params.id))
+      return res.status(400).json({ ok: false, error: "Identificador inválido" });
+    const llamado = await Llamado.findOneAndUpdate(
+      { ...req.llamadosScope, _id: req.params.id, estado: "pendiente" },
       { estado: "atendiendo" },
       { new: true }
     );
@@ -1770,7 +1856,7 @@ router.put("/llamados/:id/atendiendo", async (req, res) => {
     }
 
     const io = req.app.get("io");
-    io.emit("llamado:actualizado", llamado);
+    await emitRestaurantRealtime(io, { restaurantId: llamado.restaurantId, sedeId: llamado.sedeId, event: "llamado:actualizado", payload: llamado });
 
     res.json({
       ok: true,
@@ -1785,14 +1871,15 @@ router.put("/llamados/:id/atendiendo", async (req, res) => {
   }
 });
 
-router.put("/llamados/mesa/:mesa/atendido", async (req, res) => {
+router.put("/llamados/mesa/:mesa/atendido", ...seguridadLlamados, async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
     const mesa = Number(req.params.mesa);
+    if (!validMesa(req.params.mesa))
+      return res.status(400).json({ ok: false, error: "Mesa inválida" });
 
     const llamado = await Llamado.findOneAndUpdate(
       {
-        restaurantId,
+        ...req.llamadosScope,
         mesa,
         estado: { $in: ["pendiente", "atendiendo"] }
       },
@@ -1812,15 +1899,10 @@ router.put("/llamados/mesa/:mesa/atendido", async (req, res) => {
       });
     }
 
-    if (llamado.meseroId) {
-      const Personal = require("../models/personal");
-      await Personal.findByIdAndUpdate(llamado.meseroId, {
-        estado: "disponible"
-      });
-    }
+    await liberarMeseroLlamado(llamado);
 
     const io = req.app.get("io");
-    io.emit("llamado:actualizado", llamado);
+    await emitRestaurantRealtime(io, { restaurantId: llamado.restaurantId, sedeId: llamado.sedeId, event: "llamado:actualizado", payload: llamado });
 
     res.json({
       ok: true,
@@ -1836,12 +1918,10 @@ router.put("/llamados/mesa/:mesa/atendido", async (req, res) => {
   }
 });
 
-router.get("/mesero/mesas", async (req, res) => {
+router.get("/mesero/mesas", ...seguridadLlamados, async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
-
     const llamados = await Llamado.find({
-      restaurantId,
+      ...req.llamadosScope,
       estado: { $in: ["pendiente", "atendiendo"] }
     }).sort({ createdAt: -1 });
 
@@ -1877,26 +1957,13 @@ router.get(
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
   async (req, res) => {
   try {
-    const restaurantId = String(req.query.restaurantId || "").trim();
+    const scope = await resolvePedidoListadoScope({
+      auth: req.auth, restaurantId: req.query.restaurantId
+    });
+    if (scope.status !== 200)
+      return res.status(scope.status).json({ ok: false, error: scope.error });
 
-    if (!restaurantId) {
-      return res.status(400).json({
-        mensaje: "restaurantId es obligatorio"
-      });
-    }
-
-    const restaurante = await Restaurante.findOne({
-      restaurantId,
-      empresaId: req.auth.empresaId
-    }).select("_id").lean();
-
-    if (!restaurante) {
-      return res.status(403).json({
-        mensaje: "Restaurante fuera del tenant autorizado"
-      });
-    }
-
-    const pedidos = await Pedido.find({ restaurantId }).sort({ createdAt: -1 });
+    const pedidos = await Pedido.find(scope.filter).sort({ createdAt: -1 });
     const activos = pedidos.filter(p => p.estado !== "entregado");
     const totalVendido = pedidos.reduce((acc, p) => acc + p.precio, 0);
 
@@ -1920,7 +1987,7 @@ router.get(
       historial
     });
   } catch (error) {
-    res.status(500).json({ mensaje: "Error resumen admin", error });
+    res.status(503).json({ ok: false, error: "No se pudo verificar el resumen" });
   }
 });
 
@@ -2167,80 +2234,79 @@ router.post("/auth/cerrar-todas-sesiones", authMiddleware, async (req,res)=>{ tr
 ========================= */
 
 router.get("/factura/mesa/:mesa", async (req, res) => {
+  res.set("Cache-Control", "no-store");
   try {
-    const restaurantId = getRestaurantId(req);
-    const mesa = Number(req.params.mesa);
-    const propina = Number(req.query.propina || 0);
-
-    const pedidos = await Pedido.find({ restaurantId, mesa }).sort({ createdAt: -1 });
-
-    const subtotal = pedidos
-      .filter(p => p.estado !== "entregado")
-      .reduce((acc, p) => acc + p.precio, 0);
-
+    const propina = req.query.propina === undefined ? 0 : Number(req.query.propina);
+    if (![0, 10, 15, 20].includes(propina) ||
+        (req.query.propina !== undefined && typeof req.query.propina !== "string"))
+      return res.status(400).json({ ok: false, error: "Propina inválida" });
+    const scope = await resolveMesaQrRead({
+      restaurantId: req.query.restaurantId, mesa: req.params.mesa,
+      sedeId: req.query.sedeId, qrToken: req.query.qrToken
+    });
+    if (scope.status !== 200)
+      return res.status(scope.status).json({ ok: false, error: scope.error });
+    const pedidos = await Pedido.find(scope.filter)
+      .select("producto observaciones precio estado estadoPago metodoPago tiempoEstimado mesa createdAt")
+      .sort({ createdAt: -1 }).lean();
+    const subtotal = pedidos.filter(p => p.estado !== "entregado")
+      .reduce((acc, p) => acc + Number(p.precio || 0), 0);
     const valorPropina = Math.round(subtotal * (propina / 100));
-    const total = subtotal + valorPropina;
-
-    res.json({
-      mesa,
-      pedidos,
-      subtotal,
-      propina,
-      valorPropina,
-      total
+    return res.json({
+      mesa: Number(req.params.mesa), pedidos, subtotal,
+      propina, valorPropina, total: subtotal + valorPropina
     });
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error generando factura", error });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar la factura" });
   }
 });
 
-router.get("/qr/:mesa", async (req, res) => {
+function qrPublicOrigin() {
   try {
-    const restaurantId = getRestaurantId(req);
-    const mesa = Number(req.params.mesa);
-    const baseUrl = req.query.baseUrl || `${req.protocol}://${req.get("host")}`;
-    const url = `${baseUrl}/?restaurantId=${restaurantId}&mesa=${mesa}`;
-
-    const dataUrl = await QRCode.toDataURL(url);
-
-    res.json({
-      mesa,
-      restaurantId,
-      url,
-      dataUrl
-    });
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error generando QR", error });
+    const url = new URL(process.env.APP_URL);
+    if (url.protocol !== "https:" &&
+        !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))
+      return null;
+    return url.origin;
+  } catch (_error) {
+    return null;
   }
-});
-router.get("/qr-sede/:mesa", async (req, res) => {
+}
+async function emitirQrMesa(req, res, conSede) {
+  res.set("Cache-Control", "no-store");
   try {
-    const restaurantId = getRestaurantId(req);
-    const mesa = Number(req.params.mesa);
-    const sedeId = req.query.sedeId || "";
-
-    const baseUrl = req.query.baseUrl || `${req.protocol}://${req.get("host")}`;
-
-    const url = `${baseUrl}/?restaurantId=${restaurantId}&sedeId=${sedeId}&mesa=${mesa}`;
-
-    const dataUrl = await QRCode.toDataURL(url);
-
-    res.json({
-      ok: true,
-      mesa,
-      restaurantId,
-      sedeId,
-      url,
-      dataUrl
+    const origin = qrPublicOrigin();
+    if (!origin) return res.status(503).json({ ok: false, error: "APP_URL segura no configurada" });
+    const issued = await issueMesaQr({
+      auth: req.auth, restaurantId: req.query.restaurantId,
+      mesa: req.params.mesa, sedeId: conSede ? req.query.sedeId : undefined
     });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      ok: false,
-      error: "Error generando QR por sede"
+    if (issued.status !== 200)
+      return res.status(issued.status).json({ ok: false, error: issued.error });
+    if (conSede && !issued.sedeId)
+      return res.status(400).json({ ok: false, error: "sedeId obligatorio" });
+    const url = new URL("/", origin);
+    url.searchParams.set("restaurantId", req.query.restaurantId);
+    url.searchParams.set("mesa", String(Number(req.params.mesa)));
+    if (issued.sedeId) url.searchParams.set("sedeId", issued.sedeId);
+    url.searchParams.set("qrToken", issued.token);
+    const publicUrl = url.toString();
+    const dataUrl = await QRCode.toDataURL(publicUrl);
+    return res.json({
+      ok: true, mesa: Number(req.params.mesa),
+      restaurantId: req.query.restaurantId, sedeId: issued.sedeId,
+      url: publicUrl, dataUrl
     });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo generar QR autorizado" });
   }
-});
+}
+router.get("/qr/:mesa", authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  (req, res) => emitirQrMesa(req, res, false));
+router.get("/qr-sede/:mesa", authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  (req, res) => emitirQrMesa(req, res, true));
 
 /* =========================
    PERSONAL
@@ -3294,7 +3360,9 @@ router.post("/usuarios/login", async (req, res) => {
         empresaId: String(user.empresaId),
         restaurantId: String(user.restauranteId || ""),
         sedeId: user.sedeId ? String(user.sedeId._id) : null,
-        rol: rolJwt
+        rol: rolJwt,
+        identityType: "USUARIO",
+        tokenVersion: Number(user.tokenVersion || 0)
       },
       jwtSecret,
       {

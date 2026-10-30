@@ -5,6 +5,7 @@ const Restaurante = require("../models/restaurante");
 const Sede = require("../models/sede");
 const IntentoPagoPedido = require("../models/IntentoPagoPedido");
 const { registrarVentaDesdePedido, emitirVentaCompletada } = require("./ventas.service");
+const { emitRestaurantRealtime } = require("../core/realtime/tenantRealtime.service");
 
 async function confirmarPagoPedidoWompi({ transaction, io = null }) {
   const reference = String(transaction?.reference || "");
@@ -96,7 +97,10 @@ async function confirmarPagoPedidoWompi({ transaction, io = null }) {
     });
 
     for (const venta of ventasPostCommit) emitirVentaCompletada(venta);
-    if (io) for (const pedido of pedidosPostCommit) io.emit("pedido:actualizado", pedido);
+    if (io) for (const pedido of pedidosPostCommit) {
+      await emitRestaurantRealtime(io, { restaurantId: pedido.restaurantId, sedeId: pedido.sedeId,
+        event: "pedido:actualizado", payload: pedido });
+    }
     return { handled: true, ok: true, estado: "APROBADO" };
   } finally {
     await session.endSession();
