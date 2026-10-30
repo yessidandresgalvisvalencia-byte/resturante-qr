@@ -17,6 +17,7 @@ const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service")
 const { emitRestaurantRealtime } = require("../core/realtime/tenantRealtime.service");
 const { resolveLlamadosScope, validRestaurantId } = require("../core/realtime/llamadosTenant.service");
 const { updatePedidoEstado } = require("../core/security/pedidoEstadoTenant.service");
+const { resolvePedidoPagoScope } = require("../core/security/pedidoPagoTenant.service");
 const { issueCallCapability, hashCallCapability, validMesa } = require("../core/realtime/llamadosCapability.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
@@ -1549,13 +1550,25 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
     return res.status(400).json({ ok: false, error: "Estado de pago inválido" });
   }
 
+  // Authorization is derived from JWT + persisted restaurant/site, never from
+  // a client-supplied sedeId. Fail closed before opening a financial transaction.
+  let scopePago;
+  try {
+    scopePago = await resolvePedidoPagoScope({ pedidoId: req.params.id, auth: req.auth });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar el ámbito del pedido" });
+  }
+  if (scopePago.status !== 200)
+    return res.status(scopePago.status).json({ ok: false, error: scopePago.error });
+
   const session = await mongoose.startSession();
   let pedidoFinal = null;
   let ventaPostCommit = null;
 
   try {
     await session.withTransaction(async () => {
-      const pedido = await Pedido.findById(req.params.id).session(session);
+      // Scope is enforced by MongoDB within the same transaction as the sale.
+      const pedido = await Pedido.findOne(scopePago.filter).session(session);
       if (!pedido) {
         const error = new Error("PEDIDO_NO_ENCONTRADO"); error.statusCode = 404; throw error;
       }
@@ -1588,7 +1601,12 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
             { _id: mongoose.Types.ObjectId.isValid(pedido.sedeId) ? pedido.sedeId : null }
           ]
         }).session(session).lean();
-        if (sede) sedeObjectId = sede._id;
+        if (!sede) {
+          const error = new Error("SEDE_PAGO_NO_VERIFICADA");
+          error.statusCode = 422;
+          throw error;
+        }
+        sedeObjectId = sede._id;
       }
 
       const resultadoVenta = await registrarVentaDesdePedido({
@@ -1617,7 +1635,8 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
     const mensajes = {
       403: "Pedido fuera del tenant autorizado",
       404: "Pedido no encontrado",
-      409: "Un pago confirmado no puede revertirse desde este endpoint"
+      409: "Un pago confirmado no puede revertirse desde este endpoint",
+      422: "La sede del pedido no pudo verificarse"
     };
     return res.status(status).json({
       ok: false,
