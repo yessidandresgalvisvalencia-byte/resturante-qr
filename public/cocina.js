@@ -1,4 +1,16 @@
-const socket = io()
+// Staff views must authenticate both HTTP and Socket.IO; restaurantId in URL
+// is a locator only and never grants access to another company or site.
+const cocinaToken = localStorage.getItem("grukAuthToken") || ""
+const socket = io({ auth: { token: cocinaToken } })
+function cocinaAuthHeaders() {
+    return { Authorization: "Bearer " + cocinaToken }
+}
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;",
+        '"': "&quot;", "'": "&#39;"
+    })[char])
+}
 const params = new URLSearchParams(window.location.search)
 const restaurantId = params.get("restaurantId") || "rest1"
 
@@ -37,32 +49,40 @@ const tiempo = prompt("Tiempo estimado en minutos", "15")
 tiempoEstimado = Number(tiempo || 15)
 }
 
-await fetch(`/api/pedido/${id}/estado`, {
+const response = await fetch(`/api/pedido/${encodeURIComponent(id)}/estado`, {
 method: "PUT",
 headers: {
-"Content-Type": "application/json"
+"Content-Type": "application/json",
+...cocinaAuthHeaders()
 },
 body: JSON.stringify({ estado, tiempoEstimado })
 })
+if (!response.ok) throw Error("ESTADO_NO_AUTORIZADO")
 
 cargarPedidos()
 }
 
 async function marcarPagado(id) {
-await fetch(`/api/pedido/${id}/pago`, {
+const response = await fetch(`/api/pedido/${encodeURIComponent(id)}/pago`, {
 method: "PUT",
 headers: {
-"Content-Type": "application/json"
+"Content-Type": "application/json",
+...cocinaAuthHeaders()
 },
 body: JSON.stringify({ estadoPago: "pagado" })
 })
+if (!response.ok) throw Error("PAGO_NO_AUTORIZADO")
 
 cargarPedidos()
 }
 
 async function cargarPedidos() {
-const res = await fetch(`/api/pedidos?restaurantId=${restaurantId}`)
+const res = await fetch(`/api/pedidos?restaurantId=${encodeURIComponent(restaurantId)}`, {
+    headers: cocinaAuthHeaders()
+})
+if (!res.ok) throw Error("PEDIDOS_NO_AUTORIZADOS")
 const pedidos = await res.json()
+if (!Array.isArray(pedidos)) throw Error("PEDIDOS_RESPUESTA_INVALIDA")
 
 const visibles = pedidos.filter(p => {
 return !(p.estado === "entregado" && p.estadoPago === "pagado")
@@ -73,23 +93,25 @@ const lista = document.getElementById("listaPedidos")
 lista.innerHTML = ""
 
 visibles.forEach((pedido) => {
+if (!/^[a-f0-9]{24}$/i.test(String(pedido._id))) return
+const safeId = String(pedido._id)
 lista.innerHTML += `
 <div class="card">
-<h3>Mesa ${pedido.mesa}</h3>
-<p><strong>Producto:</strong> ${pedido.producto}</p>
-<p><strong>Categoría:</strong> ${pedido.categoria || "-"}</p>
-<p><strong>Precio:</strong> $${pedido.precio}</p>
-<p><strong>Estado:</strong> ${pedido.estado}</p>
-<p><strong>Observaciones:</strong> ${pedido.observaciones || "Sin observaciones"}</p>
-<p><strong>Tiempo:</strong> ${pedido.tiempoEstimado} min</p>
-<p><strong>Método de pago:</strong> ${textoMetodoPago(pedido.metodoPago)}</p>
-<p><strong>Estado del pago:</strong> ${pedido.estadoPago}</p>
+<h3>Mesa ${escapeHtml(pedido.mesa)}</h3>
+<p><strong>Producto:</strong> ${escapeHtml(pedido.producto)}</p>
+<p><strong>Categoría:</strong> ${escapeHtml(pedido.categoria || "-")}</p>
+<p><strong>Precio:</strong> $${escapeHtml(pedido.precio)}</p>
+<p><strong>Estado:</strong> ${escapeHtml(pedido.estado)}</p>
+<p><strong>Observaciones:</strong> ${escapeHtml(pedido.observaciones || "Sin observaciones")}</p>
+<p><strong>Tiempo:</strong> ${escapeHtml(pedido.tiempoEstimado)} min</p>
+<p><strong>Método de pago:</strong> ${escapeHtml(textoMetodoPago(pedido.metodoPago))}</p>
+<p><strong>Estado del pago:</strong> ${escapeHtml(pedido.estadoPago)}</p>
 
 <div class="botones">
-<button onclick="cambiarEstado('${pedido._id}','preparando')">Preparando</button>
-<button onclick="cambiarEstado('${pedido._id}','listo')">Listo</button>
-<button onclick="cambiarEstado('${pedido._id}','entregado')">Entregado</button>
-<button onclick="marcarPagado('${pedido._id}')">Marcar pagado</button>
+<button onclick="cambiarEstado('${safeId}','preparando')">Preparando</button>
+<button onclick="cambiarEstado('${safeId}','listo')">Listo</button>
+<button onclick="cambiarEstado('${safeId}','entregado')">Entregado</button>
+<button onclick="marcarPagado('${safeId}')">Marcar pagado</button>
 </div>
 </div>
 `
