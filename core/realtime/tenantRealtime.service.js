@@ -39,7 +39,7 @@ async function lookupSite(SedeModel, empresaId, restaurantId, sedeId) {
 // Never join a company-wide private room for site-scoped users.
 async function joinTenantRealtimeRooms(socket, { SedeModel = Sede } = {}) {
   const auth = socket?.auth;
-  if (!auth || !validTenantId(auth.empresaId)) return 0;
+  if (socket?.connected === false || !auth || !validTenantId(auth.empresaId)) return 0;
   if (auth.rol === "DUEÑO" && auth.sedeId == null) {
     socket.join(ownerRoom(auth.empresaId));
     socket.join(menuRoom(auth.empresaId));
@@ -49,7 +49,8 @@ async function joinTenantRealtimeRooms(socket, { SedeModel = Sede } = {}) {
       !validRestaurantId(auth.restaurantId) ||
       !validTenantId(auth.sedeId)) return 0;
   const siteId = await lookupSite(SedeModel, auth.empresaId, auth.restaurantId, auth.sedeId);
-  if (!siteId) return 0;
+  // A socket can disconnect while the asynchronous tenant lookup is pending.
+  if (!siteId || socket.connected === false) return 0;
   socket.join(siteRoom(auth.empresaId, siteId));
   socket.join(menuRoom(auth.empresaId));
   return 2;
