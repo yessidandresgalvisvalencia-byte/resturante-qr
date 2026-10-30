@@ -81,7 +81,7 @@ Estados válidos: `SIN_AUDITAR`, `PARCIAL`, `BLOQUEADO`, `VERIFICADO`. Ningún �
 | 72 | P1 | Contención de ejecución | SIN_AUDITAR | Pendiente de auditar |
 | 73 | P1 | Observabilidad independiente | SIN_AUDITAR | Pendiente de auditar |
 | 74 | P1 | Seguridad y privacidad por diseño | SIN_AUDITAR | Pendiente de auditar |
-| 75 | P1 | Gobierno de cambios | SIN_AUDITAR | Pendiente de auditar |
+| 75 | P1 | Gobierno de cambios | PARCIAL | [`GRUK_PLAN_MAESTRO_77_CRITERIOS.md`](./GRUK_PLAN_MAESTRO_77_CRITERIOS.md), [`gruk-plan-master-audit.js`](../scripts/gruk-plan-master-audit.js), [`gruk-plan-master-audit.test.js`](../test/gruk/gruk-plan-master-audit.test.js): 77 criterios originales auditables y controles de integridad en CI; **NO** acredita staging, aprobaciones, backups, rollback ni despliegue seguro. |
 | 76 | P2 | Gestión de incidentes y respuesta | SIN_AUDITAR | Pendiente de auditar |
 | 77 | P2 | Seguridad de memoria y delegación | SIN_AUDITAR | Pendiente de auditar |
 
@@ -97,3 +97,11 @@ Estados válidos: `SIN_AUDITAR`, `PARCIAL`, `BLOQUEADO`, `VERIFICADO`. Ningún �
 ## Control de cambios
 
 Cada ejecución automatizada debe seleccionar una obligación pendiente de esta matriz, enlazar evidencia verificable y respetar las reglas de protección de `main` y los controles de GitHub Actions.
+
+## Auditoría incremental — 29 de octubre de 2026 (bloque de gobierno de cambios)
+
+- **Fuente:** `GRUK_Documentos_Unificados_Plan_Maestro.docx`. Se transcribieron los **77 criterios de aceptación originales** a `docs/GRUK_PLAN_MAESTRO_77_CRITERIOS.md`; las 77 filas y prioridades se comparan automáticamente con esta matriz. El archivo original incluye además otros anexos que no sustituyen estos criterios.
+- **Estado en esta rama:** 0 VERIFICADOS, 1 PARCIAL (75), 76 SIN_AUDITAR. El requisito 70 tiene cambios **pendientes** en [PR #521](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/521), todavía no fusionados; no se cuenta como verificado ni se atribuye a esta rama.
+- **Bloqueo real de producción comprobado en Render (29/10/2026):** `resturante-qr-1` (`srv-d6n2kd75gffc73bq5oqg`) y `resturante-qr` (`srv-d6n2j07kijhs73e6jrjg`) siguen `autoDeploy=yes`, `branch=main`, `autoDeployTrigger=commit`. Fusionar cualquier PR a `main` podría disparar un despliegue **antes de verificar los 77 requisitos**. **No fusionar a `main` mientras continúe esa configuración.** No se modificó ningún servicio Render ni se desplegó.
+- **Pendiente para cerrar 75:** CI/CD y staging separados, aprobación de promoción, bloqueo efectivo del despliegue automático prematuro, ensayo de rollback y backups/restauración, pruebas integrales y evidencia firmada por requisito.
+- **Puerta de producción:** BLOQUEADA; un chequeo estático de matriz no autoriza por sí mismo una publicación.
