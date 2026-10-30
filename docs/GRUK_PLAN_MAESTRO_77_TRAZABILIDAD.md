@@ -212,3 +212,8 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - **Evidencia de pruebas:** `test/gruk/p0-70-qr-read-enterprise-filter.test.js` cubre denegación entre empresas, comprobación de restaurante y sede, colisión de alias y exclusión de registros sin `empresaId` mediante modelos simulados y evaluador de filtros en memoria. Commit `326910e`. **No son pruebas MongoDB real ni HTTP/E2E**.
 - **CI:** consulta de runs y combined statuses para `910295f` sin resultados; nuevos commits `326910e` y posteriores requieren comprobación. No declarar verde sin evidencia.
 - **Pendientes y bloqueos:** colisiones multiempresa reales, pruebas HTTP/MongoDB, datos históricos, navegación QR, fugas de tokens, reimpresión, Wompi, controles CI, y 77 criterios originales. **Estado P0-70: PARCIAL. PR #534 draft. Prohibido desplegar.** No se modifican Finanzas Personales ni Blushea.
+
+### Evidencia incremental P0-70 — 30 octubre 2026
+
+- Commit `29444cf`: dos regresiones unitarias para firma QR alterada y vencimiento, con aserciones de rechazo 401 y cero lecturas de MongoDB. **Pruebas agregadas, no ejecutadas ni certificadas en esta revisión.**
+- **Cobertura real:** implementación de filtro de empresa propuesta en PR #534; falta validación HTTP/MongoDB y CI del HEAD. **P0-70 PARCIAL; 0/77 certificados integralmente; PR draft, sin autorización de despliegue.**
