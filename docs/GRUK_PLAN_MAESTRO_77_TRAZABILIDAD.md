@@ -217,3 +217,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 
 - Commit `29444cf`: dos regresiones unitarias para firma QR alterada y vencimiento, con aserciones de rechazo 401 y cero lecturas de MongoDB. **Pruebas agregadas, no ejecutadas ni certificadas en esta revisión.**
 - **Cobertura real:** implementación de filtro de empresa propuesta en PR #534; falta validación HTTP/MongoDB y CI del HEAD. **P0-70 PARCIAL; 0/77 certificados integralmente; PR draft, sin autorización de despliegue.**
+
+### Verificación independiente de trazabilidad — 30 octubre 2026 (HEAD e9d4039)
+
+- **PR #534:** abierto, draft, base `gruk/security-realtime-sede-scope-20261030`, HEAD `e9d4039cc3dd5278ac5be632bbacf47e6cf7ab53`. No fusionado a integración ni `main`.
+- **Evidencia examinada:** `resolveMesaQrRead` incluye `empresaId: p.e` en filtros con y sin sede, y exige coincidencia empresarial al buscar restaurante y sede. La suite `p0-70-qr-read-enterprise-filter.test.js` contiene 11 casos de prueba unitarios con dobles de modelos, incluidos token manipulado, expiración y exclusión de pedidos sin `empresaId`. **Presencia de pruebas en código no demuestra su ejecución**.
+- **CI verificado por API para HEAD exacto:** `workflow_runs: []`, `statuses: []` (30-10-2026); ausencia de registros no significa controles verdes ni fallidos. No fusionar hasta obtener checks concluyentes.
+- **Criterios pendientes:** pruebas reales HTTP/MongoDB con datos cruzados y alias, flujos navegador E2E, tratamiento/migración de pedidos históricos sin empresa, QR antiguos, secretos y pagos Wompi; completar auditoría de los 77 criterios, seguridad, offline con reinicio, conciliación, concurrencia, backup y rollback. **P0-70 PARCIAL, 0/77 certificados integralmente; despliegue bloqueado.**
