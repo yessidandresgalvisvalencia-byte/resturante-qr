@@ -161,7 +161,7 @@
         const v=cursor.value;
         if(matchesTenant(v.event,context)&&
           (v.syncStatus==="pending"||v.syncStatus==="received")&&
-          v.serverStaged!==true&&v.serverApplied!==true){
+          v.serverApplied!==true){
           const items=v.event?.payload?.items;
           if(!Array.isArray(items)||items.length<1) {reject(Error("OUTBOX_STOCK_EVENT_INVALID"));return;}
           for(const item of items)entries.push({eventId:v.eventId,
