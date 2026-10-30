@@ -18,7 +18,11 @@ test("socket io exige JWT y canal empresarial",()=>{
   assert.match(app,/io\.use/);
   assert.match(app,/authenticateSocketHandshake\(socket\.handshake, process\.env\.JWT_SECRET\)/);
   assert.match(guard,/jwt\.verify\(token, secret/);
-  assert.match(app,/socket\.auth\.empresaId/);
+  assert.match(app,/joinTenantRealtimeRooms\(socket\)/);
+  const rooms=src("core/realtime/tenantRealtime.service.js");
+  assert.match(rooms,/auth\.empresaId/);
+  assert.match(rooms,/siteRoom\(auth\.empresaId/);
+  assert.doesNotMatch(app,/socket\.join\(`empresa-/);
 });
 
 test("socket valida revocacion de sesion y roles canonicos",()=>{
