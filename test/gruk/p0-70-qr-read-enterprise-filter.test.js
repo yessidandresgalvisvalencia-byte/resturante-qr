@@ -137,3 +137,28 @@ test("QR site-less query rejects a site-scoped request without leaking its filte
   assert.equal(scope.status, 403);
   assert.equal(scope.filter, undefined);
 });
+
+test("tampered QR capability is rejected before any database lookup", async () => {
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4 }, { secret, now }).token;
+  const [payload, signature] = token.split(".");
+  const corrupted = payload + "." + (signature[0] === "A" ? "B" : "A") + signature.slice(1);
+  let reads = 0;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: 4, qrToken: corrupted }, {
+    secret, now, RestauranteModel: { findOne() { reads++; throw Error("unexpected DB access"); } }
+  });
+  assert.equal(scope.status, 401);
+  assert.equal(scope.filter, undefined);
+  assert.equal(reads, 0);
+});
+
+test("expired QR capability is rejected before any database lookup", async () => {
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4 }, { secret, now }).token;
+  let reads = 0;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: 4, qrToken: token }, {
+    secret, now: () => now() + 91 * 24 * 60 * 60 * 1000,
+    RestauranteModel: { findOne() { reads++; throw Error("unexpected DB access"); } }
+  });
+  assert.equal(scope.status, 401);
+  assert.equal(scope.filter, undefined);
+  assert.equal(reads, 0);
+});
