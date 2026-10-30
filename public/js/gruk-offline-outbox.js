@@ -48,11 +48,16 @@
       });
     }finally{db.close();}
   }
+  function validTenantContext(context) {
+    return !!context && ["empresaId","sedeId","actorId"].every(k=>
+      Object.prototype.hasOwnProperty.call(context,k) &&
+      typeof context[k]==="string" && /^[A-Za-z0-9_-]{1,80}$/.test(context[k]));
+  }
   function matchesTenant(event, context) {
-    return context && ["empresaId","sedeId","actorId"].every(k => typeof context[k] === "string" && context[k].length > 0 && event?.[k] === context[k]);
+    return validTenantContext(context) && ["empresaId","sedeId","actorId"].every(k => event?.[k] === context[k]);
   }
   async function listPending(limit=100, context) {
-    if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(!context || !validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
     if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("OUTBOX_LIMIT");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
@@ -63,7 +68,7 @@
     });}finally{db.close();}
   }
   async function markReceived(eventId, context) {
-    if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(!context || !validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readwrite"),s=t.objectStore(STORE),r=s.get(eventId);
@@ -76,7 +81,7 @@
   }
   // These events remain stored in IndexedDB after the server acknowledges receipt.
   async function listReceived(limit=100,context) {
-    if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(!context || !validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
     if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("OUTBOX_LIMIT");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
@@ -93,7 +98,7 @@
   // This stores the authoritative reconciliation result as metadata ONLY.
   // Local offline events are NEVER deleted, nor interpreted as settled cash.
   async function markReconciled(eventId,context,result) {
-    if(!context || ["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(!context || !validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
     if(!result||result.eventId!==eventId||!["PENDIENTE","EN_REVISION","APLICADO","RECHAZADO"].includes(result.status)||
       typeof result.applied!=="boolean"||typeof result.staged!=="boolean"||
       typeof result.financiallyReconciled!=="boolean"||
@@ -125,7 +130,7 @@
   }
   // Operator's own local events only; never delete or expose another tenant's orders.
   async function listLocal(limit=100,context){
-    if(!context||["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(!context||!validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
     if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("OUTBOX_LIMIT");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
@@ -148,7 +153,7 @@
   // Non-destructive local stock reservations, derived from durable events.
   // Include received events until authoritative reconciliation proves inventory applied.
   async function listStockReservations(context){
-    if(!context||["empresaId","sedeId","actorId"].some(k=>typeof context[k]!=="string"||!context[k]))
+    if(!context||!validTenantContext(context))
       throw Error("OUTBOX_TENANT_REQUIRED");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
