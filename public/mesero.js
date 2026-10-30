@@ -44,7 +44,12 @@ function vibrar() {
     navigator.vibrate(100);
   }
 }
-const socket = io();
+// The server authenticates both Socket.IO and operational HTTP calls with JWT.
+const meseroToken = localStorage.getItem("grukAuthToken") || "";
+const socket = io({ auth: { token: meseroToken } });
+function meseroAuthHeaders() {
+  return { Authorization: "Bearer " + meseroToken };
+}
 
 function getRestaurantId() {
   const fromUrl = new URLSearchParams(window.location.search).get("restaurantId");
@@ -65,10 +70,11 @@ async function atendiendoLlamado(id) {
   try {
     const restaurantId = getRestaurantId();
 
-    const res = await fetch(`/api/llamados/${id}/atendiendo?restaurantId=${restaurantId}`, {
+    const res = await fetch(`/api/llamados/${encodeURIComponent(id)}/atendiendo?restaurantId=${encodeURIComponent(restaurantId)}`, {
       method: "PUT",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        ...meseroAuthHeaders()
       }
     });
 
@@ -89,10 +95,11 @@ async function atendiendoLlamado(id) {
 
 async function entregarPedido(id) {
   try {
-    const res = await fetch(`/api/pedido/${id}/estado`, {
+    const res = await fetch(`/api/pedido/${encodeURIComponent(id)}/estado`, {
       method: "PUT",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        ...meseroAuthHeaders()
       },
       body: JSON.stringify({ estado: "entregado" })
     });
@@ -116,7 +123,7 @@ async function cargarMesero() {
     const restaurantId = getRestaurantId();
     const nombreMesero = getMeseroNombreActual();
 
-    const res = await fetch(`/api/mesero/mesas?restaurantId=${restaurantId}`);
+    const res = await fetch(`/api/mesero/mesas?restaurantId=${encodeURIComponent(restaurantId)}`, { headers: meseroAuthHeaders() });
     if (!res.ok) {
       console.log("Error cargando solicitudes del mesero");
       return;
@@ -193,7 +200,7 @@ async function cargarEstadoMesas() {
     const restaurantId = getRestaurantId();
     const nombreMesero = getMeseroNombreActual();
 
-    const res = await fetch(`/api/mesero/mesas?restaurantId=${restaurantId}`);
+    const res = await fetch(`/api/mesero/mesas?restaurantId=${encodeURIComponent(restaurantId)}`, { headers: meseroAuthHeaders() });
     if (!res.ok) return;
 
     const data = await res.json();
