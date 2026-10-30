@@ -16,6 +16,7 @@ const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service");
 const { emitRestaurantRealtime } = require("../core/realtime/tenantRealtime.service");
 const { resolveLlamadosScope, validRestaurantId } = require("../core/realtime/llamadosTenant.service");
+const { updatePedidoEstado } = require("../core/security/pedidoEstadoTenant.service");
 const { issueCallCapability, hashCallCapability, validMesa } = require("../core/realtime/llamadosCapability.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
@@ -1522,30 +1523,23 @@ router.get("/pedidos/mesa/:mesa", async (req, res) => {
 
 router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO), async (req, res) => {
   try {
-    const { estado, tiempoEstimado } = req.body;
-    if (!["pendiente","preparando","listo","entregado"].includes(String(estado))) return res.status(400).json({ok:false,error:"Estado de pedido inválido"});
-    const actual = await Pedido.findById(req.params.id).select("restaurantId").lean();
-    if (!actual) return res.status(404).json({ok:false,error:"Pedido no encontrado"});
-    const tenant = await Restaurante.findOne({restaurantId:actual.restaurantId,empresaId:req.auth.empresaId}).select("_id").lean();
-    if (!tenant) return res.status(403).json({ok:false,error:"Pedido fuera del tenant autorizado"});
-
-    const update = { estado };
-    if (tiempoEstimado) {
-      update.tiempoEstimado = Number(tiempoEstimado);
-    }
-
-    const pedido = await Pedido.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true }
-    );
-
+    const resultado = await updatePedidoEstado({
+      pedidoId: req.params.id,
+      auth: req.auth,
+      estado: req.body?.estado,
+      tiempoEstimado: req.body?.tiempoEstimado
+    });
+    if (resultado.status !== 200)
+      return res.status(resultado.status).json({ ok: false, error: resultado.error });
+    const pedido = resultado.pedido;
     const io = req.app.get("io");
-    await emitRestaurantRealtime(io, { restaurantId: pedido.restaurantId, sedeId: pedido.sedeId, event: "pedido:actualizado", payload: pedido });
-
-    res.json(pedido);
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error actualizando pedido", error });
+    await emitRestaurantRealtime(io, {
+      restaurantId: pedido.restaurantId, sedeId: pedido.sedeId,
+      event: "pedido:actualizado", payload: pedido
+    });
+    return res.json(pedido);
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar o actualizar el pedido" });
   }
 });
 
