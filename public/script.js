@@ -1,9 +1,14 @@
-const socket = io();
 const params = new URLSearchParams(window.location.search);
 
 const mesa = Number(params.get("mesa") || 1);
 const restaurantId = params.get("restaurantId") || "rest1";
 const sedeId = params.get("sedeId") || "";
+const qrToken = params.get("qrToken") || "";
+function escapeMesaText(value) {
+  return String(value ?? "").replace(/[&<>"\x27]/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "\x27": "&#39;"
+  })[char]);
+}
 const fondoRestaurante =
 localStorage.getItem(`logo_restaurante_${restaurantId}`);
 
@@ -850,7 +855,10 @@ document.getElementById("totalMesa").textContent = `Total: $${total}`;
 async function verFactura() {
 try {
 const porcentaje = Number(document.getElementById("propinaSelect").value || 0);
-const res = await fetch(`/api/factura/mesa/${mesa}?restaurantId=${restaurantId}&propina=${porcentaje}`);
+const query = new URLSearchParams({ restaurantId, propina: String(porcentaje), qrToken });
+if (sedeId) query.set("sedeId", sedeId);
+const res = await fetch(`/api/factura/mesa/${encodeURIComponent(mesa)}?${query}`, { cache: "no-store" });
+if (!res.ok) throw new Error("Factura QR no autorizada");
 const data = await res.json();
 
 const box = document.getElementById("facturaBox");
@@ -872,8 +880,8 @@ if (!pedidosVisibles.length) {
   pedidosVisibles.forEach(p => {
 html += `
 <p>
-${p.producto} - $${p.precio}
-${p.observaciones ? `<br><small>${p.observaciones}</small>` : ""}
+${escapeMesaText(p.producto)} - ${Number(p.precio || 0)}
+${p.observaciones ? `<small>${escapeMesaText(p.observaciones)}</small>` : ""}
 </p>
 `;
 });
@@ -895,7 +903,10 @@ console.log(error);
 
 async function cargarMesa() {
 try {
-const res = await fetch(`/api/pedidos/mesa/${mesa}?restaurantId=${restaurantId}`);
+const query = new URLSearchParams({ restaurantId, qrToken });
+if (sedeId) query.set("sedeId", sedeId);
+const res = await fetch(`/api/pedidos/mesa/${encodeURIComponent(mesa)}?${query}`, { cache: "no-store" });
+if (!res.ok) throw new Error("Mesa QR no autorizada");
 const data = await res.json();
 
 const pedidos = data.pedidos.filter(p => {
@@ -919,11 +930,11 @@ return;
 pedidos.forEach(p => {
 lista.innerHTML += `
 <div class="card">
-<h3>${p.producto}</h3>
-<p>Precio: $${p.precio}</p>
-<p>Estado: ${p.estado}</p>
-<p>Pago: ${textoMetodoPago(p.metodoPago)} - ${p.estadoPago}</p>
-${p.observaciones ? `<p><strong>Detalle:</strong> ${p.observaciones}</p>` : ""}
+<h3>${escapeMesaText(p.producto)}</h3>
+<p>Precio: ${Number(p.precio || 0)}</p>
+<p>Estado: ${escapeMesaText(p.estado)}</p>
+<p>Pago: ${escapeMesaText(textoMetodoPago(p.metodoPago))} - ${escapeMesaText(p.estadoPago)}</p>
+${p.observaciones ? `<p><strong>Detalle:</strong> ${escapeMesaText(p.observaciones)}</p>` : ""}
 </div>
 `;
 });
@@ -959,45 +970,13 @@ calcularTotales(subtotalActual);
 verFactura();
 });
 
-socket.on("pedido:nuevo", pedido => {
-if (pedido.restaurantId === restaurantId) {
-cargarMesa();
-}
-});
-
-socket.on("pedido:actualizado", pedido => {
-if (pedido.restaurantId === restaurantId) {
-cargarMesa();
-}
-});
-
-socket.on("menu:actualizado", payload => {
-if (payload.restaurantId === restaurantId) {
-cargarMenu();
-}
-});
+// Public QR has no private Socket.IO session: poll only its scoped reads.
+setInterval(cargarMesa, 5000);
+setInterval(cargarMenu, 30000);
 
 setInterval(() => {
 revisarEstadoLlamado();
 }, 5000);
-
-socket.on("llamado:actualizado", llamado => {
-if (llamado.restaurantId === restaurantId && Number(llamado.mesa) === Number(mesa)) {
-revisarEstadoLlamado();
-}
-});
-
-socket.on("llamado:nuevo", llamado => {
-if (llamado.restaurantId === restaurantId) {
-cargarMeseros();
-}
-});
-
-socket.on("llamado:actualizado", llamado => {
-if (llamado.restaurantId === restaurantId) {
-cargarMeseros();
-}
-});
 
 
 cargarMenu();
