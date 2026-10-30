@@ -69,6 +69,7 @@
   }
   async function markReceived(eventId, context) {
     if(!context || !validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(typeof eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(eventId))throw Error("OUTBOX_EVENT_ID");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readwrite"),s=t.objectStore(STORE),r=s.get(eventId);
@@ -100,6 +101,7 @@
   // Local offline events are NEVER deleted, nor interpreted as settled cash.
   async function markReconciled(eventId,context,result) {
     if(!context || !validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(typeof eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(eventId))throw Error("OUTBOX_EVENT_ID");
     if(!result||result.eventId!==eventId||!["PENDIENTE","EN_REVISION","APLICADO","RECHAZADO"].includes(result.status)||
       typeof result.applied!=="boolean"||typeof result.staged!=="boolean"||
       typeof result.financiallyReconciled!=="boolean"||
