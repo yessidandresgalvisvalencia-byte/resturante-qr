@@ -24,3 +24,9 @@
 - Commit `b07e434`: `resolveMesaQrRead` incluye `empresaId: p.e` en ambos filtros MongoDB (sede canónica/alias y mesa sin sede). Las rutas HTTP existentes usan `Pedido.find(scope.filter)`, por lo que pedidos de otras empresas y registros sin `empresaId` quedan excluidos (fail-closed).
 - Commit `2e85b00`: pruebas unitarias del filtro, alias y denegación de restaurante ajeno en `test/gruk/p0-70-qr-read-enterprise-filter.test.js`.
 - **No certificado:** faltan ejecución y resultados de CI, prueba HTTP+MongoDB real con colisiones, plan de migración de pedidos legados, QR en navegador, Wompi y auditoría de filtración de tokens. No desplegar.
+
+## Revisión adicional de pruebas (30-10-2026)
+
+- Commit `e9b9642`: dos casos adicionales verifican que la consulta de restaurante incluya `empresaId`, que la consulta de sede exija `_id`, `empresaId` y `restauranteId`, y que un registro inexistente se rechace sin entregar filtro de lectura.
+- El conjunto actual es **unitario con modelos simulados**. La selección de registros en MongoDB, el comportamiento de las rutas HTTP, las colisiones de tenant y la migración legacy **no están certificados**. No atribuir a estas pruebas evidencia de integración real.
+- Consulta de Actions para `8198f5f`: no se devolvieron ejecuciones asociadas; el commit posterior requiere una nueva comprobación. **Sin CI verde confirmado, no fusionar este PR.**
