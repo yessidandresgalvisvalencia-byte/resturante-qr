@@ -1,4 +1,4 @@
-# GRUK Empresarial — Matriz de trazabilidad del Plan Maestro (77/77)
+# GRUK Empresarial — Matriz de trazabilidad del Plan Maestro (77 requisitos catalogados; 0 verificados)
 
 **Documento fuente:** `GRUK_Documentos_Unificados_Plan_Maestro.docx` (9 de octubre de 2026).
 **Propósito:** registrar las 77 obligaciones del documento maestro. NO certifica que estén implementadas.
@@ -76,7 +76,7 @@ Estados válidos: `SIN_AUDITAR`, `PARCIAL`, `BLOQUEADO`, `VERIFICADO`. Ningún �
 | 67 | P3 | Entrenamiento con lecciones validadas | SIN_AUDITAR | Pendiente de auditar |
 | 68 | P3 | Optimización de memoria autoajustable | SIN_AUDITAR | Pendiente de auditar |
 | 69 | P0 | Constitución operativa de GRUK | SIN_AUDITAR | Pendiente de auditar |
-| 70 | P0 | Aislamiento multiempresa | SIN_AUDITAR | Pendiente de auditar |
+| 70 | P0 | Aislamiento multiempresa | PARCIAL | [PR #521](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/521), [`public/js/gruk-offline-outbox.js`](../public/js/gruk-offline-outbox.js), [`capa2-outbox-write-session-integrity.test.js`](../test/gruk/capa2-outbox-write-session-integrity.test.js): protección local de ACK y conciliación ante cambio de empresa/sede/actor; falta probar aislamiento de DB, caché, archivos, logs y rutas restantes. |
 | 71 | P1 | Protección frente a inyección y poisoning | SIN_AUDITAR | Pendiente de auditar |
 | 72 | P1 | Contención de ejecución | SIN_AUDITAR | Pendiente de auditar |
 | 73 | P1 | Observabilidad independiente | SIN_AUDITAR | Pendiente de auditar |
@@ -84,6 +84,14 @@ Estados válidos: `SIN_AUDITAR`, `PARCIAL`, `BLOQUEADO`, `VERIFICADO`. Ningún �
 | 75 | P1 | Gobierno de cambios | SIN_AUDITAR | Pendiente de auditar |
 | 76 | P2 | Gestión de incidentes y respuesta | SIN_AUDITAR | Pendiente de auditar |
 | 77 | P2 | Seguridad de memoria y delegación | SIN_AUDITAR | Pendiente de auditar |
+
+## Auditoría incremental — 29 de octubre de 2026
+
+- **Requisitos fuente:** 77/77 enumerados en el Word. **No equivale a implementados:** 0 VERIFICADOS, 1 PARCIAL (70), 76 SIN_AUDITAR.
+- **Bloque auditado:** protección local de ACK de pedidos offline y evidencia de conciliación, bajo `public/js/gruk-offline-outbox.js` y pruebas de carrera de sesión. La evidencia en PR #521 solo se considera fusionada si GitHub confirma checks y merge; esta matriz no anticipa el resultado.
+- **Pendiente para cerrar 70:** pruebas negativas de extremo a extremo en todas las rutas, MongoDB, cachés, búsquedas, archivos y logs, entre empresas/sedes/actores; confirmar no filtración ni modificación cruzada.
+- **Riesgo abierto:** GRUK Empresarial y GRUK Finanzas Personales aún comparten repositorio. No se certifica separación total ni se altera el código personal.
+- **Puerta de producción:** **BLOQUEADA**. No existen evidencias completas de los 77 criterios, staging, backup/restore, rollback y flujos reales de producción.
 
 ## Cierre obligatorio antes de desplegar
 
