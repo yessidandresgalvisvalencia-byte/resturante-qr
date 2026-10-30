@@ -174,8 +174,12 @@ async function cargarMesero() {
       }
     }
 
-    const pedidosRes = await fetch(`/api/pedidos?restaurantId=${restaurantId}`);
+    const pedidosRes = await fetch(`/api/pedidos?restaurantId=${encodeURIComponent(restaurantId)}`, {
+      headers: meseroAuthHeaders()
+    });
+    if (!pedidosRes.ok) throw Error("PEDIDOS_NO_AUTORIZADOS");
     const pedidos = await pedidosRes.json();
+    if (!Array.isArray(pedidos)) throw Error("PEDIDOS_RESPUESTA_INVALIDA");
 
     const listos = pedidos.filter(p => p.estado === "listo");
 
