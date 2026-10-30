@@ -14,6 +14,7 @@ const {
 const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service");
+const { emitRestaurantRealtime } = require("../core/realtime/tenantRealtime.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
 const { revocarIdentidad } = require("../core/auth/sessionRevocation.service");
@@ -408,9 +409,7 @@ router.post("/menu", ...seguridadMenuAdmin, async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit("menu:actualizado", {
-        restaurantId
-      });
+      await emitRestaurantRealtime(io, { restaurantId, event: "menu:actualizado", payload: { restaurantId } });
     }
 
     console.log(
@@ -787,9 +786,7 @@ router.put("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit("menu:actualizado", {
-        restaurantId
-      });
+      await emitRestaurantRealtime(io, { restaurantId, event: "menu:actualizado", payload: { restaurantId } });
     }
 
     console.log(
@@ -894,9 +891,7 @@ router.put("/menu/:id/stock", ...seguridadMenuAdmin, async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit("menu:actualizado", {
-        restaurantId
-      });
+      await emitRestaurantRealtime(io, { restaurantId, event: "menu:actualizado", payload: { restaurantId } });
     }
 
     return res.json({
@@ -1069,9 +1064,7 @@ router.delete("/menu/:id", ...seguridadMenuAdmin, async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit("menu:actualizado", {
-        restaurantId
-      });
+      await emitRestaurantRealtime(io, { restaurantId, event: "menu:actualizado", payload: { restaurantId } });
     }
 
     return res.json({
@@ -1437,10 +1430,7 @@ router.post("/pedido", async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.emit(
-        "pedido:nuevo",
-        pedido
-      );
+      await emitRestaurantRealtime(io, { restaurantId: pedido.restaurantId, sedeId: pedido.sedeId, event: "pedido:nuevo", payload: pedido });
     }
 
     console.log(
@@ -1549,7 +1539,7 @@ router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROL
     );
 
     const io = req.app.get("io");
-    io.emit("pedido:actualizado", pedido);
+    await emitRestaurantRealtime(io, { restaurantId: pedido.restaurantId, sedeId: pedido.sedeId, event: "pedido:actualizado", payload: pedido });
 
     res.json(pedido);
   } catch (error) {
@@ -1622,7 +1612,7 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
     if (ventaPostCommit) emitirVentaCompletada(ventaPostCommit);
 
     const io = req.app.get("io");
-    io.emit("pedido:actualizado", pedidoFinal);
+    await emitRestaurantRealtime(io, { restaurantId: pedidoFinal.restaurantId, sedeId: pedidoFinal.sedeId, event: "pedido:actualizado", payload: pedidoFinal });
 
     return res.json({ ok: true, pedido: pedidoFinal });
   } catch (error) {
@@ -1705,7 +1695,7 @@ router.post("/llamar-mesero", async (req, res) => {
     await mesero.save();
 
     const io = req.app.get("io");
-    io.emit("llamado:nuevo", llamado);
+    await emitRestaurantRealtime(io, { restaurantId: llamado.restaurantId, sedeId: llamado.sedeId, event: "llamado:nuevo", payload: llamado });
 
     res.json({
       ok: true,
@@ -1770,7 +1760,7 @@ router.put("/llamados/:id/atendiendo", async (req, res) => {
     }
 
     const io = req.app.get("io");
-    io.emit("llamado:actualizado", llamado);
+    await emitRestaurantRealtime(io, { restaurantId: llamado.restaurantId, sedeId: llamado.sedeId, event: "llamado:actualizado", payload: llamado });
 
     res.json({
       ok: true,
@@ -1820,7 +1810,7 @@ router.put("/llamados/mesa/:mesa/atendido", async (req, res) => {
     }
 
     const io = req.app.get("io");
-    io.emit("llamado:actualizado", llamado);
+    await emitRestaurantRealtime(io, { restaurantId: llamado.restaurantId, sedeId: llamado.sedeId, event: "llamado:actualizado", payload: llamado });
 
     res.json({
       ok: true,
