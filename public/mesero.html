@@ -29,7 +29,7 @@
       const meseroId = localStorage.getItem("meseroId");
       const meseroRestaurantId = localStorage.getItem("meseroRestaurantId");
 
-      if (!meseroId || !meseroRestaurantId) {
+      if (!meseroId || !meseroRestaurantId || !localStorage.getItem("grukAuthToken")) {
         window.location.href = "/login-mesero.html";
       }
     </script>
