@@ -60,7 +60,7 @@ test("socket: bloquea claims falsificadas antes de consultar sesión", async () 
     { sedeId: { $ne: null } }, { sedeId: [] }, { sedeId: "sede B" },
     { rol: "ADMIN" }, { rol: ["EMPLEADO"] }, { sub: {} },
     { tokenVersion: "3" }, { tokenVersion: -1 }, { tokenVersion: null },
-    { identityType: [] }
+    { identityType: [] }, { identityType: null }, { identityType: undefined }
   ];
   for (const overrides of cases) {
     const token = sign({ ...valid, ...overrides });
@@ -104,6 +104,6 @@ test("socket: app.js usa el guard compartido antes de admitir la conexión", () 
   assert.match(app, /socket\.auth = await authenticateSocketHandshake\(socket\.handshake, process\.env\.JWT_SECRET\)/);
   assert.doesNotMatch(app, /jwt\.verify\(token, process\.env\.JWT_SECRET/);
   assert.match(app, /joinTenantRealtimeRooms\(socket\)/);
-  assert.match(app, /guardRealtimeSession\\(socket\\)/);
+  assert.match(app, /guardRealtimeSession\(socket\)/);
   assert.doesNotMatch(app, /socket\.join\(`empresa-/);
 });
