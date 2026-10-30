@@ -76,3 +76,33 @@ test("QR read rejects missing site and constrains site lookup by enterprise and 
   assert.equal(scope.status, 403);
   assert.equal(scope.filter, undefined);
 });
+
+test("QR with a valid signature from tenant B cannot read tenant A's restaurant", async () => {
+  const token = issueToken({ empresaId: other, restaurantId, mesa: 4 }, { secret, now }).token;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: "4", qrToken: token }, {
+    secret, now,
+    RestauranteModel: {
+      findOne(query) {
+        assert.deepEqual(query, { restaurantId, empresaId: other });
+        return { select: () => ({ lean: async () => null }) };
+      }
+    }
+  });
+  assert.equal(scope.status, 403);
+  assert.equal(scope.filter, undefined);
+});
+
+test("QR with a valid signature from tenant B cannot read tenant A's site", async () => {
+  const token = issueToken({ empresaId: other, restaurantId, mesa: 4, sedeId: site }, { secret, now }).token;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: "4", qrToken: token }, {
+    secret, now, RestauranteModel: mockFind({ _id: "restaurant-B" }),
+    SedeModel: {
+      findOne(query) {
+        assert.deepEqual(query, { _id: site, empresaId: other, restauranteId: restaurantId });
+        return { select: () => ({ lean: async () => null }) };
+      }
+    }
+  });
+  assert.equal(scope.status, 403);
+  assert.equal(scope.filter, undefined);
+});
