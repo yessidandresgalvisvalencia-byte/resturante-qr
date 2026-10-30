@@ -30,3 +30,10 @@
 - Commit `e9b9642`: dos casos adicionales verifican que la consulta de restaurante incluya `empresaId`, que la consulta de sede exija `_id`, `empresaId` y `restauranteId`, y que un registro inexistente se rechace sin entregar filtro de lectura.
 - El conjunto actual es **unitario con modelos simulados**. La selección de registros en MongoDB, el comportamiento de las rutas HTTP, las colisiones de tenant y la migración legacy **no están certificados**. No atribuir a estas pruebas evidencia de integración real.
 - Consulta de Actions para `8198f5f`: no se devolvieron ejecuciones asociadas; el commit posterior requiere una nueva comprobación. **Sin CI verde confirmado, no fusionar este PR.**
+
+## Seguimiento de controles — 30-10-2026, 13:14 Colombia
+
+- HEAD del PR #534: `8c42c8149d783aa4c0cf20babfb9d346fe96b688`, base rama de integración #524, estado draft abierto.
+- Consulta directa de ejecuciones GitHub Actions asociadas al HEAD: `workflow_runs: []`. **Esto no demuestra que las pruebas aprobaron**; puede reflejar ausencia de ejecuciones o limitación de consulta para eventos PR.
+- Decisión: mantener PR #534 abierto, sin fusionar a rama de integración ni `main`. P0-70 sigue PARCIAL; pendientes CI verificable, integración HTTP/MongoDB real con colisiones y legacy, E2E, migración y validación de seguridad.
+- Riesgo operativo: Auto-Deploy de Render sobre `main` sigue documentado como bloqueo; no desplegar ni alterar los otros productos.
