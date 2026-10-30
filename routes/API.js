@@ -16,6 +16,7 @@ const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service");
 const { emitRestaurantRealtime } = require("../core/realtime/tenantRealtime.service");
 const { resolveLlamadosScope, validRestaurantId } = require("../core/realtime/llamadosTenant.service");
+const { issueCallCapability, hashCallCapability, validMesa } = require("../core/realtime/llamadosCapability.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
 const { revocarIdentidad } = require("../core/auth/sessionRevocation.service");
@@ -1661,7 +1662,7 @@ router.post("/llamar-mesero", async (req, res) => {
     const restaurantId = req.body?.restaurantId;
     const { mesa, mensaje, meseroId } = req.body || {};
     if (!validRestaurantId(restaurantId) ||
-        !Number.isSafeInteger(Number(mesa)) || Number(mesa) <= 0 ||
+        !validMesa(mesa) ||
         typeof meseroId !== "string" || !mongoose.isValidObjectId(meseroId) ||
         (mensaje !== undefined && (typeof mensaje !== "string" || mensaje.length > 500))) {
       return res.status(400).json({ ok: false, error: "Datos de llamado inválidos" });
@@ -1708,9 +1709,11 @@ router.post("/llamar-mesero", async (req, res) => {
       });
     }
 
+    const capability = issueCallCapability();
     const llamado = new Llamado({
       restaurantId,
       sedeId,
+      capabilityHash: capability.hash,
       mesa: Number(mesa),
       mensaje: mensaje || "Mesa necesita atenciÃƒÂ³n",
       estado: "pendiente",
@@ -1726,10 +1729,10 @@ router.post("/llamar-mesero", async (req, res) => {
     const io = req.app.get("io");
     await emitRestaurantRealtime(io, { restaurantId: llamado.restaurantId, sedeId: llamado.sedeId, event: "llamado:nuevo", payload: llamado });
 
-    res.json({
-      ok: true,
-      llamado
-    });
+    // Never serialize capabilityHash, including on the newly created document.
+    const publico = llamado.toObject();
+    delete publico.capabilityHash;
+    res.json({ ok: true, llamado: publico, callToken: capability.token });
   } catch (error) {
     console.log("Error creando llamado:", error);
     res.status(500).json({
@@ -1737,6 +1740,57 @@ router.post("/llamar-mesero", async (req, res) => {
       mensaje: "Error creando llamado",
       error
     });
+  }
+});
+
+
+// A public QR page can only read or acknowledge its own call with the random
+// token returned at creation. Restaurant/table IDs alone are not authorization.
+function publicCallFilter(req) {
+  const restaurantId = req.query?.restaurantId;
+  const callId = req.query?.callId;
+  const mesa = req.params?.mesa;
+  const hash = hashCallCapability(req.headers?.["x-gruk-call-token"]);
+  if (!validRestaurantId(restaurantId) || !validMesa(mesa) ||
+      typeof callId !== "string" || !/^[a-f0-9]{24}$/i.test(callId) || !hash) return null;
+  return { _id: callId, restaurantId, mesa: Number(mesa), capabilityHash: hash };
+}
+async function liberarMeseroLlamado(llamado) {
+  if (!llamado?.meseroId || !mongoose.isValidObjectId(llamado.meseroId)) return;
+  const Personal = require("../models/personal");
+  await Personal.findOneAndUpdate({
+    _id: llamado.meseroId,
+    restaurantId: llamado.restaurantId,
+    ...(llamado.sedeId ? { sedeId: llamado.sedeId } : {})
+  }, { estado: "disponible" });
+}
+router.get("/llamados/mesa/:mesa/estado-publico", async (req, res) => {
+  const filter = publicCallFilter(req);
+  if (!filter) return res.status(401).json({ ok: false, error: "Capacidad de llamado requerida" });
+  try {
+    const llamado = await Llamado.findOne(filter).select("estado mesa").lean();
+    if (!llamado) return res.status(404).json({ ok: false, error: "Llamado no encontrado" });
+    return res.json({ ok: true, llamado: { estado: llamado.estado, mesa: llamado.mesa } });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo consultar el llamado" });
+  }
+});
+router.put("/llamados/mesa/:mesa/atendido-publico", async (req, res) => {
+  const filter = publicCallFilter(req);
+  if (!filter) return res.status(401).json({ ok: false, error: "Capacidad de llamado requerida" });
+  try {
+    const llamado = await Llamado.findOneAndUpdate({
+      ...filter, estado: { $in: ["pendiente", "atendiendo"] }
+    }, { estado: "atendido" }, { new: true });
+    if (!llamado) return res.status(404).json({ ok: false, error: "Llamado no encontrado o ya atendido" });
+    await liberarMeseroLlamado(llamado);
+    await emitRestaurantRealtime(req.app.get("io"), {
+      restaurantId: llamado.restaurantId, sedeId: llamado.sedeId,
+      event: "llamado:actualizado", payload: llamado
+    });
+    return res.json({ ok: true, estado: "atendido" });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo confirmar el llamado" });
   }
 });
 
@@ -1752,7 +1806,7 @@ router.get("/llamados", ...seguridadLlamados, async (req, res) => {
 router.get("/llamados/mesa/:mesa", ...seguridadLlamados, async (req, res) => {
   try {
     const mesa = Number(req.params.mesa);
-    if (!Number.isSafeInteger(mesa) || mesa <= 0)
+    if (!validMesa(req.params.mesa))
       return res.status(400).json({ ok: false, error: "Mesa inválida" });
 
     const llamado = await Llamado.findOne({
@@ -1808,7 +1862,7 @@ router.put("/llamados/:id/atendiendo", ...seguridadLlamados, async (req, res) =>
 router.put("/llamados/mesa/:mesa/atendido", ...seguridadLlamados, async (req, res) => {
   try {
     const mesa = Number(req.params.mesa);
-    if (!Number.isSafeInteger(mesa) || mesa <= 0)
+    if (!validMesa(req.params.mesa))
       return res.status(400).json({ ok: false, error: "Mesa inválida" });
 
     const llamado = await Llamado.findOneAndUpdate(
@@ -1833,14 +1887,7 @@ router.put("/llamados/mesa/:mesa/atendido", ...seguridadLlamados, async (req, re
       });
     }
 
-    if (llamado.meseroId && mongoose.isValidObjectId(llamado.meseroId)) {
-      const Personal = require("../models/personal");
-      await Personal.findOneAndUpdate({
-        _id: llamado.meseroId,
-        restaurantId: llamado.restaurantId,
-        ...(llamado.sedeId ? { sedeId: llamado.sedeId } : {})
-      }, { estado: "disponible" });
-    }
+    await liberarMeseroLlamado(llamado);
 
     const io = req.app.get("io");
     await emitRestaurantRealtime(io, { restaurantId: llamado.restaurantId, sedeId: llamado.sedeId, event: "llamado:actualizado", payload: llamado });
