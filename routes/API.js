@@ -19,6 +19,7 @@ const { resolveLlamadosScope, validRestaurantId } = require("../core/realtime/ll
 const { updatePedidoEstado } = require("../core/security/pedidoEstadoTenant.service");
 const { resolvePedidoPagoScope } = require("../core/security/pedidoPagoTenant.service");
 const { resolvePedidoListadoScope } = require("../core/security/pedidoListadoTenant.service");
+const { issueMesaQr, resolveMesaQrRead } = require("../core/security/qrMesaRead.service");
 const { issueCallCapability, hashCallCapability, validMesa } = require("../core/realtime/llamadosCapability.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
@@ -1501,19 +1502,22 @@ router.get("/pedidos", authMiddleware,
 });
 
 router.get("/pedidos/mesa/:mesa", async (req, res) => {
+  res.set("Cache-Control", "no-store");
   try {
-    const restaurantId = getRestaurantId(req);
-    const mesa = Number(req.params.mesa);
-
-    const pedidos = await Pedido.find({ restaurantId, mesa }).sort({ createdAt: -1 });
-
-    const subtotal = pedidos
-      .filter(p => p.estado !== "entregado")
-      .reduce((acc, p) => acc + p.precio, 0);
-
-    res.json({ pedidos, subtotal });
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error obteniendo pedidos por mesa", error });
+    const scope = await resolveMesaQrRead({
+      restaurantId: req.query.restaurantId, mesa: req.params.mesa,
+      sedeId: req.query.sedeId, qrToken: req.query.qrToken
+    });
+    if (scope.status !== 200)
+      return res.status(scope.status).json({ ok: false, error: scope.error });
+    const pedidos = await Pedido.find(scope.filter)
+      .select("producto observaciones precio estado estadoPago metodoPago tiempoEstimado mesa createdAt")
+      .sort({ createdAt: -1 }).lean();
+    const subtotal = pedidos.filter(p => p.estado !== "entregado")
+      .reduce((acc, p) => acc + Number(p.precio || 0), 0);
+    return res.json({ pedidos, subtotal });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar la mesa" });
   }
 });
 
@@ -2230,80 +2234,79 @@ router.post("/auth/cerrar-todas-sesiones", authMiddleware, async (req,res)=>{ tr
 ========================= */
 
 router.get("/factura/mesa/:mesa", async (req, res) => {
+  res.set("Cache-Control", "no-store");
   try {
-    const restaurantId = getRestaurantId(req);
-    const mesa = Number(req.params.mesa);
-    const propina = Number(req.query.propina || 0);
-
-    const pedidos = await Pedido.find({ restaurantId, mesa }).sort({ createdAt: -1 });
-
-    const subtotal = pedidos
-      .filter(p => p.estado !== "entregado")
-      .reduce((acc, p) => acc + p.precio, 0);
-
+    const propina = req.query.propina === undefined ? 0 : Number(req.query.propina);
+    if (![0, 10, 15, 20].includes(propina) ||
+        (req.query.propina !== undefined && typeof req.query.propina !== "string"))
+      return res.status(400).json({ ok: false, error: "Propina inválida" });
+    const scope = await resolveMesaQrRead({
+      restaurantId: req.query.restaurantId, mesa: req.params.mesa,
+      sedeId: req.query.sedeId, qrToken: req.query.qrToken
+    });
+    if (scope.status !== 200)
+      return res.status(scope.status).json({ ok: false, error: scope.error });
+    const pedidos = await Pedido.find(scope.filter)
+      .select("producto observaciones precio estado estadoPago metodoPago tiempoEstimado mesa createdAt")
+      .sort({ createdAt: -1 }).lean();
+    const subtotal = pedidos.filter(p => p.estado !== "entregado")
+      .reduce((acc, p) => acc + Number(p.precio || 0), 0);
     const valorPropina = Math.round(subtotal * (propina / 100));
-    const total = subtotal + valorPropina;
-
-    res.json({
-      mesa,
-      pedidos,
-      subtotal,
-      propina,
-      valorPropina,
-      total
+    return res.json({
+      mesa: Number(req.params.mesa), pedidos, subtotal,
+      propina, valorPropina, total: subtotal + valorPropina
     });
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error generando factura", error });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar la factura" });
   }
 });
 
-router.get("/qr/:mesa", async (req, res) => {
+function qrPublicOrigin() {
   try {
-    const restaurantId = getRestaurantId(req);
-    const mesa = Number(req.params.mesa);
-    const baseUrl = req.query.baseUrl || `${req.protocol}://${req.get("host")}`;
-    const url = `${baseUrl}/?restaurantId=${restaurantId}&mesa=${mesa}`;
-
-    const dataUrl = await QRCode.toDataURL(url);
-
-    res.json({
-      mesa,
-      restaurantId,
-      url,
-      dataUrl
-    });
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error generando QR", error });
+    const url = new URL(process.env.APP_URL);
+    if (url.protocol !== "https:" &&
+        !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))
+      return null;
+    return url.origin;
+  } catch (_error) {
+    return null;
   }
-});
-router.get("/qr-sede/:mesa", async (req, res) => {
+}
+async function emitirQrMesa(req, res, conSede) {
+  res.set("Cache-Control", "no-store");
   try {
-    const restaurantId = getRestaurantId(req);
-    const mesa = Number(req.params.mesa);
-    const sedeId = req.query.sedeId || "";
-
-    const baseUrl = req.query.baseUrl || `${req.protocol}://${req.get("host")}`;
-
-    const url = `${baseUrl}/?restaurantId=${restaurantId}&sedeId=${sedeId}&mesa=${mesa}`;
-
-    const dataUrl = await QRCode.toDataURL(url);
-
-    res.json({
-      ok: true,
-      mesa,
-      restaurantId,
-      sedeId,
-      url,
-      dataUrl
+    const origin = qrPublicOrigin();
+    if (!origin) return res.status(503).json({ ok: false, error: "APP_URL segura no configurada" });
+    const issued = await issueMesaQr({
+      auth: req.auth, restaurantId: req.query.restaurantId,
+      mesa: req.params.mesa, sedeId: conSede ? req.query.sedeId : undefined
     });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      ok: false,
-      error: "Error generando QR por sede"
+    if (issued.status !== 200)
+      return res.status(issued.status).json({ ok: false, error: issued.error });
+    if (conSede && !issued.sedeId)
+      return res.status(400).json({ ok: false, error: "sedeId obligatorio" });
+    const url = new URL("/", origin);
+    url.searchParams.set("restaurantId", req.query.restaurantId);
+    url.searchParams.set("mesa", String(Number(req.params.mesa)));
+    if (issued.sedeId) url.searchParams.set("sedeId", issued.sedeId);
+    url.searchParams.set("qrToken", issued.token);
+    const publicUrl = url.toString();
+    const dataUrl = await QRCode.toDataURL(publicUrl);
+    return res.json({
+      ok: true, mesa: Number(req.params.mesa),
+      restaurantId: req.query.restaurantId, sedeId: issued.sedeId,
+      url: publicUrl, dataUrl
     });
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo generar QR autorizado" });
   }
-});
+}
+router.get("/qr/:mesa", authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  (req, res) => emitirQrMesa(req, res, false));
+router.get("/qr-sede/:mesa", authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
+  (req, res) => emitirQrMesa(req, res, true));
 
 /* =========================
    PERSONAL
