@@ -144,6 +144,12 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 ## Auditoría incremental — 30 de octubre de 2026 (XSS en panel mesero)
 
 - **P0-70, PR #528, dependiente de PR #527:** los mensajes de llamado enviados por el QR son datos no confiables. El panel mesero los interpolaba en `innerHTML` mientras conserva un JWT de empleado; se agregaron escapes HTML para mensaje, nombre, mesa y productos, además de validación estricta de ObjectId antes de interpolarlo en handlers. Prueba de regresión con HTML malicioso: `test/gruk/capa2-mesero-html-injection.test.js`.
-- **Estado de integración:** el PR #527 está fusionado solo en la rama de integración del PR #524, nunca en `main`. PR #528 requiere checks verdes antes de integrarse a esa rama. No se acredita prueba real en navegador ni una auditoría completa de todas las superficies HTML.
+- **Estado de integración:** el PR #527 está fusionado solo en la rama de integración del PR #524, nunca en `main`. PR #528 fue fusionado solo a esa rama mediante `1df78c66f7dc4b50788605154456cb5edd78346c`, después de aprobar su GRUK Production Gate en el SHA `0048aac9`. No se fusionó a `main`. No se acredita prueba real en navegador ni una auditoría completa de todas las superficies HTML.
 - **P0-70 sigue PARCIAL:** existen otras vistas y endpoints heredados sin certificar, incluido el renderizado de datos de menú y meseros en QR, permisos de pedidos, seguridad de cachés y archivos. No declarar `VERIFICADO`.
 - **Bloqueo de despliegue:** la configuración Auto-Deploy de Render sobre `main` y la falta de verificación de los 77 criterios siguen impidiendo cualquier fusión a `main` o publicación.
+
+## Integración controlada — 30 de octubre de 2026 (PR #527 y #528)
+
+- **Rama de integración PR #524:** PR #527 fusionado mediante `c55b7006898cde4c5b6a228a70a5f2ce43f0eee2` tras cuatro controles aprobados en `108f755`; PR #528 fusionado mediante `1df78c66f7dc4b50788605154456cb5edd78346c` tras GRUK Production Gate aprobado en `0048aac9`. La integración no implica certificación del requisito.
+- **Estado de la matriz:** 0 VERIFICADOS, 2 PARCIALES (70 y 75), 75 SIN_AUDITAR. Se requiere verificar checks del HEAD final de PR #524, pruebas E2E de QR y mesero, transacciones, accesos cruzados, privacidad, rate limits, DB/cachés/búsquedas/archivos/logs y los restantes 76 criterios.
+- **Producción:** `main` sigue protegido por la prohibición de fusionar mientras Auto-Deploy de Render esté activo y el Word no esté completo. No se autorizó ni ejecutó despliegue.
