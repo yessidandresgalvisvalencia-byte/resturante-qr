@@ -35,7 +35,7 @@ const sites = {
 };
 function socket(auth) {
   const joined = [];
-  return { auth, joined, join(room) { joined.push(room); } };
+  return { auth: { usuarioId: "user-A", identityType: "USUARIO", tokenVersion: 2, expiresAt: 4102444800, ...auth }, joined, join(room) { joined.push(room); } };
 }
 function fakeIo() {
   const events = [];
@@ -55,14 +55,14 @@ const deps = { RestauranteModel: restaurants, SedeModel: sites };
 
 test("P0-70: dueño recibe solo room privado de su empresa y menú", async () => {
   const s = socket({ empresaId: tenantA, sedeId: null, rol: "DUEÑO" });
-  assert.equal(await joinTenantRealtimeRooms(s, { SedeModel: sites }), 2);
+  assert.equal(await joinTenantRealtimeRooms(s, { SedeModel: sites, validateSession: async () => true }), 2);
   assert.deepEqual(s.joined, [ownerRoom(tenantA), menuRoom(tenantA)]);
   assert.equal(s.joined.some(x => x.includes(tenantB)), false);
 });
 test("P0-70: empleado recibe solo room de su sede validada, nunca owner", async () => {
   for (const sedeId of [sedeA, "site-A"]) {
     const s = socket({ empresaId: tenantA, sedeId, restaurantId: "restA", rol: "EMPLEADO" });
-    assert.equal(await joinTenantRealtimeRooms(s, { SedeModel: sites }), 2);
+    assert.equal(await joinTenantRealtimeRooms(s, { SedeModel: sites, validateSession: async () => true }), 2);
     assert.deepEqual(s.joined, [siteRoom(tenantA, sedeA), menuRoom(tenantA)]);
     assert.equal(s.joined.includes(ownerRoom(tenantA)), false);
   }
@@ -79,7 +79,7 @@ test("P0-70: rechaza sede ajena, rol ajeno, claims sin scope y coerción", async
   ];
   for (const auth of invalid) {
     const s = socket(auth);
-    assert.equal(await joinTenantRealtimeRooms(s, { SedeModel: sites }), 0);
+    assert.equal(await joinTenantRealtimeRooms(s, { SedeModel: sites, validateSession: async () => true }), 0);
     assert.deepEqual(s.joined, []);
   }
 });

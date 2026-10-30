@@ -2,6 +2,7 @@
 // P0-70: realtime data is never broadcast to every connected company.
 const Restaurante = require("../../models/restaurante");
 const Sede = require("../../models/sede");
+const { validarVersionSesion } = require("../auth/sessionVersion.service");
 const TENANT_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const RESTAURANT_ID = /^[A-Za-z0-9_-]{1,120}$/;
 const PRIVATE_EVENTS = new Set([
@@ -35,12 +36,42 @@ async function lookupSite(SedeModel, empresaId, restaurantId, sedeId) {
   return site?._id ? String(site._id) : null;
 }
 
+// Recheck revocation immediately before joining rooms. A valid handshake can become
+// stale while a MongoDB site lookup is pending; the periodic lifecycle check is
+// not sufficient to prevent that initial unauthorized subscription.
+async function authorizeRoomJoin(socket, auth, validateSession, now) {
+  const expiresAtMs = auth?.expiresAt * 1000;
+  if (socket?.connected === false || socket?.auth !== auth ||
+      typeof auth?.usuarioId !== "string" || !auth.usuarioId ||
+      !["ADMIN", "PERSONAL", "RESTAURANTE", "USUARIO"].includes(auth.identityType) ||
+      !Number.isSafeInteger(auth.tokenVersion) ||
+      !Number.isSafeInteger(auth.expiresAt) ||
+      !Number.isSafeInteger(expiresAtMs) || expiresAtMs <= now() ||
+      typeof validateSession !== "function") return false;
+  try {
+    const valid = await validateSession({
+      sub: auth.usuarioId, empresaId: auth.empresaId,
+      sedeId: auth.sedeId, restaurantId: auth.restaurantId,
+      rol: auth.rol, identityType: auth.identityType,
+      tokenVersion: auth.tokenVersion
+    });
+    // The session, socket and JWT must still be valid after the async check.
+    return valid === true && socket.connected !== false &&
+      socket.auth === auth && expiresAtMs > now();
+  } catch (_error) {
+    return false;
+  }
+}
+
 // Called only after JWT signature, claims and revocation have passed.
 // Never join a company-wide private room for site-scoped users.
-async function joinTenantRealtimeRooms(socket, { SedeModel = Sede } = {}) {
+async function joinTenantRealtimeRooms(socket, {
+  SedeModel = Sede, validateSession = validarVersionSesion, now = Date.now
+} = {}) {
   const auth = socket?.auth;
   if (socket?.connected === false || !auth || !validTenantId(auth.empresaId)) return 0;
   if (auth.rol === "DUEÑO" && auth.sedeId == null) {
+    if (!(await authorizeRoomJoin(socket, auth, validateSession, now))) return 0;
     socket.join(ownerRoom(auth.empresaId));
     socket.join(menuRoom(auth.empresaId));
     return 2;
@@ -50,7 +81,7 @@ async function joinTenantRealtimeRooms(socket, { SedeModel = Sede } = {}) {
       !validTenantId(auth.sedeId)) return 0;
   const siteId = await lookupSite(SedeModel, auth.empresaId, auth.restaurantId, auth.sedeId);
   // A socket can disconnect while the asynchronous tenant lookup is pending.
-  if (!siteId || socket.connected === false) return 0;
+  if (!siteId || !(await authorizeRoomJoin(socket, auth, validateSession, now))) return 0;
   socket.join(siteRoom(auth.empresaId, siteId));
   socket.join(menuRoom(auth.empresaId));
   return 2;
