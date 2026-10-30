@@ -1110,6 +1110,7 @@ router.post("/pedido", async (req, res) => {
     const {
       mesa,
       sedeId,
+      qrToken,
       observaciones,
       metodoPago,
       cantidad,
@@ -1181,6 +1182,13 @@ router.post("/pedido", async (req, res) => {
       });
     }
 
+    // Signed QR capability is required before any public order write.
+    const qrScope = await resolveMesaQrRead({
+      restaurantId, mesa: mesaNumerica, sedeId, qrToken
+    });
+    if (qrScope.status !== 200)
+      return res.status(qrScope.status).json({ ok: false, error: qrScope.error });
+
     const Menu = require("../models/menu");
 
     const menuItem = await Menu.findOne({
@@ -1236,7 +1244,7 @@ router.post("/pedido", async (req, res) => {
     // =====================================================
 
     const restaurante = await Restaurante.findOne({
-      restaurantId
+      restaurantId, empresaId: qrScope.empresaId
     }).select(
       "_id restaurantId empresaId"
     );
@@ -1376,11 +1384,8 @@ router.post("/pedido", async (req, res) => {
 
     const pedido = new Pedido({
       restaurantId,
-
-      sedeId:
-        typeof sedeId === "string"
-          ? sedeId.trim()
-          : "",
+      empresaId: qrScope.empresaId,
+      sedeId: qrScope.canonicalSedeId,
 
       menuItemId: menuItem._id,
 
