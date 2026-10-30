@@ -77,6 +77,7 @@
       r.onerror=()=>reject(r.error);
       t.oncomplete=()=>resolve(updated);
       t.onerror=()=>reject(t.error||new Error("OUTBOX_ABORT"));
+      t.onabort=()=>reject(t.error||new Error("OUTBOX_ABORT"));
     });}finally{db.close();}
   }
   // These events remain stored in IndexedDB after the server acknowledges receipt.
