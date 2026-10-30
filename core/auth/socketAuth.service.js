@@ -33,6 +33,7 @@ async function authenticateSocketHandshake(handshake, secret, checkSession = val
     usuarioId: payload.sub,
     empresaId: payload.empresaId,
     sedeId: payload.sedeId ?? null,
+    restaurantId: payload.restaurantId ?? null,
     rol: payload.rol,
     identityType: payload.identityType ?? null,
     tokenVersion: payload.tokenVersion ?? 0
