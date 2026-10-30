@@ -43,3 +43,9 @@
 - Commit `51068276`: dos regresiones negativas adicionales comprueban capacidades QR válidamente firmadas por empresa B contra restaurante y sede de A; ambos accesos deben denegarse sin devolver filtro de lectura. Son pruebas unitarias con dobles de modelo, **no** demuestran aislamiento HTTP/MongoDB real.
 - Cobertura actual: filtro explícito de empresa en ambas ramas de lectura, denegación de restaurante/sede inexistentes y de capacidades firmadas para otro tenant. Pendiente: ejecutar los tests y verificar CI del HEAD actualizado, integración real con colisiones y legacy, E2E de navegador, migración/reimpresión QR, revisión de referer/logs y Wompi.
 - **Decisión:** PR #534 continúa draft; no fusionar ni desplegar sin checks verdes y evidencia de aceptación. P0-70 PARCIAL, los 77 requisitos no certificados.
+
+## Seguimiento de evidencia — 30-10-2026, ejecución posterior
+
+- Nuevo commit `326910e`: dos regresiones unitarias para alias de sede con pedidos de otra empresa y registros históricos sin `empresaId`, y para rechazo de una sede aportada frente a un QR sin sede. La primera prueba usa un evaluador en memoria de las condiciones del filtro, **no** ejecuta MongoDB; no equivale a prueba HTTP/E2E ni demuestra el comportamiento de índices o consultas reales.
+- Consulta de GitHub Actions y combined statuses para el HEAD anterior `910295f`: ambos devolvieron listas vacías. El commit nuevo requiere controles propios; **no existe CI verde confirmado en esta revisión**.
+- Estado de aceptación: P0-70 **PARCIAL**. Pendientes: integración HTTP + MongoDB con colisiones de `restaurantId`/sede, legacy sin empresa, pruebas E2E, revisión de filtración de QR y migración/reimpresión, Wompi y verificación de secretos. Mantener #534 draft y no fusionar ni desplegar.
