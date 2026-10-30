@@ -180,8 +180,17 @@
           v.serverApplied!==true){
           const items=v.event?.payload?.items;
           if(!Array.isArray(items)||items.length<1) {reject(Error("OUTBOX_STOCK_EVENT_INVALID"));return;}
-          for(const item of items)entries.push({eventId:v.eventId,
-            productoId:item.productoId,cantidad:item.cantidad});
+          for(const item of items){
+            // Corrupted records must never yield partial or undefined stock reservations.
+            if(!item||typeof item!=="object"||Array.isArray(item)||
+               typeof item.productoId!=="string"||!item.productoId.trim()||
+               !Object.prototype.hasOwnProperty.call(item,"cantidad")||
+               item.cantidad===null||item.cantidad===undefined){
+              reject(Error("OUTBOX_STOCK_EVENT_INVALID"));return;
+            }
+            entries.push({eventId:v.eventId,
+              productoId:item.productoId,cantidad:item.cantidad});
+          }
         }
         cursor.continue();
       };
