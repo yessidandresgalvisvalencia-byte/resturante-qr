@@ -455,6 +455,7 @@ headers: {
 body: JSON.stringify({
 restaurantId: pedido.restaurantId,
 sedeId,
+qrToken,
 mesa: pedido.mesa,
 menuItemId: pedido.menuItemId,
 productoServicioId: pedido.productoServicioId,

@@ -113,7 +113,7 @@ async function resolveMesaQrRead({ restaurantId, mesa, sedeId, qrToken }, {
   if (!p.s) {
     if (sedeId != null && sedeId !== "")
       return { status: 403, error: "Sede fuera de ámbito" };
-    return { status: 200, filter: {
+    return { status: 200, empresaId: p.e, canonicalSedeId: p.s, filter: {
       restaurantId, mesa: Number(mesa), sedeId: { $in: ["", null] }
     } };
   }
@@ -127,7 +127,7 @@ async function resolveMesaQrRead({ restaurantId, mesa, sedeId, qrToken }, {
       !aliases.includes(site.codigoSede)) aliases.push(site.codigoSede);
   if (sedeId != null && !aliases.includes(sedeId))
     return { status: 403, error: "Sede fuera de ámbito" };
-  return { status: 200, filter: {
+  return { status: 200, empresaId: p.e, canonicalSedeId: p.s, filter: {
     restaurantId, mesa: Number(mesa), sedeId: { $in: aliases }
   } };
 }
