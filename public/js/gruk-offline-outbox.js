@@ -59,11 +59,16 @@
       /^[0-9A-HJKMNP-TV-Z]{26}$/.test(record.eventId) &&
       record.event?.eventId===record.eventId;
   }
+  function sameTenantSnapshot(context, identity) {
+    return validTenantContext(context) &&
+      ["empresaId","sedeId","actorId"].every(k=>context[k]===identity[k]);
+  }
   function matchesTenant(event, context) {
     return validTenantContext(context) && ["empresaId","sedeId","actorId"].every(k => event?.[k] === context[k]);
   }
   async function listPending(limit=100, context) {
     if(!context || !validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
+    const identity=Object.freeze({empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId});
     if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("OUTBOX_LIMIT");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
@@ -72,7 +77,8 @@
       r.onerror=()=>reject(r.error||Error("OUTBOX_READ_FAILED"));
       t.onerror=()=>reject(t.error||Error("OUTBOX_ABORT"));
       t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
-      r.onsuccess=()=>{const c=r.result;if(!c||events.length>=limit){resolve(events);return;}if(matchesTenant(c.value.event,context)){if(!ensureRecordKey(c.value)){reject(Error("OUTBOX_EVENT_ID_MISMATCH"));return;}events.push(c.value.event);}c.continue();};
+      r.onsuccess=()=>{const c=r.result;
+        if(!sameTenantSnapshot(context,identity)){reject(Error("OUTBOX_SESSION_CHANGED"));return;}if(!c||events.length>=limit){resolve(events);return;}if(matchesTenant(c.value.event,context)){if(!ensureRecordKey(c.value)){reject(Error("OUTBOX_EVENT_ID_MISMATCH"));return;}events.push(c.value.event);}c.continue();};
     });}finally{db.close();}
   }
   async function markReceived(eventId, context) {
@@ -92,6 +98,7 @@
   // These events remain stored in IndexedDB after the server acknowledges receipt.
   async function listReceived(limit=100,context) {
     if(!context || !validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
+    const identity=Object.freeze({empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId});
     if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("OUTBOX_LIMIT");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
@@ -101,6 +108,7 @@
       t.onerror=()=>reject(t.error||Error("OUTBOX_ABORT"));
       t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
       r.onsuccess=()=>{const cursor=r.result;
+        if(!sameTenantSnapshot(context,identity)){reject(Error("OUTBOX_SESSION_CHANGED"));return;}
         if(!cursor||records.length>=limit){resolve(records);return;}
         if(matchesTenant(cursor.value.event,context)){if(!ensureRecordKey(cursor.value)){reject(Error("OUTBOX_EVENT_ID_MISMATCH"));return;}records.push({eventId:cursor.value.eventId});}
         cursor.continue();
@@ -145,6 +153,7 @@
   // Operator's own local events only; never delete or expose another tenant's orders.
   async function listLocal(limit=100,context){
     if(!context||!validTenantContext(context))throw Error("OUTBOX_TENANT_REQUIRED");
+    const identity=Object.freeze({empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId});
     if(!Number.isInteger(limit)||limit<1||limit>100)throw Error("OUTBOX_LIMIT");
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
@@ -154,6 +163,7 @@
       t.onerror=()=>reject(t.error||Error("OUTBOX_ABORT"));
       t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
       r.onsuccess=()=>{const cursor=r.result;
+        if(!sameTenantSnapshot(context,identity)){reject(Error("OUTBOX_SESSION_CHANGED"));return;}
         if(!cursor||records.length>=limit){resolve(records);return;}
         const v=cursor.value;
         if(matchesTenant(v.event,context)){if(!ensureRecordKey(v)){reject(Error("OUTBOX_EVENT_ID_MISMATCH"));return;}records.push({
@@ -171,6 +181,7 @@
   async function listStockReservations(context){
     if(!context||!validTenantContext(context))
       throw Error("OUTBOX_TENANT_REQUIRED");
+    const identity=Object.freeze({empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId});
     const db=await open();
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).openCursor();
@@ -183,6 +194,7 @@
       t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
       r.onsuccess=()=>{
         const cursor=r.result;
+        if(!sameTenantSnapshot(context,identity)){reject(Error("OUTBOX_SESSION_CHANGED"));return;}
         if(!cursor){resolve(entries);return;}
         const v=cursor.value;
         if(matchesTenant(v.event,context)&&
