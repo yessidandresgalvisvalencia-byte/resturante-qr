@@ -39,7 +39,8 @@ const usuarioSchema = new mongoose.Schema({
     type: String,
     enum: ["activo", "inactivo"],
     default: "activo"
-  }
+  },
+  tokenVersion: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
 module.exports = mongoose.model("Usuario", usuarioSchema);
