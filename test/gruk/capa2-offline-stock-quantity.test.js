@@ -12,15 +12,27 @@ function outboxWith(quantity){
   ...context,eventId,payload:{items:[{productoId:"sku1",cantidad:quantity}]}
  }};
  const cursorRequest={};
- const db={close(){},transaction(){return {objectStore(){return {openCursor(){
-  queueMicrotask(()=>{
-   cursorRequest.result={value:record,continue(){
-    queueMicrotask(()=>{cursorRequest.result=null;cursorRequest.onsuccess?.();});
-   }};
-   cursorRequest.onsuccess?.();
-  });
-  return cursorRequest;
- }}};}}};
+ const db={
+  close(){},
+  transaction(){
+   return {
+    objectStore(){
+     return {
+      openCursor(){
+       queueMicrotask(()=>{
+        cursorRequest.result={
+         value:record,
+         continue(){queueMicrotask(()=>{cursorRequest.result=null;cursorRequest.onsuccess?.();});}
+        };
+        cursorRequest.onsuccess?.();
+       });
+       return cursorRequest;
+      }
+     };
+    }
+   };
+  }
+ };
  const indexedDB={open(){const r={result:db};queueMicrotask(()=>r.onsuccess?.());return r;}};
  const module={exports:{}};
  const sandbox={module,indexedDB,Promise,Date,Error,JSON,IDBKeyRange:{}};
