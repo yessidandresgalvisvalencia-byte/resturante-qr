@@ -63,7 +63,9 @@
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).index("syncStatus").openCursor(IDBKeyRange.only("pending"));
       const events=[];
-      r.onerror=()=>reject(r.error);
+      r.onerror=()=>reject(r.error||Error("OUTBOX_READ_FAILED"));
+      t.onerror=()=>reject(t.error||Error("OUTBOX_ABORT"));
+      t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
       r.onsuccess=()=>{const c=r.result;if(!c||events.length>=limit){resolve(events);return;}if(matchesTenant(c.value.event,context))events.push(c.value.event);c.continue();};
     });}finally{db.close();}
   }
@@ -89,7 +91,9 @@
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).index("syncStatus").openCursor(IDBKeyRange.only("received"));
       const records=[];
-      r.onerror=()=>reject(r.error);
+      r.onerror=()=>reject(r.error||Error("OUTBOX_READ_FAILED"));
+      t.onerror=()=>reject(t.error||Error("OUTBOX_ABORT"));
+      t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
       r.onsuccess=()=>{const cursor=r.result;
         if(!cursor||records.length>=limit){resolve(records);return;}
         if(matchesTenant(cursor.value.event,context))records.push({eventId:cursor.value.eventId});
@@ -139,7 +143,9 @@
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).openCursor();
       const records=[];
-      r.onerror=()=>reject(r.error);
+      r.onerror=()=>reject(r.error||Error("OUTBOX_READ_FAILED"));
+      t.onerror=()=>reject(t.error||Error("OUTBOX_ABORT"));
+      t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
       r.onsuccess=()=>{const cursor=r.result;
         if(!cursor||records.length>=limit){resolve(records);return;}
         const v=cursor.value;
