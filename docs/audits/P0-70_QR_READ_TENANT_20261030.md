@@ -18,3 +18,9 @@
 4. Ejecutar pruebas de integración reales y guardar enlaces a checks; no fusionar a `main` mientras Render Auto-Deploy pueda publicar prematuramente.
 
 **Resultado:** auditoría de código, no corrección funcional ni prueba de aceptación. No autoriza despliegue.
+
+## Corrección propuesta (30-10-2026)
+
+- Commit `b07e434`: `resolveMesaQrRead` incluye `empresaId: p.e` en ambos filtros MongoDB (sede canónica/alias y mesa sin sede). Las rutas HTTP existentes usan `Pedido.find(scope.filter)`, por lo que pedidos de otras empresas y registros sin `empresaId` quedan excluidos (fail-closed).
+- Commit `2e85b00`: pruebas unitarias del filtro, alias y denegación de restaurante ajeno en `test/gruk/p0-70-qr-read-enterprise-filter.test.js`.
+- **No certificado:** faltan ejecución y resultados de CI, prueba HTTP+MongoDB real con colisiones, plan de migración de pedidos legados, QR en navegador, Wompi y auditoría de filtración de tokens. No desplegar.
