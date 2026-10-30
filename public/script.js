@@ -691,6 +691,18 @@ alert("Error enviando pedido");
 }
 }
 
+// The QR call capability is scoped to this browser session, restaurant and table.
+// Never put the secret in a URL, logs or a global localStorage account token.
+function grukCallStorageKey() {
+  return "gruk:call:" + restaurantId + ":" + mesa;
+}
+function grukCurrentCallCapability() {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(grukCallStorageKey()) || "null");
+    return value && /^[a-f0-9]{24}$/i.test(value.callId) &&
+      /^[A-Za-z0-9_-]{43}$/.test(value.token) ? value : null;
+  } catch (_error) { return null; }
+}
 async function llamarMesero(meseroId) {
 try {
 const res = await fetch("/api/llamar-mesero", {
@@ -713,6 +725,13 @@ alert(data.error || "No se pudo llamar al mesero");
 return;
 }
 
+if (data.callToken && data.llamado?._id) {
+  sessionStorage.setItem(grukCallStorageKey(), JSON.stringify({
+    callId: String(data.llamado._id), token: data.callToken
+  }));
+} else if (grukCurrentCallCapability()?.callId !== String(data.llamado?._id || "")) {
+  sessionStorage.removeItem(grukCallStorageKey());
+}
 ultimoEstadoLlamado = "pendiente";
 alert(`Se avisó al mesero ${data.llamado?.meseroNombre || ""}`);
 cargarMeseros();
@@ -763,7 +782,12 @@ console.log("Error cargando meseros:", error);
 
 async function revisarEstadoLlamado() {
 try {
-const res = await fetch(`/api/llamados/mesa/${mesa}?restaurantId=${restaurantId}`);
+const capability = grukCurrentCallCapability();
+if (!capability) return;
+const res = await fetch(
+  `/api/llamados/mesa/${encodeURIComponent(mesa)}/estado-publico?restaurantId=${encodeURIComponent(restaurantId)}&callId=${encodeURIComponent(capability.callId)}`,
+  { headers: { "X-GRUK-Call-Token": capability.token } }
+);
 if (!res.ok) return;
 
 const data = await res.json();
@@ -783,10 +807,17 @@ console.log("Error revisando estado del llamado:", error);
 
 async function marcarAtendido() {
 try {
-const res = await fetch(`/api/llamados/mesa/${mesa}/atendido?restaurantId=${restaurantId}`, {
+const capability = grukCurrentCallCapability();
+if (!capability) {
+  alert("Debes llamar al mesero desde esta mesa antes de confirmar la atención.");
+  return;
+}
+const res = await fetch(
+`/api/llamados/mesa/${encodeURIComponent(mesa)}/atendido-publico?restaurantId=${encodeURIComponent(restaurantId)}&callId=${encodeURIComponent(capability.callId)}`, {
 method: "PUT",
 headers: {
-"Content-Type": "application/json"
+"Content-Type": "application/json",
+"X-GRUK-Call-Token": capability.token
 }
 });
 
@@ -798,6 +829,7 @@ return;
 }
 
 ultimoEstadoLlamado = "atendido";
+sessionStorage.removeItem(grukCallStorageKey());
 alert("Atención marcada como recibida");
 } catch (error) {
 console.log(error);
