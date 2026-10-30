@@ -28,6 +28,12 @@ async function authenticateSocketHandshake(handshake, secret, checkSession = val
     throw Error("UNAUTHORIZED");
   }
   if (!claimsValidas(payload)) throw Error("UNAUTHORIZED");
+  // Legacy tokens without a revocable identity cannot keep a private socket open.
+  if (!["ADMIN", "PERSONAL", "RESTAURANTE", "USUARIO"].includes(payload.identityType))
+    throw Error("UNAUTHORIZED");
+  // Socket.IO connections can outlive a JWT unless the expiration is enforced after handshake.
+  if (!Number.isSafeInteger(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000))
+    throw Error("UNAUTHORIZED");
   if (!(await checkSession(payload))) throw Error("UNAUTHORIZED");
   return Object.freeze({
     usuarioId: payload.sub,
@@ -36,7 +42,8 @@ async function authenticateSocketHandshake(handshake, secret, checkSession = val
     restaurantId: payload.restaurantId ?? null,
     rol: payload.rol,
     identityType: payload.identityType ?? null,
-    tokenVersion: payload.tokenVersion ?? 0
+    tokenVersion: payload.tokenVersion ?? 0,
+    expiresAt: payload.exp
   });
 }
 

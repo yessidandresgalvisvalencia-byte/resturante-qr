@@ -37,6 +37,7 @@ registerHttpHealthRoutes(app,mongoose,{version:require("./package.json").version
 
 const { authenticateSocketHandshake } = require("./core/auth/socketAuth.service");
 const { joinTenantRealtimeRooms } = require("./core/realtime/tenantRealtime.service");
+const { guardRealtimeSession } = require("./core/realtime/socketSessionLifecycle.service");
 const { securityHeaders, noStore } = require("./core/security/httpSecurity.middleware");
 const rateLimit = require("./core/security/rateLimit.middleware");
 app.set("trust proxy", 1);
@@ -172,6 +173,9 @@ io.use(async (socket, next) => {
 });
 
 io.on("connection", (socket) => {
+  // Expiration/revocation remain enforced after the initial JWT handshake.
+  guardRealtimeSession(socket);
+  if (socket.connected === false) return;
   // Reject sockets that cannot be assigned to a verified tenant/site room.
   void joinTenantRealtimeRooms(socket)
     .then(joined => { if (!joined) socket.disconnect(true); })

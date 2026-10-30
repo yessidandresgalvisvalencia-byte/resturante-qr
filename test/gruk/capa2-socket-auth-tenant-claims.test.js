@@ -12,7 +12,7 @@ const valid = Object.freeze({
   sub: "usuario-A", empresaId: "empresa-A", sedeId: "sede-A",
   rol: "EMPLEADO", tokenVersion: 3, identityType: "PERSONAL"
 });
-const sign = (payload, algorithm = "HS256") => jwt.sign(payload, secret, { algorithm });
+const sign = (payload, algorithm = "HS256") => jwt.sign(payload, secret, { algorithm, expiresIn: "8h" });
 const handshake = token => ({ auth: { token } });
 
 test("socket: acepta JWT HS256 canónico, raw o Bearer, y conserva identidad congelada", async () => {
@@ -26,7 +26,8 @@ test("socket: acepta JWT HS256 canónico, raw o Bearer, y conserva identidad con
     });
     assert.deepEqual({ ...auth }, {
       usuarioId: "usuario-A", empresaId: "empresa-A", sedeId: "sede-A",
-      restaurantId: null, rol: "EMPLEADO", identityType: "PERSONAL", tokenVersion: 3
+      restaurantId: null, rol: "EMPLEADO", identityType: "PERSONAL", tokenVersion: 3,
+      expiresAt: jwt.decode(token).exp
     });
     assert.equal(Object.isFrozen(auth), true);
   }
@@ -59,7 +60,7 @@ test("socket: bloquea claims falsificadas antes de consultar sesión", async () 
     { sedeId: { $ne: null } }, { sedeId: [] }, { sedeId: "sede B" },
     { rol: "ADMIN" }, { rol: ["EMPLEADO"] }, { sub: {} },
     { tokenVersion: "3" }, { tokenVersion: -1 }, { tokenVersion: null },
-    { identityType: [] }
+    { identityType: [] }, { identityType: null }, { identityType: undefined }
   ];
   for (const overrides of cases) {
     const token = sign({ ...valid, ...overrides });
@@ -81,6 +82,16 @@ test("socket: revocación de sesión y firma/algoritmo no autorizados", async ()
     /UNAUTHORIZED/);
 });
 
+test("socket: rechaza JWT sin expiración aun con firma válida", async () => {
+  const noExpiry = jwt.sign(valid, secret, { algorithm: "HS256" });
+  let called = 0;
+  await assert.rejects(authenticateSocketHandshake(handshake(noExpiry), secret, async () => {
+    called++;
+    return true;
+  }), /UNAUTHORIZED/);
+  assert.equal(called, 0);
+});
+
 test("socket: conserva compatibilidad explícita con tokenVersion legacy 0", async () => {
   const { tokenVersion, ...legacy } = valid;
   const auth = await authenticateSocketHandshake(handshake(sign(legacy)), secret,
@@ -93,5 +104,6 @@ test("socket: app.js usa el guard compartido antes de admitir la conexión", () 
   assert.match(app, /socket\.auth = await authenticateSocketHandshake\(socket\.handshake, process\.env\.JWT_SECRET\)/);
   assert.doesNotMatch(app, /jwt\.verify\(token, process\.env\.JWT_SECRET/);
   assert.match(app, /joinTenantRealtimeRooms\(socket\)/);
+  assert.match(app, /guardRealtimeSession\(socket\)/);
   assert.doesNotMatch(app, /socket\.join\(`empresa-/);
 });
