@@ -72,7 +72,7 @@ async function synchronizeAll({outbox,token,fetchFn,context,limit=100,maxBatches
   const result=await synchronize({outbox,token,fetchFn,context,limit,isSessionCurrent});
   if(result.sent===0)return Object.freeze({sent,received,batches,complete:true});
   sent+=result.sent;received+=result.received;batches++;
-  if(result.sent<limit)return Object.freeze({sent,received,batches,complete:true});
+  // A short page is not proof that the durable outbox is empty. Only a\n  // subsequent zero-event read can establish complete=true.
  }
  // An exact full final batch may leave more local events; do not claim drained.
  return Object.freeze({sent,received,batches,complete:false});
