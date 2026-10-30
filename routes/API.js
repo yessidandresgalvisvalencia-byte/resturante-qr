@@ -18,6 +18,7 @@ const { emitRestaurantRealtime } = require("../core/realtime/tenantRealtime.serv
 const { resolveLlamadosScope, validRestaurantId } = require("../core/realtime/llamadosTenant.service");
 const { updatePedidoEstado } = require("../core/security/pedidoEstadoTenant.service");
 const { resolvePedidoPagoScope } = require("../core/security/pedidoPagoTenant.service");
+const { resolvePedidoListadoScope } = require("../core/security/pedidoListadoTenant.service");
 const { issueCallCapability, hashCallCapability, validMesa } = require("../core/realtime/llamadosCapability.service");
 const IntentoCobroSuscripcion = require("../models/IntentoCobroSuscripcion");
 const { aplicarResultadoSuscripcion } = require("../services/suscripciones.service");
@@ -1482,26 +1483,20 @@ router.post("/pedido", async (req, res) => {
     });
   }
 });
-router.get("/pedidos", async (req, res) => {
+router.get("/pedidos", authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE, ROLES_GRUK.EMPLEADO),
+  async (req, res) => {
   try {
-    const restaurantId = getRestaurantId(req);
-    const sedeId = req.query.sedeId || "";
-
-    const filtro = { restaurantId };
-
-    // Ã°Å¸â€˜â€¡ SOLO si viene sedeId, filtra por sede
-    if (sedeId) {
-      filtro.sedeId = sedeId;
-    }
-
-    const pedidos = await Pedido.find(filtro).sort({ createdAt: -1 });
-
-    res.json(pedidos);
-  } catch (error) {
-    res.status(500).json({
-      mensaje: "Error obteniendo pedidos",
-      error
+    const scope = await resolvePedidoListadoScope({
+      auth: req.auth, restaurantId: req.query.restaurantId
     });
+    if (scope.status !== 200)
+      return res.status(scope.status).json({ ok: false, error: scope.error });
+
+    const pedidos = await Pedido.find(scope.filter).sort({ createdAt: -1 });
+    return res.json(pedidos);
+  } catch (_error) {
+    return res.status(503).json({ ok: false, error: "No se pudo verificar el listado de pedidos" });
   }
 });
 
@@ -1958,26 +1953,13 @@ router.get(
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
   async (req, res) => {
   try {
-    const restaurantId = String(req.query.restaurantId || "").trim();
+    const scope = await resolvePedidoListadoScope({
+      auth: req.auth, restaurantId: req.query.restaurantId
+    });
+    if (scope.status !== 200)
+      return res.status(scope.status).json({ ok: false, error: scope.error });
 
-    if (!restaurantId) {
-      return res.status(400).json({
-        mensaje: "restaurantId es obligatorio"
-      });
-    }
-
-    const restaurante = await Restaurante.findOne({
-      restaurantId,
-      empresaId: req.auth.empresaId
-    }).select("_id").lean();
-
-    if (!restaurante) {
-      return res.status(403).json({
-        mensaje: "Restaurante fuera del tenant autorizado"
-      });
-    }
-
-    const pedidos = await Pedido.find({ restaurantId }).sort({ createdAt: -1 });
+    const pedidos = await Pedido.find(scope.filter).sort({ createdAt: -1 });
     const activos = pedidos.filter(p => p.estado !== "entregado");
     const totalVendido = pedidos.reduce((acc, p) => acc + p.precio, 0);
 
@@ -2001,7 +1983,7 @@ router.get(
       historial
     });
   } catch (error) {
-    res.status(500).json({ mensaje: "Error resumen admin", error });
+    res.status(503).json({ ok: false, error: "No se pudo verificar el resumen" });
   }
 });
 
