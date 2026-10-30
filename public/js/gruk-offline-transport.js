@@ -88,6 +88,14 @@ async function reconcileReceived({outbox,token,fetchFn,context,limit=100,isSessi
  const received=await outbox.listReceived(limit,identity);
  requireSameIdentity(context,identity);
  requireActiveSession(isSessionCurrent);
+ // The local outbox is a trust boundary too: refuse malformed or oversized
+ // pages before any network request or local reconciliation mutation.
+ if(!Array.isArray(received)||received.length>limit)throw Error("SYNC_INVALID_LOCAL_EVENTS");
+ if(received.some(x=>!x||typeof x!=="object"||Array.isArray(x)||
+   (x.empresaId!==undefined&&x.empresaId!==identity.empresaId)||
+   (x.sedeId!==undefined&&x.sedeId!==identity.sedeId)||
+   (x.actorId!==undefined&&x.actorId!==identity.actorId)))
+   throw Error("SYNC_INVALID_LOCAL_EVENTS");
  if(received.length===0)return Object.freeze({checked:0,updated:0});
  const ids=received.map(x=>x?.eventId);
  if(ids.some(x=>typeof x!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(x))||
