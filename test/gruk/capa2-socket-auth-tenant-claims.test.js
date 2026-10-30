@@ -26,7 +26,7 @@ test("socket: acepta JWT HS256 canónico, raw o Bearer, y conserva identidad con
     });
     assert.deepEqual({ ...auth }, {
       usuarioId: "usuario-A", empresaId: "empresa-A", sedeId: "sede-A",
-      rol: "EMPLEADO", identityType: "PERSONAL", tokenVersion: 3
+      restaurantId: null, rol: "EMPLEADO", identityType: "PERSONAL", tokenVersion: 3
     });
     assert.equal(Object.isFrozen(auth), true);
   }
@@ -92,5 +92,6 @@ test("socket: app.js usa el guard compartido antes de admitir la conexión", () 
   const app = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8");
   assert.match(app, /socket\.auth = await authenticateSocketHandshake\(socket\.handshake, process\.env\.JWT_SECRET\)/);
   assert.doesNotMatch(app, /jwt\.verify\(token, process\.env\.JWT_SECRET/);
-  assert.match(app, /socket\.join\(`empresa-\$\{socket\.auth\.empresaId\}\`\)/);
+  assert.match(app, /joinTenantRealtimeRooms\(socket\)/);
+  assert.doesNotMatch(app, /socket\.join\(`empresa-/);
 });
