@@ -30,7 +30,7 @@
   }
   async function putPending(event) {
     if(!event||typeof event.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(event.eventId))throw Error("OUTBOX_EVENT_ID");
-    if(!["empresaId","sedeId","actorId"].every(k=>typeof event[k]==="string"&&event[k].length>0))throw Error("OUTBOX_TENANT_REQUIRED");
+    if(!["empresaId","sedeId","actorId"].every(k=>typeof event[k]==="string"&&/^[A-Za-z0-9_-]{1,80}$/.test(event[k])))throw Error("OUTBOX_TENANT_REQUIRED");
     // Verify the serialized snapshot, not just the caller object: custom toJSON
     // must never replace the event identity or authenticated tenant on disk.
     let snapshot;
