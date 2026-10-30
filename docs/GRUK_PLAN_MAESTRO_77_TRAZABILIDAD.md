@@ -81,7 +81,7 @@ Estados válidos: `SIN_AUDITAR`, `PARCIAL`, `BLOQUEADO`, `VERIFICADO`. Ningún �
 | 72 | P1 | Contención de ejecución | SIN_AUDITAR | Pendiente de auditar |
 | 73 | P1 | Observabilidad independiente | SIN_AUDITAR | Pendiente de auditar |
 | 74 | P1 | Seguridad y privacidad por diseño | SIN_AUDITAR | Pendiente de auditar |
-| 75 | P1 | Gobierno de cambios | PARCIAL | [`GRUK_PLAN_MAESTRO_77_CRITERIOS.md`](./GRUK_PLAN_MAESTRO_77_CRITERIOS.md), [`gruk-plan-master-audit.js`](../scripts/gruk-plan-master-audit.js), [`gruk-plan-master-audit.test.js`](../test/gruk/gruk-plan-master-audit.test.js): 77 criterios originales auditables y controles de integridad en CI; **NO** acredita staging, aprobaciones, backups, rollback ni despliegue seguro. |
+| 75 | P1 | Gobierno de cambios | PARCIAL | [PR #522](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/522), [`GRUK_PLAN_MAESTRO_77_CRITERIOS.md`](./GRUK_PLAN_MAESTRO_77_CRITERIOS.md), [`gruk-plan-master-audit.js`](../scripts/gruk-plan-master-audit.js), [`gruk-plan-master-audit.test.js`](../test/gruk/gruk-plan-master-audit.test.js): 77 criterios originales auditables y controles de integridad en CI; **NO** acredita staging, aprobaciones, backups, rollback ni despliegue seguro. |
 | 76 | P2 | Gestión de incidentes y respuesta | SIN_AUDITAR | Pendiente de auditar |
 | 77 | P2 | Seguridad de memoria y delegación | SIN_AUDITAR | Pendiente de auditar |
 
