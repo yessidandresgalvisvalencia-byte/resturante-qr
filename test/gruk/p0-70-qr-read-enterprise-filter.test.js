@@ -44,3 +44,35 @@ test("QR from another restaurant is denied before reading orders", async () => {
   assert.equal(scope.status, 403);
   assert.equal(scope.filter, undefined);
 });
+
+test("QR read verifies tenant-scoped restaurant query before exposing a filter", async () => {
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4 }, { secret, now }).token;
+  let queried;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: "4", qrToken: token }, {
+    secret, now, RestauranteModel: {
+      findOne(query) {
+        queried = query;
+        return { select: () => ({ lean: async () => null }) };
+      }
+    }
+  });
+  assert.deepEqual(queried, { restaurantId, empresaId: e });
+  assert.equal(scope.status, 403);
+  assert.equal(scope.filter, undefined);
+});
+test("QR read rejects missing site and constrains site lookup by enterprise and restaurant", async () => {
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4, sedeId: site }, { secret, now }).token;
+  let queried;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: "4", qrToken: token }, {
+    secret, now, RestauranteModel: mockFind({ _id: "restaurant" }),
+    SedeModel: {
+      findOne(query) {
+        queried = query;
+        return { select: () => ({ lean: async () => null }) };
+      }
+    }
+  });
+  assert.deepEqual(queried, { _id: site, empresaId: e, restauranteId: restaurantId });
+  assert.equal(scope.status, 403);
+  assert.equal(scope.filter, undefined);
+});
