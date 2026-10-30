@@ -191,12 +191,14 @@ async function cargarMesero() {
         `;
       } else {
         listos.forEach(p => {
+          if (!/^[a-f0-9]{24}$/i.test(String(p._id))) return;
+          const safePedidoId = String(p._id);
           listaListos.innerHTML += `
             <div class="card">
               <h3>Mesa ${escapeHtml(p.mesa)}</h3>
               <p>${escapeHtml(p.producto)}</p>
               <p>$${escapeHtml(p.precio)}</p>
-              <button onclick="entregarPedido('${p._id}')">Entregado</button>
+              <button onclick="entregarPedido('${safePedidoId}')">Entregado</button>
             </div>
           `;
         });
