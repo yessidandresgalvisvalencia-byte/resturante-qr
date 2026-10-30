@@ -162,7 +162,9 @@
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).openCursor();
       const entries=[];
-      r.onerror=()=>reject(r.error);
+      r.onerror=()=>reject(r.error||Error("OUTBOX_READ_FAILED"));
+      t.onerror=()=>reject(t.error||Error("OUTBOX_ABORT"));
+      t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
       r.onsuccess=()=>{
         const cursor=r.result;
         if(!cursor){resolve(entries);return;}
