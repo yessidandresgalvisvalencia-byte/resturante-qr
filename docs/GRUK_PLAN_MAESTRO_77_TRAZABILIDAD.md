@@ -205,3 +205,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - **Hallazgo P0-70:** tras proteger las lecturas de mesa y los pagos, `POST /api/pedido` seguía aceptando escrituras sin capacidad QR y tomaba `sedeId` directamente del navegador. Un cliente podía intentar crear pedidos en otra mesa o sede mediante identificadores manipulados.
 - **Corrección en rama aislada:** el endpoint exige `resolveMesaQrRead` antes de consultar menú; se valida la empresa y la sede contra MongoDB, se persiste `empresaId` y el identificador canónico de sede. El cliente incluye `qrToken` en el POST. Pruebas unitarias de ámbito y contrato añadidas.
 - **Estado:** requisito 70 **PARCIAL**; 0 de 77 requisitos completamente certificados. Validar CI del PR, pruebas E2E de pedidos con QR auténticos, reimpresión de QR antiguos, continuidad offline, antiabuso y aislamiento del menú. No integrar a `main` mientras Render tenga Auto-Deploy habilitado y no exista aprobación de publicación.
+
+### Seguimiento P0-70 — 30 octubre 2026 (PR #534, sin certificación)
+
+- **Cobertura de código propuesta:** `core/security/qrMesaRead.service.js` agrega `empresaId` a filtros de lectura de pedidos por QR, tanto con sede/alias como sin sede. Los registros legacy sin empresa no se devuelven; falta migración documentada y validada.
+- **Evidencia de pruebas:** `test/gruk/p0-70-qr-read-enterprise-filter.test.js` cubre denegación entre empresas, comprobación de restaurante y sede, colisión de alias y exclusión de registros sin `empresaId` mediante modelos simulados y evaluador de filtros en memoria. Commit `326910e`. **No son pruebas MongoDB real ni HTTP/E2E**.
+- **CI:** consulta de runs y combined statuses para `910295f` sin resultados; nuevos commits `326910e` y posteriores requieren comprobación. No declarar verde sin evidencia.
+- **Pendientes y bloqueos:** colisiones multiempresa reales, pruebas HTTP/MongoDB, datos históricos, navegación QR, fugas de tokens, reimpresión, Wompi, controles CI, y 77 criterios originales. **Estado P0-70: PARCIAL. PR #534 draft. Prohibido desplegar.** No se modifican Finanzas Personales ni Blushea.
