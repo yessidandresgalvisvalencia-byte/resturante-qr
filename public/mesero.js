@@ -1,3 +1,12 @@
+// QR messages and waiter names are untrusted. Never interpolate raw values
+// into the staff panel's innerHTML while a JWT is present in the browser.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;"
+  })[char]);
+}
+
 function mostrarToast(mensaje, tipo = "info") {
   let container = document.getElementById("toastContainer");
 
@@ -142,18 +151,21 @@ async function cargarMesero() {
       if (!llamadasDelMesero.length) {
         listaLlamados.innerHTML = `
           <div class="card">
-            <p>No hay solicitudes para ${nombreMesero || "este mesero"}.</p>
+            <p>No hay solicitudes para ${escapeHtml(nombreMesero || "este mesero")}.</p>
           </div>
         `;
       } else {
         llamadasDelMesero.forEach(l => {
+          // Inline handler receives only a canonical Mongo ObjectId, never HTML.
+          if (!/^[a-f0-9]{24}$/i.test(String(l._id))) return;
+          const safeId = String(l._id);
           listaLlamados.innerHTML += `
             <div class="card">
-              <h3>Mesa ${l.mesa}</h3>
-              <p>${l.mensaje || "Solicitud de mesero"}</p>
-              <p><strong>Mesero asignado:</strong> ${l.meseroNombre || "Sin asignar"}</p>
+              <h3>Mesa ${escapeHtml(l.mesa)}</h3>
+              <p>${escapeHtml(l.mensaje || "Solicitud de mesero")}</p>
+              <p><strong>Mesero asignado:</strong> ${escapeHtml(l.meseroNombre || "Sin asignar")}</p>
               <p>Estado: ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
-              <button onclick="atendiendoLlamado('${l._id}')" ${l.estado === "atendiendo" ? "disabled" : ""}>
+              <button onclick="atendiendoLlamado('${safeId}')" ${l.estado === "atendiendo" ? "disabled" : ""}>
                 ${l.estado === "atendiendo" ? "🟡 Atendiendo..." : "Atendiendo"}
               </button>
             </div>
@@ -181,9 +193,9 @@ async function cargarMesero() {
         listos.forEach(p => {
           listaListos.innerHTML += `
             <div class="card">
-              <h3>Mesa ${p.mesa}</h3>
-              <p>${p.producto}</p>
-              <p>$${p.precio}</p>
+              <h3>Mesa ${escapeHtml(p.mesa)}</h3>
+              <p>${escapeHtml(p.producto)}</p>
+              <p>$${escapeHtml(p.precio)}</p>
               <button onclick="entregarPedido('${p._id}')">Entregado</button>
             </div>
           `;
@@ -216,7 +228,7 @@ async function cargarEstadoMesas() {
     if (!mesasDelMesero.length) {
       lista.innerHTML = `
         <div class="card">
-          <p>No hay mesas con solicitudes para ${nombreMesero || "este mesero"}.</p>
+          <p>No hay mesas con solicitudes para ${escapeHtml(nombreMesero || "este mesero")}.</p>
         </div>
       `;
       return;
@@ -225,9 +237,9 @@ async function cargarEstadoMesas() {
     mesasDelMesero.forEach(item => {
       lista.innerHTML += `
         <div class="card">
-          <h3>Mesa ${item.mesa}</h3>
-          <p>${item.mensaje || "Solicitud de mesero"}</p>
-          <p><strong>Mesero asignado:</strong> ${item.meseroNombre || "Sin asignar"}</p>
+          <h3>Mesa ${escapeHtml(item.mesa)}</h3>
+          <p>${escapeHtml(item.mensaje || "Solicitud de mesero")}</p>
+          <p><strong>Mesero asignado:</strong> ${escapeHtml(item.meseroNombre || "Sin asignar")}</p>
           <p>Estado: ${item.estado === "atendiendo" ? "🟡 Atendiendo..." : "🔴 Pendiente"}</p>
         </div>
       `;
