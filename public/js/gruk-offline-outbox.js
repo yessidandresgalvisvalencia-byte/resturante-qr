@@ -168,6 +168,9 @@
     try{return await new Promise((resolve,reject)=>{
       const t=db.transaction(STORE,"readonly"),r=t.objectStore(STORE).openCursor();
       const entries=[];
+      // Local reservations from many offline orders must not overflow even
+      // when each individual item carries a valid safe integer quantity.
+      const totalsByProduct=new Map();
       r.onerror=()=>reject(r.error||Error("OUTBOX_READ_FAILED"));
       t.onerror=()=>reject(t.error||Error("OUTBOX_ABORT"));
       t.onabort=()=>reject(t.error||Error("OUTBOX_ABORT"));
@@ -191,6 +194,12 @@
                  Number.isSafeInteger(Number(item.cantidad)))){
               reject(Error("OUTBOX_STOCK_EVENT_INVALID"));return;
             }
+            const previous=totalsByProduct.get(item.productoId)||0;
+            const quantity=Number(item.cantidad);
+            if(!Number.isSafeInteger(previous+quantity)){
+              reject(Error("OUTBOX_STOCK_QUANTITY_OVERFLOW"));return;
+            }
+            totalsByProduct.set(item.productoId,previous+quantity);
             entries.push({eventId:v.eventId,
               productoId:item.productoId,cantidad:item.cantidad});
           }
