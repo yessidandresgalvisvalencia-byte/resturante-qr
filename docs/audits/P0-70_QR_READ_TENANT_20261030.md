@@ -75,3 +75,8 @@
 - Consulta directa de GitHub Actions para el SHA exacto: `workflow_runs: []`; consulta de combined status: `statuses: []`. Ninguna consulta aporta evidencia de checks verdes. El conector de Actions solo expone la primera página de ejecuciones disparadas por PR; la ausencia de resultados no equivale a fallo ni aprobación.
 - Contraste de código: `resolveMesaQrRead` exige `empresaId` en ambos filtros de pedidos; las 11 pruebas del archivo `test/gruk/p0-70-qr-read-enterprise-filter.test.js` emplean dobles de modelos o filtros en memoria. No constituyen pruebas de HTTP ni MongoDB real y no fueron ejecutadas aquí.
 - **Bloqueo de aceptación:** falta runner de CI verificable y entorno aislado con MongoDB real para validar colisiones de restaurante/sede, legacy, GET de pedidos/facturas y E2E. No se fusiona #534 ni #524 ni se toca `main`/Render. P0-70 PARCIAL; 0/77 certificados. No se atribuye avance funcional nuevo a esta auditoría.
+
+## Regresiones defensivas adicionales — 30-10-2026, 22:19 Colombia
+
+- Commit `2c96d674c681190360ff56d94398d2406d8d7e06`: dos pruebas unitarias nuevas verifican que un QR de otra mesa se rechace antes de consultar restaurante/sede y que una clave HMAC insuficiente devuelva 503 sin consultar la base. Total: **13 pruebas escritas**, no ejecutadas ni certificadas por CI en esta revisión.
+- La cobertura de aceptación P0-70 sigue **PARCIAL**: no hay evidencia de HTTP/MongoDB real, E2E, migración de registros históricos ni comprobación de pagos. No se debe fusionar ni desplegar. Estas pruebas no sustituyen los controles de integración.
