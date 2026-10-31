@@ -319,3 +319,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - #534 abierto/draft sobre #524 abierto; HEAD revisado `1cbcecd97c28301f130ce060e465563a89756e6d` antes de este registro. Consultas GitHub Actions y combined statuses: listas vacías; **no representan checks aprobados**.
 - P0-70 **PARCIAL**: HMAC/expiración y filtros de empresa/restaurante/sede/mesa presentes en `core/security/qrMesaRead.service.js`; no acreditan por sí solos criterios HTTP/MongoDB real, índices desplegados, colisiones, concurrencia, registros legacy, E2E, pagos y seguridad QR.
 - Evidencia y pendientes en [auditoría P0-70](audits/P0-70_QR_READ_TENANT_20261030.md), actualizada en commit `61c37bec`. **0/77 VERIFICADOS**; no se ejecutaron pruebas nuevas, no se fusionó y no se desplegó. Render Auto-Deploy impide integración segura a `main` hasta resolverlo.
+
+
+### Seguimiento 2026-10-31 — P0-70, colisión de alias con ObjectId
+
+- **Cobertura real:** en `core/security/qrMesaRead.service.js`, el filtro QR ya valida empresa, restaurante, mesa y sede; ahora excluye `codigoSede` de apariencia ObjectId para evitar que un alias legacy coincida con el `_id` de otra sede. Commit funcional `d7ddcb8`.
+- **Prueba añadida:** `test/gruk/p0-70-qr-read-enterprise-filter.test.js` exige denegar el alias ambiguo y conservar la sede canónica; commit `5de7de9`. Es una prueba escrita con modelos simulados, **no una ejecución confirmada**.
+- **Pendientes y bloqueos:** ejecutar CI del HEAD, HTTP/MongoDB real con índices desplegados, concurrencia, alias históricos, E2E de lectura QR y Wompi; definir migración/reimpresión de QR. Mantener P0-70 **PARCIAL** y **0/77 VERIFICADOS**. PR #534 continúa sin fusionar; Render Auto-Deploy sobre `main` impide fusión segura y no se autoriza despliegue.
