@@ -364,3 +364,11 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - El job `GRUK Production Gate` aprobó `npm ci`, auditoría de criterios del plan, configuración Docker Compose, arranque de MongoDB 7 en replica set y `npm run gate` (según pasos de Actions). Esto corrige la afirmación anterior de ausencia total de CI: sí existe un gate verde para ese SHA.
 - **Límite:** un gate verde no certifica por sí mismo los criterios P0-70 ni las 77 implementaciones. No se ha acreditado con evidencias separadas el E2E HTTP/MongoDB de colisiones tenant/legacy, navegador, pagos Wompi, conciliación, backups, rollback, reinicios offline y validación de producción. No fusionar ni desplegar por este resultado aislado.
 - PR #534 continúa `draft` abierto, apilado sobre PR #524 abierto; ningún requisito pasa a COMPLETO sin evidencias de aceptación. La presente actualización documental produce un SHA nuevo que necesita su propio CI.
+
+
+### Verificación de continuidad — 2026-10-31 (18:19 Colombia)
+
+- PR #534: `open`, `draft`, HEAD `6bae0d2bd9b07be9e1363626fad248ac1ff22b3a`, base `gruk/security-realtime-sede-scope-20261030`; PR #524: `open`, HEAD `12f9968bc1496c94e82c4ab061c993ee05a46386`, base `main`. Ninguno se ha fusionado a `main` en esta revisión.
+- Lectura directa de `core/security/qrMesaRead.service.js` y `test/gruk/p0-70-qr-read-enterprise-filter.test.js` en la rama del PR: el filtro exige empresa firmada, restaurante, mesa y sede; los 16 casos de regresión son pruebas con dobles de modelos, no evidencia de integración HTTP con MongoDB real. No se ejecutaron pruebas nuevas en esta revisión.
+- GitHub Actions consultado por los commits `6bae0d2` y `df4fc7e`: ambos devolvieron `workflow_runs=[]` en el endpoint de ejecuciones por commit, que filtra ejecuciones de PR; **no invalida** el `success` de la ejecución `push` #3909 ya documentada. No se infiere aprobación del HEAD `6bae0d2`.
+- **Estado: P0-70 PARCIAL, 0/77 criterios certificados.** Siguiente trabajo funcional prioritario: harness HTTP/MongoDB real de lectura QR con dos tenants y dos sedes, verificación de índices efectivos, registros legacy y colisiones de alias; después E2E navegador y pago. Sin evidencia verde del HEAD ni aceptación integral, no fusionar ni desplegar. Auto-Deploy Render continúa como bloqueo documentado sin revalidación en esta ejecución.
