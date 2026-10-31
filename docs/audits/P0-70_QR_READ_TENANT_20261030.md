@@ -145,3 +145,11 @@
 - Commit `7e4c04e`: prueba adicional de regresión que comprueba declaraciones del esquema, no prueba MongoDB ni carrera concurrente. Total en `p0-70-qr-read-enterprise-filter.test.js`: 16 pruebas escritas (15 anteriores + 1 nueva), sin ejecución confirmada.
 - PR #534 HEAD anterior `6d32246fe258643c7ff6bcf0dd29326467506b0e`: consultas de workflow runs y combined statuses retornaron listas vacías el 31-10-2026; **no interpretar vacío como verde**. Reconsultar el nuevo HEAD tras los commits.
 - Para certificar: inspeccionar `getIndexes()` real de las colecciones y errores E11000 con escrituras simultáneas; ejecutar HTTP+MongoDB real con tenants y alias en conflicto, validar registros históricos y rutas de lectura, registrar CI verde verificable. P0-70 sigue PARCIAL. Sin merge ni despliegue.
+
+
+## Control de alcance y evidencia — 31-10-2026 09:19 Colombia
+
+- Se inspeccionaron directamente `core/security/qrMesaRead.service.js`, `test/gruk/p0-70-qr-read-enterprise-filter.test.js`, `test/gruk/p0-70-qr-mesa-read-capability.test.js` y `package.json` en la rama de #534. El filtro de lectura sí exige `empresaId`, `restaurantId`, `mesa` y sede autorizada; el modelo de pruebas sigue siendo simulado, no MongoDB real.
+- Se detectó una limitación operativa adicional: `package.json` define `npm test` y `gate` exclusivamente con pruebas Node y sintaxis; no incluye un comando específico para integración HTTP con MongoDB real. Por tanto, un gate unitario verde no certifica el criterio P0-70.
+- Se consultó el estado de los PR abiertos: #521, #522, #523, #524 y #534 siguen en la cola de integración; #534 se mantiene apilado sobre #524. La matriz en `main` sigue en estado inicial y no debe utilizarse como prueba de avance del PR.
+- No se ejecutaron pruebas nuevas ni se introdujo funcionalidad nueva en este control. Se requiere fixture MongoDB real, rutas HTTP de pedidos/factura, colisiones entre empresas, históricos, pruebas de concurrencia y evidencias CI para el SHA final. Mantener P0-70 PARCIAL y 0/77 certificados; no fusionar a `main` ni desplegar mientras Render Auto-Deploy y los demás bloqueos sigan sin resolverse.
