@@ -80,3 +80,11 @@
 
 - Commit `2c96d674c681190360ff56d94398d2406d8d7e06`: dos pruebas unitarias nuevas verifican que un QR de otra mesa se rechace antes de consultar restaurante/sede y que una clave HMAC insuficiente devuelva 503 sin consultar la base. Total: **13 pruebas escritas**, no ejecutadas ni certificadas por CI en esta revisión.
 - La cobertura de aceptación P0-70 sigue **PARCIAL**: no hay evidencia de HTTP/MongoDB real, E2E, migración de registros históricos ni comprobación de pagos. No se debe fusionar ni desplegar. Estas pruebas no sustituyen los controles de integración.
+
+## Verificación independiente — 30-10-2026, 23:19 Colombia
+
+- HEAD confirmado por API del PR #534: `c4f295d7b1d8cb8f1ddc264c99b74c05ca556d1a`; PR abierto, **draft**, base `gruk/security-realtime-sede-scope-20261030`, cuatro archivos modificados.
+- Consultas efectuadas para **ese SHA exacto**: `get_commit_combined_status` → `statuses: []`; `fetch_commit_workflow_runs` → `workflow_runs: []`. Este último endpoint solo cubre la primera página de ejecuciones disparadas por PR. **Resultado: CI no verificable, no CI aprobado**.
+- Inspección del código del HEAD: ambos filtros de lectura de `resolveMesaQrRead` incluyen `empresaId: p.e`; el archivo de regresiones contiene 13 casos unitarios con modelos simulados, sin constancia de ejecución. No se debe confundir conteo de tests escritos con tests ejecutados.
+- **Siguiente bloque funcional prioritario**: integración de las dos rutas HTTP GET (`/pedidos/mesa/:mesa` y `/factura/mesa/:mesa`) con MongoDB real, dos empresas y `restaurantId`/mesa/alias coincidentes, más pedidos históricos sin `empresaId`; comprobar códigos HTTP, proyección de datos, `Cache-Control`, y ausencia de filtración entre tenants. Registrar salida de suite y checks asociados al SHA posterior.
+- **Bloqueo:** no hay evidencia positiva de runner/checks ni de fixture MongoDB real en esta ejecución. Mantener P0-70 PARCIAL y 0/77 requisitos integralmente certificados; no fusionar ni desplegar, no tocar Finanzas Personales ni Blushea.
