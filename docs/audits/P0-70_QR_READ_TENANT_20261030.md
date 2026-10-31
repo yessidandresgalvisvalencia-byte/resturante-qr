@@ -94,3 +94,11 @@
 - Al contrastar el cambio de `resolveMesaQrRead` con las pruebas existentes, se detectaron **dos aserciones obsoletas** en `test/gruk/p0-70-qr-mesa-read-capability.test.js`: esperaban filtros sin `empresaId` y, por tanto, eran incompatibles con el aislamiento empresarial introducido en #534. Corregidas en commit [`b4bd14a`](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/commit/b4bd14abeec37fad7c15d9897e6a1d74f85bbb23) para exigir `empresaId: empresa` tanto con sede como sin sede. No se cambió lógica de producción.
 - Para el SHA `b4bd14abeec37fad7c15d9897e6a1d74f85bbb23`, las consultas de Actions y combined statuses devolvieron listas vacías. **No hay evidencia de ejecución exitosa** ni debe asumirse que la suite completa pasa.
 - P0-70 continúa **PARCIAL**. Faltan pruebas HTTP/MongoDB real con colisiones, E2E, migración legacy, Wompi y revisión de seguridad. #534 sigue draft; no fusionar ni desplegar.
+
+## Control de trazabilidad — 31-10-2026, 01:18 Colombia
+
+- PR #534 confirmado **abierto, draft, no fusionado**; base `gruk/security-realtime-sede-scope-20261030`, HEAD `4b7e1f036fb7699f7656aa7a08075d61f78d3862`. PR padre #524 sigue abierto contra `main`; no confundir cambios apilados con cambios publicados.
+- Consultas al HEAD exacto: `fetch_commit_workflow_runs` devolvió `workflow_runs: []`; `get_commit_combined_status` devolvió `statuses: []`. Son resultados sin evidencia positiva, **no** CI verde. No se ejecutaron pruebas en esta revisión.
+- Verificación estática del código y 13 pruebas escritas: ambos filtros de `resolveMesaQrRead` incluyen `empresaId: p.e`; los tests usan modelos simulados y selección en memoria. No demuestran integración HTTP/MongoDB real, aislamiento de colisiones ni migración legacy.
+- Bloqueo de aceptación P0-70: fixture real de dos empresas con `restaurantId` y alias de sede coincidentes, pedidos sin empresa, respuestas GET `/pedidos/mesa/:mesa` y `/factura/mesa/:mesa`, pruebas de navegador, revisión de filtración de tokens QR y checks del SHA final. Bloqueo de fusión a `main`: Render Auto-Deploy previamente identificado en servicios compartidos; no se verificó su desactivación.
+- **Resultado: PARCIAL, 0/77 criterios integralmente certificados; no fusionar, no desplegar.** No hubo avance funcional ni ejecución de pruebas atribuibles a este control.
