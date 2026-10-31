@@ -17,7 +17,7 @@
 3. Aplicar filtro de empresa en consulta o demostrar por pruebas e índices una invariante equivalente y resistente a concurrencia.
 4. Ejecutar pruebas de integración reales y guardar enlaces a checks; no fusionar a `main` mientras Render Auto-Deploy pueda publicar prematuramente.
 
-**Resultado:** auditoría de código, no corrección funcional ni prueba de aceptación. No autoriza despliegue.
+**Resultado actualizado:** la rama de PR #534 contiene corrección funcional de filtros, pero únicamente evidencia de revisión estática y pruebas unitarias escritas; no hay certificación de aceptación. No autoriza despliegue.
 
 ## Corrección propuesta (30-10-2026)
 
@@ -54,3 +54,10 @@
 
 - Commit `29444cf`: se añaden pruebas unitarias de QR manipulado y QR expirado; ambas comprueban respuesta 401, ausencia de filtro y **cero accesos a la base de datos**. Evidencia de código únicamente; no se afirma ejecución de pruebas ni CI verde.
 - P0-70 continúa **PARCIAL**; pendientes HTTP/MongoDB real, E2E, migración de registros, revisión de exposición de tokens, pagos y CI verificable. PR #534 sigue draft; sin despliegue.
+
+## Control del HEAD — 30-10-2026, 19:18 Colombia
+
+- PR #534 sigue abierto y en borrador; base `gruk/security-realtime-sede-scope-20261030`, HEAD inspeccionado `a6fcd355d991f7f517ed1a1f5b554ef7ecbd33f7`. No fusionado.
+- Consultas directas al commit exacto: GitHub Actions `workflow_runs: []` y combined status `statuses: []`. **No hay CI verde comprobable**; esta API puede omitir checks de otros eventos. Se prohíbe fusionar por ausencia de evidencia positiva.
+- Revisión estática: filtros de `resolveMesaQrRead` con `empresaId` explícito para ambas ramas; 11 casos de prueba unitarios presentes, no ejecutados en esta revisión. No hay evidencia HTTP+MongoDB real ni E2E.
+- Próximo bloque verificable: ejecutar suite y prueba HTTP con MongoDB real (empresas A/B, `restaurantId` coincidente, alias de sede, pedidos sin `empresaId`), obtener checks asociados al SHA exacto y registrar resultados. Mantener P0-70 PARCIAL, 0/77 criterios certificados, sin cambios a `main` ni despliegue.
