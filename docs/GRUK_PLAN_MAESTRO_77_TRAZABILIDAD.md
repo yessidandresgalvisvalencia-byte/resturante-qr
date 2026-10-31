@@ -253,3 +253,11 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 
 
 **Auditoría de coherencia de pruebas (31-10-2026):** [commit b4bd14a](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/commit/b4bd14abeec37fad7c15d9897e6a1d74f85bbb23) corrige dos aserciones obsoletas en `p0-70-qr-mesa-read-capability.test.js` para exigir `empresaId` en filtros QR con/sin sede. Antes, la suite esperaba filtros incompatibles con la corrección de aislamiento. Actions y combined statuses para ese SHA no devolvieron checks: **no equivale a CI verde**. P0-70 sigue PARCIAL; no se certifica ningún requisito adicional ni se autoriza fusión o despliegue.
+
+
+### Control P0-70 — 31-10-2026, 01:18 Colombia
+
+- Estado **PARCIAL**; **0/77 VERIFICADOS**. [PR #534](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/534) abierto en borrador, apilado sobre [#524](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/524), no integrado en `main`.
+- Código inspeccionado: `core/security/qrMesaRead.service.js` filtra pedidos QR por empresa en ambos caminos; `test/gruk/p0-70-qr-read-enterprise-filter.test.js` contiene 13 pruebas unitarias escritas, sin ejecución acreditada. [Auditoría detallada](audits/P0-70_QR_READ_TENANT_20261030.md).
+- HEAD comprobado `4b7e1f036fb7699f7656aa7a08075d61f78d3862`: Actions `workflow_runs: []`, combined status `statuses: []`. **CI no verificable**. Ninguna funcionalidad se declara completada por un PR o un test escrito.
+- Faltan pruebas HTTP/MongoDB real con dos empresas, colisiones de restaurante/sede, pedidos legacy, E2E, exposición de token QR, migración/reimpresión, Wompi, y comprobación de Auto-Deploy/rollback antes de fusionar o desplegar. No modificar Finanzas Personales ni Blushea.
