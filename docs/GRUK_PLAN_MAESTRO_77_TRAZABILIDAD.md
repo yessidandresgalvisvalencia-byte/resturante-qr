@@ -261,3 +261,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - Código inspeccionado: `core/security/qrMesaRead.service.js` filtra pedidos QR por empresa en ambos caminos; `test/gruk/p0-70-qr-read-enterprise-filter.test.js` contiene 13 pruebas unitarias escritas, sin ejecución acreditada. [Auditoría detallada](audits/P0-70_QR_READ_TENANT_20261030.md).
 - HEAD comprobado `4b7e1f036fb7699f7656aa7a08075d61f78d3862`: Actions `workflow_runs: []`, combined status `statuses: []`. **CI no verificable**. Ninguna funcionalidad se declara completada por un PR o un test escrito.
 - Faltan pruebas HTTP/MongoDB real con dos empresas, colisiones de restaurante/sede, pedidos legacy, E2E, exposición de token QR, migración/reimpresión, Wompi, y comprobación de Auto-Deploy/rollback antes de fusionar o desplegar. No modificar Finanzas Personales ni Blushea.
+
+
+### Control P0-70 — 31-10-2026, 02:16 Colombia
+
+- PR [#534](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/534) permanece draft sobre [#524](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/524), ambos abiertos. La inspección estática confirma que `GET /pedidos/mesa/:mesa` y `GET /factura/mesa/:mesa` usan `Pedido.find(scope.filter)` después de resolver capacidad QR, con `Cache-Control: no-store` y proyección limitada; la rama añade `empresaId` en el filtro. Véase [`auditoría P0-70`](audits/P0-70_QR_READ_TENANT_20261030.md).
+- SHA revisado `a4d73c876f87f38b2b769f1b82597ce62de61f1c`: consultas de Actions y combined status vacías. **No hay pruebas ejecutadas ni CI verde verificados**; la ausencia de resultados no acredita fallo ni aprobación. Se documentó esta revisión en commit `fb940e2`.
+- **Criterios no cumplidos**: pruebas HTTP con MongoDB real para dos empresas, colisiones y registros legacy, navegador E2E, migración/reimpresión, seguridad de token, dinero/conciliación y controles CI. P0-70 sigue PARCIAL; **0/77 certificados integralmente**. No fusionar ni desplegar. El resto de filas SIN_AUDITAR no equivale a funcionalidad inexistente ni completada.
