@@ -305,3 +305,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - Revisados `core/security/qrMesaRead.service.js` y `test/gruk/p0-70-qr-read-enterprise-filter.test.js`: ambas ramas del filtro QR exigen `empresaId`; existen 16 pruebas unitarias declaradas, incluyendo aserciones de índices únicos en esquema, **no** evidencia de índices desplegados ni ejecución MongoDB real.
 - Consultas al SHA exacto del #534: `fetch_commit_workflow_runs` devolvió `workflow_runs: []` y `get_commit_combined_status` devolvió `statuses: []`. No permiten afirmar CI aprobado.
 - Cobertura de aceptación **PARCIAL** para 70 y **0/77 VERIFICADOS** integralmente. Faltan índices reales, concurrencia, integración HTTP/MongoDB A/B, legacy, E2E, tokens QR, Wompi y habilitación segura de Render. No fusionar ni desplegar. Esta revisión no añadió funcionalidad ni ejecutó pruebas.
+
+
+## Verificación incremental — 31-10-2026 09:19 Colombia
+
+- Revisión directa de #534: `core/security/qrMesaRead.service.js` aplica filtro por `empresaId` y `test/gruk/p0-70-qr-read-enterprise-filter.test.js` declara 16 regresiones unitarias. Las pruebas usan modelos simulados, por lo que no acreditan persistencia, HTTP ni colisiones reales.
+- `package.json` solo ofrece `npm test` y `gate` (sintaxis + unitarias); no se encontró script específico de integración HTTP/MongoDB. Falta construirlo y ejecutarlo en CI, junto con E2E y validación de secretos/QR antiguos.
+- La matriz de `main` todavía marca las 77 filas `SIN_AUDITAR`; la matriz de esta rama registra 70 y 75 `PARCIAL`. No confundir la rama de trabajo con la publicación. **0/77 verificados integralmente**. Sin ejecución de pruebas ni modificación funcional en esta revisión; sin fusión ni despliegue.
