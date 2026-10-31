@@ -230,3 +230,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - PR #534: revisión del HEAD `a6fcd355d991f7f517ed1a1f5b554ef7ecbd33f7` (antes de actualización documental). `workflow_runs: []`, `statuses: []`; **sin CI aprobado verificable**. Estado abierto/draft, sin fusión.
 - Código: filtro explícito `empresaId: p.e` en lecturas QR de mesa con sede/alias y sin sede; 11 pruebas unitarias presentes en `test/gruk/p0-70-qr-read-enterprise-filter.test.js`, ejecución no demostrada. Documentación de auditoría actualizada en `docs/audits/P0-70_QR_READ_TENANT_20261030.md`.
 - Cobertura y criterio de terminado: P0-70 **PARCIAL**; 0 VERIFICADOS, 2 PARCIALES (70, 75), 75 SIN_AUDITAR. No acredita HTTP/MongoDB real, colisiones entre empresas, migración legacy, navegador, Wompi, offline con reinicio, concurrencia, backups ni rollback. **No desplegar** ni fusionar a `main`.
+
+
+### Evidencia de ejecución — 30-10-2026, 20:18 Colombia
+
+- **P0-70 — PARCIAL, no VERIFICADO.** En [PR #534](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/534), el servicio `core/security/qrMesaRead.service.js` incluye `empresaId` en los filtros de lectura QR; `test/gruk/p0-70-qr-read-enterprise-filter.test.js` contiene 11 casos unitarios con dobles, sin evidencia de ejecución real. Auditoría actualizada en [`P0-70_QR_READ_TENANT_20261030.md`](audits/P0-70_QR_READ_TENANT_20261030.md).
+- Para SHA inspeccionado `a6fcd355d991f7f517ed1a1f5b554ef7ecbd33f7`, la consulta de runs y estados devolvió listas vacías. **No se infiere éxito CI.** Pendientes: HTTP+MongoDB real con colisiones, legacy sin empresa, E2E QR, migración/reimpresión, controles de tokens/logs y pagos.
+- **Cobertura certificada: 0/77.** Mantener abierto el PR y prohibido fusionar a `main` o desplegar hasta cumplir todos los criterios y resolver Auto-Deploy de Render.
