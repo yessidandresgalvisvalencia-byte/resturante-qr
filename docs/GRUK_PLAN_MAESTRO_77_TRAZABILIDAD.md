@@ -356,3 +356,11 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - **Riesgo no resuelto:** la unicidad de `restaurantId` y `codigoSede` está declarada en esquemas, pero no se verificaron índices efectivos, duplicados históricos ni concurrencia en MongoDB real. La consulta QR admite alias legados no ObjectId y su seguridad depende de que no colisionen. Se requiere inspección `getIndexes()`, búsqueda de duplicados y pruebas HTTP/MongoDB de colisiones antes de aprobar.
 - **Criterio de terminado pendiente:** HTTP real con dos empresas y dos sedes, legacy sin empresa, prueba de aislamiento de lectura/escritura, QR revocado/expirado, flujo Wompi, E2E de navegador, revisión de exposición del token y plan de reimpresión de QR. No existe evidencia integral de estos controles en esta revisión.
 - **Bloqueo de integración/producción:** la rama #524 contiene dependencias de otros PR; Render Auto-Deploy sobre `main` figura activo en auditorías previas y no fue revalidado ni desactivado en esta revisión. No se fusiona a `main`, no se despliega y no se modifica Finanzas Personales ni Blushea.
+
+
+### Evidencia de CI confirmada — 31-10-2026
+
+- GitHub Actions `GRUK CI`, ejecución [#3909](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41238270269), commit `df4fc7e78b25825312ca4e70a8f4b19ee110cbc0`, evento `push`, **conclusión `success`**.
+- El job `GRUK Production Gate` aprobó `npm ci`, auditoría de criterios del plan, configuración Docker Compose, arranque de MongoDB 7 en replica set y `npm run gate` (según pasos de Actions). Esto corrige la afirmación anterior de ausencia total de CI: sí existe un gate verde para ese SHA.
+- **Límite:** un gate verde no certifica por sí mismo los criterios P0-70 ni las 77 implementaciones. No se ha acreditado con evidencias separadas el E2E HTTP/MongoDB de colisiones tenant/legacy, navegador, pagos Wompi, conciliación, backups, rollback, reinicios offline y validación de producción. No fusionar ni desplegar por este resultado aislado.
+- PR #534 continúa `draft` abierto, apilado sobre PR #524 abierto; ningún requisito pasa a COMPLETO sin evidencias de aceptación. La presente actualización documental produce un SHA nuevo que necesita su propio CI.
