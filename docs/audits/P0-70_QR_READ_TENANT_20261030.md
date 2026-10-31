@@ -153,3 +153,11 @@
 - Se detectó una limitación operativa adicional: `package.json` define `npm test` y `gate` exclusivamente con pruebas Node y sintaxis; no incluye un comando específico para integración HTTP con MongoDB real. Por tanto, un gate unitario verde no certifica el criterio P0-70.
 - Se consultó el estado de los PR abiertos: #521, #522, #523, #524 y #534 siguen en la cola de integración; #534 se mantiene apilado sobre #524. La matriz en `main` sigue en estado inicial y no debe utilizarse como prueba de avance del PR.
 - No se ejecutaron pruebas nuevas ni se introdujo funcionalidad nueva en este control. Se requiere fixture MongoDB real, rutas HTTP de pedidos/factura, colisiones entre empresas, históricos, pruebas de concurrencia y evidencias CI para el SHA final. Mantener P0-70 PARCIAL y 0/77 certificados; no fusionar a `main` ni desplegar mientras Render Auto-Deploy y los demás bloqueos sigan sin resolverse.
+
+
+## Control de HEAD — 31-10-2026 10:22 COT
+
+- PR #534 sigue **abierto y draft**, base `gruk/security-realtime-sede-scope-20261030` (PR #524, también abierto), HEAD exacto `1cbcecd97c28301f130ce060e465563a89756e6d`.
+- Consultas GitHub al SHA: `fetch_commit_workflow_runs` devolvió `workflow_runs: []`; `get_commit_combined_status` devolvió `statuses: []`. Estas APIs no certifican todos los check-runs; **sin evidencia positiva de CI**. No se ejecutaron pruebas en esta revisión.
+- Lectura del servicio `core/security/qrMesaRead.service.js`: verifica HMAC y expiración, exige `empresaId` en restaurante, sede y filtro de pedidos, y limita el token a restaurante/mesa/sede. La lectura estática no demuestra índices existentes ni ausencia de mezcla con datos históricos.
+- **Criterio aún no satisfecho:** integración HTTP con MongoDB real, índices reales `getIndexes()`, pruebas adversariales de colisiones y concurrencia, legacy, E2E, Wompi, migración y reimpresión, y seguridad/rollback. P0-70 permanece PARCIAL; 0/77 certificados. Render Auto-Deploy sobre `main` sigue siendo bloqueo documentado. No fusionar ni desplegar.
