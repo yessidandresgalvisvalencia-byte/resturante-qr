@@ -68,3 +68,10 @@
 - Consultados nuevamente los controles del SHA `a6fcd355d991f7f517ed1a1f5b554ef7ecbd33f7`: `workflow_runs: []`, `statuses: []`. Esto **no acredita CI verde** ni ejecución de los tests. El HEAD podría haber avanzado y debe comprobarse antes de cualquier fusión.
 - Brecha concreta: los tests actuales simulan `findOne` y filtran arreglos JavaScript, por lo que **no prueban** semántica de `Pedido.find(scope.filter)` contra MongoDB real, ni las respuestas de ambas rutas GET. El próximo bloque debe montar dos empresas con `restaurantId`/mesa/alias coincidentes y pedidos legados, ejecutar HTTP real y capturar los resultados y checks del SHA.
 - Decisión: P0-70 PARCIAL, 0/77 requisitos certificados; #534 permanece abierto, sin fusión ni despliegue. Auto-Deploy sobre `main` continúa como bloqueo operativo documentado.
+
+## Comprobación de controles — 30-10-2026, 21:14 Colombia
+
+- PR #534: abierto, draft, base `gruk/security-realtime-sede-scope-20261030` (#524), HEAD `e5a5f1a4009c97737269c89c0140971af71a7f60`; 4 archivos modificados, sin fusión.
+- Consulta directa de GitHub Actions para el SHA exacto: `workflow_runs: []`; consulta de combined status: `statuses: []`. Ninguna consulta aporta evidencia de checks verdes. El conector de Actions solo expone la primera página de ejecuciones disparadas por PR; la ausencia de resultados no equivale a fallo ni aprobación.
+- Contraste de código: `resolveMesaQrRead` exige `empresaId` en ambos filtros de pedidos; las 11 pruebas del archivo `test/gruk/p0-70-qr-read-enterprise-filter.test.js` emplean dobles de modelos o filtros en memoria. No constituyen pruebas de HTTP ni MongoDB real y no fueron ejecutadas aquí.
+- **Bloqueo de aceptación:** falta runner de CI verificable y entorno aislado con MongoDB real para validar colisiones de restaurante/sede, legacy, GET de pedidos/facturas y E2E. No se fusiona #534 ni #524 ni se toca `main`/Render. P0-70 PARCIAL; 0/77 certificados. No se atribuye avance funcional nuevo a esta auditoría.
