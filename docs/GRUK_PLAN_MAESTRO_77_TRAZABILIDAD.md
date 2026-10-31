@@ -312,3 +312,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - Revisión directa de #534: `core/security/qrMesaRead.service.js` aplica filtro por `empresaId` y `test/gruk/p0-70-qr-read-enterprise-filter.test.js` declara 16 regresiones unitarias. Las pruebas usan modelos simulados, por lo que no acreditan persistencia, HTTP ni colisiones reales.
 - `package.json` solo ofrece `npm test` y `gate` (sintaxis + unitarias); no se encontró script específico de integración HTTP/MongoDB. Falta construirlo y ejecutarlo en CI, junto con E2E y validación de secretos/QR antiguos.
 - La matriz de `main` todavía marca las 77 filas `SIN_AUDITAR`; la matriz de esta rama registra 70 y 75 `PARCIAL`. No confundir la rama de trabajo con la publicación. **0/77 verificados integralmente**. Sin ejecución de pruebas ni modificación funcional en esta revisión; sin fusión ni despliegue.
+
+
+### Revalidación de evidencia — 31-10-2026 10:22 COT
+
+- #534 abierto/draft sobre #524 abierto; HEAD revisado `1cbcecd97c28301f130ce060e465563a89756e6d` antes de este registro. Consultas GitHub Actions y combined statuses: listas vacías; **no representan checks aprobados**.
+- P0-70 **PARCIAL**: HMAC/expiración y filtros de empresa/restaurante/sede/mesa presentes en `core/security/qrMesaRead.service.js`; no acreditan por sí solos criterios HTTP/MongoDB real, índices desplegados, colisiones, concurrencia, registros legacy, E2E, pagos y seguridad QR.
+- Evidencia y pendientes en [auditoría P0-70](audits/P0-70_QR_READ_TENANT_20261030.md), actualizada en commit `61c37bec`. **0/77 VERIFICADOS**; no se ejecutaron pruebas nuevas, no se fusionó y no se desplegó. Render Auto-Deploy impide integración segura a `main` hasta resolverlo.
