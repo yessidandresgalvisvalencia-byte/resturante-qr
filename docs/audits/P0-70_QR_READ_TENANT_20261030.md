@@ -88,3 +88,9 @@
 - Inspección del código del HEAD: ambos filtros de lectura de `resolveMesaQrRead` incluyen `empresaId: p.e`; el archivo de regresiones contiene 13 casos unitarios con modelos simulados, sin constancia de ejecución. No se debe confundir conteo de tests escritos con tests ejecutados.
 - **Siguiente bloque funcional prioritario**: integración de las dos rutas HTTP GET (`/pedidos/mesa/:mesa` y `/factura/mesa/:mesa`) con MongoDB real, dos empresas y `restaurantId`/mesa/alias coincidentes, más pedidos históricos sin `empresaId`; comprobar códigos HTTP, proyección de datos, `Cache-Control`, y ausencia de filtración entre tenants. Registrar salida de suite y checks asociados al SHA posterior.
 - **Bloqueo:** no hay evidencia positiva de runner/checks ni de fixture MongoDB real en esta ejecución. Mantener P0-70 PARCIAL y 0/77 requisitos integralmente certificados; no fusionar ni desplegar, no tocar Finanzas Personales ni Blushea.
+
+## Corrección de contrato de regresión — 31-10-2026, 00:21 Colombia
+
+- Al contrastar el cambio de `resolveMesaQrRead` con las pruebas existentes, se detectaron **dos aserciones obsoletas** en `test/gruk/p0-70-qr-mesa-read-capability.test.js`: esperaban filtros sin `empresaId` y, por tanto, eran incompatibles con el aislamiento empresarial introducido en #534. Corregidas en commit [`b4bd14a`](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/commit/b4bd14abeec37fad7c15d9897e6a1d74f85bbb23) para exigir `empresaId: empresa` tanto con sede como sin sede. No se cambió lógica de producción.
+- Para el SHA `b4bd14abeec37fad7c15d9897e6a1d74f85bbb23`, las consultas de Actions y combined statuses devolvieron listas vacías. **No hay evidencia de ejecución exitosa** ni debe asumirse que la suite completa pasa.
+- P0-70 continúa **PARCIAL**. Faltan pruebas HTTP/MongoDB real con colisiones, E2E, migración legacy, Wompi y revisión de seguridad. #534 sigue draft; no fusionar ni desplegar.
