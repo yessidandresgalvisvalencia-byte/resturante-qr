@@ -178,3 +178,10 @@
 - Para ese SHA, GitHub devolvió `workflow_runs: []` y `statuses: []`; **no hay comprobación positiva de CI**. La consulta de workflow runs solo incluye una página de eventos PR; no confundir ausencia con aprobación.
 - Se inspeccionaron directamente el servicio de lectura QR y las 16 pruebas escritas. Los filtros de pedidos incluyen empresa y excluyen alias de sede con forma de ObjectId. Las pruebas usan dobles de modelo y una aserción de esquema; **no se ejecutaron pruebas nuevas** ni MongoDB real en esta ejecución.
 - Falta crear y ejecutar integración HTTP con MongoDB real y evidencia de índices, colisiones, concurrencia, históricos sin empresa, E2E, seguridad de token, Wompi, migración y reimpresión. **P0-70 PARCIAL; 0/77 integralmente certificados.** No fusionar ni desplegar. No se ha comprobado la desactivación de Auto-Deploy en Render.
+
+## Verificación de estado — 31-10-2026, 14:18 Colombia
+
+- PR #534: `open`, `draft`, HEAD `9c0124d3ebee7a1b4fa46cc3a8f994c16352922c`; base `gruk/security-realtime-sede-scope-20261030` (#524). PR #524: `open`, no fusionado a `main`.
+- Consultas al SHA exacto: `workflow_runs: []` y `statuses: []`. Estas respuestas **no acreditan** ejecución ni aprobación de CI; el conector de workflows solo consulta runs disparados por PR y la API de estados no equivale a todos los check-runs.
+- Revisión directa del servicio: `resolveMesaQrRead` filtra `empresaId` y excluye alias ObjectId ambiguos; no prueba índices MongoDB, endpoints HTTP, colisiones reales, ni migración legacy. La capacidad QR dura hasta 90 días y exige secreto de al menos 32 bytes; falta validación de revocación y exposición de tokens en URL.
+- Decisión: mantener P0-70 PARCIAL y 0/77 certificados. No fusionar ni desplegar. Siguiente trabajo de ingeniería: prueba de integración HTTP+MongoDB real y verificación de CI de check-runs, no más pruebas simuladas como sustituto.
