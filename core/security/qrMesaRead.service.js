@@ -114,7 +114,7 @@ async function resolveMesaQrRead({ restaurantId, mesa, sedeId, qrToken }, {
     if (sedeId != null && sedeId !== "")
       return { status: 403, error: "Sede fuera de ámbito" };
     return { status: 200, empresaId: p.e, canonicalSedeId: p.s, filter: {
-      restaurantId, mesa: Number(mesa), sedeId: { $in: ["", null] }
+      empresaId: p.e, restaurantId, mesa: Number(mesa), sedeId: { $in: ["", null] }
     } };
   }
   const site = await SedeModel.findOne({
@@ -128,7 +128,7 @@ async function resolveMesaQrRead({ restaurantId, mesa, sedeId, qrToken }, {
   if (sedeId != null && !aliases.includes(sedeId))
     return { status: 403, error: "Sede fuera de ámbito" };
   return { status: 200, empresaId: p.e, canonicalSedeId: p.s, filter: {
-    restaurantId, mesa: Number(mesa), sedeId: { $in: aliases }
+    empresaId: p.e, restaurantId, mesa: Number(mesa), sedeId: { $in: aliases }
   } };
 }
 module.exports = {
