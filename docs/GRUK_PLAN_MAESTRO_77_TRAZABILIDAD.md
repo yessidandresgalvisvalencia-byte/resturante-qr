@@ -333,3 +333,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - Requisito 70: **PARCIAL**, no VERIFICADO. PR [#534](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/534) abierto/draft, dependiente de [#524](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/524) abierto. Código revisado: `core/security/qrMesaRead.service.js`; pruebas declaradas: `test/gruk/p0-70-qr-read-enterprise-filter.test.js` (16). Auditoría detallada: `docs/audits/P0-70_QR_READ_TENANT_20261030.md`.
 - Evidencia positiva limitada a revisión estática de filtros empresariales y guardia contra alias ObjectId. No se ejecutaron pruebas en este control ni se certificaron check-runs para el HEAD. Pendientes: MongoDB real, rutas HTTP, índices efectivos, concurrencia, legacy, E2E, secretos y Wompi.
 - Total integralmente VERIFICADO: **0/77**; sin autorización de fusión ni despliegue. Bloqueo operativo de Render Auto-Deploy sigue sin resolución documentada.
+
+
+### Evidencia de control 31-10-2026, 13:14 COT
+
+- PR #534 HEAD `30c333f555c45af55ea1e77998f98fcf09cc4f5b` abierto y draft; PR #524 abierto. Ninguno fusionado. Revisión estática de `core/security/qrMesaRead.service.js`: filtro de empresa explícito y exclusión de alias ObjectId ambiguos. 16 regresiones unitarias escritas en `test/gruk/p0-70-qr-read-enterprise-filter.test.js`, no ejecutadas en esta revisión.
+- Para ese HEAD: `workflow_runs: []`, `statuses: []`; **CI sin evidencia positiva**. No equivale a verde. [Auditoría P0-70](audits/P0-70_QR_READ_TENANT_20261030.md).
+- Requisito 70 **PARCIAL**. Pendientes: HTTP/MongoDB real, índices efectivos, colisiones y concurrencia, legacy, E2E, seguridad QR, pagos, migración y reimpresión. Cobertura integral certificada **0/77**; Render Auto-Deploy sin habilitación segura acreditada. No fusionar ni desplegar.
