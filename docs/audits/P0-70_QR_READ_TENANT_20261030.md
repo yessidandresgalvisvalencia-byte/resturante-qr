@@ -102,3 +102,11 @@
 - Verificación estática del código y 13 pruebas escritas: ambos filtros de `resolveMesaQrRead` incluyen `empresaId: p.e`; los tests usan modelos simulados y selección en memoria. No demuestran integración HTTP/MongoDB real, aislamiento de colisiones ni migración legacy.
 - Bloqueo de aceptación P0-70: fixture real de dos empresas con `restaurantId` y alias de sede coincidentes, pedidos sin empresa, respuestas GET `/pedidos/mesa/:mesa` y `/factura/mesa/:mesa`, pruebas de navegador, revisión de filtración de tokens QR y checks del SHA final. Bloqueo de fusión a `main`: Render Auto-Deploy previamente identificado en servicios compartidos; no se verificó su desactivación.
 - **Resultado: PARCIAL, 0/77 criterios integralmente certificados; no fusionar, no desplegar.** No hubo avance funcional ni ejecución de pruebas atribuibles a este control.
+
+## Verificación de rutas y controles — 31-10-2026, 02:16 Colombia
+
+- HEAD comprobado del PR #534: `a4d73c876f87f38b2b769f1b82597ce62de61f1c`, abierto, draft, base rama #524; #524 sigue abierto contra `main`.
+- Inspección directa de `routes/API.js`: `GET /pedidos/mesa/:mesa` y `GET /factura/mesa/:mesa` consumen `resolveMesaQrRead`, aplican `Pedido.find(scope.filter)`, seleccionan campos de salida y fijan `Cache-Control: no-store`. La factura valida propina 0/10/15/20. Esto es **revisión estática**, no ejecución HTTP ni MongoDB.
+- Consultas al SHA exacto: `fetch_commit_workflow_runs` devolvió `workflow_runs: []` y `get_commit_combined_status` devolvió `statuses: []`. El primer endpoint solo consulta la primera página de ejecuciones PR: **sin evidencia positiva de CI**, no inferir aprobación ni fallo.
+- Pendientes de cierre: fixtures MongoDB real A/B con colisiones de `restaurantId`, mesa y alias, pedidos históricos sin empresa, validación HTTP de ambas rutas, E2E QR, exposición de token en URL/referer/logs, migración/reimpresión y controles Wompi. El subtotal/propina se calcula a partir de precios de pedidos; su exactitud monetaria no se ha certificado aquí.
+- Decisión: P0-70 **PARCIAL**, 0/77 requisitos certificados integralmente. No fusionar #534/#524 ni desplegar mientras falten checks y aceptación; no modificar GRUK Personal ni Blushea.
