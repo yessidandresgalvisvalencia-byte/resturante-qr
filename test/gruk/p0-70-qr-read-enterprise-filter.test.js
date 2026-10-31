@@ -215,3 +215,14 @@ test("QR signed for another tenant cannot read a colliding restaurant and site a
   assert.equal(scope.filter, undefined);
   assert.equal(siteReads, 0);
 });
+
+// Schema-level guardrails only: actual index existence and concurrent collisions require MongoDB integration.
+test("restaurantId and site alias declare global unique indexes (not proof of deployed indexes)", () => {
+  const Restaurante = require("../../models/restaurante");
+  const Sede = require("../../models/sede");
+  assert.equal(Restaurante.schema.path("restaurantId").options.unique, true);
+  assert.equal(Sede.schema.path("codigoSede").options.unique, true);
+  assert.equal(Restaurante.schema.path("empresaId").options.index, true);
+  assert.equal(Sede.schema.path("empresaId").options.index, true);
+  assert.equal(Sede.schema.path("restauranteId").options.index, true);
+});
