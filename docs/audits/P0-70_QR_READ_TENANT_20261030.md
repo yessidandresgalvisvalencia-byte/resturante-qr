@@ -185,3 +185,11 @@
 - Consultas al SHA exacto: `workflow_runs: []` y `statuses: []`. Estas respuestas **no acreditan** ejecución ni aprobación de CI; el conector de workflows solo consulta runs disparados por PR y la API de estados no equivale a todos los check-runs.
 - Revisión directa del servicio: `resolveMesaQrRead` filtra `empresaId` y excluye alias ObjectId ambiguos; no prueba índices MongoDB, endpoints HTTP, colisiones reales, ni migración legacy. La capacidad QR dura hasta 90 días y exige secreto de al menos 32 bytes; falta validación de revocación y exposición de tokens en URL.
 - Decisión: mantener P0-70 PARCIAL y 0/77 certificados. No fusionar ni desplegar. Siguiente trabajo de ingeniería: prueba de integración HTTP+MongoDB real y verificación de CI de check-runs, no más pruebas simuladas como sustituto.
+
+
+### Evidencia de CI confirmada — 31-10-2026
+
+- GitHub Actions `GRUK CI`, ejecución [#3909](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41238270269), commit `df4fc7e78b25825312ca4e70a8f4b19ee110cbc0`, evento `push`, **conclusión `success`**.
+- El job `GRUK Production Gate` aprobó `npm ci`, auditoría de criterios del plan, configuración Docker Compose, arranque de MongoDB 7 en replica set y `npm run gate` (según pasos de Actions). Esto corrige la afirmación anterior de ausencia total de CI: sí existe un gate verde para ese SHA.
+- **Límite:** un gate verde no certifica por sí mismo los criterios P0-70 ni las 77 implementaciones. No se ha acreditado con evidencias separadas el E2E HTTP/MongoDB de colisiones tenant/legacy, navegador, pagos Wompi, conciliación, backups, rollback, reinicios offline y validación de producción. No fusionar ni desplegar por este resultado aislado.
+- PR #534 continúa `draft` abierto, apilado sobre PR #524 abierto; ningún requisito pasa a COMPLETO sin evidencias de aceptación. La presente actualización documental produce un SHA nuevo que necesita su propio CI.
