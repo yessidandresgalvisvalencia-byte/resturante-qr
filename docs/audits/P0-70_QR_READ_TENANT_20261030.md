@@ -61,3 +61,10 @@
 - Consultas directas al commit exacto: GitHub Actions `workflow_runs: []` y combined status `statuses: []`. **No hay CI verde comprobable**; esta API puede omitir checks de otros eventos. Se prohíbe fusionar por ausencia de evidencia positiva.
 - Revisión estática: filtros de `resolveMesaQrRead` con `empresaId` explícito para ambas ramas; 11 casos de prueba unitarios presentes, no ejecutados en esta revisión. No hay evidencia HTTP+MongoDB real ni E2E.
 - Próximo bloque verificable: ejecutar suite y prueba HTTP con MongoDB real (empresas A/B, `restaurantId` coincidente, alias de sede, pedidos sin `empresaId`), obtener checks asociados al SHA exacto y registrar resultados. Mantener P0-70 PARCIAL, 0/77 criterios certificados, sin cambios a `main` ni despliegue.
+
+## Revisión de controles y brecha de integración — 30-10-2026, 20:18 Colombia
+
+- Inspeccionados el servicio `core/security/qrMesaRead.service.js`, los 11 tests con dobles de MongoDB y los cuatro archivos modificados del PR #534. El filtro de lectura exige `empresaId` tanto para sede canónica/alias como para pedidos sin sede; los registros históricos sin `empresaId` quedan excluidos.
+- Consultados nuevamente los controles del SHA `a6fcd355d991f7f517ed1a1f5b554ef7ecbd33f7`: `workflow_runs: []`, `statuses: []`. Esto **no acredita CI verde** ni ejecución de los tests. El HEAD podría haber avanzado y debe comprobarse antes de cualquier fusión.
+- Brecha concreta: los tests actuales simulan `findOne` y filtran arreglos JavaScript, por lo que **no prueban** semántica de `Pedido.find(scope.filter)` contra MongoDB real, ni las respuestas de ambas rutas GET. El próximo bloque debe montar dos empresas con `restaurantId`/mesa/alias coincidentes y pedidos legados, ejecutar HTTP real y capturar los resultados y checks del SHA.
+- Decisión: P0-70 PARCIAL, 0/77 requisitos certificados; #534 permanece abierto, sin fusión ni despliegue. Auto-Deploy sobre `main` continúa como bloqueo operativo documentado.
