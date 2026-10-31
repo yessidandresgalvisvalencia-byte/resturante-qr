@@ -170,3 +170,11 @@
 - Archivo `test/gruk/p0-70-qr-read-enterprise-filter.test.js`: 16 pruebas declaradas, incluyendo regresión de alias ObjectId y comprobación de declaraciones de índices. **No se ejecutaron en esta revisión**; la existencia de índices efectivos en MongoDB y colisiones concurrentes siguen sin demostrar.
 - No se obtuvo en esta revisión una nueva evidencia de CI aprobado para el HEAD exacto. No confundir mergeable=true con checks verdes. P0-70 continúa **PARCIAL**; 0/77 criterios certificados integralmente según la matriz. Próximo trabajo: prueba HTTP/MongoDB real de ambas rutas, concurrencia, alias y registros legados, más comprobación de check-runs.
 - Mantener #534 en draft; no fusionar #524 ni #534 a `main` y no desplegar mientras falten aceptación y bloqueo de Auto-Deploy Render. Sin cambios a Finanzas Personales ni Blushea.
+
+
+## Control 31-10-2026, 13:14 Colombia — comprobación de HEAD
+
+- PR #534: abierto, draft, HEAD `30c333f555c45af55ea1e77998f98fcf09cc4f5b`, basado en rama de PR #524; #524 continúa abierto sin fusión.
+- Para ese SHA, GitHub devolvió `workflow_runs: []` y `statuses: []`; **no hay comprobación positiva de CI**. La consulta de workflow runs solo incluye una página de eventos PR; no confundir ausencia con aprobación.
+- Se inspeccionaron directamente el servicio de lectura QR y las 16 pruebas escritas. Los filtros de pedidos incluyen empresa y excluyen alias de sede con forma de ObjectId. Las pruebas usan dobles de modelo y una aserción de esquema; **no se ejecutaron pruebas nuevas** ni MongoDB real en esta ejecución.
+- Falta crear y ejecutar integración HTTP con MongoDB real y evidencia de índices, colisiones, concurrencia, históricos sin empresa, E2E, seguridad de token, Wompi, migración y reimpresión. **P0-70 PARCIAL; 0/77 integralmente certificados.** No fusionar ni desplegar. No se ha comprobado la desactivación de Auto-Deploy en Render.
