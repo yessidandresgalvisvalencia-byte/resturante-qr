@@ -162,3 +162,27 @@ test("expired QR capability is rejected before any database lookup", async () =>
   assert.equal(scope.filter, undefined);
   assert.equal(reads, 0);
 });
+
+test("QR for another table is denied before any restaurant or site lookup", async () => {
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4, sedeId: site }, { secret, now }).token;
+  let reads = 0;
+  const noRead = { findOne() { reads++; throw Error("unexpected DB access"); } };
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: 5, qrToken: token }, {
+    secret, now, RestauranteModel: noRead, SedeModel: noRead
+  });
+  assert.equal(scope.status, 403);
+  assert.equal(scope.filter, undefined);
+  assert.equal(reads, 0);
+});
+
+test("QR without a configured signing secret fails closed before database access", async () => {
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4 }, { secret, now }).token;
+  let reads = 0;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: 4, qrToken: token }, {
+    secret: "short", now,
+    RestauranteModel: { findOne() { reads++; throw Error("unexpected DB access"); } }
+  });
+  assert.equal(scope.status, 503);
+  assert.equal(scope.filter, undefined);
+  assert.equal(reads, 0);
+});
