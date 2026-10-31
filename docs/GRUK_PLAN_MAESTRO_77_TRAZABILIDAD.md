@@ -340,3 +340,9 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - PR #534 HEAD `30c333f555c45af55ea1e77998f98fcf09cc4f5b` abierto y draft; PR #524 abierto. Ninguno fusionado. Revisión estática de `core/security/qrMesaRead.service.js`: filtro de empresa explícito y exclusión de alias ObjectId ambiguos. 16 regresiones unitarias escritas en `test/gruk/p0-70-qr-read-enterprise-filter.test.js`, no ejecutadas en esta revisión.
 - Para ese HEAD: `workflow_runs: []`, `statuses: []`; **CI sin evidencia positiva**. No equivale a verde. [Auditoría P0-70](audits/P0-70_QR_READ_TENANT_20261030.md).
 - Requisito 70 **PARCIAL**. Pendientes: HTTP/MongoDB real, índices efectivos, colisiones y concurrencia, legacy, E2E, seguridad QR, pagos, migración y reimpresión. Cobertura integral certificada **0/77**; Render Auto-Deploy sin habilitación segura acreditada. No fusionar ni desplegar.
+
+### Corte de verificación 2026-10-31 14:18 COT
+
+- **P0-70 PARCIAL, 0/77 VERIFICADOS**. [PR #534](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/534) HEAD `9c0124d3` permanece draft sobre [#524](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/524), también abierto. No confundir merges en ramas de integración con aceptación.
+- CI consultado para `9c0124d3`: workflow runs PR `[]`, combined statuses `[]`; evidencia positiva **ausente**, no fallo probado. Auditoría detallada: [P0-70](./audits/P0-70_QR_READ_TENANT_20261030.md).
+- Bloqueos: integración HTTP/MongoDB real (colisiones, alias y legacy), navegador E2E, expiración/revocación y filtración de tokens QR, Wompi, secretos, backups, rollback, controles de concurrencia y Auto-Deploy Render. **No merge a main ni despliegue**.
