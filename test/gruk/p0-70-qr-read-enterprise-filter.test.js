@@ -226,3 +226,22 @@ test("restaurantId and site alias declare global unique indexes (not proof of de
   assert.equal(Sede.schema.path("empresaId").options.index, true);
   assert.equal(Sede.schema.path("restauranteId").options.index, true);
 });
+
+test("QR rejects ObjectId-shaped legacy alias that could match a different site's id", async () => {
+  const collidingAlias = "dddddddddddddddddddddddd";
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4, sedeId: site }, { secret, now }).token;
+  const models = {
+    secret, now, RestauranteModel: mockFind({ _id: "restaurant-A" }),
+    SedeModel: mockFind({ _id: site, codigoSede: collidingAlias })
+  };
+  const denied = await resolveMesaQrRead({
+    restaurantId, mesa: 4, sedeId: collidingAlias, qrToken: token
+  }, models);
+  assert.equal(denied.status, 403);
+  assert.equal(denied.filter, undefined);
+  const accepted = await resolveMesaQrRead({
+    restaurantId, mesa: 4, sedeId: site, qrToken: token
+  }, models);
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(accepted.filter.sedeId.$in, [site]);
+});
