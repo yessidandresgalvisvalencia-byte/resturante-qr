@@ -297,3 +297,11 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - Esquemas inspeccionados: [Restaurante](../models/restaurante.js) declara `restaurantId` único global y [Sede](../models/sede.js) declara `codigoSede` único global; **declaración no equivale a índice existente en MongoDB**.
 - [Prueba de esquema](../test/gruk/p0-70-qr-read-enterprise-filter.test.js), commit `7e4c04e`: se añadió una aserción para esas declaraciones. No se ha comprobado su ejecución en CI. [Auditoría detallada](audits/P0-70_QR_READ_TENANT_20261030.md).
 - Evidencia pendiente: índices `getIndexes()` de MongoDB real, colisiones/concurrencia, HTTP/E2E multiempresa, migración legacy, CI y demás criterios de aceptación. **Estado P0-70: PARCIAL; 0/77 certificados integralmente; despliegue prohibido.**
+
+
+### Control 31-10-2026 08:18 COT — P0-70
+
+- PR #534 HEAD `24b3dd7a653d43a42a0c9d34e3d0baae9ced5913`, abierto y draft, apilado sobre #524 (`12f9968bc1496c94e82c4ab061c993ee05a46386`), también abierto. No hay fusión a `main`.
+- Revisados `core/security/qrMesaRead.service.js` y `test/gruk/p0-70-qr-read-enterprise-filter.test.js`: ambas ramas del filtro QR exigen `empresaId`; existen 16 pruebas unitarias declaradas, incluyendo aserciones de índices únicos en esquema, **no** evidencia de índices desplegados ni ejecución MongoDB real.
+- Consultas al SHA exacto del #534: `fetch_commit_workflow_runs` devolvió `workflow_runs: []` y `get_commit_combined_status` devolvió `statuses: []`. No permiten afirmar CI aprobado.
+- Cobertura de aceptación **PARCIAL** para 70 y **0/77 VERIFICADOS** integralmente. Faltan índices reales, concurrencia, integración HTTP/MongoDB A/B, legacy, E2E, tokens QR, Wompi y habilitación segura de Render. No fusionar ni desplegar. Esta revisión no añadió funcionalidad ni ejecutó pruebas.
