@@ -110,3 +110,9 @@
 - Consultas al SHA exacto: `fetch_commit_workflow_runs` devolvió `workflow_runs: []` y `get_commit_combined_status` devolvió `statuses: []`. El primer endpoint solo consulta la primera página de ejecuciones PR: **sin evidencia positiva de CI**, no inferir aprobación ni fallo.
 - Pendientes de cierre: fixtures MongoDB real A/B con colisiones de `restaurantId`, mesa y alias, pedidos históricos sin empresa, validación HTTP de ambas rutas, E2E QR, exposición de token en URL/referer/logs, migración/reimpresión y controles Wompi. El subtotal/propina se calcula a partir de precios de pedidos; su exactitud monetaria no se ha certificado aquí.
 - Decisión: P0-70 **PARCIAL**, 0/77 requisitos certificados integralmente. No fusionar #534/#524 ni desplegar mientras falten checks y aceptación; no modificar GRUK Personal ni Blushea.
+
+## Regresiones de colisión — 31-10-2026, 03:21 Colombia
+
+- Commit `ac7fb2e78ce1323bf190d83b0d2f160a57a40107`: dos pruebas negativas adicionales cubren rechazo de alias de sede distinto al del QR firmado y rechazo de un restaurante colisionado perteneciente a otra empresa **antes** de consultar sedes. Total del archivo: 15 pruebas unitarias escritas; **no se ejecutaron** y no sustituyen integración HTTP/MongoDB.
+- Consultas realizadas para el HEAD anterior `a4d73c876f87f38b2b769f1b82597ce62de61f1c`: `workflow_runs: []`, `statuses: []`. No se ha obtenido CI verde del commit nuevo. No inferir resultado de checks ausentes.
+- Estado real P0-70: **PARCIAL**; 0/77 requisitos certificados integralmente según última matriz conocida. Faltan fixtures MongoDB real con colisiones y legacy, respuestas HTTP de ambas rutas, E2E, control de tokens en URL/referer/logs, migración/reimpresión y pagos. No fusionar ni desplegar; mantener PR #534 draft y preservar GRUK Personal y Blushea.
