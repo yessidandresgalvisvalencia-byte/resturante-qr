@@ -161,3 +161,12 @@
 - Consultas GitHub al SHA: `fetch_commit_workflow_runs` devolvió `workflow_runs: []`; `get_commit_combined_status` devolvió `statuses: []`. Estas APIs no certifican todos los check-runs; **sin evidencia positiva de CI**. No se ejecutaron pruebas en esta revisión.
 - Lectura del servicio `core/security/qrMesaRead.service.js`: verifica HMAC y expiración, exige `empresaId` en restaurante, sede y filtro de pedidos, y limita el token a restaurante/mesa/sede. La lectura estática no demuestra índices existentes ni ausencia de mezcla con datos históricos.
 - **Criterio aún no satisfecho:** integración HTTP con MongoDB real, índices reales `getIndexes()`, pruebas adversariales de colisiones y concurrencia, legacy, E2E, Wompi, migración y reimpresión, y seguridad/rollback. P0-70 permanece PARCIAL; 0/77 certificados. Render Auto-Deploy sobre `main` sigue siendo bloqueo documentado. No fusionar ni desplegar.
+
+
+## Revisión de dependencias y alcance — 31-10-2026, 12:17 Colombia
+
+- Consulta directa de GitHub: PR #534 **abierto y draft**, HEAD `f66e46d9868da8130cfef3e56c9b0e0fd52e8abf`, base `gruk/security-realtime-sede-scope-20261030`; PR #524 **abierto**, HEAD `12f9968bc1496c94e82c4ab061c993ee05a46386`, base `main`. Ninguno fusionado.
+- Contraste del código actual: `resolveMesaQrRead` consulta restaurante con `{restaurantId, empresaId}` y sede con `{_id, empresaId, restauranteId}`; ambos filtros de pedidos incluyen `empresaId`. Alias con apariencia de ObjectId se excluyen para evitar confusión entre sedes. La cobertura es **estática**, no validación HTTP/MongoDB.
+- Archivo `test/gruk/p0-70-qr-read-enterprise-filter.test.js`: 16 pruebas declaradas, incluyendo regresión de alias ObjectId y comprobación de declaraciones de índices. **No se ejecutaron en esta revisión**; la existencia de índices efectivos en MongoDB y colisiones concurrentes siguen sin demostrar.
+- No se obtuvo en esta revisión una nueva evidencia de CI aprobado para el HEAD exacto. No confundir mergeable=true con checks verdes. P0-70 continúa **PARCIAL**; 0/77 criterios certificados integralmente según la matriz. Próximo trabajo: prueba HTTP/MongoDB real de ambas rutas, concurrencia, alias y registros legados, más comprobación de check-runs.
+- Mantener #534 en draft; no fusionar #524 ni #534 a `main` y no desplegar mientras falten aceptación y bloqueo de Auto-Deploy Render. Sin cambios a Finanzas Personales ni Blushea.
