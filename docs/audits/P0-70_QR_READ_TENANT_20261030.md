@@ -138,3 +138,10 @@
 - **Otra brecha a validar:** los alias `codigoSede` se aceptan en `$in` sin prueba de unicidad por restaurante. Una colisión de alias de dos sedes podría incluir pedidos de otra sede dentro del mismo tenant. Exigir índice/invariante de unicidad y pruebas MongoDB de duplicados, incluidos datos históricos.
 - Prueba de aceptación pendiente: fixtures con (a) dos empresas con restaurantId coincidente, (b) dos restaurantes de una empresa con restaurantId duplicado, (c) dos sedes con codigoSede duplicado, (d) pedidos sin empresa y (e) accesos HTTP a ambas rutas de lectura. Verificar rechazo seguro o ausencia de mezcla, y documentar índices/migración. No se ejecutaron pruebas nuevas ni se atribuye corrección funcional.
 - P0-70 continúa **PARCIAL**, 0/77 verificados integralmente. Sin fusión, sin cambios a `main`, sin despliegue.
+
+## Revisión de unicidad de esquema — 31-10-2026
+
+- Inspección directa: `models/restaurante.js` declara `restaurantId: { unique: true }` global; `models/sede.js` declara `codigoSede: { unique: true }` global. Esto reduce la posibilidad de colisiones **si los índices están realmente construidos**, pero NO demuestra su existencia en la base desplegada ni ausencia de duplicados heredados. La unicidad es global, no compuesta por empresa; hay que evaluar compatibilidad de negocio y migraciones antes de modificar índices.
+- Commit `7e4c04e`: prueba adicional de regresión que comprueba declaraciones del esquema, no prueba MongoDB ni carrera concurrente. Total en `p0-70-qr-read-enterprise-filter.test.js`: 16 pruebas escritas (15 anteriores + 1 nueva), sin ejecución confirmada.
+- PR #534 HEAD anterior `6d32246fe258643c7ff6bcf0dd29326467506b0e`: consultas de workflow runs y combined statuses retornaron listas vacías el 31-10-2026; **no interpretar vacío como verde**. Reconsultar el nuevo HEAD tras los commits.
+- Para certificar: inspeccionar `getIndexes()` real de las colecciones y errores E11000 con escrituras simultáneas; ejecutar HTTP+MongoDB real con tenants y alias en conflicto, validar registros históricos y rutas de lectura, registrar CI verde verificable. P0-70 sigue PARCIAL. Sin merge ni despliegue.
