@@ -237,3 +237,9 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - **P0-70 — PARCIAL, no VERIFICADO.** En [PR #534](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/534), el servicio `core/security/qrMesaRead.service.js` incluye `empresaId` en los filtros de lectura QR; `test/gruk/p0-70-qr-read-enterprise-filter.test.js` contiene 11 casos unitarios con dobles, sin evidencia de ejecución real. Auditoría actualizada en [`P0-70_QR_READ_TENANT_20261030.md`](audits/P0-70_QR_READ_TENANT_20261030.md).
 - Para SHA inspeccionado `a6fcd355d991f7f517ed1a1f5b554ef7ecbd33f7`, la consulta de runs y estados devolvió listas vacías. **No se infiere éxito CI.** Pendientes: HTTP+MongoDB real con colisiones, legacy sin empresa, E2E QR, migración/reimpresión, controles de tokens/logs y pagos.
 - **Cobertura certificada: 0/77.** Mantener abierto el PR y prohibido fusionar a `main` o desplegar hasta cumplir todos los criterios y resolver Auto-Deploy de Render.
+
+### Control de trazabilidad — 30-10-2026 21:14 Colombia
+
+- **70 / P0 / PARCIAL:** HEAD auditado de #534 `e5a5f1a4009c97737269c89c0140971af71a7f60`. El servicio `core/security/qrMesaRead.service.js` filtra por `empresaId`; 11 pruebas unitarias escritas, sin ejecución comprobada. Actions por SHA y combined statuses devolvieron listas vacías. Evidencia y limitaciones en [`P0-70_QR_READ_TENANT_20261030.md`](audits/P0-70_QR_READ_TENANT_20261030.md).
+- **Criterio no satisfecho:** integración HTTP + MongoDB real con colisiones entre empresas, sedes y registros históricos; E2E, migración QR y controles CI positivos. No fusionar ni desplegar.
+- **Totales sin cambio:** 0 requisitos VERIFICADO; no confundir código escrito, PR abierto o fusionado con aceptación demostrada. Otros 76 requisitos mantienen su estado anterior.
