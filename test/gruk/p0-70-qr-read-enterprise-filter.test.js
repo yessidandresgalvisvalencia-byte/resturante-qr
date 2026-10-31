@@ -186,3 +186,32 @@ test("QR without a configured signing secret fails closed before database access
   assert.equal(scope.filter, undefined);
   assert.equal(reads, 0);
 });
+
+
+test("QR for site A rejects a colliding alias supplied for another site", async () => {
+  const token = issueToken({ empresaId: e, restaurantId, mesa: 4, sedeId: site }, { secret, now }).token;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: "other-local", qrToken: token }, {
+    secret, now, RestauranteModel: mockFind({ _id: "restaurant-A" }),
+    SedeModel: mockFind({ _id: site, codigoSede: "local" })
+  });
+  assert.equal(scope.status, 403);
+  assert.equal(scope.filter, undefined);
+});
+
+test("QR signed for another tenant cannot read a colliding restaurant and site alias", async () => {
+  const token = issueToken({ empresaId: other, restaurantId, mesa: 4, sedeId: site }, { secret, now }).token;
+  let siteReads = 0;
+  const scope = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: "local", qrToken: token }, {
+    secret, now,
+    RestauranteModel: {
+      findOne(query) {
+        assert.deepEqual(query, { restaurantId, empresaId: other });
+        return { select: () => ({ lean: async () => null }) };
+      }
+    },
+    SedeModel: { findOne() { siteReads++; throw Error("unexpected site lookup"); } }
+  });
+  assert.equal(scope.status, 403);
+  assert.equal(scope.filter, undefined);
+  assert.equal(siteReads, 0);
+});
