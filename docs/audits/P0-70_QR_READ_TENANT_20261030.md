@@ -193,3 +193,12 @@
 - El job `GRUK Production Gate` aprobó `npm ci`, auditoría de criterios del plan, configuración Docker Compose, arranque de MongoDB 7 en replica set y `npm run gate` (según pasos de Actions). Esto corrige la afirmación anterior de ausencia total de CI: sí existe un gate verde para ese SHA.
 - **Límite:** un gate verde no certifica por sí mismo los criterios P0-70 ni las 77 implementaciones. No se ha acreditado con evidencias separadas el E2E HTTP/MongoDB de colisiones tenant/legacy, navegador, pagos Wompi, conciliación, backups, rollback, reinicios offline y validación de producción. No fusionar ni desplegar por este resultado aislado.
 - PR #534 continúa `draft` abierto, apilado sobre PR #524 abierto; ningún requisito pasa a COMPLETO sin evidencias de aceptación. La presente actualización documental produce un SHA nuevo que necesita su propio CI.
+
+
+## Comprobación 01-11-2026 — controles y dependencias
+
+- PR #534 sigue abierto en borrador, HEAD anterior `57b1d2172d1560d38a079fb24db7c23b88079f2b`; PR padre #524 continúa abierto y sin fusionar a `main`.
+- GitHub Actions asociado al HEAD anterior: [run 41280648064](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41280648064), `completed/failure`. Por tanto, **no existe autorización de fusión**. No atribuir este fallo a un job concreto sin consultar su detalle.
+- `package.json` declara `joi: ^18.2.8` y `axios: ^1.6.0`; en el lockfile inspeccionado anteriormente constaban `joi@18.3.0` y `follow-redirects@1.16.1`. Los advisories registrados en el PR son GHSA-4528-x5fx-h6hg y GHSA-mrwp-f3q8-3g9p. Se requiere remediación reproducible con `npm audit --omit=dev`, actualización del lockfile con npm, `npm ci`, suite completa y CI verde sobre el SHA resultante. No modificar versiones o lockfile manualmente sin comprobar integridad.
+- Se verificó que el script `npm test` incluye `test/gruk/*.integration.test.js`; la presencia de la prueba MongoDB no demuestra que las rutas HTTP ni todos los criterios de P0-70 estén certificados.
+- **Cobertura real:** P0-70 PARCIAL; 0/77 criterios integrales verificados. Pendientes: evidencia HTTP/MongoDB y E2E, colisiones, legacy, índice real, seguridad QR, Wompi, CI, controles de producción. No fusionar ni desplegar; no modificar otros productos.
