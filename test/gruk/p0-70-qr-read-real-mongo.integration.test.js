@@ -44,7 +44,10 @@ test("P0-70: real Mongo queries isolate QR orders across enterprises, legacy rec
       { _id: "a-other", empresaId: a, restaurantId, mesa: 4, sedeId: siteB },
       { _id: "a-nosite", empresaId: a, restaurantId, mesa: 4, sedeId: "" },
       { _id: "b-nosite", empresaId: b, restaurantId, mesa: 4, sedeId: "" },
-      { _id: "legacy-nosite", restaurantId, mesa: 4, sedeId: "" }
+      { _id: "legacy-nosite", restaurantId, mesa: 4, sedeId: "" },
+      { _id: "a-nullsite", empresaId: a, restaurantId, mesa: 4, sedeId: null },
+      { _id: "b-nullsite", empresaId: b, restaurantId, mesa: 4, sedeId: null },
+      { _id: "legacy-nullsite", restaurantId, mesa: 4, sedeId: null }
     ]);
     const models = { secret, now, RestauranteModel: model(restaurants), SedeModel: model(sites) };
     for (const [enterprise, site, expected] of [[a, siteA, "a-site"], [b, siteB, "b-site"]]) {
@@ -58,10 +61,18 @@ test("P0-70: real Mongo queries isolate QR orders across enterprises, legacy rec
     const result = await resolveMesaQrRead({ restaurantId, mesa: 4, qrToken }, models);
     assert.equal(result.status, 200);
     const found = await orders.find(result.filter).project({ _id: 1 }).toArray();
-    assert.deepEqual(found.map(x => x._id), ["a-nosite"]);
+    assert.deepEqual(found.map(x => x._id).sort(), ["a-nosite", "a-nullsite"].sort());
     const wrong = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: "local", qrToken }, models);
     assert.equal(wrong.status, 403);
     assert.equal(wrong.filter, undefined);
+    for (const invalid of [
+      { restaurantId, mesa: 5, qrToken },
+      { restaurantId: "another-restaurant", mesa: 4, qrToken }
+    ]) {
+      const denied = await resolveMesaQrRead(invalid, models);
+      assert.equal(denied.status, 403);
+      assert.equal(denied.filter, undefined);
+    }
   } finally {
     await db.dropDatabase();
     await client.close();
