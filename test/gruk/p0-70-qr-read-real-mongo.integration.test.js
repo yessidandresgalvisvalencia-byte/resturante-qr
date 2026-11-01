@@ -1,0 +1,69 @@
+"use strict";
+// Real MongoDB integration: run with GRUK_TEST_MONGO_URI=mongodb://127.0.0.1:27017
+// Uses a disposable, random database; never connects to the application database.
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
+const { MongoClient } = require("mongodb");
+const { issueToken, resolveMesaQrRead } = require("../../core/security/qrMesaRead.service");
+
+const uri = process.env.GRUK_TEST_MONGO_URI;
+const secret = "integration-qr-tenant-secret-".repeat(2);
+const a = "aaaaaaaaaaaaaaaaaaaaaaaa", b = "bbbbbbbbbbbbbbbbbbbbbbbb";
+const siteA = "cccccccccccccccccccccccc", siteB = "dddddddddddddddddddddddd";
+const restaurantId = "integration-qr-restaurant";
+const now = () => 1793350000000;
+function model(collection) {
+  return { findOne(filter) {
+    return { select() { return { lean() { return collection.findOne(filter); } }; } };
+  } };
+}
+test("P0-70: real Mongo queries isolate QR orders across enterprises, legacy records and sites", {
+  skip: !uri && "Set GRUK_TEST_MONGO_URI to run real Mongo integration"
+}, async () => {
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
+  const dbName = "gruk_qr_test_" + crypto.randomBytes(8).toString("hex");
+  await client.connect();
+  const db = client.db(dbName);
+  try {
+    const restaurants = db.collection("restaurants");
+    const sites = db.collection("sites");
+    const orders = db.collection("orders");
+    await restaurants.insertMany([
+      { _id: "ra", empresaId: a, restaurantId },
+      { _id: "rb", empresaId: b, restaurantId }
+    ]);
+    await sites.insertMany([
+      { _id: siteA, empresaId: a, restauranteId: restaurantId, codigoSede: "local" },
+      { _id: siteB, empresaId: b, restauranteId: restaurantId, codigoSede: "local" }
+    ]);
+    await orders.insertMany([
+      { _id: "a-site", empresaId: a, restaurantId, mesa: 4, sedeId: "local" },
+      { _id: "b-site", empresaId: b, restaurantId, mesa: 4, sedeId: "local" },
+      { _id: "legacy-site", restaurantId, mesa: 4, sedeId: "local" },
+      { _id: "a-other", empresaId: a, restaurantId, mesa: 4, sedeId: siteB },
+      { _id: "a-nosite", empresaId: a, restaurantId, mesa: 4, sedeId: "" },
+      { _id: "b-nosite", empresaId: b, restaurantId, mesa: 4, sedeId: "" },
+      { _id: "legacy-nosite", restaurantId, mesa: 4, sedeId: "" }
+    ]);
+    const models = { secret, now, RestauranteModel: model(restaurants), SedeModel: model(sites) };
+    for (const [enterprise, site, expected] of [[a, siteA, "a-site"], [b, siteB, "b-site"]]) {
+      const qrToken = issueToken({ empresaId: enterprise, restaurantId, mesa: 4, sedeId: site }, { secret, now }).token;
+      const result = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: "local", qrToken }, models);
+      assert.equal(result.status, 200);
+      const found = await orders.find(result.filter).project({ _id: 1 }).toArray();
+      assert.deepEqual(found.map(x => x._id), [expected]);
+    }
+    const qrToken = issueToken({ empresaId: a, restaurantId, mesa: 4 }, { secret, now }).token;
+    const result = await resolveMesaQrRead({ restaurantId, mesa: 4, qrToken }, models);
+    assert.equal(result.status, 200);
+    const found = await orders.find(result.filter).project({ _id: 1 }).toArray();
+    assert.deepEqual(found.map(x => x._id), ["a-nosite"]);
+    const wrong = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: "local", qrToken }, models);
+    assert.equal(wrong.status, 403);
+    assert.equal(wrong.filter, undefined);
+  } finally {
+    await db.dropDatabase();
+    await client.close();
+  }
+});
