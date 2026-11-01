@@ -240,3 +240,11 @@
 - Commit [52b76248](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/commit/52b762486df19c6069e4e17be9267ff61d6be884): se añadieron aserciones a la integración MongoDB real para rechazar alias de sede con forma de ObjectId de otra sede y capacidades QR manipuladas. **Pruebas escritas, todavía no ejecutadas ni certificadas** para este HEAD; requieren `GRUK_TEST_MONGO_URI` y revisión del resultado CI.
 - La integración prueba directamente servicio y consultas MongoDB; **no cubre endpoints HTTP ni navegador E2E**. Continúan pendientes remediación reproducible de HIGH (`joi`, `follow-redirects`), controles de seguridad, migración, Wompi, concurrencia, reinicios offline y validación integral de los 77 criterios.
 - P0-70 **PARCIAL**; 0/77 integralmente certificados. No fusionar ni desplegar; ningún cambio en GRUK Finanzas Personales ni Blushea.
+
+
+## Control de trazabilidad — 01-11-2026, 13:18 COT
+
+- PR #534 verificado abierto y en borrador; HEAD `f79561c0b0a8b121addc6a07d421dc7ffe6c7d03`, base `gruk/security-realtime-sede-scope-20261030` (PR #524). PR #524 también permanece abierto. No existe fusión acreditada.
+- El `package.json` de esta rama declara `joi: ^18.2.8` y `axios: ^1.6.0`. Esos rangos **no certifican** que el lockfile resuelva versiones seguras: verificar árbol instalado, advisories y `npm audit --omit=dev --audit-level=high` en CI. El fallo previo del job `docker-build` por auditoría HIGH sigue siendo un bloqueo hasta comprobar una ejecución verde del nuevo HEAD.
+- Cobertura P0-70: filtros de empresa implementados y pruebas de MongoDB añadidas en la rama; **sin resultados de ejecución comprobados en este control**. Siguen pendientes pruebas HTTP reales de las dos rutas, E2E, seguridad de capacidades QR, migración de legacy, concurrencia, pagos y evidencia CI. No convertir pruebas escritas ni PR abierto en requisito certificado.
+- Estado de aceptación **PARCIAL**, 0/77 requisitos certificados integralmente conforme al último recuento documentado. Sin cambios a `main`, sin fusión y sin despliegue. Próxima acción prioritaria: resolver auditoría de dependencias con lockfile reproducible y obtener ejecución CI verde para SHA exacto; luego cerrar aceptación HTTP/MongoDB.
