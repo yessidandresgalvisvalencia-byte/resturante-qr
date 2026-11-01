@@ -35,7 +35,8 @@ test("P0-70: real Mongo queries isolate QR orders across enterprises, legacy rec
     ]);
     await sites.insertMany([
       { _id: siteA, empresaId: a, restauranteId: restaurantId, codigoSede: "local" },
-      { _id: siteB, empresaId: b, restauranteId: restaurantId, codigoSede: "local" }
+      { _id: siteB, empresaId: b, restauranteId: restaurantId, codigoSede: "local" },
+      { _id: "ffffffffffffffffffffffff", empresaId: a, restauranteId: restaurantId, codigoSede: siteB }
     ]);
     await orders.insertMany([
       { _id: "a-site", empresaId: a, restaurantId, mesa: 4, sedeId: "local" },
@@ -57,6 +58,16 @@ test("P0-70: real Mongo queries isolate QR orders across enterprises, legacy rec
       const found = await orders.find(result.filter).project({ _id: 1 }).toArray();
       assert.deepEqual(found.map(x => x._id), [expected]);
     }
+    // A site whose legacy alias equals another site's ObjectId must never match that alias.
+    const ambiguousToken = issueToken({ empresaId: a, restaurantId, mesa: 4, sedeId: "ffffffffffffffffffffffff" }, { secret, now }).token;
+    const ambiguous = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: siteB, qrToken: ambiguousToken }, models);
+    assert.equal(ambiguous.status, 403);
+    assert.equal(ambiguous.filter, undefined);
+    // Tampered bearer capabilities must not produce a MongoDB query filter.
+    const tampered = ambiguousToken.slice(0, -1) + (ambiguousToken.endsWith("A") ? "B" : "A");
+    const deniedTampered = await resolveMesaQrRead({ restaurantId, mesa: 4, qrToken: tampered }, models);
+    assert.equal(deniedTampered.status, 401);
+    assert.equal(deniedTampered.filter, undefined);
     const qrToken = issueToken({ empresaId: a, restaurantId, mesa: 4 }, { secret, now }).token;
     const result = await resolveMesaQrRead({ restaurantId, mesa: 4, qrToken }, models);
     assert.equal(result.status, 200);
