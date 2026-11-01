@@ -393,3 +393,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - Commit `507f6dee775f50a3995b0d34ee559421f736842c`: `test/gruk/p0-70-qr-read-real-mongo.integration.test.js` añade una prueba contra el driver MongoDB real, con base temporal aleatoria y eliminación al finalizar. Cubre dos empresas con `restaurantId`, mesa y alias `local` coincidentes, sede canónica distinta, pedidos legados sin `empresaId`, lecturas sin sede y rechazo de ámbito ajeno. Usa las consultas MongoDB reales devueltas por `resolveMesaQrRead`.
 - **No confundir prueba escrita con prueba ejecutada:** requiere `GRUK_TEST_MONGO_URI` apuntando a una instancia de pruebas y ejecutar `node --test test/gruk/p0-70-qr-read-real-mongo.integration.test.js`; sin variable, el caso se omite. No se verificó ejecución, índices efectivos, HTTP ni E2E en esta intervención. No se marca P0-70 VERIFICADO.
 - Pendiente configurar CI con MongoDB aislado y guardar evidencia verde del HEAD exacto; verificar índices reales, duplicados, concurrencia, HTTP GET pedidos/facturas, Wompi, revocación QR y E2E. No fusionar ni desplegar. 0/77 certificados.
+
+
+### Ejecución 2026-11-01 — inclusión efectiva de integración MongoDB en gate
+
+- Se detectó que `test/gruk/p0-70-qr-read-real-mongo.integration.test.js` **no coincidía** con el patrón anterior `test/gruk/*.test.js` de `npm test`: su presencia en el repositorio no implicaba ejecución en CI.
+- Corrección funcional de control: `package.json` ahora invoca `node --test test/gruk/*.test.js test/gruk/*.integration.test.js` (commit `e992403d2a444786d14013f92525f1177ef22601`). El workflow `.github/workflows/gruk-ci.yml` ya proporciona `GRUK_TEST_MONGO_URI` y arranca MongoDB 7; la prueba solo corre efectivamente si la ejecución del gate llega a ella.
+- **Evidencia de ejecución:** no verificada aún para el nuevo HEAD. No se declara verde ni P0-70 VERIFICADO; siguen pendientes HTTP real, índices efectivos, colisiones, seguridad de token y E2E. PR #534 continúa en borrador sobre #524. No fusionar ni desplegar.
