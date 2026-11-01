@@ -210,3 +210,11 @@
 - GitHub Actions [run 41301556515](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41301556515), workflow `GRUK Capa 1 Offline Contract`, **completed/failure** para ese SHA. Jobs: `offline-contract` **success** (124833350141), `mongodb-integration` **success** (124833350274), `docker-build` **failure** (124833350301). En `docker-build` aprobaron construcción, Compose y generación de auditoría; falló explícitamente `Block release on high and critical production vulnerabilities` (paso 7).
 - Este resultado no permite afirmar que todas las pruebas P0-70 se ejecutaron ni que el requisito quedó certificado: el job MongoDB se denomina `Verify ledger with real MongoDB transactions`, no demuestra por sí solo las rutas HTTP QR ni los índices de sede. Revisar logs/artefacto y corregir vulnerabilidades antes de revalidar.
 - **Bloqueo de liberación confirmado**: control de seguridad rojo. No fusionar PR #534/#524 ni desplegar. Mantener P0-70 PARCIAL y 0/77 certificaciones integrales; pendiente integración HTTP, concurrencia/índices, legacy, E2E, pagos y auditoría de tokens.
+
+
+## Verificación 01-11-2026 08:18 Colombia
+
+- PR #534 continúa abierto y draft, HEAD `3e867d37401ea7308e3c6d60ae13090b18037048`, apilado sobre #524 (abierto, no fusionado). La lista de ocho archivos modificados incluye la prueba `test/gruk/p0-70-qr-read-real-mongo.integration.test.js`, pero su presencia no acredita aceptación HTTP/E2E.
+- `package.json` del HEAD usa `npm test` con `test/gruk/*.integration.test.js`; declara `joi: ^18.2.8`, `axios: ^1.6.0` y override `body-parser: ^2.4.0`. La auditoría previa reportó dos HIGH en `joi` y `follow-redirects`; **no se ha demostrado remediación ni nuevo CI verde**. No inferir seguridad a partir de los rangos semver.
+- Se conserva la evidencia previa del workflow fallido #41301556515 y se mantiene el gate de vulnerabilidades. Para el siguiente cambio: resolver ambas dependencias con lockfile regenerado, `npm ci`, `npm audit --omit=dev --audit-level=high`, `npm run gate`, CI completo y pruebas HTTP/MongoDB. No certificar P0-70 ni fusionar/desplegar sin resultados verdes del HEAD correspondiente.
+- Estado: P0-70 PARCIAL; 0/77 certificados integralmente. No se modifican Finanzas Personales, Blushea, `main` ni Render.
