@@ -218,3 +218,11 @@
 - `package.json` del HEAD usa `npm test` con `test/gruk/*.integration.test.js`; declara `joi: ^18.2.8`, `axios: ^1.6.0` y override `body-parser: ^2.4.0`. La auditoría previa reportó dos HIGH en `joi` y `follow-redirects`; **no se ha demostrado remediación ni nuevo CI verde**. No inferir seguridad a partir de los rangos semver.
 - Se conserva la evidencia previa del workflow fallido #41301556515 y se mantiene el gate de vulnerabilidades. Para el siguiente cambio: resolver ambas dependencias con lockfile regenerado, `npm ci`, `npm audit --omit=dev --audit-level=high`, `npm run gate`, CI completo y pruebas HTTP/MongoDB. No certificar P0-70 ni fusionar/desplegar sin resultados verdes del HEAD correspondiente.
 - Estado: P0-70 PARCIAL; 0/77 certificados integralmente. No se modifican Finanzas Personales, Blushea, `main` ni Render.
+
+
+## Control CI verificado — 01-11-2026, 09:20 Colombia
+
+- PR #534 HEAD `c0835bdc91bbac41f9d15d50cf52e52d2b5e5ade`, abierto y draft, apilado sobre #524 (abierto). La ejecución [Actions #41310663914](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41310663914) para ese SHA concluyó **failure**.
+- Jobs observados: `offline-contract` **success**, `mongodb-integration` **success** (transacciones ledger MongoDB), `docker-build` **failure** específicamente en `Block release on high and critical production vulnerabilities`; la construcción Docker, auditoría y subida de artefacto terminaron success, pero el gate de seguridad NO.
+- `package.json` aún declara `axios: ^1.6.0`, `joi: ^18.2.8`; no se ha demostrado remediación de `follow-redirects` y `joi` en el lockfile mediante auditoría verde. **No modificar el gate ni fusionar**. Primero actualizar y regenerar lockfile reproducible, ejecutar `npm ci`, `npm audit --omit=dev --audit-level=high`, pruebas y workflow del nuevo HEAD.
+- La aprobación del job `mongodb-integration` valida ledger transaccional, **no** los GET HTTP de pedidos/facturas ni las colisiones de tenant. P0-70 sigue PARCIAL y 0/77 certificaciones integrales; pendientes integración HTTP/MongoDB, E2E, legacy, QR, pagos y requisitos globales. Sin despliegue.
