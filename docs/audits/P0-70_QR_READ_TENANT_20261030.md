@@ -226,3 +226,10 @@
 - Jobs observados: `offline-contract` **success**, `mongodb-integration` **success** (transacciones ledger MongoDB), `docker-build` **failure** específicamente en `Block release on high and critical production vulnerabilities`; la construcción Docker, auditoría y subida de artefacto terminaron success, pero el gate de seguridad NO.
 - `package.json` aún declara `axios: ^1.6.0`, `joi: ^18.2.8`; no se ha demostrado remediación de `follow-redirects` y `joi` en el lockfile mediante auditoría verde. **No modificar el gate ni fusionar**. Primero actualizar y regenerar lockfile reproducible, ejecutar `npm ci`, `npm audit --omit=dev --audit-level=high`, pruebas y workflow del nuevo HEAD.
 - La aprobación del job `mongodb-integration` valida ledger transaccional, **no** los GET HTTP de pedidos/facturas ni las colisiones de tenant. P0-70 sigue PARCIAL y 0/77 certificaciones integrales; pendientes integración HTTP/MongoDB, E2E, legacy, QR, pagos y requisitos globales. Sin despliegue.
+
+## Seguimiento 01-11-2026, 11:21 Colombia
+
+- PR #534 sigue abierto, draft y apilado sobre #524 (abierto, no fusionado). HEAD inspeccionado antes del cambio: `3c8f99765670d3e6de235a70a79c6777c327be11`.
+- Commit `29b08cdd9ebea832112cc2e6c5231959e8575942`: se amplió `test/gruk/p0-70-qr-read-real-mongo.integration.test.js` para comprobar también lectura sin sede desde empresa B y rechazo de capacidad con sede inexistente. El fixture usa base MongoDB desechable, pero el test **no es una prueba de rutas HTTP** y requiere `GRUK_TEST_MONGO_URI` para ejecutarse; no se afirma que haya aprobado.
+- Inspección del `package.json`: `npm test` incluye `*.integration.test.js`, pero sin URI la integración se omite. No confundir un job verde con ejecución efectiva de este caso; revisar reporte de tests y entorno.
+- Persisten bloqueo de auditoría HIGH de `joi` y `follow-redirects`, validación HTTP/E2E, migración, conciliación, reinicio offline y controles de producción. **P0-70 PARCIAL; 0/77 certificados.** Sin fusión ni despliegue.
