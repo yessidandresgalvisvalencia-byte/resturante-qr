@@ -202,3 +202,11 @@
 - `package.json` declara `joi: ^18.2.8` y `axios: ^1.6.0`; en el lockfile inspeccionado anteriormente constaban `joi@18.3.0` y `follow-redirects@1.16.1`. Los advisories registrados en el PR son GHSA-4528-x5fx-h6hg y GHSA-mrwp-f3q8-3g9p. Se requiere remediación reproducible con `npm audit --omit=dev`, actualización del lockfile con npm, `npm ci`, suite completa y CI verde sobre el SHA resultante. No modificar versiones o lockfile manualmente sin comprobar integridad.
 - Se verificó que el script `npm test` incluye `test/gruk/*.integration.test.js`; la presencia de la prueba MongoDB no demuestra que las rutas HTTP ni todos los criterios de P0-70 estén certificados.
 - **Cobertura real:** P0-70 PARCIAL; 0/77 criterios integrales verificados. Pendientes: evidencia HTTP/MongoDB y E2E, colisiones, legacy, índice real, seguridad QR, Wompi, CI, controles de producción. No fusionar ni desplegar; no modificar otros productos.
+
+
+## Verificación de CI — 01-11-2026, 07:17 Colombia
+
+- PR #534 HEAD `c047001fb1e8a74c462f5398344df2df12670a84`, abierto en borrador; PR base #524 abierto, sin fusión.
+- GitHub Actions [run 41301556515](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41301556515), workflow `GRUK Capa 1 Offline Contract`, **completed/failure** para ese SHA. Jobs: `offline-contract` **success** (124833350141), `mongodb-integration` **success** (124833350274), `docker-build` **failure** (124833350301). En `docker-build` aprobaron construcción, Compose y generación de auditoría; falló explícitamente `Block release on high and critical production vulnerabilities` (paso 7).
+- Este resultado no permite afirmar que todas las pruebas P0-70 se ejecutaron ni que el requisito quedó certificado: el job MongoDB se denomina `Verify ledger with real MongoDB transactions`, no demuestra por sí solo las rutas HTTP QR ni los índices de sede. Revisar logs/artefacto y corregir vulnerabilidades antes de revalidar.
+- **Bloqueo de liberación confirmado**: control de seguridad rojo. No fusionar PR #534/#524 ni desplegar. Mantener P0-70 PARCIAL y 0/77 certificaciones integrales; pendiente integración HTTP, concurrencia/índices, legacy, E2E, pagos y auditoría de tokens.
