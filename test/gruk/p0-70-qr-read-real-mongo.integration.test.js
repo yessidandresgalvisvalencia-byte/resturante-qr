@@ -62,6 +62,16 @@ test("P0-70: real Mongo queries isolate QR orders across enterprises, legacy rec
     assert.equal(result.status, 200);
     const found = await orders.find(result.filter).project({ _id: 1 }).toArray();
     assert.deepEqual(found.map(x => x._id).sort(), ["a-nosite", "a-nullsite"].sort());
+    // Symmetric no-site isolation: B must not see A, legacy, or wrong-site orders.
+    const tokenB = issueToken({ empresaId: b, restaurantId, mesa: 4 }, { secret, now }).token;
+    const readB = await resolveMesaQrRead({ restaurantId, mesa: 4, qrToken: tokenB }, models);
+    assert.equal(readB.status, 200);
+    assert.deepEqual((await orders.find(readB.filter).project({ _id: 1 }).toArray()).map(x => x._id).sort(), ["b-nosite", "b-nullsite"].sort());
+    // A QR for an unknown site must fail closed even if orders exist for its alias.
+    const missingSiteToken = issueToken({ empresaId: a, restaurantId, mesa: 4, sedeId: "eeeeeeeeeeeeeeeeeeeeeeee" }, { secret, now }).token;
+    const missingSite = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: "local", qrToken: missingSiteToken }, models);
+    assert.notEqual(missingSite.status, 200);
+    assert.equal(missingSite.filter, undefined);
     const wrong = await resolveMesaQrRead({ restaurantId, mesa: 4, sedeId: "local", qrToken }, models);
     assert.equal(wrong.status, 403);
     assert.equal(wrong.filter, undefined);
