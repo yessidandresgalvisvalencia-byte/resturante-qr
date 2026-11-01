@@ -233,3 +233,10 @@
 - Commit `29b08cdd9ebea832112cc2e6c5231959e8575942`: se amplió `test/gruk/p0-70-qr-read-real-mongo.integration.test.js` para comprobar también lectura sin sede desde empresa B y rechazo de capacidad con sede inexistente. El fixture usa base MongoDB desechable, pero el test **no es una prueba de rutas HTTP** y requiere `GRUK_TEST_MONGO_URI` para ejecutarse; no se afirma que haya aprobado.
 - Inspección del `package.json`: `npm test` incluye `*.integration.test.js`, pero sin URI la integración se omite. No confundir un job verde con ejecución efectiva de este caso; revisar reporte de tests y entorno.
 - Persisten bloqueo de auditoría HIGH de `joi` y `follow-redirects`, validación HTTP/E2E, migración, conciliación, reinicio offline y controles de producción. **P0-70 PARCIAL; 0/77 certificados.** Sin fusión ni despliegue.
+
+## Control 01-11-2026, 12:15 Colombia — ampliación de integración real
+
+- PR #534: abierto/draft sobre #524; HEAD previo `8318bb03ca9073cf6db727cb3f7e0eebba105f0f`. GitHub Actions [run 41325958922](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41325958922) terminó `completed/failure`. La consulta de estados clásicos devolvió lista vacía; no se infiere aprobación de check-runs.
+- Commit [52b76248](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/commit/52b762486df19c6069e4e17be9267ff61d6be884): se añadieron aserciones a la integración MongoDB real para rechazar alias de sede con forma de ObjectId de otra sede y capacidades QR manipuladas. **Pruebas escritas, todavía no ejecutadas ni certificadas** para este HEAD; requieren `GRUK_TEST_MONGO_URI` y revisión del resultado CI.
+- La integración prueba directamente servicio y consultas MongoDB; **no cubre endpoints HTTP ni navegador E2E**. Continúan pendientes remediación reproducible de HIGH (`joi`, `follow-redirects`), controles de seguridad, migración, Wompi, concurrencia, reinicios offline y validación integral de los 77 criterios.
+- P0-70 **PARCIAL**; 0/77 integralmente certificados. No fusionar ni desplegar; ningún cambio en GRUK Finanzas Personales ni Blushea.
