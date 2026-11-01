@@ -380,3 +380,10 @@ Cada ejecución automatizada debe seleccionar una obligación pendiente de esta 
 - Para este HEAD, `fetch_commit_workflow_runs` devolvió `[]` y `get_commit_combined_status` devolvió `[]`; ninguna de estas consultas certifica CI verde. El endpoint de workflow runs tiene cobertura limitada y se requieren check-runs concluyentes.
 - Riesgo específico pendiente de aceptación: las capacidades QR son portadoras, firmadas con secreto global y con vigencia máxima de 90 días (`MAX_AGE_SECONDS`); comprobar rotación/revocación de secreto, fuga por URL, logs, referer y reimpresión de QR antes de certificar. La revisión estática no demuestra explotación.
 - **P0-70 PARCIAL; 0/77 verificados integralmente.** Pendientes pruebas HTTP/MongoDB real, colisiones, legacy, E2E, Wompi, backups y gates. Sin pruebas ejecutadas en esta revisión, sin fusión y sin despliegue. No modificar GRUK Finanzas Personales ni Blushea.
+
+### Revisión de seguridad QR — 31 octubre 2026, 21:20 Colombia
+
+- HEAD inspeccionado `61166fc`: `resolveMesaQrRead` vincula restaurante, mesa y sede al token firmado y añade `empresaId` al filtro. Los 16 casos revisados utilizan modelos simulados; no certifican HTTP ni MongoDB real.
+- **Brecha de aceptación concreta:** `codigoSede` se acepta como alias legado no ObjectId y su unicidad se apoya en la declaración `unique` del esquema. Falta evidencia de `getIndexes()`, búsqueda de duplicados históricos y concurrencia en MongoDB real. Un índice declarado no prueba que exista en el entorno. Se exige prueba con dos empresas, dos sedes, alias duplicado/legacy y denegación segura antes de cerrar P0-70.
+- La consulta de ejecuciones por commit `61166fc` devolvió cero resultados; el conector filtra a eventos PR y no permite concluir que otros CI hayan fallado o aprobado. **P0-70 PARCIAL; 0/77 VERIFICADOS.**
+- Prohibido fusionar a `main` o desplegar: el bloqueo previo por Auto-Deploy de Render requiere revalidación y resolución, además de los 77 criterios y controles. Sin modificaciones de GRUK Finanzas Personales ni Blushea.
