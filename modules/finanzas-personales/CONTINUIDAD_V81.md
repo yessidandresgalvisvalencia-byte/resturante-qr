@@ -55,10 +55,38 @@ Este checkpoint posterior solo documenta esa evidencia; distinguir el SHA de có
 ## Plan prioritario pendiente y aceptación final
 
 1. Confirmar CI del SHA publicado, incluyendo nuevo caso autenticado; si falla, corregir sobre HEAD actualizado con lease, sin eludir gates.
-2. Revisar completitud de obligaciones sin fecha, recurrencias compensadas y consistencia de las lecturas de home; el panel todavía no es una instantánea global. La evaluación es una observación, no reserva fondos ni confirma saldo bancario.
+2. El bloqueo por obligaciones sin fecha está implementado en el lote del 2 de noviembre descrito abajo. Continúan pendientes la revisión de recurrencias y consistencia de las lecturas de home; el panel todavía no es una instantánea global. La evaluación es una observación, no reserva fondos ni confirma saldo bancario.
 3. Completar recuperación accesible: inventariar anulaciones y reversiones existentes, definir restauración explícita del propietario con confirmación, eventos append-only, transacción e idempotencia; demostrar que restaurar no duplica caja, pagos ni reservas. No declarar este requisito completo con las anulaciones existentes.
 4. Preparar y probar backup independiente: custodio y destino autorizados, retención, cifrado y acceso separado, métricas RPO/RTO medidas y restauración en entorno aislado; evidencia real pendiente. No contratar servicios, borrar históricos ni sobrescribir producción.
 5. Resolver #407 según la matriz de `docs/finanzas-personales/liberacion-segura-hormiga-v81.md`: privilegios reales de cinco colecciones, custodia independiente real sin retrocesos, cobertura de escrituras, históricos, índices y compatibilidad operativa. Los ensayos de CI no acreditan permisos de producción ni auditoría independiente.
 6. Antes del despliegue final: requisitos completos, pruebas de seguridad/exactitud/concurrencia/idempotencia/migración/aislamiento/recuperación y dispositivos reales, CI verde del SHA exacto, costos y capacidad autorizados. Solo entonces integrar a feature y verificar servicio personal Render, SHA live, salud, persistencia, índices y permisos. No hay certificación externa ni garantía de pérdida imposible.
 
-Siguiente paso concreto: validar este lote en CI y continuar con las obligaciones sin fecha y la lectura compensada de recurrencias; conservar el bloqueo de producción mientras faltan custodia, recuperación y evidencia operativa.
+Siguiente paso concreto: validar el HEAD remoto y continuar con recuperación explícita del propietario y revisión de recurrencias; conservar el bloqueo de producción mientras faltan custodia, recuperación y evidencia operativa.
+
+## Checkpoint del 2 de noviembre de 2026 — obligaciones sin fecha
+
+Partida comprobada: PR #389 abierto, base `feature/finanzas-personales` en `f44a0535ad86ac7f10a90be6a700cfc8618a43e0`, integración en `1bb7ab35a43253674e72339f7fbb960d5345d2ae`. Las tres validaciones de ese SHA están en success: [Gate](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41391268945), [Seguridad](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41391268941) y [V81](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41391268966). #407 permanece abierto. Trabajo aislado sobre ese commit; publicar con lease para detectar cambios concurrentes.
+
+Problema reproducido contra la versión anterior del servicio: un préstamo activo con saldo positivo y vencimiento null y una tarjeta histórica con saldo y día de pago null devolvían `aptoParaDisponibleHoy: true`. La lista parcial de compromisos podía presentarse como suficiente aunque faltara una fecha.
+
+| Aceptación de este bloque | Implementación y evidencia |
+| --- | --- |
+| No autorizar con vencimientos desconocidos | Préstamos POR_PAGAR ACTIVO/VENCIDO con saldo positivo y fecha ausente/inválida generan `asesor.obligacionesSinFecha`; disponible e importe GMF pasan a null, y la decisión exige conciliación |
+| No inventar fecha de tarjeta | Tarjetas activas con saldo requieren día entero de 1 a 31; si falta, no se construye un vencimiento con Date y se bloquea el disponible |
+| Explicación visible | Decisión `CONFIRMAR_FECHA_PAGO`, con monto null y explicación de confirmar fecha; usa el renderizador existente del panel |
+| Casos válidos | Deuda fechada conserva cuota pendiente y cálculo exacto; saldo cero, PAGADO, CANCELADO y POR_COBRAR no agregan bloqueo sin fecha |
+| Aislamiento y preservación | Integración de rol restringido con home y evaluador reales, deuda ajena, comparación de cuentas/préstamos/tarjetas/transacciones/outbox antes y después de las lecturas |
+| Fallos | Tipos de fecha coercibles y días inválidos no pasan como calendario; fallo de consulta se propaga sin cifras parciales |
+
+Validación local: 128 pruebas seleccionadas aprobadas, cero omisiones. Suite V81: 204 aprobadas y nueve omitidas por necesitar servicios externos; no acredita una integración local. Los dos casos de autorización incorrecta fallan al ejecutar las regresiones contra el código anterior y aprueban con la corrección. La nueva prueba autenticada se incluye en `privilegiosLedgerMongoV81.integration.test.js`; CI del SHA publicado debe probarla sin omisiones. No hay MongoDB local en este entorno.
+
+```bash
+node --test test/gruk/home-obligaciones-sin-fecha.test.js test/gruk/finanzas-personales-core.test.js test/gruk/homeCajaMasterRegression.test.js test/gruk/gasto-preventivo-consecuencias-diarias.test.js test/gruk/gasto-alerta-vencimiento-proximo.test.js
+node --test test/finanzas-personales/*.test.js
+```
+
+La integración crea exclusivamente datos ficticios de IDs aleatorios en el replica set local de CI. Para simular la tarjeta histórica incompleta inserta un documento mediante el driver nativo en la colección mutable de deudas del ensayo; no modifica fuentes append-only. Confirmar fechas en el ensayo solo modifica esos registros mutables ficticios. Las lecturas no realizan reparaciones ni borrados.
+
+Revisión de recurrencias: el aplicador compensatorio actual rechaza fuentes `recurrente: true`; los abonos vinculados sí admiten anulación y el cálculo de pagos de hoy ya usa `consultarPeriodo` compensado. Esto explica por qué no se cambió la consulta de las fuentes recurrentes en este lote; no demuestra cobertura completa, ni implementa restauración de fuentes recurrentes.
+
+Próxima implementación prioritaria: inventariar la anulación vigente, su estado compensado, reservas y delta de caja para diseñar restauración explícita idempotente accesible al propietario. No habilitar restauración cambiando documentos originales ni eludiendo la verificación de cadena. Siguen pendientes backup independiente, retención, RPO/RTO medidos, custodia real, permisos/índices de producción y dispositivos. No fusionar ni desplegar.

@@ -76,6 +76,8 @@ async function probarMigracionAutorizada(db,uri,password,t){
    require("./helpers/lecturasHomeAutorizadas").probarLecturasHomeAutorizadas);
   await t.test("evaluación de compras exige ingreso y saldo conciliado sin escribir ni mezclar cuentas",
    require("./helpers/comprasAutorizadas").probarComprasAutorizadas);
+  await t.test("obligaciones sin fecha bloquean Disponible Hoy hasta confirmar calendario sin alterar fuentes",
+   require("./helpers/obligacionesSinFechaAutorizadas").probarObligacionesSinFechaAutorizadas);
   await t.test("completar acciones exige evidencia vigente y revierte fallos de auditoría",
    require("./helpers/evidenciaProgresoAutorizada").probarEvidenciaProgresoAutorizada);
   await t.test("deudas conversacionales validan saldos sin inventar activos y revierten fallos",

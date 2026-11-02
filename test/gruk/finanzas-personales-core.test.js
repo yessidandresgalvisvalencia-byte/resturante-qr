@@ -361,6 +361,28 @@ test("abono parcial no borra la cuota pendiente del disponible",()=>{
  for(const abono of [-1,0.25,"100000",Number.MAX_SAFE_INTEGER+1])
   assert.throws(()=>home.saldoCuotaPendienteMinor(deuda,abono),TypeError);
 });
+test("obligaciones sin fecha incluyen préstamos activos y tarjetas sin día válido sin inventar vencimientos",()=>{
+ const deuda={_id:"d",direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:100000,concepto:"Cuota"};
+ const tarjeta={_id:"t",tipo:"TARJETA_CREDITO",activa:true,saldoMinor:100000,nombre:"Ensayo"};
+ for(const fechaVencimiento of [undefined,null,"",false,true,0,42,[],{},"invalida",new Date("invalida")]){
+  assert.deepEqual(home.seleccionarObligacionesSinFecha([{...deuda,fechaVencimiento}]),
+   [{id:"d",tipo:"PRESTAMO",concepto:"Cuota"}]);
+ }
+ for(const diaPago of [undefined,null,0,32,-1,1.5,"10",false,NaN]){
+  assert.deepEqual(home.seleccionarObligacionesSinFecha([],[{...tarjeta,diaPago}]),
+   [{id:"t",tipo:"TARJETA_CREDITO",concepto:"Pago tarjeta Ensayo"}]);
+ }
+ for(const diaPago of [1,28,29,30,31])assert.deepEqual(home.seleccionarObligacionesSinFecha([],[{...tarjeta,diaPago}]),[]);
+ // Toda fecha conocida, futura o vencida, pertenece a los controles de calendario existentes.
+ for(const fechaVencimiento of [new Date("2026-01-01T05:00:00Z"),"2026-12-01T05:00:00Z"])
+  assert.deepEqual(home.seleccionarObligacionesSinFecha([{...deuda,fechaVencimiento}]),[]);
+ assert.deepEqual(home.seleccionarObligacionesSinFecha([
+  {...deuda,estado:"PAGADO"},{...deuda,estado:"CANCELADO"},
+  {...deuda,saldoMinor:0},{...deuda,direccion:"POR_COBRAR"}
+ ],[{...tarjeta,activa:false},{...tarjeta,saldoMinor:0},{...tarjeta,tipo:"OTRA"}]),[]);
+ assert.throws(()=>home.seleccionarObligacionesSinFecha(null),TypeError);
+ assert.throws(()=>home.seleccionarObligacionesSinFecha([],null),TypeError);
+});
 test("ningún pago parcial elimina el compromiso completo antes del siguiente ingreso",()=>{
  const fs=require("node:fs"),path=require("node:path");
  const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
