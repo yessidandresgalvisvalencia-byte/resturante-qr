@@ -168,7 +168,7 @@ const renderPrestamo=x=>{
  }else if(propia&&x.fechaVencimiento&&x.saldoMinor>0){
   html+='<div class="debtDate">Fecha registrada: '+new Date(x.fechaVencimiento).toLocaleDateString("es-CO")+' · Confirma la frecuencia para calcular el siguiente vencimiento.</div>';
  }
- html+='<div class="debtActions">';
+ html+='<div class="debtActions"><button class="secondary mini" onclick="window.verCorreccionesPrestamo(\''+esc(String(x._id))+'\')">Ver correcciones</button>';
  if(propia&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0){
   if(detalle?.frecuenciaSinConfirmar)html+='<button class="secondary mini" onclick="window.confirmarFrecuenciaMensual(\''+esc(String(x._id))+'\')">Confirmar cuotas mensuales</button>';
   html+='<button class="mini" onclick="window.registrarCuota(\''+esc(String(x._id))+'\')">'+(x.periodicidadConfirmada&&siguiente?'Pagar cuota #'+siguiente:'Registrar pago cuota #1')+'</button>';
@@ -213,7 +213,26 @@ if(retiradas.length)$("listaPrestamosPagados").insertAdjacentHTML("beforeend",'<
  }catch(e){alert("No se pudo deshacer la cuota: "+e.message);}
  finally{mutacionesMovimientoEnCurso.delete(movimientoId);}
 };
-window.corregirOrigenCobro=async id=>{try{
+const correccionesPrestamoPendientes=new Map();let sesionCorreccionPrestamo=null;
+async function aplicarCorreccionPrestamo(id,cambios){
+ const sesion=token;if(!sesion||$("app").hidden)throw Error("Sesión no disponible");
+ if(sesionCorreccionPrestamo!==sesion){correccionesPrestamoPendientes.clear();sesionCorreccionPrestamo=sesion;}
+ const key=id+":"+JSON.stringify(Object.fromEntries(Object.entries(cambios).sort(([a],[b])=>a.localeCompare(b))));
+ let op=correccionesPrestamoPendientes.get(key);if(op?.enCurso)throw Error("La corrección está en curso");
+ if(!op){op={solicitudId:crypto.randomUUID(),enCurso:false};correccionesPrestamoPendientes.set(key,op);}op.enCurso=true;
+ try{
+  const r=await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",headers:{"Idempotency-Key":op.solicitudId},body:JSON.stringify({...cambios,confirmacion:true})});
+  if(token!==sesion||$("app").hidden){const e=Error("La sesión cambió");e.code="SESION_CAMBIADA";throw e;}
+  if(r.prestamo?.correccion?.vigente!==true)throw Error("La corrección anterior no representa el estado vigente. Actualiza y revisa el historial.");
+  correccionesPrestamoPendientes.delete(key);return r;
+ }finally{op.enCurso=false;}
+}
+window.verCorreccionesPrestamo=async id=>{
+ const sesion=token;try{const r=await api("/prestamos/"+encodeURIComponent(id)+"/correcciones");if(!sesion||sesion!==token||$("app").hidden)return;
+ const filas=r.eventos||[];alert("Correcciones registradas: "+filas.length+". No es el historial completo de pagos ni cambios anteriores.\n"+filas.slice(-10).map(e=>new Date(e.fecha).toLocaleDateString("es-CO")+" · Capital: "+money(e.anterior.principalMinor)+" → "+money(e.posterior.principalMinor)+" · Pendiente: "+money(e.anterior.saldoMinor)+" → "+money(e.posterior.saldoMinor)).join("\n")+(filas.length>10?"\nSe muestran las últimas diez correcciones.":""));
+ }catch(e){if(sesion===token&&!$("app").hidden)alert("No se pudo verificar el historial: "+e.message);}
+};
+window.corregirOrigenCobro=async id=>{const sesionCorreccion=token;try{
  const datos=await api("/prestamos");
  const p=(datos.prestamos||[]).find(x=>String(x._id)===String(id));
  if(!p||p.direccion!=="POR_COBRAR")throw Error("Cuenta por cobrar no encontrada");
@@ -224,10 +243,12 @@ window.corregirOrigenCobro=async id=>{try{
  if(!["TRABAJO","PRESTAMO","OTRO"].includes(origenCuentaPorCobrar))throw Error("Elige TRABAJO, PRESTAMO u OTRO");
  if(actual===origenCuentaPorCobrar)return;
  if(!confirm("¿Corregir el origen a "+origenCuentaPorCobrar+"? GRUK reclasificará únicamente los cobros relacionados ya existentes. NO recibirá ni registrará dinero otra vez."))return;
- await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({origenCuentaPorCobrar})});
- await load();
+ if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
+ await aplicarCorreccionPrestamo(id,{origenCuentaPorCobrar});
+ if(sesionCorreccion!==token||$("app").hidden)return;
+ await load();if(sesionCorreccion!==token||$("app").hidden)return;
  alert("Origen corregido. Se revisaron los movimientos vinculados sin crear ingresos ni cobros nuevos. Si falta un ingreso, consulta el historial antes de registrarlo.");
- }catch(e){alert("No se pudo corregir: "+e.message)}
+ }catch(e){if(sesionCorreccion===token&&!$("app").hidden)alert("No se pudo corregir: "+e.message)}
 };
 window.registrarCuota=async id=>{try{
  const info=await api("/prestamos/"+encodeURIComponent(id)+"/cuotas");
@@ -243,13 +264,15 @@ window.registrarCuota=async id=>{try{
  await load();alert("Cuota #"+n+" registrada. Puedes deshacer el último pago desde esta misma tarjeta.");
  }catch(e){alert("No se pudo registrar la cuota: "+e.message)}
 };
-window.confirmarFrecuenciaMensual=async id=>{try{
+window.confirmarFrecuenciaMensual=async id=>{const sesionCorreccion=token;try{
  if(!confirm("¿Confirmas que esta deuda vence cada mes, el mismo día? No se registrará ningún pago ni se cambiará el saldo."))return;
- await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({periodicidad:"MENSUAL"})});
- await load();
- }catch(e){alert("No se pudo confirmar la periodicidad: "+e.message)}
+ if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
+ await aplicarCorreccionPrestamo(id,{periodicidad:"MENSUAL"});
+ if(sesionCorreccion!==token||$("app").hidden)return;
+ await load();if(sesionCorreccion!==token||$("app").hidden)return;
+ }catch(e){if(sesionCorreccion===token&&!$("app").hidden)alert("No se pudo confirmar la periodicidad: "+e.message)}
 };
-window.configurarPeriodicidad=async id=>{try{
+window.configurarPeriodicidad=async id=>{const sesionCorreccion=token;try{
  const datos=await api("/prestamos"),p=(datos.prestamos||[]).find(x=>String(x._id)===String(id));
  if(!p||p.direccion!=="POR_PAGAR"||p.saldoMinor<=0)throw Error("Deuda activa no encontrada");
  let cuotaMinor=p.cuotaMinor,numeroCuotas=p.numeroCuotas;
@@ -257,9 +280,11 @@ window.configurarPeriodicidad=async id=>{try{
  if(!Number.isInteger(numeroCuotas)||numeroCuotas<1){const v=prompt("¿Cuántas cuotas pendientes tiene esta deuda?",String(Math.ceil(p.saldoMinor/cuotaMinor)||1));if(v===null)return;numeroCuotas=Number(v);}
  if(!Number.isSafeInteger(cuotaMinor)||cuotaMinor<1||!Number.isInteger(numeroCuotas)||numeroCuotas<1||numeroCuotas>360)throw Error("Revisa el importe y la cantidad de cuotas");
  if(!confirm("¿Confirmar "+numeroCuotas+" cuotas de "+money(cuotaMinor)+" para "+p.concepto+"? No se registra ningún pago ahora."))return;
- await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({cuotaMinor,numeroCuotas,periodicidadConfirmada:true})});
- await load();return true;
- }catch(e){alert("No se pudieron confirmar las cuotas: "+e.message)}
+ if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
+ await aplicarCorreccionPrestamo(id,{cuotaMinor,numeroCuotas,periodicidadConfirmada:true});
+ if(sesionCorreccion!==token||$("app").hidden)return;
+ await load();if(sesionCorreccion!==token||$("app").hidden)return;return true;
+ }catch(e){if(sesionCorreccion===token&&!$("app").hidden)alert("No se pudieron confirmar las cuotas: "+e.message)}
 };
 const operacionesRetiroDeuda=new Map();let sesionRetiroDeuda=null;
 async function cambiarRetiroDeuda(id,{restaurar=false,retiroHash=null,anterior=false,incorporar=false}={}){
@@ -283,7 +308,7 @@ window.retirarCredito=(id,anterior=false)=>cambiarRetiroDeuda(id,{anterior});
 window.restaurarDeudaRetirada=(id,retiroHash)=>cambiarRetiroDeuda(id,{restaurar:true,retiroHash});
 window.restaurarCreditoAnterior=(id,retiroHash)=>cambiarRetiroDeuda(id,{restaurar:true,retiroHash,anterior:true});
 window.incorporarCreditoAnterior=id=>cambiarRetiroDeuda(id,{anterior:true,incorporar:true});
-window.corregirPrestamo=async id=>{try{
+window.corregirPrestamo=async id=>{const sesionCorreccion=token;try{
  const data=await api("/prestamos");const p=(data.prestamos||[]).find(x=>String(x._id)===String(id));
  if(!p)throw Error("Préstamo no encontrado");
  const persona=prompt("Persona o contraparte:",p.contraparte||"");if(persona===null)return;
@@ -297,9 +322,11 @@ window.corregirPrestamo=async id=>{try{
 
  if(!persona.trim()||!concepto.trim()||!Number.isSafeInteger(monto)||monto<=0)throw Error("Nombre, concepto o valor inválidos");
  if(!confirm("¿Confirmas la corrección? No se registrará ningún cobro nuevo."))return;
- await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({contraparte:persona.trim(),concepto:concepto.trim(),principalMinor:monto,origenCuentaPorCobrar:clasificacion})});
- await load();alert("Cuenta por cobrar corregida. Los cobros existentes se conservaron.");
- }catch(e){alert("No se pudo corregir el préstamo: "+e.message)}};
+ if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
+ await aplicarCorreccionPrestamo(id,{contraparte:persona.trim(),concepto:concepto.trim(),principalMinor:monto,origenCuentaPorCobrar:clasificacion});
+ if(sesionCorreccion!==token||$("app").hidden)return;
+ await load();if(sesionCorreccion!==token||$("app").hidden)return;alert("Cuenta por cobrar corregida. Los cobros existentes se conservaron.");
+ }catch(e){if(sesionCorreccion===token&&!$("app").hidden)alert("No se pudo corregir el préstamo: "+e.message)}};
 let histPagina=1,histCargando=false,histRevision=0;
 function invalidarBusquedaHistorial(){histRevision+=1;histPagina=1;histCargando=false;}
 async function buscarHistorial(reset=true){

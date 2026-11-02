@@ -229,13 +229,10 @@ async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota
 async function deshacerUltimaCuotaCredito(usuarioId,prestamoId,solicitud){
  return require("./reversionCuotaCreditoPersonal.service").deshacer(usuarioId,prestamoId,solicitud);
 }
-async function corregirPrestamo(usuarioId,prestamoId,cambios){
- const session=await mongoose.startSession();
- try{
-  let resultado;
-  await session.withTransaction(async()=>{
-   const prestamo=await Prestamo.findOne({_id:prestamoId,usuarioId}).session(session);
-   if(!prestamo)throw Object.assign(new Error("Préstamo no encontrado"),{statusCode:404});
+async function corregirPrestamo(usuarioId,prestamoId,cambios,solicitud){
+ return require("./correccionPrestamoPersonal.service").corregir(usuarioId,prestamoId,cambios,solicitud,aplicarCorreccionPrestamo);
+}
+async function aplicarCorreccionPrestamo(usuarioId,prestamo,cambios,session){
    if(prestamo.estado==="CANCELADO")throw Object.assign(new Error("Un préstamo cancelado requiere revisión manual"),{statusCode:409});
    const pagos=(await consultarPeriodo({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"},{session}))
     .filter(x=>String(x.prestamoId)===String(prestamo._id)&&["COBRO_PRESTAMO","INGRESO","PAGO_DEUDA"].includes(x.tipo));
@@ -274,12 +271,7 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
    for(const campo of ["contraparte","concepto","cuotaMinor","tasaMensualPct","fechaVencimiento","periodicidad","diaPago","numeroCuotas","periodicidadConfirmada"]){
     if(Object.prototype.hasOwnProperty.call(cambios,campo))prestamo[campo]=cambios[campo];
    }
-   await prestamo.save({session});
-   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"PRESTAMO_PERSONAL_CORREGIDO",aggregateType:"PRESTAMO_PERSONAL",aggregateId:prestamo._id,payload:{prestamoId:String(prestamo._id),campos:Object.keys(cambios),pagosRegistrados:pagos.length,principalAnteriorMinor,principalNuevoMinor:prestamo.principalMinor,saldoMinor:prestamo.saldoMinor,estado:prestamo.estado}}],{session});
-   resultado=prestamo.toObject();
-  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
-  return resultado;
- }finally{await session.endSession();}
+ return {prestamoId:String(prestamo._id),campos:Object.keys(cambios),pagosRegistrados:pagos.length,principalAnteriorMinor,principalNuevoMinor:prestamo.principalMinor,saldoMinor:prestamo.saldoMinor,estado:prestamo.estado};
 }
 async function retirarDeudaVisible(usuarioId,prestamoId,solicitud){
  return require("./retiroDeudaPersonal.service").retirar(usuarioId,prestamoId,solicitud);

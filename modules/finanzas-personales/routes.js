@@ -171,9 +171,13 @@ router.post("/prestamos/:id/cuotas/deshacer",require("./services/reversionCuotaC
 router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
  try{
   if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
-  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,req.validated);
+  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,req.validated,{confirmacion:req.body.confirmacion,solicitudId:req.get("Idempotency-Key")});
   return res.json({ok:true,prestamo});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo corregir el préstamo"});}
+});
+router.get("/prestamos/:id/correcciones",async(req,res)=>{
+ try{return res.json({ok:true,...await require("./services/correccionPrestamoPersonal.service").historial(req.personalAuth.userId,req.params.id)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo consultar el historial de correcciones"});}
 });
 const cobroSchema=Joi.object({montoMinor:Joi.number().integer().min(1).required(),cuentaId:Joi.string().hex().length(24).optional(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
 router.post("/prestamos/:id/cobros",validate(cobroSchema),async(req,res)=>{try{if(!/^[0-9a-fA-F]{24}$/.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});const resultado=await patrimonioPersonal.cobrarCuentaPorCobrar(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated});return res.status(resultado.duplicado?200:201).json({ok:true,...resultado});}catch(e){return res.status(e.statusCode|| (e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No se pudo registrar el cobro"});}});

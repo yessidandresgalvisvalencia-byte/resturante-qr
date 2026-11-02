@@ -39,7 +39,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
  const corregir=f=>service.corregirOrigenTrabajo(f.usuarioId,f.p._id);
  const periodo=usuarioId=>({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"});
  try{
-  await Promise.all([Prestamo.init(),Tx.init(),Cuenta.init(),Outbox.init(),Evento.init(),Cursor.init()]);
+  await Promise.all([require("../../modules/finanzas-personales/models/correccionPrestamoPersonal.model").init(),Prestamo.init(),Tx.init(),Cuenta.init(),Outbox.init(),Evento.init(),Cursor.init()]);
   const f=await fixture();const antes=await estado(f);
   const r=await corregir(f);
   assert.equal(r.reclasificados,2);assert.equal(r.ingresoTrabajoMinor,600);assert.equal(r.saldoPendienteMinor,400);
@@ -58,9 +58,9 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   assert.equal(await Outbox.countDocuments({usuarioId:f.usuarioId}),2);
   assert.deepEqual((await estado(f)).fuentes,antes.fuentes);
   // Editar el origen en ambos sentidos debe usar el estado vigente, no reescribir el cobro.
-  await corregirPrestamo(f.usuarioId,f.p._id,{origenCuentaPorCobrar:"PRESTAMO"});
+  await corregirPrestamo(f.usuarioId,f.p._id,{origenCuentaPorCobrar:"PRESTAMO"},{confirmacion:true,solicitudId:crypto.randomUUID()});
   assert.ok((await consultarPeriodo(periodo(f.usuarioId))).every(m=>m.tipo==="COBRO_PRESTAMO"));
-  await corregirPrestamo(f.usuarioId,f.p._id,{origenCuentaPorCobrar:"TRABAJO"});
+  await corregirPrestamo(f.usuarioId,f.p._id,{origenCuentaPorCobrar:"TRABAJO"},{confirmacion:true,solicitudId:crypto.randomUUID()});
   assert.ok((await consultarPeriodo(periodo(f.usuarioId))).every(m=>m.tipo==="INGRESO"));
   assert.equal(await Evento.countDocuments({usuarioId:String(f.usuarioId)}),6);
   assert.deepEqual((await estado(f)).fuentes,antes.fuentes);
@@ -119,7 +119,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
    if(docs[0].eventName==="PRESTAMO_PERSONAL_CORREGIDO")throw Error("Auditoría del préstamo interrumpida");
    return outboxCreate.call(this,docs,...rest);
   };
-  try{await assert.rejects(corregirPrestamo(falloEdicion.usuarioId,falloEdicion.p._id,{origenCuentaPorCobrar:"TRABAJO"}),/Auditoría del préstamo interrumpida/);}
+  try{await assert.rejects(corregirPrestamo(falloEdicion.usuarioId,falloEdicion.p._id,{origenCuentaPorCobrar:"TRABAJO"},{confirmacion:true,solicitudId:crypto.randomUUID()}),/Auditoría del préstamo interrumpida/);}
   finally{Outbox.create=outboxCreate;}
   assert.deepEqual(await estado(falloEdicion),antesEdicion);
 

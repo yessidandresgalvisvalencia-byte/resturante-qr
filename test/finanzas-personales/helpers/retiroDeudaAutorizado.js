@@ -34,7 +34,7 @@ async function probarRetiroDeudaAutorizado(db){
   assert.equal((await patrimonio.snapshot(f.usuarioId)).pasivosMinor,1000);
   assert.deepEqual(restaurada.e[0],retirada.e[0]);
   assert.equal((await f.restaurar(restauracion)).duplicado,true);assert.deepEqual(await f.foto(),restaurada);
-  await patrimonio.corregirPrestamo(f.usuarioId,f.p._id,{diaPago:15,cuotaMinor:500});
+  await patrimonio.corregirPrestamo(f.usuarioId,f.p._id,{diaPago:15,cuotaMinor:500},{confirmacion:true,solicitudId:crypto.randomUUID()});
   const segunda=await f.retirar(solicitud()),pendiente=await f.foto();
   assert.equal((await f.retirar(s)).vigente,false);assert.deepEqual(await f.foto(),pendiente);
   await assert.rejects(f.restaurar({...solicitud(),retiroHash:r.hash}),e=>e.statusCode===409);
