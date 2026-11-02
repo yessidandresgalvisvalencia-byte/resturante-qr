@@ -134,3 +134,9 @@ Los payloads/hash V1–V4 no cambian: anulacionHash solo aparece en RESTAURACION
 No se ha probado voz ni interfaz en dispositivos reales; la interfaz se verifica con DOM simulado. No se certifica backup, retención, RPO/RTO, custodia externa ni permisos de producción. Sigue prohibido desplegar o cerrar #407 con esta evidencia parcial.
 
 Siguiente paso: confirmar CI del SHA publicado y ampliar recuperación de abonos recurrentes mediante reserva y transacción, sin habilitarla para cuotas/préstamos hasta verificar sus propios efectos. Preparar el ejercicio de backup/restauración aislado y obtener el custodio independiente real siguen siendo pendientes separados.
+
+### Evidencia de recuperación y ajuste de contratos de caché
+
+Implementación publicada con lease: `f2b7b46519d812b4906283698ba9fdeaa7f32051`. [V81 41403091474](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41403091474) y [Seguridad 41403091491](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41403091491) aprobaron. El job autenticado `125138991893` ejecutó 27 pruebas sin fallos ni omisiones, incluida recuperación de caja con reintentos, concurrencia, aislamiento, preservación de fuentes, saldo insuficiente y rollback. Validación local ampliada: 247 aprobadas y nueve omitidas por servicios externos.
+
+[Gate 41403091427](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41403091427) señaló exclusivamente dos contratos que exigían el identificador anterior de caché. Se actualizaron `frontend-version-aislamiento-personal.test.js` y `hormiga-version-javascript-personal.test.js` a `20261102-restauracion-caja-v81`, conservando sus comprobaciones de sesión y del único script personal. Exigir CI del nuevo HEAD antes de dar el lote por verificado; este fallo no se omite ni se desactiva. No desplegar.
