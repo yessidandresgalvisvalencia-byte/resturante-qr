@@ -48,3 +48,10 @@ test("HTTP 200 sin confirmación de aplicación permanece incierto y una consult
 });
 
 test("ok=true sin recibo verificable de aprobación no elimina su incertidumbre",async()=>{const f=entorno(async()=>respuesta({ok:true,resultado:{}}));await assert.rejects(f.ctx.api("/captura/"+"a".repeat(24)+"/aprobar",{method:"POST",headers:{"Idempotency-Key":"aprobacion_prueba_01"},body:JSON.stringify({confirmacion:true,versionBorrador:"c".repeat(64)})}),/recibo verificable/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);});
+
+test("ok=true sin recibo de creación vinculante conserva incertidumbre; recibo exacto permite confirmar",async()=>{
+ const f=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo:{confirmado:true}}):undefined),datos={confirmacion:true,direccion:"POR_COBRAR",origenCuentaPorCobrar:"TRABAJO",contraparte:"Ana",principalMinor:100,fechaInicio:"2026-01-01T05:00:00.000Z"},id="prestamo_prueba_0001",op={method:"POST",headers:{"Idempotency-Key":id},body:JSON.stringify(datos)};
+ await assert.rejects(f.ctx.api("/prestamos",op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
+ const e=entorno(async(_p,o)=>{if(o.method==="POST")return respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,ruta:"/prestamos",metodo:"POST",solicitudId:id,solicitudHuella:require("../../modules/finanzas-personales/services/creacionPrestamoRecuperablePersonal.service").huellaSolicitud(datos),prestamoId:A,hash:"b".repeat(64)}});});
+ await e.ctx.api("/prestamos",op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
+});

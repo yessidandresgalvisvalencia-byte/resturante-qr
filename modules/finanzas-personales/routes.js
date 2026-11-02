@@ -126,8 +126,14 @@ router.get("/historial/buscar",async(req,res)=>{
  }catch(e){console.error("[HISTORIAL_PERSONAL_BUSCAR]",e);return res.status(500).json({ok:false,error:"No fue posible buscar en el historial"});}
 });
 router.get("/prestamos",async(req,res)=>{const Prestamo=require("./models/prestamoPersonal.model");const prestamos=await Prestamo.find({usuarioId:req.personalAuth.userId}).sort({estado:1,fechaVencimiento:1,createdAt:-1}).lean();return res.json({ok:true,prestamos});});
-const prestamoSchema=Joi.object({origenCuentaPorCobrar:Joi.string().valid("PRESTAMO","TRABAJO","OTRO").default("PRESTAMO"),direccion:Joi.string().valid("POR_COBRAR","POR_PAGAR").required(),contraparte:Joi.string().trim().max(140).required(),concepto:Joi.string().trim().max(160).default("Préstamo"),principalMinor:Joi.number().integer().min(1).required(),tasaMensualPct:Joi.number().min(0).max(100),cuotaMinor:Joi.number().integer().min(0).default(0),fechaInicio:Joi.date().iso().required(),fechaVencimiento:Joi.date().iso().allow(null),cuentaId:Joi.string().hex().length(24).allow(null)});
-router.post("/prestamos",validate(prestamoSchema),async(req,res)=>{try{return res.status(201).json({ok:true,prestamo:await patrimonioPersonal.crearPrestamo(req.personalAuth.userId,req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+router.post("/prestamos",async(req,res)=>{
+ try{const r=await require("./services/creacionPrestamoRecuperablePersonal.service").crear(req.personalAuth.userId,req.get("Idempotency-Key"),req.body);return res.status(r.duplicado?200:201).json({ok:true,...r});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo confirmar la creación del préstamo"});}
+});
+router.get("/prestamos/confirmacion-creacion/:solicitudId",async(req,res)=>{
+ try{return res.json({ok:true,recibo:await require("./services/creacionPrestamoRecuperablePersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar la confirmación del préstamo"});}
+});
 const editarPrestamoSchema=Joi.object({
  contraparte:Joi.string().trim().min(1).max(140),
  concepto:Joi.string().trim().min(1).max(160),

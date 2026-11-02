@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("creación de préstamos con recibos atómicos, reintentos, aislamiento y respuesta perdida",()=>require("./helpers/creacionPrestamoAutorizado").probarCreacionPrestamoAutorizado(db,provisionarMongoPersonal));
   await t.test("recibos de aprobación resuelven respuesta perdida sin repetir fuentes, caja ni operaciones",
    ()=>require("./helpers/reciboAprobacionAutorizado").probarReciboAprobacionAutorizado(db));
   await t.test("backup cifrado con lector separado restaura BSON e índices solo en una base aislada vacía",
@@ -213,6 +214,9 @@ test("MongoDB con autorización: rol insert-only bloquea modificación y borrado
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   await db.collection("fin_recibos_aprobacion_personales_v1").dropIndex("fp_recibo_aprobacion_solicitud_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_recibos_creacion_prestamos_personales_v1").dropIndex("fp_recibo_creacion_prestamo_solicitud_v1");
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   // El índice existe y es único, pero su filtro deja fuera parte del historial.

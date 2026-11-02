@@ -34,6 +34,7 @@
    if(!/^[a-f0-9]{64}$/.test(huella))throw falla("No se pudo identificar la operación");
    let previa=[...s.pendientes.values()].find(p=>p.huella===huella);
    if(!previa&&[...s.pendientes.values()].some(p=>p.tipo==="sin_clave"&&!s.activas.has(p.id)))throw falla("Hay una operación incierta sin reintento seguro. Requiere revisión antes de registrar otra");
+   if(path==="/prestamos"&&!previa&&[...s.pendientes.values()].some(p=>p.tipo==="header"&&p.id.startsWith("prestamo_")))throw falla("Hay una creación de préstamo sin confirmar. Consulta su recibo o reintenta con los mismos datos originales");
    if(previa&&s.activas.has(previa.id))throw falla("Esta operación ya está en curso");
    if(previa&&previa.tipo==="sin_clave")throw falla("Esta operación quedó sin confirmar y no tiene reintento seguro. Requiere revisión del historial; no la registres de nuevo");
    if(previa&&previa.tipo!==d.tipo)throw falla("El mecanismo de reintento cambió; requiere revisión");
@@ -65,7 +66,15 @@
    const d=datos(recibo.ruta,{method:"POST",body:JSON.stringify({confirmacion:true,versionBorrador:recibo.versionBorrador})}),huella=await digerir(d.contenido);if(p.huella!==huella)return false;
    s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
   }
-  return{estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion};
+  function reciboPrestamoValido(token,recibo){
+   if(recibo?.confirmado!==true||recibo.certificaEstadoActual!==false||recibo.ruta!=="/prestamos"||recibo.metodo!=="POST"||!/^prestamo_[A-Za-z0-9_-]{8,80}$/.test(recibo.solicitudId||"")||!/^[a-f0-9]{24}$/.test(recibo.prestamoId||"")||!/^[a-f0-9]{64}$/.test(recibo.hash||"")||!/^[a-f0-9]{64}$/.test(recibo.solicitudHuella||""))return false;
+   const s=cargar(token),p=s.pendientes.get(recibo.solicitudId);return !s.error&&p?.tipo==="header"&&p.huella===recibo.solicitudHuella;
+  }
+  function confirmarCreacionPrestamo(token,recibo){
+   if(!reciboPrestamoValido(token,recibo))return false;const s=cargar(token),p=s.pendientes.get(recibo.solicitudId);if(s.activas.has(p.id))return false;
+   s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
+  }
+  return{estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo};
  }
  if(typeof module!=="undefined"&&module.exports)module.exports={crearControlMutacionesPersonales};
  else raiz.crearControlMutacionesPersonales=crearControlMutacionesPersonales;

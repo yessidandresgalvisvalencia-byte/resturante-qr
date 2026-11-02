@@ -160,7 +160,24 @@ function exigirSaldoCuentaSeguro(cuenta){
   throw Object.assign(new Error("Saldo de cuenta inválido o fuera del rango monetario seguro"),{statusCode:409});
  return cuenta.saldoMinor;
 }
-async function crearPrestamo(usuarioId,data){const principal=safe(data.principalMinor);const session=await mongoose.startSession();let prestamo;try{await session.withTransaction(async()=>{[prestamo]=await Prestamo.create([{usuarioId,...data,tasaConfirmada:Object.prototype.hasOwnProperty.call(data,"tasaMensualPct"),principalMinor:principal,saldoMinor:principal,cuotaMinor:safe(data.cuotaMinor===undefined?0:data.cuotaMinor)}],{session});if(data.cuentaId&&data.direccion==="POR_COBRAR"&&data.origenCuentaPorCobrar!=="PRESTAMO")throw Object.assign(new Error("Una cuenta por cobrar por trabajo u otro concepto no puede registrar salida de efectivo como préstamo"),{statusCode:422});if(data.cuentaId){const delta=data.direccion==="POR_COBRAR"?-principal:principal;const cuenta=await Cuenta.findOneAndUpdate({_id:data.cuentaId,usuarioId,activa:true},{$inc:{saldoMinor:delta}},{new:true,session});if(!cuenta)throw Object.assign(new Error("Saldo insuficiente o cuenta inválida"),{statusCode:409});exigirSaldoCuentaSeguro(cuenta);const tipo=data.direccion==="POR_COBRAR"?"PRESTAMO_OTORGADO":"PRESTAMO_RECIBIDO";const [tx]=await Transaccion.create([{usuarioId,tipo,montoMinor:principal,concepto:data.concepto||"Préstamo",categoria:"Préstamos",contraparte:data.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,medioPago:"TRANSFERENCIA",fecha:data.fechaInicio,origen:"MANUAL"}],{session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(prestamo._id),tipo,montoMinor:principal}}],{session});}},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return prestamo;}finally{await session.endSession()}}
+async function crearPrestamo(usuarioId,data,{session:sesionExterna}={}){
+ const principal=safe(data.principalMinor),session=sesionExterna||await mongoose.startSession();let prestamo,transaccionId=null;
+ const ejecutar=async()=>{
+  [prestamo]=await Prestamo.create([{usuarioId,...data,tasaConfirmada:Object.prototype.hasOwnProperty.call(data,"tasaMensualPct"),principalMinor:principal,saldoMinor:principal,cuotaMinor:safe(data.cuotaMinor===undefined?0:data.cuotaMinor)}],{session});
+  if(data.cuentaId&&data.direccion==="POR_COBRAR"&&data.origenCuentaPorCobrar!=="PRESTAMO")throw Object.assign(new Error("Una cuenta por cobrar por trabajo u otro concepto no puede registrar salida de efectivo como préstamo"),{statusCode:422});
+  if(data.cuentaId){
+   const delta=data.direccion==="POR_COBRAR"?-principal:principal;
+   const cuenta=await Cuenta.findOneAndUpdate({_id:data.cuentaId,usuarioId,activa:true,moneda:"COP",...require("./limitesSaldoPersonal.service").filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{new:true,session});
+   if(!cuenta)throw Object.assign(new Error("Saldo insuficiente o cuenta inválida"),{statusCode:409});exigirSaldoCuentaSeguro(cuenta);
+   const tipo=data.direccion==="POR_COBRAR"?"PRESTAMO_OTORGADO":"PRESTAMO_RECIBIDO";
+   const [tx]=await Transaccion.create([{usuarioId,prestamoId:prestamo._id,tipo,montoMinor:principal,concepto:data.concepto||"Préstamo",categoria:"Préstamos",contraparte:data.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,impactoCaja:true,medioPago:"TRANSFERENCIA",fecha:data.fechaInicio,origen:"MANUAL"}],{session});transaccionId=tx._id;
+   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(prestamo._id),tipo,montoMinor:principal}}],{session});
+  }
+ };
+ try{if(sesionExterna){if(!session.inTransaction())throw Object.assign(new Error("La creación requiere una transacción activa"),{statusCode:409});await ejecutar();return{prestamo,transaccionId};}
+  await session.withTransaction(ejecutar,{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return prestamo;
+ }finally{if(!sesionExterna)await session.endSession();}
+}
 async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,externalId}){
  const monto=safe(montoMinor);
  if(typeof externalId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(externalId))throw Object.assign(new Error("Referencia de cobro inválida"),{statusCode:400});
