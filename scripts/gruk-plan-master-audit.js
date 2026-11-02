@@ -46,7 +46,7 @@ function validateEvidencePaths(matrixMarkdown, root) {
   const matrix = rows(matrixMarkdown, 5, "matrix");
   for (const [id, , , status, evidence] of matrix) {
     if (status !== "VERIFICADO") continue;
-    const links = [...evidence.matchAll(/https:\/\/github\.com\/([^/\s)]+)\/([^/\s)]+)\/(pull|commit)\/([0-9a-f]+)/gi)];
+    const links = [...evidence.matchAll(/https:\/\/github\.com\/([^/\s)]+)\/([^/\s)]+)\/(pull|commit)\/([^/\s)\]]+)/gi)];
     if (!links.length || links.some(m => m[1] !== "yessidandresgalvisvalencia-byte" ||
         m[2] !== "resturante-qr" || (m[3] === "pull" && !/^\d+$/.test(m[4])) ||
         (m[3] === "commit" && !/^[a-f0-9]{7,40}$/i.test(m[4]))))
