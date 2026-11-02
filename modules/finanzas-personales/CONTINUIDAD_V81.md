@@ -245,3 +245,9 @@ npm run check:syntax
 V1–V6 mantienen payload/hash. Un lector anterior que no admite V7 fallará cerrado: la compatibilidad de reversión operativa sigue pendiente antes de liberar. Sin cambios de roles, migraciones, borrados, reparaciones ni datos reales.
 
 Siguiente paso: confirmar CI del SHA publicado e inventariar eliminación/recuperación de los demás registros mutables (deudas retiradas, cuentas, metas y configuración), sin confundir cancelación con borrado físico. Priorizar además el ejercicio reproducible de backup y restauración aislada con retención, acceso separado y RPO/RTO medidos. Custodio independiente real de #407, auditoría de históricos/permisos/índices de producción y dispositivos siguen pendientes. Mantener sin fusión ni despliegue.
+
+### Evidencia inicial y límite de conciliación histórica
+
+Implementación `57db156dd8b1d2272b39d0451a4c702f5145c028`: [Gate 41431483317](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41431483317) y [Seguridad 41431483356](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41431483356) aprobaron. [V81 41431483409](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41431483409) encontró una expectativa incorrecta del ensayo HISTORICO: la reconstrucción de saldo desde anclas rechaza movimientos sin cuentaId posteriores al ancla, aunque no tengan efecto actual de caja. Los otros seis jobs V81 aprobaron.
+
+Se conserva esa defensa. La prueba exige para CUENTA saldo reconstruido exacto y, para HISTORICO, ausencia de deltas efectivos, cuenta intacta y rechazo 409 de conciliación hasta identificar el origen. Recuperar el estado del préstamo no convierte el pago histórico en dinero conciliado. No se asigna cuenta ficticia ni se omite la guardia para que CI apruebe. La suite local ampliada sumó 256 aprobadas y nueve omitidas por servicios externos; exigir CI completa del nuevo HEAD.

@@ -42,7 +42,13 @@ async function probarRestauracionPrestamoAutorizada(){
   assert.equal(e.deltaCajaMinor,modo==="CUENTA"?"-450":"0");
   assert.equal(foto.prestamo.saldoMinor,600);assert.equal(foto.cuenta.saldoMinor,modo==="CUENTA"?9550:10000);
   assert.deepEqual(foto.fuentes,[f.fuente]);assert.equal(foto.eventos.length,2);
-  assert.equal(patrimonio.saldoCuentasDesdeAnclas([foto.cuenta],await consultarCaja(f.usuarioId)),foto.cuenta.saldoMinor);
+  const caja=await consultarCaja(f.usuarioId);
+  if(modo==="CUENTA")assert.equal(patrimonio.saldoCuentasDesdeAnclas([foto.cuenta],caja),foto.cuenta.saldoMinor);
+  else{
+   // Caja cero no acredita la conciliación de un origen histórico desconocido.
+   assert.equal(caja.filter(x=>x.impactoCaja===true).length,0);
+   assert.throws(()=>patrimonio.saldoCuentasDesdeAnclas([foto.cuenta],caja),e=>e.statusCode===409);
+  }
   assert.equal((await service.obtenerPagosCredito(f.usuarioId,f.prestamo._id)).totalPagadoRealMinor,450);
   assert.equal((await restaurarMovimiento(f.solicitud)).hashActual,e.hashActual);
   const despues=await f.foto();assert.equal(despues.cursor.revisionCompatibilidad,foto.cursor.revisionCompatibilidad+1);
