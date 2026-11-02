@@ -129,3 +129,16 @@ Artefacto de propuesta `remedicion-v81-lockfile-candidato`, ID `12117675285`, co
 - [Auditoría de seguridad fallida — mismo commit](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/39068547831)
 
 **Estado:** diagnóstico documentado; paquetes sin actualizar; producción sin modificar.
+
+## Actualización del 1 de noviembre de 2026
+
+Los estados anteriores son evidencias históricas. Al verificar el commit personal `b1c2eb2a4ca9e04caf8be2990d90e4bebc42d4a0`, CI informó dos nuevas alertas altas:
+
+| Dependencia | Instalación anterior | Parche compatible | Aviso |
+| --- | --- | --- | --- |
+| joi, directa; validación de rutas personales y compartidas | 18.3.0 | 18.3.1 | [GHSA-4528-x5fx-h6hg](https://github.com/advisories/GHSA-4528-x5fx-h6hg) |
+| follow-redirects, mediante axios 1.20.0 | 1.16.1 | 1.16.2 | [GHSA-mrwp-f3q8-3g9p](https://github.com/advisories/GHSA-mrwp-f3q8-3g9p) |
+
+Aplicación acotada con `npm update joi follow-redirects --package-lock-only --ignore-scripts`: solo seis líneas sustituidas en el lockfile compartido, sin cambio del manifiesto ni del código empresarial. La rama de integración personal conserva el cambio; no se modifica main ni se despliega. `npm ci --ignore-scripts` reprodujo las versiones y `npm audit --omit=dev --audit-level=low` informó cero vulnerabilidades. Las pruebas locales de compras, contrato del lockfile, núcleo y suite V81 sumaron 307 aprobadas, nueve omitidas por servicios externos y cero fallos.
+
+El [gate completo del código previo](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41390904254) aprobó, pero no acredita este lockfile nuevo. Exigir nuevamente los tres workflows del SHA publicado, incluidos gate completo, concurrencia y MongoDB autenticado. No fusionar sin la compatibilidad compartida y los smoke tests de la guía de liberación; no desactivar auditorías ni atribuir ausencia absoluta de vulnerabilidades a este inventario.
