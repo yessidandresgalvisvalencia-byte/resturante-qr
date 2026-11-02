@@ -54,8 +54,11 @@ function validateEvidencePaths(matrixMarkdown, root) {
     const tests = [...evidence.matchAll(/test\/[^\s)\]`]+?\.test\.[cm]?js/g)].map(m => m[0]);
     if (!tests.length || tests.some(testPath => {
       const full = path.resolve(root, testPath);
-      return !full.startsWith(path.resolve(root, "test") + path.sep) ||
-        !fs.existsSync(full) || !fs.statSync(full).isFile();
+      const testRoot = path.resolve(root, "test");
+      if (!full.startsWith(testRoot + path.sep) || !fs.existsSync(full)) return true;
+      // A symlink inside test/ may point outside the checkout; reject it.
+      // Only committed regular test files count as local evidence.
+      return !fs.lstatSync(full).isFile() || !fs.realpathSync(full).startsWith(fs.realpathSync(testRoot) + path.sep);
     })) throw Error("GRUK_PLAN_MISSING_EVIDENCE_TEST_" + id);
   }
   return true;
