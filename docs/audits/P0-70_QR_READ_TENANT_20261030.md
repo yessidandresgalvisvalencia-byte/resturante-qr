@@ -308,3 +308,11 @@
 - `package.json` declara `joi: ^18.2.8` y `axios: ^1.6.0`; el lockfile no contiene todavía versiones corregidas. **Pendiente real:** actualizar conjuntamente manifiesto y lockfile con npm, comprobar integridades de paquetes del registro, ejecutar `npm ci`, `npm audit --omit=dev`, suite y todos los jobs de CI del SHA nuevo. No editar integridades ni fingir que el cambio está aplicado.
 - PR #534 abierto en borrador sobre rama #524, que también sigue abierta; los cambios apilados no están publicados en `main`. La revisión de pruebas QR confirma cobertura con dobles, no aceptación HTTP/MongoDB de ambos endpoints. **P0-70 PARCIAL; 0/77 certificados integralmente según la matriz vigente.**
 - Bloqueos de liberación: auditoría HIGH, HTTP/E2E y migración legacy, verificación integral de los 77 criterios, Auto-Deploy de Render y pruebas de producción. **No fusionar ni desplegar.** No se modificaron GRUK Personal ni Blushea.
+
+
+## Control de dependencias y entorno — 02-11-2026
+
+- Inspección directa de `package.json` de `main`: `joi` permite `^18.2.8`, que no fija por sí sola la versión corregida 18.3.1. Los hallazgos anteriores del artefacto npm audit del PR #534 señalan `joi` 18.3.0 y `follow-redirects` 1.16.1 como HIGH. **No se ejecutó npm audit nuevamente ni se corrigió el lockfile en esta revisión**; no atribuir al HEAD un resultado histórico.
+- La matriz de 77 obligaciones continúa con P0-70 PARCIAL, P1-75 PARCIAL y ninguna obligación VERIFICADA integralmente; no confundir cambios apilados en #524/#534 con producción.
+- La conexión de Render no tiene workspace seleccionado y el conector exige selección explícita del propietario: **no se comprobó el estado actual de autoDeploy ni se modificó Render**. La configuración autoDeploy=yes sobre `main` registrada el 29-10 continúa como último riesgo conocido, no como comprobación fresca.
+- Próximo trabajo de código: actualizar `joi` y `follow-redirects` con lockfile íntegro, ejecutar `npm ci`, `npm audit --omit=dev`, CI completo y pruebas HTTP/MongoDB de QR. No fusionar ni desplegar sin evidencia del SHA actual y aceptación integral.
