@@ -92,6 +92,8 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/creditoLegacyRecuperableAutorizado").probarCreditoLegacyRecuperableAutorizado(db));
   await t.test("correcciones de préstamos conservan snapshots y controlan reintentos, caja y reclasificación",
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
+  await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
+   require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
   await t.test("backup cifrado con lector separado restaura BSON e índices solo en una base aislada vacía",
    ()=>require("./helpers/respaldoFinancieroAutorizado").probarRespaldoFinancieroAutorizado({db,uri,password}));
   await t.test("completar acciones exige evidencia vigente y revierte fallos de auditoría",

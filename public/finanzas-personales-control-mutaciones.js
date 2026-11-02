@@ -1,0 +1,65 @@
+"use strict";
+(function(raiz){
+ function crearControlMutacionesPersonales({almacenamiento,digerir,usuarioDeToken,invalidar=()=>{}}){
+  const estados=new Map(),MAX=100,PREFIJO="gruk.fp.operacionesPendientes.v81:";
+  const falla=m=>Object.assign(new Error(m),{code:"OPERACION_PERSONAL_NO_CONFIRMADA"});
+  const canon=v=>v&&typeof v==="object"?(Array.isArray(v)?v.map(canon):Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])]))):v;
+  function cargar(token){
+   const usuario=usuarioDeToken(token);if(!usuario)throw falla("No se pudo identificar la sesión para conservar la operación");
+   if(!estados.has(usuario)){
+    const s={usuario,revision:0,pendientes:new Map(),activas:new Set(),error:false};
+    try{const texto=almacenamiento.getItem(PREFIJO+usuario),filas=texto===null?[]:JSON.parse(texto);
+     if(!Array.isArray(filas)||filas.length>MAX)throw Error();
+     for(const p of filas){if(!p||Object.keys(p).length!==3||typeof p.id!=="string"||!p.id||p.id.length>200||!/^[a-f0-9]{64}$/.test(p.huella)||!["header","externalId","solicitudId","sin_clave"].includes(p.tipo)||s.pendientes.has(p.id))throw Error();s.pendientes.set(p.id,p);}
+    }catch{s.error=true;}
+    estados.set(usuario,s);
+   }return estados.get(usuario);
+  }
+  function guardar(s){try{almacenamiento.setItem(PREFIJO+s.usuario,JSON.stringify([...s.pendientes.values()]));}catch{s.error=true;throw falla("No se pudo conservar la confirmación pendiente. No se enviará otra operación");}}
+  function cambio(s){s.revision++;invalidar(s.usuario);}
+  function estado(token){try{const s=cargar(token);return{usuario:s.usuario,revision:s.revision,bloqueada:s.error||s.pendientes.size>0||s.activas.size>0,pendientes:s.pendientes.size,motivo:s.error?"No se pudo verificar el registro local de operaciones pendientes":"Hay operaciones pendientes de confirmar. Reintenta con los mismos datos; actualizar el panel no confirma su resultado"};}catch{return{usuario:null,revision:0,bloqueada:true,motivo:"No se pudo verificar la sesión y sus operaciones pendientes"};}}
+  function esMutacion(path,o,token){return !!token&&!/^(GET|HEAD)$/i.test(o.method||"GET")&&!/^\/auth\//.test(path)&&!["/gastos/evaluar","/creditos/simular","/creditos/evaluar","/transacciones/confirmar-intento"].includes(path);}
+  function datos(path,o){
+   let cuerpo={};if(o.body!==undefined){try{cuerpo=JSON.parse(o.body);if(!cuerpo||typeof cuerpo!=="object"||Array.isArray(cuerpo))throw Error();}catch{throw falla("La operación requiere un cuerpo JSON verificable");}}
+   const headers={...(o.headers||{})},nombre=Object.keys(headers).find(k=>k.toLowerCase()==="idempotency-key");
+   if([!!nombre,typeof cuerpo.externalId==="string",typeof cuerpo.solicitudId==="string"].filter(Boolean).length>1)throw falla("Mecanismo de reintento ambiguo; requiere revisión");
+   const tipo=nombre?"header":typeof cuerpo.externalId==="string"?"externalId":typeof cuerpo.solicitudId==="string"?"solicitudId":"sin_clave";
+   const id=nombre?headers[nombre]:tipo==="sin_clave"?null:cuerpo[tipo];
+   const contenido={...cuerpo};delete contenido.externalId;delete contenido.solicitudId;
+   return{cuerpo,headers,nombre,tipo,id,contenido:JSON.stringify(canon({metodo:(o.method||"GET").toUpperCase(),path,cuerpo:contenido}))};
+  }
+  async function iniciar(token,path,o){
+   const s=cargar(token);if(s.error)throw falla("No se pudo verificar el registro local de operaciones; requiere revisión");
+   const d=datos(path,o),huella=await digerir(d.contenido);
+   if(!/^[a-f0-9]{64}$/.test(huella))throw falla("No se pudo identificar la operación");
+   let previa=[...s.pendientes.values()].find(p=>p.huella===huella);
+   if(!previa&&[...s.pendientes.values()].some(p=>p.tipo==="sin_clave"&&!s.activas.has(p.id)))throw falla("Hay una operación incierta sin reintento seguro. Requiere revisión antes de registrar otra");
+   if(previa&&s.activas.has(previa.id))throw falla("Esta operación ya está en curso");
+   if(previa&&previa.tipo==="sin_clave")throw falla("Esta operación quedó sin confirmar y no tiene reintento seguro. Requiere revisión del historial; no la registres de nuevo");
+   if(previa&&previa.tipo!==d.tipo)throw falla("El mecanismo de reintento cambió; requiere revisión");
+   if(d.tipo!=="sin_clave"&&(typeof d.id!=="string"||!d.id||d.id.length>200))throw falla("Identificador de operación inválido");
+   const incierta=!!previa,id=previa?.id||d.id||("sin_clave_"+huella);
+   if(typeof id!=="string"||!id||id.length>200)throw falla("Identificador de operación inválido");
+   if(!previa&&s.pendientes.has(id))throw falla("La clave pendiente pertenece a otros datos; conserva la operación anterior");
+   if(!previa&&s.pendientes.size>=MAX)throw falla("Demasiadas operaciones pendientes; requiere revisión");
+   const p=previa||{id,huella,tipo:d.tipo};s.pendientes.set(id,p);guardar(s);s.activas.add(id);cambio(s);
+   if(d.tipo==="header")d.headers[d.nombre]=id;else if(d.tipo!=="sin_clave")d.cuerpo[d.tipo]=id;
+   let terminada=false;
+   return{opciones:{...o,headers:d.headers,...(o.body!==undefined?{body:JSON.stringify(d.cuerpo)}:{})},finalizar(resultado){
+    if(terminada)return;terminada=true;s.activas.delete(id);
+    // Una respuesta perdida nunca se resuelve solo por leer saldos después.
+    if(resultado==="CONFIRMADA"||resultado==="NO_ENVIADA"&&!incierta||resultado==="RECHAZADA"&&!incierta){
+     s.pendientes.delete(id);try{guardar(s);}catch(e){s.pendientes.set(id,p);cambio(s);throw e;}
+    }cambio(s);
+   }};
+  }
+  async function confirmarRegistro(token,cuerpo){
+   const s=cargar(token);if(s.error)return;
+   const d=datos("/transacciones",{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);
+   const p=s.pendientes.get(cuerpo.externalId);if(p?.tipo==="externalId"&&p.huella===huella){s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);}
+  }
+  return{estado,esMutacion,iniciar,confirmarRegistro};
+ }
+ if(typeof module!=="undefined"&&module.exports)module.exports={crearControlMutacionesPersonales};
+ else raiz.crearControlMutacionesPersonales=crearControlMutacionesPersonales;
+})(typeof window!=="undefined"?window:globalThis);
