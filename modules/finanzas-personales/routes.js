@@ -307,19 +307,15 @@ router.post("/creditos/:id/incorporar-a-deudas",async(req,res)=>{
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible incorporar el crédito"});}
  finally{await session.endSession();}
 });
-router.delete("/creditos/:id",async(req,res)=>{
- if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- try{
-  const Credito=require("./models/credito.model");
-  const credito=await Credito.findOneAndUpdate({_id:req.params.id,userId:req.personalAuth.userId,activo:true},{$set:{activo:false}},{new:true});
-  if(!credito)return res.status(404).json({ok:false,error:"Crédito anterior no encontrado o ya retirado"});
-  return res.json({ok:true,retirado:true});
- }catch(e){return res.status(500).json({ok:false,error:"No se pudo retirar el crédito anterior"});}
-});
+router.delete("/creditos/:id",(_req,res)=>res.status(409).json({ok:false,error:"El retiro de créditos anteriores requiere recuperación verificable; el registro se conserva"}));
 router.delete("/prestamos/:id",async(req,res)=>{
  if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- try{const resultado=await patrimonioPersonal.retirarDeudaVisible(req.personalAuth.userId,req.params.id);return res.json({ok:true,resultado});}
+ try{const resultado=await patrimonioPersonal.retirarDeudaVisible(req.personalAuth.userId,req.params.id,req.body);return res.json({ok:true,resultado});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible retirar la deuda"});}
+});
+router.post("/prestamos/:id/restaurar-retiro",async(req,res)=>{
+ try{const resultado=await require("./services/retiroDeudaPersonal.service").restaurar(req.personalAuth.userId,req.params.id,req.body);return res.json({ok:true,resultado});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible recuperar la deuda"});}
 });
 router.post("/creditos",validate(credito),async(req,res)=>{
  try{

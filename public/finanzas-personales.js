@@ -192,7 +192,9 @@ const anteriores=creditosAnteriores.creditos||[];
 if(anteriores.length){
  $("listaPorPagar").insertAdjacentHTML("beforeend",'<div class="debtHeading"><h3>Créditos registrados anteriormente</h3><strong>'+money(anteriores.reduce((a,x)=>a+x.saldo,0))+'</strong></div><p class="hint">Estos créditos antiguos aún no están conciliados. Puedes incorporarlos con confirmación para administrar sus cuotas sin crear un duplicado.</p>'+anteriores.map(x=>'<article class="debtItem"><div class="debtTop"><div><strong>'+esc(x.nombre)+'</strong><p class="debtKind">Crédito anterior · pendiente de conciliación</p></div><strong>'+money(x.saldo)+'</strong></div><div class="debtNumbers"><span>Cuotas informadas restantes: '+esc(String(x.mesesRestantes))+'</span><span>Pagos anteriores sin verificar</span></div><progress value="0" max="100" style="width:100%;height:14px"></progress><div class="debtNumbers"><div>Saldo guardado<strong>'+money(x.saldo)+'</strong></div><div>Cuota mensual<strong>'+money(x.cuotaMensual)+'</strong></div></div><small>Tasa mensual: '+esc(String(x.tasaMensualPct))+' % · Meses restantes: '+esc(String(x.mesesRestantes))+'</small><div class="debtActions"><button class="mini" onclick="window.incorporarCreditoAnterior(\''+esc(String(x._id))+'\')">Incorporar y gestionar cuotas</button><button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\',true)">Eliminar</button></div></article>').join(""));
 }
-$("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pagados</h3><strong>'+pagados.length+'</strong></div>'+(pagados.length?pagados.map(renderPrestamo).join(""):'<p class="hint">Sin préstamos pagados.</p>');$("diario").innerHTML=d.dias.length?d.dias.map(x=>'<div class="day"><b>'+x.fecha+'</b><span>'+money(x.balance)+'</span>'+x.movimientos.map(m=>'<div class="row"><span>'+m.tipo+' · '+esc(m.concepto)+' · '+esc(m.categoria)+(m.contraparte?' · '+esc(m.contraparte):'')+'</span><span class="movementActions"><strong>'+money(m.monto)+'</strong><button class="secondary mini" onclick="window.editMovement(\''+m._id+'\',\''+m.tipo+'\','+m.monto+')">Corregir</button><button class="dangerMini" onclick="window.deleteMovement(\''+m._id+'\')">Eliminar</button></span></div>').join("")+'</div>').join(""):"Sin movimientos todavía."}catch(e){if(e.code==="SESION_CAMBIADA"||token!==tokenAlInicio)return;if(e.statusCode===401){clearToken();$("app").hidden=true;$("logout").hidden=true;$("auth").hidden=false;msg("authMsg","La sesión expiró. Ingresa nuevamente.",false);return}invalidarAutorizacionDisponible();const live=$("live");if(live){live.textContent="No pude actualizar tus datos: "+e.message+". Las cifras visibles pueden corresponder a una consulta anterior; no son saldos actuales confirmados.";live.dataset.alert="true";}}})();
+$("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pagados</h3><strong>'+pagados.length+'</strong></div>'+(pagados.length?pagados.map(renderPrestamo).join(""):'<p class="hint">Sin préstamos pagados.</p>');const retiradas=lp.prestamos.filter(x=>x.direccion==="POR_PAGAR"&&x.estado==="CANCELADO");
+if(retiradas.length)$("listaPrestamosPagados").insertAdjacentHTML("beforeend",'<h3>Deudas retiradas</h3><p class="hint">Retirar no significa pagar. Recuperar conserva saldo y calendario registrados.</p>'+retiradas.map(x=>'<article class="debtItem"><strong>'+esc(x.concepto)+'</strong><p>Saldo conservado: '+money(x.saldoMinor)+'</p>'+((x.retiroRevision%2===1&&/^[a-f0-9]{64}$/.test(x.retiroHash||""))?'<button class="secondary mini" onclick="window.restaurarDeudaRetirada(\''+esc(String(x._id))+'\',\''+esc(x.retiroHash)+'\')">Recuperar deuda</button>':'<p class="hint">Retiro anterior sin estado recuperable verificado. Requiere revisión; no registres otra deuda para reemplazarla.</p>')+'</article>').join(""))
+;$("diario").innerHTML=d.dias.length?d.dias.map(x=>'<div class="day"><b>'+x.fecha+'</b><span>'+money(x.balance)+'</span>'+x.movimientos.map(m=>'<div class="row"><span>'+m.tipo+' · '+esc(m.concepto)+' · '+esc(m.categoria)+(m.contraparte?' · '+esc(m.contraparte):'')+'</span><span class="movementActions"><strong>'+money(m.monto)+'</strong><button class="secondary mini" onclick="window.editMovement(\''+m._id+'\',\''+m.tipo+'\','+m.monto+')">Corregir</button><button class="dangerMini" onclick="window.deleteMovement(\''+m._id+'\')">Eliminar</button></span></div>').join("")+'</div>').join(""):"Sin movimientos todavía."}catch(e){if(e.code==="SESION_CAMBIADA"||token!==tokenAlInicio)return;if(e.statusCode===401){clearToken();$("app").hidden=true;$("logout").hidden=true;$("auth").hidden=false;msg("authMsg","La sesión expiró. Ingresa nuevamente.",false);return}invalidarAutorizacionDisponible();const live=$("live");if(live){live.textContent="No pude actualizar tus datos: "+e.message+". Las cifras visibles pueden corresponder a una consulta anterior; no son saldos actuales confirmados.";live.dataset.alert="true";}}})();
  cargaPanelEnCurso=ejecucion;
  tokenCargaPanel=tokenAlInicio;
  try{return await ejecucion;}finally{if(cargaPanelEnCurso===ejecucion){cargaPanelEnCurso=null;tokenCargaPanel=null;}}
@@ -265,12 +267,28 @@ window.incorporarCreditoAnterior=async id=>{try{
  if(r.resultado?.id)await window.configurarPeriodicidad(r.resultado.id);
  }catch(e){alert("No se pudo incorporar el crédito: "+e.message)}
 };
-window.retirarCredito=async(id,anterior=false)=>{try{
- if(!confirm("¿Eliminar este registro de la lista? No significa que la deuda esté pagada. Se conserva para auditoría."))return;
- await api((anterior?"/creditos/":"/prestamos/")+encodeURIComponent(id),{method:"DELETE"});
- await load();alert("Registro retirado de la lista. No se registró ningún pago.");
- }catch(e){alert("No se pudo retirar: "+e.message)}
+const operacionesRetiroDeuda=new Map();let sesionRetiroDeuda=null;
+async function cambiarRetiroDeuda(id,{restaurar=false,retiroHash=null}={}){
+ const sesion=token;if(!sesion||$("app").hidden)return;
+ if(sesionRetiroDeuda!==sesion){operacionesRetiroDeuda.clear();sesionRetiroDeuda=sesion;}
+ const key=id+":"+(restaurar?retiroHash:"RETIRO");
+ let op=operacionesRetiroDeuda.get(key);if(op?.enCurso)return;
+ if(!confirm(restaurar?"¿Recuperar esta deuda con su saldo y calendario anteriores? No se registrará ningún pago ni se moverá dinero.":"¿Retirar esta deuda de la lista? No significa que esté pagada. Se conservará su estado para recuperarla aquí."))return;
+ if(!op){op={solicitudId:crypto.randomUUID(),enCurso:false};operacionesRetiroDeuda.set(key,op);}op.enCurso=true;
+ try{
+  const resultado=await api("/prestamos/"+encodeURIComponent(id)+(restaurar?"/restaurar-retiro":""),{...body({confirmacion:true,solicitudId:op.solicitudId,...(restaurar?{retiroHash}:{})}),method:restaurar?"POST":"DELETE"});
+  if(token!==sesion||$("app").hidden)return;
+  if(!resultado.resultado?.vigente)throw Error("La operación anterior ya no representa el estado vigente. Actualiza la lista.");
+  operacionesRetiroDeuda.delete(key);await load();if(token!==sesion||$("app").hidden)return;
+  alert(restaurar?"Deuda recuperada sin registrar pagos ni cambiar caja.":"Deuda retirada. Puedes recuperarla en Deudas retiradas; no se registró ningún pago.");
+ }catch(e){if(token===sesion&&!$("app").hidden)alert("No se pudo confirmar la operación. Conserva el reintento: "+e.message);}
+ finally{op.enCurso=false;}
+}
+window.retirarCredito=(id,anterior=false)=>{
+ if(anterior){alert("El retiro de créditos anteriores requiere un flujo recuperable. El registro se conserva; puedes incorporarlo con revisión para gestionar sus cuotas.");return;}
+ return cambiarRetiroDeuda(id);
 };
+window.restaurarDeudaRetirada=(id,retiroHash)=>cambiarRetiroDeuda(id,{restaurar:true,retiroHash});
 window.corregirPrestamo=async id=>{try{
  const data=await api("/prestamos");const p=(data.prestamos||[]).find(x=>String(x._id)===String(id));
  if(!p)throw Error("Préstamo no encontrado");

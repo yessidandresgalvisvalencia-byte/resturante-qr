@@ -86,6 +86,8 @@ async function probarMigracionAutorizada(db,uri,password,t){
    require("./helpers/restauracionCompromisoAutorizada").probarRestauracionCompromisoAutorizada);
   await t.test("recuperación de préstamos distingue capital y pago real sin duplicar cuotas ni caja",
    require("./helpers/restauracionPrestamoAutorizada").probarRestauracionPrestamoAutorizada);
+  await t.test("retiro recuperable de deudas conserva calendario, caja y evidencia con rol restringido",
+   ()=>require("./helpers/retiroDeudaAutorizado").probarRetiroDeudaAutorizado(db));
   await t.test("backup cifrado con lector separado restaura BSON e índices solo en una base aislada vacía",
    ()=>require("./helpers/respaldoFinancieroAutorizado").probarRespaldoFinancieroAutorizado({db,uri,password}));
   await t.test("completar acciones exige evidencia vigente y revierte fallos de auditoría",
@@ -191,6 +193,9 @@ test("MongoDB con autorización: rol insert-only bloquea modificación y borrado
   assert.deepEqual(arranque("writer"),{status:200,autoCreate:false,autoIndex:false});
   assert.deepEqual(arranque("unsafe"),{codigo:"PRIVILEGIOS_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await db.collection("fin_eventos_compensatorios_personales_v1").dropIndex("fp_compensacion_orden_usuario_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_retiros_deudas_personales_v1").dropIndex("fp_retiro_secuencia_v1");
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   // El índice existe y es único, pero su filtro deja fuera parte del historial.

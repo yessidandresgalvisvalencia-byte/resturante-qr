@@ -281,24 +281,8 @@ async function corregirPrestamo(usuarioId,prestamoId,cambios){
   return resultado;
  }finally{await session.endSession();}
 }
-async function retirarDeudaVisible(usuarioId,prestamoId){
- const session=await mongoose.startSession();
- try{
-  let resultado;
-  await session.withTransaction(async()=>{
-   const prestamo=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR"}).session(session);
-   if(!prestamo)throw Object.assign(new Error("Deuda no encontrada"),{statusCode:404});
-   if(prestamo.estado==="CANCELADO"){resultado={id:String(prestamo._id),yaRetirada:true};return;}
-   const movimientos=await Transaccion.countDocuments({usuarioId,prestamoId:prestamo._id,estado:"ACTIVA"}).session(session);
-   if(movimientos>0)throw Object.assign(new Error("Esta deuda tiene movimientos vinculados y requiere revisión contable antes de retirarla."),{statusCode:409});
-   prestamo.estado="CANCELADO";
-   prestamo.periodicidadConfirmada=false;
-   await prestamo.save({session});
-   await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"PRESTAMO_PERSONAL_CORREGIDO",aggregateType:"PRESTAMO_PERSONAL",aggregateId:prestamo._id,payload:{prestamoId:String(prestamo._id),accion:"RETIRAR_DE_VISTA",saldoConservadoMinor:prestamo.saldoMinor}}],{session});
-   resultado={id:String(prestamo._id),retirada:true};
-  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
-  return resultado;
- }finally{await session.endSession();}
+async function retirarDeudaVisible(usuarioId,prestamoId,solicitud){
+ return require("./retiroDeudaPersonal.service").retirar(usuarioId,prestamoId,solicitud);
 }
 function normalizarIdCuentaTransferencia(id){
  const valor=String(id??"");

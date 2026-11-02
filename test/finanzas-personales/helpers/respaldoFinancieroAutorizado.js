@@ -12,7 +12,7 @@ async function probarRespaldoFinancieroAutorizado({db,uri,password}){
   const antes=await conteos(),respaldo=await crearRespaldo({cliente:reader,base:db.databaseName,clave,retenerHasta:new Date(Date.now()+7*86400000).toISOString()});
   assert.deepEqual(await conteos(),antes);assert.equal(respaldo.resumen.certificaCustodiaIndependiente,false);
   const payload=descifrar(respaldo.archivo,clave);
-  assert.equal(payload.colecciones.length,12);assert.equal(respaldo.resumen.documentos,antes.reduce((n,[,c])=>n+c,0));
+  assert.equal(payload.colecciones.length,COLECCIONES.length);assert.equal(respaldo.resumen.documentos,antes.reduce((n,[,c])=>n+c,0));
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),"gruk-backup-ensayo-")),archivo=path.join(dir,"respaldo.aesgcm.json");
   await fs.writeFile(archivo,respaldo.archivo,{mode:0o600,flag:"wx"});
   assert.equal((await fs.stat(archivo)).mode&0o777,0o600);
@@ -24,7 +24,7 @@ async function probarRespaldoFinancieroAutorizado({db,uri,password}){
   const post=new BSON.ObjectId();
   await db.collection("fin_cuentas_personales").insertOne({_id:post,usuarioId:new BSON.ObjectId(),nombre:"Posterior a captura",saldoMinor:0});
   const resultado=await restaurarEnEnsayo({uri:"mongodb://127.0.0.1:27018/"+destino,auth:{username:usuario,password:secreto},archivo:await fs.readFile(archivo),clave});
-  assert.equal(resultado.verificado,true);assert.equal(resultado.documentos,respaldo.resumen.documentos);assert.equal(resultado.colecciones,12);
+  assert.equal(resultado.verificado,true);assert.equal(resultado.documentos,respaldo.resumen.documentos);assert.equal(resultado.colecciones,COLECCIONES.length);
   assert.equal(await objetivo.collection("fin_cuentas_personales").countDocuments({_id:post}),0);
   assert.equal(resultado.certificaRpoProduccion,false);assert.equal(resultado.certificaCustodiaIndependiente,false);
   assert.ok(resultado.restauracionMs>=0);assert.ok(resultado.edadRespaldoMs>=0);

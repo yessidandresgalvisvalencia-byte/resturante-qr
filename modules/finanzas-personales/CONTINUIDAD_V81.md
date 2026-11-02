@@ -304,3 +304,36 @@ Implementación `194ea9f77dce804c1cfb11ed0256413f8daaabac`, publicada con lease 
 Métricas del fixture: 12 colecciones, 449 documentos, paquete cifrado de 427.502 bytes, captura 35 ms, restauración 284 ms y edad del paquete al terminar 318 ms. No representan volumen, custodia independiente, retención efectiva ni RPO/RTO de producción. La clave no se guardó con el paquete; faltan gestión y recuperación independientes reales.
 
 Este checkpoint documental debe comprobarse en el HEAD remoto y su CI antes de retomar. Próximo bloque: captura append-only del estado previo al retiro de deudas y recuperación explícita del propietario, sin inferir calendarios históricos ni duplicar obligaciones. El backup completo y durable con custodio independiente, retención/acceso separado y ensayo operativo real siguen pendientes, al igual que los demás criterios de #407. Sin fusión ni despliegue.
+
+## Checkpoint del 2 de noviembre de 2026 — retiro recuperable de deudas
+
+Partida real `125368f4849238f0369641c428ee6dfa21daa5cd`, PR #389 abierto con base feature/finanzas-personales (`f44a0535ad86ac7f10a90be6a700cfc8618a43e0`), #407 abierto. [Gate 41440725298](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41440725298), [Seguridad 41440725207](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41440725207) y [V81 41440725218](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41440725218) de partida success. Sin AGENTS.md en el workspace; se revisaron README personal, continuidad, rutas, provisión, arranque y CI. Checkout separado, sin ejecución concurrente ni cambios en main/Empresarial/Blushéa.
+
+### Bloque y aceptación
+
+Se sustituye el retiro sin retorno de préstamos POR_PAGAR por RETIRO/RESTAURACION en `fin_retiros_deudas_personales_v1`. El préstamo sigue siendo una proyección mutable; los eventos conservan snapshots anterior/posterior de sus campos financieros, sin reescribir eventos ni fuentes de pagos. El retiro cambia exclusivamente estado y confirmación de periodicidad, más cursor de recuperación; no borra documentos, reduce deuda ni registra pagos.
+
+| Criterio | Implementación y prueba exigida |
+| --- | --- |
+| Propietario y consentimiento | Identidad de personalAuth, no del cuerpo. confirmacion estrictamente true y solicitudId estable obligatorio en el servidor. Estados ACTIVO/VENCIDO, saldo positivo seguro, únicamente POR_PAGAR |
+| Evidencia conservada | Eventos append-only con secuencia por deuda, hashes enlazados, snapshots y fecha. Hooks de consultas/documentos y rol MongoDB sin UPDATE/DELETE para la nueva colección |
+| Atomicidad | Evento, cursor/estado del préstamo y outbox en una transacción snapshot/majority. Rollback ante fallo de auditoría, sin cambios de cuentas ni fuentes |
+| Recuperación | POST /prestamos/:id/restaurar-retiro exige retiroHash del último retiro. Compara todos los campos financieros actuales con el snapshot posterior; restaura estado/confirmación previos sin recalcular calendario, saldo, tasa ni fecha |
+| Reintentos | Unicidad usuario/solicitud y usuario/deuda/secuencia. Misma solicitud devuelve recibo sin escribir; vigente=false si ya hubo otra operación. Referencias obsoletas y solicitud reutilizada para otra operación se rechazan |
+| Concurrencia | La escritura del mismo préstamo coordina retiro/recuperación con pagos y ediciones. No se retira una deuda con ninguna fuente vinculada, incluso anulada. Ensayo de carrera contra pago exige un solo ganador y caja coherente |
+| Integridad y capacidad | Verifica cadena completa y cursor antes de actuar, hasta 1.000 eventos por deuda; consultas con maxTimeMS 5 s. Truncamiento, hash alterado, cursor incoherente y registro cancelado modificado se rechazan |
+| Índices y permisos | Dos índices únicos exactos requeridos en caliente y antes de escuchar HTTP. Nuevo historial incluido en auditoría conservadora de privilegios y búsqueda heurística. Provisión administrativa separada; la aplicación no crea/repara índices |
+| Interfaz | Sección Deudas retiradas con recuperación por hash. Confirmación, bloqueo de doble clic, misma solicitud tras error y descarte al cambiar sesión. Los retiros anteriores sin evidencia muestran revisión pendiente |
+| Backup compatible | Payload V2 agrega la colección de retiros: trece colecciones. Sigue descifrando/restaurando payloads V1 de doce colecciones, sin inventar historial faltante. La envoltura criptográfica AES-GCM V1 permanece compatible |
+
+Los créditos legacy conservan sus datos: DELETE /creditos/:id devuelve 409 hasta contar con su propio flujo recuperable. La incorporación con confirmación sigue disponible; no se confunde una incorporación con un retiro. Los clientes anteriores que enviaban DELETE /prestamos/:id sin confirmación/solicitud reciben 400; actualizar interfaz conjuntamente. Caché JavaScript `20261102-recuperacion-retiros-v81`.
+
+### Validación y límites
+
+Pruebas locales de interfaz, integridad de hashes, hooks append-only, contrato de identidad de la ruta, rechazo seguro de errores y compatibilidad de backup V1 aprobaron. La suite local ampliada previa a los cuatro contratos finales sumó 233 aprobadas, nueve omitidas por servicios externos y cero fallos; los cuatro contratos finales aprobaron por separado. `npm run check:syntax`, node --check de archivos nuevos y git diff --check aprobaron. MongoDB autenticado se exige en CI: normal/reintentos, ACTIVO/VENCIDO, calendario modificado entre ciclos, aislamiento, concurrencia, préstamo con fuentes anuladas, índices ausentes, corrupción administrativa y rollback de retiro/restauración. No se presenta como prueba de MongoDB local.
+
+La política ahora exige seis colecciones protegidas: credenciales antiguas sin privilegios adecuados para la nueva colección bloquearán el arranque. Antes de producción se requiere provisión administrativa explícita de colección/índices y revisión del rol efectivo sin UPDATE/DELETE. El lector de backup necesita lectura de la colección adicional. No se modifican roles/índices ni datos de producción durante este lote. Una reversión a un servidor anterior ignoraría los nuevos cursores/flujos; validar compatibilidad operativa antes de liberar.
+
+La cadena local no impide reescritura coherente por un administrador con acceso a eventos y proyección; falta custodia independiente real. No recupera documentos físicamente borrados ni retiros anteriores que carezcan de snapshot. No resuelve eliminación/recuperación de metas, cuentas, activos, configuración o crédito legacy, ni convierte todas las correcciones de préstamos en eventos inmutables. El backup parcial verifica conservación BSON/índices, no la veracidad financiera de las fuentes ni un arranque funcional del destino restaurado. Custodia, backup completo durable, claves independientes, retención efectiva, RPO/RTO reales, históricos/permisos/índices de producción, auditoría externa si corresponde y dispositivos siguen pendientes.
+
+Siguiente paso: publicar con lease, verificar CI del SHA exacto y registrar evidencia; después implementar recuperación del retiro legacy sin duplicar deudas incorporadas y completar inventario de otros registros recuperables. Mantener #407 abierto, sin fusión ni despliegue.
