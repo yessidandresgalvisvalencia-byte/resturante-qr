@@ -16,7 +16,7 @@ test("cobro parcial es atomico, idempotente y aislado por usuario (MongoDB repli
  const usuarioId=new mongoose.Types.ObjectId(),otroUsuario=new mongoose.Types.ObjectId();
  const contraparte="test-cobro-"+new mongoose.Types.ObjectId().toString();
  try{
-  await Promise.all([Prestamo.init(),Transaccion.init(),Cuenta.init()]);
+  await Promise.all([Prestamo.init(),Transaccion.init(),Cuenta.init(),require("../../modules/finanzas-personales/models/conciliacionCuentaPersonal.model").init()]);
   const prestamo=await Prestamo.create({usuarioId,direccion:"POR_COBRAR",origenCuentaPorCobrar:"TRABAJO",contraparte,concepto:"Servicio profesional",principalMinor:500000,saldoMinor:500000,fechaInicio:new Date()});
   const request={prestamoId:prestamo._id,montoMinor:200000,externalId:require("node:crypto").randomUUID()};
   const primer=await patrimonio.cobrarCuentaPorCobrar(usuarioId,request);
