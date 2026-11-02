@@ -5,7 +5,7 @@ const COLECCIONES=Object.freeze([
  "fin_transacciones_personales","fin_eventos_compensatorios_personales_v1","decisionproofpersonals",
  "fin_eventos_v81","fin_vinculos_historicos_v81","fin_cursor_compensaciones_personales_v1",
  "fin_cuentas_personales","fin_reservas_cuotas_recurrentes","fin_prestamos_personales",
- "fin_compromisos_cuotas","fin_compromisos_cuotas_hijas","fin_outbox_personal","fin_retiros_deudas_personales_v1","fin_creditos","fin_ciclo_creditos_legacy_personales_v1","fin_correcciones_prestamos_personales_v1","fin_recibos_aprobacion_personales_v1","fin_borradores_conversacionales","fin_recibos_creacion_prestamos_personales_v1","fin_recibos_creacion_cuentas_personales_v1"
+ "fin_compromisos_cuotas","fin_compromisos_cuotas_hijas","fin_outbox_personal","fin_retiros_deudas_personales_v1","fin_creditos","fin_ciclo_creditos_legacy_personales_v1","fin_correcciones_prestamos_personales_v1","fin_recibos_aprobacion_personales_v1","fin_borradores_conversacionales","fin_recibos_creacion_prestamos_personales_v1","fin_recibos_creacion_cuentas_personales_v1","fin_conciliaciones_cuentas_personales_v1"
 ]);
 const MAX_DOCS=5000,MAX_BYTES=16*1024*1024,AAD=Buffer.from("GRUK_PERSONAL_BACKUP_V1");
 const iso=s=>typeof s==="string"&&Number.isFinite(Date.parse(s))&&new Date(s).toISOString()===s;
@@ -13,7 +13,7 @@ const problema=m=>Object.assign(new Error(m),{code:"RESPALDO_PERSONAL_RECHAZADO"
 const sha=b=>crypto.createHash("sha256").update(b).digest("hex");
 function claveValida(clave){if(!Buffer.isBuffer(clave)||clave.length!==32)throw problema("Clave independiente de 32 bytes requerida");}
 function validarContenido(p){
- const alcance=p?.version===1?COLECCIONES.slice(0,12):p?.version===2?COLECCIONES.slice(0,13):p?.version===3?COLECCIONES.slice(0,15):p?.version===4?COLECCIONES.slice(0,16):p?.version===5?COLECCIONES.slice(0,18):p?.version===6?COLECCIONES.slice(0,19):p?.version===7?COLECCIONES:[];
+ const alcance=p?.version===1?COLECCIONES.slice(0,12):p?.version===2?COLECCIONES.slice(0,13):p?.version===3?COLECCIONES.slice(0,15):p?.version===4?COLECCIONES.slice(0,16):p?.version===5?COLECCIONES.slice(0,18):p?.version===6?COLECCIONES.slice(0,19):p?.version===7?COLECCIONES.slice(0,20):p?.version===8?COLECCIONES:[];
  if(!alcance.length||!Array.isArray(p.colecciones)||p.colecciones.length!==alcance.length||
   new Set(p.colecciones.map(c=>c.nombre)).size!==alcance.length||
   !iso(p.inicio)||!iso(p.fin)||Date.parse(p.fin)<Date.parse(p.inicio)||
@@ -94,7 +94,7 @@ async function crearRespaldo({cliente,base,clave,retenerHasta}){
  if(antes!==await catalogo(db))throw problema("El catálogo cambió durante la captura");
  for(const nombre of COLECCIONES)if(JSON.stringify(indices[nombre])!==JSON.stringify(indicesNormales(await db.collection(nombre).listIndexes({maxTimeMS:5000}).toArray())))
   throw problema("Los índices cambiaron durante la captura");
- const fin=new Date(),payload={version:7,inicio:inicio.toISOString(),fin:fin.toISOString(),retenerHasta,colecciones};
+ const fin=new Date(),payload={version:8,inicio:inicio.toISOString(),fin:fin.toISOString(),retenerHasta,colecciones};
  const archivo=cifrar(payload,clave);
  return {archivo,resumen:{sha256:sha(archivo),colecciones:colecciones.length,documentos:colecciones.reduce((n,c)=>n+c.documentos.length,0),
   bytes:archivo.length,capturaMs:Math.ceil(performance.now()-t),retenerHasta,certificaCustodiaIndependiente:false}};

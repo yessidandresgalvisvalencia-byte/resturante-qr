@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("conciliaciones protegidas conservan anclas, atomicidad y reintentos sin reponer saldos posteriores",()=>require("./helpers/conciliacionCuentaAutorizada").probarConciliacionCuentaAutorizada(db,provisionarMongoPersonal));
   await t.test("cuentas declaradas con recibo atómico conservan apertura sin ingreso, reintentos y Disponible Hoy",()=>require("./helpers/cuentaRecuperableAutorizada").probarCuentaRecuperableAutorizada(db,provisionarMongoPersonal));
   await t.test("créditos declarados con recibo sin duplicar deuda ni caja y calendario desconocido bloquea disponible",()=>require("./helpers/creditoRecuperableAutorizado").probarCreditoRecuperableAutorizado(db,provisionarMongoPersonal));
   await t.test("creación de préstamos con recibos atómicos, reintentos, aislamiento y respuesta perdida",()=>require("./helpers/creacionPrestamoAutorizado").probarCreacionPrestamoAutorizado(db,provisionarMongoPersonal));
@@ -222,6 +223,9 @@ test("MongoDB con autorización: rol insert-only bloquea modificación y borrado
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   await db.collection("fin_recibos_creacion_cuentas_personales_v1").dropIndex("fp_cuenta_recibo_nombre_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_conciliaciones_cuentas_personales_v1").dropIndex("fp_conciliacion_cuenta_secuencia_v1");
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   // El índice existe y es único, pero su filtro deja fuera parte del historial.

@@ -67,3 +67,9 @@ test("cuenta ok=true sin recibo vinculante no elimina pendiente; recibo exacto s
  const f=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true}):undefined);await assert.rejects(f.ctx.api("/cuentas",op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
  const e=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,ruta:"/cuentas",metodo:"POST",solicitudId:id,solicitudHuella:require("../../modules/finanzas-personales/services/creacionCuentaRecuperablePersonal.service").huellaSolicitud(datos),cuentaId:A,hash:"b".repeat(64)}}):undefined);await e.ctx.api("/cuentas",op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
 });
+
+test("conciliación sin recibo conserva incertidumbre y con recibo vinculado confirma",async()=>{
+ const id="b".repeat(24),key="conciliacion_prueba_0001",datos={confirmacion:true,versionCuenta:"c".repeat(64),saldoMinor:100,fecha:"2026-01-01T05:00:00.000Z"},op={method:"POST",headers:{"Idempotency-Key":key},body:JSON.stringify(datos)},path="/cuentas/"+id+"/conciliar";
+ const f=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true}):undefined);await assert.rejects(f.ctx.api(path,op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
+ const e=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,metodo:"POST",ruta:path,cuentaId:id,solicitudId:key,solicitudHuella:require("../../modules/finanzas-personales/services/conciliacionCuentaPersonal.service").huellaSolicitud(id,datos),hash:"f".repeat(64)}}):undefined);await e.ctx.api(path,op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
+});
