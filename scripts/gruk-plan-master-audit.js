@@ -63,7 +63,12 @@ function validateEvidencePaths(matrixMarkdown, root) {
       if (!full.startsWith(testRoot + path.sep) || !fs.existsSync(full)) return true;
       // A symlink inside test/ may point outside the checkout; reject it.
       // Only committed regular test files count as local evidence.
-      return !fs.lstatSync(full).isFile() || !fs.realpathSync(full).startsWith(fs.realpathSync(testRoot) + path.sep);
+      if (!fs.lstatSync(full).isFile() ||
+          !fs.realpathSync(full).startsWith(fs.realpathSync(testRoot) + path.sep)) return true;
+      // An empty placeholder with a .test.js suffix is not executable evidence.
+      // This only checks that a test is declared; passing CI is a separate gate.
+      const source = fs.readFileSync(full, "utf8");
+      return !/(?:\btest|\bit|\bdescribe)\s*\(/.test(source);
     })) throw Error("GRUK_PLAN_MISSING_EVIDENCE_TEST_" + id);
   }
   return true;
