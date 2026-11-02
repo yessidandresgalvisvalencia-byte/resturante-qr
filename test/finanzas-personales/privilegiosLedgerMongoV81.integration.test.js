@@ -86,6 +86,8 @@ async function probarMigracionAutorizada(db,uri,password,t){
    require("./helpers/restauracionCompromisoAutorizada").probarRestauracionCompromisoAutorizada);
   await t.test("recuperación de préstamos distingue capital y pago real sin duplicar cuotas ni caja",
    require("./helpers/restauracionPrestamoAutorizada").probarRestauracionPrestamoAutorizada);
+  await t.test("backup cifrado con lector separado restaura BSON e índices solo en una base aislada vacía",
+   ()=>require("./helpers/respaldoFinancieroAutorizado").probarRespaldoFinancieroAutorizado({db,uri,password}));
   await t.test("completar acciones exige evidencia vigente y revierte fallos de auditoría",
    require("./helpers/evidenciaProgresoAutorizada").probarEvidenciaProgresoAutorizada);
   await t.test("deudas conversacionales validan saldos sin inventar activos y revierten fallos",

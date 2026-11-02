@@ -257,3 +257,42 @@ Se conserva esa defensa. La prueba exige para CUENTA saldo reconstruido exacto y
 SHA de implementación y ensayo corregido: `8c94a54917c63990276f74ec30ac13a6d326bf65`. Las tres validaciones del SHA exacto terminaron en success: [Gate 41431762896](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41431762896), [Seguridad 41431762987](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41431762987) y [V81 41431762952](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41431762952). Sus siete jobs V81 aprobaron, incluido MongoDB autenticado (`125231787953`) con capital/pago real diferenciados, cierre, secuencia, concurrencia, conservación y rollback.
 
 Este checkpoint posterior es documental. Consultar HEAD y CI del commit documental antes de continuar. Sin fusión ni despliegue; #407 continúa abierto y no se acredita custodia independiente, backup ni configuración real de producción.
+
+## Checkpoint del 2 de noviembre de 2026 — ensayo de backup financiero
+
+Partida verificada: `827d1cee35071a77767e12ff95a462bfc64d4876`, PR #389 abierto y #407 abierto. CI de partida: [Gate 41431958980](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41431958980), [Seguridad 41431958939](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41431958939), [V81 41431958945](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41431958945), todos success. Checkout separado y publicación con lease. Sin main, Empresarial, Blushéa ni Render.
+
+### Inventario y decisión
+
+`retirarDeudaVisible` conserva el saldo pero cambia estado a CANCELADO y periodicidadConfirmada a false sin conservar todo el estado previo en un historial independiente. No se puede restaurar ese calendario automáticamente con certeza a partir del outbox actual. El retiro de crédito legacy solo desactiva su bandera y debe distinguirse de una incorporación al modelo nuevo, para no duplicar deudas. Estos flujos necesitan captura previa y recuperación propias; no están resueltos por la recuperación de pagos. No inferir estados anteriores ni reactivar todos los cancelados.
+
+Se implementa mientras tanto un bloque independiente de protección: servicio interno de backup cifrado y restauración exclusivamente en base nueva de ensayo local. No se añade ruta HTTP, despliegue ni acceso a producción.
+
+| Aceptación | Comportamiento verificable |
+| --- | --- |
+| Alcance explícito | Doce colecciones: cinco fuentes/evidencias protegidas, cursor compensatorio, cuentas, reservas recurrentes, préstamos, compromisos, cuotas y outbox. No es backup completo de identidad, suscripciones, activos, metas o configuración |
+| Captura de datos | Lectura BSON cruda en una transacción snapshot, sin insertar/actualizar/borrar en origen; hasta 5.000 documentos por colección y payload JSON de 16 MiB. Lectura incremental y rechazo ante capacidad insuficiente |
+| Catálogo e índices | Exige todas las colecciones ordinarias previstas, sin opciones especiales. Contrasta UUID y definición de índices antes/después; conserva claves, nombres y opciones soportadas. Rechaza TTL en este alcance financiero |
+| Protección del paquete | AES-256-GCM con nonce aleatorio, AAD y clave de 32 bytes suministrada fuera del archivo. Hashes BSON por colección y SHA256 del archivo; retenerHasta explícito, autenticado dentro del paquete |
+| Restauración aislada | Solo mongodb://127.0.0.1:27018/gruk_v81_restore_test_ + 16 hex, sin credenciales en URI ni query/hash, y NODE_ENV distinto de production. Crea su propia conexión directa y no admite otro destino |
+| No sobrescribir | Base completamente vacía, reclamación exclusiva por colección guardia. Sin drop, truncate, reemplazos ni limpieza automática. Un fallo deja el destino incompleto en cuarentena; un segundo intento contra esa base se rechaza |
+| Verificación | Reinsertar documentos con tipos BSON preservados, reconstruir índices y comparar número/hash de documentos y definición de índices. Solo después marcar VERIFICADO |
+| Métricas | capturaMs, restauracionMs, bytes, documentos y edadRespaldoMs. Son medidas del ensayo, no RPO/RTO de producción ni prueba de custodia independiente |
+
+Pruebas locales: cifrado/descifrado con ObjectId, Decimal128, Long fuera del rango seguro y Date; clave incorrecta, alteración, manifiesto incompleto, TTL, y destinos externos/producción se rechazan. La suite local ampliada terminó con 214 aprobadas, nueve omitidas por servicios externos y cero fallos; no se presenta como MongoDB real local.
+
+La nueva integración `respaldoFinancieroAutorizado.js` usa reader con rol read y prueba rechazo MongoDB código 13 ante escritura. Captura las doce colecciones ficticias del fixture; escribe el paquete cifrado con permisos 0600 y flag wx, sin clave en disco; crea una credencial distinta con readWrite únicamente en una base nueva de ensayo. Restaura, verifica y rechaza sobrescribir el destino. Un segundo paquete ficticio con _id duplicado debe dejar la restauración parcial en cuarentena, sin borrar documentos ni admitir reintentos sobre esa base. Un registro de cuenta posterior a la captura no aparece en el destino, mostrando el límite temporal del paquete. Emite únicamente métricas, sin documentos, claves ni URI. No borra origen, destino ni paquete: todo pertenece al contenedor/tmp efímeros de CI.
+
+```bash
+node --test test/gruk/respaldo-financiero-personal.test.js
+node --test test/finanzas-personales/*.test.js
+npm run check:syntax
+```
+
+### Pendientes externos y de alcance
+
+El paquete de CI no constituye backup independiente de producción: está en el mismo entorno efímero y carece de destino duradero/custodio externo. retenerHasta es metadato, no un control WORM ni una política de borrado. No se configura tarea de limpieza. Faltan destino independiente autorizado, gestión/recuperación/rotación de claves separadas, control real de retención y acceso, alertas de antigüedad y ejercicios periódicos. No se contratan servicios ni aumentan costos.
+
+No se midió RPO de producción: edad del respaldo y duración de captura no demuestran tiempo de pérdida respecto de la última escritura confirmada. RTO de producción exige infraestructura, volumen y procedimiento reales; los milisegundos del ensayo solo miden esa restauración ficticia. Cambios administrativos de esquema concurrentes quedan sujetos al contraste previo/posterior; no se certifica ausencia de DDL hostil. La restauración de prueba no inicia la aplicación ni acredita sus roles, índices/gates funcionales o compatibilidad operativa en producción.
+
+Siguiente paso: confirmar CI y registrar métricas del SHA publicado; definir captura append-only previa al retiro de registros mutables para permitir recuperación sin inferencias. Mantener #407, custodia independiente real, backup completo, históricos/permisos/índices de producción, RPO/RTO reales y dispositivos como pendientes. Sin fusión ni despliegue.
