@@ -168,3 +168,9 @@ npm run check:syntax
 Sin migraciones, borrados, reparaciones automáticas, cambios de roles ni acceso a datos reales. Los tests usan usuarios nuevos y datos ficticios en MongoDB aislado. No se afirma recuperación garantizada, custodia independiente ni aprobación de producción.
 
 Siguiente paso: confirmar CI del SHA publicado y preparar recuperación de cuotas financiadas/pagos de préstamos con su capital, pago real y calendario propios. No habilitar estos casos mediante restauración genérica de caja. Persisten custodia real de #407, auditoría de permisos/índices y compatibilidad histórica de producción, backups independientes con retención/acceso separado, RPO/RTO y restauración aislada medidos, y dispositivos reales. Mantener sin fusión ni despliegue hasta completar todos los criterios.
+
+### Evidencia del lote recurrente
+
+Código publicado con lease: `7e92724b449ca21cc748ab3b2ddbcefbaf48f6dd`. Las tres validaciones del SHA exacto terminaron en success: [Gate 41419735209](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41419735209), [Seguridad 41419735348](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41419735348) y [V81 41419735208](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41419735208). Sus siete jobs V81 aprobaron, incluido `mongo-privileges-v81` (`125192137549`) con el nuevo caso recurrente. La prueba confirmó reserva y caja conservadas ante carreras y fallos.
+
+Este checkpoint posterior solo registra evidencia. Verificar el HEAD documental y su CI antes de continuar. No es despliegue, no cierra #407 y no acredita permisos/custodia/backup de producción.
