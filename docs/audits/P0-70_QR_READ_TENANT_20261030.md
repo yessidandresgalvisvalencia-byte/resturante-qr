@@ -276,3 +276,12 @@
 - [GitHub Actions #41341221271](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41341221271): `mongodb-integration=success`, `offline-contract=success`, `docker-build=failure`. Falló el paso `Block release on high and critical production vulnerabilities`; build, Compose y ejecución de auditoría sí aprobaron, pero esto último no significa auditoría limpia.
 - Próximo paso: revisar el [artefacto npm audit](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41341221271/artifacts/13097168642), identificar rangos corregidos, regenerar lockfile y comprobar `npm ci`, `npm audit --omit=dev --audit-level=high`, pruebas y CI sobre SHA nuevo. Evitar actualizar versiones a ciegas.
 - P0-70 **PARCIAL**, último recuento **0/77 VERIFICADOS**; faltan HTTP/MongoDB real, E2E, migración QR y validación de seguridad. Sin merge ni deploy.
+
+
+## Control de evidencia — 01-11-2026, 20:15 Colombia
+
+- PR #534 sigue **abierto y draft**, HEAD observado `7ba8c25c1475db1dbf6b6f993c81ecc4c5e32848`, base `gruk/security-realtime-sede-scope-20261030` (#524). No se ha fusionado.
+- Consulta de los jobs del run [41341221271](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41341221271): `mongodb-integration` SUCCESS, `offline-contract` SUCCESS, `docker-build` FAILURE específicamente en **Block release on high and critical production vulnerabilities**. El paso de construcción Docker terminó SUCCESS, lo que **no** equivale a aprobación del gate. Este run histórico no acredita checks del HEAD actual; no afirmar que el HEAD está verde.
+- Contraste de cambios del PR: 8 archivos (servicio QR, pruebas unitarias y MongoDB, `package.json`, matriz y auditoría). La prueba escrita de integración no sustituye ejecución HTTP de `GET /pedidos/mesa/:mesa` y `GET /factura/mesa/:mesa` con MongoDB real y comprobación de cuerpos de respuesta, logs y tokens.
+- **Bloqueos:** vulnerabilidades de producción sin remediación verificable, aceptación HTTP/E2E y migración legacy pendientes; Render Auto-Deploy sobre `main` impide fusionar con seguridad. No ejecutar despliegue ni fusionar por resultados parciales.
+- **Siguiente trabajo:** recuperar el artefacto JSON de `npm audit --omit=dev`, identificar advisory y ruta transitiva exactos, actualizar manifiesto y lockfile de forma reproducible, ejecutar gate de seguridad y suite completa para SHA nuevo; luego implementar y comprobar HTTP+MongoDB real. P0-70 sigue PARCIAL; **0/77 certificados**.
