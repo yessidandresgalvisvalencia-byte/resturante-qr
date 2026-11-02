@@ -33,6 +33,9 @@ async function probarCreditoLegacyRecuperableAutorizado(db){
  assert.deepEqual(incorporada.cuentas,original.cuentas);assert.deepEqual(incorporada.tx,original.tx);assert.equal(incorporada.eventos.at(-1).tipo,"INCORPORACION");assert.equal((await service.listar(f.userId)).retirados.length,0);
  await assert.rejects(f.restaurar({...solicitud(),retiroHash:recibo.hash}),e=>e.statusCode===409);await assert.rejects(f.incorporar(solicitud()),e=>e.statusCode===409);assert.deepEqual(await f.foto(),incorporada);
  await P.updateOne({_id:incorporada.prestamos[0]._id},{$set:{estado:"PAGADO",saldoMinor:0}});assert.equal((await f.incorporar(incorporar)).id,recibo.id);assert.equal(await P.countDocuments({usuarioId:f.userId}),1);
+ await P.updateOne({_id:incorporada.prestamos[0]._id},{$set:{legacyCreditoId:null}});const vinculoCambiado=await f.foto();
+ await assert.rejects(f.incorporar(incorporar),e=>e.statusCode===409);assert.deepEqual(await f.foto(),vinculoCambiado);
+ assert.equal((await service.listar(f.userId)).retirados[0].recuperacion.disponible,false);
  for(const estado of ["ACTIVO","PAGADO","CANCELADO"]){
   const d=await preparar();await vincular(d,estado);const foto=await d.foto();await assert.rejects(d.incorporar(solicitud()),e=>e.statusCode===409);await assert.rejects(d.retirar(solicitud()),e=>e.statusCode===409);assert.deepEqual(await d.foto(),foto);
   const oculto=await preparar();const retiro=await oculto.retirar(solicitud());await vincular(oculto,estado);const antes=await oculto.foto();await assert.rejects(oculto.restaurar({...solicitud(),retiroHash:retiro.hash}),e=>e.statusCode===409);assert.deepEqual(await oculto.foto(),antes);
@@ -49,6 +52,9 @@ async function probarCreditoLegacyRecuperableAutorizado(db){
  for(const [coleccion,nombre] of [[E.collection.collectionName,"fp_legacy_ciclo_solicitud_v1"],[P.collection.collectionName,"usuarioId_1_legacyCreditoId_1"]]){
   await db.collection(coleccion).dropIndex(nombre);await assert.rejects(indices.incorporar(solicitud()),e=>e.statusCode===503);assert.deepEqual(await indices.foto(),fotoIndices);await provisionarMongoPersonal(db);
  }
+ const tipado=await preparar();await db.collection(C.collection.collectionName).updateOne({_id:tipado.c._id},{$set:{saldo:"1200"}});const tipoAntes=await tipado.foto();
+ await assert.rejects(tipado.incorporar(solicitud()),e=>e.statusCode===422);assert.deepEqual(await tipado.foto(),tipoAntes);
+ const rt=await tipado.retirar(solicitud());assert.equal((await tipado.foto()).eventos[0].anterior.saldo,"1200");await tipado.restaurar({...solicitud(),retiroHash:rt.hash});assert.equal((await tipado.foto()).credito.saldo,"1200");
  const carrera=await preparar();const resultados=await Promise.allSettled([carrera.retirar(solicitud()),carrera.incorporar(solicitud())]);assert.equal(resultados.filter(x=>x.status==="fulfilled").length,1);const final=await carrera.foto();assert.equal(final.eventos.length,1);assert.equal(final.prestamos.length,final.eventos[0].tipo==="INCORPORACION"?1:0);assert.equal(final.credito.activo,false);assert.equal(final.cuentas[0].saldoMinor,5000);assert.equal(final.tx.length,0);
 }
 module.exports={probarCreditoLegacyRecuperableAutorizado};

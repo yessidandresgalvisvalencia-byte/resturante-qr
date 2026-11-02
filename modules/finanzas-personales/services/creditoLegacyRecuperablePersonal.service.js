@@ -41,11 +41,12 @@ async function operar(usuarioId,creditoId,s,tipo){
  validar(usuarioId,creditoId,s,tipo);await exigirIndices();const session=await mongoose.startSession();let resultado;
  try{
   await session.withTransaction(async()=>{
-   const p=await Credito.findOne({_id:creditoId,userId:usuarioId,activo:{$in:[true,false]}}).session(session);if(!p)throw falla("Crédito anterior no encontrado",404);
+   const p=await Credito.findOne({_id:creditoId,userId:usuarioId,activo:{$in:[true,false]}}).session(session).lean();if(!p)throw falla("Crédito anterior no encontrado",404);
    const eventos=await Evento.find({usuarioId,creditoId}).sort({secuencia:1}).limit(MAX+1).maxTimeMS(5000).session(session).lean(),ultimo=verificar(eventos,p);
    const replay=await Evento.findOne({usuarioId,solicitudId:s.solicitudId}).session(session).lean();
    if(replay){
     if(String(replay.creditoId)!==String(creditoId)||replay.tipo!==tipo||(replay.referencia||null)!==(tipo==="RESTAURACION"?s.retiroHash:null))throw falla("Identificador de reintento usado en otra operación");
+    if(replay.tipo==="INCORPORACION"&&!await Prestamo.exists({_id:replay.prestamoIncorporadoId,usuarioId,legacyCreditoId:p._id}).session(session))throw falla("La deuda incorporada ya no tiene un vínculo verificable; requiere revisión");
     resultado={id:replay.prestamoIncorporadoId?String(replay.prestamoIncorporadoId):String(p._id),creditoId:String(p._id),hash:replay.hashActual,duplicado:true,vigente:ultimo?.hashActual===replay.hashActual&&igual(foto(p),replay.posterior)};return;
    }
    if(eventos.length>=MAX)throw falla("Historial de crédito supera la capacidad verificable");
@@ -63,7 +64,9 @@ async function operar(usuarioId,creditoId,s,tipo){
     }
    }
    const e={usuarioId:p.userId,creditoId:p._id,secuencia:eventos.length+1,solicitudId:s.solicitudId,tipo,referencia:tipo==="RESTAURACION"?s.retiroHash:null,prestamoIncorporadoId,anterior,posterior,fecha:new Date(),hashAnterior:ultimo?.hashActual||GENESIS};e.hashActual=hash(e);
-   await Evento.create([e],{session});p.activo=posterior.activo;p.retiroRevision=e.secuencia;p.retiroHash=e.hashActual;await p.save({session});
+   await Evento.create([e],{session});
+   const cambio=await Credito.updateOne({_id:p._id,userId:usuarioId},{$set:{activo:posterior.activo,retiroRevision:e.secuencia,retiroHash:e.hashActual}},{session});
+   if(cambio.matchedCount!==1)throw falla("El crédito cambió durante la operación");
    await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"PRESTAMO_PERSONAL_CORREGIDO",aggregateType:"CREDITO_LEGACY_PERSONAL",aggregateId:p._id,payload:{accion:tipo,creditoAnteriorId:String(p._id),prestamoId:prestamoIncorporadoId?String(prestamoIncorporadoId):null,cicloEventoHash:e.hashActual,saldoConservadoMinor:p.saldo}}],{session});
    resultado={id:String(prestamoIncorporadoId||p._id),creditoId:String(p._id),hash:e.hashActual,duplicado:false,vigente:true};
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return resultado;
