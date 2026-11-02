@@ -29,3 +29,13 @@ test("acepta evidencia con enlace correcto y archivo de prueba real, sin certifi
   assert.equal(validateEvidencePaths(row(goodLink + " test/gruk/evidence.test.js criterio de aceptación"),dir),true);
  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test("rechaza symlink a prueba fuera del directorio test", () => {
+ const dir = fs.mkdtempSync(path.join(os.tmpdir(),"gruk-evidence-"));
+ try {
+  fs.mkdirSync(path.join(dir,"test/gruk"),{recursive:true});
+  fs.writeFileSync(path.join(dir,"outside.test.js"),"");
+  fs.symlinkSync(path.join(dir,"outside.test.js"),path.join(dir,"test/gruk/evidence.test.js"));
+  assert.throws(() => validateEvidencePaths(row(goodLink + " test/gruk/evidence.test.js criterio de aceptación"),dir),/MISSING_EVIDENCE_TEST_01/);
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
