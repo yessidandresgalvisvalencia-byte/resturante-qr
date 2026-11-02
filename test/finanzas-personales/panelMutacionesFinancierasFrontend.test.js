@@ -79,3 +79,10 @@ test("retiro sin recibo no libera incertidumbre; acuse exacto no se confunde con
  const f=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true}):undefined);await assert.rejects(f.ctx.api(path,op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
  const e=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,tipo:"RETIRO",metodo:"POST",ruta:path,cuentaId:id,solicitudId:key,solicitudHuella:require("../../modules/finanzas-personales/services/cicloCuentaPersonal.service").huellaSolicitud(id,"RETIRO",datos),hash:"f".repeat(64)}}):undefined);await e.ctx.api(path,op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
 });
+
+test("detalle patrimonial muestra fuentes declaradas escapadas y se invalida ante fallo sin inventar caja",async()=>{
+ let fallar=false;const f=entorno(async p=>{if(fallar&&p==="/patrimonio")throw Error("Inversiones no calculables");});f.ctx.esc=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+ f.fixture["/patrimonio"].patrimonio={activosBase:1000,valorInversiones:120,capitalInvertido:100,resultadoInversiones:20,deudas:500,patrimonioNeto:620,criterioInversiones:"Valores declarados; no disponibles en caja.",inversiones:[{id:A,legacyId:B,nombre:"<img src=x>",clase:"FONDO",fuente:"CANONICA_VINCULADA",valorActualMinor:120,capitalAportadoMinor:100,resultadoDeclaradoMinor:20}]};
+ await f.ctx.load();assert.match(f.$("pInversiones").textContent,/120/);assert.match(f.$("detalleInversiones").innerHTML,/&lt;img src=x&gt;/);assert.doesNotMatch(f.$("detalleInversiones").innerHTML,/<img/);assert.match(f.$("detalleInversiones").innerHTML,/CANONICA_VINCULADA/);assert.match(f.$("hDisponibleHoy").textContent,/200/);
+ fallar=true;await f.ctx.load();assert.equal(f.$("detalleInversiones").textContent,"No actualizado");assert.equal(f.$("pInversiones").textContent,"No actualizado");assert.equal(f.$("hDisponibleHoy").textContent,"No actualizado");
+});

@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("inversiones declaradas cuentan una vez sin aumentar caja y rechazan discrepancias",()=>require("./helpers/lecturaInversionesAutorizada").probarLecturaInversionesAutorizada(db));
   await t.test("retiro y restauración de cuentas en cero preservan fuentes, saldo e identidad con auditoría",()=>require("./helpers/cicloCuentaAutorizado").probarCicloCuentaAutorizado(db,provisionarMongoPersonal));
   await t.test("conciliaciones protegidas conservan anclas, atomicidad y reintentos sin reponer saldos posteriores",()=>require("./helpers/conciliacionCuentaAutorizada").probarConciliacionCuentaAutorizada(db,provisionarMongoPersonal));
   await t.test("cuentas declaradas con recibo atómico conservan apertura sin ingreso, reintentos y Disponible Hoy",()=>require("./helpers/cuentaRecuperableAutorizada").probarCuentaRecuperableAutorizada(db,provisionarMongoPersonal));
