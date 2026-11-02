@@ -126,4 +126,58 @@ async function deshacer(usuarioId,{compromisoId,numero,movimientoId,idempotencyK
   resultado={duplicado:false,cuota:cuota.toObject(),compromiso:padre.toObject(),compensacion};
  },txConfig);return resultado;}finally{await session.endSession();}
 }
-module.exports={importes,crear,listar,pagar,deshacer};
+async function restaurar(usuarioId,{compromisoId,numero,movimientoId,idempotencyKey,anulacionHash}){
+ if(!Number.isInteger(numero)||numero<1||numero>360||
+  ![usuarioId,compromisoId,movimientoId].every(x=>mongoose.isObjectIdOrHexString(x))||
+  typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey)||
+  typeof anulacionHash!=="string"||!/^[a-f0-9]{64}$/.test(anulacionHash))throw problema("Cuota, pago y anulación exacta obligatorios",400);
+ const session=await mongoose.startSession();
+ try{return await session.withTransaction(async()=>{
+  await serializarEscrituraFuente(usuarioId,session);
+  const tx=await Tx.findOne({_id:movimientoId,usuarioId,tipo:"PAGO_DEUDA",estado:"ACTIVA",moneda:"COP"}).session(session).lean();
+  if(!tx)throw problema("Pago de cuota no encontrado",404);
+  if(tx.descripcion!=="Compromiso "+compromisoId+" cuota "+numero||
+   !Number.isSafeInteger(tx.montoMinor)||tx.montoMinor<1||typeof tx.impactoCaja!=="boolean"||
+   tx.prestamoId||tx.recurrente||tx.recurrenteOrigenId||tx.medioPago==="CREDITO"||
+   tx.montoPagadoRealMinor!=null&&tx.montoPagadoRealMinor!==tx.montoMinor||
+   tx.impactoCaja&&!tx.cuentaId||!tx.impactoCaja&&tx.cuentaId||
+   !(tx.fecha instanceof Date)||!Number.isFinite(+tx.fecha)||+tx.fecha>Date.now())throw problema("Pago de cuota no conciliable");
+  const original={usuarioId:String(usuarioId),movimientoId:String(tx._id),tipo:tx.tipo,montoMinor:tx.montoMinor,
+   concepto:tx.concepto,categoria:tx.categoria,impactoCaja:tx.impactoCaja};
+  const {cadena}=await leerCadenaVerificada(String(usuarioId),{session});
+  const historial=cadena.filter(e=>e.movimientoId===String(tx._id)),estado=vigente(original,historial);
+  const repetido=cadena.find(e=>e.idempotencyKey===idempotencyKey);
+  if(repetido){
+   if(repetido.movimientoId!==String(tx._id)||repetido.tipo!=="RESTAURACION"||repetido.anulacionHash!==anulacionHash)
+    throw problema("Clave idempotente utilizada para otra operación");
+   return {duplicado:true,compensacion:repetido};
+  }
+  if(!estado.anulado||historial.at(-1)?.tipo!=="ANULACION"||historial.at(-1)?.hashActual!==anulacionHash)
+   throw problema("La anulación cambió; consulta de nuevo antes de restaurar");
+  const padre=await Padre.findOne({_id:compromisoId,usuarioId}).session(session);
+  if(!padre)throw problema("Compromiso no encontrado",404);
+  const cuota=await Cuota.findOne({usuarioId,compromisoId,numero}).session(session);
+  validarCuota(padre,cuota,false);
+  if(tx.montoMinor!==cuota.montoMinor)throw problema("Importe del pago distinto de la cuota pendiente");
+  const compensacion=await registrarCompensacion({original,tipo:"RESTAURACION",anulacionHash,idempotencyKey,
+   fechaISO:new Date().toISOString()},{session});
+  if(tx.impactoCaja){
+   const delta=Number(BigInt(compensacion.deltaCajaMinor));
+   const cuenta=await Cuenta.findOneAndUpdate({_id:tx.cuentaId,usuarioId,activa:true,moneda:"COP",...filtroSaldoSeguro(delta)},
+    {$inc:{saldoMinor:delta}},{new:true,session});
+   if(!cuenta||!Number.isSafeInteger(cuenta.saldoMinor))throw problema("Cuenta no disponible o saldo insuficiente para restaurar la cuota");
+  }
+  cuota.estado="PAGADA";cuota.pagadaEn=tx.fecha;cuota.transaccionId=tx._id;await cuota.save({session});
+  padre.saldoMinor-=cuota.montoMinor;padre.cuotasPagadas++;
+  padre.estado=padre.cuotasPagadas===padre.numeroCuotas?"FINALIZADA":"ACTIVA";
+  validarCuota(padre,cuota,true);await padre.save({session});
+  await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"COMPROMISO_CUOTA_PAGADA",
+   aggregateType:"COMPROMISO_CUOTAS_PERSONAL",aggregateId:padre._id,
+   payload:{accion:"RESTAURACION",numero,montoMinor:cuota.montoMinor,transaccionId:String(tx._id),cuotaId:String(cuota._id),
+    impactoCaja:tx.impactoCaja,anulacionHash,compensacionHash:compensacion.hashActual,secuencia:compensacion.secuencia,
+    deltaCajaMinor:compensacion.deltaCajaMinor,saldoPendienteMinor:padre.saldoMinor}}],{session});
+  return {duplicado:false,compensacion};
+ },txConfig);}catch(e){if(e.code===11000)throw problema("Operación concurrente; consulta antes de reintentar");throw e;}
+ finally{await session.endSession();}
+}
+module.exports={importes,crear,listar,pagar,deshacer,restaurar};

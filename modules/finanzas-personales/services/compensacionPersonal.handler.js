@@ -1,6 +1,6 @@
 "use strict";
 const {crearAplicador}=require("./compensarMovimientoPersonal.service");
-function crearHandler({tipo,aplicar=crearAplicador()}={}){
+function crearHandler({tipo,aplicar=tipo==="RESTAURACION"?require("./restauracionMovimientoPersonal.service").restaurarMovimiento:crearAplicador()}={}){
  if(!["CORRECCION","ANULACION","RESTAURACION"].includes(tipo))throw new TypeError("Operación inválida");
  return async(req,res)=>{
   res.set("Cache-Control","private, no-store");

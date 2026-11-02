@@ -346,7 +346,7 @@ window.restoreMovement=async(id,anulacionHash)=>{
  if(!sesion||$("app").hidden||mutacionesMovimientoEnCurso.has(id))return;
  mutacionesMovimientoEnCurso.add(id);
  try{
-  if(!confirm("¿Restaurar este movimiento anulado? Volverá a contar en tus totales y ajustará la caja una sola vez. El historial se conservará."))return;
+  if(!confirm("¿Restaurar este movimiento anulado? Volverá a contar en tus totales y reaplicará su efecto financiero una sola vez. El historial se conservará."))return;
   const k="RESTAURACION:"+id+":"+anulacionHash;
   await api("/transacciones/"+encodeURIComponent(id)+"/restaurar",{method:"POST",headers:{"Idempotency-Key":claveCompensacion(k)},body:JSON.stringify({confirmar:true,anulacionHash})});
   if(token!==sesion||$("app").hidden)return;

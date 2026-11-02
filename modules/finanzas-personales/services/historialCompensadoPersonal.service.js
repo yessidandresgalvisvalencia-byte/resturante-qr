@@ -5,7 +5,12 @@ function recuperacion(t){
  const simple=t.estado==="ANULADA"&&["INGRESO","GASTO"].includes(t.tipo)&&t.moneda==="COP"&&
   t.impactoCaja===true&&t.cuentaId&&!t.prestamoId&&!t.recurrente&&(!t.recurrenteOrigenId||t.tipo==="GASTO")&&t.medioPago!=="CREDITO"&&
   /^[a-f0-9]{64}$/.test(t.compensacionHash||"");
- return simple?{recuperacion:{disponible:true,anulacionHash:t.compensacionHash}}:{};
+ const m=/^Compromiso ([a-f0-9]{24}) cuota ([1-9][0-9]{0,2})$/.exec(t.descripcion||"");
+ const cuota=t.estado==="ANULADA"&&t.tipo==="PAGO_DEUDA"&&t.moneda==="COP"&&m&&Number(m[2])<=360&&
+  !t.prestamoId&&!t.recurrente&&!t.recurrenteOrigenId&&t.medioPago!=="CREDITO"&&
+  (t.montoPagadoRealMinor==null||t.montoPagadoRealMinor===t.montoMinor)&&
+  (t.impactoCaja===true&&t.cuentaId||t.impactoCaja===false&&!t.cuentaId)&&/^[a-f0-9]{64}$/.test(t.compensacionHash||"");
+ return simple||cuota?{recuperacion:{disponible:true,anulacionHash:t.compensacionHash}}:{};
 }
 function filtrar(rows,f){
  const texto=String(f.q||"").toLowerCase();

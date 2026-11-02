@@ -23,7 +23,7 @@ const cambios=new Schema({
  categoria:{type:String,minlength:1}
 },{_id:false,strict:"throw"});
 const schema=new Schema({
- version:{type:Number,required:true,enum:[1,2,3,4,5]},
+ version:{type:Number,required:true,enum:[1,2,3,4,5,6]},
  usuarioId:{type:String,required:true,match:NONEMPTY},
  movimientoId:{type:String,required:true,match:NONEMPTY},
  tipo:{type:String,required:true,enum:["CORRECCION","ANULACION","RESTAURACION"]},

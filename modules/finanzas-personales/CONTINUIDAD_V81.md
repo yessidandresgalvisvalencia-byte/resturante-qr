@@ -174,3 +174,33 @@ Siguiente paso: confirmar CI del SHA publicado y preparar recuperación de cuota
 Código publicado con lease: `7e92724b449ca21cc748ab3b2ddbcefbaf48f6dd`. Las tres validaciones del SHA exacto terminaron en success: [Gate 41419735209](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41419735209), [Seguridad 41419735348](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41419735348) y [V81 41419735208](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41419735208). Sus siete jobs V81 aprobaron, incluido `mongo-privileges-v81` (`125192137549`) con el nuevo caso recurrente. La prueba confirmó reserva y caja conservadas ante carreras y fallos.
 
 Este checkpoint posterior solo registra evidencia. Verificar el HEAD documental y su CI antes de continuar. No es despliegue, no cierra #407 y no acredita permisos/custodia/backup de producción.
+
+## Checkpoint del 2 de noviembre de 2026 — cuotas de compras financiadas
+
+HEAD verificado: `b9dee0832d45949e3fc3c780261413df1a6f0933`; PR #389 abierto sobre feature/finanzas-personales (`f44a0535ad86ac7f10a90be6a700cfc8618a43e0`) y #407 abierto. CI de partida: [Gate 41419972185](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41419972185), [Seguridad 41419972218](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41419972218), [V81 41419972156](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41419972156), todos success. Checkout aislado y publicación con lease; no modificar main ni desplegar.
+
+Este bloque recupera pagos anulados de `compromisosCuotas`, manteniendo separada la recuperación de pagos de préstamos. No convierte un PAGO_DEUDA arbitrario en ingreso/gasto ni permite saltar el calendario. Los límites de los checkpoints anteriores corresponden a aquellos lotes; ahora se añade este flujo específico.
+
+| Aceptación | Implementación y evidencia |
+| --- | --- |
+| Fuente exacta | Compromiso y número se obtienen de la descripción canónica del pago original, con propietario autenticado; ambos se vuelven a comprobar dentro de la transacción |
+| Evento append-only | RESTAURACION V6 para PAGO_DEUDA sin préstamo, ligado a la anulación vigente. V1–V5 conservan sus payloads y hashes; originales y eventos anteriores no se reescriben |
+| Calendario coherente | Solo la siguiente cuota pendiente, con importe exacto y padre conciliable; restaura transaccionId y fecha del pago original, contador y saldo. La última cuota deja FINALIZADA con saldo cero |
+| Caja separada | CUENTA descuenta de la misma cuenta propia activa; HISTORICO conserva efecto de caja cero y no inventa cuenta de origen |
+| Atomicidad | Cuota, padre, evento, cursor, caja y outbox en una transacción. Falta de saldo o fallo de auditoría revierten toda la unidad |
+| Reintentos y carreras | Clave por anulación; recibo repetido no vuelve a aplicar efectos. Pago nuevo y restauración compiten por la misma cuota y solo uno confirma |
+| Interfaz y autorización | Historial de anulados ofrece Restaurar mediante la ruta existente con confirmación true, JWT e Idempotency-Key. El despachador no acepta compromiso/numero del cuerpo y rechaza préstamos hasta su flujo propio |
+| Lecturas | Historial, estado compensado y caja reconocen V6; recibo devuelto exige consultar estado actual, sin afirmar que una restauración antigua siga vigente |
+
+JavaScript versionado `20261102-restauracion-cuotas-v81`; la confirmación dice que se reaplica el efecto financiero, sin prometer un débito para pagos históricos. Los dos contratos de caché se actualizan junto al HTML.
+
+Validación local: 256 pruebas aprobadas, nueve omitidas por servicios externos, cero fallos; sintaxis y diff revisados. No hay MongoDB local. El caso `restauracionCompromisoAutorizada.js` se incorpora al fixture con rol restringido de CI: CUENTA/HISTORICO, fuente intacta, idempotencia concurrente, referencia antigua, aislamiento, lectura/caja, última cuota, carrera contra pago nuevo, rollback de outbox y saldo insuficiente. Las omisiones locales no acreditan esa integración.
+
+```bash
+node --test test/finanzas-personales/*.test.js test/gruk/restauracion-compensada-personal.test.js test/gruk/restauracion-movimiento-despacho.test.js test/gruk/registrador-compensacion-personal.test.js test/gruk/estado-compensado-personal.test.js test/gruk/evento-compensatorio-personal.test.js test/gruk/consulta-compensada-personal.test.js test/gruk/frontend-version-aislamiento-personal.test.js test/gruk/hormiga-version-javascript-personal.test.js
+npm run check:syntax
+```
+
+Sin migraciones, borrados, reparación de históricos ni cambios de roles de producción. Un lector anterior que no admite V6 fallará cerrado ante esos eventos; todavía se debe probar reversión operativa compatible antes de liberar. DOM simulado no equivale a validación en dispositivos.
+
+Próximo bloque: recuperación específica de pagos de préstamos, con capital y pago real diferenciados, saldo y secuencia de cuotas verificables. No habilitarla por el despachador genérico hasta completarla y probarla. Siguen pendientes eliminación recuperable de otros registros mutables, custodia independiente real de #407, históricos/permisos/índices de producción, backup independiente con retención y acceso separado, restauración aislada y RPO/RTO medidos, y pruebas en dispositivos. No fusionar ni desplegar.
