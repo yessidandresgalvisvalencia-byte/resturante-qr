@@ -4,7 +4,7 @@ const {BSON}=require("mongoose").mongo;
 const {COLECCIONES,cifrar,descifrar,validarDestino,restaurarEnEnsayo}=require("../../modules/finanzas-personales/services/respaldoFinancieroPersonal.service");
 function contenido(){
  const raw=BSON.serialize({_id:new BSON.ObjectId(),decimal:BSON.Decimal128.fromString("123.45"),entero:BSON.Long.fromString("9007199254740993"),fecha:new Date("2026-11-02T00:00:00Z")});
- return{version:8,inicio:"2026-11-02T00:00:00.000Z",fin:"2026-11-02T00:00:01.000Z",retenerHasta:"2026-12-02T00:00:00.000Z",
+ return{version:9,inicio:"2026-11-02T00:00:00.000Z",fin:"2026-11-02T00:00:01.000Z",retenerHasta:"2026-12-02T00:00:00.000Z",
   colecciones:COLECCIONES.map((nombre,i)=>({nombre,indices:[{name:"_id_",key:{_id:1}}],documentos:i===0?[raw.toString("base64")]:[],hash:crypto.createHash("sha256").update(i===0?raw:Buffer.alloc(0)).digest("hex")}))};
 }
 test("respaldo cifrado conserva BSON, fechas, decimales y enteros sin imprimir datos",()=>{
@@ -52,3 +52,5 @@ test("backup V5 conserva sus dieciocho colecciones",()=>{const p=contenido();p.v
 test("backup V6 conserva sus diecinueve colecciones",()=>{const p=contenido();p.version=6;p.colecciones=p.colecciones.slice(0,19);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,19);});
 
 test("backup V7 conserva sus veinte colecciones",()=>{const p=contenido();p.version=7;p.colecciones=p.colecciones.slice(0,20);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,20);});
+
+test("backup V8 conserva sus veintiuna colecciones",()=>{const p=contenido();p.version=8;p.colecciones=p.colecciones.slice(0,21);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,21);});

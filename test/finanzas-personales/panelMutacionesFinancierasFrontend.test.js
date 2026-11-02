@@ -73,3 +73,9 @@ test("conciliación sin recibo conserva incertidumbre y con recibo vinculado con
  const f=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true}):undefined);await assert.rejects(f.ctx.api(path,op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
  const e=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,metodo:"POST",ruta:path,cuentaId:id,solicitudId:key,solicitudHuella:require("../../modules/finanzas-personales/services/conciliacionCuentaPersonal.service").huellaSolicitud(id,datos),hash:"f".repeat(64)}}):undefined);await e.ctx.api(path,op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
 });
+
+test("retiro sin recibo no libera incertidumbre; acuse exacto no se confunde con restauración",async()=>{
+ const id="a".repeat(24),key="ciclo_cuenta_prueba_0001",datos={confirmacion:true,versionCuenta:"b".repeat(64),motivo:"No uso"},path="/cuentas/"+id+"/retirar",op={method:"POST",headers:{"Idempotency-Key":key},body:JSON.stringify(datos)};
+ const f=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true}):undefined);await assert.rejects(f.ctx.api(path,op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
+ const e=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,tipo:"RETIRO",metodo:"POST",ruta:path,cuentaId:id,solicitudId:key,solicitudHuella:require("../../modules/finanzas-personales/services/cicloCuentaPersonal.service").huellaSolicitud(id,"RETIRO",datos),hash:"f".repeat(64)}}):undefined);await e.ctx.api(path,op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
+});
