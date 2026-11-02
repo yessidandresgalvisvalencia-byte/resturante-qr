@@ -292,3 +292,11 @@
 - GitHub Actions consultado por rama de PR #534, SHA exacto `2a47d3b35331cf7c8116742cad2b6181d22d1976`: [run #41371574494](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41371574494) `failure` y [run #41371569062](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41371569062) `success`. Son workflows distintos: **no interpretar un workflow exitoso como CI global verde**. Consultas realizadas sobre el HEAD previo a este commit documental; verificar de nuevo el nuevo SHA antes de fusionar.
 - PR #534 y PR #524 continúan abiertos. Bloqueos históricos no resueltos con evidencia: gate HIGH de dependencias, HTTP/E2E y aceptación multiempresa. Los resultados de integración parciales no satisfacen los criterios de terminado.
 - Estado conservador: P0-70 **PARCIAL**, 0/77 certificados integralmente. Sin merge, sin deploy. Próxima intervención técnica: identificar advisory exacto desde artefacto de auditoría y corregir manifiesto/lockfile; ejecutar suite y gates completos sobre el SHA de código corregido.
+
+
+## Verificación de gate sobre HEAD — 02-11-2026, 00:16 Colombia
+
+- HEAD inspeccionado de PR #534: `2be769c31dd874d92d00d9ef5e22ccf8b5650c3d`; PR abierto en borrador, base #524 abierta y no fusionable según metadata de GitHub.
+- [GitHub Actions #41376940755](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41376940755), asociado a ese SHA: `offline-contract=success`, `mongodb-integration=success`, `docker-build=failure`. Dentro de `docker-build` aprobaron imagen, Compose, auditoría y subida de artefacto, pero falló `Block release on high and critical production vulnerabilities`. **El gate de release sigue rojo sobre el HEAD consultado**.
+- La auditoría de seguridad se ejecutó, pero no se descargó ni interpretó su JSON: no atribuir avisos concretos a paquetes sin evidencia. La suite MongoDB del workflow comprueba ledger; no certificar por ella los endpoints HTTP QR ni la totalidad de requisitos.
+- Próxima intervención: obtener JSON del artefacto de este run, corregir vulnerabilidades en manifiesto y lockfile, verificar npm ci/audit y añadir integración HTTP real de ambas rutas QR. P0-70 **PARCIAL**; último recuento documental **0/77 certificados**. Sin merge ni deploy.
