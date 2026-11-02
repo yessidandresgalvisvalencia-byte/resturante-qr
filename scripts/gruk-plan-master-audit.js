@@ -40,11 +40,32 @@ function validate(criteriaMarkdown, matrixMarkdown) {
   return { total: 77, counts, allVerified: counts.VERIFICADO === 77,
     releaseAuthorized: false };
 }
+// Evidence is a claim, not proof. Reject references to non-existent tests or
+// unrelated repositories before any row can be reported as verified.
+function validateEvidencePaths(matrixMarkdown, root) {
+  const matrix = rows(matrixMarkdown, 5, "matrix");
+  for (const [id, , , status, evidence] of matrix) {
+    if (status !== "VERIFICADO") continue;
+    const links = [...evidence.matchAll(/https:\/\/github\.com\/([^/\s)]+)\/([^/\s)]+)\/(pull|commit)\/([0-9a-f]+)/gi)];
+    if (!links.length || links.some(m => m[1] !== "yessidandresgalvisvalencia-byte" ||
+        m[2] !== "resturante-qr" || (m[3] === "pull" && !/^\d+$/.test(m[4])) ||
+        (m[3] === "commit" && !/^[a-f0-9]{7,40}$/i.test(m[4]))))
+      throw Error("GRUK_PLAN_UNTRUSTED_EVIDENCE_URL_" + id);
+    const tests = [...evidence.matchAll(/test\/[^\s)\]`]+?\.test\.[cm]?js/g)].map(m => m[0]);
+    if (!tests.length || tests.some(testPath => {
+      const full = path.resolve(root, testPath);
+      return !full.startsWith(path.resolve(root, "test") + path.sep) ||
+        !fs.existsSync(full) || !fs.statSync(full).isFile();
+    })) throw Error("GRUK_PLAN_MISSING_EVIDENCE_TEST_" + id);
+  }
+  return true;
+}
 function main(args = process.argv.slice(2)) {
   const root = path.join(__dirname, "..");
   const criteria = fs.readFileSync(path.join(root, "docs/GRUK_PLAN_MAESTRO_77_CRITERIOS.md"), "utf8");
   const matrix = fs.readFileSync(path.join(root, "docs/GRUK_PLAN_MAESTRO_77_TRAZABILIDAD.md"), "utf8");
   const result = validate(criteria, matrix);
+  validateEvidencePaths(matrix, root);
   process.stdout.write(JSON.stringify(result) + "\n");
   // Even a fully verified matrix is not a production authorization:
   // staging, financial reconciliation, security, backup/restore and Render
@@ -56,4 +77,4 @@ function main(args = process.argv.slice(2)) {
 if (require.main === module) {
   try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
-module.exports = { validate, main };
+module.exports = { validate, validateEvidencePaths, main };
