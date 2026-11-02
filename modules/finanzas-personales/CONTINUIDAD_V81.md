@@ -44,7 +44,13 @@ La auditoría del lote identificó `joi@18.3.0` ([GHSA-4528-x5fx-h6hg](https://g
 
 Se actualizaron únicamente esas dos resoluciones de `package-lock.json` a `18.3.1` y `1.16.2`, respectivamente: seis líneas sustituidas, con integridad y URL npm, sin modificar los rangos del manifiesto. `npm ci --ignore-scripts` y `npm audit --omit=dev --audit-level=low` terminaron con cero vulnerabilidades informadas. No se usó force ni se desactivó ningún gate. La ausencia de alertas conocidas en ese momento no constituye auditoría independiente.
 
-El nuevo SHA publicado debe completar las tres validaciones remotas; conservar sus enlaces en el PR. No desplegar ni fusionar hasta satisfacer también los pendientes externos enumerados abajo.
+El SHA de código y lockfile `f63c35a46e622aaf6738003cb89143a5a6b09e9b`, publicado con lease sobre `b1c2eb2a4ca9e04caf8be2990d90e4bebc42d4a0`, completó las tres validaciones remotas:
+
+- [GRUK Gate 41391138563](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41391138563): success, gate completo con MongoDB.
+- [Seguridad y Pruebas 41391138565](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41391138565): success, auditorías y pruebas financieras/concurrencia.
+- [Precisión e Integridad 41391138605](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41391138605): sus siete jobs terminaron en success, incluyendo auditoría de producción e integración con rol MongoDB restringido (`125102571034`).
+
+Este checkpoint posterior solo documenta esa evidencia; distinguir el SHA de código probado del commit documental que lo registra. Antes de continuar, consultar el HEAD remoto y CI de ese HEAD. No desplegar ni fusionar hasta satisfacer también los pendientes externos enumerados abajo. No hubo cambio de configuración ni despliegue de Render durante este lote.
 
 ## Plan prioritario pendiente y aceptación final
 
