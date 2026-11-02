@@ -56,3 +56,24 @@ test("rechaza URL de PR con sufijo no numérico, sin aceptar prefijo", () => {
   assert.throws(() => validateEvidencePaths(row(goodLink + "x test/gruk/evidence.test.js"),dir),/UNTRUSTED_EVIDENCE_URL_01/);
  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test("rechaza evidencia mixta con URL ajena aunque tenga enlace válido", () => {
+ const dir = fs.mkdtempSync(path.join(os.tmpdir(),"gruk-evidence-"));
+ try {
+  fs.mkdirSync(path.join(dir,"test/gruk"),{recursive:true});
+  fs.writeFileSync(path.join(dir,"test/gruk/evidence.test.js"),"");
+  const evidence=goodLink+" https://github.com/otro/otro/issues/1 test/gruk/evidence.test.js";
+  assert.throws(()=>validateEvidencePaths(row(evidence),dir),/UNTRUSTED_EVIDENCE_URL_01/);
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+test("rechaza HTTP y enlace malformado mezclados con URL válida", () => {
+ const dir = fs.mkdtempSync(path.join(os.tmpdir(),"gruk-evidence-"));
+ try {
+  fs.mkdirSync(path.join(dir,"test/gruk"),{recursive:true});
+  fs.writeFileSync(path.join(dir,"test/gruk/evidence.test.js"),"");
+  for (const extra of ["http://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/522",
+   "https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/522extra"]) {
+   assert.throws(()=>validateEvidencePaths(row(goodLink+" "+extra+" test/gruk/evidence.test.js"),dir),/UNTRUSTED_EVIDENCE_URL_01/);
+  }
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
