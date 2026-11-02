@@ -166,6 +166,8 @@ async function crearPrestamo(usuarioId,data,{session:sesionExterna}={}){
   [prestamo]=await Prestamo.create([{usuarioId,...data,tasaConfirmada:Object.prototype.hasOwnProperty.call(data,"tasaMensualPct"),principalMinor:principal,saldoMinor:principal,cuotaMinor:safe(data.cuotaMinor===undefined?0:data.cuotaMinor)}],{session});
   if(data.cuentaId&&data.direccion==="POR_COBRAR"&&data.origenCuentaPorCobrar!=="PRESTAMO")throw Object.assign(new Error("Una cuenta por cobrar por trabajo u otro concepto no puede registrar salida de efectivo como préstamo"),{statusCode:422});
   if(data.cuentaId){
+   const cuentaOriginal=await Cuenta.findOne({_id:data.cuentaId,usuarioId,activa:true,moneda:"COP"}).session(session).lean();
+   if(!cuentaOriginal)throw Object.assign(new Error("Cuenta no disponible para el préstamo"),{statusCode:409});exigirSaldoCuentaSeguro(cuentaOriginal);
    const delta=data.direccion==="POR_COBRAR"?-principal:principal;
    const cuenta=await Cuenta.findOneAndUpdate({_id:data.cuentaId,usuarioId,activa:true,moneda:"COP",...require("./limitesSaldoPersonal.service").filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{new:true,session});
    if(!cuenta)throw Object.assign(new Error("Saldo insuficiente o cuenta inválida"),{statusCode:409});exigirSaldoCuentaSeguro(cuenta);

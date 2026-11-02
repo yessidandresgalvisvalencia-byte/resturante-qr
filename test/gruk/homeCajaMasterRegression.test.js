@@ -292,6 +292,7 @@ test("préstamos y transferencias no admiten saldos desbordados en cuentas",()=>
  const crearPrestamo=fuente.slice(fuente.indexOf("async function crearPrestamo("),fuente.indexOf("async function cobrarCuentaPorCobrar("));
  const transferir=fuente.slice(fuente.indexOf("async function transferir("),fuente.indexOf("function sumaPatrimonialSegura("));
  assert.ok(crearPrestamo.includes("exigirSaldoCuentaSeguro(cuenta);"));
+ assert.ok(crearPrestamo.includes("exigirSaldoCuentaSeguro(cuentaOriginal);"));
  assert.ok(transferir.includes("exigirSaldoCuentaSeguro(origen);"));
  assert.ok(transferir.includes("exigirSaldoCuentaSeguro(destino);"));
 });
