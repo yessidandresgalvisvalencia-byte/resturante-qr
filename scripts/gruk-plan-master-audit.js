@@ -72,6 +72,15 @@ function validateEvidencePaths(matrixMarkdown, root) {
       // Only committed regular test files count as local evidence.
       if (!fs.lstatSync(full).isFile() ||
           !fs.realpathSync(full).startsWith(fs.realpathSync(testRoot) + path.sep)) return true;
+      // Reject symlinked parent directories too, even when they resolve inside test/.
+      // This prevents an aliased path from being counted as independent evidence.
+      let ancestor = path.dirname(full);
+      while (ancestor !== testRoot) {
+        if (fs.lstatSync(ancestor).isSymbolicLink()) return true;
+        const parent = path.dirname(ancestor);
+        if (parent === ancestor) return true;
+        ancestor = parent;
+      }
       // An empty placeholder with a .test.js suffix is not executable evidence.
       // This only checks that a test is declared; passing CI is a separate gate.
       const source = fs.readFileSync(full, "utf8");
