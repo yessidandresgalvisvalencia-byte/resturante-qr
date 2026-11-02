@@ -106,3 +106,14 @@ test("rechaza sufijos y rutas de prueba malformadas mezcladas con una válida", 
   }
  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test("rechaza rutas de evidencia inválidas después de puntuación", () => {
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),"gruk-evidence-"));
+ try {
+  fs.mkdirSync(path.join(dir,"test/gruk"),{recursive:true});
+  fs.writeFileSync(path.join(dir,"test/gruk/evidence.test.js"),'const test=require("node:test"); test("evidencia",()=>{});');
+  for (const extra of [",test/gruk/falso.test.js.evil", ";test/../test/gruk/evidence.test.js"]) {
+   assert.throws(() => validateEvidencePaths(row(goodLink+" test/gruk/evidence.test.js "+extra+" criterio de aceptación"),dir),/MISSING_EVIDENCE_TEST_01/);
+  }
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
