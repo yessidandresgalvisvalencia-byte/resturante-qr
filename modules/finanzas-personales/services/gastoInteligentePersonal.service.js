@@ -2,6 +2,20 @@
 const home=require("./homePersonal.service");
 function money(n){return new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n);}
 function exacto(n){return Number.isSafeInteger(n)&&n>=0;}
+// Las fechas civiles pertenecen a Colombia; los instantes requieren zona explícita.
+// No aceptar coerciones (null, números, arrays) ni fechas normalizadas por Date.
+function fechaVerificable(valor){
+ if(valor instanceof Date)return Number.isFinite(valor.getTime())?new Date(valor.getTime()):null;
+ if(typeof valor!=="string")return null;
+ const m=/^([1-9]\d{3})-(\d{2})-(\d{2})(?:T([0-2]\d):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?(Z|[+-](\d{2}):(\d{2})))?$/.exec(valor);
+ if(!m)return null;
+ const y=Number(m[1]),mes=Number(m[2]),dia=Number(m[3]);
+ const civil=new Date(Date.UTC(y,mes-1,dia));
+ if(civil.getUTCFullYear()!==y||civil.getUTCMonth()!==mes-1||civil.getUTCDate()!==dia)return null;
+ if(m[4]&&(Number(m[4])>23||Number(m[9])>14||Number(m[10])>59||Number(m[9])===14&&Number(m[10])!==0))return null;
+ const fecha=new Date(m[4]?valor:valor+"T05:00:00.000Z");
+ return Number.isFinite(fecha.getTime())?fecha:null;
+}
 function diaCivilBogota(date){
  const p=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
  const x=Object.fromEntries(p.map(v=>[v.type,v.value]));
@@ -12,8 +26,8 @@ function consecuenciaDiaria({disponibleMinor,montoMinor,fechaIngreso,ahora=new D
   throw new TypeError("Consecuencia requiere importes enteros seguros");
  const restante=disponibleMinor-montoMinor;
  if(!Number.isSafeInteger(restante))throw new RangeError("Consecuencia fuera de rango");
- const ingreso=new Date(fechaIngreso);
- if(Number.isNaN(ingreso.getTime())||!(ahora instanceof Date)||Number.isNaN(ahora.getTime()))
+ const ingreso=fechaVerificable(fechaIngreso);
+ if(!ingreso||!(ahora instanceof Date)||Number.isNaN(ahora.getTime()))
   return {restanteMinor:restante,diasHastaIngreso:null,promedioDiarioMinor:null,estimacion:"FECHA_NO_VERIFICADA"};
  const dias=Math.round((diaCivilBogota(ingreso)-diaCivilBogota(ahora))/86400000);
  if(dias<=0)return {restanteMinor:restante,diasHastaIngreso:null,promedioDiarioMinor:null,estimacion:"INGRESO_NO_FUTURO"};
@@ -21,16 +35,16 @@ function consecuenciaDiaria({disponibleMinor,montoMinor,fechaIngreso,ahora=new D
 }
 function alertarVencimientoProximo({compromisos,fechaIngreso,ahora=new Date()}){
  if(!Array.isArray(compromisos)||!(ahora instanceof Date)||!Number.isFinite(ahora.getTime()))return null;
- const ingreso=new Date(fechaIngreso);
- if(!Number.isFinite(ingreso.getTime()))return null;
+ const ingreso=fechaVerificable(fechaIngreso);
+ if(!ingreso)return null;
  const hoy=diaCivilBogota(ahora),limite=diaCivilBogota(ingreso);
  const proximos=compromisos.filter(c=>{
   if(!c||!Number.isSafeInteger(c.montoMinor)||c.montoMinor<=0||typeof c.concepto!=="string")return false;
-  const fecha=new Date(c.fecha);
-  if(!Number.isFinite(fecha.getTime()))return false;
+  const fecha=fechaVerificable(c.fecha);
+  if(!fecha)return false;
   const dia=diaCivilBogota(fecha);
   return dia>=hoy&&dia<limite&&dia-hoy<=7*86400000;
- }).map(c=>({...c,diasRestantes:Math.round((diaCivilBogota(new Date(c.fecha))-hoy)/86400000)}))
+ }).map(c=>({...c,diasRestantes:Math.round((diaCivilBogota(fechaVerificable(c.fecha))-hoy)/86400000)}))
  .sort((a,b)=>a.diasRestantes-b.diasRestantes||a.concepto.localeCompare(b.concepto));
  const primero=proximos[0];
  if(!primero)return null;
@@ -38,12 +52,16 @@ function alertarVencimientoProximo({compromisos,fechaIngreso,ahora=new Date()}){
   concepto:primero.concepto.slice(0,100),montoMinor:primero.montoMinor,diasRestantes:primero.diasRestantes,
   descripcion:"El compromiso ya se descontó al calcular Disponible Hoy; no es un cobro adicional."};
 }
-async function evaluar(usuarioId,input){
- const {montoMinor,obligatorio=false}=input;if(!Number.isSafeInteger(montoMinor)||montoMinor<1)throw Object.assign(new Error("Necesito el precio exacto."),{statusCode:400});
- const h=await home.obtener(usuarioId),a=h.asesor;if(!a.aptoParaDisponibleHoy||!Number.isSafeInteger(a.disponibleHoyMinor)||!a.proximoIngresoConocido||!a.proximoIngreso?.fecha)return{estado:"FALTAN_DATOS",mensaje:"Necesito saldo conciliado, obligaciones confirmadas y fecha del próximo ingreso para evaluar esa compra sin inventar."};
+async function evaluar(usuarioId,input,{ahora=new Date()}={}){
+ const {montoMinor,obligatorio=false}=input||{};if(!Number.isSafeInteger(montoMinor)||montoMinor<1||typeof obligatorio!=="boolean")throw Object.assign(new Error("Necesito el precio exacto y confirmar si es obligatorio."),{statusCode:400});
+ const h=await home.obtener(usuarioId,ahora),a=h?.asesor;
+ const faltanDatos=()=>({estado:"FALTAN_DATOS",mensaje:"Necesito saldo conciliado, obligaciones confirmadas y una fecha futura válida con importe del próximo ingreso para evaluar esa compra sin inventar."});
+ if(a?.aptoParaDisponibleHoy!==true||a.saldoRealConocido!==true||a.saldoConfiabilidad!=="VERIFICADO"||a.saldoRequiereReconciliacion!==false||!exacto(a.disponibleHoyMinor)||a.proximoIngresoConocido!==true||!exacto(a.proximoIngreso?.montoMinor)||a.proximoIngreso.montoMinor===0)return faltanDatos();
+ const consecuencia=consecuenciaDiaria({disponibleMinor:a.disponibleHoyMinor,montoMinor,fechaIngreso:a.proximoIngreso.fecha,ahora});
+ // Una advertencia no basta: sin horizonte verificable no hay evaluación monetaria.
+ if(consecuencia.diasHastaIngreso===null)return faltanDatos();
  const despues=a.disponibleHoyMinor-montoMinor;
- const consecuencia=consecuenciaDiaria({disponibleMinor:a.disponibleHoyMinor,montoMinor,fechaIngreso:a.proximoIngreso.fecha});
- const alerta=alertarVencimientoProximo({compromisos:a.compromisosAntesProximoIngreso,fechaIngreso:a.proximoIngreso.fecha});
+ const alerta=alertarVencimientoProximo({compromisos:a.compromisosAntesProximoIngreso,fechaIngreso:a.proximoIngreso.fecha,ahora});
  const advertencia=alerta?" Atención: "+alerta.concepto+" vence "+(alerta.diasRestantes===0?"hoy":"en "+alerta.diasRestantes+" día(s)")+" por "+money(alerta.montoMinor)+". Ese compromiso ya está separado del disponible; no lo gastes dos veces.":"";
  const explicacion=consecuencia.diasHastaIngreso===null?" Verifica la fecha del ingreso antes de estimar cuánto podrías gastar por día.":" Si haces esta compra, quedarían "+money(Math.max(0,despues))+" para "+consecuencia.diasHastaIngreso+" día(s) hasta el próximo ingreso: "+money(consecuencia.promedioDiarioMinor)+" diarios como referencia, no como garantía de suficiencia.";
  const metodos=[{metodo:"EFECTIVO_DEBITO",costoTotalMinor:montoMinor,conocido:true,criterio:"No agrega intereses ni cargos financieros al precio informado."}];

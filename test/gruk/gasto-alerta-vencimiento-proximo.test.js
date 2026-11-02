@@ -36,7 +36,8 @@ test("evaluación solo lectura integra advertencia de compromiso protegido sin a
  const fechaArriendo=new Date(Date.now()+2*86400000).toISOString();
  home.obtener=async()=>({asesor:{
   aptoParaDisponibleHoy:true,disponibleHoyMinor:25000000,proximoIngresoConocido:true,
-  proximoIngreso:{fecha:fechaProxima},
+  saldoRealConocido:true,saldoConfiabilidad:"VERIFICADO",saldoRequiereReconciliacion:false,
+  proximoIngreso:{fecha:fechaProxima,montoMinor:100000000},
   compromisosAntesProximoIngreso:[c("Arriendo",80000000,fechaArriendo)]
  }});
  delete require.cache[servicio];
