@@ -30,6 +30,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Validate 77 original Word acceptance criteria against traceability
+        run: node scripts/gruk-plan-master-audit.js
       - name: Inspect development dependency advisories
         continue-on-error: true
         run: npm audit --audit-level=high
