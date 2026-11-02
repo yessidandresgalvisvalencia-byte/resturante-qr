@@ -39,3 +39,20 @@ test("rechaza symlink a prueba fuera del directorio test", () => {
   assert.throws(() => validateEvidencePaths(row(goodLink + " test/gruk/evidence.test.js criterio de aceptación"),dir),/MISSING_EVIDENCE_TEST_01/);
  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test("acepta PR numérico que incluye dígitos 8 y 9", () => {
+ const dir = fs.mkdtempSync(path.join(os.tmpdir(),"gruk-evidence-"));
+ try {
+  fs.mkdirSync(path.join(dir,"test/gruk"),{recursive:true});
+  fs.writeFileSync(path.join(dir,"test/gruk/evidence.test.js"),"");
+  assert.equal(validateEvidencePaths(row("https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/589 test/gruk/evidence.test.js"),dir),true);
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+test("rechaza URL de PR con sufijo no numérico, sin aceptar prefijo", () => {
+ const dir = fs.mkdtempSync(path.join(os.tmpdir(),"gruk-evidence-"));
+ try {
+  fs.mkdirSync(path.join(dir,"test/gruk"),{recursive:true});
+  fs.writeFileSync(path.join(dir,"test/gruk/evidence.test.js"),"");
+  assert.throws(() => validateEvidencePaths(row(goodLink + "x test/gruk/evidence.test.js"),dir),/UNTRUSTED_EVIDENCE_URL_01/);
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
