@@ -28,6 +28,14 @@ async function preparar(modo="CUENTA",n=3){
  return{usuarioId,cuenta,padre,datos,pago,fuente,movimientoId,solicitud,foto,anular};
 }
 async function probarRestauracionCompromisoAutorizada(){
+ async function repetirSinEfectos(f,antes,hash){
+  assert.equal((await restaurarMovimiento(f.solicitud)).hashActual,hash);
+  const despues=await f.foto();
+  // El cerrojo mutable avanza al serializar un reintento exitoso; no es
+  // un evento ni un efecto financiero. Hash, secuencia y demás datos no cambian.
+  assert.equal(despues.cursor.revisionCompatibilidad,antes.cursor.revisionCompatibilidad+1);
+  assert.deepEqual({...despues,cursor:{...despues.cursor,revisionCompatibilidad:antes.cursor.revisionCompatibilidad}},antes);
+ }
  for(const modo of ["CUENTA","HISTORICO"]){
   const f=await preparar(modo),otro=new mongoose.Types.ObjectId();
   const vista=await historial.buscar(f.usuarioId,{estado:"ANULADA",pagina:1});
@@ -40,13 +48,13 @@ async function probarRestauracionCompromisoAutorizada(){
   assert.equal(estado.cuotas[0].estado,"PAGADA");assert.equal(String(estado.cuotas[0].transaccionId),f.movimientoId);
   assert.equal(+estado.cuotas[0].pagadaEn,+f.fuente.fecha);assert.equal(estado.cuenta.saldoMinor,modo==="CUENTA"?9666:10000);
   assert.equal(estado.eventos.length,2);assert.deepEqual(estado.tx,[f.fuente]);
-  assert.equal((await restaurarMovimiento(f.solicitud)).hashActual,e.hashActual);assert.deepEqual(await f.foto(),estado);
+  await repetirSinEfectos(f,estado,e.hashActual);
   const periodo={usuarioId:f.usuarioId,desde:"2020-01-01T00:00:00.000Z",hasta:new Date(Date.now()+60000).toISOString()};
   assert.equal((await consultarPeriodo(periodo)).length,1);
   assert.equal((await consultarCaja(f.usuarioId)).filter(x=>x.impactoCaja).reduce((n,x)=>n+(x.tipo==="INGRESO"?BigInt(x.montoMinor):-BigInt(x.montoMinor)),0n),modo==="CUENTA"?-334n:0n);
   const a=await f.anular("anular2"),pendiente=await f.foto();
   await assert.rejects(restaurarMovimiento({...f.solicitud,idempotencyKey:"referencia-vieja"}),x=>x.statusCode===409);
-  assert.equal((await restaurarMovimiento(f.solicitud)).hashActual,e.hashActual);assert.deepEqual(await f.foto(),pendiente);
+  await repetirSinEfectos(f,pendiente,e.hashActual);
   assert.notEqual(a.compensacion.hashActual,f.solicitud.anulacionHash);
  }
  const final=await preparar("CUENTA",1);await restaurarMovimiento(final.solicitud);
