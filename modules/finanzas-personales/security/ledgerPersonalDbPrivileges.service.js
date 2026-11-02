@@ -7,7 +7,8 @@ const COLECCIONES=Object.freeze([
  require("../models/decisionProofPersonal.model").collection.collectionName,
  require("../models/eventoV81.model").collection.collectionName,
  require("../models/vinculoHistoricoV81.model").collection.collectionName,
- require("../models/retiroDeudaPersonal.model").collection.collectionName
+ require("../models/retiroDeudaPersonal.model").collection.collectionName,
+ require("../models/retiroCreditoLegacyPersonal.model").collection.collectionName
 ]);
 const LECTURA=new Set(["find","listIndexes","listCollections","collStats","dbStats","indexStats","killCursors","planCacheRead"]);
 const CLUSTER_LECTURA=new Set(["serverStatus","hostInfo","getCmdLineOpts","getParameter","listDatabases","connPoolStats","getLog","inprog"]);

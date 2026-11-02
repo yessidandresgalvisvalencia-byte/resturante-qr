@@ -282,32 +282,17 @@ router.put("/perfil-inversion",validate(perfilInv),async(req,res)=>res.json({ok:
 router.get("/patrimonio",async(req,res)=>res.json({ok:true,patrimonio:await service.patrimonio(req.personalAuth.userId)}));
 router.get("/plan-financiero",async(req,res)=>res.json({ok:true,plan:await service.planFinanciero(req.personalAuth.userId)}));
 const credito=Joi.object({nombre:Joi.string().max(100).required(),saldo:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),tasaMensualPct:Joi.number().min(0).max(100).required(),cuotaMensual:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),mesesRestantes:Joi.number().integer().min(1).max(360).required()});
+const creditoLegacyRecuperable=require("./services/creditoLegacyRecuperablePersonal.service");
 router.get("/creditos",async(req,res)=>{
- try{const Credito=require("./models/credito.model");const creditos=await Credito.find({userId:req.personalAuth.userId,activo:true}).sort({createdAt:-1}).select("_id nombre saldo tasaMensualPct cuotaMensual mesesRestantes createdAt").lean();return res.json({ok:true,creditos});}
- catch(e){return res.status(500).json({ok:false,error:"No se pudieron consultar los créditos previos"});}
+ try{return res.json({ok:true,...await creditoLegacyRecuperable.listar(req.personalAuth.userId)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudieron consultar los créditos previos"});}
 });
-router.post("/creditos/:id/incorporar-a-deudas",async(req,res)=>{
- if(!/^[0-9a-f]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- const mongoose=require("mongoose"),crypto=require("crypto"),Credito=require("./models/credito.model"),Prestamo=require("./models/prestamoPersonal.model"),Outbox=require("./models/outboxPersonal.model");
- const session=await mongoose.startSession();
- try{
-  let resultado;
-  await session.withTransaction(async()=>{
-   const anterior=await Credito.findOne({_id:req.params.id,userId:req.personalAuth.userId,activo:true}).session(session);
-   if(!anterior)throw Object.assign(new Error("Crédito anterior no encontrado o ya incorporado"),{statusCode:404});
-   if(!Number.isSafeInteger(anterior.saldo)||anterior.saldo<=0||!Number.isSafeInteger(anterior.cuotaMensual)||anterior.cuotaMensual<0)throw Object.assign(new Error("Valores del crédito requieren revisión"),{statusCode:422});
-   const coincidente=await Prestamo.findOne({usuarioId:req.personalAuth.userId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},$or:[{legacyCreditoId:anterior._id},{concepto:anterior.nombre,principalMinor:anterior.saldo}]}).session(session);
-   if(coincidente)throw Object.assign(new Error("Existe una deuda coincidente. Revisa los registros antes de incorporar para evitar duplicarla."),{statusCode:409});
-   const [nuevo]=await Prestamo.create([{usuarioId:req.personalAuth.userId,legacyCreditoId:anterior._id,direccion:"POR_PAGAR",contraparte:"Acreedor por identificar",concepto:anterior.nombre,principalMinor:anterior.saldo,saldoMinor:anterior.saldo,tasaMensualPct:anterior.tasaMensualPct,tasaConfirmada:true,cuotaMinor:anterior.cuotaMensual,fechaInicio:anterior.createdAt||new Date(),fechaVencimiento:null,periodicidad:null,periodicidadConfirmada:false}],{session});
-   anterior.activo=false;await anterior.save({session});
-   await Outbox.create([{usuarioId:req.personalAuth.userId,eventId:crypto.randomUUID(),eventName:"PRESTAMO_PERSONAL_CORREGIDO",aggregateType:"PRESTAMO_PERSONAL",aggregateId:nuevo._id,payload:{accion:"INCORPORACION_CREDITO_ANTIGUO",creditoAnteriorId:String(anterior._id),prestamoId:String(nuevo._id),montoMinor:nuevo.saldoMinor}}],{session});
-   resultado={id:String(nuevo._id),saldoPendienteMinor:nuevo.saldoMinor};
-  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
-  return res.json({ok:true,resultado});
- }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible incorporar el crédito"});}
- finally{await session.endSession();}
-});
-router.delete("/creditos/:id",(_req,res)=>res.status(409).json({ok:false,error:"El retiro de créditos anteriores requiere recuperación verificable; el registro se conserva"}));
+for(const [metodo,ruta,accion] of [["post","/creditos/:id/incorporar-a-deudas","incorporar"],["delete","/creditos/:id","retirar"],["post","/creditos/:id/restaurar-retiro","restaurar"]]){
+ router[metodo](ruta,async(req,res)=>{
+  try{return res.json({ok:true,resultado:await creditoLegacyRecuperable[accion](req.personalAuth.userId,req.params.id,req.body)});}
+  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar la operación del crédito"});}
+ });
+}
 router.delete("/prestamos/:id",async(req,res)=>{
  if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
  try{const resultado=await patrimonioPersonal.retirarDeudaVisible(req.personalAuth.userId,req.params.id,req.body);return res.json({ok:true,resultado});}

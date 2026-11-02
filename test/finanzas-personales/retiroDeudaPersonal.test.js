@@ -22,7 +22,7 @@ test("servicio rechaza ausencia de confirmación y referencias antes de abrir Mo
  await assert.rejects(servicio.retirar("x","y",{}),e=>e.statusCode===400);
  await assert.rejects(servicio.restaurar(new mongoose.Types.ObjectId(),new mongoose.Types.ObjectId(),{confirmacion:true,solicitudId:"restauracion"}),e=>e.statusCode===400);
 });
-test("ruta de recuperación usa identidad autenticada e informa fallo seguro; legacy conserva datos",async()=>{
+test("ruta de recuperación usa identidad autenticada e informa fallo seguro; legacy exige confirmación",async()=>{
  const router=require("../../modules/finanzas-personales/routes"),path="/prestamos/:id/restaurar-retiro";
  const handler=router.stack.find(x=>x.route?.path===path).route.stack[0].handle;
  const original=servicio.restaurar;let llamada;
@@ -31,6 +31,6 @@ test("ruta de recuperación usa identidad autenticada e informa fallo seguro; le
   servicio.restaurar=async(...args)=>{llamada=args;return{vigente:true};};
   const req={personalAuth:{userId:"propietario"},params:{id:"deuda"},body:{usuarioId:"ajeno",confirmacion:true}};await handler(req,res);assert.equal(llamada[0],"propietario");assert.equal(llamada[1],"deuda");
   servicio.restaurar=async()=>{throw Error("secreto de conexión");};await handler(req,res);assert.equal(res.codigo,500);assert.equal(res.jsonResultado.error,"No fue posible recuperar la deuda");
-  const legacy=router.stack.find(x=>x.route?.path==="/creditos/:id"&&x.route.methods.delete).route.stack[0].handle;await legacy({},res);assert.equal(res.codigo,409);
+  const legacy=router.stack.find(x=>x.route?.path==="/creditos/:id"&&x.route.methods.delete).route.stack[0].handle;await legacy({personalAuth:{userId:"propietario"},params:{id:"credito"},body:{}},res);assert.equal(res.codigo,400);
  }finally{servicio.restaurar=original;}
 });
