@@ -53,7 +53,7 @@ function proyectarCaja(datos){
   const credito=deuda&&e.version===4&&e.tipo==="ANULACION"&&e.original.prestamoId===String(fuente.prestamoId);
   if((fuente.impactoCaja!==true&&!(deuda&&fuente.impactoCaja===false))||
      (deuda&&e.tipo!=="ANULACION")||fuente.medioPago==="CREDITO"||fuente.recurrente||
-     (fuente.recurrenteOrigenId&&e.tipo!=="ANULACION")||(fuente.prestamoId&&!credito))integridad();
+     (fuente.recurrenteOrigenId&&!(e.tipo==="ANULACION"||e.tipo==="RESTAURACION"&&e.version===5&&fuente.tipo==="GASTO"))||(fuente.prestamoId&&!credito))integridad();
   const delta=BigInt(e.deltaCajaMinor);if(delta===0n)continue;
   const monto=Number(delta<0n?-delta:delta);
   if(!Number.isSafeInteger(monto))integridad();

@@ -8,6 +8,7 @@ const {crearRegistrador,leerCadenaVerificada}=require("./registradorCompensacion
 const {vigente}=require("./estadoCompensadoPersonal.service");
 const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const {liberarReserva}=require("./liberarReservaCompensadaPersonal.service");
+const {restaurarReserva}=require("./restaurarReservaCompensadaPersonal.service");
 const {canon}=require("./eventoCompensatorioPersonal.service");
 const {serializarEscrituraFuente}=require("./proteccionOriginalCompensadoPersonal.service");
 const registrar=crearRegistrador();
@@ -36,8 +37,8 @@ function crearAplicador({OutboxModelo=Outbox}={}){
        fuente.moneda!=="COP"||fuente.impactoCaja!==true||fuente.medioPago==="CREDITO"||
        fuente.recurrente||fuente.prestamoId||!fuente.cuentaId)
      throw error("Movimiento requiere tratamiento especial; compensación de caja bloqueada");
-    if(fuente.recurrenteOrigenId&&(tipo!=="ANULACION"||fuente.tipo!=="GASTO"))
-     throw error("El abono vinculado solo admite anulación compensatoria");
+    if(fuente.recurrenteOrigenId&&(!["ANULACION","RESTAURACION"].includes(tipo)||fuente.tipo!=="GASTO"))
+     throw error("El abono vinculado solo admite anulación o restauración compensatoria");
     const original={usuarioId:String(fuente.usuarioId),movimientoId:String(fuente._id),
      tipo:fuente.tipo,montoMinor:fuente.montoMinor,concepto:fuente.concepto,categoria:fuente.categoria};
     const {cadena}=await leerCadenaVerificada(original.usuarioId,{session});
@@ -53,7 +54,11 @@ function crearAplicador({OutboxModelo=Outbox}={}){
      if(!estado.anulado||historial.at(-1)?.hashActual!==anulacionHash||historial.at(-1)?.tipo!=="ANULACION")
       throw error("La anulación cambió; vuelve a consultar antes de restaurar");
     }else if(estado.anulado)throw error("Movimiento ya anulado");
-    if(fuente.recurrenteOrigenId)await liberarReserva({usuarioId,fuente,montoMinor:estado.actual.montoMinor,session});
+    let reservaRecurrente;
+    if(fuente.recurrenteOrigenId){
+     const ajustarReserva=tipo==="RESTAURACION"?restaurarReserva:liberarReserva;
+     reservaRecurrente=await ajustarReserva({usuarioId,fuente,montoMinor:estado.actual.montoMinor,session});
+    }
     evento=await registrar({original:estado.actual,tipo,cambios,idempotencyKey,
      fechaISO:new Date().toISOString(),...(tipo==="RESTAURACION"?{anulacionHash}:{})},{session});
     const delta=Number(BigInt(evento.deltaCajaMinor));
@@ -66,6 +71,9 @@ function crearAplicador({OutboxModelo=Outbox}={}){
      eventName:tipo==="RESTAURACION"?"MOVIMIENTO_RESTAURADO":tipo==="ANULACION"?"MOVIMIENTO_ANULADO":"MOVIMIENTO_CORREGIDO",
      aggregateId:fuente._id,payload:{transaccionId:String(fuente._id),
       compensacionHash:evento.hashActual,secuencia:evento.secuencia,...(tipo==="RESTAURACION"?{anulacionHash}:{}),
+      ...(reservaRecurrente?{reservaRecurrente:{origenId:String(fuente.recurrenteOrigenId),
+       periodoInicio:reservaRecurrente.periodoInicio,periodoFin:reservaRecurrente.periodoFin,
+       reservadoMinor:reservaRecurrente.reservadoMinor,importeCuotaMinor:reservaRecurrente.importeCuotaMinor}}:{}),
       deltaCajaMinor:evento.deltaCajaMinor,antes:estado.actual,
       despues:tipo==="ANULACION"?null:{...estado.actual,...cambios}}}],{session});
    },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});

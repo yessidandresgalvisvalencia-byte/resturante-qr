@@ -38,3 +38,11 @@ test("rechaza restauración sin anulación, referencia ajena, doble restauració
  assert.throws(()=>eventoCompensatorio({...r,anulacionHash:undefined}),/inválida/);
  assert.throws(()=>eventoCompensatorio({...r,original:{...original,tipo:"PAGO_DEUDA",impactoCaja:true}}));
 });
+test("caja admite delta de restauración de abono recurrente sin duplicar la fuente",()=>{
+ const a=evento(original,"ANULACION",null,"anular"),r=evento(original,"RESTAURACION",a,"restaurar");
+ const fuente={...original,_id:original.movimientoId,estado:"ACTIVA",moneda:"COP",impactoCaja:true,
+  medioPago:"EFECTIVO",recurrenteOrigenId:"507f1f77bcf86cd799439014",fecha:new Date(fechaISO)};
+ const datos={usuarioId:original.usuarioId,fuentes:[fuente],eventos:[a,r],cursor:{_id:original.usuarioId,secuencia:2,hashActual:r.hashActual}};
+ assert.equal(proyectarCaja(datos).reduce((n,f)=>n+(f.tipo==="INGRESO"?BigInt(f.montoMinor):-BigInt(f.montoMinor)),0n),-3000n);
+ assert.equal(proyectar(datos)[0].estado,"ACTIVA");
+});

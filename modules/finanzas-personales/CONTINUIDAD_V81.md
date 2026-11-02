@@ -140,3 +140,31 @@ Siguiente paso: confirmar CI del SHA publicado y ampliar recuperación de abonos
 Implementación publicada con lease: `f2b7b46519d812b4906283698ba9fdeaa7f32051`. [V81 41403091474](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41403091474) y [Seguridad 41403091491](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41403091491) aprobaron. El job autenticado `125138991893` ejecutó 27 pruebas sin fallos ni omisiones, incluida recuperación de caja con reintentos, concurrencia, aislamiento, preservación de fuentes, saldo insuficiente y rollback. Validación local ampliada: 247 aprobadas y nueve omitidas por servicios externos.
 
 [Gate 41403091427](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41403091427) señaló exclusivamente dos contratos que exigían el identificador anterior de caché. Se actualizaron `frontend-version-aislamiento-personal.test.js` y `hormiga-version-javascript-personal.test.js` a `20261102-restauracion-caja-v81`, conservando sus comprobaciones de sesión y del único script personal. Exigir CI del nuevo HEAD antes de dar el lote por verificado; este fallo no se omite ni se desactiva. No desplegar.
+
+## Checkpoint del 2 de noviembre de 2026 — recuperación de abonos recurrentes
+
+Partida verificada: `73d846fda3431f87d7202979588a72e326f9976b`, PR #389 abierto sobre `feature/finanzas-personales` (`f44a0535ad86ac7f10a90be6a700cfc8618a43e0`); #407 abierto. Ese SHA completó [Gate 41403290372](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41403290372), [Seguridad 41403290371](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41403290371) y [V81 41403290382](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41403290382) en success. Checkout separado, actualización remota con HEAD esperado. No se cambian main, Empresarial ni Blushéa.
+
+Se amplía RESTAURACION V5 a gastos que sean abonos vinculados a una obligación recurrente. La fuente recurrente misma continúa sin admitir compensación; cuotas financiadas, pagos de préstamos y documentos físicamente borrados siguen fuera de este flujo. Los límites anteriores de caja simple describen el lote previo; este bloque añade únicamente abonos recurrentes.
+
+| Aceptación del bloque | Comportamiento y evidencia |
+| --- | --- |
+| Período exacto | Recalcula el ciclo colombiano desde la fecha del origen y del pago original, sin trasladarlo al día de restauración; valida fecha no futura y no duplicar el primer período ya asentado |
+| Cupo íntegro | Suma con BigInt los abonos compensados vigentes y exige que total + importe restaurado no supere la obligación; el abono anulado debe estar ausente de ese total |
+| Reserva coherente | Índice físico único exacto sobre usuarioId, origenId y periodoInicio; rechaza filtros parciales, sparse, TTL y collation no binaria. Reserva existente debe coincidir con período, importe de cuota y total vigente; no crea ni repara reservas |
+| Atomicidad e idempotencia | CAS de reserva, evento V5, cursor, saldo y outbox dentro de la misma transacción; repetir el mismo recibo no ajusta reserva ni caja otra vez |
+| Concurrencia | Restauración y pago nuevo compiten por la misma reserva. Si no hay cupo para ambos, solo uno puede confirmar; no se acepta sobrepago |
+| Lecturas y recuperación accesible | Caja admite el delta V5 de un abono; el historial de anulados ofrece el botón existente, conservando confirmación y referencia exacta a la anulación. No cambia el JS ni su versión de caché |
+| Auditoría | Outbox conserva origen, inicio/fin del ciclo, importe de cuota y total reservado posterior, además del hash de compensación. Las fuentes originales y eventos anteriores permanecen intactos |
+| Fallos | Usuario ajeno, origen ausente, pago aún activo, cupo ocupado, reserva desincronizada, índice inseguro o saldo insuficiente fallan cerrado; error de outbox revierte también la reserva |
+
+Validación local: 253 pruebas aprobadas, nueve integraciones omitidas por necesitar servicios externos y cero fallos; sintaxis y diff revisados. No atribuir ejecución local a MongoDB. El ensayo `restauracionRecurrenteAutorizada.js`, integrado en el fixture con rol restringido, debe aprobar en CI: reserva 100 → 40 al anular → 100 al restaurar, reintentos simultáneos, carrera contra un pago nuevo, referencia anterior, aislamiento, reconstrucción de caja, fuente preservada, rollback de auditoría/saldo y rechazo de reserva alterada solo en el ensayo.
+
+```bash
+node --test test/finanzas-personales/*.test.js test/gruk/restaurar-reserva-compensada.test.js test/gruk/restauracion-compensada-personal.test.js test/gruk/evento-compensatorio-personal.test.js test/gruk/estado-compensado-personal.test.js test/gruk/registrador-compensacion-personal.test.js test/gruk/consulta-compensada-personal.test.js
+npm run check:syntax
+```
+
+Sin migraciones, borrados, reparaciones automáticas, cambios de roles ni acceso a datos reales. Los tests usan usuarios nuevos y datos ficticios en MongoDB aislado. No se afirma recuperación garantizada, custodia independiente ni aprobación de producción.
+
+Siguiente paso: confirmar CI del SHA publicado y preparar recuperación de cuotas financiadas/pagos de préstamos con su capital, pago real y calendario propios. No habilitar estos casos mediante restauración genérica de caja. Persisten custodia real de #407, auditoría de permisos/índices y compatibilidad histórica de producción, backups independientes con retención/acceso separado, RPO/RTO y restauración aislada medidos, y dispositivos reales. Mantener sin fusión ni despliegue hasta completar todos los criterios.

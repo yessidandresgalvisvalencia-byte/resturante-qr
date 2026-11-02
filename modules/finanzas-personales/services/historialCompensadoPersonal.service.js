@@ -3,7 +3,7 @@ const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const CAMPOS=["_id","tipo","montoMinor","concepto","categoria","contraparte","fecha","estado","prestamoId"];
 function recuperacion(t){
  const simple=t.estado==="ANULADA"&&["INGRESO","GASTO"].includes(t.tipo)&&t.moneda==="COP"&&
-  t.impactoCaja===true&&t.cuentaId&&!t.prestamoId&&!t.recurrente&&!t.recurrenteOrigenId&&t.medioPago!=="CREDITO"&&
+  t.impactoCaja===true&&t.cuentaId&&!t.prestamoId&&!t.recurrente&&(!t.recurrenteOrigenId||t.tipo==="GASTO")&&t.medioPago!=="CREDITO"&&
   /^[a-f0-9]{64}$/.test(t.compensacionHash||"");
  return simple?{recuperacion:{disponible:true,anulacionHash:t.compensacionHash}}:{};
 }
