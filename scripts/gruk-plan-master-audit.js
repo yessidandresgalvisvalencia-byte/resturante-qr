@@ -3,6 +3,7 @@
 /* Static plan integrity only. This script NEVER certifies deployment readiness. */
 const fs = require("node:fs");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 const STATES = new Set(["SIN_AUDITAR", "PARCIAL", "BLOQUEADO", "VERIFICADO"]);
 const PRIORITIES = new Set(["P0", "P1", "P2", "P3"]);
 function rows(markdown, width, name) {
@@ -68,7 +69,12 @@ function validateEvidencePaths(matrixMarkdown, root) {
       // An empty placeholder with a .test.js suffix is not executable evidence.
       // This only checks that a test is declared; passing CI is a separate gate.
       const source = fs.readFileSync(full, "utf8");
-      return !/(?:\btest|\bit|\bdescribe)\s*\(/.test(source);
+      if (!/(?:\btest|\bit|\bdescribe)\s*\(/.test(source)) return true;
+      // Syntax validation does not execute the test or import its dependencies.
+      const checked = spawnSync(process.execPath, ["--check", full], {
+        encoding: "utf8", timeout: 10000, maxBuffer: 1024 * 1024
+      });
+      return checked.error != null || checked.status !== 0;
     })) throw Error("GRUK_PLAN_MISSING_EVIDENCE_TEST_" + id);
   }
   return true;
