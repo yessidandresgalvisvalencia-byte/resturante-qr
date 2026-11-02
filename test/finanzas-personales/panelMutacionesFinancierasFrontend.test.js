@@ -46,3 +46,5 @@ test("HTTP 200 sin confirmación de aplicación permanece incierto y una consult
  await f.ctx.api("/transacciones/confirmar-intento",{method:"POST",body:JSON.stringify({...payload,montoMinor:1300})});assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
  await f.ctx.api("/transacciones/confirmar-intento",{method:"POST",body:JSON.stringify(payload)});assert.equal(f.ctx.api.estadoFinanciero().bloqueada,false);
 });
+
+test("ok=true sin recibo verificable de aprobación no elimina su incertidumbre",async()=>{const f=entorno(async()=>respuesta({ok:true,resultado:{}}));await assert.rejects(f.ctx.api("/captura/"+"a".repeat(24)+"/aprobar",{method:"POST",headers:{"Idempotency-Key":"aprobacion_prueba_01"},body:JSON.stringify({confirmacion:true,versionBorrador:"c".repeat(64)})}),/recibo verificable/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);});

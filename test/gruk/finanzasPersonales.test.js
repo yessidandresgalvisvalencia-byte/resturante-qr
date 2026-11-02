@@ -37,7 +37,7 @@ test("contrato de aprobación permite ítems independientes",()=>{
  const fs=require("node:fs"),path=require("node:path");
  const src=fs.readFileSync(path.join(__dirname,"..","..","modules","finanzas-personales","services","aprobacionConversacional.service.js"),"utf8");
  const routes=fs.readFileSync(path.join(__dirname,"..","..","modules","finanzas-personales","routes.js"),"utf8");
- assert.match(src,/estado==="LISTO"/);assert.match(src,/estadoAprobacion!=="APROBADO"/);
+ assert.match(src,/estado==="LISTO"/);assert.match(src,/estadoAprobacion==="PENDIENTE"/);
  assert.doesNotMatch(src,/b\.items\.some\(x=>x\.estado!=="LISTO"\)/);
  assert.match(src,/b\.estado=pendientes\.length\?"PARCIAL":"APROBADO"/);
  assert.match(routes,/items\/:itemId\/aprobar/);

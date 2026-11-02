@@ -22,7 +22,7 @@ if(!privilegiosVerificados)throw new Error("PRIVILEGIOS_FINANCIEROS_NO_VERIFICAD
 const auditoria=await auditarIndicesMongoV81({
  transacciones:Transaccion,reservas:ReservaCuota,vinculos:VinculoHistorico
 });console.log("[GRUK_INDICES_V81]",JSON.stringify(auditoria));
-try{await exigirIndices();await require("./services/retiroDeudaPersonal.service").exigirIndices();await require("./services/creditoLegacyRecuperablePersonal.service").exigirIndices();await require("./services/correccionPrestamoPersonal.service").exigirIndices();}catch{throw new Error("INDICES_FINANCIEROS_NO_VERIFICADOS");}
+try{await exigirIndices();await require("./services/retiroDeudaPersonal.service").exigirIndices();await require("./services/creditoLegacyRecuperablePersonal.service").exigirIndices();await require("./services/correccionPrestamoPersonal.service").exigirIndices();await require("./services/reciboAprobacionPersonal.service").exigirIndices();}catch{throw new Error("INDICES_FINANCIEROS_NO_VERIFICADOS");}
 indicesVerificados=auditoria.integridadIndices==="VERIFICADA";
 if(!indicesVerificados){
  console.error("[GRUK_INDICES_V81] Índices de seguridad no verificados: servicio personal no inicia.");

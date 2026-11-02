@@ -58,7 +58,14 @@
    const d=datos("/transacciones",{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);
    const p=s.pendientes.get(cuerpo.externalId);if(p?.tipo==="externalId"&&p.huella===huella){s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);}
   }
-  return{estado,esMutacion,iniciar,confirmarRegistro};
+  function pendientes(token){const s=cargar(token);if(s.error)throw falla("El registro local requiere revisión");return [...s.pendientes.values()].filter(p=>!s.activas.has(p.id)).map(p=>({...p}));}
+  async function confirmarAprobacion(token,recibo){
+   if(typeof recibo?.versionBorrador!=="string"||!/^[a-f0-9]{64}$/.test(recibo.versionBorrador)||recibo.confirmado!==true||recibo.certificaEstadoActual!==false||!/^[a-f0-9]{64}$/.test(recibo.hash||"")||recibo.metodo!=="POST"||typeof recibo.solicitudId!=="string"||!/^aprobacion_[A-Za-z0-9_-]+$/.test(recibo.solicitudId)||!/^\/captura\/[a-f0-9]{24}(?:\/items\/[a-f0-9]{24})?\/aprobar$/.test(recibo.ruta||""))return false;
+   const s=cargar(token);if(s.error)return false;const p=s.pendientes.get(recibo.solicitudId);if(!p||p.tipo!=="header"||s.activas.has(p.id))return false;
+   const d=datos(recibo.ruta,{method:"POST",body:JSON.stringify({confirmacion:true,versionBorrador:recibo.versionBorrador})}),huella=await digerir(d.contenido);if(p.huella!==huella)return false;
+   s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
+  }
+  return{estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion};
  }
  if(typeof module!=="undefined"&&module.exports)module.exports={crearControlMutacionesPersonales};
  else raiz.crearControlMutacionesPersonales=crearControlMutacionesPersonales;

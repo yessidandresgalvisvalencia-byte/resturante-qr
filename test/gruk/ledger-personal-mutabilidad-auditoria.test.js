@@ -6,7 +6,7 @@ const path=require("node:path");
 const {spawnSync}=require("node:child_process");
 const auditoria=require("../../scripts/gruk-personal-ledger-mutability-audit");
 test("detecta alias, acceso inline y driver nativo de los cinco modelos protegidos",()=>{
- for(const modelo of ["TransaccionPersonal","EventoCompensatorioPersonal","decisionProofPersonal.model","eventoV81.model","vinculoHistoricoV81.model","retiroDeudaPersonal.model","retiroCreditoLegacyPersonal.model","correccionPrestamoPersonal.model"]){
+ for(const modelo of ["TransaccionPersonal","EventoCompensatorioPersonal","decisionProofPersonal.model","eventoV81.model","vinculoHistoricoV81.model","retiroDeudaPersonal.model","retiroCreditoLegacyPersonal.model","correccionPrestamoPersonal.model","reciboAprobacionPersonal.model"]){
   for(const acceso of [
    `const Libro=require('../models/${modelo}'); Libro.updateMany({},{});`,
    `const Fuente=require('../models/${modelo}.js'); Fuente.collection.deleteOne({});`,
