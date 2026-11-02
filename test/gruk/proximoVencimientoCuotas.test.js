@@ -10,5 +10,5 @@ test("proximo vencimiento se basa en pagos reales y mantiene dia original",()=>{
 test("fecha no confirmada se rotula estimada y no se vuelve a registrar pago",()=>{
  assert.match(ui,/Próximo vencimiento estimado/);
  assert.match(ui,/confirmarFrecuenciaMensual/);
- assert.match(ui,/body:JSON\.stringify\(\{periodicidad:"MENSUAL"\}\)/);
+ assert.match(ui,/aplicarCorreccionPrestamo\(id,\{periodicidad:"MENSUAL"\}\)/);
 });

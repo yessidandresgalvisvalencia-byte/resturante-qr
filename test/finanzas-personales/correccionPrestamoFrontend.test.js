@@ -13,3 +13,9 @@ test("recibo obsoleto no confirma éxito y consulta tardía de historia no se mu
  const e=entorno(async()=>({prestamo:{correccion:{vigente:false}}}));await assert.rejects(e.ctx.aplicarCorreccionPrestamo("p",{concepto:"Otro"}),/estado vigente/);
  let resolver;e.ctx.api=async()=>await new Promise(r=>resolver=r);const pendiente=e.ctx.window.verCorreccionesPrestamo("p");e.ctx.token="otra";resolver({eventos:[]});await pendiente;assert.equal(e.avisos.length,0);
 });
+
+test("confirmar frecuencia mensual solo corrige periodicidad, sin registrar un pago",async()=>{
+ const llamadas=[],e=entorno(async(p,o)=>{llamadas.push({p,o});return{prestamo:{correccion:{vigente:true}}};});e.ctx.confirm=()=>true;e.ctx.load=async()=>{};
+ vm.runInNewContext(src.slice(src.indexOf("window.confirmarFrecuenciaMensual="),src.indexOf("window.configurarPeriodicidad=")),e.ctx);
+ await e.ctx.window.confirmarFrecuenciaMensual("prestamo");assert.equal(llamadas.length,1);assert.equal(llamadas[0].p,"/prestamos/prestamo");assert.equal(llamadas[0].o.method,"PATCH");assert.deepEqual(JSON.parse(llamadas[0].o.body),{periodicidad:"MENSUAL",confirmacion:true});
+});
