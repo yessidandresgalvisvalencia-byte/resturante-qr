@@ -117,3 +117,13 @@ test("rechaza rutas de evidencia inválidas después de puntuación", () => {
   }
  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test("rechaza directorio intermedio simbólico aunque resuelva dentro de test", () => {
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),"gruk-evidence-"));
+ try {
+  fs.mkdirSync(path.join(dir,"test/real"),{recursive:true});
+  fs.writeFileSync(path.join(dir,"test/real/evidence.test.js"),'const test=require("node:test"); test("evidencia",()=>{});');
+  fs.symlinkSync(path.join(dir,"test/real"),path.join(dir,"test/alias"),"dir");
+  assert.throws(() => validateEvidencePaths(row(goodLink+" test/alias/evidence.test.js criterio de aceptación"),dir),/MISSING_EVIDENCE_TEST_01/);
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
