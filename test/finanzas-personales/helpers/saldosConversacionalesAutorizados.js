@@ -48,7 +48,7 @@ async function probarSaldosConversacionalesAutorizados(){
   if(caso==="lote")items.push({...item("GASTO"),montoMinor:2000});
   const b=await draft(usuarioId,items),antes=await estado(usuarioId),crear=Outbox.create;
   if(caso==="outbox")Outbox.create=async()=>{throw Error("OUTBOX_SALDO_FALLIDO");};
-  try{await assert.rejects(aprobar(usuarioId,b._id),e=>caso==="outbox"?e.message==="OUTBOX_SALDO_FALLIDO":[400,409].includes(e.statusCode));}
+  try{await assert.rejects(aprobar(usuarioId,b._id),e=>caso==="outbox"?e.message==="OUTBOX_SALDO_FALLIDO":caso==="futuro"?e.statusCode===422:[400,409].includes(e.statusCode));}
   finally{Outbox.create=crear;}
   assert.deepEqual(await estado(usuarioId),antes);
  }
