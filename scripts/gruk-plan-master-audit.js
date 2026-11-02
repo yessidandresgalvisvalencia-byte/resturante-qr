@@ -47,6 +47,11 @@ function validateEvidencePaths(matrixMarkdown, root) {
   for (const [id, , , status, evidence] of matrix) {
     if (status !== "VERIFICADO") continue;
     const links = [...evidence.matchAll(/https:\/\/github\.com\/([^/\s)]+)\/([^/\s)]+)\/(pull|commit)\/([^/\s)\]]+)/gi)];
+    // A valid link must not mask a second untrusted or malformed GitHub URL.
+    const githubUrls = [...evidence.matchAll(/https?:\/\/github\.com\/[^\s)\]>`]+/gi)].map(m => m[0]);
+    if (!githubUrls.length || githubUrls.length !== links.length ||
+        githubUrls.some(url => !/^https:\/\/github\.com\/yessidandresgalvisvalencia-byte\/resturante-qr\/(?:pull\/\d+|commit\/[a-f0-9]{7,40})$/i.test(url)))
+      throw Error("GRUK_PLAN_UNTRUSTED_EVIDENCE_URL_" + id);
     if (!links.length || links.some(m => m[1] !== "yessidandresgalvisvalencia-byte" ||
         m[2] !== "resturante-qr" || (m[3] === "pull" && !/^\d+$/.test(m[4])) ||
         (m[3] === "commit" && !/^[a-f0-9]{7,40}$/i.test(m[4]))))
