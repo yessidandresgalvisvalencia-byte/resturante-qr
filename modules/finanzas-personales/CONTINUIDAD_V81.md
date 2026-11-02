@@ -90,3 +90,13 @@ La integración crea exclusivamente datos ficticios de IDs aleatorios en el repl
 Revisión de recurrencias: el aplicador compensatorio actual rechaza fuentes `recurrente: true`; los abonos vinculados sí admiten anulación y el cálculo de pagos de hoy ya usa `consultarPeriodo` compensado. Esto explica por qué no se cambió la consulta de las fuentes recurrentes en este lote; no demuestra cobertura completa, ni implementa restauración de fuentes recurrentes.
 
 Próxima implementación prioritaria: inventariar la anulación vigente, su estado compensado, reservas y delta de caja para diseñar restauración explícita idempotente accesible al propietario. No habilitar restauración cambiando documentos originales ni eludiendo la verificación de cadena. Siguen pendientes backup independiente, retención, RPO/RTO medidos, custodia real, permisos/índices de producción y dispositivos. No fusionar ni desplegar.
+
+### Evidencia del lote publicado
+
+Código publicado con lease: `22c68ab8bbc1a185fc5865eedc0c2ba28fe8227b`. Las tres validaciones del SHA exacto aprobaron:
+
+- [GRUK Gate 41395668033](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41395668033): success.
+- [Seguridad y Pruebas 41395668018](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41395668018): success.
+- [Precisión e Integridad 41395668017](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41395668017): siete jobs en success, incluido `mongo-privileges-v81` (`125116337055`). La prueba de obligaciones sin fecha ejecutó home y evaluación de compras reales con el rol restringido.
+
+Este registro posterior es solo documental. Consultar HEAD y CI del commit documental antes de continuar; no confundir el código probado con una publicación en Render. #407 permanece abierto y no se cambió producción.
