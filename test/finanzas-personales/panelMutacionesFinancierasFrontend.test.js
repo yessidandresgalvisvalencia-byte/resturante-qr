@@ -61,3 +61,9 @@ test("crédito HTTP 200 sin recibo o con alcance cambiado no resuelve incertidum
  for(const recibo of [undefined,{confirmado:true,certificaEstadoActual:false,ruta:"/prestamos",metodo:"POST",solicitudId:id,solicitudHuella:require("../../modules/finanzas-personales/services/creacionPrestamoRecuperablePersonal.service").huellaSolicitud(datos,"/creditos"),prestamoId:A,hash:"b".repeat(64)}]){const f=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo}):undefined);await assert.rejects(f.ctx.api("/creditos",op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);}
  const e=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,ruta:"/creditos",metodo:"POST",solicitudId:id,solicitudHuella:require("../../modules/finanzas-personales/services/creacionPrestamoRecuperablePersonal.service").huellaSolicitud(datos,"/creditos"),prestamoId:A,hash:"b".repeat(64)}}):undefined);await e.ctx.api("/creditos",op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
 });
+
+test("cuenta ok=true sin recibo vinculante no elimina pendiente; recibo exacto sí confirma",async()=>{
+ const datos={confirmacion:true,saldoMinor:1000},id="cuenta_prueba_0001",op={method:"POST",headers:{"Idempotency-Key":id},body:JSON.stringify(datos)};
+ const f=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true}):undefined);await assert.rejects(f.ctx.api("/cuentas",op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
+ const e=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,ruta:"/cuentas",metodo:"POST",solicitudId:id,solicitudHuella:require("../../modules/finanzas-personales/services/creacionCuentaRecuperablePersonal.service").huellaSolicitud(datos),cuentaId:A,hash:"b".repeat(64)}}):undefined);await e.ctx.api("/cuentas",op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
+});

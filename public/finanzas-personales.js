@@ -50,6 +50,10 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
     const recibo=j.resultado?.recibo,id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1],version=JSON.parse(o.body||"{}").versionBorrador;
     if(recibo?.confirmado!==true||recibo.solicitudId!==id||recibo.versionBorrador!==version||recibo.ruta!==path||recibo.metodo!=="POST"||recibo.certificaEstadoActual!==false||!/^[a-f0-9]{64}$/.test(recibo.hash||""))throw Error("La aprobación no devolvió un recibo verificable; continúa pendiente de confirmar");
    }
+   if(operacion&&path==="/cuentas"){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];
+    if(j.recibo?.solicitudId!==id||!controlFinancieroPersonal().reciboCuentaValido(tokenSolicitud,j.recibo))throw Error("La cuenta no devolvió un recibo vinculante; continúa pendiente de confirmar");
+   }
    if(operacion&&["/prestamos","/creditos"].includes(path)){
     const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];
     if(j.recibo?.ruta!==path||j.recibo?.solicitudId!==id||!controlFinancieroPersonal().reciboPrestamoValido(tokenSolicitud,j.recibo))throw Error("La creación no devolvió un recibo vinculante; continúa pendiente de confirmar");
@@ -467,11 +471,11 @@ window.approveDraft=async id=>{
 };
 window.confirmarAprobacionesPendientes=async()=>{
  const sesion=token;if(!sesion||$("app").hidden)return;const boton=$("confirmApprovals");if(boton?.disabled)return;if(boton)boton.disabled=true;
- const informar=(texto,ok)=>{msg("captureMsg",texto,ok);if($("prestamoMsg"))msg("prestamoMsg",texto,ok);if($("credMsg"))msg("credMsg",texto,ok);};
+ const informar=(texto,ok)=>{msg("captureMsg",texto,ok);if($("prestamoMsg"))msg("prestamoMsg",texto,ok);if($("credMsg"))msg("credMsg",texto,ok);if($("cuentaMsg"))msg("cuentaMsg",texto,ok);};
  try{
-  const control=controlFinancieroPersonal(),pendientes=control.pendientes(sesion).filter(p=>p.tipo==="header"&&(p.id.startsWith("aprobacion_")||p.id.startsWith("prestamo_")||p.id.startsWith("credito_")));let confirmadas=0;
+  const control=controlFinancieroPersonal(),pendientes=control.pendientes(sesion).filter(p=>p.tipo==="header"&&(p.id.startsWith("aprobacion_")||p.id.startsWith("prestamo_")||p.id.startsWith("credito_")||p.id.startsWith("cuenta_")));let confirmadas=0;
   for(const p of pendientes.slice(0,20)){
-   try{const prestamo=p.id.startsWith("prestamo_")||p.id.startsWith("credito_"),r=await api((p.id.startsWith("credito_")?"/creditos/confirmacion-creacion/":prestamo?"/prestamos/confirmacion-creacion/":"/captura/confirmacion-aprobacion/")+encodeURIComponent(p.id));if(token!==sesion||$("app").hidden)return;if(prestamo?control.confirmarCreacionPrestamo(sesion,r.recibo):await control.confirmarAprobacion(sesion,r.recibo))confirmadas++;}
+   try{const cuenta=p.id.startsWith("cuenta_"),prestamo=p.id.startsWith("prestamo_")||p.id.startsWith("credito_"),r=await api((cuenta?"/cuentas/confirmacion-creacion/":p.id.startsWith("credito_")?"/creditos/confirmacion-creacion/":prestamo?"/prestamos/confirmacion-creacion/":"/captura/confirmacion-aprobacion/")+encodeURIComponent(p.id));if(token!==sesion||$("app").hidden)return;if(cuenta?control.confirmarCreacionCuenta(sesion,r.recibo):prestamo?control.confirmarCreacionPrestamo(sesion,r.recibo):await control.confirmarAprobacion(sesion,r.recibo))confirmadas++;}
    catch(e){if(token!==sesion||$("app").hidden)return;}
   }
   if(token!==sesion||$("app").hidden)return;
@@ -557,6 +561,19 @@ $("refresh").onclick=load;$("saveMovimiento").onclick=async()=>{const boton=$("s
   if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("El crédito sigue sin confirmar; consulta sus confirmaciones.");
   await load();if(token===sesion&&!$("app").hidden)msg("credMsg",(r.duplicado?"Registro anterior confirmado; no se creó otra deuda.":"Saldo de deuda confirmado sin registrar pagos ni dinero recibido.")+(pago?"":" Falta la fecha del próximo pago para calcular Disponible Hoy."));
  }catch(e){if(token===sesion&&!$("app").hidden)msg("credMsg","No se confirmó el crédito. Consulta confirmaciones pendientes o reintenta con los mismos datos: "+e.message,false);}
+ finally{boton.disabled=false;}
+};$("saveCuenta").onclick=async()=>{
+ const sesion=token,boton=$("saveCuenta");if(!sesion||$("app").hidden||boton.disabled)return;
+ try{
+  const nombre=$("qNombre").value.normalize("NFKC").trim().replace(/\s+/g," ").toUpperCase(),tipo=$("qTipo").value,institucion=$("qInstitucion").value.trim(),saldoMinor=pesosExactos("qSaldo",{permiteCero:true}),civil=$("qFecha").value,saldoVerificado=$("qVerificado").checked;
+  if(!nombre||nombre.length>100||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(civil))throw Error("Indica nombre, saldo exacto y fecha/hora del saldo.");
+  const instante=new Date(civil+(civil.length===16?":00":"")+"-05:00");if(!Number.isFinite(+instante)||new Date(+instante-5*3600000).toISOString().slice(0,19)!==civil+(civil.length===16?":00":"")||+instante>Date.now())throw Error("La fecha del saldo debe ser válida y no futura.");
+  if(!window.confirm("¿Crear "+nombre+" con saldo declarado de "+money(saldoMinor)+" a "+civil+" (hora Colombia)? "+(saldoVerificado?"Confirmas que verificaste ese saldo disponible en tu cuenta.":"Quedará sin verificar y requerirá conciliación.")+" No se registrará como ingreso. No dupliques una cuenta existente."))return;
+  boton.disabled=true;
+  const r=await api("/cuentas",{method:"POST",headers:{"Idempotency-Key":"cuenta_"+crypto.randomUUID()},body:JSON.stringify({confirmacion:true,nombre,tipo,institucion,moneda:"COP",saldoMinor,saldoVerificado,fechaSaldo:instante.toISOString()})});
+  if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("La cuenta sigue sin confirmar; consulta sus confirmaciones.");await load();
+  if(token===sesion&&!$("app").hidden)msg("cuentaMsg",r.duplicado?"Creación anterior confirmada; no se creó otra cuenta.":saldoVerificado?"Cuenta confirmada con saldo declarado por ti; no es verificación bancaria ni un ingreso.":"Cuenta confirmada sin verificar. Concilia su saldo antes de usarlo como disponible.");
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("cuentaMsg","No se confirmó la cuenta. Consulta confirmaciones o reintenta con los mismos datos: "+e.message,false);}
  finally{boton.disabled=false;}
 };$("saveActivo").onclick=async()=>{try{await api("/activos",body({nombre:$("aNombre").value,tipo:$("aTipo").value,valorActual:pesosExactos("aValor"),liquido:["EFECTIVO","CUENTA"].includes($("aTipo").value),institucion:$("aInstitucion").value}));msg("actMsg","Activo guardado.");await load()}catch(e){msg("actMsg",e.message,false)}};$("saveInversion").onclick=async()=>{try{await api("/inversiones",body({nombre:$("iNombre").value,clase:$("iClase").value,capitalAportado:pesosExactos("iCapital"),valorActual:pesosExactos("iValor",{permiteCero:true}),moneda:"COP",riesgoDeclarado:"NO_CLASIFICADO",institucion:""}));msg("invMsg","Inversión guardada.");await load()}catch(e){msg("invMsg",e.message,false)}};$("saveMeta").onclick=async()=>{try{await api("/metas",body({nombre:$("gNombre").value,objetivo:pesosExactos("gObjetivo"),acumulado:pesosExactos("gAcumulado",{permiteCero:true}),fechaObjetivo:$("gFecha").value||null}));msg("metaMsg","Meta guardada.")}catch(e){msg("metaMsg",e.message,false)}};$("ask").onsubmit=async e=>{e.preventDefault();const q=$("question").value.trim();if(!q)return;$("answer").textContent="Analizando tus datos…";try{const j=await api("/consulta",body({pregunta:q}));$("answer").textContent=j.resultado.respuesta}catch(x){$("answer").textContent=x.message}};function chatBubble(who,text){const box=document.createElement("div");box.className="draft";box.style.alignSelf=who==="Tú"?"flex-end":"flex-start";box.style.maxWidth="90%";box.style.whiteSpace="pre-wrap";const name=document.createElement("strong");name.textContent=who;box.append(name,document.createElement("br"),document.createTextNode(text));$("chatHistory").appendChild(box);$("chatHistory").scrollTop=$("chatHistory").scrollHeight;}
 async function cargarHistorialChat(){const tokenConsulta=token;try{const j=await api("/copilot/historial");if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;const turnos=Array.isArray(j.turnos)?j.turnos:[];if(!turnos.length)return;const area=$("chatHistory");area.replaceChildren();for(const turno of turnos){chatBubble("Tú",turno.mensaje);chatBubble("GRUK",turno.respuesta);}}catch(e){if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;msg("captureMsg","No pude recuperar el historial: "+e.message,false);}}

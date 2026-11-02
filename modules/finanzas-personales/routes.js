@@ -89,8 +89,14 @@ router.get("/gastos/hormiga/resumen",async(req,res)=>{
  }
 });
 router.get("/home",crearLecturaPanelPersonal({campo:"home",leer:usuarioId=>homePersonal.obtener(usuarioId)}));
-const cuentaSchema=Joi.object({nombre:Joi.string().trim().min(1).max(100).required(),tipo:Joi.string().valid("EFECTIVO","AHORROS","CORRIENTE","BILLETERA","INVERSION","OTRA").required(),institucion:Joi.string().trim().max(120).allow("").default(""),moneda:Joi.string().valid("COP").default("COP"),saldoMinor:Joi.number().integer().min(0).default(0),saldoVerificado:Joi.boolean().default(false)});
-router.post("/cuentas",validate(cuentaSchema),async(req,res)=>{try{return res.status(201).json({ok:true,cuenta:await patrimonioPersonal.crearCuenta(req.personalAuth.userId,{...req.validated,saldoVerificadoEn:req.validated.saldoVerificado?new Date():null,origenSaldo:req.validated.saldoVerificado?"USUARIO":"NO_VERIFICADO",requiereReconciliacion:!req.validated.saldoVerificado})});}catch(e){return res.status(e.code===11000?409:e.statusCode||500).json({ok:false,error:e.code===11000?"Ya existe una cuenta con ese nombre":e.statusCode?e.message:"Error interno"});}});
+router.post("/cuentas",async(req,res)=>{
+ try{const r=await require("./services/creacionCuentaRecuperablePersonal.service").crear(req.personalAuth.userId,req.get("Idempotency-Key"),req.body);return res.status(r.duplicado?200:201).json({ok:true,...r});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar la cuenta"});}
+});
+router.get("/cuentas/confirmacion-creacion/:solicitudId",async(req,res)=>{
+ try{return res.json({ok:true,recibo:await require("./services/creacionCuentaRecuperablePersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo de la cuenta"});}
+});
 router.get("/patrimonio-financiero",async(req,res)=>res.json({ok:true,snapshot:await patrimonioPersonal.snapshot(req.personalAuth.userId)}));
 // Reparación puntual retirada: no sobrescribir deudas con importes fijos ni anular fuentes.
 router.post("/prestamos/reparar-moto",(req,res)=>res.status(410).json({
