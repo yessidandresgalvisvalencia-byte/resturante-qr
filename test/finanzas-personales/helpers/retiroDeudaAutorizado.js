@@ -57,7 +57,7 @@ async function probarRetiroDeudaAutorizado(db){
  const corrupcion=await preparar(),rc=await corrupcion.retirar(solicitud());
  await db.collection(E.collection.collectionName).updateOne({usuarioId:corrupcion.usuarioId},{$set:{"anterior.diaPago":2}});
  const corrompida=await corrupcion.foto();await assert.rejects(corrupcion.restaurar({...solicitud(),retiroHash:rc.hash}),e=>e.statusCode===409);assert.deepEqual(await corrupcion.foto(),corrompida);
- const vinculada=await preparar();await T.create({usuarioId:vinculada.usuarioId,prestamoId:vinculada.p._id,tipo:"PAGO_DEUDA",montoMinor:1,concepto:"Fuente ficticia",fecha:new Date(),impactoCaja:false,estado:"ANULADA"});const vinculadaAntes=await vinculada.foto();
+ const vinculada=await preparar();await T.create({usuarioId:vinculada.usuarioId,prestamoId:vinculada.p._id,tipo:"PAGO_DEUDA",montoMinor:1,concepto:"Fuente ficticia",categoria:"Ensayo",fecha:new Date(),impactoCaja:false,estado:"ANULADA"});const vinculadaAntes=await vinculada.foto();
  await assert.rejects(vinculada.retirar(solicitud()),e=>e.statusCode===409);assert.deepEqual(await vinculada.foto(),vinculadaAntes);
  const pago=await preparar();const resultados=await Promise.allSettled([pago.retirar(solicitud()),patrimonio.pagarCuotaCredito(pago.usuarioId,{prestamoId:pago.p._id,cuentaId:pago.c._id,numeroCuota:1,montoPagadoRealMinor:400,modo:"CUENTA",externalId:crypto.randomUUID()})]);
  assert.equal(resultados.filter(x=>x.status==="fulfilled").length,1);const alFinal=await pago.foto();
