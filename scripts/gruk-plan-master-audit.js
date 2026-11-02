@@ -57,7 +57,13 @@ function validateEvidencePaths(matrixMarkdown, root) {
         m[2] !== "resturante-qr" || (m[3] === "pull" && !/^\d+$/.test(m[4])) ||
         (m[3] === "commit" && !/^[a-f0-9]{7,40}$/i.test(m[4]))))
       throw Error("GRUK_PLAN_UNTRUSTED_EVIDENCE_URL_" + id);
-    const tests = [...evidence.matchAll(/test\/[^\s)\]`]+?\.test\.[cm]?js/g)].map(m => m[0]);
+    // Inspect complete test-path tokens: a valid prefix must not hide an
+    // invalid suffix or a second malformed evidence path.
+    const testTokens = [...evidence.matchAll(/(?:^|[\s(])((?:test\/)[^\s)\]>`]+)/g)].map(m => m[1]);
+    const tests = testTokens.filter(token =>
+      /^test\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.test\.[cm]?js$/.test(token));
+    if (testTokens.length === 0 || tests.length !== testTokens.length)
+      throw Error("GRUK_PLAN_MISSING_EVIDENCE_TEST_" + id);
     if (!tests.length || tests.some(testPath => {
       const full = path.resolve(root, testPath);
       const testRoot = path.resolve(root, "test");
