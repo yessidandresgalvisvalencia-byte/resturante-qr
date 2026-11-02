@@ -86,3 +86,12 @@ test("rechaza archivo vacío usado como evidencia de aceptación", () => {
   assert.throws(()=>validateEvidencePaths(row(goodLink+" test/gruk/evidence.test.js criterio de aceptación"),dir),/MISSING_EVIDENCE_TEST_01/);
  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test("rechaza evidencia de prueba con sintaxis JavaScript inválida", () => {
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),"gruk-evidence-"));
+ try {
+  fs.mkdirSync(path.join(dir,"test/gruk"),{recursive:true});
+  fs.writeFileSync(path.join(dir,"test/gruk/evidence.test.js"),'const test=require("node:test"); test("roto", () => {');
+  assert.throws(()=>validateEvidencePaths(row(goodLink+" test/gruk/evidence.test.js criterio de aceptación"),dir),/MISSING_EVIDENCE_TEST_01/);
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
