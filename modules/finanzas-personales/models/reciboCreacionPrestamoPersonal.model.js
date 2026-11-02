@@ -1,6 +1,7 @@
 "use strict";
 const mongoose=require("mongoose");
 const s=new mongoose.Schema({
+ ruta:{type:String,enum:["/prestamos","/creditos"],default:undefined,immutable:true},
  usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},solicitudId:{type:String,required:true,immutable:true,maxlength:100},
  solicitudHuella:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/},solicitud:{type:mongoose.Schema.Types.Mixed,required:true,immutable:true},
  prestamoId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},fuentes:{type:[mongoose.Schema.Types.Mixed],default:undefined,required:true,immutable:true},

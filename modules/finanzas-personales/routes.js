@@ -298,7 +298,6 @@ const perfilInv=Joi.object({horizonteMeses:Joi.number().integer().min(1).max(600
 router.put("/perfil-inversion",validate(perfilInv),async(req,res)=>res.json({ok:true,perfil:await service.upsertPerfilInversion(req.personalAuth.userId,req.validated)}));
 router.get("/patrimonio",async(req,res)=>res.json({ok:true,patrimonio:await service.patrimonio(req.personalAuth.userId)}));
 router.get("/plan-financiero",async(req,res)=>res.json({ok:true,plan:await service.planFinanciero(req.personalAuth.userId)}));
-const credito=Joi.object({nombre:Joi.string().max(100).required(),saldo:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),tasaMensualPct:Joi.number().min(0).max(100).required(),cuotaMensual:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),mesesRestantes:Joi.number().integer().min(1).max(360).required()});
 const creditoLegacyRecuperable=require("./services/creditoLegacyRecuperablePersonal.service");
 router.get("/creditos",async(req,res)=>{
  try{return res.json({ok:true,...await creditoLegacyRecuperable.listar(req.personalAuth.userId)});}
@@ -319,13 +318,13 @@ router.post("/prestamos/:id/restaurar-retiro",async(req,res)=>{
  try{const resultado=await require("./services/retiroDeudaPersonal.service").restaurar(req.personalAuth.userId,req.params.id,req.body);return res.json({ok:true,resultado});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible recuperar la deuda"});}
 });
-router.post("/creditos",validate(credito),async(req,res)=>{
- try{
-  const d=req.validated;
-  if(!Number.isSafeInteger(d.saldo)||d.saldo<=0||!Number.isSafeInteger(d.cuotaMensual)||d.cuotaMensual<=0)return res.status(400).json({ok:false,error:"El saldo debe ser un entero positivo y la cuota un entero no negativo"});
-  const prestamo=await patrimonioPersonal.crearPrestamo(req.personalAuth.userId,{direccion:"POR_PAGAR",contraparte:"Acreedor no identificado",concepto:d.nombre,principalMinor:d.saldo,cuotaMinor:d.cuotaMensual,numeroCuotas:d.mesesRestantes,tasaMensualPct:d.tasaMensualPct,fechaInicio:new Date(),fechaVencimiento:null});
-  return res.status(201).json({ok:true,prestamo,registro:"DEUDA_CANONICA"});
- }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible registrar el crédito"});}
+router.post("/creditos",async(req,res)=>{
+ try{const r=await require("./services/creacionPrestamoRecuperablePersonal.service").crearCredito(req.personalAuth.userId,req.get("Idempotency-Key"),req.body);return res.status(r.duplicado?200:201).json({ok:true,...r,registro:"DEUDA_CANONICA"});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar el crédito"});}
+});
+router.get("/creditos/confirmacion-creacion/:solicitudId",async(req,res)=>{
+ try{return res.json({ok:true,recibo:await require("./services/creacionPrestamoRecuperablePersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId,"/creditos")});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo del crédito"});}
 });
 const meta=Joi.object({nombre:Joi.string().max(120).required(),objetivo:Joi.number().integer().positive().max(Number.MAX_SAFE_INTEGER).required(),acumulado:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),fechaObjetivo:Joi.date().iso().allow(null)});
 router.post("/metas",validate(meta),async(req,res)=>res.status(201).json({ok:true,meta:await service.crearMeta(req.personalAuth.userId,req.validated)}));

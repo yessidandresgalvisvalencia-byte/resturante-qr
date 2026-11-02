@@ -55,3 +55,9 @@ test("ok=true sin recibo de creación vinculante conserva incertidumbre; recibo 
  const e=entorno(async(_p,o)=>{if(o.method==="POST")return respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,ruta:"/prestamos",metodo:"POST",solicitudId:id,solicitudHuella:require("../../modules/finanzas-personales/services/creacionPrestamoRecuperablePersonal.service").huellaSolicitud(datos),prestamoId:A,hash:"b".repeat(64)}});});
  await e.ctx.api("/prestamos",op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
 });
+
+test("crédito HTTP 200 sin recibo o con alcance cambiado no resuelve incertidumbre",async()=>{
+ const datos={confirmacion:true,saldo:1000},id="credito_prueba_0001",op={method:"POST",headers:{"Idempotency-Key":id},body:JSON.stringify(datos)};
+ for(const recibo of [undefined,{confirmado:true,certificaEstadoActual:false,ruta:"/prestamos",metodo:"POST",solicitudId:id,solicitudHuella:require("../../modules/finanzas-personales/services/creacionPrestamoRecuperablePersonal.service").huellaSolicitud(datos,"/creditos"),prestamoId:A,hash:"b".repeat(64)}]){const f=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo}):undefined);await assert.rejects(f.ctx.api("/creditos",op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);}
+ const e=entorno(async(_p,o)=>o.method==="POST"?respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,ruta:"/creditos",metodo:"POST",solicitudId:id,solicitudHuella:require("../../modules/finanzas-personales/services/creacionPrestamoRecuperablePersonal.service").huellaSolicitud(datos,"/creditos"),prestamoId:A,hash:"b".repeat(64)}}):undefined);await e.ctx.api("/creditos",op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
+});

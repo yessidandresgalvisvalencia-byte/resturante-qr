@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("créditos declarados con recibo sin duplicar deuda ni caja y calendario desconocido bloquea disponible",()=>require("./helpers/creditoRecuperableAutorizado").probarCreditoRecuperableAutorizado(db,provisionarMongoPersonal));
   await t.test("creación de préstamos con recibos atómicos, reintentos, aislamiento y respuesta perdida",()=>require("./helpers/creacionPrestamoAutorizado").probarCreacionPrestamoAutorizado(db,provisionarMongoPersonal));
   await t.test("recibos de aprobación resuelven respuesta perdida sin repetir fuentes, caja ni operaciones",
    ()=>require("./helpers/reciboAprobacionAutorizado").probarReciboAprobacionAutorizado(db));
