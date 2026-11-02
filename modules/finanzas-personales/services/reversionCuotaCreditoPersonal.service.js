@@ -89,4 +89,54 @@ async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={}){
  },config);}catch(e){if(e.code===11000)throw problema("Operación concurrente; consulta el pago antes de reintentar");throw e;}
  finally{await session.endSession();}
 }
-module.exports={pagosCreditoVigentes,validarPagosCredito,obtenerPagosCredito,deshacer};
+async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anulacionHash}={}){
+ if(![usuarioId,prestamoId,movimientoId].every(x=>mongoose.isObjectIdOrHexString(x))||
+  typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey)||
+  typeof anulacionHash!=="string"||!/^[a-f0-9]{64}$/.test(anulacionHash))throw problema("Préstamo, pago y anulación exacta obligatorios",400);
+ const session=await mongoose.startSession();
+ try{return await session.withTransaction(async()=>{
+  await serializarEscrituraFuente(usuarioId,session);
+  const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).session(session).lean();
+  if(!fuente)throw problema("Pago de préstamo no encontrado",404);
+  let original;
+  try{original=originalDesdeFuente(fuente);}catch{throw problema("Capital y pago real no conciliables");}
+  const {cadena}=await leerCadenaVerificada(String(usuarioId),{session});
+  const historial=cadena.filter(e=>e.movimientoId===String(movimientoId)),estado=vigente(original,historial);
+  const repetido=cadena.find(e=>e.idempotencyKey===idempotencyKey);
+  if(repetido){
+   if(repetido.movimientoId!==String(movimientoId)||repetido.tipo!=="RESTAURACION"||repetido.anulacionHash!==anulacionHash)
+    throw problema("Clave idempotente utilizada para otra operación");
+   return {duplicado:true,compensacion:repetido};
+  }
+  if(!estado.anulado||historial.at(-1)?.tipo!=="ANULACION"||historial.at(-1)?.hashActual!==anulacionHash)
+   throw problema("La anulación cambió; consulta antes de restaurar el pago");
+  const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},periodicidadConfirmada:true}).session(session);
+  if(!p)throw problema("Préstamo sin calendario confirmado o no activo");
+  const {pagos}=validarPagosCredito(p,await pagosCreditoVigentes(usuarioId,prestamoId,{session}));
+  if(original.numeroCuota!==pagos.length+1||!Number.isSafeInteger(p.cuotaMinor)||p.cuotaMinor<1||
+   original.montoMinor!==Math.min(p.cuotaMinor,p.saldoMinor,original.montoPagadoRealMinor))
+   throw problema("Pago fuera de secuencia o capital incompatible con el saldo actual");
+  const saldo=p.saldoMinor-original.montoMinor;
+  // Validar también la fuente que se recupera y el total de pagos reales, sin
+  // inferir capital histórico ni recalcular cargos/intereses de la operación.
+  validarPagosCredito({...p.toObject(),saldoMinor:saldo},[...pagos,fuente]);
+  const compensacion=await registrar({original,tipo:"RESTAURACION",anulacionHash,idempotencyKey,fechaISO:new Date().toISOString()},{session});
+  if(original.impactoCaja){
+   const delta=Number(BigInt(compensacion.deltaCajaMinor));
+   const cuenta=await Cuenta.findOneAndUpdate({_id:fuente.cuentaId,usuarioId,activa:true,moneda:"COP",...filtroSaldoSeguro(delta)},
+    {$inc:{saldoMinor:delta}},{session,returnDocument:"after"});
+   if(!cuenta||!Number.isSafeInteger(cuenta.saldoMinor))throw problema("Cuenta no disponible o saldo insuficiente para restaurar el pago");
+  }
+  p.saldoMinor=saldo;
+  if(saldo===0){p.estado="PAGADO";p.periodicidadConfirmada=false;}
+  await p.save({session});
+  await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:fuente._id,
+   payload:{accion:"RESTAURACION_PAGO_DEUDA",prestamoId:String(prestamoId),transaccionId:String(movimientoId),
+    numeroCuota:original.numeroCuota,montoMinor:original.montoMinor,montoPagadoRealMinor:original.montoPagadoRealMinor,
+    impactoCaja:original.impactoCaja,anulacionHash,compensacionHash:compensacion.hashActual,secuencia:compensacion.secuencia,
+    deltaCajaMinor:compensacion.deltaCajaMinor,saldoPendienteMinor:saldo}}],{session});
+  return {duplicado:false,compensacion};
+ },config);}catch(e){if(e.code===11000)throw problema("Operación concurrente; consulta antes de reintentar");throw e;}
+ finally{await session.endSession();}
+}
+module.exports={pagosCreditoVigentes,validarPagosCredito,obtenerPagosCredito,deshacer,restaurar};

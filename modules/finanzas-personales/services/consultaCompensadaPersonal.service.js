@@ -51,9 +51,9 @@ function proyectarCaja(datos){
     (e.original.tipo==="INGRESO"&&e.cambios.tipo==="COBRO_PRESTAMO")))continue;
   const deuda=fuente.tipo==="PAGO_DEUDA";
   const restauracionCuota=deuda&&e.version===6&&e.tipo==="RESTAURACION"&&!fuente.prestamoId;
-  const credito=deuda&&e.version===4&&e.tipo==="ANULACION"&&e.original.prestamoId===String(fuente.prestamoId);
+  const credito=deuda&&(e.version===4&&e.tipo==="ANULACION"||e.version===7&&e.tipo==="RESTAURACION")&&e.original.prestamoId===String(fuente.prestamoId);
   if((fuente.impactoCaja!==true&&!(deuda&&fuente.impactoCaja===false))||
-     (deuda&&e.tipo!=="ANULACION"&&!restauracionCuota)||fuente.medioPago==="CREDITO"||fuente.recurrente||
+     (deuda&&e.tipo!=="ANULACION"&&!restauracionCuota&&!credito)||fuente.medioPago==="CREDITO"||fuente.recurrente||
      (fuente.recurrenteOrigenId&&!(e.tipo==="ANULACION"||e.tipo==="RESTAURACION"&&e.version===5&&fuente.tipo==="GASTO"))||(fuente.prestamoId&&!credito))integridad();
   const delta=BigInt(e.deltaCajaMinor);if(delta===0n)continue;
   const monto=Number(delta<0n?-delta:delta);

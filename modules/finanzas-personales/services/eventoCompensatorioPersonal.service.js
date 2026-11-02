@@ -42,7 +42,7 @@ function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,s
  const anterior=originalVerificado(original);
  // V2 añade únicamente reversión de pagos de deuda, con su efecto de caja explícito.
  // Conservar el payload V1 de ingresos/gastos mantiene verificables los hashes históricos.
- if(anterior.tipo==="PAGO_DEUDA"&&tipo!=="ANULACION"&&!(tipo==="RESTAURACION"&&!anterior.prestamoId))throw new TypeError("Pago de deuda requiere su flujo específico");
+ if(anterior.tipo==="PAGO_DEUDA"&&tipo!=="ANULACION"&&tipo!=="RESTAURACION")throw new TypeError("Pago de deuda requiere su flujo específico");
  if(!["CORRECCION","ANULACION","RESTAURACION"].includes(tipo)||typeof idempotencyKey!=="string"||
   !/^[a-zA-Z0-9_-]{1,128}$/.test(idempotencyKey)||!HEX.test(prevHash)||
   !Number.isSafeInteger(secuencia)||secuencia<1||
@@ -76,7 +76,7 @@ function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,s
  const delta=tipo==="ANULACION"?-signed(anterior):restaurar?signed(anterior):signed(nuevo)-signed(anterior);
  if(delta>BigInt(Number.MAX_SAFE_INTEGER)||delta<BigInt(Number.MIN_SAFE_INTEGER))
   throw new RangeError("Delta fuera de rango seguro");
- const payload={version:restaurar?(anterior.tipo==="PAGO_DEUDA"?6:5):reclasificacion?3:anterior.tipo==="PAGO_DEUDA"?(anterior.prestamoId?4:2):1,usuarioId:anterior.usuarioId,movimientoId:anterior.movimientoId,tipo,secuencia,fechaISO,
+ const payload={version:restaurar?(anterior.tipo==="PAGO_DEUDA"?(anterior.prestamoId?7:6):5):reclasificacion?3:anterior.tipo==="PAGO_DEUDA"?(anterior.prestamoId?4:2):1,usuarioId:anterior.usuarioId,movimientoId:anterior.movimientoId,tipo,secuencia,fechaISO,
   idempotencyKey,prevHash,...(restaurar?{anulacionHash}:{}),original:anterior,cambios:Object.freeze({...cambios}),deltaCajaMinor:String(delta)};
  const hashActual=crypto.createHash("sha256").update(canon(payload)).digest("hex");
  return Object.freeze({...payload,hashActual});

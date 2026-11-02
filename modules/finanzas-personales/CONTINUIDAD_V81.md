@@ -216,3 +216,32 @@ La prueba ahora exige que la revisión del cerrojo avance exactamente uno al rep
 SHA de implementación y prueba corregida: `14cb89a0e694766e52dcd938c7714c8eaad891a7`. Las tres validaciones del SHA exacto terminaron en success: [Gate 41424520463](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41424520463), [Seguridad 41424520464](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41424520464) y [V81 41424520460](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41424520460). Sus siete jobs V81 aprobaron, incluido MongoDB autenticado (`125207776193`) con recuperación de cuotas, concurrencia y rollback. No hay fusión ni despliegue.
 
 Este registro posterior es documental: comprobar HEAD y CI del commit documental antes de continuar. Siguiente paso independiente: pagos de préstamos, manteniendo diferenciados capital, pago real y secuencia; todavía no están habilitados para restauración. #407 y la evidencia externa de custodia/backup/producción continúan pendientes.
+
+## Checkpoint del 2 de noviembre de 2026 — recuperación de pagos de préstamos
+
+Partida verificada: `5182d4042bfb17bba43794207ab93b307e34dc7a`, PR #389 abierto sobre feature/finanzas-personales (`f44a0535ad86ac7f10a90be6a700cfc8618a43e0`) y #407 abierto. CI de partida: [Gate 41424781897](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41424781897), [Seguridad 41424781902](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41424781902), [V81 41424781866](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41424781866), todos success. Checkout aislado y publicación con HEAD esperado; no tocar main ni desplegar.
+
+Se añade recuperación específica de PAGO_DEUDA vinculado a un préstamo POR_PAGAR. Los límites anteriores describen los lotes previos: ahora se habilita ese caso con sus verificaciones propias. No se elimina ni recrea el pago original, no se recalculan intereses y la diferencia entre pago real y capital no se clasifica automáticamente como interés.
+
+| Aceptación | Implementación y prueba |
+| --- | --- |
+| Importes separados | RESTAURACION V7 conserva capital, pago real, número de cuota, préstamo e impactoCaja; capital reduce deuda y pago real afecta cuenta. HISTORICO conserva caja cero |
+| Fuente y autorización | Despachador obtiene préstamo desde la fuente propia y verifica formato de cuota; el servicio lo comprueba otra vez dentro del snapshot. No acepta préstamo ni capital del cuerpo |
+| Secuencia y saldo | Préstamo activo/vencido con calendario confirmado; pagos vigentes sin huecos; solo se recupera la siguiente cuota y capital compatible con cuota, saldo actual y pago real originales |
+| Estado final | Saldo cero queda PAGADO y desactiva periodicidadConfirmada, igual al flujo de pago. No reprograma el vencimiento |
+| Atomicidad | Evento, cursor, cuenta, deuda y outbox dentro de una transacción; saldo insuficiente o error de auditoría revierten toda la unidad |
+| Idempotencia y concurrencia | Recibo ligado a anulación exacta; reintento no duplica capital ni caja. Pago nuevo y restauración compiten por el mismo préstamo; referencia obsoleta o cuota fuera de orden se rechaza |
+| Historial y caja | Historial ofrece Restaurar al pago verificable; lectura compensada y proyección de caja reconocen V7, con delta en la fecha de compensación. No cambia el JS ni la confirmación existente |
+
+La validación de pagos conserva el criterio previo de capital histórico: no inventa cuotas anteriores ausentes. Este flujo requiere evidencia suficiente para el caso identificado y no certifica completitud del historial ni saldo bancario.
+
+Pruebas locales de evento V7, despacho e historial aprobadas. Suite ampliada y sintaxis se ejecutan antes de publicar; las integraciones que requieren servicios externos no se presentan como comprobadas localmente. `restauracionPrestamoAutorizada.js` se incorpora al fixture con MongoDB y rol restringido: capital 400/pago real 450, CUENTA/HISTORICO, pago parcial, cierre PAGADO, idempotencia, aislamiento, caja desde anclas, carrera contra pago nuevo, hueco de secuencia, referencia vieja, rollback de outbox y saldo insuficiente. Compara fuente original y estados financieros; el cerrojo mutable solo puede avanzar en un reintento exitoso, no al abortar.
+
+```bash
+node --test test/finanzas-personales/*.test.js test/gruk/restauracion-compensada-personal.test.js test/gruk/restauracion-movimiento-despacho.test.js test/gruk/evento-compensatorio-personal.test.js test/gruk/estado-compensado-personal.test.js test/gruk/registrador-compensacion-personal.test.js test/gruk/consulta-compensada-personal.test.js
+npm run check:syntax
+```
+
+V1–V6 mantienen payload/hash. Un lector anterior que no admite V7 fallará cerrado: la compatibilidad de reversión operativa sigue pendiente antes de liberar. Sin cambios de roles, migraciones, borrados, reparaciones ni datos reales.
+
+Siguiente paso: confirmar CI del SHA publicado e inventariar eliminación/recuperación de los demás registros mutables (deudas retiradas, cuentas, metas y configuración), sin confundir cancelación con borrado físico. Priorizar además el ejercicio reproducible de backup y restauración aislada con retención, acceso separado y RPO/RTO medidos. Custodio independiente real de #407, auditoría de históricos/permisos/índices de producción y dispositivos siguen pendientes. Mantener sin fusión ni despliegue.

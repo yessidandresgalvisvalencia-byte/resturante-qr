@@ -37,7 +37,19 @@ test("rechaza restauración sin anulación, referencia ajena, doble restauració
  assert.throws(()=>eventoCompensatorio({...r,cambios:{montoMinor:1}}),/inválido/);
  assert.throws(()=>eventoCompensatorio({...r,anulacionHash:undefined}),/inválida/);
  assert.throws(()=>eventoCompensatorio({...r,original:{...original,tipo:"PAGO_DEUDA",impactoCaja:true,
-  prestamoId:"507f1f77bcf86cd799439015",numeroCuota:1,montoPagadoRealMinor:3000}}));
+  prestamoId:"507f1f77bcf86cd799439015",numeroCuota:1,montoPagadoRealMinor:2999}}));
+});
+test("V7 distingue capital de dinero real y conserva caja cero histórica",()=>{
+ for(const impactoCaja of [true,false]){
+  const o={...original,tipo:"PAGO_DEUDA",montoMinor:400,montoPagadoRealMinor:450,
+   prestamoId:"507f1f77bcf86cd799439015",numeroCuota:1,impactoCaja};
+  const a=evento(o,"ANULACION",null,"anular"),r=evento(o,"RESTAURACION",a,"restaurar");
+  assert.equal(r.version,7);assert.equal(r.deltaCajaMinor,impactoCaja?"-450":"0");
+  assert.equal(vigente(o,[a,r]).anulado,false);assert.equal(r.original.montoMinor,400);
+  const f={...o,_id:o.movimientoId,estado:"ACTIVA",moneda:"COP",medioPago:"EFECTIVO",cuentaId:impactoCaja?"cuenta":null,fecha:new Date(fechaISO),descripcion:"Cuota 1 confirmada"};
+  const caja=proyectarCaja({usuarioId:o.usuarioId,fuentes:[f],eventos:[a,r],cursor:{_id:o.usuarioId,secuencia:2,hashActual:r.hashActual}});
+  assert.equal(caja.filter(x=>x.impactoCaja).reduce((n,x)=>n+(x.tipo==="INGRESO"?BigInt(x.montoMinor):-BigInt(x.montoPagadoRealMinor??x.montoMinor)),0n),impactoCaja?-450n:0n);
+ }
 });
 test("V6 recupera pagos de compromisos con caja o históricos sin cambiar el original",()=>{
  for(const impactoCaja of [true,false]){

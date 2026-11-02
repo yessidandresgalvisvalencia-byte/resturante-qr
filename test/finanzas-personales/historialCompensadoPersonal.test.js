@@ -3,6 +3,13 @@ const test=require("node:test"),assert=require("node:assert/strict");
 const {filtrar}=require("../../modules/finanzas-personales/services/historialCompensadoPersonal.service");
 const row=(id,extra={})=>({_id:id,tipo:"GASTO",montoMinor:22000,concepto:"Rappi [pedido]",categoria:"Otros",fecha:new Date("2026-10-25T15:00:00Z"),estado:"ACTIVA",...extra});
 const filtros={q:"",tipo:"TODOS",estado:"TODOS",pagina:1};
+test("historial ofrece restauración de préstamos solo con capital y pago real verificables",()=>{
+ const p=row("pago",{usuarioId:"507f1f77bcf86cd799439011",tipo:"PAGO_DEUDA",estado:"ANULADA",moneda:"COP",impactoCaja:true,
+  cuentaId:"cuenta",prestamoId:"507f1f77bcf86cd799439013",descripcion:"Cuota 1 confirmada",montoMinor:400,montoPagadoRealMinor:450,compensacionHash:"a".repeat(64)});
+ assert.equal(filtrar([p],{...filtros,estado:"ANULADA"})[0].recuperacion.disponible,true);
+ for(const extra of [{montoPagadoRealMinor:399},{descripcion:"Cuota sin número"},{prestamoId:"inválido"},{impactoCaja:false}])
+  assert.equal(filtrar([{...p,...extra}],{...filtros,estado:"ANULADA"})[0].recuperacion,undefined);
+});
 test("cuotas de compromisos anuladas ofrecen recuperación específica, sin exponer descripción interna",()=>{
  for(const impactoCaja of [true,false]){
   const pago=row("pago",{tipo:"PAGO_DEUDA",estado:"ANULADA",moneda:"COP",impactoCaja,cuentaId:impactoCaja?"cuenta":null,

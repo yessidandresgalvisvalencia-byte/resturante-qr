@@ -1,5 +1,6 @@
 "use strict";
 const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
+const {originalDesdeFuente}=require("./eventoCompensatorioPersonal.service");
 const CAMPOS=["_id","tipo","montoMinor","concepto","categoria","contraparte","fecha","estado","prestamoId"];
 function recuperacion(t){
  const simple=t.estado==="ANULADA"&&["INGRESO","GASTO"].includes(t.tipo)&&t.moneda==="COP"&&
@@ -10,7 +11,13 @@ function recuperacion(t){
   !t.prestamoId&&!t.recurrente&&!t.recurrenteOrigenId&&t.medioPago!=="CREDITO"&&
   (t.montoPagadoRealMinor==null||t.montoPagadoRealMinor===t.montoMinor)&&
   (t.impactoCaja===true&&t.cuentaId||t.impactoCaja===false&&!t.cuentaId)&&/^[a-f0-9]{64}$/.test(t.compensacionHash||"");
- return simple||cuota?{recuperacion:{disponible:true,anulacionHash:t.compensacionHash}}:{};
+ let prestamo=false;
+ if(t.estado==="ANULADA"&&t.tipo==="PAGO_DEUDA"&&t.moneda==="COP"&&t.prestamoId&&
+  !t.recurrente&&!t.recurrenteOrigenId&&t.medioPago!=="CREDITO"&&
+  (t.impactoCaja===true&&t.cuentaId||t.impactoCaja===false&&!t.cuentaId)&&/^[a-f0-9]{64}$/.test(t.compensacionHash||"")){
+  try{prestamo=Boolean(originalDesdeFuente(t).prestamoId);}catch{}
+ }
+ return simple||cuota||prestamo?{recuperacion:{disponible:true,anulacionHash:t.compensacionHash}}:{};
 }
 function filtrar(rows,f){
  const texto=String(f.q||"").toLowerCase();

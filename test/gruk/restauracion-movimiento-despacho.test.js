@@ -7,6 +7,7 @@ function preparar(fuente){
  const llamadas=[];const ejecutar=crearRestauradorMovimiento({
   TransaccionModelo:{findOne(f){assert.equal(f.usuarioId,usuarioId);assert.equal(f._id,movimientoId);return{maxTimeMS(n){assert.equal(n,5000);return this;},lean:async()=>fuente};}},
   restaurarCuota:async(u,d)=>{llamadas.push({flujo:"cuota",u,d});return{compensacion:{hashActual:"recibo"}};},
+  restaurarPrestamo:async(u,id,d)=>{llamadas.push({flujo:"prestamo",u,id,d});return{compensacion:{hashActual:"recibo-prestamo"}};},
   restaurarCaja:async d=>{llamadas.push({flujo:"caja",d});return{hashActual:"caja"};}
  });return{ejecutar,llamadas};
 }
@@ -26,4 +27,10 @@ test("no convierte préstamos, fuentes ambiguas o cuotas inválidas en caja gen�
 test("ingresos y gastos conservan flujo existente y se rechaza otra operación",async()=>{
  const e=preparar({tipo:"GASTO"});assert.equal((await e.ejecutar(datos)).hashActual,"caja");
  await assert.rejects(e.ejecutar({...datos,tipo:"ANULACION"}),x=>x.statusCode===400);
+});
+test("préstamo y número se validan desde la fuente sin aceptar identidad del cuerpo",async()=>{
+ const fuente={_id:movimientoId,usuarioId,tipo:"PAGO_DEUDA",prestamoId:compromisoId,impactoCaja:true,
+  montoMinor:400,montoPagadoRealMinor:450,concepto:"Cuota",categoria:"DEUDA",descripcion:"Cuota 1 confirmada"};
+ const e=preparar(fuente);assert.equal((await e.ejecutar({...datos,prestamoId:"intruso"})).hashActual,"recibo-prestamo");
+ assert.equal(e.llamadas[0].id,compromisoId);assert.equal(e.llamadas[0].u,usuarioId);assert.equal(e.llamadas[0].d.movimientoId,movimientoId);
 });

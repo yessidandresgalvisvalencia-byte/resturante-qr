@@ -10,7 +10,7 @@ function vigente(original,eventos=[]){
   if(!e||!Number.isSafeInteger(e.secuencia)||e.secuencia<=ultimaSecuencia||
    e.usuarioId!==original.usuarioId||e.movimientoId!==original.movimientoId||
    !iguales(actual,e.original)||anulado&&e.tipo!=="RESTAURACION"||
-   e.tipo==="RESTAURACION"&&(!anulado||e.version!==(actual.tipo==="PAGO_DEUDA"?6:5)||e.anulacionHash!==anulacionHash))
+   e.tipo==="RESTAURACION"&&(!anulado||e.version!==(actual.tipo==="PAGO_DEUDA"?(actual.prestamoId?7:6):5)||e.anulacionHash!==anulacionHash))
    throw new Error("INTEGRIDAD_LEDGER: historial o identidad contradictorios");
   const {hashActual,...payload}=e;
   if(typeof hashActual!=="string"||
