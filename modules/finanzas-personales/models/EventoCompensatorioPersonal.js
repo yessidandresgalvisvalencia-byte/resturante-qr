@@ -23,13 +23,14 @@ const cambios=new Schema({
  categoria:{type:String,minlength:1}
 },{_id:false,strict:"throw"});
 const schema=new Schema({
- version:{type:Number,required:true,enum:[1,2,3,4]},
+ version:{type:Number,required:true,enum:[1,2,3,4,5]},
  usuarioId:{type:String,required:true,match:NONEMPTY},
  movimientoId:{type:String,required:true,match:NONEMPTY},
- tipo:{type:String,required:true,enum:["CORRECCION","ANULACION"]},
+ tipo:{type:String,required:true,enum:["CORRECCION","ANULACION","RESTAURACION"]},
  secuencia:{type:Number,required:true,validate:{validator:v=>Number.isSafeInteger(v)&&v>0}},
  fechaISO:{type:String,required:true,validate:{validator:v=>typeof v==="string"&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(v)&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString()===v}},
  idempotencyKey:{type:String,required:true,match:NONEMPTY},
+ anulacionHash:{type:String,match:HEX,default:undefined,required:function(){return this.tipo==="RESTAURACION";}},
  prevHash:{type:String,required:true,match:HEX},
  hashActual:{type:String,required:true,match:HEX},
  original:{type:original,required:true},

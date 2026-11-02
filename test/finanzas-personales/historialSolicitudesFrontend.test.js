@@ -9,7 +9,7 @@ function preparar(){
   return elementos.get(id);
  };
  const contexto=vm.createContext({$,token:"cuenta-uno",URLSearchParams,Date,esc:String,money:String,window:{},
-  document:{createElement:()=>({innerHTML:""})},api:url=>new Promise((resolve,reject)=>solicitudes.push({url,resolve,reject}))});
+  document:{createElement:()=>({innerHTML:"",children:[],append(el){this.children.push(el);}})},api:url=>new Promise((resolve,reject)=>solicitudes.push({url,resolve,reject}))});
  const inicio=fuente.indexOf("let histPagina="),fin=fuente.indexOf("window.rastrearCobro52000=",inicio);
  assert.ok(inicio>0&&fin>inicio);vm.runInContext(fuente.slice(inicio,fin),contexto);
  const a=fuente.indexOf("function invalidarIndicadoresFinancieros()"),b=fuente.indexOf("let cargaPanelEnCurso=",a);
@@ -18,6 +18,16 @@ function preparar(){
 }
 const respuesta=(nombre,hayMas=false)=>({items:[{clase:"MOVIMIENTO",tipo:"INGRESO",concepto:nombre,
  montoMinor:100,estado:"ACTIVA",fecha:"2026-10-29T12:00:00.000Z"}],hayMas});
+test("anulados recuperables muestran botón y un cambio de sesión invalida su acción",async()=>{
+ const {$,contexto,solicitudes}=preparar(),acciones=[];
+ contexto.window.restoreMovement=(...args)=>acciones.push(args);
+ const carga=contexto.buscarHistorial(),r=respuesta("Anulado");
+ Object.assign(r.items[0],{_id:"movimiento",estado:"ANULADA",recuperacion:{disponible:true,anulacionHash:"a".repeat(64)}});
+ solicitudes[0].resolve(r);await carga;
+ const boton=$("histResultados").children[0].children[0];
+ assert.equal(boton.textContent,"Restaurar");boton.onclick();assert.equal(acciones.length,1);
+ assert.equal(acciones[0][1],"a".repeat(64));contexto.token="otra";boton.onclick();assert.equal(acciones.length,1);
+});
 test("limpiar durante una consulta impide que su respuesta vuelva a llenar el historial",async()=>{
  const {$,contexto,solicitudes}=preparar(),carga=contexto.buscarHistorial();
  $("histLimpiar").onclick();solicitudes[0].resolve(respuesta("Resultado descartado",true));await carga;

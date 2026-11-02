@@ -50,7 +50,7 @@ function crearRegistrador({
 }={}){
  // Una sesión externa pertenece al llamador: este debe propagar errores y confirmar/abortar
  // la unidad completa (evento, saldo, reserva y outbox). El retorno NO confirma esa transacción.
- return async function registrar({original,tipo,cambios={},idempotencyKey,fechaISO},{session:externa}={}){
+ return async function registrar({original,tipo,cambios={},idempotencyKey,fechaISO,anulacionHash},{session:externa}={}){
   if(!original||typeof original.usuarioId!=="string"||!ID.test(original.usuarioId)||
     typeof original.movimientoId!=="string"||!ID.test(original.movimientoId)||
     typeof idempotencyKey!=="string"||!ID.test(idempotencyKey))
@@ -71,10 +71,14 @@ function crearRegistrador({
     const historial=cadena.filter(e=>e.movimientoId===original.movimientoId);
     if(historial.length){
      const estado=vigente(historial[0].original,historial);
-     if(estado.anulado)throw conflicto("Movimiento ya anulado; no repetir el reverso");
+     if(tipo==="RESTAURACION"){
+      if(!estado.anulado||historial.at(-1)?.hashActual!==anulacionHash||historial.at(-1)?.tipo!=="ANULACION")
+       throw conflicto("La anulación cambió; vuelve a consultar antes de restaurar");
+     }else if(estado.anulado)throw conflicto("Movimiento ya anulado; no repetir el reverso");
      if(Object.keys(estado.actual).some(k=>estado.actual[k]!==original[k]))
       throw conflicto("Estado del movimiento desactualizado; vuelve a consultar antes de corregir");
     }
+    if(tipo==="RESTAURACION"&&!historial.length)throw conflicto("No hay anulación para restaurar");
     if(!cursor){
      await CursorModelo.create([{_id:original.usuarioId,secuencia:0,hashActual:GENESIS}],{session});
      cursor={_id:original.usuarioId,secuencia:0,hashActual:GENESIS};
@@ -83,7 +87,7 @@ function crearRegistrador({
        typeof cursor.hashActual!=="string"||!(/^[a-f0-9]{64}$/).test(cursor.hashActual)||
        cursor.secuencia>=Number.MAX_SAFE_INTEGER)
      throw conflicto("Cursor del ledger inconsistente");
-    const evento=construir({original,tipo,cambios,idempotencyKey,fechaISO,
+    const evento=construir({original,tipo,cambios,idempotencyKey,fechaISO,...(tipo==="RESTAURACION"?{anulacionHash}:{}),
       prevHash:cursor.hashActual,secuencia:cursor.secuencia+1});
     // El cursor CAS coordina la escritura por usuario. Una carrera aborta toda la transacción.
     const avance=await CursorModelo.findOneAndUpdate(

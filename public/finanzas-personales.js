@@ -310,9 +310,13 @@ async function buscarHistorial(reset=true){
    const fecha=item.fecha||item.fechaInicio;
    const monto=item.clase==="MOVIMIENTO"?item.montoMinor:item.principalMinor;
    el.innerHTML='<div><strong>'+esc(nombre)+'</strong><div class="debtKind">'+esc(tipo+" · "+(item.concepto||""))+'</div><small>'+esc(fecha?new Date(fecha).toLocaleDateString("es-CO"):"Sin fecha")+' · '+esc(item.estado||"")+'</small></div><strong>'+money(monto)+'</strong>';
+   if(item.clase==="MOVIMIENTO"&&item.estado==="ANULADA"&&item.recuperacion?.disponible===true){
+    const restaurar=document.createElement("button");restaurar.type="button";restaurar.textContent="Restaurar";
+    restaurar.onclick=()=>{if(vigente())window.restoreMovement(item._id,item.recuperacion.anulacionHash);};el.append(restaurar);
+   }
    $("histResultados").append(el);
   }
-  $("histMensaje").textContent=(r.items||[]).length?"Resultados encontrados. Solo lectura.":"No se encontraron movimientos con estos filtros.";
+  $("histMensaje").textContent=(r.items||[]).length?"Resultados encontrados. Puedes restaurar los movimientos anulados que tengan el botón Restaurar.":"No se encontraron movimientos con estos filtros.";
   $("histMas").hidden=!r.hayMas;
   if(r.hayMas)histPagina+=1;
  }catch(e){if(vigente())$("histMensaje").textContent="No fue posible buscar: "+e.message;}
@@ -336,6 +340,21 @@ window.editMovement=async(id,tipoActual,montoActual)=>{
   await api("/transacciones/"+encodeURIComponent(id),{method:"PATCH",headers:{"Idempotency-Key":claveCompensacion(k)},body:contenido});
   await load();clavesCompensacionPendientes.delete(k);
  }catch(e){alert(e.message);}finally{mutacionesMovimientoEnCurso.delete(id);}
+};
+window.restoreMovement=async(id,anulacionHash)=>{
+ const sesion=token;
+ if(!sesion||$("app").hidden||mutacionesMovimientoEnCurso.has(id))return;
+ mutacionesMovimientoEnCurso.add(id);
+ try{
+  if(!confirm("¿Restaurar este movimiento anulado? Volverá a contar en tus totales y ajustará la caja una sola vez. El historial se conservará."))return;
+  const k="RESTAURACION:"+id+":"+anulacionHash;
+  await api("/transacciones/"+encodeURIComponent(id)+"/restaurar",{method:"POST",headers:{"Idempotency-Key":claveCompensacion(k)},body:JSON.stringify({confirmar:true,anulacionHash})});
+  if(token!==sesion||$("app").hidden)return;
+  await load();
+  if(token!==sesion||$("app").hidden)return;
+  await buscarHistorial(true);if(token===sesion&&!$("app").hidden)clavesCompensacionPendientes.delete(k);
+ }catch(e){if(token===sesion&&!$("app").hidden)alert("No se pudo confirmar la restauración. Revisa el historial y reintenta sin cambiar la operación: "+e.message);}
+ finally{mutacionesMovimientoEnCurso.delete(id);}
 };
 window.deleteMovement=async id=>{
  if(mutacionesMovimientoEnCurso.has(id))return;mutacionesMovimientoEnCurso.add(id);

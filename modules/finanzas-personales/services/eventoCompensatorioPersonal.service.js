@@ -38,12 +38,12 @@ function originalDesdeFuente(f){
  }
  return originalVerificado(o);
 }
-function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,secuencia,fechaISO}){
+function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,secuencia,fechaISO,anulacionHash}){
  const anterior=originalVerificado(original);
  // V2 añade únicamente reversión de pagos de deuda, con su efecto de caja explícito.
  // Conservar el payload V1 de ingresos/gastos mantiene verificables los hashes históricos.
  if(anterior.tipo==="PAGO_DEUDA"&&tipo!=="ANULACION")throw new TypeError("Pago de deuda solo admite anulación");
- if(!["CORRECCION","ANULACION"].includes(tipo)||typeof idempotencyKey!=="string"||
+ if(!["CORRECCION","ANULACION","RESTAURACION"].includes(tipo)||typeof idempotencyKey!=="string"||
   !/^[a-zA-Z0-9_-]{1,128}$/.test(idempotencyKey)||!HEX.test(prevHash)||
   !Number.isSafeInteger(secuencia)||secuencia<1||
   typeof fechaISO!=="string"||!/\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z/.test(fechaISO)||
@@ -51,13 +51,16 @@ function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,s
   throw new TypeError("Encabezado del evento inválido");
  if(!cambios||typeof cambios!=="object"||Array.isArray(cambios)||Object.getPrototypeOf(cambios)!==Object.prototype)
   throw new TypeError("Cambios inválidos");
+ const restaurar=tipo==="RESTAURACION";
+ if(restaurar&&(!["INGRESO","GASTO"].includes(anterior.tipo)||!HEX.test(anulacionHash||""))||
+  !restaurar&&anulacionHash!==undefined)throw new TypeError("Referencia de restauración inválida");
  const keys=Object.keys(cambios);
  const reclasificacion=anterior.tipo==="COBRO_PRESTAMO"||cambios.tipo==="COBRO_PRESTAMO";
  if(reclasificacion&&(tipo!=="CORRECCION"||
   !((anterior.tipo==="COBRO_PRESTAMO"&&cambios.tipo==="INGRESO")||(anterior.tipo==="INGRESO"&&cambios.tipo==="COBRO_PRESTAMO"))||
   keys.some(k=>!["tipo","categoria"].includes(k))))
   throw new TypeError("Reclasificación entre cobro e ingreso requiere conservar el importe");
- if((tipo==="ANULACION"&&keys.length)||(tipo==="CORRECCION"&&!keys.length))
+ if((["ANULACION","RESTAURACION"].includes(tipo)&&keys.length)||(tipo==="CORRECCION"&&!keys.length))
   throw new TypeError("Contenido de corrección o anulación inválido");
  const nuevo={...anterior};
  for(const key of keys){
@@ -70,11 +73,11 @@ function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,s
  }
  if(tipo==="CORRECCION"&&keys.every(k=>nuevo[k]===anterior[k]))throw new TypeError("Corrección sin efecto");
  const signed=o=>o.tipo==="PAGO_DEUDA"&&!o.impactoCaja?0n:(["INGRESO","COBRO_PRESTAMO"].includes(o.tipo)?1n:-1n)*BigInt(o.montoPagadoRealMinor??o.montoMinor);
- const delta=tipo==="ANULACION"?-signed(anterior):signed(nuevo)-signed(anterior);
+ const delta=tipo==="ANULACION"?-signed(anterior):restaurar?signed(anterior):signed(nuevo)-signed(anterior);
  if(delta>BigInt(Number.MAX_SAFE_INTEGER)||delta<BigInt(Number.MIN_SAFE_INTEGER))
   throw new RangeError("Delta fuera de rango seguro");
- const payload={version:reclasificacion?3:anterior.tipo==="PAGO_DEUDA"?(anterior.prestamoId?4:2):1,usuarioId:anterior.usuarioId,movimientoId:anterior.movimientoId,tipo,secuencia,fechaISO,
-  idempotencyKey,prevHash,original:anterior,cambios:Object.freeze({...cambios}),deltaCajaMinor:String(delta)};
+ const payload={version:restaurar?5:reclasificacion?3:anterior.tipo==="PAGO_DEUDA"?(anterior.prestamoId?4:2):1,usuarioId:anterior.usuarioId,movimientoId:anterior.movimientoId,tipo,secuencia,fechaISO,
+  idempotencyKey,prevHash,...(restaurar?{anulacionHash}:{}),original:anterior,cambios:Object.freeze({...cambios}),deltaCajaMinor:String(delta)};
  const hashActual=crypto.createHash("sha256").update(canon(payload)).digest("hex");
  return Object.freeze({...payload,hashActual});
 }

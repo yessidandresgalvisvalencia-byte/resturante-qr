@@ -47,6 +47,17 @@ function bancoSimulado({colision=false,repetido=false,romperInsercion=false}={})
 }
 const entrada=(key="operacion_1")=>({original,tipo:"CORRECCION",
  cambios:{montoMinor:22000},idempotencyKey:key,fechaISO});
+test("registrador exige anulación vigente exacta y permite nuevos ciclos sin reescribir",async()=>{
+ const {data,registrar}=bancoSimulado();
+ const base={original,tipo:"RESTAURACION",cambios:{},idempotencyKey:"restaurar",fechaISO,anulacionHash:"f".repeat(64)};
+ await assert.rejects(registrar(base),/No hay anulación/);
+ const a=await registrar({...base,tipo:"ANULACION",anulacionHash:undefined,idempotencyKey:"anular"});
+ await assert.rejects(registrar(base),/anulación cambió/);
+ const r=await registrar({...base,anulacionHash:a.hashActual});
+ await assert.rejects(registrar({...base,idempotencyKey:"otra",anulacionHash:a.hashActual}),/anulación cambió/);
+ const siguiente=await registrar({...entrada("corregir"),cambios:{montoMinor:24000}});
+ assert.equal(r.version,5);assert.equal(siguiente.secuencia,3);assert.equal(data.eventos[0].hashActual,a.hashActual);
+});
 test("la lectura compartida exige usuario y transacción activa antes de consultar",async()=>{
  for(const opciones of [{},{session:{}},{session:{inTransaction:()=>false}}]){
   await assert.rejects(leerCadenaVerificada(original.usuarioId,opciones),/transacción activa/);

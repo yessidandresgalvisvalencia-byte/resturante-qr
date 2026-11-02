@@ -100,3 +100,37 @@ Código publicado con lease: `22c68ab8bbc1a185fc5865eedc0c2ba28fe8227b`. Las tre
 - [Precisión e Integridad 41395668017](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41395668017): siete jobs en success, incluido `mongo-privileges-v81` (`125116337055`). La prueba de obligaciones sin fecha ejecutó home y evaluación de compras reales con el rol restringido.
 
 Este registro posterior es solo documental. Consultar HEAD y CI del commit documental antes de continuar; no confundir el código probado con una publicación en Render. #407 permanece abierto y no se cambió producción.
+
+## Checkpoint del 2 de noviembre de 2026 — recuperación de caja simple
+
+HEAD de partida verificado: `63e26d46043a0a898b583dce556ad4a7c7be1ae8`; PR #389 y #407 continúan abiertos. CI de partida: [Gate](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41395810295), [Seguridad](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41395810319) y [V81](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41395810198), todos success. Se trabaja en checkout aislado y se publica con HEAD esperado, sin modificar main ni desplegar.
+
+### Alcance y aceptación del bloque
+
+La recuperación cubre exclusivamente ingresos y gastos de caja simple, con cuenta propia COP activa, sin préstamo, crédito, recurrencia ni abono recurrente vinculado. No recupera documentos físicamente eliminados, fuentes legacy marcadas ANULADA sin evento, cuotas ni deudas. Es un primer flujo de recuperación; el requisito global de recuperación y backup independiente sigue pendiente.
+
+| Criterio | Comportamiento y verificación |
+| --- | --- |
+| Preservar fuentes | Nuevo evento RESTAURACION V5, sin UPDATE/DELETE de fuente ni de eventos; conserva correcciones previas y la anulación |
+| Restaurar la operación exacta | Firma `anulacionHash` del evento anulado vigente; no acepta referencias anteriores, restauración sin anulación ni doble restauración con otra clave |
+| Caja e idempotencia | Evento, cursor CAS, saldo y outbox dentro de transacción; clave estable por anulación. Un reintento devuelve recibo sin repetir efectos, incluso si después hubo otra anulación |
+| Fallos seguros | Rechaza usuario ajeno, cuenta no disponible, importe fuera de rango o saldo insuficiente; el fallo de outbox revierte evento, cursor y saldo |
+| Lecturas coherentes | Estado compensado, historial y proyección de caja incluyen la restauración; no se reubica el ajuste de caja en la fecha del movimiento original |
+| Confirmación del propietario | POST /transacciones/:id/restaurar exige JWT personal, Idempotency-Key, confirmar true booleano y anulacionHash. Ignora identidad del cuerpo. Devuelve recibo y requiereActualizar, sin afirmar que un recibo histórico sea el estado actual |
+| Interfaz | Buscar Estado → Movimientos anulados muestra Restaurar solo en caja simple recuperable. Confirmación explícita, doble clic bloqueado, clave conservada ante error de red y callbacks de sesión anterior descartados |
+| Integración | Nuevo evento de outbox, realtime y neurona de flujo; versión JS 20261102-restauracion-caja-v81 |
+
+Validación local: sintaxis aprobada; suite V81 y pruebas de evento, estado, registrador y consulta compensada ejecutadas sin fallos. Las integraciones que necesitan servicios externos se omiten localmente y deben aprobar en CI. `restauracionCajaAutorizada.js` se ejecuta en el fixture autenticado de CI: fuente corregida/anulada/restaurada, reconstrucción de caja, repetición concurrente, carreras con distintas claves, referencia vieja, usuario ajeno, rollback de outbox, saldo insuficiente y restauración de ingreso. Compara fuentes originales y registros antes/después. No utiliza producción.
+
+```bash
+node --test test/finanzas-personales/*.test.js test/gruk/restauracion-compensada-personal.test.js test/gruk/evento-compensatorio-personal.test.js test/gruk/estado-compensado-personal.test.js test/gruk/registrador-compensacion-personal.test.js test/gruk/consulta-compensada-personal.test.js
+npm run check:syntax
+```
+
+### Compatibilidad y límites de liberación
+
+Los payloads/hash V1–V4 no cambian: anulacionHash solo aparece en RESTAURACION V5. No hay migración ni reparación de datos. Un lector antiguo que no admite V5 fallará cerrado después de la primera restauración: no es seguro retroceder el código a esa versión sin un plan probado. Antes de liberar se debe validar la compatibilidad de todos los lectores y el procedimiento de reversión operativa, además de los gates externos existentes. La cadena local no es custodia independiente.
+
+No se ha probado voz ni interfaz en dispositivos reales; la interfaz se verifica con DOM simulado. No se certifica backup, retención, RPO/RTO, custodia externa ni permisos de producción. Sigue prohibido desplegar o cerrar #407 con esta evidencia parcial.
+
+Siguiente paso: confirmar CI del SHA publicado y ampliar recuperación de abonos recurrentes mediante reserva y transacción, sin habilitarla para cuotas/préstamos hasta verificar sus propios efectos. Preparar el ejercicio de backup/restauración aislado y obtener el custodio independiente real siguen siendo pendientes separados.

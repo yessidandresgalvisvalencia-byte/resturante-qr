@@ -14,7 +14,7 @@ const registrar=crearRegistrador();
 const error=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
 // Evento, saldo, reserva y outbox se confirman juntos sin modificar el asiento original.
 function crearAplicador({OutboxModelo=Outbox}={}){
- return async function compensar({usuarioId,movimientoId,tipo,cambios={},idempotencyKey}){
+ return async function compensar({usuarioId,movimientoId,tipo,cambios={},idempotencyKey,anulacionHash}){
   if(!mongoose.isObjectIdOrHexString(usuarioId)||!mongoose.isObjectIdOrHexString(movimientoId))
    throw error("Usuario o movimiento inválido",400);
   if(typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey))
@@ -24,6 +24,7 @@ function crearAplicador({OutboxModelo=Outbox}={}){
   if(cambios?.concepto!==undefined&&(typeof cambios.concepto!=="string"||cambios.concepto.length>140)||
      cambios?.categoria!==undefined&&(typeof cambios.categoria!=="string"||cambios.categoria.length>80))
    throw error("Texto de corrección inválido",400);
+  if(tipo==="RESTAURACION"&&!/^[a-f0-9]{64}$/.test(anulacionHash||""))throw error("Anulación exacta obligatoria",400);
   const session=await mongoose.startSession();
   try{
    let evento;
@@ -44,14 +45,17 @@ function crearAplicador({OutboxModelo=Outbox}={}){
     const estado=vigente(original,historial);
     const repetido=historial.find(e=>e.idempotencyKey===idempotencyKey);
     if(repetido){
-     if(repetido.tipo!==tipo||canon(repetido.cambios)!==canon(cambios))
+     if(repetido.tipo!==tipo||canon(repetido.cambios)!==canon(cambios)||tipo==="RESTAURACION"&&repetido.anulacionHash!==anulacionHash)
       throw error("Clave idempotente reutilizada con datos distintos");
      evento=repetido;return; // Ya fue confirmado: no volver a tocar cuenta, reserva ni outbox.
     }
-    if(estado.anulado)throw error("Movimiento ya anulado");
+    if(tipo==="RESTAURACION"){
+     if(!estado.anulado||historial.at(-1)?.hashActual!==anulacionHash||historial.at(-1)?.tipo!=="ANULACION")
+      throw error("La anulación cambió; vuelve a consultar antes de restaurar");
+    }else if(estado.anulado)throw error("Movimiento ya anulado");
     if(fuente.recurrenteOrigenId)await liberarReserva({usuarioId,fuente,montoMinor:estado.actual.montoMinor,session});
     evento=await registrar({original:estado.actual,tipo,cambios,idempotencyKey,
-     fechaISO:new Date().toISOString()},{session});
+     fechaISO:new Date().toISOString(),...(tipo==="RESTAURACION"?{anulacionHash}:{})},{session});
     const delta=Number(BigInt(evento.deltaCajaMinor));
     if(!Number.isSafeInteger(delta))throw error("Delta de caja fuera de rango");
     const cuenta=await Cuenta.findOneAndUpdate({_id:fuente.cuentaId,usuarioId,
@@ -59,9 +63,9 @@ function crearAplicador({OutboxModelo=Outbox}={}){
      {session,returnDocument:"after"});
     if(!cuenta)throw error("Cuenta no disponible o saldo insuficiente para compensar");
     await OutboxModelo.create([{usuarioId,eventId:crypto.randomUUID(),
-     eventName:tipo==="ANULACION"?"MOVIMIENTO_ANULADO":"MOVIMIENTO_CORREGIDO",
+     eventName:tipo==="RESTAURACION"?"MOVIMIENTO_RESTAURADO":tipo==="ANULACION"?"MOVIMIENTO_ANULADO":"MOVIMIENTO_CORREGIDO",
      aggregateId:fuente._id,payload:{transaccionId:String(fuente._id),
-      compensacionHash:evento.hashActual,secuencia:evento.secuencia,
+      compensacionHash:evento.hashActual,secuencia:evento.secuencia,...(tipo==="RESTAURACION"?{anulacionHash}:{}),
       deltaCajaMinor:evento.deltaCajaMinor,antes:estado.actual,
       despues:tipo==="ANULACION"?null:{...estado.actual,...cambios}}}],{session});
    },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});

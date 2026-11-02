@@ -21,3 +21,15 @@ test("un error interno no expone detalles del servidor",async()=>{
  const res=respuesta();await h(req,res);assert.equal(res.statusCode,500);
  assert.doesNotMatch(JSON.stringify(res.body),/dato_privado/);
 });
+test("restaurar exige confirmación y referencia exacta y usa identidad autenticada",async()=>{
+ const llamadas=[],hash="a".repeat(64);
+ const h=crearHandler({tipo:"RESTAURACION",aplicar:async x=>{llamadas.push(x);return{movimientoId:x.movimientoId,original:{tipo:"GASTO",montoMinor:20},cambios:{}};}});
+ for(const validated of [{},{confirmar:"true",anulacionHash:hash},{confirmar:false,anulacionHash:hash},{confirmar:true,anulacionHash:"x"}]){
+  const res=respuesta();await h({...req,validated},res);assert.equal(res.statusCode,400);
+ }
+ assert.equal(llamadas.length,0);
+ const res=respuesta();await h({...req,validated:{confirmar:true,anulacionHash:hash},body:{usuarioId:"ajeno"}},res);
+ assert.equal(llamadas[0].usuarioId,req.personalAuth.userId);assert.equal(llamadas[0].anulacionHash,hash);
+ assert.deepEqual(llamadas[0].cambios,{});assert.equal(res.body.requiereActualizar,true);
+ assert.equal(res.body.transaccion,undefined);
+});

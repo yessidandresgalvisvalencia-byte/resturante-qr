@@ -3,6 +3,12 @@ const test=require("node:test"),assert=require("node:assert/strict");
 const {filtrar}=require("../../modules/finanzas-personales/services/historialCompensadoPersonal.service");
 const row=(id,extra={})=>({_id:id,tipo:"GASTO",montoMinor:22000,concepto:"Rappi [pedido]",categoria:"Otros",fecha:new Date("2026-10-25T15:00:00Z"),estado:"ACTIVA",...extra});
 const filtros={q:"",tipo:"TODOS",estado:"TODOS",pagina:1};
+test("historial ofrece restauración solo a caja simple anulada con referencia verificable",()=>{
+ const simple=row("1",{estado:"ANULADA",moneda:"COP",cuentaId:"cuenta",impactoCaja:true,medioPago:"EFECTIVO",compensacionHash:"a".repeat(64)});
+ assert.equal(filtrar([simple],{...filtros,estado:"ANULADA"})[0].recuperacion.anulacionHash,simple.compensacionHash);
+ for(const cambio of [{recurrente:true},{recurrenteOrigenId:"vinculo"},{prestamoId:"prestamo"},{impactoCaja:false},{medioPago:"CREDITO"},{tipo:"PAGO_DEUDA"},{compensacionHash:null}])
+  assert.equal(filtrar([{...simple,...cambio}],{...filtros,estado:"ANULADA"})[0].recuperacion,undefined);
+});
 test("filtra importe, texto literal y estado vigentes sin exponer campos internos",()=>{
  const rows=[row("1",{metadatosCifrados:{ciphertext:"interno"}}),row("2",{estado:"ANULADA"})];
  const r=filtrar(rows,{...filtros,monto:22000,q:"[pedido]"});

@@ -1,6 +1,12 @@
 "use strict";
 const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const CAMPOS=["_id","tipo","montoMinor","concepto","categoria","contraparte","fecha","estado","prestamoId"];
+function recuperacion(t){
+ const simple=t.estado==="ANULADA"&&["INGRESO","GASTO"].includes(t.tipo)&&t.moneda==="COP"&&
+  t.impactoCaja===true&&t.cuentaId&&!t.prestamoId&&!t.recurrente&&!t.recurrenteOrigenId&&t.medioPago!=="CREDITO"&&
+  /^[a-f0-9]{64}$/.test(t.compensacionHash||"");
+ return simple?{recuperacion:{disponible:true,anulacionHash:t.compensacionHash}}:{};
+}
 function filtrar(rows,f){
  const texto=String(f.q||"").toLowerCase();
  const tipos=new Set(["INGRESO","GASTO","COBRO_PRESTAMO"]);
@@ -11,7 +17,7 @@ function filtrar(rows,f){
   (!texto||[t.concepto,t.categoria,t.contraparte,t.descripcion].some(s=>String(s||"").toLowerCase().includes(texto))))
   .sort((a,b)=>+new Date(b.fecha)-+new Date(a.fecha)||String(b._id).localeCompare(String(a._id)))
   .slice((f.pagina-1)*20,(f.pagina-1)*20+21)
-  .map(t=>Object.fromEntries(CAMPOS.filter(k=>Object.hasOwn(t,k)).map(k=>[k,t[k]])));
+  .map(t=>({...Object.fromEntries(CAMPOS.filter(k=>Object.hasOwn(t,k)).map(k=>[k,t[k]])),...recuperacion(t)}));
 }
 async function buscar(usuarioId,f){
  if(!Number.isSafeInteger(f.pagina)||f.pagina<1||f.pagina>1000)throw new TypeError("Página inválida");

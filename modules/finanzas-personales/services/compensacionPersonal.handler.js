@@ -1,7 +1,7 @@
 "use strict";
 const {crearAplicador}=require("./compensarMovimientoPersonal.service");
 function crearHandler({tipo,aplicar=crearAplicador()}={}){
- if(!["CORRECCION","ANULACION"].includes(tipo))throw new TypeError("Operación inválida");
+ if(!["CORRECCION","ANULACION","RESTAURACION"].includes(tipo))throw new TypeError("Operación inválida");
  return async(req,res)=>{
   res.set("Cache-Control","private, no-store");
   const usuarioId=req.personalAuth?.userId;
@@ -9,9 +9,14 @@ function crearHandler({tipo,aplicar=crearAplicador()}={}){
   const idempotencyKey=req.headers?.["idempotency-key"];
   if(typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey))
    return res.status(400).json({ok:false,error:"Clave de operación obligatoria; reintenta desde el movimiento"});
+  if(tipo==="RESTAURACION"&&(req.validated?.confirmar!==true||!/^[a-f0-9]{64}$/.test(req.validated?.anulacionHash||"")))
+   return res.status(400).json({ok:false,error:"Confirma la restauración de la anulación seleccionada"});
   try{
    const evento=await aplicar({usuarioId,movimientoId:req.params.id,tipo,
-    cambios:tipo==="CORRECCION"?req.validated:{},idempotencyKey});
+    cambios:tipo==="CORRECCION"?req.validated:{},idempotencyKey,
+    ...(tipo==="RESTAURACION"?{anulacionHash:req.validated.anulacionHash}:{})});
+   // Un reintento es un recibo histórico, incluso si hubo otra anulación.
+   if(tipo==="RESTAURACION")return res.json({ok:true,compensacion:evento,requiereActualizar:true});
    const {usuarioId:_,movimientoId:__,...original}=evento.original;
    return res.json({ok:true,compensacion:evento,transaccion:{_id:evento.movimientoId,
     ...original,...evento.cambios,estado:tipo==="ANULACION"?"ANULADA":"ACTIVA"}});
