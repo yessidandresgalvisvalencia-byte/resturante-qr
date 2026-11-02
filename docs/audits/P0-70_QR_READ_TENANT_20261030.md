@@ -285,3 +285,10 @@
 - Contraste de cambios del PR: 8 archivos (servicio QR, pruebas unitarias y MongoDB, `package.json`, matriz y auditoría). La prueba escrita de integración no sustituye ejecución HTTP de `GET /pedidos/mesa/:mesa` y `GET /factura/mesa/:mesa` con MongoDB real y comprobación de cuerpos de respuesta, logs y tokens.
 - **Bloqueos:** vulnerabilidades de producción sin remediación verificable, aceptación HTTP/E2E y migración legacy pendientes; Render Auto-Deploy sobre `main` impide fusionar con seguridad. No ejecutar despliegue ni fusionar por resultados parciales.
 - **Siguiente trabajo:** recuperar el artefacto JSON de `npm audit --omit=dev`, identificar advisory y ruta transitiva exactos, actualizar manifiesto y lockfile de forma reproducible, ejecutar gate de seguridad y suite completa para SHA nuevo; luego implementar y comprobar HTTP+MongoDB real. P0-70 sigue PARCIAL; **0/77 certificados**.
+
+
+## Control de HEAD — 01-11-2026, 21:16 Colombia
+
+- GitHub Actions consultado por rama de PR #534, SHA exacto `2a47d3b35331cf7c8116742cad2b6181d22d1976`: [run #41371574494](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41371574494) `failure` y [run #41371569062](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41371569062) `success`. Son workflows distintos: **no interpretar un workflow exitoso como CI global verde**. Consultas realizadas sobre el HEAD previo a este commit documental; verificar de nuevo el nuevo SHA antes de fusionar.
+- PR #534 y PR #524 continúan abiertos. Bloqueos históricos no resueltos con evidencia: gate HIGH de dependencias, HTTP/E2E y aceptación multiempresa. Los resultados de integración parciales no satisfacen los criterios de terminado.
+- Estado conservador: P0-70 **PARCIAL**, 0/77 certificados integralmente. Sin merge, sin deploy. Próxima intervención técnica: identificar advisory exacto desde artefacto de auditoría y corregir manifiesto/lockfile; ejecutar suite y gates completos sobre el SHA de código corregido.
