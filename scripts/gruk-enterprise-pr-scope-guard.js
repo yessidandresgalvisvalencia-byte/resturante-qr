@@ -2,7 +2,6 @@
 // GRUK Empresarial: reject cross-product changes in a pull request.
 // This guard is an additional CI check, not proof of runtime data isolation.
 const { execFileSync } = require("node:child_process");
-const path = require("node:path");
 
 function forbiddenReason(file) {
   const normalized = file.replace(/\\/g, "/").replace(/^\.\//, "").toLowerCase();
@@ -25,7 +24,7 @@ function changedFiles(base, head) {
   if (!/^[0-9a-f]{40}$/i.test(base) || !/^[0-9a-f]{40}$/i.test(head)) {
     throw new Error("Both PR base/head commit SHAs must be full 40-character hex strings");
   }
-  const output = execFileSync("git", ["diff", "--name-only", "-z", base, head], { maxBuffer: 10 * 1024 * 1024 });
+  const output = execFileSync("git", ["diff", "--no-renames", "--name-only", "-z", base, head], { maxBuffer: 10 * 1024 * 1024 });
   return output.toString("utf8").split("\0").filter(Boolean);
 }
 if (require.main === module) {
