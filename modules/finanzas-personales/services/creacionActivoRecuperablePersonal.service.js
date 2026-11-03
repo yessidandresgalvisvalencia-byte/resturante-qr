@@ -33,20 +33,21 @@ const buscar=(u,k,session)=>R.findOne({usuarioId:u,solicitudId:k}).session(sessi
 async function crear(usuarioId,solicitudId,solicitud){
  validarIdentidad(usuarioId,solicitudId);const datos=validarSolicitud(solicitud),huella=huellaSolicitud(solicitud);await exigirIndices();const session=await mongoose.startSession();let salida;
  try{await session.withTransaction(async()=>{
-  const previo=await buscar(usuarioId,solicitudId,session);if(previo){if(previo.solicitudHuella!==huella)throw falla("La clave del activo ya identifica otros datos");await verificarFuentes(previo,session);salida=resultado(previo,true);return;}
+  const previo=await buscar(usuarioId,solicitudId,session);if(previo){await verificarActivos(usuarioId,await C.find({usuarioId}).limit(501).maxTimeMS(5000).session(session).lean(),{session});if(previo.solicitudHuella!==huella)throw falla("La clave del activo ya identifica otros datos");await verificarFuentes(previo,session);salida=resultado(previo,true);return;}
+  await require("./proteccionOriginalCompensadoPersonal.service").serializarEscrituraFuente(usuarioId,session);
   const activos=await C.find({usuarioId}).limit(501).maxTimeMS(5000).session(session).lean(),legados=await L.find({userId:usuarioId}).limit(501).maxTimeMS(5000).session(session).lean();
   if(activos.length>=500||legados.length>=500)throw falla("Demasiados activos para revisar identidad; requiere revisión",503);
-  await verificarActivos(usuarioId,activos,{session,legados});
+  const revision=await verificarActivos(usuarioId,activos,{session,legados});require("./lecturaActivosPersonal.service").sumar([revision.activosNoLiquidosMinor,datos.valorMinor]);
   if([...activos,...legados].some(c=>typeof c.nombre!=="string"||normalizarNombre(c.nombre)===datos.nombre))throw falla("Ya hay un activo con ese nombre. Revisa el original antes de registrar otro; usa nombres distintos para bienes distintos");
   const [legacy]=await L.create([{userId:usuarioId,nombre:datos.nombre,tipo:datos.tipo,valorActual:datos.valorMinor,liquido:false,institucion:datos.institucion,fechaValorDeclarado:datos.fechaValorDeclarado,origenValor:datos.origenValor,creacionSolicitudId:solicitudId}],{session});
   const [activo]=await C.create([{usuarioId,legacyId:legacy._id,...datos,creacionSolicitudId:solicitudId}],{session});
   const original=await C.collection.findOne({_id:activo._id,usuarioId:oid(usuarioId)},{session}),legacyOriginal=await L.collection.findOne({_id:legacy._id,userId:oid(usuarioId)},{session});
   const r={usuarioId,solicitudId,solicitudHuella:huella,activoId:activo._id,legacyId:legacy._id,nombreClave:datos.nombre,solicitud:canon(solicitud),original:foto(original),legacyOriginal:canon(legacyOriginal),fecha:new Date()};r.hashActual=hash(r);verificar(r);await R.create([r],{session});
-  const cursor=await C.updateOne({_id:activo._id,usuarioId,creacionSolicitudId:solicitudId,creacionReciboHash:{$exists:false}},{$set:{creacionReciboHash:r.hashActual}},{session,timestamps:false,runValidators:true});if(cursor.matchedCount!==1)throw falla("No se confirmó la referencia de creación del activo");await verificarFuentes(r,session);salida=resultado(r,false);
+  const cursor=await C.updateOne({_id:activo._id,usuarioId,creacionSolicitudId:solicitudId,creacionReciboHash:{$exists:false}},{$set:{creacionReciboHash:r.hashActual}},{session,timestamps:false,runValidators:true});if(cursor.matchedCount!==1)throw falla("No se confirmó la referencia de creación del activo");await verificarFuentes(r,session);require("./lecturaActivosPersonal.service").calcular(usuarioId,[...legados,legacyOriginal],[...activos,original]);salida=resultado(r,false);
  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return salida;
  }catch(e){if(e.code===11000)throw falla("Activo o solicitud ya registrada; consulta el recibo antes de repetir");throw e;}finally{await session.endSession();}
 }
-async function consultar(usuarioId,solicitudId){validarIdentidad(usuarioId,solicitudId);await exigirIndices();const session=await mongoose.startSession();let salida;try{await session.withTransaction(async()=>{const r=await buscar(usuarioId,solicitudId,session);if(!r)throw falla("No hay recibo verificable de ese activo; continúa sin confirmar",404);await verificarFuentes(r,session);salida=resumen(r);},{readConcern:{level:"snapshot"},readPreference:"primary"});return salida;}finally{await session.endSession();}}
+async function consultar(usuarioId,solicitudId){validarIdentidad(usuarioId,solicitudId);await exigirIndices();const session=await mongoose.startSession();let salida;try{await session.withTransaction(async()=>{const r=await buscar(usuarioId,solicitudId,session);if(!r)throw falla("No hay recibo verificable de ese activo; continúa sin confirmar",404);await verificarActivos(usuarioId,await C.find({usuarioId}).limit(501).maxTimeMS(5000).session(session).lean(),{session});await verificarFuentes(r,session);salida=resumen(r);},{readConcern:{level:"snapshot"},readPreference:"primary"});return salida;}finally{await session.endSession();}}
 async function verificarActivos(usuarioId,activos,{session,legados}={}){
  if(!session?.inTransaction())throw falla("La verificación de activos requiere lectura consistente",503);await exigirIndices();
  const recibos=await R.find({usuarioId}).limit(501).maxTimeMS(5000).session(session).lean();legados??=await L.find({userId:usuarioId}).limit(501).maxTimeMS(5000).session(session).lean();
@@ -56,6 +57,6 @@ async function verificarActivos(usuarioId,activos,{session,legados}={}){
  for(const r of recibos)verificarPareja(r,cs.get(String(r.activoId)),ls.get(String(r.legacyId)));
  for(const c of activos)if(c.creacionSolicitudId!==undefined||c.creacionReciboHash!==undefined){const r=rs.get(c.creacionSolicitudId);if(!r||String(r.activoId)!==String(c._id)||r.hashActual!==c.creacionReciboHash)throw falla("Falta evidencia de creación del activo");}
  for(const l of legados)if(l.creacionSolicitudId!==undefined){const r=rs.get(l.creacionSolicitudId);if(!r||String(r.legacyId)!==String(l._id))throw falla("Falta evidencia de la fuente original del activo");}
- const vinculados=new Set(activos.filter(c=>c.legacyId!=null).map(c=>String(c.legacyId)));return{previos:legados.filter(l=>!vinculados.has(String(l._id))).map(l=>({id:String(l._id),nombre:l.nombre,tipo:l.tipo,fuente:"ORIGINAL_PENDIENTE_DE_REVISION",incluidoEnPatrimonio:false}))};
+ return require("./lecturaActivosPersonal.service").calcular(usuarioId,legados,activos);
 }
 module.exports={crear,consultar,exigirIndices,validarIdentidad,validarSolicitud,normalizarNombre,huellaSolicitud,hash,verificar,verificarActivos,resumen};

@@ -41,6 +41,7 @@ async function leer(u,s){const fuentes={},destinos={};for(const [g,[L,C]] of Obj
 async function ejecutar(usuarioId,escribir){
  const u=identidad(usuarioId),s=await mongoose.startSession();let salida;
  try{await s.withTransaction(async()=>{
+  if(escribir)await require("./proteccionOriginalCompensadoPersonal.service").serializarEscrituraFuente(u,s);
   const {fuentes,destinos}=await leer(u,s);
   const activos=await ActivoNuevo.find({usuarioId:u}).limit(501).maxTimeMS(5000).session(s).lean();await require("./creacionActivoRecuperablePersonal.service").verificarActivos(u,activos,{session:s,legados:fuentes.activos});
   const inversiones=await InversionNueva.find({usuarioId:u}).limit(501).maxTimeMS(5000).session(s).lean();await require("./creacionInversionRecuperablePersonal.service").verificarInversiones(u,inversiones,{session:s,legados:fuentes.inversiones});
@@ -48,7 +49,7 @@ async function ejecutar(usuarioId,escribir){
   // Validación completa antes del primer INSERT; Mongoose no debe corregir tipos
   // financieros por casting. Las cantidades se verificaron sin coerción arriba.
   for(const [g,rows] of Object.entries(planes))for(const row of rows){const documento=new grupos[g][1](row);await documento.validate();if(!corresponde(documento.toObject(),row))throw falla("La copia exigiría convertir datos históricos; requiere revisión explícita");}
-  if(escribir){for(const [g,rows] of Object.entries(revision.faltantes))for(const row of rows){if((g==="activos"||g==="inversiones")&&fuentes[g].find(x=>String(x._id)===String(row.legacyId))?.creacionSolicitudId!==undefined)throw falla("Declaración protegida sin copia; requiere recuperación explícita");await grupos[g][1].create([row],{session:s});}const final=evaluar(planes,(await leer(u,s)).destinos);if(!final.ok)throw falla("Migración sin conciliación completa");salida=final;}else salida=revision;
+  if(escribir){for(const [g,rows] of Object.entries(revision.faltantes))for(const row of rows){if((g==="activos"||g==="inversiones")&&fuentes[g].find(x=>String(x._id)===String(row.legacyId))?.creacionSolicitudId!==undefined)throw falla("Declaración protegida sin copia; requiere recuperación explícita");await grupos[g][1].create([row],{session:s});}await require("./creacionActivoRecuperablePersonal.service").verificarActivos(u,await ActivoNuevo.find({usuarioId:u}).limit(501).maxTimeMS(5000).session(s).lean(),{session:s});const final=evaluar(planes,(await leer(u,s)).destinos);if(!final.ok)throw falla("Migración sin conciliación completa");salida=final;}else salida=revision;
   delete salida.faltantes;
  },{readConcern:{level:"snapshot"},writeConcern:escribir?{w:"majority"}:undefined,readPreference:"primary"});return salida;
  }finally{await s.endSession();}
