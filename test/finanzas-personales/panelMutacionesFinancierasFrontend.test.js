@@ -99,3 +99,10 @@ test("alta de inversión sin recibo vinculante mantiene incertidumbre; acuse cor
  const datos={confirmacion:true,nombre:"FONDO",clase:"FONDO",capitalAportado:100,valorActual:120,moneda:"COP",liquidezDias:null,riesgoDeclarado:"NO_CLASIFICADO",fechaValor:"2026-01-01T05:00:00.000Z"},id="inversion_prueba_0001",op={method:"POST",headers:{"Idempotency-Key":id},body:JSON.stringify(datos)},f=entorno(async()=>respuesta({ok:true,recibo:{confirmado:true}}));await assert.rejects(f.ctx.api("/inversiones",op),/recibo vinculante/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
  const e=entorno(async()=>respuesta({ok:true,recibo:{confirmado:true,certificaEstadoActual:false,ruta:"/inversiones",metodo:"POST",inversionId:A,solicitudId:id,solicitudHuella:require("../../modules/finanzas-personales/services/creacionInversionRecuperablePersonal.service").huellaSolicitud(datos),hash:"d".repeat(64)}}));await e.ctx.api("/inversiones",op);assert.equal(e.ctx.api.estadoFinanciero().bloqueada,false);
 });
+
+test("inicio confirmado aparece mientras el historial sigue pendiente sin duplicar consulta home",async()=>{
+ const historial=defer(),solicitado=defer();let homes=0;const f=entorno(async p=>{if(p==="/home")homes++;if(p==="/diario?limit=500"){solicitado.resolve();return await historial.promise;}});const carga=f.ctx.load();await solicitado.promise;await new Promise(r=>setImmediate(r));assert.match(f.$("hDisponibleHoy").textContent,/200/);assert.equal(homes,1);historial.resolve(respuesta({dias:[]}));await carga;
+});
+test("inicio no se pinta antes de comprobar identidad; fallo de integridad no autoriza gasto",async()=>{
+ const diagnostico=defer(),solicitado=defer(),f=entorno(async p=>{if(p==="/diagnostico-integridad"){solicitado.resolve();return await diagnostico.promise;}});const carga=f.ctx.load();await solicitado.promise;await new Promise(r=>setImmediate(r));assert.equal(f.$("hDisponibleHoy").textContent,"No actualizado");diagnostico.resolve(respuesta({diagnostico:{identidadExistente:false}}));await carga;assert.equal(f.$("hDisponibleHoy").textContent,"No actualizado");
+});

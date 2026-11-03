@@ -110,7 +110,7 @@ test("El panel conserva lectura de la misma cuenta y la invalida al cambiar de s
 
 test("El panel rechaza indicadores ausentes antes de dibujar cifras financieras",()=>{
  const validacion=codigo.indexOf("const indicadoresObligatorios=");
- const render=codigo.indexOf('$("hComprometido").textContent=money(');
+ const render=codigo.indexOf('$("hComprometido").textContent=money(',validacion);
  assert.ok(validacion>0&&render>validacion,"validación monetaria debe anteceder renderizado");
  const fragmento=codigo.slice(validacion,render);
  for(const campo of ["r.resumen?.ingresos","r.resumen?.gastos","r.resumen?.deudaTotal",
