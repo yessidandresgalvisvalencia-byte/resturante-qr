@@ -159,7 +159,7 @@ test("MongoDB real: transferencia propia simultánea aplica un solo débito y un
  process.env.PERSONAL_IDEMPOTENCY_SECRET="gruk-v81-prueba-local-transferencia-no-produccion";
  await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
  try{
-  await Promise.all([Cuenta.init(),Outbox.init(),require("../../modules/finanzas-personales/models/conciliacionCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionActivoPersonal.model").init()]);
+  await Promise.all([Cuenta.init(),Outbox.init(),require("../../modules/finanzas-personales/models/conciliacionCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionActivoPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionInversionPersonal.model").init()]);
   const [origen,destino]=await Cuenta.create([
    {usuarioId,nombre:"ORIGEN-"+crypto.randomUUID(),tipo:"AHORROS",moneda:"COP",activa:true,saldoMinor:100000,
     saldoAnclaMinor:100000,saldoAnclaEn:new Date("2026-10-01T00:00:00Z"),saldoVerificadoEn:new Date("2026-10-01T00:00:00Z"),requiereReconciliacion:false},
