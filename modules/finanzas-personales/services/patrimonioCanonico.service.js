@@ -1,4 +1,5 @@
 "use strict";
+const CicloInversion=require("../models/cicloInversionPersonal.model");
 const mongoose=require("mongoose"),CicloActivo=require("../models/cicloActivoPersonal.model");
 const Activo=require("../models/ActivoPatrimonial");
 const Inversion=require("../models/InversionPatrimonial");
@@ -9,7 +10,7 @@ async function obtener(usuarioId){
  try{await session.withTransaction(async()=>{
   // Esta vista heredada todavía no comparte todas las fuentes del panel personal.
   // No publicar un total que ignore un retiro, incluso si luego se restauró.
-  if(await CicloActivo.exists({usuarioId}).session(session).maxTimeMS(5000))throw Object.assign(new Error("Vista V2 pendiente de convergencia de ciclos; consulta el patrimonio personal actualizado"),{statusCode:409});
+  if(await CicloActivo.exists({usuarioId}).session(session).maxTimeMS(5000)||await CicloInversion.exists({usuarioId}).session(session).maxTimeMS(5000))throw Object.assign(new Error("Vista V2 pendiente de convergencia de ciclos; consulta el patrimonio personal actualizado"),{statusCode:409});
   const activos=await Activo.find({usuarioId}).session(session).lean();
   const inversiones=await Inversion.find({usuarioId}).session(session).lean();
   const deudas=await Deuda.find({usuarioId,activa:true}).session(session).lean();

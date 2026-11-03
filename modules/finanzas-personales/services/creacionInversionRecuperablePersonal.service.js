@@ -19,7 +19,7 @@ function validarSolicitud(s){
 }
 async function exigirIndices(){let indices;try{indices=await R.collection.indexes();}catch{throw falla("Índices de recibos de inversiones no disponibles",503);}if(![["usuarioId","secuencia"],["usuarioId","solicitudId"],["usuarioId","inversionId"],["usuarioId","nombreClave"]].every(k=>indiceExacto(indices,k)))throw falla("Índices de recibos de inversiones no verificados",503);}
 const oid=v=>new mongoose.Types.ObjectId(String(v));
-function foto(x){const r=canon(x);delete r.creacionReciboHash;return r;}
+function foto(x){const r=canon(x);delete r.creacionReciboHash;delete r.cicloInversionRevision;delete r.cicloInversionHash;return r;}
 function verificar(r){
  validarIdentidad(r?.usuarioId,r?.solicitudId);
  if(!Number.isSafeInteger(r.secuencia)||r.secuencia<1||!/^[a-f0-9]{64}$/.test(r.hashAnterior||"")||r.hashActual!==hash(r)||r.solicitudHuella!==huellaSolicitud(r.solicitud)||String(r.original?._id)!==String(r.inversionId)||String(r.original?.usuarioId)!==String(r.usuarioId)||String(r.original?.legacyId)!==String(r.legacyId)||String(r.legacyOriginal?._id)!==String(r.legacyId)||String(r.legacyOriginal?.userId)!==String(r.usuarioId)||r.original?.creacionSolicitudId!==r.solicitudId||r.legacyOriginal?.creacionSolicitudId!==r.solicitudId)throw falla("Recibo de inversión no verificable");
@@ -34,18 +34,18 @@ const buscar=(u,k,session)=>R.findOne({usuarioId:u,solicitudId:k}).session(sessi
 async function crear(usuarioId,solicitudId,solicitud){
  validarIdentidad(usuarioId,solicitudId);const datos=validarSolicitud(solicitud),huella=huellaSolicitud(solicitud);await exigirIndices();const session=await mongoose.startSession();let salida;
  try{await session.withTransaction(async()=>{
-  const previo=await buscar(usuarioId,solicitudId,session);
+  const previo=await buscar(usuarioId,solicitudId,session);if(!previo)await require("./proteccionOriginalCompensadoPersonal.service").serializarEscrituraFuente(usuarioId,session);
   const inversiones=await C.find({usuarioId}).limit(501).maxTimeMS(5000).session(session).lean(),legados=await L.find({userId:usuarioId}).limit(501).maxTimeMS(5000).session(session).lean();
   const continuidad=await verificarInversiones(usuarioId,inversiones,{session,legados});
   if(previo){if(previo.solicitudHuella!==huella)throw falla("La clave de la inversión ya identifica otros datos");await verificarFuentes(previo,session);salida=resultado(previo,true);return;}
   if(inversiones.length>=500||legados.length>=500)throw falla("Demasiadas inversiones para revisar identidad; requiere revisión",503);
-  require("./lecturaInversionesPersonal.service").calcular(usuarioId,legados,inversiones);
+  require("./lecturaInversionesPersonal.service").calcular(usuarioId,legados,inversiones,{retirados:continuidad.retirados});
   if([...inversiones,...legados].some(c=>typeof c.nombre!=="string"||normalizarNombre(c.nombre)===datos.nombre))throw falla("Ya hay una inversión con ese nombre. Revisa la original antes de registrar otra; usa nombres distintos para posiciones distintas");
   const [legacy]=await L.create([{userId:usuarioId,nombre:datos.nombre,clase:datos.clase,capitalAportado:datos.capitalAportadoMinor,valorActual:datos.valorActualMinor,moneda:datos.moneda,liquidezDias:datos.liquidezDias,riesgoDeclarado:datos.riesgoDeclarado,institucion:datos.institucion,fechaValorDeclarado:datos.fechaValorDeclarado,origenValor:datos.origenValor,creacionSolicitudId:solicitudId}],{session});
   const [inversion]=await C.create([{usuarioId,legacyId:legacy._id,...datos,creacionSolicitudId:solicitudId}],{session});
   const original=await C.collection.findOne({_id:inversion._id,usuarioId:oid(usuarioId)},{session}),legacyOriginal=await L.collection.findOne({_id:legacy._id,userId:oid(usuarioId)},{session});
   const r={usuarioId,secuencia:continuidad.secuencia,hashAnterior:continuidad.hashAnterior,solicitudId,solicitudHuella:huella,inversionId:inversion._id,legacyId:legacy._id,nombreClave:datos.nombre,solicitud:canon(solicitud),original:foto(original),legacyOriginal:canon(legacyOriginal),fecha:new Date()};r.hashActual=hash(r);verificar(r);await R.create([r],{session});
-  const cursor=await C.updateOne({_id:inversion._id,usuarioId,creacionSolicitudId:solicitudId,creacionReciboHash:{$exists:false}},{$set:{creacionReciboHash:r.hashActual}},{session,timestamps:false,runValidators:true});if(cursor.matchedCount!==1)throw falla("No se confirmó la referencia de creación de la inversión");await verificarFuentes(r,session);require("./lecturaInversionesPersonal.service").calcular(usuarioId,[...legados,legacyOriginal],[...inversiones,original]);salida=resultado(r,false);
+  const cursor=await C.updateOne({_id:inversion._id,usuarioId,creacionSolicitudId:solicitudId,creacionReciboHash:{$exists:false}},{$set:{creacionReciboHash:r.hashActual}},{session,timestamps:false,runValidators:true});if(cursor.matchedCount!==1)throw falla("No se confirmó la referencia de creación de la inversión");await verificarFuentes(r,session);require("./lecturaInversionesPersonal.service").calcular(usuarioId,[...legados,legacyOriginal],[...inversiones,original],{retirados:continuidad.retirados});salida=resultado(r,false);
  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return salida;
  }catch(e){if(e.code===11000)throw falla("Conflicto de identidad o concurrencia; consulta el recibo y revisa tus inversiones antes de reintentar con la misma clave y datos");throw e;}finally{await session.endSession();}
 }
@@ -59,6 +59,6 @@ async function verificarInversiones(usuarioId,inversiones,{session,legados}={}){
  let anterior="0".repeat(64),secuencia=0;for(const r of recibos){if(r.secuencia!==++secuencia||r.hashAnterior!==anterior)throw falla("Cadena de declaraciones de inversiones incompleta o alterada");verificarPareja(r,cs.get(String(r.inversionId)),ls.get(String(r.legacyId)));anterior=r.hashActual;}
  for(const c of inversiones)if(c.creacionSolicitudId!==undefined||c.creacionReciboHash!==undefined){const r=rs.get(c.creacionSolicitudId);if(!r||String(r.inversionId)!==String(c._id)||r.hashActual!==c.creacionReciboHash)throw falla("Falta evidencia de creación de la inversión");}
  for(const l of legados)if(l.creacionSolicitudId!==undefined){const r=rs.get(l.creacionSolicitudId);if(!r||String(r.legacyId)!==String(l._id))throw falla("Falta evidencia de la fuente original de la inversión");}
- return{secuencia:secuencia+1,hashAnterior:anterior};
+ const retirados=await require("./cicloInversionPersonal.service").verificarInversiones(usuarioId,inversiones,{session});return{secuencia:secuencia+1,hashAnterior:anterior,retirados};
 }
 module.exports={crear,consultar,exigirIndices,validarIdentidad,validarSolicitud,normalizarNombre,huellaSolicitud,hash,verificar,verificarInversiones,resumen};

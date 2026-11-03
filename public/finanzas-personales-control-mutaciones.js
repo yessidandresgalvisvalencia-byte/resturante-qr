@@ -34,7 +34,7 @@
    if(!/^[a-f0-9]{64}$/.test(huella))throw falla("No se pudo identificar la operación");
    let previa=[...s.pendientes.values()].find(p=>p.huella===huella);
    if(!previa&&[...s.pendientes.values()].some(p=>p.tipo==="sin_clave"&&!s.activas.has(p.id)))throw falla("Hay una operación incierta sin reintento seguro. Requiere revisión antes de registrar otra");
-   if((["/prestamos","/creditos","/cuentas","/activos","/inversiones"].includes(path)||/^\/(cuentas|activos)\/[a-f0-9]{24}\/(conciliar|retirar|restaurar-retiro)$/.test(path))&&!previa&&[...s.pendientes.values()].some(p=>p.tipo==="header"&&/^(prestamo_|credito_|cuenta_|activo_|inversion_|conciliacion_|ciclo_cuenta_|ciclo_activo_)/.test(p.id)))throw falla("Hay una operación patrimonial sin confirmar. Consulta su recibo o reintenta con los mismos datos originales");
+   if((["/prestamos","/creditos","/cuentas","/activos","/inversiones"].includes(path)||/^\/(cuentas|activos|inversiones)\/[a-f0-9]{24}\/(conciliar|retirar|restaurar-retiro)$/.test(path))&&!previa&&[...s.pendientes.values()].some(p=>p.tipo==="header"&&/^(prestamo_|credito_|cuenta_|activo_|inversion_|conciliacion_|ciclo_cuenta_|ciclo_activo_|ciclo_inversion_)/.test(p.id)))throw falla("Hay una operación patrimonial sin confirmar. Consulta su recibo o reintenta con los mismos datos originales");
    if(previa&&s.activas.has(previa.id))throw falla("Esta operación ya está en curso");
    if(previa&&previa.tipo==="sin_clave")throw falla("Esta operación quedó sin confirmar y no tiene reintento seguro. Requiere revisión del historial; no la registres de nuevo");
    if(previa&&previa.tipo!==d.tipo)throw falla("El mecanismo de reintento cambió; requiere revisión");
@@ -118,7 +118,13 @@
    const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&p?.tipo==="header"&&p.huella===r.solicitudHuella;
   }
   function confirmarCicloActivo(token,r){if(!reciboCicloActivoValido(token,r))return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;}
-  return{estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo};
+  function reciboCicloInversionValido(token,r){
+   const accion=r?.tipo==="RETIRO"?"retirar":r?.tipo==="RESTAURACION"?"restaurar-retiro":null;
+   if(!accion||r.confirmado!==true||r.certificaEstadoActual!==false||r.metodo!=="POST"||!/^ciclo_inversion_[A-Za-z0-9_-]{8,80}$/.test(r.solicitudId||"")||!/^[a-f0-9]{24}$/.test(r.inversionId||"")||r.ruta!=="/inversiones/"+r.inversionId+"/"+accion||!/^[a-f0-9]{64}$/.test(r.hash||"")||!/^[a-f0-9]{64}$/.test(r.solicitudHuella||""))return false;
+   const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&p?.tipo==="header"&&p.huella===r.solicitudHuella;
+  }
+  function confirmarCicloInversion(token,r){if(!reciboCicloInversionValido(token,r))return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;}
+  return{estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};
  }
  if(typeof module!=="undefined"&&module.exports)module.exports={crearControlMutacionesPersonales};
  else raiz.crearControlMutacionesPersonales=crearControlMutacionesPersonales;

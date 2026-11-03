@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("retiro y restauración de inversiones conserva capital, valor, originales y caja",()=>require("./helpers/cicloInversionAutorizado").probarCicloInversionAutorizado(db,provisionarMongoPersonal));
   await t.test("retiro y restauración de activos conservan originales y no duplican patrimonio ni caja",()=>require("./helpers/cicloActivoAutorizado").probarCicloActivoAutorizado(db,provisionarMongoPersonal));
   await t.test("activos exactos serializan altas y verifican totales, fuentes y rollback",()=>require("./helpers/activosExactosAutorizados").probarActivosExactosAutorizados(db));
   await t.test("migración patrimonial exacta preserva fuentes, replay, aislamiento y rollback",()=>require("./helpers/migracionPatrimonioExactaAutorizada").probarMigracionPatrimonioExactaAutorizada(db));
@@ -240,6 +241,9 @@ test("MongoDB con autorización: rol insert-only bloquea modificación y borrado
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   await db.collection("fin_recibos_creacion_activos_personales_v1").dropIndex("fp_activo_recibo_solicitud_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_ciclo_inversiones_personales_v1").dropIndex("fp_ciclo_inversion_secuencia_v1");
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   await db.collection("fin_ciclo_activos_personales_v1").dropIndex("fp_ciclo_activo_secuencia_v1");
