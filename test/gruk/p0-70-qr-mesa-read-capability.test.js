@@ -64,7 +64,7 @@ test("P0-70: token solo lee mesa y sede autorizadas con consulta tenant persisti
   }, options);
   assert.equal(authorized.status, 200);
   assert.deepEqual(authorized.filter, {
-    restaurantId, mesa: 7, sedeId: { $in: [siteA, "site-A"] }
+    empresaId: empresa, restaurantId, mesa: 7, sedeId: { $in: [siteA, "site-A"] }
   });
   for (const input of [
     { restaurantId, mesa: 8, qrToken: token() },
@@ -93,7 +93,7 @@ test("P0-70: QR legado solo lee documentos sin sede, nunca pedidos de otras sede
   }, { ...m, secret, now });
   assert.equal(result.status, 200);
   assert.deepEqual(result.filter, {
-    restaurantId, mesa: 7, sedeId: { $in: ["", null] }
+    empresaId: empresa, restaurantId, mesa: 7, sedeId: { $in: ["", null] }
   });
   const denied = await resolveMesaQrRead({
     restaurantId, mesa: 7, sedeId: "site-A", qrToken: token("")

@@ -37,7 +37,7 @@ test("P0-70: validated QR scope exposes persisted tenant and canonical site", as
   assert.equal(verified.empresaId, empresa);
   assert.equal(verified.canonicalSedeId, sede);
   assert.deepEqual(verified.filter, {
-    restaurantId: "restA", mesa: 7, sedeId: { $in: [sede, "site-A"] }
+    empresaId: empresa, restaurantId: "restA", mesa: 7, sedeId: { $in: [sede, "site-A"] }
   });
   for (const invalid of [
     { ...input, mesa: 8 },

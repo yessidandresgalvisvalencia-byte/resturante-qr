@@ -1,0 +1,318 @@
+# P0-70 — Auditoría de lectura QR por mesa (30-10-2026)
+
+**Fuente:** Plan Maestro 77, requisito 70. **Estado: PARCIAL, no certificado.**
+
+## Evidencia inspeccionada en rama de integración #524
+
+- `routes/API.js` GET `/pedidos/mesa/:mesa` (línea ~1509) y GET `/factura/mesa/:mesa` (~2241) llaman `resolveMesaQrRead` y usan `Pedido.find(scope.filter)`; ambas respuestas usan `Cache-Control: no-store` y una proyección de campos.
+- `core/security/qrMesaRead.service.js` verifica HMAC-SHA256, firma con comparación temporal segura, expiración, empresa, restaurante, mesa y sede; vuelve a consultar restaurante/sede persistidos antes de permitir lectura.
+- **Brecha original, corregida en este PR pero sin validación de integración:** la versión base de `resolveMesaQrRead` devolvía filtros con `restaurantId`, `mesa` y `sedeId`, **sin `empresaId`**. La rama del PR añade el filtro de empresa en ambos casos. La comprobación previa de `Restaurante` por empresa no demuestra por sí sola que cada `Pedido` leído pertenezca a esa empresa. Se necesita verificar invariantes de unicidad global de `restaurantId`, migración de pedidos históricos, y/o imponer empresa en consulta de forma compatible con datos legados. No marcar aislamiento de base de datos como verificado.
+- **Riesgo adicional:** token de capacidad QR en parámetros de URL; comprobar redacción de logs, analítica, referer y política de redirección antes de producción. Caducidad actual: 90 días; falta estrategia operativa de revocación/reimpresión.
+- **Evidencia aún ausente:** pruebas HTTP + MongoDB real de colisión de identificadores y sedes, migración de pedidos sin `empresaId`, navegador E2E, reimpresión de QR, Wompi, logs y observabilidad.
+
+## Criterio de cierre de este hallazgo
+
+1. Construir fixtures con dos empresas y restaurantes con identificadores en conflicto, pedidos históricos y sedes con alias.
+2. Comprobar que un QR de A jamás lee pedidos de B, incluso cuando comparten mesa/sede o hay registros legados; denegar ambigüedad.
+3. Aplicar filtro de empresa en consulta o demostrar por pruebas e índices una invariante equivalente y resistente a concurrencia.
+4. Ejecutar pruebas de integración reales y guardar enlaces a checks; no fusionar a `main` mientras Render Auto-Deploy pueda publicar prematuramente.
+
+**Resultado actualizado:** la rama de PR #534 contiene corrección funcional de filtros, pero únicamente evidencia de revisión estática y pruebas unitarias escritas; no hay certificación de aceptación. No autoriza despliegue.
+
+## Corrección propuesta (30-10-2026)
+
+- Commit `b07e434`: `resolveMesaQrRead` incluye `empresaId: p.e` en ambos filtros MongoDB (sede canónica/alias y mesa sin sede). Las rutas HTTP existentes usan `Pedido.find(scope.filter)`, por lo que pedidos de otras empresas y registros sin `empresaId` quedan excluidos (fail-closed).
+- Commit `2e85b00`: pruebas unitarias del filtro, alias y denegación de restaurante ajeno en `test/gruk/p0-70-qr-read-enterprise-filter.test.js`.
+- **No certificado:** faltan ejecución y resultados de CI, prueba HTTP+MongoDB real con colisiones, plan de migración de pedidos legados, QR en navegador, Wompi y auditoría de filtración de tokens. No desplegar.
+
+## Revisión adicional de pruebas (30-10-2026)
+
+- Commit `e9b9642`: dos casos adicionales verifican que la consulta de restaurante incluya `empresaId`, que la consulta de sede exija `_id`, `empresaId` y `restauranteId`, y que un registro inexistente se rechace sin entregar filtro de lectura.
+- El conjunto actual es **unitario con modelos simulados**. La selección de registros en MongoDB, el comportamiento de las rutas HTTP, las colisiones de tenant y la migración legacy **no están certificados**. No atribuir a estas pruebas evidencia de integración real.
+- Consulta de Actions para `8198f5f`: no se devolvieron ejecuciones asociadas; el commit posterior requiere una nueva comprobación. **Sin CI verde confirmado, no fusionar este PR.**
+
+## Seguimiento de controles — 30-10-2026, 13:14 Colombia
+
+- HEAD del PR #534: `8c42c8149d783aa4c0cf20babfb9d346fe96b688`, base rama de integración #524, estado draft abierto.
+- Consulta directa de ejecuciones GitHub Actions asociadas al HEAD: `workflow_runs: []`. **Esto no demuestra que las pruebas aprobaron**; puede reflejar ausencia de ejecuciones o limitación de consulta para eventos PR.
+- Decisión: mantener PR #534 abierto, sin fusionar a rama de integración ni `main`. P0-70 sigue PARCIAL; pendientes CI verificable, integración HTTP/MongoDB real con colisiones y legacy, E2E, migración y validación de seguridad.
+- Riesgo operativo: Auto-Deploy de Render sobre `main` sigue documentado como bloqueo; no desplegar ni alterar los otros productos.
+
+## Seguimiento adicional — 30-10-2026
+
+- Commit `51068276`: dos regresiones negativas adicionales comprueban capacidades QR válidamente firmadas por empresa B contra restaurante y sede de A; ambos accesos deben denegarse sin devolver filtro de lectura. Son pruebas unitarias con dobles de modelo, **no** demuestran aislamiento HTTP/MongoDB real.
+- Cobertura actual: filtro explícito de empresa en ambas ramas de lectura, denegación de restaurante/sede inexistentes y de capacidades firmadas para otro tenant. Pendiente: ejecutar los tests y verificar CI del HEAD actualizado, integración real con colisiones y legacy, E2E de navegador, migración/reimpresión QR, revisión de referer/logs y Wompi.
+- **Decisión:** PR #534 continúa draft; no fusionar ni desplegar sin checks verdes y evidencia de aceptación. P0-70 PARCIAL, los 77 requisitos no certificados.
+
+## Seguimiento de evidencia — 30-10-2026, ejecución posterior
+
+- Nuevo commit `326910e`: dos regresiones unitarias para alias de sede con pedidos de otra empresa y registros históricos sin `empresaId`, y para rechazo de una sede aportada frente a un QR sin sede. La primera prueba usa un evaluador en memoria de las condiciones del filtro, **no** ejecuta MongoDB; no equivale a prueba HTTP/E2E ni demuestra el comportamiento de índices o consultas reales.
+- Consulta de GitHub Actions y combined statuses para el HEAD anterior `910295f`: ambos devolvieron listas vacías. El commit nuevo requiere controles propios; **no existe CI verde confirmado en esta revisión**.
+- Estado de aceptación: P0-70 **PARCIAL**. Pendientes: integración HTTP + MongoDB con colisiones de `restaurantId`/sede, legacy sin empresa, pruebas E2E, revisión de filtración de QR y migración/reimpresión, Wompi y verificación de secretos. Mantener #534 draft y no fusionar ni desplegar.
+
+## Regresiones adicionales — 30-10-2026
+
+- Commit `29444cf`: se añaden pruebas unitarias de QR manipulado y QR expirado; ambas comprueban respuesta 401, ausencia de filtro y **cero accesos a la base de datos**. Evidencia de código únicamente; no se afirma ejecución de pruebas ni CI verde.
+- P0-70 continúa **PARCIAL**; pendientes HTTP/MongoDB real, E2E, migración de registros, revisión de exposición de tokens, pagos y CI verificable. PR #534 sigue draft; sin despliegue.
+
+## Control del HEAD — 30-10-2026, 19:18 Colombia
+
+- PR #534 sigue abierto y en borrador; base `gruk/security-realtime-sede-scope-20261030`, HEAD inspeccionado `a6fcd355d991f7f517ed1a1f5b554ef7ecbd33f7`. No fusionado.
+- Consultas directas al commit exacto: GitHub Actions `workflow_runs: []` y combined status `statuses: []`. **No hay CI verde comprobable**; esta API puede omitir checks de otros eventos. Se prohíbe fusionar por ausencia de evidencia positiva.
+- Revisión estática: filtros de `resolveMesaQrRead` con `empresaId` explícito para ambas ramas; 11 casos de prueba unitarios presentes, no ejecutados en esta revisión. No hay evidencia HTTP+MongoDB real ni E2E.
+- Próximo bloque verificable: ejecutar suite y prueba HTTP con MongoDB real (empresas A/B, `restaurantId` coincidente, alias de sede, pedidos sin `empresaId`), obtener checks asociados al SHA exacto y registrar resultados. Mantener P0-70 PARCIAL, 0/77 criterios certificados, sin cambios a `main` ni despliegue.
+
+## Revisión de controles y brecha de integración — 30-10-2026, 20:18 Colombia
+
+- Inspeccionados el servicio `core/security/qrMesaRead.service.js`, los 11 tests con dobles de MongoDB y los cuatro archivos modificados del PR #534. El filtro de lectura exige `empresaId` tanto para sede canónica/alias como para pedidos sin sede; los registros históricos sin `empresaId` quedan excluidos.
+- Consultados nuevamente los controles del SHA `a6fcd355d991f7f517ed1a1f5b554ef7ecbd33f7`: `workflow_runs: []`, `statuses: []`. Esto **no acredita CI verde** ni ejecución de los tests. El HEAD podría haber avanzado y debe comprobarse antes de cualquier fusión.
+- Brecha concreta: los tests actuales simulan `findOne` y filtran arreglos JavaScript, por lo que **no prueban** semántica de `Pedido.find(scope.filter)` contra MongoDB real, ni las respuestas de ambas rutas GET. El próximo bloque debe montar dos empresas con `restaurantId`/mesa/alias coincidentes y pedidos legados, ejecutar HTTP real y capturar los resultados y checks del SHA.
+- Decisión: P0-70 PARCIAL, 0/77 requisitos certificados; #534 permanece abierto, sin fusión ni despliegue. Auto-Deploy sobre `main` continúa como bloqueo operativo documentado.
+
+## Comprobación de controles — 30-10-2026, 21:14 Colombia
+
+- PR #534: abierto, draft, base `gruk/security-realtime-sede-scope-20261030` (#524), HEAD `e5a5f1a4009c97737269c89c0140971af71a7f60`; 4 archivos modificados, sin fusión.
+- Consulta directa de GitHub Actions para el SHA exacto: `workflow_runs: []`; consulta de combined status: `statuses: []`. Ninguna consulta aporta evidencia de checks verdes. El conector de Actions solo expone la primera página de ejecuciones disparadas por PR; la ausencia de resultados no equivale a fallo ni aprobación.
+- Contraste de código: `resolveMesaQrRead` exige `empresaId` en ambos filtros de pedidos; las 11 pruebas del archivo `test/gruk/p0-70-qr-read-enterprise-filter.test.js` emplean dobles de modelos o filtros en memoria. No constituyen pruebas de HTTP ni MongoDB real y no fueron ejecutadas aquí.
+- **Bloqueo de aceptación:** falta runner de CI verificable y entorno aislado con MongoDB real para validar colisiones de restaurante/sede, legacy, GET de pedidos/facturas y E2E. No se fusiona #534 ni #524 ni se toca `main`/Render. P0-70 PARCIAL; 0/77 certificados. No se atribuye avance funcional nuevo a esta auditoría.
+
+## Regresiones defensivas adicionales — 30-10-2026, 22:19 Colombia
+
+- Commit `2c96d674c681190360ff56d94398d2406d8d7e06`: dos pruebas unitarias nuevas verifican que un QR de otra mesa se rechace antes de consultar restaurante/sede y que una clave HMAC insuficiente devuelva 503 sin consultar la base. Total: **13 pruebas escritas**, no ejecutadas ni certificadas por CI en esta revisión.
+- La cobertura de aceptación P0-70 sigue **PARCIAL**: no hay evidencia de HTTP/MongoDB real, E2E, migración de registros históricos ni comprobación de pagos. No se debe fusionar ni desplegar. Estas pruebas no sustituyen los controles de integración.
+
+## Verificación independiente — 30-10-2026, 23:19 Colombia
+
+- HEAD confirmado por API del PR #534: `c4f295d7b1d8cb8f1ddc264c99b74c05ca556d1a`; PR abierto, **draft**, base `gruk/security-realtime-sede-scope-20261030`, cuatro archivos modificados.
+- Consultas efectuadas para **ese SHA exacto**: `get_commit_combined_status` → `statuses: []`; `fetch_commit_workflow_runs` → `workflow_runs: []`. Este último endpoint solo cubre la primera página de ejecuciones disparadas por PR. **Resultado: CI no verificable, no CI aprobado**.
+- Inspección del código del HEAD: ambos filtros de lectura de `resolveMesaQrRead` incluyen `empresaId: p.e`; el archivo de regresiones contiene 13 casos unitarios con modelos simulados, sin constancia de ejecución. No se debe confundir conteo de tests escritos con tests ejecutados.
+- **Siguiente bloque funcional prioritario**: integración de las dos rutas HTTP GET (`/pedidos/mesa/:mesa` y `/factura/mesa/:mesa`) con MongoDB real, dos empresas y `restaurantId`/mesa/alias coincidentes, más pedidos históricos sin `empresaId`; comprobar códigos HTTP, proyección de datos, `Cache-Control`, y ausencia de filtración entre tenants. Registrar salida de suite y checks asociados al SHA posterior.
+- **Bloqueo:** no hay evidencia positiva de runner/checks ni de fixture MongoDB real en esta ejecución. Mantener P0-70 PARCIAL y 0/77 requisitos integralmente certificados; no fusionar ni desplegar, no tocar Finanzas Personales ni Blushea.
+
+## Corrección de contrato de regresión — 31-10-2026, 00:21 Colombia
+
+- Al contrastar el cambio de `resolveMesaQrRead` con las pruebas existentes, se detectaron **dos aserciones obsoletas** en `test/gruk/p0-70-qr-mesa-read-capability.test.js`: esperaban filtros sin `empresaId` y, por tanto, eran incompatibles con el aislamiento empresarial introducido en #534. Corregidas en commit [`b4bd14a`](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/commit/b4bd14abeec37fad7c15d9897e6a1d74f85bbb23) para exigir `empresaId: empresa` tanto con sede como sin sede. No se cambió lógica de producción.
+- Para el SHA `b4bd14abeec37fad7c15d9897e6a1d74f85bbb23`, las consultas de Actions y combined statuses devolvieron listas vacías. **No hay evidencia de ejecución exitosa** ni debe asumirse que la suite completa pasa.
+- P0-70 continúa **PARCIAL**. Faltan pruebas HTTP/MongoDB real con colisiones, E2E, migración legacy, Wompi y revisión de seguridad. #534 sigue draft; no fusionar ni desplegar.
+
+## Control de trazabilidad — 31-10-2026, 01:18 Colombia
+
+- PR #534 confirmado **abierto, draft, no fusionado**; base `gruk/security-realtime-sede-scope-20261030`, HEAD `4b7e1f036fb7699f7656aa7a08075d61f78d3862`. PR padre #524 sigue abierto contra `main`; no confundir cambios apilados con cambios publicados.
+- Consultas al HEAD exacto: `fetch_commit_workflow_runs` devolvió `workflow_runs: []`; `get_commit_combined_status` devolvió `statuses: []`. Son resultados sin evidencia positiva, **no** CI verde. No se ejecutaron pruebas en esta revisión.
+- Verificación estática del código y 13 pruebas escritas: ambos filtros de `resolveMesaQrRead` incluyen `empresaId: p.e`; los tests usan modelos simulados y selección en memoria. No demuestran integración HTTP/MongoDB real, aislamiento de colisiones ni migración legacy.
+- Bloqueo de aceptación P0-70: fixture real de dos empresas con `restaurantId` y alias de sede coincidentes, pedidos sin empresa, respuestas GET `/pedidos/mesa/:mesa` y `/factura/mesa/:mesa`, pruebas de navegador, revisión de filtración de tokens QR y checks del SHA final. Bloqueo de fusión a `main`: Render Auto-Deploy previamente identificado en servicios compartidos; no se verificó su desactivación.
+- **Resultado: PARCIAL, 0/77 criterios integralmente certificados; no fusionar, no desplegar.** No hubo avance funcional ni ejecución de pruebas atribuibles a este control.
+
+## Verificación de rutas y controles — 31-10-2026, 02:16 Colombia
+
+- HEAD comprobado del PR #534: `a4d73c876f87f38b2b769f1b82597ce62de61f1c`, abierto, draft, base rama #524; #524 sigue abierto contra `main`.
+- Inspección directa de `routes/API.js`: `GET /pedidos/mesa/:mesa` y `GET /factura/mesa/:mesa` consumen `resolveMesaQrRead`, aplican `Pedido.find(scope.filter)`, seleccionan campos de salida y fijan `Cache-Control: no-store`. La factura valida propina 0/10/15/20. Esto es **revisión estática**, no ejecución HTTP ni MongoDB.
+- Consultas al SHA exacto: `fetch_commit_workflow_runs` devolvió `workflow_runs: []` y `get_commit_combined_status` devolvió `statuses: []`. El primer endpoint solo consulta la primera página de ejecuciones PR: **sin evidencia positiva de CI**, no inferir aprobación ni fallo.
+- Pendientes de cierre: fixtures MongoDB real A/B con colisiones de `restaurantId`, mesa y alias, pedidos históricos sin empresa, validación HTTP de ambas rutas, E2E QR, exposición de token en URL/referer/logs, migración/reimpresión y controles Wompi. El subtotal/propina se calcula a partir de precios de pedidos; su exactitud monetaria no se ha certificado aquí.
+- Decisión: P0-70 **PARCIAL**, 0/77 requisitos certificados integralmente. No fusionar #534/#524 ni desplegar mientras falten checks y aceptación; no modificar GRUK Personal ni Blushea.
+
+## Regresiones de colisión — 31-10-2026, 03:21 Colombia
+
+- Commit `ac7fb2e78ce1323bf190d83b0d2f160a57a40107`: dos pruebas negativas adicionales cubren rechazo de alias de sede distinto al del QR firmado y rechazo de un restaurante colisionado perteneciente a otra empresa **antes** de consultar sedes. Total del archivo: 15 pruebas unitarias escritas; **no se ejecutaron** y no sustituyen integración HTTP/MongoDB.
+- Consultas realizadas para el HEAD anterior `a4d73c876f87f38b2b769f1b82597ce62de61f1c`: `workflow_runs: []`, `statuses: []`. No se ha obtenido CI verde del commit nuevo. No inferir resultado de checks ausentes.
+- Estado real P0-70: **PARCIAL**; 0/77 requisitos certificados integralmente según última matriz conocida. Faltan fixtures MongoDB real con colisiones y legacy, respuestas HTTP de ambas rutas, E2E, control de tokens en URL/referer/logs, migración/reimpresión y pagos. No fusionar ni desplegar; mantener PR #534 draft y preservar GRUK Personal y Blushea.
+
+## CI real identificado y corrección — 31-10-2026, 04:20 Colombia
+
+- Consulta del endpoint de **check-runs** para HEAD `fb202d537405adf2576e6bf28ff0775dc9944d8b`: **GRUK Production Gate = FAILURE**, [job 124487967294](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41184312879/job/124487967294), ejecutado 08:22:09–08:22:51 UTC. El endpoint `fetch_commit_workflow_runs` devolvió `[]`, pero **no era prueba de ausencia de CI**. Consultar check-runs directamente en adelante.
+- Log recuperado: **916 pruebas, 915 pasan, 1 falla**. Falló `test/gruk/p0-70-qr-order-write-scope.test.js:39` porque la aserción esperaba un filtro sin `empresaId`; el servicio sí devuelve el campo de aislamiento requerido. Se corrigió **solo la expectativa del test**, sin relajar el filtro de producción, commit [`dd36f65`](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/commit/dd36f65eb229cbd42c1880b019a6ea7d938dd5c2).
+- **Pendiente:** obtener check-runs verdes para el SHA actualizado, ejecutar HTTP/MongoDB real y E2E; revisar todos los gates. No se afirma que el arreglo haya pasado hasta disponer de ejecución positiva. P0-70 PARCIAL; 0/77 requisitos certificados integralmente. PR #534 draft, sin fusión ni despliegue.
+
+## Control de evidencia — 31-10-2026, 05:20 Colombia
+
+- PR #534: abierto, draft, sin fusionar; HEAD `617a5460b160f217aa02d11daf04c6d016b89fb4`; PR #524 permanece abierto contra `main`. Los cambios de #534 están apilados sobre #524, no publicados.
+- Consultas al HEAD exacto: `fetch_commit_workflow_runs` → `workflow_runs: []` y `get_commit_combined_status` → `statuses: []`. **No hay prueba de controles verdes para este SHA**. La consulta de workflow runs se limita a ejecuciones PR de primera página; no interpretar lista vacía como aprobación.
+- Revisión estática del servicio: `resolveMesaQrRead` exige `empresaId` en la consulta del restaurante, en la consulta de sede y en ambos filtros de pedidos. Las 15 pruebas del archivo `p0-70-qr-read-enterprise-filter.test.js` son unitarias con modelos simulados o evaluación de arreglos; no hay evidencia de ejecución en esta revisión.
+- La corrección anterior `dd36f65` de aserción obsoleta aún no está respaldada por CI verde en el HEAD actual. Falta integración HTTP/MongoDB real con dos tenants, colisiones y pedidos legados, validación de las dos rutas GET, E2E, migración/reimpresión QR, seguridad de tokens y Wompi.
+- **Decisión:** P0-70 PARCIAL; 0/77 requisitos certificados integralmente. No fusionar, no desplegar. Auto-Deploy Render sobre `main` sigue siendo bloqueo no resuelto. No se ejecutó suite local ni se implementó bloque nuevo en este control.
+
+## Auditoría de unicidad intraempresa — 31-10-2026, 06:22 Colombia
+
+- PR #534 sigue abierto/draft (HEAD inspeccionado `60ac9e38bec7c5bb54efb68ee43fce56f1e6ea50`), dependiente de #524 abierto. La consulta de workflow runs para ese SHA devolvió `[]`; **no acredita CI aprobado** y debe contrastarse con check-runs (la ejecución fallida anterior sí apareció por esa vía).
+- **Nueva brecha específica de aislamiento detectada por lectura estática:** `resolveMesaQrRead` confirma la existencia del restaurante con `Restaurante.findOne({restaurantId,empresaId})`, pero la lectura de pedidos filtra por `empresaId,restaurantId,mesa,sedeId` y no por el `_id` del restaurante. Si dos restaurantes de **una misma empresa** comparten `restaurantId`, los pedidos de la misma mesa/sede podrían mezclarse. La protección interempresa no prueba unicidad intraempresa. Verificar índices únicos `{empresaId,restaurantId}` y semántica de creación/importación antes de certificar; si no existe invariante, corregir identidad y consultas con migración compatible.
+- **Otra brecha a validar:** los alias `codigoSede` se aceptan en `$in` sin prueba de unicidad por restaurante. Una colisión de alias de dos sedes podría incluir pedidos de otra sede dentro del mismo tenant. Exigir índice/invariante de unicidad y pruebas MongoDB de duplicados, incluidos datos históricos.
+- Prueba de aceptación pendiente: fixtures con (a) dos empresas con restaurantId coincidente, (b) dos restaurantes de una empresa con restaurantId duplicado, (c) dos sedes con codigoSede duplicado, (d) pedidos sin empresa y (e) accesos HTTP a ambas rutas de lectura. Verificar rechazo seguro o ausencia de mezcla, y documentar índices/migración. No se ejecutaron pruebas nuevas ni se atribuye corrección funcional.
+- P0-70 continúa **PARCIAL**, 0/77 verificados integralmente. Sin fusión, sin cambios a `main`, sin despliegue.
+
+## Revisión de unicidad de esquema — 31-10-2026
+
+- Inspección directa: `models/restaurante.js` declara `restaurantId: { unique: true }` global; `models/sede.js` declara `codigoSede: { unique: true }` global. Esto reduce la posibilidad de colisiones **si los índices están realmente construidos**, pero NO demuestra su existencia en la base desplegada ni ausencia de duplicados heredados. La unicidad es global, no compuesta por empresa; hay que evaluar compatibilidad de negocio y migraciones antes de modificar índices.
+- Commit `7e4c04e`: prueba adicional de regresión que comprueba declaraciones del esquema, no prueba MongoDB ni carrera concurrente. Total en `p0-70-qr-read-enterprise-filter.test.js`: 16 pruebas escritas (15 anteriores + 1 nueva), sin ejecución confirmada.
+- PR #534 HEAD anterior `6d32246fe258643c7ff6bcf0dd29326467506b0e`: consultas de workflow runs y combined statuses retornaron listas vacías el 31-10-2026; **no interpretar vacío como verde**. Reconsultar el nuevo HEAD tras los commits.
+- Para certificar: inspeccionar `getIndexes()` real de las colecciones y errores E11000 con escrituras simultáneas; ejecutar HTTP+MongoDB real con tenants y alias en conflicto, validar registros históricos y rutas de lectura, registrar CI verde verificable. P0-70 sigue PARCIAL. Sin merge ni despliegue.
+
+
+## Control de alcance y evidencia — 31-10-2026 09:19 Colombia
+
+- Se inspeccionaron directamente `core/security/qrMesaRead.service.js`, `test/gruk/p0-70-qr-read-enterprise-filter.test.js`, `test/gruk/p0-70-qr-mesa-read-capability.test.js` y `package.json` en la rama de #534. El filtro de lectura sí exige `empresaId`, `restaurantId`, `mesa` y sede autorizada; el modelo de pruebas sigue siendo simulado, no MongoDB real.
+- Se detectó una limitación operativa adicional: `package.json` define `npm test` y `gate` exclusivamente con pruebas Node y sintaxis; no incluye un comando específico para integración HTTP con MongoDB real. Por tanto, un gate unitario verde no certifica el criterio P0-70.
+- Se consultó el estado de los PR abiertos: #521, #522, #523, #524 y #534 siguen en la cola de integración; #534 se mantiene apilado sobre #524. La matriz en `main` sigue en estado inicial y no debe utilizarse como prueba de avance del PR.
+- No se ejecutaron pruebas nuevas ni se introdujo funcionalidad nueva en este control. Se requiere fixture MongoDB real, rutas HTTP de pedidos/factura, colisiones entre empresas, históricos, pruebas de concurrencia y evidencias CI para el SHA final. Mantener P0-70 PARCIAL y 0/77 certificados; no fusionar a `main` ni desplegar mientras Render Auto-Deploy y los demás bloqueos sigan sin resolverse.
+
+
+## Control de HEAD — 31-10-2026 10:22 COT
+
+- PR #534 sigue **abierto y draft**, base `gruk/security-realtime-sede-scope-20261030` (PR #524, también abierto), HEAD exacto `1cbcecd97c28301f130ce060e465563a89756e6d`.
+- Consultas GitHub al SHA: `fetch_commit_workflow_runs` devolvió `workflow_runs: []`; `get_commit_combined_status` devolvió `statuses: []`. Estas APIs no certifican todos los check-runs; **sin evidencia positiva de CI**. No se ejecutaron pruebas en esta revisión.
+- Lectura del servicio `core/security/qrMesaRead.service.js`: verifica HMAC y expiración, exige `empresaId` en restaurante, sede y filtro de pedidos, y limita el token a restaurante/mesa/sede. La lectura estática no demuestra índices existentes ni ausencia de mezcla con datos históricos.
+- **Criterio aún no satisfecho:** integración HTTP con MongoDB real, índices reales `getIndexes()`, pruebas adversariales de colisiones y concurrencia, legacy, E2E, Wompi, migración y reimpresión, y seguridad/rollback. P0-70 permanece PARCIAL; 0/77 certificados. Render Auto-Deploy sobre `main` sigue siendo bloqueo documentado. No fusionar ni desplegar.
+
+
+## Revisión de dependencias y alcance — 31-10-2026, 12:17 Colombia
+
+- Consulta directa de GitHub: PR #534 **abierto y draft**, HEAD `f66e46d9868da8130cfef3e56c9b0e0fd52e8abf`, base `gruk/security-realtime-sede-scope-20261030`; PR #524 **abierto**, HEAD `12f9968bc1496c94e82c4ab061c993ee05a46386`, base `main`. Ninguno fusionado.
+- Contraste del código actual: `resolveMesaQrRead` consulta restaurante con `{restaurantId, empresaId}` y sede con `{_id, empresaId, restauranteId}`; ambos filtros de pedidos incluyen `empresaId`. Alias con apariencia de ObjectId se excluyen para evitar confusión entre sedes. La cobertura es **estática**, no validación HTTP/MongoDB.
+- Archivo `test/gruk/p0-70-qr-read-enterprise-filter.test.js`: 16 pruebas declaradas, incluyendo regresión de alias ObjectId y comprobación de declaraciones de índices. **No se ejecutaron en esta revisión**; la existencia de índices efectivos en MongoDB y colisiones concurrentes siguen sin demostrar.
+- No se obtuvo en esta revisión una nueva evidencia de CI aprobado para el HEAD exacto. No confundir mergeable=true con checks verdes. P0-70 continúa **PARCIAL**; 0/77 criterios certificados integralmente según la matriz. Próximo trabajo: prueba HTTP/MongoDB real de ambas rutas, concurrencia, alias y registros legados, más comprobación de check-runs.
+- Mantener #534 en draft; no fusionar #524 ni #534 a `main` y no desplegar mientras falten aceptación y bloqueo de Auto-Deploy Render. Sin cambios a Finanzas Personales ni Blushea.
+
+
+## Control 31-10-2026, 13:14 Colombia — comprobación de HEAD
+
+- PR #534: abierto, draft, HEAD `30c333f555c45af55ea1e77998f98fcf09cc4f5b`, basado en rama de PR #524; #524 continúa abierto sin fusión.
+- Para ese SHA, GitHub devolvió `workflow_runs: []` y `statuses: []`; **no hay comprobación positiva de CI**. La consulta de workflow runs solo incluye una página de eventos PR; no confundir ausencia con aprobación.
+- Se inspeccionaron directamente el servicio de lectura QR y las 16 pruebas escritas. Los filtros de pedidos incluyen empresa y excluyen alias de sede con forma de ObjectId. Las pruebas usan dobles de modelo y una aserción de esquema; **no se ejecutaron pruebas nuevas** ni MongoDB real en esta ejecución.
+- Falta crear y ejecutar integración HTTP con MongoDB real y evidencia de índices, colisiones, concurrencia, históricos sin empresa, E2E, seguridad de token, Wompi, migración y reimpresión. **P0-70 PARCIAL; 0/77 integralmente certificados.** No fusionar ni desplegar. No se ha comprobado la desactivación de Auto-Deploy en Render.
+
+## Verificación de estado — 31-10-2026, 14:18 Colombia
+
+- PR #534: `open`, `draft`, HEAD `9c0124d3ebee7a1b4fa46cc3a8f994c16352922c`; base `gruk/security-realtime-sede-scope-20261030` (#524). PR #524: `open`, no fusionado a `main`.
+- Consultas al SHA exacto: `workflow_runs: []` y `statuses: []`. Estas respuestas **no acreditan** ejecución ni aprobación de CI; el conector de workflows solo consulta runs disparados por PR y la API de estados no equivale a todos los check-runs.
+- Revisión directa del servicio: `resolveMesaQrRead` filtra `empresaId` y excluye alias ObjectId ambiguos; no prueba índices MongoDB, endpoints HTTP, colisiones reales, ni migración legacy. La capacidad QR dura hasta 90 días y exige secreto de al menos 32 bytes; falta validación de revocación y exposición de tokens en URL.
+- Decisión: mantener P0-70 PARCIAL y 0/77 certificados. No fusionar ni desplegar. Siguiente trabajo de ingeniería: prueba de integración HTTP+MongoDB real y verificación de CI de check-runs, no más pruebas simuladas como sustituto.
+
+
+### Evidencia de CI confirmada — 31-10-2026
+
+- GitHub Actions `GRUK CI`, ejecución [#3909](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41238270269), commit `df4fc7e78b25825312ca4e70a8f4b19ee110cbc0`, evento `push`, **conclusión `success`**.
+- El job `GRUK Production Gate` aprobó `npm ci`, auditoría de criterios del plan, configuración Docker Compose, arranque de MongoDB 7 en replica set y `npm run gate` (según pasos de Actions). Esto corrige la afirmación anterior de ausencia total de CI: sí existe un gate verde para ese SHA.
+- **Límite:** un gate verde no certifica por sí mismo los criterios P0-70 ni las 77 implementaciones. No se ha acreditado con evidencias separadas el E2E HTTP/MongoDB de colisiones tenant/legacy, navegador, pagos Wompi, conciliación, backups, rollback, reinicios offline y validación de producción. No fusionar ni desplegar por este resultado aislado.
+- PR #534 continúa `draft` abierto, apilado sobre PR #524 abierto; ningún requisito pasa a COMPLETO sin evidencias de aceptación. La presente actualización documental produce un SHA nuevo que necesita su propio CI.
+
+
+## Comprobación 01-11-2026 — controles y dependencias
+
+- PR #534 sigue abierto en borrador, HEAD anterior `57b1d2172d1560d38a079fb24db7c23b88079f2b`; PR padre #524 continúa abierto y sin fusionar a `main`.
+- GitHub Actions asociado al HEAD anterior: [run 41280648064](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41280648064), `completed/failure`. Por tanto, **no existe autorización de fusión**. No atribuir este fallo a un job concreto sin consultar su detalle.
+- `package.json` declara `joi: ^18.2.8` y `axios: ^1.6.0`; en el lockfile inspeccionado anteriormente constaban `joi@18.3.0` y `follow-redirects@1.16.1`. Los advisories registrados en el PR son GHSA-4528-x5fx-h6hg y GHSA-mrwp-f3q8-3g9p. Se requiere remediación reproducible con `npm audit --omit=dev`, actualización del lockfile con npm, `npm ci`, suite completa y CI verde sobre el SHA resultante. No modificar versiones o lockfile manualmente sin comprobar integridad.
+- Se verificó que el script `npm test` incluye `test/gruk/*.integration.test.js`; la presencia de la prueba MongoDB no demuestra que las rutas HTTP ni todos los criterios de P0-70 estén certificados.
+- **Cobertura real:** P0-70 PARCIAL; 0/77 criterios integrales verificados. Pendientes: evidencia HTTP/MongoDB y E2E, colisiones, legacy, índice real, seguridad QR, Wompi, CI, controles de producción. No fusionar ni desplegar; no modificar otros productos.
+
+
+## Verificación de CI — 01-11-2026, 07:17 Colombia
+
+- PR #534 HEAD `c047001fb1e8a74c462f5398344df2df12670a84`, abierto en borrador; PR base #524 abierto, sin fusión.
+- GitHub Actions [run 41301556515](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41301556515), workflow `GRUK Capa 1 Offline Contract`, **completed/failure** para ese SHA. Jobs: `offline-contract` **success** (124833350141), `mongodb-integration` **success** (124833350274), `docker-build` **failure** (124833350301). En `docker-build` aprobaron construcción, Compose y generación de auditoría; falló explícitamente `Block release on high and critical production vulnerabilities` (paso 7).
+- Este resultado no permite afirmar que todas las pruebas P0-70 se ejecutaron ni que el requisito quedó certificado: el job MongoDB se denomina `Verify ledger with real MongoDB transactions`, no demuestra por sí solo las rutas HTTP QR ni los índices de sede. Revisar logs/artefacto y corregir vulnerabilidades antes de revalidar.
+- **Bloqueo de liberación confirmado**: control de seguridad rojo. No fusionar PR #534/#524 ni desplegar. Mantener P0-70 PARCIAL y 0/77 certificaciones integrales; pendiente integración HTTP, concurrencia/índices, legacy, E2E, pagos y auditoría de tokens.
+
+
+## Verificación 01-11-2026 08:18 Colombia
+
+- PR #534 continúa abierto y draft, HEAD `3e867d37401ea7308e3c6d60ae13090b18037048`, apilado sobre #524 (abierto, no fusionado). La lista de ocho archivos modificados incluye la prueba `test/gruk/p0-70-qr-read-real-mongo.integration.test.js`, pero su presencia no acredita aceptación HTTP/E2E.
+- `package.json` del HEAD usa `npm test` con `test/gruk/*.integration.test.js`; declara `joi: ^18.2.8`, `axios: ^1.6.0` y override `body-parser: ^2.4.0`. La auditoría previa reportó dos HIGH en `joi` y `follow-redirects`; **no se ha demostrado remediación ni nuevo CI verde**. No inferir seguridad a partir de los rangos semver.
+- Se conserva la evidencia previa del workflow fallido #41301556515 y se mantiene el gate de vulnerabilidades. Para el siguiente cambio: resolver ambas dependencias con lockfile regenerado, `npm ci`, `npm audit --omit=dev --audit-level=high`, `npm run gate`, CI completo y pruebas HTTP/MongoDB. No certificar P0-70 ni fusionar/desplegar sin resultados verdes del HEAD correspondiente.
+- Estado: P0-70 PARCIAL; 0/77 certificados integralmente. No se modifican Finanzas Personales, Blushea, `main` ni Render.
+
+
+## Control CI verificado — 01-11-2026, 09:20 Colombia
+
+- PR #534 HEAD `c0835bdc91bbac41f9d15d50cf52e52d2b5e5ade`, abierto y draft, apilado sobre #524 (abierto). La ejecución [Actions #41310663914](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41310663914) para ese SHA concluyó **failure**.
+- Jobs observados: `offline-contract` **success**, `mongodb-integration` **success** (transacciones ledger MongoDB), `docker-build` **failure** específicamente en `Block release on high and critical production vulnerabilities`; la construcción Docker, auditoría y subida de artefacto terminaron success, pero el gate de seguridad NO.
+- `package.json` aún declara `axios: ^1.6.0`, `joi: ^18.2.8`; no se ha demostrado remediación de `follow-redirects` y `joi` en el lockfile mediante auditoría verde. **No modificar el gate ni fusionar**. Primero actualizar y regenerar lockfile reproducible, ejecutar `npm ci`, `npm audit --omit=dev --audit-level=high`, pruebas y workflow del nuevo HEAD.
+- La aprobación del job `mongodb-integration` valida ledger transaccional, **no** los GET HTTP de pedidos/facturas ni las colisiones de tenant. P0-70 sigue PARCIAL y 0/77 certificaciones integrales; pendientes integración HTTP/MongoDB, E2E, legacy, QR, pagos y requisitos globales. Sin despliegue.
+
+## Seguimiento 01-11-2026, 11:21 Colombia
+
+- PR #534 sigue abierto, draft y apilado sobre #524 (abierto, no fusionado). HEAD inspeccionado antes del cambio: `3c8f99765670d3e6de235a70a79c6777c327be11`.
+- Commit `29b08cdd9ebea832112cc2e6c5231959e8575942`: se amplió `test/gruk/p0-70-qr-read-real-mongo.integration.test.js` para comprobar también lectura sin sede desde empresa B y rechazo de capacidad con sede inexistente. El fixture usa base MongoDB desechable, pero el test **no es una prueba de rutas HTTP** y requiere `GRUK_TEST_MONGO_URI` para ejecutarse; no se afirma que haya aprobado.
+- Inspección del `package.json`: `npm test` incluye `*.integration.test.js`, pero sin URI la integración se omite. No confundir un job verde con ejecución efectiva de este caso; revisar reporte de tests y entorno.
+- Persisten bloqueo de auditoría HIGH de `joi` y `follow-redirects`, validación HTTP/E2E, migración, conciliación, reinicio offline y controles de producción. **P0-70 PARCIAL; 0/77 certificados.** Sin fusión ni despliegue.
+
+## Control 01-11-2026, 12:15 Colombia — ampliación de integración real
+
+- PR #534: abierto/draft sobre #524; HEAD previo `8318bb03ca9073cf6db727cb3f7e0eebba105f0f`. GitHub Actions [run 41325958922](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41325958922) terminó `completed/failure`. La consulta de estados clásicos devolvió lista vacía; no se infiere aprobación de check-runs.
+- Commit [52b76248](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/commit/52b762486df19c6069e4e17be9267ff61d6be884): se añadieron aserciones a la integración MongoDB real para rechazar alias de sede con forma de ObjectId de otra sede y capacidades QR manipuladas. **Pruebas escritas, todavía no ejecutadas ni certificadas** para este HEAD; requieren `GRUK_TEST_MONGO_URI` y revisión del resultado CI.
+- La integración prueba directamente servicio y consultas MongoDB; **no cubre endpoints HTTP ni navegador E2E**. Continúan pendientes remediación reproducible de HIGH (`joi`, `follow-redirects`), controles de seguridad, migración, Wompi, concurrencia, reinicios offline y validación integral de los 77 criterios.
+- P0-70 **PARCIAL**; 0/77 integralmente certificados. No fusionar ni desplegar; ningún cambio en GRUK Finanzas Personales ni Blushea.
+
+
+## Control de trazabilidad — 01-11-2026, 13:18 COT
+
+- PR #534 verificado abierto y en borrador; HEAD `f79561c0b0a8b121addc6a07d421dc7ffe6c7d03`, base `gruk/security-realtime-sede-scope-20261030` (PR #524). PR #524 también permanece abierto. No existe fusión acreditada.
+- El `package.json` de esta rama declara `joi: ^18.2.8` y `axios: ^1.6.0`. Esos rangos **no certifican** que el lockfile resuelva versiones seguras: verificar árbol instalado, advisories y `npm audit --omit=dev --audit-level=high` en CI. El fallo previo del job `docker-build` por auditoría HIGH sigue siendo un bloqueo hasta comprobar una ejecución verde del nuevo HEAD.
+- Cobertura P0-70: filtros de empresa implementados y pruebas de MongoDB añadidas en la rama; **sin resultados de ejecución comprobados en este control**. Siguen pendientes pruebas HTTP reales de las dos rutas, E2E, seguridad de capacidades QR, migración de legacy, concurrencia, pagos y evidencia CI. No convertir pruebas escritas ni PR abierto en requisito certificado.
+- Estado de aceptación **PARCIAL**, 0/77 requisitos certificados integralmente conforme al último recuento documentado. Sin cambios a `main`, sin fusión y sin despliegue. Próxima acción prioritaria: resolver auditoría de dependencias con lockfile reproducible y obtener ejecución CI verde para SHA exacto; luego cerrar aceptación HTTP/MongoDB.
+
+## Control de CI — 01-11-2026, 14:19 COT
+
+- Se inspeccionaron los jobs reales de [Actions #41325958922](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41325958922): `mongodb-integration` **success**, `offline-contract` **success**, `docker-build` **failure**. En `docker-build`, `Build production Docker image with gated tests`, `Audit production dependencies` y subida de artefacto aprobaron, pero **`Block release on high and critical production vulnerabilities` falló**. El hecho de ejecutar la auditoría con éxito no implica que no encuentre vulnerabilidades.
+- El `package.json` de la rama todavía declara `joi: ^18.2.8` y `axios: ^1.6.0`; no hay evidencia de lockfile corregido ni auditoría de seguridad aprobada. El job MongoDB no certifica ejecución de `p0-70-qr-read-real-mongo.integration.test.js` sin comprobar el reporte y `GRUK_TEST_MONGO_URI`; tampoco cubre los endpoints HTTP.
+- Decisión: mantener P0-70 **PARCIAL**, 0/77 certificaciones integrales. No fusionar PR #534/#524 ni desplegar. Remediar dependencias y lockfile con `npm ci`, `npm audit --omit=dev --audit-level=high`, pruebas y CI del nuevo HEAD; después HTTP/MongoDB real, E2E, migración, Wompi y seguridad QR. No se alteraron Finanzas Personales ni Blushea.
+
+
+## Evidencia de ejecución — 01-11-2026, 15:21 Colombia
+
+- PR #534 permanece abierto y draft, HEAD `9e9b0694afac9dca95ea7c8ae618864e6c0e0646`, apilado sobre #524 (abierto). **No fusionado.**
+- [Actions run #41341221271](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41341221271) asociado al commit consultado: `mongodb-integration=success`, `offline-contract=success`, `docker-build=failure`. La construcción Docker y sus pruebas finalizaron, pero **la liberación fue bloqueada** por `npm audit --omit=dev`: **2 HIGH, 0 CRITICAL**, paso `Block release on high and critical production vulnerabilities` con código 1. [Artefacto JSON de auditoría](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41341221271/artifacts/13097168642).
+- El log de Docker indica **139 tests: 123 pass, 0 fail, 16 skipped**. Las pruebas omitidas incluyen casos MongoDB replica set, por lo que **no se certifican** concurrencia ni aceptación HTTP/E2E a partir de esa salida. El job `mongodb-integration` exitoso es un control separado, no evidencia de todas las rutas HTTP.
+- **Pendiente prioritario:** analizar el artefacto `npm-audit-production.json`, corregir versiones directas/transitivas y regenerar lockfile reproducible; reejecutar CI del HEAD corregido y verificar 0 HIGH/CRITICAL. Completar GET `/pedidos/mesa/:mesa` y `/factura/mesa/:mesa` con MongoDB real, dos empresas, colisiones, registros legacy y E2E. P0-70 **PARCIAL**, 0/77 certificaciones integrales. **Sin autorización para fusionar o desplegar.**
+
+## Revisión de alcance y riesgo de integración — 2026-11-01 16:19 COT
+
+- Se consultaron directamente los PR [#534](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/534) (abierto, base `gruk/security-realtime-sede-scope-20261030`) y [#524](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/524) (abierto, base `main`). Por tanto, fusionar #534 a su base **no equivale** a integrar en `main` y ninguna fusión se autoriza mientras los gates o el riesgo de Auto-Deploy estén pendientes.
+- Comparación directa de `package.json`: `main` usa `node --test test/gruk/*.test.js`, mientras la rama #534 incluye explícitamente `test/gruk/*.integration.test.js`; el gate del branch y el de `main` **no son equivalentes**. Mantener el patrón de integración en la eventual integración y demostrar ejecución efectiva, no omitida, con `GRUK_TEST_MONGO_URI`.
+- Las declaraciones de producción siguen siendo `axios: ^1.6.0`, `joi: ^18.2.8` en la rama consultada. No se cambian versiones a ciegas: se necesita identificar versiones efectivamente resueltas en lockfile y avisos exactos del artefacto de auditoría antes de una actualización controlada.
+- Estado P0-70: **PARCIAL**; último conteo documentado **0/77 certificados integralmente**. Bloqueos: dos HIGH en gate previo, pruebas HTTP de ambos endpoints, aceptación E2E y seguridad/aislamiento; no merge ni deploy. Esta actualización es documental, no una remediación ni una ejecución de pruebas.
+
+## Dependencias resueltas y gate de seguridad — 01-11-2026, 18:19 COT
+
+- Lectura de `package-lock.json` de la rama del PR #534: `joi` **18.3.0**, `follow-redirects` **1.16.1**, `axios` **1.20.0**. Estos son valores resueltos, no los rangos de `package.json`. Sin JSON de auditoría analizado no atribuir cada advisory a una versión concreta.
+- [GitHub Actions #41341221271](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41341221271): `mongodb-integration=success`, `offline-contract=success`, `docker-build=failure`. Falló el paso `Block release on high and critical production vulnerabilities`; build, Compose y ejecución de auditoría sí aprobaron, pero esto último no significa auditoría limpia.
+- Próximo paso: revisar el [artefacto npm audit](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41341221271/artifacts/13097168642), identificar rangos corregidos, regenerar lockfile y comprobar `npm ci`, `npm audit --omit=dev --audit-level=high`, pruebas y CI sobre SHA nuevo. Evitar actualizar versiones a ciegas.
+- P0-70 **PARCIAL**, último recuento **0/77 VERIFICADOS**; faltan HTTP/MongoDB real, E2E, migración QR y validación de seguridad. Sin merge ni deploy.
+
+
+## Control de evidencia — 01-11-2026, 20:15 Colombia
+
+- PR #534 sigue **abierto y draft**, HEAD observado `7ba8c25c1475db1dbf6b6f993c81ecc4c5e32848`, base `gruk/security-realtime-sede-scope-20261030` (#524). No se ha fusionado.
+- Consulta de los jobs del run [41341221271](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41341221271): `mongodb-integration` SUCCESS, `offline-contract` SUCCESS, `docker-build` FAILURE específicamente en **Block release on high and critical production vulnerabilities**. El paso de construcción Docker terminó SUCCESS, lo que **no** equivale a aprobación del gate. Este run histórico no acredita checks del HEAD actual; no afirmar que el HEAD está verde.
+- Contraste de cambios del PR: 8 archivos (servicio QR, pruebas unitarias y MongoDB, `package.json`, matriz y auditoría). La prueba escrita de integración no sustituye ejecución HTTP de `GET /pedidos/mesa/:mesa` y `GET /factura/mesa/:mesa` con MongoDB real y comprobación de cuerpos de respuesta, logs y tokens.
+- **Bloqueos:** vulnerabilidades de producción sin remediación verificable, aceptación HTTP/E2E y migración legacy pendientes; Render Auto-Deploy sobre `main` impide fusionar con seguridad. No ejecutar despliegue ni fusionar por resultados parciales.
+- **Siguiente trabajo:** recuperar el artefacto JSON de `npm audit --omit=dev`, identificar advisory y ruta transitiva exactos, actualizar manifiesto y lockfile de forma reproducible, ejecutar gate de seguridad y suite completa para SHA nuevo; luego implementar y comprobar HTTP+MongoDB real. P0-70 sigue PARCIAL; **0/77 certificados**.
+
+
+## Control de HEAD — 01-11-2026, 21:16 Colombia
+
+- GitHub Actions consultado por rama de PR #534, SHA exacto `2a47d3b35331cf7c8116742cad2b6181d22d1976`: [run #41371574494](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41371574494) `failure` y [run #41371569062](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41371569062) `success`. Son workflows distintos: **no interpretar un workflow exitoso como CI global verde**. Consultas realizadas sobre el HEAD previo a este commit documental; verificar de nuevo el nuevo SHA antes de fusionar.
+- PR #534 y PR #524 continúan abiertos. Bloqueos históricos no resueltos con evidencia: gate HIGH de dependencias, HTTP/E2E y aceptación multiempresa. Los resultados de integración parciales no satisfacen los criterios de terminado.
+- Estado conservador: P0-70 **PARCIAL**, 0/77 certificados integralmente. Sin merge, sin deploy. Próxima intervención técnica: identificar advisory exacto desde artefacto de auditoría y corregir manifiesto/lockfile; ejecutar suite y gates completos sobre el SHA de código corregido.
+
+
+## Verificación de gate sobre HEAD — 02-11-2026, 00:16 Colombia
+
+- HEAD inspeccionado de PR #534: `2be769c31dd874d92d00d9ef5e22ccf8b5650c3d`; PR abierto en borrador, base #524 abierta y no fusionable según metadata de GitHub.
+- [GitHub Actions #41376940755](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41376940755), asociado a ese SHA: `offline-contract=success`, `mongodb-integration=success`, `docker-build=failure`. Dentro de `docker-build` aprobaron imagen, Compose, auditoría y subida de artefacto, pero falló `Block release on high and critical production vulnerabilities`. **El gate de release sigue rojo sobre el HEAD consultado**.
+- La auditoría de seguridad se ejecutó, pero no se descargó ni interpretó su JSON: no atribuir avisos concretos a paquetes sin evidencia. La suite MongoDB del workflow comprueba ledger; no certificar por ella los endpoints HTTP QR ni la totalidad de requisitos.
+- Próxima intervención: obtener JSON del artefacto de este run, corregir vulnerabilidades en manifiesto y lockfile, verificar npm ci/audit y añadir integración HTTP real de ambas rutas QR. P0-70 **PARCIAL**; último recuento documental **0/77 certificados**. Sin merge ni deploy.
+
+
+## Control de dependencias y trazabilidad — 02-11-2026
+
+- Inspección directa de `package.json` y `package-lock.json` en la rama #534: `joi` está resuelto a **18.3.0** y `follow-redirects` a **1.16.1**, ambas versiones afectadas por los avisos HIGH identificados en el artefacto de npm audit de [Actions #41376940755](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41376940755/artifacts/13112070577): GHSA-4528-x5fx-h6hg y GHSA-mrwp-f3q8-3g9p, respectivamente. `axios` está resuelto a 1.20.0; no atribuirle un tercer aviso independiente.
+- `package.json` declara `joi: ^18.2.8` y `axios: ^1.6.0`; el lockfile no contiene todavía versiones corregidas. **Pendiente real:** actualizar conjuntamente manifiesto y lockfile con npm, comprobar integridades de paquetes del registro, ejecutar `npm ci`, `npm audit --omit=dev`, suite y todos los jobs de CI del SHA nuevo. No editar integridades ni fingir que el cambio está aplicado.
+- PR #534 abierto en borrador sobre rama #524, que también sigue abierta; los cambios apilados no están publicados en `main`. La revisión de pruebas QR confirma cobertura con dobles, no aceptación HTTP/MongoDB de ambos endpoints. **P0-70 PARCIAL; 0/77 certificados integralmente según la matriz vigente.**
+- Bloqueos de liberación: auditoría HIGH, HTTP/E2E y migración legacy, verificación integral de los 77 criterios, Auto-Deploy de Render y pruebas de producción. **No fusionar ni desplegar.** No se modificaron GRUK Personal ni Blushea.
+
+
+## Control de dependencias y entorno — 02-11-2026
+
+- Inspección directa de `package.json` de `main`: `joi` permite `^18.2.8`, que no fija por sí sola la versión corregida 18.3.1. Los hallazgos anteriores del artefacto npm audit del PR #534 señalan `joi` 18.3.0 y `follow-redirects` 1.16.1 como HIGH. **No se ejecutó npm audit nuevamente ni se corrigió el lockfile en esta revisión**; no atribuir al HEAD un resultado histórico.
+- La matriz de 77 obligaciones continúa con P0-70 PARCIAL, P1-75 PARCIAL y ninguna obligación VERIFICADA integralmente; no confundir cambios apilados en #524/#534 con producción.
+- La conexión de Render no tiene workspace seleccionado y el conector exige selección explícita del propietario: **no se comprobó el estado actual de autoDeploy ni se modificó Render**. La configuración autoDeploy=yes sobre `main` registrada el 29-10 continúa como último riesgo conocido, no como comprobación fresca.
+- Próximo trabajo de código: actualizar `joi` y `follow-redirects` con lockfile íntegro, ejecutar `npm ci`, `npm audit --omit=dev`, CI completo y pruebas HTTP/MongoDB de QR. No fusionar ni desplegar sin evidencia del SHA actual y aceptación integral.
