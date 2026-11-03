@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("V2 converge con snapshot personal sin inventar caja ni borrar referencias históricas",()=>require("./helpers/patrimonioV2Autorizado").probarPatrimonioV2Autorizado(db));
   await t.test("retiro y restauración de inversiones conserva capital, valor, originales y caja",()=>require("./helpers/cicloInversionAutorizado").probarCicloInversionAutorizado(db,provisionarMongoPersonal));
   await t.test("retiro y restauración de activos conservan originales y no duplican patrimonio ni caja",()=>require("./helpers/cicloActivoAutorizado").probarCicloActivoAutorizado(db,provisionarMongoPersonal));
   await t.test("activos exactos serializan altas y verifican totales, fuentes y rollback",()=>require("./helpers/activosExactosAutorizados").probarActivosExactosAutorizados(db));
