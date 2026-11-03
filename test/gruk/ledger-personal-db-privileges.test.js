@@ -5,10 +5,10 @@ const base="finanzas";
 const permiso=(collection,actions,db=base)=>({resource:{db,collection},actions});
 const estado=privilegios=>({ok:1,authInfo:{authenticatedUsers:[{user:"identidad_privada",db:"admin"}],authenticatedUserRoles:[{role:"rol_privado",db:"admin"}],authenticatedUserPrivileges:privilegios}});
 const minimos=()=>COLECCIONES.map(c=>permiso(c,["find","insert","listIndexes"]));
-test("cubre trece colecciones de fuentes, compensaciones y evidencias",()=>{
- assert.equal(COLECCIONES.length,13);assert.ok(COLECCIONES.includes("fin_transacciones_personales"));
+test("cubre catorce colecciones de fuentes, compensaciones y evidencias",()=>{
+ assert.equal(COLECCIONES.length,14);assert.ok(COLECCIONES.includes("fin_transacciones_personales"));
  assert.ok(COLECCIONES.includes("fin_eventos_compensatorios_personales_v1"));
- assert.equal(new Set(COLECCIONES).size,13);
+ assert.equal(new Set(COLECCIONES).size,14);
 });
 test("permite inserciones protegidas y mutación de proyecciones en colecciones separadas",()=>{
  const r=evaluar(estado([...minimos(),permiso("fin_outbox_personal",["find","insert","update","remove"]),permiso("fin_cursor_compensaciones_personales_v1",["update","insert","find"])]),base);

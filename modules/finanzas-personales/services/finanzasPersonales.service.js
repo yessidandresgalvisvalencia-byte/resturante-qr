@@ -27,21 +27,10 @@ async function resumenPeriodo(userId,{desde,hasta}){
  return{desde,hasta,...resumenDesde(rows),fuente:"ledger_canonico"};
 }
 async function upsertPerfil(userId,data){return Perfil.findOneAndUpdate({userId},{$set:data,$setOnInsert:{userId}},{new:true,upsert:true,runValidators:true});}
-async function registrarActivo(userId,data){
- const session=await mongoose.startSession();
- try{
-  let legacy,canonico;
-  await session.withTransaction(async()=>{
-   [legacy]=await Activo.create([{userId,...data}],{session});
-   const ActivoPatrimonial=require("../models/ActivoPatrimonial");
-   [canonico]=await ActivoPatrimonial.create([{usuarioId:userId,legacyId:legacy._id,nombre:data.nombre,tipo:data.tipo==="INVERSION"?"OTRO":data.tipo,valorMinor:Math.round(data.valorActual),moneda:"COP",liquido:Boolean(data.liquido),institucion:data.institucion||""}],{session});
-  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
-  return canonico;
- }finally{await session.endSession();}
-}
+async function registrarActivo(userId,data,{solicitudId}={}){return require("./creacionActivoRecuperablePersonal.service").crear(userId,solicitudId,data);}
 async function registrarInversion(userId,data){return Inversion.create({userId,...data});}
 async function upsertPerfilInversion(userId,data){return PerfilInversion.findOneAndUpdate({userId},{$set:data,$setOnInsert:{userId}},{new:true,upsert:true,runValidators:true});}
-async function patrimonio(userId){const p=await patrimonioFinanciero.snapshot(userId);return{activosBase:patrimonioFinanciero.sumaPatrimonialSegura([p.liquidezMinor,p.activosNoLiquidosMinor]),valorInversiones:p.valorInversionesMinor,capitalInvertido:p.capitalInvertidoMinor,resultadoInversiones:p.resultadoInversionesMinor,deudas:p.pasivosMinor,patrimonioNeto:p.patrimonioFinancieroNetoMinor,cuentasPorCobrar:p.cuentasPorCobrarMinor,inversiones:p.inversiones,criterioInversiones:p.criterioInversiones,fuente:"ledger_personal_canonico"};}
+async function patrimonio(userId){const p=await patrimonioFinanciero.snapshot(userId);return{activosBase:patrimonioFinanciero.sumaPatrimonialSegura([p.liquidezMinor,p.activosNoLiquidosMinor]),valorInversiones:p.valorInversionesMinor,capitalInvertido:p.capitalInvertidoMinor,resultadoInversiones:p.resultadoInversionesMinor,deudas:p.pasivosMinor,patrimonioNeto:p.patrimonioFinancieroNetoMinor,cuentasPorCobrar:p.cuentasPorCobrarMinor,activos:p.activos,activosPreviosPorRevisar:p.activosPreviosPorRevisar,inversiones:p.inversiones,criterioInversiones:p.criterioInversiones,fuente:"ledger_personal_canonico"};}
 async function planFinanciero(userId){const [r,p,pi,pat]=await Promise.all([resumen(userId),Perfil.findOne({userId}).lean(),PerfilInversion.findOne({userId}).lean(),patrimonio(userId)]);const gastoMensualEstimado=r.gastos/Math.max(1,1);const objetivoFondo=gastoMensualEstimado*(p?.fondoEmergenciaObjetivoMeses||6);const brechaFondo=Math.max(0,objetivoFondo-(p?.saldoLiquido||0));const excedente=Math.max(0,r.flujoLibre);const reservaSugerida=Math.min(excedente,brechaFondo);const capacidadInvertible=Math.max(0,excedente-reservaSugerida);const bloqueos=[];if(r.flujoLibre<=0)bloqueos.push("No hay flujo libre positivo registrado.");if(brechaFondo>0)bloqueos.push("El fondo de emergencia está por debajo del objetivo configurado.");if(r.cargaDeudaPct>35)bloqueos.push("La carga de deuda registrada supera el umbral de alerta del 35%.");return{patrimonio:pat,flujoLibre:r.flujoLibre,objetivoFondoEmergencia:objetivoFondo,brechaFondoEmergencia:brechaFondo,reservaFondoSugerida:reservaSugerida,capacidadInvertibleAhora:capacidadInvertible,perfilInversion:pi||null,bloqueos,criterio:"La capacidad invertible se calcula después de flujo y brecha del fondo de emergencia. El 35% es un umbral operativo configurable, no una regla universal ni una garantía de idoneidad."};}
 async function registrarCredito(userId,data){return Credito.create({userId,...data});}
 async function crearMeta(userId,data){return Meta.create({userId,...data});}

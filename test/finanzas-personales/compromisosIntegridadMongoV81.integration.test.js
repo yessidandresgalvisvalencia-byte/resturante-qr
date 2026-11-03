@@ -56,7 +56,7 @@ test("MongoDB real: pagos y reversiones de cuotas conservan saldos, aislamiento 
   assert.deepEqual(await estado(f),antes);
  }
  try{
-  await Promise.all([Padre.init(),Cuota.init(),Tx.init(),Cuenta.init(),Outbox.init(),Cursor.init(),Evento.init(),require("../../modules/finanzas-personales/models/conciliacionCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloCuentaPersonal.model").init()]);
+  await Promise.all([Padre.init(),Cuota.init(),Tx.init(),Cuenta.init(),Outbox.init(),Cursor.init(),Evento.init(),require("../../modules/finanzas-personales/models/conciliacionCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionActivoPersonal.model").init()]);
   // La ruta completa de crear/pagar/revertir debe persistir sus eventos, no abortar por enum.
   const f=await fixture();
   assert.equal(f.pago.transaccion.montoMinor,334);

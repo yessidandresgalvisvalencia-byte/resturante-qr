@@ -292,19 +292,11 @@ router.get("/diario",async(req,res)=>{try{const limit=Math.min(Number(req.query.
 router.get("/resumen-periodo",async(req,res)=>{try{const desde=req.query.desde,hasta=req.query.hasta;if(!desde||!hasta)return res.status(400).json({ok:false,error:"desde y hasta son obligatorios"});return res.json({ok:true,resumen:await service.resumenPeriodo(req.personalAuth.userId,{desde,hasta})});}catch(e){console.error("[FIN_PERSONAL_PERIODO]",e);return res.status(500).json({ok:false,error:"Error interno"});}});
 const perfil=Joi.object({moneda:Joi.string().length(3),fondoEmergenciaObjetivoMeses:Joi.number().integer().min(1).max(24),ahorroObjetivoPct:Joi.number().min(0).max(100),saldoLiquido:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER)}).min(1);
 router.put("/perfil",validate(perfil),async(req,res)=>res.json({ok:true,perfil:await service.upsertPerfil(req.personalAuth.userId,req.validated)}));
-const activo=Joi.object({nombre:Joi.string().max(120).required(),tipo:Joi.string().valid("EFECTIVO","CUENTA","INVERSION","INMUEBLE","VEHICULO","OTRO").required(),valorActual:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),liquido:Joi.boolean().default(false),institucion:Joi.string().max(120).allow("").default("")});
-router.post("/activos",validate(activo),async(req,res)=>res.status(201).json({ok:true,activo:await service.registrarActivo(req.personalAuth.userId,req.validated)}));
-router.post("/activos/reconciliar-moto",async(req,res)=>{try{
- const ActivoPatrimonial=require("./models/ActivoPatrimonial"),Prestamo=require("./models/prestamoPersonal.model");
- const deuda=await Prestamo.findOne({usuarioId:req.personalAuth.userId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},concepto:/moto/i}).lean();
- if(!deuda)return res.status(404).json({ok:false,error:"No existe una deuda activa de moto para reconciliar"});
- const existente=await ActivoPatrimonial.findOne({usuarioId:req.personalAuth.userId,tipo:"VEHICULO",nombre:/moto/i});
- if(existente)return res.json({ok:true,activo:existente,reconciliado:false});
- const principal=Number(deuda.principalMinor||0);
- if(!Number.isSafeInteger(principal)||principal<=0)return res.status(409).json({ok:false,error:"La deuda no tiene principal válido para sustentar el valor registrado"});
- const activo=await ActivoPatrimonial.create({usuarioId:req.personalAuth.userId,nombre:"Moto",tipo:"VEHICULO",valorMinor:principal,moneda:"COP",liquido:false,institucion:"Valor registrado al costo de adquisición"});
- return res.status(201).json({ok:true,activo,reconciliado:true});
- }catch(e){console.error("[RECONCILIAR_MOTO]",e);return res.status(500).json({ok:false,error:"No fue posible reconciliar el activo"});}});
+const creacionActivo=require("./services/creacionActivoRecuperablePersonal.service");
+router.post("/activos",async(req,res)=>{try{const r=await service.registrarActivo(req.personalAuth.userId,req.body,{solicitudId:req.get("Idempotency-Key")});return res.status(r.duplicado?200:201).json({ok:true,...r});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se confirmó el activo; conserva la clave y consulta su recibo"});}});
+router.get("/activos/confirmacion-creacion/:solicitudId",async(req,res)=>{try{return res.json({ok:true,recibo:await creacionActivo.consultar(req.personalAuth.userId,req.params.solicitudId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el recibo del activo"});}});
+// Una deuda no acredita la propiedad, el costo de adquisición ni el valor actual de un bien.
+router.post("/activos/reconciliar-moto",async(req,res)=>res.status(422).json({ok:false,error:"No se puede deducir el valor de una moto a partir de una deuda. Revisa tus activos y declara el bien y su valor explícitamente en Agregar activo; no se modificó información."}));
 
 const inversion=Joi.object({nombre:Joi.string().max(140).required(),clase:Joi.string().valid("EFECTIVO_RENTABLE","RENTA_FIJA","RENTA_VARIABLE","FONDO","ETF","CRIPTO","INMOBILIARIA","OTRA").required(),capitalAportado:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),valorActual:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),moneda:Joi.string().length(3).default("COP"),liquidezDias:Joi.number().integer().min(0).allow(null),riesgoDeclarado:Joi.string().valid("BAJO","MEDIO","ALTO","NO_CLASIFICADO").default("NO_CLASIFICADO"),institucion:Joi.string().max(120).allow("").default("")});
 router.post("/inversiones",validate(inversion),async(req,res)=>res.status(201).json({ok:true,inversion:await service.registrarInversion(req.personalAuth.userId,req.validated)}));

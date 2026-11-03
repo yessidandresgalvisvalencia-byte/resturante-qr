@@ -12,7 +12,7 @@ function analizarMutacionesLedger(codigo){
  ];
  return patrones.filter(p=>p.detecta.test(codigo)).map(p=>({id:p.id,descripcion:p.descripcion}));
 }
-const MODELOS=["TransaccionPersonal","EventoCompensatorioPersonal","decisionProofPersonal.model","eventoV81.model","vinculoHistoricoV81.model","retiroDeudaPersonal.model","retiroCreditoLegacyPersonal.model","correccionPrestamoPersonal.model","reciboAprobacionPersonal.model","reciboCreacionPrestamoPersonal.model","reciboCreacionCuentaPersonal.model","conciliacionCuentaPersonal.model","cicloCuentaPersonal.model"];
+const MODELOS=["TransaccionPersonal","EventoCompensatorioPersonal","decisionProofPersonal.model","eventoV81.model","vinculoHistoricoV81.model","retiroDeudaPersonal.model","retiroCreditoLegacyPersonal.model","correccionPrestamoPersonal.model","reciboAprobacionPersonal.model","reciboCreacionPrestamoPersonal.model","reciboCreacionCuentaPersonal.model","conciliacionCuentaPersonal.model","cicloCuentaPersonal.model","reciboCreacionActivoPersonal.model"];
 const METODOS="updateOne|updateMany|findOneAndUpdate|findByIdAndUpdate|replaceOne|findOneAndReplace|deleteOne|deleteMany|findOneAndDelete|findByIdAndDelete|bulkWrite";
 const escapar=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
 function analizarAccesosModelos(codigo){
@@ -25,7 +25,7 @@ function analizarAccesosModelos(codigo){
  const operacion=String.raw`\s*\.\s*(?:${METODOS})\s*\(`;
  for(const alias of aliases)registrar(new RegExp(String.raw`\b${escapar(alias)}(?:\s*\.\s*collection)?${operacion}`,"g"));
  registrar(new RegExp(String.raw`${cargar}(?:\s*\.\s*collection)?${operacion}`,"g"));
- const colecciones="fin_transacciones_personales|fin_eventos_compensatorios_personales_v1|decisionproofpersonals|fin_eventos_v81|fin_vinculos_historicos_v81|fin_retiros_deudas_personales_v1|fin_ciclo_creditos_legacy_personales_v1|fin_correcciones_prestamos_personales_v1|fin_recibos_aprobacion_personales_v1|fin_recibos_creacion_prestamos_personales_v1|fin_recibos_creacion_cuentas_personales_v1|fin_conciliaciones_cuentas_personales_v1|fin_ciclo_cuentas_personales_v1";
+ const colecciones="fin_transacciones_personales|fin_eventos_compensatorios_personales_v1|decisionproofpersonals|fin_eventos_v81|fin_vinculos_historicos_v81|fin_retiros_deudas_personales_v1|fin_ciclo_creditos_legacy_personales_v1|fin_correcciones_prestamos_personales_v1|fin_recibos_aprobacion_personales_v1|fin_recibos_creacion_prestamos_personales_v1|fin_recibos_creacion_cuentas_personales_v1|fin_conciliaciones_cuentas_personales_v1|fin_ciclo_cuentas_personales_v1|fin_recibos_creacion_activos_personales_v1";
  registrar(new RegExp(String.raw`\.\s*collection\s*\(\s*["'](?:${colecciones})["']\s*\)${operacion}`,"g"));
  return [...new Map(hallazgos.map(h=>[h.id+":"+h.linea,h])).values()];
 }

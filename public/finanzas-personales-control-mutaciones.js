@@ -34,7 +34,7 @@
    if(!/^[a-f0-9]{64}$/.test(huella))throw falla("No se pudo identificar la operación");
    let previa=[...s.pendientes.values()].find(p=>p.huella===huella);
    if(!previa&&[...s.pendientes.values()].some(p=>p.tipo==="sin_clave"&&!s.activas.has(p.id)))throw falla("Hay una operación incierta sin reintento seguro. Requiere revisión antes de registrar otra");
-   if((["/prestamos","/creditos","/cuentas"].includes(path)||/^\/cuentas\/[a-f0-9]{24}\/(conciliar|retirar|restaurar-retiro)$/.test(path))&&!previa&&[...s.pendientes.values()].some(p=>p.tipo==="header"&&/^(prestamo_|credito_|cuenta_|conciliacion_|ciclo_cuenta_)/.test(p.id)))throw falla("Hay una operación de cuenta o deuda sin confirmar. Consulta su recibo o reintenta con los mismos datos originales");
+   if((["/prestamos","/creditos","/cuentas","/activos"].includes(path)||/^\/cuentas\/[a-f0-9]{24}\/(conciliar|retirar|restaurar-retiro)$/.test(path))&&!previa&&[...s.pendientes.values()].some(p=>p.tipo==="header"&&/^(prestamo_|credito_|cuenta_|activo_|conciliacion_|ciclo_cuenta_)/.test(p.id)))throw falla("Hay una operación patrimonial sin confirmar. Consulta su recibo o reintenta con los mismos datos originales");
    if(previa&&s.activas.has(previa.id))throw falla("Esta operación ya está en curso");
    if(previa&&previa.tipo==="sin_clave")throw falla("Esta operación quedó sin confirmar y no tiene reintento seguro. Requiere revisión del historial; no la registres de nuevo");
    if(previa&&previa.tipo!==d.tipo)throw falla("El mecanismo de reintento cambió; requiere revisión");
@@ -82,6 +82,14 @@
    if(!reciboCuentaValido(token,r))return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(s.activas.has(p.id))return false;
    s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
   }
+  function reciboActivoValido(token,r){
+   if(r?.confirmado!==true||r.certificaEstadoActual!==false||r.ruta!=="/activos"||r.metodo!=="POST"||!/^activo_[A-Za-z0-9_-]{8,80}$/.test(r.solicitudId||"")||!/^[a-f0-9]{24}$/.test(r.activoId||"")||!/^[a-f0-9]{64}$/.test(r.hash||"")||!/^[a-f0-9]{64}$/.test(r.solicitudHuella||""))return false;
+   const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&p?.tipo==="header"&&p.huella===r.solicitudHuella;
+  }
+  function confirmarCreacionActivo(token,r){
+   if(!reciboActivoValido(token,r))return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(s.activas.has(p.id))return false;
+   s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
+  }
   function reciboConciliacionValido(token,r){
    if(r?.confirmado!==true||r.certificaEstadoActual!==false||r.metodo!=="POST"||!/^conciliacion_[A-Za-z0-9_-]{8,80}$/.test(r.solicitudId||"")||!/^[a-f0-9]{24}$/.test(r.cuentaId||"")||r.ruta!=="/cuentas/"+r.cuentaId+"/conciliar"||!/^[a-f0-9]{64}$/.test(r.hash||"")||!/^[a-f0-9]{64}$/.test(r.solicitudHuella||""))return false;
    const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&p?.tipo==="header"&&p.huella===r.solicitudHuella;
@@ -96,7 +104,7 @@
    const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&p?.tipo==="header"&&p.huella===r.solicitudHuella;
   }
   function confirmarCicloCuenta(token,r){if(!reciboCicloCuentaValido(token,r))return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;}
-  return{estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta};
+  return{estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta};
  }
  if(typeof module!=="undefined"&&module.exports)module.exports={crearControlMutacionesPersonales};
  else raiz.crearControlMutacionesPersonales=crearControlMutacionesPersonales;

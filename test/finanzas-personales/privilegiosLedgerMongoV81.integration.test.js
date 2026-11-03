@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("activos declarados con recibo atómico no duplican patrimonio ni caja ante fallos y carreras",()=>require("./helpers/activoRecuperableAutorizado").probarActivoRecuperableAutorizado(db,provisionarMongoPersonal));
   await t.test("inversiones declaradas cuentan una vez sin aumentar caja y rechazan discrepancias",()=>require("./helpers/lecturaInversionesAutorizada").probarLecturaInversionesAutorizada(db));
   await t.test("retiro y restauración de cuentas en cero preservan fuentes, saldo e identidad con auditoría",()=>require("./helpers/cicloCuentaAutorizado").probarCicloCuentaAutorizado(db,provisionarMongoPersonal));
   await t.test("conciliaciones protegidas conservan anclas, atomicidad y reintentos sin reponer saldos posteriores",()=>require("./helpers/conciliacionCuentaAutorizada").probarConciliacionCuentaAutorizada(db,provisionarMongoPersonal));
@@ -228,6 +229,9 @@ test("MongoDB con autorización: rol insert-only bloquea modificación y borrado
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   await db.collection("fin_conciliaciones_cuentas_personales_v1").dropIndex("fp_conciliacion_cuenta_secuencia_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_recibos_creacion_activos_personales_v1").dropIndex("fp_activo_recibo_solicitud_v1");
   assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
   await provisionarMongoPersonal(db);
   await db.collection("fin_ciclo_cuentas_personales_v1").dropIndex("fp_ciclo_cuenta_secuencia_v1");
