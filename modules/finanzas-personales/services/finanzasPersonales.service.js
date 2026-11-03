@@ -36,12 +36,13 @@ async function registrarCredito(userId,data){return Credito.create({userId,...da
 async function crearMeta(userId,data){return Meta.create({userId,...data});}
 async function resumen(userId,now=new Date()){
  const inicio=monthStart(now),fin=nextMonth(now);
- const [m,deudas,pat,metas]=await Promise.all([
-  consultarPeriodo({usuarioId:userId,desde:inicio.toISOString(),hasta:fin.toISOString()}).then(rows=>rows.filter(x=>["INGRESO","GASTO","PAGO_DEUDA"].includes(x.tipo))),
+ const [historico,deudas,pat,metas]=await Promise.all([
+  consultarPeriodo({usuarioId:userId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"}),
   PrestamoPersonal.find({usuarioId:userId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).lean(),
-  patrimonioFinanciero.snapshot(userId),
-  Meta.find({userId,estado:"ACTIVA"}).lean()
+  patrimonioFinanciero.snapshot(userId),Meta.find({userId,estado:"ACTIVA"}).lean()
  ]);
+ const m=historico.filter(x=>new Date(x.fecha)>=inicio&&new Date(x.fecha)<fin&&["INGRESO","GASTO","PAGO_DEUDA"].includes(x.tipo));
+ const fuentesIngresosHistoricos=historico.filter(x=>x.tipo==="INGRESO"),ingresosHistoricos=patrimonioFinanciero.sumaPatrimonialSegura(fuentesIngresosHistoricos.map(x=>x.montoMinor)),cantidadIngresosHistoricos=fuentesIngresosHistoricos.length;
  const ingresos=m.filter(x=>x.tipo==="INGRESO").reduce((a,x)=>a+x.montoMinor,0);
  const gastosConsumo=m.filter(x=>x.tipo==="GASTO").reduce((a,x)=>a+x.montoMinor,0);const gastos=m.filter(gastoAfectaCaja).reduce((a,x)=>a+x.montoMinor,0);
  const pagosDeuda=m.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false).reduce((a,x)=>a+(x.montoPagadoRealMinor||x.montoMinor),0);
@@ -63,7 +64,7 @@ async function resumen(userId,now=new Date()){
  const carga=ingresos?((pagosDeuda+cuotasDeuda)/ingresos)*100:0;
  const gastoBaseMensual=gastos;
  const mesesFondo=gastoBaseMensual>0?Number((pat.liquidezMinor/gastoBaseMensual).toFixed(2)):0;
- return{ingresos,gastos,gastosConsumo,pagosDeudaRegistrados:pagosDeuda,cuotasDeuda,flujoLibre,deudaTotal,cargaDeudaPct:Number(carga.toFixed(2)),tasaAhorroPct:ingresos?Number((flujoLibre/ingresos*100).toFixed(2)):0,fondoEmergencia:{saldo:pat.liquidezMinor,mesesCubiertos:mesesFondo,objetivoMeses:6},patrimonioNeto:pat.patrimonioFinancieroNetoMinor,metasActivas:metas.map(x=>({id:x._id,nombre:x.nombre,objetivo:x.objetivo,acumulado:x.acumulado,progresoPct:x.objetivo?Number((x.acumulado/x.objetivo*100).toFixed(2)):0})),periodo:{desde:inicio,hasta:fin},fuente:"ledger_personal_canonico"};
+ return{ingresos,ingresosHistoricos,cantidadIngresosHistoricos,gastos,gastosConsumo,pagosDeudaRegistrados:pagosDeuda,cuotasDeuda,flujoLibre,deudaTotal,cargaDeudaPct:Number(carga.toFixed(2)),tasaAhorroPct:ingresos?Number((flujoLibre/ingresos*100).toFixed(2)):0,fondoEmergencia:{saldo:pat.liquidezMinor,mesesCubiertos:mesesFondo,objetivoMeses:6},patrimonioNeto:pat.patrimonioFinancieroNetoMinor,metasActivas:metas.map(x=>({id:x._id,nombre:x.nombre,objetivo:x.objetivo,acumulado:x.acumulado,progresoPct:x.objetivo?Number((x.acumulado/x.objetivo*100).toFixed(2)):0})),periodo:{desde:inicio,hasta:fin},fuente:"ledger_personal_canonico"};
 }
 function simularCredito({capital,tasaMensualPct,meses}){const r=tasaMensualPct/100;const cuota=r===0?capital/meses:capital*(r*Math.pow(1+r,meses))/(Math.pow(1+r,meses)-1);const total=cuota*meses;const tea=(Math.pow(1+r,12)-1)*100;return{cuotaMensual:Number(cuota.toFixed(2)),costoTotal:Number(total.toFixed(2)),interesesEstimados:Number((total-capital).toFixed(2)),tasaMensualPct,tasaEfectivaAnualPct:Number(tea.toFixed(2)),meses};}
 async function evaluarCredito(userId,input){const base=await resumen(userId);const simulacion=simularCredito(input);const flujoPosterior=base.flujoLibre-simulacion.cuotaMensual;const cargaPosterior=base.ingresos?((base.cuotasDeuda+simulacion.cuotaMensual)/base.ingresos)*100:null;return{simulacion,contexto:{ingresosRegistrados:base.ingresos,flujoLibreActual:base.flujoLibre,flujoLibrePosterior:Number(flujoPosterior.toFixed(2)),cargaDeudaPosteriorPct:cargaPosterior===null?null:Number(cargaPosterior.toFixed(2))},alertas:[...(flujoPosterior<0?["La cuota proyectada llevaría el flujo libre registrado a terreno negativo."]:[]),...(cargaPosterior!==null&&cargaPosterior>35?["La carga mensual de deuda proyectada supera el 35% de los ingresos registrados."]:[])],supuestos:"Cálculo determinístico con los datos registrados; no incluye seguros, comisiones, impuestos ni cambios futuros salvo que se incorporen al escenario."};}
