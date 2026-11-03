@@ -37,7 +37,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
  const registrar=crearRegistrador();
  const solicitud=(key,orig=original)=>({original:orig,tipo:"CORRECCION",cambios:{montoMinor:22000},idempotencyKey:key,fechaISO:"2026-10-25T15:00:00.000Z"});
  try{
-  await Promise.all([Evento.init(),Cursor.init(),Cuenta.init(),Transaccion.init(),Outbox.init(),Reserva.init(),require("../../modules/finanzas-personales/models/conciliacionCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionActivoPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionInversionPersonal.model").init()]);
+  await Promise.all([Evento.init(),Cursor.init(),Cuenta.init(),Transaccion.init(),Outbox.init(),Reserva.init(),require("../../modules/finanzas-personales/models/conciliacionCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloActivoPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionActivoPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionInversionPersonal.model").init()]);
   const primero=await registrar(solicitud("correccion"));
   assert.equal(primero.deltaCajaMinor,"3000");
   await assert.rejects(registrar(solicitud("obsoleta")),/desactualizado/);

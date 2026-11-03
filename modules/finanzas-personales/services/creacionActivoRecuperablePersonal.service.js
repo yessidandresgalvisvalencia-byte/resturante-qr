@@ -18,7 +18,7 @@ function validarSolicitud(s){
 }
 async function exigirIndices(){let indices;try{indices=await R.collection.indexes();}catch{throw falla("Índices de recibos de activos no disponibles",503);}if(![["usuarioId","solicitudId"],["usuarioId","activoId"],["usuarioId","nombreClave"]].every(k=>indiceExacto(indices,k)))throw falla("Índices de recibos de activos no verificados",503);}
 const oid=v=>new mongoose.Types.ObjectId(String(v));
-function foto(x){const r=canon(x);delete r.creacionReciboHash;return r;}
+function foto(x){const r=canon(x);delete r.creacionReciboHash;delete r.cicloActivoRevision;delete r.cicloActivoHash;return r;}
 function verificar(r){
  validarIdentidad(r?.usuarioId,r?.solicitudId);
  if(r.hashActual!==hash(r)||r.solicitudHuella!==huellaSolicitud(r.solicitud)||String(r.original?._id)!==String(r.activoId)||String(r.original?.usuarioId)!==String(r.usuarioId)||String(r.original?.legacyId)!==String(r.legacyId)||String(r.legacyOriginal?._id)!==String(r.legacyId)||String(r.legacyOriginal?.userId)!==String(r.usuarioId)||r.original?.creacionSolicitudId!==r.solicitudId||r.legacyOriginal?.creacionSolicitudId!==r.solicitudId)throw falla("Recibo de activo no verificable");
@@ -43,7 +43,7 @@ async function crear(usuarioId,solicitudId,solicitud){
   const [activo]=await C.create([{usuarioId,legacyId:legacy._id,...datos,creacionSolicitudId:solicitudId}],{session});
   const original=await C.collection.findOne({_id:activo._id,usuarioId:oid(usuarioId)},{session}),legacyOriginal=await L.collection.findOne({_id:legacy._id,userId:oid(usuarioId)},{session});
   const r={usuarioId,solicitudId,solicitudHuella:huella,activoId:activo._id,legacyId:legacy._id,nombreClave:datos.nombre,solicitud:canon(solicitud),original:foto(original),legacyOriginal:canon(legacyOriginal),fecha:new Date()};r.hashActual=hash(r);verificar(r);await R.create([r],{session});
-  const cursor=await C.updateOne({_id:activo._id,usuarioId,creacionSolicitudId:solicitudId,creacionReciboHash:{$exists:false}},{$set:{creacionReciboHash:r.hashActual}},{session,timestamps:false,runValidators:true});if(cursor.matchedCount!==1)throw falla("No se confirmó la referencia de creación del activo");await verificarFuentes(r,session);require("./lecturaActivosPersonal.service").calcular(usuarioId,[...legados,legacyOriginal],[...activos,original]);salida=resultado(r,false);
+  const cursor=await C.updateOne({_id:activo._id,usuarioId,creacionSolicitudId:solicitudId,creacionReciboHash:{$exists:false}},{$set:{creacionReciboHash:r.hashActual}},{session,timestamps:false,runValidators:true});if(cursor.matchedCount!==1)throw falla("No se confirmó la referencia de creación del activo");await verificarFuentes(r,session);require("./lecturaActivosPersonal.service").calcular(usuarioId,[...legados,legacyOriginal],[...activos,original],{retirados:revision.retirados});salida=resultado(r,false);
  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return salida;
  }catch(e){if(e.code===11000)throw falla("Activo o solicitud ya registrada; consulta el recibo antes de repetir");throw e;}finally{await session.endSession();}
 }
@@ -57,6 +57,6 @@ async function verificarActivos(usuarioId,activos,{session,legados}={}){
  for(const r of recibos)verificarPareja(r,cs.get(String(r.activoId)),ls.get(String(r.legacyId)));
  for(const c of activos)if(c.creacionSolicitudId!==undefined||c.creacionReciboHash!==undefined){const r=rs.get(c.creacionSolicitudId);if(!r||String(r.activoId)!==String(c._id)||r.hashActual!==c.creacionReciboHash)throw falla("Falta evidencia de creación del activo");}
  for(const l of legados)if(l.creacionSolicitudId!==undefined){const r=rs.get(l.creacionSolicitudId);if(!r||String(r.legacyId)!==String(l._id))throw falla("Falta evidencia de la fuente original del activo");}
- return require("./lecturaActivosPersonal.service").calcular(usuarioId,legados,activos);
+ const retirados=await require("./cicloActivoPersonal.service").verificarActivos(usuarioId,activos,{session});return {...require("./lecturaActivosPersonal.service").calcular(usuarioId,legados,activos,{retirados}),retirados};
 }
 module.exports={crear,consultar,exigirIndices,validarIdentidad,validarSolicitud,normalizarNombre,huellaSolicitud,hash,verificar,verificarActivos,resumen};

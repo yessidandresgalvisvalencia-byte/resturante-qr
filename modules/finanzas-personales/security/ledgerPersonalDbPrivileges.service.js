@@ -14,6 +14,7 @@ const COLECCIONES=Object.freeze([
  require("../models/reciboCreacionPrestamoPersonal.model").collection.collectionName,
  require("../models/reciboCreacionCuentaPersonal.model").collection.collectionName,
  require("../models/conciliacionCuentaPersonal.model").collection.collectionName,
+ require("../models/cicloActivoPersonal.model").collection.collectionName,
  require("../models/cicloCuentaPersonal.model").collection.collectionName,
  require("../models/reciboCreacionActivoPersonal.model").collection.collectionName,
  require("../models/reciboCreacionInversionPersonal.model").collection.collectionName

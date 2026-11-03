@@ -12,11 +12,11 @@ function datos(x,u,legacy){
  if(["EFECTIVO","CUENTA"].includes(x.tipo)!==x.liquido&&x.tipo!=="INVERSION")throw falla();
  return{nombre:x.nombre,tipo:x.tipo,valorMinor:valor,moneda:"COP",liquido:x.liquido,institucion:x.institucion??""};
 }
-function calcular(u,legados,activos){
+function calcular(u,legados,activos,{retirados=new Set()}={}){
  if(!mongoose.isValidObjectId(u)||!Array.isArray(legados)||!Array.isArray(activos)||legados.length>500||activos.length>500)throw falla();
  const ls=new Map(),ids=new Set(),vinculados=new Set();
  for(const x of legados){const d=datos(x,u,true),id=String(x._id);if(ls.has(id))throw falla();ls.set(id,{x,d});}
  for(const x of activos){const d=datos(x,u,false),id=String(x._id);if(ids.has(id))throw falla();ids.add(id);if(x.legacyId!==undefined&&x.legacyId!==null){const lid=String(x.legacyId),l=ls.get(lid);if(!mongoose.isValidObjectId(x.legacyId)||!l||vinculados.has(lid)||JSON.stringify(d)!==JSON.stringify(l.d))throw falla();vinculados.add(lid);}}
- return{activosNoLiquidosMinor:sumar(activos.filter(x=>x.liquido===false).map(x=>x.valorMinor)),previos:legados.filter(x=>!vinculados.has(String(x._id))).map(x=>({id:String(x._id),nombre:x.nombre,tipo:x.tipo,fuente:"ORIGINAL_PENDIENTE_DE_REVISION",incluidoEnPatrimonio:false}))};
+ return{activosNoLiquidosMinor:sumar(activos.filter(x=>x.liquido===false&&!retirados.has(String(x._id))).map(x=>x.valorMinor)),previos:legados.filter(x=>!vinculados.has(String(x._id))).map(x=>({id:String(x._id),nombre:x.nombre,tipo:x.tipo,fuente:"ORIGINAL_PENDIENTE_DE_REVISION",incluidoEnPatrimonio:false}))};
 }
 module.exports={sumar,calcular};
