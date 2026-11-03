@@ -72,4 +72,4 @@ async function evaluar(usuarioId,input,{ahora=new Date()}={}){
  if(obligatorio&&despues<0)return{estado:"REQUIERE_PLAN",impactoMinor:-despues,consecuencia,alerta,metodos,metodoMenorCosto,mensaje:"Es una obligación y faltan "+money(-despues)+". Hay que resolver la obligación, no esconderla: compara renegociar, reprogramar o sustituir con costos reales."+explicacion+advertencia};
  return{estado:"CABE",restanteMinor:despues,consecuencia,alerta,metodos,metodoMenorCosto,mensaje:"Cabe por "+money(montoMinor)+" y quedarían "+money(despues)+" libres."+explicacion+advertencia+" El método de menor costo conocido es "+metodoMenorCosto+"; si existe un beneficio real de otro método, debe superar sus cargos e intereses exactos."};
 }
-module.exports={evaluar,consecuenciaDiaria,alertarVencimientoProximo};
+module.exports={evaluar,consecuenciaDiaria,alertarVencimientoProximo,fechaVerificable,diaCivilBogota};
