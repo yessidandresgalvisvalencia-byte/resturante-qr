@@ -16,6 +16,8 @@ function referencias(u,deudas,creditos,perfiles){
 }
 function adaptar(p,r){
  for(const k of ["liquidezMinor","activosNoLiquidosMinor","valorInversionesMinor","capitalInvertidoMinor","resultadoInversionesMinor","pasivosMinor","cuentasPorCobrarMinor","patrimonioFinancieroNetoMinor"])exacto(p?.[k]);
+ for(const k of ["activosNoLiquidosMinor","valorInversionesMinor","capitalInvertidoMinor","pasivosMinor","cuentasPorCobrarMinor"])noNegativo(p[k]);
+ if(p.saldoVerificado===true)noNegativo(p.liquidezMinor);
  if(!Array.isArray(p.activosPreviosPorRevisar)||typeof p.saldoVerificado!=="boolean")throw falla("Snapshot patrimonial incompleto");
  const pendientes=r.deudas.length+p.activosPreviosPorRevisar.length,cajaConocida=p.saldoVerificado===true,completo=cajaConocida&&pendientes===0;
  const activos=cajaConocida?P.sumaPatrimonialSegura([p.liquidezMinor,p.activosNoLiquidosMinor]):null;
