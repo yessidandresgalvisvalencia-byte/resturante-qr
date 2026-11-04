@@ -11,14 +11,22 @@ function parseMinorUnits(value) {
   if (digits.length > MAX_DIGITS || value === "-0") throw new RangeError("Invalid minor-unit magnitude");
   return BigInt(value);
 }
+function formatMinorUnits(result) {
+  const canonical = result.toString();
+  // Bound outputs too: valid inputs can overflow the persistence contract when combined.
+  if (canonical.replace(/^-/, "").length > MAX_DIGITS) {
+    throw new RangeError("Minor-unit result exceeds supported magnitude");
+  }
+  return canonical;
+}
 function addMinorUnits(a, b) {
-  return (parseMinorUnits(a) + parseMinorUnits(b)).toString();
+  return formatMinorUnits(parseMinorUnits(a) + parseMinorUnits(b));
 }
 function subtractMinorUnits(a, b) {
-  return (parseMinorUnits(a) - parseMinorUnits(b)).toString();
+  return formatMinorUnits(parseMinorUnits(a) - parseMinorUnits(b));
 }
 function sumMinorUnits(values) {
   if (!Array.isArray(values)) throw new TypeError("Expected array of minor-unit strings");
-  return values.reduce((total, value) => total + parseMinorUnits(value), 0n).toString();
+  return formatMinorUnits(values.reduce((total, value) => total + parseMinorUnits(value), 0n));
 }
 module.exports = { parseMinorUnits, addMinorUnits, subtractMinorUnits, sumMinorUnits };
