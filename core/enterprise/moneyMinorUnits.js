@@ -29,4 +29,20 @@ function sumMinorUnits(values) {
   if (!Array.isArray(values)) throw new TypeError("Expected array of minor-unit strings");
   return formatMinorUnits(values.reduce((total, value) => total + parseMinorUnits(value), 0n));
 }
-module.exports = { parseMinorUnits, addMinorUnits, subtractMinorUnits, sumMinorUnits };
+
+// Deterministic ratio calculation for explicit rates (10000 bps = 100%).
+// Round half away from zero, including negative refunds; no floating point.
+function applyBasisPoints(amount, basisPoints) {
+  const minor = parseMinorUnits(amount);
+  if (typeof basisPoints !== "string" || !/^(0|[1-9][0-9]*)$/.test(basisPoints)) {
+    throw new TypeError("Basis points must be a canonical nonnegative integer string");
+  }
+  if (basisPoints.length > 6) throw new RangeError("Basis-point rate exceeds supported range");
+  const rate = BigInt(basisPoints);
+  const product = minor * rate;
+  const abs = product < 0n ? -product : product;
+  const rounded = (abs + 5000n) / 10000n;
+  return formatMinorUnits(product < 0n ? -rounded : rounded);
+}
+
+module.exports = { parseMinorUnits, addMinorUnits, subtractMinorUnits, sumMinorUnits, applyBasisPoints };
