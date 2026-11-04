@@ -1,0 +1,26 @@
+name: GRUK Enterprise Read-Only Audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: gruk-enterprise-readonly-audit
+  cancel-in-progress: true
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Test audit formatting
+        run: node --test test/gruk/agent-audit.test.js
+      - name: Audit open PRs (no write permission)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/gruk-enterprise-agent-audit.js
