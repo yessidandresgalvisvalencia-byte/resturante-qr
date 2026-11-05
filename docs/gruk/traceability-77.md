@@ -13,13 +13,13 @@ Estado global: **0/77 certificados en esta matriz**. Un PR abierto, un test escr
 | 05 | Unificar estados y eventos | Cada cambio deja rastro y evita estados contradictorios | [PR #552](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/552) | No certificado |
 | 06 | Calidad de datos y conciliaciones | Panel muestra diferencias y permite corregirlas de forma trazable | [PR #543](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/543) | No certificado |
 | 07 | Motor determinista de cálculos | Pruebas unitarias de cálculos financieros e inventario | [PR #543](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/543), [PR #548](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/548) | No certificado |
-| 08 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 09 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 10 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 11 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 12 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 13 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 14 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
+| 08 | Permisos y roles convencionales | Pruebas por rol deniegan acciones no autorizadas | Sin evidencia verificada registrada | No certificado |
+| 09 | Bitácora externa de operaciones | Se reconstruye una transacción de punta a punta | Sin evidencia verificada registrada | No certificado |
+| 10 | Tablero de salud del negocio | Los números coinciden con transacciones reales | Sin evidencia verificada registrada | No certificado |
+| 11 | Pilotear con restaurantes reales | Existe evidencia de necesidad y feedback verificable | Sin evidencia verificada registrada | No certificado |
+| 12 | Instrumentar métricas del producto | Hay panel semanal sin depender de estimaciones manuales | Sin evidencia verificada registrada | No certificado |
+| 13 | Definir contratos de herramientas | Cada tool tiene esquema, pruebas, permisos y manejo de errores | Sin evidencia verificada registrada | No certificado |
+| 14 | Lanzar un único agente inicial | Resuelve 20 casos de prueba mejor que búsqueda manual | Sin evidencia verificada registrada | No certificado |
 | 15 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
 | 16 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
 | 17 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
