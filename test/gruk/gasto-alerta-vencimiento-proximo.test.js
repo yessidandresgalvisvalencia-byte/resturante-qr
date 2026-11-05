@@ -32,18 +32,18 @@ test("elige primero el vencimiento más cercano sin sumar ni duplicar compromiso
 });
 test("evaluación solo lectura integra advertencia de compromiso protegido sin alterar Disponible Hoy",async()=>{
  const original=home.obtener;
- const fechaProxima=new Date(Date.now()+12*86400000).toISOString();
- const fechaArriendo=new Date(Date.now()+2*86400000).toISOString();
- home.obtener=async()=>({asesor:{
-  aptoParaDisponibleHoy:true,disponibleHoyMinor:25000000,proximoIngresoConocido:true,
-  saldoRealConocido:true,saldoConfiabilidad:"VERIFICADO",saldoRequiereReconciliacion:false,
+ const corte=new Date("2026-10-20T15:00:00Z");
+ const fechaProxima=new Date(+corte+12*86400000).toISOString();
+ const fechaArriendo=new Date(+corte+2*86400000).toISOString();
+ home.obtener=async()=>require("../finanzas-personales/helpers/homeVerificadoFixture")(corte,{
+  saldoRealMinor:116666666,gastosFijosAntesProximoIngresoMinor:80000000,
   proximoIngreso:{fecha:fechaProxima,montoMinor:100000000},
   compromisosAntesProximoIngreso:[c("Arriendo",80000000,fechaArriendo)]
- }});
+ });
  delete require.cache[servicio];
  try{
   const {evaluar}=require(servicio);
-  const r=await evaluar("ensayo",{montoMinor:8000000});
+  const r=await evaluar("ensayo",{montoMinor:8000000},{ahora:corte});
   assert.equal(r.estado,"CABE");
   assert.equal(r.restanteMinor,17000000);
   assert.equal(r.alerta?.montoMinor,80000000);

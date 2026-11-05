@@ -12,11 +12,11 @@ function cargar({deudas=[],tarjetas=[],fallo=false,fuente=codigo}={}){
  const modelo=seleccionar=>({find(filtro){assert.equal(filtro.usuarioId,usuarioId);consultas.push(filtro);return query(seleccionar(filtro));}});
  session={inTransaction:()=>true,withTransaction:async fn=>fn(),endSession:async()=>{}};
  const dependencias={
-  mongoose:{connection:{readyState:1},isObjectIdOrHexString:()=>true,startSession:async()=>session},
+  mongoose:{connection:{readyState:1},isObjectIdOrHexString:require("mongoose").isObjectIdOrHexString,startSession:async()=>session},
   "../models/TransaccionPersonal":modelo(()=>[]),
   "../models/prestamoPersonal.model":modelo(f=>f.direccion==="POR_PAGAR"?deudas:[]),
   "../models/DeudaPersonal":modelo(()=>tarjetas),
-  "../models/calendarioFinanciero.model":modelo(()=>[{diaMes:25,montoMinor:1000000,concepto:"Ingreso"}]),
+  "../models/calendarioFinanciero.model":modelo(()=>[{_id:"c".repeat(24),usuarioId,tipo:"INGRESO",activo:true,frecuencia:"MENSUAL",diaMes:25,montoMinor:1000000,concepto:"Ingreso"}]),
   "./consultaCompensadaPersonal.service":{consultarPeriodo:async({usuarioId:id})=>{assert.equal(id,usuarioId);return[];}},
   "./patrimonioPersonal.service":{snapshotEnSesion:async (id,s)=>{
    assert.equal(s,session);
@@ -43,7 +43,7 @@ test("home completo bloquea deuda sin vencimiento con saldo verificado y conserv
  const deudas=Object.freeze([Object.freeze({...deuda,fechaVencimiento:null})]);
  const antes=JSON.stringify(deudas),{home,consultas}=cargar({deudas});
  bloqueado(await home.obtener(usuarioId,ahora),"PRESTAMO");
- assert.equal(JSON.stringify(deudas),antes);assert.equal(consultas.length,6);
+ assert.equal(JSON.stringify(deudas),antes);assert.equal(consultas.length,5);
 });
 test("home bloquea tarjeta histórica sin día válido sin agregar un compromiso fechado inventado",async()=>{
  const tarjetas=[{_id:"t",tipo:"TARJETA_CREDITO",activa:true,saldoMinor:100000,pagoMinimoMinor:10000,nombre:"Tarjeta",diaPago:null}];

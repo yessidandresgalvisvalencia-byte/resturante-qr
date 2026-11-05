@@ -6,6 +6,7 @@ const path=require("node:path");
 const servicePath=path.resolve(__dirname,"../../modules/finanzas-personales/services/gastoInteligentePersonal.service.js");
 const homePath=path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js");
 const {consecuenciaDiaria}=require(servicePath);
+const homeVerificado=require("../finanzas-personales/helpers/homeVerificadoFixture");
 const ahora=new Date("2026-10-20T15:00:00.000Z");
 test("compra preventiva divide solo dinero libre en dias civiles de Bogotá con enteros",()=>{
  const r=consecuenciaDiaria({disponibleMinor:250000,montoMinor:80000,fechaIngreso:new Date("2026-11-01T05:00:00Z"),ahora});
@@ -74,7 +75,7 @@ async function conHome(obtener,prueba){
 test("evaluación cerrada sin fecha futura válida ni importe positivo conocido del ingreso",async()=>{
  for(const fecha of [...fechasInvalidas,"2026-10-19","2026-10-20","2026-10-20T23:59:59-05:00"]){
   const a=asesorVerificado();a.proximoIngreso.fecha=fecha;
-  await conHome(async()=>({asesor:a}),async({evaluar})=>{
+  await conHome(async()=>homeVerificado(ahora,a),async({evaluar})=>{
    const r=await evaluar("propietario",{montoMinor:100000},{ahora});
    assert.equal(r.estado,"FALTAN_DATOS",String(fecha));
    assert.deepEqual(Object.keys(r).sort(),["estado","mensaje"]);
@@ -82,7 +83,7 @@ test("evaluación cerrada sin fecha futura válida ni importe positivo conocido 
  }
  for(const monto of [undefined,null,0,-1,0.5,"100",Number.MAX_SAFE_INTEGER+1]){
   const a=asesorVerificado();a.proximoIngreso.montoMinor=monto;
-  await conHome(async()=>({asesor:a}),async({evaluar})=>{
+  await conHome(async()=>homeVerificado(ahora,a),async({evaluar})=>{
    assert.equal((await evaluar("propietario",{montoMinor:1},{ahora})).estado,"FALTAN_DATOS");
   });
  }
@@ -95,7 +96,7 @@ test("evaluación exige señales explícitas de conciliación y disponible no ne
   {proximoIngresoConocido:"true"},{proximoIngresoConocido:false},
   ...[-1,0.1,"100",null,Number.MAX_SAFE_INTEGER+1].map(disponibleHoyMinor=>({disponibleHoyMinor}))
  ];
- for(const cambio of variantes)await conHome(async()=>({asesor:{...asesorVerificado(),...cambio}}),async({evaluar})=>{
+ for(const cambio of variantes)await conHome(async()=>homeVerificado(ahora,{...asesorVerificado(),...cambio}),async({evaluar})=>{
   assert.equal((await evaluar("propietario",{montoMinor:100},{ahora})).estado,"FALTAN_DATOS");
  });
  for(const h of [null,{}, {asesor:null}])await conHome(async()=>h,async({evaluar})=>{
@@ -105,7 +106,7 @@ test("evaluación exige señales explícitas de conciliación y disponible no ne
 test("evaluación vigente mantiene CABE, NO_CABE y REQUIERE_PLAN sin alterar la fuente",async()=>{
  const a=asesorVerificado();Object.freeze(a.proximoIngreso);Object.freeze(a.compromisosAntesProximoIngreso);Object.freeze(a);
  const antes=JSON.stringify(a),usuarios=[];
- await conHome(async usuario=>{usuarios.push(usuario);return{asesor:a};},async({evaluar})=>{
+ await conHome(async usuario=>{usuarios.push(usuario);return homeVerificado(ahora,a);},async({evaluar})=>{
   const cabe=await evaluar("propietario",{montoMinor:100000},{ahora});
   assert.equal(cabe.estado,"CABE");assert.equal(cabe.restanteMinor,150000);
   assert.equal(cabe.consecuencia.diasHastaIngreso,2);assert.equal(cabe.consecuencia.promedioDiarioMinor,75000);

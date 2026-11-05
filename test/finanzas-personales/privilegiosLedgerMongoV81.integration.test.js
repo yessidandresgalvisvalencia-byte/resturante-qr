@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("horizonte explícito de ingreso protege hoy, históricos, compras y snapshot sin escribir",()=>require("./helpers/horizonteIngresoAutorizado").probarHorizonteIngreso(db));
   await t.test("master y proyección exacta comparten snapshot y no autorizan desde desconocidos",()=>require("./helpers/masterProyeccionAutorizada").probarMasterProyeccion(db));
   await t.test("captura copilot atómica recupera respuesta sin duplicar borrador y protege originales",()=>require("./helpers/capturaCopilotAutorizada").probarCapturaCopilot(db,provisionarMongoPersonal));
   await t.test("ingreso mensual y copilot conservan fuentes, turnos y bloqueo ante pago incierto",()=>require("./helpers/ingresoCopilotAutorizado").probarIngresoCopilot());

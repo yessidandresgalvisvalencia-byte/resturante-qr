@@ -1,5 +1,5 @@
 "use strict";
-const mongoose=require("mongoose"),home=require("./homePersonal.service"),{fechaVerificable,diaCivilBogota}=require("./gastoInteligentePersonal.service");
+const mongoose=require("mongoose"),home=require("./homePersonal.service"),{fechaVerificable,diaCivilBogota}=require("./fechaPersonal.service");
 const exacto=v=>Number.isSafeInteger(v)&&v>=0,money=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n);
 const fallar=(codigo,mensaje,accion)=>({autorizado:false,codigo,mensaje,accion});
 function validar(h,ahora){
