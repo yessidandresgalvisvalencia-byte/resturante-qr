@@ -18,6 +18,7 @@ const calendarioIngresoHandler=require("./services/calendarioIngresoPersonal.han
 const limiteCalendarioIngreso=require("./security/limiteSeleccionadoV81.middleware").crearLimiteSeleccionadoV81();
 router.get("/calendario-ingresos",calendarioIngresoHandler({operacion:"LISTAR"}));
 router.get("/calendario-ingresos/recibos/:clave",calendarioIngresoHandler({operacion:"RECIBO"}));
+router.get("/calendario-ingresos/:id/recepciones-elegibles",calendarioIngresoHandler({operacion:"RECEPCIONES"}));
 router.get("/calendario-ingresos/:id/historial",calendarioIngresoHandler({operacion:"HISTORIAL"}));
 router.post("/calendario-ingresos",limiteCalendarioIngreso,calendarioIngresoHandler({operacion:"CREAR"}));
 router.post("/calendario-ingresos/:id/eventos",limiteCalendarioIngreso,calendarioIngresoHandler({operacion:"CAMBIAR"}));

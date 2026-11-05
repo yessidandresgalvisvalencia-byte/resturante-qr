@@ -29,4 +29,13 @@ async function exigirFuente(u,entrada,lectura,s){
  const fuentes=lectura.fuentesRecepcion||await cargarVigentes(u,s),tx=fuentes.find(t=>String(t._id)===r.movimientoId);if(!coincide(tx,r,u))throw rechazo("El ingreso, cuenta, fecha o monto vigentes no coinciden","FUENTE_NO_COINCIDE");
  const cuenta=await require("../models/cuentaFinanciera.model").findOne({_id:r.cuentaId,usuarioId:u,activa:true,moneda:"COP"}).maxTimeMS(5000).session(s).lean();if(!cuenta)throw rechazo("Cuenta propia activa en COP no disponible","CUENTA_NO_DISPONIBLE");
 }
-module.exports={MOTIVOS_RECHAZO,esAccion,validar,validarRelacion,siguiente,coincide,enriquecer,cargarVigentes,exigirFuente};
+// Solo ofrece ingresos existentes; nunca infiere recepción por monto/concepto ni crea caja.
+function elegibles(u,c,calendarios,fuentes,cuentas,ahora){
+ if(!c?.activo||c.recepciones?.some(r=>r.activa&&r.ocurrenciaFecha===c.fechaProxima))throw falla("Revisa o anula el vínculo vigente antes de elegir otra recepción");
+ if(!Array.isArray(fuentes)||fuentes.length>5000||!Array.isArray(cuentas)||cuentas.length>5000)throw falla("Fuentes de recepción exceden capacidad",422);
+ const usadas=new Set(calendarios.flatMap(x=>(x.recepciones||[]).filter(r=>r.activa).map(r=>r.movimientoId))),porCuenta=new Map(cuentas.map(x=>[String(x._id),x]));if(porCuenta.size!==cuentas.length||new Set(fuentes.map(x=>String(x._id))).size!==fuentes.length)throw falla("Fuentes de recepción repetidas");
+ const filas=[];for(const tx of fuentes){const f=fechaVerificable(tx.fecha),cuenta=porCuenta.get(String(tx.cuentaId));if(!f||+f>+ahora||Math.abs(diaCivilBogota(f)-diaCivilBogota(fechaVerificable(c.fechaProxima)))>31*86400000||usadas.has(String(tx._id))||!cuenta||String(cuenta.usuarioId)!==String(u)||cuenta.activa!==true||cuenta.moneda!=="COP")continue;
+ const r={movimientoId:String(tx._id),cuentaId:String(tx.cuentaId),montoMinor:tx.montoMinor,fecha:f.toISOString(),ocurrenciaFecha:c.fechaProxima};if(!coincide(tx,r,u))continue;filas.push({...r,concepto:typeof tx.concepto==="string"?tx.concepto.slice(0,500):"Ingreso registrado",cuentaNombre:typeof cuenta.nombre==="string"?cuenta.nombre.slice(0,140):"Cuenta registrada"});}
+ return filas.sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.movimientoId.localeCompare(b.movimientoId));
+}
+module.exports={elegibles,MOTIVOS_RECHAZO,esAccion,validar,validarRelacion,siguiente,coincide,enriquecer,cargarVigentes,exigirFuente};
