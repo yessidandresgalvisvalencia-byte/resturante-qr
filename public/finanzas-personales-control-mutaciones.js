@@ -18,7 +18,7 @@
   function guardar(s){try{almacenamiento.setItem(PREFIJO+s.usuario,JSON.stringify([...s.pendientes.values()]));}catch{s.error=true;throw falla("No se pudo conservar la confirmación pendiente. No se enviará otra operación");}}
   function cambio(s){s.revision++;invalidar(s.usuario);}
   function estado(token){try{const s=cargar(token);return{usuario:s.usuario,revision:s.revision,bloqueada:s.error||s.pendientes.size>0||s.activas.size>0,pendientes:s.pendientes.size,motivo:s.error?"No se pudo verificar el registro local de operaciones pendientes":"Hay operaciones pendientes de confirmar. Reintenta con los mismos datos; actualizar el panel no confirma su resultado"};}catch{return{usuario:null,revision:0,bloqueada:true,motivo:"No se pudo verificar la sesión y sus operaciones pendientes"};}}
-  function esMutacion(path,o,token){return !!token&&!/^(GET|HEAD)$/i.test(o.method||"GET")&&!/^\/auth\//.test(path)&&!["/gastos/evaluar","/creditos/simular","/creditos/evaluar","/transacciones/confirmar-intento"].includes(path);}
+  function esMutacion(path,o,token){return !!token&&!/^(GET|HEAD)$/i.test(o.method||"GET")&&!/^\/auth\//.test(path)&&!(path==="/consulta"&&/^POST$/i.test(o.method||"GET"))&&!["/gastos/evaluar","/creditos/simular","/creditos/evaluar","/transacciones/confirmar-intento"].includes(path);}
   function datos(path,o){
    let cuerpo={};if(o.body!==undefined){try{cuerpo=JSON.parse(o.body);if(!cuerpo||typeof cuerpo!=="object"||Array.isArray(cuerpo))throw Error();}catch{throw falla("La operación requiere un cuerpo JSON verificable");}}
    const headers={...(o.headers||{})},nombre=Object.keys(headers).find(k=>k.toLowerCase()==="idempotency-key");

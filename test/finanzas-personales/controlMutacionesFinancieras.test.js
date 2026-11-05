@@ -34,3 +34,11 @@ test("confirmar intento de movimiento solo resuelve la huella e identidad exacta
 });
 
 test("mecanismos de reintento ambiguos se rechazan antes de registrar o enviar",async()=>{const f=entorno();await assert.rejects(f.c.iniciar("A","/transacciones",{method:"POST",headers:{"Idempotency-Key":"clave_01"},body:JSON.stringify({externalId:"otra_clave",montoMinor:1200})}),/ambiguo/);assert.equal(f.c.estado("A").bloqueada,false);});
+
+test("solo POST /consulta queda fuera de mutaciones monetarias; rutas desconocidas siguen protegidas",()=>{
+ const f=entorno();assert.equal(f.c.esMutacion("/consulta",{method:"POST"},"A"),false);assert.equal(f.c.esMutacion("/consulta",{method:"post"},"A"),false);
+ for(const [p,o] of [["/consulta",{method:"DELETE"}],["/consulta",{method:"PATCH"}],["/consulta/aprobar",{method:"POST"}],["/copilot",{method:"POST"}],["/captura/id/aprobar",{method:"POST"}],["/transacciones",{method:"POST"}]])assert.equal(f.c.esMutacion(p,o,"A"),true);
+});
+test("clasificar nuevas consultas no elimina registros antiguos sin clave ni operaciones reales",async()=>{
+ const f=entorno(),o={method:"POST",body:JSON.stringify({pregunta:"Disponible Hoy"})};const op=await f.c.iniciar("A","/consulta",o);op.finalizar("INCIERTA");const texto=JSON.stringify([...f.datos]);const recargado=entorno(f.datos);assert.equal(recargado.c.esMutacion("/consulta",o,"A"),false);assert.equal(recargado.c.estado("A").bloqueada,true);assert.equal(JSON.stringify([...f.datos]),texto);await assert.rejects(recargado.c.iniciar("A","/prestamos/p",opciones()),/antes de registrar otra/);
+});
