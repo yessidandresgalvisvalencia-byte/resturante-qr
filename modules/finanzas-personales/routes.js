@@ -345,7 +345,7 @@ const meta=Joi.object({nombre:Joi.string().max(120).required(),objetivo:Joi.numb
 router.post("/metas",validate(meta),async(req,res)=>res.status(201).json({ok:true,meta:await service.crearMeta(req.personalAuth.userId,req.validated)}));
 router.get("/resumen",require("./services/resumenHttpPersonal.handler").crearResumenHttpPersonal());router.get("/analisis",require("./services/resumenHttpPersonal.handler").crearConsultaDerivadaPersonal("analisis",u=>brain.analizar(u)));
 const simulacion=Joi.object({capital:Joi.number().positive().required(),tasaMensualPct:Joi.number().min(0).max(100).required(),meses:Joi.number().integer().min(1).max(600).required()});
-router.post("/creditos/simular",validate(simulacion),(req,res)=>res.json({ok:true,simulacion:service.simularCredito(req.validated)}));
+router.post("/creditos/simular",require("./services/simulacionCreditoExactaPersonal.service").crearHandler(service.simularCredito));
 router.post("/creditos/evaluar",validate(simulacion),require("./services/resumenHttpPersonal.handler").crearConsultaDerivadaPersonal("evaluacion",(u,req)=>service.evaluarCredito(u,req.validated)));
 const compromisosCuotas=require("./services/compromisosCuotas.service");
 const nuevoCompromisoSchema=Joi.object({

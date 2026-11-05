@@ -38,9 +38,9 @@ async function planFinanciero(userId){
 async function registrarCredito(userId,data){return Credito.create({userId,...data});}
 async function crearMeta(userId,data){return Meta.create({userId,...data});}
 async function resumen(userId,now=new Date()){return require("./resumenHttpPersonal.service").resumen(userId,now);}
-function simularCredito({capital,tasaMensualPct,meses}){const r=tasaMensualPct/100;const cuota=r===0?capital/meses:capital*(r*Math.pow(1+r,meses))/(Math.pow(1+r,meses)-1);const total=cuota*meses;const tea=(Math.pow(1+r,12)-1)*100;return{cuotaMensual:Number(cuota.toFixed(2)),costoTotal:Number(total.toFixed(2)),interesesEstimados:Number((total-capital).toFixed(2)),tasaMensualPct,tasaEfectivaAnualPct:Number(tea.toFixed(2)),meses};}
+function simularCredito(input){return require("./simulacionCreditoExactaPersonal.service").simular(input);}
 async function evaluarCredito(userId,input){
  const base=await resumen(userId);
- return{estado:"PENDIENTE_EVALUACION_EXACTA",simulacion:null,requiereSimulacionExacta:true,contexto:{ingresosRegistrados:base.ingresos,flujoRegistrado:base.flujoRealizado,flujoLibreActual:null,flujoLibrePosterior:null,cargaDeudaPosteriorPct:null},alertas:["No se autoriza crédito a partir del flujo registrado. Se requiere simulación monetaria exacta, calendario, cargos y liquidez verificados."],supuestos:"La simulación antigua permanece separada y no se usa para evaluar capacidad ni para aprobar crédito."};
+ return{estado:"PENDIENTE_EVALUACION_EXACTA",simulacion:null,requiereSimulacionExacta:true,contexto:{ingresosRegistrados:base.ingresos,flujoRegistrado:base.flujoRealizado,flujoLibreActual:null,flujoLibrePosterior:null,cargaDeudaPosteriorPct:null},alertas:["No se autoriza crédito a partir del flujo registrado. Se requiere simulación monetaria exacta, calendario, cargos y liquidez verificados."],supuestos:"La simulación exacta de cuota fija permanece separada; falta integrar condiciones contractuales y liquidez para evaluar capacidad."};
 }
 module.exports={gastoAfectaCaja,registrarMovimiento,diario,resumenPeriodo,upsertPerfil,registrarActivo,registrarInversion,upsertPerfilInversion,patrimonio,planFinanciero,registrarCredito,crearMeta,resumen,simularCredito,evaluarCredito};
