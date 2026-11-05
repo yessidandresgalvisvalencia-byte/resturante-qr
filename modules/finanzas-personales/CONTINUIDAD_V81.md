@@ -1639,3 +1639,10 @@ Un bloque de API seleccionado: REGISTRAR_RECEPCION declara ingreso nuevo y cierr
 No hay formulario de alta nueva todavía. Agenda/control/API recuperan un cuerpo conservado por GET ante respuesta perdida, probado programáticamente; no se cuenta esa prueba como aprobación visual ni de dispositivos. Nuevo escenario nativo de rollback de evento/outbox, índice ausente, aislamiento, concurrencia misma/distinta clave, fuente intacta/corrección y recuperación. Local: 526 casos/517 aprobados/nueve omitidos/cero fallos y 59 dirigidas aprobadas, sintaxis/diff correctos. CI del nuevo SHA pendiente al preparar lote.
 
 Plan/contrato/criterios/evidencia/límites en RECEPCION_NUEVA_ATOMICA_V81.md. Mismos índices/roles/colecciones/backup V18/38; sin migración ni reparación automática. Siguiente tras CI: formulario explícito de ingreso nuevo, revisión frente a ya registrados y recuperación de interfaz; después abonos múltiples/visual-dispositivos. #407/custodio real/backup durable/recuperación operativa/roles-índices-históricos/seguridad/compatibilidad/informe final siguen pendientes. Sin merge ni Render, otros productos, costos o datos reales alterados.
+
+
+## Primera CI y ajuste de evidencia del escenario
+
+Núcleo `da633f4b16c01475a5014d760cd697b5a5228f48`, árbol `83f79b906bf5b7276be1abf2a9904ed5d2b371e5`; catorce blobs cotejados. Gate 42132492543 y Seguridad 42132492562 success. V81 42132492556 falló en job autorizado 127612292977: al terminar el nuevo escenario se esperaban tres outbox y había cuatro, porque además de tres ingresos existe el evento legítimo de su corrección financiera. Las comprobaciones anteriores de fuente única, rollback y saldo 1300 aprobaron, pero el bloque no se considera verificado hasta repetir CI completa.
+
+Se ajusta la prueba para comparar el número de outbox anterior a la última carrera y exigir exactamente uno adicional. Así se conserva explícitamente el evento compensatorio y se detectan duplicados sin confundir correcciones con ingresos. No se modifica código financiero, controles, cuotas ni gates. Repetir CI del SHA ajustado.

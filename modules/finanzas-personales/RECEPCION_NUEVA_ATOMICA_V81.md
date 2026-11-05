@@ -32,3 +32,10 @@ Mismas colecciones, índices, roles, fuentes originales y backup V18/38. No migr
 Tras CI exacta: formulario explícito de alta nueva, revisión de duplicados ya registrados y recuperación desde la interfaz; después abonos múltiples y aprobación visual/dispositivos. Revisar HEAD/#389/#407/CI e instrucciones antes de actuar; publicar con expected_sha y force=false. El checkpoint no depende de scratch ni del chat.
 
 #407 sigue abierto: custodio independiente real, backup durable completo/retención/acceso/claves separadas, recuperación operativa/RPO/RTO reales, roles/índices/históricos de producción, aceptación integral de seguridad, exactitud, concurrencia, idempotencia, migración, aislamiento, recuperación, compatibilidad y dispositivos/interfaz e informe final trazable. Ensayo aislado no acredita recuperación productiva ni certificación externa. Carga/fecha requieren medición real pendiente. Sin merge a feature/main ni Render, Empresarial/Blushéa, costos nuevos o datos de producción alterados.
+
+
+## Primera CI y ajuste de evidencia del escenario
+
+Núcleo `da633f4b16c01475a5014d760cd697b5a5228f48`, árbol `83f79b906bf5b7276be1abf2a9904ed5d2b371e5`; catorce blobs cotejados. Gate 42132492543 y Seguridad 42132492562 success. V81 42132492556 falló en job autorizado 127612292977: al terminar el nuevo escenario se esperaban tres outbox y había cuatro, porque además de tres ingresos existe el evento legítimo de su corrección financiera. Las comprobaciones anteriores de fuente única, rollback y saldo 1300 aprobaron, pero el bloque no se considera verificado hasta repetir CI completa.
+
+Se ajusta la prueba para comparar el número de outbox anterior a la última carrera y exigir exactamente uno adicional. Así se conserva explícitamente el evento compensatorio y se detectan duplicados sin confundir correcciones con ingresos. No se modifica código financiero, controles, cuotas ni gates. Repetir CI del SHA ajustado.
