@@ -12,6 +12,6 @@ test("seguimientos se reconocen sin inventar una conversación",()=>{
 test("el asesor no presenta saldo sin verificar como confirmado",()=>{
  const estado=m.estadoConocido({asesor:{saldoRealConocido:false,saldoConfiabilidad:"NO_VERIFICADO"},caja:{comprometidoMinor:450000}});
  assert.equal(estado.disponible,null);
- assert.match(m.armarRespuesta("Análisis",estado),/No hay saldo disponible verificado/);
+ assert.match(m.armarRespuesta("Análisis",estado),/No tengo un cupo de gasto autorizado/);
  assert.match(m.armarRespuesta("Análisis",estado),/No se creó ningún movimiento/);
 });

@@ -1,68 +1,43 @@
 "use strict";
-const home=require("./homePersonal.service");
-const Calendario=require("../models/calendarioFinanciero.model");
-const Prestamo=require("../models/prestamoPersonal.model");
-const {calendarioObligacion}=require("./calendarioObligacionMaster.service");
-const HORIZONTES=Object.freeze([30,60,90]);
-function proyectarVentanas({corte=new Date(),saldoMinor=null,saldoVerificado=false,ingresos=[],obligaciones=[]}={}){
- const fechaCorte=new Date(corte);
- if(!Number.isFinite(fechaCorte.getTime()))throw new TypeError("Fecha de corte inválida");
+const mongoose=require("mongoose"),home=require("./homePersonal.service"),Calendario=require("../models/calendarioFinanciero.model"),Prestamo=require("../models/prestamoPersonal.model"),Tx=require("../models/TransaccionPersonal"),D=require("./disponibleConversacionalPersonal.service"),{fechaVerificable,diaCivilBogota}=require("./gastoInteligentePersonal.service");
+const HORIZONTES=Object.freeze([30,60,90]),MAX=BigInt(Number.MAX_SAFE_INTEGER),falla=(m,c=409)=>Object.assign(Error(m),{statusCode:c});
+const seguro=n=>{if(n>MAX||n< -MAX)throw falla("Total de proyección fuera de rango",422);return Number(n);};
+const suma=xs=>seguro(xs.reduce((a,e)=>a+BigInt(e.montoMinor),0n));
+function proyectarVentanas({corte=new Date(),saldoMinor=null,saldoVerificado=false,escenarioCompleto=false,ingresos=[],obligaciones=[]}={}){
+ const fechaCorte=fechaVerificable(corte);if(!fechaCorte||typeof saldoVerificado!=="boolean"||typeof escenarioCompleto!=="boolean")throw new TypeError("Corte/escenario inválido");
  if(saldoMinor!==null&&(!Number.isSafeInteger(saldoMinor)||saldoMinor<0))throw new TypeError("Saldo inválido");
- const normalizar=(items,tipo)=>{
-  if(!Array.isArray(items))throw new TypeError("Eventos inválidos");
-  return items.map(e=>{
-   const montoMinor=Number(e.montoMinor),fecha=new Date(e.fecha);
-   if(!Number.isSafeInteger(montoMinor)||montoMinor<0||!Number.isFinite(fecha.getTime()))throw new TypeError("Evento financiero inválido");
-   return{tipo,concepto:String(e.concepto||""),montoMinor,fecha,fuente:String(e.fuente||"REGISTRO")};
-  }).filter(e=>e.fecha>fechaCorte);
- };
- const eventos=[...normalizar(ingresos,"INGRESO_PROGRAMADO"),...normalizar(obligaciones,"OBLIGACION_PROGRAMADA")];
- return HORIZONTES.map((dias,indice)=>{
-  const fechaLimite=new Date(fechaCorte.getTime()+dias*86400000);
-  const inicioTramo=new Date(fechaCorte.getTime()+(indice?HORIZONTES[indice-1]:0)*86400000);
-  const periodo=eventos.filter(e=>e.fecha<=fechaLimite);
-  const tramo=periodo.filter(e=>e.fecha>inicioTramo);
-  const ingresosMinor=periodo.filter(e=>e.tipo==="INGRESO_PROGRAMADO").reduce((a,e)=>a+e.montoMinor,0);
-  const compromisosMinor=periodo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA").reduce((a,e)=>a+e.montoMinor,0);
-  const saldoCondicionalMinor=saldoVerificado&&saldoMinor!==null?saldoMinor+ingresosMinor-compromisosMinor:null;
-  if(saldoCondicionalMinor!==null&&!Number.isSafeInteger(saldoCondicionalMinor))throw new RangeError("Proyección fuera de rango");
-  return{dias,fechaLimite,ingresosConFechaMinor:ingresosMinor,obligacionesConFechaMinor:compromisosMinor,saldoCondicionalMinor,numeroIngresos:periodo.filter(e=>e.tipo==="INGRESO_PROGRAMADO").length,numeroObligaciones:periodo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA").length,ingresosTramoMinor:tramo.filter(e=>e.tipo==="INGRESO_PROGRAMADO").reduce((a,e)=>a+e.montoMinor,0),obligacionesTramoMinor:tramo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA").reduce((a,e)=>a+e.montoMinor,0),numeroIngresosTramo:tramo.filter(e=>e.tipo==="INGRESO_PROGRAMADO").length,numeroObligacionesTramo:tramo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA").length,estado:"PARCIAL",soloLectura:true};
- });
+ const idsEventos=new Set();
+ const normalizar=(items,tipo)=>{if(!Array.isArray(items)||items.length>5000)throw falla("Eventos fuera de capacidad",422);const ids=idsEventos;return items.map(e=>{const fecha=fechaVerificable(e?.fecha);if(!e||!Number.isSafeInteger(e.montoMinor)||e.montoMinor<=0||!fecha)throw new TypeError("Evento financiero inválido");if(e.id!==undefined){if(typeof e.id!=="string"||!e.id||ids.has(e.id))throw falla("Identidad de evento repetida");ids.add(e.id);}return{...e,tipo,fecha};}).filter(e=>e.fecha>fechaCorte);};
+ const eventos=[...normalizar(ingresos,"INGRESO_PROGRAMADO"),...normalizar(obligaciones,"OBLIGACION_PROGRAMADA")];if(eventos.length>5000)throw falla("Eventos fuera de capacidad",422);
+ return HORIZONTES.map((dias,indice)=>{const fechaLimite=new Date(+fechaCorte+dias*86400000),inicioTramo=new Date(+fechaCorte+(indice?HORIZONTES[indice-1]:0)*86400000);if(!Number.isFinite(+fechaLimite))throw new TypeError("Horizonte inválido");const periodo=eventos.filter(e=>e.fecha<=fechaLimite),tramo=periodo.filter(e=>e.fecha>inicioTramo),i=periodo.filter(e=>e.tipo==="INGRESO_PROGRAMADO"),o=periodo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA"),it=tramo.filter(e=>e.tipo==="INGRESO_PROGRAMADO"),ot=tramo.filter(e=>e.tipo==="OBLIGACION_PROGRAMADA"),ingresosMinor=suma(i),compromisosMinor=suma(o),neto=seguro(BigInt(ingresosMinor)-BigInt(compromisosMinor));
+  return{dias,fechaLimite,ingresosConFechaMinor:ingresosMinor,obligacionesConFechaMinor:compromisosMinor,netoEventosRegistradosMinor:neto,saldoCondicionalMinor:escenarioCompleto&&saldoVerificado&&saldoMinor!==null?seguro(BigInt(saldoMinor)+BigInt(neto)):null,numeroIngresos:i.length,numeroObligaciones:o.length,ingresosTramoMinor:suma(it),obligacionesTramoMinor:suma(ot),numeroIngresosTramo:it.length,numeroObligacionesTramo:ot.length,estado:"PARCIAL",soloLectura:true,autorizaGasto:false};});
 }
 function fechasCalendario(item,corte,diasMax=90){
- const fechas=[],local=new Date(corte.getTime()-5*3600000),limite=new Date(corte.getTime()+diasMax*86400000);
- let y=local.getUTCFullYear(),m=local.getUTCMonth();
- for(let i=0;i<5;i++){
-  const ultimo=new Date(Date.UTC(y,m+1,0)).getUTCDate();
-  const fecha=new Date(Date.UTC(y,m,Math.min(item.diaMes,ultimo),5,0,0));
-  if(fecha>corte&&fecha<=limite)fechas.push(fecha);
-  m++;if(m>11){m=0;y++;}
- }
- return fechas;
+ const inicio=fechaVerificable(corte);if(!inicio||!Number.isSafeInteger(item?.diaMes)||item.diaMes<1||item.diaMes>31||!Number.isSafeInteger(diasMax)||diasMax<1||diasMax>90)throw new TypeError("Calendario inválido");
+ const fechas=[],p=home._fechas.partesColombia(inicio),limite=new Date(+inicio+diasMax*86400000);let y=p.y,m=p.m;if(y<1000||y>9998||!Number.isFinite(+limite))throw new TypeError("Calendario fuera de rango");
+ for(let n=0;n<5;n++){const f=home._fechas.fechaCivilColombia(y,m,item.diaMes);if(f>inicio&&f<=limite)fechas.push(f);m++;if(m>12){m=1;y++;}}return fechas;
 }
-async function analizar(usuarioId){
- const h=await home.obtener(usuarioId),a=h.asesor||{},corte=new Date(h.corte||Date.now());
- const [calendarios,deudas]=await Promise.all([
-  Calendario.find({usuarioId,activo:true,tipo:{$in:["INGRESO","GASTO_FIJO","OBLIGACION"]}}).lean(),
-  Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).lean()
- ]);
- const ingresos=[],obligaciones=[],deudasConCalendario=new Set();
- for(const c of calendarios){
-  if(c.sourceId)deudasConCalendario.add(String(c.sourceId));
-  for(const fecha of fechasCalendario(c,corte)){
-   const item={fecha,montoMinor:c.montoMinor,concepto:c.concepto,fuente:"CALENDARIO_MENSUAL"};
-   (c.tipo==="INGRESO"?ingresos:obligaciones).push(item);
-  }
+function validarFuentes(u,calendarios,deudas,transacciones=[]){
+ for(const rows of [calendarios,deudas,transacciones])if(!Array.isArray(rows)||rows.length>500)throw falla("Fuentes exceden capacidad verificable",422);
+ const validarId=(x,ids)=>{if(!x||!mongoose.isObjectIdOrHexString(x._id)||String(x.usuarioId)!==String(u)||ids.has(String(x._id)))throw falla("Identidad de proyección no verificable");ids.add(String(x._id));};
+ const ids=new Set();for(const d of deudas){validarId(d,ids);if(d.diaPago!=null&&(!Number.isSafeInteger(d.diaPago)||d.diaPago<1||d.diaPago>31))throw falla("Día de deuda no verificable");if(d.periodicidadConfirmada===true&&!["UNICA","SEMANAL","QUINCENAL","MENSUAL"].includes(d.periodicidad))throw falla("Periodicidad no verificable");if(d.direccion!=="POR_PAGAR"||!["ACTIVO","VENCIDO"].includes(d.estado)||!Number.isSafeInteger(d.principalMinor)||d.principalMinor<1||!Number.isSafeInteger(d.saldoMinor)||d.saldoMinor<0||d.saldoMinor>d.principalMinor||!Number.isSafeInteger(d.cuotaMinor)||d.cuotaMinor<0||!fechaVerificable(d.fechaInicio)||d.fechaVencimiento!=null&&!fechaVerificable(d.fechaVencimiento))throw falla("Deuda no verificable");}
+ const txs=new Map();ids.clear();for(const t of transacciones){validarId(t,ids);txs.set(String(t._id),t);}
+ ids.clear();const vinculadas=new Set(),porId=new Map(deudas.map(d=>[String(d._id),d]));for(const c of calendarios){validarId(c,ids);if(c.activo!==true||!["INGRESO","GASTO_FIJO","OBLIGACION"].includes(c.tipo)||c.frecuencia!=="MENSUAL"||!Number.isSafeInteger(c.montoMinor)||c.montoMinor<0||!Number.isSafeInteger(c.diaMes)||c.diaMes<1||c.diaMes>31)throw falla("Calendario no verificable");
+  if(c.sourceId!=null){if(!mongoose.isObjectIdOrHexString(c.sourceId))throw falla("Referencia de calendario inválida");if(c.tipo==="OBLIGACION"){const d=porId.get(String(c.sourceId)),f=fechaVerificable(d?.fechaVencimiento),p=f?home._fechas.partesColombia(f):null,esperado=d?.diaPago??p?.d;if(!d||vinculadas.has(String(d._id))||d.cuotaMinor<=0||c.montoMinor!==d.cuotaMinor||!f||c.diaMes!==esperado||diaCivilBogota(home._fechas.fechaCivilColombia(p.y,p.m,esperado))!==diaCivilBogota(f))throw falla("Vínculo de obligación requiere revisión");vinculadas.add(String(d._id));}else{const t=txs.get(String(c.sourceId));if(!t||t.tipo!==(c.tipo==="INGRESO"?"INGRESO":"GASTO"))throw falla("Fuente histórica del calendario ajena o ausente");}}
  }
- for(const d of deudas){
-  if(deudasConCalendario.has(String(d._id)))continue;
-  if(d.periodicidadConfirmada){obligaciones.push(...calendarioObligacion(d,corte,90).map(e=>({...e,fuente:"OBLIGACION_CONFIRMADA"})));continue;}
-  if(!d.fechaVencimiento)continue;
-  const venc=new Date(d.fechaVencimiento);
-  if(venc<=corte)continue;
-  obligaciones.push({fecha:venc,montoMinor:Math.min(d.cuotaMinor||d.saldoMinor,d.saldoMinor),concepto:d.concepto,fuente:"VENCIMIENTO_UNICO_CONOCIDO"});
- }
- const ventanas=proyectarVentanas({corte,saldoMinor:a.saldoRealConocido?a.saldoRealMinor:null,saldoVerificado:a.saldoConfiabilidad==="VERIFICADO",ingresos,obligaciones});
- return{ventanas,cobertura:"CALENDARIOS_MENSUALES_Y_VENCIMIENTOS_CONFIRMADOS",fuente:"CALENDARIO_PERSONAL_Y_PRESTAMOS",ingresosSinProgramar:ingresos.length===0,obligacionesSinFecha:deudas.filter(d=>!d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))).length,deudasSinPeriodicidadConfirmada:deudas.filter(d=>d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))&&!d.periodicidadConfirmada&&d.cuotaMinor>0).length,deudasParaConfirmar:deudas.filter(d=>d.fechaVencimiento&&!deudasConCalendario.has(String(d._id))&&d.cuotaMinor>0).map(d=>({id:String(d._id),concepto:d.concepto,cuotaMinor:d.cuotaMinor,fecha:d.fechaVencimiento})),saldoConfiabilidad:a.saldoConfiabilidad||"NO_VERIFICADO",soloLectura:true};
+ return{vinculadas};
 }
-module.exports={proyectarVentanas,fechasCalendario,analizar};
+function construir(u,h,calendarios,deudas,transacciones,corte){
+ validarFuentes(u,calendarios,deudas,transacciones);if(h?.moneda!=="COP"||!(h.corte instanceof Date)||+h.corte!==+corte)throw falla("Home de otro corte");
+ const ingresos=[],obligaciones=[],pendientes={montosCalendario:0,cuotasSinDefinir:0,deudasSinFecha:0,vencidasOHoy:0,calendariosHoy:0},porId=new Map(deudas.map(d=>[String(d._id),d]));
+ for(const c of calendarios){if(c.montoMinor===0){pendientes.montosCalendario++;continue;}const hoy=home._fechas.partesColombia(corte),dia=home._fechas.fechaCivilColombia(hoy.y,hoy.m,c.diaMes);if(diaCivilBogota(dia)===diaCivilBogota(corte))pendientes.calendariosHoy++;
+  if(c.tipo==="OBLIGACION"&&c.sourceId&&porId.has(String(c.sourceId)))continue;
+  for(const fecha of fechasCalendario(c,corte)){const e={id:"cal:"+String(c._id)+":"+fecha.toISOString(),fecha,montoMinor:c.montoMinor,fuente:"CALENDARIO_MENSUAL_REGISTRADO"};(c.tipo==="INGRESO"?ingresos:obligaciones).push(e);}}
+ for(const d of deudas){if(d.saldoMinor===0)continue;if(d.cuotaMinor===0){pendientes.cuotasSinDefinir++;continue;}const fecha=fechaVerificable(d.fechaVencimiento);if(!fecha){pendientes.deudasSinFecha++;continue;}if(diaCivilBogota(fecha)<=diaCivilBogota(corte)){pendientes.vencidasOHoy++;continue;}obligaciones.push({id:"prestamo:"+String(d._id),fecha,montoMinor:d.cuotaMinor,fuente:"SOLO_PROXIMA_CUOTA_REGISTRADA"});}
+ const v=D.validar(h,corte),ventanas=proyectarVentanas({corte,ingresos,obligaciones});
+ return{contrato:2,corte:corte.toISOString(),ventanas,pendientes,cobertura:"CALENDARIOS_REGISTRADOS_Y_SOLO_PROXIMA_CUOTA",fuente:"SNAPSHOT_PROYECCION_PERSONAL",ingresosSinProgramar:ingresos.length===0,obligacionesSinFecha:pendientes.deudasSinFecha,deudasSinPeriodicidadConfirmada:deudas.filter(d=>d.saldoMinor>0&&d.periodicidadConfirmada!==true).length,deudasParaConfirmar:deudas.filter(d=>d.saldoMinor>0).map(d=>({id:String(d._id),concepto:d.concepto,cuotaMinor:d.cuotaMinor||null,fecha:fechaVerificable(d.fechaVencimiento)?.toISOString()??null})),saldoConfiabilidad:v.autorizado?"VERIFICADO":"NO_VERIFICADO",saldoCondicionalMinor:null,autorizaGasto:false,completo:false,soloLectura:true,fuentes:{calendarios:calendarios.map(x=>String(x._id)),prestamos:deudas.map(x=>String(x._id))}};
+}
+async function analizar(usuarioId,ahora=new Date()){
+ if(!mongoose.isObjectIdOrHexString(usuarioId)||!(ahora instanceof Date)||!Number.isFinite(+ahora))throw falla("Consulta de proyección inválida",400);if(mongoose.connection.readyState!==1)throw falla("Proyección no disponible",503);
+ const corte=new Date(+ahora),s=await mongoose.startSession();let salida;try{await s.withTransaction(async()=>{const h=await home.obtenerEnSesion(usuarioId,new Date(+corte),s),cal=await Calendario.find({usuarioId,activo:true}).limit(501).maxTimeMS(5000).session(s).lean(),deudas=await Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).limit(501).maxTimeMS(5000).session(s).lean();if(cal.length>500||deudas.length>500)throw falla("Proyección excede capacidad",422);const ids=cal.filter(c=>c.sourceId&&c.tipo!=="OBLIGACION").map(c=>c.sourceId);const txs=ids.length?await Tx.find({usuarioId,_id:{$in:ids}}).limit(501).maxTimeMS(5000).session(s).lean():[];salida=construir(usuarioId,h,cal,deudas,txs,corte);},{readConcern:{level:"snapshot"},readPreference:"primary"});return salida;}finally{await s.endSession();}}
+module.exports={proyectarVentanas,fechasCalendario,analizar,validarFuentes,construir};

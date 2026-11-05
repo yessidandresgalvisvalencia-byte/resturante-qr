@@ -1,7 +1,4 @@
 "use strict";
-const Turno=require("../models/turnoConversacionalPersonal.model");
-const Contexto=require("../models/contextoConversacionalPersonal.model");
-const home=require("./homePersonal.service");
 const consulta=require("./consultaPersonal.service");
 const proyeccion=require("./proyeccionMaster90d.service");
 
@@ -14,49 +11,34 @@ function encontrarContexto(turnos,texto){
  const candidatos=turnos.filter(t=>t&&typeof t.mensaje==="string"&&t.mensaje.trim()&&t.mensaje.trim()!==texto);
  return candidatos[0]||null;
 }
-function moneda(n){return new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(Number(n));}
-function estadoConocido(h){
- const a=h?.asesor||{},saldoConocido=Boolean(a.saldoRealConocido);
- const disponible=saldoConocido&&Number.isSafeInteger(a.disponibleHoyMinor)?a.disponibleHoyMinor:null;
- const compromisos=Number.isSafeInteger(h?.caja?.comprometidoMinor)?h.caja.comprometidoMinor:null;
- return{saldoConocido,disponible,compromisos,confiabilidad:a.saldoConfiabilidad||"NO_VERIFICADO"};
+function estadoConocido(h,ahora=h?.corte){
+ const observacion=require("./disponibleConversacionalPersonal.service").validar(h,ahora),a=observacion.autorizado?observacion.datos:null;
+ return{saldoConocido:!!a,disponible:a?.disponibleHoyMinor??null,compromisos:a?.gastosFijosAntesProximoIngresoMinor??null,confiabilidad:a?"VERIFICADO":"NO_VERIFICADO",observacion};
 }
-function armarRespuesta(base,datos){
- const hechos=datos.saldoConocido?
-  "Disponible estimado para gasto libre: "+moneda(datos.disponible)+".":"No hay saldo disponible verificado suficiente para afirmar cuánto puedes comprometer.";
- const compromisos=datos.compromisos===null?"Los compromisos pendientes no están completamente cuantificados.":"Compromisos registrados: "+moneda(datos.compromisos)+".";
- const riesgo=datos.confiabilidad==="VERIFICADO"?"Datos de saldo verificados en GRUK.":"El saldo necesita conciliación; las cifras no deben tratarse como dinero confirmado.";
- return base+"\n\n**Situación financiera conocida:** "+hechos+" "+compromisos+" "+riesgo+
- "\n\n**Criterio profesional:** Antes de asumir un gasto o una cuota nueva, protege alimentación, vivienda, transporte, pagos próximos y un margen para imprevistos. Si faltan precio final, intereses, fechas o gastos esenciales, no es responsable aprobar la decisión con certeza."+
- "\n\n**Siguiente decisión:** Compara el costo total y el calendario de pagos con tu dinero realmente disponible. No se creó ningún movimiento, préstamo ni compromiso.";
+function armarRespuesta(_base,datos){
+ const D=require("./disponibleConversacionalPersonal.service"),r=D.presentar(datos?.observacion||D.validar(null,new Date()));
+ return r.respuesta+" No se creó ningún movimiento.";
 }
+const FUENTES_VALIDADAS=new Set(["ASESOR_HOME_VERIFICADO","PRESTAMO_PERSONAL_EN_SNAPSHOT","HOME_SNAPSHOT_COMPENSADO","PRESTAMOS_PERSONALES_SNAPSHOT","FUENTES_PERSONALES","PATRIMONIO_PERSONAL_V2"]);
 async function orientar(usuarioId,pregunta,{turnos=[],guardarContexto=true}={}){
- const actual=NORMALIZAR(pregunta);
- const anterior=encontrarContexto(turnos,actual);
- const contextoPrevio=anterior?.mensaje?.slice(0,400)||null;
+ const mongoose=require("mongoose"),actual=NORMALIZAR(pregunta);if(!mongoose.isObjectIdOrHexString(usuarioId)||!actual)throw Object.assign(Error("Consulta personal inválida"),{statusCode:400});
+ const propios=Array.isArray(turnos)?turnos.filter(t=>String(t.usuarioId)===String(usuarioId)):[],anterior=encontrarContexto(propios,actual);
+ const contextoPrevio=anterior?{id:String(anterior._id||""),fecha:anterior.createdAt||null,esReferenciaHistorica:true}:null;
  if(/(?:proyecci[oó]n|proyecta|pr[oó]ximos? (?:30|60|90) d[ií]as|(?:30|60|90) d[ií]as|futuro de mi caja)/i.test(actual)&&/(?:caja|finanzas|dinero|saldo|ingresos|gastos|pagos|proyecci[oó]n|proyecta)/i.test(actual)){
-  const resultado=await proyeccion.analizar(usuarioId);
-  const partes=resultado.ventanas.map((v,i)=>{const desde=i===0?0:resultado.ventanas[i-1].dias;return "Días "+(desde+1)+" al "+v.dias+": "+v.numeroIngresosTramo+" ingreso(s) programado(s), "+v.numeroObligacionesTramo+" pago(s) con fecha por "+moneda(v.obligacionesTramoMinor)+"; acumulado de obligaciones hasta aquí: "+moneda(v.obligacionesConFechaMinor)+".";});
-  const alertas=[];
-  if(resultado.ingresosSinProgramar)alertas.push("No hay ingresos futuros programados en el calendario: NO significa que tus ingresos sean cero.");
-  if(resultado.deudasSinPeriodicidadConfirmada){const nombres=(resultado.deudasParaConfirmar||[]).map(x=>x.concepto+" (cuota "+moneda(x.cuotaMinor)+")");alertas.push("Falta confirmar si las cuotas de "+nombres.join(", ")+" se repiten cada mes. Por seguridad se consideró solo la fecha registrada.");}
-  if(resultado.obligacionesSinFecha)alertas.push("Hay "+resultado.obligacionesSinFecha+" deuda(s) sin vencimiento conocido.");
-  const conclusion="Estos tramos son diferentes; cuando el acumulado se repite significa que no se registraron eventos adicionales, no que haya nuevos cobros o pagos. Tampoco es un presupuesto completo."; 
-  const paso=resultado.deudasSinPeriodicidadConfirmada?"¿La cuota de la deuda mencionada se paga todos los meses en el mismo día?":resultado.ingresosSinProgramar?"¿Recibes ingresos periódicos? Indícame monto y fecha habitual para evaluar un calendario, sin registrarlo sin tu autorización.":"Revisa tus gastos variables y saldo real antes de comprometer más dinero."; 
-  return{tipo:"PROYECCION_PARCIAL_30_60_90",respuesta:"Análisis por períodos de 30 días. "+partes.join(" ")+" "+conclusion+" "+alertas.join(" ")+" "+paso+" No se registraron operaciones.",datos:resultado};
+  try{const resultado=await proyeccion.analizar(usuarioId);return presentarProyeccion(resultado);}catch{return{tipo:"PROYECCION_NO_VERIFICABLE",respuesta:"🟡 No pude verificar la proyección completa.\nNo muestro sumas parciales ni las reemplazo por cero.\nAcción: revisa fechas, cuotas y fuentes antes de proyectar.",datos:{completo:false,ventanas:null,saldoCondicionalMinor:null,autorizaGasto:false}};}
  }
- const consultaBase=await consulta.consultar(usuarioId,actual,{guardarContexto});
- const solicitaDecision=DECISION.test(actual);
- if(!solicitaDecision&&!anterior)return{...consultaBase,contextoPrevio:null};
- const h=await home.obtener(usuarioId),e=estadoConocido(h);
- const prefijo=anterior?
-  "Sigo el tema de tu pregunta anterior («"+contextoPrevio+"»), pero no asumiré que esa operación ocurrió ni que sus condiciones siguen vigentes. "+
-  "Tu pregunta actual es «"+actual+"». ":"";
- return{
-  ...consultaBase,
-  tipo:"ASESORIA_MASTER_CONTEXTO",
-  respuesta:prefijo+armarRespuesta(consultaBase.respuesta,e),
-  datos:{...(consultaBase.datos||{}),soloLectura:true,contextoPrevio:contextoPrevio?{texto:contextoPrevio}:null,calidadSaldo:e.confiabilidad,requiereAprobacion:false}
- };
+ const base=await consulta.consultar(usuarioId,actual,{guardarContexto});
+ if(!DECISION.test(actual)&&!anterior)return{...base,contextoPrevio:null};
+ // No mezclar una respuesta financiera validada con otro saldo observado después.
+ if(FUENTES_VALIDADAS.has(base.fuente)||base.tipo==="GASTO_INTELIGENTE"||base.tipo==="DEUDA_NO_IDENTIFICADA"||base.tipo==="REFERENCIA_AMBIGUA")return{...base,contextoPrevio,datos:{...base.datos,contextoPrevio,requiereAprobacion:false}};
+ const D=require("./disponibleConversacionalPersonal.service"),v=await D.observar(usuarioId),r=D.presentar(v);
+ return{tipo:"ASESORIA_MASTER_CONTEXTO",respuesta:r.respuesta,fuente:r.fuente,contextoPrevio,datos:{...r.datos,soloLectura:true,contextoPrevio,autorizaCompra:false,cuotaRecomendadaMinor:null,requiereAprobacion:false}};
 }
-module.exports={seguimiento,encontrarContexto,estadoConocido,armarRespuesta,orientar};
+function presentarProyeccion(r){
+ const money=n=>{if(!Number.isSafeInteger(n)||n<0)throw Error("Importe de proyección inválido");return new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n);};
+ if(!r||r.contrato!==2||!Array.isArray(r.ventanas)||r.ventanas.length!==3)throw Error("Proyección inválida");
+ const pendientes=r.pendientes;if(!pendientes||["montosCalendario","cuotasSinDefinir","deudasSinFecha","vencidasOHoy","calendariosHoy"].some(k=>!Number.isSafeInteger(pendientes[k])||pendientes[k]<0))throw Error("Pendientes inválidos");const sinResolver=Object.values(pendientes).reduce((a,n)=>a+n,0);
+ const filas=r.ventanas.map((v,i)=>{if(v.dias!==[30,60,90][i]||v.saldoCondicionalMinor!==null)throw Error("Horizonte inválido");return "Días "+(i?i*30+1:1)+"–"+v.dias+": ingresos programados "+money(v.ingresosTramoMinor)+"; pagos registrados "+money(v.obligacionesTramoMinor)+".";});
+ return{tipo:"PROYECCION_PARCIAL_30_60_90",respuesta:["🟡 Escenario parcial de eventos registrados, no presupuesto completo.",...filas,r.ingresosSinProgramar?"Sin ingresos programados no significa ingreso futuro cero; registros por verificar: "+sinResolver+".":"No calcula saldo futuro; registros por verificar: "+sinResolver+" y gastos/condiciones faltantes.","Acción: verifica fechas, cuotas y gastos antes de comprometer dinero."].join("\n"),datos:r};
+}
+module.exports={seguimiento,encontrarContexto,estadoConocido,armarRespuesta,orientar,presentarProyeccion};
