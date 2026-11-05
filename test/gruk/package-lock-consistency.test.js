@@ -28,3 +28,19 @@ test('each direct production dependency is represented by a locked package', () 
       'missing locked version for ' + name);
   }
 });
+
+test('registry tarballs are pinned to an integrity digest', () => {
+  for (const [name, entry] of Object.entries(lock.packages)) {
+    if (!name || !entry.resolved) continue;
+    if (!entry.resolved.startsWith('https://registry.npmjs.org/')) continue;
+    assert.match(entry.integrity || '', /^sha(256|384|512)-[A-Za-z0-9+/=]+$/,
+      'missing or malformed integrity digest for ' + name);
+  }
+});
+
+test('production dependencies cannot use mutable remote or local sources', () => {
+  for (const [name, spec] of Object.entries(manifest.dependencies || {})) {
+    assert.doesNotMatch(spec, /^(?:git(?:\+|:)|https?:|file:|link:|workspace:)/i,
+      'unreviewed dependency source for ' + name);
+  }
+});
