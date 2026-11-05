@@ -55,3 +55,13 @@ Local Node24: 510 casos/501 aprobados/nueve omitidos/cero fallos; 37 dirigidas d
 3. Abonos parciales/múltiples, aceptación visual/dispositivos y archivo/exportación de pendientes sin borrar evidencia; medir demora/fecha productivas con evidencia real.
 
 #407, custodio independiente real, copia completa durable/retención/acceso/claves separados, recuperación operativa aislada y RPO/RTO productivos, roles/índices/históricos reales, seguridad/compatibilidad/informe final siguen pendientes. Sin merge a feature ni Render, main/Empresarial/Blushéa, costos nuevos, migraciones o alteración/restauración de información real.
+
+## Evidencia del núcleo publicado
+
+Núcleo `e1c8e7a293b91adeb7d2ab835f9c6b0686e680b1`, árbol `644d672f087befbc904815fad8ba221833737da1`. Gate 42109979018, Seguridad 42109979073 y V81 42109979308: success para ese SHA. Job Mongo autorizado 127534662131: 69 pruebas/69 aprobadas/cero fallos; aprobó el subtest de recepción única por ocurrencia. Demostró fuente financiera original intacta, competición entre calendarios, replay, error de inserción, lectura compensada corregida, horizonte en revisión, referencia de anulación y revinculación, sin escrituras de caja por el vínculo. Catorce blobs remotos cotejados y árbol idéntico a la copia probada.
+
+Local final: Node24, 510 casos/501 aprobados/nueve omitidos/cero fallos; 37 dirigidas aprobadas; sintaxis y diff correctos. CI Node20 confirmó el comportamiento. El cierre documental descendiente requiere su propia CI y no es otro bloque funcional.
+
+Ensayo V18: 38 colecciones/5364 documentos/3505218 bytes, captura 202 ms, restauración 906 ms, edad 1074 ms; custodiaIndependiente=false y rpoProduccion=false. Conservación BSON/índices en base aislada, sin recuperación productiva ni certificación externa. Alcance/roles/índices del backup sin cambios.
+
+Un bloque de API de conciliación de recepción con ingreso existente e integración verificado. Pendientes: interfaz de vínculo y recuperación; alta nueva de ingreso+recepción en una única transacción; abonos múltiples; aprobación visual/dispositivos y todos los gates externos de #407. Sin merge a feature ni Render, datos reales o costos alterados.
