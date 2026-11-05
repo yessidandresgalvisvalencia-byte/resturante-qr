@@ -4,7 +4,7 @@ const {BSON}=require("mongoose").mongo;
 const {COLECCIONES,cifrar,descifrar,validarDestino,restaurarEnEnsayo}=require("../../modules/finanzas-personales/services/respaldoFinancieroPersonal.service");
 function contenido(){
  const raw=BSON.serialize({_id:new BSON.ObjectId(),decimal:BSON.Decimal128.fromString("123.45"),entero:BSON.Long.fromString("9007199254740993"),fecha:new Date("2026-11-02T00:00:00Z")});
- return{version:16,inicio:"2026-11-02T00:00:00.000Z",fin:"2026-11-02T00:00:01.000Z",retenerHasta:"2026-12-02T00:00:00.000Z",
+ return{version:17,inicio:"2026-11-02T00:00:00.000Z",fin:"2026-11-02T00:00:01.000Z",retenerHasta:"2026-12-02T00:00:00.000Z",
   colecciones:COLECCIONES.map((nombre,i)=>({nombre,indices:[{name:"_id_",key:{_id:1}}],documentos:i===0?[raw.toString("base64")]:[],hash:crypto.createHash("sha256").update(i===0?raw:Buffer.alloc(0)).digest("hex")}))};
 }
 test("respaldo cifrado conserva BSON, fechas, decimales y enteros sin imprimir datos",()=>{
@@ -68,3 +68,5 @@ test("backup V13 conserva su alcance de 29 colecciones",()=>{const p=contenido()
 test("backup V14 conserva su alcance de 30 colecciones",()=>{const p=contenido();p.version=14;p.colecciones=p.colecciones.slice(0,30);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,30);});
 
 test("backup V15 conserva su alcance de 33 colecciones",()=>{const p=contenido();p.version=15;p.colecciones=p.colecciones.slice(0,33);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,33);});
+
+test("backup V16 conserva 34 colecciones y V17 incorpora captura, turno y contexto",()=>{const p=contenido();p.version=16;p.colecciones=p.colecciones.slice(0,34);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,34);assert.equal(COLECCIONES.length,37);for(const n of ["fin_capturas_copilot_personales_v1","fin_turnos_conversacionales_personales","fin_contexto_conversacional_personal"])assert.ok(COLECCIONES.includes(n));});

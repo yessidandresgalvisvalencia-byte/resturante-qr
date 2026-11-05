@@ -30,7 +30,7 @@ function armarRespuesta(base,datos){
  "\n\n**Criterio profesional:** Antes de asumir un gasto o una cuota nueva, protege alimentación, vivienda, transporte, pagos próximos y un margen para imprevistos. Si faltan precio final, intereses, fechas o gastos esenciales, no es responsable aprobar la decisión con certeza."+
  "\n\n**Siguiente decisión:** Compara el costo total y el calendario de pagos con tu dinero realmente disponible. No se creó ningún movimiento, préstamo ni compromiso.";
 }
-async function orientar(usuarioId,pregunta,{turnos=[]}={}){
+async function orientar(usuarioId,pregunta,{turnos=[],guardarContexto=true}={}){
  const actual=NORMALIZAR(pregunta);
  const anterior=encontrarContexto(turnos,actual);
  const contextoPrevio=anterior?.mensaje?.slice(0,400)||null;
@@ -45,7 +45,7 @@ async function orientar(usuarioId,pregunta,{turnos=[]}={}){
   const paso=resultado.deudasSinPeriodicidadConfirmada?"¿La cuota de la deuda mencionada se paga todos los meses en el mismo día?":resultado.ingresosSinProgramar?"¿Recibes ingresos periódicos? Indícame monto y fecha habitual para evaluar un calendario, sin registrarlo sin tu autorización.":"Revisa tus gastos variables y saldo real antes de comprometer más dinero."; 
   return{tipo:"PROYECCION_PARCIAL_30_60_90",respuesta:"Análisis por períodos de 30 días. "+partes.join(" ")+" "+conclusion+" "+alertas.join(" ")+" "+paso+" No se registraron operaciones.",datos:resultado};
  }
- const consultaBase=await consulta.consultar(usuarioId,actual);
+ const consultaBase=await consulta.consultar(usuarioId,actual,{guardarContexto});
  const solicitaDecision=DECISION.test(actual);
  if(!solicitaDecision&&!anterior)return{...consultaBase,contextoPrevio:null};
  const h=await home.obtener(usuarioId),e=estadoConocido(h);

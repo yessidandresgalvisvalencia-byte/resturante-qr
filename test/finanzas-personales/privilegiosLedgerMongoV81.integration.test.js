@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("captura copilot atómica recupera respuesta sin duplicar borrador y protege originales",()=>require("./helpers/capturaCopilotAutorizada").probarCapturaCopilot(db,provisionarMongoPersonal));
   await t.test("ingreso mensual y copilot conservan fuentes, turnos y bloqueo ante pago incierto",()=>require("./helpers/ingresoCopilotAutorizado").probarIngresoCopilot());
   await t.test("simulación conversacional explícita o pendiente no cambia fuentes ni contexto",()=>require("./helpers/simulacionCreditoAutorizada").probarSimulacionConversacional(db));
   await t.test("simulación exacta repetida y rechazada conserva todas las colecciones",()=>require("./helpers/simulacionCreditoAutorizada").probarSimulacionSinEscrituras(db));

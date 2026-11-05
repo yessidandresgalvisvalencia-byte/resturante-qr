@@ -18,7 +18,8 @@ const COLECCIONES=Object.freeze([
  require("../models/cicloActivoPersonal.model").collection.collectionName,
  require("../models/cicloCuentaPersonal.model").collection.collectionName,
  require("../models/reciboCreacionActivoPersonal.model").collection.collectionName,
- require("../models/reciboCreacionInversionPersonal.model").collection.collectionName
+ require("../models/reciboCreacionInversionPersonal.model").collection.collectionName,
+ require("../models/capturaCopilotPersonal.model").collection.collectionName
 ]);
 const LECTURA=new Set(["find","listIndexes","listCollections","collStats","dbStats","indexStats","killCursors","planCacheRead"]);
 const CLUSTER_LECTURA=new Set(["serverStatus","hostInfo","getCmdLineOpts","getParameter","listDatabases","connPoolStats","getLog","inprog"]);
