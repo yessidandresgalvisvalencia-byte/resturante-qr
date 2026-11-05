@@ -6,16 +6,20 @@ const exigir=createRequire(ruta),codigo=fs.readFileSync(ruta,"utf8");
 const ahora=new Date("2026-10-18T15:00:00Z"),usuarioId="507f1f77bcf86cd799439011";
 function cargar({deudas=[],tarjetas=[],fallo=false,fuente=codigo}={}){
  const consultas=[];
+ let session;
  const query=rows=>({sort(){return this;},limit(n){assert.equal(n,5001);return this;},
-  maxTimeMS(n){assert.equal(n,5000);return this;},async lean(){if(fallo)throw new Error("lectura fallida");return rows;}});
+  session(s){assert.equal(s,session);return this;},maxTimeMS(n){assert.equal(n,5000);return this;},async lean(){if(fallo)throw new Error("lectura fallida");return rows;}});
  const modelo=seleccionar=>({find(filtro){assert.equal(filtro.usuarioId,usuarioId);consultas.push(filtro);return query(seleccionar(filtro));}});
+ session={inTransaction:()=>true,withTransaction:async fn=>fn(),endSession:async()=>{}};
  const dependencias={
+  mongoose:{connection:{readyState:1},isObjectIdOrHexString:()=>true,startSession:async()=>session},
   "../models/TransaccionPersonal":modelo(()=>[]),
   "../models/prestamoPersonal.model":modelo(f=>f.direccion==="POR_PAGAR"?deudas:[]),
   "../models/DeudaPersonal":modelo(()=>tarjetas),
   "../models/calendarioFinanciero.model":modelo(()=>[{diaMes:25,montoMinor:1000000,concepto:"Ingreso"}]),
   "./consultaCompensadaPersonal.service":{consultarPeriodo:async({usuarioId:id})=>{assert.equal(id,usuarioId);return[];}},
-  "./patrimonioPersonal.service":{snapshot:async id=>{
+  "./patrimonioPersonal.service":{snapshotEnSesion:async (id,s)=>{
+   assert.equal(s,session);
    assert.equal(id,usuarioId);
    return{saldoVerificado:true,liquidezMinor:1000000,fuenteLiquidez:"ANCLA_RECONCILIADA",cuentas:[],activos:[],
     activosTotalesMinor:1000000,cuentasPorCobrarMinor:0,pasivosMinor:0,patrimonioFinancieroNetoMinor:1000000};

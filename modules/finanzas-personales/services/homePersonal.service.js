@@ -1,4 +1,5 @@
 "use strict";
+const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
 const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const Prestamo=require("../models/prestamoPersonal.model");
@@ -217,17 +218,33 @@ function crearDecisionDisponibleHoy({disponibleHoyMinor,aptoParaDisponibleHoy,co
 }
 function calcularFlujoMes({ingresosMinor=0,gastosMinor=0,pagosDeudaRegistradosMinor=0,cuotasVencenMesMinor=0}){for(const n of [ingresosMinor,gastosMinor,pagosDeudaRegistradosMinor,cuotasVencenMesMinor])if(!Number.isSafeInteger(n)||n<0)throw new TypeError("Los importes del flujo deben ser enteros seguros no negativos");const cuotasPendientesMesMinor=Math.max(0,cuotasVencenMesMinor-pagosDeudaRegistradosMinor);const flujoRealizadoMinor=sumarImportesHome([ingresosMinor,-gastosMinor,-pagosDeudaRegistradosMinor]);const flujoProyectadoMesMinor=sumarImportesHome([flujoRealizadoMinor,-cuotasPendientesMesMinor]);if(!Number.isSafeInteger(flujoRealizadoMinor)||!Number.isSafeInteger(flujoProyectadoMesMinor))throw new RangeError("El flujo calculado excede el rango monetario seguro");return{cuotasPendientesMesMinor,flujoRealizadoMinor,flujoProyectadoMesMinor};}
 
+// Una sola vista MongoDB para caja, pagos, obligaciones, recurrencias y calendario.
+// Las operaciones de una sesión son secuenciales: el driver no admite paralelismo
+// dentro de una transacción. El resultado solo sale después de confirmar y cerrar.
 async function obtener(usuarioId,now=new Date()){
+ if(!mongoose.isObjectIdOrHexString(usuarioId))throw Object.assign(new TypeError("Usuario inválido"),{statusCode:400});
+ if(!(now instanceof Date)||!Number.isFinite(+now))throw Object.assign(new TypeError("Corte inválido"),{statusCode:400});
+ const corte=new Date(+now);
+ if(mongoose.connection.readyState!==1)throw Object.assign(new Error("Lectura del panel no disponible"),{statusCode:503});
+ const session=await mongoose.startSession();
+ try{
+  let resultado;
+  await session.withTransaction(async()=>{
+   resultado=await obtenerEnSesion(usuarioId,new Date(+corte),session);
+  },{readConcern:{level:"snapshot"},readPreference:"primary"});
+  return resultado;
+ }finally{await session.endSession();}
+}
+async function obtenerEnSesion(usuarioId,now,session){
+ if(!session?.inTransaction())throw Object.assign(new Error("Panel requiere transacción activa"),{statusCode:503});
  const inicio=monthStart(now),fin=nextMonth(now);
- const [tx,deudas,tarjetas,pat,ingresosRecurrentes,calendariosIngreso,cobros]=await Promise.all([
-  consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:new Date(+now+1).toISOString()}).then(rows=>rows.filter(x=>["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"].includes(x.tipo))),
-  leerListadoHome(Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).sort({fechaVencimiento:1,createdAt:1})),
-  leerListadoHome(DeudaPersonal.find({usuarioId,tipo:"TARJETA_CREDITO",activa:true,saldoMinor:{$gt:0}})),
-  patrimonio.snapshot(usuarioId),
-  leerListadoHome(Transaccion.find({usuarioId,tipo:"INGRESO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1})),
-  leerListadoHome(Calendario.find({usuarioId,tipo:"INGRESO",activo:true})),
-  leerListadoHome(Prestamo.find({usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).sort({fechaVencimiento:1}))
- ]);
+ const tx=(await consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:new Date(+now+1).toISOString()},{session})).filter(x=>["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"].includes(x.tipo));
+ const deudas=await leerListadoHome(Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).sort({fechaVencimiento:1,createdAt:1}).session(session));
+ const tarjetas=await leerListadoHome(DeudaPersonal.find({usuarioId,tipo:"TARJETA_CREDITO",activa:true,saldoMinor:{$gt:0}}).session(session));
+ const pat=await patrimonio.snapshotEnSesion(usuarioId,session);
+ const ingresosRecurrentes=await leerListadoHome(Transaccion.find({usuarioId,tipo:"INGRESO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).session(session));
+ const calendariosIngreso=await leerListadoHome(Calendario.find({usuarioId,tipo:"INGRESO",activo:true}).session(session));
+ const cobros=await leerListadoHome(Prestamo.find({usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).sort({fechaVencimiento:1}).session(session));
  const ingresosMinor=sumarMontosHome(tx.filter(x=>x.tipo==="INGRESO"));
  const cobrosRecibidosMinor=sumarMontosHome(tx.filter(x=>x.tipo==="COBRO_PRESTAMO"));
  const gastosConsumoMinor=sumarMontosHome(tx.filter(x=>x.tipo==="GASTO"));
@@ -269,7 +286,7 @@ async function obtener(usuarioId,now=new Date()){
  // Vencimientos anteriores siguen requiriendo verificación; no se presumen pagados.
  // No volver a descontar automáticamente una deuda histórica sin conciliar pagos.
  const vencimientosAtrasados=seleccionarVencimientosAtrasados(deudas,now);
- const gastosFijosRecurrentes=await leerListadoHome(Transaccion.find({usuarioId,tipo:"GASTO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}));
+ const gastosFijosRecurrentes=await leerListadoHome(Transaccion.find({usuarioId,tipo:"GASTO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).session(session));
  for(const g of gastosFijosRecurrentes){const fecha=siguienteFechaRecurrente({...g,tipo:"INGRESO"},now);if(fecha&&fecha<limiteCompromisos)compromisosAntesIngreso.push({concepto:g.concepto,montoMinor:g.montoMinor,fecha});}
  // Conciliar el mismo ciclo definido por el validador de escritura, no solo
  // la fecha de hoy: un abono ayer también puede cubrir la cuota de hoy.
@@ -280,7 +297,7 @@ async function obtener(usuarioId,now=new Date()){
  const desde=periodosHoy.length?new Date(Math.min(...periodosHoy.map(x=>x.inicio.getTime()))):null;
  const origenesHoy=new Set(vencenHoy.map(x=>String(x._id)));
  const pagosVinculados=desde?(await consultarPeriodo({usuarioId,desde:desde.toISOString(),
-  hasta:new Date(+now+1).toISOString(),tipo:"GASTO"})).filter(x=>
+  hasta:new Date(+now+1).toISOString(),tipo:"GASTO"},{session})).filter(x=>
    origenesHoy.has(String(x.recurrenteOrigenId))&&x.impactoCaja!==false):[];
  const gastosRecurrentesHoySinConciliar=periodosHoy.filter(({gasto,inicio,fin})=>{
   const total=sumarAbonosRecurrentesPeriodo({
