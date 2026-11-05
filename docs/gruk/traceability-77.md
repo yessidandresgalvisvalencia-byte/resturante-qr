@@ -20,21 +20,21 @@ Estado global: **0/77 certificados en esta matriz**. Un PR abierto, un test escr
 | 12 | Instrumentar métricas del producto | Hay panel semanal sin depender de estimaciones manuales | Sin evidencia verificada registrada | No certificado |
 | 13 | Definir contratos de herramientas | Cada tool tiene esquema, pruebas, permisos y manejo de errores | Sin evidencia verificada registrada | No certificado |
 | 14 | Lanzar un único agente inicial | Resuelve 20 casos de prueba mejor que búsqueda manual | Sin evidencia verificada registrada | No certificado |
-| 15 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 16 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 17 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 18 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 19 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 20 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 21 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 22 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 23 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 24 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 25 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 26 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 27 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 28 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 29 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
+| 15 | Separar hechos, hipótesis y recomendaciones | Nunca presenta hipótesis como hechos. | Sin evidencia verificada registrada | No certificado |
+| 16 | GRUK Business State | Actualiza inventario/caja/pedidos tras eventos sin lag injustificado. | Sin evidencia verificada registrada | No certificado |
+| 17 | Registro de objetivos (Goal Registry) | Se puede seguir y cerrar un objetivo con evidencia. | Sin evidencia verificada registrada | No certificado |
+| 18 | Detección y priorización de oportunidades | Cada alerta explica cálculo, impacto y acción sugerida. | Sin evidencia verificada registrada | No certificado |
+| 19 | Evaluador de resultados | Reportes de acierto, error, costo y correcciones. | Sin evidencia verificada registrada | No certificado |
+| 20 | Verificación y aprobación humana | Pruebas demuestran que no hay pago/cambio irreversible sin permiso. | Sin evidencia verificada registrada | No certificado |
+| 21 | ROI por flujo, no por cantidad de agentes | Caso piloto demuestra beneficio neto con supuestos declarados. | Sin evidencia verificada registrada | No certificado |
+| 22 | Historial de eventos (Historical Lake) | Se puede reconstituir una situación histórica. | Sin evidencia verificada registrada | No certificado |
+| 23 | Business Graph | Consultas cruzadas muestran dependencias reales. | Sin evidencia verificada registrada | No certificado |
+| 24 | Memory Index y búsqueda con evidencia | Respuesta enlaza registros consultables. | Sin evidencia verificada registrada | No certificado |
+| 25 | Memoria episódica | Caso pasado se recupera por similitud y fechas. | Sin evidencia verificada registrada | No certificado |
+| 26 | Memoria semántica | Los hechos desactualizados se señalan. | Sin evidencia verificada registrada | No certificado |
+| 27 | Memoria procedimental / skills | Skill se ejecuta únicamente en su ámbito válido. | Sin evidencia verificada registrada | No certificado |
+| 28 | Memoria de fallos | El agente evita una repetición en evaluación histórica. | Sin evidencia verificada registrada | No certificado |
+| 29 | Procedencia y autoridad de recuerdos | Resumen nunca amplía autorización del dato original. | Sin evidencia verificada registrada | No certificado |
 | 30 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
 | 31 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
 | 32 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
