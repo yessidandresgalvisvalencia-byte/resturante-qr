@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("recepción por ocurrencia vincula ingreso vigente una sola vez sin duplicar caja",()=>require("./helpers/recepcionCalendarioAutorizada").probarRecepcionCalendario(db,provisionarMongoPersonal));
   await t.test("adopción explícita conserva BSON, identidad y una sola planificación con HTTP autenticado",()=>require("./helpers/calendarioAdopcionAutorizada").probarAdopcionCalendario(db));
   await t.test("originales de calendario legado rechazan mutación nativa sin alterar planificación ni caja",()=>require("./helpers/calendarioLegadoProtegidoAutorizado").probarCalendarioLegadoProtegido());
   await t.test("calendario por eventos con HTTP autenticado conserva fuentes y recuperación concurrente",()=>require("./helpers/calendarioIngresoAutorizado").probarCalendarioIngreso(db,provisionarMongoPersonal));

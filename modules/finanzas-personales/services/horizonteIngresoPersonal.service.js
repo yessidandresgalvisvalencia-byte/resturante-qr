@@ -20,6 +20,8 @@ function resolver({usuarioId,calendarios,referencias=[],ahora}){
   const pendiente=motivo=>pendientes.push({calendarioId:fuenteId,motivo});
   if(!fuenteId||vistos.has(fuenteId)||String(c.usuarioId)!==String(usuarioId)||c.activo!==true||c.tipo!=="INGRESO"||c.frecuencia!=="MENSUAL"||typeof c.concepto!=="string"||!c.concepto.trim()||c.concepto.length>140){pendiente("CALENDARIO_INVALIDO");continue;}
   vistos.add(fuenteId);
+  if(c.recepcionRequiereRevision===true){pendiente("RECEPCION_REQUIERE_REVISION");continue;}
+  if(c.ocurrenciaRecibida===true){pendiente("OCURRENCIA_YA_VINCULADA");continue;}
   if(!Number.isSafeInteger(c.diaMes)||c.diaMes<1||c.diaMes>31){pendiente("DIA_INVALIDO");continue;}
   if(!Number.isSafeInteger(c.montoMinor)||c.montoMinor<=0){pendiente("MONTO_PENDIENTE");continue;}
   if(c.sourceId!=null){const r=fuentes.get(String(c.sourceId));if(!id(c.sourceId)||!r||r.tipo!=="INGRESO"||r.estado==="ANULADA"){pendiente("REFERENCIA_NO_VERIFICABLE");continue;}}
