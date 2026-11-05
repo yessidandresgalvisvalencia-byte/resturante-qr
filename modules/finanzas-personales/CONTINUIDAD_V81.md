@@ -1505,3 +1505,9 @@ Se detectó y cerró un requisito previo a adopción: calendarioFinanciero segu�
 Local Node24: módulo 491 casos/482 aprobados/nueve omitidos/cero fallos; dirigidas de privilegios/auditoría/respaldo 36 aprobadas. CI Node20/Mongo autorizado del siguiente SHA pendiente de confirmar antes de cerrar bloque. Detalle, aceptación y riesgo operativo de roles antiguos en CALENDARIO_LEGADO_PROTEGIDO_V81.md. Backup V18/38 colecciones no cambia. No se probó producción ni interfaz visual/dispositivos.
 
 Siguiente: verificar CI exacta y continuar adopción explícita con huella/original/eventos/recibo y sustitución única de planificación. Mantener custodia independiente, respaldo durable/retención/acceso/claves/RPO-RTO/recuperación reales, roles/índices/históricos productivos, seguridad/compatibilidad/visual-dispositivos/informe final pendientes. Sin merge a feature ni Render, cambios reales, servicios nuevos o costos.
+
+## Verificación del núcleo publicado
+
+Núcleo `7edf96328ed62ba76a0cccbee2fc1f81e9caf49c`, árbol `98ad4f902050331ede7f8cfef0e550a74dd49726`: tres CI exactas success, Gate 42079080643, Seguridad 42079080633 y V81 42079080636. Job autenticado 127427034963: 67 pruebas/67 aprobadas/cero fallos; el subtest de originales legados aprobó. Los quince blobs remotos coinciden con los archivos publicados y el árbol coincide con la copia probada.
+
+Ensayo backup V18 del mismo job: 38 colecciones/5342 documentos/3468690 bytes, captura 140 ms, restauración 878 ms, edad del respaldo 1007 ms. Conservación/restauración en base aislada, custodiaIndependiente=false y rpoProduccion=false. No sustituye evidencia durable, custodio real o recuperación de producción. Un bloque funcional de protección de originales verificado; el cierre documental descendiente requiere su propia CI y no se cuenta como bloque adicional. Continúa adopción explícita; #407 y todos los gates externos permanecen abiertos, sin merge ni Render.
