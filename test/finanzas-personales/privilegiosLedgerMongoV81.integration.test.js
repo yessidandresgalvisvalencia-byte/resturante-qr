@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("orientación de ahorro, planificación e inversión exige evidencia compartida sin asignar capital",()=>require("./helpers/orientacionVerificadaAutorizada").probarOrientacionVerificadaAutorizada(db));
   await t.test("consulta perdida no crea incertidumbre monetaria y respeta commit real pendiente",require("./helpers/consultaPendientesAutorizada").probarConsultaPendientesAutorizada);
   await t.test("Home conserva una vista global ante ingreso y calendario concurrentes sin escribir fuentes",require("./helpers/homeSnapshotAutorizado").probarHomeSnapshotAutorizado);
   await t.test("Disponible Hoy conversacional exige evidencia y horizonte sin inventar cupos",()=>require("./helpers/disponibleConversacionalAutorizado").probarDisponibleConversacionalAutorizado(db));

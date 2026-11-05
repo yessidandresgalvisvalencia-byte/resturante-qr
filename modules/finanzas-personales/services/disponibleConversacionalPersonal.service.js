@@ -26,10 +26,16 @@ function presentar(v,tipo="DISPONIBLE_HOY"){
  else lineas=[(a.disponibleHoyMinor>0?"🟢":"🟡")+" Disponible Hoy registrado: "+money(a.disponibleHoyMinor)+" en salidas totales.","Caja "+money(a.saldoRealMinor)+" − compromisos "+money(a.gastosFijosAntesProximoIngresoMinor)+" − colchón "+money(a.colchonMinor)+".","Próximo ingreso previsto registrado: "+fecha+".","Si la salida está gravada: hasta "+money(a.gastoMaximoSiGravadoMinor)+" de gasto + "+money(a.reservaGmfSiGravadoMinor)+" de 4×1.000.","Es una simulación: no confirma exención ni garantiza el ingreso.",a.disponibleHoyMinor===0?"Acción: no hagas gasto discrecional hoy.":"Acción: no superes "+money(a.disponibleHoyMinor)+" entre gasto e impuestos."];
  return{tipo,respuesta:lineas.join("\n"),datos:{...a,...(tipo==="META_INGRESOS_PARA_GASTAR"?{ingresoObjetivoMinor:null,requiereObjetivo:true}:{})},fuente:"ASESOR_HOME_VERIFICADO"};
 }
-async function consultar(usuarioId,{ahora=new Date(),tipo="DISPONIBLE_HOY"}={}){
- if(!mongoose.isValidObjectId(usuarioId)||!["DISPONIBLE_HOY","META_INGRESOS_PARA_GASTAR"].includes(tipo))throw Object.assign(new Error("Consulta financiera inválida"),{statusCode:400});let h;
- if(!(ahora instanceof Date)||!Number.isFinite(+ahora))return presentar(validar(null,ahora),tipo);const corte=new Date(+ahora);
- try{h=await home.obtener(usuarioId,new Date(+corte));}catch{return presentar(fallar("SERVICIO_NO_VERIFICABLE","No pude verificar los registros actuales; no hay monto autorizado.","Reintenta la consulta cuando se restablezca la verificación."),tipo);}
- return presentar(validar(h,corte),tipo);
+// Observación C2 común: otros textos no pueden relajar evidencia o recalcular cupos.
+async function observar(usuarioId,{ahora=new Date()}={}){
+ if(!mongoose.isValidObjectId(usuarioId))throw Object.assign(new Error("Consulta financiera inválida"),{statusCode:400});
+ if(!(ahora instanceof Date)||!Number.isFinite(+ahora))return validar(null,ahora);
+ const corte=new Date(+ahora);let h;
+ try{h=await home.obtener(usuarioId,new Date(+corte));}catch{return fallar("SERVICIO_NO_VERIFICABLE","No pude verificar los registros actuales; no hay monto autorizado.","Reintenta la consulta cuando se restablezca la verificación.");}
+ return validar(h,corte);
 }
-module.exports={validar,presentar,consultar};
+async function consultar(usuarioId,{ahora=new Date(),tipo="DISPONIBLE_HOY"}={}){
+ if(!["DISPONIBLE_HOY","META_INGRESOS_PARA_GASTAR"].includes(tipo))throw Object.assign(new Error("Consulta financiera inválida"),{statusCode:400});
+ return presentar(await observar(usuarioId,{ahora}),tipo);
+}
+module.exports={validar,presentar,observar,consultar};
