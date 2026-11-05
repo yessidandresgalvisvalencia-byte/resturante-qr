@@ -6,6 +6,8 @@ function parseMinorUnits(value, scale = 2) {
   if (typeof value !== "string" || !Number.isInteger(scale) || scale < 0 || scale > 9) {
     throw new TypeError("Amount must be a decimal string and scale an integer from 0 to 9");
   }
+  // Reject oversized untrusted inputs before allocating large BigInts.
+  if (value.length > MAX_DIGITS + 11) throw new RangeError("Amount exceeds supported precision");
   if (!/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) {
     throw new RangeError("Invalid decimal amount");
   }
