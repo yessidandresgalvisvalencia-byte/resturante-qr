@@ -19,7 +19,7 @@ function armarRespuesta(_base,datos){
  const D=require("./disponibleConversacionalPersonal.service"),r=D.presentar(datos?.observacion||D.validar(null,new Date()));
  return r.respuesta+" No se creó ningún movimiento.";
 }
-const FUENTES_VALIDADAS=new Set(["ASESOR_HOME_VERIFICADO","PRESTAMO_PERSONAL_EN_SNAPSHOT","HOME_SNAPSHOT_COMPENSADO","PRESTAMOS_PERSONALES_SNAPSHOT","FUENTES_PERSONALES","PATRIMONIO_PERSONAL_V2"]);
+const FUENTES_VALIDADAS=new Set(["ASESOR_HOME_VERIFICADO","PRESTAMO_PERSONAL_EN_SNAPSHOT","HOME_SNAPSHOT_COMPENSADO","PRESTAMOS_PERSONALES_SNAPSHOT","FUENTES_PERSONALES","snapshot_personal_v81"]);
 async function orientar(usuarioId,pregunta,{turnos=[],guardarContexto=true}={}){
  const mongoose=require("mongoose"),actual=NORMALIZAR(pregunta);if(!mongoose.isObjectIdOrHexString(usuarioId)||!actual)throw Object.assign(Error("Consulta personal inválida"),{statusCode:400});
  const propios=Array.isArray(turnos)?turnos.filter(t=>String(t.usuarioId)===String(usuarioId)):[],anterior=encontrarContexto(propios,actual);
