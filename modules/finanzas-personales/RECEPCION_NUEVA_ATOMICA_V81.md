@@ -39,3 +39,20 @@ Tras CI exacta: formulario explícito de alta nueva, revisión de duplicados ya 
 Núcleo `da633f4b16c01475a5014d760cd697b5a5228f48`, árbol `83f79b906bf5b7276be1abf2a9904ed5d2b371e5`; catorce blobs cotejados. Gate 42132492543 y Seguridad 42132492562 success. V81 42132492556 falló en job autorizado 127612292977: al terminar el nuevo escenario se esperaban tres outbox y había cuatro, porque además de tres ingresos existe el evento legítimo de su corrección financiera. Las comprobaciones anteriores de fuente única, rollback y saldo 1300 aprobaron, pero el bloque no se considera verificado hasta repetir CI completa.
 
 Se ajusta la prueba para comparar el número de outbox anterior a la última carrera y exigir exactamente uno adicional. Así se conserva explícitamente el evento compensatorio y se detectan duplicados sin confundir correcciones con ingresos. No se modifica código financiero, controles, cuotas ni gates. Repetir CI del SHA ajustado.
+
+## Evidencia del bloque de API verificado
+
+Código `da633f4b16c01475a5014d760cd697b5a5228f48`; ajuste de prueba `d98956cb6578d7737ada24ebb0be70cf1743897b`, árbol `c53c48602d31817bc780b52a5cfab37a861cad88`, idéntico a la copia probada. Catorce blobs del núcleo y tres del ajuste cotejados; publicación con expected_sha/force=false. El primer intento fallido queda documentado y no se cuenta como aprobación.
+
+CI exacta de `d98956cb6578d7737ada24ebb0be70cf1743897b`:
+- [Gate 42132832825](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42132832825): success.
+- [Seguridad 42132832845](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42132832845): success.
+- [V81 42132832795](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42132832795): success, siete jobs aprobados.
+
+Job Mongo autorizado 127613448394: 70 pruebas/70 aprobadas/cero fallos/cero omisiones. Subtest 22 de alta nueva aprobado: cuenta ajena rechazada, rollback antes/después de insertar evento y por fallo de outbox/índice financiero ausente, misma clave concurrente y claves diferentes, solo un ingreso/saldo/outbox por carrera y ninguna fuente huérfana; compensación conserva fuente, replay no repone el monto anterior, anulación de vínculo conserva dinero. Control/API/agenda reales con DOM simulado y petición programática recuperan por GET una respuesta perdida después de commit sin segundo POST.
+
+Local: 526 casos/517 aprobados/nueve omitidos/cero fallos; 59 dirigidas aprobadas, sintaxis/diff correctos. Node24 local y Node20 en CI. No hay formulario de alta nueva ni aprobación visual/dispositivos en estos resultados.
+
+Ensayo backup V18: 38 colecciones/5396 documentos/3557522 bytes; captura 192 ms, restauración 984 ms, edad 1160 ms; custodiaIndependiente=false y rpoProduccion=false. BSON/índices conservados en destino aislado de fixtures; no acredita custodia real, retención durable ni recuperación operativa/RPO/RTO de producción.
+
+Un bloque de API atómica e integración completo. Este cierre documental requiere CI de su propio SHA y no es otro bloque funcional. Siguiente: formulario explícito de ingreso nuevo con revisión frente a ingresos ya registrados, confirmación y recuperación; después abonos múltiples y aceptación visual/dispositivos. #407 y gates externos reales continúan pendientes. Sin merge a feature/main ni Render, cambios de otros productos, costos o datos reales.
