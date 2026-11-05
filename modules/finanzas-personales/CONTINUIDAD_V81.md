@@ -1521,3 +1521,11 @@ API ADOPTAR sobre identidad original, confirmación/versiones/huella, copia comp
 Detalle, contrato, matriz de pruebas y límites en CALENDARIO_ADOPCION_API_V81.md. Nuevas pruebas puras, handler, DOM y helper HTTP/Mongo autorizado cubren propietarios, claves concurrentes, copia/tipos BSON, retiro/restauración, rollback y fuente alterada. Se corrigen dobles de VM para usar el combinador real; no se omiten casos. Assets personales versionados, sin tocar service worker. Resultados y SHA exacto se añaden al verificar CI; no dar por aprobado Mongo antes de evidencia real.
 
 Siguiente: interfaz de adopción con confirmación/formulario y solicitudes recuperables, después recepción por ocurrencia. Mantener #407/custodia independiente/backup durable-retención-acceso-claves separados/recuperación real/RPO-RTO/roles-índices-históricos/seguridad/compatibilidad/visual-dispositivos/informe final pendientes. No merge a feature ni despliegue Render, servicios nuevos o costos; cero mutaciones de datos reales.
+
+## Evidencia del núcleo publicado
+
+Núcleo `573b7f9f3938d7cdffd350b0f3e27d1e02378ef8`, árbol `1a96548484df030bc9287c8e29e8d8c6f246931f`. Gate 42089560090, Seguridad 42089559930 y V81 42089559920: success para ese SHA. Job Mongo autorizado 127463730385: 68 pruebas/68 aprobadas/cero fallos; el subtest de adopción HTTP/BSON/planificación única aprobó. Diecisiete blobs remotos cotejados y árbol idéntico a la copia probada. Local final: 496 casos/487 aprobados/nueve omitidos/cero fallos, más 37 dirigidas aprobadas; Node20 de CI confirmó compatibilidad frente al Node24 local.
+
+Ensayo V18: 38 colecciones/5350 documentos/3481570 bytes, captura 188 ms, restauración 928 ms, edad 1101 ms; custodiaIndependiente=false y rpoProduccion=false. Restauración BSON/índices en base aislada de fixtures; no reparación de corrupción, recuperación productiva ni evidencia de custodia durable. Modelo/roles/índices/alcance del backup sin migraciones nuevas.
+
+Un bloque de API e integración completado; su cierre documental descendiente requiere CI exacta y no cuenta como bloque adicional. Próximo bloque: interfaz de adopción con confirmación y solicitud recuperable; aún pendiente aprobación visual/dispositivos. #407, custodio real y gates operativos permanecen abiertos. Sin merge a feature ni Render; ningún dato real alterado.
