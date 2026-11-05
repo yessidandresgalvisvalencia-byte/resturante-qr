@@ -26,6 +26,10 @@ test('each direct production dependency is represented by a locked package', () 
     assert.ok(entry, 'missing locked production package: ' + name);
     assert.ok(typeof entry.version === 'string' && entry.version.length > 0,
       'missing locked version for ' + name);
+    assert.match(entry.resolved || '', /^https:\/\/registry\.npmjs\.org\//,
+      'direct production dependency must resolve from the approved npm registry: ' + name);
+    assert.match(entry.integrity || '', /^sha(256|384|512)-[A-Za-z0-9+/=]+$/,
+      'direct production dependency must have a pinned integrity digest: ' + name);
   }
 });
 
