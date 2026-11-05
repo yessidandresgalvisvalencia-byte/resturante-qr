@@ -124,25 +124,29 @@
    const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&p?.tipo==="header"&&p.huella===r.solicitudHuella;
   }
   function confirmarCicloInversion(token,r){if(!reciboCicloInversionValido(token,r))return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;}
-  async function reciboCalendarioValido(token,r,path,cuerpo){
-   if(!r||r.confirmado!==true||r.certificaEstadoActual!==false||r.afectaCaja!==false||!/^cal_ingreso_[A-Za-z0-9_-]{8,80}$/.test(r.solicitudId||"")||r.solicitudId!==cuerpo?.solicitudId||!/^\/calendario-ingresos(?:\/[a-f0-9]{24}\/eventos)?$/.test(path)||! /^[a-f0-9]{24}$/.test(r.calendarioId||"")||! /^[a-f0-9]{64}$/.test(r.hash||"")||! /^[a-f0-9]{64}$/.test(r.solicitudHuella||"")||r.accion!==cuerpo.solicitud?.accion||!Number.isSafeInteger(cuerpo.solicitud?.versionEsperada)||r.version!==cuerpo.solicitud.versionEsperada+1)return false;
+  async function reciboCalendarioValido(token,r,path,cuerpo,esRechazo=false){
+   if(!r||r.confirmado!==true||r.certificaEstadoActual!==false||r.afectaCaja!==(!esRechazo&&cuerpo?.solicitud?.accion==="REGISTRAR_RECEPCION")||!/^cal_ingreso_[A-Za-z0-9_-]{8,80}$/.test(r.solicitudId||"")||r.solicitudId!==cuerpo?.solicitudId||!/^\/calendario-ingresos(?:\/[a-f0-9]{24}\/eventos)?$/.test(path)||! /^[a-f0-9]{24}$/.test(r.calendarioId||"")||! /^[a-f0-9]{64}$/.test(r.hash||"")||! /^[a-f0-9]{64}$/.test(r.solicitudHuella||"")||r.accion!==cuerpo.solicitud?.accion||!Number.isSafeInteger(cuerpo.solicitud?.versionEsperada)||r.version!==cuerpo.solicitud.versionEsperada+1)return false;
    const usuario=usuarioDeToken(token);if(!usuario)return false;
    const id=path==="/calendario-ingresos"?(await digerir(JSON.stringify(canon({usuarioId:usuario,solicitudId:r.solicitudId,producto:"CALENDARIO_INGRESO_V1"})))).slice(0,24):path.split("/")[2];
+   if(!esRechazo&&cuerpo.solicitud.accion==="REGISTRAR_RECEPCION"&&r.movimientoId!==(await digerir(JSON.stringify({usuarioId:usuario,solicitudId:r.solicitudId,producto:"INGRESO_RECEPCION_V1"}))).slice(0,24))return false;
    return r.calendarioId===id&&r.solicitudHuella===await digerir(JSON.stringify(canon({usuarioId:usuario,calendarioId:id,solicitud:cuerpo.solicitud})));
   }
   async function rechazoCalendarioValido(token,r,path,cuerpo){
    if(!["VERSION_SUPERADA","RECEPCION_NO_APLICADA"].includes(r?.codigo)||r.noAplicada!==true||r.afectaCaja!==false||r.versionEsperada!==cuerpo?.solicitud?.versionEsperada||!Number.isSafeInteger(r.versionActual)||r.versionActual<=r.versionEsperada||! /^[a-f0-9]{64}$/.test(r.hashVigente||""))return false;
    if(r.codigo==="RECEPCION_NO_APLICADA"&&(cuerpo?.solicitud?.accion!=="VINCULAR_RECEPCION"||r.decisionPersistida!==true||r.certificaEstadoActual!==false||r.versionActual!==r.versionEsperada+1||!["INGRESO_OCUPADO","FUENTE_NO_COINCIDE","CUENTA_NO_DISPONIBLE"].includes(r.motivo)))return false;
-   return reciboCalendarioValido(token,{...r,confirmado:true,certificaEstadoActual:false,accion:cuerpo.solicitud.accion,version:r.versionEsperada+1,hash:r.hashVigente},path,cuerpo);
+   return reciboCalendarioValido(token,{...r,confirmado:true,certificaEstadoActual:false,accion:cuerpo.solicitud.accion,version:r.versionEsperada+1,hash:r.hashVigente},path,cuerpo,true);
   }
   async function confirmarRechazoCalendario(token,r,path,cuerpo,vigente=()=>true){
    if(!vigente()||!await rechazoCalendarioValido(token,r,path,cuerpo)||!vigente())return false;
-   return confirmarCalendario(token,{...r,confirmado:true,certificaEstadoActual:false,accion:cuerpo.solicitud.accion,version:r.versionEsperada+1,hash:r.hashVigente},path,cuerpo,vigente);
+   return resolverCalendario(token,r.solicitudId,path,cuerpo,vigente);
   }
   async function confirmarCalendario(token,r,path,cuerpo,vigente=()=>true){
    if(!vigente()||!await reciboCalendarioValido(token,r,path,cuerpo)||!vigente())return false;
+   return resolverCalendario(token,r.solicitudId,path,cuerpo,vigente);
+  }
+  async function resolverCalendario(token,solicitudId,path,cuerpo,vigente){
    const d=datos(path,{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);if(!vigente())return false;
-   const s=cargar(token);if(s.error)return false;const p=s.pendientes.get(r.solicitudId);if(!p)return true;if(p.tipo!=="solicitudId"||p.huella!==huella||s.activas.has(p.id))return false;
+   const s=cargar(token);if(s.error)return false;const p=s.pendientes.get(solicitudId);if(!p)return true;if(p.tipo!=="solicitudId"||p.huella!==huella||s.activas.has(p.id))return false;
    s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
   }
   return{confirmarRechazoCalendario,rechazoCalendarioValido,reciboCalendarioValido,confirmarCalendario,estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};

@@ -45,16 +45,18 @@ async function confirmarRegistroIntento(usuarioId,input){
   return resultado;
  }finally{await session.endSession();}
 }
-async function registrarTransaccion(usuarioId,input){
+async function registrarTransaccion(usuarioId,input,{session:externa=null,idMovimiento=null}={}){
+ if(externa&&!externa.inTransaction?.())throw Object.assign(new Error("Registro requiere transacción externa activa"),{statusCode:503});
+ if(idMovimiento!==null&&(!externa||!mongoose.isObjectIdOrHexString(idMovimiento)))throw Object.assign(new Error("Identidad de registro externo inválida"),{statusCode:400});
  if(input.tipo==="GASTO"&&String(input.cuenta||"EFECTIVO").trim().toUpperCase()==="EFECTIVO"&&input.medioPago==="TRANSFERENCIA")input={...input,medioPago:"EFECTIVO"};
  if(!Number.isSafeInteger(input.montoMinor)||input.montoMinor<=0)throw Object.assign(new Error("montoMinor debe ser un entero positivo exacto"),{statusCode:400});if(input.externalId!==undefined&&input.externalId!==null&&!String(input.externalId).trim())throw Object.assign(new Error("externalId vacío no es válido"),{statusCode:400});
  if(input.externalId!==undefined&&input.externalId!==null)
   await exigirIndiceIdempotencia(Transaccion);
  if(input.recurrenteOrigenId!==undefined&&input.recurrenteOrigenId!==null)
   await exigirIndiceUnicoReservaRecurrente();
- if(input.tipo==="GASTO"&&input.medioPago==="CREDITO")throw Object.assign(new Error("Un gasto con tarjeta de crédito debe registrar también la obligación de la tarjeta; GRUK no lo descontará de caja como si fuera débito."),{statusCode:422});const session=await mongoose.startSession();let tx,outbox;
+ if(input.tipo==="GASTO"&&input.medioPago==="CREDITO")throw Object.assign(new Error("Un gasto con tarjeta de crédito debe registrar también la obligación de la tarjeta; GRUK no lo descontará de caja como si fuera débito."),{statusCode:422});const session=externa||await mongoose.startSession();let tx,outbox;
  try{
-  await session.withTransaction(async()=>{
+  const ejecutar=async()=>{
    const externalIdHash=hashExternalId(usuarioId,input.externalId);
    let recurrenteOrigenId=null;
    if(input.recurrenteOrigenId!==undefined&&input.recurrenteOrigenId!==null){
@@ -115,7 +117,7 @@ async function registrarTransaccion(usuarioId,input){
    if(!cuenta){
     [cuenta]=await Cuenta.create([{usuarioId,nombre:nombreCuenta,tipo:nombreCuenta.toUpperCase()==="EFECTIVO"?"EFECTIVO":"OTRA",institucion:"",moneda:"COP",saldoMinor:0,activa:true}],{session});
    }
-   [tx]=await Transaccion.create([{usuarioId,prestamoId,recurrenteOrigenId,cuentaId:cuenta._id,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",cuenta:input.cuenta||"EFECTIVO",medioPago:input.medioPago||"EFECTIVO",contraparte:input.contraparte||"",descripcion:input.descripcion||"",recurrente:Boolean(input.recurrente),frecuencia:input.frecuencia||"NINGUNA",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null}],{session});
+   [tx]=await Transaccion.create([{...(idMovimiento?{_id:idMovimiento}:{}),usuarioId,prestamoId,recurrenteOrigenId,cuentaId:cuenta._id,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",cuenta:input.cuenta||"EFECTIVO",medioPago:input.medioPago||"EFECTIVO",contraparte:input.contraparte||"",descripcion:input.descripcion||"",recurrente:Boolean(input.recurrente),frecuencia:input.frecuencia||"NINGUNA",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null}],{session});
    if(input.tipo==="PAGO_DEUDA"){const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).session(session);if(!p)throw Object.assign(new Error("Deuda no encontrada"),{statusCode:404});if(input.montoMinor>p.saldoMinor)throw Object.assign(new Error("El pago supera el saldo pendiente"),{statusCode:409});p.saldoMinor-=input.montoMinor;if(p.saldoMinor===0)p.estado="PAGADO";await p.save({session});}if(input.tipo==="COBRO_PRESTAMO"){const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]}}).session(session);if(!p)throw Object.assign(new Error("Cuenta por cobrar no encontrada"),{statusCode:404});if(input.montoMinor>p.saldoMinor)throw Object.assign(new Error("El cobro supera el saldo pendiente"),{statusCode:409});p.saldoMinor-=input.montoMinor;if(p.saldoMinor===0)p.estado="PAGADO";await p.save({session});}
    const eventId=crypto.randomUUID(),eventName=eventFor(input.tipo);
    [outbox]=await Outbox.create([{usuarioId,eventId,eventName,aggregateId:tx._id,payload:{transaccionId:tx._id.toString(),prestamoId:prestamoId?String(prestamoId):null,tipo:tx.tipo,montoMinor:tx.montoMinor,moneda:tx.moneda,categoria:tx.categoria,fecha:tx.fecha}}],{session});
@@ -131,9 +133,10 @@ async function registrarTransaccion(usuarioId,input){
      if(!pendiente)throw Object.assign(new Error("No se pudo reconciliar el efectivo"),{statusCode:409});
     }
    }
-  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
- }finally{await session.endSession();}
- try{await publicarEvento(outbox);}catch(err){console.error("[FIN_PERSONAL_OUTBOX_POST_COMMIT]",err);}
+  };
+  if(externa)await ejecutar();else await session.withTransaction(ejecutar,{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
+ }finally{if(!externa)await session.endSession();}
+ if(!externa)try{await publicarEvento(outbox);}catch(err){console.error("[FIN_PERSONAL_OUTBOX_POST_COMMIT]",err);}
  return tx;
 }
 async function publicarEvento(outbox){

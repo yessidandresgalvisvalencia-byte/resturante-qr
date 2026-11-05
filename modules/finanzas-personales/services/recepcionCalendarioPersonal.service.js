@@ -1,16 +1,18 @@
 "use strict";
 const {fechaVerificable,diaCivilBogota}=require("./fechaPersonal.service");
-const falla=(m,c=409)=>Object.assign(Error(m),{statusCode:c}),id=v=>typeof v==="string"&&/^[a-f0-9]{24}$/.test(v),esAccion=a=>["VINCULAR_RECEPCION","DESVINCULAR_RECEPCION"].includes(a);
+const falla=(m,c=409)=>Object.assign(Error(m),{statusCode:c}),id=v=>typeof v==="string"&&/^[a-f0-9]{24}$/.test(v),esAccion=a=>["VINCULAR_RECEPCION","DESVINCULAR_RECEPCION","REGISTRAR_RECEPCION"].includes(a);
 const MOTIVOS_RECHAZO=Object.freeze(["INGRESO_OCUPADO","FUENTE_NO_COINCIDE","CUENTA_NO_DISPONIBLE"]);
 const rechazo=(m,codigo)=>Object.assign(falla(m),{codigoRechazoRecepcion:codigo});
 function validar(s){
  if(!esAccion(s.accion))return;
+ if(s.accion==="REGISTRAR_RECEPCION"){const d=s.datosIngreso,r=s.recepcion;if(!r||Object.keys(r).sort().join(",")!=="cerrarOcurrencia,cuentaId,fecha,montoMinor,ocurrenciaFecha"||!d||typeof d!=="object"||Array.isArray(d)||Object.keys(d).sort().join(",")!=="categoria,concepto,medioPago"||typeof d.concepto!=="string"||!d.concepto.trim()||d.concepto.length>140||/[\u0000-\u001f\u007f]/.test(d.concepto)||!["SALARIO","HONORARIOS","VENTAS","OTROS"].includes(d.categoria)||!["EFECTIVO","TRANSFERENCIA","DEBITO"].includes(d.medioPago))throw falla("Confirma concepto, categoría, medio e ingreso nuevo exacto",400);validar({...s,accion:"VINCULAR_RECEPCION",recepcion:{...r,movimientoId:"0".repeat(24)}});return;}
+
  if(s.accion==="VINCULAR_RECEPCION"){const r=s.recepcion,f=fechaVerificable(r?.fecha),p=fechaVerificable(r?.ocurrenciaFecha);if(!r||typeof r!=="object"||Array.isArray(r)||Object.keys(r).sort().join(",")!=="cerrarOcurrencia,cuentaId,fecha,montoMinor,movimientoId,ocurrenciaFecha"||r.cerrarOcurrencia!==true||!id(r.movimientoId)||!id(r.cuentaId)||!Number.isSafeInteger(r.montoMinor)||r.montoMinor<=0||typeof r.fecha!=="string"||!f||f.toISOString()!==r.fecha||typeof r.ocurrenciaFecha!=="string"||!/^\d{4}-\d\d-\d\d$/.test(r.ocurrenciaFecha)||!p)throw falla("Confirma movimiento, cuenta, monto y fechas exactas de recepción",400);}
  else{const r=s.recepcionReferencia;if(!r||typeof r!=="object"||Array.isArray(r)||Object.keys(r).sort().join(",")!=="ocurrenciaFecha,versionVinculo,vinculoHash"||typeof r.ocurrenciaFecha!=="string"||!/^\d{4}-\d\d-\d\d$/.test(r.ocurrenciaFecha)||!fechaVerificable(r.ocurrenciaFecha)||!Number.isSafeInteger(r.versionVinculo)||r.versionVinculo<1||r.versionVinculo>s.versionEsperada||! /^[a-f0-9]{64}$/.test(r.vinculoHash||""))throw falla("Referencia exacta del vínculo obligatoria",400);}
 }
 function validarRelacion(prev,s,fecha,eventos){
  if(s.accion==="VINCULAR_RECEPCION"){const r=s.recepcion,f=fechaVerificable(r.fecha),p=fechaVerificable(r.ocurrenciaFecha);if(!prev?.activo||prev.datos.fechaProxima!==r.ocurrenciaFecha||+f>+fecha||Math.abs(diaCivilBogota(f)-diaCivilBogota(p))>31*86400000)throw falla("Recepción requiere ocurrencia vigente y fecha real no futura dentro de 31 días");}
- if(s.accion==="DESVINCULAR_RECEPCION"){const r=s.recepcionReferencia,e=eventos.find(e=>e.secuencia===r.versionVinculo);if(!e||e.solicitud.accion!=="VINCULAR_RECEPCION"||e.hashActual!==r.vinculoHash||e.solicitud.recepcion.ocurrenciaFecha!==r.ocurrenciaFecha)throw falla("El vínculo cambió; consulta su referencia exacta");}
+ if(s.accion==="DESVINCULAR_RECEPCION"){const r=s.recepcionReferencia,e=eventos.find(e=>e.secuencia===r.versionVinculo);if(!e||!["VINCULAR_RECEPCION","REGISTRAR_RECEPCION"].includes(e.solicitud.accion)||e.hashActual!==r.vinculoHash||e.solicitud.recepcion.ocurrenciaFecha!==r.ocurrenciaFecha)throw falla("El vínculo cambió; consulta su referencia exacta");}
 }
 function siguiente(prev,s){
  if(!prev)throw falla("Calendario no encontrado",404);const rs=prev.recepciones||[];
@@ -38,4 +40,10 @@ function elegibles(u,c,calendarios,fuentes,cuentas,ahora){
  const r={movimientoId:String(tx._id),cuentaId:String(tx.cuentaId),montoMinor:tx.montoMinor,fecha:f.toISOString(),ocurrenciaFecha:c.fechaProxima};if(!coincide(tx,r,u))continue;filas.push({...r,concepto:typeof tx.concepto==="string"?tx.concepto.slice(0,500):"Ingreso registrado",cuentaNombre:typeof cuenta.nombre==="string"?cuenta.nombre.slice(0,140):"Cuenta registrada"});}
  return filas.sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.movimientoId.localeCompare(b.movimientoId));
 }
-module.exports={elegibles,MOTIVOS_RECHAZO,esAccion,validar,validarRelacion,siguiente,coincide,enriquecer,cargarVigentes,exigirFuente};
+function idIngreso(u,k){return require("node:crypto").createHash("sha256").update(JSON.stringify({usuarioId:String(u),solicitudId:k,producto:"INGRESO_RECEPCION_V1"})).digest("hex").slice(0,24);}
+function comoVinculo(s,identidad){if(s.accion!=="REGISTRAR_RECEPCION")return s;if(!identidad?.usuarioId||!identidad?.solicitudId)throw falla("Identidad de recepción nueva requerida",400);return{...s,accion:"VINCULAR_RECEPCION",recepcion:{...s.recepcion,movimientoId:idIngreso(identidad.usuarioId,identidad.solicitudId)}};}
+async function registrarNuevo(u,k,entrada,session){
+ const r=entrada.recepcion,d=entrada.datosIngreso,cuenta=await require("../models/cuentaFinanciera.model").findOne({_id:r.cuentaId,usuarioId:u,activa:true,moneda:"COP"}).maxTimeMS(5000).session(session).lean();if(!cuenta)throw falla("Cuenta propia activa en COP no disponible",404);
+ const tx=await require("./flujoCajaPersonal.service").registrarTransaccion(u,{tipo:"INGRESO",montoMinor:r.montoMinor,fecha:new Date(r.fecha),cuenta:cuenta.nombre,concepto:d.concepto,categoria:d.categoria,medioPago:d.medioPago,moneda:"COP",recurrente:false,origen:"MANUAL",externalId:"cal_nueva_"+k},{session,idMovimiento:idIngreso(u,k)});if(String(tx.cuentaId)!==r.cuentaId)throw falla("Identidad de cuenta no coincide; requiere revisión");return tx;
+}
+module.exports={idIngreso,comoVinculo,registrarNuevo,elegibles,MOTIVOS_RECHAZO,esAccion,validar,validarRelacion,siguiente,coincide,enriquecer,cargarVigentes,exigirFuente};
