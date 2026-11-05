@@ -75,7 +75,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("panel conserva compromisos recurrentes más allá de los cien registros recientes",
    require("./helpers/lecturasHomeAutorizadas").probarLecturasHomeAutorizadas);
   await t.test("evaluación de compras exige ingreso y saldo conciliado sin escribir ni mezclar cuentas",
-   require("./helpers/comprasAutorizadas").probarComprasAutorizadas);
+   ()=>require("./helpers/comprasAutorizadas").probarComprasAutorizadas(db));
   await t.test("obligaciones sin fecha bloquean Disponible Hoy hasta confirmar calendario sin alterar fuentes",
    require("./helpers/obligacionesSinFechaAutorizadas").probarObligacionesSinFechaAutorizadas);
   await t.test("restauración de caja conserva fuentes y controla reintentos, concurrencia, saldo y rollback",
@@ -94,6 +94,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
    ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
   await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
    require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("originales de calendario legado rechazan mutación nativa sin alterar planificación ni caja",()=>require("./helpers/calendarioLegadoProtegidoAutorizado").probarCalendarioLegadoProtegido());
   await t.test("calendario por eventos con HTTP autenticado conserva fuentes y recuperación concurrente",()=>require("./helpers/calendarioIngresoAutorizado").probarCalendarioIngreso(db,provisionarMongoPersonal));
   await t.test("horizonte explícito de ingreso protege hoy, históricos, compras y snapshot sin escribir",()=>require("./helpers/horizonteIngresoAutorizado").probarHorizonteIngreso(db));
   await t.test("master y proyección exacta comparten snapshot y no autorizan desde desconocidos",()=>require("./helpers/masterProyeccionAutorizada").probarMasterProyeccion(db));
@@ -107,7 +108,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("asesoría de deuda conserva fuentes, interés racional e identidad sin abono inferido",()=>require("./helpers/asesoriaDeudaAutorizada").probarAsesoriaDeudaAutorizada(db));
   await t.test("orientación de ahorro, planificación e inversión exige evidencia compartida sin asignar capital",()=>require("./helpers/orientacionVerificadaAutorizada").probarOrientacionVerificadaAutorizada(db));
   await t.test("consulta perdida no crea incertidumbre monetaria y respeta commit real pendiente",require("./helpers/consultaPendientesAutorizada").probarConsultaPendientesAutorizada);
-  await t.test("Home conserva una vista global ante ingreso y calendario concurrentes sin escribir fuentes",require("./helpers/homeSnapshotAutorizado").probarHomeSnapshotAutorizado);
+  await t.test("Home conserva una vista global ante ingreso y calendario concurrentes sin escribir fuentes",()=>require("./helpers/homeSnapshotAutorizado").probarHomeSnapshotAutorizado(db));
   await t.test("Disponible Hoy conversacional exige evidencia y horizonte sin inventar cupos",()=>require("./helpers/disponibleConversacionalAutorizado").probarDisponibleConversacionalAutorizado(db));
   await t.test("V2 converge con snapshot personal sin inventar caja ni borrar referencias históricas",()=>require("./helpers/patrimonioV2Autorizado").probarPatrimonioV2Autorizado(db));
   await t.test("retiro y restauración de inversiones conserva capital, valor, originales y caja",()=>require("./helpers/cicloInversionAutorizado").probarCicloInversionAutorizado(db,provisionarMongoPersonal));

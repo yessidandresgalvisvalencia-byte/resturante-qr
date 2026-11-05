@@ -5,10 +5,10 @@ const base="finanzas";
 const permiso=(collection,actions,db=base)=>({resource:{db,collection},actions});
 const estado=privilegios=>({ok:1,authInfo:{authenticatedUsers:[{user:"identidad_privada",db:"admin"}],authenticatedUserRoles:[{role:"rol_privado",db:"admin"}],authenticatedUserPrivileges:privilegios}});
 const minimos=()=>COLECCIONES.map(c=>permiso(c,["find","insert","listIndexes"]));
-test("cubre dieciocho colecciones de fuentes, compensaciones y evidencias",()=>{
- assert.equal(COLECCIONES.length,19);assert.ok(COLECCIONES.includes("fin_ciclo_inversiones_personales_v1"));assert.ok(COLECCIONES.includes("fin_ciclo_activos_personales_v1"));assert.ok(COLECCIONES.includes("fin_transacciones_personales"));
+test("cubre veinte colecciones de fuentes, compensaciones y evidencias",()=>{
+ assert.equal(COLECCIONES.length,20);assert.ok(COLECCIONES.includes("fin_ciclo_inversiones_personales_v1"));assert.ok(COLECCIONES.includes("fin_ciclo_activos_personales_v1"));assert.ok(COLECCIONES.includes("fin_transacciones_personales"));
  assert.ok(COLECCIONES.includes("fin_eventos_compensatorios_personales_v1"));
- assert.equal(new Set(COLECCIONES).size,19);
+ assert.equal(new Set(COLECCIONES).size,20);
 });
 test("permite inserciones protegidas y mutación de proyecciones en colecciones separadas",()=>{
  const r=evaluar(estado([...minimos(),permiso("fin_outbox_personal",["find","insert","update","remove"]),permiso("fin_cursor_compensaciones_personales_v1",["update","insert","find"])]),base);
@@ -63,4 +63,11 @@ test("auditoría consulta solo connectionStatus y oculta fallos con datos privad
  assert.equal(r.compatible,true);assert.deepEqual(comandos,[{connectionStatus:1,showPrivileges:true}]);
  const fallo=await auditar({databaseName:base,command:async()=>{throw Error("mongodb://usuario:secreto@servidor");}});
  assert.equal(fallo.compatible,false);assert.doesNotMatch(JSON.stringify(fallo),/usuario|secreto|servidor/);
+});
+
+test("permisos históricos de mutación del calendario legado impiden certificar el rol",()=>{
+ for(const action of ["update","remove","dropCollection","dropIndex"]){
+  const r=evaluar(estado([...minimos(),permiso("fin_calendario_financiero",[action])]),base);
+  assert.equal(r.compatible,false);assert.deepEqual(r.colecciones.find(c=>c.coleccion==="fin_calendario_financiero").accionesNoPermitidas,[action]);
+ }
 });

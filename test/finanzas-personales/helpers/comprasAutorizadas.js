@@ -6,7 +6,7 @@ const Tx=require("../../../modules/finanzas-personales/models/TransaccionPersona
 const Outbox=require("../../../modules/finanzas-personales/models/outboxPersonal.model");
 const {reconciliarCuenta}=require("../../../modules/finanzas-personales/services/patrimonioPersonal.service");
 const {evaluar}=require("../../../modules/finanzas-personales/services/gastoInteligentePersonal.service");
-async function probarComprasAutorizadas(){
+async function probarComprasAutorizadas(db){
  const usuarioId=new mongoose.Types.ObjectId(),otro=new mongoose.Types.ObjectId();
  const cuenta=await Cuenta.create({usuarioId,nombre:"EFECTIVO",tipo:"EFECTIVO",saldoMinor:1000000});
  await reconciliarCuenta(usuarioId,{cuentaId:String(cuenta._id),saldoMinor:1000000,fecha:new Date(Date.now()-1000)});
@@ -27,12 +27,14 @@ async function probarComprasAutorizadas(){
  assert.equal((await evaluar(otro,{montoMinor:1},{ahora})).estado,"FALTAN_DATOS");
  assert.deepEqual(await estado(),antes);
  // Calendario mutable de ensayo: un ingreso sin importe no habilita una compra.
- await Calendario.updateOne({_id:ingreso._id,usuarioId},{$set:{montoMinor:0}});
+ // Corrupción/cambio administrativo exclusivamente en el fixture aislado.
+ await db.collection(Calendario.collection.collectionName).updateOne({_id:ingreso._id,usuarioId},{$set:{montoMinor:0}});
  const sinIngreso=await estado();
  const rechazo=await evaluar(usuarioId,{montoMinor:1},{ahora});
  assert.deepEqual(Object.keys(rechazo).sort(),["estado","mensaje"]);
  assert.equal(rechazo.estado,"FALTAN_DATOS");assert.deepEqual(await estado(),sinIngreso);
- await Calendario.updateOne({_id:ingreso._id,usuarioId},{$set:{montoMinor:2000000}});
+ // Corrupción/cambio administrativo exclusivamente en el fixture aislado.
+ await db.collection(Calendario.collection.collectionName).updateOne({_id:ingreso._id,usuarioId},{$set:{montoMinor:2000000}});
  await Cuenta.updateOne({_id:cuenta._id,usuarioId},{$set:{requiereReconciliacion:true}});
  const pendiente=await estado();
  assert.equal((await evaluar(usuarioId,{montoMinor:1},{ahora})).estado,"FALTAN_DATOS");

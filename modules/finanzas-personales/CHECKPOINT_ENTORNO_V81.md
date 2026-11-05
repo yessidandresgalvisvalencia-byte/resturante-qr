@@ -41,3 +41,7 @@ Antes de publicar: comprobar que HEAD remoto sigue siendo el padre esperado; act
 [#407](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/issues/407) permanece abierto. Siguen pendientes evidencia real de custodio independiente, copia completa durable y retención/acceso/claves separados, recuperación aislada operativa con métricas y RPO/RTO de producción, roles MongoDB sin UPDATE/DELETE de historial, índices e históricos reales, seguridad/concurrencia/idempotencia/migración/aislamiento/recuperación, compatibilidad y aceptación de interfaz/dispositivos e informe final trazable.
 
 Los ensayos aislados previos no prueban custodia independiente ni recuperación garantizada en producción. No se omiten gates, se fabrican auditorías o se atribuye certificación externa. No hubo merge a feature, despliegue Render, cambio en main/Empresarial/Blushéa, aumento de costos, escritura/borrado de datos reales ni restauración productiva.
+
+## Reanudación — 2026-11-05
+
+El ejecutor volvió a estar disponible en la siguiente ejecución con cambios. Se reconstruyó el árbol exacto del HEAD `92ed3dd59c5832572d0a6a18486ccc24a6f6cc88` antes de editar. Se priorizó proteger los originales legados como requisito previo de adopción; ver CALENDARIO_LEGADO_PROTEGIDO_V81.md y la entrada nueva en CONTINUIDAD_V81.md. La indisponibilidad anterior no representa el estado vigente del ejecutor. Adopción e incidentes de interfaz/productivos conservan sus criterios pendientes.
