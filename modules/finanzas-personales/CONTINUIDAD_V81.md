@@ -1579,3 +1579,10 @@ Se prioriza antes del selector de recepción un bloqueo real: el 409 de fuente c
 Agenda/control/API verifican cuerpo completo, dueño/ruta/clave/versión/motivo; resuelven solo ese pendiente, conservan petición/campos e incertidumbres ajenas, requieren nueva revisión y descartan respuestas de otra sesión. Pruebas nativas ampliadas sobre HTTP/rol restringido, sin relajar gates; su CI del SHA publicado está pendiente al preparar este lote. Local Node24: módulo 514 casos/505 aprobados/nueve omitidos/cero fallos, 43 dirigidas aprobadas, sintaxis/diff correctos. No hay Mongo autorizado local ni aprobación visual/dispositivos.
 
 Plan/criterios/contrato/evidencia/límites en RECEPCION_DECISION_RECUPERABLE_V81.md. Misma colección/índices/roles/backup V18/38, campos opcionales sin reescribir hashes históricos. Selector/formulario del vínculo existente y alta nueva atómica aún pendientes. Próximo: completar interfaz con ingresos elegibles y anulación; validar CI exacta antes de cerrar el bloque actual. #407 y evidencias operativas reales externas siguen pendientes. Sin merge a feature/main ni Render, otros productos, costos o datos reales alterados.
+
+
+## Ajuste del escenario de integración tras primera CI
+
+Primer núcleo publicado `069a17d4c9d296c78aa1eea4ab2a97c528717148`, árbol `aa6255cbb62d868d565ed099759f30ec705f9329`; dieciséis blobs cotejados. Gate 42117082446 y Seguridad 42117082445 success. V81 42117082629 falló en job autorizado 127559466714: los reintentos agregados a la misma identidad superaron el límite real de 20 POST/minuto y la prueba esperaba un recibo duplicado frente a una respuesta 429. No era evidencia de aprobación integral.
+
+Se mantienen todos los casos y las comprobaciones de clave/cuerpo/evento. Las verificaciones repetidas de rechazo ya persistido usan el servicio bajo la misma conexión restringida; primer rechazo, GET de recuperación, aislamiento, carreras y controlador real siguen por HTTP. No se modifica ni desactiva el limitador, no se cambia reloj ni se borra cuota o evidencia. Este ajuste deja menos de veinte POST propios por escenario. Repetir CI exacta antes de cerrar el bloque.
