@@ -25,3 +25,25 @@ test("money supports explicit currency scales without rounding", () => {
   assert.throws(() => parseMinorUnits("1.1", -1));
   assert.throws(() => formatMinorUnits(1, 2));
 });
+
+test("money round trips at supported precision boundaries without Number coercion", () => {
+  const whole = "9".repeat(38);
+  for (const scale of [0, 2, 9]) {
+    const decimal = scale ? whole + "." + "7".repeat(scale) : whole;
+    const units = parseMinorUnits(decimal, scale);
+    assert.equal(typeof units, "bigint");
+    assert.equal(formatMinorUnits(units, scale), decimal);
+    assert.equal(formatMinorUnits(-units, scale), "-" + decimal);
+  }
+  assert.throws(() => parseMinorUnits("9".repeat(39)), RangeError);
+});
+
+test("money rejects noncanonical or unsupported inputs at trust boundary", () => {
+  for (const value of ["", ".", "-.", "- 1", "1.", "0x10", "1_000", "1\\n", "1.0000000000", {}, null, 1n]) {
+    assert.throws(() => parseMinorUnits(value));
+  }
+  for (const scale of [NaN, Infinity, 1.5, -1, 10, "2"]) {
+    assert.throws(() => parseMinorUnits("1", scale), TypeError);
+    assert.throws(() => formatMinorUnits(1n, scale), TypeError);
+  }
+});
