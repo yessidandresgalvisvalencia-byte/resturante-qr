@@ -17,18 +17,8 @@ jobs:
     name: Syntax and GRUK regression tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    services:
-      mongo:
-        image: mongo:7
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
     env:
-      TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_ci
+      TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_ci?replicaSet=rs0
     steps:
       - name: Checkout without persisted credentials
         uses: actions/checkout@v4
@@ -39,7 +29,32 @@ jobs:
         with:
           node-version: '20'
           cache: npm
+      - name: Start isolated MongoDB replica set
+        run: |
+          docker run -d --name gruk-enterprise-mongo -p 127.0.0.1:27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for attempt in $(seq 1 30); do
+            if docker exec gruk-enterprise-mongo mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep -qx 1; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker logs gruk-enterprise-mongo
+              exit 1
+            fi
+            sleep 2
+          done
+          docker exec gruk-enterprise-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for attempt in $(seq 1 30); do
+            if docker exec gruk-enterprise-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -qx true; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs gruk-enterprise-mongo
+          exit 1
       - name: Install locked dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Run project gate against isolated MongoDB
+      - name: Run project gate against isolated replica set
         run: npm run gate
+      - name: Remove isolated database
+        if: always()
+        run: docker rm -f gruk-enterprise-mongo || true
