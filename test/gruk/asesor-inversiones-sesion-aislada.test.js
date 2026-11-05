@@ -10,8 +10,8 @@ test("el asesor no presenta mensajes de una cuenta anterior",()=>{
  const code=src.slice(a,b);
  assert.match(code,/const tokenConsulta=token/);
  assert.match(code,/const j=await api\("\/copilot"/);
- assert.match(code,/if\(!tokenConsulta\|\|token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return;await capturasPersonales\(\)\.confirmar/);
- assert.match(code,/confirmar\(tokenConsulta,id,j\.recibo\);if\(token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return;const r=j\.resultado;chatBubble/);
+ assert.match(code,/if\(!tokenConsulta\|\|token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return;const estado=api\.estadoFinanciero\?\.\(\);await capturasPersonales\(\)\.confirmar/);
+ assert.match(code,/confirmar\(tokenConsulta,id,j\.recibo\);if\(token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return;[\s\S]*?const r=j\.resultado;chatBubble/);
  assert.match(code,/await loadDrafts\(\);if\(token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return/);
  assert.match(code,/if\(revision===revisionCapturaPersonal\)/);
  assert.match(code,/catch\(e\)\{if\(token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return/);
