@@ -4,8 +4,6 @@ const consulta=require("./consultaPersonal.service");
 const master=require("./masterAsesorPersonal.service");
 const simuladorMaster=require("./simuladorCuotasMaster.service");
 const home=require("./homePersonal.service");
-const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
-const Calendario=require("../models/calendarioFinanciero.model");
 const ContextoConversacional=require("../models/contextoConversacionalPersonal.model");
 const TurnoConversacional=require("../models/turnoConversacionalPersonal.model");
 function normalizar(s){return String(s||"").trim();}
@@ -19,6 +17,7 @@ function clasificar(texto){
 async function procesar(usuarioId,{texto,canal="TEXTO"}){
  const t=normalizar(texto);
  const simulacion=simuladorMaster.responder(t);if(simulacion)return simulacion;
+ const ingresoMensual=require("./ingresoMensualConversacionalPersonal.service").proponer(t);if(ingresoMensual)return ingresoMensual;
  if(/(?:zapatos|tenis|calzado)/i.test(t)&&/(?:quiero|comprar|cuotas|financiar|inter[eé]s)/i.test(t)){await ContextoConversacional.findOneAndUpdate({usuarioId},{$set:{ultimaCompraPlanificada:{concepto:"zapatos",descripcion:t.slice(0,500),creadoEn:new Date()},asOf:new Date()}},{upsert:true,setDefaultsOnInsert:true});}
  const historialReciente=await TurnoConversacional.find({usuarioId}).sort({createdAt:-1}).limit(12).select("mensaje clase createdAt").lean();
  if(/^(?:de qu[eé] est[aá]bamos hablando|qu[eé] te dije antes)[?.! ]*$/i.test(t)){const anterior=historialReciente[0];return{clase:"PREGUNTA",requiereAprobacion:false,mensaje:anterior?"Tu último mensaje fue: «"+anterior.mensaje.slice(0,250)+"». ¿Quieres retomar ese tema?":"Aún no hay mensajes anteriores guardados para esta cuenta.",analisis:{soloLectura:true}};}
@@ -30,15 +29,6 @@ async function procesar(usuarioId,{texto,canal="TEXTO"}){
  if(compra&&respuestaPrecio)return{clase:"INTENCION",requiereAprobacion:false,mensaje:"🟡 Precio recibido para una compra en evaluación.\nLa referencia anterior no confirma método, cargos ni calendario.\nEnvía el escenario completo con precio, cuotas, porcentaje, método y cargos.\nNo se registró deuda ni pago y no hay capacidad evaluada.",analisis:{soloLectura:true,estado:"DATOS_PENDIENTES",simulacion:null,autorizaCredito:false}};
  const asesoria=/\b(mejor manera|mejor forma|me conviene|qu[eé] recomiendas|recomiendas|aconsejas|estrategia|plan de pago|c[oó]mo deber[ií]a|qu[eé] hago|ay[uú]dame a decidir)\b/i.test(t);
  const preguntaExplicita=/[?¿]/.test(t)||/^(?:cómo|como|cuánto|cuanto|qué|que|cuál|cual|por qué|por que|debería|deberia|puedo)\b/i.test(t);
- const patronIngreso=(asesoria||preguntaExplicita)?null:t.match(/(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})\s+(?:de\s+)?cada\s+mes|(?:me\s+(?:pagan|consignan|depositan)|recibo|cobro)\s+(?:cada\s+mes\s+)?(?:el\s+)?(?:d[ií]a\s+)?(\d{1,2})/i);
- if(patronIngreso){
-  const dia=Number(patronIngreso[1]||patronIngreso[2]);if(dia<1||dia>31)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Ese día del mes no es válido."};
-  const ingresos=await consultarPeriodo({usuarioId,tipo:"INGRESO",desde:"0001-01-01T00:00:00.000Z",hasta:new Date(Date.now()+1).toISOString()});
-  const prev=ingresos.sort((a,b)=>+new Date(b.fecha)-+new Date(a.fecha))[0];
-  if(!prev)return{clase:"VALIDACION",requiereAprobacion:false,mensaje:"Ya entendí que recibes dinero el día "+dia+" de cada mes, pero todavía no tengo un ingreso registrado al cual asociar ese patrón. Registra el ingreso exacto una vez y desde ahí lo recordaré."};
-  const base=new Date();let y=base.getFullYear(),m=base.getMonth();if(base.getDate()>=dia){m++;if(m>11){m=0;y++;}}const fecha=new Date(y,m,Math.min(dia,new Date(y,m+1,0).getDate()),12,0,0,0);
-  return{clase:"PROPUESTA_CONFIGURACION",requiereAprobacion:true,mensaje:"Identifiqué una posible programación de ingreso mensual el día "+dia+". No he cambiado tus movimientos ni el calendario. La programación requiere confirmación explícita.",analisis:{diaIngreso:dia,proximoIngreso:fecha,montoMinor:prev.montoMinor,estado:"PENDIENTE_CONFIRMACION"}};
- }
  const interpretacionDeterministica=interprete.interpretarSegmento(t);
  const esHechoContable=interpretacionDeterministica&&interpretacionDeterministica.estado==="LISTO"&&interpretacionDeterministica.tipo!=="POR_CLASIFICAR";
  const consultaExplicita=/[?¿]/.test(t)||/^(?:cómo|como|cuánto|cuanto|qué|que|cuál|cual|por qué|por que|debería|deberia|puedo)\b/i.test(t);
