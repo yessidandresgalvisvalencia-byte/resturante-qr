@@ -31,41 +31,16 @@ async function registrarActivo(userId,data,{solicitudId}={}){return require("./c
 async function registrarInversion(userId,data,{solicitudId}={}){return require("./creacionInversionRecuperablePersonal.service").crear(userId,solicitudId,data);}
 async function upsertPerfilInversion(userId,data){return PerfilInversion.findOneAndUpdate({userId},{$set:data,$setOnInsert:{userId}},{new:true,upsert:true,runValidators:true});}
 async function patrimonio(userId){const p=await patrimonioFinanciero.snapshot(userId);return{activosBase:patrimonioFinanciero.sumaPatrimonialSegura([p.liquidezMinor,p.activosNoLiquidosMinor]),valorInversiones:p.valorInversionesMinor,capitalInvertido:p.capitalInvertidoMinor,resultadoInversiones:p.resultadoInversionesMinor,deudas:p.pasivosMinor,patrimonioNeto:p.patrimonioFinancieroNetoMinor,cuentasPorCobrar:p.cuentasPorCobrarMinor,activos:p.activos,activosPreviosPorRevisar:p.activosPreviosPorRevisar,inversiones:p.inversiones,criterioInversiones:p.criterioInversiones,fuente:"ledger_personal_canonico"};}
-async function planFinanciero(userId){const [r,p,pi,pat]=await Promise.all([resumen(userId),Perfil.findOne({userId}).lean(),PerfilInversion.findOne({userId}).lean(),patrimonio(userId)]);const gastoMensualEstimado=r.gastos/Math.max(1,1);const objetivoFondo=gastoMensualEstimado*(p?.fondoEmergenciaObjetivoMeses||6);const brechaFondo=Math.max(0,objetivoFondo-(p?.saldoLiquido||0));const excedente=Math.max(0,r.flujoLibre);const reservaSugerida=Math.min(excedente,brechaFondo);const capacidadInvertible=Math.max(0,excedente-reservaSugerida);const bloqueos=[];if(r.flujoLibre<=0)bloqueos.push("No hay flujo libre positivo registrado.");if(brechaFondo>0)bloqueos.push("El fondo de emergencia está por debajo del objetivo configurado.");if(r.cargaDeudaPct>35)bloqueos.push("La carga de deuda registrada supera el umbral de alerta del 35%.");return{patrimonio:pat,flujoLibre:r.flujoLibre,objetivoFondoEmergencia:objetivoFondo,brechaFondoEmergencia:brechaFondo,reservaFondoSugerida:reservaSugerida,capacidadInvertibleAhora:capacidadInvertible,perfilInversion:pi||null,bloqueos,criterio:"La capacidad invertible se calcula después de flujo y brecha del fondo de emergencia. El 35% es un umbral operativo configurable, no una regla universal ni una garantía de idoneidad."};}
+async function planFinanciero(userId){
+ const r=await resumen(userId);
+ return{estado:"PENDIENTE_PLAN_VERIFICABLE",resumen:r,patrimonio:{patrimonioNetoRegistrado:r.patrimonioNeto},flujoLibre:null,objetivoFondoEmergencia:null,brechaFondoEmergencia:null,reservaFondoSugerida:null,capacidadInvertibleAhora:null,perfilInversion:null,perfilInversionConsultado:false,bloqueos:["El flujo registrado no determina un aporte de ahorro o inversión. Falta un plan de objetivos, fechas y liquidez verificable."],criterio:"No se infieren reservas ni capacidad desde un saldo de perfil, meses por defecto o un flujo proyectado."};
+}
 async function registrarCredito(userId,data){return Credito.create({userId,...data});}
 async function crearMeta(userId,data){return Meta.create({userId,...data});}
-async function resumen(userId,now=new Date()){
- const inicio=monthStart(now),fin=nextMonth(now);
- const [historico,deudas,pat,metas]=await Promise.all([
-  consultarPeriodo({usuarioId:userId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"}),
-  PrestamoPersonal.find({usuarioId:userId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).lean(),
-  patrimonioFinanciero.snapshot(userId),Meta.find({userId,estado:"ACTIVA"}).lean()
- ]);
- const m=historico.filter(x=>new Date(x.fecha)>=inicio&&new Date(x.fecha)<fin&&["INGRESO","GASTO","PAGO_DEUDA"].includes(x.tipo));
- const fuentesIngresosHistoricos=historico.filter(x=>x.tipo==="INGRESO"),ingresosHistoricos=patrimonioFinanciero.sumaPatrimonialSegura(fuentesIngresosHistoricos.map(x=>x.montoMinor)),cantidadIngresosHistoricos=fuentesIngresosHistoricos.length;
- const ingresos=m.filter(x=>x.tipo==="INGRESO").reduce((a,x)=>a+x.montoMinor,0);
- const gastosConsumo=m.filter(x=>x.tipo==="GASTO").reduce((a,x)=>a+x.montoMinor,0);const gastos=m.filter(gastoAfectaCaja).reduce((a,x)=>a+x.montoMinor,0);
- const pagosDeuda=m.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false).reduce((a,x)=>a+(x.montoPagadoRealMinor||x.montoMinor),0);
- const deudaTotal=deudas.reduce((a,x)=>a+x.saldoMinor,0);
- const cuotasVencenMes=deudas.filter(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=inicio&&new Date(x.fechaVencimiento)<fin).reduce((a,x)=>a+Math.min(x.cuotaMinor||x.saldoMinor,x.saldoMinor),0);
- const pagosPorDeuda=new Map();
- for(const movimiento of m){
-  if(movimiento.tipo!=="PAGO_DEUDA"||!movimiento.prestamoId)continue;
-  const id=String(movimiento.prestamoId);
-  pagosPorDeuda.set(id,(pagosPorDeuda.get(id)||0)+movimiento.montoMinor);
- }
- const cuotasDeuda=deudas.reduce((total,deuda)=>{
-  const vence=deuda.fechaVencimiento&&new Date(deuda.fechaVencimiento)>=inicio&&new Date(deuda.fechaVencimiento)<fin;
-  if(!vence)return total;
-  const cuota=Math.min(deuda.cuotaMinor||deuda.saldoMinor,deuda.saldoMinor);
-  return total+Math.max(0,cuota-(pagosPorDeuda.get(String(deuda._id))||0));
- },0);
- const flujoLibre=ingresos-gastos-pagosDeuda-cuotasDeuda;
- const carga=ingresos?((pagosDeuda+cuotasDeuda)/ingresos)*100:0;
- const gastoBaseMensual=gastos;
- const mesesFondo=gastoBaseMensual>0?Number((pat.liquidezMinor/gastoBaseMensual).toFixed(2)):0;
- return{ingresos,ingresosHistoricos,cantidadIngresosHistoricos,gastos,gastosConsumo,pagosDeudaRegistrados:pagosDeuda,cuotasDeuda,flujoLibre,deudaTotal,cargaDeudaPct:Number(carga.toFixed(2)),tasaAhorroPct:ingresos?Number((flujoLibre/ingresos*100).toFixed(2)):0,fondoEmergencia:{saldo:pat.liquidezMinor,mesesCubiertos:mesesFondo,objetivoMeses:6},patrimonioNeto:pat.patrimonioFinancieroNetoMinor,metasActivas:metas.map(x=>({id:x._id,nombre:x.nombre,objetivo:x.objetivo,acumulado:x.acumulado,progresoPct:x.objetivo?Number((x.acumulado/x.objetivo*100).toFixed(2)):0})),periodo:{desde:inicio,hasta:fin},fuente:"ledger_personal_canonico"};
-}
+async function resumen(userId,now=new Date()){return require("./resumenHttpPersonal.service").resumen(userId,now);}
 function simularCredito({capital,tasaMensualPct,meses}){const r=tasaMensualPct/100;const cuota=r===0?capital/meses:capital*(r*Math.pow(1+r,meses))/(Math.pow(1+r,meses)-1);const total=cuota*meses;const tea=(Math.pow(1+r,12)-1)*100;return{cuotaMensual:Number(cuota.toFixed(2)),costoTotal:Number(total.toFixed(2)),interesesEstimados:Number((total-capital).toFixed(2)),tasaMensualPct,tasaEfectivaAnualPct:Number(tea.toFixed(2)),meses};}
-async function evaluarCredito(userId,input){const base=await resumen(userId);const simulacion=simularCredito(input);const flujoPosterior=base.flujoLibre-simulacion.cuotaMensual;const cargaPosterior=base.ingresos?((base.cuotasDeuda+simulacion.cuotaMensual)/base.ingresos)*100:null;return{simulacion,contexto:{ingresosRegistrados:base.ingresos,flujoLibreActual:base.flujoLibre,flujoLibrePosterior:Number(flujoPosterior.toFixed(2)),cargaDeudaPosteriorPct:cargaPosterior===null?null:Number(cargaPosterior.toFixed(2))},alertas:[...(flujoPosterior<0?["La cuota proyectada llevaría el flujo libre registrado a terreno negativo."]:[]),...(cargaPosterior!==null&&cargaPosterior>35?["La carga mensual de deuda proyectada supera el 35% de los ingresos registrados."]:[])],supuestos:"Cálculo determinístico con los datos registrados; no incluye seguros, comisiones, impuestos ni cambios futuros salvo que se incorporen al escenario."};}
+async function evaluarCredito(userId,input){
+ const base=await resumen(userId);
+ return{estado:"PENDIENTE_EVALUACION_EXACTA",simulacion:null,requiereSimulacionExacta:true,contexto:{ingresosRegistrados:base.ingresos,flujoRegistrado:base.flujoRealizado,flujoLibreActual:null,flujoLibrePosterior:null,cargaDeudaPosteriorPct:null},alertas:["No se autoriza crédito a partir del flujo registrado. Se requiere simulación monetaria exacta, calendario, cargos y liquidez verificados."],supuestos:"La simulación antigua permanece separada y no se usa para evaluar capacidad ni para aprobar crédito."};
+}
 module.exports={gastoAfectaCaja,registrarMovimiento,diario,resumenPeriodo,upsertPerfil,registrarActivo,registrarInversion,upsertPerfilInversion,patrimonio,planFinanciero,registrarCredito,crearMeta,resumen,simularCredito,evaluarCredito};

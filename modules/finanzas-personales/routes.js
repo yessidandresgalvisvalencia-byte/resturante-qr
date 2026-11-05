@@ -312,7 +312,7 @@ router.get("/inversiones/confirmacion-creacion/:solicitudId",async(req,res)=>{tr
 const perfilInv=Joi.object({horizonteMeses:Joi.number().integer().min(1).max(600).required(),toleranciaRiesgo:Joi.string().valid("CONSERVADOR","MODERADO","AGRESIVO").required(),necesidadLiquidez:Joi.string().valid("ALTA","MEDIA","BAJA").required(),objetivoPrincipal:Joi.string().valid("PRESERVAR","CRECER","INGRESO","META_ESPECIFICA").required()});
 router.put("/perfil-inversion",validate(perfilInv),async(req,res)=>res.json({ok:true,perfil:await service.upsertPerfilInversion(req.personalAuth.userId,req.validated)}));
 router.get("/patrimonio",async(req,res)=>{try{return res.json({ok:true,patrimonio:await service.patrimonio(req.personalAuth.userId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el patrimonio; revisa tus fuentes"});}});
-router.get("/plan-financiero",async(req,res)=>res.json({ok:true,plan:await service.planFinanciero(req.personalAuth.userId)}));
+router.get("/plan-financiero",require("./services/resumenHttpPersonal.handler").crearConsultaDerivadaPersonal("plan",u=>service.planFinanciero(u)));
 const creditoLegacyRecuperable=require("./services/creditoLegacyRecuperablePersonal.service");
 router.get("/creditos",async(req,res)=>{
  try{return res.json({ok:true,...await creditoLegacyRecuperable.listar(req.personalAuth.userId)});}
@@ -343,10 +343,10 @@ router.get("/creditos/confirmacion-creacion/:solicitudId",async(req,res)=>{
 });
 const meta=Joi.object({nombre:Joi.string().max(120).required(),objetivo:Joi.number().integer().positive().max(Number.MAX_SAFE_INTEGER).required(),acumulado:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),fechaObjetivo:Joi.date().iso().allow(null)});
 router.post("/metas",validate(meta),async(req,res)=>res.status(201).json({ok:true,meta:await service.crearMeta(req.personalAuth.userId,req.validated)}));
-router.get("/resumen",async(req,res)=>res.json({ok:true,resumen:await service.resumen(req.personalAuth.userId)}));router.get("/analisis",async(req,res)=>res.json({ok:true,analisis:await brain.analizar(req.personalAuth.userId)}));
+router.get("/resumen",require("./services/resumenHttpPersonal.handler").crearResumenHttpPersonal());router.get("/analisis",require("./services/resumenHttpPersonal.handler").crearConsultaDerivadaPersonal("analisis",u=>brain.analizar(u)));
 const simulacion=Joi.object({capital:Joi.number().positive().required(),tasaMensualPct:Joi.number().min(0).max(100).required(),meses:Joi.number().integer().min(1).max(600).required()});
 router.post("/creditos/simular",validate(simulacion),(req,res)=>res.json({ok:true,simulacion:service.simularCredito(req.validated)}));
-router.post("/creditos/evaluar",validate(simulacion),async(req,res)=>res.json({ok:true,evaluacion:await service.evaluarCredito(req.personalAuth.userId,req.validated)}));
+router.post("/creditos/evaluar",validate(simulacion),require("./services/resumenHttpPersonal.handler").crearConsultaDerivadaPersonal("evaluacion",(u,req)=>service.evaluarCredito(u,req.validated)));
 const compromisosCuotas=require("./services/compromisosCuotas.service");
 const nuevoCompromisoSchema=Joi.object({
  concepto:Joi.string().trim().min(1).max(140).required(),
