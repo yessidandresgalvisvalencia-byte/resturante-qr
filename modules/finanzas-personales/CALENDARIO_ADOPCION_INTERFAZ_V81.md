@@ -41,3 +41,13 @@ La integración usa la API de CALENDARIO_ADOPCION_API_V81.md: misma identidad, c
 Siguiente: recepción explícita por ocurrencia, con cuenta, fecha y monto confirmados; recibo idempotente y evento atómico sin duplicar caja ni perder original/planificación. Completar también aceptación visual/dispositivos y flujo de exportación/archivo de pendientes sin borrar evidencias.
 
 #407, custodio independiente real, backup durable completo/retención/acceso/claves separados, recuperación operativa aislada y RPO/RTO productivos, roles/índices/históricos reales, seguridad/compatibilidad/visual/informe final siguen pendientes. No merge a feature ni Render; sin main/Empresarial/Blushéa, nuevos servicios/costos, migraciones o mutaciones/restauración de datos reales.
+
+## Verificación del núcleo publicado
+
+Núcleo `c5da4054f6ef5ff67f4d59f58288728fb33f5c41`, árbol `97d040b3d4fe5435e2da0cf6e29dd98e82ee2cbc`. Gate 42097650631, Seguridad 42097650871 y V81 42097651156: success para ese SHA. Job Mongo autorizado 127491809073: 68 pruebas/68 aprobadas/cero fallos; el helper de interfaz real ampliado con ADOPTAR/commit-respuesta perdida/recibo/restauración/planificación única aprobó. Ocho blobs remotos cotejados y árbol idéntico a la copia probada.
+
+Local: módulo 503 casos/494 aprobados/nueve omitidos/cero fallos; 32 dirigidas interfaz/dictado y 33 versiones/privilegios/backup aprobadas. CI Node20 confirma compatibilidad frente a Node24 local. No hay aprobación visual/dispositivos ni prueba de producción en estos resultados.
+
+Ensayo backup V18 del job: 38 colecciones/5352 documentos/3486298 bytes, captura 119 ms, restauración 1656 ms, edad 1754 ms; custodiaIndependiente=false y rpoProduccion=false. BSON/índices conservados en base aislada de fixtures; no acredita recuperación productiva, retención durable ni custodio real. Es el mismo alcance de backup, sin migraciones.
+
+Un bloque funcional de interfaz de adopción verificado; su cierre documental requiere su propia CI exacta y no es otro bloque. Siguiente: recepción explícita por ocurrencia y validación visual/dispositivos, manteniendo #407 y evidencias operativas externas pendientes. Sin merge a feature ni Render, costos o alteración de datos reales.
