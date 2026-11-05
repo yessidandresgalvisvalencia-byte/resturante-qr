@@ -34,3 +34,19 @@ Este bloque prepara recuperación: **no entrega todavía selector/formulario de 
 Primer núcleo publicado `069a17d4c9d296c78aa1eea4ab2a97c528717148`, árbol `aa6255cbb62d868d565ed099759f30ec705f9329`; dieciséis blobs cotejados. Gate 42117082446 y Seguridad 42117082445 success. V81 42117082629 falló en job autorizado 127559466714: los reintentos agregados a la misma identidad superaron el límite real de 20 POST/minuto y la prueba esperaba un recibo duplicado frente a una respuesta 429. No era evidencia de aprobación integral.
 
 Se mantienen todos los casos y las comprobaciones de clave/cuerpo/evento. Las verificaciones repetidas de rechazo ya persistido usan el servicio bajo la misma conexión restringida; primer rechazo, GET de recuperación, aislamiento, carreras y controlador real siguen por HTTP. No se modifica ni desactiva el limitador, no se cambia reloj ni se borra cuota o evidencia. Este ajuste deja menos de veinte POST propios por escenario. Repetir CI exacta antes de cerrar el bloque.
+
+## Evidencia verificada del bloque recuperable
+
+Código `069a17d4c9d296c78aa1eea4ab2a97c528717148`; ajuste del escenario `793a0cccf18a86a642d13a976202f01814f7166d`, árbol `1a07e665bf98857b40a65ad1d753edcabcf89147`, idéntico a la copia probada. Dieciséis blobs del núcleo cotejados y tres del ajuste cotejados; publicación con expected_sha y force=false. El primer intento fallido se conserva arriba y no cuenta como aprobación.
+
+CI exacta de `793a0cccf18a86a642d13a976202f01814f7166d`:
+- [Gate 42117499603](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42117499603): success.
+- [Seguridad 42117499555](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42117499555): success.
+- [Precisión e Integridad 42117499857](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42117499857): success, siete jobs aprobados.
+- Job Mongo autorizado 127560939047: 69 pruebas/69 aprobadas/cero fallos/cero omisiones. Subtest 21 de recepción por ocurrencia aprobado: decisiones persistidas/replay, competencia entre calendarios, misma clave concurrente, fallo de inserción, fuente corregida sin reaplicar clave rechazada, anulación/revinculación; agenda y API reales con DOM simulado recuperan por GET una decisión cuya respuesta se perdió y mantienen un pago ajeno incierto.
+
+Local: 514 casos/505 aprobados/nueve omitidos por dependencias externas; 43 dirigidas aprobadas, sintaxis/diff correctos. Node24 local y Node20 de pruebas en CI; estos resultados no son aprobación visual ni dispositivos reales.
+
+Ensayo de backup V18 en ese job: 38 colecciones/5370 documentos/3517714 bytes, captura 211 ms, restauración 1051 ms, edad 1219 ms; custodiaIndependiente=false y rpoProduccion=false. BSON/índices verificados en destino aislado de fixtures, sin restaurar producción ni modificar fuentes reales. No acredita retención durable, custodia real o RPO/RTO operativos.
+
+Se completa un bloque de recuperación de decisiones de recepción, sin contar commits documentales como otro bloque. Este cierre documental descendiente requiere su propia CI exacta; el SHA del cierre identifica el checkpoint y el PR mantiene la confirmación final. Siguiente: consulta de ingresos elegibles y formulario de vínculo/anulación con revisión y confirmación; después alta nueva atómica. #407/custodia/recuperación operativa/roles-índices-históricos/seguridad/compatibilidad/visual-dispositivos/informe final siguen pendientes. Sin merge a feature/main ni Render, cambios de otros productos, costos o datos reales.
