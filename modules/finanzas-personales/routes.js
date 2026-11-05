@@ -13,6 +13,14 @@ router.use((req,res,next)=>{
  res.set("Expires","0");
  return next();
 });
+// Calendario por eventos: identidad JWT y confirmación estricta del servicio.
+const calendarioIngresoHandler=require("./services/calendarioIngresoPersonal.handler").crear;
+const limiteCalendarioIngreso=require("./security/limiteSeleccionadoV81.middleware").crearLimiteSeleccionadoV81();
+router.get("/calendario-ingresos",calendarioIngresoHandler({operacion:"LISTAR"}));
+router.get("/calendario-ingresos/recibos/:clave",calendarioIngresoHandler({operacion:"RECIBO"}));
+router.get("/calendario-ingresos/:id/historial",calendarioIngresoHandler({operacion:"HISTORIAL"}));
+router.post("/calendario-ingresos",limiteCalendarioIngreso,calendarioIngresoHandler({operacion:"CREAR"}));
+router.post("/calendario-ingresos/:id/eventos",limiteCalendarioIngreso,calendarioIngresoHandler({operacion:"CAMBIAR"}));
 // V81: diagnóstico en solo lectura, con identidad obtenida exclusivamente del JWT personal verificado.
 // Esta ruta no permite escoger usuario por body, params, query ni headers.
 router.get("/v81/integridad",require("./services/consultaIntegridadV81.handler").crearConsultaIntegridadV81());

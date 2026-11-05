@@ -244,7 +244,9 @@ async function obtenerEnSesion(usuarioId,now,session){
  const deudas=await leerListadoHome(Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).sort({fechaVencimiento:1,createdAt:1}).session(session));
  const tarjetas=await leerListadoHome(DeudaPersonal.find({usuarioId,tipo:"TARJETA_CREDITO",activa:true,saldoMinor:{$gt:0}}).session(session));
  const pat=await patrimonio.snapshotEnSesion(usuarioId,session);
- const calendariosIngreso=await leerListadoHome(Calendario.find({usuarioId,tipo:"INGRESO",activo:true}).session(session));
+ const calendariosLegados=await leerListadoHome(Calendario.find({usuarioId,tipo:"INGRESO",activo:true}).session(session));
+ const calendarioGestionado=await require("./calendarioIngresoPersonal.service").leerEnSesion(usuarioId,session);
+ const calendariosIngreso=[...calendariosLegados,...calendarioGestionado.calendarios.filter(c=>c.activo)];
  const cobros=await leerListadoHome(Prestamo.find({usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).sort({fechaVencimiento:1}).session(session));
  const ingresosMinor=sumarMontosHome(tx.filter(x=>x.tipo==="INGRESO"));
  const cobrosRecibidosMinor=sumarMontosHome(tx.filter(x=>x.tipo==="COBRO_PRESTAMO"));

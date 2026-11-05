@@ -1,5 +1,5 @@
 "use strict";
-const {diaCivilBogota}=require("./fechaPersonal.service");
+const {diaCivilBogota,fechaVerificable}=require("./fechaPersonal.service");
 const id=v=>typeof v?.toString==="function"&&/^[a-f\d]{24}$/i.test(v.toString());
 // El calendario declara una previsión, nunca acredita dinero recibido.
 // Un ingreso histórico recurrente no confirma la fecha o el monto del siguiente.
@@ -23,7 +23,9 @@ function resolver({usuarioId,calendarios,referencias=[],ahora}){
   if(!Number.isSafeInteger(c.diaMes)||c.diaMes<1||c.diaMes>31){pendiente("DIA_INVALIDO");continue;}
   if(!Number.isSafeInteger(c.montoMinor)||c.montoMinor<=0){pendiente("MONTO_PENDIENTE");continue;}
   if(c.sourceId!=null){const r=fuentes.get(String(c.sourceId));if(!id(c.sourceId)||!r||r.tipo!=="INGRESO"||r.estado==="ANULADA"){pendiente("REFERENCIA_NO_VERIFICABLE");continue;}}
-  let f=fecha(y,m,c.diaMes);
+  let f=c.modo==="EVENTOS_V1"?fechaVerificable(c.fechaProxima):fecha(y,m,c.diaMes);
+  if(!f||c.modo==="EVENTOS_V1"&&f.getUTCDate()!==Math.min(c.diaMes,new Date(Date.UTC(f.getUTCFullYear(),f.getUTCMonth()+1,0)).getUTCDate())){pendiente("FECHA_EXPLICITA_INVALIDA");continue;}
+  if(c.modo==="EVENTOS_V1"&&diaCivilBogota(f)<hoy){pendiente("INGRESO_PREVISTO_VENCIDO");continue;}
   if(diaCivilBogota(f)===hoy){pendiente("INGRESO_HOY_SIN_CONFIRMAR");continue;}
   if(diaCivilBogota(f)<hoy)f=fecha(m===12?y+1:y,m===12?1:m+1,c.diaMes);
   candidatos.push({fecha:f,montoMinor:c.montoMinor,concepto:c.concepto,calendarioId:fuenteId});
