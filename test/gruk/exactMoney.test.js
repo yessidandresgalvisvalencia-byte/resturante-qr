@@ -47,3 +47,11 @@ test("money rejects noncanonical or unsupported inputs at trust boundary", () =>
     assert.throws(() => formatMinorUnits(1n, scale), TypeError);
   }
 });
+
+test("money rejects oversized untrusted decimal strings before BigInt conversion", () => {
+  const huge = "9".repeat(100_000);
+  assert.throws(() => parseMinorUnits(huge), RangeError);
+  assert.throws(() => parseMinorUnits("-" + huge + ".00"), RangeError);
+  const boundary = "9".repeat(38) + "." + "1".repeat(9);
+  assert.equal(formatMinorUnits(parseMinorUnits(boundary, 9), 9), boundary);
+});
