@@ -1614,3 +1614,18 @@ Se corrige además el ciclo retiro → anulación de vínculo → restauración:
 Plan, criterios, pruebas previstas y límites en RECEPCION_INTERFAZ_V81.md. Publicación y CI del nuevo SHA pendientes al preparar el lote. Misma colección/rol/índices/backup V18/38; recursos personales versionados juntos. Alta nueva atómica de ingreso+recepción y abonos múltiples siguen pendientes; siguiente tras verificar CI: ese flujo atómico y aceptación visual/dispositivos. #407/custodio real/backup durable y recuperación operativa/roles-índices-históricos/seguridad/compatibilidad/informe final abiertos. Sin merge ni Render, otros productos, costos o datos reales modificados.
 
 Validación local Node24 antes de publicar: módulo 521 casos/512 aprobados/nueve omitidos por servicios externos/cero fallos; 54 dirigidas aprobadas, sintaxis y diff correctos. MongoDB autorizado no disponible localmente; no contar el bloque como verificado hasta obtener CI nativa del SHA publicado.
+
+## Evidencia del núcleo publicado
+
+Núcleo `24be406c2a4cdcf64272871e538951b86ce5e320`, árbol `976e49abbbd95999e6fa95e27e095cd444d92a86`. Quince blobs remotos cotejados, árbol igual a la copia probada y actualización con expected_sha/force=false. CI exacta:
+- [Gate 42124972432](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42124972432): success.
+- [Seguridad 42124972447](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42124972447): success.
+- [V81 42124972854](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42124972854): success, siete jobs aprobados.
+
+Job Mongo autorizado 127586698988: 69 pruebas/69 aprobadas/cero fallos/cero omisiones. Subtest 21 de recepción aprobado, incluida ampliación con interfaz/control/API reales y DOM simulado: ingresos elegibles propios, diferencia de -50 pesos, doble clic con un POST, pérdida de respuesta después de commit y GET sin repetir, retiro con vínculo, anulación estando retirado, restauración con referencia original y conservación de cuenta/ingreso/outbox. Queries con dueño o página inválida rechazadas; otro propietario recibe 404. No se cambió el limitador.
+
+Local Node24: 521 casos/512 aprobados/nueve omitidos por servicios externos/cero fallos; 54 dirigidas aprobadas y sintaxis/diff correctos. CI ejecuta pruebas en Node20. Estos resultados no equivalen a aprobación visual/dispositivos ni garantizan carga instantánea o integridad de producción.
+
+Ensayo backup V18: 38 colecciones/5378 documentos/3532306 bytes, captura 199 ms, restauración 1003 ms, edad 1156 ms; custodiaIndependiente=false, rpoProduccion=false. BSON/índices verificados en destino vacío aislado de fixtures; no acredita retención durable, custodia real o RPO/RTO de producción.
+
+Un bloque de interfaz de conciliación con ingreso existente e integración verificado. Este cierre documental requiere CI de su propio SHA y no cuenta como otro bloque. Próximo: alta nueva de ingreso+recepción en una transacción única, sin reutilizar sesiones independientes como falsa atomicidad; evaluar abonos múltiples y aprobación visual/dispositivos. #407 y gates operativos externos siguen abiertos. Sin merge a feature/main ni despliegue Render, cambios de otros productos, costos o datos reales.
