@@ -40,7 +40,7 @@ test('registry tarballs are pinned to an integrity digest', () => {
 
 test('production dependencies cannot use mutable remote or local sources', () => {
   for (const [name, spec] of Object.entries(manifest.dependencies || {})) {
-    assert.doesNotMatch(spec, /^(?:git(?:\+|:)|https?:|file:|link:|workspace:)/i,
+    assert.doesNotMatch(spec, /^(?:npm:|git(?:\+|:)|https?:|file:|link:|workspace:)/i,
       'unreviewed dependency source for ' + name);
   }
 });
