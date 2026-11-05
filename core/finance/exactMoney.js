@@ -11,7 +11,7 @@ function parseMinorUnits(value, scale = 2) {
   if (!/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) {
     throw new RangeError("Invalid decimal amount");
   }
-  // Reject oversized untrusted inputs before allocating large BigInts.\n  if (value.length > MAX_DIGITS + 11) throw new RangeError("Amount exceeds supported precision");\n  const negative = value.startsWith("-");
+  const negative = value.startsWith("-");
   const unsigned = negative ? value.slice(1) : value;
   const [whole, fraction = ""] = unsigned.split(".");
   if (fraction.length > scale) throw new RangeError("Excess fractional precision");
