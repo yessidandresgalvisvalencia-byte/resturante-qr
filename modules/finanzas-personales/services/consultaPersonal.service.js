@@ -1,10 +1,10 @@
 "use strict";
-const contexto=require("./contextoPersonal.service");const ledger=require("./resumenLedgerPersonal.service");const gastoInteligente=require("./gastoInteligentePersonal.service");const obligaciones=require("./obligacionesPersonal.service");const progreso=require("./progresoEconomicoPersonal.service");const interprete=require("./interpreteFinanciero.service");const patrimonio=require("./patrimonioCanonico.service");const Prestamo=require("../models/prestamoPersonal.model");const home=require("./homePersonal.service");
+const contexto=require("./contextoPersonal.service");const ledger=require("./resumenLedgerPersonal.service");const gastoInteligente=require("./gastoInteligentePersonal.service");const obligaciones=require("./obligacionesPersonal.service");const progreso=require("./progresoEconomicoPersonal.service");const interprete=require("./interpreteFinanciero.service");const patrimonio=require("./patrimonioCanonico.service");const Prestamo=require("../models/prestamoPersonal.model");
 function money(n){return new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n);}
 async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim().toLowerCase();if(!q)throw Object.assign(new Error("Pregunta requerida"),{statusCode:400});
  if(/(?:zapatos|tenis|calzado)/.test(q)&&/(?:cuotas|cr[eé]dito|financiar|inter[eé]s)/.test(q)&&/(?:quiero|pensando|comprar|compro)/.test(q))return{tipo:"ASESORIA_COMPRA_FINANCIADA",respuesta:"Entiendo que estás considerando comprar zapatos financiados. Ya sé que mencionaste cuotas y una tasa de interés, así que no te pediré repetirlo. Antes de decidir, revisaré el precio, el número de cuotas y el costo financiero que hayas indicado, sin asumir datos que no proporcionaste. También debo confirmar cómo se aplica el interés que mencionaste: no sería responsable asumir una tasa ni su periodicidad. Como mencionas que no tienes efectivo, mi prioridad es comprobar que la primera cuota no comprometa alimentación, vivienda, transporte, deudas existentes ni tu reserva de emergencia. Si el gasto no es urgente, compararé esperar y ahorrar frente a financiarlo. ¿Cuánto cuestan los zapatos? No he creado ninguna deuda ni registrado la compra.",datos:{soloLectura:true,requierePrecio:true,requierePeriodicidadTasa:true}};
  if(/cu[aá]nto\s+(?:necesito|debo|tengo que).*ingres|ingresos?.*(?:necesito|para).*gastar|cu[aá]nto.*ingres.*gastar bien/.test(q)){return require("./disponibleConversacionalPersonal.service").consultar(usuarioId,{tipo:"META_INGRESOS_PARA_GASTAR"});}
- if(/cu[aá]nto.*(?:gastar|puedo)|disponible hoy|me alcanza/.test(q)){return require("./disponibleConversacionalPersonal.service").consultar(usuarioId); }
+ if(/cu[aá]nto.*gastar|cu[aá]nto\s+puedo(?:\s+hoy)?[?¿\s]*$|disponible hoy|me alcanza/.test(q)){return require("./disponibleConversacionalPersonal.service").consultar(usuarioId); }
  if(!(/(?:invertir|inversi[oó]n)/.test(q)&&/(?:deuda|cr[eé]dito|pr[eé]stamo|moto|carro|abonar|amortizar|pagar)/.test(q))&&/(?:mejor (?:forma|manera)|c[oó]mo (?:deber[ií]a|puedo)|qu[eé] (?:recomiendas|conviene)|estrategia|aconsejas|qu[eé] hago)/.test(q)&&/(?:invertir|inversi[oó]n|ahorrar|ahorro|dinero|finanzas|ingresos|gastos)/.test(q)){
   const tema=/invertir|inversi[oó]n/.test(q)?"inversion":/ahorrar|ahorro/.test(q)?"ahorro":"finanzas";
   return require("./orientacionVerificadaPersonal.service").consultar(usuarioId,{tipo:"ASESORIA_FINANCIERA_ABIERTA",tema});
@@ -16,39 +16,16 @@ async function consultar(usuarioId,pregunta){const q=String(pregunta||"").trim()
  if((/(?:y si|y s[ií]|en vez de|mejor uso|ese dinero|esa plata|lo anterior)/.test(q)&&/(?:moto|deuda|pagar|abonar)/.test(q))||(/(?:invertir|inversi[oó]n)/.test(q)&&/(?:deuda|cr[eé]dito|pr[eé]stamo|moto|carro|abonar|amortizar|pagar)/.test(q))){
   const deudaRef=await contexto.resolverDeuda(usuarioId,pregunta);
   if(!deudaRef.deuda)return{tipo:"DEUDA_NO_IDENTIFICADA",respuesta:"Para comparar invertir con abonar necesito identificar la deuda correcta. Indícame su nombre o concepto; no voy a suponer cuál es.",datos:{requiereIdentificarDeuda:true}};
-  if(deudaRef.deuda){
-   const d=deudaRef.deuda,h=await home.obtener(usuarioId),a=h.asesor||{};
-   const libre=a.saldoRealConocido&&a.saldoConfiabilidad==="VERIFICADO"&&!a.saldoRequiereReconciliacion?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
-   const saldo=Number(d.saldoMinor||0),cuota=Number(d.cuotaMinor||0);
-   const interes=d.tasaConfirmada===true&&d.tasaMensualPct!=null?Number(d.tasaMensualPct):null;
-   const consejo=interes===null?"La tasa de interés no está confirmada; revisa el contrato antes de comparar costos.":interes===0?"Como la deuda registrada no tiene intereses, abonar antes no reduce intereses; prioriza conservar liquidez para obligaciones y emergencias.":"Si la deuda tiene intereses, un abono a capital puede reducir el costo total; verifica condiciones y penalidades.";
-   const interesMes=interes===null?null:Math.round(saldo*interes/100);
-   const explicacionInteres=interesMes===null?"":" A la tasa mensual confirmada, el interés aproximado de un mes sobre el saldo actual sería "+money(interesMes)+", sin proyectar pagos, cargos ni cambios de saldo.";
-   const capacidad=libre===null?"No puedo estimar un abono seguro sin saldo disponible confirmado.":libre===0?"No hay margen libre estimado para un abono adicional.":"El máximo disponible estimado es "+money(Math.min(libre,saldo))+", pero no necesariamente conviene destinarlo completo.";
-   return{tipo:"COMPARACION_ABONO_DEUDA",respuesta:"Si estás comparando invertir con abonar a "+(d.concepto||"tu deuda")+", primero protege los pagos próximos. Saldo pendiente "+money(saldo)+(cuota?", cuota "+money(cuota):"")+". "+consejo+explicacionInteres+" "+capacidad+" Para comparar numéricamente necesito rentabilidad neta esperada, riesgo, plazo y costos de inversión; no puedo garantizar retornos. No registré pagos.",datos:{saldoMinor:saldo,cuotaMinor:cuota,disponibleMinor:libre,tasaMensualPctConfirmada:interes,interesMesEstimadoMinor:interesMes,comparacion:true}};
-  }
+  return require("./asesoriaDeudaVerificadaPersonal.service").consultar(usuarioId,deudaRef.deuda._id,{tipo:"COMPARACION_ABONO_DEUDA"});
  }
  const referenciaDeuda=await contexto.resolverDeuda(usuarioId,pregunta);
  if(referenciaDeuda.aplica){
   const d=referenciaDeuda.deuda;
   if(!d)return{tipo:"REFERENCIA_AMBIGUA",respuesta:"Entiendo que preguntas por una deuda, pero no puedo determinar cuál con certeza. Dime cuál deuda (por ejemplo, la moto) y continúo sobre esa misma sin cambiar de tema.",datos:{requiereAclaracion:true}};
-  await contexto.recordar(usuarioId,{foco:"DEUDA",entidadId:d._id,etiqueta:d.concepto||d.contraparte||"Deuda",ultimaIntencion:"CONSULTAR_DEUDA",ultimaPregunta:pregunta});
-  const cuota=Number(d.cuotaMinor||0),saldo=Number(d.saldoMinor||0),principal=Number(d.principalMinor||0),abonado=Math.max(0,principal-saldo);
-  const partes=["Sobre "+(d.concepto||"esa deuda")+": te faltan "+money(saldo)+".","Monto original "+money(principal)+", abonado "+money(abonado)+(cuota>0?", cuota registrada "+money(cuota):"")+"."]; 
-  if(/(?:mejor manera|mejor forma|c[oó]mo (?:la|lo|puedo|deber[ií]a)? ?pagar|conviene|recomiendas|estrategia|plan de pago|qu[eé] hago)/.test(q)){
-   const h=await home.obtener(usuarioId),a=h.asesor||{};
-   const libre=a.saldoRealConocido&&a.saldoConfiabilidad==="VERIFICADO"&&!a.saldoRequiereReconciliacion?Math.max(0,Number(a.disponibleHoyMinor||0)):null;
-   const meses=cuota>0?Math.ceil(saldo/cuota):null;
-   const opciones=[];
-   if(cuota>0)opciones.push("Mantener la cuota de "+money(cuota)+(meses?" requeriría aproximadamente "+meses+" pagos si no cambian el saldo ni las condiciones.":"") );
-   if(libre===null)opciones.push("No tengo un saldo disponible confiable para recomendar abonos extraordinarios.");
-   else if(libre>0)opciones.push("Podrías considerar un abono adicional de hasta "+money(Math.min(libre,saldo))+" únicamente si ese dinero no está comprometido y el acreedor lo aplica a capital.");
-   else opciones.push("No aparece dinero libre para abonos extraordinarios: protege primero tus gastos esenciales y cuotas próximas.");
-   const interes=Number(d.tasaMensualPct||0);
-   const recomendacion=interes===0?"Como la tasa registrada es 0%, adelantar pagos no ahorra intereses por sí solo. Prioriza cumplir la cuota sin quedarte sin efectivo.":"Si hay intereses, pide una liquidación actualizada y confirma cuánto ahorra un abono directo a capital antes de decidir.";
-   return{tipo:"ASESORIA_DEUDA_CONTEXTUAL",respuesta:"Para "+(d.concepto||"esta deuda")+", mi recomendación es: "+recomendacion+" Saldo pendiente: "+money(saldo)+". "+opciones.join(" ")+" Antes de modificar el plan, confirma fechas, penalidades y condiciones del acreedor. No he registrado ni programado ningún pago.",datos:{deuda:d,saldoMinor:saldo,cuotaMinor:cuota,mesesEstimados:meses,disponibleConocido:libre,opciones,requiereAprobacion:false}};
-  } 
-  return{tipo:"DEUDA_CONTEXTUAL",respuesta:partes.join(" "),datos:{deuda:d,saldoMinor:saldo,principalMinor:principal,abonadoMinor:abonado,cuotaMinor:cuota,origenContexto:referenciaDeuda.origen}};
+  const plan=/(?:cu[aá]nto.*abonar|mejor manera|mejor forma|c[oó]mo (?:la|lo|puedo|deber[ií]a)? ?pagar|conviene|recomiendas|estrategia|plan de pago|qu[eé] hago)/.test(q);
+  const resultado=await require("./asesoriaDeudaVerificadaPersonal.service").consultar(usuarioId,d._id,{tipo:plan?"ASESORIA_DEUDA_CONTEXTUAL":"DEUDA_CONTEXTUAL"});
+  if(resultado.datos.deudaId)try{await contexto.recordar(usuarioId,{foco:"DEUDA",entidadId:resultado.datos.deudaId,etiqueta:resultado.datos.concepto,ultimaIntencion:"CONSULTAR_DEUDA",ultimaPregunta:pregunta});}catch{resultado.datos.contextoActualizado=false;}
+  return resultado;
  }
  if(/(?:me deben|por cobrar|quien me debe|quién me debe|plata pendiente)/.test(q)){const cs=await Prestamo.find({usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).sort({fechaVencimiento:1}).lean();const total=cs.reduce((s,x)=>s+x.saldoMinor,0);return{tipo:"CUENTAS_POR_COBRAR",respuesta:cs.length?"Tienes "+money(total)+" pendientes por cobrar. Ese dinero no entra a Disponible Hoy hasta que realmente lo recibas.":"No tienes dinero pendiente por cobrar registrado.",datos:{cuentas:cs,totalMinor:total}};}
  if(/(?:como puedo ganar mas|cómo puedo ganar más|generar mas|generar más|aumentar ingresos|mejorar mis ingresos|salir adelante|progreso economico|progreso económico)/.test(q)){const p=await progreso.analizar(usuarioId);const o=p.ordenes[0];return{tipo:"GENERAR_MAS",respuesta:o?o.accion+" "+o.justificacion:"Todavía no hay una acción económica verificable con los datos registrados.",datos:p};}

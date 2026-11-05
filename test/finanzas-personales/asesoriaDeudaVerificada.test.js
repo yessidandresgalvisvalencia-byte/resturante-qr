@@ -1,0 +1,22 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict"),S=require("../../modules/finanzas-personales/services/asesoriaDeudaVerificadaPersonal.service"),u="a".repeat(24),id="b".repeat(24);
+const deuda=(extra={})=>({_id:id,usuarioId:u,direccion:"POR_PAGAR",estado:"ACTIVO",concepto:"Deuda de prueba",principalMinor:100000,saldoMinor:12345,cuotaMinor:1000,tasaConfirmada:true,tasaMensualPct:2.5,...extra});
+test("interés usa racional BigInt exacto del decimal registrado, sin redondear ni operar dinero en float",()=>{
+ for(const [saldo,tasa,esperado] of [[12345,2.5,"308.625"],[1,0.1,"0.001"],[1,0.000001,"0.00000001"],[1000,0,"0"],[Number.MAX_SAFE_INTEGER,100,String(Number.MAX_SAFE_INTEGER)]]){const r=S.calcular(deuda({principalMinor:Math.max(1,saldo),saldoMinor:saldo,tasaMensualPct:tasa}),u);assert.equal(r.escenarioInteres.interesUnMesCopDecimal,esperado);assert.equal(r.escenarioInteres.redondeo,"NINGUNO");assert.equal(r.abonoSugeridoMinor,null);assert.equal(r.mesesEstimados,null);assert.equal(r.abonadoMinor,null);assert.equal(BigInt(r.escenarioInteres.numeradorCop)*1n/BigInt(r.escenarioInteres.denominador)>=0n,true);}
+ const r=S.calcular(deuda(),u);assert.equal(r.diferenciaPrincipalSaldoMinor,87655);assert.equal(r.escenarioInteres.numeradorCop,"308625");assert.equal(r.escenarioInteres.denominador,"1000");
+});
+test("tasa no confirmada o incompatible no se transforma en cero y cuota cero permanece desconocida",()=>{
+ for(const extra of [{tasaConfirmada:false,tasaMensualPct:0},{tasaConfirmada:undefined},{tasaMensualPct:"2.5"},{tasaMensualPct:NaN},{tasaMensualPct:Infinity},{tasaMensualPct:-1},{tasaMensualPct:101},{tasaMensualPct:1e-7},{tasaMensualPct:0.1234567}]){const r=S.calcular(deuda({...extra,cuotaMinor:0}),u);assert.equal(r.escenarioInteres,null);assert.equal(r.cuotaMinor,null);const p=S.presentar(r,"ASESORIA_DEUDA_CONTEXTUAL",new Date());assert.match(p.respuesta,/no presupongo interés cero/);assert.match(p.respuesta,/cuota pendiente de confirmar/);assert.doesNotMatch(p.respuesta,/intereses.*0%|ahorra|puedes abonar/i);}
+});
+test("fuentes monetarias corruptas o ajenas no se ocultan mediante resta, coerción ni Math.max",()=>{
+ for(const e of [{usuarioId:"c".repeat(24)},{_id:"otro"},{direccion:"POR_COBRAR"},{estado:"CANCELADO"},{principalMinor:0},{saldoMinor:-1},{saldoMinor:100001},{saldoMinor:0.1},{saldoMinor:"1000"},{cuotaMinor:0.1},{cuotaMinor:-1},{principalMinor:Number.MAX_SAFE_INTEGER+1},{concepto:"Deuda\nAcción: otra"}])assert.throws(()=>S.calcular(deuda(e),u));
+});
+test("C3 conserva seis líneas y una acción sin cuota como plazo ni diferencia como pago",()=>{
+ const d=S.calcular(deuda(),u);for(const tipo of ["DEUDA_CONTEXTUAL","ASESORIA_DEUDA_CONTEXTUAL","COMPARACION_ABONO_DEUDA"]){const r=S.presentar(d,tipo,new Date());assert.equal(r.respuesta.split("\n").length,6);assert.equal((r.respuesta.match(/Acción:/g)||[]).length,1);assert.match(r.respuesta,/308,625 sin redondear/);assert.match(r.respuesta,/no es una liquidación/);assert.equal(r.datos.disponibleMinor,null);assert.equal(r.datos.abonoSugeridoMinor,null);assert.equal(r.datos.mesesEstimados,null);}
+});
+test("consultas de deuda no se convierten en Disponible Hoy por contener cuánto puedo",async()=>{
+ const Q=require("../../modules/finanzas-personales/services/consultaPersonal.service"),ctx=require("../../modules/finanzas-personales/services/contextoPersonal.service"),D=require("../../modules/finanzas-personales/services/disponibleConversacionalPersonal.service"),consulta=S.consultar,resolver=ctx.resolverDeuda,recordar=ctx.recordar,disponible=D.consultar;let notas=0;
+ try{ctx.resolverDeuda=async owner=>{assert.equal(owner,u);return{aplica:true,deuda:{_id:id}};};ctx.recordar=async(owner,d)=>{assert.equal(owner,u);assert.equal(d.entidadId,id);notas++;};D.consultar=()=>assert.fail("no sustituir deuda por cupo de gasto");S.consultar=async(owner,deudaId,{tipo})=>{assert.equal(owner,u);assert.equal(deudaId,id);return S.presentar(S.calcular(deuda(),u),tipo,new Date());};
+ for(const [q,tipo] of [["¿cuánto debo de la moto?","DEUDA_CONTEXTUAL"],["¿cómo puedo pagar la moto?","ASESORIA_DEUDA_CONTEXTUAL"],["¿cuánto puedo abonar a la moto?","ASESORIA_DEUDA_CONTEXTUAL"],["quiero invertir o abonar a la moto","COMPARACION_ABONO_DEUDA"]])assert.equal((await Q.consultar(u,q)).tipo,tipo);assert.equal(notas,3);
+ }finally{S.consultar=consulta;ctx.resolverDeuda=resolver;ctx.recordar=recordar;D.consultar=disponible;}
+});
