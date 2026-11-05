@@ -5,7 +5,7 @@ async function foto(u){return{c:await C.find({usuarioId:u}).lean(),p:await P.fin
 async function probarResumenConversacionalAutorizado(){
  const u=uid(),ancla=new Date(Date.now()-3600000),c=await C.create({usuarioId:u,nombre:"RESUMEN_CAJA",tipo:"EFECTIVO",saldoMinor:0,saldoAnclaMinor:0,saldoAnclaEn:ancla,saldoVerificadoEn:ancla,origenSaldo:"USUARIO",requiereReconciliacion:false});
  const crear=(tipo,montoMinor,extra={})=>F.registrarTransaccion(u,{tipo,montoMinor,fecha:new Date(Date.now()-60000),externalId:"resumen_"+crypto.randomUUID(),concepto:"Registro de ensayo",categoria:"OTROS",cuenta:"RESUMEN_CAJA",cuentaId:String(c._id),medioPago:"EFECTIVO",origen:"MANUAL",...extra});
- const ingreso=await crear("INGRESO",1000);await crear("GASTO",200);const cobrar=await P.create(prestamo(u,"POR_COBRAR",100));await Pat.cobrarCuentaPorCobrar(u,{prestamoId:String(cobrar._id),montoMinor:30,cuentaId:String(c._id),externalId:"cobro_"+crypto.randomUUID()});
+ const ingreso=await crear("INGRESO",1000);await crear("GASTO",200);const cobrar=await P.create(prestamo(u,"POR_COBRAR",100));await Pat.cobrarCuentaPorCobrar(u,{prestamoId:String(cobrar._id),montoMinor:30,cuentaId:String(c._id),externalId:crypto.randomUUID()});
  const pagar=await P.create(prestamo(u,"POR_PAGAR",100));await crear("PAGO_DEUDA",40,{prestamoId:String(pagar._id)});
  // Crédito histórico sintético: consumo sin salida de caja; no se crea una compra real.
  await T.create({usuarioId:u,tipo:"GASTO",montoMinor:50,concepto:"Consumo crédito de ensayo",categoria:"OTROS",medioPago:"CREDITO",impactoCaja:false,fecha:new Date(Date.now()-60000)});

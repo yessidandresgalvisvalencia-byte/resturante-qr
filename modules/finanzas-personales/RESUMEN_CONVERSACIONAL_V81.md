@@ -1,6 +1,6 @@
 # Resumen conversacional y totales registrados de préstamos
 
-Dos bloques relacionados: (1) resumen del período sobre Home snapshot compensado; (2) totales acotados de cuentas por cobrar/deudas. Sustituyen las ramas respectivas de consultaPersonal. No modifican el servicio resumenLedgerPersonal ni sus otros consumidores: esos usos de referencias antiguas, porcentajes y cortes UTC quedan pendientes de revisión.
+Dos bloques relacionados: (1) resumen del período sobre Home snapshot compensado; (2) totales acotados de cuentas por cobrar/deudas. Sustituyen las ramas respectivas de consultaPersonal. No modifican el servicio resumenLedgerPersonal: después de retirar consultaPersonal no se encontraron referencias directas a ese servicio en los JavaScript regulares del módulo. Se conserva el archivo; esto no acredita ausencia de consumidores dinámicos/externos. El resumen HTTP de finanzasPersonales.service todavía requiere revisión de lecturas, porcentajes y semántica.
 
 ## Resumen registrado
 
