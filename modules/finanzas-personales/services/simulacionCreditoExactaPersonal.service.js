@@ -46,4 +46,4 @@ function crearHandler(calcular=simular){return(req,res)=>{
  res.set("Cache-Control","private, no-store");if(!req.personalAuth?.userId)return res.status(401).json({ok:false,error:"Sesión personal requerida"});
  try{return res.json({ok:true,simulacion:calcular(req.body)});}catch(e){return res.status(e.statusCode===422?422:503).json({ok:false,codigo:"SIMULACION_NO_VERIFICABLE",error:e.statusCode===422?"Revisa capital entero COP, tasa de hasta seis decimales, cargos iniciales explícitos y fechas mensuales válidas.":"No fue posible completar la simulación."});}
 };}
-module.exports={simular,crearHandler};
+module.exports={simular,crearHandler,_exacto:{tasa,redondear,cop,fecha}};
