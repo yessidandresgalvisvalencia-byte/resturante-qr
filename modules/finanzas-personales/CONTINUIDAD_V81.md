@@ -1569,3 +1569,13 @@ Local final: Node24, 510 casos/501 aprobados/nueve omitidos/cero fallos; 37 diri
 Ensayo V18: 38 colecciones/5364 documentos/3505218 bytes, captura 202 ms, restauración 906 ms, edad 1074 ms; custodiaIndependiente=false y rpoProduccion=false. Conservación BSON/índices en base aislada, sin recuperación productiva ni certificación externa. Alcance/roles/índices del backup sin cambios.
 
 Un bloque de API de conciliación de recepción con ingreso existente e integración verificado. Pendientes: interfaz de vínculo y recuperación; alta nueva de ingreso+recepción en una única transacción; abonos múltiples; aprobación visual/dispositivos y todos los gates externos de #407. Sin merge a feature ni Render, datos reales o costos alterados.
+
+## 2026-11-05 — decisiones de recepción no aplicada recuperables
+
+Padre real `f953c7010534f42e6080e9d51e5cd55f7e8f5c35`, árbol `e88af11bbbfdc75472b66dfb5d57e91a63503fc8`; #389 abierto con base feature `652126a03f19fbec3c529cad1e84bff11cd3699e`, #407 abierto. CI del padre: Gate 42110471817, Seguridad 42110471964 y V81 42110472151 success; Mongo autorizado 69/69. Sin cambios en otras ramas/productos.
+
+Se prioriza antes del selector de recepción un bloqueo real: el 409 de fuente cambiada/ocupada podía mantener una solicitud incierta indefinidamente. Ahora una decisión de no aplicación ocupa la misma clave y orden global transaccionales, conserva el estado y fuentes, avanza auditoría/hash y se recupera por GET propio tras perder la respuesta. Un reintento no cambia esa decisión aunque la fuente después coincida; si ganó una aplicación, se conserva su recibo. Fallos de infraestructura/integridad no se convierten en rechazos definitivos.
+
+Agenda/control/API verifican cuerpo completo, dueño/ruta/clave/versión/motivo; resuelven solo ese pendiente, conservan petición/campos e incertidumbres ajenas, requieren nueva revisión y descartan respuestas de otra sesión. Pruebas nativas ampliadas sobre HTTP/rol restringido, sin relajar gates; su CI del SHA publicado está pendiente al preparar este lote. Local Node24: módulo 514 casos/505 aprobados/nueve omitidos/cero fallos, 43 dirigidas aprobadas, sintaxis/diff correctos. No hay Mongo autorizado local ni aprobación visual/dispositivos.
+
+Plan/criterios/contrato/evidencia/límites en RECEPCION_DECISION_RECUPERABLE_V81.md. Misma colección/índices/roles/backup V18/38, campos opcionales sin reescribir hashes históricos. Selector/formulario del vínculo existente y alta nueva atómica aún pendientes. Próximo: completar interfaz con ingresos elegibles y anulación; validar CI exacta antes de cerrar el bloque actual. #407 y evidencias operativas reales externas siguen pendientes. Sin merge a feature/main ni Render, otros productos, costos o datos reales alterados.

@@ -1,6 +1,8 @@
 "use strict";
 const {fechaVerificable,diaCivilBogota}=require("./fechaPersonal.service");
 const falla=(m,c=409)=>Object.assign(Error(m),{statusCode:c}),id=v=>typeof v==="string"&&/^[a-f0-9]{24}$/.test(v),esAccion=a=>["VINCULAR_RECEPCION","DESVINCULAR_RECEPCION"].includes(a);
+const MOTIVOS_RECHAZO=Object.freeze(["INGRESO_OCUPADO","FUENTE_NO_COINCIDE","CUENTA_NO_DISPONIBLE"]);
+const rechazo=(m,codigo)=>Object.assign(falla(m),{codigoRechazoRecepcion:codigo});
 function validar(s){
  if(!esAccion(s.accion))return;
  if(s.accion==="VINCULAR_RECEPCION"){const r=s.recepcion,f=fechaVerificable(r?.fecha),p=fechaVerificable(r?.ocurrenciaFecha);if(!r||typeof r!=="object"||Array.isArray(r)||Object.keys(r).sort().join(",")!=="cerrarOcurrencia,cuentaId,fecha,montoMinor,movimientoId,ocurrenciaFecha"||r.cerrarOcurrencia!==true||!id(r.movimientoId)||!id(r.cuentaId)||!Number.isSafeInteger(r.montoMinor)||r.montoMinor<=0||typeof r.fecha!=="string"||!f||f.toISOString()!==r.fecha||typeof r.ocurrenciaFecha!=="string"||!/^\d{4}-\d\d-\d\d$/.test(r.ocurrenciaFecha)||!p)throw falla("Confirma movimiento, cuenta, monto y fechas exactas de recepción",400);}
@@ -23,8 +25,8 @@ function enriquecer(u,calendarios,fuentes){
 }
 async function cargarVigentes(u,s){return require("./consultaCompensadaPersonal.service").consultarPeriodo({usuarioId:u,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"},{session:s});}
 async function exigirFuente(u,entrada,lectura,s){
- const r=entrada.recepcion;if(lectura.calendarios.some(c=>(c.recepciones||[]).some(x=>x.activa&&x.movimientoId===r.movimientoId)))throw falla("Ese ingreso ya está vinculado; consulta y revisa el vínculo existente");
- const fuentes=lectura.fuentesRecepcion||await cargarVigentes(u,s),tx=fuentes.find(t=>String(t._id)===r.movimientoId);if(!coincide(tx,r,u))throw falla("El ingreso, cuenta, fecha o monto vigentes no coinciden");
- const cuenta=await require("../models/cuentaFinanciera.model").findOne({_id:r.cuentaId,usuarioId:u,activa:true,moneda:"COP"}).maxTimeMS(5000).session(s).lean();if(!cuenta)throw falla("Cuenta propia activa en COP no disponible",404);
+ const r=entrada.recepcion;if(lectura.calendarios.some(c=>(c.recepciones||[]).some(x=>x.activa&&x.movimientoId===r.movimientoId)))throw rechazo("Ese ingreso ya está vinculado; consulta y revisa el vínculo existente","INGRESO_OCUPADO");
+ const fuentes=lectura.fuentesRecepcion||await cargarVigentes(u,s),tx=fuentes.find(t=>String(t._id)===r.movimientoId);if(!coincide(tx,r,u))throw rechazo("El ingreso, cuenta, fecha o monto vigentes no coinciden","FUENTE_NO_COINCIDE");
+ const cuenta=await require("../models/cuentaFinanciera.model").findOne({_id:r.cuentaId,usuarioId:u,activa:true,moneda:"COP"}).maxTimeMS(5000).session(s).lean();if(!cuenta)throw rechazo("Cuenta propia activa en COP no disponible","CUENTA_NO_DISPONIBLE");
 }
-module.exports={esAccion,validar,validarRelacion,siguiente,coincide,enriquecer,cargarVigentes,exigirFuente};
+module.exports={MOTIVOS_RECHAZO,esAccion,validar,validarRelacion,siguiente,coincide,enriquecer,cargarVigentes,exigirFuente};
