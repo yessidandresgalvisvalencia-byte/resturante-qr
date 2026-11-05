@@ -1,6 +1,6 @@
 # GRUK Empresarial — matriz conservadora de trazabilidad (77 IDs)
 
-Fuente: `GRUK_Documentos_Unificados_Plan_Maestro.docx` (9-oct-2026). Esta matriz **no certifica** ninguna implementación. Se registran literalmente los criterios disponibles en la revisión de esta ejecución; los demás quedan pendientes de transcripción y verificación contra el Word, no se inventan. El anexo P0.01–P9.10 usa identificadores distintos y no sustituye estos 77 IDs.
+Fuente: `GRUK_Documentos_Unificados_Plan_Maestro.docx` (9-oct-2026). Esta matriz **no certifica** ninguna implementación. Se registran criterios contrastados con el documento oficial; los demás quedan pendientes de transcripción y verificación contra el Word, no se inventan. El anexo P0.01–P9.10 usa identificadores distintos y no sustituye estos 77 IDs.
 
 Estado global: **0/77 certificados en esta matriz**. Un PR abierto, un test escrito o un workflow exitoso aislado no equivalen a aceptación funcional. `main` y Render no se modifican con este PR.
 
@@ -70,10 +70,10 @@ Estado global: **0/77 certificados en esta matriz**. Un PR abierto, un test escr
 | 62 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
 | 63 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
 | 64 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 65 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 66 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 67 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 68 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
+| 65 | Ejecución especulativa y local | Aceleración medida en tareas representativas | Sin evidencia verificada registrada | No certificado |
+| 66 | Auto-mejora del harness | Cambio requiere pruebas y promoción humana | Sin evidencia verificada registrada | No certificado |
+| 67 | Entrenamiento con lecciones validadas | Generaliza a datos nuevos sin empeorar seguridad | Sin evidencia verificada registrada | No certificado |
+| 68 | Optimización de memoria autoajustable | Prueba A/B con precisión, latencia y costo | Sin evidencia verificada registrada | No certificado |
 | 69 | Constitución operativa de GRUK | Pruebas de ataque no obtienen autoelevación | [PR #546](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/546), [PR #542](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/542) | No certificado |
 | 70 | Aislamiento multiempresa | Pruebas negativas entre cuentas | Sin evidencia verificada registrada | No certificado |
 | 71 | Protección frente a inyección y poisoning | Batería adversarial documentada | Sin evidencia verificada registrada | No certificado |
@@ -85,6 +85,10 @@ Estado global: **0/77 certificados en esta matriz**. Un PR abierto, un test escr
 | 77 | Seguridad de memoria y delegación | Pruebas de lavado de autoridad fallan | Sin evidencia verificada registrada | No certificado |
 
 ## Bloqueo de integración P1-75 (comprobado en PR #550)
+
+Actualización 2026-11-05, commit `2f1e8f2e572b76323add4cdae2852bd99d36e9a2`: [GRUK CI](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174053), [gate empresarial](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174057) y [persistencia offline](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174041) SUCCESS; [quality gate](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174040) FAILURE. No es una aprobación integral; no fusionar #550 hasta resolver auditoría y volver a verificar el SHA actualizado.
+
+### Evidencia histórica anterior (no sustituye el estado actual)
 
 - [Gate empresarial](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41943938583): SUCCESS en `f0784cba`.
 - [CI general](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41943938576): SUCCESS.
