@@ -29,3 +29,8 @@ Pruebas y datos sintéticos no acreditan privilegios, custodia ni recuperación 
 ## Siguiente y gates
 Interfaz de recuperación: comparar ciclos y efecto de caja, confirmación expresa, solicitud estable por usuario, recibo vinculado y recuperación ante respuesta perdida; impedir sesiones/respuestas obsoletas y no interpretar el recibo como saldo actual.
 #407 conserva aceptación independiente real, roles/índices y separación de credenciales de producción, backups independientes/retención/acceso, restauración aislada operativa/RPO/RTO, auditoría IP/dispositivo, seguridad/concurrencia/migración/aislamiento/recuperación y aprobación visual/dispositivos. Chromium local no disponible en revisión anterior, sin validación visual nueva. No merge a feature ni despliegue Render. Main, Empresarial y Blushéa sin cambios; sin contratación de servicios ni aumento de capacidad.
+
+
+## Primera verificación CI y ajuste de contrato de replay
+SHA a4f8e2afc250e44c8297997d2fd768063665e8bf; árbol 67aafdf1d3b05d2f0fa078fa90ea3c6e9626a7dd. Gate 42206904487 y Seguridad 42206904726 satisfactorios. En V81 42206904465, Mongo job 127855748219, el nuevo ensayo de restauración/ciclo pasó, pero una expectativa antigua exigía incrementar revisionCompatibilidad en replay (3 frente a 4). Se corrige para exigir igualdad de toda la foto, incluido cursor, caja, préstamo, eventos y fuente; no se debilitan controles financieros ni se omite la prueba. Los 79 casos nativos requieren nuevo CI completo antes de aprobar.
+Local se conservan 591/582/9, CI personal 338/334/4, dirigidas 28/28; sintaxis y diff --check satisfactorios. Siguiente: interfaz de recuperación con recibo/solicitud vinculados y sesión aislada. #407/operación/custodia/visual-dispositivos abiertos; sin merge ni Render.

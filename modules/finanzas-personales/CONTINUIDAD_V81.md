@@ -1899,3 +1899,8 @@ El siguiente commit solo conserva esta evidencia; se comprobará también su CI 
 
 ## 2026-11-06 · restauración con ciclo revisado (r59)
 Padre 7cae6126f240cd6265796bb6b051685f63368264. Plan, criterios y evidencia en RESTAURACION_CICLO_PAGO_API_V81.md. API de consulta previa y restauración explícita con imputación atómica al cambiar fecha; conserva firma/fuente, secuencia, capital y pago real. Rechaza otras condiciones capturadas distintas y vincula anulación/compensación a evento INSERT-only. Replays conservan el cuerpo y no escriben. Local 591/582/9; CI personal 338/334/4; dirigidas 28/28, cero fallos. CI/Mongo del SHA publicado pendiente. Siguiente: interfaz, confirmación de efecto/ciclo, diario y recibo recuperable por usuario. #407/custodia/operación/visual-dispositivos abiertos. Sin merge ni Render.
+
+
+## Primera verificación CI y ajuste de contrato de replay
+SHA a4f8e2afc250e44c8297997d2fd768063665e8bf; árbol 67aafdf1d3b05d2f0fa078fa90ea3c6e9626a7dd. Gate 42206904487 y Seguridad 42206904726 satisfactorios. En V81 42206904465, Mongo job 127855748219, el nuevo ensayo de restauración/ciclo pasó, pero una expectativa antigua exigía incrementar revisionCompatibilidad en replay (3 frente a 4). Se corrige para exigir igualdad de toda la foto, incluido cursor, caja, préstamo, eventos y fuente; no se debilitan controles financieros ni se omite la prueba. Los 79 casos nativos requieren nuevo CI completo antes de aprobar.
+Local se conservan 591/582/9, CI personal 338/334/4, dirigidas 28/28; sintaxis y diff --check satisfactorios. Siguiente: interfaz de recuperación con recibo/solicitud vinculados y sesión aislada. #407/operación/custodia/visual-dispositivos abiertos; sin merge ni Render.

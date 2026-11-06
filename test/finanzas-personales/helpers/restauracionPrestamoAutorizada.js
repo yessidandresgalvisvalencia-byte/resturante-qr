@@ -51,8 +51,7 @@ async function probarRestauracionPrestamoAutorizada(){
   }
   assert.equal((await service.obtenerPagosCredito(f.usuarioId,f.prestamo._id)).totalPagadoRealMinor,450);
   assert.equal((await restaurarMovimiento(f.solicitud)).hashActual,e.hashActual);
-  const despues=await f.foto();assert.equal(despues.cursor.revisionCompatibilidad,foto.cursor.revisionCompatibilidad+1);
-  assert.deepEqual({...despues,cursor:{...despues.cursor,revisionCompatibilidad:foto.cursor.revisionCompatibilidad}},foto);
+  const despues=await f.foto();assert.deepEqual(despues,foto,"Repetir la restauración no modifica cursor, caja, préstamo, eventos ni fuente");
   await f.anular("anular2");const pendiente=await f.foto();
   await assert.rejects(restaurarMovimiento({...f.solicitud,idempotencyKey:"referencia-antigua"}),x=>x.statusCode===409);
   assert.deepEqual(await f.foto(),pendiente);
