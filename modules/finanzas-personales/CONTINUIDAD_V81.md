@@ -1778,3 +1778,22 @@ Bloque seleccionado: préstamo identificado y reserva descontada en el mismo Hom
 Plan/aceptación/evidencia/límites en OBLIGACIONES_YA_CONTEMPLADAS_V81.md. Local 553 casos/544 aprobados/nueve omitidos/cero fallos y 108 dirigidas; sintaxis/diff correctos. Nuevo escenario autorizado de HTTP/chat, corrección auditada de cuota, pago/anulación/restauración con fuente original intacta; CI del SHA pendiente al preparar lote. Checkout recuperado localmente desde árbol remoto comprobado sin cambiar ramas de producto.
 
 Siguiente tras CI: identidad de reservas de tarjetas/gastos recurrentes con evidencia equivalente; recuperación/conciliación y aceptación integral. #407/custodio/backup durable/recuperación operativa/permisos-índices-históricos/seguridad/dispositivos/compatibilidad/informe final siguen pendientes. Sin merge, Render, otros productos, costos nuevos o datos reales.
+
+
+## Cierre comprobado del lote 54
+
+Núcleo `c8b2514ffd3a3f5e763f713343eb33af2f90d813`, árbol `d5833f3feaeee36ec9fcf6117daf1cd740d3cef1`, padre real afc0b33b0fe6f69504e88f18ec7ffa9275fbc0b9. Nueve archivos cotejados con SHA remota y árbol local idéntico. Integración actualizada con expected_sha exacto/force=false, sin cambio de base ni ejecución concurrente detectada.
+
+CI del núcleo toda success: [Gate 42159479663](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42159479663), [Seguridad 42159479710](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42159479710), [V81 42159479662](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42159479662). [Mongo autorizado job 127701451736](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42159479662/job/127701451736): 74/74, cero fallos/omisiones, escenario nuevo aprobado. Transacciones MongoDB, Redis concurrente y pruebas generales aprobadas.
+
+Resultados nativos: reserva de préstamo 700 y disponible libre 200. Referenciar la cuota devuelve YA_CONTEMPLADA con incremento cero; importe 750 compara 50 adicionales. Consultar importe 100 no libera el remanente ni aumenta 200. Referencia ajena o inexistente devuelven exactamente el mismo resultado no verificable, sin reserva ni datos ajenos; monto reservado aportado por cliente se rechaza 400. Conversación identifica la deuda y mantiene seis líneas/una acción.
+
+Corrección auditada 700→600 cambia la reserva a 600, incremento a 100 y disponible a 300 en nueva observación, sin reusar monto anterior; el evento original de corrección conserva cuota 700. Después de pago real 700, la caja queda 300 y no existe reserva para reutilizar. Anulación compensatoria restaura caja 1000 y reserva 700; restauración del mismo pago deja caja 300 y reserva ausente. En cada consulta snapshots de cuentas/deuda/fuentes/outbox/correcciones/compensaciones permanecen iguales. La transacción original de pago se conserva íntegra.
+
+Se añade compatibilidad de conversación con el concepto de préstamo válido de hasta 160 caracteres: solo su presentación para este evaluador se limita a 140, sin cambiar la deuda ni su identidad. Prueba dedicada aprobada. Validación local final: 554 casos/545 aprobados/nueve omitidos por servicios externos/cero fallos, 109 dirigidas aprobadas, sintaxis y diff correctos. El cierre incluye ese ajuste y requiere nueva CI de SHA exacto; resultado final queda en #389.
+
+Ensayo backup V18 del núcleo: 38 colecciones, 5460 documentos, 3686942 bytes; captura 159 ms, restauración 1280 ms, edad 1403 ms. CustodiaIndependiente=false y rpoProduccion=false: métricas aisladas, sin acreditar backup durable, retención/custodio independiente o RPO/RTO/recuperación de producción.
+
+Un bloque funcional completado en GitHub: obligación identificada ya contemplada, sin doble comparación de reserva, con API/conversación y recuperación de fuente compensada verificadas. No es pago, escrow ni modificación de Disponible Hoy. Sin merge a feature/main ni Render.
+
+Checkpoint siguiente: verificar HEAD/#389/#407/instrucciones/CI; evaluar identidad de reservas de tarjetas/gastos recurrentes solo con evidencia equivalente y sin liberar fondos automáticamente. Mantener matriz de recuperación/aislamiento/conciliación y aceptación. #407/custodio/backup durable/recuperación operativa/permisos-índices-históricos/seguridad/dispositivos/compatibilidad/informe final continúan abiertos; carga/fecha publicada sin medición suficiente. No desactivar gates, contratar servicios ni modificar datos reales.
