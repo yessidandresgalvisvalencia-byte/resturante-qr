@@ -92,6 +92,9 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
     const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];
     if(j.recibo?.ruta!==path||j.recibo?.solicitudId!==id||!controlFinancieroPersonal().reciboPrestamoValido(tokenSolicitud,j.recibo))throw Error("La creación no devolvió un recibo vinculante; continúa pendiente de confirmar");
    }
+   if(operacion&&/^\/prestamos\/[a-f0-9]{24}\/cuotas\/restaurar-con-ciclo$/.test(path)){
+    const r=j.resultado?.recibo,id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(r?.solicitudId!==id||!await controlFinancieroPersonal().reciboRestauracionCicloValido(tokenSolicitud,r,path,JSON.parse(o.body)))throw Error("La restauración no devolvió un recibo financiero vinculado; conserva la solicitud pendiente");comprobarSesion();
+   }
    if(operacion&&/^\/prestamos\/[a-f0-9]{24}\/imputaciones$/.test(path)){
     const r=j.resultado?.recibo,id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(r?.solicitudId!==id||!await controlFinancieroPersonal().reciboImputacionValido(tokenSolicitud,r,path,JSON.parse(o.body)))throw Error("La imputación no devolvió recibo vinculante; conserva la solicitud pendiente");comprobarSesion();
    }

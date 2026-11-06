@@ -1918,3 +1918,7 @@ Padre ef508f0201811f002f41dd23f71ca0818a343802. Plan, aceptación y evidencia: R
 
 ## Cierre funcional verificado
 SHA 32eb5c2d4364cefd042e9efc5f8fc32ea3fa49ba. Tres CI verdes: Gate 42212103168, Seguridad 42212103189, V81 42212103183; Mongo autorizado job 127872994261 aprobado. Consulta de recibo normal, ausencia, propietario ajeno y lectura posterior al cambio de calendario integradas en el ensayo nativo de restauración. Sin escrituras ni nuevo débito. Local 592/583/9; dirigidas 7/7; CI personal 338/334/4; cero fallos. El commit posterior solo conserva evidencia y también se comprobará en CI. Siguiente: interfaz de restauración, diario por usuario y validación vinculante del recibo. #407/custodia/operación/visual-dispositivos pendientes. Sin merge ni Render; ningún cambio de producción.
+
+
+## 2026-11-06 · confirmación de restauración en cliente (r61)
+Padre a139ff9f2213b67798f54bd32fea3cea5b0ea7cb. Plan, aceptación y pruebas en CONFIRMACION_RESTAURACION_CLIENTE_V81.md. Wrapper HTTP y control exigen recibo financiero vinculado, no un ok genérico; recuperación por GET sin débito y sin escrituras en servidor. Local 595/586/9; CI personal 338/334/4; seis dirigidas, cero fallos. CI exacta pendiente. Siguiente: pantalla de recuperación con diario y confirmación usando este control. #407/custodia/operación/visual pendientes; sin merge ni Render.

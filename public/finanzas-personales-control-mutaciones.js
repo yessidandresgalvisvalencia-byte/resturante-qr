@@ -156,7 +156,14 @@
   async function confirmarImputacion(token,r,path,cuerpo,vigente=()=>true){
    if(!vigente()||!await reciboImputacionValido(token,r,path,cuerpo)||!vigente())return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(!p)return true;if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
   }
-  return{reciboImputacionValido,confirmarImputacion,confirmarRechazoCalendario,rechazoCalendarioValido,reciboCalendarioValido,confirmarCalendario,estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};
+  async function reciboRestauracionCicloValido(token,r,path,cuerpo){
+   if(!/^\/prestamos\/[a-f0-9]{24}\/cuotas\/restaurar-con-ciclo$/.test(path)||r?.confirmado!==true||r.certificaEstadoActual!==false||r.autorizaGasto!==false||typeof r.afectaCaja!=="boolean"||r.usuarioId!==usuarioDeToken(token)||r.prestamoId!==path.split("/")[2]||r.movimientoId!==cuerpo?.movimientoId||r.anulacionHash!==cuerpo?.anulacionHash||r.ruta!==path||r.metodo!=="POST"||! /^[A-Za-z0-9_-]{8,128}$/.test(r.solicitudId||"")||![r.compensacionHash,r.imputacionHash,r.anulacionHash].every(x=>typeof x==="string"&&/^[a-f0-9]{64}$/.test(x)))return false;
+   const d=datos(path,{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);if(r.solicitudHuella!==huella)return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&(!p||p.tipo==="header"&&p.huella===huella);
+  }
+  async function confirmarRestauracionCiclo(token,r,path,cuerpo,vigente=()=>true){
+   if(!vigente()||!await reciboRestauracionCicloValido(token,r,path,cuerpo)||!vigente())return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(!p)return true;if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
+  }
+  return{reciboRestauracionCicloValido,confirmarRestauracionCiclo,reciboImputacionValido,confirmarImputacion,confirmarRechazoCalendario,rechazoCalendarioValido,reciboCalendarioValido,confirmarCalendario,estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};
  }
  if(typeof module!=="undefined"&&module.exports)module.exports={crearControlMutacionesPersonales};
  else raiz.crearControlMutacionesPersonales=crearControlMutacionesPersonales;

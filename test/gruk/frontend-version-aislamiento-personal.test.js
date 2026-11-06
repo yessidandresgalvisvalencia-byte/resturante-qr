@@ -5,9 +5,9 @@ const fs=require("node:fs");
 const path=require("node:path");
 test("el HTML personal referencia la version de frontend de las correcciones de sesion",()=>{
  const html=fs.readFileSync(path.join(__dirname,"../../public/finanzas-personales.html"),"utf8");
- assert.match(html,/src="\/finanzas-personales\.js\?v=20261106-imputacion-v81"/);
+ assert.match(html,/src="\/finanzas-personales\.js\?v=20261106-recibo-restauracion-v81"/);
  assert.doesNotMatch(html,/finanzas-personales\.js\?v=20261015-integridad-v2/);
- const rutas=["finanzas-personales-imputacion.js","finanzas-personales-control-mutaciones.js","finanzas-personales.js"].map(n=>"/"+n+"?v=20261106-imputacion-v81");
+ const rutas=["finanzas-personales-imputacion.js","finanzas-personales-control-mutaciones.js","finanzas-personales.js"].map(n=>"/"+n+"?v=20261106-recibo-restauracion-v81");
  for(const ruta of rutas)assert.equal(html.split('src="'+ruta+'"').length-1,1);
  assert.ok(html.indexOf(rutas[0])<html.indexOf(rutas[1])&&html.indexOf(rutas[1])<html.indexOf(rutas[2]),"control e imputación cargan antes de la aplicación");
  assert.match(html,/href="\/finanzas-personales\.css\?v=20261019-integridad-sesion-coldstart"/);
