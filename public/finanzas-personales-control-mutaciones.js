@@ -133,7 +133,7 @@
   }
   async function rechazoCalendarioValido(token,r,path,cuerpo){
    if(!["VERSION_SUPERADA","RECEPCION_NO_APLICADA"].includes(r?.codigo)||r.noAplicada!==true||r.afectaCaja!==false||r.versionEsperada!==cuerpo?.solicitud?.versionEsperada||!Number.isSafeInteger(r.versionActual)||r.versionActual<=r.versionEsperada||! /^[a-f0-9]{64}$/.test(r.hashVigente||""))return false;
-   if(r.codigo==="RECEPCION_NO_APLICADA"&&(cuerpo?.solicitud?.accion!=="VINCULAR_RECEPCION"||r.decisionPersistida!==true||r.certificaEstadoActual!==false||r.versionActual!==r.versionEsperada+1||!["INGRESO_OCUPADO","FUENTE_NO_COINCIDE","CUENTA_NO_DISPONIBLE"].includes(r.motivo)))return false;
+   if(r.codigo==="RECEPCION_NO_APLICADA"&&(!["VINCULAR_RECEPCION","FINALIZAR_RECEPCION"].includes(cuerpo?.solicitud?.accion)||r.decisionPersistida!==true||r.certificaEstadoActual!==false||r.versionActual!==r.versionEsperada+1||!["INGRESO_OCUPADO","FUENTE_NO_COINCIDE","CUENTA_NO_DISPONIBLE"].includes(r.motivo)))return false;
    return reciboCalendarioValido(token,{...r,confirmado:true,certificaEstadoActual:false,accion:cuerpo.solicitud.accion,version:r.versionEsperada+1,hash:r.hashVigente},path,cuerpo,true);
   }
   async function confirmarRechazoCalendario(token,r,path,cuerpo,vigente=()=>true){
