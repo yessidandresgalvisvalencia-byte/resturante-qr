@@ -212,6 +212,7 @@ router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
   return res.json({ok:true,prestamo});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo corregir el préstamo"});}
 });
+router.get("/prestamos/:id/imputaciones/recibos/:clave",require("./services/imputacionPagoPersonal.handler").crearHandler("RECIBO"));
 router.get("/prestamos/:id/imputaciones",require("./services/imputacionPagoPersonal.handler").crearHandler("CONSULTAR"));
 router.post("/prestamos/:id/imputaciones",limiteCalendarioIngreso,require("./services/imputacionPagoPersonal.handler").crearHandler("APLICAR"));
 router.get("/prestamos/:id/correcciones",async(req,res)=>{

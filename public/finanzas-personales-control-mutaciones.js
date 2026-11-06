@@ -149,7 +149,14 @@
    const s=cargar(token);if(s.error)return false;const p=s.pendientes.get(solicitudId);if(!p)return true;if(p.tipo!=="solicitudId"||p.huella!==huella||s.activas.has(p.id))return false;
    s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
   }
-  return{confirmarRechazoCalendario,rechazoCalendarioValido,reciboCalendarioValido,confirmarCalendario,estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};
+  async function reciboImputacionValido(token,r,path,cuerpo){
+   if(!/^\/prestamos\/[a-f0-9]{24}\/imputaciones$/.test(path)||r?.confirmado!==true||r.certificaEstadoActual!==false||r.afectaCaja!==false||r.usuarioId!==usuarioDeToken(token)||r.prestamoId!==path.split("/")[2]||r.ruta!==path||r.metodo!=="POST"||!/^imputacion_[A-Za-z0-9_-]{8,80}$/.test(r.solicitudId||"")||! /^[a-f0-9]{64}$/.test(r.hash||"")||typeof r.noAplicada!=="boolean"||(r.noAplicada?!["CONTEXTO_CAMBIO","DECISION_NO_VIGENTE"].includes(r.motivoNoAplicada):r.motivoNoAplicada!==null))return false;
+   const d=datos(path,{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);if(r.solicitudHuella!==huella)return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&(!p||p.tipo==="header"&&p.huella===huella);
+  }
+  async function confirmarImputacion(token,r,path,cuerpo,vigente=()=>true){
+   if(!vigente()||!await reciboImputacionValido(token,r,path,cuerpo)||!vigente())return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(!p)return true;if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
+  }
+  return{reciboImputacionValido,confirmarImputacion,confirmarRechazoCalendario,rechazoCalendarioValido,reciboCalendarioValido,confirmarCalendario,estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};
  }
  if(typeof module!=="undefined"&&module.exports)module.exports={crearControlMutacionesPersonales};
  else raiz.crearControlMutacionesPersonales=crearControlMutacionesPersonales;
