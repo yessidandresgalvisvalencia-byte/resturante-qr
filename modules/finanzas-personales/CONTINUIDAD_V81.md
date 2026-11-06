@@ -1673,3 +1673,20 @@ Un bloque seleccionado: formulario de alta nueva desde revisión de ingresos exi
 El escenario Mongo autorizado existente de API pasa ahora por formulario/botones/casilla/control/agenda reales sobre DOM simulado, conservando pruebas de rollback/índice/aislamiento/concurrencia. Local: módulo 531 casos/522 aprobados/nueve omitidos/cero fallos; 64 dirigidas aprobadas, sintaxis/diff correctos. CI del nuevo SHA pendiente al preparar lote. Plan, criterios, límites y siguiente paso en RECEPCION_NUEVA_INTERFAZ_V81.md.
 
 Mismos modelos/índices/roles/backup V18/38, sin migración o reparación automática. Siguiente tras CI: revisión de abonos múltiples/recepciones parciales y flujos/recuperación pendientes; aprobación visual/dispositivos pendiente de evidencia real. #407/custodio/backup durable/recuperación operativa/roles-índices-históricos/seguridad/compatibilidad/informe final abiertos. Sin merge ni Render, otros productos, costos o datos reales alterados.
+
+## Evidencia del núcleo y cierre de compatibilidad
+
+Núcleo `0e89c8f98f46ca9f1543dbbcbcb030782fac495a`, árbol `932a9ab11691b4b01d3023afd45ddf90dbf9ba23`; nueve blobs cotejados y árbol idéntico a la copia probada. Publicación con expected_sha/force=false. CI exacta:
+- [Gate 42134516597](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42134516597): success.
+- [Seguridad 42134516765](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42134516765): success.
+- [V81 42134516613](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42134516613): success, siete jobs aprobados.
+
+Job Mongo autorizado 127619143974: 70 pruebas/70 aprobadas/cero fallos/cero omisiones. Subtest 22 ahora pasa por formulario/botón/campos/casilla/control/API/agenda reales con DOM simulado: datos reales vacíos al preparar, cuenta propia, fecha Colombia convertida a UTC, doble clic con un POST, respuesta perdida después de commit, campos conservados al recargar y recibo GET sin segundo POST ni saldo/ledger/outbox adicionales. Se mantienen rollback, aislamiento, índices, fuentes y carreras anteriores.
+
+Antes del cierre se añade manejo seguro para HTML anterior sin campos nuevos: el módulo muestra instrucción de actualizar, deshabilita acciones del calendario y devuelve sus métodos de sesión sin acceder a almacenamiento ni lanzar una excepción que detenga el resto de la app. Una prueba específica verifica ausencia de consultas/escrituras y conservación de solicitudes. No elimina datos ni recarga automáticamente. Esta compatibilidad forma parte del mismo bloque y exige CI del SHA del cierre.
+
+Local final: 532 casos/523 aprobados/nueve omitidos por servicios externos/cero fallos; 65 dirigidas aprobadas, sintaxis/diff correctos. Node24 local, pruebas CI en Node20. No se acredita todavía aprobación visual ni dispositivos reales.
+
+Ensayo V18 del núcleo: 38 colecciones/5396 documentos/3557550 bytes, captura 201 ms, restauración 1069 ms, edad 1241 ms; custodiaIndependiente=false y rpoProduccion=false. BSON/índices verificados en destino aislado de fixtures; no es retención durable, custodia ni recuperación de producción.
+
+Un bloque funcional de formulario recuperable e integración; el cierre no se cuenta como otro bloque. Siguiente: revisar recepciones parciales/abonos múltiples y flujos de recuperación pendientes sin inventar ingresos o saldos por recibir; aceptación visual/dispositivos cuando exista evidencia real. #407, custodia independiente y gates operativos externos siguen pendientes. Sin merge a feature/main ni Render, otros productos, costos o datos reales.

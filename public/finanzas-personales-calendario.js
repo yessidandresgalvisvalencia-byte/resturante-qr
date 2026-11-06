@@ -11,6 +11,7 @@
   return{leer:t=>copiar(cargar(t).x),formulario,crear,finalizar};
  }
  function montarCalendarioPersonal({documento,api,tokenActual,usuarioDeToken,almacenamiento,nuevaId,confirmar,confirmarRecibo,confirmarRechazo=async()=>false,estadoFinanciero,alCambiar=()=>{},ahora=()=>new Date()}){
+  if(["ciAltaPanel","ciAltaGuardar","ciAltaNoDuplicado","ciAltaConcepto","ciAltaMonto","ciAltaFecha","ciAltaCuenta","ciAltaCategoria","ciAltaMedio","ciAltaMotivo","ciAltaSeleccion"].some(id=>!documento.getElementById(id))){const avisar=()=>{const el=documento.getElementById("ciEstado");if(el)el.textContent="Actualiza la página para cargar el formulario de ingresos. Tus solicitudes guardadas se conservan.";};for(const id of ["ciGuardar","ciNuevo","ciActualizar"]) {const el=documento.getElementById(id);if(el)el.disabled=true;}avisar();return{entrar:avisar,limpiar:avisar};}
   const $=id=>documento.getElementById(id),local=crearAgendaRecuperable({almacenamiento,usuarioDeToken,nuevaId}),campos=["ciConcepto","ciMonto","ciDia","ciFecha","ciMotivo","ciAltaConcepto","ciAltaMonto","ciAltaFecha","ciAltaCuenta","ciAltaCategoria","ciAltaMedio","ciAltaMotivo"];
   let carga=0,historia=0,epoca=0,lista=null,seleccion=null,pagina=1,historialId=null,ocupado=false,cerrado=false,recepcionConsulta=0,recepcionLista=null,recepcionCalendario=null,recepcionRevision=null,altaHabilitada=false,cuentaBorrador="";
   const contexto=()=>({t:tokenActual(),e:epoca}),vigente=c=>c.t&&c.t===tokenActual()&&c.e===epoca;

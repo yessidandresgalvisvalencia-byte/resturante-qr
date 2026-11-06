@@ -31,3 +31,20 @@ DOM simulado no acredita aprobación visual en iPhone/Redmi/PC/Mac ni compatibil
 Después de CI exacta: revisar abonos múltiples/recepciones parciales y los flujos financieros/recuperación pendientes según CONTINUIDAD_V81.md; realizar aprobación de interfaz/dispositivos cuando exista evidencia real. Verificar nuevamente HEAD/#389/#407/instrucciones/CI; publicar con expected_sha/force=false, sin sobrescribir trabajo concurrente. Plan/aceptación/evidencia/SHA/siguiente paso quedan versionados en este documento y CONTINUIDAD_V81.md.
 
 #407 sigue pendiente: custodio independiente real, backups completos durables con retención/acceso/claves separados, recuperación operativa/RPO/RTO reales, permisos/índices/históricos de producción, seguridad/aislamiento/exactitud/concurrencia/idempotencia/migración/recuperación, compatibilidad/dispositivos e informe final trazable. Ensayos de fixtures no acreditan recuperación ni custodia productivas. Sin merge a feature/main, despliegue parcial Render, Empresarial/Blushéa, costos nuevos ni datos reales modificados.
+
+## Evidencia del núcleo y cierre de compatibilidad
+
+Núcleo `0e89c8f98f46ca9f1543dbbcbcb030782fac495a`, árbol `932a9ab11691b4b01d3023afd45ddf90dbf9ba23`; nueve blobs cotejados y árbol idéntico a la copia probada. Publicación con expected_sha/force=false. CI exacta:
+- [Gate 42134516597](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42134516597): success.
+- [Seguridad 42134516765](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42134516765): success.
+- [V81 42134516613](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42134516613): success, siete jobs aprobados.
+
+Job Mongo autorizado 127619143974: 70 pruebas/70 aprobadas/cero fallos/cero omisiones. Subtest 22 ahora pasa por formulario/botón/campos/casilla/control/API/agenda reales con DOM simulado: datos reales vacíos al preparar, cuenta propia, fecha Colombia convertida a UTC, doble clic con un POST, respuesta perdida después de commit, campos conservados al recargar y recibo GET sin segundo POST ni saldo/ledger/outbox adicionales. Se mantienen rollback, aislamiento, índices, fuentes y carreras anteriores.
+
+Antes del cierre se añade manejo seguro para HTML anterior sin campos nuevos: el módulo muestra instrucción de actualizar, deshabilita acciones del calendario y devuelve sus métodos de sesión sin acceder a almacenamiento ni lanzar una excepción que detenga el resto de la app. Una prueba específica verifica ausencia de consultas/escrituras y conservación de solicitudes. No elimina datos ni recarga automáticamente. Esta compatibilidad forma parte del mismo bloque y exige CI del SHA del cierre.
+
+Local final: 532 casos/523 aprobados/nueve omitidos por servicios externos/cero fallos; 65 dirigidas aprobadas, sintaxis/diff correctos. Node24 local, pruebas CI en Node20. No se acredita todavía aprobación visual ni dispositivos reales.
+
+Ensayo V18 del núcleo: 38 colecciones/5396 documentos/3557550 bytes, captura 201 ms, restauración 1069 ms, edad 1241 ms; custodiaIndependiente=false y rpoProduccion=false. BSON/índices verificados en destino aislado de fixtures; no es retención durable, custodia ni recuperación de producción.
+
+Un bloque funcional de formulario recuperable e integración; el cierre no se cuenta como otro bloque. Siguiente: revisar recepciones parciales/abonos múltiples y flujos de recuperación pendientes sin inventar ingresos o saldos por recibir; aceptación visual/dispositivos cuando exista evidencia real. #407, custodia independiente y gates operativos externos siguen pendientes. Sin merge a feature/main ni Render, otros productos, costos o datos reales.
