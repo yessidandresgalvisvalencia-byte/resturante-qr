@@ -1914,3 +1914,7 @@ Siguiente paso recuperable: interfaz de restauración con vista comparativa de c
 
 ## 2026-11-06 · recibo de restauración en solo lectura (r60)
 Padre ef508f0201811f002f41dd23f71ca0818a343802. Plan, aceptación y evidencia: RECIBO_RESTAURACION_CICLO_V81.md. GET vincula propietario/fuente/imputación/compensación sin débito ni escrituras; 404 no certifica ausencia de operación. Local 592/583/9 y siete dirigidas, cero fallos. CI exacta pendiente. Siguiente: pantalla de recuperación con diario y recibo ligado al cuerpo. #407/custodia/operación/visual-dispositivos abiertos; sin merge ni Render.
+
+
+## Cierre funcional verificado
+SHA 32eb5c2d4364cefd042e9efc5f8fc32ea3fa49ba. Tres CI verdes: Gate 42212103168, Seguridad 42212103189, V81 42212103183; Mongo autorizado job 127872994261 aprobado. Consulta de recibo normal, ausencia, propietario ajeno y lectura posterior al cambio de calendario integradas en el ensayo nativo de restauración. Sin escrituras ni nuevo débito. Local 592/583/9; dirigidas 7/7; CI personal 338/334/4; cero fallos. El commit posterior solo conserva evidencia y también se comprobará en CI. Siguiente: interfaz de restauración, diario por usuario y validación vinculante del recibo. #407/custodia/operación/visual-dispositivos pendientes. Sin merge ni Render; ningún cambio de producción.

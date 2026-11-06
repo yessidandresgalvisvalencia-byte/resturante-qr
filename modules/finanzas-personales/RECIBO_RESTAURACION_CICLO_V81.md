@@ -15,3 +15,7 @@ Ensayo nativo ampliado: recibo idéntico al de restauración, foto íntegra ante
 ## Siguiente paso y gates
 Interfaz de restauración con comparación de ciclos y débito, confirmación explícita, diario por usuario y consulta de este recibo antes de reenviar. Impedir respuestas de otra sesión y validar cuerpo/clave/recibo antes de desbloquear recomendaciones. No interpretar saldo actualizado como comprobante.
 #407 sigue abierto: custodia independiente real, roles/índices y credenciales de producción, backups independientes/retención/acceso y restauración aislada operativa con RPO/RTO, seguridad/migración/aislamiento/recuperación, auditoría y aprobación visual/dispositivos. Sin merge a feature ni despliegue Render. Main/Empresarial/Blushéa intactos; sin nuevo servicio ni aumento de capacidad.
+
+
+## Cierre funcional verificado
+SHA 32eb5c2d4364cefd042e9efc5f8fc32ea3fa49ba. Tres CI verdes: Gate 42212103168, Seguridad 42212103189, V81 42212103183; Mongo autorizado job 127872994261 aprobado. Consulta de recibo normal, ausencia, propietario ajeno y lectura posterior al cambio de calendario integradas en el ensayo nativo de restauración. Sin escrituras ni nuevo débito. Local 592/583/9; dirigidas 7/7; CI personal 338/334/4; cero fallos. El commit posterior solo conserva evidencia y también se comprobará en CI. Siguiente: interfaz de restauración, diario por usuario y validación vinculante del recibo. #407/custodia/operación/visual-dispositivos pendientes. Sin merge ni Render; ningún cambio de producción.
