@@ -1715,3 +1715,12 @@ Backup/restauración del mismo job, ensayo V18: 38 colecciones, 5417 documentos,
 Bloque funcional completado en GitHub: abonos múltiples y cierre explícito integrado con API/UI/horizonte/proyección y recuperación. Este cierre documental debe pasar de nuevo los tres workflows en su SHA exacto; el resultado final se deja en #389. No se fusiona a feature ni main y no se despliega Render.
 
 Checkpoint siguiente: verificar HEAD/#389/#407/CI e instrucciones; revisar retiro/restauración del calendario que ya contiene varios abonos y cierre, correcciones de fecha y reconstrucción histórica, para impedir efectos financieros repetidos o previsiones habilitadas con fuente incierta. Después continuar recuperación/conciliación/deudas según pendientes versionados. #407 y la aceptación operativa/visual descritos arriba siguen pendientes de evidencia real; no se levantan gates ni se contratan servicios.
+
+
+## 2026-11-05 — recuperación de abonos entre fechas (lote 52)
+
+Padre real `9ac6d73459ce644ff75f18101b6ba4275e98b711`, árbol `086ab4512fd566122e1454630791fc681cac07d4`; #389 abierto/base feature `652126a03f19fbec3c529cad1e84bff11cd3699e`, #407 abierto. Gate 42140975861, Seguridad 42140975901 y V81 42140975907 success; Mongo autorizado 71/71. Instrucciones y checkpoint revisados.
+
+Bloque: cambio de fecha/retiro/restauración no deben ocultar abonos anteriores. Reproducción padre: fecha actual cerrada con abono previo abierto devolvía pendiente=false. Se agrupan fechas originales activas sin cierre y combinarLegados conserva su bloqueo. UI muestra fechas/total y permite cierre histórico con referencia exacta sin dinero nuevo; restaura antes de cerrar un calendario retirado. La reconstrucción de hashes/eventos anteriores no cambia.
+
+Plan, criterios y evidencia en RECUPERACION_RECEPCIONES_FECHAS_V81.md. Local 540 casos/531 aprobados/nueve omisiones/cero fallos y 62 dirigidas; sintaxis/diff correctos. Nuevo escenario Mongo autorizado de UI/HTTP, respuesta perdida/GET, retiro/anulación/restauración, aislamiento/replay/carrera y originales intactos; CI exacta pendiente al preparar publicación. Siguiente tras CI: deudas/ahorro/conciliación y recuperación de obligaciones vinculadas según pendientes. #407/custodio/backup durable/RPO-RTO/roles-índices-históricos/aceptación integral siguen abiertos. Sin merge ni Render, otros productos, costos o datos reales.

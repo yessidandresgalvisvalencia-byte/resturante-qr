@@ -97,6 +97,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("recepción por ocurrencia vincula ingreso vigente una sola vez sin duplicar caja",()=>require("./helpers/recepcionCalendarioAutorizada").probarRecepcionCalendario(db,provisionarMongoPersonal));
   await t.test("alta de ingreso y recepción confirma o revierte caja, fuente y eventos en una sesión",()=>require("./helpers/recepcionNuevaAutorizada").probarRecepcionNueva(db,provisionarMongoPersonal));
   await t.test("abonos parciales mantienen horizonte desconocido y cierre explícito sin mover caja",()=>require("./helpers/recepcionParcialAutorizada").probarRecepcionParcial());
+  await t.test("cambiar fecha y recuperar calendario no ocultan abonos anteriores ni repiten caja",()=>require("./helpers/recuperacionRecepcionesAutorizada").probarRecuperacionRecepciones());
   await t.test("adopción explícita conserva BSON, identidad y una sola planificación con HTTP autenticado",()=>require("./helpers/calendarioAdopcionAutorizada").probarAdopcionCalendario(db));
   await t.test("originales de calendario legado rechazan mutación nativa sin alterar planificación ni caja",()=>require("./helpers/calendarioLegadoProtegidoAutorizado").probarCalendarioLegadoProtegido());
   await t.test("calendario por eventos con HTTP autenticado conserva fuentes y recuperación concurrente",()=>require("./helpers/calendarioIngresoAutorizado").probarCalendarioIngreso(db,provisionarMongoPersonal));
