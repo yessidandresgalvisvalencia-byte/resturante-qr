@@ -4,7 +4,7 @@
 // Accepts canonical decimal strings (dot as decimal separator); rejects localized/ambiguous input.
 const MAX_CENTS = BigInt(Number.MAX_SAFE_INTEGER);
 function parseMoneyToCents(value) {
-  if (typeof value !== 'string' || !/^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$/.test(value)) {
+  if (typeof value !== 'string' || !/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(value)) {
     throw new TypeError('Money must be a nonnegative canonical decimal string with at most two decimals');
   }
   const [whole, fraction = ''] = value.split('.');
