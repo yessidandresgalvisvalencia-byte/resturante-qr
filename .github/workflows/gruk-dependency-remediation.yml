@@ -29,8 +29,22 @@ jobs:
           npm audit --omit=dev --audit-level=high --json > audit-before.json || true
           npm audit fix --package-lock-only --ignore-scripts --no-fund
           npm ci --ignore-scripts
-          npm audit --omit=dev --audit-level=high --json > audit-after.json || true
-          node -e "const a=require('./audit-after.json');if((a.metadata?.vulnerabilities?.high||0)+(a.metadata?.vulnerabilities?.critical||0)>0)process.exit(1)"
+          npm audit --omit=dev --audit-level=high --json > audit-after.json || audit_exit=$?
+          export AUDIT_EXIT="${audit_exit:-0}"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const audit = JSON.parse(fs.readFileSync('audit-after.json', 'utf8'));
+          const counts = audit.metadata?.vulnerabilities;
+          if (!counts || !['high', 'critical'].every(k => Number.isInteger(counts[k]))) {
+            throw new Error('npm audit returned no valid vulnerability counts');
+          }
+          if (counts.high + counts.critical > 0) {
+            throw new Error(`Unresolved high/critical vulnerabilities: ${counts.high}/${counts.critical}`);
+          }
+          if (audit.error || (process.env.AUDIT_EXIT && process.env.AUDIT_EXIT !== '0')) {
+            throw new Error('npm audit failed without reportable high/critical vulnerabilities');
+          }
+          NODE
       - name: Save reviewed lockfile candidate and audit evidence
         if: always()
         uses: actions/upload-artifact@v4
