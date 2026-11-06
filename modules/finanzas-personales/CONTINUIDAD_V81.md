@@ -1797,3 +1797,14 @@ Ensayo backup V18 del núcleo: 38 colecciones, 5460 documentos, 3686942 bytes; c
 Un bloque funcional completado en GitHub: obligación identificada ya contemplada, sin doble comparación de reserva, con API/conversación y recuperación de fuente compensada verificadas. No es pago, escrow ni modificación de Disponible Hoy. Sin merge a feature/main ni Render.
 
 Checkpoint siguiente: verificar HEAD/#389/#407/instrucciones/CI; evaluar identidad de reservas de tarjetas/gastos recurrentes solo con evidencia equivalente y sin liberar fondos automáticamente. Mantener matriz de recuperación/aislamiento/conciliación y aceptación. #407/custodio/backup durable/recuperación operativa/permisos-índices-históricos/seguridad/dispositivos/compatibilidad/informe final continúan abiertos; carga/fecha publicada sin medición suficiente. No desactivar gates, contratar servicios ni modificar datos reales.
+
+
+## Corrección adicional del caso parcial antes de liberar el lote
+
+El SHA intermedio `297273ec9e98ed7f6336f2bd4528184c9e943df7` completó Gate 42159730627, Seguridad 42159730691 y V81 42159730629 success; no se desplegó. Durante la revisión final se reprodujo un problema de cálculo previo: cuota 700, saldo de capital ya reducido a 600 y abono registrado 100 devolvían reserva 500. Se limitaba por saldo antes de descontar el pago real, descontándolo dos veces al llegar a la última cuota.
+
+Se corrige la reserva pendiente a min(saldo vigente, max(0, cuota pactada − pago real aplicado)). Para obligación UNICA confirmada sin cuota explícita, el saldo vigente ya representa el capital restante y no se vuelve a restar el abono. El total pendiente del mes usa la misma regla, condicionado al vencimiento dentro del período. No se cambia dinero recibido/pagado ni historia; se corrige una lectura derivada.
+
+Criterios añadidos: tras pago parcial real 100 de deuda 700, caja 900, saldo de deuda 600, colchón 90 y reserva 600 deben dar Disponible Hoy 210; no 310 por una reserva incorrecta de 500. Anular ese pago debe conservar su original y devolver caja/reserva al estado previo. El escenario nativo del mismo bloque incluye ahora ese recorrido antes del pago completo; requiere CI del nuevo SHA, no se lo acredita con resultados anteriores.
+
+Local posterior a la corrección: 555 casos/546 aprobados/nueve omitidos/cero fallos; 110 dirigidas aprobadas. Se añadió prueba de última cuota, cuota ordinaria, UNICA sin cuota explícita y saldo cero. La lectura sigue usando el alcance vigente de pagos/ciclo de Home; no inventa cuotas ni evidencia histórica faltante. Siguiente sigue siendo identidad y conciliación de compromisos de otras fuentes y aceptación integral. Sin merge ni Render.

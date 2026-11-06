@@ -149,10 +149,15 @@ function montoPagoDeudaMinor(tx){
  return monto;
 }
 function saldoCuotaPendienteMinor(deuda,abonadoMinor=0){
- const cuota=cuotaExigibleMinor(deuda);
  if(!Number.isSafeInteger(abonadoMinor)||abonadoMinor<0)
   throw new TypeError("Abono debe ser entero seguro no negativo");
- return Math.max(0,cuota-abonadoMinor);
+ const cuota=cuotaExigibleMinor(deuda);
+ if(cuota===0)return 0;
+ // saldoMinor ya refleja el capital abonado. Limitar ANTES de descontar
+ // el pago real lo aplicaría dos veces cuando queda la última cuota.
+ if(Number.isSafeInteger(deuda.cuotaMinor)&&deuda.cuotaMinor>0)
+  return Math.min(deuda.saldoMinor,Math.max(0,deuda.cuotaMinor-abonadoMinor));
+ return deuda.saldoMinor;
 }
 function seleccionarVencimientosAtrasados(deudas,now){
  if(!Array.isArray(deudas)||!(now instanceof Date)||Number.isNaN(now.getTime()))
@@ -262,7 +267,7 @@ async function obtenerEnSesion(usuarioId,now,session){
   const id=String(t.prestamoId);
   pagosPorDeuda.set(id,sumarImportesHome([pagosPorDeuda.get(id)||0,montoPagoDeudaMinor(t)]));
  }
- const cuotasPendientesMesMinor=sumarMontosHome(deudas,d=>Math.max(0,cuotaDelPeriodo(d,inicio,fin)-(pagosPorDeuda.get(String(d._id))||0)));
+ const cuotasPendientesMesMinor=sumarMontosHome(deudas,d=>cuotaDelPeriodo(d,inicio,fin)>0?saldoCuotaPendienteMinor(d,pagosPorDeuda.get(String(d._id))||0):0);
  const flujoOperativoMinor=sumarImportesHome([ingresosMinor,-gastosMinor,-pagosDeudaRegistradosMinor]);
  const flujoOperativoProyectadoMinor=sumarImportesHome([flujoOperativoMinor,-cuotasPendientesMesMinor]);
  const flujoRealizadoMinor=sumarImportesHome([flujoOperativoMinor,cobrosRecibidosMinor]);
