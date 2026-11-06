@@ -1663,3 +1663,13 @@ Local: 526 casos/517 aprobados/nueve omitidos/cero fallos; 59 dirigidas aprobada
 Ensayo backup V18: 38 colecciones/5396 documentos/3557522 bytes; captura 192 ms, restauración 984 ms, edad 1160 ms; custodiaIndependiente=false y rpoProduccion=false. BSON/índices conservados en destino aislado de fixtures; no acredita custodia real, retención durable ni recuperación operativa/RPO/RTO de producción.
 
 Un bloque de API atómica e integración completo. Este cierre documental requiere CI de su propio SHA y no es otro bloque funcional. Siguiente: formulario explícito de ingreso nuevo con revisión frente a ingresos ya registrados, confirmación y recuperación; después abonos múltiples y aceptación visual/dispositivos. #407 y gates externos reales continúan pendientes. Sin merge a feature/main ni Render, cambios de otros productos, costos o datos reales.
+
+## 2026-11-05 — formulario explícito de ingreso nuevo y recepción
+
+Padre `f979ab4e641b54aa6098e6089191c0b8a9e23380`, árbol `86e45f90e8d7cfdb8f4de5dca70615c364fea2f1`; #389 abierto/no fusionado, base feature `652126a03f19fbec3c529cad1e84bff11cd3699e`, #407 abierto. Gate 42133125317, Seguridad 42133125338 y V81 42133125325 del padre success; Mongo autorizado 70/70. Instrucciones, estado y pendientes revisados.
+
+Un bloque seleccionado: formulario de alta nueva desde revisión de ingresos existentes; cuentas propias activas COP del mismo snapshot, importe/fecha reales vacíos sin copiar previsión, categoría/medio/motivo y casilla de no duplicado explícitos. Revisión muestra real/previsto/diferencia exacta/cuenta/fecha Colombia/ocurrencia; conserva campos/cuerpo/clave antes de POST, doble clic bloqueado y GET recupera respuesta perdida. Consulta, revisión financiera, campos o sesión cambiados no envían; fallos no limpian datos ni liberan pagos inciertos ajenos.
+
+El escenario Mongo autorizado existente de API pasa ahora por formulario/botones/casilla/control/agenda reales sobre DOM simulado, conservando pruebas de rollback/índice/aislamiento/concurrencia. Local: módulo 531 casos/522 aprobados/nueve omitidos/cero fallos; 64 dirigidas aprobadas, sintaxis/diff correctos. CI del nuevo SHA pendiente al preparar lote. Plan, criterios, límites y siguiente paso en RECEPCION_NUEVA_INTERFAZ_V81.md.
+
+Mismos modelos/índices/roles/backup V18/38, sin migración o reparación automática. Siguiente tras CI: revisión de abonos múltiples/recepciones parciales y flujos/recuperación pendientes; aprobación visual/dispositivos pendiente de evidencia real. #407/custodio/backup durable/recuperación operativa/roles-índices-históricos/seguridad/compatibilidad/informe final abiertos. Sin merge ni Render, otros productos, costos o datos reales alterados.
