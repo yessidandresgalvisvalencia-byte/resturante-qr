@@ -1,0 +1,43 @@
+name: GRUK dependency remediation evidence
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/gruk-dependency-remediation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile-remediation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Generate reproducible remediation candidate (no commit or deployment)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm audit --omit=dev --audit-level=high --json > audit-before.json || true
+          npm audit fix --package-lock-only --ignore-scripts --no-fund
+          npm ci --ignore-scripts
+          npm audit --omit=dev --audit-level=high --json > audit-after.json || true
+          node -e "const a=require('./audit-after.json');if((a.metadata?.vulnerabilities?.high||0)+(a.metadata?.vulnerabilities?.critical||0)>0)process.exit(1)"
+      - name: Save reviewed lockfile candidate and audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-lockfile-remediation-candidate
+          path: |
+            package-lock.json
+            audit-before.json
+            audit-after.json
+          retention-days: 7
