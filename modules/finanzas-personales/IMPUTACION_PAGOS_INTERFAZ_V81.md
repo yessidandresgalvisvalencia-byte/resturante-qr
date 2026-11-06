@@ -24,3 +24,9 @@ Diario local limitado a 100 solicitudes sin limpieza automática; no es backup i
 ## Siguiente y bloqueo de liberación
 Revisar recuperación de pagos anulados tras cambio de ciclo y decisiones de imputación: conservar restricciones, no reescribir fuentes y añadir evidencias antes de ampliar restauración. Validación visual/dispositivos y accesibilidad real pendientes.
 #407 mantiene custodia independiente real, roles/índices y separación de credenciales en producción, backups independientes/retención/acceso, restauración aislada operativa con RPO/RTO, auditoría IP/dispositivo y aceptación integral de seguridad, exactitud, concurrencia, migración, aislamiento y recuperación. No merge a feature, no despliegue parcial Render, no cambios main/Empresarial/Blushéa ni costos.
+
+
+## Verificación nativa y ajuste de referencias r58
+SHA funcional 2b5d7a94486d09e9cf174ec6d71ae7b007faf9a4; árbol 2bb857fa05c6865aa370f5e746e970073daff9ff. Seguridad 42184007925 y V81 42184007962 satisfactorios; Mongo autorizado job 127779931074: 78/78, cero fallos y omisiones. Respaldo sintético: 39 colecciones, 5522 documentos, 3776542 bytes, captura 207 ms, restauración 931 ms, edad 1087 ms; custodiaIndependiente=false y rpoProduccion=false.
+Gate 42184008137 falló únicamente en dos expectativas antiguas de URL del JavaScript personal. Se actualizan a 20261106-imputacion-v81 y se exige además una única referencia y orden correcto de imputación/control/aplicación. No se retira ninguna comprobación de caché, aislamiento, sintaxis o seguridad. Dirigidas ampliadas: 65/65, cero fallos; módulo 585/576/9 y CI personal 338/334/4. El SHA corregido requiere los tres workflows verdes antes de entregar.
+Siguiente: recuperación de pagos anulados tras cambio de ciclo sin eludir restricciones; visual/dispositivos y gates operativos #407 pendientes. Sin merge ni Render.

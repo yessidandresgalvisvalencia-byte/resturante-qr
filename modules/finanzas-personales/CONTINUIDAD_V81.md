@@ -1883,3 +1883,9 @@ Siguiente paso recuperable: interfaz para revisar contexto y origen, seleccionar
 
 ## 2026-11-06 · interfaz y recuperación de imputación (r58)
 Padre ab9cf3ad02252e2a6e8ad1cbe38f58fc085168e8. Plan, criterios, evidencia y límites en IMPUTACION_PAGOS_INTERFAZ_V81.md. Interfaz Deudas aplicar/excluir/anular con confirmación y diario por usuario; recibo vinculado al cuerpo y cierre no aplicado durable ante contexto cambiado. No mueve caja ni cambia fuentes/capital; hashes anteriores preservados. Local 585/576/9; CI personal 338/334/4; dirigidas 62/62; cero fallos. CI/Mongo nativo del SHA publicado pendiente. Visual real pendiente por navegador ausente. Siguiente: recuperación de pagos anulados tras cambio de ciclo, sin eludir restricciones; continuar aceptación visual/operativa #407. Sin merge ni Render.
+
+
+## Verificación nativa y ajuste de referencias r58
+SHA funcional 2b5d7a94486d09e9cf174ec6d71ae7b007faf9a4; árbol 2bb857fa05c6865aa370f5e746e970073daff9ff. Seguridad 42184007925 y V81 42184007962 satisfactorios; Mongo autorizado job 127779931074: 78/78, cero fallos y omisiones. Respaldo sintético: 39 colecciones, 5522 documentos, 3776542 bytes, captura 207 ms, restauración 931 ms, edad 1087 ms; custodiaIndependiente=false y rpoProduccion=false.
+Gate 42184008137 falló únicamente en dos expectativas antiguas de URL del JavaScript personal. Se actualizan a 20261106-imputacion-v81 y se exige además una única referencia y orden correcto de imputación/control/aplicación. No se retira ninguna comprobación de caché, aislamiento, sintaxis o seguridad. Dirigidas ampliadas: 65/65, cero fallos; módulo 585/576/9 y CI personal 338/334/4. El SHA corregido requiere los tres workflows verdes antes de entregar.
+Siguiente: recuperación de pagos anulados tras cambio de ciclo sin eludir restricciones; visual/dispositivos y gates operativos #407 pendientes. Sin merge ni Render.
