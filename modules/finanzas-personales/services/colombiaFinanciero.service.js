@@ -8,7 +8,14 @@ const DEUDAS=["tarjeta","credito","prestamo","deuda","gota a gota","pagadiario",
 const BILLETERAS=["nequi","daviplata","dale","movii","bold","bancolombia a la mano"];
 function normalizar(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();}
 function contiene(t,lista){const n=normalizar(t);return lista.some(x=>n.includes(normalizar(x)));}
-function clasificar(texto,tipo){if(tipo==="INGRESO")return contiene(texto,["salario","sueldo","nomina","quincena","prima","cesantias","rebusque"])?"Salario":contiene(texto,HORMIGA)?"Otros ingresos":contiene(texto,INGRESOS)?"Salario":"Otros ingresos";if(contiene(texto,DEUDAS))return"Deuda";if(contiene(texto,FIJOS))return"Gastos fijos";if(contiene(texto,HORMIGA))return"Gastos hormiga";if(contiene(texto,VARIABLES))return"Gastos variables";return"Otros gastos";}
+function contieneCompleto(t,lista){
+ const n=normalizar(t);
+ // Evitar "cafe" dentro de "cafetera" y "tinto" dentro de "distinto".
+ // Separadores permiten puntuación, tildes normalizadas y marcas compuestas.
+ const delimitado=" "+n.replace(/[^a-z0-9]+/g," ")+" ";
+ return lista.some(x=>delimitado.includes(" "+normalizar(x).replace(/[^a-z0-9]+/g," ").trim()+" "));
+}
+function clasificar(texto,tipo){if(tipo==="INGRESO")return contiene(texto,["salario","sueldo","nomina","quincena","prima","cesantias","rebusque"])?"Salario":contieneCompleto(texto,HORMIGA)?"Otros ingresos":contiene(texto,INGRESOS)?"Salario":"Otros ingresos";if(contiene(texto,DEUDAS))return"Deuda";if(contiene(texto,FIJOS))return"Gastos fijos";if(contieneCompleto(texto,HORMIGA))return"Gastos hormiga";if(contiene(texto,VARIABLES))return"Gastos variables";return"Otros gastos";}
 function contexto(texto){const n=normalizar(texto);return{billetera:BILLETERAS.find(x=>n.includes(x))?.toUpperCase()||null,esFiado:n.includes("fiado"),esGotaAGota:n.includes("gota a gota"),esQuincena:n.includes("quincena"),esPrima:n.includes("prima"),esCesantias:n.includes("cesantias"),esRebusque:n.includes("rebusque"),esPagadiario:n.includes("pagadiario")||n.includes("paga diario"),esPrestado:n.includes("prestado")||n.includes("me prestaron"),esVuelto:n.includes("vueltos")||n.includes("devuelta")};}
 function fechaColombia(offsetDias=0){const p=new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const o=Object.fromEntries(p.map(x=>[x.type,x.value]));const base=new Date(Date.UTC(Number(o.year),Number(o.month)-1,Number(o.day)+offsetDias,17,0,0));return base;}
-module.exports={TZ,HORMIGA,FIJOS,VARIABLES,INGRESOS,DEUDAS,BILLETERAS,normalizar,clasificar,contexto,fechaColombia};
+module.exports={TZ,HORMIGA,FIJOS,VARIABLES,INGRESOS,DEUDAS,BILLETERAS,normalizar,clasificar,contexto,fechaColombia,contieneCompleto};

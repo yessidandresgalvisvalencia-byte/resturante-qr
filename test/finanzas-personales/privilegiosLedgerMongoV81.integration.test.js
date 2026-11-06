@@ -1,0 +1,310 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict"),crypto=require("node:crypto"),path=require("node:path");
+const {spawnSync}=require("node:child_process");
+const mongoose=require("mongoose"),{MongoClient}=mongoose.mongo;
+const {COLECCIONES,auditarPrivilegiosLedgerPersonal:auditar}=require("../../modules/finanzas-personales/security/ledgerPersonalDbPrivileges.service");
+const {modelosPersonales,provisionarMongoPersonal}=require("../../modules/finanzas-personales/security/provisionMongoPersonal.service");
+const base="gruk_v81_test_privilegios";
+function validarDestino(uri,env=process.env.NODE_ENV){
+ if(env==="production")throw Error("Prueba de privilegios bloqueada en producción");
+ const url=new URL(uri);
+ if(url.protocol!=="mongodb:"||url.hostname!=="127.0.0.1"||url.port!=="27018"||url.pathname!=="/"+base||url.username||url.password||url.search||url.hash)
+  throw Error("Prueba de privilegios limitada a MongoDB local aislado en puerto 27018");
+}
+test("la prueba de roles rechaza destinos externos, credenciales y otras bases",()=>{
+ assert.doesNotThrow(()=>validarDestino(`mongodb://127.0.0.1:27018/${base}`,"test"));
+ for(const uri of ["mongodb://servidor:27018/"+base,"mongodb://127.0.0.1:27018/produccion",`mongodb://u:p@127.0.0.1:27018/${base}`,`mongodb://127.0.0.1:27018/${base}?dbName=otra`])assert.throws(()=>validarDestino(uri,"test"));
+ assert.throws(()=>validarDestino(`mongodb://127.0.0.1:27018/${base}`,"production"));
+});
+const uri=process.env.GRUK_V81_TEST_MONGO_AUTH_URI;
+async function probarMigracionAutorizada(db,uri,password,t){
+ validarDestino(uri);
+ const Legacy=require("../../modules/finanzas-personales/models/movimiento.model");
+ const Tx=require("../../modules/finanzas-personales/models/TransaccionPersonal");
+ const Reporte=require("../../modules/finanzas-personales/models/migracionPersonal.model");
+ const migracion=require("../../modules/finanzas-personales/services/migracionLedgerPersonal.service");
+ const anterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;process.env.PERSONAL_IDEMPOTENCY_SECRET=crypto.randomBytes(32).toString("hex");
+ const uid=()=>new mongoose.Types.ObjectId();
+ const datos=(userId,tipo,monto)=>({userId,tipo,monto,concepto:"Dato histórico",categoria:"Prueba",fecha:new Date(Date.now()-60000)});
+ try{
+  await mongoose.connect(uri,{auth:{username:"writer",password},authSource:base,autoCreate:false,autoIndex:false,serverSelectionTimeoutMS:7000});
+  const a=uid(),b=uid();
+  const fuentes=await Legacy.create([datos(a,"INGRESO",1000),datos(a,"GASTO",250),datos(b,"INGRESO",700)]);
+  const antesLegacy=await Legacy.find({userId:a}).sort({_id:1}).lean();
+  const primero=await migracion.migrar(a);assert.equal(primero.estado,"RECONCILIADA");assert.equal(primero.ledgerCount,2);
+  const antesTx=await Tx.find({usuarioId:a}).sort({_id:1}).lean();
+  assert.equal(antesTx.length,2);assert.equal(await Tx.countDocuments({usuarioId:b}),0);
+  assert.equal((await migracion.migrar(a)).estado,"RECONCILIADA");
+  assert.deepEqual(await Tx.find({usuarioId:a}).sort({_id:1}).lean(),antesTx);
+  assert.deepEqual(await Legacy.find({userId:a}).sort({_id:1}).lean(),antesLegacy);
+  // Totales compensados no deben ocultar cambios en dos fuentes distintas.
+  await Legacy.updateOne({_id:fuentes[0]._id},{$set:{monto:1010}});await Legacy.updateOne({_id:fuentes[1]._id},{$set:{monto:260}});
+  const alterado=await migracion.reconciliar(a);assert.equal(alterado.diferenciaMinor,0);assert.equal(alterado.estado,"ERROR");
+  await assert.rejects(migracion.migrar(a),e=>e.statusCode===409);
+  assert.deepEqual(await Tx.find({usuarioId:a}).sort({_id:1}).lean(),antesTx);
+  for(const monto of [0,1.5,Number.MAX_SAFE_INTEGER+1]){
+   const user=uid();await Legacy.create(datos(user,"GASTO",monto));
+   await assert.rejects(migracion.migrar(user),e=>e.statusCode===422);assert.equal(await Tx.countDocuments({usuarioId:user}),0);
+  }
+  const carrera=uid();await Legacy.create([datos(carrera,"INGRESO",100),datos(carrera,"GASTO",30)]);
+  const intentos=await Promise.allSettled([migracion.migrar(carrera),migracion.migrar(carrera)]);
+  assert.ok(intentos.some(x=>x.status==="fulfilled"));
+  assert.equal((await migracion.migrar(carrera)).ledgerCount,2);assert.equal(await Tx.countDocuments({usuarioId:carrera}),2);
+  const rollback=uid();await Legacy.create(datos(rollback,"INGRESO",10));
+  const guardar=Reporte.findOneAndUpdate;Reporte.findOneAndUpdate=()=>Promise.reject(Error("Fallo simulado del reporte"));
+  try{await assert.rejects(migracion.migrar(rollback),/Fallo simulado/);}finally{Reporte.findOneAndUpdate=guardar;}
+  assert.equal(await Tx.countDocuments({usuarioId:rollback}),0);assert.equal(await Reporte.countDocuments({usuarioId:rollback}),0);
+  await db.collection("fin_transacciones_personales").dropIndex("usuarioId_1_externalIdHash_1");
+  await assert.rejects(migracion.migrar(b),e=>e.statusCode===503);assert.equal(await Tx.countDocuments({usuarioId:b}),0);
+  await provisionarMongoPersonal(db);assert.equal((await migracion.migrar(b)).ledgerCount,1);
+  const {probarCajaAutorizada,probarCadenaV81Autorizada,probarIndicesEnCaliente,probarCadenaCompensatoriaAlterada}=require("./helpers/operacionesLedgerAutorizadas");
+  await t.test("caja, compensaciones, reintentos y rollback con rol restringido",probarCajaAutorizada);
+  await t.test("cadena V81 y anulación con rol restringido",probarCadenaV81Autorizada);
+  await t.test("índices cambiados en caliente bloquean escrituras sin alterar caja ni historial",()=>probarIndicesEnCaliente(db));
+  await t.test("cadena compensatoria incompleta o alterada bloquea escrituras en otros movimientos",()=>probarCadenaCompensatoriaAlterada(db));
+  await t.test("aprobación conversacional vincula la cuenta y conserva atomicidad con rol restringido",
+   require("./helpers/aprobacionConversacionalAutorizada").probarAprobacionConversacionalAutorizada);
+  await t.test("cobros conversacionales conservan préstamo, caja y clasificación con rol restringido",
+   require("./helpers/cobrosConversacionalesAutorizados").probarCobrosConversacionalesAutorizados);
+  await t.test("transferencias conversacionales conservan dinero y bloquean conciliaciones anteriores",
+   require("./helpers/transferenciasConversacionalesAutorizadas").probarTransferenciasConversacionalesAutorizadas);
+  await t.test("ajustes conversacionales respetan movimientos posteriores y revierten lotes fallidos",
+   require("./helpers/saldosConversacionalesAutorizados").probarSaldosConversacionalesAutorizados);
+  await t.test("progreso económico usa compensaciones y respeta acciones aprobadas",
+   require("./helpers/progresoEconomicoAutorizado").probarProgresoEconomicoAutorizado);
+  await t.test("panel conserva compromisos recurrentes más allá de los cien registros recientes",
+   require("./helpers/lecturasHomeAutorizadas").probarLecturasHomeAutorizadas);
+  await t.test("evaluación de compras exige ingreso y saldo conciliado sin escribir ni mezclar cuentas",
+   ()=>require("./helpers/comprasAutorizadas").probarComprasAutorizadas(db));
+  await t.test("obligaciones sin fecha bloquean Disponible Hoy hasta confirmar calendario sin alterar fuentes",
+   require("./helpers/obligacionesSinFechaAutorizadas").probarObligacionesSinFechaAutorizadas);
+  await t.test("restauración de caja conserva fuentes y controla reintentos, concurrencia, saldo y rollback",
+   require("./helpers/restauracionCajaAutorizada").probarRestauracionCajaAutorizada);
+  await t.test("restauración recurrente conserva cupo, caja y fuentes ante carreras y fallos",
+   require("./helpers/restauracionRecurrenteAutorizada").probarRestauracionRecurrenteAutorizada);
+  await t.test("recuperación de cuotas conserva calendario, caja e historial ante concurrencia y rollback",
+   require("./helpers/restauracionCompromisoAutorizada").probarRestauracionCompromisoAutorizada);
+  await t.test("recuperación de préstamos distingue capital y pago real sin duplicar cuotas ni caja",
+   require("./helpers/restauracionPrestamoAutorizada").probarRestauracionPrestamoAutorizada);
+  await t.test("retiro recuperable de deudas conserva calendario, caja y evidencia con rol restringido",
+   ()=>require("./helpers/retiroDeudaAutorizado").probarRetiroDeudaAutorizado(db));
+  await t.test("créditos legacy permiten retiro recuperable y excluyen duplicados aun pagados o retirados",
+   ()=>require("./helpers/creditoLegacyRecuperableAutorizado").probarCreditoLegacyRecuperableAutorizado(db));
+  await t.test("correcciones de préstamos conservan snapshots y controlan reintentos, caja y reclasificación",
+   ()=>require("./helpers/correccionPrestamoAutorizada").probarCorreccionPrestamoAutorizada(db));
+  await t.test("commit con respuesta perdida conserva bloqueo local hasta confirmar el mismo idempotente",
+   require("./helpers/mutacionDisponibleAutorizada").probarMutacionDisponibleAutorizada);
+  await t.test("recepción por ocurrencia vincula ingreso vigente una sola vez sin duplicar caja",()=>require("./helpers/recepcionCalendarioAutorizada").probarRecepcionCalendario(db,provisionarMongoPersonal));
+  await t.test("alta de ingreso y recepción confirma o revierte caja, fuente y eventos en una sesión",()=>require("./helpers/recepcionNuevaAutorizada").probarRecepcionNueva(db,provisionarMongoPersonal));
+  await t.test("abonos parciales mantienen horizonte desconocido y cierre explícito sin mover caja",()=>require("./helpers/recepcionParcialAutorizada").probarRecepcionParcial());
+  await t.test("cambiar fecha y recuperar calendario no ocultan abonos anteriores ni repiten caja",()=>require("./helpers/recuperacionRecepcionesAutorizada").probarRecuperacionRecepciones());
+  await t.test("evaluación de obligaciones conserva bloqueos tras restaurar deuda sin fecha y no inventa alternativas",()=>require("./helpers/evaluacionObligacionAutorizada").probarEvaluacionObligacionAutorizada());
+  await t.test("obligación identificada no repite reserva y refleja corrección, pago, anulación y restauración",()=>require("./helpers/reservaObligacionAutorizada").probarReservaObligacionAutorizada());
+  await t.test("proyección usa abonos compensados del mismo snapshot y no duplica próxima cuota",()=>require("./helpers/proyeccionAbonosAutorizada").probarProyeccionAbonosAutorizada());
+  await t.test("restauración explícita de ciclo une compensación e imputación sin duplicar caja",()=>require("./helpers/restauracionCicloPagoAutorizada").probarRestauracionCiclo(db));
+  await t.test("cierre de restauración por contexto conserva evidencia, reserva clave y no debita bajo carreras",()=>require("./helpers/cierreRestauracionAutorizada").probarCierreRestauracion(db));
+  await t.test("anulación superada y calendario no vigente cierran sin alterar fuente, caja ni capital",()=>require("./helpers/cierreRestauracionAutorizada").probarCausasCierre());
+  await t.test("interfaz de imputación recupera recibos y conserva cierre no aplicado sin mover caja",()=>require("./helpers/imputacionInterfazAutorizada").probarInterfazImputacion());
+  await t.test("imputación explícita conserva originales y caja con concurrencia, anulación y fallo seguro",()=>require("./helpers/imputacionPagoAutorizada").probarImputacionAutorizada(db));
+  await t.test("pago conserva ciclo firmado y cambio de vencimiento bloquea imputación y restauración",()=>require("./helpers/cicloPagoPrestamoAutorizado").probarCicloPagoAutorizado(db));
+  await t.test("adopción explícita conserva BSON, identidad y una sola planificación con HTTP autenticado",()=>require("./helpers/calendarioAdopcionAutorizada").probarAdopcionCalendario(db));
+  await t.test("originales de calendario legado rechazan mutación nativa sin alterar planificación ni caja",()=>require("./helpers/calendarioLegadoProtegidoAutorizado").probarCalendarioLegadoProtegido());
+  await t.test("calendario por eventos con HTTP autenticado conserva fuentes y recuperación concurrente",()=>require("./helpers/calendarioIngresoAutorizado").probarCalendarioIngreso(db,provisionarMongoPersonal));
+  await t.test("horizonte explícito de ingreso protege hoy, históricos, compras y snapshot sin escribir",()=>require("./helpers/horizonteIngresoAutorizado").probarHorizonteIngreso(db));
+  await t.test("master y proyección exacta comparten snapshot y no autorizan desde desconocidos",()=>require("./helpers/masterProyeccionAutorizada").probarMasterProyeccion(db));
+  await t.test("captura copilot atómica recupera respuesta sin duplicar borrador y protege originales",()=>require("./helpers/capturaCopilotAutorizada").probarCapturaCopilot(db,provisionarMongoPersonal));
+  await t.test("ingreso mensual y copilot conservan fuentes, turnos y bloqueo ante pago incierto",()=>require("./helpers/ingresoCopilotAutorizado").probarIngresoCopilot());
+  await t.test("simulación conversacional explícita o pendiente no cambia fuentes ni contexto",()=>require("./helpers/simulacionCreditoAutorizada").probarSimulacionConversacional(db));
+  await t.test("simulación exacta repetida y rechazada conserva todas las colecciones",()=>require("./helpers/simulacionCreditoAutorizada").probarSimulacionSinEscrituras(db));
+  await t.test("resumen HTTP comparte snapshot con históricos, metas y perfil sin inferir capacidad",()=>require("./helpers/resumenHttpAutorizado").probarResumenHttpAutorizado(db));
+  await t.test("resumen conversacional conserva flujo compensado, caja y fuentes sin declarar dinero libre",require("./helpers/resumenConversacionalAutorizado").probarResumenConversacionalAutorizado);
+  await t.test("totales de préstamos acotados rechazan corrupción, exceso y mezclas entre propietarios",()=>require("./helpers/resumenConversacionalAutorizado").probarPrestamosAgregadosAutorizados(db));
+  await t.test("asesoría de deuda conserva fuentes, interés racional e identidad sin abono inferido",()=>require("./helpers/asesoriaDeudaAutorizada").probarAsesoriaDeudaAutorizada(db));
+  await t.test("orientación de ahorro, planificación e inversión exige evidencia compartida sin asignar capital",()=>require("./helpers/orientacionVerificadaAutorizada").probarOrientacionVerificadaAutorizada(db));
+  await t.test("consulta perdida no crea incertidumbre monetaria y respeta commit real pendiente",require("./helpers/consultaPendientesAutorizada").probarConsultaPendientesAutorizada);
+  await t.test("Home conserva una vista global ante ingreso y calendario concurrentes sin escribir fuentes",()=>require("./helpers/homeSnapshotAutorizado").probarHomeSnapshotAutorizado(db));
+  await t.test("Disponible Hoy conversacional exige evidencia y horizonte sin inventar cupos",()=>require("./helpers/disponibleConversacionalAutorizado").probarDisponibleConversacionalAutorizado(db));
+  await t.test("V2 converge con snapshot personal sin inventar caja ni borrar referencias históricas",()=>require("./helpers/patrimonioV2Autorizado").probarPatrimonioV2Autorizado(db));
+  await t.test("retiro y restauración de inversiones conserva capital, valor, originales y caja",()=>require("./helpers/cicloInversionAutorizado").probarCicloInversionAutorizado(db,provisionarMongoPersonal));
+  await t.test("retiro y restauración de activos conservan originales y no duplican patrimonio ni caja",()=>require("./helpers/cicloActivoAutorizado").probarCicloActivoAutorizado(db,provisionarMongoPersonal));
+  await t.test("activos exactos serializan altas y verifican totales, fuentes y rollback",()=>require("./helpers/activosExactosAutorizados").probarActivosExactosAutorizados(db));
+  await t.test("migración patrimonial exacta preserva fuentes, replay, aislamiento y rollback",()=>require("./helpers/migracionPatrimonioExactaAutorizada").probarMigracionPatrimonioExactaAutorizada(db));
+  await t.test("ingresos históricos separan meses, correcciones y anulaciones sin mutar fuentes",require("./helpers/ingresosHistoricosAutorizados").probarIngresosHistoricosAutorizados);
+  await t.test("inversiones declaradas con recibo conservan fuentes y controlan reintentos, pérdidas y rollback",()=>require("./helpers/inversionRecuperableAutorizada").probarInversionRecuperableAutorizada(db,provisionarMongoPersonal));
+  await t.test("activos declarados con recibo atómico no duplican patrimonio ni caja ante fallos y carreras",()=>require("./helpers/activoRecuperableAutorizado").probarActivoRecuperableAutorizado(db,provisionarMongoPersonal));
+  await t.test("inversiones declaradas cuentan una vez sin aumentar caja y rechazan discrepancias",()=>require("./helpers/lecturaInversionesAutorizada").probarLecturaInversionesAutorizada(db));
+  await t.test("retiro y restauración de cuentas en cero preservan fuentes, saldo e identidad con auditoría",()=>require("./helpers/cicloCuentaAutorizado").probarCicloCuentaAutorizado(db,provisionarMongoPersonal));
+  await t.test("conciliaciones protegidas conservan anclas, atomicidad y reintentos sin reponer saldos posteriores",()=>require("./helpers/conciliacionCuentaAutorizada").probarConciliacionCuentaAutorizada(db,provisionarMongoPersonal));
+  await t.test("cuentas declaradas con recibo atómico conservan apertura sin ingreso, reintentos y Disponible Hoy",()=>require("./helpers/cuentaRecuperableAutorizada").probarCuentaRecuperableAutorizada(db,provisionarMongoPersonal));
+  await t.test("créditos declarados con recibo sin duplicar deuda ni caja y calendario desconocido bloquea disponible",()=>require("./helpers/creditoRecuperableAutorizado").probarCreditoRecuperableAutorizado(db,provisionarMongoPersonal));
+  await t.test("creación de préstamos con recibos atómicos, reintentos, aislamiento y respuesta perdida",()=>require("./helpers/creacionPrestamoAutorizado").probarCreacionPrestamoAutorizado(db,provisionarMongoPersonal));
+  await t.test("recibos de aprobación resuelven respuesta perdida sin repetir fuentes, caja ni operaciones",
+   ()=>require("./helpers/reciboAprobacionAutorizado").probarReciboAprobacionAutorizado(db));
+  await t.test("backup cifrado con lector separado restaura BSON e índices solo en una base aislada vacía",
+   ()=>require("./helpers/respaldoFinancieroAutorizado").probarRespaldoFinancieroAutorizado({db,uri,password}));
+  await t.test("completar acciones exige evidencia vigente y revierte fallos de auditoría",
+   require("./helpers/evidenciaProgresoAutorizada").probarEvidenciaProgresoAutorizada);
+  await t.test("deudas conversacionales validan saldos sin inventar activos y revierten fallos",
+   require("./helpers/deudasConversacionalesAutorizadas").probarDeudasConversacionalesAutorizadas);
+  await t.test("auditoría de anclas compensatorias es de solo lectura y detecta truncamientos",
+   ()=>require("./helpers/anclaCompensacionesAutorizada").probarAnclaCompensacionesAutorizada(db));
+ }finally{
+  await mongoose.disconnect();if(anterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=anterior;
+ }
+}
+test("MongoDB con autorización: rol insert-only bloquea modificación y borrado reales",{
+ skip:!uri&&process.env.GRUK_REQUIRE_PRIVILEGIOS_MONGO_TEST!=="1"?"Requiere MongoDB local con --auth":false,timeout:60000
+},async t=>{
+ validarDestino(uri);
+ // Credenciales exclusivas del contenedor efímero de CI, nunca del despliegue.
+ const root=new MongoClient(uri,{auth:{username:"gruk_test_root",password:"gruk_test_root_local_only"},authSource:"admin",serverSelectionTimeoutMS:7000});
+ const clientes=[];const creados=[];
+ const mutables=["fin_outbox_personal","fin_cursor_compensaciones_personales_v1","fin_cuentas_personales"];
+ const password=crypto.randomBytes(24).toString("hex");
+ const client=async username=>{
+  const c=new MongoClient(uri,{auth:{username,password},authSource:base,serverSelectionTimeoutMS:7000});clientes.push(c);await c.connect();return c;
+ };
+ try{
+  await root.connect();const db=root.db(base);
+  const provision=await provisionarMongoPersonal(db);
+  assert.ok(provision.modelos>=44);assert.equal((await provisionarMongoPersonal(db)).coleccionesCreadas,0);
+  const adminCli=spawnSync(process.execPath,[path.resolve(__dirname,"../../scripts/provision-personal-mongo.js"),"--apply"],{
+   env:{...process.env,PERSONAL_MONGO_PROVISION_URI:`mongodb://gruk_test_root:gruk_test_root_local_only@127.0.0.1:27018/${base}?authSource=admin`,PERSONAL_MONGO_DB:base},
+   encoding:"utf8",timeout:20000
+  });
+  assert.equal(adminCli.status,0,adminCli.stderr);assert.equal(JSON.parse(adminCli.stdout).coleccionesCreadas,0);
+  const proyecciones=modelosPersonales().map(m=>m.collection.collectionName).filter(c=>!COLECCIONES.includes(c));
+  await db.command({createRole:"ledger_writer",privileges:[
+   ...COLECCIONES.map(collection=>({resource:{db:base,collection},actions:["find","insert","listIndexes"]})),
+   ...proyecciones.map(collection=>({resource:{db:base,collection},actions:["find","insert","update","remove","listIndexes"]}))
+  ],roles:[]});
+  for(const [user,roles] of [["writer",[{role:"ledger_writer",db:base}]],["unsafe",[{role:"readWrite",db:base}]],["reader",[{role:"read",db:base}]]]){
+   await db.command({createUser:user,pwd:password,roles});creados.push(user);
+  }
+  const writer=(await client("writer")).db(base);
+  const informe=await auditar(writer);
+  assert.equal(informe.compatible,true);assert.equal(informe.certificaInmutabilidad,false);
+  for(const nombre of COLECCIONES){
+   const col=writer.collection(nombre);
+   await col.insertOne({_id:"prueba",valor:1});assert.equal((await col.findOne({_id:"prueba"})).valor,1);
+   for(const operacion of [()=>col.updateOne({_id:"prueba"},{$set:{valor:2}}),()=>col.deleteOne({_id:"prueba"}),
+    ()=>col.replaceOne({_id:"prueba"},{valor:3}),()=>col.drop(),()=>col.createIndex({valor:1})])
+    await assert.rejects(operacion(),e=>e.code===13);
+   assert.equal((await col.findOne({_id:"prueba"})).valor,1);
+  }
+  for(const nombre of mutables){
+   await writer.collection(nombre).insertOne({_id:"control",revision:0});
+   await writer.collection(nombre).updateOne({_id:"control"},{$inc:{revision:1}});
+   assert.equal((await writer.collection(nombre).findOne({_id:"control"})).revision,1);
+  }
+  assert.equal((await auditar((await client("unsafe")).db(base))).compatible,false);
+  const reader=await auditar((await client("reader")).db(base));
+  assert.equal(reader.compatible,false);assert.ok(reader.colecciones.every(c=>c.faltantes.includes("insert")));
+  assert.equal((await auditar(db)).compatible,false);
+  const anonimo=new MongoClient(uri,{serverSelectionTimeoutMS:7000});clientes.push(anonimo);await anonimo.connect();
+  assert.equal((await auditar(anonimo.db(base))).compatible,false);
+  await assert.rejects(anonimo.db(base).collection(COLECCIONES[0]).insertOne({_id:"sin_auth"}),e=>e.code===13);
+
+  // Ejecutar el CLI real demuestra que la auditoría no necesita permisos de DDL.
+  const nombresAntes=(await db.listCollections({},{nameOnly:true}).toArray()).map(c=>c.name).sort();
+  const child=spawnSync(process.execPath,[path.resolve(__dirname,"../../scripts/audit-personal-mongo-privileges.js")],{
+   env:{...process.env,PERSONAL_MONGO_URI:`mongodb://writer:${password}@127.0.0.1:27018/${base}?authSource=${base}`,PERSONAL_MONGO_DB:base},encoding:"utf8",timeout:15000
+  });
+  assert.equal(child.status,0,child.stderr);assert.equal(JSON.parse(child.stdout).compatible,true);
+  assert.doesNotMatch(child.stdout+child.stderr,new RegExp(password));
+  assert.doesNotMatch(child.stdout,/ledger_writer|authenticatedUsers|mongodb:\/\//);
+  assert.deepEqual((await db.listCollections({},{nameOnly:true}).toArray()).map(c=>c.name).sort(),nombresAntes);
+  function arranque(usuario){
+   const programa=`
+    const mongoose=require('mongoose'),net=require('node:net');
+    require('./modules/finanzas-personales/services/macroCollector.service').persistColombia=async()=>{};
+    require('./modules/finanzas-personales/services/recordatoriosCobro.service').ejecutar=async()=>{};
+    require('./modules/finanzas-personales/services/flujoCajaPersonal.service').republicarPendientes=async()=>{};
+    (async()=>{
+     const reserva=net.createServer();await new Promise(r=>reserva.listen(0,'127.0.0.1',r));
+     process.env.PORT=String(reserva.address().port);await new Promise(r=>reserva.close(r));
+     try{
+      const runtime=await require('./modules/finanzas-personales/server').start();
+      const health=await fetch('http://127.0.0.1:'+process.env.PORT+'/healthz');
+      const resultado={status:health.status,autoCreate:mongoose.connection.config.autoCreate,autoIndex:mongoose.connection.config.autoIndex};
+      await new Promise(r=>runtime.io.close(r));await mongoose.disconnect();
+      console.log('RESULTADO_ARRANQUE '+JSON.stringify(resultado));process.exit(0);
+     }catch(e){
+      const codigo=['PRIVILEGIOS_FINANCIEROS_NO_VERIFICADOS','INDICES_FINANCIEROS_NO_VERIFICADOS'].includes(e.message)?e.message:'ERROR_NO_ESPERADO';
+      console.log('RESULTADO_ARRANQUE '+JSON.stringify({codigo,conexion:mongoose.connection.readyState}));process.exit(0);
+     }
+    })();`;
+   const env={...process.env,PERSONAL_MONGO_URI:`mongodb://${usuario}:${password}@127.0.0.1:27018/${base}?authSource=${base}`,PERSONAL_MONGO_DB:base,
+    PERSONAL_DATA_KEY:crypto.randomBytes(32).toString("base64")};
+   for(const key of ["PERSONAL_MARKET_INGEST_SECRET","PERSONAL_JWT_SECRET","PERSONAL_RESET_SECRET","PERSONAL_IDEMPOTENCY_SECRET","PERSONAL_ENTITLEMENT_SYNC_SECRET"])env[key]="secreto-local-de-prueba-no-produccion";
+   const child=spawnSync(process.execPath,["-e",programa],{cwd:path.resolve(__dirname,"../.."),env,encoding:"utf8",timeout:15000});
+   assert.equal(child.status,0,child.stderr);assert.doesNotMatch(child.stdout+child.stderr,new RegExp(password));
+   const linea=child.stdout.split("\n").find(l=>l.startsWith("RESULTADO_ARRANQUE "));assert.ok(linea,child.stdout);
+   return JSON.parse(linea.slice("RESULTADO_ARRANQUE ".length));
+  }
+  assert.deepEqual(arranque("writer"),{status:200,autoCreate:false,autoIndex:false});
+  assert.deepEqual(arranque("unsafe"),{codigo:"PRIVILEGIOS_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await db.collection("fin_eventos_compensatorios_personales_v1").dropIndex("fp_compensacion_orden_usuario_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_retiros_deudas_personales_v1").dropIndex("fp_retiro_secuencia_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_ciclo_creditos_legacy_personales_v1").dropIndex("fp_legacy_ciclo_secuencia_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_correcciones_prestamos_personales_v1").dropIndex("fp_correccion_prestamo_secuencia_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_recibos_aprobacion_personales_v1").dropIndex("fp_recibo_aprobacion_solicitud_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_recibos_creacion_prestamos_personales_v1").dropIndex("fp_recibo_creacion_prestamo_solicitud_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_recibos_creacion_cuentas_personales_v1").dropIndex("fp_cuenta_recibo_nombre_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_conciliaciones_cuentas_personales_v1").dropIndex("fp_conciliacion_cuenta_secuencia_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_recibos_creacion_inversiones_personales_v1").dropIndex("fp_inversion_recibo_solicitud_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_recibos_creacion_activos_personales_v1").dropIndex("fp_activo_recibo_solicitud_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_ciclo_inversiones_personales_v1").dropIndex("fp_ciclo_inversion_secuencia_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_ciclo_activos_personales_v1").dropIndex("fp_ciclo_activo_secuencia_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  await db.collection("fin_ciclo_cuentas_personales_v1").dropIndex("fp_ciclo_cuenta_secuencia_v1");
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await provisionarMongoPersonal(db);
+  // El índice existe y es único, pero su filtro deja fuera parte del historial.
+  const transacciones=db.collection("fin_transacciones_personales");
+  await transacciones.dropIndex("usuarioId_1_externalIdHash_1");
+  await transacciones.createIndex({usuarioId:1,externalIdHash:1},{unique:true,
+   partialFilterExpression:{externalIdHash:{$type:"string"},estado:"ACTIVA"}});
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await transacciones.dropIndex("usuarioId_1_externalIdHash_1");
+  await provisionarMongoPersonal(db);
+  const reservas=db.collection("fin_reservas_cuotas_recurrentes");
+  const claveReserva={usuarioId:1,origenId:1,periodoInicio:1};
+  await reservas.dropIndex("usuarioId_1_origenId_1_periodoInicio_1");
+  await reservas.createIndex(claveReserva,{unique:true,sparse:true});
+  assert.deepEqual(arranque("writer"),{codigo:"INDICES_FINANCIEROS_NO_VERIFICADOS",conexion:0});
+  await reservas.dropIndex("usuarioId_1_origenId_1_periodoInicio_1");
+  await provisionarMongoPersonal(db);
+  assert.deepEqual(arranque("writer"),{status:200,autoCreate:false,autoIndex:false});
+  assert.deepEqual((await db.listCollections({},{nameOnly:true}).toArray()).map(c=>c.name).sort(),nombresAntes);
+  await probarMigracionAutorizada(db,uri,password,t);
+ }finally{
+  await Promise.all(clientes.map(c=>c.close()));
+  for(const user of creados)await root.db(base).command({dropUser:user});
+  if(creados.length)await root.db(base).command({dropRole:"ledger_writer"});
+  await root.db(base).dropDatabase();await root.close();
+ }
+});

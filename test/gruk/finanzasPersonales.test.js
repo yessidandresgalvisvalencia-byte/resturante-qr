@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");const assert=require("node:assert/strict");const service=require("../../modules/finanzas-personales/services/finanzasPersonales.service");
-test("simula crédito sin interés",()=>{const r=service.simularCredito({capital:1200000,tasaMensualPct:0,meses:12});assert.equal(r.cuotaMensual,100000);assert.equal(r.costoTotal,1200000);assert.equal(r.interesesEstimados,0);});
-test("simula crédito con interés y TEA",()=>{const r=service.simularCredito({capital:10000000,tasaMensualPct:1.5,meses:24});assert.ok(r.cuotaMensual>0);assert.ok(r.costoTotal>10000000);assert.ok(r.tasaEfectivaAnualPct>18);});
+test("simula crédito sin interés con calendario/cargos explícitos y texto exacto",()=>{const r=service.simularCredito({capital:1200000,tasaMensualPct:0,meses:12,cargosIniciales:0,fechaDesembolso:"2026-01-15",fechaPrimerPago:"2026-02-15"});assert.equal(r.cuotaMensual,"100000.00");assert.equal(r.costoTotal,"1200000.00");assert.equal(r.interesesEstimados,"0.00");assert.equal(r.tabla.at(-1).saldoFinalCop,"0.00");});
+test("simula crédito con interés exacto y TEA sin aprobar capacidad",()=>{const r=service.simularCredito({capital:1000,tasaMensualPct:"10",meses:2,cargosIniciales:0,fechaDesembolso:"2026-01-15",fechaPrimerPago:"2026-02-15"});assert.equal(r.cuotaMensual,"576.19");assert.equal(r.costoTotal,"1152.38");assert.equal(r.interesesEstimados,"152.38");assert.equal(r.tasaEfectivaAnualPct,"213.842838");assert.equal(r.autorizaCredito,false);assert.throws(()=>service.simularCredito({capital:1000,tasaMensualPct:10,meses:2}),e=>e.statusCode===422);});
 const interprete=require("../../modules/finanzas-personales/services/interpreteFinanciero.service");
 test("estructura obligacion recurrente con abono previo",()=>{const r=interprete.deudaEstructurada("Tengo una deuda de 7 millones, cada 15 de cada mes me toca pagar un millon y ya habia abonado 2 millones quinientos");assert.equal(r.tipo,"DEUDA_POR_PAGAR");assert.equal(r.principalMinor,7000000);assert.equal(r.abonadoMinor,2500000);assert.equal(r.saldoMinor,4500000);assert.equal(r.cuotaMinor,1000000);assert.equal(r.diaPago,15);assert.equal(r.frecuencia,"MENSUAL");assert.equal(r.estado,"LISTO")});
 
@@ -37,7 +37,7 @@ test("contrato de aprobación permite ítems independientes",()=>{
  const fs=require("node:fs"),path=require("node:path");
  const src=fs.readFileSync(path.join(__dirname,"..","..","modules","finanzas-personales","services","aprobacionConversacional.service.js"),"utf8");
  const routes=fs.readFileSync(path.join(__dirname,"..","..","modules","finanzas-personales","routes.js"),"utf8");
- assert.match(src,/estado==="LISTO"/);assert.match(src,/estadoAprobacion!=="APROBADO"/);
+ assert.match(src,/estado==="LISTO"/);assert.match(src,/estadoAprobacion==="PENDIENTE"/);
  assert.doesNotMatch(src,/b\.items\.some\(x=>x\.estado!=="LISTO"\)/);
  assert.match(src,/b\.estado=pendientes\.length\?"PARCIAL":"APROBADO"/);
  assert.match(routes,/items\/:itemId\/aprobar/);

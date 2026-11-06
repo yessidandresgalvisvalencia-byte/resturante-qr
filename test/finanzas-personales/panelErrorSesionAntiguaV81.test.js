@@ -5,5 +5,5 @@ test("Error tardío de sesión antigua no altera inicio de sesión actual",()=>{
  const a=source.indexOf("async function load()"),b=source.indexOf("}window.deshacerUltimaCuota",a);
  assert.ok(a>=0&&b>a);
  const handler=source.slice(a,b);
- assert.match(handler,/catch\(e\)\{if\(e\.code==="SESION_CAMBIADA"\|\|token!==tokenAlInicio\)return;if\(e\.statusCode===401\)/);
+ assert.match(handler,/catch\(e\)\{if\(e\.code==="SESION_CAMBIADA"\|\|token!==tokenAlInicio\)return;if\(!consultaVigente\(\)\)return;if\(e\.statusCode===401\)/);
 });

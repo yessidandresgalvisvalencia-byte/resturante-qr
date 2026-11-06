@@ -15,7 +15,19 @@ function explicarBalancePersonal(ingresos,gastos,porcentaje){
  const indice=(mes+Math.abs(ingresos%97)+Math.abs(gastos%89))%textos.length;
  return textos[indice];
 }
-"use strict";(()=>{let installPrompt=null;const standalone=()=>window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;function refreshInstall(){const b=document.getElementById("installApp");if(!b)return;b.hidden=standalone();if(!b.hidden)b.textContent="Instalar GRUK"}if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js",{scope:"/"}).catch(()=>{}));window.addEventListener("DOMContentLoaded",refreshInstall);window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;refreshInstall()});window.addEventListener("appinstalled",()=>{installPrompt=null;refreshInstall()});let token=sessionStorage.getItem("grukPersonalToken")||localStorage.getItem("grukPersonalToken"),tipo="INGRESO",socket,manualExternalId=null,manualPayloadPendiente=null;const CLAVE_INTENTO_MANUAL="grukPersonalIntentoManualV1";
+function fechaColombiaPersonal(fecha=new Date()){
+ const p=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(fecha),v=t=>p.find(x=>x.type===t).value;return v("year")+"-"+v("month")+"-"+v("day");
+}
+function crearRelojPersonal({documento,ventana,ahora=()=>new Date(),programar=(f,ms)=>setInterval(f,ms),cancelar=id=>clearInterval(id),puedeActualizarFecha=()=>true}){
+ let corteRecibido=null;
+ const estados=["mFecha","pFecha"].map(id=>({id,campo:documento.getElementById(id),automatica:null,editada:false}));
+ for(const e of estados)if(e.campo)e.campo.addEventListener("input",()=>{e.editada=true;});
+ function actualizar(){const instante=ahora(),periodo=documento.getElementById("periodoResumenPersonal");if(periodo)periodo.textContent="Resumen de "+new Intl.DateTimeFormat("es-CO",{timeZone:"America/Bogota",month:"long",year:"numeric"}).format(corteRecibido||instante)+". Los movimientos de otros meses siguen en el historial.";const hoy=fechaColombiaPersonal(instante),el=documento.getElementById("fechaHoyPersonal");if(el)el.textContent="Hoy en Colombia: "+new Intl.DateTimeFormat("es-CO",{timeZone:"America/Bogota",weekday:"long",year:"numeric",month:"long",day:"numeric"}).format(instante);for(const e of estados){if(!e.campo||e.editada||!puedeActualizarFecha(e.id))continue;if(!e.campo.value||e.campo.value===e.automatica){e.campo.value=hoy;e.automatica=hoy;}}}
+ function registrarCorte(valor){const el=documento.getElementById("fechaCortePersonal");if(!el)return;const fecha=valor==null?null:new Date(valor);corteRecibido=fecha&&Number.isFinite(+fecha)?fecha:null;actualizar();el.textContent=fecha&&Number.isFinite(+fecha)?"Datos calculados: "+new Intl.DateTimeFormat("es-CO",{timeZone:"America/Bogota",dateStyle:"medium",timeStyle:"short"}).format(fecha):"Hora del cálculo no informada";}
+ actualizar();const id=programar(actualizar,30000);ventana.addEventListener("focus",actualizar);ventana.addEventListener("pageshow",actualizar);documento.addEventListener("visibilitychange",actualizar);
+ return{actualizar,registrarCorte,detener(){cancelar(id);ventana.removeEventListener("focus",actualizar);ventana.removeEventListener("pageshow",actualizar);documento.removeEventListener("visibilitychange",actualizar);}};
+}
+"use strict";(()=>{let agendaPersonal=null,imputacionPersonal=null,recuperacionPersonal=null;function limpiarAgendaVista(){agendaPersonal?.limpiar();imputacionPersonal?.limpiar();recuperacionPersonal?.limpiar();}let installPrompt=null;const standalone=()=>window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;function refreshInstall(){const b=document.getElementById("installApp");if(!b)return;b.hidden=standalone();if(!b.hidden)b.textContent="Instalar GRUK"}if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js",{scope:"/"}).catch(()=>{}));window.addEventListener("DOMContentLoaded",refreshInstall);window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;refreshInstall()});window.addEventListener("appinstalled",()=>{installPrompt=null;refreshInstall()});let token=sessionStorage.getItem("grukPersonalToken")||localStorage.getItem("grukPersonalToken"),tipo="INGRESO",socket,manualExternalId=null,manualPayloadPendiente=null;const CLAVE_INTENTO_MANUAL="grukPersonalIntentoManualV1";
 async function resolverIntentoManual(datos){
  if(!globalThis.crypto?.randomUUID||!globalThis.crypto?.subtle)throw new Error("Se requiere un navegador seguro para registrar movimientos.");
  const fuente=new TextEncoder().encode(JSON.stringify([token,datos]));
@@ -30,7 +42,83 @@ async function resolverIntentoManual(datos){
  return id;
 }
 function limpiarIntentoManual(){sessionStorage.removeItem(CLAVE_INTENTO_MANUAL);manualExternalId=null;manualPayloadPendiente=null;}
-const persist=()=>document.getElementById("keepSession")?.checked===true;function storeToken(value){sessionStorage.removeItem("grukPersonalToken");localStorage.removeItem("grukPersonalToken");(persist()?localStorage:sessionStorage).setItem("grukPersonalToken",value)}const solicitudesEnCurso=new Set();function cancelarSolicitudes(){for(const controller of solicitudesEnCurso)controller.abort();solicitudesEnCurso.clear();}function clearToken(){cancelarSolicitudes();limpiarIntentoManual();token=null;sessionStorage.removeItem("grukPersonalToken");localStorage.removeItem("grukPersonalToken");if(socket){socket.disconnect();socket=null;}if(typeof invalidarIndicadoresFinancieros==="function")invalidarIndicadoresFinancieros();}const $=id=>document.getElementById(id),money=n=>{const valor=typeof n==="number"?n:typeof n==="string"&&/^-?(0|[1-9][0-9]*)$/.test(n)?Number(n):NaN;return Number.isSafeInteger(valor)?new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0,minimumFractionDigits:0}).format(valor):"No actualizado"};async function api(path,o={}){const tokenSolicitud=token;const controller=new AbortController();solicitudesEnCurso.add(controller);try{const h={"Content-Type":"application/json",...(o.headers||{})};if(tokenSolicitud)h.Authorization="Bearer "+tokenSolicitud;const comprobarSesion=()=>{if(tokenSolicitud!==token){const err=new Error("La sesión cambió durante la solicitud");err.code="SESION_CAMBIADA";throw err;}if(controller.signal.aborted){const err=new Error("Solicitud cancelada");err.name="AbortError";throw err;}};const soloLectura=String(o.method||"GET").toUpperCase()==="GET";for(let intento=0;;intento++){comprobarSesion();let r;try{r=await fetch("/api"+path,{...o,headers:h,cache:"no-store",signal:controller.signal});}catch(err){comprobarSesion();if(!soloLectura||intento>=2||!(err instanceof TypeError))throw err;await new Promise(resolve=>setTimeout(resolve,[500,1200][intento]));continue;}comprobarSesion();if(soloLectura&&intento<2&&[502,503,504].includes(r.status)){await new Promise(resolve=>setTimeout(resolve,[500,1200][intento]));continue;}const ct=r.headers.get("content-type")||"";const j=ct.includes("application/json")?await r.json():{error:"Respuesta inválida del servidor"};comprobarSesion();if(!r.ok){const err=new Error(j.error||"Solicitud rechazada");err.statusCode=r.status;throw err;}return j;}}finally{solicitudesEnCurso.delete(controller);}}function pesosExactos(id,{permiteCero=false}={}){const texto=$(id).value.trim();if(!/^(0|[1-9]\d*)$/.test(texto)||(!permiteCero&&texto==="0")||!Number.isSafeInteger(Number(texto)))throw new Error("El importe de "+id+" debe ser un número de pesos enteros válido, sin decimales.");return Number(texto)}function body(x){return{method:"POST",body:JSON.stringify(x)}}function msg(id,t,ok=true){$(id).textContent=t;$(id).className="msg "+(ok?"ok":"err")}function enter(j){$("productChooser").hidden=true;if(j?.token){if(token!==j.token){cancelarSolicitudes();limpiarIntentoManual();invalidarIndicadoresFinancieros();if(socket){socket.disconnect();socket=null;}}token=j.token;storeToken(token)}$("auth").hidden=true;$("app").hidden=false;$("logout").hidden=false;connect();load()}function connect(){if(socket)socket.disconnect();const tokenConexion=token;const conexion=io("/finanzas-personales",{auth:{token:tokenConexion},transports:["websocket"]});socket=conexion;const vigente=()=>Boolean(tokenConexion&&token===tokenConexion&&socket===conexion&&!$("app").hidden);conexion.on("connect",()=>{if(vigente())$("live").textContent="Protección activa · datos privados conectados"});conexion.on("finanzas:evento",e=>{if(!vigente())return;if(e?.eventName==="RECORDATORIO_COBRO"){const p=e.payload||{};$("live").textContent=(p.estado==="VENCIDA"?"Cobro vencido: ":"Cobro pendiente: ")+(p.mensaje||"Tienes dinero pendiente por cobrar.");$("live").dataset.alert="true";}load()});conexion.on("connect_error",()=>{if(vigente())$("live").textContent="Canal privado no disponible"})}async function cargarCompromisosCuotas(){
+const persist=()=>document.getElementById("keepSession")?.checked===true;function storeToken(value){sessionStorage.removeItem("grukPersonalToken");localStorage.removeItem("grukPersonalToken");(persist()?localStorage:sessionStorage).setItem("grukPersonalToken",value)}const solicitudesEnCurso=new Set();let revisionPreguntaPersonal=0;function cancelarSolicitudes(){for(const controller of solicitudesEnCurso)controller.abort();solicitudesEnCurso.clear();}function clearToken(){cancelarSolicitudes();limpiarIntentoManual();if(typeof limpiarCapturaVista==="function")limpiarCapturaVista();if(typeof limpiarAgendaVista==="function")limpiarAgendaVista();if(typeof revisionPreguntaPersonal!=="undefined")revisionPreguntaPersonal++;if(typeof cancelarDictado==="function")cancelarDictado();token=null;if(typeof limpiarConciliacionCuentaInterfaz==="function")limpiarConciliacionCuentaInterfaz();sessionStorage.removeItem("grukPersonalToken");localStorage.removeItem("grukPersonalToken");if(socket){socket.disconnect();socket=null;}if(typeof invalidarIndicadoresFinancieros==="function")invalidarIndicadoresFinancieros();}const $=id=>document.getElementById(id),money=n=>{const valor=typeof n==="number"?n:typeof n==="string"&&/^-?(0|[1-9][0-9]*)$/.test(n)?Number(n):NaN;return Number.isSafeInteger(valor)?new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0,minimumFractionDigits:0}).format(valor):"No actualizado"};async function api(path,o={}){
+ const tokenSolicitud=token,controller=new AbortController();solicitudesEnCurso.add(controller);let operacion=null,enviada=false,resuelta=false;
+ const consultaSoloLectura=["/consulta","/copilot"].includes(path)&&String(o.method||"GET").toUpperCase()==="POST";let controlConsulta=null;
+ const comprobarSesion=()=>{if(tokenSolicitud!==token){const err=new Error("La sesión cambió durante la solicitud");err.code="SESION_CAMBIADA";throw err;}if(controller.signal.aborted){const err=new Error("Solicitud cancelada");err.name="AbortError";throw err;}if(controlConsulta){const actual=api.estadoFinanciero();if(actual.bloqueada||actual.usuario!==controlConsulta.usuario||actual.revision!==controlConsulta.revision){const err=new Error("Los datos cambiaron durante la consulta. Verifica las operaciones pendientes y consulta de nuevo.");err.code="CONSULTA_FINANCIERA_DESACTUALIZADA";throw err;}}};
+ try{
+  if(consultaSoloLectura){controlConsulta=api.estadoFinanciero();if(controlConsulta.bloqueada)throw Error("Hay operaciones financieras pendientes o sin verificar. Confirma su resultado antes de consultar recomendaciones.");}
+  const soloLectura=String(o.method||"GET").toUpperCase()==="GET";
+  if(!soloLectura&&tokenSolicitud&&!path.startsWith("/auth/")&&controlFinancieroPersonal().esMutacion(path,o,tokenSolicitud)){
+   if(typeof invalidarAutorizacionDisponible==="function")invalidarAutorizacionDisponible();
+   operacion=await controlFinancieroPersonal().iniciar(tokenSolicitud,path,o);o=operacion.opciones;
+  }
+  comprobarSesion();const h={"Content-Type":"application/json",...(o.headers||{})};if(tokenSolicitud)h.Authorization="Bearer "+tokenSolicitud;
+  for(let intento=0;;intento++){
+   comprobarSesion();let r;try{enviada=true;r=await fetch("/api"+path,{...o,headers:h,cache:"no-store",signal:controller.signal});}catch(err){comprobarSesion();if(!soloLectura||intento>=2||!(err instanceof TypeError))throw err;await new Promise(resolve=>setTimeout(resolve,[500,1200][intento]));continue;}
+   comprobarSesion();if(soloLectura&&intento<2&&[502,503,504].includes(r.status)){await new Promise(resolve=>setTimeout(resolve,[500,1200][intento]));continue;}
+   const ct=r.headers.get("content-type")||"",j=ct.includes("application/json")?await r.json():null;comprobarSesion();
+   if(!j)throw Error("Respuesta inválida del servidor; no se confirmó la operación");
+   if(!r.ok||j.ok===false){let rechazoCalendarioVerificado=false;if(operacion&&r.status===409&&/^\/calendario-ingresos(?:\/[a-f0-9]{24}\/eventos)?$/.test(path)&&await controlFinancieroPersonal().rechazoCalendarioValido(tokenSolicitud,j.rechazoCalendario,path,JSON.parse(o.body))){comprobarSesion();operacion.finalizar("CONFIRMADA");resuelta=true;rechazoCalendarioVerificado=true;}if(operacion&&!resuelta&&[400,401,403,404,409,422,429].includes(r.status)&&!(r.status===409&&/^\/calendario-ingresos(?:\/|$)/.test(path))){operacion.finalizar("RECHAZADA");resuelta=true;}const err=new Error(j.error||"Solicitud rechazada");err.statusCode=r.status;if(rechazoCalendarioVerificado){err.rechazoCalendarioVerificado=true;err.rechazoCalendario=j.rechazoCalendario;}throw err;}
+   if(operacion&&/^\/captura\/[a-f0-9]{24}(?:\/items\/[a-f0-9]{24})?\/aprobar$/.test(path)){
+    const recibo=j.resultado?.recibo,id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1],version=JSON.parse(o.body||"{}").versionBorrador;
+    if(recibo?.confirmado!==true||recibo.solicitudId!==id||recibo.versionBorrador!==version||recibo.ruta!==path||recibo.metodo!=="POST"||recibo.certificaEstadoActual!==false||!/^[a-f0-9]{64}$/.test(recibo.hash||""))throw Error("La aprobación no devolvió un recibo verificable; continúa pendiente de confirmar");
+   }
+   if(operacion&&/^\/cuentas\/[a-f0-9]{24}\/(retirar|restaurar-retiro)$/.test(path)){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(j.recibo?.solicitudId!==id||j.recibo?.ruta!==path||!controlFinancieroPersonal().reciboCicloCuentaValido(tokenSolicitud,j.recibo))throw Error("La operación de cuenta no devolvió recibo vinculante; continúa pendiente de confirmar");
+   }
+   if(operacion&&/^\/activos\/[a-f0-9]{24}\/(retirar|restaurar-retiro)$/.test(path)){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(j.recibo?.solicitudId!==id||j.recibo?.ruta!==path||!controlFinancieroPersonal().reciboCicloActivoValido(tokenSolicitud,j.recibo))throw Error("La operación de activo no devolvió recibo vinculante; continúa pendiente de confirmar");
+   }
+   if(operacion&&/^\/inversiones\/[a-f0-9]{24}\/(retirar|restaurar-retiro)$/.test(path)){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(j.recibo?.solicitudId!==id||j.recibo?.ruta!==path||!controlFinancieroPersonal().reciboCicloInversionValido(tokenSolicitud,j.recibo))throw Error("La operación de inversion no devolvió recibo vinculante; continúa pendiente de confirmar");
+   }
+   if(operacion&&/^\/cuentas\/[a-f0-9]{24}\/conciliar$/.test(path)){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(j.recibo?.solicitudId!==id||j.recibo?.ruta!==path||!controlFinancieroPersonal().reciboConciliacionValido(tokenSolicitud,j.recibo))throw Error("La conciliación no devolvió un recibo vinculante; continúa pendiente de confirmar");
+   }
+   if(operacion&&path==="/cuentas"){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];
+    if(j.recibo?.solicitudId!==id||!controlFinancieroPersonal().reciboCuentaValido(tokenSolicitud,j.recibo))throw Error("La cuenta no devolvió un recibo vinculante; continúa pendiente de confirmar");
+   }
+   if(operacion&&path==="/activos"){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];
+    if(j.recibo?.solicitudId!==id||!controlFinancieroPersonal().reciboActivoValido(tokenSolicitud,j.recibo))throw Error("El activo no devolvió un recibo vinculante; continúa pendiente de confirmar");
+   }
+   if(operacion&&path==="/inversiones"){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];
+    if(j.recibo?.solicitudId!==id||!controlFinancieroPersonal().reciboInversionValido(tokenSolicitud,j.recibo))throw Error("La inversión no devolvió un recibo vinculante; continúa pendiente de confirmar");
+   }
+   if(operacion&&["/prestamos","/creditos"].includes(path)){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];
+    if(j.recibo?.ruta!==path||j.recibo?.solicitudId!==id||!controlFinancieroPersonal().reciboPrestamoValido(tokenSolicitud,j.recibo))throw Error("La creación no devolvió un recibo vinculante; continúa pendiente de confirmar");
+   }
+   if(operacion&&/^\/prestamos\/[a-f0-9]{24}\/cuotas\/restaurar-con-ciclo$/.test(path)){
+    const r=j.resultado?.recibo,id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(r?.solicitudId!==id||!await controlFinancieroPersonal().reciboRestauracionCicloValido(tokenSolicitud,r,path,JSON.parse(o.body)))throw Error("La restauración no devolvió un recibo financiero vinculado; conserva la solicitud pendiente");comprobarSesion();
+   }
+   if(operacion&&/^\/prestamos\/[a-f0-9]{24}\/imputaciones$/.test(path)){
+    const r=j.resultado?.recibo,id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(r?.solicitudId!==id||!await controlFinancieroPersonal().reciboImputacionValido(tokenSolicitud,r,path,JSON.parse(o.body)))throw Error("La imputación no devolvió recibo vinculante; conserva la solicitud pendiente");comprobarSesion();
+   }
+   if(operacion&&/^\/calendario-ingresos(?:\/[a-f0-9]{24}\/eventos)?$/.test(path)){
+    if(!await controlFinancieroPersonal().reciboCalendarioValido(tokenSolicitud,j.recibo,path,JSON.parse(o.body)))throw Error("El calendario no devolvió un recibo vinculado a la solicitud; sigue pendiente");comprobarSesion();
+   }
+   if(operacion){if(j.ok!==true)throw Error("La respuesta no confirmó el resultado de la operación");operacion.finalizar("CONFIRMADA");resuelta=true;}
+   if(path==="/transacciones/confirmar-intento"&&j.confirmado===true&&tokenSolicitud){await controlFinancieroPersonal().confirmarRegistro(tokenSolicitud,JSON.parse(o.body));}
+   return j;
+  }
+ }finally{try{if(operacion&&!resuelta)operacion.finalizar(enviada?"INCIERTA":"NO_ENVIADA");}finally{solicitudesEnCurso.delete(controller);}}
+}
+function controlFinancieroPersonal(){
+ if(!api.controlInstancia){
+  api.controlInstancia=window.crearControlMutacionesPersonales({
+   almacenamiento:sessionStorage,
+   usuarioDeToken:valor=>{try{const p=JSON.parse(atob(valor.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));return p.scope==="finanzas:personal"&&/^[a-f0-9]{24}$/i.test(p.sub)?p.sub.toLowerCase():null;}catch{return null;}},
+   digerir:async texto=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(texto)))).map(n=>n.toString(16).padStart(2,"0")).join(""),
+   invalidar:usuario=>{try{const actual=api.controlInstancia.estado(token);if(actual.usuario===usuario&&!$("app").hidden)invalidarAutorizacionDisponible();}catch{}}
+  });
+ }return api.controlInstancia;
+}
+api.estadoFinanciero=()=>{try{return controlFinancieroPersonal().estado(token);}catch{return{usuario:null,revision:0,bloqueada:true,motivo:"No se pudo verificar el control de operaciones pendientes"};}};
+function pesosExactos(id,{permiteCero=false}={}){const texto=$(id).value.trim();if(!/^(0|[1-9]\d*)$/.test(texto)||(!permiteCero&&texto==="0")||!Number.isSafeInteger(Number(texto)))throw new Error("El importe de "+id+" debe ser un número de pesos enteros válido, sin decimales.");return Number(texto)}function body(x){return{method:"POST",body:JSON.stringify(x)}}function msg(id,t,ok=true){$(id).textContent=t;$(id).className="msg "+(ok?"ok":"err")}function enter(j){$("productChooser").hidden=true;if(j?.token){if(token!==j.token){cancelarSolicitudes();limpiarIntentoManual();invalidarIndicadoresFinancieros();if(typeof limpiarCapturaVista==="function")limpiarCapturaVista();if(typeof limpiarAgendaVista==="function")limpiarAgendaVista();if(typeof limpiarConciliacionCuentaInterfaz==="function")limpiarConciliacionCuentaInterfaz();cancelarDictado();if(socket){socket.disconnect();socket=null;}}token=j.token;storeToken(token)}$("auth").hidden=true;$("app").hidden=false;$("logout").hidden=false;connect();load();if(typeof restaurarCapturaPersonal==="function")restaurarCapturaPersonal();if(typeof agendaPersonal!=="undefined")agendaPersonal?.entrar();if(typeof imputacionPersonal!=="undefined")imputacionPersonal?.entrar();if(typeof recuperacionPersonal!=="undefined")recuperacionPersonal?.entrar()}function connect(){if(socket)socket.disconnect();const tokenConexion=token;const conexion=io("/finanzas-personales",{auth:{token:tokenConexion},transports:["websocket"]});socket=conexion;const vigente=()=>Boolean(tokenConexion&&token===tokenConexion&&socket===conexion&&!$("app").hidden);conexion.on("connect",()=>{if(vigente())$("live").textContent="Protección activa · datos privados conectados"});conexion.on("finanzas:evento",e=>{if(!vigente())return;if(e?.eventName==="RECORDATORIO_COBRO"){const p=e.payload||{};$("live").textContent=(p.estado==="VENCIDA"?"Cobro vencido: ":"Cobro pendiente: ")+(p.mensaje||"Tienes dinero pendiente por cobrar.");$("live").dataset.alert="true";}load()});conexion.on("connect_error",()=>{if(vigente())$("live").textContent="Canal privado no disponible"})}async function cargarCompromisosCuotas(){
  const tokenConsulta=token;
  const {compromisos}=await api("/compromisos-cuotas");
  if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;
@@ -42,7 +130,7 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
    '<div class="debtNumbers"><span>Cuotas '+x.cuotasPagadas+' / '+x.numeroCuotas+'</span><span>'+progreso+'%</span></div>'+
    '<progress value="'+x.cuotasPagadas+'" max="'+x.numeroCuotas+'" style="width:100%"></progress>'+
    '<div class="debtActions">'+(proxima?'<button class="mini" onclick="window.pagarCuotaCompromiso(\''+esc(String(x._id))+'\','+proxima.numero+')">Pagar cuota #'+proxima.numero+' · '+money(proxima.montoMinor)+'</button>':'')+
-   (ultima?'<button class="secondary mini" onclick="window.deshacerCuotaCompromiso(\''+esc(String(x._id))+'\','+ultima.numero+')">Deshacer cuota #'+ultima.numero+'</button>':'')+'</div>'+
+   (ultima?'<button class="secondary mini" onclick="window.deshacerCuotaCompromiso(\''+esc(String(x._id))+'\','+ultima.numero+',\''+esc(String(ultima.transaccionId))+'\')">Deshacer cuota #'+ultima.numero+'</button>':'')+'</div>'+
    '<div class="debtKind">'+x.cuotas.map(c=>'<span style="display:inline-block;margin:4px">'+(c.estado==="PAGADA"?"✓ ":"○ ")+c.numero+': '+esc(c.estado)+'</span>').join("")+'</div></article>';
  };
  $("compromisosActivos").innerHTML=compromisos.filter(x=>x.estado==="ACTIVA").map(render).join("")||'<p class="hint">No tienes compras a cuotas activas.</p>';
@@ -65,67 +153,111 @@ window.pagarCuotaCompromiso=async(id,numero)=>{try{
  alert("Cuota #"+numero+" marcada como pagada. Se registró la salida por compra financiada sin duplicar gasto de consumo.");
  }catch(e){alert("No se pudo registrar el pago: "+e.message)}
 };
-window.deshacerCuotaCompromiso=async(id,numero)=>{try{
- if(!confirm("¿Deshacer el pago de la cuota #"+numero+"? Se anulará el movimiento asociado y se restaurará el saldo de la obligación."))return;
- await api("/compromisos-cuotas/"+encodeURIComponent(id)+"/cuotas/"+numero+"/deshacer",{method:"POST"});
- await cargarCompromisosCuotas();await load();alert("Pago revertido y movimiento anulado.");
- }catch(e){alert("No se pudo deshacer la cuota: "+e.message)}
+window.deshacerCuotaCompromiso=async(id,numero,movimientoId)=>{
+ if(!/^[a-f0-9]{24}$/i.test(movimientoId||"")){alert("Actualiza las cuotas antes de revertir este pago.");return;}
+ if(mutacionesMovimientoEnCurso.has(movimientoId))return;mutacionesMovimientoEnCurso.add(movimientoId);
+ const k="CUOTA:"+token+":"+movimientoId;
+ try{
+  if(!confirm("¿Deshacer el pago de la cuota #"+numero+"? Se conservará el asiento original y se registrará su reversión."))return;
+  await api("/compromisos-cuotas/"+encodeURIComponent(id)+"/cuotas/"+numero+"/deshacer",{
+   method:"POST",headers:{"Idempotency-Key":claveCompensacion(k)},body:JSON.stringify({movimientoId})
+  });
+  await cargarCompromisosCuotas();await load();clavesCompensacionPendientes.delete(k);
+  alert("Pago revertido. El asiento original permanece en el historial.");
+ }catch(e){alert("No se pudo deshacer la cuota: "+e.message);}
+ finally{mutacionesMovimientoEnCurso.delete(movimientoId);}
 };
-function invalidarIndicadoresFinancieros(){for(const id of ["hDisponibleHoy","hDisponible","hComprometido","hFlujo","hPatrimonio","rIngresos","rIngresosHistoricos","rGastos","rFlujo","rDeuda","pActivos","pInversiones","pDeudas","pNeto"]){const el=$(id);if(el)el.textContent="No actualizado";}for(const id of ["hormigaResumen","diario","listaPorCobrar","listaPorPagar","listaPrestamosPagados","homeDecisions","compromisosActivos","compromisosArchivados","flujoConciliacion"]){const el=$(id);if(el)el.textContent="No actualizado";}const porcentaje=$("healthPercent");if(porcentaje)porcentaje.textContent="Sin datos confirmados";const detalle=$("healthLabel");if(detalle)detalle.textContent="Esperando actualización segura";const flecha=$("healthArrow");if(flecha)flecha.textContent="→";const burbuja=$("healthBubble");if(burbuja){burbuja.className="healthBubble neutral";burbuja.title="";}const explicacion=$("metricExplanation");if(explicacion)explicacion.hidden=true;for(const id of ["chatHistory","drafts","histResultados","answer","iiResultado"]){const el=$(id);if(el)el.replaceChildren();}for(const id of ["captureText","histQ","histMonto","histDesde","histHasta"]){const el=$(id);if(el)el.value="";}const histMensaje=$("histMensaje");if(histMensaje)histMensaje.textContent="";for(const id of ["homeGreeting","captureMsg","iiMsg","live"]){const el=$(id);if(el){el.textContent="";if(id==="live")el.dataset.alert="false";}}const mas=$("histMas");if(mas)mas.hidden=true;window.grukExplain=()=>{};}
+function invalidarAutorizacionDisponible(){
+ if(typeof revisionPreguntaPersonal!=="undefined")revisionPreguntaPersonal++;
+ const consejo=$("answer");if(consejo)consejo.textContent="No actualizado. Consulta de nuevo tras verificar tus operaciones.";
+ for(const id of ["hDisponibleHoy","hDisponible"]){const el=$(id);if(el)el.textContent="No actualizado";}
+ const decisiones=$("homeDecisions");if(decisiones)decisiones.textContent="Pendiente de verificar los datos actuales. No hay una recomendación de gasto confirmada.";
+ const explicacion=$("metricExplanation");if(explicacion)explicacion.hidden=true;
+ const respuesta=$("compraRespuesta"),estado=$("compraEstado");if(respuesta){respuesta.hidden=true;respuesta.textContent="";}if(estado)estado.textContent="No actualizado. Verifica las operaciones pendientes antes de evaluar una compra.";
+ window.grukExplain=()=>{};
+}
+function invalidarIndicadoresFinancieros(){invalidarBusquedaHistorial();for(const id of ["hDisponibleHoy","hDisponible","hComprometido","hFlujo","hPatrimonio","rIngresos","rIngresosHistoricos","rGastos","rFlujo","rDeuda","pActivos","pInversiones","pDeudas","pNeto","fechaCortePersonal"]){const el=$(id);if(el)el.textContent="No actualizado";}for(const id of ["hormigaResumen","diario","listaPorCobrar","listaPorPagar","listaPrestamosPagados","homeDecisions","compromisosActivos","compromisosArchivados","flujoConciliacion","detalleInversiones","detalleActivos"]){const el=$(id);if(el)el.textContent="No actualizado";}const porcentaje=$("healthPercent");if(porcentaje)porcentaje.textContent="Sin datos confirmados";const detalle=$("healthLabel");if(detalle)detalle.textContent="Esperando actualización segura";const flecha=$("healthArrow");if(flecha)flecha.textContent="→";const burbuja=$("healthBubble");if(burbuja){burbuja.className="healthBubble neutral";burbuja.title="";}const explicacion=$("metricExplanation");if(explicacion)explicacion.hidden=true;for(const id of ["chatHistory","drafts","histResultados","answer","iiResultado"]){const el=$(id);if(el)el.replaceChildren();}for(const id of ["captureText","histQ","histMonto","histDesde","histHasta","aNombre","aValor","aInstitucion","aFecha","iNombre","iCapital","iValor","iInstitucion","iFecha","iLiquidez"]){const el=$(id);if(el)el.value="";}if($("iRiesgoDeclarado"))$("iRiesgoDeclarado").value="NO_CLASIFICADO";if($("iClase"))$("iClase").value="";const histMensaje=$("histMensaje");if(histMensaje)histMensaje.textContent="";for(const id of ["homeGreeting","captureMsg","iiMsg","actMsg","invMsg","live"]){const el=$(id);if(el){el.textContent="";if(id==="live")el.dataset.alert="false";}}const mas=$("histMas");if(mas)mas.hidden=true;window.grukExplain=()=>{};}
 let cargaPanelEnCurso=null;
 let tokenCargaPanel=null;
+let revisionCargaPanel=null;
 async function load(){
- if(cargaPanelEnCurso&&tokenCargaPanel===token)return cargaPanelEnCurso;
+ const controlInicial=api.estadoFinanciero?.(),revisionInicial=controlInicial?.revision||0;
+ if(controlInicial?.bloqueada){invalidarAutorizacionDisponible();const live=$("live");if(live){live.textContent=controlInicial.motivo;live.dataset.alert="true";}}
+ if(cargaPanelEnCurso&&tokenCargaPanel===token&&revisionCargaPanel===revisionInicial)return cargaPanelEnCurso;
  const tokenAlInicio=token;
- const ejecucion=(async()=>{const liveAlCargar=$("live");if(liveAlCargar){liveAlCargar.textContent="Actualizando datos financieros… Los importes visibles corresponden a la última consulta recibida, no a una nueva confirmación.";liveAlCargar.dataset.alert="true";}try{
- const datosPanelPromise=Promise.all([api("/resumen"),api("/diario?limit=500"),api("/patrimonio"),api("/prestamos"),api("/home"),api("/notificaciones"),api("/creditos")]).then(value=>({value}),error=>({error}));
+ const consultaVigente=()=>{const actual=api.estadoFinanciero?.();return token===tokenAlInicio&&!!tokenAlInicio&&!$("app").hidden&&(!actual||actual.revision===revisionInicial&&actual.usuario===controlInicial.usuario);};
+ const autorizacionVigente=()=>consultaVigente()&&!api.estadoFinanciero?.()?.bloqueada;
+ const ejecucion=(async()=>{const liveAlCargar=$("live");if(tokenAlInicio&&!$("app").hidden)invalidarAutorizacionDisponible();if(liveAlCargar){liveAlCargar.textContent="Actualizando datos financieros… Los importes visibles corresponden a la última consulta recibida, no a una nueva confirmación.";liveAlCargar.dataset.alert="true";}try{
+ const corteEl=$("fechaCortePersonal");if(corteEl)corteEl.textContent="Consultando datos financieros…";
+ const inicioSolicitado=api("/home");inicioSolicitado.catch(()=>{});
+ const restoPanelSolicitado=Promise.all([api("/resumen"),api("/diario?limit=500"),api("/patrimonio"),api("/prestamos"),api("/notificaciones"),api("/creditos")]).then(value=>({value}),error=>({error}));
  const verificacion=await api("/diagnostico-integridad");
- if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;
+ if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;if(!consultaVigente())return;
  const integridad=verificacion.diagnostico;
  if(!integridad?.identidadExistente)throw Error("No se pudo verificar tu identidad. El tablero no se actualizará.");
  if(integridad.movimientos===0&&integridad.deudas===0&&integridad.cuentas===0&&integridad.fechaCreacionCuenta&&Date.now()-new Date(integridad.fechaCreacionCuenta).getTime()>86400000){
+  invalidarAutorizacionDisponible();
   const live=$("live");if(live){live.textContent="ALERTA DE INTEGRIDAD: el servidor no encuentra movimientos, deudas ni cuentas para esta identidad. No vuelvas a registrar nada; requiere recuperación y revisión del historial.";live.dataset.alert="true";}
   const status=$("captureMsg");if(status){status.textContent="GRUK detectó registros financieros ausentes. No se actualizarán los indicadores a cero hasta revisar la base de datos.";status.className="msg err";}
   return;
  }
+ const inicioPrioritario=inicioSolicitado.then(h=>{
+  if(!consultaVigente())return h;const home=h.home;
+  if(![home?.caja?.comprometidoMinor,home?.mes?.flujoRealizadoMinor,home?.patrimonio?.netoMinor].every(Number.isSafeInteger)||!Array.isArray(home?.decisiones))throw Error("El inicio no entregó cifras completas y exactas");
+  if(typeof relojPersonal!=="undefined")relojPersonal.registrarCorte(home.corte);
+  $("hComprometido").textContent=money(home.caja.comprometidoMinor);$("hFlujo").textContent=money(home.mes.flujoRealizadoMinor);$("hPatrimonio").textContent=money(home.patrimonio.netoMinor);
+  if(autorizacionVigente()){
+   $("hDisponibleHoy").textContent=home.asesor?.aptoParaDisponibleHoy===true&&Number.isSafeInteger(home.asesor?.disponibleHoyMinor)&&home.asesor.disponibleHoyMinor>=0&&home.verdadFinanciera?.disponibleHoy?.montoMinor===home.asesor.disponibleHoyMinor&&home.verdadFinanciera.disponibleHoy.requiereReconciliacion===false&&home.verdadFinanciera.disponibleHoy.confianza==="ALTA"?money(home.asesor.disponibleHoyMinor):"Pendiente de conciliación";
+   $("hDisponible").textContent=home.caja?.liquidezConciliada===true&&Number.isSafeInteger(home.caja?.disponibleDespuesCompromisosMinor)?money(home.caja.disponibleDespuesCompromisosMinor):"Pendiente de conciliación";
+  }
+  const estado=$("live");if(estado&&autorizacionVigente()){estado.textContent="Inicio recibido. Cargando historial y detalles…";estado.dataset.alert="false";}return h;
+ });inicioPrioritario.catch(()=>{});
  const hormigaEl=$("hormigaResumen");
  if(hormigaEl)hormigaEl.textContent="Gastos hormiga: verificando movimientos reales…";
  api("/gastos/hormiga/resumen").then(result=>{
-  if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;
+  if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;if(!consultaVigente())return;
   const resumen=result.resumen;
-  if(!resumen||!Number.isSafeInteger(resumen.semanaMinor)||!Number.isSafeInteger(resumen.mesMinor)||!Number.isSafeInteger(resumen.movimientosSemana)||!Number.isSafeInteger(resumen.movimientosMes))
+  if(!resumen||!Number.isSafeInteger(resumen.semanaMinor)||!Number.isSafeInteger(resumen.mesMinor)||!Number.isSafeInteger(resumen.movimientosSemana)||!Number.isSafeInteger(resumen.movimientosMes)||!Number.isSafeInteger(resumen.creditoSemanaMinor)||!Number.isSafeInteger(resumen.creditoMesMinor)||!Number.isSafeInteger(resumen.movimientosCreditoSemana)||!Number.isSafeInteger(resumen.movimientosCreditoMes)||!Number.isSafeInteger(resumen.consumoTotalSemanaMinor)||!Number.isSafeInteger(resumen.consumoTotalMesMinor)||!Number.isSafeInteger(resumen.promedioDiarioConsumoMinor)||!Number.isSafeInteger(resumen.promedioDiarioCajaMinor)||!Number.isSafeInteger(resumen.promedioDiarioCreditoMinor))
    throw Error("Resumen no verificable");
-  if(hormigaEl)hormigaEl.textContent="Gastos hormiga · Últimos 7 días: "+money(resumen.semanaMinor)+" ("+resumen.movimientosSemana+" movimientos). Mes actual: "+money(resumen.mesMinor)+" ("+resumen.movimientosMes+" movimientos). Los períodos se solapan: no sumes los totales. "+resumen.accion;
+  if([resumen.semanaMinor,resumen.mesMinor,resumen.creditoSemanaMinor,resumen.creditoMesMinor,resumen.consumoTotalSemanaMinor,resumen.consumoTotalMesMinor,resumen.promedioDiarioCajaMinor,resumen.promedioDiarioCreditoMinor,resumen.promedioDiarioConsumoMinor].some(n=>n<0)||
+     resumen.semanaMinor+resumen.creditoSemanaMinor!==resumen.consumoTotalSemanaMinor||
+     resumen.mesMinor+resumen.creditoMesMinor!==resumen.consumoTotalMesMinor||
+     resumen.promedioDiarioCajaMinor+resumen.promedioDiarioCreditoMinor!==resumen.promedioDiarioConsumoMinor)
+   throw Error("Resumen descuadrado: requiere verificación");
+  if(hormigaEl)hormigaEl.textContent="Gastos hormiga · Últimos 7 días: "+money(resumen.semanaMinor)+" ("+resumen.movimientosSemana+" movimientos). Mes actual: "+money(resumen.mesMinor)+" ("+resumen.movimientosMes+" movimientos). A crédito en últimos 7 días: "+money(resumen.creditoSemanaMinor)+" ("+resumen.movimientosCreditoSemana+" compras); a crédito en el mes: "+money(resumen.creditoMesMinor)+" ("+resumen.movimientosCreditoMes+" compras). Consumo identificado (caja + crédito) en últimos 7 días: "+money(resumen.consumoTotalSemanaMinor)+"; en el mes: "+money(resumen.consumoTotalMesMinor)+". Promedio diario observado de los últimos 7 días: "+money(resumen.promedioDiarioConsumoMinor)+" (caja "+money(resumen.promedioDiarioCajaMinor)+", crédito "+money(resumen.promedioDiarioCreditoMinor)+"). No es una predicción ni un presupuesto. Crédito no es salida de caja hoy; el pago posterior no se cuenta como una compra nueva. Los períodos se solapan: no sumes los totales. "+resumen.accion;
  }).catch(()=>{
-  if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;
+  if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;if(!consultaVigente())return;
   if(hormigaEl)hormigaEl.textContent="Gastos hormiga: información no verificada. Actualiza para intentarlo de nuevo.";
  });
- cargarCompromisosCuotas().catch(e=>{if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;console.error('[COMPROMISOS_CARGA]',e);const activo=$('compromisosActivos');if(activo)activo.textContent='No se pudieron cargar las compras a cuotas. Vuelve a actualizar.';});const datosPanel=await datosPanelPromise;if(datosPanel.error)throw datosPanel.error;const [r,d,p,lp,h,nf,creditosAnteriores]=datosPanel.value;if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;
+ cargarCompromisosCuotas().catch(e=>{if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;if(!consultaVigente())return;console.error('[COMPROMISOS_CARGA]',e);const activo=$('compromisosActivos');if(activo)activo.textContent='No se pudieron cargar las compras a cuotas. Vuelve a actualizar.';});const [restoPanel,h]=await Promise.all([restoPanelSolicitado.then(salida=>{if(salida.error)throw salida.error;return salida.value;}),inicioPrioritario]);const [r,d,p,lp,nf,creditosAnteriores]=restoPanel;if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;if(!consultaVigente())return;
  const home=h.home;const indicadoresObligatorios=[r.resumen?.ingresos,r.resumen?.gastos,r.resumen?.deudaTotal,home?.caja?.comprometidoMinor,home?.mes?.flujoRealizadoMinor,home?.patrimonio?.netoMinor];if(!indicadoresObligatorios.every(Number.isSafeInteger))throw Error("El servidor entregó indicadores ausentes o no exactos. No se mostrarán como $0.");if(Number.isSafeInteger(Number(r.resumen.ingresos))&&Number.isSafeInteger(Number(home.mes?.ingresosMinor))&&Number(r.resumen.ingresos)!==Number(home.mes.ingresosMinor)){msg("captureMsg","Atención: los ingresos del resumen y del estado financiero no coinciden. GRUK no modificó ningún movimiento. Revisa el historial antes de registrar otro cobro.",false);}if(nf.notificaciones?.length){const n=nf.notificaciones[0];$("live").textContent=n.titulo+": "+n.mensaje;}window.grukExplain=key=>{const x=home.explicaciones?.[key],el=$("metricExplanation");if(!x||!el)return;el.hidden=false;el.innerHTML="<b>"+esc(x.titulo)+"</b><h3>¿De dónde sale este valor?</h3><p>"+esc(x.calculo)+"</p><h3>¿Qué significa para mí?</h3><p>"+esc(x.significado)+"</p><h3>¿Qué puedo hacer?</h3><p>"+esc(x.accion)+"</p>"};[["hDisponibleHoy","disponibleHoy"],["hDisponible","disponible"],["hComprometido","comprometido"],["hFlujo","flujoRealizado"],["hPatrimonio","patrimonio"],["rDeuda","deuda"]].forEach(([id,key])=>{const el=$(id);if(el){el.style.cursor="pointer";el.title="¿De dónde sale este valor?";el.onclick=()=>window.grukExplain(key)}});$("hDisponibleHoy").textContent=home.asesor?.aptoParaDisponibleHoy===true&&Number.isSafeInteger(home.asesor?.disponibleHoyMinor)&&home.asesor.disponibleHoyMinor>=0&&home.verdadFinanciera?.disponibleHoy?.montoMinor===home.asesor.disponibleHoyMinor&&home.verdadFinanciera.disponibleHoy.requiereReconciliacion===false&&home.verdadFinanciera.disponibleHoy.confianza==="ALTA"?money(home.asesor.disponibleHoyMinor):"Pendiente de conciliación";$("hDisponible").textContent=home.caja?.liquidezConciliada===true&&Number.isSafeInteger(home.caja?.disponibleDespuesCompromisosMinor)?money(home.caja.disponibleDespuesCompromisosMinor):"Pendiente de conciliación";$("hComprometido").textContent=money(home.caja.comprometidoMinor);$("hFlujo").textContent=money(home.mes.flujoRealizadoMinor);$("hPatrimonio").textContent=money(home.patrimonio.netoMinor);const conc=home.mes.conciliacionBalanceFlujo,concEl=$("flujoConciliacion");
 if(concEl&&conc){
  const diferencia=conc.diferenciaBalanceFlujoMinor;
  concEl.innerHTML="<strong>¿Por qué Balance y Flujo son diferentes?</strong><p>Balance del período: "+money(conc.balancePeriodoMinor)+" · Flujo realizado: "+money(conc.flujoRealizadoMinor)+"</p><p>Conciliación: "+money(conc.balancePeriodoMinor)+" + gastos sin salida de caja "+money(conc.gastosSinSalidaCajaMinor)+" − pagos de deuda desde cuentas "+money(conc.pagosDeudaRegistradosMinor)+" + cobros de préstamos recibidos "+money(conc.cobrosRecibidosMinor)+" = "+money(conc.flujoRealizadoMinor)+"</p><p>Diferencia explicada: "+money(diferencia)+". Un ingreso normal de $10.000 ya forma parte de ingresos; no se presume que sea un cobro de préstamo.</p>";
 }
-const ingresosMes=Number(home.mes.ingresosMinor),gastosMes=Number(home.mes.gastosConsumoMinor),bubble=$("healthBubble");if(bubble){const valido=Number.isSafeInteger(ingresosMes)&&Number.isSafeInteger(gastosMes)&&ingresosMes>=0&&gastosMes>=0;const porcentaje=valido?(ingresosMes===0?(gastosMes>0?-100:null):Math.round((ingresosMes-gastosMes)/ingresosMes*1000)/10):null;bubble.className="healthBubble "+(porcentaje===null?"neutral":porcentaje>0?"positive":porcentaje<0?"negative":"neutral");$("healthArrow").textContent=porcentaje===null||porcentaje===0?"→":porcentaje>0?"↗":"↘";$("healthPercent").textContent=porcentaje===null?"Sin datos suficientes":(porcentaje>0?"+":"")+porcentaje.toLocaleString("es-CO",{maximumFractionDigits:1})+"%";$("healthLabel").textContent=explicarBalancePersonal(ingresosMes,gastosMes,porcentaje);bubble.title="Balance del período: (ingresos − gastos) ÷ ingresos × 100 cuando hay ingresos. Si no hay ingresos y sí gastos, se muestra −100% como señal de alerta convencional, no como porcentaje matemático de variación. Sin movimientos, estado neutral.";}api("/progreso-economico").then(x=>{if(!tokenAlInicio||token!==tokenAlInicio||$("app").hidden)return;const o=x.progreso?.ordenes?.[0];if(o&&$("homeGreeting"))$("homeGreeting").textContent=o.palanca==="INGRESOS"?"Tu próxima acción para mejorar caja":"Esto requiere tu atención";}).catch(()=>{});$("homeDecisions").innerHTML=home.decisiones.length?home.decisiones.map(x=>'<div class="decisionCard"><div><small>'+esc(x.prioridad)+' · '+esc(x.tipo)+'</small><b>'+esc(x.titulo)+'</b><p>'+esc(x.detalle)+'</p></div>'+(x.montoMinor?'<strong>'+money(x.montoMinor)+'</strong>':"")+'</div>').join(""):'<div class="decisionCard"><div><b>Sin decisiones críticas pendientes</b><p>GRUK no detecta compromisos inmediatos con los datos registrados.</p></div></div>';$("rIngresos").textContent=money(r.resumen.ingresos);$("rIngresosHistoricos").textContent=Number.isSafeInteger(r.resumen.ingresosHistoricos)&&r.resumen.ingresosHistoricos>=0&&Number.isSafeInteger(r.resumen.cantidadIngresosHistoricos)?money(r.resumen.ingresosHistoricos):"No verificable";$("rGastos").textContent=money(r.resumen.gastos);$("rFlujo").textContent=money(home.mes.flujoRealizadoMinor);$("rDeuda").textContent=money(r.resumen.deudaTotal);$("homeDecisions").querySelectorAll(".decisionCard").forEach(card=>{const t=card.textContent||"";card.style.cursor="pointer";card.onclick=()=>window.grukExplain(t.includes("FLUJO")?"flujoProyectado":t.includes("CAJA")?"disponible":t.includes("OBLIGACION")?"comprometido":"flujoRealizado")});$("pActivos").textContent=money(p.patrimonio.activosBase);$("pInversiones").textContent=money(p.patrimonio.valorInversiones);$("pDeudas").textContent=money(p.patrimonio.deudas);$("pNeto").textContent=money(p.patrimonio.patrimonioNeto);const pagados=lp.prestamos.filter(x=>x.estado==="PAGADO");const porCobrar=lp.prestamos.filter(x=>x.direccion==="POR_COBRAR"&&x.estado!=="PAGADO"&&x.saldoMinor>0),porPagar=lp.prestamos.filter(x=>x.direccion==="POR_PAGAR"&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0);const detalleCuotas=new Map();
+const ingresosMes=Number(home.mes.ingresosMinor),gastosMes=Number(home.mes.gastosConsumoMinor),bubble=$("healthBubble");if(bubble){const valido=Number.isSafeInteger(ingresosMes)&&Number.isSafeInteger(gastosMes)&&ingresosMes>=0&&gastosMes>=0;const porcentaje=valido?(ingresosMes===0?(gastosMes>0?-100:null):Math.round((ingresosMes-gastosMes)/ingresosMes*1000)/10):null;bubble.className="healthBubble "+(porcentaje===null?"neutral":porcentaje>0?"positive":porcentaje<0?"negative":"neutral");$("healthArrow").textContent=porcentaje===null||porcentaje===0?"→":porcentaje>0?"↗":"↘";$("healthPercent").textContent=porcentaje===null?"Sin datos suficientes":(porcentaje>0?"+":"")+porcentaje.toLocaleString("es-CO",{maximumFractionDigits:1})+"%";$("healthLabel").textContent=explicarBalancePersonal(ingresosMes,gastosMes,porcentaje);bubble.title="Balance del período: (ingresos − gastos) ÷ ingresos × 100 cuando hay ingresos. Si no hay ingresos y sí gastos, se muestra −100% como señal de alerta convencional, no como porcentaje matemático de variación. Sin movimientos, estado neutral.";}api("/progreso-economico").then(x=>{if(!tokenAlInicio||token!==tokenAlInicio||$("app").hidden)return;if(!autorizacionVigente())return;const o=x.progreso?.ordenes?.[0];if(o&&$("homeGreeting"))$("homeGreeting").textContent=o.palanca==="INGRESOS"?"Tu próxima acción para mejorar caja":"Esto requiere tu atención";}).catch(()=>{});$("homeDecisions").innerHTML=home.decisiones.length?home.decisiones.map(x=>'<div class="decisionCard"><div><small>'+esc(x.prioridad)+' · '+esc(x.tipo)+'</small><b>'+esc(x.titulo)+'</b><p>'+esc(x.detalle)+'</p></div>'+(x.montoMinor?'<strong>'+money(x.montoMinor)+'</strong>':"")+'</div>').join(""):'<div class="decisionCard"><div><b>Sin decisiones críticas pendientes</b><p>GRUK no detecta compromisos inmediatos con los datos registrados.</p></div></div>';$("rIngresos").textContent=money(r.resumen.ingresos);if($("rIngresosHistoricos"))$("rIngresosHistoricos").textContent=Number.isSafeInteger(r.resumen.ingresosHistoricos)&&r.resumen.ingresosHistoricos>=0&&Number.isSafeInteger(r.resumen.cantidadIngresosHistoricos)?money(r.resumen.ingresosHistoricos):"No verificable";$("rGastos").textContent=money(r.resumen.gastos);$("rFlujo").textContent=money(home.mes.flujoRealizadoMinor);$("rDeuda").textContent=money(r.resumen.deudaTotal);$("homeDecisions").querySelectorAll(".decisionCard").forEach(card=>{const t=card.textContent||"";card.style.cursor="pointer";card.onclick=()=>window.grukExplain(t.includes("FLUJO")?"flujoProyectado":t.includes("CAJA")?"disponible":t.includes("OBLIGACION")?"comprometido":"flujoRealizado")});$("pActivos").textContent=money(p.patrimonio.activosBase);$("pInversiones").textContent=money(p.patrimonio.valorInversiones);$("pDeudas").textContent=money(p.patrimonio.deudas);$("pNeto").textContent=money(p.patrimonio.patrimonioNeto);const detalleActivos=$("detalleActivos");if(detalleActivos){const activos=p.patrimonio.activos,previos=p.patrimonio.activosPreviosPorRevisar;if(!Array.isArray(activos)||!Array.isArray(previos)){detalleActivos.textContent="Detalle de activos no verificado.";}else{detalleActivos.innerHTML='<p>Valores registrados; no acreditan propiedad, precio de mercado ni caja disponible. Revisa los nombres antes de registrar otro bien.</p>'+activos.map(a=>'<div class="row"><span>'+esc(a.nombre)+' · '+esc(a.tipo)+'<br><small>ID '+esc(a._id)+(a.creacionSolicitudId?' · Declaración con recibo protegido':' · Registro histórico; no acredita declaración protegida')+(a.retirado===true?" · Retirado; excluido del patrimonio y recuperable en retiros":"")+(a.liquido?' · Requiere revisión de caja; no se suma como activo no líquido':'')+'</small></span><span>'+money(a.valorMinor)+(a.fechaValorDeclarado?'<br>Fecha declarada '+esc(a.fechaValorDeclarado):'')+'</span></div>').join("")+previos.map(a=>'<p>'+esc(a.nombre)+' · '+esc(a.tipo)+' · ID original '+esc(a.id)+': registro previo pendiente de revisar; no se suma ni se incorpora automáticamente.</p>').join("")+(!activos.length&&!previos.length?'<p>No hay activos en las fuentes consultadas.</p>':'');}}const detalleInversiones=$("detalleInversiones");if(detalleInversiones){const inversiones=p.patrimonio.inversiones;if(!Array.isArray(inversiones)){detalleInversiones.textContent="Detalle de inversiones no verificado.";}else{detalleInversiones.innerHTML='<p>'+esc(p.patrimonio.criterioInversiones||"Valores declarados; no disponibles en caja.")+'</p>'+(inversiones.length?inversiones.map(i=>'<div class="row"><span>'+esc(i.nombre)+' · '+esc(i.clase)+'<br><small>'+esc(i.fuente)+' · ID '+esc(i.id)+(i.solicitudId?" · Declaración registrada con recibo":" · Histórico sin recibo de declaración")+(i.retirada===true?" · Retirada; excluida de totales y recuperable en retiros":"")+(i.fechaValorDeclarado?" · Fecha declarada "+esc(i.fechaValorDeclarado):"")+(i.legacyId?' · Original '+esc(i.legacyId):'')+'</small></span><span>Valor declarado '+money(i.valorActualMinor)+'<br>Capital declarado '+money(i.capitalAportadoMinor)+'<br>Diferencia declarada '+money(i.resultadoDeclaradoMinor)+'</span></div>').join(""):'<p>No hay inversiones registradas en las fuentes consultadas.</p>');}}const pagados=lp.prestamos.filter(x=>x.estado==="PAGADO");const porCobrar=lp.prestamos.filter(x=>x.direccion==="POR_COBRAR"&&x.estado!=="PAGADO"&&x.saldoMinor>0),porPagar=lp.prestamos.filter(x=>x.direccion==="POR_PAGAR"&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0);const detalleCuotas=new Map();
+if(!autorizacionVigente()){invalidarAutorizacionDisponible();const aviso=api.estadoFinanciero?.();if(aviso&&$("live")){$("live").textContent=aviso.motivo;$("live").dataset.alert="true";}}
 await Promise.all([...porPagar,...pagados.filter(x=>x.direccion==="POR_PAGAR")].map(async x=>{try{
  const r=await api("/prestamos/"+encodeURIComponent(String(x._id))+"/cuotas");
  detalleCuotas.set(String(x._id),r);
  }catch(e){detalleCuotas.set(String(x._id),{error:true});}
 }));
+if(token!==tokenAlInicio||!tokenAlInicio||$("app").hidden)return;if(!consultaVigente())return;
 const renderPrestamo=x=>{
  const propia=x.direccion==="POR_PAGAR",detalle=detalleCuotas.get(String(x._id));
  const valido=Number.isSafeInteger(x.principalMinor)&&x.principalMinor>0&&Number.isSafeInteger(x.saldoMinor)&&x.saldoMinor>=0;
  const progreso=valido?Math.max(0,Math.min(100,Math.round((1-x.saldoMinor/x.principalMinor)*100))):0;
  const pagadas=detalle&&!detalle.error&&Array.isArray(detalle.cuotasPagadas)?detalle.cuotasPagadas.length:null;
- const totalEstimado=x.cuotaMinor>0&&x.tasaMensualPct===0?Math.ceil(x.principalMinor/x.cuotaMinor):null;
+ const totalEstimado=valido&&Number.isSafeInteger(x.cuotaMinor)&&x.cuotaMinor>0&&x.tasaConfirmada===true&&x.tasaMensualPct===0?Math.ceil(x.principalMinor/x.cuotaMinor):null;
  const siguiente=detalle&&!detalle.error&&Number.isInteger(detalle.proximaCuota)?detalle.proximaCuota:null;
  const nombre=propia?(x.concepto||x.contraparte||"Deuda sin concepto"):(x.contraparte||"Persona sin identificar");
  let html='<article class="debtItem"><div class="debtTop"><div><b>'+esc(nombre)+'</b><p class="debtKind">'+esc(propia?"Crédito o deuda propia":(x.origenCuentaPorCobrar==="TRABAJO"?"Trabajo pendiente":"Cuenta por cobrar"))+'</p></div><strong>'+money(x.saldoMinor)+'</strong></div>';
- html+='<div class="debtNumbers"><div><small>Valor original</small><strong>'+money(x.principalMinor)+'</strong></div><div><small>Saldo por pagar</small><strong>'+money(x.saldoMinor)+'</strong></div></div>';
+ html+='<div class="debtNumbers"><div><small>Valor al registrar</small><strong>'+money(x.principalMinor)+'</strong></div><div><small>Saldo por pagar</small><strong>'+money(x.saldoMinor)+'</strong></div></div>';
  if(propia){
+  html+='<p class="debtKind">'+(x.tasaConfirmada===true&&Number.isFinite(x.tasaMensualPct)?'Tasa mensual informada: '+esc(String(x.tasaMensualPct))+' %':'Tasa mensual por confirmar; no se calcula el costo del crédito.')+'</p>';
   html+='<div class="debtNumbers"><span>Avance del saldo</span><strong>'+progreso+' %</strong></div><progress value="'+progreso+'" max="100" style="width:100%;height:14px"></progress>';
-  const n=Number.isInteger(x.numeroCuotas)?x.numeroCuotas:null;
-  html+='<p class="debtKind">'+(n!==null?'Cuotas '+(pagadas??0)+' / '+n:'Cuotas por confirmar')+'</p>';
+  const n=Number.isSafeInteger(x.numeroCuotas)&&x.numeroCuotas>=1&&x.numeroCuotas<=360?x.numeroCuotas:null;
+  html+='<p class="debtKind">'+(n!==null?'Pagos registrados '+(pagadas??0)+' / '+n:'Cuotas por confirmar')+'</p>';
   if(n!==null){
    html+='<div class="debtKind" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">';
    for(let i=1;i<=n;i++){
@@ -138,7 +270,7 @@ const renderPrestamo=x=>{
    if(detalle&&!detalle.error&&x.estado==='PAGADO')html+='<p class="debtKind"><b>Pagaste en total '+money(detalle.totalPagadoRealMinor)+'</b> · Valor inicial registrado '+money(x.principalMinor)+' · Diferencia '+money(detalle.totalPagadoRealMinor-x.principalMinor)+'. Esta diferencia no equivale necesariamente al interés ni al precio de contado.</p>';
   }else if(totalEstimado!==null)html+='<p class="hint">El sistema calcula '+totalEstimado+' cuotas aproximadas. Confirma las cuotas pactadas para visualizarlas y pagarlas aquí.</p>';
 
-  if(!x.periodicidadConfirmada)html+='<p class="hint">Confirma una sola vez las cuotas pendientes. No necesitas indicar fechas.</p>';
+  if(!x.periodicidadConfirmada)html+='<p class="hint">Confirma las cuotas pendientes y su calendario. Sin fecha no puedo calcular Disponible Hoy.</p>';
  }
  if(propia&&detalle&&!detalle.error&&detalle.proximoVencimiento){
   const [yyyy,mm,dd]=detalle.proximoVencimiento.split("-");
@@ -148,15 +280,15 @@ const renderPrestamo=x=>{
  }else if(propia&&x.fechaVencimiento&&x.saldoMinor>0){
   html+='<div class="debtDate">Fecha registrada: '+new Date(x.fechaVencimiento).toLocaleDateString("es-CO")+' · Confirma la frecuencia para calcular el siguiente vencimiento.</div>';
  }
- html+='<div class="debtActions">';
+ html+='<div class="debtActions"><button class="secondary mini" onclick="window.verCorreccionesPrestamo(\''+esc(String(x._id))+'\')">Ver correcciones</button>';
  if(propia&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0){
   if(detalle?.frecuenciaSinConfirmar)html+='<button class="secondary mini" onclick="window.confirmarFrecuenciaMensual(\''+esc(String(x._id))+'\')">Confirmar cuotas mensuales</button>';
   html+='<button class="mini" onclick="window.registrarCuota(\''+esc(String(x._id))+'\')">'+(x.periodicidadConfirmada&&siguiente?'Pagar cuota #'+siguiente:'Registrar pago cuota #1')+'</button>';
-  if(pagadas>0)html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
+  if(pagadas>0)html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\',\''+esc(String(detalle.cuotasPagadas.at(-1)._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
   html+='<button class="secondary mini" onclick="window.configurarPeriodicidad(\''+esc(String(x._id))+'\')">Editar cuotas</button>';
   html+='<button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\')">Eliminar</button>';
  }else if(propia&&x.estado==="PAGADO"&&pagadas>0){
-  html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
+  html+='<button class="secondary mini" onclick="window.deshacerUltimaCuota(\''+esc(String(x._id))+'\',\''+esc(String(detalle.cuotasPagadas.at(-1)._id))+'\')">Deshacer cuota #'+pagadas+'</button>';
  }else if(!propia&&x.estado==="PAGADO"){
   html+='<button class="secondary mini" onclick="window.corregirOrigenCobro(\''+esc(String(x._id))+'\')">Corregir</button>';
  }else if(!propia&&x.estado!=="PAGADO"){
@@ -172,21 +304,47 @@ const anteriores=creditosAnteriores.creditos||[];
 if(anteriores.length){
  $("listaPorPagar").insertAdjacentHTML("beforeend",'<div class="debtHeading"><h3>Créditos registrados anteriormente</h3><strong>'+money(anteriores.reduce((a,x)=>a+x.saldo,0))+'</strong></div><p class="hint">Estos créditos antiguos aún no están conciliados. Puedes incorporarlos con confirmación para administrar sus cuotas sin crear un duplicado.</p>'+anteriores.map(x=>'<article class="debtItem"><div class="debtTop"><div><strong>'+esc(x.nombre)+'</strong><p class="debtKind">Crédito anterior · pendiente de conciliación</p></div><strong>'+money(x.saldo)+'</strong></div><div class="debtNumbers"><span>Cuotas informadas restantes: '+esc(String(x.mesesRestantes))+'</span><span>Pagos anteriores sin verificar</span></div><progress value="0" max="100" style="width:100%;height:14px"></progress><div class="debtNumbers"><div>Saldo guardado<strong>'+money(x.saldo)+'</strong></div><div>Cuota mensual<strong>'+money(x.cuotaMensual)+'</strong></div></div><small>Tasa mensual: '+esc(String(x.tasaMensualPct))+' % · Meses restantes: '+esc(String(x.mesesRestantes))+'</small><div class="debtActions"><button class="mini" onclick="window.incorporarCreditoAnterior(\''+esc(String(x._id))+'\')">Incorporar y gestionar cuotas</button><button class="secondary mini" onclick="window.retirarCredito(\''+esc(String(x._id))+'\',true)">Eliminar</button></div></article>').join(""));
 }
-$("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pagados</h3><strong>'+pagados.length+'</strong></div>'+(pagados.length?pagados.map(renderPrestamo).join(""):'<p class="hint">Sin préstamos pagados.</p>');$("diario").innerHTML=d.dias.length?d.dias.map(x=>'<div class="day"><b>'+x.fecha+'</b><span>'+money(x.balance)+'</span>'+x.movimientos.map(m=>'<div class="row"><span>'+m.tipo+' · '+esc(m.concepto)+' · '+esc(m.categoria)+(m.contraparte?' · '+esc(m.contraparte):'')+'</span><span class="movementActions"><strong>'+money(m.monto)+'</strong><button class="secondary mini" onclick="window.editMovement(\''+m._id+'\',\''+m.tipo+'\','+m.monto+')">Corregir</button><button class="dangerMini" onclick="window.deleteMovement(\''+m._id+'\')">Eliminar</button></span></div>').join("")+'</div>').join(""):"Sin movimientos todavía."}catch(e){if(e.code==="SESION_CAMBIADA"||token!==tokenAlInicio)return;if(e.statusCode===401){clearToken();$("app").hidden=true;$("logout").hidden=true;$("auth").hidden=false;msg("authMsg","La sesión expiró. Ingresa nuevamente.",false);return}const live=$("live");if(live){live.textContent="No pude actualizar tus datos: "+e.message+". Las cifras visibles pueden corresponder a una consulta anterior; no son saldos actuales confirmados.";live.dataset.alert="true";}}})();
+const creditosRetirados=creditosAnteriores.retirados||[];
+if(creditosRetirados.length)$("listaPorPagar").insertAdjacentHTML("beforeend",'<h3>Créditos anteriores retirados</h3><p class="hint">Retirar no equivale a pagar. Los registros se conservan.</p>'+creditosRetirados.map(x=>'<article class="debtItem"><strong>'+esc(x.nombre)+'</strong><p>Saldo registrado: '+money(x.saldo)+'</p>'+(x.recuperacion?.disponible===true&&/^[a-f0-9]{64}$/.test(x.recuperacion.retiroHash||"")?'<button class="secondary mini" onclick="window.restaurarCreditoAnterior(\''+esc(String(x._id))+'\',\''+esc(x.recuperacion.retiroHash)+'\')">Recuperar crédito anterior</button>':'<p class="hint">Sin evidencia suficiente para recuperarlo automáticamente. Requiere revisión; no registres otra deuda para reemplazarlo.</p>')+'</article>').join(""));
+$("listaPrestamosPagados").innerHTML='<div class="debtHeading"><h3>Préstamos pagados</h3><strong>'+pagados.length+'</strong></div>'+(pagados.length?pagados.map(renderPrestamo).join(""):'<p class="hint">Sin préstamos pagados.</p>');const retiradas=lp.prestamos.filter(x=>x.direccion==="POR_PAGAR"&&x.estado==="CANCELADO");
+if(retiradas.length)$("listaPrestamosPagados").insertAdjacentHTML("beforeend",'<h3>Deudas retiradas</h3><p class="hint">Retirar no significa pagar. Recuperar conserva saldo y calendario registrados.</p>'+retiradas.map(x=>'<article class="debtItem"><strong>'+esc(x.concepto)+'</strong><p>Saldo conservado: '+money(x.saldoMinor)+'</p>'+((x.retiroRevision%2===1&&/^[a-f0-9]{64}$/.test(x.retiroHash||""))?'<button class="secondary mini" onclick="window.restaurarDeudaRetirada(\''+esc(String(x._id))+'\',\''+esc(x.retiroHash)+'\')">Recuperar deuda</button>':'<p class="hint">Retiro anterior sin estado recuperable verificado. Requiere revisión; no registres otra deuda para reemplazarla.</p>')+'</article>').join(""))
+;$("diario").innerHTML=d.dias.length?d.dias.map(x=>'<div class="day"><b>'+x.fecha+'</b><span>'+money(x.balance)+'</span>'+x.movimientos.map(m=>'<div class="row"><span>'+m.tipo+' · '+esc(m.concepto)+' · '+esc(m.categoria)+(m.contraparte?' · '+esc(m.contraparte):'')+'</span><span class="movementActions"><strong>'+money(m.monto)+'</strong><button class="secondary mini" onclick="window.editMovement(\''+m._id+'\',\''+m.tipo+'\','+m.monto+')">Corregir</button><button class="dangerMini" onclick="window.deleteMovement(\''+m._id+'\')">Eliminar</button></span></div>').join("")+'</div>').join(""):"Sin movimientos todavía."}catch(e){if(e.code==="SESION_CAMBIADA"||token!==tokenAlInicio)return;if(!consultaVigente())return;if(e.statusCode===401){clearToken();$("app").hidden=true;$("logout").hidden=true;$("auth").hidden=false;msg("authMsg","La sesión expiró. Ingresa nuevamente.",false);return}invalidarAutorizacionDisponible();for(const id of ["pInversiones","detalleInversiones","detalleActivos"]){const el=$(id);if(el)el.textContent="No actualizado";}const live=$("live");if(live){live.textContent="No pude actualizar tus datos: "+e.message+". Las cifras visibles pueden corresponder a una consulta anterior; no son saldos actuales confirmados.";live.dataset.alert="true";}}})();
  cargaPanelEnCurso=ejecucion;
- tokenCargaPanel=tokenAlInicio;
+ tokenCargaPanel=tokenAlInicio;revisionCargaPanel=revisionInicial;
  try{return await ejecucion;}finally{if(cargaPanelEnCurso===ejecucion){cargaPanelEnCurso=null;tokenCargaPanel=null;}}
-}window.deshacerUltimaCuota=async id=>{try{
- const info=await api("/prestamos/"+encodeURIComponent(id)+"/cuotas");
- const pagos=info.cuotasPagadas||[];
- if(!pagos.length)throw Error("No hay una cuota registrada para deshacer");
- const n=pagos.length,ultimo=pagos[pagos.length-1];
- if(!confirm("¿Deshacer el pago de la cuota #"+n+" por "+money(ultimo.montoMinor)+"? Se anulará el movimiento y se restaurará el saldo pendiente y la cuenta utilizada."))return;
- await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/deshacer",{method:"POST"});
- await load();alert("Cuota #"+n+" revertida correctamente.");
- }catch(e){alert("No se pudo deshacer la cuota: "+e.message)}
+}window.deshacerUltimaCuota=async(id,movimientoId)=>{
+ if(!/^[a-f0-9]{24}$/i.test(movimientoId||"")){alert("Actualiza las cuotas antes de revertir este pago.");return;}
+ if(mutacionesMovimientoEnCurso.has(movimientoId))return;mutacionesMovimientoEnCurso.add(movimientoId);
+ const k="CREDITO:"+token+":"+movimientoId;
+ try{
+  if(!confirm("¿Revertir el registro de este pago? Se conservará el asiento original, se restaurará el capital de la deuda y se devolverá a la cuenta el importe realmente registrado."))return;
+  await api("/prestamos/"+encodeURIComponent(id)+"/cuotas/deshacer",{
+   method:"POST",headers:{"Idempotency-Key":claveCompensacion(k)},body:JSON.stringify({movimientoId})
+  });
+  await load();clavesCompensacionPendientes.delete(k);alert("Pago revertido. El asiento original permanece en el historial.");
+ }catch(e){alert("No se pudo deshacer la cuota: "+e.message);}
+ finally{mutacionesMovimientoEnCurso.delete(movimientoId);}
 };
-window.corregirOrigenCobro=async id=>{try{
+const correccionesPrestamoPendientes=new Map();let sesionCorreccionPrestamo=null;
+async function aplicarCorreccionPrestamo(id,cambios){
+ const sesion=token;if(!sesion||$("app").hidden)throw Error("Sesión no disponible");
+ if(sesionCorreccionPrestamo!==sesion){correccionesPrestamoPendientes.clear();sesionCorreccionPrestamo=sesion;}
+ const key=id+":"+JSON.stringify(Object.fromEntries(Object.entries(cambios).sort(([a],[b])=>a.localeCompare(b))));
+ let op=correccionesPrestamoPendientes.get(key);if(op?.enCurso)throw Error("La corrección está en curso");
+ if(!op){op={solicitudId:crypto.randomUUID(),enCurso:false};correccionesPrestamoPendientes.set(key,op);}op.enCurso=true;
+ try{
+  const r=await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",headers:{"Idempotency-Key":op.solicitudId},body:JSON.stringify({...cambios,confirmacion:true})});
+  if(token!==sesion||$("app").hidden){const e=Error("La sesión cambió");e.code="SESION_CAMBIADA";throw e;}
+  if(r.prestamo?.correccion?.vigente!==true)throw Error("La corrección anterior no representa el estado vigente. Actualiza y revisa el historial.");
+  correccionesPrestamoPendientes.delete(key);return r;
+ }finally{op.enCurso=false;}
+}
+window.verCorreccionesPrestamo=async id=>{
+ const sesion=token;try{const r=await api("/prestamos/"+encodeURIComponent(id)+"/correcciones");if(!sesion||sesion!==token||$("app").hidden)return;
+ const filas=r.eventos||[];alert("Correcciones registradas: "+filas.length+". No es el historial completo de pagos ni cambios anteriores.\n"+filas.slice(-10).map(e=>new Date(e.fecha).toLocaleDateString("es-CO")+" · Capital: "+money(e.anterior.principalMinor)+" → "+money(e.posterior.principalMinor)+" · Pendiente: "+money(e.anterior.saldoMinor)+" → "+money(e.posterior.saldoMinor)).join("\n")+(filas.length>10?"\nSe muestran las últimas diez correcciones.":""));
+ }catch(e){if(sesion===token&&!$("app").hidden)alert("No se pudo verificar el historial: "+e.message);}
+};
+window.corregirOrigenCobro=async id=>{const sesionCorreccion=token;try{
  const datos=await api("/prestamos");
  const p=(datos.prestamos||[]).find(x=>String(x._id)===String(id));
  if(!p||p.direccion!=="POR_COBRAR")throw Error("Cuenta por cobrar no encontrada");
@@ -197,10 +355,12 @@ window.corregirOrigenCobro=async id=>{try{
  if(!["TRABAJO","PRESTAMO","OTRO"].includes(origenCuentaPorCobrar))throw Error("Elige TRABAJO, PRESTAMO u OTRO");
  if(actual===origenCuentaPorCobrar)return;
  if(!confirm("¿Corregir el origen a "+origenCuentaPorCobrar+"? GRUK reclasificará únicamente los cobros relacionados ya existentes. NO recibirá ni registrará dinero otra vez."))return;
- await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({origenCuentaPorCobrar})});
- await load();
+ if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
+ await aplicarCorreccionPrestamo(id,{origenCuentaPorCobrar});
+ if(sesionCorreccion!==token||$("app").hidden)return;
+ await load();if(sesionCorreccion!==token||$("app").hidden)return;
  alert("Origen corregido. Se revisaron los movimientos vinculados sin crear ingresos ni cobros nuevos. Si falta un ingreso, consulta el historial antes de registrarlo.");
- }catch(e){alert("No se pudo corregir: "+e.message)}
+ }catch(e){if(sesionCorreccion===token&&!$("app").hidden)alert("No se pudo corregir: "+e.message)}
 };
 window.registrarCuota=async id=>{try{
  const info=await api("/prestamos/"+encodeURIComponent(id)+"/cuotas");
@@ -216,13 +376,15 @@ window.registrarCuota=async id=>{try{
  await load();alert("Cuota #"+n+" registrada. Puedes deshacer el último pago desde esta misma tarjeta.");
  }catch(e){alert("No se pudo registrar la cuota: "+e.message)}
 };
-window.confirmarFrecuenciaMensual=async id=>{try{
+window.confirmarFrecuenciaMensual=async id=>{const sesionCorreccion=token;try{
  if(!confirm("¿Confirmas que esta deuda vence cada mes, el mismo día? No se registrará ningún pago ni se cambiará el saldo."))return;
- await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({periodicidad:"MENSUAL"})});
- await load();
- }catch(e){alert("No se pudo confirmar la periodicidad: "+e.message)}
+ if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
+ await aplicarCorreccionPrestamo(id,{periodicidad:"MENSUAL"});
+ if(sesionCorreccion!==token||$("app").hidden)return;
+ await load();if(sesionCorreccion!==token||$("app").hidden)return;
+ }catch(e){if(sesionCorreccion===token&&!$("app").hidden)alert("No se pudo confirmar la periodicidad: "+e.message)}
 };
-window.configurarPeriodicidad=async id=>{try{
+window.configurarPeriodicidad=async id=>{const sesionCorreccion=token;try{
  const datos=await api("/prestamos"),p=(datos.prestamos||[]).find(x=>String(x._id)===String(id));
  if(!p||p.direccion!=="POR_PAGAR"||p.saldoMinor<=0)throw Error("Deuda activa no encontrada");
  let cuotaMinor=p.cuotaMinor,numeroCuotas=p.numeroCuotas;
@@ -230,25 +392,35 @@ window.configurarPeriodicidad=async id=>{try{
  if(!Number.isInteger(numeroCuotas)||numeroCuotas<1){const v=prompt("¿Cuántas cuotas pendientes tiene esta deuda?",String(Math.ceil(p.saldoMinor/cuotaMinor)||1));if(v===null)return;numeroCuotas=Number(v);}
  if(!Number.isSafeInteger(cuotaMinor)||cuotaMinor<1||!Number.isInteger(numeroCuotas)||numeroCuotas<1||numeroCuotas>360)throw Error("Revisa el importe y la cantidad de cuotas");
  if(!confirm("¿Confirmar "+numeroCuotas+" cuotas de "+money(cuotaMinor)+" para "+p.concepto+"? No se registra ningún pago ahora."))return;
- await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({cuotaMinor,numeroCuotas,periodicidadConfirmada:true})});
- await load();return true;
- }catch(e){alert("No se pudieron confirmar las cuotas: "+e.message)}
+ if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
+ await aplicarCorreccionPrestamo(id,{cuotaMinor,numeroCuotas,periodicidadConfirmada:true});
+ if(sesionCorreccion!==token||$("app").hidden)return;
+ await load();if(sesionCorreccion!==token||$("app").hidden)return;return true;
+ }catch(e){if(sesionCorreccion===token&&!$("app").hidden)alert("No se pudieron confirmar las cuotas: "+e.message)}
 };
-window.incorporarCreditoAnterior=async id=>{try{
- if(!confirm("¿Incorporar este crédito anterior a Mis deudas para gestionar sus cuotas? Revisa antes que no exista ya una deuda equivalente. No registra pagos ni gastos."))return;
- const r=await api("/creditos/"+encodeURIComponent(id)+"/incorporar-a-deudas",{method:"POST"});
- await load();
- alert("Crédito incorporado sin crear pagos. Confirma ahora su calendario de cuotas.");
- if(r.resultado?.id)await window.configurarPeriodicidad(r.resultado.id);
- }catch(e){alert("No se pudo incorporar el crédito: "+e.message)}
-};
-window.retirarCredito=async(id,anterior=false)=>{try{
- if(!confirm("¿Eliminar este registro de la lista? No significa que la deuda esté pagada. Se conserva para auditoría."))return;
- await api((anterior?"/creditos/":"/prestamos/")+encodeURIComponent(id),{method:"DELETE"});
- await load();alert("Registro retirado de la lista. No se registró ningún pago.");
- }catch(e){alert("No se pudo retirar: "+e.message)}
-};
-window.corregirPrestamo=async id=>{try{
+const operacionesRetiroDeuda=new Map();let sesionRetiroDeuda=null;
+async function cambiarRetiroDeuda(id,{restaurar=false,retiroHash=null,anterior=false,incorporar=false}={}){
+ const sesion=token;if(!sesion||$("app").hidden)return;
+ if(sesionRetiroDeuda!==sesion){operacionesRetiroDeuda.clear();sesionRetiroDeuda=sesion;}
+ const raiz=anterior?"/creditos/":"/prestamos/";
+ const key=raiz+id+":"+(incorporar?"INCORPORACION":restaurar?retiroHash:"RETIRO");
+ let op=operacionesRetiroDeuda.get(key);if(op?.enCurso)return;
+ if(!confirm(incorporar?"¿Incorporar este crédito anterior a Mis deudas? No se crearán pagos ni gastos. Confirma luego su calendario.":restaurar?"¿Recuperar esta deuda con su saldo y calendario anteriores? No se registrará ningún pago ni se moverá dinero.":"¿Retirar esta deuda de la lista? No significa que esté pagada. Se conservará su estado para recuperarla aquí."))return;
+ if(!op){op={solicitudId:crypto.randomUUID(),enCurso:false};operacionesRetiroDeuda.set(key,op);}op.enCurso=true;
+ try{
+  const resultado=await api(raiz+encodeURIComponent(id)+(incorporar?"/incorporar-a-deudas":restaurar?"/restaurar-retiro":""),{...body({confirmacion:true,solicitudId:op.solicitudId,...(restaurar?{retiroHash}:{})}),method:restaurar||incorporar?"POST":"DELETE"});
+  if(token!==sesion||$("app").hidden)return;
+  if(!resultado.resultado?.vigente)throw Error("La operación anterior ya no representa el estado vigente. Actualiza la lista.");
+  operacionesRetiroDeuda.delete(key);await load();if(token!==sesion||$("app").hidden)return;
+  alert(incorporar?"Crédito incorporado sin crear pagos. Confirma su calendario en Mis deudas.":restaurar?"Registro recuperado sin registrar pagos ni cambiar caja.":"Registro retirado. Puedes recuperarlo en Registros retirados; no se registró ningún pago.");
+ }catch(e){if(token===sesion&&!$("app").hidden)alert("No se pudo confirmar la operación. Conserva el reintento: "+e.message);}
+ finally{op.enCurso=false;}
+}
+window.retirarCredito=(id,anterior=false)=>cambiarRetiroDeuda(id,{anterior});
+window.restaurarDeudaRetirada=(id,retiroHash)=>cambiarRetiroDeuda(id,{restaurar:true,retiroHash});
+window.restaurarCreditoAnterior=(id,retiroHash)=>cambiarRetiroDeuda(id,{restaurar:true,retiroHash,anterior:true});
+window.incorporarCreditoAnterior=id=>cambiarRetiroDeuda(id,{anterior:true,incorporar:true});
+window.corregirPrestamo=async id=>{const sesionCorreccion=token;try{
  const data=await api("/prestamos");const p=(data.prestamos||[]).find(x=>String(x._id)===String(id));
  if(!p)throw Error("Préstamo no encontrado");
  const persona=prompt("Persona o contraparte:",p.contraparte||"");if(persona===null)return;
@@ -262,20 +434,26 @@ window.corregirPrestamo=async id=>{try{
 
  if(!persona.trim()||!concepto.trim()||!Number.isSafeInteger(monto)||monto<=0)throw Error("Nombre, concepto o valor inválidos");
  if(!confirm("¿Confirmas la corrección? No se registrará ningún cobro nuevo."))return;
- await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({contraparte:persona.trim(),concepto:concepto.trim(),principalMinor:monto,origenCuentaPorCobrar:clasificacion})});
- await load();alert("Cuenta por cobrar corregida. Los cobros existentes se conservaron.");
- }catch(e){alert("No se pudo corregir el préstamo: "+e.message)}};
-let histPagina=1,histCargando=false;
+ if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
+ await aplicarCorreccionPrestamo(id,{contraparte:persona.trim(),concepto:concepto.trim(),principalMinor:monto,origenCuentaPorCobrar:clasificacion});
+ if(sesionCorreccion!==token||$("app").hidden)return;
+ await load();if(sesionCorreccion!==token||$("app").hidden)return;alert("Cuenta por cobrar corregida. Los cobros existentes se conservaron.");
+ }catch(e){if(sesionCorreccion===token&&!$("app").hidden)alert("No se pudo corregir el préstamo: "+e.message)}};
+let histPagina=1,histCargando=false,histRevision=0;
+function invalidarBusquedaHistorial(){histRevision+=1;histPagina=1;histCargando=false;}
 async function buscarHistorial(reset=true){
  const tokenConsulta=token;
- if(histCargando)return;
- if(reset){histPagina=1;$("histResultados").replaceChildren();}
+ if(!tokenConsulta||$("app").hidden)return;
+ if(histCargando&&!reset)return;
+ if(reset){invalidarBusquedaHistorial();$("histResultados").replaceChildren();}
+ const revisionConsulta=histRevision;
+ const vigente=()=>token===tokenConsulta&&!$("app").hidden&&revisionConsulta===histRevision;
  const filtros=new URLSearchParams({pagina:String(histPagina),tipo:$("histTipo").value,estado:$("histEstado").value,q:$("histQ").value.trim()});
  for(const [id,key] of [["histMonto","monto"],["histDesde","desde"],["histHasta","hasta"]]){const valor=$(id).value.trim();if(valor)filtros.set(key,valor);}
  histCargando=true;$("histMensaje").textContent="Buscando en el historial…";$("histMas").hidden=true;
  try{
   const r=await api("/historial/buscar?"+filtros.toString());
-  if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;
+  if(!vigente())return;
   for(const item of r.items||[]){
    const el=document.createElement("article");el.className="historyItem";
    const nombre=item.clase==="MOVIMIENTO"?(item.contraparte||item.concepto):(item.contraparte||"Persona sin identificar");
@@ -283,20 +461,95 @@ async function buscarHistorial(reset=true){
    const fecha=item.fecha||item.fechaInicio;
    const monto=item.clase==="MOVIMIENTO"?item.montoMinor:item.principalMinor;
    el.innerHTML='<div><strong>'+esc(nombre)+'</strong><div class="debtKind">'+esc(tipo+" · "+(item.concepto||""))+'</div><small>'+esc(fecha?new Date(fecha).toLocaleDateString("es-CO"):"Sin fecha")+' · '+esc(item.estado||"")+'</small></div><strong>'+money(monto)+'</strong>';
+   if(item.clase==="MOVIMIENTO"&&item.estado==="ANULADA"&&item.recuperacion?.disponible===true){
+    const restaurar=document.createElement("button");restaurar.type="button";restaurar.textContent="Restaurar";
+    restaurar.onclick=()=>{if(vigente())window.restoreMovement(item._id,item.recuperacion.anulacionHash);};el.append(restaurar);
+    if(item.tipo==="PAGO_DEUDA"&&item.prestamoId&&recuperacionPersonal){const revisar=document.createElement("button");revisar.type="button";revisar.textContent="Revisar recuperación con cambio de fecha";revisar.addEventListener("click",()=>{if(vigente()){recuperacionPersonal.revisar(String(item.prestamoId),item._id,item.recuperacion.anulacionHash);$("recuperacionCuotasPersonal")?.scrollIntoView?.({block:"nearest"});}});el.append(revisar);}
+   }
    $("histResultados").append(el);
   }
-  $("histMensaje").textContent=(r.items||[]).length?"Resultados encontrados. Solo lectura.":"No se encontraron movimientos con estos filtros.";
+  $("histMensaje").textContent=(r.items||[]).length?"Resultados encontrados. Puedes restaurar los movimientos anulados que tengan el botón Restaurar.":"No se encontraron movimientos con estos filtros.";
   $("histMas").hidden=!r.hayMas;
   if(r.hayMas)histPagina+=1;
- }catch(e){if(tokenConsulta&&token===tokenConsulta&&!$("app").hidden)$("histMensaje").textContent="No fue posible buscar: "+e.message;}
- finally{histCargando=false;}
+ }catch(e){if(vigente())$("histMensaje").textContent="No fue posible buscar: "+e.message;}
+ finally{if(revisionConsulta===histRevision)histCargando=false;}
 }
 $("historicalSearch").addEventListener("submit",e=>{e.preventDefault();buscarHistorial(true)});
 $("histMas").onclick=()=>buscarHistorial(false);
-$("histLimpiar").onclick=()=>{$("historicalSearch").reset();$("histResultados").replaceChildren();$("histMensaje").textContent="";$("histMas").hidden=true;histPagina=1;};
-window.rastrearCobro52000=async()=>{try{const r=await api("/rastrear-cobro?montoMinor=52000");const deudas=r.cuentasPorCobrar||[],mov=r.movimientos||[];const ingresos=mov.filter(x=>x.tipo==="INGRESO"&&x.estado!=="ANULADA");const cobros=mov.filter(x=>x.tipo==="COBRO_PRESTAMO"&&x.estado!=="ANULADA");const lineas=["Rastreo de $52.000 (solo lectura):",deudas.length+" cuenta(s) por cobrar con valor original de $52.000.",ingresos.length+" ingreso(s) registrado(s) por $52.000.",cobros.length+" cobro(s) clasificado(s) como recuperación de préstamo.",...deudas.map(x=>"Cuenta: "+x.origenCuentaPorCobrar+" / "+x.estado+" / pendiente "+money(x.saldoMinor)),...mov.slice(0,10).map(x=>"Movimiento: "+x.tipo+" / "+x.estado+" / "+new Date(x.fecha).toLocaleDateString("es-CO")+" / "+(x.prestamoId?"vinculado":"sin vínculo")),"Este rastreo no registra dinero ni corrige saldos."];window.alert(lineas.join("\n"));}catch(e){window.alert("No se pudo rastrear el cobro: "+e.message);}};window.reconciliarIngresosTrabajo=async()=>{if(!window.confirm("GRUK revisará cobros de trabajos ya pagados y solo corregirá clasificaciones verificables. No registrará nuevos pagos ni cambiará saldos. ¿Continuar?"))return;try{const r=await api("/reconciliar-ingresos-trabajo",{method:"POST"});await load();window.alert(r.estado==="CORREGIDO"?"Se corrigieron "+r.corregidos+" movimiento(s) existente(s). Revisa el historial y el ingreso del mes.":r.estado==="REQUIERE_REVISION"?"Se detectaron "+r.requierenRevisionManual+" caso(s) que requieren auditoría individual. No se duplicaron cobros.":"No se corrigió ningún ingreso. La revisión automática no encontró movimientos reclasificables; esto NO significa que tu cobro faltante esté solucionado. No vuelvas a registrar el pago.");}catch(e){window.alert("No se pudo completar la revisión: "+e.message);}};window.grukCobrosEnCurso=window.grukCobrosEnCurso||new Set();window.registrarCobro=async(id,saldo)=>{if(window.grukCobrosEnCurso.has(id))return;const valor=window.prompt("¿Cuánto te pagaron? Saldo pendiente: "+money(saldo),String(saldo));if(valor===null)return;const monto=Number(valor.trim().replace(/\./g,""));if(!Number.isSafeInteger(monto)||monto<=0||monto>saldo){window.alert("Ingresa un monto válido, sin superar el saldo pendiente.");return;}const key=id+":"+monto;window.grukCobrosPendientes=window.grukCobrosPendientes||{};const externalId=window.grukCobrosPendientes[key]||(window.grukCobrosPendientes[key]=crypto.randomUUID());window.grukCobrosEnCurso.add(id);try{const cobro=await api("/prestamos/"+encodeURIComponent(id)+"/cobros",body({montoMinor:monto,externalId}));await load();delete window.grukCobrosPendientes[key];const tipo=cobro.transaccion?.tipo;window.alert(tipo==="INGRESO"?"Pago recibido registrado como ingreso por trabajo.":tipo==="COBRO_PRESTAMO"?"Pago recibido registrado como recuperación de cuenta por cobrar; no se sumó a ingresos. Si era un trabajo, solicita corregir la clasificación, sin registrar el cobro otra vez.":"Cobro registrado. Verifica su clasificación en los movimientos.");}catch(e){window.alert("No se pudo confirmar el pago. Puedes reintentar sin duplicarlo: "+e.message);}finally{window.grukCobrosEnCurso.delete(id);}};async function loadDrafts(){const tokenConsulta=token;try{const j=await api("/captura/pendientes");if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;$("drafts").innerHTML=j.borradores.map(b=>'<div class="draft"><small>'+esc(b.canal)+'</small>'+b.items.map(x=>'<div class="row"><span>'+esc(x.tipo)+' · '+money(x.montoMinor)+' · '+esc(x.categoria)+'</span><strong>'+esc(x.estado)+(x.confianza?' '+x.confianza+'%':'')+'</strong></div>').join("")+'<div class="actions"><button onclick="window.approveDraft(\''+b._id+'\')">Aprobar</button><button class="secondary" onclick="window.discardDraft(\''+b._id+'\')">Descartar</button></div></div>').join("")}catch(e){if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;msg("captureMsg",e.message,false)}}window.editMovement=async(id,tipoActual,montoActual)=>{const tipoNuevo=prompt("Tipo: INGRESO o GASTO",tipoActual);if(!tipoNuevo)return;const tipo=tipoNuevo.trim().toUpperCase();if(!["INGRESO","GASTO"].includes(tipo))return alert("Tipo inválido");const montoTexto=prompt("Monto real en pesos COP, sin puntos ni comas. Ejemplo: 10000",String(Math.round(montoActual)));if(!montoTexto)return;const montoMinor=Number(String(montoTexto).replace(/[^0-9]/g,""));if(!Number.isSafeInteger(montoMinor)||montoMinor<1)return alert("Monto inválido");try{await api("/transacciones/"+id,{method:"PATCH",body:JSON.stringify({tipo,montoMinor})});await load()}catch(e){alert(e.message)}};window.deleteMovement=async id=>{if(!confirm("¿Eliminar este movimiento? Dejará de contar en tus totales, pero GRUK conservará la auditoría."))return;try{await api("/transacciones/"+id,{method:"DELETE"});await load()}catch(e){alert(e.message)}};window.approveDraft=async id=>{try{await api("/captura/"+id+"/aprobar",{method:"POST"});msg("captureMsg","Operaciones aprobadas y contabilizadas.");await Promise.all([loadDrafts(),load()])}catch(e){msg("captureMsg",e.message,false)}};window.discardDraft=async id=>{try{await api("/captura/"+id+"/descartar",{method:"POST"});await loadDrafts()}catch(e){msg("captureMsg",e.message,false)}};function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}$("installApp").onclick=async()=>{if(standalone())return refreshInstall();if(installPrompt){installPrompt.prompt();const choice=await installPrompt.userChoice;if(choice?.outcome==="accepted")installPrompt=null;return refreshInstall()}const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);alert(ios?"Para instalar GRUK: abre esta página en Safari, toca Compartir y luego «Añadir a pantalla de inicio».":"Para instalar GRUK: abre el menú del navegador (⋮) y toca «Instalar aplicación» o «Añadir a pantalla de inicio».")};$("choosePersonal").onclick=()=>{$("productChooser").hidden=true;$("auth").hidden=false};$("chooseBusiness").onclick=()=>{$("businessOptions").hidden=!$("businessOptions").hidden};$("businessLogin").onclick=()=>location.assign("https://resturante-qr-1.onrender.com/login.html");$("businessSignup").onclick=()=>location.assign("https://resturante-qr-1.onrender.com/registro-empresa.html");document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-tab],.panel").forEach(x=>x.classList.remove("active"));b.classList.add("active");$(b.dataset.tab).classList.add("active")});document.querySelectorAll(".tipo").forEach(b=>b.onclick=()=>{tipo=b.dataset.tipo;document.querySelectorAll(".tipo").forEach(x=>x.classList.toggle("active",x===b))});$("mFecha").value=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());$("login").onclick=async()=>{try{msg("authMsg","Verificando…");enter(await api("/auth/login",body({email:$("email").value,password:$("password").value,mantenerSesion:$("keepSession").checked})))}catch(e){msg("authMsg",e.message,false)}};$("register").onclick=async()=>{try{msg("authMsg","Creando prueba gratuita…");enter(await api("/auth/registro",body({nombre:$("nombre").value,email:$("email").value,password:$("password").value})))}catch(e){msg("authMsg",e.message,false)}};$("logout").onclick=()=>{clearToken();location.reload()};$("evaluarCompra").onclick=async()=>{
+$("histLimpiar").onclick=()=>{invalidarBusquedaHistorial();$("historicalSearch").reset();$("histResultados").replaceChildren();$("histMensaje").textContent="";$("histMas").hidden=true;};
+window.rastrearCobro52000=async()=>{try{const r=await api("/rastrear-cobro?montoMinor=52000");const deudas=r.cuentasPorCobrar||[],mov=r.movimientos||[];const ingresos=mov.filter(x=>x.tipo==="INGRESO"&&x.estado!=="ANULADA");const cobros=mov.filter(x=>x.tipo==="COBRO_PRESTAMO"&&x.estado!=="ANULADA");const lineas=["Rastreo de $52.000 (solo lectura):",deudas.length+" cuenta(s) por cobrar con valor original de $52.000.",ingresos.length+" ingreso(s) registrado(s) por $52.000.",cobros.length+" cobro(s) clasificado(s) como recuperación de préstamo.",...deudas.map(x=>"Cuenta: "+x.origenCuentaPorCobrar+" / "+x.estado+" / pendiente "+money(x.saldoMinor)),...mov.slice(0,10).map(x=>"Movimiento: "+x.tipo+" / "+x.estado+" / "+new Date(x.fecha).toLocaleDateString("es-CO")+" / "+(x.prestamoId?"vinculado":"sin vínculo")),"Este rastreo no registra dinero ni corrige saldos."];window.alert(lineas.join("\n"));}catch(e){window.alert("No se pudo rastrear el cobro: "+e.message);}};window.reconciliarIngresosTrabajo=async()=>{if(!window.confirm("GRUK revisará cobros de trabajos ya pagados y solo corregirá clasificaciones verificables. No registrará nuevos pagos ni cambiará saldos. ¿Continuar?"))return;try{const r=await api("/reconciliar-ingresos-trabajo",{method:"POST"});await load();window.alert(r.estado==="CORREGIDO"?"Se corrigieron "+r.corregidos+" movimiento(s) existente(s). Revisa el historial y el ingreso del mes.":r.estado==="REQUIERE_REVISION"?"Se detectaron "+r.requierenRevisionManual+" caso(s) que requieren auditoría individual. No se duplicaron cobros.":"No se corrigió ningún ingreso. La revisión automática no encontró movimientos reclasificables; esto NO significa que tu cobro faltante esté solucionado. No vuelvas a registrar el pago.");}catch(e){window.alert("No se pudo completar la revisión: "+e.message);}};window.grukCobrosEnCurso=window.grukCobrosEnCurso||new Set();window.registrarCobro=async(id,saldo)=>{if(window.grukCobrosEnCurso.has(id))return;const valor=window.prompt("¿Cuánto te pagaron? Saldo pendiente: "+money(saldo),String(saldo));if(valor===null)return;const monto=Number(valor.trim().replace(/\./g,""));if(!Number.isSafeInteger(monto)||monto<=0||monto>saldo){window.alert("Ingresa un monto válido, sin superar el saldo pendiente.");return;}const key=id+":"+monto;window.grukCobrosPendientes=window.grukCobrosPendientes||{};const externalId=window.grukCobrosPendientes[key]||(window.grukCobrosPendientes[key]=crypto.randomUUID());window.grukCobrosEnCurso.add(id);try{const cobro=await api("/prestamos/"+encodeURIComponent(id)+"/cobros",body({montoMinor:monto,externalId}));await load();delete window.grukCobrosPendientes[key];const tipo=cobro.transaccion?.tipo;window.alert(tipo==="INGRESO"?"Pago recibido registrado como ingreso por trabajo.":tipo==="COBRO_PRESTAMO"?"Pago recibido registrado como recuperación de cuenta por cobrar; no se sumó a ingresos. Si era un trabajo, solicita corregir la clasificación, sin registrar el cobro otra vez.":"Cobro registrado. Verifica su clasificación en los movimientos.");}catch(e){window.alert("No se pudo confirmar el pago. Puedes reintentar sin duplicarlo: "+e.message);}finally{window.grukCobrosEnCurso.delete(id);}};const versionesBorradores=new Map();
+async function loadDrafts(){const tokenConsulta=token;try{const j=await api("/captura/pendientes");if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;versionesBorradores.clear();for(const b of j.borradores)versionesBorradores.set(String(b._id),b.versionAprobacion);$("drafts").innerHTML=j.borradores.map(b=>'<div class="draft"><small>'+esc(b.canal)+'</small>'+b.items.map(x=>'<div class="row"><span>'+esc(x.tipo)+' · '+money(x.montoMinor)+' · '+esc(x.categoria)+'</span><strong>'+esc(x.estado)+(x.confianza?' '+x.confianza+'%':'')+'</strong></div>').join("")+'<div class="actions"><button onclick="window.approveDraft(\''+b._id+'\')">Aprobar</button><button class="secondary" onclick="window.discardDraft(\''+b._id+'\')">Descartar</button></div></div>').join("")}catch(e){if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;msg("captureMsg",e.message,false)}}const mutacionesMovimientoEnCurso=new Set();
+const clavesCompensacionPendientes=new Map();
+function claveCompensacion(k){if(!clavesCompensacionPendientes.has(k))clavesCompensacionPendientes.set(k,crypto.randomUUID());return clavesCompensacionPendientes.get(k);}
+window.editMovement=async(id,tipoActual,montoActual)=>{
+ if(mutacionesMovimientoEnCurso.has(id))return;mutacionesMovimientoEnCurso.add(id);
+ try{
+  const tipoNuevo=prompt("Tipo: INGRESO o GASTO",tipoActual);if(!tipoNuevo)return;
+  const tipo=tipoNuevo.trim().toUpperCase();if(!["INGRESO","GASTO"].includes(tipo))return alert("Tipo inválido");
+  const montoTexto=prompt("Monto real en pesos COP, sin puntos ni comas. Ejemplo: 10000",String(montoActual));if(!montoTexto)return;
+  if(!/^[1-9][0-9]*$/.test(montoTexto.trim()))return alert("Ingresa pesos enteros, sin puntos ni comas");
+  const montoMinor=Number(montoTexto.trim());if(!Number.isSafeInteger(montoMinor))return alert("Monto inválido");
+  const contenido=JSON.stringify({tipo,montoMinor}),k="CORRECCION:"+id+":"+contenido;
+  await api("/transacciones/"+encodeURIComponent(id),{method:"PATCH",headers:{"Idempotency-Key":claveCompensacion(k)},body:contenido});
+  await load();clavesCompensacionPendientes.delete(k);
+ }catch(e){alert(e.message);}finally{mutacionesMovimientoEnCurso.delete(id);}
+};
+window.restoreMovement=async(id,anulacionHash)=>{
+ const sesion=token;
+ if(!sesion||$("app").hidden||mutacionesMovimientoEnCurso.has(id))return;
+ mutacionesMovimientoEnCurso.add(id);
+ try{
+  if(!confirm("¿Restaurar este movimiento anulado? Volverá a contar en tus totales y reaplicará su efecto financiero una sola vez. El historial se conservará."))return;
+  const k="RESTAURACION:"+id+":"+anulacionHash;
+  await api("/transacciones/"+encodeURIComponent(id)+"/restaurar",{method:"POST",headers:{"Idempotency-Key":claveCompensacion(k)},body:JSON.stringify({confirmar:true,anulacionHash})});
+  if(token!==sesion||$("app").hidden)return;
+  await load();
+  if(token!==sesion||$("app").hidden)return;
+  await buscarHistorial(true);if(token===sesion&&!$("app").hidden)clavesCompensacionPendientes.delete(k);
+ }catch(e){if(token===sesion&&!$("app").hidden)alert("No se pudo confirmar la restauración. Revisa el historial y reintenta sin cambiar la operación: "+e.message);}
+ finally{mutacionesMovimientoEnCurso.delete(id);}
+};
+window.deleteMovement=async id=>{
+ if(mutacionesMovimientoEnCurso.has(id))return;mutacionesMovimientoEnCurso.add(id);
+ try{
+  if(!confirm("¿Anular este movimiento? Dejará de contar en tus totales y conservará su auditoría."))return;
+  const k="ANULACION:"+id;
+  await api("/transacciones/"+encodeURIComponent(id),{method:"DELETE",headers:{"Idempotency-Key":claveCompensacion(k)}});
+  await load();clavesCompensacionPendientes.delete(k);
+ }catch(e){alert(e.message);}finally{mutacionesMovimientoEnCurso.delete(id);}
+};const aprobacionesEnCurso=new Set();
+window.approveDraft=async id=>{
+ const sesion=token;if(!sesion||$("app").hidden||aprobacionesEnCurso.has(id))return;
+ if(!confirm("¿Aprobar las operaciones listas de este borrador? Se contabilizarán una sola vez y se conservará su recibo."))return;
+ aprobacionesEnCurso.add(id);try{
+  const versionBorrador=versionesBorradores.get(String(id));if(typeof versionBorrador!=="string")throw Error("Actualiza el borrador antes de aprobar sus operaciones");
+  const r=await api("/captura/"+encodeURIComponent(id)+"/aprobar",{method:"POST",headers:{"Idempotency-Key":"aprobacion_"+crypto.randomUUID()},body:JSON.stringify({confirmacion:true,versionBorrador})});
+  if(token!==sesion||$("app").hidden)return;if(r.resultado?.recibo?.confirmado!==true)throw Error("No se recibió confirmación verificable de la aprobación");
+  msg("captureMsg",r.resultado.recibo.duplicado?"Aprobación anterior confirmada. No se repitieron sus operaciones.":r.resultado.estado==="PARCIAL"?"Aprobación parcial confirmada. Quedan elementos por revisar.":"Aprobación confirmada y recibo conservado.");await Promise.all([loadDrafts(),load()]);
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("captureMsg","No se confirmó la aprobación. Revisa sus confirmaciones antes de registrarla de nuevo: "+e.message,false);}
+ finally{aprobacionesEnCurso.delete(id);}
+};
+window.confirmarAprobacionesPendientes=async()=>{
+ const sesion=token;if(!sesion||$("app").hidden)return;const boton=$("confirmApprovals");if(boton?.disabled)return;if(boton)boton.disabled=true;
+ const informar=(texto,ok)=>{msg("captureMsg",texto,ok);if($("prestamoMsg"))msg("prestamoMsg",texto,ok);if($("credMsg"))msg("credMsg",texto,ok);if($("cuentaMsg"))msg("cuentaMsg",texto,ok);if($("conciliacionMsg"))msg("conciliacionMsg",texto,ok);if($("cicloCuentaMsg"))msg("cicloCuentaMsg",texto,ok);};
+ try{
+  const control=controlFinancieroPersonal(),pendientes=control.pendientes(sesion).filter(p=>p.tipo==="header"&&(p.id.startsWith("aprobacion_")||p.id.startsWith("prestamo_")||p.id.startsWith("credito_")||p.id.startsWith("cuenta_")||p.id.startsWith("activo_")||p.id.startsWith("inversion_")||p.id.startsWith("conciliacion_")||p.id.startsWith("ciclo_cuenta_")||p.id.startsWith("ciclo_activo_")||p.id.startsWith("ciclo_inversion_")));let confirmadas=0;
+  for(const p of pendientes.slice(0,20)){
+   try{const cicloInversion=p.id.startsWith("ciclo_inversion_"),cicloActivo=p.id.startsWith("ciclo_activo_"),inversion=p.id.startsWith("inversion_"),activo=p.id.startsWith("activo_"),ciclo=p.id.startsWith("ciclo_cuenta_"),conciliacion=p.id.startsWith("conciliacion_"),cuenta=p.id.startsWith("cuenta_"),prestamo=p.id.startsWith("prestamo_")||p.id.startsWith("credito_"),r=await api((cicloInversion?"/inversiones/confirmacion-ciclo/":cicloActivo?"/activos/confirmacion-ciclo/":inversion?"/inversiones/confirmacion-creacion/":activo?"/activos/confirmacion-creacion/":ciclo?"/cuentas/confirmacion-ciclo/":conciliacion?"/cuentas/confirmacion-conciliacion/":cuenta?"/cuentas/confirmacion-creacion/":p.id.startsWith("credito_")?"/creditos/confirmacion-creacion/":prestamo?"/prestamos/confirmacion-creacion/":"/captura/confirmacion-aprobacion/")+encodeURIComponent(p.id));if(token!==sesion||$("app").hidden)return;if(cicloInversion?control.confirmarCicloInversion(sesion,r.recibo):cicloActivo?control.confirmarCicloActivo(sesion,r.recibo):inversion?control.confirmarCreacionInversion(sesion,r.recibo):activo?control.confirmarCreacionActivo(sesion,r.recibo):ciclo?control.confirmarCicloCuenta(sesion,r.recibo):conciliacion?control.confirmarConciliacionCuenta(sesion,r.recibo):cuenta?control.confirmarCreacionCuenta(sesion,r.recibo):prestamo?control.confirmarCreacionPrestamo(sesion,r.recibo):await control.confirmarAprobacion(sesion,r.recibo))confirmadas++;}
+   catch(e){if(token!==sesion||$("app").hidden)return;}
+  }
+  if(token!==sesion||$("app").hidden)return;
+  informar(confirmadas+" operación(es) confirmada(s). "+(pendientes.length>20?"Se revisaron hasta veinte; puedes volver a consultar. ":"")+"Sin recibo verificable la operación sigue pendiente; no se volvió a contabilizar.",confirmadas>0);await Promise.all([loadDrafts(),load()]);
+ }catch(e){if(token===sesion&&!$("app").hidden)informar("No se pudieron revisar las confirmaciones: "+e.message,false);}
+ finally{if(boton)boton.disabled=false;}
+};
+if($("confirmApprovals"))$("confirmApprovals").onclick=window.confirmarAprobacionesPendientes;
+window.discardDraft=async id=>{try{await api("/captura/"+id+"/descartar",{method:"POST"});await loadDrafts()}catch(e){msg("captureMsg",e.message,false)}};function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}$("installApp").onclick=async()=>{if(standalone())return refreshInstall();if(installPrompt){installPrompt.prompt();const choice=await installPrompt.userChoice;if(choice?.outcome==="accepted")installPrompt=null;return refreshInstall()}const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);alert(ios?"Para instalar GRUK: abre esta página en Safari, toca Compartir y luego «Añadir a pantalla de inicio».":"Para instalar GRUK: abre el menú del navegador (⋮) y toca «Instalar aplicación» o «Añadir a pantalla de inicio».")};$("choosePersonal").onclick=()=>{$("productChooser").hidden=true;$("auth").hidden=false};$("chooseBusiness").onclick=()=>{$("businessOptions").hidden=!$("businessOptions").hidden};$("businessLogin").onclick=()=>location.assign("https://resturante-qr-1.onrender.com/login.html");$("businessSignup").onclick=()=>location.assign("https://resturante-qr-1.onrender.com/registro-empresa.html");document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-tab],.panel").forEach(x=>x.classList.remove("active"));b.classList.add("active");$(b.dataset.tab).classList.add("active")});document.querySelectorAll(".tipo").forEach(b=>b.onclick=()=>{tipo=b.dataset.tipo;document.querySelectorAll(".tipo").forEach(x=>x.classList.toggle("active",x===b))});const relojPersonal=crearRelojPersonal({documento:document,ventana:window,puedeActualizarFecha:id=>!manualPayloadPendiente&&!api.estadoFinanciero?.()?.bloqueada&&(id==="mFecha"?!$("mMonto").value&&!$("mConcepto").value:!$("pContraparte").value&&!$("pSaldo").value)});$("login").onclick=async()=>{try{msg("authMsg","Verificando…");enter(await api("/auth/login",body({email:$("email").value,password:$("password").value,mantenerSesion:$("keepSession").checked})))}catch(e){msg("authMsg",e.message,false)}};$("register").onclick=async()=>{try{msg("authMsg","Creando prueba gratuita…");enter(await api("/auth/registro",body({nombre:$("nombre").value,email:$("email").value,password:$("password").value})))}catch(e){msg("authMsg",e.message,false)}};$("logout").onclick=()=>{clearToken();location.reload()};$("evaluarCompra").onclick=async()=>{
  const sesion=token,boton=$("evaluarCompra"),respuesta=$("compraRespuesta"),estado=$("compraEstado");
  if(!sesion||$("app").hidden)return;
+ const controlCompra=api.estadoFinanciero?.();if(controlCompra?.bloqueada){invalidarAutorizacionDisponible();estado.textContent=controlCompra.motivo;return;}
+ const revisionCompra=controlCompra?.revision||0;
+ const compraVigente=()=>{const actual=api.estadoFinanciero?.();return !actual||!actual.bloqueada&&actual.revision===revisionCompra&&actual.usuario===controlCompra.usuario;};
  const texto=$("compraMonto").value.trim();
  respuesta.hidden=true;respuesta.textContent="";estado.textContent="";
  if(!/^[1-9][0-9]*$/.test(texto)||!Number.isSafeInteger(Number(texto))){
@@ -305,14 +558,14 @@ window.rastrearCobro52000=async()=>{try{const r=await api("/rastrear-cobro?monto
  boton.disabled=true;
  try{
   const resultado=await api("/gastos/evaluar",body({montoMinor:Number(texto)}));
-  if(token!==sesion||$("app").hidden)return;
+  if(token!==sesion||$("app").hidden)return;if(!compraVigente())return;
   const evaluacion=resultado.evaluacion;
   if(!evaluacion||typeof evaluacion.mensaje!=="string")throw new Error("GRUK no devolvió un análisis verificable");
   respuesta.textContent=evaluacion.mensaje;
   respuesta.hidden=false;
   estado.textContent=evaluacion.estado==="FALTAN_DATOS"?"Faltan datos verificados; no hay autorización de gasto.":"Análisis informativo: ningún gasto fue registrado.";
  }catch(err){
-  if(token!==sesion||$("app").hidden)return;
+  if(token!==sesion||$("app").hidden)return;if(!compraVigente())return;
   estado.textContent=err.message||"No se pudo evaluar la compra";
  }finally{boton.disabled=false;}
 };
@@ -331,6 +584,10 @@ $("refresh").onclick=load;$("saveMovimiento").onclick=async()=>{const boton=$("s
     msg("movMsg","Este intento corresponde a un movimiento anulado. No vuelvas a registrarlo sin revisar el historial.",false);
     return;
    }
+   if(confirmado.estado==="CORREGIDA"){
+    msg("movMsg","Este intento corresponde a un movimiento que ya fue corregido. Revisa sus datos actuales en el historial antes de volver a registrarlo.",false);
+    return;
+   }
   }catch(consultaError){
    if(consultaError.statusCode===409){
     msg("movMsg","Conflicto de idempotencia: el identificador corresponde a otro movimiento. Revisa el historial.",false);
@@ -338,8 +595,203 @@ $("refresh").onclick=load;$("saveMovimiento").onclick=async()=>{const boton=$("s
    }
   }
  }
- if(e.code==="SESION_CAMBIADA"||e.name==="AbortError"){msg("movMsg","La sesión cambió o la solicitud se interrumpió. Comprueba el historial antes de reintentar.",false)}else if(e.statusCode===undefined&&manualPayloadPendiente){msg("movMsg","No se pudo confirmar si el movimiento quedó guardado. Revisa el historial y reintenta con los mismos datos; GRUK conserva el identificador.",false)}else{msg("movMsg",e.message,false)}}finally{boton.disabled=false}};$("savePrestamo").onclick=async()=>{const boton=$("savePrestamo");if(boton.disabled)return;try{const contraparte=$("pContraparte").value.trim(),saldo=Number($("pSaldo").value),concepto=$("pConcepto").value.trim()||"Préstamo personal";if(!contraparte||!Number.isSafeInteger(saldo)||saldo<=0)throw Error("Indica la persona y un saldo válido en pesos.");boton.disabled=true;await api("/prestamos",body({direccion:"POR_COBRAR",origenCuentaPorCobrar:($("pOrigen")?.value||"TRABAJO"),contraparte,concepto,principalMinor:saldo,fechaInicio:new Date().toISOString(),fechaVencimiento:null}));$("pContraparte").value="";$("pSaldo").value="";$("pConcepto").value="";await load();msg("prestamoMsg","Dinero por cobrar guardado y actualizado.");}catch(e){msg("prestamoMsg",e.message,false)}finally{boton.disabled=false}};$("saveCredito").onclick=async()=>{try{await api("/creditos",body({nombre:$("cNombre").value,saldo:pesosExactos("cSaldo"),tasaMensualPct:Number($("cTasa").value),cuotaMensual:pesosExactos("cCuota"),mesesRestantes:Number($("cMeses").value)}));await load();msg("credMsg","Crédito guardado y visible en Mis deudas.")}catch(e){msg("credMsg",e.message,false)}};$("saveActivo").onclick=async()=>{try{await api("/activos",body({nombre:$("aNombre").value,tipo:$("aTipo").value,valorActual:pesosExactos("aValor"),liquido:["EFECTIVO","CUENTA"].includes($("aTipo").value),institucion:$("aInstitucion").value}));msg("actMsg","Activo guardado.");await load()}catch(e){msg("actMsg",e.message,false)}};$("saveInversion").onclick=async()=>{try{await api("/inversiones",body({nombre:$("iNombre").value,clase:$("iClase").value,capitalAportado:pesosExactos("iCapital"),valorActual:pesosExactos("iValor",{permiteCero:true}),moneda:"COP",riesgoDeclarado:"NO_CLASIFICADO",institucion:""}));msg("invMsg","Inversión guardada.");await load()}catch(e){msg("invMsg",e.message,false)}};$("saveMeta").onclick=async()=>{try{await api("/metas",body({nombre:$("gNombre").value,objetivo:pesosExactos("gObjetivo"),acumulado:pesosExactos("gAcumulado",{permiteCero:true}),fechaObjetivo:$("gFecha").value||null}));msg("metaMsg","Meta guardada.")}catch(e){msg("metaMsg",e.message,false)}};$("ask").onsubmit=async e=>{e.preventDefault();const q=$("question").value.trim();if(!q)return;$("answer").textContent="Analizando tus datos…";try{const j=await api("/consulta",body({pregunta:q}));$("answer").textContent=j.resultado.respuesta}catch(x){$("answer").textContent=x.message}};function chatBubble(who,text){const box=document.createElement("div");box.className="draft";box.style.alignSelf=who==="Tú"?"flex-end":"flex-start";box.style.maxWidth="90%";box.style.whiteSpace="pre-wrap";const name=document.createElement("strong");name.textContent=who;box.append(name,document.createElement("br"),document.createTextNode(text));$("chatHistory").appendChild(box);$("chatHistory").scrollTop=$("chatHistory").scrollHeight;}
+ if(e.code==="SESION_CAMBIADA"||e.name==="AbortError"){msg("movMsg","La sesión cambió o la solicitud se interrumpió. Comprueba el historial antes de reintentar.",false)}else if(e.statusCode===undefined&&manualPayloadPendiente){msg("movMsg","No se pudo confirmar si el movimiento quedó guardado. Revisa el historial y reintenta con los mismos datos; GRUK conserva el identificador.",false)}else{msg("movMsg",e.message,false)}}finally{boton.disabled=false}};$("savePrestamo").onclick=async()=>{
+ const sesion=token,boton=$("savePrestamo");if(!sesion||$("app").hidden||boton.disabled)return;
+ try{
+  const contraparte=$("pContraparte").value.trim(),saldo=Number($("pSaldo").value),concepto=$("pConcepto").value.trim()||"Préstamo personal",dia=$("pFecha").value;
+  if(!contraparte||!Number.isSafeInteger(saldo)||saldo<=0||!/^\d{4}-\d{2}-\d{2}$/.test(dia))throw Error("Indica persona, saldo exacto en pesos y fecha del hecho.");
+  if(!window.confirm("¿Guardar esta cuenta por cobrar de "+money(saldo)+" a "+contraparte+", con fecha "+dia+"? No registra entrada ni salida de dinero."))return;
+  boton.disabled=true;
+  const datos={confirmacion:true,direccion:"POR_COBRAR",origenCuentaPorCobrar:($("pOrigen")?.value||"TRABAJO"),contraparte,concepto,principalMinor:saldo,fechaInicio:dia+"T05:00:00.000Z",fechaVencimiento:null};
+  const r=await api("/prestamos",{method:"POST",headers:{"Idempotency-Key":"prestamo_"+crypto.randomUUID()},body:JSON.stringify(datos)});
+  if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("La creación sigue sin confirmar; revisa sus confirmaciones.");
+  $("pContraparte").value="";$("pSaldo").value="";$("pConcepto").value="";await load();if(token===sesion&&!$("app").hidden)msg("prestamoMsg",r.duplicado?"Creación anterior confirmada; no se registró otra cuenta.":"Cuenta por cobrar confirmada. No se registró un cobro.");
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("prestamoMsg","No se confirmó la creación. Revisa confirmaciones pendientes o reintenta con los mismos datos originales: "+e.message,false);}
+ finally{boton.disabled=false;}
+};$("saveCredito").onclick=async()=>{
+ const sesion=token,boton=$("saveCredito");if(!sesion||$("app").hidden||boton.disabled)return;
+ try{
+  const nombre=$("cNombre").value.trim(),contraparte=$("cAcreedor").value.trim(),saldo=pesosExactos("cSaldo"),cuotaMensual=pesosExactos("cCuota"),mesesRestantes=Number($("cMeses").value),dia=$("cFechaSaldo").value,pago=$("cProximoPago").value,tasa=$("cTasa").value.trim();
+  if(!nombre||!contraparte||!Number.isInteger(mesesRestantes)||mesesRestantes<1||mesesRestantes>360||!/^\d{4}-\d{2}-\d{2}$/.test(dia)||pago&&!/^\d{4}-\d{2}-\d{2}$/.test(pago)||!$("cMensualConfirmada").checked)throw Error("Indica acreedor, fecha del saldo y cuotas pendientes; confirma que son mensuales.");
+  if(tasa!==""&&(!Number.isFinite(Number(tasa))||Number(tasa)<0||Number(tasa)>100))throw Error("Revisa la tasa mensual o déjala vacía si no la conoces.");
+  if(!window.confirm("¿Registrar saldo pendiente de "+money(saldo)+" con "+contraparte+" al "+dia+", "+mesesRestantes+" cuotas mensuales de "+money(cuotaMensual)+"? "+(pago?"Próximo pago: "+pago+".":"Sin fecha del próximo pago, Disponible Hoy seguirá por confirmar.")+" No registra desembolso ni pagos anteriores."))return;
+  boton.disabled=true;
+  const datos={confirmacion:true,nombre,contraparte,saldo,cuotaMensual,mesesRestantes,periodicidadConfirmada:true,fechaSaldo:dia+"T05:00:00.000Z",fechaProximoPago:pago?pago+"T05:00:00.000Z":null,...(tasa===""?{}:{tasaMensualPct:Number(tasa)})};
+  const r=await api("/creditos",{method:"POST",headers:{"Idempotency-Key":"credito_"+crypto.randomUUID()},body:JSON.stringify(datos)});
+  if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("El crédito sigue sin confirmar; consulta sus confirmaciones.");
+  await load();if(token===sesion&&!$("app").hidden)msg("credMsg",(r.duplicado?"Registro anterior confirmado; no se creó otra deuda.":"Saldo de deuda confirmado sin registrar pagos ni dinero recibido.")+(pago?"":" Falta la fecha del próximo pago para calcular Disponible Hoy."));
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("credMsg","No se confirmó el crédito. Consulta confirmaciones pendientes o reintenta con los mismos datos: "+e.message,false);}
+ finally{boton.disabled=false;}
+};$("saveCuenta").onclick=async()=>{
+ const sesion=token,boton=$("saveCuenta");if(!sesion||$("app").hidden||boton.disabled)return;
+ try{
+  const nombre=$("qNombre").value.normalize("NFKC").trim().replace(/\s+/g," ").toUpperCase(),tipo=$("qTipo").value,institucion=$("qInstitucion").value.trim(),saldoMinor=pesosExactos("qSaldo",{permiteCero:true}),civil=$("qFecha").value,saldoVerificado=$("qVerificado").checked;
+  if(!nombre||nombre.length>100||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(civil))throw Error("Indica nombre, saldo exacto y fecha/hora del saldo.");
+  const instante=new Date(civil+(civil.length===16?":00":"")+"-05:00");if(!Number.isFinite(+instante)||new Date(+instante-5*3600000).toISOString().slice(0,19)!==civil+(civil.length===16?":00":"")||+instante>Date.now())throw Error("La fecha del saldo debe ser válida y no futura.");
+  if(!window.confirm("¿Crear "+nombre+" con saldo declarado de "+money(saldoMinor)+" a "+civil+" (hora Colombia)? "+(saldoVerificado?"Confirmas que verificaste ese saldo disponible en tu cuenta.":"Quedará sin verificar y requerirá conciliación.")+" No se registrará como ingreso. No dupliques una cuenta existente."))return;
+  boton.disabled=true;
+  const r=await api("/cuentas",{method:"POST",headers:{"Idempotency-Key":"cuenta_"+crypto.randomUUID()},body:JSON.stringify({confirmacion:true,nombre,tipo,institucion,moneda:"COP",saldoMinor,saldoVerificado,fechaSaldo:instante.toISOString()})});
+  if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("La cuenta sigue sin confirmar; consulta sus confirmaciones.");await load();
+  if(token===sesion&&!$("app").hidden)msg("cuentaMsg",r.duplicado?"Creación anterior confirmada; no se creó otra cuenta.":saldoVerificado?"Cuenta confirmada con saldo declarado por ti; no es verificación bancaria ni un ingreso.":"Cuenta confirmada sin verificar. Concilia su saldo antes de usarlo como disponible.");
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("cuentaMsg","No se confirmó la cuenta. Consulta confirmaciones o reintenta con los mismos datos: "+e.message,false);}
+ finally{boton.disabled=false;}
+};const cuentasParaConciliar=new Map();let cuentaHistorial=null,consultaConciliacion=0;
+function limpiarConciliacionCuentaInterfaz(){if(typeof limpiarCicloInversionInterfaz==="function")limpiarCicloInversionInterfaz();if(typeof limpiarCicloActivoInterfaz==="function")limpiarCicloActivoInterfaz();if(typeof limpiarCicloCuentaInterfaz==="function")limpiarCicloCuentaInterfaz();consultaConciliacion++;cuentasParaConciliar.clear();cuentaHistorial=null;if($("qcCuenta"))$("qcCuenta").innerHTML='<option value="">Primero consulta las cuentas</option>';for(const id of ["qcSaldo","qcFecha"]){if($(id))$(id).value="";}if($("qcHistorial"))$("qcHistorial").textContent="";for(const id of ["qcAnterior","qcSiguiente"]){if($(id))$(id).hidden=true;}}
+$("refreshConciliaciones").onclick=async()=>{
+ const sesion=token,consulta=++consultaConciliacion;if(!sesion||$("app").hidden)return;try{const r=await api("/cuentas/conciliaciones");if(token!==sesion||$("app").hidden||consulta!==consultaConciliacion)return;cuentasParaConciliar.clear();for(const c of r.cuentas)cuentasParaConciliar.set(String(c._id),c);$("qcCuenta").innerHTML='<option value="">Selecciona cuenta</option>'+r.cuentas.map(c=>'<option value="'+esc(String(c._id))+'">'+esc(c.nombre)+' · saldo registrado '+esc(money(c.saldoMinor))+'</option>').join("");msg("conciliacionMsg","Cuentas consultadas. Revisa tu saldo y su fecha antes de conciliar.");}catch(e){if(token===sesion&&!$("app").hidden)msg("conciliacionMsg",e.message,false);}
+};
+$("saveConciliacion").onclick=async()=>{
+ const sesion=token,boton=$("saveConciliacion");if(!sesion||$("app").hidden||boton.disabled)return;try{
+  const id=$("qcCuenta").value,c=cuentasParaConciliar.get(id),saldoMinor=pesosExactos("qcSaldo",{permiteCero:true}),civil=$("qcFecha").value;if(!c||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(civil))throw Error("Consulta y selecciona la cuenta e indica fecha/hora verificadas.");
+  const fecha=new Date(civil+(civil.length===16?":00":"")+"-05:00");if(!Number.isFinite(+fecha)||new Date(+fecha-5*3600000).toISOString().slice(0,19)!==civil+(civil.length===16?":00":"")||+fecha>Date.now())throw Error("Fecha de saldo inválida o futura.");
+  if(!window.confirm("¿Confirmas saldo verificado de "+money(saldoMinor)+" para "+c.nombre+" a "+civil+" (hora Colombia)? Se conservará el estado anterior; no se registra ingreso ni movimiento bancario."))return;boton.disabled=true;
+  const r=await api("/cuentas/"+id+"/conciliar",{method:"POST",headers:{"Idempotency-Key":"conciliacion_"+crypto.randomUUID()},body:JSON.stringify({confirmacion:true,versionCuenta:c.versionCuenta,saldoMinor,fecha:fecha.toISOString()})});if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("Conciliación sin confirmar. Consulta su recibo.");await load();if(token===sesion&&!$("app").hidden)msg("conciliacionMsg",r.duplicado?"Conciliación anterior confirmada; no se repuso ningún saldo.":"Conciliación confirmada. Se conservó el estado anterior y no se registró ingreso.");
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("conciliacionMsg","No se confirmó la conciliación. Revisa confirmaciones o conserva los datos originales: "+e.message,false);}finally{boton.disabled=false;}
+};
+window.verConciliacionesCuenta=async(pagina=1)=>{
+ const sesion=token,id=$("qcCuenta").value;if(!sesion||$("app").hidden||!id)return;try{const r=await api("/cuentas/"+id+"/conciliaciones?pagina="+pagina);if(token!==sesion||$("app").hidden||$("qcCuenta").value!==id)return;cuentaHistorial={id,pagina:r.pagina};$("qcHistorial").textContent="Conciliaciones registradas (no certifica historia completa):\n"+r.eventos.map(e=>"#"+e.secuencia+": saldo registrado "+money(e.anterior.saldoMinor)+" → "+money(e.posterior.saldoMinor)+"; fecha del saldo "+e.datos.fecha+"; origen "+e.datos.origenSaldo).join("\n");$("qcAnterior").hidden=pagina<=1;$("qcSiguiente").hidden=!r.hayMas;}catch(e){if(token===sesion&&!$("app").hidden)msg("conciliacionMsg",e.message,false);}
+};
+$("qcCuenta").onchange=()=>{cuentaHistorial=null;$("qcHistorial").textContent="";$("qcAnterior").hidden=true;$("qcSiguiente").hidden=true;};$("verConciliaciones").onclick=()=>window.verConciliacionesCuenta(1);$("qcAnterior").onclick=()=>{if(cuentaHistorial&&$("qcCuenta").value===cuentaHistorial.id)window.verConciliacionesCuenta(cuentaHistorial.pagina-1);};$("qcSiguiente").onclick=()=>{if(cuentaHistorial&&$("qcCuenta").value===cuentaHistorial.id)window.verConciliacionesCuenta(cuentaHistorial.pagina+1);};
+const cuentasCiclo=new Map(),cicloCuentasEnCurso=new Set();let cargaCicloCuentas=0,paginaCicloCuenta=1,cargaHistorialCiclo=0;
+function limpiarCicloCuentaInterfaz(){cargaCicloCuentas++;cargaHistorialCiclo++;cuentasCiclo.clear();paginaCicloCuenta=1;for(const id of ["cicloAnterior","cicloSiguiente"]){if($(id)){$(id).hidden=true;$(id).onclick=null;}}if($("cuentasCiclo"))$("cuentasCiclo").textContent="Consulta tus cuentas y retiros.";if($("historialCicloCuenta"))$("historialCicloCuenta").textContent="";}
+$("consultarCicloCuentas").onclick=async()=>{
+ const sesion=token,n=++cargaCicloCuentas;if(!sesion||$("app").hidden)return;try{const r=await api("/cuentas/ciclo");if(token!==sesion||$("app").hidden||n!==cargaCicloCuentas)return;cuentasCiclo.clear();for(const c of r.cuentas)cuentasCiclo.set(String(c._id),c);$("cuentasCiclo").innerHTML=r.cuentas.map(c=>'<div class="row"><span>'+esc(c.nombre)+' · '+esc(money(c.saldoMinor))+' · '+(c.activa?'Activa':'Retirada; recuperable')+'</span><button class="secondary" onclick="window.cambiarCicloCuenta(\''+esc(String(c._id))+'\')">'+(c.activa?'Retirar en cero':'Restaurar cuenta')+'</button><button class="secondary" onclick="window.verCicloCuenta(\''+esc(String(c._id))+'\',1)">Ver retiros</button></div>').join("")||"No hay cuentas registradas.";}catch(e){if(token===sesion&&!$("app").hidden)msg("cicloCuentaMsg",e.message,false);}
+};
+window.cambiarCicloCuenta=async id=>{
+ const sesion=token,c=cuentasCiclo.get(id);if(!sesion||$("app").hidden||!c||cicloCuentasEnCurso.has(id))return;try{
+  let datos={confirmacion:true,versionCuenta:c.versionCuenta},accion;if(c.activa){if(c.saldoMinor!==0)throw Error("La cuenta tiene dinero. No se retira ni se oculta su saldo.");const motivo=window.prompt("¿Por qué retiras esta cuenta en cero? Se conservarán cuenta, anclas y movimientos.");if(motivo===null)return;if(!motivo.trim()||motivo.length>240)throw Error("Indica un motivo breve.");datos.motivo=motivo.trim();accion="retirar";}else{if(!c.retiroHash)throw Error("No hay retiro verificable para restaurar.");datos.retiroHash=c.retiroHash;accion="restaurar-retiro";}
+  if(!window.confirm((c.activa?"¿Retirar ":"¿Restaurar ")+c.nombre+"? No se borra historial, no se copia un saldo viejo ni se registra dinero."))return;cicloCuentasEnCurso.add(id);
+  const r=await api("/cuentas/"+id+"/"+accion,{method:"POST",headers:{"Idempotency-Key":"ciclo_cuenta_"+crypto.randomUUID()},body:JSON.stringify(datos)});if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("La operación sigue sin confirmar; consulta el recibo.");msg("cicloCuentaMsg",r.duplicado?"Operación anterior confirmada; no se repitió ningún efecto.":c.activa?"Cuenta retirada y recuperable en esta misma lista. Sus movimientos se conservaron.":"Misma cuenta restaurada sin duplicar saldo ni pagos. Concilia su saldo antes de usarlo como disponible.");await load();if(token===sesion&&!$("app").hidden)await $("consultarCicloCuentas").onclick();
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("cicloCuentaMsg","No se confirmó la operación. Revisa confirmaciones o conserva los mismos datos: "+e.message,false);}finally{cicloCuentasEnCurso.delete(id);}
+};
+window.verCicloCuenta=async(id,pagina=1)=>{const sesion=token,n=++cargaHistorialCiclo;if(!sesion||$("app").hidden)return;try{const r=await api("/cuentas/"+id+"/ciclo?pagina="+pagina);if(token!==sesion||$("app").hidden||n!==cargaHistorialCiclo)return;paginaCicloCuenta=pagina;$("historialCicloCuenta").textContent="Retiros registrados; no acredita historia completa:\n"+r.eventos.map(e=>"#"+e.secuencia+" "+e.tipo+" · "+e.fecha+" · "+(e.solicitud.motivo||"Restauración confirmada")).join("\n");$("cicloAnterior").hidden=pagina<=1;$("cicloSiguiente").hidden=!r.hayMas;$("cicloAnterior").onclick=()=>window.verCicloCuenta(id,paginaCicloCuenta-1);$("cicloSiguiente").onclick=()=>window.verCicloCuenta(id,paginaCicloCuenta+1);}catch(e){if(token===sesion&&!$("app").hidden)msg("cicloCuentaMsg",e.message,false);}};
+const activosCiclo=new Map(),cicloActivosEnCurso=new Set();let cargaCicloActivos=0,paginaCicloActivo=1,cargaHistorialCicloActivo=0;
+function limpiarCicloActivoInterfaz(){cargaCicloActivos++;cargaHistorialCicloActivo++;activosCiclo.clear();paginaCicloActivo=1;for(const id of ["cicloActivoAnterior","cicloActivoSiguiente"]){if($(id)){$(id).hidden=true;$(id).onclick=null;}}if($("activosCiclo"))$("activosCiclo").textContent="Consulta tus activos y retiros.";if($("historialCicloActivo"))$("historialCicloActivo").textContent="";}
+$("consultarCicloActivos").onclick=async()=>{
+ const sesion=token,n=++cargaCicloActivos;if(!sesion||$("app").hidden)return;try{const r=await api("/activos/ciclo");if(token!==sesion||$("app").hidden||n!==cargaCicloActivos)return;activosCiclo.clear();for(const c of r.activos)activosCiclo.set(String(c._id),c);$("activosCiclo").innerHTML=r.activos.map(c=>'<div class="row"><span>'+esc(c.nombre)+' · '+esc(money(c.valorMinor))+' · '+(c.activa?'Incluido':'Retirado; recuperable')+'</span><button class="secondary" onclick="window.cambiarCicloActivo(\''+esc(String(c._id))+'\')">'+(c.activa?'Retirar activo':'Restaurar activo')+'</button><button class="secondary" onclick="window.verCicloActivo(\''+esc(String(c._id))+'\',1)">Ver retiros</button></div>').join("")||"No hay activos registrados.";}catch(e){if(token===sesion&&!$("app").hidden)msg("cicloActivoMsg",e.message,false);}
+};
+window.cambiarCicloActivo=async id=>{
+ const sesion=token,c=activosCiclo.get(id);if(!sesion||$("app").hidden||!c||cicloActivosEnCurso.has(id))return;try{
+  let datos={confirmacion:true,versionActivo:c.versionActivo},accion;if(c.activa){if(c.liquido!==false||!c.creacionReciboHash)throw Error("Este activo requiere revisión de su declaración original antes de retirarlo.");const motivo=window.prompt("¿Por qué retiras este activo? Se conservarán declaración y recibos; no registra una venta.");if(motivo===null)return;if(!motivo.trim()||motivo.length>240)throw Error("Indica un motivo breve.");datos.motivo=motivo.trim();accion="retirar";}else{if(!c.retiroHash)throw Error("No hay retiro verificable para restaurar.");datos.retiroHash=c.retiroHash;accion="restaurar-retiro";}
+  if(!window.confirm((c.activa?"¿Retirar ":"¿Restaurar ")+c.nombre+"? No se borra el original ni se registra dinero. Cambia su inclusión en el patrimonio; no registra una venta."))return;cicloActivosEnCurso.add(id);
+  const r=await api("/activos/"+id+"/"+accion,{method:"POST",headers:{"Idempotency-Key":"ciclo_activo_"+crypto.randomUUID()},body:JSON.stringify(datos)});if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("La operación sigue sin confirmar; consulta el recibo.");msg("cicloActivoMsg",r.duplicado?"Operación anterior confirmada; no se repitió ningún efecto.":c.activa?"Activo retirado y recuperable en esta misma lista. Sus movimientos se conservaron.":"Mismo activo restaurado una sola vez al patrimonio, sin crear caja ni pagos.");await load();if(token===sesion&&!$("app").hidden)await $("consultarCicloActivos").onclick();
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("cicloActivoMsg","No se confirmó la operación. Revisa confirmaciones o conserva los mismos datos: "+e.message,false);}finally{cicloActivosEnCurso.delete(id);}
+};
+window.verCicloActivo=async(id,pagina=1)=>{const sesion=token,n=++cargaHistorialCicloActivo;if(!sesion||$("app").hidden)return;try{const r=await api("/activos/"+id+"/ciclo?pagina="+pagina);if(token!==sesion||$("app").hidden||n!==cargaHistorialCicloActivo)return;paginaCicloActivo=pagina;$("historialCicloActivo").textContent="Retiros registrados; no acredita historia completa:\n"+r.eventos.map(e=>"#"+e.secuencia+" "+e.tipo+" · "+e.fecha+" · "+(e.solicitud.motivo||"Restauración confirmada")).join("\n");$("cicloActivoAnterior").hidden=pagina<=1;$("cicloActivoSiguiente").hidden=!r.hayMas;$("cicloActivoAnterior").onclick=()=>window.verCicloActivo(id,paginaCicloActivo-1);$("cicloActivoSiguiente").onclick=()=>window.verCicloActivo(id,paginaCicloActivo+1);}catch(e){if(token===sesion&&!$("app").hidden)msg("cicloActivoMsg",e.message,false);}};
+const inversionesCiclo=new Map(),cicloInversionesEnCurso=new Set();let cargaCicloInversiones=0,paginaCicloInversion=1,cargaHistorialCicloInversion=0;
+function limpiarCicloInversionInterfaz(){cargaCicloInversiones++;cargaHistorialCicloInversion++;inversionesCiclo.clear();paginaCicloInversion=1;for(const id of ["cicloInversionAnterior","cicloInversionSiguiente"]){if($(id)){$(id).hidden=true;$(id).onclick=null;}}if($("inversionesCiclo"))$("inversionesCiclo").textContent="Consulta tus inversiones y retiros.";if($("historialCicloInversion"))$("historialCicloInversion").textContent="";}
+$("consultarCicloInversiones").onclick=async()=>{
+ const sesion=token,n=++cargaCicloInversiones;if(!sesion||$("app").hidden)return;try{const r=await api("/inversiones/ciclo");if(token!==sesion||$("app").hidden||n!==cargaCicloInversiones)return;inversionesCiclo.clear();for(const c of r.inversiones)inversionesCiclo.set(String(c._id),c);$("inversionesCiclo").innerHTML=r.inversiones.map(c=>'<div class="row"><span>'+esc(c.nombre)+' · '+esc(money(c.valorActualMinor))+' · '+(c.activa?'Incluido':'Retirado; recuperable')+'</span><button class="secondary" onclick="window.cambiarCicloInversion(\''+esc(String(c._id))+'\')">'+(c.activa?'Retirar inversión':'Restaurar inversión')+'</button><button class="secondary" onclick="window.verCicloInversion(\''+esc(String(c._id))+'\',1)">Ver retiros</button></div>').join("")||"No hay inversiones registrados.";}catch(e){if(token===sesion&&!$("app").hidden)msg("cicloInversionMsg",e.message,false);}
+};
+window.cambiarCicloInversion=async id=>{
+ const sesion=token,c=inversionesCiclo.get(id);if(!sesion||$("app").hidden||!c||cicloInversionesEnCurso.has(id))return;try{
+  let datos={confirmacion:true,versionInversion:c.versionInversion},accion;if(c.activa){if(!c.creacionReciboHash)throw Error("Esta inversión requiere revisión de su declaración original antes de retirarlo.");const motivo=window.prompt("¿Por qué retiras esta inversión? Se conservarán declaración y recibos; no registra una venta.");if(motivo===null)return;if(!motivo.trim()||motivo.length>240)throw Error("Indica un motivo breve.");datos.motivo=motivo.trim();accion="retirar";}else{if(!c.retiroHash)throw Error("No hay retiro verificable para restaurar.");datos.retiroHash=c.retiroHash;accion="restaurar-retiro";}
+  if(!window.confirm((c.activa?"¿Retirar ":"¿Restaurar ")+c.nombre+"? No se borra el original ni se registra dinero. Cambia su inclusión en el patrimonio; no registra una venta."))return;cicloInversionesEnCurso.add(id);
+  const r=await api("/inversiones/"+id+"/"+accion,{method:"POST",headers:{"Idempotency-Key":"ciclo_inversion_"+crypto.randomUUID()},body:JSON.stringify(datos)});if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("La operación sigue sin confirmar; consulta el recibo.");msg("cicloInversionMsg",r.duplicado?"Operación anterior confirmada; no se repitió ningún efecto.":c.activa?"Inversión retirada y recuperable en esta misma lista. Sus movimientos se conservaron.":"Misma inversión restaurada una sola vez al patrimonio, sin crear caja ni pagos.");await load();if(token===sesion&&!$("app").hidden)await $("consultarCicloInversiones").onclick();
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("cicloInversionMsg","No se confirmó la operación. Revisa confirmaciones o conserva los mismos datos: "+e.message,false);}finally{cicloInversionesEnCurso.delete(id);}
+};
+window.verCicloInversion=async(id,pagina=1)=>{const sesion=token,n=++cargaHistorialCicloInversion;if(!sesion||$("app").hidden)return;try{const r=await api("/inversiones/"+id+"/ciclo?pagina="+pagina);if(token!==sesion||$("app").hidden||n!==cargaHistorialCicloInversion)return;paginaCicloInversion=pagina;$("historialCicloInversion").textContent="Retiros registrados; no acredita historia completa:\n"+r.eventos.map(e=>"#"+e.secuencia+" "+e.tipo+" · "+e.fecha+" · "+(e.solicitud.motivo||"Restauración confirmada")).join("\n");$("cicloInversionAnterior").hidden=pagina<=1;$("cicloInversionSiguiente").hidden=!r.hayMas;$("cicloInversionAnterior").onclick=()=>window.verCicloInversion(id,paginaCicloInversion-1);$("cicloInversionSiguiente").onclick=()=>window.verCicloInversion(id,paginaCicloInversion+1);}catch(e){if(token===sesion&&!$("app").hidden)msg("cicloInversionMsg",e.message,false);}};
+$("saveActivo").onclick=async()=>{
+ const sesion=token,boton=$("saveActivo");if(!sesion||$("app").hidden||boton.disabled)return;
+ try{
+  const nombre=$("aNombre").value.normalize("NFKC").trim().replace(/\s+/g," ").toUpperCase(),tipo=$("aTipo").value,institucion=$("aInstitucion").value.trim(),valorActual=pesosExactos("aValor",{permiteCero:true}),civil=$("aFecha").value;
+  if(!nombre||nombre.length>120||!["INMUEBLE","VEHICULO","OTRO"].includes(tipo)||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(civil))throw Error("Indica nombre, tipo no líquido, valor exacto y fecha/hora del valor declarado.");
+  const fecha=new Date(civil+(civil.length===16?":00":"")+"-05:00");if(!Number.isFinite(+fecha)||new Date(+fecha-5*3600000).toISOString().slice(0,19)!==civil+(civil.length===16?":00":"")||+fecha>Date.now())throw Error("La fecha del valor debe ser válida y no futura.");
+  if(!window.confirm("¿Registrar "+nombre+" con valor declarado de "+money(valorActual)+" a "+civil+" (hora Colombia)? No acredita valor de mercado, propiedad ni dinero disponible. No lo registres de nuevo si ya existe."))return;
+  boton.disabled=true;const r=await api("/activos",{method:"POST",headers:{"Idempotency-Key":"activo_"+crypto.randomUUID()},body:JSON.stringify({confirmacion:true,nombre,tipo,valorActual,moneda:"COP",liquido:false,institucion,fechaValor:fecha.toISOString()})});
+  if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("El activo sigue sin confirmar; revisa sus confirmaciones.");await load();if(token===sesion&&!$("app").hidden)msg("actMsg",r.duplicado?"Creación anterior confirmada; no se duplicó el activo.":"Activo declarado confirmado. No se movió caja ni se registró una compra o ingreso.");
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("actMsg","No se confirmó el activo. Consulta confirmaciones o reintenta con los mismos datos: "+e.message,false);}
+ finally{boton.disabled=false;}
+};$("saveInversion").onclick=async()=>{
+ const sesion=token,boton=$("saveInversion");if(!sesion||$("app").hidden||boton.disabled)return;
+ try{
+  const nombre=$("iNombre").value.normalize("NFKC").trim().replace(/\s+/g," ").toUpperCase(),clase=$("iClase").value,capitalAportado=pesosExactos("iCapital",{permiteCero:true}),valorActual=pesosExactos("iValor",{permiteCero:true}),civil=$("iFecha").value,institucion=$("iInstitucion").value.trim(),riesgoDeclarado=$("iRiesgoDeclarado").value,ld=$("iLiquidez").value.trim();
+  if(!nombre||nombre.length>140||!["EFECTIVO_RENTABLE","RENTA_FIJA","RENTA_VARIABLE","FONDO","ETF","CRIPTO","INMOBILIARIA","OTRA"].includes(clase)||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(civil)||ld&&!/^(0|[1-9]\d*)$/.test(ld))throw Error("Indica nombre, importes exactos, fecha/hora y liquidez en días o desconocida.");
+  const liquidezDias=ld===""?null:Number(ld);if(liquidezDias!==null&&(!Number.isSafeInteger(liquidezDias)||liquidezDias>3650))throw Error("La liquidez debe ser entre 0 y 3650 días o quedar desconocida.");
+  const fecha=new Date(civil+(civil.length===16?":00":"")+"-05:00");if(!Number.isFinite(+fecha)||new Date(+fecha-5*3600000).toISOString().slice(0,19)!==civil+(civil.length===16?":00":"")||+fecha>Date.now())throw Error("La fecha del valor debe ser válida y no futura.");
+  if(!window.confirm("¿Registrar "+nombre+" con capital declarado de "+money(capitalAportado)+" y valor declarado de "+money(valorActual)+" a "+civil+" (hora Colombia)? No acredita valor de mercado, rentabilidad realizada ni dinero disponible. No dupliques una posición existente."))return;
+  boton.disabled=true;const r=await api("/inversiones",{method:"POST",headers:{"Idempotency-Key":"inversion_"+crypto.randomUUID()},body:JSON.stringify({confirmacion:true,nombre,clase,capitalAportado,valorActual,moneda:"COP",liquidezDias,riesgoDeclarado,institucion,fechaValor:fecha.toISOString()})});
+  if(token!==sesion||$("app").hidden)return;if(r.recibo?.confirmado!==true)throw Error("La inversión sigue sin confirmar; consulta su recibo.");await load();if(token===sesion&&!$("app").hidden)msg("invMsg",r.duplicado?"Creación anterior confirmada; no se duplicó la inversión.":"Inversión declarada confirmada. No se movió caja ni se registró un aporte, compra o ingreso.");
+ }catch(e){if(token===sesion&&!$("app").hidden)msg("invMsg","No se confirmó la inversión. Consulta confirmaciones o reintenta con los mismos datos: "+e.message,false);}
+ finally{boton.disabled=false;}
+};$("saveMeta").onclick=async()=>{try{await api("/metas",body({nombre:$("gNombre").value,objetivo:pesosExactos("gObjetivo"),acumulado:pesosExactos("gAcumulado",{permiteCero:true}),fechaObjetivo:$("gFecha").value||null}));msg("metaMsg","Meta guardada.")}catch(e){msg("metaMsg",e.message,false)}};
+$("ask").onsubmit=async e=>{
+ e.preventDefault();const q=$("question").value.trim();if(!q)return;
+ const revision=++revisionPreguntaPersonal,sesion=token,control=api.estadoFinanciero();
+ const vigente=()=>revision===revisionPreguntaPersonal&&token===sesion&&!!sesion&&!$("app").hidden;
+ const datosVigentes=()=>{const actual=api.estadoFinanciero();return !actual.bloqueada&&actual.usuario===control.usuario&&actual.revision===control.revision;};
+ if(!vigente())return;
+ if(control.bloqueada){$("answer").textContent="Hay operaciones financieras pendientes o sin verificar. Confirma su resultado antes de consultar recomendaciones.";return;}
+ $("answer").textContent="Analizando tus datos…";
+ try{
+  const j=await api("/consulta",body({pregunta:q}));if(!vigente())return;
+  if(!datosVigentes()){$("answer").textContent="Los datos cambiaron. Verifica tus operaciones y consulta de nuevo.";return;}
+  if(j.ok!==true||typeof j.resultado?.respuesta!=="string"||!j.resultado.respuesta.trim())throw Error("No pude verificar la respuesta. Consulta de nuevo.");
+  $("answer").textContent=j.resultado.respuesta;
+ }catch(x){if(!vigente())return;$("answer").textContent=datosVigentes()?x.message:"Los datos cambiaron. Verifica tus operaciones y consulta de nuevo.";}
+};function chatBubble(who,text){const box=document.createElement("div");box.className="draft";box.style.alignSelf=who==="Tú"?"flex-end":"flex-start";box.style.maxWidth="90%";box.style.whiteSpace="pre-wrap";const name=document.createElement("strong");name.textContent=who;box.append(name,document.createElement("br"),document.createTextNode(text));$("chatHistory").appendChild(box);$("chatHistory").scrollTop=$("chatHistory").scrollHeight;}
 async function cargarHistorialChat(){const tokenConsulta=token;try{const j=await api("/copilot/historial");if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;const turnos=Array.isArray(j.turnos)?j.turnos:[];if(!turnos.length)return;const area=$("chatHistory");area.replaceChildren();for(const turno of turnos){chatBubble("Tú",turno.mensaje);chatBubble("GRUK",turno.respuesta);}}catch(e){if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;msg("captureMsg","No pude recuperar el historial: "+e.message,false);}}
 $("captureText").addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){event.preventDefault();$("interpret").click();}});
-let chatSending=false;$("interpret").onclick=async()=>{const texto=$("captureText").value.trim();if(!texto||chatSending)return;const tokenConsulta=token;if(!tokenConsulta||$("app").hidden)return;chatSending=true;$("interpret").disabled=true;chatBubble("Tú",texto);$("captureText").value="";try{const j=await api("/copilot",body({texto,canal:"TEXTO"})),r=j.resultado;if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;chatBubble("GRUK",r.mensaje||"No pude interpretar la respuesta.");if(r.requiereAprobacion||r.borrador){await loadDrafts();if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;msg("captureMsg","Revisa la propuesta y aprueba solo si deseas registrarla.");}else msg("captureMsg","Conversación sin movimientos registrados.");}catch(e){if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;chatBubble("GRUK","No pude procesar tu mensaje: "+e.message);msg("captureMsg",e.message,false);}finally{chatSending=false;$("interpret").disabled=false;}};
-$("iiAnalizar").onclick=async()=>{const tokenConsulta=token;if(!tokenConsulta||$("app").hidden)return;try{msg("iiMsg","GRUK está evaluando datos de mercado verificados…");const perfil=$("iiRiesgo").value;const capitalTexto=$("iiCapital").value.trim();if(!/^[1-9]\d*$/.test(capitalTexto)||!Number.isSafeInteger(Number(capitalTexto)))throw new Error("El capital debe ser un monto positivo en pesos enteros, sin decimales.");const payload={capitalMinor:Number(capitalTexto),horizonteMeses:Number($("iiHorizonte").value),drawdownMaxPct:Number($("iiDrawdown").value),liquidezMaxDias:Number($("iiLiquidez").value)};if(perfil)payload.perfilRiesgo=perfil;const j=await api("/inversiones/inteligencia",body(payload)),r=j.recomendacion,star=r.recomendacion_estrella;if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;$("iiResultado").innerHTML='<div class="draft"><b>'+(star?'Alternativa cuantitativa: '+esc(star.activo_seleccionado):'Ninguna alternativa cumple tus restricciones')+'</b><p>'+esc(r.metodologia)+'</p>'+r.opciones_evaluadas.map(x=>'<div class="row"><span>'+esc(x.activo)+' · '+esc(x.categoria)+(x.elegible?' · ELEGIBLE':' · FUERA DE RESTRICCIONES')+'</span><strong>Real '+x.metricas.retorno_real_estimado_anual_pct+'% · Sharpe '+(x.metricas.sharpe_estimado??"N/D")+' · P(>0) '+(x.metricas.probabilidad_retorno_nominal_positivo_pct??"N/D")+'%</strong></div>').join("")+'</div>';msg("iiMsg","Análisis calculado con fecha de mercado "+new Date(r.datos_corte).toLocaleString("es-CO")+".")}catch(e){if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;$("iiResultado").innerHTML="";msg("iiMsg",e.message,false)}};const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let listening=false;$("voice").onclick=async()=>{if(listening)return;try{if(!navigator.mediaDevices?.getUserMedia)throw new Error("MIC_NO_DISPONIBLE");const stream=await navigator.mediaDevices.getUserMedia({audio:true});stream.getTracks().forEach(t=>t.stop());if(!SR)throw new Error("STT_NO_DISPONIBLE");const r=new SR();r.lang="es-CO";r.interimResults=false;r.continuous=false;listening=true;$("voice").textContent="🎙 Escuchando…";msg("captureMsg","Habla normalmente. GRUK está escuchando.");r.onresult=e=>{const t=Array.from(e.results).map(x=>x[0]?.transcript||"").join(" ").trim();if(t){$("captureText").value+=( $("captureText").value?" ":"")+t;msg("captureMsg","Audio transcrito. Revisa el texto y pulsa Interpretar.")}};r.onerror=e=>{const code=String(e.error||"");const m=code==="not-allowed"||code==="service-not-allowed"?"Activa el permiso de micrófono para GRUK en tu teléfono y vuelve a tocar Dictar.":code==="no-speech"?"No detecté voz. Toca Dictar y habla cerca del micrófono.":code==="network"?"El servicio de dictado del dispositivo no respondió. Revisa tu conexión e inténtalo de nuevo.":"No pude transcribir este audio ("+code+"). Inténtalo otra vez.";msg("captureMsg",m,false)};r.onend=()=>{listening=false;$("voice").textContent="🎙 Dictar"};r.start()}catch(e){listening=false;$("voice").textContent="🎙 Dictar";msg("captureMsg",e.message==="MIC_NO_DISPONIBLE"?"Este dispositivo no expone el micrófono a la app.":e.name==="NotAllowedError"?"GRUK necesita permiso de micrófono. Habilítalo en los permisos de la app y vuelve a intentar.":"No fue posible iniciar el micrófono.",false)}};if(token){enter({});loadDrafts();cargarHistorialChat();/* No ejecutar reparaciones financieras al iniciar sesión. */}})();
+let chatSending=false,controlCapturaPersonal=null,revisionCapturaPersonal=0;
+function capturasPersonales(){if(!controlCapturaPersonal){if(typeof window.crearCapturaPersonal!=="function")throw Error("Protección de captura no disponible");controlCapturaPersonal=window.crearCapturaPersonal({almacenamiento:sessionStorage,usuarioDeToken:valor=>{try{const p=JSON.parse(atob(valor.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));return p.scope==="finanzas:personal"&&/^[a-f0-9]{24}$/i.test(p.sub)?p.sub.toLowerCase():null;}catch{return null;}},digerir:async v=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v)))).map(n=>n.toString(16).padStart(2,"0")).join(""),nuevaId:()=>"copilot_"+crypto.randomUUID()});}return controlCapturaPersonal;}
+function limpiarCapturaVista(){revisionCapturaPersonal++;chatSending=false;if($("captureText"))$("captureText").value="";if($("capturasRecuperables"))$("capturasRecuperables").replaceChildren();if($("chatHistory"))$("chatHistory").replaceChildren();if($("captureMsg"))$("captureMsg").textContent="";}
+function restaurarCapturaPersonal(){if(!token||$("app").hidden)return;try{const x=capturasPersonales().leer(token);$("captureText").value=x.texto;dibujarCapturasPersonales();}catch(e){msg("captureMsg",e.message,false);}}
+function dibujarCapturasPersonales(){const caja=$("capturasRecuperables");if(!caja||!token||$("app").hidden)return;const x=capturasPersonales().leer(token);caja.replaceChildren();for(const e of x.entradas){const div=document.createElement("div"),t=document.createElement("p"),consultar=document.createElement("button");t.textContent=(e.estado==="CONFIRMADA"?"Guardada: ":"Sin confirmar: ")+e.solicitud.texto.slice(0,180);consultar.textContent="Consultar respuesta guardada";consultar.onclick=()=>resolverCapturaPersonal(e.id,false);div.append(t,consultar);if(e.estado==="PENDIENTE"){const retry=document.createElement("button");retry.textContent="Reenviar los mismos datos";retry.onclick=()=>resolverCapturaPersonal(e.id,true);div.append(retry);}caja.append(div);}}
+async function mostrarCapturaPersonal(tokenConsulta,id,j,historica){if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;const estado=api.estadoFinanciero?.();await capturasPersonales().confirmar(tokenConsulta,id,j.recibo);if(token!==tokenConsulta||$("app").hidden)return;if(!historica&&!j.duplicado&&estado){const actual=api.estadoFinanciero();if(actual.bloqueada||actual.usuario!==estado.usuario||actual.revision!==estado.revision){msg("captureMsg","Captura guardada; las finanzas cambiaron mientras se confirmó. Consulta de nuevo antes de usar recomendaciones.",false);dibujarCapturasPersonales();return;}}const r=j.resultado;chatBubble("GRUK",(historica||j.duplicado?"Respuesta original guardada; no acredita saldos ni recomendaciones actuales.\n":"")+(r.mensaje||"Respuesta guardada"));if(r.requiereAprobacion||r.borrador){await loadDrafts();if(token!==tokenConsulta||$("app").hidden)return;}msg("captureMsg","Captura guardada. Aprobar un borrador es una operación separada; revisa su estado actual.");dibujarCapturasPersonales();}
+async function resolverCapturaPersonal(id,reenviar){if(chatSending||!token||$("app").hidden)return;const tokenConsulta=token,revision=++revisionCapturaPersonal;chatSending=true;$("interpret").disabled=true;try{const e=capturasPersonales().leer(tokenConsulta).entradas.find(x=>x.id===id);if(!e)throw Error("Captura no encontrada");if(reenviar&&!window.confirm("¿Reenviar exactamente el texto y la clave conservados? No aprueba movimientos."))return;const j=reenviar?await api("/copilot",{...body(e.solicitud),headers:{"Idempotency-Key":id}}):await api("/copilot/confirmacion/"+id);await mostrarCapturaPersonal(tokenConsulta,id,j,true);}catch(e){if(token===tokenConsulta&&!$("app").hidden)msg("captureMsg",e.message+" El texto y la clave siguen conservados; no se reenvió automáticamente.",false);}finally{if(revision===revisionCapturaPersonal){chatSending=false;if(token===tokenConsulta)$("interpret").disabled=false;}}}
+$("captureText").addEventListener("input",()=>{if(!token||$("app").hidden)return;try{capturasPersonales().texto(token,$("captureText").value);}catch(e){msg("captureMsg",e.message,false);}});
+$("interpret").onclick=async()=>{const texto=$("captureText").value;if(!texto.trim()||chatSending)return;const tokenConsulta=token;if(!tokenConsulta||$("app").hidden)return;const revision=++revisionCapturaPersonal;chatSending=true;$("interpret").disabled=true;try{const e=capturasPersonales().crear(tokenConsulta,texto);chatBubble("Tú",texto);$("captureText").value="";dibujarCapturasPersonales();const j=await api("/copilot",{...body(e.solicitud),headers:{"Idempotency-Key":e.id}});await mostrarCapturaPersonal(tokenConsulta,e.id,j,false);}catch(e){if(token!==tokenConsulta||$("app").hidden)return;msg("captureMsg",e.message+" Conserva el texto; consulta la respuesta guardada antes de reenviar.",false);try{dibujarCapturasPersonales();}catch{}}finally{if(revision===revisionCapturaPersonal){chatSending=false;if(token===tokenConsulta)$("interpret").disabled=false;}}};
+
+if(typeof window.montarRecuperacionPersonal==="function"){recuperacionPersonal=window.montarRecuperacionPersonal({documento:document,api,tokenActual:()=>token,usuarioDeToken:valor=>{try{const p=JSON.parse(atob(valor.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));return p.scope==="finanzas:personal"&&/^[a-f0-9]{24}$/i.test(p.sub)?p.sub.toLowerCase():null;}catch{return null;}},almacenamiento:sessionStorage,nuevaId:()=>"restauracion_"+crypto.randomUUID(),confirmar:t=>window.confirm(t),confirmarRecibo:(...args)=>controlFinancieroPersonal().confirmarRestauracionCiclo(...args),estadoFinanciero:()=>api.estadoFinanciero(),alCambiar:()=>{invalidarAutorizacionDisponible();load();buscarHistorial(true);}});}
+if(typeof window.montarImputacionPersonal==="function"){imputacionPersonal=window.montarImputacionPersonal({documento:document,api,tokenActual:()=>token,usuarioDeToken:valor=>{try{const p=JSON.parse(atob(valor.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));return p.scope==="finanzas:personal"&&/^[a-f0-9]{24}$/i.test(p.sub)?p.sub.toLowerCase():null;}catch{return null;}},almacenamiento:sessionStorage,nuevaId:()=>"imputacion_"+crypto.randomUUID(),confirmar:t=>window.confirm(t),confirmarRecibo:(...args)=>controlFinancieroPersonal().confirmarImputacion(...args),estadoFinanciero:()=>api.estadoFinanciero(),alCambiar:()=>{invalidarAutorizacionDisponible();load();}});}
+$("iiAnalizar").onclick=async()=>{const tokenConsulta=token;if(!tokenConsulta||$("app").hidden)return;try{msg("iiMsg","GRUK está evaluando datos de mercado verificados…");const perfil=$("iiRiesgo").value;const capitalTexto=$("iiCapital").value.trim();if(!/^[1-9]\d*$/.test(capitalTexto)||!Number.isSafeInteger(Number(capitalTexto)))throw new Error("El capital debe ser un monto positivo en pesos enteros, sin decimales.");const payload={capitalMinor:Number(capitalTexto),horizonteMeses:Number($("iiHorizonte").value),drawdownMaxPct:Number($("iiDrawdown").value),liquidezMaxDias:Number($("iiLiquidez").value)};if(perfil)payload.perfilRiesgo=perfil;const j=await api("/inversiones/inteligencia",body(payload)),r=j.recomendacion,star=r.recomendacion_estrella;if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;$("iiResultado").innerHTML='<div class="draft"><b>'+(star?'Alternativa cuantitativa: '+esc(star.activo_seleccionado):'Ninguna alternativa cumple tus restricciones')+'</b><p>'+esc(r.metodologia)+'</p>'+r.opciones_evaluadas.map(x=>'<div class="row"><span>'+esc(x.activo)+' · '+esc(x.categoria)+(x.elegible?' · ELEGIBLE':' · FUERA DE RESTRICCIONES')+'</span><strong>Real '+x.metricas.retorno_real_estimado_anual_pct+'% · Sharpe '+(x.metricas.sharpe_estimado??"N/D")+' · P(>0) '+(x.metricas.probabilidad_retorno_nominal_positivo_pct??"N/D")+'%</strong></div>').join("")+'</div>';msg("iiMsg","Análisis calculado con fecha de mercado "+new Date(r.datos_corte).toLocaleString("es-CO")+".")}catch(e){if(!tokenConsulta||token!==tokenConsulta||$("app").hidden)return;$("iiResultado").innerHTML="";msg("iiMsg",e.message,false)}};if(typeof window.montarCalendarioPersonal==="function"){agendaPersonal=window.montarCalendarioPersonal({documento:document,api,tokenActual:()=>token,usuarioDeToken:valor=>{try{const p=JSON.parse(atob(valor.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));return p.scope==="finanzas:personal"&&/^[a-f0-9]{24}$/i.test(p.sub)?p.sub.toLowerCase():null;}catch{return null;}},almacenamiento:sessionStorage,nuevaId:()=>"cal_ingreso_"+crypto.randomUUID(),confirmar:t=>window.confirm(t),confirmarRecibo:(...args)=>controlFinancieroPersonal().confirmarCalendario(...args),confirmarRechazo:(...args)=>controlFinancieroPersonal().confirmarRechazoCalendario(...args),estadoFinanciero:()=>api.estadoFinanciero(),alCambiar:()=>{invalidarAutorizacionDisponible();load();}});}else{$("ciEstado").textContent="Calendario no disponible. Recarga con conexión para usarlo; tus datos no se borraron.";}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let listening=false,dictadoActivo=null,revisionDictado=0;
+function cancelarDictado(){
+ revisionDictado+=1;const previo=dictadoActivo;dictadoActivo=null;listening=false;
+ try{previo?.abort();}catch(_){}
+ const boton=$("voice");if(boton)boton.textContent="🎙 Dictar";
+}
+$("voice").onclick=async()=>{
+ if(listening||!token||$("app").hidden)return;
+ const tokenConsulta=token,revision=++revisionDictado;
+ const vigente=()=>token===tokenConsulta&&!$("app").hidden&&revision===revisionDictado;
+ const finalizar=()=>{
+  if(revision!==revisionDictado)return;
+  listening=false;dictadoActivo=null;$("voice").textContent="🎙 Dictar";
+ };
+ listening=true;$("voice").textContent="🎙 Activando…";
+ try{
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error("MIC_NO_DISPONIBLE");
+  const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  stream.getTracks().forEach(t=>t.stop());
+  if(!vigente())return;
+  if(!SR)throw new Error("STT_NO_DISPONIBLE");
+  const r=new SR();dictadoActivo=r;r.lang="es-CO";r.interimResults=false;r.continuous=false;
+  $("voice").textContent="🎙 Escuchando…";msg("captureMsg","Habla normalmente. GRUK está escuchando.");
+  r.onresult=e=>{
+   if(!vigente()||dictadoActivo!==r)return;
+   const t=Array.from(e.results).map(x=>x[0]?.transcript||"").join(" ").trim();
+   if(t){$("captureText").value+=($("captureText").value?" ":"")+t;
+    if(typeof capturasPersonales==="function")try{capturasPersonales().texto(tokenConsulta,$("captureText").value);}catch(e){msg("captureMsg",e.message,false);return;}
+    msg("captureMsg","Audio transcrito. Revisa el texto y pulsa Interpretar.");}
+  };
+  r.onerror=e=>{
+   if(!vigente()||dictadoActivo!==r)return;
+   const code=String(e.error||"");
+   const m=code==="not-allowed"||code==="service-not-allowed"?"Activa el permiso de micrófono para GRUK en tu teléfono y vuelve a tocar Dictar.":
+    code==="no-speech"?"No detecté voz. Toca Dictar y habla cerca del micrófono.":
+    code==="network"?"El servicio de dictado del dispositivo no respondió. Revisa tu conexión e inténtalo de nuevo.":
+    "No pude transcribir este audio ("+code+"). Inténtalo otra vez.";
+   msg("captureMsg",m,false);
+  };
+  r.onend=()=>{if(dictadoActivo===r)finalizar();};
+  r.start();
+ }catch(e){
+  if(!vigente())return;
+  const previo=dictadoActivo;finalizar();try{previo?.abort();}catch(_){}
+  msg("captureMsg",e?.message==="MIC_NO_DISPONIBLE"?"Este dispositivo no expone el micrófono a la app.":
+   e?.name==="NotAllowedError"?"GRUK necesita permiso de micrófono. Habilítalo en los permisos de la app y vuelve a intentar.":
+   "No fue posible iniciar el micrófono.",false);
+ }
+ };if(token){enter({});loadDrafts();cargarHistorialChat();/* No ejecutar reparaciones financieras al iniciar sesión. */}})();

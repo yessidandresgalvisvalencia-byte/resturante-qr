@@ -1,0 +1,31 @@
+"use strict";
+const assert=require("node:assert/strict"),mongoose=require("mongoose"),crypto=require("node:crypto");
+const S=require("../../../modules/finanzas-personales/services/creacionPrestamoRecuperablePersonal.service"),R=require("../../../modules/finanzas-personales/models/reciboCreacionPrestamoPersonal.model"),P=require("../../../modules/finanzas-personales/models/prestamoPersonal.model"),C=require("../../../modules/finanzas-personales/models/cuentaFinanciera.model"),T=require("../../../modules/finanzas-personales/models/TransaccionPersonal"),O=require("../../../modules/finanzas-personales/models/outboxPersonal.model");
+const {crearControlMutacionesPersonales:control}=require("../../../public/finanzas-personales-control-mutaciones");
+const uid=()=>new mongoose.Types.ObjectId(),clave=()=>"prestamo_"+crypto.randomUUID();
+const solicitud=d=>({confirmacion:true,direccion:"POR_COBRAR",origenCuentaPorCobrar:"PRESTAMO",contraparte:"Ana",concepto:"Préstamo de ensayo",principalMinor:100,fechaInicio:new Date(Date.now()-60000).toISOString(),fechaVencimiento:null,...d});
+const foto=async usuarioId=>({p:await P.find({usuarioId}).sort({_id:1}).lean(),c:await C.find({usuarioId}).sort({_id:1}).lean(),t:await T.find({usuarioId}).sort({_id:1}).lean(),o:await O.find({usuarioId}).sort({_id:1}).lean(),r:await R.find({usuarioId}).sort({_id:1}).lean()});
+async function probarCreacionPrestamoAutorizado(db,provisionar){
+ const u=uid(),otro=uid(),cuenta=await C.create({usuarioId:u,nombre:"EFECTIVO",tipo:"EFECTIVO",moneda:"COP",saldoMinor:500}),s=solicitud({cuentaId:String(cuenta._id)}),id=clave();
+ const carrera=await Promise.allSettled([S.crear(u,id,s),S.crear(u,id,s)]);assert.ok(carrera.some(x=>x.status==="fulfilled"));const primero=await S.crear(u,id,s);assert.equal(primero.duplicado,true);assert.equal(primero.recibo.certificaEstadoActual,false);
+ const antes=await foto(u);assert.equal(antes.p.length,1);assert.equal(antes.r.length,1);assert.equal(antes.t.length,1);assert.equal(antes.o.length,1);assert.equal(antes.c[0].saldoMinor,400);assert.equal(String(antes.t[0].prestamoId),String(antes.p[0]._id));
+ assert.equal((await S.consultar(u,id)).confirmado,true);await assert.rejects(S.consultar(otro,id),e=>e.statusCode===404);await assert.rejects(S.crear(u,id,{...s,principalMinor:101}),e=>e.statusCode===409);assert.deepEqual(await foto(u),antes);
+ await assert.rejects(S.crear(otro,clave(),s),e=>e.statusCode===409);assert.deepEqual(await foto(u),antes);assert.equal((await foto(otro)).p.length,0);
+ const datos=new Map(),c=control({almacenamiento:{getItem:k=>datos.get(k)??null,setItem:(k,v)=>datos.set(k,v)},digerir:async v=>crypto.createHash("sha256").update(v).digest("hex"),usuarioDeToken:t=>t}),op=await c.iniciar(String(u),"/prestamos",{method:"POST",headers:{"Idempotency-Key":id},body:JSON.stringify(s)});op.finalizar("INCIERTA");assert.equal(c.confirmarCreacionPrestamo(String(u),await S.consultar(u,id)),true);assert.deepEqual(await foto(u),antes);
+ // La confirmación histórica persiste tras una corrección permitida, sin devolver un saldo actual fabricado.
+ await P.updateOne({_id:antes.p[0]._id,usuarioId:u},{$set:{concepto:"Proyección posterior"}});const modificado=await foto(u);assert.equal((await S.crear(u,id,s)).prestamo.concepto,s.concepto);assert.deepEqual(await foto(u),modificado);
+ const pago=uid(),cp=await C.create({usuarioId:pago,nombre:"EFECTIVO",tipo:"EFECTIVO",moneda:"COP",saldoMinor:10});await S.crear(pago,clave(),solicitud({direccion:"POR_PAGAR",cuentaId:String(cp._id)}));assert.equal((await foto(pago)).c[0].saldoMinor,110);
+ const trabajo=uid();await S.crear(trabajo,clave(),solicitud({origenCuentaPorCobrar:"TRABAJO"}));const ft=await foto(trabajo);assert.equal(ft.p.length,1);assert.equal(ft.c.length,0);assert.equal(ft.t.length,0);assert.equal(ft.r.length,1);
+ for(const cambios of [{principalMinor:9999},{cuentaId:String(uid())},{cuentaId:String(cuenta._id),origenCuentaPorCobrar:"TRABAJO"}]){const previo=await foto(u);await assert.rejects(S.crear(u,clave(),{...s,...cambios}));assert.deepEqual(await foto(u),previo);}
+ for(const moneda of ["USD","COP"]){const us=uid(),c=await C.create({usuarioId:us,nombre:"Cuenta",tipo:"OTRA",moneda:"COP",saldoMinor:moneda==="COP"?Number.MAX_SAFE_INTEGER:500});if(moneda==="USD")await db.collection(C.collection.collectionName).updateOne({_id:c._id},{$set:{moneda:"USD"}});const previo=await foto(us);await assert.rejects(S.crear(us,clave(),solicitud({direccion:"POR_PAGAR",cuentaId:String(c._id)})),e=>e.statusCode===409);assert.deepEqual(await foto(us),previo);}
+ // Un saldo físico fraccionario no puede redondearse a entero al sumarle un importe grande.
+ for(const saldoMinor of [0.5,"100",Number.MAX_SAFE_INTEGER+1,-1]){
+  const us=uid(),c=await C.create({usuarioId:us,nombre:"Cuenta",tipo:"OTRA",moneda:"COP",saldoMinor:0});await db.collection(C.collection.collectionName).updateOne({_id:c._id},{$set:{saldoMinor}});const previo=await foto(us);
+  await assert.rejects(S.crear(us,clave(),solicitud({direccion:"POR_PAGAR",principalMinor:2**52,cuentaId:String(c._id)})),e=>e.statusCode===409);assert.deepEqual(await foto(us),previo);
+ }
+ const previo=await foto(u),guardar=R.create;R.create=async()=>{throw Error("RECIBO_FALLIDO");};try{await assert.rejects(S.crear(u,clave(),s),/RECIBO_FALLIDO/);}finally{R.create=guardar;}assert.deepEqual(await foto(u),previo);
+ await db.collection(R.collection.collectionName).dropIndex("fp_recibo_creacion_prestamo_solicitud_v1");await assert.rejects(S.crear(u,clave(),s),e=>e.statusCode===503);assert.deepEqual(await foto(u),previo);await provisionar(db);
+ await db.collection(R.collection.collectionName).updateOne({usuarioId:u,solicitudId:id},{$set:{"solicitud.principalMinor":999}});const corrupto=await foto(u);await assert.rejects(S.consultar(u,id),e=>e.statusCode===409);await assert.rejects(S.crear(u,id,s),e=>e.statusCode===409);assert.deepEqual(await foto(u),corrupto);
+ const tr=(await foto(pago)).t[0],rec=(await foto(pago)).r[0];await db.collection(T.collection.collectionName).updateOne({_id:tr._id},{$set:{montoMinor:101}});await assert.rejects(S.consultar(pago,rec.solicitudId),e=>e.statusCode===409);
+}
+module.exports={probarCreacionPrestamoAutorizado};

@@ -15,8 +15,16 @@ test("historial, borradores y chat rechazan respuestas tardias de otra identidad
   const fn=code.slice(a,b);
   assert.match(fn,/const tokenConsulta=token/);
   assert.ok(fn.includes(endpoint),"endpoint esperado: "+endpoint);
-  assert.match(fn,/if\(!tokenConsulta\|\|token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return/);
-  assert.match(fn,/catch\(e\)\{/);
-  assert.match(fn,/catch\(e\)\{(?:if\(!tokenConsulta\|\|token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return|if\(tokenConsulta&&token===tokenConsulta&&!\$\("app"\)\.hidden\))/,"los avisos de error no deben aparecer en cuenta distinta");
+  if(endpoint==="/historial/buscar"){
+   assert.match(fn,/if\(!tokenConsulta\|\|\$\("app"\)\.hidden\)return/);
+   assert.match(fn,/const vigente=\(\)=>token===tokenConsulta&&!\$\("app"\)\.hidden&&revisionConsulta===histRevision/);
+   assert.match(fn,/if\(!vigente\(\)\)return/);
+   assert.match(fn,/catch\(e\)\{if\(vigente\(\)\)/,"los errores históricos respetan identidad y revisión");
+   assert.ok(fn.indexOf("if(!vigente())return")<fn.indexOf("for(const item"));
+  }else{
+   assert.match(fn,/if\(!tokenConsulta\|\|token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return/);
+   assert.match(fn,/catch\(e\)\{/);
+   assert.match(fn,/catch\(e\)\{(?:if\(!tokenConsulta\|\|token!==tokenConsulta\|\|\$\("app"\)\.hidden\)return|if\(tokenConsulta&&token===tokenConsulta&&!\$\("app"\)\.hidden\))/,"los avisos de error no deben aparecer en cuenta distinta");
+  }
  }
 });

@@ -1,0 +1,3 @@
+"use strict";
+function crearHandler({consulta=false,servicio=require("./capturaCopilotPersonal.service")}={}){return async(req,res)=>{res.set("Cache-Control","private, no-store");if(!req.personalAuth?.userId)return res.status(401).json({ok:false,error:"Sesión personal requerida"});try{const r=consulta?await servicio.consultar(req.personalAuth.userId,req.params.solicitudId):await servicio.crear(req.personalAuth.userId,req.get("Idempotency-Key"),req.body);return res.json({ok:true,...r});}catch(e){return res.status([400,404,409,422,503].includes(e.statusCode)?e.statusCode:503).json({ok:false,codigo:"CAPTURA_COPILOT_NO_CONFIRMADA",error:"No se confirmó la captura. Conserva el texto y su clave; consulta el recibo antes de reenviar."});}};}
+module.exports={crearHandler};
