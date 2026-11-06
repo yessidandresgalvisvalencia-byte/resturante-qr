@@ -90,13 +90,13 @@ async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={}){
  },config);}catch(e){if(e.code===11000)throw problema("Operación concurrente; consulta el pago antes de reintentar");throw e;}
  finally{await session.endSession();}
 }
-async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anulacionHash}={}){
+async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anulacionHash,imputacion}={}){
  if(![usuarioId,prestamoId,movimientoId].every(x=>mongoose.isObjectIdOrHexString(x))||
   typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey)||
   typeof anulacionHash!=="string"||!/^[a-f0-9]{64}$/.test(anulacionHash))throw problema("Préstamo, pago y anulación exacta obligatorios",400);
+ if(imputacion!==undefined)await require("./imputacionPagoPersonal.service").exigirIndices();
  const session=await mongoose.startSession();
  try{return await session.withTransaction(async()=>{
-  await serializarEscrituraFuente(usuarioId,session);
   const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).session(session).lean();
   if(!fuente)throw problema("Pago de préstamo no encontrado",404);
   let original;
@@ -107,10 +107,12 @@ async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anula
   if(repetido){
    if(repetido.movimientoId!==String(movimientoId)||repetido.tipo!=="RESTAURACION"||repetido.anulacionHash!==anulacionHash)
     throw problema("Clave idempotente utilizada para otra operación");
-   return {duplicado:true,compensacion:repetido};
+   const e=await require("./restauracionCicloPagoPersonal.service").verificarReplay(usuarioId,prestamoId,fuente,idempotencyKey,anulacionHash,repetido.hashActual,imputacion,session);
+   return {duplicado:true,compensacion:repetido,...(e?{recibo:require("./restauracionCicloPagoPersonal.service").recibo(usuarioId,prestamoId,fuente,idempotencyKey,anulacionHash,repetido.hashActual,imputacion,e)}:{})};
   }
   if(!estado.anulado||historial.at(-1)?.tipo!=="ANULACION"||historial.at(-1)?.hashActual!==anulacionHash)
    throw problema("La anulación cambió; consulta antes de restaurar el pago");
+  await serializarEscrituraFuente(usuarioId,session);
   const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},periodicidadConfirmada:true}).session(session);
   if(!p)throw problema("Préstamo sin calendario confirmado o no activo");
   const {pagos}=validarPagosCredito(p,await pagosCreditoVigentes(usuarioId,prestamoId,{session}));
@@ -121,8 +123,10 @@ async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anula
   // Validar también la fuente que se recupera y el total de pagos reales, sin
   // inferir capital histórico ni recalcular cargos/intereses de la operación.
   validarPagosCredito({...p.toObject(),saldoMinor:saldo},[...pagos,fuente]);
-  if(fuente.cicloCuota!==undefined&&!require("./cicloPagoPrestamoPersonal.service").coincide(fuente,p))throw problema("El ciclo del pago no coincide; revisa el vencimiento antes de restaurar");
+  if(imputacion!==undefined)require("./restauracionCicloPagoPersonal.service").validarCambioFecha(fuente,p);
+  else if(fuente.cicloCuota!==undefined&&!require("./cicloPagoPrestamoPersonal.service").coincide(fuente,p))throw problema("El ciclo del pago no coincide; revisa el vencimiento antes de restaurar");
   const compensacion=await registrar({original,tipo:"RESTAURACION",anulacionHash,idempotencyKey,fechaISO:new Date().toISOString()},{session});
+  const eventoImputacion=imputacion===undefined?null:await require("./restauracionCicloPagoPersonal.service").registrarEnSesion(usuarioId,p,fuente,idempotencyKey,anulacionHash,compensacion.hashActual,imputacion,session);
   if(original.impactoCaja){
    const delta=Number(BigInt(compensacion.deltaCajaMinor));
    const cuenta=await Cuenta.findOneAndUpdate({_id:fuente.cuentaId,usuarioId,activa:true,moneda:"COP",...filtroSaldoSeguro(delta)},
@@ -137,8 +141,19 @@ async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anula
     numeroCuota:original.numeroCuota,montoMinor:original.montoMinor,montoPagadoRealMinor:original.montoPagadoRealMinor,
     impactoCaja:original.impactoCaja,anulacionHash,compensacionHash:compensacion.hashActual,secuencia:compensacion.secuencia,
     deltaCajaMinor:compensacion.deltaCajaMinor,saldoPendienteMinor:saldo}}],{session});
-  return {duplicado:false,compensacion};
+  return {duplicado:false,compensacion,...(eventoImputacion?{recibo:require("./restauracionCicloPagoPersonal.service").recibo(usuarioId,prestamoId,fuente,idempotencyKey,anulacionHash,compensacion.hashActual,imputacion,eventoImputacion)}:{})};
  },config);}catch(e){if(e.code===11000)throw problema("Operación concurrente; consulta antes de reintentar");throw e;}
  finally{await session.endSession();}
 }
-module.exports={pagosCreditoVigentes,validarPagosCredito,obtenerPagosCredito,deshacer,restaurar};
+async function prepararRestauracion(usuarioId,prestamoId,movimientoId){
+ if(![usuarioId,prestamoId,movimientoId].every(x=>mongoose.isObjectIdOrHexString(x)))throw problema("Identificadores inválidos",400);const session=await mongoose.startSession();
+ try{return await session.withTransaction(async()=>{
+  const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).session(session).lean();if(!fuente)throw problema("Pago no encontrado",404);
+  const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},periodicidadConfirmada:true}).session(session).lean();if(!p)throw problema("Préstamo no activo o sin calendario confirmado");
+  let original;try{original=originalDesdeFuente(fuente);}catch{throw problema("Capital y pago real no conciliables");}const {cadena}=await leerCadenaVerificada(String(usuarioId),{session}),historia=cadena.filter(e=>e.movimientoId===String(movimientoId)),estado=vigente(original,historia),ultima=historia.at(-1);if(!estado.anulado||ultima?.tipo!=="ANULACION")throw problema("El pago no tiene una anulación vigente");
+  const {pagos}=validarPagosCredito(p,await pagosCreditoVigentes(usuarioId,prestamoId,{session}));if(original.numeroCuota!==pagos.length+1||original.montoMinor!==Math.min(p.cuotaMinor,p.saldoMinor,original.montoPagadoRealMinor))throw problema("Capital o secuencia incompatibles con el saldo actual");validarPagosCredito({...p,saldoMinor:p.saldoMinor-original.montoMinor},[...pagos,fuente]);
+  const cambio=require("./restauracionCicloPagoPersonal.service").validarCambioFecha(fuente,p),I=require("./imputacionPagoPersonal.service"),map=await I.leerEnSesion(usuarioId,[p],session);
+  return{soloLectura:true,afectaCaja:false,autorizaGasto:false,noRecalculaIntereses:true,alcance:"CUOTA_PERIODICIDAD_DIA_CONFIRMACION_FECHA",noGarantizaDisponibilidad:true,prestamoId:String(p._id),movimientoId:String(fuente._id),anulacionHash:ultima.hashActual,capitalMinor:original.montoMinor,montoPagadoRealMinor:original.montoPagadoRealMinor,debitoCuentaMinor:original.impactoCaja?original.montoPagadoRealMinor:0,cuentaId:fuente.cuentaId?String(fuente.cuentaId):null,cicloOriginal:cambio.original,contextoActual:cambio.actual,revisionImputacion:p.imputacionRevision??0,fuenteHash:I.fuenteHash(fuente),eventoEsperado:map.get(String(fuente._id))?.hashActual??null};
+ },{readConcern:{level:"snapshot"},readPreference:"primary"});}finally{await session.endSession();}
+}
+module.exports={prepararRestauracion,pagosCreditoVigentes,validarPagosCredito,obtenerPagosCredito,deshacer,restaurar};

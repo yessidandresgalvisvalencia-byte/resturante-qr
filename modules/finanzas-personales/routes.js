@@ -204,6 +204,8 @@ router.post("/prestamos/:id/cuotas/pagar",validate(cuotaPagoSchema),async(req,re
  try{return res.json({ok:true,resultado:await patrimonioPersonal.pagarCuotaCredito(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated})});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo registrar la cuota"});}
 });
+router.get("/prestamos/:id/cuotas/:movimientoId/recuperacion",limiteCalendarioIngreso,require("./services/restauracionCicloPagoPersonal.handler").crearHandler("CONSULTAR"));
+router.post("/prestamos/:id/cuotas/restaurar-con-ciclo",limiteCalendarioIngreso,require("./services/restauracionCicloPagoPersonal.handler").crearHandler("RESTAURAR"));
 router.post("/prestamos/:id/cuotas/deshacer",require("./services/reversionCuotaCredito.handler").crearReversionCuotaCredito());
 router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
  try{

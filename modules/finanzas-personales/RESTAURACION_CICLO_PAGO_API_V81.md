@@ -1,0 +1,31 @@
+# Restauración de pago con ciclo revisado V81
+Fecha 2026-11-06. Solo Finanzas Personales; PR #389 abierto, #407 abierto.
+Padre verificado 7cae6126f240cd6265796bb6b051685f63368264; árbol e1416921afffd8d84aa7658b22079f2a85a4c5da. Base feature/finanzas-personales 652126a03f19fbec3c529cad1e84bff11cd3699e. CI padre verde: Gate 42197497541, Seguridad 42197497548, V81 42197497542; Mongo autorizado 78/78.
+
+## Plan y aceptación
+Recuperar un pago anulado con vencimiento actual distinto del ciclo firmado original, conservando fuente y firma. Solo se admite cambio de fecha dentro del contexto capturado: cuota, periodicidad, día de pago y confirmación iguales. No se infieren condiciones contractuales no capturadas ni se recalculan intereses.
+Requiere propietario autenticado, anulación vigente exacta, secuencia de cuota válida, capital/importe real originales, calendario activo confirmado y consentimiento explícito para aplicar a esta cuota o excluirla de esta cuota. Una transacción restaura caja/préstamo/compensación e inserta la imputación vinculada; cualquier fallo revierte todo.
+Solicitud/contexto/fuente/revisión anteriores, alteración de firma, cuota/frecuencia/día distintos, propietario ajeno, fondos insuficientes o fallo al escribir auditoría deben rechazar sin efectos parciales. Reintentos no duplican pagos ni escriben de nuevo; cambiar el cuerpo con la misma clave se rechaza.
+
+## API y flujo
+GET /prestamos/:id/cuotas/:movimientoId/recuperacion: solo lectura en snapshot. Devuelve anulación vigente, contexto original/actual, capital y pago real, débito previsto, cuenta, huella de fuente, revisión de imputación y último evento. No autoriza gasto ni garantiza disponibilidad futura. Solo ofrece esta vía cuando hay cambio de fecha compatible; si el ciclo no cambió se usa la restauración normal.
+POST /prestamos/:id/cuotas/restaurar-con-ciclo: bajo JWT/entitlement personal y límite seleccionado existente. Header Idempotency-Key (8–128 caracteres alfanuméricos, guion/guion bajo). Cuerpo estricto:
+- movimientoId, anulacionHash y confirmar:true.
+- imputacion: revisionEsperada, fuenteHashEsperado, eventoEsperado (hash o null), contextoEsperado completo leído en GET, tratamiento APLICAR o EXCLUIR, motivo (8–240 caracteres) y confirmacion:true.
+El servicio vuelve a comprobar todo en la transacción; el GET no reserva ni modifica datos. No cambia préstamo, propietario ni origen del pago por datos enviados.
+La respuesta incluye recibo ligado a propietario, ruta, clave, cuerpo, anulación, compensación e imputación; confirma la operación original y certificaEstadoActual:false/autorizaGasto:false. Para recuperar una respuesta perdida se conserva el cuerpo y se reenvía la misma clave, sin regenerarla. La interfaz específica y su diario/validador de recibo quedan como siguiente bloque; no se afirma que ya esté disponible en pantalla.
+
+## Integridad y recuperación
+Imputación INSERT-only existente incluye hashes de anulación y compensación financieras dentro de su solicitud firmada. Campos opcionales sin backfill: los hashes y fuentes anteriores permanecen sin cambios. La vía ordinaria de imputación rechaza esos campos internos; no puede fabricar una recuperación ni aplicar metadatos aislados.
+Se verifica cadena/cursor de imputación y se conserva su revisión al guardar préstamo, dentro de snapshot/majority. La compensación original sigue sus controles actuales. El replay valida el cuerpo original contra la imputación vinculada y devuelve el mismo resultado aun si después cambió el calendario; no es una autorización de saldo/ciclo vigente. Reenviar esa clave sin la imputación original también se rechaza. El replay de restauración ahora es de solo lectura, sin avanzar siquiera el cursor de compatibilidad.
+Deshacer otra vez conserva originales y permite nueva revisión con la nueva anulación. APLICAR reduce el pendiente de la cuota de contexto actual; EXCLUIR conserva la reserva y no vuelve a registrar ni borrar el pago. Los cambios posteriores vuelven a dejar la imputación pendiente.
+No hay nuevos modelos, colecciones, índices, credenciales ni servicios. Rol protegido existente (21 colecciones) y backup V19 (39 colecciones) cubren los eventos con metadatos nuevos. No provisión ni migración en producción. Firma/cadena no sustituyen custodia independiente, permisos reales ni conservación segura de claves.
+
+## Evidencia
+Local Node 24: módulo 591 casos, 582 aprobados, 9 omitidos, cero fallos; CI personal 338/334/4; dirigidas 28/28; seis casos nuevos puros/handler. Sintaxis y diff --check satisfactorios.
+Nuevo ensayo Mongo autorizado: consulta sin mutaciones, aislamiento, restauración normal todavía bloqueada ante fecha distinta, metadatos obsoletos/inválidos, saldo insuficiente después de insertar imputación, fallo Outbox después de caja/préstamo, firma corrupta en fixture administrativo aislado, dos restauraciones concurrentes con misma clave, replays conflictivos, cambio posterior de fecha y nuevo ciclo anular/restaurar. Comprueba caja/préstamo/fuente, compensación, imputación, cursor, Outbox y Home/Proyección; APLICAR/EXCLUIR producen pendientes distintos. Resultado del SHA publicado pendiente de CI, no declarar suite nativa aprobada hasta observarlo.
+Pruebas y datos sintéticos no acreditan privilegios, custodia ni recuperación operativa de producción.
+
+## Siguiente y gates
+Interfaz de recuperación: comparar ciclos y efecto de caja, confirmación expresa, solicitud estable por usuario, recibo vinculado y recuperación ante respuesta perdida; impedir sesiones/respuestas obsoletas y no interpretar el recibo como saldo actual.
+#407 conserva aceptación independiente real, roles/índices y separación de credenciales de producción, backups independientes/retención/acceso, restauración aislada operativa/RPO/RTO, auditoría IP/dispositivo, seguridad/concurrencia/migración/aislamiento/recuperación y aprobación visual/dispositivos. Chromium local no disponible en revisión anterior, sin validación visual nueva. No merge a feature ni despliegue Render. Main, Empresarial y Blushéa sin cambios; sin contratación de servicios ni aumento de capacidad.
