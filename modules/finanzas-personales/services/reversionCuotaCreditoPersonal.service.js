@@ -55,6 +55,7 @@ async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={}){
   await serializarEscrituraFuente(usuarioId,session);
   const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).session(session).lean();
   if(!fuente)throw problema("Pago de crédito no encontrado",404);
+  if(fuente.cicloCuota!==undefined&&!require("./cicloPagoPrestamoPersonal.service").verificar(fuente))throw problema("El ciclo original del pago no es verificable");
   let original;
   try{original=originalDesdeFuente(fuente);}catch{throw problema("Capital y pago real no conciliables");}
   const {cadena}=await leerCadenaVerificada(String(usuarioId),{session});
@@ -120,6 +121,7 @@ async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anula
   // Validar también la fuente que se recupera y el total de pagos reales, sin
   // inferir capital histórico ni recalcular cargos/intereses de la operación.
   validarPagosCredito({...p.toObject(),saldoMinor:saldo},[...pagos,fuente]);
+  if(fuente.cicloCuota!==undefined&&!require("./cicloPagoPrestamoPersonal.service").coincide(fuente,p))throw problema("El ciclo del pago no coincide; revisa el vencimiento antes de restaurar");
   const compensacion=await registrar({original,tipo:"RESTAURACION",anulacionHash,idempotencyKey,fechaISO:new Date().toISOString()},{session});
   if(original.impactoCaja){
    const delta=Number(BigInt(compensacion.deltaCajaMinor));

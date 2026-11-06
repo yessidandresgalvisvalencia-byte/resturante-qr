@@ -3,6 +3,7 @@ const mongoose=require("mongoose");
 const schema=new mongoose.Schema({
  usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},
  impactoCaja:{type:Boolean,default:true},
+ cicloCuota:{type:mongoose.Schema.Types.Mixed,default:undefined},
  prestamoId:{type:mongoose.Schema.Types.ObjectId,ref:"PrestamoPersonal",default:null,index:true},
  recurrenteOrigenId:{type:mongoose.Schema.Types.ObjectId,ref:"TransaccionPersonal",default:null,index:true},
  cuentaId:{type:mongoose.Schema.Types.ObjectId,ref:"CuentaFinancieraPersonal",default:null,index:true},

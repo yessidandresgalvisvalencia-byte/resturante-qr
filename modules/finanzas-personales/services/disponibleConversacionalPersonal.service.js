@@ -5,6 +5,7 @@ const fallar=(codigo,mensaje,accion)=>({autorizado:false,codigo,mensaje,accion})
 function validar(h,ahora){
  const a=h?.asesor;
  if(!(ahora instanceof Date)||!Number.isFinite(+ahora))return fallar("CORTE_INVALIDO","No pude verificar la fecha de esta consulta.","Actualiza la consulta antes de gastar.");
+ if(a?.pagosPrestamoSinImputar!==undefined&&(!Array.isArray(a.pagosPrestamoSinImputar)||a.pagosPrestamoSinImputar.length))return fallar("PAGOS_SIN_IMPUTACION","Hay pagos de préstamo sin ciclo verificable; no se usan para reducir otra cuota.","Revisa el ciclo y vencimiento de esos pagos sin volver a registrarlos.");
  if(a?.aptoParaDisponibleHoy!==true||a.saldoRealConocido!==true||a.saldoConfiabilidad!=="VERIFICADO"||a.saldoRequiereReconciliacion!==false||h?.caja?.liquidezConciliada!==true)return fallar("CONCILIACION_PENDIENTE","Falta verificar saldo u obligaciones; un saldo reconstruido no autoriza gasto.","Concilia el saldo y las obligaciones pendientes.");
  if(["obligacionesSinFecha","gastosRecurrentesHoySinConciliar","vencimientosAtrasados","cuotasSinDefinir"].some(k=>!Array.isArray(a[k])||a[k].length!==0))return fallar("OBLIGACIONES_PENDIENTES","Hay obligaciones o gastos previstos sin conciliar; no calculo otro cupo para reemplazarlos.","Confirma las obligaciones y gastos pendientes.");
  const ingreso=fechaVerificable(a.proximoIngreso?.fecha);
