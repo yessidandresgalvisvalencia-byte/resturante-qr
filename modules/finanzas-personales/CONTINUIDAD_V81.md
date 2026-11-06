@@ -1739,3 +1739,14 @@ Ensayo aislado backup V18 en el mismo job: 38 colecciones, 5436 documentos, 3657
 Un bloque funcional completado en GitHub: lectura y recuperación de abonos entre fechas con interfaz y pruebas de fallos/transacciones. El commit documental de cierre requiere CI de nuevo en su SHA exacto; resultado final y HEAD quedan en #389. Sin merge a feature/main ni despliegue Render. La demora/fecha del servicio publicado y aceptación visual siguen sin evidencia real.
 
 Checkpoint siguiente: verificar HEAD, #389, #407, CI e instrucciones; revisar recuperación de obligaciones/compromisos vinculados a deuda cuando cambia su fuente financiera, preservando originales y evitando caja/pagos duplicados en restauraciones concurrentes. Continuar matriz de recuperación/aislamiento/conciliación según documentación vigente, sin repetir bloques ya comprobados. Gates de #407/custodia/backup durable/recuperación operativa/permisos-índices-históricos/dispositivos/compatibilidad e informe final continúan pendientes; no se eluden ni se contratan servicios.
+
+
+## 2026-11-05 — evaluación verificable de obligaciones (lote 53)
+
+Padre real `6aa6b7eecdc1a059b11af3cf1535c374a08a37dd`, árbol `5ea39a817a0cc85addab4c813748640082d4c4c5`; #389 abierto/base feature `652126a03f19fbec3c529cad1e84bff11cd3699e`, #407 abierto. Gate 42146975114, Seguridad 42146975107, V81 42146975119 success; Mongo autorizado 72/72. Instrucciones/checkpoint y recuperación de cuotas/préstamos revisados; esa recuperación existente no se cuenta como bloque nuevo.
+
+Un bloque seleccionado: el evaluador de obligaciones anterior aceptaba aptoParaDisponibleHoy=false sin prueba y suponía cumplimiento de alternativas omitido. Reproducción del blob padre: CUMPLIBLE con disponible 100/apto=false y cumpleObligacion=true omitido. Ahora comparte validador estricto de Disponible Hoy, entrada sin coerción/campos ignorados, costos BigInt/rango seguro, alternativas completas y viables antes de compararlas. Conversación y endpoint mismos semáforo/hasta seis líneas/una acción, sin registrar pago ni confirmar condiciones externas. Costo plano anterior se identifica como desconocido, no se convierte en nueva autorización.
+
+Plan/aceptación/límites en EVALUACION_OBLIGACIONES_VERIFICADA_V81.md. Local 548 casos/539 aprobados/nueve omitidos/cero fallos y 14 dirigidas; sintaxis/diff correctos. Nuevo escenario Mongo autorizado con HTTP/JWT reales, aislamiento y deuda sin fecha retirada/restaurada; consulta no debe cambiar fuentes/caja/outbox/eventos. CI exacta pendiente al preparar el lote.
+
+Siguiente tras CI: obligaciones ya reservadas/vinculadas, evitar doble descuento y conservar bloqueo cuando fuente o condiciones no sean verificables. Continúan #407/custodio/backup durable/recuperación operativa/permisos-índices-históricos/aceptación integral/dispositivos/informe final. Sin merge, Render, otros productos, costos nuevos o datos reales.
