@@ -15,3 +15,19 @@ test('rejects floats, negative, ambiguous, malformed and oversized amounts', () 
   assert.throws(() => formatCents(-1n));
   assert.throws(() => formatCents(1));
 });
+
+test('accepts the maximum safe cent value and rejects the next cent', () => {
+  const max = BigInt(Number.MAX_SAFE_INTEGER);
+  assert.equal(parseMoneyToCents('90071992547409.91'), max);
+  assert.equal(formatCents(max), '90071992547409.91');
+  assert.throws(() => parseMoneyToCents('90071992547409.92'), RangeError);
+  assert.throws(() => formatCents(max + 1n), RangeError);
+});
+
+test('canonical decimal input does not silently round or normalize', () => {
+  for (const invalid of ['00.01', '1.000', '+1.00', '.50', '1,000.00', '1e-2', '1\\n', 'NaN', 'Infinity']) {
+    assert.throws(() => parseMoneyToCents(invalid), TypeError);
+  }
+  assert.equal(parseMoneyToCents('0.00'), 0n);
+  assert.equal(formatCents(0n), '0.00');
+});
