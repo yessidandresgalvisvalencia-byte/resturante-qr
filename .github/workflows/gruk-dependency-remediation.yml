@@ -45,7 +45,27 @@ jobs:
             throw new Error('npm audit failed without reportable high/critical vulnerabilities');
           }
           NODE
+      - name: Start MongoDB replica set for integration tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name gruk-mongo -p 27017:27017 mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then break; fi
+            sleep 1
+          done
+          docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then exit 0; fi
+            sleep 1
+          done
+          docker logs gruk-mongo --tail 50
+          exit 1
       - name: Validate remediated dependency graph against GRUK quality gate
+        env:
+          NODE_ENV: test
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_offline_test?replicaSet=rs0
         run: npm run gate
       - name: Save reviewed lockfile candidate and audit evidence
         if: always()
