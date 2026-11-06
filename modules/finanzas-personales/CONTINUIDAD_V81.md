@@ -1922,3 +1922,7 @@ SHA 32eb5c2d4364cefd042e9efc5f8fc32ea3fa49ba. Tres CI verdes: Gate 42212103168, 
 
 ## 2026-11-06 · confirmación de restauración en cliente (r61)
 Padre a139ff9f2213b67798f54bd32fea3cea5b0ea7cb. Plan, aceptación y pruebas en CONFIRMACION_RESTAURACION_CLIENTE_V81.md. Wrapper HTTP y control exigen recibo financiero vinculado, no un ok genérico; recuperación por GET sin débito y sin escrituras en servidor. Local 595/586/9; CI personal 338/334/4; seis dirigidas, cero fallos. CI exacta pendiente. Siguiente: pantalla de recuperación con diario y confirmación usando este control. #407/custodia/operación/visual pendientes; sin merge ni Render.
+
+
+## Cierre funcional verificado
+SHA cc0df6cf68b2558d6b0c0a9ad6095c0fc71626d2. Gate 42219972207, Seguridad 42219972434 y V81 42219972264 verdes. Mongo autorizado job 127899288980: 79/79, cero fallos y omisiones; confirma recuperación local mediante recibo real sin mutación financiera ni de base de datos. Local 595/586/9; dirigidas 6/6; CI personal 338/334/4. Evidencia sintética, sin acreditar operación de producción. El commit posterior solo registra el resultado y también requiere CI exacta antes de entregar. Siguiente: pantalla de restauración y diario completo por usuario usando este control. #407/custodia/operación/visual pendientes, sin merge ni Render.
