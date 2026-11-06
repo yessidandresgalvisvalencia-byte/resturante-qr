@@ -1750,3 +1750,20 @@ Un bloque seleccionado: el evaluador de obligaciones anterior aceptaba aptoParaD
 Plan/aceptación/límites en EVALUACION_OBLIGACIONES_VERIFICADA_V81.md. Local 548 casos/539 aprobados/nueve omitidos/cero fallos y 14 dirigidas; sintaxis/diff correctos. Nuevo escenario Mongo autorizado con HTTP/JWT reales, aislamiento y deuda sin fecha retirada/restaurada; consulta no debe cambiar fuentes/caja/outbox/eventos. CI exacta pendiente al preparar el lote.
 
 Siguiente tras CI: obligaciones ya reservadas/vinculadas, evitar doble descuento y conservar bloqueo cuando fuente o condiciones no sean verificables. Continúan #407/custodio/backup durable/recuperación operativa/permisos-índices-históricos/aceptación integral/dispositivos/informe final. Sin merge, Render, otros productos, costos nuevos o datos reales.
+
+
+## Cierre comprobado del lote 53
+
+Núcleo `c51c79229fefeda0dcac3386e79386b2e35a4dac`, árbol `c28d254632c1688c2f702168c4a021f6f71e5d7d`, padre real 6aa6b7eecdc1a059b11af3cf1535c374a08a37dd. Nueve archivos del lote cotejados por SHA remota y árbol local idéntico; ref de integración actualizada con expected_sha y force=false. Base feature sin cambios; no se toca main ni otros productos.
+
+Tres workflows exactos del núcleo success: [Gate 42153438251](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42153438251), [Seguridad 42153438244](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42153438244) y [V81 42153438208](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42153438208). [Mongo autorizado job 127681880241](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42153438208/job/127681880241): 73/73, cero fallos/omisiones, incluido escenario nuevo. También aprobados Mongo transaccional, Redis concurrente y pruebas generales. Local 548 casos/539 aprobados/nueve omitidos/cero fallos, 14 dirigidas, sintaxis/diff correctos.
+
+Resultado nativo: dueño A con saldo conciliado 1000 obtiene disponible 900; dueño B con saldo 2000 obtiene 1800. Importe 1000 con alternativa declarada de pago actual 500/costo 10 se compara como costo total 1010, sin confirmar acuerdo externo. Cumplimiento false o contrato plano incompleto no generan recomendación viable. Coerciones/identidad del cuerpo/overflow se rechazan 400. Conversación entrega semáforo y una acción en no más de seis líneas.
+
+Deuda propia sin fecha mantiene próximo ingreso conocido pero Disponible Hoy=null: la nueva evaluación devuelve FALTAN_DATOS, sin cálculo/recomendación/alternativas monetarias. Retiro explícito elimina el bloqueo de esa deuda; restauración por referencia exacta lo repone. Snapshots antes/después de cada consulta permanecen idénticos. Saldo 1000, cero transacciones financieras nuevas y dos eventos de retiro/restauración conservados; no se pierde ni duplica caja/pago. El bloque no cuenta como nueva implementación los flujos de recuperación anteriores.
+
+Backup V18 del job: 38 colecciones, 5445 documentos, 3668242 bytes; captura 192 ms, restauración 983 ms, edad 1137 ms. Métricas de fixtures aisladas: custodiaIndependiente=false, rpoProduccion=false. No equivalen a backup durable/retención/custodio real ni RPO/RTO o recuperación de producción.
+
+Un bloque funcional publicado en GitHub: evaluación verificable de obligaciones y alternativas, integrada con conversación/HTTP y fallos. El cierre documental también debe completar CI exacta; el HEAD/resultado final se registra en #389. Sin merge a feature/main ni despliegue Render.
+
+Siguiente: verificar HEAD/#389/#407/instrucciones/CI; distinguir obligaciones ya reservadas o vinculadas mediante evidencia de identidad, para evitar comparaciones con doble descuento o afirmar cumplimiento sin condiciones. Mantener recuperación ante fuente corregida y matriz de aceptación. Pendientes reales de #407/custodia independiente/backup durable/recuperación operativa/permisos-índices-históricos/seguridad/dispositivos/compatibilidad/informe final; carga/fecha publicada sin medición real suficiente. No levantar gates ni aumentar costos.
