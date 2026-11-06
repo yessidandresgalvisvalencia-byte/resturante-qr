@@ -2,6 +2,7 @@
 // Política conservadora de la conexión de aplicación. No certifica la configuración
 // del servidor, la custodia de anclas ni la ausencia de otras credenciales privilegiadas.
 const COLECCIONES=Object.freeze([
+ require("../models/imputacionPagoPersonal.model").collection.collectionName,
  require("../models/TransaccionPersonal").collection.collectionName,
  require("../models/EventoCompensatorioPersonal").collection.collectionName,
  require("../models/decisionProofPersonal.model").collection.collectionName,

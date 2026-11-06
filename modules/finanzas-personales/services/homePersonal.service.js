@@ -275,7 +275,8 @@ async function obtenerEnSesion(usuarioId,now,session){
  const cuotasVencenMesMinor=sumarMontosHome(deudas,x=>cuotaDelPeriodo(x,inicio,fin));
  // Una cuota ya pagada en el ledger no puede descontarse otra vez como compromiso.
  const fuentesPagosCiclo=await consultarPeriodo({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:new Date(+now+1).toISOString()},{session});
- const {pagosPorDeuda,pendientes:pagosPrestamoSinImputar}=require("./cicloPagoPrestamoPersonal.service").resolver(usuarioId,fuentesPagosCiclo,deudas,now);
+ const imputaciones=await require("./imputacionPagoPersonal.service").leerEnSesion(usuarioId,deudas,session);
+ const {pagosPorDeuda,pendientes:pagosPrestamoSinImputar}=require("./cicloPagoPrestamoPersonal.service").resolver(usuarioId,fuentesPagosCiclo,deudas,now,imputaciones);
  const cuotasPendientesMesMinor=sumarMontosHome(deudas,d=>cuotaDelPeriodo(d,inicio,fin)>0?saldoCuotaPendienteMinor(d,pagosPorDeuda.get(String(d._id))||0):0);
  const flujoOperativoMinor=sumarImportesHome([ingresosMinor,-gastosMinor,-pagosDeudaRegistradosMinor]);
  const flujoOperativoProyectadoMinor=sumarImportesHome([flujoOperativoMinor,-cuotasPendientesMesMinor]);

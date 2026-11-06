@@ -7,7 +7,7 @@ const GENESIS="0".repeat(64),MAX=1000;
 const falla=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
 function canon(v){if(v instanceof Date)return v.toISOString();if(v===null||typeof v!=="object")return v;if(v instanceof mongoose.Types.ObjectId)return String(v);if(Array.isArray(v))return v.map(canon);return Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])]));}
 const iguales=(a,b)=>JSON.stringify(canon(a))===JSON.stringify(canon(b));
-function foto(p){const d=p.toObject?p.toObject():p;return Object.fromEntries(Object.entries(d).filter(([k])=>!["_id","usuarioId","__v","createdAt","updatedAt","retiroRevision","retiroHash","correccionRevision","correccionHash"].includes(k)).map(([k,v])=>[k,canon(v)]));}
+function foto(p){const d=p.toObject?p.toObject():p;return Object.fromEntries(Object.entries(d).filter(([k])=>!["_id","usuarioId","__v","createdAt","updatedAt","retiroRevision","retiroHash","correccionRevision","correccionHash","imputacionRevision","imputacionHash"].includes(k)).map(([k,v])=>[k,canon(v)]));}
 function hash(e){return crypto.createHash("sha256").update(JSON.stringify(canon(Object.fromEntries(["usuarioId","prestamoId","secuencia","solicitudId","tipo","referencia","anterior","posterior","fecha","hashAnterior"].map(k=>[k,e[k]]))))).digest("hex");}
 function verificar(eventos,p){
  if(eventos.length>MAX)throw falla("Historial de retiros supera la capacidad verificable");

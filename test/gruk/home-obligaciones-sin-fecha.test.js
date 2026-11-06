@@ -18,6 +18,7 @@ function cargar({deudas=[],tarjetas=[],fallo=false,fuente=codigo}={}){
   "../models/DeudaPersonal":modelo(()=>tarjetas),
   "../models/calendarioFinanciero.model":modelo(()=>[{_id:"c".repeat(24),usuarioId,tipo:"INGRESO",activo:true,frecuencia:"MENSUAL",diaMes:25,montoMinor:1000000,concepto:"Ingreso"}]),
   "./calendarioIngresoPersonal.service":{combinarLegados:exigir("./calendarioIngresoPersonal.service").combinarLegados,leerEnSesion:async()=>({calendarios:[],eventos:[]})},
+  "./imputacionPagoPersonal.service":{leerEnSesion:async()=>new Map()},
   "./consultaCompensadaPersonal.service":{consultarPeriodo:async({usuarioId:id})=>{assert.equal(id,usuarioId);return[];}},
   "./patrimonioPersonal.service":{snapshotEnSesion:async (id,s)=>{
    assert.equal(s,session);

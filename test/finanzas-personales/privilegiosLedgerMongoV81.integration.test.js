@@ -101,6 +101,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("evaluación de obligaciones conserva bloqueos tras restaurar deuda sin fecha y no inventa alternativas",()=>require("./helpers/evaluacionObligacionAutorizada").probarEvaluacionObligacionAutorizada());
   await t.test("obligación identificada no repite reserva y refleja corrección, pago, anulación y restauración",()=>require("./helpers/reservaObligacionAutorizada").probarReservaObligacionAutorizada());
   await t.test("proyección usa abonos compensados del mismo snapshot y no duplica próxima cuota",()=>require("./helpers/proyeccionAbonosAutorizada").probarProyeccionAbonosAutorizada());
+  await t.test("imputación explícita conserva originales y caja con concurrencia, anulación y fallo seguro",()=>require("./helpers/imputacionPagoAutorizada").probarImputacionAutorizada(db));
   await t.test("pago conserva ciclo firmado y cambio de vencimiento bloquea imputación y restauración",()=>require("./helpers/cicloPagoPrestamoAutorizado").probarCicloPagoAutorizado(db));
   await t.test("adopción explícita conserva BSON, identidad y una sola planificación con HTTP autenticado",()=>require("./helpers/calendarioAdopcionAutorizada").probarAdopcionCalendario(db));
   await t.test("originales de calendario legado rechazan mutación nativa sin alterar planificación ni caja",()=>require("./helpers/calendarioLegadoProtegidoAutorizado").probarCalendarioLegadoProtegido());

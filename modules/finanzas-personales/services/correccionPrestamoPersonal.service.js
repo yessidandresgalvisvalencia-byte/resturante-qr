@@ -7,7 +7,7 @@ const esquema=Joi.object({contraparte:Joi.string().trim().min(1).max(140),concep
 function canon(v){if(v instanceof Date)return v.toISOString();if(v instanceof mongoose.Types.ObjectId)return String(v);if(v===null||typeof v!=="object")return v;if(Array.isArray(v))return v.map(canon);return Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])]));}
 const igual=(a,b)=>JSON.stringify(canon(a))===JSON.stringify(canon(b));
 const digest=v=>crypto.createHash("sha256").update(JSON.stringify(canon(v))).digest("hex");
-function foto(p){return canon(Object.fromEntries(Object.entries(p).filter(([k])=>!["_id","usuarioId","__v","createdAt","updatedAt","retiroRevision","retiroHash","correccionRevision","correccionHash"].includes(k))));}
+function foto(p){return canon(Object.fromEntries(Object.entries(p).filter(([k])=>!["_id","usuarioId","__v","createdAt","updatedAt","retiroRevision","retiroHash","correccionRevision","correccionHash","imputacionRevision","imputacionHash"].includes(k))));}
 function hash(e){return digest(Object.fromEntries(["usuarioId","prestamoId","secuencia","solicitudId","solicitudHash","cambios","anterior","posterior","fecha","hashAnterior"].map(k=>[k,e[k]])));}
 function verificar(eventos,p){
  let prev=GENESIS;if(eventos.length>MAX)throw falla("Historial de correcciones supera capacidad verificable");

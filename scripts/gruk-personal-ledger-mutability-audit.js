@@ -12,7 +12,7 @@ function analizarMutacionesLedger(codigo){
  ];
  return patrones.filter(p=>p.detecta.test(codigo)).map(p=>({id:p.id,descripcion:p.descripcion}));
 }
-const MODELOS=["TransaccionPersonal","EventoCompensatorioPersonal","decisionProofPersonal.model","eventoV81.model","vinculoHistoricoV81.model","retiroDeudaPersonal.model","retiroCreditoLegacyPersonal.model","correccionPrestamoPersonal.model","reciboAprobacionPersonal.model","reciboCreacionPrestamoPersonal.model","reciboCreacionCuentaPersonal.model","conciliacionCuentaPersonal.model","cicloInversionPersonal.model","cicloActivoPersonal.model","cicloCuentaPersonal.model","reciboCreacionActivoPersonal.model","reciboCreacionInversionPersonal.model","capturaCopilotPersonal.model","eventoCalendarioIngresoPersonal.model","calendarioFinanciero.model"];
+const MODELOS=["imputacionPagoPersonal.model","TransaccionPersonal","EventoCompensatorioPersonal","decisionProofPersonal.model","eventoV81.model","vinculoHistoricoV81.model","retiroDeudaPersonal.model","retiroCreditoLegacyPersonal.model","correccionPrestamoPersonal.model","reciboAprobacionPersonal.model","reciboCreacionPrestamoPersonal.model","reciboCreacionCuentaPersonal.model","conciliacionCuentaPersonal.model","cicloInversionPersonal.model","cicloActivoPersonal.model","cicloCuentaPersonal.model","reciboCreacionActivoPersonal.model","reciboCreacionInversionPersonal.model","capturaCopilotPersonal.model","eventoCalendarioIngresoPersonal.model","calendarioFinanciero.model"];
 const METODOS="updateOne|updateMany|findOneAndUpdate|findByIdAndUpdate|replaceOne|findOneAndReplace|deleteOne|deleteMany|findOneAndDelete|findByIdAndDelete|bulkWrite";
 const escapar=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
 function analizarAccesosModelos(codigo){
