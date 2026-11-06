@@ -20,7 +20,8 @@ function adaptar(h,historico,metas,perfil,corte,usuarioId){
  if(!Number.isSafeInteger(h.patrimonio?.netoMinor))throw new TypeError("Patrimonio registrado inválido");
  const fuentes=historico.filter(x=>x.tipo==="INGRESO"),ingresosHistoricos=H.sumarMontosHome(fuentes),cantidadIngresosHistoricos=fuentes.length;
  const deudas=h.explicaciones?.deuda?.origen?.deudas;
- const cuotasConocidas=Array.isArray(deudas)&&deudas.every(d=>Number.isSafeInteger(d.saldoMinor)&&d.saldoMinor>=0&&(d.saldoMinor===0||Number.isSafeInteger(d.cuotaMinor)&&d.cuotaMinor>0&&d.periodicidad==="MENSUAL"&&d.periodicidadConfirmada===true))&&["obligacionesSinFecha","cuotasSinDefinir","vencimientosAtrasados"].every(k=>Array.isArray(h.asesor?.[k])&&h.asesor[k].length===0);
+ const pagosImputados=h.asesor?.pagosPrestamoSinImputar===undefined||Array.isArray(h.asesor.pagosPrestamoSinImputar)&&h.asesor.pagosPrestamoSinImputar.length===0;
+ const cuotasConocidas=pagosImputados&&Array.isArray(deudas)&&deudas.every(d=>Number.isSafeInteger(d.saldoMinor)&&d.saldoMinor>=0&&(d.saldoMinor===0||Number.isSafeInteger(d.cuotaMinor)&&d.cuotaMinor>0&&d.periodicidad==="MENSUAL"&&d.periodicidadConfirmada===true))&&["obligacionesSinFecha","cuotasSinDefinir","vencimientosAtrasados"].every(k=>Array.isArray(h.asesor?.[k])&&h.asesor[k].length===0);
  const flujoProyectado=cuotasConocidas?H.sumarImportesHome([r.flujoRealizadoMinor,-m.cuotasPendientesMesMinor]):null;
  const carga=cuotasConocidas?ratio(BigInt(r.pagosDeudaMinor)+BigInt(m.cuotasPendientesMesMinor),BigInt(r.ingresosMinor),{factor:100n}):null;
  const neto=flujoProyectado!==null?ratio(BigInt(flujoProyectado),BigInt(r.ingresosMinor),{factor:100n}):null;

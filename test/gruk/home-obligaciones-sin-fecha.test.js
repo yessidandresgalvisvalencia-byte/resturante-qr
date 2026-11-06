@@ -30,7 +30,7 @@ function cargar({deudas=[],tarjetas=[],fallo=false,fuente=codigo}={}){
  vm.runInNewContext(fuente,{module,require:p=>dependencias[p]||exigir(p),Date,Intl,Number,Math,Map,Set,Object,Array,BigInt,TypeError,RangeError,Error});
  return{home:module.exports,consultas};
 }
-const deuda={_id:"d",direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:100000,principalMinor:100000,cuotaMinor:10000,concepto:"Préstamo"};
+const deuda={_id:"d",usuarioId,direccion:"POR_PAGAR",estado:"ACTIVO",saldoMinor:100000,principalMinor:100000,cuotaMinor:10000,concepto:"Préstamo"};
 function bloqueado(panel,tipo){
  assert.equal(panel.asesor.aptoParaDisponibleHoy,false);
  assert.equal(panel.asesor.saldoConfiabilidad,"VERIFICADO");

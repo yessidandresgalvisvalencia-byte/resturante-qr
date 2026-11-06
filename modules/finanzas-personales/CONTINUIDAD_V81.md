@@ -1853,3 +1853,7 @@ Checkpoint siguiente: verificar HEAD/#389/#407/instrucciones/CI; revisar imputac
 
 ## 2026-11-06 · ciclo verificable de pagos (r56)
 Plan, aceptación, evidencia y límites: CICLO_PAGOS_PRESTAMO_V81.md. Padre 2a1fd3d7bbbc2f0e52805418f7ccdd554e7ad80f. Pagos nuevos ligados a su contexto; legado o contexto distinto bloquea asesoría sin modificar fuentes. Local módulo 567/558/9; CI personal 338/334/4; dirigidas 30/30; cero fallos. Publicación y CI nativa pendientes. Siguiente: imputación explícita append-only por propietario sin delta de caja. #407 abierto; no merge ni Render.
+
+
+## Ajuste de integración r56
+El primer SHA 812e8b7c342aa1d5f1a4f1cf76710bb7ba2c256d falló Gate (42170849611: fixtures de Home sin propietario) y V81 (42170849608: resumen HTTP esperaba descontar pago manual sin ciclo). Se conserva validación de propietario; fixtures la declaran. Resumen HTTP también bloquea cuota/proyección/ratios si hay pagos sin imputación. Prueba nativa usa pago real del servicio para caso válido, conserva caso legado con flujo realizado y proyección desconocida. Nuevo ensayo puro cubre pendiente o colección malformada sin fabricar cuota. Módulo actualizado 568/559/9, cero fallos; ajuste dirigido 11/11 y sintaxis satisfactorios. La prueba nativa de ciclo nuevo sí pasó en el primer SHA; no se declara suite completa aprobada hasta CI corregida. Siguiente paso y gates #407 permanecen.
