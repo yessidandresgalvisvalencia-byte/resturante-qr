@@ -281,10 +281,10 @@ async function obtenerEnSesion(usuarioId,now,session){
  const vencimientoTarjeta=t=>{let y=pHoy.y,m=pHoy.m,d=Math.min(Number(t.diaPago),diasEnMesUTC(y,m));let fecha=fechaCivilColombia(y,m,d);if(fecha<now){m++;if(m>12){m=1;y++;}fecha=fechaCivilColombia(y,m,Math.min(Number(t.diaPago),diasEnMesUTC(y,m)));}return fecha;};
  const obligacionesSinFecha=seleccionarObligacionesSinFecha(deudas,tarjetas);
  // Una tarjeta sin día válido no recibe un vencimiento inferido por Date.
- const compromisosTarjeta=tarjetas.filter(diaPagoTarjetaValido).map(t=>({concepto:"Pago tarjeta "+t.nombre,montoMinor:pagoExigible(t),fecha:vencimientoTarjeta(t),deudaId:String(t._id)})).filter(x=>x.montoMinor>0);
+ const compromisosTarjeta=tarjetas.filter(diaPagoTarjetaValido).map(t=>({tipo:"TARJETA_CREDITO",concepto:"Pago tarjeta "+t.nombre,montoMinor:pagoExigible(t),fecha:vencimientoTarjeta(t),deudaId:String(t._id)})).filter(x=>x.montoMinor>0);
  // Un abono parcial NO cancela automáticamente el compromiso restante.
  const pagoAplicado=d=>pagosPorDeuda.get(String(d._id))||0;
- const compromisosAntesIngreso=deudas.filter(d=>d.fechaVencimiento&&new Date(d.fechaVencimiento)>=now&&new Date(d.fechaVencimiento)<limiteCompromisos).map(d=>({concepto:d.concepto,montoMinor:saldoCuotaPendienteMinor(d,pagoAplicado(d)),fecha:d.fechaVencimiento})); for(let i=compromisosAntesIngreso.length-1;i>=0;i--)if(compromisosAntesIngreso[i].montoMinor<=0)compromisosAntesIngreso.splice(i,1); compromisosAntesIngreso.push(...compromisosTarjeta.filter(x=>x.fecha>=now&&x.fecha<limiteCompromisos));
+ const compromisosAntesIngreso=deudas.filter(d=>d.fechaVencimiento&&new Date(d.fechaVencimiento)>=now&&new Date(d.fechaVencimiento)<limiteCompromisos).map(d=>({tipo:"PRESTAMO",deudaId:String(d._id),concepto:d.concepto,montoMinor:saldoCuotaPendienteMinor(d,pagoAplicado(d)),fecha:d.fechaVencimiento})); for(let i=compromisosAntesIngreso.length-1;i>=0;i--)if(compromisosAntesIngreso[i].montoMinor<=0)compromisosAntesIngreso.splice(i,1); compromisosAntesIngreso.push(...compromisosTarjeta.filter(x=>x.fecha>=now&&x.fecha<limiteCompromisos));
  const cuotasSinDefinir=deudas.filter(d=>d.fechaVencimiento&&
   new Date(d.fechaVencimiento)>=now&&new Date(d.fechaVencimiento)<limiteCompromisos&&
   d.saldoMinor>0&&cuotaExigibleMinor(d)===0);

@@ -1767,3 +1767,14 @@ Backup V18 del job: 38 colecciones, 5445 documentos, 3668242 bytes; captura 192 
 Un bloque funcional publicado en GitHub: evaluación verificable de obligaciones y alternativas, integrada con conversación/HTTP y fallos. El cierre documental también debe completar CI exacta; el HEAD/resultado final se registra en #389. Sin merge a feature/main ni despliegue Render.
 
 Siguiente: verificar HEAD/#389/#407/instrucciones/CI; distinguir obligaciones ya reservadas o vinculadas mediante evidencia de identidad, para evitar comparaciones con doble descuento o afirmar cumplimiento sin condiciones. Mantener recuperación ante fuente corregida y matriz de aceptación. Pendientes reales de #407/custodia independiente/backup durable/recuperación operativa/permisos-índices-históricos/seguridad/dispositivos/compatibilidad/informe final; carga/fecha publicada sin medición real suficiente. No levantar gates ni aumentar costos.
+
+
+## 2026-11-05 — obligaciones ya contempladas, sin doble comparación (lote 54)
+
+Padre real `afc0b33b0fe6f69504e88f18ec7ffa9275fbc0b9`, árbol `3e5ca432ee8dc703807e52ffd818ad78fb588dd3`; #389 abierto/base feature `652126a03f19fbec3c529cad1e84bff11cd3699e`, #407 abierto. Gate 42153689263, Seguridad 42153689239, V81 42153689312 success, Mongo autorizado 73/73. Instrucciones/pendientes revisados.
+
+Bloque seleccionado: préstamo identificado y reserva descontada en el mismo Home. Nueva referencia prestamoId estricta; composición/fechas/suma/identidades se verifican contra la explicación de ese snapshot y el validador común. Se compara solo incremento sobre reserva, sin sumar reserva al disponible ni liberar remanentes. En rojo no se presume cobertura individual. Sin referencia conserva comparación anterior. API y conversación de deuda identificada comparten la regla, sin crear pagos ni dinero.
+
+Plan/aceptación/evidencia/límites en OBLIGACIONES_YA_CONTEMPLADAS_V81.md. Local 553 casos/544 aprobados/nueve omitidos/cero fallos y 108 dirigidas; sintaxis/diff correctos. Nuevo escenario autorizado de HTTP/chat, corrección auditada de cuota, pago/anulación/restauración con fuente original intacta; CI del SHA pendiente al preparar lote. Checkout recuperado localmente desde árbol remoto comprobado sin cambiar ramas de producto.
+
+Siguiente tras CI: identidad de reservas de tarjetas/gastos recurrentes con evidencia equivalente; recuperación/conciliación y aceptación integral. #407/custodio/backup durable/recuperación operativa/permisos-índices-históricos/seguridad/dispositivos/compatibilidad/informe final siguen pendientes. Sin merge, Render, otros productos, costos nuevos o datos reales.
