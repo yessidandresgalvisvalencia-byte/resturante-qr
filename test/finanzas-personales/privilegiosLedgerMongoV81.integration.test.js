@@ -103,6 +103,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("proyección usa abonos compensados del mismo snapshot y no duplica próxima cuota",()=>require("./helpers/proyeccionAbonosAutorizada").probarProyeccionAbonosAutorizada());
   await t.test("restauración explícita de ciclo une compensación e imputación sin duplicar caja",()=>require("./helpers/restauracionCicloPagoAutorizada").probarRestauracionCiclo(db));
   await t.test("cierre de restauración por contexto conserva evidencia, reserva clave y no debita bajo carreras",()=>require("./helpers/cierreRestauracionAutorizada").probarCierreRestauracion(db));
+  await t.test("anulación superada y calendario no vigente cierran sin alterar fuente, caja ni capital",()=>require("./helpers/cierreRestauracionAutorizada").probarCausasCierre());
   await t.test("interfaz de imputación recupera recibos y conserva cierre no aplicado sin mover caja",()=>require("./helpers/imputacionInterfazAutorizada").probarInterfazImputacion());
   await t.test("imputación explícita conserva originales y caja con concurrencia, anulación y fallo seguro",()=>require("./helpers/imputacionPagoAutorizada").probarImputacionAutorizada(db));
   await t.test("pago conserva ciclo firmado y cambio de vencimiento bloquea imputación y restauración",()=>require("./helpers/cicloPagoPrestamoAutorizado").probarCicloPagoAutorizado(db));

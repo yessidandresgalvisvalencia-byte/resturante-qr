@@ -29,7 +29,15 @@ function solicitudCierre(u,pid,f,k,ann,m){
  return I.validar(u,pid,{...m,movimientoId:String(f._id),restauracionCierreAnulacionHash:ann},clave(u,pid,f._id,k));
 }
 function reciboCierre(u,pid,f,k,ann,m,e){
- return{...recibo(u,pid,f,k,ann,null,m,e),afectaCaja:false,noAplicada:true,motivoNoAplicada:"CONTEXTO_CAMBIO"};
+ return{...recibo(u,pid,f,k,ann,null,m,e),afectaCaja:false,noAplicada:true,motivoNoAplicada:e.motivoNoAplicada};
+}
+function motivoCierre(p,f,s,mapa,cadena,ann){
+ const ultima=cadena.filter(e=>e.movimientoId===String(f._id)).at(-1);
+ if(!ultima||ultima.tipo!=="ANULACION"||ultima.hashActual!==ann)return "ANULACION_SUPERADA";
+ const actual=C.contexto(p);
+ if(!["ACTIVO","VENCIDO"].includes(p.estado)||actual.periodicidadConfirmada!==true||!actual.fechaVencimiento||!Number.isSafeInteger(actual.cuotaMinor)||actual.cuotaMinor<1||!["UNICA","SEMANAL","QUINCENAL","MENSUAL"].includes(actual.periodicidad)||(actual.diaPago!==null&&(!Number.isInteger(actual.diaPago)||actual.diaPago<1||actual.diaPago>31)))return "CALENDARIO_NO_VIGENTE";
+ const ultimo=mapa.get(String(f._id));
+ return (p.imputacionRevision??0)!==s.revisionEsperada||I.digest(actual)!==I.digest(s.contextoEsperado)||(ultimo?.hashActual??null)!==s.eventoEsperado?"CONTEXTO_CAMBIO":null;
 }
 async function resolverCierreEnSesion(u,pid,f,k,ann,m,cadena,session,{cerrarRechazo=false}={}){
  if(!session?.inTransaction())throw falla("Cierre requiere transacción verificable");
@@ -44,12 +52,12 @@ async function resolverCierreEnSesion(u,pid,f,k,ann,m,cadena,session,{cerrarRech
   if(previo.noAplicada!==true||previo.solicitud.restauracionCierreAnulacionHash!==ann||String(previo.prestamoId)!==String(pid)||String(previo.movimientoId)!==String(f._id)||previo.solicitudHash!==I.digest(s))throw falla("Clave de recuperación usada con otros datos");
   return{duplicado:true,noAplicada:true,recibo:reciboCierre(u,pid,f,k,ann,m,previo)};
  }
- const ultimo=mapa.get(String(f._id));
- if((p.imputacionRevision??0)===s.revisionEsperada&&I.digest(C.contexto(p))===I.digest(s.contextoEsperado)&&(ultimo?.hashActual??null)===s.eventoEsperado)throw falla("El contexto no cambió; este cierre no restaura ni cancela la petición");
+ const motivoNoAplicada=motivoCierre(p,f,s,mapa,cadena,ann);
+ if(!motivoNoAplicada)throw falla("La solicitud sigue vigente; este cierre no restaura ni cancela la petición");
  if((p.imputacionRevision??0)>=1000)throw falla("Historial de imputación fuera de capacidad",422);
  // Serializa contra restauraciones y cambios de fuente dentro de la misma transacción.
  await require("./proteccionOriginalCompensadoPersonal.service").serializarEscrituraFuente(u,session);
- const e={noAplicada:true,motivoNoAplicada:"CONTEXTO_CAMBIO",usuarioId:u,prestamoId:pid,movimientoId:f._id,secuencia:(p.imputacionRevision??0)+1,solicitudId:clave(u,pid,f._id,k),solicitudHash:I.digest(s),solicitud:s,fecha:new Date(),hashAnterior:p.imputacionHash??GENESIS};
+ const e={noAplicada:true,motivoNoAplicada,usuarioId:u,prestamoId:pid,movimientoId:f._id,secuencia:(p.imputacionRevision??0)+1,solicitudId:clave(u,pid,f._id,k),solicitudHash:I.digest(s),solicitud:s,fecha:new Date(),hashAnterior:p.imputacionHash??GENESIS};
  e.firma=I.firma(e);e.hashActual=I.hash(e);const [guardado]=await E.create([e],{session});
  const cambio=await P.updateOne({_id:pid,usuarioId:u},{$set:{imputacionRevision:e.secuencia,imputacionHash:e.hashActual}},{session});if(cambio.matchedCount!==1)throw falla("Préstamo cambió durante cierre");
  return{duplicado:false,noAplicada:true,recibo:reciboCierre(u,pid,f,k,ann,m,guardado.toObject())};
@@ -66,4 +74,4 @@ async function consultarRecibo(u,pid,mid,k){
   const m=Object.fromEntries(["revisionEsperada","fuenteHashEsperado","eventoEsperado","contextoEsperado","tratamiento","motivo","confirmacion"].map(x=>[x,e.solicitud[x]]));return{recibo:recibo(u,pid,f,k,comp.anulacionHash,comp.hashActual,m,e)};
  },{readConcern:{level:"snapshot"},readPreference:"primary"});}finally{await session.endSession();}
 }
-module.exports={solicitudCierre,reciboCierre,resolverCierreEnSesion,consultarRecibo,clave,solicitud,validarCambioFecha,registrarEnSesion,verificarReplay,recibo};
+module.exports={motivoCierre,solicitudCierre,reciboCierre,resolverCierreEnSesion,consultarRecibo,clave,solicitud,validarCambioFecha,registrarEnSesion,verificarReplay,recibo};
