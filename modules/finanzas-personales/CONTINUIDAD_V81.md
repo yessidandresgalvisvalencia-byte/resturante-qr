@@ -1819,3 +1819,14 @@ Gate 42160048879 y Seguridad 42160048980 fallaron únicamente en la aserción es
 Ensayo V18 del SHA parcial: 38 colecciones, 5464 documentos, 3691730 bytes; captura 163 ms, restauración 833 ms, edad 973 ms, custodiaIndependiente=false/rpoProduccion=false. Sigue sin acreditar operación productiva. Validación local del módulo final: 555/546 aprobados/nueve omitidos/cero fallos y 110 dirigidas aprobadas.
 
 Este cierre con prueba actualizada exige los tres workflows verdes en su SHA exacto; se registra resultado final en #389 y no se autoriza producción por un resultado anterior. Próximo punto concreto: revisar coherencia de la próxima cuota proyectada con la reserva de Home después de abonos parciales, antes de ampliar referencias a tarjetas/gastos recurrentes. No dar por validado ese alcance de proyección con las pruebas de Disponible Hoy de este bloque. #407 y gates operativos externos siguen abiertos, sin merge ni Render.
+
+
+## 2026-11-05 — próxima cuota proyectada con abonos compensados (lote 55)
+
+Padre real `6e7b6038c60125899437472c1032ab8a2b03f721`, árbol `81b11fd3b1ee8a6b6fa5ef8c461e7c9e2934cbce`; #389 abierto/base feature `652126a03f19fbec3c529cad1e84bff11cd3699e`, #407 abierto. Gate 42160336207, Seguridad 42160336219 y V81 42160336286 success; Mongo autorizado 74/74. Instrucciones/checkpoint revisados.
+
+Un bloque: proyección aún usaba cuota completa tras abono. Ahora comparte acumulador de pagos reales del período con Home y deriva pendiente limitado por saldo, leyendo fuentes compensadas dentro del mismo snapshot. Calendario vinculado se conserva/deduplica; cuota cubierta no inventa siguientes; UNICA confirmada sin cuota separada conserva saldo pendiente. Contrato 2 sigue parcial/sin autorización de gasto. Metadatos distinguen cuota registrada, pendiente derivado y fuentes de pagos.
+
+Plan/criterios/límites/evidencia en PROYECCION_CUOTA_COMPENSADA_V81.md. Local 562 casos/553 aprobados/nueve omitidos/cero fallos, 26 dirigidas y suite CI local 338/334/cuatro omitidos/cero fallos, sintaxis/diff correctos. Nuevo escenario nativo de abono/pago histórico/anulación/restauración, original/calendario intactos, escritor concurrente y fallo de fuente sin totales parciales; CI nueva pendiente al preparar lote. Prueba estática del acumulador sustituida por resultados de pagos reales/duplicación sin desactivar gates.
+
+Siguiente: imputación temporal de pagos/cuotas al cambiar período o vencimiento; no asumir ciclos nuevos con abonos anteriores. Mantener recuperación/conciliación y aceptación integral. #407/custodio/backup durable/recuperación operativa/permisos-índices-históricos/seguridad/dispositivos/compatibilidad/informe final siguen abiertos. Sin merge, Render, otros productos, costos o datos reales.

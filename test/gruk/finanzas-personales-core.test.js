@@ -410,10 +410,15 @@ test("cálculo real de pagos compartido entre contabilidad y compromisos",()=>{
  const fs=require("node:fs"),path=require("node:path");
  const src=fs.readFileSync(path.resolve(__dirname,"../../modules/finanzas-personales/services/homePersonal.service.js"),"utf8");
  assert.match(src,/sumarMontosHome\(tx\.filter\([^\n]+,montoPagoDeudaMinor\)/);
- assert.match(src,/pagosPorDeuda\.set\(id,sumarImportesHome\(\[pagosPorDeuda\.get\(id\)\|\|0,montoPagoDeudaMinor\(t\)\]\)\)/);
+
  const pagos=[{tipo:"PAGO_DEUDA",montoMinor:400,montoPagadoRealMinor:450},
   {tipo:"PAGO_DEUDA",montoMinor:200,montoPagadoRealMinor:220}];
  assert.equal(home.sumarMontosHome(pagos,home.montoPagoDeudaMinor),670);
+ const u="a".repeat(24),prestamoId="b".repeat(24),corte=new Date("2026-11-05T12:00:00.000Z");
+ const fuentes=pagos.map((p,i)=>({...p,_id:String(i+1).repeat(24),usuarioId:u,prestamoId,estado:"ACTIVA",moneda:"COP",impactoCaja:true,fecha:new Date("2026-11-05T10:00:00.000Z")}));
+ assert.equal(home.sumarPagosPrestamoPeriodo(u,fuentes,corte).get(prestamoId),670);
+ assert.throws(()=>home.sumarPagosPrestamoPeriodo(u,[fuentes[0],fuentes[0]],corte));
+
 });
 
 test("movimientos futuros no cuentan como pagos ya realizados",()=>{
