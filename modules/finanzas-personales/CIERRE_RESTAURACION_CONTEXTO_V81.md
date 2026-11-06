@@ -1,0 +1,31 @@
+# Cierre verificable de restauración no aplicada — r63
+
+## Base, plan y alcance
+
+Fecha: 2026-11-06. PR #389 abierto sobre feature/finanzas-personales (base 652126a03f19fbec3c529cad1e84bff11cd3699e), integración integration/fp-hormiga-clasificacion-credito-v81. HEAD verificado a9cdaa3c57fb3e540d729ed66367251db11583ba, árbol a837f7ae53416dbf27348c2da1072af017d15afd. CI del padre: Gate 42229632079, Seguridad 42229631874 y V81 42229631983 satisfactorios. #407 sigue abierto.
+
+Un bloque funcional completo: resolver una solicitud de restauración rechazada por contexto cambiado conservando cuerpo, clave y evidencia. Incluye API, evento firmado INSERT-only, recibo consultable, control de incertidumbre y pantalla. No confundir un error HTTP ni un 404 con una prueba de no aplicación.
+
+## Contrato y aceptación
+
+1. El propietario consulta primero el recibo. Si no existe, puede confirmar explícitamente “Cerrar sin aplicar si el contexto cambió”. Envía el mismo POST /prestamos/:id/cuotas/restaurar-con-ciclo, cuerpo y Idempotency-Key conservados; la cabecera X-GRUK-Cerrar-Restauracion: 1 solicita exclusivamente resolver. Un valor de cabecera distinto de 1 se rechaza. No se activa automáticamente al recibir 409.
+2. Si la restauración ya se aplicó, devuelve su recibo original. Si fuente/contexto/revisión siguen vigentes, rechaza el cierre sin aplicar ni reservar la clave. Si el contexto, revisión o decisión esperada cambió y la fuente firmada permanece íntegra, registra NO_APLICADA. Corrupción de fuente, propietario ajeno o anulación no verificable fallan cerrado.
+3. El cierre se incorpora a la cadena existente fin_imputaciones_pagos_personales_v1 con noAplicada=true, motivo CONTEXTO_CAMBIO y solicitud.restauracionCierreAnulacionHash. Usa clave derivada de propietario/préstamo/movimiento/clave HTTP. Conserva los hashes de eventos antiguos; no realiza backfill ni modifica la fuente. Actualiza solo los cursores necesarios y añade evidencia; no ajusta caja, saldo de capital, compensaciones financieras ni Outbox financiero.
+4. La operación usa snapshot/majority y el serializador compartido de fuente. Cierre y restauración compiten dentro de transacciones: una clave cerrada no puede producir después un débito, ni aunque se reponga la fecha anterior. Replay exige el mismo cuerpo y devuelve el mismo recibo sin escrituras. Cuerpo diferente o intento de omitir la imputación se rechaza. Una decisión nueva requiere nueva lectura, revisión y clave.
+5. Recibo negativo: confirmado=true, noAplicada=true, motivoNoAplicada=CONTEXTO_CAMBIO, afectaCaja=false, compensacionHash=null, imputacionHash del cierre firmado, huella de la solicitud original. No autoriza gasto ni certifica estado actual. GET verifica fuente, cadena de imputaciones, anulación y ausencia de compensación con esa clave; no vuelve a escribir ni aplicar.
+6. Una entrada de cierre no sustituye la decisión de imputación vigente. La API ordinaria de imputación rechaza campos internos de recuperación; sus recibos no pueden usarse para confirmar la operación financiera. El cliente valida propietario, ruta, cuerpo, anulación, hashes, razón y efecto de caja antes de resolver incertidumbre.
+7. Diario conserva entradas NO_APLICADA, CONFIRMADA y PENDIENTE por usuario; no borra ni cambia cuerpo/clave. Respuesta de cierre perdida se resuelve por GET tras recargar. Cancelar confirmación o fallo no descarta la solicitud. Se mantienen aislamiento de sesión, guardas de concurrencia y versiones de scripts coherentes.
+
+## Validación
+
+Local: módulo 610 casos / 601 aprobados / 9 omitidos por requisitos de integración, cero fallos. Cinco pruebas nuevas: contrato de cabecera; cierre firmado y rechazo en API ordinaria; cierre UI con cuerpo/clave originales; recibos negativos incoherentes; recibo ya aplicado antes de cerrar. Las regresiones de restauración positiva, doble clic, sesión, almacenamiento y recibo ajeno se mantienen. CI personal local 338/334/4, cero fallos; sintaxis de servicios, handler, controles e interfaz y git diff --check satisfactorios.
+
+Ensayo nuevo autorizado: helpers/cierreRestauracionAutorizada.js, incorporado como subtest de privilegiosLedgerMongoV81.integration.test.js. Usa Mongo real con autorización en CI: pérdida de respuesta tras cierre, carrera con restauración normal, rollback antes y después de insertar evento, firma de fuente corrupta con fixture administrativo aislado, cierre idempotente, recibo GET sin escrituras, propietario ajeno, cuerpo distinto, fecha anterior repuesta y restauración posterior con nueva clave. Exige conservar fuente, cuenta, capital, eventos financieros y Outbox durante cierre; verifica la cadena y recuperación del diario. No se afirma ejecutado localmente: CI del SHA publicado pendiente.
+
+No se crean colecciones, índices ni privilegios nuevos: se conservan los 21 historiales protegidos por roles y las 39 colecciones del respaldo V19. El nuevo campo vive en la solicitud firmada del evento Mixed; no requiere reescribir históricos ni migraciones destructivas.
+
+## Límites y siguiente paso
+
+Este cierre cubre contexto/revisión/decisión cambiados con fuente verificable. No certifica rechazos por fuente adulterada, fondos, condiciones corruptas ni ausencia de respuesta. Esos casos conservan solicitud pendiente. Evidencia sintética no acredita custodia independiente, roles/índices de producción ni RPO/RTO operativo.
+
+Siguiente: revisar cierre seguro ante anulación superada o préstamo sin calendario, manteniendo evidencia y autorización; evaluar qué casos pueden certificarse y cuáles deben seguir bloqueados. Completar aceptación visual/dispositivos, operación real, custodia independiente, respaldo protegido con retención/acceso, recuperación aislada y revisión independiente #407 antes de integrar a feature o desplegar Render. No hay aprobación visual nueva en este lote, certificación externa ni garantía absoluta. Sin modificaciones a main, Empresarial, Blushéa, datos reales o costos.
