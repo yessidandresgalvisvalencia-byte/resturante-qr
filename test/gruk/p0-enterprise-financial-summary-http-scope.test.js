@@ -49,9 +49,11 @@ async function withServer(fn) {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const port = server.address().port;
-    await fn(async (company, sede, role, targetCompany, targetSede) => {
+    await fn(async (company, sede, role, targetCompany, targetSede, dates = {}) => {
       const query = new URLSearchParams({ precision: 'exact' });
       if (targetSede) query.set('sedeId', targetSede);
+      if (dates.desde) query.set('desde', dates.desde);
+      if (dates.hasta) query.set('hasta', dates.hasta);
       const response = await fetch(`http://127.0.0.1:${port}/resumen/${targetCompany}?${query}`, {
         headers: { 'x-test-company': company, ...(sede ? { 'x-test-sede': sede } : {}), 'x-test-role': role }
       });
@@ -95,4 +97,28 @@ test('exact HTTP endpoint scopes both collections to authorized company and bran
     assert.equal(String(filter.empresaId), companyA);
     assert.equal(String(filter.sedeId), sedeA);
   }
+});
+
+
+test('exact HTTP endpoint rejects inverted date window before transactional reads', async () => {
+  calls.length = 0;
+  await withServer(async request => {
+    const response = await request(companyA, sedeA, 'DUENO', companyA, null, {
+      desde: '2026-11-08', hasta: '2026-11-07'
+    });
+    assert.equal(response.status, 400);
+    assert.equal(response.body.ok, false);
+  });
+  assert.equal(calls.length, 0);
+});
+
+test('exact HTTP endpoint allows equal start/end calendar dates', async () => {
+  calls.length = 0;
+  await withServer(async request => {
+    const response = await request(companyA, sedeA, 'DUENO', companyA, null, {
+      desde: '2026-11-07', hasta: '2026-11-07'
+    });
+    assert.equal(response.status, 200);
+  });
+  assert.equal(calls.length, 2);
 });
