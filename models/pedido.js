@@ -100,6 +100,22 @@ extra: {
     timestamps: true
 })
 
+// Offline retries must have a complete tenant identity. Without this guard,
+// the unique index can accidentally deduplicate events under a null tenant or
+// an empty site. Legacy orders without offlineEventId remain valid.
+pedidoSchema.pre("validate", function validateOfflineTenantIdentity() {
+  if (this.offlineEventId === undefined || this.offlineEventId === null) return;
+  if (typeof this.offlineEventId !== "string" || !this.offlineEventId.trim()) {
+    this.invalidate("offlineEventId", "offlineEventId must be a non-empty string");
+  }
+  if (!this.empresaId) {
+    this.invalidate("empresaId", "empresaId is required for offline retries");
+  }
+  if (typeof this.sedeId !== "string" || !this.sedeId.trim()) {
+    this.invalidate("sedeId", "sedeId is required for offline retries");
+  }
+});
+
 // Partial unique key protects against concurrent retries without changing legacy orders.
 pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
   unique: true,
