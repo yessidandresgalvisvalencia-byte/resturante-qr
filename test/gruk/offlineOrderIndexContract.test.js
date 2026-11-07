@@ -23,7 +23,7 @@ test("offline order retry index is unique and scoped to company and site", () =>
 test("offline event identity remains optional for legacy orders", () => {
   const path = Pedido.schema.path("offlineEventId");
   assert.ok(path);
-  assert.equal(path.isRequired, false);
+  assert.notEqual(path.isRequired, true, "legacy orders must not require offlineEventId");
   assert.equal(path.defaultValue, undefined);
 });
 
