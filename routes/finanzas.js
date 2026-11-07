@@ -23,6 +23,12 @@ router.get(
     const { empresaId } = req.params;
     const { desde, hasta, sedeId } = req.query;
 
+    // Express may parse repeated/nested query parameters as arrays or objects.
+    // Reject them before Date coercion so malformed client input never becomes a 500.
+    if (['desde', 'hasta'].some(key => req.query[key] !== undefined && typeof req.query[key] !== 'string')) {
+      return res.status(400).json({ ok: false, error: "Parámetros de fecha inválidos" });
+    }
+
     if (String(empresaId) !== String(req.auth.empresaId)) {
       return res.status(403).json({
         ok: false,
