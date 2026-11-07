@@ -10,6 +10,8 @@ const {
   roleCheck
 } = require("../core/auth/roleCheck.middleware");
 
+const { exactFinancialSummary } = require("../core/finance/enterpriseFinancialSummary");
+
 const router = express.Router();
 
 router.get(
@@ -142,6 +144,18 @@ router.get(
       Venta.find(filtroVentas).lean(),
       Gasto.find(filtroGastos).lean()
     ]);
+
+    // Optional exact, read-only response. Legacy response remains unchanged.
+    if (req.query.precision === "exact") {
+      try {
+        return res.json({ ok: true, empresa: { id: empresa._id, nombre: empresa.nombre }, resumenExacto: exactFinancialSummary(ventas, gastos) });
+      } catch (error) {
+        if (error instanceof TypeError || error instanceof RangeError) {
+          return res.status(422).json({ ok: false, error: "Montos historicos no aptos para calculo exacto", codigo: "FINANZAS_PRECISION_INVALIDA" });
+        }
+        throw error;
+      }
+    }
 
     // =========================
     // CÁLCULOS FINANCIEROS
