@@ -88,6 +88,12 @@ router.get(
       }
     }
 
+    // Reject inverted periods before querying transactional collections.
+    if (filtroFechaVenta.fecha?.$gte && filtroFechaVenta.fecha?.$lte &&
+        filtroFechaVenta.fecha.$gte > filtroFechaVenta.fecha.$lte) {
+      return res.status(400).json({ ok: false, error: "Rango de fechas inválido: desde es posterior a hasta" });
+    }
+
     // =========================
     // FILTROS
     // =========================
