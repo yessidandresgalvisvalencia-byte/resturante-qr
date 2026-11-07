@@ -2,7 +2,7 @@
 
 Fuente: `GRUK_Documentos_Unificados_Plan_Maestro.docx` (9-oct-2026). Esta matriz **no certifica** ninguna implementación. Se registran criterios contrastados con el documento oficial; los demás quedan pendientes de transcripción y verificación contra el Word, no se inventan. El anexo P0.01–P9.10 usa identificadores distintos y no sustituye estos 77 IDs.
 
-Estado global: **0/77 certificados en esta matriz**. Un PR abierto, un test escrito o un workflow exitoso aislado no equivalen a aceptación funcional. `main` y Render no se modifican con este PR.
+Estado global: **0/77 certificados en esta matriz**. Evidencia #07 actualizada al `main` `6f5743251915fbae6cf53eafc92e3ee3be8f3545` (2026-11-07); la presencia de código y PRs fusionados no demuestra aceptación completa. Un PR abierto, un test escrito o un workflow exitoso aislado no equivalen a aceptación funcional. `main` y Render no se modifican con este PR.
 
 | ID | Implementación oficial | Criterio de terminado oficial | Código / tests / evidencia identificada | Estado |
 |---|---|---|---|---|
@@ -12,7 +12,7 @@ Estado global: **0/77 certificados en esta matriz**. Un PR abierto, un test escr
 | 04 | Modelo de datos por empresa y sede | No hay filtraciones entre empresas ni sedes | [PR #551](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/551) | No certificado |
 | 05 | Unificar estados y eventos | Cada cambio deja rastro y evita estados contradictorios | [PR #552](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/552) | No certificado |
 | 06 | Calidad de datos y conciliaciones | Panel muestra diferencias y permite corregirlas de forma trazable | [PR #543](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/543) | No certificado |
-| 07 | Motor determinista de cálculos | Pruebas unitarias de cálculos financieros e inventario | [PR #543](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/543), [PR #548](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/548) | No certificado |
+| 07 | Motor determinista de cálculos | Pruebas unitarias de cálculos financieros e inventario | `core/finance/enterpriseMoneyOperations.js`, `routes/finanzas.js`, `test/gruk/p0-enterprise-financial-summary-http-scope.test.js`; [PR #557](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/557), [#558](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/558), [#559](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/559), [#560](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/560) fusionados; [#543](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/543), [#548](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/548) abiertos. Faltan persistencia real, conciliación e inventario E2E | Parcial, no certificado |
 | 08 | Permisos y roles convencionales | Pruebas por rol deniegan acciones no autorizadas | Sin evidencia verificada registrada | No certificado |
 | 09 | Bitácora externa de operaciones | Se reconstruye una transacción de punta a punta | Sin evidencia verificada registrada | No certificado |
 | 10 | Tablero de salud del negocio | Los números coinciden con transacciones reales | Sin evidencia verificada registrada | No certificado |
