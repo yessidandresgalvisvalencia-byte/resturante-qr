@@ -1,6 +1,6 @@
 # GRUK Empresarial — matriz conservadora de trazabilidad (77 IDs)
 
-Fuente: `GRUK_Documentos_Unificados_Plan_Maestro.docx` (9-oct-2026). Esta matriz **no certifica** ninguna implementación. Se registran criterios contrastados con el documento oficial; los demás quedan pendientes de transcripción y verificación contra el Word, no se inventan. El anexo P0.01–P9.10 usa identificadores distintos y no sustituye estos 77 IDs.
+Fuente: `GRUK_Documentos_Unificados_Plan_Maestro.docx` (9-oct-2026). Esta matriz **no certifica** ninguna implementación. Se registran criterios contrastados con el documento oficial; los 77 identificadores y sus criterios de terminado han sido cotejados con el Word. Esto es trazabilidad documental, no prueba de ejecución ni certificación. El anexo P0.01–P9.10 usa identificadores distintos y no sustituye estos 77 IDs.
 
 Estado global: **0/77 certificados en esta matriz**. Evidencia #07 actualizada al `main` `6f5743251915fbae6cf53eafc92e3ee3be8f3545` (2026-11-07); la presencia de código y PRs fusionados no demuestra aceptación completa. Un PR abierto, un test escrito o un workflow exitoso aislado no equivalen a aceptación funcional. `main` y Render no se modifican con este PR.
 
@@ -35,41 +35,41 @@ Estado global: **0/77 certificados en esta matriz**. Evidencia #07 actualizada a
 | 27 | Memoria procedimental / skills | Skill se ejecuta únicamente en su ámbito válido. | Sin evidencia verificada registrada | No certificado |
 | 28 | Memoria de fallos | El agente evita una repetición en evaluación histórica. | Sin evidencia verificada registrada | No certificado |
 | 29 | Procedencia y autoridad de recuerdos | Resumen nunca amplía autorización del dato original. | Sin evidencia verificada registrada | No certificado |
-| 30 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 31 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 32 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 33 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 34 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 35 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 36 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 37 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 38 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 39 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 40 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 41 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 42 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 43 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 44 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 45 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 46 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 47 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 48 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 49 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 50 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 51 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 52 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 53 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 54 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 55 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 56 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 57 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 58 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 59 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 60 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 61 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 62 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 63 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
-| 64 | Pendiente de transcribir del Word | Pendiente de transcribir del Word | Sin evidencia verificada registrada | No certificado |
+| 30 | Caducidad, corrección y olvido | Dato revocado deja de influir en respuestas y búsquedas | Sin evidencia verificada registrada | No certificado |
+| 31 | Memory Researcher bajo demanda | Acierto/costo superiores a la búsqueda simple en benchmarks internos | Sin evidencia verificada registrada | No certificado |
+| 32 | Memoria jerárquica | Menos tokens sin degradar decisiones verificadas | Sin evidencia verificada registrada | No certificado |
+| 33 | Memory Architect (investigación) | Cambios promocionados solo tras benchmark, revisión y rollback | Sin evidencia verificada registrada | No certificado |
+| 34 | Representación de incertidumbre (Belief State) | Incidentes con datos contradictorios generan preguntas, no inventos | Sin evidencia verificada registrada | No certificado |
+| 35 | Control Plane independiente | Todas las herramientas validan autorización en servidor | Sin evidencia verificada registrada | No certificado |
+| 36 | Capability Registry | Agente de inventario no ve ni usa nómina o transferencias | Sin evidencia verificada registrada | No certificado |
+| 37 | Execution Engine gobernado | Flujo fallido no duplica compras ni cobros | Sin evidencia verificada registrada | No certificado |
+| 38 | Verificación posterior a cada acción | Acción se marca terminada solo con comprobación | Sin evidencia verificada registrada | No certificado |
+| 39 | GRUK Core coordinador | Tarea transversal resuelta con rastro de decisiones | Sin evidencia verificada registrada | No certificado |
+| 40 | Agente de inventario | Mejora KPI frente a línea base en piloto | Sin evidencia verificada registrada | No certificado |
+| 41 | Agente de finanzas | Explica cifras y muestra fuentes de cada cálculo | Sin evidencia verificada registrada | No certificado |
+| 42 | Agente de ventas | Recomendaciones conectadas a margen real | Sin evidencia verificada registrada | No certificado |
+| 43 | Agente de compras y proveedores | Propuestas trazables y aprobadas antes de ejecutar | Sin evidencia verificada registrada | No certificado |
+| 44 | Agente de operaciones y atención | Reduce tiempo de cierre de incidencias medido | Sin evidencia verificada registrada | No certificado |
+| 45 | Agente de marketing | No envía campañas sin consentimiento/base jurídica aplicable | Sin evidencia verificada registrada | No certificado |
+| 46 | Agente de RR. HH. limitado | Accesos diferenciados y sin decisiones laborales automáticas indebidas | Sin evidencia verificada registrada | No certificado |
+| 47 | Delegación segura entre agentes | Un subagente nunca aumenta el límite del agente padre | Sin evidencia verificada registrada | No certificado |
+| 48 | Agentes persistentes con seguimiento | Objetivo sobrevive a reinicio y pide humano si no puede avanzar | Sin evidencia verificada registrada | No certificado |
+| 49 | Integraciones API y RPA cuando sea necesario | Conectores tienen versionado, fallbacks y auditoría | Sin evidencia verificada registrada | No certificado |
+| 50 | Voz como interfaz opcional | Identificación y autorización equivalentes a interfaz escrita | Sin evidencia verificada registrada | No certificado |
+| 51 | Business Simulator / Sandbox | Simula sin afectar clientes, dinero ni inventario real | Sin evidencia verificada registrada | No certificado |
+| 52 | Experiment Engine | Experimento pequeño tiene criterio de éxito y parada | Sin evidencia verificada registrada | No certificado |
+| 53 | Replay continuo de regresión | Versión nueva no empeora casos críticos | Sin evidencia verificada registrada | No certificado |
+| 54 | Skill Factory | Skill supera baseline y pasa revisión | Sin evidencia verificada registrada | No certificado |
+| 55 | Gestión de versiones de skills | Puede revertirse cualquier skill dañina | Sin evidencia verificada registrada | No certificado |
+| 56 | Correcciones en tiempo de ejecución | Mejor recuperación en casos reproducibles | Sin evidencia verificada registrada | No certificado |
+| 57 | Evaluación de agentes por tareas | Solo se agrega complejidad si hay mejora medible | Sin evidencia verificada registrada | No certificado |
+| 58 | Atribución económica prudente | No se atribuye todo crecimiento a GRUK sin evidencia | Sin evidencia verificada registrada | No certificado |
+| 59 | Model Router | Menor costo por éxito sin pérdida de calidad | Sin evidencia verificada registrada | No certificado |
+| 60 | FinOps de inteligencia | Presupuesto y costos visibles por cliente/agente | Sin evidencia verificada registrada | No certificado |
+| 61 | Autonomy Rate con calidad | Tasas respaldadas por muestras verificadas | Sin evidencia verificada registrada | No certificado |
+| 62 | Reasoning Compression Ratio | Disminuye costo manteniendo desempeño | Sin evidencia verificada registrada | No certificado |
+| 63 | Valor neto / ROII | Panel financiero defendible para cliente | Sin evidencia verificada registrada | No certificado |
+| 64 | Apprentice Models | Primero predicen; luego proponen; solo ejecutan bajo umbrales validados | Sin evidencia verificada registrada | No certificado |
 | 65 | Ejecución especulativa y local | Aceleración medida en tareas representativas | Sin evidencia verificada registrada | No certificado |
 | 66 | Auto-mejora del harness | Cambio requiere pruebas y promoción humana | Sin evidencia verificada registrada | No certificado |
 | 67 | Entrenamiento con lecciones validadas | Generaliza a datos nuevos sin empeorar seguridad | Sin evidencia verificada registrada | No certificado |
@@ -86,7 +86,11 @@ Estado global: **0/77 certificados en esta matriz**. Evidencia #07 actualizada a
 
 ## Bloqueo de integración P1-75 (comprobado en PR #550)
 
-Actualización 2026-11-05, commit `2f1e8f2e572b76323add4cdae2852bd99d36e9a2`: [GRUK CI](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174053), [gate empresarial](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174057) y [persistencia offline](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174041) SUCCESS; [quality gate](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174040) FAILURE. No es una aprobación integral; no fusionar #550 hasta resolver auditoría y volver a verificar el SHA actualizado.
+Evidencia histórica 2026-11-05, commit `2f1e8f2e572b76323add4cdae2852bd99d36e9a2`: [GRUK CI](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174053), [gate empresarial](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174057) y [persistencia offline](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174041) SUCCESS; [quality gate](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/41970174040) FAILURE. No es una aprobación integral; no fusionar #550 hasta resolver auditoría y volver a verificar el SHA actualizado.
+
+### Verificación más reciente del PR #550 (2026-11-07)
+
+HEAD `7b8fa504d1ed2729f22a3a2fdfd66b3dc2e88635`: [quality gate](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42132810159) **FAILURE**; [gate empresarial](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42132810151), [CI general](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42132810082) y [persistencia offline](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/42132810116) **SUCCESS**. No fusionar con quality gate rojo; verificar causa en logs actuales antes de afirmar que es la misma vulnerabilidad histórica.
 
 ### Evidencia histórica anterior (no sustituye el estado actual)
 
