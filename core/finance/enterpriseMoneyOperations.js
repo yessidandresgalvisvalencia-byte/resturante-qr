@@ -8,6 +8,11 @@ function assertQuantity(quantity) {
   if (typeof quantity !== 'string' || !/^(?:0|[1-9]\d*)$/.test(quantity)) {
     throw new TypeError('Quantity must be a canonical nonnegative integer string');
   }
+  // Bound parsing cost and reject implausibly large quantities even for zero-price lines.
+  // Never convert quantities to Number or accept exponent notation.
+  if (quantity.length > 16 || BigInt(quantity) > MAX_CENTS) {
+    throw new RangeError('Quantity exceeds safe integer bound');
+  }
   return BigInt(quantity);
 }
 

@@ -27,3 +27,11 @@ test('enforces safe cents boundary on each operation', () => {
   assert.throws(() => lineTotal('90071992547409.91', '2'), RangeError);
   assert.throws(() => invoiceTotal([{unitPrice:'90071992547409.91',quantity:'1'}, {unitPrice:'0.01',quantity:'1'}]), RangeError);
 });
+
+test('rejects oversized quantities including zero-price denial-of-service inputs', () => {
+  assert.equal(lineTotal('0.00', '9007199254740991'), '0.00');
+  for (const quantity of ['9007199254740992', '9'.repeat(100000)]) {
+    assert.throws(() => lineTotal('0.00', quantity), RangeError);
+    assert.throws(() => invoiceTotal([{ unitPrice: '0.00', quantity }]), RangeError);
+  }
+});
