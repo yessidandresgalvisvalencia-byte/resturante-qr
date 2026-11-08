@@ -123,4 +123,29 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
   partialFilterExpression: { offlineEventId: { $type: "string" } }
 });
 
+
+ // Identity is immutable through query updates: document pre('validate') is not
+ // invoked by updateOne/findOneAndUpdate. Keep ordinary status updates working.
+ const offlineIdentityFields = new Set(["empresaId", "sedeId", "offlineEventId"]);
+ function touchesOfflineIdentity(update) {
+   if (!update || typeof update !== "object") return false;
+   return Object.entries(update).some(([operator, value]) => {
+     if (offlineIdentityFields.has(operator)) return true;
+     if (operator === "$rename" && value && typeof value === "object") {
+       if (Object.values(value).some(target => offlineIdentityFields.has(target))) return true;
+     }
+     if (operator.startsWith("$") && value && typeof value === "object") {
+       return Object.keys(value).some(field => offlineIdentityFields.has(field.split(".")[0]));
+     }
+     return false;
+   });
+ }
+ for (const operation of ["updateOne", "updateMany", "findOneAndUpdate", "replaceOne", "findOneAndReplace"]) {
+   pedidoSchema.pre(operation, function guardOfflineIdentityQueryUpdate() {
+     if (operation === "replaceOne" || operation === "findOneAndReplace" || touchesOfflineIdentity(this.getUpdate())) {
+       throw new Error("Offline tenant identity cannot be changed through query updates; use validated document creation");
+     }
+   });
+ }
+
 module.exports = mongoose.model("Pedido", pedidoSchema)
