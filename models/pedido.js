@@ -104,6 +104,11 @@ extra: {
 // the unique index can accidentally deduplicate events under a null tenant or
 // an empty site. Legacy orders without offlineEventId remain valid.
 pedidoSchema.pre("validate", function validateOfflineTenantIdentity() {
+  // Check modifications before the missing-ID early return: an existing offline
+  // order could otherwise erase offlineEventId with document.save().
+  if (!this.isNew && this.isModified("offlineEventId")) {
+    this.invalidate("offlineEventId", "Offline tenant identity is immutable after creation");
+  }
   if (this.offlineEventId === undefined || this.offlineEventId === null) return;
   // Existing offline orders must retain their tenant-scoped retry identity
   // even when updated through document.save(), which bypasses query hooks.
