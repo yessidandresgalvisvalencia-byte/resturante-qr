@@ -181,6 +181,25 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     );
     assert.equal(await Model.countDocuments({ offlineEventId: "evt-invalid-tenant" }), 0);
 
+    // Bulk insertion must enforce the same scope and canonical event key as
+    // Model.create; otherwise a retry could be stored under an ambiguous key.
+    for (const invalid of [
+      order(companyA, "", "evt-no-site"),
+      order(null, "s1", "evt-no-company"),
+      order(companyA, "s1", "  evt-spaces  "),
+      order(companyA, "s1", "")
+    ]) {
+      await assert.rejects(
+        Model.bulkWrite([{ insertOne: { document: invalid } }]),
+        /offlineEventId|empresaId|sedeId|validation/i
+      );
+    }
+    for (const key of ["evt-no-site", "evt-no-company", "  evt-spaces  ", ""]) {
+      assert.equal(await Model.countDocuments({ offlineEventId: key }), 0);
+    }
+    await Model.bulkWrite([{ insertOne: { document: order(companyA, "s1", "evt-valid-bulk") } }]);
+    assert.equal(await Model.countDocuments({ empresaId: companyA, sedeId: "s1", offlineEventId: "evt-valid-bulk" }), 1);
+
     await Model.create(order(null, "", undefined));
     await Model.create(order(null, "", undefined));
     assert.equal(await Model.countDocuments({ offlineEventId: { $exists: false } }), 2);
