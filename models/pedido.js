@@ -152,4 +152,16 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
    });
  }
 
+
+ // Mongoose bulkWrite bypasses query middleware. Apply the same immutable
+ // tenant identity policy to bulk updates before any operation reaches MongoDB.
+ pedidoSchema.pre("bulkWrite", function guardOfflineIdentityBulkWrite(operations) {
+   for (const entry of operations) {
+     if (entry.replaceOne || (entry.updateOne && touchesOfflineIdentity(entry.updateOne.update)) ||
+         (entry.updateMany && touchesOfflineIdentity(entry.updateMany.update))) {
+       throw new Error("Offline tenant identity cannot be changed through bulk updates; use validated document creation");
+     }
+   }
+ });
+
 module.exports = mongoose.model("Pedido", pedidoSchema)
