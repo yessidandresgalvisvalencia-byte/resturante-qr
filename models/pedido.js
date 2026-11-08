@@ -105,13 +105,13 @@ extra: {
 // an empty site. Legacy orders without offlineEventId remain valid.
 pedidoSchema.pre("validate", function validateOfflineTenantIdentity() {
   if (this.offlineEventId === undefined || this.offlineEventId === null) return;
-  if (typeof this.offlineEventId !== "string" || !this.offlineEventId.trim()) {
+  if (typeof this.offlineEventId !== "string" || !this.offlineEventId.trim() || this.offlineEventId !== this.offlineEventId.trim()) {
     this.invalidate("offlineEventId", "offlineEventId must be a non-empty string");
   }
   if (!this.empresaId) {
     this.invalidate("empresaId", "empresaId is required for offline retries");
   }
-  if (typeof this.sedeId !== "string" || !this.sedeId.trim()) {
+  if (typeof this.sedeId !== "string" || !this.sedeId.trim() || this.sedeId !== this.sedeId.trim()) {
     this.invalidate("sedeId", "sedeId is required for offline retries");
   }
 });
