@@ -133,6 +133,9 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
    // stage instead of treating numeric array indexes as update operators.
    if (Array.isArray(update)) return update.some(touchesOfflineIdentity);
    return Object.entries(update).some(([operator, value]) => {
+     // Pipeline stages can replace the entire document or remove identity
+     // indirectly. Neither operation is safe for immutable offline keys.
+     if (["$replaceRoot", "$replaceWith", "$project"].includes(operator)) return true;
      if (offlineIdentityFields.has(operator)) return true;
      if (operator === "$unset" && typeof value === "string" && offlineIdentityFields.has(value.split(".")[0])) return true;
      if (operator === "$rename" && value && typeof value === "object") {
