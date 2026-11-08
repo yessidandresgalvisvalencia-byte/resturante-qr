@@ -134,6 +134,7 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
    if (Array.isArray(update)) return update.some(touchesOfflineIdentity);
    return Object.entries(update).some(([operator, value]) => {
      if (offlineIdentityFields.has(operator)) return true;
+     if (operator === "$unset" && typeof value === "string" && offlineIdentityFields.has(value.split(".")[0])) return true;
      if (operator === "$rename" && value && typeof value === "object") {
        if (Object.values(value).some(target => offlineIdentityFields.has(target))) return true;
      }
