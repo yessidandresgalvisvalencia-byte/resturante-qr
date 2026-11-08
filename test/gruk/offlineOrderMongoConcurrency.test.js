@@ -59,6 +59,22 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
       Model.updateOne({ _id: persisted._id }, [{ $unset: "empresaId" }], { updatePipeline: true }),
       /Offline tenant identity/
     );
+    // Aggregation pipeline stages can rewrite the entire document without
+    // naming an offline identity field in their immediate stage keys.
+    for (const stage of [
+      { $replaceRoot: { newRoot: { producto: "forged" } } },
+      { $replaceWith: { producto: "forged" } },
+      { $project: { empresaId: 0 } }
+    ]) {
+      await assert.rejects(
+        Model.updateOne({ _id: persisted._id }, [stage], { updatePipeline: true }),
+        /Offline tenant identity/
+      );
+      await assert.rejects(
+        Model.bulkWrite([{ updateOne: { filter: { _id: persisted._id }, update: [stage] } }]),
+        /Offline tenant identity/
+      );
+    }
     await Model.updateOne({ _id: persisted._id }, { $set: { estado: "preparando" } });
     assert.equal((await Model.findById(persisted._id)).estado, "preparando");
     assert.equal((await Model.findById(persisted._id)).offlineEventId, "evt-concurrent");
