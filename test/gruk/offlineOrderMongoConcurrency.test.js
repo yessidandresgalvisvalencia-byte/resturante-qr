@@ -63,6 +63,23 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     assert.equal((await Model.findById(persisted._id)).estado, "preparando");
     assert.equal((await Model.findById(persisted._id)).offlineEventId, "evt-concurrent");
 
+    // bulkWrite skips updateOne middleware: protect the same identity here.
+    await assert.rejects(
+      Model.bulkWrite([{ updateOne: { filter: { _id: persisted._id }, update: { $set: { sedeId: "forged" } } } }]),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.bulkWrite([{ updateMany: { filter: { empresaId: companyA }, update: { $unset: { offlineEventId: 1 } } } }]),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.bulkWrite([{ replaceOne: { filter: { _id: persisted._id }, replacement: order(companyA, "s1", "replacement") } }]),
+      /Offline tenant identity/
+    );
+    await Model.bulkWrite([{ updateOne: { filter: { _id: persisted._id }, update: { $set: { estado: "listo" } } } }]);
+    assert.equal((await Model.findById(persisted._id)).estado, "listo");
+    assert.equal((await Model.findById(persisted._id)).offlineEventId, "evt-concurrent");
+
     await Model.create(order(null, "", undefined));
     await Model.create(order(null, "", undefined));
     assert.equal(await Model.countDocuments({ offlineEventId: { $exists: false } }), 2);
