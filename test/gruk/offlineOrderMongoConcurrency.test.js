@@ -116,6 +116,13 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
       document.set(field, value);
       await assert.rejects(document.save(), /Offline tenant identity/);
     }
+    // Clearing the key used to bypass validation's missing-event early return.
+    for (const removedValue of [undefined, null]) {
+      const document = await Model.findById(persisted._id);
+      document.offlineEventId = removedValue;
+      await assert.rejects(document.save(), /Offline tenant identity/);
+    }
+    assert.equal((await Model.findById(persisted._id)).offlineEventId, "evt-concurrent");
     const afterRejectedSaves = await Model.findById(persisted._id);
     assert.equal(String(afterRejectedSaves.empresaId), String(companyA));
     assert.equal(afterRejectedSaves.sedeId, "s1");
