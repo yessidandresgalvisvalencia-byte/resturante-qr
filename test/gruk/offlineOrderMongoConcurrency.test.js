@@ -105,6 +105,26 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     assert.equal((await Model.findById(persisted._id)).sedeId, "s1");
     assert.equal(String((await Model.findById(persisted._id)).empresaId), String(companyA));
 
+    // Document.save() does not execute query update middleware. Immutable
+    // offline identity must also survive this common Mongoose write path.
+    for (const [field, value] of [
+      ["empresaId", companyB],
+      ["sedeId", "forged-site"],
+      ["offlineEventId", "forged-event"]
+    ]) {
+      const document = await Model.findById(persisted._id);
+      document.set(field, value);
+      await assert.rejects(document.save(), /Offline tenant identity/);
+    }
+    const afterRejectedSaves = await Model.findById(persisted._id);
+    assert.equal(String(afterRejectedSaves.empresaId), String(companyA));
+    assert.equal(afterRejectedSaves.sedeId, "s1");
+    assert.equal(afterRejectedSaves.offlineEventId, "evt-concurrent");
+    const allowedDocument = await Model.findById(persisted._id);
+    allowedDocument.observaciones = "actualización legítima";
+    await allowedDocument.save();
+    assert.equal((await Model.findById(persisted._id)).observaciones, "actualización legítima");
+
     await Model.updateOne({ _id: persisted._id }, { $set: { estado: "preparando" } });
     assert.equal((await Model.findById(persisted._id)).estado, "preparando");
     assert.equal((await Model.findById(persisted._id)).offlineEventId, "evt-concurrent");
