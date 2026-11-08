@@ -173,6 +173,14 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     );
     assert.equal(await Model.countDocuments({ empresaId: companyA, offlineEventId: "evt-concurrent" }), 2);
 
+    // bulkWrite insertOne must validate tenant scope too; query-update guards
+    // alone do not cover insertion paths. Failed insertion must persist nothing.
+    await assert.rejects(
+      Model.bulkWrite([{ insertOne: { document: order(null, "", "evt-invalid-tenant") } }]),
+      /empresaId|sedeId|validation/i
+    );
+    assert.equal(await Model.countDocuments({ offlineEventId: "evt-invalid-tenant" }), 0);
+
     await Model.create(order(null, "", undefined));
     await Model.create(order(null, "", undefined));
     assert.equal(await Model.countDocuments({ offlineEventId: { $exists: false } }), 2);
