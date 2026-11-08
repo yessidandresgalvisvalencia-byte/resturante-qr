@@ -35,6 +35,26 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     await Model.create(order(companyB, "s1", "evt-concurrent"));
     assert.equal(await Model.countDocuments({ offlineEventId: "evt-concurrent" }), 3);
 
+
+    // Query updates do not run document validation; they must not mutate
+    // offline retry identity, even when a caller supplies runValidators.
+    const persisted = await Model.findOne({ empresaId: companyA, sedeId: "s1", offlineEventId: "evt-concurrent" });
+    await assert.rejects(
+      Model.updateOne({ _id: persisted._id }, { $set: { offlineEventId: "evt-forged" } }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.findOneAndUpdate({ _id: persisted._id }, { $unset: { empresaId: 1 } }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.updateMany({ empresaId: companyA }, { $rename: { producto: "sedeId" } }),
+      /Offline tenant identity/
+    );
+    await Model.updateOne({ _id: persisted._id }, { $set: { estado: "preparando" } });
+    assert.equal((await Model.findById(persisted._id)).estado, "preparando");
+    assert.equal((await Model.findById(persisted._id)).offlineEventId, "evt-concurrent");
+
     await Model.create(order(null, "", undefined));
     await Model.create(order(null, "", undefined));
     assert.equal(await Model.countDocuments({ offlineEventId: { $exists: false } }), 2);
