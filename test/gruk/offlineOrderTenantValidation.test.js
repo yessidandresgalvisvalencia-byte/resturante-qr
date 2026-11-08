@@ -27,3 +27,14 @@ test("complete offline retry identity and legacy orders validate", async () => {
   await validate({ offlineEventId: "evt-1", empresaId, sedeId: "s1" });
   await validate({});
 });
+
+test("offline retry rejects invalid tenant identifiers and structured event keys", async () => {
+  await assert.rejects(validate({ offlineEventId: "evt-1", empresaId: "not-an-object-id", sedeId: "s1" }), /empresaId/);
+  await assert.rejects(validate({ offlineEventId: ["evt-1"], empresaId, sedeId: "s1" }), /offlineEventId/);
+  await assert.rejects(validate({ offlineEventId: { $ne: null }, empresaId, sedeId: "s1" }), /offlineEventId/);
+});
+
+test("legacy orders without an offline event key retain compatibility", async () => {
+  await validate({ offlineEventId: null, empresaId: null, sedeId: "" });
+  await validate({ offlineEventId: undefined, empresaId: null, sedeId: "" });
+});
