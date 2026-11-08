@@ -137,9 +137,9 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
      // indirectly. Neither operation is safe for immutable offline keys.
      if (["$replaceRoot", "$replaceWith", "$project"].includes(operator)) return true;
      if (offlineIdentityFields.has(operator)) return true;
-     if (operator === "$unset" && typeof value === "string" && offlineIdentityFields.has(value.split(".")[0])) return true;
+     if (operator === "$unset" && (typeof value === "string" ? [value] : Array.isArray(value) ? value : []).some(field => typeof field === "string" && offlineIdentityFields.has(field.split(".")[0]))) return true;
      if (operator === "$rename" && value && typeof value === "object") {
-       if (Object.values(value).some(target => offlineIdentityFields.has(target))) return true;
+       if (Object.values(value).some(target => typeof target === "string" && offlineIdentityFields.has(target.split(".")[0]))) return true;
      }
      if (operator.startsWith("$") && value && typeof value === "object") {
        return Object.keys(value).some(field => offlineIdentityFields.has(field.split(".")[0]));
