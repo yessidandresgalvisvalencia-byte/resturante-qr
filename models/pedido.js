@@ -129,6 +129,9 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
  const offlineIdentityFields = new Set(["empresaId", "sedeId", "offlineEventId"]);
  function touchesOfflineIdentity(update) {
    if (!update || typeof update !== "object") return false;
+   // MongoDB aggregation-pipeline updates are arrays of stages; inspect each
+   // stage instead of treating numeric array indexes as update operators.
+   if (Array.isArray(update)) return update.some(touchesOfflineIdentity);
    return Object.entries(update).some(([operator, value]) => {
      if (offlineIdentityFields.has(operator)) return true;
      if (operator === "$rename" && value && typeof value === "object") {
