@@ -75,6 +75,24 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
         /Offline tenant identity/
       );
     }
+    // MongoDB accepts pipeline $unset as an array, and $rename targets may
+    // refer to dotted paths. Both must preserve offline tenant identity.
+    await assert.rejects(
+      Model.updateOne({ _id: persisted._id }, [{ $unset: ["producto", "empresaId"] }], { updatePipeline: true }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.bulkWrite([{ updateOne: { filter: { _id: persisted._id }, update: [{ $unset: ["producto", "sedeId"] }] } }]),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.updateOne({ _id: persisted._id }, { $rename: { producto: "empresaId.nested" } }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.bulkWrite([{ updateOne: { filter: { _id: persisted._id }, update: { $rename: { producto: "offlineEventId.nested" } } } }]),
+      /Offline tenant identity/
+    );
     await Model.updateOne({ _id: persisted._id }, { $set: { estado: "preparando" } });
     assert.equal((await Model.findById(persisted._id)).estado, "preparando");
     assert.equal((await Model.findById(persisted._id)).offlineEventId, "evt-concurrent");
