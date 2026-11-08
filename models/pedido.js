@@ -105,6 +105,11 @@ extra: {
 // an empty site. Legacy orders without offlineEventId remain valid.
 pedidoSchema.pre("validate", function validateOfflineTenantIdentity() {
   if (this.offlineEventId === undefined || this.offlineEventId === null) return;
+  // Existing offline orders must retain their tenant-scoped retry identity
+  // even when updated through document.save(), which bypasses query hooks.
+  if (!this.isNew && ["empresaId", "sedeId", "offlineEventId"].some(field => this.isModified(field))) {
+    this.invalidate("offlineEventId", "Offline tenant identity is immutable after creation");
+  }
   if (typeof this.offlineEventId !== "string" || !this.offlineEventId.trim() || this.offlineEventId !== this.offlineEventId.trim()) {
     this.invalidate("offlineEventId", "offlineEventId must be a non-empty string");
   }
