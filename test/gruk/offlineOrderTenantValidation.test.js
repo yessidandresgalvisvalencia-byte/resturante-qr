@@ -38,3 +38,11 @@ test("legacy orders without an offline event key retain compatibility", async ()
   await validate({ offlineEventId: null, empresaId: null, sedeId: "" });
   await validate({ offlineEventId: undefined, empresaId: null, sedeId: "" });
 });
+
+// Distinct whitespace variants must not create parallel retry identities.
+test("offline retry rejects noncanonical whitespace in tenant and event keys", async () => {
+  await assert.rejects(validate({ offlineEventId: " evt-1", empresaId, sedeId: "s1" }), /offlineEventId/);
+  await assert.rejects(validate({ offlineEventId: "evt-1 ", empresaId, sedeId: "s1" }), /offlineEventId/);
+  await assert.rejects(validate({ offlineEventId: "evt-1", empresaId, sedeId: " s1" }), /sedeId/);
+  await assert.rejects(validate({ offlineEventId: "evt-1", empresaId, sedeId: "s1 " }), /sedeId/);
+});
