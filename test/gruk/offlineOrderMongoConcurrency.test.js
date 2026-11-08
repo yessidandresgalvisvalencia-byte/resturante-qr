@@ -93,6 +93,18 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
       Model.bulkWrite([{ updateOne: { filter: { _id: persisted._id }, update: { $rename: { producto: "offlineEventId.nested" } } } }]),
       /Offline tenant identity/
     );
+    // Full-document replacement must not bypass tenant identity protections.
+    await assert.rejects(
+      Model.replaceOne({ _id: persisted._id }, order(companyB, "s9", "forged-replace")),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.findOneAndReplace({ _id: persisted._id }, order(companyB, "s9", "forged-find-replace")),
+      /Offline tenant identity/
+    );
+    assert.equal((await Model.findById(persisted._id)).sedeId, "s1");
+    assert.equal(String((await Model.findById(persisted._id)).empresaId), String(companyA));
+
     await Model.updateOne({ _id: persisted._id }, { $set: { estado: "preparando" } });
     assert.equal((await Model.findById(persisted._id)).estado, "preparando");
     assert.equal((await Model.findById(persisted._id)).offlineEventId, "evt-concurrent");
