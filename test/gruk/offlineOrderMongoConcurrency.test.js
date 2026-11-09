@@ -211,6 +211,20 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     );
     assert.equal(await Model.countDocuments({ offlineEventId: { $in: ["evt-mixed-valid", "evt-mixed-invalid"] } }), 0);
 
+    // Mongoose may reject a malformed ObjectId only after dispatching other
+    // operations in an unordered bulk batch. Preflight must reject the whole
+    // batch before any valid companion insert reaches MongoDB.
+    await assert.rejects(
+      Model.bulkWrite([
+        { insertOne: { document: order(companyA, "s1", "evt-malformed-companion") } },
+        { insertOne: { document: order("not-an-object-id", "s1", "evt-malformed-company") } }
+      ], { ordered: false }),
+      /Offline tenant identity/
+    );
+    assert.equal(await Model.countDocuments({
+      offlineEventId: { $in: ["evt-malformed-companion", "evt-malformed-company"] }
+    }), 0);
+
     await Model.create(order(null, "", undefined));
     await Model.create(order(null, "", undefined));
     assert.equal(await Model.countDocuments({ offlineEventId: { $exists: false } }), 2);
