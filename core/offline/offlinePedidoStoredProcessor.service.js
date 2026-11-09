@@ -7,6 +7,8 @@ async function processStoredOfflinePedido({db,client,context,eventId}){
  if(!db?.collection||!client?.startSession)fail("OFFLINE_DB_REQUIRED");
  if(!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&context[k].trim()===context[k]&&context[k].length>0))
   fail("OFFLINE_AUTH_REQUIRED");
+ // Reject noncanonical company identities before any inbox read or session.
+ if(!/^[0-9a-fA-F]{24}$/.test(context.empresaId))fail("OFFLINE_COMPANY_ID_INVALID");
  if(typeof eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(eventId))fail("OFFLINE_INVALID_IDS");
  const record=await db.collection("gruk_offline_inbox").findOne({
   empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,
