@@ -170,6 +170,16 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
  // tenant identity policy to bulk updates before any operation reaches MongoDB.
  pedidoSchema.pre("bulkWrite", function guardOfflineIdentityBulkWrite(operations) {
    for (const entry of operations) {
+     // Validate the tenant retry key before any unordered bulk batch is sent.
+     // Otherwise a valid insert may persist alongside an invalid offline event.
+     if (entry.insertOne && entry.insertOne.document) {
+       const doc = entry.insertOne.document;
+       if (doc.offlineEventId !== undefined && doc.offlineEventId !== null &&
+           (!doc.empresaId || typeof doc.sedeId !== "string" || !doc.sedeId.trim() || doc.sedeId !== doc.sedeId.trim() ||
+            typeof doc.offlineEventId !== "string" || !doc.offlineEventId.trim() || doc.offlineEventId !== doc.offlineEventId.trim())) {
+         throw new Error("Offline tenant identity is invalid for bulk insert");
+       }
+     }
      if (entry.replaceOne || (entry.updateOne && touchesOfflineIdentity(entry.updateOne.update)) ||
          (entry.updateMany && touchesOfflineIdentity(entry.updateMany.update))) {
        throw new Error("Offline tenant identity cannot be changed through bulk updates; use validated document creation");
