@@ -190,6 +190,19 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     assert.equal(await Model.countDocuments({ offlineEventId: "evt-many-filter-upsert" }), 0);
     assert.equal((await Model.findById(persisted._id)).estado, "pendiente");
 
+    // Direct updateMany upserts (not only bulkWrite) can materialize equality
+    // predicates as inserted fields. Reject nested offline identities before IO.
+    await assert.rejects(
+      Model.updateMany({ $and: [{ empresaId: companyA }, { offlineEventId: "evt-direct-many-upsert" }] },
+        { $set: { estado: "pendiente" } }, { upsert: true }),
+      /Offline tenant identity/
+    );
+    assert.equal(await Model.countDocuments({ offlineEventId: "evt-direct-many-upsert" }), 0);
+    // Existing non-identity bulk status updates must remain usable.
+    await Model.updateMany({ _id: persisted._id }, { $set: { estado: "preparando" } });
+    assert.equal((await Model.findById(persisted._id)).estado, "preparando");
+    await Model.updateMany({ _id: persisted._id }, { $set: { estado: "pendiente" } });
+
     // Full-document replacement must not bypass tenant identity protections.
     await assert.rejects(
       Model.replaceOne({ _id: persisted._id }, order(companyB, "s9", "forged-replace")),
