@@ -6,7 +6,7 @@ const KEYS=["eventId","empresaId","sedeId","actorId","deviceId","tipo","occurred
 function fail(code){const err=new Error(code);err.code=code;throw err;}
 async function processStoredOfflinePedido({db,client,context,eventId}){
  if(!db?.collection||!client?.startSession)fail("OFFLINE_DB_REQUIRED");
- if(!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&k))
+ if(!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&context[k].trim()===context[k]&&context[k].length>0))
   fail("OFFLINE_AUTH_REQUIRED");
  if(typeof eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(eventId))fail("OFFLINE_INVALID_IDS");
  const record=await db.collection("gruk_offline_inbox").findOne({
