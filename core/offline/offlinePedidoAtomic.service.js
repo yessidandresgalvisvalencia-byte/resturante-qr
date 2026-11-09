@@ -10,7 +10,9 @@ async function processPendingOfflinePedido({db,session,event,context}){
  if(!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&context[k].length>0&&context[k].trim()===context[k]))fail("OFFLINE_AUTH_REQUIRED");
  if(!event||!ULID.test(event.eventId||"")||event.tipo!=="PEDIDO_REGISTRADO"||
     event.empresaId!==context.empresaId||event.sedeId!==context.sedeId||event.actorId!==context.actorId)fail("OFFLINE_TENANT_MISMATCH");
- // Require a canonical 24-hex company ID, not merely a driver-coercible ObjectId.\n // This prevents alternate textual identities from sharing the same MongoDB tenant.\n if(!/^[0-9a-fA-F]{24}$/.test(context.empresaId))fail("OFFLINE_COMPANY_ID_INVALID");
+ // Require a canonical 24-hex company ID, not merely a driver-coercible ObjectId.
+ // This prevents alternate textual identities from sharing the same MongoDB tenant.
+ if(!/^[0-9a-fA-F]{24}$/.test(context.empresaId))fail("OFFLINE_COMPANY_ID_INVALID");
  let response;
  await session.withTransaction(async()=>{
   const inbox=db.collection("gruk_offline_inbox");
