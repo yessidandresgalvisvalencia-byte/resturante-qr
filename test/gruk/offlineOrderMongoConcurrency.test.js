@@ -177,7 +177,7 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     // alone do not cover insertion paths. Failed insertion must persist nothing.
     await assert.rejects(
       Model.bulkWrite([{ insertOne: { document: order(null, "", "evt-invalid-tenant") } }]),
-      /empresaId|sedeId|validation/i
+      /Offline tenant identity|empresaId|sedeId|validation/i
     );
     assert.equal(await Model.countDocuments({ offlineEventId: "evt-invalid-tenant" }), 0);
 
@@ -191,7 +191,7 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     ]) {
       await assert.rejects(
         Model.bulkWrite([{ insertOne: { document: invalid } }]),
-        /offlineEventId|empresaId|sedeId|validation/i
+        /Offline tenant identity|offlineEventId|empresaId|sedeId|validation/i
       );
     }
     for (const key of ["evt-no-site", "evt-no-company", "  evt-spaces  ", ""]) {
