@@ -1,7 +1,6 @@
 "use strict";
 // Internal processor: reads the immutable stored event, never accepts a client-supplied payload.
 // Explicitly invoked by trusted backend only. No payment, stock or ledger posting.
-const {processPendingOfflinePedido}=require("./offlinePedidoAtomic.service");
 const KEYS=["eventId","empresaId","sedeId","actorId","deviceId","tipo","occurredAt","schemaVersion","payload"];
 function fail(code){const err=new Error(code);err.code=code;throw err;}
 async function processStoredOfflinePedido({db,client,context,eventId}){
@@ -17,7 +16,12 @@ async function processStoredOfflinePedido({db,client,context,eventId}){
  const event={};
  for(const key of KEYS)event[key]=record[key];
  const session=client.startSession();
- try{return await processPendingOfflinePedido({db,session,event,context});}
+ try{
+  // Load transactional MongoDB dependencies only after authenticated inbox lookup.
+  // This keeps rejection paths dependency-free without changing the transaction path.
+  const {processPendingOfflinePedido}=require("./offlinePedidoAtomic.service");
+  return await processPendingOfflinePedido({db,session,event,context});
+ }
  finally{await session.endSession();}
 }
 module.exports={processStoredOfflinePedido};
