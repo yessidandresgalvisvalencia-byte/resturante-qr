@@ -159,7 +159,8 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
  }
  for (const operation of ["updateOne", "updateMany", "findOneAndUpdate", "replaceOne", "findOneAndReplace"]) {
    pedidoSchema.pre(operation, function guardOfflineIdentityQueryUpdate() {
-     if (operation === "replaceOne" || operation === "findOneAndReplace" || touchesOfflineIdentity(this.getUpdate())) {
+     if (operation === "replaceOne" || operation === "findOneAndReplace" || touchesOfflineIdentity(this.getUpdate()) ||
+         (this.getOptions().upsert && this.getFilter() && this.getFilter().offlineEventId !== undefined)) {
        throw new Error("Offline tenant identity cannot be changed through query updates; use validated document creation");
      }
    });
@@ -180,7 +181,8 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
          throw new Error("Offline tenant identity is invalid for bulk insert");
        }
      }
-     if (entry.replaceOne || (entry.updateOne && touchesOfflineIdentity(entry.updateOne.update)) ||
+     if (entry.replaceOne || (entry.updateOne && (touchesOfflineIdentity(entry.updateOne.update) ||
+         (entry.updateOne.upsert && entry.updateOne.filter && entry.updateOne.filter.offlineEventId !== undefined))) ||
          (entry.updateMany && touchesOfflineIdentity(entry.updateMany.update))) {
        throw new Error("Offline tenant identity cannot be changed through bulk updates; use validated document creation");
      }
