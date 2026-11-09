@@ -140,6 +140,27 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     ] } }), 0);
     assert.equal((await Model.findById(persisted._id)).estado, "pendiente");
 
+    // Nested equality predicates also participate in MongoDB upsert inserts.
+    // Reject before dispatch, including mixed unordered bulk operations.
+    const nestedFilter = { $and: [{ empresaId: companyA }, { offlineEventId: "evt-nested-upsert" }] };
+    await assert.rejects(
+      Model.updateOne(nestedFilter, { $set: { estado: "pendiente" } }, { upsert: true }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.findOneAndUpdate(nestedFilter, { $set: { estado: "pendiente" } }, { upsert: true }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.bulkWrite([
+        { updateOne: { filter: { _id: persisted._id }, update: { $set: { estado: "entregado" } } } },
+        { updateOne: { filter: nestedFilter, update: { $set: { estado: "pendiente" } }, upsert: true } }
+      ], { ordered: false }),
+      /Offline tenant identity/
+    );
+    assert.equal(await Model.countDocuments({ offlineEventId: "evt-nested-upsert" }), 0);
+    assert.equal((await Model.findById(persisted._id)).estado, "pendiente");
+
     // Full-document replacement must not bypass tenant identity protections.
     await assert.rejects(
       Model.replaceOne({ _id: persisted._id }, order(companyB, "s9", "forged-replace")),
