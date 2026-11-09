@@ -58,3 +58,36 @@ test("Mongo replica-set transaction rejects a foreign or absent offline inbox ev
     try { await db.dropDatabase(); } finally { await client.close(); }
   }
 });
+
+test("Mongo transaction rejects changed payload on a completed retry and preserves the original inbox and order", {
+  skip: !uri && "GRUK_TEST_MONGO_URI not configured"
+}, async () => {
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 10000 });
+  const dbName = "gruk_offline_retry_" + randomBytes(8).toString("hex");
+  await client.connect();
+  const db = client.db(dbName);
+  const original = { ...event, eventId: "01ARZ3NDEKTSV4RRFFQ69G5FAX" };
+  const changed = { ...original, payload: { quantity: 99 } };
+  try {
+    await db.collection("gruk_offline_inbox").insertOne({
+      ...original, eventHash: digest(original), status: "EN_REVISION"
+    });
+    const session = client.startSession();
+    try {
+      await assert.rejects(
+        processPendingOfflinePedido({ db, session, event: changed, context }),
+        error => error?.code === "OFFLINE_EVENT_CONFLICT"
+      );
+      const retry = await processPendingOfflinePedido({ db, session, event: original, context });
+      assert.deepEqual(retry, { eventId: original.eventId, status: "EN_REVISION", created: false });
+    } finally {
+      await session.endSession();
+    }
+    assert.equal(await db.collection("pedidos").countDocuments({}), 0);
+    const stored = await db.collection("gruk_offline_inbox").findOne({ eventId: original.eventId });
+    assert.equal(stored.status, "EN_REVISION");
+    assert.equal(stored.eventHash, digest(original));
+  } finally {
+    try { await db.dropDatabase(); } finally { await client.close(); }
+  }
+});
