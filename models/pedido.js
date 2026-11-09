@@ -149,7 +149,9 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
      if (offlineIdentityFields.has(operator)) return true;
      if (operator === "$unset" && (typeof value === "string" ? [value] : Array.isArray(value) ? value : []).some(field => typeof field === "string" && offlineIdentityFields.has(field.split(".")[0]))) return true;
      if (operator === "$rename" && value && typeof value === "object") {
-       if (Object.values(value).some(target => typeof target === "string" && offlineIdentityFields.has(target.split(".")[0]))) return true;
+       if (Object.entries(value).some(([source, target]) =>
+         offlineIdentityFields.has(source.split(".")[0]) ||
+         (typeof target === "string" && offlineIdentityFields.has(target.split(".")[0])))) return true;
      }
      if (operator.startsWith("$") && value && typeof value === "object") {
        return Object.keys(value).some(field => offlineIdentityFields.has(field.split(".")[0]));
