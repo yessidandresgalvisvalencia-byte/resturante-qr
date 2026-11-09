@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const { processStoredOfflinePedido } = require("../../core/offline/offlinePedidoStoredProcessor.service");
 
 const eventId = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
-const valid = { empresaId: "company-1", sedeId: "site-1", actorId: "actor-1" };
+const valid = { empresaId: "507f1f77bcf86cd799439011", sedeId: "site-1", actorId: "actor-1" };
 
 test("stored offline processor rejects missing, blank and noncanonical auth scope before database access", async () => {
   let calls = 0;
@@ -39,4 +39,19 @@ test("valid stored offline scope proceeds to tenant-scoped inbox lookup", async 
     error => error?.code === "OFFLINE_EVENT_NOT_FOUND"
   );
   assert.deepEqual(filter, { ...valid, eventId, tipo: "PEDIDO_REGISTRADO" });
+});
+
+
+test("stored processor rejects noncanonical company IDs before inbox lookup", async () => {
+  let calls = 0;
+  const db = { collection() { calls++; throw Error("DB_MUST_NOT_BE_READ"); } };
+  const client = { startSession() { calls++; throw Error("SESSION_MUST_NOT_START"); } };
+  for (const empresaId of ["abcdefghijkl", "company-1", "507f1f77bcf86cd79943901", "507f1f77bcf86cd7994390110"]) {
+    await assert.rejects(
+      processStoredOfflinePedido({ db, client, context: { ...valid, empresaId }, eventId }),
+      error => error?.code === "OFFLINE_COMPANY_ID_INVALID",
+      empresaId
+    );
+  }
+  assert.equal(calls, 0);
 });
