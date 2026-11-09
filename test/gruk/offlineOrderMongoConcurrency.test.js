@@ -93,6 +93,28 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
       Model.bulkWrite([{ updateOne: { filter: { _id: persisted._id }, update: { $rename: { producto: "offlineEventId.nested" } } } }]),
       /Offline tenant identity/
     );
+    // Upsert is another insertion path: $setOnInsert must not create an
+    // offline retry identity without passing the tenant-safe creation path.
+    // Reject the entire unordered batch before a legitimate companion write.
+    await assert.rejects(
+      Model.updateOne({ offlineEventId: "evt-upsert-forged" }, {
+        $set: { estado: "pendiente" },
+        $setOnInsert: { empresaId: companyB, sedeId: "s9", offlineEventId: "evt-upsert-forged" }
+      }, { upsert: true }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.bulkWrite([
+        { updateOne: { filter: { _id: persisted._id }, update: { $set: { estado: "entregado" } } } },
+        { updateOne: { filter: { offlineEventId: "evt-bulk-upsert-forged" }, update: {
+          $setOnInsert: { empresaId: companyB, sedeId: "s9", offlineEventId: "evt-bulk-upsert-forged" }
+        }, upsert: true } }
+      ], { ordered: false }),
+      /Offline tenant identity/
+    );
+    assert.equal(await Model.countDocuments({ offlineEventId: { $in: ["evt-upsert-forged", "evt-bulk-upsert-forged"] } }), 0);
+    assert.equal((await Model.findById(persisted._id)).estado, "pendiente");
+
     // Full-document replacement must not bypass tenant identity protections.
     await assert.rejects(
       Model.replaceOne({ _id: persisted._id }, order(companyB, "s9", "forged-replace")),
