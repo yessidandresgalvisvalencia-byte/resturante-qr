@@ -175,7 +175,7 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
      if (entry.insertOne && entry.insertOne.document) {
        const doc = entry.insertOne.document;
        if (doc.offlineEventId !== undefined && doc.offlineEventId !== null &&
-           (!doc.empresaId || typeof doc.sedeId !== "string" || !doc.sedeId.trim() || doc.sedeId !== doc.sedeId.trim() ||
+           (!mongoose.isObjectIdOrHexString(doc.empresaId) || typeof doc.sedeId !== "string" || !doc.sedeId.trim() || doc.sedeId !== doc.sedeId.trim() ||
             typeof doc.offlineEventId !== "string" || !doc.offlineEventId.trim() || doc.offlineEventId !== doc.offlineEventId.trim())) {
          throw new Error("Offline tenant identity is invalid for bulk insert");
        }
