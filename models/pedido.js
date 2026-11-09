@@ -195,7 +195,8 @@ pedidoSchema.index({ empresaId: 1, sedeId: 1, offlineEventId: 1 }, {
      }
      if (entry.replaceOne || (entry.updateOne && (touchesOfflineIdentity(entry.updateOne.update) ||
          (entry.updateOne.upsert && entry.updateOne.filter && filterContainsOfflineEventId(entry.updateOne.filter)))) ||
-         (entry.updateMany && touchesOfflineIdentity(entry.updateMany.update))) {
+         (entry.updateMany && (touchesOfflineIdentity(entry.updateMany.update) ||
+         (entry.updateMany.upsert && entry.updateMany.filter && filterContainsOfflineEventId(entry.updateMany.filter))))) {
        throw new Error("Offline tenant identity cannot be changed through bulk updates; use validated document creation");
      }
    }
