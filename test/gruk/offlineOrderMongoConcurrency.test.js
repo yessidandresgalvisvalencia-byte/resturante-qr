@@ -115,6 +115,31 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     assert.equal(await Model.countDocuments({ offlineEventId: { $in: ["evt-upsert-forged", "evt-bulk-upsert-forged"] } }), 0);
     assert.equal((await Model.findById(persisted._id)).estado, "pendiente");
 
+    // An upsert can derive offlineEventId from its equality filter even when
+    // the update document never names an identity field. Reject pre-dispatch.
+    await assert.rejects(
+      Model.updateOne({ offlineEventId: "evt-filter-upsert", empresaId: companyA, sedeId: "s1" },
+        { $set: { estado: "pendiente" } }, { upsert: true }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.findOneAndUpdate({ offlineEventId: "evt-filter-find-upsert", empresaId: companyA, sedeId: "s1" },
+        { $set: { estado: "pendiente" } }, { upsert: true }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.bulkWrite([
+        { updateOne: { filter: { _id: persisted._id }, update: { $set: { estado: "entregado" } } } },
+        { updateOne: { filter: { offlineEventId: "evt-filter-bulk-upsert", empresaId: companyA, sedeId: "s1" },
+          update: { $set: { estado: "pendiente" } }, upsert: true } }
+      ], { ordered: false }),
+      /Offline tenant identity/
+    );
+    assert.equal(await Model.countDocuments({ offlineEventId: { $in: [
+      "evt-filter-upsert", "evt-filter-find-upsert", "evt-filter-bulk-upsert"
+    ] } }), 0);
+    assert.equal((await Model.findById(persisted._id)).estado, "pendiente");
+
     // Full-document replacement must not bypass tenant identity protections.
     await assert.rejects(
       Model.replaceOne({ _id: persisted._id }, order(companyB, "s9", "forged-replace")),
