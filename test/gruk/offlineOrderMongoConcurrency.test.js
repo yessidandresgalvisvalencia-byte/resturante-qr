@@ -200,6 +200,17 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
     await Model.bulkWrite([{ insertOne: { document: order(companyA, "s1", "evt-valid-bulk") } }]);
     assert.equal(await Model.countDocuments({ empresaId: companyA, sedeId: "s1", offlineEventId: "evt-valid-bulk" }), 1);
 
+    // Even unordered batches must not partially persist a valid offline event
+    // when another insert in the same batch has an invalid tenant identity.
+    await assert.rejects(
+      Model.bulkWrite([
+        { insertOne: { document: order(companyA, "s1", "evt-mixed-valid") } },
+        { insertOne: { document: order(null, "", "evt-mixed-invalid") } }
+      ], { ordered: false }),
+      /Offline tenant identity/
+    );
+    assert.equal(await Model.countDocuments({ offlineEventId: { $in: ["evt-mixed-valid", "evt-mixed-invalid"] } }), 0);
+
     await Model.create(order(null, "", undefined));
     await Model.create(order(null, "", undefined));
     assert.equal(await Model.countDocuments({ offlineEventId: { $exists: false } }), 2);
