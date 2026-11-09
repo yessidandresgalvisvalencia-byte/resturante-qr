@@ -93,6 +93,22 @@ test("MongoDB enforces tenant-scoped offline retry uniqueness under concurrency"
       Model.bulkWrite([{ updateOne: { filter: { _id: persisted._id }, update: { $rename: { producto: "offlineEventId.nested" } } } }]),
       /Offline tenant identity/
     );
+    // Renaming FROM an identity field is as dangerous as renaming INTO one:
+    // it removes the original key without naming it as the destination.
+    await assert.rejects(
+      Model.updateOne({ _id: persisted._id }, { $rename: { sedeId: "previousSite" } }),
+      /Offline tenant identity/
+    );
+    await assert.rejects(
+      Model.bulkWrite([
+        { updateOne: { filter: { _id: persisted._id }, update: { $set: { estado: "entregado" } } } },
+        { updateOne: { filter: { _id: persisted._id }, update: { $rename: { offlineEventId: "oldEventId" } } } }
+      ], { ordered: false }),
+      /Offline tenant identity/
+    );
+    assert.equal((await Model.findById(persisted._id)).estado, "pendiente");
+    assert.equal((await Model.findById(persisted._id)).offlineEventId, "evt-concurrent");
+
     // Upsert is another insertion path: $setOnInsert must not create an
     // offline retry identity without passing the tenant-safe creation path.
     // Reject the entire unordered batch before a legitimate companion write.
