@@ -85,3 +85,28 @@ test("stored offline lookup never falls back across company, site, actor or even
     assert.equal(sessions, 0);
   }
 });
+
+test("stored processor rejects a mismatched returned record without opening a session", async () => {
+  for (const mismatch of [
+    { empresaId: "507f1f77bcf86cd799439012" },
+    { sedeId: "site-2" },
+    { actorId: "actor-2" },
+    { eventId: "01ARZ3NDEKTSV4RRFFQ69G5FAA" },
+    { tipo: "PAGO_REGISTRADO" }
+  ]) {
+    let sessions = 0;
+    const db = { collection(name) {
+      assert.equal(name, "gruk_offline_inbox");
+      return { async findOne(filter) {
+        assert.deepEqual(filter, { ...valid, eventId, tipo: "PEDIDO_REGISTRADO" });
+        return { ...filter, ...mismatch };
+      } };
+    } };
+    const client = { startSession() { sessions++; throw Error("SESSION_MUST_NOT_START"); } };
+    await assert.rejects(
+      processStoredOfflinePedido({ db, client, context: valid, eventId }),
+      error => error?.code === "OFFLINE_TENANT_MISMATCH"
+    );
+    assert.equal(sessions, 0);
+  }
+});
