@@ -15,6 +15,10 @@ async function processStoredOfflinePedido({db,client,context,eventId}){
   eventId,tipo:"PEDIDO_REGISTRADO"
  });
  if(!record)fail("OFFLINE_EVENT_NOT_FOUND");
+ // Defense in depth: never trust a storage adapter returning an out-of-scope record.
+ if(record.empresaId!==context.empresaId||record.sedeId!==context.sedeId||
+    record.actorId!==context.actorId||record.eventId!==eventId||record.tipo!=="PEDIDO_REGISTRADO")
+  fail("OFFLINE_TENANT_MISMATCH");
  const event={};
  for(const key of KEYS)event[key]=record[key];
  const session=client.startSession();
