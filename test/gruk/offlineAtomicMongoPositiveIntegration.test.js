@@ -30,7 +30,12 @@ test("Mongo transaction claims a valid offline order exactly once and preserves 
   // actual lookups and order/inbox writes on a MongoDB replica-set transaction.
   const model = name => ({
     findOne(filter) {
-      return { session: session => db.collection(name).findOne(filter, { session }) };
+      // Mongoose casts schema ObjectId paths; the minimal Mongo adapter must do so too.
+      const castFilter = { ...filter };
+      if (typeof castFilter._id === "string" && ObjectId.isValid(castFilter._id)) {
+        castFilter._id = new ObjectId(castFilter._id);
+      }
+      return { session: session => db.collection(name).findOne(castFilter, { session }) };
     }
   });
   db.models = { Menu: model("menus"), ProductoServicio: model("productoservicios") };
