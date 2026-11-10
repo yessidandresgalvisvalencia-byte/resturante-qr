@@ -272,4 +272,37 @@ router.post("/stock-conflicts/retry",authMiddleware,async(req,res)=>{
   return res.status(500).json({ok:false,error:"OFFLINE_CONFLICT_RETRY_UNAVAILABLE"});
  }
 });
+// Authenticated single-event conversion from immutable inbox into an order awaiting review.
+// No stock, cash, payment or ledger posting; admin staging remains a separate operation.
+router.post("/process-order",authMiddleware,async(req,res)=>{
+ if(!req.auth?.empresaId||!req.auth?.sedeId||!req.auth?.usuarioId)
+  return res.status(403).json({ok:false,error:"OFFLINE_SEDE_AUTH_REQUIRED"});
+ if(mongoose.connection.readyState!==1)
+  return res.status(503).json({ok:false,error:"OFFLINE_DB_UNAVAILABLE"});
+ if(typeof req.body?.eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(req.body.eventId))
+  return res.status(400).json({ok:false,error:"OFFLINE_INVALID_IDS"});
+ try{
+  const {processStoredOfflinePedido}=require("../core/offline/offlinePedidoStoredProcessor.service");
+  const result=await processStoredOfflinePedido({
+   db:mongoose.connection.db,client:mongoose.connection.getClient(),
+   context:{empresaId:req.auth.empresaId,sedeId:req.auth.sedeId,actorId:req.auth.usuarioId},
+   eventId:req.body.eventId
+  });
+  res.set("Cache-Control","no-store");
+  return res.status(result?.alreadyProcessed?200:202).json({ok:true,applied:false,cobrado:false,...result});
+ }catch(error){
+  const code=error?.code||error?.message;
+  if(["OFFLINE_AUTH_REQUIRED","OFFLINE_TENANT_MISMATCH"].includes(code))
+   return res.status(403).json({ok:false,error:code});
+  if(["OFFLINE_INVALID_IDS","OFFLINE_COMPANY_ID_INVALID"].includes(code))
+   return res.status(400).json({ok:false,error:code});
+  if(code==="OFFLINE_EVENT_NOT_FOUND")return res.status(404).json({ok:false,error:code});
+  if(["OFFLINE_TRANSACTION_REQUIRED","OFFLINE_DB_REQUIRED","OFFLINE_TRANSACTION_UNAVAILABLE"].includes(code))
+   return res.status(503).json({ok:false,applied:false,retryable:true,error:code});
+  if(typeof code==="string"&&code.startsWith("OFFLINE_"))
+   return res.status(409).json({ok:false,applied:false,error:code});
+  console.error("[OFFLINE] Process order unavailable",error?.name||"unknown");
+  return res.status(500).json({ok:false,error:"OFFLINE_PROCESS_ORDER_UNAVAILABLE"});
+ }
+});
 module.exports = router;
