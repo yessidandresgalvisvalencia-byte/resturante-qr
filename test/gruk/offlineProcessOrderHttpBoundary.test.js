@@ -84,8 +84,11 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
     assert.equal(retry.body.applied, false);
     assert.equal(retry.body.cobrado, false);
     assert.equal(retry.body.ok, true);
+    assert.equal(retry.cache, "no-store");
     const otherTenant = await send("Bearer tenant-b", { eventId });
     assert.equal(otherTenant.status, 404);
+    assert.equal(otherTenant.cache, "no-store");
+    assert.equal(otherTenant.body.ok, false);
     assert.equal(seen.length, 3);
     // HTTP error contracts: never claim an offline order was applied.
     for (const [code, expectedStatus] of [
@@ -93,7 +96,10 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
       ["OFFLINE_TRANSACTION_REQUIRED", 503],
       ["OFFLINE_INVALID_IDS", 400],
       ["OFFLINE_EVENT_CONFLICT", 409],
-      ["OFFLINE_AUTH_REQUIRED", 403]
+      ["OFFLINE_AUTH_REQUIRED", 403],
+      ["OFFLINE_TENANT_MISMATCH", 403],
+      ["OFFLINE_COMPANY_ID_INVALID", 400],
+      ["OFFLINE_EVENT_NOT_FOUND", 404]
     ]) {
       injectedError = code;
       const failure = await send("Bearer tenant-a", { eventId });
@@ -104,6 +110,11 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
       assert.equal(failure.body.error, code);
       if (expectedStatus === 503) assert.equal(failure.body.retryable, true);
     }
+    injectedError = "UNEXPECTED_INTERNAL_FAILURE";
+    const unexpected = await send("Bearer tenant-a", { eventId });
+    assert.equal(unexpected.status, 500);
+    assert.equal(unexpected.cache, "no-store");
+    assert.deepEqual(unexpected.body, { ok: false, error: "OFFLINE_PROCESS_ORDER_UNAVAILABLE" });
     injectedError = null;
     Object.defineProperty(mongoose.connection, "readyState", { configurable: true, value: 0 });
     const unavailable = await send("Bearer tenant-a", { eventId });
