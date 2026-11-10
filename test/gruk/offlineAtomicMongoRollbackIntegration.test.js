@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { randomBytes } = require("node:crypto");
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 const { digest } = require("../../core/offline/offlineInbox.service");
 const { processPendingOfflinePedido } = require("../../core/offline/offlinePedidoAtomic.service");
 
@@ -12,7 +12,7 @@ const context = { empresaId: companyId, sedeId: "sede-rollback", actorId: "actor
 const event = {
   ...context, eventId: "01ARZ3NDEKTSV4RRFFQ69G5FAY", tipo: "PEDIDO_REGISTRADO",
   deviceId: "device-rollback", occurredAt: "2026-11-09T00:00:00.000Z",
-  schemaVersion: 1, payload: {}
+  schemaVersion: 1, payload: { restaurantId: "rest-rollback", menuItemId: "507f191e810c19729de860eb", mesa: 1, cantidad: 2 }
 };
 
 test("Mongo transaction rolls back an inserted offline order when inbox claim loses the race", {
@@ -23,6 +23,11 @@ test("Mongo transaction rolls back an inserted offline order when inbox claim lo
   await client.connect();
   const actualDb = client.db(dbName);
   try {
+    const productId = new ObjectId();
+    const menuId = new ObjectId(event.payload.menuItemId);
+    await actualDb.collection("restaurantes").insertOne({ restaurantId: "rest-rollback", empresaId: companyId });
+    await actualDb.collection("productoservicios").insertOne({ _id: productId, empresaId: companyId, tipo: "producto", activo: true });
+    await actualDb.collection("menus").insertOne({ _id: menuId, restaurantId: "rest-rollback", disponible: true, productoServicioId: productId, precio: 12500 });
     await actualDb.collection("gruk_offline_inbox").insertOne({
       ...event, eventHash: digest(event), status: "PENDIENTE"
     });
@@ -38,6 +43,12 @@ test("Mongo transaction rolls back an inserted offline order when inbox claim lo
         };
       }
     };
+    const model = name => ({ findOne(filter) {
+      const cast = { ...filter };
+      if (typeof cast._id === "string" && ObjectId.isValid(cast._id)) cast._id = new ObjectId(cast._id);
+      return { session: session => actualDb.collection(name).findOne(cast, { session }) };
+    } });
+    db.models = { Menu: model("menus"), ProductoServicio: model("productoservicios") };
     const session = client.startSession();
     try {
       await assert.rejects(
