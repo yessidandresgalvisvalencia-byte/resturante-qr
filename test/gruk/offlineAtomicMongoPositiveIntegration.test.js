@@ -53,11 +53,26 @@ test("Mongo transaction claims a valid offline order exactly once and preserves 
     });
     // Exercise the trusted stored-event entry point, including the scoped
     // inbox lookup and its own MongoDB transaction session.
-    const first = await processStoredOfflinePedido({ db, client, context, eventId: event.eventId });
-    assert.deepEqual(first, {
-      eventId: event.eventId, status: "EN_REVISION", created: true,
-      paymentPosted: false, inventoryPosted: false, ledgerPosted: false
-    });
+    // Race two independent sessions against the same real MongoDB inbox/order.
+    // MongoDB may abort one contender with a write conflict; the invariant is
+    // that at least one commits and exactly one order is persisted.
+    const contenders = await Promise.allSettled([
+      processStoredOfflinePedido({ db, client, context, eventId: event.eventId }),
+      processStoredOfflinePedido({ db, client, context, eventId: event.eventId })
+    ]);
+    const successful = contenders.filter(result => result.status === "fulfilled").map(result => result.value);
+    assert.ok(successful.length >= 1, "at least one concurrent transaction must commit");
+    assert.equal(successful.filter(result => result.created === true).length, 1,
+      "exactly one contender may create the order");
+    for (const result of successful) {
+      assert.equal(result.eventId, event.eventId);
+      assert.equal(result.status, "EN_REVISION");
+      if (result.created) {
+        assert.equal(result.paymentPosted, false);
+        assert.equal(result.inventoryPosted, false);
+        assert.equal(result.ledgerPosted, false);
+      }
+    }
     const retry = await processStoredOfflinePedido({ db, client, context, eventId: event.eventId });
     assert.deepEqual(retry, { eventId: event.eventId, status: "EN_REVISION", created: false });
     const orders = await db.collection("pedidos").find({ offlineEventId: event.eventId }).toArray();
