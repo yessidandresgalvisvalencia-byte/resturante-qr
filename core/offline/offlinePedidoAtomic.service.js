@@ -19,6 +19,11 @@ async function processPendingOfflinePedido({db,session,event,context}){
   const key={empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,eventId:event.eventId,tipo:"PEDIDO_REGISTRADO"};
   const entry=await inbox.findOne(key,{session});
   if(!entry)fail("OFFLINE_EVENT_NOT_FOUND");
+  // Defend against an incorrect storage adapter returning a record outside the
+  // authenticated tenant, site, actor, event or type even for a scoped query.
+  if(entry.empresaId!==key.empresaId||entry.sedeId!==key.sedeId||
+     entry.actorId!==key.actorId||entry.eventId!==key.eventId||entry.tipo!==key.tipo)
+   fail("OFFLINE_TENANT_MISMATCH");
   // Verify the immutable canonical payload before returning an existing status.
   // A retry with the same event ID but different contents is a conflict, including
   // when the event has already advanced past PENDIENTE.
