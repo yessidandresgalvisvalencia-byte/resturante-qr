@@ -274,8 +274,12 @@ router.post("/stock-conflicts/retry",authMiddleware,async(req,res)=>{
 });
 // Authenticated single-event conversion from immutable inbox into an order awaiting review.
 // No stock, cash, payment or ledger posting; admin staging remains a separate operation.
-router.post("/process-order",authMiddleware,async(req,res)=>{
- // Tenant-scoped responses must never be stored, including failures.
+router.post("/process-order",(req,res,next)=>{
+ // Set before authentication so even 401 responses cannot be cached.
+ res.set("Cache-Control","no-store");
+ next();
+},authMiddleware,async(req,res)=>{
+ // Keep tenant-scoped responses non-cacheable through every response path.
  res.set("Cache-Control","no-store");
  if(!req.auth?.empresaId||!req.auth?.sedeId||!req.auth?.usuarioId)
   return res.status(403).json({ok:false,error:"OFFLINE_SEDE_AUTH_REQUIRED"});
