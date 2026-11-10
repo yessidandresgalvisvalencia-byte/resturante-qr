@@ -13,6 +13,7 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
   const originalGetClient = mongoose.connection.getClient;
   const originalDb = mongoose.connection.db;
   const seen = [];
+  let injectedError = null;
   let server;
   try {
     // Isolate the HTTP boundary: auth and persistence are stubs, not JWT or Mongo E2E.
@@ -29,6 +30,11 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
     require.cache[processorPath] = { id: processorPath, filename: processorPath, loaded: true,
       exports: { async processStoredOfflinePedido(args) {
         seen.push(args);
+        if (injectedError) {
+          const error = new Error("injected processor failure");
+          error.code = injectedError;
+          throw error;
+        }
         if (args.context.empresaId.endsWith("12")) {
           const error = new Error("not found"); error.code = "OFFLINE_EVENT_NOT_FOUND"; throw error;
         }
@@ -77,6 +83,27 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
     const otherTenant = await send("Bearer tenant-b", { eventId });
     assert.equal(otherTenant.status, 404);
     assert.equal(seen.length, 3);
+    // HTTP error contracts: never claim an offline order was applied.
+    for (const [code, expectedStatus] of [
+      ["OFFLINE_TRANSACTION_UNAVAILABLE", 503],
+      ["OFFLINE_TRANSACTION_REQUIRED", 503],
+      ["OFFLINE_INVALID_IDS", 400],
+      ["OFFLINE_EVENT_CONFLICT", 409],
+      ["OFFLINE_AUTH_REQUIRED", 403]
+    ]) {
+      injectedError = code;
+      const failure = await send("Bearer tenant-a", { eventId });
+      assert.equal(failure.status, expectedStatus, code);
+      assert.equal(failure.body.ok, false, code);
+      assert.equal(failure.body.applied, false, code);
+      assert.equal(failure.body.error, code);
+      if (expectedStatus === 503) assert.equal(failure.body.retryable, true);
+    }
+    injectedError = null;
+    Object.defineProperty(mongoose.connection, "readyState", { configurable: true, value: 0 });
+    const unavailable = await send("Bearer tenant-a", { eventId });
+    assert.equal(unavailable.status, 503);
+    assert.equal(unavailable.body.error, "OFFLINE_DB_UNAVAILABLE");
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
     for (const [path, entry] of saved) {
