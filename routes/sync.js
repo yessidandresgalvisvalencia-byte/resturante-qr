@@ -275,6 +275,8 @@ router.post("/stock-conflicts/retry",authMiddleware,async(req,res)=>{
 // Authenticated single-event conversion from immutable inbox into an order awaiting review.
 // No stock, cash, payment or ledger posting; admin staging remains a separate operation.
 router.post("/process-order",authMiddleware,async(req,res)=>{
+ // Tenant-scoped responses must never be stored, including failures.
+ res.set("Cache-Control","no-store");
  if(!req.auth?.empresaId||!req.auth?.sedeId||!req.auth?.usuarioId)
   return res.status(403).json({ok:false,error:"OFFLINE_SEDE_AUTH_REQUIRED"});
  if(mongoose.connection.readyState!==1)
