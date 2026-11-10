@@ -63,6 +63,11 @@ test("Mongo transaction rolls back an inserted offline order when inbox claim lo
     const stored = await actualDb.collection("gruk_offline_inbox").findOne({ eventId: event.eventId });
     assert.equal(stored.status, "PENDIENTE");
     assert.equal(stored.eventHash, digest(event));
+    assert.equal(stored.processedAt ?? null, null, "failed claim must not mark event processed");
+    for (const name of ["pagos", "movimientosinventarios", "gruk_ledger_entries"]) {
+      assert.equal(await actualDb.collection(name).countDocuments({}), 0,
+        name + " must remain untouched after transactional rollback");
+    }
   } finally {
     try { await actualDb.dropDatabase(); } finally { await client.close(); }
   }
