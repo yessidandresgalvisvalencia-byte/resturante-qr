@@ -32,7 +32,8 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
         if (args.context.empresaId.endsWith("12")) {
           const error = new Error("not found"); error.code = "OFFLINE_EVENT_NOT_FOUND"; throw error;
         }
-        return { created: seen.length === 1, eventId: args.eventId };
+        // A compromised or regressed processor must not override HTTP safety flags.
+        return { created: seen.length === 1, eventId: args.eventId, applied: true, cobrado: true, ok: false };
       } }
     };
     Object.defineProperty(mongoose.connection, "readyState", { configurable: true, value: 1 });
@@ -60,6 +61,7 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
       eventId, empresaId: "507f1f77bcf86cd799439012", sedeId: "other", actorId: "attacker"
     });
     assert.equal(first.status, 202);
+    assert.equal(first.body.ok, true);
     assert.equal(first.body.applied, false);
     assert.equal(first.body.cobrado, false);
     assert.equal(first.cache, "no-store");
@@ -69,6 +71,9 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
     const retry = await send("Bearer tenant-a", { eventId });
     assert.equal(retry.status, 200);
     assert.equal(retry.body.created, false);
+    assert.equal(retry.body.applied, false);
+    assert.equal(retry.body.cobrado, false);
+    assert.equal(retry.body.ok, true);
     const otherTenant = await send("Bearer tenant-b", { eventId });
     assert.equal(otherTenant.status, 404);
     assert.equal(seen.length, 3);
