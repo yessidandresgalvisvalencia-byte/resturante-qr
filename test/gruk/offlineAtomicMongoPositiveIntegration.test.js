@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const { randomBytes } = require("node:crypto");
 const { MongoClient, ObjectId } = require("mongodb");
 const { digest } = require("../../core/offline/offlineInbox.service");
-const { processPendingOfflinePedido } = require("../../core/offline/offlinePedidoAtomic.service");
+const { processStoredOfflinePedido } = require("../../core/offline/offlinePedidoStoredProcessor.service");
 
 const uri = process.env.GRUK_TEST_MONGO_URI;
 test("Mongo transaction claims a valid offline order exactly once and preserves tenant isolation on retry", {
@@ -51,18 +51,15 @@ test("Mongo transaction claims a valid offline order exactly once and preserves 
     await db.collection("gruk_offline_inbox").insertOne({
       ...event, eventHash: digest(event), status: "PENDIENTE"
     });
-    const session = client.startSession();
-    try {
-      const first = await processPendingOfflinePedido({ db, session, event, context });
-      assert.deepEqual(first, {
-        eventId: event.eventId, status: "EN_REVISION", created: true,
-        paymentPosted: false, inventoryPosted: false, ledgerPosted: false
-      });
-      const retry = await processPendingOfflinePedido({ db, session, event, context });
-      assert.deepEqual(retry, { eventId: event.eventId, status: "EN_REVISION", created: false });
-    } finally {
-      await session.endSession();
-    }
+    // Exercise the trusted stored-event entry point, including the scoped
+    // inbox lookup and its own MongoDB transaction session.
+    const first = await processStoredOfflinePedido({ db, client, context, eventId: event.eventId });
+    assert.deepEqual(first, {
+      eventId: event.eventId, status: "EN_REVISION", created: true,
+      paymentPosted: false, inventoryPosted: false, ledgerPosted: false
+    });
+    const retry = await processStoredOfflinePedido({ db, client, context, eventId: event.eventId });
+    assert.deepEqual(retry, { eventId: event.eventId, status: "EN_REVISION", created: false });
     const orders = await db.collection("pedidos").find({ offlineEventId: event.eventId }).toArray();
     assert.equal(orders.length, 1);
     assert.equal(orders[0].empresaId.toHexString(), empresaId);
