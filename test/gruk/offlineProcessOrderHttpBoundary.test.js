@@ -59,9 +59,13 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
       const response = await fetch(base, { method: "POST", headers, body: JSON.stringify(body) });
       return { status: response.status, body: await response.json(), cache: response.headers.get("cache-control") };
     }
-    assert.equal((await send(null, { eventId })).status, 401);
+    const unauthenticated = await send(null, { eventId });
+    assert.equal(unauthenticated.status, 401);
+    assert.equal(unauthenticated.cache, "no-store");
     assert.equal(seen.length, 0);
-    assert.equal((await send("Bearer tenant-a", { eventId: "invalid" })).status, 400);
+    const invalid = await send("Bearer tenant-a", { eventId: "invalid" });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.cache, "no-store");
     assert.equal(seen.length, 0);
     const first = await send("Bearer tenant-a", {
       eventId, empresaId: "507f1f77bcf86cd799439012", sedeId: "other", actorId: "attacker"
@@ -94,6 +98,7 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
       injectedError = code;
       const failure = await send("Bearer tenant-a", { eventId });
       assert.equal(failure.status, expectedStatus, code);
+      assert.equal(failure.cache, "no-store", code);
       assert.equal(failure.body.ok, false, code);
       if (expectedStatus === 503 || expectedStatus === 409) assert.equal(failure.body.applied, false, code);
       assert.equal(failure.body.error, code);
@@ -103,6 +108,7 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
     Object.defineProperty(mongoose.connection, "readyState", { configurable: true, value: 0 });
     const unavailable = await send("Bearer tenant-a", { eventId });
     assert.equal(unavailable.status, 503);
+    assert.equal(unavailable.cache, "no-store");
     assert.equal(unavailable.body.error, "OFFLINE_DB_UNAVAILABLE");
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
