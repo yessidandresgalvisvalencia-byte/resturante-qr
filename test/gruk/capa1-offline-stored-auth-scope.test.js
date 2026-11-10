@@ -110,3 +110,35 @@ test("stored processor rejects a mismatched returned record without opening a se
     assert.equal(sessions, 0);
   }
 });
+
+
+test("stored processor rejects malformed event IDs before any inbox read or session", async () => {
+  let reads = 0;
+  let sessions = 0;
+  const db = { collection() { reads++; throw Error("DB_MUST_NOT_BE_READ"); } };
+  const client = { startSession() { sessions++; throw Error("SESSION_MUST_NOT_START"); } };
+  for (const badId of [undefined, null, "", " ", "01ARZ3NDEKTSV4RRFFQ69G5FA", "01ARZ3NDEKTSV4RRFFQ69G5FAVI", 42, {}, eventId.toLowerCase()]) {
+    await assert.rejects(
+      processStoredOfflinePedido({ db, client, context: valid, eventId: badId }),
+      error => error?.code === "OFFLINE_INVALID_IDS",
+      String(badId)
+    );
+  }
+  assert.equal(reads, 0);
+  assert.equal(sessions, 0);
+});
+
+test("stored processor does not open a transaction after inbox read failure", async () => {
+  let sessions = 0;
+  const failure = new Error("INBOX_READ_FAILED");
+  const db = { collection(name) {
+    assert.equal(name, "gruk_offline_inbox");
+    return { async findOne() { throw failure; } };
+  } };
+  const client = { startSession() { sessions++; throw Error("SESSION_MUST_NOT_START"); } };
+  await assert.rejects(
+    processStoredOfflinePedido({ db, client, context: valid, eventId }),
+    error => error === failure
+  );
+  assert.equal(sessions, 0);
+});
