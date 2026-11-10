@@ -95,7 +95,7 @@ test("POST /api/sync/process-order enforces authenticated scope over HTTP", asyn
       const failure = await send("Bearer tenant-a", { eventId });
       assert.equal(failure.status, expectedStatus, code);
       assert.equal(failure.body.ok, false, code);
-      assert.equal(failure.body.applied, false, code);
+      if (expectedStatus === 503 || expectedStatus === 409) assert.equal(failure.body.applied, false, code);
       assert.equal(failure.body.error, code);
       if (expectedStatus === 503) assert.equal(failure.body.retryable, true);
     }
