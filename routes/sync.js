@@ -289,7 +289,7 @@ router.post("/process-order",authMiddleware,async(req,res)=>{
    eventId:req.body.eventId
   });
   res.set("Cache-Control","no-store");
-  return res.status(result?.created===false?200:202).json({ok:true,applied:false,cobrado:false,...result});
+  return res.status(result?.created===false?200:202).json({...result,ok:true,applied:false,cobrado:false});
  }catch(error){
   const code=error?.code||error?.message;
   if(["OFFLINE_AUTH_REQUIRED","OFFLINE_TENANT_MISMATCH"].includes(code))
