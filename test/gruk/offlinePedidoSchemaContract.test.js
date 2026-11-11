@@ -34,3 +34,14 @@ test("legacy orders without offline event remain valid at schema level", () => {
   assert.equal(order.validateSync(), undefined);
   assert.equal(order.offlineEventId, undefined);
 });
+
+test("legacy order without tenant or offline identity remains schema-compatible", () => {
+  const order = new Pedido({
+    mesa: 2, producto: "Pedido legado", cantidad: 1,
+    precioUnitario: 100, precio: 100
+  });
+  assert.equal(order.validateSync(), undefined);
+  assert.equal(order.empresaId, null);
+  assert.equal(order.sedeId, "");
+  assert.equal(order.offlineEventId, undefined);
+});
