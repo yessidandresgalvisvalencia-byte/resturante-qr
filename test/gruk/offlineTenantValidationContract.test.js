@@ -52,3 +52,30 @@ test("P0-04: accepts a complete tenant-scoped offline event", async () => {
 test("P0-04: legacy order without offlineEventId remains valid", async () => {
   await order().validate();
 });
+
+test("P0-04: existing offline order cannot change its retry identity via save validation", async () => {
+  const company = new mongoose.Types.ObjectId();
+  for (const mutation of [
+    { offlineEventId: "evt-other" },
+    { offlineEventId: undefined },
+    { empresaId: new mongoose.Types.ObjectId() },
+    { sedeId: "sede-b" }
+  ]) {
+    const doc = order({ empresaId: company, sedeId: "sede-a", offlineEventId: "evt-original" });
+    doc.$isNew = false;
+    doc.set(mutation);
+    await assert.rejects(doc.validate(), err =>
+      Boolean(err.errors?.offlineEventId),
+      "mutation must be rejected: " + Object.keys(mutation).join(","));
+  }
+});
+
+test("P0-04: existing offline order permits unrelated edits", async () => {
+  const doc = order({
+    empresaId: new mongoose.Types.ObjectId(),
+    sedeId: "sede-a", offlineEventId: "evt-original"
+  });
+  doc.$isNew = false;
+  doc.set("observaciones", "nota legítima");
+  await doc.validate();
+});
