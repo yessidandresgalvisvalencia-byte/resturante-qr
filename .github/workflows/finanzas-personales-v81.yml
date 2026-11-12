@@ -13,6 +13,8 @@ on:
       - 'scripts/gruk-personal-ledger-mutability-audit.js'
       - 'test/gruk/ledger-personal-mutabilidad-auditoria.test.js'
       - 'public/finanzas-personales.js'
+      - 'public/finanzas-personales-*.js'
+      - 'public/finanzas-personales.css'
       - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
       - 'modules/finanzas-personales/services/flujoCajaPersonal.service.js'
@@ -67,6 +69,8 @@ on:
       - 'scripts/gruk-personal-ledger-mutability-audit.js'
       - 'test/gruk/ledger-personal-mutabilidad-auditoria.test.js'
       - 'public/finanzas-personales.js'
+      - 'public/finanzas-personales-*.js'
+      - 'public/finanzas-personales.css'
       - 'public/finanzas-personales.html'
       - 'modules/finanzas-personales/services/homePersonal.service.js'
       - 'modules/finanzas-personales/services/flujoCajaPersonal.service.js'
@@ -420,3 +424,31 @@ jobs:
       - name: Limpiar MongoDB con autorización
         if: always()
         run: docker rm -f mongo-v81-auth-test || true
+  browser-recuperacion-personal-v81:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar navegador de ensayo aislado sin cambiar dependencias del proyecto
+        run: |
+          npm install --ignore-scripts --no-save --package-lock=false --prefix "$RUNNER_TEMP/fp-browser" playwright@1.62.1
+          "$RUNNER_TEMP/fp-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Probar recuperacion en HTML real con red y datos sinteticos
+        env:
+          FP_PLAYWRIGHT_MODULE: ${{ runner.temp }}/fp-browser/node_modules/playwright
+          FP_BROWSER_EVIDENCE_DIR: ${{ runner.temp }}/fp-browser-evidencias
+          FP_BROWSER_LOG_SCREENSHOTS: '1'
+        run: node --test test/finanzas-personales/browser/recuperacion.browser.cjs
+      - name: Conservar capturas sinteticas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp-recuperacion-browser-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/fp-browser-evidencias
+          retention-days: 7
+          if-no-files-found: warn

@@ -65,7 +65,7 @@ test("cada job V81, incluida la prueba de privilegios, ejecuta el commit fuente"
  const jobs=[...section.matchAll(/^  ([a-zA-Z0-9_-]+):\s*$/gm)];
  assert.deepEqual(jobs.map(j=>j[1]).sort(),[
   "test-v81","probar-parche-proxy-v81","probar-parches-http-v81","evaluar-remediacion-restante-v81",
-  "redis-integration-v81","mongo-integration-v81","mongo-privileges-v81"
+  "redis-integration-v81","mongo-integration-v81","mongo-privileges-v81","browser-recuperacion-personal-v81"
  ].sort(),"Cada job nuevo requiere revisar su cobertura");
  for(const [i,job] of jobs.entries()){
   const block=section.slice(job.index,jobs[i+1]?.index??section.length);
@@ -132,3 +132,5 @@ test("CI V81 observa entrada compartida y contrato de despliegue",()=>{
    "Cambiar "+ruta+" debe activar CI en push y pull_request");
  }
 });
+
+test("CI de navegador personal exige fuente exacta, versión fija y pruebas sin omisión",()=>{const job=yaml.split("  browser-recuperacion-personal-v81:")[1];assert.ok(job);assert.match(job,/playwright@1\.62\.1/);assert.match(job,/install --with-deps chromium/);assert.match(job,/run: node --test test\/finanzas-personales\/browser\/recuperacion\.browser\.cjs/);assert.match(job,/FP_PLAYWRIGHT_MODULE:/);assert.match(job,/retention-days: 7/);assert.doesNotMatch(job,/continue-on-error|\|\| true/);for(const ruta of ["public/finanzas-personales-*.js","public/finanzas-personales.css"])assert.equal(yaml.split("      - '"+ruta+"'").length-1,2);});
