@@ -27,7 +27,7 @@ Local: módulo 675 casos, 666 aprobados/nueve omitidos por servicios de integrac
 
 ## Ensayo Chromium/backend preparado
 
-Se amplía la recuperación de copia de 101 fuentes sintéticas reales ya existentes: context.setOffline(true) después de login real y selección de copia; marcadores de cifras anteriores en DOM (no saldos inventados del servidor); recuperación y repetición locales, raíz/archivo byte a byte y bloqueo de asesoría desde pregunta visible sin POST /consulta. Consulta fallida con evento requestfailed conserva raíz pendiente. setOffline(false), actualización HTTP real de integridad/panel sin reenviar ni confirmar; consulta explícita posterior confirma una vez. Dos intentos explícitos de confirmación: uno fallido de red y uno con respuesta; ningún POST financiero. Pestaña original y snapshots Mongo intactos. No contar el intento fallido como una respuesta del servidor. Resultado del SHA publicado pendiente; registrar runs y evidencias exactas al cierre.
+Se amplía la recuperación de copia de 101 fuentes sintéticas reales ya existentes: context.setOffline(true) después de login real y selección de copia; marcadores de cifras anteriores en DOM (no saldos inventados del servidor); recuperación y repetición locales, raíz/archivo byte a byte y bloqueo de asesoría desde pregunta visible sin POST /consulta. Consulta fallida con evento requestfailed conserva raíz pendiente. setOffline(false), actualización HTTP real de integridad/panel sin reenviar ni confirmar; consulta explícita posterior confirma una vez. Dos intentos explícitos de confirmación: uno fallido de red y uno con respuesta; ningún POST financiero. Pestaña original y snapshots Mongo intactos. No contar el intento fallido como una respuesta del servidor. Resultado del SHA corregido aprobado según evidencia exacta siguiente; el descendiente documental también requiere CI propia.
 
 ## Límites y liberación
 
@@ -42,3 +42,17 @@ Verificar HEAD/#389/#407/CI de nuevo. Extender protección/recuperación explíc
 ## Diagnóstico de la primera CI
 
 Código b4da71b6fc5d876857d43e941ee39cfe859b7954, árbol 03c4df830598f79013cbd6a10b7be07cd348a3df: Gate 43218990549 y Seguridad 43218990722 verdes; V81 43218990454 falló en job 131185387133. Mongo 81/81 aprobado; navegador/backend 9/2 contando padre. La espera de respuesta de diagnóstico expiró: el ensayo estaba en Ingreso/Gasto y Actualizar está dentro de Inicio, por lo que no podía pulsar el botón visible de esa acción. Se navega a Inicio, se espera clic y respuesta juntos mediante Promise.all (evita rechazo sin manejar), y se vuelve a Ingreso/Gasto antes de consultar el pendiente. No se amplía timeout ni elimina condición. Repetir CI exacta; reconexión completa aún no declarada verificada.
+
+## Cierre funcional verificado
+
+Código `eeafcacf46de4ee7ae7bf874bb269327bae24387`, árbol `09e4e7932d1e19adb72af038d2aa5798cc74e83e`. Once archivos personales frente al padre inicial; árboles locales/remotos idénticos, publicaciones con expected_sha y force=false. Diagnóstico de la primera CI conservado.
+
+- [Gate 43219640288](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43219640288): success.
+- [Seguridad 43219640532](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43219640532): success.
+- [V81 43219640459](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43219640459): success, ocho jobs.
+- Job autorizado 131187574931: Mongo 81/81 y navegador/backend 11/11, cero fallos/cancelaciones/omisiones.
+- FP_RECUPERACION_CONEXION: importacionSinConexion=true, cifrasAnterioresRetiradas=true, consultaFallidaConservaPendiente=true, reconectarSinReenvio=true, consultaExplicitaPosterior=true, originalesIntactos=true, snapshotFinancieroSinCambios=true, datos=sinteticos.
+- FP_COPIA_MANUAL mantiene 101 fuentes reales sintéticas, descarga/otra pestaña/cifrado/originales e idempotencia; consultaExplicita=2, consultasFallidasSinConexion=1, confirmacionesConRespuesta=1. No contar dos confirmaciones ni una petición fallida como respuesta exitosa. Asesoría bloqueada antes de confirmar y caja sin cambios.
+- Diez pruebas nuevas locales; módulo 675/666/9 y CI personal 353/349/4, cero fallos. Omisiones locales declaradas; integración autorizada completa sin omisiones. Sintaxis/diff correctos.
+
+No se retiraron escenarios ni se amplió timeout/desactivó gate para aprobar. El resultado demuestra el alcance descrito en entorno sintético aislado, no operación/custodia independiente ni primera carga offline. SHA documental y CI exacta final se identificarán en el resumen de #389 al cierre, sin autorreferencia dentro de su propio contenido. Siguiente: otros diarios y constancias históricas de paquetes recuperados, preservando incertidumbres/originales y obteniendo evidencia externa real. #407 continúa abierto; sin merge a feature ni Render ni otros productos/datos reales/costos.
