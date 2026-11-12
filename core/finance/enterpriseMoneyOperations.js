@@ -52,7 +52,7 @@ function reconcile(expected, observed) {
 // Round HALF UP on positive minor units, exactly once at the caller's chosen base.
 function taxAmount(base, rateBasisPoints) {
   const baseCents = parseMoneyToCents(base);
-  if (typeof rateBasisPoints !== 'string' || !/^(?:0|[1-9]\\d*)$/.test(rateBasisPoints) ||
+  if (typeof rateBasisPoints !== 'string' || !/^(?:0|[1-9]\d*)$/.test(rateBasisPoints) ||
       rateBasisPoints.length > 5) {
     throw new TypeError('Tax rate must be a canonical integer basis-point string');
   }
