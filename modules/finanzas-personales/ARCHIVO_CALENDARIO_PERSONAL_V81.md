@@ -50,3 +50,16 @@ Máximo8MiB de contenido portable/12MiB de archivo cifrado, raíz/página hasta1
 Siguiente: capacidad recuperable del diario de imputaciones, conservando originales y constancias. #407/custodio independiente real/backups independientes con retención/acceso/credenciales separadas/restauración operacional aislada-RPO-RTO/roles e índices Mongo productivos/auditoría-dispositivos-compatibilidad siguen pendientes. Mantener sin merge a feature ni Render y sin costos nuevos. Tarea activa; sin prometer ejecución ininterrumpida.
 
 Validación adicional previa: ci:personal353/349/4, cero fallos, sintaxis completa aprobada. Las cuatro omisiones se identifican separadas y no se atribuyen a validación operativa. git diff --check sin errores.
+
+## Resultado publicado y verificado
+
+Código **6f5adfdf3e7cb2b3079cd8ca20b96cc55975509d**, árbol **0ca258e827a417e6b0f89414eed651d1297be427**; ocho archivos personales cotejados y actualización con lease.
+
+- [Gate43314537584](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43314537584): success.
+- [Seguridad43314537578](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43314537578): success.
+- [V8143314537572](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43314537572): success.
+- [Job autorizado131518977052](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43314537572/job/131518977052): Mongo81/81, navegador/backend15/15, cero fallos/cancelaciones/omisiones.
+
+FP_ARCHIVO_CALENDARIO confirmó con datos sintéticos archivo explícito, bytes originales y formulario posterior intactos, consulta literal, reimportación de copia anterior idempotente, descarga cifrada con archivos, tercera pestaña/login reales, recuperación de páginas exactas y ancho390 sin desborde. Cero POST o nuevos GET de recibos por archivar/recuperar, calendario y finanzas intactos. FP_COPIA_CALENDARIO también completo: cuota429 real, copia ajena rechazada, pendiente bloquea C3 y un GET propio antes de cerrar. Se resuelve para el SHA de código la ejecución nativa antes indicada como pendiente.
+
+Módulo local742/733/9, dirigidas23/23, ci:personal353/349/4, cero fallos. Sin cambios a gates, timeouts o cuotas y sin omitir casos. Comprobar las tres CI del descendiente documental exacto al cierre; evidencia y SHA también en PR389. GitHub publicado, sin merge a feature ni Render. Permanecen todos los requisitos externos y límites anteriores; tarea recurrente comprobada habilitada.
