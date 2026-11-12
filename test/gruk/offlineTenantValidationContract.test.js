@@ -62,9 +62,9 @@ test("P0-04: existing offline order cannot change its retry identity via save va
     { sedeId: "sede-b" }
   ]) {
     const doc = order({ empresaId: company, sedeId: "sede-a", offlineEventId: "evt-original" });
-    doc.$isNew = false;
-    doc.set(mutation);
-    await assert.rejects(doc.validate(), err =>
+    const persisted = Pedido.hydrate(doc.toObject());
+    persisted.set(mutation);
+    await assert.rejects(persisted.validate(), err =>
       Boolean(err.errors?.offlineEventId),
       "mutation must be rejected: " + Object.keys(mutation).join(","));
   }
@@ -75,7 +75,7 @@ test("P0-04: existing offline order permits unrelated edits", async () => {
     empresaId: new mongoose.Types.ObjectId(),
     sedeId: "sede-a", offlineEventId: "evt-original"
   });
-  doc.$isNew = false;
-  doc.set("observaciones", "nota legítima");
-  await doc.validate();
+  const persisted = Pedido.hydrate(doc.toObject());
+  persisted.set("observaciones", "nota legítima");
+  await persisted.validate();
 });
