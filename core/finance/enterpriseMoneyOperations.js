@@ -3,6 +3,8 @@
 // GRUK Empresarial only. Pure, deterministic primitives; no I/O or personal-finance imports.
 const { parseMoneyToCents, formatCents } = require('./enterpriseMoney');
 const MAX_CENTS = BigInt(Number.MAX_SAFE_INTEGER);
+// Bound untrusted invoice batch size before iterating or allocating totals.
+const MAX_INVOICE_LINES = 10000;
 
 function assertQuantity(quantity) {
   if (typeof quantity !== 'string' || !/^(?:0|[1-9]\d*)$/.test(quantity)) {
@@ -28,6 +30,7 @@ function lineTotal(unitPrice, quantity) {
 
 function invoiceTotal(lines) {
   if (!Array.isArray(lines)) throw new TypeError('Lines must be an array');
+  if (lines.length > MAX_INVOICE_LINES) throw new RangeError('Invoice exceeds maximum line count');
   let total = 0n;
   for (const line of lines) {
     if (!line || typeof line !== 'object' || Array.isArray(line)) throw new TypeError('Invalid invoice line');
