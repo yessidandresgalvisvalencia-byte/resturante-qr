@@ -50,3 +50,20 @@ test('P0-08 an empty allowlist never authorizes any role', () => {
     assert.equal(result.response.status, 403);
   }
 });
+
+
+test('P0-08 configuration cannot grant noncanonical or legacy roles', () => {
+  for (const invalid of ['SUPERADMIN', 'DUEÑO ', 'dueño', '', null, undefined, 1, ['DUEÑO'], { rol: 'DUEÑO' }]) {
+    const middleware = roleCheck(invalid);
+    const result = invoke(middleware, { rol: invalid });
+    assert.equal(result.nextCount, 0, String(invalid));
+    assert.equal(result.response.status, 403);
+  }
+});
+
+test('P0-08 invalid configured grants do not block explicitly permitted canonical roles', () => {
+  const middleware = roleCheck('SUPERADMIN', ROLES_GRUK.ADMIN_SEDE, null);
+  assert.equal(invoke(middleware, { rol: ROLES_GRUK.ADMIN_SEDE }).nextCount, 1);
+  assert.equal(invoke(middleware, { rol: 'SUPERADMIN' }).response.status, 403);
+  assert.equal(invoke(middleware, { rol: ROLES_GRUK.DUENO }).response.status, 403);
+});
