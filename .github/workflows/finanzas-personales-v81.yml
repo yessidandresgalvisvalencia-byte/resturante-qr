@@ -421,6 +421,16 @@ jobs:
           GRUK_V81_TEST_MONGO_AUTH_URI: mongodb://127.0.0.1:27018/gruk_v81_test_privilegios
           GRUK_REQUIRE_PRIVILEGIOS_MONGO_TEST: "1"
         run: node --test test/gruk/ledger-personal-db-privileges.test.js test/finanzas-personales/privilegiosLedgerMongoV81.integration.test.js
+      - name: Instalar Chromium para navegador contra backend autorizado
+        run: |
+          npm install --ignore-scripts --no-save --package-lock=false --prefix "$RUNNER_TEMP/fp-browser-backend" playwright@1.62.1
+          "$RUNNER_TEMP/fp-browser-backend/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Probar navegador contra rutas reales y MongoDB autorizado
+        env:
+          NODE_ENV: test
+          FP_BROWSER_BACKEND_MONGO_URI: mongodb://127.0.0.1:27018/gruk_v81_test_browser_personal
+          FP_PLAYWRIGHT_MODULE: ${{ runner.temp }}/fp-browser-backend/node_modules/playwright
+        run: node --test test/finanzas-personales/browser/backend-recuperacion.browser.cjs
       - name: Limpiar MongoDB con autorización
         if: always()
         run: docker rm -f mongo-v81-auth-test || true
