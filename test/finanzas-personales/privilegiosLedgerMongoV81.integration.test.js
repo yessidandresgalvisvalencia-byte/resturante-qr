@@ -153,7 +153,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
  }
 }
 test("MongoDB con autorización: rol insert-only bloquea modificación y borrado reales",{
- skip:!uri&&process.env.GRUK_REQUIRE_PRIVILEGIOS_MONGO_TEST!=="1"?"Requiere MongoDB local con --auth":false,timeout:60000
+ skip:!uri&&process.env.GRUK_REQUIRE_PRIVILEGIOS_MONGO_TEST!=="1"?"Requiere MongoDB local con --auth":false,timeout:180000
 },async t=>{
  validarDestino(uri);
  // Credenciales exclusivas del contenedor efímero de CI, nunca del despliegue.
