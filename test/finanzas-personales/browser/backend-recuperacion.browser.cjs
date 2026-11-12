@@ -31,5 +31,25 @@ test("Chromium contra rutas HTTP y Mongo autorizado: autenticación, recuperaci�
     await require("../../../modules/finanzas-personales/models/identidadPersonal.model").updateOne({_id:u},{$inc:{tokenVersion:1}});assert.equal((await request(reciboPath,{token:propio.token})).status,401);const renovada=await request("/auth/login",{body:{email:propio.email,password:propio.password}});assert.equal(renovada.status,200);assert.equal((await request(reciboPath,{token:renovada.body.token})).status,200);assert.deepEqual(await foto(u),aplicada);
    }finally{await context.close();}
   });
+  await t.test("SOCKET_REVOCACION_Y_VENCIMIENTO",async()=>{
+   const a=await crear(),b=await crear(),c=await crear(),context=await browser.newContext({serviceWorkers:"block"}),page=await context.newPage(),externas=[];
+   await context.route("**/*",route=>{if(new URL(route.request().url()).origin!==origin){externas.push(route.request().url());return route.abort();}return route.continue();});
+   try{
+    await page.goto(origin+"/finanzas-personales.html");await page.waitForFunction(()=>typeof window.io==="function");
+    await page.evaluate(()=>{window.rt={sockets:{},mensajes:{},conectar(key,token){return new Promise((resolve,reject)=>{const s=window.io("/finanzas-personales",{auth:{token},transports:["websocket"],reconnection:false,forceNew:true});this.sockets[key]=s;this.mensajes[key]=[];const timer=setTimeout(()=>reject(Error("Sin conexión de ensayo")),10000);s.on("connect",()=>{clearTimeout(timer);resolve(true);});s.on("connect_error",e=>{clearTimeout(timer);s.disconnect();reject(Error(e.message));});s.on("finanzas:evento",e=>this.mensajes[key].push(e.payload.marca));});}};});
+    await page.evaluate(async({a,b})=>{await rt.conectar("a",a);await rt.conectar("b",b);},{a:a.token,b:b.token});
+    const {personalEventBus,PERSONAL_EVENTS}=require("../../../modules/finanzas-personales/events/eventBusPersonal");
+    const aviso=(usuarioId,marca)=>personalEventBus.emitFinancial(PERSONAL_EVENTS.MOVIMIENTO_PATRIMONIAL,{eventId:crypto.randomUUID(),usuarioId,payload:{marca}});
+    aviso(a.id,"ANTES_REVOCACION");await page.waitForFunction(()=>rt.mensajes.a.includes("ANTES_REVOCACION"));assert.deepEqual(await page.evaluate(()=>rt.mensajes.b),[]);
+    await require("../../../modules/finanzas-personales/models/identidadPersonal.model").updateOne({_id:a.id},{$inc:{tokenVersion:1}});aviso(a.id,"NO_DEBE_LLEGAR_REVOCADO");await page.waitForFunction(()=>!rt.sockets.a.connected);assert.deepEqual(await page.evaluate(()=>rt.mensajes.a),["ANTES_REVOCACION"]);
+    const rechazo=await page.evaluate(async token=>{try{await rt.conectar("revocado",token);return "ACEPTADO";}catch(e){return e.message;}},a.token);assert.equal(rechazo,"UNAUTHORIZED");
+    const login=await request("/auth/login",{body:{email:a.email,password:a.password}});assert.equal(login.status,200);await page.evaluate(token=>rt.conectar("nueva",token),login.body.token);aviso(a.id,"SESION_NUEVA");await page.waitForFunction(()=>rt.mensajes.nueva.includes("SESION_NUEVA"));assert.deepEqual(await page.evaluate(()=>rt.mensajes.a),["ANTES_REVOCACION"]);assert.deepEqual(await page.evaluate(()=>rt.mensajes.b),[]);
+    const {AUDIENCE,ISSUER}=require("../../../modules/finanzas-personales/security/personalToken.service"),corto=require("jsonwebtoken").sign({scope:"finanzas:personal",tokenVersion:1},process.env.PERSONAL_JWT_SECRET,{algorithm:"HS256",subject:c.id,audience:AUDIENCE,issuer:ISSUER,expiresIn:3});
+    await page.evaluate(token=>rt.conectar("corta",token),corto);aviso(c.id,"ANTES_VENCIMIENTO");await page.waitForFunction(()=>rt.mensajes.corta.includes("ANTES_VENCIMIENTO"));await page.waitForFunction(()=>!rt.sockets.corta.connected);aviso(c.id,"NO_DEBE_LLEGAR_VENCIDO");
+    await require("../../../modules/finanzas-personales/models/suscripcion.model").updateOne({userId:a.id},{$set:{vigenteHasta:new Date(Date.now()-1000)}});aviso(a.id,"NO_DEBE_LLEGAR_SIN_SUSCRIPCION");await page.waitForFunction(()=>!rt.sockets.nueva.connected);assert.deepEqual(await page.evaluate(()=>rt.mensajes.nueva),["SESION_NUEVA"]);
+    aviso(b.id,"OTRO_SIGUE_ACTIVO");await page.waitForFunction(()=>rt.mensajes.b.includes("OTRO_SIGUE_ACTIVO"));assert.deepEqual(await page.evaluate(()=>rt.mensajes.corta),["ANTES_VENCIMIENTO"]);assert.deepEqual(externas,[]);
+    console.log("FP_SOCKET_EVIDENCIA",JSON.stringify({JWTReal:true,revocacion:true,expiracionOciosa:true,suscripcion:true,aislamiento:true,reconexionNueva:true,scope:"namespace personal",datos:"sinteticos"}));
+   }finally{await context.close();}
+  });
  }finally{if(browser)await browser.close();if(io)await new Promise(r=>io.close(r));else if(server)await new Promise(r=>server.close(r));await mongoose.disconnect();await admin.close();}
 });
