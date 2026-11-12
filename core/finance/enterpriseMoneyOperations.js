@@ -28,6 +28,8 @@ function lineTotal(unitPrice, quantity) {
 
 function invoiceTotal(lines) {
   if (!Array.isArray(lines)) throw new TypeError('Lines must be an array');
+  // Bound attacker-controlled invoice work before iterating, even for zero-value lines.
+  if (lines.length > 10000) throw new RangeError('Invoice exceeds maximum line count');
   let total = 0n;
   for (const line of lines) {
     if (!line || typeof line !== 'object' || Array.isArray(line)) throw new TypeError('Invalid invoice line');
