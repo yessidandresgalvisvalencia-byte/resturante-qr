@@ -7,6 +7,9 @@ function parseMoneyToCents(value) {
   if (typeof value !== 'string' || !/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(value)) {
     throw new TypeError('Money must be a nonnegative canonical decimal string with at most two decimals');
   }
+  // Bound conversion cost before BigInt sees attacker-controlled decimal digits.
+  // MAX_SAFE_INTEGER cents permits at most 14 whole-number digits plus two decimals.
+  if (value.length > 17) throw new RangeError('Money amount exceeds safe integer cents');
   const [whole, fraction = ''] = value.split('.');
   const cents = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0') || '0');
   if (cents > MAX_CENTS) throw new RangeError('Money amount exceeds safe integer cents');
