@@ -87,7 +87,7 @@ test("P0-04: query updates reject offline identity mutation before database acce
     () => Pedido.updateOne({ _id: id }, { $set: { sedeId: "other" } }),
     () => Pedido.updateMany({}, { $unset: { offlineEventId: 1 } }),
     () => Pedido.findOneAndUpdate({ _id: id }, { $rename: { sedeId: "legacySite" } }),
-    () => Pedido.updateOne({ _id: id }, [{ $replaceWith: { estado: "pendiente" } }]),
+    () => Pedido.updateOne({ _id: id }, [{ $replaceWith: { estado: "pendiente" } }], { updatePipeline: true }),
     () => Pedido.updateOne({ $and: [{ offlineEventId: "evt-a" }] }, { $set: { estado: "listo" } }, { upsert: true }),
     () => Pedido.replaceOne({ _id: id }, { mesa: 1, producto: "x", precio: 1, precioUnitario: 1 })
   ];
