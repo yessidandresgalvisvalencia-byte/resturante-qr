@@ -25,3 +25,7 @@ Se amplía el caso nativo de calendario del navegador/backend: fuente real sint�
 Solo este diario local, no todos los diarios ni MongoDB. No sustituye backup independiente, retención, claves/accesos protegidos o restauración operacional con RPO/RTO. Escenario nativo cubre copia de CREAR; las nueve acciones se cotejan por pruebas de contrato/recibos, sin afirmar prueba física de todas en dispositivos. #407/custodio independiente/backup-restauración operacional/roles e índices productivos/dispositivos físicos/compatibilidad siguen pendientes.
 
 Siguiente: CI exacta, diario de captura y capacidad sin poda. Sin merge ni Render ni cambios de main/Empresarial/Blushéa, datos reales o costos nuevos.
+
+
+## Compatibilidad con HTML ya abierto r80
+El HTML anterior cargaba calendario antes del cifrado compartido. El controlador resuelve ese componente también al montarse, y si falta permite usar el calendario conservando sus solicitudes; la copia falla de forma conservadora. Se añade comprobación en la prueba de sesión/borrador para cargar el controlador de navegador sin componente de cifrado y consultar calendarios sin detener la aplicación. Diez pruebas dirigidas 10/10 tras este ajuste. Sin cambiar gates ni timeouts; validar CI del descendiente publicado.
