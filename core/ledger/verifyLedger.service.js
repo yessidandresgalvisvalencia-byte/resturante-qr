@@ -3,7 +3,8 @@ const {calculateMovement}=require("./copAmounts");
 const {hashMovement,ZERO_HASH}=require("./appendLedger.service");
 function verifyLedgerChain({movements,head}) {
  if(!Array.isArray(movements) || !head || typeof head!=="object") throw new TypeError("LEDGER_INVALID_AUDIT_INPUT");
- if(!["empresaId","sedeId","cuentaId"].every(k=>typeof head[k]==="string" && head[k])) throw new Error("LEDGER_INVALID_SCOPE");
+ // Audit scope must obey the same canonical identifier contract as appendMovement.
+ if(!["empresaId","sedeId","cuentaId"].every(k=>typeof head[k]==="string" && /^[A-Za-z0-9_-]{1,80}$/.test(head[k]))) throw new Error("LEDGER_INVALID_SCOPE");
  let sequence=0,lastHash=ZERO_HASH,balance="0";
  for(const row of movements){
    if(!row || row.empresaId!==head.empresaId || row.sedeId!==head.sedeId || row.cuentaId!==head.cuentaId) throw new Error("LEDGER_SCOPE_MISMATCH");
