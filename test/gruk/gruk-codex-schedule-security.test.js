@@ -1,0 +1,30 @@
+"use strict";
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const path=require("node:path");
+const root=path.resolve(__dirname,"../..");
+const yaml=fs.readFileSync(path.join(root,".github/workflows/gruk-scheduled-word-audit.yml"),"utf8");
+const prompt=fs.readFileSync(path.join(root,".github/codex/gruk-enterprise-autodev.md"),"utf8");
+test("Codex scheduled proposal separated from PR credentials and production deployment",()=>{
+ assert.match(yaml,/cron: '0,20,25,30,35,40,45,50,55 \* \* \* \*'/);
+ assert.match(yaml,/uses: openai\/codex-action@v1/);
+ assert.match(yaml,/permission-profile: ":workspace"/);
+ assert.match(yaml,/OPENAI_API_KEY/);
+ assert.match(yaml,/GRUK_PR_TOKEN/);
+ assert.match(yaml,/contents: read/);
+ assert.match(yaml,/verify-proposal:/);
+ assert.match(yaml,/publish-pr:/);
+ assert.match(yaml,/needs: \[codex-propose, verify-proposal\]/);
+ assert.match(yaml,/git apply --check/);
+ assert.match(yaml,/run: npm test/);
+ assert.match(yaml,/draft: true/);
+ assert.doesNotMatch(yaml,/pull_request_target|DEPLOY_HOOK|deploy-render|merge-pull-request|permissions:\s*\n\s*contents: write/i);
+});
+test("Agent is restricted to verifiable Word items and cannot alter workflows",()=>{
+ assert.match(prompt,/GRUK_PLAN_MAESTRO_77_CRITERIOS.md/);
+ assert.match(prompt,/GRUK_PLAN_MAESTRO_77_TRAZABILIDAD.md/);
+ assert.match(prompt,/Never edit \.github\//);
+ assert.match(prompt,/test\/gruk\//);
+ assert.match(prompt,/without committing/);
+});
