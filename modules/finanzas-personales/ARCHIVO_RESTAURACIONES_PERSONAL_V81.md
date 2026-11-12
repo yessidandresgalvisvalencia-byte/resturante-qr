@@ -50,3 +50,16 @@ Este diario conserva solicitudes enviadas y recibos, no el formulario visual tod
 Máximo8MiB de contenido portable/12MiB de archivo cifrado, raíz/página hasta1MiB recuperable. Textos/cuota pueden limitar antes de2100; se rechaza exceso sin recortar. Sin autoarchivo ni borrado al salir; frase perdida no recuperable. Copia descargada no sustituye backup independiente MongoDB, retención/acceso/credenciales separadas ni restauración operacional aislada/RPO-RTO. Dispositivos físicos y rendimiento máximo pendientes.
 
 #407/custodio independiente real/backups y restauración operacional/roles e índices Mongo productivos/auditoría-dispositivos-compatibilidad siguen pendientes. Mantener sin merge a feature ni Render, costos nuevos, otros productos o alteraciones de datos reales.
+
+## Resultado publicado y verificado
+
+Código **e02a349bf043dd57f87186e4c9f3a7ab7d99a24d**, árbol **3ac87a5fc0418b539d3fddf3aef104645793eb3d**. Ocho archivos personales cotejados, publicación con lease.
+
+- [Gate43331945043](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43331945043): success.
+- [Seguridad43331945037](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43331945037): success.
+- [V8143331945057](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43331945057): success, ocho jobs aprobados.
+- [Job autorizado131578538470](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43331945057/job/131578538470): Mongo81/81 y navegador/backend15/15; cero fallos/cancelaciones/omisiones.
+
+FP_ARCHIVO_RESTAURACION verificó ambos resultados reales RESTAURACION/CIERRE: archivo explícito, original byte por byte, borrador visual conservado al archivar, consulta literal, reimportación de copia anterior idempotente, descarga cifrada con archivos, tercera pestaña/login HTTP real y recuperación exacta de páginas; ancho390 sin desborde. Cero POST o nuevos GET de recibos por archivo/copia, caja/capital/reservas/fuentes intactos. La prueba previa FP_MANUAL_EN_VUELO también completa. Solo datos sintéticos; se resuelve para este SHA la ejecución nativa antes pendiente.
+
+Dirigidas22/22, módulo770/761/9 y ci:personal353/349/4, cero fallos/sintaxis aprobada; once pruebas nuevas. No se omitieron casos ni modificaron gates, timeouts o cuotas. Comprobar las tres CI exactas del descendiente documental al cerrar y registrarlas en PR389. Tarea recurrente comprobada habilitada. GitHub publicado; sin merge a feature ni despliegue Render. El formulario aún sin enviar permanece fuera del paquete; todos los demás límites/requisitos externos anteriores siguen vigentes.
