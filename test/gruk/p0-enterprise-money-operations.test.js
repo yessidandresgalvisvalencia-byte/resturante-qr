@@ -52,3 +52,10 @@ test('P0-07 tax rejects implicit rates, floats, negative and ambiguous input', (
     assert.throws(() => taxAmount(amount, '1900'));
   }
 });
+
+test('P0-07 rejects oversized invoice batches before accessing line values', () => {
+  const oversized = new Array(10001);
+  Object.defineProperty(oversized, '0', { get() { throw new Error('MUST_NOT_READ_LINE'); } });
+  assert.throws(() => invoiceTotal(oversized), { name: 'RangeError', message: 'Invoice exceeds maximum line count' });
+  assert.equal(invoiceTotal(new Array(10000).fill({ unitPrice: '0.01', quantity: '1' })), '100.00');
+});
