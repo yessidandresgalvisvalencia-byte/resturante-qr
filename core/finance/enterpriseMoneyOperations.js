@@ -46,4 +46,20 @@ function reconcile(expected, observed) {
   });
 }
 
-module.exports = { lineTotal, invoiceTotal, reconcile };
+// Tax calculation is opt-in: callers must provide the legally applicable rate.
+// Basis points represent hundredths of a percent (1900 = 19%). This function
+// does not infer taxability, jurisdiction, exemptions, or invoice-level policy.
+// Round HALF UP on positive minor units, exactly once at the caller's chosen base.
+function taxAmount(base, rateBasisPoints) {
+  const baseCents = parseMoneyToCents(base);
+  if (typeof rateBasisPoints !== 'string' || !/^(?:0|[1-9]\\d*)$/.test(rateBasisPoints) ||
+      rateBasisPoints.length > 5) {
+    throw new TypeError('Tax rate must be a canonical integer basis-point string');
+  }
+  const rate = BigInt(rateBasisPoints);
+  if (rate > 10000n) throw new RangeError('Tax rate exceeds 100 percent');
+  const taxCents = (baseCents * rate + 5000n) / 10000n;
+  return formatCents(assertSafeCents(taxCents));
+}
+
+module.exports = { lineTotal, invoiceTotal, reconcile, taxAmount };
