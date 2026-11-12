@@ -1,0 +1,44 @@
+name: GRUK Scheduled Word 77 Audit
+
+# Additional GitHub slots only. Existing ChatGPT tasks at :05, :10, :15 remain untouched.
+# GitHub cron is best-effort and may be delayed or skipped under platform load.
+on:
+  schedule:
+    - cron: '0,20,25,30,35,40,45,50,55 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-word-audit-scheduled
+  cancel-in-progress: false
+
+jobs:
+  plan-evidence:
+    name: Word 77 evidence checkpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate all 77 source criteria and traceability rows
+        run: node scripts/gruk-plan-master-audit.js
+      - name: Generate immutable evidence of outstanding Word requirements
+        run: node scripts/gruk-scheduled-progress.js gruk-scheduled-progress.json
+      - name: Test scheduled audit against original Word acceptance map
+        run: node --test test/gruk/gruk-scheduled-progress.test.js
+      - name: Save evidence for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-word-77-${{ github.run_id }}-${{ github.run_attempt }}
+          path: gruk-scheduled-progress.json
+          retention-days: 7
+# Deliberately no write token, secrets, AI agent invocation, push, merge or Render deploy.
+# Real coding blocks require a separately provisioned, reviewed coding agent.
