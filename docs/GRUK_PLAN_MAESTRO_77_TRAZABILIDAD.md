@@ -13,7 +13,7 @@ Estados válidos: `SIN_AUDITAR`, `PARCIAL`, `BLOQUEADO`, `VERIFICADO`. Ningún �
 | 04 | P0 | Modelo de datos por empresa y sede | SIN_AUDITAR | Pendiente de auditar |
 | 05 | P0 | Unificar estados y eventos | SIN_AUDITAR | Pendiente de auditar |
 | 06 | P0 | Calidad de datos y conciliaciones | SIN_AUDITAR | Pendiente de auditar |
-| 07 | P0 | Motor determinista de cálculos | SIN_AUDITAR | Pendiente de auditar |
+| 07 | P0 | Motor determinista de cálculos | PARCIAL | Código: [`enterpriseMoneyOperations.js`](../core/finance/enterpriseMoneyOperations.js) (`lineTotal`, `invoiceTotal`, `reconcile`, `taxAmount`); pruebas: [`p0-enterprise-money-operations.test.js`](../test/gruk/p0-enterprise-money-operations.test.js); [PR #571](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/571), [CI de PR #571](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43255399911) (Syntax and unit tests: success), [PR #572](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/pull/572) (límite de longitud, aún sin integrar). **NO VERIFICADO integralmente:** integración de cálculo tributario con rutas reales, reglas fiscales por jurisdicción, conciliación MongoDB, pruebas end-to-end, compatibilidad y cierre de PR #572. No certificar P0-07 ni desplegar. |
 | 08 | P0 | Permisos y roles convencionales | SIN_AUDITAR | Pendiente de auditar |
 | 09 | P0 | Bitácora externa de operaciones | SIN_AUDITAR | Pendiente de auditar |
 | 10 | P0 | Tablero de salud del negocio | SIN_AUDITAR | Pendiente de auditar |
