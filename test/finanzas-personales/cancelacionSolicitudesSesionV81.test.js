@@ -15,7 +15,7 @@ test("Cerrar sesión aborta solicitudes financieras pendientes",async()=>{
   opts.signal.addEventListener("abort",()=>reject(Object.assign(new Error("Aborted"),{name:"AbortError"})));
  });
  const eliminadas=[];const storage={removeItem(clave){eliminadas.push(clave);}};
- const ctx={token:"usuario-uno",socket:null,sessionStorage:storage,localStorage:storage,fetch,AbortController,Set,Error,JSON};
+ const ctx={document:{getElementById:()=>null},token:"usuario-uno",socket:null,sessionStorage:storage,localStorage:storage,fetch,AbortController,Set,Error,JSON};
  vm.runInNewContext(snippet,ctx);
  const pendiente=ctx.api("/home");
  ctx.clearToken();
