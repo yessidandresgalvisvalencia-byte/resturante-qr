@@ -21,6 +21,6 @@ test("Cerrar sesión aborta solicitudes financieras pendientes",async()=>{
  ctx.clearToken();
  await assert.rejects(pendiente,/Aborted|La sesión cambió durante la solicitud/);
  assert.equal(ctx.token,null);
- assert.ok(eliminadas.includes("grukPersonalIntentoManualV1"));
+ assert.ok(!eliminadas.includes("grukPersonalIntentoManualV1"),"el legado no se borra al salir");
  assert.equal(vm.runInNewContext("solicitudesEnCurso.size",ctx),0);
 });

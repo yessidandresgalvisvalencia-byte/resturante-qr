@@ -1,39 +1,17 @@
 "use strict";
-const test=require("node:test");
-const assert=require("node:assert/strict");
-const fs=require("node:fs");
-const path=require("node:path");
-const vm=require("node:vm");
-const {webcrypto}=require("node:crypto");
-const fuente=fs.readFileSync(path.join(__dirname,"../../public/finanzas-personales.js"),"utf8");
-const inicio=fuente.indexOf('const CLAVE_INTENTO_MANUAL=');
-const fin=fuente.indexOf('const persist=',inicio);
-assert.ok(inicio>0&&fin>inicio,"Debe existir el módulo de intento manual");
-const modulo=fuente.slice(inicio,fin);
-function preparar(almacen){
- const sessionStorage={getItem:k=>almacen.get(k)||null,setItem:(k,v)=>almacen.set(k,v),
-  removeItem:k=>almacen.delete(k)};
- const contexto=vm.createContext({sessionStorage,crypto:webcrypto,TextEncoder,token:"sesion-privada",
-  manualExternalId:null,manualPayloadPendiente:null});
- vm.runInContext(modulo,contexto);
- return contexto;
-}
-test("el mismo borrador reusa el identificador después de recargar",async()=>{
- const almacen=new Map(), datos={tipo:"GASTO",montoMinor:25000,concepto:"Rappi"};
- const a=preparar(almacen),id=await a.resolverIntentoManual(datos);
- assert.match(id,/^[0-9a-f-]{36}$/i);
- const b=preparar(almacen);
- assert.equal(await b.resolverIntentoManual(datos),id);
- const guardado=Array.from(almacen.values()).join("");
- assert.ok(!guardado.includes("Rappi")&&!guardado.includes("25000")&&!guardado.includes("sesion-privada"));
-});
-test("un registro incierto impide cambiar su contenido o usuario",async()=>{
- const almacen=new Map(),a=preparar(almacen);
- await a.resolverIntentoManual({montoMinor:25000});
- await assert.rejects(a.resolverIntentoManual({montoMinor:25001}),/sin confirmar/);
- const otra=preparar(almacen);otra.token="otra-sesion";
- await assert.rejects(otra.resolverIntentoManual({montoMinor:25000}),/sin confirmar/);
- a.limpiarIntentoManual();
- assert.equal(almacen.size,0);
- assert.match(await a.resolverIntentoManual({montoMinor:25001}),/^[0-9a-f-]{36}$/i);
-});
+const test=require("node:test"),assert=require("node:assert/strict"),crypto=require("node:crypto");
+const {crearDiarioManualPersonal,montarDiarioManualPersonal}=require("../../public/finanzas-personales-manual");
+const A="a".repeat(24),B="b".repeat(24),usuario=t=>t==="A"||t==="A2"?A:t==="B"?B:null,datos={tipo:"INGRESO",montoMinor:100,moneda:"COP",concepto:"Ingreso prueba",categoria:"OTROS",subcategoria:"",cuenta:"EFECTIVO",medioPago:"EFECTIVO",contraparte:"",descripcion:"Original completo",fecha:"2026-11-10",recurrente:false,frecuencia:"NINGUNA",origen:"MANUAL"},recibo={confirmado:true,existe:true,estado:"ACTIVA",transaccionId:"c".repeat(24)};
+function entorno(extra={}){const mapa=new Map(),storage={getItem:k=>mapa.get(k)??null,setItem:(k,v)=>mapa.set(k,v)},opts={almacenamiento:storage,usuarioDeToken:usuario,digerir:async s=>crypto.createHash("sha256").update(s).digest("hex"),nuevaId:()=>crypto.randomUUID(),hoy:()=>"2026-11-12",...extra};return{mapa,storage,opts,local:crearDiarioManualPersonal(opts)};}
+test("cuerpo/clave sobreviven recarga y JWT nuevo solo para su propietario",async()=>{const e=entorno(),id=await e.local.preparar("A",datos),otra=crearDiarioManualPersonal(e.opts);assert.equal(await otra.preparar("A2",datos),id);assert.deepEqual(otra.leer("A2").entradas[0].body,{...datos,externalId:id});assert.deepEqual(otra.leer("B").entradas,[]);await assert.rejects(otra.preparar("A",{...datos,montoMinor:101}),/sin confirmar/);});
+test("legado se conserva sin reasignarlo ni borrarlo",async()=>{const e=entorno();e.mapa.set("grukPersonalIntentoManualV1",'{"id":"original"}');await assert.rejects(e.local.preparar("A",datos),/legado/);assert.equal(e.mapa.get("grukPersonalIntentoManualV1"),'{"id":"original"}');assert.equal(e.mapa.size,1);});
+test("solo confirmación vinculante preserva original y finalización es idempotente",async()=>{const e=entorno(),id=await e.local.preparar("A",datos),b=e.local.leer("A").entradas[0].body;await assert.rejects(e.local.confirmar("A",b,{ok:true}),/vinculante/);await assert.rejects(e.local.confirmar("A",{...b,montoMinor:101},recibo));await e.local.confirmar("A2",b,recibo);const original=e.mapa.get("gruk.fp.manual.v81:"+A);await e.local.confirmar("A",b,recibo);assert.equal(e.mapa.get("gruk.fp.manual.v81:"+A),original);assert.equal(e.local.leer("A").entradas[0].id,id);assert.deepEqual(e.local.leer("A").entradas[0].body,b);});
+test("datos alterados, JSON corrupto y almacenamiento fallido bloquean sin borrar",async()=>{const e=entorno();await e.local.preparar("A",datos);const key="gruk.fp.manual.v81:"+A,x=JSON.parse(e.mapa.get(key));x.entradas[0].body.montoMinor=101;e.mapa.set(key,JSON.stringify(x));await assert.rejects(e.local.verificar("A"));e.mapa.set(key,"{");await assert.rejects(e.local.preparar("A",datos));assert.equal(e.mapa.get(key),"{");const q=entorno({almacenamiento:{getItem:()=>null,setItem(){throw Error("cuota");}}});await assert.rejects(q.local.preparar("A",datos));});
+test("float, monto inseguro, fecha imposible/futura y campos extra nunca se guardan",async()=>{for(const b of [{...datos,montoMinor:0.1},{...datos,montoMinor:Number.MAX_SAFE_INTEGER+1},{...datos,fecha:"2026-02-30"},{...datos,fecha:"2026-11-13"},{...datos,usuarioId:B}]){const e=entorno();await assert.rejects(e.local.preparar("A",b));assert.equal(e.mapa.size,0);}});
+test("digest tardío y cambio de revisión no escriben un intento",async()=>{let resolver,actual=true;const e=entorno({digerir:()=>new Promise(r=>resolver=r)}),p=e.local.preparar("A",datos,()=>actual);await new Promise(r=>setImmediate(r));actual=false;resolver("f".repeat(64));await assert.rejects(p);assert.equal(e.mapa.size,0);});
+function interfaz(api,confirmar=()=>true){const e=entorno(),nodos=new Map();let token="A";class N{constructor(){this.value="";this.textContent="";this.children=[];this.checked=false;}append(n){this.children.push(n);}replaceChildren(){this.children=[];}addEventListener(n,f){this[n]=f;}}const documento={getElementById(id){if(!nodos.has(id))nodos.set(id,new N());return nodos.get(id);},createElement:()=>new N()},f=montarDiarioManualPersonal({...e.opts,documento,api,tokenActual:()=>token,confirmar});return{...e,f,$:id=>documento.getElementById(id),cambiar(t){token=t;f.entrar();}};}
+test("salir/cambiar usuario limpia vista sin borrar cuerpo ni enviar; consulta confirma sin repetir POST",async()=>{const llamadas=[],e=interfaz(async(p,o)=>{llamadas.push([p,JSON.parse(o.body)]);return recibo;}),id=await e.f.preparar(datos),b=e.f.local.leer("A").entradas[0].body;e.$("mConcepto").value="Privado";e.cambiar("B");assert.equal(e.$("mConcepto").value,"");assert.equal(e.$("manualPendientes").children.length,0);assert.deepEqual(e.f.local.leer("A").entradas[0].body,b);e.cambiar("A2");assert.equal(llamadas.length,0);await e.f.resolver(id);assert.equal(llamadas.length,1);assert.equal(llamadas[0][0],"/transacciones/confirmar-intento");assert.deepEqual(llamadas[0][1],b);assert.equal(e.f.local.leer("A").entradas[0].estado,"CONFIRMADA");});
+test("solo reenvío explícito tras consulta negativa usa cuerpo y clave originales",async()=>{let consultas=0;const llamadas=[],e=interfaz(async(p,o)=>{llamadas.push([p,JSON.parse(o.body)]);if(p==="/transacciones")return{ok:true};return ++consultas===1?{confirmado:false}:recibo;}),id=await e.f.preparar(datos),b=e.f.local.leer("A").entradas[0].body;await e.f.resolver(id,true);assert.deepEqual(llamadas.map(x=>x[0]),["/transacciones/confirmar-intento","/transacciones","/transacciones/confirmar-intento"]);for(const x of llamadas)assert.deepEqual(x[1],b);});
+test("anulación/corrección y respuesta perdida conservan solicitud sin reenviar automáticamente",async()=>{for(const estado of ["ANULADA","CORREGIDA"]){let n=0;const e=interfaz(async()=>{n++;return{confirmado:false,existe:true,estado};}),id=await e.f.preparar(datos);await e.f.resolver(id,true);assert.equal(n,1);assert.equal(e.f.local.leer("A").entradas[0].estado,"PENDIENTE");}const e=interfaz(async()=>{throw Error("red");}),id=await e.f.preparar(datos);await e.f.resolver(id);assert.equal(e.f.local.leer("A").entradas[0].estado,"PENDIENTE");});
+test("rechazar confirmación de reenvío conserva solicitud y no hace POST financiero",async()=>{const llamadas=[],e=interfaz(async p=>{llamadas.push(p);return{confirmado:false};},()=>false),id=await e.f.preparar(datos);await e.f.resolver(id,true);assert.deepEqual(llamadas,["/transacciones/confirmar-intento"]);assert.equal(e.f.local.leer("A").entradas[0].estado,"PENDIENTE");});
+test("consulta tardía de A no finaliza ni pinta el diario de B",async()=>{let resolver;const e=interfaz(()=>new Promise(r=>resolver=r)),id=await e.f.preparar(datos),p=e.f.resolver(id);await new Promise(r=>setImmediate(r));e.cambiar("B");resolver(recibo);await p;assert.equal(e.f.local.leer("A").entradas[0].estado,"PENDIENTE");assert.equal(e.$("manualPendientes").children.length,0);assert.equal(e.$("manualEstado").textContent,"");});
