@@ -25,7 +25,7 @@ Módulo local: 683 casos, 674 aprobados/nueve omitidos por integraciones externa
 
 ## Ensayo real preparado en CI
 
-Dos desenlaces de rutas HTTP/JWT/Mongo autorizado existentes: RESTAURACION aplicada y CIERRE sin aplicar por calendario no vigente. En ambos se pierde la respuesta después del commit y el diario queda pendiente. Descarga real cifrada antes de consultar, pestaña nueva con login, rechazo de otra cuenta, importación sin consultas ni POST, pregunta visible bloqueada sin POST de asesoría, repetición idempotente. Consulta explícita GET obtiene el recibo propio; confirmar no mueve otra vez caja ni modifica fuentes. Exporta también el diario ya resuelto, validando recibo real; reimporta copia pendiente antigua sin retirar ese recibo. Compara raíz original, cuerpo/ruta/clave, snapshot financiero y fuente Mongo original. La pestaña fuente permanece pendiente hasta su propia consulta normal. No usar API privada en el ensayo ni contar reenvío de copia inexistente como éxito. Resultado del SHA publicado pendiente; registrar runs y evidencia exacta al cierre.
+Dos desenlaces de rutas HTTP/JWT/Mongo autorizado existentes: RESTAURACION aplicada y CIERRE sin aplicar por calendario no vigente. En ambos se pierde la respuesta después del commit y el diario queda pendiente. Descarga real cifrada antes de consultar, pestaña nueva con login, rechazo de otra cuenta, importación sin consultas ni POST, pregunta visible bloqueada sin POST de asesoría, repetición idempotente. Consulta explícita GET obtiene el recibo propio; confirmar no mueve otra vez caja ni modifica fuentes. Exporta también el diario ya resuelto, validando recibo real; reimporta copia pendiente antigua sin retirar ese recibo. Compara raíz original, cuerpo/ruta/clave, snapshot financiero y fuente Mongo original. La pestaña fuente permanece pendiente hasta su propia consulta normal. No usar API privada en el ensayo ni contar reenvío de copia inexistente como éxito. Resultado del SHA de código aprobado según evidencia exacta siguiente; el descendiente documental también requiere CI propia.
 
 ## Límites y liberación
 
@@ -38,3 +38,16 @@ Se mantienen límites del formato r75: sessionStorage/cuota/perfil/pestaña, fra
 ## Siguiente paso recuperable
 
 Revisar HEAD/#389/#407/CI. Extender conservación/recuperación explícita a otros diarios personales (imputaciones, calendario, captura) con evidencia de identidad, estado y cero efectos financieros al importar. Revisar capacidad de restauraciones sin poda y consultas de recibos históricos tras eventos posteriores. Obtener evidencia independiente real para los bloqueos externos antes de liberar.
+
+## Cierre funcional verificado
+
+Código `e34d06fdd0b0abb476ad93b3043a475bbf80190e`, árbol `ca9d717d753eb291e1534e476e4a393b8349eab8`. Nueve archivos exclusivamente personales, árboles locales/remotos idénticos y publicación con expected_sha/force=false.
+
+- [Gate 43233279728](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43233279728): success.
+- [Seguridad 43233280073](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43233280073): success.
+- [V81 43233279746](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43233279746): success, ocho jobs.
+- Job autorizado 131233897321: Mongo 81/81 y navegador/backend 11/11, cero fallos/cancelaciones/omisiones.
+- FP_COPIA_RESTAURACION: modos RESTAURACION/CIERRE, estados CONFIRMADA/NO_APLICADA respectivamente. Ambos fuenteReal=true, descargaReal=true, otraPestana=true, otraCuentaRechazada=true, pendienteBloqueaAsesoria=true, reciboPropio=true, exportacionCerrada=true, idempotencia=true, originalesIntactos=true, postsFinancierosDeCopia=0, consultasDeRecibo=1, cajaSinCambios=true, datos=sinteticos. La operación financiera original sí ocurrió una vez antes de copiar; importar/consultar no la repitió.
+- Ocho pruebas nuevas; módulo local 683/674/9 y CI personal 353/349/4, cero fallos. Omisiones locales declaradas; integración autorizada sin omisiones. Sintaxis/diff correctos. No se desactivaron gates ni retiraron casos ni ampliaron timeouts.
+
+Esto verifica el alcance descrito sobre datos sintéticos aislados y recibos de rutas reales, no custodia independiente, recuperación operacional de producción o dispositivos físicos. El SHA documental y sus runs exactos se identificarán en el resumen de #389 al cerrar, sin autorreferencia dentro de su propio contenido. #407 abierto; sin merge a feature ni Render ni cambios a otros productos/datos reales/costos. Siguiente: imputaciones/calendario/captura, capacidad sin poda y recibos tras eventos posteriores, con evidencias propias y sin prometer cobertura total.
