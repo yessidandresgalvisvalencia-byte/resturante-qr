@@ -40,5 +40,162 @@ jobs:
           name: gruk-word-77-${{ github.run_id }}-${{ github.run_attempt }}
           path: gruk-scheduled-progress.json
           retention-days: 7
-# Deliberately no write token, secrets, AI agent invocation, push, merge or Render deploy.
-# Real coding blocks require a separately provisioned, reviewed coding agent.
+
+  # Codex gets no GitHub push/PR credentials. It may only propose a patch.
+  codex-propose:
+    name: Generate one scoped GRUK implementation block
+    needs: plan-evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      has_changes: ${{ steps.patch.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Require an API key and a dedicated PR credential
+        env:
+          OPENAI_PRESENT: ${{ secrets.OPENAI_API_KEY != '' }}
+          PR_TOKEN_PRESENT: ${{ secrets.GRUK_PR_TOKEN != '' }}
+        run: |
+          if [ "$OPENAI_PRESENT" != "true" ] || [ "$PR_TOKEN_PRESENT" != "true" ]; then
+            echo "::error::Configure OPENAI_API_KEY and GRUK_PR_TOKEN in GitHub Actions secrets."
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Prepare dependencies without executing lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Generate scoped code and tests
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          prompt-file: .github/codex/gruk-enterprise-autodev.md
+          codex-args: '["--ephemeral"]'
+      - name: Reject out-of-scope edits and serialize patch
+        id: patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -N .
+          node <<'NODE'
+          const {execFileSync}=require('node:child_process');
+          const paths=execFileSync('git',['diff','--name-only','-z'],{encoding:'utf8'}).split('\0').filter(Boolean);
+          const allowed=/^(?:core|models|services|routes|public\/js|test\/gruk)\//;
+          const bad=paths.filter(p=>!allowed.test(p)||p.includes('..')||p.includes('\\'));
+          if(bad.length)throw Error('GRUK_CODEX_OUT_OF_SCOPE: '+bad.join(', '));
+          if(paths.length&&!paths.some(p=>/^test\/gruk\/.+\.test\.js$/.test(p)))
+            throw Error('GRUK_CODEX_TEST_REQUIRED');
+          if(paths.length&&!paths.some(p=>!p.startsWith('test/')))
+            throw Error('GRUK_CODEX_CODE_REQUIRED');
+          NODE
+          git diff --binary > gruk-autodev.patch
+          if [ -s gruk-autodev.patch ]; then echo "has_changes=true" >> "$GITHUB_OUTPUT"; else echo "has_changes=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Save patch without repository write access
+        if: steps.patch.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruk-codex-proposal
+          path: gruk-autodev.patch
+          retention-days: 2
+
+  # This job executes untrusted proposal with no API or PR secrets.
+  verify-proposal:
+    name: Verify generated code with MongoDB and unit tests
+    needs: codex-propose
+    if: needs.codex-propose.outputs.has_changes == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: gruk-codex-proposal
+      - name: Apply proposed patch
+        run: |
+          set -euo pipefail
+          git apply --check gruk-autodev.patch
+          git apply gruk-autodev.patch
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Run syntax checks
+        run: npm run check:syntax
+      - name: Start MongoDB replica set
+        run: |
+          set -euo pipefail
+          docker run -d --name gruk-mongo -p 27017:27017 mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then break; fi
+            sleep 1
+          done
+          docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Full regression test gate
+        env:
+          NODE_ENV: test
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_offline_test?replicaSet=rs0
+        run: npm test
+
+  # The PR token is only used in this separate non-executing job.
+  # A fine-grained token is required: GITHUB_TOKEN PRs do not trigger ordinary CI.
+  publish-pr:
+    name: Open draft PR for human/CI review (no automatic merge)
+    needs: [codex-propose, verify-proposal]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: gruk-codex-proposal
+      - name: Apply validated patch without running generated scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s gruk-autodev.patch
+          git apply --check gruk-autodev.patch
+          git apply gruk-autodev.patch
+          rm -f gruk-autodev.patch
+      - name: Open or update a single isolated candidate PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GRUK_PR_TOKEN }}
+          base: main
+          branch: gruk/codex-scheduled-candidate
+          add-paths: |
+            core/**
+            models/**
+            services/**
+            routes/**
+            public/js/**
+            test/gruk/**
+          draft: true
+          delete-branch: false
+          title: 'GRUK Empresarial: candidato Codex sujeto a CI y revisión'
+          commit-message: 'GRUK: bloque de implementación propuesto por Codex'
+          body: |
+            Proposed by a sandboxed scheduled agent using the 77 Word requirements.
+            Review the change and acceptance evidence; check every PR CI result.
+            NEVER auto-merge or deploy until all criteria and production gates pass.
