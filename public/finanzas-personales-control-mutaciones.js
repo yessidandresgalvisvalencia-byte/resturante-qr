@@ -1,6 +1,6 @@
 "use strict";
 (function(raiz){
- function crearControlMutacionesPersonales({almacenamiento,digerir,usuarioDeToken,invalidar=()=>{}}){
+ function crearControlMutacionesPersonales({almacenamiento,digerir,usuarioDeToken,invalidar=()=>{},validarConstancia=async()=>false}){
   const estados=new Map(),MAX=100,PREFIJO="gruk.fp.operacionesPendientes.v81:";
   const falla=m=>Object.assign(new Error(m),{code:"OPERACION_PERSONAL_NO_CONFIRMADA"});
   const canon=v=>v&&typeof v==="object"?(Array.isArray(v)?v.map(canon):Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])]))):v;
@@ -18,7 +18,7 @@
   function guardar(s){try{almacenamiento.setItem(PREFIJO+s.usuario,JSON.stringify([...s.pendientes.values()]));}catch{s.error=true;throw falla("No se pudo conservar la confirmación pendiente. No se enviará otra operación");}}
   function cambio(s){s.revision++;invalidar(s.usuario);}
   function estado(token){try{const s=cargar(token);return{usuario:s.usuario,revision:s.revision,bloqueada:s.error||s.pendientes.size>0||s.activas.size>0,pendientes:s.pendientes.size,motivo:s.error?"No se pudo verificar el registro local de operaciones pendientes":"Hay operaciones pendientes de confirmar. Reintenta con los mismos datos; actualizar el panel no confirma su resultado"};}catch{return{usuario:null,revision:0,bloqueada:true,motivo:"No se pudo verificar la sesión y sus operaciones pendientes"};}}
-  function esMutacion(path,o,token){return !!token&&!/^(GET|HEAD)$/i.test(o.method||"GET")&&!/^\/auth\//.test(path)&&!(["/consulta","/copilot"].includes(path)&&/^POST$/i.test(o.method||"GET"))&&!["/gastos/evaluar","/creditos/simular","/creditos/evaluar","/transacciones/confirmar-intento"].includes(path);}
+  function esMutacion(path,o,token){return !!token&&!/^(GET|HEAD)$/i.test(o.method||"GET")&&!/^\/auth\//.test(path)&&!(["/consulta","/copilot"].includes(path)&&/^POST$/i.test(o.method||"GET"))&&!["/gastos/evaluar","/creditos/simular","/creditos/evaluar","/transacciones/confirmar-intento","/transacciones/constancia-intento"].includes(path);}
   function datos(path,o){
    let cuerpo={};if(o.body!==undefined){try{cuerpo=JSON.parse(o.body);if(!cuerpo||typeof cuerpo!=="object"||Array.isArray(cuerpo))throw Error();}catch{throw falla("La operación requiere un cuerpo JSON verificable");}}
    const headers={...(o.headers||{})},nombre=Object.keys(headers).find(k=>k.toLowerCase()==="idempotency-key");
@@ -59,6 +59,7 @@
    const d=datos("/transacciones",{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);
    const p=s.pendientes.get(cuerpo.externalId);if(p?.tipo==="externalId"&&p.huella===huella){s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);}
   }
+  async function confirmarConstancia(token,r,cuerpo,vigente=()=>true){if(!vigente()||!await validarConstancia(r,{usuarioId:usuarioDeToken(token),cuerpo})||!vigente())return false;if(!["ANULADA","CORREGIDA"].includes(r.estado))return false;const d=datos("/transacciones",{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);if(!vigente())return false;const s=cargar(token),p=s.pendientes.get(cuerpo.externalId);if(s.error)return false;if(!p)return true;if(p.tipo!=="externalId"||p.huella!==huella||s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;}
   function pendientes(token){const s=cargar(token);if(s.error)throw falla("El registro local requiere revisión");return [...s.pendientes.values()].filter(p=>!s.activas.has(p.id)).map(p=>({...p}));}
   async function confirmarAprobacion(token,recibo){
    if(typeof recibo?.versionBorrador!=="string"||!/^[a-f0-9]{64}$/.test(recibo.versionBorrador)||recibo.confirmado!==true||recibo.certificaEstadoActual!==false||!/^[a-f0-9]{64}$/.test(recibo.hash||"")||recibo.metodo!=="POST"||typeof recibo.solicitudId!=="string"||!/^aprobacion_[A-Za-z0-9_-]+$/.test(recibo.solicitudId)||!/^\/captura\/[a-f0-9]{24}(?:\/items\/[a-f0-9]{24})?\/aprobar$/.test(recibo.ruta||""))return false;
@@ -165,7 +166,7 @@
   async function confirmarRestauracionCiclo(token,r,path,cuerpo,vigente=()=>true){
    if(!vigente()||!await reciboRestauracionCicloValido(token,r,path,cuerpo)||!vigente())return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(!p)return true;if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
   }
-  return{reciboRestauracionCicloValido,confirmarRestauracionCiclo,reciboImputacionValido,confirmarImputacion,confirmarRechazoCalendario,rechazoCalendarioValido,reciboCalendarioValido,confirmarCalendario,estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};
+  return{confirmarConstancia,reciboRestauracionCicloValido,confirmarRestauracionCiclo,reciboImputacionValido,confirmarImputacion,confirmarRechazoCalendario,rechazoCalendarioValido,reciboCalendarioValido,confirmarCalendario,estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};
  }
  if(typeof module!=="undefined"&&module.exports)module.exports={crearControlMutacionesPersonales};
  else raiz.crearControlMutacionesPersonales=crearControlMutacionesPersonales;

@@ -25,7 +25,7 @@ async function exigirIndiceUnicoReservaRecurrente(){
  const unico=indiceExacto(indices,["usuarioId","origenId","periodoInicio"]);
  if(!unico)throw Object.assign(new Error("Índice único de cuotas recurrentes no configurado"),{statusCode:503});
 }
-async function confirmarRegistroIntento(usuarioId,input){
+async function confirmarRegistroIntento(usuarioId,input,{incluirConstancia=false}={}){
  if(typeof input.externalId!=="string"||!input.externalId.trim())
   throw Object.assign(new Error("externalId obligatorio para confirmar"),{statusCode:400});
  const session=await mongoose.startSession();
@@ -34,6 +34,7 @@ async function confirmarRegistroIntento(usuarioId,input){
   await session.withTransaction(async()=>{
    resultado=await confirmarIntento({
     Transaccion,usuarioId,externalIdHash:hashExternalId(usuarioId,input.externalId),esperado:input,session,
+    ...(incluirConstancia?{emitirConstancia:estado=>require("./constanciaIntentoManual.service").crear({usuarioId,input,...estado})}:{}),
     resolverEstado:async fuente=>{
      const fecha=new Date(fuente.fecha);
      const rows=await consultarPeriodo({usuarioId,desde:fecha.toISOString(),

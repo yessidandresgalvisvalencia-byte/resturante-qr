@@ -14,15 +14,15 @@ function coincideIntento(original,esperado){
  if(id(original.prestamoId)!==id(esperado.prestamoId))return false;
  return true;
 }
-async function confirmarIntento({Transaccion,usuarioId,externalIdHash,esperado,session,resolverEstado}){
+async function confirmarIntento({Transaccion,usuarioId,externalIdHash,esperado,session,resolverEstado,emitirConstancia}){
  if(!externalIdHash)throw Object.assign(new Error("Identificador de operación obligatorio"),{statusCode:400});
  const consulta=Transaccion.findOne({usuarioId,externalIdHash});
  const encontrado=await (session?consulta.session(session):consulta).lean();
  if(!encontrado)return {confirmado:false};
+ const resultado=(r,actual=encontrado)=>emitirConstancia?{...r,constancia:emitirConstancia({fuente:encontrado,actual,estado:r.estado})}:r;
  if(!coincideIntento(encontrado,esperado))
   throw Object.assign(new Error("La clave corresponde a otra operación; no se registró ningún movimiento nuevo"),{statusCode:409});
- if(encontrado.estado==="ANULADA")
-  return {confirmado:false,estado:"ANULADA",existe:true};
+ if(encontrado.estado==="ANULADA"){const actual=emitirConstancia&&resolverEstado?await resolverEstado(encontrado):encontrado;if(emitirConstancia&&(!actual||String(actual._id)!==String(encontrado._id)||actual.estado!=="ANULADA"))throw Object.assign(Error("Proyección histórica no verificable"),{statusCode:409});return resultado({confirmado:false,estado:"ANULADA",existe:true},actual);}
  // Fail-closed: un estado ausente o inesperado nunca constituye prueba de pago.
  if(encontrado.estado!=="ACTIVA")
   throw Object.assign(new Error("Estado de transacción no verificable; requiere conciliación"),{statusCode:409});
@@ -30,8 +30,8 @@ async function confirmarIntento({Transaccion,usuarioId,externalIdHash,esperado,s
  if(!actual||String(actual._id)!==String(encontrado._id)||
     !["ACTIVA","ANULADA"].includes(actual.estado))
   throw Object.assign(new Error("Estado de transacción no verificable; requiere conciliación"),{statusCode:409});
- if(actual.estado==="ANULADA")return {confirmado:false,estado:"ANULADA",existe:true};
- if(actual.compensacionHash)return {confirmado:false,estado:"CORREGIDA",existe:true};
- return {confirmado:true,estado:"ACTIVA",existe:true,transaccionId:encontrado._id?String(encontrado._id):null};
+ if(actual.estado==="ANULADA")return resultado({confirmado:false,estado:"ANULADA",existe:true},actual);
+ if(actual.compensacionHash)return resultado({confirmado:false,estado:"CORREGIDA",existe:true},actual);
+ return resultado({confirmado:true,estado:"ACTIVA",existe:true,transaccionId:encontrado._id?String(encontrado._id):null},actual);
 }
 module.exports={coincideIntento,confirmarIntento};

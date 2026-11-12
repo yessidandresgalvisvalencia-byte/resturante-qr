@@ -264,6 +264,11 @@ const tarjetaOperacion=Joi.object({deudaId:Joi.string().hex().length(24).require
   return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar el intento"});
  }
 });
+router.post("/transacciones/constancia-intento",(req,res,next)=>{res.set("Cache-Control","private, no-store");next();},validate(transaccion),async(req,res)=>{
+ try{require("../../public/finanzas-personales-constancia").cuerpo(req.validated);}catch{return res.status(400).json({ok:false,error:"Solicitud manual no verificable"});}
+ try{const r=await flujoCaja.confirmarRegistroIntento(req.personalAuth.userId,req.validated,{incluirConstancia:true});return res.json({ok:true,constancia:r.constancia||null});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible consultar la constancia"});}
+});
 router.post("/transacciones",validate(transaccion),async(req,res)=>{try{return res.status(201).json({ok:true,transaccion:await flujoCaja.registrarTransaccion(req.personalAuth.userId,req.validated)});}catch(e){if(e?.code===11000)return res.status(409).json({ok:false,error:"Transacción duplicada"});return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 const correccionTx=Joi.object({tipo:Joi.string().valid("INGRESO","GASTO"),montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),concepto:Joi.string().trim().max(140),categoria:Joi.string().trim().max(80)}).min(1);
 router.patch("/transacciones/:id",validate(correccionTx),require("./services/compensacionPersonal.handler").crearHandler({tipo:"CORRECCION"}));
