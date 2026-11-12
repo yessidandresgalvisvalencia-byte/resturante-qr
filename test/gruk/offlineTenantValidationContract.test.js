@@ -79,3 +79,19 @@ test("P0-04: existing offline order permits unrelated edits", async () => {
   persisted.set("observaciones", "nota legítima");
   await persisted.validate();
 });
+
+
+test("P0-04: query updates reject offline identity mutation before database access", async () => {
+  const id = new mongoose.Types.ObjectId();
+  const cases = [
+    () => Pedido.updateOne({ _id: id }, { $set: { sedeId: "other" } }),
+    () => Pedido.updateMany({}, { $unset: { offlineEventId: 1 } }),
+    () => Pedido.findOneAndUpdate({ _id: id }, { $rename: { sedeId: "legacySite" } }),
+    () => Pedido.updateOne({ _id: id }, [{ $replaceWith: { estado: "pendiente" } }]),
+    () => Pedido.updateOne({ $and: [{ offlineEventId: "evt-a" }] }, { $set: { estado: "listo" } }, { upsert: true }),
+    () => Pedido.replaceOne({ _id: id }, { mesa: 1, producto: "x", precio: 1, precioUnitario: 1 })
+  ];
+  for (const makeQuery of cases) {
+    await assert.rejects(makeQuery().exec(), /Offline tenant identity cannot be changed through query updates/);
+  }
+});
