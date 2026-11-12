@@ -38,3 +38,7 @@ Revisión es coordinación de esta instancia de UI, no bloqueo global, prueba de
 ## Siguiente paso recuperable
 
 Verificar HEAD/#389/#407/CI de nuevo. Extender protección/recuperación explícita a otros diarios personales conservando originales y limitando el alcance real de cada paquete. Revisar constancias históricas de paquetes recuperados y conexiones interrumpidas durante confirmación con efectos posteriores. Obtener evidencia externa real de custodia y restauración operativa antes de liberar; no sustituirla por mocks o certificados inventados.
+
+## Diagnóstico de la primera CI
+
+Código b4da71b6fc5d876857d43e941ee39cfe859b7954, árbol 03c4df830598f79013cbd6a10b7be07cd348a3df: Gate 43218990549 y Seguridad 43218990722 verdes; V81 43218990454 falló en job 131185387133. Mongo 81/81 aprobado; navegador/backend 9/2 contando padre. La espera de respuesta de diagnóstico expiró: el ensayo estaba en Ingreso/Gasto y Actualizar está dentro de Inicio, por lo que no podía pulsar el botón visible de esa acción. Se navega a Inicio, se espera clic y respuesta juntos mediante Promise.all (evita rechazo sin manejar), y se vuelve a Ingreso/Gasto antes de consultar el pendiente. No se amplía timeout ni elimina condición. Repetir CI exacta; reconexión completa aún no declarada verificada.
