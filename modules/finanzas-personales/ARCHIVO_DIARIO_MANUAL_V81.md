@@ -19,9 +19,9 @@ Un bloque funcional: continuar el registro manual tras cien solicitudes cerradas
 
 `node --test test/finanzas-personales/archivoDiarioManual.test.js` cubre archivo normal e idempotente, JWT renovado, aislamiento, cuerpo/legado/constancia conservados, errores de primera/segunda escritura, escritura ignorada, pendientes/legado/página parcial, archivo ausente/alterado/ajeno, dos páginas, UUID repetido, plan obsoleto, sesión y consulta tardía, cancelación, contenido seguro y límite de veinte páginas.
 
-Prueba Chromium/backend `ARCHIVO_DIARIO_MANUAL_CAPACIDAD`: cien fuentes y recibos reales creados por servicios personales con rol restringido sobre Mongo autorizado aislado, raíz sintética construida con esos recibos; login HTTP real, archivo desde interfaz de 390 px, bytes exactos conservados, consulta completa, ninguna llamada financiera de archivo, nuevo registro único por API HTTP, recarga y cambio de propietario. Compara documentos originales y snapshots financieros antes/después. No son datos de usuarios reales; no prueba dispositivos físicos. Se ejecutará en CI para el SHA publicado; no marcar aprobada anticipadamente.
+Prueba Chromium/backend `ARCHIVO_DIARIO_MANUAL_CAPACIDAD`: cien fuentes y recibos reales creados por servicios personales con rol restringido sobre Mongo autorizado aislado, raíz sintética construida con esos recibos; login HTTP real, archivo desde interfaz de 390 px, bytes exactos conservados, consulta completa, ninguna llamada financiera de archivo, nuevo registro único por API HTTP, recarga y cambio de propietario. Compara documentos originales y snapshots financieros antes/después. No son datos de usuarios reales; no prueba dispositivos físicos. Aprobada en CI para el SHA 7b83f613ce2957b6db721ea757759ec8a30d0d51; evidencia exacta abajo.
 
-Local previo a publicación: módulo 648 casos, 639 aprobados y nueve omitidos por integraciones externas; CI personal 353 casos, 349 aprobados y cuatro omitidos, cero fallos/cancelaciones. Diez pruebas dirigidas de este bloque y contratos de versión aprobados antes de publicar. CI autorizada exacta pendiente. Registrar SHA, runs y resultado real al cierre en este informe/CONTINUIDAD_V81.md.
+Local previo a publicación: módulo 648 casos, 639 aprobados y nueve omitidos por integraciones externas; CI personal 353 casos, 349 aprobados y cuatro omitidos, cero fallos/cancelaciones. Diez pruebas dirigidas de este bloque y contratos de versión aprobados antes de publicar. CI autorizada exacta aprobada según el cierre siguiente; el descendiente documental requiere también comprobar sus propios workflows.
 
 ## Límites y bloqueos de liberación
 
@@ -34,3 +34,15 @@ Un fallo entre pasos puede dejar una copia no referenciada; se conserva y se reu
 ## Siguiente paso recuperable
 
 Comprobar de nuevo HEAD/#389/#407 y CI. Verificar constancias históricas tras restauraciones/correcciones posteriores y resolver continuidad del legado cuando falta JWT original solo con evidencia vinculante real. Preparar exportación/recuperación local accesible sin borrar originales. Mantener gates y no desplegar lotes parciales.
+
+## Evidencia verificada del bloque
+
+Código `7b83f613ce2957b6db721ea757759ec8a30d0d51`, árbol `d469ece1e1ed0c1e578ea1fe9cb2ad7022d06561`. Ocho archivos exclusivamente personales, árbol local y remoto idénticos, publicación con expected_sha y sin force.
+
+- [Gate 43195207046](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43195207046): success.
+- [Seguridad 43195207081](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43195207081): success.
+- [V81 43195207086](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43195207086): success, ocho jobs aprobados.
+- Job autorizado 131104276014: Mongo 81/81 y navegador/backend 11/11; cero fallos, cancelaciones u omisiones. `FP_ARCHIVO_MANUAL`: fuentesReales=100, archivoBytesExactos=true, consultaCompleta=true, continuaRegistroUnico=true, sinPOSTDeArchivo=true, sinCambioFuentesPrevias=true, recarga=true, aislamiento=true, viewport=390, datos=sinteticos.
+- Local: diez pruebas nuevas aprobadas; módulo 648/639/9 y CI personal 353/349/4; omisiones solo locales declaradas, cero fallos. Sintaxis y diff correctos. No se modificaron ni desactivaron gates.
+
+El ensayo con Node 20/Chromium y Mongo aislado no acredita dispositivos físicos ni recuperación de producción. #407 y los requisitos independientes siguen pendientes. No merge ni Render. El SHA documental de cierre se identificará en el resumen del PR tras verificar su CI exacta; no existe autorreferencia del commit dentro de su propio contenido.
