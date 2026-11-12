@@ -23,7 +23,7 @@ for(const [estado,texto] of [["ANULADA",/movimiento anulado/],["CORREGIDA",/ya f
     assert.equal(url,"/transacciones/confirmar-intento");
     return {confirmado:false,estado,existe:true};
    }});
-  vm.runInContext(fuente.slice(inicio,fin),contexto);
+  const h=fuente.indexOf("function datosMovimientoManual("),z=fuente.indexOf('$("refresh").onclick',h);vm.runInContext(fuente.slice(h,z)+fuente.slice(inicio,fin),contexto);
   await $("saveMovimiento").onclick();
   assert.equal(llamadas.length,2);
   assert.equal(llamadas[0].datos.body.externalId,"clave-original");
