@@ -48,3 +48,16 @@ Siguiente: revisar capacidad recuperable de calendario/imputaciones y continuida
 
 ## Validación local antes de publicación
 Módulo: 732 pruebas, 723 aprobadas, cero fallos, nueve omisiones por servicios externos. ci:personal: 353/349/4, cero fallos, sintaxis completa aprobada. Dirigidas archivo+captura anterior: 13/13; copia+archivo+versionado:22/22 antes del ajuste de fixture. npm test general:800/729/64 fallos/7 omitidas; los fallos exigen TEST_MONGO_URI/GRUK_TEST_MONGODB_URI ausentes en este entorno. No se afirma Gate local aprobado ni se omiten esos tests; comprobar Gate remoto con su MongoDB. Node24 local frente Node20 CI.
+
+## Resultado publicado y verificado
+
+Código **0804290a294657a1b5b325e76d65875505ad35a2**, árbol **6c829552b7a313922f659310297446724d28a3c7**, nueve archivos personales con cotejo de árbol y actualización con lease.
+
+- [Gate 43304439657](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43304439657): success.
+- [Seguridad 43304439855](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43304439855): success.
+- [V81 43304439682](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43304439682): success, ocho jobs aprobados.
+- [Job autorizado 131483856586](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43304439682/job/131483856586): Mongo81/81 y navegador/backend15/15; cero fallos, cancelaciones u omisiones.
+
+FP_ARCHIVO_CAPTURA acredita en datos sintéticos: original de página byte por byte, consentimiento de archivo, texto posterior conservado, consulta literal, descarga cifrada con archivos, tercera pestaña y login reales, recuperación exacta de raíz/páginas/texto, reimportación de copia anterior idempotente y ancho390 sin desborde. Cero POST, aprobaciones o nuevas consultas de respuestas por archivar/recuperar; las fuentes servidor permanecen intactas. FP_COPIA_CAPTURA anterior también completo. La prueba nativa pendiente indicada arriba queda resuelta para este SHA de código.
+
+Dirigidas finales26/26; suite módulo y ci:personal conservan resultados indicados. El SHA documental descendiente debe obtener sus tres CI exactas antes del cierre, registradas en PR389. Publicado GitHub; sin integración a feature ni despliegue Render. Tarea recurrente comprobada habilitada, sin crear otra. Permanecen todos los límites y requisitos externos anteriores.
