@@ -14,7 +14,7 @@ for(const [estado,texto] of [["ANULADA",/movimiento anulado/],["CORREGIDA",/ya f
   for(const [id,value] of Object.entries({mMonto:"3000",mConcepto:"Gasto",mCategoria:"OTROS",
    mCuenta:"BANCO",mMedio:"TRANSFERENCIA",mFecha:"2026-10-29"}))$(id).value=value;
   let limpiezas=0,cargas=0;
-  const contexto=vm.createContext({$,tipo:"GASTO",manualPayloadPendiente:null,manualExternalId:null,
+  const contexto=vm.createContext({$,token:"sesion-propietario",revisionSesionPersonal:0,tipo:"GASTO",manualPayloadPendiente:null,manualExternalId:null,
    resolverIntentoManual:async()=>"clave-original",limpiarIntentoManual:()=>limpiezas++,
    body:datos=>({body:datos}),msg:(_id,texto)=>mensajes.push(texto),load:async()=>cargas++,
    api:async(url,datos)=>{
