@@ -25,3 +25,6 @@ Chromium existe localmente, pero no pudo abrir su socket por la restricción del
 Capturas de ensayo se conservan como artifact de CI siete días, con SHA exacto; son evidencia reproducible, no copias de datos de usuarios. Registrar resultados y límites versionados. Permisos Mongo reales, custodia independiente, copia independiente protegida/retención y restauración operacional con RPO/RTO, revisión independiente #407 y dispositivos reales siguen pendientes.
 
 Siguiente: usar la matriz consolidada para priorizar fallos observados y criterios abiertos, sin variantes cosméticas. Sin merge a feature, Render, cambios a main/Empresarial/Blushéa ni datos reales. No se crean servicios ni planes de pago.
+
+## Primer resultado observado
+SHA 28e6eb9a12feeae62234add3a885482a3f0f47b9: browser job 130893214263 aprobado, Chromium 151.0.7922.34 y Playwright 1.62.1; cinco pruebas, cero fallos. Cuatro escenarios en HTML real con respuestas sintéticas, sin dispositivos físicos. El job test-v81 falló por aviso nuevo de Mongoose; no declarar CI verde. Parche mínimo y límites en SEGURIDAD_DEPENDENCIAS_V81.md. Se divide salida de capturas en segmentos para evitar truncamiento de líneas en logs; revisión visual de los PNG reconstruidos pendiente.
