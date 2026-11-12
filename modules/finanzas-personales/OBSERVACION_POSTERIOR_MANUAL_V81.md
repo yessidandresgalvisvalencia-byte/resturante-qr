@@ -21,7 +21,7 @@ Siete pruebas nuevas en `test/finanzas-personales/observacionPosteriorManual.tes
 
 Local: módulo 655 casos, 646 aprobados/nueve omitidos por servicios de integración; CI personal 353 casos, 349 aprobados/cuatro omitidos; cero fallos/cancelaciones. Sintaxis y diff correctos. No se instala ni cambia dependencia.
 
-CI ampliada en `backend-recuperacion.browser.cjs`: dos escenarios existentes conservan primero constancia ANULADA/CORREGIDA; luego restauración HTTP real de la anulación o nueva corrección HTTP. Verifica una corrección adicional posterior, dos observaciones con hash distinto y fuenteHash intacto, firma real del emisor, snapshot financiero sin cambios por consultar, fuente original Mongo intacta, bytes del diario originales y ningún POST financiero de la UI de consulta. Además consulta un recibo desde página archivada de cien fuentes reales y prueba bytes y finanzas sin cambios. Ensayo con JWT, router y Mongo autorizado restringido; no datos de producción. Pendiente resultado del SHA publicado: registrar runs y evidencias reales al cierre, no anticipar éxito.
+CI ampliada en `backend-recuperacion.browser.cjs`: dos escenarios existentes conservan primero constancia ANULADA/CORREGIDA; luego restauración HTTP real de la anulación o nueva corrección HTTP. Verifica una corrección adicional posterior, dos observaciones con hash distinto y fuenteHash intacto, firma real del emisor, snapshot financiero sin cambios por consultar, fuente original Mongo intacta, bytes del diario originales y ningún POST financiero de la UI de consulta. Además consulta un recibo desde página archivada de cien fuentes reales y prueba bytes y finanzas sin cambios. Ensayo con JWT, router y Mongo autorizado restringido; no datos de producción. Aprobado para el código publicado según evidencia exacta siguiente; el descendiente documental requiere también verificar su propia CI.
 
 ## Límites y liberación
 
@@ -34,3 +34,16 @@ La nueva observación no se persiste. La constancia original queda intacta en se
 ## Siguiente paso recuperable
 
 Revisar HEAD/#389/#407/CI de nuevo. Priorizar exportación y recuperación explícitas del diario por el mismo propietario, con conservación de originales, prueba de cuota/corrupción/duplicados/aislamiento y ningún efecto financiero. Obtener evidencia independiente real para bloqueos externos; no sustituirla por mocks o certificados inventados.
+
+## Cierre funcional verificado
+
+Código `d0f4d49dbf88555b2ec779b83c4ff3a070f1606c`, árbol `31cefc359f6f4ce62085b6d0b6dde2bb356d8b96`. Nueve archivos exclusivamente personales, árbol local y remoto idénticos, publicación con lease expected_sha y force=false.
+
+- [Gate 43203318286](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43203318286): success.
+- [Seguridad 43203318236](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43203318236): success.
+- [V81 43203318326](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43203318326): success, ocho jobs.
+- Job autorizado 131132059782: Mongo 81/81 y navegador/backend 11/11, cero fallos/cancelaciones/omisiones.
+- `FP_OBSERVACION_POSTERIOR`: estadoAnterior ANULADA con restauracionReal=true y CORREGIDA con restauracionReal=false (solo correcciones); ambos correccionPosterior=true, proyeccionObservada=ACTIVA, fuenteHashIntacto=true, constanciaOriginalIntacta=true, sinPOSTFinancieroConsulta=true, snapshotSinCambios=true, datos=sinteticos. No se cuenta una segunda restauración que no ocurrió.
+- Archivo de cien fuentes reales: nueva consulta desde página archivada aprobada, bytes/finanzas intactos y cero POST de archivo, viewport 390. Siete pruebas nuevas locales; módulo 655/646/9 y CI personal 353/349/4, cero fallos. Las omisiones locales se declaran y no sustituyen la integración autorizada.
+
+Sin gates omitidos/desactivados ni cambios a datos de producción. El resultado no es certificación externa ni aceptación de dispositivos físicos u operación real. #407 permanece abierto; no merge ni Render. SHA documental y CI exacta final se registrarán en el resumen de #389 al cerrar, sin autorreferencia imposible dentro de su propio commit. Siguiente: exportación/recuperación explícita del diario con conservación de originales y evidencia de identidad, corrupción, duplicados, cuota e idempotencia; no adoptar legado sin prueba suficiente.
