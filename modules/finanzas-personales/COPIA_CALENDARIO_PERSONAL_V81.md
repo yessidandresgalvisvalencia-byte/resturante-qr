@@ -29,3 +29,8 @@ Siguiente: CI exacta, diario de captura y capacidad sin poda. Sin merge ni Rende
 
 ## Compatibilidad con HTML ya abierto r80
 El HTML anterior cargaba calendario antes del cifrado compartido. El controlador resuelve ese componente también al montarse, y si falta permite usar el calendario conservando sus solicitudes; la copia falla de forma conservadora. Se añade comprobación en la prueba de sesión/borrador para cargar el controlador de navegador sin componente de cifrado y consultar calendarios sin detener la aplicación. Diez pruebas dirigidas 10/10 tras este ajuste. Sin cambiar gates ni timeouts; validar CI del descendiente publicado.
+
+
+## Diagnóstico del escenario de navegador r80
+096a29f9a28edede5ba7742e58e4e607761f60af / árbol 7b9da1526e331ec274e1e46623af41496cfe8f50: Gate 43284901142 y Seguridad 43284901727 verdes; V81 43284901148/job 131415580571 falló. Mongo autorizado 81/81; navegador/backend 14 casos, 12 aprobados y 2 fallos contando padre, cero omisiones. Timeout al pulsar tabCalendario después del login de la cuenta ajena compartida. Esta fixture acumula registro más siete logins anteriores y supera el límite vigente de ocho intentos/15 minutos; el HTML permanece en autenticación. No se afirma aprobación global.
+Corrección: identidad ajena sintética independiente para este caso y comprobación explícita de HTTP 200 al ingresar; la cuenta compartida conserva su bloqueo, se exige HTTP 429 real con Retry-After. No se resetea ni modifica el limitador, permisos, gates, escenarios o timeouts. El escenario de copia/recibo debe pasar entero en el descendiente corregido. 70c31a08785d677b13ee546e38d6f3277fbbec63/ed0915f170c3bef404c80cc503cfec062ffd7143 añade compatibilidad de carga; su CI aún debe cotejarse. Sin merge ni Render.
