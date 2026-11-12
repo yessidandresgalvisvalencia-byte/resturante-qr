@@ -57,3 +57,16 @@ Primer código44355b74e2f379d85d4bdf108047812ef2e5eca2/árbol2d55414ba5871bbdedb
 La inspección y seis escenarios ejecutando load real extraído reprodujeron que un 401 del mismo token con revisión financiera cambiada se descartaba antes de cerrar sesión. Se atiende 401 propio antes de la guarda de revisión financiera, conservando primero el rechazo de token distinto/SESION_CAMBIADA/token ausente. Un error500 de revisión anterior tampoco publica cifras ni toca otra revisión. No se alteran permisos, backend, ledger ni pendientes conservados.
 
 El timeout por sí solo no prueba una causa única: la carga del panel también puede reutilizar una petición anterior. El ensayo nativo ahora espera esa carga mediante el manejador público del botón antes de revocar el token; luego exige respuesta HTTP401 real de diagnóstico y el cierre visual, con el POST financiero original todavía retenido. Se mantienen todas las aserciones de cambio a B, borrador intacto, pendiente de A conservado, GET propio posterior, fuente única y cero reenvíos. No se amplían timeouts, no se retira el caso ni se relaja el gate. Versionado de caché actualizado. Dirigidas corregidas29/29; verificar las tres CI del descendiente.
+
+## Resultado corregido publicado y verificado
+
+Inicial **44355b74e2f379d85d4bdf108047812ef2e5eca2**; corrección **ac1fb2336c47560f5cb45d3c4527ca382bc5d02e**, árbol **1e9b4fe6460d55e9d2520c28ff1b520c35414c6f**. Diez archivos personales en el lote; árboles cotejados y actualizaciones con lease.
+
+- [Gate43324153289](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43324153289): success.
+- [Seguridad43324153304](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43324153304): success.
+- [V8143324153318](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43324153318): success.
+- [Job autorizado131552230055](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43324153318/job/131552230055): Mongo81/81 y navegador/backend15/15, cero fallos/cancelaciones/omisiones.
+
+Las dos FP_ARCHIVO_IMPUTACION acreditan aplicada/no aplicada, original/formulario posterior exactos, consulta literal, reimportación anterior idempotente, descarga cifrada con archivos, tercera pestaña/login real, recuperación exacta y ancho390 sin desborde. Cero POST o nuevos GET de recibos por archivo/copia; caja, capital, reservas y fuentes de pago intactos. FP_MANUAL_EN_VUELO vuelve a aprobar con commit real y respuesta retenida, HTTP401 comprobado, cambio de sesión sin consulta con JWT ajeno ni reenvío, control pendiente y fuente única conservados y confirmación propia posterior. Evidencia sintética, sin datos productivos.
+
+El fallo inicial se conserva diagnosticado arriba; no se omitieron pruebas ni cambiaron timeouts/gates/cuotas. Once pruebas nuevas de archivo y seis conductuales de sesión. Suite local corregida759/750/9, dirigidas29/29, ci:personal353/349/4; cero fallos y sintaxis aprobada. Se resuelve para el SHA corregido la ejecución nativa antes pendiente. Verificar las tres CI del descendiente documental exacto al cerrar, registradas en PR389. No integra feature ni despliega Render; requisitos externos y límites anteriores siguen vigentes.
