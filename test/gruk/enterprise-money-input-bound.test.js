@@ -13,7 +13,8 @@ test('P0-07 exact boundary of safe cents is accepted', () => {
 
 test('P0-07 rejects oversized input before BigInt parsing', () => {
   assert.throws(() => parseMoneyToCents('9'.repeat(100000)), RangeError);
-  assert.throws(() => parseMoneyToCents('0'.repeat(100000)), TypeError);
+  // Oversized input is rejected by the pre-regex resource bound, even when noncanonical.
+  assert.throws(() => parseMoneyToCents('0'.repeat(100000)), RangeError);
   assert.throws(() => parseMoneyToCents('100000000000000.00'), RangeError);
 });
 
