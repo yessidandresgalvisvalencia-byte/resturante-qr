@@ -2,7 +2,7 @@
 const mongoose=require("mongoose");
 const s=new mongoose.Schema({
  usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},solicitudId:{type:String,required:true,maxlength:100,immutable:true},solicitudHuella:{type:String,required:true,match:/^[a-f0-9]{64}$/,immutable:true},
- cuentaId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},nombreClave:{type:String,required:true,maxlength:100,immutable:true},solicitud:{type:mongoose.Schema.Types.Mixed,required:true,immutable:true},original:{type:mongoose.Schema.Types.Mixed,required:true,immutable:true},evento:{type:mongoose.Schema.Types.Mixed,default:null,immutable:true},fecha:{type:Date,required:true,immutable:true},hashActual:{type:String,required:true,match:/^[a-f0-9]{64}$/,immutable:true}
+ cuentaId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},nombreClave:{type:String,required:true,maxlength:100,immutable:true},solicitud:{type:mongoose.Schema.Types.Mixed,required:true,immutable:true},original:{type:mongoose.Schema.Types.Mixed,required:true,immutable:true},evento:{type:mongoose.Schema.Types.Mixed,default:null,immutable:true},fecha:{type:Date,required:true,immutable:true},auditoriaContexto:{type:mongoose.Schema.Types.Mixed,default:undefined,immutable:true},hashActual:{type:String,required:true,match:/^[a-f0-9]{64}$/,immutable:true}
 },{collection:"fin_recibos_creacion_cuentas_personales_v1",strict:"throw",versionKey:false});
 s.index({usuarioId:1,solicitudId:1},{unique:true,name:"fp_cuenta_recibo_solicitud_v1"});
 s.index({usuarioId:1,cuentaId:1},{unique:true,name:"fp_cuenta_recibo_fuente_v1"});
