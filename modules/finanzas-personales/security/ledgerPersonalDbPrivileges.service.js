@@ -24,6 +24,7 @@ const COLECCIONES=Object.freeze([
  require("../models/eventoCalendarioIngresoPersonal.model").collection.collectionName,
  require("../models/calendarioFinanciero.model").collection.collectionName,
  require("../models/cicloBorradorPersonal.model").collection.collectionName,
+ require("../models/cicloMetaPersonal.model").collection.collectionName,
  require("../models/meta.model").collection.collectionName,
  require("../models/reciboCreacionMetaPersonal.model").collection.collectionName
 ]);

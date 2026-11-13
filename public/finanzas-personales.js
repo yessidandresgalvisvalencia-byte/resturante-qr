@@ -91,6 +91,7 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
     if(!await controlFinancieroPersonal().reciboCalendarioValido(tokenSolicitud,j.recibo,path,JSON.parse(o.body)))throw Error("El calendario no devolvió un recibo vinculado a la solicitud; sigue pendiente");comprobarSesion();
    }
    if(operacion&&/^\/captura\/[a-f0-9]{24}\/(descartar|restaurar-descarte)$/.test(path)&&!controlFinancieroPersonal().reciboCicloBorradorValido(tokenSolicitud,j.recibo))throw Error("Descarte sin recibo vinculante; conserva la solicitud");
+   if(operacion&&/^\/metas\/[a-f0-9]{24}\/(corregir|retirar|restaurar-retiro)$/.test(path)&&!controlFinancieroPersonal().reciboCicloMetaValido(tokenSolicitud,j.recibo))throw Error("Ciclo de meta sin recibo vinculante; conserva la solicitud");
    if(operacion&&path==="/metas"&&!controlFinancieroPersonal().reciboMetaValido(tokenSolicitud,j.recibo))throw Error("Meta sin recibo vinculante; conserva la solicitud");
    if(operacion){if(j.ok!==true)throw Error("La respuesta no confirmó el resultado de la operación");operacion.finalizar("CONFIRMADA");resuelta=true;}
    if(path==="/transacciones/confirmar-intento"&&j.confirmado===true&&tokenSolicitud){await controlFinancieroPersonal().confirmarRegistro(tokenSolicitud,JSON.parse(o.body));}

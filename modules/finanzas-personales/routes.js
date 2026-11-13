@@ -365,6 +365,11 @@ router.get("/creditos/confirmacion-creacion/:solicitudId",async(req,res)=>{
  try{return res.json({ok:true,recibo:await require("./services/creacionPrestamoRecuperablePersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId,"/creditos")});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo del crédito"});}
 });
+router.get("/metas/recibos-ciclo/:solicitudId",require("./services/cicloMetaPersonal.handler").crear("RECIBO"));
+router.get("/metas/:id/historial",require("./services/cicloMetaPersonal.handler").crear("HISTORIAL"));
+router.post("/metas/:id/corregir",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("CORRECCION"));
+router.post("/metas/:id/retirar",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("RETIRO"));
+router.post("/metas/:id/restaurar-retiro",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("RESTAURACION"));
 router.get("/metas",require("./services/creacionMetaRecuperablePersonal.handler").crear("LISTAR"));
 router.get("/metas/confirmacion-creacion/:solicitudId",require("./services/creacionMetaRecuperablePersonal.handler").crear("RECIBO"));
 router.post("/metas",limiteCalendarioIngreso,require("./services/creacionMetaRecuperablePersonal.handler").crear("CREAR"));
