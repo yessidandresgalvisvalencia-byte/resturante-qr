@@ -365,6 +365,7 @@ router.get("/creditos/confirmacion-creacion/:solicitudId",async(req,res)=>{
  try{return res.json({ok:true,recibo:await require("./services/creacionPrestamoRecuperablePersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId,"/creditos")});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo del crédito"});}
 });
+router.get("/metas/revision-fuentes",require("./services/revisionFuentesMetaPersonal.handler").crear());
 router.get("/metas/recibos-ciclo/:solicitudId",require("./services/cicloMetaPersonal.handler").crear("RECIBO"));
 router.get("/metas/:id/historial",require("./services/cicloMetaPersonal.handler").crear("HISTORIAL"));
 router.post("/metas/:id/adoptar-legado",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("ADOPCION"));
