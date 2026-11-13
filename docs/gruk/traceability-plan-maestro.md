@@ -15,6 +15,12 @@ Cada criterio requiere: (1) requisito textual, (2) código en `main`, (3) test i
 | 05 | P0 | Estados y transiciones de pedidos, pagos, inventario, devoluciones y entregas trazables y sin contradicciones | No auditado aquí | Pendiente tests de transiciones inválidas y auditoría | **No certificado** |
 | 06 | P0 | Validar duplicados, movimientos sin soporte, conciliación caja/ventas y stock físico; panel de diferencias y corrección trazable | No auditado aquí | Pendiente conciliación y pruebas de correcciones | **No certificado** |
 | 07 | P0 | Pruebas unitarias de cálculos financieros **e inventario** | `core/finance/enterpriseMoney.js`; `core/finance/enterpriseMoneyOperations.js` (funciones `lineTotal`, `invoiceTotal`, `taxAmount`, `reconcile`) | PR #592: `test/gruk/p0-07-tax-base-policy.test.js`; #586: `test/gruk/p0-07-tax-rounding-invariants.test.js`; #587: `test/gruk/p0-07-safe-boundary-invariants.test.js`; #588: `test/gruk/p0-07-invoice-metamorphic.test.js`; #589: `test/gruk/p0-07-finance-purity-contract.test.js`; #590: `test/gruk/p0-07-safe-cent-boundary.test.js` | **Parcial**: PR abiertos, sin certificación integrada de inventario ni E2E. Validar HEAD, CI y revisiones por PR antes de merge. |
+| 08 | P0 | Pruebas por rol deniegan acciones no autorizadas para dueño, gerente, cajero, inventario, cocina, contador y administrador | No auditado aquí | Pendiente matriz de permisos y tests de denegación por rol | **No certificado** |
+| 09 | P0 | Reconstrucción completa de una transacción con bitácora externa (actor, origen, hora, antes/después y resultado) | No auditado aquí | Pendiente prueba de trazabilidad extremo a extremo y resistencia a edición por agentes | **No certificado** |
+| 10 | P0 | Tablero de salud: cifras y KPIs coinciden con transacciones reales reconciliadas | No auditado aquí | Pendiente contrastar dashboard con ledger y ventas verificadas | **No certificado** |
+| 11 | P0 | Piloto con 3–5 restaurantes y evidencia verificable de necesidad, fricciones y feedback | No auditado aquí | Pendiente evidencia de campo y línea base de tiempo, errores y costos | **No certificado** |
+| 12 | P0 | Panel semanal automatizado de usuarios activos, pedidos válidos, errores, tiempo por tarea y retención | No auditado aquí | Pendiente tests de instrumentación y validación del panel | **No certificado** |
+| 13 | P0 | Cada herramienta tipada de ventas, stock, margen, órdenes, proveedores y facturas tiene esquema, pruebas, permisos y errores estructurados | No auditado aquí | Pendiente inventario de contratos y pruebas de autorización y errores | **No certificado** |
 | 69 | P0 | Pruebas de ataque no consiguen autoelevación | No auditado aquí | Pendiente batería adversarial | **No certificado** |
 | 70 | P0 | Pruebas negativas entre cuentas para DB, cachés, búsquedas, archivos y logs | No auditado aquí | Pendiente suite multiempresa | **No certificado** |
 
@@ -28,7 +34,7 @@ Cada criterio requiere: (1) requisito textual, (2) código en `main`, (3) test i
 
 ## Cola de integración observada (2026-11-13)
 
-PR #586–#590 y #592: todos asociados a la porción financiera de 07; evitar duplicar pruebas o declarar el requisito completo. También existen PR de seguridad empresarial #579 y #582 y un cambio financiero #580, sujetos a su propia revisión. El estado de CI/revisión debe consultarse **de nuevo** en el SHA exacto antes de fusionar; esta tabla no sustituye esa comprobación.
+PR #586–#590, #592 y #593: todos asociados a la porción financiera de 07; evitar duplicar pruebas o declarar el requisito completo. También existen PR de seguridad empresarial #579 y #582 y un cambio financiero #580, sujetos a su propia revisión. El estado de CI/revisión debe consultarse **de nuevo** en el SHA exacto antes de fusionar; esta tabla no sustituye esa comprobación.
 
 ## Próxima secuencia de ejecución
 
