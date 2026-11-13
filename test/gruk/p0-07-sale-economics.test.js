@@ -18,3 +18,25 @@ test('zero revenue and input validation do not produce NaN or infinity', () => {
   }
   assert.throws(() => saleEconomics({quantity:'2',total:'1.00',unitCost:'90071992547409.91'}), RangeError);
 });
+
+test('safe-cent multiplication boundary and overflow are explicit', () => {
+  assert.deepEqual(saleEconomics({quantity:'9007199254740991',total:'0.00',unitCost:'0.01'}), {
+    costTotal:'90071992547409.91',
+    profit:'-90071992547409.91',
+    marginBasisPoints:'0'
+  });
+  assert.throws(() => saleEconomics({quantity:'9007199254740992',total:'0.00',unitCost:'0.01'}), RangeError);
+  assert.throws(() => saleEconomics({quantity:'9007199254740991',total:'0.00',unitCost:'0.02'}), RangeError);
+});
+
+test('economics rejects noncanonical money and never mutates frozen inputs', () => {
+  const input = Object.freeze({quantity:'2',total:'0.30',unitCost:'0.10'});
+  const first = saleEconomics(input);
+  assert.deepEqual(first, {costTotal:'0.20',profit:'0.10',marginBasisPoints:'3333'});
+  assert.ok(Object.isFrozen(first));
+  assert.deepEqual(saleEconomics(input), first);
+  for (const amount of ['-0.01','1,00','0.001','NaN','Infinity','01.00']) {
+    assert.throws(() => saleEconomics({quantity:'1',total:amount,unitCost:'0.01'}));
+    assert.throws(() => saleEconomics({quantity:'1',total:'1.00',unitCost:amount}));
+  }
+});
