@@ -2261,3 +2261,13 @@ Código `9e52d6a0cc1d3e5a780bad5b9d392386b625b45f`, árbol `73f0aa5b211dc675bd6d
 Dirigidas finales33/33; módulo790/781/9 y ci:personal353/349/4, cero fallos; diez pruebas nuevas. Las omisiones locales quedan cubiertas únicamente en los alcances efectivamente ejecutados en CI, sin atribuir configuración productiva. Un bloque completo publicado; el descendiente documental requiere sus tres CI exactas, resultado registrado en #389 e identificable en el historial Git. Tarea existente comprobada habilitada.
 
 Siguiente ejecución: contrastar matriz final de liberación y continuidad con el HEAD real, clasificar brechas funcionales demostrables frente requisitos externos y escoger el próximo bloque prioritario sin repetir diarios/formularios ya completos. #407/custodia independiente/backups-retención-acceso-credenciales/restauración operacional aislada-RPO-RTO/permisos e índices productivos/auditoría-dispositivos-compatibilidad siguen pendientes. Sin merge a feature ni main, sin Render, servicios/costos nuevos, cambios Empresarial/Blushéa o información real alterada.
+
+## Incidencia y corrección de verificación final
+
+El descendiente documental `bfb7b27142986e4fbd8a241f54fb4663c6a63fb7` NO tuvo CI completa verde. Gate43348018628 y Seguridad43348018685 aprobaron; V8143348018553 falló en el job131631971896. Mongo81/81 aprobó; navegador terminó15 totales/13 aprobadas/2 fallos (subtest de sesión y su contenedor), sin omisiones. `FP_FORMULARIO_MANUAL` sí aprobó completo. Falla: locator.fill de #email invisible, línea87:470, tras logout de la cuentaB y antes del loginA; no fallo de copia ni duplicación financiera.
+
+La espera anterior comprobaba únicamente visibilidad de #choosePersonal después de logout, que provoca location.reload. El HTML puede mostrar ese botón antes de ejecutar los scripts al pie del documento: es compatible con una carrera de preparación de la página. Se reemplaza por Promise.all de navegación completa waitUntil=load y clic de logout, y se exige manejador onclick instalado antes de seleccionar producto. Se conserva revocación401 real, respuesta financiera retenida, cambio de dueño, cuerpo original, una sola fuente y confirmación propia. No se omite el caso, no se amplían tiempos ni se modifica código productivo para satisfacer el ensayo.
+
+Revalidación dirigida del formulario y carga401 de sesión: resultado registrado abajo al publicar. Próximo SHA debe verificar nuevamente los tres workflows; no hereda CI verde del código anterior. El historial Git y #389 identifican el SHA corrector exacto. No hay merge ni Render; se mantienen los bloqueos externos descritos.
+
+Dirigidas tras ajuste17/17, cero fallos/omisiones; sintaxis del runner aprobada.
