@@ -246,7 +246,10 @@ router.get("/captura/confirmacion-aprobacion/:solicitudId",async(req,res)=>{
  try{return res.json({ok:true,recibo:await require("./services/reciboAprobacionPersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el recibo de aprobación"});}
 });
-router.post("/captura/:id/descartar",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});const b=await BorradorFinanciero.findOneAndUpdate({_id:req.params.id,usuarioId:req.personalAuth.userId,estado:"PENDIENTE"},{$set:{estado:"DESCARTADO"}},{new:true});return b?res.json({ok:true}):res.status(404).json({ok:false,error:"Borrador no disponible"});});
+router.get("/captura/descartados",require("./services/cicloBorradorPersonal.handler").crear("LISTAR"));
+router.get("/captura/recibos-ciclo/:solicitudId",require("./services/cicloBorradorPersonal.handler").crear("RECIBO"));
+router.post("/captura/:id/descartar",limiteCalendarioIngreso,require("./services/cicloBorradorPersonal.handler").crear("DESCARTE"));
+router.post("/captura/:id/restaurar-descarte",limiteCalendarioIngreso,require("./services/cicloBorradorPersonal.handler").crear("RESTAURACION"));
 
 router.post("/migracion/ledger",async(req,res)=>{try{return res.json({ok:true,reporte:await migracionLedger.migrar(req.personalAuth.userId)});}catch(e){console.error("[FIN_PERSONAL_MIGRACION]",e);return res.status(500).json({ok:false,error:"Migración no completada; datos legacy preservados"});}});
 router.get("/migracion/reconciliacion",async(req,res)=>{try{return res.json({ok:true,reporte:await migracionLedger.reconciliar(req.personalAuth.userId)});}catch(e){return res.status(500).json({ok:false,error:"No fue posible reconciliar"});}});

@@ -4,13 +4,15 @@
   const estados=new Map(),MAX=100,PREFIJO="gruk.fp.operacionesPendientes.v81:";
   const falla=m=>Object.assign(new Error(m),{code:"OPERACION_PERSONAL_NO_CONFIRMADA"});
   const canon=v=>v&&typeof v==="object"?(Array.isArray(v)?v.map(canon):Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])]))):v;
+  const cicloRuta=p=>/^\/captura\/[a-f0-9]{24}\/(descartar|restaurar-descarte)$/.test(p||"");
+  function solicitudCicloValida(s){const b=s?.body;return s&&Object.keys(s).sort().join(",")==="body,path"&&cicloRuta(s.path)&&b&&Object.keys(b).sort().join(",")===(s.path.endsWith("/descartar")?"confirmacion,motivo,versionBorrador":"confirmacion,descarteHash,motivo,versionBorrador")&&b.confirmacion===true&&/^[a-f0-9]{64}$/.test(b.versionBorrador||"")&&typeof b.motivo==="string"&&b.motivo===b.motivo.trim()&&b.motivo.length>=8&&b.motivo.length<=240&&!/[\x00-\x1f\x7f]/.test(b.motivo)&&(s.path.endsWith("/descartar")||b.descarteHash===null||/^[a-f0-9]{64}$/.test(b.descarteHash||""));}
   function cargar(token){
    const usuario=usuarioDeToken(token);if(!usuario)throw falla("No se pudo identificar la sesión para conservar la operación");
    if(!estados.has(usuario)){
     const s={usuario,revision:0,pendientes:new Map(),activas:new Set(),error:false};
     try{const texto=almacenamiento.getItem(PREFIJO+usuario),filas=texto===null?[]:JSON.parse(texto);
      if(!Array.isArray(filas)||filas.length>MAX)throw Error();
-     for(const p of filas){if(!p||Object.keys(p).length!==3||typeof p.id!=="string"||!p.id||p.id.length>200||!/^[a-f0-9]{64}$/.test(p.huella)||!["header","externalId","solicitudId","sin_clave"].includes(p.tipo)||s.pendientes.has(p.id))throw Error();s.pendientes.set(p.id,p);}
+     for(const p of filas){if(!p||![3,4].includes(Object.keys(p).length)||Object.keys(p).some(k=>!["id","huella","tipo","solicitud"].includes(k))||p.solicitud!==undefined&&(!/^ciclo_borrador_[A-Za-z0-9_-]{8,80}$/.test(p.id)||p.tipo!=="header"||!solicitudCicloValida(p.solicitud))||typeof p.id!=="string"||!p.id||p.id.length>200||!/^[a-f0-9]{64}$/.test(p.huella)||!["header","externalId","solicitudId","sin_clave"].includes(p.tipo)||s.pendientes.has(p.id))throw Error();s.pendientes.set(p.id,p);}
     }catch{s.error=true;}
     estados.set(usuario,s);
    }return estados.get(usuario);
@@ -35,6 +37,7 @@
    let previa=[...s.pendientes.values()].find(p=>p.huella===huella);
    if(!previa&&[...s.pendientes.values()].some(p=>p.tipo==="sin_clave"&&!s.activas.has(p.id)))throw falla("Hay una operación incierta sin reintento seguro. Requiere revisión antes de registrar otra");
    if((["/prestamos","/creditos","/cuentas","/activos","/inversiones"].includes(path)||/^\/(cuentas|activos|inversiones)\/[a-f0-9]{24}\/(conciliar|retirar|restaurar-retiro)$/.test(path))&&!previa&&[...s.pendientes.values()].some(p=>p.tipo==="header"&&/^(prestamo_|credito_|cuenta_|activo_|inversion_|conciliacion_|ciclo_cuenta_|ciclo_activo_|ciclo_inversion_)/.test(p.id)))throw falla("Hay una operación patrimonial sin confirmar. Consulta su recibo o reintenta con los mismos datos originales");
+   if(cicloRuta(path)&&!previa&&[...s.pendientes.values()].some(p=>p.tipo==="header"&&p.id.startsWith("ciclo_borrador_")))throw falla("Hay un descarte o restauración sin confirmar; conserva su solicitud y consulta el recibo");
    if(previa&&s.activas.has(previa.id))throw falla("Esta operación ya está en curso");
    if(previa&&previa.tipo==="sin_clave")throw falla("Esta operación quedó sin confirmar y no tiene reintento seguro. Requiere revisión del historial; no la registres de nuevo");
    if(previa&&previa.tipo!==d.tipo)throw falla("El mecanismo de reintento cambió; requiere revisión");
@@ -43,7 +46,7 @@
    if(typeof id!=="string"||!id||id.length>200)throw falla("Identificador de operación inválido");
    if(!previa&&s.pendientes.has(id))throw falla("La clave pendiente pertenece a otros datos; conserva la operación anterior");
    if(!previa&&s.pendientes.size>=MAX)throw falla("Demasiadas operaciones pendientes; requiere revisión");
-   const p=previa||{id,huella,tipo:d.tipo};s.pendientes.set(id,p);guardar(s);s.activas.add(id);cambio(s);
+   const p=previa||{id,huella,tipo:d.tipo};if(cicloRuta(path)){if(d.tipo!=="header"||!/^ciclo_borrador_[A-Za-z0-9_-]{8,80}$/.test(id)||!solicitudCicloValida({path,body:d.cuerpo}))throw falla("Solicitud de descarte no verificable");if(!previa)p.solicitud=JSON.parse(JSON.stringify({path,body:d.cuerpo}));}s.pendientes.set(id,p);guardar(s);s.activas.add(id);cambio(s);
    if(d.tipo==="header")d.headers[d.nombre]=id;else if(d.tipo!=="sin_clave")d.cuerpo[d.tipo]=id;
    let terminada=false;
    return{opciones:{...o,headers:d.headers,...(o.body!==undefined?{body:JSON.stringify(d.cuerpo)}:{})},finalizar(resultado){
@@ -60,7 +63,7 @@
    const p=s.pendientes.get(cuerpo.externalId);if(p?.tipo==="externalId"&&p.huella===huella){s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);}
   }
   async function confirmarConstancia(token,r,cuerpo,vigente=()=>true){if(!vigente()||!await validarConstancia(r,{usuarioId:usuarioDeToken(token),cuerpo})||!vigente())return false;if(!["ANULADA","CORREGIDA"].includes(r.estado))return false;const d=datos("/transacciones",{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);if(!vigente())return false;const s=cargar(token),p=s.pendientes.get(cuerpo.externalId);if(s.error)return false;if(!p)return true;if(p.tipo!=="externalId"||p.huella!==huella||s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;}
-  function pendientes(token){const s=cargar(token);if(s.error)throw falla("El registro local requiere revisión");return [...s.pendientes.values()].filter(p=>!s.activas.has(p.id)).map(p=>({...p}));}
+  function pendientes(token){const s=cargar(token);if(s.error)throw falla("El registro local requiere revisión");return [...s.pendientes.values()].filter(p=>!s.activas.has(p.id)).map(p=>JSON.parse(JSON.stringify(p)));}
   async function confirmarAprobacion(token,recibo){
    if(typeof recibo?.versionBorrador!=="string"||!/^[a-f0-9]{64}$/.test(recibo.versionBorrador)||recibo.confirmado!==true||recibo.certificaEstadoActual!==false||!/^[a-f0-9]{64}$/.test(recibo.hash||"")||recibo.metodo!=="POST"||typeof recibo.solicitudId!=="string"||!/^aprobacion_[A-Za-z0-9_-]+$/.test(recibo.solicitudId)||!/^\/captura\/[a-f0-9]{24}(?:\/items\/[a-f0-9]{24})?\/aprobar$/.test(recibo.ruta||""))return false;
    const s=cargar(token);if(s.error)return false;const p=s.pendientes.get(recibo.solicitudId);if(!p||p.tipo!=="header"||s.activas.has(p.id))return false;
@@ -166,7 +169,9 @@
   async function confirmarRestauracionCiclo(token,r,path,cuerpo,vigente=()=>true){
    if(!vigente()||!await reciboRestauracionCicloValido(token,r,path,cuerpo)||!vigente())return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(!p)return true;if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
   }
-  return{confirmarConstancia,reciboRestauracionCicloValido,confirmarRestauracionCiclo,reciboImputacionValido,confirmarImputacion,confirmarRechazoCalendario,rechazoCalendarioValido,reciboCalendarioValido,confirmarCalendario,estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};
+  function reciboCicloBorradorValido(token,r){if(r?.confirmado!==true||r.certificaEstadoActual!==false||r.afectaCaja!==false||r.autorizaAprobacion!==false||r.usuarioId!==usuarioDeToken(token)||r.metodo!=="POST"||!/^ciclo_borrador_[A-Za-z0-9_-]{8,80}$/.test(r.solicitudId||"")||!/^[a-f0-9]{24}$/.test(r.borradorId||"")||!["DESCARTE","RESTAURACION"].includes(r.tipo)||r.ruta!=="/captura/"+r.borradorId+(r.tipo==="DESCARTE"?"/descartar":"/restaurar-descarte")||![r.hash,r.solicitudHuella].every(x=>typeof x==="string"&&/^[a-f0-9]{64}$/.test(x)))return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&p?.tipo==="header"&&p.huella===r.solicitudHuella;}
+  function confirmarCicloBorrador(token,r){if(!reciboCicloBorradorValido(token,r))return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;}
+  return{reciboCicloBorradorValido,confirmarCicloBorrador,confirmarConstancia,reciboRestauracionCicloValido,confirmarRestauracionCiclo,reciboImputacionValido,confirmarImputacion,confirmarRechazoCalendario,rechazoCalendarioValido,reciboCalendarioValido,confirmarCalendario,estado,esMutacion,iniciar,confirmarRegistro,pendientes,confirmarAprobacion,reciboPrestamoValido,confirmarCreacionPrestamo,reciboCuentaValido,confirmarCreacionCuenta,reciboActivoValido,confirmarCreacionActivo,reciboInversionValido,confirmarCreacionInversion,reciboConciliacionValido,confirmarConciliacionCuenta,reciboCicloCuentaValido,confirmarCicloCuenta,reciboCicloActivoValido,confirmarCicloActivo,reciboCicloInversionValido,confirmarCicloInversion};
  }
  if(typeof module!=="undefined"&&module.exports)module.exports={crearControlMutacionesPersonales};
  else raiz.crearControlMutacionesPersonales=crearControlMutacionesPersonales;

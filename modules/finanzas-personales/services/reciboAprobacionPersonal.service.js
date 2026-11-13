@@ -21,7 +21,7 @@ function verificar(r){
 }
 async function leerFuente(modelo,id,usuarioId,session){return modelos[modelo].collection.findOne({_id:new mongoose.Types.ObjectId(String(id)),usuarioId:new mongoose.Types.ObjectId(String(usuarioId))},{session,maxTimeMS:5000});}
 async function verificarFuentes(r,session){
- verificar(r);const b=await Borrador.findOne({_id:r.borradorId,usuarioId:r.usuarioId}).session(session).lean();if(!b)throw falla("El borrador original requiere revisión");
+ verificar(r);const b=await Borrador.findOne({_id:r.borradorId,usuarioId:r.usuarioId}).session(session).lean();if(!b)throw falla("El borrador original requiere revisión");await require("./cicloBorradorPersonal.service").verificarBorrador(r.usuarioId,b,{session});
  for(const f of r.fuentes){const actual=await leerFuente(f.modelo,f.id,r.usuarioId,session);
   if(!actual||(f.modelo==="TRANSACCION"&&digest(actual)!==f.hash))throw falla("Las fuentes de la aprobación requieren revisión");
  }

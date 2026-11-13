@@ -31,3 +31,7 @@ No se asigna porcentaje global de preparación: casos ensayados, trabajo pendien
 ## Resultado de r88
 
 El bloque transversal aprobó en `5f12cd58a56c80e1f22d90ded7866ed0db2f7536`: Gate43356081496/Seguridad43356081505/V8143356081566 success, job131658330551 Mongo81/81 y navegador/backend16/16. Evidencia y fallo inicial resuelto en CONTROL_PERSISTENCIA_PERSONAL_V81.md. El descarte y metas siguen abiertos. Este cierre documental requiere CI exacta propia; no habilita liberación ni Render.
+
+## Actualización r89 — ciclo de borradores
+
+Se implementa el bloque pendiente de descarte/restauración a revisión con confirmación, recibo, originales, idempotencia y aislamiento; no convierte restauración en aprobación. Historial protegido nuevo y respaldoV20/40 compatibleV19/39. Evidencia/límites en CICLO_BORRADOR_PERSONAL_V81.md; pruebas autorizadas del SHA publicado pendientes antes de marcarlo verificado en ensayo. Legado ambiguo, recuperación física de proyección eliminada, custodia y operación reales no se certifican. Siguiente prioridad funcional: inventario metas/ahorro; requisitos externos de #407 siguen bloqueando liberación.
