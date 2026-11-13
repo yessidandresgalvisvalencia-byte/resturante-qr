@@ -21,7 +21,7 @@ test("concurrencia, rechazos y claves incompatibles no confirman una operación 
  const otra=await f.c.iniciar("B","/prestamos/p",opciones());otra.finalizar("RECHAZADA");assert.equal(f.c.estado("B").bloqueada,false);
 });
 test("una operación sin clave incierta no se reenvía ni autoriza otra modificación",async()=>{
- const f=entorno(),o={method:"POST",body:JSON.stringify({nombre:"Prueba"})},op=await f.c.iniciar("A","/metas",o);op.finalizar("INCIERTA");await assert.rejects(f.c.iniciar("A","/metas",o),/no tiene reintento seguro/);
+ const f=entorno(),o={method:"POST",body:JSON.stringify({nombre:"Prueba"})},op=await f.c.iniciar("A","/ruta-legacy-sin-clave",o);op.finalizar("INCIERTA");await assert.rejects(f.c.iniciar("A","/ruta-legacy-sin-clave",o),/no tiene reintento seguro/);
  await assert.rejects(f.c.iniciar("A","/prestamos/p",opciones()),/antes de registrar otra/);assert.equal(f.c.estado("A").bloqueada,true);
 });
 test("almacenamiento dañado o no disponible falla cerrado, sin borrar datos",async()=>{

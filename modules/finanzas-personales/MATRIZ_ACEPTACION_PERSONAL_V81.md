@@ -39,3 +39,6 @@ Se implementa el bloque pendiente de descarte/restauración a revisión con conf
 ## Verificación r89
 
 Código673a75654b4ac0a034979f1876742cd841760a5b, árbol557bc146de0de8ddbd7ce645231df54fd6a62cb1: Gate43375659529/Seguridad43375659411/V8143375659365 success, job131721445416 Mongo82/82 y navegador17/17, cero fallos/omisiones. Respaldo sintético40 colecciones/5618 documentos/3917586 bytes; captura176ms/restauración1710ms/edad1857ms, custodiaIndependiente=false/rpoProduccion=false. Evidencia completa y límites en CICLO_BORRADOR_PERSONAL_V81.md. La sección anterior de actualización era planificación previa a CI; este resultado la sucede. Metas y requisitos externos siguen abiertos. Descendiente documental requiere sus tres CI exactas, sin autorización de Render.
+
+## r90 — alta de metas declaradas
+Alta explícita, listado propio, recibo vinculante y recuperación de respuesta implementados en integración; no reservan caja ni generan ingresos. Original y recibo protegidos, respaldoV21/42 compatibleV20/40. METAS_DECLARADAS_PERSONAL_V81.md contiene contrato, aceptación y límites. CI del SHA nuevo pendiente antes de marcar verificado. Ciclo de metas por eventos y criterios externos #407 siguen pendientes. Sin autorización Render.

@@ -112,6 +112,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("calendario por eventos con HTTP autenticado conserva fuentes y recuperación concurrente",()=>require("./helpers/calendarioIngresoAutorizado").probarCalendarioIngreso(db,provisionarMongoPersonal));
   await t.test("horizonte explícito de ingreso protege hoy, históricos, compras y snapshot sin escribir",()=>require("./helpers/horizonteIngresoAutorizado").probarHorizonteIngreso(db));
   await t.test("master y proyección exacta comparten snapshot y no autorizan desde desconocidos",()=>require("./helpers/masterProyeccionAutorizada").probarMasterProyeccion(db));
+  await t.test("metas declaradas conservan fuente, recibo, aislamiento y caja con rol restringido",()=>require("./helpers/creacionMetaAutorizada").probarMeta(db,provisionarMongoPersonal));
   await t.test("descarte recuperable conserva originales, recibo, carrera y permisos append-only",()=>require("./helpers/cicloBorradorAutorizado").probarCicloBorrador(db,provisionarMongoPersonal));
   await t.test("captura copilot atómica recupera respuesta sin duplicar borrador y protege originales",()=>require("./helpers/capturaCopilotAutorizada").probarCapturaCopilot(db,provisionarMongoPersonal));
   await t.test("ingreso mensual y copilot conservan fuentes, turnos y bloqueo ante pago incierto",()=>require("./helpers/ingresoCopilotAutorizado").probarIngresoCopilot());

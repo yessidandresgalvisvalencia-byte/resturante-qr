@@ -365,8 +365,9 @@ router.get("/creditos/confirmacion-creacion/:solicitudId",async(req,res)=>{
  try{return res.json({ok:true,recibo:await require("./services/creacionPrestamoRecuperablePersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId,"/creditos")});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo del crédito"});}
 });
-const meta=Joi.object({nombre:Joi.string().max(120).required(),objetivo:Joi.number().integer().positive().max(Number.MAX_SAFE_INTEGER).required(),acumulado:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),fechaObjetivo:Joi.date().iso().allow(null)});
-router.post("/metas",validate(meta),async(req,res)=>res.status(201).json({ok:true,meta:await service.crearMeta(req.personalAuth.userId,req.validated)}));
+router.get("/metas",require("./services/creacionMetaRecuperablePersonal.handler").crear("LISTAR"));
+router.get("/metas/confirmacion-creacion/:solicitudId",require("./services/creacionMetaRecuperablePersonal.handler").crear("RECIBO"));
+router.post("/metas",limiteCalendarioIngreso,require("./services/creacionMetaRecuperablePersonal.handler").crear("CREAR"));
 router.get("/resumen",require("./services/resumenHttpPersonal.handler").crearResumenHttpPersonal());router.get("/analisis",require("./services/resumenHttpPersonal.handler").crearConsultaDerivadaPersonal("analisis",u=>brain.analizar(u)));
 const simulacion=Joi.object({capital:Joi.number().positive().required(),tasaMensualPct:Joi.number().min(0).max(100).required(),meses:Joi.number().integer().min(1).max(600).required()});
 router.post("/creditos/simular",require("./services/simulacionCreditoExactaPersonal.service").crearHandler(service.simularCredito));

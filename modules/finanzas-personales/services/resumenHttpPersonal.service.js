@@ -38,9 +38,9 @@ async function resumen(usuarioId,now=new Date()){
  try{await session.withTransaction(async()=>{
   const h=await H.obtenerEnSesion(usuarioId,new Date(+corte),session);
   const historico=await consultarPeriodo({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:new Date(+corte+1).toISOString()},{session});
-  const metas=await Meta.find({userId:usuarioId,estado:"ACTIVA"}).limit(501).maxTimeMS(5000).session(session).lean();
+  const metas=await Meta.find({userId:usuarioId}).limit(501).maxTimeMS(5000).session(session).lean();
   const perfil=await Perfil.findOne({userId:usuarioId}).maxTimeMS(5000).session(session).lean();
-  resultado=adaptar(h,historico,metas,perfil,corte,usuarioId);
+  await require("./creacionMetaRecuperablePersonal.service").verificarMetas(usuarioId,metas,{session});resultado=adaptar(h,historico,metas.filter(m=>m.estado==="ACTIVA"),perfil,corte,usuarioId);
  },{readConcern:{level:"snapshot"},readPreference:"primary"});return resultado;
  }finally{await session.endSession();}
 }

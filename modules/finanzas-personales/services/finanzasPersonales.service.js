@@ -36,7 +36,7 @@ async function planFinanciero(userId){
  return{estado:"PENDIENTE_PLAN_VERIFICABLE",resumen:r,patrimonio:{patrimonioNetoRegistrado:r.patrimonioNeto},flujoLibre:null,objetivoFondoEmergencia:null,brechaFondoEmergencia:null,reservaFondoSugerida:null,capacidadInvertibleAhora:null,perfilInversion:null,perfilInversionConsultado:false,bloqueos:["El flujo registrado no determina un aporte de ahorro o inversión. Falta un plan de objetivos, fechas y liquidez verificable."],criterio:"No se infieren reservas ni capacidad desde un saldo de perfil, meses por defecto o un flujo proyectado."};
 }
 async function registrarCredito(userId,data){return Credito.create({userId,...data});}
-async function crearMeta(userId,data){return Meta.create({userId,...data});}
+async function crearMeta(userId,data,{solicitudId}={}){return require("./creacionMetaRecuperablePersonal.service").crear(userId,solicitudId,data);}
 async function resumen(userId,now=new Date()){return require("./resumenHttpPersonal.service").resumen(userId,now);}
 function simularCredito(input){return require("./simulacionCreditoExactaPersonal.service").simular(input);}
 async function evaluarCredito(userId,input){
