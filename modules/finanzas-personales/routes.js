@@ -367,6 +367,7 @@ router.get("/creditos/confirmacion-creacion/:solicitudId",async(req,res)=>{
 });
 router.get("/metas/recibos-ciclo/:solicitudId",require("./services/cicloMetaPersonal.handler").crear("RECIBO"));
 router.get("/metas/:id/historial",require("./services/cicloMetaPersonal.handler").crear("HISTORIAL"));
+router.post("/metas/:id/adoptar-legado",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("ADOPCION"));
 router.post("/metas/:id/corregir",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("CORRECCION"));
 router.post("/metas/:id/retirar",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("RETIRO"));
 router.post("/metas/:id/restaurar-retiro",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("RESTAURACION"));

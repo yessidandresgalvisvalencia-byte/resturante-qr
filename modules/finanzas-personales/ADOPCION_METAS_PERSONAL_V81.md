@@ -1,0 +1,38 @@
+# Adopción explícita de metas antiguas — r92
+
+## Base, alcance y plan
+13 de noviembre de 2026. PR389 abierto/sin merge, integration/fp-hormiga-clasificacion-credito-v81 hacia feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e. HEAD real inicial9b9569abbe1821189c26fd9de52632c46df39841; tres CI success: Gate43393220228/Seguridad43393220311/V8143393220353, job131777868757 Mongo84/84 y navegador/backend19/19. #407 es issue abierto; no habilita despliegue.
+
+Un bloque: permitir que el dueño revise una meta antigua válida, confirme su declaración y acceda al ciclo de gestión sin modificar la fuente ni inventar una creación pasada. No se registra dinero, aporte, ingreso, reserva ni saldo bancario. El estado anterior PAUSADA/CUMPLIDA/ACTIVA se conserva; adoptar o corregir no activa una meta.
+
+1. Extender el ciclo por eventos con ADOPCION y contrato estricto/confirmación específica.
+2. Proyectar gestión/origen desde eventos verificados, sin confiar en flags insertados en la fuente antigua.
+3. Revisión readonly, consentimiento que no se hereda entre metas/sesiones y recibo recuperable ante respuesta perdida.
+4. Pruebas normales/fallos, aislamiento, idempotencia, carreras, rollback, conservación, compatibilidad de hash/respaldo y navegador/backend real.
+5. Publicar lote con lease del HEAD y árboles iguales, comprobar las tres CI del SHA exacto y cerrar evidencia aquí, matriz y continuidad.
+
+## Contrato y aceptación
+POST /metas/:id/adoptar-legado usa Idempotency-Key ciclo_meta_... y cuerpo exacto confirmacion=true, confirmacionLegado=true, versionMeta, motivo y datos. datos incluye nombre, objetivo, acumulado, fechaObjetivo civil/null y estado. Deben coincidir exactamente con los datos revisados de la fuente; objetivo positivo y acumulado entre0 y objetivo, COP enteros seguros, sin coerción/decimales. Fecha antigua válida puede estar vencida: no se inventa otro plazo ni cambia el instante original.
+
+Solo una fuente sin recibo ni metadata parcial de creación, sin eventos anteriores y no gestionada puede adoptarse. ADOPCION es el primer evento de esa meta; repeticiones con la misma clave/cuerpo recuperan el recibo, nueva adopción o clave con otros datos se rechazan. Estados/flags que existieran en la fuente no habilitan gestión: el indicador adoptada se obtiene exclusivamente de un evento verificado. No se crea documento nuevo de meta ni recibo de creación histórico. Se mantiene la fecha de adopción actual.
+
+El nombre normalizado no puede estar reservado por otro original/declaración. Metas con objetivo0, acumulado superior, duplicados ambiguos, metadata incompleta o datos corruptos requieren revisión separada: no se fusionan, descartan, redondean ni convierten a cero. No afirmar que todos los legados pueden adoptarse.
+
+GET /metas expone puedeAdoptar/legadoAdoptado e historiaAnteriorNoVerificada. La procedencia de un legado adoptado es LEGADO_DECLARADO_POR_USUARIO; saldoVerificado=false, afectaCaja=false y autorizaGasto=false. Resumen y listado usan el mismo ciclo verificado. Historial/recibo pertenecen al JWT y no certifican historia anterior ni estado actual desde un recibo histórico.
+
+## Preservación, operación y recuperación
+ADOPCION se inserta en fin_ciclo_metas_personales_v1, ya protegida por política/modelo INSERT-only (25 colecciones). Conserva original, antes, cuerpo, dueño, fecha, referencia y cadena. No cambia fin_metas ni fin_recibos_creacion_metas_personales_v1. Cursor técnico y evento comparten transacción snapshot/majority; creaciones del cursor siguen siendo0 para una fuente legacy sin recibo. Rollback conserva estado si falla evento o cursor. La serialización existente protege carreras de adopción/creación/cambios y los cupos de restauración.
+
+Después de adoptar, corrección/retiro/restauración conservan el original. Corrección mantiene el estado original; si fecha civil no cambia, puede conservar un plazo vencido aunque el instante almacenado fuera distinto de medianoche Bogotá. Cambiar a otra fecha exige hoy/futuro. Eventos r91 de metas creadas con recibo siguen verificables.
+
+Respaldo V23 mantiene44 colecciones. Lee V22/44, V21/42 y anteriores. La nueva versión distingue la semántica ADOPCION; herramientas previas que desconocen V23 deben rechazarlo. No autoriza downgrade a código r91 con eventos de adopción presentes ni sobrescribir producción desde una copia antigua. Compatibilidad operativa de rollback productivo sigue pendiente.
+
+## Interfaz y pruebas
+Revisar meta antigua carga nombre/importes/fecha readonly y muestra el estado declarado. Exige checkbox específico, motivo y confirmación. Cambiar selección/sesión reinicia consentimiento. Cancelar conserva formulario; nueva meta restablece edición. ADOPCION entra al control persistido de cuerpo/clave/consentimiento/estado/fecha; tras recarga se consulta primero recibo.404 no prueba que faltara aplicar: solo reenvío explícito conserva la solicitud original. La confirmación de un resultado no crea dinero.
+
+Pruebas locales iniciales: nuevas puras4 e interfaz4 aprobadas; módulo845/836aprobadas/9omisiones, cero fallos. CI:personal y ensayos autorizados del nuevo SHA pendientes de consolidación. El ensayo de navegador previsto pierde respuesta después del commit, recupera recibo sin POST adicional, conserva estadoPAUSADA y originales, luego retira/restaura sin inventar recibo de creación ni cambiar caja. No presentar omisiones locales como pruebas reales aprobadas.
+
+## Límites y siguiente paso
+Auditoría contextual minimizada IP/dispositivo y su política de acceso/retención quedan pendientes como bloque propio. Revisión de legados ambiguos/corruptos debe conservar evidencia y exigir decisión explícita; no inventar procedencia ni creación. Custodio independiente real, backup/restore operativo con retención/acceso/credenciales separados/RPO-RTO, roles/índices/migración históricos productivos, dispositivos físicos/Safari y auditoría independiente siguen pendientes. Hash local no garantiza protección frente a administrador capaz de reescribir coherentemente todas las evidencias. Sin certificaciones externas ni garantías absolutas.
+
+Siguiente: completar auditoría contextual y su minimización/retención; revisar recuperación explícita de legados ambiguos sin alterar fuentes. #407 sigue abierto. Sin merge a feature/main, Render, costos, otros productos o datos reales modificados.

@@ -4,7 +4,7 @@ const {BSON}=require("mongoose").mongo;
 const {COLECCIONES,cifrar,descifrar,validarDestino,restaurarEnEnsayo}=require("../../modules/finanzas-personales/services/respaldoFinancieroPersonal.service");
 function contenido(){
  const raw=BSON.serialize({_id:new BSON.ObjectId(),decimal:BSON.Decimal128.fromString("123.45"),entero:BSON.Long.fromString("9007199254740993"),fecha:new Date("2026-11-02T00:00:00Z")});
- return{version:22,inicio:"2026-11-02T00:00:00.000Z",fin:"2026-11-02T00:00:01.000Z",retenerHasta:"2026-12-02T00:00:00.000Z",
+ return{version:23,inicio:"2026-11-02T00:00:00.000Z",fin:"2026-11-02T00:00:01.000Z",retenerHasta:"2026-12-02T00:00:00.000Z",
   colecciones:COLECCIONES.map((nombre,i)=>({nombre,indices:[{name:"_id_",key:{_id:1}}],documentos:i===0?[raw.toString("base64")]:[],hash:crypto.createHash("sha256").update(i===0?raw:Buffer.alloc(0)).digest("hex")}))};
 }
 test("respaldo cifrado conserva BSON, fechas, decimales y enteros sin imprimir datos",()=>{
@@ -79,4 +79,6 @@ test("V19 mantiene39 colecciones y V20 incluye ciclo recuperable de borradores",
 
 test("V20 conserva40 colecciones y V21 agrega metas originales y sus recibos",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=21;p.colecciones=p.colecciones.slice(0,42);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,42);assert.ok(COLECCIONES.includes("fin_metas"));assert.ok(COLECCIONES.includes("fin_recibos_creacion_metas_personales_v1"));p.version=20;p.colecciones=p.colecciones.slice(0,40);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,40);});
 
-test("V22 incluye ciclo y cursor de metas y V21 conserva42",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,22);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);assert.ok(COLECCIONES.includes("fin_ciclo_metas_personales_v1"));assert.ok(COLECCIONES.includes("fin_cursor_metas_personales_v1"));p.version=21;p.colecciones=p.colecciones.slice(0,42);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,42);});
+test("V22 incluye ciclo y cursor de metas y V21 conserva42",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,23);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);assert.ok(COLECCIONES.includes("fin_ciclo_metas_personales_v1"));assert.ok(COLECCIONES.includes("fin_cursor_metas_personales_v1"));p.version=21;p.colecciones=p.colecciones.slice(0,42);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,42);});
+
+test("V23 conserva44 colecciones y reconoce respaldo V22 previo a adopciones",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,23);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=22;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
