@@ -9,13 +9,18 @@ Cada criterio requiere: (1) requisito textual, (2) código en `main`, (3) test i
 | ID | Prioridad | Criterio oficial resumido | Código relacionado inspeccionado | Tests/PR propuestos | Evidencia y estado |
 | --- | --- | --- | --- | --- | --- |
 | 01 | P0 | Prueba automatizada de aislamiento de datos y despliegues entre GRUK empresarial y personal | No auditado aquí | Pendiente localizar pruebas de aislamiento | **No certificado** |
-| 07 | P0 | Pruebas unitarias de cálculos financieros **e inventario** | `core/finance/enterpriseMoney.js`; `core/finance/enterpriseMoneyOperations.js` (funciones `lineTotal`, `invoiceTotal`, `taxAmount`, `reconcile`) | PR #586: `test/gruk/p0-07-tax-rounding-invariants.test.js`; #587: `test/gruk/p0-07-safe-boundary-invariants.test.js`; #588: `test/gruk/p0-07-invoice-metamorphic.test.js`; #589: `test/gruk/p0-07-finance-purity-contract.test.js`; #590: `test/gruk/p0-07-safe-cent-boundary.test.js` | **Parcial**: PR abiertos, sin certificación integrada de inventario ni E2E. Validar HEAD, CI y revisiones por PR antes de merge. |
+| 02 | P0 | Inventario de funciones QR, caja, inventario, cocina, facturación, empleados, clientes y finanzas, con estado terminado/parcial/roto basado en pruebas | No auditado aquí | Pendiente inventario contrastado con tests | **No certificado** |
+| 03 | P0 | Flujo pedido → venta → descuento de inventario → caja → reporte ejecutado E2E con datos de prueba | No auditado aquí | Pendiente E2E integral | **No certificado** |
+| 04 | P0 | Modelo Empresa/Sede/Usuario/producto/pedido/venta/pago/stock/proveedor con IDs estables; sin filtraciones entre empresas ni sedes | No auditado aquí | Pendiente pruebas negativas de tenant y sede | **No certificado** |
+| 05 | P0 | Estados y transiciones de pedidos, pagos, inventario, devoluciones y entregas trazables y sin contradicciones | No auditado aquí | Pendiente tests de transiciones inválidas y auditoría | **No certificado** |
+| 06 | P0 | Validar duplicados, movimientos sin soporte, conciliación caja/ventas y stock físico; panel de diferencias y corrección trazable | No auditado aquí | Pendiente conciliación y pruebas de correcciones | **No certificado** |
+| 07 | P0 | Pruebas unitarias de cálculos financieros **e inventario** | `core/finance/enterpriseMoney.js`; `core/finance/enterpriseMoneyOperations.js` (funciones `lineTotal`, `invoiceTotal`, `taxAmount`, `reconcile`) | PR #592: `test/gruk/p0-07-tax-base-policy.test.js`; #586: `test/gruk/p0-07-tax-rounding-invariants.test.js`; #587: `test/gruk/p0-07-safe-boundary-invariants.test.js`; #588: `test/gruk/p0-07-invoice-metamorphic.test.js`; #589: `test/gruk/p0-07-finance-purity-contract.test.js`; #590: `test/gruk/p0-07-safe-cent-boundary.test.js` | **Parcial**: PR abiertos, sin certificación integrada de inventario ni E2E. Validar HEAD, CI y revisiones por PR antes de merge. |
 | 69 | P0 | Pruebas de ataque no consiguen autoelevación | No auditado aquí | Pendiente batería adversarial | **No certificado** |
 | 70 | P0 | Pruebas negativas entre cuentas para DB, cachés, búsquedas, archivos y logs | No auditado aquí | Pendiente suite multiempresa | **No certificado** |
 
 ## Cola de integración observada (2026-11-13)
 
-PR #586–#590: todos asociados a la porción financiera de 07; evitar duplicar pruebas o declarar el requisito completo. También existen PR de seguridad empresarial #579 y #582 y un cambio financiero #580, sujetos a su propia revisión. El estado de CI/revisión debe consultarse **de nuevo** en el SHA exacto antes de fusionar; esta tabla no sustituye esa comprobación.
+PR #586–#590 y #592: todos asociados a la porción financiera de 07; evitar duplicar pruebas o declarar el requisito completo. También existen PR de seguridad empresarial #579 y #582 y un cambio financiero #580, sujetos a su propia revisión. El estado de CI/revisión debe consultarse **de nuevo** en el SHA exacto antes de fusionar; esta tabla no sustituye esa comprobación.
 
 ## Próxima secuencia de ejecución
 
