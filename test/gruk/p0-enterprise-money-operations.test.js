@@ -59,3 +59,10 @@ test('P0-07 rejects oversized invoice batches before accessing line values', () 
   assert.throws(() => invoiceTotal(oversized), { name: 'RangeError', message: 'Invoice exceeds maximum line count' });
   assert.equal(invoiceTotal(new Array(10000).fill({ unitPrice: '0.01', quantity: '1' })), '100.00');
 });
+
+test('P0-07 rejects oversized quantity before canonical-pattern scanning', () => {
+  const huge = '9'.repeat(1000000);
+  assert.throws(() => lineTotal('0.00', huge), { name: 'RangeError', message: 'Quantity exceeds safe integer bound' });
+  assert.throws(() => invoiceTotal([{ unitPrice: '0.00', quantity: huge }]), RangeError);
+  assert.equal(lineTotal('0.01', '9007199254740991'), '90071992547409.91');
+});
