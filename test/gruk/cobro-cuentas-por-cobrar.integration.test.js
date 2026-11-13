@@ -16,7 +16,7 @@ test("cobro parcial es atomico, idempotente y aislado por usuario (MongoDB repli
  const usuarioId=new mongoose.Types.ObjectId(),otroUsuario=new mongoose.Types.ObjectId();
  const contraparte="test-cobro-"+new mongoose.Types.ObjectId().toString();
  try{
-  await Promise.all([Prestamo.init(),Transaccion.init(),Cuenta.init()]);
+  await Promise.all([Prestamo.init(),Transaccion.init(),Cuenta.init(),require("../../modules/finanzas-personales/models/conciliacionCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloCuentaPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloInversionPersonal.model").init(),require("../../modules/finanzas-personales/models/cicloActivoPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionActivoPersonal.model").init(),require("../../modules/finanzas-personales/models/reciboCreacionInversionPersonal.model").init()]);
   const prestamo=await Prestamo.create({usuarioId,direccion:"POR_COBRAR",origenCuentaPorCobrar:"TRABAJO",contraparte,concepto:"Servicio profesional",principalMinor:500000,saldoMinor:500000,fechaInicio:new Date()});
   const request={prestamoId:prestamo._id,montoMinor:200000,externalId:require("node:crypto").randomUUID()};
   const primer=await patrimonio.cobrarCuentaPorCobrar(usuarioId,request);
@@ -40,7 +40,7 @@ test("cobro parcial es atomico, idempotente y aislado por usuario (MongoDB repli
   const snap=await patrimonio.snapshot(usuarioId);
   assert.equal(snap.cuentasPorCobrarMinor,250000);
  }finally{
-  await Promise.all([Prestamo.deleteMany({usuarioId,contraparte}),Transaccion.deleteMany({usuarioId,contraparte}),Cuenta.deleteMany({usuarioId,nombre:"EFECTIVO"})]);
+  await Promise.all([Prestamo.deleteMany({usuarioId,contraparte}),Transaccion.collection.deleteMany({usuarioId,contraparte}),Cuenta.deleteMany({usuarioId,nombre:"EFECTIVO"})]);
   await mongoose.disconnect();
   if(originalSecret===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;
  }

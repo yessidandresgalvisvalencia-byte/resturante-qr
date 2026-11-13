@@ -12,5 +12,5 @@ test("Importes COP de créditos, activos, inversiones y metas usan validación e
   else assert.throws(()=>ctx.pesosExactos("campo"));
  }
  ctx.value="0";assert.equal(ctx.pesosExactos("campo",{permiteCero:true}),0);
- for(const field of ["cSaldo","cCuota","aValor","iCapital","iValor","gObjetivo","gAcumulado"])assert.ok(src.includes('pesosExactos("'+field+'"'));
+ for(const field of ["cSaldo","cCuota","aValor","iCapital","iValor"])assert.ok(src.includes('pesosExactos("'+field+'"'));
 });

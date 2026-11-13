@@ -1,0 +1,42 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict");
+const {filtrar}=require("../../modules/finanzas-personales/services/historialCompensadoPersonal.service");
+const row=(id,extra={})=>({_id:id,tipo:"GASTO",montoMinor:22000,concepto:"Rappi [pedido]",categoria:"Otros",fecha:new Date("2026-10-25T15:00:00Z"),estado:"ACTIVA",...extra});
+const filtros={q:"",tipo:"TODOS",estado:"TODOS",pagina:1};
+test("historial ofrece restauración de préstamos solo con capital y pago real verificables",()=>{
+ const p=row("pago",{usuarioId:"507f1f77bcf86cd799439011",tipo:"PAGO_DEUDA",estado:"ANULADA",moneda:"COP",impactoCaja:true,
+  cuentaId:"cuenta",prestamoId:"507f1f77bcf86cd799439013",descripcion:"Cuota 1 confirmada",montoMinor:400,montoPagadoRealMinor:450,compensacionHash:"a".repeat(64)});
+ assert.equal(filtrar([p],{...filtros,estado:"ANULADA"})[0].recuperacion.disponible,true);
+ for(const extra of [{montoPagadoRealMinor:399},{descripcion:"Cuota sin número"},{prestamoId:"inválido"},{impactoCaja:false}])
+  assert.equal(filtrar([{...p,...extra}],{...filtros,estado:"ANULADA"})[0].recuperacion,undefined);
+});
+test("cuotas de compromisos anuladas ofrecen recuperación específica, sin exponer descripción interna",()=>{
+ for(const impactoCaja of [true,false]){
+  const pago=row("pago",{tipo:"PAGO_DEUDA",estado:"ANULADA",moneda:"COP",impactoCaja,cuentaId:impactoCaja?"cuenta":null,
+   descripcion:"Compromiso 507f1f77bcf86cd799439013 cuota 1",compensacionHash:"b".repeat(64)});
+  const r=filtrar([pago],{...filtros,estado:"ANULADA"})[0];
+  assert.equal(r.recuperacion.disponible,true);assert.equal(r.descripcion,undefined);
+  assert.equal(filtrar([{...pago,prestamoId:"prestamo"}],{...filtros,estado:"ANULADA"})[0].recuperacion,undefined);
+ }
+});
+test("historial ofrece restauración a caja y abonos anulados con referencia verificable",()=>{
+ const simple=row("1",{estado:"ANULADA",moneda:"COP",cuentaId:"cuenta",impactoCaja:true,medioPago:"EFECTIVO",compensacionHash:"a".repeat(64)});
+ assert.equal(filtrar([simple],{...filtros,estado:"ANULADA"})[0].recuperacion.anulacionHash,simple.compensacionHash);
+ assert.equal(filtrar([{...simple,recurrenteOrigenId:"vinculo"}],{...filtros,estado:"ANULADA"})[0].recuperacion.disponible,true);
+ for(const cambio of [{recurrente:true},{recurrenteOrigenId:"vinculo",tipo:"INGRESO"},{prestamoId:"prestamo"},{impactoCaja:false},{medioPago:"CREDITO"},{tipo:"PAGO_DEUDA"},{compensacionHash:null}])
+  assert.equal(filtrar([{...simple,...cambio}],{...filtros,estado:"ANULADA"})[0].recuperacion,undefined);
+});
+test("filtra importe, texto literal y estado vigentes sin exponer campos internos",()=>{
+ const rows=[row("1",{metadatosCifrados:{ciphertext:"interno"}}),row("2",{estado:"ANULADA"})];
+ const r=filtrar(rows,{...filtros,monto:22000,q:"[pedido]"});
+ assert.equal(r.length,1);assert.equal(r[0]._id,"1");assert.equal(Object.hasOwn(r[0],"metadatosCifrados"),false);
+ assert.equal(filtrar(rows,{...filtros,monto:25000}).length,0);
+ assert.equal(filtrar(rows,{...filtros,estado:"ANULADA"})[0]._id,"2");
+});
+test("paginación estable ordena y limita después de filtrar",()=>{
+ const rows=Array.from({length:45},(_,i)=>row(String(i).padStart(3,"0"),{montoMinor:i%2?1:22000}));
+ const p1=filtrar(rows,{...filtros,monto:22000}),p2=filtrar(rows,{...filtros,monto:22000,pagina:2});
+ assert.equal(p1.length,21);assert.equal(p2.length,3);
+ assert.equal(p1[20]._id,p2[0]._id);
+ assert.equal(new Set([...p1.slice(0,20),...p2].map(x=>x._id)).size,23);
+});

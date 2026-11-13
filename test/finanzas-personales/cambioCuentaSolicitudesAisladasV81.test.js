@@ -10,7 +10,7 @@ test("Cancelar solicitudes de cuenta A no cancela consultas iniciadas por cuenta
   opts.signal.addEventListener("abort",()=>reject(new Error("Aborted")),{once:true});
  });
  const storage={removeItem(){}};
- const ctx={token:"A",fetch,AbortController,Set,Error,JSON,sessionStorage:storage,localStorage:storage,socket:null};
+ const ctx={document:{getElementById:()=>null},token:"A",fetch,AbortController,Set,Error,JSON,sessionStorage:storage,localStorage:storage,socket:null};
  vm.runInNewContext(source.slice(from,to),ctx);
  const old=ctx.api("/home");
  const rejected=assert.rejects(old,/Aborted|La sesión cambió durante la solicitud/);

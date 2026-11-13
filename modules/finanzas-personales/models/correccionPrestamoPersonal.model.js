@@ -1,0 +1,22 @@
+"use strict";
+const mongoose=require("mongoose");
+const schema=new mongoose.Schema({
+ usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},
+ prestamoId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},
+ secuencia:{type:Number,required:true,immutable:true,validate:Number.isSafeInteger,min:1},
+ solicitudId:{type:String,required:true,immutable:true,maxlength:100},
+ solicitudHash:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/},
+ cambios:{type:mongoose.Schema.Types.Mixed,required:true,immutable:true},
+ anterior:{type:mongoose.Schema.Types.Mixed,required:true,immutable:true},
+ posterior:{type:mongoose.Schema.Types.Mixed,required:true,immutable:true},
+ fecha:{type:Date,required:true,immutable:true},
+ hashAnterior:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/},
+ hashActual:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/}
+},{collection:"fin_correcciones_prestamos_personales_v1",versionKey:false,strict:"throw"});
+schema.index({usuarioId:1,prestamoId:1,secuencia:1},{unique:true,name:"fp_correccion_prestamo_secuencia_v1"});
+schema.index({usuarioId:1,solicitudId:1},{unique:true,name:"fp_correccion_prestamo_solicitud_v1"});
+function prohibir(){throw Object.assign(new Error("CORRECCION_PRESTAMO_APPEND_ONLY"),{statusCode:409});}
+for(const op of ["updateOne","updateMany","findOneAndUpdate","replaceOne","findOneAndReplace","deleteOne","deleteMany","findOneAndDelete","bulkWrite"])schema.pre(op,prohibir);
+schema.pre("deleteOne",{document:true,query:false},prohibir);
+schema.pre("save",function(){if(!this.isNew)prohibir();});
+module.exports=mongoose.models.CorreccionPrestamoPersonal||mongoose.model("CorreccionPrestamoPersonal",schema);

@@ -24,7 +24,10 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
  const Transaccion=require("../../modules/finanzas-personales/models/TransaccionPersonal");
  const Cuenta=require("../../modules/finanzas-personales/models/cuentaFinanciera.model");
  const ReservaCuota=require("../../modules/finanzas-personales/models/reservaCuotaRecurrente.model");
- const {registrarTransaccion:registrar,anularTransaccion:anular,corregirTransaccion:corregir,confirmarRegistroIntento:confirmar}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+ const {registrarTransaccion:registrar,confirmarRegistroIntento:confirmar}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+ const aplicar=require("../../modules/finanzas-personales/services/compensarMovimientoPersonal.service").crearAplicador();
+ const anular=(usuarioId,id)=>aplicar({usuarioId,movimientoId:id,tipo:"ANULACION",idempotencyKey:require("node:crypto").randomUUID()});
+ const corregir=(usuarioId,id,cambios)=>aplicar({usuarioId,movimientoId:id,tipo:"CORRECCION",cambios,idempotencyKey:require("node:crypto").randomUUID()});
  await mongoose.connect(uri,{serverSelectionTimeoutMS:10000});
  const propietario=new mongoose.Types.ObjectId();
  const intruso=new mongoose.Types.ObjectId();
@@ -36,7 +39,9 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   categoria:"HOGAR",cuenta,medioPago:"DEBITO",fecha:fechaPago,...extra
  });
  try{
-  await Promise.all([Cuenta.init(),Transaccion.init(),ReservaCuota.init()]);
+  await Promise.all([Cuenta.init(),Transaccion.init(),ReservaCuota.init(),
+   require("../../modules/finanzas-personales/models/EventoCompensatorioPersonal").init(),
+   require("../../modules/finanzas-personales/models/CursorCompensacionPersonal").init()]);
   await Cuenta.create({usuarioId:propietario,nombre:cuenta,tipo:"OTRA",saldoMinor:900000});
   await Cuenta.create({usuarioId:intruso,nombre:cuenta,tipo:"OTRA",saldoMinor:900000});
   const original=await registrar(propietario,movimiento({
@@ -201,12 +206,12 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   }).lean();
   await assert.rejects(corregir(propietario,abonoActivo._id,{
    montoMinor:39999
-  }),e=>e.statusCode===409 && /abono recurrente/.test(e.message));
+  }),e=>e.statusCode===409 && /solo admite anulación/.test(e.message));
   await assert.rejects(corregir(propietario,origenConcurrente._id,{
    montoMinor:49999
-  }),e=>e.statusCode===409 && /abonos vigentes/.test(e.message));
+  }),e=>e.statusCode===409 && /tratamiento especial/.test(e.message));
   await assert.rejects(anular(propietario,origenConcurrente._id),
-   e=>e.statusCode===409 && /abonos activos/.test(e.message));
+   e=>e.statusCode===409 && /tratamiento especial/.test(e.message));
   // La anulación del abono devuelve simultáneamente dinero y cupo.
   const saldoPrevio=(await Cuenta.findOne({
    usuarioId:propietario,nombre:abonoActivo.cuenta
@@ -220,10 +225,10 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
   // reescribir el origen aunque ya no existan abonos activos.
   await assert.rejects(corregir(propietario,origenConcurrente._id,{
    montoMinor:49999
-  }),e=>e.statusCode===409 && /reservas históricas/.test(e.message));
+  }),e=>e.statusCode===409 && /tratamiento especial/.test(e.message));
   await assert.rejects(corregir(propietario,origenConcurrente._id,{
    tipo:"INGRESO"
-  }),e=>e.statusCode===409 && /reservas históricas/.test(e.message));
+  }),e=>e.statusCode===409 && /tratamiento especial/.test(e.message));
   assert.equal((await Transaccion.findById(origenConcurrente._id).lean()).montoMinor,50000);
   assert.equal((await Cuenta.findOne({
    usuarioId:propietario,nombre:abonoActivo.cuenta
@@ -302,7 +307,7 @@ test("MongoDB: pago recurrente vinculado exige propietario y conserva identidad"
    montoMinor:1,cuenta:abonoActivo.cuenta
   })),e=>e.statusCode===409&&/fin de período inconsistente/.test(e.message));
   await assert.rejects(anular(propietario,reingreso._id),
-   e=>e.statusCode===409&&/período o importe inconsistente/.test(e.message));
+   e=>e.statusCode===409&&/desincronizada/.test(e.message));
   assert.equal((await Transaccion.findById(reingreso._id).lean()).estado,"ACTIVA");
   assert.equal((await Cuenta.findOne({
    usuarioId:propietario,nombre:abonoActivo.cuenta

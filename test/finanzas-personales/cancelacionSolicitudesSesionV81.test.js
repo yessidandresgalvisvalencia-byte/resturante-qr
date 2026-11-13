@@ -15,12 +15,12 @@ test("Cerrar sesión aborta solicitudes financieras pendientes",async()=>{
   opts.signal.addEventListener("abort",()=>reject(Object.assign(new Error("Aborted"),{name:"AbortError"})));
  });
  const eliminadas=[];const storage={removeItem(clave){eliminadas.push(clave);}};
- const ctx={token:"usuario-uno",socket:null,sessionStorage:storage,localStorage:storage,fetch,AbortController,Set,Error,JSON};
+ const ctx={document:{getElementById:()=>null},token:"usuario-uno",socket:null,sessionStorage:storage,localStorage:storage,fetch,AbortController,Set,Error,JSON};
  vm.runInNewContext(snippet,ctx);
  const pendiente=ctx.api("/home");
  ctx.clearToken();
  await assert.rejects(pendiente,/Aborted|La sesión cambió durante la solicitud/);
  assert.equal(ctx.token,null);
- assert.ok(eliminadas.includes("grukPersonalIntentoManualV1"));
+ assert.ok(!eliminadas.includes("grukPersonalIntentoManualV1"),"el legado no se borra al salir");
  assert.equal(vm.runInNewContext("solicitudesEnCurso.size",ctx),0);
 });

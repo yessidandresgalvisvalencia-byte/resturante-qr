@@ -2,16 +2,28 @@
 // Auditoría read-only. No crea índices ni accede a saldos o datos personales.
 function indiceExacto(indices,campos,{parcial=false}={}){
  return Array.isArray(indices)&&indices.some(i=>
-  i.unique===true&&i.key&&Object.keys(i.key).length===campos.length&&
-  campos.every(k=>i.key[k]===1)&&
-  (!parcial||i.partialFilterExpression?.externalIdHash?.$type==="string"));
+  i?.unique===true&&coberturaCompleta(i)&&claveExacta(i.key,campos)&&
+  (parcial?filtroIdempotenciaExacto(i.partialFilterExpression):!i.partialFilterExpression));
+}
+function claveExacta(key,campos){
+ return key&&Object.keys(key).length===campos.length&&
+  campos.every((campo,pos)=>Object.keys(key)[pos]===campo&&key[campo]===1);
+}
+function coberturaCompleta(i){
+ return i.sparse!==true&&i.expireAfterSeconds===undefined&&
+  (!i.collation||i.collation.locale==="simple");
+}
+function filtroIdempotenciaExacto(filtro){
+ return !!filtro&&Object.keys(filtro).length===1&&
+  !!filtro.externalIdHash&&Object.keys(filtro.externalIdHash).length===1&&
+  filtro.externalIdHash.$type==="string";
 }
 // Índices de rendimiento: la falta de ellos debe quedar visible, sin bloquear
 // movimientos financieros cuando los índices únicos de seguridad sí existen.
 function indiceConsultaExacto(indices,nombre,campos){
  return Array.isArray(indices)&&indices.some(i=>i?.name===nombre&&
-  i.unique!==true&&i.key&&Object.keys(i.key).length===campos.length&&
-  campos.every((k,pos)=>Object.keys(i.key)[pos]===k&&i.key[k]===1));
+  i.unique!==true&&i.hidden!==true&&coberturaCompleta(i)&&
+  !i.partialFilterExpression&&claveExacta(i.key,campos));
 }
 async function auditarConsultasHistoricasV81(modelo){
  const esperados=[

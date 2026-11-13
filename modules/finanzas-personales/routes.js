@@ -5,6 +5,8 @@ const registroSchema=Joi.object({email:Joi.string().email().max(254).required(),
 const loginSchema=Joi.object({email:Joi.string().email().max(254).required(),password:Joi.string().min(12).max(128).required(),mantenerSesion:Joi.boolean().default(false)});
 router.post("/auth/registro",authLimiter,validate(registroSchema),async(req,res)=>{try{return res.status(201).json({ok:true,...await personalAuthService.registrar(req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 router.post("/auth/login",authLimiter,validate(loginSchema),async(req,res)=>{try{return res.json({ok:true,...await personalAuthService.login(req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+// Esta lectura privada conserva no-store también cuando autenticación o suscripción la rechazan.
+router.get("/metas/revision-fuentes",(req,res,next)=>{res.set("Cache-Control","private, no-store, max-age=0");return next();});
 router.use(auth,entitlement);
 // Las respuestas privadas no deben persistir en cachés del navegador ni de intermediarios.
 router.use((req,res,next)=>{
@@ -13,6 +15,15 @@ router.use((req,res,next)=>{
  res.set("Expires","0");
  return next();
 });
+// Calendario por eventos: identidad JWT y confirmación estricta del servicio.
+const calendarioIngresoHandler=require("./services/calendarioIngresoPersonal.handler").crear;
+const limiteCalendarioIngreso=require("./security/limiteSeleccionadoV81.middleware").crearLimiteSeleccionadoV81();
+router.get("/calendario-ingresos",calendarioIngresoHandler({operacion:"LISTAR"}));
+router.get("/calendario-ingresos/recibos/:clave",calendarioIngresoHandler({operacion:"RECIBO"}));
+router.get("/calendario-ingresos/:id/recepciones-elegibles",calendarioIngresoHandler({operacion:"RECEPCIONES"}));
+router.get("/calendario-ingresos/:id/historial",calendarioIngresoHandler({operacion:"HISTORIAL"}));
+router.post("/calendario-ingresos",limiteCalendarioIngreso,calendarioIngresoHandler({operacion:"CREAR"}));
+router.post("/calendario-ingresos/:id/eventos",limiteCalendarioIngreso,calendarioIngresoHandler({operacion:"CAMBIAR"}));
 // V81: diagnóstico en solo lectura, con identidad obtenida exclusivamente del JWT personal verificado.
 // Esta ruta no permite escoger usuario por body, params, query ni headers.
 router.get("/v81/integridad",require("./services/consultaIntegridadV81.handler").crearConsultaIntegridadV81());
@@ -49,12 +60,16 @@ router.get("/diagnostico-integridad",async(req,res)=>{
 });
 router.use(patrimonioV2);const accionProgresoSchema=Joi.object({estado:Joi.string().valid("APROBADA","COMPLETADA","DESCARTADA").required(),resultadoMinor:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),evidencia:Joi.string().trim().max(300).allow(""),transaccionEvidenciaId:Joi.string().hex().length(24)});
 router.patch("/progreso-economico/acciones/:id",validate(accionProgresoSchema),async(req,res)=>{
- if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- const mongoose=require("mongoose"),crypto=require("crypto"),A=require("./models/accionProgresoPersonal.model"),Tx=require("./models/TransaccionPersonal"),Outbox=require("./models/outboxPersonal.model"),session=await mongoose.startSession();let salida;
- try{await session.withTransaction(async()=>{const actual=await A.findOne({_id:req.params.id,usuarioId:req.personalAuth.userId}).session(session);if(!actual)throw Object.assign(new Error("Acción no encontrada"),{statusCode:404});const anterior=actual.estado,siguiente=req.validated.estado,permitidas={PROPUESTA:["APROBADA","DESCARTADA"],APROBADA:["COMPLETADA","DESCARTADA"],COMPLETADA:[],DESCARTADA:[]};if(!permitidas[anterior].includes(siguiente))throw Object.assign(new Error("Transición de acción no permitida"),{statusCode:409});if(siguiente==="COMPLETADA"){if(req.validated.resultadoMinor===undefined||!req.validated.transaccionEvidenciaId)throw Object.assign(new Error("Para completar debes registrar resultado y movimiento financiero de respaldo"),{statusCode:422});const tx=await Tx.findOne({_id:req.validated.transaccionEvidenciaId,usuarioId:req.personalAuth.userId,estado:{$ne:"ANULADA"}}).session(session).lean();if(!tx)throw Object.assign(new Error("La evidencia contable no existe o fue anulada"),{statusCode:422});const tipos={INGRESOS:["INGRESO"],COBRO:["COBRO_PRESTAMO"],GASTO:["GASTO"],DEUDA:["PAGO_DEUDA"]};if(!(tipos[actual.palanca]||[]).includes(tx.tipo))throw Object.assign(new Error("El movimiento no corresponde a la palanca económica de la acción"),{statusCode:422});if(req.validated.resultadoMinor>tx.montoMinor)throw Object.assign(new Error("El resultado declarado supera el movimiento que lo respalda"),{statusCode:422});actual.transaccionEvidenciaId=tx._id;}actual.estado=siguiente;if(req.validated.resultadoMinor!==undefined)actual.resultadoMinor=req.validated.resultadoMinor;if(req.validated.evidencia!==undefined)actual.evidencia=req.validated.evidencia;if(siguiente==="COMPLETADA")actual.completadaEn=new Date();await actual.save({session});await Outbox.create([{usuarioId:req.personalAuth.userId,eventId:crypto.randomUUID(),eventName:"ACCION_PROGRESO_ACTUALIZADA",aggregateType:"ACCION_PROGRESO_PERSONAL",aggregateId:actual._id,payload:{accionId:String(actual._id),estadoAnterior:anterior,estadoNuevo:siguiente,palanca:actual.palanca,objetivoMinor:actual.objetivoMinor,resultadoMinor:actual.resultadoMinor,transaccionEvidenciaId:actual.transaccionEvidenciaId?String(actual.transaccionEvidenciaId):null}}],{session});salida=actual.toObject();},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return res.json({ok:true,accion:salida,medicion:salida.estado==="COMPLETADA"?{baselineMinor:salida.baselineMinor,objetivoMinor:salida.objetivoMinor,resultadoMinor:salida.resultadoMinor,cumplimientoObjetivo:salida.objetivoMinor>0?salida.resultadoMinor>=salida.objetivoMinor:null}:null});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible actualizar la acción económica"});}finally{await session.endSession();}
+ try{
+  const salida=await require("./services/actualizarAccionProgresoPersonal.service").actualizarAccion(req.personalAuth.userId,req.params.id,req.validated);
+  return res.json({ok:true,accion:salida,medicion:salida.estado==="COMPLETADA"?{
+   baselineMinor:salida.baselineMinor,objetivoMinor:salida.objetivoMinor,resultadoMinor:salida.resultadoMinor,
+   cumplimientoObjetivo:salida.objetivoMinor>0?salida.resultadoMinor>=salida.objetivoMinor:null}:null});
+ }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible actualizar la acción económica"});}
 });
-router.get("/progreso-economico",async(req,res)=>{try{return res.json({ok:true,progreso:await progresoEconomico.analizar(req.personalAuth.userId)});}catch(e){console.error("[FIN_PERSONAL_PROGRESO]",e);return res.status(500).json({ok:false,error:"No fue posible medir el progreso económico"});}});
-const obligacionSchema=Joi.object({montoMinor:Joi.number().integer().min(1).required(),concepto:Joi.string().trim().max(140).allow("").default(""),costoRenegociarMinor:Joi.number().integer().min(0),consecuenciaRenegociar:Joi.string().trim().max(240).allow(""),costoReprogramarMinor:Joi.number().integer().min(0),consecuenciaReprogramar:Joi.string().trim().max(240).allow(""),costoSustituirMinor:Joi.number().integer().min(0),consecuenciaSustituir:Joi.string().trim().max(240).allow("")});router.post("/obligaciones/evaluar",validate(obligacionSchema),async(req,res)=>{try{return res.json({ok:true,evaluacion:await obligacionesPersonal.evaluar(req.personalAuth.userId,req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible evaluar la obligación"});}});
+const {crearLecturaPanelPersonal}=require("./services/lecturaPanelPersonal.handler");
+router.get("/progreso-economico",crearLecturaPanelPersonal({campo:"progreso",leer:usuarioId=>progresoEconomico.analizar(usuarioId)}));
+router.post("/obligaciones/evaluar",require("./services/evaluacionObligacionPersonal.handler").crearHandler());
 router.get("/notificaciones",async(req,res)=>{const N=require("./models/notificacionPersonal.model");const rows=await N.find({usuarioId:req.personalAuth.userId,leidaEn:null}).sort({createdAt:-1}).limit(50).lean();return res.json({ok:true,notificaciones:rows});});router.post("/notificaciones/:id/leida",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});const N=require("./models/notificacionPersonal.model");const n=await N.findOneAndUpdate({_id:req.params.id,usuarioId:req.personalAuth.userId},{$set:{leidaEn:new Date()}},{new:true});return n?res.json({ok:true}):res.status(404).json({ok:false,error:"Notificación no encontrada"});});
 // Evaluacion preventiva de compra: solo lectura y usuario exclusivamente del JWT personal.
 const gastoInteligente=require("./services/gastoInteligentePersonal.service");
@@ -84,11 +99,38 @@ router.get("/gastos/hormiga/resumen",async(req,res)=>{
   return res.status(503).json({ok:false,error:"No se pudo verificar el resumen de gastos hormiga"});
  }
 });
-router.get("/home",async(req,res)=>{try{return res.json({ok:true,home:await homePersonal.obtener(req.personalAuth.userId)});}catch(e){console.error("[FIN_PERSONAL_HOME]",e);return res.status(500).json({ok:false,error:"No fue posible construir el estado financiero personal"});}});
-const cuentaSchema=Joi.object({nombre:Joi.string().trim().min(1).max(100).required(),tipo:Joi.string().valid("EFECTIVO","AHORROS","CORRIENTE","BILLETERA","INVERSION","OTRA").required(),institucion:Joi.string().trim().max(120).allow("").default(""),moneda:Joi.string().valid("COP").default("COP"),saldoMinor:Joi.number().integer().min(0).default(0),saldoVerificado:Joi.boolean().default(false)});
-router.post("/cuentas",validate(cuentaSchema),async(req,res)=>{try{return res.status(201).json({ok:true,cuenta:await patrimonioPersonal.crearCuenta(req.personalAuth.userId,{...req.validated,saldoVerificadoEn:req.validated.saldoVerificado?new Date():null,origenSaldo:req.validated.saldoVerificado?"USUARIO":"NO_VERIFICADO",requiereReconciliacion:!req.validated.saldoVerificado})});}catch(e){return res.status(e.code===11000?409:e.statusCode||500).json({ok:false,error:e.code===11000?"Ya existe una cuenta con ese nombre":e.statusCode?e.message:"Error interno"});}});
+router.get("/home",crearLecturaPanelPersonal({campo:"home",leer:usuarioId=>homePersonal.obtener(usuarioId)}));
+router.post("/cuentas",async(req,res)=>{
+ try{const r=await require("./services/creacionCuentaRecuperablePersonal.service").crear(req.personalAuth.userId,req.get("Idempotency-Key"),req.body,{capturarContexto:()=>require("./security/contextoAuditoriaCuentaPersonal.service").capturar(req,req.personalAuth.userId)});return res.status(r.duplicado?200:201).json({ok:true,...r});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar la cuenta"});}
+});
+router.get("/cuentas/confirmacion-creacion/:solicitudId",async(req,res)=>{
+ try{return res.json({ok:true,recibo:await require("./services/creacionCuentaRecuperablePersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo de la cuenta"});}
+});
+router.get("/cuentas/conciliaciones",async(req,res)=>{try{return res.json({ok:true,cuentas:await require("./services/conciliacionCuentaPersonal.service").listar(req.personalAuth.userId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible consultar cuentas"});}});
+router.post("/cuentas/:id/conciliar",async(req,res)=>{try{const r=await require("./services/conciliacionCuentaPersonal.service").registrarHttp(req.personalAuth.userId,req.params.id,req.get("Idempotency-Key"),req.body);const {recibo,duplicado,...cuenta}=r;return res.json({ok:true,cuenta,recibo,duplicado});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar la conciliación"});}});
+router.get("/cuentas/confirmacion-conciliacion/:solicitudId",async(req,res)=>{try{return res.json({ok:true,recibo:await require("./services/conciliacionCuentaPersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar la conciliación"});}});
+router.get("/cuentas/:id/conciliaciones",async(req,res)=>{try{return res.json({ok:true,...await require("./services/conciliacionCuentaPersonal.service").historial(req.personalAuth.userId,req.params.id,Number(req.query.pagina||1))});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible revisar el historial de conciliaciones"});}});
+router.get("/cuentas/ciclo",async(req,res)=>{try{return res.json({ok:true,cuentas:await require("./services/cicloCuentaPersonal.service").listar(req.personalAuth.userId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible consultar cuentas y retiros"});}});
+for(const [accion,tipo] of [["retirar","RETIRO"],["restaurar-retiro","RESTAURACION"]])router.post("/cuentas/:id/"+accion,async(req,res)=>{try{return res.json({ok:true,...await require("./services/cicloCuentaPersonal.service").aplicar(req.personalAuth.userId,req.params.id,tipo,req.get("Idempotency-Key"),req.body,{capturarContexto:()=>require("./security/contextoAuditoriaCuentaPersonal.service").capturar(req,req.personalAuth.userId)})});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar la operación de cuenta"});}});
+router.get("/cuentas/confirmacion-ciclo/:solicitudId",async(req,res)=>{try{return res.json({ok:true,recibo:await require("./services/cicloCuentaPersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo de la cuenta"});}});
+router.get("/cuentas/:id/ciclo",async(req,res)=>{try{return res.json({ok:true,...await require("./services/cicloCuentaPersonal.service").historial(req.personalAuth.userId,req.params.id,Number(req.query.pagina||1))});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible revisar el historial de retiros"});}});
+router.get("/activos/ciclo",async(req,res)=>{try{return res.json({ok:true,activos:await require("./services/cicloActivoPersonal.service").listar(req.personalAuth.userId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible consultar activos y retiros"});}});
+for(const [accion,tipo] of [["retirar","RETIRO"],["restaurar-retiro","RESTAURACION"]])router.post("/activos/:id/"+accion,async(req,res)=>{try{return res.json({ok:true,...await require("./services/cicloActivoPersonal.service").aplicar(req.personalAuth.userId,req.params.id,tipo,req.get("Idempotency-Key"),req.body)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar la operación de activo"});}});
+router.get("/activos/confirmacion-ciclo/:solicitudId",async(req,res)=>{try{return res.json({ok:true,recibo:await require("./services/cicloActivoPersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo del activo"});}});
+router.get("/activos/:id/ciclo",async(req,res)=>{try{return res.json({ok:true,...await require("./services/cicloActivoPersonal.service").historial(req.personalAuth.userId,req.params.id,Number(req.query.pagina||1))});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible revisar el historial de retiros"});}});
+router.get("/inversiones/ciclo",async(req,res)=>{try{return res.json({ok:true,inversiones:await require("./services/cicloInversionPersonal.service").listar(req.personalAuth.userId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible consultar inversiones y retiros"});}});
+for(const [accion,tipo] of [["retirar","RETIRO"],["restaurar-retiro","RESTAURACION"]])router.post("/inversiones/:id/"+accion,async(req,res)=>{try{return res.json({ok:true,...await require("./services/cicloInversionPersonal.service").aplicar(req.personalAuth.userId,req.params.id,tipo,req.get("Idempotency-Key"),req.body)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar la operación de inversión"});}});
+router.get("/inversiones/confirmacion-ciclo/:solicitudId",async(req,res)=>{try{return res.json({ok:true,recibo:await require("./services/cicloInversionPersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo de la inversión"});}});
+router.get("/inversiones/:id/ciclo",async(req,res)=>{try{return res.json({ok:true,...await require("./services/cicloInversionPersonal.service").historial(req.personalAuth.userId,req.params.id,Number(req.query.pagina||1))});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible revisar el historial de retiros"});}});
 router.get("/patrimonio-financiero",async(req,res)=>res.json({ok:true,snapshot:await patrimonioPersonal.snapshot(req.personalAuth.userId)}));
-router.post("/prestamos/reparar-moto",async(req,res)=>{const mongoose=require("mongoose"),crypto=require("crypto"),Prestamo=require("./models/prestamoPersonal.model"),Tx=require("./models/TransaccionPersonal"),Outbox=require("./models/outboxPersonal.model");const session=await mongoose.startSession();try{let repaired=false,anulados=0;await session.withTransaction(async()=>{const candidates=await Prestamo.find({usuarioId:req.personalAuth.userId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},concepto:/moto/i}).session(session);if(candidates.length!==1)throw Object.assign(new Error(candidates.length?"Reparación cancelada: hay más de una deuda de moto activa":"No encontré la deuda de moto a reparar"),{statusCode:409});const p=candidates[0];const canonical=p.principalMinor===7000000&&p.saldoMinor===4500000&&p.cuotaMinor===1000000&&p.tasaMensualPct===0;if(!canonical){const corrupt=(p.saldoMinor===0&&p.cuotaMinor===15)||(/imag[ií]nate|compr[eé].*moto/i.test(p.concepto)&&p.saldoMinor===0);if(!corrupt)throw Object.assign(new Error("La deuda encontrada no coincide con el patrón reparable; no se modificó"),{statusCode:409});p.concepto="Moto";p.contraparte=p.contraparte||"Por identificar";p.principalMinor=7000000;p.saldoMinor=4500000;p.cuotaMinor=1000000;p.tasaMensualPct=0;repaired=true}const now=new Date(),day=15;let y=now.getFullYear(),m=now.getMonth();if(now.getDate()>day){m++;if(m>11){m=0;y++}}p.fechaVencimiento=new Date(y,m,day,12,0,0,0);await p.save({session});const bad=await Tx.find({usuarioId:req.personalAuth.userId,tipo:"GASTO",montoMinor:7000000,estado:{$ne:"ANULADA"},$or:[{concepto:/moto/i},{descripcion:/moto/i}]}).session(session);for(const tx of bad){tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion="RECONCILIACION_DEUDA_PRINCIPAL_MOTO";await tx.save({session});await Outbox.create([{usuarioId:req.personalAuth.userId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),accion:"ANULACION_ASIENTO_PRINCIPAL_DEUDA",montoMinor:tx.montoMinor,prestamoId:String(p._id)}}],{session});anulados++}},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return res.json({ok:true,repaired,anulados});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Reparación no completada"});}finally{await session.endSession()}});
+// Reparación puntual retirada: no sobrescribir deudas con importes fijos ni anular fuentes.
+router.post("/prestamos/reparar-moto",(req,res)=>res.status(410).json({
+ ok:false,
+ error:"La reparación automática de moto fue retirada; revisa la deuda y sus movimientos antes de corregirlos.",
+ codigo:"REPARACION_MOTO_RETIRADA"
+}));
 router.get("/historial/buscar",async(req,res)=>{
  try{
   const Joi=require("joi");
@@ -96,15 +138,12 @@ router.get("/historial/buscar",async(req,res)=>{
   const {value:f,error}=schema.validate(req.query,{stripUnknown:true});
   if(error)return res.status(400).json({ok:false,error:"Filtros inválidos"});
   if(f.desde&&f.hasta&&f.desde>f.hasta)return res.status(400).json({ok:false,error:"Rango de fechas inválido"});
-  const Tx=require("./models/TransaccionPersonal"),Prestamo=require("./models/prestamoPersonal.model"),usuarioId=req.personalAuth.userId;
+  const historial=require("./services/historialCompensadoPersonal.service"),Prestamo=require("./models/prestamoPersonal.model"),usuarioId=req.personalAuth.userId;
   const patron=f.q?new RegExp(f.q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"i"):null;
-  const textoTx=patron?{$or:[{concepto:patron},{categoria:patron},{contraparte:patron},{descripcion:patron}]}:{};
   const textoPrestamo=patron?{$or:[{concepto:patron},{contraparte:patron}]}:{};
-  const txFilter={usuarioId,...textoTx},loanFilter={usuarioId,...textoPrestamo};
-  if(f.estado==="ANULADA")txFilter.estado="ANULADA";else txFilter.estado={$ne:"ANULADA"};
-  if(f.monto!==undefined){txFilter.montoMinor=f.monto;loanFilter.principalMinor=f.monto;}
-  if(f.desde||f.hasta){const desde=f.desde?new Date(f.desde):null,hasta=f.hasta?new Date(f.hasta):null;if(hasta)hasta.setUTCHours(23,59,59,999);txFilter.fecha={...(desde?{$gte:desde}:{}),...(hasta?{$lte:hasta}:{})};loanFilter.fechaInicio={...(desde?{$gte:desde}:{}),...(hasta?{$lte:hasta}:{})};}
-  if(f.tipo==="INGRESO"||f.tipo==="GASTO"||f.tipo==="COBRO_PRESTAMO")txFilter.tipo=f.tipo;
+  const loanFilter={usuarioId,...textoPrestamo};
+  if(f.monto!==undefined)loanFilter.principalMinor=f.monto;
+  if(f.desde||f.hasta){const desde=f.desde?new Date(f.desde):null,hasta=f.hasta?new Date(f.hasta):null;if(hasta)hasta.setUTCHours(23,59,59,999);loanFilter.fechaInicio={...(desde?{$gte:desde}:{}),...(hasta?{$lte:hasta}:{})};}
   if(f.tipo==="PRESTAMO")loanFilter.origenCuentaPorCobrar="PRESTAMO";
   if(f.tipo==="TRABAJO")loanFilter.origenCuentaPorCobrar="TRABAJO";
   if(["ACTIVO","PAGADO","VENCIDO"].includes(f.estado))loanFilter.estado=f.estado;
@@ -112,7 +151,7 @@ router.get("/historial/buscar",async(req,res)=>{
   const buscarPrestamos=!["INGRESO","GASTO","COBRO_PRESTAMO","ANULADA"].includes(f.tipo==="TODOS"?f.estado:f.tipo);
   const pageSize=20,skip=(f.pagina-1)*pageSize;
   const [transacciones,prestamos]=await Promise.all([
-   buscarTx?Tx.find(txFilter).sort({fecha:-1,_id:-1}).skip(skip).limit(pageSize+1).select("_id tipo montoMinor concepto categoria contraparte fecha estado prestamoId").lean():[],
+   buscarTx?historial.buscar(usuarioId,f):[],
    buscarPrestamos?Prestamo.find(loanFilter).sort({createdAt:-1,_id:-1}).skip(skip).limit(pageSize+1).select("_id direccion origenCuentaPorCobrar contraparte concepto principalMinor saldoMinor estado fechaInicio fechaVencimiento createdAt").lean():[]
   ]);
   const items=[...transacciones.slice(0,pageSize).map(t=>({...t,clase:"MOVIMIENTO"})),...prestamos.slice(0,pageSize).map(p=>({...p,clase:"CUENTA_POR_COBRAR"}))].sort((a,b)=>new Date(b.fecha||b.fechaInicio)-new Date(a.fecha||a.fechaInicio));
@@ -120,8 +159,14 @@ router.get("/historial/buscar",async(req,res)=>{
  }catch(e){console.error("[HISTORIAL_PERSONAL_BUSCAR]",e);return res.status(500).json({ok:false,error:"No fue posible buscar en el historial"});}
 });
 router.get("/prestamos",async(req,res)=>{const Prestamo=require("./models/prestamoPersonal.model");const prestamos=await Prestamo.find({usuarioId:req.personalAuth.userId}).sort({estado:1,fechaVencimiento:1,createdAt:-1}).lean();return res.json({ok:true,prestamos});});
-const prestamoSchema=Joi.object({origenCuentaPorCobrar:Joi.string().valid("PRESTAMO","TRABAJO","OTRO").default("PRESTAMO"),direccion:Joi.string().valid("POR_COBRAR","POR_PAGAR").required(),contraparte:Joi.string().trim().max(140).required(),concepto:Joi.string().trim().max(160).default("Préstamo"),principalMinor:Joi.number().integer().min(1).required(),tasaMensualPct:Joi.number().min(0).max(100),cuotaMinor:Joi.number().integer().min(0).default(0),fechaInicio:Joi.date().iso().required(),fechaVencimiento:Joi.date().iso().allow(null),cuentaId:Joi.string().hex().length(24).allow(null)});
-router.post("/prestamos",validate(prestamoSchema),async(req,res)=>{try{return res.status(201).json({ok:true,prestamo:await patrimonioPersonal.crearPrestamo(req.personalAuth.userId,req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+router.post("/prestamos",async(req,res)=>{
+ try{const r=await require("./services/creacionPrestamoRecuperablePersonal.service").crear(req.personalAuth.userId,req.get("Idempotency-Key"),req.body);return res.status(r.duplicado?200:201).json({ok:true,...r});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo confirmar la creación del préstamo"});}
+});
+router.get("/prestamos/confirmacion-creacion/:solicitudId",async(req,res)=>{
+ try{return res.json({ok:true,recibo:await require("./services/creacionPrestamoRecuperablePersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar la confirmación del préstamo"});}
+});
 const editarPrestamoSchema=Joi.object({
  contraparte:Joi.string().trim().min(1).max(140),
  concepto:Joi.string().trim().min(1).max(160),
@@ -137,11 +182,9 @@ const editarPrestamoSchema=Joi.object({
 }).min(1);
 router.get("/prestamos/:id/cuotas",async(req,res)=>{
  if(!/^[0-9a-f]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- const Prestamo=require("./models/prestamoPersonal.model"),Tx=require("./models/TransaccionPersonal");
- const p=await Prestamo.findOne({_id:req.params.id,usuarioId:req.personalAuth.userId,direccion:"POR_PAGAR"}).lean();
- if(!p)return res.status(404).json({ok:false,error:"Deuda no encontrada"});
- const pagos=await Tx.find({usuarioId:req.personalAuth.userId,prestamoId:p._id,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).sort({fecha:1,_id:1}).select("descripcion montoMinor montoPagadoRealMinor fecha").lean();
- const totalPagadoRealMinor=pagos.reduce((n,t)=>n+(t.montoPagadoRealMinor||t.montoMinor),0);
+ try{
+ const {prestamo:p,pagos:vigentes,totalPagadoRealMinor}=await require("./services/reversionCuotaCreditoPersonal.service").obtenerPagosCredito(req.personalAuth.userId,req.params.id);
+ const pagos=vigentes.map(t=>({_id:t._id,descripcion:t.descripcion,montoMinor:t.montoMinor,montoPagadoRealMinor:t.montoPagadoRealMinor,fecha:t.fecha}));
  const vencimientoOriginal=p.fechaVencimiento?new Date(p.fechaVencimiento):null;
  let proximoVencimiento=null,frecuenciaSinConfirmar=false;
  if(p.saldoMinor>0&&vencimientoOriginal&&!Number.isNaN(vencimientoOriginal.getTime())){
@@ -155,6 +198,7 @@ router.get("/prestamos/:id/cuotas",async(req,res)=>{
  }
 
  return res.json({ok:true,proximoVencimiento,frecuenciaSinConfirmar,totalPagadoRealMinor,valorOriginalMinor:p.principalMinor,costoAdicionalObservadoMinor:pagos.length&&p.saldoMinor===0?totalPagadoRealMinor-p.principalMinor:null,cuotasPagadas:pagos,proximaCuota:pagos.length+1,importeProximaMinor:p.saldoMinor>0?Math.min(p.cuotaMinor||0,p.saldoMinor):0,saldoPendienteMinor:p.saldoMinor,periodicidadConfirmada:Boolean(p.periodicidadConfirmada)});
+ }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudieron consultar las cuotas"});}
 });
 const cuotaPagoSchema=Joi.object({cuentaId:Joi.string().hex().length(24).allow(null).default(null),modo:Joi.string().valid("CUENTA","HISTORICO").default("CUENTA"),numeroCuota:Joi.number().integer().min(1).max(600).required(),montoPagadoRealMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
 router.post("/prestamos/:id/cuotas/pagar",validate(cuotaPagoSchema),async(req,res)=>{
@@ -162,17 +206,23 @@ router.post("/prestamos/:id/cuotas/pagar",validate(cuotaPagoSchema),async(req,re
  try{return res.json({ok:true,resultado:await patrimonioPersonal.pagarCuotaCredito(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated})});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo registrar la cuota"});}
 });
-router.post("/prestamos/:id/cuotas/deshacer",async(req,res)=>{
- if(!/^[0-9a-f]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- try{return res.json({ok:true,resultado:await patrimonioPersonal.deshacerUltimaCuotaCredito(req.personalAuth.userId,req.params.id)});}
- catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo deshacer el pago"});}
-});
+router.get("/prestamos/:id/cuotas/:movimientoId/recibos/:clave",limiteCalendarioIngreso,require("./services/restauracionCicloPagoPersonal.handler").crearHandler("RECIBO"));
+router.get("/prestamos/:id/cuotas/:movimientoId/recuperacion",limiteCalendarioIngreso,require("./services/restauracionCicloPagoPersonal.handler").crearHandler("CONSULTAR"));
+router.post("/prestamos/:id/cuotas/restaurar-con-ciclo",limiteCalendarioIngreso,require("./services/restauracionCicloPagoPersonal.handler").crearHandler("RESTAURAR"));
+router.post("/prestamos/:id/cuotas/deshacer",require("./services/reversionCuotaCredito.handler").crearReversionCuotaCredito());
 router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
  try{
   if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
-  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,req.validated);
+  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,req.validated,{confirmacion:req.body.confirmacion,solicitudId:req.get("Idempotency-Key")});
   return res.json({ok:true,prestamo});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo corregir el préstamo"});}
+});
+router.get("/prestamos/:id/imputaciones/recibos/:clave",require("./services/imputacionPagoPersonal.handler").crearHandler("RECIBO"));
+router.get("/prestamos/:id/imputaciones",require("./services/imputacionPagoPersonal.handler").crearHandler("CONSULTAR"));
+router.post("/prestamos/:id/imputaciones",limiteCalendarioIngreso,require("./services/imputacionPagoPersonal.handler").crearHandler("APLICAR"));
+router.get("/prestamos/:id/correcciones",async(req,res)=>{
+ try{return res.json({ok:true,...await require("./services/correccionPrestamoPersonal.service").historial(req.personalAuth.userId,req.params.id)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo consultar el historial de correcciones"});}
 });
 const cobroSchema=Joi.object({montoMinor:Joi.number().integer().min(1).required(),cuentaId:Joi.string().hex().length(24).optional(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
 router.post("/prestamos/:id/cobros",validate(cobroSchema),async(req,res)=>{try{if(!/^[0-9a-fA-F]{24}$/.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});const resultado=await patrimonioPersonal.cobrarCuentaPorCobrar(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated});return res.status(resultado.duplicado?200:201).json({ok:true,...resultado});}catch(e){return res.status(e.statusCode|| (e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No se pudo registrar el cobro"});}});
@@ -186,11 +236,22 @@ router.get("/inversiones/inteligencia/ultima",async(req,res)=>{const r=await Rec
 
 const capturaSchema=Joi.object({texto:Joi.string().trim().min(2).max(5000).required(),canal:Joi.string().valid("TEXTO","AUDIO_TRANSCRITO").default("TEXTO")});
 router.get("/copilot/historial",async(req,res)=>{try{const Turno=require("./models/turnoConversacionalPersonal.model");const turnos=await Turno.find({usuarioId:req.personalAuth.userId}).sort({createdAt:-1}).limit(50).lean();return res.json({ok:true,turnos:turnos.reverse()});}catch(e){return res.status(500).json({ok:false,error:"Error interno"});}});
-router.post("/copilot",validate(capturaSchema),async(req,res)=>{try{const resultado=await conversacionPersonal.procesar(req.personalAuth.userId,req.validated);const Turno=require("./models/turnoConversacionalPersonal.model");await Turno.create({usuarioId:req.personalAuth.userId,mensaje:req.validated.texto,respuesta:resultado.mensaje,clase:resultado.clase,requiereAprobacion:!!resultado.requiereAprobacion});return res.json({ok:true,resultado});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+router.get("/copilot/confirmacion/:solicitudId",require("./services/capturaCopilotPersonal.handler").crearHandler({consulta:true}));
+router.post("/copilot",require("./services/capturaCopilotPersonal.handler").crearHandler());
 router.post("/captura/interpretar",validate(capturaSchema),async(req,res)=>{try{return res.status(201).json({ok:true,borrador:await interpreteFinanciero.crearBorrador(req.personalAuth.userId,req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
-router.get("/captura/pendientes",async(req,res)=>res.json({ok:true,borradores:await BorradorFinanciero.find({usuarioId:req.personalAuth.userId,estado:{$in:["PENDIENTE","PARCIAL"]}}).sort({createdAt:-1}).limit(50).lean()}));
-router.post("/captura/:id/aprobar",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});try{return res.json({ok:true,resultado:await aprobacionConversacional.aprobar(req.personalAuth.userId,req.params.id)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});router.post("/captura/:id/items/:itemId/aprobar",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id)||!/^[a-f0-9]{24}$/i.test(req.params.itemId))return res.status(400).json({ok:false,error:"Identificador inválido"});try{return res.json({ok:true,resultado:await aprobacionConversacional.aprobar(req.personalAuth.userId,req.params.id,req.params.itemId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
-router.post("/captura/:id/descartar",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});const b=await BorradorFinanciero.findOneAndUpdate({_id:req.params.id,usuarioId:req.personalAuth.userId,estado:"PENDIENTE"},{$set:{estado:"DESCARTADO"}},{new:true});return b?res.json({ok:true}):res.status(404).json({ok:false,error:"Borrador no disponible"});});
+router.get("/captura/pendientes",async(req,res)=>{
+ const filas=await BorradorFinanciero.find({usuarioId:req.personalAuth.userId,estado:{$in:["PENDIENTE","PARCIAL"]}}).sort({createdAt:-1}).limit(50).lean();
+ return res.json({ok:true,borradores:filas.map(b=>({...b,versionAprobacion:require("./services/reciboAprobacionPersonal.service").versionBorrador(b)}))});
+});
+router.post("/captura/:id/aprobar",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});try{return res.json({ok:true,resultado:await aprobacionConversacional.aprobar(req.personalAuth.userId,req.params.id,null,{confirmacion:req.body?.confirmacion,versionBorrador:req.body?.versionBorrador,solicitudId:req.get("Idempotency-Key")})});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});router.post("/captura/:id/items/:itemId/aprobar",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id)||!/^[a-f0-9]{24}$/i.test(req.params.itemId))return res.status(400).json({ok:false,error:"Identificador inválido"});try{return res.json({ok:true,resultado:await aprobacionConversacional.aprobar(req.personalAuth.userId,req.params.id,req.params.itemId,{confirmacion:req.body?.confirmacion,versionBorrador:req.body?.versionBorrador,solicitudId:req.get("Idempotency-Key")})});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+router.get("/captura/confirmacion-aprobacion/:solicitudId",async(req,res)=>{
+ try{return res.json({ok:true,recibo:await require("./services/reciboAprobacionPersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el recibo de aprobación"});}
+});
+router.get("/captura/descartados",require("./services/cicloBorradorPersonal.handler").crear("LISTAR"));
+router.get("/captura/recibos-ciclo/:solicitudId",require("./services/cicloBorradorPersonal.handler").crear("RECIBO"));
+router.post("/captura/:id/descartar",limiteCalendarioIngreso,require("./services/cicloBorradorPersonal.handler").crear("DESCARTE"));
+router.post("/captura/:id/restaurar-descarte",limiteCalendarioIngreso,require("./services/cicloBorradorPersonal.handler").crear("RESTAURACION"));
 
 router.post("/migracion/ledger",async(req,res)=>{try{return res.json({ok:true,reporte:await migracionLedger.migrar(req.personalAuth.userId)});}catch(e){console.error("[FIN_PERSONAL_MIGRACION]",e);return res.status(500).json({ok:false,error:"Migración no completada; datos legacy preservados"});}});
 router.get("/migracion/reconciliacion",async(req,res)=>{try{return res.json({ok:true,reporte:await migracionLedger.reconciliar(req.personalAuth.userId)});}catch(e){return res.status(500).json({ok:false,error:"No fue posible reconciliar"});}});
@@ -208,10 +269,17 @@ const tarjetaOperacion=Joi.object({deudaId:Joi.string().hex().length(24).require
   return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar el intento"});
  }
 });
+router.post("/transacciones/constancia-intento",(req,res,next)=>{res.set("Cache-Control","private, no-store");next();},validate(transaccion),async(req,res)=>{
+ try{require("../../public/finanzas-personales-constancia").cuerpo(req.validated);}catch{return res.status(400).json({ok:false,error:"Solicitud manual no verificable"});}
+ try{const r=await flujoCaja.confirmarRegistroIntento(req.personalAuth.userId,req.validated,{incluirConstancia:true});return res.json({ok:true,constancia:r.constancia||null});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible consultar la constancia"});}
+});
 router.post("/transacciones",validate(transaccion),async(req,res)=>{try{return res.status(201).json({ok:true,transaccion:await flujoCaja.registrarTransaccion(req.personalAuth.userId,req.validated)});}catch(e){if(e?.code===11000)return res.status(409).json({ok:false,error:"Transacción duplicada"});return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 const correccionTx=Joi.object({tipo:Joi.string().valid("INGRESO","GASTO"),montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),concepto:Joi.string().trim().max(140),categoria:Joi.string().trim().max(80)}).min(1);
-router.patch("/transacciones/:id",validate(correccionTx),async(req,res)=>{try{const tx=await flujoCaja.corregirTransaccion(req.personalAuth.userId,req.params.id,req.validated);return tx?res.json({ok:true,transaccion:tx}):res.status(404).json({ok:false,error:"Movimiento no encontrado"});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir el movimiento"});}});
-router.delete("/transacciones/:id",async(req,res)=>{try{return res.json({ok:true,transaccion:await flujoCaja.anularTransaccion(req.personalAuth.userId,req.params.id,"Eliminada manualmente por el usuario")});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible eliminar el movimiento"});}});
+router.patch("/transacciones/:id",validate(correccionTx),require("./services/compensacionPersonal.handler").crearHandler({tipo:"CORRECCION"}));
+const restauracionTx=Joi.object({confirmar:Joi.boolean().strict().valid(true).required(),anulacionHash:Joi.string().pattern(/^[a-f0-9]{64}$/).required()});
+router.post("/transacciones/:id/restaurar",validate(restauracionTx),require("./services/compensacionPersonal.handler").crearHandler({tipo:"RESTAURACION"}));
+router.delete("/transacciones/:id",require("./services/compensacionPersonal.handler").crearHandler({tipo:"ANULACION"}));
 router.get("/flujo-caja",async(req,res)=>{try{const desde=req.query.desde,hasta=req.query.hasta;if(!desde||!hasta)return res.status(400).json({ok:false,error:"desde y hasta son obligatorios"});return res.json({ok:true,flujo:await flujoCaja.flujoPeriodo(req.personalAuth.userId,{desde,hasta})});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 const movimiento=Joi.object({tipo:Joi.string().valid("INGRESO","GASTO").required(),monto:Joi.number().integer().positive().max(Number.MAX_SAFE_INTEGER).required(),concepto:Joi.string().max(140).required(),categoria:Joi.string().max(80).required(),subcategoria:Joi.string().max(80).allow("").default(""),cuenta:Joi.string().max(100).default("EFECTIVO"),medioPago:Joi.string().valid("EFECTIVO","DEBITO","CREDITO","TRANSFERENCIA","PSE","OTRO").default("EFECTIVO"),contraparte:Joi.string().max(140).allow("").default(""),descripcion:Joi.string().max(240).allow("").default(""),fecha:Joi.date().iso().required(),recurrente:Joi.boolean().default(false),recurrenteOrigenId:Joi.string().hex().length(24),frecuencia:Joi.string().valid("NINGUNA","DIARIA","SEMANAL","QUINCENAL","MENSUAL","ANUAL").default("NINGUNA"),origen:Joi.string().valid("MANUAL","IMPORTADO","WEBHOOK").default("MANUAL"),externalId:Joi.string().max(160).allow(null)});
 router.post("/movimientos",validate(movimiento),async(req,res)=>{try{const d=req.validated;const tx=await flujoCaja.registrarTransaccion(req.personalAuth.userId,{tipo:d.tipo,montoMinor:d.monto,moneda:"COP",concepto:d.concepto,categoria:d.categoria,subcategoria:d.subcategoria,cuenta:d.cuenta,medioPago:d.medioPago,contraparte:d.contraparte,descripcion:d.descripcion,recurrente:d.recurrente,recurrenteOrigenId:d.recurrenteOrigenId,frecuencia:d.frecuencia,fecha:d.fecha,origen:d.origen==="WEBHOOK"?"PASARELA":d.origen==="IMPORTADO"?"SISTEMA":"MANUAL",externalId:d.externalId||undefined});return res.status(201).json({ok:true,movimiento:tx,fuente:"ledger_canonico"});}catch(e){if(e?.code===11000)return res.status(409).json({ok:false,error:"Movimiento duplicado"});console.error("[FIN_PERSONAL]",e);return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
@@ -227,90 +295,92 @@ router.get("/diagnostico-movimientos",async(req,res)=>{try{
  return res.json({ok:true,diagnostico:{movimientosHistoricos:legacy,movimientosActivos:canonicos,movimientosAnulados:anulados,prestamos:deudas,soloLectura:true}});
  }catch(e){console.error("[FIN_PERSONAL_DIAGNOSTICO]",e.message);return res.status(500).json({ok:false,error:"No fue posible verificar el historial"});}
 });
-router.post("/reconciliar-ingresos-trabajo",async(req,res)=>{const mongoose=require("mongoose"),Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal");const usuarioId=req.personalAuth.userId;const session=await mongoose.startSession();try{let corregidos=0,pendientes=[];await session.withTransaction(async()=>{const trabajos=await Prestamo.find({usuarioId,direccion:"POR_COBRAR",saldoMinor:0}).session(session).lean();for(const trabajo of trabajos){if(trabajo.origenCuentaPorCobrar!=="TRABAJO"){pendientes.push(String(trabajo._id));continue;}const movimientos=await Transaccion.find({usuarioId,prestamoId:trabajo._id,estado:{$ne:"ANULADA"}}).session(session);const ingresos=movimientos.filter(m=>m.tipo==="INGRESO").reduce((n,m)=>n+m.montoMinor,0);const cobros=movimientos.filter(m=>m.tipo==="COBRO_PRESTAMO");const total=ingresos+cobros.reduce((n,m)=>n+m.montoMinor,0);if(total!==trabajo.principalMinor){pendientes.push(String(trabajo._id));continue;}for(const mov of cobros){const result=await Transaccion.updateOne({_id:mov._id,usuarioId,prestamoId:trabajo._id,tipo:"COBRO_PRESTAMO",estado:{$ne:"ANULADA"}},{$set:{tipo:"INGRESO",categoria:"Trabajo cobrado"}},{session});corregidos+=result.modifiedCount;}}},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return res.json({ok:true,corregidos,requierenRevisionManual:pendientes.length,estado:corregidos>0?"CORREGIDO":pendientes.length>0?"REQUIERE_REVISION":"SIN_CAMBIOS",detalle:corregidos>0?"Se reclasificaron movimientos existentes sin crear cobros ni modificar saldos.":pendientes.length>0?"Hay cuentas pagadas que requieren una auditoría individual. No se modificaron saldos.":"No se encontraron movimientos elegibles para reclasificar. Esto NO confirma que los ingresos faltantes estén corregidos."});}catch(e){console.error("[FIN_PERSONAL_RECONCILIACION]",e);return res.status(500).json({ok:false,error:"No se pudo reconciliar; no se aplicaron cambios parciales"});}finally{await session.endSession();}});
-router.post("/cuentas-por-cobrar/:id/corregir-origen-trabajo",async(req,res)=>{const mongoose=require("mongoose"),Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal");if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({ok:false,error:"Cuenta inválida"});const session=await mongoose.startSession();try{let resultado;await session.withTransaction(async()=>{const p=await Prestamo.findOne({_id:req.params.id,usuarioId:req.personalAuth.userId,direccion:"POR_COBRAR"}).session(session);if(!p)throw Object.assign(new Error("Cuenta no encontrada"),{statusCode:404});const movs=await Transaccion.find({usuarioId:req.personalAuth.userId,prestamoId:p._id,estado:{$ne:"ANULADA"}}).session(session);const cobros=movs.filter(x=>["INGRESO","COBRO_PRESTAMO"].includes(x.tipo));const total=cobros.reduce((a,x)=>a+x.montoMinor,0);if(!cobros.length||total!==p.principalMinor-p.saldoMinor)throw Object.assign(new Error("Los movimientos no concuerdan con el saldo pendiente; requiere auditoría"),{statusCode:409});if(p.origenCuentaPorCobrar!=="TRABAJO"){p.origenCuentaPorCobrar="TRABAJO";await p.save({session});}let reclasificados=0;for(const m of cobros.filter(x=>x.tipo==="COBRO_PRESTAMO")){const r=await Transaccion.updateOne({_id:m._id,usuarioId:req.personalAuth.userId,prestamoId:p._id,tipo:"COBRO_PRESTAMO"},{$set:{tipo:"INGRESO",categoria:"Trabajo cobrado"}},{session});reclasificados+=r.modifiedCount;}resultado={reclasificados,ingresoTrabajoMinor:total,saldoPendienteMinor:p.saldoMinor};},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return res.json({ok:true,...resultado,detalle:"Se corrigió la clasificación de movimientos existentes. No se creó ningún cobro ni se modificó el saldo."});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir la cuenta"});}finally{await session.endSession();}});
-router.get("/rastrear-cobro",async(req,res)=>{try{const monto=Number(req.query.montoMinor);if(!Number.isSafeInteger(monto)||monto<=0)return res.status(400).json({ok:false,error:"Importe inválido"});const Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal"),Cuenta=require("./models/cuentaFinanciera.model");const usuarioId=req.personalAuth.userId;const [cuentasPorCobrar,movimientos]=await Promise.all([Prestamo.find({usuarioId,direccion:"POR_COBRAR",principalMinor:monto}).select("_id concepto origenCuentaPorCobrar estado principalMinor saldoMinor updatedAt").lean(),Transaccion.find({usuarioId,montoMinor:monto}).sort({createdAt:-1}).limit(100).select("_id prestamoId tipo montoMinor fecha createdAt cuentaId estado categoria concepto").lean()]);const ids=[...new Set(movimientos.map(x=>String(x.cuentaId||"")).filter(x=>/^[0-9a-f]{24}$/i.test(x)))];const cuentas=await Cuenta.find({usuarioId,_id:{$in:ids}}).select("_id nombre saldoMinor").lean();const mapa=new Map(cuentas.map(x=>[String(x._id),{nombre:x.nombre,saldoMinor:x.saldoMinor}]));return res.json({ok:true,soloLectura:true,montoMinor:monto,cuentasPorCobrar,movimientos:movimientos.map(x=>({...x,cuentaDestino:mapa.get(String(x.cuentaId))||null})),advertencia:"La ausencia de coincidencias no autoriza crear un segundo cobro."});}catch(e){console.error("[FIN_PERSONAL_RASTREO]",e);return res.status(500).json({ok:false,error:"No se pudo completar el rastreo"});}});
-router.get("/diagnostico-cobro-importe",async(req,res)=>{try{const mongoose=require("mongoose"),Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal");const monto=Number(req.query.montoMinor);if(!Number.isSafeInteger(monto)||monto<1)return res.status(400).json({ok:false,error:"Importe inválido"});const usuarioId=req.personalAuth.userId;const [cuentas,movimientos]=await Promise.all([Prestamo.find({usuarioId,direccion:"POR_COBRAR",$or:[{principalMinor:monto},{saldoMinor:0}]}).sort({updatedAt:-1}).limit(100).select("_id contraparte concepto origenCuentaPorCobrar principalMinor saldoMinor estado updatedAt").lean(),Transaccion.find({usuarioId,montoMinor:monto,estado:{$ne:"ANULADA"},tipo:{$in:["INGRESO","COBRO_PRESTAMO"]}}).sort({fecha:-1}).limit(100).select("_id prestamoId tipo montoMinor fecha contraparte cuentaId").lean()]);return res.json({ok:true,soloLectura:true,importeMinor:monto,cuentas,movimientos,nota:"La coincidencia por importe no prueba identidad; confirmar persona y cuenta antes de corregir."});}catch(e){return res.status(500).json({ok:false,error:"No fue posible auditar el importe"});}});
-router.get("/diagnostico-cobro-trabajo",async(req,res)=>{try{const Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal");const usuarioId=req.personalAuth.userId;const nombre=String(req.query.nombre||"").trim();const monto=Number(req.query.montoMinor);if(nombre.length<2||nombre.length>100||!Number.isSafeInteger(monto)||monto<=0)return res.status(400).json({ok:false,error:"Nombre e importe válidos requeridos"});const escaped=nombre.replace(/[.*+?^\${}()|[\]\\]/g,"\\$&");const cuentas=await Prestamo.find({usuarioId,direccion:"POR_COBRAR",contraparte:{$regex:escaped,$options:"i"},$or:[{principalMinor:monto},{saldoMinor:0}]}).sort({updatedAt:-1}).limit(20).lean();const ids=cuentas.map(x=>x._id);const tx=await Transaccion.find({usuarioId,prestamoId:{$in:ids},estado:{$ne:"ANULADA"}}).select("prestamoId tipo montoMinor fecha cuentaId").lean();return res.json({ok:true,soloLectura:true,casos:cuentas.map(x=>{const movimientos=tx.filter(t=>String(t.prestamoId)===String(x._id));const ingreso=movimientos.filter(t=>t.tipo==="INGRESO").reduce((n,t)=>n+t.montoMinor,0);return{prestamoId:x._id,contraparte:x.contraparte,origen:x.origenCuentaPorCobrar,estado:x.estado,principalMinor:x.principalMinor,saldoMinor:x.saldoMinor,ingresoRegistradoMinor:ingreso,movimientos:movimientos.map(t=>({tipo:t.tipo,montoMinor:t.montoMinor,fecha:t.fecha,cuentaId:t.cuentaId})),requiereRevision:x.saldoMinor===0&&ingreso<monto};})});}catch(e){console.error("[FIN_PERSONAL_DIAGNOSTICO_TRABAJO]",e);return res.status(500).json({ok:false,error:"No fue posible revisar el cobro"});}});
-router.get("/diagnostico-cobros",async(req,res)=>{try{const Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal");const usuarioId=req.personalAuth.userId;const cuentas=await Prestamo.find({usuarioId,direccion:"POR_COBRAR",origenCuentaPorCobrar:"TRABAJO"}).sort({updatedAt:-1}).limit(30).select("_id estado saldoMinor principalMinor concepto").lean();const ids=cuentas.map(x=>x._id);const movimientos=await Transaccion.find({usuarioId,prestamoId:{$in:ids},estado:{$ne:"ANULADA"}}).sort({fecha:-1}).select("prestamoId tipo montoMinor fecha cuentaId").lean();return res.json({ok:true,soloLectura:true,cobros:cuentas.map(x=>({prestamoId:x._id,estado:x.estado,saldoPendienteMinor:x.saldoMinor,totalRegistradoMinor:movimientos.filter(m=>String(m.prestamoId)===String(x._id)).reduce((a,m)=>a+m.montoMinor,0),requiereRevision:x.estado==="PAGADO"&&movimientos.filter(m=>String(m.prestamoId)===String(x._id)&&m.tipo==="INGRESO").reduce((a,m)=>a+m.montoMinor,0)<x.principalMinor,movimientos:movimientos.filter(m=>String(m.prestamoId)===String(x._id)).map(m=>({tipo:m.tipo,montoMinor:m.montoMinor,fecha:m.fecha,cuentaId:m.cuentaId}))}))});}catch(e){return res.status(500).json({ok:false,error:"No fue posible verificar los cobros"});}});
+router.post("/reconciliar-ingresos-trabajo",async(req,res)=>{
+ try{
+  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").reconciliarIngresosTrabajo(req.personalAuth.userId);
+  return res.json({ok:true,...resultado,detalle:"La revisión conserva los cobros originales. Las reclasificaciones confirmadas no crean cobros ni modifican saldos."});
+ }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo reconciliar; no se aplicaron cambios parciales"});}
+});
+router.post("/cuentas-por-cobrar/:id/corregir-origen-trabajo",async(req,res)=>{
+ try{
+  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").corregirOrigenTrabajo(req.personalAuth.userId,req.params.id);
+  return res.json({ok:true,...resultado,detalle:"Se registraron reclasificaciones compensatorias. Los cobros originales y el saldo de la cuenta se conservan."});
+ }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir la cuenta"});}
+});
+// Diagnósticos sobre el estado efectivo: una reparación no debe seguir apareciendo pendiente.
+async function movimientosDiagnosticoVigentes(usuarioId,{prestamoIds,montoMinor,tipos,incluirAnuladas=false,limite,orden="fecha",campos}){
+ const filas=await require("./services/consultaCompensadaPersonal.service").consultarPeriodo({usuarioId,
+  desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z",incluirAnuladas});
+ const ids=prestamoIds?new Set(prestamoIds.map(String)):null;
+ const visibles=filas.filter(m=>(!ids||ids.has(String(m.prestamoId)))&&
+  (montoMinor===undefined||m.montoMinor===montoMinor)&&(!tipos||tipos.includes(m.tipo)))
+  .sort((a,b)=>+new Date(b[orden])-+new Date(a[orden])||String(b._id).localeCompare(String(a._id)));
+ return (limite===undefined?visibles:visibles.slice(0,limite)).map(m=>Object.fromEntries(
+  ("_id "+campos).split(" ").filter(k=>Object.hasOwn(m,k)).map(k=>[k,m[k]])));
+}
+router.get("/rastrear-cobro",async(req,res)=>{try{const monto=Number(req.query.montoMinor);if(!Number.isSafeInteger(monto)||monto<=0)return res.status(400).json({ok:false,error:"Importe inválido"});const Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal"),Cuenta=require("./models/cuentaFinanciera.model");const usuarioId=req.personalAuth.userId;const [cuentasPorCobrar,movimientos]=await Promise.all([Prestamo.find({usuarioId,direccion:"POR_COBRAR",principalMinor:monto}).select("_id concepto origenCuentaPorCobrar estado principalMinor saldoMinor updatedAt").lean(),movimientosDiagnosticoVigentes(usuarioId,{montoMinor:monto,incluirAnuladas:true,limite:100,orden:"createdAt",campos:"prestamoId tipo montoMinor fecha createdAt cuentaId estado categoria concepto"})]);const ids=[...new Set(movimientos.map(x=>String(x.cuentaId||"")).filter(x=>/^[0-9a-f]{24}$/i.test(x)))];const cuentas=await Cuenta.find({usuarioId,_id:{$in:ids}}).select("_id nombre saldoMinor").lean();const mapa=new Map(cuentas.map(x=>[String(x._id),{nombre:x.nombre,saldoMinor:x.saldoMinor}]));return res.json({ok:true,soloLectura:true,montoMinor:monto,cuentasPorCobrar,movimientos:movimientos.map(x=>({...x,cuentaDestino:mapa.get(String(x.cuentaId))||null})),advertencia:"La ausencia de coincidencias no autoriza crear un segundo cobro."});}catch(e){console.error("[FIN_PERSONAL_RASTREO]",e);return res.status(500).json({ok:false,error:"No se pudo completar el rastreo"});}});
+router.get("/diagnostico-cobro-importe",async(req,res)=>{try{const mongoose=require("mongoose"),Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal");const monto=Number(req.query.montoMinor);if(!Number.isSafeInteger(monto)||monto<1)return res.status(400).json({ok:false,error:"Importe inválido"});const usuarioId=req.personalAuth.userId;const [cuentas,movimientos]=await Promise.all([Prestamo.find({usuarioId,direccion:"POR_COBRAR",$or:[{principalMinor:monto},{saldoMinor:0}]}).sort({updatedAt:-1}).limit(100).select("_id contraparte concepto origenCuentaPorCobrar principalMinor saldoMinor estado updatedAt").lean(),movimientosDiagnosticoVigentes(usuarioId,{montoMinor:monto,tipos:["INGRESO","COBRO_PRESTAMO"],limite:100,campos:"prestamoId tipo montoMinor fecha contraparte cuentaId"})]);return res.json({ok:true,soloLectura:true,importeMinor:monto,cuentas,movimientos,nota:"La coincidencia por importe no prueba identidad; confirmar persona y cuenta antes de corregir."});}catch(e){return res.status(500).json({ok:false,error:"No fue posible auditar el importe"});}});
+router.get("/diagnostico-cobro-trabajo",async(req,res)=>{try{const Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal");const usuarioId=req.personalAuth.userId;const nombre=String(req.query.nombre||"").trim();const monto=Number(req.query.montoMinor);if(nombre.length<2||nombre.length>100||!Number.isSafeInteger(monto)||monto<=0)return res.status(400).json({ok:false,error:"Nombre e importe válidos requeridos"});const escaped=nombre.replace(/[.*+?^\${}()|[\]\\]/g,"\\$&");const cuentas=await Prestamo.find({usuarioId,direccion:"POR_COBRAR",contraparte:{$regex:escaped,$options:"i"},$or:[{principalMinor:monto},{saldoMinor:0}]}).sort({updatedAt:-1}).limit(20).lean();const ids=cuentas.map(x=>x._id);const tx=await movimientosDiagnosticoVigentes(usuarioId,{prestamoIds:ids,campos:"prestamoId tipo montoMinor fecha cuentaId"});return res.json({ok:true,soloLectura:true,casos:cuentas.map(x=>{const movimientos=tx.filter(t=>String(t.prestamoId)===String(x._id));const ingreso=movimientos.filter(t=>t.tipo==="INGRESO").reduce((n,t)=>n+t.montoMinor,0);return{prestamoId:x._id,contraparte:x.contraparte,origen:x.origenCuentaPorCobrar,estado:x.estado,principalMinor:x.principalMinor,saldoMinor:x.saldoMinor,ingresoRegistradoMinor:ingreso,movimientos:movimientos.map(t=>({tipo:t.tipo,montoMinor:t.montoMinor,fecha:t.fecha,cuentaId:t.cuentaId})),requiereRevision:x.saldoMinor===0&&ingreso<monto};})});}catch(e){console.error("[FIN_PERSONAL_DIAGNOSTICO_TRABAJO]",e);return res.status(500).json({ok:false,error:"No fue posible revisar el cobro"});}});
+router.get("/diagnostico-cobros",async(req,res)=>{try{const Prestamo=require("./models/prestamoPersonal.model"),Transaccion=require("./models/TransaccionPersonal");const usuarioId=req.personalAuth.userId;const cuentas=await Prestamo.find({usuarioId,direccion:"POR_COBRAR",origenCuentaPorCobrar:"TRABAJO"}).sort({updatedAt:-1}).limit(30).select("_id estado saldoMinor principalMinor concepto").lean();const ids=cuentas.map(x=>x._id);const movimientos=await movimientosDiagnosticoVigentes(usuarioId,{prestamoIds:ids,campos:"prestamoId tipo montoMinor fecha cuentaId"});return res.json({ok:true,soloLectura:true,cobros:cuentas.map(x=>({prestamoId:x._id,estado:x.estado,saldoPendienteMinor:x.saldoMinor,totalRegistradoMinor:movimientos.filter(m=>String(m.prestamoId)===String(x._id)).reduce((a,m)=>a+m.montoMinor,0),requiereRevision:x.estado==="PAGADO"&&movimientos.filter(m=>String(m.prestamoId)===String(x._id)&&m.tipo==="INGRESO").reduce((a,m)=>a+m.montoMinor,0)<x.principalMinor,movimientos:movimientos.filter(m=>String(m.prestamoId)===String(x._id)).map(m=>({tipo:m.tipo,montoMinor:m.montoMinor,fecha:m.fecha,cuentaId:m.cuentaId}))}))});}catch(e){return res.status(500).json({ok:false,error:"No fue posible verificar los cobros"});}});
 router.get("/diario",async(req,res)=>{try{const limit=Math.min(Number(req.query.limit)||100,500);return res.json({ok:true,dias:await service.diario(req.personalAuth.userId,{desde:req.query.desde,hasta:req.query.hasta,limit})});}catch(e){console.error("[FIN_PERSONAL_DIARIO]",e);return res.status(500).json({ok:false,error:"Error interno"});}});
 router.get("/resumen-periodo",async(req,res)=>{try{const desde=req.query.desde,hasta=req.query.hasta;if(!desde||!hasta)return res.status(400).json({ok:false,error:"desde y hasta son obligatorios"});return res.json({ok:true,resumen:await service.resumenPeriodo(req.personalAuth.userId,{desde,hasta})});}catch(e){console.error("[FIN_PERSONAL_PERIODO]",e);return res.status(500).json({ok:false,error:"Error interno"});}});
 const perfil=Joi.object({moneda:Joi.string().length(3),fondoEmergenciaObjetivoMeses:Joi.number().integer().min(1).max(24),ahorroObjetivoPct:Joi.number().min(0).max(100),saldoLiquido:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER)}).min(1);
 router.put("/perfil",validate(perfil),async(req,res)=>res.json({ok:true,perfil:await service.upsertPerfil(req.personalAuth.userId,req.validated)}));
-const activo=Joi.object({nombre:Joi.string().max(120).required(),tipo:Joi.string().valid("EFECTIVO","CUENTA","INVERSION","INMUEBLE","VEHICULO","OTRO").required(),valorActual:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),liquido:Joi.boolean().default(false),institucion:Joi.string().max(120).allow("").default("")});
-router.post("/activos",validate(activo),async(req,res)=>res.status(201).json({ok:true,activo:await service.registrarActivo(req.personalAuth.userId,req.validated)}));
-router.post("/activos/reconciliar-moto",async(req,res)=>{try{
- const ActivoPatrimonial=require("./models/ActivoPatrimonial"),Prestamo=require("./models/prestamoPersonal.model");
- const deuda=await Prestamo.findOne({usuarioId:req.personalAuth.userId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},concepto:/moto/i}).lean();
- if(!deuda)return res.status(404).json({ok:false,error:"No existe una deuda activa de moto para reconciliar"});
- const existente=await ActivoPatrimonial.findOne({usuarioId:req.personalAuth.userId,tipo:"VEHICULO",nombre:/moto/i});
- if(existente)return res.json({ok:true,activo:existente,reconciliado:false});
- const principal=Number(deuda.principalMinor||0);
- if(!Number.isSafeInteger(principal)||principal<=0)return res.status(409).json({ok:false,error:"La deuda no tiene principal válido para sustentar el valor registrado"});
- const activo=await ActivoPatrimonial.create({usuarioId:req.personalAuth.userId,nombre:"Moto",tipo:"VEHICULO",valorMinor:principal,moneda:"COP",liquido:false,institucion:"Valor registrado al costo de adquisición"});
- return res.status(201).json({ok:true,activo,reconciliado:true});
- }catch(e){console.error("[RECONCILIAR_MOTO]",e);return res.status(500).json({ok:false,error:"No fue posible reconciliar el activo"});}});
+const creacionActivo=require("./services/creacionActivoRecuperablePersonal.service");
+router.post("/activos",async(req,res)=>{try{const r=await service.registrarActivo(req.personalAuth.userId,req.body,{solicitudId:req.get("Idempotency-Key")});return res.status(r.duplicado?200:201).json({ok:true,...r});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se confirmó el activo; conserva la clave y consulta su recibo"});}});
+router.get("/activos/confirmacion-creacion/:solicitudId",async(req,res)=>{try{return res.json({ok:true,recibo:await creacionActivo.consultar(req.personalAuth.userId,req.params.solicitudId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el recibo del activo"});}});
+// Una deuda no acredita la propiedad, el costo de adquisición ni el valor actual de un bien.
+router.post("/activos/reconciliar-moto",async(req,res)=>res.status(422).json({ok:false,error:"No se puede deducir el valor de una moto a partir de una deuda. Revisa tus activos y declara el bien y su valor explícitamente en Agregar activo; no se modificó información."}));
 
-const inversion=Joi.object({nombre:Joi.string().max(140).required(),clase:Joi.string().valid("EFECTIVO_RENTABLE","RENTA_FIJA","RENTA_VARIABLE","FONDO","ETF","CRIPTO","INMOBILIARIA","OTRA").required(),capitalAportado:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),valorActual:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),moneda:Joi.string().length(3).default("COP"),liquidezDias:Joi.number().integer().min(0).allow(null),riesgoDeclarado:Joi.string().valid("BAJO","MEDIO","ALTO","NO_CLASIFICADO").default("NO_CLASIFICADO"),institucion:Joi.string().max(120).allow("").default("")});
-router.post("/inversiones",validate(inversion),async(req,res)=>res.status(201).json({ok:true,inversion:await service.registrarInversion(req.personalAuth.userId,req.validated)}));
+const creacionInversion=require("./services/creacionInversionRecuperablePersonal.service");
+router.post("/inversiones",async(req,res)=>{try{const r=await service.registrarInversion(req.personalAuth.userId,req.body,{solicitudId:req.get("Idempotency-Key")});return res.status(r.duplicado?200:201).json({ok:true,...r});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se confirmó la inversión; conserva la clave y consulta su recibo"});}});
+router.get("/inversiones/confirmacion-creacion/:solicitudId",async(req,res)=>{try{return res.json({ok:true,recibo:await creacionInversion.consultar(req.personalAuth.userId,req.params.solicitudId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el recibo de la inversión"});}});
 const perfilInv=Joi.object({horizonteMeses:Joi.number().integer().min(1).max(600).required(),toleranciaRiesgo:Joi.string().valid("CONSERVADOR","MODERADO","AGRESIVO").required(),necesidadLiquidez:Joi.string().valid("ALTA","MEDIA","BAJA").required(),objetivoPrincipal:Joi.string().valid("PRESERVAR","CRECER","INGRESO","META_ESPECIFICA").required()});
 router.put("/perfil-inversion",validate(perfilInv),async(req,res)=>res.json({ok:true,perfil:await service.upsertPerfilInversion(req.personalAuth.userId,req.validated)}));
-router.get("/patrimonio",async(req,res)=>res.json({ok:true,patrimonio:await service.patrimonio(req.personalAuth.userId)}));
-router.get("/plan-financiero",async(req,res)=>res.json({ok:true,plan:await service.planFinanciero(req.personalAuth.userId)}));
-const credito=Joi.object({nombre:Joi.string().max(100).required(),saldo:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),tasaMensualPct:Joi.number().min(0).max(100).required(),cuotaMensual:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).required(),mesesRestantes:Joi.number().integer().min(1).max(360).required()});
+router.get("/patrimonio",async(req,res)=>{try{return res.json({ok:true,patrimonio:await service.patrimonio(req.personalAuth.userId)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el patrimonio; revisa tus fuentes"});}});
+router.get("/plan-financiero",require("./services/resumenHttpPersonal.handler").crearConsultaDerivadaPersonal("plan",u=>service.planFinanciero(u)));
+const creditoLegacyRecuperable=require("./services/creditoLegacyRecuperablePersonal.service");
 router.get("/creditos",async(req,res)=>{
- try{const Credito=require("./models/credito.model");const creditos=await Credito.find({userId:req.personalAuth.userId,activo:true}).sort({createdAt:-1}).select("_id nombre saldo tasaMensualPct cuotaMensual mesesRestantes createdAt").lean();return res.json({ok:true,creditos});}
- catch(e){return res.status(500).json({ok:false,error:"No se pudieron consultar los créditos previos"});}
+ try{return res.json({ok:true,...await creditoLegacyRecuperable.listar(req.personalAuth.userId)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudieron consultar los créditos previos"});}
 });
-router.post("/creditos/:id/incorporar-a-deudas",async(req,res)=>{
- if(!/^[0-9a-f]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- const mongoose=require("mongoose"),crypto=require("crypto"),Credito=require("./models/credito.model"),Prestamo=require("./models/prestamoPersonal.model"),Outbox=require("./models/outboxPersonal.model");
- const session=await mongoose.startSession();
- try{
-  let resultado;
-  await session.withTransaction(async()=>{
-   const anterior=await Credito.findOne({_id:req.params.id,userId:req.personalAuth.userId,activo:true}).session(session);
-   if(!anterior)throw Object.assign(new Error("Crédito anterior no encontrado o ya incorporado"),{statusCode:404});
-   if(!Number.isSafeInteger(anterior.saldo)||anterior.saldo<=0||!Number.isSafeInteger(anterior.cuotaMensual)||anterior.cuotaMensual<0)throw Object.assign(new Error("Valores del crédito requieren revisión"),{statusCode:422});
-   const coincidente=await Prestamo.findOne({usuarioId:req.personalAuth.userId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},$or:[{legacyCreditoId:anterior._id},{concepto:anterior.nombre,principalMinor:anterior.saldo}]}).session(session);
-   if(coincidente)throw Object.assign(new Error("Existe una deuda coincidente. Revisa los registros antes de incorporar para evitar duplicarla."),{statusCode:409});
-   const [nuevo]=await Prestamo.create([{usuarioId:req.personalAuth.userId,legacyCreditoId:anterior._id,direccion:"POR_PAGAR",contraparte:"Acreedor por identificar",concepto:anterior.nombre,principalMinor:anterior.saldo,saldoMinor:anterior.saldo,tasaMensualPct:anterior.tasaMensualPct,tasaConfirmada:true,cuotaMinor:anterior.cuotaMensual,fechaInicio:anterior.createdAt||new Date(),fechaVencimiento:null,periodicidad:null,periodicidadConfirmada:false}],{session});
-   anterior.activo=false;await anterior.save({session});
-   await Outbox.create([{usuarioId:req.personalAuth.userId,eventId:crypto.randomUUID(),eventName:"PRESTAMO_PERSONAL_CORREGIDO",aggregateType:"PRESTAMO_PERSONAL",aggregateId:nuevo._id,payload:{accion:"INCORPORACION_CREDITO_ANTIGUO",creditoAnteriorId:String(anterior._id),prestamoId:String(nuevo._id),montoMinor:nuevo.saldoMinor}}],{session});
-   resultado={id:String(nuevo._id),saldoPendienteMinor:nuevo.saldoMinor};
-  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
-  return res.json({ok:true,resultado});
- }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible incorporar el crédito"});}
- finally{await session.endSession();}
-});
-router.delete("/creditos/:id",async(req,res)=>{
- if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- try{
-  const Credito=require("./models/credito.model");
-  const credito=await Credito.findOneAndUpdate({_id:req.params.id,userId:req.personalAuth.userId,activo:true},{$set:{activo:false}},{new:true});
-  if(!credito)return res.status(404).json({ok:false,error:"Crédito anterior no encontrado o ya retirado"});
-  return res.json({ok:true,retirado:true});
- }catch(e){return res.status(500).json({ok:false,error:"No se pudo retirar el crédito anterior"});}
-});
+for(const [metodo,ruta,accion] of [["post","/creditos/:id/incorporar-a-deudas","incorporar"],["delete","/creditos/:id","retirar"],["post","/creditos/:id/restaurar-retiro","restaurar"]]){
+ router[metodo](ruta,async(req,res)=>{
+  try{return res.json({ok:true,resultado:await creditoLegacyRecuperable[accion](req.personalAuth.userId,req.params.id,req.body)});}
+  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar la operación del crédito"});}
+ });
+}
 router.delete("/prestamos/:id",async(req,res)=>{
  if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- try{const resultado=await patrimonioPersonal.retirarDeudaVisible(req.personalAuth.userId,req.params.id);return res.json({ok:true,resultado});}
+ try{const resultado=await patrimonioPersonal.retirarDeudaVisible(req.personalAuth.userId,req.params.id,req.body);return res.json({ok:true,resultado});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible retirar la deuda"});}
 });
-router.post("/creditos",validate(credito),async(req,res)=>{
- try{
-  const d=req.validated;
-  if(!Number.isSafeInteger(d.saldo)||d.saldo<=0||!Number.isSafeInteger(d.cuotaMensual)||d.cuotaMensual<=0)return res.status(400).json({ok:false,error:"El saldo debe ser un entero positivo y la cuota un entero no negativo"});
-  const prestamo=await patrimonioPersonal.crearPrestamo(req.personalAuth.userId,{direccion:"POR_PAGAR",contraparte:"Acreedor no identificado",concepto:d.nombre,principalMinor:d.saldo,cuotaMinor:d.cuotaMensual,numeroCuotas:d.mesesRestantes,tasaMensualPct:d.tasaMensualPct,fechaInicio:new Date(),fechaVencimiento:null});
-  return res.status(201).json({ok:true,prestamo,registro:"DEUDA_CANONICA"});
- }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible registrar el crédito"});}
+router.post("/prestamos/:id/restaurar-retiro",async(req,res)=>{
+ try{const resultado=await require("./services/retiroDeudaPersonal.service").restaurar(req.personalAuth.userId,req.params.id,req.body);return res.json({ok:true,resultado});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible recuperar la deuda"});}
 });
-const meta=Joi.object({nombre:Joi.string().max(120).required(),objetivo:Joi.number().integer().positive().max(Number.MAX_SAFE_INTEGER).required(),acumulado:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),fechaObjetivo:Joi.date().iso().allow(null)});
-router.post("/metas",validate(meta),async(req,res)=>res.status(201).json({ok:true,meta:await service.crearMeta(req.personalAuth.userId,req.validated)}));
-router.get("/resumen",async(req,res)=>res.json({ok:true,resumen:await service.resumen(req.personalAuth.userId)}));router.get("/analisis",async(req,res)=>res.json({ok:true,analisis:await brain.analizar(req.personalAuth.userId)}));
+router.post("/creditos",async(req,res)=>{
+ try{const r=await require("./services/creacionPrestamoRecuperablePersonal.service").crearCredito(req.personalAuth.userId,req.get("Idempotency-Key"),req.body);return res.status(r.duplicado?200:201).json({ok:true,...r,registro:"DEUDA_CANONICA"});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar el crédito"});}
+});
+router.get("/creditos/confirmacion-creacion/:solicitudId",async(req,res)=>{
+ try{return res.json({ok:true,recibo:await require("./services/creacionPrestamoRecuperablePersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId,"/creditos")});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo del crédito"});}
+});
+router.get("/metas/revision-fuentes",require("./services/revisionFuentesMetaPersonal.handler").crear());
+router.get("/metas/recibos-ciclo/:solicitudId",require("./services/cicloMetaPersonal.handler").crear("RECIBO"));
+router.get("/metas/:id/historial",require("./services/cicloMetaPersonal.handler").crear("HISTORIAL"));
+router.post("/metas/:id/adoptar-legado",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("ADOPCION"));
+router.post("/metas/:id/corregir",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("CORRECCION"));
+router.post("/metas/:id/retirar",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("RETIRO"));
+router.post("/metas/:id/restaurar-retiro",limiteCalendarioIngreso,require("./services/cicloMetaPersonal.handler").crear("RESTAURACION"));
+router.get("/metas",require("./services/creacionMetaRecuperablePersonal.handler").crear("LISTAR"));
+router.get("/metas/confirmacion-creacion/:solicitudId",require("./services/creacionMetaRecuperablePersonal.handler").crear("RECIBO"));
+router.post("/metas",limiteCalendarioIngreso,require("./services/creacionMetaRecuperablePersonal.handler").crear("CREAR"));
+router.get("/resumen",require("./services/resumenHttpPersonal.handler").crearResumenHttpPersonal());router.get("/analisis",require("./services/resumenHttpPersonal.handler").crearConsultaDerivadaPersonal("analisis",u=>brain.analizar(u)));
 const simulacion=Joi.object({capital:Joi.number().positive().required(),tasaMensualPct:Joi.number().min(0).max(100).required(),meses:Joi.number().integer().min(1).max(600).required()});
-router.post("/creditos/simular",validate(simulacion),(req,res)=>res.json({ok:true,simulacion:service.simularCredito(req.validated)}));
-router.post("/creditos/evaluar",validate(simulacion),async(req,res)=>res.json({ok:true,evaluacion:await service.evaluarCredito(req.personalAuth.userId,req.validated)}));
+router.post("/creditos/simular",require("./services/simulacionCreditoExactaPersonal.service").crearHandler(service.simularCredito));
+router.post("/creditos/evaluar",validate(simulacion),require("./services/resumenHttpPersonal.handler").crearConsultaDerivadaPersonal("evaluacion",(u,req)=>service.evaluarCredito(u,req.validated)));
 const compromisosCuotas=require("./services/compromisosCuotas.service");
 const nuevoCompromisoSchema=Joi.object({
  concepto:Joi.string().trim().min(1).max(140).required(),
@@ -322,5 +392,5 @@ router.get("/compromisos-cuotas",async(req,res)=>{try{return res.json({ok:true,c
 router.post("/compromisos-cuotas",validate(nuevoCompromisoSchema),async(req,res)=>{try{return res.status(201).json({ok:true,compromiso:await compromisosCuotas.crear(req.personalAuth.userId,req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo crear compromiso"});}});
 const pagoCompromisoSchema=Joi.object({numero:Joi.number().integer().min(1).max(360).required(),cuentaId:Joi.string().hex().length(24).allow(null).default(null),modo:Joi.string().valid("CUENTA","HISTORICO").required(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
 router.post("/compromisos-cuotas/:id/pagar",validate(pagoCompromisoSchema),async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});try{return res.json({ok:true,resultado:await compromisosCuotas.pagar(req.personalAuth.userId,{compromisoId:req.params.id,...req.validated})});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo pagar cuota"});}});
-router.post("/compromisos-cuotas/:id/cuotas/:numero/deshacer",async(req,res)=>{if(!/^[a-f0-9]{24}$/i.test(req.params.id)||!/^[0-9]{1,3}$/.test(req.params.numero))return res.status(400).json({ok:false,error:"Identificador inválido"});try{return res.json({ok:true,resultado:await compromisosCuotas.deshacer(req.personalAuth.userId,{compromisoId:req.params.id,numero:Number(req.params.numero)})});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo revertir cuota"});}});
+router.post("/compromisos-cuotas/:id/cuotas/:numero/deshacer",require("./services/reversionCuotaCompromiso.handler").crearReversionCuota());
 module.exports=router;

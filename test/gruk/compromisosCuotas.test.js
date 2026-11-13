@@ -13,3 +13,11 @@ test("cuotas no pueden exceder monto ni superar 360",()=>{
 test("compra de 4500000 en 5 cuotas exactas",()=>{
  assert.deepEqual(importes(4500000,5),[900000,900000,900000,900000,900000]);
 });
+test("reparte el máximo importe seguro sin perder pesos en ninguna cuota",()=>{
+ for(const n of [1,2,3,7,359,360]){
+  const a=importes(Number.MAX_SAFE_INTEGER,n);
+  assert.equal(a.reduce((s,v)=>s+BigInt(v),0n),BigInt(Number.MAX_SAFE_INTEGER));
+  assert.ok(a.every(v=>Number.isSafeInteger(v)&&v>0));
+  assert.ok(Math.max(...a)-Math.min(...a)<=1);
+ }
+});

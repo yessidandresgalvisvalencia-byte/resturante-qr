@@ -1,5 +1,7 @@
 "use strict";
 const crypto=require("crypto");
+const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
+const {calcularFlujo}=require("./totalesFlujoCompensadoPersonal.service");
 const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
 const Outbox=require("../models/outboxPersonal.model");
@@ -7,6 +9,7 @@ const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
 const ReservaCuota=require("../models/reservaCuotaRecurrente.model");
 const {exigirIndiceIdempotencia}=require("./indiceIdempotenciaPersonal.service");
+const {indiceExacto}=require("../security/auditoriaIndicesMongoV81.service");
 const {confirmarIntento}=require("./confirmacionIntentoPersonal.service");
 const {filtroSaldoSeguro}=require("./limitesSaldoPersonal.service");
 const {validarFechaPagoVinculado,validarNoDuplicarOrigenHoy,periodoRecurrenteColombia,validarTotalPeriodoRecurrente}=require("./vinculoRecurrenteV81.service");
@@ -19,28 +22,42 @@ async function exigirIndiceUnicoReservaRecurrente(){
  let indices;
  try{indices=await ReservaCuota.collection.indexes();}
  catch(_){throw Object.assign(new Error("Índice único de cuotas recurrentes no disponible"),{statusCode:503});}
- const unico=indices.some(i=>i.unique===true&&i.key?.usuarioId===1&&
-  i.key?.origenId===1&&i.key?.periodoInicio===1&&Object.keys(i.key).length===3);
+ const unico=indiceExacto(indices,["usuarioId","origenId","periodoInicio"]);
  if(!unico)throw Object.assign(new Error("Índice único de cuotas recurrentes no configurado"),{statusCode:503});
 }
-async function confirmarRegistroIntento(usuarioId,input){
+async function confirmarRegistroIntento(usuarioId,input,{incluirConstancia=false}={}){
  if(typeof input.externalId!=="string"||!input.externalId.trim())
   throw Object.assign(new Error("externalId obligatorio para confirmar"),{statusCode:400});
- return confirmarIntento({
-  Transaccion,usuarioId,externalIdHash:hashExternalId(usuarioId,input.externalId),
-  esperado:input
- });
+ const session=await mongoose.startSession();
+ try{
+  let resultado;
+  await session.withTransaction(async()=>{
+   resultado=await confirmarIntento({
+    Transaccion,usuarioId,externalIdHash:hashExternalId(usuarioId,input.externalId),esperado:input,session,
+    ...(incluirConstancia?{emitirConstancia:estado=>require("./constanciaIntentoManual.service").crear({usuarioId,input,...estado})}:{}),
+    resolverEstado:async fuente=>{
+     const fecha=new Date(fuente.fecha);
+     const rows=await consultarPeriodo({usuarioId,desde:fecha.toISOString(),
+      hasta:new Date(+fecha+1).toISOString(),incluirAnuladas:true},{session});
+     return rows.find(row=>String(row._id)===String(fuente._id));
+    }
+   });
+  },{readConcern:{level:"snapshot"},readPreference:"primary"});
+  return resultado;
+ }finally{await session.endSession();}
 }
-async function registrarTransaccion(usuarioId,input){
+async function registrarTransaccion(usuarioId,input,{session:externa=null,idMovimiento=null}={}){
+ if(externa&&!externa.inTransaction?.())throw Object.assign(new Error("Registro requiere transacción externa activa"),{statusCode:503});
+ if(idMovimiento!==null&&(!externa||!mongoose.isObjectIdOrHexString(idMovimiento)))throw Object.assign(new Error("Identidad de registro externo inválida"),{statusCode:400});
  if(input.tipo==="GASTO"&&String(input.cuenta||"EFECTIVO").trim().toUpperCase()==="EFECTIVO"&&input.medioPago==="TRANSFERENCIA")input={...input,medioPago:"EFECTIVO"};
  if(!Number.isSafeInteger(input.montoMinor)||input.montoMinor<=0)throw Object.assign(new Error("montoMinor debe ser un entero positivo exacto"),{statusCode:400});if(input.externalId!==undefined&&input.externalId!==null&&!String(input.externalId).trim())throw Object.assign(new Error("externalId vacío no es válido"),{statusCode:400});
  if(input.externalId!==undefined&&input.externalId!==null)
   await exigirIndiceIdempotencia(Transaccion);
  if(input.recurrenteOrigenId!==undefined&&input.recurrenteOrigenId!==null)
   await exigirIndiceUnicoReservaRecurrente();
- if(input.tipo==="GASTO"&&input.medioPago==="CREDITO")throw Object.assign(new Error("Un gasto con tarjeta de crédito debe registrar también la obligación de la tarjeta; GRUK no lo descontará de caja como si fuera débito."),{statusCode:422});const session=await mongoose.startSession();let tx,outbox;
+ if(input.tipo==="GASTO"&&input.medioPago==="CREDITO")throw Object.assign(new Error("Un gasto con tarjeta de crédito debe registrar también la obligación de la tarjeta; GRUK no lo descontará de caja como si fuera débito."),{statusCode:422});const session=externa||await mongoose.startSession();let tx,outbox;
  try{
-  await session.withTransaction(async()=>{
+  const ejecutar=async()=>{
    const externalIdHash=hashExternalId(usuarioId,input.externalId);
    let recurrenteOrigenId=null;
    if(input.recurrenteOrigenId!==undefined&&input.recurrenteOrigenId!==null){
@@ -62,10 +79,8 @@ async function registrarTransaccion(usuarioId,input){
     // ese mismo ciclo aunque estén registrados otro día.
     if(origen.impactoCaja!==false&&new Date(origen.fecha)>=inicio&&new Date(origen.fecha)<fin)
      throw Object.assign(new Error("El primer período recurrente ya está asentado en caja"),{statusCode:409});
-    const abonosPrevios=await Transaccion.find({
-     usuarioId,tipo:"GASTO",recurrenteOrigenId:origen._id,
-     estado:{$ne:"ANULADA"},fecha:{$gte:inicio,$lt:fin}
-    }).select("montoMinor").session(session).lean();
+    const abonosPrevios=(await consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:fin.toISOString(),tipo:"GASTO"},{session}))
+     .filter(x=>String(x.recurrenteOrigenId)===String(origen._id));
     const pagado=abonosPrevios.reduce((total,x)=>{
      const siguiente=total+x.montoMinor;
      if(!Number.isSafeInteger(siguiente))throw new RangeError("Abonos recurrentes exceden rango seguro");
@@ -103,7 +118,7 @@ async function registrarTransaccion(usuarioId,input){
    if(!cuenta){
     [cuenta]=await Cuenta.create([{usuarioId,nombre:nombreCuenta,tipo:nombreCuenta.toUpperCase()==="EFECTIVO"?"EFECTIVO":"OTRA",institucion:"",moneda:"COP",saldoMinor:0,activa:true}],{session});
    }
-   [tx]=await Transaccion.create([{usuarioId,prestamoId,recurrenteOrigenId,cuentaId:cuenta._id,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",cuenta:input.cuenta||"EFECTIVO",medioPago:input.medioPago||"EFECTIVO",contraparte:input.contraparte||"",descripcion:input.descripcion||"",recurrente:Boolean(input.recurrente),frecuencia:input.frecuencia||"NINGUNA",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null}],{session});
+   [tx]=await Transaccion.create([{...(idMovimiento?{_id:idMovimiento}:{}),usuarioId,prestamoId,recurrenteOrigenId,cuentaId:cuenta._id,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",cuenta:input.cuenta||"EFECTIVO",medioPago:input.medioPago||"EFECTIVO",contraparte:input.contraparte||"",descripcion:input.descripcion||"",recurrente:Boolean(input.recurrente),frecuencia:input.frecuencia||"NINGUNA",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null}],{session});
    if(input.tipo==="PAGO_DEUDA"){const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).session(session);if(!p)throw Object.assign(new Error("Deuda no encontrada"),{statusCode:404});if(input.montoMinor>p.saldoMinor)throw Object.assign(new Error("El pago supera el saldo pendiente"),{statusCode:409});p.saldoMinor-=input.montoMinor;if(p.saldoMinor===0)p.estado="PAGADO";await p.save({session});}if(input.tipo==="COBRO_PRESTAMO"){const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]}}).session(session);if(!p)throw Object.assign(new Error("Cuenta por cobrar no encontrada"),{statusCode:404});if(input.montoMinor>p.saldoMinor)throw Object.assign(new Error("El cobro supera el saldo pendiente"),{statusCode:409});p.saldoMinor-=input.montoMinor;if(p.saldoMinor===0)p.estado="PAGADO";await p.save({session});}
    const eventId=crypto.randomUUID(),eventName=eventFor(input.tipo);
    [outbox]=await Outbox.create([{usuarioId,eventId,eventName,aggregateId:tx._id,payload:{transaccionId:tx._id.toString(),prestamoId:prestamoId?String(prestamoId):null,tipo:tx.tipo,montoMinor:tx.montoMinor,moneda:tx.moneda,categoria:tx.categoria,fecha:tx.fecha}}],{session});
@@ -119,9 +134,10 @@ async function registrarTransaccion(usuarioId,input){
      if(!pendiente)throw Object.assign(new Error("No se pudo reconciliar el efectivo"),{statusCode:409});
     }
    }
-  },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
- }finally{await session.endSession();}
- try{await publicarEvento(outbox);}catch(err){console.error("[FIN_PERSONAL_OUTBOX_POST_COMMIT]",err);}
+  };
+  if(externa)await ejecutar();else await session.withTransaction(ejecutar,{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
+ }finally{if(!externa)await session.endSession();}
+ if(!externa)try{await publicarEvento(outbox);}catch(err){console.error("[FIN_PERSONAL_OUTBOX_POST_COMMIT]",err);}
  return tx;
 }
 async function publicarEvento(outbox){
@@ -132,61 +148,13 @@ async function publicarEvento(outbox){
 async function republicarPendientes(limite=100){const expirado=new Date(Date.now()-5*60*1000);await Outbox.updateMany({estado:"PUBLICANDO",reclamadoEn:{$lte:expirado}},{$set:{estado:"ERROR",reclamadoEn:null,ultimoError:"Lease de publicación expirado; reintento seguro"}});const docs=await Outbox.find({estado:{$in:["PENDIENTE","ERROR"]}}).sort({createdAt:1}).limit(Math.min(limite,500));let publicados=0;for(const doc of docs){try{if(await publicarEvento(doc))publicados++;}catch(_){}}return publicados;}
 async function flujoPeriodo(usuarioId,{desde,hasta}){
  const inicio=new Date(desde),fin=new Date(hasta);if(Number.isNaN(inicio.getTime())||Number.isNaN(fin.getTime())||inicio>=fin)throw Object.assign(new Error("Periodo inválido"),{statusCode:400});
- const rows=await Transaccion.aggregate([{$match:{usuarioId:new mongoose.Types.ObjectId(usuarioId),estado:{$ne:"ANULADA"},moneda:"COP",fecha:{$gte:inicio,$lt:fin}}},{$group:{_id:"$tipo",total:{$sum:"$montoMinor"}}}]);
- const totals=Object.fromEntries(rows.map(x=>[x._id,x.total]));const ingresos=(totals.INGRESO||0)+(totals.PRESTAMO_RECIBIDO||0)+(totals.COBRO_PRESTAMO||0),gastos=(totals.GASTO||0)+(totals.PRESTAMO_OTORGADO||0),pagosDeuda=totals.PAGO_DEUDA||0;
- return{ingresosMinor:ingresos,gastosMinor:gastos,pagosDeudaMinor:pagosDeuda,flujoNetoMinor:ingresos-gastos-pagosDeuda,moneda:"COP"};
+ const rows=await consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:fin.toISOString()});
+ return calcularFlujo(rows,{incluirPrestamos:true});
 }
-async function corregirTransaccion(usuarioId,id,cambios){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const permitidos={};for(const k of ["tipo","montoMinor","concepto","categoria"])if(cambios[k]!==undefined)permitidos[k]=cambios[k];if(!Object.keys(permitidos).length)throw Object.assign(new Error("No hay cambios válidos"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{const anterior=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!anterior)throw Object.assign(new Error("Movimiento no disponible"),{statusCode:404});if(anterior.recurrenteOrigenId&&(
-  (permitidos.montoMinor!==undefined&&permitidos.montoMinor!==anterior.montoMinor)||
-  (permitidos.tipo!==undefined&&permitidos.tipo!==anterior.tipo)
- ))throw Object.assign(new Error("No se permite cambiar el importe o tipo de un abono recurrente vinculado; anúlalo y registra el correcto"),{statusCode:409});
- if(anterior.recurrente&&anterior.tipo==="GASTO"&&(
-   (permitidos.montoMinor!==undefined&&permitidos.montoMinor!==anterior.montoMinor)||
-   (permitidos.tipo!==undefined&&permitidos.tipo!==anterior.tipo)
- )){
-  const relacionados=await Transaccion.exists({usuarioId,recurrenteOrigenId:anterior._id,estado:{$ne:"ANULADA"}}).session(session);
-  if(relacionados)throw Object.assign(new Error("No se puede modificar el importe de una obligación con abonos vigentes"),{statusCode:409});
-  // Aun después de anular todos los abonos, las reservas conservan
-  // importeCuotaMinor. Cambiar el origen rompería ese invariante.
-  const reservaHistorica=await ReservaCuota.exists({usuarioId,origenId:anterior._id}).session(session);
-  if(reservaHistorica)throw Object.assign(new Error("No se puede modificar el importe o tipo de una obligación con reservas históricas; usa una obligación nueva"),{statusCode:409});
- }
- const signo=t=>t==="INGRESO"?1:-1,delta=(signo(permitidos.tipo||anterior.tipo)*(permitidos.montoMinor??anterior.montoMinor))-(signo(anterior.tipo)*anterior.montoMinor);if(delta){const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:anterior.cuenta,activa:true,...filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{returnDocument:"after",session});if(!cuenta)throw Object.assign(new Error("No se puede corregir: saldo insuficiente o cuenta no encontrada"),{statusCode:409});}const antes={tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria};Object.assign(anterior,permitidos);await anterior.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_CORREGIDO",aggregateId:anterior._id,payload:{transaccionId:String(anterior._id),antes,despues:{tipo:anterior.tipo,montoMinor:anterior.montoMinor,concepto:anterior.concepto,categoria:anterior.categoria}}}],{session});tx=anterior;},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
-async function anularTransaccion(usuarioId,id,motivo="Anulada por el usuario"){if(!mongoose.isValidObjectId(id))throw Object.assign(new Error("Identificador inválido"),{statusCode:400});const session=await mongoose.startSession();try{let tx;await session.withTransaction(async()=>{tx=await Transaccion.findOne({_id:id,usuarioId,tipo:{$in:["INGRESO","GASTO"]},estado:{$ne:"ANULADA"}}).session(session);if(!tx)throw Object.assign(new Error("Movimiento no disponible o ya eliminado"),{statusCode:404});if(tx.recurrente&&tx.tipo==="GASTO"){
-  const abonoActivo=await Transaccion.exists({usuarioId,recurrenteOrigenId:tx._id,estado:{$ne:"ANULADA"}}).session(session);
-  if(abonoActivo)throw Object.assign(new Error("No se puede anular la obligación mientras tenga abonos activos"),{statusCode:409});
- }
- if(tx.recurrenteOrigenId){
-  const origen=await Transaccion.findOne({_id:tx.recurrenteOrigenId,usuarioId,
-   tipo:"GASTO",recurrente:true}).select("fecha frecuencia montoMinor").session(session);
-  if(!origen)throw Object.assign(new Error("Obligación recurrente de este abono no encontrada"),{statusCode:409});
-  const {inicio,fin}=periodoRecurrenteColombia({
-   fechaOrigen:origen.fecha,fechaPago:tx.fecha,frecuencia:origen.frecuencia
-  });
-  const reserva=await ReservaCuota.findOneAndUpdate({
-   usuarioId,origenId:origen._id,periodoInicio:inicio,
-   reservadoMinor:{$gte:tx.montoMinor}
-  },{$inc:{reservadoMinor:-tx.montoMinor}},{returnDocument:"after",session});
-  if(!reserva)throw Object.assign(new Error("No se puede anular: reserva recurrente ausente o inconsistente"),{statusCode:409});
-  // El abono aún está activo en esta lectura; calcular el total antes de
-  // anularlo y comprobar que la reserva posterior coincide con ese reverso.
-  const periodo=await ReservaCuota.findOne({
-   usuarioId,origenId:origen._id,periodoInicio:inicio
-  }).select("periodoFin importeCuotaMinor").session(session).lean();
-  if(!periodo||new Date(periodo.periodoFin).getTime()!==fin.getTime()||
-     periodo.importeCuotaMinor!==origen.montoMinor)
-   throw Object.assign(new Error("Reserva recurrente con período o importe inconsistente"),{statusCode:409});
-  const vigentes=await Transaccion.find({
-   usuarioId,tipo:"GASTO",recurrenteOrigenId:origen._id,
-   estado:{$ne:"ANULADA"},fecha:{$gte:inicio,$lt:periodo.periodoFin}
-  }).select("montoMinor").session(session).lean();
-  const totalVigente=vigentes.reduce((n,p)=>{
-   const siguiente=n+p.montoMinor;
-   if(!Number.isSafeInteger(siguiente))throw new RangeError("Abonos recurrentes exceden rango seguro");
-   return siguiente;
-  },0);
-  if(BigInt(reserva.reservadoMinor)!==BigInt(totalVigente)-BigInt(tx.montoMinor))
-   throw Object.assign(new Error("No se puede anular: reserva recurrente desincronizada con ledger"),{statusCode:409});
- }
- const reverso=tx.tipo==="INGRESO"?-tx.montoMinor:tx.montoMinor;const cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,activa:true,...filtroSaldoSeguro(reverso)},{$inc:{saldoMinor:reverso}},{returnDocument:"after",session});if(!cuenta){const esEfectivo=String(tx.cuenta||"").trim().toUpperCase()==="EFECTIVO";if(!esEfectivo||reverso>=0)throw Object.assign(new Error("No se puede anular: cuenta no encontrada o saldo insuficiente. Revisa la cuenta y sus movimientos posteriores."),{statusCode:409});const pendiente=await Cuenta.findOneAndUpdate({usuarioId,nombre:tx.cuenta,tipo:"EFECTIVO",activa:true,...filtroSaldoSeguro(reverso,{permitirNegativo:true})},{$inc:{saldoMinor:reverso},$set:{requiereReconciliacion:true,origenSaldo:"NO_VERIFICADO",saldoVerificadoEn:null,saldoAnclaMinor:null,saldoAnclaEn:null}},{returnDocument:"after",session});if(!pendiente)throw Object.assign(new Error("No se puede anular: cuenta de efectivo no encontrada"),{statusCode:409});}tx.estado="ANULADA";tx.anuladaEn=new Date();tx.motivoAnulacion=String(motivo).slice(0,240);await tx.save({session});await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_ANULADO",aggregateId:tx._id,payload:{transaccionId:String(tx._id),tipo:tx.tipo,montoMinor:tx.montoMinor,motivo:tx.motivoAnulacion}}],{session});},{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return tx;}finally{await session.endSession();}}
+// Compatibilidad explícita: impedir que consumidores antiguos reescriban asientos.
+async function operacionHeredadaRetirada(){
+ throw Object.assign(new Error("La operación heredada fue retirada; utiliza la compensación con clave idempotente"),{statusCode:410});
+}
+const corregirTransaccion=operacionHeredadaRetirada;
+const anularTransaccion=operacionHeredadaRetirada;
 module.exports={registrarTransaccion,confirmarRegistroIntento,republicarPendientes,flujoPeriodo,anularTransaccion,corregirTransaccion};

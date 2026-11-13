@@ -18,7 +18,8 @@ test("todas las consultas históricas están acotadas y bloquean antes de concil
  const source=fs.readFileSync(path.join(__dirname,
   "../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service.js"),"utf8");
  const cortes=(source.match(/\.limit\(MAX_FILAS_CONCILIACION_V81\+1\)/g)||[]).length;
- assert.equal(cortes,4,"Las cuatro consultas find deben imponer límites, incluida propiedad de destinos");
+ assert.equal(cortes,3,"Las consultas auxiliares deben imponer límites, incluida propiedad de destinos");
+ assert.match(source,/consultarCaja\(usuarioId,\{session\}\)/);
  assert.match(source,/Vinculo\.aggregate\(crearPipelineVinculosPeriodoV81\(/);
  const controles=(source.match(/exigirResultadosAcotadosV81\((?:rows|vinculos|heredados|sinVinculo|resueltos|\[\.\.\.rows,\.\.\.heredados\])\)/g)||[]).length;
  assert.equal(controles,5,"Debe abortar si alguna fuente pierde registros");
@@ -65,11 +66,15 @@ test("todas las consultas de conciliación tienen presupuesto temporal y nunca u
  const {MAX_TIEMPO_CONSULTA_MONGO_V81_MS}=require(
   "../../modules/finanzas-personales/services/conciliacionHistoricoCuentaV81.service");
  assert.equal(MAX_TIEMPO_CONSULTA_MONGO_V81_MS,15000);
- assert.equal(source.split(".maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS)").length-1,5);
+ assert.equal(source.split(".maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS)").length-1,4);
  assert.match(source,/Cuenta\.findOne\([\s\S]*?\.session\(session\)\.maxTimeMS\(MAX_TIEMPO_CONSULTA_MONGO_V81_MS\)\.lean\(\)/);
  assert.equal(source.split(".option({maxTimeMS:MAX_TIEMPO_CONSULTA_MONGO_V81_MS})").length-1,1);
- assert.equal(source.split(".limit(MAX_FILAS_CONCILIACION_V81+1)").length-1,4);
+ assert.equal(source.split(".limit(MAX_FILAS_CONCILIACION_V81+1)").length-1,3);
  assert.ok(source.includes("{$limit:MAX_FILAS_CONCILIACION_V81+1}"));
+ const lector=fs.readFileSync(path.join(__dirname,"../../modules/finanzas-personales/services/consultaCompensadaPersonal.service.js"),"utf8");
+ assert.match(lector,/MAX_MOVIMIENTOS=5000,MAX_EVENTOS=10000/);
+ assert.match(lector,/\.limit\(MAX_MOVIMIENTOS\+1\)\.maxTimeMS\(5000\)/);
+ assert.match(lector,/\.limit\(MAX_EVENTOS\+1\)\.maxTimeMS\(5000\)/);
 });
 
 test("el período máximo admite año bisiesto y rechaza rangos excesivos antes de Mongo",()=>{

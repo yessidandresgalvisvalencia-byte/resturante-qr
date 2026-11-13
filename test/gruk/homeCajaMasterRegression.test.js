@@ -5,7 +5,11 @@ const src=fs.readFileSync(require.resolve("../../modules/finanzas-personales/ser
 test("nunca excluye gastos por nombre de producto",()=>assert.doesNotMatch(src,/\/moto\/i/));
 test("cuotas pendientes compensan solamente pagos de su misma deuda",()=>{
  assert.match(src,/pagosPorDeuda\.get\(String\(d\._id\)\)/);
- assert.match(src,/Math\.max\(0,cuotaDelPeriodo/);
+ const {saldoCuotaPendienteMinor}=require("../../modules/finanzas-personales/services/homePersonal.service");
+ // El saldo ya perdió el capital abonado; la última cuota no pierde el abono dos veces.
+ assert.equal(saldoCuotaPendienteMinor({saldoMinor:600,cuotaMinor:700},100),600);
+ assert.equal(saldoCuotaPendienteMinor({saldoMinor:1000,cuotaMinor:400},100),300);
+ assert.equal(saldoCuotaPendienteMinor({saldoMinor:0,cuotaMinor:700},700),0);
 });
 test("liquidez no conciliada no se presenta como saldo disponible",()=>{
  assert.match(src,/pat\.saldoVerificado\?pat\.liquidezMinor-cuotasPendientesMesMinor:null/);
@@ -292,6 +296,7 @@ test("préstamos y transferencias no admiten saldos desbordados en cuentas",()=>
  const crearPrestamo=fuente.slice(fuente.indexOf("async function crearPrestamo("),fuente.indexOf("async function cobrarCuentaPorCobrar("));
  const transferir=fuente.slice(fuente.indexOf("async function transferir("),fuente.indexOf("function sumaPatrimonialSegura("));
  assert.ok(crearPrestamo.includes("exigirSaldoCuentaSeguro(cuenta);"));
+ assert.ok(crearPrestamo.includes("exigirSaldoCuentaSeguro(cuentaOriginal);"));
  assert.ok(transferir.includes("exigirSaldoCuentaSeguro(origen);"));
  assert.ok(transferir.includes("exigirSaldoCuentaSeguro(destino);"));
 });

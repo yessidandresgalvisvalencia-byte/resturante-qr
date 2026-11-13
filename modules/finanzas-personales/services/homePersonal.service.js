@@ -1,13 +1,44 @@
 "use strict";
+const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
+const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const Prestamo=require("../models/prestamoPersonal.model");
 const DeudaPersonal=require("../models/DeudaPersonal");
 const {pagoExigible}=require("./tarjetaCreditoPersonal.service");
 const patrimonio=require("./patrimonioPersonal.service");
 const Calendario=require("../models/calendarioFinanciero.model");
 const truth=require("./financialTruth.service");
+const horizonteIngreso=require("./horizonteIngresoPersonal.service");
 const {maximoGastoHoyConGmf}=require("./dineroExactoV81.service");
 const {periodoRecurrenteColombia}=require("./vinculoRecurrenteV81.service");
+
+// Acumular sin redondeos intermedios y publicar solo enteros representables.
+function sumarImportesHome(importes){
+ let total=0n;
+ for(const n of importes){
+  if(!Number.isSafeInteger(n))throw new TypeError("Panel personal requiere importes enteros seguros");
+  total+=BigInt(n);
+ }
+ if(total>BigInt(Number.MAX_SAFE_INTEGER)||total<BigInt(Number.MIN_SAFE_INTEGER))
+  throw new RangeError("Panel personal excede el rango monetario seguro");
+ return Number(total);
+}
+function sumarMontosHome(rows,seleccionar=x=>x.montoMinor){
+ return sumarImportesHome(rows.map(x=>{
+  const n=seleccionar(x);
+  if(!Number.isSafeInteger(n)||n<0)throw new TypeError("Panel personal requiere montos no negativos seguros");
+  return n;
+ }));
+}
+
+// Ningún listado parcial puede autorizar gasto ni resumir obligaciones.
+async function leerListadoHome(consulta){
+ const rows=await consulta.limit(5001).maxTimeMS(5000).lean();
+ if(!Array.isArray(rows))throw new TypeError("Listado del panel personal inválido");
+ if(rows.length>5000)throw Object.assign(new Error("Panel personal excede el límite verificable"),
+  {statusCode:422,code:"LIMITE_LECTURA_PANEL_PERSONAL"});
+ return rows;
+}
 
 function partesColombia(d=new Date()){const p=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);const v=Object.fromEntries(p.map(x=>[x.type,x.value]));return{y:Number(v.year),m:Number(v.month),d:Number(v.day)};}
 function inicioDiaColombiaUTC(y,m,d){return new Date(Date.UTC(y,m-1,d,5,0,0,0));}
@@ -117,11 +148,29 @@ function montoPagoDeudaMinor(tx){
  if(!Number.isSafeInteger(monto)||monto<=0)throw new TypeError("Pago real inválido");
  return monto;
 }
+function sumarPagosPrestamoPeriodo(usuarioId,movimientos,ahora){
+ if(!mongoose.isObjectIdOrHexString(usuarioId)||!Array.isArray(movimientos)||movimientos.length>5000||!(ahora instanceof Date)||!Number.isFinite(+ahora))throw new TypeError("Pagos del período no verificables");
+ const inicio=monthStart(ahora),vistos=new Set(),sumas=new Map();
+ for(const t of movimientos){
+  if(t?.tipo!=="PAGO_DEUDA"||t.prestamoId==null)continue;
+  const fecha=require("./fechaPersonal.service").fechaVerificable(t.fecha);
+  if(!mongoose.isObjectIdOrHexString(t._id)||vistos.has(String(t._id))||String(t.usuarioId)!==String(usuarioId)||!mongoose.isObjectIdOrHexString(t.prestamoId)||t.estado!=="ACTIVA"||t.moneda!=="COP"||typeof t.impactoCaja!=="boolean"||!Number.isSafeInteger(t.montoMinor)||t.montoMinor<1||!fecha||+fecha<+inicio||+fecha>+ahora)throw new TypeError("Fuente de pago del período no verificable");
+  vistos.add(String(t._id));const id=String(t.prestamoId),total=(sumas.get(id)||0n)+BigInt(montoPagoDeudaMinor(t));
+  if(total>BigInt(Number.MAX_SAFE_INTEGER))throw Object.assign(new RangeError("Abonos de deuda fuera de rango"),{statusCode:422});
+  sumas.set(id,total);
+ }
+ return new Map([...sumas].map(([id,n])=>[id,Number(n)]));
+}
 function saldoCuotaPendienteMinor(deuda,abonadoMinor=0){
- const cuota=cuotaExigibleMinor(deuda);
  if(!Number.isSafeInteger(abonadoMinor)||abonadoMinor<0)
   throw new TypeError("Abono debe ser entero seguro no negativo");
- return Math.max(0,cuota-abonadoMinor);
+ const cuota=cuotaExigibleMinor(deuda);
+ if(cuota===0)return 0;
+ // saldoMinor ya refleja el capital abonado. Limitar ANTES de descontar
+ // el pago real lo aplicaría dos veces cuando queda la última cuota.
+ if(Number.isSafeInteger(deuda.cuotaMinor)&&deuda.cuotaMinor>0)
+  return Math.min(deuda.saldoMinor,Math.max(0,deuda.cuotaMinor-abonadoMinor));
+ return deuda.saldoMinor;
 }
 function seleccionarVencimientosAtrasados(deudas,now){
  if(!Array.isArray(deudas)||!(now instanceof Date)||Number.isNaN(now.getTime()))
@@ -132,6 +181,22 @@ function seleccionarVencimientosAtrasados(deudas,now){
   const fecha=new Date(d.fechaVencimiento);
   return !Number.isNaN(fecha.getTime())&&fecha<now;
  });
+}
+function diaPagoTarjetaValido(tarjeta){
+ return Number.isSafeInteger(tarjeta?.diaPago)&&tarjeta.diaPago>=1&&tarjeta.diaPago<=31;
+}
+function seleccionarObligacionesSinFecha(deudas,tarjetas=[]){
+ if(!Array.isArray(deudas)||!Array.isArray(tarjetas))throw new TypeError("Obligaciones requieren listados completos");
+ const fechaValida=valor=>(valor instanceof Date||typeof valor==="string"&&valor.trim()!=="")&&
+  Number.isFinite(new Date(valor).getTime());
+ return [
+  ...deudas.filter(d=>d&&d.direccion==="POR_PAGAR"&&["ACTIVO","VENCIDO"].includes(d.estado)&&
+   Number.isSafeInteger(d.saldoMinor)&&d.saldoMinor>0&&!fechaValida(d.fechaVencimiento))
+   .map(d=>({id:String(d._id),tipo:"PRESTAMO",concepto:d.concepto})),
+  ...tarjetas.filter(t=>t&&t.tipo==="TARJETA_CREDITO"&&t.activa===true&&
+   Number.isSafeInteger(t.saldoMinor)&&t.saldoMinor>0&&!diaPagoTarjetaValido(t))
+   .map(t=>({id:String(t._id),tipo:"TARJETA_CREDITO",concepto:"Pago tarjeta "+t.nombre}))
+ ];
 }
 function gastoAfectaCaja(tx){return Boolean(tx&&tx.tipo==="GASTO"&&tx.medioPago!=="CREDITO");}
 function resolverSaldoAsesor(pat){
@@ -170,59 +235,78 @@ function crearDecisionDisponibleHoy({disponibleHoyMinor,aptoParaDisponibleHoy,co
   requiereReconciliacion:!aptoParaDisponibleHoy
  });
 }
-function calcularFlujoMes({ingresosMinor=0,gastosMinor=0,pagosDeudaRegistradosMinor=0,cuotasVencenMesMinor=0}){for(const n of [ingresosMinor,gastosMinor,pagosDeudaRegistradosMinor,cuotasVencenMesMinor])if(!Number.isSafeInteger(n)||n<0)throw new TypeError("Los importes del flujo deben ser enteros seguros no negativos");const cuotasPendientesMesMinor=Math.max(0,cuotasVencenMesMinor-pagosDeudaRegistradosMinor);const flujoRealizadoMinor=ingresosMinor-gastosMinor-pagosDeudaRegistradosMinor;const flujoProyectadoMesMinor=flujoRealizadoMinor-cuotasPendientesMesMinor;if(!Number.isSafeInteger(flujoRealizadoMinor)||!Number.isSafeInteger(flujoProyectadoMesMinor))throw new RangeError("El flujo calculado excede el rango monetario seguro");return{cuotasPendientesMesMinor,flujoRealizadoMinor,flujoProyectadoMesMinor};}
+function calcularFlujoMes({ingresosMinor=0,gastosMinor=0,pagosDeudaRegistradosMinor=0,cuotasVencenMesMinor=0}){for(const n of [ingresosMinor,gastosMinor,pagosDeudaRegistradosMinor,cuotasVencenMesMinor])if(!Number.isSafeInteger(n)||n<0)throw new TypeError("Los importes del flujo deben ser enteros seguros no negativos");const cuotasPendientesMesMinor=Math.max(0,cuotasVencenMesMinor-pagosDeudaRegistradosMinor);const flujoRealizadoMinor=sumarImportesHome([ingresosMinor,-gastosMinor,-pagosDeudaRegistradosMinor]);const flujoProyectadoMesMinor=sumarImportesHome([flujoRealizadoMinor,-cuotasPendientesMesMinor]);if(!Number.isSafeInteger(flujoRealizadoMinor)||!Number.isSafeInteger(flujoProyectadoMesMinor))throw new RangeError("El flujo calculado excede el rango monetario seguro");return{cuotasPendientesMesMinor,flujoRealizadoMinor,flujoProyectadoMesMinor};}
 
+// Una sola vista MongoDB para caja, pagos, obligaciones, recurrencias y calendario.
+// Las operaciones de una sesión son secuenciales: el driver no admite paralelismo
+// dentro de una transacción. El resultado solo sale después de confirmar y cerrar.
 async function obtener(usuarioId,now=new Date()){
+ if(!mongoose.isObjectIdOrHexString(usuarioId))throw Object.assign(new TypeError("Usuario inválido"),{statusCode:400});
+ if(!(now instanceof Date)||!Number.isFinite(+now))throw Object.assign(new TypeError("Corte inválido"),{statusCode:400});
+ const corte=new Date(+now);
+ if(mongoose.connection.readyState!==1)throw Object.assign(new Error("Lectura del panel no disponible"),{statusCode:503});
+ const session=await mongoose.startSession();
+ try{
+  let resultado;
+  await session.withTransaction(async()=>{
+   resultado=await obtenerEnSesion(usuarioId,new Date(+corte),session);
+  },{readConcern:{level:"snapshot"},readPreference:"primary"});
+  return resultado;
+ }finally{await session.endSession();}
+}
+async function obtenerEnSesion(usuarioId,now,session){
+ if(!mongoose.isObjectIdOrHexString(usuarioId)||!(now instanceof Date)||!Number.isFinite(+now))throw Object.assign(new TypeError("Entrada de Home inválida"),{statusCode:400});
+ if(!session?.inTransaction())throw Object.assign(new Error("Panel requiere transacción activa"),{statusCode:503});
  const inicio=monthStart(now),fin=nextMonth(now);
- const [tx,deudas,tarjetas,pat,ingresosRecurrentes,calendariosIngreso,cobros]=await Promise.all([
-  Transaccion.find({usuarioId,fecha:{$gte:inicio,$lte:now},tipo:{$in:["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"]},estado:{$ne:"ANULADA"}}).lean(),
-  Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).sort({fechaVencimiento:1,createdAt:1}).lean(),
-  DeudaPersonal.find({usuarioId,tipo:"TARJETA_CREDITO",activa:true,saldoMinor:{$gt:0}}).lean(),
-  patrimonio.snapshot(usuarioId),
-  Transaccion.find({usuarioId,tipo:"INGRESO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).limit(100).lean(),
-  Calendario.find({usuarioId,tipo:"INGRESO",activo:true}).lean(),
-  Prestamo.find({usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).sort({fechaVencimiento:1}).lean()
- ]);
- const ingresosMinor=tx.filter(x=>x.tipo==="INGRESO").reduce((s,x)=>s+x.montoMinor,0);
- const cobrosRecibidosMinor=tx.filter(x=>x.tipo==="COBRO_PRESTAMO").reduce((s,x)=>s+x.montoMinor,0);
- const gastosConsumoMinor=tx.filter(x=>x.tipo==="GASTO").reduce((s,x)=>s+x.montoMinor,0);
- const gastosMinor=tx.filter(gastoAfectaCaja).reduce((s,x)=>s+x.montoMinor,0);
- const pagosDeudaRegistradosMinor=tx.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false).reduce((s,x)=>s+montoPagoDeudaMinor(x),0);
- const deudaTotalMinor=deudas.reduce((s,x)=>s+x.saldoMinor,0);
- const cuotasVencenMesMinor=deudas.reduce((s,x)=>s+cuotaDelPeriodo(x,inicio,fin),0);
+ const tx=(await consultarPeriodo({usuarioId,desde:inicio.toISOString(),hasta:new Date(+now+1).toISOString()},{session})).filter(x=>["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"].includes(x.tipo));
+ const deudas=await leerListadoHome(Prestamo.find({usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).sort({fechaVencimiento:1,createdAt:1}).session(session));
+ const tarjetas=await leerListadoHome(DeudaPersonal.find({usuarioId,tipo:"TARJETA_CREDITO",activa:true,saldoMinor:{$gt:0}}).session(session));
+ const pat=await patrimonio.snapshotEnSesion(usuarioId,session);
+ const calendariosLegados=await leerListadoHome(Calendario.find({usuarioId,tipo:"INGRESO",activo:true}).session(session));
+ const calendarioGestionado=await require("./calendarioIngresoPersonal.service").leerEnSesion(usuarioId,session);
+ const calendariosIngreso=require("./calendarioIngresoPersonal.service").combinarLegados(calendariosLegados,calendarioGestionado);
+ const cobros=await leerListadoHome(Prestamo.find({usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gt:0}}).sort({fechaVencimiento:1}).session(session));
+ const ingresosMinor=sumarMontosHome(tx.filter(x=>x.tipo==="INGRESO"));
+ const cobrosRecibidosMinor=sumarMontosHome(tx.filter(x=>x.tipo==="COBRO_PRESTAMO"));
+ const gastosConsumoMinor=sumarMontosHome(tx.filter(x=>x.tipo==="GASTO"));
+ const gastosMinor=sumarMontosHome(tx.filter(gastoAfectaCaja));
+ const pagosDeudaRegistradosMinor=sumarMontosHome(tx.filter(x=>x.tipo==="PAGO_DEUDA"&&x.impactoCaja!==false),montoPagoDeudaMinor);
+ const deudaTotalMinor=sumarMontosHome(deudas,x=>x.saldoMinor);
+ const cuotasVencenMesMinor=sumarMontosHome(deudas,x=>cuotaDelPeriodo(x,inicio,fin));
  // Una cuota ya pagada en el ledger no puede descontarse otra vez como compromiso.
- const pagosPorDeuda=new Map();
- for(const t of tx){
-  if(t.tipo!=="PAGO_DEUDA"||!t.prestamoId)continue;
-  const id=String(t.prestamoId);
-  pagosPorDeuda.set(id,(pagosPorDeuda.get(id)||0)+montoPagoDeudaMinor(t));
- }
- const cuotasPendientesMesMinor=deudas.reduce((total,d)=>total+Math.max(0,cuotaDelPeriodo(d,inicio,fin)-(pagosPorDeuda.get(String(d._id))||0)),0);
- const flujoOperativoMinor=ingresosMinor-gastosMinor-pagosDeudaRegistradosMinor;
- const flujoOperativoProyectadoMinor=flujoOperativoMinor-cuotasPendientesMesMinor;
- const flujoRealizadoMinor=flujoOperativoMinor+cobrosRecibidosMinor;
- const balancePeriodoMinor=ingresosMinor-gastosConsumoMinor;
- const gastosSinSalidaCajaMinor=gastosConsumoMinor-gastosMinor;
- const diferenciaBalanceFlujoMinor=gastosSinSalidaCajaMinor-pagosDeudaRegistradosMinor+cobrosRecibidosMinor;
+ const fuentesPagosCiclo=await consultarPeriodo({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:new Date(+now+1).toISOString()},{session});
+ const imputaciones=await require("./imputacionPagoPersonal.service").leerEnSesion(usuarioId,deudas,session);
+ const {pagosPorDeuda,pendientes:pagosPrestamoSinImputar}=require("./cicloPagoPrestamoPersonal.service").resolver(usuarioId,fuentesPagosCiclo,deudas,now,imputaciones);
+ const cuotasPendientesMesMinor=sumarMontosHome(deudas,d=>cuotaDelPeriodo(d,inicio,fin)>0?saldoCuotaPendienteMinor(d,pagosPorDeuda.get(String(d._id))||0):0);
+ const flujoOperativoMinor=sumarImportesHome([ingresosMinor,-gastosMinor,-pagosDeudaRegistradosMinor]);
+ const flujoOperativoProyectadoMinor=sumarImportesHome([flujoOperativoMinor,-cuotasPendientesMesMinor]);
+ const flujoRealizadoMinor=sumarImportesHome([flujoOperativoMinor,cobrosRecibidosMinor]);
+ const balancePeriodoMinor=sumarImportesHome([ingresosMinor,-gastosConsumoMinor]);
+ const gastosSinSalidaCajaMinor=sumarImportesHome([gastosConsumoMinor,-gastosMinor]);
+ const diferenciaBalanceFlujoMinor=sumarImportesHome([gastosSinSalidaCajaMinor,-pagosDeudaRegistradosMinor,cobrosRecibidosMinor]);
  if(balancePeriodoMinor+diferenciaBalanceFlujoMinor!==flujoRealizadoMinor)throw new Error("Conciliación de balance y flujo inconsistente");
- const flujoProyectadoMesMinor=flujoOperativoProyectadoMinor+cobrosRecibidosMinor;
- const calendarioProximos=calendariosIngreso.map(x=>{const p=partesColombia(now);let y=p.y,m=p.m,d=Math.min(x.diaMes,diasEnMesUTC(y,m));let fecha=fechaCivilColombia(y,m,d);if(fecha<=now){m++;if(m>12){m=1;y++;}d=Math.min(x.diaMes,diasEnMesUTC(y,m));fecha=fechaCivilColombia(y,m,d);}return{tx:{montoMinor:x.montoMinor,concepto:x.concepto},fecha};});
- const proximosIngresos=(calendarioProximos.length?calendarioProximos:ingresosRecurrentes.map(x=>({tx:x,fecha:siguienteFechaRecurrente(x,now)}))).filter(x=>x.fecha).sort((a,b)=>a.fecha-b.fecha);
- const proximoIngreso=proximosIngresos[0]||null;
+ const flujoProyectadoMesMinor=sumarImportesHome([flujoOperativoProyectadoMinor,cobrosRecibidosMinor]);
+ // Referencias se validan en esta misma instantánea; nunca se copia su importe.
+ const idsIngreso=[...new Set(calendariosIngreso.filter(x=>mongoose.isObjectIdOrHexString(x.sourceId)).map(x=>String(x.sourceId)))];
+ const referenciasIngreso=idsIngreso.length?await leerListadoHome(Transaccion.find({usuarioId,_id:{$in:idsIngreso}}).session(session)):[];
+ const horizonte=horizonteIngreso.resolver({usuarioId,calendarios:calendariosIngreso,referencias:referenciasIngreso,ahora:now});
+ const proximoIngreso=horizonte.proximoIngreso?{fecha:horizonte.proximoIngreso.fecha,tx:horizonte.proximoIngreso}:null;
  const limiteCompromisos=proximoIngreso?proximoIngreso.fecha:fin;
  const pHoy=partesColombia(now);
  const vencimientoTarjeta=t=>{let y=pHoy.y,m=pHoy.m,d=Math.min(Number(t.diaPago),diasEnMesUTC(y,m));let fecha=fechaCivilColombia(y,m,d);if(fecha<now){m++;if(m>12){m=1;y++;}fecha=fechaCivilColombia(y,m,Math.min(Number(t.diaPago),diasEnMesUTC(y,m)));}return fecha;};
- const compromisosTarjeta=tarjetas.map(t=>({concepto:"Pago tarjeta "+t.nombre,montoMinor:pagoExigible(t),fecha:vencimientoTarjeta(t),deudaId:String(t._id)})).filter(x=>x.montoMinor>0);
+ const obligacionesSinFecha=seleccionarObligacionesSinFecha(deudas,tarjetas);
+ // Una tarjeta sin día válido no recibe un vencimiento inferido por Date.
+ const compromisosTarjeta=tarjetas.filter(diaPagoTarjetaValido).map(t=>({tipo:"TARJETA_CREDITO",concepto:"Pago tarjeta "+t.nombre,montoMinor:pagoExigible(t),fecha:vencimientoTarjeta(t),deudaId:String(t._id)})).filter(x=>x.montoMinor>0);
  // Un abono parcial NO cancela automáticamente el compromiso restante.
  const pagoAplicado=d=>pagosPorDeuda.get(String(d._id))||0;
- const compromisosAntesIngreso=deudas.filter(d=>d.fechaVencimiento&&new Date(d.fechaVencimiento)>=now&&new Date(d.fechaVencimiento)<limiteCompromisos).map(d=>({concepto:d.concepto,montoMinor:saldoCuotaPendienteMinor(d,pagoAplicado(d)),fecha:d.fechaVencimiento})); for(let i=compromisosAntesIngreso.length-1;i>=0;i--)if(compromisosAntesIngreso[i].montoMinor<=0)compromisosAntesIngreso.splice(i,1); compromisosAntesIngreso.push(...compromisosTarjeta.filter(x=>x.fecha>=now&&x.fecha<limiteCompromisos));
+ const compromisosAntesIngreso=deudas.filter(d=>d.fechaVencimiento&&new Date(d.fechaVencimiento)>=now&&new Date(d.fechaVencimiento)<limiteCompromisos).map(d=>({tipo:"PRESTAMO",deudaId:String(d._id),concepto:d.concepto,montoMinor:saldoCuotaPendienteMinor(d,pagoAplicado(d)),fecha:d.fechaVencimiento})); for(let i=compromisosAntesIngreso.length-1;i>=0;i--)if(compromisosAntesIngreso[i].montoMinor<=0)compromisosAntesIngreso.splice(i,1); compromisosAntesIngreso.push(...compromisosTarjeta.filter(x=>x.fecha>=now&&x.fecha<limiteCompromisos));
  const cuotasSinDefinir=deudas.filter(d=>d.fechaVencimiento&&
   new Date(d.fechaVencimiento)>=now&&new Date(d.fechaVencimiento)<limiteCompromisos&&
   d.saldoMinor>0&&cuotaExigibleMinor(d)===0);
  // Vencimientos anteriores siguen requiriendo verificación; no se presumen pagados.
  // No volver a descontar automáticamente una deuda histórica sin conciliar pagos.
  const vencimientosAtrasados=seleccionarVencimientosAtrasados(deudas,now);
- const gastosFijosRecurrentes=await Transaccion.find({usuarioId,tipo:"GASTO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).limit(100).lean();
+ const gastosFijosRecurrentes=await leerListadoHome(Transaccion.find({usuarioId,tipo:"GASTO",recurrente:true,frecuencia:{$ne:"NINGUNA"},estado:{$ne:"ANULADA"},fecha:{$lte:now}}).sort({fecha:-1}).session(session));
  for(const g of gastosFijosRecurrentes){const fecha=siguienteFechaRecurrente({...g,tipo:"INGRESO"},now);if(fecha&&fecha<limiteCompromisos)compromisosAntesIngreso.push({concepto:g.concepto,montoMinor:g.montoMinor,fecha});}
  // Conciliar el mismo ciclo definido por el validador de escritura, no solo
  // la fecha de hoy: un abono ayer también puede cubrir la cuota de hoy.
@@ -231,25 +315,24 @@ async function obtener(usuarioId,now=new Date()){
   gasto:g,...periodoRecurrenteColombia({fechaOrigen:g.fecha,fechaPago:now,frecuencia:g.frecuencia})
  }));
  const desde=periodosHoy.length?new Date(Math.min(...periodosHoy.map(x=>x.inicio.getTime()))):null;
- const pagosVinculados=desde?await Transaccion.find({
-  usuarioId,tipo:"GASTO",recurrenteOrigenId:{$in:vencenHoy.map(x=>x._id)},
-  estado:{$ne:"ANULADA"},impactoCaja:{$ne:false},
-  fecha:{$gte:desde,$lte:now}
- }).select("recurrenteOrigenId montoMinor fecha").lean():[];
+ const origenesHoy=new Set(vencenHoy.map(x=>String(x._id)));
+ const pagosVinculados=desde?(await consultarPeriodo({usuarioId,desde:desde.toISOString(),
+  hasta:new Date(+now+1).toISOString(),tipo:"GASTO"},{session})).filter(x=>
+   origenesHoy.has(String(x.recurrenteOrigenId))&&x.impactoCaja!==false):[];
  const gastosRecurrentesHoySinConciliar=periodosHoy.filter(({gasto,inicio,fin})=>{
   const total=sumarAbonosRecurrentesPeriodo({
    origenId:gasto._id,inicio,fin,pagos:pagosVinculados
   });
   return gastoRecurrenteHoySinConfirmacion(gasto,now,total);
  }).map(x=>x.gasto);
- const gastosFijosAntesProximoIngresoMinor=compromisosAntesIngreso.reduce((s,x)=>s+x.montoMinor,0);
+ const gastosFijosAntesProximoIngresoMinor=sumarMontosHome(compromisosAntesIngreso);
  const saldoEstado=resolverSaldoAsesor(pat);
  const saldoAsesorMinor=saldoEstado.montoMinor;
  const {colchonMinor,baseMinor:disponibleBaseMinor,disponibleHoyMinor,estaEnRojo}=calcularDisponibleHoy({saldoMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor});
  const {gastoMaximoSiGravadoMinor,reservaGmfSiGravadoMinor}=calcularEscenarioGmfGravado({
   saldoMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor
  });
- const aptoParaDisponibleHoy=saldoEstado.confiabilidad==="VERIFICADO"&&!saldoEstado.requiereReconciliacion&&cuotasSinDefinir.length===0&&vencimientosAtrasados.length===0&&gastosRecurrentesHoySinConciliar.length===0;
+ const aptoParaDisponibleHoy=pagosPrestamoSinImputar.length===0&&horizonte.conocido&&saldoEstado.confiabilidad==="VERIFICADO"&&!saldoEstado.requiereReconciliacion&&obligacionesSinFecha.length===0&&cuotasSinDefinir.length===0&&vencimientosAtrasados.length===0&&gastosRecurrentesHoySinConciliar.length===0;
  const disponibleDespuesCompromisosMinor=pat.saldoVerificado?pat.liquidezMinor-cuotasPendientesMesMinor:null;
  const proxima=deudas.find(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=now&&saldoCuotaPendienteMinor(x,pagoAplicado(x))>0)||null;
  const fmt=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(Math.round(Number(n||0)));
@@ -268,12 +351,12 @@ async function obtener(usuarioId,now=new Date()){
    accion:!aptoParaDisponibleHoy?"Concilia primero el saldo real."
     :"Verifica con tu entidad financiera si tu movimiento paga GMF antes de decidir cuánto gastar."
   },
-  disponibleHoy:{titulo:aptoParaDisponibleHoy?"Puedes gastar hoy":"Disponible Hoy pendiente de conciliación",calculo:aptoParaDisponibleHoy?fmt(saldoAsesorMinor)+" − "+fmt(gastosFijosAntesProximoIngresoMinor)+" − "+fmt(colchonMinor)+" = "+fmt(disponibleBaseMinor):"Sin saldo conciliado no se autoriza un monto para gastar",origen:{saldoRealMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor,colchonMinor,proximoIngreso:proximoIngreso?{fecha:proximoIngreso.fecha,montoMinor:proximoIngreso.tx.montoMinor,concepto:proximoIngreso.tx.concepto}:null,compromisosAntesIngreso},significado:!aptoParaDisponibleHoy?"No hay autorización de gasto: concilia saldo y confirma cuotas pendientes.":estaEnRojo?"Estás en rojo: después de separar compromisos y el colchón no queda dinero disponible para gasto libre.":"Este es el máximo registrado que puedes gastar hoy sin tocar compromisos ni el colchón del 10%.",accion:!aptoParaDisponibleHoy?"Confirma el saldo real y las cuotas pendientes antes de gastar.":estaEnRojo?"Hoy no aumentes gasto discrecional.":"No superes "+fmt(disponibleHoyMinor)+" entre gasto e impuestos; revisa la simulación del 4×1.000 si el movimiento está gravado."},
+  disponibleHoy:{titulo:aptoParaDisponibleHoy?"Puedes gastar hoy":"Disponible Hoy pendiente de conciliación",calculo:aptoParaDisponibleHoy?fmt(saldoAsesorMinor)+" − "+fmt(gastosFijosAntesProximoIngresoMinor)+" − "+fmt(colchonMinor)+" = "+fmt(disponibleBaseMinor):"Faltan saldo, obligaciones u horizonte de ingreso verificados; no se autoriza un monto para gastar",origen:{saldoRealMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor,colchonMinor,proximoIngreso:proximoIngreso?{fecha:proximoIngreso.fecha,montoMinor:proximoIngreso.tx.montoMinor,concepto:proximoIngreso.tx.concepto}:null,compromisosAntesIngreso},significado:!aptoParaDisponibleHoy?"No hay autorización de gasto: confirma saldo, cuotas y próximo ingreso previsto.":estaEnRojo?"Estás en rojo: después de separar compromisos y el colchón no queda dinero disponible para gasto libre.":"Este es el máximo registrado que puedes gastar hoy sin tocar compromisos ni el colchón del 10%.",accion:!aptoParaDisponibleHoy?"Confirma saldo, cuotas y fecha e importe del próximo ingreso antes de gastar.":estaEnRojo?"Hoy no aumentes gasto discrecional.":"No superes "+fmt(disponibleHoyMinor)+" entre gasto e impuestos; revisa la simulación del 4×1.000 si el movimiento está gravado."},
   disponible:{titulo:"Disponible después de compromisos",calculo:pat.saldoVerificado?fmt(pat.liquidezMinor)+" − "+fmt(cuotasPendientesMesMinor)+" = "+fmt(disponibleDespuesCompromisosMinor):"Liquidez no verificada: no puede calcularse un disponible confiable",origen:{liquidezMinor:pat.liquidezMinor,compromisosMinor:cuotasPendientesMesMinor},significado:!pat.saldoVerificado?"No se ha conciliado el saldo de caja. Esta cifra no debe utilizarse para tomar decisiones.":disponibleDespuesCompromisosMinor<0?"No significa que debas este valor hoy. Significa que la liquidez registrada no alcanza para cubrir los compromisos pendientes del mes.":"La liquidez registrada alcanza para cubrir los compromisos pendientes del mes.",accion:!pat.saldoVerificado?"Verifica el saldo de tus cuentas y los compromisos antes de gastar.":disponibleDespuesCompromisosMinor<0?"Necesitas aumentar liquidez o reducir/reprogramar compromisos por "+fmt(Math.abs(disponibleDespuesCompromisosMinor))+".":"Mantén reservado el dinero comprometido."},
   comprometido:{titulo:"Comprometido este mes",calculo:deudasDetalle.filter(x=>x.fechaVencimiento&&new Date(x.fechaVencimiento)>=inicio&&new Date(x.fechaVencimiento)<fin).map(x=>x.concepto+" "+fmt(cuotaExigibleMinor(x))).join(" + ")||fmt(0),origen:{compromisos:deudasDetalle},significado:"Son cuotas pendientes con vencimiento dentro del mes; no es el saldo total de tus deudas.",accion:"Reserva "+fmt(cuotasPendientesMesMinor)+" para los vencimientos del mes."},
   flujoRealizado:{titulo:"Flujo realizado",calculo:fmt(ingresosMinor)+" − "+fmt(gastosMinor)+" − "+fmt(pagosDeudaRegistradosMinor)+" = "+fmt(flujoRealizadoMinor),origen:{ingresosMinor,gastosMinor,pagosDeudaRegistradosMinor},significado:flujoRealizadoMinor>=0?"Hasta ahora has generado "+fmt(flujoRealizadoMinor)+" más de lo que ha salido de tu flujo registrado.":"Hasta ahora las salidas registradas superan los ingresos en "+fmt(Math.abs(flujoRealizadoMinor))+".",accion:"Este indicador describe lo ocurrido; no descuenta cuotas futuras."},
   flujoProyectado:{titulo:"Flujo proyectado del mes",calculo:fmt(flujoRealizadoMinor)+" − "+fmt(cuotasPendientesMesMinor)+" = "+fmt(flujoProyectadoMesMinor),origen:{flujoRealizadoMinor,cuotasPendientesMesMinor},significado:flujoProyectadoMesMinor<0?"No significa que hayas perdido "+fmt(Math.abs(flujoProyectadoMesMinor))+". Al reservar los compromisos pendientes, el mes quedaría proyectado en negativo.":"Después de reservar los compromisos pendientes, el flujo proyectado permanece no negativo.",accion:flujoProyectadoMesMinor<0?"Para terminar el mes en $0 necesitas generar "+fmt(Math.abs(flujoProyectadoMesMinor))+" adicionales o reducir/reprogramar compromisos por ese valor.":"No hay brecha proyectada con los datos registrados."},
-  patrimonio:{titulo:"Patrimonio neto registrado",calculo:fmt(pat.activosTotalesMinor)+" + "+fmt(pat.cuentasPorCobrarMinor)+" − "+fmt(pat.pasivosMinor)+" = "+fmt(pat.patrimonioFinancieroNetoMinor),origen:{activos:activosDetalle,cuentasPorCobrarMinor:pat.cuentasPorCobrarMinor,deudas:deudasDetalle},significado:"Es el valor neto registrado de activos y derechos menos deudas. No es dinero disponible para gastar.",accion:"Actualiza valores de activos cuando cambien para mantener el patrimonio preciso."},
+  patrimonio:{titulo:"Patrimonio neto registrado",calculo:fmt(pat.activosTotalesMinor)+" + "+fmt(pat.cuentasPorCobrarMinor)+" − "+fmt(pat.pasivosMinor)+" = "+fmt(pat.patrimonioFinancieroNetoMinor),origen:{activos:activosDetalle,inversiones:pat.inversiones||[],criterioInversiones:pat.criterioInversiones||"Sin inversiones en la fuente consultada",cuentasPorCobrarMinor:pat.cuentasPorCobrarMinor,deudas:deudasDetalle},significado:"Es el valor neto registrado de activos y derechos menos deudas. No es dinero disponible para gastar.",accion:"Actualiza valores de activos cuando cambien para mantener el patrimonio preciso."},
   deuda:{titulo:"Deuda registrada",calculo:deudasDetalle.map(x=>x.concepto+" "+fmt(x.saldoMinor)).join(" + ")+" = "+fmt(deudaTotalMinor),origen:{deudas:deudasDetalle},significado:"Es el saldo pendiente total. GRUK solo lleva al flujo mensual las cuotas que vencen en el mes, no toda la deuda.",accion:"Cumple las cuotas según sus vencimientos; el saldo total permanece en patrimonio hasta ser pagado."}
  };
  const decisiones=[];
@@ -297,7 +380,14 @@ async function obtener(usuarioId,now=new Date()){
  if(pat.saldoVerificado&&disponibleDespuesCompromisosMinor<0)decisiones.unshift({tipo:"CAJA",prioridad:"CRITICA",titulo:"Caja insuficiente para compromisos registrados",detalle:"La liquidez registrada no cubre las cuotas pendientes que vencen este mes.",montoMinor:Math.abs(disponibleDespuesCompromisosMinor),accion:"PROTEGER_CAJA"});
  else if(cuotasPendientesMesMinor>0)decisiones.push({tipo:"CAJA",prioridad:"MEDIA",titulo:"Dinero comprometido este mes",detalle:"Esta cifra corresponde solo a cuotas pendientes con vencimiento dentro del mes, no al saldo total de tus deudas.",montoMinor:cuotasPendientesMesMinor,accion:"RESERVAR"});
  if(flujoProyectadoMesMinor<0)decisiones.unshift({tipo:"FLUJO",prioridad:"CRITICA",titulo:"El flujo proyectado del mes es negativo",detalle:"Ingresos del mes menos gastos registrados, pagos de deuda ya realizados y cuotas pendientes que vencen este mes. El saldo total de la deuda no se descuenta del flujo mensual.",montoMinor:flujoProyectadoMesMinor,accion:"REVISAR_FLUJO"});
+ if(obligacionesSinFecha.length>0)decisiones.unshift({
+  tipo:"OBLIGACION",prioridad:"ALTA",titulo:"Fecha de pago pendiente de confirmar",
+  detalle:"Hay obligaciones con saldo pendiente sin fecha de pago válida. Confirma cuándo vencen antes de usar Disponible Hoy; no se presupone que estén pagadas ni se inventa una fecha.",
+  montoMinor:null,accion:"CONFIRMAR_FECHA_PAGO"
+ });
+ if(!horizonte.conocido)decisiones.unshift({tipo:"INGRESO",prioridad:"ALTA",titulo:"Próximo ingreso pendiente de confirmar",detalle:"Confirma fecha e importe previstos. Si vence hoy, no se presume recibido ni se salta al siguiente mes; un ingreso histórico no confirma el próximo.",montoMinor:null,accion:"CONFIRMAR_PROXIMO_INGRESO"});
+ if(pagosPrestamoSinImputar.length)decisiones.unshift({tipo:"OBLIGACION",prioridad:"ALTA",titulo:"Pagos sin ciclo de cuota verificado",detalle:"Los pagos y sus originales se conservan. No se usan para reducir otra cuota ni se deben registrar otra vez; revisa su vencimiento e imputación.",montoMinor:null,accion:"REVISAR_CICLO_PAGO"});
  const verdadFinanciera={saldo:saldoEstado.confiabilidad==="VERIFICADO"?truth.hecho({montoMinor:saldoAsesorMinor,fuente:saldoEstado.fuente,corte:now,confianza:"VERIFICADO"}):truth.inferencia({montoMinor:saldoAsesorMinor,fuente:saldoEstado.fuente,corte:now,confianza:saldoEstado.conocido?"MEDIA":"NO_VERIFICADO",requiereReconciliacion:true}),flujoMes:truth.hecho({montoMinor:flujoRealizadoMinor,fuente:"LEDGER_PERSONAL",corte:now,confianza:"ALTA"}),flujoProyectado:truth.proyeccion({montoMinor:flujoProyectadoMesMinor,fuente:"LEDGER_MAS_COMPROMISOS",corte:now,confianza:saldoEstado.conocido?"MEDIA":"BAJA"}),disponibleHoy:crearDecisionDisponibleHoy({disponibleHoyMinor,aptoParaDisponibleHoy,corte:now})};
- return{corte:now,moneda:"COP",verdadFinanciera,asesor:{gastosRecurrentesHoySinConciliar:gastosRecurrentesHoySinConciliar.map(g=>({id:String(g._id),concepto:g.concepto,montoMinor:g.montoMinor})),vencimientosAtrasados:vencimientosAtrasados.map(d=>({id:String(d._id),concepto:d.concepto,fecha:d.fechaVencimiento})),cuotasSinDefinir:cuotasSinDefinir.map(d=>({id:String(d._id),concepto:d.concepto,fecha:d.fechaVencimiento})),disponibleHoyMinor:aptoParaDisponibleHoy?disponibleHoyMinor:null,gastoMaximoSiGravadoMinor:aptoParaDisponibleHoy?gastoMaximoSiGravadoMinor:null,reservaGmfSiGravadoMinor:aptoParaDisponibleHoy?reservaGmfSiGravadoMinor:null,escenarioGmf:"SIMULACION_GRAVADO_NO_VERIFICADO",aptoParaDisponibleHoy,colchonMinor,estaEnRojo:aptoParaDisponibleHoy?estaEnRojo:null,formula:"saldo_real - gastos_fijos_antes_proximo_ingreso - colchon_10pct",saldoRealMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor,proximoIngreso:proximoIngreso?{fecha:proximoIngreso.fecha,montoMinor:proximoIngreso.tx.montoMinor,concepto:proximoIngreso.tx.concepto}:null,proximoIngresoConocido:Boolean(proximoIngreso),compromisosAntesProximoIngreso:compromisosAntesIngreso,saldoRealConocido:saldoEstado.conocido,saldoRequiereReconciliacion:saldoEstado.requiereReconciliacion,saldoDerivadoLedger:saldoEstado.confiabilidad==="RECONSTRUIDO_SIN_ANCLA",saldoConfiabilidad:saldoEstado.confiabilidad,fuenteSaldo:saldoEstado.fuente,fuentesSaldo:(pat.cuentas||[]).map(x=>({nombre:x.nombre,saldoMinor:x.saldoMinor}))},mes:{balancePeriodoMinor,diferenciaBalanceFlujoMinor,gastosSinSalidaCajaMinor,conciliacionBalanceFlujo:{balancePeriodoMinor,gastosSinSalidaCajaMinor,pagosDeudaRegistradosMinor,cobrosRecibidosMinor,flujoRealizadoMinor,diferenciaBalanceFlujoMinor},ingresosMinor,cobrosCuentasPorCobrarMinor:cobrosRecibidosMinor,gastosMinor,gastosConsumoMinor,pagosDeudaRegistradosMinor,cuotasPendientesMesMinor,flujoRealizadoMinor,flujoMinor:flujoProyectadoMesMinor},caja:{saldoLiquidoMinor:pat.liquidezMinor,comprometidoMinor:cuotasPendientesMesMinor,disponibleDespuesCompromisosMinor,liquidezConciliada:Boolean(pat.saldoVerificado)},patrimonio:{netoMinor:pat.patrimonioFinancieroNetoMinor,deudaTotalMinor:pat.pasivosMinor,liquidezMinor:pat.liquidezMinor,cuentasPorCobrarMinor:pat.cuentasPorCobrarMinor},proximaObligacion:proxima?{id:proxima._id,concepto:proxima.concepto,montoMinor:saldoCuotaPendienteMinor(proxima,pagoAplicado(proxima)),fecha:proxima.fechaVencimiento}:null,decisiones:decisiones.slice(0,5),explicaciones,fuente:"ledger_personal_canonico"};
+ return{corte:now,moneda:"COP",verdadFinanciera,asesor:{pagosPrestamoSinImputar,obligacionesSinFecha,gastosRecurrentesHoySinConciliar:gastosRecurrentesHoySinConciliar.map(g=>({id:String(g._id),concepto:g.concepto,montoMinor:g.montoMinor})),vencimientosAtrasados:vencimientosAtrasados.map(d=>({id:String(d._id),concepto:d.concepto,fecha:d.fechaVencimiento})),cuotasSinDefinir:cuotasSinDefinir.map(d=>({id:String(d._id),concepto:d.concepto,fecha:d.fechaVencimiento})),disponibleHoyMinor:aptoParaDisponibleHoy?disponibleHoyMinor:null,gastoMaximoSiGravadoMinor:aptoParaDisponibleHoy?gastoMaximoSiGravadoMinor:null,reservaGmfSiGravadoMinor:aptoParaDisponibleHoy?reservaGmfSiGravadoMinor:null,escenarioGmf:"SIMULACION_GRAVADO_NO_VERIFICADO",aptoParaDisponibleHoy,colchonMinor,estaEnRojo:aptoParaDisponibleHoy?estaEnRojo:null,formula:"saldo_real - gastos_fijos_antes_proximo_ingreso - colchon_10pct",saldoRealMinor:saldoAsesorMinor,gastosFijosAntesProximoIngresoMinor,proximoIngreso:proximoIngreso?{fecha:proximoIngreso.fecha,montoMinor:proximoIngreso.tx.montoMinor,concepto:proximoIngreso.tx.concepto}:null,proximoIngresoConocido:horizonte.conocido,ingresosPendientes:horizonte.pendientes,horizonteIngreso:{fuente:"CALENDARIO_EXPLICITO",garantizado:false,calendarioIds:horizonte.proximoIngreso?.calendarioIds||[]},compromisosAntesProximoIngreso:compromisosAntesIngreso,saldoRealConocido:saldoEstado.conocido,saldoRequiereReconciliacion:saldoEstado.requiereReconciliacion,saldoDerivadoLedger:saldoEstado.confiabilidad==="RECONSTRUIDO_SIN_ANCLA",saldoConfiabilidad:saldoEstado.confiabilidad,fuenteSaldo:saldoEstado.fuente,fuentesSaldo:(pat.cuentas||[]).map(x=>({nombre:x.nombre,saldoMinor:x.saldoMinor}))},mes:{balancePeriodoMinor,diferenciaBalanceFlujoMinor,gastosSinSalidaCajaMinor,conciliacionBalanceFlujo:{balancePeriodoMinor,gastosSinSalidaCajaMinor,pagosDeudaRegistradosMinor,cobrosRecibidosMinor,flujoRealizadoMinor,diferenciaBalanceFlujoMinor},ingresosMinor,cobrosCuentasPorCobrarMinor:cobrosRecibidosMinor,gastosMinor,gastosConsumoMinor,pagosDeudaRegistradosMinor,cuotasPendientesMesMinor,flujoRealizadoMinor,flujoMinor:flujoProyectadoMesMinor},caja:{saldoLiquidoMinor:pat.liquidezMinor,comprometidoMinor:cuotasPendientesMesMinor,disponibleDespuesCompromisosMinor,liquidezConciliada:Boolean(pat.saldoVerificado)},patrimonio:{netoMinor:pat.patrimonioFinancieroNetoMinor,deudaTotalMinor:pat.pasivosMinor,liquidezMinor:pat.liquidezMinor,cuentasPorCobrarMinor:pat.cuentasPorCobrarMinor},proximaObligacion:proxima?{id:proxima._id,concepto:proxima.concepto,montoMinor:saldoCuotaPendienteMinor(proxima,pagoAplicado(proxima)),fecha:proxima.fechaVencimiento}:null,decisiones:decisiones.slice(0,5),explicaciones,fuente:"ledger_personal_canonico"};
 }
-module.exports={obtener,sumarAbonosRecurrentesPeriodo,gastoRecurrenteVenceHoy,gastoRecurrenteHoySinConfirmacion,seleccionarVencimientosAtrasados,saldoCuotaPendienteMinor,montoPagoDeudaMinor,cuotaDelPeriodo,gastoAfectaCaja,resolverSaldoAsesor,cuotaExigibleMinor,calcularDisponibleHoy,calcularEscenarioGmfGravado,crearDecisionDisponibleHoy,calcularFlujoMes,_fechas:{partesColombia,monthStart,nextMonth,fechaCivilColombia,siguienteFechaRecurrente}};
+module.exports={sumarPagosPrestamoPeriodo,obtener,obtenerEnSesion,seleccionarObligacionesSinFecha,leerListadoHome,sumarImportesHome,sumarMontosHome,sumarAbonosRecurrentesPeriodo,gastoRecurrenteVenceHoy,gastoRecurrenteHoySinConfirmacion,seleccionarVencimientosAtrasados,saldoCuotaPendienteMinor,montoPagoDeudaMinor,cuotaDelPeriodo,gastoAfectaCaja,resolverSaldoAsesor,cuotaExigibleMinor,calcularDisponibleHoy,calcularEscenarioGmfGravado,crearDecisionDisponibleHoy,calcularFlujoMes,_fechas:{partesColombia,monthStart,nextMonth,fechaCivilColombia,siguienteFechaRecurrente}};

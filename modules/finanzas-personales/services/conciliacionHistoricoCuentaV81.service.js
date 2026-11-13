@@ -1,5 +1,6 @@
 "use strict";
 const mongoose=require("mongoose");
+const {consultarCaja}=require("./consultaCompensadaPersonal.service");
 const Transaccion=require("../models/TransaccionPersonal");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Vinculo=require("../models/vinculoHistoricoV81.model");
@@ -122,8 +123,9 @@ async function conciliarHistoricoCuentaV81({usuarioId,cuentaId,desde,hastaExclus
   return await session.withTransaction(async()=>{
    const cuenta=await Cuenta.findOne({_id:new mongoose.Types.ObjectId(cuentaId),usuarioId:new mongoose.Types.ObjectId(usuarioId),activa:true,moneda:"COP"}).session(session).maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS).lean();
    if(!cuenta)throw Object.assign(new Error("Cuenta no autorizada o inexistente"),{statusCode:404});
-   const rows=await Transaccion.find({usuarioId:new mongoose.Types.ObjectId(usuarioId),cuentaId:new mongoose.Types.ObjectId(cuentaId),moneda:"COP",estado:{$ne:"ANULADA"},fecha:{$gte:start,$lt:end}})
-    .session(session).sort({_id:1}).limit(MAX_FILAS_CONCILIACION_V81+1).maxTimeMS(MAX_TIEMPO_CONSULTA_MONGO_V81_MS).lean();
+   const rows=(await consultarCaja(usuarioId,{session})).filter(row=>
+    String(row.cuentaId)===String(cuentaId)&&row.moneda==="COP"&&row.estado!=="ANULADA"&&
+    row.fecha>=start&&row.fecha<end);
    exigirResultadosAcotadosV81(rows);
    // Filtrar por fecha antes de limitar: un usuario puede tener más de
    // 25.000 vínculos históricos de otros meses sin afectar este período.
