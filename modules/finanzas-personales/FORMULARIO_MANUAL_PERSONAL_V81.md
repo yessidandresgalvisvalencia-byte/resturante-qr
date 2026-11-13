@@ -66,3 +66,9 @@ La espera anterior comprobaba únicamente visibilidad de #choosePersonal despué
 Revalidación dirigida del formulario y carga401 de sesión: resultado registrado abajo al publicar. Próximo SHA debe verificar nuevamente los tres workflows; no hereda CI verde del código anterior. El historial Git y #389 identifican el SHA corrector exacto. No hay merge ni Render; se mantienen los bloqueos externos descritos.
 
 Dirigidas tras ajuste17/17, cero fallos/omisiones; sintaxis del runner aprobada.
+
+## Resolución comprobada del fallo de CI
+
+Corrector `56305f946e7d373e89f2e75fd7bb076688d46e78`, árbol `b18d8a8497293dfc98e95d6d30563b43546255a4`. Los tres workflows aprobaron ese SHA: [Gate43348609889](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43348609889), [Seguridad43348609873](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43348609873) y [V8143348609861](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43348609861); ocho jobs V81 success. [Job131633901894](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43348609861/job/131633901894): Mongo81/81 y navegador/backend15/15, cero fallos/omisiones/cancelaciones. Se observaron completos FP_MANUAL_EN_VUELO y FP_FORMULARIO_MANUAL, incluido el nuevo guard de navegación/manejador y conservación de cuerpo, fuente única y borrador posterior sin POST financiero adicional.
+
+El fallo del documental bfb7b271 permanece registrado y no se presenta como aprobado. El ajuste del ensayo no altera lógica financiera ni relaja gates, tiempos o aislamiento. Este cierre solo añade evidencia; su SHA final y tres CI exactas se registran en #389 y su historial Git. El siguiente paso sigue siendo contrastar la matriz de aceptación final contra el HEAD; no declarar cumplimiento global mientras falten los requisitos externos de #407. Sin integración a feature ni despliegue Render.
