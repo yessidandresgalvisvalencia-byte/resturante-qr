@@ -7,6 +7,10 @@ const MAX_CENTS = BigInt(Number.MAX_SAFE_INTEGER);
 const MAX_INVOICE_LINES = 10000;
 
 function assertQuantity(quantity) {
+  // Reject oversized untrusted input before the regular expression scans it.
+  if (typeof quantity === 'string' && quantity.length > 16) {
+    throw new RangeError('Quantity exceeds safe integer bound');
+  }
   if (typeof quantity !== 'string' || !/^(?:0|[1-9]\d*)$/.test(quantity)) {
     throw new TypeError('Quantity must be a canonical nonnegative integer string');
   }
