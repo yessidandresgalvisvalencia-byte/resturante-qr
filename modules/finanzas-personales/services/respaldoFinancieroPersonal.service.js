@@ -13,7 +13,7 @@ const problema=m=>Object.assign(new Error(m),{code:"RESPALDO_PERSONAL_RECHAZADO"
 const sha=b=>crypto.createHash("sha256").update(b).digest("hex");
 function claveValida(clave){if(!Buffer.isBuffer(clave)||clave.length!==32)throw problema("Clave independiente de 32 bytes requerida");}
 function validarContenido(p){
- const alcance=p?.version===1?COLECCIONES.slice(0,12):p?.version===2?COLECCIONES.slice(0,13):p?.version===3?COLECCIONES.slice(0,15):p?.version===4?COLECCIONES.slice(0,16):p?.version===5?COLECCIONES.slice(0,18):p?.version===6?COLECCIONES.slice(0,19):p?.version===7?COLECCIONES.slice(0,20):p?.version===8?COLECCIONES.slice(0,21):p?.version===9?COLECCIONES.slice(0,22):p?.version===10?COLECCIONES.slice(0,24):p?.version===11?COLECCIONES.slice(0,27):p?.version===12?COLECCIONES.slice(0,28):p?.version===13?COLECCIONES.slice(0,29):p?.version===14?COLECCIONES.slice(0,30):p?.version===15?COLECCIONES.slice(0,33):p?.version===16?COLECCIONES.slice(0,34):p?.version===17?COLECCIONES.slice(0,37):p?.version===18?COLECCIONES.slice(0,38):p?.version===19?COLECCIONES.slice(0,39):p?.version===20?COLECCIONES.slice(0,40):p?.version===21?COLECCIONES.slice(0,42):[22,23].includes(p?.version)?COLECCIONES:[];
+ const alcance=p?.version===1?COLECCIONES.slice(0,12):p?.version===2?COLECCIONES.slice(0,13):p?.version===3?COLECCIONES.slice(0,15):p?.version===4?COLECCIONES.slice(0,16):p?.version===5?COLECCIONES.slice(0,18):p?.version===6?COLECCIONES.slice(0,19):p?.version===7?COLECCIONES.slice(0,20):p?.version===8?COLECCIONES.slice(0,21):p?.version===9?COLECCIONES.slice(0,22):p?.version===10?COLECCIONES.slice(0,24):p?.version===11?COLECCIONES.slice(0,27):p?.version===12?COLECCIONES.slice(0,28):p?.version===13?COLECCIONES.slice(0,29):p?.version===14?COLECCIONES.slice(0,30):p?.version===15?COLECCIONES.slice(0,33):p?.version===16?COLECCIONES.slice(0,34):p?.version===17?COLECCIONES.slice(0,37):p?.version===18?COLECCIONES.slice(0,38):p?.version===19?COLECCIONES.slice(0,39):p?.version===20?COLECCIONES.slice(0,40):p?.version===21?COLECCIONES.slice(0,42):[22,23,24].includes(p?.version)?COLECCIONES:[];
  if(!alcance.length||!Array.isArray(p.colecciones)||p.colecciones.length!==alcance.length||
   new Set(p.colecciones.map(c=>c.nombre)).size!==alcance.length||
   !iso(p.inicio)||!iso(p.fin)||Date.parse(p.fin)<Date.parse(p.inicio)||
@@ -94,7 +94,7 @@ async function crearRespaldo({cliente,base,clave,retenerHasta}){
  if(antes!==await catalogo(db))throw problema("El catálogo cambió durante la captura");
  for(const nombre of COLECCIONES)if(JSON.stringify(indices[nombre])!==JSON.stringify(indicesNormales(await db.collection(nombre).listIndexes({maxTimeMS:5000}).toArray())))
   throw problema("Los índices cambiaron durante la captura");
- const fin=new Date(),payload={version:23,inicio:inicio.toISOString(),fin:fin.toISOString(),retenerHasta,colecciones};
+ const fin=new Date(),payload={version:24,inicio:inicio.toISOString(),fin:fin.toISOString(),retenerHasta,colecciones};
  const archivo=cifrar(payload,clave);
  return {archivo,resumen:{sha256:sha(archivo),colecciones:colecciones.length,documentos:colecciones.reduce((n,c)=>n+c.documentos.length,0),
   bytes:archivo.length,capturaMs:Math.ceil(performance.now()-t),retenerHasta,certificaCustodiaIndependiente:false}};

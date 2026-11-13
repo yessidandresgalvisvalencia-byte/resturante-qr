@@ -112,6 +112,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("calendario por eventos con HTTP autenticado conserva fuentes y recuperación concurrente",()=>require("./helpers/calendarioIngresoAutorizado").probarCalendarioIngreso(db,provisionarMongoPersonal));
   await t.test("horizonte explícito de ingreso protege hoy, históricos, compras y snapshot sin escribir",()=>require("./helpers/horizonteIngresoAutorizado").probarHorizonteIngreso(db));
   await t.test("master y proyección exacta comparten snapshot y no autorizan desde desconocidos",()=>require("./helpers/masterProyeccionAutorizada").probarMasterProyeccion(db));
+  await t.test("contexto de metas HTTP captura peer minimizado, rota clave y no expone secretos",()=>require("./helpers/contextoAuditoriaMetaAutorizado").probarContexto(db));
   await t.test("adopción explícita de metas antiguas conserva originales, estado, caja y límites",()=>require("./helpers/adopcionMetaAutorizada").probarAdopcion(db));
   await t.test("ciclo de metas por eventos conserva fuente, caja, cursor, carreras y recuperación",()=>require("./helpers/cicloMetaAutorizado").probarCicloMeta(db,provisionarMongoPersonal));
   await t.test("metas declaradas conservan fuente, recibo, aislamiento y caja con rol restringido",()=>require("./helpers/creacionMetaAutorizada").probarMeta(db,provisionarMongoPersonal));
