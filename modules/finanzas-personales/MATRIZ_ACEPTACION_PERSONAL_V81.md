@@ -1,6 +1,6 @@
 # Matriz de aceptación y prioridad — revisión r90
 
-Corte: revisión del 13 de noviembre de 2026, código `4219fdadc9334aceefdaa2d094ec4a80277e6183`, lote base `059067a4fe79e58c06374d9b5214ad7e092b6622`. PR389 abierto; base personal `652126a03f19fbec3c529cad1e84bff11cd3699e`. No es certificación ni autorización de despliegue. La evidencia histórica y sus límites permanecen en CONTINUIDAD_V81.md y documentos enlazados; verificar siempre CI del HEAD actual. “Verificado en ensayo” significa solo el alcance de pruebas descrito, no producción ni todos los casos posibles.
+Corte: revisión del 13 de noviembre de 2026, código `1625eddb5b43ac8cbdbab9d66fa52fa926d80e55`, lote base `059067a4fe79e58c06374d9b5214ad7e092b6622`. PR389 abierto; base personal `652126a03f19fbec3c529cad1e84bff11cd3699e`. No es certificación ni autorización de despliegue. La evidencia histórica y sus límites permanecen en CONTINUIDAD_V81.md y documentos enlazados; verificar siempre CI del HEAD actual. “Verificado en ensayo” significa solo el alcance de pruebas descrito, no producción ni todos los casos posibles.
 
 | Área solicitada | Evidencia disponible | Brecha/estado de aceptación |
 | --- | --- | --- |
@@ -42,3 +42,7 @@ Código673a75654b4ac0a034979f1876742cd841760a5b, árbol557bc146de0de8ddbd7ce6452
 
 ## r90 — alta de metas declaradas
 Alta explícita, listado propio, recibo vinculante y recuperación de respuesta implementados en integración; no reservan caja ni generan ingresos. Original y recibo protegidos, respaldoV21/42 compatibleV20/40. METAS_DECLARADAS_PERSONAL_V81.md contiene contrato, aceptación y límites. CI del SHA nuevo pendiente antes de marcar verificado. Ciclo de metas por eventos y criterios externos #407 siguen pendientes. Sin autorización Render.
+
+
+## Verificación r90
+Código1625eddb5b43ac8cbdbab9d66fa52fa926d80e55/árbol231a8347592c3230c9877122e67c4f8223fa3518: Gate43380325869/Seguridad43380325786/V8143380325830 success; job131736344812 Mongo83/83 y navegador/backend18/18, sin fallos/omisiones/cancelaciones. Alta/listado/recibo de metas declaradas verificados en su alcance; recuperación de respuesta, originales, aislamiento, rollback, concurrencia, permisos y caja intacta. Respaldo sintético42colecciones/6136documentos/4090994bytes, captura251ms/restauración1063ms/edad1251ms, sin custodia independiente ni RPO productivo. Informe/límites/fallos corregidos: METAS_DECLARADAS_PERSONAL_V81.md. Descendiente documental requiere CI exacta propia. Próximo: ciclo por eventos de metas. #407 y criterios globales siguen abiertos; sin merge ni Render.
