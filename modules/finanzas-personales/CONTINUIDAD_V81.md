@@ -2439,3 +2439,6 @@ HEAD real83dcd0941a1ce22b33577d603ca50b0f6148bd96/árbol411dfe4b3dcb89e8a10cb797
 
 ## Corrección de fallo CI r94
 Primer código6d92c4bce98f705595bd0726a2f2cc9fe1afc05e/árbol a8e5adc14d42620e4274ff65f6a7c584a5805ce3: job131867185291 de V8143419959393 falló el contrato no-store de una petición sin sesión, interceptada antes del handler por autenticación. Mongo87casos/85aprobadas/2fallos contando padre; no se declara verde ni se atribuye evidencia al caso nuevo incompleto. Se agrega cabecera privada para esa ruta GET antes de auth/entitlement, conservando validación y permisos. No se relaja la aserción, timeout ni gate. Nuevo SHA y CI exacta pendientes.
+
+
+El siguiente SHA943a3ed11d8b3cab374b1e50a87d0e87fddb880a/árbol f6b4017d1b3ba42af0c4fe3558ed35095e3bf2ed activó Gate43420410548: la regresión estática buscaba la primera cabecera no-store del archivo y confundía la cabecera401 específica anterior con el middleware global posterior a auth. Se mantiene este middleware intacto y se comprueba su posición explícita después de auth; se agrega aserción de que la ruta previa solo llama next, nunca sirve datos, y de que el handler final permanece autenticado. El test HTTP real401/no-store sigue pasando. No se eliminó ni desactivó el gate.
