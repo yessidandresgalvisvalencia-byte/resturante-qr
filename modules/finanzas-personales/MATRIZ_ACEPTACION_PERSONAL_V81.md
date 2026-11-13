@@ -1,6 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r91
+# Matriz de aceptación y prioridad — revisión r92
 
-Corte: revisión del 13 de noviembre de 2026, código `cf6a2fe2f3dbfc0dd67fa1218e88fbe79aec3e00`, lote base `a0e3e3c13ad32bc720b01567004c17bd0193289b`. PR389 abierto; base personal `652126a03f19fbec3c529cad1e84bff11cd3699e`. No es certificación ni autorización de despliegue. La evidencia histórica y sus límites permanecen en CONTINUIDAD_V81.md y documentos enlazados; verificar siempre CI del HEAD actual. “Verificado en ensayo” significa solo el alcance de pruebas descrito, no producción ni todos los casos posibles.
+Corte: revisión del 13 de noviembre de 2026, código `febee86a79bc53df29dfd6d01b6103c95d83acd0`, lote base `9b9569abbe1821189c26fd9de52632c46df39841`. PR389 abierto; base personal `652126a03f19fbec3c529cad1e84bff11cd3699e`. No es certificación ni autorización de despliegue. La evidencia histórica y sus límites permanecen en CONTINUIDAD_V81.md y documentos enlazados; verificar siempre CI del HEAD actual. “Verificado en ensayo” significa solo el alcance de pruebas descrito, no producción ni todos los casos posibles.
 
 | Área solicitada | Evidencia disponible | Brecha/estado de aceptación |
 | --- | --- | --- |
@@ -10,9 +10,9 @@ Corte: revisión del 13 de noviembre de 2026, código `cf6a2fe2f3dbfc0dd67fa1218
 | Ingresos previstos y recibidos | Calendario append-only, recepciones parciales/cierre, proyección y diarios recuperables | Implementado y ensayado en su alcance; no garantiza cobro futuro |
 | Historial y diario manual | Copia cifrada, archivo sin poda, originales, estados históricos, formulario por propietario | r88 verificó fallo silencioso del control y confirmación cerrada sin reenvío; no repetir capacidades ya completas |
 | Captura conversacional | Texto/canal/recibo persistidos, copia y archivo de diario, aprobación explícita separada | r89 verificó descarte/restauración a revisión con confirmación, auditoría, recibos, propietario y carrera contra aprobación: Mongo82/82 y navegador17/17. Ver CICLO_BORRADOR_PERSONAL_V81.md. Legado ambiguo/recuperación física y verificación productiva siguen fuera del alcance |
-| Ahorro/metas | Alta/listado/recibo y ciclo por eventos conservando fuente y caja; METAS_DECLARADAS_PERSONAL_V81.md / CICLO_METAS_PERSONAL_V81.md | r91 valida corrección/retiro/restauración e historial con recibo y capacidad reservada para recuperar; adopción legacy, auditoría contextual y ahorro con efectos financieros siguen pendientes. No acredita efectivo reservado |
+| Ahorro/metas | Alta/listado/recibo y ciclo por eventos conservando fuente y caja; METAS_DECLARADAS_PERSONAL_V81.md / CICLO_METAS_PERSONAL_V81.md | r92 verifica adopción explícita de legados válidos y ciclo conservando fuente/estado, sin inventar creación ni caja. ADOPCION_METAS_PERSONAL_V81.md. Legados ambiguos/corruptos, auditoría contextual y ahorro con efectos financieros siguen pendientes. No acredita efectivo reservado |
 | Guard transversal de fallos | Control de pendientes por dueño, hashes y recibos específicos | Fallo reproducido y corregido en r88: lectura posterior y resolución explícita de confirmación; CI exacta documentada. No prueba durabilidad física del navegador |
-| Backup independiente/retención/restauración | Respaldo BSON cifrado V22 con44 colecciones, compatible V21/42 y anteriores, restauración aislada ensayada y métricas del código documentado | Custodio/destino independiente real, retención protegida, control de acceso/credenciales separadas y RPO/RTO operacionales siguen pendientes. Ensayo no constituye backup de producción |
+| Backup independiente/retención/restauración | Respaldo BSON cifrado V23 con44 colecciones, compatible V22/44 y anteriores, restauración aislada ensayada y métricas del código documentado | Custodio/destino independiente real, retención protegida, control de acceso/credenciales separadas y RPO/RTO operacionales siguen pendientes. Ensayo no constituye backup de producción |
 | Mongo insert-only/índices/migración | Auditoría de privilegios, rol restringido en runner, rollback, preservación histórica y provisión planificada | Necesita evidencia real de aplicación para todas las25 colecciones protegidas y demás fuentes, credenciales efectivas, índices/explain y compatibilidad histórica. No ejecutar provisión/migración productiva para aparentar cierre |
 | Seguridad y CI | Gate, Seguridad y V81 padre success; validación, aislamiento y concurrencia sintéticos | Revalidar SHA exacto publicado; no sustituye auditoría independiente ni prueba escala de un millón |
 | Dispositivos e interfaz | Chromium, HTML real/API y backend autorizado, vistas390/768/1440 en alcances documentados | iPhone/Safari/WebKit, dispositivos físicos/táctil y aprobación de experiencia pendientes |
@@ -20,8 +20,8 @@ Corte: revisión del 13 de noviembre de 2026, código `cf6a2fe2f3dbfc0dd67fa1218
 
 ## Orden de trabajo recuperable
 
-1. Confirmar CI del descendiente documental de r91 y revisar HEAD exacto. El alcance de ciclo de metas debe conservar sus límites; no confundir ensayo con producción.
-2. Diseñar adopción explícita de metas legacy con fuente conservada, sin inventar creación/historia anterior, y completar auditoría contextual minimizada. No convertir ahorro declarado en disponible ni inferir efectivo reservado.
+1. Confirmar CI del descendiente documental de r92 y revisar HEAD exacto. El alcance de ciclo de metas debe conservar sus límites; no confundir ensayo con producción.
+2. Completar auditoría contextual minimizada IP/dispositivo y acceso/retención; revisar legados ambiguos/corruptos sin alterar sus fuentes ni inventar historia. No convertir ahorro declarado en disponible ni inferir efectivo reservado.
 3. Revisar auditoría contextual de IP/dispositivo y redacción de datos del ciclo: el nuevo evento conserva dueño/fecha/cuerpo/hash, pero no aporta esos campos de contexto. No presentar su auditoría como certificación externa.
 4. Contrastar requisitos operacionales con evidencia autorizada disponible. Preparar verificaciones reproducibles independientes sin contratar, elevar costos o eludir permisos; registrar lo que falta.
 5. Revisión independiente y dispositivos. Solo con todos los criterios, CI exacta y compatibilidad operativa: integrar a feature y verificar deploy personal. Hasta entonces, sin fusión ni Render.
@@ -56,3 +56,7 @@ Código cf6a2fe2f3dbfc0dd67fa1218e88fbe79aec3e00/árbol d73be21953aba38963fd28fd
 
 ## r92 — adopción de metas en validación
 ADOPCION permite revisar y confirmar fuentes legacy válidas antes de gestionar su ciclo, preservando original/estado/caja y sin inventar creación o historia anterior. Recuperación por recibo y consentimiento aislado en UI; semántica de respaldoV23/44 con lecturaV22/44. ADOPCION_METAS_PERSONAL_V81.md define aceptación y límites. Nuevos SHA/CI/ensayos pendientes antes de cierre. Datos ambiguos/corruptos, auditoría contextual y gates externos #407 siguen abiertos. Sin merge/Render.
+
+
+## Verificación r92
+Código febee86a79bc53df29dfd6d01b6103c95d83acd0/árbol31b5a7c50ce84b204b43c8c6a062b282d6ce680e: Gate43405360080/Seguridad43405359967/V8143405359971 success; job131818263657 Mongo85/85 y navegador/backend20/20 sin fallos/omisiones/cancelaciones. Adopción de metas antiguas válidas verificada con consentimiento, fuente/estado preservados, respuesta recuperable e ingreso/saldo100000 sintéticos intactos. No inventa recibo de creación ni historia anterior. RespaldoV23 sintético44colecciones/7229documentos/7278150bytes, captura269ms/restauración941ms/edad1137ms; sin custodia independiente ni RPO productivo. ADOPCION_METAS_PERSONAL_V81.md contiene alcance/límites. Descendiente documental requiere CI propia. Próximo: auditoría contextual y revisión de legados ambiguos/corruptos; #407/operación/dispositivos/custodia/auditoría pendientes. Sin merge/Render.
