@@ -15,7 +15,7 @@
     estados.set(usuario,s);
    }return estados.get(usuario);
   }
-  function guardar(s){try{almacenamiento.setItem(PREFIJO+s.usuario,JSON.stringify([...s.pendientes.values()]));}catch{s.error=true;throw falla("No se pudo conservar la confirmación pendiente. No se enviará otra operación");}}
+  function guardar(s){try{const raw=JSON.stringify([...s.pendientes.values()]);almacenamiento.setItem(PREFIJO+s.usuario,raw);if(almacenamiento.getItem(PREFIJO+s.usuario)!==raw)throw Error("ESCRITURA_NO_VERIFICADA");}catch{s.error=true;throw falla("No se pudo conservar la confirmación pendiente. No se enviará otra operación");}}
   function cambio(s){s.revision++;invalidar(s.usuario);}
   function estado(token){try{const s=cargar(token);return{usuario:s.usuario,revision:s.revision,bloqueada:s.error||s.pendientes.size>0||s.activas.size>0,pendientes:s.pendientes.size,motivo:s.error?"No se pudo verificar el registro local de operaciones pendientes":"Hay operaciones pendientes de confirmar. Reintenta con los mismos datos; actualizar el panel no confirma su resultado"};}catch{return{usuario:null,revision:0,bloqueada:true,motivo:"No se pudo verificar la sesión y sus operaciones pendientes"};}}
   function esMutacion(path,o,token){return !!token&&!/^(GET|HEAD)$/i.test(o.method||"GET")&&!/^\/auth\//.test(path)&&!(["/consulta","/copilot"].includes(path)&&/^POST$/i.test(o.method||"GET"))&&!["/gastos/evaluar","/inversiones/inteligencia","/creditos/simular","/creditos/evaluar","/transacciones/confirmar-intento","/transacciones/constancia-intento"].includes(path);}
