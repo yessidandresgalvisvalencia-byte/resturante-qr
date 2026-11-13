@@ -66,3 +66,11 @@ test('P0-07 rejects oversized quantity before canonical-pattern scanning', () =>
   assert.throws(() => invoiceTotal([{ unitPrice: '0.00', quantity: huge }]), RangeError);
   assert.equal(lineTotal('0.01', '9007199254740991'), '90071992547409.91');
 });
+
+test('P0-07 bounds oversized tax rate before regex validation', () => {
+  const hugeRate = '9'.repeat(1000000);
+  assert.throws(() => taxAmount('0.00', hugeRate), {
+    name: 'TypeError', message: 'Tax rate must be a canonical integer basis-point string'
+  });
+  assert.equal(taxAmount('0.01', '5000'), '0.01');
+});
