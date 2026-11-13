@@ -18,6 +18,14 @@ Cada criterio requiere: (1) requisito textual, (2) código en `main`, (3) test i
 | 69 | P0 | Pruebas de ataque no consiguen autoelevación | No auditado aquí | Pendiente batería adversarial | **No certificado** |
 | 70 | P0 | Pruebas negativas entre cuentas para DB, cachés, búsquedas, archivos y logs | No auditado aquí | Pendiente suite multiempresa | **No certificado** |
 
+| 71 | P1 | Batería adversarial documentada contra inyección y poisoning en documentos, correos, tools y memoria | No auditado aquí | Pendiente suite de entradas no confiables y pruebas de autoridad | **No certificado** |
+| 72 | P1 | Kill switch operativo y probado; sandbox, límites de red, credenciales efímeras y rate limits | No auditado aquí | Pendiente prueba de detención y contención | **No certificado** |
+| 73 | P1 | Incidentes investigables con logs externos y auditoría independiente, sin memoria del agente | No auditado aquí | Pendiente prueba de correlación y retención de evidencias | **No certificado** |
+| 74 | P1 | Revisión legal y de seguridad previa a producción: retención mínima, consentimiento, acceso y eliminación trazable | No auditado aquí | Pendiente revisión formal y pruebas de privacidad | **No certificado** |
+| 75 | P1 | Actualizaciones probables y reversibles con CI/CD, staging, control de versiones y aprobación | No auditado aquí | Pendiente ejercicio de rollback y evidencia de aprobación | **No certificado** |
+| 76 | P2 | Simulacro de incidente completado: bloqueo, notificación, revisión de logs y restauración | No auditado aquí | Pendiente simulacro con tiempos y resultados | **No certificado** |
+| 77 | P2 | Pruebas de lavado de autoridad fallan; validar autoridad original en resúmenes y subagentes | No auditado aquí | Pendiente pruebas adversariales de delegación | **No certificado** |
+
 ## Cola de integración observada (2026-11-13)
 
 PR #586–#590 y #592: todos asociados a la porción financiera de 07; evitar duplicar pruebas o declarar el requisito completo. También existen PR de seguridad empresarial #579 y #582 y un cambio financiero #580, sujetos a su propia revisión. El estado de CI/revisión debe consultarse **de nuevo** en el SHA exacto antes de fusionar; esta tabla no sustituye esa comprobación.
