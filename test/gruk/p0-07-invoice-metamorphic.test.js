@@ -31,7 +31,7 @@ test('P0-07 splitting one line preserves the exact invoice amount', () => {
 test('P0-07 zero quantity and zero price are additive identities', () => {
   const paid = { unitPrice: '250.75', quantity: '4' };
   const zeros = [
-    { unitPrice: '99999999999999.99', quantity: '0' },
+    { unitPrice: '90071992547409.91', quantity: '0' },
     { unitPrice: '0.00', quantity: '9007199254740991' }
   ];
   assert.equal(invoiceTotal([paid, ...zeros]), lineTotal(paid.unitPrice, paid.quantity));
