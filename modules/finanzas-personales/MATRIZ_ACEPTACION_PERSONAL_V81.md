@@ -1,6 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r88
+# Matriz de aceptación y prioridad — revisión r89
 
-Corte: revisión del 12 de noviembre de 2026, padre `90b095d41ee97cd985b7d1ffec8e459a7e0827eb`. PR389 abierto; base personal `652126a03f19fbec3c529cad1e84bff11cd3699e`. No es certificación ni autorización de despliegue. La evidencia histórica y sus límites permanecen en CONTINUIDAD_V81.md y documentos enlazados; verificar siempre CI del HEAD actual. “Verificado en ensayo” significa solo el alcance de pruebas descrito, no producción ni todos los casos posibles.
+Corte: revisión del 13 de noviembre de 2026, código `673a75654b4ac0a034979f1876742cd841760a5b`, padre `a8835dcf64e1afd91cdbd3bad00039c45d5e4dc0`. PR389 abierto; base personal `652126a03f19fbec3c529cad1e84bff11cd3699e`. No es certificación ni autorización de despliegue. La evidencia histórica y sus límites permanecen en CONTINUIDAD_V81.md y documentos enlazados; verificar siempre CI del HEAD actual. “Verificado en ensayo” significa solo el alcance de pruebas descrito, no producción ni todos los casos posibles.
 
 | Área solicitada | Evidencia disponible | Brecha/estado de aceptación |
 | --- | --- | --- |
@@ -8,23 +8,23 @@ Corte: revisión del 12 de noviembre de 2026, padre `90b095d41ee97cd985b7d1ffec8
 | IA/cálculo/asesoría | Clasificación, cálculo y orientación separados; evidencia conversacional y guard de operación incierta en continuidad | No se acepta recomendación monetaria con datos desconocidos; auditoría independiente pendiente |
 | Correcciones/anulaciones/restauración | Eventos compensatorios y ciclos de deuda/cuenta/activo/inversión/pagos con recibos; Mongo81/81 de padre | Evidencia de ensayo, #407 permanece abierto. La cadena local no prueba custodia externa ni ausencia de otros administradores |
 | Ingresos previstos y recibidos | Calendario append-only, recepciones parciales/cierre, proyección y diarios recuperables | Implementado y ensayado en su alcance; no garantiza cobro futuro |
-| Historial y diario manual | Copia cifrada, archivo sin poda, originales, estados históricos, formulario por propietario | r88 prioriza fallo silencioso del control transversal y consulta de confirmación cerrada; no repetir capacidades ya completas |
-| Captura conversacional | Texto/canal/recibo persistidos, copia y archivo de diario, aprobación explícita separada | Brecha real: routes.js /captura/:id/descartar muta estado PENDIENTE a DESCARTADO, sin confirmación/cuerpo/clave; UI discardDraft no confirma y loadDrafts solo lista PENDIENTE/PARCIAL. Texto queda en servidor pero no hay recuperación accesible ni auditoría de ciclo. NO completo |
+| Historial y diario manual | Copia cifrada, archivo sin poda, originales, estados históricos, formulario por propietario | r88 verificó fallo silencioso del control y confirmación cerrada sin reenvío; no repetir capacidades ya completas |
+| Captura conversacional | Texto/canal/recibo persistidos, copia y archivo de diario, aprobación explícita separada | r89 verificó descarte/restauración a revisión con confirmación, auditoría, recibos, propietario y carrera contra aprobación: Mongo82/82 y navegador17/17. Ver CICLO_BORRADOR_PERSONAL_V81.md. Legado ambiguo/recuperación física y verificación productiva siguen fuera del alcance |
 | Ahorro/metas | Endpoint /metas y formulario; metas declaradas no prueban efectivo reservado | Pendiente inventario y pruebas de flujo completo, exactitud, idempotencia, aislamiento, historial y recuperación. No declarar completo por creación básica |
-| Guard transversal de fallos | Control de pendientes por dueño, hashes y recibos específicos | Fallo demostrado en padre al ignorar setItem. Bloque r88: lectura posterior exacta y resolución explícita de registro manual confirmado; resultado exacto al cierre |
-| Backup independiente/retención/restauración | Respaldo BSON cifrado V19 con39 colecciones y restauración aislada ensayada | Custodio/destino independiente real, retención protegida, control de acceso/credenciales separadas y RPO/RTO operacionales siguen pendientes. Ensayo no constituye backup de producción |
-| Mongo insert-only/índices/migración | Auditoría de privilegios, rol restringido en runner, rollback, preservación histórica y provisión planificada | Necesita evidencia real de aplicación, todas las credenciales y colecciones efectivas, índices/explain y compatibilidad histórica. No ejecutar provisión/migración productiva para aparentar cierre |
+| Guard transversal de fallos | Control de pendientes por dueño, hashes y recibos específicos | Fallo reproducido y corregido en r88: lectura posterior y resolución explícita de confirmación; CI exacta documentada. No prueba durabilidad física del navegador |
+| Backup independiente/retención/restauración | Respaldo BSON cifrado V20 con40 colecciones, compatible V19/39, restauración aislada ensayada y métricas del código r89 | Custodio/destino independiente real, retención protegida, control de acceso/credenciales separadas y RPO/RTO operacionales siguen pendientes. Ensayo no constituye backup de producción |
+| Mongo insert-only/índices/migración | Auditoría de privilegios, rol restringido en runner, rollback, preservación histórica y provisión planificada | Necesita evidencia real de aplicación para todas las22 colecciones protegidas y demás fuentes, credenciales efectivas, índices/explain y compatibilidad histórica. No ejecutar provisión/migración productiva para aparentar cierre |
 | Seguridad y CI | Gate, Seguridad y V81 padre success; validación, aislamiento y concurrencia sintéticos | Revalidar SHA exacto publicado; no sustituye auditoría independiente ni prueba escala de un millón |
 | Dispositivos e interfaz | Chromium, HTML real/API y backend autorizado, vistas390/768/1440 en alcances documentados | iPhone/Safari/WebKit, dispositivos físicos/táctil y aprobación de experiencia pendientes |
 | Render final | Servicio personal identificado en gate; observaciones históricas de salud separadas del PR | No desplegar versiones parciales. Confirmar branch, SHA live, configuración, HTTP, persistencia, conexión e índices/permisos solo cuando todos los criterios previos estén satisfechos |
 
 ## Orden de trabajo recuperable
 
-1. Completar y publicar r88 con pruebas normales/fallos/integración; confirmar tres CI del SHA exacto. Un bloque funcional, no contar matriz como una segunda implementación.
-2. Descarte/restauración accesible de borrador: confirmación explícita, estado/versionado actual, propietario JWT, referencia de descarte y evento/recibo idempotentes; conservar texto/items originales, fuente aprobada y carrera contra aprobación; no mover dinero. Incluir índices, rol insert-only del nuevo historial y compatibilidad del respaldo si se necesita nueva colección.
-3. Inventariar metas/ahorro; seleccionar una brecha completa demostrable. No convertir ahorro declarado en disponible ni inferir saldo reservado.
-4. Contrastar requisitos operacionales con evidencia autorizada disponible. Diseñar/preparar verificaciones reproducibles independientes sin contratar ni elevar costos o eludir permisos. Registrar lo que falta exactamente.
-5. Revisión de liberación independiente y dispositivos. Solo con todos los criterios, CI exacta y compatibilidad operativa: integrar a feature y verificar deploy personal. Hasta entonces, sin fusión ni Render.
+1. Confirmar CI del descendiente documental de r89; revisar siempre HEAD exacto. El ciclo de borradores queda verificado en ensayo, con límites explícitos.
+2. Inventariar metas/ahorro y escoger una brecha funcional completa demostrable de idempotencia, historial o recuperación. No convertir ahorro declarado en disponible ni inferir efectivo reservado.
+3. Revisar auditoría contextual de IP/dispositivo y redacción de datos del ciclo: el nuevo evento conserva dueño/fecha/cuerpo/hash, pero no aporta esos campos de contexto. No presentar su auditoría como certificación externa.
+4. Contrastar requisitos operacionales con evidencia autorizada disponible. Preparar verificaciones reproducibles independientes sin contratar, elevar costos o eludir permisos; registrar lo que falta.
+5. Revisión independiente y dispositivos. Solo con todos los criterios, CI exacta y compatibilidad operativa: integrar a feature y verificar deploy personal. Hasta entonces, sin fusión ni Render.
 
 No se asigna porcentaje global de preparación: casos ensayados, trabajo pendiente y requisitos externos no tienen pesos equivalentes. Nunca eliminar controles para convertir un bloqueo en aprobación.
 
@@ -35,3 +35,7 @@ El bloque transversal aprobó en `5f12cd58a56c80e1f22d90ded7866ed0db2f7536`: Gat
 ## Actualización r89 — ciclo de borradores
 
 Se implementa el bloque pendiente de descarte/restauración a revisión con confirmación, recibo, originales, idempotencia y aislamiento; no convierte restauración en aprobación. Historial protegido nuevo y respaldoV20/40 compatibleV19/39. Evidencia/límites en CICLO_BORRADOR_PERSONAL_V81.md; pruebas autorizadas del SHA publicado pendientes antes de marcarlo verificado en ensayo. Legado ambiguo, recuperación física de proyección eliminada, custodia y operación reales no se certifican. Siguiente prioridad funcional: inventario metas/ahorro; requisitos externos de #407 siguen bloqueando liberación.
+
+## Verificación r89
+
+Código673a75654b4ac0a034979f1876742cd841760a5b, árbol557bc146de0de8ddbd7ce645231df54fd6a62cb1: Gate43375659529/Seguridad43375659411/V8143375659365 success, job131721445416 Mongo82/82 y navegador17/17, cero fallos/omisiones. Respaldo sintético40 colecciones/5618 documentos/3917586 bytes; captura176ms/restauración1710ms/edad1857ms, custodiaIndependiente=false/rpoProduccion=false. Evidencia completa y límites en CICLO_BORRADOR_PERSONAL_V81.md. La sección anterior de actualización era planificación previa a CI; este resultado la sucede. Metas y requisitos externos siguen abiertos. Descendiente documental requiere sus tres CI exactas, sin autorización de Render.
