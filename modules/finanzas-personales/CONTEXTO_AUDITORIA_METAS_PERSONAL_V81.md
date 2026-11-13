@@ -33,3 +33,9 @@ Pendiente global: extender contexto a demás flujos, revisar trust proxy/rate li
 ## Checkpoint
 
 Publicar con expected_sha/force=false sobre la rama de integración; comparar árboles. Ejecutar Gate/Seguridad/V81 del SHA exacto, corregir fallos sin relajar gates y registrar resultados. Luego actualizar matriz/continuidad y volver a verificar CI del descendiente documental. Sin merge a feature/main ni Render mientras los gates globales sigan abiertos. Siguiente bloque independiente: cobertura contextual de otros flujos y revisión explícita de históricos inválidos.
+
+
+## Hallazgo CI y corrección r93
+Primer envío a03fc309b9472482875ab8e54ebe90442fd030ff/árbol ee6ab6bb9843ad4554ea87c7ad304727efcb0a16. Gate43414810581 y Seguridad43414810892 success; V8143414810691 failure: job131849922646 aprobó Mongo86/86 y nuevo caso FP_CONTEXTO_META, pero el calendario previo agotó waitForFunction al esperar el rechazo de una copia ajena (19/21 contando padre fallido). No se presenta como CI verde ni se relajaron tiempos/gates.
+
+Se identificó una respuesta de listado pendiente capaz de sobrescribir el aviso de recuperación rechazada. Recuperar invalida consultas anteriores de listado/historial/recepciones al iniciar, incluso si el archivo se rechaza; cargar no inicia otra consulta mientras la operación está ocupada. No se borra el diario ni se reenvía nada. Dos regresiones con promesa demorada comprueban rechazo ajeno y recuperación propia, conservación exacta, controles cerrados y ausencia de llamadas adicionales. Calendario/copia64/64 local. Corrección integrada al lote: nuevo SHA requiere las tres CI y ensayo nativo21/21.
