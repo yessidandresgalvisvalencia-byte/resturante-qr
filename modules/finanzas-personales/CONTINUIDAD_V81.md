@@ -2435,3 +2435,7 @@ Siguiente: ampliar contexto minimizado a otros flujos financieros y revisar expl
 
 ## r94 — revisión privada de fuentes ambiguas de metas, en validación
 HEAD real83dcd0941a1ce22b33577d603ca50b0f6148bd96/árbol411dfe4b3dcb89e8a10cb797c91a90df5546302c; PR389 abierto hacia feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e. Tres CI padre verdes; #407 issue abierto. Un bloque: GET propio/snapshot BSON, IDs/huellas y hallazgos de formato/nombres, paginación y capacidad cerrada; UI explícita sin reparar/adoptar/gastar, preserva formulario y fuentes. Plan/aceptación/límites: REVISION_FUENTES_METAS_PERSONAL_V81.md. Nueve pruebas nuevas locales aprobadas; HTTP/Mongo y Chromium reales pendientes antes de cierre. No cambia backupV24/44 ni política25. Siguiente: CI exacta y luego resolución explícita de legados/contexto de otros flujos. Gates externos de custodia/operación/productivo/dispositivos siguen pendientes. Sin merge, Render, costos ni datos reales modificados.
+
+
+## Corrección de fallo CI r94
+Primer código6d92c4bce98f705595bd0726a2f2cc9fe1afc05e/árbol a8e5adc14d42620e4274ff65f6a7c584a5805ce3: job131867185291 de V8143419959393 falló el contrato no-store de una petición sin sesión, interceptada antes del handler por autenticación. Mongo87casos/85aprobadas/2fallos contando padre; no se declara verde ni se atribuye evidencia al caso nuevo incompleto. Se agrega cabecera privada para esa ruta GET antes de auth/entitlement, conservando validación y permisos. No se relaja la aserción, timeout ni gate. Nuevo SHA y CI exacta pendientes.

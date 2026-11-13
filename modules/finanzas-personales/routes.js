@@ -5,6 +5,8 @@ const registroSchema=Joi.object({email:Joi.string().email().max(254).required(),
 const loginSchema=Joi.object({email:Joi.string().email().max(254).required(),password:Joi.string().min(12).max(128).required(),mantenerSesion:Joi.boolean().default(false)});
 router.post("/auth/registro",authLimiter,validate(registroSchema),async(req,res)=>{try{return res.status(201).json({ok:true,...await personalAuthService.registrar(req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 router.post("/auth/login",authLimiter,validate(loginSchema),async(req,res)=>{try{return res.json({ok:true,...await personalAuthService.login(req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+// Esta lectura privada conserva no-store también cuando autenticación o suscripción la rechazan.
+router.get("/metas/revision-fuentes",(req,res,next)=>{res.set("Cache-Control","private, no-store, max-age=0");return next();});
 router.use(auth,entitlement);
 // Las respuestas privadas no deben persistir en cachés del navegador ni de intermediarios.
 router.use((req,res,next)=>{

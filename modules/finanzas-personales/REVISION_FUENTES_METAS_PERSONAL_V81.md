@@ -27,3 +27,7 @@ Publicar en integration/fp-hormiga-clasificacion-credito-v81 con expected_sha/fo
 ## Límites globales de liberación
 
 Continúan #407, custodio independiente real, respaldo/restore operacional independiente con retención/acceso/credenciales separadas y RPO-RTO medidos, roles/índices/migración históricos productivos, configuración de claves, proxy/rate limit real, Safari/dispositivos físicos y auditoría independiente cuando corresponda. No se crean evidencias externas ni garantías absolutas. Sin merge a feature/main ni despliegue Render, costos nuevos, restauraciones productivas u otros productos modificados.
+
+
+## Corrección de fallo CI r94
+Primer código6d92c4bce98f705595bd0726a2f2cc9fe1afc05e/árbol a8e5adc14d42620e4274ff65f6a7c584a5805ce3: job131867185291 de V8143419959393 falló el contrato no-store de una petición sin sesión, interceptada antes del handler por autenticación. Mongo87casos/85aprobadas/2fallos contando padre; no se declara verde ni se atribuye evidencia al caso nuevo incompleto. Se agrega cabecera privada para esa ruta GET antes de auth/entitlement, conservando validación y permisos. No se relaja la aserción, timeout ni gate. Nuevo SHA y CI exacta pendientes.
