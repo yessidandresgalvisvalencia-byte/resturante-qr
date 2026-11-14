@@ -166,3 +166,21 @@ test('P0-04 preflight blocks descending global unique origin indexes', () => {
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_descending', 'legacy_mixed']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
 });
+
+
+test('P0-04 preflight distinguishes clean data from actual target index presence', () => {
+  const absent = preflight();
+  absent.run();
+  assert.equal(absent.output[1].readyForIndexBuild, true);
+  assert.equal(absent.output[1].targetIndexPresent, false);
+  const present = preflight({ indexes: [
+    { name: 'tenant_origin_unique', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+  ] });
+  present.run();
+  assert.equal(present.output[1].targetIndexPresent, true);
+  const wrong = preflight({ indexes: [
+    { name: 'tenant_origin_nonunique', key: { empresaId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+  ] });
+  wrong.run();
+  assert.equal(wrong.output[1].targetIndexPresent, false);
+});
