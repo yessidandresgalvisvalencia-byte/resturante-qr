@@ -48,3 +48,34 @@ test('P0-07: explicit nonenumerable immutable financial data fields remain valid
   Object.defineProperty(line, 'quantity', { value: '2' });
   assert.equal(invoiceTotal([line]), '2.50');
 });
+
+test('P0-07: hostile inherited getters are never evaluated', () => {
+  let getterCalls = 0;
+  const prototype = {};
+  for (const key of ['unitPrice', 'quantity']) {
+    Object.defineProperty(prototype, key, {
+      get() { getterCalls++; throw new Error('inherited getter executed'); }
+    });
+  }
+  const inheritedOnly = Object.create(prototype);
+  assert.throws(() => invoiceTotal([inheritedOnly]), TypeError);
+  const explicit = Object.create(prototype);
+  Object.defineProperties(explicit, {
+    unitPrice: { value: '0.25' },
+    quantity: { value: '4' }
+  });
+  assert.equal(invoiceTotal([explicit]), '1.00');
+  assert.equal(getterCalls, 0);
+});
+
+test('P0-07: malformed own descriptors fail without executing fallback prototype accessors', () => {
+  let getterCalls = 0;
+  const prototype = Object.create(null);
+  Object.defineProperty(prototype, 'quantity', {
+    get() { getterCalls++; throw new Error('fallback quantity getter executed'); }
+  });
+  const line = Object.create(prototype);
+  Object.defineProperty(line, 'unitPrice', { value: '1.00' });
+  assert.throws(() => invoiceTotal([line]), TypeError);
+  assert.equal(getterCalls, 0);
+});
