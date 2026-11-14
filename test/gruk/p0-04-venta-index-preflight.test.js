@@ -1,0 +1,68 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const source = fs.readFileSync(path.join(__dirname, '../../scripts/gruk/p0-04-venta-index-preflight.js'), 'utf8');
+
+function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, duplicateGroups = 0 } = {}) {
+  const calls = [];
+  const collection = {
+    getIndexes() { calls.push('getIndexes'); return [{ name: '_id_' }]; },
+    countDocuments(query) {
+      assert.deepEqual(JSON.parse(JSON.stringify(query)), { empresaId: { $not: { $type: 'objectId' } } });
+      calls.push('countDocuments');
+      return missingTenant;
+    },
+    aggregate(pipeline) {
+      assert.deepEqual(JSON.parse(JSON.stringify(pipeline[0])), { $match: { origenId: { $type: 'objectId' } } });
+      calls.push('aggregate');
+      return { toArray() { return duplicateGroups ? [{ groups: duplicateGroups }] : []; } };
+    }
+  };
+  const database = {
+    getSiblingDB(dbName) {
+      assert.equal(dbName, name);
+      return {
+        getCollection(collectionName) {
+          assert.equal(collectionName, 'ventas');
+          return collection;
+        }
+      };
+    }
+  };
+  const output = [];
+  const run = () => vm.runInNewContext(source, {
+    db: database,
+    process: { env: { GRUK_ENTERPRISE_DB: name } },
+    printjson(value) { output.push(JSON.parse(JSON.stringify(value))); }
+  }, { timeout: 1000 });
+  return { run, calls, output };
+}
+
+test('P0-04 preflight rejects missing or unsafe explicit database names before DB access', () => {
+  for (const name of ['', 'personal/db', 'other.db', 'enterprise;drop']) {
+    const ctx = preflight({ name });
+    assert.throws(ctx.run, /Explicit GRUK_ENTERPRISE_DB required/);
+    assert.deepEqual(ctx.calls, []);
+  }
+});
+
+test('P0-04 preflight reports readiness without writing to MongoDB', () => {
+  const ctx = preflight();
+  ctx.run();
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'aggregate']);
+  assert.equal(ctx.output[1].readyForIndexBuild, true);
+  assert.equal(ctx.output[1].duplicateGroups, 0);
+});
+
+test('P0-04 preflight blocks migration readiness for missing tenants or duplicate scoped keys', () => {
+  for (const anomalies of [{ missingTenant: 1 }, { duplicateGroups: 2 }, { missingTenant: 1, duplicateGroups: 2 }]) {
+    const ctx = preflight(anomalies);
+    assert.throws(ctx.run, /Data anomalies block index migration/);
+    assert.equal(ctx.output[1].readyForIndexBuild, false);
+  }
+});
