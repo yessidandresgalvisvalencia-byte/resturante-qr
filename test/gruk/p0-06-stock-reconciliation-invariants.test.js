@@ -29,3 +29,14 @@ test('P0-06: exact delta matches counted minus recorded at safe boundaries', () 
     assert.equal(Object.isFrozen(result), true);
   }
 });
+
+test('P0-06: reject non-ASCII numerals, invisible characters and unsafe 16-digit bounds', () => {
+  const malformed = ['０', '١', '１', '1\u200b', '\u200b1', '1\n', ' 1', '+1', '00', '0001', '0x10', '1_000'];
+  for (const value of malformed) {
+    assert.throws(() => reconcileStock(value, '0'), TypeError, JSON.stringify(value));
+    assert.throws(() => reconcileStock('0', value), TypeError, JSON.stringify(value));
+  }
+  assert.throws(() => reconcileStock('9999999999999999', '0'), RangeError);
+  assert.throws(() => reconcileStock('0', '9999999999999999'), RangeError);
+  assert.equal(reconcileStock('9007199254740991', '9007199254740991').matches, true);
+});
