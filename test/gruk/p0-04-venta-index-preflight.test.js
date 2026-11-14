@@ -208,3 +208,20 @@ test('P0-04 preflight blocks missing or malformed site ownership without writes'
   assert.equal(ctx.output[1].readyForIndexBuild, false);
   assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
 });
+
+
+test('P0-04 distinguishes data readiness from conservative legacy-index migration gate', () => {
+  const legacy = preflight({ indexes: [
+    { name: 'legacy_origin_unique', unique: true, key: { origen: 1, origenId: 1 } }
+  ] });
+  assert.throws(legacy.run, /Data anomalies block index migration/);
+  assert.equal(legacy.output[1].dataReadyForIndexBuild, true);
+  assert.equal(legacy.output[1].readyForIndexBuild, false);
+  const badData = preflight({ missingTenant: 1 });
+  assert.throws(badData.run, /Data anomalies block index migration/);
+  assert.equal(badData.output[1].dataReadyForIndexBuild, false);
+  const clean = preflight();
+  clean.run();
+  assert.equal(clean.output[1].dataReadyForIndexBuild, true);
+  assert.equal(clean.output[1].readyForIndexBuild, true);
+});
