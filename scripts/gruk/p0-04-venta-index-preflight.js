@@ -48,6 +48,10 @@ const duplicates = sales.aggregate([
   { $count: 'groups' }
 ]).toArray();
 const duplicateGroups = duplicates.length ? duplicates[0].groups : 0;
-printjson({ missingTenant, invalidSiteIds, invalidOriginIds, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, targetIndexPresent, readyForIndexBuild: missingTenant === 0 && invalidSiteIds === 0 && invalidOriginIds === 0 && duplicateGroups === 0 && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0 });
+// Data readiness is independent of the legacy index: the legacy index is expected
+// to coexist during a staged migration. Keep the conservative migration gate below.
+const dataReadyForIndexBuild = missingTenant === 0 && invalidSiteIds === 0 && invalidOriginIds === 0 && duplicateGroups === 0;
+const readyForIndexBuild = dataReadyForIndexBuild && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0;
+printjson({ missingTenant, invalidSiteIds, invalidOriginIds, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, targetIndexPresent, dataReadyForIndexBuild, readyForIndexBuild });
 if (missingTenant || invalidSiteIds || invalidOriginIds || duplicateGroups || legacyGlobalUniqueIndexes.length || incompatibleTenantUniqueIndexes.length) throw new Error('Data anomalies block index migration');
 // A passing result does not authorize migration, index removal or deployment.
