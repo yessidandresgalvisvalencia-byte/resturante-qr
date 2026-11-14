@@ -1,0 +1,65 @@
+name: GRUK Node 24 compatibility preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/gruk-node24-preflight.yml"
+      - "Dockerfile"
+      - "package.json"
+      - "package-lock.json"
+  push:
+    branches:
+      - "gruk/evolucion-node24-preflight-20261024"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-node24-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node24-preflight:
+    name: Node 24.22.1 runtime and Docker compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install patched Node 24 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.1"
+          cache: npm
+      - name: Show runtime and install locked dependencies
+        run: |
+          node --version
+          npm --version
+          npm ci
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name gruk-mongo -p 27017:27017 mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then break; fi
+            sleep 1
+          done
+          docker exec gruk-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in {1..30}; do
+            if docker exec gruk-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then exit 0; fi
+            sleep 1
+          done
+          echo "MongoDB replica set did not reach PRIMARY"
+          exit 1
+      - name: Execute GRUK gate under Node 24
+        env:
+          NODE_ENV: test
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_offline_test?replicaSet=rs0
+        run: npm run gate
+      - name: Test Docker build on Node 24 without changing production Dockerfile
+        run: |
+          sed 's@node:20-bookworm-slim@node:24.22.1-bookworm-slim@g' Dockerfile > Dockerfile.node24-compat
+          test "$(grep -c 'node:24.22.1-bookworm-slim' Dockerfile.node24-compat)" -eq 2
+          docker build --file Dockerfile.node24-compat --tag gruk-node24-preflight .
+          test "$(docker run --rm --entrypoint node gruk-node24-preflight --version)" = "v24.22.1"
