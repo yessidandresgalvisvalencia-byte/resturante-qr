@@ -95,3 +95,16 @@ test('P0-07: sparse invoice arrays cannot silently omit financial lines', () => 
   lines[1] = { unitPrice: '1.00', quantity: '1' };
   assert.throws(() => invoiceTotal(lines), TypeError);
 });
+
+
+test('P0-07: inherited array indices cannot inject invoice lines', () => {
+  let getterCalls = 0;
+  const inherited = Object.create(Array.prototype);
+  Object.defineProperty(inherited, '0', {
+    get() { getterCalls++; throw new Error('inherited invoice line executed'); }
+  });
+  const lines = new Array(1);
+  Object.setPrototypeOf(lines, inherited);
+  assert.throws(() => invoiceTotal(lines), TypeError);
+  assert.equal(getterCalls, 0, 'invoice must reject holes before reading inherited indices');
+});
