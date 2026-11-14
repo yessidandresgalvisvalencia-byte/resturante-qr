@@ -21,6 +21,13 @@ Cada criterio requiere: (1) requisito textual, (2) código en `main`, (3) test i
 | 11 | P0 | Piloto con 3–5 restaurantes y evidencia verificable de necesidad, fricciones y feedback | No auditado aquí | Pendiente evidencia de campo y línea base de tiempo, errores y costos | **No certificado** |
 | 12 | P0 | Panel semanal automatizado de usuarios activos, pedidos válidos, errores, tiempo por tarea y retención | No auditado aquí | Pendiente tests de instrumentación y validación del panel | **No certificado** |
 | 13 | P0 | Cada herramienta tipada de ventas, stock, margen, órdenes, proveedores y facturas tiene esquema, pruebas, permisos y errores estructurados | No auditado aquí | Pendiente inventario de contratos y pruebas de autorización y errores | **No certificado** |
+| 14 | P0 | Agente supervisor de solo lectura explica diferencias de ventas/inventario con citas internas; supera búsqueda manual en 20 casos | No auditado aquí | Comparativa de 20 casos, no mutación de datos y citas verificables | **No certificado** |
+| 15 | P0 | Hechos, hipótesis y recomendaciones distinguidos; jamás presentar hipótesis como hechos | No auditado aquí | Casos adversariales de etiquetado de certeza, procedencia y datos faltantes | **No certificado** |
+| 16 | P1 | Estado empresarial por empresa/sede actualiza inventario, caja y pedidos tras eventos sin retraso injustificado | No auditado aquí | Pruebas de frescura temporal, procedencia y aislamiento por sede | **No certificado** |
+| 17 | P1 | Objetivo con dueño, horizonte, línea base, KPI, presupuesto, estado y autorización; seguimiento y cierre evidenciables | No auditado aquí | Ciclo de vida y autorización de objetivo con evidencia | **No certificado** |
+| 18 | P1 | Alertas de faltantes, desperdicio, descuadre, margen y atrasos explican cálculo, impacto y acción sugerida | No auditado aquí | Casos reproducibles de umbrales y cálculo de impacto | **No certificado** |
+| 19 | P1 | Evaluación de predicciones y propuestas frente a resultados con reportes de error, acierto, costo y corrección | No auditado aquí | Comparación contra resultado real sin atribución causal automática | **No certificado** |
+| 20 | P1 | Acciones sensibles solo desde borrador con confirmación humana explícita; no pagos ni cambios irreversibles sin permiso | No auditado aquí | Pruebas negativas de pago/cambio irreversible sin autorización | **No certificado** |
 | 69 | P0 | Pruebas de ataque no consiguen autoelevación | No auditado aquí | Pendiente batería adversarial | **No certificado** |
 | 70 | P0 | Pruebas negativas entre cuentas para DB, cachés, búsquedas, archivos y logs | No auditado aquí | Pendiente suite multiempresa | **No certificado** |
 
