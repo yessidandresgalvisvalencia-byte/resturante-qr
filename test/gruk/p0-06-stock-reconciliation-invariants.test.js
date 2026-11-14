@@ -40,3 +40,19 @@ test('P0-06: reject non-ASCII numerals, invisible characters and unsafe 16-digit
   assert.throws(() => reconcileStock('0', '9999999999999999'), RangeError);
   assert.equal(reconcileStock('9007199254740991', '9007199254740991').matches, true);
 });
+
+test('P0-06: reject non-string values without coercion or invoking user code', () => {
+  let invoked = 0;
+  const hostile = {
+    toString() { invoked++; throw new Error('must not coerce'); },
+    valueOf() { invoked++; throw new Error('must not coerce'); },
+    [Symbol.toPrimitive]() { invoked++; throw new Error('must not coerce'); }
+  };
+  const invalid = [null, undefined, 0, 1, 1n, false, true, NaN, Infinity,
+    [], ['1'], hostile, Symbol('quantity')];
+  for (const value of invalid) {
+    assert.throws(() => reconcileStock(value, '0'), TypeError);
+    assert.throws(() => reconcileStock('0', value), TypeError);
+  }
+  assert.equal(invoked, 0);
+});
