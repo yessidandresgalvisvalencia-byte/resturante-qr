@@ -18,3 +18,14 @@ test('P0-06: reject ambiguous, negative, malformed or oversized quantities', () 
     assert.throws(() => reconcileStock('0', invalid));
   }
 });
+
+test('P0-06: pure and immutable results under repeated and hostile inputs', () => {
+  const first = reconcileStock('0', '9007199254740991');
+  assert.deepEqual(first, { matches: false, differenceUnits: '9007199254740991', absoluteDifferenceUnits: '9007199254740991' });
+  assert.equal(Object.isFrozen(first), true);
+  assert.throws(() => { first.differenceUnits = '0'; }, TypeError);
+  assert.deepEqual(reconcileStock('0', '9007199254740991'), first);
+  const hostile = { toString() { throw new Error('must not coerce'); } };
+  assert.throws(() => reconcileStock(hostile, '0'), TypeError);
+  assert.throws(() => reconcileStock('0', hostile), TypeError);
+});
