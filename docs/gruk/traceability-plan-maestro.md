@@ -28,6 +28,16 @@ Cada criterio requiere: (1) requisito textual, (2) código en `main`, (3) test i
 | 18 | P1 | Alertas de faltantes, desperdicio, descuadre, margen y atrasos explican cálculo, impacto y acción sugerida | No auditado aquí | Casos reproducibles de umbrales y cálculo de impacto | **No certificado** |
 | 19 | P1 | Evaluación de predicciones y propuestas frente a resultados con reportes de error, acierto, costo y corrección | No auditado aquí | Comparación contra resultado real sin atribución causal automática | **No certificado** |
 | 20 | P1 | Acciones sensibles solo desde borrador con confirmación humana explícita; no pagos ni cambios irreversibles sin permiso | No auditado aquí | Pruebas negativas de pago/cambio irreversible sin autorización | **No certificado** |
+| 21 | P1 | Piloto demuestra beneficio neto por flujo frente a línea base, con supuestos declarados | No auditado aquí | Pendiente: Comparativa reproducible de tiempo, costo, calidad, errores y margen | **No certificado** |
+| 22 | P1 | Reconstitución de una situación histórica desde eventos versionados con retención y minimización | No auditado aquí | Pendiente: Replay de eventos y control de retención | **No certificado** |
+| 23 | P1 | Consultas cruzadas de grafo empresarial demuestran dependencias reales entre entidades | No auditado aquí | Pendiente: Consultas de relaciones y aislamiento por empresa | **No certificado** |
+| 24 | P1 | Respuestas de búsqueda enlazan registros originales consultables y citas precisas | No auditado aquí | Pendiente: Pruebas de citas, permisos y procedencia | **No certificado** |
+| 25 | P2 | Caso de decisión anterior recuperable por similitud y fechas | No auditado aquí | Pendiente: Recuperación episódica con fechas y evidencia | **No certificado** |
+| 26 | P2 | Hechos semánticos caducados se identifican como desactualizados | No auditado aquí | Pendiente: Pruebas de TTL y actualización de hechos | **No certificado** |
+| 27 | P2 | Skills solo ejecutables bajo precondiciones y ámbito autorizados | No auditado aquí | Pendiente: Pruebas de rechazo por precondiciones y permisos | **No certificado** |
+| 28 | P2 | Evaluación histórica demuestra evitar repetición de errores documentados | No auditado aquí | Pendiente: Benchmark de fallos y prevención | **No certificado** |
+| 29 | P2 | Resúmenes y recuerdos nunca amplían permisos ni autoridad de la fuente original | No auditado aquí | Pendiente: Pruebas negativas de lavado de autoridad | **No certificado** |
+| 30 | P2 | Datos revocados dejan de influir en búsquedas y respuestas | No auditado aquí | Pendiente: Pruebas de invalidación, revocación y eliminación | **No certificado** |
 | 69 | P0 | Pruebas de ataque no consiguen autoelevación | No auditado aquí | Pendiente batería adversarial | **No certificado** |
 | 70 | P0 | Pruebas negativas entre cuentas para DB, cachés, búsquedas, archivos y logs | No auditado aquí | Pendiente suite multiempresa | **No certificado** |
 
