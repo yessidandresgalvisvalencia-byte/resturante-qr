@@ -21,7 +21,8 @@ const incompatibleTenantUniqueIndexes = indexes.filter(index =>
   index.unique === true && index.key &&
   Object.prototype.hasOwnProperty.call(index.key, 'empresaId') &&
   index.key.origen === 1 && index.key.origenId === 1 &&
-  JSON.stringify(index.partialFilterExpression || {}) !== JSON.stringify({ origenId: { $type: 'objectId' } })
+  (Object.keys(index.key).length !== 3 ||
+  JSON.stringify(index.partialFilterExpression || {}) !== JSON.stringify({ origenId: { $type: 'objectId' } }))
 ).map(index => index.name);
 const missingTenant = sales.countDocuments({
   empresaId: { $not: { $type: 'objectId' } }
