@@ -25,6 +25,8 @@ function reconcileStock(recorded, counted) {
 // Callers must authorize empresaId and load the tenant-scoped snapshot beforehand.
 function reconcileStockSnapshot(rows) {
   if (!Array.isArray(rows)) throw new TypeError('Stock snapshot must be an array');
+  // Bound work before iterating untrusted snapshots; no partial result escapes.
+  if (rows.length > 10000) throw new RangeError('Stock snapshot exceeds 10000 rows');
   const seen = new Set();
   const output = [];
   for (const row of rows) {
