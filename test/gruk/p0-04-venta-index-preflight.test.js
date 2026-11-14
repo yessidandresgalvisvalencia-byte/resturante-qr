@@ -14,7 +14,7 @@ function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, duplicate
     getIndexes() { calls.push('getIndexes'); return indexes; },
     countDocuments(query) {
       const normalized = JSON.parse(JSON.stringify(query));
-      const missingTenantQuery = { origenId: { $type: 'objectId' }, empresaId: { $not: { $type: 'objectId' } } };
+      const missingTenantQuery = { empresaId: { $not: { $type: 'objectId' } } };
       const invalidOriginQuery = { origenId: { $exists: true, $nin: [null], $not: { $type: 'objectId' } } };
       const countNumber = calls.filter(call => call === 'countDocuments').length;
       assert.deepEqual(normalized, countNumber === 0 ? missingTenantQuery : invalidOriginQuery);
@@ -106,4 +106,11 @@ test('P0-04 preflight blocks invalid legacy origin IDs excluded by partial index
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.equal(ctx.output[1].invalidOriginIds, 1);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
+});
+
+test('P0-04 preflight scans originless sales for missing enterprise ownership', () => {
+  const ctx = preflight({ missingTenant: 1 });
+  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.equal(ctx.output[1].missingTenant, 1);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'aggregate']);
 });
