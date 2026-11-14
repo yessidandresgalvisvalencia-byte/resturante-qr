@@ -39,10 +39,14 @@ function invoiceTotal(lines) {
   for (const line of lines) {
     if (!line || typeof line !== 'object' || Array.isArray(line)) throw new TypeError('Invalid invoice line');
     // Financial inputs must be explicit line fields, never inherited from a prototype.
-    if (!Object.hasOwn(line, 'unitPrice') || !Object.hasOwn(line, 'quantity')) {
-      throw new TypeError('Invoice line must contain own unitPrice and quantity fields');
+    const priceField = Object.getOwnPropertyDescriptor(line, 'unitPrice');
+    const quantityField = Object.getOwnPropertyDescriptor(line, 'quantity');
+    if (!priceField || !quantityField || !Object.hasOwn(priceField, 'value') ||
+        !Object.hasOwn(quantityField, 'value')) {
+      throw new TypeError('Invoice line must contain own data fields for unitPrice and quantity');
     }
-    total = assertSafeCents(total + parseMoneyToCents(line.unitPrice) * assertQuantity(line.quantity));
+    // Accessor properties can execute arbitrary code or return inconsistent values.
+    total = assertSafeCents(total + parseMoneyToCents(priceField.value) * assertQuantity(quantityField.value));
   }
   return formatCents(total);
 }
