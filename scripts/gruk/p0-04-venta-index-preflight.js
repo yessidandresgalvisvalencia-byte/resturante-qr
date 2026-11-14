@@ -4,6 +4,8 @@
 'use strict';
 const name = process.env.GRUK_ENTERPRISE_DB;
 if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error('Explicit GRUK_ENTERPRISE_DB required');
+// Defense in depth: never inspect Personal or Blushea databases with enterprise tooling.
+if (/(^|[_-])(personal|finanzas_personales|blushea)([_-]|$)/i.test(name)) throw new Error('Non-enterprise database prohibited');
 const sales = db.getSiblingDB(name).getCollection('ventas');
 const indexes = sales.getIndexes();
 printjson({ database: name, collection: 'ventas', indexes });
