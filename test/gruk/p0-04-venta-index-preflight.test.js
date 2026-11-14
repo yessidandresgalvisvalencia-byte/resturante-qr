@@ -13,9 +13,13 @@ function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, duplicate
   const collection = {
     getIndexes() { calls.push('getIndexes'); return indexes; },
     countDocuments(query) {
-      assert.deepEqual(JSON.parse(JSON.stringify(query)), { origenId: { $type: 'objectId' }, empresaId: { $not: { $type: 'objectId' } } });
+      const normalized = JSON.parse(JSON.stringify(query));
+      const missingTenantQuery = { origenId: { $type: 'objectId' }, empresaId: { $not: { $type: 'objectId' } } };
+      const invalidOriginQuery = { origenId: { $exists: true, $nin: [null], $not: { $type: 'objectId' } } };
+      const countNumber = calls.filter(call => call === 'countDocuments').length;
+      assert.deepEqual(normalized, countNumber === 0 ? missingTenantQuery : invalidOriginQuery);
       calls.push('countDocuments');
-      return missingTenant;
+      return countNumber === 0 ? missingTenant : invalidOriginIds;
     },
     aggregate(pipeline) {
       assert.deepEqual(JSON.parse(JSON.stringify(pipeline)), [
