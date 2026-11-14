@@ -38,8 +38,12 @@ function invoiceTotal(lines) {
   let total = 0n;
   // Indexed traversal avoids invoking an attacker-supplied Symbol.iterator on the array.
   for (let index = 0; index < lines.length; index++) {
-    if (!Object.hasOwn(lines, index)) throw new TypeError('Invalid sparse invoice line');
-    const line = lines[index];
+    // Read an own data descriptor: indexed access could invoke an attacker-controlled getter.
+    const lineField = Object.getOwnPropertyDescriptor(lines, String(index));
+    if (!lineField || !Object.hasOwn(lineField, 'value')) {
+      throw new TypeError('Invalid sparse or accessor invoice line');
+    }
+    const line = lineField.value;
     if (!line || typeof line !== 'object' || Array.isArray(line)) throw new TypeError('Invalid invoice line');
     // Financial inputs must be explicit line fields, never inherited from a prototype.
     const priceField = Object.getOwnPropertyDescriptor(line, 'unitPrice');
