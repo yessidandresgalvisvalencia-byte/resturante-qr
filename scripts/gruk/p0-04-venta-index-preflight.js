@@ -11,7 +11,7 @@ const indexes = sales.getIndexes();
 printjson({ database: name, collection: 'ventas', indexes });
 // A global unique origin index can reject valid cross-tenant sales even when data is clean.
 const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true &&
-  index.key && index.key.origen === 1 && index.key.origenId === 1 &&
+  index.key && Math.abs(index.key.origen) === 1 && Math.abs(index.key.origenId) === 1 &&
   !Object.prototype.hasOwnProperty.call(index.key, 'empresaId')).map(index => index.name);
 // Inspect every sale, including originless records, for invalid enterprise ownership.
 // This is stricter than the partial unique origin index and blocks unsafe migration.
