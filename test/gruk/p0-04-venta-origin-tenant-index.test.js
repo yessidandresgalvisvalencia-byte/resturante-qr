@@ -19,3 +19,28 @@ test('P0-04: tenant identifier is required for sale records', () => {
   const error = missingTenant.validateSync();
   assert.ok(error?.errors?.empresaId, 'missing empresaId must fail validation');
 });
+
+test('P0-04: invalid tenant identifiers fail sale validation', () => {
+  const invalidTenant = new Venta({
+    empresaId: 'not-an-object-id',
+    concepto: 'test',
+    precioUnitario: 1,
+    total: 1
+  });
+  const error = invalidTenant.validateSync();
+  assert.ok(error?.errors?.empresaId, 'invalid empresaId must fail casting or validation');
+});
+
+test('P0-04: two valid tenants retain distinct scoped origin index keys', () => {
+  const mongoose = require('mongoose');
+  const tenantA = new mongoose.Types.ObjectId();
+  const tenantB = new mongoose.Types.ObjectId();
+  const originId = new mongoose.Types.ObjectId();
+  const saleA = new Venta({ empresaId: tenantA, origen: 'restaurante', origenId, concepto: 'test', precioUnitario: 1, total: 1 });
+  const saleB = new Venta({ empresaId: tenantB, origen: 'restaurante', origenId, concepto: 'test', precioUnitario: 1, total: 1 });
+  assert.equal(saleA.validateSync(), undefined);
+  assert.equal(saleB.validateSync(), undefined);
+  assert.notEqual(saleA.empresaId.toString(), saleB.empresaId.toString());
+  assert.equal(saleA.origenId.toString(), saleB.origenId.toString());
+  // Schema-only test: MongoDB uniqueness and legacy-index removal require integration verification.
+});
