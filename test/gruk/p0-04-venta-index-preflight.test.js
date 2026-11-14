@@ -13,7 +13,7 @@ function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, duplicate
   const collection = {
     getIndexes() { calls.push('getIndexes'); return indexes; },
     countDocuments(query) {
-      assert.deepEqual(JSON.parse(JSON.stringify(query)), { empresaId: { $not: { $type: 'objectId' } } });
+      assert.deepEqual(JSON.parse(JSON.stringify(query)), { origenId: { $type: 'objectId' }, empresaId: { $not: { $type: 'objectId' } } });
       calls.push('countDocuments');
       return missingTenant;
     },
