@@ -12,7 +12,11 @@ const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true 
   index.key && index.key.origen === 1 && index.key.origenId === 1 &&
   !Object.prototype.hasOwnProperty.call(index.key, 'empresaId')).map(index => index.name);
 // Inspect all sales: originless legacy records must not bypass tenant isolation.
-const missingTenant = sales.countDocuments({ empresaId: { $not: { $type: 'objectId' } } });
+// Only origin-indexed sales participate in this partial unique constraint.
+const missingTenant = sales.countDocuments({
+  origenId: { $type: 'objectId' },
+  empresaId: { $not: { $type: 'objectId' } }
+});
 const duplicates = sales.aggregate([
   { $match: { origenId: { $type: 'objectId' } } },
   { $group: { _id: { empresaId: '$empresaId', origen: '$origen', origenId: '$origenId' }, count: { $sum: 1 } } },
