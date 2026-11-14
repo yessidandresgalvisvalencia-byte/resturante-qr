@@ -15,6 +15,12 @@ const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true 
   !Object.prototype.hasOwnProperty.call(index.key, 'empresaId')).map(index => index.name);
 // Inspect every sale, including originless records, for invalid enterprise ownership.
 // This is stricter than the partial unique origin index and blocks unsafe migration.
+// Uniqueness is independent of compound key order; compare exact key sets.
+const targetKeys = ['empresaId', 'origen', 'origenId'];
+const hasTargetKeys = key => key && Object.keys(key).length === targetKeys.length &&
+  targetKeys.every(field => key[field] === 1);
+const hasTargetFilter = index => JSON.stringify(index.partialFilterExpression || {}) ===
+  JSON.stringify({ origenId: { $type: 'objectId' } });
 // A scoped unique index without the ObjectId partial filter can reject
 // multiple originless sales in the same tenant.
 const incompatibleTenantUniqueIndexes = indexes.filter(index =>
@@ -23,12 +29,6 @@ const incompatibleTenantUniqueIndexes = indexes.filter(index =>
   index.key.origen === 1 && index.key.origenId === 1 &&
   (!hasTargetKeys(index.key) || !hasTargetFilter(index))
 ).map(index => index.name);
-// Uniqueness is independent of compound key order; compare exact key sets.
-const targetKeys = ['empresaId', 'origen', 'origenId'];
-const hasTargetKeys = key => key && Object.keys(key).length === targetKeys.length &&
-  targetKeys.every(field => key[field] === 1);
-const hasTargetFilter = index => JSON.stringify(index.partialFilterExpression || {}) ===
-  JSON.stringify({ origenId: { $type: 'objectId' } });
 // A clean dataset alone does not prove the intended index has been created.
 // Report this separately from data readiness; never authorize legacy removal here.
 const targetIndexPresent = indexes.some(index => index.unique === true && index.key &&
