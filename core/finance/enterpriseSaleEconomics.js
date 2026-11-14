@@ -6,7 +6,7 @@ const { parseMoneyToCents, formatCents } = require('./enterpriseMoney');
 const MAX = BigInt(Number.MAX_SAFE_INTEGER);
 
 function saleEconomics({ quantity, total, unitCost }) {
-  if (typeof quantity !== 'string' || !/^[1-9][0-9]*$/.test(quantity) || quantity.length > 16) {
+  if (typeof quantity !== 'string' || quantity.length > 16 || !/^[1-9][0-9]*$/.test(quantity)) {
     throw new TypeError('Quantity must be a positive canonical integer string');
   }
   const qty = BigInt(quantity);
