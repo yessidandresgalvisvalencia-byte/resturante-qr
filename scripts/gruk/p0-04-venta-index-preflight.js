@@ -24,6 +24,11 @@ const incompatibleTenantUniqueIndexes = indexes.filter(index =>
   (Object.keys(index.key).length !== 3 ||
   JSON.stringify(index.partialFilterExpression || {}) !== JSON.stringify({ origenId: { $type: 'objectId' } }))
 ).map(index => index.name);
+// A clean dataset alone does not prove the intended index has been created.
+// Report this separately from data readiness; never authorize legacy removal here.
+const targetIndexPresent = indexes.some(index => index.unique === true && index.key &&
+  JSON.stringify(index.key) === JSON.stringify({ empresaId: 1, origen: 1, origenId: 1 }) &&
+  JSON.stringify(index.partialFilterExpression || {}) === JSON.stringify({ origenId: { $type: 'objectId' } }));
 const missingTenant = sales.countDocuments({
   empresaId: { $not: { $type: 'objectId' } }
 });
@@ -36,6 +41,6 @@ const duplicates = sales.aggregate([
   { $count: 'groups' }
 ]).toArray();
 const duplicateGroups = duplicates.length ? duplicates[0].groups : 0;
-printjson({ missingTenant, invalidOriginIds, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, readyForIndexBuild: missingTenant === 0 && invalidOriginIds === 0 && duplicateGroups === 0 && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0 });
+printjson({ missingTenant, invalidOriginIds, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, targetIndexPresent, readyForIndexBuild: missingTenant === 0 && invalidOriginIds === 0 && duplicateGroups === 0 && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0 });
 if (missingTenant || invalidOriginIds || duplicateGroups || legacyGlobalUniqueIndexes.length || incompatibleTenantUniqueIndexes.length) throw new Error('Data anomalies block index migration');
 // A passing result does not authorize migration, index removal or deployment.
