@@ -35,14 +35,24 @@ function reconcileStockSnapshot(rows) {
         !Object.hasOwn(row, 'counted')) {
       throw new TypeError('Stock row requires own sku, recorded and counted fields');
     }
-    const sku = row.sku;
+    // Reject accessors before reading untrusted rows: getters can execute arbitrary
+    // side effects even in a nominally read-only reconciliation.
+    const skuField = Object.getOwnPropertyDescriptor(row, 'sku');
+    const recordedField = Object.getOwnPropertyDescriptor(row, 'recorded');
+    const countedField = Object.getOwnPropertyDescriptor(row, 'counted');
+    if (!skuField || !recordedField || !countedField ||
+        !Object.hasOwn(skuField, 'value') || !Object.hasOwn(recordedField, 'value') ||
+        !Object.hasOwn(countedField, 'value')) {
+      throw new TypeError('Stock row fields must be own data properties');
+    }
+    const sku = skuField.value;
     if (typeof sku !== 'string' || sku.length === 0 || sku.length > 128 ||
         sku.trim() !== sku || /[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/.test(sku)) {
       throw new TypeError('Stock SKU must be a bounded canonical identifier');
     }
     if (seen.has(sku)) throw new TypeError('Duplicate SKU in stock snapshot');
     seen.add(sku);
-    const result = reconcileStock(row.recorded, row.counted);
+    const result = reconcileStock(recordedField.value, countedField.value);
     output.push(Object.freeze({ sku, ...result }));
   }
   return Object.freeze(output);
