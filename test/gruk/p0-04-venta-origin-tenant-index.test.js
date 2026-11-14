@@ -36,8 +36,8 @@ test('P0-04: two valid tenants retain distinct scoped origin index keys', () => 
   const tenantA = new mongoose.Types.ObjectId();
   const tenantB = new mongoose.Types.ObjectId();
   const originId = new mongoose.Types.ObjectId();
-  const saleA = new Venta({ empresaId: tenantA, origen: 'restaurante', origenId, concepto: 'test', precioUnitario: 1, total: 1 });
-  const saleB = new Venta({ empresaId: tenantB, origen: 'restaurante', origenId, concepto: 'test', precioUnitario: 1, total: 1 });
+  const saleA = new Venta({ empresaId: tenantA, origen: 'restaurante', origenId: originId, concepto: 'test', precioUnitario: 1, total: 1 });
+  const saleB = new Venta({ empresaId: tenantB, origen: 'restaurante', origenId: originId, concepto: 'test', precioUnitario: 1, total: 1 });
   assert.equal(saleA.validateSync(), undefined);
   assert.equal(saleB.validateSync(), undefined);
   assert.notEqual(saleA.empresaId.toString(), saleB.empresaId.toString());
