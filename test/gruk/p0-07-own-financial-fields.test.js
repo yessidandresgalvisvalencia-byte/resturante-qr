@@ -79,3 +79,19 @@ test('P0-07: malformed own descriptors fail without executing fallback prototype
   assert.throws(() => invoiceTotal([line]), TypeError);
   assert.equal(getterCalls, 0);
 });
+
+test('P0-07: invoice ignores overridden array iterator and totals every indexed line', () => {
+  let iteratorCalls = 0;
+  const lines = [{ unitPrice: '1.00', quantity: '2' }, { unitPrice: '0.25', quantity: '4' }];
+  Object.defineProperty(lines, Symbol.iterator, {
+    value() { iteratorCalls++; throw new Error('untrusted iterator executed'); }
+  });
+  assert.equal(invoiceTotal(lines), '3.00');
+  assert.equal(iteratorCalls, 0);
+});
+
+test('P0-07: sparse invoice arrays cannot silently omit financial lines', () => {
+  const lines = new Array(2);
+  lines[1] = { unitPrice: '1.00', quantity: '1' };
+  assert.throws(() => invoiceTotal(lines), TypeError);
+});
