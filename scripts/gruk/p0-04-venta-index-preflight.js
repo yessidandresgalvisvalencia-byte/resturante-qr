@@ -6,7 +6,8 @@ const name = process.env.GRUK_ENTERPRISE_DB;
 if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error('Explicit GRUK_ENTERPRISE_DB required');
 const sales = db.getSiblingDB(name).getCollection('ventas');
 printjson({ database: name, collection: 'ventas', indexes: sales.getIndexes() });
-const missingTenant = sales.countDocuments({ origenId: { $type: 'objectId' }, empresaId: { $not: { $type: 'objectId' } } });
+// Inspect all sales: originless legacy records must not bypass tenant isolation.
+const missingTenant = sales.countDocuments({ empresaId: { $not: { $type: 'objectId' } } });
 const duplicates = sales.aggregate([
   { $match: { origenId: { $type: 'objectId' } } },
   { $group: { _id: { empresaId: '$empresaId', origen: '$origen', origenId: '$origenId' }, count: { $sum: 1 } } },
