@@ -126,3 +126,11 @@ test('P0-04 preflight detects legacy unique origin indexes regardless of key ord
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_reverse', 'legacy_compound']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
 });
+
+test('P0-04 preflight refuses Personal and Blushea database names before any reads', () => {
+  for (const name of ['gruk_personal', 'finanzas_personales', 'blushea', 'GRUK-BLUSHEA-prod', 'personal-prod']) {
+    const ctx = preflight({ name });
+    assert.throws(ctx.run, /Non-enterprise database prohibited/);
+    assert.deepEqual(ctx.calls, []);
+  }
+});
