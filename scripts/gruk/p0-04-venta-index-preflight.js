@@ -11,10 +11,9 @@ printjson({ database: name, collection: 'ventas', indexes });
 const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true &&
   index.key && index.key.origen === 1 && index.key.origenId === 1 &&
   !Object.prototype.hasOwnProperty.call(index.key, 'empresaId')).map(index => index.name);
-// Inspect all sales: originless legacy records must not bypass tenant isolation.
-// Only origin-indexed sales participate in this partial unique constraint.
+// Inspect every sale, including originless records, for invalid enterprise ownership.
+// This is stricter than the partial unique origin index and blocks unsafe migration.
 const missingTenant = sales.countDocuments({
-  origenId: { $type: 'objectId' },
   empresaId: { $not: { $type: 'objectId' } }
 });
 // Legacy non-ObjectId origins bypass the partial unique index and require remediation.
