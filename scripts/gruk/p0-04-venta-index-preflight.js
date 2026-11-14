@@ -37,6 +37,9 @@ const missingTenant = sales.countDocuments({
   empresaId: { $not: { $type: 'objectId' } }
 });
 // Legacy non-ObjectId origins bypass the partial unique index and require remediation.
+// Multi-site ownership is independently required: a valid enterprise does not
+// imply that a sale belongs to a valid site. Read-only audit, never backfill.
+const invalidSiteIds = sales.countDocuments({ sedeId: { $not: { $type: 'objectId' } } });
 const invalidOriginIds = sales.countDocuments({ origenId: { $exists: true, $nin: [null], $not: { $type: 'objectId' } } });
 const duplicates = sales.aggregate([
   { $match: { origenId: { $type: 'objectId' } } },
@@ -45,6 +48,6 @@ const duplicates = sales.aggregate([
   { $count: 'groups' }
 ]).toArray();
 const duplicateGroups = duplicates.length ? duplicates[0].groups : 0;
-printjson({ missingTenant, invalidOriginIds, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, targetIndexPresent, readyForIndexBuild: missingTenant === 0 && invalidOriginIds === 0 && duplicateGroups === 0 && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0 });
-if (missingTenant || invalidOriginIds || duplicateGroups || legacyGlobalUniqueIndexes.length || incompatibleTenantUniqueIndexes.length) throw new Error('Data anomalies block index migration');
+printjson({ missingTenant, invalidSiteIds, invalidOriginIds, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, targetIndexPresent, readyForIndexBuild: missingTenant === 0 && invalidSiteIds === 0 && invalidOriginIds === 0 && duplicateGroups === 0 && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0 });
+if (missingTenant || invalidSiteIds || invalidOriginIds || duplicateGroups || legacyGlobalUniqueIndexes.length || incompatibleTenantUniqueIndexes.length) throw new Error('Data anomalies block index migration');
 // A passing result does not authorize migration, index removal or deployment.
