@@ -56,3 +56,18 @@ test('P0-06: reject non-string values without coercion or invoking user code', (
   }
   assert.equal(invoked, 0);
 });
+
+test('P0-06: exhaustive small-stock reconciliation conserves signed units', () => {
+  for (let recorded = 0; recorded <= 32; recorded++) {
+    for (let counted = 0; counted <= 32; counted++) {
+      const result = reconcileStock(String(recorded), String(counted));
+      const delta = counted - recorded;
+      assert.deepEqual(result, {
+        matches: delta === 0,
+        differenceUnits: String(delta),
+        absoluteDifferenceUnits: String(Math.abs(delta))
+      }, `recorded=${recorded} counted=${counted}`);
+      assert.equal(Object.isFrozen(result), true);
+    }
+  }
+});
