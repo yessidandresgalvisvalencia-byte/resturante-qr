@@ -8,18 +8,19 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../scripts/gruk/p0-04-venta-index-preflight.js'), 'utf8');
 
-function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, duplicateGroups = 0, invalidOriginIds = 0, indexes = [{ name: '_id_' }] } = {}) {
+function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSiteIds = 0, duplicateGroups = 0, invalidOriginIds = 0, indexes = [{ name: '_id_' }] } = {}) {
   const calls = [];
   const collection = {
     getIndexes() { calls.push('getIndexes'); return indexes; },
     countDocuments(query) {
       const normalized = JSON.parse(JSON.stringify(query));
       const missingTenantQuery = { empresaId: { $not: { $type: 'objectId' } } };
+      const invalidSiteQuery = { sedeId: { $not: { $type: 'objectId' } } };
       const invalidOriginQuery = { origenId: { $exists: true, $nin: [null], $not: { $type: 'objectId' } } };
       const countNumber = calls.filter(call => call === 'countDocuments').length;
-      assert.deepEqual(normalized, countNumber === 0 ? missingTenantQuery : invalidOriginQuery);
+      assert.deepEqual(normalized, [missingTenantQuery, invalidSiteQuery, invalidOriginQuery][countNumber]);
       calls.push('countDocuments');
-      return countNumber === 0 ? missingTenant : invalidOriginIds;
+      return [missingTenant, invalidSiteIds, invalidOriginIds][countNumber];
     },
     aggregate(pipeline) {
       assert.deepEqual(JSON.parse(JSON.stringify(pipeline)), [
@@ -66,7 +67,7 @@ test('P0-04 preflight rejects missing or unsafe explicit database names before D
 test('P0-04 preflight reports readiness without writing to MongoDB', () => {
   const ctx = preflight();
   ctx.run();
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
   assert.equal(ctx.output[1].readyForIndexBuild, true);
   assert.equal(ctx.output[1].duplicateGroups, 0);
 });
@@ -88,7 +89,7 @@ test('P0-04 preflight blocks legacy global unique origin indexes without mutatin
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_origin_unique']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
 });
 
 test('P0-04 preflight accepts tenant-scoped unique origin indexes', () => {
@@ -112,7 +113,7 @@ test('P0-04 preflight scans originless sales for missing enterprise ownership', 
   const ctx = preflight({ missingTenant: 1 });
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.equal(ctx.output[1].missingTenant, 1);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
 });
 
 test('P0-04 preflight detects legacy unique origin indexes regardless of key order', () => {
@@ -142,7 +143,7 @@ test('P0-04 preflight blocks scoped unique indexes that reject originless sales'
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['tenant_origin_unfiltered']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
 });
 
 
@@ -197,4 +198,13 @@ test('P0-04 recognizes reordered tenant uniqueness and rejects descending lookal
   ] });
   descending.run();
   assert.equal(descending.output[1].targetIndexPresent, false);
+});
+
+
+test('P0-04 preflight blocks missing or malformed site ownership without writes', () => {
+  const ctx = preflight({ invalidSiteIds: 3 });
+  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.equal(ctx.output[1].invalidSiteIds, 3);
+  assert.equal(ctx.output[1].readyForIndexBuild, false);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
 });
