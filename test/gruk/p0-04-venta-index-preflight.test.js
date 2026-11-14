@@ -114,3 +114,15 @@ test('P0-04 preflight scans originless sales for missing enterprise ownership', 
   assert.equal(ctx.output[1].missingTenant, 1);
   assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'aggregate']);
 });
+
+test('P0-04 preflight detects legacy unique origin indexes regardless of key order', () => {
+  const ctx = preflight({ indexes: [
+    { name: 'legacy_reverse', unique: true, key: { origenId: 1, origen: 1 } },
+    { name: 'legacy_compound', unique: true, key: { sedeId: 1, origen: 1, origenId: 1 } },
+    { name: 'nonunique_origin', key: { origen: 1, origenId: 1 } },
+    { name: 'tenant_scoped', unique: true, key: { origen: 1, empresaId: 1, origenId: 1 } }
+  ] });
+  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_reverse', 'legacy_compound']);
+  assert.equal(ctx.output[1].readyForIndexBuild, false);
+});
