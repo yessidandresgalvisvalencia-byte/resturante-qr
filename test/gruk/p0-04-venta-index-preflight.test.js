@@ -93,7 +93,7 @@ test('P0-04 preflight blocks legacy global unique origin indexes without mutatin
 
 test('P0-04 preflight accepts tenant-scoped unique origin indexes', () => {
   const ctx = preflight({ indexes: [
-    { name: 'tenant_origin_unique', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 } }
+    { name: 'tenant_origin_unique', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
   ] });
   ctx.run();
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, []);
@@ -133,4 +133,14 @@ test('P0-04 preflight refuses Personal and Blushea database names before any rea
     assert.throws(ctx.run, /Non-enterprise database prohibited/);
     assert.deepEqual(ctx.calls, []);
   }
+});
+
+test('P0-04 preflight blocks scoped unique indexes that reject originless sales', () => {
+  const ctx = preflight({ indexes: [
+    { name: 'tenant_origin_unfiltered', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 } }
+  ] });
+  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['tenant_origin_unfiltered']);
+  assert.equal(ctx.output[1].readyForIndexBuild, false);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'aggregate']);
 });
