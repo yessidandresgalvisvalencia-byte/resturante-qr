@@ -8,10 +8,10 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../scripts/gruk/p0-04-venta-index-preflight.js'), 'utf8');
 
-function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, duplicateGroups = 0 } = {}) {
+function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, duplicateGroups = 0, indexes = [{ name: '_id_' }] } = {}) {
   const calls = [];
   const collection = {
-    getIndexes() { calls.push('getIndexes'); return [{ name: '_id_' }]; },
+    getIndexes() { calls.push('getIndexes'); return indexes; },
     countDocuments(query) {
       assert.deepEqual(JSON.parse(JSON.stringify(query)), { empresaId: { $not: { $type: 'objectId' } } });
       calls.push('countDocuments');
@@ -73,4 +73,25 @@ test('P0-04 preflight blocks migration readiness for missing tenants or duplicat
     assert.throws(ctx.run, /Data anomalies block index migration/);
     assert.equal(ctx.output[1].readyForIndexBuild, false);
   }
+});
+
+
+test('P0-04 preflight blocks legacy global unique origin indexes without mutating data', () => {
+  const ctx = preflight({ indexes: [
+    { name: '_id_' },
+    { name: 'legacy_origin_unique', unique: true, key: { origen: 1, origenId: 1 } }
+  ] });
+  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_origin_unique']);
+  assert.equal(ctx.output[1].readyForIndexBuild, false);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'aggregate']);
+});
+
+test('P0-04 preflight accepts tenant-scoped unique origin indexes', () => {
+  const ctx = preflight({ indexes: [
+    { name: 'tenant_origin_unique', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 } }
+  ] });
+  ctx.run();
+  assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, []);
+  assert.equal(ctx.output[1].readyForIndexBuild, true);
 });
