@@ -5,7 +5,12 @@
 const name = process.env.GRUK_ENTERPRISE_DB;
 if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error('Explicit GRUK_ENTERPRISE_DB required');
 const sales = db.getSiblingDB(name).getCollection('ventas');
-printjson({ database: name, collection: 'ventas', indexes: sales.getIndexes() });
+const indexes = sales.getIndexes();
+printjson({ database: name, collection: 'ventas', indexes });
+// A global unique origin index can reject valid cross-tenant sales even when data is clean.
+const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true &&
+  index.key && index.key.origen === 1 && index.key.origenId === 1 &&
+  !Object.prototype.hasOwnProperty.call(index.key, 'empresaId')).map(index => index.name);
 // Inspect all sales: originless legacy records must not bypass tenant isolation.
 const missingTenant = sales.countDocuments({ empresaId: { $not: { $type: 'objectId' } } });
 const duplicates = sales.aggregate([
@@ -15,6 +20,6 @@ const duplicates = sales.aggregate([
   { $count: 'groups' }
 ]).toArray();
 const duplicateGroups = duplicates.length ? duplicates[0].groups : 0;
-printjson({ missingTenant, duplicateGroups, readyForIndexBuild: missingTenant === 0 && duplicateGroups === 0 });
-if (missingTenant || duplicateGroups) throw new Error('Data anomalies block index migration');
+printjson({ missingTenant, duplicateGroups, legacyGlobalUniqueIndexes, readyForIndexBuild: missingTenant === 0 && duplicateGroups === 0 && legacyGlobalUniqueIndexes.length === 0 });
+if (missingTenant || duplicateGroups || legacyGlobalUniqueIndexes.length) throw new Error('Data anomalies block index migration');
 // A passing result does not authorize migration, index removal or deployment.
