@@ -194,7 +194,19 @@ function construirIntervencionExperta({
     );
   }
 
+  if (respuesta.diagnostico_ejecutivo) {
+    bloques.push(
+      "Diagnóstico ejecutivo: " +
+      limitarTexto(
+        respuesta.diagnostico_ejecutivo,
+        900
+      )
+    );
+  }
+
   const secciones = [
+    ["Preguntas críticas", respuesta.preguntas_criticas, 350],
+    ["Acciones inmediatas", respuesta.acciones_inmediatas, 350],
     ["Riesgos", respuesta.riesgos, 350],
     ["Objeciones a la Junta", respuesta.objeciones, 350],
     ["Acuerdos con la Junta", respuesta.acuerdos, 350],
