@@ -46,3 +46,14 @@ test('oversized sale quantities are rejected before regex scanning or BigInt con
   assert.throws(() => saleEconomics({ quantity: oversized, total: '1.00', unitCost: '0.01' }), TypeError);
   assert.throws(() => saleEconomics({ quantity: 'x' + oversized, total: '1.00', unitCost: '0.01' }), TypeError);
 });
+
+
+test('basis-point rounding is deterministic at half-up boundaries', () => {
+  // 1 cent / 32 cents = 312.5 basis points; ties round away from zero.
+  assert.equal(saleEconomics({quantity:'1',total:'0.32',unitCost:'0.31'}).marginBasisPoints, '313');
+  // A one-cent loss on 32 cents must use the same rounding policy.
+  assert.equal(saleEconomics({quantity:'1',total:'0.32',unitCost:'0.33'}).marginBasisPoints, '-313');
+  assert.deepEqual(saleEconomics({quantity:'1',total:'0.00',unitCost:'0.00'}), {
+    costTotal:'0.00',profit:'0.00',marginBasisPoints:'0'
+  });
+});
