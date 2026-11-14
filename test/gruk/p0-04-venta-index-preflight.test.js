@@ -8,7 +8,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../scripts/gruk/p0-04-venta-index-preflight.js'), 'utf8');
 
-function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSiteIds = 0, duplicateGroups = 0, invalidOriginIds = 0, invalidOriginNames = 0, indexes = [{ name: '_id_' }] } = {}) {
+function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSiteIds = 0, invalidSiteOwnership = 0, duplicateGroups = 0, invalidOriginIds = 0, invalidOriginNames = 0, indexes = [{ name: '_id_' }] } = {}) {
   const calls = [];
   const collection = {
     getIndexes() { calls.push('getIndexes'); return indexes; },
@@ -27,7 +27,20 @@ function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSi
       return [missingTenant, invalidSiteIds, invalidOriginIds, invalidOriginNames][countNumber];
     },
     aggregate(pipeline) {
-      assert.deepEqual(JSON.parse(JSON.stringify(pipeline)), [
+      const normalizedPipeline = JSON.parse(JSON.stringify(pipeline));
+      if (normalizedPipeline[0]?.$match?.sedeId) {
+        assert.deepEqual(normalizedPipeline, [
+          { $match: { empresaId: { $type: 'objectId' }, sedeId: { $type: 'objectId' } } },
+          { $lookup: { from: 'sedes', localField: 'sedeId', foreignField: '_id', as: 'matchedSite' } },
+          { $match: { $expr: { $ne: [
+            { $size: { $filter: { input: '$matchedSite', as: 'site', cond: { $eq: ['$site.empresaId', '$empresaId'] } } } }, 1
+          ] } } },
+          { $count: 'sales' }
+        ]);
+        calls.push('siteAggregate');
+        return { toArray() { return invalidSiteOwnership ? [{ sales: invalidSiteOwnership }] : []; } };
+      }
+      assert.deepEqual(normalizedPipeline, [
         { $match: { origenId: { $type: 'objectId' } } },
         { $group: {
           _id: { empresaId: '$empresaId', origen: '$origen', origenId: '$origenId' },
@@ -71,7 +84,7 @@ test('P0-04 preflight rejects missing or unsafe explicit database names before D
 test('P0-04 preflight reports readiness without writing to MongoDB', () => {
   const ctx = preflight();
   ctx.run();
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
   assert.equal(ctx.output[1].readyForIndexBuild, true);
   assert.equal(ctx.output[1].duplicateGroups, 0);
 });
@@ -93,7 +106,7 @@ test('P0-04 preflight blocks legacy global unique origin indexes without mutatin
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_origin_unique']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
 
 test('P0-04 preflight accepts tenant-scoped unique origin indexes', () => {
@@ -117,7 +130,7 @@ test('P0-04 preflight scans originless sales for missing enterprise ownership', 
   const ctx = preflight({ missingTenant: 1 });
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.equal(ctx.output[1].missingTenant, 1);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
 
 test('P0-04 preflight detects legacy unique origin indexes regardless of key order', () => {
@@ -147,7 +160,7 @@ test('P0-04 preflight blocks scoped unique indexes that reject originless sales'
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['tenant_origin_unfiltered']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
 
 
@@ -210,7 +223,7 @@ test('P0-04 preflight blocks missing or malformed site ownership without writes'
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.equal(ctx.output[1].invalidSiteIds, 3);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
 
 
@@ -244,4 +257,14 @@ test('P0-04 rejects blank and whitespace-only origin names via MongoDB regex', (
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.equal(ctx.output[1].invalidOriginNames, 1);
   assert.equal(ctx.output[1].dataReadyForIndexBuild, false);
+});
+
+
+test('P0-04 rejects a sale whose valid site ObjectId belongs to a different enterprise', () => {
+  const ctx = preflight({ invalidSiteOwnership: 2 });
+  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.equal(ctx.output[1].invalidSiteOwnership, 2);
+  assert.equal(ctx.output[1].dataReadyForIndexBuild, false);
+  assert.equal(ctx.output[1].readyForIndexBuild, false);
+  assert.ok(ctx.calls.includes('siteAggregate'));
 });
