@@ -184,3 +184,17 @@ test('P0-04 preflight distinguishes clean data from actual target index presence
   wrong.run();
   assert.equal(wrong.output[1].targetIndexPresent, false);
 });
+
+test('P0-04 recognizes reordered tenant uniqueness and rejects descending lookalikes', () => {
+  const reordered = preflight({ indexes: [
+    { name: 'reordered_target', unique: true, key: { origenId: 1, empresaId: 1, origen: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+  ] });
+  reordered.run();
+  assert.equal(reordered.output[1].targetIndexPresent, true);
+  assert.deepEqual(reordered.output[1].incompatibleTenantUniqueIndexes, []);
+  const descending = preflight({ indexes: [
+    { name: 'descending_target', unique: true, key: { origenId: -1, empresaId: 1, origen: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+  ] });
+  descending.run();
+  assert.equal(descending.output[1].targetIndexPresent, false);
+});
