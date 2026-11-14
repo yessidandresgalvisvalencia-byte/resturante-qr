@@ -15,6 +15,14 @@ const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true 
   !Object.prototype.hasOwnProperty.call(index.key, 'empresaId')).map(index => index.name);
 // Inspect every sale, including originless records, for invalid enterprise ownership.
 // This is stricter than the partial unique origin index and blocks unsafe migration.
+// A scoped unique index without the ObjectId partial filter can reject
+// multiple originless sales in the same tenant.
+const incompatibleTenantUniqueIndexes = indexes.filter(index =>
+  index.unique === true && index.key &&
+  Object.prototype.hasOwnProperty.call(index.key, 'empresaId') &&
+  index.key.origen === 1 && index.key.origenId === 1 &&
+  JSON.stringify(index.partialFilterExpression || {}) !== JSON.stringify({ origenId: { $type: 'objectId' } })
+).map(index => index.name);
 const missingTenant = sales.countDocuments({
   empresaId: { $not: { $type: 'objectId' } }
 });
@@ -27,6 +35,6 @@ const duplicates = sales.aggregate([
   { $count: 'groups' }
 ]).toArray();
 const duplicateGroups = duplicates.length ? duplicates[0].groups : 0;
-printjson({ missingTenant, invalidOriginIds, duplicateGroups, legacyGlobalUniqueIndexes, readyForIndexBuild: missingTenant === 0 && invalidOriginIds === 0 && duplicateGroups === 0 && legacyGlobalUniqueIndexes.length === 0 });
-if (missingTenant || invalidOriginIds || duplicateGroups || legacyGlobalUniqueIndexes.length) throw new Error('Data anomalies block index migration');
+printjson({ missingTenant, invalidOriginIds, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, readyForIndexBuild: missingTenant === 0 && invalidOriginIds === 0 && duplicateGroups === 0 && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0 });
+if (missingTenant || invalidOriginIds || duplicateGroups || legacyGlobalUniqueIndexes.length || incompatibleTenantUniqueIndexes.length) throw new Error('Data anomalies block index migration');
 // A passing result does not authorize migration, index removal or deployment.
