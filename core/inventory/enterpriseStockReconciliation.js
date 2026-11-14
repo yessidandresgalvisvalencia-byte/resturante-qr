@@ -21,4 +21,28 @@ function reconcileStock(recorded, counted) {
     absoluteDifferenceUnits: (delta < 0n ? -delta : delta).toString()
   });
 }
-module.exports = { reconcileStock };
+// Atomic, read-only reconciliation of a single tenant's stock-count snapshot.
+// Callers must authorize empresaId and load the tenant-scoped snapshot beforehand.
+function reconcileStockSnapshot(rows) {
+  if (!Array.isArray(rows)) throw new TypeError('Stock snapshot must be an array');
+  const seen = new Set();
+  const output = [];
+  for (const row of rows) {
+    if (row === null || typeof row !== 'object' || Array.isArray(row) ||
+        !Object.hasOwn(row, 'sku') || !Object.hasOwn(row, 'recorded') ||
+        !Object.hasOwn(row, 'counted')) {
+      throw new TypeError('Stock row requires own sku, recorded and counted fields');
+    }
+    const sku = row.sku;
+    if (typeof sku !== 'string' || sku.length === 0 || sku.length > 128 ||
+        sku.trim() !== sku || /[\\u0000-\\u001f\\u007f]/.test(sku)) {
+      throw new TypeError('Stock SKU must be a bounded canonical identifier');
+    }
+    if (seen.has(sku)) throw new TypeError('Duplicate SKU in stock snapshot');
+    seen.add(sku);
+    const result = reconcileStock(row.recorded, row.counted);
+    output.push(Object.freeze({ sku, ...result }));
+  }
+  return Object.freeze(output);
+}
+module.exports = { reconcileStock, reconcileStockSnapshot };
