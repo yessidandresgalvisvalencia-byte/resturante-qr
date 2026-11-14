@@ -154,3 +154,15 @@ test('P0-04 preflight rejects scoped unique indexes with extra keys that weaken 
   assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['tenant_origin_sede_unique']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
 });
+
+
+test('P0-04 preflight blocks descending global unique origin indexes', () => {
+  const ctx = preflight({ indexes: [
+    { name: 'legacy_descending', unique: true, key: { origen: -1, origenId: -1 } },
+    { name: 'legacy_mixed', unique: true, key: { origenId: -1, origen: 1 } },
+    { name: 'nonunique_descending', key: { origen: -1, origenId: -1 } }
+  ] });
+  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_descending', 'legacy_mixed']);
+  assert.equal(ctx.output[1].readyForIndexBuild, false);
+});
