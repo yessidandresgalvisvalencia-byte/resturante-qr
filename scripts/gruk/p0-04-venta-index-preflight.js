@@ -39,6 +39,14 @@ const missingTenant = sales.countDocuments({
 // Legacy non-ObjectId origins bypass the partial unique index and require remediation.
 // Multi-site ownership is independently required: a valid enterprise does not
 // imply that a sale belongs to a valid site. Read-only audit, never backfill.
+// Validate referenced enterprises, not just the ObjectId type.
+const orphanEnterprises = sales.aggregate([
+  { $match: { empresaId: { $type: 'objectId' } } },
+  { $lookup: { from: 'empresas', localField: 'empresaId', foreignField: '_id', as: 'matchedEnterprise' } },
+  { $match: { $expr: { $ne: [{ $size: '$matchedEnterprise' }, 1] } } },
+  { $count: 'sales' }
+]).toArray();
+const invalidEnterpriseOwnership = orphanEnterprises.length ? orphanEnterprises[0].sales : 0;
 const invalidSiteIds = sales.countDocuments({ sedeId: { $not: { $type: 'objectId' } } });
 const invalidOriginIds = sales.countDocuments({ origenId: { $exists: true, $nin: [null], $not: { $type: 'objectId' } } });
 // Origin must be a nonempty string whenever an ObjectId origin is present.
@@ -67,8 +75,8 @@ const duplicates = sales.aggregate([
 const duplicateGroups = duplicates.length ? duplicates[0].groups : 0;
 // Data readiness is independent of the legacy index: the legacy index is expected
 // to coexist during a staged migration. Keep the conservative migration gate below.
-const dataReadyForIndexBuild = missingTenant === 0 && invalidSiteIds === 0 && invalidSiteOwnership === 0 && invalidOriginIds === 0 && invalidOriginNames === 0 && duplicateGroups === 0;
+const dataReadyForIndexBuild = missingTenant === 0 && invalidEnterpriseOwnership === 0 && invalidSiteIds === 0 && invalidSiteOwnership === 0 && invalidOriginIds === 0 && invalidOriginNames === 0 && duplicateGroups === 0;
 const readyForIndexBuild = dataReadyForIndexBuild && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0;
-printjson({ missingTenant, invalidSiteIds, invalidSiteOwnership, invalidOriginIds, invalidOriginNames, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, targetIndexPresent, dataReadyForIndexBuild, readyForIndexBuild });
-if (missingTenant || invalidSiteIds || invalidSiteOwnership || invalidOriginIds || invalidOriginNames || duplicateGroups || legacyGlobalUniqueIndexes.length || incompatibleTenantUniqueIndexes.length) throw new Error('Data anomalies block index migration');
+printjson({ missingTenant, invalidEnterpriseOwnership, invalidSiteIds, invalidSiteOwnership, invalidOriginIds, invalidOriginNames, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, targetIndexPresent, dataReadyForIndexBuild, readyForIndexBuild });
+if (missingTenant || invalidEnterpriseOwnership || invalidSiteIds || invalidSiteOwnership || invalidOriginIds || invalidOriginNames || duplicateGroups || legacyGlobalUniqueIndexes.length || incompatibleTenantUniqueIndexes.length) throw new Error('Data anomalies block index migration');
 // A passing result does not authorize migration, index removal or deployment.
