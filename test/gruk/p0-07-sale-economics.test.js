@@ -40,3 +40,9 @@ test('economics rejects noncanonical money and never mutates frozen inputs', () 
     assert.throws(() => saleEconomics({quantity:'1',total:'1.00',unitCost:amount}));
   }
 });
+
+test('oversized sale quantities are rejected before regex scanning or BigInt conversion', () => {
+  const oversized = '9'.repeat(1000000);
+  assert.throws(() => saleEconomics({ quantity: oversized, total: '1.00', unitCost: '0.01' }), TypeError);
+  assert.throws(() => saleEconomics({ quantity: 'x' + oversized, total: '1.00', unitCost: '0.01' }), TypeError);
+});
