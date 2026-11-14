@@ -38,6 +38,10 @@ function invoiceTotal(lines) {
   let total = 0n;
   for (const line of lines) {
     if (!line || typeof line !== 'object' || Array.isArray(line)) throw new TypeError('Invalid invoice line');
+    // Financial inputs must be explicit line fields, never inherited from a prototype.
+    if (!Object.hasOwn(line, 'unitPrice') || !Object.hasOwn(line, 'quantity')) {
+      throw new TypeError('Invoice line must contain own unitPrice and quantity fields');
+    }
     total = assertSafeCents(total + parseMoneyToCents(line.unitPrice) * assertQuantity(line.quantity));
   }
   return formatCents(total);
