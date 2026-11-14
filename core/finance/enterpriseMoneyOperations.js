@@ -36,7 +36,10 @@ function invoiceTotal(lines) {
   if (!Array.isArray(lines)) throw new TypeError('Lines must be an array');
   if (lines.length > MAX_INVOICE_LINES) throw new RangeError('Invoice exceeds maximum line count');
   let total = 0n;
-  for (const line of lines) {
+  // Indexed traversal avoids invoking an attacker-supplied Symbol.iterator on the array.
+  for (let index = 0; index < lines.length; index++) {
+    if (!Object.hasOwn(lines, index)) throw new TypeError('Invalid sparse invoice line');
+    const line = lines[index];
     if (!line || typeof line !== 'object' || Array.isArray(line)) throw new TypeError('Invalid invoice line');
     // Financial inputs must be explicit line fields, never inherited from a prototype.
     const priceField = Object.getOwnPropertyDescriptor(line, 'unitPrice');
