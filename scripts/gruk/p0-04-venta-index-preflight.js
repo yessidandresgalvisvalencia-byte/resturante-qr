@@ -43,23 +43,8 @@ const invalidSiteIds = sales.countDocuments({ sedeId: { $not: { $type: 'objectId
 const invalidOriginIds = sales.countDocuments({ origenId: { $exists: true, $nin: [null], $not: { $type: 'objectId' } } });
 // Origin must be a nonempty string whenever an ObjectId origin is present.
 const invalidOriginNames = sales.countDocuments({ origenId: { $type: 'objectId' }, $or: [
-  { origen: { $not: { $type: 'string' } } }, { origen: { $regex: '^\\s*
-] });
-const duplicates = sales.aggregate([
-  { $match: { origenId: { $type: 'objectId' } } },
-  { $group: { _id: { empresaId: '$empresaId', origen: '$origen', origenId: '$origenId' }, count: { $sum: 1 } } },
-  { $match: { count: { $gt: 1 } } },
-  { $count: 'groups' }
-]).toArray();
-const duplicateGroups = duplicates.length ? duplicates[0].groups : 0;
-// Data readiness is independent of the legacy index: the legacy index is expected
-// to coexist during a staged migration. Keep the conservative migration gate below.
-const dataReadyForIndexBuild = missingTenant === 0 && invalidSiteIds === 0 && invalidOriginIds === 0 && invalidOriginNames === 0 && duplicateGroups === 0;
-const readyForIndexBuild = dataReadyForIndexBuild && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0;
-printjson({ missingTenant, invalidSiteIds, invalidOriginIds, invalidOriginNames, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, targetIndexPresent, dataReadyForIndexBuild, readyForIndexBuild });
-if (missingTenant || invalidSiteIds || invalidOriginIds || invalidOriginNames || duplicateGroups || legacyGlobalUniqueIndexes.length || incompatibleTenantUniqueIndexes.length) throw new Error('Data anomalies block index migration');
-// A passing result does not authorize migration, index removal or deployment.
- } }
+  { origen: { $not: { $type: 'string' } } },
+  { origen: { $regex: '^\\s*$' } }
 ] });
 const duplicates = sales.aggregate([
   { $match: { origenId: { $type: 'objectId' } } },
