@@ -108,3 +108,20 @@ test('P0-07: inherited array indices cannot inject invoice lines', () => {
   assert.throws(() => invoiceTotal(lines), TypeError);
   assert.equal(getterCalls, 0, 'invoice must reject holes before reading inherited indices');
 });
+
+test('P0-07: accessor array indices cannot execute while totaling invoices', () => {
+  let calls = 0;
+  const lines = new Array(1);
+  Object.defineProperty(lines, '0', {
+    configurable: true,
+    get() { calls++; throw new Error('invoice index getter executed'); }
+  });
+  assert.throws(() => invoiceTotal(lines), TypeError);
+  assert.equal(calls, 0);
+});
+
+test('P0-07: immutable nonenumerable own array index remains valid', () => {
+  const lines = new Array(1);
+  Object.defineProperty(lines, '0', { value: { unitPrice: '0.75', quantity: '2' } });
+  assert.equal(invoiceTotal(lines), '1.50');
+});
