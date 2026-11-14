@@ -18,7 +18,15 @@ function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, duplicate
       return missingTenant;
     },
     aggregate(pipeline) {
-      assert.deepEqual(JSON.parse(JSON.stringify(pipeline[0])), { $match: { origenId: { $type: 'objectId' } } });
+      assert.deepEqual(JSON.parse(JSON.stringify(pipeline)), [
+        { $match: { origenId: { $type: 'objectId' } } },
+        { $group: {
+          _id: { empresaId: '$empresaId', origen: '$origen', origenId: '$origenId' },
+          count: { $sum: 1 }
+        } },
+        { $match: { count: { $gt: 1 } } },
+        { $count: 'groups' }
+      ]);
       calls.push('aggregate');
       return { toArray() { return duplicateGroups ? [{ groups: duplicateGroups }] : []; } };
     }
