@@ -144,3 +144,13 @@ test('P0-04 preflight blocks scoped unique indexes that reject originless sales'
   assert.equal(ctx.output[1].readyForIndexBuild, false);
   assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'aggregate']);
 });
+
+
+test('P0-04 preflight rejects scoped unique indexes with extra keys that weaken origin uniqueness', () => {
+  const ctx = preflight({ indexes: [
+    { name: 'tenant_origin_sede_unique', unique: true, key: { empresaId: 1, sedeId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+  ] });
+  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['tenant_origin_sede_unique']);
+  assert.equal(ctx.output[1].readyForIndexBuild, false);
+});
