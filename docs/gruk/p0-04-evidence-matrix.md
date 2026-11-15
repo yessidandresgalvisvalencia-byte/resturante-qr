@@ -24,3 +24,7 @@ Fuente normativa: `GRUK_Documentos_Unificados_Plan_Maestro.docx`, implementació
 5. No fusionar, modificar índices productivos ni desplegar Render hasta satisfacer las puertas aplicables y la aceptación global.
 
 La aprobación de CI del preflight no equivale a la certificación del requisito 04 ni de las 77 implementaciones.
+
+## Verificación CI observada (15-11-2026)
+
+El commit `b7a17790883bdba2b0a5527d15b7ae6e76940f04` obtuvo **success** en [GRUK CI #43712429311](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43712429311), [quality gate #43712429333](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43712429333) y [Offline Browser Persistence #43712429315](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43712429315). Esto no certifica integración MongoDB real ni revisión independiente. Las verificaciones deberán repetirse para el HEAD posterior a esta actualización documental.
