@@ -22,9 +22,12 @@ function ownData(object, key) {
   }
   return descriptor.value;
 }
-function reconcileTenantStockSnapshot({ empresaId, sedeId, rows }) {
-  const tenant = canonicalId(empresaId, 'empresaId');
-  const site = canonicalId(sedeId, 'sedeId');
+function reconcileTenantStockSnapshot(request) {
+  // Never destructure untrusted requests: accessors/proxies can execute before
+  // tenant validation and cause side effects outside this read-only boundary.
+  const tenant = canonicalId(ownData(request, 'empresaId'), 'empresaId');
+  const site = canonicalId(ownData(request, 'sedeId'), 'sedeId');
+  const rows = ownData(request, 'rows');
   if (isProxy(rows) || !Array.isArray(rows) || rows.length > 10000) {
     throw new TypeError('Invalid stock snapshot');
   }
