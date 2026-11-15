@@ -22,8 +22,13 @@ const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true 
 const targetKeys = ['empresaId', 'origen', 'origenId'];
 const hasTargetKeys = key => key && Object.keys(key).length === targetKeys.length &&
   targetKeys.every(field => key[field] === 1);
-const hasTargetFilter = index => JSON.stringify(index.partialFilterExpression || {}) ===
-  JSON.stringify({ origenId: { $type: 'objectId' } });
+const hasTargetFilter = index => {
+  const filter = index.partialFilterExpression;
+  if (!filter || Object.keys(filter).length !== 1 || !Object.prototype.hasOwnProperty.call(filter, 'origenId')) return false;
+  const predicate = filter.origenId;
+  return predicate && typeof predicate === 'object' && !Array.isArray(predicate) &&
+    Object.keys(predicate).length === 1 && predicate.$type === 'objectId';
+};
 // A scoped unique index without the ObjectId partial filter can reject
 // multiple originless sales in the same tenant.
 const incompatibleTenantUniqueIndexes = indexes.filter(index =>
