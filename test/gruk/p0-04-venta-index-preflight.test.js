@@ -27,7 +27,7 @@ function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSi
         const pattern = normalized.$or[1].origen.$regex;
         const regex = new RegExp(pattern);
         assert.equal(regex.test('   '), true);
-        assert.equal(regex.test('\\t\\n'), true);
+        assert.equal(regex.test(String.fromCharCode(9, 10)), true);
         assert.equal(regex.test('valid-origin'), false);
       }
       const countNumber = calls.filter(call => call === 'countDocuments').length;
