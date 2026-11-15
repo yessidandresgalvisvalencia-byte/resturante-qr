@@ -34,7 +34,7 @@ const hasTargetFilter = index => {
 const incompatibleTenantUniqueIndexes = indexes.filter(index =>
   index.unique === true && index.key &&
   Object.prototype.hasOwnProperty.call(index.key, 'empresaId') &&
-  index.key.origen === 1 && index.key.origenId === 1 &&
+  Math.abs(index.key.origen) === 1 && Math.abs(index.key.origenId) === 1 &&
   (!hasTargetKeys(index.key) || !hasTargetFilter(index))
 ).map(index => index.name);
 // A clean dataset alone does not prove the intended index has been created.
