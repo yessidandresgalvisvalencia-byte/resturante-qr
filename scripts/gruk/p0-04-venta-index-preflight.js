@@ -68,7 +68,7 @@ const siteMismatches = sales.aggregate([
   { $match: { empresaId: { $type: 'objectId' }, sedeId: { $type: 'objectId' } } },
   { $lookup: { from: 'sedes', localField: 'sedeId', foreignField: '_id', as: 'matchedSite' } },
   { $match: { $expr: { $ne: [
-    { $size: { $filter: { input: '$matchedSite', as: 'site', cond: { $eq: ['$site.empresaId', '$empresaId'] } } } },
+    { $size: { $filter: { input: '$matchedSite', as: 'site', cond: { $eq: ['$$site.empresaId', '$empresaId'] } } } },
     1
   ] } } },
   { $count: 'sales' }
