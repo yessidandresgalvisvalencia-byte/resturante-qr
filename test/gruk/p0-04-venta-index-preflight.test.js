@@ -339,3 +339,15 @@ test('P0-04 site ownership lookup references the scoped site variable', () => {
   ctx.run();
   assert.ok(ctx.calls.includes('siteAggregate'));
 });
+
+
+test('P0-04 rejects descending tenant-scoped origin uniqueness before migration', () => {
+  const ctx = preflight({ indexes: [
+    { name: 'descending_origin', unique: true, key: { empresaId: 1, origen: -1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } },
+    { name: 'descending_origin_id', unique: true, key: { empresaId: 1, origen: 1, origenId: -1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+  ] });
+  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['descending_origin', 'descending_origin_id']);
+  assert.equal(ctx.output[1].targetIndexPresent, false);
+  assert.equal(ctx.output[1].readyForIndexBuild, false);
+});
