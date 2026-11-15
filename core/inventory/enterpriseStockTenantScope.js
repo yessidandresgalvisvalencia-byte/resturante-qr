@@ -49,4 +49,31 @@ function reconcileTenantStockSnapshot(request) {
   // Validate the entire snapshot atomically; never return partial results.
   return reconcileStockSnapshot(sanitized);
 }
-module.exports = { reconcileTenantStockSnapshot };
+
+// P0-06: tenant-scoped summary. Derive only from a fully validated,
+// immutable reconciliation; never aggregate unverified cross-tenant rows.
+function summarizeTenantStockSnapshot(request) {
+  const reconciled = reconcileTenantStockSnapshot(request);
+  let shortage = 0n;
+  let surplus = 0n;
+  let mismatched = 0;
+  for (const item of reconciled) {
+    const delta = BigInt(item.differenceUnits);
+    if (delta < 0n) {
+      shortage -= delta;
+      mismatched++;
+    } else if (delta > 0n) {
+      surplus += delta;
+      mismatched++;
+    }
+  }
+  return Object.freeze({
+    totalSkus: reconciled.length,
+    matchedSkus: reconciled.length - mismatched,
+    mismatchedSkus: mismatched,
+    shortageUnits: shortage.toString(),
+    surplusUnits: surplus.toString(),
+    netDifferenceUnits: (surplus - shortage).toString()
+  });
+}
+module.exports = { reconcileTenantStockSnapshot, summarizeTenantStockSnapshot };
