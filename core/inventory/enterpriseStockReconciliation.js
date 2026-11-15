@@ -27,9 +27,16 @@ function reconcileStockSnapshot(rows) {
   if (!Array.isArray(rows)) throw new TypeError('Stock snapshot must be an array');
   // Bound work before iterating untrusted snapshots; no partial result escapes.
   if (rows.length > 10000) throw new RangeError('Stock snapshot exceeds 10000 rows');
+  // Read only own data slots: array index getters and inherited slots must never
+  // execute while processing an untrusted stock-count snapshot.
   const seen = new Set();
   const output = [];
-  for (const row of rows) {
+  for (let index = 0; index < rows.length; index += 1) {
+    const slot = Object.getOwnPropertyDescriptor(rows, String(index));
+    if (!slot || !Object.hasOwn(slot, 'value')) {
+      throw new TypeError('Stock snapshot requires own data elements');
+    }
+    const row = slot.value;
     if (row === null || typeof row !== 'object' || Array.isArray(row) ||
         !Object.hasOwn(row, 'sku') || !Object.hasOwn(row, 'recorded') ||
         !Object.hasOwn(row, 'counted')) {
