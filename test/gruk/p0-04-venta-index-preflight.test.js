@@ -94,7 +94,7 @@ test('P0-04 preflight rejects missing or unsafe explicit database names before D
 test('P0-04 preflight reports readiness without writing to MongoDB', () => {
   const ctx = preflight();
   ctx.run();
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'enterpriseAggregate', 'siteAggregate', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'enterpriseAggregate', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
   assert.equal(ctx.output[1].readyForIndexBuild, true);
   assert.equal(ctx.output[1].duplicateGroups, 0);
 });
@@ -116,7 +116,7 @@ test('P0-04 preflight blocks legacy global unique origin indexes without mutatin
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_origin_unique']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'enterpriseAggregate', 'siteAggregate', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'enterpriseAggregate', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
 
 test('P0-04 preflight accepts tenant-scoped unique origin indexes', () => {
@@ -140,7 +140,7 @@ test('P0-04 preflight scans originless sales for missing enterprise ownership', 
   const ctx = preflight({ missingTenant: 1 });
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.equal(ctx.output[1].missingTenant, 1);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'enterpriseAggregate', 'siteAggregate', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'enterpriseAggregate', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
 
 test('P0-04 preflight detects legacy unique origin indexes regardless of key order', () => {
@@ -170,7 +170,7 @@ test('P0-04 preflight blocks scoped unique indexes that reject originless sales'
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['tenant_origin_unfiltered']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'enterpriseAggregate', 'siteAggregate', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'enterpriseAggregate', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
 
 
@@ -233,7 +233,7 @@ test('P0-04 preflight blocks missing or malformed site ownership without writes'
   assert.throws(ctx.run, /Data anomalies block index migration/);
   assert.equal(ctx.output[1].invalidSiteIds, 3);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
-  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'countDocuments', 'countDocuments', 'countDocuments', 'enterpriseAggregate', 'siteAggregate', 'aggregate']);
+  assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'enterpriseAggregate', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
 
 
