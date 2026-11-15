@@ -48,3 +48,35 @@ test('P0-06 tenant snapshot: invalid quantities and duplicate SKUs never produce
     empresaId: A, sedeId: S, rows: [row(), row()]
   }), TypeError);
 });
+
+test('P0-06 tenant summary: exact signed totals and frozen output', () => {
+  const { summarizeTenantStockSnapshot } = require('../../core/inventory/enterpriseStockTenantScope');
+  const input = Object.freeze([
+    Object.freeze(row({ sku: 'A', recorded: '9007199254740991', counted: '0' })),
+    Object.freeze(row({ sku: 'B', recorded: '0', counted: '9007199254740991' })),
+    Object.freeze(row({ sku: 'C', recorded: '1', counted: '1' }))
+  ]);
+  const summary = summarizeTenantStockSnapshot({ empresaId: A, sedeId: S, rows: input });
+  assert.deepEqual(summary, {
+    totalSkus: 3, matchedSkus: 1, mismatchedSkus: 2,
+    shortageUnits: '9007199254740991', surplusUnits: '9007199254740991',
+    netDifferenceUnits: '0'
+  });
+  assert.ok(Object.isFrozen(summary));
+});
+
+test('P0-06 tenant summary: rejects mixed company/site and accessors before aggregation', () => {
+  const { summarizeTenantStockSnapshot } = require('../../core/inventory/enterpriseStockTenantScope');
+  for (const foreign of [{ empresaId: B }, { sedeId: T }]) {
+    assert.throws(() => summarizeTenantStockSnapshot({
+      empresaId: A, sedeId: S, rows: [row(), row({ sku: 'OTHER', ...foreign })]
+    }), /Cross-tenant or cross-site/);
+  }
+  let called = 0;
+  const evil = row({ sku: 'OTHER' });
+  Object.defineProperty(evil, 'counted', { get() { called++; return '1'; } });
+  assert.throws(() => summarizeTenantStockSnapshot({
+    empresaId: A, sedeId: S, rows: [row(), evil]
+  }), TypeError);
+  assert.equal(called, 0);
+});
