@@ -8,7 +8,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../scripts/gruk/p0-04-venta-index-preflight.js'), 'utf8');
 
-function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSiteIds = 0, invalidSiteOwnership = 0, invalidEnterpriseOwnership = 0, duplicateGroups = 0, invalidOriginIds = 0, invalidOriginNames = 0, indexes = [{ name: '_id_' }] } = {}) {
+function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSiteIds = 0, invalidSiteOwnership = 0, invalidEnterpriseOwnership = 0, duplicateGroups = 0, invalidOriginIds = 0, invalidOriginNames = 0, indexes = [{ name: '_id_' }], confirmation } = {}) {
   const calls = [];
   const collection = {
     getIndexes() { calls.push('getIndexes'); return indexes; },
@@ -77,7 +77,7 @@ function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSi
   const output = [];
   const run = () => vm.runInNewContext(source, {
     db: database,
-    process: { env: { GRUK_ENTERPRISE_DB: name } },
+    process: { env: { GRUK_ENTERPRISE_DB: name, GRUK_ENTERPRISE_DB_CONFIRM: confirmation === undefined ? name : confirmation } },
     printjson(value) { output.push(JSON.parse(JSON.stringify(value))); }
   }, { timeout: 1000 });
   return { run, calls, output };
@@ -286,4 +286,13 @@ test('P0-04 blocks orphan enterprise references with valid ObjectIds', () => {
   assert.equal(ctx.output[1].invalidEnterpriseOwnership, 2);
   assert.equal(ctx.output[1].dataReadyForIndexBuild, false);
   assert.ok(ctx.calls.includes('enterpriseAggregate'));
+});
+
+
+test('P0-04 requires exact second confirmation of enterprise DB before reads', () => {
+  for (const confirmation of ['', 'other_enterprise', 'GRUK_ENTERPRISE_TEST']) {
+    const ctx = preflight({ confirmation });
+    assert.throws(ctx.run, /GRUK_ENTERPRISE_DB_CONFIRM must exactly match/);
+    assert.deepEqual(ctx.calls, []);
+  }
 });
