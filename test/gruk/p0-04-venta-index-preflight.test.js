@@ -240,8 +240,9 @@ test('P0-04 recognizes reordered tenant uniqueness and rejects descending lookal
   const descending = preflight({ indexes: [
     { name: 'descending_target', unique: true, key: { origenId: -1, empresaId: 1, origen: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
   ] });
-  descending.run();
+  assert.throws(descending.run, /Data anomalies block index migration/);
   assert.equal(descending.output[1].targetIndexPresent, false);
+  assert.deepEqual(descending.output[1].incompatibleTenantUniqueIndexes, ['descending_target']);
 });
 
 
