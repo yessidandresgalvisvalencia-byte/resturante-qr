@@ -1,0 +1,45 @@
+'use strict';
+
+// Opt-in integration test against a disposable, dedicated MongoDB database.
+// Run: GRUK_P004_TEST_MONGO_URI='mongodb://127.0.0.1:27017' GRUK_P004_TEST_DB='gruk_p004_isolated_test' node --test test/gruk/p0-04-venta-mongo.integration.test.js
+// Never point this test at a production database or a shared environment.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const mongoose = require('mongoose');
+
+const uri = process.env.GRUK_P004_TEST_MONGO_URI;
+const database = process.env.GRUK_P004_TEST_DB;
+const permitted = Boolean(uri && database && /^gruk_p004_[a-z0-9_]*test$/i.test(database) &&
+  !/(personal|blushea|production|prod)/i.test(database));
+
+test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries are rejected', { skip: !permitted && 'Requires explicitly configured isolated test MongoDB' }, async () => {
+  const connection = await mongoose.createConnection(uri, { dbName: database, serverSelectionTimeoutMS: 5000 }).asPromise();
+  // A unique collection name avoids touching unrelated fixtures, even within the dedicated test DB.
+  const collectionName = 'p004_tenant_origin_' + process.pid + '_' + Date.now();
+  const sales = connection.db.collection(collectionName);
+  try {
+    await sales.createIndex(
+      { empresaId: 1, origen: 1, origenId: 1 },
+      { unique: true, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+    );
+    const tenantA = new mongoose.Types.ObjectId();
+    const tenantB = new mongoose.Types.ObjectId();
+    const originId = new mongoose.Types.ObjectId();
+    const sale = (empresaId, sedeId) => ({ empresaId, sedeId, origen: 'pedido', origenId });
+    await sales.insertOne(sale(tenantA, new mongoose.Types.ObjectId()));
+    // Same external origin is valid in a different company.
+    await sales.insertOne(sale(tenantB, new mongoose.Types.ObjectId()));
+    // Same origin in another site of the SAME company must still be rejected.
+    await assert.rejects(
+      sales.insertOne(sale(tenantA, new mongoose.Types.ObjectId())),
+      error => error.code === 11000
+    );
+    assert.equal(await sales.countDocuments({ origenId }), 2);
+    // Originless records must remain permitted under the partial index.
+    await sales.insertMany([{ empresaId: tenantA, origen: 'manual' }, { empresaId: tenantA, origen: 'manual' }]);
+    assert.equal(await sales.countDocuments({ empresaId: tenantA }), 3);
+  } finally {
+    try { await sales.drop(); } catch (error) { if (error.codeName !== 'NamespaceNotFound') throw error; }
+    await connection.close();
+  }
+});
