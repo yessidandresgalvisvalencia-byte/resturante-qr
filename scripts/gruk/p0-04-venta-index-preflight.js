@@ -60,7 +60,7 @@ const invalidOriginIds = sales.countDocuments({ origenId: { $exists: true, $nin:
 // Origin must be a nonempty string whenever an ObjectId origin is present.
 const invalidOriginNames = sales.countDocuments({ origenId: { $type: 'objectId' }, $or: [
   { origen: { $not: { $type: 'string' } } },
-  { origen: { $regex: '^\\s*
+  { origen: { $regex: '^\\s*$' } }
 ] });
 // Resolve each sale's site against the Sede model collection (Mongoose: 'sedes').
 // A syntactically valid ObjectId is not proof of enterprise/site ownership.
