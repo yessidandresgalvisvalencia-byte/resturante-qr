@@ -16,6 +16,12 @@ function ownData(object, key) {
   if (!object || typeof object !== 'object' || Array.isArray(object)) {
     throw new TypeError('Expected a plain stock record');
   }
+  // Only JSON-style records are accepted at this trust boundary. Class instances
+  // and exotic prototypes may carry behavior outside the validated data contract.
+  const prototype = Object.getPrototypeOf(object);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError('Expected a plain stock record');
+  }
   const descriptor = Object.getOwnPropertyDescriptor(object, key);
   if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
     throw new TypeError('Missing own data property: ' + key);
