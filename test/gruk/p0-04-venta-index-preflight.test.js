@@ -21,6 +21,15 @@ function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSi
         { origen: { $not: { $type: 'string' } } },
         { origen: { $regex: '^\\s*$' } }
       ] };
+      // Exercise the regex value, not just its serialized spelling: a doubled
+      // backslash would match literal "\\s" instead of whitespace in MongoDB.
+      if (normalized.$or) {
+        const pattern = normalized.$or[1].origen.$regex;
+        const regex = new RegExp(pattern);
+        assert.equal(regex.test('   '), true);
+        assert.equal(regex.test('\\t\\n'), true);
+        assert.equal(regex.test('valid-origin'), false);
+      }
       const countNumber = calls.filter(call => call === 'countDocuments').length;
       assert.deepEqual(normalized, [missingTenantQuery, invalidSiteQuery, invalidOriginQuery, invalidOriginNameQuery][countNumber]);
       calls.push('countDocuments');
