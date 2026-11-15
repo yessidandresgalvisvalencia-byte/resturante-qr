@@ -58,7 +58,7 @@ function reconcileStockSnapshot(rows) {
     }
     const sku = skuField.value;
     if (typeof sku !== 'string' || sku.length === 0 || sku.length > 128 ||
-        sku.trim() !== sku || /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\u034F]/u.test(sku)) {
+        sku.trim() !== sku || sku.normalize('NFC') !== sku ||\n        /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}\u034F]/u.test(sku)) {
       throw new TypeError('Stock SKU must be a bounded canonical identifier');
     }
     if (seen.has(sku)) throw new TypeError('Duplicate SKU in stock snapshot');
