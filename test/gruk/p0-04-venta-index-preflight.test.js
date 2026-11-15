@@ -19,7 +19,7 @@ function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSi
       const invalidOriginQuery = { origenId: { $exists: true, $nin: [null], $not: { $type: 'objectId' } } };
       const invalidOriginNameQuery = { origenId: { $type: 'objectId' }, $or: [
         { origen: { $not: { $type: 'string' } } },
-        { origen: { $regex: '^\\s*
+        { origen: { $regex: '^\\s*$' } }
       ] };
       const countNumber = calls.filter(call => call === 'countDocuments').length;
       assert.deepEqual(normalized, [missingTenantQuery, invalidSiteQuery, invalidOriginQuery, invalidOriginNameQuery][countNumber]);
