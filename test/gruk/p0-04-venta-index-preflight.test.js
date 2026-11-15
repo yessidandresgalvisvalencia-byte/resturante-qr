@@ -352,3 +352,22 @@ test('P0-04 rejects descending tenant-scoped origin uniqueness before migration'
   assert.equal(ctx.output[1].targetIndexPresent, false);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
 });
+
+test('P0-04 rejects sparse or non-simple-collation unique indexes as target substitutes', () => {
+  const key = { empresaId: 1, origen: 1, origenId: 1 };
+  const partialFilterExpression = { origenId: { $type: 'objectId' } };
+  for (const [name, options] of [
+    ['sparse_target', { sparse: true }],
+    ['locale_target', { collation: { locale: 'es', strength: 2 } }]
+  ]) {
+    const ctx = preflight({ indexes: [{ name, unique: true, key, partialFilterExpression, ...options }] });
+    assert.throws(ctx.run, /Data anomalies block index migration/);
+    assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, [name]);
+    assert.equal(ctx.output[1].targetIndexPresent, false);
+  }
+  const normal = preflight({ indexes: [{
+    name: 'normal_target', unique: true, key, partialFilterExpression
+  }] });
+  normal.run();
+  assert.equal(normal.output[1].targetIndexPresent, true);
+});
