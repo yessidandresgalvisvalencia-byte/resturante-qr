@@ -22,7 +22,10 @@ const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true 
 const targetKeys = ['empresaId', 'origen', 'origenId'];
 const hasTargetKeys = key => key && Object.keys(key).length === targetKeys.length &&
   targetKeys.every(field => key[field] === 1);
-// Sparse and non-simple collation variants are not equivalent to the schema index.\nconst hasTargetOptions = index => index.sparse !== true &&\n  (!index.collation || index.collation.locale === 'simple');\nconst hasTargetFilter = index => {
+// Sparse and non-simple collation variants are not equivalent to the schema index.
+const hasTargetOptions = index => index.sparse !== true &&
+  (!index.collation || index.collation.locale === 'simple');
+const hasTargetFilter = index => {
   const filter = index.partialFilterExpression;
   if (!filter || Object.keys(filter).length !== 1 || !Object.prototype.hasOwnProperty.call(filter, 'origenId')) return false;
   const predicate = filter.origenId;
