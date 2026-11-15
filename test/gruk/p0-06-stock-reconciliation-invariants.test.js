@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { reconcileStock } = require('../../core/inventory/enterpriseStockReconciliation');
+const { reconcileStock, reconcileStockSnapshot } = require('../../core/inventory/enterpriseStockReconciliation');
 
 // Plan Maestro 06 [P0]: read-only reconciliation invariants, not acceptance certification.
 test('P0-06: reversing physical and recorded stock reverses signed delta', () => {
@@ -70,4 +70,22 @@ test('P0-06: exhaustive small-stock reconciliation conserves signed units', () =
       assert.equal(Object.isFrozen(result), true);
     }
   }
+});
+
+test('P0-06: snapshot row order does not change SKU reconciliation and inputs remain untouched', () => {
+  const rows = Object.freeze([
+    Object.freeze({ sku: 'A', recorded: '9007199254740991', counted: '0' }),
+    Object.freeze({ sku: 'B', recorded: '0', counted: '9007199254740991' }),
+    Object.freeze({ sku: 'C', recorded: '5', counted: '5' })
+  ]);
+  const forward = reconcileStockSnapshot(rows);
+  const reverse = reconcileStockSnapshot(Object.freeze([...rows].reverse()));
+  const bySku = snapshot => Object.fromEntries(snapshot.map(({ sku, ...result }) => [sku, result]));
+  assert.deepEqual(bySku(forward), bySku(reverse));
+  assert.equal(forward[0].differenceUnits, '-9007199254740991');
+  assert.equal(forward[1].differenceUnits, '9007199254740991');
+  assert.equal(forward[2].matches, true);
+  assert.equal(Object.isFrozen(forward), true);
+  assert.ok(forward.every(Object.isFrozen));
+  assert.deepEqual(rows.map(row => row.sku), ['A', 'B', 'C']);
 });
