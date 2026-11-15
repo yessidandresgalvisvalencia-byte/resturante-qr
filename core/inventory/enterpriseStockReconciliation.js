@@ -2,6 +2,7 @@
 
 // GRUK Empresarial only. Read-only stock reconciliation; no writes or side effects.
 // Quantities are canonical integer strings to prevent floating-point loss.
+const { types: { isProxy } } = require('node:util');
 const MAX = BigInt(Number.MAX_SAFE_INTEGER);
 function quantity(value) {
   if (typeof value !== 'string' || value.length > 16 || !/^(?:0|[1-9]\d*)$/.test(value)) {
@@ -24,6 +25,8 @@ function reconcileStock(recorded, counted) {
 // Atomic, read-only reconciliation of a single tenant's stock-count snapshot.
 // Callers must authorize empresaId and load the tenant-scoped snapshot beforehand.
 function reconcileStockSnapshot(rows) {
+  // Proxy traps can execute code even during descriptor inspection or Array.isArray.
+  if (isProxy(rows)) throw new TypeError('Stock snapshot proxies are not allowed');
   if (!Array.isArray(rows)) throw new TypeError('Stock snapshot must be an array');
   // Bound work before iterating untrusted snapshots; no partial result escapes.
   if (rows.length > 10000) throw new RangeError('Stock snapshot exceeds 10000 rows');
@@ -37,6 +40,7 @@ function reconcileStockSnapshot(rows) {
       throw new TypeError('Stock snapshot requires own data elements');
     }
     const row = slot.value;
+    if (isProxy(row)) throw new TypeError('Stock row proxies are not allowed');
     if (row === null || typeof row !== 'object' || Array.isArray(row) ||
         !Object.hasOwn(row, 'sku') || !Object.hasOwn(row, 'recorded') ||
         !Object.hasOwn(row, 'counted')) {
