@@ -22,7 +22,7 @@ const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true 
 const targetKeys = ['empresaId', 'origen', 'origenId'];
 const hasTargetKeys = key => key && Object.keys(key).length === targetKeys.length &&
   targetKeys.every(field => key[field] === 1);
-const hasTargetFilter = index => {
+// Sparse and non-simple collation variants are not equivalent to the schema index.\nconst hasTargetOptions = index => index.sparse !== true &&\n  (!index.collation || index.collation.locale === 'simple');\nconst hasTargetFilter = index => {
   const filter = index.partialFilterExpression;
   if (!filter || Object.keys(filter).length !== 1 || !Object.prototype.hasOwnProperty.call(filter, 'origenId')) return false;
   const predicate = filter.origenId;
@@ -35,12 +35,12 @@ const incompatibleTenantUniqueIndexes = indexes.filter(index =>
   index.unique === true && index.key &&
   Object.prototype.hasOwnProperty.call(index.key, 'empresaId') &&
   Math.abs(index.key.origen) === 1 && Math.abs(index.key.origenId) === 1 &&
-  (!hasTargetKeys(index.key) || !hasTargetFilter(index))
+  (!hasTargetKeys(index.key) || !hasTargetFilter(index) || !hasTargetOptions(index))
 ).map(index => index.name);
 // A clean dataset alone does not prove the intended index has been created.
 // Report this separately from data readiness; never authorize legacy removal here.
 const targetIndexPresent = indexes.some(index => index.unique === true && index.key &&
-  hasTargetKeys(index.key) && hasTargetFilter(index));
+  hasTargetKeys(index.key) && hasTargetFilter(index) && hasTargetOptions(index));
 const missingTenant = sales.countDocuments({
   empresaId: { $not: { $type: 'objectId' } }
 });
