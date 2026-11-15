@@ -8,7 +8,7 @@ The legacy unique partial index `{ origen: 1, origenId: 1 }` rejects the same ex
 
 ## Pre-deployment DBA checklist (manual, correct enterprise database only)
 
-1. Identify the exact GRUK Empresarial database, collection name, replica set and current index names with `db.ventas.getIndexes()`. Never run against Personal or Blushea.
+1. Identify the exact GRUK Empresarial database, collection name, replica set and current index names with `db.ventas.getIndexes()`. Never run against Personal or Blushea. For the read-only preflight, set both `GRUK_ENTERPRISE_DB` and `GRUK_ENTERPRISE_DB_CONFIRM` to the **same independently verified exact enterprise database name** before invoking `mongosh`; mismatches fail before database reads. This confirmation is a guard against operator typos, **not** proof of database identity or authorization. Verify the MongoDB URI, credentials, and database independently.
 2. Confirm `empresaId` is present and valid on every record with an ObjectId `origenId`. Audit duplicates grouped by `{empresaId, origen, origenId}` before building. Resolve invalid records only through an approved, auditable remediation procedure.
 3. Back up the collection and index definitions; confirm a restore rehearsal and maintenance window.
 4. Build the new compound unique partial index online (using the index specification in `models/Venta.js`) and verify it exists and is ready. Check index-build errors and query plans.
