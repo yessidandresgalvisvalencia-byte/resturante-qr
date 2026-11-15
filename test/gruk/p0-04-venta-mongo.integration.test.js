@@ -51,9 +51,18 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
     assert.equal(attempts.filter(result => result.status === 'fulfilled').length, 1);
     assert.equal(attempts.filter(result => result.status === 'rejected' && result.reason.code === 11000).length, 7);
     assert.equal(await sales.countDocuments({ empresaId: tenantA, origenId: concurrentOrigin }), 1);
+    // A retry key already used by tenant A must not block tenant B.
+    await sales.insertOne({
+      empresaId: tenantB,
+      sedeId: new mongoose.Types.ObjectId(),
+      origen: 'pedido',
+      origenId: concurrentOrigin
+    });
+    assert.equal(await sales.countDocuments({ origen: 'pedido', origenId: concurrentOrigin }), 2);
     // Originless records must remain permitted under the partial index.
     await sales.insertMany([{ empresaId: tenantA, origen: 'manual' }, { empresaId: tenantA, origen: 'manual' }]);
     assert.equal(await sales.countDocuments({ empresaId: tenantA }), 5);
+    assert.equal(await sales.countDocuments({ empresaId: tenantB }), 2);
   } finally {
     try { await sales.drop(); } catch (error) { if (error.codeName !== 'NamespaceNotFound') throw error; }
     await connection.close();
