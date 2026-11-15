@@ -296,3 +296,22 @@ test('P0-04 requires exact second confirmation of enterprise DB before reads', (
     assert.deepEqual(ctx.calls, []);
   }
 });
+
+test('P0-04 compares partial filter structure and rejects extra predicates', () => {
+  const equivalent = preflight({ indexes: [
+    { name: 'correct', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+  ] });
+  equivalent.run();
+  assert.equal(equivalent.output[1].targetIndexPresent, true);
+  const extraPredicate = preflight({ indexes: [
+    { name: 'too_narrow', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' }, estado: 'activo' } }
+  ] });
+  assert.throws(extraPredicate.run, /Data anomalies block index migration/);
+  assert.equal(extraPredicate.output[1].targetIndexPresent, false);
+  assert.deepEqual(extraPredicate.output[1].incompatibleTenantUniqueIndexes, ['too_narrow']);
+  const extraOperator = preflight({ indexes: [
+    { name: 'wrong_type_predicate', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId', $exists: true } } }
+  ] });
+  assert.throws(extraOperator.run, /Data anomalies block index migration/);
+  assert.equal(extraOperator.output[1].targetIndexPresent, false);
+});
