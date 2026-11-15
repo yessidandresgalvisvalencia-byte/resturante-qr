@@ -68,4 +68,31 @@ function reconcileStockSnapshot(rows) {
   }
   return Object.freeze(output);
 }
-module.exports = { reconcileStock, reconcileStockSnapshot };
+// Deterministic read-only aggregate for an already validated single-tenant snapshot.
+// Counts rows, shortages and surpluses without lossy Number arithmetic. This helper
+// never queries or writes stock; tenant authorization remains the caller's duty.
+function summarizeStockSnapshot(rows) {
+  const reconciled = reconcileStockSnapshot(rows);
+  let shortageUnits = 0n;
+  let surplusUnits = 0n;
+  let mismatchedSkus = 0;
+  for (const row of reconciled) {
+    const difference = BigInt(row.differenceUnits);
+    if (difference < 0n) {
+      shortageUnits -= difference;
+      mismatchedSkus += 1;
+    } else if (difference > 0n) {
+      surplusUnits += difference;
+      mismatchedSkus += 1;
+    }
+  }
+  return Object.freeze({
+    totalSkus: reconciled.length,
+    matchedSkus: reconciled.length - mismatchedSkus,
+    mismatchedSkus,
+    shortageUnits: shortageUnits.toString(),
+    surplusUnits: surplusUnits.toString(),
+    netDifferenceUnits: (surplusUnits - shortageUnits).toString()
+  });
+}
+module.exports = { reconcileStock, reconcileStockSnapshot, summarizeStockSnapshot };
