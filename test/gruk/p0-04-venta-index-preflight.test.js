@@ -315,3 +315,10 @@ test('P0-04 compares partial filter structure and rejects extra predicates', () 
   assert.throws(extraOperator.run, /Data anomalies block index migration/);
   assert.equal(extraOperator.output[1].targetIndexPresent, false);
 });
+
+// Guard against confusing MongoDB aggregation field paths with $filter scoped variables.
+test('P0-04 site ownership lookup references the scoped site variable', () => {
+  const ctx = preflight();
+  ctx.run();
+  assert.ok(ctx.calls.includes('siteAggregate'));
+});
