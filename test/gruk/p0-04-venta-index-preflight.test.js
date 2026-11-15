@@ -172,6 +172,14 @@ test('P0-04 preflight refuses Personal and Blushea database names before any rea
   }
 });
 
+test('P0-04 rejects embedded protected database names before any reads', () => {
+  for (const name of ['grukBlusheaProduction', 'grukPersonalBackup', 'finanzasPersonalesArchive', 'gruk_finanzas-personales_backup']) {
+    const ctx = preflight({ name });
+    assert.throws(ctx.run, /Non-enterprise database prohibited/);
+    assert.deepEqual(ctx.calls, []);
+  }
+});
+
 test('P0-04 preflight blocks scoped unique indexes that reject originless sales', () => {
   const ctx = preflight({ indexes: [
     { name: 'tenant_origin_unfiltered', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 } }
