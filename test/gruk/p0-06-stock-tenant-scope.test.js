@@ -80,3 +80,22 @@ test('P0-06 tenant summary: rejects mixed company/site and accessors before aggr
   }), TypeError);
   assert.equal(called, 0);
 });
+
+test('P0-06 tenant snapshot: accepts null-prototype data but rejects class and exotic records', () => {
+  const plain = Object.assign(Object.create(null), row());
+  const request = Object.assign(Object.create(null), { empresaId: A, sedeId: S, rows: [plain] });
+  assert.equal(reconcileTenantStockSnapshot(request)[0].differenceUnits, '-3');
+
+  class StockRecord {
+    constructor() { Object.assign(this, row()); }
+  }
+  assert.throws(() => reconcileTenantStockSnapshot({
+    empresaId: A, sedeId: S, rows: [new StockRecord()]
+  }), TypeError);
+  assert.throws(() => reconcileTenantStockSnapshot(
+    Object.assign(new StockRecord(), { empresaId: A, sedeId: S, rows: [row()] })
+  ), TypeError);
+  assert.throws(() => reconcileTenantStockSnapshot({
+    empresaId: A, sedeId: S, rows: [Object.assign(Object.create({ inherited: true }), row())]
+  }), TypeError);
+});
