@@ -5,7 +5,7 @@
 const name = process.env.GRUK_ENTERPRISE_DB;
 if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error('Explicit GRUK_ENTERPRISE_DB required');
 // Defense in depth: never inspect Personal or Blushea databases with enterprise tooling.
-if (/(^|[_-])(personal|finanzas_personales|blushea)([_-]|$)/i.test(name)) throw new Error('Non-enterprise database prohibited');
+if (/(personal|finanzas[_-]?personales|blushea)/i.test(name)) throw new Error('Non-enterprise database prohibited');
 // Require a second explicit operator confirmation before accessing any database.
 // A typo in GRUK_ENTERPRISE_DB must not silently select another database.
 if (process.env.GRUK_ENTERPRISE_DB_CONFIRM !== name) throw new Error('GRUK_ENTERPRISE_DB_CONFIRM must exactly match GRUK_ENTERPRISE_DB');
