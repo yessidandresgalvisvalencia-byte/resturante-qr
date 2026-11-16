@@ -22,6 +22,15 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
       { empresaId: 1, origen: 1, origenId: 1 },
       { unique: true, partialFilterExpression: { origenId: { $type: 'objectId' } } }
     );
+    // Assert the actual index installed by MongoDB, not only the requested DDL.
+    const installed = await sales.indexes();
+    const originIndex = installed.find(index =>
+      index.key?.empresaId === 1 && index.key?.origen === 1 && index.key?.origenId === 1
+    );
+    assert.ok(originIndex, 'Tenant-scoped origin index must exist');
+    assert.equal(originIndex.unique, true);
+    assert.deepEqual(originIndex.partialFilterExpression, { origenId: { $type: 'objectId' } });
+
     const tenantA = new mongoose.Types.ObjectId();
     const tenantB = new mongoose.Types.ObjectId();
     const originId = new mongoose.Types.ObjectId();
@@ -61,7 +70,14 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
     assert.equal(await sales.countDocuments({ origen: 'pedido', origenId: concurrentOrigin }), 2);
     // Originless records must remain permitted under the partial index.
     await sales.insertMany([{ empresaId: tenantA, origen: 'manual' }, { empresaId: tenantA, origen: 'manual' }]);
-    assert.equal(await sales.countDocuments({ empresaId: tenantA }), 5);
+    // Non-ObjectId origin identifiers do not participate in the partial unique index.
+    await sales.insertMany([
+      { empresaId: tenantA, origen: 'manual', origenId: null },
+      { empresaId: tenantA, origen: 'manual', origenId: null },
+      { empresaId: tenantA, origen: 'manual', origenId: 'legacy-string' },
+      { empresaId: tenantA, origen: 'manual', origenId: 'legacy-string' }
+    ]);
+    assert.equal(await sales.countDocuments({ empresaId: tenantA }), 9);
     assert.equal(await sales.countDocuments({ empresaId: tenantB }), 2);
   } finally {
     try { await sales.drop(); } catch (error) { if (error.codeName !== 'NamespaceNotFound') throw error; }
