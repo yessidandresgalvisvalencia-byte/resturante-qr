@@ -111,20 +111,21 @@ test('P0-04 preflight reports readiness without writing to MongoDB', () => {
 test('P0-04 preflight blocks migration readiness for missing tenants or duplicate scoped keys', () => {
   for (const anomalies of [{ missingTenant: 1 }, { duplicateGroups: 2 }, { missingTenant: 1, duplicateGroups: 2 }]) {
     const ctx = preflight(anomalies);
-    assert.throws(ctx.run, /Data anomalies block index migration/);
+    assert.throws(ctx.run, /Data anomalies block index build/);
     assert.equal(ctx.output[1].readyForIndexBuild, false);
   }
 });
 
 
-test('P0-04 preflight blocks legacy global unique origin indexes without mutating data', () => {
+test('P0-04 preflight allows staged coexistence of legacy global origin index without mutating data', () => {
   const ctx = preflight({ indexes: [
     { name: '_id_' },
     { name: 'legacy_origin_unique', unique: true, key: { origen: 1, origenId: 1 } }
   ] });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  ctx.run();
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_origin_unique']);
-  assert.equal(ctx.output[1].readyForIndexBuild, false);
+  assert.equal(ctx.output[1].readyForIndexBuild, true);
+  assert.equal(ctx.output[2].readyForLegacyRemoval, false);
   assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'enterpriseAggregate', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
 
@@ -140,14 +141,14 @@ test('P0-04 preflight accepts tenant-scoped unique origin indexes', () => {
 
 test('P0-04 preflight blocks invalid legacy origin IDs excluded by partial index', () => {
   const ctx = preflight({ invalidOriginIds: 1 });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.equal(ctx.output[1].invalidOriginIds, 1);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
 });
 
 test('P0-04 preflight scans originless sales for missing enterprise ownership', () => {
   const ctx = preflight({ missingTenant: 1 });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.equal(ctx.output[1].missingTenant, 1);
   assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'enterpriseAggregate', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
 });
@@ -159,7 +160,7 @@ test('P0-04 preflight detects legacy unique origin indexes regardless of key ord
     { name: 'nonunique_origin', key: { origen: 1, origenId: 1 } },
     { name: 'tenant_scoped', unique: true, key: { origen: 1, empresaId: 1, origenId: 1 } }
   ] });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_reverse', 'legacy_compound']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
 });
@@ -184,7 +185,7 @@ test('P0-04 preflight blocks scoped unique indexes that reject originless sales'
   const ctx = preflight({ indexes: [
     { name: 'tenant_origin_unfiltered', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 } }
   ] });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['tenant_origin_unfiltered']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
   assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'enterpriseAggregate', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
@@ -195,7 +196,7 @@ test('P0-04 preflight rejects scoped unique indexes with extra keys that weaken 
   const ctx = preflight({ indexes: [
     { name: 'tenant_origin_sede_unique', unique: true, key: { empresaId: 1, sedeId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
   ] });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['tenant_origin_sede_unique']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
 });
@@ -207,7 +208,7 @@ test('P0-04 preflight blocks descending global unique origin indexes', () => {
     { name: 'legacy_mixed', unique: true, key: { origenId: -1, origen: 1 } },
     { name: 'nonunique_descending', key: { origen: -1, origenId: -1 } }
   ] });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_descending', 'legacy_mixed']);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
 });
@@ -240,7 +241,7 @@ test('P0-04 recognizes reordered tenant uniqueness and rejects descending lookal
   const descending = preflight({ indexes: [
     { name: 'descending_target', unique: true, key: { origenId: -1, empresaId: 1, origen: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
   ] });
-  assert.throws(descending.run, /Data anomalies block index migration/);
+  assert.throws(descending.run, /Data anomalies block index build/);
   assert.equal(descending.output[1].targetIndexPresent, false);
   assert.deepEqual(descending.output[1].incompatibleTenantUniqueIndexes, ['descending_target']);
 });
@@ -248,7 +249,7 @@ test('P0-04 recognizes reordered tenant uniqueness and rejects descending lookal
 
 test('P0-04 preflight blocks missing or malformed site ownership without writes', () => {
   const ctx = preflight({ invalidSiteIds: 3 });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.equal(ctx.output[1].invalidSiteIds, 3);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
   assert.deepEqual(ctx.calls, ['getIndexes', 'countDocuments', 'enterpriseAggregate', 'countDocuments', 'countDocuments', 'countDocuments', 'siteAggregate', 'aggregate']);
@@ -259,11 +260,11 @@ test('P0-04 distinguishes data readiness from conservative legacy-index migratio
   const legacy = preflight({ indexes: [
     { name: 'legacy_origin_unique', unique: true, key: { origen: 1, origenId: 1 } }
   ] });
-  assert.throws(legacy.run, /Data anomalies block index migration/);
+  assert.throws(legacy.run, /Data anomalies block index build/);
   assert.equal(legacy.output[1].dataReadyForIndexBuild, true);
   assert.equal(legacy.output[1].readyForIndexBuild, false);
   const badData = preflight({ missingTenant: 1 });
-  assert.throws(badData.run, /Data anomalies block index migration/);
+  assert.throws(badData.run, /Data anomalies block index build/);
   assert.equal(badData.output[1].dataReadyForIndexBuild, false);
   const clean = preflight();
   clean.run();
@@ -274,7 +275,7 @@ test('P0-04 distinguishes data readiness from conservative legacy-index migratio
 
 test('P0-04 blocks ObjectId origins without a valid origin name', () => {
   const ctx = preflight({ invalidOriginNames: 2 });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.equal(ctx.output[1].invalidOriginNames, 2);
   assert.equal(ctx.output[1].dataReadyForIndexBuild, false);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
@@ -282,7 +283,7 @@ test('P0-04 blocks ObjectId origins without a valid origin name', () => {
 // Whitespace-only origins must not silently pass the migration preflight.
 test('P0-04 rejects blank and whitespace-only origin names via MongoDB regex', () => {
   const ctx = preflight({ invalidOriginNames: 1 });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.equal(ctx.output[1].invalidOriginNames, 1);
   assert.equal(ctx.output[1].dataReadyForIndexBuild, false);
 });
@@ -290,7 +291,7 @@ test('P0-04 rejects blank and whitespace-only origin names via MongoDB regex', (
 
 test('P0-04 rejects a sale whose valid site ObjectId belongs to a different enterprise', () => {
   const ctx = preflight({ invalidSiteOwnership: 2 });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.equal(ctx.output[1].invalidSiteOwnership, 2);
   assert.equal(ctx.output[1].dataReadyForIndexBuild, false);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
@@ -300,7 +301,7 @@ test('P0-04 rejects a sale whose valid site ObjectId belongs to a different ente
 
 test('P0-04 blocks orphan enterprise references with valid ObjectIds', () => {
   const ctx = preflight({ invalidEnterpriseOwnership: 2 });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.equal(ctx.output[1].invalidEnterpriseOwnership, 2);
   assert.equal(ctx.output[1].dataReadyForIndexBuild, false);
   assert.ok(ctx.calls.includes('enterpriseAggregate'));
@@ -324,13 +325,13 @@ test('P0-04 compares partial filter structure and rejects extra predicates', () 
   const extraPredicate = preflight({ indexes: [
     { name: 'too_narrow', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' }, estado: 'activo' } }
   ] });
-  assert.throws(extraPredicate.run, /Data anomalies block index migration/);
+  assert.throws(extraPredicate.run, /Data anomalies block index build/);
   assert.equal(extraPredicate.output[1].targetIndexPresent, false);
   assert.deepEqual(extraPredicate.output[1].incompatibleTenantUniqueIndexes, ['too_narrow']);
   const extraOperator = preflight({ indexes: [
     { name: 'wrong_type_predicate', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId', $exists: true } } }
   ] });
-  assert.throws(extraOperator.run, /Data anomalies block index migration/);
+  assert.throws(extraOperator.run, /Data anomalies block index build/);
   assert.equal(extraOperator.output[1].targetIndexPresent, false);
 });
 
@@ -347,7 +348,7 @@ test('P0-04 rejects descending tenant-scoped origin uniqueness before migration'
     { name: 'descending_origin', unique: true, key: { empresaId: 1, origen: -1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } },
     { name: 'descending_origin_id', unique: true, key: { empresaId: 1, origen: 1, origenId: -1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
   ] });
-  assert.throws(ctx.run, /Data anomalies block index migration/);
+  assert.throws(ctx.run, /Data anomalies block index build/);
   assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, ['descending_origin', 'descending_origin_id']);
   assert.equal(ctx.output[1].targetIndexPresent, false);
   assert.equal(ctx.output[1].readyForIndexBuild, false);
@@ -361,7 +362,7 @@ test('P0-04 rejects sparse or non-simple-collation unique indexes as target subs
     ['locale_target', { collation: { locale: 'es', strength: 2 } }]
   ]) {
     const ctx = preflight({ indexes: [{ name, unique: true, key, partialFilterExpression, ...options }] });
-    assert.throws(ctx.run, /Data anomalies block index migration/);
+    assert.throws(ctx.run, /Data anomalies block index build/);
     assert.deepEqual(ctx.output[1].incompatibleTenantUniqueIndexes, [name]);
     assert.equal(ctx.output[1].targetIndexPresent, false);
   }
@@ -370,4 +371,17 @@ test('P0-04 rejects sparse or non-simple-collation unique indexes as target subs
   }] });
   normal.run();
   assert.equal(normal.output[1].targetIndexPresent, true);
+});
+
+// Coexistence is required for the staged rollout; this is only a candidate,
+// never permission to remove the legacy index without DBA approval.
+test('P0-04 identifies legacy removal candidate only when scoped index is present', () => {
+  const ctx = preflight({ indexes: [
+    { name: 'legacy', unique: true, key: { origen: 1, origenId: 1 } },
+    { name: 'scoped', unique: true, key: { empresaId: 1, origen: 1, origenId: 1 }, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+  ] });
+  ctx.run();
+  assert.equal(ctx.output[1].targetIndexPresent, true);
+  assert.equal(ctx.output[2].readyForLegacyRemoval, true);
+  assert.equal(ctx.output[2].requiresDbaApproval, true);
 });
