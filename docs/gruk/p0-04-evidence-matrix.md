@@ -28,3 +28,16 @@ La aprobación de CI del preflight no equivale a la certificación del requisito
 ## Verificación CI observada (15-11-2026)
 
 El commit `b7a17790883bdba2b0a5527d15b7ae6e76940f04` obtuvo **success** en [GRUK CI #43712429311](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43712429311), [quality gate #43712429333](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43712429333) y [Offline Browser Persistence #43712429315](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43712429315). Esto no certifica integración MongoDB real ni revisión independiente. Las verificaciones deberán repetirse para el HEAD posterior a esta actualización documental.
+
+## Evidencia de integración pendiente — corte 15-11-2026
+
+El commit `8267ac39a7fe9a832a3b10cf83c93b3726e6f359` completó satisfactoriamente [GRUK CI #43790969405](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43790969405), [quality gate #43790969457](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43790969457) y [Offline Browser Persistence #43790969429](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43790969429). Es evidencia **del commit indicado**, no de posteriores.
+
+| Subcriterio P0-04 | Código | Prueba | Evidencia / estado |
+| --- | --- | --- | --- |
+| Índice único por empresa y origen, filtro parcial ObjectId | `models/Venta.js` | `test/gruk/p0-04-venta-origin-tenant-index.test.js` | CI verde del commit anterior; índice real aún sin verificar |
+| Semántica de índice productivo en base aislada (incluye concurrencia, duplicados y tipos heredados) | `models/Venta.js` | `test/gruk/p0-04-venta-mongo.integration.test.js` | Test incorporado; **no consta ejecución real contra MongoDB**; CI general no la acredita |
+| Preflight sin escritura y con validación previa de configuración | `scripts/gruk/p0-04-venta-index-preflight.js` | `test/gruk/p0-04-venta-index-preflight.test.js` | CI verde del commit anterior; preflight sobre base real pendiente |
+| Aislamiento transversal Empresa/Sede/Usuario/producto/pedido/venta/pago/stock/proveedor | Varios modelos y endpoints, aún por auditar | Pruebas negativas multiempresa y multisede pendientes | **No certificado** |
+
+**Bloqueo verificable:** falta una instancia MongoDB de pruebas inequívocamente aislada, su ejecución documentada con URI redactada, revisión independiente y evidencia E2E. No utilizar base productiva para subsanar esta ausencia. Este cambio documental tampoco queda aprobado hasta que su propio HEAD supere CI.
