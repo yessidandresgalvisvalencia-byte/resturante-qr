@@ -146,6 +146,32 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
     assert.equal(scopedDeletion.deletedCount, 1);
     assert.equal(await sales.countDocuments({ empresaId: tenantA, origenId: sharedOrigin }), 0);
     assert.equal(await sales.countDocuments({ empresaId: tenantB, origenId: sharedOrigin }), 1);
+    // Negative multisite query contract: a site filter must not touch sibling sites.
+    const siteA = new mongoose.Types.ObjectId();
+    const siteB = new mongoose.Types.ObjectId();
+    const siteOriginA = new mongoose.Types.ObjectId();
+    const siteOriginB = new mongoose.Types.ObjectId();
+    await sales.insertMany([
+      { empresaId: tenantA, sedeId: siteA, origen: 'pedido', origenId: siteOriginA },
+      { empresaId: tenantA, sedeId: siteB, origen: 'pedido', origenId: siteOriginB }
+    ]);
+    const siteRead = await sales.find({ empresaId: tenantA, sedeId: siteA, origen: 'pedido' }).toArray();
+    assert.ok(siteRead.every(record => record.sedeId.equals(siteA)));
+    assert.equal(siteRead.filter(record => record.origenId.equals(siteOriginB)).length, 0);
+    const wrongSiteUpdate = await sales.updateOne(
+      { empresaId: tenantA, sedeId: siteA, origenId: siteOriginB },
+      { $set: { siteScopedMutation: true } }
+    );
+    assert.equal(wrongSiteUpdate.matchedCount, 0);
+    const rightSiteUpdate = await sales.updateOne(
+      { empresaId: tenantA, sedeId: siteB, origenId: siteOriginB },
+      { $set: { siteScopedMutation: true } }
+    );
+    assert.equal(rightSiteUpdate.matchedCount, 1);
+    assert.equal(await sales.countDocuments({ empresaId: tenantA, sedeId: siteA, siteScopedMutation: true }), 0);
+    assert.equal(await sales.countDocuments({ empresaId: tenantA, sedeId: siteB, siteScopedMutation: true }), 1);
+    // Query filters alone do not validate a site's ownership or enforce endpoint permissions.
+
     // This verifies explicit MongoDB query filters, not endpoint authorization or policy enforcement.
 
   } finally {
