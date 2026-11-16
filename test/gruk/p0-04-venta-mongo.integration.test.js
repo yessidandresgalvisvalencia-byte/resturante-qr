@@ -12,7 +12,16 @@ const database = process.env.GRUK_P004_TEST_DB;
 const permitted = Boolean(uri && database && /^gruk_p004_[a-z0-9_]*test$/i.test(database) &&
   !/(personal|blushea|production|prod)/i.test(database));
 
-test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries are rejected', { skip: !permitted && 'Requires explicitly configured isolated test MongoDB' }, async () => {
+// A configured integration job must fail closed instead of reporting a green skipped test.
+// Only an entirely unconfigured local/unit run may skip the database-dependent assertion.
+test('P0-04 MongoDB integration configuration is explicit and safe', { skip: !uri && !database }, () => {
+  assert.ok(uri, 'GRUK_P004_TEST_MONGO_URI is required when integration is configured');
+  assert.ok(database, 'GRUK_P004_TEST_DB is required when integration is configured');
+  assert.ok(permitted, 'GRUK_P004_TEST_DB must be a dedicated gruk_p004_*test database, never personal, Blushea or production');
+  assert.match(uri, /^mongodb(?:\\+srv)?:\\/\\//i, 'Integration URI must use MongoDB protocol');
+});
+
+test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries are rejected', { skip: !uri && !database && 'Requires explicitly configured isolated test MongoDB' }, async () => {
   const connection = await mongoose.createConnection(uri, { dbName: database, serverSelectionTimeoutMS: 5000 }).asPromise();
   // A unique collection name avoids touching unrelated fixtures, even within the dedicated test DB.
   const collectionName = 'p004_tenant_origin_' + process.pid + '_' + Date.now();
