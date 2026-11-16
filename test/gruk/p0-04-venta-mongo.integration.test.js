@@ -6,6 +6,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
+const Venta = require('../../models/Venta');
 
 const uri = process.env.GRUK_P004_TEST_MONGO_URI;
 const database = process.env.GRUK_P004_TEST_DB;
@@ -27,10 +28,13 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
   const collectionName = 'p004_tenant_origin_' + process.pid + '_' + Date.now();
   const sales = connection.db.collection(collectionName);
   try {
-    await sales.createIndex(
-      { empresaId: 1, origen: 1, origenId: 1 },
-      { unique: true, partialFilterExpression: { origenId: { $type: 'objectId' } } }
+    // Exercise the index declared by the production Venta schema, not a duplicated fixture.
+    const declared = Venta.schema.indexes().find(([keys]) =>
+      keys.empresaId === 1 && keys.origen === 1 && keys.origenId === 1
     );
+    assert.ok(declared, 'Venta model must declare the tenant-scoped origin index');
+    const [keys, options] = declared;
+    await sales.createIndex(keys, options);
     // Assert the actual index installed by MongoDB, not only the requested DDL.
     const installed = await sales.indexes();
     const originIndex = installed.find(index =>
