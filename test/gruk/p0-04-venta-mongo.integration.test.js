@@ -122,6 +122,20 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
     assert.equal(tenantBResults.length, 1);
     assert.ok(tenantAResults.every(record => record.empresaId.equals(tenantA)));
     assert.ok(tenantBResults.every(record => record.empresaId.equals(tenantB)));
+    // Tenant-qualified mutations must not change another company's sale, even
+    // when both companies reuse the same external origin identifier.
+    const crossTenantMutation = await sales.updateOne(
+      { empresaId: tenantA, origenId: sharedOrigin },
+      { $set: { tenantScopedMutation: true } }
+    );
+    assert.equal(crossTenantMutation.matchedCount, 1);
+    assert.equal(await sales.countDocuments({ empresaId: tenantB, origenId: sharedOrigin, tenantScopedMutation: true }), 0);
+    const wrongTenantMutation = await sales.updateOne(
+      { empresaId: new mongoose.Types.ObjectId(), origenId: sharedOrigin },
+      { $set: { tenantScopedMutation: true } }
+    );
+    assert.equal(wrongTenantMutation.matchedCount, 0);
+    assert.equal(await sales.countDocuments({ origenId: sharedOrigin, tenantScopedMutation: true }), 1);
     // This verifies the MongoDB query contract, not application endpoint authorization.
 
   } finally {
