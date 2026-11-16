@@ -114,6 +114,16 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
     ]);
     assert.equal(await sales.countDocuments({ empresaId: tenantA }), 10);
     assert.equal(await sales.countDocuments({ empresaId: tenantB }), 3);
+    // Tenant-qualified reads must not return the other company's sales, even when
+    // both companies intentionally reuse identical external origin identifiers.
+    const tenantAResults = await sales.find({ empresaId: tenantA, origenId: sharedOrigin }).toArray();
+    const tenantBResults = await sales.find({ empresaId: tenantB, origenId: sharedOrigin }).toArray();
+    assert.equal(tenantAResults.length, 1);
+    assert.equal(tenantBResults.length, 1);
+    assert.ok(tenantAResults.every(record => record.empresaId.equals(tenantA)));
+    assert.ok(tenantBResults.every(record => record.empresaId.equals(tenantB)));
+    // This verifies the MongoDB query contract, not application endpoint authorization.
+
   } finally {
     try { await sales.drop(); } catch (error) { if (error.codeName !== 'NamespaceNotFound') throw error; }
     await connection.close();
