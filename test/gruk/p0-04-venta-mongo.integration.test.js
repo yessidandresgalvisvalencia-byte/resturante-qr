@@ -170,6 +170,22 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
     assert.equal(rightSiteUpdate.matchedCount, 1);
     assert.equal(await sales.countDocuments({ empresaId: tenantA, sedeId: siteA, siteScopedMutation: true }), 0);
     assert.equal(await sales.countDocuments({ empresaId: tenantA, sedeId: siteB, siteScopedMutation: true }), 1);
+    // Negative multisite deletion contract: deleting within site A cannot remove
+    // a sibling site's sale, even when both belong to the same company.
+    const wrongSiteDeletion = await sales.deleteOne({
+      empresaId: tenantA, sedeId: siteA, origenId: siteOriginB
+    });
+    assert.equal(wrongSiteDeletion.deletedCount, 0);
+    assert.equal(await sales.countDocuments({
+      empresaId: tenantA, sedeId: siteB, origenId: siteOriginB
+    }), 1);
+    const rightSiteDeletion = await sales.deleteOne({
+      empresaId: tenantA, sedeId: siteA, origenId: siteOriginA
+    });
+    assert.equal(rightSiteDeletion.deletedCount, 1);
+    assert.equal(await sales.countDocuments({
+      empresaId: tenantA, sedeId: siteB, origenId: siteOriginB
+    }), 1);
     // Query filters alone do not validate a site's ownership or enforce endpoint permissions.
 
     // This verifies explicit MongoDB query filters, not endpoint authorization or policy enforcement.
