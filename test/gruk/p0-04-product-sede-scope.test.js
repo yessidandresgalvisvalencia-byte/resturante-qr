@@ -24,7 +24,7 @@ test('P0-04: product lookup excludes sibling branch while retaining global catal
   const empresaId = new mongoose.Types.ObjectId();
   const sedeId = new mongoose.Types.ObjectId();
   const productoServicioId = new mongoose.Types.ObjectId();
-  const pedido = { productoServicioId };
+  const pedido = { _id: new mongoose.Types.ObjectId(), productoServicioId };
   try {
     await assert.rejects(registrarVentaDesdePedido({ pedido, empresaId, sedeId, emitirEvento: false }), /no pertenece/);
     await assert.rejects(registrarVentaDesdePedido({ pedido, empresaId, emitirEvento: false }), /no pertenece/);
@@ -67,7 +67,7 @@ test('P0-04: customer lookup without branch cannot access sibling branch custome
       async lean() { return null; }
     };
   };
-  const pedido = { productoServicioId, clienteId };
+  const pedido = { _id: new mongoose.Types.ObjectId(), productoServicioId, clienteId };
   try {
     await assert.rejects(
       registrarVentaDesdePedido({ pedido, empresaId, emitirEvento: false }),
