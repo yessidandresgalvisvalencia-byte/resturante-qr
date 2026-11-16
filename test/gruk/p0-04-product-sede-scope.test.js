@@ -35,3 +35,45 @@ test('P0-04: product lookup excludes sibling branch while retaining global catal
     ProductoServicio.findOne = original;
   }
 });
+
+test('P0-04: customer lookup without branch cannot access sibling branch customers', async () => {
+  const Cliente = require('../../models/Cliente');
+  const originalProduct = ProductoServicio.findOne;
+  const originalClient = Cliente.findOne;
+  const captured = [];
+  const empresaId = new mongoose.Types.ObjectId();
+  const sedeId = new mongoose.Types.ObjectId();
+  const productoServicioId = new mongoose.Types.ObjectId();
+  const clienteId = new mongoose.Types.ObjectId();
+  ProductoServicio.findOne = () => ({
+    select() { return this; },
+    session() { return this; },
+    async lean() { return { _id: productoServicioId, costoUnitario: 100 }; }
+  });
+  Cliente.findOne = (filter) => {
+    captured.push(filter);
+    return {
+      select() { return this; },
+      session() { return this; },
+      async lean() { return null; }
+    };
+  };
+  const pedido = { productoServicioId, clienteId };
+  try {
+    await assert.rejects(
+      registrarVentaDesdePedido({ pedido, empresaId, emitirEvento: false }),
+      /Cliente no pertenece/
+    );
+    await assert.rejects(
+      registrarVentaDesdePedido({ pedido, empresaId, sedeId, emitirEvento: false }),
+      /Cliente no pertenece/
+    );
+    assert.deepEqual(captured, [
+      { _id: clienteId, empresaId, deletedAt: null, sedeId: null },
+      { _id: clienteId, empresaId, deletedAt: null, sedeId }
+    ]);
+  } finally {
+    ProductoServicio.findOne = originalProduct;
+    Cliente.findOne = originalClient;
+  }
+});
