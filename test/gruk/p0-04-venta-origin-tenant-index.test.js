@@ -44,3 +44,26 @@ test('P0-04: two valid tenants retain distinct scoped origin index keys', () => 
   assert.equal(saleA.origenId.toString(), saleB.origenId.toString());
   // Schema-only test: MongoDB uniqueness and legacy-index removal require integration verification.
 });
+
+test('P0-04: sale schema rejects malformed sede identifiers', () => {
+  const mongoose = require('mongoose');
+  const sale = new Venta({
+    empresaId: new mongoose.Types.ObjectId(),
+    sedeId: 'invalid-sede-id',
+    concepto: 'test',
+    precioUnitario: 1,
+    total: 1
+  });
+  assert.ok(sale.validateSync()?.errors?.sedeId, 'invalid sedeId must fail casting');
+});
+
+test('P0-04: sale schema exposes empresaId and sedeId as tenant-scoped fields', () => {
+  const tenant = Venta.schema.path('empresaId');
+  const branch = Venta.schema.path('sedeId');
+  assert.equal(tenant.options.required, true);
+  assert.equal(tenant.options.ref, 'Empresa');
+  assert.equal(branch.options.ref, 'Sede');
+  assert.equal(branch.options.index, true);
+  assert.equal(tenant.options.index, true);
+  // Schema contracts only: these assertions do not prove sede ownership or query isolation.
+});
