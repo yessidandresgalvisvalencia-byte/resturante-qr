@@ -19,7 +19,7 @@ test('P0-04 MongoDB integration configuration is explicit and safe', { skip: !ur
   assert.ok(uri, 'GRUK_P004_TEST_MONGO_URI is required when integration is configured');
   assert.ok(database, 'GRUK_P004_TEST_DB is required when integration is configured');
   assert.ok(permitted, 'GRUK_P004_TEST_DB must be a dedicated gruk_p004_*test database, never personal, Blushea or production');
-  assert.match(uri, /^mongodb(?:\\+srv)?:\\/\\//i, 'Integration URI must use MongoDB protocol');
+  assert.ok(uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://'), 'Integration URI must use MongoDB protocol');
 });
 
 test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries are rejected', { skip: !uri && !database && 'Requires explicitly configured isolated test MongoDB' }, async () => {
