@@ -85,6 +85,24 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
       origenId: concurrentOrigin
     });
     assert.equal(await sales.countDocuments({ origen: 'pedido', origenId: concurrentOrigin }), 2);
+    // Independent concurrent retry storms across tenants must each settle on one sale.
+    const sharedOrigin = new mongoose.Types.ObjectId();
+    const crossTenantAttempts = await Promise.allSettled(
+      [tenantA, tenantB].flatMap(empresaId =>
+        Array.from({ length: 6 }, () => sales.insertOne({
+          empresaId,
+          sedeId: new mongoose.Types.ObjectId(),
+          origen: 'pedido',
+          origenId: sharedOrigin
+        }))
+      )
+    );
+    assert.equal(crossTenantAttempts.filter(result => result.status === 'fulfilled').length, 2);
+    assert.equal(crossTenantAttempts.filter(result =>
+      result.status === 'rejected' && result.reason.code === 11000
+    ).length, 10);
+    assert.equal(await sales.countDocuments({ empresaId: tenantA, origenId: sharedOrigin }), 1);
+    assert.equal(await sales.countDocuments({ empresaId: tenantB, origenId: sharedOrigin }), 1);
     // Originless records must remain permitted under the partial index.
     await sales.insertMany([{ empresaId: tenantA, origen: 'manual' }, { empresaId: tenantA, origen: 'manual' }]);
     // Non-ObjectId origin identifiers do not participate in the partial unique index.
@@ -94,8 +112,8 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
       { empresaId: tenantA, origen: 'manual', origenId: 'legacy-string' },
       { empresaId: tenantA, origen: 'manual', origenId: 'legacy-string' }
     ]);
-    assert.equal(await sales.countDocuments({ empresaId: tenantA }), 9);
-    assert.equal(await sales.countDocuments({ empresaId: tenantB }), 2);
+    assert.equal(await sales.countDocuments({ empresaId: tenantA }), 10);
+    assert.equal(await sales.countDocuments({ empresaId: tenantB }), 3);
   } finally {
     try { await sales.drop(); } catch (error) { if (error.codeName !== 'NamespaceNotFound') throw error; }
     await connection.close();
