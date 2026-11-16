@@ -85,9 +85,14 @@ const duplicates = sales.aggregate([
 ]).toArray();
 const duplicateGroups = duplicates.length ? duplicates[0].groups : 0;
 // Data readiness is independent of the legacy index: the legacy index is expected
-// to coexist during a staged migration. Keep the conservative migration gate below.
+// to coexist during a staged migration. A legacy index blocks the final cutover,
+// not creation of the new scoped index.
 const dataReadyForIndexBuild = missingTenant === 0 && invalidEnterpriseOwnership === 0 && invalidSiteIds === 0 && invalidSiteOwnership === 0 && invalidOriginIds === 0 && invalidOriginNames === 0 && duplicateGroups === 0;
-const readyForIndexBuild = dataReadyForIndexBuild && legacyGlobalUniqueIndexes.length === 0 && incompatibleTenantUniqueIndexes.length === 0;
+const readyForIndexBuild = dataReadyForIndexBuild && incompatibleTenantUniqueIndexes.length === 0;
 printjson({ missingTenant, invalidEnterpriseOwnership, invalidSiteIds, invalidSiteOwnership, invalidOriginIds, invalidOriginNames, duplicateGroups, legacyGlobalUniqueIndexes, incompatibleTenantUniqueIndexes, targetIndexPresent, dataReadyForIndexBuild, readyForIndexBuild });
-if (missingTenant || invalidEnterpriseOwnership || invalidSiteIds || invalidSiteOwnership || invalidOriginIds || invalidOriginNames || duplicateGroups || legacyGlobalUniqueIndexes.length || incompatibleTenantUniqueIndexes.length) throw new Error('Data anomalies block index migration');
+if (!readyForIndexBuild) throw new Error('Data anomalies block index build');
+// A legacy global index must remain until the scoped index is verified and
+// explicit DBA authorization permits its removal. Never conflate the gates.
+const readyForLegacyRemoval = readyForIndexBuild && targetIndexPresent && legacyGlobalUniqueIndexes.length > 0;
+printjson({ readyForLegacyRemoval, requiresDbaApproval: true });
 // A passing result does not authorize migration, index removal or deployment.
