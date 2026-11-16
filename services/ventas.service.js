@@ -44,6 +44,9 @@ async function registrarVentaDesdePedido({
         "GRUK Ventas: pedido sin productoServicioId"
       );
     }
+    if (!mongoose.Types.ObjectId.isValid(pedido.productoServicioId)) {
+      throw new Error("GRUK Ventas: productoServicioId invalido");
+    }
 
     // Seguridad multi-tenant:
     // no basta conocer el _id del producto; también debe
