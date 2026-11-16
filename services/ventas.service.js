@@ -38,7 +38,9 @@ async function registrarVentaDesdePedido({
     const productoServicio =
       await ProductoServicio.findOne({
         _id: pedido.productoServicioId,
-        empresaId
+        empresaId,
+        // Productos globales (sedeId null) o de esta sede; nunca de otra.
+        sedeId: sedeId == null ? null : { $in: [sedeId, null] }
       })
         .select("_id costoUnitario")
         .session(session)
