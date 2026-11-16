@@ -71,9 +71,8 @@ async function registrarVentaDesdePedido({
         deletedAt: null
       };
 
-      if (sedeId) {
-        filtroCliente.sedeId = sedeId;
-      }
+      // Sin sede explícita, únicamente clientes globales: nunca de otra sede.
+      filtroCliente.sedeId = sedeId == null ? null : sedeId;
 
       const cliente = await Cliente.findOne(
         filtroCliente
