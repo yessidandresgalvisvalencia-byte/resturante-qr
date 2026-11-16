@@ -23,6 +23,10 @@ test('P0-04 MongoDB integration configuration is explicit and safe', { skip: !ur
 });
 
 test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries are rejected', { skip: !uri && !database && 'Requires explicitly configured isolated test MongoDB' }, async () => {
+  // Guard before any network connection or database operation. A partially configured
+  // run must fail without contacting an unintended MongoDB instance.
+  assert.ok(permitted, 'Dedicated GRUK P0-04 test URI and database are required before connecting');
+  assert.ok(uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://'), 'MongoDB protocol required');
   const connection = await mongoose.createConnection(uri, { dbName: database, serverSelectionTimeoutMS: 5000 }).asPromise();
   // A unique collection name avoids touching unrelated fixtures, even within the dedicated test DB.
   const collectionName = 'p004_tenant_origin_' + process.pid + '_' + Date.now();
