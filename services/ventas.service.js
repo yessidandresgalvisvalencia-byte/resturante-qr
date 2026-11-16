@@ -35,7 +35,11 @@ async function registrarVentaDesdePedido({
     if (pedido.sedeId != null && String(pedido.sedeId) !== String(sedeId)) {
       throw new Error("GRUK Ventas: pedido de otra sede");
     }
-    // A persisted source identity is mandatory for idempotent sale registration.\n    if (!pedido._id || !mongoose.Types.ObjectId.isValid(pedido._id)) {\n      throw new Error("GRUK Ventas: pedidoId invalido");\n    }\n    if (!pedido.productoServicioId) {
+    // A persisted source identity is mandatory for idempotent sale registration.
+    if (!pedido._id || !mongoose.Types.ObjectId.isValid(pedido._id)) {
+      throw new Error("GRUK Ventas: pedidoId invalido");
+    }
+    if (!pedido.productoServicioId) {
       throw new Error(
         "GRUK Ventas: pedido sin productoServicioId"
       );
