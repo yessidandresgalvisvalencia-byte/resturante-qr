@@ -26,6 +26,15 @@ async function registrarVentaDesdePedido({
   }
 
   try {
+    // Reject a caller-supplied order whose tenant or branch conflicts with the
+    // sale context before any database lookup or write. Legacy orders may omit
+    // these fields; absence is not evidence of authorization at the endpoint.
+    if (pedido.empresaId != null && String(pedido.empresaId) !== String(empresaId)) {
+      throw new Error("GRUK Ventas: pedido de otra empresa");
+    }
+    if (pedido.sedeId != null && String(pedido.sedeId) !== String(sedeId)) {
+      throw new Error("GRUK Ventas: pedido de otra sede");
+    }
     if (!pedido.productoServicioId) {
       throw new Error(
         "GRUK Ventas: pedido sin productoServicioId"
