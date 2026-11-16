@@ -136,7 +136,17 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
     );
     assert.equal(wrongTenantMutation.matchedCount, 0);
     assert.equal(await sales.countDocuments({ origenId: sharedOrigin, tenantScopedMutation: true }), 1);
-    // This verifies the MongoDB query contract, not application endpoint authorization.
+    // Tenant-scoped deletion must preserve the other company's matching sale.
+    const deniedDeletion = await sales.deleteOne({
+      empresaId: new mongoose.Types.ObjectId(),
+      origenId: sharedOrigin
+    });
+    assert.equal(deniedDeletion.deletedCount, 0);
+    const scopedDeletion = await sales.deleteOne({ empresaId: tenantA, origenId: sharedOrigin });
+    assert.equal(scopedDeletion.deletedCount, 1);
+    assert.equal(await sales.countDocuments({ empresaId: tenantA, origenId: sharedOrigin }), 0);
+    assert.equal(await sales.countDocuments({ empresaId: tenantB, origenId: sharedOrigin }), 1);
+    // This verifies explicit MongoDB query filters, not endpoint authorization or policy enforcement.
 
   } finally {
     try { await sales.drop(); } catch (error) { if (error.codeName !== 'NamespaceNotFound') throw error; }
