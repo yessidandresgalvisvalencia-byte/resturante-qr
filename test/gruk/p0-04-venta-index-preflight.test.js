@@ -202,15 +202,17 @@ test('P0-04 preflight rejects scoped unique indexes with extra keys that weaken 
 });
 
 
-test('P0-04 preflight blocks descending global unique origin indexes', () => {
+test('P0-04 preflight inventories descending global unique origin indexes without blocking staged index build', () => {
   const ctx = preflight({ indexes: [
     { name: 'legacy_descending', unique: true, key: { origen: -1, origenId: -1 } },
     { name: 'legacy_mixed', unique: true, key: { origenId: -1, origen: 1 } },
     { name: 'nonunique_descending', key: { origen: -1, origenId: -1 } }
   ] });
-  assert.throws(ctx.run, /Data anomalies block index build/);
+  ctx.run();
   assert.deepEqual(ctx.output[1].legacyGlobalUniqueIndexes, ['legacy_descending', 'legacy_mixed']);
-  assert.equal(ctx.output[1].readyForIndexBuild, false);
+  assert.equal(ctx.output[1].readyForIndexBuild, true);
+  assert.equal(ctx.output[2].readyForLegacyRemoval, false);
+  assert.equal(ctx.output[2].requiresDbaApproval, true);
 });
 
 
@@ -260,9 +262,12 @@ test('P0-04 distinguishes data readiness from conservative legacy-index migratio
   const legacy = preflight({ indexes: [
     { name: 'legacy_origin_unique', unique: true, key: { origen: 1, origenId: 1 } }
   ] });
-  assert.throws(legacy.run, /Data anomalies block index build/);
+  legacy.run();
   assert.equal(legacy.output[1].dataReadyForIndexBuild, true);
-  assert.equal(legacy.output[1].readyForIndexBuild, false);
+  assert.equal(legacy.output[1].readyForIndexBuild, true);
+  assert.equal(legacy.output[1].targetIndexPresent, false);
+  assert.equal(legacy.output[2].readyForLegacyRemoval, false);
+  assert.equal(legacy.output[2].requiresDbaApproval, true);
   const badData = preflight({ missingTenant: 1 });
   assert.throws(badData.run, /Data anomalies block index build/);
   assert.equal(badData.output[1].dataReadyForIndexBuild, false);
