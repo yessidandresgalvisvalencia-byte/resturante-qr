@@ -68,3 +68,32 @@ test('P0-04: matching order tenant and branch reaches scoped lookup without writ
     Venta.create = originalCreate;
   }
 });
+
+
+test('P0-04: missing or malformed order identity cannot reach product lookup or sale write', async () => {
+  const originalLookup = ProductoServicio.findOne;
+  const originalCreate = Venta.create;
+  let reads = 0;
+  let writes = 0;
+  ProductoServicio.findOne = () => { reads++; throw new Error('unexpected lookup'); };
+  Venta.create = async () => { writes++; throw new Error('unexpected write'); };
+  const empresaId = new mongoose.Types.ObjectId();
+  const productoServicioId = new mongoose.Types.ObjectId();
+  try {
+    for (const invalidId of [undefined, null, '', 'not-an-object-id']) {
+      await assert.rejects(
+        registrarVentaDesdePedido({
+          pedido: { _id: invalidId, productoServicioId },
+          empresaId,
+          emitirEvento: false
+        }),
+        /pedidoId invalido/
+      );
+    }
+    assert.equal(reads, 0);
+    assert.equal(writes, 0);
+  } finally {
+    ProductoServicio.findOne = originalLookup;
+    Venta.create = originalCreate;
+  }
+});
