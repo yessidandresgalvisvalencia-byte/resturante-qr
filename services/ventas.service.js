@@ -123,6 +123,15 @@ async function registrarVentaDesdePedido({
       }
     }
 
+    // Prevent tiny nonzero decimal strings from silently underflowing to zero.
+    // This is a fail-closed input guard, not a replacement for decimal arithmetic.
+    for (const valor of [pedido.precioUnitario, pedido.precio, productoServicio.costoUnitario]) {
+      if (typeof valor === "string" && Number(valor) === 0 &&
+          /[1-9]/.test(valor.replace(/^[+-]?0*\\.?0*/, ""))) {
+        throw new Error("GRUK Ventas: precision economica insuficiente");
+      }
+    }
+
     const cantidad = Number(pedido.cantidad);
     const precioUnitario = Number(
       pedido.precioUnitario
