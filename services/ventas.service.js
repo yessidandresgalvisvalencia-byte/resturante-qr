@@ -275,6 +275,9 @@ costoFuente:
       const sameSale = Number(ventaExistente.cantidad) === Number(pedido.cantidad) &&
         Number(ventaExistente.precioUnitario) === Number(pedido.precioUnitario) &&
         Number(ventaExistente.total) === Number(pedido.precio) &&
+        // A replay must preserve the frozen unit cost and resulting total.
+        Number(ventaExistente.costoUnitario) === costoUnitario &&
+        Number(ventaExistente.costoTotal) === costoTotal &&
         String(ventaExistente.productoServicioId) === String(pedido.productoServicioId) &&
         String(ventaExistente.metodoPago || "") === String(pedido.metodoPago || "") &&
         String(ventaExistente.clienteId || "") === String(pedido.clienteId || "");
