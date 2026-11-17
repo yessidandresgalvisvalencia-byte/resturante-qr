@@ -189,6 +189,9 @@ costoFuente:
       }
     }], { session });
 
+    // Only Venta.create duplicate-key errors may trigger idempotent recovery.
+    // A downstream event handler failure must propagate as-is after creation.
+    creandoVenta = false;
     if (emitirEvento) eventBus.emit("VENTA_COMPLETADA", {
       ventaId: venta._id,
       empresaId: venta.empresaId,
