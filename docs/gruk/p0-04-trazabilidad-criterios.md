@@ -25,3 +25,15 @@ Fuente normativa: `GRUK_Documentos_Unificados_Plan_Maestro.docx`, implementació
 5. Registrar SHA, comandos, resultados y evidencia de CI/E2E. Fusionar solo con criterios aprobados. Sin despliegue automático a Render.
 
 Rollback: revertir el merge identificado una vez integrado, tras verificar dependencias y efectos de datos; no modificar datos productivos sin plan aprobado.
+
+## Evidencia verificada — 2026-11-17 (HEAD bf57a174ea7700b1bd24b6825b24e125f0070d53)
+
+Consulta directa de GitHub Actions para el SHA exacto del PR #597:
+
+| Verificación | Ejecución | Resultado observado | Alcance |
+| --- | --- | --- | --- |
+| GRUK CI | [44061742688](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44061742688) | `completed / success` | Solo workflow configurado, no certifica MongoDB multiempresa ni E2E |
+| GRUK quality gate | [44061742682](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44061742682) | `completed / success` | No sustituye revisión independiente de seguridad |
+| GRUK Offline Browser Persistence | [44061742672](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44061742672) | `completed / success` | No prueba aislamiento de endpoints/sockets |
+
+**Bloqueo de integración:** este PR permanece sin certificación P0-04 hasta ejecutar la matriz persistida de 2 empresas × 2 sedes, pruebas de autorización por rol y objeto, concurrencia e idempotencia con índices MongoDB, E2E, revisión independiente y reconciliación del solapamiento con PR #596. Los resultados anteriores no autorizan merge ni despliegue. Los cálculos de `services/ventas.service.js` todavía usan `Number`; la exactitud financiera corresponde a P0-07 y no debe declararse cubierta por esta matriz.
