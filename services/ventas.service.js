@@ -62,6 +62,17 @@ async function registrarVentaDesdePedido({
       throw new Error("GRUK Ventas: clienteId invalido");
     }
 
+    // Reject malformed order economics before accessing tenant-scoped data.
+    // Product cost is validated separately after its authorized lookup.
+    for (const campo of ["cantidad", "precioUnitario", "precio"]) {
+      const valor = pedido[campo];
+      if (valor == null || (typeof valor === "string" && valor.trim() === "") ||
+          !Number.isFinite(Number(valor)) || Number(valor) < 0 ||
+          (campo === "cantidad" && Number(valor) <= 0)) {
+        throw new Error("GRUK Ventas: datos economicos invalidos");
+      }
+    }
+
     // Seguridad multi-tenant:
     // no basta conocer el _id del producto; también debe
     // pertenecer a la misma empresa de la venta.
