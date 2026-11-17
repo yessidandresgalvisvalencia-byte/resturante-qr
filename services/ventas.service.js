@@ -34,6 +34,9 @@ async function registrarVentaDesdePedido({
   }
 
   let creandoVenta = false;
+  // The duplicate-key recovery runs in catch and needs the frozen values.
+  let costoUnitario;
+  let costoTotal;
   try {
     // Reject a caller-supplied order whose tenant or branch conflicts with the
     // sale context before any database lookup or write. Legacy orders may omit
@@ -137,7 +140,7 @@ async function registrarVentaDesdePedido({
       pedido.precioUnitario
     );
     const total = Number(pedido.precio);
-    const costoUnitario = Number(
+    costoUnitario = Number(
       productoServicio.costoUnitario
     );
 
@@ -164,7 +167,7 @@ async function registrarVentaDesdePedido({
       throw new Error("GRUK Ventas: datos economicos fuera de rango seguro");
     }
 
-    const costoTotal =
+    costoTotal =
       costoUnitario * cantidad;
 
     const utilidadBruta =
