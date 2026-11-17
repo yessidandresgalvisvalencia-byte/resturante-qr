@@ -26,7 +26,7 @@ test('P0-04: successful idempotent replay does not emit VENTA_COMPLETADA twice',
     _id: new mongoose.Types.ObjectId(),
     empresaId, sedeId, origen: 'restaurante', origenId: pedidoId,
     productoServicioId: productoId, clienteId: null,
-    cantidad: 1, precioUnitario: 100, total: 100, metodoPago: '',
+    cantidad: 1, precioUnitario: 100, total: 100, costoUnitario: 10, costoTotal: 10, metodoPago: '',
     estado: 'pagada'
   };
   ProductoServicio.findOne = () => ({
