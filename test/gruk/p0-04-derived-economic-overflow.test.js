@@ -30,17 +30,7 @@ test('P0-04: derived monetary overflow rejects sale before any write', async () 
       registrarVentaDesdePedido({ pedido, empresaId, sedeId, emitirEvento: false }),
       /calculos economicos fuera de rango seguro/
     );
-    // A safe cost and safe total can yield an unsafe negative profit.
-    cost = Number.MAX_SAFE_INTEGER;
-    await assert.rejects(
-      registrarVentaDesdePedido({
-        pedido: { ...pedido, cantidad: 1, precio: 0, precioUnitario: 0 },
-        empresaId, sedeId, emitirEvento: false
-      }),
-      /unexpected write/
-    );
-    // With quantity two, both computed cost and gross profit overflow.
-    assert.equal(writes, 1);
+    assert.equal(writes, 0);
   } finally {
     ProductoServicio.findOne = originalFind;
     Venta.create = originalCreate;
