@@ -25,6 +25,14 @@ async function registrarVentaDesdePedido({
     );
   }
 
+  // Tenant context must be a valid persisted identity before any lookup.
+  if (!mongoose.Types.ObjectId.isValid(empresaId)) {
+    throw new Error("GRUK Ventas: empresaId invalido");
+  }
+  if (sedeId != null && !mongoose.Types.ObjectId.isValid(sedeId)) {
+    throw new Error("GRUK Ventas: sedeId invalido");
+  }
+
   let creandoVenta = false;
   try {
     // Reject a caller-supplied order whose tenant or branch conflicts with the
