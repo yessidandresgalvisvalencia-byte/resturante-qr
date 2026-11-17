@@ -147,6 +147,14 @@ async function registrarVentaDesdePedido({
       );
     }
 
+    // Reject integers that JavaScript cannot represent exactly. This is a
+    // fail-closed guard, NOT a substitute for the future decimal ledger.
+    if ([cantidad, precioUnitario, total, costoUnitario].some(
+      (valor) => Number.isInteger(valor) && !Number.isSafeInteger(valor)
+    )) {
+      throw new Error("GRUK Ventas: datos economicos fuera de rango seguro");
+    }
+
     const costoTotal =
       costoUnitario * cantidad;
 
