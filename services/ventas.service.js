@@ -49,6 +49,11 @@ async function registrarVentaDesdePedido({
       throw new Error("GRUK Ventas: productoServicioId invalido");
     }
 
+    // Reject malformed customer identity before querying any tenant data.
+    if (pedido.clienteId && !mongoose.Types.ObjectId.isValid(pedido.clienteId)) {
+      throw new Error("GRUK Ventas: clienteId invalido");
+    }
+
     // Seguridad multi-tenant:
     // no basta conocer el _id del producto; también debe
     // pertenecer a la misma empresa de la venta.
@@ -72,16 +77,6 @@ async function registrarVentaDesdePedido({
     let clienteId = null;
 
     if (pedido.clienteId) {
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          pedido.clienteId
-        )
-      ) {
-        throw new Error(
-          "GRUK Ventas: clienteId invalido"
-        );
-      }
-
       const filtroCliente = {
         _id: pedido.clienteId,
         empresaId,
