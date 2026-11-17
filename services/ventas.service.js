@@ -25,6 +25,7 @@ async function registrarVentaDesdePedido({
     );
   }
 
+  let creandoVenta = false;
   try {
     // Reject a caller-supplied order whose tenant or branch conflicts with the
     // sale context before any database lookup or write. Legacy orders may omit
@@ -141,6 +142,7 @@ async function registrarVentaDesdePedido({
         ? (utilidadBruta / total) * 100
         : 0;
 
+    creandoVenta = true;
     const [venta] = await Venta.create([{
       empresaId,
       sedeId,
@@ -222,7 +224,7 @@ costoFuente:
   } catch (error) {
     // Idempotencia:
     // el mismo pedido nunca debe generar dos ventas.
-    if (error && error.code === 11000) {
+    if (creandoVenta && error && error.code === 11000) {
       const filtroExistente = {
         origen: "restaurante",
         origenId: pedido._id,
