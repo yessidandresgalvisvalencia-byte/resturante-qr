@@ -118,7 +118,7 @@ async function registrarVentaDesdePedido({
       ["precio", pedido.precio],
       ["costoUnitario", productoServicio.costoUnitario]
     ]) {
-      if (valor == null || (typeof valor === "string" && valor.trim() === "")) {
+      if (valor == null || typeof valor === "boolean" || (typeof valor === "string" && valor.trim() === "")) {
         throw new Error("GRUK Ventas: datos economicos invalidos");
       }
     }
