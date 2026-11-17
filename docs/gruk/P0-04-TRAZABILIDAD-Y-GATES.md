@@ -21,3 +21,13 @@ Fuente: `GRUK_Documentos_Unificados_Plan_Maestro.docx`, implementación 04: «Mo
 5. Revisar seguridad, rollback y efectos sobre otras aplicaciones; mantener fuera del alcance GRUK Personal y Blushea.
 
 **No fusionar ni desplegar** basándose únicamente en las pruebas unitarias con mocks o en CI de un commit anterior. La aceptación final exige evidencia independiente y verificable.
+
+## Evidencia de CI del commit 775dee5 — 2026-11-17
+
+GitHub Actions devolvió tres ejecuciones con `status=completed` y `conclusion=success` asociadas exactamente al HEAD `775dee5bd5ecec6ff4f681fee706532170d5ad41`:
+
+- [GRUK CI #44071010178](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44071010178)
+- [GRUK quality gate #44071010265](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44071010265)
+- [GRUK Offline Browser Persistence #44071010312](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44071010312)
+
+Estos resultados **no** acreditan MongoDB real, pruebas HTTP multiempresa, E2E, revisión de seguridad ni revisión humana. Los PR #596 y #597 siguen abiertos y en borrador. La modificación de este documento crea un nuevo HEAD que necesita su propia verificación de CI. No fusionar ni desplegar.
