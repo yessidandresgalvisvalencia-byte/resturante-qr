@@ -166,6 +166,16 @@ async function registrarVentaDesdePedido({
         ? (utilidadBruta / total) * 100
         : 0;
 
+    // Guard derived monetary values as well as inputs. Safe integer inputs
+    // can overflow when multiplied or subtracted; never persist such totals.
+    if (!Number.isFinite(costoTotal) || !Number.isFinite(utilidadBruta) ||
+        !Number.isFinite(margenBruto) ||
+        [costoTotal, utilidadBruta].some(
+          (valor) => Number.isInteger(valor) && !Number.isSafeInteger(valor)
+        )) {
+      throw new Error("GRUK Ventas: calculos economicos fuera de rango seguro");
+    }
+
     creandoVenta = true;
     const [venta] = await Venta.create([{
       empresaId,
