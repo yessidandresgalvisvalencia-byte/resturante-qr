@@ -291,6 +291,9 @@ costoFuente:
         Number(ventaExistente.costoUnitario) === costoUnitario &&
         Number(ventaExistente.costoTotal) === costoTotal &&
         String(ventaExistente.productoServicioId) === String(pedido.productoServicioId) &&
+        // Reject a replay that changes the explicit product concept.
+        (pedido.producto == null || ventaExistente.concepto == null ||
+          String(ventaExistente.concepto) === String(pedido.producto)) &&
         String(ventaExistente.metodoPago || "") === String(pedido.metodoPago || "") &&
         String(ventaExistente.clienteId || "") === String(pedido.clienteId || "");
       // Cancelled or unpaid sales cannot satisfy a paid-order replay.
