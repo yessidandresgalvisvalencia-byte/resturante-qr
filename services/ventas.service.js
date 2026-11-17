@@ -110,6 +110,19 @@ async function registrarVentaDesdePedido({
       clienteId = cliente._id;
     }
 
+    // Number(null) and Number('') both yield zero. Missing monetary inputs
+    // must not silently become valid zero-value paid sales.
+    for (const [campo, valor] of [
+      ["cantidad", pedido.cantidad],
+      ["precioUnitario", pedido.precioUnitario],
+      ["precio", pedido.precio],
+      ["costoUnitario", productoServicio.costoUnitario]
+    ]) {
+      if (valor == null || (typeof valor === "string" && valor.trim() === "")) {
+        throw new Error("GRUK Ventas: datos economicos invalidos");
+      }
+    }
+
     const cantidad = Number(pedido.cantidad);
     const precioUnitario = Number(
       pedido.precioUnitario
