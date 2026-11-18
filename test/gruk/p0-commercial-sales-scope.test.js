@@ -127,3 +127,17 @@ test('accepts a same-company same-site product and creates exactly one sale', as
   assert.equal(harness.writes(), 1);
   assert.equal(harness.emittedEvents(), 1);
 });
+
+
+// Event suppression is a supported path for callers that publish only after
+// committing their transaction. It must not prevent the sale from being saved.
+test('persists an authorized sale without publishing when emitirEvento is false', async () => {
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
+  const result = await harness.service.registrarVentaDesdePedido({
+    pedido, empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: false
+  });
+  assert.equal(result.creada, true);
+  assert.equal(harness.queries.length, 1);
+  assert.equal(harness.writes(), 1);
+  assert.equal(harness.emittedEvents(), 0);
+});
