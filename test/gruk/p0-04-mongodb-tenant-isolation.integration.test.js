@@ -20,6 +20,24 @@ function isSafeDisposableMongoUri(value, enabled) {
   if (parsed.username || parsed.password || parsed.search || parsed.hash) return false;
   return true;
 }
+test('P0-04: destructive integration guard rejects unsafe MongoDB targets', () => {
+  const allowed = 'mongodb://127.0.0.1:27017/';
+  assert.equal(isSafeDisposableMongoUri(allowed, undefined), false);
+  assert.equal(isSafeDisposableMongoUri(allowed, '0'), false);
+  assert.equal(isSafeDisposableMongoUri(allowed, '1'), true);
+  for (const unsafe of [
+    'mongodb+srv://cluster.example.com/',
+    'mongodb://mongo.example.com:27017/',
+    'mongodb://127.0.0.1:27017/production',
+    'mongodb://127.0.0.1:27017/?authSource=admin',
+    'mongodb://user:pass@127.0.0.1:27017/',
+    'mongodb://127.0.0.1:27017/,mongo.example.com:27017/',
+    'not a mongo uri'
+  ]) {
+    assert.equal(isSafeDisposableMongoUri(unsafe, '1'), false, unsafe);
+  }
+});
+
 const permitted = isSafeDisposableMongoUri(uri, process.env.GRUK_TEST_MONGO_DISPOSABLE);
 
 test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
