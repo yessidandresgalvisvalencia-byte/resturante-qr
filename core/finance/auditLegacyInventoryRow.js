@@ -17,13 +17,13 @@ function auditLegacyInventoryRow(row) {
       continue;
     }
     const value = descriptor.value;
-    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || Object.is(value, -0)) {
       issues.push(field.toUpperCase() + "_INVALID");
       continue;
     }
     // Historical JS Numbers cannot prove their original decimal representation.
     // In particular unsafe integers and sub-cent prices cannot be migrated exactly.
-    if (!Number.isSafeInteger(value) && Math.abs(value) >= Number.MAX_SAFE_INTEGER) {
+    if (Math.abs(value) >= Number.MAX_SAFE_INTEGER && !Number.isSafeInteger(value)) {
       issues.push(field.toUpperCase() + "_UNSAFE_INTEGER");
     }
     if (field === "costo" && !Number.isSafeInteger(Math.round(value * 100))) {
