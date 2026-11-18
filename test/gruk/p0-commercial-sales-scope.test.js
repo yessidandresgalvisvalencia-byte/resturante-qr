@@ -70,3 +70,13 @@ test('rejects missing tenant context without querying products or writing sales'
   assert.equal(harness.writes(), 0);
 });
 
+
+test('rejects missing product identity before querying or creating a sale', async () => {
+  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-1', costoUnitario: 1 });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido: { ...pedido, productoServicioId: null },
+    empresaId: 'company-A', sedeId: 'site-1', emitirEvento: false
+  }), /pedido sin productoServicioId/);
+  assert.equal(harness.queries.length, 0);
+  assert.equal(harness.writes(), 0);
+});
