@@ -7,6 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const crypto = require('node:crypto');
+const ProductoServicio = require('../../models/ProductoServicio');
 
 const uri = process.env.GRUK_TEST_MONGO_URI;
 // A database-less URI is NOT evidence that the server is disposable. Restrict
@@ -47,21 +48,18 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
   const conn = mongoose.createConnection(uri, { dbName, serverSelectionTimeoutMS: 5000 });
   try {
     await conn.asPromise();
-    const schema = new mongoose.Schema({
-      empresaId: mongoose.Schema.Types.ObjectId,
-      sedeId: { type: mongoose.Schema.Types.ObjectId, default: null },
-      costoUnitario: Number
-    }, { strict: true });
-    const Products = conn.model('P004Product', schema);
+    // Exercise the production ProductoServicio schema, not a synthetic stand-in.
+    // Bind the schema to the disposable connection so production data is untouched.
+    const Products = conn.model('ProductoServicio', ProductoServicio.schema);
     const tenantA = new mongoose.Types.ObjectId();
     const tenantB = new mongoose.Types.ObjectId();
     const branchA = new mongoose.Types.ObjectId();
     const branchB = new mongoose.Types.ObjectId();
     const [own, sibling, foreign, global] = await Products.create([
-      { empresaId: tenantA, sedeId: branchA, costoUnitario: 10 },
-      { empresaId: tenantA, sedeId: branchB, costoUnitario: 20 },
-      { empresaId: tenantB, sedeId: branchA, costoUnitario: 30 },
-      { empresaId: tenantA, sedeId: null, costoUnitario: 40 }
+      { empresaId: tenantA, sedeId: branchA, tipo: 'producto', nombre: 'Own', precioVenta: 100, costoUnitario: 10 },
+      { empresaId: tenantA, sedeId: branchB, tipo: 'producto', nombre: 'Sibling', precioVenta: 100, costoUnitario: 20 },
+      { empresaId: tenantB, sedeId: branchA, tipo: 'producto', nombre: 'Foreign', precioVenta: 100, costoUnitario: 30 },
+      { empresaId: tenantA, sedeId: null, tipo: 'producto', nombre: 'Global', precioVenta: 100, costoUnitario: 40 }
     ]);
     const scoped = await Products.find({
       empresaId: tenantA, sedeId: { $in: [branchA, null] }
