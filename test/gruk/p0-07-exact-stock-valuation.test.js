@@ -35,3 +35,19 @@ test('P0-07: rejects sparse arrays and bounded batches', () => {
   assert.throws(() => valueStock([null]), TypeError);
   assert.throws(() => valueStock({}), TypeError);
 });
+
+
+test('P0-07: rejects inherited costs and quantities rather than silently valuing stock', () => {
+  const inheritedCost = Object.create({ unitCost: '100.00' });
+  inheritedCost.quantity = '2';
+  assert.throws(() => valueStock([inheritedCost]), TypeError);
+
+  const inheritedQuantity = Object.create({ quantity: '2' });
+  inheritedQuantity.unitCost = '100.00';
+  assert.throws(() => valueStock([inheritedQuantity]), TypeError);
+
+  const own = Object.create({ unitCost: '999.00', quantity: '999' });
+  own.unitCost = '1.25';
+  own.quantity = '2';
+  assert.deepEqual(valueStock([own]), { totalCost: '2.50', totalCents: '250' });
+});
