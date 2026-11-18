@@ -22,10 +22,13 @@ function valueStock(items) {
   if (items.length > MAX_ITEMS) throw new RangeError('Stock item count exceeds limit');
   let cents = 0n;
   for (let i = 0; i < items.length; i++) {
-    if (!Object.prototype.hasOwnProperty.call(items, i)) {
-      throw new TypeError('Sparse stock arrays are not allowed');
+    // An array index can be an accessor; do not execute untrusted getters.
+    const entry = Object.getOwnPropertyDescriptor(items, i);
+    if (!entry) throw new TypeError('Sparse stock arrays are not allowed');
+    if (!Object.prototype.hasOwnProperty.call(entry, 'value')) {
+      throw new TypeError('Stock array entries must be own data properties');
     }
-    const item = items[i];
+    const item = entry.value;
     if (!item || typeof item !== 'object' || Array.isArray(item)) {
       throw new TypeError('Invalid stock item');
     }
