@@ -20,7 +20,9 @@ function loadService(product) {
         async lean() {
           if (String(filter._id) !== String(product._id) ||
               String(filter.empresaId) !== String(product.empresaId) ||
-              (product.sedeId && String(filter.sedeId) !== String(product.sedeId))) return null;
+              (filter.sedeId === null ? product.sedeId != null :
+                !Array.isArray(filter.sedeId?.$in) ||
+                !filter.sedeId.$in.some(site => String(site) === String(product.sedeId)))) return null;
           return product;
         }
       };
@@ -41,33 +43,35 @@ function loadService(product) {
   return { service: module.exports, queries, writes: () => writes, emittedEvents: () => emittedEvents };
 }
 
-const pedido = { _id: 'order-1', productoServicioId: 'product-1', cantidad: 1,
+// Use syntactically valid ObjectIds: the production service validates identities
+// before reading MongoDB. This harness is a unit-level contract, not MongoDB E2E.
+const pedido = { _id: '444444444444444444444444', productoServicioId: '333333333333333333333333', cantidad: 1,
   precioUnitario: 100, precio: 100, producto: 'Prueba' };
 
 test('rejects a product owned by another company before creating a sale', async () => {
-  const harness = loadService({ _id: 'product-1', empresaId: 'company-B', sedeId: 'site-1', costoUnitario: 1 });
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'bbbbbbbbbbbbbbbbbbbbbbbb', sedeId: '111111111111111111111111', costoUnitario: 1 });
   await assert.rejects(harness.service.registrarVentaDesdePedido({
-    pedido, empresaId: 'company-A', sedeId: 'site-1', emitirEvento: true
+    pedido, empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
   }), /ProductoServicio no pertenece/);
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
-  assert.equal(harness.queries[0].empresaId, 'company-A');
+  assert.equal(harness.queries[0].empresaId, 'aaaaaaaaaaaaaaaaaaaaaaaa');
 });
 
 test('rejects a product owned by another site of the same company before creating a sale', async () => {
-  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-2', costoUnitario: 1 });
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '222222222222222222222222', costoUnitario: 1 });
   await assert.rejects(harness.service.registrarVentaDesdePedido({
-    pedido, empresaId: 'company-A', sedeId: 'site-1', emitirEvento: true
+    pedido, empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
   }), /ProductoServicio no pertenece/);
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
-  assert.equal(harness.queries[0].sedeId, 'site-1');
+  assert.equal(harness.queries[0].sedeId.$in[0], '111111111111111111111111');
 });
 
 test('rejects missing tenant context without querying products or writing sales', async () => {
-  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-1', costoUnitario: 1 });
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
   await assert.rejects(harness.service.registrarVentaDesdePedido({
-    pedido, empresaId: null, sedeId: 'site-1', emitirEvento: true
+    pedido, empresaId: null, sedeId: '111111111111111111111111', emitirEvento: true
   }), /empresaId requerido/);
   assert.equal(harness.queries.length, 0);
   assert.equal(harness.writes(), 0);
@@ -76,10 +80,10 @@ test('rejects missing tenant context without querying products or writing sales'
 
 
 test('rejects missing product identity before querying or creating a sale', async () => {
-  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-1', costoUnitario: 1 });
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
   await assert.rejects(harness.service.registrarVentaDesdePedido({
     pedido: { ...pedido, productoServicioId: null },
-    empresaId: 'company-A', sedeId: 'site-1', emitirEvento: true
+    empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
   }), /pedido sin productoServicioId/);
   assert.equal(harness.queries.length, 0);
   assert.equal(harness.writes(), 0);
@@ -87,9 +91,9 @@ test('rejects missing product identity before querying or creating a sale', asyn
 });
 
 test('rejects missing order before reading products, writing sales or emitting events', async () => {
-  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-1', costoUnitario: 1 });
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
   await assert.rejects(harness.service.registrarVentaDesdePedido({
-    pedido: null, empresaId: 'company-A', sedeId: 'site-1', emitirEvento: true
+    pedido: null, empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
   }), /pedido requerido/);
   assert.equal(harness.queries.length, 0);
   assert.equal(harness.writes(), 0);
@@ -98,27 +102,28 @@ test('rejects missing order before reading products, writing sales or emitting e
 
 
 test('rejects a site-scoped product when the sale omits site context', async () => {
-  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-2', costoUnitario: 1 });
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '222222222222222222222222', costoUnitario: 1 });
   await assert.rejects(harness.service.registrarVentaDesdePedido({
-    pedido, empresaId: 'company-A', sedeId: null, emitirEvento: true
+    pedido, empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: null, emitirEvento: true
   }), /ProductoServicio no pertenece|sedeId requerido/);
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
-  assert.equal(harness.queries[0]?.empresaId, 'company-A');
+  assert.equal(harness.queries[0]?.empresaId, 'aaaaaaaaaaaaaaaaaaaaaaaa');
+  assert.equal(harness.queries[0]?.sedeId, null);
 });
 
 // Positive control: prove the harness accepts a legitimate same-company, same-site sale.
 // Without this control, an implementation that rejects every request could pass all
 // negative tests while breaking the commercial checkout flow.
 test('accepts a same-company same-site product and creates exactly one sale', async () => {
-  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-1', costoUnitario: 1 });
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
   const result = await harness.service.registrarVentaDesdePedido({
-    pedido, empresaId: 'company-A', sedeId: 'site-1', emitirEvento: true
+    pedido, empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
   });
   assert.equal(result.creada, true);
   assert.equal(harness.queries.length, 1);
-  assert.equal(harness.queries[0].empresaId, 'company-A');
-  assert.equal(harness.queries[0].sedeId, 'site-1');
+  assert.equal(harness.queries[0].empresaId, 'aaaaaaaaaaaaaaaaaaaaaaaa');
+  assert.equal(harness.queries[0].sedeId.$in[0], '111111111111111111111111');
   assert.equal(harness.writes(), 1);
   assert.equal(harness.emittedEvents(), 1);
 });
