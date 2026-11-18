@@ -29,6 +29,10 @@ function valueStock(items) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) {
       throw new TypeError('Invalid stock item');
     }
+    if (!Object.prototype.hasOwnProperty.call(item, 'unitCost') ||
+        !Object.prototype.hasOwnProperty.call(item, 'quantity')) {
+      throw new TypeError('Stock item requires explicit own unitCost and quantity');
+    }
     const cost = parseMoneyToCents(item.unitCost);
     const quantity = canonicalStockQuantity(item.quantity);
     cents += cost * quantity;
