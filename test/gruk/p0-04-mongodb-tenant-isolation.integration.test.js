@@ -72,6 +72,23 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
     assert.equal(await Products.findOne({
       _id: foreign._id, empresaId: tenantA, sedeId: { $in: [branchA, null] }
     }).lean(), null);
+    // Reverse the tenant/branch perspective: a matching branch ID must never
+    // override tenant ownership, and the global catalog is tenant-local.
+    const tenantBRead = await Products.find({
+      empresaId: tenantB, sedeId: { $in: [branchA, null] }
+    }).lean();
+    assert.deepEqual(tenantBRead.map(x => String(x._id)), [String(foreign._id)]);
+    const branchBRead = await Products.find({
+      empresaId: tenantA, sedeId: { $in: [branchB, null] }
+    }).lean();
+    assert.deepEqual(branchBRead.map(x => String(x._id)).sort(),
+      [sibling, global].map(x => String(x._id)).sort());
+    assert.equal(await Products.findOne({
+      _id: global._id, empresaId: tenantB, sedeId: { $in: [branchA, null] }
+    }).lean(), null);
+    assert.equal(await Products.findOne({
+      _id: own._id, empresaId: tenantA, sedeId: branchB
+    }).lean(), null);
     assert.equal(await Products.countDocuments({ empresaId: tenantA, sedeId: null }), 1);
   } finally {
     if (conn.readyState === 1) await conn.dropDatabase();
