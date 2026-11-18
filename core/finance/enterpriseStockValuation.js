@@ -33,8 +33,16 @@ function valueStock(items) {
         !Object.prototype.hasOwnProperty.call(item, 'quantity')) {
       throw new TypeError('Stock item requires explicit own unitCost and quantity');
     }
-    const cost = parseMoneyToCents(item.unitCost);
-    const quantity = canonicalStockQuantity(item.quantity);
+    // Read descriptors rather than values: own accessors can run code or vary per read.
+    const costField = Object.getOwnPropertyDescriptor(item, 'unitCost');
+    const quantityField = Object.getOwnPropertyDescriptor(item, 'quantity');
+    if (!costField || !quantityField ||
+        !Object.prototype.hasOwnProperty.call(costField, 'value') ||
+        !Object.prototype.hasOwnProperty.call(quantityField, 'value')) {
+      throw new TypeError('Stock item fields must be own data properties');
+    }
+    const cost = parseMoneyToCents(costField.value);
+    const quantity = canonicalStockQuantity(quantityField.value);
     cents += cost * quantity;
     if (cents > MAX_CENTS) throw new RangeError('Stock value exceeds safe integer cents');
   }
