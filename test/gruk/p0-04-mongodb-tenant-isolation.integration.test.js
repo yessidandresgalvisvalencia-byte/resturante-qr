@@ -8,6 +8,8 @@ const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const crypto = require('node:crypto');
 const ProductoServicio = require('../../models/ProductoServicio');
+const Venta = require('../../models/Venta');
+const { registrarVentaDesdePedido } = require('../../services/ventas.service');
 
 const uri = process.env.GRUK_TEST_MONGO_URI;
 // A database-less URI is NOT evidence that the server is disposable. Restrict
@@ -90,6 +92,44 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
       _id: own._id, empresaId: tenantA, sedeId: branchB
     }).lean(), null);
     assert.equal(await Products.countDocuments({ empresaId: tenantA, sedeId: null }), 1);
+    // Exercise the actual sale-registration service with the production product
+    // model bound to this disposable database. Rejected cross-scope products
+    // must never reach Venta.create (even if their ObjectIds are known).
+    const originalFindOne = ProductoServicio.findOne;
+    const originalCreate = Venta.create;
+    let attemptedWrites = 0;
+    ProductoServicio.findOne = (...args) => Products.findOne(...args);
+    Venta.create = async () => {
+      attemptedWrites += 1;
+      throw new Error('UNEXPECTED_SALE_WRITE');
+    };
+    try {
+      for (const [product, company, branch] of [
+        [foreign, tenantA, branchA],
+        [sibling, tenantA, branchA],
+        [global, tenantB, branchA],
+        [own, tenantA, branchB]
+      ]) {
+        const order = {
+          _id: new mongoose.Types.ObjectId(),
+          productoServicioId: product._id,
+          cantidad: 1,
+          precioUnitario: 100,
+          precio: 100,
+          producto: 'Scope regression'
+        };
+        await assert.rejects(
+          registrarVentaDesdePedido({
+            pedido: order, empresaId: company, sedeId: branch, emitirEvento: false
+          }),
+          /ProductoServicio no pertenece a la empresa/
+        );
+      }
+      assert.equal(attemptedWrites, 0, 'cross-scope orders must not write sales');
+    } finally {
+      ProductoServicio.findOne = originalFindOne;
+      Venta.create = originalCreate;
+    }
   } finally {
     if (conn.readyState === 1) await conn.dropDatabase();
     await conn.close();
