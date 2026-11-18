@@ -176,3 +176,26 @@ test('rejects an order explicitly owned by another site before product lookup or
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
 });
+
+
+test('rejects malformed customer identity before product lookup, sale write or event', async () => {
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido: { ...pedido, clienteId: 'invalid-customer-id' },
+    empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
+  }), /clienteId invalido/);
+  assert.equal(harness.queries.length, 0);
+  assert.equal(harness.writes(), 0);
+  assert.equal(harness.emittedEvents(), 0);
+});
+
+test('rejects malformed order identity before product lookup, sale write or event', async () => {
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido: { ...pedido, _id: 'invalid-order-id' },
+    empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
+  }), /pedidoId invalido/);
+  assert.equal(harness.queries.length, 0);
+  assert.equal(harness.writes(), 0);
+  assert.equal(harness.emittedEvents(), 0);
+});
