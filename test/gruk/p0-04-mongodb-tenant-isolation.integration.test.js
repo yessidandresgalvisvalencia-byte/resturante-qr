@@ -126,6 +126,41 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
         );
       }
       assert.equal(attemptedWrites, 0, 'cross-scope orders must not write sales');
+      // Positive path: use the actual Venta schema on the disposable connection.
+      // Confirm a legitimate order persists once, then a replay returns the
+      // same sale without creating a duplicate or leaking across tenants.
+      const Sales = conn.model('Venta', Venta.schema);
+      await Sales.init(); // Ensure the unique origin/originId index exists.
+      Venta.create = (...args) => Sales.create(...args);
+      const originalFindSale = Venta.findOne;
+      Venta.findOne = (...args) => Sales.findOne(...args);
+      try {
+        const validOrder = {
+          _id: new mongoose.Types.ObjectId(),
+          productoServicioId: own._id,
+          cantidad: 2,
+          precioUnitario: 100,
+          precio: 200,
+          producto: 'Own'
+        };
+        const first = await registrarVentaDesdePedido({
+          pedido: validOrder, empresaId: tenantA, sedeId: branchA, emitirEvento: false
+        });
+        assert.equal(first.creada, true);
+        assert.equal(String(first.venta.empresaId), String(tenantA));
+        assert.equal(String(first.venta.sedeId), String(branchA));
+        assert.equal(first.venta.costoTotal, 20);
+        const replay = await registrarVentaDesdePedido({
+          pedido: validOrder, empresaId: tenantA, sedeId: branchA, emitirEvento: false
+        });
+        assert.equal(replay.creada, false);
+        assert.equal(String(replay.venta._id), String(first.venta._id));
+        assert.equal(await Sales.countDocuments({ origenId: validOrder._id }), 1);
+        assert.equal(await Sales.countDocuments({ empresaId: tenantB }), 0);
+        assert.equal(await Sales.countDocuments({ empresaId: tenantA, sedeId: branchB }), 0);
+      } finally {
+        Venta.findOne = originalFindSale;
+      }
     } finally {
       ProductoServicio.findOne = originalFindOne;
       Venta.create = originalCreate;
