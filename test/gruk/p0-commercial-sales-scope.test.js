@@ -199,3 +199,26 @@ test('rejects malformed order identity before product lookup, sale write or even
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
 });
+
+
+test('accepts a global product in the authorized company and site', async () => {
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: null, costoUnitario: 1 });
+  const result = await harness.service.registrarVentaDesdePedido({
+    pedido, empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
+  });
+  assert.equal(result.creada, true);
+  assert.equal(harness.queries.length, 1);
+  assert.equal(harness.queries[0].sedeId.$in[1], null);
+  assert.equal(harness.writes(), 1);
+  assert.equal(harness.emittedEvents(), 1);
+});
+
+test('rejects malformed company identity before product lookup and side effects', async () => {
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: null, costoUnitario: 1 });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido, empresaId: 'invalid-company-id', sedeId: '111111111111111111111111', emitirEvento: true
+  }), /empresaId invalido/);
+  assert.equal(harness.queries.length, 0);
+  assert.equal(harness.writes(), 0);
+  assert.equal(harness.emittedEvents(), 0);
+});
