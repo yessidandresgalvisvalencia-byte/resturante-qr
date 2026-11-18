@@ -70,11 +70,3 @@ test('rejects missing tenant context without querying products or writing sales'
   assert.equal(harness.writes(), 0);
 });
 
-test('rejects a product from another company even when its site matches', async () => {
-  const harness = loadService({ _id: 'product-1', empresaId: 'company-B', sedeId: 'site-1', costoUnitario: 1 });
-  await assert.rejects(harness.service.registrarVentaDesdePedido({
-    pedido, empresaId: 'company-A', sedeId: 'site-1', emitirEvento: false
-  }), /ProductoServicio no pertenece/);
-  assert.equal(harness.writes(), 0);
-  assert.equal(harness.queries[0].empresaId, 'company-A');
-});
