@@ -180,6 +180,16 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
           );
         }
         assert.equal(await Sales.countDocuments({ origenId: validOrder._id }), 1);
+        // Conflict rejection must also leave the original economic snapshot
+        // unchanged in durable storage, not merely preserve the row count.
+        const persistedAfterConflicts = await Sales.findById(first.venta._id).lean();
+        assert.ok(persistedAfterConflicts, 'original sale remains persisted');
+        assert.equal(String(persistedAfterConflicts.empresaId), String(tenantA));
+        assert.equal(String(persistedAfterConflicts.sedeId), String(branchA));
+        assert.equal(String(persistedAfterConflicts.productoServicioId), String(own._id));
+        assert.equal(persistedAfterConflicts.cantidad, 2);
+        assert.equal(persistedAfterConflicts.total, first.venta.total);
+        assert.equal(persistedAfterConflicts.costoTotal, first.venta.costoTotal);
 
         // Race eight first-write attempts for a distinct order through the
         // actual service and MongoDB unique index. Exactly one must create;
