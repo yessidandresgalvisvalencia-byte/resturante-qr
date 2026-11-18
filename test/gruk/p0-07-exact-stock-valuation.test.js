@@ -80,3 +80,15 @@ test('P0-07: rejects own getters and setters without invoking them', () => {
   Object.defineProperty(ownData, 'quantity', { value: '2' });
   assert.deepEqual(valueStock([ownData]), { totalCost: '2.50', totalCents: '250' });
 });
+
+
+test('P0-07: rejects cumulative overflow even when individual stock lines are safe', () => {
+  const nearLimit = { unitCost: '90071992547409.90', quantity: '1' };
+  assert.deepEqual(valueStock([nearLimit]), {
+    totalCost: '90071992547409.90', totalCents: '9007199254740990'
+  });
+  assert.throws(() => valueStock([nearLimit, { unitCost: '0.02', quantity: '1' }]), RangeError);
+  assert.deepEqual(valueStock([nearLimit, { unitCost: '0.01', quantity: '1' }]), {
+    totalCost: '90071992547409.91', totalCents: '9007199254740991'
+  });
+});
