@@ -11,6 +11,9 @@ test("accepts ordinary legacy inventory without modifying it", () => {
 test("rejects unsafe monetary values and sub-cent prices", () => {
   assert.ok(auditLegacyInventoryRow({ cantidad: 1, costo: Number.MAX_SAFE_INTEGER }).issues.length);
   assert.ok(auditLegacyInventoryRow({ cantidad: 1, costo: 1.234 }).issues.includes("COSTO_SUBCENT"));
+  assert.ok(auditLegacyInventoryRow({ cantidad: 1, costo: 0.00000000001 }).issues.includes("COSTO_SUBCENT"));
+  assert.ok(auditLegacyInventoryRow({ cantidad: 1, costo: 1.00000000001 }).issues.includes("COSTO_SUBCENT"));
+  assert.equal(auditLegacyInventoryRow({ cantidad: 1, costo: 1.11 }).safe, true);
 });
 test("does not execute hostile accessors", () => {
   const row = { cantidad: 1 };
