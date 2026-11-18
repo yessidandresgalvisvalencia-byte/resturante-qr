@@ -164,6 +164,20 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
           }),
           (error) => error && error.code === 'GRUK_VENTA_REPLAY_CONFLICT'
         );
+        // A replay cannot rewrite payment provenance or swap the product while
+        // reusing the same order ID. Both must fail closed and preserve the sale.
+        for (const changed of [
+          { ...validOrder, metodoPago: 'efectivo' },
+          { ...validOrder, productoServicioId: global._id }
+        ]) {
+          await assert.rejects(
+            registrarVentaDesdePedido({
+              pedido: changed, empresaId: tenantA, sedeId: branchA,
+              emitirEvento: false
+            }),
+            (error) => error && error.code === 'GRUK_VENTA_REPLAY_CONFLICT'
+          );
+        }
         assert.equal(await Sales.countDocuments({ origenId: validOrder._id }), 1);
 
         // Race eight first-write attempts for a distinct order through the
