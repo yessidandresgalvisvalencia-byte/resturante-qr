@@ -20,3 +20,11 @@ test('P0-07: dense zero-valued and empty invoices preserve exact totals', () => 
   assert.equal(invoiceTotal([]), '0.00');
   assert.equal(invoiceTotal([{ unitPrice: '0.01', quantity: '0' }, { unitPrice: '0.02', quantity: '2' }]), '0.04');
 });
+
+test('P0-07: inherited array slots cannot masquerade as explicitly supplied invoice lines', () => {
+  const inherited = new Array(1);
+  const prototype = Object.create(Array.prototype);
+  prototype[0] = { unitPrice: '99.99', quantity: '1' };
+  Object.setPrototypeOf(inherited, prototype);
+  assert.throws(() => invoiceTotal(inherited), { name: 'TypeError', message: 'Sparse invoice line' });
+});
