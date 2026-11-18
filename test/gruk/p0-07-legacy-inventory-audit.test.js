@@ -24,3 +24,13 @@ test("rejects invalid rows and nonfinite quantity", () => {
   assert.equal(auditLegacyInventoryRow(null).safe, false);
   assert.equal(auditLegacyInventoryRow({ cantidad: Infinity, costo: 1 }).safe, false);
 });
+
+test("rejects negative zero without normalizing historical data", () => {
+  const quantity = Object.freeze({ cantidad: -0, costo: 1 });
+  const cost = Object.freeze({ cantidad: 1, costo: -0 });
+  assert.ok(auditLegacyInventoryRow(quantity).issues.includes("CANTIDAD_INVALID"));
+  assert.ok(auditLegacyInventoryRow(cost).issues.includes("COSTO_INVALID"));
+  assert.ok(Object.is(quantity.cantidad, -0));
+  assert.ok(Object.is(cost.costo, -0));
+  assert.equal(auditLegacyInventoryRow({ cantidad: 0, costo: 0 }).safe, true);
+});
