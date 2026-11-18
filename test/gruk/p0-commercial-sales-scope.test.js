@@ -222,3 +222,25 @@ test('rejects malformed company identity before product lookup and side effects'
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
 });
+
+// Invalid economics must not reach persistence or publish a business event.
+// This is independent of the branch-scope correction in PR #597.
+test('rejects non-finite and negative sale economics without side effects', async () => {
+  for (const invalid of [
+    { cantidad: 0 },
+    { cantidad: -1 },
+    { cantidad: Number.POSITIVE_INFINITY },
+    { precioUnitario: -1 },
+    { precioUnitario: Number.NaN },
+    { precio: -1 },
+    { precio: Number.POSITIVE_INFINITY }
+  ]) {
+    const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
+    await assert.rejects(harness.service.registrarVentaDesdePedido({
+      pedido: { ...pedido, ...invalid }, empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+      sedeId: '111111111111111111111111', emitirEvento: true
+    }), /datos economicos invalidos/);
+    assert.equal(harness.writes(), 0);
+    assert.equal(harness.emittedEvents(), 0);
+  }
+});
