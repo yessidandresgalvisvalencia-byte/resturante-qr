@@ -106,3 +106,19 @@ test('rejects a site-scoped product when the sale omits site context', async () 
   assert.equal(harness.emittedEvents(), 0);
   assert.equal(harness.queries[0]?.empresaId, 'company-A');
 });
+
+// Positive control: prove the harness accepts a legitimate same-company, same-site sale.
+// Without this control, an implementation that rejects every request could pass all
+// negative tests while breaking the commercial checkout flow.
+test('accepts a same-company same-site product and creates exactly one sale', async () => {
+  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-1', costoUnitario: 1 });
+  const result = await harness.service.registrarVentaDesdePedido({
+    pedido, empresaId: 'company-A', sedeId: 'site-1', emitirEvento: true
+  });
+  assert.equal(result.creada, true);
+  assert.equal(harness.queries.length, 1);
+  assert.equal(harness.queries[0].empresaId, 'company-A');
+  assert.equal(harness.queries[0].sedeId, 'site-1');
+  assert.equal(harness.writes(), 1);
+  assert.equal(harness.emittedEvents(), 1);
+});
