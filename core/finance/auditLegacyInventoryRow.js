@@ -29,7 +29,7 @@ function auditLegacyInventoryRow(row) {
     if (field === "costo" && !Number.isSafeInteger(Math.round(value * 100))) {
       issues.push("COSTO_CENTS_UNSAFE");
     }
-    if (field === "costo" && Math.abs(value * 100 - Math.round(value * 100)) > 1e-8) {
+    if (field === "costo" && Math.round(value * 100) / 100 !== value) {
       issues.push("COSTO_SUBCENT");
     }
   }
