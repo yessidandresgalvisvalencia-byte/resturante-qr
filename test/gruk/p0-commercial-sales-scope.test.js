@@ -85,3 +85,13 @@ test('rejects missing product identity before querying or creating a sale', asyn
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
 });
+
+test('rejects missing order before reading products, writing sales or emitting events', async () => {
+  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-1', costoUnitario: 1 });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido: null, empresaId: 'company-A', sedeId: 'site-1', emitirEvento: true
+  }), /pedido requerido/);
+  assert.equal(harness.queries.length, 0);
+  assert.equal(harness.writes(), 0);
+  assert.equal(harness.emittedEvents(), 0);
+});
