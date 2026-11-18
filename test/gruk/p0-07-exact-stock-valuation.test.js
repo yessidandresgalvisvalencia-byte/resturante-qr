@@ -51,3 +51,32 @@ test('P0-07: rejects inherited costs and quantities rather than silently valuing
   own.quantity = '2';
   assert.deepEqual(valueStock([own]), { totalCost: '2.50', totalCents: '250' });
 });
+
+test('P0-07: rejects own getters and setters without invoking them', () => {
+  let calls = 0;
+  const accessorCost = { quantity: '2' };
+  Object.defineProperty(accessorCost, 'unitCost', {
+    enumerable: true,
+    get() { calls++; return '1.00'; }
+  });
+  assert.throws(() => valueStock([accessorCost]), TypeError);
+  assert.equal(calls, 0);
+
+  const accessorQuantity = { unitCost: '1.00' };
+  Object.defineProperty(accessorQuantity, 'quantity', {
+    enumerable: true,
+    get() { calls++; return '2'; }
+  });
+  assert.throws(() => valueStock([accessorQuantity]), TypeError);
+  assert.equal(calls, 0);
+
+  const setterOnly = { quantity: '2' };
+  Object.defineProperty(setterOnly, 'unitCost', { set(value) { calls++; } });
+  assert.throws(() => valueStock([setterOnly]), TypeError);
+  assert.equal(calls, 0);
+
+  const ownData = Object.create(null);
+  Object.defineProperty(ownData, 'unitCost', { value: '1.25' });
+  Object.defineProperty(ownData, 'quantity', { value: '2' });
+  assert.deepEqual(valueStock([ownData]), { totalCost: '2.50', totalCents: '250' });
+});
