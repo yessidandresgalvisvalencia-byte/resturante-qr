@@ -155,7 +155,17 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
         });
         assert.equal(replay.creada, false);
         assert.equal(String(replay.venta._id), String(first.venta._id));
+        // Same source ID with changed economic data must be a conflict, not
+        // an idempotent replay of the original paid sale.
+        await assert.rejects(
+          registrarVentaDesdePedido({
+            pedido: { ...validOrder, precio: 300 },
+            empresaId: tenantA, sedeId: branchA, emitirEvento: false
+          }),
+          (error) => error && error.code === 'GRUK_VENTA_REPLAY_CONFLICT'
+        );
         assert.equal(await Sales.countDocuments({ origenId: validOrder._id }), 1);
+
         assert.equal(await Sales.countDocuments({ empresaId: tenantB }), 0);
         assert.equal(await Sales.countDocuments({ empresaId: tenantA, sedeId: branchB }), 0);
       } finally {
