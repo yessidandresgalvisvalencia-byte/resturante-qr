@@ -29,7 +29,7 @@ function loadService(product) {
     }
   };
   const stubs = {
-    mongoose: { Types: { ObjectId: { isValid: () => true } } },
+    mongoose: { Types: { ObjectId: { isValid: value => /^[a-f\d]{24}$/i.test(String(value)) } } },
     '../models/Venta': { async create() { writes++; return [{ _id: 'sale-1' }]; } },
     '../models/ProductoServicio': productModel,
     '../models/Cliente': {},
@@ -139,5 +139,17 @@ test('persists an authorized sale without publishing when emitirEvento is false'
   assert.equal(result.creada, true);
   assert.equal(harness.queries.length, 1);
   assert.equal(harness.writes(), 1);
+  assert.equal(harness.emittedEvents(), 0);
+});
+
+// A malformed branch identity must fail closed before any product lookup,
+// sale write or event publication, even when the product otherwise matches.
+test('rejects malformed site identity before reading products or writing sales', async () => {
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido, empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: 'not-an-object-id', emitirEvento: true
+  }), /sedeId invalido/);
+  assert.equal(harness.queries.length, 0);
+  assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
 });
