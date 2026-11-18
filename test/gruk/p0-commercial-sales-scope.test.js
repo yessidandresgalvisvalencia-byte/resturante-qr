@@ -95,3 +95,14 @@ test('rejects missing order before reading products, writing sales or emitting e
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
 });
+
+
+test('rejects a site-scoped product when the sale omits site context', async () => {
+  const harness = loadService({ _id: 'product-1', empresaId: 'company-A', sedeId: 'site-2', costoUnitario: 1 });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido, empresaId: 'company-A', sedeId: null, emitirEvento: true
+  }), /ProductoServicio no pertenece|sedeId requerido/);
+  assert.equal(harness.writes(), 0);
+  assert.equal(harness.emittedEvents(), 0);
+  assert.equal(harness.queries[0]?.empresaId, 'company-A');
+});
