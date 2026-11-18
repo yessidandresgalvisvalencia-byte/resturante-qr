@@ -166,6 +166,26 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
         );
         assert.equal(await Sales.countDocuments({ origenId: validOrder._id }), 1);
 
+        // Race eight first-write attempts for a distinct order through the
+        // actual service and MongoDB unique index. Exactly one must create;
+        // the others must recover the same persisted sale idempotently.
+        const concurrentOrder = {
+          ...validOrder,
+          _id: new mongoose.Types.ObjectId()
+        };
+        const concurrentResults = await Promise.all(
+          Array.from({ length: 8 }, () => registrarVentaDesdePedido({
+            pedido: concurrentOrder, empresaId: tenantA, sedeId: branchA,
+            emitirEvento: false
+          }))
+        );
+        assert.equal(concurrentResults.filter(result => result.creada).length, 1);
+        assert.equal(concurrentResults.filter(result => !result.creada).length, 7);
+        assert.equal(new Set(concurrentResults.map(result =>
+          String(result.venta._id))).size, 1);
+        assert.equal(await Sales.countDocuments({
+          origen: 'restaurante', origenId: concurrentOrder._id
+        }), 1);
         assert.equal(await Sales.countDocuments({ empresaId: tenantB }), 0);
         assert.equal(await Sales.countDocuments({ empresaId: tenantA, sedeId: branchB }), 0);
       } finally {
