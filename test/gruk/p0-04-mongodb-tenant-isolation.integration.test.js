@@ -168,7 +168,8 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
         // reusing the same order ID. Both must fail closed and preserve the sale.
         for (const changed of [
           { ...validOrder, metodoPago: 'efectivo' },
-          { ...validOrder, productoServicioId: global._id }
+          { ...validOrder, productoServicioId: global._id },
+          { ...validOrder, cantidad: 3 }
         ]) {
           await assert.rejects(
             registrarVentaDesdePedido({
