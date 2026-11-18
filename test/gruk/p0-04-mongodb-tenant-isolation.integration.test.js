@@ -1,7 +1,7 @@
 'use strict';
 
 // Run only against a dedicated disposable MongoDB instance:
-// GRUK_TEST_MONGO_URI=mongodb://127.0.0.1:27017 node --test test/gruk/p0-04-mongodb-tenant-isolation.integration.test.js
+// GRUK_TEST_MONGO_DISPOSABLE=1 GRUK_TEST_MONGO_URI=mongodb://127.0.0.1:27017/ node --test test/gruk/p0-04-mongodb-tenant-isolation.integration.test.js
 // Never point this test at production. It creates and drops an isolated database.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -9,11 +9,21 @@ const mongoose = require('mongoose');
 const crypto = require('node:crypto');
 
 const uri = process.env.GRUK_TEST_MONGO_URI;
-const permitted = uri && /^mongodb(?:\+srv)?:\/\//.test(uri) &&
-  !/mongodb(?:\+srv)?:\/\/[^/]+\/[^?]+/.test(uri); // URI must not name an existing database
+// A database-less URI is NOT evidence that the server is disposable. Restrict
+// destructive dropDatabase() tests to loopback, with explicit opt-in.
+function isSafeDisposableMongoUri(value, enabled) {
+  if (enabled !== '1' || typeof value !== 'string') return false;
+  let parsed;
+  try { parsed = new URL(value); } catch { return false; }
+  if (parsed.protocol !== 'mongodb:' || !['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)) return false;
+  if (parsed.pathname !== '/' && parsed.pathname !== '') return false;
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) return false;
+  return true;
+}
+const permitted = isSafeDisposableMongoUri(uri, process.env.GRUK_TEST_MONGO_DISPOSABLE);
 
 test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
-  skip: !permitted && 'Requires GRUK_TEST_MONGO_URI pointing to a disposable server with no database in URI'
+  skip: !permitted && 'Requires GRUK_TEST_MONGO_DISPOSABLE=1 and a loopback-only database-less GRUK_TEST_MONGO_URI'
 }, async () => {
   const dbName = 'gruk_p004_isolation_' + crypto.randomBytes(10).toString('hex');
   const conn = mongoose.createConnection(uri, { dbName, serverSelectionTimeoutMS: 5000 });
