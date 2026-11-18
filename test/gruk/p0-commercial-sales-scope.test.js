@@ -153,3 +153,26 @@ test('rejects malformed site identity before reading products or writing sales',
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
 });
+
+
+test('rejects an order explicitly owned by another company before product lookup or side effects', async () => {
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido: { ...pedido, empresaId: 'bbbbbbbbbbbbbbbbbbbbbbbb' },
+    empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
+  }), /pedido de otra empresa/);
+  assert.equal(harness.queries.length, 0);
+  assert.equal(harness.writes(), 0);
+  assert.equal(harness.emittedEvents(), 0);
+});
+
+test('rejects an order explicitly owned by another site before product lookup or side effects', async () => {
+  const harness = loadService({ _id: '333333333333333333333333', empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', costoUnitario: 1 });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido: { ...pedido, sedeId: '222222222222222222222222' },
+    empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa', sedeId: '111111111111111111111111', emitirEvento: true
+  }), /pedido de otra sede/);
+  assert.equal(harness.queries.length, 0);
+  assert.equal(harness.writes(), 0);
+  assert.equal(harness.emittedEvents(), 0);
+});
