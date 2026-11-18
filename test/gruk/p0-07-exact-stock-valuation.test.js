@@ -92,3 +92,22 @@ test('P0-07: rejects cumulative overflow even when individual stock lines are sa
     totalCost: '90071992547409.91', totalCents: '9007199254740991'
   });
 });
+
+
+test('P0-07: rejects accessor array indices without executing getters', () => {
+  let calls = 0;
+  const entries = [{ unitCost: '1.00', quantity: '1' }];
+  Object.defineProperty(entries, '0', {
+    configurable: true,
+    get() { calls++; throw new Error('getter must never execute'); }
+  });
+  assert.throws(() => valueStock(entries), TypeError);
+  assert.equal(calls, 0);
+
+  const inheritedIndex = Array(1);
+  Object.setPrototypeOf(inheritedIndex, { 0: { unitCost: '1.00', quantity: '1' } });
+  assert.throws(() => valueStock(inheritedIndex), TypeError);
+  assert.deepEqual(valueStock([{ unitCost: '1.00', quantity: '1' }]), {
+    totalCost: '1.00', totalCents: '100'
+  });
+});
