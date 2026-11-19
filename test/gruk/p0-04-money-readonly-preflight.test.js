@@ -29,6 +29,7 @@ function audit({ env = {}, collectionNames = ["ventas"], counts = {} } = {}) {
           operations.push({ command: "aggregate", name, pipeline, opts });
           assert.equal(pipeline.length, 3);
           assert.equal(opts.allowDiskUse, false);
+          assert.equal(opts.maxTimeMS, 15000);
           const nameField = pipeline[0].$project.valueType.$type.slice(1);
           return { toArray() {
             return [{ total: 2, missingOrNull: 0, invalidType: 0,
