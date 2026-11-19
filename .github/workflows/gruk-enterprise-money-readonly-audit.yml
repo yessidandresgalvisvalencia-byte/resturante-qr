@@ -1,0 +1,79 @@
+name: GRUK Empresarial Money DB - Read Only Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      database_name:
+        description: "Nombre de la base empresarial verificado por DBA"
+        required: true
+        type: string
+      database_confirm:
+        description: "Repita exactamente el nombre de la base"
+        required: true
+        type: string
+      approval:
+        description: "Escriba CONFIRMO_SOLO_LECTURA para autorizar auditoria (sin migracion)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-enterprise-money-readonly
+  cancel-in-progress: false
+
+jobs:
+  read-only:
+    name: Preflight monetario - no escribe en produccion
+    runs-on: ubuntu-latest
+    environment: gruk-enterprise-db-readonly
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm audited database and credential presence
+        env:
+          DB_NAME: ${{ inputs.database_name }}
+          DB_CONFIRM: ${{ inputs.database_confirm }}
+          APPROVAL: ${{ inputs.approval }}
+          GRUK_ENTERPRISE_MONGO_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$GRUK_ENTERPRISE_MONGO_URI" ]]; then
+            echo "::error::Required secret GRUK_ENTERPRISE_READONLY_MONGO_URI is not configured"
+            exit 1
+          fi
+          if [[ "$DB_NAME" != "$DB_CONFIRM" || "$APPROVAL" != "CONFIRMO_SOLO_LECTURA" ]]; then
+            echo "::error::Explicit enterprise database confirmation is required"
+            exit 1
+          fi
+          if [[ ! "$DB_NAME" =~ ^[A-Za-z][A-Za-z0-9_-]{1,62}$ ]] || [[ "$DB_NAME" =~ (personal|finanzas|blushea|admin|local|config|test) ]]; then
+            echo "::error::Invalid enterprise database name"
+            exit 1
+          fi
+          echo "Validation passed; no migration or DB writes are permitted"
+      - name: Install MongoDB shell (mongosh)
+        run: |
+          set -euo pipefail
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-mongosh
+      - name: Run read-only production preflight (aggregate counts only)
+        env:
+          GRUK_ENTERPRISE_MONGO_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
+          GRUK_ENTERPRISE_DB: ${{ inputs.database_name }}
+          GRUK_ENTERPRISE_DB_CONFIRM: ${{ inputs.database_confirm }}
+          GRUK_MONEY_AUDIT_READONLY: ${{ inputs.approval }}
+        run: |
+          set -euo pipefail
+          umask 077
+          # Do not print URI or customer-level records. Only aggregate counts.
+          mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet \
+            --file scripts/gruk/p0-04-money-readonly-preflight.js > /tmp/gruk-enterprise-money-audit.log 2>&1 || {
+              sed -E 's@(mongodb(\\+srv)?://)[^ ]+@<masked-uri>@g' /tmp/gruk-enterprise-money-audit.log
+              echo "::error::Audit blocked: investigate data anomalies or read-only access"
+              exit 1
+            }
+          sed -E 's@(mongodb(\\+srv)?://)[^ ]+@<masked-uri>@g' /tmp/gruk-enterprise-money-audit.log
+          echo "Read-only financial preflight completed; DBA approval and restore rehearsal still required"
