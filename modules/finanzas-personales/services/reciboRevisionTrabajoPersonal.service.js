@@ -20,7 +20,7 @@ async function verificarFuentes(r,session){
  if(r.fuentes.some(f=>!porId.has(f.id)||digest(porId.get(f.id))!==f.hash))throw falla("Fuentes originales de la revisión no verificables");
  // Verifica la cadena completa actual; no exige que la clasificación histórica siga vigente.
  if(r.compensaciones.length){const es=await require("../models/EventoCompensatorioPersonal").find({usuarioId:String(r.usuarioId),hashActual:{$in:r.compensaciones.map(c=>c.hash)}}).session(session).maxTimeMS(5000).lean();const porHash=new Map(es.map(e=>[e.hashActual,e]));if(r.compensaciones.some(c=>{const e=porHash.get(c.hash);return !e||e.movimientoId!==c.movimientoId||e.secuencia!==c.secuencia||e.tipo!=="CORRECCION"||e.cambios?.tipo!=="INGRESO"||e.deltaCajaMinor!=="0";}))throw falla("Compensaciones conservadas no verificables");}
- if(r.fuentes.length)await require("./consultaCompensadaPersonal.service").consultarPeriodo({usuarioId:r.usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"},{session});return r;
+ if(r.fuentes.length)try{await require("./consultaCompensadaPersonal.service").consultarPeriodo({usuarioId:r.usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"},{session});}catch(e){if(typeof e.message==="string"&&e.message.startsWith("INTEGRIDAD_LEDGER:"))throw falla("Cadena de compensaciones no verificable; conserva la solicitud sin confirmar");throw e;}return r;
 }
 async function crear({usuarioId,solicitud,huellas,versionObservada,resultado,compensaciones,auditoriaContexto},session){
  if(!session?.inTransaction())throw falla("El recibo requiere la transacción de revisión");
