@@ -1,5 +1,6 @@
 const express = require("express");
 const Joi = require("joi");
+const mongoose = require("mongoose");
 
 const router = express.Router();
 
@@ -58,53 +59,31 @@ router.post(
   try {
     const datos = { ...req.body };
 
-    // Compatibilidad con GRUK Restaurantes:
-    // si llega restaurantId, resolvemos automáticamente empresaId.
-    if (datos.restaurantId && !datos.empresaId) {
-
+    // The signed tenant must own the restaurant, regardless of client empresaId.
+    if (datos.empresaId && String(datos.empresaId) !== String(req.auth.empresaId)) {
+      return res.status(403).json({ ok: false, error: "Inventario fuera de empresa" });
+    }
+    if (datos.restaurantId) {
       const restaurante = await Restaurante.findOne({
-        restaurantId: datos.restaurantId
-      });
-
+        restaurantId: datos.restaurantId,
+        empresaId: req.auth.empresaId
+      }).select("_id").lean();
       if (!restaurante) {
-        return res.status(404).json({
-          ok: false,
-          error: "Restaurante no encontrado"
-        });
+        return res.status(403).json({ ok: false, error: "Restaurante fuera de empresa" });
       }
-
-      if (
-        !restaurante.empresaId ||
-        String(restaurante.empresaId) !== String(req.auth.empresaId)
-      ) {
-        return res.status(403).json({
-          ok: false,
-          error: "No tienes acceso al inventario de este restaurante"
-        });
-      }
-
-      datos.empresaId = req.auth.empresaId;
     }
-
-    if (
-      datos.empresaId &&
-      String(datos.empresaId) !== String(req.auth.empresaId)
-    ) {
-      return res.status(403).json({
-        ok: false,
-        error: "No tienes acceso a crear inventario en esta empresa"
-      });
-    }
-
-    // El JWT es la autoridad final del tenant.
     datos.empresaId = req.auth.empresaId;
 
-    // Todo inventario nuevo debe pertenecer a una empresa.
-    if (!datos.empresaId) {
-      return res.status(400).json({
-        ok: false,
-        error: "No se pudo determinar la empresa del inventario"
-      });
+    // A branch administrator cannot create inventory at a sibling site, nor
+    // create site-less inventory to make it visible company-wide.
+    if (req.auth.rol !== ROLES_GRUK.DUENO) {
+      if (!mongoose.Types.ObjectId.isValid(req.auth.sedeId)) {
+        return res.status(403).json({ ok: false, error: "Sede autorizada requerida" });
+      }
+      if (datos.sedeId != null && String(datos.sedeId) !== String(req.auth.sedeId)) {
+        return res.status(403).json({ ok: false, error: "Inventario fuera de sede" });
+      }
+      datos.sedeId = req.auth.sedeId;
     }
 
     const inventario = new Inventario(datos);
@@ -163,6 +142,13 @@ router.get(
         restaurantId: req.params.restaurantId,
         anulado: false
       };
+
+      if (req.auth.rol !== ROLES_GRUK.DUENO) {
+        if (!mongoose.Types.ObjectId.isValid(req.auth.sedeId)) {
+          return res.status(403).json({ ok: false, error: "Sede autorizada requerida" });
+        }
+        query.sedeId = req.auth.sedeId;
+      }
 
       if (filtros.q) {
         const patron = new RegExp(escaparRegex(filtros.q), "i");
@@ -256,6 +242,10 @@ try{
 
 const { motivo, usuario } = req.body;
 
+if (req.auth.rol !== ROLES_GRUK.DUENO && !mongoose.Types.ObjectId.isValid(req.auth.sedeId)) {
+  return res.status(403).json({ ok: false, error: "Sede autorizada requerida" });
+}
+
 if(!motivo){
 return res.status(400).json({
 ok:false,
@@ -267,7 +257,10 @@ const producto =
 await Inventario.findOneAndUpdate(
 {
 _id:req.params.id,
-empresaId:req.auth.empresaId
+empresaId:req.auth.empresaId,
+...(req.auth.rol !== ROLES_GRUK.DUENO
+  ? { sedeId: req.auth.sedeId }
+  : {})
 },
 {
 anulado:true,
