@@ -88,3 +88,44 @@ test('P0-04: customer lookup without branch cannot access sibling branch custome
     Venta.create = originalCreate;
   }
 });
+
+
+test('P0-04: oversized untrusted economic strings fail before persistence', async () => {
+  const originalProduct = ProductoServicio.findOne;
+  const originalCreate = Venta.create;
+  const empresaId = new mongoose.Types.ObjectId();
+  const productoServicioId = new mongoose.Types.ObjectId();
+  let writes = 0;
+  let productCost = 100;
+  ProductoServicio.findOne = () => ({
+    select() { return this; },
+    session() { return this; },
+    async lean() { return { _id: productoServicioId, costoUnitario: productCost }; }
+  });
+  Venta.create = async () => { writes += 1; throw new Error('unexpected write'); };
+  const base = {
+    _id: new mongoose.Types.ObjectId(),
+    productoServicioId,
+    cantidad: 1,
+    precioUnitario: 100,
+    precio: 100
+  };
+  try {
+    for (const field of ['cantidad', 'precioUnitario', 'precio']) {
+      const pedido = { ...base, [field]: '9'.repeat(100000) };
+      await assert.rejects(
+        registrarVentaDesdePedido({ pedido, empresaId, emitirEvento: false }),
+        /fuera de rango seguro/
+      );
+    }
+    productCost = '9'.repeat(100000);
+    await assert.rejects(
+      registrarVentaDesdePedido({ pedido: base, empresaId, emitirEvento: false }),
+      /fuera de rango seguro/
+    );
+    assert.equal(writes, 0, 'invalid economic input must not create a sale');
+  } finally {
+    ProductoServicio.findOne = originalProduct;
+    Venta.create = originalCreate;
+  }
+});
