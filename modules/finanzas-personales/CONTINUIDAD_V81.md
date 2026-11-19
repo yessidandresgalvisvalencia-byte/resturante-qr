@@ -2831,3 +2831,12 @@ Límites y siguiente paso: revisar caminos alternativos de reclasificación de o
 HEAD308601cb00844874e09b0d5c75c5c0c5ae5550e6/árbol7b123007f05157b2bd046c9df1239eb61b69003b; PR389/base652126a03f19fbec3c529cad1e84bff11cd3699e/#407 abiertos. Padre CI verde (V81 intento2 tras cancelación durante instalación de Chromium, sin ampliar límites), Mongo98/98 y navegador32/32. Plan, aceptación, cambio de contrato de ruta antigua, evidencia explícita antes del lote y límites en RECLASIFICACION_ORIGEN_AUDITADA_PERSONAL_V81.md. CI nueva pendiente; sin merge ni Render.
 
 Validación previa a publicación r106: módulo919 casos/910 pass/9 omisiones externas/0 fallos tras corregir el aislamiento del renderizador; ci:personal353/349 pass/4 omisiones/0 fallos; dirigidas de origen/corrección/caché16/16 (solapadas), sintaxis de helper/browser/rutas/cliente y diff correctos. Se agrega una integración con rol restringido y se extiende el mismo caso Chromium390 sin aumentar el timeout ni contar pasos como casos nuevos. CI del SHA nuevo pendiente; no autoriza producción.
+
+
+### r106 — primer CI y corrección de revisión sin efectos
+
+SHA3493f10fae4e548498839af66a98a7db8c1ad50b/árbol361c0cd45a5f5fb927021f8ae3717b561c52655b: Gate44593858575 y Seguridad44593858645 success. V8144593858493 falló en dos integraciones: job135806780920 esperaba409 al corromper saldo por encima de principal; la corrección común responde422 por importe original inválido. Se conserva un código exacto por caso (422 para saldo inválido,409 para conflictos de estado/fuentes), sin retirar la verificación de ausencia de efectos.
+
+Job135806781184:99 casos/97pass/2fail, cero omisiones; un fallo es el padre del caso nuevo. Un lote que solo debía dejar pendiente un origen legacy incrementaba revisionCompatibilidad del cursor al adquirir anticipadamente la coordinación de escritura, aunque no generaba compensaciones. Se difiere esa coordinación hasta antes de la primera compensación necesaria, dentro de la misma transacción y con reintento de conflictos; un lote sin reparación conserva también ese cursor. No se ignora el campo ni se debilita la comparación del snapshot. No cambia la captura de coordinación en correcciones explícitas, que sí escriben evento/proyección.
+
+Se precisan los acuses del endpoint: cero reclasificaciones confirma solo el origen auditado, y replay declara recuperación anterior sin cambios nuevos. No se afirma haber aplicado reclasificaciones cuando no hubo ninguna. CI del siguiente SHA pendiente; sin merge ni Render.

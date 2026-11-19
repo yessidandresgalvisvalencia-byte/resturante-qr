@@ -64,7 +64,6 @@ async function enTransaccion(usuarioId,operacion){
  const session=await mongoose.startSession();
  try{
   return await session.withTransaction(async()=>{
-   await serializarEscrituraFuente(usuarioId,session);
    return operacion(session);
   },config);
  }catch(e){
@@ -88,7 +87,7 @@ async function reconciliarIngresosTrabajo(usuarioId){
    .sort({_id:1}).limit(501).maxTimeMS(5000).session(session);
   if(trabajos.length>500)throw problema("Demasiadas cuentas para una reparación verificable",422);
   const movimientos=trabajos.some(p=>p.origenCuentaPorCobrar==="TRABAJO")?await movimientosVigentes(usuarioId,session):[];
-  let corregidos=0,requierenRevisionManual=0;
+  let corregidos=0,requierenRevisionManual=0,serializada=false;
   for(const p of trabajos){
    let estado;
    try{
@@ -100,6 +99,7 @@ async function reconciliarIngresosTrabajo(usuarioId){
     estado=cobrosConciliados(raw,movimientos);
    }catch(e){if(e.statusCode!==409)throw e;requierenRevisionManual++;continue;}
    // Un fallo de persistencia se propaga: no confirmar reparaciones parciales.
+   if(!serializada&&estado.cobros.some(m=>m.tipo!=="INGRESO")){await serializarEscrituraFuente(usuarioId,session);serializada=true;}
    corregidos+=(await aplicar(usuarioId,p,estado,session)).reclasificados;
   }
   return {corregidos,requierenRevisionManual,

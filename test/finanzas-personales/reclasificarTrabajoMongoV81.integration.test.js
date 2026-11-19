@@ -92,15 +92,15 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   assert.equal(await Evento.countDocuments({usuarioId:String(bien.usuarioId)}),1);
   assert.equal((await service.reconciliarIngresosTrabajo(bien.usuarioId)).corregidos,0);
 
-  for(const corromper of [
-   async x=>Prestamo.updateOne({_id:x.p._id},{$set:{saldoMinor:2000}}),
-   async x=>Prestamo.updateOne({_id:x.p._id},{$set:{estado:"CANCELADO"}}),
-   async x=>Tx.collection.updateOne({_id:x.fuentes[0]._id},{$set:{montoMinor:401}}),
-   async x=>Tx.collection.updateOne({_id:x.fuentes[0]._id},{$set:{recurrente:true}}),
-   async x=>Tx.collection.updateOne({_id:x.fuentes[0]._id},{$unset:{impactoCaja:""}})
+  for(const [corromper,status] of [
+   [async x=>Prestamo.updateOne({_id:x.p._id},{$set:{saldoMinor:2000}}),422],
+   [async x=>Prestamo.updateOne({_id:x.p._id},{$set:{estado:"CANCELADO"}}),409],
+   [async x=>Tx.collection.updateOne({_id:x.fuentes[0]._id},{$set:{montoMinor:401}}),409],
+   [async x=>Tx.collection.updateOne({_id:x.fuentes[0]._id},{$set:{recurrente:true}}),409],
+   [async x=>Tx.collection.updateOne({_id:x.fuentes[0]._id},{$unset:{impactoCaja:""}}),409]
   ]){
    const x=await fixture();await corromper(x);const previo=await estado(x);
-   await assert.rejects(corregir(x),e=>e.statusCode===409);
+   await assert.rejects(corregir(x),e=>e.statusCode===status);
    assert.deepEqual(await estado(x),previo);
   }
 

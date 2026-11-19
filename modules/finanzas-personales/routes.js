@@ -308,7 +308,8 @@ router.post("/cuentas-por-cobrar/:id/corregir-origen-trabajo",async(req,res)=>{
  try{
   if(req.body?.confirmacion!==true||Object.keys(req.body).some(k=>k!=="confirmacion"))return res.status(400).json({ok:false,error:"Confirma la corrección de origen sin enviar otros cambios"});
   const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").corregirOrigenTrabajo(req.personalAuth.userId,req.params.id,{confirmacion:true,solicitudId:req.get("Idempotency-Key")});
-  return res.json({ok:true,...resultado,detalle:"Se registraron reclasificaciones compensatorias. Los cobros originales y el saldo de la cuenta se conservan."});
+  const detalle=resultado.correccion.duplicado?"Confirmación anterior recuperada; no se aplicaron reclasificaciones nuevas.":resultado.reclasificados>0?"Se registraron reclasificaciones compensatorias sin cambiar caja ni cobros originales.":"Origen confirmado en auditoría; no fue necesario reclasificar cobros ni modificar caja.";
+  return res.json({ok:true,...resultado,detalle});
  }catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir la cuenta"});}
 });
 // Diagnósticos sobre el estado efectivo: una reparación no debe seguir apareciendo pendiente.

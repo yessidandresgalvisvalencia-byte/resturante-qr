@@ -36,3 +36,12 @@ Pruebas locales/puras y CI nuevas pendientes. Recuperar desde este documento y c
 Ensayo local inicial: 919 casos/909 pass/9 omitidos/1 fallo en un test que extrae solo renderPrestamo: la sincronización del botón quedó dentro de su segmento aislado y requería el helper DOM $. Se movió esa sincronización antes del renderizador, conservando el ensayo aislado y el comportamiento de la página. Repetir suite tras la corrección, sin debilitar el test.
 
 Validación previa a publicación r106: módulo919 casos/910 pass/9 omisiones externas/0 fallos tras corregir el aislamiento del renderizador; ci:personal353/349 pass/4 omisiones/0 fallos; dirigidas de origen/corrección/caché16/16 (solapadas), sintaxis de helper/browser/rutas/cliente y diff correctos. Se agrega una integración con rol restringido y se extiende el mismo caso Chromium390 sin aumentar el timeout ni contar pasos como casos nuevos. CI del SHA nuevo pendiente; no autoriza producción.
+
+
+### r106 — primer CI y corrección de revisión sin efectos
+
+SHA3493f10fae4e548498839af66a98a7db8c1ad50b/árbol361c0cd45a5f5fb927021f8ae3717b561c52655b: Gate44593858575 y Seguridad44593858645 success. V8144593858493 falló en dos integraciones: job135806780920 esperaba409 al corromper saldo por encima de principal; la corrección común responde422 por importe original inválido. Se conserva un código exacto por caso (422 para saldo inválido,409 para conflictos de estado/fuentes), sin retirar la verificación de ausencia de efectos.
+
+Job135806781184:99 casos/97pass/2fail, cero omisiones; un fallo es el padre del caso nuevo. Un lote que solo debía dejar pendiente un origen legacy incrementaba revisionCompatibilidad del cursor al adquirir anticipadamente la coordinación de escritura, aunque no generaba compensaciones. Se difiere esa coordinación hasta antes de la primera compensación necesaria, dentro de la misma transacción y con reintento de conflictos; un lote sin reparación conserva también ese cursor. No se ignora el campo ni se debilita la comparación del snapshot. No cambia la captura de coordinación en correcciones explícitas, que sí escriben evento/proyección.
+
+Se precisan los acuses del endpoint: cero reclasificaciones confirma solo el origen auditado, y replay declara recuperación anterior sin cambios nuevos. No se afirma haber aplicado reclasificaciones cuando no hubo ninguna. CI del siguiente SHA pendiente; sin merge ni Render.
