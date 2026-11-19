@@ -151,6 +151,16 @@ async function registrarVentaDesdePedido({
         restaurantId: pedido.restaurantId,
         pedidoId: pedido._id.toString(),
         mesa: pedido.mesa,
+        // Immutable calculation evidence in canonical integer-cent strings.
+        // Transitional audit snapshot only; legacy Venta money fields remain Number.
+        calculoExactoV1: {
+          ingresoCentavos: exact.revenueCents,
+          brutoCentavos: exact.grossCents,
+          descuentoCentavos: exact.discountCents,
+          costoCentavos: exact.costCents,
+          utilidadCentavos: exact.profitCents,
+          margenPuntosBase: exact.marginBasisPoints
+        },
 
         // Permite a la futura neurona distinguir
         // ventas nuevas con costo congelado de ventas
