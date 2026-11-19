@@ -145,3 +145,15 @@ test("venta: reintento no acepta cantidades históricas fraccionarias",async()=>
     err=>err.code==="GRUK_VENTA_REPLAY_CONFLICT"
   );
 });
+
+test("venta: rechaza desbordamiento del importe de línea antes de persistir",async()=>{
+  const {service,seen}=makeService(null);
+  await assert.rejects(
+    service.registrarVentaDesdePedido({
+      pedido:{...pedido,cantidad:1000000000,precioUnitario:1000,precio:1000},
+      empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+    }),
+    /quantity|cantidad|integer|canonical/i
+  );
+  assert.equal(seen.length,0);
+});
