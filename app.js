@@ -163,7 +163,13 @@ async function iniciarAplicacion() {
 io.use(createSocketAuthMiddleware());
 
 io.on("connection", (socket) => {
-  socket.join(`empresa-${socket.auth.empresaId}`);
+  // Only owners subscribe to the tenant-wide room; branch staff cannot read
+  // notifications from sibling sites in the same company.
+  if (socket.auth.rol === "DUEÑO") {
+    socket.join(`empresa-${socket.auth.empresaId}`);
+  } else if (socket.auth.sedeId) {
+    socket.join(`empresa-${socket.auth.empresaId}-sede-${socket.auth.sedeId}`);
+  }
 });
 
 iniciarAplicacion();
