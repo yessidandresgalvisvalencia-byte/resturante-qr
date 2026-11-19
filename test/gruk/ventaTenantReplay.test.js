@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { calculateLegacySale } = require("../../core/finance/enterpriseSalesMath");
 
 const source = fs.readFileSync(path.join(__dirname, "../../services/ventas.service.js"), "utf8");
 function makeService(existing) {
@@ -20,7 +21,8 @@ function makeService(existing) {
       findOne(){return {select(){return this},session(){return this},lean:async()=>producto};}
     },
     "../models/Cliente":{},
-    "../core/eventos/eventBus":{emit(){}}
+    "../core/eventos/eventBus":{emit(){}},
+    "../core/finance/enterpriseSalesMath":{calculateLegacySale}
   };
   const module = {exports:{}};
   vm.runInNewContext(source, {require:(name)=>{
