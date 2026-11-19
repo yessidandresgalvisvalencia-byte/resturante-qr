@@ -85,7 +85,7 @@ for (const [collectionName, fields] of targets) {
           ]
         }, 1, 0] } }
       } }
-    ], { allowDiskUse: false }).toArray();
+    ], { allowDiskUse: false, maxTimeMS: 15000 }).toArray();
     const counts = results[0] || {
       total: 0, missingOrNull: 0, invalidType: 0,
       nonCent: 0, outOfRange: 0, conversionFailures: 0
