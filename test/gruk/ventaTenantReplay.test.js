@@ -10,6 +10,7 @@ const source = fs.readFileSync(path.join(__dirname, "../../services/ventas.servi
 function makeService(existing, {successfulCreate = false} = {}) {
   const seen = [];
   const created = [];
+  const productQueries = [];
   const collision = Object.assign(new Error("duplicate"), {code:11000});
   const producto = {_id:"producto_1", costoUnitario:100};
   const mocked = {
@@ -19,7 +20,7 @@ function makeService(existing, {successfulCreate = false} = {}) {
       findOne(filter){seen.push(filter);return {session:async()=>existing};}
     },
     "../models/ProductoServicio":{
-      findOne(){return {select(){return this},session(){return this},lean:async()=>producto};}
+      findOne(filter){productQueries.push(filter);return {select(){return this},session(){return this},lean:async()=>producto};}
     },
     "../models/Cliente":{},
     "../core/eventos/eventBus":{emit(){}},
@@ -31,7 +32,7 @@ function makeService(existing, {successfulCreate = false} = {}) {
     if (Object.prototype.hasOwnProperty.call(mocked,name))return mocked[name];
     throw new Error("Unexpected dependency "+name);
   },module,exports:module.exports,Error,Number,String});
-  return {service:module.exports,seen,created,collision};
+  return {service:module.exports,seen,created,collision,productQueries};
 }
 const pedido={
   _id:"pedido_1",productoServicioId:"producto_1",
@@ -176,12 +177,13 @@ test("venta: persiste evidencia de cálculo exacto en centavos sin sustituir el 
 
 
 test("venta: pedido de otra empresa se rechaza antes de consultar o persistir",async()=>{
-  const {service,seen,created}=makeService(null,{successfulCreate:true});
+  const {service,seen,created,productQueries}=makeService(null,{successfulCreate:true});
   await assert.rejects(service.registrarVentaDesdePedido({
     pedido:{...pedido,empresaId:"empresa_B"},empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
   }),/GRUK_VENTA_PEDIDO_TENANT_CONFLICT/);
   assert.equal(seen.length,0);
   assert.equal(created.length,0);
+  assert.equal(productQueries.length,0);
 });
 
 test("venta: pedido de otra sede se rechaza antes de persistir",async()=>{
@@ -220,4 +222,16 @@ test("venta: pedido de otra sede falla antes de consultar producto",async()=>{
   }),/GRUK_VENTA_PEDIDO_SEDE_CONFLICT/);
   assert.equal(seen.length,0);
   assert.equal(created.length,0);
+});
+
+
+test("venta: producto se consulta siempre con filtro de empresa autorizada",async()=>{
+  const {service,productQueries}=makeService(null,{successfulCreate:true});
+  await service.registrarVentaDesdePedido({
+    pedido:{...pedido,empresaId:"empresa_A",sedeId:"sede_A"},
+    empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+  });
+  assert.equal(productQueries.length,1);
+  assert.equal(productQueries[0].empresaId,"empresa_A");
+  assert.equal(productQueries[0]._id,"producto_1");
 });
