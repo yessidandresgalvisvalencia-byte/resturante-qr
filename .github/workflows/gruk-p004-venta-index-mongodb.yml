@@ -1,0 +1,45 @@
+name: GRUK P0-04 Venta Index Real MongoDB
+
+on:
+  push:
+    branches:
+      - "gruk/commercial-p004-index-preflight-integration"
+  pull_request:
+    branches:
+      - "gruk/commercial-consolidated-p004-20261119"
+
+permissions:
+  contents: read
+
+jobs:
+  mongo-origin-index:
+    name: Tenant-scoped origin uniqueness - Mongo real
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Start disposable MongoDB
+        run: |
+          docker run -d --name gruk-p004-index-mongo -p 127.0.0.1:27017:27017 mongo:7.0
+          for i in {1..30}; do
+            if docker exec gruk-p004-index-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Verify index uniqueness and concurrency against MongoDB
+        env:
+          GRUK_P004_TEST_MONGO_URI: mongodb://127.0.0.1:27017
+          GRUK_P004_TEST_DB: gruk_p004_isolated_test
+          NODE_ENV: test
+        run: |
+          node --test test/gruk/p0-04-venta-mongo.integration.test.js > /tmp/gruk-index-result.log 2>&1 || { cat /tmp/gruk-index-result.log; exit 1; }
+          cat /tmp/gruk-index-result.log
+          if grep -Eq '^# skipped [1-9]|^# fail [1-9]' /tmp/gruk-index-result.log; then
+            echo 'Real MongoDB index test must never skip or fail'
+            exit 1
+          fi
