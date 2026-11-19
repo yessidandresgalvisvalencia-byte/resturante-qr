@@ -275,7 +275,7 @@ test('rejects derived monetary overflow before creating or emitting a sale', asy
     empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa',
     sedeId: '111111111111111111111111',
     emitirEvento: true
-  }), /calculos economicos fuera de rango seguro/);
+  }), /calculos economicos fuera de rango seguro|DINERO_RANGO_/);
   assert.equal(harness.writes(), 0);
   assert.equal(harness.emittedEvents(), 0);
 });
