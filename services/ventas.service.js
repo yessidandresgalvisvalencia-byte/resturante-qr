@@ -36,6 +36,16 @@ async function registrarVentaDesdePedido({
     );
   }
 
+  // Reject cross-tenant or cross-site order payloads before any database read.
+  // Some legacy orders omit these fields; when supplied they must match the
+  // authoritative sale scope, including the null-site case.
+  if (pedido.empresaId != null && String(pedido.empresaId) !== String(empresaId)) {
+    throw new Error("GRUK_VENTA_PEDIDO_TENANT_CONFLICT");
+  }
+  if (pedido.sedeId != null && String(pedido.sedeId) !== String(sedeId)) {
+    throw new Error("GRUK_VENTA_PEDIDO_SEDE_CONFLICT");
+  }
+
   try {
     if (!pedido.productoServicioId) {
       throw new Error(
