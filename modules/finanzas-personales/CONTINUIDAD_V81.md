@@ -2941,3 +2941,10 @@ Siguiente bloque: listado propio paginado de recibos y recuperación/exportació
 ## Plan r109 — historial propio de recibos de revisión
 
 Padree9b6d61274b697dc8c7d07128de4137111979cd9/árbol5b0d8c94b0e48ed4ae29998c82e57b320e639084; PR389/base652126a03f19fbec3c529cad1e84bff11cd3699e e issue407 abiertos; padre tres CI verdes100/100+32/32. Plan/aceptación/límites en HISTORIAL_REVISION_TRABAJO_PERSONAL_V81.md. Un bloque: listado propio paginado, índice protegido de consulta, UI/verificación individual y aislamiento, sin POST financiero. Diario portable queda siguiente. Local926/917pass/9omisiones; ci353/349pass/4omisiones; dirigidas6/6. CI del SHA nuevo pendiente; sin merge ni Render.
+
+
+### r109 — primer CI y aislamiento de identidad del fixture de navegador
+
+SHA02518d133eaeb60ca877b0f16a0efeefb2ccc477/árbol52b2a6ddc415d6971741d3d78686f1077d5a9b53. Integración Mongo general y Mongo autorizado101/101 aprobaron sin omisiones. V8144612919946/job135873925526 falló solo navegador:32casos/30pass/2fail (uno es el padre),0omisiones. El caso nuevo sí consultó el historial y verificó individualmente el recibo con originales/caja intactos; agotó30s esperando la pestaña tras intentar entrar con el usuario global otro.
+
+La prueba anterior CALENDARIO_HTTP_INCIERTO comprueba explícitamente429 para ese usuario compartido con cuota de login agotada. El nuevo cambio de usuario reutilizaba esa identidad, por lo que el límite de seguridad impedía el login, correctamente. Se prepara otra identidad sintética real para este escenario y se exige respuesta200 del login antes de esperar la pestaña. Se conserva la aserción429 anterior, el rate limit y todos los límites/guards; no se amplían timeouts. No hay cambios de producto en esta corrección del fixture. Nueva CI pendiente; no declarar cierre hasta completar navegador del SHA final.

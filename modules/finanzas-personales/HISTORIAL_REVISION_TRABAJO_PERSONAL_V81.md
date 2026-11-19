@@ -34,3 +34,10 @@ Diario de revisión todavía en sessionStorage por propietario: exportación/imp
 ## Validación previa
 
 Local:módulo926 casos/917pass/9 omisiones externas/0fallos; ci:personal353/349pass/4omisiones/0fallos; caché/integración6/6 solapadas, sintaxis browser y diff correctos. Nuevo escenario completo Mongo autorizado y extensión del mismo caso nativo sin ampliar timeout/número artificial. CI del SHA nuevo pendiente, no declarar cierre hasta completarla. SHA propio del cierre por Git/PR sin autoreferencia circular.
+
+
+### r109 — primer CI y aislamiento de identidad del fixture de navegador
+
+SHA02518d133eaeb60ca877b0f16a0efeefb2ccc477/árbol52b2a6ddc415d6971741d3d78686f1077d5a9b53. Integración Mongo general y Mongo autorizado101/101 aprobaron sin omisiones. V8144612919946/job135873925526 falló solo navegador:32casos/30pass/2fail (uno es el padre),0omisiones. El caso nuevo sí consultó el historial y verificó individualmente el recibo con originales/caja intactos; agotó30s esperando la pestaña tras intentar entrar con el usuario global otro.
+
+La prueba anterior CALENDARIO_HTTP_INCIERTO comprueba explícitamente429 para ese usuario compartido con cuota de login agotada. El nuevo cambio de usuario reutilizaba esa identidad, por lo que el límite de seguridad impedía el login, correctamente. Se prepara otra identidad sintética real para este escenario y se exige respuesta200 del login antes de esperar la pestaña. Se conserva la aserción429 anterior, el rate limit y todos los límites/guards; no se amplían timeouts. No hay cambios de producto en esta corrección del fixture. Nueva CI pendiente; no declarar cierre hasta completar navegador del SHA final.
