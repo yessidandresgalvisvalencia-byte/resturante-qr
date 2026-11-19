@@ -105,3 +105,25 @@ jobs:
             echo "P0-04 sale-to-cash integration skipped or failed"
             exit 1
           fi
+      - name: Verify financial preflight against disposable MongoDB
+        run: |
+          docker cp scripts/gruk/p0-04-money-readonly-preflight.js gruk-p004-disposable:/tmp/gruk-p004-money-audit.js
+          docker exec gruk-p004-disposable mongosh --quiet --eval 'db.getSiblingDB("gruk_p004_money_ci").ventas.insertOne({precioUnitario:NumberDecimal("0.10"),total:NumberDecimal("0.20")})'
+          docker exec \
+            -e GRUK_ENTERPRISE_DB=gruk_p004_money_ci \
+            -e GRUK_ENTERPRISE_DB_CONFIRM=gruk_p004_money_ci \
+            -e GRUK_MONEY_AUDIT_READONLY=CONFIRMO_SOLO_LECTURA \
+            gruk-p004-disposable mongosh --quiet --file /tmp/gruk-p004-money-audit.js > /tmp/gruk-money-clean.log 2>&1 || { cat /tmp/gruk-money-clean.log; exit 1; }
+          grep -q 'monetaryDataReadyForDbaReview: true' /tmp/gruk-money-clean.log
+          docker exec gruk-p004-disposable mongosh --quiet --eval 'db.getSiblingDB("gruk_p004_money_ci").ventas.insertOne({precioUnitario:NumberDecimal("0.001"),total:NumberDecimal("0.20")})'
+          if docker exec \
+            -e GRUK_ENTERPRISE_DB=gruk_p004_money_ci \
+            -e GRUK_ENTERPRISE_DB_CONFIRM=gruk_p004_money_ci \
+            -e GRUK_MONEY_AUDIT_READONLY=CONFIRMO_SOLO_LECTURA \
+            gruk-p004-disposable mongosh --quiet --file /tmp/gruk-p004-money-audit.js > /tmp/gruk-money-anomaly.log 2>&1; then
+            echo "P0-04 audit incorrectly accepted sub-cent legacy data"
+            exit 1
+          fi
+          grep -q 'GRUK_MONEY_AUDIT_ANOMALIAS' /tmp/gruk-money-anomaly.log
+          # Verify the read-only audit did not alter the disposable fixture.
+          docker exec gruk-p004-disposable mongosh --quiet --eval 'if (db.getSiblingDB("gruk_p004_money_ci").ventas.countDocuments({}) !== 2) quit(2)'
