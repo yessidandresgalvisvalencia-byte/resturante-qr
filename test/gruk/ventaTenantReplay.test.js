@@ -200,3 +200,24 @@ test("venta: pedido con sede explícita no puede registrarse como venta sin sede
   }),/GRUK_VENTA_PEDIDO_SEDE_CONFLICT/);
   assert.equal(created.length,0);
 });
+
+test("venta: pedido con empresa y sede coincidentes permite persistir",async()=>{
+  const {service,created}=makeService(null,{successfulCreate:true});
+  const result=await service.registrarVentaDesdePedido({
+    pedido:{...pedido,empresaId:"empresa_A",sedeId:"sede_A"},
+    empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+  });
+  assert.equal(result.creada,true);
+  assert.equal(created.length,1);
+  assert.equal(created[0].empresaId,"empresa_A");
+  assert.equal(created[0].sedeId,"sede_A");
+});
+
+test("venta: pedido de otra sede falla antes de consultar producto",async()=>{
+  const {service,seen,created}=makeService(null,{successfulCreate:true});
+  await assert.rejects(service.registrarVentaDesdePedido({
+    pedido:{...pedido,sedeId:"sede_B"},empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+  }),/GRUK_VENTA_PEDIDO_SEDE_CONFLICT/);
+  assert.equal(seen.length,0);
+  assert.equal(created.length,0);
+});
