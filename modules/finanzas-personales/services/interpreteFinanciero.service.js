@@ -2,7 +2,8 @@
 const Borrador=require("../models/borradorFinanciero.model");
 const colombia=require("./colombiaFinanciero.service");
 const semanticFrame=require("./semanticAccountingFrame.service");
-const hoy=()=>colombia.fechaColombia(0);
+// Un hecho de hoy conserva el instante observado; el mediodía civil puede estar en el futuro.
+const hoy=()=>new Date();
 const fechaSaldoDeclarado=texto=>/\b(?:ayer|anoche)\b/i.test(texto)?colombia.fechaColombia(-1):/\bmañana\b/i.test(texto)?colombia.fechaColombia(1):new Date();
 function monto(s){
  const raw=String(s).toLowerCase().trim();
@@ -61,7 +62,7 @@ function cuentaPorCobrar(t){
  if(contraparte==="Por identificar")return{tipo:"CUENTA_POR_COBRAR",montoMinor:m,concepto:"Dinero por cobrar",categoria:"Cuenta por cobrar",contraparte,fecha:hoy(),estado:"REQUIERE_REVISION",confianza:50,razonRevision:"Falta identificar el nombre de quien debe el dinero."};
  const dm=texto.match(/(?:me\s+paga|me\s+pagan|paga|pagan)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})/i);
  const dia=dm?Number(dm[1]):null;let fechaVencimiento;
- if(dia&&dia>=1&&dia<=31){const b=hoy();let y=b.getFullYear(),mo=b.getMonth();if(b.getDate()>dia){mo++;if(mo>11){mo=0;y++;}}fechaVencimiento=new Date(y,mo,Math.min(dia,new Date(y,mo+1,0).getDate()),12,0,0,0);}
+ if(dia&&dia>=1&&dia<=31){const b=colombia.fechaColombia(0);let y=b.getFullYear(),mo=b.getMonth();if(b.getDate()>dia){mo++;if(mo>11){mo=0;y++;}}fechaVencimiento=new Date(y,mo,Math.min(dia,new Date(y,mo+1,0).getDate()),12,0,0,0);}
  return{tipo:"CUENTA_POR_COBRAR",montoMinor:m,concepto:"Dinero por cobrar",categoria:"Cuenta por cobrar",contraparte,fecha:hoy(),fechaVencimiento,estado:"LISTO",confianza:95,razonRevision:""};
 }
 function ajusteSaldo(t){const texto=String(t).replace(/\s+/g," ").trim();if(!/(?:tengo|hay|cuento con).*(?:efectivo|billetera|cartera)|(?:efectivo|billetera|cartera).*(?:no hab[ií]a registrado|sin registrar|saldo)/i.test(texto))return null;const v=monto(texto);if(!v)return null;return{tipo:"AJUSTE_SALDO",montoMinor:v,concepto:"Reconciliación de efectivo",categoria:"Saldo inicial",contraparte:"",fecha:fechaSaldoDeclarado(texto),estado:"LISTO",confianza:99,razonRevision:""};}
