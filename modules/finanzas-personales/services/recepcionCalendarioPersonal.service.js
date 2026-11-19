@@ -46,8 +46,8 @@ function elegibles(u,c,calendarios,fuentes,cuentas,ahora){
 }
 function idIngreso(u,k){return require("node:crypto").createHash("sha256").update(JSON.stringify({usuarioId:String(u),solicitudId:k,producto:"INGRESO_RECEPCION_V1"})).digest("hex").slice(0,24);}
 function comoVinculo(s,identidad){if(s.accion!=="REGISTRAR_RECEPCION")return s;if(!identidad?.usuarioId||!identidad?.solicitudId)throw falla("Identidad de recepción nueva requerida",400);return{...s,accion:"VINCULAR_RECEPCION",recepcion:{...s.recepcion,movimientoId:idIngreso(identidad.usuarioId,identidad.solicitudId)}};}
-async function registrarNuevo(u,k,entrada,session){
+async function registrarNuevo(u,k,entrada,session,{capturarContexto}={}){
  const r=entrada.recepcion,d=entrada.datosIngreso,cuenta=await require("../models/cuentaFinanciera.model").findOne({_id:r.cuentaId,usuarioId:u,activa:true,moneda:"COP"}).maxTimeMS(5000).session(session).lean();if(!cuenta)throw falla("Cuenta propia activa en COP no disponible",404);
- const tx=await require("./flujoCajaPersonal.service").registrarTransaccion(u,{tipo:"INGRESO",montoMinor:r.montoMinor,fecha:new Date(r.fecha),cuenta:cuenta.nombre,concepto:d.concepto,categoria:d.categoria,medioPago:d.medioPago,moneda:"COP",recurrente:false,origen:"MANUAL",externalId:"cal_nueva_"+k},{session,idMovimiento:idIngreso(u,k)});if(String(tx.cuentaId)!==r.cuentaId)throw falla("Identidad de cuenta no coincide; requiere revisión");return tx;
+ const tx=await require("./flujoCajaPersonal.service").registrarTransaccion(u,{tipo:"INGRESO",montoMinor:r.montoMinor,fecha:new Date(r.fecha),cuenta:cuenta.nombre,concepto:d.concepto,categoria:d.categoria,medioPago:d.medioPago,moneda:"COP",recurrente:false,origen:"MANUAL",externalId:"cal_nueva_"+k},{session,idMovimiento:idIngreso(u,k),capturarContexto});if(String(tx.cuentaId)!==r.cuentaId)throw falla("Identidad de cuenta no coincide; requiere revisión");return tx;
 }
 module.exports={pendientesCierre,cerrada,totalActual,idIngreso,comoVinculo,registrarNuevo,elegibles,MOTIVOS_RECHAZO,esAccion,validar,validarRelacion,siguiente,coincide,enriquecer,cargarVigentes,exigirFuente};

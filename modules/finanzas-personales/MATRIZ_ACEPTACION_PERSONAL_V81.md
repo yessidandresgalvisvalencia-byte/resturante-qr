@@ -1,5 +1,7 @@
 # Matriz de aceptación y prioridad — revisión r99
 
+Corte r100 en validación: contexto del INGRESO nuevo por recepción HTTP de calendario, caja/evento atómicos y replay sin recaptura. CONTEXTO_RECEPCION_CALENDARIO_PERSONAL_V81.md contiene plan/aceptación/límites. Base a298235a724af71ec9d74277e01f785421780f39. CI nueva pendiente; no autoriza despliegue.
+
 Corte r99 verificado en ensayo, 19 de noviembre de2026: contexto privado/ancla de nuevos I/G HTTP y guardia de integridad antes de calcular/compensar, sin reescribir originales. Código8122010188a59f77bde4787ac4446ce5e090a354, Gate44485784796/Seguridad44485784726/V8144485784766 success; Mongo92/92 y navegador/backend27/27, sin omisiones. Plan/criterios/evidencias/límites: CONTEXTO_REGISTRO_ORIGINAL_PERSONAL_V81.md. BackupV28/44 aislado; custodia/operación reales #407 pendientes. Verificar CI del descendiente documental y HEAD real. Siguiente: productores restantes (captura/aprobación IA/deuda/crédito) y resolución explícita de metas ambiguas conservando fuentes. No autoriza despliegue.
 
 Corte r98 verificado: 18 de noviembre de2026. Consulta propia de auditoría desde historial, paginación anclada y cero escrituras por GET: código538967b0b71606d63c7fff6fc8e78737aaf60319, tres CI verdes, Mongo91/91 y navegador/backend26/26. Informe/aceptación/límites: AUDITORIA_MOVIMIENTO_PERSONAL_V81.md. BackupV27/44 sin cambios; #407 y evidencia operacional independiente pendientes. Verificar CI del descendiente documental y HEAD real; no autoriza despliegue.
