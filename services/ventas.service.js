@@ -5,7 +5,17 @@ const Venta = require("../models/Venta");
 const ProductoServicio = require("../models/ProductoServicio");
 const Cliente = require("../models/Cliente");
 const eventBus = require("../core/eventos/eventBus");
-const { calculateLegacySale } = require("../core/finance/enterpriseSalesMath");
+const { calculateLegacySale, canonicalLegacyMoney } = require("../core/finance/enterpriseSalesMath");
+
+// Replay comparison must not coerce malformed historical amounts to a Number.
+// Fail closed if either side cannot be represented as a canonical cent amount.
+function sameLegacyMoney(a, b) {
+  try {
+    return canonicalLegacyMoney(a) === canonicalLegacyMoney(b);
+  } catch {
+    return false;
+  }
+}
 
 async function registrarVentaDesdePedido({
   pedido,
@@ -202,9 +212,11 @@ costoFuente:
       if (!ventaExistente) throw error;
       // A duplicate order ID with different economic contents is a conflict,
       // not an idempotent replay. Never silently return a different sale.
-      const sameSale = Number(ventaExistente.cantidad) === Number(pedido.cantidad) &&
-        Number(ventaExistente.precioUnitario) === Number(pedido.precioUnitario) &&
-        Number(ventaExistente.total) === Number(pedido.precio) &&
+      const sameSale = Number.isSafeInteger(ventaExistente.cantidad) &&
+        ventaExistente.cantidad > 0 &&
+        ventaExistente.cantidad === pedido.cantidad &&
+        sameLegacyMoney(ventaExistente.precioUnitario, pedido.precioUnitario) &&
+        sameLegacyMoney(ventaExistente.total, pedido.precio) &&
         String(ventaExistente.productoServicioId) === String(pedido.productoServicioId) &&
         String(ventaExistente.metodoPago || "") === String(pedido.metodoPago || "") &&
         String(ventaExistente.clienteId || "") === String(pedido.clienteId || "");
