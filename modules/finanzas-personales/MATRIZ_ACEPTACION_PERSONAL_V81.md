@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r100
+# Matriz de aceptación y prioridad — revisión r101
+
+Corte r101 en validación: auditoría de nuevos eventos de calendario minimizada, historial sin IP/agente/BSON/contexto privado y hashes/originales conservados. CONTEXTO_AUDITORIA_CALENDARIO_PERSONAL_V81.md contiene plan/aceptación/límites. Base1f66eedffa87e63d51f6902073c251dcc3f108a0; respaldoV29/44. CI nueva pendiente; no autoriza despliegue.
 
 Corte r100 verificado en ensayo,19 de noviembre de2026: ingreso nuevo recibido desde calendario HTTP conserva contexto privado/ancla en la misma transacción de caja/outbox/evento. Código a1635bb77dbaa6ae430553f42b8899544de4b0d1; Gate44490294686/Seguridad44490294781/V8144490294674 success, Mongo93/93 y navegador/backend28/28 sin omisiones. Informe/aceptación/límites: CONTEXTO_RECEPCION_CALENDARIO_PERSONAL_V81.md. Auditoría anterior de IP/agente del calendario aún pendiente de minimización separada sin reescribir hashes. BackupV28/44 aislado; #407/custodia/operación reales pendientes. Verificar CI del descendiente documental y HEAD real. Siguiente: auditoría calendario, productores restantes y metas ambiguas. No autoriza despliegue.
 
