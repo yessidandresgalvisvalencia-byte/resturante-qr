@@ -3,7 +3,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const mongoose = require("mongoose");
 const MovimientoCaja = require("../../core/finanzas/models/MovimientoCaja");
-const { calcularSaldoCuenta, transferir } = require("../../core/finanzas/tesoreria.service");
+const CuentaTesoreria = require("../../core/finanzas/models/CuentaTesoreria");
+const { calcularSaldoCuenta, transferir, obtenerResumenTesoreria } = require("../../core/finanzas/tesoreria.service");
 const { cents } = require("../../core/finanzas/dineroExacto");
 
 const EMPRESA = new mongoose.Types.ObjectId();
@@ -60,5 +61,42 @@ test("P0-04 treasury: transfer refuses sub-cent and invalid amounts before any D
       empresaId: EMPRESA, cuentaOrigenId: new mongoose.Types.ObjectId(),
       cuentaDestinoId: new mongoose.Types.ObjectId(), monto: invalid, createdBy: CUENTA
     }), e => e.statusCode === 400 && /Monto de transferencia invalido/.test(e.message));
+  }
+});
+
+test("P0-04 treasury: combined account summary adds centavos without floating errors", async () => {
+  const oldAggregate = MovimientoCaja.aggregate;
+  const oldFind = CuentaTesoreria.find;
+  const cuenta1 = new mongoose.Types.ObjectId();
+  const cuenta2 = new mongoose.Types.ObjectId();
+  const comienzo = new Date("2026-01-01T00:00:00.000Z");
+  CuentaTesoreria.find = () => ({
+    sort() { return this; },
+    async lean() {
+      return [
+        { _id: cuenta1, empresaId: EMPRESA, saldoInicial: 0.1, saldoInicialAt: comienzo },
+        { _id: cuenta2, empresaId: EMPRESA, saldoInicial: 0.2, saldoInicialAt: comienzo }
+      ];
+    }
+  });
+  MovimientoCaja.aggregate = async p => {
+    if (p[0].$match?.cuentaTesoreriaId) {
+      return [{
+        entradas: mongoose.Types.Decimal128.fromString("0"),
+        salidas: mongoose.Types.Decimal128.fromString("0")
+      }];
+    }
+    return [];
+  };
+  try {
+    const summary = await obtenerResumenTesoreria({ empresaId: EMPRESA, sedeId: SEDE });
+    assert.equal(summary.estadoConfiabilidad, "COMPLETO");
+    assert.equal(summary.cuentas.length, 2);
+    assert.equal(summary.saldoDisponible, 0.3);
+    assert.equal(cents(summary.saldoDisponible), 30n);
+    assert.equal(summary.movimientosSinAsignar.entradas.monto, 0);
+  } finally {
+    CuentaTesoreria.find = oldFind;
+    MovimientoCaja.aggregate = oldAggregate;
   }
 });
