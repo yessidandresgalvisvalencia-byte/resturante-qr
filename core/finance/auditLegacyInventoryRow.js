@@ -17,7 +17,7 @@ function auditLegacyInventoryRow(row) {
     } catch {
       // Proxies and exotic documents can throw while inspecting properties.
       // Treat them as untrusted rather than aborting an entire read-only audit.
-      issues.push(field.toUpperCase() + " _DESCRIPTOR_ERROR".trim());
+      issues.push(field.toUpperCase() + "_DESCRIPTOR_ERROR");
       continue;
     }
     if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
