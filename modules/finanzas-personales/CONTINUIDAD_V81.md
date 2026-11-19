@@ -2676,3 +2676,25 @@ La revisión de la nueva presentación encontró que acción/motivo/contexto/has
 
 
 Validación intermedia r101: SHA7117acfdfa3f7a7245791b21e7b8ee7f572c8bc4/árbol38a5ca165fd4089df89c21075d8424e93790fe3a aprobó Gate44501260140/Seguridad44501260150/V8144501260207; job135481348795 Mongo94/94 y navegador/backend29/29 sin omisiones. FP_CONTEXTO_CALENDARIO confirma login real/Chromium390/un POST/una consulta de recibo, acuse perdido, lectura sin clave, BSON/hash legado intactos y caja sin cambios. La incorporación posterior de importes/fechas al visor requiere CI propia antes del cierre; no se le atribuye anticipadamente esta ejecución. Pruebas locales del ajuste57/57.
+
+
+## Cierre verificado r101 — 19 de noviembre de2026
+
+Un bloque funcional completado en el alcance descrito: auditoría minimizada de eventos nuevos del calendario, verificación íntegra antes de redactar historial y consulta comprensible de importes/fechas/contexto sin reescribir fuentes. Código final b40b3d1c8a02baaf8d344087ebc6fcff697a1140, árbol f7337fcc2048bdea7f58253c2b58908fbb92805a, descendiente de1f66eedffa87e63d51f6902073c251dcc3f108a0. Publicación con lease y árboles local/remoto idénticos.
+
+| Evidencia del SHA funcional final | Resultado observado |
+| --- | --- |
+| [Gate44502020901](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44502020901) | success |
+| [Seguridad44502020867](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44502020867) | success |
+| [V8144502021127](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44502021127) | success, ocho jobs aprobados |
+| [Mongo autorizado y navegador135483955569](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44502021127/job/135483955569) | Mongo94/94 y navegador/backend29/29, cero fallos/cancelaciones/omisiones |
+
+Los criterios de privacidad, compatibilidad, integridad/atomicidad y reintentos/rotación tienen evidencia pura/autorizada: vector hash previo idéntico; cadena mixta y BSON legado conservados; token por peer no XFF con dominio separado del registro; contexto forjado/ajeno/ausente/configuración inválida rechazados sin efectos; fallo después del INSERT y carreras; GET/replay sin clave actual; rotación sin reescritura; INTERNO_SIN_RED y decisión de recepción no aplicada; alteración contextual bloquea lectura/replay sin reparar. El ensayo de adopción comprueba BSON privado completo, tipos y hash, además de ausencia pública. La cronología de expectativas corregidas se conserva arriba.
+
+Criterio de interfaz/recuperación: FP_CONTEXTO_CALENDARIO confirma login real/Chromium390, un POST, una consulta de recibo tras acuse perdido, lectura sin clave, historial redactado y fuente/BSON/hash intactos, sin cambios de caja. El caso también exige importes y fechas anteriores/posteriores, ajeno404 y ausencia de token/ID de clave/IP/agente/HTML activo. Actualización explícita del listado tras resolver evita presentar una versión anterior como vigente. No representa Safari/dispositivos físicos, identidad del cliente o recepción bancaria real.
+
+Respaldo cifrado V29/44 del mismo job:7886 documentos,7796346 bytes, captura287ms, restauración1302ms, edad1572ms. BSON/índices verificados en destino aislado vacío; custodiaIndependiente=false y rpoProduccion=false. Métricas de ensayo, no RPO/RTO, retención o recuperación de producción. Sin nuevas colecciones/roles/índices ni migración. Local antes del ajuste final900 casos/891aprobados/9omisiones y ci:personal353/349aprobados/4omisiones, cero fallos; visor/contexto57/57 después del ajuste. Dirigidas44/44 y62/62 previas se solapan, no sumar. La CI final cubre el producto ajustado; omisiones locales no son evidencia por sí mismas.
+
+Trazabilidad: este informe, matriz y continuidad quedan versionados. El descendiente documental necesita sus propias tres CI y se identifica con SHA/resultados en GitHub/PR; no se le atribuyen por anticipado las del código. PR389 sigue abierto hacia feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e; #407 abierto. Sin merge ni despliegue/validación Render, main, Empresarial, Blushéa, costos o datos reales modificados. Los bloqueos operacionales reales y los límites de custodia/verificación/redacción anteriores permanecen; no hay certificación externa ni garantía absoluta.
+
+Siguiente checkpoint: releer HEAD/PR389/#407/CI, este informe, MATRIZ_ACEPTACION_PERSONAL_V81.md y CONTINUIDAD_V81.md. Continuar con contexto de captura/aprobación IA y deuda/crédito, y resolución explícita de metas ambiguas mediante eventos/consentimiento, preservando originales. Revisar otros metadatos legados por contrato separado; no llamar minimización global a este alcance. Tarea activa; GitHub publicado, Render no desplegado.
