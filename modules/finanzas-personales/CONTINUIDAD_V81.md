@@ -2936,3 +2936,8 @@ Compatibilidad: publicar cliente/backend/provisión administrativa/roles/backupV
 Siguiente bloque: listado propio paginado de recibos y recuperación/exportación/importación verificable del diario de revisión sin sobrescribir originales ni mezclar usuarios. Después diagnóstico/adopción de orígenes legacy/proyecciones contradictorias/otros conceptos, contexto deuda/crédito y metas ambiguas. Antes de actuar verificar HEAD/base/PR389/issue407/CI/instrucciones y este cierre, sin repetir bloques cerrados. El descendiente documental exige su propia CI del SHA exacto, comprobable en Git/PR sin autoreferencia circular.
 
 #407 y aceptación integral de producción siguen pendientes: custodio independiente real/anclas; backup durable/retención/accesos/claves separados y restauración operativa aislada/RPO-RTO; roles/índices/migración/configuración reales; Safari/dispositivos, auditoría independiente según matriz, compatibilidad e informe final. Sin merge a feature, Render, main/Empresarial/Blushéa, costos/servicios nuevos ni datos reales alterados. Tarea activa, sin prometer ejecución ininterrumpida ni garantías absolutas.
+
+
+## Plan r109 — historial propio de recibos de revisión
+
+Padree9b6d61274b697dc8c7d07128de4137111979cd9/árbol5b0d8c94b0e48ed4ae29998c82e57b320e639084; PR389/base652126a03f19fbec3c529cad1e84bff11cd3699e e issue407 abiertos; padre tres CI verdes100/100+32/32. Plan/aceptación/límites en HISTORIAL_REVISION_TRABAJO_PERSONAL_V81.md. Un bloque: listado propio paginado, índice protegido de consulta, UI/verificación individual y aislamiento, sin POST financiero. Diario portable queda siguiente. Local926/917pass/9omisiones; ci353/349pass/4omisiones; dirigidas6/6. CI del SHA nuevo pendiente; sin merge ni Render.

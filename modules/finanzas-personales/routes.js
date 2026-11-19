@@ -305,6 +305,12 @@ router.get("/reconciliar-ingresos-trabajo/previsualizacion",async(req,res)=>{
   return res.json({ok:true,...seleccion});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible previsualizar la revisión"});}
 });
+router.get("/reconciliar-ingresos-trabajo/recibos",async(req,res)=>{
+ res.set("Cache-Control","no-store");
+ try{if(Object.keys(req.query).some(k=>k!=="cursor"))return res.status(400).json({ok:false,error:"Solo se admite el cursor del historial propio"});
+  const resultado=await require("./services/reciboRevisionTrabajoPersonal.service").listar(req.personalAuth.userId,req.query.cursor===undefined?null:req.query.cursor);return res.json({ok:true,...resultado});
+ }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible consultar el historial de recibos"});}
+});
 router.get("/reconciliar-ingresos-trabajo/recibos/:solicitudId",async(req,res)=>{
  res.set("Cache-Control","no-store");
  try{const resultado=await require("./services/reciboRevisionTrabajoPersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId);return res.json({ok:true,...resultado});}

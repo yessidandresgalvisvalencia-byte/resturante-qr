@@ -1,5 +1,5 @@
 "use strict";
-const mongoose=require("mongoose"),crypto=require("node:crypto"),R=require("../models/reciboRevisionTrabajoPersonal.model"),T=require("../models/TransaccionPersonal"),Aud=require("../security/contextoAuditoriaRevisionTrabajoPersonal.service"),{indiceExacto}=require("../security/auditoriaIndicesMongoV81.service"),{canonSeleccion,versionSeleccion}=require("./seleccionRevisionTrabajoPersonal.service");
+const mongoose=require("mongoose"),crypto=require("node:crypto"),R=require("../models/reciboRevisionTrabajoPersonal.model"),T=require("../models/TransaccionPersonal"),Aud=require("../security/contextoAuditoriaRevisionTrabajoPersonal.service"),{indiceExacto,indiceConsultaExacto}=require("../security/auditoriaIndicesMongoV81.service"),{canonSeleccion,versionSeleccion}=require("./seleccionRevisionTrabajoPersonal.service");
 const PATH="/reconciliar-ingresos-trabajo",falla=(m,c=409)=>Object.assign(Error(m),{statusCode:c}),digest=v=>crypto.createHash("sha256").update(JSON.stringify(canonSeleccion(v))).digest("hex"),idValido=s=>typeof s==="string"&&/^[A-Za-z0-9_-]{8,100}$/.test(s);
 function validarSolicitud(u,s){if(!mongoose.isObjectIdOrHexString(u)||s?.confirmacion!==true||typeof s.versionSeleccion!=="string"||!/^[a-f0-9]{64}$/.test(s.versionSeleccion)||!idValido(s.solicitudId)||Object.keys(s).some(k=>!["confirmacion","versionSeleccion","solicitudId"].includes(k)))throw falla("Previsualiza y confirma con versión y clave estable de revisión",400);}
 function solicitudHuella(v){return digest({metodo:"POST",path:PATH,cuerpo:{confirmacion:true,versionSeleccion:v}});}
@@ -33,4 +33,15 @@ async function crear({usuarioId,solicitud,huellas,versionObservada,resultado,com
 }
 function salida(r,duplicado=false){verificar(r);const recibo={confirmado:true,usuarioId:String(r.usuarioId),solicitudId:r.solicitudId,versionSeleccion:r.versionSeleccion,solicitudHuella:solicitudHuella(r.versionSeleccion),ruta:PATH,metodo:"POST",hash:r.hashActual,certificaEstadoActual:false,afectaCaja:false,noAplicada:r.resultado.estado==="NO_APLICADA",duplicado,...Aud.enlace(r),contextoAuditoria:Aud.resumen(r.auditoriaContexto)};return{...r.resultado,recibo};}
 async function consultar(u,id){if(!mongoose.isObjectIdOrHexString(u)||!idValido(id))throw falla("Solicitud de revisión inválida",400);await exigirIndices();const session=await mongoose.startSession();try{return await session.withTransaction(async()=>{const r=await buscar(u,id,session);if(!r)throw falla("No hay recibo verificable; conserva la solicitud original",404);await verificarFuentes(r,session);return salida(r,true);},{readConcern:{level:"snapshot"},readPreference:"primary"});}finally{await session.endSession();}}
-module.exports={Aud,validarSolicitud,exigirIndices,buscar,verificar,verificarFuentes,crear,salida,consultar,hash,solicitudHuella};
+async function listar(u,cursor=null){
+ if(!mongoose.isObjectIdOrHexString(u)||cursor!==null&&(typeof cursor!=="string"||!/^[a-f0-9]{24}$/.test(cursor)))throw falla("Cursor de historial inválido",400);
+ await exigirIndices();let indices;try{indices=await R.collection.indexes();}catch{throw falla("Índices de historial no disponibles",503);}
+ if(!indiceConsultaExacto(indices,"fp_revision_trabajo_historial_v1",["usuarioId","_id"]))throw falla("Índice de historial de revisión no verificado",503);
+ const session=await mongoose.startSession();try{return await session.withTransaction(async()=>{
+  if(cursor&&!await R.findOne({_id:cursor,usuarioId:u}).select("_id").session(session).maxTimeMS(5000).lean())throw falla("Cursor de historial no encontrado para tu usuario",404);
+  const filas=await R.find({usuarioId:u,...(cursor?{_id:{$lt:new mongoose.Types.ObjectId(cursor)}}:{})}).select("+seleccion +fuentes +compensaciones +auditoriaContexto").sort({_id:-1}).hint("fp_revision_trabajo_historial_v1").limit(21).maxTimeMS(5000).session(session).lean();
+  const pagina=filas.slice(0,20);for(const r of pagina)verificar(r);
+  return{recibos:pagina.map(r=>({solicitudId:r.solicitudId,fecha:r.fecha.toISOString(),estado:r.resultado.estado,corregidos:r.resultado.corregidos,requierenRevisionManual:r.resultado.requierenRevisionManual,hash:r.hashActual,verificacionFuentesPendiente:true})),siguiente:filas.length>20?String(pagina.at(-1)._id):null,soloLectura:true,certificaEstadoActual:false};
+ },{readConcern:{level:"snapshot"},readPreference:"primary"});}finally{await session.endSession();}
+}
+module.exports={listar,Aud,validarSolicitud,exigirIndices,buscar,verificar,verificarFuentes,crear,salida,consultar,hash,solicitudHuella};

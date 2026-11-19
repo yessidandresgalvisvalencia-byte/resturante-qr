@@ -59,6 +59,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await assert.rejects(migracion.migrar(b),e=>e.statusCode===503);assert.equal(await Tx.countDocuments({usuarioId:b}),0);
   await provisionarMongoPersonal(db);assert.equal((await migracion.migrar(b)).ledgerCount,1);
   const {probarCajaAutorizada,probarCadenaV81Autorizada,probarIndicesEnCaliente,probarCadenaCompensatoriaAlterada}=require("./helpers/operacionesLedgerAutorizadas");
+  await t.test("historial paginado de revisión aísla dueño/cursor y no modifica fuentes ni recibos",()=>require("./helpers/historialRevisionTrabajoAutorizado").probarHistorialRevision(db));
   await t.test("recibo global de revisión se recupera por dueño y conserva aplicación/no aplicación atómicas",()=>require("./helpers/reciboRevisionTrabajoAutorizado").probarReciboRevision(db));
   await t.test("caja, compensaciones, reintentos y rollback con rol restringido",probarCajaAutorizada);
   await t.test("cadena V81 y anulación con rol restringido",probarCadenaV81Autorizada);

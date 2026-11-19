@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r108
+# Matriz de aceptación y prioridad — revisión r109
+
+Plan r109: historial paginado propio de recibos e interfaz de verificación individual, con índice exigido/privacidad y sin repetir revisión. Aceptación/límites en HISTORIAL_REVISION_TRABAJO_PERSONAL_V81.md. Local/CI nuevas en curso; diario portable siguiente,407/producción pendientes. Sin merge/Render.
 
 Corte r108 verificado: código inicial7f89e13, BSON b513ef5, fixturef7c18bd y final20dde7a4113a26091a44e8be8c377bd90a3d5c1d/árbol101d4553ea26a6b6492e57dddb6ffced33a352ae. Recibo de revisión append-only atómico, resultado/no aplicación recuperables por dueño y clave; respuesta perdida/recarga sin segundo POST, cadena/originales verificados. Gate44604443664/Seguridad44604443674/V8144604443640 success; ocho jobs, Mongo100/100 y browser32/32 sin omisiones. Informe RECIBO_REVISION_TRABAJO_PERSONAL_V81.md conserva fallos, aceptación, evidencia/límites/siguiente paso: listado/diario portable propio. Política26 protegidas/backupV32/45 aislado;407/custodia/operación reales pendientes. Verificar HEAD y CI del cierre documental; sin merge/Render.
 
