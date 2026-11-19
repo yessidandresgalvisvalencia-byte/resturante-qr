@@ -173,26 +173,18 @@ async function registrarVentaDesdePedido({
       throw new Error("GRUK Ventas: datos economicos fuera de rango seguro");
     }
 
-    costoTotal =
-      costoUnitario * cantidad;
-
-    const utilidadBruta =
-      total - costoTotal;
-
-    const margenBruto =
-      total > 0
-        ? (utilidadBruta / total) * 100
-        : 0;
-
-    // Guard derived monetary values as well as inputs. Safe integer inputs
-    // can overflow when multiplied or subtracted; never persist such totals.
-    if (!Number.isFinite(costoTotal) || !Number.isFinite(utilidadBruta) ||
-        !Number.isFinite(margenBruto) ||
-        [costoTotal, utilidadBruta].some(
-          (valor) => Number.isInteger(valor) && !Number.isSafeInteger(valor)
-        )) {
-      throw new Error("GRUK Ventas: calculos economicos fuera de rango seguro");
-    }
+    // Monetary values are converted to integer centavos before any financial
+    // multiplication/subtraction. Reject non-cent representable inputs.
+    const { saleAmounts } = require("../core/finanzas/dineroExacto");
+    const exact = saleAmounts({
+      precioUnitario: pedido.precioUnitario,
+      precio: pedido.precio,
+      costoUnitario: productoServicio.costoUnitario,
+      cantidad: pedido.cantidad
+    });
+    costoTotal = exact.costoTotal;
+    const utilidadBruta = exact.utilidadBruta;
+    const margenBruto = exact.margenBruto;
 
     // Tracked products must be paid inside a MongoDB transaction so stock,
     // movement and the sale are committed or rolled back together.
@@ -219,12 +211,12 @@ async function registrarVentaDesdePedido({
       categoria: pedido.categoria || "",
 
       cantidad,
-      precioUnitario,
-      costoUnitario,
+      precioUnitario: exact.precioUnitario,
+      costoUnitario: exact.costoUnitario,
       costoTotal,
       utilidadBruta,
       margenBruto,
-      total,
+      total: exact.total,
 
       metodoPago: pedido.metodoPago || "",
 
