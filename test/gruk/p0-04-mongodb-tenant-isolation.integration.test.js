@@ -226,7 +226,15 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
           (error) => error && error.code === 'GRUK_VENTA_REPLAY_STATE_CONFLICT'
         );
         assert.equal((await Sales.findById(first.venta._id).lean()).estado, 'anulada');
+        assert.equal(await Sales.countDocuments({ origen: 'restaurante', origenId: validOrder._id }), 1,
+          'cancelled replay must not insert a replacement sale');
         await Sales.updateOne({ _id: first.venta._id }, { $set: { estado: 'pagada' } });
+        const restoredReplay = await registrarVentaDesdePedido({
+          pedido: validOrder, empresaId: tenantA, sedeId: branchA, emitirEvento: false
+        });
+        assert.equal(restoredReplay.creada, false);
+        assert.equal(String(restoredReplay.venta._id), String(first.venta._id));
+        assert.equal(await Sales.countDocuments({ origen: 'restaurante', origenId: validOrder._id }), 1);
 
         // Race eight first-write attempts for a distinct order through the
         // actual service and MongoDB unique index. Exactly one must create;
