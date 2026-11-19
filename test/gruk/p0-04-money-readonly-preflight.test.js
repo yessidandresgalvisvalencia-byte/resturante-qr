@@ -83,6 +83,15 @@ test("P0-04 financial preflight: blocks any subcent or out-of-range historical m
   assert.ok(!result.printed[0].targets.some(x => x._id || x.documentId));
 });
 
+test("P0-04 financial preflight: blocks missing required amounts but allows nullable legacy fields", () => {
+  const missingRequired = audit({ counts: { "ventas.total": { missingOrNull: 1 } } });
+  assert.match(String(missingRequired.error?.message), /GRUK_MONEY_AUDIT_ANOMALIAS/);
+  assert.equal(missingRequired.printed[0].targets.find(x => x.field === "total").missingRequired, 1);
+  const missingOptional = audit({ counts: { "ventas.costoUnitario": { missingOrNull: 1 } } });
+  assert.equal(missingOptional.error, null);
+  assert.equal(missingOptional.printed[0].monetaryDataReadyForDbaReview, true);
+});
+
 test("P0-04 financial preflight: rejects prohibited databases and missing exact confirmation before any read", () => {
   const variants = [
     { GRUK_ENTERPRISE_DB: "finanzas_personales", GRUK_ENTERPRISE_DB_CONFIRM: "finanzas_personales" },
