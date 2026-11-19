@@ -20,7 +20,8 @@ function makeService(existing) {
       findOne(){return {select(){return this},session(){return this},lean:async()=>producto};}
     },
     "../models/Cliente":{},
-    "../core/eventos/eventBus":{emit(){}}
+    "../core/eventos/eventBus":{emit(){}},
+    "../core/finanzas/dineroExacto": require("../../core/finanzas/dineroExacto")
   };
   const module = {exports:{}};
   vm.runInNewContext(source, {require:(name)=>{
