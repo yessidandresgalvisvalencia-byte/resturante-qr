@@ -101,3 +101,26 @@ test("venta: reintento de pedido asignado a otro cliente rechaza duplicado",asyn
     err=>err.code==="GRUK_VENTA_REPLAY_CONFLICT"
   );
 });
+
+test("venta: rechaza importes subcentavo antes de intentar persistir",async()=>{
+  const {service,seen}=makeService(null);
+  await assert.rejects(
+    service.registrarVentaDesdePedido({
+      pedido:{...pedido,precio:999.999},
+      empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+    }),
+    /cent|decimal|precision|money|amount|invalid|legacy/i
+  );
+  assert.equal(seen.length,0);
+});
+
+test("venta: rechaza cantidades fraccionarias antes de intentar persistir",async()=>{
+  const {service,seen}=makeService(null);
+  await assert.rejects(
+    service.registrarVentaDesdePedido({
+      pedido:{...pedido,cantidad:1.5},
+      empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+    })
+  );
+  assert.equal(seen.length,0);
+});
