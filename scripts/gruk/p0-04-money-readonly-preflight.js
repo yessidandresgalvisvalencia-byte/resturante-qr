@@ -25,6 +25,14 @@ const targets = [
   ["compras", ["subtotal", "impuestos", "total", "saldoPendientePago"]],
   ["gastos", ["monto"]]
 ];
+const requiredAmounts = {
+  ventas: ["precioUnitario", "total"],
+  movimientos_caja: ["monto"],
+  cuentas_tesoreria: ["saldoInicial"],
+  transferencias_tesoreria: ["monto"],
+  compras: ["subtotal", "total"],
+  gastos: ["monto"]
+};
 const decimal100 = NumberDecimal("100");
 const maxCents = NumberDecimal("9007199254740991");
 const enterprise = db.getSiblingDB(name);
@@ -82,12 +90,15 @@ for (const [collectionName, fields] of targets) {
       total: 0, missingOrNull: 0, invalidType: 0,
       nonCent: 0, outOfRange: 0, conversionFailures: 0
     };
-    const anomalies = counts.invalidType + counts.nonCent +
+    const missingRequired = (requiredAmounts[collectionName] || []).includes(field)
+      ? counts.missingOrNull : 0;
+    const anomalies = missingRequired + counts.invalidType + counts.nonCent +
       counts.outOfRange + counts.conversionFailures;
     if (anomalies > 0) blocked = true;
     summary.push({
       collection: collectionName, field, documents: counts.total,
-      missingOrNull: counts.missingOrNull, invalidType: counts.invalidType,
+      missingOrNull: counts.missingOrNull, missingRequired,
+      invalidType: counts.invalidType,
       nonCent: counts.nonCent, outOfRange: counts.outOfRange,
       conversionFailures: counts.conversionFailures
     });
