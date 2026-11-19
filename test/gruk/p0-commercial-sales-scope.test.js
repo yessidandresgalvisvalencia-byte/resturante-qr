@@ -244,3 +244,37 @@ test('rejects non-finite and negative sale economics without side effects', asyn
     assert.equal(harness.emittedEvents(), 0);
   }
 });
+
+test('rejects oversized economic input before writing or publishing a sale', async () => {
+  const harness = loadService({
+    _id: '333333333333333333333333',
+    empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+    sedeId: '111111111111111111111111',
+    costoUnitario: 1
+  });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido: { ...pedido, precio: '9'.repeat(129) },
+    empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+    sedeId: '111111111111111111111111',
+    emitirEvento: true
+  }), /datos economicos fuera de rango seguro/);
+  assert.equal(harness.writes(), 0);
+  assert.equal(harness.emittedEvents(), 0);
+});
+
+test('rejects derived monetary overflow before creating or emitting a sale', async () => {
+  const harness = loadService({
+    _id: '333333333333333333333333',
+    empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+    sedeId: '111111111111111111111111',
+    costoUnitario: Number.MAX_SAFE_INTEGER
+  });
+  await assert.rejects(harness.service.registrarVentaDesdePedido({
+    pedido: { ...pedido, cantidad: 2 },
+    empresaId: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+    sedeId: '111111111111111111111111',
+    emitirEvento: true
+  }), /calculos economicos fuera de rango seguro/);
+  assert.equal(harness.writes(), 0);
+  assert.equal(harness.emittedEvents(), 0);
+});
