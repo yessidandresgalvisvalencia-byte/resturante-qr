@@ -24,3 +24,21 @@ test('output is immutable and inputs are unchanged', () => {
   assert.ok(Object.isFrozen(result));
   assert.equal(result.profitCents,'101');
 });
+
+test('legacy Number bridge calculates cents without float multiplication', () => {
+  const { calculateLegacySale } = require('../../core/finance/enterpriseSalesMath');
+  const result = calculateLegacySale({quantity:3,unitPrice:0.1,unitCost:0.07,total:0.29});
+  assert.equal(result.costCents,'21');
+  assert.equal(result.profitCents,'8');
+});
+test('legacy bridge fails closed on ambiguous historic precision', () => {
+  const { calculateLegacySale, canonicalLegacyMoney } = require('../../core/finance/enterpriseSalesMath');
+  const base={quantity:1,unitPrice:1,unitCost:0.1,total:1};
+  for (const patch of [
+    {quantity:1.5},{quantity:0},{quantity:Number.MAX_SAFE_INTEGER+1},
+    {unitCost:0.001},{unitPrice:-0},{total:NaN},
+    {total:Infinity},{total:1e-7},{total:-1}
+  ]) assert.throws(()=>calculateLegacySale({...base,...patch}));
+  assert.throws(()=>canonicalLegacyMoney('0.10'));
+  assert.equal(canonicalLegacyMoney(0),'0');
+});
