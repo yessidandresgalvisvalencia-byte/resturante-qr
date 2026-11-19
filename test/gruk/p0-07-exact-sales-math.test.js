@@ -42,3 +42,14 @@ test('legacy bridge fails closed on ambiguous historic precision', () => {
   assert.throws(()=>canonicalLegacyMoney('0.10'));
   assert.equal(canonicalLegacyMoney(0),'0');
 });
+
+test('legacy decimal bridge accepts ordinary cent-exact multi-digit values', () => {
+  const { canonicalLegacyMoney, calculateLegacySale } = require('../../core/finance/enterpriseSalesMath');
+  for (const value of [0.1, 1.25, 12, 12.34, 1234.56]) {
+    assert.equal(canonicalLegacyMoney(value), String(value));
+  }
+  const result = calculateLegacySale({quantity:2,unitPrice:12.34,unitCost:1.25,total:24.68});
+  assert.equal(result.grossCents,'2468');
+  assert.equal(result.costCents,'250');
+  assert.equal(result.profitCents,'2218');
+});
