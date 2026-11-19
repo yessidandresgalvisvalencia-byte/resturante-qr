@@ -73,7 +73,8 @@ async function aprobarCobro(usuarioId,x,session){
    tipo,montoMinor:x.montoMinor,saldoMinor:p.saldoMinor,contraparte:p.contraparte,origen:"CONVERSACIONAL"}}],{session});
  return {tipo:x.tipo,id:tx._id,prestamoId:p._id};
 }
-async function aprobar(usuarioId,borradorId,itemId=null,solicitud=null){
+async function aprobar(usuarioId,borradorId,itemId=null,solicitud=null,opciones={}){
+const capturar=require("../security/contextoAuditoriaAprobacionPersonal.service").resolver(usuarioId,opciones);
 if(solicitud)recibos.validarSolicitud(usuarioId,borradorId,itemId,solicitud);await recibos.exigirIndices();const solicitudId=solicitud?.solicitudId||("interno_"+crypto.randomUUID());
 const session=await mongoose.startSession();try{let resultado;await session.withTransaction(async()=>{
 if(solicitud){const previo=await recibos.buscarEnSesion(usuarioId,solicitudId,session);if(previo){if(previo.solicitudHash!==recibos.solicitudHash(borradorId,itemId,solicitud.versionBorrador))throw Object.assign(new Error("Clave de aprobación usada con otro borrador o alcance"),{statusCode:409});await recibos.verificarFuentes(previo,session);resultado={...previo.resultado,recibo:{...recibos.resumen(previo),duplicado:true}};return;}}
@@ -81,7 +82,7 @@ const b=await Borrador.findOne({_id:borradorId,usuarioId,estado:{$in:["PENDIENTE
 if(itemId&&!candidatos.length)throw Object.assign(new Error("Movimiento no disponible para aprobación"),{statusCode:404});
 if(!candidatos.length)throw Object.assign(new Error("No hay movimientos listos para aprobar"),{statusCode:409});
 for(const x of candidatos){const raw=original.items.find(i=>String(i._id)===String(x._id));if(!Number.isSafeInteger(raw?.montoMinor)||raw.montoMinor<=0||!(raw.fecha instanceof Date)||!Number.isFinite(+raw.fecha)||+raw.fecha>Date.now())throw Object.assign(new Error("El importe y la fecha originales requieren revisión; no se contabilizan valores coercibles ni futuros"),{statusCode:422});if(raw.estado!=="LISTO"||raw.estadoAprobacion!=="PENDIENTE")throw Object.assign(new Error("El estado original del elemento requiere revisión"),{statusCode:409});}
-const creadas=[];for(const x of candidatos){if(!Number.isSafeInteger(x.montoMinor)||x.montoMinor<=0)throw Object.assign(new Error("El importe debe ser un entero positivo exacto."),{statusCode:422});if(x.tipo==="POR_CLASIFICAR"||x.estado!=="LISTO")throw Object.assign(new Error("Un hecho no clasificado o en revisión no puede contabilizarse."),{statusCode:409});if(x.tipo==="TRANSFERENCIA_PROPIA"||x.tipo==="AHORRO_ACTIVO"){
+const auditoriaContexto=capturar(),creadas=[];for(const x of candidatos){if(!Number.isSafeInteger(x.montoMinor)||x.montoMinor<=0)throw Object.assign(new Error("El importe debe ser un entero positivo exacto."),{statusCode:422});if(x.tipo==="POR_CLASIFICAR"||x.estado!=="LISTO")throw Object.assign(new Error("Un hecho no clasificado o en revisión no puede contabilizarse."),{statusCode:409});if(x.tipo==="TRANSFERENCIA_PROPIA"||x.tipo==="AHORRO_ACTIVO"){
  creadas.push(await aprobarTransferencia(usuarioId,x,session));continue;
 }if(["AJUSTE_SALDO","AJUSTE_SALDO_AHORRO"].includes(x.tipo)){
  creadas.push(await aprobarSaldo(usuarioId,x,session));continue;
@@ -108,6 +109,6 @@ const aprobados=new Set(candidatos.map(x=>String(x._id)));
 for(const x of b.items){if(aprobados.has(String(x._id))){x.estadoAprobacion="APROBADO";x.aprobadoEn=new Date();}}
 const pendientes=b.items.filter(x=>x.estadoAprobacion!=="APROBADO"&&x.estadoAprobacion!=="DESCARTADO");
 b.estado=pendientes.length?"PARCIAL":"APROBADO";if(!pendientes.length)b.aprobadoEn=new Date();await b.save({session});resultado={borradorId:b._id,estado:b.estado,operaciones:creadas,pendientes:pendientes.map(x=>({itemId:x._id,estado:x.estado,razonRevision:x.razonRevision||""}))};
-const recibo=await recibos.crearEnSesion({usuarioId,borradorId:b._id,itemId,solicitudId,original,itemIds:candidatos.map(x=>x._id),resultado},session);resultado.recibo={...recibos.resumen(recibo),duplicado:false};
+const recibo=await recibos.crearEnSesion({usuarioId,borradorId:b._id,itemId,solicitudId,original,itemIds:candidatos.map(x=>x._id),resultado,auditoriaContexto},session);resultado.recibo={...recibos.resumen(recibo),duplicado:false};
 },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return resultado;}catch(e){if(e.code===11000)throw Object.assign(new Error("Estos elementos ya tienen una aprobación registrada; consulta su recibo"),{statusCode:409});throw e;}finally{await session.endSession()}}
 module.exports={aprobar};
