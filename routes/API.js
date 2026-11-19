@@ -1538,7 +1538,7 @@ router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROL
     const tenant = await Restaurante.findOne({restaurantId:actual.restaurantId,empresaId:req.auth.empresaId}).select("_id empresaId restaurantId").lean();
     if (!tenant) return res.status(403).json({ok:false,error:"Pedido fuera del tenant autorizado"});
     try {
-      await authorizeOrderBranch({ pedido: actual, restaurante: tenant, auth: req.auth });
+      var { sedeObjectId: estadoSedeId } = await authorizeOrderBranch({ pedido: actual, restaurante: tenant, auth: req.auth });
     } catch (_) {
       return res.status(403).json({ ok: false, error: "Pedido fuera de la sede autorizada" });
     }
@@ -1555,7 +1555,8 @@ router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROL
     );
 
     const io = req.app.get("io");
-    io.to(`empresa-${req.auth.empresaId}`).emit("pedido:actualizado", pedido);
+    io.to(`empresa-${req.auth.empresaId}`)
+      .to(`empresa-${req.auth.empresaId}-sede-${req.auth.sedeId || estadoSedeId}`).emit("pedido:actualizado", pedido);
 
     res.json(pedido);
   } catch (error) {
@@ -1619,7 +1620,8 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
     if (ventaPostCommit) emitirVentaCompletada(ventaPostCommit);
 
     const io = req.app.get("io");
-    io.to(`empresa-${req.auth.empresaId}`).emit("pedido:actualizado", pedidoFinal);
+    io.to(`empresa-${req.auth.empresaId}`)
+      .to(`empresa-${req.auth.empresaId}-sede-${req.auth.sedeId || sedeObjectId}`).emit("pedido:actualizado", pedidoFinal);
 
     return res.json({ ok: true, pedido: pedidoFinal });
   } catch (error) {
