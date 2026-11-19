@@ -30,4 +30,33 @@ function calculateSale({ quantity, unitPrice, unitCost, total }) {
   });
 }
 
-module.exports = { calculateSale };
+// Transitional read-only bridge for legacy Mongo Number fields. This does not
+// certify the original binary float or rewrite historical financial records.
+// Reject exponential notation, negative zero and subcent precision rather than
+// rounding or coercing unsafe historical values.
+function canonicalLegacyMoney(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || Object.is(value, -0)) {
+    throw new TypeError('legacy money must be a finite non-negative Number');
+  }
+  const decimal = value.toString();
+  if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$/.test(decimal)) {
+    throw new RangeError('legacy money is not a plain cent-exact decimal');
+  }
+  const cents = parseMoneyToCents(decimal);
+  if (cents > MAX) throw new RangeError('legacy money exceeds safe cents');
+  return decimal;
+}
+
+function calculateLegacySale({ quantity, unitPrice, unitCost, total }) {
+  if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+    throw new TypeError('legacy quantity must be a positive safe integer');
+  }
+  return calculateSale({
+    quantity: String(quantity),
+    unitPrice: canonicalLegacyMoney(unitPrice),
+    unitCost: canonicalLegacyMoney(unitCost),
+    total: canonicalLegacyMoney(total)
+  });
+}
+
+module.exports = { calculateSale, canonicalLegacyMoney, calculateLegacySale };
