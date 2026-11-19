@@ -137,6 +137,8 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
       try {
         const validOrder = {
           _id: new mongoose.Types.ObjectId(),
+          empresaId: tenantA,
+          sedeId: branchA,
           productoServicioId: own._id,
           cantidad: 2,
           precioUnitario: 100,
@@ -214,7 +216,7 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
               pedido: { ...validOrder, productoServicioId: product._id },
               empresaId: company, sedeId: branch, emitirEvento: false
             }),
-            (error) => error && error.code === 11000
+            (error) => /pedido de otra (empresa|sede)/.test(String(error?.message))
           );
           assert.equal(await Sales.countDocuments({ origenId: validOrder._id }), 1);
           assert.equal(await Sales.countDocuments({ empresaId: company, sedeId: branch }), 0);
