@@ -2633,3 +2633,25 @@ Checkpoint: releer HEAD remoto, este informe, MATRIZ_ACEPTACION_PERSONAL_V81.md,
 
 ## r100 en validación — recepción de calendario con contexto original
 Base real a298235a724af71ec9d74277e01f785421780f39, árbol d4f8d68005136c9a20d92dc94f95a63534eb272d; PR389 abierto, base personal652126a03f19fbec3c529cad1e84bff11cd3699e y tres CI verdes del padre. #407 abierto. Un bloque: contexto privado/ancla del INGRESO nuevo de REGISTRAR_RECEPCION HTTP, dentro de misma transacción externa de caja/outbox/evento. Replay se resuelve sin recapturar ni clave actual; vínculos/otros flujos no inventan observación. Plan/aceptación/límites/evidencia y siguiente paso en CONTEXTO_RECEPCION_CALENDARIO_PERSONAL_V81.md. Local29/29 dirigidas, módulo895/886aprobados/9omisiones y ci:personal353/349aprobados/4omisiones, cero fallos; Mongo/Chromium/CI exacta nuevos pendientes. BackupV28/44 sin cambios ni migración; auditoría antigua IP/agente del calendario sigue pendiente de minimización separada, no se reescriben hashes. Sin merge/Render/otros productos/datos reales. Próximo: cerrar este lote y productores restantes, auditoría calendario y metas ambiguas; releer remoto/CI/docs antes de actuar. Tarea activa.
+
+
+## Cierre de ensayo r100 — 19 de noviembre de2026
+
+Código a1635bb77dbaa6ae430553f42b8899544de4b0d1, árbol bd8c5a6eae543d4485190ee67b1f7d5c32ca3d3f, publicado sobre a298235a724af71ec9d74277e01f785421780f39 con lease sin forzar historia y árbol local/remoto idéntico. Un bloque completo dentro del alcance descrito; no se atribuye evidencia nueva a productores todavía pendientes.
+
+| Verificación del SHA funcional | Resultado |
+| --- | --- |
+| [Gate44490294686](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44490294686) | success |
+| [Seguridad44490294781](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44490294781) | success |
+| [V8144490294674](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44490294674) | success, ocho jobs aprobados |
+| [Mongo autorizado/Chromium135443898978](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44490294674/job/135443898978) | Mongo93/93 y navegador/backend28/28, cero fallos, cancelaciones u omisiones |
+
+Criterios de origen/privacidad, atomicidad, recuperación e integridad cubiertos por el caso autorizado nuevo y las regresiones existentes: captura diferida, HMAC del peer127.0.0.1 ignorando XFF falso, rechazo de contexto forjado400/ajeno404/configuración ausente503 sin efectos, fallo inyectado después del INSERT del evento revierte fuente/contexto/saldo/outbox/evento; carrera misma clave acredita450 una vez; GET y replay sin clave contextual actual conservan snapshots; rotación usa ctx_recepcion_b sin cambiar el original anterior; adulteración administrativa en el fixture aislado bloquea calendario y replay409 sin reparar o escribir.
+
+Interfaz integrada: FP_CONTEXTO_RECEPCION observó login real, formulario de recepción en Chromium390, un POST confirmado cuyo acuse se pierde y una consulta GET de recibo, sin reenviar. Diario conserva solicitud exacta; fuente/contexto/calendario permanecen intactos y caja sintética3000. Consulta de auditoría propia muestra hash original sin token ni HTML activo; ajeno404. No representa Safari/dispositivo físico ni evidencia bancaria.
+
+RespaldoV28/44 del mismo job:7879 documentos,7720990 bytes, captura235ms, restauración1089ms, edad1334ms. BSON/índices en destino aislado vacío, custodiaIndependiente=false y rpoProduccion=false. Son métricas de ese ensayo, no RPO/RTO o retención productivos. Se mantiene esquema/roles/índices sin nueva migración. Local29/29 dirigidas, módulo895/886aprobados/9omisiones y ci:personal353/349aprobados/4omisiones; omisiones locales cubiertas solo en los alcances reales de CI, no convertidas en aprobación absoluta.
+
+El cierre documental descendiente requiere sus propias tres CI; el SHA y sus resultados quedan enlazados en el PR y en GitHub sin confundirlos con los del código. PR389 continúa abierto; base feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e sin merge. #407 y toda aceptación operacional externa siguen pendientes según matriz: custodio independiente real, backup/restore operacional y retención/acceso separados, roles/índices/compatibilidad históricos reales, configuración productiva, dispositivos y auditoría independiente aplicable. Sin Render, otros productos, main, costos ni datos reales modificados.
+
+Checkpoint siguiente: verificar HEAD remoto/PR389/#407/CI y releer CONTEXTO_RECEPCION_CALENDARIO_PERSONAL_V81.md, matriz y continuidad antes de actuar. Priorizar minimización de nueva auditoría de calendario conservando hashes previos y su compatibilidad, contexto de captura/aprobación IA/deuda/crédito y resolución explícita de metas ambiguas por eventos/consentimiento. No recapturar contexto de fuentes anteriores ni inventar red de trabajos internos. Tarea activa; publicado en GitHub, no desplegado ni verificado en Render.
