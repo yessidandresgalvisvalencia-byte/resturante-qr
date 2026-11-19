@@ -173,3 +173,30 @@ test("venta: persiste evidencia de cálculo exacto en centavos sin sustituir el 
     costoCentavos:"20000",utilidadCentavos:"-17950",margenPuntosBase:"-87560"
   });
 });
+
+
+test("venta: pedido de otra empresa se rechaza antes de consultar o persistir",async()=>{
+  const {service,seen,created}=makeService(null,{successfulCreate:true});
+  await assert.rejects(service.registrarVentaDesdePedido({
+    pedido:{...pedido,empresaId:"empresa_B"},empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+  }),/GRUK_VENTA_PEDIDO_TENANT_CONFLICT/);
+  assert.equal(seen.length,0);
+  assert.equal(created.length,0);
+});
+
+test("venta: pedido de otra sede se rechaza antes de persistir",async()=>{
+  const {service,created}=makeService(null,{successfulCreate:true});
+  await assert.rejects(service.registrarVentaDesdePedido({
+    pedido:{...pedido,empresaId:"empresa_A",sedeId:"sede_B"},
+    empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+  }),/GRUK_VENTA_PEDIDO_SEDE_CONFLICT/);
+  assert.equal(created.length,0);
+});
+
+test("venta: pedido con sede explícita no puede registrarse como venta sin sede",async()=>{
+  const {service,created}=makeService(null,{successfulCreate:true});
+  await assert.rejects(service.registrarVentaDesdePedido({
+    pedido:{...pedido,sedeId:"sede_A"},empresaId:"empresa_A",emitirEvento:false
+  }),/GRUK_VENTA_PEDIDO_SEDE_CONFLICT/);
+  assert.equal(created.length,0);
+});
