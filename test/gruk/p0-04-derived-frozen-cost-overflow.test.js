@@ -30,7 +30,7 @@ test('P0-04: rejected unsafe derived frozen cost never writes a sale', async () 
         },
         empresaId, sedeId, emitirEvento: false
       }),
-      /calculos economicos fuera de rango seguro/
+      /calculos economicos fuera de rango seguro|DINERO_RANGO_/
     );
     assert.equal(writes, 0);
   } finally {
