@@ -35,3 +35,9 @@ test('preserves exact values for own data fields and frozen input', () => {
   assert.equal(result.gastos, '0.29');
   assert.equal(result.resultado, '0.01');
 });
+
+test('rejects negative zero in persisted revenue and expense rather than normalizing its sign', () => {
+  assert.throws(() => exactFinancialSummary([{ total: -0 }], []), TypeError);
+  assert.throws(() => exactFinancialSummary([], [{ monto: -0 }]), TypeError);
+  assert.equal(exactFinancialSummary([{ total: 0 }], [{ monto: 0 }]).resultado, '0.00');
+});
