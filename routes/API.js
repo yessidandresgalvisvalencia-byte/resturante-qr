@@ -1549,7 +1549,7 @@ router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROL
     );
 
     const io = req.app.get("io");
-    io.emit("pedido:actualizado", pedido);
+    io.to(`empresa-${req.auth.empresaId}`).emit("pedido:actualizado", pedido);
 
     res.json(pedido);
   } catch (error) {
@@ -1622,7 +1622,7 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
     if (ventaPostCommit) emitirVentaCompletada(ventaPostCommit);
 
     const io = req.app.get("io");
-    io.emit("pedido:actualizado", pedidoFinal);
+    io.to(`empresa-${req.auth.empresaId}`).emit("pedido:actualizado", pedidoFinal);
 
     return res.json({ ok: true, pedido: pedidoFinal });
   } catch (error) {
