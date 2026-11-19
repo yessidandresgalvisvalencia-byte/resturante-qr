@@ -7,14 +7,15 @@ const vm = require("node:vm");
 const { calculateLegacySale, canonicalLegacyMoney } = require("../../core/finance/enterpriseSalesMath");
 
 const source = fs.readFileSync(path.join(__dirname, "../../services/ventas.service.js"), "utf8");
-function makeService(existing) {
+function makeService(existing, {successfulCreate = false} = {}) {
   const seen = [];
+  const created = [];
   const collision = Object.assign(new Error("duplicate"), {code:11000});
   const producto = {_id:"producto_1", costoUnitario:100};
   const mocked = {
     mongoose:{Types:{ObjectId:{isValid:()=>true}}},
     "../models/Venta":{
-      create:async()=>{throw collision;},
+      create:async(records)=>{if (!successfulCreate) throw collision; created.push(records[0]); return [{...records[0],_id:"venta_nueva"}];},
       findOne(filter){seen.push(filter);return {session:async()=>existing};}
     },
     "../models/ProductoServicio":{
@@ -30,7 +31,7 @@ function makeService(existing) {
     if (Object.prototype.hasOwnProperty.call(mocked,name))return mocked[name];
     throw new Error("Unexpected dependency "+name);
   },module,exports:module.exports,Error,Number,String});
-  return {service:module.exports,seen,collision};
+  return {service:module.exports,seen,created,collision};
 }
 const pedido={
   _id:"pedido_1",productoServicioId:"producto_1",
@@ -156,4 +157,19 @@ test("venta: rechaza cantidad fuera del límite financiero antes de persistir",a
     /quantity|cantidad|integer|canonical/i
   );
   assert.equal(seen.length,0);
+});
+
+
+test("venta: persiste evidencia de cálculo exacto en centavos sin sustituir el esquema histórico",async()=>{
+  const {service,created}=makeService(null,{successfulCreate:true});
+  const result=await service.registrarVentaDesdePedido({
+    pedido:{...pedido,cantidad:2,precioUnitario:10.25,precio:20.5},
+    empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+  });
+  assert.equal(result.creada,true);
+  assert.equal(created.length,1);
+  assert.deepEqual(JSON.parse(JSON.stringify(created[0].metadata.calculoExactoV1)),{
+    ingresoCentavos:"2050",brutoCentavos:"2050",descuentoCentavos:"0",
+    costoCentavos:"20000",utilidadCentavos:"-17950",margenPuntosBase:"-87560"
+  });
 });
