@@ -37,6 +37,10 @@ const decimal100 = NumberDecimal("100");
 const maxCents = NumberDecimal("9007199254740991");
 const enterprise = db.getSiblingDB(name);
 const existing = new Set(enterprise.getCollectionNames());
+// A valid connection to the wrong/empty database must NEVER pass silently.
+if (!existing.has("ventas")) {
+  throw new Error("GRUK_MONEY_AUDIT_VENTAS_COLLECTION_REQUIRED");
+}
 let blocked = false;
 const summary = [];
 
@@ -92,6 +96,9 @@ for (const [collectionName, fields] of targets) {
     };
     const missingRequired = (requiredAmounts[collectionName] || []).includes(field)
       ? counts.missingOrNull : 0;
+    // A zero-row sales collection does not establish the identity or validity
+    // of the enterprise financial database; require independent verification.
+    if (collectionName === "ventas" && counts.total === 0) blocked = true;
     const anomalies = missingRequired + counts.invalidType + counts.nonCent +
       counts.outOfRange + counts.conversionFailures;
     if (anomalies > 0) blocked = true;
