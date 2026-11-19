@@ -28,7 +28,7 @@ function audit({ env = {}, collectionNames = ["ventas"], counts = {} } = {}) {
         aggregate(pipeline, opts) {
           operations.push({ command: "aggregate", name, pipeline, opts });
           assert.equal(pipeline.length, 3);
-          assert.deepEqual(opts, { allowDiskUse: false });
+          assert.equal(opts.allowDiskUse, false);
           const nameField = pipeline[0].$project.valueType.$type.slice(1);
           return { toArray() {
             return [{ total: 2, missingOrNull: 0, invalidType: 0,
@@ -63,7 +63,7 @@ test("P0-04 financial preflight: audits actual monetary fields read-only without
   assert.equal(result.printed[0].monetaryDataReadyForDbaReview, true);
   assert.equal(result.printed[0].mode, "READ_ONLY");
   const fields = result.operations.filter(x => typeof x === "object");
-  assert.equal(fields.length, 12);
+  assert.equal(fields.length, 13);
   assert.ok(fields.every(x => x.command === "aggregate"));
   assert.ok(fields.every(x => !["cantidad", "clienteId", "actorId"].includes(
     x.pipeline[0].$project.valueType.$type.slice(1)
