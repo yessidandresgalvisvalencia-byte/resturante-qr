@@ -1,6 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r95 (en validación)
+# Matriz de aceptación y prioridad — revisión r95 (cierre recuperado)
 
-Corte: revisión del 13 de noviembre de 2026, base real `9b8af4bcb248cd9befaa2e6e50d891a44db31819`. r95 en validación: CONTEXTO_AUDITORIA_CUENTAS_PERSONAL_V81.md. r94 verifica revisión privada de formato/nombres BSON; código `fea0387bc5588ff880e7228408335b10e28ccedc`, tres CI verdes y Mongo87/87 + navegador/backend22/22: REVISION_FUENTES_METAS_PERSONAL_V81.md. Código r93 `aaa871df7c3e454af8de483fc210b9813de70122`, tres CI verdes y Mongo86/86 + navegador/backend21/21. CONTEXTO_AUDITORIA_METAS_PERSONAL_V81.md. PR389 abierto; base personal `652126a03f19fbec3c529cad1e84bff11cd3699e`. No es certificación ni autorización de despliegue. La evidencia histórica y sus límites permanecen en CONTINUIDAD_V81.md y documentos enlazados; verificar siempre CI del HEAD actual. “Verificado en ensayo” significa solo el alcance de pruebas descrito, no producción ni todos los casos posibles.
+Corte: revisión del 13 de noviembre de 2026, base real `9b8af4bcb248cd9befaa2e6e50d891a44db31819`. r95 código `0183f0a81b2660243bc67717fa99ea1a2e8f1612` con tres CI verdes, Mongo88/88 y navegador/backend23/23; cierre recuperado el18 de noviembre: CONTEXTO_AUDITORIA_CUENTAS_PERSONAL_V81.md. r94 verifica revisión privada de formato/nombres BSON; código `fea0387bc5588ff880e7228408335b10e28ccedc`, tres CI verdes y Mongo87/87 + navegador/backend22/22: REVISION_FUENTES_METAS_PERSONAL_V81.md. Código r93 `aaa871df7c3e454af8de483fc210b9813de70122`, tres CI verdes y Mongo86/86 + navegador/backend21/21. CONTEXTO_AUDITORIA_METAS_PERSONAL_V81.md. PR389 abierto; base personal `652126a03f19fbec3c529cad1e84bff11cd3699e`. No es certificación ni autorización de despliegue. La evidencia histórica y sus límites permanecen en CONTINUIDAD_V81.md y documentos enlazados; verificar siempre CI del HEAD actual. “Verificado en ensayo” significa solo el alcance de pruebas descrito, no producción ni todos los casos posibles.
 
 | Área solicitada | Evidencia disponible | Brecha/estado de aceptación |
 | --- | --- | --- |
@@ -75,4 +75,12 @@ Backup aislado V24/44:7759docs/7453822bytes, captura218ms/restore2076ms/edad2296
 
 
 ## Plan r95
-Apertura/retiro/restauración de cuentas con contexto minimizado y compromiso, dominios independientes de metas y mismos originales/saldos. Sin evidencia de CI exacta todavía. No cubre conciliaciones ni otros flujos; retención, clave productiva y topología de proxy/rate limit reales siguen pendientes. Revisión/resolución de metas ambiguas sigue pendiente; no reparar ni omitir automáticamente.
+Apertura/retiro/restauración de cuentas con contexto minimizado y compromiso, dominios independientes de metas y mismos originales/saldos. Verificado en ensayos del SHA funcional; cierre y límites constan abajo. No cubre conciliaciones ni otros flujos; retención, clave productiva y topología de proxy/rate limit reales siguen pendientes. Revisión/resolución de metas ambiguas sigue pendiente; no reparar ni omitir automáticamente.
+
+
+## Cierre recuperado r95 — 18 de noviembre
+HEAD funcional0183f0a81b2660243bc67717fa99ea1a2e8f1612/árbol37af7d10973382193c23196e07cff32ae2b73a99 permanece real; PR389 abierto, base personal652126a03f19fbec3c529cad1e84bff11cd3699e sin integrar. Gate43429299329/Seguridad43429299135/V8143429299172 success, ocho jobs y job131898458844 Mongo88/88 + browser/backend23/23, cero omisiones/fallos. Ejecuciones originales del13 de noviembre reconsultadas; la CI del cierre documental debe ejecutarse de nuevo y constar en PR389.
+
+Contexto HTTP de apertura/retiro/restauración de cuentas ligado al hash, dominios HMAC separados de metas, clave dedicada y fallo transaccional sin residuos; replay/lectura sin clave, legacy/internal y recuperación tras respuesta perdida. Saldo sintético100000, fuentes/recibos originales y anclas conservados; UI390 sin tokens. No certifica IP real ni dispositivo ni contexto de conciliaciones u otros flujos. Backup aisladoV25/44,7770docs/7485862bytes, captura290ms/restore1199ms/edad1482ms; sin custodia independiente ni RPO productivo.
+
+Siguiente: auditoría contextual de conciliaciones/movimientos restantes y resolución explícita de metas ambiguas preservando cada original. #407/custodio real/backup operacional/roles e índices productivos/Safari-dispositivos/auditoría independiente siguen pendientes. Sin merge ni Render. Plan y límites completos en CONTEXTO_AUDITORIA_CUENTAS_PERSONAL_V81.md y CONTINUIDAD_V81.md.
