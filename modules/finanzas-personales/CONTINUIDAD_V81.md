@@ -2669,3 +2669,10 @@ Primer SHA571365519e5d90fde2d22fbf68765e9f782095b0/árboldac613bfe3e1f6d4d6cdfc6
 ## Expectativa de actualización del listado en Chromium r101
 
 SHA79a11b050b9cbd7495ec7b8bd1d12472d04c6256/árbol36be7b1b348c63fb515591127a9a35f7376ada2b: Mongo94/94 aprobado en job135478910583; V8144500561478 falló en navegador29casos/27aprobados/2fallos contando padre. Stack backend-recuperacion.browser.cjs:85:1614: locator #ciLista / Ver historial agotó30000ms. Tras confirmar por GET, resolver invalida el listado previo y requiere actualización explícita; el caso ya había comprobado un POST, una consulta, diario confirmado y contexto HTTP. Se ajusta el ensayo para pulsar ciActualizar antes de Ver historial, conservando límites/timeouts y todas las aserciones de caja, privacidad, recibo, solicitud y BSON/hash. No se cambia producto ni se habilita una vista obsoleta. El siguiente SHA necesita CI completa propia.
+
+
+## Datos financieros conservados en la vista resumida
+La revisión de la nueva presentación encontró que acción/motivo/contexto/hash eran insuficientes para revisar cambios financieros. Se muestran también estado, concepto, monto y fecha prevista anteriores/posteriores, y recepción revisada (importe/fecha/cuenta) cuando corresponde. Es información de la misma solicitud/estados ya verificados, no cálculo o ingreso adicional. La prueba del visor exige esos datos además de redacción/aislamiento y texto literal. Se mantienen todos los filtros privados y se requiere CI completa del siguiente SHA; no es un cambio de fuentes, caja o algoritmo de hash.
+
+
+Validación intermedia r101: SHA7117acfdfa3f7a7245791b21e7b8ee7f572c8bc4/árbol38a5ca165fd4089df89c21075d8424e93790fe3a aprobó Gate44501260140/Seguridad44501260150/V8144501260207; job135481348795 Mongo94/94 y navegador/backend29/29 sin omisiones. FP_CONTEXTO_CALENDARIO confirma login real/Chromium390/un POST/una consulta de recibo, acuse perdido, lectura sin clave, BSON/hash legado intactos y caja sin cambios. La incorporación posterior de importes/fechas al visor requiere CI propia antes del cierre; no se le atribuye anticipadamente esta ejecución. Pruebas locales del ajuste57/57.
