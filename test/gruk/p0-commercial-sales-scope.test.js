@@ -33,7 +33,8 @@ function loadService(product) {
     '../models/Venta': { async create() { writes++; return [{ _id: 'sale-1' }]; } },
     '../models/ProductoServicio': productModel,
     '../models/Cliente': {},
-    '../core/eventos/eventBus': { emit() { emittedEvents++; } }
+    '../core/eventos/eventBus': { emit() { emittedEvents++; } },
+    '../core/finanzas/dineroExacto': require('../../core/finanzas/dineroExacto')
   };
   const module = { exports: {} };
   vm.runInNewContext(source, { module, exports: module.exports, require(id) {
