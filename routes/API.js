@@ -1634,9 +1634,13 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
       404: "Pedido no encontrado",
       409: "Un pago confirmado no puede revertirse desde este endpoint"
     };
+    const esConflictoStock = typeof error.code === "string" &&
+      error.code.startsWith("INVENTARIO_");
     return res.status(status).json({
       ok: false,
-      mensaje: mensajes[status] || "Operación de pago no completada"
+      mensaje: esConflictoStock
+        ? (status === 409 ? "Stock insuficiente, inexistente o ambiguo en la sede" : "Inventario no pudo confirmar la operación")
+        : (mensajes[status] || "Operación de pago no completada")
     });
   } finally {
     await session.endSession();
