@@ -93,3 +93,15 @@ jobs:
             echo "P0-04 integration test skipped or failed"
             exit 1
           fi
+      - name: Run paid-order sale, cash and report with real disposable MongoDB
+        env:
+          NODE_ENV: test
+          GRUK_TEST_MONGO_DISPOSABLE: "1"
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/
+        run: |
+          node --test test/gruk/p0-04-sale-cash-report.integration.test.js > /tmp/gruk-p004-cash.log 2>&1 || { cat /tmp/gruk-p004-cash.log; exit 1; }
+          cat /tmp/gruk-p004-cash.log
+          if grep -Eq '^# skipped [1-9]|^# fail [1-9]' /tmp/gruk-p004-cash.log; then
+            echo "P0-04 sale-to-cash integration skipped or failed"
+            exit 1
+          fi
