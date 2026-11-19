@@ -4,8 +4,7 @@ const path = require("path");
 require("dotenv").config();
 const http = require("http");
 const { Server } = require("socket.io");
-const jwt = require("jsonwebtoken");
-const { validarVersionSesion } = require("./core/auth/sessionVersion.service");
+const { createSocketAuthMiddleware } = require("./core/auth/socketAuth.middleware");
 const eventBus = require("./core/eventos/eventBus");
 const { registrarFinanzasListener } = require("./intelligence/listeners/finanzas.listener");
 const { registrarCajaListener } = require("./intelligence/listeners/caja.listener");
@@ -161,18 +160,7 @@ async function iniciarAplicacion() {
   }
 }
 
-io.use(async (socket, next) => {
-  try {
-    const token = String(socket.handshake.auth?.token || "").replace(/^Bearer\\s+/i, "");
-    if (!token || !process.env.JWT_SECRET) return next(new Error("UNAUTHORIZED"));
-    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms:["HS256"] });
-    if (!payload.sub || !payload.empresaId || !payload.rol) return next(new Error("UNAUTHORIZED"));
-    if (!["DUEÑO","ADMIN_SEDE","EMPLEADO"].includes(String(payload.rol))) return next(new Error("UNAUTHORIZED"));
-    if (!(await validarVersionSesion(payload))) return next(new Error("UNAUTHORIZED"));
-    socket.auth = Object.freeze({ usuarioId:String(payload.sub), empresaId:String(payload.empresaId), sedeId:payload.sedeId ? String(payload.sedeId) : null, rol:String(payload.rol), identityType:payload.identityType ? String(payload.identityType) : null, tokenVersion:Number(payload.tokenVersion||0) });
-    return next();
-  } catch (_) { return next(new Error("UNAUTHORIZED")); }
-});
+io.use(createSocketAuthMiddleware());
 
 io.on("connection", (socket) => {
   socket.join(`empresa-${socket.auth.empresaId}`);
