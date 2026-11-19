@@ -13,6 +13,7 @@ const {restaurarReserva}=require("./restaurarReservaCompensadaPersonal.service")
 const {canon}=require("./eventoCompensatorioPersonal.service");
 const {serializarEscrituraFuente}=require("./proteccionOriginalCompensadoPersonal.service");
 const auditoria=require("../security/contextoAuditoriaCompensacionPersonal.service");
+const Registro=require("./auditoriaRegistroPersonal.service");
 const registrar=crearRegistrador();
 const error=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
 // Evento, saldo, reserva y outbox se confirman juntos sin modificar el asiento original.
@@ -38,8 +39,9 @@ function crearAplicador({OutboxModelo=Outbox}={}){
     // obliga a reintentar y entonces observar el recibo confirmado.
     const reciboExistente=await Evento.exists({usuarioId:String(usuarioId),movimientoId:String(movimientoId),idempotencyKey}).session(session);
     if(!reciboExistente)await serializarEscrituraFuente(usuarioId,session);
-    const fuente=await Transaccion.findOne({_id:movimientoId,usuarioId}).session(session).lean();
+    const fuente=await Transaccion.findOne({_id:movimientoId,usuarioId}).select("+auditoriaRegistro").session(session).lean();
     if(!fuente)throw error("Movimiento no disponible",404);
+    Registro.verificar(fuente);
     if(fuente.estado!=="ACTIVA"||!["INGRESO","GASTO"].includes(fuente.tipo)||
        fuente.moneda!=="COP"||fuente.impactoCaja!==true||fuente.medioPago==="CREDITO"||
        fuente.recurrente||fuente.prestamoId||!fuente.cuentaId)

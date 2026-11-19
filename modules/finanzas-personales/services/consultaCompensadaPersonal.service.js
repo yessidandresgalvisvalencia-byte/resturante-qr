@@ -5,6 +5,8 @@ const Evento=require("../models/EventoCompensatorioPersonal");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const {vigente}=require("./estadoCompensadoPersonal.service");
 const {verificarCadena,originalDesdeFuente,validarDocumento}=require("./eventoCompensatorioPersonal.service");
+const Registro=require("./auditoriaRegistroPersonal.service");
+function fuenteVisible(f){const {auditoriaRegistro,...visible}=f;return visible;}
 const GENESIS="0".repeat(64),MAX_MOVIMIENTOS=5000,MAX_EVENTOS=10000;
 function integridad(){throw new Error("INTEGRIDAD_LEDGER: lectura compensada inconsistente");}
 // Recibe la cadena COMPLETA del usuario. Un subconjunto no permite verificar el cursor.
@@ -27,13 +29,15 @@ function proyectar({usuarioId,fuentes,eventos,cursor}){
   const id=String(f._id);
   if(String(f.usuarioId)!==usuarioId||ids.has(id))integridad();
   ids.add(id);
+  Registro.verificar(f);
+  const visible=fuenteVisible(f);
   const historial=porMovimiento.get(id)||[];
-  if(!historial.length)return Object.freeze({...f});
+  if(!historial.length)return Object.freeze(visible);
   if(f.estado!=="ACTIVA")integridad();
   const original=originalDesdeFuente(f);
   const estado=vigente(original,historial);
   const {usuarioId:_,movimientoId:__,...campos}=estado.actual;
-  return Object.freeze({...f,...campos,estado:estado.anulado?"ANULADA":"ACTIVA",
+  return Object.freeze({...visible,...campos,estado:estado.anulado?"ANULADA":"ACTIVA",
    compensacionHash:historial.at(-1).hashActual});
  });
 }
@@ -43,7 +47,7 @@ function proyectarCaja(datos){
  proyectar(datos); // valida cadena completa, cursor, fuente y estado de cada movimiento.
  const porId=new Map(datos.fuentes.map(f=>[String(f._id),f]));
  if(datos.eventos.some(e=>!porId.has(e.movimientoId)))integridad();
- const rows=datos.fuentes.filter(f=>f.estado!=="ANULADA").map(f=>({...f}));
+ const rows=datos.fuentes.filter(f=>f.estado!=="ANULADA").map(fuenteVisible);
  for(const e of datos.eventos){
   const fuente=porId.get(e.movimientoId);if(!fuente)continue;
   // Reclasificar un cobro de trabajo no cambia la caja ni su fecha de entrada.
@@ -82,7 +86,7 @@ async function consultarPeriodo({usuarioId,desde,hasta,tipo,categoria,incluirAnu
  try{
   let resultado;
   const leer=async()=>{
-   const fuentes=await Transaccion.find({usuarioId,moneda:"COP",fecha:{$gte:inicio,$lt:fin}})
+   const fuentes=await Transaccion.find({usuarioId,moneda:"COP",fecha:{$gte:inicio,$lt:fin}}).select("+auditoriaRegistro")
     .sort({fecha:1,_id:1}).limit(MAX_MOVIMIENTOS+1).maxTimeMS(5000).session(session).lean();
    const eventos=await Evento.find({usuarioId:String(usuarioId)},{_id:0}).sort({secuencia:1})
     .limit(MAX_EVENTOS+1).maxTimeMS(5000).session(session).lean();
