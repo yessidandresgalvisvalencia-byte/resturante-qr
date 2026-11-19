@@ -47,7 +47,7 @@ jobs:
             echo "::error::Explicit enterprise database confirmation is required"
             exit 1
           fi
-          if [[ ! "$DB_NAME" =~ ^[A-Za-z][A-Za-z0-9_-]{1,62}$ ]] || [[ "$DB_NAME" =~ (personal|finanzas|blushea|admin|local|config|test) ]]; then
+          if [[ ! "$DB_NAME" =~ ^[A-Za-z][A-Za-z0-9_-]{1,62}$ ]] || [[ "${DB_NAME,,}" =~ (personal|finanzas|blushea|admin|local|config|test) ]]; then
             echo "::error::Invalid enterprise database name"
             exit 1
           fi
