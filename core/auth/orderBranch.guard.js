@@ -59,7 +59,7 @@ async function authorizeOrderBranch({ pedido, restaurante, auth, session = null,
   // Sales need the canonical ObjectId, while legacy pedidos may store a code.
   return {
     sedeObjectId: sede._id,
-    pedidoParaVenta: { ...pedido.toObject?.() || pedido, sedeId: sede._id }
+    pedidoParaVenta: { ...(typeof pedido.toObject === "function" ? pedido.toObject() : pedido), sedeId: sede._id }
   };
 }
 
