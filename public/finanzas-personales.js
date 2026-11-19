@@ -468,6 +468,7 @@ async function buscarHistorial(reset=true){
     restaurar.onclick=()=>{if(vigente())window.restoreMovement(item._id,item.recuperacion.anulacionHash);};el.append(restaurar);
     if(item.tipo==="PAGO_DEUDA"&&item.prestamoId&&recuperacionPersonal){const revisar=document.createElement("button");revisar.type="button";revisar.textContent="Revisar recuperación con cambio de fecha";revisar.addEventListener("click",()=>{if(vigente()){recuperacionPersonal.revisar(String(item.prestamoId),item._id,item.recuperacion.anulacionHash);$("recuperacionCuotasPersonal")?.scrollIntoView?.({block:"nearest"});}});el.append(revisar);}
    }
+   if(item.clase==="MOVIMIENTO"&&["INGRESO","GASTO","PAGO_DEUDA","COBRO_PRESTAMO"].includes(item.tipo)&&window.AuditoriaMovimientoPersonal)window.AuditoriaMovimientoPersonal.crearVista({contenedor:el,api,movimientoId:String(item._id),token:tokenConsulta,vigente,dinero:money});
    $("histResultados").append(el);
   }
   $("histMensaje").textContent=(r.items||[]).length?"Resultados encontrados. Puedes restaurar los movimientos anulados que tengan el botón Restaurar.":"No se encontraron movimientos con estos filtros.";

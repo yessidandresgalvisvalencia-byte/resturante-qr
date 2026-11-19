@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r97
+# Matriz de aceptación y prioridad — revisión r98
+
+Corte r98 en validación: auditoría propia de movimientos desde historial, solo GET y paginación anclada; base real b8117c54f93e58e8ae464d656bab0a43053f5536 con tres CI verdes. Plan/aceptación/límites: AUDITORIA_MOVIMIENTO_PERSONAL_V81.md. No autoriza despliegue; lote nuevo pendiente de CI.
 
 Corte r97 verificado: 18 de noviembre de2026. Contexto de compensaciones de caja y replay sin escribir coordinación: código fb46e268b6f77efc5ca6f40f370a0b317acb7510, tres CI verdes, Mongo90/90 y navegador/backend25/25. Informe/aceptación/límites: CONTEXTO_AUDITORIA_COMPENSACIONES_PERSONAL_V81.md. BackupV27/44, custodia independiente/operación productiva pendientes. Verificar CI del descendiente documental y HEAD real; no es autorización de despliegue.
 
@@ -22,7 +24,7 @@ Corte r96: 18 de noviembre de2026, base real `bf0bc1a73c785d4bad7f783c2bd0684522
 
 ## Orden de trabajo recuperable
 
-1. Confirmar CI del cierre documental r97 y revisar HEAD real. El alcance de ciclo de metas debe conservar sus límites; no confundir ensayo con producción.
+1. Confirmar CI exacta del lote r98 y revisar HEAD real. El alcance de ciclo de metas debe conservar sus límites; no confundir ensayo con producción.
 2. Completar auditoría contextual minimizada IP/dispositivo y acceso/retención; revisar legados ambiguos/corruptos sin alterar sus fuentes ni inventar historia. No convertir ahorro declarado en disponible ni inferir efectivo reservado.
 3. Revisar auditoría contextual de IP/dispositivo y redacción de datos del ciclo: r97 cubre compensaciones de caja, r96 conciliaciones, r95 cuentas y r93 metas; registro original y otros flujos quedan pendientes. No presentar su auditoría como certificación externa.
 4. Contrastar requisitos operacionales con evidencia autorizada disponible. Preparar verificaciones reproducibles independientes sin contratar, elevar costos o eludir permisos; registrar lo que falta.

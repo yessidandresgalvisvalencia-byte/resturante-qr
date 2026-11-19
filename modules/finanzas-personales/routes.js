@@ -7,6 +7,7 @@ router.post("/auth/registro",authLimiter,validate(registroSchema),async(req,res)
 router.post("/auth/login",authLimiter,validate(loginSchema),async(req,res)=>{try{return res.json({ok:true,...await personalAuthService.login(req.validated)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
 // Esta lectura privada conserva no-store también cuando autenticación o suscripción la rechazan.
 router.get("/metas/revision-fuentes",(req,res,next)=>{res.set("Cache-Control","private, no-store, max-age=0");return next();});
+router.get("/transacciones/:id/auditoria",(req,res,next)=>{res.set("Cache-Control","private, no-store, max-age=0");next();});
 router.use(auth,entitlement);
 // Las respuestas privadas no deben persistir en cachés del navegador ni de intermediarios.
 router.use((req,res,next)=>{
@@ -275,6 +276,7 @@ router.post("/transacciones/constancia-intento",(req,res,next)=>{res.set("Cache-
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible consultar la constancia"});}
 });
 router.post("/transacciones",validate(transaccion),async(req,res)=>{try{return res.status(201).json({ok:true,transaccion:await flujoCaja.registrarTransaccion(req.personalAuth.userId,req.validated)});}catch(e){if(e?.code===11000)return res.status(409).json({ok:false,error:"Transacción duplicada"});return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"Error interno"});}});
+router.get("/transacciones/:id/auditoria",require("./services/auditoriaMovimientoPersonal.handler").crearHandler());
 const correccionTx=Joi.object({tipo:Joi.string().valid("INGRESO","GASTO"),montoMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),concepto:Joi.string().trim().max(140),categoria:Joi.string().trim().max(80)}).min(1);
 router.patch("/transacciones/:id",validate(correccionTx),require("./services/compensacionPersonal.handler").crearHandler({tipo:"CORRECCION"}));
 const restauracionTx=Joi.object({confirmar:Joi.boolean().strict().valid(true).required(),anulacionHash:Joi.string().pattern(/^[a-f0-9]{64}$/).required()});
