@@ -23,6 +23,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
  const Tx=require("../../modules/finanzas-personales/models/TransaccionPersonal");
  const Reporte=require("../../modules/finanzas-personales/models/migracionPersonal.model");
  const migracion=require("../../modules/finanzas-personales/services/migracionLedgerPersonal.service");
+ const auditAnterior={key:process.env.PERSONAL_AUDIT_CONTEXT_KEY,id:process.env.PERSONAL_AUDIT_CONTEXT_KEY_ID};process.env.PERSONAL_AUDIT_CONTEXT_KEY=crypto.randomBytes(32).toString("base64");process.env.PERSONAL_AUDIT_CONTEXT_KEY_ID="registro_http_ensayo";
  const anterior=process.env.PERSONAL_IDEMPOTENCY_SECRET;process.env.PERSONAL_IDEMPOTENCY_SECRET=crypto.randomBytes(32).toString("hex");
  const uid=()=>new mongoose.Types.ObjectId();
  const datos=(userId,tipo,monto)=>({userId,tipo,monto,concepto:"Dato histórico",categoria:"Prueba",fecha:new Date(Date.now()-60000)});
@@ -112,6 +113,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("calendario por eventos con HTTP autenticado conserva fuentes y recuperación concurrente",()=>require("./helpers/calendarioIngresoAutorizado").probarCalendarioIngreso(db,provisionarMongoPersonal));
   await t.test("horizonte explícito de ingreso protege hoy, históricos, compras y snapshot sin escribir",()=>require("./helpers/horizonteIngresoAutorizado").probarHorizonteIngreso(db));
   await t.test("master y proyección exacta comparten snapshot y no autorizan desde desconocidos",()=>require("./helpers/masterProyeccionAutorizada").probarMasterProyeccion(db));
+  await t.test("registro HTTP conserva contexto privado y ancla, caja, reintento y rollback",()=>require("./helpers/registroOriginalAutorizado").probarRegistro(db));
   await t.test("auditoría propia pagina cadena completa sin escribir, falla ante cambios y adulteración",()=>require("./helpers/auditoriaMovimientoAutorizado").probarAuditoria(db));
   await t.test("contexto de compensación conserva originales, caja, concurrencia y replay sin clave",()=>require("./helpers/contextoAuditoriaCompensacionAutorizado").probarContexto(db));
   await t.test("contexto HTTP de conciliación preserva movimientos posteriores, anclas y replay sin clave",()=>require("./helpers/contextoAuditoriaConciliacionAutorizado").probarContexto(db));
@@ -159,6 +161,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("auditoría de anclas compensatorias es de solo lectura y detecta truncamientos",
    ()=>require("./helpers/anclaCompensacionesAutorizada").probarAnclaCompensacionesAutorizada(db));
  }finally{
+  for(const [k,v] of [["PERSONAL_AUDIT_CONTEXT_KEY",auditAnterior.key],["PERSONAL_AUDIT_CONTEXT_KEY_ID",auditAnterior.id]]){if(v===undefined)delete process.env[k];else process.env[k]=v;}
   await mongoose.disconnect();if(anterior===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=anterior;
  }
 }

@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r98
+# Matriz de aceptación y prioridad — revisión r99
+
+Corte r99 en validación: contexto privado/ancla de nuevos I/G HTTP, sin reescribir originales; base real9c84957c8c6ae74628a979cbb6ec8bf5e9c2197f con tres CI verdes. Plan/criterios/límites: CONTEXTO_REGISTRO_ORIGINAL_PERSONAL_V81.md. BackupV28/44; lote nuevo pendiente de CI. No autoriza despliegue.
 
 Corte r98 verificado: 18 de noviembre de2026. Consulta propia de auditoría desde historial, paginación anclada y cero escrituras por GET: código538967b0b71606d63c7fff6fc8e78737aaf60319, tres CI verdes, Mongo91/91 y navegador/backend26/26. Informe/aceptación/límites: AUDITORIA_MOVIMIENTO_PERSONAL_V81.md. BackupV27/44 sin cambios; #407 y evidencia operacional independiente pendientes. Verificar CI del descendiente documental y HEAD real; no autoriza despliegue.
 
@@ -16,7 +18,7 @@ Corte r96: 18 de noviembre de2026, base real `bf0bc1a73c785d4bad7f783c2bd0684522
 | Captura conversacional | Texto/canal/recibo persistidos, copia y archivo de diario, aprobación explícita separada | r89 verificó descarte/restauración a revisión con confirmación, auditoría, recibos, propietario y carrera contra aprobación: Mongo82/82 y navegador17/17. Ver CICLO_BORRADOR_PERSONAL_V81.md. Legado ambiguo/recuperación física y verificación productiva siguen fuera del alcance |
 | Ahorro/metas | Alta/listado/recibo y ciclo por eventos conservando fuente y caja; METAS_DECLARADAS_PERSONAL_V81.md / CICLO_METAS_PERSONAL_V81.md | r92 verifica adopción explícita de legados válidos y ciclo conservando fuente/estado, sin inventar creación ni caja. ADOPCION_METAS_PERSONAL_V81.md. r93 verifica contexto minimizado y compromiso público en nuevos recibos/eventos, sin exponer tokens; Mongo86/86 y navegador21/21. No acredita cliente real ni identidad del dispositivo. r94 permite consultar hallazgos de fuentes ambiguas sin repararlas ni verificar cadena/estado actual. Resolución explícita de legados ambiguos/corruptos, contexto de otros flujos y ahorro con efectos financieros siguen pendientes. No acredita efectivo reservado |
 | Guard transversal de fallos | Control de pendientes por dueño, hashes y recibos específicos | Fallo reproducido y corregido en r88: lectura posterior y resolución explícita de confirmación; CI exacta documentada. No prueba durabilidad física del navegador |
-| Backup independiente/retención/restauración | Respaldo BSON cifrado V27 con44 colecciones, compatible V22/44 y anteriores, restauración aislada ensayada y métricas del código documentado | Custodio/destino independiente real, retención protegida, control de acceso/credenciales separadas y RPO/RTO operacionales siguen pendientes. Ensayo no constituye backup de producción |
+| Backup independiente/retención/restauración | Respaldo BSON cifrado V28 con44 colecciones, compatible V22/44 y anteriores, restauración aislada ensayada y métricas del código documentado | Custodio/destino independiente real, retención protegida, control de acceso/credenciales separadas y RPO/RTO operacionales siguen pendientes. Ensayo no constituye backup de producción |
 | Mongo insert-only/índices/migración | Auditoría de privilegios, rol restringido en runner, rollback, preservación histórica y provisión planificada | Necesita evidencia real de aplicación para todas las25 colecciones protegidas y demás fuentes, credenciales efectivas, índices/explain y compatibilidad histórica. No ejecutar provisión/migración productiva para aparentar cierre |
 | Seguridad y CI | Gate, Seguridad y V81 padre success; validación, aislamiento y concurrencia sintéticos | Revalidar SHA exacto publicado; no sustituye auditoría independiente ni prueba escala de un millón |
 | Dispositivos e interfaz | Chromium, HTML real/API y backend autorizado, vistas390/768/1440 en alcances documentados | iPhone/Safari/WebKit, dispositivos físicos/táctil y aprobación de experiencia pendientes |
@@ -24,7 +26,7 @@ Corte r96: 18 de noviembre de2026, base real `bf0bc1a73c785d4bad7f783c2bd0684522
 
 ## Orden de trabajo recuperable
 
-1. Confirmar CI del cierre documental r98 y revisar HEAD real. El alcance de ciclo de metas debe conservar sus límites; no confundir ensayo con producción.
+1. Confirmar CI exacta del lote r99 y revisar HEAD real. El alcance de ciclo de metas debe conservar sus límites; no confundir ensayo con producción.
 2. Completar auditoría contextual minimizada IP/dispositivo y acceso/retención; revisar legados ambiguos/corruptos sin alterar sus fuentes ni inventar historia. No convertir ahorro declarado en disponible ni inferir efectivo reservado.
 3. Revisar auditoría contextual de IP/dispositivo y redacción de datos del ciclo: r97 cubre compensaciones de caja, r96 conciliaciones, r95 cuentas y r93 metas; registro original y otros flujos quedan pendientes. No presentar su auditoría como certificación externa.
 4. Contrastar requisitos operacionales con evidencia autorizada disponible. Preparar verificaciones reproducibles independientes sin contratar, elevar costos o eludir permisos; registrar lo que falta.

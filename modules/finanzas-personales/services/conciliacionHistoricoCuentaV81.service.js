@@ -69,6 +69,7 @@ function crearPipelineVinculosPeriodoV81({usuarioId,cuentaId,desde,hasta}) {
    "movimiento.moneda":"COP","movimiento.estado":{$ne:"ANULADA"},
    "movimiento.fecha":{$gte:desde,$lt:hasta}}},
   {$replaceRoot:{newRoot:"$movimiento"}},
+  {$project:{auditoriaRegistro:0}},
   {$limit:MAX_FILAS_CONCILIACION_V81+1}
  ];
 }

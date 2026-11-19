@@ -1,6 +1,8 @@
 "use strict";
 const mongoose=require("mongoose");
 const schema=new mongoose.Schema({
+ auditoriaRegistro:{type:mongoose.Schema.Types.Mixed,select:false,default:undefined,immutable:true},
+ auditoriaRegistroHash:{type:String,match:/^[a-f0-9]{64}$/,default:undefined,immutable:true},
  usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,index:true},
  impactoCaja:{type:Boolean,default:true},
  cicloCuota:{type:mongoose.Schema.Types.Mixed,default:undefined},
@@ -29,6 +31,7 @@ const schema=new mongoose.Schema({
  anuladaEn:{type:Date,default:null},
  motivoAnulacion:{type:String,trim:true,maxlength:240,default:""}
 },{timestamps:true,collection:"fin_transacciones_personales"});
+for(const formato of ["toJSON","toObject"])schema.set(formato,{transform:(_doc,ret)=>{delete ret.auditoriaRegistro;return ret;}});
 schema.index({usuarioId:1,recurrenteOrigenId:1,fecha:1});schema.index({usuarioId:1,fecha:-1});schema.index({usuarioId:1,tipo:1,categoria:1,fecha:-1});
 // Resúmenes por persona/tipo/ventana: sin escanear categorías ajenas ni otras identidades.
 schema.index({usuarioId:1,tipo:1,fecha:-1},{name:"fp_gastos_periodo_usuario_v81"});

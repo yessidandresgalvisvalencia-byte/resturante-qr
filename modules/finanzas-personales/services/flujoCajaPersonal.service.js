@@ -4,6 +4,8 @@ const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
 const {calcularFlujo}=require("./totalesFlujoCompensadoPersonal.service");
 const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
+const registroAuditoria=require("./auditoriaRegistroPersonal.service");
+const contextoRegistro=require("../security/contextoAuditoriaRegistroPersonal.service");
 const Outbox=require("../models/outboxPersonal.model");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Prestamo=require("../models/prestamoPersonal.model");
@@ -32,6 +34,8 @@ async function confirmarRegistroIntento(usuarioId,input,{incluirConstancia=false
  try{
   let resultado;
   await session.withTransaction(async()=>{
+   const fuenteAuditada=await Transaccion.findOne({usuarioId,externalIdHash:hashExternalId(usuarioId,input.externalId)}).select("+auditoriaRegistro").session(session).lean();
+   if(fuenteAuditada)registroAuditoria.verificar(fuenteAuditada);
    resultado=await confirmarIntento({
     Transaccion,usuarioId,externalIdHash:hashExternalId(usuarioId,input.externalId),esperado:input,session,
     ...(incluirConstancia?{emitirConstancia:estado=>require("./constanciaIntentoManual.service").crear({usuarioId,input,...estado})}:{}),
@@ -46,7 +50,7 @@ async function confirmarRegistroIntento(usuarioId,input,{incluirConstancia=false
   return resultado;
  }finally{await session.endSession();}
 }
-async function registrarTransaccion(usuarioId,input,{session:externa=null,idMovimiento=null}={}){
+async function registrarTransaccion(usuarioId,input,{session:externa=null,idMovimiento=null,capturarContexto}={}){
  if(externa&&!externa.inTransaction?.())throw Object.assign(new Error("Registro requiere transacción externa activa"),{statusCode:503});
  if(idMovimiento!==null&&(!externa||!mongoose.isObjectIdOrHexString(idMovimiento)))throw Object.assign(new Error("Identidad de registro externo inválida"),{statusCode:400});
  if(input.tipo==="GASTO"&&String(input.cuenta||"EFECTIVO").trim().toUpperCase()==="EFECTIVO"&&input.medioPago==="TRANSFERENCIA")input={...input,medioPago:"EFECTIVO"};
@@ -57,8 +61,11 @@ async function registrarTransaccion(usuarioId,input,{session:externa=null,idMovi
   await exigirIndiceUnicoReservaRecurrente();
  if(input.tipo==="GASTO"&&input.medioPago==="CREDITO")throw Object.assign(new Error("Un gasto con tarjeta de crédito debe registrar también la obligación de la tarjeta; GRUK no lo descontará de caja como si fuera débito."),{statusCode:422});const session=externa||await mongoose.startSession();let tx,outbox;
  try{
+  const resolverContexto=capturarContexto?contextoRegistro.resolver(usuarioId,{capturarContexto}):null;
   const ejecutar=async()=>{
    const externalIdHash=hashExternalId(usuarioId,input.externalId);
+   const yaExiste=resolverContexto&&externalIdHash?await Transaccion.exists({usuarioId,externalIdHash}).session(session):false;
+   const contexto=resolverContexto&&!yaExiste?resolverContexto():undefined;
    let recurrenteOrigenId=null;
    if(input.recurrenteOrigenId!==undefined&&input.recurrenteOrigenId!==null){
     if(typeof input.externalId!=="string"||!input.externalId.trim()||input.externalId.length>160)
@@ -118,7 +125,9 @@ async function registrarTransaccion(usuarioId,input,{session:externa=null,idMovi
    if(!cuenta){
     [cuenta]=await Cuenta.create([{usuarioId,nombre:nombreCuenta,tipo:nombreCuenta.toUpperCase()==="EFECTIVO"?"EFECTIVO":"OTRA",institucion:"",moneda:"COP",saldoMinor:0,activa:true}],{session});
    }
-   [tx]=await Transaccion.create([{...(idMovimiento?{_id:idMovimiento}:{}),usuarioId,prestamoId,recurrenteOrigenId,cuentaId:cuenta._id,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",cuenta:input.cuenta||"EFECTIVO",medioPago:input.medioPago||"EFECTIVO",contraparte:input.contraparte||"",descripcion:input.descripcion||"",recurrente:Boolean(input.recurrente),frecuencia:input.frecuencia||"NINGUNA",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null}],{session});
+   let datosTx={...(idMovimiento?{_id:idMovimiento}:{}),usuarioId,prestamoId,recurrenteOrigenId,cuentaId:cuenta._id,tipo:input.tipo,montoMinor:input.montoMinor,moneda:input.moneda||"COP",concepto:input.concepto,categoria:input.categoria,subcategoria:input.subcategoria||"",cuenta:input.cuenta||"EFECTIVO",medioPago:input.medioPago||"EFECTIVO",contraparte:input.contraparte||"",descripcion:input.descripcion||"",recurrente:Boolean(input.recurrente),frecuencia:input.frecuencia||"NINGUNA",fecha:input.fecha,origen:input.origen||"MANUAL",externalIdHash,metadatosCifrados:envelope?{ciphertext:envelope.ciphertext,iv:envelope.iv,tag:envelope.tag}:undefined,keyVersion:envelope?.keyVersion||null};
+   if(contexto){const normalizado=new Transaccion(datosTx).toObject({transform:false});datosTx={...normalizado,...registroAuditoria.crear(normalizado,contexto)};}
+   [tx]=await Transaccion.create([datosTx],{session});
    if(input.tipo==="PAGO_DEUDA"){const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]}}).session(session);if(!p)throw Object.assign(new Error("Deuda no encontrada"),{statusCode:404});if(input.montoMinor>p.saldoMinor)throw Object.assign(new Error("El pago supera el saldo pendiente"),{statusCode:409});p.saldoMinor-=input.montoMinor;if(p.saldoMinor===0)p.estado="PAGADO";await p.save({session});}if(input.tipo==="COBRO_PRESTAMO"){const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]}}).session(session);if(!p)throw Object.assign(new Error("Cuenta por cobrar no encontrada"),{statusCode:404});if(input.montoMinor>p.saldoMinor)throw Object.assign(new Error("El cobro supera el saldo pendiente"),{statusCode:409});p.saldoMinor-=input.montoMinor;if(p.saldoMinor===0)p.estado="PAGADO";await p.save({session});}
    const eventId=crypto.randomUUID(),eventName=eventFor(input.tipo);
    [outbox]=await Outbox.create([{usuarioId,eventId,eventName,aggregateId:tx._id,payload:{transaccionId:tx._id.toString(),prestamoId:prestamoId?String(prestamoId):null,tipo:tx.tipo,montoMinor:tx.montoMinor,moneda:tx.moneda,categoria:tx.categoria,fecha:tx.fecha}}],{session});

@@ -31,7 +31,7 @@ test("pipeline filtra usuario, cuenta, intervalo colombiano y luego limita",()=>
  const usuarioId=new mongoose.Types.ObjectId(),cuentaId=new mongoose.Types.ObjectId();
  const desde=new Date("2025-01-01T05:00:00Z"),hasta=new Date("2025-02-01T05:00:00Z");
  const pipeline=crearPipelineVinculosPeriodoV81({usuarioId,cuentaId,desde,hasta});
- assert.equal(pipeline.length,6);
+ assert.equal(pipeline.length,7);
  assert.deepEqual(pipeline[0],{$match:{usuarioId,cuentaId}});
  assert.equal(pipeline[1].$lookup.localField,"movimientoId");
  assert.equal(pipeline[1].$lookup.foreignField,"_id");
@@ -41,7 +41,8 @@ test("pipeline filtra usuario, cuenta, intervalo colombiano y luego limita",()=>
  assert.equal(pipeline[3].$match["movimiento.moneda"],"COP");
  assert.deepEqual(pipeline[3].$match["movimiento.fecha"],{$gte:desde,$lt:hasta});
  assert.deepEqual(pipeline[4],{$replaceRoot:{newRoot:"$movimiento"}});
- assert.deepEqual(pipeline[5],{$limit:MAX_FILAS_CONCILIACION_V81+1});
+ assert.deepEqual(pipeline[5],{$project:{auditoriaRegistro:0}});
+ assert.deepEqual(pipeline[6],{$limit:MAX_FILAS_CONCILIACION_V81+1});
  assert.throws(()=>crearPipelineVinculosPeriodoV81({usuarioId,cuentaId,desde:hasta,hasta:desde}),TypeError);
  assert.throws(()=>crearPipelineVinculosPeriodoV81({usuarioId:cuentaId,cuentaId:"falso",desde,hasta}),TypeError);
 });
