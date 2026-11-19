@@ -146,7 +146,7 @@ test("venta: reintento no acepta cantidades históricas fraccionarias",async()=>
   );
 });
 
-test("venta: rechaza desbordamiento del importe de línea antes de persistir",async()=>{
+test("venta: rechaza cantidad fuera del límite financiero antes de persistir",async()=>{
   const {service,seen}=makeService(null);
   await assert.rejects(
     service.registrarVentaDesdePedido({
