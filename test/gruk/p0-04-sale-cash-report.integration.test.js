@@ -103,6 +103,37 @@ test("P0-04: disposable Mongo real paid order -> sale -> cash -> branch report, 
     assert.equal(branchReport.entradasConfirmadas, 50000);
     assert.equal(branchReport.flujoConfirmadoParcial, 50000);
 
+    // Real MongoDB accumulation must be decimal-exact (0.10 + 0.20).
+    // Create actual paid sales rather than synthetic ledger-only rows.
+    const smallProduct = await Products.create({
+      empresaId, sedeId, tipo: "producto", nombre: "P004 decimal cash",
+      precioVenta: 0.1, costoUnitario: 0
+    });
+    for (const amount of [0.1, 0.2]) {
+      const smallOrder = {
+        _id: new mongoose.Types.ObjectId(),
+        empresaId, sedeId, restaurantId: "p004-rest",
+        productoServicioId: smallProduct._id,
+        cantidad: 1, precioUnitario: amount, precio: amount,
+        producto: "P004 decimal cash", metodoPago: ""
+      };
+      const smallSale = await registrarVentaDesdePedido({
+        pedido: smallOrder, empresaId, sedeId, emitirEvento: true
+      });
+      assert.equal(smallSale.creada, true);
+      assert.equal((await registrarMovimientoDesdeEvento(capture, {
+        emitirEvento: false
+      })).creado, true);
+    }
+    const exactReport = await obtenerResumenCaja({
+      empresaId, sedeId, desde: from, hasta: until
+    });
+    assert.equal(exactReport.ventasPagadas.cantidad, 3);
+    assert.equal(exactReport.ventasPagadas.monto, 50000.3);
+    assert.equal(exactReport.entradasConfirmadas, 50000.3);
+    assert.equal(exactReport.flujoConfirmadoParcial, 50000.3);
+    assert.equal(await Cash.countDocuments({ empresaId }), 3);
+
     const siblingSiteReport = await obtenerResumenCaja({
       empresaId, sedeId: foreignSite, desde: from, hasta: until
     });
