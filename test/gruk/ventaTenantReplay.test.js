@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { calculateLegacySale } = require("../../core/finance/enterpriseSalesMath");
+const { calculateLegacySale, canonicalLegacyMoney } = require("../../core/finance/enterpriseSalesMath");
 
 const source = fs.readFileSync(path.join(__dirname, "../../services/ventas.service.js"), "utf8");
 function makeService(existing) {
@@ -22,7 +22,7 @@ function makeService(existing) {
     },
     "../models/Cliente":{},
     "../core/eventos/eventBus":{emit(){}},
-    "../core/finance/enterpriseSalesMath":{calculateLegacySale}
+    "../core/finance/enterpriseSalesMath":{calculateLegacySale,canonicalLegacyMoney}
   };
   const module = {exports:{}};
   vm.runInNewContext(source, {require:(name)=>{
@@ -123,4 +123,25 @@ test("venta: rechaza cantidades fraccionarias antes de intentar persistir",async
     })
   );
   assert.equal(seen.length,0);
+});
+
+
+test("venta: reintento con importes históricos subcentavo no acredita duplicado",async()=>{
+  const existing={_id:"venta_1",cantidad:1,precioUnitario:1000,total:1000.001,
+    productoServicioId:"producto_1",estado:"pagada"};
+  const {service}=makeService(existing);
+  await assert.rejects(
+    service.registrarVentaDesdePedido({pedido,empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false}),
+    err=>err.code==="GRUK_VENTA_REPLAY_CONFLICT"
+  );
+});
+
+test("venta: reintento no acepta cantidades históricas fraccionarias",async()=>{
+  const existing={_id:"venta_1",cantidad:1.0001,precioUnitario:1000,total:1000,
+    productoServicioId:"producto_1",estado:"pagada"};
+  const {service}=makeService(existing);
+  await assert.rejects(
+    service.registrarVentaDesdePedido({pedido,empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false}),
+    err=>err.code==="GRUK_VENTA_REPLAY_CONFLICT"
+  );
 });
