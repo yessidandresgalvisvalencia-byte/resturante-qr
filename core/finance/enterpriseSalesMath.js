@@ -39,7 +39,7 @@ function canonicalLegacyMoney(value) {
     throw new TypeError('legacy money must be a finite non-negative Number');
   }
   const decimal = value.toString();
-  if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$/.test(decimal)) {
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(decimal)) {
     throw new RangeError('legacy money is not a plain cent-exact decimal');
   }
   const cents = parseMoneyToCents(decimal);
