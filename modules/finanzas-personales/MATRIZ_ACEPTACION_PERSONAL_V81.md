@@ -1,6 +1,6 @@
 # Matriz de aceptación y prioridad — revisión r97
 
-Corte r97 en validación: contexto de compensaciones de caja; base real e89ec1a8983bfe91b55a1233578051d5eccc9159 con tres CI verdes. Plan, aceptación y límites: CONTEXTO_AUDITORIA_COMPENSACIONES_PERSONAL_V81.md. Sin autorización de despliegue; CI del lote nuevo pendiente.
+Corte r97 verificado: 18 de noviembre de2026. Contexto de compensaciones de caja y replay sin escribir coordinación: código fb46e268b6f77efc5ca6f40f370a0b317acb7510, tres CI verdes, Mongo90/90 y navegador/backend25/25. Informe/aceptación/límites: CONTEXTO_AUDITORIA_COMPENSACIONES_PERSONAL_V81.md. BackupV27/44, custodia independiente/operación productiva pendientes. Verificar CI del descendiente documental y HEAD real; no es autorización de despliegue.
 
 Corte r96: 18 de noviembre de2026, base real `bf0bc1a73c785d4bad7f783c2bd0684522023b29`. Contexto de conciliaciones verificado: código `7c00196c5ad46d87948e0b0de5f5a4f793746fee`, tres CI verdes, Mongo89/89 y browser/backend24/24. CONTEXTO_AUDITORIA_CONCILIACION_PERSONAL_V81.md. r95 código `0183f0a81b2660243bc67717fa99ea1a2e8f1612` con tres CI verdes, Mongo88/88 y navegador/backend23/23; cierre recuperado el18 de noviembre: CONTEXTO_AUDITORIA_CUENTAS_PERSONAL_V81.md. r94 verifica revisión privada de formato/nombres BSON; código `fea0387bc5588ff880e7228408335b10e28ccedc`, tres CI verdes y Mongo87/87 + navegador/backend22/22: REVISION_FUENTES_METAS_PERSONAL_V81.md. Código r93 `aaa871df7c3e454af8de483fc210b9813de70122`, tres CI verdes y Mongo86/86 + navegador/backend21/21. CONTEXTO_AUDITORIA_METAS_PERSONAL_V81.md. PR389 abierto; base personal `652126a03f19fbec3c529cad1e84bff11cd3699e`. No es certificación ni autorización de despliegue. La evidencia histórica y sus límites permanecen en CONTINUIDAD_V81.md y documentos enlazados; verificar siempre CI del HEAD actual. “Verificado en ensayo” significa solo el alcance de pruebas descrito, no producción ni todos los casos posibles.
 
@@ -8,7 +8,7 @@ Corte r96: 18 de noviembre de2026, base real `bf0bc1a73c785d4bad7f783c2bd0684522
 | --- | --- | --- |
 | Caja diaria/Disponible Hoy/compra | HOME_SNAPSHOT_V81.md, HORIZONTE_INGRESO_V81.md, EVALUACION_OBLIGACIONES_VERIFICADA_V81.md; CI con fuentes autorizadas y C2 determinístico | Ensayos implementados; compatibilidad histórica, saldos/roles/índices reales y verificación productiva pendientes. No saldo bancario garantizado |
 | IA/cálculo/asesoría | Clasificación, cálculo y orientación separados; evidencia conversacional y guard de operación incierta en continuidad | No se acepta recomendación monetaria con datos desconocidos; auditoría independiente pendiente |
-| Correcciones/anulaciones/restauración | Eventos compensatorios y ciclos de deuda/cuenta/activo/inversión/pagos con recibos; Mongo81/81 de padre | Evidencia de ensayo, #407 permanece abierto. La cadena local no prueba custodia externa ni ausencia de otros administradores |
+| Correcciones/anulaciones/restauración | Eventos compensatorios y ciclos de deuda/cuenta/activo/inversión/pagos con recibos; r97 contexto de caja, hash legado conservado y replay sin escribir coordinación, Mongo90/90 y navegador25/25 | Evidencia de ensayo, #407 permanece abierto. La cadena local no prueba custodia externa ni ausencia de otros administradores |
 | Ingresos previstos y recibidos | Calendario append-only, recepciones parciales/cierre, proyección y diarios recuperables | Implementado y ensayado en su alcance; no garantiza cobro futuro |
 | Historial y diario manual | Copia cifrada, archivo sin poda, originales, estados históricos, formulario por propietario | r88 verificó fallo silencioso del control y confirmación cerrada sin reenvío; no repetir capacidades ya completas |
 | Captura conversacional | Texto/canal/recibo persistidos, copia y archivo de diario, aprobación explícita separada | r89 verificó descarte/restauración a revisión con confirmación, auditoría, recibos, propietario y carrera contra aprobación: Mongo82/82 y navegador17/17. Ver CICLO_BORRADOR_PERSONAL_V81.md. Legado ambiguo/recuperación física y verificación productiva siguen fuera del alcance |
@@ -22,9 +22,9 @@ Corte r96: 18 de noviembre de2026, base real `bf0bc1a73c785d4bad7f783c2bd0684522
 
 ## Orden de trabajo recuperable
 
-1. Confirmar CI exacta del lote r97 y revisar HEAD real. El alcance de ciclo de metas debe conservar sus límites; no confundir ensayo con producción.
+1. Confirmar CI del cierre documental r97 y revisar HEAD real. El alcance de ciclo de metas debe conservar sus límites; no confundir ensayo con producción.
 2. Completar auditoría contextual minimizada IP/dispositivo y acceso/retención; revisar legados ambiguos/corruptos sin alterar sus fuentes ni inventar historia. No convertir ahorro declarado en disponible ni inferir efectivo reservado.
-3. Revisar auditoría contextual de IP/dispositivo y redacción de datos del ciclo: el nuevo evento conserva dueño/fecha/cuerpo/hash, pero no aporta esos campos de contexto. No presentar su auditoría como certificación externa.
+3. Revisar auditoría contextual de IP/dispositivo y redacción de datos del ciclo: r97 cubre compensaciones de caja, r96 conciliaciones, r95 cuentas y r93 metas; registro original y otros flujos quedan pendientes. No presentar su auditoría como certificación externa.
 4. Contrastar requisitos operacionales con evidencia autorizada disponible. Preparar verificaciones reproducibles independientes sin contratar, elevar costos o eludir permisos; registrar lo que falta.
 5. Revisión independiente y dispositivos. Solo con todos los criterios, CI exacta y compatibilidad operativa: integrar a feature y verificar deploy personal. Hasta entonces, sin fusión ni Render.
 
