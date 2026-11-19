@@ -6,7 +6,7 @@
 const { parseMoneyToCents, formatCents } = require('./enterpriseMoney');
 const MAX = BigInt(Number.MAX_SAFE_INTEGER);
 function persistedCents(value) {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || Object.is(value, -0)) {
     throw new TypeError('Invalid persisted monetary amount');
   }
   // Reject exponential notation and sub-cent precision rather than silently round.
