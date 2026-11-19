@@ -2892,3 +2892,10 @@ Pendientes externos de407/producción: custodio independiente real/anclas; backu
 ## Plan r108 — recibo recuperable de revisión de trabajo
 
 Padre36967bdfbfe79eb776569b3059a647f8df7a1374/árbol4bfa30b89474527b1ff914e6c1ff267d0d548bde; PR389/base652126a03f19fbec3c529cad1e84bff11cd3699e e issue407 abiertos. Tres workflows verdes99/99+32/32. Plan/contratos/aceptación/límites en RECIBO_REVISION_TRABAJO_PERSONAL_V81.md: recibo append-only/transacción, consulta propia, cierre NO_APLICADA, recuperación tras respuesta perdida, índice/rol y backupV32/45 con lectura V31/44. Local inicial922/913pass/9skip; ci353/349pass/4skip; dirigidas49/49. Nuevas referencias de compensación y repetición local/CI pendientes. Sin merge/Render.
+
+
+### r108 — primer CI y preservación exacta del snapshot BSON
+
+SHA7f89e134bddf86d6da4ffae04e497e8ad118b4c5/árbol2d6e1cd90d4733fadaa178c36c7c4f42b0304f6d: Gate44602490809 y Seguridad44602490821 success; integración Mongo general y siete jobs V81 aprobados. V8144602490798/job135837311216 falló en el caso nuevo: GET del recibo creado devolvía409 en vez de200 (Mongo100 casos/98pass/2fail, uno es el padre,0omisiones). Se mantiene el rechazo de integridad.
+
+Causa reproducida localmente con toBSON(): Mongoose minimize:true retiraba objetos vacíos anidados del snapshot Mixed al persistir. El hash previo y el posterior diferían. Se fija minimize:false en el nuevo modelo de recibo, conservando exactamente esos objetos; se añade regresión BSON que verifica snapshot/hash/recibo tras serialización. No se normaliza ni reescribe ningún historial existente, no se debilita la comparación de hash y no hubo datos productivos. La colección se introdujo solo en esta rama no desplegada. Nueva CI pendiente; no cerrar todavía.

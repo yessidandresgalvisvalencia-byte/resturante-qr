@@ -38,3 +38,10 @@ Siguiente: historial paginado/consulta accesible y exportación/importación pro
 ## Validación en curso
 
 Local inicial:módulo922 casos/913pass/9 omisiones externas/0fallos, ci:personal353/349pass/4omisiones/0fallos, dirigidas backup/privilegios/cache49/49. Se añadieron referencias a compensaciones exactas y se repite módulo antes de publicar. Mongo autorizado/browser nuevos y CI del SHA nuevo pendientes; no declarar cierre hasta completar. El SHA del cierre se verifica por Git/PR para evitar autoreferencia circular.
+
+
+### r108 — primer CI y preservación exacta del snapshot BSON
+
+SHA7f89e134bddf86d6da4ffae04e497e8ad118b4c5/árbol2d6e1cd90d4733fadaa178c36c7c4f42b0304f6d: Gate44602490809 y Seguridad44602490821 success; integración Mongo general y siete jobs V81 aprobados. V8144602490798/job135837311216 falló en el caso nuevo: GET del recibo creado devolvía409 en vez de200 (Mongo100 casos/98pass/2fail, uno es el padre,0omisiones). Se mantiene el rechazo de integridad.
+
+Causa reproducida localmente con toBSON(): Mongoose minimize:true retiraba objetos vacíos anidados del snapshot Mixed al persistir. El hash previo y el posterior diferían. Se fija minimize:false en el nuevo modelo de recibo, conservando exactamente esos objetos; se añade regresión BSON que verifica snapshot/hash/recibo tras serialización. No se normaliza ni reescribe ningún historial existente, no se debilita la comparación de hash y no hubo datos productivos. La colección se introdujo solo en esta rama no desplegada. Nueva CI pendiente; no cerrar todavía.
