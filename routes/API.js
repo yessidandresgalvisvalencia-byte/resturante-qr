@@ -1573,6 +1573,7 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
   const session = await mongoose.startSession();
   let pedidoFinal = null;
   let ventaPostCommit = null;
+  let pedidoSedeObjectId = null;
 
   try {
     await session.withTransaction(async () => {
@@ -1593,6 +1594,7 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
       const { sedeObjectId, pedidoParaVenta } = await authorizeOrderBranch({
         pedido, restaurante, auth: req.auth, session
       });
+      pedidoSedeObjectId = sedeObjectId;
 
       if (pedido.estadoPago === estadoPago) {
         pedidoFinal = pedido;
@@ -1621,7 +1623,7 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
 
     const io = req.app.get("io");
     io.to(`empresa-${req.auth.empresaId}`)
-      .to(`empresa-${req.auth.empresaId}-sede-${req.auth.sedeId || sedeObjectId}`).emit("pedido:actualizado", pedidoFinal);
+      .to(`empresa-${req.auth.empresaId}-sede-${req.auth.sedeId || pedidoSedeObjectId}`).emit("pedido:actualizado", pedidoFinal);
 
     return res.json({ ok: true, pedido: pedidoFinal });
   } catch (error) {
