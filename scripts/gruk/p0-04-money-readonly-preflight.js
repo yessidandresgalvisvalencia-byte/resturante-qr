@@ -18,7 +18,7 @@ if (process.env.GRUK_ENTERPRISE_DB_CONFIRM !== name ||
 // Only enterprise finance collections/declared numeric fields. The collection
 // names reflect the actual Mongoose models, not guessed project databases.
 const targets = [
-  ["ventas", ["cantidad", "precioUnitario", "costoUnitario", "costoTotal", "utilidadBruta", "total"]],
+  ["ventas", ["precioUnitario", "costoUnitario", "costoTotal", "utilidadBruta", "total"]],
   ["movimientos_caja", ["monto"]],
   ["cuentas_tesoreria", ["saldoInicial"]],
   ["transferencias_tesoreria", ["monto"]],
