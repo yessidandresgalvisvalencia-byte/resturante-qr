@@ -34,3 +34,16 @@ test("rejects negative zero without normalizing historical data", () => {
   assert.ok(Object.is(cost.costo, -0));
   assert.equal(auditLegacyInventoryRow({ cantidad: 0, costo: 0 }).safe, true);
 });
+
+test("fails closed on throwing proxy descriptors without aborting the audit", () => {
+  const row = new Proxy({ cantidad: 1, costo: 2 }, {
+    getOwnPropertyDescriptor(target, key) {
+      if (key === "costo") throw new Error("untrusted proxy");
+      return Reflect.getOwnPropertyDescriptor(target, key);
+    },
+  });
+  assert.deepEqual(auditLegacyInventoryRow(row), {
+    safe: false,
+    issues: ["COSTO_DESCRIPTOR_ERROR"],
+  });
+});
