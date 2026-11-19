@@ -107,6 +107,18 @@ test("P0-04: paid tracked order atomically discounts own stock, logs movement an
       }), /ProductoServicio no pertenece a la empresa/);
       assert.equal((await Stock.findById(inventory._id)).cantidad, 3);
       assert.equal(await Sales.countDocuments({ empresaId }), 1);
+
+      // A restaurant in the same company/site must never consume another
+      // restaurant's stock row by knowing the product ObjectId.
+      const otherRestaurant = { ...order(1), restaurantId: "rest-sibling" };
+      await assert.rejects(session.withTransaction(async () => {
+        await registrarVentaDesdePedido({
+          pedido: otherRestaurant, empresaId, sedeId, session, emitirEvento: false
+        });
+      }), /INVENTARIO_NO_UNICO_O_INEXISTENTE/);
+      assert.equal((await Stock.findById(inventory._id)).cantidad, 3);
+      assert.equal(await Sales.countDocuments({ empresaId }), 1);
+      assert.equal(await Movements.countDocuments({ empresaId }), 1);
     } finally {
       await session.endSession();
     }
