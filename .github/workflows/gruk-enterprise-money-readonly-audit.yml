@@ -71,9 +71,9 @@ jobs:
           # Do not print URI or customer-level records. Only aggregate counts.
           mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet \
             --file scripts/gruk/p0-04-money-readonly-preflight.js > /tmp/gruk-enterprise-money-audit.log 2>&1 || {
-              sed -E 's@(mongodb(\\+srv)?://)[^ ]+@<masked-uri>@g' /tmp/gruk-enterprise-money-audit.log
+              echo "Audit failed. Do not expose raw mongosh errors or database credentials in CI logs."
               echo "::error::Audit blocked: investigate data anomalies or read-only access"
               exit 1
             }
-          sed -E 's@(mongodb(\\+srv)?://)[^ ]+@<masked-uri>@g' /tmp/gruk-enterprise-money-audit.log
+          grep -E "monetaryDataReadyForDbaReview|missingRequired:|nonCent:|outOfRange:|invalidType:|conversionFailures:" /tmp/gruk-enterprise-money-audit.log || true
           echo "Read-only financial preflight completed; DBA approval and restore rehearsal still required"
