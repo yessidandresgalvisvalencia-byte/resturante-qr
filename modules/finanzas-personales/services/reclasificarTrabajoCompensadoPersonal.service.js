@@ -48,7 +48,7 @@ async function aplicar(usuarioId,p,{cobros,total},session,origenNuevo="TRABAJO")
   reclasificados++;
  }
  if(p.origenCuentaPorCobrar!==origenNuevo){
-  p.origenCuentaPorCobrar=origenNuevo;await p.save({session});
+  p.origenCuentaPorCobrar=origenNuevo;
  }
  return {reclasificados,ingresoTrabajoMinor:origenNuevo==="TRABAJO"?total:0,saldoPendienteMinor:p.saldoMinor};
 }
@@ -72,14 +72,15 @@ async function enTransaccion(usuarioId,operacion){
   throw e;
  }finally{await session.endSession();}
 }
-async function corregirOrigenTrabajo(usuarioId,prestamoId){
- if(!mongoose.isObjectIdOrHexString(prestamoId))throw problema("Cuenta inválida",400);
- return enTransaccion(usuarioId,async session=>{
-  const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_COBRAR"}).session(session);
-  verificarCuenta(p,usuarioId);
-  const estado=cobrosConciliados(p,await movimientosVigentes(usuarioId,session));
-  return aplicar(usuarioId,p,estado,session);
+async function corregirOrigenTrabajo(usuarioId,prestamoId,solicitud){
+ let aplicado;
+ const p=await require("./correccionPrestamoPersonal.service").corregir(usuarioId,prestamoId,{origenCuentaPorCobrar:"TRABAJO",revisarCobrosTrabajo:true},solicitud,async(u,p,c,session)=>{
+  await serializarEscrituraFuente(u,session);verificarCuenta(p,u);
+  aplicado=await aplicar(u,p,cobrosConciliados(p,await movimientosVigentes(u,session)),session);
+  return{prestamoId:String(p._id),campos:["origenCuentaPorCobrar"],...aplicado};
  });
+ const realizada=p.correccion.duplicado?null:aplicado;
+ return{reclasificados:realizada?.reclasificados??0,ingresoTrabajoMinor:realizada?.ingresoTrabajoMinor??null,saldoPendienteMinor:p.saldoMinor,prestamoId:String(p._id),correccion:p.correccion};
 }
 async function reconciliarIngresosTrabajo(usuarioId){
  return enTransaccion(usuarioId,async session=>{
@@ -93,7 +94,10 @@ async function reconciliarIngresosTrabajo(usuarioId){
    try{
     verificarCuenta(p,usuarioId);
     if(p.origenCuentaPorCobrar!=="TRABAJO")throw problema("Origen no confirmado como trabajo");
-    estado=cobrosConciliados(p,movimientos);
+    const raw=await Prestamo.collection.findOne({_id:p._id,usuarioId:p.usuarioId},{session,maxTimeMS:5000});verificarCuenta(raw,usuarioId);
+    const evidencia=await require("./clasificacionCobroPersonal.service").evidenciaEnSesion(usuarioId,raw,session);
+    if(evidencia.tipo!=="INGRESO"||!evidencia.confirmacionHash)throw problema("Confirma explícitamente el origen del cobro histórico antes de reclasificar");
+    estado=cobrosConciliados(raw,movimientos);
    }catch(e){if(e.statusCode!==409)throw e;requierenRevisionManual++;continue;}
    // Un fallo de persistencia se propaga: no confirmar reparaciones parciales.
    corregidos+=(await aplicar(usuarioId,p,estado,session)).reclasificados;

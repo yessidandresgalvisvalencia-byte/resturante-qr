@@ -38,7 +38,7 @@ async function probarCobrosConversacionalesAutorizados(){
  await assert.rejects(aprobar(usuarioId,b._id),e=>e.statusCode===404);
  assert.deepEqual(await estado(usuarioId),antesReintento);
  // Los cobros nuevos conservan la identidad necesaria para reclasificar sin duplicar caja.
- assert.equal((await corregirOrigenTrabajo(usuarioId,p._id)).reclasificados,2);
+ assert.equal((await corregirOrigenTrabajo(usuarioId,p._id,{confirmacion:true,solicitudId:require("node:crypto").randomUUID()})).reclasificados,2);
  assert.equal((await Cuenta.findById(cuenta._id).lean()).saldoMinor,1000);
  assert.deepEqual(await Tx.find({usuarioId}).sort({_id:1}).lean(),originales);
  const lectura=await consultarPeriodo({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"});

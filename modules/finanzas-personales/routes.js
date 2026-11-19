@@ -299,15 +299,17 @@ router.get("/diagnostico-movimientos",async(req,res)=>{try{
 });
 router.post("/reconciliar-ingresos-trabajo",async(req,res)=>{
  try{
+  if(req.body?.confirmacion!==true||Object.keys(req.body).some(k=>k!=="confirmacion"))return res.status(400).json({ok:false,error:"Confirma explícitamente la revisión de cobros propios"});
   const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").reconciliarIngresosTrabajo(req.personalAuth.userId);
   return res.json({ok:true,...resultado,detalle:"La revisión conserva los cobros originales. Las reclasificaciones confirmadas no crean cobros ni modifican saldos."});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo reconciliar; no se aplicaron cambios parciales"});}
 });
 router.post("/cuentas-por-cobrar/:id/corregir-origen-trabajo",async(req,res)=>{
  try{
-  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").corregirOrigenTrabajo(req.personalAuth.userId,req.params.id);
+  if(req.body?.confirmacion!==true||Object.keys(req.body).some(k=>k!=="confirmacion"))return res.status(400).json({ok:false,error:"Confirma la corrección de origen sin enviar otros cambios"});
+  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").corregirOrigenTrabajo(req.personalAuth.userId,req.params.id,{confirmacion:true,solicitudId:req.get("Idempotency-Key")});
   return res.json({ok:true,...resultado,detalle:"Se registraron reclasificaciones compensatorias. Los cobros originales y el saldo de la cuenta se conservan."});
- }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir la cuenta"});}
+ }catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir la cuenta"});}
 });
 // Diagnósticos sobre el estado efectivo: una reparación no debe seguir apareciendo pendiente.
 async function movimientosDiagnosticoVigentes(usuarioId,{prestamoIds,montoMinor,tipos,incluirAnuladas=false,limite,orden="fecha",campos}){

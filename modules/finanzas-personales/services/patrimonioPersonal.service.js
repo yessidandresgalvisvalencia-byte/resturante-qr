@@ -258,6 +258,7 @@ async function deshacerUltimaCuotaCredito(usuarioId,prestamoId,solicitud){
  return require("./reversionCuotaCreditoPersonal.service").deshacer(usuarioId,prestamoId,solicitud);
 }
 async function corregirPrestamo(usuarioId,prestamoId,cambios,solicitud){
+ if(Object.hasOwn(cambios||{},"revisarCobrosTrabajo"))throw Object.assign(new Error("La revisión de cobros requiere su flujo específico"),{statusCode:422});
  return require("./correccionPrestamoPersonal.service").corregir(usuarioId,prestamoId,cambios,solicitud,aplicarCorreccionPrestamo);
 }
 async function aplicarCorreccionPrestamo(usuarioId,prestamo,cambios,session){

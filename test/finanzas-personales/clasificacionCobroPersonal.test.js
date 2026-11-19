@@ -9,3 +9,8 @@ test("clasificación coincide con último posterior auditado, sin exigir saldo p
  assert.throws(()=>S.verificarOrigenHistorico(p,{posterior:{origenCuentaPorCobrar:"PRESTAMO"}}),e=>e.statusCode===409);assert.throws(()=>S.verificarOrigenHistorico(p,{posterior:{}}),e=>e.statusCode===409);
  assert.equal(S.verificarOrigenHistorico(p,undefined),"INGRESO");
 });
+
+test("confirmación histórica requiere último cambio explícito de origen y posterior coincidentes",()=>{
+ const p={origenCuentaPorCobrar:"TRABAJO"},e={cambios:{origenCuentaPorCobrar:"TRABAJO"},posterior:{origenCuentaPorCobrar:"TRABAJO"},hashActual:"a".repeat(64)};
+ assert.equal(S.confirmacionExplicita(p,[]),null);assert.equal(S.confirmacionExplicita(p,[{cambios:{concepto:"Trabajo"},posterior:{origenCuentaPorCobrar:"TRABAJO"}}]),null);assert.equal(S.confirmacionExplicita(p,[e,{cambios:{concepto:"Otro nombre"}}]),e.hashActual);assert.equal(S.confirmacionExplicita(p,[e,{cambios:{origenCuentaPorCobrar:"PRESTAMO"},posterior:{origenCuentaPorCobrar:"PRESTAMO"}}]),null);assert.equal(S.confirmacionExplicita(p,[{...e,posterior:{origenCuentaPorCobrar:"OTRO"}}]),null);
+});

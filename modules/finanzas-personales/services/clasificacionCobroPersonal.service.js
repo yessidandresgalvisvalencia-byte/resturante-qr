@@ -9,10 +9,15 @@ function verificarOrigenHistorico(original,ultimo){
  if(ultimo&&ultimo.posterior?.origenCuentaPorCobrar!==original.origenCuentaPorCobrar)throw Object.assign(new Error("El origen actual no coincide con la corrección auditada; revisa el historial antes de cobrar."),{statusCode:409});
  return tipo;
 }
-async function tipoEnSesion(usuarioId,original,session){
+function confirmacionExplicita(original,eventos){
+ const e=eventos.findLast(e=>e.cambios&&Object.hasOwn(e.cambios,"origenCuentaPorCobrar"));
+ return e&&e.cambios.origenCuentaPorCobrar===original.origenCuentaPorCobrar&&e.posterior?.origenCuentaPorCobrar===original.origenCuentaPorCobrar?e.hashActual:null;
+}
+async function evidenciaEnSesion(usuarioId,original,session){
  tipoParaOrigen(original);
  const C=require("./correccionPrestamoPersonal.service"),E=require("../models/correccionPrestamoPersonal.model");await C.exigirIndices();
  const eventos=await E.find({usuarioId,prestamoId:original._id}).sort({secuencia:1}).limit(1001).maxTimeMS(5000).session(session).lean();
- return verificarOrigenHistorico(original,C.verificar(eventos,original));
+ return{tipo:verificarOrigenHistorico(original,C.verificar(eventos,original)),confirmacionHash:confirmacionExplicita(original,eventos)};
 }
-module.exports={tipoParaOrigen,verificarOrigenHistorico,tipoEnSesion};
+async function tipoEnSesion(usuarioId,original,session){return(await evidenciaEnSesion(usuarioId,original,session)).tipo;}
+module.exports={tipoParaOrigen,verificarOrigenHistorico,confirmacionExplicita,evidenciaEnSesion,tipoEnSesion};

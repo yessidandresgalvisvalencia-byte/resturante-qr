@@ -26,7 +26,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   const fecha=new Date(Date.now()-60000);
   const p=await Prestamo.create({usuarioId,direccion:"POR_COBRAR",origenCuentaPorCobrar:origen,concepto:"Trabajo de prueba",contraparte:"Cliente",principalMinor:1000,saldoMinor:saldo,fechaInicio:fecha,estado:saldo?"ACTIVO":"PAGADO"});
   const fuentes=await Tx.create(cobros.map((m,i)=>({usuarioId,prestamoId:p._id,tipo:"COBRO_PRESTAMO",montoMinor:m,concepto:"Cobro "+(i+1),categoria:"Cuentas por cobrar",cuentaId:historico?null:cuenta._id,cuenta:historico?"HISTORICO":cuenta.nombre,impactoCaja:!historico,medioPago:historico?"OTRO":"TRANSFERENCIA",fecha})));
-  return {usuarioId,cuenta,p,fuentes};
+  return {usuarioId,cuenta,p,fuentes,solicitud:{confirmacion:true,solicitudId:crypto.randomUUID()}};
  }
  async function estado(f){return {
   fuentes:await Tx.find({usuarioId:f.usuarioId}).sort({_id:1}).lean(),
@@ -36,7 +36,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   outbox:await Outbox.find({usuarioId:f.usuarioId}).sort({_id:1}).lean(),
   cursor:await Cursor.findById(String(f.usuarioId)).lean()
  };}
- const corregir=f=>service.corregirOrigenTrabajo(f.usuarioId,f.p._id);
+ const corregir=f=>service.corregirOrigenTrabajo(f.usuarioId,f.p._id,f.solicitud);
  const periodo=usuarioId=>({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"});
  try{
   await Promise.all([require("../../modules/finanzas-personales/models/correccionPrestamoPersonal.model").init(),Prestamo.init(),Tx.init(),Cuenta.init(),Outbox.init(),Evento.init(),Cursor.init()]);
@@ -47,7 +47,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   assert.deepEqual(despues.fuentes,antes.fuentes);assert.deepEqual(despues.cuentas,antes.cuentas);
   assert.equal(despues.prestamos[0].principalMinor,1000);assert.equal(despues.prestamos[0].saldoMinor,400);
   assert.equal(despues.prestamos[0].origenCuentaPorCobrar,"TRABAJO");
-  assert.equal(despues.eventos.length,2);assert.equal(despues.outbox.length,2);
+  assert.equal(despues.eventos.length,2);assert.equal(despues.outbox.length,3);
   assert.ok(despues.eventos.every(e=>e.version===3&&e.deltaCajaMinor==="0"));
   assert.ok((await consultarPeriodo(periodo(f.usuarioId))).every(m=>m.tipo==="INGRESO"&&m.categoria==="Trabajo cobrado"));
   const caja=await consultarCaja(f.usuarioId);
@@ -55,7 +55,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   assert.equal(saldoCuentasDesdeAnclas([{_id:f.cuenta._id,saldoAnclaMinor:9400,saldoAnclaEn:new Date(+f.fuentes[0].fecha-1)}],caja),10000);
   assert.equal((await corregir(f)).reclasificados,0);
   assert.equal(await Evento.countDocuments({usuarioId:String(f.usuarioId)}),2);
-  assert.equal(await Outbox.countDocuments({usuarioId:f.usuarioId}),2);
+  assert.equal(await Outbox.countDocuments({usuarioId:f.usuarioId}),3);
   assert.deepEqual((await estado(f)).fuentes,antes.fuentes);
   // Editar el origen en ambos sentidos debe usar el estado vigente, no reescribir el cobro.
   await corregirPrestamo(f.usuarioId,f.p._id,{origenCuentaPorCobrar:"PRESTAMO"},{confirmacion:true,solicitudId:crypto.randomUUID()});
@@ -72,7 +72,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   assert.equal((await consultarCaja(h.usuarioId)).length,2);
 
   const ajeno=new mongoose.Types.ObjectId();usuarios.push(ajeno);
-  await assert.rejects(service.corregirOrigenTrabajo(ajeno,f.p._id),e=>e.statusCode===404);
+  await assert.rejects(service.corregirOrigenTrabajo(ajeno,f.p._id,{confirmacion:true,solicitudId:crypto.randomUUID()}),e=>e.statusCode===404);
   assert.equal(await Evento.countDocuments({usuarioId:String(ajeno)}),0);
 
   // La reparación automática no infiere que un préstamo sea trabajo por el concepto.
@@ -85,6 +85,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   const bien=await fixture({origen:"TRABAJO",saldo:0,cobros:[1000]});
   const mal=await fixture({usuarioId:bien.usuarioId,origen:"TRABAJO",saldo:0,cobros:[999]});
   const malOriginal=await Tx.findById(mal.fuentes[0]._id).lean();
+  await corregirPrestamo(bien.usuarioId,bien.p._id,{origenCuentaPorCobrar:"TRABAJO"},{confirmacion:true,solicitudId:crypto.randomUUID()});
   const lote=await service.reconciliarIngresosTrabajo(bien.usuarioId);
   assert.equal(lote.corregidos,1);assert.equal(lote.requierenRevisionManual,1);
   assert.deepEqual(await Tx.findById(mal.fuentes[0]._id).lean(),malOriginal);
@@ -107,7 +108,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   const simultaneos=await Promise.allSettled([corregir(carrera),corregir(carrera)]);
   assert.ok(simultaneos.some(x=>x.status==="fulfilled"));
   assert.equal(await Evento.countDocuments({usuarioId:String(carrera.usuarioId)}),1);
-  assert.equal(await Outbox.countDocuments({usuarioId:carrera.usuarioId}),1);
+  assert.equal(await Outbox.countDocuments({usuarioId:carrera.usuarioId}),2);
   assert.equal((await Cuenta.findById(carrera.cuenta._id)).saldoMinor,10000);
 
   const rollback=await fixture();const previo=await estado(rollback);let llamadas=0;
@@ -137,9 +138,9 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
    app.get(path,...layer.route.stack.map(x=>x.handle));
   }
   server=app.listen(0,"127.0.0.1");await new Promise(resolve=>server.once("listening",resolve));
-  const response=await fetch(`http://127.0.0.1:${server.address().port}/cuentas-por-cobrar/${http.p._id}/corregir-origen-trabajo`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({usuarioId:String(ajeno),montoMinor:1})});
+  const response=await fetch(`http://127.0.0.1:${server.address().port}/cuentas-por-cobrar/${http.p._id}/corregir-origen-trabajo`,{method:"POST",body:JSON.stringify({confirmacion:true}),headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()}});
   assert.equal(response.status,200);assert.equal((await response.json()).reclasificados,2);
-  const bulk=await fetch(`http://127.0.0.1:${server.address().port}/reconciliar-ingresos-trabajo`,{method:"POST"});
+  const bulk=await fetch(`http://127.0.0.1:${server.address().port}/reconciliar-ingresos-trabajo`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirmacion:true})});
   assert.equal(bulk.status,200);assert.equal((await bulk.json()).corregidos,0);
   for(const path of ["/rastrear-cobro?montoMinor=400","/diagnostico-cobro-importe?montoMinor=400"]){
    const consulta=await fetch(`http://127.0.0.1:${server.address().port}${path}`);

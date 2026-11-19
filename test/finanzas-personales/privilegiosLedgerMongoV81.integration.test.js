@@ -131,6 +131,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("aprobación HTTP separa contexto de captura, conserva recibos y caja bajo replay/rollback",()=>require("./helpers/contextoAprobacionAutorizada").probarContextoAprobacion(db));
   await t.test("cuenta por cobrar explícita conserva declaración y fecha, sin ingreso/caja ni duplicados",()=>require("./helpers/cuentaPorCobrarInterpretadaAutorizada").probarCuentaPorCobrar());
   await t.test("origen explícito habilita cobro clasificado, auditable y sin duplicar caja",()=>require("./helpers/origenCobroConfirmadoAutorizado").probarOrigenCobro(db));
+  await t.test("ruta antigua y lote de trabajo exigen auditoría, consentimiento y conservación de caja",()=>require("./helpers/reclasificacionOrigenAuditadaAutorizada").probarReclasificacionAuditada(db));
   await t.test("ingreso mensual y copilot conservan fuentes, turnos y bloqueo ante pago incierto",()=>require("./helpers/ingresoCopilotAutorizado").probarIngresoCopilot());
   await t.test("simulación conversacional explícita o pendiente no cambia fuentes ni contexto",()=>require("./helpers/simulacionCreditoAutorizada").probarSimulacionConversacional(db));
   await t.test("simulación exacta repetida y rechazada conserva todas las colecciones",()=>require("./helpers/simulacionCreditoAutorizada").probarSimulacionSinEscrituras(db));

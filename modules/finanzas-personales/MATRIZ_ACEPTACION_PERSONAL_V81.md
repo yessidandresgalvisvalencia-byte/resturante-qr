@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r105
+# Matriz de aceptación y prioridad — revisión r106
+
+Corte r106 en validación: ruta antigua requiere confirmación/clave y auditoría común; revisión en lote no adopta TRABAJO legacy sin evidencia explícita, botón con pendientes visibles. Informe RECLASIFICACION_ORIGEN_AUDITADA_PERSONAL_V81.md. Base308601cb00844874e09b0d5c75c5c0c5ae5550e6; backupV31/44 sin cambios. CI nueva pendiente; #407/custodia/operación reales bloquean producción.
 
 Corte r105 verificado en ensayo: código5b16ca5c8eea5595591339b72d668330a01568ce/fixture93271c0c32972f1509aac7b6aa16517710cea8fa; árbol5d98e84ac6a6138d8416f1cf378ede9c1e677eec. Origen desconocido bloquea cobro; corrección auditada no toca caja; pago posterior clasificado/repetible sin duplicación. Gate44571480873/Seguridad44571480885/V8144571481145 success, ocho jobs, Mongo98/98/browser32/32 sin omisiones. Informe ORIGEN_COBRO_CONFIRMADO_PERSONAL_V81.md conserva aceptación, fallo inicial del fixture, resultados y límites. BackupV31/44 aislado; #407/custodia/operación reales pendientes. Siguiente: orígenes legacy/otros conceptos/caminos de reclasificación; deuda/crédito/metas. Verificar HEAD y CI del cierre documental; sin merge ni Render.
 
