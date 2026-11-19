@@ -50,7 +50,7 @@ test('P0-04 MongoDB: origin uniqueness is tenant scoped and duplicate retries ar
 
     const tenantA = new mongoose.Types.ObjectId();
     const tenantB = new mongoose.Types.ObjectId();
-    const originId = new mongoose.Types.ObjectId();
+    const origenId = new mongoose.Types.ObjectId();
     const sale = (empresaId, sedeId) => ({ empresaId, sedeId, origen: 'pedido', origenId });
     await sales.insertOne(sale(tenantA, new mongoose.Types.ObjectId()));
     // Same external origin is valid in a different company.
