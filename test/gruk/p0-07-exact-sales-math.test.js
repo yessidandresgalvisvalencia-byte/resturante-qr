@@ -71,3 +71,22 @@ test('sale input rejects inherited and accessor fields without invoking getters'
   assert.equal(invoked, 0);
   assert.equal(calculateSale(Object.assign(Object.create(null), base)).profitCents, '90');
 });
+
+test('hostile descriptors fail closed without invoking financial getters', () => {
+  const { calculateLegacySale } = require('../../core/finance/enterpriseSalesMath');
+  const fields = { quantity:'1', unitPrice:'1.00', unitCost:'0.10', total:'1.00' };
+  let reads = 0;
+  const hostile = new Proxy(fields, {
+    get(target, key) { reads++; return Reflect.get(target, key); },
+    getOwnPropertyDescriptor() { throw new Error('hostile descriptor'); }
+  });
+  assert.throws(() => calculateSale(hostile), /hostile descriptor/);
+  assert.equal(reads, 0);
+  const legacy = new Proxy({ quantity:1, unitPrice:1, unitCost:0.1, total:1 }, {
+    getOwnPropertyDescriptor() { throw new Error('hostile descriptor'); }
+  });
+  assert.throws(() => calculateLegacySale(legacy), /hostile descriptor/);
+  const inherited = Object.create({ total:'1.00' });
+  Object.assign(inherited, { quantity:'1', unitPrice:'1.00', unitCost:'0.10' });
+  assert.throws(() => calculateSale(inherited), /own data property/);
+});
