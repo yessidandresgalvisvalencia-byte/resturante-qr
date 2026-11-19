@@ -297,10 +297,18 @@ router.get("/diagnostico-movimientos",async(req,res)=>{try{
  return res.json({ok:true,diagnostico:{movimientosHistoricos:legacy,movimientosActivos:canonicos,movimientosAnulados:anulados,prestamos:deudas,soloLectura:true}});
  }catch(e){console.error("[FIN_PERSONAL_DIAGNOSTICO]",e.message);return res.status(500).json({ok:false,error:"No fue posible verificar el historial"});}
 });
-router.post("/reconciliar-ingresos-trabajo",async(req,res)=>{
+router.get("/reconciliar-ingresos-trabajo/previsualizacion",async(req,res)=>{
+ res.set("Cache-Control","no-store");
  try{
-  if(req.body?.confirmacion!==true||Object.keys(req.body).some(k=>k!=="confirmacion"))return res.status(400).json({ok:false,error:"Confirma explícitamente la revisión de cobros propios"});
-  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").reconciliarIngresosTrabajo(req.personalAuth.userId);
+  if(Object.keys(req.query).length) return res.status(400).json({ok:false,error:"La selección se obtiene de tus cobros propios, sin filtros enviados"});
+  const seleccion=await require("./services/reclasificarTrabajoCompensadoPersonal.service").previsualizarIngresosTrabajo(req.personalAuth.userId);
+  return res.json({ok:true,...seleccion});
+ }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible previsualizar la revisión"});}
+});
+router.post("/reconciliar-ingresos-trabajo",async(req,res)=>{
+ res.set("Cache-Control","no-store");
+ try{
+  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").reconciliarIngresosTrabajo(req.personalAuth.userId,req.body);
   return res.json({ok:true,...resultado,detalle:"La revisión conserva los cobros originales. Las reclasificaciones confirmadas no crean cobros ni modifican saldos."});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo reconciliar; no se aplicaron cambios parciales"});}
 });

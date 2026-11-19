@@ -2861,3 +2861,10 @@ BackupV31/44 sin nuevos esquemas Mongo/colecciones/índices: ensayo cifrado con 
 Siguiente bloque: selección/versiones y recibo global de revisión en lote, con recuperación/cierre seguro de incertidumbres; diagnóstico/adopción de orígenes legacy/proyecciones contradictorias y otros conceptos de cobro, después contexto deuda/crédito/metas ambiguas. El lote actual revisa snapshot acotado vigente; no se presenta como selección congelada aprobada ni recuperación completa de solicitud incierta. Antes de modificar: verificar HEAD/base/PR389/#407/CI/instrucciones y este cierre, sin repetir trabajo cerrado.
 
 Gates externos pendientes: custodio independiente real/anclas, backup durable con retención/acceso/claves separados y restauración operativa aislada/RPO-RTO, roles/índices/migración/configuración reales, Safari/dispositivos/auditoría independiente según matriz y compatibilidad/informe final. Sin merge a feature ni Render; main/Empresarial/Blushéa intactos, sin servicios/costos nuevos ni datos reales alterados. Tarea activa. El descendiente documental requiere sus propios workflows del SHA exacto, verificables en Git/PR sin autoreferencia circular.
+
+
+## Plan r107 — selección confirmada de revisión de trabajo
+
+Padre2bcdd07770a8494b2da7d67465c88a90ed6d6926/árbolafdb888a86344501c0a876577174673e9dabd531; PR389/base652126a03f19fbec3c529cad1e84bff11cd3699e e issue407 abiertos; tres workflows verdes, Mongo99/99 y browser32/32. Plan/aceptación/compatibilidad y límites en SELECCION_REVISION_TRABAJO_PERSONAL_V81.md. GET propio de solo lectura + POST con versión recalculada; recibo global y recuperación de respuesta incierta siguen pendientes, no equivalen a la huella. Validación nueva/CI pendientes; sin merge ni Render.
+
+Validación local previa: módulo920 casos/911 pass/9 omisiones externas/0 fallos; ci:personal353/349 pass/4 omisiones/0 fallos. Sintaxis de cliente/browser y diff correctos. Se extiende el caso Mongo autorizado y el mismo caso Chromium390 (previsualización, cancelar sin POST y posterior confirmación versionada), sin aumentar número ni timeout de navegador. Mongo real/CI del SHA nuevo pendientes.

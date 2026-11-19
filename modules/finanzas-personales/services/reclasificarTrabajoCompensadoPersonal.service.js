@@ -81,29 +81,60 @@ async function corregirOrigenTrabajo(usuarioId,prestamoId,solicitud){
  const realizada=p.correccion.duplicado?null:aplicado;
  return{reclasificados:realizada?.reclasificados??0,ingresoTrabajoMinor:realizada?.ingresoTrabajoMinor??null,saldoPendienteMinor:p.saldoMinor,prestamoId:String(p._id),correccion:p.correccion};
 }
-async function reconciliarIngresosTrabajo(usuarioId){
+// Huella de selección, no firma ni recibo: se vuelve a calcular dentro del snapshot.
+function canonSeleccion(v){
+ if(v instanceof Date)return v.toISOString();
+ if(v instanceof mongoose.Types.ObjectId)return String(v);
+ if(v===null||typeof v!=="object")return v;
+ if(Array.isArray(v))return v.map(canonSeleccion);
+ return Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonSeleccion(v[k])]));
+}
+function versionSeleccion(usuarioId,cuentas){
+ return crypto.createHash("sha256").update(JSON.stringify(canonSeleccion({contrato:"REVISION_TRABAJO_V1",usuarioId:String(usuarioId),cuentas}))).digest("hex");
+}
+async function prepararSeleccion(usuarioId,session){
+ const trabajos=await Prestamo.collection.find({usuarioId:new mongoose.Types.ObjectId(String(usuarioId)),direccion:"POR_COBRAR",saldoMinor:0,estado:{$ne:"CANCELADO"}},{session,maxTimeMS:5000}).sort({_id:1}).limit(501).toArray();
+ if(trabajos.length>500)throw problema("Demasiadas cuentas para una reparación verificable",422);
+ const movimientos=trabajos.length?await movimientosVigentes(usuarioId,session):[],planes=[],huellas=[];
+ for(const raw of trabajos){
+  const vinculados=movimientos.filter(m=>String(m.prestamoId)===String(raw._id));
+  let estado,evidencia,motivo;
+  try{
+   verificarCuenta(raw,usuarioId);
+   if(raw.origenCuentaPorCobrar!=="TRABAJO")throw problema("Origen no confirmado como trabajo");
+   evidencia=await require("./clasificacionCobroPersonal.service").evidenciaEnSesion(usuarioId,raw,session);
+   if(evidencia.tipo!=="INGRESO"||!evidencia.confirmacionHash)throw problema("Confirma explícitamente el origen del cobro histórico antes de reclasificar");
+   estado=cobrosConciliados(raw,vinculados);
+  }catch(e){if(e.statusCode!==409)throw e;motivo=e.message;}
+  const reclasificaciones=estado?estado.cobros.filter(m=>m.tipo!=="INGRESO").length:0;
+  const resumen={prestamoId:String(raw._id),contraparte:raw.contraparte||"Sin contraparte",concepto:raw.concepto||"Sin concepto",reclasificaciones,
+   estado:motivo?"REQUIERE_REVISION":reclasificaciones?"RECLASIFICAR":"SIN_CAMBIOS",...(motivo?{motivo}:{})};
+  planes.push({raw,estado,resumen});
+  huellas.push({original:raw,movimientos:vinculados,evidencia:evidencia||null,resumen});
+ }
+ const cuentas=planes.map(p=>p.resumen);
+ return{planes,resumen:{versionSeleccion:versionSeleccion(usuarioId,huellas),cuentasRevisadas:cuentas.length,
+  reclasificacionesPropuestas:cuentas.reduce((n,p)=>n+p.reclasificaciones,0),requierenRevisionManual:cuentas.filter(p=>p.estado==="REQUIERE_REVISION").length,cuentas,soloLectura:true}};
+}
+async function previsualizarIngresosTrabajo(usuarioId){
+ return enTransaccion(usuarioId,async session=>(await prepararSeleccion(usuarioId,session)).resumen);
+}
+async function reconciliarIngresosTrabajo(usuarioId,solicitud){
+ if(solicitud?.confirmacion!==true||typeof solicitud.versionSeleccion!=="string"||!/^[a-f0-9]{64}$/.test(solicitud.versionSeleccion)||Object.keys(solicitud).some(k=>!["confirmacion","versionSeleccion"].includes(k)))throw problema("Previsualiza y confirma la selección de cobros vigente",400);
  return enTransaccion(usuarioId,async session=>{
-  const trabajos=await Prestamo.find({usuarioId,direccion:"POR_COBRAR",saldoMinor:0,estado:{$ne:"CANCELADO"}})
-   .sort({_id:1}).limit(501).maxTimeMS(5000).session(session);
-  if(trabajos.length>500)throw problema("Demasiadas cuentas para una reparación verificable",422);
-  const movimientos=trabajos.some(p=>p.origenCuentaPorCobrar==="TRABAJO")?await movimientosVigentes(usuarioId,session):[];
-  let corregidos=0,requierenRevisionManual=0,serializada=false;
-  for(const p of trabajos){
-   let estado;
-   try{
-    verificarCuenta(p,usuarioId);
-    if(p.origenCuentaPorCobrar!=="TRABAJO")throw problema("Origen no confirmado como trabajo");
-    const raw=await Prestamo.collection.findOne({_id:p._id,usuarioId:p.usuarioId},{session,maxTimeMS:5000});verificarCuenta(raw,usuarioId);
-    const evidencia=await require("./clasificacionCobroPersonal.service").evidenciaEnSesion(usuarioId,raw,session);
-    if(evidencia.tipo!=="INGRESO"||!evidencia.confirmacionHash)throw problema("Confirma explícitamente el origen del cobro histórico antes de reclasificar");
-    estado=cobrosConciliados(raw,movimientos);
-   }catch(e){if(e.statusCode!==409)throw e;requierenRevisionManual++;continue;}
-   // Un fallo de persistencia se propaga: no confirmar reparaciones parciales.
-   if(!serializada&&estado.cobros.some(m=>m.tipo!=="INGRESO")){await serializarEscrituraFuente(usuarioId,session);serializada=true;}
-   corregidos+=(await aplicar(usuarioId,p,estado,session)).reclasificados;
+  const {planes,resumen}=await prepararSeleccion(usuarioId,session);
+  if(resumen.versionSeleccion!==solicitud.versionSeleccion)throw problema("La selección cambió; vuelve a previsualizar y confirmar antes de revisar");
+  let corregidos=0,serializada=false;
+  for(const {raw,estado,resumen:cuenta} of planes){
+   if(cuenta.estado!=="RECLASIFICAR")continue;
+   // Los escritores financieros comparten esta coordinación. Un conflicto de snapshot
+   // reintenta y vuelve a comparar la selección antes de aplicar cualquier reparación.
+   if(!serializada){await serializarEscrituraFuente(usuarioId,session);serializada=true;}
+   corregidos+=(await aplicar(usuarioId,raw,estado,session)).reclasificados;
   }
-  return {corregidos,requierenRevisionManual,
-   estado:corregidos>0?"CORREGIDO":requierenRevisionManual>0?"REQUIERE_REVISION":"SIN_CAMBIOS"};
+  if(corregidos!==resumen.reclasificacionesPropuestas)throw problema("La revisión no coincide con la selección confirmada");
+  return{corregidos,requierenRevisionManual:resumen.requierenRevisionManual,versionSeleccion:resumen.versionSeleccion,
+   estado:corregidos>0?"CORREGIDO":resumen.requierenRevisionManual>0?"REQUIERE_REVISION":"SIN_CAMBIOS"};
  });
 }
-module.exports={corregirOrigenTrabajo,reconciliarIngresosTrabajo,reclasificarOrigenEnSesion};
+module.exports={corregirOrigenTrabajo,reconciliarIngresosTrabajo,reclasificarOrigenEnSesion,previsualizarIngresosTrabajo,versionSeleccion};

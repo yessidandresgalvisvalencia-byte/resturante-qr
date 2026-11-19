@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r106
+# Matriz de aceptación y prioridad — revisión r107
+
+Plan r107: selección/versiones de revisión, aceptación y límites en SELECCION_REVISION_TRABAJO_PERSONAL_V81.md. Vista propia de solo lectura y rechazo de selección obsoleta; pruebas/CI del SHA nuevo pendientes. Recibo global/recuperación incierta siguen pendientes. Sin merge/Render ni cierre de407.
 
 Corte r106 verificado en ensayo: código3493f10fae4e548498839af66a98a7db8c1ad50b/correcciónb8a222d1525a1ee0810891e39420e0677886f5d3, árbol7847a6a856d453b60bbd243995d59684ae49e27f. Ruta antigua comparte auditoría/clave/consentimiento; lote exige origen confirmado explícitamente, conserva fuente/caja y cursor en revisiones sin reparación. Gate44594804568/Seguridad44594804698/V8144594804456 success; ocho jobs, Mongo99/99 y navegador32/32 sin omisiones. Informe RECLASIFICACION_ORIGEN_AUDITADA_PERSONAL_V81.md conserva fallos iniciales/aceptación/evidencia/límites/siguiente paso. BackupV31/44 aislado; #407/custodia/operación reales pendientes. Siguiente: selección/versiones/recibo y recuperación global del lote; orígenes legacy/otros conceptos. Verificar HEAD/CI del cierre documental; sin merge ni Render.
 

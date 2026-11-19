@@ -37,6 +37,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   cursor:await Cursor.findById(String(f.usuarioId)).lean()
  };}
  const corregir=f=>service.corregirOrigenTrabajo(f.usuarioId,f.p._id,f.solicitud);
+ const revisar=async u=>service.reconciliarIngresosTrabajo(u,{confirmacion:true,versionSeleccion:(await service.previsualizarIngresosTrabajo(u)).versionSeleccion});
  const periodo=usuarioId=>({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"});
  try{
   await Promise.all([require("../../modules/finanzas-personales/models/correccionPrestamoPersonal.model").init(),Prestamo.init(),Tx.init(),Cuenta.init(),Outbox.init(),Evento.init(),Cursor.init()]);
@@ -77,7 +78,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
 
   // La reparación automática no infiere que un préstamo sea trabajo por el concepto.
   const noConfirmado=await fixture({saldo:0,cobros:[1000]});
-  const no=await service.reconciliarIngresosTrabajo(noConfirmado.usuarioId);
+  const no=await revisar(noConfirmado.usuarioId);
   assert.equal(no.corregidos,0);assert.equal(no.requierenRevisionManual,1);
   assert.equal((await Tx.findById(noConfirmado.fuentes[0]._id)).tipo,"COBRO_PRESTAMO");
 
@@ -86,11 +87,11 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   const mal=await fixture({usuarioId:bien.usuarioId,origen:"TRABAJO",saldo:0,cobros:[999]});
   const malOriginal=await Tx.findById(mal.fuentes[0]._id).lean();
   await corregirPrestamo(bien.usuarioId,bien.p._id,{origenCuentaPorCobrar:"TRABAJO"},{confirmacion:true,solicitudId:crypto.randomUUID()});
-  const lote=await service.reconciliarIngresosTrabajo(bien.usuarioId);
+  const lote=await revisar(bien.usuarioId);
   assert.equal(lote.corregidos,1);assert.equal(lote.requierenRevisionManual,1);
   assert.deepEqual(await Tx.findById(mal.fuentes[0]._id).lean(),malOriginal);
   assert.equal(await Evento.countDocuments({usuarioId:String(bien.usuarioId)}),1);
-  assert.equal((await service.reconciliarIngresosTrabajo(bien.usuarioId)).corregidos,0);
+  assert.equal((await revisar(bien.usuarioId)).corregidos,0);
 
   for(const [corromper,status] of [
    [async x=>Prestamo.updateOne({_id:x.p._id},{$set:{saldoMinor:2000}}),422],
@@ -133,14 +134,15 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
    const layer=router.stack.find(x=>x.route?.path===path);
    app.post(path,...layer.route.stack.map(x=>x.handle));
   }
-  for(const path of ["/rastrear-cobro","/diagnostico-cobro-importe","/diagnostico-cobro-trabajo","/diagnostico-cobros"]){
+  for(const path of ["/reconciliar-ingresos-trabajo/previsualizacion","/rastrear-cobro","/diagnostico-cobro-importe","/diagnostico-cobro-trabajo","/diagnostico-cobros"]){
    const layer=router.stack.find(x=>x.route?.path===path);
    app.get(path,...layer.route.stack.map(x=>x.handle));
   }
   server=app.listen(0,"127.0.0.1");await new Promise(resolve=>server.once("listening",resolve));
   const response=await fetch(`http://127.0.0.1:${server.address().port}/cuentas-por-cobrar/${http.p._id}/corregir-origen-trabajo`,{method:"POST",body:JSON.stringify({confirmacion:true}),headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()}});
   assert.equal(response.status,200);assert.equal((await response.json()).reclasificados,2);
-  const bulk=await fetch(`http://127.0.0.1:${server.address().port}/reconciliar-ingresos-trabajo`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirmacion:true})});
+  const preview=await fetch(`http://127.0.0.1:${server.address().port}/reconciliar-ingresos-trabajo/previsualizacion`);assert.equal(preview.status,200);const seleccion=await preview.json();
+  const bulk=await fetch(`http://127.0.0.1:${server.address().port}/reconciliar-ingresos-trabajo`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirmacion:true,versionSeleccion:seleccion.versionSeleccion})});
   assert.equal(bulk.status,200);assert.equal((await bulk.json()).corregidos,0);
   for(const path of ["/rastrear-cobro?montoMinor=400","/diagnostico-cobro-importe?montoMinor=400"]){
    const consulta=await fetch(`http://127.0.0.1:${server.address().port}${path}`);
