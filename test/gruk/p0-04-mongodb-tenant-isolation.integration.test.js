@@ -190,6 +190,17 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
         assert.equal(persistedAfterConflicts.cantidad, 2);
         assert.equal(persistedAfterConflicts.total, first.venta.total);
         assert.equal(persistedAfterConflicts.costoTotal, first.venta.costoTotal);
+        // Rejected economic replays must not poison the idempotency key:
+        // a subsequent exact replay still resolves to the original paid sale.
+        const replayAfterConflicts = await registrarVentaDesdePedido({
+          pedido: validOrder, empresaId: tenantA, sedeId: branchA, emitirEvento: false
+        });
+        assert.equal(replayAfterConflicts.creada, false);
+        assert.equal(String(replayAfterConflicts.venta._id), String(first.venta._id));
+        assert.equal(await Sales.countDocuments({
+          origen: 'restaurante', origenId: validOrder._id
+        }), 1);
+
 
         // A replay from another tenant or branch must not recover the original
         // sale even when the caller knows its originId and product ObjectId.
