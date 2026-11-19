@@ -2765,3 +2765,10 @@ Los límites anteriores siguen vigentes. No es certificación externa, saldo ban
 Siguiente ejecución: verificar HEAD/base/PR389/#407/CI/instrucciones y este cierre; priorizar contraparte de cuentas por cobrar (escapes dobles observados), revisar fechas civiles sin reescribir originales y exigir pruebas normales/fallos/aislamiento antes de contabilizar; después contextos propios de deuda/crédito y resolución explícita de metas ambiguas. No repetir fechas/compra inteligente ya cerradas. Pendientes externos exactos: custodio independiente real/anclas, respaldo durable con retención/acceso/claves separados y restauración operativa aislada con RPO/RTO, roles/índices/migración/configuración reales, Safari/dispositivos y auditoría independiente según matriz, compatibilidad e informe final. No eludir gates. Automatización existente activa; sin duplicarla ni prometer ejecución ininterrumpida.
 
 Este cierre documental requiere sus propios workflows del SHA publicado; su SHA se obtiene del historial Git/PR, sin autoreferencia circular.
+
+
+## Plan r104 — cuentas por cobrar explícitas
+
+Base fb135069ae900b5fde264369acc409f4808d72da/árbol6040c40238d6708c47b3595deaf6f76cfec500bb; PR389 abierto/base652126a03f19fbec3c529cad1e84bff11cd3699e y #407 abierto. Padre con tres workflows verdes, Mongo96/96/browser31/31. Revisar CUENTAS_POR_COBRAR_EXPLICITAS_PERSONAL_V81.md para alcance, aceptación, gramática, no caja/ingreso, origen por confirmar, fechas completas y siguientes pasos. CI nuevo pendiente. Sin merge/Render; custodio y operación reales pendientes.
+
+Validación previa a publicar r104: módulo916 casos/907 pass/9 omitidos externos/0 fallos; ci:personal353/349 pass/4 omitidos/0 fallos; dirigidas nuevas6/6 y caché personal sin errores (solapadas). Sintaxis helper/browser/cliente y diff correctos. Pruebas de Mongo/Chromium añadidas sin subir timeouts ni saltarlas; pendientes CI del SHA publicado. No son prueba de roles productivos ni aceptación integral.

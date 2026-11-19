@@ -48,23 +48,7 @@ function deudaEstructurada(t){
   return{tipo:"DEUDA_POR_PAGAR",montoMinor:principal,principalMinor:principal,saldoMinor:saldo,abonadoMinor:abonado,cuotaMinor:cuota||0,diaPago:dia,frecuencia:"MENSUAL",concepto,categoria:"Deuda",contraparte:"",fecha:hoy(),estado:"LISTO",confianza:99,razonRevision:"",tasaMensualPct:/sin\s+inter[eé]s/i.test(texto)?0:undefined};
 }
 function cobroCuenta(t){const texto=String(t).replace(/\s+/g," ").trim();const m=texto.match(/^([\p{L}ÁÉÍÓÚÑáéíóúñ]+)(?:\s+[\p{L}ÁÉÍÓÚÑáéíóúñ]+)?\s+me\s+(?:pag[oó]|consign[oó]|transfiri[oó])/iu);if(!m)return null;const v=monto(texto);if(!v)return null;return{tipo:"COBRO_CUENTA_POR_COBRAR",montoMinor:v,concepto:"Cobro recibido",categoria:"Cuenta por cobrar",contraparte:m[1],fecha:hoy(),estado:"LISTO",confianza:98,razonRevision:""};}
-function cuentaPorCobrar(t){
- const texto=String(t).replace(/\s+/g," ").trim();
- if(!/\b(?:me debe|me deben|me qued[oó] debiendo|me va a pagar|me van a pagar|por cobrar)\b/i.test(texto))return null;
- const m=monto(texto);if(!m)return null;
- let contraparte="Por identificar";
- const patrones=[
-  /(?:^|[.!?;]\\s*)(?:a\\s+)?([\\p{L}]+(?:\\s+[\\p{L}]+){0,3})\\s+me\\s+(?:debe|qued[oó]\\s+debiendo)\\b/iu,
-  /\\b(?:me\\s+debe|me\\s+qued[oó]\\s+debiendo)\\s+([\\p{L}]+(?:\\s+[\\p{L}]+){0,3}?)(?=\\s+(?:\\d|un\\b|una\\b|\\$|porque\\b|por\\b|desde\\b|y\\b)|[,.!?;]|$)/iu,
-  /\\b(?:le\\s+prest[eé]|le\\s+fi[eé])\\s+(?:a\\s+)?([\\p{L}]+(?:\\s+[\\p{L}]+){0,3})\\b/iu
- ];
- for(const patron of patrones){const match=texto.match(patron);if(match){const candidato=match[1].trim();if(!/^(?:dinero|plata|pesos|mil|millones|alguien)$/i.test(candidato)){contraparte=candidato;break;}}}
- if(contraparte==="Por identificar")return{tipo:"CUENTA_POR_COBRAR",montoMinor:m,concepto:"Dinero por cobrar",categoria:"Cuenta por cobrar",contraparte,fecha:hoy(),estado:"REQUIERE_REVISION",confianza:50,razonRevision:"Falta identificar el nombre de quien debe el dinero."};
- const dm=texto.match(/(?:me\s+paga|me\s+pagan|paga|pagan)(?:\s+el)?\s+(?:d[ií]a\s+)?(\d{1,2})/i);
- const dia=dm?Number(dm[1]):null;let fechaVencimiento;
- if(dia&&dia>=1&&dia<=31){const b=colombia.fechaColombia(0);let y=b.getFullYear(),mo=b.getMonth();if(b.getDate()>dia){mo++;if(mo>11){mo=0;y++;}}fechaVencimiento=new Date(y,mo,Math.min(dia,new Date(y,mo+1,0).getDate()),12,0,0,0);}
- return{tipo:"CUENTA_POR_COBRAR",montoMinor:m,concepto:"Dinero por cobrar",categoria:"Cuenta por cobrar",contraparte,fecha:hoy(),fechaVencimiento,estado:"LISTO",confianza:95,razonRevision:""};
-}
+function cuentaPorCobrar(t){return require("./cuentaPorCobrarInterpretada.service").interpretar(t);}
 function ajusteSaldo(t){const texto=String(t).replace(/\s+/g," ").trim();if(!/(?:tengo|hay|cuento con).*(?:efectivo|billetera|cartera)|(?:efectivo|billetera|cartera).*(?:no hab[ií]a registrado|sin registrar|saldo)/i.test(texto))return null;const v=monto(texto);if(!v)return null;return{tipo:"AJUSTE_SALDO",montoMinor:v,concepto:"Reconciliación de efectivo",categoria:"Saldo inicial",contraparte:"",fecha:fechaSaldoDeclarado(texto),estado:"LISTO",confianza:99,razonRevision:""};}
 function señalesPatrimoniales(t){const texto=String(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();const posesion=/\b(?:tengo|tenia|tenemos|cuento con|contaba con|dispongo de|disponia de|hay|me quedan?|me quedaron|mantengo|conservo)\b/.test(texto);const ahorro=/\b(?:ahorro|ahorros|ahorrad[oa]s?|guardad[oa]s?|guardadit[oa]s?|plata aparte|platica aparte|dinero aparte|fondo|colchon)\b/.test(texto);const preexistente=/\b(?:ya tenia|ya estaba|desde antes|de antes|preexistente|existente|no habia registrado|sin registrar|no estaba registrado|se me olvido registrar|se me habia olvidado|no lo habia metido|no lo habia anotado|no te habia dicho|se me paso decir|me falto registrar|saldo)\b/.test(texto);const movimiento=/\b(?:hoy|ayer|acabo de|ahorre|guarde|meti|pase|transferi|consigne|deposite)\b/.test(texto);return{posesion,ahorro,preexistente,movimiento};}
 function ajusteSaldoAhorro(t){const texto=String(t).replace(/\s+/g," ").trim(),s=señalesPatrimoniales(texto);if(!s.ahorro||(!s.preexistente&&!s.posesion)||s.movimiento&&!s.preexistente)return null;const v=monto(texto);if(!v)return null;return{tipo:"AJUSTE_SALDO_AHORRO",montoMinor:v,concepto:"Reconciliación de ahorro existente",categoria:"Ahorro",contraparte:"",cuentaDestino:"AHORRO",fecha:fechaSaldoDeclarado(texto),estado:"LISTO",confianza:s.preexistente?99:94,razonRevision:""};}

@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r103
+# Matriz de aceptación y prioridad — revisión r104
+
+Corte r104 en validación: reconocimiento de cuentas por cobrar explícitas, importe exacto, fecha completa y aprobación sin caja/ingreso; persona/fecha/advertencia visibles. Plan/aceptación/límites en CUENTAS_POR_COBRAR_EXPLICITAS_PERSONAL_V81.md. Basefb135069ae900b5fde264369acc409f4808d72da; backupV31/44 sin cambios. CI nuevo pendiente; #407 sigue abierto y no autoriza producción.
 
 Corte r103 verificado en ensayo: código8ebf681ffd3f227470f71f09ff166e88b2d4a5e2/árbolc70488d0c827f100267968e00ed9da73101cc696; contexto privado propio de aprobación por lote/elemento, caja/recibo atómicos y recuperación sin repetir gasto. Fecha de hechos de hoy sin adelantar al mediodía. Gate44552554332/Seguridad44552554242/V8144552554318 success; ocho jobs, Mongo96/96 y Chromium/backend31/31 sin omisiones. Informe CONTEXTO_AUDITORIA_APROBACION_PERSONAL_V81.md conserva aceptación, dos intentos fallidos, correcciones y límites. BackupV31/44 aislado; #407/custodia/operación reales pendientes. Siguiente: contraparte en cuentas por cobrar y contexto de deuda/crédito/metas ambiguas. Verificar CI del cierre documental y HEAD real; sin merge ni Render.
 
