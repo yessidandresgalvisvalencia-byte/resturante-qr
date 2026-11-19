@@ -1,0 +1,36 @@
+name: GRUK Commercial Sales Isolation Integration
+
+on:
+  push:
+    branches:
+      - "gruk/commercial-integration-*"
+  pull_request:
+    branches:
+      - "fix/gruk-p0-04-product-sede-scope-20261116"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-commercial-sales-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scoped-sales-regression:
+    name: Sales tenant/site isolation regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify JavaScript syntax
+        run: node --check test/gruk/p0-commercial-sales-scope.test.js
+      - name: Execute negative and positive sale isolation tests
+        run: node --test test/gruk/p0-commercial-sales-scope.test.js
