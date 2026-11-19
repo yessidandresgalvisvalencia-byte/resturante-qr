@@ -207,6 +207,14 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
           );
           assert.equal(await Sales.countDocuments({ origenId: validOrder._id }), 1);
           assert.equal(await Sales.countDocuments({ empresaId: company, sedeId: branch }), 0);
+          const originalAfterForeignReplay = await Sales.findById(first.venta._id).lean();
+          assert.ok(originalAfterForeignReplay, 'foreign replay must preserve original sale');
+          assert.equal(String(originalAfterForeignReplay.empresaId), String(tenantA));
+          assert.equal(String(originalAfterForeignReplay.sedeId), String(branchA));
+          assert.equal(String(originalAfterForeignReplay.productoServicioId), String(own._id));
+          assert.equal(originalAfterForeignReplay.cantidad, 2);
+          assert.equal(originalAfterForeignReplay.total, first.venta.total);
+          assert.equal(originalAfterForeignReplay.costoTotal, first.venta.costoTotal);
         }
         // A cancelled original sale cannot be returned as an idempotent paid
         // replay; restore its state before the concurrency scenario.
