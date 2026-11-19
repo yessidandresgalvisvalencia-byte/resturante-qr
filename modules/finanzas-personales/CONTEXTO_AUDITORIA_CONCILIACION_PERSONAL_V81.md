@@ -35,3 +35,9 @@ Publicar lote únicamente en integración personal con expected_sha/force=false 
 ## Bloqueos de liberación
 
 #407/custodio independiente real, backup/restore operacional con retención/acceso/credenciales separadas, roles/índices/migración históricos productivos, claves/proxy/rate limit reales, Safari/dispositivos físicos y auditoría independiente cuando corresponda siguen pendientes. Sin merge a feature/main ni despliegue Render, costos nuevos, otros productos o datos reales modificados. No certificaciones externas, recuperación garantizada ni seguridad absoluta.
+
+
+## Fallo de ensayo y corrección r96
+Primer SHA22b20ca41757d81a8f77ca85712bf19b1b784012/árbol4a71d1e6992740eb5b2ade73db99151b649b9a7e: Gate44447898260 y Seguridad44447898299 success; V8144447898246 falló en job135304407179. Mongo89/89 y nuevo caso FP_CONTEXTO_CONCILIACION aprobados (120000, gasto5000, saldo115000 y caja165000 intactos, sin reenvío UI). Navegador24casos/22aprobados/2fallos contando padre. La copia de capturas previa intentó rellenar email después de logout/reload con el formulario todavía oculto: helper entrar esperó botón visible pero no recarga terminada ni su onclick instalado.
+
+Se corrige solo la sincronización del ensayo: esperar domcontentloaded de la recarga en paralelo al clic real de logout, comprobar tokens borrados y binding real de choosePersonal antes de pulsarlo. Mantiene login HTTP real, misma identidad, copia ajena rechazada, original exacto y todos los assertions; no inyecta credenciales/sesión ni evita cuotas, no amplía timeout ni omite caso. El nuevo SHA requiere todas las CI y navegador24/24 propios; no se declara completo con este fallo pendiente.
