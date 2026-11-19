@@ -24,6 +24,9 @@ async function descontarInventarioPorVenta({
       !mongoose.Types.ObjectId.isValid(venta.productoServicioId)) {
     throw stockError("INVENTARIO_TRANSACCION_REQUERIDA", 500);
   }
+  if (typeof pedido.restaurantId !== "string" || !pedido.restaurantId.trim()) {
+    throw stockError("INVENTARIO_RESTAURANTE_REQUERIDO", 422);
+  }
   const cantidad = Number(venta.cantidad);
   if (!Number.isSafeInteger(cantidad) || cantidad < 1) {
     throw stockError("INVENTARIO_CANTIDAD_INVALIDA", 422);
@@ -35,6 +38,7 @@ async function descontarInventarioPorVenta({
     empresaId,
     sedeId,
     productoServicioId: venta.productoServicioId,
+    restaurantId: pedido.restaurantId,
     anulado: false
   }).select("_id cantidad costo").limit(2).session(session).lean();
   if (rows.length !== 1) throw stockError("INVENTARIO_NO_UNICO_O_INEXISTENTE");
@@ -51,6 +55,7 @@ async function descontarInventarioPorVenta({
     empresaId,
     sedeId,
     productoServicioId: venta.productoServicioId,
+    restaurantId: pedido.restaurantId,
     anulado: false,
     cantidad: { $gte: cantidad }
   }, { $inc: { cantidad: -cantidad } }, {
