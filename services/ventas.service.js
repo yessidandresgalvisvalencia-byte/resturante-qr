@@ -121,7 +121,12 @@ async function registrarVentaDesdePedido({
       ["precio", pedido.precio],
       ["costoUnitario", productoServicio.costoUnitario]
     ]) {
-      // Bound untrusted input before regex scanning or Number conversion.\n      // This guard does not claim exact-cent arithmetic.\n      if (typeof valor === "string" && valor.length > 128) {\n        throw new Error("GRUK Ventas: datos economicos fuera de rango seguro");\n      }\n      if (typeof valor !== "number" && (typeof valor !== "string" || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(valor.trim()))) {
+      // Bound untrusted input before regex scanning or Number conversion.
+      // This guard does not claim exact-cent arithmetic.
+      if (typeof valor === "string" && valor.length > 128) {
+        throw new Error("GRUK Ventas: datos economicos fuera de rango seguro");
+      }
+      if (typeof valor !== "number" && (typeof valor !== "string" || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(valor.trim()))) {
         throw new Error("GRUK Ventas: datos economicos invalidos");
       }
     }
