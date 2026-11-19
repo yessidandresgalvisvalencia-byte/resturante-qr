@@ -577,7 +577,7 @@ async function resumenNoAsignados({
             $sum: 1
           },
           monto: {
-            $sum: "$monto"
+            $sum: { $toDecimal: "$monto" }
           }
         }
       }
@@ -604,10 +604,10 @@ async function resumenNoAsignados({
           Number(
             row.cantidad || 0
           ),
-        monto:
-          Number(
-            row.monto || 0
-          )
+        monto: safeCents(
+          cents(row.monto == null ? "0" : String(row.monto), "sinAsignar"),
+          "sinAsignar"
+        )
       };
     }
 
@@ -620,10 +620,10 @@ async function resumenNoAsignados({
           Number(
             row.cantidad || 0
           ),
-        monto:
-          Number(
-            row.monto || 0
-          )
+        monto: safeCents(
+          cents(row.monto == null ? "0" : String(row.monto), "sinAsignar"),
+          "sinAsignar"
+        )
       };
     }
   }
@@ -689,16 +689,14 @@ async function obtenerResumenTesoreria({
     sinAsignar.entradas.cantidad +
     sinAsignar.salidas.cantidad;
 
-  const saldoDisponible =
+  const saldoDisponible = safeCents(
     cuentas.reduce(
-      (total, cuenta) =>
-        total +
-        Number(
-          cuenta.saldo
-            ?.saldoDisponible || 0
-        ),
-      0
-    );
+      (total, cuenta) => total +
+        cents(cuenta.saldo?.saldoDisponible ?? 0, "saldoCuenta"),
+      0n
+    ),
+    "saldoTesoreria"
+  );
 
   return {
     estadoConfiabilidad:
