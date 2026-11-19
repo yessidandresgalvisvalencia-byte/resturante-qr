@@ -93,6 +93,22 @@ test("P0-04 financial preflight: blocks missing required amounts but allows null
   assert.equal(missingOptional.printed[0].monetaryDataReadyForDbaReview, true);
 });
 
+test("P0-04 financial preflight: rejects missing or empty sales collection as wrong database", () => {
+  const missing = audit({ collectionNames: ["gastos"] });
+  assert.match(String(missing.error?.message), /GRUK_MONEY_AUDIT_VENTAS_COLLECTION_REQUIRED/);
+  assert.ok(!missing.operations.some(x => typeof x === "object"), "no audit against wrong DB");
+
+  const empty = audit({ counts: {
+    "ventas.total": { total: 0 },
+    "ventas.precioUnitario": { total: 0 },
+    "ventas.costoUnitario": { total: 0 },
+    "ventas.costoTotal": { total: 0 },
+    "ventas.utilidadBruta": { total: 0 }
+  } });
+  assert.match(String(empty.error?.message), /GRUK_MONEY_AUDIT_ANOMALIAS/);
+  assert.equal(empty.printed[0].monetaryDataReadyForDbaReview, false);
+});
+
 test("P0-04 financial preflight: rejects prohibited databases and missing exact confirmation before any read", () => {
   const variants = [
     { GRUK_ENTERPRISE_DB: "finanzas_personales", GRUK_ENTERPRISE_DB_CONFIRM: "finanzas_personales" },
