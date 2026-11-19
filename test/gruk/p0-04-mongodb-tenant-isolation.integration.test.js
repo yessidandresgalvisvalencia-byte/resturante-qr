@@ -191,6 +191,35 @@ test('P0-04: real MongoDB enforces tenant and branch-scoped catalog reads', {
         assert.equal(persistedAfterConflicts.total, first.venta.total);
         assert.equal(persistedAfterConflicts.costoTotal, first.venta.costoTotal);
 
+        // A replay from another tenant or branch must not recover the original
+        // sale even when the caller knows its originId and product ObjectId.
+        // The original sale must remain unchanged after each rejected attempt.
+        for (const [company, branch, product] of [
+          [tenantB, branchA, foreign],
+          [tenantA, branchB, sibling]
+        ]) {
+          await assert.rejects(
+            registrarVentaDesdePedido({
+              pedido: { ...validOrder, productoServicioId: product._id },
+              empresaId: company, sedeId: branch, emitirEvento: false
+            }),
+            (error) => error && error.code === 11000
+          );
+          assert.equal(await Sales.countDocuments({ origenId: validOrder._id }), 1);
+          assert.equal(await Sales.countDocuments({ empresaId: company, sedeId: branch }), 0);
+        }
+        // A cancelled original sale cannot be returned as an idempotent paid
+        // replay; restore its state before the concurrency scenario.
+        await Sales.updateOne({ _id: first.venta._id }, { $set: { estado: 'anulada' } });
+        await assert.rejects(
+          registrarVentaDesdePedido({
+            pedido: validOrder, empresaId: tenantA, sedeId: branchA, emitirEvento: false
+          }),
+          (error) => error && error.code === 'GRUK_VENTA_REPLAY_STATE_CONFLICT'
+        );
+        assert.equal((await Sales.findById(first.venta._id).lean()).estado, 'anulada');
+        await Sales.updateOne({ _id: first.venta._id }, { $set: { estado: 'pagada' } });
+
         // Race eight first-write attempts for a distinct order through the
         // actual service and MongoDB unique index. Exactly one must create;
         // the others must recover the same persisted sale idempotently.
