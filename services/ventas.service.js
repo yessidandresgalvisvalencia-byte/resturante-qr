@@ -5,6 +5,7 @@ const Venta = require("../models/Venta");
 const ProductoServicio = require("../models/ProductoServicio");
 const Cliente = require("../models/Cliente");
 const eventBus = require("../core/eventos/eventBus");
+const { descontarInventarioPorVenta } = require("./inventarioVenta.service");
 
 async function registrarVentaDesdePedido({
   pedido,
@@ -75,7 +76,7 @@ async function registrarVentaDesdePedido({
         // Productos globales (sedeId null) o de esta sede; nunca de otra.
         sedeId: sedeId == null ? null : { $in: [sedeId, null] }
       })
-        .select("_id costoUnitario")
+        .select("_id costoUnitario manejaInventario")
         .session(session)
         .lean();
 
@@ -193,6 +194,14 @@ async function registrarVentaDesdePedido({
       throw new Error("GRUK Ventas: calculos economicos fuera de rango seguro");
     }
 
+    // Tracked products must be paid inside a MongoDB transaction so stock,
+    // movement and the sale are committed or rolled back together.
+    if (productoServicio.manejaInventario && !session) {
+      const error = new Error("INVENTARIO_TRANSACCION_REQUERIDA");
+      error.code = "INVENTARIO_TRANSACCION_REQUERIDA";
+      error.statusCode = 500;
+      throw error;
+    }
     creandoVenta = true;
     const [venta] = await Venta.create([{
       empresaId,
@@ -238,8 +247,14 @@ costoFuente:
     }], { session });
 
     // Only Venta.create duplicate-key errors may trigger idempotent recovery.
-    // A downstream event handler failure must propagate as-is after creation.
+    // A stock or movement failure must abort the outer transaction, not trigger
+    // an idempotent replay or a phantom VENTA_COMPLETADA event.
     creandoVenta = false;
+    if (productoServicio.manejaInventario) {
+      await descontarInventarioPorVenta({
+        venta, pedido, empresaId, sedeId, session
+      });
+    }
     if (emitirEvento) eventBus.emit("VENTA_COMPLETADA", {
       ventaId: venta._id,
       empresaId: venta.empresaId,
