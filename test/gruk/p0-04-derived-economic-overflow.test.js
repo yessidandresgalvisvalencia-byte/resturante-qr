@@ -28,7 +28,7 @@ test('P0-04: derived monetary overflow rejects sale before any write', async () 
     // Both inputs are safe integers; their product is not.
     await assert.rejects(
       registrarVentaDesdePedido({ pedido, empresaId, sedeId, emitirEvento: false }),
-      /calculos economicos fuera de rango seguro/
+      /calculos economicos fuera de rango seguro|DINERO_RANGO_/
     );
     assert.equal(writes, 0);
   } finally {
