@@ -2,7 +2,7 @@
 const mongoose=require("mongoose");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
-const {eventoCompensatorio,verificarCadena}=require("./eventoCompensatorioPersonal.service");
+const {eventoCompensatorio,verificarCadena,validarDocumento}=require("./eventoCompensatorioPersonal.service");
 const {vigente}=require("./estadoCompensadoPersonal.service");
 const {indiceExacto}=require("../security/auditoriaIndicesMongoV81.service");
 const GENESIS="0".repeat(64);
@@ -36,7 +36,7 @@ async function leerCadenaVerificada(usuarioId,{session,EventoModelo=Evento,Curso
   throw Object.assign(new Error("Ledger compensatorio alcanza el límite verificable; requiere ampliación de capacidad"),{statusCode:422});
  const cursor=await CursorModelo.findById(usuarioId).session(session).lean();
  let cadenaValida=false;
- try{cadenaValida=verificarCadena(cadena,{prevHash:GENESIS});}catch(_){}
+ try{for(const e of cadena)validarDocumento(e,usuarioId);cadenaValida=verificarCadena(cadena,{prevHash:GENESIS});}catch(_){}
  if(!cadenaValida||cadena.some(e=>e.usuarioId!==usuarioId)||(!cursor&&cadena.length)||
     (cursor&&(cursor.secuencia!==cadena.length||cursor.hashActual!==(cadena.at(-1)?.hashActual||GENESIS))))
   throw conflicto("INTEGRIDAD_LEDGER: cadena completa y cursor no coinciden");
@@ -50,7 +50,7 @@ function crearRegistrador({
 }={}){
  // Una sesión externa pertenece al llamador: este debe propagar errores y confirmar/abortar
  // la unidad completa (evento, saldo, reserva y outbox). El retorno NO confirma esa transacción.
- return async function registrar({original,tipo,cambios={},idempotencyKey,fechaISO,anulacionHash},{session:externa}={}){
+ return async function registrar({original,tipo,cambios={},idempotencyKey,fechaISO,anulacionHash,auditoriaContexto},{session:externa}={}){
   if(!original||typeof original.usuarioId!=="string"||!ID.test(original.usuarioId)||
     typeof original.movimientoId!=="string"||!ID.test(original.movimientoId)||
     typeof idempotencyKey!=="string"||!ID.test(idempotencyKey))
@@ -87,7 +87,7 @@ function crearRegistrador({
        typeof cursor.hashActual!=="string"||!(/^[a-f0-9]{64}$/).test(cursor.hashActual)||
        cursor.secuencia>=Number.MAX_SAFE_INTEGER)
      throw conflicto("Cursor del ledger inconsistente");
-    const evento=construir({original,tipo,cambios,idempotencyKey,fechaISO,...(tipo==="RESTAURACION"?{anulacionHash}:{}),
+    const evento=construir({original,tipo,cambios,idempotencyKey,fechaISO,...(auditoriaContexto===undefined?{}:{auditoriaContexto}),...(tipo==="RESTAURACION"?{anulacionHash}:{}),
       prevHash:cursor.hashActual,secuencia:cursor.secuencia+1});
     // El cursor CAS coordina la escritura por usuario. Una carrera aborta toda la transacción.
     const avance=await CursorModelo.findOneAndUpdate(

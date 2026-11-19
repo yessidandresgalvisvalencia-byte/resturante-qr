@@ -11,11 +11,12 @@ const {liberarReserva}=require("./liberarReservaCompensadaPersonal.service");
 const {restaurarReserva}=require("./restaurarReservaCompensadaPersonal.service");
 const {canon}=require("./eventoCompensatorioPersonal.service");
 const {serializarEscrituraFuente}=require("./proteccionOriginalCompensadoPersonal.service");
+const auditoria=require("../security/contextoAuditoriaCompensacionPersonal.service");
 const registrar=crearRegistrador();
 const error=(mensaje,statusCode=409)=>Object.assign(new Error(mensaje),{statusCode});
 // Evento, saldo, reserva y outbox se confirman juntos sin modificar el asiento original.
 function crearAplicador({OutboxModelo=Outbox}={}){
- return async function compensar({usuarioId,movimientoId,tipo,cambios={},idempotencyKey,anulacionHash}){
+ return async function compensar({usuarioId,movimientoId,tipo,cambios={},idempotencyKey,anulacionHash},opciones={}){
   if(!mongoose.isObjectIdOrHexString(usuarioId)||!mongoose.isObjectIdOrHexString(movimientoId))
    throw error("Usuario o movimiento inválido",400);
   if(typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey))
@@ -26,6 +27,7 @@ function crearAplicador({OutboxModelo=Outbox}={}){
      cambios?.categoria!==undefined&&(typeof cambios.categoria!=="string"||cambios.categoria.length>80))
    throw error("Texto de corrección inválido",400);
   if(tipo==="RESTAURACION"&&!/^[a-f0-9]{64}$/.test(anulacionHash||""))throw error("Anulación exacta obligatoria",400);
+  const contexto=auditoria.resolver(usuarioId,opciones);
   const session=await mongoose.startSession();
   try{
    let evento;
@@ -54,13 +56,14 @@ function crearAplicador({OutboxModelo=Outbox}={}){
      if(!estado.anulado||historial.at(-1)?.hashActual!==anulacionHash||historial.at(-1)?.tipo!=="ANULACION")
       throw error("La anulación cambió; vuelve a consultar antes de restaurar");
     }else if(estado.anulado)throw error("Movimiento ya anulado");
+    const auditoriaContexto=contexto();
     let reservaRecurrente;
     if(fuente.recurrenteOrigenId){
      const ajustarReserva=tipo==="RESTAURACION"?restaurarReserva:liberarReserva;
      reservaRecurrente=await ajustarReserva({usuarioId,fuente,montoMinor:estado.actual.montoMinor,session});
     }
     evento=await registrar({original:estado.actual,tipo,cambios,idempotencyKey,
-     fechaISO:new Date().toISOString(),...(tipo==="RESTAURACION"?{anulacionHash}:{})},{session});
+     fechaISO:new Date().toISOString(),auditoriaContexto,...(tipo==="RESTAURACION"?{anulacionHash}:{})},{session});
     const delta=Number(BigInt(evento.deltaCajaMinor));
     if(!Number.isSafeInteger(delta))throw error("Delta de caja fuera de rango");
     const cuenta=await Cuenta.findOneAndUpdate({_id:fuente.cuentaId,usuarioId,

@@ -1,5 +1,6 @@
 "use strict";
 const {crearAplicador}=require("./compensarMovimientoPersonal.service");
+const auditoria=require("../security/contextoAuditoriaCompensacionPersonal.service");
 function crearHandler({tipo,aplicar=tipo==="RESTAURACION"?require("./restauracionMovimientoPersonal.service").restaurarMovimiento:crearAplicador()}={}){
  if(!["CORRECCION","ANULACION","RESTAURACION"].includes(tipo))throw new TypeError("Operación inválida");
  return async(req,res)=>{
@@ -11,14 +12,16 @@ function crearHandler({tipo,aplicar=tipo==="RESTAURACION"?require("./restauracio
    return res.status(400).json({ok:false,error:"Clave de operación obligatoria; reintenta desde el movimiento"});
   if(tipo==="RESTAURACION"&&(req.validated?.confirmar!==true||!/^[a-f0-9]{64}$/.test(req.validated?.anulacionHash||"")))
    return res.status(400).json({ok:false,error:"Confirma la restauración de la anulación seleccionada"});
+  if(["auditoriaContexto","auditoriaCompromiso","contextoAuditoria"].some(k=>Object.hasOwn(req.body||{},k)))
+   return res.status(400).json({ok:false,error:"El contexto de auditoría lo obtiene el servidor"});
   try{
    const evento=await aplicar({usuarioId,movimientoId:req.params.id,tipo,
     cambios:tipo==="CORRECCION"?req.validated:{},idempotencyKey,
-    ...(tipo==="RESTAURACION"?{anulacionHash:req.validated.anulacionHash}:{})});
+    ...(tipo==="RESTAURACION"?{anulacionHash:req.validated.anulacionHash}:{})},{capturarContexto:()=>auditoria.capturar(req,usuarioId)});
    // Un reintento es un recibo histórico, incluso si hubo otra anulación.
-   if(tipo==="RESTAURACION")return res.json({ok:true,compensacion:evento,requiereActualizar:true});
+   if(tipo==="RESTAURACION")return res.json({ok:true,compensacion:auditoria.visible(evento),requiereActualizar:true});
    const {usuarioId:_,movimientoId:__,...original}=evento.original;
-   return res.json({ok:true,compensacion:evento,transaccion:{_id:evento.movimientoId,
+   return res.json({ok:true,compensacion:auditoria.visible(evento),transaccion:{_id:evento.movimientoId,
     ...original,...evento.cambios,estado:tipo==="ANULACION"?"ANULADA":"ACTIVA"}});
   }catch(e){
    const status=e.code===11000?409:e.statusCode||(e instanceof TypeError||e instanceof RangeError?400:500);

@@ -1,6 +1,7 @@
 "use strict";
 const crypto=require("node:crypto"),mongoose=require("mongoose");
 const Evento=require("../models/EventoCompensatorioPersonal");
+const {validarDocumento}=require("./eventoCompensatorioPersonal.service");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const {DOMINIO,verificarAnclaCompensaciones}=require("../security/anclaCompensacionesPersonal.service");
 const fallo=codigo=>({valida:false,codigo,certificaCustodiaIndependiente:false});
@@ -31,6 +32,7 @@ async function auditarAnclaCompensaciones({usuarioId,clavePublica,custodio}={}){
    const eventos=await Evento.find({usuarioId:usuario},{_id:0}).sort({secuencia:1})
     .limit(10001).maxTimeMS(5000).session(session).lean();
    if(eventos.length>10000){resultado=fallo("LIMITE_VERIFICABLE_EXCEDIDO");return;}
+   for(const e of eventos)validarDocumento(e,usuario);
    const cursor=await Cursor.findById(usuario).maxTimeMS(5000).session(session).lean();
    resultado=verificarAnclaCompensaciones({ancla,clavePublica,eventos,cursor,usuarioId:usuario});
   },{readConcern:{level:"snapshot"},readPreference:"primary"});

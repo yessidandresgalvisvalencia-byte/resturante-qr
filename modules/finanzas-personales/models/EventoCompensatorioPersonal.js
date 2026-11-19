@@ -35,6 +35,7 @@ const schema=new Schema({
  hashActual:{type:String,required:true,match:HEX},
  original:{type:original,required:true},
  cambios:{type:cambios,required:true},
+ auditoriaContexto:{type:Schema.Types.Mixed,default:undefined,immutable:true},
  deltaCajaMinor:{type:String,required:true,match:moneySigned}
 },{collection:"fin_eventos_compensatorios_personales_v1",strict:"throw",versionKey:false,timestamps:false});
 schema.index({usuarioId:1,idempotencyKey:1},{unique:true,name:"fp_compensacion_idempotencia_usuario_v1"});

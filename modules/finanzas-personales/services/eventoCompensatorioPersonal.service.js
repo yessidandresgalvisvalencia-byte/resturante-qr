@@ -1,5 +1,6 @@
 "use strict";
 const crypto=require("node:crypto");
+const auditoria=require("../security/contextoAuditoriaCompensacionPersonal.service");
 const HEX=/^[a-f0-9]{64}$/;
 function canon(v){
  if(v===null||typeof v==="string"||typeof v==="boolean")return JSON.stringify(v);
@@ -38,7 +39,7 @@ function originalDesdeFuente(f){
  }
  return originalVerificado(o);
 }
-function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,secuencia,fechaISO,anulacionHash}){
+function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,secuencia,fechaISO,anulacionHash,auditoriaContexto}){
  const anterior=originalVerificado(original);
  // V2 añade únicamente reversión de pagos de deuda, con su efecto de caja explícito.
  // Conservar el payload V1 de ingresos/gastos mantiene verificables los hashes históricos.
@@ -78,9 +79,18 @@ function eventoCompensatorio({original,tipo,cambios={},idempotencyKey,prevHash,s
   throw new RangeError("Delta fuera de rango seguro");
  const payload={version:restaurar?(anterior.tipo==="PAGO_DEUDA"?(anterior.prestamoId?7:6):5):reclasificacion?3:anterior.tipo==="PAGO_DEUDA"?(anterior.prestamoId?4:2):1,usuarioId:anterior.usuarioId,movimientoId:anterior.movimientoId,tipo,secuencia,fechaISO,
   idempotencyKey,prevHash,...(restaurar?{anulacionHash}:{}),original:anterior,cambios:Object.freeze({...cambios}),deltaCajaMinor:String(delta)};
- const hashActual=crypto.createHash("sha256").update(canon(payload)).digest("hex");
- return Object.freeze({...payload,hashActual});
+ auditoria.validar(auditoriaContexto,anterior.usuarioId);
+ const documento={...payload,...(auditoriaContexto===undefined?{}:{auditoriaContexto})};
+ return Object.freeze({...documento,hashActual:hashEvento(documento)});
 }
+// El hash liga el compromiso del contexto privado; conserva exactamente el payload legado.
+// El resumen público es informativo y no sustituye la evidencia almacenada.
+function sinContexto(e){const {hashActual,auditoriaContexto,auditoriaCompromiso,contextoAuditoria,...financiero}=e;return financiero;}
+function hashEvento(e){
+ auditoria.validar(e.auditoriaContexto,e.usuarioId);
+ return crypto.createHash("sha256").update(canon({...sinContexto(e),...auditoria.enlace(e)})).digest("hex");
+}
+function validarDocumento(e,u){auditoria.validarDocumento(e,u);if(e.contextoAuditoria!==undefined)throw Object.assign(Error("INTEGRIDAD_LEDGER: resumen público almacenado"),{statusCode:409});}
 function verificarCadena(eventos,{prevHash,secuenciaInicial=1}={}){
  if(!Array.isArray(eventos)||!HEX.test(prevHash)||!Number.isSafeInteger(secuenciaInicial)||secuenciaInicial<1)
   throw new TypeError("Cadena inválida");
@@ -88,11 +98,11 @@ function verificarCadena(eventos,{prevHash,secuenciaInicial=1}={}){
  const claves=new Set();
  for(const e of eventos){
   if(!e||e.prevHash!==h||e.secuencia!==s||claves.has(e.idempotencyKey))return false;
-  const {hashActual,...payload}=e;
+  const {hashActual}=e;
   if(typeof hashActual!=="string"||!HEX.test(hashActual)||
-   crypto.createHash("sha256").update(canon(payload)).digest("hex")!==hashActual)return false;
+   hashEvento(e)!==hashActual)return false;
   claves.add(e.idempotencyKey);h=hashActual;s++;
  }
  return true;
 }
-module.exports={eventoCompensatorio,verificarCadena,canon,originalDesdeFuente};
+module.exports={eventoCompensatorio,verificarCadena,canon,originalDesdeFuente,hashEvento,sinContexto,validarDocumento};

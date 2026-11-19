@@ -4,12 +4,13 @@ const Transaccion=require("../models/TransaccionPersonal");
 const Evento=require("../models/EventoCompensatorioPersonal");
 const Cursor=require("../models/CursorCompensacionPersonal");
 const {vigente}=require("./estadoCompensadoPersonal.service");
-const {verificarCadena,originalDesdeFuente}=require("./eventoCompensatorioPersonal.service");
+const {verificarCadena,originalDesdeFuente,validarDocumento}=require("./eventoCompensatorioPersonal.service");
 const GENESIS="0".repeat(64),MAX_MOVIMIENTOS=5000,MAX_EVENTOS=10000;
 function integridad(){throw new Error("INTEGRIDAD_LEDGER: lectura compensada inconsistente");}
 // Recibe la cadena COMPLETA del usuario. Un subconjunto no permite verificar el cursor.
 function proyectar({usuarioId,fuentes,eventos,cursor}){
  if(!Array.isArray(fuentes)||!Array.isArray(eventos))integridad();
+ for(const e of eventos)validarDocumento(e,usuarioId);
  if(eventos.some(e=>e.usuarioId!==usuarioId)||
     !verificarCadena(eventos,{prevHash:GENESIS}))integridad();
  if(cursor){

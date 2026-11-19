@@ -6,7 +6,7 @@ const compromisos=require("./compromisosCuotas.service");
 const {originalDesdeFuente}=require("./eventoCompensatorioPersonal.service");
 const prestamos=require("./reversionCuotaCreditoPersonal.service");
 function crearRestauradorMovimiento({TransaccionModelo=Tx,restaurarCuota=compromisos.restaurar,restaurarPrestamo=prestamos.restaurar,restaurarCaja=crearAplicador()}={}){
- return async datos=>{
+ return async (datos,opciones={})=>{
   if(datos.tipo!=="RESTAURACION"||!mongoose.isObjectIdOrHexString(datos.usuarioId)||!mongoose.isObjectIdOrHexString(datos.movimientoId))
    throw Object.assign(new Error("Usuario y movimiento válidos obligatorios"),{statusCode:400});
   const fuente=await TransaccionModelo.findOne({_id:datos.movimientoId,usuarioId:datos.usuarioId}).maxTimeMS(5000).lean();
@@ -26,7 +26,7 @@ function crearRestauradorMovimiento({TransaccionModelo=Tx,restaurarCuota=comprom
     idempotencyKey:datos.idempotencyKey,anulacionHash:datos.anulacionHash});
    return r.compensacion;
   }
-  return restaurarCaja(datos);
+  return restaurarCaja(datos,opciones);
  };
 }
 module.exports={crearRestauradorMovimiento,restaurarMovimiento:crearRestauradorMovimiento()};
