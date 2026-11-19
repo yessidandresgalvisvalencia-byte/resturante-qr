@@ -129,3 +129,30 @@ test('P0-04: oversized untrusted economic strings fail before persistence', asyn
     Venta.create = originalCreate;
   }
 });
+
+test('P0-04: invalid tenant and order identities fail before database access', async () => {
+  const originalProduct = ProductoServicio.findOne;
+  const originalCreate = Venta.create;
+  let reads = 0;
+  let writes = 0;
+  ProductoServicio.findOne = () => { reads++; throw new Error('unexpected product lookup'); };
+  Venta.create = async () => { writes++; throw new Error('unexpected sale write'); };
+  const validId = new mongoose.Types.ObjectId();
+  const validOrder = { _id: new mongoose.Types.ObjectId(), productoServicioId: validId };
+  try {
+    for (const args of [
+      { pedido: validOrder, empresaId: 'invalid-tenant' },
+      { pedido: validOrder, empresaId: validId, sedeId: 'invalid-site' },
+      { pedido: { ...validOrder, _id: 'invalid-order' }, empresaId: validId },
+      { pedido: { ...validOrder, productoServicioId: 'invalid-product' }, empresaId: validId },
+      { pedido: { ...validOrder, clienteId: 'invalid-customer' }, empresaId: validId }
+    ]) {
+      await assert.rejects(registrarVentaDesdePedido({ ...args, emitirEvento: false }), /invalido/);
+    }
+    assert.equal(reads, 0, 'invalid identity must not query product records');
+    assert.equal(writes, 0, 'invalid identity must not persist sales');
+  } finally {
+    ProductoServicio.findOne = originalProduct;
+    Venta.create = originalCreate;
+  }
+});
