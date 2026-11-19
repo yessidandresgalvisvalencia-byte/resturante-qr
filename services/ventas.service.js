@@ -5,7 +5,7 @@ const Venta = require("../models/Venta");
 const ProductoServicio = require("../models/ProductoServicio");
 const Cliente = require("../models/Cliente");
 const eventBus = require("../core/eventos/eventBus");
-const { descontarInventarioPorVenta } = require("./inventarioVenta.service");
+
 
 async function registrarVentaDesdePedido({
   pedido,
@@ -251,6 +251,7 @@ costoFuente:
     // an idempotent replay or a phantom VENTA_COMPLETADA event.
     creandoVenta = false;
     if (productoServicio.manejaInventario) {
+      const { descontarInventarioPorVenta } = require("./inventarioVenta.service");
       await descontarInventarioPorVenta({
         venta, pedido, empresaId, sedeId, session
       });
