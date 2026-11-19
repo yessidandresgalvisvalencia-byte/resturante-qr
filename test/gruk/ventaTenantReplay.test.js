@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const { calculateLegacySale, canonicalLegacyMoney } = require("../../core/finance/enterpriseSalesMath");
 
 const source = fs.readFileSync(path.join(__dirname, "../../services/ventas.service.js"), "utf8");
-function makeService(existing, {successfulCreate = false} = {}) {
+function makeService(existing, {successfulCreate = false, productFound = true} = {}) {
   const seen = [];
   const created = [];
   const productQueries = [];
@@ -20,7 +20,7 @@ function makeService(existing, {successfulCreate = false} = {}) {
       findOne(filter){seen.push(filter);return {session:async()=>existing};}
     },
     "../models/ProductoServicio":{
-      findOne(filter){productQueries.push(filter);return {select(){return this},session(){return this},lean:async()=>producto};}
+      findOne(filter){productQueries.push(filter);return {select(){return this},session(){return this},lean:async()=>productFound ? producto : null};}
     },
     "../models/Cliente":{},
     "../core/eventos/eventBus":{emit(){}},
@@ -234,4 +234,17 @@ test("venta: producto se consulta siempre con filtro de empresa autorizada",asyn
   assert.equal(productQueries.length,1);
   assert.equal(productQueries[0].empresaId,"empresa_A");
   assert.equal(productQueries[0]._id,"producto_1");
+});
+
+
+test("venta: producto inexistente en empresa autorizada no registra venta ni consulta duplicados",async()=>{
+  const {service,created,seen,productQueries}=makeService(null,{successfulCreate:true,productFound:false});
+  await assert.rejects(service.registrarVentaDesdePedido({
+    pedido:{...pedido,empresaId:"empresa_A",sedeId:"sede_A"},
+    empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+  }),/ProductoServicio no pertenece a la empresa/);
+  assert.equal(productQueries.length,1);
+  assert.equal(productQueries[0].empresaId,"empresa_A");
+  assert.equal(created.length,0);
+  assert.equal(seen.length,0);
 });
