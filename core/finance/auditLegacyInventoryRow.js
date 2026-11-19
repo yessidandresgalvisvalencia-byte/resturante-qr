@@ -11,7 +11,15 @@ function auditLegacyInventoryRow(row) {
     return { safe: false, issues: ["ROW_INVALID"] };
   }
   for (const field of ["cantidad", "costo"]) {
-    const descriptor = Object.getOwnPropertyDescriptor(row, field);
+    let descriptor;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(row, field);
+    } catch {
+      // Proxies and exotic documents can throw while inspecting properties.
+      // Treat them as untrusted rather than aborting an entire read-only audit.
+      issues.push(field.toUpperCase() + " _DESCRIPTOR_ERROR".trim());
+      continue;
+    }
     if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
       issues.push(field.toUpperCase() + "_MISSING_OR_ACCESSOR");
       continue;
