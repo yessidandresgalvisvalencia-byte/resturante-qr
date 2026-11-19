@@ -5,7 +5,24 @@
 const { parseMoneyToCents } = require('./enterpriseMoney');
 const MAX = BigInt(Number.MAX_SAFE_INTEGER);
 
-function calculateSale({ quantity, unitPrice, unitCost, total }) {
+// Do not execute caller-controlled getters while reading financial inputs.
+function readFields(record) {
+  if (record === null || typeof record !== 'object' || Array.isArray(record)) {
+    throw new TypeError('sale must be a plain record');
+  }
+  const fields = {};
+  for (const key of ['quantity', 'unitPrice', 'unitCost', 'total']) {
+    const descriptor = Object.getOwnPropertyDescriptor(record, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(key + ' must be an own data property');
+    }
+    fields[key] = descriptor.value;
+  }
+  return fields;
+}
+
+function calculateSale(record) {
+  const { quantity, unitPrice, unitCost, total } = readFields(record);
   if (typeof quantity !== 'string' || !/^[1-9]\d{0,8}$/.test(quantity)) {
     throw new TypeError('quantity must be a canonical positive integer string');
   }
@@ -47,7 +64,8 @@ function canonicalLegacyMoney(value) {
   return decimal;
 }
 
-function calculateLegacySale({ quantity, unitPrice, unitCost, total }) {
+function calculateLegacySale(record) {
+  const { quantity, unitPrice, unitCost, total } = readFields(record);
   if (!Number.isSafeInteger(quantity) || quantity <= 0) {
     throw new TypeError('legacy quantity must be a positive safe integer');
   }
