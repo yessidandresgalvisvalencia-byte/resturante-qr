@@ -37,3 +37,25 @@ Clientes/recursos personales se versionan juntos como20261119-contexto-captura-v
 Persisten #407 y matriz integral: custodia independiente real; respaldo independiente/retención/acceso y restauración operacional aislada con RPO/RTO; roles/índices/compatibilidad históricos productivos; claves/proxy/rate limit reales; Safari/dispositivos físicos y auditoría independiente aplicable. Backup sintético no acredita recuperación/retención productiva. Sin merge a feature/main, sin Render/Empresarial/Blushéa, costos o datos reales modificados.
 
 Siguiente: confirmar CI exacta y cerrar evidencia; después contexto de aprobación IA/deuda/crédito y resolución explícita de metas ambiguas por eventos/consentimiento, preservando fuentes. Releer HEAD/PR389/#407/CI, este informe, matriz y continuidad antes de actuar. Tarea activa; GitHub publicado no equivale a Render desplegado/verificado.
+
+
+## Cierre verificado r102 — 19 de noviembre de2026
+
+Un bloque funcional completado en el alcance descrito: contexto minimizado de captura /copilot ligado al recibo original, privado en servidor y resumido para recuperar/explicar, sin aprobar ni registrar finanzas. Código ec7b6a7854182c156ef3f900ff290c13ea9b6908, árbol bc1390362eb8289c88773db4620d6bd5f266ab72, sobre aea2ada4e9faba2517aba24bab9960834952b3db. Publicación con lease sin forzar historia y árboles local/remoto idénticos.
+
+| Evidencia del SHA funcional | Resultado observado |
+| --- | --- |
+| [Gate44538037464](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44538037464) | success |
+| [Seguridad44538037158](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44538037158) | success |
+| [V8144538037163](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44538037163) | success, ocho jobs aprobados |
+| [Mongo autorizado/Chromium135608600763](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44538037163/job/135608600763) | Mongo95/95 y navegador/backend30/30, cero fallos, cancelaciones u omisiones |
+
+Criterios de origen/privacidad, compatibilidad, atomicidad e integridad/recuperación verificados en su alcance: forja400/configuración ausente503 sin efectos; HMAC por peer127.0.0.1 ignorando XFF falso y dominio distinto del registro; serialización/consultas/API sin privado; carrera misma clave produce un recibo/turno/borrador; fallo después del INSERT revierte todo; GET/replay sin clave contextual actual conservan snapshot; rotación conserva contexto anterior; hash legado conserva vector y BSON previo; alteración bloquea lectura/replay409 sin reparación; ajeno404. Capturar no crea cuentas/transacciones/outbox financieros en los casos ensayados.
+
+Interfaz real: FP_CONTEXTO_CAPTURA confirma login/Chromium390, un POST y una consulta de recibo tras respuesta perdida, lectura sin clave, solicitud literal original, turno/borrador/contexto intactos, cero aprobaciones y cero movimientos financieros. El diario confirma únicamente el recibo propio y muestra dispositivo declarado no verificado, aclarando que no acredita aprobación ni dinero. Las pruebas existentes de copia/archivo y recuperación de capturas también aprobaron con el formato extendido. No representa Safari/dispositivo físico ni exactitud universal del clasificador.
+
+BackupV30/44 del mismo job:7892 documentos,7809746 bytes, captura366ms, restauración1166ms, edad1432ms; BSON/índices verificados en destino aislado vacío. custodiaIndependiente=false y rpoProduccion=false: no RPO/RTO, retención o recuperación operativa productivos. Mismo rol/índices/colecciones y sin migración. Local905 casos/896aprobados/9omisiones y ci:personal353/349aprobados/4omisiones, cero fallos; dirigidas61/61 y contexto/visor8/8 solapadas. Omisiones locales no sustituyen CI autorizada ni aceptación de producción.
+
+Informe/matriz/continuidad versionados. El descendiente documental debe comprobar sus propias tres CI y se identifica con SHA/resultados en GitHub/PR; no se le atribuye de antemano la CI del código. PR389 sigue abierto; feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e sin merge. #407 y bloqueos operacionales de la matriz permanecen: custodia independiente real, respaldo/retención/acceso y restauración operativa con métricas reales, roles/índices/compatibilidad históricos productivos, configuración real de claves/proxy/rate limit, dispositivos y auditoría independiente aplicable. Sin Render, main, Empresarial, Blushéa, costos ni datos reales modificados.
+
+Checkpoint siguiente: releer HEAD/PR389/#407/CI y CONTEXTO_AUDITORIA_CAPTURA_PERSONAL_V81.md, MATRIZ_ACEPTACION_PERSONAL_V81.md, CONTINUIDAD_V81.md. Continuar con contexto de aprobación IA/deuda/crédito y resolución explícita de metas ambiguas mediante eventos/consentimiento, preservando fuentes. No reutilizar este contexto de captura para afirmar aprobación posterior; son actos distintos y deben observarse separadamente. Tarea activa. GitHub publicado, Render no desplegado/verificado.
