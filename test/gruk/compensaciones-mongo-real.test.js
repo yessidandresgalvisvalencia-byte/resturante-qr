@@ -250,6 +250,9 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
   const app=express();app.use(express.json(),(req,res,next)=>{req.personalAuth={userId:httpUsuario};req.validated=req.body;next();});
   app.patch("/transacciones/:id",crearHandler({tipo:"CORRECCION"}));
   app.delete("/transacciones/:id",crearHandler({tipo:"ANULACION"}));
+  const contextoPrevio={clave:process.env.PERSONAL_AUDIT_CONTEXT_KEY,id:process.env.PERSONAL_AUDIT_CONTEXT_KEY_ID};
+  process.env.PERSONAL_AUDIT_CONTEXT_KEY=require("node:crypto").randomBytes(32).toString("base64");
+  process.env.PERSONAL_AUDIT_CONTEXT_KEY_ID="compensacion_http_ensayo";
   const server=await new Promise((resolve,reject)=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));s.on("error",reject);});
   try{
    const url=`http://127.0.0.1:${server.address().port}/transacciones/${httpTx._id}`;
@@ -265,7 +268,7 @@ test("compensaciones MongoDB real: estado vigente, concurrencia, rollback e aisl
    assert.equal(await Evento.countDocuments({usuarioId:httpUsuario}),2);
    assert.equal(await Outbox.countDocuments({usuarioId:httpUsuario}),2);
    assert.equal((await Transaccion.findById(httpTx._id).lean()).montoMinor,25000);
-  }finally{await new Promise(resolve=>server.close(resolve));}
+  }finally{for(const [k,v] of [["PERSONAL_AUDIT_CONTEXT_KEY",contextoPrevio.clave],["PERSONAL_AUDIT_CONTEXT_KEY_ID",contextoPrevio.id]]){if(v===undefined)delete process.env[k];else process.env[k]=v;}await new Promise(resolve=>server.close(resolve));}
   // Una edición heredada de metadatos y una compensación deben compartir orden de escritura.
   const carreraUsuario=usuarios[7];
   const carreraCuenta=await Cuenta.create({usuarioId:carreraUsuario,nombre:"CARRERA",tipo:"EFECTIVO",saldoMinor:50000});
