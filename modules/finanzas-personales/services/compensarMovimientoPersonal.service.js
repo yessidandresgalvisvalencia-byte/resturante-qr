@@ -2,6 +2,7 @@
 const crypto=require("node:crypto");
 const mongoose=require("mongoose");
 const Transaccion=require("../models/TransaccionPersonal");
+const Evento=require("../models/EventoCompensatorioPersonal");
 const Cuenta=require("../models/cuentaFinanciera.model");
 const Outbox=require("../models/outboxPersonal.model");
 const {crearRegistrador,leerCadenaVerificada}=require("./registradorCompensacionPersonal.service");
@@ -32,7 +33,11 @@ function crearAplicador({OutboxModelo=Outbox}={}){
   try{
    let evento;
    await session.withTransaction(async()=>{
-    await serializarEscrituraFuente(usuarioId,session);
+    // Un recibo ya existente se valida en el snapshot completo sin escribir el
+    // contador de coordinación. En una carrera nueva, el conflicto de escritura
+    // obliga a reintentar y entonces observar el recibo confirmado.
+    const reciboExistente=await Evento.exists({usuarioId:String(usuarioId),movimientoId:String(movimientoId),idempotencyKey}).session(session);
+    if(!reciboExistente)await serializarEscrituraFuente(usuarioId,session);
     const fuente=await Transaccion.findOne({_id:movimientoId,usuarioId}).session(session).lean();
     if(!fuente)throw error("Movimiento no disponible",404);
     if(fuente.estado!=="ACTIVA"||!["INGRESO","GASTO"].includes(fuente.tipo)||
