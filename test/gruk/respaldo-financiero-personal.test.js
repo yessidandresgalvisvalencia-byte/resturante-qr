@@ -4,7 +4,7 @@ const {BSON}=require("mongoose").mongo;
 const {COLECCIONES,cifrar,descifrar,validarDestino,restaurarEnEnsayo}=require("../../modules/finanzas-personales/services/respaldoFinancieroPersonal.service");
 function contenido(){
  const raw=BSON.serialize({_id:new BSON.ObjectId(),decimal:BSON.Decimal128.fromString("123.45"),entero:BSON.Long.fromString("9007199254740993"),fecha:new Date("2026-11-02T00:00:00Z")});
- return{version:31,inicio:"2026-11-02T00:00:00.000Z",fin:"2026-11-02T00:00:01.000Z",retenerHasta:"2026-12-02T00:00:00.000Z",
+ return{version:32,inicio:"2026-11-02T00:00:00.000Z",fin:"2026-11-02T00:00:01.000Z",retenerHasta:"2026-12-02T00:00:00.000Z",
   colecciones:COLECCIONES.map((nombre,i)=>({nombre,indices:[{name:"_id_",key:{_id:1}}],documentos:i===0?[raw.toString("base64")]:[],hash:crypto.createHash("sha256").update(i===0?raw:Buffer.alloc(0)).digest("hex")}))};
 }
 test("respaldo cifrado conserva BSON, fechas, decimales y enteros sin imprimir datos",()=>{
@@ -69,7 +69,7 @@ test("backup V14 conserva su alcance de 30 colecciones",()=>{const p=contenido()
 
 test("backup V15 conserva su alcance de 33 colecciones",()=>{const p=contenido();p.version=15;p.colecciones=p.colecciones.slice(0,33);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,33);});
 
-test("backup V16 conserva 34 colecciones y V17 incorpora captura, turno y contexto",()=>{const p=contenido();p.version=16;p.colecciones=p.colecciones.slice(0,34);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,34);assert.equal(COLECCIONES.length,44);for(const n of ["fin_capturas_copilot_personales_v1","fin_turnos_conversacionales_personales","fin_contexto_conversacional_personal"])assert.ok(COLECCIONES.includes(n));});
+test("backup V16 conserva 34 colecciones y V17 incorpora captura, turno y contexto",()=>{const p=contenido();p.version=16;p.colecciones=p.colecciones.slice(0,34);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,34);assert.equal(COLECCIONES.length,45);for(const n of ["fin_capturas_copilot_personales_v1","fin_turnos_conversacionales_personales","fin_contexto_conversacional_personal"])assert.ok(COLECCIONES.includes(n));});
 
 test("backup V17 conserva 37 colecciones y V18 incorpora el calendario por eventos",()=>{const p=contenido();p.version=17;p.colecciones=p.colecciones.slice(0,37);const clave=crypto.randomBytes(32);assert.equal(descifrar(cifrar(p,clave),clave).colecciones.length,37);assert.ok(COLECCIONES.includes("fin_eventos_calendario_ingreso_personales_v1"));});
 
@@ -79,22 +79,24 @@ test("V19 mantiene39 colecciones y V20 incluye ciclo recuperable de borradores",
 
 test("V20 conserva40 colecciones y V21 agrega metas originales y sus recibos",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=21;p.colecciones=p.colecciones.slice(0,42);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,42);assert.ok(COLECCIONES.includes("fin_metas"));assert.ok(COLECCIONES.includes("fin_recibos_creacion_metas_personales_v1"));p.version=20;p.colecciones=p.colecciones.slice(0,40);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,40);});
 
-test("V22 incluye ciclo y cursor de metas y V21 conserva42",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);assert.ok(COLECCIONES.includes("fin_ciclo_metas_personales_v1"));assert.ok(COLECCIONES.includes("fin_cursor_metas_personales_v1"));p.version=21;p.colecciones=p.colecciones.slice(0,42);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,42);});
+test("V22 incluye ciclo y cursor de metas y V21 conserva42",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);assert.ok(COLECCIONES.includes("fin_ciclo_metas_personales_v1"));assert.ok(COLECCIONES.includes("fin_cursor_metas_personales_v1"));p.version=21;p.colecciones=p.colecciones.slice(0,42);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,42);});
 
-test("V23 conserva44 colecciones y reconoce respaldo V22 previo a adopciones",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=22;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+test("V23 conserva44 colecciones y reconoce respaldo V22 previo a adopciones",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=22;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
 
-test("V24 mantiene44 colecciones y V23 previo al contexto sigue legible",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=23;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+test("V24 mantiene44 colecciones y V23 previo al contexto sigue legible",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=23;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
 
-test("V25 mantiene44 colecciones y lee V24 anterior al contexto de cuentas",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=24;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+test("V25 mantiene44 colecciones y lee V24 anterior al contexto de cuentas",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=24;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
 
-test("V26 mantiene44 colecciones y lee V25 anterior al contexto de conciliación",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=25;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+test("V26 mantiene44 colecciones y lee V25 anterior al contexto de conciliación",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=25;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
 
-test("V27 conserva44 colecciones y lee V26 anterior al contexto de compensaciones",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=26;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+test("V27 conserva44 colecciones y lee V26 anterior al contexto de compensaciones",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=26;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
 
-test("V28 conserva44 colecciones y lee V27 anterior al contexto del registro HTTP",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=27;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+test("V28 conserva44 colecciones y lee V27 anterior al contexto del registro HTTP",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=27;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
 
-test("V29 conserva44 colecciones y admite V28 anterior al contexto de calendario",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=28;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+test("V29 conserva44 colecciones y admite V28 anterior al contexto de calendario",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=28;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
 
-test("V30 conserva44 colecciones y admite V29 anterior al contexto de captura",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=29;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+test("V30 conserva44 colecciones y admite V29 anterior al contexto de captura",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=29;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
 
-test("V31 conserva44 colecciones y admite V30 anterior al contexto de aprobación",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=30;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+test("V31 conserva44 colecciones y admite V30 anterior al contexto de aprobación",()=>{const p=contenido(),k=crypto.randomBytes(32);p.version=31;p.colecciones=p.colecciones.slice(0,44);assert.equal(p.version,31);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);p.version=30;assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});
+
+test("V32 agrega recibos de revisión protegidos y conserva V31 de44 sin inventarlos",()=>{const p=contenido(),k=crypto.randomBytes(32);assert.equal(p.version,32);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,45);assert.equal(COLECCIONES[44],"fin_recibos_revision_trabajo_personales_v1");p.version=31;assert.throws(()=>cifrar(p,k),/Manifiesto/);p.colecciones=p.colecciones.slice(0,44);assert.equal(descifrar(cifrar(p,k),k).colecciones.length,44);});

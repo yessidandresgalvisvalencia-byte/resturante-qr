@@ -18,6 +18,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
 },async()=>{
  validarMongoPruebasV81(uri);
  await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
+ const anteriores=Object.fromEntries(["PERSONAL_AUDIT_CONTEXT_KEY","PERSONAL_AUDIT_CONTEXT_KEY_ID"].map(k=>[k,process.env[k]]));process.env.PERSONAL_AUDIT_CONTEXT_KEY=crypto.randomBytes(32).toString("base64");process.env.PERSONAL_AUDIT_CONTEXT_KEY_ID="revision_general_test";
  const usuarios=[],outboxCreate=Outbox.create;
  let server;
  async function fixture({usuarioId=new mongoose.Types.ObjectId(),origen="PRESTAMO",saldo=400,cobros=[400,200],historico=false}={}){
@@ -37,10 +38,10 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   cursor:await Cursor.findById(String(f.usuarioId)).lean()
  };}
  const corregir=f=>service.corregirOrigenTrabajo(f.usuarioId,f.p._id,f.solicitud);
- const revisar=async u=>service.reconciliarIngresosTrabajo(u,{confirmacion:true,versionSeleccion:(await service.previsualizarIngresosTrabajo(u)).versionSeleccion});
+ const revisar=async u=>service.reconciliarIngresosTrabajo(u,{solicitudId:crypto.randomUUID(),confirmacion:true,versionSeleccion:(await service.previsualizarIngresosTrabajo(u)).versionSeleccion});
  const periodo=usuarioId=>({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"});
  try{
-  await Promise.all([require("../../modules/finanzas-personales/models/correccionPrestamoPersonal.model").init(),Prestamo.init(),Tx.init(),Cuenta.init(),Outbox.init(),Evento.init(),Cursor.init()]);
+  await Promise.all([require("../../modules/finanzas-personales/models/reciboRevisionTrabajoPersonal.model").init(),require("../../modules/finanzas-personales/models/correccionPrestamoPersonal.model").init(),Prestamo.init(),Tx.init(),Cuenta.init(),Outbox.init(),Evento.init(),Cursor.init()]);
   const f=await fixture();const antes=await estado(f);
   const r=await corregir(f);
   assert.equal(r.reclasificados,2);assert.equal(r.ingresoTrabajoMinor,600);assert.equal(r.saldoPendienteMinor,400);
@@ -142,7 +143,7 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   const response=await fetch(`http://127.0.0.1:${server.address().port}/cuentas-por-cobrar/${http.p._id}/corregir-origen-trabajo`,{method:"POST",body:JSON.stringify({confirmacion:true}),headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()}});
   assert.equal(response.status,200);assert.equal((await response.json()).reclasificados,2);
   const preview=await fetch(`http://127.0.0.1:${server.address().port}/reconciliar-ingresos-trabajo/previsualizacion`);assert.equal(preview.status,200);const seleccion=await preview.json();
-  const bulk=await fetch(`http://127.0.0.1:${server.address().port}/reconciliar-ingresos-trabajo`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirmacion:true,versionSeleccion:seleccion.versionSeleccion})});
+  const bulk=await fetch(`http://127.0.0.1:${server.address().port}/reconciliar-ingresos-trabajo`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({confirmacion:true,versionSeleccion:seleccion.versionSeleccion})});
   assert.equal(bulk.status,200);assert.equal((await bulk.json()).corregidos,0);
   for(const path of ["/rastrear-cobro?montoMinor=400","/diagnostico-cobro-importe?montoMinor=400"]){
    const consulta=await fetch(`http://127.0.0.1:${server.address().port}${path}`);
@@ -164,6 +165,6 @@ test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reint
   for(const Modelo of [Prestamo,Tx,Cuenta,Outbox])await Modelo.collection.deleteMany({usuarioId:{$in:usuarios}});
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios.map(String)}});
   await Cursor.deleteMany({_id:{$in:usuarios.map(String)}});
-  await mongoose.disconnect();
+  await mongoose.disconnect();for(const k of Object.keys(anteriores)){if(anteriores[k]===undefined)delete process.env[k];else process.env[k]=anteriores[k];}
  }
 });

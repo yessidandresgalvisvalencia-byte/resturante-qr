@@ -31,7 +31,7 @@ function cobrosConciliados(p,movimientos){
 async function movimientosVigentes(usuarioId,session){
  return consultarPeriodo({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"},{session});
 }
-async function aplicar(usuarioId,p,{cobros,total},session,origenNuevo="TRABAJO"){
+async function aplicar(usuarioId,p,{cobros,total},session,origenNuevo="TRABAJO",referencias=null){
  let reclasificados=0;
  const tipoNuevo=origenNuevo==="TRABAJO"?"INGRESO":"COBRO_PRESTAMO";
  for(const m of cobros){
@@ -45,6 +45,7 @@ async function aplicar(usuarioId,p,{cobros,total},session,origenNuevo="TRABAJO")
    payload:{transaccionId:String(m._id),prestamoId:String(p._id),accion:"RECLASIFICACION_"+origenNuevo,
     compensacionHash:evento.hashActual,secuencia:evento.secuencia,deltaCajaMinor:"0",antes:original,
     despues:{...original,...evento.cambios}}}],{session});
+  if(referencias)referencias.push({movimientoId:String(m._id),hash:evento.hashActual,secuencia:evento.secuencia});
   reclasificados++;
  }
  if(p.origenCuentaPorCobrar!==origenNuevo){
@@ -67,7 +68,7 @@ async function enTransaccion(usuarioId,operacion){
    return operacion(session);
   },config);
  }catch(e){
-  if(e.code===11000)throw problema("Reparación concurrente; vuelve a consultar antes de reintentar");
+  if(e.code===11000)throw Object.assign(problema("Reparación concurrente; consulta el recibo antes de reintentar"),{code:11000});
   throw e;
  }finally{await session.endSession();}
 }
@@ -82,16 +83,7 @@ async function corregirOrigenTrabajo(usuarioId,prestamoId,solicitud){
  return{reclasificados:realizada?.reclasificados??0,ingresoTrabajoMinor:realizada?.ingresoTrabajoMinor??null,saldoPendienteMinor:p.saldoMinor,prestamoId:String(p._id),correccion:p.correccion};
 }
 // Huella de selección, no firma ni recibo: se vuelve a calcular dentro del snapshot.
-function canonSeleccion(v){
- if(v instanceof Date)return v.toISOString();
- if(v instanceof mongoose.Types.ObjectId)return String(v);
- if(v===null||typeof v!=="object")return v;
- if(Array.isArray(v))return v.map(canonSeleccion);
- return Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonSeleccion(v[k])]));
-}
-function versionSeleccion(usuarioId,cuentas){
- return crypto.createHash("sha256").update(JSON.stringify(canonSeleccion({contrato:"REVISION_TRABAJO_V1",usuarioId:String(usuarioId),cuentas}))).digest("hex");
-}
+const {canonSeleccion,versionSeleccion}=require("./seleccionRevisionTrabajoPersonal.service");
 async function prepararSeleccion(usuarioId,session){
  const trabajos=await Prestamo.collection.find({usuarioId:new mongoose.Types.ObjectId(String(usuarioId)),direccion:"POR_COBRAR",saldoMinor:0,estado:{$ne:"CANCELADO"}},{session,maxTimeMS:5000}).sort({_id:1}).limit(501).toArray();
  if(trabajos.length>500)throw problema("Demasiadas cuentas para una reparación verificable",422);
@@ -113,28 +105,30 @@ async function prepararSeleccion(usuarioId,session){
   huellas.push({original:raw,movimientos:vinculados,evidencia:evidencia||null,resumen});
  }
  const cuentas=planes.map(p=>p.resumen);
- return{planes,resumen:{versionSeleccion:versionSeleccion(usuarioId,huellas),cuentasRevisadas:cuentas.length,
+ return{planes,huellas,resumen:{versionSeleccion:versionSeleccion(usuarioId,huellas),cuentasRevisadas:cuentas.length,
   reclasificacionesPropuestas:cuentas.reduce((n,p)=>n+p.reclasificaciones,0),requierenRevisionManual:cuentas.filter(p=>p.estado==="REQUIERE_REVISION").length,cuentas,soloLectura:true}};
 }
 async function previsualizarIngresosTrabajo(usuarioId){
  return enTransaccion(usuarioId,async session=>(await prepararSeleccion(usuarioId,session)).resumen);
 }
-async function reconciliarIngresosTrabajo(usuarioId,solicitud){
- if(solicitud?.confirmacion!==true||typeof solicitud.versionSeleccion!=="string"||!/^[a-f0-9]{64}$/.test(solicitud.versionSeleccion)||Object.keys(solicitud).some(k=>!["confirmacion","versionSeleccion"].includes(k)))throw problema("Previsualiza y confirma la selección de cobros vigente",400);
- return enTransaccion(usuarioId,async session=>{
-  const {planes,resumen}=await prepararSeleccion(usuarioId,session);
-  if(resumen.versionSeleccion!==solicitud.versionSeleccion)throw problema("La selección cambió; vuelve a previsualizar y confirmar antes de revisar");
-  let corregidos=0,serializada=false;
-  for(const {raw,estado,resumen:cuenta} of planes){
+async function reconciliarIngresosTrabajo(usuarioId,solicitud,opciones={}){
+ const Recibo=require("./reciboRevisionTrabajoPersonal.service");Recibo.validarSolicitud(usuarioId,solicitud);
+ await Recibo.exigirIndices();const contexto=Recibo.Aud.resolver(usuarioId,opciones);
+ for(let intento=0;intento<3;intento++)try{return await enTransaccion(usuarioId,async session=>{
+  const previo=await Recibo.buscar(usuarioId,solicitud.solicitudId,session);
+  if(previo){await Recibo.verificarFuentes(previo,session);if(previo.versionSeleccion!==solicitud.versionSeleccion)throw problema("La clave pertenece a otra selección");return Recibo.salida(previo,true);}
+  const {planes,huellas,resumen}=await prepararSeleccion(usuarioId,session),vigente=resumen.versionSeleccion===solicitud.versionSeleccion;
+  let corregidos=0,serializada=false;const compensaciones=[];
+  if(vigente)for(const {raw,estado,resumen:cuenta} of planes){
    if(cuenta.estado!=="RECLASIFICAR")continue;
-   // Los escritores financieros comparten esta coordinación. Un conflicto de snapshot
-   // reintenta y vuelve a comparar la selección antes de aplicar cualquier reparación.
    if(!serializada){await serializarEscrituraFuente(usuarioId,session);serializada=true;}
-   corregidos+=(await aplicar(usuarioId,raw,estado,session)).reclasificados;
+   corregidos+=(await aplicar(usuarioId,raw,estado,session,"TRABAJO",compensaciones)).reclasificados;
   }
-  if(corregidos!==resumen.reclasificacionesPropuestas)throw problema("La revisión no coincide con la selección confirmada");
-  return{corregidos,requierenRevisionManual:resumen.requierenRevisionManual,versionSeleccion:resumen.versionSeleccion,
-   estado:corregidos>0?"CORREGIDO":resumen.requierenRevisionManual>0?"REQUIERE_REVISION":"SIN_CAMBIOS"};
- });
+  if(vigente&&corregidos!==resumen.reclasificacionesPropuestas)throw problema("La revisión no coincide con la selección confirmada");
+  const resultado={corregidos,requierenRevisionManual:vigente?resumen.requierenRevisionManual:null,versionSeleccion:solicitud.versionSeleccion,
+   estado:!vigente?"NO_APLICADA":corregidos>0?"CORREGIDO":resumen.requierenRevisionManual>0?"REQUIERE_REVISION":"SIN_CAMBIOS"};
+  const recibo=await Recibo.crear({usuarioId,solicitud,huellas,versionObservada:resumen.versionSeleccion,resultado,compensaciones,auditoriaContexto:contexto()},session);
+  return Recibo.salida(recibo,false);
+ });}catch(e){if(e.code!==11000||intento===2)throw e;}
 }
 module.exports={corregirOrigenTrabajo,reconciliarIngresosTrabajo,reclasificarOrigenEnSesion,previsualizarIngresosTrabajo,versionSeleccion};

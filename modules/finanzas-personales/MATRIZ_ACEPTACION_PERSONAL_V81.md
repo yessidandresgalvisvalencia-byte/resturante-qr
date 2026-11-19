@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r107
+# Matriz de aceptación y prioridad — revisión r108
+
+Plan r108: recibo global recuperable, permisos/índice/backupV32/45 y recuperación de respuesta perdida; contrato/aceptación/límites en RECIBO_REVISION_TRABAJO_PERSONAL_V81.md. Local/CI nuevas en curso. No cierra407 ni autoriza merge/Render.
 
 Corte r107 verificado: códigoa17cf9dae3cc0bf0a6595df38eeea74d7d566e69/árbold40ebbedd5c5be33ca9819fb25e02aeaaaf8aca6. Selección/versiones de revisión propia, vista sin efectos, contrato explícito y rechazo de versión obsoleta/ajena; carrera y rollback sin duplicar ni cambiar caja. Gate44598044440/Seguridad44598044229/V8144598044358 success; ocho jobs, Mongo99/99 y Chromium/backend32/32 sin omisiones. Informe SELECCION_REVISION_TRABAJO_PERSONAL_V81.md conserva aceptación/resultados/límites/siguiente paso. Recibo global/recuperación incierta siguen pendientes. BackupV31/44 aislado;407/custodia/operación reales pendientes. Verificar HEAD/CI del cierre documental; sin merge ni Render.
 

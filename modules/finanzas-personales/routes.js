@@ -305,10 +305,17 @@ router.get("/reconciliar-ingresos-trabajo/previsualizacion",async(req,res)=>{
   return res.json({ok:true,...seleccion});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible previsualizar la revisión"});}
 });
+router.get("/reconciliar-ingresos-trabajo/recibos/:solicitudId",async(req,res)=>{
+ res.set("Cache-Control","no-store");
+ try{const resultado=await require("./services/reciboRevisionTrabajoPersonal.service").consultar(req.personalAuth.userId,req.params.solicitudId);return res.json({ok:true,...resultado});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo"});}
+});
 router.post("/reconciliar-ingresos-trabajo",async(req,res)=>{
  res.set("Cache-Control","no-store");
  try{
-  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").reconciliarIngresosTrabajo(req.personalAuth.userId,req.body);
+  if(!req.body||Object.keys(req.body).some(k=>!["confirmacion","versionSeleccion"].includes(k)))return res.status(400).json({ok:false,error:"Confirma solo la selección previsualizada"});
+  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").reconciliarIngresosTrabajo(req.personalAuth.userId,{...req.body,solicitudId:req.get("Idempotency-Key")},{capturarContexto:()=>require("./services/reciboRevisionTrabajoPersonal.service").Aud.capturar(req,req.personalAuth.userId)});
+  if(resultado.recibo.noAplicada)return res.status(409).json({ok:false,...resultado,error:"La selección cambió; revisión no aplicada y conservada en recibo. Previsualiza de nuevo."});
   return res.json({ok:true,...resultado,detalle:"La revisión conserva los cobros originales. Las reclasificaciones confirmadas no crean cobros ni modifican saldos."});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo reconciliar; no se aplicaron cambios parciales"});}
 });
