@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r101
+# Matriz de aceptación y prioridad — revisión r102
+
+Corte r102 en validación: contexto minimizado privado de captura /copilot, recibo ligado al original y recuperación sin aprobar movimientos; CONTEXTO_AUDITORIA_CAPTURA_PERSONAL_V81.md contiene plan/aceptación/límites. Baseaea2ada4e9faba2517aba24bab9960834952b3db, respaldoV30/44. CI nueva pendiente; no autoriza despliegue.
 
 Corte r101 verificado en ensayo,19 de noviembre de2026: contexto nuevo de calendario minimizado y privado; historial redactado sin reescribir hashes/BSON, con importes/fechas anteriores/posteriores. Código b40b3d1c8a02baaf8d344087ebc6fcff697a1140; Gate44502020901/Seguridad44502020867/V8144502021127 success, Mongo94/94 y navegador/backend29/29 sin omisiones. Informe/aceptación/límites: CONTEXTO_AUDITORIA_CALENDARIO_PERSONAL_V81.md. BackupV29/44 aislado; #407/custodia/operación reales pendientes. No es minimización global de todos los metadatos legados. Verificar CI del descendiente documental y HEAD real. Siguiente: captura/aprobación IA/deuda/crédito y metas ambiguas. No autoriza despliegue.
 

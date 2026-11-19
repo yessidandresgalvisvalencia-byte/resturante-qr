@@ -127,6 +127,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("metas declaradas conservan fuente, recibo, aislamiento y caja con rol restringido",()=>require("./helpers/creacionMetaAutorizada").probarMeta(db,provisionarMongoPersonal));
   await t.test("descarte recuperable conserva originales, recibo, carrera y permisos append-only",()=>require("./helpers/cicloBorradorAutorizado").probarCicloBorrador(db,provisionarMongoPersonal));
   await t.test("captura copilot atómica recupera respuesta sin duplicar borrador y protege originales",()=>require("./helpers/capturaCopilotAutorizada").probarCapturaCopilot(db,provisionarMongoPersonal));
+  await t.test("captura HTTP conserva contexto privado, legado y rollback sin aprobar finanzas",()=>require("./helpers/contextoCapturaAutorizada").probarContextoCaptura(db));
   await t.test("ingreso mensual y copilot conservan fuentes, turnos y bloqueo ante pago incierto",()=>require("./helpers/ingresoCopilotAutorizado").probarIngresoCopilot());
   await t.test("simulación conversacional explícita o pendiente no cambia fuentes ni contexto",()=>require("./helpers/simulacionCreditoAutorizada").probarSimulacionConversacional(db));
   await t.test("simulación exacta repetida y rechazada conserva todas las colecciones",()=>require("./helpers/simulacionCreditoAutorizada").probarSimulacionSinEscrituras(db));
