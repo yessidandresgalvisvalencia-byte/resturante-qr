@@ -5,6 +5,7 @@ const Venta = require("../models/Venta");
 const ProductoServicio = require("../models/ProductoServicio");
 const Cliente = require("../models/Cliente");
 const eventBus = require("../core/eventos/eventBus");
+const { calculateLegacySale } = require("../core/finance/enterpriseSalesMath");
 
 async function registrarVentaDesdePedido({
   pedido,
@@ -89,40 +90,25 @@ async function registrarVentaDesdePedido({
       clienteId = cliente._id;
     }
 
-    const cantidad = Number(pedido.cantidad);
-    const precioUnitario = Number(
-      pedido.precioUnitario
-    );
-    const total = Number(pedido.precio);
-    const costoUnitario = Number(
-      productoServicio.costoUnitario
-    );
-
-    if (
-      !Number.isFinite(cantidad) ||
-      cantidad <= 0 ||
-      !Number.isFinite(precioUnitario) ||
-      precioUnitario < 0 ||
-      !Number.isFinite(total) ||
-      total < 0 ||
-      !Number.isFinite(costoUnitario) ||
-      costoUnitario < 0
-    ) {
-      throw new Error(
-        "GRUK Ventas: datos economicos invalidos"
-      );
-    }
-
-    const costoTotal =
-      costoUnitario * cantidad;
-
-    const utilidadBruta =
-      total - costoTotal;
-
-    const margenBruto =
-      total > 0
-        ? (utilidadBruta / total) * 100
-        : 0;
+    // P0-07: validate the legacy Number boundary and calculate in integer cents.
+    // Mongo Venta still stores Number: this is NOT exact-ledger persistence.
+    // Reject subcent, unsafe or fractional quantities rather than silently round.
+    const cantidad = pedido.cantidad;
+    const precioUnitario = pedido.precioUnitario;
+    const total = pedido.precio;
+    const costoUnitario = productoServicio.costoUnitario;
+    const exact = calculateLegacySale({
+      quantity: cantidad,
+      unitPrice: precioUnitario,
+      unitCost: costoUnitario,
+      total
+    });
+    // Convert only at the legacy schema boundary; never calculate money in float.
+    const costoTotal = Number(exact.costCents) / 100;
+    const utilidadBruta = Number(exact.profitCents) / 100;
+    const margenBruto = exact.marginBasisPoints === null
+      ? 0
+      : Number(exact.marginBasisPoints) / 100;
 
     const [venta] = await Venta.create([{
       empresaId,
