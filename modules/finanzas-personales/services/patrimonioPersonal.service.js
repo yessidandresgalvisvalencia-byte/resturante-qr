@@ -194,15 +194,20 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
   await session.withTransaction(async()=>{
    const existente=await Transaccion.findOne({usuarioId,externalIdHash,estado:{$ne:"ANULADA"}}).session(session);
    if(existente){if(!["COBRO_PRESTAMO","INGRESO"].includes(existente.tipo)||String(existente.prestamoId)!==String(prestamoId)||existente.montoMinor!==monto||(cuentaId&&String(existente.cuentaId)!==String(cuentaId)))throw Object.assign(new Error("Referencia de pago ya utilizada"),{statusCode:409});resultado={transaccion:existente,duplicado:true};return;}
-   const prestamo=await Prestamo.findOneAndUpdate({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});
+   const original=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]}}).session(session).lean();
+   if(!original)throw Object.assign(new Error("Cuenta por cobrar inexistente o no disponible"),{statusCode:409});
+   const tipoCobro=await require("./clasificacionCobroPersonal.service").tipoEnSesion(usuarioId,original,session);
+   if(!Number.isSafeInteger(original.principalMinor)||original.principalMinor<=0||!Number.isSafeInteger(original.saldoMinor)||original.saldoMinor<monto||original.saldoMinor>original.principalMinor)throw Object.assign(new Error("Saldo por cobrar no conciliable con su importe original"),{statusCode:409});
+   const prestamo=await Prestamo.findOneAndUpdate({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",origenCuentaPorCobrar:original.origenCuentaPorCobrar,estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});
    if(!prestamo)throw Object.assign(new Error("Cuenta por cobrar inexistente o saldo insuficiente"),{statusCode:409});
    if(prestamo.saldoMinor===0){prestamo.estado="PAGADO";await prestamo.save({session});}
    let cuenta=cuentaId?await Cuenta.findOne({_id:cuentaId,usuarioId,activa:true}).session(session):await Cuenta.findOne({usuarioId,nombre:"EFECTIVO",activa:true}).session(session);
    if(!cuenta&&!cuentaId){cuenta=await Cuenta.findOneAndUpdate({usuarioId,nombre:"EFECTIVO"},{$setOnInsert:{usuarioId,nombre:"EFECTIVO",tipo:"EFECTIVO",moneda:"COP",saldoMinor:0,activa:true}},{upsert:true,new:true,session,setDefaultsOnInsert:true});}
    if(!cuenta)throw Object.assign(new Error("Cuenta de destino inválida"),{statusCode:404});
-   if(!Number.isSafeInteger(cuenta.saldoMinor+monto))throw Object.assign(new Error("El saldo de destino excede el rango monetario seguro"),{statusCode:422});
+   const originalCuenta=await Cuenta.collection.findOne({_id:cuenta._id,usuarioId:cuenta.usuarioId},{session,maxTimeMS:5000});exigirCuentasCopPatrimonio([originalCuenta]);
+   if(!Number.isSafeInteger(originalCuenta.saldoMinor)||originalCuenta.saldoMinor<0||BigInt(originalCuenta.saldoMinor)+BigInt(monto)>BigInt(Number.MAX_SAFE_INTEGER))throw Object.assign(new Error("Saldo de destino no conciliable o fuera del rango monetario seguro"),{statusCode:422});
    cuenta=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});
-   const tipoCobro=prestamo.origenCuentaPorCobrar==="TRABAJO"?"INGRESO":"COBRO_PRESTAMO";
+
    const [tx]=await Transaccion.create([{usuarioId,prestamoId:prestamo._id,tipo:tipoCobro,montoMinor:monto,concepto:("Cobro: "+prestamo.concepto).slice(0,140),categoria:tipoCobro==="INGRESO"?"Trabajo cobrado":"Cuentas por cobrar",contraparte:prestamo.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,medioPago:cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA",fecha:new Date(),origen:"MANUAL",externalIdHash}],{session});
    await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(prestamo._id),tipo:tipoCobro,montoMinor:monto}}],{session});
    resultado={prestamo,transaccion:tx,duplicado:false};

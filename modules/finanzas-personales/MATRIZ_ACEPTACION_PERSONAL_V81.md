@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r104
+# Matriz de aceptación y prioridad — revisión r105
+
+Corte r105 en validación: origen persistido antes de cobro, OTRO/ausente bloqueados, corrección auditada sin dinero y pago separado; historia/índices verificados. Informe ORIGEN_COBRO_CONFIRMADO_PERSONAL_V81.md. Base50c806061d730a0152db839fda5aa0048a6548fd, backupV31/44 sin cambios. CI nueva pendiente; #407/custodia/operación reales siguen bloqueando producción.
 
 Corte r104 verificado en ensayo: código6dec49cc58ade3554239a2a007ef5780ab5276f7/árbolc5cfe4382875f670d08583de395742d8eccafa2f; cuenta por cobrar explícita, importe exacto, fecha completa/sin inferir y origen OTRO, sin ingreso/caja. Vista revisable y aprobación/recibo/outbox atómicos. Gate44560726225/Seguridad44560726187/V8144560726203 success; ocho jobs, Mongo97/97 y navegador/backend32/32 sin omisiones. Informe CUENTAS_POR_COBRAR_EXPLICITAS_PERSONAL_V81.md conserva aceptación/evidencia/límites/siguiente paso. BackupV31/44 aislado; #407/custodia/operación reales pendientes. Siguiente: origen explícito antes de cobrar; deuda/crédito/metas. Verificar CI del cierre documental/HEAD; sin merge ni Render.
 

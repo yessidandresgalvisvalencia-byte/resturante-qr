@@ -52,6 +52,7 @@ async function aprobarCobro(usuarioId,x,session){
   "Hay varias cuentas por cobrar de esa persona. Necesito identificar cuál estás cobrando.":
   "No encontré una cuenta por cobrar activa de "+x.contraparte+"."),{statusCode:409});
  const p=candidatos[0];
+ const original=await Prestamo.collection.findOne({_id:p._id,usuarioId:p.usuarioId},{session,maxTimeMS:5000}),tipo=await require("./clasificacionCobroPersonal.service").tipoEnSesion(usuarioId,original,session);
  if(!Number.isSafeInteger(p.principalMinor)||p.principalMinor<1||!Number.isSafeInteger(p.saldoMinor)||
   p.saldoMinor<1||p.saldoMinor>p.principalMinor||x.montoMinor>p.saldoMinor)
   throw Object.assign(new Error("El cobro no es conciliable con el saldo pendiente registrado."),{statusCode:409});
@@ -63,7 +64,7 @@ async function aprobarCobro(usuarioId,x,session){
   ...filtroSaldoSeguro(x.montoMinor)},{$inc:{saldoMinor:x.montoMinor}},{new:true,session});
  if(!actualizada)throw Object.assign(new Error("El saldo de destino excede el rango monetario seguro."),{statusCode:409});
  p.saldoMinor-=x.montoMinor;if(p.saldoMinor===0)p.estado="PAGADO";await p.save({session});
- const tipo=p.origenCuentaPorCobrar==="TRABAJO"?"INGRESO":"COBRO_PRESTAMO";
+
  const [tx]=await Tx.create([{usuarioId,prestamoId:p._id,cuentaId:cuenta._id,cuenta:cuenta.nombre,
   impactoCaja:true,medioPago:"EFECTIVO",tipo,montoMinor:x.montoMinor,moneda:"COP",
   concepto:("Cobro: "+p.concepto).slice(0,140),categoria:tipo==="INGRESO"?"Trabajo cobrado":"Cuentas por cobrar",

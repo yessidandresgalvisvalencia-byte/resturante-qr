@@ -294,8 +294,10 @@ const renderPrestamo=x=>{
  }else if(!propia&&x.estado==="PAGADO"){
   html+='<button class="secondary mini" onclick="window.corregirOrigenCobro(\''+esc(String(x._id))+'\')">Corregir</button>';
  }else if(!propia&&x.estado!=="PAGADO"){
-  html+='<button class="secondary mini" onclick="window.corregirOrigenCobro(\''+esc(String(x._id))+'\')">Corregir</button>';
-  html+='<button class="mini" onclick="window.registrarCobro(\''+esc(String(x._id))+'\','+Number(x.saldoMinor)+')">Registrar pago recibido</button>';
+  const origenConocido=["TRABAJO","PRESTAMO"].includes(x.origenCuentaPorCobrar);
+  html+='<button class="secondary mini" onclick="window.corregirOrigenCobro(\''+esc(String(x._id))+'\')">'+(origenConocido?'Corregir':'Confirmar origen')+'</button>';
+  if(origenConocido)html+='<button class="mini" onclick="window.registrarCobro(\''+esc(String(x._id))+'\','+Number(x.saldoMinor)+')">Registrar pago recibido</button>';
+  else html+='<p>Origen por confirmar: indica si era trabajo o un préstamo. Aún no registres el pago ni lo cuentes como ingreso.</p>';
  }
  html+='</div></article>';
  return html;
@@ -343,18 +345,19 @@ async function aplicarCorreccionPrestamo(id,cambios){
 }
 window.verCorreccionesPrestamo=async id=>{
  const sesion=token;try{const r=await api("/prestamos/"+encodeURIComponent(id)+"/correcciones");if(!sesion||sesion!==token||$("app").hidden)return;
- const filas=r.eventos||[];alert("Correcciones registradas: "+filas.length+". No es el historial completo de pagos ni cambios anteriores.\n"+filas.slice(-10).map(e=>new Date(e.fecha).toLocaleDateString("es-CO")+" · Capital: "+money(e.anterior.principalMinor)+" → "+money(e.posterior.principalMinor)+" · Pendiente: "+money(e.anterior.saldoMinor)+" → "+money(e.posterior.saldoMinor)).join("\n")+(filas.length>10?"\nSe muestran las últimas diez correcciones.":""));
+ const filas=r.eventos||[];alert("Correcciones registradas: "+filas.length+". No es el historial completo de pagos ni cambios anteriores.\n"+filas.slice(-10).map(e=>new Date(e.fecha).toLocaleDateString("es-CO")+" · Origen: "+(e.anterior.origenCuentaPorCobrar||"SIN_CONFIRMAR")+" → "+(e.posterior.origenCuentaPorCobrar||"SIN_CONFIRMAR")+" · Capital: "+money(e.anterior.principalMinor)+" → "+money(e.posterior.principalMinor)+" · Pendiente: "+money(e.anterior.saldoMinor)+" → "+money(e.posterior.saldoMinor)).join("\n")+(filas.length>10?"\nSe muestran las últimas diez correcciones.":""));
  }catch(e){if(sesion===token&&!$("app").hidden)alert("No se pudo verificar el historial: "+e.message);}
 };
 window.corregirOrigenCobro=async id=>{const sesionCorreccion=token;try{
  const datos=await api("/prestamos");
  const p=(datos.prestamos||[]).find(x=>String(x._id)===String(id));
  if(!p||p.direccion!=="POR_COBRAR")throw Error("Cuenta por cobrar no encontrada");
- const actual=p.origenCuentaPorCobrar||"PRESTAMO";
- const nuevo=prompt("¿Qué era esta cuenta por cobrar? Escribe TRABAJO, PRESTAMO u OTRO.",actual);
+ const actual=p.origenCuentaPorCobrar||"SIN_CONFIRMAR",sinConfirmar=!["TRABAJO","PRESTAMO"].includes(actual);
+ const nuevo=prompt(sinConfirmar?"Confirma el origen declarado: TRABAJO o PRESTAMO. Si era otro concepto o no lo sabes, cancela; no se registrará dinero.":"¿Qué era esta cuenta por cobrar? Escribe TRABAJO, PRESTAMO u OTRO.",sinConfirmar?"":actual);
  if(nuevo===null)return;
  const origenCuentaPorCobrar=nuevo.trim().toUpperCase();
  if(!["TRABAJO","PRESTAMO","OTRO"].includes(origenCuentaPorCobrar))throw Error("Elige TRABAJO, PRESTAMO u OTRO");
+ if(sinConfirmar&&origenCuentaPorCobrar==="OTRO")throw Error("OTRO mantiene el cobro pendiente; confirma TRABAJO o PRESTAMO sin adivinar.");
  if(actual===origenCuentaPorCobrar)return;
  if(!confirm("¿Corregir el origen a "+origenCuentaPorCobrar+"? GRUK reclasificará únicamente los cobros relacionados ya existentes. NO recibirá ni registrará dinero otra vez."))return;
  if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;

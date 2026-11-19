@@ -31,7 +31,7 @@ async function corregir(usuarioId,prestamoId,cambios,solicitud,aplicar){
   if(replay){if(String(replay.prestamoId)!==String(prestamoId)||replay.solicitudHash!==solicitudHash)throw falla("Identificador de corrección usado con otros datos");resultado={...raw,correccion:{hash:replay.hashActual,duplicado:true,vigente:ultimo?.hashActual===replay.hashActual&&igual(foto(raw),replay.posterior)}};return;}
   if(eventos.length>=MAX)throw falla("Historial de correcciones supera capacidad verificable");
   if(!Number.isSafeInteger(raw.principalMinor)||raw.principalMinor<=0||!Number.isSafeInteger(raw.saldoMinor)||raw.saldoMinor<0||raw.saldoMinor>raw.principalMinor||!Number.isSafeInteger(raw.cuotaMinor)||raw.cuotaMinor<0)throw falla("Importes originales requieren revisión",422);
-  const p=P.hydrate(raw),anterior=foto(raw),auditoria=await aplicar(usuarioId,p,c,session);
+  const p=P.hydrate(raw);if(!Object.hasOwn(raw,"origenCuentaPorCobrar"))p.set("origenCuentaPorCobrar",undefined);const anterior=foto(raw),auditoria=await aplicar(usuarioId,p,c,session);
   await p.save({session});const guardada=await P.findOne({_id:p._id,usuarioId}).session(session).lean();
   const e={usuarioId:p.usuarioId,prestamoId:p._id,secuencia:eventos.length+1,solicitudId:solicitud.solicitudId,solicitudHash,cambios:canon(c),anterior,posterior:foto(guardada),fecha:new Date(),hashAnterior:ultimo?.hashActual||GENESIS};e.hashActual=hash(e);await E.create([e],{session});
   const cambio=await P.updateOne({_id:p._id,usuarioId},{$set:{correccionRevision:e.secuencia,correccionHash:e.hashActual}},{session});if(cambio.matchedCount!==1)throw falla("Préstamo cambió durante corrección");

@@ -2791,3 +2791,10 @@ BackupV31/44 sin cambio de formato/colecciones: ensayo cifrado restauró7927 doc
 Siguiente: revisar confirmación explícita del origen antes de cobrar cuentas genéricas, sin clasificar automáticamente como préstamo/ingreso ni reescribir originales; después contextos propios de deuda/crédito y metas ambiguas. Recuperar desde este informe, matriz y continuidad; verificar HEAD/base/PR389/#407/instrucciones/CI antes de otro lote. Gates externos pendientes: custodio independiente real/anclas, backup durable con retención/acceso/claves separados y restauración operativa aislada con RPO/RTO, permisos/índices/migración/configuración productivos, Safari/dispositivos y auditoría independiente según matriz, aceptación/compatibilidad/informe final.
 
 Sin merge a feature ni despliegue Render; main/Empresarial/Blushéa intactos. Sin costos/servicios nuevos. Tarea activa, sin duplicar ni desactivar automatización. El descendiente documental debe tener sus propios tres workflows verdes; su SHA y resultados quedan verificables en Git/PR, sin autoreferencia circular.
+
+
+## Plan r105 — origen confirmado antes de cobrar
+
+Base50c806061d730a0152db839fda5aa0048a6548fd/árbol94160a5e5faff4266512c1eacbb4a9122e9d460b, PR389/base652126a03f19fbec3c529cad1e84bff11cd3699e y #407 abiertos; tres workflows del padre verdes, Mongo97/97 y browser32/32. Plan/aceptación/límites/pendientes en ORIGEN_COBRO_CONFIRMADO_PERSONAL_V81.md. Cobro OTRO/ausente bloqueado; confirmación auditada existente sin caja; pago posterior separado. CI nueva pendiente; sin merge/Render ni costos.
+
+Validación previa a publicación r105: módulo918 casos/909 pass/9 omitidos externos/0 fallos; ci:personal353/349 pass/4 omitidos/0 fallos; dirigidas corrección/origen10/10 y origen/caché7/7 (solapadas), sintaxis de helper/cliente/browser y diff correctos. Mongo autorizado incorpora un caso completo nuevo; el navegador extiende el flujo existente de cuenta por cobrar, sin aumentar timeout ni número artificial de casos. Pendiente CI del SHA nuevo. Fixture de moneda USD se inserta nativamente solo en base aislada para representar dato legacy no soportado; no es un alta válida del producto.
