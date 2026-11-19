@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - "gruk/commercial-p004-index-preflight-integration"
+      - "gruk/commercial-consolidated-p004-20261119"
+      - main
   pull_request:
     branches:
       - "gruk/commercial-consolidated-p004-20261119"
+      - main
 
 permissions:
   contents: read
