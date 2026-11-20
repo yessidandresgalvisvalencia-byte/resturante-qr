@@ -1,0 +1,63 @@
+name: GRUK P0-04 Existing MongoDB Migration Readonly Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-migration-historical-site-preflight.yml'
+      - 'scripts/gruk/p0-04-migration-historical-site-preflight.js'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-p004-historical-site-readonly
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Check 16 sales against historic orders and sites (READ ONLY)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert connection secret supplied; never print it
+        env:
+          SECRET_PRESENT: ${{ secrets.GRUK_ENTERPRISE_MIGRATION_MONGO_URI }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SECRET_PRESENT" ]]; then
+            echo "::error::Existing migration connection secret missing"
+            exit 1
+          fi
+      - name: Install MongoDB shell
+        run: |
+          set -euo pipefail
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-mongosh
+      - name: Verify relational history, no writes
+        env:
+          GRUK_ENTERPRISE_MONGO_URI: ${{ secrets.GRUK_ENTERPRISE_MIGRATION_MONGO_URI }}
+          GRUK_ENTERPRISE_DB: restaurante
+          GRUK_ENTERPRISE_DB_CONFIRM: restaurante
+        run: |
+          set -euo pipefail
+          umask 077
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
+          status=0
+          mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet --file scripts/gruk/p0-04-migration-historical-site-preflight.js > "$log" 2>&1 || status=$?
+          echo 'GRUK P0-04 safe historical relationship counters:'
+          sed -nE 's/^[[:space:]]*(legacySales|linkedOrders|linkedRestaurants|matchedEnterprise|uniqueHistoricSite|missingOrder|missingRestaurant|mismatchedEnterprise|ambiguousSite|siteCreatedAfterOrder|otherUnsafe|readyForCorrection):[[:space:]]*(true|false|[0-9]+),?.*/\1: \2/p' "$log"
+          if [[ "$status" -ne 0 ]]; then
+            echo '::error::Historical-site verification blocked; no database records changed'
+            exit 1
+          fi
+          if ! grep -Eq '^[[:space:]]*readyForCorrection:[[:space:]]*true,?' "$log"; then
+            echo '::error::No positive historical-site readiness verdict'
+            exit 1
+          fi
+          echo 'Read-only site association preflight passed; independent recovery backup remains mandatory before any update'
