@@ -8,6 +8,7 @@ const mongoose = require("mongoose");
 const Inventario = require("../../models/Inventario");
 const Restaurante = require("../../models/restaurante");
 const Sede = require("../../models/sede");
+const ProductoServicio = require("../../models/ProductoServicio");
 const inventarioRoutes = require("../../routes/inventario");
 
 const SECRET = "p004-inventory-branch-regression-local-only";
@@ -30,6 +31,7 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
   const original = {
     findOne: Restaurante.findOne,
     siteFindOne: Sede.findOne,
+    catalogFindOne: ProductoServicio.findOne,
     find: Inventario.find,
     save: Inventario.prototype.save,
     findOneAndUpdate: Inventario.findOneAndUpdate
@@ -42,6 +44,15 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     return this;
   };
 
+  ProductoServicio.findOne = (filter) => ({
+    select() { return this; },
+    async lean() {
+      if (String(filter.empresaId) !== EMPRESA || String(filter._id) !== PRODUCTO) return null;
+      if (filter.sedeId === null) return { _id: PRODUCTO };
+      if (filter.sedeId?.$in?.some(value => String(value) === SEDE_UNO)) return { _id: PRODUCTO };
+      return null;
+    }
+  });
   Sede.findOne = (filter) => ({
     select() { return this; },
     async lean() {
@@ -158,6 +169,29 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     assert.equal(result.status, 200);
     assert.equal(createdInventory.length, 2);
 
+    // A forged link to another company's catalog must not enter inventory.
+    result = await call("POST", "/", admin, {
+      restaurantId: "rest-a", productoServicioId: SEDE_DOS,
+      nombre: "Catálogo ajeno", categoria: "prueba", cantidad: 1
+    });
+    assert.equal(result.status, 403);
+    assert.equal(createdInventory.length, 2);
+
+    result = await call("POST", "/", admin, {
+      restaurantId: "rest-a", productoServicioId: "invalid-product",
+      nombre: "Catálogo inválido", categoria: "prueba", cantidad: 1
+    });
+    assert.equal(result.status, 400);
+    assert.equal(createdInventory.length, 2);
+
+    result = await call("POST", "/", admin, {
+      restaurantId: "rest-a", productoServicioId: PRODUCTO,
+      nombre: "Catálogo autorizado", categoria: "prueba", cantidad: 1
+    });
+    assert.equal(result.status, 200);
+    assert.equal(createdInventory.length, 3);
+    assert.equal(String(createdInventory[2].productoServicioId), PRODUCTO);
+
     result = await call("POST", "/", admin, {
       restaurantId: "rest-a", sedeId: SEDE_DOS,
       nombre: "Producto prohibido", categoria: "prueba", cantidad: 10
@@ -205,6 +239,7 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     await new Promise(resolve => server.close(resolve));
     Restaurante.findOne = original.findOne;
     Sede.findOne = original.siteFindOne;
+    ProductoServicio.findOne = original.catalogFindOne;
     Inventario.find = original.find;
     Inventario.prototype.save = original.save;
     Inventario.findOneAndUpdate = original.findOneAndUpdate;
