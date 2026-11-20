@@ -91,7 +91,7 @@ test("P0-04: identificador de cliente inválido se rechaza sin consultar ni pers
   assert.equal(creates.length,0);
 });
 
-for (const missingId of [undefined, null, ""]) {
+for (const missingId of [undefined, null, "", "   "]) {
   test("P0-04/P0-70: pedido sin identidad estable se rechaza antes de lecturas y escritura (" + String(missingId) + ")", async () => {
     const {service,queries,creates,productQueries}=fixture(true);
     const withoutId={...pedido,_id:missingId};
