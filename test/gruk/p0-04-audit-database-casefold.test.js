@@ -29,3 +29,10 @@ test('P0-04 enterprise money audit accepts a valid enterprise database name only
     assert.equal(allowed(name), false, name);
   }
 });
+
+// The name is passed as a positional argument, never interpolated into shell source.
+test('P0-04 audit guard rejects shell metacharacters and control characters', () => {
+  for (const name of ['gruk;echo unsafe', 'gruk$(id)', 'gruk`id`', 'gruk\nother', 'gruk/other', 'gruk\\other', 'gruk"other', "gruk'other", 'gruk*other']) {
+    assert.equal(allowed(name), false, JSON.stringify(name));
+  }
+});
