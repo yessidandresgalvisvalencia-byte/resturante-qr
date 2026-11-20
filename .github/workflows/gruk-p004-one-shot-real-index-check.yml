@@ -1,0 +1,68 @@
+name: GRUK P0-04 One-Time Production Index Read-Only Evidence
+
+# ONE-SHOT ONLY: runs on the introduction of this workflow to main.
+# This workflow is deleted after its initial documented execution.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-p004-one-shot-real-index-check.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-enterprise-db-readonly
+  cancel-in-progress: false
+
+jobs:
+  one-time-index-audit:
+    name: Solo lectura — comprobar indices en restaurante real
+    runs-on: ubuntu-latest
+    environment: gruk-enterprise-db-readonly
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify production auditor is read-only and database is fixed
+        env:
+          READONLY_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$READONLY_URI" ]]; then
+            echo "::error::Previously validated read-only audit credential is unavailable"
+            exit 1
+          fi
+          if ! test -f scripts/gruk/p0-04-venta-index-preflight.js; then
+            echo "::error::P0-04 index audit source missing"
+            exit 1
+          fi
+          echo "Target: restaurante; identity: pre-existing Mongo read-only auditor"
+      - name: Install mongosh
+        run: |
+          set -euo pipefail
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-mongosh
+      - name: Read real sale-index and company/site ownership aggregate evidence
+        env:
+          GRUK_ENTERPRISE_MONGO_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
+          GRUK_ENTERPRISE_DB: restaurante
+          GRUK_ENTERPRISE_DB_CONFIRM: restaurante
+        run: |
+          set -euo pipefail
+          umask 077
+          trap 'rm -f /tmp/gruk-one-time-index-audit.log' EXIT
+          if ! mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet \
+              --file scripts/gruk/p0-04-venta-index-preflight.js \
+              >/tmp/gruk-one-time-index-audit.log 2>&1; then
+            echo "::error::Real production index audit blocked; private DB diagnostics withheld"
+            exit 1
+          fi
+          # Restrict log output to boolean verdicts + aggregate counts.
+          grep -E '^[[:space:]]*(missingTenant|invalidEnterpriseOwnership|invalidSiteIds|invalidSiteOwnership|invalidOriginIds|invalidOriginNames|duplicateGroups|targetIndexPresent|dataReadyForIndexBuild|readyForIndexBuild|readyForLegacyRemoval|requiresDbaApproval):' /tmp/gruk-one-time-index-audit.log || true
+          if ! grep -q 'readyForIndexBuild: true' /tmp/gruk-one-time-index-audit.log; then
+            echo "::error::Index audit did not attest data readiness"
+            exit 1
+          fi
+          echo "PASS: real enterprise sale-index read-only preflight; no writes, migrations or deployments"
