@@ -4,7 +4,6 @@
 // A sole currently active site does not establish historic site provenance.
 // Input manifest lives in an approved private location, NEVER in GitHub.
 const fs = require('node:fs');
-const crypto = require('node:crypto');
 
 const OBJECT_ID = /^[a-fA-F0-9]{24}$/;
 const EXPECTED_DATABASE = 'restaurante';
