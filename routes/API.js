@@ -1548,11 +1548,23 @@ router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROL
       update.tiempoEstimado = Number(tiempoEstimado);
     }
 
-    const pedido = await Pedido.findByIdAndUpdate(
-      req.params.id,
+    // Defense in depth: an authorized initial read does not authorize an
+    // unscoped later write. Match the tenant, restaurant and original site in
+    // the atomic update (including legacy orders with no empresaId).
+    const pedido = await Pedido.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        restaurantId: actual.restaurantId,
+        empresaId: actual.empresaId == null ? null : req.auth.empresaId,
+        sedeId: actual.sedeId == null ? null : actual.sedeId
+      },
       update,
       { new: true }
     );
+    if (!pedido) return res.status(409).json({
+      ok: false,
+      error: "Pedido cambió de empresa o sede durante la operación"
+    });
 
     const io = req.app.get("io");
     io.to(`empresa-${req.auth.empresaId}`)
