@@ -58,19 +58,29 @@ router.post(
   async (req, res) => {
   try {
     const datos = { ...req.body };
+    // Reject orphan inventory and caller-controlled audit/lifecycle state.
+    // The model allows legacy null restaurantId, but new writes must not.
+    if (typeof datos.restaurantId !== "string" ||
+        !datos.restaurantId.trim() || datos.restaurantId.length > 128) {
+      return res.status(400).json({ ok: false, error: "Restaurante requerido" });
+    }
+    for (const forbidden of ["_id", "anulado", "motivoAnulacion",
+      "usuarioAnulacion", "fechaAnulacion", "createdAt", "updatedAt"]) {
+      if (Object.prototype.hasOwnProperty.call(datos, forbidden)) {
+        return res.status(400).json({ ok: false, error: "Campos protegidos de inventario" });
+      }
+    }
 
     // The signed tenant must own the restaurant, regardless of client empresaId.
     if (datos.empresaId && String(datos.empresaId) !== String(req.auth.empresaId)) {
       return res.status(403).json({ ok: false, error: "Inventario fuera de empresa" });
     }
-    if (datos.restaurantId) {
-      const restaurante = await Restaurante.findOne({
-        restaurantId: datos.restaurantId,
-        empresaId: req.auth.empresaId
-      }).select("_id").lean();
-      if (!restaurante) {
-        return res.status(403).json({ ok: false, error: "Restaurante fuera de empresa" });
-      }
+    const restaurante = await Restaurante.findOne({
+      restaurantId: datos.restaurantId,
+      empresaId: req.auth.empresaId
+    }).select("_id").lean();
+    if (!restaurante) {
+      return res.status(403).json({ ok: false, error: "Restaurante fuera de empresa" });
     }
     datos.empresaId = req.auth.empresaId;
 
