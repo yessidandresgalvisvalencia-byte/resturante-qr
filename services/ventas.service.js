@@ -46,6 +46,11 @@ async function registrarVentaDesdePedido({
     throw new Error("GRUK_VENTA_PEDIDO_SEDE_CONFLICT");
   }
 
+  // Validate untrusted customer identifiers before any database access.
+  if (pedido.clienteId && !mongoose.Types.ObjectId.isValid(pedido.clienteId)) {
+    throw new Error("GRUK Ventas: clienteId invalido");
+  }
+
   try {
     if (!pedido.productoServicioId) {
       throw new Error(
@@ -74,16 +79,6 @@ async function registrarVentaDesdePedido({
     let clienteId = null;
 
     if (pedido.clienteId) {
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          pedido.clienteId
-        )
-      ) {
-        throw new Error(
-          "GRUK Ventas: clienteId invalido"
-        );
-      }
-
       const filtroCliente = {
         _id: pedido.clienteId,
         empresaId,
