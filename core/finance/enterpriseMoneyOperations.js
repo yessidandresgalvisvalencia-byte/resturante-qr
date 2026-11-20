@@ -36,9 +36,24 @@ function invoiceTotal(lines) {
   if (!Array.isArray(lines)) throw new TypeError('Lines must be an array');
   if (lines.length > MAX_INVOICE_LINES) throw new RangeError('Invoice exceeds maximum line count');
   let total = 0n;
-  for (const line of lines) {
+  // Indexed traversal avoids invoking an attacker-supplied Symbol.iterator on the array.
+  for (let index = 0; index < lines.length; index++) {
+    // Read an own data descriptor: indexed access could invoke an attacker-controlled getter.
+    const lineField = Object.getOwnPropertyDescriptor(lines, String(index));
+    if (!lineField || !Object.hasOwn(lineField, 'value')) {
+      throw new TypeError('Invalid sparse or accessor invoice line');
+    }
+    const line = lineField.value;
     if (!line || typeof line !== 'object' || Array.isArray(line)) throw new TypeError('Invalid invoice line');
-    total = assertSafeCents(total + parseMoneyToCents(line.unitPrice) * assertQuantity(line.quantity));
+    // Financial inputs must be explicit line fields, never inherited from a prototype.
+    const priceField = Object.getOwnPropertyDescriptor(line, 'unitPrice');
+    const quantityField = Object.getOwnPropertyDescriptor(line, 'quantity');
+    if (!priceField || !quantityField || !Object.hasOwn(priceField, 'value') ||
+        !Object.hasOwn(quantityField, 'value')) {
+      throw new TypeError('Invoice line must contain own data fields for unitPrice and quantity');
+    }
+    // Accessor properties can execute arbitrary code or return inconsistent values.
+    total = assertSafeCents(total + parseMoneyToCents(priceField.value) * assertQuantity(quantityField.value));
   }
   return formatCents(total);
 }
