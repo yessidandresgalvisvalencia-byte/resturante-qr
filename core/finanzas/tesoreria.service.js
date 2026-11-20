@@ -6,6 +6,7 @@ const CuentaTesoreria = require("./models/CuentaTesoreria");
 const TransferenciaTesoreria = require("./models/TransferenciaTesoreria");
 const MovimientoCaja = require("./models/MovimientoCaja");
 const eventBus = require("../eventos/eventBus");
+const { cents, safeCents } = require("./dineroExacto");
 
 function serviceError(statusCode, message) {
   const error = new Error(message);
@@ -259,8 +260,8 @@ async function calcularSaldoCuenta(
                   "ENTRADA"
                 ]
               },
-              "$monto",
-              0
+              { $toDecimal: "$monto" },
+              { $toDecimal: "0" }
             ]
           }
         },
@@ -273,8 +274,8 @@ async function calcularSaldoCuenta(
                   "SALIDA"
                 ]
               },
-              "$monto",
-              0
+              { $toDecimal: "$monto" },
+              { $toDecimal: "0" }
             ]
           }
         }
@@ -297,29 +298,16 @@ async function calcularSaldoCuenta(
   const [row] =
     await aggregate;
 
-  const entradas =
-    Number(
-      row?.entradas || 0
-    );
-
-  const salidas =
-    Number(
-      row?.salidas || 0
-    );
-
+  // Decimal128 accumulation is converted back to exact integer centavos.
+  // A legacy sub-cent movement fails visibly rather than distorting the balance.
+  const inicialCent = cents(cuenta.saldoInicial ?? 0, "saldoInicial");
+  const entradaCent = cents(row?.entradas == null ? "0" : String(row.entradas), "entradasTesoreria");
+  const salidaCent = cents(row?.salidas == null ? "0" : String(row.salidas), "salidasTesoreria");
   return {
-    saldoInicial:
-      Number(
-        cuenta.saldoInicial || 0
-      ),
-    entradas,
-    salidas,
-    saldoDisponible:
-      Number(
-        cuenta.saldoInicial || 0
-      ) +
-      entradas -
-      salidas
+    saldoInicial: safeCents(inicialCent, "saldoInicial"),
+    entradas: safeCents(entradaCent, "entradasTesoreria"),
+    salidas: safeCents(salidaCent, "salidasTesoreria"),
+    saldoDisponible: safeCents(inicialCent + entradaCent - salidaCent, "saldoDisponible")
   };
 }
 
@@ -405,8 +393,7 @@ async function crearCuenta({
           .trim(),
       tipo,
       moneda: "COP",
-      saldoInicial:
-        Number(saldoInicial || 0),
+      saldoInicial: safeCents(cents(saldoInicial, "saldoInicial"), "saldoInicial"),
       saldoInicialAt:
         fecha,
       metodosPagoAsociados:
@@ -590,7 +577,7 @@ async function resumenNoAsignados({
             $sum: 1
           },
           monto: {
-            $sum: "$monto"
+            $sum: { $toDecimal: "$monto" }
           }
         }
       }
@@ -617,10 +604,10 @@ async function resumenNoAsignados({
           Number(
             row.cantidad || 0
           ),
-        monto:
-          Number(
-            row.monto || 0
-          )
+        monto: safeCents(
+          cents(row.monto == null ? "0" : String(row.monto), "sinAsignar"),
+          "sinAsignar"
+        )
       };
     }
 
@@ -633,10 +620,10 @@ async function resumenNoAsignados({
           Number(
             row.cantidad || 0
           ),
-        monto:
-          Number(
-            row.monto || 0
-          )
+        monto: safeCents(
+          cents(row.monto == null ? "0" : String(row.monto), "sinAsignar"),
+          "sinAsignar"
+        )
       };
     }
   }
@@ -702,16 +689,14 @@ async function obtenerResumenTesoreria({
     sinAsignar.entradas.cantidad +
     sinAsignar.salidas.cantidad;
 
-  const saldoDisponible =
+  const saldoDisponible = safeCents(
     cuentas.reduce(
-      (total, cuenta) =>
-        total +
-        Number(
-          cuenta.saldo
-            ?.saldoDisponible || 0
-        ),
-      0
-    );
+      (total, cuenta) => total +
+        cents(cuenta.saldo?.saldoDisponible ?? 0, "saldoCuenta"),
+      0n
+    ),
+    "saldoTesoreria"
+  );
 
   return {
     estadoConfiabilidad:
@@ -802,20 +787,14 @@ async function transferir({
     );
   }
 
-  const montoNumero =
-    Number(monto);
-
-  if (
-    !Number.isFinite(
-      montoNumero
-    ) ||
-    montoNumero <= 0
-  ) {
-    throw serviceError(
-      400,
-      "Monto de transferencia invalido"
-    );
+  let montoCent;
+  try {
+    montoCent = cents(monto, "transferencia");
+    if (montoCent <= 0n) throw new Error("DINERO_INVALIDO_TRANSFERENCIA");
+  } catch {
+    throw serviceError(400, "Monto de transferencia invalido o no representable en centavos");
   }
+  const montoNumero = safeCents(montoCent, "transferencia");
 
   const usuarioObjectId =
     objectId(
@@ -869,8 +848,8 @@ async function transferir({
 
         if (
           !origen.permiteSaldoNegativo &&
-          saldoOrigen.saldoDisponible <
-            montoNumero
+          cents(saldoOrigen.saldoDisponible, "saldoOrigen") <
+            montoCent
         ) {
           throw serviceError(
             409,
