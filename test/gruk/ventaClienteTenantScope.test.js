@@ -17,7 +17,7 @@ function fixture(clientFound) {
     }
   };
   const mocks = {
-    mongoose: {Types:{ObjectId:{isValid:()=>true}}},
+    mongoose: {Types:{ObjectId:{isValid:(value)=>value!=="not-an-object-id"}}},
     "../models/Venta": {create:async (records)=>{creates.push(records[0]);return [{...records[0],_id:"venta_A"}];}},
     "../models/ProductoServicio": {findOne:()=>({select(){return this;},session(){return this;},lean:async()=>({_id:"product_A",costoUnitario:10})})},
     "../models/Cliente": clientModel,
@@ -76,4 +76,15 @@ test("P0-04: cliente sin sede solo es aceptado con filtro de sede nula",async()=
   assert.equal(queries[0].sedeId,null);
   assert.equal(creates.length,1);
   assert.equal(creates[0].sedeId,null);
+});
+
+test("P0-04: identificador de cliente inválido se rechaza sin consultar ni persistir",async()=>{
+  const {service,queries,creates}=fixture(true);
+  const invalid={...pedido,clienteId:"not-an-object-id"};
+  await assert.rejects(
+    service.registrarVentaDesdePedido({pedido:invalid,empresaId:"tenant_A",sedeId:"site_A",emitirEvento:false}),
+    /clienteId invalido/
+  );
+  assert.equal(queries.length,0);
+  assert.equal(creates.length,0);
 });
