@@ -5,6 +5,17 @@ const Venta = require("../models/Venta");
 const ProductoServicio = require("../models/ProductoServicio");
 const Cliente = require("../models/Cliente");
 const eventBus = require("../core/eventos/eventBus");
+const { calculateLegacySale, canonicalLegacyMoney } = require("../core/finance/enterpriseSalesMath");
+
+// Replay comparison must not coerce malformed historical amounts to a Number.
+// Fail closed if either side cannot be represented as a canonical cent amount.
+function sameLegacyMoney(a, b) {
+  try {
+    return canonicalLegacyMoney(a) === canonicalLegacyMoney(b);
+  } catch {
+    return false;
+  }
+}
 
 async function registrarVentaDesdePedido({
   pedido,
@@ -25,8 +36,29 @@ async function registrarVentaDesdePedido({
     );
   }
 
+  // Reject cross-tenant or cross-site order payloads before any database read.
+  // Some legacy orders omit these fields; when supplied they must match the
+  // authoritative sale scope, including the null-site case.
+  if (pedido.empresaId != null && String(pedido.empresaId) !== String(empresaId)) {
+    throw new Error("GRUK_VENTA_PEDIDO_TENANT_CONFLICT");
+  }
+  if (pedido.sedeId != null && String(pedido.sedeId) !== String(sedeId)) {
+    throw new Error("GRUK_VENTA_PEDIDO_SEDE_CONFLICT");
+  }
+
+  // An order without a stable identity cannot be safely deduplicated or audited.
+  // Reject before product/customer reads and before any persistence.
+  if (pedido._id == null || String(pedido._id).trim() === "") {
+    throw new Error("GRUK_VENTA_PEDIDO_ID_REQUIRED");
+  }
+
+  // Validate untrusted customer identifiers before any database access.
+  if (pedido.clienteId && !mongoose.Types.ObjectId.isValid(pedido.clienteId)) {
+    throw new Error("GRUK Ventas: clienteId invalido");
+  }
+
   try {
-    if (!pedido.productoServicioId) {
+    if (pedido.productoServicioId == null || String(pedido.productoServicioId).trim() === "") {
       throw new Error(
         "GRUK Ventas: pedido sin productoServicioId"
       );
@@ -53,25 +85,12 @@ async function registrarVentaDesdePedido({
     let clienteId = null;
 
     if (pedido.clienteId) {
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          pedido.clienteId
-        )
-      ) {
-        throw new Error(
-          "GRUK Ventas: clienteId invalido"
-        );
-      }
-
       const filtroCliente = {
         _id: pedido.clienteId,
         empresaId,
+        sedeId: sedeId ?? null,
         deletedAt: null
       };
-
-      if (sedeId) {
-        filtroCliente.sedeId = sedeId;
-      }
 
       const cliente = await Cliente.findOne(
         filtroCliente
@@ -89,40 +108,25 @@ async function registrarVentaDesdePedido({
       clienteId = cliente._id;
     }
 
-    const cantidad = Number(pedido.cantidad);
-    const precioUnitario = Number(
-      pedido.precioUnitario
-    );
-    const total = Number(pedido.precio);
-    const costoUnitario = Number(
-      productoServicio.costoUnitario
-    );
-
-    if (
-      !Number.isFinite(cantidad) ||
-      cantidad <= 0 ||
-      !Number.isFinite(precioUnitario) ||
-      precioUnitario < 0 ||
-      !Number.isFinite(total) ||
-      total < 0 ||
-      !Number.isFinite(costoUnitario) ||
-      costoUnitario < 0
-    ) {
-      throw new Error(
-        "GRUK Ventas: datos economicos invalidos"
-      );
-    }
-
-    const costoTotal =
-      costoUnitario * cantidad;
-
-    const utilidadBruta =
-      total - costoTotal;
-
-    const margenBruto =
-      total > 0
-        ? (utilidadBruta / total) * 100
-        : 0;
+    // P0-07: validate the legacy Number boundary and calculate in integer cents.
+    // Mongo Venta still stores Number: this is NOT exact-ledger persistence.
+    // Reject subcent, unsafe or fractional quantities rather than silently round.
+    const cantidad = pedido.cantidad;
+    const precioUnitario = pedido.precioUnitario;
+    const total = pedido.precio;
+    const costoUnitario = productoServicio.costoUnitario;
+    const exact = calculateLegacySale({
+      quantity: cantidad,
+      unitPrice: precioUnitario,
+      unitCost: costoUnitario,
+      total
+    });
+    // Convert only at the legacy schema boundary; never calculate money in float.
+    const costoTotal = Number(exact.costCents) / 100;
+    const utilidadBruta = Number(exact.profitCents) / 100;
+    const margenBruto = exact.marginBasisPoints === null
+      ? 0
+      : Number(exact.marginBasisPoints) / 100;
 
     const [venta] = await Venta.create([{
       empresaId,
@@ -155,6 +159,16 @@ async function registrarVentaDesdePedido({
         restaurantId: pedido.restaurantId,
         pedidoId: pedido._id.toString(),
         mesa: pedido.mesa,
+        // Immutable calculation evidence in canonical integer-cent strings.
+        // Transitional audit snapshot only; legacy Venta money fields remain Number.
+        calculoExactoV1: {
+          ingresoCentavos: exact.revenueCents,
+          brutoCentavos: exact.grossCents,
+          descuentoCentavos: exact.discountCents,
+          costoCentavos: exact.costCents,
+          utilidadCentavos: exact.profitCents,
+          margenPuntosBase: exact.marginBasisPoints
+        },
 
         // Permite a la futura neurona distinguir
         // ventas nuevas con costo congelado de ventas
@@ -216,9 +230,11 @@ costoFuente:
       if (!ventaExistente) throw error;
       // A duplicate order ID with different economic contents is a conflict,
       // not an idempotent replay. Never silently return a different sale.
-      const sameSale = Number(ventaExistente.cantidad) === Number(pedido.cantidad) &&
-        Number(ventaExistente.precioUnitario) === Number(pedido.precioUnitario) &&
-        Number(ventaExistente.total) === Number(pedido.precio) &&
+      const sameSale = Number.isSafeInteger(ventaExistente.cantidad) &&
+        ventaExistente.cantidad > 0 &&
+        ventaExistente.cantidad === pedido.cantidad &&
+        sameLegacyMoney(ventaExistente.precioUnitario, pedido.precioUnitario) &&
+        sameLegacyMoney(ventaExistente.total, pedido.precio) &&
         String(ventaExistente.productoServicioId) === String(pedido.productoServicioId) &&
         String(ventaExistente.metodoPago || "") === String(pedido.metodoPago || "") &&
         String(ventaExistente.clienteId || "") === String(pedido.clienteId || "");
