@@ -12,6 +12,8 @@ const sedeSchema = new mongoose.Schema({
     default: null,
     index: true
   },
+  // Valla de autorización: escritura concurrente obligatoria para anular inventario.
+  authFence: { type: Number, default: 0, min: 0 },
   nombreSede: {
     type: String,
     required: true

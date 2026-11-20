@@ -35,6 +35,7 @@ const usuarioSchema = new mongoose.Schema({
     enum: ["admin_general", "admin_sede", "mesero"],
     default: "mesero"
   },
+  tokenVersion: { type: Number, default: 0, min: 0 },
   estado: {
     type: String,
     enum: ["activo", "inactivo"],
