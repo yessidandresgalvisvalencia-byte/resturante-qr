@@ -19,7 +19,7 @@ async function consultar(usuarioId,prestamoId){
  try{await session.withTransaction(async()=>{
   // lean conserva ausencia/nulo; hydrate aplicaría el default PRESTAMO a documentos antiguos.
   const p=await P.findOne({_id:prestamoId,usuarioId}).maxTimeMS(5000).session(session).lean();if(!p||p.direccion!=="POR_COBRAR")throw falla("Cuenta por cobrar no encontrada",404);
-  const eventos=await E.find({usuarioId,prestamoId}).sort({secuencia:1}).limit(1001).maxTimeMS(5000).session(session).lean();resultado=describir(usuarioId,p,eventos);
+  const eventos=await E.find({usuarioId,prestamoId}).sort({secuencia:1}).limit(1001).maxTimeMS(5000).session(session).lean();resultado={...describir(usuarioId,p,eventos),versionOrigen:await require("./seleccionOrigenCobroPersonal.service").enSesion(usuarioId,p,eventos,session)};
  },{readConcern:{level:"snapshot"},readPreference:"primary"});return resultado;}finally{await session.endSession();}
 }
 module.exports={describir,consultar};

@@ -3,7 +3,7 @@ const mongoose=require("mongoose"),crypto=require("node:crypto"),Joi=require("jo
 const P=require("../models/prestamoPersonal.model"),E=require("../models/correccionPrestamoPersonal.model"),O=require("../models/outboxPersonal.model");
 const {indiceExacto}=require("../security/auditoriaIndicesMongoV81.service");
 const MAX=1000,GENESIS="0".repeat(64),falla=(m,c=409)=>Object.assign(new Error(m),{statusCode:c});
-const esquema=Joi.object({revisarCobrosTrabajo:Joi.boolean().valid(true),contraparte:Joi.string().trim().min(1).max(140),concepto:Joi.string().trim().min(1).max(160),origenCuentaPorCobrar:Joi.string().valid("PRESTAMO","TRABAJO","OTRO"),principalMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),cuotaMinor:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),tasaMensualPct:Joi.number().min(0).max(100),fechaVencimiento:Joi.date().allow(null),numeroCuotas:Joi.number().integer().min(1).max(360),periodicidad:Joi.string().valid("UNICA","SEMANAL","QUINCENAL","MENSUAL"),diaPago:Joi.number().integer().min(1).max(31),periodicidadConfirmada:Joi.boolean()}).min(1);
+const esquema=Joi.object({versionOrigen:Joi.string().pattern(/^[a-f0-9]{64}$/),revisarCobrosTrabajo:Joi.boolean().valid(true),contraparte:Joi.string().trim().min(1).max(140),concepto:Joi.string().trim().min(1).max(160),origenCuentaPorCobrar:Joi.string().valid("PRESTAMO","TRABAJO","OTRO"),principalMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER),cuotaMinor:Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),tasaMensualPct:Joi.number().min(0).max(100),fechaVencimiento:Joi.date().allow(null),numeroCuotas:Joi.number().integer().min(1).max(360),periodicidad:Joi.string().valid("UNICA","SEMANAL","QUINCENAL","MENSUAL"),diaPago:Joi.number().integer().min(1).max(31),periodicidadConfirmada:Joi.boolean()}).min(1);
 function canon(v){if(v instanceof Date)return v.toISOString();if(v instanceof mongoose.Types.ObjectId)return String(v);if(v===null||typeof v!=="object")return v;if(Array.isArray(v))return v.map(canon);return Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])]));}
 const igual=(a,b)=>JSON.stringify(canon(a))===JSON.stringify(canon(b));
 const digest=v=>crypto.createHash("sha256").update(JSON.stringify(canon(v))).digest("hex");
@@ -19,7 +19,7 @@ async function exigirIndices(){let indices;try{indices=await E.collection.indexe
 }
 function validar(u,id,c,s){
  if(!mongoose.isValidObjectId(u)||!mongoose.isValidObjectId(id)||s?.confirmacion!==true||typeof s.solicitudId!=="string"||!/^[A-Za-z0-9_-]{8,100}$/.test(s.solicitudId))throw falla("Confirma la corrección y conserva su identificador de reintento",400);
- const {error,value}=esquema.validate(c,{convert:false});if(error)throw falla("Cambios de préstamo inválidos",422);if(value.revisarCobrosTrabajo===true&&(value.origenCuentaPorCobrar!=="TRABAJO"||Object.keys(value).some(k=>!["origenCuentaPorCobrar","revisarCobrosTrabajo"].includes(k))))throw falla("Revisión de cobros inválida",422);return value;
+ const {error,value}=esquema.validate(c,{convert:false});if(error)throw falla("Cambios de préstamo inválidos",422);if(value.versionOrigen!==undefined&&(!value.origenCuentaPorCobrar||Object.keys(value).some(k=>!["origenCuentaPorCobrar","versionOrigen"].includes(k))))throw falla("Selección de origen inválida",422);if(value.revisarCobrosTrabajo===true&&(value.origenCuentaPorCobrar!=="TRABAJO"||Object.keys(value).some(k=>!["origenCuentaPorCobrar","revisarCobrosTrabajo"].includes(k))))throw falla("Revisión de cobros inválida",422);return value;
 }
 async function corregir(usuarioId,prestamoId,cambios,solicitud,aplicar){
  const c=validar(usuarioId,prestamoId,cambios,solicitud),solicitudHash=digest(c);await exigirIndices();
@@ -30,6 +30,10 @@ async function corregir(usuarioId,prestamoId,cambios,solicitud,aplicar){
   if(ultimo&&ultimo.posterior?.origenCuentaPorCobrar!==raw.origenCuentaPorCobrar)throw falla("Origen actual no coincide con la última corrección auditada; requiere revisión sin reparar automáticamente");
   const replay=await E.findOne({usuarioId,solicitudId:solicitud.solicitudId}).session(session).lean();
   if(replay){if(String(replay.prestamoId)!==String(prestamoId)||replay.solicitudHash!==solicitudHash)throw falla("Identificador de corrección usado con otros datos");resultado={...raw,correccion:{hash:replay.hashActual,duplicado:true,vigente:ultimo?.hashActual===replay.hashActual&&igual(foto(raw),replay.posterior)}};return;}
+  if(c.versionOrigen!==undefined){
+   if(c.versionOrigen!==await require("./seleccionOrigenCobroPersonal.service").enSesion(usuarioId,raw,eventos,session))throw falla("La cuenta, sus correcciones o cobros cambiaron. Consulta de nuevo antes de confirmar el origen");
+   await require("./proteccionOriginalCompensadoPersonal.service").serializarEscrituraFuente(usuarioId,session);
+  }
   if(eventos.length>=MAX)throw falla("Historial de correcciones supera capacidad verificable");
   if(!Number.isSafeInteger(raw.principalMinor)||raw.principalMinor<=0||!Number.isSafeInteger(raw.saldoMinor)||raw.saldoMinor<0||raw.saldoMinor>raw.principalMinor||!Number.isSafeInteger(raw.cuotaMinor)||raw.cuotaMinor<0)throw falla("Importes originales requieren revisión",422);
   const p=P.hydrate(raw);if(!Object.hasOwn(raw,"origenCuentaPorCobrar"))p.set("origenCuentaPorCobrar",undefined);const anterior=foto(raw),auditoria=await aplicar(usuarioId,p,c,session);

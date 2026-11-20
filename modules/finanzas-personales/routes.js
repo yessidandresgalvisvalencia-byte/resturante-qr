@@ -221,6 +221,14 @@ router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
 router.get("/prestamos/:id/imputaciones/recibos/:clave",require("./services/imputacionPagoPersonal.handler").crearHandler("RECIBO"));
 router.get("/prestamos/:id/imputaciones",require("./services/imputacionPagoPersonal.handler").crearHandler("CONSULTAR"));
 router.post("/prestamos/:id/imputaciones",limiteCalendarioIngreso,require("./services/imputacionPagoPersonal.handler").crearHandler("APLICAR"));
+router.post("/prestamos/:id/confirmar-origen",async(req,res)=>{
+ try{
+  if(!/^[a-f0-9]{24}$/i.test(req.params.id)||Object.keys(req.query).length||!/^origen_cobro_[A-Za-z0-9_-]{8,80}$/.test(req.get("Idempotency-Key")||""))return res.status(400).json({ok:false,error:"Identificador de confirmación inválido"});
+  const {error,value}=Joi.object({confirmacion:Joi.boolean().valid(true).required(),origenCuentaPorCobrar:Joi.string().valid("TRABAJO","PRESTAMO","OTRO").required(),versionOrigen:Joi.string().pattern(/^[a-f0-9]{64}$/).required()}).validate(req.body,{convert:false});
+  if(error)return res.status(400).json({ok:false,error:"Origen, versión y confirmación explícita requeridos"});
+  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,{origenCuentaPorCobrar:value.origenCuentaPorCobrar,versionOrigen:value.versionOrigen},{confirmacion:true,solicitudId:req.get("Idempotency-Key")});return res.json({ok:true,prestamo,reciboOrigen:{confirmado:true,usuarioId:String(req.personalAuth.userId),prestamoId:String(req.params.id),solicitudId:req.get("Idempotency-Key"),versionOrigen:value.versionOrigen,origenCuentaPorCobrar:value.origenCuentaPorCobrar,hash:prestamo.correccion.hash,duplicado:prestamo.correccion.duplicado,certificaEstadoActual:false,afectaCaja:false}});
+ }catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No se confirmó el origen; conserva la solicitud para consultar su resultado"});}
+});
 router.get("/prestamos/:id/origen-cobro",async(req,res)=>{
  try{if(Object.keys(req.query).length)return res.status(400).json({ok:false,error:"La consulta no admite parámetros"});res.set("Cache-Control","no-store");return res.json({ok:true,...await require("./services/diagnosticoOrigenCobroPersonal.service").consultar(req.personalAuth.userId,req.params.id)});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el origen; conserva los originales"});}

@@ -49,6 +49,9 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
    const ct=r.headers.get("content-type")||"",j=ct.includes("application/json")?await r.json():null;comprobarSesion();
    if(!j)throw Error("Respuesta inválida del servidor; no se confirmó la operación");
    if(!r.ok||j.ok===false){if(operacion&&path==="/reconciliar-ingresos-trabajo"&&r.status===409&&j.recibo?.noAplicada===true){const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(j.recibo.solicitudId!==id||!await controlFinancieroPersonal().reciboRevisionTrabajoValido(tokenSolicitud,j.recibo,JSON.parse(o.body)))throw Error("Recibo de no aplicación no verificable");comprobarSesion();await revisionTrabajoLocal().confirmar(tokenSolicitud,id,JSON.parse(o.body),j,()=>tokenSolicitud===token&&!controller.signal.aborted);comprobarSesion();operacion.finalizar("CONFIRMADA");resuelta=true;}let rechazoCalendarioVerificado=false;if(operacion&&r.status===409&&/^\/calendario-ingresos(?:\/[a-f0-9]{24}\/eventos)?$/.test(path)&&await controlFinancieroPersonal().rechazoCalendarioValido(tokenSolicitud,j.rechazoCalendario,path,JSON.parse(o.body))){comprobarSesion();operacion.finalizar("CONFIRMADA");resuelta=true;rechazoCalendarioVerificado=true;}if(operacion&&!resuelta&&[400,401,403,404,409,422,429].includes(r.status)&&!/^\/calendario-ingresos(?:\/|$)/.test(path)){operacion.finalizar("RECHAZADA");resuelta=true;}const err=new Error(j.error||"Solicitud rechazada");err.statusCode=r.status;if(rechazoCalendarioVerificado){err.rechazoCalendarioVerificado=true;err.rechazoCalendario=j.rechazoCalendario;}throw err;}
+   if(operacion&&/^\/prestamos\/[a-f0-9]{24}\/confirmar-origen$/.test(path)){
+    const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(!controlFinancieroPersonal().reciboOrigenCobroValido(tokenSolicitud,j.reciboOrigen,JSON.parse(o.body),path,id)||String(j.prestamo?._id)!==j.reciboOrigen.prestamoId||j.prestamo?.correccion?.hash!==j.reciboOrigen.hash)throw Error("Origen sin recibo vinculante; conserva clave, versión y cuerpo pendientes");
+   }
    if(operacion&&path==="/reconciliar-ingresos-trabajo"){
     const id=Object.entries(h).find(([k])=>k.toLowerCase()==="idempotency-key")?.[1];if(j.recibo?.solicitudId!==id||!await controlFinancieroPersonal().reciboRevisionTrabajoValido(tokenSolicitud,j.recibo,JSON.parse(o.body)))throw Error("Revisión sin recibo vinculante; conserva la solicitud pendiente");comprobarSesion();await revisionTrabajoLocal().confirmar(tokenSolicitud,id,JSON.parse(o.body),j,()=>tokenSolicitud===token&&!controller.signal.aborted);comprobarSesion();
    }
@@ -341,9 +344,9 @@ async function aplicarCorreccionPrestamo(id,cambios){
  if(sesionCorreccionPrestamo!==sesion){correccionesPrestamoPendientes.clear();sesionCorreccionPrestamo=sesion;}
  const key=id+":"+JSON.stringify(Object.fromEntries(Object.entries(cambios).sort(([a],[b])=>a.localeCompare(b))));
  let op=correccionesPrestamoPendientes.get(key);if(op?.enCurso)throw Error("La corrección está en curso");
- if(!op){op={solicitudId:crypto.randomUUID(),enCurso:false};correccionesPrestamoPendientes.set(key,op);}op.enCurso=true;
+ if(!op){op={solicitudId:(cambios.versionOrigen?"origen_cobro_":"")+crypto.randomUUID(),enCurso:false};correccionesPrestamoPendientes.set(key,op);}op.enCurso=true;
  try{
-  const r=await api("/prestamos/"+encodeURIComponent(id),{method:"PATCH",headers:{"Idempotency-Key":op.solicitudId},body:JSON.stringify({...cambios,confirmacion:true})});
+  const r=await api("/prestamos/"+encodeURIComponent(id)+(cambios.versionOrigen?"/confirmar-origen":""),{method:cambios.versionOrigen?"POST":"PATCH",headers:{"Idempotency-Key":op.solicitudId},body:JSON.stringify({...cambios,confirmacion:true})});
   if(token!==sesion||$("app").hidden){const e=Error("La sesión cambió");e.code="SESION_CAMBIADA";throw e;}
   if(r.prestamo?.correccion?.vigente!==true)throw Error("La corrección anterior no representa el estado vigente. Actualiza y revisa el historial.");
   correccionesPrestamoPendientes.delete(key);return r;
@@ -361,19 +364,19 @@ window.verOrigenCobro=async id=>{const sesion=token;try{
  }catch(e){if(sesion===token&&!$("app").hidden)alert("No se pudo verificar el origen: "+e.message);}
 };
 window.corregirOrigenCobro=async id=>{const sesionCorreccion=token;try{
- const datos=await api("/prestamos");
- const p=(datos.prestamos||[]).find(x=>String(x._id)===String(id));
- if(!p||p.direccion!=="POR_COBRAR")throw Error("Cuenta por cobrar no encontrada");
- const actual=p.origenCuentaPorCobrar||"SIN_CONFIRMAR",sinConfirmar=!["TRABAJO","PRESTAMO"].includes(actual);
+ if(controlFinancieroPersonal().pendientes(sesionCorreccion).some(p=>p.id.startsWith("origen_cobro_")))throw Error("Hay una confirmación de origen pendiente. Conserva su clave y cuerpo; no inicies otra declaración sin verificar el resultado.");
+ const diagnostico=await api("/prestamos/"+encodeURIComponent(id)+"/origen-cobro");if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
+ if(diagnostico.prestamoId!==String(id)||diagnostico.soloLectura!==true||!/^[a-f0-9]{64}$/.test(diagnostico.versionOrigen||""))throw Error("Selección de origen no verificable");
+ const actual=diagnostico.origen.valor||"SIN_CONFIRMAR",sinConfirmar=!["TRABAJO","PRESTAMO"].includes(actual);
  const nuevo=prompt(sinConfirmar?"Confirma el origen declarado: TRABAJO o PRESTAMO. Si era otro concepto o no lo sabes, cancela; no se registrará dinero.":"¿Qué era esta cuenta por cobrar? Escribe TRABAJO, PRESTAMO u OTRO.",sinConfirmar?"":actual);
  if(nuevo===null)return;
  const origenCuentaPorCobrar=nuevo.trim().toUpperCase();
  if(!["TRABAJO","PRESTAMO","OTRO"].includes(origenCuentaPorCobrar))throw Error("Elige TRABAJO, PRESTAMO u OTRO");
  if(sinConfirmar&&origenCuentaPorCobrar==="OTRO")throw Error("OTRO mantiene el cobro pendiente; confirma TRABAJO o PRESTAMO sin adivinar.");
- if(actual===origenCuentaPorCobrar)return;
+ if(actual===origenCuentaPorCobrar&&diagnostico.confirmacionAuditada===true)return;
  if(!confirm("¿Corregir el origen a "+origenCuentaPorCobrar+"? GRUK reclasificará únicamente los cobros relacionados ya existentes. NO recibirá ni registrará dinero otra vez."))return;
  if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
- await aplicarCorreccionPrestamo(id,{origenCuentaPorCobrar});
+ await aplicarCorreccionPrestamo(id,{origenCuentaPorCobrar,versionOrigen:diagnostico.versionOrigen});
  if(sesionCorreccion!==token||$("app").hidden)return;
  await load();if(sesionCorreccion!==token||$("app").hidden)return;
  alert("Origen corregido. Se revisaron los movimientos vinculados sin crear ingresos ni cobros nuevos. Si falta un ingreso, consulta el historial antes de registrarlo.");
