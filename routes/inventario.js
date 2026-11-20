@@ -254,7 +254,7 @@ async (req,res)=>{
 
 try{
 
-const { motivo, usuario } = req.body;
+const { motivo } = req.body || {};
 
 if(!motivo){
 return res.status(400).json({
@@ -272,7 +272,7 @@ empresaId:req.auth.empresaId
 {
 anulado:true,
 motivoAnulacion:motivo,
-usuarioAnulacion:usuario || "admin",
+usuarioAnulacion:req.auth.usuarioId,
 fechaAnulacion:new Date()
 },
 { new:true }
