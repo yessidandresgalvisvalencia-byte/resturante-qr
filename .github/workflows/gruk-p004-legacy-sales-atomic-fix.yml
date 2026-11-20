@@ -1,0 +1,65 @@
+name: GRUK P0-04 One-time Legacy Sales Site Correction
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-p004-legacy-sales-atomic-fix.yml'
+      - 'scripts/gruk/p0-04-legacy-sales-atomic-fix.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-p004-atomic-legacy-sales-fix
+  cancel-in-progress: false
+
+jobs:
+  correct:
+    name: Atomic correction of 16 original sales, with in-database recovery journal
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check migration script syntax and guard tests
+        run: |
+          set -euo pipefail
+          node --check scripts/gruk/p0-04-legacy-sales-atomic-fix.js
+          node --test test/gruk/p0-04-legacy-sales-atomic-fix.test.js
+      - name: Confirm private connection exists without printing it
+        env:
+          URI: ${{ secrets.GRUK_ENTERPRISE_MIGRATION_MONGO_URI }}
+        run: |
+          set -euo pipefail
+          [[ -n "$URI" ]] || { echo "::error::Migration connection secret is missing"; exit 1; }
+      - name: Install MongoDB shell
+        run: |
+          set -euo pipefail
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-mongosh
+      - name: Execute guarded transaction on restaurante only
+        env:
+          GRUK_ENTERPRISE_MONGO_URI: ${{ secrets.GRUK_ENTERPRISE_MIGRATION_MONGO_URI }}
+          GRUK_ENTERPRISE_DB: restaurante
+          GRUK_ENTERPRISE_DB_CONFIRM: restaurante
+          GRUK_P004_APPROVAL: CORREGIR_16_VENTAS
+        run: |
+          set -euo pipefail
+          umask 077
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
+          status=0
+          mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet --file scripts/gruk/p0-04-legacy-sales-atomic-fix.js > "$log" 2>&1 || status=$?
+          if [[ "$status" -ne 0 ]]; then
+            echo "::error::P0-04 correction aborted or failed; inspect privately. No raw records or secrets in logs."
+            exit 1
+          fi
+          if ! grep -Eq '^[[:space:]]*status:[[:space:]]*.(corrected).' "$log" || ! grep -Eq '^[[:space:]]*corrected:[[:space:]]*16' "$log"; then
+            echo "::error::P0-04 correction returned no verifiable success counts"
+            exit 1
+          fi
+          echo "P0-04 corrected exactly 16 historical sales; recovery journal retained in restaurante"
+          echo "Note: in-database journal is NOT an independent full MongoDB disaster-recovery backup"
