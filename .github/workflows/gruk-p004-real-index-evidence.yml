@@ -15,6 +15,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  acknowledge-owner-request:
+    if: >-
+      github.event.issue.number == 610 &&
+      github.event.issue.pull_request != null &&
+      github.event.comment.body == '/gruk-auditar-indices-real' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Confirm accepted request before any restricted environment approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          body="GRUK P0-04 — SOLICITUD RECIBIDA. El workflow seguro de auditoría real se activó. Enlace al run: $URL. Este aviso NO significa que la auditoría pasó: el job de lectura de MongoDB puede seguir pendiente de aprobación del entorno o estar bloqueado."
+          gh api "repos/${{ github.repository }}/issues/610/comments" -f body="$body" >/dev/null
   live-readonly:
     if: >-
       github.event.issue.number == 610 &&
