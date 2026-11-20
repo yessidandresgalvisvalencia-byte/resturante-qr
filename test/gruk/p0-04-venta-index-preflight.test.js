@@ -8,9 +8,10 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../scripts/gruk/p0-04-venta-index-preflight.js'), 'utf8');
 
-function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSiteIds = 0, invalidSiteOwnership = 0, invalidEnterpriseOwnership = 0, duplicateGroups = 0, invalidOriginIds = 0, invalidOriginNames = 0, indexes = [{ name: '_id_' }], confirmation } = {}) {
+function preflight({ name = 'gruk_enterprise_test', missingTenant = 0, invalidSiteIds = 0, invalidSiteOwnership = 0, invalidEnterpriseOwnership = 0, duplicateGroups = 0, invalidOriginIds = 0, invalidOriginNames = 0, indexes = [{ name: '_id_' }], saleCount = 1, confirmation } = {}) {
   const calls = [];
   const collection = {
+    estimatedDocumentCount() { return saleCount; },
     getIndexes() { calls.push('getIndexes'); return indexes; },
     countDocuments(query) {
       const normalized = JSON.parse(JSON.stringify(query));
@@ -97,6 +98,15 @@ test('P0-04 preflight rejects missing or unsafe explicit database names before D
     const ctx = preflight({ name });
     assert.throws(ctx.run, /Explicit GRUK_ENTERPRISE_DB required/);
     assert.deepEqual(ctx.calls, []);
+  }
+});
+
+test('P0-04 refuses to certify missing or empty sales in a wrong or uninitialized database', () => {
+  for (const saleCount of [0, -1, NaN, Number.MAX_SAFE_INTEGER + 1]) {
+    const ctx = preflight({ saleCount });
+    assert.throws(ctx.run, /Sales collection missing or empty/);
+    assert.deepEqual(ctx.calls, [], 'empty/wrong DB must stop before examining indexes or scanning sales');
+    assert.equal(ctx.output[0].readyForIndexBuild, false);
   }
 });
 

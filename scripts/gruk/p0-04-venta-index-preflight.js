@@ -10,8 +10,15 @@ if (/(personal|finanzas[_-]?personales|blushea)/i.test(name)) throw new Error('N
 // A typo in GRUK_ENTERPRISE_DB must not silently select another database.
 if (process.env.GRUK_ENTERPRISE_DB_CONFIRM !== name) throw new Error('GRUK_ENTERPRISE_DB_CONFIRM must exactly match GRUK_ENTERPRISE_DB');
 const sales = db.getSiblingDB(name).getCollection('ventas');
+// An empty or wrong database can report zero anomalies yet contain no sales.
+// Never certify such a database as ready for a financial migration.
+const saleCount = sales.estimatedDocumentCount();
+if (!Number.isSafeInteger(saleCount) || saleCount < 1) {
+  printjson({ database: name, collection: 'ventas', saleCount, readyForIndexBuild: false });
+  throw new Error('Sales collection missing or empty; index preflight cannot attest production data');
+}
 const indexes = sales.getIndexes();
-printjson({ database: name, collection: 'ventas', indexes });
+printjson({ database: name, collection: 'ventas', saleCount, indexes });
 // A global unique origin index can reject valid cross-tenant sales even when data is clean.
 const legacyGlobalUniqueIndexes = indexes.filter(index => index.unique === true &&
   index.key && Math.abs(index.key.origen) === 1 && Math.abs(index.key.origenId) === 1 &&
