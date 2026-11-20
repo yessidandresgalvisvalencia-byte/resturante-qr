@@ -1,12 +1,10 @@
 name: GRUK P0-04 Real Index Audit Evidence to PR 610
 
-# Main-only audit. The job uses the previously configured read-only DB user.
-# It never runs from a pull request and never prints records or URI.
+# Trusted workflow is loaded from main on an owner-authored PR comment.
+# Unlike a pull_request workflow, it NEVER checks out untrusted PR code.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/gruk-p004-real-index-evidence.yml'
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -18,11 +16,19 @@ concurrency:
 
 jobs:
   live-readonly:
+    if: >-
+      github.event.issue.number == 610 &&
+      github.event.issue.pull_request != null &&
+      github.event.comment.body == '/gruk-auditar-indices-real' &&
+      github.event.comment.user.login == github.repository_owner
     runs-on: ubuntu-latest
     environment: gruk-enterprise-db-readonly
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
       - name: Validate trusted read-only context
         id: setup
         env:
