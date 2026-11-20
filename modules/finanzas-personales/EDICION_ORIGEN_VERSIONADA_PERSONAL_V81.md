@@ -27,3 +27,10 @@ El contrato revisarCobrosTrabajo:true de corregirOrigenTrabajo conserva hoy su r
 Un cuerpo histórico ausente no se reconstruye por saldo. El nuevo422 no resuelve por sí mismo una solicitud incierta de otro cliente; preservar clave/cuerpo y comprobar evidencia, sin reenviar con otra identidad. Recuperación de rechazos sin evento y auditoría de caminos pendientes siguen abiertas hasta evidencia real. Después otros conceptos/deuda/crédito/metas ambiguas.
 
 Antes de retomar: HEAD/base/PR389/issue407/CI/instrucciones/CONTINUIDAD/informe. #407 sigue abierto: custodio independiente real/anclas, backup durable/retención/acceso/claves separados/restauración operativa aislada/RPO-RTO; roles/índices/migración/configuración reales; Safari/dispositivos/auditoría independiente/compatibilidad/informe final según matriz. Sin merge a feature/Render/main/Empresarial/Blushéa, migración/restauración/despliegue productivo, información real modificada ni costos/servicios nuevos. Tarea activa.
+
+
+## CI inicial y corrección del ensayo de rollback
+
+Código1943d9209560592818be22e0f1e4c9668522029b/árbolf4f2c05ac08943e2dc3bb792cad3e0cee3974e83, padre2d891eb8a17748cf2e16cac70a39cdfaaf96440f,15 archivos personales. Gate44721967735/Seguridad44721967740 success; V8144721968034/job136239705728 falló: Mongo99 aprobados/2 fallos de101,0 cancelaciones/omisiones (subcaso de correcciones y contenedor). Navegador autorizado no ejecutado al fallar ese paso.
+
+El fixture correccionPrestamoAutorizada todavía enviaba origen sin versión para provocar fallo de Outbox y comprobar rollback. La guardia nueva lo rechazó antes del callback, por lo que no alcanzó la auditoría interrumpida esperada. Se prepara selección de origen vigente antes de inyectar el fallo y se reutiliza el mismo cuerpo/version en aplicación y replay posterior. Así se mantienen rollback de fuentes/caja/cursor/outbox y reintento exacto, sin refrescar una versión al reintentar ni debilitar la aserción. No cambia código productivo, gates, cuotas o tiempos. El SHA corregido requiere CI propia completa.
