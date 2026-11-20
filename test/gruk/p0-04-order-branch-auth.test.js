@@ -117,7 +117,13 @@ test("P0-04: payment and status handlers gate their mutations through branch aut
   const paymentHandler = api.slice(paymentStart, api.indexOf("/* =========================", paymentStart));
   assert.match(statusHandler, /await authorizeOrderBranch\(/);
   assert.match(paymentHandler, /await authorizeOrderBranch\(/);
-  assert.ok(statusHandler.indexOf("authorizeOrderBranch") < statusHandler.indexOf("findByIdAndUpdate"));
+  assert.ok(statusHandler.indexOf("authorizeOrderBranch") < statusHandler.indexOf("findOneAndUpdate"));
+  // Authorization must precede an atomic write that also constrains tenant,
+  // restaurant and original site to prevent a concurrent ownership change.
+  assert.match(statusHandler, /Pedido\.findOneAndUpdate\(/);
+  assert.match(statusHandler, /restaurantId:\s*actual\.restaurantId/);
+  assert.match(statusHandler, /empresaId:\s*actual\.empresaId/);
+  assert.match(statusHandler, /sedeId:\s*actual\.sedeId/);
   assert.ok(paymentHandler.indexOf("authorizeOrderBranch") < paymentHandler.indexOf("registrarVentaDesdePedido"));
   assert.ok(paymentHandler.indexOf("authorizeOrderBranch") < paymentHandler.indexOf("pedido.estadoPago ="));
 });
