@@ -68,3 +68,22 @@ test('P0-07: refuses inherited, accessor and proxy-controlled financial records'
     getOwnPropertyDescriptor() { throw new Error('untrusted proxy trap'); }
   })), /untrusted proxy trap/);
 });
+
+test('P0-07: legacy read-only bridge rejects unsafe or subcent monetary values', () => {
+  const { canonicalLegacyMoney, calculateLegacySale } = require('../../core/finance/enterpriseSalesMath');
+  for (const invalid of [NaN, Infinity, -Infinity, -0, -1, 0.001, 1.005, 1e-7, Number.MAX_SAFE_INTEGER]) {
+    assert.throws(() => canonicalLegacyMoney(invalid), { name: /^(TypeError|RangeError)$/ });
+  }
+  for (const invalid of ['1.00', null, undefined, true, 1n]) {
+    assert.throws(() => canonicalLegacyMoney(invalid), TypeError);
+  }
+  assert.equal(canonicalLegacyMoney(0), '0');
+  assert.equal(canonicalLegacyMoney(1.25), '1.25');
+  const result = calculateLegacySale({ quantity: 2, unitPrice: 1.25, unitCost: 0.50, total: 2.00 });
+  assert.deepEqual({ gross: result.grossCents, revenue: result.revenueCents, cost: result.costCents, profit: result.profitCents }, {
+    gross: '250', revenue: '200', cost: '100', profit: '100'
+  });
+  for (const quantity of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '2']) {
+    assert.throws(() => calculateLegacySale({ quantity, unitPrice: 1, unitCost: 0, total: 1 }), TypeError);
+  }
+});
