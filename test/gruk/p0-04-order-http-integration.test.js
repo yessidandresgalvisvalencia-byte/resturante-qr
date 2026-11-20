@@ -40,6 +40,7 @@ test("P0-04 HTTP: authenticated status and payment cannot cross companies or bra
   };
   const writes = { status: 0, payment: 0, sessions: 0, notifications: [] };
   let currentOrder = null;
+  let rejectAtomicUpdate = false;
 
   const a1 = { _id: SITE_A1, empresaId: COMPANY_A, restauranteId: "rest-a", codigoSede: "LOCAL-UNO" };
   const a2 = { _id: SITE_A2, empresaId: COMPANY_A, restauranteId: "rest-a", codigoSede: "LOCAL-DOS" };
@@ -58,6 +59,7 @@ test("P0-04 HTTP: authenticated status and payment cannot cross companies or bra
     assert.equal(String(filter.restaurantId), String(currentOrder.restaurantId));
     assert.equal(String(filter.empresaId), String(currentOrder.empresaId));
     assert.equal(String(filter.sedeId), String(currentOrder.sedeId));
+    if (rejectAtomicUpdate) return null;
     writes.status++;
     return { ...currentOrder, ...values };
   };
@@ -136,6 +138,15 @@ test("P0-04 HTTP: authenticated status and payment cannot cross companies or bra
       "empresa-" + COMPANY_A + "-sede-" + SITE_A1
     ]);
     writes.notifications.length = 0;
+
+    // Simulate a concurrent transfer/correction between lookup and the
+    // atomic write. No successful mutation or notification is allowed.
+    rejectAtomicUpdate = true;
+    const changed = await request("/pedido/" + ORDER_ID + "/estado", permitted, { estado: "entregado" });
+    assert.equal(changed.status, 409, JSON.stringify(changed.data));
+    assert.equal(writes.status, 1);
+    assert.equal(writes.notifications.length, 0);
+    rejectAtomicUpdate = false;
 
     for (const badToken of [sibling, foreign]) {
       const deniedStatus = await request("/pedido/" + ORDER_ID + "/estado", badToken, { estado: "entregado" });
