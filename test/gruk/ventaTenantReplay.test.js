@@ -248,3 +248,28 @@ test("venta: producto inexistente en empresa autorizada no registra venta ni con
   assert.equal(created.length,0);
   assert.equal(seen.length,0);
 });
+
+test("venta: reintento con cantidad distinta no acredita venta previa",async()=>{
+  const existing={_id:"venta_1",cantidad:1,precioUnitario:1000,total:1000,
+    productoServicioId:"producto_1",estado:"pagada"};
+  const {service,seen,created}=makeService(existing);
+  await assert.rejects(
+    service.registrarVentaDesdePedido({
+      pedido:{...pedido,cantidad:2,precioUnitario:1000,precio:1000},
+      empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+    }),
+    err=>err.code==="GRUK_VENTA_REPLAY_CONFLICT"
+  );
+  assert.equal(seen.length,1);
+  assert.equal(created.length,0);
+});
+
+test("venta: contexto sin empresa no consulta productos ni persiste",async()=>{
+  const {service,seen,created,productQueries}=makeService(null,{successfulCreate:true});
+  await assert.rejects(service.registrarVentaDesdePedido({
+    pedido,sedeId:"sede_A",emitirEvento:false
+  }),/empresaId requerido/);
+  assert.equal(productQueries.length,0);
+  assert.equal(created.length,0);
+  assert.equal(seen.length,0);
+});
