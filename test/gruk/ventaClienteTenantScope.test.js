@@ -54,3 +54,14 @@ test("P0-04: cliente no visible en el ámbito autorizado bloquea persistencia",a
   assert.equal(queries[0].sedeId,"site_A");
   assert.equal(creates.length,0);
 });
+
+test("P0-04: venta sin sede no puede consultar clientes de otras sedes",async()=>{
+  const {service,queries,creates}=fixture(false);
+  const withoutSite={...pedido,sedeId:null};
+  await assert.rejects(service.registrarVentaDesdePedido({pedido:withoutSite,empresaId:"tenant_A",sedeId:null,emitirEvento:false}),/Cliente no pertenece a la empresa o sede/);
+  assert.equal(queries.length,1);
+  assert.equal(queries[0].empresaId,"tenant_A");
+  assert.equal(queries[0].sedeId,null);
+  assert.equal(queries[0].deletedAt,null);
+  assert.equal(creates.length,0);
+});
