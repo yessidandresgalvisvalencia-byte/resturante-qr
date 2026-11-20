@@ -59,60 +59,25 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          # Never print raw mongosh output: it can contain connection details or data.
-          # Preserve the exit status and show only strictly validated numeric/boolean
-          # fields even when the audit fails closed.
-          trap 'rm -f /tmp/gruk-real-index-preflight.log' EXIT
+          trap 'rm -f /tmp/gruk-real-index-preflight.log /tmp/gruk-legacy-site-private.log' EXIT
           audit_status=0
-          mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet \
-            --file scripts/gruk/p0-04-venta-index-preflight.js \
-            > /tmp/gruk-real-index-preflight.log 2>&1 || audit_status=$?
-          # Inspect legacy site ambiguity separately. Only validated aggregate counters
-          # are printed, and failure never changes the primary preflight verdict.
+          mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet --file scripts/gruk/p0-04-venta-index-preflight.js > /tmp/gruk-real-index-preflight.log 2>&1 || audit_status=$?
+          echo 'GRUK P0-04 sanitized aggregate diagnostics:'
+          sed -nE 's/^[[:space:]]*(saleCount|missingTenant|invalidEnterpriseOwnership|invalidSiteIds|invalidSiteOwnership|invalidOriginIds|invalidOriginNames|duplicateGroups|targetIndexPresent|dataReadyForIndexBuild|readyForIndexBuild|readyForLegacyRemoval|requiresDbaApproval):[[:space:]]*(true|false|[0-9]+),?.*/\1: \2/p' /tmp/gruk-real-index-preflight.log
           if [[ "$audit_status" -ne 0 ]]; then
             legacy_status=0
-            mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet \
-              --file scripts/gruk/p0-04-legacy-sale-sites-readonly.js \
-              > /tmp/gruk-legacy-site-private.log 2>&1 || legacy_status=$?
-            echo "GRUK P0-04 sanitized legacy-site diagnostics:"
+            mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet --file scripts/gruk/p0-04-legacy-sale-sites-readonly.js > /tmp/gruk-legacy-site-private.log 2>&1 || legacy_status=$?
+            echo 'GRUK P0-04 sanitized legacy-site diagnostics:'
             if [[ "$legacy_status" -eq 0 ]]; then
-              grep -E '^[[:space:]]*(saleCount|missing|nullValues|otherTypes|noCandidate|oneCandidate|multipleCandidates|affectedSales|requiresManualReview|safeToMigrate):[[:space:]]*(true|false|[0-9]+),?[[:space:]]*
-          grep -E '^[[:space:]]*(saleCount|missingTenant|invalidEnterpriseOwnership|invalidSiteIds|invalidSiteOwnership|invalidOriginIds|invalidOriginNames|duplicateGroups|targetIndexPresent|dataReadyForIndexBuild|readyForIndexBuild|readyForLegacyRemoval|requiresDbaApproval):[[:space:]]*(true|false|[0-9]+),?[[:space:]]*$' /tmp/gruk-real-index-preflight.log || true
-          if [[ "$audit_status" -ne 0 ]]; then
-            if grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*false,?[[:space:]]*$' /tmp/gruk-real-index-preflight.log; then
-              echo "::error::P0-04 BLOCKED: audit reports data/index incompatibility; do not deploy or mutate MongoDB"
-            elif grep -Eq '^[[:space:]]*saleCount:[[:space:]]*0,?[[:space:]]*$' /tmp/gruk-real-index-preflight.log; then
-              echo "::error::P0-04 BLOCKED: enterprise sales collection appears empty or incorrect; do not deploy"
+              sed -nE 's/^[[:space:]]*(saleCount|missing|nullValues|otherTypes|noCandidate|oneCandidate|multipleCandidates|affectedSales|requiresManualReview|safeToMigrate):[[:space:]]*(true|false|[0-9]+),?.*/\1: \2/p' /tmp/gruk-legacy-site-private.log
             else
-              echo "::error::P0-04 BLOCKED: audit failed before a safe verdict; inspect privately with DBA"
+              echo 'Legacy-site diagnostic unavailable; private DBA investigation required'
             fi
+            echo '::error::P0-04 blocked: production data or index compatibility not certified'
             exit 1
           fi
-          if ! grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*true,?[[:space:]]*$' /tmp/gruk-real-index-preflight.log; then
-            echo "::error::P0-04 BLOCKED: successful shell exit without an explicit ready verdict"
+          if ! grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*true' /tmp/gruk-real-index-preflight.log; then
+            echo '::error::P0-04 blocked: no explicit positive readiness verdict'
             exit 1
           fi
-          echo "P0-04 PASS: read-only index preflight completed; DBA authorization still required"
- /tmp/gruk-legacy-site-private.log || true
-            else
-              echo "::warning::Legacy-site read-only diagnostic unavailable; manual DBA review needed"
-            fi
-            rm -f /tmp/gruk-legacy-site-private.log
-          fi
-          echo "GRUK P0-04 sanitized aggregate diagnostics:"
-          grep -E '^[[:space:]]*(saleCount|missingTenant|invalidEnterpriseOwnership|invalidSiteIds|invalidSiteOwnership|invalidOriginIds|invalidOriginNames|duplicateGroups|targetIndexPresent|dataReadyForIndexBuild|readyForIndexBuild|readyForLegacyRemoval|requiresDbaApproval):[[:space:]]*(true|false|[0-9]+),?[[:space:]]*$' /tmp/gruk-real-index-preflight.log || true
-          if [[ "$audit_status" -ne 0 ]]; then
-            if grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*false,?[[:space:]]*$' /tmp/gruk-real-index-preflight.log; then
-              echo "::error::P0-04 BLOCKED: audit reports data/index incompatibility; do not deploy or mutate MongoDB"
-            elif grep -Eq '^[[:space:]]*saleCount:[[:space:]]*0,?[[:space:]]*$' /tmp/gruk-real-index-preflight.log; then
-              echo "::error::P0-04 BLOCKED: enterprise sales collection appears empty or incorrect; do not deploy"
-            else
-              echo "::error::P0-04 BLOCKED: audit failed before a safe verdict; inspect privately with DBA"
-            fi
-            exit 1
-          fi
-          if ! grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*true,?[[:space:]]*$' /tmp/gruk-real-index-preflight.log; then
-            echo "::error::P0-04 BLOCKED: successful shell exit without an explicit ready verdict"
-            exit 1
-          fi
-          echo "P0-04 PASS: read-only index preflight completed; DBA authorization still required"
+          echo 'P0-04 PASS: read-only index preflight; DBA approval remains required'
