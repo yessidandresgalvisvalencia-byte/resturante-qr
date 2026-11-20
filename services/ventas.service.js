@@ -87,12 +87,9 @@ async function registrarVentaDesdePedido({
       const filtroCliente = {
         _id: pedido.clienteId,
         empresaId,
+        sedeId: sedeId ?? null,
         deletedAt: null
       };
-
-      if (sedeId) {
-        filtroCliente.sedeId = sedeId;
-      }
 
       const cliente = await Cliente.findOne(
         filtroCliente
