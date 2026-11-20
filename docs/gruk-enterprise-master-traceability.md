@@ -91,3 +91,10 @@
 
 ## Evidencia acotada de esta actualización
 La versión inicial del PR #621, commit `bfc042400509e4d2876bdaaab927ebf45bf3f978`, mostró tres workflows de PR exitosos (GRUK CI, GRUK quality gate, GRUK Offline Browser Persistence). **La nueva versión de esta matriz necesita sus propios checks**; no atribuirle los del commit anterior.
+
+## Corte de integración — 20-nov-2026 12:15 COT
+- `main` observado: `07407dbc5308e7ea7adb5c1943a1d070b9cbbb6b` (PR #630, validador de manifiesto para remediación de ventas legacy). Antecesores recientes: #629 (`26e0735`, restauración de auditoría read-only), #628 (`4cf6d45`, diagnóstico de ambigüedad por sede), #627 (`8de78a9`, corrección YAML), #626 (`b083736`, diagnóstico seguro). Estas fusiones **no** prueban por sí mismas aceptación P0-04/P0-70.
+- Comparación comprobada `main...docs/gruk-master-traceability-20261120`: `ahead_by=2`, `behind_by=9`, estado `diverged`. La matriz no debe fusionarse sin actualizar sobre `main` y repetir CI en el SHA resultante.
+- PR #610 (consolidación comercial), #614 y #616 (controles de auditoría superpuestos) siguen abiertos. Evitar fusiones independientes hasta revisar diff combinado, compatibilidad legacy y pruebas negativas HTTP/Mongo/Socket entre empresas y sedes.
+- Evidencia de producción faltante: `GRUK Production Gate` por SHA, revisión independiente, credenciales read-only verificadas, reconciliación financiera y plan de rollback ensayado. Estado 77/77: **no certificado**.
+- Esta anotación es una observación de repositorio, **no** una ejecución de pruebas ni un despliegue.
