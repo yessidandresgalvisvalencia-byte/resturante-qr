@@ -1,0 +1,33 @@
+name: GRUK P0-04 Disposable Backup Restore Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/gruk/p0-04-disposable-backup-restore-rehearsal.sh'
+      - '.github/workflows/gruk-backup-restore-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/gruk/p0-04-disposable-backup-restore-rehearsal.sh'
+      - '.github/workflows/gruk-backup-restore-gate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  restore-gate:
+    name: Mongo disposable backup and restore — synthetic data only
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify no Mongo secrets are passed
+        run: |
+          set -euo pipefail
+          test -f scripts/gruk/p0-04-disposable-backup-restore-rehearsal.sh
+          ! grep -E 'secrets\.|mongodb\+srv://' scripts/gruk/p0-04-disposable-backup-restore-rehearsal.sh
+          bash -n scripts/gruk/p0-04-disposable-backup-restore-rehearsal.sh
+      - name: Prove isolated backup then restored balances in clean Mongo
+        run: bash scripts/gruk/p0-04-disposable-backup-restore-rehearsal.sh
