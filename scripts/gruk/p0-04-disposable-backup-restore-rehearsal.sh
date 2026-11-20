@@ -6,8 +6,14 @@ umask 077
 container="gruk-restore-rehearsal-$RANDOM-$$"
 source_db="gruk_restore_fixture_source"
 target_db="gruk_restore_fixture_target"
-cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; }
+tmpdir="$(mktemp -d)"
+cleanup() {
+  docker rm -f "$container" >/dev/null 2>&1 || true
+  rm -rf "$tmpdir"
+}
 trap cleanup EXIT
+# Ephemeral fixture key: not a production backup key.
+export GRUK_BACKUP_FIXTURE_KEY_HEX="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
 if [[ -n "${MONGO_URI:-}" || -n "${GRUK_ENTERPRISE_MONGO_URI:-}" || -n "${GRUK_ENTERPRISE_READONLY_MONGO_URI:-}" ]]; then
   echo "FAIL CLOSED: external Mongo URI must not be in this rehearsal environment" >&2
   exit 1
@@ -29,6 +35,21 @@ docker exec "$container" mongosh --quiet --eval \
   if(d.ventas.countDocuments({})!==2 || d.movimientos_caja.countDocuments({})!==1) quit(9);" >/dev/null
 # Archive is created inside a disposable, network-isolated Docker container.
 docker exec "$container" mongodump --quiet --db "$source_db" --archive=/tmp/gruk-fixture.archive
+# Archive exits the isolated container only as input to authenticated
+# encryption. Never upload or print customer data (fixture records only).
+docker exec "$container" cat /tmp/gruk-fixture.archive | \
+  node scripts/gruk/p0-04-fixture-aesgcm.js encrypt "$tmpdir/backup.enc"
+docker exec "$container" rm -f /tmp/gruk-fixture.archive
+cp "$tmpdir/backup.enc" "$tmpdir/backup-tampered.enc"
+node scripts/gruk/p0-04-fixture-aesgcm.js tamper "$tmpdir/backup-tampered.enc"
+if node scripts/gruk/p0-04-fixture-aesgcm.js decrypt "$tmpdir/rejected" < "$tmpdir/backup-tampered.enc" >/dev/null 2>&1; then
+  echo "FAIL: corrupted encrypted archive was accepted" >&2
+  exit 1
+fi
+test ! -f "$tmpdir/rejected" || { echo "FAIL: corrupted archive produced plaintext"; exit 1; }
+node scripts/gruk/p0-04-fixture-aesgcm.js decrypt "$tmpdir/restored.archive" < "$tmpdir/backup.enc"
+docker cp "$tmpdir/restored.archive" "$container":/tmp/gruk-fixture.archive
+rm -f "$tmpdir/restored.archive"
 docker exec "$container" mongorestore --quiet --drop \
   --archive=/tmp/gruk-fixture.archive \
   --nsFrom="$source_db.*" --nsTo="$target_db.*"
@@ -44,4 +65,4 @@ docker exec "$container" mongosh --quiet --eval \
   "const d=db.getSiblingDB('$source_db'); \
   if(d.ventas.countDocuments({})!==2 || d.movimientos_caja.countDocuments({})!==1) quit(15);" >/dev/null
 docker exec "$container" sh -c 'rm -f /tmp/gruk-fixture.archive'
-echo "PASS: synthetic, disposable backup + restore; 2 sales, 1 cash movement, 0.30 exact; no production data"
+echo "PASS: AES-256-GCM authenticated synthetic backup and restore; corrupted archive rejected; 2 sales, 1 cash movement, 0.30 exact; no production data"
