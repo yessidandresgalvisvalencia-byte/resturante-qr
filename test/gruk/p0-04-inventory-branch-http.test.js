@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const Inventario = require("../../models/Inventario");
 const Restaurante = require("../../models/restaurante");
+const Sede = require("../../models/sede");
 const inventarioRoutes = require("../../routes/inventario");
 
 const SECRET = "p004-inventory-branch-regression-local-only";
@@ -28,6 +29,7 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
   const oldSecret = process.env.JWT_SECRET;
   const original = {
     findOne: Restaurante.findOne,
+    siteFindOne: Sede.findOne,
     find: Inventario.find,
     save: Inventario.prototype.save,
     findOneAndUpdate: Inventario.findOneAndUpdate
@@ -40,6 +42,14 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     return this;
   };
 
+  Sede.findOne = (filter) => ({
+    select() { return this; },
+    async lean() {
+      return String(filter.empresaId) === EMPRESA &&
+        filter.restauranteId === "rest-a" &&
+        String(filter._id) === SEDE_UNO ? { _id: SEDE_UNO } : null;
+    }
+  });
   Restaurante.findOne = (filter) => {
     calls.restaurant.push(filter);
     return fakeRestaurant(filter.restaurantId === "rest-a" && String(filter.empresaId) === EMPRESA);
@@ -132,6 +142,22 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     assert.equal(createdInventory[0].restaurantId, "rest-a");
     assert.equal(createdInventory[0].anulado, false);
 
+    // Owner has company-wide rights, not permission to place inventory in an
+    // unowned or unrelated branch.
+    result = await call("POST", "/", owner, {
+      restaurantId: "rest-a", sedeId: SEDE_DOS, nombre: "Sucursal ajena",
+      categoria: "prueba", cantidad: 1
+    });
+    assert.equal(result.status, 403, "owner cannot attach a foreign/unrelated site");
+    assert.equal(createdInventory.length, 1);
+
+    result = await call("POST", "/", owner, {
+      restaurantId: "rest-a", sedeId: SEDE_UNO, nombre: "Producto autorizado",
+      categoria: "prueba", cantidad: 1
+    });
+    assert.equal(result.status, 200);
+    assert.equal(createdInventory.length, 2);
+
     result = await call("POST", "/", admin, {
       restaurantId: "rest-a", sedeId: SEDE_DOS,
       nombre: "Producto prohibido", categoria: "prueba", cantidad: 10
@@ -178,6 +204,7 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
   } finally {
     await new Promise(resolve => server.close(resolve));
     Restaurante.findOne = original.findOne;
+    Sede.findOne = original.siteFindOne;
     Inventario.find = original.find;
     Inventario.prototype.save = original.save;
     Inventario.findOneAndUpdate = original.findOneAndUpdate;
