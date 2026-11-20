@@ -90,3 +90,17 @@ test("P0-04: identificador de cliente inválido se rechaza sin consultar ni pers
   assert.equal(productQueries.length,0);
   assert.equal(creates.length,0);
 });
+
+for (const missingId of [undefined, null, ""]) {
+  test("P0-04/P0-70: pedido sin identidad estable se rechaza antes de lecturas y escritura (" + String(missingId) + ")", async () => {
+    const {service,queries,creates,productQueries}=fixture(true);
+    const withoutId={...pedido,_id:missingId};
+    await assert.rejects(
+      service.registrarVentaDesdePedido({pedido:withoutId,empresaId:"tenant_A",sedeId:"site_A",emitirEvento:false}),
+      /GRUK_VENTA_PEDIDO_ID_REQUIRED/
+    );
+    assert.equal(queries.length,0);
+    assert.equal(productQueries.length,0);
+    assert.equal(creates.length,0);
+  });
+}
