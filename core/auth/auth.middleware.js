@@ -4,11 +4,14 @@ const { validarVersionSesion } = require("./sessionVersion.service");
 
 async function authMiddleware(req, res, next) {
   try {
-    const authorization = String(
-      req.headers.authorization || ""
-    ).trim();
+    const authorization = req.headers.authorization;
+    // Never coerce arrays/objects into a credential or accept multiple tokens.
+    if (typeof authorization !== "string" || authorization.length > 8192 ||
+        /[,\r\n]/.test(authorization)) {
+      return res.status(401).json({ ok:false, error:"Autenticación requerida" });
+    }
 
-    if (!authorization.startsWith("Bearer ")) {
+    if (!/^Bearer [^\s,]+$/.test(authorization)) {
       return res.status(401).json({
         ok: false,
         error: "Autenticación requerida"
