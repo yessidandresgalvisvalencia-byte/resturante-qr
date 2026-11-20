@@ -124,6 +124,7 @@ ventaSchema.index({
 });
 ventaSchema.index(
   {
+    empresaId: 1,
     origen: 1,
     origenId: 1
   },
