@@ -41,8 +41,8 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     calls.reads.push(filter);
     return { select() { return this; }, async lean() { return []; } };
   };
-  Inventario.findOneAndUpdate = async (filter) => {
-    calls.updates.push(filter);
+  Inventario.findOneAndUpdate = async (filter, update) => {
+    calls.updates.push({ ...filter, auditActor: update.usuarioAnulacion });
     return { _id: PRODUCTO, empresaId: EMPRESA, sedeId: SEDE_UNO };
   };
 
@@ -116,14 +116,21 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     assert.equal(calls.updates.length, 1);
     assert.equal(calls.updates[0].sedeId, SEDE_UNO);
     assert.equal(calls.updates[0].empresaId, EMPRESA);
+    assert.equal(calls.updates[0].anulado, false, "cancellation must be atomic and single-use");
+    assert.equal(calls.updates[0].auditActor, "444444444444444444444444", "caller may not spoof audit actor");
+
+    result = await call("PUT", "/anular/" + PRODUCTO, admin, { motivo: "prueba", usuario: "admin-falsificado" });
+    assert.equal(result.status, 200);
+    assert.equal(calls.updates.at(-1).auditActor, "444444444444444444444444");
 
     result = await call("PUT", "/anular/" + PRODUCTO, owner, { motivo: "prueba" });
     assert.equal(result.status, 200);
-    assert.equal(Object.hasOwn(calls.updates[1], "sedeId"), false);
+    assert.equal(Object.hasOwn(calls.updates[2], "sedeId"), false);
+    assert.equal(calls.updates[2].anulado, false);
 
     result = await call("PUT", "/anular/" + PRODUCTO, missingSite, { motivo: "prueba" });
     assert.equal(result.status, 403);
-    assert.equal(calls.updates.length, 2);
+    assert.equal(calls.updates.length, 3);
 
     result = await call("GET", "/rest-a", null);
     assert.equal(result.status, 401);
