@@ -75,3 +75,25 @@ test('P0-06: invalid payment in a split collection is rejected, never silently s
   }
   assert.throws(() => reconcileSalePayments('1.00', new Array(1)), TypeError);
 });
+
+test('P0-06: payment accessors are rejected without executing caller code', () => {
+  let executed = false;
+  const payments = ['1.00'];
+  Object.defineProperty(payments, '0', {
+    configurable: true,
+    get() { executed = true; throw new Error('untrusted getter'); }
+  });
+  assert.throws(() => reconcileSalePayments('1.00', payments), TypeError);
+  assert.equal(executed, false);
+});
+
+test('P0-06: inherited array slots never count as captured payments', () => {
+  const prototype = Object.create(Array.prototype);
+  prototype[0] = '1.00';
+  const payments = new Array(1);
+  Object.setPrototypeOf(payments, prototype);
+  assert.throws(() => reconcileSalePayments('1.00', payments), TypeError);
+  assert.deepEqual(reconcileSalePayments('1.00', Object.freeze(['1.00'])), {
+    expectedCents: '100', capturedCents: '100', differenceCents: '0', status: 'balanced'
+  });
+});
