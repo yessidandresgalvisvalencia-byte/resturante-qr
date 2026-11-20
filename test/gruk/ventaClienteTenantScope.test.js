@@ -104,3 +104,19 @@ for (const missingId of [undefined, null, "", "   "]) {
     assert.equal(creates.length,0);
   });
 }
+
+for (const conflict of [
+  {empresaId:"tenant_B",sedeId:"site_A",error:/GRUK_VENTA_PEDIDO_TENANT_CONFLICT/},
+  {empresaId:"tenant_A",sedeId:"site_B",error:/GRUK_VENTA_PEDIDO_SEDE_CONFLICT/}
+]) {
+  test("P0-04/P0-70: ámbito de pedido ajeno se rechaza antes de consultar o persistir (" + conflict.empresaId + "/" + conflict.sedeId + ")",async()=>{
+    const {service,queries,creates,productQueries}=fixture(true);
+    await assert.rejects(
+      service.registrarVentaDesdePedido({pedido:{...pedido,empresaId:conflict.empresaId,sedeId:conflict.sedeId},empresaId:"tenant_A",sedeId:"site_A",emitirEvento:false}),
+      conflict.error
+    );
+    assert.equal(queries.length,0);
+    assert.equal(productQueries.length,0);
+    assert.equal(creates.length,0);
+  });
+}
