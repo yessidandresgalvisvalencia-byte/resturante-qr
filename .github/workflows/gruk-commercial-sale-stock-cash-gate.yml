@@ -1,0 +1,79 @@
+name: GRUK Commercial Paid Sale Stock Cash Evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-commercial-sale-stock-cash-gate.yml'
+      - 'test/gruk/p0-04-paid-sale-stock-transaction.integration.test.js'
+      - 'test/gruk/p0-04-sale-cash-report.integration.test.js'
+      - 'services/ventas.service.js'
+      - 'core/finanzas/caja.service.js'
+      - 'services/inventarioVenta.service.js'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-commercial-sale-stock-cash-gate.yml'
+      - 'test/gruk/p0-04-paid-sale-stock-transaction.integration.test.js'
+      - 'test/gruk/p0-04-sale-cash-report.integration.test.js'
+      - 'services/ventas.service.js'
+      - 'core/finanzas/caja.service.js'
+      - 'services/inventarioVenta.service.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sale:
+    name: Real disposable MongoDB paid sale stock transaction and cash report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Start disposable MongoDB replica set, never Atlas
+        run: |
+          set -euo pipefail
+          docker run -d --name gruk-commercial-e2e-mongo -p 127.0.0.1:27017:27017 mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in {1..40}; do
+            if docker exec gruk-commercial-e2e-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' 2>/dev/null | grep -qx 1; then break; fi
+            sleep 1
+          done
+          docker exec gruk-commercial-e2e-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          ready=0
+          for i in {1..40}; do
+            if docker exec gruk-commercial-e2e-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null | grep -qx true; then ready=1; break; fi
+            sleep 1
+          done
+          [[ "$ready" == 1 ]] || { echo "::error::Disposable replica set never became primary"; exit 1; }
+      - name: Paid order to sale, stock and movement — transaction and rollback, no skips
+        env:
+          NODE_ENV: test
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+        run: |
+          set -euo pipefail
+          node --test test/gruk/p0-04-paid-sale-stock-transaction.integration.test.js | tee /tmp/gruk-stock.log
+          grep -Eq '^# pass [1-9][0-9]*$' /tmp/gruk-stock.log
+          grep -Eq '^# fail 0$' /tmp/gruk-stock.log
+          grep -Eq '^# skipped 0$' /tmp/gruk-stock.log
+      - name: Paid order to cash and branch report — real database, replay, no skips
+        env:
+          NODE_ENV: test
+          GRUK_TEST_MONGO_DISPOSABLE: '1'
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/
+        run: |
+          set -euo pipefail
+          node --test test/gruk/p0-04-sale-cash-report.integration.test.js | tee /tmp/gruk-cash.log
+          grep -Eq '^# pass [1-9][0-9]*$' /tmp/gruk-cash.log
+          grep -Eq '^# fail 0$' /tmp/gruk-cash.log
+          grep -Eq '^# skipped 0$' /tmp/gruk-cash.log
+      - name: Explicit evidence scope
+        run: |
+          echo 'PASS: MongoDB tests of paid sale→stock/movement with rollback, and paid sale→cash/report with replay.'
+          echo 'LIMIT: Separate integration tests. Full QR HTTP→payment→stock→cash production transaction is not certified by this workflow.'
