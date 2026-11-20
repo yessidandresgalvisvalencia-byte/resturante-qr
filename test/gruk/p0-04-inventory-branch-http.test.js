@@ -32,6 +32,7 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     findOneAndUpdate: Inventario.findOneAndUpdate
   };
   const calls = { restaurant: [], reads: [], updates: [] };
+  let simulateAlreadyAnnulled = false;
 
   Restaurante.findOne = (filter) => {
     calls.restaurant.push(filter);
@@ -43,6 +44,7 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
   };
   Inventario.findOneAndUpdate = async (filter, update) => {
     calls.updates.push({ ...filter, auditActor: update.usuarioAnulacion });
+    if (simulateAlreadyAnnulled) return null;
     return { _id: PRODUCTO, empresaId: EMPRESA, sedeId: SEDE_UNO };
   };
 
@@ -128,9 +130,15 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     assert.equal(Object.hasOwn(calls.updates[2], "sedeId"), false);
     assert.equal(calls.updates[2].anulado, false);
 
+    simulateAlreadyAnnulled = true;
+    result = await call("PUT", "/anular/" + PRODUCTO, admin, { motivo: "segundo intento" });
+    assert.equal(result.status, 404, "an already cancelled record cannot be cancelled again");
+    assert.equal(calls.updates.at(-1).anulado, false);
+    simulateAlreadyAnnulled = false;
+
     result = await call("PUT", "/anular/" + PRODUCTO, missingSite, { motivo: "prueba" });
     assert.equal(result.status, 403);
-    assert.equal(calls.updates.length, 3);
+    assert.equal(calls.updates.length, 4);
 
     result = await call("GET", "/rest-a", null);
     assert.equal(result.status, 401);
