@@ -57,3 +57,21 @@ test('P0-06: accepts exactly 10000 payments and rejects 10001 before iterating e
   });
   assert.throws(() => reconcileSalePayments('100', beyondLimit), RangeError);
 });
+
+test('P0-06: invalid expected sale amount fails before accessing payment entries', () => {
+  const payments = Object.freeze(['1.00']);
+  for (const invalid of [1, null, undefined, '-1', '1.001', '1e3', '01', '90071992547409.92']) {
+    assert.throws(() => reconcileSalePayments(invalid, payments));
+  }
+  const guarded = new Proxy(['1.00'], {
+    get() { throw new Error('payments should not be inspected for invalid sale amounts'); }
+  });
+  assert.throws(() => reconcileSalePayments('-1', guarded), TypeError);
+});
+
+test('P0-06: invalid payment in a split collection is rejected, never silently skipped', () => {
+  for (const invalid of [undefined, null, '', '1.001', '-0.01', 0, {}, '90071992547409.92']) {
+    assert.throws(() => reconcileSalePayments('2.00', ['1.00', invalid, '1.00']));
+  }
+  assert.throws(() => reconcileSalePayments('1.00', new Array(1)), TypeError);
+});
