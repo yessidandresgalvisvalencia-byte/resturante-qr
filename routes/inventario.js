@@ -8,6 +8,7 @@ const Inventario =
 require("../models/Inventario");
 const Restaurante = require("../models/restaurante");
 const Sede = require("../models/sede");
+const ProductoServicio = require("../models/ProductoServicio");
 const authMiddleware = require("../core/auth/auth.middleware");
 const {
   ROLES_GRUK,
@@ -110,6 +111,24 @@ router.post(
       }).select("_id").lean();
       if (!sede) {
         return res.status(403).json({ ok: false, error: "Sede fuera de empresa o restaurante" });
+      }
+    }
+
+    // A supplied catalog ID is untrusted. It must belong to the signed
+    // enterprise, with a global scope or the exact inventory branch.
+    if (datos.productoServicioId != null) {
+      if (!mongoose.Types.ObjectId.isValid(datos.productoServicioId)) {
+        return res.status(400).json({ ok: false, error: "Producto de catálogo inválido" });
+      }
+      const producto = await ProductoServicio.findOne({
+        _id: datos.productoServicioId,
+        empresaId: req.auth.empresaId,
+        sedeId: datos.sedeId == null ? null : { $in: [datos.sedeId, null] }
+      }).select("_id").lean();
+      if (!producto) {
+        return res.status(403).json({
+          ok: false, error: "Producto de catálogo fuera de empresa o sede"
+        });
       }
     }
 
