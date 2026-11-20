@@ -1,0 +1,31 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { test } = require('node:test');
+const { readFileSync } = require('node:fs');
+const { spawnSync } = require('node:child_process');
+const { join } = require('node:path');
+
+const workflow = readFileSync(join(__dirname, '../../.github/workflows/gruk-enterprise-money-readonly-audit.yml'), 'utf8');
+const guardLine = workflow.split('\n').find(line => line.includes('Invalid enterprise database name') === false && line.includes('DB_NAME') && line.includes('=~'));
+assert.ok(guardLine, 'enterprise database guard must exist');
+
+function allowed(name) {
+  const script = 'DB_NAME="$1"\n' + guardLine.trim().replace(/; then$/, '; then') + '\n  exit 1\nfi\n';
+  const result = spawnSync('bash', ['-c', script, 'audit-guard', name], { encoding: 'utf8' });
+  assert.equal(result.error, undefined);
+  return result.status === 0;
+}
+
+test('P0-04 enterprise money audit rejects reserved database names regardless of case', () => {
+  for (const name of ['BlusheaProd', 'BLUSHEA', 'FinanzasPersonales', 'PERSONAL_data', 'AdMiNStore', 'CONFIG_DB', 'TEST_DB', 'LocalData']) {
+    assert.equal(allowed(name), false, name);
+  }
+});
+
+test('P0-04 enterprise money audit accepts a valid enterprise database name only', () => {
+  assert.equal(allowed('gruk_empresa_01'), true);
+  for (const name of ['a', '1empresa', 'empresa.name', 'empresa espacio']) {
+    assert.equal(allowed(name), false, name);
+  }
+});
