@@ -1,0 +1,87 @@
+name: GRUK P0-04 Real Index Audit Evidence to PR 610
+
+# Main-only audit. The job uses the previously configured read-only DB user.
+# It never runs from a pull request and never prints records or URI.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-p004-real-index-evidence.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: gruk-enterprise-db-readonly
+  cancel-in-progress: false
+
+jobs:
+  live-readonly:
+    runs-on: ubuntu-latest
+    environment: gruk-enterprise-db-readonly
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate trusted read-only context
+        id: setup
+        env:
+          URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$URI" ]]; then
+            echo "::error::Read-only credential missing"
+            exit 1
+          fi
+          test -f scripts/gruk/p0-04-venta-index-preflight.js
+      - name: Install MongoDB shell
+        run: |
+          set -euo pipefail
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-mongosh
+      - name: Check real tenant ownership and sale indexes (read only)
+        id: live
+        env:
+          GRUK_ENTERPRISE_MONGO_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
+          GRUK_ENTERPRISE_DB: restaurante
+          GRUK_ENTERPRISE_DB_CONFIRM: restaurante
+        run: |
+          set -euo pipefail
+          umask 077
+          trap 'rm -f /tmp/gruk-live-index-private.log' EXIT
+          if mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet \
+            --file scripts/gruk/p0-04-venta-index-preflight.js \
+            >/tmp/gruk-live-index-private.log 2>&1; then
+            if grep -q 'readyForIndexBuild: true' /tmp/gruk-live-index-private.log; then
+              echo "result=passed" >> "$GITHUB_OUTPUT"
+              echo "Real read-only index audit passed; no production mutation"
+            else
+              echo "result=blocked" >> "$GITHUB_OUTPUT"
+              echo "::error::Read-only audit did not attest readyForIndexBuild=true"
+              exit 1
+            fi
+          else
+            echo "result=blocked" >> "$GITHUB_OUTPUT"
+            echo "::error::Real read-only index audit blocked; private diagnostics withheld"
+            exit 1
+          fi
+      - name: Post sanitized proof to commercial PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUDIT_RESULT: ${{ steps.live.outputs.result }}
+          AUDIT_OUTCOME: ${{ steps.live.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$AUDIT_OUTCOME" == "success" && "$AUDIT_RESULT" == "passed" ]]; then
+            verdict="PASS: chequeo de índices reales listo para construir índice (solo lectura)."
+          else
+            verdict="BLOCKED: chequeo de índices reales NO aprobado. Se mantiene bloqueo de despliegue."
+          fi
+          # No URI, index definitions, document values or private shell logs.
+          body="GRUK P0-04 — **evidencia automática de auditoría REAL** (base empresarial \`restaurante\`; credencial solo lectura). Resultado: **$verdict** Run: $RUN_URL ; commit \`$COMMIT\`. No se creó/eliminó ningún índice, no se migraron datos y no hubo deploy. Una aprobación de auditoría no sustituye un backup real recuperable ni revisión independiente de seguridad."
+          gh api "repos/${{ github.repository }}/issues/610/comments" -f body="$body" >/dev/null
