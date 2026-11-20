@@ -68,22 +68,18 @@ jobs:
             --file scripts/gruk/p0-04-venta-index-preflight.js \
             > /tmp/gruk-real-index-preflight.log 2>&1 || audit_status=$?
           echo "GRUK P0-04 sanitized aggregate diagnostics:"
-          grep -E '^[[:space:]]*(saleCount|missingTenant|invalidEnterpriseOwnership|invalidSiteIds|invalidSiteOwnership|invalidOriginIds|invalidOriginNames|duplicateGroups|targetIndexPresent|dataReadyForIndexBuild|readyForIndexBuild|readyForLegacyRemoval|requiresDbaApproval):[[:space:]]*(true|false|[0-9]+),?[[:space:]]*
- /tmp/gruk-real-index-preflight.log || true
+          grep -E '^[[:space:]]*(saleCount|missingTenant|invalidEnterpriseOwnership|invalidSiteIds|invalidSiteOwnership|invalidOriginIds|invalidOriginNames|duplicateGroups|targetIndexPresent|dataReadyForIndexBuild|readyForIndexBuild|readyForLegacyRemoval|requiresDbaApproval):[[:space:]]*(true|false|[0-9]+),?[[:space:]]*$' /tmp/gruk-real-index-preflight.log || true
           if [[ "$audit_status" -ne 0 ]]; then
-            if grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*false,?[[:space:]]*
- /tmp/gruk-real-index-preflight.log; then
+            if grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*false,?[[:space:]]*$' /tmp/gruk-real-index-preflight.log; then
               echo "::error::P0-04 BLOCKED: audit reports data/index incompatibility; do not deploy or mutate MongoDB"
-            elif grep -Eq '^[[:space:]]*saleCount:[[:space:]]*0,?[[:space:]]*
- /tmp/gruk-real-index-preflight.log; then
+            elif grep -Eq '^[[:space:]]*saleCount:[[:space:]]*0,?[[:space:]]*$' /tmp/gruk-real-index-preflight.log; then
               echo "::error::P0-04 BLOCKED: enterprise sales collection appears empty or incorrect; do not deploy"
             else
               echo "::error::P0-04 BLOCKED: audit failed before a safe verdict; inspect privately with DBA"
             fi
             exit 1
           fi
-          if ! grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*true,?[[:space:]]*
- /tmp/gruk-real-index-preflight.log; then
+          if ! grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*true,?[[:space:]]*$' /tmp/gruk-real-index-preflight.log; then
             echo "::error::P0-04 BLOCKED: successful shell exit without an explicit ready verdict"
             exit 1
           fi
