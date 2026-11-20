@@ -1,0 +1,30 @@
+# Diagnóstico del origen de cuentas por cobrar — r112
+
+19 de noviembre de2026, Colombia. Padre real cd24f8ab11bda66df830b3dc71c4d5f25bb9ebc2/árbol c683c340bd7e706b6757bf3a9dd241a53602278e. PR389 abierto/no integrado en integration/fp-hormiga-clasificacion-credito-v81 hacia feature652126a03f19fbec3c529cad1e84bff11cd3699e intacta. Issue407 abierto/cuatro comentarios históricos; sin evidencia externa nueva. CI padre Gate44657751521/Seguridad44657751513/V8144657751511 success. Instrucciones y continuidad revisadas, sin AGENTS.md adicional. Archivo/recuperación de revisiones y fechas/compra inteligente ya cerrados; no se cuentan nuevamente.
+
+## Bloque y criterios de aceptación
+
+Un bloque funcional: consultar el origen histórico real persistido de una cuenta por cobrar y su evidencia de correcciones, sin aplicar defaults, clasificar por texto o registrar dinero. Incluye API propia en snapshot, diagnóstico visible y corrección del default de otro camino de edición. No añade colecciones, permisos, índices ni migraciones; no modifica movimientos, caja, auditoría o copias del servidor.
+
+- GET /prestamos/:id/origen-cobro usa propietario JWT, identificadores estrictos, ningún parámetro de query y Cache-Control:no-store. Busca cuenta POR_COBRAR propia con lean, sin hydrate que rellenaría PRESTAMO en históricos. No expone objeto fuente completo, contraparte, IP/dispositivo u otros campos privados.
+- Distingue SIN_DATO, DATO_NULO, NO_INTERPRETABLE, OTRO, TRABAJO y PRESTAMO. El texto/importe/persona no decide clasificación. Un valor guardado sin evento explícito no acredita si fue declaración o default histórico; no se inventa esa procedencia.
+- Verifica índices requeridos y cadena/cursor de correcciones existente dentro de snapshot, con consulta de hasta1001 para rechazar más de1000 en vez de truncar en silencio. Compara origen actual con última corrección. Evento/hash/cursor/origen alterados fallan; no los repara. Errores de DB/índices se propagan con respuesta segura; desconocidos no se disfrazan como ausencia de historia.
+- Confirmación auditada solo si existe cambio de origen explícito y consistente en esa cadena. Informa hash/count, soloLectura=true/afectaCaja=false/certificaOrigenReal=false/certificaHistorialCompleto=false. No verifica el hecho económico, todos los cambios anteriores ni estado financiero actual. No certifica saldo ni habilita por sí sola cobros.
+- «Ver origen y evidencia» está disponible en cuentas por cobrar y muestra seis líneas de texto sin HTML. Consulta GET sin PATCH/POST; sesión distinta/tardía no muestra datos. OTRO conserva la declaración pendiente, sin forzar TRABAJO/PRESTAMO. La corrección ya existente exige declaración/consentimiento y conserva auditoría; no se cambia su contrato.
+- El camino general window.corregirPrestamo tenía p.origenCuentaPorCobrar||PRESTAMO y proponía1 al faltar el dato. Ahora propone vacío ante ausencia/nulo/desconocido; mantiene selección solo para un valor explícitamente persistido reconocido. Cancelar no envía corrección. No amplía el enum ni convierte OTRO en ingreso.
+
+## Validación
+
+Seis pruebas dirigidas: ausencia/nulo/otro/inválido/prototipo sin inferencia ni mutación, valor guardado versus evento confirmado, todos los orígenes con evento (incluido OTRO sin clasificar), cadena/cursor/propietario/dirección incoherentes, interfaz GET/seis líneas/sesión tardía, edición general sin default al faltar origen y cancelación sin envío, identificadores e índices fallidos. Primera ejecución5/5; se agregó rechazo de índices6/6. Sin fallos conocidos ni gates debilitados.
+
+La integración Mongo autenticada amplía el escenario existente de origen confirmado: consulta OTRO, legacy realmente sin campo insertado como fixture sintético, confirmación posterior con hash original, usuario ajeno404, query/ID inválidos400, proyección adulterada409, y foto financiera/recibos/fuentes intacta. Sin escrituras por el diagnóstico, ni nueva credencial/colección.
+
+El caso Chromium390 existente consulta OTRO y luego TRABAJO tras la confirmación auditada ya existente, muestra evidencia/hash correctos y compara fotos antes/después: las consultas no añaden PATCH ni cobros. Espera el diálogo real de cada GET para evitar una aserción adelantada al fetch. Mantiene32 casos/120s; no aumenta timeouts ni relaja cuotas. Marcador previsto FP_DIAGNOSTICO_ORIGEN_COBRO. La ausencia legacy y cancelación de edición general se validan en Mongo/unidad, sin afirmar un E2E adicional no ejecutado.
+
+Local final: módulo946/937 aprobados/9 omisiones externas/0 fallos; ci:personal353/349 aprobados/4 omisiones/0 fallos; dirigidas6/6 y caché7/7 solapadas. Sintaxis/diff correctos. CI del SHA publicado se añade en el cierre; no usar el resultado del padre como prueba del código nuevo. Datos sintéticos; no se escribe en producción. El diagnóstico es de lectura y no necesita cambiar formato de backup V32/45.
+
+## Límites y siguiente paso
+
+No prueba origen real, declaración inicial ni historia completa; no permite clasificar OTRO automáticamente, sumar cobros sin evidencia o registrar pagos para «reparar» el pasado. No sustituye confirmación auditada ni recibos de mutación. Sigue pendiente incorporar el diagnóstico a una selección/versionado explícito antes de confirmar origen, y recuperar el recibo de corrección ante respuesta perdida sin inferir éxito ni reenviar con otra clave. Después, tratamiento explícito de otros conceptos y contexto deuda/crédito/metas ambiguas.
+
+#407 sigue abierto: custodio independiente real/anclas, backup durable/retención/acceso/claves separados/restauración operativa/RPO-RTO, roles e índices/migración/configuración reales, dispositivos/Safari/auditoría independiente y compatibilidad/informe final pendientes según matriz. No se integra a feature, no se despliega Render, no se modifica main/Empresarial/Blushéa ni se contratan servicios/aumentan costos. Tarea activa. Antes de retomar verificar HEAD/base/PR389/407/CI e instrucciones; conservar este plan/aceptación/evidencia/SHA/siguiente paso en Git.

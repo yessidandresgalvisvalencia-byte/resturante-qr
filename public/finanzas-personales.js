@@ -288,6 +288,7 @@ const renderPrestamo=x=>{
   html+='<div class="debtDate">Fecha registrada: '+new Date(x.fechaVencimiento).toLocaleDateString("es-CO")+' · Confirma la frecuencia para calcular el siguiente vencimiento.</div>';
  }
  html+='<div class="debtActions"><button class="secondary mini" onclick="window.verCorreccionesPrestamo(\''+esc(String(x._id))+'\')">Ver correcciones</button>';
+ if(!propia)html+='<button class="secondary mini" onclick="window.verOrigenCobro(\''+esc(String(x._id))+'\')">Ver origen y evidencia</button>';
  if(propia&&!["PAGADO","CANCELADO"].includes(x.estado)&&x.saldoMinor>0){
   if(detalle?.frecuenciaSinConfirmar)html+='<button class="secondary mini" onclick="window.confirmarFrecuenciaMensual(\''+esc(String(x._id))+'\')">Confirmar cuotas mensuales</button>';
   html+='<button class="mini" onclick="window.registrarCuota(\''+esc(String(x._id))+'\')">'+(x.periodicidadConfirmada&&siguiente?'Pagar cuota #'+siguiente:'Registrar pago cuota #1')+'</button>';
@@ -352,6 +353,12 @@ window.verCorreccionesPrestamo=async id=>{
  const sesion=token;try{const r=await api("/prestamos/"+encodeURIComponent(id)+"/correcciones");if(!sesion||sesion!==token||$("app").hidden)return;
  const filas=r.eventos||[];alert("Correcciones registradas: "+filas.length+". No es el historial completo de pagos ni cambios anteriores.\n"+filas.slice(-10).map(e=>new Date(e.fecha).toLocaleDateString("es-CO")+" · Origen: "+(e.anterior.origenCuentaPorCobrar||"SIN_CONFIRMAR")+" → "+(e.posterior.origenCuentaPorCobrar||"SIN_CONFIRMAR")+" · Capital: "+money(e.anterior.principalMinor)+" → "+money(e.posterior.principalMinor)+" · Pendiente: "+money(e.anterior.saldoMinor)+" → "+money(e.posterior.saldoMinor)).join("\n")+(filas.length>10?"\nSe muestran las últimas diez correcciones.":""));
  }catch(e){if(sesion===token&&!$("app").hidden)alert("No se pudo verificar el historial: "+e.message);}
+};
+window.verOrigenCobro=async id=>{const sesion=token;try{
+ const r=await api("/prestamos/"+encodeURIComponent(id)+"/origen-cobro");if(!sesion||sesion!==token||$("app").hidden)return;
+ if(r.soloLectura!==true||r.afectaCaja!==false||r.certificaOrigenReal!==false||r.certificaHistorialCompleto!==false||String(r.prestamoId)!==String(id))throw Error("Diagnóstico no verificable");
+ alert("Origen guardado: "+r.origen.estado+".\n"+r.detalle+"\nConfirmación en correcciones: "+(r.confirmacionAuditada?"sí · "+r.confirmacionHash:"no observada")+".\nCorrecciones verificadas: "+r.correccionesVerificadas+"; no es toda la historia.\nConsulta sin cambios de caja, pagos o clasificación.\nSi era otro concepto o no lo sabes, conserva el dato sin adivinar.");
+ }catch(e){if(sesion===token&&!$("app").hidden)alert("No se pudo verificar el origen: "+e.message);}
 };
 window.corregirOrigenCobro=async id=>{const sesionCorreccion=token;try{
  const datos=await api("/prestamos");
@@ -437,8 +444,8 @@ window.corregirPrestamo=async id=>{const sesionCorreccion=token;try{
  const concepto=prompt("Concepto:",p.concepto||"Préstamo");if(concepto===null)return;
  const importe=prompt("Valor original en pesos (los cobros ya registrados se conservarán):",String(p.principalMinor));if(importe===null)return;
  const monto=Number(importe);
- const origenActual=p.origenCuentaPorCobrar||"PRESTAMO";
- const origen=prompt("¿Por qué te debían este dinero? Escribe 1 para préstamo personal, 2 para trabajo realizado o 3 para otro cobro.",origenActual==="TRABAJO"?"2":origenActual==="OTRO"?"3":"1");if(origen===null)return;
+ const origenActual=p.origenCuentaPorCobrar;
+ const origen=prompt("¿Por qué te debían este dinero? Escribe 1 para préstamo personal, 2 para trabajo realizado o 3 para otro cobro.",origenActual==="TRABAJO"?"2":origenActual==="OTRO"?"3":origenActual==="PRESTAMO"?"1":"");if(origen===null)return;
  const clasificacion=({"1":"PRESTAMO","2":"TRABAJO","3":"OTRO"})[origen.trim()];
  if(!clasificacion)throw Error("Selecciona 1, 2 o 3 para clasificar el cobro.");
 

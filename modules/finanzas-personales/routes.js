@@ -221,6 +221,10 @@ router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
 router.get("/prestamos/:id/imputaciones/recibos/:clave",require("./services/imputacionPagoPersonal.handler").crearHandler("RECIBO"));
 router.get("/prestamos/:id/imputaciones",require("./services/imputacionPagoPersonal.handler").crearHandler("CONSULTAR"));
 router.post("/prestamos/:id/imputaciones",limiteCalendarioIngreso,require("./services/imputacionPagoPersonal.handler").crearHandler("APLICAR"));
+router.get("/prestamos/:id/origen-cobro",async(req,res)=>{
+ try{if(Object.keys(req.query).length)return res.status(400).json({ok:false,error:"La consulta no admite parámetros"});res.set("Cache-Control","no-store");return res.json({ok:true,...await require("./services/diagnosticoOrigenCobroPersonal.service").consultar(req.personalAuth.userId,req.params.id)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el origen; conserva los originales"});}
+});
 router.get("/prestamos/:id/correcciones",async(req,res)=>{
  try{return res.json({ok:true,...await require("./services/correccionPrestamoPersonal.service").historial(req.personalAuth.userId,req.params.id)});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo consultar el historial de correcciones"});}
