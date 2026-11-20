@@ -1,0 +1,69 @@
+name: GRUK Empresarial Venta Index Read Only Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      database_name:
+        description: "Nombre empresarial validado: restaurante"
+        required: true
+        type: string
+      database_confirm:
+        description: "Repita exactamente el nombre empresarial"
+        required: true
+        type: string
+      approval:
+        description: "Escriba CONFIRMO_SOLO_LECTURA (no aplica cambios)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-enterprise-db-readonly
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: Inspeccionar datos e indices empresariales — SOLO LECTURA
+    runs-on: ubuntu-latest
+    environment: gruk-enterprise-db-readonly
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate explicit enterprise context without showing credentials
+        env:
+          DB: ${{ inputs.database_name }}
+          DB_CONFIRM: ${{ inputs.database_confirm }}
+          APPROVAL: ${{ inputs.approval }}
+          URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
+        run: |
+          set -euo pipefail
+          if [[ "$DB" != "restaurante" || "$DB_CONFIRM" != "$DB" || "$APPROVAL" != "CONFIRMO_SOLO_LECTURA" || -z "$URI" ]]; then
+            echo "::error::Enterprise database, confirmation or read-only secret missing or invalid"
+            exit 1
+          fi
+          echo "Read-only enterprise audit input validated; no migrations will be made"
+      - name: Install MongoDB shell
+        run: |
+          set -euo pipefail
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-mongosh
+      - name: Scan index compatibility and tenant ownership (read only)
+        env:
+          GRUK_ENTERPRISE_MONGO_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
+          GRUK_ENTERPRISE_DB: ${{ inputs.database_name }}
+          GRUK_ENTERPRISE_DB_CONFIRM: ${{ inputs.database_confirm }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet \
+            --file scripts/gruk/p0-04-venta-index-preflight.js > /tmp/gruk-real-index-preflight.log 2>&1 || {
+            echo "::error::Read-only preflight failed. Private logs not emitted to avoid exposing credentials"
+            exit 1
+          }
+          # Print only status counts; never reveal index definitions or connection URI.
+          grep -E 'missingTenant:|invalidEnterpriseOwnership:|invalidSiteIds:|invalidSiteOwnership:|invalidOriginIds:|invalidOriginNames:|duplicateGroups:|targetIndexPresent:|dataReadyForIndexBuild:|readyForIndexBuild:|readyForLegacyRemoval:|requiresDbaApproval:' /tmp/gruk-real-index-preflight.log || true
+          echo "Read-only index preflight completed: no index created/dropped; DBA authorization still required"
