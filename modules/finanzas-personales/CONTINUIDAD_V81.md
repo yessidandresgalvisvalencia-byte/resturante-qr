@@ -3200,3 +3200,6 @@ Siguiente bloque: migrar ruta específica antigua corregir-origen-trabajo a sele
 
 
 Checkpoint r118 tras CI inicial: código1943d9209560592818be22e0f1e4c9668522029b/árbolf4f2c05ac08943e2dc3bb792cad3e0cee3974e83,15 archivos personales/lease correcto. Gate44721967735/Seguridad44721967740 success; V8144721968034 no aprobado (Mongo99/101,2 fallos contando contenedor; navegador autorizado no ejecutado). Fixture de rollback enviaba origen sin versión; se captura selección antes de inyectar fallo y se reutiliza en aplicación/replay. Informe EDICION_ORIGEN_VERSIONADA_PERSONAL_V81.md conserva causa/corrección; repetir CI del SHA corregido antes de cerrar bloque, sin relajar controles.
+
+
+Checkpoint r118 tras segundo ensayo: SHAe2f7d734c7a43c5d5925e2f097ce9ea435b9b31b/árbol63298f89a41ec5aa9c18c00f047092129a7852de; Gate44722502966/Seguridad44722502920 success; V8144722503029 Mongo101/101/navegador30/32 (2 fallos contando contenedor). Marcador nuevo pasó, pero una comparación readonly posterior usaba fotografía anterior a la edición autorizada. Se reordena edición después de verificaciones readonly y se refuerza un solo outbox de datos/anteriores exactos, sin modificar producto/controles/fotos anteriores. Informe conserva causa/resultado; repetir CI exacta antes de cerrar.
