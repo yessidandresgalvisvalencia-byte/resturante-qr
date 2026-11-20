@@ -36,3 +36,29 @@ test('P0-04 audit guard rejects shell metacharacters and control characters', ()
     assert.equal(allowed(name), false, JSON.stringify(name));
   }
 });
+
+test('P0-04 audit guard enforces exact database-name length boundaries', () => {
+  assert.equal(allowed('ab'), true, 'minimum permitted length is 2');
+  assert.equal(allowed('a'.repeat(63)), true, 'maximum permitted length is 63');
+  assert.equal(allowed('a'.repeat(64)), false, '64 characters must be denied');
+  assert.equal(allowed(''), false, 'empty database name must be denied');
+  assert.equal(allowed('a'.repeat(1000)), false, 'oversized input must be denied');
+});
+
+test('P0-04 audit guard rejects embedded reserved tokens and unicode lookalikes', () => {
+  for (const name of [
+    'gruk_BLUSHEA_backup',
+    'gruk_PeRsOnAl_archive',
+    'gruk_FiNaNzAs_2026',
+    'gruk_AdMiN_copy',
+    'gruk_CONFIG_archive',
+    'gruk_TEST_restore',
+    'gruk_LOCAL_clone',
+    'gruk_émpresa',
+    'gruk＿empresa',
+    'gruk\tenterprise',
+    'gruk\renterprise',
+  ]) {
+    assert.equal(allowed(name), false, JSON.stringify(name));
+  }
+});
