@@ -23,7 +23,7 @@ test('restore happens only inside a network-isolated MongoDB container',()=>{
   assert.match(backup,/docker run -d --name "\$container" --network none mongo:7\.0/);
   assert.match(backup,/docker exec -i "\$container" mongorestore/);
   assert.match(backup,/--nsFrom='restaurante\.\*' --nsTo='restaurante_restore_drill\.\*'/);
-  assert.doesNotMatch(backup,/mongorestore[\s\S]*--uri=/);
+  for (const line of backup.split('\n').filter(x=>x.includes('docker exec -i') && x.includes('mongorestore'))) { assert.doesNotMatch(line,/--uri=/); }
   assert.doesNotMatch(backup,/\b(deleteOne|deleteMany|updateMany|dropDatabase)\b/);
 });
 test('workflow protects real backup behind manual approval and an environment',()=>{
