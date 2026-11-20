@@ -1,4 +1,6 @@
-# Matriz de aceptación y prioridad — revisión r109
+# Matriz de aceptación y prioridad — revisión r110
+
+Plan r110: diario portable de revisiones, originales conservados y recuperación cifrada propia sin reenviar, con verificación de recibo y bloqueo C3. Aceptación/límites en DIARIO_REVISION_PORTABLE_PERSONAL_V81.md. Local/CI nuevas en curso; siguiente archivo no destructivo de cerradas,407/producción pendientes. Sin merge/Render.
 
 Corte r109 verificado: código02518d13/fixture676d637 y final6319094d558c68136735f9ef297900bef63bdbc7/árbol42a8d6577b1efff61f4c12d479442ab04e4b2b33. Historial propio20+3 por cursor, índice exacto exigido y UI/verificación individual sin repetir revisión ni caja. Gate44640515554/Seguridad44640516550/V8144640515603 success; ocho jobs, Mongo101/101 y Chromium/backend32/32 sin omisiones. Informe HISTORIAL_REVISION_TRABAJO_PERSONAL_V81.md conserva fallos/aceptación/evidencias/límites. BackupV32/45 aislado; siguiente diario portable propio.407/custodia/operación reales pendientes. Verificar HEAD/CI del cierre documental; sin merge ni Render.
 
