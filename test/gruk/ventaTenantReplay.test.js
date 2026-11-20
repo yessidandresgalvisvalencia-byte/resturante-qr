@@ -273,3 +273,16 @@ test("venta: contexto sin empresa no consulta productos ni persiste",async()=>{
   assert.equal(created.length,0);
   assert.equal(seen.length,0);
 });
+
+test("venta: identificador de producto vacío o espacios no llega a consultas ni persistencia",async()=>{
+  for (const productoServicioId of [null,"","   "]) {
+    const {service,seen,created,productQueries}=makeService(null,{successfulCreate:true});
+    await assert.rejects(service.registrarVentaDesdePedido({
+      pedido:{...pedido,productoServicioId},
+      empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
+    }),/pedido sin productoServicioId/);
+    assert.equal(productQueries.length,0);
+    assert.equal(created.length,0);
+    assert.equal(seen.length,0);
+  }
+});
