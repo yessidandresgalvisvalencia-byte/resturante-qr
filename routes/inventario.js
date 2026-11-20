@@ -243,7 +243,7 @@ try{
 const { motivo } = req.body;
 
 // Never trust a caller-supplied audit identity; actor is the verified JWT.
-const actorId = req.auth?.sub;
+const actorId = req.auth?.usuarioId;
 if (!mongoose.Types.ObjectId.isValid(actorId)) {
   return res.status(403).json({ ok: false, error: "Actor autenticado requerido" });
 }
