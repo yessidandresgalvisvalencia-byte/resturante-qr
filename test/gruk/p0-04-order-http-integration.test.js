@@ -33,7 +33,7 @@ test("P0-04 HTTP: authenticated status and payment cannot cross companies or bra
   const previousSecret = process.env.JWT_SECRET;
   const original = {
     pedidoFindById: Pedido.findById,
-    pedidoUpdate: Pedido.findByIdAndUpdate,
+    pedidoUpdate: Pedido.findOneAndUpdate,
     restaurantFindOne: Restaurante.findOne,
     siteFindOne: Sede.findOne,
     startSession: mongoose.startSession
@@ -51,9 +51,14 @@ test("P0-04 HTTP: authenticated status and payment cannot cross companies or bra
   ];
 
   Pedido.findById = (_id) => query(String(_id) === ORDER_ID ? currentOrder : null, true);
-  Pedido.findByIdAndUpdate = async (_id, values) => {
+  Pedido.findOneAndUpdate = async (filter, values) => {
+    // The mutation itself must stay scoped even if the order moves between
+    // its initial authorization read and the write (TOCTOU).
+    assert.equal(String(filter._id), ORDER_ID);
+    assert.equal(String(filter.restaurantId), String(currentOrder.restaurantId));
+    assert.equal(String(filter.empresaId), String(currentOrder.empresaId));
+    assert.equal(String(filter.sedeId), String(currentOrder.sedeId));
     writes.status++;
-    if (String(_id) !== ORDER_ID) return null;
     return { ...currentOrder, ...values };
   };
   Restaurante.findOne = filter => query(restaurants.find(item =>
@@ -168,7 +173,7 @@ test("P0-04 HTTP: authenticated status and payment cannot cross companies or bra
   } finally {
     await new Promise(resolve => server.close(resolve));
     Pedido.findById = original.pedidoFindById;
-    Pedido.findByIdAndUpdate = original.pedidoUpdate;
+    Pedido.findOneAndUpdate = original.pedidoUpdate;
     Restaurante.findOne = original.restaurantFindOne;
     Sede.findOne = original.siteFindOne;
     mongoose.startSession = original.startSession;
