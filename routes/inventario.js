@@ -240,7 +240,13 @@ async (req,res)=>{
 
 try{
 
-const { motivo, usuario } = req.body;
+const { motivo } = req.body;
+
+// Never trust a caller-supplied audit identity; actor is the verified JWT.
+const actorId = req.auth?.sub;
+if (!mongoose.Types.ObjectId.isValid(actorId)) {
+  return res.status(403).json({ ok: false, error: "Actor autenticado requerido" });
+}
 
 if (req.auth.rol !== ROLES_GRUK.DUENO && !mongoose.Types.ObjectId.isValid(req.auth.sedeId)) {
   return res.status(403).json({ ok: false, error: "Sede autorizada requerida" });
@@ -258,6 +264,7 @@ await Inventario.findOneAndUpdate(
 {
 _id:req.params.id,
 empresaId:req.auth.empresaId,
+anulado:false,
 ...(req.auth.rol !== ROLES_GRUK.DUENO
   ? { sedeId: req.auth.sedeId }
   : {})
@@ -265,7 +272,7 @@ empresaId:req.auth.empresaId,
 {
 anulado:true,
 motivoAnulacion:motivo,
-usuarioAnulacion:usuario || "admin",
+usuarioAnulacion:String(actorId),
 fechaAnulacion:new Date()
 },
 { new:true }
