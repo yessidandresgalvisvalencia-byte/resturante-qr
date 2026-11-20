@@ -65,3 +65,15 @@ test("P0-04: venta sin sede no puede consultar clientes de otras sedes",async()=
   assert.equal(queries[0].deletedAt,null);
   assert.equal(creates.length,0);
 });
+
+test("P0-04: cliente sin sede solo es aceptado con filtro de sede nula",async()=>{
+  const {service,queries,creates}=fixture(true);
+  const withoutSite={...pedido,sedeId:null};
+  const result=await service.registrarVentaDesdePedido({pedido:withoutSite,empresaId:"tenant_A",sedeId:null,emitirEvento:false});
+  assert.equal(result.creada,true);
+  assert.equal(queries.length,1);
+  assert.equal(queries[0].empresaId,"tenant_A");
+  assert.equal(queries[0].sedeId,null);
+  assert.equal(creates.length,1);
+  assert.equal(creates[0].sedeId,null);
+});
