@@ -1,0 +1,50 @@
+name: GRUK P0-04 Sales Postmigration Readonly Verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-p004-sales-postmigration-verify.yml'
+      - 'scripts/gruk/p0-04-postmigration-sales-readonly.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify 16 sale corrections without writes
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: node --check scripts/gruk/p0-04-postmigration-sales-readonly.js
+      - name: Install MongoDB shell
+        run: |
+          set -euo pipefail
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-mongosh
+      - name: Inspect recovery journal and compare all original documents
+        env:
+          GRUK_ENTERPRISE_MONGO_URI: ${{ secrets.GRUK_ENTERPRISE_MIGRATION_MONGO_URI }}
+          GRUK_ENTERPRISE_DB: restaurante
+          GRUK_ENTERPRISE_DB_CONFIRM: restaurante
+        run: |
+          set -euo pipefail
+          [[ -n "$GRUK_ENTERPRISE_MONGO_URI" ]] || { echo "::error::Missing secured URI"; exit 1; }
+          umask 077
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
+          status=0
+          mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet --file scripts/gruk/p0-04-postmigration-sales-readonly.js > "$log" 2>&1 || status=$?
+          echo 'GRUK P0-04 verified aggregate counts:'
+          sed -nE 's/^[[:space:]]*(journaled|checked|preservedExactly|mismatched|invalidSiteRemaining|verifiedSiteOwnership|ready):[[:space:]]*(true|false|[0-9]+),?.*/\1: \2/p' "$log"
+          if [[ "$status" -ne 0 ]]; then
+            echo "::error::Postmigration verification failed (no writes)"
+            exit 1
+          fi
+          grep -Eq '^[[:space:]]*ready:[[:space:]]*true,?' "$log" || { echo "::error::No positive verification verdict"; exit 1; }
+          echo 'Verified 16 site corrections without changes to any other original sale field'
