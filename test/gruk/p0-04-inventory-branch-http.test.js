@@ -29,10 +29,16 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
   const original = {
     findOne: Restaurante.findOne,
     find: Inventario.find,
+    save: Inventario.prototype.save,
     findOneAndUpdate: Inventario.findOneAndUpdate
   };
   const calls = { restaurant: [], reads: [], updates: [] };
   let simulateAlreadyAnnulled = false;
+  const createdInventory = [];
+  Inventario.prototype.save = async function () {
+    createdInventory.push(this.toObject());
+    return this;
+  };
 
   Restaurante.findOne = (filter) => {
     calls.restaurant.push(filter);
@@ -102,6 +108,31 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     assert.equal(calls.reads.length, 2, "denied requests cannot read inventory");
 
     result = await call("POST", "/", admin, {
+      nombre: "Sin restaurante", categoria: "prueba", cantidad: 1
+    });
+    assert.equal(result.status, 400, "new inventory must have an owned restaurant");
+    assert.equal(createdInventory.length, 0);
+
+    for (const protectedField of ["anulado", "motivoAnulacion", "usuarioAnulacion", "fechaAnulacion", "_id"]) {
+      result = await call("POST", "/", admin, {
+        restaurantId: "rest-a", nombre: "Fraude", categoria: "prueba", cantidad: 1,
+        [protectedField]: protectedField === "anulado" ? true : "forged"
+      });
+      assert.equal(result.status, 400, protectedField + " cannot be forged at creation");
+    }
+    assert.equal(createdInventory.length, 0);
+
+    result = await call("POST", "/", admin, {
+      restaurantId: "rest-a", nombre: "Producto legítimo", categoria: "prueba", cantidad: 2
+    });
+    assert.equal(result.status, 200, JSON.stringify(result.data));
+    assert.equal(createdInventory.length, 1);
+    assert.equal(String(createdInventory[0].empresaId), EMPRESA);
+    assert.equal(String(createdInventory[0].sedeId), SEDE_UNO);
+    assert.equal(createdInventory[0].restaurantId, "rest-a");
+    assert.equal(createdInventory[0].anulado, false);
+
+    result = await call("POST", "/", admin, {
       restaurantId: "rest-a", sedeId: SEDE_DOS,
       nombre: "Producto prohibido", categoria: "prueba", cantidad: 10
     });
@@ -148,6 +179,7 @@ test("P0-04 inventory HTTP: prevent cross-company and cross-site reads, writes a
     await new Promise(resolve => server.close(resolve));
     Restaurante.findOne = original.findOne;
     Inventario.find = original.find;
+    Inventario.prototype.save = original.save;
     Inventario.findOneAndUpdate = original.findOneAndUpdate;
     if (oldSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = oldSecret;
