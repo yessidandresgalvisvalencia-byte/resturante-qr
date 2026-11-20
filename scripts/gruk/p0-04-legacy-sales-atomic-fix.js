@@ -30,7 +30,7 @@ try {
       throw new Error('Expected exactly 16 null site sales; rerun read-only audit');
     }
     // Do not overwrite earlier recovery journals: repeated invocation fails closed.
-    if (originals.estimatedDocumentCount() !== 0) {
+    if (originals.countDocuments({}) !== 0) {
       throw new Error('Existing recovery journal requires independent review');
     }
     const records = [];
