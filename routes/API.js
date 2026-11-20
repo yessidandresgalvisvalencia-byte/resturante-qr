@@ -23,6 +23,7 @@ const Llamado = require("../models/llamado");
 const Restaurante = require("../models/restaurante");
 const Usuario = require("../models/usuario");
 const Sede = require("../models/sede");
+const { authorizeOrderBranch } = require("../core/auth/orderBranch.guard");
 const Empresa = require("../models/Empresa");
 const {
   registrarVentaDesdePedido,
@@ -1532,10 +1533,15 @@ router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROL
   try {
     const { estado, tiempoEstimado } = req.body;
     if (!["pendiente","preparando","listo","entregado"].includes(String(estado))) return res.status(400).json({ok:false,error:"Estado de pedido inválido"});
-    const actual = await Pedido.findById(req.params.id).select("restaurantId").lean();
+    const actual = await Pedido.findById(req.params.id).select("restaurantId empresaId sedeId").lean();
     if (!actual) return res.status(404).json({ok:false,error:"Pedido no encontrado"});
-    const tenant = await Restaurante.findOne({restaurantId:actual.restaurantId,empresaId:req.auth.empresaId}).select("_id").lean();
+    const tenant = await Restaurante.findOne({restaurantId:actual.restaurantId,empresaId:req.auth.empresaId}).select("_id empresaId restaurantId").lean();
     if (!tenant) return res.status(403).json({ok:false,error:"Pedido fuera del tenant autorizado"});
+    try {
+      var { sedeObjectId: estadoSedeId } = await authorizeOrderBranch({ pedido: actual, restaurante: tenant, auth: req.auth });
+    } catch (_) {
+      return res.status(403).json({ ok: false, error: "Pedido fuera de la sede autorizada" });
+    }
 
     const update = { estado };
     if (tiempoEstimado) {
@@ -1549,7 +1555,8 @@ router.put("/pedido/:id/estado", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROL
     );
 
     const io = req.app.get("io");
-    io.emit("pedido:actualizado", pedido);
+    io.to(`empresa-${req.auth.empresaId}`)
+      .to(`empresa-${req.auth.empresaId}-sede-${req.auth.sedeId || estadoSedeId}`).emit("pedido:actualizado", pedido);
 
     res.json(pedido);
   } catch (error) {
@@ -1566,6 +1573,7 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
   const session = await mongoose.startSession();
   let pedidoFinal = null;
   let ventaPostCommit = null;
+  let pedidoSedeObjectId = null;
 
   try {
     await session.withTransaction(async () => {
@@ -1577,11 +1585,16 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
       const restaurante = await Restaurante.findOne({
         restaurantId: pedido.restaurantId,
         empresaId: req.auth.empresaId
-      }).select("_id empresaId").session(session).lean();
+      }).select("_id empresaId restaurantId").session(session).lean();
 
       if (!restaurante) {
         const error = new Error("PEDIDO_FUERA_TENANT"); error.statusCode = 403; throw error;
       }
+
+      const { sedeObjectId, pedidoParaVenta } = await authorizeOrderBranch({
+        pedido, restaurante, auth: req.auth, session
+      });
+      pedidoSedeObjectId = sedeObjectId;
 
       if (pedido.estadoPago === estadoPago) {
         pedidoFinal = pedido;
@@ -1592,21 +1605,8 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
         const error = new Error("REVERSO_PAGO_NO_PERMITIDO"); error.statusCode = 409; throw error;
       }
 
-      let sedeObjectId = null;
-      if (pedido.sedeId) {
-        const sede = await Sede.findOne({
-          empresaId: restaurante.empresaId,
-          restauranteId: pedido.restaurantId,
-          $or: [
-            { codigoSede: pedido.sedeId },
-            { _id: mongoose.Types.ObjectId.isValid(pedido.sedeId) ? pedido.sedeId : null }
-          ]
-        }).session(session).lean();
-        if (sede) sedeObjectId = sede._id;
-      }
-
       const resultadoVenta = await registrarVentaDesdePedido({
-        pedido,
+        pedido: pedidoParaVenta,
         empresaId: restaurante.empresaId,
         sedeId: sedeObjectId,
         session,
@@ -1622,14 +1622,15 @@ router.put("/pedido/:id/pago", authMiddleware, roleCheck(ROLES_GRUK.DUENO, ROLES
     if (ventaPostCommit) emitirVentaCompletada(ventaPostCommit);
 
     const io = req.app.get("io");
-    io.emit("pedido:actualizado", pedidoFinal);
+    io.to(`empresa-${req.auth.empresaId}`)
+      .to(`empresa-${req.auth.empresaId}-sede-${req.auth.sedeId || pedidoSedeObjectId}`).emit("pedido:actualizado", pedidoFinal);
 
     return res.json({ ok: true, pedido: pedidoFinal });
   } catch (error) {
     console.error("Error actualizando pago:", error);
     const status = Number(error.statusCode || 500);
     const mensajes = {
-      403: "Pedido fuera del tenant autorizado",
+      403: "Pedido fuera de la empresa o sede autorizada",
       404: "Pedido no encontrado",
       409: "Un pago confirmado no puede revertirse desde este endpoint"
     };
