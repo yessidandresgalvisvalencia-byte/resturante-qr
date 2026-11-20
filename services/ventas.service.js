@@ -46,6 +46,12 @@ async function registrarVentaDesdePedido({
     throw new Error("GRUK_VENTA_PEDIDO_SEDE_CONFLICT");
   }
 
+  // An order without a stable identity cannot be safely deduplicated or audited.
+  // Reject before product/customer reads and before any persistence.
+  if (pedido._id == null || String(pedido._id).trim() === "") {
+    throw new Error("GRUK_VENTA_PEDIDO_ID_REQUIRED");
+  }
+
   // Validate untrusted customer identifiers before any database access.
   if (pedido.clienteId && !mongoose.Types.ObjectId.isValid(pedido.clienteId)) {
     throw new Error("GRUK Ventas: clienteId invalido");
