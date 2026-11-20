@@ -221,12 +221,16 @@ router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
 router.get("/prestamos/:id/imputaciones/recibos/:clave",require("./services/imputacionPagoPersonal.handler").crearHandler("RECIBO"));
 router.get("/prestamos/:id/imputaciones",require("./services/imputacionPagoPersonal.handler").crearHandler("CONSULTAR"));
 router.post("/prestamos/:id/imputaciones",limiteCalendarioIngreso,require("./services/imputacionPagoPersonal.handler").crearHandler("APLICAR"));
+router.get("/prestamos/:id/confirmaciones-origen/recibos/:clave",async(req,res)=>{
+ res.set("Cache-Control","no-store");try{if(Object.keys(req.query).length)return res.status(400).json({ok:false,error:"El recibo no admite parámetros"});return res.json({ok:true,...await require("./services/reciboOrigenCobroPersonal.service").consultar(req.personalAuth.userId,req.params.id,req.params.clave)});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el recibo; conserva la solicitud pendiente"});}
+});
 router.post("/prestamos/:id/confirmar-origen",async(req,res)=>{
  try{
   if(!/^[a-f0-9]{24}$/i.test(req.params.id)||Object.keys(req.query).length||!/^origen_cobro_[A-Za-z0-9_-]{8,80}$/.test(req.get("Idempotency-Key")||""))return res.status(400).json({ok:false,error:"Identificador de confirmación inválido"});
   const {error,value}=Joi.object({confirmacion:Joi.boolean().valid(true).required(),origenCuentaPorCobrar:Joi.string().valid("TRABAJO","PRESTAMO","OTRO").required(),versionOrigen:Joi.string().pattern(/^[a-f0-9]{64}$/).required()}).validate(req.body,{convert:false});
   if(error)return res.status(400).json({ok:false,error:"Origen, versión y confirmación explícita requeridos"});
-  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,{origenCuentaPorCobrar:value.origenCuentaPorCobrar,versionOrigen:value.versionOrigen},{confirmacion:true,solicitudId:req.get("Idempotency-Key")});return res.json({ok:true,prestamo,reciboOrigen:{confirmado:true,usuarioId:String(req.personalAuth.userId),prestamoId:String(req.params.id),solicitudId:req.get("Idempotency-Key"),versionOrigen:value.versionOrigen,origenCuentaPorCobrar:value.origenCuentaPorCobrar,hash:prestamo.correccion.hash,duplicado:prestamo.correccion.duplicado,certificaEstadoActual:false,afectaCaja:false}});
+  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,{origenCuentaPorCobrar:value.origenCuentaPorCobrar,versionOrigen:value.versionOrigen},{confirmacion:true,solicitudId:req.get("Idempotency-Key")});return res.json({ok:true,prestamo,reciboOrigen:require("./services/reciboOrigenCobroPersonal.service").publico(req.personalAuth.userId,String(prestamo._id),req.get("Idempotency-Key"),{versionOrigen:value.versionOrigen,origenCuentaPorCobrar:value.origenCuentaPorCobrar},prestamo.correccion.hash,prestamo.correccion.duplicado)});
  }catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No se confirmó el origen; conserva la solicitud para consultar su resultado"});}
 });
 router.get("/prestamos/:id/origen-cobro",async(req,res)=>{
