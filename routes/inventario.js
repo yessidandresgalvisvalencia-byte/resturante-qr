@@ -1,11 +1,14 @@
 const express = require("express");
 const Joi = require("joi");
+const mongoose = require("mongoose");
 
 const router = express.Router();
 
 const Inventario =
 require("../models/Inventario");
 const Restaurante = require("../models/restaurante");
+const Sede = require("../models/sede");
+const ProductoServicio = require("../models/ProductoServicio");
 const authMiddleware = require("../core/auth/auth.middleware");
 const {
   ROLES_GRUK,
@@ -57,54 +60,76 @@ router.post(
   async (req, res) => {
   try {
     const datos = { ...req.body };
-
-    // Compatibilidad con GRUK Restaurantes:
-    // si llega restaurantId, resolvemos automáticamente empresaId.
-    if (datos.restaurantId && !datos.empresaId) {
-
-      const restaurante = await Restaurante.findOne({
-        restaurantId: datos.restaurantId
-      });
-
-      if (!restaurante) {
-        return res.status(404).json({
-          ok: false,
-          error: "Restaurante no encontrado"
-        });
+    // Reject orphan inventory and caller-controlled audit/lifecycle state.
+    // The model allows legacy null restaurantId, but new writes must not.
+    if (typeof datos.restaurantId !== "string" ||
+        !datos.restaurantId.trim() || datos.restaurantId.length > 128) {
+      return res.status(400).json({ ok: false, error: "Restaurante requerido" });
+    }
+    for (const forbidden of ["_id", "anulado", "motivoAnulacion",
+      "usuarioAnulacion", "fechaAnulacion", "createdAt", "updatedAt"]) {
+      if (Object.prototype.hasOwnProperty.call(datos, forbidden)) {
+        return res.status(400).json({ ok: false, error: "Campos protegidos de inventario" });
       }
-
-      if (
-        !restaurante.empresaId ||
-        String(restaurante.empresaId) !== String(req.auth.empresaId)
-      ) {
-        return res.status(403).json({
-          ok: false,
-          error: "No tienes acceso al inventario de este restaurante"
-        });
-      }
-
-      datos.empresaId = req.auth.empresaId;
     }
 
-    if (
-      datos.empresaId &&
-      String(datos.empresaId) !== String(req.auth.empresaId)
-    ) {
-      return res.status(403).json({
-        ok: false,
-        error: "No tienes acceso a crear inventario en esta empresa"
-      });
+    // The signed tenant must own the restaurant, regardless of client empresaId.
+    if (datos.empresaId && String(datos.empresaId) !== String(req.auth.empresaId)) {
+      return res.status(403).json({ ok: false, error: "Inventario fuera de empresa" });
     }
-
-    // El JWT es la autoridad final del tenant.
+    const restaurante = await Restaurante.findOne({
+      restaurantId: datos.restaurantId,
+      empresaId: req.auth.empresaId
+    }).select("_id").lean();
+    if (!restaurante) {
+      return res.status(403).json({ ok: false, error: "Restaurante fuera de empresa" });
+    }
     datos.empresaId = req.auth.empresaId;
 
-    // Todo inventario nuevo debe pertenecer a una empresa.
-    if (!datos.empresaId) {
-      return res.status(400).json({
-        ok: false,
-        error: "No se pudo determinar la empresa del inventario"
-      });
+    // A branch administrator cannot create inventory at a sibling site, nor
+    // create site-less inventory to make it visible company-wide.
+    if (req.auth.rol !== ROLES_GRUK.DUENO) {
+      if (!mongoose.Types.ObjectId.isValid(req.auth.sedeId)) {
+        return res.status(403).json({ ok: false, error: "Sede autorizada requerida" });
+      }
+      if (datos.sedeId != null && String(datos.sedeId) !== String(req.auth.sedeId)) {
+        return res.status(403).json({ ok: false, error: "Inventario fuera de sede" });
+      }
+      datos.sedeId = req.auth.sedeId;
+    }
+
+    // Even the owner cannot attach a foreign company's or another
+    // restaurant's branch to newly created inventory.
+    if (datos.sedeId != null) {
+      if (!mongoose.Types.ObjectId.isValid(datos.sedeId)) {
+        return res.status(400).json({ ok: false, error: "Sede inválida" });
+      }
+      const sede = await Sede.findOne({
+        _id: datos.sedeId,
+        empresaId: req.auth.empresaId,
+        restauranteId: datos.restaurantId
+      }).select("_id").lean();
+      if (!sede) {
+        return res.status(403).json({ ok: false, error: "Sede fuera de empresa o restaurante" });
+      }
+    }
+
+    // A supplied catalog ID is untrusted. It must belong to the signed
+    // enterprise, with a global scope or the exact inventory branch.
+    if (datos.productoServicioId != null) {
+      if (!mongoose.Types.ObjectId.isValid(datos.productoServicioId)) {
+        return res.status(400).json({ ok: false, error: "Producto de catálogo inválido" });
+      }
+      const producto = await ProductoServicio.findOne({
+        _id: datos.productoServicioId,
+        empresaId: req.auth.empresaId,
+        sedeId: datos.sedeId == null ? null : { $in: [datos.sedeId, null] }
+      }).select("_id").lean();
+      if (!producto) {
+        return res.status(403).json({
+          ok: false, error: "Producto de catálogo fuera de empresa o sede"
+        });
+      }
     }
 
     const inventario = new Inventario(datos);
@@ -163,6 +188,13 @@ router.get(
         restaurantId: req.params.restaurantId,
         anulado: false
       };
+
+      if (req.auth.rol !== ROLES_GRUK.DUENO) {
+        if (!mongoose.Types.ObjectId.isValid(req.auth.sedeId)) {
+          return res.status(403).json({ ok: false, error: "Sede autorizada requerida" });
+        }
+        query.sedeId = req.auth.sedeId;
+      }
 
       if (filtros.q) {
         const patron = new RegExp(escaparRegex(filtros.q), "i");
@@ -254,7 +286,17 @@ async (req,res)=>{
 
 try{
 
-const { motivo, usuario } = req.body;
+const { motivo } = req.body;
+
+// Never trust a caller-supplied audit identity; actor is the verified JWT.
+const actorId = req.auth?.usuarioId;
+if (!mongoose.Types.ObjectId.isValid(actorId)) {
+  return res.status(403).json({ ok: false, error: "Actor autenticado requerido" });
+}
+
+if (req.auth.rol !== ROLES_GRUK.DUENO && !mongoose.Types.ObjectId.isValid(req.auth.sedeId)) {
+  return res.status(403).json({ ok: false, error: "Sede autorizada requerida" });
+}
 
 if(!motivo){
 return res.status(400).json({
@@ -267,12 +309,16 @@ const producto =
 await Inventario.findOneAndUpdate(
 {
 _id:req.params.id,
-empresaId:req.auth.empresaId
+empresaId:req.auth.empresaId,
+anulado:false,
+...(req.auth.rol !== ROLES_GRUK.DUENO
+  ? { sedeId: req.auth.sedeId }
+  : {})
 },
 {
 anulado:true,
 motivoAnulacion:motivo,
-usuarioAnulacion:usuario || "admin",
+usuarioAnulacion:String(actorId),
 fechaAnulacion:new Date()
 },
 { new:true }

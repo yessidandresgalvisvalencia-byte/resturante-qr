@@ -10,6 +10,7 @@ const {
   resolverCuentaPorMetodo
 } = require("./tesoreria.service");
 const eventBus = require("../eventos/eventBus");
+const { cents, safeCents } = require("./dineroExacto");
 
 const TIPOS_SOPORTADOS = Object.freeze([
   "VENTA_COMPLETADA",
@@ -20,16 +21,11 @@ const TIPOS_SOPORTADOS = Object.freeze([
 ]);
 
 function numeroPositivo(valor) {
-  const numero = Number(valor);
-
-  if (
-    !Number.isFinite(numero) ||
-    numero <= 0
-  ) {
-    return null;
-  }
-
-  return numero;
+  if (valor == null || valor === "") return null;
+  // Fail closed on fractional-cent values, overflow and unsafe numeric input.
+  // Do not silently coerce a malformed financial event into a valid asiento.
+  const centavos = cents(valor, "montoCaja");
+  return centavos > 0n ? safeCents(centavos, "montoCaja") : null;
 }
 
 function fechaSegura(valor, fallback = new Date()) {
@@ -723,8 +719,10 @@ async function obtenerResumenCaja({
           cantidad: {
             $sum: 1
           },
+          // Historical storage remains Number. Cast each document to Decimal128
+          // before summing to prevent binary floating accumulation in reports.
           monto: {
-            $sum: "$monto"
+            $sum: { $toDecimal: "$monto" }
           }
         }
       }
@@ -740,11 +738,10 @@ async function obtenerResumenCaja({
               0,
               Number(row.cantidad || 0)
             ),
-          monto:
-            Math.max(
-              0,
-              Number(row.monto || 0)
-            )
+          monto: safeCents(
+            cents(row.monto == null ? "0" : String(row.monto), "montoResumen"),
+            "montoResumen"
+          )
         }
       ])
     );
@@ -775,13 +772,17 @@ async function obtenerResumenCaja({
     gastosPagados,
     entradasConfirmadas:
       ventasPagadas.monto,
-    salidasConfirmadas:
-      comprasPagadas.monto +
-      gastosPagados.monto,
-    flujoConfirmadoParcial:
-      ventasPagadas.monto -
-      comprasPagadas.monto -
-      gastosPagados.monto
+    salidasConfirmadas: safeCents(
+      cents(comprasPagadas.monto, "compras") +
+      cents(gastosPagados.monto, "gastos"),
+      "salidasConfirmadas"
+    ),
+    flujoConfirmadoParcial: safeCents(
+      cents(ventasPagadas.monto, "ventas") -
+      cents(comprasPagadas.monto, "compras") -
+      cents(gastosPagados.monto, "gastos"),
+      "flujoConfirmadoParcial"
+    )
   };
 }
 
