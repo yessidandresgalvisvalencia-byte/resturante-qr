@@ -28,4 +28,11 @@ Antes de retomar: leer HEAD/base/PR389/issue407/CI/instrucciones/CONTINUIDAD y e
 
 ## Evidencia local antes de publicación
 
-Diario/controlador15/15 sin omisiones; módulo973/964 aprobados/9 omisiones externas/0 fallos; ci:personal353/349 aprobados/4 omisiones/0 fallos; caché7/7. Pruebas dirigidas/caché se solapan con suites; no se suman como cobertura independiente. Sintaxis y diff correctos. No fallos iniciales conocidos en este lote. MongoDB/navegador autorizados dependen de CI del SHA publicado; no sustituir por CI del padre ni por fixtures locales.
+Diario/controlador15/15 sin omisiones; módulo973/964 aprobados/9 omisiones externas/0 fallos; ci:personal353/349 aprobados/4 omisiones/0 fallos; caché7/7. Pruebas dirigidas/caché se solapan con suites; no se suman como cobertura independiente. Sintaxis y diff correctos. La ejecución local no tuvo fallos; el ensayo nativo posterior detectó el fallo descrito abajo. MongoDB/navegador autorizados dependen de CI del SHA publicado; no sustituir por CI del padre ni por fixtures locales.
+
+
+## Fallo inicial de CI y corrección r116
+
+Código inicial ca3d4e2cedc98622257fbddf42d238e62d042bd4/árbol79c0c8591e8757f36f6d68ceb0ad795772616ea6. Gate44694629098 y Seguridad44694629087 success. V8144694629261/job136148315373: Mongo101/101 aprobado; navegador no aprobado. El caso CUENTA_POR_COBRAR_DECLARADA_VISIBLE_SIN_CAJA intentó pulsar Consultar recibo de origen dentro de un details cerrado, después de archivar/mostrar el recibo. Playwright rechazó la interacción invisible a los30s; la demora hizo agotar el presupuesto global120s y dejó28 aprobados/2 fallos/2 cancelados de32. El marcador portable previo sí pasó; no se obtuvo marcador de archivo y no se presenta el lote como verificado.
+
+Se corrige el flujo del ensayo: abrir el summary del recibo archivado antes de pulsar su consulta, igual que hace el usuario. Se mantienen la aserción GET y preservación de raíz, importación posterior,32 casos, timeout120s y cuotas. No se cambia código productivo para eludir el fallo, no se ocultan cancelaciones y no se relajan gates. El SHA de corrección requiere CI propia completa; solo sus resultados podrán cerrar el bloque.
