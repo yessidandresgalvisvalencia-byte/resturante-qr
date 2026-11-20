@@ -1,0 +1,63 @@
+name: GRUK P0-04 Postrepair Real Database Index Readiness
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-p004-postrepair-real-index-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gruk-p004-postrepair-index-readonly
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: Audit production sale index readiness (READ ONLY)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require existing private enterprise migration credential
+        env:
+          URI: ${{ secrets.GRUK_ENTERPRISE_MIGRATION_MONGO_URI }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$URI" ]]; then
+            echo '::error::Private enterprise connection missing; refusing to run'
+            exit 1
+          fi
+      - name: Install MongoDB shell
+        run: |
+          set -euo pipefail
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-mongosh
+      - name: Read real collection and index state without changing it
+        env:
+          GRUK_ENTERPRISE_MONGO_URI: ${{ secrets.GRUK_ENTERPRISE_MIGRATION_MONGO_URI }}
+          GRUK_ENTERPRISE_DB: restaurante
+          GRUK_ENTERPRISE_DB_CONFIRM: restaurante
+        run: |
+          set -euo pipefail
+          umask 077
+          private_log="$(mktemp)"
+          trap 'rm -f "$private_log"' EXIT
+          outcome=0
+          mongosh "$GRUK_ENTERPRISE_MONGO_URI" --quiet --file scripts/gruk/p0-04-venta-index-preflight.js > "$private_log" 2>&1 || outcome=$?
+          echo 'GRUK verified enterprise data/index diagnostics (aggregate only):'
+          sed -nE 's/^[[:space:]]*(saleCount|missingTenant|invalidEnterpriseOwnership|invalidSiteIds|invalidSiteOwnership|invalidOriginIds|invalidOriginNames|duplicateGroups|targetIndexPresent|dataReadyForIndexBuild|readyForIndexBuild|readyForLegacyRemoval|requiresDbaApproval):[[:space:]]*(true|false|[0-9]+),?.*/\1: \2/p' "$private_log"
+          if [[ "$outcome" -ne 0 ]]; then
+            echo '::error::Index readiness blocked; no database writes performed'
+            exit 1
+          fi
+          if ! grep -Eq '^[[:space:]]*readyForIndexBuild:[[:space:]]*true,?' "$private_log"; then
+            echo '::error::Index creation prerequisites not verified'
+            exit 1
+          fi
+          echo 'Index readiness verified; no CREATE INDEX or DROP INDEX performed'
+          echo 'An independent recoverable production backup and DBA approval are mandatory before changing indexes'
