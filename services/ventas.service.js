@@ -58,7 +58,7 @@ async function registrarVentaDesdePedido({
   }
 
   try {
-    if (!pedido.productoServicioId) {
+    if (pedido.productoServicioId == null || String(pedido.productoServicioId).trim() === "") {
       throw new Error(
         "GRUK Ventas: pedido sin productoServicioId"
       );
