@@ -1,0 +1,78 @@
+# Contexto del registro original HTTP — r99
+
+Corte: 19 de noviembre de2026 (Colombia). Base real9c84957c8c6ae74628a979cbb6ec8bf5e9c2197f/árbol086682ef20259e8a3c05ec5ca321eb8b1e18b045, integration/fp-hormiga-clasificacion-credito-v81. PR389 abierto hacia feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e, sin merge. Padre: Gate44457166409, Seguridad44457166448 y V8144457166427 success. #407 es issue abierto. No se presupone avance desde649ccda ni se repite r98.
+
+## Bloque y plan
+
+Un bloque funcional: contexto minimizado de nuevos INGRESO/GASTO que llegan por POST /transacciones o /movimientos, ligado a los campos originales y accesible desde su auditoría propia. Conservar originales y efectos financieros; no inventar contexto de registros anteriores ni de flujos todavía no instrumentados.
+
+1. Captura exclusivamente del servidor y diferida dentro de la transacción, después de observar si ya existe la clave externa. Dominio FP_REGISTRO_HTTP_CTX_MIN_V1 y clave dedicada de contexto, separados de compensaciones/metas/cuentas/conciliaciones y secretos de autenticación/datos. Peer del socket, sin confiar en XFF; dispositivo declarado no verificado. CapturadoEn corresponde a la observación al registrar, no a la fecha real del ingreso/gasto.
+2. Campos opcionales en la misma fuente insert-only: auditoriaRegistro privado/select:false y auditoriaRegistroHash público. Fuente normalizada por Mongoose antes del cálculo; hash enlaza dueño/ID, huella de campos financieros y compromiso del contexto privado. Guarda fuente/contexto/ancla dentro del mismo INSERT/transacción de cuenta/reserva/Outbox. No cambia dinero ni añade un segundo asiento de caja.
+3. Huella de campos: dueño, ID, cuenta/deuda/origen recurrente, tipo, importe, moneda, concepto/categoría/subcategoría, nombre/medio de cuenta, contraparte/descripción, recurrencia/frecuencia, origen declarado, externalIdHash, impactoCaja, estado original y fecha contable ISO. No es hash de todo BSON: excluye createdAt/updatedAt, campos cifrados y otros metadatos no listados. No es una nueva cadena global de originales ni custodia independiente.
+4. Excluir privado de JSON/toObject de documentos creados y de consultas normales; la auditoría, confirmación de intento, proyección compensada/caja y compensación lo solicitan explícitamente y verifican ancla/campos/contexto antes de usarlo. La proyección vuelve a excluir el privado de sus filas públicas. Una agregación histórica que usa replaceRoot excluye también el privado. Outbox conserva solo su payload financiero previo. Select:false es defensa de aplicación, no cifrado ni permiso por campo de MongoDB.
+5. Contrato idempotente existente: el registro repetido responde409; la confirmación separada verifica la fuente/estado sin recapturar ni necesitar la clave HMAC contextual actual. Con clave externa estable, dos registros simultáneos crean uno. La clave externa sigue siendo necesaria para garantizar ese comportamiento; este bloque no elimina la compatibilidad de /movimientos sin externalId ni afirma que ese uso sea idempotente. Una escritura nueva sin configuración contextual válida falla503, sin confirmar efectos.
+6. Verificación pública en la vista de auditoría: comprobar huella y hash del original, mostrar fecha de observación/hash/dispositivo declarado sin token/IP/ID de clave. Registros sin ambos campos se presentan SIN_CONTEXTO_CONSERVADO. Falta de solo uno, fuente alterada, contexto ajeno o formato público usado como evidencia privada fallan409. No se reescribe el historial para completarlo.
+7. BackupV28/44, compatible conV27/44 y anteriores; mismas25 colecciones protegidas, sin nuevas colecciones/índices/migraciones. Ensayos Mongo autorizado y Chromium con respuesta perdida/confirmación sin reenviar, auditoría y preservación de fuente/caja; publicar con lease/tree igual y verificar tres CI exactas del código y del cierre.
+
+## Criterios de aceptación
+
+| Criterio | Evidencia requerida |
+| --- | --- |
+| 1. Origen/privacidad | Dominio/dueño correctos, peer no XFF, cuerpo forjado400, privado ausente de respuesta/consultas/Outbox y serialización, resumen sin IP/token/clave |
+| 2. Integridad | Hash liga campos/contexto originales; monto/fecha/cuenta/dueño/ctx alterados409, evidencia parcial y DTO público rechazados; legado explícito sin inventar |
+| 3. Atomicidad/caja | Gastos/ingresos cambian cuenta una vez; fallo después de fuente/Outbox revierte cuenta nueva/fuente/evidencia juntos; original intacto tras compensación |
+| 4. Reintentos | Carrera201+409, misma clave no duplica; confirmación sin clave contextual actual no escribe ni recaptura; después de corregir devuelve CORREGIDA, no autoriza como activa original |
+| 5. Rotación/compatibilidad | Registro nuevo usa nueva clave, original conserva anterior; /transacciones y /movimientos cubiertos, otros flujos sin evidencia no se etiquetan como observados |
+| 6. Interfaz/recuperación | Login/HTML/API/Mongo reales, respuesta perdida, un POST y confirmación separada, formulario/solicitud exactos conservados y auditoría visible390 sin exponer privado |
+| 7. Trazabilidad/operación | Pruebas normales/fallos, SHA/tree/CI exactos, backup aislado y métricas/limitaciones, matriz/continuidad/siguiente paso versionados |
+
+## Resultados antes de publicar
+
+Local: módulo893casos/884aprobados/9omisiones/0fallos; ci:personal353/349aprobados/4omisiones/0fallos. Dirigidas60/60 y nuevas de contexto/visor16/16. Omisiones locales no sustituyen ensayos autorizados. Sintaxis helper Mongo/harness correcta. Una regresión local esperaba6 etapas en la agregación de conciliación: se actualiza a7 con aserción explícita de exclusión del privado, manteniendo cada filtro y el límite. No se desactivó el gate. Auditoría estática sin patrones revisados de mutación; --enforce conserva salida1 por evidencia externa pendiente #407. CI del SHA publicado, Mongo/Chromium nuevos y cierre todavía pendientes.
+
+## Límites y bloqueo de liberación
+
+Solo captura HTTP de I/G por las dos rutas indicadas. Registros internos/directos, pagos/deudas, captura/IA y otros productores quedan pendientes; SIN_CONTEXTO_CONSERVADO no implica que el registro sea antiguo o que exista prueba de red. El contexto no acredita ingresos bancarios ni identidad/dispositivo/IP real. El hash público prueba consistencia local, no autenticidad independiente. Un administrador que quite coherentemente ambos campos o reescriba fuente/ancla puede simular ausencia de evidencia; sin custodio independiente real no se certifica detección de cualquier reescritura. No confundir checksum, HMAC local y certificación externa.
+
+Los campos existentes se conservan; no hay migración ni reparación de originales, TTL, poda o nuevos borrados. Backup sintético no es copia operacional independiente ni recuperación garantizada. Persisten #407: custodio real/control separado; backup/restore operacional con destino/retención/acceso/credenciales independientes y RPO/RTO medidos; roles/índices/migración históricos productivos; provisión de claves/proxy/rate limit reales; Safari/dispositivos físicos y auditoría independiente cuando corresponda. Sin merge a feature/main, Render, costos nuevos, otros productos o datos reales modificados.
+
+Siguiente: comprobar CI exacta y cerrar este lote; después instrumentar productores restantes y resolver metas ambiguas con eventos/consentimiento preservando originales. Releer HEAD remoto, este informe, matriz, continuidad y CI antes de escribir; no depender del chat ni temporales.
+
+## Guardia financiera adicional r99
+Primera publicación520aa2ea228febaeccd4b37e8df58e9bb1a44d09/árbol52d06a11cfbc0baef7000c0c28ce5a6762e6312c queda como avance, no cierre. Se amplía la comprobación al consumir fuentes en la proyección compensada/caja y al compensar: una evidencia original presente pero contradictoria bloquea cálculos del panel y nuevas compensaciones, no solo su visor/confirmación. Las fuentes se leen con el privado para verificar y se redactan antes de devolver filas. Legados sin ambos campos mantienen su comportamiento y limitaciones; no se inventa una prueba. Se añade regresión pura y ensayo autorizado de panel no disponible/compensación409 sin efectos tras adulteración; el siguiente SHA necesita CI propia completa.
+
+
+## Fallo de expectativa del ensayo Chromium r99
+Primer SHA520aa2ea228febaeccd4b37e8df58e9bb1a44d09/árbol52d06a11cfbc0baef7000c0c28ce5a6762e6312c: Gate44483048322 y Seguridad44483048304 success; V8144483048321 falló en job135419686498. Mongo92/92 aprobado, navegador27/25aprobados/2fallos contando padre. El caso nuevo esperaba botón Consultar movimiento guardado después de abortar una respuesta confirmada, pero saveMovimiento ya consulta confirmar-intento automáticamente en la misma sesión y cierra el pendiente. Se conserva ese comportamiento y se corrige el ensayo para esperar CONFIRMADA y exigir exactamente un POST/un consulta, solicitud original exacta, caja/contexto intactos y lectura sin clave. No se añade una confirmación falsa, no se inyecta sesión ni se elimina ningún caso/assert de efectos, y no se amplían timeouts. La confirmación por botón de otros casos que cambian de sesión permanece intacta. El siguiente SHA también incluye la guardia de consumo financiero descrita arriba y necesita CI completa propia.
+
+Validación local posterior a guardia financiera: módulo894casos/885aprobados/9omisiones/0fallos, ci:personal353/349aprobados/4omisiones/0fallos y guardia/contexto/visor17/17. Sintaxis del ensayo Chromium corregido aprobada; CI nueva pendiente.
+
+
+## Regresión de privacidad en conciliaciones r99 — diagnóstico
+SHA00f0f8b2afcd9e1fa1675a5ef0e959cc77620f5b/árbole874ee1016c9869ab6e6ef4f4f4340fd38df2a54: Gate44484272630/Seguridad44484273181 success; V8144484272622 falló en job135423734539. Mongo92casos/90aprobados/2fallos contando padre: la privacidad del historial de conciliación detectó un valor reservado. El nuevo caso de registro/guardia financiera aprobó. Chromium contra backend no se ejecutó por ese fallo. Se mantiene el assert de privacidad y se agrega diagnóstico de índice/tipo/ruta del campo coincidente sin imprimir valores secretos. No se retira ni debilita la protección; el lote no queda cerrado y requiere resolver la causa y CI completa propia.
+
+
+## Espacios de nombres separados en la fixture de privacidad r99
+La clave privada de ensayo se llamaba conciliacion_b; las solicitudes públicas usan conciliacion_ + UUID, por lo que una UUID que empiece por b produce ese mismo texto sin exponer ninguna clave privada. La colisión es reproducible: JSON.stringify({solicitudId:"conciliacion_b0000000-0000-4000-8000-000000000000"}).includes("conciliacion_b") es true aunque no hay evidencia privada en ese objeto. El diagnóstico del SHA2bf03ea0b32fde0fc19ada858209a4165f93254b ya aprobó Mongo con otras UUID. El cuerpo de la respuesta del fallo00f0f8b no se conservó, por lo que no se atribuye como observado su contenido exacto; sí se corrige este defecto verificable de la aserción original.
+Se usan ahora ctx_priv_concil_a/b como IDs privados y se fuerza k2=conciliacion_b+UUID como identificador público. Se mantienen y refuerzan las búsquedas de ambos tokens/ambos IDs privados/IP/User-Agent; no se elimina la comprobación ni se permite privado en otro campo. Diagnóstico de ruta/índice permanece, sin imprimir valores reservados. No cambia código financiero, roles, timeouts o gates. El siguiente SHA exige CI propia.
+
+
+## Cierre verificable r99 — 19 de noviembre de2026
+
+Un bloque funcional completado dentro de su alcance HTTP I/G: contexto minimizado privado con ancla pública, verificación antes de consulta/cálculo/compensación, preservación del original, privacidad y recuperación sin duplicar caja. Código final8122010188a59f77bde4787ac4446ce5e090a354, árbolc25f16f945e172c1784dfa038a0ca5727af8e16e, sobre9c84957c8c6ae74628a979cbb6ec8bf5e9c2197f. La revisión inicial de gastoInteligente/ingresos/condiciones ya tiene evidencia versionada en HORIZONTE_INGRESO_V81.md y EVALUACION_OBLIGACIONES_VERIFICADA_V81.md; no se repite ese trabajo como bloque nuevo.
+
+| Evidencia del SHA funcional final | Resultado observado |
+| --- | --- |
+| [Gate44485784796](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44485784796) | success |
+| [Seguridad44485784726](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44485784726) | success |
+| [V8144485784766](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44485784766) | success, ocho jobs aprobados |
+| [Mongo autorizado y Chromium135428776800](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44485784766/job/135428776800) | Mongo92/92 y navegador/backend27/27, cero fallos/omisiones |
+| Local después de guardia | módulo894 casos/885 aprobados/9 omisiones; ci:personal353/349 aprobados/4 omisiones; guardia/contexto/visor17/17; dirigidas previas60/60. No sumar como casos distintos ni sustituir CI autorizada |
+
+Los criterios1–5 tienen pruebas puras y Mongo autorizado: cuerpos forjados/configuración ausente rechazados sin efectos, privacidad, adulteración, carreras201+409, rotación, lecturas sin clave contextual actual, estado corregido y rollback tras fallo inyectado. Criterio6: marcador FP_REGISTRO_ORIGINAL confirma login real, Chromium390, un POST y una consulta de confirmación tras respuesta perdida, fuente intacta y saldo sintético103000. No representa Safari/dispositivo físico. Criterio7: informe/matriz/continuidad versionados y publicación con lease; el descendiente documental debe verificar sus propias tres CI y quedar identificado en GitHub/PR, sin atribuirle por anticipado la CI del código.
+
+Backup cifrado aisladoV28:44 colecciones,7870 documentos,7700286 bytes, captura395ms, restauración1357ms, edad1664ms (job anterior). Solo base aislada vacía/datos sintéticos; custodiaIndependiente=false y rpoProduccion=false. No son RPO/RTO de producción ni retención operacional verificada. Sigue sin migración o reparación productiva. La cronología de fallos y la colisión reproducible de fixture anteriores se conserva; el SHA final prueba el identificador público forzado sin aceptar exposición de tokens/IDs privados.
+
+PR389 sigue abierto hacia feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e. #407 sigue abierto: custodio independiente real; destino/retención/acceso de respaldo y restauración operacional aislada con métricas; roles/índices/compatibilidad histórica productivos; configuración real de claves/proxy/rate limit; Safari/dispositivos físicos y auditoría independiente aplicable. No integrar ni desplegar hasta cumplir toda la matriz. No se modifican main/Empresarial/Blushéa ni datos reales, ni se contratan recursos.
+
+Checkpoint: releer HEAD remoto, este informe, MATRIZ_ACEPTACION_PERSONAL_V81.md, CONTINUIDAD_V81.md, PR389/#407 y CI antes de escribir. Continuar con contexto de otros productores (captura y aprobaciones IA, deuda/crédito), sin inventar evidencia de red para flujos internos, y con resolución explícita de metas ambiguas mediante eventos/consentimiento. No hay garantía absoluta de integridad/recuperación ni certificación externa: un administrador capaz de reescritura coherente permanece fuera de la prueba local. Publicado en GitHub; no desplegado ni verificado en Render. Tarea continúa activa.

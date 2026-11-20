@@ -9,9 +9,9 @@ test("Eventos de socket viejo o sesión cerrada no actualizan datos financieros"
  assert.match(snippet,/socket===conexion/);
  assert.match(snippet,/token===tokenConexion/);
  assert.match(snippet,/if\(!vigente\(\)\)return/);
- const events={};let actualToken="uno",actualSocket,appHidden=false,loads=0,live={textContent:"",dataset:{}};
+ const events={};let actualToken="uno",actualSocket,appHidden=false,loads=0,live={textContent:"",dataset:{}},canal={textContent:"",dataset:{}};
  const io=()=>{const s={on(name,cb){events[name]=cb;return s;},disconnect(){}};return s;};
- const ctx={io,token:actualToken,socket:null,$:id=>id==="app"?{hidden:appHidden}:live,load:()=>{loads++;}};
+ const ctx={io,token:actualToken,socket:null,$:id=>id==="app"?{hidden:appHidden}:id==="canalPrivadoEstado"?canal:live,load:()=>{loads++;}};
  vm.runInNewContext(snippet+";connect();",ctx);
  assert.equal(typeof events["finanzas:evento"],"function");
  const oldEvent=events["finanzas:evento"];

@@ -1,0 +1,3 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict"),{BASE,validarDestinoBrowser}=require("./helpers/destinoBrowserAislado");
+test("browser/backend rechaza producción, destinos externos, credenciales y bases ajenas",()=>{const uri="mongodb://127.0.0.1:27018/"+BASE;assert.equal(validarDestinoBrowser(uri,"test"),BASE);for(const e of ["production","development",undefined])assert.throws(()=>validarDestinoBrowser(uri,e));for(const u of [undefined,"mongodb://externo:27018/"+BASE,"mongodb://u:p@127.0.0.1:27018/"+BASE,uri+"?authSource=admin",uri+"#x","mongodb://127.0.0.1:27017/"+BASE,"mongodb://127.0.0.1:27018/real"])assert.throws(()=>validarDestinoBrowser(u,"test"));});

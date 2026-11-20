@@ -1,0 +1,72 @@
+# Archivo recuperable de imputaciones — r84
+
+## Plan y alcance
+
+PR389 abierto/sin fusionar, integración integration/fp-hormiga-clasificacion-credito-v81. Padre real8b7f7267ac7bfbc0335c7eb6796c36aebfdf5f85/árbol8fa1cae4345e9d296e23186ca09dffd633dbf2d2. Base autorizada feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e. #407 sigue abierto y conserva sus seis requisitos; este cambio local no acredita custodia, permisos productivos ni gate independiente.
+
+Un bloque funcional: continuar después de100 solicitudes de imputación conservando originales, formularios y recibos; consulta accesible y copia/recuperación cifrada de páginas. Incluye corregir guardar sin comprobación de lectura posterior: una escritura ignorada debía fallar antes del POST, no tratarse como solicitud conservada. No cambia cálculos, rutas, fuentes MongoDB, dependencias, gates, Empresarial, Blushéa ni main. El pendiente inicial de gastoInteligentePersonal.service.js ya consta resuelto en CONTINUIDAD_V81.md; no se repite.
+
+## Criterios de aceptación
+
+| Criterio | Implementación / comprobación |
+| --- | --- |
+| Archivo explícito |1–100 solicitudes cerradas, plan ligado a usuario, SHA256 exacto de raíz y cantidad; exige confirmación y sesión vigente, rechaza vacío/pendiente/plan cambiado |
+| Recibos propios | CONFIRMADA y NO_APLICADA requieren recibo ligado a clave, dueño, préstamo, cuerpo y resultado por validador existente. Estado contradictorio, recibo ausente o alterado bloquea archivo |
+| Guardar antes de enviar | Todas las escrituras de raíz comprueban lectura exacta posterior; error/cuota/escritura ignorada impide continuar. UI prueba cero POST cuando no se conserva formulario |
+| Original antes de liberar | Guarda página exacta en gruk.fp.imputaciones.v81:usuario:archivo:SHA y verifica lectura antes de nueva raíz con referencias/lista vacía. Mantiene formulario; no borra claves |
+| Fallo parcial recuperable | Reutiliza página huérfana idéntica en reintento; conflicto no se sobrescribe. Fallo en página o raíz conserva lista original |
+| Capacidad acotada |100 activas +20 páginas de1–100 cerradas, máximo2100. Claves únicas entre páginas, referencias con prefijos completos, sin poda o rotación automática |
+| Consulta accesible | details y textContent adaptable muestran cuerpos/recibos históricos literales. No ejecuta HTML ni presenta decisión histórica como vigente o autorización de gasto |
+| Copia compatible | FP_IMPUTACIONES_LOCAL_V1 sin páginas; V2 con originales exactos. Mismo transporte AES-GCM/PBKDF2, límites y frase privada existentes; no debilita cifrado |
+| Recuperación idempotente | Verifica tipo, dueño, referencias, huellas y recibos; páginas/acuse antes de activar raíz. No reemplaza diarios/archivos conflictivos. Reimportación busca también entradas archivadas, conserva estados y formularios posteriores |
+| Sesión y fallos | Bloquea controles durante archivo/copia/consulta; cambios de sesión/formulario durante verificación impiden archivo. Salir limpia vista, conserva almacenamiento. Pendientes activos mantienen bloqueo C3 |
+| Finanzas sin repetición | Archivo/consulta/copia/recuperación no reenvían decisiones ni cambian caja, capital, reservas o fuentes de pago |
+
+## Pruebas y ejecución
+
+```bash
+node --test test/finanzas-personales/archivoImputacionesPersonal.test.js test/finanzas-personales/copiaImputacionesPersonal.test.js test/gruk/frontend-version-aislamiento-personal.test.js test/gruk/hormiga-version-javascript-personal.test.js
+node --test test/finanzas-personales/*.test.js
+npm run ci:personal
+# Solo CI con datos sintéticos y MongoDB autorizado aislado, nunca producción:
+node --test test/finanzas-personales/browser/backend-recuperacion.browser.cjs
+```
+
+Once pruebas nuevas:100/101, cierre aplicado/no aplicado, formulario intacto, idempotencia con página posterior y colisión de clave archivada, pendientes/recibo ausente-ajeno-contradictorio, plan/usuario/sesión/formulario, cuota y escrituras ignoradas en archivo/raíz, corrupción/duplicados/prefijos, límite20, V2/V1 y reimportación después de archivar, fallos importando página/acuse/raíz y conflictos, carreras asíncronas, UI literal/confirmación/limpieza y escritura ignorada sin POST. Las diez pruebas de copia anteriores se mantienen.
+
+Local: dirigidas24/24; módulo753 pruebas/744 aprobadas/9 omisiones por servicios externos; ci:personal353/349/4; cero fallos en estas suites y sintaxis completa aprobada. Node24 local frente Node20 CI. Omisiones no equivalen a validación operativa. git diff --check sin errores. No se afirma ejecutar localmente MongoDB autorizado o navegador nativo; comprobar CI exacta del SHA publicado sin relajar gates, casos, timeouts o cuotas.
+
+Prueba nativa ampliada para ambos resultados reales (APLICADA y NO_APLICADA): POST original pierde respuesta, copia preserva pendiente y bloquea C3, GET propio confirma resultado; archivo explícito preserva página/formulario exactos y reimportación anterior no vuelve pendiente. Descarga copia con archivos y recupera en tercera pestaña/login HTTP real; consulta literal y ancho390 sin desborde. FP_ARCHIVO_IMPUTACION compara snapshot de caja/capital/reservas y fuentes de pago, con cero POST o nuevos GET de recibos por archivo/copia. Pendiente de ejecución CI; no se da por aprobado antes de evidencia.
+
+## Evidencia previa y checkpoint
+
+Padre8b7f7267: Gate43315171065, Seguridad43315171125 y V8143315171187 success comprobados antes de actuar. Se revisó #407 abierto y su alcance personal; no existe nueva evidencia externa para cerrarlo. Calendario/capturas ya completados no se reimplementan. Publicar con árbol local/remoto idéntico y expected_sha/force=false; registrar SHA, CI y diagnóstico de fallos si aparecen.
+
+## Límites y siguiente paso
+
+sessionStorage no es durabilidad ni backup independiente. SHA local detecta discrepancias con referencias conservadas; no impide reescritura coherente por quien controla navegador. Recibos locales no son firma externa ni certificación bancaria; muestran una decisión original, no su vigencia posterior. Los pendientes activos conservan consulta autenticada de recibo y reenvío explícito con misma clave. Archivar no restaura pagos ni modifica su contexto actual.
+
+Máximo8MiB de contenido portable/12MiB de archivo cifrado, raíz/página hasta1MiB recuperable. Cuota o textos grandes pueden limitar antes de2100; se rechaza sin recortar. Sin autoarchivo, limpieza o borrado al salir. Frase perdida no recuperable; copia descargada no sustituye respaldo independiente de MongoDB ni restauración aislada/RPO-RTO. Dispositivos físicos y rendimiento máximo pendientes.
+
+Siguiente: capacidad recuperable del diario de restauraciones de pagos y comprobación de fallos de almacenamiento, sin poda. #407, custodio independiente real, backups protegidos/retención/acceso/credenciales separadas y restauración operacional aislada/RPO-RTO, roles e índices Mongo productivos, auditoría/dispositivos/compatibilidad siguen pendientes. Mantener tarea activa; sin merge a feature ni Render, costos nuevos o alteraciones de datos reales. No se promete ejecución ininterrumpida.
+
+## Diagnóstico y corrección de CI r84
+
+Primer código44355b74e2f379d85d4bdf108047812ef2e5eca2/árbol2d55414ba5871bbdedb1ab1d381092f5afa63dbb: Gate43323131757 y Seguridad43323131735 success. V8143323131714 falló en job131548678072: Mongo81/81, las dos FP_ARCHIVO_IMPUTACION completas, pero MOVIMIENTO_MANUAL_EN_VUELO_CAMBIO_SESION agotó waitForFunction de cierre de sesión (30s); navegador13 aprobadas/2 fallos contando padre, sin omisiones. No se declara éxito global.
+
+La inspección y seis escenarios ejecutando load real extraído reprodujeron que un 401 del mismo token con revisión financiera cambiada se descartaba antes de cerrar sesión. Se atiende 401 propio antes de la guarda de revisión financiera, conservando primero el rechazo de token distinto/SESION_CAMBIADA/token ausente. Un error500 de revisión anterior tampoco publica cifras ni toca otra revisión. No se alteran permisos, backend, ledger ni pendientes conservados.
+
+El timeout por sí solo no prueba una causa única: la carga del panel también puede reutilizar una petición anterior. El ensayo nativo ahora espera esa carga mediante el manejador público del botón antes de revocar el token; luego exige respuesta HTTP401 real de diagnóstico y el cierre visual, con el POST financiero original todavía retenido. Se mantienen todas las aserciones de cambio a B, borrador intacto, pendiente de A conservado, GET propio posterior, fuente única y cero reenvíos. No se amplían timeouts, no se retira el caso ni se relaja el gate. Versionado de caché actualizado. Dirigidas corregidas29/29; verificar las tres CI del descendiente.
+
+## Resultado corregido publicado y verificado
+
+Inicial **44355b74e2f379d85d4bdf108047812ef2e5eca2**; corrección **ac1fb2336c47560f5cb45d3c4527ca382bc5d02e**, árbol **1e9b4fe6460d55e9d2520c28ff1b520c35414c6f**. Diez archivos personales en el lote; árboles cotejados y actualizaciones con lease.
+
+- [Gate43324153289](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43324153289): success.
+- [Seguridad43324153304](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43324153304): success.
+- [V8143324153318](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43324153318): success.
+- [Job autorizado131552230055](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43324153318/job/131552230055): Mongo81/81 y navegador/backend15/15, cero fallos/cancelaciones/omisiones.
+
+Las dos FP_ARCHIVO_IMPUTACION acreditan aplicada/no aplicada, original/formulario posterior exactos, consulta literal, reimportación anterior idempotente, descarga cifrada con archivos, tercera pestaña/login real, recuperación exacta y ancho390 sin desborde. Cero POST o nuevos GET de recibos por archivo/copia; caja, capital, reservas y fuentes de pago intactos. FP_MANUAL_EN_VUELO vuelve a aprobar con commit real y respuesta retenida, HTTP401 comprobado, cambio de sesión sin consulta con JWT ajeno ni reenvío, control pendiente y fuente única conservados y confirmación propia posterior. Evidencia sintética, sin datos productivos.
+
+El fallo inicial se conserva diagnosticado arriba; no se omitieron pruebas ni cambiaron timeouts/gates/cuotas. Once pruebas nuevas de archivo y seis conductuales de sesión. Suite local corregida759/750/9, dirigidas29/29, ci:personal353/349/4; cero fallos y sintaxis aprobada. Se resuelve para el SHA corregido la ejecución nativa antes pendiente. Verificar las tres CI del descendiente documental exacto al cerrar, registradas en PR389. No integra feature ni despliega Render; requisitos externos y límites anteriores siguen vigentes.

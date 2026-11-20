@@ -1,20 +1,6 @@
 "use strict";
-const test=require("node:test");
-const assert=require("node:assert/strict");
-const {simularCuotas,interpretarSimulacion}=require("../../modules/finanzas-personales/services/simuladorCuotasMaster.service");
-test("zapatos COP 280000 dos cuotas al 4 por ciento sobre cada cuota",()=>{
- const d=interpretarSimulacion("Quiero comprar zapatos que valen 280 mil a 2 cuotas, me cobran 4%");
- assert.deepEqual(d,{precio:280000,numeroCuotas:2,tasaPct:4});
- const r=simularCuotas(d);
- assert.equal(r.total,291200);assert.equal(r.intereses,11200);assert.deepEqual(r.cuotas,[145600,145600]);
-});
-test("interés sobre saldo decreciente distinto del interés aplicado a cada cuota",()=>{
- const r=simularCuotas({precio:280000,numeroCuotas:2,tasaPct:4,metodo:"SALDO_DECRECIENTE"});
- assert.ok(r.total>291200);assert.equal(r.cuotas.length,2);
-});
-test("no se acepta capital, tasa o plazo inválido",()=>{
- assert.throws(()=>simularCuotas({precio:-1,numeroCuotas:2,tasaPct:4}),RangeError);
- assert.throws(()=>simularCuotas({precio:1000,numeroCuotas:0,tasaPct:4}),RangeError);
- assert.throws(()=>simularCuotas({precio:1000,numeroCuotas:2,tasaPct:NaN}),RangeError);
- assert.equal(interpretarSimulacion("Quiero comprar algo"),null);
-});
+const test=require("node:test"),assert=require("node:assert/strict"),{simularCuotas,interpretarSimulacion}=require("../../modules/finanzas-personales/services/simuladorCuotasMaster.service");
+test("porcentaje ambiguo no elige método ni cargos automáticamente",()=>{const d=interpretarSimulacion("Quiero comprar zapatos que valen 280 mil a 2 cuotas, me cobran 4%");assert.equal(d.estado,"DATOS_PENDIENTES");assert.equal(d.datos.precio,280000);assert.equal(d.datos.metodo,null);assert.deepEqual(d.faltantes,["metodo","cargosIniciales"]);assert.throws(()=>simularCuotas(d.datos));});
+test("porcentaje único declarado conserva total y centavos al repartir",()=>{const p=interpretarSimulacion("Quiero comprar zapatos que valen 280 mil a 2 cuotas al 4% una sola vez sobre cada cuota base sin cargos"),r=simularCuotas(p.datos);assert.equal(r.total,"291200.00");assert.equal(r.intereses,"11200.00");assert.deepEqual(r.cuotas,["145600.00","145600.00"]);assert.equal(r.cubrePrimeraCuota,null);});
+test("saldo decreciente requiere calendario y difiere de porcentaje único",()=>{const d={precio:280000,numeroCuotas:2,tasaPct:"4",metodo:"SALDO_DECRECIENTE",cargosIniciales:0};assert.throws(()=>simularCuotas(d));const r=simularCuotas({...d,fechaDesembolso:"2026-01-31",fechaPrimerPago:"2026-02-28"});assert.equal(r.total,"296909.80");assert.equal(r.tabla.at(-1).saldoFinalCop,"0.00");});
+test("no se acepta capital, tasa o plazo inválido",()=>{for(const d of [{precio:-1},{numeroCuotas:0},{tasaPct:NaN},{metodo:undefined},{cargosIniciales:undefined}])assert.throws(()=>simularCuotas({precio:1000,numeroCuotas:2,tasaPct:4,metodo:"SOBRE_CUOTA_BASE",cargosIniciales:0,...d}),e=>e.statusCode===422);assert.equal(interpretarSimulacion("Quiero comprar algo"),null);});

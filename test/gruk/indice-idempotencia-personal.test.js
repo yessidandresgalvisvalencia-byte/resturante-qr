@@ -13,6 +13,19 @@ test("acepta solo el índice único compuesto y parcial esperado",()=>{
  assert.equal(indiceIdempotenciaValido([{...correcto,partialFilterExpression:{}}]),false);
  assert.equal(indiceIdempotenciaValido(null),false);
 });
+test("la escritura rechaza índices debilitados aunque conserven claves y unique",async()=>{
+ for(const opciones of [
+  {sparse:true},{expireAfterSeconds:0},{collation:{locale:"es",strength:1}},
+  {partialFilterExpression:{externalIdHash:{$type:"string"},origen:"MANUAL"}},
+  {partialFilterExpression:{externalIdHash:{$type:"string",$gt:"a"}}},
+  {key:{externalIdHash:1,usuarioId:1}}
+ ]){
+  const indice={...correcto,...opciones};
+  assert.equal(indiceIdempotenciaValido([indice]),false);
+  await assert.rejects(exigirIndiceIdempotencia({collection:{indexes:async()=>[indice]}}),e=>e.statusCode===503);
+ }
+ assert.equal(indiceIdempotenciaValido([null,{},correcto]),true);
+});
 test("falla cerrado si Mongo no devuelve índices",async()=>{
  await assert.rejects(exigirIndiceIdempotencia({collection:{indexes:async()=>{throw Error("sin conexión");}}}),
   error=>error.statusCode===503);

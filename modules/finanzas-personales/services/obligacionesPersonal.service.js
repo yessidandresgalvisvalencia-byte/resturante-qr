@@ -1,28 +1,40 @@
 "use strict";
-const home=require("./homePersonal.service");
-function money(n){return new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n);}
-function entero(n){return Number.isSafeInteger(n)&&n>=0;}
-function alternativa(tipo,a,base){
- if(!a)return null;
- if(!entero(a.costoMinor))return{tipo,conocida:false,razon:"Falta el costo exacto; GRUK no puede afirmar que sea mejor."};
- const pagoAhora=entero(a.pagoAhoraMinor)?a.pagoAhoraMinor:base;
- const costoTotal=base+a.costoMinor;
- return{tipo,conocida:true,pagoAhoraMinor:pagoAhora,costoTotalMinor:costoTotal,costoExtraMinor:a.costoMinor,consecuencia:String(a.consecuencia||"Consecuencia no informada; debe confirmarse antes de aprobar."),cumpleObligacion:a.cumpleObligacion!==false};
+const home=require("./homePersonal.service"),D=require("./disponibleConversacionalPersonal.service");
+const tipos={renegociar:"RENEGOCIAR",reprogramar:"REPROGRAMAR",sustituir:"SUSTITUIR"},legacy={costoRenegociarMinor:"renegociar",consecuenciaRenegociar:"renegociar",costoReprogramarMinor:"reprogramar",consecuenciaReprogramar:"reprogramar",costoSustituirMinor:"sustituir",consecuenciaSustituir:"sustituir"};
+const falla=m=>Object.assign(new Error(m),{statusCode:400}),obj=x=>x&&typeof x==="object"&&!Array.isArray(x),entero=n=>Number.isSafeInteger(n)&&n>=0,texto=(x,n)=>typeof x==="string"&&x.length<=n&&!/[\u0000-\u001f\u007f]/.test(x),money=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n);
+function validarEntrada(input){
+ if(!obj(input)||Object.keys(input).some(k=>!["montoMinor","concepto","prestamoId",...Object.keys(tipos),...Object.keys(legacy)].includes(k))||!entero(input.montoMinor)||input.montoMinor<1||input.concepto!==undefined&&!texto(input.concepto,140))throw falla("Confirma valor entero exacto, concepto y campos de la obligación.");
+ if(input.prestamoId!==undefined&&(typeof input.prestamoId!=="string"||!/^[a-f0-9]{24}$/.test(input.prestamoId)))throw falla("Referencia exacta del préstamo obligatoria.");
+ const r={prestamoId:input.prestamoId,montoMinor:input.montoMinor,concepto:input.concepto||"",alternativas:[]};
+ for(const [campo,tipo] of Object.entries(tipos)){
+  const planos=Object.keys(legacy).filter(k=>legacy[k]===campo&&Object.hasOwn(input,k));
+  if(input[campo]!==undefined&&planos.length)throw falla("No mezcles dos contratos de la misma alternativa.");
+  if(input[campo]!==undefined){
+   const a=input[campo];if(!obj(a)||Object.keys(a).some(k=>!["costoMinor","pagoAhoraMinor","consecuencia","cumpleObligacion"].includes(k))||a.costoMinor!==undefined&&!entero(a.costoMinor)||a.pagoAhoraMinor!==undefined&&!entero(a.pagoAhoraMinor)||a.consecuencia!==undefined&&!texto(a.consecuencia,240)||a.cumpleObligacion!==undefined&&typeof a.cumpleObligacion!=="boolean")throw falla("Alternativa inválida: confirma costo, pago actual y cumplimiento.");
+   const total=a.costoMinor===undefined?null:BigInt(r.montoMinor)+BigInt(a.costoMinor);
+   if(total!==null&&(total>BigInt(Number.MAX_SAFE_INTEGER)||a.pagoAhoraMinor!==undefined&&BigInt(a.pagoAhoraMinor)>total))throw falla("El costo total o el pago actual están fuera del rango verificable.");
+   if(total===null||a.pagoAhoraMinor===undefined||!a.consecuencia?.trim()||a.cumpleObligacion===undefined)r.alternativas.push({tipo,conocida:false,razon:"Falta costo, pago actual, consecuencia o confirmación explícita de cumplimiento."});
+   else r.alternativas.push({tipo,conocida:true,pagoAhoraMinor:a.pagoAhoraMinor,costoTotalMinor:Number(total),costoExtraMinor:a.costoMinor,consecuencia:a.consecuencia,cumpleObligacion:a.cumpleObligacion,fuente:"DATOS_DECLARADOS_POR_USUARIO",confirmadaPorTercero:false});
+  }else if(planos.length){
+   for(const p of planos)if(p.startsWith("costo")?!entero(input[p]):!texto(input[p],240))throw falla("Costo o consecuencia anterior inválidos.");
+   r.alternativas.push({tipo,conocida:false,razon:"El contrato anterior no confirma pago actual ni cumplimiento. Informa la alternativa completa."});
+  }
+ }
+ return r;
 }
-async function evaluar(usuarioId,input){
- const monto=input.montoMinor;if(!entero(monto)||monto<1)throw Object.assign(new Error("Necesito el valor exacto de la obligación."),{statusCode:400});
- const h=await home.obtener(usuarioId),a=h.asesor;
- if(!a.saldoRealConocido||!a.proximoIngresoConocido)return{estado:"FALTAN_DATOS",quePaso:"Hay una obligación de "+money(monto)+".",porQue:"No tengo saldo real y próximo ingreso confirmados; decidir sin eso sería inventar.",calculo:null,alternativas:[],accion:"Confirma esos dos datos."};
- const disponible=a.disponibleHoyMinor,faltante=Math.max(0,monto-disponible),alts=[
-  {tipo:"CONSERVAR",conocida:true,pagoAhoraMinor:monto,costoTotalMinor:monto,costoExtraMinor:0,consecuencia:"Cumple la obligación en las condiciones registradas.",cumpleObligacion:true},
-  alternativa("RENEGOCIAR",input.renegociar,monto),alternativa("REPROGRAMAR",input.reprogramar,monto),alternativa("SUSTITUIR",input.sustituir,monto)
- ].filter(Boolean);
- const viables=alts.filter(x=>x.conocida&&x.cumpleObligacion).sort((x,y)=>(x.costoTotalMinor-y.costoTotalMinor)||(x.pagoAhoraMinor-y.pagoAhoraMinor));
- const mejor=viables[0]||null;
- let estado,accion;
- if(!faltante){estado="CUMPLIBLE";accion="Puedes cumplirla con el disponible registrado. Antes de cambiarla, una alternativa debe mejorar costo o liquidez sin dejar la obligación incumplida.";}
- else if(mejor&&mejor.pagoAhoraMinor<=disponible){estado="ALTERNATIVA_VIABLE";accion="Con los datos registrados, "+mejor.tipo+" cabe en la caja actual. Verifica la consecuencia indicada antes de aprobar.";}
- else{estado="REQUIERE_PLAN";accion="Faltan "+money(faltante)+". No recomiendo dejar de pagar una obligación esencial solo para ahorrar. Necesitas aumentar caja o una alternativa que realmente subsane la obligación.";}
- return{estado,quePaso:"Debes cubrir "+money(monto)+(input.concepto?" por "+input.concepto:"")+".",porQue:faltante?"El disponible protegido no alcanza por "+money(faltante)+".":"El disponible protegido sí cubre el valor.",calculo:{montoMinor:monto,disponibleMinor:disponible,faltanteMinor:faltante},alternativas:alts,recomendacion:mejor,accion};
+function evaluarEstado(h,input,ahora=new Date()){
+ const r=validarEntrada(input),v=D.validar(h,ahora),base={soloLectura:true,afectaCaja:false,autorizaPago:false,ingresoGarantizado:false,obligacionYaReservada:"NO_VERIFICADO"};
+ if(!v.autorizado)return{...base,respuesta:["🟡 No hay una evaluación financiera autorizada.",v.mensaje,"Acción: "+v.accion].join("\n"),estado:"FALTAN_DATOS",quePaso:"Hay una obligación de "+money(r.montoMinor)+".",porQue:v.mensaje,calculo:null,alternativas:[],recomendacion:null,motivo:v.codigo,accion:v.accion};
+ const reserva=r.prestamoId?require("./reservaObligacionVerificadaPersonal.service").resolverReserva(h,r.prestamoId,ahora):null;
+ if(r.prestamoId&&!reserva)return{...base,estado:"FALTAN_DATOS",motivo:"RESERVA_NO_VERIFICADA",respuesta:["🟡 No pude verificar esa obligación en los compromisos de esta consulta.","No la vinculé por nombre ni por monto.","Acción: revisa la deuda y su vencimiento antes de evaluar."].join("\n"),calculo:null,alternativas:[],recomendacion:null,quePaso:"Obligación identificada pendiente de verificación.",porQue:"No hay una reserva propia y consistente en este horizonte.",accion:"Revisa la deuda y su vencimiento."};
+ if(reserva&&v.datos.estaEnRojo)return{...base,obligacionYaReservada:"REGISTRADA_SIN_COBERTURA_GLOBAL",reserva,estado:"REQUIERE_PLAN",respuesta:["🔴 Los compromisos y el colchón superan la caja verificada.","La reserva registrada no demuestra que esta deuda tenga dinero cubierto.","Acción: revisa el faltante global antes de asumir que puedes pagarla."].join("\n"),calculo:{montoMinor:r.montoMinor,disponibleMinor:v.datos.disponibleHoyMinor,faltanteMinor:null,faltanteGlobalMinor:v.datos.faltanteActualMinor},alternativas:[],recomendacion:null,quePaso:"Reserva incluida en un plan sin cobertura global.",porQue:"No se asigna caja a una deuda cuando el conjunto no está cubierto.",accion:"Revisa la cobertura global."};
+ const reservado=reserva?.montoReservadoMinor||0,incremental=n=>Number(BigInt(n)>BigInt(reservado)?BigInt(n)-BigInt(reservado):0n);
+ const disponible=v.datos.disponibleHoyMinor,monto=r.montoMinor,faltante=Number(BigInt(incremental(monto))>BigInt(disponible)?BigInt(incremental(monto))-BigInt(disponible):0n),alts=[{tipo:"CONSERVAR",conocida:true,pagoAhoraMinor:monto,costoTotalMinor:monto,costoExtraMinor:0,consecuencia:"Compara únicamente el importe informado con el disponible libre; revisa las condiciones y si ya estaba reservado.",cumpleObligacion:null,fuente:"IMPORTE_INFORMADO",confirmadaPorTercero:false},...r.alternativas].map(x=>reserva&&x.conocida?{...x,importeAdicionalAhoraMinor:incremental(x.pagoAhoraMinor)}:x),viables=alts.filter(x=>x.conocida&&(x.tipo==="CONSERVAR"||x.cumpleObligacion===true)&&incremental(x.pagoAhoraMinor)<=disponible).sort((a,b)=>a.costoTotalMinor===b.costoTotalMinor?(a.pagoAhoraMinor===b.pagoAhoraMinor?0:a.pagoAhoraMinor<b.pagoAhoraMinor?-1:1):a.costoTotalMinor<b.costoTotalMinor?-1:1),mejor=viables[0]||null;
+ const estado=reserva&&incremental(monto)===0?"YA_CONTEMPLADA":faltante===0?"CUMPLIBLE":mejor?"ALTERNATIVA_VIABLE":"REQUIERE_PLAN",accion=estado==="YA_CONTEMPLADA"?"Este importe ya está contemplado en los compromisos; no se descuenta otra vez. Verifica condiciones antes de pagar.":estado==="CUMPLIBLE"?(reserva?"El importe adicional cabe en el disponible libre. Confirma condiciones e impuestos antes de pagar.":"El importe cabe en el disponible libre registrado. Confirma sus condiciones y si ya está reservado antes de pagar."):mejor?"La alternativa "+mejor.tipo+" cabe en el disponible con las condiciones que declaraste. Confírmalas con la contraparte antes de actuar.":"Revisa un plan para cubrir "+money(faltante)+" sin incumplir obligaciones esenciales.";
+ return{...base,...(reserva?{obligacionYaReservada:"VERIFICADA_EN_PLAN",reserva}:{}),respuesta:[(estado==="REQUIERE_PLAN"?"🔴":estado==="CUMPLIBLE"?"🟢":"🟡")+" Valor informado: "+money(monto)+".","Disponible libre verificado: "+money(disponible)+".",reserva?"Ya contemplado en el plan: "+money(reservado)+". Solo se compara el importe adicional; no significa pagado.":"Revisa si esta obligación ya está reservada; no se registra un pago.","Incluye impuestos y cargos en los importes; no se confirman exenciones.",...(mejor&&mejor.tipo!=="CONSERVAR"?["Alternativa según tus datos: "+mejor.tipo+"; no está confirmada por la contraparte."]:[]),"Acción: "+accion].join("\n"),estado,corte:v.datos.corte,quePaso:"Valor informado: "+money(monto)+(r.concepto?" por "+r.concepto:"")+".",porQue: reserva?"La reserva identificada ya se descontó en este mismo cálculo; no se libera su remanente ni aumenta Disponible Hoy.":"Comparación con el disponible libre verificado; no determina si esta obligación ya fue descontada.",calculo:{montoMinor:monto,disponibleMinor:disponible,faltanteMinor:faltante,...(reserva?{reservaAplicadaMinor:Math.min(monto,reservado),incrementalMinor:incremental(monto)}:{})},alternativas:alts,recomendacion:mejor,accion};
 }
-module.exports={evaluar};
+function crearEvaluador({obtener=home.obtener}={}){return async(usuarioId,input,{ahora=new Date()}={})=>{
+ validarEntrada(input);if(!require("mongoose").isObjectIdOrHexString(usuarioId)||!(ahora instanceof Date)||!Number.isFinite(+ahora))throw falla("Usuario o fecha de consulta inválidos.");
+ const corte=new Date(+ahora),h=await obtener(usuarioId,new Date(+corte));return evaluarEstado(h,input,corte);
+};}
+module.exports={validarEntrada,evaluarEstado,crearEvaluador,evaluar:crearEvaluador()};

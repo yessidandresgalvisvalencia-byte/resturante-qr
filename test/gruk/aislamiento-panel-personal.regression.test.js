@@ -20,9 +20,11 @@ test("las rutas privadas requieren autenticar antes de servir datos", () => {
 test("las respuestas financieras autenticadas nunca se guardan en caché", () => {
  const code = read("modules/finanzas-personales/routes.js");
  const gate = code.indexOf("router.use(auth,entitlement);");
- const privacy = code.indexOf('res.set("Cache-Control","private, no-store, max-age=0")');
+ const cacheMiddleware = code.indexOf("router.use((req,res,next)=>", gate);
+ const privacy = code.indexOf('res.set("Cache-Control","private, no-store, max-age=0")', cacheMiddleware);
  const firstPrivate = code.indexOf('router.get("/diagnostico-integridad"');
- assert.ok(privacy > gate && privacy < firstPrivate);
+ assert.ok(cacheMiddleware > gate && cacheMiddleware < firstPrivate);
+ assert.ok(privacy > cacheMiddleware && privacy < firstPrivate);
  assert.match(code, /res\.set\("Pragma","no-cache"\)/);
 });
 
@@ -40,3 +42,5 @@ test("recargar no borra los indicadores y cambiar de identidad sí los invalida"
  assert.match(code, /if\(token!==j\.token\)\{cancelarSolicitudes\(\);limpiarIntentoManual\(\);invalidarIndicadoresFinancieros\(\)/);
  assert.match(code, /Las cifras visibles pueden corresponder a una consulta anterior/);
 });
+
+test("cabecera de revisión antes de auth no sirve datos ni sustituye handler autenticado",()=>{const code=read("modules/finanzas-personales/routes.js"),gate=code.indexOf("router.use(auth,entitlement);"),inicio=code.indexOf('router.get("/metas/revision-fuentes"'),handler=code.lastIndexOf('router.get("/metas/revision-fuentes"');assert.ok(inicio>=0&&inicio<gate&&handler>gate);const previo=code.slice(inicio,gate);assert.match(previo,/return next\(\);/);assert.doesNotMatch(previo,/res\.(json|send|status)\(/);assert.match(code.slice(handler,handler+160),/revisionFuentesMetaPersonal.handler/);});
