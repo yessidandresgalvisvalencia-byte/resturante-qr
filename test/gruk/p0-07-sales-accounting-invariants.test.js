@@ -87,3 +87,29 @@ test('P0-07: legacy read-only bridge rejects unsafe or subcent monetary values',
     assert.throws(() => calculateLegacySale({ quantity, unitPrice: 1, unitCost: 0, total: 1 }), TypeError);
   }
 });
+
+
+test('P0-07: negative profit and maximum safe-cent boundary remain exact', () => {
+  const loss = calculateSale({ quantity: '3', unitPrice: '0.01', unitCost: '0.99', total: '0.01' });
+  assert.deepEqual({
+    gross: loss.grossCents, discount: loss.discountCents,
+    revenue: loss.revenueCents, cost: loss.costCents,
+    profit: loss.profitCents, margin: loss.marginBasisPoints
+  }, {
+    gross: '3', discount: '2', revenue: '1', cost: '297',
+    profit: '-296', margin: '-2960000'
+  });
+
+  // The largest permitted single-line amount must not lose one cent.
+  const boundary = calculateSale({
+    quantity: '1', unitPrice: '90071992547409.91',
+    unitCost: '0', total: '90071992547409.91'
+  });
+  assert.equal(boundary.grossCents, Number.MAX_SAFE_INTEGER.toString());
+  assert.equal(boundary.revenueCents, Number.MAX_SAFE_INTEGER.toString());
+  assert.equal(boundary.profitCents, Number.MAX_SAFE_INTEGER.toString());
+  assert.throws(() => calculateSale({
+    quantity: '1', unitPrice: '90071992547409.92',
+    unitCost: '0', total: '0'
+  }), RangeError);
+});
