@@ -8,9 +8,15 @@ function reconcileSalePayments(saleCents, paymentCents) {
   const expected = parseMoneyToCents(saleCents);
   if (!Array.isArray(paymentCents)) throw new TypeError('payments must be an array');
   if (paymentCents.length > 10000) throw new RangeError('too many payments');
+  // Only own data entries are accepted: inherited entries and accessors can
+  // conceal missing payments or execute caller-controlled code during an audit.
   let captured = 0n;
-  for (const payment of paymentCents) {
-    captured += parseMoneyToCents(payment);
+  for (let i = 0; i < paymentCents.length; i++) {
+    const descriptor = Object.getOwnPropertyDescriptor(paymentCents, String(i));
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError('payment must be an own data entry');
+    }
+    captured += parseMoneyToCents(descriptor.value);
   }
   const difference = captured - expected;
   return Object.freeze({
