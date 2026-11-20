@@ -25,11 +25,44 @@ async function registrarVentaDesdePedido({
     );
   }
 
+  // Tenant context must be a valid persisted identity before any lookup.
+  if (!mongoose.Types.ObjectId.isValid(empresaId)) {
+    throw new Error("GRUK Ventas: empresaId invalido");
+  }
+  if (sedeId != null && !mongoose.Types.ObjectId.isValid(sedeId)) {
+    throw new Error("GRUK Ventas: sedeId invalido");
+  }
+
+  let creandoVenta = false;
+  // The duplicate-key recovery runs in catch and needs the frozen values.
+  let costoUnitario;
+  let costoTotal;
   try {
+    // Reject a caller-supplied order whose tenant or branch conflicts with the
+    // sale context before any database lookup or write. Legacy orders may omit
+    // these fields; absence is not evidence of authorization at the endpoint.
+    if (pedido.empresaId != null && String(pedido.empresaId) !== String(empresaId)) {
+      throw new Error("GRUK Ventas: pedido de otra empresa");
+    }
+    if (pedido.sedeId != null && String(pedido.sedeId) !== String(sedeId)) {
+      throw new Error("GRUK Ventas: pedido de otra sede");
+    }
+    // A persisted source identity is mandatory for idempotent sale registration.
+    if (!pedido._id || !mongoose.Types.ObjectId.isValid(pedido._id)) {
+      throw new Error("GRUK Ventas: pedidoId invalido");
+    }
     if (!pedido.productoServicioId) {
       throw new Error(
         "GRUK Ventas: pedido sin productoServicioId"
       );
+    }
+    if (!mongoose.Types.ObjectId.isValid(pedido.productoServicioId)) {
+      throw new Error("GRUK Ventas: productoServicioId invalido");
+    }
+
+    // Reject malformed customer identity before querying any tenant data.
+    if (pedido.clienteId && !mongoose.Types.ObjectId.isValid(pedido.clienteId)) {
+      throw new Error("GRUK Ventas: clienteId invalido");
     }
 
     // Seguridad multi-tenant:
@@ -38,7 +71,9 @@ async function registrarVentaDesdePedido({
     const productoServicio =
       await ProductoServicio.findOne({
         _id: pedido.productoServicioId,
-        empresaId
+        empresaId,
+        // Productos globales (sedeId null) o de esta sede; nunca de otra.
+        sedeId: sedeId == null ? null : { $in: [sedeId, null] }
       })
         .select("_id costoUnitario")
         .session(session)
@@ -53,25 +88,14 @@ async function registrarVentaDesdePedido({
     let clienteId = null;
 
     if (pedido.clienteId) {
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          pedido.clienteId
-        )
-      ) {
-        throw new Error(
-          "GRUK Ventas: clienteId invalido"
-        );
-      }
-
       const filtroCliente = {
         _id: pedido.clienteId,
         empresaId,
         deletedAt: null
       };
 
-      if (sedeId) {
-        filtroCliente.sedeId = sedeId;
-      }
+      // Sin sede explícita, únicamente clientes globales: nunca de otra sede.
+      filtroCliente.sedeId = sedeId == null ? null : sedeId;
 
       const cliente = await Cliente.findOne(
         filtroCliente
@@ -89,12 +113,39 @@ async function registrarVentaDesdePedido({
       clienteId = cliente._id;
     }
 
+    // Number(null) and Number('') both yield zero. Missing monetary inputs
+    // must not silently become valid zero-value paid sales.
+    for (const [campo, valor] of [
+      ["cantidad", pedido.cantidad],
+      ["precioUnitario", pedido.precioUnitario],
+      ["precio", pedido.precio],
+      ["costoUnitario", productoServicio.costoUnitario]
+    ]) {
+      // Bound untrusted input before regex scanning or Number conversion.
+      // This guard does not claim exact-cent arithmetic.
+      if (typeof valor === "string" && valor.length > 128) {
+        throw new Error("GRUK Ventas: datos economicos fuera de rango seguro");
+      }
+      if (typeof valor !== "number" && (typeof valor !== "string" || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(valor.trim()))) {
+        throw new Error("GRUK Ventas: datos economicos invalidos");
+      }
+    }
+
+    // Prevent tiny nonzero decimal strings from silently underflowing to zero.
+    // This is a fail-closed input guard, not a replacement for decimal arithmetic.
+    for (const valor of [pedido.precioUnitario, pedido.precio, productoServicio.costoUnitario]) {
+      if (typeof valor === "string" && Number(valor) === 0 &&
+          /[1-9]/.test(valor)) {
+        throw new Error("GRUK Ventas: precision economica insuficiente");
+      }
+    }
+
     const cantidad = Number(pedido.cantidad);
     const precioUnitario = Number(
       pedido.precioUnitario
     );
     const total = Number(pedido.precio);
-    const costoUnitario = Number(
+    costoUnitario = Number(
       productoServicio.costoUnitario
     );
 
@@ -113,7 +164,15 @@ async function registrarVentaDesdePedido({
       );
     }
 
-    const costoTotal =
+    // Reject integers that JavaScript cannot represent exactly. This is a
+    // fail-closed guard, NOT a substitute for the future decimal ledger.
+    if ([cantidad, precioUnitario, total, costoUnitario].some(
+      (valor) => Number.isInteger(valor) && !Number.isSafeInteger(valor)
+    )) {
+      throw new Error("GRUK Ventas: datos economicos fuera de rango seguro");
+    }
+
+    costoTotal =
       costoUnitario * cantidad;
 
     const utilidadBruta =
@@ -124,6 +183,17 @@ async function registrarVentaDesdePedido({
         ? (utilidadBruta / total) * 100
         : 0;
 
+    // Guard derived monetary values as well as inputs. Safe integer inputs
+    // can overflow when multiplied or subtracted; never persist such totals.
+    if (!Number.isFinite(costoTotal) || !Number.isFinite(utilidadBruta) ||
+        !Number.isFinite(margenBruto) ||
+        [costoTotal, utilidadBruta].some(
+          (valor) => Number.isInteger(valor) && !Number.isSafeInteger(valor)
+        )) {
+      throw new Error("GRUK Ventas: calculos economicos fuera de rango seguro");
+    }
+
+    creandoVenta = true;
     const [venta] = await Venta.create([{
       empresaId,
       sedeId,
@@ -167,6 +237,9 @@ costoFuente:
       }
     }], { session });
 
+    // Only Venta.create duplicate-key errors may trigger idempotent recovery.
+    // A downstream event handler failure must propagate as-is after creation.
+    creandoVenta = false;
     if (emitirEvento) eventBus.emit("VENTA_COMPLETADA", {
       ventaId: venta._id,
       empresaId: venta.empresaId,
@@ -205,7 +278,7 @@ costoFuente:
   } catch (error) {
     // Idempotencia:
     // el mismo pedido nunca debe generar dos ventas.
-    if (error && error.code === 11000) {
+    if (creandoVenta && error && error.code === 11000) {
       const filtroExistente = {
         origen: "restaurante",
         origenId: pedido._id,
@@ -219,7 +292,13 @@ costoFuente:
       const sameSale = Number(ventaExistente.cantidad) === Number(pedido.cantidad) &&
         Number(ventaExistente.precioUnitario) === Number(pedido.precioUnitario) &&
         Number(ventaExistente.total) === Number(pedido.precio) &&
+        // A replay must preserve the frozen unit cost and resulting total.
+        Number(ventaExistente.costoUnitario) === costoUnitario &&
+        Number(ventaExistente.costoTotal) === costoTotal &&
         String(ventaExistente.productoServicioId) === String(pedido.productoServicioId) &&
+        // Reject a replay that changes the explicit product concept.
+        (pedido.producto == null || ventaExistente.concepto == null ||
+          String(ventaExistente.concepto) === String(pedido.producto)) &&
         String(ventaExistente.metodoPago || "") === String(pedido.metodoPago || "") &&
         String(ventaExistente.clienteId || "") === String(pedido.clienteId || "");
       // Cancelled or unpaid sales cannot satisfy a paid-order replay.

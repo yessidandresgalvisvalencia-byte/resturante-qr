@@ -58,3 +58,38 @@ jobs:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
           GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_offline_test?replicaSet=rs0
         run: npm run gate
+
+  p004_mongodb_isolation:
+    name: P0-04 real MongoDB tenant isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Start disposable local MongoDB
+        run: |
+          docker run -d --name gruk-p004-disposable -p 127.0.0.1:27017:27017 mongo:7.0
+          for i in {1..30}; do
+            if docker exec gruk-p004-disposable mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then exit 0; fi
+            sleep 1
+          done
+          docker logs gruk-p004-disposable --tail 50
+          exit 1
+      - name: Run non-skipped MongoDB tenant isolation integration
+        env:
+          NODE_ENV: test
+          GRUK_TEST_MONGO_DISPOSABLE: "1"
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/
+        run: |
+          node --test test/gruk/p0-04-mongodb-tenant-isolation.integration.test.js | tee /tmp/gruk-p004-test.log
+          if grep -Eq '^# skipped [1-9]|^# fail [1-9]' /tmp/gruk-p004-test.log; then
+            echo "P0-04 integration test skipped or failed"
+            exit 1
+          fi

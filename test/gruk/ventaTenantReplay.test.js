@@ -36,7 +36,7 @@ const pedido={
   producto:"producto",restaurantId:"rest1",mesa:1
 };
 test("venta: reintento duplicado consulta exclusivamente empresa y sede correctas",async()=>{
-  const fake={_id:"venta_1",cantidad:1,precioUnitario:1000,total:1000,productoServicioId:"producto_1",estado:"pagada"};
+  const fake={_id:"venta_1",cantidad:1,precioUnitario:1000,total:1000,productoServicioId:"producto_1",costoUnitario:100,costoTotal:100,estado:"pagada"};
   const {service,seen}=makeService(fake);
   const result=await service.registrarVentaDesdePedido({
     pedido,empresaId:"empresa_A",sedeId:"sede_A",emitirEvento:false
