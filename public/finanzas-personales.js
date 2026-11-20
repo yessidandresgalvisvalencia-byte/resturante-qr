@@ -309,6 +309,7 @@ const renderPrestamo=x=>{
   if(origenConocido)html+='<button class="mini" onclick="window.registrarCobro(\''+esc(String(x._id))+'\','+Number(x.saldoMinor)+')">Registrar pago recibido</button>';
   else html+='<p>Origen por confirmar: indica si era trabajo o un préstamo. Aún no registres el pago ni lo cuentes como ingreso.</p>';
  }
+ if(!propia&&x.estado!=="CANCELADO")html+='<button class="secondary mini" onclick="window.corregirPrestamo(\''+esc(String(x._id))+'\')">Editar datos</button>';
  html+='</div></article>';
  return html;
 }
@@ -442,21 +443,17 @@ window.restaurarDeudaRetirada=(id,retiroHash)=>cambiarRetiroDeuda(id,{restaurar:
 window.restaurarCreditoAnterior=(id,retiroHash)=>cambiarRetiroDeuda(id,{restaurar:true,retiroHash,anterior:true});
 window.incorporarCreditoAnterior=id=>cambiarRetiroDeuda(id,{anterior:true,incorporar:true});
 window.corregirPrestamo=async id=>{const sesionCorreccion=token;try{
- const data=await api("/prestamos");const p=(data.prestamos||[]).find(x=>String(x._id)===String(id));
+ const data=await api("/prestamos");if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;const p=(data.prestamos||[]).find(x=>String(x._id)===String(id));
  if(!p)throw Error("Préstamo no encontrado");
  const persona=prompt("Persona o contraparte:",p.contraparte||"");if(persona===null)return;
  const concepto=prompt("Concepto:",p.concepto||"Préstamo");if(concepto===null)return;
  const importe=prompt("Valor original en pesos (los cobros ya registrados se conservarán):",String(p.principalMinor));if(importe===null)return;
  const monto=Number(importe);
- const origenActual=p.origenCuentaPorCobrar;
- const origen=prompt("¿Por qué te debían este dinero? Escribe 1 para préstamo personal, 2 para trabajo realizado o 3 para otro cobro.",origenActual==="TRABAJO"?"2":origenActual==="OTRO"?"3":origenActual==="PRESTAMO"?"1":"");if(origen===null)return;
- const clasificacion=({"1":"PRESTAMO","2":"TRABAJO","3":"OTRO"})[origen.trim()];
- if(!clasificacion)throw Error("Selecciona 1, 2 o 3 para clasificar el cobro.");
 
  if(!persona.trim()||!concepto.trim()||!Number.isSafeInteger(monto)||monto<=0)throw Error("Nombre, concepto o valor inválidos");
- if(!confirm("¿Confirmas la corrección? No se registrará ningún cobro nuevo."))return;
+ if(!confirm("¿Confirmas la corrección de datos? El origen se confirma por separado; no se registrará ningún cobro nuevo."))return;
  if(!sesionCorreccion||sesionCorreccion!==token||$("app").hidden)return;
- await aplicarCorreccionPrestamo(id,{contraparte:persona.trim(),concepto:concepto.trim(),principalMinor:monto,origenCuentaPorCobrar:clasificacion});
+ await aplicarCorreccionPrestamo(id,{contraparte:persona.trim(),concepto:concepto.trim(),principalMinor:monto});
  if(sesionCorreccion!==token||$("app").hidden)return;
  await load();if(sesionCorreccion!==token||$("app").hidden)return;alert("Cuenta por cobrar corregida. Los cobros existentes se conservaron.");
  }catch(e){if(sesionCorreccion===token&&!$("app").hidden)alert("No se pudo corregir el préstamo: "+e.message)}};

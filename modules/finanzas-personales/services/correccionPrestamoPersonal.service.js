@@ -21,6 +21,8 @@ function validar(u,id,c,s){
  if(!mongoose.isValidObjectId(u)||!mongoose.isValidObjectId(id)||s?.confirmacion!==true||typeof s.solicitudId!=="string"||!/^[A-Za-z0-9_-]{8,100}$/.test(s.solicitudId))throw falla("Confirma la corrección y conserva su identificador de reintento",400);
  const {error,value}=esquema.validate(c,{convert:false});if(error)throw falla("Cambios de préstamo inválidos",422);if(value.versionOrigen!==undefined&&(!value.origenCuentaPorCobrar||Object.keys(value).some(k=>!["origenCuentaPorCobrar","versionOrigen"].includes(k))))throw falla("Selección de origen inválida",422);if(value.revisarCobrosTrabajo===true&&(value.origenCuentaPorCobrar!=="TRABAJO"||Object.keys(value).some(k=>!["origenCuentaPorCobrar","revisarCobrosTrabajo"].includes(k))))throw falla("Revisión de cobros inválida",422);return value;
 }
+// Se conserva validar() para verificar/reintentar eventos históricos con su cuerpo original.
+function exigirVersionOrigenNueva(c){if(Object.hasOwn(c,"origenCuentaPorCobrar")&&c.revisarCobrosTrabajo!==true&&c.versionOrigen===undefined)throw Object.assign(falla("Confirma el origen por separado desde Confirmar origen, con la selección vigente. Conserva la solicitud histórica si estás consultando una corrección anterior",422),{code:"ORIGEN_REQUIERE_VERSION"});}
 async function corregir(usuarioId,prestamoId,cambios,solicitud,aplicar){
  const c=validar(usuarioId,prestamoId,cambios,solicitud),solicitudHash=digest(c);await exigirIndices();
  const session=await mongoose.startSession();let resultado;
@@ -30,6 +32,7 @@ async function corregir(usuarioId,prestamoId,cambios,solicitud,aplicar){
   if(ultimo&&ultimo.posterior?.origenCuentaPorCobrar!==raw.origenCuentaPorCobrar)throw falla("Origen actual no coincide con la última corrección auditada; requiere revisión sin reparar automáticamente");
   const replay=await E.findOne({usuarioId,solicitudId:solicitud.solicitudId}).session(session).lean();
   if(replay){if(String(replay.prestamoId)!==String(prestamoId)||replay.solicitudHash!==solicitudHash)throw falla("Identificador de corrección usado con otros datos");resultado={...raw,correccion:{hash:replay.hashActual,duplicado:true,vigente:ultimo?.hashActual===replay.hashActual&&igual(foto(raw),replay.posterior)}};return;}
+  exigirVersionOrigenNueva(c);
   if(c.versionOrigen!==undefined){
    if(c.versionOrigen!==await require("./seleccionOrigenCobroPersonal.service").enSesion(usuarioId,raw,eventos,session))throw falla("La cuenta, sus correcciones o cobros cambiaron. Consulta de nuevo antes de confirmar el origen");
    await require("./proteccionOriginalCompensadoPersonal.service").serializarEscrituraFuente(usuarioId,session);
@@ -51,4 +54,4 @@ async function historial(usuarioId,prestamoId){
  const eventos=await E.find({usuarioId,prestamoId}).sort({secuencia:1}).limit(MAX+1).maxTimeMS(5000).session(session).lean();verificar(eventos,p);resultado={eventos,alcance:"CORRECCIONES_REGISTRADAS",certificaHistoriaCompleta:false};
  },{readConcern:{level:"snapshot"},readPreference:"primary"});return resultado;}finally{await session.endSession();}
 }
-module.exports={foto,digest,hash,verificar,validar,exigirIndices,corregir,historial};
+module.exports={exigirVersionOrigenNueva,foto,digest,hash,verificar,validar,exigirIndices,corregir,historial};

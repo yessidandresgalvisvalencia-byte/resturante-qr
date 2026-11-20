@@ -10,8 +10,9 @@ const Outbox=require("../../modules/finanzas-personales/models/outboxPersonal.mo
 const Evento=require("../../modules/finanzas-personales/models/EventoCompensatorioPersonal");
 const Cursor=require("../../modules/finanzas-personales/models/CursorCompensacionPersonal");
 const {consultarPeriodo,consultarCaja}=require("../../modules/finanzas-personales/services/consultaCompensadaPersonal.service");
-const {saldoCuentasDesdeAnclas,corregirPrestamo}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
+const {saldoCuentasDesdeAnclas,corregirPrestamo:corregirPrestamoOriginal}=require("../../modules/finanzas-personales/services/patrimonioPersonal.service");
 const {republicarPendientes}=require("../../modules/finanzas-personales/services/flujoCajaPersonal.service");
+const corregirPrestamo=async(u,id,c,s)=>corregirPrestamoOriginal(u,id,{...c,versionOrigen:(await require("../../modules/finanzas-personales/services/diagnosticoOrigenCobroPersonal.service").consultar(u,id)).versionOrigen},s);
 const uri=process.env.GRUK_V81_TEST_MONGO_URI;
 test("MongoDB real: reparar cobros de trabajo conserva fuentes y caja, con reintentos y rollback",{
  skip:!uri&&process.env.GRUK_REQUIRE_COMPENSACION_MONGO_TEST!=="1"?"Requiere replica set local aislado":false,timeout:60000
