@@ -11,6 +11,7 @@ function decimalParts(value, label = "monto") {
     throw new Error("DINERO_INVALIDO_" + label);
   }
   const raw = String(value).trim();
+  if (raw.length > 128) throw new Error("DINERO_RANGO_" + label);
   const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(raw);
   if (!match) throw new Error("DINERO_INVALIDO_" + label);
   const fraction = match[3] || "";
@@ -41,7 +42,9 @@ function quantityParts(value) {
       (typeof value === "number" && !Number.isFinite(value))) {
     throw new Error("DINERO_CANTIDAD_INVALIDA");
   }
-  const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(String(value).trim());
+  const raw = String(value).trim();
+  if (raw.length > 128) throw new Error("DINERO_CANTIDAD_RANGO");
+  const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(raw);
   if (!match) throw new Error("DINERO_CANTIDAD_INVALIDA");
   const fractional = match[3] || "";
   if (fractional.length > 6 && /[1-9]/.test(fractional.slice(6))) {
