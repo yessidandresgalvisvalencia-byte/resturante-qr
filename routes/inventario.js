@@ -7,6 +7,7 @@ const router = express.Router();
 const Inventario =
 require("../models/Inventario");
 const Restaurante = require("../models/restaurante");
+const Sede = require("../models/sede");
 const authMiddleware = require("../core/auth/auth.middleware");
 const {
   ROLES_GRUK,
@@ -94,6 +95,22 @@ router.post(
         return res.status(403).json({ ok: false, error: "Inventario fuera de sede" });
       }
       datos.sedeId = req.auth.sedeId;
+    }
+
+    // Even the owner cannot attach a foreign company's or another
+    // restaurant's branch to newly created inventory.
+    if (datos.sedeId != null) {
+      if (!mongoose.Types.ObjectId.isValid(datos.sedeId)) {
+        return res.status(400).json({ ok: false, error: "Sede inválida" });
+      }
+      const sede = await Sede.findOne({
+        _id: datos.sedeId,
+        empresaId: req.auth.empresaId,
+        restauranteId: datos.restaurantId
+      }).select("_id").lean();
+      if (!sede) {
+        return res.status(403).json({ ok: false, error: "Sede fuera de empresa o restaurante" });
+      }
     }
 
     const inventario = new Inventario(datos);
