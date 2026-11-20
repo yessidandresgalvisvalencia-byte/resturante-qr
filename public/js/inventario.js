@@ -41,6 +41,20 @@ async function guardarInventario() {
 
 const estadoFiltrosInventarioGRUK = { page: 1, limit: 50 };
 
+// Un vencimiento desconocido no equivale a cero días.
+function obtenerDiasRestantesInventarioGRUK(producto) {
+  const valor = producto?.diasRestantes;
+  if (valor === null || valor === undefined || valor === "") return null;
+  const dias = Number(valor);
+  return Number.isFinite(dias) ? dias : null;
+}
+
+function estaProximoInventarioGRUK(producto, maxDias) {
+  if (producto.estado === "vencido" || producto.estado === "agotado") return false;
+  const dias = obtenerDiasRestantesInventarioGRUK(producto);
+  return dias !== null && dias >= 0 && dias <= maxDias;
+}
+
 function escaparInventarioGRUK(valor) {
   return String(valor ?? "")
     .replace(/&/g, "&amp;")
@@ -324,7 +338,7 @@ async function generarPlanInventarioMensualGRUK() {
 
   const analisis = productos.map(p => {
     const cantidad = Number(p.cantidad || 0);
-    const dias = Number(p.diasRestantes || 0);
+    const dias = obtenerDiasRestantesInventarioGRUK(p);
 
     let recomendacion = "Mantener compra normal";
     let prioridad = "🟢 Normal";
@@ -334,17 +348,17 @@ async function generarPlanInventarioMensualGRUK() {
       prioridad = "🔴 Crítico";
       recomendacion = "No comprar más";
       accion = "Retirar o revisar inmediatamente. No debe usarse sin validación.";
-    } else if (p.estado === "proximo" || dias <= 7) {
+    } else if (p.estado === "proximo" || (dias !== null && dias >= 0 && dias <= 7)) {
       prioridad = "🟠 Alta";
       recomendacion = "Usar primero";
       accion = "Priorizar este producto en ventas, combos o producción antes de comprar más.";
-    } else if (dias <= 20) {
+    } else if (dias !== null && dias >= 0 && dias <= 20) {
       prioridad = "🟡 Media";
       recomendacion = "Comprar con cuidado";
       accion = "Evitar sobrecompra. Consumir inventario actual antes de reponer.";
     }
 
-    if (eventos.factorDemanda > 1 && p.categoria) {
+    if (eventos.temporadaPotencial && p.categoria && p.estado !== "vencido" && p.estado !== "proximo" && (dias === null || dias > 20) && cantidad > 0) {
       const categoria = String(p.categoria).toLowerCase();
 
       if (
@@ -353,8 +367,8 @@ async function generarPlanInventarioMensualGRUK() {
         categoria.includes("comida") ||
         categoria.includes("insumo")
       ) {
-        recomendacion = "Aumentar compra controlada";
-        accion += ` Evento próximo detectado: ${eventos.descripcion}. Aumentar compra entre 10% y 25% si el producto rota bien.`;
+        recomendacion = "Revisar demanda estacional";
+        accion += ` Posible temporada de mayor demanda: ${eventos.descripcion} Confirma rotación histórica antes de ajustar compras.`;
       }
     }
 
@@ -389,7 +403,7 @@ async function generarPlanInventarioMensualGRUK() {
       <h3>🧠 Planificador mensual de inventario GRUK</h3>
       <p><strong>Mes analizado:</strong> ${mesNombre}</p>
       <p><strong>Contexto detectado:</strong> ${eventos.descripcion}</p>
-      <p><strong>Factor de demanda:</strong> ${eventos.factorDemanda}x</p>
+      <p><strong>Pronóstico:</strong> No se calcula sin historial de ventas validado.</p>
 
       <table style="width:100%;border-collapse:collapse;margin-top:15px;">
         <thead>
@@ -410,7 +424,7 @@ async function generarPlanInventarioMensualGRUK() {
               <td>${item.nombre}</td>
               <td>${item.categoria || "-"}</td>
               <td>${item.cantidad} ${item.unidad || ""}</td>
-              <td>${item.diasRestantes} días</td>
+              <td>${item.diasRestantes === null ? "Sin vencimiento" : item.diasRestantes + " días"}</td>
               <td>${item.prioridad}</td>
               <td>${item.recomendacion}</td>
               <td>${item.accion}</td>
@@ -426,36 +440,36 @@ function detectarEventosInventarioGRUK(fechaMes) {
   const mes = fechaMes.getMonth() + 1;
 
   let descripcion = "Mes normal sin eventos fuertes detectados.";
-  let factorDemanda = 1;
+  let temporadaPotencial = false;
 
   if (mes === 12) {
     descripcion = "Temporada navideña y fin de año. Puede aumentar demanda de comidas, bebidas y celebraciones.";
-    factorDemanda = 1.25;
+    temporadaPotencial = true;
   }
 
   if (mes === 1) {
     descripcion = "Enero puede tener demanda irregular por vacaciones y menor flujo en algunos sectores.";
-    factorDemanda = 0.9;
+    temporadaPotencial = false;
   }
 
   if (mes === 5) {
     descripcion = "Mes con celebraciones familiares como Día de la Madre. Puede subir demanda de comidas especiales y bebidas.";
-    factorDemanda = 1.15;
+    temporadaPotencial = true;
   }
 
   if (mes === 6 || mes === 7) {
     descripcion = "Temporada de vacaciones y posibles eventos deportivos. Vigilar demanda de comidas rápidas, carnes y bebidas.";
-    factorDemanda = 1.12;
+    temporadaPotencial = true;
   }
 
   if (mes === 9 || mes === 10) {
     descripcion = "Mes comercial relativamente normal. Mantener compras controladas según rotación.";
-    factorDemanda = 1;
+    temporadaPotencial = false;
   }
 
   return {
     descripcion,
-    factorDemanda
+    temporadaPotencial
   };
 }
 async function diagnosticoInventarioGRUK() {
@@ -482,7 +496,7 @@ async function diagnosticoInventarioGRUK() {
   const totalProductos = productos.length;
 
   const vencidos = productos.filter(p => p.estado === "vencido");
-  const proximos = productos.filter(p => p.estado === "proximo" || Number(p.diasRestantes || 0) <= 7);
+  const proximos = productos.filter(p => estaProximoInventarioGRUK(p, 7));
   const sinStock = productos.filter(p => Number(p.cantidad || 0) <= 0);
 
   const valorInventario = productos.reduce((acc, p) => {
@@ -506,11 +520,11 @@ async function diagnosticoInventarioGRUK() {
     .slice(0, 5);
 
   const noComprar = productos
-    .filter(p => p.estado === "vencido" || p.estado === "proximo" || Number(p.diasRestantes || 0) <= 10)
+    .filter(p => p.estado === "vencido" || estaProximoInventarioGRUK(p, 10))
     .slice(0, 5);
 
   const usarPrimero = productos
-    .filter(p => p.estado === "proximo" || Number(p.diasRestantes || 0) <= 7)
+    .filter(p => estaProximoInventarioGRUK(p, 7))
     .slice(0, 5);
 
   const saludo = obtenerSaludoInventarioGRUK();
