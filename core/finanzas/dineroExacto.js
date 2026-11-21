@@ -4,6 +4,8 @@
 // Reject values that cannot be represented as exact cents, rather than
 // silently rounding historical inputs. Mongo numeric schema stays unchanged.
 const MAX = BigInt(Number.MAX_SAFE_INTEGER);
+// Bound untrusted decimal strings before regex and BigInt allocation.
+const MAX_DECIMAL_INPUT_LENGTH = 128;
 
 function decimalParts(value, label = "monto") {
   if ((typeof value !== "number" && typeof value !== "string") ||
