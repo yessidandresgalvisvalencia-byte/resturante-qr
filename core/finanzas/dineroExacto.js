@@ -24,6 +24,7 @@ function decimalParts(value, label = "monto") {
 }
 
 function safeCents(cents, label = "monto") {
+  if (typeof cents !== "bigint") throw new Error("DINERO_INVALIDO_" + label);
   if (cents < -MAX || cents > MAX) throw new Error("DINERO_RANGO_" + label);
   return Number(cents) / 100;
 }
@@ -58,6 +59,7 @@ function quantityParts(value) {
 }
 
 function exactProduct(unitCentavos, quantity, label = "total") {
+  if (typeof unitCentavos !== "bigint") throw new Error("DINERO_INVALIDO_" + label);
   const { units, denominator } = quantityParts(quantity);
   const numerator = unitCentavos * units;
   if (numerator % denominator !== 0n) {
