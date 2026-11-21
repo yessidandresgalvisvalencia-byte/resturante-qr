@@ -65,3 +65,21 @@ test("P0-06 rejects accessor-backed tenant, idempotency and money fields without
     assert.equal(called, false);
   }
 });
+
+test("P0-06 rejects inherited and accessor-backed reconciliation envelope fields without calling getters", () => {
+  for (const field of ["empresaId", "sedeId", "movements", "expectedCentavos"]) {
+    const valid = input([movement("sale:1", "100")], "100");
+    let called = false;
+    Object.defineProperty(valid, field, { configurable: true, get() { called = true; throw new Error("UNTRUSTED_GETTER"); } });
+    assert.throws(() => reconcileMovements(valid), /ENTRADA_CAMPO_INVALIDO/);
+    assert.equal(called, false);
+    const inherited = input([], "0");
+    const value = inherited[field];
+    delete inherited[field];
+    Object.setPrototypeOf(inherited, { [field]: value });
+    assert.throws(() => reconcileMovements(inherited), /ENTRADA_CAMPO_INVALIDO/);
+  }
+  assert.throws(() => reconcileMovements(null), /ENTRADA_INVALIDA/);
+  assert.throws(() => reconcileMovements([]), /ENTRADA_INVALIDA/);
+  assert.equal(reconcileMovements(input([movement("sale:1", "100")], "100")).balanced, true);
+});
