@@ -17,6 +17,8 @@ test("P0-07 bounds quantity strings before BigInt", () => {
 test("P0-07 retains exact arithmetic and precision validation", () => {
   assert.equal(cents("12.30"), 1230n);
   assert.equal(cents("0." + "0".repeat(126)), 0n);
+  assert.equal(cents("0".repeat(128)), 0n);
+  assert.deepEqual(quantityParts("0".repeat(127) + "1"), { units: 1n, denominator: 1n });
   assert.deepEqual(quantityParts("1.5"), { units: 15n, denominator: 10n });
   assert.throws(() => cents("1.001"), /DINERO_PRECISION/);
   assert.throws(() => quantityParts("1.0000001"), /DINERO_CANTIDAD_PRECISION/);
