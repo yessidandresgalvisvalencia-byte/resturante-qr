@@ -30,6 +30,10 @@ function reconcileMovements({ empresaId, sedeId, movements, expectedCentavos }) 
   const duplicates = [];
   for (const movement of movements) {
     if (!movement || typeof movement !== "object" || Array.isArray(movement)) throw new Error("CONCILIACION_MOVIMIENTO_INVALIDO");
+    // Reject inherited scope/identity fields: untrusted payloads must carry their own tenant context.
+    for (const field of ["empresaId", "sedeId", "idempotencyKey", "centavos"]) {
+      if (!Object.prototype.hasOwnProperty.call(movement, field)) throw new Error("CONCILIACION_CAMPO_PROPIO_FALTANTE_" + field);
+    }
     if (movement.empresaId !== empresaId || movement.sedeId !== sedeId) throw new Error("CONCILIACION_TENANT_INCORRECTO");
     const id = requireId(movement.idempotencyKey, "idempotencia");
     const amount = parseCentavos(movement.centavos);
