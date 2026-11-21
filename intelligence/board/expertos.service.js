@@ -2203,6 +2203,71 @@ function acuerdosPara({
   return [];
 }
 
+function marcoCEOPara({
+  temas,
+  reportes
+}) {
+  const principal =
+    temaPrincipal(temas);
+
+  const finanzas =
+    reportePorDepartamento(
+      reportes,
+      "FINANZAS"
+    );
+
+  const ventas =
+    reportePorDepartamento(
+      reportes,
+      "VENTAS"
+    );
+
+  const preguntas = [
+    "¿Cuánto efectivo verificable hay hoy y qué obligaciones vencen en los próximos 7 y 30 días?",
+    "¿Qué margen real deja lo que más vendemos después de costo directo y qué parte de las ventas todavía no tiene costo confiable?",
+    "¿Cuál es el objetivo económico prioritario de los próximos 30 días: sobrevivir caja, recuperar margen, crecer ventas rentables o estabilizar operación?"
+  ];
+
+  const accionesPorTema = {
+    FLUJO_CAJA: [
+      "Actualizar hoy el calendario de cobros y obligaciones de 7 y 30 días.",
+      "Congelar compromisos no esenciales hasta confirmar cobertura de caja.",
+      "Separar caja operativa, reservas y dinero del dueño para no contar el mismo peso dos veces."
+    ],
+    MARGEN_PRECIO: [
+      "Tomar los productos de mayor venta y reconstruir precio, costo confiable, margen y merma.",
+      "Corregir primero costos o desperdicio demostrados antes de subir precios de forma general.",
+      "Definir el margen objetivo empresarial y medir semanalmente la desviación."
+    ],
+    VENTAS: [
+      "Separar ventas, cobros, ticket y recurrencia para identificar qué ingreso es realmente repetible.",
+      "Priorizar cobranza de ventas vencidas o próximas antes de financiar crecimiento con caja incierta.",
+      "Conectar cada iniciativa comercial con margen y fecha real de cobro."
+    ],
+    GENERAL: [
+      "Completar una sola vez la configuración base de GRUK para que las neuronas comparen contra objetivos reales.",
+      "Elegir un único problema económico prioritario y asignarle responsable, KPI y horizonte de 7 días.",
+      "No aprobar gasto, contratación o expansión que no explique impacto en caja y margen."
+    ]
+  };
+
+  const acciones =
+    accionesPorTema[principal] ||
+    accionesPorTema.GENERAL;
+
+  return {
+    preguntas_criticas:
+      preguntas,
+    acciones_inmediatas:
+      acciones,
+    diagnostico_ejecutivo:
+      finanzas?.kpi_principal?.evaluabilidad === "SIN_CONFIGURAR" ||
+      ventas?.kpi_principal?.evaluabilidad === "SIN_CONFIGURAR"
+        ? "La prioridad ejecutiva es completar la referencia económica mínima de la empresa antes de interpretar faltantes de configuración como problemas del negocio."
+        : "La prioridad ejecutiva es aislar el problema con mayor impacto económico y convertirlo en una acción medible, no abrir múltiples frentes simultáneos."
+  };
+}
+
 function marcoAsesoriaPara({
   departamento,
   temas,
@@ -2471,10 +2536,24 @@ function construirRespuestaExperta({
       reporte
     });
 
+  const marcoCEO =
+    departamento === "DIRECCION"
+      ? marcoCEOPara({
+          temas,
+          reportes
+        })
+      : null;
+
   return {
     departamento,
     respuesta:
       `${departamento}: ${respuesta}`,
+    diagnostico_ejecutivo:
+      marcoCEO?.diagnostico_ejecutivo || null,
+    preguntas_criticas:
+      marcoCEO?.preguntas_criticas || [],
+    acciones_inmediatas:
+      marcoCEO?.acciones_inmediatas || [],
     criterio_profesional:
       `${perfil.cargo}. ${perfil.preguntaCentral} Mi criterio es priorizar la decisión que proteja resultado económico, continuidad y capacidad de ejecución; separar hechos de supuestos; y exigir una métrica para comprobar después si funcionó. Principios aplicados: ${criterios.join(" ")}`,
     prioridad_profesional:

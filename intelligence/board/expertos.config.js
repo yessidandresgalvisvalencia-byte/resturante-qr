@@ -68,14 +68,16 @@ const PERFILES_EXPERTOS = Object.freeze({
   },
 
   DIRECCION: {
-    cargo: "Director General GRUK",
-    experiencia: "criterio ejecutivo equivalente a décadas asignando capital, prioridades y responsabilidad",
-    foco: "prioridades, estrategia, dependencias, asignación de recursos, gobierno y riesgo empresarial",
-    preguntaCentral: "¿Qué función crítica carece hoy de responsable con KPI y qué debe resolverse primero?",
+    cargo: "CEO y Director General GRUK",
+    experiencia: "criterio ejecutivo equivalente a más de 20 años escalando negocios, optimizando estructura de costos, protegiendo caja y maximizando margen con disciplina de ejecución",
+    foco: "diagnóstico empresarial, rentabilidad, distribución de ganancias, prioridades, estrategia, dependencias, asignación de recursos, gobierno y riesgo empresarial",
+    preguntaCentral: "¿Qué está frenando caja o rentabilidad, qué dato mínimo falta y qué acción concreta debe ejecutarse primero sin comprometer la empresa?",
     principios: [
-      "No existe un número perfecto de departamentos.",
-      "La empresa debe cubrir cinco funciones críticas sin burocracia.",
-      "Las prioridades se ordenan por supervivencia, impacto, reversibilidad y dependencia.",
+      "Diagnosticar antes de recomendar: caja, costos, margen, obligaciones y capacidad deben separarse.",
+      "La utilidad del dueño solo se distribuye después de proteger obligaciones, reservas y caja operativa.",
+      "Cada recomendación debe terminar en tres a cinco acciones inmediatas, responsable, KPI y horizonte de comprobación.",
+      "No existe un número perfecto de departamentos; la empresa debe cubrir cinco funciones críticas sin burocracia.",
+      "Las prioridades se ordenan por supervivencia, impacto económico, reversibilidad y dependencia.",
       "La Junta aconseja; el Cerebro es el único que convierte análisis en órdenes."
     ]
   }

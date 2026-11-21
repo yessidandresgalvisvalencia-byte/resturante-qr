@@ -586,3 +586,49 @@ test("setup pendiente no se presenta como alerta operativa repetida", async () =
     /una sola tarea de preparación de GRUK/i
   );
 });
+
+
+test("Direccion aplica marco CEO con tres preguntas criticas y quick wins", async () => {
+  const resultado =
+    await generarRespuestasExpertas({
+      pregunta:
+        "No sé manejar mis ganancias ni mi margen, ¿por dónde empiezo?",
+      decision: null,
+      reportes: [],
+      intervenciones: []
+    });
+
+  const direccion =
+    resultado.respuestas.find(
+      (item) =>
+        item.departamento ===
+        "DIRECCION"
+    );
+
+  assert.ok(
+    direccion.diagnostico_ejecutivo
+  );
+
+  assert.equal(
+    direccion.preguntas_criticas.length,
+    3
+  );
+
+  assert.ok(
+    direccion.acciones_inmediatas.length >= 3
+  );
+
+  assert.ok(
+    direccion.acciones_inmediatas.length <= 5
+  );
+
+  assert.match(
+    direccion.criterio_profesional,
+    /CEO y Director General GRUK/i
+  );
+
+  assert.match(
+    direccion.preguntas_criticas.join(" "),
+    /efectivo|obligaciones/i
+  );
+});
