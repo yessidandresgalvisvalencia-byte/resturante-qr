@@ -8,7 +8,7 @@ function claimsValidas(payload){
  // Tenant identifiers become database scope keys. Reject whitespace, operator-like
  // characters and overlong values instead of normalizing untrusted claims.
  const TENANT_ID=/^[A-Za-z0-9_-]{1,80}$/;
- if(!TENANT_ID.test(payload.empresaId))return false;
+ if(!TENANT_ID.test(payload.sub)||!TENANT_ID.test(payload.empresaId))return false;
  if(payload.sedeId!==undefined&&payload.sedeId!==null&&!TENANT_ID.test(payload.sedeId))return false;
  if(payload.restaurantId!==undefined&&payload.restaurantId!==null&&!TENANT_ID.test(payload.restaurantId))return false;
  if(typeof payload.rol!=="string"||!ROLES.has(payload.rol))return false;
