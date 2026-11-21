@@ -4,6 +4,8 @@
 // Reject values that cannot be represented as exact cents, rather than
 // silently rounding historical inputs. Mongo numeric schema stays unchanged.
 const MAX = BigInt(Number.MAX_SAFE_INTEGER);
+// Limit untrusted decimal inputs before regex matching or BigInt allocation.
+const MAX_DECIMAL_INPUT_LENGTH = 128;
 
 function decimalParts(value, label = "monto") {
   if ((typeof value !== "number" && typeof value !== "string") ||
@@ -11,6 +13,7 @@ function decimalParts(value, label = "monto") {
     throw new Error("DINERO_INVALIDO_" + label);
   }
   const raw = String(value).trim();
+  if (raw.length > MAX_DECIMAL_INPUT_LENGTH) throw new Error("DINERO_RANGO_" + label);
   const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(raw);
   if (!match) throw new Error("DINERO_INVALIDO_" + label);
   const fraction = match[3] || "";
@@ -24,6 +27,7 @@ function decimalParts(value, label = "monto") {
 }
 
 function safeCents(cents, label = "monto") {
+  if (typeof cents !== "bigint") throw new Error("DINERO_INVALIDO_" + label);
   if (cents < -MAX || cents > MAX) throw new Error("DINERO_RANGO_" + label);
   return Number(cents) / 100;
 }
@@ -41,7 +45,9 @@ function quantityParts(value) {
       (typeof value === "number" && !Number.isFinite(value))) {
     throw new Error("DINERO_CANTIDAD_INVALIDA");
   }
-  const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(String(value).trim());
+  const raw = String(value).trim();
+  if (raw.length > MAX_DECIMAL_INPUT_LENGTH) throw new Error("DINERO_CANTIDAD_RANGO");
+  const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(raw);
   if (!match) throw new Error("DINERO_CANTIDAD_INVALIDA");
   const fractional = match[3] || "";
   if (fractional.length > 6 && /[1-9]/.test(fractional.slice(6))) {
@@ -58,6 +64,7 @@ function quantityParts(value) {
 }
 
 function exactProduct(unitCentavos, quantity, label = "total") {
+  if (typeof unitCentavos !== "bigint") throw new Error("DINERO_INVALIDO_" + label);
   const { units, denominator } = quantityParts(quantity);
   const numerator = unitCentavos * units;
   if (numerator % denominator !== 0n) {
