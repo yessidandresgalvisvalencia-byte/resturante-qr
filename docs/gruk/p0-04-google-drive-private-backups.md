@@ -1,0 +1,41 @@
+# GRUK Empresarial — respaldo cifrado a la carpeta privada de Google Drive
+
+## Destino real creado y verificado
+
+- Carpeta matriz privada: https://drive.google.com/drive/folders/1kI7r6ImpE7V-C8u7swDaorffdKz6w1NN
+- Carpeta **01_RESPALDOS_CIFRADOS**: https://drive.google.com/drive/folders/1_1OxE9Ey7kr-GoCjOnC_Elm_sJpTQrfN
+- Carpeta **02_VERIFICACIONES_Y_RESTAURACION**: https://drive.google.com/drive/folders/1ZUNjn4XHhH7RB_pvqUO37EMBGI2VUlF7
+- Carpeta **03_MANIFIESTOS_SIN_DATOS_PERSONALES**: https://drive.google.com/drive/folders/1CfZhbOqDNu7SRgYHrO8LwF5Pu9v9y5F0
+
+El propietario es el único usuario con permisos en la carpeta principal (verificación de metadatos 20/11/2026). **No existen respaldos reales verificados por el solo hecho de crear una carpeta.**
+
+## Qué hace el nuevo flujo
+
+`.github/workflows/gruk-p004-google-drive-encrypted-backup.yml` ejecuta en cada PR un test sin datos reales. La operación REAL está desactivada por defecto y solo puede dispararse mediante `workflow_dispatch`, validación de base exacta y confirmación expresa.
+
+1. Lee la base empresarial **`restaurante`** con credenciales MongoDB exclusivas de lectura. No toca Finanzas Personales.
+2. Ejecuta `mongodump --db=restaurante --archive --gzip` y cifra el stream en el runner con `age` antes de guardar o subir cualquier archivo.
+3. Usa un cliente OAuth propio de Google Drive con `refresh_token` para subir únicamente un objeto `.archive.age` a la carpeta privada exacta; GitHub **no hereda** la autorización del conector de ChatGPT.
+4. Descarga la copia cifrada por ID, valida tamaño y SHA-256, y descifra temporalmente solo para `mongorestore` en Docker `--network none`. El destino es `restaurante_restore_drill`, nunca Atlas.
+5. Compara nombres, recuentos de documentos e índices con la base de origen. El resultado exitoso se registra en GitHub Actions sin volcar secretos ni información personal.
+
+## Configuración necesaria (todavía no confirmada)
+
+Para automatizar desde GitHub se necesita una autorización OAuth de Google Drive separada de la conexión de ChatGPT, con alcance apropiado para escribir y leer la carpeta seleccionada y permisos mínimos. Crear en Google Cloud un cliente OAuth, habilitar Drive API y autorizar un `refresh_token` propio del usuario para esta aplicación. Preferir alcance restringido `drive.file` junto con selección explícita de carpeta mediante Picker; si el flujo de autorización no otorga acceso a una carpeta preexistente, se necesitará un mecanismo de selección autorizado. No conceder acceso global por defecto.
+
+Guardar como secretos del entorno protegido `gruk-enterprise-real-backup`:
+- `GRUK_DRIVE_OAUTH_CLIENT_ID`, `GRUK_DRIVE_OAUTH_CLIENT_SECRET`, `GRUK_DRIVE_OAUTH_REFRESH_TOKEN`
+- `GRUK_BACKUP_AGE_RECIPIENT` (clave pública), `GRUK_BACKUP_AGE_IDENTITY` (identidad privada de descifrado para el ensayo, con copia de emergencia **cifrada y custodiada fuera de GitHub/Drive**)
+- `GRUK_ENTERPRISE_READONLY_MONGO_URI`, con permiso exclusivo para leer `restaurante` y credencial rotada según política.
+
+El ID de la carpeta cifrada es fijo en el workflow; no es un secreto. Configurar *required reviewers* en el entorno protegido y la menor duración posible de las credenciales. Nunca publicar claves privadas ni tokens en issues, repositorios, Drive, logs o chat.
+
+## Limitaciones y aceptación
+
+- No programar cron real ni eliminar índices hasta que funcione una primera copia/restore y un encargado apruebe retención y custodia de claves.
+- **Un test de contrato verde no significa backup real ejecutado**. Solo si el job real registra `GRUK_DRIVE_BACKUP_REAL_RESTORE_OK` con el objeto remoto recuperado podrá hablarse de restauración técnica comprobada.
+- El comparador de índices/conteos podría fallar si la base sigue cambiando durante el backup. Acordar ventana de baja actividad o implementar método de snapshot consistente antes de certificar los balances.
+- La prueba de conteos/índices no valida por sí sola todos los hashes de documentos, importes por sede, RPO/RTO, frecuencia ni recuperación ante la pérdida simultánea de Google y GitHub.
+- El plan maestro exige un respaldo recuperable y trazabilidad **antes** de retirar un índice único global heredado o declarar el producto listo para cobros reales.
+
+**Estado a 20/11/2026:** estructura privada creada; código de transporte y ensayo construido; autorizaciones OAuth propias de GitHub, ejecución con datos reales y validación integral **pendientes**.
