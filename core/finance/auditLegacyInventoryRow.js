@@ -1,0 +1,47 @@
+"use strict";
+
+/**
+ * P0-07: read-only preflight for legacy inventory rows.
+ * Never round, mutate or silently migrate Number-backed money.
+ * Reject unsafe or ambiguous representations before exact valuation.
+ */
+function auditLegacyInventoryRow(row) {
+  const issues = [];
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    return { safe: false, issues: ["ROW_INVALID"] };
+  }
+  for (const field of ["cantidad", "costo"]) {
+    let descriptor;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(row, field);
+    } catch {
+      // Proxies and exotic documents can throw while inspecting properties.
+      // Treat them as untrusted rather than aborting an entire read-only audit.
+      issues.push(field.toUpperCase() + "_DESCRIPTOR_ERROR");
+      continue;
+    }
+    if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+      issues.push(field.toUpperCase() + "_MISSING_OR_ACCESSOR");
+      continue;
+    }
+    const value = descriptor.value;
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || Object.is(value, -0)) {
+      issues.push(field.toUpperCase() + "_INVALID");
+      continue;
+    }
+    // Historical JS Numbers cannot prove their original decimal representation.
+    // In particular unsafe integers and sub-cent prices cannot be migrated exactly.
+    if (Math.abs(value) >= Number.MAX_SAFE_INTEGER && !Number.isSafeInteger(value)) {
+      issues.push(field.toUpperCase() + "_UNSAFE_INTEGER");
+    }
+    if (field === "costo" && !Number.isSafeInteger(Math.round(value * 100))) {
+      issues.push("COSTO_CENTS_UNSAFE");
+    }
+    if (field === "costo" && Math.round(value * 100) / 100 !== value) {
+      issues.push("COSTO_SUBCENT");
+    }
+  }
+  return { safe: issues.length === 0, issues };
+}
+
+module.exports = { auditLegacyInventoryRow };
