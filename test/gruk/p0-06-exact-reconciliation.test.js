@@ -83,3 +83,21 @@ test("P0-06 rejects inherited and accessor-backed reconciliation envelope fields
   assert.throws(() => reconcileMovements([]), /ENTRADA_INVALIDA/);
   assert.equal(reconcileMovements(input([movement("sale:1", "100")], "100")).balanced, true);
 });
+
+test("P0-06 reads movement fields only from validated own descriptors, not proxy getters", () => {
+  let reads = 0;
+  const original = movement("safe-key", "125");
+  const hostile = new Proxy(original, {
+    get(_target, field) {
+      if (["empresaId", "sedeId", "idempotencyKey", "centavos"].includes(field)) {
+        reads++;
+        throw new Error("UNTRUSTED_PROXY_GET");
+      }
+      return Reflect.get(_target, field);
+    }
+  });
+  const result = reconcileMovements(input([hostile], "125"));
+  assert.equal(result.balanced, true);
+  assert.equal(result.uniqueMovements, 1);
+  assert.equal(reads, 0);
+});
