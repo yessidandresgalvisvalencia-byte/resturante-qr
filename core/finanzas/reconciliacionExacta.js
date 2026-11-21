@@ -14,6 +14,7 @@ function parseCentavos(value) {
   if (typeof value !== "string" || !/^-?(0|[1-9]\d{0,15})$/.test(value)) {
     throw new Error("CONCILIACION_MONTO_INVALIDO");
   }
+  if (value === "-0") throw new Error("CONCILIACION_MONTO_INVALIDO");
   const amount = BigInt(value);
   if (amount > MAX || amount < -MAX) throw new Error("CONCILIACION_MONTO_RANGO");
   return amount;
