@@ -1,0 +1,97 @@
+"use strict";
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const mongoose = require("mongoose");
+const Pedido = require("../../models/pedido");
+
+// Plan Maestro P0 #04: an offline retry must never acquire a key under a
+// missing tenant or location. These tests exercise async Mongoose middleware,
+// not validateSync(), which does not execute pre("validate") hooks.
+function order(fields = {}) {
+  return new Pedido({
+    mesa: 1, producto: "Contrato offline", cantidad: 1,
+    precioUnitario: 100, precio: 100, ...fields
+  });
+}
+
+test("P0-04: rejects offline event without empresaId", async () => {
+  const doc = order({ sedeId: "sede-a", offlineEventId: "evt-1" });
+  await assert.rejects(doc.validate(), err =>
+    Boolean(err.errors?.empresaId));
+});
+
+test("P0-04: rejects offline event without nonempty sedeId", async () => {
+  const doc = order({
+    empresaId: new mongoose.Types.ObjectId(), offlineEventId: "evt-2"
+  });
+  await assert.rejects(doc.validate(), err =>
+    Boolean(err.errors?.sedeId));
+});
+
+test("P0-04: rejects blank or padded offline event keys", async () => {
+  for (const offlineEventId of ["", " ", " evt-3 "]) {
+    const doc = order({
+      empresaId: new mongoose.Types.ObjectId(),
+      sedeId: "sede-a", offlineEventId
+    });
+    await assert.rejects(doc.validate(), err =>
+      Boolean(err.errors?.offlineEventId),
+      "expected invalid offlineEventId: " + JSON.stringify(offlineEventId));
+  }
+});
+
+test("P0-04: accepts a complete tenant-scoped offline event", async () => {
+  const doc = order({
+    empresaId: new mongoose.Types.ObjectId(),
+    sedeId: "sede-a", offlineEventId: "evt-valid"
+  });
+  await doc.validate();
+});
+
+test("P0-04: legacy order without offlineEventId remains valid", async () => {
+  await order().validate();
+});
+
+test("P0-04: existing offline order cannot change its retry identity via save validation", async () => {
+  const company = new mongoose.Types.ObjectId();
+  for (const mutation of [
+    { offlineEventId: "evt-other" },
+    { offlineEventId: undefined },
+    { empresaId: new mongoose.Types.ObjectId() },
+    { sedeId: "sede-b" }
+  ]) {
+    const doc = order({ empresaId: company, sedeId: "sede-a", offlineEventId: "evt-original" });
+    const persisted = Pedido.hydrate(doc.toObject());
+    persisted.set(mutation);
+    await assert.rejects(persisted.validate(), err =>
+      Boolean(err.errors?.offlineEventId),
+      "mutation must be rejected: " + Object.keys(mutation).join(","));
+  }
+});
+
+test("P0-04: existing offline order permits unrelated edits", async () => {
+  const doc = order({
+    empresaId: new mongoose.Types.ObjectId(),
+    sedeId: "sede-a", offlineEventId: "evt-original"
+  });
+  const persisted = Pedido.hydrate(doc.toObject());
+  persisted.set("observaciones", "nota legítima");
+  await persisted.validate();
+});
+
+
+test("P0-04: query updates reject offline identity mutation before database access", async () => {
+  const id = new mongoose.Types.ObjectId();
+  const cases = [
+    () => Pedido.updateOne({ _id: id }, { $set: { sedeId: "other" } }),
+    () => Pedido.updateMany({}, { $unset: { offlineEventId: 1 } }),
+    () => Pedido.findOneAndUpdate({ _id: id }, { $rename: { sedeId: "legacySite" } }),
+    () => Pedido.updateOne({ _id: id }, [{ $replaceWith: { estado: "pendiente" } }], { updatePipeline: true }),
+    () => Pedido.updateOne({ $and: [{ offlineEventId: "evt-a" }] }, { $set: { estado: "listo" } }, { upsert: true }),
+    () => Pedido.replaceOne({ _id: id }, { mesa: 1, producto: "x", precio: 1, precioUnitario: 1 })
+  ];
+  for (const makeQuery of cases) {
+    await assert.rejects(makeQuery().exec(), /Offline tenant identity cannot be changed through query updates/);
+  }
+});

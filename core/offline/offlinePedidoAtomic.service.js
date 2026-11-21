@@ -7,16 +7,23 @@ const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
 function fail(code){const error=new Error(code);error.code=code;throw error;}
 async function processPendingOfflinePedido({db,session,event,context}){
  if(!db?.collection||!session?.withTransaction)fail("OFFLINE_TRANSACTION_REQUIRED");
- if(!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&context[k]))fail("OFFLINE_AUTH_REQUIRED");
+ if(!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&context[k].length>0&&context[k].trim()===context[k]))fail("OFFLINE_AUTH_REQUIRED");
  if(!event||!ULID.test(event.eventId||"")||event.tipo!=="PEDIDO_REGISTRADO"||
     event.empresaId!==context.empresaId||event.sedeId!==context.sedeId||event.actorId!==context.actorId)fail("OFFLINE_TENANT_MISMATCH");
- if(!ObjectId.isValid(context.empresaId))fail("OFFLINE_COMPANY_ID_INVALID");
+ // Require a canonical 24-hex company ID, not merely a driver-coercible ObjectId.
+ // This prevents alternate textual identities from sharing the same MongoDB tenant.
+ if(!/^[0-9a-fA-F]{24}$/.test(context.empresaId))fail("OFFLINE_COMPANY_ID_INVALID");
  let response;
  await session.withTransaction(async()=>{
   const inbox=db.collection("gruk_offline_inbox");
   const key={empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,eventId:event.eventId,tipo:"PEDIDO_REGISTRADO"};
   const entry=await inbox.findOne(key,{session});
   if(!entry)fail("OFFLINE_EVENT_NOT_FOUND");
+  // Defend against an incorrect storage adapter returning a record outside the
+  // authenticated tenant, site, actor, event or type even for a scoped query.
+  if(entry.empresaId!==key.empresaId||entry.sedeId!==key.sedeId||
+     entry.actorId!==key.actorId||entry.eventId!==key.eventId||entry.tipo!==key.tipo)
+   fail("OFFLINE_TENANT_MISMATCH");
   // Verify the immutable canonical payload before returning an existing status.
   // A retry with the same event ID but different contents is a conflict, including
   // when the event has already advanced past PENDIENTE.

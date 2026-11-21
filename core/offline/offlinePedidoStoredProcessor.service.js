@@ -1,23 +1,33 @@
 "use strict";
 // Internal processor: reads the immutable stored event, never accepts a client-supplied payload.
 // Explicitly invoked by trusted backend only. No payment, stock or ledger posting.
-const {processPendingOfflinePedido}=require("./offlinePedidoAtomic.service");
 const KEYS=["eventId","empresaId","sedeId","actorId","deviceId","tipo","occurredAt","schemaVersion","payload"];
 function fail(code){const err=new Error(code);err.code=code;throw err;}
 async function processStoredOfflinePedido({db,client,context,eventId}){
  if(!db?.collection||!client?.startSession)fail("OFFLINE_DB_REQUIRED");
- if(!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&k))
+ if(!context||!["empresaId","sedeId","actorId"].every(k=>typeof context[k]==="string"&&context[k].trim()===context[k]&&context[k].length>0))
   fail("OFFLINE_AUTH_REQUIRED");
+ // Reject noncanonical company identities before any inbox read or session.
+ if(!/^[0-9a-fA-F]{24}$/.test(context.empresaId))fail("OFFLINE_COMPANY_ID_INVALID");
  if(typeof eventId!=="string"||!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(eventId))fail("OFFLINE_INVALID_IDS");
  const record=await db.collection("gruk_offline_inbox").findOne({
   empresaId:context.empresaId,sedeId:context.sedeId,actorId:context.actorId,
   eventId,tipo:"PEDIDO_REGISTRADO"
  });
  if(!record)fail("OFFLINE_EVENT_NOT_FOUND");
+ // Defense in depth: never trust a storage adapter returning an out-of-scope record.
+ if(record.empresaId!==context.empresaId||record.sedeId!==context.sedeId||
+    record.actorId!==context.actorId||record.eventId!==eventId||record.tipo!=="PEDIDO_REGISTRADO")
+  fail("OFFLINE_TENANT_MISMATCH");
  const event={};
  for(const key of KEYS)event[key]=record[key];
  const session=client.startSession();
- try{return await processPendingOfflinePedido({db,session,event,context});}
+ try{
+  // Load transactional MongoDB dependencies only after authenticated inbox lookup.
+  // This keeps rejection paths dependency-free without changing the transaction path.
+  const {processPendingOfflinePedido}=require("./offlinePedidoAtomic.service");
+  return await processPendingOfflinePedido({db,session,event,context});
+ }
  finally{await session.endSession();}
 }
 module.exports={processStoredOfflinePedido};
