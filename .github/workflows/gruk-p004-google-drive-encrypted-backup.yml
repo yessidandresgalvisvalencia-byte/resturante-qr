@@ -1,0 +1,93 @@
+name: GRUK P0-04 Drive Encrypted Backup and Recovery
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/gruk/p0-04-google-drive-encrypted-object.js'
+      - 'scripts/gruk/p0-04-google-drive-backup-restore.sh'
+      - 'test/gruk/p0-04-google-drive-backup.test.js'
+      - '.github/workflows/gruk-p004-google-drive-encrypted-backup.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/gruk/p0-04-google-drive-encrypted-object.js'
+      - 'scripts/gruk/p0-04-google-drive-backup-restore.sh'
+      - 'test/gruk/p0-04-google-drive-backup.test.js'
+      - '.github/workflows/gruk-p004-google-drive-encrypted-backup.yml'
+  workflow_dispatch:
+    inputs:
+      database:
+        required: true
+        type: choice
+        options: [restaurante]
+        description: 'Exact enterprise database, never Personal'
+      confirmation:
+        required: true
+        type: string
+        description: 'Type RESPALDAR_SOLO_RESTAURANTE'
+permissions:
+  contents: read
+concurrency:
+  group: gruk-p004-real-drive-backup
+  cancel-in-progress: false
+jobs:
+  contract:
+    name: Drive backup controls without customer data
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Shell and Node guards
+        run: |
+          set -euo pipefail
+          bash -n scripts/gruk/p0-04-google-drive-backup-restore.sh
+          node --check scripts/gruk/p0-04-google-drive-encrypted-object.js
+          node --test test/gruk/p0-04-google-drive-backup.test.js
+  production_drill:
+    name: Encrypted restaurant snapshot and isolated restore — manually authorized
+    if: github.event_name == 'workflow_dispatch'
+    needs: [contract]
+    environment: gruk-enterprise-real-backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Approve exact database and operation
+        env:
+          DATABASE: ${{ inputs.database }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          [[ "$DATABASE" == restaurante && "$CONFIRMATION" == RESPALDAR_SOLO_RESTAURANTE ]] || exit 1
+      - name: Install age and mongo tools (never restore to Atlas)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y age
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-mongosh mongodb-database-tools
+      - name: Dump only restaurante, encrypt, upload to private Drive, download and restore offline
+        env:
+          GRUK_ENTERPRISE_BACKUP_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
+          GRUK_ENTERPRISE_DB: restaurante
+          GRUK_ENTERPRISE_DB_CONFIRM: restaurante
+          GRUK_BACKUP_APPROVAL: ${{ inputs.confirmation }}
+          GRUK_BACKUP_AGE_RECIPIENT: ${{ secrets.GRUK_BACKUP_AGE_RECIPIENT }}
+          GRUK_BACKUP_AGE_IDENTITY: ${{ secrets.GRUK_BACKUP_AGE_IDENTITY }}
+          GRUK_DRIVE_OAUTH_CLIENT_ID: ${{ secrets.GRUK_DRIVE_OAUTH_CLIENT_ID }}
+          GRUK_DRIVE_OAUTH_CLIENT_SECRET: ${{ secrets.GRUK_DRIVE_OAUTH_CLIENT_SECRET }}
+          GRUK_DRIVE_OAUTH_REFRESH_TOKEN: ${{ secrets.GRUK_DRIVE_OAUTH_REFRESH_TOKEN }}
+          GRUK_DRIVE_BACKUP_FOLDER_ID: '1_1OxE9Ey7kr-GoCjOnC_Elm_sJpTQrfN'
+        run: |
+          set -euo pipefail
+          if [[ -z "$GRUK_ENTERPRISE_BACKUP_URI" ]]; then
+            echo "::error::Read-only enterprise MongoDB credential not configured"
+            exit 1
+          fi
+          bash scripts/gruk/p0-04-google-drive-backup-restore.sh
