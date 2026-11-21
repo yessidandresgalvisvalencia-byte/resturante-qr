@@ -34,3 +34,15 @@ test("balanced empty batch and bounded batch", () => {
   assert.equal(run([]).balanced, true);
   assert.throws(() => run(Array(10001).fill(row("0", "0"))), /STOCK_REGISTROS_INVALIDOS/);
 });
+
+test("orders discrepancies by stable code points rather than host locale", () => {
+  const records = [
+    row("0", "1", { productoId: "p_1", unidad: "z" }),
+    row("0", "1", { productoId: "pA", unidad: "z" }),
+    row("0", "1", { productoId: "p1", unidad: "z" }),
+    row("0", "1", { productoId: "p_1", unidad: "A" })
+  ];
+  const sorted = run(records).diferencias.map(({ productoId, unidad }) => [productoId, unidad]);
+  assert.deepEqual(sorted, [["p1", "z"], ["pA", "z"], ["p_1", "A"], ["p_1", "z"]]);
+  assert.deepEqual(run([...records].reverse()).diferencias.map(({ productoId, unidad }) => [productoId, unidad]), sorted);
+});
