@@ -34,3 +34,16 @@ test("P0-06 rejects numeric amounts, malformed ids and unbounded input", () => {
   assert.throws(() => reconcileMovements(input([], 0)), /MONTO_INVALIDO/);
   assert.throws(() => reconcileMovements(input(new Array(10001))), /MOVIMIENTOS_INVALIDOS/);
 });
+
+test("P0-06 rejects inherited scope and identity from prototype payloads", () => {
+  const inherited = Object.create({ empresaId: "empresa-a", sedeId: "sede-1", idempotencyKey: "inherited", centavos: "100" });
+  assert.throws(() => reconcileMovements(input([inherited], "100")), /CAMPO_PROPIO_FALTANTE/);
+  for (const missing of ["empresaId", "sedeId", "idempotencyKey", "centavos"]) {
+    const candidate = movement("own", "100");
+    const prototype = { [missing]: candidate[missing] };
+    delete candidate[missing];
+    Object.setPrototypeOf(candidate, prototype);
+    assert.throws(() => reconcileMovements(input([candidate], "100")), /CAMPO_PROPIO_FALTANTE/);
+  }
+  assert.equal(reconcileMovements(input([movement("own", "100")], "100")).balanced, true);
+});
