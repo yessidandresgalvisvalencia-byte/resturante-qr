@@ -52,6 +52,9 @@ function reconcileMovements({ empresaId, sedeId, movements, expectedCentavos }) 
     actual = nextActual;
   }
   const difference = expected - actual;
+  // A valid expected and actual balance can still produce an out-of-range
+  // signed discrepancy. Keep every exposed centavo field within the contract.
+  if (difference > MAX || difference < -MAX) throw new Error("CONCILIACION_DIFERENCIA_RANGO");
   return Object.freeze({
     empresaId, sedeId, expectedCentavos: expected.toString(),
     actualCentavos: actual.toString(), differenceCentavos: difference.toString(),
