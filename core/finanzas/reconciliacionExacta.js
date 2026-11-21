@@ -20,7 +20,17 @@ function parseCentavos(value) {
   return amount;
 }
 
-function reconcileMovements({ empresaId, sedeId, movements, expectedCentavos }) {
+function reconcileMovements(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("CONCILIACION_ENTRADA_INVALIDA");
+  const values = {};
+  for (const field of ["empresaId", "sedeId", "movements", "expectedCentavos"]) {
+    const descriptor = Object.getOwnPropertyDescriptor(input, field);
+    if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+      throw new Error("CONCILIACION_ENTRADA_CAMPO_INVALIDO_" + field);
+    }
+    values[field] = descriptor.value;
+  }
+  const { empresaId, sedeId, movements, expectedCentavos } = values;
   requireId(empresaId, "empresa");
   requireId(sedeId, "sede");
   if (!Array.isArray(movements) || movements.length > 10000) throw new Error("CONCILIACION_MOVIMIENTOS_INVALIDOS");
