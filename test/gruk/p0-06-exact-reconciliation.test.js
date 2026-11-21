@@ -27,7 +27,7 @@ test("P0-06 rejects cross-tenant and cross-site movements", () => {
 });
 
 test("P0-06 rejects numeric amounts, malformed ids and unbounded input", () => {
-  for (const amount of [1, 0.1, "1.00", "01", "1e3", "9007199254740992", null]) {
+  for (const amount of [1, 0.1, "1.00", "01", "1e3", "9007199254740992", "-0", null]) {
     assert.throws(() => reconcileMovements(input([movement("x", amount)])), /MONTO_(INVALIDO|RANGO)/);
   }
   assert.throws(() => reconcileMovements(input([movement("", "1")])), /ID_INVALIDO/);
