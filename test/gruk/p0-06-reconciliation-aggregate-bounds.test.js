@@ -35,3 +35,12 @@ test("P0-06 empty journal is balanced only against zero and result is immutable"
   assert.equal(Object.isFrozen(result.duplicateKeys), true);
   assert.equal(reconcile([], "1").balanced, false);
 });
+
+
+test("P0-06 rejects discrepancies beyond the safe-cent contract", () => {
+  const max = "9007199254740991";
+  assert.throws(() => reconcile([entry("debit", "-" + max)], max), /CONCILIACION_DIFERENCIA_RANGO/);
+  assert.throws(() => reconcile([entry("credit", max)], "-" + max), /CONCILIACION_DIFERENCIA_RANGO/);
+  assert.equal(reconcile([entry("credit", max)], "0").differenceCentavos, "-" + max);
+  assert.equal(reconcile([entry("debit", "-" + max)], "0").differenceCentavos, max);
+});
