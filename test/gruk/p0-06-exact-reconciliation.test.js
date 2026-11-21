@@ -47,3 +47,10 @@ test("P0-06 rejects inherited scope and identity from prototype payloads", () =>
   }
   assert.equal(reconcileMovements(input([movement("own", "100")], "100")).balanced, true);
 });
+
+test("P0-06 rejects aggregate overflow even when each movement is in range", () => {
+  const max = "9007199254740991";
+  assert.throws(() => reconcileMovements(input([movement("one", max), movement("two", "1")])), /TOTAL_RANGO/);
+  assert.throws(() => reconcileMovements(input([movement("one", "-" + max), movement("two", "-1")])), /TOTAL_RANGO/);
+  assert.equal(reconcileMovements(input([movement("one", max), movement("two", "-" + max)], "0")).balanced, true);
+});
