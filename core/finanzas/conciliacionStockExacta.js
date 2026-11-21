@@ -42,7 +42,8 @@ function reconcileStock(input) {
       diferencia: difference.toString()
     }));
   }
-  // Code-point ordering is deterministic across locales and Node/ICU versions.\n  const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;\n  differences.sort((a, b) => compare(a.productoId, b.productoId) || compare(a.unidad, b.unidad));
+  // Code-point ordering is deterministic across locales and Node/ICU versions.
+  const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;\n  differences.sort((a, b) => compare(a.productoId, b.productoId) || compare(a.unidad, b.unidad));
   return Object.freeze({ empresaId, sedeId, totalRegistros: seen.size,
     diferencias: Object.freeze(differences), balanced: differences.length === 0 });
 }
