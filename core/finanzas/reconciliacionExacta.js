@@ -42,8 +42,12 @@ function reconcileMovements({ empresaId, sedeId, movements, expectedCentavos }) 
       duplicates.push(id);
       continue;
     }
+    // Never allow a sequence of individually valid movements to exceed the
+    // supported centavo ledger boundary (no implicit unsafe JSON conversion).
+    const nextActual = actual + amount;
+    if (nextActual > MAX || nextActual < -MAX) throw new Error("CONCILIACION_TOTAL_RANGO");
     seen.set(id, amount);
-    actual += amount;
+    actual = nextActual;
   }
   const difference = expected - actual;
   return Object.freeze({
