@@ -32,7 +32,9 @@ function reconcileMovements({ empresaId, sedeId, movements, expectedCentavos }) 
     if (!movement || typeof movement !== "object" || Array.isArray(movement)) throw new Error("CONCILIACION_MOVIMIENTO_INVALIDO");
     // Reject inherited scope/identity fields: untrusted payloads must carry their own tenant context.
     for (const field of ["empresaId", "sedeId", "idempotencyKey", "centavos"]) {
-      if (!Object.prototype.hasOwnProperty.call(movement, field)) throw new Error("CONCILIACION_CAMPO_PROPIO_FALTANTE_" + field);
+      const descriptor = Object.getOwnPropertyDescriptor(movement, field);
+      if (!descriptor) throw new Error("CONCILIACION_CAMPO_PROPIO_FALTANTE_" + field);
+      if (!Object.prototype.hasOwnProperty.call(descriptor, "value")) throw new Error("CONCILIACION_CAMPO_ACCESOR_NO_PERMITIDO_" + field);
     }
     if (movement.empresaId !== empresaId || movement.sedeId !== sedeId) throw new Error("CONCILIACION_TENANT_INCORRECTO");
     const id = requireId(movement.idempotencyKey, "idempotencia");
