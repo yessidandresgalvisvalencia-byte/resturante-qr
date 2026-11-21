@@ -10,7 +10,7 @@ Criterio oficial: **«Panel muestra diferencias y permite corregirlas de forma t
 | Validar duplicados | `core/finanzas/reconciliacionExacta.js` — `idempotencyKey`, `duplicateKeys`; `test/gruk/p0-06-exact-reconciliation.test.js` | Parcial: solo lotes en memoria, no índice único ni transacción persistente |
 | Movimientos sin soporte | Ningún adaptador de soportes persistidos identificado en este PR | Pendiente: vincular comprobantes/ventas reales y detectar faltantes |
 | Conciliar caja y ventas | `reconcileMovements` calcula diferencia exacta de centavos y valida empresa/sede | Parcial: no lee cierres de caja, ventas ni pagos persistidos |
-| Conciliar stock registrado vs físico | Sin implementación en este PR | Pendiente: unidades, conteos físicos y movimientos de inventario |
+| Conciliar stock registrado vs físico | `core/finanzas/conciliacionStockExacta.js` y `test/gruk/p0-06-stock-exact-reconciliation.test.js`: comparación pura de cantidades enteras por producto/unidad, empresa/sede, límites, diferencias exactas y rechazo de registros duplicados | Parcial: sin adaptador de inventario real, conversión de unidades, conteos persistentes ni panel; requiere CI del HEAD exacto |
 | Panel de diferencias | Sin interfaz en este PR | Pendiente: visualización con permisos por empresa y sede |
 | Corrección trazable | Sin escritura ni auditoría en este PR | Pendiente: ajuste compensatorio, actor, fecha, motivo, soporte y bitácora inmutable |
 | Aislamiento multiempresa | Validación negativa de empresa/sede en la función pura; tests P0-06 | Parcial: faltan integración DB y pruebas de autorización de rutas |
