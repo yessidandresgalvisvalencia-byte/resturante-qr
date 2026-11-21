@@ -6,7 +6,7 @@
 const { parseMoneyToCents, formatCents } = require('./enterpriseMoney');
 const MAX = BigInt(Number.MAX_SAFE_INTEGER);
 function persistedCents(value) {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || Object.is(value, -0)) {
     throw new TypeError('Invalid persisted monetary amount');
   }
   // Reject exponential notation and sub-cent precision rather than silently round.
@@ -15,11 +15,22 @@ function persistedCents(value) {
 function sum(records, field) {
   if (!Array.isArray(records)) throw new TypeError('Records must be an array');
   let total = 0n;
-  for (const record of records) {
+  // Reject sparse collections, inherited fields and executable accessors. Financial
+  // inputs are expected to be lean persisted records, never computed properties.
+  for (let i = 0; i < records.length; i++) {
+    const slot = Object.getOwnPropertyDescriptor(records, String(i));
+    if (!slot || !Object.hasOwn(slot, 'value')) {
+      throw new TypeError('Invalid financial record slot');
+    }
+    const record = slot.value;
     if (!record || typeof record !== 'object' || Array.isArray(record)) {
       throw new TypeError('Invalid financial record');
     }
-    total += persistedCents(record[field]);
+    const amount = Object.getOwnPropertyDescriptor(record, field);
+    if (!amount || !Object.hasOwn(amount, 'value')) {
+      throw new TypeError('Invalid financial amount field');
+    }
+    total += persistedCents(amount.value);
     if (total > MAX) throw new RangeError('Financial total exceeds safe cents');
   }
   return total;
