@@ -54,3 +54,14 @@ test("P0-06 rejects aggregate overflow even when each movement is in range", () 
   assert.throws(() => reconcileMovements(input([movement("one", "-" + max), movement("two", "-1")])), /TOTAL_RANGO/);
   assert.equal(reconcileMovements(input([movement("one", max), movement("two", "-" + max)], "0")).balanced, true);
 });
+
+
+test("P0-06 rejects accessor-backed tenant, idempotency and money fields without executing getters", () => {
+  for (const field of ["empresaId", "sedeId", "idempotencyKey", "centavos"]) {
+    const candidate = movement("accessor", "100");
+    let called = false;
+    Object.defineProperty(candidate, field, { enumerable: true, get() { called = true; throw new Error("GETTER_EXECUTED"); } });
+    assert.throws(() => reconcileMovements(input([candidate], "100")), /CAMPO_ACCESOR_NO_PERMITIDO/);
+    assert.equal(called, false);
+  }
+});
