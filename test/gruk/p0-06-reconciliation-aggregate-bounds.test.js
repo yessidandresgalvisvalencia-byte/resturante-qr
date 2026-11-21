@@ -9,12 +9,15 @@ const entry = (idempotencyKey, centavos, sedeId = "sede-1") => ({
 const reconcile = (movements, expectedCentavos = "0") =>
   reconcileMovements({ empresaId: "empresa-a", sedeId: "sede-1", movements, expectedCentavos });
 
-test("P0-06 retains exact totals above Number.MAX_SAFE_INTEGER", () => {
-  const result = reconcile([entry("a", "9007199254740991"), entry("b", "9007199254740991")]);
-  assert.equal(result.actualCentavos, "18014398509481982");
-  assert.equal(result.differenceCentavos, "-18014398509481982");
+test("P0-06 rejects aggregate amounts outside the supported safe-cent boundary", () => {
+  const max = "9007199254740991";
+  assert.throws(() => reconcile([entry("a", max), entry("b", max)]), /CONCILIACION_TOTAL_RANGO/);
+  assert.throws(() => reconcile([entry("a", "-" + max), entry("b", "-" + max)]), /CONCILIACION_TOTAL_RANGO/);
+  const result = reconcile([entry("a", max), entry("b", "-" + max)], "0");
+  assert.equal(result.actualCentavos, "0");
+  assert.equal(result.differenceCentavos, "0");
   assert.equal(result.uniqueMovements, 2);
-  assert.equal(result.balanced, false);
+  assert.equal(result.balanced, true);
   assert.equal(typeof result.actualCentavos, "string");
 });
 
