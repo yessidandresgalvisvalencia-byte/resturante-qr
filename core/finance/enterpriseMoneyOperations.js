@@ -36,7 +36,10 @@ function invoiceTotal(lines) {
   if (!Array.isArray(lines)) throw new TypeError('Lines must be an array');
   if (lines.length > MAX_INVOICE_LINES) throw new RangeError('Invoice exceeds maximum line count');
   let total = 0n;
-  for (const line of lines) {
+  // Index-based iteration rejects sparse slots instead of silently omitting charges.
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!Object.prototype.hasOwnProperty.call(lines, index)) throw new TypeError('Sparse invoice line');
+    const line = lines[index];
     if (!line || typeof line !== 'object' || Array.isArray(line)) throw new TypeError('Invalid invoice line');
     total = assertSafeCents(total + parseMoneyToCents(line.unitPrice) * assertQuantity(line.quantity));
   }
