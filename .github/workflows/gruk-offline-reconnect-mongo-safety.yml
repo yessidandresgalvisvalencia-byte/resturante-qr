@@ -1,0 +1,86 @@
+name: GRUK Offline Reconnect and Multi-Tablet Mongo Safety Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-offline-reconnect-mongo-safety.yml'
+      - 'core/offline/**'
+      - 'test/gruk/capa1-offline-20-orders-mongo.integration.test.js'
+      - 'test/gruk/capa1-offline-inbox-20-batch-mongo.test.js'
+      - 'test/gruk/capa1-offline-mongo-reconnect-20.test.js'
+      - 'test/gruk/capa1-offline-two-tablets-last-stock-mongo.test.js'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-offline-reconnect-mongo-safety.yml'
+      - 'core/offline/**'
+      - 'test/gruk/capa1-offline-20-orders-mongo.integration.test.js'
+      - 'test/gruk/capa1-offline-inbox-20-batch-mongo.test.js'
+      - 'test/gruk/capa1-offline-mongo-reconnect-20.test.js'
+      - 'test/gruk/capa1-offline-two-tablets-last-stock-mongo.test.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-real-mongo:
+    name: 20 offline events, reconnect idempotency and two-tablet last stock
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Start a disposable loopback MongoDB replica set
+        run: |
+          set -euo pipefail
+          docker run -d --name gruk-offline-safe-mongo -p 127.0.0.1:27017:27017 mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 40); do
+            if docker exec gruk-offline-safe-mongo mongosh --quiet --eval 'db.adminCommand("ping").ok' 2>/dev/null | grep -qx 1; then break; fi
+            sleep 1
+          done
+          docker exec gruk-offline-safe-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          ready=0
+          for i in $(seq 1 40); do
+            if docker exec gruk-offline-safe-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null | grep -qx true; then ready=1; break; fi
+            sleep 1
+          done
+          [[ "$ready" == 1 ]] || { echo "::error::Disposable MongoDB is not primary"; exit 1; }
+      - name: Require each offline MongoDB integration test to pass with zero skips
+        env:
+          NODE_ENV: test
+          GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+        run: |
+          set -euo pipefail
+          tests=(
+            test/gruk/capa1-offline-20-orders-mongo.integration.test.js
+            test/gruk/capa1-offline-inbox-20-batch-mongo.test.js
+            test/gruk/capa1-offline-mongo-reconnect-20.test.js
+            test/gruk/capa1-offline-two-tablets-last-stock-mongo.test.js
+          )
+          for test_file in "${tests[@]}"; do
+            logfile="$(mktemp)"
+            if ! node --test "$test_file" > "$logfile" 2>&1; then
+              cat "$logfile"
+              rm -f "$logfile"
+              echo "::error::Offline integration failed: $test_file"
+              exit 1
+            fi
+            cat "$logfile"
+            if ! grep -Eq '^# pass [1-9][0-9]*$' "$logfile" ||
+               ! grep -Eq '^# fail 0$' "$logfile" ||
+               ! grep -Eq '^# skipped 0$' "$logfile"; then
+              rm -f "$logfile"
+              echo "::error::Offline integration skipped or did not report success: $test_file"
+              exit 1
+            fi
+            rm -f "$logfile"
+          done
+          echo 'PASS: 20 offline events, inbox idempotency, reconnect, and two-tablet stock conflict; all real disposable MongoDB.'
+          echo 'LIMIT: Does not prove device Wi-Fi disconnection, installed PWA, real printer or full end-to-end field sale.'
