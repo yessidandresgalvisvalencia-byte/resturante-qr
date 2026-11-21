@@ -18,6 +18,7 @@ function centavosToDecimal(value, label = "monto") {
 function decimalToCentavos(value, label = "monto") {
   // Refuse numeric inputs: JSON numbers can already have lost decimal precision.
   if (typeof value !== "string") throw new Error("DINERO_INVALIDO_" + label);
+  if (value.trim().length > 128) throw new Error("DINERO_RANGO_" + label);
   return cents(value, label);
 }
 
