@@ -1,0 +1,26 @@
+name: GRUK Empresarial product scope
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  product-scope:
+    name: Prevent cross-product edits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify PR changed paths
+        env:
+          GRUK_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GRUK_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/gruk-enterprise-pr-scope-guard.js
+      - name: Unit tests for product scope
+        run: node --test test/gruk/gruk-enterprise-pr-scope-guard.test.js
