@@ -21,7 +21,12 @@ function ownArrayRecord(records, index) {
   }
   return descriptor.value;
 }
-function verifyMovementEvidence({ empresaId, sedeId, movements, evidence }) {
+function verifyMovementEvidence(request) {
+  // Reject inherited/accessor request fields before any reads or collection traversal.
+  const empresaId = field(request, "empresaId");
+  const sedeId = field(request, "sedeId");
+  const movements = field(request, "movements");
+  const evidence = field(request, "evidence");
   id(empresaId); id(sedeId);
   if (!Array.isArray(movements) || !Array.isArray(evidence) || movements.length > 10000 || evidence.length > 10000) {
     throw new Error("P006_SOPORTE_LIMITE");
