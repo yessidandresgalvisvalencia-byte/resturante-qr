@@ -58,3 +58,26 @@ test("P0-06 Mongo evidence: rejects accessor array entries without evaluating ge
   Object.defineProperty(rows, "0", { get() { throw new Error("getter executed"); }, configurable: true });
   await assert.rejects(verifyEvidenceFromMongoCollections(request(rows, [])), /P006_EVIDENCIA_REGISTRO_INVALIDO/);
 });
+
+test("P0-06 Mongo evidence: never invokes cursor method getters", async () => {
+  for (const method of ["limit", "toArray"]) {
+    let invoked = false;
+    const malicious = {
+      find() {
+        const cursor = method === "limit"
+          ? {}
+          : { limit() { return {}; } };
+        const target = method === "limit" ? cursor : cursor.limit();
+        Object.defineProperty(target, method, {
+          get() { invoked = true; throw new Error("unsafe cursor getter"); }
+        });
+        if (method === "toArray") cursor.limit = () => target;
+        return cursor;
+      }
+    };
+    const req = request([], []);
+    req.movementsCollection = malicious;
+    await assert.rejects(verifyEvidenceFromMongoCollections(req), /P006_EVIDENCIA_CAMPO_/);
+    assert.equal(invoked, false);
+  }
+});
