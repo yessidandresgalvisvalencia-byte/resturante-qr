@@ -18,7 +18,7 @@ function projectReconciliationDifferences(result) {
     throw new Error("P006_PANEL_SCOPE_MISMATCH");
   }
   const differenceCentavos = own(financial, "differenceCentavos");
-  if (typeof differenceCentavos !== "string" || !/^-?(0|[1-9]\\d*)$/.test(differenceCentavos) || differenceCentavos === "-0") {
+  if (typeof differenceCentavos !== "string" || !/^-?(0|[1-9]\d*)$/.test(differenceCentavos) || differenceCentavos === "-0") {
     throw new Error("P006_PANEL_MONTO_INVALIDO");
   }
   const differences = own(stock, "diferencias");
@@ -32,7 +32,7 @@ function projectReconciliationDifferences(result) {
     const unidad = own(item, "unidad");
     const diferencia = own(item, "diferencia");
     if (typeof productoId !== "string" || !productoId || typeof unidad !== "string" || !unidad ||
-        typeof diferencia !== "string" || !/^-?(0|[1-9]\\d*)(\\.\\d+)?$/.test(diferencia) || diferencia.startsWith("-0") && Number(diferencia) === 0) {
+        typeof diferencia !== "string" || !/^-?(0|[1-9]\d*)(\\.\d+)?$/.test(diferencia) || /^-0(?:\.0+)?$/.test(diferencia)) {
       throw new Error("P006_PANEL_STOCK_DATO_INVALIDO");
     }
     items.push(Object.freeze({ productoId, unidad, diferencia }));
