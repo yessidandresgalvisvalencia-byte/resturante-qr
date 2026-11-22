@@ -27,12 +27,15 @@ function verifyMovementEvidence({ empresaId, sedeId, movements, evidence }) {
     keys.add(key);
   }
   const missing = new Set();
+  const movementKeys = new Set();
   for (const movement of movements) {
     if (field(movement, "empresaId") !== empresaId || field(movement, "sedeId") !== sedeId) throw new Error("P006_MOVIMIENTO_TENANT");
-    id(field(movement, "idempotencyKey"));
+    const movementKey = id(field(movement, "idempotencyKey"));
+    if (movementKeys.has(movementKey)) throw new Error("P006_MOVIMIENTO_DUPLICADO");
+    movementKeys.add(movementKey);
     const soporteId = field(movement, "soporteId");
     if (soporteId !== null) id(soporteId);
-    if (soporteId === null || !keys.has(soporteId)) missing.add(id(field(movement, "idempotencyKey")));
+    if (soporteId === null || !keys.has(soporteId)) missing.add(movementKey);
   }
   return Object.freeze({ empresaId, sedeId, unsupportedMovementKeys: Object.freeze([...missing].sort()), unsupportedCount: missing.size });
 }
