@@ -38,6 +38,12 @@ function makeMongoScopedReconciliationRepository(config) {
     if (!limited || typeof limited.toArray !== "function") throw new Error("P006_MONGO_CURSOR_INVALIDO");
     const records = await limited.toArray();
     if (!Array.isArray(records) || records.length > limit) throw new Error("P006_MONGO_LIMITE");
+    // Reject cross-tenant records even if a driver, mock or collection ignores the filter.
+    for (const record of records) {
+      if (own(record, "empresaId") !== scope.empresaId || own(record, "sedeId") !== scope.sedeId) {
+        throw new Error("P006_MONGO_SCOPE_MISMATCH");
+      }
+    }
     return records;
   }
   return Object.freeze({
