@@ -20,6 +20,13 @@ jobs:
       GRUK_TEST_MONGO_URI: mongodb://127.0.0.1:27017/gruk_offline_test?replicaSet=rs0
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce enterprise-only product isolation (P0-01)
+        if: github.event_name == 'pull_request'
+        env:
+          GRUK_ISOLATION_BASE: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/gruk/p001-enterprise-path-isolation.js
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
