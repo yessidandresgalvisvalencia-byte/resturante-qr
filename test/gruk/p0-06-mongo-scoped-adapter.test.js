@@ -40,7 +40,7 @@ test("Mongo adapter rejects cross-tenant data rather than silently filtering in 
     movementsCollection: fakeCollection([{ empresaId: "other", sedeId: "s1", idempotencyKey: "k1", centavos: "1" }], calls),
     stockCollection: fakeCollection([], calls), expectedCentavos: "1"
   });
-  await assert.rejects(readScopedReconciliation({ empresaId: "e1", sedeId: "s1", repository }), /TENANT_INCORRECTO/);
+  await assert.rejects(readScopedReconciliation({ empresaId: "e1", sedeId: "s1", repository }), /P006_MONGO_SCOPE_MISMATCH/);
 });
 test("Mongo adapter rejects over-limit collection result", async () => {
   const cursor = { limit() { return { async toArray() { return Array(10001).fill(null); } }; } };
@@ -54,4 +54,15 @@ test("Mongo adapter fails closed on missing expected independent balance", () =>
   assert.throws(() => makeMongoScopedReconciliationRepository({
     movementsCollection: { find() {} }, stockCollection: { find() {} }, expectedCentavos: 0
   }), /P006_MONGO_EXPECTED_INVALIDO/);
+});
+
+test("Mongo adapter rejects cross-branch stock rows before returning a snapshot", async () => {
+  const calls = [];
+  const repository = makeMongoScopedReconciliationRepository({
+    movementsCollection: fakeCollection([], calls),
+    stockCollection: fakeCollection([{ empresaId: "e1", sedeId: "other", productoId: "p1", unidad: "g", registrado: "5", fisico: "5" }], calls),
+    expectedCentavos: "0"
+  });
+  await assert.rejects(repository.readScopedSnapshot({ empresaId: "e1", sedeId: "s1" }), /P006_MONGO_SCOPE_MISMATCH/);
+  assert.equal(calls.length, 2);
 });
