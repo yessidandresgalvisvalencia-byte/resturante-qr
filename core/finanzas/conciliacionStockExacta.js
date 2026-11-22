@@ -27,7 +27,14 @@ function reconcileStock(input) {
   if (!Array.isArray(records) || records.length > 10000) throw new Error("STOCK_REGISTROS_INVALIDOS");
   const seen = new Set();
   const differences = [];
-  for (const record of records) {
+  // Reject sparse, inherited and accessor indices before reading any record.
+  // for..of would otherwise invoke inherited getters or silently skip holes.
+  for (let index = 0; index < records.length; index++) {
+    const descriptor = Object.getOwnPropertyDescriptor(records, String(index));
+    if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+      throw new Error("STOCK_INDICE_INVALIDO");
+    }
+    const record = descriptor.value;
     if (own(record, "empresaId") !== empresaId || own(record, "sedeId") !== sedeId) throw new Error("STOCK_TENANT_INCORRECTO");
     const productoId = id(own(record, "productoId"), "producto");
     const unidad = id(own(record, "unidad"), "unidad");
