@@ -66,3 +66,33 @@ test("P0-06: rejects duplicate, malformed and over-limit repository evidence", a
     await assert.rejects(readScopedSales({ empresaId, sedeId, limit: 1 }), /P006_RESPONSE_EXCEDE_LIMITE/);
   } finally { Venta.find = original; }
 });
+
+test("P0-06: rejects sparse, inherited and accessor-backed sale evidence", async () => {
+  const original = Venta.find;
+  let rows = [];
+  Venta.find = () => ({
+    select() { return this; }, sort() { return this; }, limit() { return this; },
+    async lean() { return rows; }
+  });
+  const valid = { _id: "cccccccccccccccccccccccc", empresaId, sedeId };
+  try {
+    rows = new Array(1);
+    await assert.rejects(readScopedSales({ empresaId, sedeId }), /P006_RESPONSE_INVALIDA/);
+    rows = new Array(1);
+    const inherited = { 0: valid };
+    Object.setPrototypeOf(rows, inherited);
+    await assert.rejects(readScopedSales({ empresaId, sedeId }), /P006_RESPONSE_INVALIDA/);
+    let getterCalled = false;
+    rows = [];
+    Object.defineProperty(rows, "0", {
+      configurable: true, enumerable: true,
+      get() { getterCalled = true; throw new Error("UNTRUSTED_GETTER"); }
+    });
+    await assert.rejects(readScopedSales({ empresaId, sedeId }), /P006_RESPONSE_INVALIDA/);
+    assert.equal(getterCalled, false);
+    rows = [valid];
+    const result = await readScopedSales({ empresaId, sedeId });
+    assert.equal(result.length, 1);
+    assert.equal(result[0].id, valid._id);
+  } finally { Venta.find = original; }
+});
