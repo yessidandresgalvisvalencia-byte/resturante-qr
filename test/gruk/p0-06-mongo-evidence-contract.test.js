@@ -32,6 +32,7 @@ test("P0-06 Mongo evidence: reports unsupported movements and scoped projections
   assert.deepEqual(result.unsupportedMovementKeys, ["m2", "m3"]);
   assert.equal(result.unsupportedCount, 2);
   assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map(c => c.options.maxTimeMS), [5000, 5000]);
   assert.deepEqual(calls.map(c => c.filter), [{ empresaId: "e1", sedeId: "s1" }, { empresaId: "e1", sedeId: "s1" }]);
   assert.deepEqual(calls[0].options.projection, { _id: 0, empresaId: 1, sedeId: 1, idempotencyKey: 1, soporteId: 1 });
   assert.deepEqual(calls[1].options.projection, { _id: 0, empresaId: 1, sedeId: 1, soporteId: 1 });
