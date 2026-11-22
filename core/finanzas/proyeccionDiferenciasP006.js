@@ -13,6 +13,11 @@ function projectReconciliationDifferences(result) {
   const sedeId = own(result, "sedeId");
   const financial = own(result, "financial");
   const stock = own(result, "stock");
+  // A missing or blank scope must never be treated as a matching tenant.
+  if (typeof empresaId !== "string" || !empresaId.trim() ||
+      typeof sedeId !== "string" || !sedeId.trim()) {
+    throw new Error("P006_PANEL_SCOPE_INVALIDO");
+  }
   if (own(financial, "empresaId") !== empresaId || own(financial, "sedeId") !== sedeId ||
       own(stock, "empresaId") !== empresaId || own(stock, "sedeId") !== sedeId) {
     throw new Error("P006_PANEL_SCOPE_MISMATCH");
