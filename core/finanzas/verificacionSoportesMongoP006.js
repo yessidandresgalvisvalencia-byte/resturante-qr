@@ -32,7 +32,9 @@ function cursorMethod(cursor, key) {
   throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
 }
 async function readRows(collection, scope, projection) {
-  const find = own(collection, "find");
+  // Native MongoDB Collection.find is usually inherited from its prototype.
+  // Resolve only data descriptors, never accessor properties.
+  const find = cursorMethod(collection, "find");
   if (typeof find !== "function") throw new Error("P006_EVIDENCIA_COLECCION_INVALIDA");
   const cursor = find.call(collection, Object.freeze({ ...scope }), { projection, maxTimeMS: 5000 });
   const limit = cursorMethod(cursor, "limit");
