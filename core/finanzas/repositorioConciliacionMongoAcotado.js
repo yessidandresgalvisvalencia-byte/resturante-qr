@@ -33,8 +33,10 @@ function makeMongoScopedReconciliationRepository(config) {
   const findStock = collection(stockCollection);
   async function readCollection(target, find, scope, projection, limit) {
     const cursor = find.call(target, Object.freeze({ ...scope }), { projection });
-    if (!cursor || typeof cursor.limit !== "function" || typeof cursor.toArray !== "function") throw new Error("P006_MONGO_CURSOR_INVALIDO");
-    const records = await cursor.limit(limit + 1).toArray();
+    if (!cursor || typeof cursor.limit !== "function") throw new Error("P006_MONGO_CURSOR_INVALIDO");
+    const limited = cursor.limit(limit + 1);
+    if (!limited || typeof limited.toArray !== "function") throw new Error("P006_MONGO_CURSOR_INVALIDO");
+    const records = await limited.toArray();
     if (!Array.isArray(records) || records.length > limit) throw new Error("P006_MONGO_LIMITE");
     return records;
   }
