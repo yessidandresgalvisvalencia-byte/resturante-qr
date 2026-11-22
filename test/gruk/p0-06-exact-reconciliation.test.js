@@ -101,3 +101,18 @@ test("P0-06 reads movement fields only from validated own descriptors, not proxy
   assert.equal(result.uniqueMovements, 1);
   assert.equal(reads, 0);
 });
+
+
+test("P0-06 rejects sparse and accessor-backed movement indices without invoking getters", () => {
+  const sparse = new Array(1);
+  assert.throws(() => reconcileMovements(input(sparse)), /INDICE_INVALIDO/);
+  const inherited = new Array(1);
+  Object.setPrototypeOf(inherited, Object.assign(Object.create(Array.prototype), { 0: movement("hidden", "1") }));
+  assert.throws(() => reconcileMovements(input(inherited)), /INDICE_INVALIDO/);
+  let invoked = false;
+  const accessor = [movement("safe", "1")];
+  Object.defineProperty(accessor, "0", { get() { invoked = true; throw new Error("GETTER_EXECUTED"); } });
+  assert.throws(() => reconcileMovements(input(accessor)), /INDICE_INVALIDO/);
+  assert.equal(invoked, false);
+  assert.equal(reconcileMovements(input([movement("safe", "1")], "1")).balanced, true);
+});
