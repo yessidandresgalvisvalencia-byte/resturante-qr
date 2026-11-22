@@ -46,3 +46,20 @@ test("orders discrepancies by stable code points rather than host locale", () =>
   assert.deepEqual(sorted, [["p1", "z"], ["pA", "z"], ["p_1", "A"], ["p_1", "z"]]);
   assert.deepEqual(run([...records].reverse()).diferencias.map(({ productoId, unidad }) => [productoId, unidad]), sorted);
 });
+
+test("rejects sparse and inherited stock indices without executing accessors", () => {
+  const sparse = Array(1);
+  assert.throws(() => run(sparse), /STOCK_INDICE_INVALIDO/);
+  const inherited = Array(1);
+  let calls = 0;
+  const proto = Object.create(Array.prototype);
+  Object.defineProperty(proto, "0", { get() { calls++; throw Error("getter executed"); } });
+  Object.setPrototypeOf(inherited, proto);
+  assert.throws(() => run(inherited), /STOCK_INDICE_INVALIDO/);
+  assert.equal(calls, 0);
+  const ownAccessor = [row("1", "2")];
+  Object.defineProperty(ownAccessor, "0", { get() { calls++; throw Error("getter executed"); } });
+  assert.throws(() => run(ownAccessor), /STOCK_INDICE_INVALIDO/);
+  assert.equal(calls, 0);
+  assert.equal(run([row("1", "2")]).diferencias[0].diferencia, "1");
+});
