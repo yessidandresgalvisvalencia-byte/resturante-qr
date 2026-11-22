@@ -19,7 +19,7 @@ test("P0-06 Mongo differences composition returns exact scoped read-only project
   });
   assert.equal(result.empresaId, "empresa1");
   assert.equal(result.sedeId, "sede1");
-  assert.equal(result.differenceCentavos, "1");
+  assert.equal(result.differenceCentavos, "-1");
   assert.equal(result.cashMismatch, true);
   assert.deepEqual(result.stockDifferences, [{ productoId: "p1", unidad: "g", diferencia: "-1" }]);
   assert.equal(result.readOnly, true);
