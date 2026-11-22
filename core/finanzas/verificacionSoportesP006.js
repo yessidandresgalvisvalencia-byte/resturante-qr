@@ -40,6 +40,7 @@ function verifyMovementEvidence(request) {
     keys.add(key);
   }
   const missing = new Set();
+  const referencedEvidence = new Set();
   const movementKeys = new Set();
   for (let index = 0; index < movements.length; index++) {
     const movement = ownArrayRecord(movements, index);
@@ -50,7 +51,9 @@ function verifyMovementEvidence(request) {
     const soporteId = field(movement, "soporteId");
     if (soporteId !== null) id(soporteId);
     if (soporteId === null || !keys.has(soporteId)) missing.add(movementKey);
+    else referencedEvidence.add(soporteId);
   }
-  return Object.freeze({ empresaId, sedeId, unsupportedMovementKeys: Object.freeze([...missing].sort()), unsupportedCount: missing.size });
+  const orphanEvidenceIds = Object.freeze([...keys].filter(key => !referencedEvidence.has(key)).sort());
+  return Object.freeze({ empresaId, sedeId, unsupportedMovementKeys: Object.freeze([...missing].sort()), unsupportedCount: missing.size, orphanEvidenceIds, orphanEvidenceCount: orphanEvidenceIds.length });
 }
 module.exports = { verifyMovementEvidence };
