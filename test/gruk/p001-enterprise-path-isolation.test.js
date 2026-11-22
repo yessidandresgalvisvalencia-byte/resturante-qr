@@ -39,3 +39,32 @@ test('noncanonical paths fail closed instead of being normalized', () => {
     assert.throws(() => inspectChangedPaths([path]), /Noncanonical/);
   }
 });
+
+test('real git rename from protected product is detected even when git recognizes a rename', (t) => {
+  const { mkdtempSync, mkdirSync, writeFileSync, renameSync, rmSync } = require('node:fs');
+  const { tmpdir } = require('node:os');
+  const { join, dirname } = require('node:path');
+  const { execFileSync } = require('node:child_process');
+  const dir = mkdtempSync(join(tmpdir(), 'gruk-p001-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const git = (...args) => execFileSync('git', args, { cwd: dir });
+  git('init', '-q');
+  git('config', 'user.email', 'ci@example.invalid');
+  git('config', 'user.name', 'GRUK CI');
+  const oldPath = join(dir, 'public/finanzas-personales.js');
+  const newPath = join(dir, 'core/enterprise.js');
+  mkdirSync(dirname(oldPath), { recursive: true });
+  writeFileSync(oldPath, 'module.exports = 1;\n');
+  git('add', '.');
+  git('commit', '-qm', 'baseline');
+  const base = git('rev-parse', 'HEAD').toString().trim();
+  mkdirSync(dirname(newPath), { recursive: true });
+  renameSync(oldPath, newPath);
+  git('add', '-A');
+  git('commit', '-qm', 'rename');
+  const raw = git(...DIFF_ARGS.slice(1), base, 'HEAD');
+  const paths = parseGitDiffPaths(raw);
+  assert.ok(paths.includes('public/finanzas-personales.js'), 'deleted protected source must be visible');
+  assert.ok(paths.includes('core/enterprise.js'), 'new enterprise destination must be visible');
+  assert.equal(inspectChangedPaths(paths).ok, false);
+});
