@@ -62,7 +62,7 @@ test('real git rename from protected product is detected even when git recognize
   renameSync(oldPath, newPath);
   git('add', '-A');
   git('commit', '-qm', 'rename');
-  const raw = git(...DIFF_ARGS.slice(1), base, 'HEAD');
+  const raw = git(...DIFF_ARGS, base, 'HEAD');
   const paths = parseGitDiffPaths(raw);
   assert.ok(paths.includes('public/finanzas-personales.js'), 'deleted protected source must be visible');
   assert.ok(paths.includes('core/enterprise.js'), 'new enterprise destination must be visible');
