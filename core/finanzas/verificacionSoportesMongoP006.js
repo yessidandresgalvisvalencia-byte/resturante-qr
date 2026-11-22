@@ -18,10 +18,12 @@ async function readRows(collection, scope, projection) {
   const find = own(collection, "find");
   if (typeof find !== "function") throw new Error("P006_EVIDENCIA_COLECCION_INVALIDA");
   const cursor = find.call(collection, Object.freeze({ ...scope }), { projection, maxTimeMS: 5000 });
-  if (!cursor || typeof cursor.limit !== "function") throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
-  const limited = cursor.limit(10001);
-  if (!limited || typeof limited.toArray !== "function") throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
-  const rows = await limited.toArray();
+  const limit = own(cursor, "limit");
+  if (typeof limit !== "function") throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
+  const limited = limit.call(cursor, 10001);
+  const toArray = own(limited, "toArray");
+  if (typeof toArray !== "function") throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
+  const rows = await toArray.call(limited);
   if (!Array.isArray(rows) || rows.length > 10000) throw new Error("P006_EVIDENCIA_LIMITE");
   // Validate the entire driver boundary before forwarding rows to the verifier.
   for (let i = 0; i < rows.length; i++) {
