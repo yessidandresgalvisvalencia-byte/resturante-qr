@@ -49,3 +49,10 @@ Matriz de evidencia: requisito 06 → integrador `core/finanzas/conciliacionMong
 - Cambio: resolución de `limit` y `toArray` mediante descriptores de datos en la cadena de prototipos del cursor, sin ejecutar getters. Los métodos del driver MongoDB se exponen normalmente por prototipo; la lectura anterior exigía métodos propios y podía rechazar un cursor legítimo.
 - Pruebas agregadas: cursor con métodos en prototipo, accessor malicioso no ejecutado y rechazo de un registro de otra empresa.
 - Evidencia: commits `51bb558490f7ae54890b81f831d94c6db58b79c2` y `29e4c25c297328197fcb19da3ec1092f614dd1fd`. CI del HEAD final pendiente de comprobar; **no equivale a prueba Mongo real ni aceptación P0-06**.
+
+## Colecciones Mongo con métodos heredados (22-nov-2026)
+
+- Criterio P0-06 / soportes persistidos: `core/finanzas/verificacionSoportesMongoP006.js` acepta `Collection.find` declarado en prototipo (como el driver MongoDB) y rechaza getters sin ejecutarlos.
+- Regresión: `test/gruk/p0-06-mongo-prototype-collection.test.js` cubre colección y cursor con métodos heredados, además de getter malicioso.
+- Commits: `288393cd1d78c07865588a441d5d659c6eea8aad`, `515f20e3430c782bbe832ec1c2611b63f536733e`.
+- CI del segundo commit: cero ejecuciones devueltas al consultar; **pruebas no certificadas**. Sin integración real de Mongo, panel, ajustes auditables ni aceptación E2E. No fusionar ni desplegar.
