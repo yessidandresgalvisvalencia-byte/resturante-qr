@@ -24,3 +24,19 @@ test("P0-06 rejects accessor properties without evaluating them", () => {
   Object.defineProperty(record, "soporteId", { get() { throw Error("getter executed"); } });
   assert.throws(() => verifyMovementEvidence({ ...scope, movements: [record], evidence: [] }), /CAMPO_INVALIDO/);
 });
+
+test("P0-06 rejects inherited, sparse and accessor array entries without executing getters", () => {
+  for (const kind of ["evidence", "movements"]) {
+    const valid = kind === "evidence" ? s("f1") : m("x", "f1");
+    const inherited = new Array(1);
+    const proto = Object.create(Array.prototype);
+    proto[0] = valid;
+    Object.setPrototypeOf(inherited, proto);
+    assert.throws(() => verifyMovementEvidence({ ...scope, movements: [], evidence: [], [kind]: inherited }), /P006_SOPORTE_INDICE_INVALIDO/);
+    const sparse = new Array(1);
+    assert.throws(() => verifyMovementEvidence({ ...scope, movements: [], evidence: [], [kind]: sparse }), /P006_SOPORTE_INDICE_INVALIDO/);
+    const accessor = [valid];
+    Object.defineProperty(accessor, "0", { get() { throw Error("array getter executed"); } });
+    assert.throws(() => verifyMovementEvidence({ ...scope, movements: [], evidence: [], [kind]: accessor }), /P006_SOPORTE_INDICE_INVALIDO/);
+  }
+});
