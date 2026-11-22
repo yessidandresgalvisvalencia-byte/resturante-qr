@@ -42,3 +42,10 @@ Commit `a1263c3e2f986e50fd3b596bd49f3a272e63006f`: cuatro ejecuciones `completed
 La función `reconcileFromMongoCollections` exige explícitamente `empresaId`, `sedeId`, `movementsCollection`, `stockCollection` y `expectedCentavos`; no descubre modelos ni concede permisos. El suministro de colecciones y el origen independiente del saldo esperado siguen siendo responsabilidad del consumidor autorizado. Las pruebas de contrato de adaptadores no sustituyen un ensayo E2E contra MongoDB y fuentes operativas reales. No transformar `Venta.total` de tipo Number a centavos por redondeo implícito ni considerar el resultado como asiento contable. Cualquier ajuste futuro debe ser compensatorio, autorizado y auditable.
 
 Matriz de evidencia: requisito 06 → integrador `core/finanzas/conciliacionMongoIntegradaP006.js` → prueba `test/gruk/p0-06-mongo-integration-contract.test.js`; requisito 06 → lectura `core/finanzas/lecturaVentasPersistidasP006.js` → prueba `test/gruk/p0-06-persisted-sales-read.test.js`. **Estado: parcial, sin aceptación funcional ni permiso de merge/despliegue.**
+
+## Compatibilidad con cursor MongoDB (22-nov-2026)
+
+- Requisito 06 / soportes persistidos → `core/finanzas/verificacionSoportesMongoP006.js` → `test/gruk/p0-06-mongo-prototype-cursor.test.js`.
+- Cambio: resolución de `limit` y `toArray` mediante descriptores de datos en la cadena de prototipos del cursor, sin ejecutar getters. Los métodos del driver MongoDB se exponen normalmente por prototipo; la lectura anterior exigía métodos propios y podía rechazar un cursor legítimo.
+- Pruebas agregadas: cursor con métodos en prototipo, accessor malicioso no ejecutado y rechazo de un registro de otra empresa.
+- Evidencia: commits `51bb558490f7ae54890b81f831d94c6db58b79c2` y `29e4c25c297328197fcb19da3ec1092f614dd1fd`. CI del HEAD final pendiente de comprobar; **no equivale a prueba Mongo real ni aceptación P0-06**.
