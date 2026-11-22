@@ -66,3 +66,26 @@ test("Mongo adapter rejects cross-branch stock rows before returning a snapshot"
   await assert.rejects(repository.readScopedSnapshot({ empresaId: "e1", sedeId: "s1" }), /P006_MONGO_SCOPE_MISMATCH/);
   assert.equal(calls.length, 2);
 });
+
+test("Mongo adapter rejects sparse and accessor cursor rows without executing getters", async () => {
+  for (const kind of ["sparse", "accessor", "inherited"]) {
+    const rows = new Array(1);
+    if (kind === "accessor") {
+      Object.defineProperty(rows, "0", { get() { throw Error("unsafe getter executed"); } });
+    }
+    if (kind === "inherited") {
+      const prototype = Object.create(Array.prototype);
+      prototype[0] = { empresaId: "e1", sedeId: "s1" };
+      Object.setPrototypeOf(rows, prototype);
+    }
+    const collection = { find() { return { limit() { return { async toArray() { return rows; } }; } }; } };
+    const repository = makeMongoScopedReconciliationRepository({
+      movementsCollection: collection, stockCollection: collection, expectedCentavos: "0"
+    });
+    await assert.rejects(
+      repository.readScopedSnapshot({ empresaId: "e1", sedeId: "s1" }),
+      /P006_MONGO_REGISTRO_INVALIDO/,
+      kind
+    );
+  }
+});
