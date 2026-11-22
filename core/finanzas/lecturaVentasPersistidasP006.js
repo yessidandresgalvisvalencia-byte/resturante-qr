@@ -24,8 +24,15 @@ async function readScopedSales({ empresaId, sedeId, limit = 100 }) {
     .lean();
   if (!Array.isArray(rows)) throw new Error("P006_RESPONSE_INVALIDA");
   if (rows.length > limit) throw new Error("P006_RESPONSE_EXCEDE_LIMITE");
+  // Fail closed on sparse arrays, inherited indices and accessor-backed evidence.
   const seen = new Set();
-  return rows.map(row => {
+  const output = [];
+  for (let index = 0; index < rows.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(rows, String(index));
+    if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+      throw new Error("P006_RESPONSE_INVALIDA");
+    }
+    const row = descriptor.value;
     if (!row || typeof row !== "object" || row._id == null ||
         !/^[a-fA-F0-9]{24}$/.test(String(row._id))) {
       throw new Error("P006_ROW_INVALIDA");
@@ -38,14 +45,15 @@ async function readScopedSales({ empresaId, sedeId, limit = 100 }) {
       throw new Error("P006_SCOPE_MISMATCH");
     }
     // Legacy Venta.total is Number; do not pass it to an exact-cent ledger.
-    return Object.freeze({
+    output.push(Object.freeze({
       id, empresaId: String(row.empresaId),
       sedeId: String(row.sedeId), origen: row.origen,
       origenId: row.origenId == null ? null : String(row.origenId),
       estado: row.estado, totalLegacy: row.total,
       fecha: row.fecha, metodoPago: row.metodoPago
-    });
-  });
+    }));
+  }
+  return output;
 }
 
 module.exports = { readScopedSales };
