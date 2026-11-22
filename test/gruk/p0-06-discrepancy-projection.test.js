@@ -31,7 +31,8 @@ test("P0-06 projection rejects cross-tenant results", () => {
 test("P0-06 projection does not invoke malicious accessors or inherited indices", () => {
   const input = sample();
   let invoked = false;
-  input.financial = { ...input.financial };\n  Object.defineProperty(input.financial, "differenceCentavos", { get() { invoked = true; return "0"; } });
+  input.financial = { ...input.financial };
+  Object.defineProperty(input.financial, "differenceCentavos", { get() { invoked = true; return "0"; } });
   assert.throws(() => projectReconciliationDifferences(input), /P006_PANEL_CAMPO_INVALIDO/);
   assert.equal(invoked, false);
   const other = sample();
