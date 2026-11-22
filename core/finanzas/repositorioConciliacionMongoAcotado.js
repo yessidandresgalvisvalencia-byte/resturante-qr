@@ -39,7 +39,13 @@ function makeMongoScopedReconciliationRepository(config) {
     const records = await limited.toArray();
     if (!Array.isArray(records) || records.length > limit) throw new Error("P006_MONGO_LIMITE");
     // Reject cross-tenant records even if a driver, mock or collection ignores the filter.
-    for (const record of records) {
+    for (let index = 0; index < records.length; index++) {
+      // A driver boundary must never execute inherited or accessor array entries.
+      const descriptor = Object.getOwnPropertyDescriptor(records, String(index));
+      if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+        throw new Error("P006_MONGO_REGISTRO_INVALIDO");
+      }
+      const record = descriptor.value;
       if (own(record, "empresaId") !== scope.empresaId || own(record, "sedeId") !== scope.sedeId) {
         throw new Error("P006_MONGO_SCOPE_MISMATCH");
       }
