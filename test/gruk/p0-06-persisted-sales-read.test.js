@@ -46,3 +46,23 @@ test("P0-06: fails closed on a cross-tenant row returned by repository", async (
     await assert.rejects(readScopedSales({ empresaId, sedeId }), /P006_SCOPE_MISMATCH/);
   } finally { Venta.find = original; }
 });
+
+test("P0-06: rejects duplicate, malformed and over-limit repository evidence", async () => {
+  const original = Venta.find;
+  let rows = [];
+  Venta.find = () => ({
+    select() { return this; }, sort() { return this; }, limit() { return this; },
+    async lean() { return rows; }
+  });
+  const valid = { _id: "cccccccccccccccccccccccc", empresaId, sedeId };
+  try {
+    rows = [valid, { ...valid }];
+    await assert.rejects(readScopedSales({ empresaId, sedeId, limit: 2 }), /P006_VENTA_DUPLICADA/);
+    rows = [null];
+    await assert.rejects(readScopedSales({ empresaId, sedeId }), /P006_ROW_INVALIDA/);
+    rows = [{ ...valid, _id: "invalid" }];
+    await assert.rejects(readScopedSales({ empresaId, sedeId }), /P006_ROW_INVALIDA/);
+    rows = [valid, { ...valid, _id: "dddddddddddddddddddddddd" }];
+    await assert.rejects(readScopedSales({ empresaId, sedeId, limit: 1 }), /P006_RESPONSE_EXCEDE_LIMITE/);
+  } finally { Venta.find = original; }
+});
