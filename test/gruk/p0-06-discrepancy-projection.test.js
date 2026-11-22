@@ -40,3 +40,13 @@ test("P0-06 projection does not invoke malicious accessors or inherited indices"
   other.stock = { ...other.stock, diferencias: rows };
   assert.throws(() => projectReconciliationDifferences(other), /P006_PANEL_INDICE_INVALIDO/);
 });
+
+test("P0-06 projection preserves exact fractional stock quantities and rejects malformed decimals", () => {
+  const input = sample();
+  input.stock = { ...input.stock, diferencias: [{ productoId: "p1", unidad: "kg", diferencia: "-0.125" }] };
+  assert.equal(projectReconciliationDifferences(input).stockDifferences[0].diferencia, "-0.125");
+  for (const invalid of ["1x25", "1e3", "1,25", "-0.000", "01.25"]) {
+    input.stock.diferencias = [{ productoId: "p1", unidad: "kg", diferencia: invalid }];
+    assert.throws(() => projectReconciliationDifferences(input), /P006_PANEL_STOCK_DATO_INVALIDO/);
+  }
+});
