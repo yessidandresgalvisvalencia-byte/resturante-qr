@@ -15,10 +15,21 @@ function own(value, key) {
   return d.value;
 }
 function collection(value) {
-  if (!value || typeof value !== "object") throw new Error("P006_MONGO_COLECCION_INVALIDA");
-  const d = Object.getOwnPropertyDescriptor(value, "find");
-  if (!d || typeof d.value !== "function") throw new Error("P006_MONGO_COLECCION_INVALIDA");
-  return d.value;
+  // The native MongoDB Collection.find method is inherited. Resolve data
+  // descriptors without invoking getters, including shadowing accessors.
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("P006_MONGO_COLECCION_INVALIDA");
+  let target = value;
+  while (target && target !== Object.prototype) {
+    const descriptor = Object.getOwnPropertyDescriptor(target, "find");
+    if (descriptor) {
+      if (!Object.prototype.hasOwnProperty.call(descriptor, "value") || typeof descriptor.value !== "function") {
+        throw new Error("P006_MONGO_COLECCION_INVALIDA");
+      }
+      return descriptor.value;
+    }
+    target = Object.getPrototypeOf(target);
+  }
+  throw new Error("P006_MONGO_COLECCION_INVALIDA");
 }
 // Mongo cursors expose methods on their prototypes. Resolve data descriptors
 // without executing attacker-controlled accessor properties.
