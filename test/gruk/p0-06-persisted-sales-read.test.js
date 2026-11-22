@@ -40,7 +40,7 @@ test("P0-06: fails closed on a cross-tenant row returned by repository", async (
   const original = Venta.find;
   Venta.find = () => ({
     select() { return this; }, sort() { return this; }, limit() { return this; },
-    async lean() { return [{ empresaId: "cccccccccccccccccccccccc", sedeId }]; }
+    async lean() { return [{ _id: "dddddddddddddddddddddddd", empresaId: "cccccccccccccccccccccccc", sedeId }]; }
   });
   try {
     await assert.rejects(readScopedSales({ empresaId, sedeId }), /P006_SCOPE_MISMATCH/);
