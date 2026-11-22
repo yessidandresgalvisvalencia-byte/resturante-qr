@@ -17,7 +17,7 @@ function validScope(value) {
 async function readRows(collection, scope, projection) {
   const find = own(collection, "find");
   if (typeof find !== "function") throw new Error("P006_EVIDENCIA_COLECCION_INVALIDA");
-  const cursor = find.call(collection, Object.freeze({ ...scope }), { projection });
+  const cursor = find.call(collection, Object.freeze({ ...scope }), { projection, maxTimeMS: 5000 });
   if (!cursor || typeof cursor.limit !== "function") throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
   const limited = cursor.limit(10001);
   if (!limited || typeof limited.toArray !== "function") throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
