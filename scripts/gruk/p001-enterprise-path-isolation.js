@@ -16,7 +16,7 @@ function inspectChangedPaths(paths) {
   }
   // Git paths must be relative and canonical; ambiguous spellings fail closed.
   for (const path of paths) {
-    if (path.startsWith('/') || path.includes('\\\\') || path.split('/').some(part => !part || part === '.' || part === '..')) {
+    if (path.startsWith('/') || path.includes('\\') || path.split('/').some(part => !part || part === '.' || part === '..')) {
       throw new TypeError('Noncanonical changed path');
     }
   }
