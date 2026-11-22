@@ -50,3 +50,18 @@ test("P0-06 projection preserves exact fractional stock quantities and rejects m
     assert.throws(() => projectReconciliationDifferences(input), /P006_PANEL_STOCK_DATO_INVALIDO/);
   }
 });
+
+test("P0-06 projection rejects absent or blank tenant identifiers even when nested scopes match", () => {
+  for (const invalid of [undefined, null, "", "  ", 123]) {
+    const input = sample();
+    input.empresaId = invalid;
+    input.financial = { ...input.financial, empresaId: invalid };
+    input.stock = { ...input.stock, empresaId: invalid };
+    assert.throws(() => projectReconciliationDifferences(input), /P006_PANEL_SCOPE_INVALIDO/);
+    const other = sample();
+    other.sedeId = invalid;
+    other.financial = { ...other.financial, sedeId: invalid };
+    other.stock = { ...other.stock, sedeId: invalid };
+    assert.throws(() => projectReconciliationDifferences(other), /P006_PANEL_SCOPE_INVALIDO/);
+  }
+});
