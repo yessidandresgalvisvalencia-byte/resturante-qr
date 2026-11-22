@@ -14,14 +14,31 @@ function validScope(value) {
   if (typeof value !== "string" || !ID.test(value)) throw new Error("P006_EVIDENCIA_SCOPE_INVALIDO");
   return value;
 }
+// MongoDB driver cursor methods normally live on prototypes. Walk data
+// descriptors only: never invoke an accessor while resolving a method.
+function cursorMethod(cursor, key) {
+  if (!cursor || (typeof cursor !== "object" && typeof cursor !== "function")) throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
+  let target = cursor;
+  while (target && target !== Object.prototype) {
+    const descriptor = Object.getOwnPropertyDescriptor(target, key);
+    if (descriptor) {
+      if (!Object.prototype.hasOwnProperty.call(descriptor, "value") || typeof descriptor.value !== "function") {
+        throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
+      }
+      return descriptor.value;
+    }
+    target = Object.getPrototypeOf(target);
+  }
+  throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
+}
 async function readRows(collection, scope, projection) {
   const find = own(collection, "find");
   if (typeof find !== "function") throw new Error("P006_EVIDENCIA_COLECCION_INVALIDA");
   const cursor = find.call(collection, Object.freeze({ ...scope }), { projection, maxTimeMS: 5000 });
-  const limit = own(cursor, "limit");
+  const limit = cursorMethod(cursor, "limit");
   if (typeof limit !== "function") throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
   const limited = limit.call(cursor, 10001);
-  const toArray = own(limited, "toArray");
+  const toArray = cursorMethod(limited, "toArray");
   if (typeof toArray !== "function") throw new Error("P006_EVIDENCIA_CURSOR_INVALIDO");
   const rows = await toArray.call(limited);
   if (!Array.isArray(rows) || rows.length > 10000) throw new Error("P006_EVIDENCIA_LIMITE");
