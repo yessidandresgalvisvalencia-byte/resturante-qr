@@ -38,7 +38,13 @@ function reconcileMovements(input) {
   let actual = 0n;
   const seen = new Map();
   const duplicates = [];
-  for (const movement of movements) {
+  // Reject sparse/accessor indices without invoking inherited getters.
+  for (let index = 0; index < movements.length; index++) {
+    const descriptor = Object.getOwnPropertyDescriptor(movements, String(index));
+    if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+      throw new Error("CONCILIACION_INDICE_INVALIDO");
+    }
+    const movement = descriptor.value;
     if (!movement || typeof movement !== "object" || Array.isArray(movement)) throw new Error("CONCILIACION_MOVIMIENTO_INVALIDO");
     // Reject inherited scope/identity fields: untrusted payloads must carry their own tenant context.
     const movementValues = {};
