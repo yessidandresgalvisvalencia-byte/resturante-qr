@@ -20,15 +20,20 @@ function inspectChangedPaths(paths) {
 // Disable rename detection so both the removed source and added destination are checked.
 // Otherwise a rename out of a protected directory can hide the original path.
 const DIFF_ARGS = Object.freeze(['diff', '--no-renames', '--name-only', '-z', '--diff-filter=ACMDTUXB']);
-function main() {
-  const base = process.env.GRUK_ISOLATION_BASE;
-  if (!base || !/^[0-9a-f]{40}$/.test(base)) throw new Error('GRUK_ISOLATION_BASE must be a full commit SHA');
-  const output = execFileSync('git', [...DIFF_ARGS, base, 'HEAD'], { cwd: resolve(__dirname, '../..') });
+function parseGitDiffPaths(output) {
+  if (!Buffer.isBuffer(output)) throw new TypeError('Expected git diff Buffer');
   // Invalid UTF-8 must fail closed: replacement characters can conceal protected paths.
   const decoded = new TextDecoder('utf-8', { fatal: true }).decode(output);
   if (decoded && !decoded.endsWith('\0')) throw new Error('Malformed NUL-delimited git diff');
   const paths = decoded ? decoded.slice(0, -1).split('\0') : [];
   if (paths.some(path => !path)) throw new Error('Empty path in git diff');
+  return paths;
+}
+function main() {
+  const base = process.env.GRUK_ISOLATION_BASE;
+  if (!base || !/^[0-9a-f]{40}$/.test(base)) throw new Error('GRUK_ISOLATION_BASE must be a full commit SHA');
+  const output = execFileSync('git', [...DIFF_ARGS, base, 'HEAD'], { cwd: resolve(__dirname, '../..') });
+  const paths = parseGitDiffPaths(output);
   const result = inspectChangedPaths(paths);
   if (!result.ok) {
     console.error('P0-01 enterprise isolation violation:', result.foreign.join(', '));
@@ -38,4 +43,4 @@ function main() {
 if (require.main === module) {
   try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
-module.exports = { inspectChangedPaths, DIFF_ARGS };
+module.exports = { inspectChangedPaths, parseGitDiffPaths, DIFF_ARGS };
