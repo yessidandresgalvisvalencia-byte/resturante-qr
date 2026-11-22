@@ -20,6 +20,23 @@ function collection(value) {
   if (!d || typeof d.value !== "function") throw new Error("P006_MONGO_COLECCION_INVALIDA");
   return d.value;
 }
+// Mongo cursors expose methods on their prototypes. Resolve data descriptors
+// without executing attacker-controlled accessor properties.
+function cursorMethod(cursor, key) {
+  if (!cursor || (typeof cursor !== "object" && typeof cursor !== "function")) throw new Error("P006_MONGO_CURSOR_INVALIDO");
+  let target = cursor;
+  while (target && target !== Object.prototype) {
+    const descriptor = Object.getOwnPropertyDescriptor(target, key);
+    if (descriptor) {
+      if (!Object.prototype.hasOwnProperty.call(descriptor, "value") || typeof descriptor.value !== "function") {
+        throw new Error("P006_MONGO_CURSOR_INVALIDO");
+      }
+      return descriptor.value;
+    }
+    target = Object.getPrototypeOf(target);
+  }
+  throw new Error("P006_MONGO_CURSOR_INVALIDO");
+}
 function makeMongoScopedReconciliationRepository(config) {
   const movementsCollection = own(config, "movementsCollection");
   const stockCollection = own(config, "stockCollection");
@@ -33,10 +50,10 @@ function makeMongoScopedReconciliationRepository(config) {
   const findStock = collection(stockCollection);
   async function readCollection(target, find, scope, projection, limit) {
     const cursor = find.call(target, Object.freeze({ ...scope }), { projection });
-    if (!cursor || typeof cursor.limit !== "function") throw new Error("P006_MONGO_CURSOR_INVALIDO");
-    const limited = cursor.limit(limit + 1);
-    if (!limited || typeof limited.toArray !== "function") throw new Error("P006_MONGO_CURSOR_INVALIDO");
-    const records = await limited.toArray();
+    const limitCursor = cursorMethod(cursor, "limit");
+    const limited = limitCursor.call(cursor, limit + 1);
+    const toArray = cursorMethod(limited, "toArray");
+    const records = await toArray.call(limited);
     if (!Array.isArray(records) || records.length > limit) throw new Error("P006_MONGO_LIMITE");
     // Reject cross-tenant records even if a driver, mock or collection ignores the filter.
     for (let index = 0; index < records.length; index++) {
