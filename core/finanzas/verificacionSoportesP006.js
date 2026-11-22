@@ -14,13 +14,21 @@ function id(value) {
   if (typeof value !== "string" || !ID.test(value)) throw new Error("P006_SOPORTE_ID_INVALIDO");
   return value;
 }
+function ownArrayRecord(records, index) {
+  const descriptor = Object.getOwnPropertyDescriptor(records, String(index));
+  if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+    throw new Error("P006_SOPORTE_INDICE_INVALIDO");
+  }
+  return descriptor.value;
+}
 function verifyMovementEvidence({ empresaId, sedeId, movements, evidence }) {
   id(empresaId); id(sedeId);
   if (!Array.isArray(movements) || !Array.isArray(evidence) || movements.length > 10000 || evidence.length > 10000) {
     throw new Error("P006_SOPORTE_LIMITE");
   }
   const keys = new Set();
-  for (const record of evidence) {
+  for (let index = 0; index < evidence.length; index++) {
+    const record = ownArrayRecord(evidence, index);
     if (field(record, "empresaId") !== empresaId || field(record, "sedeId") !== sedeId) throw new Error("P006_SOPORTE_TENANT");
     const key = id(field(record, "soporteId"));
     if (keys.has(key)) throw new Error("P006_SOPORTE_DUPLICADO");
@@ -28,7 +36,8 @@ function verifyMovementEvidence({ empresaId, sedeId, movements, evidence }) {
   }
   const missing = new Set();
   const movementKeys = new Set();
-  for (const movement of movements) {
+  for (let index = 0; index < movements.length; index++) {
+    const movement = ownArrayRecord(movements, index);
     if (field(movement, "empresaId") !== empresaId || field(movement, "sedeId") !== sedeId) throw new Error("P006_MOVIMIENTO_TENANT");
     const movementKey = id(field(movement, "idempotencyKey"));
     if (movementKeys.has(movementKey)) throw new Error("P006_MOVIMIENTO_DUPLICADO");
