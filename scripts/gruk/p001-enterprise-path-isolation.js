@@ -16,10 +16,13 @@ function inspectChangedPaths(paths) {
   const foreign = paths.filter(p => PROTECTED.some(pattern => pattern.test(p.replaceAll('\\', '/'))));
   return { ok: foreign.length === 0, foreign };
 }
+// Disable rename detection so both the removed source and added destination are checked.
+// Otherwise a rename out of a protected directory can hide the original path.
+const DIFF_ARGS = Object.freeze(['diff', '--no-renames', '--name-only', '-z', '--diff-filter=ACMDTUXB']);
 function main() {
   const base = process.env.GRUK_ISOLATION_BASE;
   if (!base || !/^[0-9a-f]{40}$/.test(base)) throw new Error('GRUK_ISOLATION_BASE must be a full commit SHA');
-  const output = execFileSync('git', ['diff', '--name-only', '-z', '--diff-filter=ACMRD', base, 'HEAD'], { cwd: resolve(__dirname, '../..') });
+  const output = execFileSync('git', [...DIFF_ARGS, base, 'HEAD'], { cwd: resolve(__dirname, '../..') });
   const paths = output.toString('utf8').split('\0').filter(Boolean);
   const result = inspectChangedPaths(paths);
   if (!result.ok) {
@@ -30,4 +33,4 @@ function main() {
 if (require.main === module) {
   try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
-module.exports = { inspectChangedPaths };
+module.exports = { inspectChangedPaths, DIFF_ARGS };
