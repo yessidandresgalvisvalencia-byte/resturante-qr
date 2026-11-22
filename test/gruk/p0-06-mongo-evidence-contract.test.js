@@ -77,7 +77,7 @@ test("P0-06 Mongo evidence: never invokes cursor method getters", async () => {
     };
     const req = request([], []);
     req.movementsCollection = malicious;
-    await assert.rejects(verifyEvidenceFromMongoCollections(req), /P006_EVIDENCIA_CAMPO_/);
+    await assert.rejects(verifyEvidenceFromMongoCollections(req), /P006_EVIDENCIA_CURSOR_INVALIDO/);
     assert.equal(invoked, false);
   }
 });
