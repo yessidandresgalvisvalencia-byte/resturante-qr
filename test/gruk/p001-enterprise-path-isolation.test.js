@@ -33,3 +33,9 @@ test('strict git diff decoder rejects invalid UTF-8 and malformed delimiters', (
   assert.throws(() => parseGitDiffPaths(Buffer.from('core/a.js\0\0')), /Empty path/);
   assert.throws(() => parseGitDiffPaths('core/a.js\0'), TypeError);
 });
+
+test('noncanonical paths fail closed instead of being normalized', () => {
+  for (const path of ['/public/finanzas-personales.js', 'core/../public/finanzas-personales.js', './core/empresa.js', 'core//empresa.js', 'core\\\\blushea\\\\app.js']) {
+    assert.throws(() => inspectChangedPaths([path]), /Noncanonical/);
+  }
+});
