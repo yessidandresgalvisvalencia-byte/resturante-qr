@@ -14,7 +14,13 @@ function inspectChangedPaths(paths) {
   if (!Array.isArray(paths) || paths.some(p => typeof p !== 'string' || !p || p.includes('\0'))) {
     throw new TypeError('Invalid changed paths');
   }
-  const foreign = paths.filter(p => PROTECTED.some(pattern => pattern.test(p.replaceAll('\\', '/'))));
+  // Git paths must be relative and canonical; ambiguous spellings fail closed.
+  for (const path of paths) {
+    if (path.startsWith('/') || path.includes('\\\\') || path.split('/').some(part => !part || part === '.' || part === '..')) {
+      throw new TypeError('Noncanonical changed path');
+    }
+  }
+  const foreign = paths.filter(p => PROTECTED.some(pattern => pattern.test(p)));
   return { ok: foreign.length === 0, foreign };
 }
 // Disable rename detection so both the removed source and added destination are checked.
