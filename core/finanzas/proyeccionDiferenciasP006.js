@@ -37,7 +37,7 @@ function projectReconciliationDifferences(result) {
     const productoId = own(item, "productoId");
     const unidad = own(item, "unidad");
     const diferencia = own(item, "diferencia");
-    if (typeof productoId !== "string" || !productoId || typeof unidad !== "string" || !unidad ||
+    if (typeof productoId !== "string" || !productoId.trim() || typeof unidad !== "string" || !unidad.trim() ||
         typeof diferencia !== "string" || !/^-?(0|[1-9]\d*)(\.\d+)?$/.test(diferencia) || /^-0(?:\.0+)?$/.test(diferencia)) {
       throw new Error("P006_PANEL_STOCK_DATO_INVALIDO");
     }
