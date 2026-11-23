@@ -70,3 +70,45 @@ test("P0-06 HTTP adapter fails closed on dependency errors", async () => {
   assert.deepEqual(res.body, { error: "DISCREPANCY_UNAVAILABLE" });
   assert.deepEqual(reads, []);
 });
+
+test("P0-06 HTTP adapter snapshots principal before asynchronous authorization", async () => {
+  const reads = [], d = deps(reads), res = response();
+  const principal = { id: "actor1" };
+  d.getPrincipal = async () => principal;
+  d.authorize = async context => {
+    assert.equal(context.principal.id, "actor1");
+    principal.id = "attacker";
+    return true;
+  };
+  await createDiscrepancyHttpHandler(d)(request, res);
+  assert.equal(res.code, 200);
+  assert.equal(reads.length, 2);
+});
+
+test("P0-06 HTTP adapter rejects accessor-backed identity without executing getter", async () => {
+  const reads = [], d = deps(reads), res = response();
+  let invoked = 0;
+  d.getPrincipal = async () => Object.defineProperty({}, "id", {
+    get() { invoked++; throw new Error("untrusted getter"); }
+  });
+  await createDiscrepancyHttpHandler(d)(request, res);
+  assert.equal(res.code, 401);
+  assert.equal(invoked, 0);
+  assert.equal(d.calls.auth, 0);
+  assert.equal(d.calls.collections, 0);
+  assert.deepEqual(reads, []);
+});
+
+test("P0-06 HTTP adapter rejects accessor-backed route params without executing getter", async () => {
+  const reads = [], d = deps(reads), res = response();
+  let invoked = 0;
+  const params = Object.defineProperty({ sedeId: "sede1" }, "empresaId", {
+    get() { invoked++; throw new Error("untrusted getter"); }
+  });
+  await createDiscrepancyHttpHandler(d)({ params }, res);
+  assert.equal(res.code, 400);
+  assert.equal(invoked, 0);
+  assert.equal(d.calls.auth, 0);
+  assert.equal(d.calls.collections, 0);
+  assert.deepEqual(reads, []);
+});
