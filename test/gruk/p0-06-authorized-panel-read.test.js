@@ -123,3 +123,21 @@ test("P0-06 rejects unrelated accessor fields before authorization or Mongo read
   assert.equal(authorized, false);
   assert.deepEqual(reads, []);
 });
+
+test("P0-06 authorization receives immutable authenticated actor snapshot", async () => {
+  const reads = [], principal = { id: "actor1", role: "admin" };
+  const result = await readAuthorizedDiscrepancyPanel({
+    principal,
+    authorize: async context => {
+      assert.deepEqual(context.principal, { id: "actor1" });
+      assert.equal(Object.isFrozen(context.principal), true);
+      principal.id = "actor2";
+      principal.role = "guest";
+      assert.equal(context.principal.id, "actor1");
+      return true;
+    },
+    request: fixture(reads)
+  });
+  assert.equal(result.readOnly, true);
+  assert.equal(reads.length, 2);
+});
