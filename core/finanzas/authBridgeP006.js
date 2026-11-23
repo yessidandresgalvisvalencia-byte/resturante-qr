@@ -11,28 +11,6 @@ function own(obj, key) {
     ? descriptor.value : undefined;
 }
 
-function createAuthenticatedP006Dependencies({ getCollections, authorizeRole }) {
-  if (typeof getCollections !== "function" || typeof authorizeRole !== "function") {
-    throw new TypeError("P006_AUTH_BRIDGE_DEPENDENCIES_INVALID");
-  }
-  // Principal is exclusively issued by the existing verified JWT middleware.
-  const getPrincipal = req => {
-    const auth = own(req, "auth");
-    const id = own(auth, "usuarioId");
-    return typeof id === "string" ? { id } : null;
-  };
-  const authorize = async context => {
-    const principal = own(context, "principal");
-    const actorId = own(principal, "id");
-    const empresaId = own(context, "empresaId");
-    const sedeId = own(context, "sedeId");
-    // A request-local auth context is required. Never infer tenant from body.
-    // The handler's authorization API does not carry req; binding must occur per request.
-    return false;
-  };
-  return { getPrincipal, authorize, getCollections };
-}
-
 // Per-request factory prevents sharing an authenticated tenant across requests.
 // Requires an explicitly supplied role/permission evaluator; never grants by role name alone.
 function createP006RequestHandler({ getCollections, authorizeRole }) {
