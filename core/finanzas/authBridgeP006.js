@@ -2,7 +2,7 @@
 
 // Production auth bridge for P0-06. Must be placed AFTER authMiddleware.
 // No client-provided principal, role or tenant is trusted.
-const { registerDiscrepancyRoute } = require("./rutaDiferenciasP006");
+const { ROUTE } = require("./rutaDiferenciasP006");
 
 function own(obj, key) {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return undefined;
@@ -47,4 +47,16 @@ function createP006RequestHandler({ getCollections, authorizeRole }) {
   };
 }
 
-module.exports = { createP006RequestHandler };
+// Mount only behind the host's verified JWT middleware. This is an opt-in
+// integration seam; no production route is registered implicitly.
+function mountAuthenticatedP006Route(router, authMiddleware, dependencies) {
+  if (!router || typeof router.get !== "function" ||
+      typeof authMiddleware !== "function") {
+    throw new TypeError("P006_AUTH_ROUTE_INVALID");
+  }
+  const handler = createP006RequestHandler(dependencies);
+  router.get(ROUTE, authMiddleware, handler);
+  return router;
+}
+
+module.exports = { createP006RequestHandler, mountAuthenticatedP006Route };
