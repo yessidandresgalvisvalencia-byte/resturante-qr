@@ -128,3 +128,34 @@ test("P0-06 HTTP adapter rejects accessor-backed collection dependencies without
   assert.equal(invoked, 0);
   assert.deepEqual(reads, []);
 });
+
+
+test("P0-06 HTTP adapter fails closed when authorization is revoked before Mongo read", async () => {
+  const reads = [], d = deps(reads), res = response();
+  let checks = 0;
+  d.authorize = async () => ++checks === 1;
+  await createDiscrepancyHttpHandler(d)(request, res);
+  assert.equal(checks, 2);
+  assert.equal(d.calls.collections, 1);
+  assert.equal(res.code, 503);
+  assert.deepEqual(res.body, { error: "DISCREPANCY_UNAVAILABLE" });
+  assert.deepEqual(reads, []);
+});
+
+test("P0-06 HTTP adapter does not read Mongo if tenant scope changes while collections load", async () => {
+  const reads = [], d = deps(reads), res = response();
+  const params = { empresaId: "empresaA", sedeId: "sede1" };
+  const originalGetCollections = d.getCollections;
+  d.getCollections = async scope => {
+    params.empresaId = "empresaB";
+    params.sedeId = "sede2";
+    assert.deepEqual(scope, { empresaId: "empresaA", sedeId: "sede1" });
+    return originalGetCollections();
+  };
+  await createDiscrepancyHttpHandler(d)({ params }, res);
+  assert.equal(res.code, 200);
+  assert.deepEqual(reads, [
+    { empresaId: "empresaA", sedeId: "sede1" },
+    { empresaId: "empresaA", sedeId: "sede1" }
+  ]);
+});
