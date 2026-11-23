@@ -109,3 +109,5 @@ test('P0-05 rejects custom prototypes and permits null-prototype data records',(
   const clean=Object.assign(Object.create(null),base);
   assert.equal(transition(clean).evento.empresaId,base.empresaId);
 });
+
+test('P0-05 rejects hidden required fields that JSON would silently drop',()=>{\n  for (const field of ['empresaId','sedeId','eventoId','fecha']) {\n    const payload={...base};\n    Object.defineProperty(payload,field,{value:base[field],enumerable:false,configurable:true});\n    assert.equal(Object.hasOwn(payload,field),true);\n    assert.equal(Object.hasOwn(JSON.parse(JSON.stringify(payload)),field),false);\n    assert.throws(()=>transition(payload),/P005_CAMPO_NO_ENUMERABLE/);\n  }\n});\n
