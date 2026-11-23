@@ -56,3 +56,14 @@ Matriz de evidencia: requisito 06 → integrador `core/finanzas/conciliacionMong
 - Regresión: `test/gruk/p0-06-mongo-prototype-collection.test.js` cubre colección y cursor con métodos heredados, además de getter malicioso.
 - Commits: `288393cd1d78c07865588a441d5d659c6eea8aad`, `515f20e3430c782bbe832ec1c2611b63f536733e`.
 - CI del segundo commit: cero ejecuciones devueltas al consultar; **pruebas no certificadas**. Sin integración real de Mongo, panel, ajustes auditables ni aceptación E2E. No fusionar ni desplegar.
+
+## Verificación del HEAD `2bde526e` (23-nov-2026)
+
+Se consultaron las ejecuciones asociadas al SHA exacto `2bde526ea40bf6c6ebf2bc851bd004d057f8a667`; las cuatro devolvieron `completed/success`:
+
+- GRUK CI: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45110159777
+- GRUK quality gate: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45110159747
+- GRUK Offline Browser Persistence: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45110159755
+- GRUK P0-04 Venta Index Real MongoDB: https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45110159752
+
+Esta verificación es del HEAD **anterior** al commit que incorpora esta sección. La aprobación de los workflows no acredita panel, autorización HTTP, datos operativos reales, ajustes compensatorios persistentes ni E2E. El PR sigue **NO ACEPTADO**; queda prohibido fusionar o desplegar hasta cerrar los criterios pendientes.
