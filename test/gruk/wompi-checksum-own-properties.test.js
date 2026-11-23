@@ -33,3 +33,15 @@ test("Wompi rejects prototype paths, object values, and malformed digests", () =
   assert.equal(validarEventoWompi({ ...body, data: { transaction: { id: {} } } }, "", secret), false);
   assert.equal(validarEventoWompi(body, "g".repeat(64), secret), false);
 });
+
+test("Wompi rejects nonfinite signed values and malformed timestamp or checksum types", () => {
+  const body = signed({ transaction: { id: "tx-123" } });
+  for (const value of [NaN, Infinity, -Infinity]) {
+    assert.equal(validarEventoWompi({ ...body, data: { transaction: { id: value } } }, "", secret), false);
+    assert.equal(validarEventoWompi({ ...body, timestamp: value }, "", secret), false);
+  }
+  assert.equal(validarEventoWompi({ ...body, timestamp: {} }, "", secret), false);
+  assert.equal(validarEventoWompi({ ...body, signature: { ...body.signature, checksum: {} } }, "", secret), false);
+  assert.equal(validarEventoWompi(body, { toString: () => body.signature.checksum }, secret), false);
+  assert.equal(validarEventoWompi({ ...body, signature: { ...body.signature, properties: Array(33).fill("transaction.id") } }, "", secret), false);
+});
