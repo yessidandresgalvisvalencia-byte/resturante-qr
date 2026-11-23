@@ -33,24 +33,35 @@ async function readScopedSales({ empresaId, sedeId, limit = 100 }) {
       throw new Error("P006_RESPONSE_INVALIDA");
     }
     const row = descriptor.value;
-    if (!row || typeof row !== "object" || row._id == null ||
-        !/^[a-fA-F0-9]{24}$/.test(String(row._id))) {
+    if (!row || typeof row !== "object") throw new Error("P006_ROW_INVALIDA");
+    // Lean records are untrusted evidence: never invoke accessors or inherited fields.
+    const fields = ["_id", "empresaId", "sedeId", "origen", "origenId", "estado", "total", "fecha", "metodoPago"];
+    const safe = Object.create(null);
+    for (const field of fields) {
+      const own = Object.getOwnPropertyDescriptor(row, field);
+      if (own && !Object.prototype.hasOwnProperty.call(own, "value")) {
+        throw new Error("P006_ROW_INVALIDA");
+      }
+      safe[field] = own ? own.value : undefined;
+    }
+    if (safe._id == null ||
+        !/^[a-fA-F0-9]{24}$/.test(String(safe._id))) {
       throw new Error("P006_ROW_INVALIDA");
     }
-    const id = String(row._id).toLowerCase();
+    const id = String(safe._id).toLowerCase();
     if (seen.has(id)) throw new Error("P006_VENTA_DUPLICADA");
     seen.add(id);
-    if (String(row.empresaId) !== empresaId.toLowerCase() ||
-        String(row.sedeId) !== sedeId.toLowerCase()) {
+    if (String(safe.empresaId) !== empresaId.toLowerCase() ||
+        String(safe.sedeId) !== sedeId.toLowerCase()) {
       throw new Error("P006_SCOPE_MISMATCH");
     }
     // Legacy Venta.total is Number; do not pass it to an exact-cent ledger.
     output.push(Object.freeze({
-      id, empresaId: String(row.empresaId),
-      sedeId: String(row.sedeId), origen: row.origen,
-      origenId: row.origenId == null ? null : String(row.origenId),
-      estado: row.estado, totalLegacy: row.total,
-      fecha: row.fecha, metodoPago: row.metodoPago
+      id, empresaId: String(safe.empresaId),
+      sedeId: String(safe.sedeId), origen: safe.origen,
+      origenId: safe.origenId == null ? null : String(safe.origenId),
+      estado: safe.estado, totalLegacy: safe.total,
+      fecha: safe.fecha, metodoPago: safe.metodoPago
     }));
   }
   return output;
