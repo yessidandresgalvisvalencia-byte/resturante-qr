@@ -44,7 +44,9 @@ async function readAuthorizedDiscrepancyPanel(input) {
     });
   }
   Object.freeze(safeRequest);
-  // Pass a minimal immutable identity snapshot: authorization must not observe\n  // mutable principal fields or a principal object changed during an await.\n  const allowed = await authorize(Object.freeze({ principal: Object.freeze({ id: actorId }), empresaId, sedeId, action: "gruk.p006.discrepancies.read" }));
+  // Pass a minimal immutable identity snapshot: authorization must not observe
+  // mutable principal fields or a principal object changed during an await.
+  const allowed = await authorize(Object.freeze({ principal: Object.freeze({ id: actorId }), empresaId, sedeId, action: "gruk.p006.discrepancies.read" }));
   if (allowed !== true) throw new Error("P006_PANEL_FORBIDDEN");
   return readMongoDiscrepancyProjection(safeRequest);
 }
