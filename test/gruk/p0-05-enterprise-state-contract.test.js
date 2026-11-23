@@ -82,3 +82,16 @@ test('P0-05 rejects unknown cross-tenant scope aliases and symbol fields',()=>{
     assert.throws(()=>transition({...base,[field]:'empresaB'}),/P005_CAMPOS_INVALIDOS/);
   assert.throws(()=>transition({...base,[Symbol('scope')]:'empresaB'}),/P005_CAMPOS_INVALIDOS/);
 });
+
+test('P0-05 rejects accessor fields without invoking untrusted getters',()=>{
+  for (const field of ['empresaId','sedeId','eventoId','tipo','fecha']) {
+    let reads=0;
+    const payload={...base};
+    Object.defineProperty(payload,field,{enumerable:true,configurable:true,get(){reads++;throw Error('getter executed');}});
+    assert.throws(()=>transition(payload),/P005_ACCESOR_PROHIBIDO/);
+    assert.equal(reads,0);
+  }
+  const payload={...base};
+  Object.defineProperty(payload,'actorId',{enumerable:true,configurable:true,set(_value){throw Error('setter executed');}});
+  assert.throws(()=>transition(payload),/P005_ACCESOR_PROHIBIDO/);
+});
