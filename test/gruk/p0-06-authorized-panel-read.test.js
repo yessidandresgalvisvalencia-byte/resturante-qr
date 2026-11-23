@@ -53,9 +53,36 @@ test("P0-06 accessor-backed scope rejected before authorization and reads", asyn
   let executed = false, authorized = false;
   Object.defineProperty(request, "empresaId", { get() { executed = true; throw new Error("UNSAFE_GETTER"); } });
   await assert.rejects(readAuthorizedDiscrepancyPanel({
-    principal: {}, authorize: () => { authorized = true; return true; }, request
+    principal: { id: "actor1" }, authorize: () => { authorized = true; return true; }, request
   }), /P006_PANEL_REQUEST_CAMPO_empresaId/);
   assert.equal(executed, false);
   assert.equal(authorized, false);
   assert.deepEqual(reads, []);
+});
+
+test("P0-06 rejects missing or accessor-backed actor identity before authorization or Mongo reads", async () => {
+  for (const principal of [null, {}, { id: "" }, { id: " " }, { id: 42 }, { id: "bad actor" },
+    Object.defineProperty({}, "id", { get() { throw new Error("UNSAFE_ACTOR_GETTER"); } })]) {
+    const reads = [];
+    let authorized = false;
+    await assert.rejects(readAuthorizedDiscrepancyPanel({
+      principal, authorize: () => { authorized = true; return true; }, request: fixture(reads)
+    }), /P006_PANEL_(REQUEST|PRINCIPAL)/);
+    assert.equal(authorized, false);
+    assert.deepEqual(reads, []);
+  }
+});
+test("P0-06 rejects malformed tenant scope before authorization or Mongo reads", async () => {
+  for (const field of ["empresaId", "sedeId"]) {
+    for (const value of [" ", "tenant with spaces", "x/other", "x".repeat(129)]) {
+      const reads = [], request = fixture(reads);
+      request[field] = value;
+      let authorized = false;
+      await assert.rejects(readAuthorizedDiscrepancyPanel({
+        principal: { id: "actor1" }, authorize: () => { authorized = true; return true; }, request
+      }), /P006_PANEL_SCOPE_INVALIDO/);
+      assert.equal(authorized, false);
+      assert.deepEqual(reads, []);
+    }
+  }
 });
