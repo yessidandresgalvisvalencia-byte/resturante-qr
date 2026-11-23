@@ -23,6 +23,8 @@ function validarEventoWompi(body, headerChecksum, secreto) {
   if (!Array.isArray(props) || !props.length || props.length > 32 || !/^[a-f0-9]{64}$/.test(checksum) ||
       !(typeof body?.timestamp === "string" || (typeof body?.timestamp === "number" && Number.isFinite(body.timestamp))) ||
       String(body.timestamp).length > 32) return false;
+  // A repeated signed field must not change the canonical message or bypass audit assumptions.
+  if (new Set(props).size !== props.length) return false;
   let cadena = "";
   for (const prop of props) {
     const valor = leerRuta(body?.data, prop);
