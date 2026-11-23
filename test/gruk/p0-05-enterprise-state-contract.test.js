@@ -43,3 +43,15 @@ test('P0-05 accepts canonical fractional UTC timestamps without changing audit e
   for(const fecha of ['2026-11-22T10:00:00Z','2026-11-22T10:00:00.1Z','2026-11-22T10:00:00.12Z','2026-11-22T10:00:00.123Z'])
     assert.equal(transition({...base,fecha}).evento.fecha,fecha);
 });
+
+test('P0-05 transition policy cannot be mutated by runtime consumers',()=>{
+  assert.ok(Object.isFrozen(transitions));
+  for(const states of Object.values(transitions)) {
+    assert.ok(Object.isFrozen(states));
+    for(const targets of Object.values(states)) assert.ok(Object.isFrozen(targets));
+  }
+  assert.throws(()=>transitions.pago.capturado.push('capturado'),TypeError);
+  assert.throws(()=>{transitions.inventario.consumido=['consumido'];},TypeError);
+  assert.throws(()=>{transitions.pedido.entregado=['creado'];},TypeError);
+  assert.throws(()=>transition({...base,tipo:'pago',desde:'capturado',hacia:'capturado'}),/P005_TRANSICION_PROHIBIDA/);
+});
