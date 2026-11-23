@@ -55,3 +55,14 @@ test('P0-05 transition policy cannot be mutated by runtime consumers',()=>{
   assert.throws(()=>{transitions.pedido.entregado=['creado'];},TypeError);
   assert.throws(()=>transition({...base,tipo:'pago',desde:'capturado',hacia:'capturado'}),/P005_TRANSICION_PROHIBIDA/);
 });
+
+test('P0-05 fails closed on malformed payload and lifecycle state types',()=>{
+  for (const payload of [null,undefined,false,0,'pedido',[],()=>{}])
+    assert.throws(()=>transition(payload),/P005_PAYLOAD_INVALIDO/);
+  for (const field of ['tipo','desde']) {
+    for (const value of [null,{},[],0,Symbol('invalid')])
+      assert.throws(()=>transition({...base,[field]:value}),/P005_ESTADO_INVALIDO/);
+  }
+  for (const value of [null,{},[],0,Symbol('invalid')])
+    assert.throws(()=>transition({...base,hacia:value}),/P005_TRANSICION_PROHIBIDA/);
+});
