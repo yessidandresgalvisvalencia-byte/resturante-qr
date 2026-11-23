@@ -32,3 +32,27 @@ test("P0-06 registers JWT before tenant-scoped handler and refuses unauthenticat
   assert.equal(status, 401);
   assert.equal(payload.error, "UNAUTHENTICATED");
 });
+
+test("P0-06 rejects accessor and inherited collection names without side effects", () => {
+  const app = { get() { throw new Error("must not register"); } };
+  let getterCalls = 0;
+  const names = {
+    movements: "gruk_p006_movements",
+    stock: "gruk_p006_stock"
+  };
+  Object.defineProperty(names, "expected", {
+    enumerable: true,
+    get() { getterCalls++; throw new Error("unexpected getter execution"); }
+  });
+  assert.throws(() => mountP006MongoRoute(app, {}, {
+    enabled: true, collectionNames: names
+  }), /P006_COLLECTION_NAMES_INVALID/);
+  assert.equal(getterCalls, 0);
+
+  const inherited = Object.create({ expected: "gruk_p006_expected" });
+  inherited.movements = "gruk_p006_movements";
+  inherited.stock = "gruk_p006_stock";
+  assert.throws(() => mountP006MongoRoute(app, {}, {
+    enabled: true, collectionNames: inherited
+  }), /P006_COLLECTION_NAMES_INVALID/);
+});
