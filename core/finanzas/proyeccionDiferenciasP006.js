@@ -29,6 +29,7 @@ function projectReconciliationDifferences(result) {
   const differences = own(stock, "diferencias");
   if (!Array.isArray(differences) || differences.length > 10000) throw new Error("P006_PANEL_STOCK_INVALIDO");
   const items = [];
+  const seenStockKeys = new Set();
   for (let i = 0; i < differences.length; i++) {
     const d = Object.getOwnPropertyDescriptor(differences, String(i));
     if (!d || !Object.prototype.hasOwnProperty.call(d, "value")) throw new Error("P006_PANEL_INDICE_INVALIDO");
@@ -40,6 +41,11 @@ function projectReconciliationDifferences(result) {
         typeof diferencia !== "string" || !/^-?(0|[1-9]\d*)(\.\d+)?$/.test(diferencia) || /^-0(?:\.0+)?$/.test(diferencia)) {
       throw new Error("P006_PANEL_STOCK_DATO_INVALIDO");
     }
+    // A duplicate product/unit would make the correction target ambiguous.
+    // Length-prefixed keys avoid collisions when identifiers contain separators.
+    const stockKey = `${productoId.length}:${productoId}${unidad.length}:${unidad}`;
+    if (seenStockKeys.has(stockKey)) throw new Error("P006_PANEL_STOCK_DUPLICADO");
+    seenStockKeys.add(stockKey);
     items.push(Object.freeze({ productoId, unidad, diferencia }));
   }
   return Object.freeze({
