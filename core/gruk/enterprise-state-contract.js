@@ -16,7 +16,7 @@ function transition({tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoI
   if (!Object.hasOwn(transitions,tipo) || !Object.hasOwn(transitions[tipo],desde))
     throw new TypeError('P005_ESTADO_INVALIDO');
   if (!transitions[tipo][desde].includes(hacia)) throw new Error('P005_TRANSICION_PROHIBIDA');
-  if (typeof fecha !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(fecha) || !Number.isFinite(Date.parse(fecha)) || new Date(Date.parse(fecha)).toISOString() !== fecha.replace(/Z$/, match => fecha.includes('.') ? match : '.000Z'))
+  if (typeof fecha !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(fecha) || !Number.isFinite(Date.parse(fecha)) || new Date(Date.parse(fecha)).toISOString() !== fecha.replace(/(?:\.(\d{1,3}))?Z$/, (_, ms) => '.' + (ms || '').padEnd(3, '0') + 'Z'))
     throw new TypeError('P005_FECHA_INVALIDA');
   return Object.freeze({
     tipo,empresaId,sedeId,entidadId,estadoAnterior:desde,estadoNuevo:hacia,
