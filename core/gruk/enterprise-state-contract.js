@@ -25,10 +25,17 @@ function transition(input) {
   if (Reflect.ownKeys(input).some(key => typeof key !== 'string' || !required.includes(key)) ||
       required.some(key => !Object.hasOwn(input,key)))
     throw new TypeError('P005_CAMPOS_INVALIDOS');
-  // Never invoke attacker-controlled getters while reading tenant or audit identities.
-  if (Object.values(Object.getOwnPropertyDescriptors(input)).some(d => !Object.hasOwn(d, 'value')))
+  // Only plain records are accepted; never trust inherited scope or class instances.
+  const prototype = Object.getPrototypeOf(input);
+  if (prototype !== Object.prototype && prototype !== null)
+    throw new TypeError('P005_PROTOTIPO_INVALIDO');
+  // Read descriptor values directly. A Proxy can intercept property reads even when
+  // its descriptor trap reports ordinary data fields; never trigger its get trap.
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  if (Object.values(descriptors).some(d => !Object.hasOwn(d, 'value')))
     throw new TypeError('P005_ACCESOR_PROHIBIDO');
-  const {tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoId,fecha} = input;
+  const {tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoId,fecha} =
+    Object.fromEntries(required.map(key => [key, descriptors[key].value]));
   for (const [key,value] of Object.entries({empresaId,sedeId,entidadId,actorId,eventoId})) {
     if (!validId(value)) throw new TypeError('P005_ID_INVALIDO:'+key);
   }
