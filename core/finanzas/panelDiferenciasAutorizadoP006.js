@@ -29,9 +29,24 @@ async function readAuthorizedDiscrepancyPanel(input) {
   const scopePattern = /^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/;
   if (typeof empresaId !== "string" || !scopePattern.test(empresaId) ||
       typeof sedeId !== "string" || !scopePattern.test(sedeId)) throw new Error("P006_PANEL_SCOPE_INVALIDO");
+  // Snapshot the entire request before calling untrusted asynchronous authorization.
+  // Otherwise an authorizer (or another task while it awaits) could change the
+  // tenant scope after permission was granted, causing a cross-tenant read.
+  // Reject accessor properties rather than invoking them while copying.
+  const descriptors = Object.getOwnPropertyDescriptors(request);
+  const safeRequest = Object.create(null);
+  for (const [key, descriptor] of Object.entries(descriptors)) {
+    if (!Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+      throw new Error("P006_PANEL_REQUEST_ACCESSOR_INVALIDO");
+    }
+    Object.defineProperty(safeRequest, key, {
+      value: descriptor.value, enumerable: true, writable: false, configurable: false
+    });
+  }
+  Object.freeze(safeRequest);
   const allowed = await authorize(Object.freeze({ principal, empresaId, sedeId, action: "gruk.p006.discrepancies.read" }));
   if (allowed !== true) throw new Error("P006_PANEL_FORBIDDEN");
-  return readMongoDiscrepancyProjection(request);
+  return readMongoDiscrepancyProjection(safeRequest);
 }
 
 module.exports = { readAuthorizedDiscrepancyPanel };
