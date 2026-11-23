@@ -95,3 +95,17 @@ test('P0-05 rejects accessor fields without invoking untrusted getters',()=>{
   Object.defineProperty(payload,'actorId',{enumerable:true,configurable:true,set(_value){throw Error('setter executed');}});
   assert.throws(()=>transition(payload),/P005_ACCESOR_PROHIBIDO/);
 });
+
+test('P0-05 reads only own data descriptors, never Proxy get traps',()=>{
+  let reads=0;
+  const proxy=new Proxy({...base},{get(){reads++;throw Error('unsafe read');}});
+  const result=transition(proxy);
+  assert.equal(result.evento.empresaId,base.empresaId);
+  assert.equal(reads,0);
+});
+test('P0-05 rejects custom prototypes and permits null-prototype data records',()=>{
+  const custom=Object.assign(Object.create({inherited:'unsafe'}),base);
+  assert.throws(()=>transition(custom),/P005_PROTOTIPO_INVALIDO/);
+  const clean=Object.assign(Object.create(null),base);
+  assert.equal(transition(clean).evento.empresaId,base.empresaId);
+});
