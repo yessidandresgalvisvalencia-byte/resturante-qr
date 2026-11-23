@@ -96,3 +96,21 @@ test("P0-06: rejects sparse, inherited and accessor-backed sale evidence", async
     assert.equal(result[0].id, valid._id);
   } finally { Venta.find = original; }
 });
+
+test("P0-06: never executes accessor-backed fields in persisted sale rows", async () => {
+  const original = Venta.find;
+  let invoked = false;
+  const row = { _id: "cccccccccccccccccccccccc", empresaId, sedeId };
+  Object.defineProperty(row, "total", {
+    enumerable: true,
+    get() { invoked = true; throw new Error("UNTRUSTED_ROW_GETTER"); }
+  });
+  Venta.find = () => ({
+    select() { return this; }, sort() { return this; }, limit() { return this; },
+    async lean() { return [row]; }
+  });
+  try {
+    await assert.rejects(readScopedSales({ empresaId, sedeId }), /P006_ROW_INVALIDA/);
+    assert.equal(invoked, false);
+  } finally { Venta.find = original; }
+});
