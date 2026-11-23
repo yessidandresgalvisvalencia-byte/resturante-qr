@@ -51,3 +51,23 @@ test("criteria title drift is rejected", () => {
   matrix[0] = matrix[0].replace("Requirement 01", "Different requirement");
   assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_CRITERION_MISMATCH_01/);
 });
+
+test("verified row requires acceptance evidence, not just a PR and test filename", () => {
+  const { criteria, matrix } = fixture();
+  matrix[0] = matrix[0].replace("SIN_AUDITAR | Pending", "VERIFICADO | https://github.com/example/repo/pull/123; test/gruk/plan-master-audit.test.js");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_UNSUPPORTED_VERIFIED_01/);
+});
+
+test("even 77 statically verified rows never authorize production", () => {
+  const { criteria, matrix } = fixture();
+  for (let i = 0; i < matrix.length; i++) {
+    matrix[i] = matrix[i].replace(
+      "SIN_AUDITAR | Pending",
+      "VERIFICADO | https://github.com/example/repo/pull/123; test/gruk/plan-master-audit.test.js; criterio de aceptación"
+    );
+  }
+  const result = validate(criteria.join("\n"), matrix.join("\n"));
+  assert.equal(result.counts.VERIFICADO, 77);
+  assert.equal(result.allVerified, true);
+  assert.equal(result.releaseAuthorized, false);
+});
