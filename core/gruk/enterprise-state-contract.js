@@ -15,13 +15,17 @@ for (const states of Object.values(transitions)) {
   Object.freeze(states);
 }
 const validId = x => typeof x === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(x);
-function transition({tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoId,fecha}) {
+function transition(input) {
+  // Reject malformed payloads at the boundary instead of leaking destructuring errors.
+  if (input === null || typeof input !== 'object' || Array.isArray(input))
+    throw new TypeError('P005_PAYLOAD_INVALIDO');
+  const {tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoId,fecha} = input;
   for (const [key,value] of Object.entries({empresaId,sedeId,entidadId,actorId,eventoId})) {
     if (!validId(value)) throw new TypeError('P005_ID_INVALIDO:'+key);
   }
-  if (!Object.hasOwn(transitions,tipo) || !Object.hasOwn(transitions[tipo],desde))
+  if (typeof tipo !== 'string' || typeof desde !== 'string' || !Object.hasOwn(transitions,tipo) || !Object.hasOwn(transitions[tipo],desde))
     throw new TypeError('P005_ESTADO_INVALIDO');
-  if (!transitions[tipo][desde].includes(hacia)) throw new Error('P005_TRANSICION_PROHIBIDA');
+  if (typeof hacia !== 'string' || !transitions[tipo][desde].includes(hacia)) throw new Error('P005_TRANSICION_PROHIBIDA');
   if (typeof fecha !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(fecha) || !Number.isFinite(Date.parse(fecha)) || new Date(Date.parse(fecha)).toISOString() !== fecha.replace(/(?:\.(\d{1,3}))?Z$/, (_, ms) => '.' + (ms || '').padEnd(3, '0') + 'Z'))
     throw new TypeError('P005_FECHA_INVALIDA');
   return Object.freeze({
