@@ -19,7 +19,7 @@ function transition(input) {
   // Reject malformed payloads at the boundary instead of leaking destructuring errors.
   if (input === null || typeof input !== 'object' || Array.isArray(input))
     throw new TypeError('P005_PAYLOAD_INVALIDO');
-  const {tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoId,fecha} = input;
+  // Require own, explicitly declared fields: inherited tenant identities and shadow\n  // scope aliases must never be silently accepted at the audit boundary.\n  const required = ['tipo','desde','hacia','empresaId','sedeId','entidadId','actorId','eventoId','fecha'];\n  if (Reflect.ownKeys(input).some(key => typeof key !== 'string' || !required.includes(key)) ||\n      required.some(key => !Object.hasOwn(input,key)))\n    throw new TypeError('P005_CAMPOS_INVALIDOS');\n  const {tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoId,fecha} = input;
   for (const [key,value] of Object.entries({empresaId,sedeId,entidadId,actorId,eventoId})) {
     if (!validId(value)) throw new TypeError('P005_ID_INVALIDO:'+key);
   }
