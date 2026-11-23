@@ -17,12 +17,17 @@ function leerRuta(obj, ruta) {
 function validarEventoWompi(body, headerChecksum, secreto) {
   if (typeof secreto !== "string" || !secreto) return false;
   const props = body?.signature?.properties;
-  const checksum = String(headerChecksum || body?.signature?.checksum || "").toLowerCase();
-  if (!Array.isArray(props) || !props.length || !/^[a-f0-9]{64}$/.test(checksum) || body?.timestamp == null) return false;
+  const suppliedChecksum = headerChecksum || body?.signature?.checksum;
+  if (typeof suppliedChecksum !== "string") return false;
+  const checksum = suppliedChecksum.toLowerCase();
+  if (!Array.isArray(props) || !props.length || props.length > 32 || !/^[a-f0-9]{64}$/.test(checksum) ||
+      !(typeof body?.timestamp === "string" || (typeof body?.timestamp === "number" && Number.isFinite(body.timestamp))) ||
+      String(body.timestamp).length > 32) return false;
   let cadena = "";
   for (const prop of props) {
     const valor = leerRuta(body?.data, prop);
-    if (valor === undefined || valor === null || (typeof valor !== "string" && typeof valor !== "number" && typeof valor !== "boolean")) return false;
+    if (valor === undefined || valor === null || (typeof valor !== "string" && typeof valor !== "number" && typeof valor !== "boolean") ||
+        (typeof valor === "number" && !Number.isFinite(valor))) return false;
     cadena += String(valor);
   }
   cadena += String(body.timestamp) + secreto;
