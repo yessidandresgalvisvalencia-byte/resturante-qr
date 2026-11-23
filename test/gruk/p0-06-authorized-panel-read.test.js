@@ -86,3 +86,40 @@ test("P0-06 rejects malformed tenant scope before authorization or Mongo reads",
     }
   }
 });
+
+test("P0-06 authorization cannot switch tenant scope after grant", async () => {
+  const reads = [], request = fixture(reads);
+  const result = await readAuthorizedDiscrepancyPanel({
+    principal: { id: "actor1" },
+    authorize: async ({ empresaId, sedeId }) => {
+      assert.equal(empresaId, "empresaA");
+      assert.equal(sedeId, "sede1");
+      request.empresaId = "empresaB";
+      request.sedeId = "sede2";
+      return true;
+    },
+    request
+  });
+  assert.equal(result.readOnly, true);
+  assert.deepEqual(reads, [
+    { empresaId: "empresaA", sedeId: "sede1" },
+    { empresaId: "empresaA", sedeId: "sede1" }
+  ]);
+});
+
+test("P0-06 rejects unrelated accessor fields before authorization or Mongo reads", async () => {
+  const reads = [], request = fixture(reads);
+  let executed = false, authorized = false;
+  Object.defineProperty(request, "injected", {
+    enumerable: true,
+    get() { executed = true; throw new Error("GETTER_EXECUTED"); }
+  });
+  await assert.rejects(readAuthorizedDiscrepancyPanel({
+    principal: { id: "actor1" },
+    authorize: () => { authorized = true; return true; },
+    request
+  }), /P006_PANEL_REQUEST_ACCESSOR_INVALIDO/);
+  assert.equal(executed, false);
+  assert.equal(authorized, false);
+  assert.deepEqual(reads, []);
+});
