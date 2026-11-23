@@ -35,3 +35,19 @@ test("verified without code and test evidence is rejected", () => {
   matrix[0] = matrix[0].replace("SIN_AUDITAR | Pending", "VERIFICADO | Pending");
   assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_UNSUPPORTED_VERIFIED_01/);
 });
+
+test("duplicate or reordered IDs are rejected", () => {
+  const { criteria, matrix } = fixture();
+  matrix[1] = matrix[1].replace("| 02 |", "| 01 |");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_ID_ORDER_02/);
+});
+test("invalid state cannot pass acceptance", () => {
+  const { criteria, matrix } = fixture();
+  matrix[0] = matrix[0].replace("SIN_AUDITAR", "APROBADO");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_INVALID_STATE_01/);
+});
+test("criteria title drift is rejected", () => {
+  const { criteria, matrix } = fixture();
+  matrix[0] = matrix[0].replace("Requirement 01", "Different requirement");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_CRITERION_MISMATCH_01/);
+});
