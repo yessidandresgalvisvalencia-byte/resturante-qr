@@ -10,7 +10,7 @@ function mountP006MongoRoute(app, mongoose, options = {}) {
       typeof options !== "object" || options === null) {
     throw new TypeError("P006_MOUNT_INVALID");
   }
-  if (options.enabled !== true) return false;
+  // Feature activation must be an explicit own data property; never evaluate a getter.\n  const enabled = Object.getOwnPropertyDescriptor(options, "enabled");\n  if (enabled && !Object.prototype.hasOwnProperty.call(enabled, "value")) {\n    throw new TypeError("P006_ENABLED_INVALID");\n  }\n  if (!enabled || enabled.value !== true) return false;
   const names = options.collectionNames;
   // Do not execute accessors or accept inherited collection configuration.
   if (!names || typeof names !== "object" || Array.isArray(names) ||
