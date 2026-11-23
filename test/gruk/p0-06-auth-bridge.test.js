@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createP006RequestHandler } = require("../../core/finanzas/authBridgeP006");
+const { createP006RequestHandler, mountAuthenticatedP006Route } = require("../../core/finanzas/authBridgeP006");
 function response() {
   return { code: 0, body: null, status(n) { this.code = n; return this; },
     json(body) { this.body = body; return this; } };
@@ -52,4 +52,29 @@ test("P0-06 JWT bridge does not evaluate accessors on untrusted auth", async () 
   await handler({ auth: evil, params }, res);
   assert.equal(res.code, 401);
   assert.equal(invoked, false);
+});
+
+test("P0-06 mount wires JWT middleware before tenant-scoped handler", async () => {
+  let registered;
+  const router = { get(...args) { registered = args; } };
+  const jwt = (req, res, next) => { req.auth = { ...auth }; next(); };
+  mountAuthenticatedP006Route(router, jwt, {
+    authorizeRole: async () => false,
+    getCollections: async () => { throw Error("must not query unauthorized tenant"); }
+  });
+  assert.equal(registered[0], "/api/gruk/empresas/:empresaId/sedes/:sedeId/conciliacion/diferencias");
+  assert.equal(registered[1], jwt);
+  const req = { params };
+  registered[1](req, response(), () => {});
+  const res = response();
+  await registered[2](req, res);
+  assert.equal(res.code, 403);
+});
+test("P0-06 mount fails closed if JWT middleware is missing", () => {
+  let mounted = false;
+  const router = { get() { mounted = true; } };
+  assert.throws(() => mountAuthenticatedP006Route(router, undefined, {
+    authorizeRole: async () => true, getCollections: async () => ({})
+  }), /P006_AUTH_ROUTE_INVALID/);
+  assert.equal(mounted, false);
 });
