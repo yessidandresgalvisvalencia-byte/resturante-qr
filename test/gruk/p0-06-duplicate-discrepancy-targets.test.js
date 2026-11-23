@@ -25,3 +25,12 @@ test("P0-06 preserves distinct product/unit combinations and delimiter-like IDs"
   assert.equal(projection.stockDifferences.length, 3);
   assert.equal(Object.isFrozen(projection.stockDifferences), true);
 });
+
+test("P0-06 rejects whitespace-only stock product and unit identifiers", () => {
+  for (const invalid of [
+    { productoId: "   ", unidad: "kg", diferencia: "1" },
+    { productoId: "p1", unidad: " \t ", diferencia: "-1" }
+  ]) {
+    assert.throws(() => projectReconciliationDifferences(result([invalid])), /P006_PANEL_STOCK_DATO_INVALIDO/);
+  }
+});
