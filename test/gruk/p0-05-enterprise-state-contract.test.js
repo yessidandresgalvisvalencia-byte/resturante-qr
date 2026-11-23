@@ -66,3 +66,19 @@ test('P0-05 fails closed on malformed payload and lifecycle state types',()=>{
   for (const value of [null,{},[],0,Symbol('invalid')])
     assert.throws(()=>transition({...base,hacia:value}),/P005_TRANSICION_PROHIBIDA/);
 });
+
+test('P0-05 rejects inherited tenant identity and incomplete own fields',()=>{
+  const inherited=Object.create({empresaId:'empresaA'});
+  Object.assign(inherited,base);
+  delete inherited.empresaId;
+  assert.throws(()=>transition(inherited),/P005_CAMPOS_INVALIDOS/);
+  assert.throws(()=>transition({...base,empresaId:undefined}),/P005_ID_INVALIDO/);
+  const missing={...base};
+  delete missing.sedeId;
+  assert.throws(()=>transition(missing),/P005_CAMPOS_INVALIDOS/);
+});
+test('P0-05 rejects unknown cross-tenant scope aliases and symbol fields',()=>{
+  for(const field of ['tenantId','companyId','otraEmpresaId','__proto__'])
+    assert.throws(()=>transition({...base,[field]:'empresaB'}),/P005_CAMPOS_INVALIDOS/);
+  assert.throws(()=>transition({...base,[Symbol('scope')]:'empresaB'}),/P005_CAMPOS_INVALIDOS/);
+});
