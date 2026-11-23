@@ -46,3 +46,27 @@ test("window expiry restores quota",()=>{
   assert.equal(request(limiter,"ip").status,200);
  }finally{Date.now=original;}
 });
+
+test("bounded IP capacity rejects new identities without evicting live quotas",()=>{
+ const limiter=rateLimit({max:1,windowMs:60000});
+ for(let i=0;i<10000;i++)assert.equal(request(limiter,"ip-"+i).status,200);
+ const overflow=request(limiter,"overflow");
+ assert.equal(overflow.status,429);
+ assert.equal(overflow.headers["Retry-After"],"60");
+ assert.equal(overflow.next,false);
+ assert.equal(request(limiter,"ip-0").status,429);
+});
+
+test("expired IP capacity is reclaimed without rejecting a new identity",()=>{
+ const original=Date.now;
+ let now=1000;
+ Date.now=()=>now;
+ try{
+  const limiter=rateLimit({max:1,windowMs:1000});
+  for(let i=0;i<10000;i++)assert.equal(request(limiter,"ip-"+i).status,200);
+  assert.equal(request(limiter,"new").status,429);
+  now=2000;
+  assert.equal(request(limiter,"new").status,200);
+  assert.equal(request(limiter,"ip-0").status,200);
+ }finally{Date.now=original;}
+});
