@@ -34,7 +34,7 @@ function transition(input) {
   const descriptors = Object.getOwnPropertyDescriptors(input);
   if (Object.values(descriptors).some(d => !Object.hasOwn(d, 'value')))
     throw new TypeError('P005_ACCESOR_PROHIBIDO');
-  const {tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoId,fecha} =
+  // Non-enumerable fields disappear on JSON transport and cannot be audited or replayed.\n  if (required.some(key => descriptors[key].enumerable !== true))\n    throw new TypeError('P005_CAMPO_NO_ENUMERABLE');\n  const {tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoId,fecha} =
     Object.fromEntries(required.map(key => [key, descriptors[key].value]));
   for (const [key,value] of Object.entries({empresaId,sedeId,entidadId,actorId,eventoId})) {
     if (!validId(value)) throw new TypeError('P005_ID_INVALIDO:'+key);
