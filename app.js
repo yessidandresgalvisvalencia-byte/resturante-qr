@@ -87,6 +87,16 @@ app.use("/api/facturacion", facturacionRoutes); // legado: no retirar aún
 app.use("/api/facturacion-v2", facturacionCoreRoutes);
 app.use("/api/gastos", gastosRoutes);
 app.use("/api/finanzas", finanzasRoutes);
+// P0-06 is disabled unless explicitly enabled and dedicated normalized collections exist.
+// Never read legacy cash/stock schemas or derive the expected balance from movements.
+require("./core/finanzas/mountP006MongoRoute").mountP006MongoRoute(app, mongoose, {
+  enabled: process.env.GRUK_P006_READ_ENABLED === "true",
+  collectionNames: {
+    movements: "gruk_p006_movements",
+    stock: "gruk_p006_stock",
+    expected: "gruk_p006_expected"
+  }
+});
 app.use("/api/productos-servicios", productosServiciosRoutes);
 app.use("/api/compras", comprasRoutes);
 app.use("/api/cerebro", cerebroRoutes);
