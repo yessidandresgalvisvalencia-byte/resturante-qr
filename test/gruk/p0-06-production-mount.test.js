@@ -56,3 +56,18 @@ test("P0-06 rejects accessor and inherited collection names without side effects
     enabled: true, collectionNames: inherited
   }), /P006_COLLECTION_NAMES_INVALID/);
 });
+
+test("P0-06 rejects accessor activation flags without invoking them or mounting", () => {
+  let reads = 0;
+  let mounts = 0;
+  const options = {};
+  Object.defineProperty(options, "enabled", {
+    get() { reads++; throw new Error("FEATURE_FLAG_GETTER_EXECUTED"); }
+  });
+  assert.throws(() => mountP006MongoRoute({ get() { mounts++; } }, {}, options), /P006_ENABLED_INVALID/);
+  assert.equal(reads, 0);
+  assert.equal(mounts, 0);
+  const inherited = Object.create({ enabled: true });
+  assert.equal(mountP006MongoRoute({ get() { mounts++; } }, {}, inherited), false);
+  assert.equal(mounts, 0);
+});
