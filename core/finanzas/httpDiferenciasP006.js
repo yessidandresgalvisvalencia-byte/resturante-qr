@@ -41,12 +41,18 @@ function createDiscrepancyHttpHandler({ getPrincipal, authorize, getCollections 
       if (!collections || typeof collections !== "object") {
         throw new Error("P006_HTTP_COLLECTIONS_UNAVAILABLE");
       }
-      const request = {
-        empresaId, sedeId,
-        expectedCentavos: collections.expectedCentavos,
-        movementsCollection: collections.movementsCollection,
-        stockCollection: collections.stockCollection
-      };
+      // Trusted dependencies must still expose plain data properties: never
+      // execute accessor code while assembling the tenant-scoped projection.
+      const fields = ["expectedCentavos", "movementsCollection", "stockCollection"];
+      const snapshot = Object.create(null);
+      for (const field of fields) {
+        const descriptor = Object.getOwnPropertyDescriptor(collections, field);
+        if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+          throw new Error("P006_HTTP_COLLECTION_FIELD_INVALID");
+        }
+        snapshot[field] = descriptor.value;
+      }
+      const request = { empresaId, sedeId, ...snapshot };
       // The inner boundary independently verifies authorization, fail-closed.
       const projection = await readAuthorizedDiscrepancyPanel({
         principal: { id: actorId },
