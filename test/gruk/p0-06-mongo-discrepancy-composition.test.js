@@ -36,3 +36,45 @@ test("P0-06 Mongo differences composition rejects foreign tenant records", async
     stockCollection: collection([], []), expectedCentavos: "100"
   }), /P006_MONGO_SCOPE_MISMATCH/);
 });
+
+test("P0-06 Mongo differences composition never invokes write methods on supplied collections", async () => {
+  const calls = [];
+  function guarded(rows) {
+    return {
+      find(filter) {
+        calls.push(["find", filter]);
+        return { limit(n) { return { async toArray() { return rows.slice(0, n); } }; } };
+      },
+      insertOne() { throw new Error("UNEXPECTED_WRITE"); },
+      updateOne() { throw new Error("UNEXPECTED_WRITE"); },
+      deleteOne() { throw new Error("UNEXPECTED_WRITE"); },
+      bulkWrite() { throw new Error("UNEXPECTED_WRITE"); }
+    };
+  }
+  const result = await readMongoDiscrepancyProjection({
+    empresaId: "tenantA", sedeId: "branchA",
+    movementsCollection: guarded([{ empresaId: "tenantA", sedeId: "branchA", idempotencyKey: "eventA", centavos: "5" }]),
+    stockCollection: guarded([]), expectedCentavos: "5"
+  });
+  assert.equal(result.cashMismatch, false);
+  assert.equal(result.readOnly, true);
+  assert.deepEqual(calls, [
+    ["find", { empresaId: "tenantA", sedeId: "branchA" }],
+    ["find", { empresaId: "tenantA", sedeId: "branchA" }]
+  ]);
+});
+
+test("P0-06 Mongo differences composition rejects accessor-backed request fields without evaluating getters", async () => {
+  let executed = false;
+  const request = {
+    empresaId: "tenantA", sedeId: "branchA",
+    movementsCollection: collection([], []),
+    stockCollection: collection([], [])
+  };
+  Object.defineProperty(request, "expectedCentavos", {
+    enumerable: true,
+    get() { executed = true; throw new Error("GETTER_EXECUTED"); }
+  });
+  await assert.rejects(readMongoDiscrepancyProjection(request), /P006_INTEGRACION_CAMPO_expectedCentavos/);
+  assert.equal(executed, false);
+});
