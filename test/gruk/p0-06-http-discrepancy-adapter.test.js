@@ -112,3 +112,19 @@ test("P0-06 HTTP adapter rejects accessor-backed route params without executing 
   assert.equal(d.calls.collections, 0);
   assert.deepEqual(reads, []);
 });
+
+test("P0-06 HTTP adapter rejects accessor-backed collection dependencies without invoking getters or reading Mongo", async () => {
+  const reads = [], d = deps(reads), res = response();
+  let invoked = 0;
+  d.getCollections = async () => Object.defineProperty({
+    expectedCentavos: "5",
+    stockCollection: collection([], reads)
+  }, "movementsCollection", {
+    get() { invoked++; throw new Error("SECRET_ACCESSOR"); }
+  });
+  await createDiscrepancyHttpHandler(d)(request, res);
+  assert.equal(res.code, 503);
+  assert.deepEqual(res.body, { error: "DISCREPANCY_UNAVAILABLE" });
+  assert.equal(invoked, 0);
+  assert.deepEqual(reads, []);
+});
