@@ -34,3 +34,12 @@ test('P0-05 blocks double captures and repeated inventory consumption',()=>{
   assert.throws(()=>transition({...base,tipo:'pago',desde:'capturado',hacia:'capturado'}),/P005_TRANSICION_PROHIBIDA/);
   assert.throws(()=>transition({...base,tipo:'inventario',desde:'consumido',hacia:'consumido'}),/P005_TRANSICION_PROHIBIDA/);
 });
+
+test('P0-05 rejects rollover dates and invalid UTC clock values',()=>{
+  for(const fecha of ['2026-02-30T10:00:00Z','2026-11-22T24:00:00Z','2026-11-22T10:60:00Z','2026-11-22T10:00:60Z'])
+    assert.throws(()=>transition({...base,fecha}),/P005_FECHA_INVALIDA/);
+});
+test('P0-05 accepts canonical fractional UTC timestamps without changing audit evidence',()=>{
+  for(const fecha of ['2026-11-22T10:00:00Z','2026-11-22T10:00:00.1Z','2026-11-22T10:00:00.12Z','2026-11-22T10:00:00.123Z'])
+    assert.equal(transition({...base,fecha}).evento.fecha,fecha);
+});
