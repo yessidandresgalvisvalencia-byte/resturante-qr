@@ -8,6 +8,12 @@ const transitions = Object.freeze({
   devolucion: {solicitada:['aprobada','rechazada'],aprobada:['ejecutada'],rechazada:[],ejecutada:[]},
   entrega: {pendiente:['en_camino','cancelada'],en_camino:['entregada','fallida'],fallida:['en_camino','cancelada'],entregada:[],cancelada:[]}
 });
+// Freeze nested state maps and target arrays: consumers must not be able to
+// authorize forbidden financial or inventory transitions at runtime.
+for (const states of Object.values(transitions)) {
+  for (const targets of Object.values(states)) Object.freeze(targets);
+  Object.freeze(states);
+}
 const validId = x => typeof x === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(x);
 function transition({tipo,desde,hacia,empresaId,sedeId,entidadId,actorId,eventoId,fecha}) {
   for (const [key,value] of Object.entries({empresaId,sedeId,entidadId,actorId,eventoId})) {
