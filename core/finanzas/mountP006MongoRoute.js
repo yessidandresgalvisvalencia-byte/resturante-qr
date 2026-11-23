@@ -12,11 +12,17 @@ function mountP006MongoRoute(app, mongoose, options = {}) {
   }
   if (options.enabled !== true) return false;
   const names = options.collectionNames;
-  if (!names || !["movements", "stock", "expected"].every(key =>
-    typeof names[key] === "string" && /^gruk_p006_[a-z_]+$/.test(names[key]))) {
+  // Do not execute accessors or accept inherited collection configuration.
+  if (!names || typeof names !== "object" || Array.isArray(names) ||
+      !["movements", "stock", "expected"].every(key => {
+        const d = Object.getOwnPropertyDescriptor(names, key);
+        return d && Object.prototype.hasOwnProperty.call(d, "value") &&
+          typeof d.value === "string" && /^gruk_p006_[a-z_]+$/.test(d.value);
+      })) {
     throw new TypeError("P006_COLLECTION_NAMES_INVALID");
   }
-  if (new Set(Object.values(names)).size !== 3) throw new TypeError("P006_COLLECTION_NAMES_DUPLICATE");
+  if (new Set(["movements", "stock", "expected"].map(key =>
+    Object.getOwnPropertyDescriptor(names, key).value)).size !== 3) throw new TypeError("P006_COLLECTION_NAMES_DUPLICATE");
   const authorizeRole = ({ role, action }) =>
     action === "gruk.p006.discrepancies.read" && role === "DUEÑO";
   const getCollections = async ({ empresaId, sedeId }) => {
