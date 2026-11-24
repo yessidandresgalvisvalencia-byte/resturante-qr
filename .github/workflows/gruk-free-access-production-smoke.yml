@@ -1,0 +1,59 @@
+name: GRUK Enterprise Free Access Production Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-free-access-production-smoke.yml'
+      - 'test/gruk/gruk-enterprise-free-onboarding-mongo.integration.test.js'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-free-access-production-smoke.yml'
+      - 'test/gruk/gruk-enterprise-free-onboarding-mongo.integration.test.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    name: Free registration UI and subscription checkout blocked in LIVE service
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Confirm healthy enterprise service
+        run: |
+          set -euo pipefail
+          base="https://resturante-qr-1.onrender.com"
+          for i in $(seq 1 12); do
+            code="$(curl --connect-timeout 10 --max-time 25 -sS -o /tmp/gruk-health.json -w '%{http_code}' "$base/health" || true)"
+            if [[ "$code" == "200" ]]; then break; fi
+            sleep 10
+          done
+          [[ "$code" == "200" ]] || { echo '::error::Production health unavailable'; exit 1; }
+          node -e 'const x=require("/tmp/gruk-health.json"); if(x.status!=="ok"||x.db!=="connected")process.exit(2)'
+          echo 'PASS: /health 200; DB connected.'
+      - name: Verify registration and login screens have no subscription checkout
+        run: |
+          set -euo pipefail
+          base="https://resturante-qr-1.onrender.com"
+          curl --fail --silent --show-error --max-time 30 "$base/registro-empresa.html" > /tmp/gruk-register.html
+          curl --fail --silent --show-error --max-time 30 "$base/login-empresa.html" > /tmp/gruk-login.html
+          grep -q 'Crear cuenta gratis' /tmp/gruk-register.html
+          grep -q '/login-empresa.html' /tmp/gruk-register.html
+          grep -q '/api/onboarding/login' /tmp/gruk-login.html
+          status="$(curl -sS -o /dev/null --max-time 30 -w '%{http_code}' "$base/registro-restaurante.html")"
+          [[ "$status" == "302" ]] || { echo "::error::Legacy card-registration screen not redirected"; exit 1; }
+          echo 'PASS: free registration and login pages; legacy payment flow redirected.'
+      - name: Fail if any public subscription charge can be started in free mode
+        run: |
+          set -euo pipefail
+          base="https://resturante-qr-1.onrender.com"
+          for route in /api/onboarding/empresa/gruk-nonexistent/preparar-pago /api/crear-pago-suscripcion /api/registro-y-fuente-pago; do
+            status="$(curl --silent --show-error --max-time 30 -o /tmp/gruk-free-pay.json -w '%{http_code}' \
+              -X POST -H 'content-type: application/json' -d '{}' "$base$route")"
+            [[ "$status" == "409" ]] || { echo "::error::Subscription checkout is not blocked"; exit 1; }
+            node -e 'const x=require("/tmp/gruk-free-pay.json");if(x.code!=="GRUK_EMPRESARIAL_GRATIS")process.exit(2)'
+          done
+          echo 'PASS: three subscription payment entry points disabled; no customer orders charged.'
