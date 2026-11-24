@@ -1,6 +1,7 @@
 "use strict";
 
 const cron = require("node-cron");
+const { accesoEmpresarialGratis }=require("../core/comercial/grukFreeAccess.service");
 const axios = require("axios");
 const Restaurante = require("../models/restaurante");
 const { obtenerOCrearIntento, adquirirDerechoEnvio } = require("../core/pagos/intentoCobro.service");
@@ -9,6 +10,7 @@ const { aplicarResultadoSuscripcion } = require("../services/suscripciones.servi
 
 function iniciarJobSuscripciones() {
   cron.schedule("0 9 * * *", async () => {
+    if (accesoEmpresarialGratis()) return;
     try {
       console.log("Revisando suscripciones automáticas...");
 
