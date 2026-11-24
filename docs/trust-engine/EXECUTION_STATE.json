@@ -2,7 +2,7 @@
   "protocol": "1.0",
   "phase": 0,
   "lastAnalyzedCommit": "1bd9f3554515143f3fff8e58587e4188e95d6c1e",
-  "lastActivity": "PR borrador abierto; emisor JWT actual sin identityType ni tokenVersion identificado en routes/API.js",
+  "lastActivity": "Corregida emisión JWT de /usuarios/login; añadidas pruebas de contrato y comparación de versión",
   "branch": "trust-engine/phase-0-baseline-20261124",
   "completedControls": [],
   "pendingControls": [
@@ -27,7 +27,13 @@
     "LEG-019",
     "LEG-020"
   ],
-  "tests": [],
+  "tests": [
+    {
+      "command": "node --test test/gruk/trust-user-login-revocation.test.js",
+      "status": "NOT_RUN",
+      "cases": 2
+    }
+  ],
   "blockers": [
     "Inventario completo y emisores JWT pendientes",
     "Entorno aislado y ejecución de suite no verificados",
@@ -36,7 +42,7 @@
   "risks": [
     {
       "id": "TRUST-SEC-001",
-      "status": "GAP_IDENTIFIED",
+      "status": "IN_PROGRESS",
       "finding": "Sesiones sin identityType omiten validación de versión; excepción histórica explícita",
       "evidence": [
         "core/auth/jwtClaims.guard.js",
@@ -46,7 +52,7 @@
         "routes/API.js:3311-3325"
       ],
       "severity": "PENDING_ASSESSMENT",
-      "residual": "Emisión actual confirmada por inspección; alcance de rutas, pruebas y explotación efectiva pendientes"
+      "residual": "Tokens históricos sin identidad aún aceptados; otros emisores y revocación HTTP pendientes"
     }
   ],
   "relatedPullRequests": [
@@ -56,7 +62,7 @@
     653,
     654
   ],
-  "nextAction": "Identificar modelo de usuario del emisor, corregir emisión y validar revocación y compatibilidad mediante pruebas aisladas",
+  "nextAction": "Ejecutar pruebas, inventariar emisores restantes y diseñar retirada segura de tokens sin identidad",
   "productionAuthorization": false,
   "pullRequest": 657
 }
