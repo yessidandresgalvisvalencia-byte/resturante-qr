@@ -2,7 +2,7 @@
   "protocol": "1.0",
   "phase": 0,
   "lastAnalyzedCommit": "1bd9f3554515143f3fff8e58587e4188e95d6c1e",
-  "lastActivity": "CI consultada: MongoDB exitoso, tres workflows en progreso; pruebas nuevas no verificadas individualmente",
+  "lastActivity": "Four workflows successful on prior commit; identity registry validation added",
   "branch": "trust-engine/phase-0-baseline-20261124",
   "completedControls": [],
   "pendingControls": [
@@ -52,7 +52,7 @@
         "routes/API.js:3311-3325"
       ],
       "severity": "PENDING_ASSESSMENT",
-      "residual": "Tokens históricos sin identidad aún aceptados; otros emisores y revocación HTTP pendientes"
+      "residual": "Legacy tokens without identity still accepted; complete issuer inventory and migration required"
     }
   ],
   "relatedPullRequests": [
@@ -62,27 +62,27 @@
     653,
     654
   ],
-  "nextAction": "Ejecutar pruebas, inventariar emisores restantes y diseñar retirada segura de tokens sin identidad",
+  "nextAction": "Validate latest commit and plan legacy token retirement after complete issuer inventory",
   "productionAuthorization": false,
   "pullRequest": 657,
   "ciEvidence": {
-    "commit": "c1b100dc3d7c6e3c5a0f8ac9c10978d07470b269",
+    "commit": "26e955cac3688409c81c1e8949211b0e1ac350eb",
     "runs": [
       {
-        "name": "GRUK P0-04 Venta Index Real MongoDB",
+        "id": 45416061927,
         "status": "success"
       },
       {
-        "name": "GRUK quality gate",
-        "status": "in_progress"
+        "id": 45416061939,
+        "status": "success"
       },
       {
-        "name": "GRUK Offline Browser Persistence",
-        "status": "in_progress"
+        "id": 45416061877,
+        "status": "success"
       },
       {
-        "name": "GRUK CI",
-        "status": "in_progress"
+        "id": 45416061777,
+        "status": "success"
       }
     ]
   }
