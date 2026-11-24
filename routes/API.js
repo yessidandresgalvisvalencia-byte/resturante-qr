@@ -11,6 +11,7 @@ const {
   ROLES_GRUK,
   roleCheck
 } = require("../core/auth/roleCheck.middleware");
+const { accesoEmpresarialGratis, suspenderCobroSuscripcion } = require("../core/comercial/grukFreeAccess.service");
 const router = express.Router();
 const { validarEventoWompi } = require("../core/security/wompiWebhook.service");
 const { confirmarPagoPedidoWompi } = require("../services/pagosPedidos.service");
@@ -2799,7 +2800,7 @@ await Sede.create({
 ========================= */
 
 // Devuelve lo necesario para abrir el widget / checkout del primer pago
-router.post("/crear-pago-suscripcion", async (req, res) => {
+router.post("/crear-pago-suscripcion", suspenderCobroSuscripcion, async (req, res) => {
   try {
     const { restaurantId } = req.body;
 
@@ -2938,7 +2939,7 @@ router.post("/wompi/webhook", async (req, res) => {
   }
 });
 
-router.post("/registro-y-fuente-pago", async (req, res) => {
+router.post("/registro-y-fuente-pago", suspenderCobroSuscripcion, async (req, res) => {
   try {
     const {
       nombre,
@@ -3407,7 +3408,7 @@ router.get("/wompi/webhook", (req, res) => {
   });
 });
 
-router.post("/suscripciones/cobrar", authMiddleware, roleCheck(ROLES_GRUK.DUENO), async (req, res) => {
+router.post("/suscripciones/cobrar", authMiddleware, roleCheck(ROLES_GRUK.DUENO), suspenderCobroSuscripcion, async (req, res) => {
   try {
     const { restaurantId } = req.body;
 
