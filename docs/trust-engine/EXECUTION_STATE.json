@@ -2,7 +2,7 @@
   "protocol": "1.0",
   "phase": 0,
   "lastAnalyzedCommit": "1bd9f3554515143f3fff8e58587e4188e95d6c1e",
-  "lastActivity": "Four workflows successful on prior commit; identity registry validation added",
+  "lastActivity": "Inspected app, socket auth, HTTP headers and offline sync; partial technical baseline recorded",
   "branch": "trust-engine/phase-0-baseline-20261124",
   "completedControls": [],
   "pendingControls": [
@@ -53,6 +53,21 @@
       ],
       "severity": "PENDING_ASSESSMENT",
       "residual": "Legacy tokens without identity still accepted; complete issuer inventory and migration required"
+    },
+    {
+      "id": "TRUST-SEC-003",
+      "status": "GAP_IDENTIFIED",
+      "finding": "Client request ID reflected; coordinate PR 653"
+    },
+    {
+      "id": "TRUST-SEC-004",
+      "status": "GAP_IDENTIFIED",
+      "finding": "Legacy plaintext password compatibility; account prevalence unknown"
+    },
+    {
+      "id": "TRUST-OFF-001",
+      "status": "NOT_EVALUATED",
+      "finding": "Offline staging is not final financial posting"
     }
   ],
   "relatedPullRequests": [
@@ -62,7 +77,7 @@
     653,
     654
   ],
-  "nextAction": "Validate latest commit and plan legacy token retirement after complete issuer inventory",
+  "nextAction": "Review parallel PRs and complete service-level tenant and offline posting trace",
   "productionAuthorization": false,
   "pullRequest": 657,
   "ciEvidence": {
