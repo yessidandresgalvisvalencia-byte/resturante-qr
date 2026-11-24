@@ -2,7 +2,7 @@
   "protocol": "1.0",
   "phase": 0,
   "lastAnalyzedCommit": "1bd9f3554515143f3fff8e58587e4188e95d6c1e",
-  "lastActivity": "Offline event ID strict string validation and regression tests committed",
+  "lastActivity": "Inspected inventory staging transaction and recorded two successful offline-related workflows",
   "branch": "trust-engine/phase-0-baseline-20261124",
   "completedControls": [],
   "pendingControls": [
@@ -89,7 +89,7 @@
     653,
     654
   ],
-  "nextAction": "Verify CI and trace offline final posting and transaction evidence",
+  "nextAction": "Trace final cash settlement implementation; verify latest CI without superseding active runs",
   "productionAuthorization": false,
   "pullRequest": 657,
   "ciEvidence": {
@@ -112,5 +112,14 @@
         "status": "success"
       }
     ]
+  },
+  "offlineEvidence": {
+    "commit": "a152f30d09a56be239944bac8958cc63ed617f2b",
+    "successfulRuns": [
+      45418530262,
+      45418529173
+    ],
+    "scope": "contract and Mongo index workflows; individual regression test execution not independently checked",
+    "staging": "transactional journals and stock; no cash settlement or APPLIED"
   }
 }
