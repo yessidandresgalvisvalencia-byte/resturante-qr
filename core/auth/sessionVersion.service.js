@@ -2,8 +2,9 @@
 const Admin=require("../../models/admin");
 const Personal=require("../../models/personal");
 const Restaurante=require("../../models/restaurante");
+const Usuario=require("../../models/usuario");
 const {versionCoincide,payloadSesionValido}=require("./tokenVersion.guard");
-const MODELOS=Object.freeze({ADMIN:Admin,PERSONAL:Personal,RESTAURANTE:Restaurante});
+const MODELOS=Object.freeze({ADMIN:Admin,PERSONAL:Personal,RESTAURANTE:Restaurante,USUARIO:Usuario});
 async function validarVersionSesion(payload){
  if(!payloadSesionValido(payload))return false;
  const tipo=payload.identityType||"";
