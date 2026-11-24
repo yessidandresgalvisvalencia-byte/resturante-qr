@@ -1,0 +1,60 @@
+{
+  "protocol": "1.0",
+  "phase": 0,
+  "lastAnalyzedCommit": "1bd9f3554515143f3fff8e58587e4188e95d6c1e",
+  "lastActivity": "Inspección de autenticación y manifiesto; reconocimiento parcial",
+  "branch": "trust-engine/phase-0-baseline-20261124",
+  "completedControls": [],
+  "pendingControls": [
+    "LEG-001",
+    "LEG-002",
+    "LEG-003",
+    "LEG-004",
+    "LEG-005",
+    "LEG-006",
+    "LEG-007",
+    "LEG-008",
+    "LEG-009",
+    "LEG-010",
+    "LEG-011",
+    "LEG-012",
+    "LEG-013",
+    "LEG-014",
+    "LEG-015",
+    "LEG-016",
+    "LEG-017",
+    "LEG-018",
+    "LEG-019",
+    "LEG-020"
+  ],
+  "tests": [],
+  "blockers": [
+    "Inventario completo y emisores JWT pendientes",
+    "Entorno aislado y ejecución de suite no verificados",
+    "Revisión completa de ramas y PR pendientes"
+  ],
+  "risks": [
+    {
+      "id": "TRUST-SEC-001",
+      "status": "GAP_IDENTIFIED",
+      "finding": "Sesiones sin identityType omiten validación de versión; excepción histórica explícita",
+      "evidence": [
+        "core/auth/jwtClaims.guard.js",
+        "core/auth/tokenVersion.guard.js",
+        "core/auth/sessionVersion.service.js",
+        "routes/onboarding.js"
+      ],
+      "severity": "PENDING_ASSESSMENT",
+      "residual": "Explotabilidad y vigencia de tokens históricos no verificadas"
+    }
+  ],
+  "relatedPullRequests": [
+    610,
+    648,
+    652,
+    653,
+    654
+  ],
+  "nextAction": "Inventariar emisores JWT y consumidores, revisar pruebas existentes y reproducir excepción en entorno aislado antes de corregir",
+  "productionAuthorization": false
+}
