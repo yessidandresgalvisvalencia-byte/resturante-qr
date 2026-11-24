@@ -28,7 +28,7 @@ test("GRUK gratis: registro real -> empresa/sede/usuario -> login JWT -> panel s
   server=await new Promise(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s))});
   const base="http://127.0.0.1:"+server.address().port;
   const username="grukgratis"+crypto.randomBytes(4).toString("hex");
-  const email=username+"@example.invalid";
+  const email=username+"@example.com";
   const passwd="password-super-segura-2026";
   const reg=await fetch(base+"/api/onboarding/empresa",{method:"POST",headers:{"Content-Type":"application/json"},
    body:JSON.stringify({nombreEmpresa:"GRUK Test Gratis",tipoNegocio:"servicios",correo:email,nombreDueno:"Cliente de prueba",
