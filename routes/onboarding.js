@@ -2,6 +2,7 @@
 const express=require("express");const mongoose=require("mongoose");const bcrypt=require("bcrypt");const Joi=require("joi");const crypto=require("crypto");const axios=require("axios");
 const Empresa=require("../models/Empresa");const Usuario=require("../models/usuario");const Sede=require("../models/sede");const SuscripcionEmpresa=require("../models/SuscripcionEmpresa");const IntentoCobroSuscripcion=require("../models/IntentoCobroSuscripcion");
 const jwt=require("jsonwebtoken");
+const authMiddleware=require("../core/auth/auth.middleware");
 const {accesoEmpresarialGratis,suspenderCobroSuscripcion}=require("../core/comercial/grukFreeAccess.service");
 const router=express.Router();
 const schema=Joi.object({nombreEmpresa:Joi.string().trim().min(2).max(160).required(),tipoNegocio:Joi.string().valid("restaurante","retail","servicios","otro").required(),correo:Joi.string().trim().lowercase().email().max(254).required(),nombreDueno:Joi.string().trim().min(2).max(120).required(),usuario:Joi.string().trim().min(3).max(120).pattern(/^[a-zA-Z0-9._-]+$/).required(),password:Joi.string().min(12).max(200).required(),nombreSede:Joi.string().trim().min(2).max(120).default("Principal"),direccion:Joi.string().trim().max(300).allow("").default(""),empleadosActuales:Joi.number().integer().min(0).max(100000).default(0)}).required();
@@ -38,5 +39,13 @@ router.post("/login",async(req,res)=>{
    restaurantId:identity.restauranteId||null,gratis:accesoEmpresarialGratis()});
  }catch(e){console.error("[LOGIN_EMPRESA]",e.message);
   return res.status(500).json({ok:false,error:"No fue posible iniciar sesión"});}
+});
+router.get("/me",authMiddleware,async(req,res)=>{
+ if(req.auth.identityType!=="USUARIO")return res.status(403).json({ok:false,error:"Acceso de empresa requerido"});
+ const identity=await Usuario.findOne({_id:req.auth.usuarioId,empresaId:req.auth.empresaId,estado:"activo"})
+  .select("_id empresaId sedeId nombre usuario rol").lean();
+ if(!identity||String(identity.sedeId)!==req.auth.sedeId)return res.status(403).json({ok:false,error:"Acceso no autorizado"});
+ return res.json({ok:true,usuario:identity.usuario,nombre:identity.nombre,rol:req.auth.rol,
+  empresaId:req.auth.empresaId,sedeId:req.auth.sedeId,gratis:accesoEmpresarialGratis()});
 });
 module.exports=router;
