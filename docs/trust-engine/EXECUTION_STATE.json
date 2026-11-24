@@ -2,7 +2,7 @@
   "protocol": "1.0",
   "phase": 0,
   "lastAnalyzedCommit": "1bd9f3554515143f3fff8e58587e4188e95d6c1e",
-  "lastActivity": "Inspected app, socket auth, HTTP headers and offline sync; partial technical baseline recorded",
+  "lastActivity": "Offline event ID strict string validation and regression tests committed",
   "branch": "trust-engine/phase-0-baseline-20261124",
   "completedControls": [],
   "pendingControls": [
@@ -30,6 +30,11 @@
   "tests": [
     {
       "command": "node --test test/gruk/trust-user-login-revocation.test.js",
+      "status": "NOT_RUN",
+      "cases": 2
+    },
+    {
+      "command": "node --test test/gruk/trust-offline-event-id.test.js",
       "status": "NOT_RUN",
       "cases": 2
     }
@@ -68,6 +73,13 @@
       "id": "TRUST-OFF-001",
       "status": "NOT_EVALUATED",
       "finding": "Offline staging is not final financial posting"
+    },
+    {
+      "id": "TRUST-OFF-002",
+      "status": "IMPLEMENTED_UNVERIFIED",
+      "finding": "ULID regex previously coerced non-string event IDs",
+      "commit": "ebfe258ee5e3389e9fc2676206de47fc6e70c212",
+      "testCommit": "a152f30d09a56be239944bac8958cc63ed617f2b"
     }
   ],
   "relatedPullRequests": [
@@ -77,7 +89,7 @@
     653,
     654
   ],
-  "nextAction": "Review parallel PRs and complete service-level tenant and offline posting trace",
+  "nextAction": "Verify CI and trace offline final posting and transaction evidence",
   "productionAuthorization": false,
   "pullRequest": 657,
   "ciEvidence": {
