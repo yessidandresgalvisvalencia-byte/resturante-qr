@@ -15,6 +15,7 @@ const restaurantRoutes = require("./routes/restaurants");
 const onboardingRoutes = require("./routes/onboarding");
 const facturacionRoutes = require("./routes/facturacion");
 const pagosRoutes = require("./routes/pagos");
+const { accesoEmpresarialGratis } = require("./core/comercial/grukFreeAccess.service");
 const facturacionCoreRoutes = require("./core/facturacion/facturacion.routes");
 const { registrarFacturacionListener } = require("./core/facturacion/facturacion.listener");
 const laboralRoutes = require("./routes/laboral");
@@ -78,6 +79,15 @@ eventBus.on("VENTA_COMPLETADA", (event) => {
   );
 });
 
+// Legacy subscription pages cannot collect card information in the free phase.
+app.use((req,res,next)=>{
+ if(req.method==="GET"&&accesoEmpresarialGratis()){
+  if(req.path==="/registro-restaurante.html")return res.redirect(302,"/registro-empresa.html");
+  if(["/pago-empresa.html","/pago-suscripcion.html","/pago-suscripcion"].includes(req.path))
+   return res.redirect(302,"/login-empresa.html");
+ }
+ return next();
+});
 app.use(express.static("public"));
 app.use("/estadisticas", estadisticasRoutes);
 app.use("/api/restaurants", restaurantRoutes);

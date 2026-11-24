@@ -1,0 +1,23 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mi empresa · GRUK</title><style>body{margin:0;background:#020916;color:#eaf4ff;font-family:system-ui}header{padding:22px 5%;border-bottom:1px solid #233e59;display:flex;justify-content:space-between;gap:12px;align-items:center}main{max-width:1100px;margin:auto;padding:28px}h1{margin:0 0 8px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px;margin-top:24px}a.card{display:block;text-decoration:none;color:#eaf4ff;background:#0b2037;padding:24px;border:1px solid #274b65;border-radius:16px}a.card:hover{border-color:#31c7ff}.tag{color:#8eeac0;font-weight:700}button{background:#163653;color:#eaf4ff;border:1px solid #42617d;border-radius:10px;padding:10px;cursor:pointer}#estado{color:#9bb7cd}</style></head><body><header><strong>GRUK EMPRESARIAL</strong><button id="salir">Cerrar sesión</button></header><main><p class="tag">Acceso gratis por ahora · Sin cobro de suscripción</p><h1>Panel de mi empresa</h1><p id="estado" role="status">Validando tu sesión…</p><div id="menu" class="grid" hidden>
+<a class="card" href="/modulos/centro-control.html"><strong>Centro de control</strong><p>Gestiona tu operación</p></a>
+<a class="card" href="/modulos/inventario.html"><strong>Inventario</strong><p>Consulta y administra existencias</p></a>
+<a class="card" href="/modulos/finanzas.html"><strong>Finanzas empresariales</strong><p>Revisa información de tu negocio</p></a>
+<a class="card" href="/modulos/reportes.html"><strong>Reportes</strong><p>Revisa indicadores de la empresa</p></a>
+<a class="card" href="/modulos/restaurante.html"><strong>Restaurante</strong><p>Operación gastronómica, cuando aplique</p></a>
+</div></main><script>
+"use strict";
+const token=sessionStorage.getItem("grukEnterpriseToken")||localStorage.getItem("grukAuthToken");
+function salir(){sessionStorage.removeItem("grukEnterpriseToken");sessionStorage.removeItem("grukEnterpriseIdentity");localStorage.removeItem("grukAuthToken");location.replace("/login-empresa.html")}
+document.getElementById("salir").onclick=salir;
+(async()=>{
+ if(!token){salir();return}
+ try{
+  const res=await fetch("/api/onboarding/me",{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+  if(!res.ok){salir();return}
+  const data=await res.json();
+  if(!data.ok){salir();return}
+  document.getElementById("estado").textContent="Sesión iniciada como "+data.nombre+" · "+data.rol;
+  document.getElementById("menu").hidden=false;
+ }catch(e){document.getElementById("estado").textContent="No pudimos verificar la sesión. Revisa tu conexión."}
+})();
+</script></body></html>
