@@ -2,7 +2,7 @@
   "protocol": "1.0",
   "phase": 0,
   "lastAnalyzedCommit": "1bd9f3554515143f3fff8e58587e4188e95d6c1e",
-  "lastActivity": "Corregida emisión JWT de /usuarios/login; añadidas pruebas de contrato y comparación de versión",
+  "lastActivity": "CI consultada: MongoDB exitoso, tres workflows en progreso; pruebas nuevas no verificadas individualmente",
   "branch": "trust-engine/phase-0-baseline-20261124",
   "completedControls": [],
   "pendingControls": [
@@ -64,5 +64,26 @@
   ],
   "nextAction": "Ejecutar pruebas, inventariar emisores restantes y diseñar retirada segura de tokens sin identidad",
   "productionAuthorization": false,
-  "pullRequest": 657
+  "pullRequest": 657,
+  "ciEvidence": {
+    "commit": "c1b100dc3d7c6e3c5a0f8ac9c10978d07470b269",
+    "runs": [
+      {
+        "name": "GRUK P0-04 Venta Index Real MongoDB",
+        "status": "success"
+      },
+      {
+        "name": "GRUK quality gate",
+        "status": "in_progress"
+      },
+      {
+        "name": "GRUK Offline Browser Persistence",
+        "status": "in_progress"
+      },
+      {
+        "name": "GRUK CI",
+        "status": "in_progress"
+      }
+    ]
+  }
 }
