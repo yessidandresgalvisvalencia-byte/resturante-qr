@@ -2880,9 +2880,10 @@ router.get("/restaurante/estado-suscripcion", async (req, res) => {
 
     res.json({
       ok: true,
-      estadoSuscripcion: restaurante.estadoSuscripcion,
-      plan: restaurante.plan,
-      precioMensual: restaurante.precioMensual,
+      estadoSuscripcion: accesoEmpresarialGratis() ? "activa" : restaurante.estadoSuscripcion,
+      gratis: accesoEmpresarialGratis(),
+      plan: accesoEmpresarialGratis() ? "GRATIS_TEMPORAL" : restaurante.plan,
+      precioMensual: accesoEmpresarialGratis() ? 0 : restaurante.precioMensual,
       fechaUltimoPago: restaurante.fechaUltimoPago,
       fechaProximoCobro: restaurante.fechaProximoCobro
     });
