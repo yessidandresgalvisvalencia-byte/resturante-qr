@@ -9,6 +9,7 @@ async function validarVersionSesion(payload){
  if(!payloadSesionValido(payload))return false;
  const tipo=payload.identityType||"";
  if(!tipo)return true;
+ if(!Object.hasOwn(MODELOS,tipo))return false;
  const Modelo=MODELOS[tipo];
  if(!Modelo)return false;
  const identidad=await Modelo.findById(payload.sub).select("tokenVersion").lean();
