@@ -11,3 +11,12 @@ test("offline rejects coercible IDs",()=>{
   assert.throws(()=>validateBatch([{...event,eventId}],context),{code:"OFFLINE_INVALID_ID"});
  }
 });
+test("offline rejects accessors without invoking them",()=>{
+ const getter=()=>{throw Error("getter executed")};
+ const invalid={...event};
+ Object.defineProperty(invalid,"eventId",{enumerable:true,get:getter});
+ assert.throws(()=>validateBatch([invalid],context),{code:"OFFLINE_INVALID_EVENT"});
+ const payload={};
+ Object.defineProperty(payload,"price",{enumerable:true,get:getter});
+ assert.throws(()=>validateBatch([{...event,payload}],context),{code:"OFFLINE_INVALID_PAYLOAD"});
+});
