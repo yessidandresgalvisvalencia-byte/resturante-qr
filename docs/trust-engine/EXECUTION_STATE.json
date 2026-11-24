@@ -2,7 +2,7 @@
   "protocol": "1.0",
   "phase": 0,
   "lastAnalyzedCommit": "1bd9f3554515143f3fff8e58587e4188e95d6c1e",
-  "lastActivity": "Inspección de autenticación y manifiesto; reconocimiento parcial",
+  "lastActivity": "PR borrador abierto; emisor JWT actual sin identityType ni tokenVersion identificado en routes/API.js",
   "branch": "trust-engine/phase-0-baseline-20261124",
   "completedControls": [],
   "pendingControls": [
@@ -42,10 +42,11 @@
         "core/auth/jwtClaims.guard.js",
         "core/auth/tokenVersion.guard.js",
         "core/auth/sessionVersion.service.js",
-        "routes/onboarding.js"
+        "routes/onboarding.js",
+        "routes/API.js:3311-3325"
       ],
       "severity": "PENDING_ASSESSMENT",
-      "residual": "Explotabilidad y vigencia de tokens históricos no verificadas"
+      "residual": "Emisión actual confirmada por inspección; alcance de rutas, pruebas y explotación efectiva pendientes"
     }
   ],
   "relatedPullRequests": [
@@ -55,6 +56,7 @@
     653,
     654
   ],
-  "nextAction": "Inventariar emisores JWT y consumidores, revisar pruebas existentes y reproducir excepción en entorno aislado antes de corregir",
-  "productionAuthorization": false
+  "nextAction": "Identificar modelo de usuario del emisor, corregir emisión y validar revocación y compatibilidad mediante pruebas aisladas",
+  "productionAuthorization": false,
+  "pullRequest": 657
 }
