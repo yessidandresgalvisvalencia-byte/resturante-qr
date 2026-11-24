@@ -1,0 +1,91 @@
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { makeMongoScopedReconciliationRepository } = require("../../core/finanzas/repositorioConciliacionMongoAcotado");
+const { readScopedReconciliation } = require("../../core/finanzas/lecturaConciliacionAcotada");
+
+function fakeCollection(rows, calls) {
+  return {
+    find(filter, options) {
+      calls.push({ filter, options });
+      return {
+        limit(n) {
+          calls[calls.length - 1].limit = n;
+          return { async toArray() { return rows.slice(0, n); } };
+        }
+      };
+    }
+  };
+}
+test("Mongo adapter reads both collections with tenant filters and explicit projections", async () => {
+  const calls = [];
+  const repository = makeMongoScopedReconciliationRepository({
+    movementsCollection: fakeCollection([{ empresaId: "e1", sedeId: "s1", idempotencyKey: "k1", centavos: "101" }], calls),
+    stockCollection: fakeCollection([{ empresaId: "e1", sedeId: "s1", productoId: "p1", unidad: "g", registrado: "5", fisico: "4" }], calls),
+    expectedCentavos: "101"
+  });
+  const result = await readScopedReconciliation({ empresaId: "e1", sedeId: "s1", repository });
+  assert.equal(result.financial.balanced, true);
+  assert.equal(result.stock.diferencias[0].diferencia, "-1");
+  assert.equal(calls.length, 2);
+  for (const call of calls) {
+    assert.deepEqual(call.filter, { empresaId: "e1", sedeId: "s1" });
+    assert.equal(call.limit, 10001);
+    assert.equal(call.options.projection._id, 0);
+  }
+});
+test("Mongo adapter rejects cross-tenant data rather than silently filtering in JS", async () => {
+  const calls = [];
+  const repository = makeMongoScopedReconciliationRepository({
+    movementsCollection: fakeCollection([{ empresaId: "other", sedeId: "s1", idempotencyKey: "k1", centavos: "1" }], calls),
+    stockCollection: fakeCollection([], calls), expectedCentavos: "1"
+  });
+  await assert.rejects(readScopedReconciliation({ empresaId: "e1", sedeId: "s1", repository }), /P006_MONGO_SCOPE_MISMATCH/);
+});
+test("Mongo adapter rejects over-limit collection result", async () => {
+  const cursor = { limit() { return { async toArray() { return Array(10001).fill(null); } }; } };
+  const collection = { find() { return cursor; } };
+  const repository = makeMongoScopedReconciliationRepository({
+    movementsCollection: collection, stockCollection: collection, expectedCentavos: "0"
+  });
+  await assert.rejects(repository.readScopedSnapshot({ empresaId: "e1", sedeId: "s1" }), /P006_MONGO_LIMITE/);
+});
+test("Mongo adapter fails closed on missing expected independent balance", () => {
+  assert.throws(() => makeMongoScopedReconciliationRepository({
+    movementsCollection: { find() {} }, stockCollection: { find() {} }, expectedCentavos: 0
+  }), /P006_MONGO_EXPECTED_INVALIDO/);
+});
+
+test("Mongo adapter rejects cross-branch stock rows before returning a snapshot", async () => {
+  const calls = [];
+  const repository = makeMongoScopedReconciliationRepository({
+    movementsCollection: fakeCollection([], calls),
+    stockCollection: fakeCollection([{ empresaId: "e1", sedeId: "other", productoId: "p1", unidad: "g", registrado: "5", fisico: "5" }], calls),
+    expectedCentavos: "0"
+  });
+  await assert.rejects(repository.readScopedSnapshot({ empresaId: "e1", sedeId: "s1" }), /P006_MONGO_SCOPE_MISMATCH/);
+  assert.equal(calls.length, 2);
+});
+
+test("Mongo adapter rejects sparse and accessor cursor rows without executing getters", async () => {
+  for (const kind of ["sparse", "accessor", "inherited"]) {
+    const rows = new Array(1);
+    if (kind === "accessor") {
+      Object.defineProperty(rows, "0", { get() { throw Error("unsafe getter executed"); } });
+    }
+    if (kind === "inherited") {
+      const prototype = Object.create(Array.prototype);
+      prototype[0] = { empresaId: "e1", sedeId: "s1" };
+      Object.setPrototypeOf(rows, prototype);
+    }
+    const collection = { find() { return { limit() { return { async toArray() { return rows; } }; } }; } };
+    const repository = makeMongoScopedReconciliationRepository({
+      movementsCollection: collection, stockCollection: collection, expectedCentavos: "0"
+    });
+    await assert.rejects(
+      repository.readScopedSnapshot({ empresaId: "e1", sedeId: "s1" }),
+      /P006_MONGO_REGISTRO_INVALIDO/,
+      kind
+    );
+  }
+});
