@@ -5,7 +5,9 @@ const Restaurante=require("../../models/restaurante");
 const Usuario=require("../../models/usuario");
 const MODELOS=Object.freeze({ADMIN:Admin,PERSONAL:Personal,RESTAURANTE:Restaurante,USUARIO:Usuario});
 async function revocarIdentidad({identityType,usuarioId}){
- const Modelo=MODELOS[String(identityType||"")];
+ const tipo=String(identityType||"");
+ if(!Object.hasOwn(MODELOS,tipo))return false;
+ const Modelo=MODELOS[tipo];
  if(!Modelo||!usuarioId)return false;
  const r=await Modelo.updateOne({_id:usuarioId},{$inc:{tokenVersion:1}});
  return r.matchedCount===1;
