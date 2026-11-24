@@ -3313,7 +3313,9 @@ router.post("/usuarios/login", async (req, res) => {
         empresaId: String(user.empresaId),
         restaurantId: String(user.restauranteId || ""),
         sedeId: user.sedeId ? String(user.sedeId._id) : null,
-        rol: rolJwt
+        rol: rolJwt,
+        identityType: "USUARIO",
+        tokenVersion: Number(user.tokenVersion || 0)
       },
       jwtSecret,
       {
