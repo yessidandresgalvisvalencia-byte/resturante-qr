@@ -53,7 +53,7 @@ function validateBatch(events, authenticatedContext) {
         Object.keys(event).length !== EXACT_KEYS.size ||
         Object.keys(event).some(k => !EXACT_KEYS.has(k)) ||
         [...EXACT_KEYS].some(k => !Object.prototype.hasOwnProperty.call(event,k))) fail("OFFLINE_INVALID_EVENT");
-    if (!ULID.test(event.eventId) || ![event.empresaId,event.sedeId,event.actorId,event.deviceId].every(v => typeof v === "string" && ID.test(v))) fail("OFFLINE_INVALID_ID");
+    if (typeof event.eventId !== "string" || !ULID.test(event.eventId) || ![event.empresaId,event.sedeId,event.actorId,event.deviceId].every(v => typeof v === "string" && ID.test(v))) fail("OFFLINE_INVALID_ID");
     if (event.empresaId !== authenticatedContext.empresaId || event.sedeId !== authenticatedContext.sedeId || event.actorId !== authenticatedContext.actorId) fail("OFFLINE_TENANT_MISMATCH");
     if (event.schemaVersion !== 1 || !TYPES.has(event.tipo)) fail("OFFLINE_INVALID_TYPE");
     if (!validOccurredAt(event.occurredAt)) fail("OFFLINE_INVALID_TIMESTAMP");
