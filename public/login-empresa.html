@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iniciar sesión · GRUK Empresarial</title>
+<style>body{margin:0;background:#020916;color:#eef7ff;font-family:system-ui}main{max-width:490px;margin:8vh auto;padding:20px}.card{background:#08182c;border:1px solid #183a5b;border-radius:22px;padding:28px}h1{margin:9px 0 14px}label{display:block;margin:14px 0 6px}input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #31516d;border-radius:12px;color:#fff;background:#071321}button{width:100%;padding:14px;margin-top:22px;background:#31c7ff;color:#02101c;font-weight:800;border:0;border-radius:12px}a{color:#31c7ff}.msg{min-height:24px}</style></head>
+<body><main><div class="card"><small>GRUK EMPRESARIAL · ACCESO GRATIS</small><h1>Iniciar sesión</h1>
+<form id="login"><label for="usuario">Usuario</label><input id="usuario" required autocomplete="username" maxlength="120">
+<label for="password">Contraseña</label><input id="password" required type="password" autocomplete="current-password">
+<button id="entrar" type="submit">Entrar a GRUK</button><p id="msg" class="msg" role="status"></p></form>
+<p>¿No tienes cuenta? <a href="/registro-empresa.html">Regístrate gratis</a></p></div></main>
+<script>
+"use strict";
+document.getElementById("login").addEventListener("submit",async event=>{
+ event.preventDefault();
+ const button=document.getElementById("entrar"),msg=document.getElementById("msg");button.disabled=true;msg.textContent="Validando acceso…";
+ try{
+  const response=await fetch("/api/onboarding/login",{method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({usuario:document.getElementById("usuario").value.trim(),password:document.getElementById("password").value})});
+  const data=await response.json();
+  if(!response.ok||!data.ok||!data.token)throw new Error(data.error||"No se pudo iniciar sesión");
+  sessionStorage.setItem("grukEnterpriseToken",data.token);
+  sessionStorage.setItem("grukEnterpriseIdentity",JSON.stringify({usuario:data.usuario,rol:data.rol,empresaId:data.empresaId,sedeId:data.sedeId,restaurantId:data.restaurantId}));
+  // Existing enterprise modules rely on this token key for authorization.
+  localStorage.setItem("grukAuthToken",data.token);
+  if(data.restaurantId)localStorage.setItem("adminRestaurantId",data.restaurantId);
+  location.replace("/panel-empresa.html");
+ }catch(err){msg.textContent=err.message;button.disabled=false;}
+});
+</script></body></html>
