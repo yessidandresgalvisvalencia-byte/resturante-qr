@@ -15,6 +15,7 @@ function payloadSesionValido(payload){
  if(!payload || typeof payload!=="object" || Array.isArray(payload))return false;
  if(payload.identityType!==undefined && typeof payload.identityType!=="string")return false;
  const tipo=payload.identityType||"";
+ if(tipo && !["ADMIN","PERSONAL","RESTAURANTE","USUARIO"].includes(tipo))return false;
  // Se conserva compatibilidad con sesiones antiguas sin identityType.
  if(!tipo)return true;
  return typeof payload.sub==="string" && payload.sub.trim().length>0;

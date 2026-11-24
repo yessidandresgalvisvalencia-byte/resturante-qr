@@ -1,0 +1,125 @@
+{
+  "protocol": "1.0",
+  "phase": 0,
+  "lastAnalyzedCommit": "1bd9f3554515143f3fff8e58587e4188e95d6c1e",
+  "lastActivity": "Inspected inventory staging transaction and recorded two successful offline-related workflows",
+  "branch": "trust-engine/phase-0-baseline-20261124",
+  "completedControls": [],
+  "pendingControls": [
+    "LEG-001",
+    "LEG-002",
+    "LEG-003",
+    "LEG-004",
+    "LEG-005",
+    "LEG-006",
+    "LEG-007",
+    "LEG-008",
+    "LEG-009",
+    "LEG-010",
+    "LEG-011",
+    "LEG-012",
+    "LEG-013",
+    "LEG-014",
+    "LEG-015",
+    "LEG-016",
+    "LEG-017",
+    "LEG-018",
+    "LEG-019",
+    "LEG-020"
+  ],
+  "tests": [
+    {
+      "command": "node --test test/gruk/trust-user-login-revocation.test.js",
+      "status": "NOT_RUN",
+      "cases": 2
+    },
+    {
+      "command": "node --test test/gruk/trust-offline-event-id.test.js",
+      "status": "NOT_RUN",
+      "cases": 2
+    }
+  ],
+  "blockers": [
+    "Inventario completo y emisores JWT pendientes",
+    "Entorno aislado y ejecución de suite no verificados",
+    "Revisión completa de ramas y PR pendientes"
+  ],
+  "risks": [
+    {
+      "id": "TRUST-SEC-001",
+      "status": "IN_PROGRESS",
+      "finding": "Sesiones sin identityType omiten validación de versión; excepción histórica explícita",
+      "evidence": [
+        "core/auth/jwtClaims.guard.js",
+        "core/auth/tokenVersion.guard.js",
+        "core/auth/sessionVersion.service.js",
+        "routes/onboarding.js",
+        "routes/API.js:3311-3325"
+      ],
+      "severity": "PENDING_ASSESSMENT",
+      "residual": "Legacy tokens without identity still accepted; complete issuer inventory and migration required"
+    },
+    {
+      "id": "TRUST-SEC-003",
+      "status": "GAP_IDENTIFIED",
+      "finding": "Client request ID reflected; coordinate PR 653"
+    },
+    {
+      "id": "TRUST-SEC-004",
+      "status": "GAP_IDENTIFIED",
+      "finding": "Legacy plaintext password compatibility; account prevalence unknown"
+    },
+    {
+      "id": "TRUST-OFF-001",
+      "status": "NOT_EVALUATED",
+      "finding": "Offline staging is not final financial posting"
+    },
+    {
+      "id": "TRUST-OFF-002",
+      "status": "IMPLEMENTED_UNVERIFIED",
+      "finding": "ULID regex previously coerced non-string event IDs",
+      "commit": "ebfe258ee5e3389e9fc2676206de47fc6e70c212",
+      "testCommit": "a152f30d09a56be239944bac8958cc63ed617f2b"
+    }
+  ],
+  "relatedPullRequests": [
+    610,
+    648,
+    652,
+    653,
+    654
+  ],
+  "nextAction": "Trace final cash settlement implementation; verify latest CI without superseding active runs",
+  "productionAuthorization": false,
+  "pullRequest": 657,
+  "ciEvidence": {
+    "commit": "26e955cac3688409c81c1e8949211b0e1ac350eb",
+    "runs": [
+      {
+        "id": 45416061927,
+        "status": "success"
+      },
+      {
+        "id": 45416061939,
+        "status": "success"
+      },
+      {
+        "id": 45416061877,
+        "status": "success"
+      },
+      {
+        "id": 45416061777,
+        "status": "success"
+      }
+    ]
+  },
+  "offlineEvidence": {
+    "commit": "a152f30d09a56be239944bac8958cc63ed617f2b",
+    "successfulRuns": [
+      45418530262,
+      45418529173
+    ],
+    "scope": "contract and Mongo index workflows; individual regression test execution not independently checked",
+    "staging": "transactional journals and stock; no cash settlement or APPLIED"
+  }
+}

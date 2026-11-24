@@ -13,12 +13,17 @@ function inspectPayload(value, depth = 0) {
     if (value.length > 1000) fail("OFFLINE_INVALID_PAYLOAD");
     for (let i = 0; i < value.length; i++) {
       if (!Object.prototype.hasOwnProperty.call(value, i)) fail("OFFLINE_INVALID_PAYLOAD");
-      inspectPayload(value[i], depth+1);
+      const descriptor = Object.getOwnPropertyDescriptor(value,String(i));
+      if (!descriptor || !("value" in descriptor)) fail("OFFLINE_INVALID_PAYLOAD");
+      inspectPayload(descriptor.value, depth+1);
     }
     return;
   }
   if (typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype) fail("OFFLINE_INVALID_PAYLOAD");
-  for (const [k,v] of Object.entries(value)) {
+  for (const k of Object.keys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value,k);
+    if (!descriptor || !("value" in descriptor)) fail("OFFLINE_INVALID_PAYLOAD");
+    const v = descriptor.value;
     if (k === "__proto__" || k === "prototype" || k === "constructor" || k.startsWith("$") || k.includes(".") || /[\x00-\x1f\x7f]/u.test(k)) fail("OFFLINE_UNSAFE_KEY");
     inspectPayload(v, depth+1);
   }
@@ -53,7 +58,8 @@ function validateBatch(events, authenticatedContext) {
         Object.keys(event).length !== EXACT_KEYS.size ||
         Object.keys(event).some(k => !EXACT_KEYS.has(k)) ||
         [...EXACT_KEYS].some(k => !Object.prototype.hasOwnProperty.call(event,k))) fail("OFFLINE_INVALID_EVENT");
-    if (!ULID.test(event.eventId) || ![event.empresaId,event.sedeId,event.actorId,event.deviceId].every(v => typeof v === "string" && ID.test(v))) fail("OFFLINE_INVALID_ID");
+    if ([...EXACT_KEYS].some(k => !("value" in Object.getOwnPropertyDescriptor(event,k)))) fail("OFFLINE_INVALID_EVENT");
+    if (typeof event.eventId !== "string" || !ULID.test(event.eventId) || ![event.empresaId,event.sedeId,event.actorId,event.deviceId].every(v => typeof v === "string" && ID.test(v))) fail("OFFLINE_INVALID_ID");
     if (event.empresaId !== authenticatedContext.empresaId || event.sedeId !== authenticatedContext.sedeId || event.actorId !== authenticatedContext.actorId) fail("OFFLINE_TENANT_MISMATCH");
     if (event.schemaVersion !== 1 || !TYPES.has(event.tipo)) fail("OFFLINE_INVALID_TYPE");
     if (!validOccurredAt(event.occurredAt)) fail("OFFLINE_INVALID_TIMESTAMP");
