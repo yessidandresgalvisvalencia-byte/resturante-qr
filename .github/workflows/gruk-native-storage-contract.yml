@@ -1,0 +1,24 @@
+name: GRUK Native Storage Contract
+on:
+  push:
+    branches: [gruk/native-backup-storage]
+  pull_request:
+    paths:
+      - 'scripts/gruk/native-backup-*'
+      - 'test/gruk/native-backup-storage.test.js'
+      - '.github/workflows/gruk-native-storage-contract.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: |
+          bash -n scripts/gruk/native-backup-restore.sh
+          node --check scripts/gruk/native-backup-cli.js
+          node --test test/gruk/native-backup-storage.test.js
