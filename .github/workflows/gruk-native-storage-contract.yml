@@ -24,3 +24,20 @@ jobs:
           bash -n scripts/gruk/native-backup-restore.sh
           node --check scripts/gruk/native-backup-cli.js
           node --test test/gruk/native-backup-storage.test.js test/gruk/native-storage-api.test.js
+      - name: Genuine AGE recovery on synthetic data
+        run: |
+          node --check scripts/gruk/native-storage-service.js
+          command -v age || (sudo apt-get update && sudo apt-get install -y age)
+          set -euo pipefail
+          umask 077
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          export GRUK_NATIVE_BACKUP_ROOT="$tmp/vault"
+          mkdir -m 700 "$GRUK_NATIVE_BACKUP_ROOT"
+          age-keygen -o "$tmp/identity" 2>/dev/null
+          printf 'GRUK synthetic recovery fixture\n' > "$tmp/plain"
+          age -r "$(age-keygen -y "$tmp/identity")" -o "$tmp/input.age" "$tmp/plain"
+          node -e 'require("./scripts/gruk/native-backup-storage").store(process.env.GRUK_NATIVE_BACKUP_ROOT,"gruk-restaurante-1-1.archive.age",process.argv[1]).then(r=>console.log(r.sha256)).catch(()=>process.exit(1))' "$tmp/input.age" > "$tmp/digest"
+          node -e 'require("./scripts/gruk/native-backup-storage").retrieve(process.env.GRUK_NATIVE_BACKUP_ROOT,"gruk-restaurante-1-1.archive.age",process.argv[1],process.argv[2]).catch(()=>process.exit(1))' "$tmp/recovered.age" "$(cat "$tmp/digest")"
+          age -d -i "$tmp/identity" -o "$tmp/recovered" "$tmp/recovered.age"
+          cmp "$tmp/plain" "$tmp/recovered"
