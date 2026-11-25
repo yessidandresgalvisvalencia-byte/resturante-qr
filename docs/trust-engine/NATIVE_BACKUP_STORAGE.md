@@ -1,0 +1,7 @@
+# Native backup storage — deployment gate
+Status: IMPLEMENTED_UNVERIFIED. No production changes.
+Base: 1bd9f3554515143f3fff8e58587e4188e95d6c1e.
+The filesystem adapter requires an independently provisioned private persistent volume, mode 0700, owned by the backup runner. A free Render service filesystem or GitHub hosted runner temporary disk is not a durable backup destination. No paid resource is authorized.
+A dedicated owner-controlled computer with a separate encrypted external disk is a possible no-new-subscription deployment if hardware already exists; availability, capacity, encryption and independent copy must be confirmed. Do not install a self-hosted runner on a personal machine without explicit approval and isolation.
+Before real data: verify synthetic CI, genuine AGE encryption/decryption, Mongo isolated restore, persistence across restart, authenticated digest receipt stored independently, recovery key custody, retention and capacity, independent disaster copy. Header checking is not cryptographic authentication. File no-overwrite is not WORM protection against privileged deletion. Current live dump comparison may fail under concurrent writes; no point-in-time consistency claim.
+Never use GitHub source, public artifacts or the primary Mongo database as the sole backup. Keep existing Drive configuration untouched until a replacement is verified. No production drill, merge, spending or deployment authorized in this block.
