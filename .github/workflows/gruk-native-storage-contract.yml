@@ -41,3 +41,5 @@ jobs:
           node -e 'require("./scripts/gruk/native-backup-storage").retrieve(process.env.GRUK_NATIVE_BACKUP_ROOT,"gruk-restaurante-1-1.archive.age",process.argv[1],process.argv[2]).catch(()=>process.exit(1))' "$tmp/recovered.age" "$(cat "$tmp/digest")"
           age -d -i "$tmp/identity" -o "$tmp/recovered" "$tmp/recovered.age"
           cmp "$tmp/plain" "$tmp/recovered"
+      - name: Standalone service restart recovery
+        run: bash scripts/gruk/native-storage-restart-test.sh
