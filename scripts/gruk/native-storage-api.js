@@ -5,7 +5,7 @@ const os=require('node:os');
 const path=require('node:path');
 const {Transform}=require('node:stream');
 const {pipeline}=require('node:stream/promises');
-const {createWriteStream,createReadStream}=require('node:fs');
+const {createWriteStream}=require('node:fs');
 const {verify}=require('./native-storage-auth');
 const {store,retrieve}=require('./native-backup-storage');
 function createStorageServer({root,key,maxBytes=16*1024*1024}){
@@ -17,24 +17,28 @@ function createStorageServer({root,key,maxBytes=16*1024*1024}){
  if(!match||!['PUT','GET'].includes(req.method))return reply(404,{error:'NOT_FOUND'});
  try{verify(key,(req.headers.authorization||'').replace(/^Bearer /,''),req.method==='PUT'?'backup:write':'backup:read');if(!/^Bearer /.test(req.headers.authorization||''))throw Error();}catch{return reply(401,{error:'UNAUTHORIZED'});}
  if(busy)return reply(503,{error:'BUSY'});
- busy=true;let tmp;
+ busy=true;let tmp;let status=400,body={error:'STORAGE_REQUEST_FAILED'},binary=false;
  try{
  tmp=await fs.mkdtemp(path.join(os.tmpdir(),'gruk-storage-'));
  const file=path.join(tmp,'archive.age');
  if(req.method==='PUT'){
  const size=Number(req.headers['content-length']);
- if(!Number.isSafeInteger(size)||size<64||size>maxBytes)return reply(413,{error:'SIZE_LIMIT'});
+ if(!Number.isSafeInteger(size)||size<64||size>maxBytes){status=413;body={error:'SIZE_LIMIT'};}else{
  let bytes=0;
  await pipeline(req,new Transform({transform(chunk,enc,cb){bytes+=chunk.length;cb(bytes>maxBytes?Error('SIZE_LIMIT'):null,chunk);}}),createWriteStream(file,{flags:'wx',mode:0o600}));
  if(bytes!==size)throw Error('SIZE_MISMATCH');
- return reply(201,await store(root,match[1],file));
+ body=await store(root,match[1],file);status=201;
  }
+ }else{
  await retrieve(root,match[1],file,req.headers['x-backup-sha256']);
  const stat=await fs.stat(file);
- res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':stat.size,'Cache-Control':'no-store'});
- await pipeline(createReadStream(file),res);
- }catch(e){if(!res.headersSent&&!res.destroyed)reply(e.code==='EEXIST'?409:400,{error:'STORAGE_REQUEST_FAILED'});else res.destroy();}
- finally{try{if(tmp)await fs.rm(tmp,{recursive:true,force:true});}finally{busy=false;}}
+ if(stat.size>maxBytes)throw Error('SIZE_LIMIT');
+ body=await fs.readFile(file);status=200;binary=true;
+ }
+ }catch(e){status=e.code==='EEXIST'?409:400;body={error:'STORAGE_REQUEST_FAILED'};binary=false;}
+ finally{try{if(tmp)await fs.rm(tmp,{recursive:true,force:true});}catch{status=500;body={error:'STORAGE_CLEANUP_FAILED'};binary=false;}finally{busy=false;}}
+ if(res.destroyed)return;
+ if(binary){res.writeHead(status,{'Content-Type':'application/octet-stream','Content-Length':body.length,'Cache-Control':'no-store'});res.end(body);}else reply(status,body);
  });
  server.maxConnections=16;
  return server;
