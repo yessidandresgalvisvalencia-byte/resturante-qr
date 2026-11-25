@@ -1,0 +1,73 @@
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { validate } = require("../../scripts/gruk-plan-master-audit");
+
+function fixture() {
+  const criteria = [];
+  const matrix = [];
+  for (let i = 1; i <= 77; i++) {
+    const id = String(i).padStart(2, "0");
+    criteria.push(`| ${id} | P0 | Requirement ${id} | Implement isolated enterprise requirement | Acceptance requires executed evidence |`);
+    matrix.push(`| ${id} | P0 | Requirement ${id} | SIN_AUDITAR | Pending |`);
+  }
+  return { criteria, matrix };
+}
+test("77 unverified items never authorize production", () => {
+  const { criteria, matrix } = fixture();
+  const result = validate(criteria.join("\n"), matrix.join("\n"));
+  assert.equal(result.total, 77);
+  assert.equal(result.counts.SIN_AUDITAR, 77);
+  assert.equal(result.allVerified, false);
+  assert.equal(result.releaseAuthorized, false);
+});
+test("missing rows fail closed", () => {
+  const { criteria, matrix } = fixture();
+  assert.throws(() => validate(criteria.slice(1).join("\n"), matrix.join("\n")), /GRUK_PLAN_77_ROWS_REQUIRED/);
+});
+test("priority mismatch fails closed", () => {
+  const { criteria, matrix } = fixture();
+  matrix[0] = matrix[0].replace("| P0 |", "| P1 |");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_PRIORITY_MISMATCH_01/);
+});
+test("verified without code and test evidence is rejected", () => {
+  const { criteria, matrix } = fixture();
+  matrix[0] = matrix[0].replace("SIN_AUDITAR | Pending", "VERIFICADO | Pending");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_UNSUPPORTED_VERIFIED_01/);
+});
+
+test("duplicate or reordered IDs are rejected", () => {
+  const { criteria, matrix } = fixture();
+  matrix[1] = matrix[1].replace("| 02 |", "| 01 |");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_ID_ORDER_02/);
+});
+test("invalid state cannot pass acceptance", () => {
+  const { criteria, matrix } = fixture();
+  matrix[0] = matrix[0].replace("SIN_AUDITAR", "APROBADO");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_INVALID_STATE_01/);
+});
+test("criteria title drift is rejected", () => {
+  const { criteria, matrix } = fixture();
+  matrix[0] = matrix[0].replace("Requirement 01", "Different requirement");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_CRITERION_MISMATCH_01/);
+});
+
+test("verified row requires acceptance evidence, not just a PR and test filename", () => {
+  const { criteria, matrix } = fixture();
+  matrix[0] = matrix[0].replace("SIN_AUDITAR | Pending", "VERIFICADO | https://github.com/example/repo/pull/123; test/gruk/plan-master-audit.test.js");
+  assert.throws(() => validate(criteria.join("\n"), matrix.join("\n")), /GRUK_PLAN_UNSUPPORTED_VERIFIED_01/);
+});
+
+test("even 77 statically verified rows never authorize production", () => {
+  const { criteria, matrix } = fixture();
+  for (let i = 0; i < matrix.length; i++) {
+    matrix[i] = matrix[i].replace(
+      "SIN_AUDITAR | Pending",
+      "VERIFICADO | https://github.com/example/repo/pull/123; test/gruk/plan-master-audit.test.js; criterio de aceptación"
+    );
+  }
+  const result = validate(criteria.join("\n"), matrix.join("\n"));
+  assert.equal(result.counts.VERIFICADO, 77);
+  assert.equal(result.allVerified, true);
+  assert.equal(result.releaseAuthorized, false);
+});
