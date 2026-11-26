@@ -135,3 +135,7 @@ CI now includes a disposable MongoDB replica bound to loopback, with synthetic r
 ## One-shot inspection job entry point
 
 The disabled-by-default job validates four activation flags and an explicit bounded JSON list of archive names, invokes the persistent coordinated runner, and returns sanitized metadata-match, anomaly or skipped outcomes. It never reports restore verification. This is a one-shot entry point suitable for a future reviewed scheduler, not an installed schedule. Archive discovery, notification delivery and independent live credentials remain pending. Synthetic tests cover invocation gates and exit classifications. No recurring execution has been enabled.
+
+## Bounded catalog discovery
+
+The read-only discovery adapter enumerates up to ten catalog identifiers using majority reads, a simple-collation indexed cursor and one lookahead record. Ordering is lexicographic, not chronological. It exposes identifiers only, not receipts; each discovered receipt still requires signature verification during inspection. Cursor persistence, wraparound policy and scheduler wiring remain pending. Tests use synthetic data; no real catalog access is enabled.
