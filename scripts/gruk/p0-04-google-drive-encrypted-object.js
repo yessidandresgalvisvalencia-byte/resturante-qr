@@ -10,6 +10,7 @@ const {createHash} = require('node:crypto');
 const {assertUploadQuota}=require('./drive-backup-quota');
 const {receiveArchive}=require('./drive-backup-download');
 
+throw new Error('GRUK_EXTERNAL_TRANSPORT_RETIRED');
 const [,,mode,source,other] = process.argv;
 const folder = process.env.GRUK_DRIVE_BACKUP_FOLDER_ID;
 const exactFolder = '1_1OxE9Ey7kr-GoCjOnC_Elm_sJpTQrfN';
