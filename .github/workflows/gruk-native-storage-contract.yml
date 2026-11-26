@@ -78,3 +78,6 @@ jobs:
 
       - name: Storage health diagnostics
         run: node --test test/gruk/native-storage-health.test.js
+
+      - name: Cross-process backup lock
+        run: node --test test/gruk/native-storage-lock.test.js
