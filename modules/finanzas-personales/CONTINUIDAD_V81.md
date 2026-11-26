@@ -3349,3 +3349,25 @@ Ajuste de interacción del ensayo navegador: las filas se presentan como details
 
 
 CI inicialaf8a213e falló en job139720803772: errores de página api is not defined. Causa: montaje del componente añadido después del cierre de la IIFE privada. Se mueve al mismo ámbito que los demás montajes. El ensayo captura dependencias mediante un wrapper de factory instalado solo con addInitScript de Playwright; no se exponen API/control privados en producción. Se mantiene la comprobación de ausencia de errores de página y todas las expectativas, sin relajar gates. Verificar SHA corregido.
+
+
+## Cierre de código verificado — 26/11/2026 Colombia
+
+Un bloque funcional: consulta y resolución por GET de revisión específica con cuerpo conservado, recibo conservado y leído de nuevo en el almacenamiento local antes de retirar pendiente y pantalla propia. Código inicialaf8a213e57ada09058cdb7d044019ba6d5d3559a; ajuste de interacción02eb3c050d04dac49e2b34195fde7028c526d9db; código corregido final `a8e7be4cd33b15c216885b20ea417ffa0f4cfb1b`, árbol `a2895b037e24e0a34b4a16dea4b0afa967eac145`. Las correcciones pertenecen al mismo bloque, no son tres bloques.11 archivos personales desde padre f7dee359; cada actualización fast-forward con expected_sha y árbol GitHub igual al índice local. Base652126a03f19fbec3c529cad1e84bff11cd3699e intacta; PR389 abierto/no integrado.
+
+CI del SHA final exacto, tres workflows success:
+
+- [GRUK Gate45764669839](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45764669839).
+- [Seguridad45764669935](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45764669935).
+- [V8145764669903](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45764669903), ocho jobs success.
+- [Job autenticado139722593832](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45764669903/job/139722593832): Mongo101/101 y Chromium/backend32/32,0 fallos/omisiones/cancelaciones. Logs examinados al completar.
+
+FP_RECUPERACION_REVISION_ORIGEN_CONTROL: login real/Chromium390/respuesta POST original perdida después de commit real, cuerpo/clave exactos, GET de recuperación por pantalla,0 POST de recuperación, recibo conservado antes de resolver, reconoce aplicada y cierre sin aplicar,2 recibos locales, rechazo409 mantiene pendiente, cajaMinor1200/fuentes intactas y datos sintéticos. El wrapper de factory que captura API/control existe solo en addInitScript del ensayo, sin exportar privados en producción. Las filas details se abren antes de pulsar el botón visible. El fallo inicial api is not defined se corrigió moviendo el montaje dentro de la IIFE; se conserva la exigencia de ausencia de errores de página y no se relajó gate/timeout/cuota.
+
+Local final del código corregido:8/8 nuevas,7/7 contratos de caché; módulo1011/1002 aprobados/9 omitidos por integración no configurada y ci:personal353/349 aprobados/4 omitidos por Mongo no configurado;0 fallos/cancelaciones. Sintaxis/diff correctos. Las omisiones locales no se contabilizan como aprobaciones: el job autenticado verifica los escenarios descritos sin omisiones. No acredita Safari/dispositivos físicos ni toda la aceptación productiva.
+
+Backup V32/45 sin cambios de modelo/índices/formato: copia cifrada/restauración BSON e índices en destino aislado vacío,8050 documentos/8117818 bytes; captura337ms/restauración1353ms/edad1673ms, custodiaIndependiente=false/rpoProduccion=false. Métricas sintéticas observadas, no RPO/RTO operativo, copia durable independiente ni validación semántica de todos los fixtures deliberadamente corruptos. El registro local nuevo no está incluido en otros diarios portables ni en esta copia de MongoDB.
+
+Límites: almacenamiento local/pestaña y capacidad100 sin poda; al llenarse conserva el pendiente. No hay aún archivo/copia cifrada/recuperación portable del registro dedicado, botón de cierre ni adopción de pendientes antiguos sin cuerpo. No se inventan cuerpos por saldo ni se descarta por404/422. Recibos históricos/huellas locales no son certificación bancaria, firma de custodio, durabilidad física garantizada ni prueba del estado actual.
+
+Siguiente bloque: archivo explícito/copia cifrada/recuperación portable de solicitudes y recibos de este registro, conservando originales y exigiendo GET después de importación; luego cierre con consentimiento desde pantalla y adopción verificable de legados sin cuerpo. Antes de retomar HEAD/base/PR389/issue407/CI/instrucciones/CONTINUIDAD y este cierre; no repetir bloques cerrados. #407/custodio real/backups durables/retención/acceso/credenciales separadas/restauración operativa/RPO-RTO/roles/índices/migración/configuración productivos/dispositivos/auditoría independiente/compatibilidad/informe final pendientes. Sin merge/Render/main/Empresarial/Blushéa/costos nuevos ni datos reales alterados. Tarea activa. El descendiente documental requiere su CI propia comprobable en Git/PR, sin autoreferencia circular.
