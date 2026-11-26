@@ -147,3 +147,7 @@ Opt-in discovery inside the exclusive reservation loads one bounded page using t
 ## Automatic discovery job integration
 
 The one-shot entry point now supports explicitly enabled discovery mode and rejects simultaneous manual archive input. The persistent coordinator selects the next page. Empty pages return NO_RECORDS, not metadata match or verified recovery. No cron is installed. Before scheduling, verify end-to-end discovery, quota, cloud credentials, alert delivery and explicit operational approval. The daily cooldown remains enforced by the coordinator.
+
+## Controlled inspection workflow staging
+
+A main-only manual workflow prepares the eventual recurring inspection entry point without installing a cron. It requires explicit confirmation, repository activation and the dedicated inspection environment; configure required reviewers and independently validate permissions before dispatch. Inspection-specific OAuth credentials must be read-only and scoped to the approved archive folder as far as provider capabilities permit. No signing private key or AGE decryption key is exposed. The workflow has an eight-minute timeout and a persistent daily cooldown. No schedule, dispatch, environment creation or credential change was performed. Actual CI quota and end-to-end validation must be reviewed before activation; interruption can retain a reservation for manual recovery.
