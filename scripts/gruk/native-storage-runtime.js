@@ -3,7 +3,9 @@ const {createOrchestrator}=require('./native-storage-orchestrator');
 const {createBackupAdapter}=require('./native-storage-backup-adapter');
 const {start}=require('./native-storage-service');
 const {health}=require('./native-storage-health');
-function createRuntime({env=process.env,launch=start,execute,syntheticBackup,write,intervalMs,policy,signals=true}={}){
+const {runStartupRecovery}=require('./native-storage-startup-recovery');
+async function defaultConnect(uri,opts){const c=require('mongoose').createConnection(uri,opts);try{return await c.asPromise();}catch(e){await c.close().catch(()=>{});throw e;}}
+function createRuntime({env=process.env,launch=start,execute,syntheticBackup,write,intervalMs,policy,signals=true,connect=defaultConnect,recover=runStartupRecovery}={}){
  if(env.GRUK_NATIVE_REAL_BACKUP_ENABLED==='true')throw Error('REAL_BACKUP_RELEASE_BLOCKED');
  const root=env.GRUK_NATIVE_BACKUP_ROOT;
  if(!root)throw Error('INVALID_CONFIG');
@@ -25,6 +27,7 @@ function createRuntime({env=process.env,launch=start,execute,syntheticBackup,wri
  return {start(){
   if(closing)throw Error('RUNTIME_CLOSED');
   if(!starting)starting=(async()=>{
+   if(env.GRUK_NATIVE_STARTUP_RECOVERY_ENABLED==='true')await recover({env,connect});
    service=await launch({env,signals:false});
    if(signals)for(const signal of ['SIGTERM','SIGINT'])process.once(signal,onSignal);
    if(syntheticBackup)scheduler.start();
