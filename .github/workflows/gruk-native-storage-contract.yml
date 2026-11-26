@@ -16,6 +16,7 @@ on:
       - 'test/gruk/native-storage-init.test.js'
       - 'test/gruk/native-storage-runtime.test.js'
       - 'test/gruk/native-storage-lifecycle.test.js'
+      - 'test/gruk/native-storage-health.test.js'
       - 'test/gruk/native-backup-storage.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
@@ -74,3 +75,6 @@ jobs:
 
       - name: Actual listener lifecycle
         run: node --test test/gruk/native-storage-lifecycle.test.js
+
+      - name: Storage health diagnostics
+        run: node --test test/gruk/native-storage-health.test.js
