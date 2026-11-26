@@ -99,3 +99,7 @@ The read-only CLI requires both GRUK_CATALOG_ENABLED and GRUK_RECONCILIATION_ENA
 ## Bounded reconciliation batch (development)
 
 A sequential batch runner deduplicates archive names, aggregates alerts by status, limits each batch to ten inputs by default (maximum twenty), and blocks overlapping or too-frequent attempts within one process. The default interval is 24 hours. No timers, cron jobs, external notification delivery or live network calls are enabled by this module. State is process-local and does not survive restart; durable coordination and explicit scheduling authorization remain release gates. Synthetic tests cover throttling and alert failure.
+
+## Persistent reconciliation coordination (development)
+
+The dedicated reconciliation_control collection uses an atomic singleton reservation with majority journaled acknowledgement, an owner token and a completion-based cooldown. Interruptions retain the reservation deliberately; there is no automatic lease takeover. A reviewed operator recovery procedure, dedicated collection permissions, trusted clock, actual MongoDB concurrency tests and runtime integration remain required. Tests simulate driver semantics only. No scheduler or live connection is activated.
