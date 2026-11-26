@@ -3308,3 +3308,6 @@ Revisión previa al cierre de CI: el código inicial46b25190d689238e521ed711beb6
 
 
 CI inicial46b25190 falló en integración autenticada job139699991599, escenario de cierre: HTTP500 donde se esperaba200. Causa identificada: faltaba registrar el nuevo nombre de evento en el enum del outbox y el bus publicador. Se añaden ambos contratos y prueba de validación/publicación; no se cambia la expectativa200 ni el gate. La transacción fallida revirtió como exigía la prueba. Se verificará CI del SHA posterior con la corrección de importes y del contrato de publicación.
+
+
+Gate del SHA5ffd1558 falló por dos contratos de caché de pruebas GRUK que todavía exigían JS20261120-edicion-origen-v81 tras actualizar HTML/JS. Se sincronizan las referencias esperadas a20261125-cierre-revision-origen-v81; se conservan las comprobaciones de carga única, orden y aislamiento, sin retirar ninguna aserción. Se ejecuta también el conjunto GRUK completo local para detectar este tipo de omisiones antes del cierre.
