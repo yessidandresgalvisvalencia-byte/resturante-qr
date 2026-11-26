@@ -118,3 +118,6 @@ jobs:
 
       - name: Native signed failover staging contract
         run: node --test test/gruk/native-storage-failover.test.js
+
+      - name: Native host preflight contract
+        run: node --test test/gruk/native-storage-host-preflight.test.js

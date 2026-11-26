@@ -1,0 +1,21 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {inspectHost}=require('../../scripts/gruk/native-storage-host-preflight');
+test('host inspection never certifies production and rejects shared device',async t=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'gruk-preflight-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const primary=path.join(root,'a'),secondary=path.join(root,'b');
+ await fs.mkdir(primary,{mode:0o700});await fs.mkdir(secondary,{mode:0o700});
+ const result=await inspectHost({primary,secondary,reserveBytes:1});
+ assert.equal(result.status,'BLOCKED');
+ assert.ok(result.issues.includes('DISTINCT_DEVICES_REQUIRED'));
+ assert.equal(result.productionReady,false);
+ assert.equal(result.persistenceVerified,false);
+ assert.deepEqual(await fs.readdir(primary),[]);
+ await fs.chmod(secondary,0o755);
+ assert.ok((await inspectHost({primary,secondary})).issues.includes('SECONDARY_PRIVATE_VOLUME_REQUIRED'));
+ await assert.rejects(inspectHost({reserveBytes:0}),/INVALID_RESERVE/);
+});
