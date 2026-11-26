@@ -14,6 +14,7 @@ test("MongoDB real: reversión de créditos conserva capital, pago real, fuentes
 },async()=>{
  validarMongoPruebasV81(uri);await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
  const secreto=process.env.PERSONAL_IDEMPOTENCY_SECRET;process.env.PERSONAL_IDEMPOTENCY_SECRET=crypto.randomBytes(32).toString("hex");
+ const contextoEnv=Object.fromEntries(["PERSONAL_AUDIT_CONTEXT_KEY","PERSONAL_AUDIT_CONTEXT_KEY_ID"].map(k=>[k,process.env[k]]));process.env.PERSONAL_AUDIT_CONTEXT_KEY=crypto.randomBytes(32).toString("base64");process.env.PERSONAL_AUDIT_CONTEXT_KEY_ID="reversion_credito_ci";
  const usuarios=[],crearOutbox=Outbox.create;let server;
  const rango=usuarioId=>({usuarioId,desde:"0001-01-01T00:00:00.000Z",hasta:"9999-12-31T23:59:59.999Z"});
  async function fixture({modo="CUENTA",real=450,pagar=true}={}){
@@ -105,7 +106,8 @@ test("MongoDB real: reversión de créditos conserva capital, pago real, fuentes
   server=app.listen(0,"127.0.0.1");await new Promise(resolve=>server.once("listening",resolve));
   const url=`http://127.0.0.1:${server.address().port}/prestamos/${http.p._id}/cuotas`;
   const request=()=>fetch(url+"/deshacer",{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":http.key},body:JSON.stringify({movimientoId:String(http.pago.transaccion._id),usuarioId:String(f.usuarioId),montoPagadoRealMinor:1})});
-  assert.equal((await request()).status,200);assert.equal((await (await request()).json()).resultado.duplicado,true);
+  const antesHttp=await estado(http),claveContexto=process.env.PERSONAL_AUDIT_CONTEXT_KEY;delete process.env.PERSONAL_AUDIT_CONTEXT_KEY;assert.equal((await request()).status,503);assert.deepEqual(await estado(http),antesHttp);process.env.PERSONAL_AUDIT_CONTEXT_KEY=claveContexto;
+  const primeraHttp=await request();assert.equal(primeraHttp.status,200);const reciboHttp=await primeraHttp.json();assert.equal(reciboHttp.resultado.compensacion.auditoriaContexto,undefined);assert.match(reciboHttp.resultado.compensacion.auditoriaCompromiso,/^[a-f0-9]{64}$/);assert.equal((await (await request()).json()).resultado.duplicado,true);
   const vista=await fetch(url);assert.equal(vista.status,200);const body=await vista.json();
   assert.equal(body.cuotasPagadas.length,0);assert.equal(body.proximaCuota,1);assert.equal(body.saldoPendienteMinor,1000);
   await republicarPendientes(500);assert.equal(await Outbox.countDocuments({usuarioId:{$in:usuarios},estado:{$ne:"PUBLICADO"}}),0);
@@ -113,6 +115,7 @@ test("MongoDB real: reversión de créditos conserva capital, pago real, fuentes
   Outbox.create=crearOutbox;if(server)await new Promise(resolve=>server.close(resolve));
   for(const Modelo of [Prestamo,Tx,Cuenta,Outbox])await Modelo.collection.deleteMany({usuarioId:{$in:usuarios}});
   await Evento.collection.deleteMany({usuarioId:{$in:usuarios.map(String)}});await Cursor.deleteMany({_id:{$in:usuarios.map(String)}});
+  for(const [k,v] of Object.entries(contextoEnv)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
   await mongoose.disconnect();if(secreto===undefined)delete process.env.PERSONAL_IDEMPOTENCY_SECRET;else process.env.PERSONAL_IDEMPOTENCY_SECRET=secreto;
  }
 });
