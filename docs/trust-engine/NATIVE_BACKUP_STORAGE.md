@@ -13,3 +13,7 @@ Recovery inspection is read-only. A lock directory or unexpected entry requires 
 ## Runtime integration and administrative alerts
 
 The normal CLI remains listener-only: real backup execution is release-blocked and the scheduler must not generate fictitious successful backups. Automated scheduling is exercised through explicit in-process synthetic backup injection in tests only, not through environment configuration. The runtime owns signal handling and drains its scheduled tick before closing the local service. Administrative alerts are bounded structured stderr records, not confirmation of external administrator delivery. Installation remains explicit: initialize a new private directory using native-storage-init.js, then configure GRUK_NATIVE_BACKUP_ROOT and GRUK_STORAGE_SIGNING_KEY_FILE from its output. Do not enable real backup or use customer data. External alert delivery, full installation verification on an independently durable volume, and production security approval remain open gates.
+
+## Filesystem security review (development)
+
+Archive reads reject nonregular files, group/world permissions, foreign ownership and multiple hard links. Source opens are nonblocking and reject final-component symbolic links. These controls assume a dedicated trusted OS account and private parent directories; they are not protection against a privileged or same-user attacker. Bearer tokens remain reusable within their short lifetime; loopback is not a tenant boundary. No production approval or independent security audit is claimed.
