@@ -3346,3 +3346,6 @@ Validación local previa a publicación r122:8/8 casos nuevos,7/7 contratos de c
 
 
 Ajuste de interacción del ensayo navegador: las filas se presentan como details plegados. Antes de pulsar Consultar recibo de revisión, el escenario abre el summary, para ejercitar el mismo acceso visible del usuario. No se cambia el producto, la expectativa de conservación/resolución ni timeout/cuotas; sigue siendo el mismo bloque. Código inicialaf8a213e57ada09058cdb7d044019ba6d5d3559a; comprobar CI del SHA posterior.
+
+
+CI inicialaf8a213e falló en job139720803772: errores de página api is not defined. Causa: montaje del componente añadido después del cierre de la IIFE privada. Se mueve al mismo ámbito que los demás montajes. El ensayo captura dependencias mediante un wrapper de factory instalado solo con addInitScript de Playwright; no se exponen API/control privados en producción. Se mantiene la comprobación de ausencia de errores de página y todas las expectativas, sin relajar gates. Verificar SHA corregido.
