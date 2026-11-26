@@ -117,6 +117,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("master y proyección exacta comparten snapshot y no autorizan desde desconocidos",()=>require("./helpers/masterProyeccionAutorizada").probarMasterProyeccion(db));
   await t.test("registro HTTP conserva contexto privado y ancla, caja, reintento y rollback",()=>require("./helpers/registroOriginalAutorizado").probarRegistro(db));
   await t.test("cobros HTTP ligan contexto privado, fuente, replay y caja atómica",()=>require("./helpers/contextoCobroAutorizado").probarContextoCobro(db));
+  await t.test("cuotas HTTP ligan capital, pago real, ciclo y contexto sin duplicar recuperación",()=>require("./helpers/contextoCuotaAutorizado").probarContextoCuota(db));
   await t.test("recepción nueva HTTP conserva contexto del ingreso, replay y rollback atómicos",()=>require("./helpers/contextoRecepcionCalendarioAutorizada").probarContextoRecepcion(db));
   await t.test("calendario minimiza contexto nuevo y redacta legado sin reescribir hashes ni caja",()=>require("./helpers/contextoCalendarioAutorizado").probarContextoCalendario(db));
   await t.test("auditoría propia pagina cadena completa sin escribir, falla ante cambios y adulteración",()=>require("./helpers/auditoriaMovimientoAutorizado").probarAuditoria(db));

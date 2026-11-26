@@ -8,4 +8,4 @@ function verificar(fuente){
 }
 function opcionesCobroHttp(req){if(["auditoriaRegistro","auditoriaRegistroHash","auditoriaContexto","auditoriaCompromiso"].some(k=>Object.hasOwn(req.body||{},k)))throw Object.assign(Error("El contexto de registro lo obtiene el servidor"),{statusCode:400});return{capturarContexto:()=>Aud.capturar(req,req.personalAuth.userId)};}
 function opcionesHttp(req){const o=opcionesCobroHttp(req);return["INGRESO","GASTO"].includes(req.validated?.tipo)?o:{};}
-module.exports={crear,verificar,opcionesHttp,opcionesCobroHttp,sha};
+module.exports={crear,verificar,opcionesHttp,opcionesCobroHttp,opcionesCuotaHttp:opcionesCobroHttp,sha};

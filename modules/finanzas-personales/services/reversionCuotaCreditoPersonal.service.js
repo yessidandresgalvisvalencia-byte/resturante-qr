@@ -53,8 +53,9 @@ async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={}){
  const session=await mongoose.startSession();
  try{return await session.withTransaction(async()=>{
   await serializarEscrituraFuente(usuarioId,session);
-  const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).session(session).lean();
+  const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).select("+auditoriaRegistro").session(session).lean();
   if(!fuente)throw problema("Pago de crédito no encontrado",404);
+  require("./auditoriaRegistroPersonal.service").verificar(fuente);
   if(fuente.cicloCuota!==undefined&&!require("./cicloPagoPrestamoPersonal.service").verificar(fuente))throw problema("El ciclo original del pago no es verificable");
   let original;
   try{original=originalDesdeFuente(fuente);}catch{throw problema("Capital y pago real no conciliables");}
@@ -97,8 +98,9 @@ async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anula
  if(imputacion!==undefined)await require("./imputacionPagoPersonal.service").exigirIndices();
  const session=await mongoose.startSession();
  try{return await session.withTransaction(async()=>{
-  const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).session(session).lean();
+  const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).select("+auditoriaRegistro").session(session).lean();
   if(!fuente)throw problema("Pago de préstamo no encontrado",404);
+  require("./auditoriaRegistroPersonal.service").verificar(fuente);
   let original;
   try{original=originalDesdeFuente(fuente);}catch{throw problema("Capital y pago real no conciliables");}
   const {cadena}=await leerCadenaVerificada(String(usuarioId),{session});
@@ -150,7 +152,7 @@ async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anula
 async function prepararRestauracion(usuarioId,prestamoId,movimientoId){
  if(![usuarioId,prestamoId,movimientoId].every(x=>mongoose.isObjectIdOrHexString(x)))throw problema("Identificadores inválidos",400);const session=await mongoose.startSession();
  try{return await session.withTransaction(async()=>{
-  const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).session(session).lean();if(!fuente)throw problema("Pago no encontrado",404);
+  const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).select("+auditoriaRegistro").session(session).lean();if(!fuente)throw problema("Pago no encontrado",404);require("./auditoriaRegistroPersonal.service").verificar(fuente);
   const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},periodicidadConfirmada:true}).session(session).lean();if(!p)throw problema("Préstamo no activo o sin calendario confirmado");
   let original;try{original=originalDesdeFuente(fuente);}catch{throw problema("Capital y pago real no conciliables");}const {cadena}=await leerCadenaVerificada(String(usuarioId),{session}),historia=cadena.filter(e=>e.movimientoId===String(movimientoId)),estado=vigente(original,historia),ultima=historia.at(-1);if(!estado.anulado||ultima?.tipo!=="ANULACION")throw problema("El pago no tiene una anulación vigente");
   const {pagos}=validarPagosCredito(p,await pagosCreditoVigentes(usuarioId,prestamoId,{session}));if(original.numeroCuota!==pagos.length+1||original.montoMinor!==Math.min(p.cuotaMinor,p.saldoMinor,original.montoPagadoRealMinor))throw problema("Capital o secuencia incompatibles con el saldo actual");validarPagosCredito({...p,saldoMinor:p.saldoMinor-original.montoMinor},[...pagos,fuente]);

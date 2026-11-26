@@ -204,8 +204,8 @@ router.get("/prestamos/:id/cuotas",async(req,res)=>{
 const cuotaPagoSchema=Joi.object({cuentaId:Joi.string().hex().length(24).allow(null).default(null),modo:Joi.string().valid("CUENTA","HISTORICO").default("CUENTA"),numeroCuota:Joi.number().integer().min(1).max(600).required(),montoPagadoRealMinor:Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required(),externalId:Joi.string().guid({version:"uuidv4"}).required()});
 router.post("/prestamos/:id/cuotas/pagar",validate(cuotaPagoSchema),async(req,res)=>{
  if(!/^[0-9a-f]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- try{return res.json({ok:true,resultado:await patrimonioPersonal.pagarCuotaCredito(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated})});}
- catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo registrar la cuota"});}
+ try{return res.json({ok:true,resultado:await patrimonioPersonal.pagarCuotaCredito(req.personalAuth.userId,{prestamoId:req.params.id,...req.validated},require("./services/auditoriaRegistroPersonal.service").opcionesCuotaHttp(req))});}
+ catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:e.code===11000?"Operación concurrente; consulta la cuota antes de reintentar":"No se pudo registrar la cuota"});}
 });
 router.get("/prestamos/:id/cuotas/:movimientoId/recibos/:clave",limiteCalendarioIngreso,require("./services/restauracionCicloPagoPersonal.handler").crearHandler("RECIBO"));
 router.get("/prestamos/:id/cuotas/:movimientoId/recuperacion",limiteCalendarioIngreso,require("./services/restauracionCicloPagoPersonal.handler").crearHandler("CONSULTAR"));
