@@ -127,3 +127,7 @@ The new recovery primitive updates the reservation and inserts both audit events
 ## Administrative recovery entry point
 
 The disabled-by-default drive-recovery-admin CLI invokes only the atomic recovery transaction, with separate administrator and worker usernames, a pinned catalog host, explicit operator confirmation and incident reference. No nontransactional fallback exists in this entry point. The older helper remains for legacy tests and must not be exposed to operators. Username separation is not proof of least privilege; provider roles, trusted worker termination evidence, real transaction validation and credentials must be verified before activation. No workflow, live recovery or infrastructure was activated.
+
+## Isolated real replica-set integration
+
+CI now includes a disposable MongoDB replica bound to loopback, with synthetic records only. Eight competing reservations must yield one winner; a duplicate audit identifier must roll back the administrative recovery, followed by a successful transaction. The real-data manual job depends on this check. No production credentials are used by the test. The test is not evidence of actual independent cloud provisioning. CI execution and results must be verified before release.

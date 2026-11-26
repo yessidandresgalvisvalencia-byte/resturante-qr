@@ -51,10 +51,38 @@ jobs:
           bash -n scripts/gruk/p0-04-google-drive-backup-restore.sh
           node --check scripts/gruk/p0-04-google-drive-encrypted-object.js
           node --test test/gruk/p0-04-google-drive-backup.test.js test/gruk/drive-*.test.js
+  catalog_replica:
+    name: Catalog concurrency and rollback on isolated MongoDB
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Start disposable replica and test synthetic records
+        run: |
+          set -euo pipefail
+          trap 'docker rm -f gruk-catalog-ci >/dev/null 2>&1 || true' EXIT
+          docker run -d --name gruk-catalog-ci -p 127.0.0.1:27189:27017 mongo:7.0 --replSet grukci --bind_ip_all
+          for i in $(seq 1 40); do
+            if docker exec gruk-catalog-ci mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep -qx 1; then break; fi
+            sleep 1
+          done
+          docker exec gruk-catalog-ci mongosh --quiet --eval 'rs.initiate({_id:"grukci",members:[{_id:0,host:"localhost:27017"}]})'
+          ready=0
+          for i in $(seq 1 40); do
+            if docker exec gruk-catalog-ci mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -qx true; then ready=1; break; fi
+            sleep 1
+          done
+          [[ "$ready" == 1 ]]
+          node scripts/gruk/drive-catalog-replica-integration.js
   production_drill:
     name: Encrypted restaurant snapshot and isolated restore — manually authorized
     if: github.event_name == 'workflow_dispatch'
-    needs: [contract]
+    needs: [contract, catalog_replica]
     environment: gruk-enterprise-real-backup
     runs-on: ubuntu-latest
     timeout-minutes: 50
