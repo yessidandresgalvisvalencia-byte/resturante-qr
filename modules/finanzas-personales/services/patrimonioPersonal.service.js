@@ -183,7 +183,9 @@ async function crearPrestamo(usuarioId,data,{session:sesionExterna}={}){
   await session.withTransaction(ejecutar,{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});return prestamo;
  }finally{if(!sesionExterna)await session.endSession();}
 }
-async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,externalId}){
+async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,externalId},opciones={}){
+ const Registro=require("./auditoriaRegistroPersonal.service"),Aud=require("../security/contextoAuditoriaRegistroPersonal.service");
+ const capturar=opciones.capturarContexto?Aud.resolver(usuarioId,opciones):null;
  const monto=safe(montoMinor);
  if(typeof externalId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(externalId))throw Object.assign(new Error("Referencia de cobro inválida"),{statusCode:400});
  if(monto===0)throw Object.assign(new Error("El pago debe ser mayor a cero"),{statusCode:400});
@@ -192,12 +194,13 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
  try{
   let resultado;
   await session.withTransaction(async()=>{
-   const existente=await Transaccion.findOne({usuarioId,externalIdHash,estado:{$ne:"ANULADA"}}).session(session);
-   if(existente){if(!["COBRO_PRESTAMO","INGRESO"].includes(existente.tipo)||String(existente.prestamoId)!==String(prestamoId)||existente.montoMinor!==monto||(cuentaId&&String(existente.cuentaId)!==String(cuentaId)))throw Object.assign(new Error("Referencia de pago ya utilizada"),{statusCode:409});resultado={transaccion:existente,duplicado:true};return;}
+   const existente=await Transaccion.findOne({usuarioId,externalIdHash,estado:{$ne:"ANULADA"}}).select("+auditoriaRegistro").session(session);
+   if(existente){Registro.verificar(existente);if(!["COBRO_PRESTAMO","INGRESO"].includes(existente.tipo)||String(existente.prestamoId)!==String(prestamoId)||existente.montoMinor!==monto||(cuentaId&&String(existente.cuentaId)!==String(cuentaId)))throw Object.assign(new Error("Referencia de pago ya utilizada"),{statusCode:409});resultado={transaccion:existente,duplicado:true};return;}
    const original=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",estado:{$in:["ACTIVO","VENCIDO"]}}).session(session).lean();
    if(!original)throw Object.assign(new Error("Cuenta por cobrar inexistente o no disponible"),{statusCode:409});
    const tipoCobro=await require("./clasificacionCobroPersonal.service").tipoEnSesion(usuarioId,original,session);
    if(!Number.isSafeInteger(original.principalMinor)||original.principalMinor<=0||!Number.isSafeInteger(original.saldoMinor)||original.saldoMinor<monto||original.saldoMinor>original.principalMinor)throw Object.assign(new Error("Saldo por cobrar no conciliable con su importe original"),{statusCode:409});
+   const contexto=capturar?capturar():undefined;
    const prestamo=await Prestamo.findOneAndUpdate({_id:prestamoId,usuarioId,direccion:"POR_COBRAR",origenCuentaPorCobrar:original.origenCuentaPorCobrar,estado:{$in:["ACTIVO","VENCIDO"]},saldoMinor:{$gte:monto}},{$inc:{saldoMinor:-monto}},{new:true,session});
    if(!prestamo)throw Object.assign(new Error("Cuenta por cobrar inexistente o saldo insuficiente"),{statusCode:409});
    if(prestamo.saldoMinor===0){prestamo.estado="PAGADO";await prestamo.save({session});}
@@ -208,15 +211,17 @@ async function cobrarCuentaPorCobrar(usuarioId,{prestamoId,montoMinor,cuentaId,e
    if(!Number.isSafeInteger(originalCuenta.saldoMinor)||originalCuenta.saldoMinor<0||BigInt(originalCuenta.saldoMinor)+BigInt(monto)>BigInt(Number.MAX_SAFE_INTEGER))throw Object.assign(new Error("Saldo de destino no conciliable o fuera del rango monetario seguro"),{statusCode:422});
    cuenta=await Cuenta.findOneAndUpdate({_id:cuenta._id,usuarioId,activa:true},{$inc:{saldoMinor:monto}},{new:true,session});
 
-   const [tx]=await Transaccion.create([{usuarioId,prestamoId:prestamo._id,tipo:tipoCobro,montoMinor:monto,concepto:("Cobro: "+prestamo.concepto).slice(0,140),categoria:tipoCobro==="INGRESO"?"Trabajo cobrado":"Cuentas por cobrar",contraparte:prestamo.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,medioPago:cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA",fecha:new Date(),origen:"MANUAL",externalIdHash}],{session});
+   let datosTx={usuarioId,prestamoId:prestamo._id,tipo:tipoCobro,montoMinor:monto,concepto:("Cobro: "+prestamo.concepto).slice(0,140),categoria:tipoCobro==="INGRESO"?"Trabajo cobrado":"Cuentas por cobrar",contraparte:prestamo.contraparte,cuenta:cuenta.nombre,cuentaId:cuenta._id,medioPago:cuenta.tipo==="EFECTIVO"?"EFECTIVO":"TRANSFERENCIA",fecha:new Date(),origen:"MANUAL",externalIdHash};
+   if(contexto){const normalizado=new Transaccion(datosTx).toObject({transform:false});datosTx={...normalizado,...Registro.crear(normalizado,contexto)};}
+   const [tx]=await Transaccion.create([datosTx],{session});
    await Outbox.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"MOVIMIENTO_PATRIMONIAL",aggregateId:tx._id,payload:{transaccionId:String(tx._id),prestamoId:String(prestamo._id),tipo:tipoCobro,montoMinor:monto}}],{session});
    resultado={prestamo,transaccion:tx,duplicado:false};
   },{readConcern:{level:"snapshot"},writeConcern:{w:"majority"},readPreference:"primary"});
   return resultado;
  }catch(error){
   if(error.code===11000||error.hasErrorLabel?.("TransientTransactionError")){
-   const existing=await Transaccion.findOne({usuarioId,externalIdHash,estado:{$ne:"ANULADA"}});
-   if(existing){if(["COBRO_PRESTAMO","INGRESO"].includes(existing.tipo)&&String(existing.prestamoId)===String(prestamoId)&&existing.montoMinor===monto&&(!cuentaId||String(existing.cuentaId)===String(cuentaId)))return {transaccion:existing,duplicado:true};throw Object.assign(new Error("Referencia de pago ya utilizada"),{statusCode:409});}
+   const existing=await Transaccion.findOne({usuarioId,externalIdHash,estado:{$ne:"ANULADA"}}).select("+auditoriaRegistro");
+   if(existing){Registro.verificar(existing);if(["COBRO_PRESTAMO","INGRESO"].includes(existing.tipo)&&String(existing.prestamoId)===String(prestamoId)&&existing.montoMinor===monto&&(!cuentaId||String(existing.cuentaId)===String(cuentaId)))return {transaccion:existing,duplicado:true};throw Object.assign(new Error("Referencia de pago ya utilizada"),{statusCode:409});}
   }
   throw error;
  }finally{await session.endSession();}
