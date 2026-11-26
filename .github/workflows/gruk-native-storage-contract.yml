@@ -14,6 +14,7 @@ on:
       - 'test/gruk/native-storage-orchestrator.test.js'
       - 'test/gruk/native-storage-backup-adapter.test.js'
       - 'test/gruk/native-storage-init.test.js'
+      - 'test/gruk/native-storage-runtime.test.js'
       - 'test/gruk/native-backup-storage.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
@@ -66,3 +67,6 @@ jobs:
         run: node --test test/gruk/native-storage-backup-adapter.test.js
       - name: Private storage initialization contract
         run: node --test test/gruk/native-storage-init.test.js
+
+      - name: Runtime safety contract
+        run: node --test test/gruk/native-storage-runtime.test.js
