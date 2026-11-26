@@ -21,7 +21,10 @@ test('native ciphertext registration is signed, idempotent and rejects conflicti
  assert.deepEqual(await registerNativeArchive(args),{name,status:'REGISTERED',restoreVerified:false});
  await registerNativeArchive(args);
  assert.equal(data.size,1);
+ const receipt=await fs.readFile(file+'.receipt.json','utf8');
+ await assert.rejects(registerNativeArchive({...args,catalog:{...catalog,register:async()=>{throw Error('NETWORK_DOWN');}}}),/NETWORK_DOWN/);
+ assert.equal(await fs.readFile(file+'.receipt.json','utf8'),receipt);
  await fs.writeFile(file,'age-encryption.org/v1\n'+'y'.repeat(100));
- await assert.rejects(registerNativeArchive(args),/NATIVE_CATALOG_CONFLICT/);
+ await assert.rejects(registerNativeArchive(args),/RECOVERY_ARCHIVE_UNVERIFIED/);
  assert.equal(data.size,1);
 });
