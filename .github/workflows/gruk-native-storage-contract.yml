@@ -133,5 +133,8 @@ jobs:
           set -euo pipefail
           command -v systemd-analyze
           # Runner validation only; do not install or start the service.
-          systemd-analyze verify --man=no deploy/gruk-storage/gruk-storage.service
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          sed "s|/usr/bin/node |$(command -v node) |g" deploy/gruk-storage/gruk-storage.service > "$tmp/gruk-storage.service"
+          systemd-analyze verify --man=no "$tmp/gruk-storage.service"
           echo GRUK_STANDBY_UNIT_SYNTAX_OK
