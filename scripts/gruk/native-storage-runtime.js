@@ -33,7 +33,7 @@ function createRuntime({env=process.env,launch=start,execute,syntheticBackup,wri
    if(syntheticBackup)scheduler.start();
   })();
   return starting;
- },async health(){return health({root,service});},shutdown,status(){return {realBackupEnabled:false,scheduler:scheduler.status()};}};
+ },async health(){return health({root,service,replicationRequired:env.GRUK_NATIVE_REPLICATION_REQUIRED==='true',replicaRoot:env.GRUK_NATIVE_REPLICA_ROOT});},shutdown,status(){return {realBackupEnabled:false,scheduler:scheduler.status()};}};
 }
 if(require.main===module)Promise.resolve().then(()=>createRuntime().start()).catch(()=>{console.error('GRUK_STORAGE_RUNTIME_FAILED');process.exitCode=1;});
 module.exports={createRuntime};
