@@ -28,16 +28,31 @@ test('private API rejects unauthorized, oversized, duplicate and corrupt request
  const put=(authorization,body=data)=>fetch(url,{method:'PUT',headers:{authorization},body});
  assert.equal((await put('Bearer invalid')).status,401);
  assert.equal((await put(read)).status,401);
- assert.equal((await put(write,Buffer.alloc(257))).status,413);
+ assert.equal((await put('Bearer '+issue(key,'backup:write'),Buffer.alloc(257))).status,413);
  const response=await put(write);assert.equal(response.status,201);
  const receipt=await response.json();
  assert.equal(receipt.sha256,createHash('sha256').update(data).digest('hex'));
- assert.equal((await put(write)).status,409);
+ assert.equal((await put(write)).status,401);
+ assert.equal((await put('Bearer '+issue(key,'backup:write'))).status,409);
  assert.equal((await fetch(url,{headers:{authorization:write}})).status,401);
- const get=sha=>fetch(url,{headers:{authorization:read,'x-backup-sha256':sha}});
+ const get=sha=>fetch(url,{headers:{authorization:'Bearer '+issue(key,'backup:read'),'x-backup-sha256':sha}});
  assert.equal((await get('0'.repeat(64))).status,400);
  const result=await get(receipt.sha256);assert.equal(result.status,200);
  assert.deepEqual(Buffer.from(await result.arrayBuffer()),data);
  assert.equal((await fetch(base+'invalid',{headers:{authorization:read}})).status,404);
+ }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await fs.rm(root,{recursive:true,force:true});}
+});
+
+test('single-use credentials fail closed when replay cache reaches capacity',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'gruk-replay-'));
+ const key=randomBytes(32),server=listenLocal({root,key,maxUsedTokens:1});
+ try{
+  await once(server,'listening');
+  const url='http://127.0.0.1:'+server.address().port+'/v1/backups/gruk-restaurante-1-1.archive.age';
+  const token=issue(key,'backup:read');
+  const get=token=>fetch(url,{headers:{authorization:'Bearer '+token,'x-backup-sha256':'0'.repeat(64)}});
+  assert.equal((await get(token)).status,400);
+  assert.equal((await get(token)).status,401);
+  assert.equal((await get(issue(key,'backup:read'))).status,503);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await fs.rm(root,{recursive:true,force:true});}
 });
