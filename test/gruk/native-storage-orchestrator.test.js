@@ -10,7 +10,7 @@ test('orchestrator stores synthetic fixture and records failures',async t=>{
  const tmp=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-orch-')));
  t.after(()=>fs.rm(tmp,{recursive:true,force:true}));
  const root=path.join(tmp,'vault');await fs.mkdir(root,{mode:0o700});
- const source=path.join(tmp,'source');const fixture='age-encryption.org/v1\nsynthetic fixture';
+ const source=path.join(tmp,'source');const fixture='age-encryption.org/v1\n'+ 'synthetic fixture only'.repeat(5);
  await fs.writeFile(source,fixture,{mode:0o600});
  const name='gruk-restaurante-1-1.archive.age';
  const lines=[];let receipt;
