@@ -341,6 +341,14 @@ router.post("/reconciliar-ingresos-trabajo",async(req,res)=>{
   return res.json({ok:true,...resultado,detalle:"La revisión conserva los cobros originales. Las reclasificaciones confirmadas no crean cobros ni modifican saldos."});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo reconciliar; no se aplicaron cambios parciales"});}
 });
+router.get("/cuentas-por-cobrar/:id/revisiones-origen-trabajo/recibos/:solicitudId",async(req,res)=>{
+ res.set("Cache-Control","no-store");
+ try{
+  if(Object.keys(req.query).length)return res.status(400).json({ok:false,error:"El recibo se consulta por su cuenta y clave propias, sin filtros"});
+  const resultado=await require("./services/reciboRevisionOrigenTrabajoPersonal.service").consultar(req.personalAuth.userId,req.params.id,req.params.solicitudId);
+  return res.json({ok:true,...resultado});
+ }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo de revisión"});}
+});
 router.post("/cuentas-por-cobrar/:id/corregir-origen-trabajo",async(req,res)=>{
  try{
   const {error,value}=Joi.object({confirmacion:Joi.boolean().valid(true).required(),versionOrigen:Joi.string().pattern(/^[a-f0-9]{64}$/)}).required().validate(req.body,{convert:false});
