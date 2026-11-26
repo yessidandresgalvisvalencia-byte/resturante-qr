@@ -257,9 +257,9 @@ async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota
 async function deshacerUltimaCuotaCredito(usuarioId,prestamoId,solicitud){
  return require("./reversionCuotaCreditoPersonal.service").deshacer(usuarioId,prestamoId,solicitud);
 }
-async function corregirPrestamo(usuarioId,prestamoId,cambios,solicitud){
+async function corregirPrestamo(usuarioId,prestamoId,cambios,solicitud,opciones={}){
  if(Object.hasOwn(cambios||{},"revisarCobrosTrabajo"))throw Object.assign(new Error("La revisión de cobros requiere su flujo específico"),{statusCode:422});
- return require("./correccionPrestamoPersonal.service").corregir(usuarioId,prestamoId,cambios,solicitud,aplicarCorreccionPrestamo);
+ return require("./correccionPrestamoPersonal.service").corregir(usuarioId,prestamoId,cambios,solicitud,aplicarCorreccionPrestamo,false,opciones);
 }
 async function aplicarCorreccionPrestamo(usuarioId,prestamo,cambios,session){
    if(prestamo.estado==="CANCELADO")throw Object.assign(new Error("Un préstamo cancelado requiere revisión manual"),{statusCode:409});

@@ -16,7 +16,7 @@ function confirmacionExplicita(original,eventos){
 async function evidenciaEnSesion(usuarioId,original,session){
  tipoParaOrigen(original);
  const C=require("./correccionPrestamoPersonal.service"),E=require("../models/correccionPrestamoPersonal.model");await C.exigirIndices();
- const eventos=await E.find({usuarioId,prestamoId:original._id}).sort({secuencia:1}).limit(1001).maxTimeMS(5000).session(session).lean();
+ const eventos=await E.find({usuarioId,prestamoId:original._id}).select("+auditoriaContexto").sort({secuencia:1}).limit(1001).maxTimeMS(5000).session(session).lean();
  return{tipo:verificarOrigenHistorico(original,C.verificar(eventos,original)),confirmacionHash:confirmacionExplicita(original,eventos)};
 }
 async function tipoEnSesion(usuarioId,original,session){return(await evidenciaEnSesion(usuarioId,original,session)).tipo;}

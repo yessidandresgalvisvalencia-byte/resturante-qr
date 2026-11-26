@@ -214,7 +214,7 @@ router.post("/prestamos/:id/cuotas/deshacer",require("./services/reversionCuotaC
 router.patch("/prestamos/:id",validate(editarPrestamoSchema),async(req,res)=>{
  try{
   if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
-  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,req.validated,{confirmacion:req.body.confirmacion,solicitudId:req.get("Idempotency-Key")});
+  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,req.validated,{confirmacion:req.body.confirmacion,solicitudId:req.get("Idempotency-Key")},{capturarContexto:()=>require("./security/contextoAuditoriaCorreccionPrestamoPersonal.service").capturar(req,req.personalAuth.userId)});
   return res.json({ok:true,prestamo});
  }catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo corregir el préstamo"});}
 });
@@ -230,7 +230,7 @@ router.post("/prestamos/:id/confirmar-origen",async(req,res)=>{
   if(!/^[a-f0-9]{24}$/i.test(req.params.id)||Object.keys(req.query).length||!/^origen_cobro_[A-Za-z0-9_-]{8,80}$/.test(req.get("Idempotency-Key")||""))return res.status(400).json({ok:false,error:"Identificador de confirmación inválido"});
   const {error,value}=Joi.object({confirmacion:Joi.boolean().valid(true).required(),origenCuentaPorCobrar:Joi.string().valid("TRABAJO","PRESTAMO","OTRO").required(),versionOrigen:Joi.string().pattern(/^[a-f0-9]{64}$/).required()}).validate(req.body,{convert:false});
   if(error)return res.status(400).json({ok:false,error:"Origen, versión y confirmación explícita requeridos"});
-  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,{origenCuentaPorCobrar:value.origenCuentaPorCobrar,versionOrigen:value.versionOrigen},{confirmacion:true,solicitudId:req.get("Idempotency-Key")});return res.json({ok:true,prestamo,reciboOrigen:require("./services/reciboOrigenCobroPersonal.service").publico(req.personalAuth.userId,String(prestamo._id),req.get("Idempotency-Key"),{versionOrigen:value.versionOrigen,origenCuentaPorCobrar:value.origenCuentaPorCobrar},prestamo.correccion.hash,prestamo.correccion.duplicado)});
+  const prestamo=await patrimonioPersonal.corregirPrestamo(req.personalAuth.userId,req.params.id,{origenCuentaPorCobrar:value.origenCuentaPorCobrar,versionOrigen:value.versionOrigen},{confirmacion:true,solicitudId:req.get("Idempotency-Key")},{capturarContexto:()=>require("./security/contextoAuditoriaCorreccionPrestamoPersonal.service").capturar(req,req.personalAuth.userId)});return res.json({ok:true,prestamo,reciboOrigen:require("./services/reciboOrigenCobroPersonal.service").publico(req.personalAuth.userId,String(prestamo._id),req.get("Idempotency-Key"),{versionOrigen:value.versionOrigen,origenCuentaPorCobrar:value.origenCuentaPorCobrar},prestamo.correccion.hash,prestamo.correccion.duplicado)});
  }catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No se confirmó el origen; conserva la solicitud para consultar su resultado"});}
 });
 router.get("/prestamos/:id/origen-cobro",async(req,res)=>{
@@ -238,6 +238,7 @@ router.get("/prestamos/:id/origen-cobro",async(req,res)=>{
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo verificar el origen; conserva los originales"});}
 });
 router.get("/prestamos/:id/correcciones",async(req,res)=>{
+ res.set("Cache-Control","no-store");
  try{return res.json({ok:true,...await require("./services/correccionPrestamoPersonal.service").historial(req.personalAuth.userId,req.params.id)});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No se pudo consultar el historial de correcciones"});}
 });
@@ -346,7 +347,7 @@ router.post("/cuentas-por-cobrar/:id/cerrar-revision-origen-sin-aplicar",async(r
  try{
   const {error,value}=Joi.object({confirmacion:Joi.boolean().valid(true).required(),versionOrigen:Joi.string().pattern(/^[a-f0-9]{64}$/)}).required().validate(req.body,{convert:false});
   if(error)return res.status(400).json({ok:false,error:"Confirma el cierre conservando el cuerpo y la clave de la revisión original"});
-  const resultado=await require("./services/reciboRevisionOrigenTrabajoPersonal.service").cerrarSinAplicar(req.personalAuth.userId,req.params.id,{...value,solicitudId:req.get("Idempotency-Key")});
+  const resultado=await require("./services/reciboRevisionOrigenTrabajoPersonal.service").cerrarSinAplicar(req.personalAuth.userId,req.params.id,{...value,solicitudId:req.get("Idempotency-Key")},{capturarContexto:()=>require("./security/contextoAuditoriaCorreccionPrestamoPersonal.service").capturar(req,req.personalAuth.userId)});
   return res.json({ok:true,...resultado});
  }catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el cierre; conserva la solicitud original"});}
 });
@@ -367,7 +368,7 @@ router.post("/cuentas-por-cobrar/:id/corregir-origen-trabajo",async(req,res)=>{
  try{
   const {error,value}=Joi.object({confirmacion:Joi.boolean().valid(true).required(),versionOrigen:Joi.string().pattern(/^[a-f0-9]{64}$/)}).required().validate(req.body,{convert:false});
   if(error)return res.status(400).json({ok:false,error:"Confirma solo la selección vigente de origen; conserva el cuerpo original de una solicitud histórica"});
-  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").corregirOrigenTrabajo(req.personalAuth.userId,req.params.id,{confirmacion:true,solicitudId:req.get("Idempotency-Key"),...(value.versionOrigen!==undefined?{versionOrigen:value.versionOrigen}:{})});
+  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").corregirOrigenTrabajo(req.personalAuth.userId,req.params.id,{confirmacion:true,solicitudId:req.get("Idempotency-Key"),...(value.versionOrigen!==undefined?{versionOrigen:value.versionOrigen}:{})},{capturarContexto:()=>require("./security/contextoAuditoriaCorreccionPrestamoPersonal.service").capturar(req,req.personalAuth.userId)});
   const detalle=resultado.correccion.duplicado?"Confirmación anterior recuperada; no se aplicaron reclasificaciones nuevas.":resultado.reclasificados>0?"Se registraron reclasificaciones compensatorias sin cambiar caja ni cobros originales.":"Origen confirmado en auditoría; no fue necesario reclasificar cobros ni modificar caja.";
   return res.json({ok:true,...resultado,detalle});
  }catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir la cuenta"});}

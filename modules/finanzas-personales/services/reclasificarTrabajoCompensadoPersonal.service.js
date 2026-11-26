@@ -72,7 +72,7 @@ async function enTransaccion(usuarioId,operacion){
   throw e;
  }finally{await session.endSession();}
 }
-async function corregirOrigenTrabajo(usuarioId,prestamoId,solicitud){
+async function corregirOrigenTrabajo(usuarioId,prestamoId,solicitud,opciones={}){
  usuarioId=String(usuarioId).toLowerCase();prestamoId=String(prestamoId).toLowerCase();
  let aplicado;
  const p=await require("./correccionPrestamoPersonal.service").corregir(usuarioId,prestamoId,{origenCuentaPorCobrar:"TRABAJO",revisarCobrosTrabajo:true,...(solicitud?.versionOrigen!==undefined?{versionOrigen:solicitud.versionOrigen}:{})},solicitud,async(u,p,c,session)=>{
@@ -80,7 +80,7 @@ async function corregirOrigenTrabajo(usuarioId,prestamoId,solicitud){
   verificarCuenta(p,u);
   aplicado=await aplicar(u,p,cobrosConciliados(p,await movimientosVigentes(u,session)),session);
   return{prestamoId:String(p._id),campos:["origenCuentaPorCobrar"],...aplicado};
- });
+ },false,opciones);
  const realizada=p.correccion.duplicado?null:aplicado;
  return{reclasificados:realizada?.reclasificados??0,ingresoTrabajoMinor:realizada?.ingresoTrabajoMinor??null,saldoPendienteMinor:p.saldoMinor,prestamoId:String(p._id),correccion:p.correccion};
 }

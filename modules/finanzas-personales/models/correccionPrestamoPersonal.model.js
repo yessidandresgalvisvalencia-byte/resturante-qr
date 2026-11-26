@@ -1,6 +1,7 @@
 "use strict";
 const mongoose=require("mongoose");
 const schema=new mongoose.Schema({
+ auditoriaContexto:{type:mongoose.Schema.Types.Mixed,default:undefined,immutable:true,select:false},
  noAplicada:{type:Boolean,default:undefined,immutable:true,validate:v=>v===undefined||v===true},
  motivoNoAplicada:{type:String,default:undefined,immutable:true,enum:["CIERRE_EXPLICITO_PROPIETARIO"]},
  usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},
@@ -15,6 +16,8 @@ const schema=new mongoose.Schema({
  hashAnterior:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/},
  hashActual:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/}
 },{collection:"fin_correcciones_prestamos_personales_v1",versionKey:false,strict:"throw"});
+function sinPrivado(_doc,ret){delete ret.auditoriaContexto;return ret;}
+schema.set("toJSON",{transform:sinPrivado});schema.set("toObject",{transform:sinPrivado});
 schema.index({usuarioId:1,prestamoId:1,secuencia:1},{unique:true,name:"fp_correccion_prestamo_secuencia_v1"});
 schema.index({usuarioId:1,solicitudId:1},{unique:true,name:"fp_correccion_prestamo_solicitud_v1"});
 function prohibir(){throw Object.assign(new Error("CORRECCION_PRESTAMO_APPEND_ONLY"),{statusCode:409});}
