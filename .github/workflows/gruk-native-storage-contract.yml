@@ -8,6 +8,7 @@ on:
       - 'scripts/gruk/native-storage-*'
       - 'test/gruk/native-storage-api.test.js'
       - 'test/gruk/native-storage-capacity.test.js'
+      - 'test/gruk/native-storage-scheduler.test.js'
       - 'test/gruk/native-backup-storage.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
@@ -48,3 +49,5 @@ jobs:
         run: bash scripts/gruk/native-storage-mongo-test.sh
       - name: Capacity and retention policy
         run: node --test test/gruk/native-storage-capacity.test.js
+      - name: Backup scheduler contract
+        run: node --test test/gruk/native-storage-scheduler.test.js
