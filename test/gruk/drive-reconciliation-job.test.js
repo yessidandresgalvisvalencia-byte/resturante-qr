@@ -16,3 +16,15 @@ test('job distinguishes anomalies and skips without claiming recovery',async()=>
  assert.equal((await runJob({env,run:async()=>({status:'COMPLETED',checked:1,counts:{REMOTE_UNAVAILABLE:1},restoreVerified:false})})).status,'ANOMALIES');
  await assert.rejects(runJob({env,run:async()=>({status:'COMPLETED',checked:1,counts:{},restoreVerified:false})}),/RESULT/);
 });
+
+test('explicit discovery mode handles empty catalog without claiming verification',async()=>{
+ const auto={...env,GRUK_INSPECTION_DISCOVERY_ENABLED:'true',GRUK_INSPECTION_ARCHIVES:''};
+ const run=async args=>{assert.equal(args.names,undefined);return {status:'COMPLETED',checked:0,counts:{},restoreVerified:false};};
+ assert.deepEqual(await runJob({env:auto,run}),{status:'NO_RECORDS',checked:0,restoreVerified:false});
+ await assert.rejects(runJob({env:{...auto,GRUK_INSPECTION_ARCHIVES:JSON.stringify([name])},run}),/AMBIGUOUS/);
+ await assert.rejects(runJob({env,run}),/RESULT|Expected/);
+});
+test('automatic discovery retains anomaly classification',async()=>{
+ const auto={...env,GRUK_INSPECTION_DISCOVERY_ENABLED:'true',GRUK_INSPECTION_ARCHIVES:''};
+ assert.equal((await runJob({env:auto,run:async()=>({status:'COMPLETED',checked:2,counts:{REMOTE_UNAVAILABLE:1,RESTORE_VERIFICATION_REQUIRED:1},restoreVerified:false})})).status,'ANOMALIES');
+});

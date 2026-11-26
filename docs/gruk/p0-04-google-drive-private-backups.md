@@ -143,3 +143,7 @@ The read-only discovery adapter enumerates up to ten catalog identifiers using m
 ## Persistent discovery cursor
 
 Opt-in discovery inside the exclusive reservation loads one bounded page using the stored cursor. The cursor advances atomically with the owner-conditional release only after all page items have been inspected and completion evidence written. At end of catalog the cursor resets to null for the next cycle; empty pages also reset it. Anomalies count as inspected, not restored, and are revisited on the next sweep. Failed or incomplete runs retain the reservation and old cursor. The standalone job still requires explicit names until discovery mode is wired into its entry point. Synthetic tests verify cursor semantics; real integration and scheduler activation remain pending.
+
+## Automatic discovery job integration
+
+The one-shot entry point now supports explicitly enabled discovery mode and rejects simultaneous manual archive input. The persistent coordinator selects the next page. Empty pages return NO_RECORDS, not metadata match or verified recovery. No cron is installed. Before scheduling, verify end-to-end discovery, quota, cloud credentials, alert delivery and explicit operational approval. The daily cooldown remains enforced by the coordinator.
