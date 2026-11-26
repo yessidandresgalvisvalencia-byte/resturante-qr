@@ -26,11 +26,10 @@ test('restore happens only inside a network-isolated MongoDB container',()=>{
   for (const line of backup.split('\n').filter(x=>x.includes('docker exec -i') && x.includes('mongorestore'))) { assert.doesNotMatch(line,/--uri=/); }
   assert.doesNotMatch(backup,/\b(deleteOne|deleteMany|updateMany|dropDatabase)\b/);
 });
-test('workflow protects real backup behind manual approval and an environment',()=>{
-  assert.match(workflow,/workflow_dispatch:/);
-  assert.match(workflow,/environment: gruk-enterprise-real-backup/);
-  assert.match(workflow,/github\.event_name == 'workflow_dispatch'/);
-  assert.match(workflow,/GRUK_ENTERPRISE_READONLY_MONGO_URI/);
-  assert.match(workflow,/permissions:\s*\n\s*contents: read/);
-  assert.doesNotMatch(workflow,/upload-artifact/);
+test('external workflow is synthetic only and direct execution is retired',()=>{
+ const workflowText=workflow;
+ assert.doesNotMatch(workflowText,/workflow_dispatch:|secrets\.|environment: gruk-enterprise-real-backup|upload-artifact|\bschedule:/);
+ const result=require('node:child_process').spawnSync('bash',[path.resolve(__dirname,'../../scripts/gruk/p0-04-real-offsite-backup-restore.sh')],{env:{PATH:'/usr/bin:/bin',GRUK_BACKUP_APPROVAL:'RESPALDAR_SOLO_RESTAURANTE'},encoding:'utf8'});
+ assert.equal(result.status,1);
+ assert.equal(result.stderr.trim(),'GRUK_EXTERNAL_BACKUP_RETIRED');
 });

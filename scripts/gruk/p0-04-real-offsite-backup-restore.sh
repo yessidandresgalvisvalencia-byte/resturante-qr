@@ -3,6 +3,8 @@
 # Requires a private, versioned S3 bucket and an independently retained age identity.
 # This script has NO permission or command to modify MongoDB production.
 set -Eeuo pipefail
+echo 'GRUK_EXTERNAL_BACKUP_RETIRED' >&2
+exit 1
 umask 077
 for command in mongodump mongosh mongorestore aws age docker sha256sum; do
   command -v "$command" >/dev/null || { echo "Missing $command" >&2; exit 1; }
