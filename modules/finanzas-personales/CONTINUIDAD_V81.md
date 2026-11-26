@@ -3343,3 +3343,6 @@ Siguiente: archivo y copia cifrada/recuperación del registro dedicado; después
 
 
 Validación local previa a publicación r122:8/8 casos nuevos,7/7 contratos de caché; módulo1011 casos/1002 aprobados/9 omitidos por integración no configurada,0 fallos/cancelaciones; ci:personal353/349 aprobados/4 omitidos por Mongo no configurado,0 fallos/cancelaciones. Sintaxis y diff correctos. El ensayo inicial de módulo detectó un contrato del orden de limpieza manual; se preservó ese orden y se repitió el módulo completo sin relajar la aserción. Integración Chromium/HTTP/Mongo del SHA propio pendiente, sin atribuir CI del padre al código nuevo.
+
+
+Ajuste de interacción del ensayo navegador: las filas se presentan como details plegados. Antes de pulsar Consultar recibo de revisión, el escenario abre el summary, para ejercitar el mismo acceso visible del usuario. No se cambia el producto, la expectativa de conservación/resolución ni timeout/cuotas; sigue siendo el mismo bloque. Código inicialaf8a213e57ada09058cdb7d044019ba6d5d3559a; comprobar CI del SHA posterior.
