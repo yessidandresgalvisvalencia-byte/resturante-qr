@@ -263,8 +263,8 @@ async function pagarCuotaCredito(usuarioId,{prestamoId,cuentaId=null,numeroCuota
   return resultado;
  }finally{await session.endSession();}
 }
-async function deshacerUltimaCuotaCredito(usuarioId,prestamoId,solicitud){
- return require("./reversionCuotaCreditoPersonal.service").deshacer(usuarioId,prestamoId,solicitud);
+async function deshacerUltimaCuotaCredito(usuarioId,prestamoId,solicitud,opciones={}){
+ return require("./reversionCuotaCreditoPersonal.service").deshacer(usuarioId,prestamoId,solicitud,opciones);
 }
 async function corregirPrestamo(usuarioId,prestamoId,cambios,solicitud,opciones={}){
  if(Object.hasOwn(cambios||{},"revisarCobrosTrabajo"))throw Object.assign(new Error("La revisión de cobros requiere su flujo específico"),{statusCode:422});

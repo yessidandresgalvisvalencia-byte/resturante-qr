@@ -46,13 +46,13 @@ async function obtenerPagosCredito(usuarioId,prestamoId){
  },{readConcern:{level:"snapshot"},readPreference:"primary"});}
  finally{await session.endSession();}
 }
-async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={}){
+async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={},opciones={}){
+ const Aud=require("../security/contextoAuditoriaCompensacionPersonal.service"),capturar=opciones.capturarContexto?Aud.resolver(usuarioId,opciones):null;
  if(![usuarioId,prestamoId,movimientoId].every(x=>mongoose.isObjectIdOrHexString(x))||
   typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey))
   throw problema("Préstamo, pago y clave idempotente obligatorios",400);
  const session=await mongoose.startSession();
  try{return await session.withTransaction(async()=>{
-  await serializarEscrituraFuente(usuarioId,session);
   const fuente=await Tx.findOne({_id:movimientoId,usuarioId,prestamoId,tipo:"PAGO_DEUDA",estado:"ACTIVA"}).select("+auditoriaRegistro").session(session).lean();
   if(!fuente)throw problema("Pago de crédito no encontrado",404);
   require("./auditoriaRegistroPersonal.service").verificar(fuente);
@@ -75,7 +75,9 @@ async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={}){
   if(!pagos.length||String(pagos.at(-1)._id)!==String(movimientoId))throw problema("Solo se puede deshacer el último pago vigente");
   const saldo=BigInt(p.saldoMinor)+BigInt(original.montoMinor);
   if(saldo>BigInt(p.principalMinor)||!Number.isSafeInteger(p.cuotaMinor)||p.cuotaMinor<1)throw problema("Reversión no conciliable con la deuda");
-  const compensacion=await registrar({original,tipo:"ANULACION",idempotencyKey,fechaISO:new Date().toISOString()},{session});
+  const auditoriaContexto=capturar?capturar():undefined;
+  await serializarEscrituraFuente(usuarioId,session);
+  const compensacion=await registrar({original,tipo:"ANULACION",idempotencyKey,fechaISO:new Date().toISOString(),...(auditoriaContexto===undefined?{}:{auditoriaContexto})},{session});
   if(original.impactoCaja){
    const delta=Number(BigInt(compensacion.deltaCajaMinor));
    const cuenta=await Cuenta.findOneAndUpdate({_id:fuente.cuentaId,usuarioId,activa:true,moneda:"COP",...filtroSaldoSeguro(delta)},{$inc:{saldoMinor:delta}},{session,returnDocument:"after"});
