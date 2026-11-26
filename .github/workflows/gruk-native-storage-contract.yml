@@ -28,6 +28,9 @@ on:
       - 'test/gruk/native-storage-startup-recovery.test.js'
       - 'test/gruk/native-storage-replication.test.js'
       - 'test/gruk/native-storage-failover.test.js'
+      - 'deploy/gruk-storage/**'
+      - 'test/gruk/native-storage-installation.test.js'
+      - 'test/gruk/native-storage-host-preflight.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
   contents: read
@@ -121,3 +124,6 @@ jobs:
 
       - name: Native host preflight contract
         run: node --test test/gruk/native-storage-host-preflight.test.js
+
+      - name: Standby installation security contract
+        run: node --test test/gruk/native-storage-installation.test.js
