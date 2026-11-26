@@ -416,13 +416,14 @@ for(const [metodo,ruta,accion] of [["post","/creditos/:id/incorporar-a-deudas","
   catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible confirmar la operación del crédito"});}
  });
 }
+router.get("/prestamos/:id/retiros",async(req,res)=>{res.set("Cache-Control","private, no-store, max-age=0");try{if(Object.keys(req.query).length)return res.status(400).json({ok:false,error:"Consulta solo el historial propio sin filtros"});return res.json({ok:true,...await require("./services/retiroDeudaPersonal.service").historial(req.personalAuth.userId,req.params.id)});}catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar los retiros de la deuda"});}});
 router.delete("/prestamos/:id",async(req,res)=>{
  if(!/^[a-f0-9]{24}$/i.test(req.params.id))return res.status(400).json({ok:false,error:"Identificador inválido"});
- try{const resultado=await patrimonioPersonal.retirarDeudaVisible(req.personalAuth.userId,req.params.id,req.body);return res.json({ok:true,resultado});}
+ try{const resultado=await patrimonioPersonal.retirarDeudaVisible(req.personalAuth.userId,req.params.id,req.body,{capturarContexto:()=>require("./security/contextoAuditoriaRetiroDeudaPersonal.service").capturar(req,req.personalAuth.userId)});return res.json({ok:true,resultado});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible retirar la deuda"});}
 });
 router.post("/prestamos/:id/restaurar-retiro",async(req,res)=>{
- try{const resultado=await require("./services/retiroDeudaPersonal.service").restaurar(req.personalAuth.userId,req.params.id,req.body);return res.json({ok:true,resultado});}
+ try{const resultado=await require("./services/retiroDeudaPersonal.service").restaurar(req.personalAuth.userId,req.params.id,req.body,{capturarContexto:()=>require("./security/contextoAuditoriaRetiroDeudaPersonal.service").capturar(req,req.personalAuth.userId)});return res.json({ok:true,resultado});}
  catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible recuperar la deuda"});}
 });
 router.post("/creditos",async(req,res)=>{

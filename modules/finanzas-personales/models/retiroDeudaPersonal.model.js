@@ -1,6 +1,7 @@
 "use strict";
 const mongoose=require("mongoose");
 const schema=new mongoose.Schema({
+ auditoriaContexto:{type:mongoose.Schema.Types.Mixed,default:undefined,immutable:true,select:false},
  usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},
  prestamoId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},
  secuencia:{type:Number,required:true,immutable:true,validate:Number.isSafeInteger,min:1},
@@ -13,6 +14,7 @@ const schema=new mongoose.Schema({
  hashAnterior:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/},
  hashActual:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/}
 },{collection:"fin_retiros_deudas_personales_v1",versionKey:false,strict:"throw"});
+for(const formato of ["toJSON","toObject"])schema.set(formato,{transform:(_doc,ret)=>{delete ret.auditoriaContexto;return ret;}});
 schema.index({usuarioId:1,prestamoId:1,secuencia:1},{unique:true,name:"fp_retiro_secuencia_v1"});
 schema.index({usuarioId:1,solicitudId:1},{unique:true,name:"fp_retiro_solicitud_v1"});
 function prohibir(){throw Object.assign(new Error("RETIRO_DEUDA_APPEND_ONLY"),{statusCode:409});}

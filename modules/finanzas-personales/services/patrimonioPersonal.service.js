@@ -311,8 +311,8 @@ async function aplicarCorreccionPrestamo(usuarioId,prestamo,cambios,session){
    }
  return {prestamoId:String(prestamo._id),campos:Object.keys(cambios),pagosRegistrados:pagos.length,principalAnteriorMinor,principalNuevoMinor:prestamo.principalMinor,saldoMinor:prestamo.saldoMinor,estado:prestamo.estado};
 }
-async function retirarDeudaVisible(usuarioId,prestamoId,solicitud){
- return require("./retiroDeudaPersonal.service").retirar(usuarioId,prestamoId,solicitud);
+async function retirarDeudaVisible(usuarioId,prestamoId,solicitud,opciones){
+ return require("./retiroDeudaPersonal.service").retirar(usuarioId,prestamoId,solicitud,opciones);
 }
 function normalizarIdCuentaTransferencia(id){
  const valor=String(id??"");
