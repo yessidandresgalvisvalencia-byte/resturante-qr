@@ -350,6 +350,11 @@ router.post("/cuentas-por-cobrar/:id/cerrar-revision-origen-sin-aplicar",async(r
   return res.json({ok:true,...resultado});
  }catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el cierre; conserva la solicitud original"});}
 });
+router.get("/revisiones-origen-trabajo/recibos/:solicitudId",async(req,res)=>{
+ res.set("Cache-Control","no-store");
+ try{if(Object.keys(req.query).length)return res.status(400).json({ok:false,error:"Consulta solo la clave propia, sin filtros"});const resultado=await require("./services/reciboRevisionOrigenTrabajoPersonal.service").consultarPorClave(req.personalAuth.userId,req.params.solicitudId);return res.json({ok:true,...resultado});}
+ catch(e){return res.status(e.statusCode||500).json({ok:false,error:e.statusCode?e.message:"No fue posible verificar el recibo legado"});}
+});
 router.get("/cuentas-por-cobrar/:id/revisiones-origen-trabajo/recibos/:solicitudId",async(req,res)=>{
  res.set("Cache-Control","no-store");
  try{

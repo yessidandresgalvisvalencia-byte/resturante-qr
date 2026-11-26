@@ -24,24 +24,27 @@ function desdeEvento(usuarioId,prestamoId,solicitudId,e){
   huellaSolicitud:C.digest({cuerpo:body,metodo:"POST",path}),hashEvento:e.hashActual,...(e.noAplicada?{noAplicada:true,motivoNoAplicada:e.motivoNoAplicada}:{}),
   solicitudHistoricaSinVersion:c.versionOrigen===undefined,certificaEstadoActual:false,afectaCaja:false};
 }
-async function consultar(usuarioId,prestamoId,solicitudId){
- if(!oid(String(usuarioId))||!oid(String(prestamoId))||!clave(solicitudId))throw falla("Identificador de recibo inválido",400);
- usuarioId=String(usuarioId).toLowerCase();prestamoId=String(prestamoId).toLowerCase();
+async function leer(usuarioId,prestamoId,solicitudId){
+ if(!oid(String(usuarioId))||prestamoId!==null&&!oid(String(prestamoId))||!clave(solicitudId))throw falla("Identificador de recibo inválido",400);
+ usuarioId=String(usuarioId).toLowerCase();prestamoId=prestamoId===null?null:String(prestamoId).toLowerCase();
  await C.exigirIndices();const session=await mongoose.startSession();let resultado;
  try{await session.withTransaction(async()=>{
-  const p=await P.findOne({_id:prestamoId,usuarioId}).maxTimeMS(5000).session(session).lean();
+  let id=prestamoId;if(id===null){const e=await E.findOne({usuarioId,solicitudId}).maxTimeMS(5000).session(session).lean();if(!e)throw falla("Revisión de origen no encontrada",404);id=String(e.prestamoId);if(!oid(id))throw falla("Referencia de revisión no verificable");}
+  const p=await P.findOne({_id:id,usuarioId}).maxTimeMS(5000).session(session).lean();
   if(!p||p.direccion!=="POR_COBRAR")throw falla("Revisión de origen no encontrada",404);
-  const eventos=await E.find({usuarioId,prestamoId}).sort({secuencia:1}).limit(1001).maxTimeMS(5000).session(session).lean();
+  const eventos=await E.find({usuarioId,prestamoId:id}).sort({secuencia:1}).limit(1001).maxTimeMS(5000).session(session).lean();
   const ultimo=C.verificar(eventos,p);
   if(ultimo&&ultimo.posterior?.origenCuentaPorCobrar!==p.origenCuentaPorCobrar)throw falla("Origen actual no coincide con la corrección auditada");
   const e=eventos.find(e=>e.solicitudId===solicitudId);
   if(!e||e.cambios?.revisarCobrosTrabajo!==true)throw falla("Revisión de origen no encontrada",404);
-  const reciboRevisionOrigen=desdeEvento(usuarioId,prestamoId,solicitudId,e);
+  const reciboRevisionOrigen=desdeEvento(usuarioId,id,solicitudId,e);
   await require("./seleccionOrigenCobroPersonal.service").enSesion(usuarioId,p,eventos,session);
   resultado={soloLectura:true,reciboRevisionOrigen,detalle:"Revisión histórica verificada sin reenviar ni modificar caja. No certifica origen real, saldo ni estado actual."};
  },{readConcern:{level:"snapshot"},readPreference:"primary"});return resultado;
  }finally{await session.endSession();}
 }
+const consultar=(usuarioId,prestamoId,solicitudId)=>leer(usuarioId,prestamoId,solicitudId);
+const consultarPorClave=(usuarioId,solicitudId)=>leer(usuarioId,null,solicitudId);
 async function cerrarSinAplicar(usuarioId,prestamoId,solicitud){
  usuarioId=String(usuarioId).toLowerCase();prestamoId=String(prestamoId).toLowerCase();
  const cambios={origenCuentaPorCobrar:"TRABAJO",revisarCobrosTrabajo:true,...(solicitud?.versionOrigen!==undefined?{versionOrigen:solicitud.versionOrigen}:{})};
@@ -49,4 +52,4 @@ async function cerrarSinAplicar(usuarioId,prestamoId,solicitud){
  const r=await consultar(usuarioId,prestamoId,solicitud.solicitudId);
  return{...r,soloLectura:false,detalle:r.reciboRevisionOrigen.noAplicada?"Cierre explícito verificado: esta solicitud no se aplicó y no podrá aplicarse con la misma clave.":"La revisión ya estaba confirmada; el cierre no la anula ni revierte. Conserva su recibo."};
 }
-module.exports={CONTRATO,desdeEvento,consultar,cerrarSinAplicar};
+module.exports={CONTRATO,desdeEvento,consultar,consultarPorClave,cerrarSinAplicar};
