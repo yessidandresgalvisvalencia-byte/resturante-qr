@@ -139,3 +139,7 @@ The disabled-by-default job validates four activation flags and an explicit boun
 ## Bounded catalog discovery
 
 The read-only discovery adapter enumerates up to ten catalog identifiers using majority reads, a simple-collation indexed cursor and one lookahead record. Ordering is lexicographic, not chronological. It exposes identifiers only, not receipts; each discovered receipt still requires signature verification during inspection. Cursor persistence, wraparound policy and scheduler wiring remain pending. Tests use synthetic data; no real catalog access is enabled.
+
+## Persistent discovery cursor
+
+Opt-in discovery inside the exclusive reservation loads one bounded page using the stored cursor. The cursor advances atomically with the owner-conditional release only after all page items have been inspected and completion evidence written. At end of catalog the cursor resets to null for the next cycle; empty pages also reset it. Anomalies count as inspected, not restored, and are revisited on the next sweep. Failed or incomplete runs retain the reservation and old cursor. The standalone job still requires explicit names until discovery mode is wired into its entry point. Synthetic tests verify cursor semantics; real integration and scheduler activation remain pending.
