@@ -71,3 +71,7 @@ A provider-neutral catalog registers signed receipts through a create-only stora
 ## Persistent catalog adapter (development)
 
 The MongoDB adapter restricts storage to gruk_storage_catalog.signed_receipts, uses the unique _id for atomic create-only writes and requests journaled majority acknowledgement and majority reads. Tests use a simulated driver; provider support for these options and a separately provisioned deployment must be verified before activation. Database naming alone does not establish infrastructure independence. Use separate credentials with insert/find only, no update/delete privileges. No connection, account creation, billing change or real backup is performed by this module. A free independent deployment is a candidate, not a confirmed resource.
+
+## Catalog connection preflight
+
+The new connection boundary validates dedicated Atlas SRV endpoints, exact catalog database and independently configured hostname, rejects shared source hostname or username and unsafe URI options, and closes the injected connection on completion or failure. This intentionally supports Atlas SRV only; a different provider or source URI format requires an explicit reviewed adapter. Different hostnames do not prove independent infrastructure: verify cluster ownership, billing, credentials and failure domains separately. No real driver connection or workflow activation is included; tests use synthetic endpoints.
