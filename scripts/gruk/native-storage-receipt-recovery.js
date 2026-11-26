@@ -26,7 +26,7 @@ async function persistReceipt({root,name,receipt,keyring}){
   const d=await fs.open(root,'r');try{await d.sync();}finally{await d.close();}
  }finally{await fs.unlink(tmp).catch(e=>{if(e.code!=='ENOENT')throw e;});}
 }
-async function recoverReceipt({root,name,keyring,catalog}){
+async function readNativeReceipt({root,name,keyring}){
  if(typeof name!=='string'||!NAME.test(name))throw Error('RECOVERY_NAME');
  await privateRoot(root);
  const h=await fs.open(path.join(root,name+'.receipt.json'),constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
@@ -39,9 +39,13 @@ async function recoverReceipt({root,name,keyring,catalog}){
  const manifest=keyring.verify(receipt,name);
  const check=createNativeCatalogInspector({root,catalog:{lookup:async()=>manifest}});
  if((await check(name)).status!=='RESTORE_VERIFICATION_REQUIRED')throw Error('RECOVERY_ARCHIVE_UNVERIFIED');
+ return {receipt,manifest};
+}
+async function recoverReceipt({root,name,keyring,catalog}){
+ const {receipt,manifest}=await readNativeReceipt({root,name,keyring});
  try{await catalog.register(name,receipt);}catch(e){if(e?.message!=='CATALOG_ALREADY_EXISTS')throw e;}
  const stored=await catalog.lookup(name);
  if(stored.name!==name||stored.sha256!==manifest.sha256||stored.bytes!==manifest.bytes)throw Error('RECOVERY_CONFLICT');
  return {name,status:'REGISTERED',restoreVerified:false};
 }
-module.exports={persistReceipt,recoverReceipt};
+module.exports={persistReceipt,recoverReceipt,readNativeReceipt};

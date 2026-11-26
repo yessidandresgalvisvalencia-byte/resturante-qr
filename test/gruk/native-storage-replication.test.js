@@ -25,3 +25,27 @@ test('replication verifies ciphertext, refuses same device by default and never 
  await assert.rejects(replicateArchive(synthetic),/REPLICA_TARGET_CONFLICT/);
  assert.equal(await fs.readFile(path.join(targetRoot,name),'utf8'),'conflicting');
 });
+
+test('signed replication preserves original receipt and retries partial copies',async t=>{
+ const {generateKeyPairSync}=require('node:crypto');
+ const {signManifest,verifySignedManifest}=require('../../scripts/gruk/drive-manifest-signature');
+ const {persistReceipt}=require('../../scripts/gruk/native-storage-receipt-recovery');
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'gruk-signed-replica-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const sourceRoot=path.join(root,'a'),targetRoot=path.join(root,'b');
+ await fs.mkdir(sourceRoot,{mode:0o700});await fs.mkdir(targetRoot,{mode:0o700});
+ const name='gruk-restaurante-1-1.archive.age',bytes=Buffer.from('age-encryption.org/v1\n'+'x'.repeat(100));
+ await fs.writeFile(path.join(sourceRoot,name),bytes,{mode:0o600});
+ const manifest={version:1,database:'restaurante',name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};
+ const {privateKey,publicKey}=generateKeyPairSync('ed25519');
+ const keyring={verify:(r,n)=>verifySignedManifest(r,publicKey,n)};
+ const args={sourceRoot,targetRoot,name,catalog:{lookup:async()=>manifest},keyring,requireDistinctDevice:false};
+ await assert.rejects(replicateArchive(args),{code:'ENOENT'});
+ const receipt=signManifest(manifest,privateKey);
+ await persistReceipt({root:sourceRoot,name,keyring,receipt});
+ await fs.writeFile(path.join(targetRoot,name),bytes,{mode:0o600});
+ assert.equal((await replicateArchive(args)).receiptVerified,true);
+ assert.equal(await fs.readFile(path.join(targetRoot,name+'.receipt.json'),'utf8'),await fs.readFile(path.join(sourceRoot,name+'.receipt.json'),'utf8'));
+ assert.equal((await replicateArchive(args)).status,'ALREADY_PRESENT');
+ await fs.writeFile(path.join(targetRoot,name+'.receipt.json'),'{}');
+ await assert.rejects(replicateArchive(args));
+});
