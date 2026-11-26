@@ -15,8 +15,14 @@ function createScheduler({root,backup,alert,intervalMs=86400000,policy={},clock=
    const capacity=await inspect(root,policy);
    if(capacity.lowCapacity)throw Error('LOW_CAPACITY');
    await backup();
-   lastSuccess=clock();
-   await record(root,{code:'BACKUP_OK',at:lastSuccess});
+   const completedAt=clock();
+   try{await record(root,{code:'BACKUP_OK',at:completedAt});}catch{
+    lastFailure=clock();
+    let alertFailed=false;
+    try{await alert({code:'BACKUP_FAILED',at:lastFailure});}catch{alertFailed=true;}
+    return {status:'failed',code:'JOURNAL_FAILED',backupCompleted:true,journalFailed:true,...(alertFailed?{alertFailed:true}:{})};
+   }
+   lastSuccess=completedAt;
    return {status:'ok'};
   }catch(e){
    lastFailure=clock();
