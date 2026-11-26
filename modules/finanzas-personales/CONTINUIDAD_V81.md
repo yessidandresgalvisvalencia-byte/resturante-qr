@@ -3381,3 +3381,25 @@ Siguiente: copia cifrada/recuperación portable explícita de raíz/páginas y s
 
 
 Validación local previa a publicación r123:5/5 casos nuevos y13/13 dirigidos con recuperación,7/7 contratos de caché; módulo1016 casos/1007 aprobados/9 omitidos por integración no configurada,0 fallos/cancelaciones; ci:personal353/349 aprobados/4 omitidos por Mongo no configurado,0 fallos/cancelaciones. Sintaxis y diff correctos. CI real del SHA propio todavía pendiente; no se atribuye la evidencia del padre al código nuevo.
+
+
+## Cierre de código verificado — 26/11/2026 Colombia
+
+Un bloque funcional: archivo explícito del registro dedicado con conservación de página original, capacidad activa liberada, pendientes intactos y GET de archivados sin reactivar. Código `b9b0c992ff630fa01c92b87eb1e5e29450ac2225`, árbol `726b03e061ef3fb18493f520a8f7b9c4ef32b1b8`, padre `7cb37447aa1dedbbf925b882c72d73a48235da3f`.10 archivos personales; actualización fast-forward con expected_sha y árbol GitHub igual al índice local. Base652126a03f19fbec3c529cad1e84bff11cd3699e intacta; PR389 abierto/no integrado. No se cuenta cada archivo/commit como bloque.
+
+CI del SHA exacto, tres workflows success:
+
+- [GRUK Gate45771220619](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45771220619).
+- [Seguridad45771220344](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45771220344).
+- [V8145771220409](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45771220409), ocho jobs success.
+- [Integración autenticada139744055319](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45771220409/job/139744055319): Mongo101/101 y Chromium/backend32/32,0 fallos/omisiones/cancelaciones; logs examinados después de completar.
+
+FP_ARCHIVO_REVISION_ORIGEN_CONTROL: login real/Chromium390, cancelar conserva, confirmación explícita, página original exacta,0 activos/2 archivados,1 GET de recibo archivado y0 POST durante archivo/consulta observados en navegador, pendientes intactos/sin reactivar, cajaMinor1200/fuentes intactas, datos sintéticos. La consulta archivada dejó la raíz de archivo exacta. Escenario existente ampliado, sin aumentar cuotas/timeouts ni desactivar gates.
+
+Local:5/5 nuevos,13/13 dirigidos con recuperación,7/7 contratos de caché; módulo1016/1007 aprobados/9 omitidos y ci:personal353/349 aprobados/4 omitidos por integración no configurada;0 fallos/cancelaciones. Sintaxis/diff correctos. Los casos incluyen pendiente101 después de100 cierres, confirmación posterior sin perder archivados, fallo de guardar página/raíz, reintento idempotente, plan obsoleto/dueño/sesión/página alterada y límite20 páginas. Las omisiones locales no son aprobaciones y no sustituyen la integración autenticada descrita.
+
+Backup V32/45 sin cambios de esquema/índices/formato: copia cifrada/restauración BSON e índices en destino aislado vacío,8049 documentos/8116826 bytes; captura323ms/restauración1252ms/edad1556ms, custodiaIndependiente=false/rpoProduccion=false. Métricas sintéticas observadas, no RPO/RTO operativo, copia durable independiente ni validación semántica de todos los fixtures deliberadamente corruptos. Archivo del navegador no está incluido en ese backup MongoDB.
+
+Límites:100 activos y20 páginas de hasta100 recibos, sin poda; al agotarse capacidad conserva todo y rechaza otro archivo. Almacenamiento local, sin garantía de durabilidad física, copia independiente o resistencia a JavaScript comprometido. Formato1 conservado y formato2 verificable; clientes previos no leen2, por lo que se exige compatibilidad completa antes de liberar. No hay copia cifrada/recuperación portable de este registro todavía, ni botón nuevo de cierre backend ni adopción automática de legados sin cuerpo.
+
+Siguiente bloque recuperable: copia cifrada/recuperación explícita de raíz, páginas y solicitudes dedicadas, validación completa previa, destino sin otro diario, conservación de originales, instalación recuperable y GET de recibos después de importación antes de resolver/asesorar; después cierre UI y adopción verificable de legados sin cuerpo. Antes de retomar HEAD/base/PR389/issue407/CI/instrucciones/CONTINUIDAD y este cierre. #407/custodio real/backups durables/retención/acceso/credenciales separadas/restauración operativa/RPO-RTO/roles/índices/migración/configuración productivos/dispositivos/auditoría independiente/compatibilidad/informe final pendientes. Sin merge/Render/main/Empresarial/Blushéa/costos nuevos ni datos reales alterados. Tarea activa. El descendiente documental requiere CI propia del SHA comprobable en Git/PR, sin autoreferencia circular.
