@@ -22,6 +22,7 @@ on:
       - 'test/gruk/native-backup-storage.test.js'
       - 'test/gruk/native-storage-catalog-inspector.test.js'
       - 'test/gruk/native-storage-coordinated.test.js'
+      - 'test/gruk/native-storage-signed-registration.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
   contents: read
@@ -94,3 +95,6 @@ jobs:
 
       - name: Native coordinated inspection contract
         run: node --test test/gruk/native-storage-coordinated.test.js test/gruk/drive-reconciliation-coordinated.test.js test/gruk/drive-reconciliation-batch.test.js
+
+      - name: Native signed catalog registration contract
+        run: node --test test/gruk/native-storage-signed-registration.test.js

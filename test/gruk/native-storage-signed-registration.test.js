@@ -1,0 +1,27 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {generateKeyPairSync}=require('node:crypto');
+const {signManifest,verifySignedManifest}=require('../../scripts/gruk/drive-manifest-signature');
+const {createCatalog}=require('../../scripts/gruk/drive-backup-catalog');
+const {registerNativeArchive}=require('../../scripts/gruk/native-storage-signed-registration');
+test('native ciphertext registration is signed, idempotent and rejects conflicting evidence',async t=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'gruk-native-'));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const name='gruk-restaurante-1-1.archive.age',file=path.join(root,name);
+ await fs.writeFile(file,'age-encryption.org/v1\n'+'x'.repeat(100),{mode:0o600});
+ const {privateKey,publicKey}=generateKeyPairSync('ed25519');
+ const keyring={sign:signManifest,verify:(receipt,n)=>verifySignedManifest(receipt,publicKey,n)};
+ const data=new Map();
+ const catalog=createCatalog({keyring,store:{async putIfAbsent(n,v){if(data.has(n))return false;data.set(n,v);return true;},async get(n){return data.get(n);}}});
+ const args={root,name,keyring,privateKey,catalog};
+ assert.deepEqual(await registerNativeArchive(args),{name,status:'REGISTERED',restoreVerified:false});
+ await registerNativeArchive(args);
+ assert.equal(data.size,1);
+ await fs.writeFile(file,'age-encryption.org/v1\n'+'y'.repeat(100));
+ await assert.rejects(registerNativeArchive(args),/NATIVE_CATALOG_CONFLICT/);
+ assert.equal(data.size,1);
+});
