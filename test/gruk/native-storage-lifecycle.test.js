@@ -57,3 +57,20 @@ test('initialized storage runs through runtime and rejects unsafe key paths', {t
  }finally{await runtime.shutdown();}
  assert.equal((await runtime.health()).code,'LISTENER_NOT_READY');
 });
+
+test('startup fails closed on interrupted state and real backup configuration', {timeout:15000},async t=>{
+ const tmp=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-preflight-')));
+ t.after(()=>fs.rm(tmp,{recursive:true,force:true}));
+ const {root,keyFile}=await initialize(path.join(tmp,'storage'));
+ const env={GRUK_NATIVE_BACKUP_ROOT:root,GRUK_STORAGE_SIGNING_KEY_FILE:keyFile};
+ await assert.rejects(start({env:{...env,GRUK_NATIVE_REAL_BACKUP_ENABLED:'true'},signals:false}),/REAL_BACKUP_RELEASE_BLOCKED/);
+ const lock=path.join(root,'.token-replay.lock');
+ await fs.mkdir(lock,{mode:0o700});
+ await assert.rejects(start({env,signals:false}),/RECOVERY_REVIEW_REQUIRED/);
+ assert.ok((await fs.lstat(lock)).isDirectory());
+ await fs.rmdir(lock);
+ const pending=path.join(root,'.pending-fixture');
+ await fs.writeFile(pending,'synthetic',{mode:0o600});
+ await assert.rejects(start({env,signals:false}),/RECOVERY_REVIEW_REQUIRED/);
+ assert.equal(await fs.readFile(pending,'utf8'),'synthetic');
+});

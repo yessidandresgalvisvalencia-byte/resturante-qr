@@ -3,7 +3,10 @@ const fs=require('node:fs/promises');
 const path=require('node:path');
 const {constants}=require('node:fs');
 const {listenLocal}=require('./native-storage-api');
+const {inspectRecovery}=require('./native-storage-recovery');
+const {inspect}=require('./native-storage-capacity');
 async function start({env=process.env,signals=true}={}){
+ if(env.GRUK_NATIVE_REAL_BACKUP_ENABLED==='true')throw Error('REAL_BACKUP_RELEASE_BLOCKED');
  const root=env.GRUK_NATIVE_BACKUP_ROOT;
  const secret=env.GRUK_STORAGE_SIGNING_KEY_FILE;
  const port=Number(env.GRUK_STORAGE_PORT||8787);
@@ -16,7 +19,14 @@ async function start({env=process.env,signals=true}={}){
  const h=await fs.open(secret,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
  let key;
  try{const s=await h.stat();if(!s.isFile()||(s.mode&0o077)||s.uid!==process.getuid()||s.nlink!==1||s.size!==32)throw Error('INVALID_KEY_FILE');key=await h.readFile();}finally{await h.close();}
- const server=listenLocal({root,key},port);
+ try{
+  const recovery=await inspectRecovery(root);
+  if(recovery.status!=='clear')throw Error('RECOVERY_REVIEW_REQUIRED');
+  const capacity=await inspect(root);
+  if(capacity.lowCapacity)throw Error('LOW_CAPACITY');
+ }catch(error){key.fill(0);throw error;}
+ let server;
+ try{server=listenLocal({root,key},port);}catch(error){key.fill(0);throw error;}
  await new Promise((resolve,reject)=>{
   server.once('error',reject);
   server.once('listening',()=>{server.removeListener('error',reject);resolve();});
