@@ -95,3 +95,7 @@ The inspector queries only the exact private backup folder and archive name, che
 ## Reconciliation runtime and local alerts
 
 The read-only CLI requires both GRUK_CATALOG_ENABLED and GRUK_RECONCILIATION_ENABLED, validates connection configuration, reads signed catalog entries, and uses OAuth solely to inspect the exact Drive archive. It emits sanitized local stderr warning events for anomalies and a nonzero exit status; external administrative delivery, scheduling, and production credentials remain unconfigured. Synthetic tests inject both network transports. The CLI is not invoked automatically and cannot certify restoration.
+
+## Bounded reconciliation batch (development)
+
+A sequential batch runner deduplicates archive names, aggregates alerts by status, limits each batch to ten inputs by default (maximum twenty), and blocks overlapping or too-frequent attempts within one process. The default interval is 24 hours. No timers, cron jobs, external notification delivery or live network calls are enabled by this module. State is process-local and does not survive restart; durable coordination and explicit scheduling authorization remain release gates. Synthetic tests cover throttling and alert failure.
