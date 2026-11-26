@@ -55,3 +55,7 @@ Ed25519 receipts bind the canonical enterprise manifest to an explicit key finge
 ## Signed receipt integration
 
 The manual restore workflow now requires separately provisioned Ed25519 signing and pinned verification keys, checks the key pair before remote upload, and verifies the downloaded ciphertext against the signed receipt before restore. The verification subprocess receives no signing key. The receipt remains in the temporary private runner directory; independent durable custody and key rotation remain unimplemented. The manual production job stays disabled unless explicitly dispatched; do not dispatch until all gates are met. The contract job now includes synthetic tests for all drive helper modules.
+
+## Key rotation contract (development)
+
+A bounded trusted public-key registry distinguishes active, retired and revoked Ed25519 keys. Only the active key may sign; retired keys verify historical receipts, revoked keys fail closed. Registry entries are validated against their SPKI SHA-256 fingerprints. The registry must be provisioned through a trusted independent configuration channel; receipt-supplied keys are never trusted. This module is not yet integrated with the real workflow, and does not implement durable registry custody or automatic private-key rotation. Tests use synthetic ephemeral keys only.
