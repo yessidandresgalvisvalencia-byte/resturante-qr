@@ -75,3 +75,7 @@ The MongoDB adapter restricts storage to gruk_storage_catalog.signed_receipts, u
 ## Catalog connection preflight
 
 The new connection boundary validates dedicated Atlas SRV endpoints, exact catalog database and independently configured hostname, rejects shared source hostname or username and unsafe URI options, and closes the injected connection on completion or failure. This intentionally supports Atlas SRV only; a different provider or source URI format requires an explicit reviewed adapter. Different hostnames do not prove independent infrastructure: verify cluster ownership, billing, credentials and failure domains separately. No real driver connection or workflow activation is included; tests use synthetic endpoints.
+
+## Catalog runtime (development)
+
+A disabled-by-default CLI connects the signed receipt, ciphertext verification and separate catalog adapter. Registration requires a valid local receipt and matching ciphertext, then performs create-only persistence and readback; verification checks the stored signed manifest against the ciphertext. The real workflow is not yet wired to the CLI. Production activation requires independently provisioned credentials, host verification, quota and approval. Synthetic tests inject a simulated connection; no live cloud access is performed.

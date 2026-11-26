@@ -41,4 +41,4 @@ async function main(){
  else throw Error('RECEIPT_ARGS');
 }
 if(require.main===module)main().catch(()=>{console.error('GRUK_SIGNED_RECEIPT_FAILED');process.exitCode=1;});
-module.exports={createReceipt,verifyReceipt,createKeyringReceipt,verifyKeyringReceipt};
+module.exports={createReceipt,verifyReceipt,createKeyringReceipt,verifyKeyringReceipt,readReceipt};
