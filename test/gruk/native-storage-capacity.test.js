@@ -1,0 +1,23 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {inspect}=require('../../scripts/gruk/native-storage-capacity');
+test('reports capacity and expired archives without deleting them',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-cap-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const file=path.join(root,'gruk-restaurante-1-1.archive.age');
+ await fs.writeFile(file,'synthetic',{mode:0o600});
+ const now=Date.now();
+ await fs.utimes(file,new Date(now-40*86400000),new Date(now-40*86400000));
+ const r=await inspect(root,{now,reserveBytes:Number.MAX_SAFE_INTEGER});
+ assert.equal(r.count,1);assert.equal(r.bytes,'9');assert.equal(r.expired,1);
+ assert.equal(r.lowCapacity,true);assert.equal(r.retentionMode,'report-only');
+ assert.equal(await fs.readFile(file,'utf8'),'synthetic');
+ assert.equal((await inspect(root,{reserveBytes:0})).lowCapacity,false);
+ await assert.rejects(inspect(root,{maxAgeDays:0}),/INVALID_POLICY/);
+ await fs.symlink(file,path.join(root,'gruk-restaurante-2-1.archive.age'));
+ await assert.rejects(inspect(root),/UNSAFE_ARCHIVE/);
+});
