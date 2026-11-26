@@ -1,0 +1,58 @@
+name: GRUK catalog connectivity — temporary IP
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-catalog-connectivity.yml'
+permissions:
+  contents: read
+concurrency:
+  group: gruk-catalog-connectivity-once
+  cancel-in-progress: true
+jobs:
+  probe:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'gruk/cloud-backup-storage'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Identify this runner IPv4
+        run: |
+          set -euo pipefail
+          ip=$(curl -4 --fail --silent --show-error --max-time 15 https://api.ipify.org)
+          python3 -c 'import ipaddress,sys; a=ipaddress.IPv4Address(sys.argv[1]); assert a.is_global' "$ip"
+          echo "GRUK_RUNNER_IP=$ip/32"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Probe only the independent catalog after temporary IP approval
+        env:
+          CATALOG_URI: ${{ secrets.GRUK_CATALOG_MONGO_URI }}
+          EXPECTED_HOST: ${{ vars.GRUK_CATALOG_EXPECTED_HOST }}
+          CATALOG_ENABLED: ${{ vars.GRUK_CATALOG_ENABLED }}
+        run: |
+          node <<'NODE'
+          const mongoose=require('mongoose');
+          async function main(){
+            if(process.env.CATALOG_ENABLED!=='false')throw Error('DISABLED_GATE');
+            const u=new URL(process.env.CATALOG_URI);
+            if(u.protocol!=='mongodb+srv:'||u.hostname!==process.env.EXPECTED_HOST||!u.hostname.endsWith('.mongodb.net')||u.pathname!=='/gruk_storage_catalog'||u.username!=='gruk_storage_worker'||!u.password||u.port||u.hash)throw Error('SCOPE');
+            for(const [k,v] of u.searchParams)if(!['retrywrites','w','appname','authsource','tls'].includes(k.toLowerCase())||(k.toLowerCase()==='tls'&&v!=='true'))throw Error('OPTIONS');
+            for(let i=0;i<20;i++){
+              let c;
+              try{
+                c=mongoose.createConnection(process.env.CATALOG_URI,{dbName:'gruk_storage_catalog',tls:true,serverSelectionTimeoutMS:5000,maxPoolSize:1});
+                await c.asPromise();
+                await c.db.collection('signed_receipts').findOne({_id:'synthetic-connectivity-probe'},{projection:{_id:1},maxTimeMS:5000});
+                console.log('GRUK_CATALOG_CONNECTIVITY_OK');
+                return;
+              }catch{console.log('GRUK_CATALOG_CONNECTION_PENDING');}
+              finally{if(c)await c.close().catch(()=>{});}
+              await new Promise(r=>setTimeout(r,15000));
+            }
+            throw Error('CONNECTION_NOT_VERIFIED');
+          }
+          main().catch(()=>{console.error('GRUK_CATALOG_PROBE_FAILED');process.exitCode=1;});
+          NODE
