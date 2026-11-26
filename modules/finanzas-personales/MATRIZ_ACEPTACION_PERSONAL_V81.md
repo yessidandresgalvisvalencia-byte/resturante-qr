@@ -225,3 +225,6 @@ Validación local previa a publicación r121:5/5 nuevas sin omisiones; conjunto 
 
 
 Revisión previa al cierre de CI: el código inicial46b25190d689238e521ed711beb6764b6ff0d915 podía insertar un cierre con importes de proyección corruptos y rechazar después su recibo. Se exige capital/saldo seguros y coherentes en verificarCierre antes de insertar: el fallo no deja un cierre confirmado sin recibo. Se añadieron casos de saldo negativo, superior al capital y fuera de rango. Es corrección del mismo bloque, no uno adicional. Verificar CI del SHA corregido.
+
+
+CI inicial46b25190 falló en integración autenticada job139699991599, escenario de cierre: HTTP500 donde se esperaba200. Causa identificada: faltaba registrar el nuevo nombre de evento en el enum del outbox y el bus publicador. Se añaden ambos contratos y prueba de validación/publicación; no se cambia la expectativa200 ni el gate. La transacción fallida revirtió como exigía la prueba. Se verificará CI del SHA posterior con la corrección de importes y del contrato de publicación.
