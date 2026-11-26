@@ -9,3 +9,7 @@ Never use GitHub source, public artifacts or the primary Mongo database as the s
 ## Interrupted backup recovery
 
 Recovery inspection is read-only. A lock directory or unexpected entry requires review; age or PID alone never proves a lock is abandoned. Stop all backup writers and verify that no child backup process remains before any authorized manual intervention. Preserve archives and incomplete files for investigation. Do not remove or replace a lock while a writer may still be active. Resume only after independent integrity and restore checks. The inspection is not an automatic recovery or deletion mechanism.
+
+## Runtime integration and administrative alerts
+
+The normal CLI remains listener-only: real backup execution is release-blocked and the scheduler must not generate fictitious successful backups. Automated scheduling is exercised through explicit in-process synthetic backup injection in tests only, not through environment configuration. The runtime owns signal handling and drains its scheduled tick before closing the local service. Administrative alerts are bounded structured stderr records, not confirmation of external administrator delivery. Installation remains explicit: initialize a new private directory using native-storage-init.js, then configure GRUK_NATIVE_BACKUP_ROOT and GRUK_STORAGE_SIGNING_KEY_FILE from its output. Do not enable real backup or use customer data. External alert delivery, full installation verification on an independently durable volume, and production security approval remain open gates.

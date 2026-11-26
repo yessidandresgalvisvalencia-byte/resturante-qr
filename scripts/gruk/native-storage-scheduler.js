@@ -4,7 +4,7 @@ const {record}=require('./native-storage-history');
 const {acquire}=require('./native-storage-lock');
 function createScheduler({root,backup,alert,intervalMs=86400000,policy={},clock=Date.now}){
  if(typeof backup!=='function'||typeof alert!=='function'||!Number.isSafeInteger(intervalMs)||intervalMs<1000||intervalMs>2147483647)throw Error('INVALID_CONFIG');
- let busy=false,timer=null,lastSuccess=null,lastFailure=null;
+ let busy=false,timer=null,lastSuccess=null,lastFailure=null,pending=null;
  async function tick(){
   if(busy)return {status:'busy'};
   busy=true;
@@ -36,6 +36,6 @@ function createScheduler({root,backup,alert,intervalMs=86400000,policy={},clock=
    return {status:'failed',code,...(journalFailed?{journalFailed:true}:{})};
   }finally{try{if(release)await release();}finally{busy=false;}}
  }
- return {tick,start(){if(timer===null)timer=setInterval(()=>{void tick().catch(()=>{console.error('GRUK_STORAGE_LOCK_RELEASE_FAILED');});},intervalMs);},stop(){if(timer!==null)clearInterval(timer);timer=null;},status(){return {busy,lastSuccess,lastFailure,running:timer!==null};}};
+ return {tick,start(){if(timer===null)timer=setInterval(()=>{if(!pending)pending=tick().catch(()=>{console.error('GRUK_STORAGE_LOCK_RELEASE_FAILED');}).finally(()=>{pending=null;});},intervalMs);},async stop(){if(timer!==null)clearInterval(timer);timer=null;if(pending)await pending;},status(){return {busy,lastSuccess,lastFailure,running:timer!==null};}};
 }
 module.exports={createScheduler};
