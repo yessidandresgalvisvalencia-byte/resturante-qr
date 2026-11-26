@@ -8,10 +8,16 @@ function canon(v){if(v instanceof Date)return v.toISOString();if(v instanceof mo
 const igual=(a,b)=>JSON.stringify(canon(a))===JSON.stringify(canon(b));
 const digest=v=>crypto.createHash("sha256").update(JSON.stringify(canon(v))).digest("hex");
 function foto(p){return canon(Object.fromEntries(Object.entries(p).filter(([k])=>!["_id","usuarioId","__v","createdAt","updatedAt","retiroRevision","retiroHash","correccionRevision","correccionHash","imputacionRevision","imputacionHash"].includes(k))));}
-function hash(e){return digest(Object.fromEntries(["usuarioId","prestamoId","secuencia","solicitudId","solicitudHash","cambios","anterior","posterior","fecha","hashAnterior"].map(k=>[k,e[k]])));}
+function hash(e){return digest(Object.fromEntries(["usuarioId","prestamoId","secuencia","solicitudId","solicitudHash","cambios","anterior","posterior","fecha","hashAnterior",...(Object.hasOwn(e,"noAplicada")?["noAplicada","motivoNoAplicada"]:[])].map(k=>[k,e[k]])));}
+function verificarCierre(e){
+ if(!Object.hasOwn(e,"noAplicada")&&!Object.hasOwn(e,"motivoNoAplicada"))return;
+ if(e.noAplicada!==true||e.motivoNoAplicada!=="CIERRE_EXPLICITO_PROPIETARIO"||!igual(e.anterior,e.posterior)||e.anterior?.direccion!=="POR_COBRAR")throw falla("Cierre de revisión no verificable");
+ const c=validar(e.usuarioId,e.prestamoId,e.cambios,{confirmacion:true,solicitudId:e.solicitudId});
+ if(c.revisarCobrosTrabajo!==true)throw falla("Cierre de otro contrato");
+}
 function verificar(eventos,p){
  let prev=GENESIS;if(eventos.length>MAX)throw falla("Historial de correcciones supera capacidad verificable");
- for(let i=0;i<eventos.length;i++){const e=eventos[i];if(String(e.usuarioId)!==String(p.usuarioId)||String(e.prestamoId)!==String(p._id)||e.secuencia!==i+1||e.hashAnterior!==prev||e.hashActual!==hash(e)||e.solicitudHash!==digest(e.cambios))throw falla("Historial de correcciones no verificable");prev=e.hashActual;}
+ for(let i=0;i<eventos.length;i++){const e=eventos[i];if(String(e.usuarioId)!==String(p.usuarioId)||String(e.prestamoId)!==String(p._id)||e.secuencia!==i+1||e.hashAnterior!==prev||e.hashActual!==hash(e)||e.solicitudHash!==digest(e.cambios))throw falla("Historial de correcciones no verificable");verificarCierre(e);prev=e.hashActual;}
  if((p.correccionRevision||0)!==eventos.length||(p.correccionHash||GENESIS)!==prev)throw falla("Cursor de correcciones no verificable");return eventos.at(-1);
 }
 async function exigirIndices(){let indices;try{indices=await E.collection.indexes();}catch{throw falla("Índices de corrección no disponibles",503);}
@@ -23,15 +29,26 @@ function validar(u,id,c,s){
 }
 // Se conserva validar() para verificar/reintentar eventos históricos con su cuerpo original.
 function exigirVersionOrigenNueva(c){if(Object.hasOwn(c,"origenCuentaPorCobrar")&&c.versionOrigen===undefined)throw Object.assign(falla("Confirma el origen por separado desde Confirmar origen, con la selección vigente. Conserva la solicitud histórica si estás consultando una corrección anterior",422),{code:"ORIGEN_REQUIERE_VERSION"});}
-async function corregir(usuarioId,prestamoId,cambios,solicitud,aplicar){
- const c=validar(usuarioId,prestamoId,cambios,solicitud),solicitudHash=digest(c);await exigirIndices();
+async function corregir(usuarioId,prestamoId,cambios,solicitud,aplicar,cerrarSinAplicar=false){
+ const c=validar(usuarioId,prestamoId,cambios,solicitud),solicitudHash=digest(c);if(cerrarSinAplicar&&c.revisarCobrosTrabajo!==true)throw falla("Cierre de otro contrato",400);await exigirIndices();
  const session=await mongoose.startSession();let resultado;
  try{await session.withTransaction(async()=>{
   const raw=await P.findOne({_id:prestamoId,usuarioId}).session(session).lean();if(!raw)throw falla("Préstamo no encontrado",404);
   const eventos=await E.find({usuarioId,prestamoId}).sort({secuencia:1}).limit(MAX+1).maxTimeMS(5000).session(session).lean(),ultimo=verificar(eventos,raw);
   if(ultimo&&ultimo.posterior?.origenCuentaPorCobrar!==raw.origenCuentaPorCobrar)throw falla("Origen actual no coincide con la última corrección auditada; requiere revisión sin reparar automáticamente");
   const replay=await E.findOne({usuarioId,solicitudId:solicitud.solicitudId}).session(session).lean();
-  if(replay){if(String(replay.prestamoId)!==String(prestamoId)||replay.solicitudHash!==solicitudHash)throw falla("Identificador de corrección usado con otros datos");resultado={...raw,correccion:{hash:replay.hashActual,duplicado:true,vigente:ultimo?.hashActual===replay.hashActual&&igual(foto(raw),replay.posterior)}};return;}
+  if(replay){if(String(replay.prestamoId)!==String(prestamoId)||replay.solicitudHash!==solicitudHash)throw falla("Identificador de corrección usado con otros datos");if(replay.noAplicada&&!cerrarSinAplicar)throw Object.assign(falla("La solicitud fue cerrada sin aplicar. Consulta su recibo; no cambies la clave para reenviarla"),{code:"REVISION_CERRADA_SIN_APLICAR"});resultado={...raw,correccion:{...(replay.noAplicada?{noAplicada:true}:{}),hash:replay.hashActual,duplicado:true,vigente:ultimo?.hashActual===replay.hashActual&&igual(foto(raw),replay.posterior)}};return;}
+  if(cerrarSinAplicar){
+   if(raw.direccion!=="POR_COBRAR")throw falla("Cuenta por cobrar no encontrada",404);
+   if(eventos.length>=MAX)throw falla("Historial de correcciones supera capacidad verificable");
+   await require("./seleccionOrigenCobroPersonal.service").enSesion(usuarioId,raw,eventos,session);
+   await require("./proteccionOriginalCompensadoPersonal.service").serializarEscrituraFuente(usuarioId,session);
+   const e={usuarioId:raw.usuarioId,prestamoId:raw._id,secuencia:eventos.length+1,solicitudId:solicitud.solicitudId,solicitudHash,cambios:canon(c),anterior:foto(raw),posterior:foto(raw),fecha:new Date(),hashAnterior:ultimo?.hashActual||GENESIS,noAplicada:true,motivoNoAplicada:"CIERRE_EXPLICITO_PROPIETARIO"};
+   e.hashActual=hash(e);verificarCierre(e);await E.create([e],{session});
+   const cambio=await P.updateOne({_id:raw._id,usuarioId},{$set:{correccionRevision:e.secuencia,correccionHash:e.hashActual}},{session,timestamps:false});if(cambio.matchedCount!==1)throw falla("Préstamo cambió durante cierre");
+   await O.create([{usuarioId,eventId:crypto.randomUUID(),eventName:"REVISION_ORIGEN_PERSONAL_CERRADA_SIN_APLICAR",aggregateType:"PRESTAMO_PERSONAL",aggregateId:raw._id,payload:{prestamoId:String(raw._id),solicitudId:solicitud.solicitudId,correccionHash:e.hashActual,afectaCaja:false}}],{session});
+   resultado={...raw,correccionRevision:e.secuencia,correccionHash:e.hashActual,correccion:{hash:e.hashActual,duplicado:false,vigente:true,noAplicada:true}};return;
+  }
   exigirVersionOrigenNueva(c);
   if(c.versionOrigen!==undefined){
    if(c.versionOrigen!==await require("./seleccionOrigenCobroPersonal.service").enSesion(usuarioId,raw,eventos,session))throw falla("La cuenta, sus correcciones o cobros cambiaron. Consulta de nuevo antes de confirmar el origen");
@@ -54,4 +71,4 @@ async function historial(usuarioId,prestamoId){
  const eventos=await E.find({usuarioId,prestamoId}).sort({secuencia:1}).limit(MAX+1).maxTimeMS(5000).session(session).lean();verificar(eventos,p);resultado={eventos,alcance:"CORRECCIONES_REGISTRADAS",certificaHistoriaCompleta:false};
  },{readConcern:{level:"snapshot"},readPreference:"primary"});return resultado;}finally{await session.endSession();}
 }
-module.exports={exigirVersionOrigenNueva,foto,digest,hash,verificar,validar,exigirIndices,corregir,historial};
+module.exports={verificarCierre,exigirVersionOrigenNueva,foto,digest,hash,verificar,validar,exigirIndices,corregir,historial};

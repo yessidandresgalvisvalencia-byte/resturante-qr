@@ -16,11 +16,12 @@ function desdeEvento(usuarioId,prestamoId,solicitudId,e){
  if(c.origenCuentaPorCobrar!=="TRABAJO"||c.revisarCobrosTrabajo!==true||!["origenCuentaPorCobrar,revisarCobrosTrabajo","origenCuentaPorCobrar,revisarCobrosTrabajo,versionOrigen"].includes(campos))throw falla("Recibo de otro contrato",404);
  const a=e.anterior,p=e.posterior;
  const sinOrigen=v=>Object.fromEntries(Object.entries(v).filter(([k])=>k!=="origenCuentaPorCobrar"));
- if(!a||!p||a.direccion!=="POR_COBRAR"||p.direccion!=="POR_COBRAR"||p.origenCuentaPorCobrar!=="TRABAJO"||!Number.isSafeInteger(a.principalMinor)||a.principalMinor<1||!Number.isSafeInteger(a.saldoMinor)||a.saldoMinor<0||a.saldoMinor>a.principalMinor||C.digest(sinOrigen(a))!==C.digest(sinOrigen(p)))throw falla("Revisión de origen alteró otros datos");
+ C.verificarCierre(e);
+ if(!a||!p||a.direccion!=="POR_COBRAR"||p.direccion!=="POR_COBRAR"||(e.noAplicada!==true&&p.origenCuentaPorCobrar!=="TRABAJO")||!Number.isSafeInteger(a.principalMinor)||a.principalMinor<1||!Number.isSafeInteger(a.saldoMinor)||a.saldoMinor<0||a.saldoMinor>a.principalMinor||C.digest(sinOrigen(a))!==C.digest(sinOrigen(p)))throw falla("Revisión de origen alteró otros datos");
  const path="/cuentas-por-cobrar/"+id+"/corregir-origen-trabajo";
  const body={confirmacion:true,...(c.versionOrigen!==undefined?{versionOrigen:c.versionOrigen}:{})};
  return{contrato:CONTRATO,confirmado:true,usuarioId:u,prestamoId:id,solicitudId,metodo:"POST",path,body,
-  huellaSolicitud:C.digest({cuerpo:body,metodo:"POST",path}),hashEvento:e.hashActual,
+  huellaSolicitud:C.digest({cuerpo:body,metodo:"POST",path}),hashEvento:e.hashActual,...(e.noAplicada?{noAplicada:true,motivoNoAplicada:e.motivoNoAplicada}:{}),
   solicitudHistoricaSinVersion:c.versionOrigen===undefined,certificaEstadoActual:false,afectaCaja:false};
 }
 async function consultar(usuarioId,prestamoId,solicitudId){
@@ -41,4 +42,11 @@ async function consultar(usuarioId,prestamoId,solicitudId){
  },{readConcern:{level:"snapshot"},readPreference:"primary"});return resultado;
  }finally{await session.endSession();}
 }
-module.exports={CONTRATO,desdeEvento,consultar};
+async function cerrarSinAplicar(usuarioId,prestamoId,solicitud){
+ usuarioId=String(usuarioId).toLowerCase();prestamoId=String(prestamoId).toLowerCase();
+ const cambios={origenCuentaPorCobrar:"TRABAJO",revisarCobrosTrabajo:true,...(solicitud?.versionOrigen!==undefined?{versionOrigen:solicitud.versionOrigen}:{})};
+ await C.corregir(usuarioId,prestamoId,cambios,solicitud,()=>{throw falla("Un cierre no aplica reclasificaciones");},true);
+ const r=await consultar(usuarioId,prestamoId,solicitud.solicitudId);
+ return{...r,soloLectura:false,detalle:r.reciboRevisionOrigen.noAplicada?"Cierre explícito verificado: esta solicitud no se aplicó y no podrá aplicarse con la misma clave.":"La revisión ya estaba confirmada; el cierre no la anula ni revierte. Conserva su recibo."};
+}
+module.exports={CONTRATO,desdeEvento,consultar,cerrarSinAplicar};

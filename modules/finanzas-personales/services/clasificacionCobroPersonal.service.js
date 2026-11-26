@@ -10,7 +10,7 @@ function verificarOrigenHistorico(original,ultimo){
  return tipo;
 }
 function confirmacionExplicita(original,eventos){
- const e=eventos.findLast(e=>e.cambios&&Object.hasOwn(e.cambios,"origenCuentaPorCobrar"));
+ const e=eventos.findLast(e=>e.noAplicada!==true&&e.cambios&&Object.hasOwn(e.cambios,"origenCuentaPorCobrar"));
  return e&&e.cambios.origenCuentaPorCobrar===original.origenCuentaPorCobrar&&e.posterior?.origenCuentaPorCobrar===original.origenCuentaPorCobrar?e.hashActual:null;
 }
 async function evidenciaEnSesion(usuarioId,original,session){

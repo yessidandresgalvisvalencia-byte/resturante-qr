@@ -356,7 +356,7 @@ async function aplicarCorreccionPrestamo(id,cambios){
 }
 window.verCorreccionesPrestamo=async id=>{
  const sesion=token;try{const r=await api("/prestamos/"+encodeURIComponent(id)+"/correcciones");if(!sesion||sesion!==token||$("app").hidden)return;
- const filas=r.eventos||[];alert("Correcciones registradas: "+filas.length+". No es el historial completo de pagos ni cambios anteriores.\n"+filas.slice(-10).map(e=>new Date(e.fecha).toLocaleDateString("es-CO")+" · Origen: "+(e.anterior.origenCuentaPorCobrar||"SIN_CONFIRMAR")+" → "+(e.posterior.origenCuentaPorCobrar||"SIN_CONFIRMAR")+" · Capital: "+money(e.anterior.principalMinor)+" → "+money(e.posterior.principalMinor)+" · Pendiente: "+money(e.anterior.saldoMinor)+" → "+money(e.posterior.saldoMinor)).join("\n")+(filas.length>10?"\nSe muestran las últimas diez correcciones.":""));
+ const filas=r.eventos||[];alert("Correcciones registradas: "+filas.length+". No es el historial completo de pagos ni cambios anteriores.\n"+filas.slice(-10).map(e=>new Date(e.fecha).toLocaleDateString("es-CO")+(e.noAplicada===true?" · Cierre sin aplicar: no confirmó origen ni cambió importes.":" · Origen: "+(e.anterior.origenCuentaPorCobrar||"SIN_CONFIRMAR")+" → "+(e.posterior.origenCuentaPorCobrar||"SIN_CONFIRMAR")+" · Capital: "+money(e.anterior.principalMinor)+" → "+money(e.posterior.principalMinor)+" · Pendiente: "+money(e.anterior.saldoMinor)+" → "+money(e.posterior.saldoMinor))).join("\n")+(filas.length>10?"\nSe muestran las últimas diez correcciones.":""));
  }catch(e){if(sesion===token&&!$("app").hidden)alert("No se pudo verificar el historial: "+e.message);}
 };
 window.verOrigenCobro=async id=>{const sesion=token;try{

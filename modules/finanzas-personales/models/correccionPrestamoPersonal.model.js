@@ -1,6 +1,8 @@
 "use strict";
 const mongoose=require("mongoose");
 const schema=new mongoose.Schema({
+ noAplicada:{type:Boolean,default:undefined,immutable:true,validate:v=>v===undefined||v===true},
+ motivoNoAplicada:{type:String,default:undefined,immutable:true,enum:["CIERRE_EXPLICITO_PROPIETARIO"]},
  usuarioId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},
  prestamoId:{type:mongoose.Schema.Types.ObjectId,required:true,immutable:true},
  secuencia:{type:Number,required:true,immutable:true,validate:Number.isSafeInteger,min:1},
