@@ -23,3 +23,7 @@ Recovery diagnostics recognize both backup and replay locks and inspect ownershi
 ## Startup preflight
 
 Both direct listener startup and runtime startup reject the real-backup flag. Before opening the loopback listener, the service checks private volume recovery state and free capacity (default reserve 100 MiB). An interrupted lock, unexpected file, unsafe permissions or insufficient space blocks startup; the preflight does not delete evidence. This is a local readiness gate, not proof of durable hardware, independent backup custody or production authorization.
+
+## Phase one application integration
+
+The main enterprise application registers GET /health/storage as a minimal standby capability indicator. No storage listener, scheduler, volume creation, customer data access or backup is initiated by this integration. The endpoint reports no filesystem paths, keys or capacity. A real-backup flag reports configuration-blocked and never activates backups. This endpoint does not certify hardware or backup readiness. Production deployment remains subject to CI and zero additional cost verification.
