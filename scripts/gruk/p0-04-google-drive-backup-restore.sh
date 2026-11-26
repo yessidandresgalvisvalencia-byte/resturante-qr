@@ -48,6 +48,7 @@ mongodump --uri="$GRUK_ENTERPRISE_BACKUP_URI" --db=restaurante --archive --gzip 
   age -r "$GRUK_BACKUP_AGE_RECIPIENT" -o "$tmp/archive.age"
 [[ -s "$tmp/archive.age" ]] || { echo 'Encrypted archive missing' >&2; exit 1; }
 sha256sum "$tmp/archive.age" | awk '{print $1}' > "$tmp/sha256"
+node scripts/gruk/drive-backup-manifest.js create "$tmp/archive.age" "$file_name" "$tmp/manifest.json"
 # Upload ciphertext only. A new Google Drive object is created for each run.
 node scripts/gruk/p0-04-google-drive-encrypted-object.js upload "$tmp/archive.age" "$file_name" > "$tmp/drive-file-id"
 drive_id="$(cat "$tmp/drive-file-id")"
@@ -55,6 +56,7 @@ drive_id="$(cat "$tmp/drive-file-id")"
 node scripts/gruk/p0-04-google-drive-encrypted-object.js download "$drive_id" "$tmp/downloaded.age" > "$tmp/download-evidence"
 sha256sum "$tmp/downloaded.age" | awk '{print $1}' > "$tmp/downloaded.sha256"
 cmp -s "$tmp/sha256" "$tmp/downloaded.sha256" || { echo 'Offsite archive integrity mismatch' >&2; exit 1; }
+node scripts/gruk/drive-backup-manifest.js verify "$tmp/downloaded.age" "$file_name" "$tmp/manifest.json"
 docker run -d --name "$container" --network none mongo:7.0 >/dev/null
 ready=0
 for _ in $(seq 1 40); do
