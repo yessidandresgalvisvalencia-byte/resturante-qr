@@ -83,3 +83,7 @@ A disabled-by-default CLI connects the signed receipt, ciphertext verification a
 ## Mandatory catalog workflow gate
 
 The manual real-data workflow now requires GRUK_CATALOG_ENABLED=true, a dedicated catalog URI secret and an independently pinned host variable. It validates connection configuration before querying the source, registers the signed ciphertext receipt before Drive upload and verifies the catalog against downloaded ciphertext before isolated restoration. The manual job installs locked Node dependencies. A registered receipt is not proof of successful upload or restoration; failed attempts may leave a receipt and require reconciliation, never overwrite. No infrastructure or production credentials have been provisioned and the manual job must remain disabled until explicit approval and real independent deployment validation.
+
+## Read-only reconciliation contract
+
+Classifies missing or untrusted catalog entries, unavailable remote inspection, unconfirmed uploads, duplicates, size mismatches and objects awaiting restore verification. Never deletes, overwrites, or retries uploads automatically. An injected inspector must return a complete exact-folder result set; a real Drive inspector and durable restore evidence remain pending. Metadata agreement alone never establishes restoration. Tests use synthetic adapters.
