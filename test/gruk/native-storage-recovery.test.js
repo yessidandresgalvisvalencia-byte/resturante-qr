@@ -1,0 +1,23 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {inspectRecovery}=require('../../scripts/gruk/native-storage-recovery');
+test('interrupted backup inspection preserves every entry',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-recovery-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ assert.equal((await inspectRecovery(root)).status,'clear');
+ await fs.mkdir(path.join(root,'.backup.lock'),{mode:0o700});
+ await fs.writeFile(path.join(root,'partial.tmp'),'synthetic',{mode:0o600});
+ const result=await inspectRecovery(root);
+ assert.equal(result.status,'review-required');
+ assert.equal(result.lockPresent,true);
+ assert.equal(result.unexpectedEntries,1);
+ assert.equal(result.automaticDeletion,false);
+ assert.equal(await fs.readFile(path.join(root,'partial.tmp'),'utf8'),'synthetic');
+ assert.ok((await fs.stat(path.join(root,'.backup.lock'))).isDirectory());
+ await fs.symlink('partial.tmp',path.join(root,'gruk-restaurante-1-1.archive.age'));
+ assert.equal((await inspectRecovery(root)).unsafeEntries,true);
+});
