@@ -47,3 +47,7 @@ Before creating a resumable upload, query Drive storageQuota and refuse missing 
 Cloud download now stages files privately, enforces provider-declared length and MD5 before publication, validates the AGE header and refuses overwrite. MD5 is a transport consistency check only, not a security proof; the independently computed SHA-256 and AGE authenticated decryption in the restore workflow remain mandatory. Redirects are rejected and no raw remote errors are logged.
 
 The restore workflow creates a versioned SHA-256 manifest before uploading and verifies downloaded ciphertext against that local reference before isolated restore. The manifest binds database scope, archive name, byte count and digest. This is an independent reference relative to remote metadata, but temporary runner custody is not durable independent storage or a signed receipt. A separate authenticated manifest destination remains a release gate. No real execution is authorized by this change.
+
+## Signed manifest contract (development only)
+
+Ed25519 receipts bind the canonical enterprise manifest to an explicit key fingerprint and domain-separated signature. Verification requires a separately trusted public key and expected archive name, never a key supplied by the receipt. Synthetic tests use ephemeral keys. This module is not yet wired into the real backup workflow; durable independent custody, key provisioning, rotation, and authorization remain pending. No production data or secrets are used.
