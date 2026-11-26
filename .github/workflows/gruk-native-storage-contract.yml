@@ -138,3 +138,40 @@ jobs:
           sed "s|/usr/bin/node |$(command -v node) |g" deploy/gruk-storage/gruk-storage.service > "$tmp/gruk-storage.service"
           systemd-analyze verify --man=no "$tmp/gruk-storage.service"
           echo GRUK_STANDBY_UNIT_SYNTAX_OK
+
+  mongo_vault:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Synthetic encrypted cloud vault transaction and recovery
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp=$(mktemp -d)
+          trap 'docker rm -f gruk-vault-ci >/dev/null 2>&1 || true; rm -rf "$tmp"' EXIT
+          command -v age || (sudo apt-get update -qq && sudo apt-get install -y age)
+          docker run -d --name gruk-vault-ci -p 127.0.0.1:27189:27017 mongo:7.0 --replSet grukci --bind_ip_all
+          for i in $(seq 1 40); do
+            if docker exec gruk-vault-ci mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep -qx 1; then break; fi
+            sleep 1
+          done
+          docker exec gruk-vault-ci mongosh --quiet --eval 'rs.initiate({_id:"grukci",members:[{_id:0,host:"localhost:27017"}]})'
+          ready=0
+          for i in $(seq 1 40); do
+            if docker exec gruk-vault-ci mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -qx true; then ready=1; break; fi
+            sleep 1
+          done
+          [[ "$ready" == 1 ]]
+          head -c 300000 /dev/urandom > "$tmp/plain"
+          age-keygen -o "$tmp/identity" 2>/dev/null
+          age -r "$(age-keygen -y "$tmp/identity")" -o "$tmp/input.age" "$tmp/plain"
+          node --test test/gruk/native-storage-mongo-vault.test.js
+          node scripts/gruk/native-storage-mongo-vault-integration.js "$tmp/input.age" "$tmp/recovered.age"
+          age -d -i "$tmp/identity" -o "$tmp/recovered" "$tmp/recovered.age"
+          cmp "$tmp/plain" "$tmp/recovered"
+          echo GRUK_MONGO_VAULT_AGE_RECOVERY_OK

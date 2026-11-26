@@ -8,8 +8,8 @@ function createMongoVault({db,client,keyring}){
  if(db?.databaseName!=='gruk_storage_vault'||typeof client?.startSession!=='function'||typeof keyring?.verify!=='function')throw Error('VAULT_SCOPE');
  const records=db.collection('archives'),chunks=db.collection('archive_chunks'),quota=db.collection('vault_quota');
  function validate(name,receipt){
-  if(!NAME.test(name))throw Error('VAULT_NAME');
-  const m=keyring.verify(receipt);
+  if(typeof name!=='string'||!NAME.test(name))throw Error('VAULT_NAME');
+  const m=keyring.verify(receipt,name);
   if(m?.name!==name||m.database!=='restaurante'||m.version!==1||!Number.isSafeInteger(m.bytes)||m.bytes<64||m.bytes>CAP||!/^[a-f0-9]{64}$/.test(m.sha256))throw Error('VAULT_RECEIPT');
   return m;
  }
@@ -37,7 +37,7 @@ function createMongoVault({db,client,keyring}){
    return {name,status:'STORED',restoreVerified:false,independentReplica:false};
   },
   async get(name){
-   if(!NAME.test(name))throw Error('VAULT_NAME');
+   if(typeof name!=='string'||!NAME.test(name))throw Error('VAULT_NAME');
    const record=await records.findOne({_id:name});
    if(!record)throw Error('VAULT_MISSING');
    const m=validate(name,record.receipt),count=Math.ceil(m.bytes/CHUNK);
@@ -46,7 +46,7 @@ function createMongoVault({db,client,keyring}){
    if(parts.length!==count)throw Error('VAULT_INTEGRITY');
    const data=Buffer.concat(parts.map((p,i)=>{
     if(p.n!==i||p._id!==name+':'+i)throw Error('VAULT_INTEGRITY');
-    const b=Buffer.isBuffer(p.data)?p.data:Buffer.from(p.data.value(true));
+    const b=Buffer.isBuffer(p.data)?p.data:Buffer.from(p.data.value());
     if(b.length!==Math.min(CHUNK,m.bytes-i*CHUNK))throw Error('VAULT_INTEGRITY');
     return b;
    }));
