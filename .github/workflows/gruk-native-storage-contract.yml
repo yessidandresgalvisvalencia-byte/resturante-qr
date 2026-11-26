@@ -9,6 +9,7 @@ on:
       - 'test/gruk/native-storage-api.test.js'
       - 'test/gruk/native-storage-capacity.test.js'
       - 'test/gruk/native-storage-scheduler.test.js'
+      - 'test/gruk/native-storage-history.test.js'
       - 'test/gruk/native-backup-storage.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
@@ -51,3 +52,5 @@ jobs:
         run: node --test test/gruk/native-storage-capacity.test.js
       - name: Backup scheduler contract
         run: node --test test/gruk/native-storage-scheduler.test.js
+      - name: Persistent journal contract
+        run: node --test test/gruk/native-storage-history.test.js
