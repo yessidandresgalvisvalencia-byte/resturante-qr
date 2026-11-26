@@ -30,3 +30,14 @@ Checkpoint: publicar con expected_sha y force:false sobre HEAD comprobado, verif
 ## Fallo inicial y corrección del ensayo
 
 Código inicialf22cdc49be149c7d2f87d98a8de784ae51567351, Gate45878720471/Seguridad45878720467 success; V8145878720542 falló en job140112299476. Mongo107 casos/105aprobados/2fallos (caso y suite padre), sin omisiones: el fixture agotó la cuota de20 solicitudes/minuto de un solo propietario antes de comprobar cuerpo cambiado409 (obtuvo429). Se separan los cuatro escenarios con propietario sintético independiente y su propia cadena mixta legada; ANULAR inicia con decisión previa aplicada. No se cambia producción, límites/cuotas/gates/timeouts ni respuestas esperadas de los casos. Se conservan comprobaciones de captura, rollback, carrera, cadena, privacidad, fuente/caja y recibos/replay sin clave. CI propia del SHA corregido pendiente.
+
+
+## Verificación del código corregido y checkpoint
+
+Código2ef326292bee19ff23aaec46bd6be538315a8e5d/árbold3c622fe21583909b1e58f2eb96ca68abf85981b. Tres workflows propios success: Gate45879073716, Seguridad45879073750, Precisión/Integridad45879073712;13 jobs completados/success. Job autenticado140113486041: Mongo107/107 y Chromium/backend32/32, cero fallos/omisiones/cancelaciones. FP_CONTEXTO_IMPUTACION_MONGO aparece para APLICAR/EXCLUIR/ANULAR/CIERRE con propietarios independientes/cadena mixta, carrera/rollback, recibos y fuentes/caja intactos; FP_CONTEXTO_IMPUTACION_BROWSER aparece para aplicada/no aplicada con login/HTTP/Chromium390 reales,503 previo, respuesta perdida y recuperación/copia sin doble caja.
+
+Precisión de evidencia: en Mongo la adulteración administrativa por omisión del campo se ejerce en CIERRE; los otros escenarios verifican cadena/firma y conservación, además de los vectores unitarios de omisión. El cierre corrige únicamente el marcador del fixture a omisionRechazadaEnEsteEscenario=cierre; no cambia comportamiento ni afirmaciones esperadas. No atribuir ese ataque real a los cuatro escenarios por separado. El descendiente de cierre requiere su propio CI.
+
+Copia/restauración sintética del mismo job:45 colecciones/8180 documentos/8360770 bytes,captura266ms/restauración1028ms/edad1257ms; custodiaIndependiente=false,rpoProduccion=false. No acredita respaldo durable independiente, retención/accesos ni RPO/RTO operativo de producción. Fuentes deliberadamente corruptas de ensayo no se certifican semánticamente por copiar BSON.
+
+Un bloque funcional completo de GitHub, sin desplegar ni integrar. Fallo inicial429/corrección conservados arriba; sin cambios de cuotas/gates. Siguiente ejecución debe comprobar HEAD/CI del cierre, instrucciones/matriz/#407 y revisar auditoría/contexto y recuperación de retiro/restauración lógica de deudas personales según cobertura existente. #407/custodio/respaldo/operación/dispositivos/auditoría real siguen pendientes. Base652126a intacta; cero Render/datos reales/costos, tarea activa.
