@@ -24,6 +24,7 @@ on:
       - 'test/gruk/native-storage-coordinated.test.js'
       - 'test/gruk/native-storage-signed-registration.test.js'
       - 'test/gruk/native-storage-signed-runtime.test.js'
+      - 'test/gruk/native-storage-receipt-recovery.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
   contents: read
@@ -102,3 +103,6 @@ jobs:
 
       - name: Native signed backup lifecycle contract
         run: node --test test/gruk/native-storage-signed-runtime.test.js test/gruk/native-storage-backup-adapter.test.js
+
+      - name: Native pre-signed receipt recovery contract
+        run: node --test test/gruk/native-storage-receipt-recovery.test.js
