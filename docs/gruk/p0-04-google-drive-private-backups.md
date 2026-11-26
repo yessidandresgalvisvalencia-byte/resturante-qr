@@ -123,3 +123,7 @@ Coordinated inspections now require verified audit events before inspection and 
 ## Atomic recovery transaction (development)
 
 The new recovery primitive updates the reservation and inserts both audit events within one MongoDB transaction, using snapshot reads and majority journaled commit. Any failure aborts the transaction; there is no fallback to separate writes. The caller must supply a client and database from the same independent deployment and verify termination of the old worker. The legacy recovery helper remains available but must not be used for production administrative recovery. Tests simulate transaction rollback; actual replica-set integration, privilege validation and administrative wiring remain pending. No live recovery occurred.
+
+## Administrative recovery entry point
+
+The disabled-by-default drive-recovery-admin CLI invokes only the atomic recovery transaction, with separate administrator and worker usernames, a pinned catalog host, explicit operator confirmation and incident reference. No nontransactional fallback exists in this entry point. The older helper remains for legacy tests and must not be exposed to operators. Username separation is not proof of least privilege; provider roles, trusted worker termination evidence, real transaction validation and credentials must be verified before activation. No workflow, live recovery or infrastructure was activated.
