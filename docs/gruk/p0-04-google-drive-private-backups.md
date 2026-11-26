@@ -111,3 +111,7 @@ The recovery primitive requires explicit confirmation that the previous worker t
 ## Coordinated inspection integration (development)
 
 The coordinated runner joins persistent reservation, bounded batch processing and read-only inspection, aggregating alerts once per batch. It requires three explicit activation flags and validates inputs before opening a connection. The reservation is kept on uncertain completion. The test covers disabled and occupied reservations; full successful end-to-end integration against a real database, immutable recovery audit, independent credentials and scheduling remain pending. No scheduler is installed.
+
+## Append-only reconciliation audit adapter (development)
+
+The audit adapter records bounded inspection and recovery event types using create-only inserts, deterministic event identifiers, majority journaled writes and verified readback. Exact retries are idempotent; conflicting evidence fails closed. This is application-level append-only behavior, not provider-enforced immutability. Dedicated insert/find privileges, independent retention, coordinator integration and real database tests remain required. No live audit records were written.
