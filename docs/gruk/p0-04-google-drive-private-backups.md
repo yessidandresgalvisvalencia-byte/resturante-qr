@@ -59,3 +59,7 @@ The manual restore workflow now requires separately provisioned Ed25519 signing 
 ## Key rotation contract (development)
 
 A bounded trusted public-key registry distinguishes active, retired and revoked Ed25519 keys. Only the active key may sign; retired keys verify historical receipts, revoked keys fail closed. Registry entries are validated against their SPKI SHA-256 fingerprints. The registry must be provisioned through a trusted independent configuration channel; receipt-supplied keys are never trusted. This module is not yet integrated with the real workflow, and does not implement durable registry custody or automatic private-key rotation. Tests use synthetic ephemeral keys only.
+
+## Keyring workflow integration
+
+The manual workflow now requires GRUK_MANIFEST_TRUSTED_KEYRING (JSON with activeKeyId and keys entries containing keyId, status, publicKey) instead of the single trusted public key secret. The signing private key must match the active registry key. Historical receipts can be verified using retired keys; revoked keys fail closed. The shell unsets the signing key after receipt creation. Registry configuration and independent durable receipt custody remain release gates. No real workflow was dispatched.

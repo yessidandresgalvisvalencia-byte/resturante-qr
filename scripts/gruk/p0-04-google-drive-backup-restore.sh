@@ -7,7 +7,7 @@ umask 077
 for command in mongodump mongosh mongorestore age docker sha256sum node; do
   command -v "$command" >/dev/null || { echo "Missing $command" >&2; exit 1; }
 done
-for variable in GRUK_MANIFEST_SIGNING_PRIVATE_KEY GRUK_MANIFEST_TRUSTED_PUBLIC_KEY GRUK_ENTERPRISE_BACKUP_URI GRUK_DRIVE_OAUTH_CLIENT_ID GRUK_DRIVE_OAUTH_CLIENT_SECRET GRUK_DRIVE_OAUTH_REFRESH_TOKEN GRUK_DRIVE_BACKUP_FOLDER_ID GRUK_BACKUP_AGE_RECIPIENT GRUK_BACKUP_AGE_IDENTITY GITHUB_RUN_ID GITHUB_RUN_ATTEMPT; do
+for variable in GRUK_MANIFEST_SIGNING_PRIVATE_KEY GRUK_MANIFEST_TRUSTED_KEYRING GRUK_ENTERPRISE_BACKUP_URI GRUK_DRIVE_OAUTH_CLIENT_ID GRUK_DRIVE_OAUTH_CLIENT_SECRET GRUK_DRIVE_OAUTH_REFRESH_TOKEN GRUK_DRIVE_BACKUP_FOLDER_ID GRUK_BACKUP_AGE_RECIPIENT GRUK_BACKUP_AGE_IDENTITY GITHUB_RUN_ID GITHUB_RUN_ATTEMPT; do
   [[ -n "${!variable:-}" ]] || { echo "Missing private configuration: $variable" >&2; exit 1; }
 done
 [[ "$GRUK_BACKUP_APPROVAL" == "RESPALDAR_SOLO_RESTAURANTE" ]] || { echo 'Backup confirmation invalid' >&2; exit 1; }
@@ -50,6 +50,7 @@ mongodump --uri="$GRUK_ENTERPRISE_BACKUP_URI" --db=restaurante --archive --gzip 
 sha256sum "$tmp/archive.age" | awk '{print $1}' > "$tmp/sha256"
 node scripts/gruk/drive-backup-manifest.js create "$tmp/archive.age" "$file_name" "$tmp/manifest.json"
 node scripts/gruk/drive-signed-receipt.js create "$tmp/archive.age" "$file_name" "$tmp/signed-receipt.json"
+unset GRUK_MANIFEST_SIGNING_PRIVATE_KEY
 # Upload ciphertext only. A new Google Drive object is created for each run.
 node scripts/gruk/p0-04-google-drive-encrypted-object.js upload "$tmp/archive.age" "$file_name" > "$tmp/drive-file-id"
 drive_id="$(cat "$tmp/drive-file-id")"

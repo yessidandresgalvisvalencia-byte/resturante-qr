@@ -79,7 +79,7 @@ jobs:
       - name: Dump only restaurante, encrypt, upload to private Drive, download and restore offline
         env:
           GRUK_MANIFEST_SIGNING_PRIVATE_KEY: ${{ secrets.GRUK_MANIFEST_SIGNING_PRIVATE_KEY }}
-          GRUK_MANIFEST_TRUSTED_PUBLIC_KEY: ${{ secrets.GRUK_MANIFEST_TRUSTED_PUBLIC_KEY }}
+          GRUK_MANIFEST_TRUSTED_KEYRING: ${{ secrets.GRUK_MANIFEST_TRUSTED_KEYRING }}
           GRUK_ENTERPRISE_BACKUP_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
           GRUK_ENTERPRISE_DB: restaurante
           GRUK_ENTERPRISE_DB_CONFIRM: restaurante
