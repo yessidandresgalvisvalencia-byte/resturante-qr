@@ -91,3 +91,7 @@ Classifies missing or untrusted catalog entries, unavailable remote inspection, 
 ## Read-only Drive inspection adapter
 
 The inspector queries only the exact private backup folder and archive name, checks folder identity, paginates bounded results, rejects incomplete search and unexpected objects, and exposes only reconciliation metadata. Tests inject a fake HTTP transport; no live OAuth call is performed. A separate runtime wiring and credential validation remain necessary. No uploads, deletes, billing changes or restoration certification occur.
+
+## Reconciliation runtime and local alerts
+
+The read-only CLI requires both GRUK_CATALOG_ENABLED and GRUK_RECONCILIATION_ENABLED, validates connection configuration, reads signed catalog entries, and uses OAuth solely to inspect the exact Drive archive. It emits sanitized local stderr warning events for anomalies and a nonzero exit status; external administrative delivery, scheduling, and production credentials remain unconfigured. Synthetic tests inject both network transports. The CLI is not invoked automatically and cannot certify restoration.
