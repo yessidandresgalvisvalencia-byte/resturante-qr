@@ -38,19 +38,18 @@ test('Drive uploader restricts to age ciphertext, exact folder and opaque ID',()
   assert.match(api,/alt=media/);
   assert.doesNotMatch(api,/console\.log\(.*access_token/);
 });
-test('workflow defaults to safe contract testing and manual authorization for real data',()=>{
-  assert.match(yaml,/workflow_dispatch:/);
-  assert.match(yaml,/if: github\.event_name == 'workflow_dispatch'/);
-  assert.match(yaml,/environment: gruk-enterprise-real-backup/);
-  assert.match(yaml,/GRUK_ENTERPRISE_READONLY_MONGO_URI/);
-  assert.doesNotMatch(yaml,/upload-artifact/);
-  assert.doesNotMatch(yaml,/\bschedule:/);
+test('external workflow is synthetic only and direct execution is retired',()=>{
+ const workflowText=yaml;
+ assert.doesNotMatch(workflowText,/workflow_dispatch:|secrets\.|environment: gruk-enterprise-real-backup|upload-artifact|\bschedule:/);
+ const result=require('node:child_process').spawnSync('bash',[path.resolve(__dirname,'../../scripts/gruk/p0-04-google-drive-backup-restore.sh')],{env:{PATH:'/usr/bin:/bin',GRUK_BACKUP_APPROVAL:'RESPALDAR_SOLO_RESTAURANTE'},encoding:'utf8'});
+ assert.equal(result.status,1);
+ assert.equal(result.stderr.trim(),'GRUK_EXTERNAL_BACKUP_RETIRED');
 });
-test('Drive transport refuses invalid folder before making a request',()=>{
+test('Drive transport is retired before making a request',()=>{
   const result=spawnSync(process.execPath,[path.resolve(__dirname,'../../scripts/gruk/p0-04-google-drive-encrypted-object.js'),'upload','/tmp/nonexistent.age','gruk-restaurante-1-1.archive.age'],{
     env:{...process.env,GRUK_DRIVE_BACKUP_FOLDER_ID:'wrong-folder'},
     encoding:'utf8'
   });
   assert.notEqual(result.status,0);
-  assert.match(result.stderr,/DRIVE_FOLDER_MISMATCH/);
+  assert.match(result.stderr,/GRUK_EXTERNAL_TRANSPORT_RETIRED/);
 });

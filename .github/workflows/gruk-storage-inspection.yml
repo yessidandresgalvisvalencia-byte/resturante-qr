@@ -1,0 +1,18 @@
+name: GRUK Storage controlled inspection
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify native inspection contracts only
+        run: node --test test/gruk/native-storage-coordinated.test.js test/gruk/drive-reconciliation-coordinated.test.js test/gruk/drive-reconciliation-job.test.js
+      - name: Report operating boundary
+        run: echo GRUK_NATIVE_INSPECTION_REQUIRES_AUTHORIZED_PERSISTENT_HOST

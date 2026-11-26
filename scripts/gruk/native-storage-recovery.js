@@ -9,7 +9,7 @@ async function inspectRecovery(root){
  const entries=await fs.readdir(root,{withFileTypes:true});
  const locks=new Set(['.backup.lock','.token-replay.lock']);
  const lockPresent=entries.some(e=>locks.has(e.name));
- const unexpectedEntries=entries.filter(e=>!locks.has(e.name)&&e.name!=='backup-history.jsonl'&&!marker.test(e.name)&&!/^gruk-restaurante-[0-9]+-[0-9]+\.archive\.age$/.test(e.name)).length;
+ const unexpectedEntries=entries.filter(e=>!locks.has(e.name)&&e.name!=='backup-history.jsonl'&&!marker.test(e.name)&&!/^gruk-restaurante-[0-9]+-[0-9]+\.archive\.age(?:\.receipt\.json)?$/.test(e.name)).length;
  let unsafeEntries=false;
  for(const entry of entries){
   const s=await fs.lstat(path.join(root,entry.name));

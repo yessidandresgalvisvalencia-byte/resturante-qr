@@ -1,0 +1,87 @@
+name: GRUK catalog connectivity — temporary IP and permissions
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gruk-catalog-connectivity.yml'
+permissions:
+  contents: read
+concurrency:
+  group: gruk-catalog-connectivity-once
+  cancel-in-progress: true
+jobs:
+  probe:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'gruk/cloud-backup-storage' && vars.GRUK_CATALOG_PROBE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Identify this runner IPv4
+        run: |
+          set -euo pipefail
+          ip=$(curl -4 --fail --silent --show-error --max-time 15 https://api.ipify.org)
+          python3 -c 'import ipaddress,sys; a=ipaddress.IPv4Address(sys.argv[1]); assert a.is_global' "$ip"
+          echo "GRUK_RUNNER_IP=$ip/32"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Probe only the independent catalog after temporary IP approval
+        env:
+          CATALOG_URI: ${{ secrets.GRUK_CATALOG_MONGO_URI }}
+          EXPECTED_HOST: ${{ vars.GRUK_CATALOG_EXPECTED_HOST }}
+          CATALOG_ENABLED: ${{ vars.GRUK_CATALOG_ENABLED }}
+        run: |
+          node <<'NODE'
+          const mongoose=require('mongoose');
+          const {randomUUID}=require('node:crypto');
+          async function verifyPermissions(c){
+            const session=c.getClient().startSession();
+            const id='synthetic-permission-'+randomUUID();
+            try{
+              session.startTransaction({readConcern:{level:'snapshot'},writeConcern:{w:'majority'}});
+              for(const name of ['signed_receipts','reconciliation_control','reconciliation_audit']){
+                const col=c.db.collection(name);
+                await col.insertOne({_id:id,synthetic:true},{session});
+                const found=await col.findOne({_id:id},{session});
+                if(found?.synthetic!==true)throw Error('READBACK');
+                if(name==='reconciliation_control'){
+                  const result=await col.updateOne({_id:id},{$set:{checked:true}},{session});
+                  if(result.modifiedCount!==1)throw Error('UPDATE');
+                }
+              }
+              await session.abortTransaction();
+              console.log('GRUK_CATALOG_SYNTHETIC_WRITES_ABORTED');
+            }finally{
+              if(session.inTransaction())await session.abortTransaction();
+              await session.endSession();
+            }
+            for(const name of ['signed_receipts','reconciliation_control','reconciliation_audit']){
+              if(await c.db.collection(name).findOne({_id:id},{maxTimeMS:5000}))throw Error('ROLLBACK_NOT_VERIFIED');
+            }
+            console.log('GRUK_CATALOG_WRITE_PERMISSIONS_OK');
+          }
+          async function main(){
+            if(process.env.CATALOG_ENABLED!=='false')throw Error('DISABLED_GATE');
+            const u=new URL(process.env.CATALOG_URI);
+            if(u.protocol!=='mongodb+srv:'||u.hostname!==process.env.EXPECTED_HOST||!u.hostname.endsWith('.mongodb.net')||u.pathname!=='/gruk_storage_catalog'||u.username!=='gruk_storage_worker'||!u.password||u.port||u.hash)throw Error('SCOPE');
+            for(const [k,v] of u.searchParams)if(!['retrywrites','w','appname','authsource','tls'].includes(k.toLowerCase())||(k.toLowerCase()==='tls'&&v!=='true'))throw Error('OPTIONS');
+            for(let i=0;i<20;i++){
+              let c,connected=false;
+              try{
+                c=mongoose.createConnection(process.env.CATALOG_URI,{dbName:'gruk_storage_catalog',tls:true,serverSelectionTimeoutMS:5000,maxPoolSize:1});
+                await c.asPromise();
+                await c.db.collection('signed_receipts').findOne({_id:'synthetic-connectivity-probe'},{projection:{_id:1},maxTimeMS:5000});
+                connected=true;
+                console.log('GRUK_CATALOG_CONNECTIVITY_OK');
+                await verifyPermissions(c);
+                return;
+              }catch(e){if(connected){console.error('GRUK_CATALOG_PERMISSION_TEST_FAILED',Number.isInteger(e?.code)?e.code:'UNKNOWN');throw Error('PERMISSIONS_NOT_VERIFIED');}console.log('GRUK_CATALOG_CONNECTION_PENDING');}
+              finally{if(c)await c.close().catch(()=>{});}
+              await new Promise(r=>setTimeout(r,15000));
+            }
+            throw Error('CONNECTION_NOT_VERIFIED');
+          }
+          main().catch(()=>{console.error('GRUK_CATALOG_PROBE_FAILED');process.exitCode=1;});
+          NODE

@@ -1,0 +1,23 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {createManifest,verifyManifest}=require('../../scripts/gruk/drive-backup-manifest');
+test('pre-upload manifest rejects changed bytes and wrong scope',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'gruk-manifest-'));
+ t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ const source=path.join(dir,'source.age'),copy=path.join(dir,'copy.age');
+ const data=Buffer.from('age-encryption.org/v1\n'+'synthetic'.repeat(10));
+ await fs.writeFile(source,data,{mode:0o600});
+ await fs.writeFile(copy,data,{mode:0o600});
+ const name='gruk-restaurante-1-1.archive.age';
+ const manifest=await createManifest(source,name);
+ assert.equal(await verifyManifest(copy,manifest,name),true);
+ await assert.rejects(verifyManifest(copy,{...manifest,database:'personal'},name),/MANIFEST_INVALID/);
+ await assert.rejects(verifyManifest(copy,manifest,'gruk-restaurante-2-1.archive.age'),/MANIFEST_INVALID/);
+ data[data.length-1]^=1;await fs.writeFile(copy,data);
+ await assert.rejects(verifyManifest(copy,manifest,name),/MANIFEST_INTEGRITY_MISMATCH/);
+ await assert.rejects(createManifest(source,'../unsafe.age'),/MANIFEST_INVALID_NAME/);
+});
