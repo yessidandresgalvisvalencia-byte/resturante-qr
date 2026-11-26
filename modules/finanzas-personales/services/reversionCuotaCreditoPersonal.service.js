@@ -93,7 +93,8 @@ async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={},op
  },config);}catch(e){if(e.code===11000)throw problema("Operación concurrente; consulta el pago antes de reintentar");throw e;}
  finally{await session.endSession();}
 }
-async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anulacionHash,imputacion}={},{cerrarRechazo=false}={}){
+async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anulacionHash,imputacion}={},{cerrarRechazo=false,capturarContexto}={}){
+ const Aud=require("../security/contextoAuditoriaCompensacionPersonal.service"),capturar=capturarContexto?Aud.resolver(usuarioId,{capturarContexto}):null;
  if(![usuarioId,prestamoId,movimientoId].every(x=>mongoose.isObjectIdOrHexString(x))||
   typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey)||
   typeof anulacionHash!=="string"||!/^[a-f0-9]{64}$/.test(anulacionHash))throw problema("Préstamo, pago y anulación exacta obligatorios",400);
@@ -118,7 +119,6 @@ async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anula
   if(cierre)return cierre;
   if(!estado.anulado||historial.at(-1)?.tipo!=="ANULACION"||historial.at(-1)?.hashActual!==anulacionHash)
    throw problema("La anulación cambió; consulta antes de restaurar el pago");
-  await serializarEscrituraFuente(usuarioId,session);
   const p=await Prestamo.findOne({_id:prestamoId,usuarioId,direccion:"POR_PAGAR",estado:{$in:["ACTIVO","VENCIDO"]},periodicidadConfirmada:true}).session(session);
   if(!p)throw problema("Préstamo sin calendario confirmado o no activo");
   const {pagos}=validarPagosCredito(p,await pagosCreditoVigentes(usuarioId,prestamoId,{session}));
@@ -131,7 +131,9 @@ async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anula
   validarPagosCredito({...p.toObject(),saldoMinor:saldo},[...pagos,fuente]);
   if(imputacion!==undefined)require("./restauracionCicloPagoPersonal.service").validarCambioFecha(fuente,p);
   else if(fuente.cicloCuota!==undefined&&!require("./cicloPagoPrestamoPersonal.service").coincide(fuente,p))throw problema("El ciclo del pago no coincide; revisa el vencimiento antes de restaurar");
-  const compensacion=await registrar({original,tipo:"RESTAURACION",anulacionHash,idempotencyKey,fechaISO:new Date().toISOString()},{session});
+  const auditoriaContexto=capturar?capturar():undefined;
+  await serializarEscrituraFuente(usuarioId,session);
+  const compensacion=await registrar({original,tipo:"RESTAURACION",anulacionHash,idempotencyKey,fechaISO:new Date().toISOString(),...(auditoriaContexto===undefined?{}:{auditoriaContexto})},{session});
   const eventoImputacion=imputacion===undefined?null:await require("./restauracionCicloPagoPersonal.service").registrarEnSesion(usuarioId,p,fuente,idempotencyKey,anulacionHash,compensacion.hashActual,imputacion,session);
   if(original.impactoCaja){
    const delta=Number(BigInt(compensacion.deltaCajaMinor));
