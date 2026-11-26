@@ -1,0 +1,47 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {inspectRecovery}=require('../../scripts/gruk/native-storage-recovery');
+test('interrupted backup inspection preserves every entry',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-recovery-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ assert.equal((await inspectRecovery(root)).status,'clear');
+ await fs.mkdir(path.join(root,'.backup.lock'),{mode:0o700});
+ await fs.writeFile(path.join(root,'partial.tmp'),'synthetic',{mode:0o600});
+ const result=await inspectRecovery(root);
+ assert.equal(result.status,'review-required');
+ assert.equal(result.lockPresent,true);
+ assert.equal(result.unexpectedEntries,1);
+ assert.equal(result.automaticDeletion,false);
+ assert.equal(await fs.readFile(path.join(root,'partial.tmp'),'utf8'),'synthetic');
+ assert.ok((await fs.stat(path.join(root,'.backup.lock'))).isDirectory());
+ await fs.symlink('partial.tmp',path.join(root,'gruk-restaurante-1-1.archive.age'));
+ assert.equal((await inspectRecovery(root)).unsafeEntries,true);
+});
+
+test('recovery detects replay lock and unsafe markers without deleting evidence',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-replay-recovery-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const lock=path.join(root,'.token-replay.lock');
+ const marker=path.join(root,'.used-token-1234567890-'+'a'.repeat(32));
+ await fs.writeFile(marker,'',{mode:0o600});
+ assert.equal((await inspectRecovery(root)).status,'clear');
+ await fs.mkdir(lock,{mode:0o700});
+ const blocked=await inspectRecovery(root);
+ assert.equal(blocked.status,'review-required');
+ assert.equal(blocked.lockPresent,true);
+ assert.equal(blocked.unexpectedEntries,0);
+ await fs.rmdir(lock);
+ await fs.writeFile(marker,'unexpected');
+ assert.equal((await inspectRecovery(root)).unsafeEntries,true);
+ assert.equal(await fs.readFile(marker,'utf8'),'unexpected');
+ await fs.truncate(marker,0);
+ await fs.chmod(marker,0o644);
+ assert.equal((await inspectRecovery(root)).unsafeEntries,true);
+ await fs.chmod(marker,0o600);
+ await fs.link(marker,path.join(root,'alias'));
+ assert.equal((await inspectRecovery(root)).unsafeEntries,true);
+});

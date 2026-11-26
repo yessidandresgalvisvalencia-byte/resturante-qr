@@ -1,0 +1,88 @@
+name: GRUK Native Storage Contract
+on:
+  push:
+    branches: [gruk/native-backup-storage]
+  pull_request:
+    paths:
+      - 'scripts/gruk/native-backup-*'
+      - 'scripts/gruk/native-storage-*'
+      - 'test/gruk/native-storage-api.test.js'
+      - 'test/gruk/native-storage-capacity.test.js'
+      - 'test/gruk/native-storage-scheduler.test.js'
+      - 'test/gruk/native-storage-history.test.js'
+      - 'test/gruk/native-storage-alerts.test.js'
+      - 'test/gruk/native-storage-orchestrator.test.js'
+      - 'test/gruk/native-storage-backup-adapter.test.js'
+      - 'test/gruk/native-storage-init.test.js'
+      - 'test/gruk/native-storage-runtime.test.js'
+      - 'test/gruk/native-storage-lifecycle.test.js'
+      - 'test/gruk/native-storage-health.test.js'
+      - 'test/gruk/native-storage-lock.test.js'
+      - 'test/gruk/native-storage-recovery.test.js'
+      - 'test/gruk/native-backup-storage.test.js'
+      - '.github/workflows/gruk-native-storage-contract.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: |
+          bash -n scripts/gruk/native-backup-restore.sh
+          node --check scripts/gruk/native-backup-cli.js
+          node --test test/gruk/native-backup-storage.test.js test/gruk/native-storage-api.test.js
+      - name: Genuine AGE recovery on synthetic data
+        run: |
+          node --check scripts/gruk/native-storage-service.js
+          command -v age || (sudo apt-get update && sudo apt-get install -y age)
+          set -euo pipefail
+          umask 077
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          export GRUK_NATIVE_BACKUP_ROOT="$tmp/vault"
+          mkdir -m 700 "$GRUK_NATIVE_BACKUP_ROOT"
+          age-keygen -o "$tmp/identity" 2>/dev/null
+          printf 'GRUK synthetic recovery fixture\n' > "$tmp/plain"
+          age -r "$(age-keygen -y "$tmp/identity")" -o "$tmp/input.age" "$tmp/plain"
+          node -e 'require("./scripts/gruk/native-backup-storage").store(process.env.GRUK_NATIVE_BACKUP_ROOT,"gruk-restaurante-1-1.archive.age",process.argv[1]).then(r=>console.log(r.sha256)).catch(()=>process.exit(1))' "$tmp/input.age" > "$tmp/digest"
+          node -e 'require("./scripts/gruk/native-backup-storage").retrieve(process.env.GRUK_NATIVE_BACKUP_ROOT,"gruk-restaurante-1-1.archive.age",process.argv[1],process.argv[2]).catch(()=>process.exit(1))' "$tmp/recovered.age" "$(cat "$tmp/digest")"
+          age -d -i "$tmp/identity" -o "$tmp/recovered" "$tmp/recovered.age"
+          cmp "$tmp/plain" "$tmp/recovered"
+      - name: Standalone service restart recovery
+        run: bash scripts/gruk/native-storage-restart-test.sh
+      - name: Isolated synthetic MongoDB restore
+        run: bash scripts/gruk/native-storage-mongo-test.sh
+      - name: Capacity and retention policy
+        run: node --test test/gruk/native-storage-capacity.test.js
+      - name: Backup scheduler contract
+        run: node --test test/gruk/native-storage-scheduler.test.js
+      - name: Persistent journal contract
+        run: node --test test/gruk/native-storage-history.test.js
+      - name: Local alert contract
+        run: node --test test/gruk/native-storage-alerts.test.js
+      - name: Integrated orchestration contract
+        run: node --test test/gruk/native-storage-orchestrator.test.js
+      - name: Backup adapter authorization contract
+        run: node --test test/gruk/native-storage-backup-adapter.test.js
+      - name: Private storage initialization contract
+        run: node --test test/gruk/native-storage-init.test.js
+
+      - name: Runtime safety contract
+        run: node --test test/gruk/native-storage-runtime.test.js
+
+      - name: Actual listener lifecycle
+        run: node --test test/gruk/native-storage-lifecycle.test.js
+
+      - name: Storage health diagnostics
+        run: node --test test/gruk/native-storage-health.test.js
+
+      - name: Cross-process backup lock
+        run: node --test test/gruk/native-storage-lock.test.js
+
+      - name: Interrupted backup recovery inspection
+        run: node --test test/gruk/native-storage-recovery.test.js

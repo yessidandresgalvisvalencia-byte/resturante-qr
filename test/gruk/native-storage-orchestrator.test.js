@@ -1,0 +1,27 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {createOrchestrator}=require('../../scripts/gruk/native-storage-orchestrator');
+const {store,retrieve}=require('../../scripts/gruk/native-backup-storage');
+test('orchestrator stores synthetic fixture and records failures',async t=>{
+ const tmp=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-orch-')));
+ t.after(()=>fs.rm(tmp,{recursive:true,force:true}));
+ const root=path.join(tmp,'vault');await fs.mkdir(root,{mode:0o700});
+ const source=path.join(tmp,'source');const fixture='age-encryption.org/v1\n'+ 'synthetic fixture only'.repeat(5);
+ await fs.writeFile(source,fixture,{mode:0o600});
+ const name='gruk-restaurante-1-1.archive.age';
+ const lines=[];let receipt;
+ const o=createOrchestrator({root,policy:{reserveBytes:0},clock:()=>123,write:(line,cb)=>{lines.push(JSON.parse(line));cb();},backup:async()=>{receipt=await store(root,name,source);}});
+ assert.deepEqual(await o.tick(),{status:'ok'});
+ const target=path.join(tmp,'target');
+ await retrieve(root,name,target,receipt.sha256);
+ assert.equal(await fs.readFile(target,'utf8'),fixture);
+ assert.deepEqual(await o.tick(),{status:'failed',code:'BACKUP_FAILED'});
+ assert.equal(lines.length,1);assert.equal(lines[0].code,'BACKUP_FAILED');
+ const events=(await fs.readFile(path.join(root,'backup-history.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);
+ assert.deepEqual(events.map(e=>e.code),['BACKUP_OK','BACKUP_FAILED']);
+ assert.throws(()=>createOrchestrator({root}),/BACKUP_ADAPTER_REQUIRED/);
+});

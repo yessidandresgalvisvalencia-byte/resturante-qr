@@ -1,0 +1,28 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {initialize}=require('../../scripts/gruk/native-storage-init');
+test('initialization creates private directories and never overwrites keys',async t=>{
+ const tmp=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-init-')));
+ t.after(()=>fs.rm(tmp,{recursive:true,force:true}));
+ const base=path.join(tmp,'storage');
+ const result=await initialize(base);
+ assert.equal(result.realBackupEnabled,false);
+ assert.equal(result.root,path.join(base,'vault'));
+ assert.equal(result.keyFile,path.join(base,'signing.key'));
+ for(const dir of [base,result.root])assert.equal((await fs.stat(dir)).mode&0o777,0o700);
+ assert.equal((await fs.stat(result.keyFile)).mode&0o777,0o600);
+ const key=await fs.readFile(result.keyFile);
+ assert.equal(key.length,32);
+ await assert.rejects(initialize(base),{code:'EEXIST'});
+ assert.deepEqual(await fs.readFile(result.keyFile),key);
+ await assert.rejects(initialize('relative'),/INVALID_BASE/);
+ await assert.rejects(initialize(path.parse(tmp).root),/INVALID_BASE/);
+ const alias=path.join(tmp,'alias');await fs.symlink(base,alias);
+ await assert.rejects(initialize(path.join(alias,'nested')),/INVALID_PARENT/);
+ const second=await initialize(path.join(tmp,'second'));
+ assert.notDeepEqual(await fs.readFile(second.keyFile),key);
+});

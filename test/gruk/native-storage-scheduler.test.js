@@ -1,0 +1,43 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {createScheduler}=require('../../scripts/gruk/native-storage-scheduler');
+test('scheduler prevents overlap and reports success and failures',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-sched-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ let release, calls=0, fail=false;
+ const alerts=[];
+ const s=createScheduler({root,policy:{reserveBytes:0},clock:()=>123,backup:async()=>{calls++;if(fail)throw Error('private error');await new Promise(r=>{release=r;});},alert:async a=>alerts.push(a)});
+ const first=s.tick();
+ assert.deepEqual(await s.tick(),{status:'busy'});
+ while(!release)await new Promise(r=>setImmediate(r));
+ release();
+ assert.deepEqual(await first,{status:'ok'});
+ assert.equal(calls,1);assert.equal(s.status().lastSuccess,123);
+ fail=true;
+ assert.deepEqual(await s.tick(),{status:'failed',code:'BACKUP_FAILED'});
+ assert.deepEqual(alerts,[{code:'BACKUP_FAILED',at:123}]);
+ assert.equal(s.status().busy,false);
+ s.start();assert.equal(s.status().running,true);s.stop();assert.equal(s.status().running,false);
+ const low=createScheduler({root,policy:{reserveBytes:Number.MAX_SAFE_INTEGER},backup:async()=>{calls++;},alert:async()=>{throw Error('unavailable');}});
+ assert.deepEqual(await low.tick(),{status:'failed',code:'LOW_CAPACITY',alertFailed:true});
+ assert.equal(calls,2);
+});
+
+test('journal failure never reports audited success',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-journal-fail-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ await fs.mkdir(path.join(root,'backup-history.jsonl'),{mode:0o700});
+ let calls=0;const alerts=[];
+ const s=createScheduler({root,policy:{reserveBytes:0},clock:()=>123,backup:async()=>{calls++;},alert:async a=>alerts.push(a)});
+ assert.deepEqual(await s.tick(),{status:'failed',code:'JOURNAL_FAILED',backupCompleted:true,journalFailed:true});
+ assert.equal(calls,1);
+ assert.equal(s.status().lastSuccess,null);
+ assert.equal(s.status().lastFailure,123);
+ assert.equal(s.status().busy,false);
+ assert.equal(alerts.length,1);
+ assert.equal(await fs.stat(path.join(root,'backup-history.jsonl')).then(s=>s.isDirectory()),true);
+});

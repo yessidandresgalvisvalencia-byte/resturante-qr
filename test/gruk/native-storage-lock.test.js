@@ -1,0 +1,24 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {execFile}=require('node:child_process');
+const {promisify}=require('node:util');
+const {acquire}=require('../../scripts/gruk/native-storage-lock');
+test('exclusive lock survives independent process contention',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-lock-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const release=await acquire(root);
+ assert.equal(typeof release,'function');
+ assert.equal(await acquire(root),null);
+ const modulePath=require.resolve('../../scripts/gruk/native-storage-lock');
+ const {stdout}=await promisify(execFile)(process.execPath,['-e','require(process.argv[1]).acquire(process.argv[2]).then(r=>{console.log(r===null?"busy":"unexpected");}).catch(()=>process.exit(1))',modulePath,root]);
+ assert.equal(stdout.trim(),'busy');
+ await release();
+ await release();
+ const next=await acquire(root);
+ assert.equal(typeof next,'function');
+ await next();
+});

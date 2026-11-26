@@ -36,6 +36,7 @@ const app = express();
 app.disable("x-powered-by");
 const {registerHttpHealthRoutes}=require("./core/health/httpHealth.routes");
 registerHttpHealthRoutes(app,mongoose,{version:require("./package.json").version});
+require("./core/health/storagePhaseOne.routes").registerStoragePhaseOne(app);
 
 const { securityHeaders, noStore } = require("./core/security/httpSecurity.middleware");
 const rateLimit = require("./core/security/rateLimit.middleware");
