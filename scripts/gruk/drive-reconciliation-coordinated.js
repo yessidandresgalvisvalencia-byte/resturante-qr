@@ -1,4 +1,5 @@
 'use strict';
+const {createAudit}=require('./drive-reconciliation-audit');
 const {createCoordinator}=require('./drive-reconciliation-coordinator');
 const {createBatchRunner}=require('./drive-reconciliation-batch');
 const {runReconciliation}=require('./drive-reconciliation-runtime');
@@ -10,7 +11,7 @@ async function runCoordinated({names,env=process.env,connect,fetchImpl=fetch,ale
  validateCatalogConnection(config);
  const c=await connect(config.catalogUri,{dbName:'gruk_storage_catalog',tls:true,serverSelectionTimeoutMS:10000,maxPoolSize:2});
  try{
-  const coordinate=createCoordinator(c.db,{now});
+  const coordinate=createCoordinator(c.db,{now,audit:event=>createAudit(c.db)(event)});
   const batch=createBatchRunner({now,alert,inspect:name=>runReconciliation({name,env,connect,fetchImpl,now,alert:async()=>{}})});
   return await coordinate(()=>batch(names));
  }finally{await c.close();}

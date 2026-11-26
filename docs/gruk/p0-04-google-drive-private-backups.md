@@ -115,3 +115,7 @@ The coordinated runner joins persistent reservation, bounded batch processing an
 ## Append-only reconciliation audit adapter (development)
 
 The audit adapter records bounded inspection and recovery event types using create-only inserts, deterministic event identifiers, majority journaled writes and verified readback. Exact retries are idempotent; conflicting evidence fails closed. This is application-level append-only behavior, not provider-enforced immutability. Dedicated insert/find privileges, independent retention, coordinator integration and real database tests remain required. No live audit records were written.
+
+## Audit integration
+
+Coordinated inspections now require verified audit events before inspection and before reservation release. The recovery primitive supports an injected audit sink for request and completion events; no administrative runtime is enabled. Recovery update and completion audit are separate writes: a failure after the update can leave a request without completion and must be reconciled manually. This is not transactional immutable evidence. Real permissions, concurrency tests and full recovery audit integration remain release gates.
