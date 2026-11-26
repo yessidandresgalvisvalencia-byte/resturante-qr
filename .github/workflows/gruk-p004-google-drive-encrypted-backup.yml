@@ -7,6 +7,8 @@ on:
       - 'scripts/gruk/p0-04-google-drive-encrypted-object.js'
       - 'scripts/gruk/p0-04-google-drive-backup-restore.sh'
       - 'test/gruk/p0-04-google-drive-backup.test.js'
+      - 'scripts/gruk/drive-*.js'
+      - 'test/gruk/drive-*.test.js'
       - '.github/workflows/gruk-p004-google-drive-encrypted-backup.yml'
   push:
     branches: [main]
@@ -14,6 +16,8 @@ on:
       - 'scripts/gruk/p0-04-google-drive-encrypted-object.js'
       - 'scripts/gruk/p0-04-google-drive-backup-restore.sh'
       - 'test/gruk/p0-04-google-drive-backup.test.js'
+      - 'scripts/gruk/drive-*.js'
+      - 'test/gruk/drive-*.test.js'
       - '.github/workflows/gruk-p004-google-drive-encrypted-backup.yml'
   workflow_dispatch:
     inputs:
@@ -46,7 +50,7 @@ jobs:
           set -euo pipefail
           bash -n scripts/gruk/p0-04-google-drive-backup-restore.sh
           node --check scripts/gruk/p0-04-google-drive-encrypted-object.js
-          node --test test/gruk/p0-04-google-drive-backup.test.js
+          node --test test/gruk/p0-04-google-drive-backup.test.js test/gruk/drive-*.test.js
   production_drill:
     name: Encrypted restaurant snapshot and isolated restore — manually authorized
     if: github.event_name == 'workflow_dispatch'
@@ -74,6 +78,8 @@ jobs:
           sudo apt-get install -y mongodb-mongosh mongodb-database-tools
       - name: Dump only restaurante, encrypt, upload to private Drive, download and restore offline
         env:
+          GRUK_MANIFEST_SIGNING_PRIVATE_KEY: ${{ secrets.GRUK_MANIFEST_SIGNING_PRIVATE_KEY }}
+          GRUK_MANIFEST_TRUSTED_PUBLIC_KEY: ${{ secrets.GRUK_MANIFEST_TRUSTED_PUBLIC_KEY }}
           GRUK_ENTERPRISE_BACKUP_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
           GRUK_ENTERPRISE_DB: restaurante
           GRUK_ENTERPRISE_DB_CONFIRM: restaurante

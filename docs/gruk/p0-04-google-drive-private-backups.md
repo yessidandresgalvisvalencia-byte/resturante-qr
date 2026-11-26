@@ -51,3 +51,7 @@ The restore workflow creates a versioned SHA-256 manifest before uploading and v
 ## Signed manifest contract (development only)
 
 Ed25519 receipts bind the canonical enterprise manifest to an explicit key fingerprint and domain-separated signature. Verification requires a separately trusted public key and expected archive name, never a key supplied by the receipt. Synthetic tests use ephemeral keys. This module is not yet wired into the real backup workflow; durable independent custody, key provisioning, rotation, and authorization remain pending. No production data or secrets are used.
+
+## Signed receipt integration
+
+The manual restore workflow now requires separately provisioned Ed25519 signing and pinned verification keys, checks the key pair before remote upload, and verifies the downloaded ciphertext against the signed receipt before restore. The verification subprocess receives no signing key. The receipt remains in the temporary private runner directory; independent durable custody and key rotation remain unimplemented. The manual production job stays disabled unless explicitly dispatched; do not dispatch until all gates are met. The contract job now includes synthetic tests for all drive helper modules.

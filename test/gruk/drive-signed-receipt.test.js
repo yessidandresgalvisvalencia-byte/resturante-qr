@@ -1,0 +1,23 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {generateKeyPairSync}=require('node:crypto');
+const {createReceipt,verifyReceipt}=require('../../scripts/gruk/drive-signed-receipt');
+test('signed receipt binds restored ciphertext and fails closed before writing with mismatched keys',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'gruk-signed-'));
+ t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ const file=path.join(dir,'a.age'),receipt=path.join(dir,'receipt.json'),name='gruk-restaurante-1-1.archive.age';
+ const {privateKey,publicKey}=generateKeyPairSync('ed25519');
+ const other=generateKeyPairSync('ed25519');
+ await fs.writeFile(file,Buffer.alloc(100,1));
+ await assert.rejects(createReceipt(file,name,receipt,{privateKey,trustedKey:other.publicKey}),/SIGNED_MANIFEST_UNTRUSTED/);
+ await assert.rejects(fs.stat(receipt),{code:'ENOENT'});
+ await createReceipt(file,name,receipt,{privateKey,trustedKey:publicKey});
+ assert.equal(await verifyReceipt(file,name,receipt,publicKey),true);
+ await assert.rejects(createReceipt(file,name,receipt,{privateKey,trustedKey:publicKey}),{code:'EEXIST'});
+ await fs.writeFile(file,Buffer.alloc(100,2));
+ await assert.rejects(verifyReceipt(file,name,receipt,publicKey),/MANIFEST_INTEGRITY_MISMATCH/);
+});
