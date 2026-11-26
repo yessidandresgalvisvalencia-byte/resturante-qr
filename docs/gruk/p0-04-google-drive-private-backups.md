@@ -131,3 +131,7 @@ The disabled-by-default drive-recovery-admin CLI invokes only the atomic recover
 ## Isolated real replica-set integration
 
 CI now includes a disposable MongoDB replica bound to loopback, with synthetic records only. Eight competing reservations must yield one winner; a duplicate audit identifier must roll back the administrative recovery, followed by a successful transaction. The real-data manual job depends on this check. No production credentials are used by the test. The test is not evidence of actual independent cloud provisioning. CI execution and results must be verified before release.
+
+## One-shot inspection job entry point
+
+The disabled-by-default job validates four activation flags and an explicit bounded JSON list of archive names, invokes the persistent coordinated runner, and returns sanitized metadata-match, anomaly or skipped outcomes. It never reports restore verification. This is a one-shot entry point suitable for a future reviewed scheduler, not an installed schedule. Archive discovery, notification delivery and independent live credentials remain pending. Synthetic tests cover invocation gates and exit classifications. No recurring execution has been enabled.
