@@ -1,12 +1,6 @@
 name: GRUK Storage controlled inspection
 on:
   workflow_dispatch:
-    inputs:
-      vault_probe:
-        description: 'Optional Atlas vault verification (no committed writes)'
-        type: choice
-        options: [none, read, write_abort]
-        default: none
 permissions:
   contents: read
 jobs:
@@ -22,32 +16,3 @@ jobs:
         run: node --test test/gruk/native-storage-coordinated.test.js test/gruk/drive-reconciliation-coordinated.test.js test/gruk/drive-reconciliation-job.test.js
       - name: Report operating boundary
         run: echo GRUK_NATIVE_INSPECTION_REQUIRES_AUTHORIZED_PERSISTENT_HOST
-
-  vault_probe:
-    if: ${{ inputs.vault_probe != 'none' && vars.GRUK_VAULT_PROBE_ALLOWED == 'true' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    concurrency:
-      group: gruk-vault-probe
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Verify restricted vault read access
-        env:
-          GRUK_VAULT_MONGO_URI: ${{ secrets.GRUK_VAULT_MONGO_URI }}
-          GRUK_VAULT_EXPECTED_HOST: ${{ vars.GRUK_VAULT_EXPECTED_HOST }}
-          GRUK_NATIVE_REAL_BACKUP_ENABLED: 'false'
-          GRUK_VAULT_PROBE_ENABLED: 'true'
-        run: node scripts/gruk/native-storage-mongo-vault-connection.js
-      - name: Verify reversible synthetic write
-        if: ${{ inputs.vault_probe == 'write_abort' }}
-        env:
-          GRUK_VAULT_MONGO_URI: ${{ secrets.GRUK_VAULT_MONGO_URI }}
-          GRUK_VAULT_EXPECTED_HOST: ${{ vars.GRUK_VAULT_EXPECTED_HOST }}
-          GRUK_NATIVE_REAL_BACKUP_ENABLED: 'false'
-          GRUK_VAULT_WRITE_PROBE_ENABLED: 'true'
-        run: node scripts/gruk/native-storage-mongo-vault-write-probe.js
