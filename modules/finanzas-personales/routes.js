@@ -343,8 +343,9 @@ router.post("/reconciliar-ingresos-trabajo",async(req,res)=>{
 });
 router.post("/cuentas-por-cobrar/:id/corregir-origen-trabajo",async(req,res)=>{
  try{
-  if(req.body?.confirmacion!==true||Object.keys(req.body).some(k=>k!=="confirmacion"))return res.status(400).json({ok:false,error:"Confirma la corrección de origen sin enviar otros cambios"});
-  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").corregirOrigenTrabajo(req.personalAuth.userId,req.params.id,{confirmacion:true,solicitudId:req.get("Idempotency-Key")});
+  const {error,value}=Joi.object({confirmacion:Joi.boolean().valid(true).required(),versionOrigen:Joi.string().pattern(/^[a-f0-9]{64}$/)}).required().validate(req.body,{convert:false});
+  if(error)return res.status(400).json({ok:false,error:"Confirma solo la selección vigente de origen; conserva el cuerpo original de una solicitud histórica"});
+  const resultado=await require("./services/reclasificarTrabajoCompensadoPersonal.service").corregirOrigenTrabajo(req.personalAuth.userId,req.params.id,{confirmacion:true,solicitudId:req.get("Idempotency-Key"),...(value.versionOrigen!==undefined?{versionOrigen:value.versionOrigen}:{})});
   const detalle=resultado.correccion.duplicado?"Confirmación anterior recuperada; no se aplicaron reclasificaciones nuevas.":resultado.reclasificados>0?"Se registraron reclasificaciones compensatorias sin cambiar caja ni cobros originales.":"Origen confirmado en auditoría; no fue necesario reclasificar cobros ni modificar caja.";
   return res.json({ok:true,...resultado,detalle});
  }catch(e){return res.status(e.statusCode||(e.code===11000?409:500)).json({ok:false,error:e.statusCode?e.message:"No fue posible corregir la cuenta"});}

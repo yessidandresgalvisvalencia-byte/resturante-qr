@@ -73,9 +73,11 @@ async function enTransaccion(usuarioId,operacion){
  }finally{await session.endSession();}
 }
 async function corregirOrigenTrabajo(usuarioId,prestamoId,solicitud){
+ usuarioId=String(usuarioId).toLowerCase();prestamoId=String(prestamoId).toLowerCase();
  let aplicado;
- const p=await require("./correccionPrestamoPersonal.service").corregir(usuarioId,prestamoId,{origenCuentaPorCobrar:"TRABAJO",revisarCobrosTrabajo:true},solicitud,async(u,p,c,session)=>{
-  await serializarEscrituraFuente(u,session);verificarCuenta(p,u);
+ const p=await require("./correccionPrestamoPersonal.service").corregir(usuarioId,prestamoId,{origenCuentaPorCobrar:"TRABAJO",revisarCobrosTrabajo:true,...(solicitud?.versionOrigen!==undefined?{versionOrigen:solicitud.versionOrigen}:{})},solicitud,async(u,p,c,session)=>{
+  // La selección individual ya se verificó y serializó en la misma transacción.
+  verificarCuenta(p,u);
   aplicado=await aplicar(u,p,cobrosConciliados(p,await movimientosVigentes(u,session)),session);
   return{prestamoId:String(p._id),campos:["origenCuentaPorCobrar"],...aplicado};
  });
