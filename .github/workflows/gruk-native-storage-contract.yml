@@ -27,6 +27,7 @@ on:
       - 'test/gruk/native-storage-receipt-recovery.test.js'
       - 'test/gruk/native-storage-startup-recovery.test.js'
       - 'test/gruk/native-storage-replication.test.js'
+      - 'test/gruk/native-storage-failover.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
   contents: read
@@ -114,3 +115,6 @@ jobs:
 
       - name: Native encrypted replication contract
         run: node --test test/gruk/native-storage-replication.test.js
+
+      - name: Native signed failover staging contract
+        run: node --test test/gruk/native-storage-failover.test.js
