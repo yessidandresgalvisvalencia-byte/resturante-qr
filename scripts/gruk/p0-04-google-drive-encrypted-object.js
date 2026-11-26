@@ -8,6 +8,7 @@ const {pipeline} = require('node:stream/promises');
 const {basename} = require('node:path');
 const {createHash} = require('node:crypto');
 const {assertUploadQuota}=require('./drive-backup-quota');
+const {receiveArchive}=require('./drive-backup-download');
 
 const [,,mode,source,other] = process.argv;
 const folder = process.env.GRUK_DRIVE_BACKUP_FOLDER_ID;
@@ -44,7 +45,7 @@ async function oauth(){
   });
   const result = await fetch('https://oauth2.googleapis.com/token',{
     method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:payload,signal:AbortSignal.timeout(25000)
+    body:payload,redirect:'error',signal:AbortSignal.timeout(25000)
   });
   if (!result.ok) fail('GOOGLE_TOKEN_REFRESH_FAILED');
   const obj=await result.json();
@@ -55,7 +56,7 @@ async function request(url, token, extra = {}) {
   if (!url.startsWith('https://www.googleapis.com/')) fail('INVALID_DRIVE_DESTINATION');
   const res=await fetch(url,{
     ...extra,headers:{Authorization:'Bearer '+token,...(extra.headers||{})},
-    signal:AbortSignal.timeout(180000)
+    redirect:'error',signal:extra.signal||AbortSignal.timeout(180000)
   });
   if (!res.ok) fail('GOOGLE_DRIVE_REQUEST_FAILED_'+res.status);
   return res;
@@ -102,18 +103,18 @@ async function main(){
     return;
   }
   const res=await request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(source)+
-    '?fields=id,name,parents,mimeType,trashed,size',token);
+    '?fields=id,name,parents,mimeType,trashed,size,md5Checksum',token);
   const metadata=await res.json();
-  if(metadata.id!==source||!metadata.parents?.includes(folder)||metadata.trashed||
+  if(metadata.mimeType!=='application/octet-stream'||metadata.id!==source||!metadata.parents?.includes(folder)||metadata.trashed||
      !/^gruk-restaurante-[0-9]+-[0-9]+\.archive\.age$/.test(metadata.name||'')) fail('UNTRUSTED_DRIVE_OBJECT');
   const downloaded=await request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(source)+'?alt=media',token);
   if(!downloaded.body) fail('EMPTY_FILE_DOWNLOAD');
-  await pipeline(Readable.fromWeb(downloaded.body),createWriteStream(other,{flags:'wx',mode:0o600}));
-  if(fs.statSync(other).size!==Number(metadata.size)) fail('DOWNLOADED_FILE_SIZE_MISMATCH');
+  await receiveArchive(Readable.fromWeb(downloaded.body),other,metadata);
   process.stdout.write('GRUK_DRIVE_ENCRYPTED_DOWNLOAD_OK\n');
 }
 main().catch(err=>{
   // No raw external error, URI, response body, credentials or stacktrace.
-  console.error('GRUK_DRIVE_BACKUP_FAILED: '+String(err.message||'UNKNOWN').replace(/[^A-Z0-9_:]/g,''));
+  const code=String(err.message||'');
+  console.error('GRUK_DRIVE_BACKUP_FAILED: '+(/^(?:DRIVE_[A-Z0-9_]+|GOOGLE_[A-Z0-9_]+|INVALID_[A-Z0-9_]+|UPLOAD_METADATA_UNVERIFIED|EMPTY_FILE_DOWNLOAD)$/.test(code)?code:'UNKNOWN'));
   process.exitCode=1;
 });

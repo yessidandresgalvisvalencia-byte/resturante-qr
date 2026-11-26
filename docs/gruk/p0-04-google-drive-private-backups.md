@@ -43,3 +43,5 @@ El ID de la carpeta cifrada es fijo en el workflow; no es un secreto. Configurar
 ## Cloud-only phase 2: quota preflight
 
 Before creating a resumable upload, query Drive storageQuota and refuse missing or invalid quota, insufficient space, or an archive larger than 1 GiB. Reserve 100 MiB by default. Reject nonregular source files and invalid AGE headers before authentication. Header inspection is not cryptographic verification; the existing isolated restore remains mandatory. This preflight is not a billing guarantee or atomic quota reservation and assumes a dedicated trusted runner and stable source file. No automatic deletion, new provider account, real data upload or production activation is authorized by this change.
+
+Cloud download now stages files privately, enforces provider-declared length and MD5 before publication, validates the AGE header and refuses overwrite. MD5 is a transport consistency check only, not a security proof; the independently computed SHA-256 and AGE authenticated decryption in the restore workflow remain mandatory. Redirects are rejected and no raw remote errors are logged.
