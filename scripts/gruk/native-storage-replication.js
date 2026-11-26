@@ -11,10 +11,14 @@ async function verifyRoot(root){
  if(!st.isDirectory()||(st.mode&0o077)||st.uid!==process.getuid())throw Error('REPLICA_ROOT');
  return st;
 }
-async function replicateArchive({sourceRoot,targetRoot,name,catalog,keyring,requireDistinctDevice=true}){
+async function validateReplicaRoots({sourceRoot,targetRoot,requireDistinctDevice=true}){
  const source=await verifyRoot(sourceRoot),target=await verifyRoot(targetRoot);
  if(sourceRoot===targetRoot||sourceRoot.startsWith(targetRoot+'/')||targetRoot.startsWith(sourceRoot+'/')||(source.dev===target.dev&&source.ino===target.ino))throw Error('REPLICA_ROOT_OVERLAP');
  if(requireDistinctDevice&&source.dev===target.dev)throw Error('REPLICA_DEVICE_NOT_DISTINCT');
+ return {distinctDevice:source.dev!==target.dev};
+}
+async function replicateArchive({sourceRoot,targetRoot,name,catalog,keyring,requireDistinctDevice=true}){
+ const {distinctDevice}=await validateReplicaRoots({sourceRoot,targetRoot,requireDistinctDevice});
  const manifest=await catalog.lookup(name);
  const trusted={lookup:async()=>manifest};
  const signed=keyring?await readNativeReceipt({root:sourceRoot,name,keyring}):null;
@@ -39,7 +43,7 @@ async function replicateArchive({sourceRoot,targetRoot,name,catalog,keyring,requ
    const copied=await readNativeReceipt({root:targetRoot,name,keyring});
    if(JSON.stringify(copied.receipt)!==JSON.stringify(signed.receipt))throw Error('REPLICA_RECEIPT_CONFLICT');
   }
-  return {status:existing?'ALREADY_PRESENT':'REPLICATED',restoreVerified:false,distinctDevice:source.dev!==target.dev,...(signed?{receiptVerified:true}:{})};
+  return {status:existing?'ALREADY_PRESENT':'REPLICATED',restoreVerified:false,distinctDevice,...(signed?{receiptVerified:true}:{})};
  }finally{await release();}
 }
-module.exports={replicateArchive};
+module.exports={replicateArchive,validateReplicaRoots};

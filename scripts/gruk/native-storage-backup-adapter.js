@@ -10,7 +10,10 @@ function createBackupAdapter({env=process.env,execute=execFile,timeoutMs=900000,
   if(env.GRUK_NATIVE_REAL_BACKUP_ENABLED!=='true'||env.GRUK_BACKUP_APPROVAL!=='RESPALDAR_SOLO_RESTAURANTE'||env.GRUK_ENTERPRISE_DB!=='restaurante'||env.GRUK_ENTERPRISE_DB_CONFIRM!=='restaurante')throw Error('BACKUP_NOT_AUTHORIZED');
   const signed=env.GRUK_NATIVE_SIGNED_REGISTRATION_ENABLED==='true';
   if(env.GRUK_CATALOG_ENABLED==='true'&&!signed)throw Error('NATIVE_SIGNED_REGISTRATION_REQUIRED');
+  const required=env.GRUK_NATIVE_REPLICATION_REQUIRED==='true';
+  if(required&&!signed)throw Error('NATIVE_REPLICATION_REQUIRES_SIGNING');
   const register=signed?prepareRegistration(env,connect):null;
+  if(required){if(typeof register.preflight!=='function')throw Error('NATIVE_REPLICATION_PREFLIGHT_REQUIRED');await register.preflight();}
   const childEnv={};
   for(const key of ['PATH','HOME','TMPDIR','GRUK_ENTERPRISE_BACKUP_URI','GRUK_NATIVE_BACKUP_ROOT','GRUK_BACKUP_AGE_RECIPIENT','GRUK_BACKUP_AGE_IDENTITY','GRUK_BACKUP_APPROVAL','GRUK_ENTERPRISE_DB','GRUK_ENTERPRISE_DB_CONFIRM']){
    if(env[key]!==undefined)childEnv[key]=env[key];
@@ -24,7 +27,7 @@ function createBackupAdapter({env=process.env,execute=execFile,timeoutMs=900000,
     resolve();
    });
   });
-  if(register){const name='gruk-restaurante-'+childEnv.GITHUB_RUN_ID+'-'+childEnv.GITHUB_RUN_ATTEMPT+'.archive.age';const result=await register(name);if(result?.name!==name||result.status!=='REGISTERED'||result.restoreVerified!==false)throw Error('NATIVE_REGISTRATION_UNVERIFIED');}
+  if(register){const name='gruk-restaurante-'+childEnv.GITHUB_RUN_ID+'-'+childEnv.GITHUB_RUN_ATTEMPT+'.archive.age';const result=await register(name);if(result?.name!==name||result.status!=='REGISTERED'||result.restoreVerified!==false)throw Error('NATIVE_REGISTRATION_UNVERIFIED');if(required&&result.replicationVerified!==true)throw Error('NATIVE_REPLICATION_UNVERIFIED');}
  };
 }
 module.exports={createBackupAdapter};
