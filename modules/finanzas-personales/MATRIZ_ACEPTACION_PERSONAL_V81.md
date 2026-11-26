@@ -1,6 +1,6 @@
 # Matriz de aceptación y prioridad — revisión r110
 
-Corte r120 en implementación: recibo GET propio de revisión específica, con contrato y huella del cuerpo semántico, histórico o versionado; solo lectura, sin otro POST ni fotografías privadas. Informe RECIBO_REVISION_ORIGEN_GET_PERSONAL_V81.md. Padre d7ac1ac2; seis pruebas nuevas aprobadas, CI propia pendiente. Siguiente constancia de no aplicación y control de pendientes;404 no habilita descartar. Sin merge/Render ni cierre407.
+Corte r120 verificado en ensayo: código1c13b09a17fc8f2728872700f5bae9e624894850/árboldb75563bf790a5277cf91a31007c7bd13559ddc2. Gate45751451783/Seguridad45751451814/V8145751451792 success; ocho jobs, Mongo101/101 y Chromium/backend32/32 sin omisiones/cancelaciones. GET propio de revisión específica histórica/versionada, contrato/método/ruta/cuerpo semántico/huella/hash, sin POST ni fotografías privadas. Informe RECIBO_REVISION_ORIGEN_GET_PERSONAL_V81.md. Siguiente constancia de no aplicación y control de pendientes;404 no habilita descartar. Verificar CI del cierre documental; sin merge/Render ni cierre407.
 
 Corte r119 verificado en ensayo: código c4332e40fee80e6d174fa237870682cbbe07bf7a, árbol ad312d0779baada4433e44bbaea3a1e761ae7e8e. Gate45745219138/Seguridad45745219107/V8145745219076 success; ocho jobs, Mongo101/101 y Chromium/backend32/32 sin omisiones/cancelaciones. Ruta antigua exige selección vigente para nuevas revisiones y conserva replay histórico exacto; recibo individual no reconoce otro contrato. Informe RUTA_ANTIGUA_ORIGEN_VERSIONADA_PERSONAL_V81.md. Siguiente GET específico y rechazos verificables; CI del cierre documental debe verificarse. Sin merge/Render ni cierre407.
 
@@ -195,3 +195,25 @@ Siguiente bloque recuperable: GET propio de recibo de revisión específica, lig
 
 
 Validación local previa a publicación r120:6/6 nuevas sin omisiones; módulo997 casos/988 aprobados/9 omitidos por integración no configurada,0 fallos/cancelaciones; npm run ci:personal353/349 aprobados/4 omitidos por Mongo no configurado,0 fallos/cancelaciones. Sintaxis del servicio/fixtures/navegador y git diff --check correctos. Mongo autorizado/Chromium reales requieren CI del SHA propio; no se atribuye la CI del padre al código nuevo.
+
+
+## Cierre de código verificado — 25/11/2026, Colombia
+
+Código `1c13b09a17fc8f2728872700f5bae9e624894850`, árbol `db75563bf790a5277cf91a31007c7bd13559ddc2`, padre `d7ac1ac26a49d38694d2da51d307180182d40006`. Publicado en la rama de integración personal con expected_sha/fast-forward, árbol GitHub igual al índice local, ocho archivos exclusivamente personales. PR389 abierto/no integrado y base652126a03f19fbec3c529cad1e84bff11cd3699e intacta. Un bloque funcional, no ocho cambios contados como bloques.
+
+CI del SHA exacto, tres workflows success:
+
+- [GRUK Gate45751451783](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45751451783).
+- [Seguridad45751451814](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45751451814).
+- [V8145751451792](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45751451792), ocho jobs success. El job separado de navegador tardó en instalar Chromium y terminó sin cambiar sus gates/timeouts.
+- [Job autenticado139679951696](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/45751451792/job/139679951696): Mongo101/101 y Chromium/backend32/32,0 fallos/omisiones/cancelaciones; logs examinados tras finalizar.
+
+FP_RECIBO_REVISION_ORIGEN_GET acredita en ensayo sintético login real/Chromium390/fetch GET real, soloLectura, contrato propio, cuerpo/versión exactos, hashEvento exacto, sin fotografías privadas,0 POST de recuperación y cajaMinor1200/fuentes/recibos intactos. La integración Mongo autenticada verifica además recibo histórico sin versión después de otra corrección, recibo versionado, ID en mayúsculas, dueño ajeno/ausente404, filtros400, proyección adulterada409 y fotografías completas antes/después sin cambios. La consulta no escribe coordinación, eventos ni outbox. No es un nuevo botón de UI ni resolución automática del control local existente.
+
+Local:6/6 nuevos sin omisiones; módulo997/988 aprobados/9 omitidos y ci:personal353/349 aprobados/4 omitidos por integración no configurada;0 fallos/cancelaciones. Sintaxis y diff correctos. CI autenticada cubre los escenarios de integración descritos sin omisiones; no se extiende esa afirmación a producción ni a todos los dispositivos.
+
+Backup V32/45 sin cambio de formato/modelos: copia cifrada/restauración BSON e índices en destino aislado vacío,8044 documentos/8108938 bytes; captura300ms/restauración1201ms/edad1510ms, custodiaIndependiente=false/rpoProduccion=false. Son métricas sintéticas del ensayo, no RPO/RTO operacional, respaldo durable independiente ni validación semántica de los fixtures deliberadamente corruptos. Sin migraciones/restauraciones productivas ni datos reales alterados.
+
+Bloque cerrado en su alcance: GET propio histórico/versionado con contrato/método/ruta/cuerpo semántico/huella/hashEvento, privacidad y lectura verificable sin otro POST. No acredita bytes HTTP, firma de custodio, origen real ni estado actual;404/422 no prueban no aplicación y no autorizan descartar o reenviar un pendiente. Siguiente bloque: constancia verificable de no aplicación/rechazo con exclusión transaccional frente a confirmación concurrente; luego consulta/resolución explícita en control y recuperación propios, conservando originales. Antes de retomar verificar HEAD/base/PR389/issue407/CI/instrucciones/CONTINUIDAD y este cierre, sin repetir bloques cerrados.
+
+#407/release pendientes: custodio independiente real/anclas, backup durable/retención/acceso/credenciales separadas/restauración operativa aislada/RPO-RTO, roles/índices/migración/configuración reales, Safari/dispositivos/auditoría independiente/compatibilidad/informe final según matriz. Sin merge a feature ni Render/main/Empresarial/Blushéa/costos nuevos. Tarea activa. El descendiente documental requiere CI propia del SHA comprobable en Git/PR, sin autoreferencia circular.
