@@ -19,3 +19,16 @@ test('health reports readiness without authorizing real backups',async t=>{
  assert.equal((await health({root,service:{status:()=>({listening:true,closing:true})}})).status,'unavailable');
  assert.equal((await health({root:path.join(root,'missing'),service})).code,'STORAGE_CHECK_FAILED');
 });
+
+test('health flags recovery review without removing lock',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-health-recovery-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const service={status:()=>({listening:true,closing:false})};
+ await fs.mkdir(path.join(root,'.backup.lock'),{mode:0o700});
+ const result=await health({root,service,policy:{reserveBytes:0}});
+ assert.equal(result.status,'degraded');
+ assert.equal(result.code,'RECOVERY_REVIEW_REQUIRED');
+ assert.equal(result.realBackupReady,false);
+ assert.equal(result.recovery.lockPresent,true);
+ assert.ok((await fs.stat(path.join(root,'.backup.lock'))).isDirectory());
+});
