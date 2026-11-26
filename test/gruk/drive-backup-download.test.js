@@ -13,10 +13,12 @@ test('remote download publishes only complete validated ciphertext without overw
  const dest=path.join(root,'backup.age');
  const data=Buffer.from('age-encryption.org/v1\n'+'synthetic'.repeat(10));
  const meta={size:String(data.length),md5Checksum:createHash('md5').update(data).digest('hex')};
- const receive=(body,m=meta)=>receiveArchive(Readable.from([body]),dest,m);
+ const receive=(body,m=meta)=>receiveArchive(Readable.from([body.subarray(0,8),body.subarray(8)]),dest,m);
  await assert.rejects(receive(data.subarray(0,-1)),/DRIVE_DOWNLOAD_INTEGRITY_FAILED/);
  await assert.rejects(receive(Buffer.concat([data,Buffer.from('x')])),/DRIVE_DOWNLOAD_SIZE_LIMIT/);
  await assert.rejects(receive(data,{...meta,md5Checksum:'0'.repeat(32)}),/DRIVE_DOWNLOAD_INTEGRITY_FAILED/);
+ assert.deepEqual(await fs.readdir(root),[]);
+ await assert.rejects(receiveArchive(Readable.from((async function*(){yield data.subarray(0,20);throw Error('SYNTHETIC_STREAM_FAILURE');})()),dest,meta),/SYNTHETIC_STREAM_FAILURE/);
  assert.deepEqual(await fs.readdir(root),[]);
  await receive(data);
  assert.deepEqual(await fs.readFile(dest),data);

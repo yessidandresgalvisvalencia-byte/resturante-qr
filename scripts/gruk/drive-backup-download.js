@@ -1,8 +1,5 @@
 'use strict';
 const fs=require('node:fs/promises');
-const {createWriteStream}=require('node:fs');
-const {Transform}=require('node:stream');
-const {pipeline}=require('node:stream/promises');
 const {createHash,randomUUID}=require('node:crypto');
 async function receiveArchive(stream,destination,{size,md5Checksum},{maxBytes=1073741824}={}){
  if(typeof size!=='string'||!/^\d{1,16}$/.test(size)||!Number.isSafeInteger(Number(size))||Number(size)<64||Number(size)>maxBytes||typeof md5Checksum!=='string'||!(/^[a-f0-9]{32}$/).test(md5Checksum))throw Error('DRIVE_DOWNLOAD_METADATA_INVALID');
@@ -12,12 +9,19 @@ async function receiveArchive(stream,destination,{size,md5Checksum},{maxBytes=10
  try{
   const file=await fs.open(tmp,'wx',0o600);owned=true;
   try{
-   await pipeline(stream,new Transform({transform(chunk,enc,cb){
+   for await(const value of stream){
+    const chunk=Buffer.isBuffer(value)?value:Buffer.from(value);
     bytes+=chunk.length;
-    if(bytes>expected)return cb(Error('DRIVE_DOWNLOAD_SIZE_LIMIT'));
+    if(bytes>expected)throw Error('DRIVE_DOWNLOAD_SIZE_LIMIT');
     if(header.length<22)header=Buffer.concat([header,chunk.subarray(0,22-header.length)]);
-    hash.update(chunk);cb(null,chunk);
-   }}),file.createWriteStream({autoClose:false}));
+    hash.update(chunk);
+    let offset=0;
+    while(offset<chunk.length){
+     const result=await file.write(chunk,offset,chunk.length-offset,null);
+     if(result.bytesWritten<=0)throw Error('DRIVE_DOWNLOAD_WRITE_FAILED');
+     offset+=result.bytesWritten;
+    }
+   }
    if(bytes!==expected||hash.digest('hex')!==md5Checksum||header.toString()!=='age-encryption.org/v1\n')throw Error('DRIVE_DOWNLOAD_INTEGRITY_FAILED');
    await file.sync();
   }finally{await file.close();}
