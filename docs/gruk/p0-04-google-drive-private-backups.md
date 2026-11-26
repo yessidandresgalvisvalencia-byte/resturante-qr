@@ -151,3 +151,7 @@ The one-shot entry point now supports explicitly enabled discovery mode and reje
 ## Controlled inspection workflow staging
 
 A main-only manual workflow prepares the eventual recurring inspection entry point without installing a cron. It requires explicit confirmation, repository activation and the dedicated inspection environment; configure required reviewers and independently validate permissions before dispatch. Inspection-specific OAuth credentials must be read-only and scoped to the approved archive folder as far as provider capabilities permit. No signing private key or AGE decryption key is exposed. The workflow has an eight-minute timeout and a persistent daily cooldown. No schedule, dispatch, environment creation or credential change was performed. Actual CI quota and end-to-end validation must be reviewed before activation; interruption can retain a reservation for manual recovery.
+
+## End-to-end inspection release check
+
+The isolated replica integration now exercises the actual one-shot job, signed synthetic receipts, two discovery pages, cursor reset, persistent cooldown, audit events and missing-object alerts. The Drive and OAuth responses are injected mocks; no external network calls or customer data are used. This strengthens release evidence but does not establish real cloud access, redundancy or restoration. Verify the CI result before proceeding with live configuration.
