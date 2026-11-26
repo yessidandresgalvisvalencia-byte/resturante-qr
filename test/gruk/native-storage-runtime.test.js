@@ -25,8 +25,8 @@ test('synthetic runtime starts scheduler, delivers administrative alerts and dra
  let executions=0,stopped=0;
  const runtime=createRuntime({env:{GRUK_NATIVE_BACKUP_ROOT:root},signals:false,
   launch:async({signals})=>{assert.equal(signals,false);return {shutdown:async()=>{stopped++;}};},
-  intervalMs:1000,policy:{minFreeBytes:0},syntheticBackup:async()=>{executions++;throw Error('private synthetic detail');},
-  write:(line,done)=>{const event=JSON.parse(line);assert.ok(['BACKUP_FAILED','LOW_CAPACITY'].includes(event.code));assert.equal(line.includes('private synthetic detail'),false);done();resolveAlert(event);}
+  intervalMs:1000,policy:{reserveBytes:0},syntheticBackup:async()=>{executions++;throw Error('private synthetic detail');},
+  write:(line,done)=>{const event=JSON.parse(line);assert.equal(event.code,'BACKUP_FAILED');assert.equal(line.includes('private synthetic detail'),false);done();resolveAlert(event);}
  });
  let timer;
  try{
@@ -37,6 +37,6 @@ test('synthetic runtime starts scheduler, delivers administrative alerts and dra
   assert.equal(runtime.status().scheduler.running,false);
   assert.equal(runtime.status().scheduler.busy,false);
   assert.equal(stopped,1);
-  assert.ok(executions<=1);
+  assert.equal(executions,1);
  }finally{clearTimeout(timer);await runtime.shutdown();await fs.rm(root,{recursive:true,force:true});}
 });

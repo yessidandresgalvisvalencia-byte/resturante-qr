@@ -11,10 +11,11 @@ async function start({env=process.env,signals=true}={}){
  if(await fs.realpath(path.dirname(root))!==path.dirname(root))throw Error('INVALID_PARENT');
  await fs.mkdir(root,{mode:0o700}).catch(e=>{if(e.code!=='EEXIST')throw e;});
  const stat=await fs.lstat(root);
- if(!stat.isDirectory()||(stat.mode&0o077)||await fs.realpath(root)!==root)throw Error('INVALID_VOLUME');
- const h=await fs.open(secret,constants.O_RDONLY|constants.O_NOFOLLOW);
+ if(!stat.isDirectory()||(stat.mode&0o077)||stat.uid!==process.getuid()||await fs.realpath(root)!==root)throw Error('INVALID_VOLUME');
+ if(await fs.realpath(path.dirname(secret))!==path.dirname(secret))throw Error('INVALID_KEY_PARENT');
+ const h=await fs.open(secret,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
  let key;
- try{const s=await h.stat();if(!s.isFile()||(s.mode&0o077)||s.size!==32)throw Error('INVALID_KEY_FILE');key=await h.readFile();}finally{await h.close();}
+ try{const s=await h.stat();if(!s.isFile()||(s.mode&0o077)||s.uid!==process.getuid()||s.nlink!==1||s.size!==32)throw Error('INVALID_KEY_FILE');key=await h.readFile();}finally{await h.close();}
  const server=listenLocal({root,key},port);
  await new Promise((resolve,reject)=>{
   server.once('error',reject);
