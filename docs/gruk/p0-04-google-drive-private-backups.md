@@ -87,3 +87,7 @@ The manual real-data workflow now requires GRUK_CATALOG_ENABLED=true, a dedicate
 ## Read-only reconciliation contract
 
 Classifies missing or untrusted catalog entries, unavailable remote inspection, unconfirmed uploads, duplicates, size mismatches and objects awaiting restore verification. Never deletes, overwrites, or retries uploads automatically. An injected inspector must return a complete exact-folder result set; a real Drive inspector and durable restore evidence remain pending. Metadata agreement alone never establishes restoration. Tests use synthetic adapters.
+
+## Read-only Drive inspection adapter
+
+The inspector queries only the exact private backup folder and archive name, checks folder identity, paginates bounded results, rejects incomplete search and unexpected objects, and exposes only reconciliation metadata. Tests inject a fake HTTP transport; no live OAuth call is performed. A separate runtime wiring and credential validation remain necessary. No uploads, deletes, billing changes or restoration certification occur.
