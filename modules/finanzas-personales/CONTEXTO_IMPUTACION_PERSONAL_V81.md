@@ -1,0 +1,27 @@
+# Contexto de decisiones ordinarias de imputación — r133
+
+26/11/2026 Colombia. HEAD real inicial fb54720bda2645c56ed84adc8f4535308bcf4c18/árbol29b80ff846b3cce215d754203dbc15a11bf52d75. Base feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e intacta. PR389 abierto/no integrado, rama integration/fp-hormiga-clasificacion-credito-v81. #407 es issue abierto; cuerpo/cuatro comentarios revisados sin evidencia operativa independiente nueva. CI inicial Gate45872550512/Seguridad45872550537/V8145872550513 success. Instrucciones, continuidad, matriz e informe r132 revisados; sin AGENTS.md adicional en checkout. Fechas de ingreso y compra estricta ya completadas: no repetir.
+
+## Un bloque funcional y aceptación
+
+Aplicar, excluir, anular una decisión y cerrar explícitamente sin aplicar por contexto obsoleto conservan su contrato de imputación SIN movimiento de caja. La captura HTTP es del servidor/dueño JWT, fuera del cuerpo exacto; dominio FP_IMPUTACION_CTX_MIN_V1 separado del cierre de restauración FP_CIERRE_RESTAURACION_CTX_MIN_V1 y de pago/anulación/compensación. GET historial/recibo no captura. El cliente no puede fabricar un evento de restauración mediante la ruta ordinaria.
+
+Se usa el campo privado opcional ya existente en el evento append-only: select:false/serialización privada inmutable. No hay migración/backfill/colección/índices nuevos ni reescritura de firmas históricas. El compromiso contextual queda dentro de firma HMAC y hash encadenado. Verificación selecciona dominio según tipo real de solicitud: contexto ordinario no es válido en cierre de restauración ni contexto de cierre en imputación ordinaria. Restauración aplicada conserva su formato previo. Respuestas nuevas/replay/historial entregan compromiso y resumen minimizado, sin token/claveId/IP/user-agent crudos; recibos mantienen exactamente su contrato/hash vinculado.
+
+Se mueven el primer escritor de serialización y su cursor después de validación pura y captura. Contexto obligatorio para nuevos POST HTTP; configuración ausente503, contexto inválido/dueño/dominio ajeno fallan antes de escribir. Resolver conserva una observación entre reintentos de transacción. Replay verificado sale antes de captura/escritura y no requiere clave contextual actual. Llamadas internas sin callback conservan formato sin contexto. El cierre ordinario sigue requiriendo la cabecera explícita existente y un rechazo verificable; no se inventa una decisión aplicada.
+
+Evento/cursor de imputación y serialización permanecen en transacción atómica. Carrera idempotente agrega un evento; revisionCompatibilidad incrementa exactamente una vez, secuencia/hash financieros y caja/fuentes/compensaciones/outbox permanecen intactos. Omitir o alterar el contexto nuevo invalida la cadena; no hay reparación automática.
+
+## Pruebas y evidencia antes de publicar
+
+Cinco pruebas nuevas y regresiones dirigidas21/21: compatibilidad de HMAC/hash legados (aplicación/cierre), dominio propio/DTO, omisión/dueño/dominio/tamper, captura antes del escritor/retry único, callback ausente/interno/erróneo, replay sin captura, respuesta minimizada y handler. Suite del módulo1082 casos/1073 aprobados/9 omisiones locales por integración no configurada;ci:personal353/349 aprobados/4 omisiones locales por Mongo no configurado; cero fallos/cancelaciones. Sintaxis/diff correctos. Adaptador sintético de interfaz proporciona socket/UA de ensayo, sin inventarlo en producción ni retirar controles existentes.
+
+Mongo autorizado añade las cuatro decisiones por HTTP, legado sin contexto en la misma cadena/BSON idéntico, pago450/capital400, falta de clave antes del cursor, propietario ajeno/cuerpo forjado, rollback después del INSERT, carrera única, recibo/replay sin clave, respuesta/compromiso verificable y privado oculto, cuerpo cambiado409, fuentes/caja intactas y omisión administrativa sintética detectada por historial/replay/GET. Chromium amplía los dos casos de copia de imputación existentes: aplicar/cerrar,503 previo, POST real con respuesta perdida, contexto privado/compromiso/replay/recibo sin clave y recuperación/copia sin doble caja. No se amplían cuotas/casos/timeouts. CI propia pendiente; resultados del padre no acreditan este lote.
+
+## Límites, bloqueos y siguiente paso
+
+El peer socket seudonimizado no verifica cliente detrás de proxy; dispositivo declarado siempre sin verificar. No se afirma cifrado reversible de IP, auditoría de todos los intentos fallidos ni certificación externa. Historia anterior sin contexto se conserva sin inventarlo. La cadena no impide reescritura por un administrador con claves/privilegios completos: hace falta custodia independiente real.
+
+#407 sigue bloqueando producción: custodio/anclas independientes; respaldo durable independiente/retención/accesos/credenciales separadas, restauración aislada y RPO/RTO operativos; roles/índices/migración/configuración reales; dispositivos/Safari/carga, auditoría independiente y compatibilidad/informe final. Ensayos sintéticos no prueban producción ni retención independiente. No merge a feature, main/Empresarial/Blushéa intactos, cero Render/datos reales/costos.
+
+Checkpoint: publicar con expected_sha y force:false sobre HEAD comprobado, verificar CI exacta y cerrar evidencia documental; si cambia HEAD, reevaluar sin sobrescribir. Siguiente bloque independiente: revisar contexto/auditoría y recuperación de retiro/restauración lógica de deudas personales según cobertura existente, antes de modificar. No repetir imputación/restauración/cierre ni fechas/compra estricta completados.
