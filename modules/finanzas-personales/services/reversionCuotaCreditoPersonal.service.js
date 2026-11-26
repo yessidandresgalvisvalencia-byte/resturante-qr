@@ -93,8 +93,9 @@ async function deshacer(usuarioId,prestamoId,{movimientoId,idempotencyKey}={},op
  },config);}catch(e){if(e.code===11000)throw problema("Operación concurrente; consulta el pago antes de reintentar");throw e;}
  finally{await session.endSession();}
 }
-async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anulacionHash,imputacion}={},{cerrarRechazo=false,capturarContexto}={}){
+async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anulacionHash,imputacion}={},{cerrarRechazo=false,capturarContexto,capturarContextoCierre}={}){
  const Aud=require("../security/contextoAuditoriaCompensacionPersonal.service"),capturar=capturarContexto?Aud.resolver(usuarioId,{capturarContexto}):null;
+ const Cierre=require("../security/contextoAuditoriaCierreRestauracionPersonal.service"),capturarCierre=capturarContextoCierre?Cierre.resolver(usuarioId,{capturarContexto:capturarContextoCierre}):null;
  if(![usuarioId,prestamoId,movimientoId].every(x=>mongoose.isObjectIdOrHexString(x))||
   typeof idempotencyKey!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey)||
   typeof anulacionHash!=="string"||!/^[a-f0-9]{64}$/.test(anulacionHash))throw problema("Préstamo, pago y anulación exacta obligatorios",400);
@@ -115,7 +116,7 @@ async function restaurar(usuarioId,prestamoId,{movimientoId,idempotencyKey,anula
    const e=await require("./restauracionCicloPagoPersonal.service").verificarReplay(usuarioId,prestamoId,fuente,idempotencyKey,anulacionHash,repetido.hashActual,imputacion,session);
    return {duplicado:true,compensacion:repetido,...(e?{recibo:require("./restauracionCicloPagoPersonal.service").recibo(usuarioId,prestamoId,fuente,idempotencyKey,anulacionHash,repetido.hashActual,imputacion,e)}:{})};
   }
-  const cierre=await require("./restauracionCicloPagoPersonal.service").resolverCierreEnSesion(usuarioId,prestamoId,fuente,idempotencyKey,anulacionHash,imputacion,cadena,session,{cerrarRechazo});
+  const cierre=await require("./restauracionCicloPagoPersonal.service").resolverCierreEnSesion(usuarioId,prestamoId,fuente,idempotencyKey,anulacionHash,imputacion,cadena,session,{cerrarRechazo,...(capturarCierre?{capturarContexto:capturarCierre}:{})});
   if(cierre)return cierre;
   if(!estado.anulado||historial.at(-1)?.tipo!=="ANULACION"||historial.at(-1)?.hashActual!==anulacionHash)
    throw problema("La anulación cambió; consulta antes de restaurar el pago");
