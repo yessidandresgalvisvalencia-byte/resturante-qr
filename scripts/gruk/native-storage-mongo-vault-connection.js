@@ -19,5 +19,17 @@ async function probeVault({env=process.env,connect}){
   return {status:'READ_ACCESS_VERIFIED',used:q.used,realBackupEnabled:false,writePermissionsVerified:false};
  }finally{await c.close();}
 }
-if(require.main===module)probeVault({connect:async(uri,opts)=>{const c=require('mongoose').createConnection(uri,opts);try{return await c.asPromise();}catch(e){await c.close().catch(()=>{});throw e;}}}).then(x=>console.log(JSON.stringify(x))).catch(()=>{console.error('GRUK_VAULT_PROBE_FAILED');process.exitCode=1;});
-module.exports={validateVaultUri,probeVault};
+// Emit only fixed diagnostic codes; never log driver messages, URIs or stacks.
+function safeProbeError(e){
+ const allowed=['VAULT_ENDPOINT','VAULT_ENDPOINT_SCOPE','VAULT_ENDPOINT_OPTIONS','VAULT_PROBE_DISABLED','VAULT_SCOPE','VAULT_QUOTA_UNVERIFIED'];
+ if(allowed.includes(e?.message))return e.message;
+ if(e?.code===18)return 'VAULT_AUTHENTICATION_FAILED';
+ if(e?.code===13)return 'VAULT_PERMISSION_DENIED';
+ if(e?.code==='MODULE_NOT_FOUND')return 'VAULT_DEPENDENCY_MISSING';
+ if(e?.name==='MongoParseError')return 'VAULT_DRIVER_URI_INVALID';
+ if(e?.name==='MongoServerSelectionError'||e?.name==='MongooseServerSelectionError')return 'VAULT_SERVER_UNREACHABLE';
+ if(['ENOTFOUND','EAI_AGAIN','ECONNREFUSED','ETIMEOUT'].includes(e?.code))return 'VAULT_NETWORK_UNREACHABLE';
+ return 'VAULT_UNCLASSIFIED';
+}
+if(require.main===module)probeVault({connect:async(uri,opts)=>{const c=require('mongoose').createConnection(uri,opts);try{return await c.asPromise();}catch(e){await c.close().catch(()=>{});throw e;}}}).then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error('GRUK_VAULT_PROBE_FAILED',safeProbeError(e));process.exitCode=1;});
+module.exports={validateVaultUri,probeVault,safeProbeError};
