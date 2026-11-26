@@ -1,5 +1,6 @@
 'use strict';
 const {inspect}=require('./native-storage-capacity');
+const {record}=require('./native-storage-history');
 function createScheduler({root,backup,alert,intervalMs=86400000,policy={},clock=Date.now}){
  if(typeof backup!=='function'||typeof alert!=='function'||!Number.isSafeInteger(intervalMs)||intervalMs<1000||intervalMs>2147483647)throw Error('INVALID_CONFIG');
  let busy=false,timer=null,lastSuccess=null,lastFailure=null;
@@ -11,12 +12,18 @@ function createScheduler({root,backup,alert,intervalMs=86400000,policy={},clock=
    if(capacity.lowCapacity)throw Error('LOW_CAPACITY');
    await backup();
    lastSuccess=clock();
+   await record(root,{code:'BACKUP_OK',at:lastSuccess});
    return {status:'ok'};
   }catch(e){
    lastFailure=clock();
    const code=e.message==='LOW_CAPACITY'?'LOW_CAPACITY':'BACKUP_FAILED';
-   try{await alert({code,at:lastFailure});}catch{return {status:'failed',code,alertFailed:true};}
-   return {status:'failed',code};
+   let journalFailed=false;
+   try{await record(root,{code,at:lastFailure});}catch{journalFailed=true;}
+   try{await alert({code,at:lastFailure});}catch{
+    try{await record(root,{code:'ALERT_FAILED',at:lastFailure});}catch{journalFailed=true;}
+    return {status:'failed',code,alertFailed:true,...(journalFailed?{journalFailed:true}:{})};
+   }
+   return {status:'failed',code,...(journalFailed?{journalFailed:true}:{})};
   }finally{busy=false;}
  }
  return {tick,start(){if(timer===null)timer=setInterval(()=>{void tick();},intervalMs);},stop(){if(timer!==null)clearInterval(timer);timer=null;},status(){return {busy,lastSuccess,lastFailure,running:timer!==null};}};
