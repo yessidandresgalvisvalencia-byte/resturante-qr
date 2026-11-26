@@ -107,3 +107,7 @@ The dedicated reconciliation_control collection uses an atomic singleton reserva
 ## Interrupted reservation recovery (development)
 
 The recovery primitive requires explicit confirmation that the previous worker terminated, exact owner and start time, a reviewed incident evidence identifier, and at least one hour elapsed. It uses an atomic conditional update and imposes a new 24-hour cooldown. The operator must independently verify termination; elapsed time and the confirmation string are not proof. The singleton retains only the latest recovery metadata, not an immutable audit trail. No administrative CLI or live recovery is enabled. Runtime wiring and real MongoDB tests remain pending.
+
+## Coordinated inspection integration (development)
+
+The coordinated runner joins persistent reservation, bounded batch processing and read-only inspection, aggregating alerts once per batch. It requires three explicit activation flags and validates inputs before opening a connection. The reservation is kept on uncertain completion. The test covers disabled and occupied reservations; full successful end-to-end integration against a real database, immutable recovery audit, independent credentials and scheduling remain pending. No scheduler is installed.
