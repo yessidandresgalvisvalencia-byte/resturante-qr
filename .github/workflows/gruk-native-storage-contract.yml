@@ -63,7 +63,7 @@ jobs:
           cmp "$tmp/plain" "$tmp/recovered"
       - name: Standalone service restart recovery
         run: bash scripts/gruk/native-storage-restart-test.sh
-      - name: Isolated synthetic MongoDB restore
+      - name: Isolated synthetic MongoDB restore from signed failover replica
         run: bash scripts/gruk/native-storage-mongo-test.sh
       - name: Capacity and retention policy
         run: node --test test/gruk/native-storage-capacity.test.js
