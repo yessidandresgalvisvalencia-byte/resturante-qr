@@ -170,7 +170,7 @@ jobs:
           head -c 300000 /dev/urandom > "$tmp/plain"
           age-keygen -o "$tmp/identity" 2>/dev/null
           age -r "$(age-keygen -y "$tmp/identity")" -o "$tmp/input.age" "$tmp/plain"
-          node --test test/gruk/native-storage-mongo-vault.test.js
+          node --test test/gruk/native-storage-mongo-vault.test.js test/gruk/native-storage-mongo-vault-connection.test.js
           node scripts/gruk/native-storage-mongo-vault-integration.js "$tmp/input.age" "$tmp/recovered.age"
           age -d -i "$tmp/identity" -o "$tmp/recovered" "$tmp/recovered.age"
           cmp "$tmp/plain" "$tmp/recovered"
