@@ -7,6 +7,7 @@ const {Readable} = require('node:stream');
 const {pipeline} = require('node:stream/promises');
 const {basename} = require('node:path');
 const {createHash} = require('node:crypto');
+const {assertUploadQuota}=require('./drive-backup-quota');
 
 const [,,mode,source,other] = process.argv;
 const folder = process.env.GRUK_DRIVE_BACKUP_FOLDER_ID;
@@ -21,7 +22,13 @@ function assertArchive(file) {
 }
 if (mode === 'upload') {
   assertArchive(source);
-  if (!fs.existsSync(source) || fs.statSync(source).size < 64) fail('ENCRYPTED_ARCHIVE_EMPTY');
+  const h=fs.openSync(source,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);
+  try{
+    const st=fs.fstatSync(h);
+    if(!st.isFile()||st.size<64)fail('ENCRYPTED_ARCHIVE_EMPTY');
+    const header=Buffer.alloc(22);
+    if(fs.readSync(h,header,0,22,0)!==22||header.toString()!=='age-encryption.org/v1\n')fail('AGE_ARCHIVE_REQUIRED');
+  }finally{fs.closeSync(h);}
   const allowedName = /^gruk-restaurante-[0-9]+-[0-9]+\.archive\.age$/;
   if (!allowedName.test(other)) fail('INVALID_ARCHIVE_NAME');
 } else {
@@ -66,6 +73,8 @@ async function main(){
   await checkFolder(token);
   if(mode==='upload'){
     const name=other,size=fs.statSync(source).size;
+    const about=await request('https://www.googleapis.com/drive/v3/about?fields=storageQuota(limit,usage)',token);
+    assertUploadQuota((await about.json()).storageQuota,size);
     const init=await request('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,parents,size,md5Checksum',token,{
       method:'POST',
       headers:{

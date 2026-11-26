@@ -39,3 +39,7 @@ El ID de la carpeta cifrada es fijo en el workflow; no es un secreto. Configurar
 - El plan maestro exige un respaldo recuperable y trazabilidad **antes** de retirar un índice único global heredado o declarar el producto listo para cobros reales.
 
 **Estado a 20/11/2026:** estructura privada creada; código de transporte y ensayo construido; autorizaciones OAuth propias de GitHub, ejecución con datos reales y validación integral **pendientes**.
+
+## Cloud-only phase 2: quota preflight
+
+Before creating a resumable upload, query Drive storageQuota and refuse missing or invalid quota, insufficient space, or an archive larger than 1 GiB. Reserve 100 MiB by default. Reject nonregular source files and invalid AGE headers before authentication. Header inspection is not cryptographic verification; the existing isolated restore remains mandatory. This preflight is not a billing guarantee or atomic quota reservation and assumes a dedicated trusted runner and stable source file. No automatic deletion, new provider account, real data upload or production activation is authorized by this change.
