@@ -119,3 +119,7 @@ The audit adapter records bounded inspection and recovery event types using crea
 ## Audit integration
 
 Coordinated inspections now require verified audit events before inspection and before reservation release. The recovery primitive supports an injected audit sink for request and completion events; no administrative runtime is enabled. Recovery update and completion audit are separate writes: a failure after the update can leave a request without completion and must be reconciled manually. This is not transactional immutable evidence. Real permissions, concurrency tests and full recovery audit integration remain release gates.
+
+## Atomic recovery transaction (development)
+
+The new recovery primitive updates the reservation and inserts both audit events within one MongoDB transaction, using snapshot reads and majority journaled commit. Any failure aborts the transaction; there is no fallback to separate writes. The caller must supply a client and database from the same independent deployment and verify termination of the old worker. The legacy recovery helper remains available but must not be used for production administrative recovery. Tests simulate transaction rollback; actual replica-set integration, privilege validation and administrative wiring remain pending. No live recovery occurred.
