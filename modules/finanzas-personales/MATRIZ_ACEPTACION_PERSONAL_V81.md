@@ -222,3 +222,6 @@ Bloque cerrado en su alcance: GET propio histórico/versionado con contrato/mét
 
 
 Validación local previa a publicación r121:5/5 nuevas sin omisiones; conjunto dirigido con recibos/ruta anterior15/15 antes de añadir la quinta prueba UI (ahora16 casos); módulo final1002/993 aprobados/9 omitidos por integración no configurada,0 fallos/cancelaciones; ci:personal353/349 aprobados/4 omitidos por Mongo no configurado,0 fallos/cancelaciones. Sintaxis y diff correctos. El helper Mongo añadido exige proyección íntegra salvo cursor, además del rollback/carrera; necesita CI real del SHA nuevo.
+
+
+Revisión previa al cierre de CI: el código inicial46b25190d689238e521ed711beb6764b6ff0d915 podía insertar un cierre con importes de proyección corruptos y rechazar después su recibo. Se exige capital/saldo seguros y coherentes en verificarCierre antes de insertar: el fallo no deja un cierre confirmado sin recibo. Se añadieron casos de saldo negativo, superior al capital y fuera de rango. Es corrección del mismo bloque, no uno adicional. Verificar CI del SHA corregido.

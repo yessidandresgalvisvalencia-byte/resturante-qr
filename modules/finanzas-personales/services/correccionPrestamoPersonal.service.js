@@ -11,7 +11,7 @@ function foto(p){return canon(Object.fromEntries(Object.entries(p).filter(([k])=
 function hash(e){return digest(Object.fromEntries(["usuarioId","prestamoId","secuencia","solicitudId","solicitudHash","cambios","anterior","posterior","fecha","hashAnterior",...(Object.hasOwn(e,"noAplicada")?["noAplicada","motivoNoAplicada"]:[])].map(k=>[k,e[k]])));}
 function verificarCierre(e){
  if(!Object.hasOwn(e,"noAplicada")&&!Object.hasOwn(e,"motivoNoAplicada"))return;
- if(e.noAplicada!==true||e.motivoNoAplicada!=="CIERRE_EXPLICITO_PROPIETARIO"||!igual(e.anterior,e.posterior)||e.anterior?.direccion!=="POR_COBRAR")throw falla("Cierre de revisión no verificable");
+ if(e.noAplicada!==true||e.motivoNoAplicada!=="CIERRE_EXPLICITO_PROPIETARIO"||!igual(e.anterior,e.posterior)||e.anterior?.direccion!=="POR_COBRAR"||!Number.isSafeInteger(e.anterior.principalMinor)||e.anterior.principalMinor<1||!Number.isSafeInteger(e.anterior.saldoMinor)||e.anterior.saldoMinor<0||e.anterior.saldoMinor>e.anterior.principalMinor)throw falla("Cierre de revisión no verificable");
  const c=validar(e.usuarioId,e.prestamoId,e.cambios,{confirmacion:true,solicitudId:e.solicitudId});
  if(c.revisarCobrosTrabajo!==true)throw falla("Cierre de otro contrato");
 }
