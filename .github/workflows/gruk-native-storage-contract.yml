@@ -20,6 +20,7 @@ on:
       - 'test/gruk/native-storage-lock.test.js'
       - 'test/gruk/native-storage-recovery.test.js'
       - 'test/gruk/native-backup-storage.test.js'
+      - 'test/gruk/native-storage-catalog-inspector.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
   contents: read
@@ -86,3 +87,6 @@ jobs:
 
       - name: Interrupted backup recovery inspection
         run: node --test test/gruk/native-storage-recovery.test.js
+
+      - name: Native vault catalog integrity contract
+        run: node --test test/gruk/native-storage-catalog-inspector.test.js
