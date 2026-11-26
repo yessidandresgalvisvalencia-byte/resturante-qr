@@ -82,7 +82,7 @@
   }
   async function planArchivoRevisionOrigen(token,vigente=()=>true){const c=await recibosRevisionOrigen(token,vigente);return{version:1,usuarioId:c.usuario,huella:await digerir(c.original??JSON.stringify(c.pagina)),recibos:c.pagina.recibos.length,archivos:c.archivos.length};}
   async function archivarRevisionOrigen(token,plan,confirmado=false,vigente=()=>true){
-   if(confirmado!==true||!vigente()||estadoRevisionOrigen(token).bloqueada)throw falla("Archivo no confirmado o copia pendiente de verificar");const c=await recibosRevisionOrigen(token,vigente),s=cargar(token),revision=s.revision,pendientes=JSON.stringify([...s.pendientes.values()]);
+   if(confirmado!==true||!vigente()||estadoRevisionOrigen(token).marca?.estado==="INCIERTA")throw falla("Archivo no confirmado o copia sin terminar de instalar");const c=await recibosRevisionOrigen(token,vigente),s=cargar(token),revision=s.revision,pendientes=JSON.stringify([...s.pendientes.values()]);
    if(!plan||Object.keys(plan).sort().join(",")!=="archivos,huella,recibos,usuarioId,version"||plan.version!==1||plan.usuarioId!==s.usuario||!/^[a-f0-9]{64}$/.test(plan.huella||"")||!Number.isInteger(plan.recibos)||plan.recibos<0||plan.recibos>100||!Number.isInteger(plan.archivos)||plan.archivos<0||plan.archivos>20)throw falla("Plan de archivo inválido");
    const previo=c.archivos.find(a=>a.huella===plan.huella);if(previo){const x=JSON.parse(previo.original);if(x.recibos.length!==plan.recibos||(x.archivos??[]).length!==plan.archivos)throw falla("Archivo no coincide");return{yaArchivado:true,recibos:plan.recibos};}
    if(s.error||s.activas.size)throw falla("Hay operaciones en curso o registro sin verificar");
