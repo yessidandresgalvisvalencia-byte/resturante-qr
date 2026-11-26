@@ -7,13 +7,15 @@ umask 077
 for command in mongodump mongosh mongorestore age docker sha256sum node; do
   command -v "$command" >/dev/null || { echo "Missing $command" >&2; exit 1; }
 done
-for variable in GRUK_MANIFEST_SIGNING_PRIVATE_KEY GRUK_MANIFEST_TRUSTED_KEYRING GRUK_ENTERPRISE_BACKUP_URI GRUK_DRIVE_OAUTH_CLIENT_ID GRUK_DRIVE_OAUTH_CLIENT_SECRET GRUK_DRIVE_OAUTH_REFRESH_TOKEN GRUK_DRIVE_BACKUP_FOLDER_ID GRUK_BACKUP_AGE_RECIPIENT GRUK_BACKUP_AGE_IDENTITY GITHUB_RUN_ID GITHUB_RUN_ATTEMPT; do
+for variable in GRUK_CATALOG_MONGO_URI GRUK_CATALOG_EXPECTED_HOST GRUK_MANIFEST_SIGNING_PRIVATE_KEY GRUK_MANIFEST_TRUSTED_KEYRING GRUK_ENTERPRISE_BACKUP_URI GRUK_DRIVE_OAUTH_CLIENT_ID GRUK_DRIVE_OAUTH_CLIENT_SECRET GRUK_DRIVE_OAUTH_REFRESH_TOKEN GRUK_DRIVE_BACKUP_FOLDER_ID GRUK_BACKUP_AGE_RECIPIENT GRUK_BACKUP_AGE_IDENTITY GITHUB_RUN_ID GITHUB_RUN_ATTEMPT; do
   [[ -n "${!variable:-}" ]] || { echo "Missing private configuration: $variable" >&2; exit 1; }
 done
 [[ "$GRUK_BACKUP_APPROVAL" == "RESPALDAR_SOLO_RESTAURANTE" ]] || { echo 'Backup confirmation invalid' >&2; exit 1; }
 [[ "$GRUK_ENTERPRISE_DB" == "restaurante" && "$GRUK_ENTERPRISE_DB_CONFIRM" == "restaurante" ]] || { echo 'Enterprise DB scope invalid' >&2; exit 1; }
 [[ "$GRUK_BACKUP_AGE_RECIPIENT" =~ ^age1[a-z0-9]{50,}$ ]] || { echo 'Invalid age public recipient' >&2; exit 1; }
 [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ && "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]] || { echo 'CI immutable run identity required' >&2; exit 1; }
+[[ "${GRUK_CATALOG_ENABLED:-false}" == true ]] || { echo 'Independent catalog not authorized' >&2; exit 1; }
+node -e 'try { require("./scripts/gruk/drive-catalog-connection").validateCatalogConnection({catalogUri:process.env.GRUK_CATALOG_MONGO_URI,sourceUri:process.env.GRUK_ENTERPRISE_BACKUP_URI,expectedHost:process.env.GRUK_CATALOG_EXPECTED_HOST}); require("mongoose"); } catch { console.error("GRUK_CATALOG_PREFLIGHT_FAILED"); process.exitCode=1; }'
 tmp="$(mktemp -d)"
 container="gruk-restore-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 file_name="gruk-restaurante-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.archive.age"
@@ -51,6 +53,7 @@ sha256sum "$tmp/archive.age" | awk '{print $1}' > "$tmp/sha256"
 node scripts/gruk/drive-backup-manifest.js create "$tmp/archive.age" "$file_name" "$tmp/manifest.json"
 node scripts/gruk/drive-signed-receipt.js create "$tmp/archive.age" "$file_name" "$tmp/signed-receipt.json"
 unset GRUK_MANIFEST_SIGNING_PRIVATE_KEY
+node scripts/gruk/drive-catalog-runtime.js register "$tmp/archive.age" "$file_name" "$tmp/signed-receipt.json"
 # Upload ciphertext only. A new Google Drive object is created for each run.
 node scripts/gruk/p0-04-google-drive-encrypted-object.js upload "$tmp/archive.age" "$file_name" > "$tmp/drive-file-id"
 drive_id="$(cat "$tmp/drive-file-id")"
@@ -60,6 +63,7 @@ sha256sum "$tmp/downloaded.age" | awk '{print $1}' > "$tmp/downloaded.sha256"
 cmp -s "$tmp/sha256" "$tmp/downloaded.sha256" || { echo 'Offsite archive integrity mismatch' >&2; exit 1; }
 node scripts/gruk/drive-backup-manifest.js verify "$tmp/downloaded.age" "$file_name" "$tmp/manifest.json"
 env -u GRUK_MANIFEST_SIGNING_PRIVATE_KEY node scripts/gruk/drive-signed-receipt.js verify "$tmp/downloaded.age" "$file_name" "$tmp/signed-receipt.json"
+node scripts/gruk/drive-catalog-runtime.js verify "$tmp/downloaded.age" "$file_name" "$tmp/signed-receipt.json"
 docker run -d --name "$container" --network none mongo:7.0 >/dev/null
 ready=0
 for _ in $(seq 1 40); do
@@ -77,5 +81,5 @@ docker exec "$container" mongosh --quiet --eval "${summary_js//getSiblingDB(\"re
 cmp -s "$tmp/source-summary.json" "$tmp/target-summary.json" ||
   { echo 'Restore collection counts or index definitions differ (possibly concurrent production writes)' >&2; exit 1; }
 # Never print bucket, object content, PII, credentials, or backup decryption material.
-echo "GRUK_DRIVE_BACKUP_REAL_RESTORE_OK: database=restaurante; isolatedRestore=true; offsiteEncrypted=true; collectionCountsAndIndexesMatch=true"
+echo "GRUK_DRIVE_BACKUP_REAL_RESTORE_OK: database=restaurante; isolatedRestore=true; offsiteEncrypted=true; collectionCountsAndIndexesMatch=true; independentCatalogVerified=true"
 echo "BACKUP_RUN_ID=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"

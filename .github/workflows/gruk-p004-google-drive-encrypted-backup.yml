@@ -67,6 +67,11 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$DATABASE" == restaurante && "$CONFIRMATION" == RESPALDAR_SOLO_RESTAURANTE ]] || exit 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install locked Node dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Install age and mongo tools (never restore to Atlas)
         run: |
           set -euo pipefail
@@ -78,6 +83,9 @@ jobs:
           sudo apt-get install -y mongodb-mongosh mongodb-database-tools
       - name: Dump only restaurante, encrypt, upload to private Drive, download and restore offline
         env:
+          GRUK_CATALOG_ENABLED: ${{ vars.GRUK_CATALOG_ENABLED }}
+          GRUK_CATALOG_MONGO_URI: ${{ secrets.GRUK_CATALOG_MONGO_URI }}
+          GRUK_CATALOG_EXPECTED_HOST: ${{ vars.GRUK_CATALOG_EXPECTED_HOST }}
           GRUK_MANIFEST_SIGNING_PRIVATE_KEY: ${{ secrets.GRUK_MANIFEST_SIGNING_PRIVATE_KEY }}
           GRUK_MANIFEST_TRUSTED_KEYRING: ${{ secrets.GRUK_MANIFEST_TRUSTED_KEYRING }}
           GRUK_ENTERPRISE_BACKUP_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}

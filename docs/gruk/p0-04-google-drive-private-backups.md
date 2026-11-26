@@ -79,3 +79,7 @@ The new connection boundary validates dedicated Atlas SRV endpoints, exact catal
 ## Catalog runtime (development)
 
 A disabled-by-default CLI connects the signed receipt, ciphertext verification and separate catalog adapter. Registration requires a valid local receipt and matching ciphertext, then performs create-only persistence and readback; verification checks the stored signed manifest against the ciphertext. The real workflow is not yet wired to the CLI. Production activation requires independently provisioned credentials, host verification, quota and approval. Synthetic tests inject a simulated connection; no live cloud access is performed.
+
+## Mandatory catalog workflow gate
+
+The manual real-data workflow now requires GRUK_CATALOG_ENABLED=true, a dedicated catalog URI secret and an independently pinned host variable. It validates connection configuration before querying the source, registers the signed ciphertext receipt before Drive upload and verifies the catalog against downloaded ciphertext before isolated restoration. The manual job installs locked Node dependencies. A registered receipt is not proof of successful upload or restoration; failed attempts may leave a receipt and require reconciliation, never overwrite. No infrastructure or production credentials have been provisioned and the manual job must remain disabled until explicit approval and real independent deployment validation.
