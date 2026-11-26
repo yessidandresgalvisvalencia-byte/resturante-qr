@@ -26,3 +26,18 @@ test('scheduler prevents overlap and reports success and failures',async t=>{
  assert.deepEqual(await low.tick(),{status:'failed',code:'LOW_CAPACITY',alertFailed:true});
  assert.equal(calls,2);
 });
+
+test('journal failure never reports audited success',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-journal-fail-')));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ await fs.mkdir(path.join(root,'backup-history.jsonl'),{mode:0o700});
+ let calls=0;const alerts=[];
+ const s=createScheduler({root,policy:{reserveBytes:0},clock:()=>123,backup:async()=>{calls++;},alert:async a=>alerts.push(a)});
+ assert.deepEqual(await s.tick(),{status:'failed',code:'JOURNAL_FAILED',backupCompleted:true,journalFailed:true});
+ assert.equal(calls,1);
+ assert.equal(s.status().lastSuccess,null);
+ assert.equal(s.status().lastFailure,123);
+ assert.equal(s.status().busy,false);
+ assert.equal(alerts.length,1);
+ assert.equal(await fs.stat(path.join(root,'backup-history.jsonl')).then(s=>s.isDirectory()),true);
+});
