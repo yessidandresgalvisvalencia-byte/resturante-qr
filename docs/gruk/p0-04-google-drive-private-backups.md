@@ -103,3 +103,7 @@ A sequential batch runner deduplicates archive names, aggregates alerts by statu
 ## Persistent reconciliation coordination (development)
 
 The dedicated reconciliation_control collection uses an atomic singleton reservation with majority journaled acknowledgement, an owner token and a completion-based cooldown. Interruptions retain the reservation deliberately; there is no automatic lease takeover. A reviewed operator recovery procedure, dedicated collection permissions, trusted clock, actual MongoDB concurrency tests and runtime integration remain required. Tests simulate driver semantics only. No scheduler or live connection is activated.
+
+## Interrupted reservation recovery (development)
+
+The recovery primitive requires explicit confirmation that the previous worker terminated, exact owner and start time, a reviewed incident evidence identifier, and at least one hour elapsed. It uses an atomic conditional update and imposes a new 24-hour cooldown. The operator must independently verify termination; elapsed time and the confirmation string are not proof. The singleton retains only the latest recovery metadata, not an immutable audit trail. No administrative CLI or live recovery is enabled. Runtime wiring and real MongoDB tests remain pending.

@@ -24,4 +24,15 @@ function createCoordinator(db,{now=Date.now,intervalMs=86400000}={}){
   return result;
  };
 }
-module.exports={createCoordinator};
+// Recovery is an operator action, never an automatic expiration. The caller must
+// independently establish that the previous worker has actually terminated.
+async function recoverInterrupted(db,{owner,startedAt,approval,evidenceId,now=Date.now}={}){
+ if(db?.databaseName!=='gruk_storage_catalog'||approval!=='CONFIRM_WORKER_TERMINATED'||typeof owner!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(owner)||!Number.isSafeInteger(startedAt)||startedAt<0||typeof evidenceId!=='string'||!/^[A-Za-z0-9_-]{8,80}$/.test(evidenceId))throw Error('COORDINATOR_RECOVERY_CONFIG');
+ const at=now();
+ if(!Number.isSafeInteger(at)||at-startedAt<3600000||!Number.isSafeInteger(at+86400000))throw Error('COORDINATOR_RECOVERY_TOO_EARLY');
+ const c=db.collection('reconciliation_control');
+ const result=await c.updateOne({_id:ID,active:true,owner,startedAt},{$set:{active:false,nextAt:at+86400000,lastRecovery:{owner,startedAt,at,evidenceId}},$unset:{owner:''}},{writeConcern:{w:'majority',j:true,wtimeoutMS:10000}});
+ if(result.acknowledged!==true||result.modifiedCount!==1)throw Error('COORDINATOR_RECOVERY_UNCONFIRMED');
+ return {status:'RECOVERED',nextAt:at+86400000};
+}
+module.exports={createCoordinator,recoverInterrupted};
