@@ -40,7 +40,7 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
   const soloLectura=String(o.method||"GET").toUpperCase()==="GET";
   if(!soloLectura&&!consultaSoloLectura&&tokenSolicitud&&!path.startsWith("/auth/")&&controlFinancieroPersonal().esMutacion(path,o,tokenSolicitud)){
    if(typeof invalidarAutorizacionDisponible==="function")invalidarAutorizacionDisponible();
-   operacion=await controlFinancieroPersonal().iniciar(tokenSolicitud,path,o);o=operacion.opciones;
+   operacion=controlFinancieroPersonal().cierreRevisionOrigenRuta(path)?await controlFinancieroPersonal().iniciarCierreRevisionOrigen(tokenSolicitud,path,o,o.confirmarCierreRevision===true,()=>tokenSolicitud===token&&!controller.signal.aborted):await controlFinancieroPersonal().iniciar(tokenSolicitud,path,o);o=operacion.opciones;
   }
   comprobarSesion();const h={"Content-Type":"application/json",...(o.headers||{})};if(tokenSolicitud)h.Authorization="Bearer "+tokenSolicitud;
   for(let intento=0;;intento++){
@@ -105,6 +105,7 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
     const recibo=await api(path.replace(/\/corregir-origen-trabajo$/,"/revisiones-origen-trabajo/recibos/")+encodeURIComponent(id));comprobarSesion();
     if(recibo.soloLectura!==true||!await controlFinancieroPersonal().confirmarRevisionOrigen(tokenSolicitud,recibo.reciboRevisionOrigen,cuerpo,path,id,()=>tokenSolicitud===token&&!controller.signal.aborted))throw Error("No se conservó el recibo de revisión; continúa pendiente");comprobarSesion();
    }
+   if(operacion&&controlFinancieroPersonal().cierreRevisionOrigenRuta(path)){operacion.finalizar("INCIERTA");resuelta=true;}
    if(operacion){if(j.ok!==true)throw Error("La respuesta no confirmó el resultado de la operación");operacion.finalizar("CONFIRMADA");resuelta=true;}
    if(path==="/transacciones/confirmar-intento"&&j.confirmado===true&&tokenSolicitud){await controlFinancieroPersonal().confirmarRegistro(tokenSolicitud,JSON.parse(o.body));}
    return j;
