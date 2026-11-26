@@ -1,44 +1,18 @@
 name: GRUK Storage controlled inspection
 on:
   workflow_dispatch:
-    inputs:
-      confirmation:
-        description: 'Type INSPECTAR_SOLO_GRUK_EMPRESARIAL'
-        required: true
-        type: string
 permissions:
   contents: read
-concurrency:
-  group: gruk-storage-inspection
-  cancel-in-progress: false
 jobs:
-  inspect:
-    if: github.ref == 'refs/heads/main' && vars.GRUK_INSPECTION_JOB_ENABLED == 'true' && inputs.confirmation == 'INSPECTAR_SOLO_GRUK_EMPRESARIAL'
+  synthetic:
     runs-on: ubuntu-latest
-    environment: gruk-enterprise-storage-inspection
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Verify synthetic controls
-        run: node --test test/gruk/drive-*.test.js
-      - name: Install locked dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Inspect bounded catalog page
-        env:
-          GRUK_INSPECTION_JOB_ENABLED: ${{ vars.GRUK_INSPECTION_JOB_ENABLED }}
-          GRUK_COORDINATED_INSPECTION_ENABLED: ${{ vars.GRUK_COORDINATED_INSPECTION_ENABLED }}
-          GRUK_RECONCILIATION_ENABLED: ${{ vars.GRUK_RECONCILIATION_ENABLED }}
-          GRUK_CATALOG_ENABLED: ${{ vars.GRUK_CATALOG_ENABLED }}
-          GRUK_INSPECTION_DISCOVERY_ENABLED: ${{ vars.GRUK_INSPECTION_DISCOVERY_ENABLED }}
-          GRUK_CATALOG_MONGO_URI: ${{ secrets.GRUK_CATALOG_MONGO_URI }}
-          GRUK_CATALOG_EXPECTED_HOST: ${{ vars.GRUK_CATALOG_EXPECTED_HOST }}
-          GRUK_ENTERPRISE_BACKUP_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
-          GRUK_MANIFEST_TRUSTED_KEYRING: ${{ secrets.GRUK_MANIFEST_TRUSTED_KEYRING }}
-          GRUK_DRIVE_OAUTH_CLIENT_ID: ${{ secrets.GRUK_INSPECTION_OAUTH_CLIENT_ID }}
-          GRUK_DRIVE_OAUTH_CLIENT_SECRET: ${{ secrets.GRUK_INSPECTION_OAUTH_CLIENT_SECRET }}
-          GRUK_DRIVE_OAUTH_REFRESH_TOKEN: ${{ secrets.GRUK_INSPECTION_OAUTH_REFRESH_TOKEN }}
-          GRUK_DRIVE_BACKUP_FOLDER_ID: '1_1OxE9Ey7kr-GoCjOnC_Elm_sJpTQrfN'
-        run: node scripts/gruk/drive-reconciliation-job.js
+      - name: Verify native inspection contracts only
+        run: node --test test/gruk/native-storage-coordinated.test.js test/gruk/drive-reconciliation-coordinated.test.js test/gruk/drive-reconciliation-job.test.js
+      - name: Report operating boundary
+        run: echo GRUK_NATIVE_INSPECTION_REQUIRES_AUTHORIZED_PERSISTENT_HOST

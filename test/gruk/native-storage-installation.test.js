@@ -16,3 +16,10 @@ test('standby installation preserves isolation and release gates',()=>{
  assert.equal(env.GRUK_NATIVE_REPLICA_ROOT,'/srv/gruk-storage/secondary/vault');
  assert.ok(!Object.keys(env).some(k=>/URI|PASSWORD|PRIVATE_KEY/.test(k)));
 });
+
+test('hosted inspection workflow never receives production secrets or Drive credentials',()=>{
+ const yaml=fs.readFileSync(path.resolve(__dirname,'../../.github/workflows/gruk-storage-inspection.yml'),'utf8');
+ assert.doesNotMatch(yaml,/secrets\.|GRUK_DRIVE_|GRUK_ENTERPRISE_BACKUP_URI|environment:|self-hosted/);
+ assert.match(yaml,/native-storage-coordinated\.test\.js/);
+ assert.match(yaml,/GRUK_NATIVE_INSPECTION_REQUIRES_AUTHORIZED_PERSISTENT_HOST/);
+});

@@ -31,3 +31,5 @@ Authorized host and disks unknown; recurring Atlas network access and production
 
 ## Legacy external storage workflow retirement
 The phase-2 branch removes manual dispatch and real backup jobs from the historical Google Drive and S3 workflows. Synthetic regression tests remain, including provider-neutral catalog and signature code whose filenames retain historical naming. This does not delete remote files or credentials, or change the main branch. Native storage remains blocked for real operations pending infrastructure approval. Direct legacy script entrypoints and other runtime routes require separate review before final release.
+
+The hosted inspection workflow is now synthetic-only: it receives no catalog or source credentials and cannot inspect production vaults on ephemeral runners. Native inspection requires the separately authorized persistent host. At baseline commit 9c9ee7830aa38c910deeec6f109b750e38987c94, all seven executed workflows passed; the optional connectivity probe was skipped. Historical provider modules remain for regression coverage, not as authorized backup entrypoints.
