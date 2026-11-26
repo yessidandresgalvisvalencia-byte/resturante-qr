@@ -67,3 +67,7 @@ The manual workflow now requires GRUK_MANIFEST_TRUSTED_KEYRING (JSON with active
 ## Independent catalog contract (development)
 
 A provider-neutral catalog registers signed receipts through a create-only storage interface, reads them back and verifies the trusted signature on every lookup. It never asserts that restoration succeeded based on a receipt alone. The test uses an in-memory synthetic adapter. A durable independent cloud adapter with atomic conditional creation, credentials and retention is still required; this commit does not establish external custody or authorize real backups.
+
+## Persistent catalog adapter (development)
+
+The MongoDB adapter restricts storage to gruk_storage_catalog.signed_receipts, uses the unique _id for atomic create-only writes and requests journaled majority acknowledgement and majority reads. Tests use a simulated driver; provider support for these options and a separately provisioned deployment must be verified before activation. Database naming alone does not establish infrastructure independence. Use separate credentials with insert/find only, no update/delete privileges. No connection, account creation, billing change or real backup is performed by this module. A free independent deployment is a candidate, not a confirmed resource.
