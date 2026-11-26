@@ -1,0 +1,25 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {generateKeyPairSync,createHash}=require('node:crypto');
+const {createKeyring}=require('../../scripts/gruk/drive-manifest-keyring');
+const {createCatalog}=require('../../scripts/gruk/drive-backup-catalog');
+test('catalog preserves signed history, rejects overwrite and never claims restore success',async()=>{
+ const {publicKey,privateKey}=generateKeyPairSync('ed25519');
+ const id=createHash('sha256').update(publicKey.export({type:'spki',format:'der'})).digest('hex');
+ const keyring=createKeyring({activeKeyId:id,keys:[{keyId:id,status:'active',publicKey:publicKey.export({type:'spki',format:'pem'})}]});
+ const m={version:1,database:'restaurante',name:'gruk-restaurante-1-1.archive.age',bytes:100,sha256:'a'.repeat(64)};
+ const receipt=keyring.sign(m,privateKey);
+ const data=new Map();
+ const store={async putIfAbsent(k,v){if(data.has(k))return false;data.set(k,v);return true;},async get(k){return data.get(k);}};
+ const catalog=createCatalog({keyring,store});
+ await assert.rejects(catalog.lookup(m.name),/CATALOG_NOT_FOUND/);
+ assert.deepEqual(await catalog.register(m.name,receipt),m);
+ assert.deepEqual(await catalog.lookup(m.name),{...m,restoreVerified:false});
+ await assert.rejects(catalog.register(m.name,receipt),/CATALOG_ALREADY_EXISTS/);
+ await assert.rejects(catalog.lookup('../bad'),/CATALOG_NAME/);
+ data.set(m.name,JSON.stringify({version:1,receipt:{...receipt,manifest:{...m,bytes:101}}}));
+ await assert.rejects(catalog.lookup(m.name),/SIGNED_MANIFEST_UNTRUSTED/);
+ const broken=createCatalog({keyring,store:{async putIfAbsent(){return true;},async get(){return null;}}});
+ await assert.rejects(broken.register(m.name,receipt),/CATALOG_READBACK_MISMATCH/);
+});

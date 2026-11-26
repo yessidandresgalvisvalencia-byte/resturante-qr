@@ -63,3 +63,7 @@ A bounded trusted public-key registry distinguishes active, retired and revoked 
 ## Keyring workflow integration
 
 The manual workflow now requires GRUK_MANIFEST_TRUSTED_KEYRING (JSON with activeKeyId and keys entries containing keyId, status, publicKey) instead of the single trusted public key secret. The signing private key must match the active registry key. Historical receipts can be verified using retired keys; revoked keys fail closed. The shell unsets the signing key after receipt creation. Registry configuration and independent durable receipt custody remain release gates. No real workflow was dispatched.
+
+## Independent catalog contract (development)
+
+A provider-neutral catalog registers signed receipts through a create-only storage interface, reads them back and verifies the trusted signature on every lookup. It never asserts that restoration succeeded based on a receipt alone. The test uses an in-memory synthetic adapter. A durable independent cloud adapter with atomic conditional creation, credentials and retention is still required; this commit does not establish external custody or authorize real backups.
