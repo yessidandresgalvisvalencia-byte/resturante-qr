@@ -15,3 +15,11 @@ test('alerts expose only allowed fields and report delivery errors',async()=>{
  const broken=createAlertSink({write:(_line,cb)=>cb(Error('private'))});
  await assert.rejects(broken({code:'BACKUP_FAILED',at:123}),/ALERT_DELIVERY_FAILED/);
 });
+
+require('node:test').test('alert delivery fails safely when sink stalls or throws',async()=>{
+ const {createAlertSink}=require('../../scripts/gruk/native-storage-alerts');
+ const event={code:'BACKUP_FAILED',at:123};
+ for(const write of [()=>{},()=>{throw Error('private sink error');}]){
+  await require('node:assert/strict').rejects(createAlertSink({write,timeoutMs:20})(event),{message:'ALERT_DELIVERY_FAILED'});
+ }
+});
