@@ -16,3 +16,15 @@ Before installation:
 Acceptance: restart the service, inspect local health and synthetic filesystem evidence; verify that real backups remain blocked. No production database credentials are needed in standby. The unit has no external egress and cannot support real catalog recovery until a separately reviewed release changes the network policy. Never grant Docker socket access to this standby service.
 
 No production certification is implied by the template. See native-storage-production-readiness.md for remaining release gates.
+
+## Release evidence and acceptance record
+
+The installation package consists of the reviewed Git revision, the service unit and environment example in deploy/gruk-storage, and the native host preflight script. Keep these together; do not copy an unreviewed unit from a different revision.
+
+CI checks the installation safety directives and invokes systemd-analyze verify without installing or starting the unit. This is syntax validation only; mount persistence, isolation and network-filter enforcement require actual host tests.
+
+Verified baseline: synthetic signed-replica MongoDB restoration at commit 0450af0c0962bdd4aede9b35903664cd312116a3, run 45887330561. Six automated workflows succeeded at commit 9dac65c67bea154decfa04c8a168ab782a00d67a. The independent catalog probe was intentionally skipped at that revision, not re-certified.
+
+Before authorizing standby installation, record the exact commit and CI run, host ownership, service account, mount identifiers, available capacity, restart persistence evidence, actual failure-domain separation, systemd verification result and observed loopback-only listener. Record pass/fail and evidence for each gate; never include credentials or private keys. Missing evidence means BLOCKED, not PASS.
+
+The package does not authorize any actual backup, restore, external connection, paid resource, or production deployment. The existing real-backup runtime block stays in force.

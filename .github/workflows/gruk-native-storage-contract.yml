@@ -127,3 +127,11 @@ jobs:
 
       - name: Standby installation security contract
         run: node --test test/gruk/native-storage-installation.test.js
+
+      - name: Verify standby systemd unit syntax
+        run: |
+          set -euo pipefail
+          command -v systemd-analyze
+          # Runner validation only; do not install or start the service.
+          systemd-analyze verify --man=no deploy/gruk-storage/gruk-storage.service
+          echo GRUK_STANDBY_UNIT_SYNTAX_OK
