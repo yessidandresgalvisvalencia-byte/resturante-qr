@@ -22,6 +22,12 @@ async function probarComprasAutorizadas(db){
  const compra=await evaluar(usuarioId,{montoMinor:100000},{ahora});
  assert.equal(compra.estado,"CABE");assert.equal(compra.restanteMinor,800000);
  assert.ok(compra.consecuencia.diasHastaIngreso>0);
+ assert.equal(compra.escenarioGravado.reservaGmfMinor,400);
+ assert.equal(compra.consecuenciaSiGravado.restanteMinor,799600);
+ const frontera=await evaluar(usuarioId,{montoMinor:900000},{ahora});
+ assert.equal(frontera.estado,"GMF_POR_VERIFICAR");assert.equal(frontera.escenarioGravado.totalSalidaMinor,903600);
+ assert.equal((await evaluar(usuarioId,{montoMinor:900000,obligatorio:true},{ahora})).estado,"REQUIERE_PLAN");
+ assert.deepEqual(await estado(),antes);
  assert.equal((await evaluar(usuarioId,{montoMinor:1000000},{ahora})).estado,"NO_CABE");
  assert.equal((await evaluar(usuarioId,{montoMinor:1000000,obligatorio:true},{ahora})).estado,"REQUIERE_PLAN");
  assert.equal((await evaluar(otro,{montoMinor:1},{ahora})).estado,"FALTAN_DATOS");
@@ -39,5 +45,6 @@ async function probarComprasAutorizadas(db){
  const pendiente=await estado();
  assert.equal((await evaluar(usuarioId,{montoMinor:1},{ahora})).estado,"FALTAN_DATOS");
  assert.deepEqual(await estado(),pendiente);
+ console.log("FP_COMPRA_GMF: normal y frontera exacta, obligación sin exención inventada, ingreso y conciliación bloqueantes, snapshot propio intacto");
 }
 module.exports={probarComprasAutorizadas};

@@ -111,7 +111,7 @@ test("evaluación vigente mantiene CABE, NO_CABE y REQUIERE_PLAN sin alterar la 
   assert.equal(cabe.estado,"CABE");assert.equal(cabe.restanteMinor,150000);
   assert.equal(cabe.consecuencia.diasHastaIngreso,2);assert.equal(cabe.consecuencia.promedioDiarioMinor,75000);
   const justo=await evaluar("propietario",{montoMinor:250000},{ahora});
-  assert.equal(justo.estado,"CABE");assert.equal(justo.restanteMinor,0);
+  assert.equal(justo.estado,"GMF_POR_VERIFICAR");assert.equal(justo.restanteMinor,0);assert.equal(justo.escenarioGravado.restanteMinor,-1000);
   const noCabe=await evaluar("propietario",{montoMinor:300000},{ahora});
   assert.equal(noCabe.estado,"NO_CABE");assert.equal(noCabe.impactoMinor,50000);
   const obligacion=await evaluar("propietario",{montoMinor:300000,obligatorio:true},{ahora});
