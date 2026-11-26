@@ -26,6 +26,7 @@ on:
       - 'test/gruk/native-storage-signed-runtime.test.js'
       - 'test/gruk/native-storage-receipt-recovery.test.js'
       - 'test/gruk/native-storage-startup-recovery.test.js'
+      - 'test/gruk/native-storage-replication.test.js'
       - '.github/workflows/gruk-native-storage-contract.yml'
 permissions:
   contents: read
@@ -110,3 +111,6 @@ jobs:
 
       - name: Native controlled startup recovery contract
         run: node --test test/gruk/native-storage-startup-recovery.test.js test/gruk/native-storage-runtime.test.js
+
+      - name: Native encrypted replication contract
+        run: node --test test/gruk/native-storage-replication.test.js

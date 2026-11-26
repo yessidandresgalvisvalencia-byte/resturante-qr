@@ -1,0 +1,27 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const {createHash}=require('node:crypto');
+const {replicateArchive}=require('../../scripts/gruk/native-storage-replication');
+test('replication verifies ciphertext, refuses same device by default and never overwrites conflicts',async t=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'gruk-replica-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const sourceRoot=path.join(root,'a'),targetRoot=path.join(root,'b');
+ await fs.mkdir(sourceRoot,{mode:0o700});await fs.mkdir(targetRoot,{mode:0o700});
+ const name='gruk-restaurante-1-1.archive.age';
+ const bytes=Buffer.from('age-encryption.org/v1\n'+'x'.repeat(100));
+ await fs.writeFile(path.join(sourceRoot,name),bytes,{mode:0o600});
+ const manifest={version:1,database:'restaurante',name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};
+ const args={sourceRoot,targetRoot,name,catalog:{lookup:async()=>manifest}};
+ await assert.rejects(replicateArchive(args),/REPLICA_DEVICE_NOT_DISTINCT/);
+ await assert.rejects(replicateArchive({...args,targetRoot:sourceRoot}),/REPLICA_ROOT_OVERLAP/);
+ const synthetic={...args,requireDistinctDevice:false};
+ assert.deepEqual(await replicateArchive(synthetic),{status:'REPLICATED',restoreVerified:false,distinctDevice:false});
+ assert.deepEqual(await fs.readFile(path.join(targetRoot,name)),bytes);
+ assert.equal((await replicateArchive(synthetic)).status,'ALREADY_PRESENT');
+ await fs.writeFile(path.join(targetRoot,name),'conflicting');
+ await assert.rejects(replicateArchive(synthetic),/REPLICA_TARGET_CONFLICT/);
+ assert.equal(await fs.readFile(path.join(targetRoot,name),'utf8'),'conflicting');
+});
