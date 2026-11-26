@@ -56,3 +56,19 @@ test('single-use credentials fail closed when replay cache reaches capacity',asy
   assert.equal((await get(issue(key,'backup:read'))).status,503);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await fs.rm(root,{recursive:true,force:true});}
 });
+
+test('consumed credentials survive listener restart and unsafe replay state fails closed',async()=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'gruk-replay-restart-')));
+ const key=randomBytes(32),token=issue(key,'backup:read');
+ let server;
+ const close=async()=>{if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));server=null;}};
+ const open=async()=>{server=listenLocal({root,key});await once(server,'listening');};
+ const get=token=>fetch('http://127.0.0.1:'+server.address().port+'/v1/backups/gruk-restaurante-1-1.archive.age',{headers:{authorization:'Bearer '+token,'x-backup-sha256':'0'.repeat(64)}});
+ try{
+  await open();assert.equal((await get(token)).status,400);
+  await close();await open();assert.equal((await get(token)).status,401);
+  assert.equal((await get(issue(key,'backup:read'))).status,400);
+  await fs.mkdir(path.join(root,'.token-replay.lock'),{mode:0o700});
+  assert.equal((await get(issue(key,'backup:read'))).status,503);
+ }finally{await close();await fs.rm(root,{recursive:true,force:true});}
+});
