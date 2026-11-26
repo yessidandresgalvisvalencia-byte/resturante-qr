@@ -25,3 +25,8 @@ El peer socket seudonimizado no verifica cliente detrás de proxy; dispositivo d
 #407 sigue bloqueando producción: custodio/anclas independientes; respaldo durable independiente/retención/accesos/credenciales separadas, restauración aislada y RPO/RTO operativos; roles/índices/migración/configuración reales; dispositivos/Safari/carga, auditoría independiente y compatibilidad/informe final. Ensayos sintéticos no prueban producción ni retención independiente. No merge a feature, main/Empresarial/Blushéa intactos, cero Render/datos reales/costos.
 
 Checkpoint: publicar con expected_sha y force:false sobre HEAD comprobado, verificar CI exacta y cerrar evidencia documental; si cambia HEAD, reevaluar sin sobrescribir. Siguiente bloque independiente: revisar contexto/auditoría y recuperación de retiro/restauración lógica de deudas personales según cobertura existente, antes de modificar. No repetir imputación/restauración/cierre ni fechas/compra estricta completados.
+
+
+## Fallo inicial y corrección del ensayo
+
+Código inicialf22cdc49be149c7d2f87d98a8de784ae51567351, Gate45878720471/Seguridad45878720467 success; V8145878720542 falló en job140112299476. Mongo107 casos/105aprobados/2fallos (caso y suite padre), sin omisiones: el fixture agotó la cuota de20 solicitudes/minuto de un solo propietario antes de comprobar cuerpo cambiado409 (obtuvo429). Se separan los cuatro escenarios con propietario sintético independiente y su propia cadena mixta legada; ANULAR inicia con decisión previa aplicada. No se cambia producción, límites/cuotas/gates/timeouts ni respuestas esperadas de los casos. Se conservan comprobaciones de captura, rollback, carrera, cadena, privacidad, fuente/caja y recibos/replay sin clave. CI propia del SHA corregido pendiente.
