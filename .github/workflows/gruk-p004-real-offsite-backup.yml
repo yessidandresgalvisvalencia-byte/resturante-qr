@@ -13,18 +13,6 @@ on:
       - 'scripts/gruk/p0-04-real-offsite-backup-restore.sh'
       - 'test/gruk/p0-04-real-offsite-backup.test.js'
       - '.github/workflows/gruk-p004-real-offsite-backup.yml'
-  workflow_dispatch:
-    inputs:
-      database_name:
-        description: 'Exact verified enterprise database'
-        required: true
-        type: choice
-        options: [restaurante]
-      confirmation:
-        description: 'Type RESPALDAR_SOLO_RESTAURANTE'
-        required: true
-        type: string
-
 permissions:
   contents: read
 
@@ -44,50 +32,3 @@ jobs:
       - run: |
           bash -n scripts/gruk/p0-04-real-offsite-backup-restore.sh
           node --test test/gruk/p0-04-real-offsite-backup.test.js
-  real_backup:
-    name: Real encrypted S3 backup + isolated Mongo restore (manual approval)
-    if: github.event_name == 'workflow_dispatch'
-    needs: [validate]
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    environment: gruk-enterprise-real-backup
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate explicit backup approval
-        env:
-          DB: ${{ inputs.database_name }}
-          APPROVAL: ${{ inputs.confirmation }}
-        run: |
-          set -euo pipefail
-          [[ "$DB" == 'restaurante' && "$APPROVAL" == 'RESPALDAR_SOLO_RESTAURANTE' ]] || {
-            echo '::error::Explicit approved enterprise database required'
-            exit 1
-          }
-      - name: Install backup tools
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y age awscli
-          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
-          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
-          sudo apt-get update -qq
-          sudo apt-get install -y mongodb-mongosh mongodb-database-tools
-      - name: Back up only real restaurante database and verify remote restore
-        env:
-          GRUK_ENTERPRISE_BACKUP_URI: ${{ secrets.GRUK_ENTERPRISE_READONLY_MONGO_URI }}
-          GRUK_ENTERPRISE_DB: restaurante
-          GRUK_ENTERPRISE_DB_CONFIRM: restaurante
-          GRUK_BACKUP_APPROVAL: ${{ inputs.confirmation }}
-          GRUK_BACKUP_S3_BUCKET: ${{ secrets.GRUK_BACKUP_S3_BUCKET }}
-          GRUK_BACKUP_AGE_RECIPIENT: ${{ secrets.GRUK_BACKUP_AGE_RECIPIENT }}
-          GRUK_BACKUP_AGE_IDENTITY: ${{ secrets.GRUK_BACKUP_AGE_IDENTITY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.GRUK_BACKUP_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.GRUK_BACKUP_AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.GRUK_BACKUP_AWS_REGION }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$GRUK_ENTERPRISE_BACKUP_URI" ]]; then
-            echo '::error::Existing read-only MongoDB credential is required'
-            exit 1
-          fi
-          bash scripts/gruk/p0-04-real-offsite-backup-restore.sh

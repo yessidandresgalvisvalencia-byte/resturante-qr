@@ -28,3 +28,6 @@ Do not create paid services, change Render configuration, or expose the storage 
 
 ## Open blockers
 Authorized host and disks unknown; recurring Atlas network access and production keys unverified; runtime real-backup release blocked; no real backup/restore certified. Master document unavailable for scope reconciliation. No new spending authorized.
+
+## Legacy external storage workflow retirement
+The phase-2 branch removes manual dispatch and real backup jobs from the historical Google Drive and S3 workflows. Synthetic regression tests remain, including provider-neutral catalog and signature code whose filenames retain historical naming. This does not delete remote files or credentials, or change the main branch. Native storage remains blocked for real operations pending infrastructure approval. Direct legacy script entrypoints and other runtime routes require separate review before final release.
