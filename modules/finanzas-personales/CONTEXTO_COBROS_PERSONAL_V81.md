@@ -24,3 +24,8 @@ Cobertura de este bloque: ruta HTTP de cobro y sus fuentes confirmadas, no todos
 Siguiente bloque: contexto HTTP de pagos de cuotas; incluir capital frente a importe realmente pagado, cuenta/histórico sin cuenta, ciclo firmado y recibos/reversión/restauración, idempotencia/concurrencia/rollback, privacidad y compatibilidad. Revisar implementación existente antes de editar. Antes de actuar: HEAD/base/PR389/issue407/CI/instrucciones/CONTINUIDAD/matriz/informe. Otros legados siguen pendientes de evidencia original autenticable, no inferir cuerpo/huella/estado por saldo ni404.
 
 #407/release siguen pendientes: custodio independiente real/anclas; backup durable independiente/retención/acceso/credenciales separadas/restauración operativa aislada/RPO-RTO; roles/índices/migración/configuración productivos; Safari/dispositivos/carga/auditoría independiente/compatibilidad/informe final. Ensayo CI no acredita esos requisitos. Sin merge a feature/Render/main/Empresarial/Blushéa, datos reales alterados, migraciones/restauraciones productivas ni costos nuevos. Tarea activa.
+
+
+## Corrección de ensayo CI
+
+Código inicial2d6c9dba2bf931e9b6ae08655e570d636c09a80e/árbol0c3a6bca4d0dd2e119a082b490a5837b720f31c8. Gate45832299243 y Seguridad45832299271 success; V8145832299400 falló en job139951918393 porque el fixture nuevo omitía contraparte requerida por PrestamoPersonal. El ensayo no llegó a validar cobros; no se atribuye aceptación ni pruebas de navegador del job canceladas por ese fallo. Se agrega contraparte a los dos préstamos sintéticos, sin cambiar modelo ni relajar validación/gates. Requiere CI propia del descendiente.
