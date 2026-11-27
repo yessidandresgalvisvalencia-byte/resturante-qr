@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 
 const ProductoServicio = require("../models/ProductoServicio");
 const Empresa = require("../models/Empresa");
+const Sede = require("../models/sede");
 const authMiddleware = require("../core/auth/auth.middleware");
 const {
   ROLES_GRUK,
@@ -10,6 +11,8 @@ const {
 } = require("../core/auth/roleCheck.middleware");
 
 const router = express.Router();
+const {catalogScope,resolveCatalogSite,catalogChanges}=require("../core/auth/catalogScope");
+
 
 
 // ==========================================
@@ -75,9 +78,11 @@ router.post(
       });
     }
 
+    const site = await resolveCatalogSite(req.auth,sedeId,Sede);
+    if (!site.ok) return res.status(site.status).json({ok:false,error:site.error});
     const nuevo = new ProductoServicio({
       empresaId,
-      sedeId: sedeId || null,
+      sedeId: site.sedeId,
       tipo,
       nombre,
       descripcion: descripcion || "",
@@ -142,11 +147,12 @@ router.get(
       });
     }
 
-    const filtro = {
-      empresaId
-    };
+    const scope = catalogScope(req.auth,false);
+    if (!scope) return res.status(403).json({ok:false,error:"Sede no autorizada"});
+    const filtro = scope;
 
-    if (tipo) {
+    if (tipo !== undefined) {
+      if (!["producto","servicio"].includes(tipo)) return res.status(400).json({ok:false,error:"Tipo inválido"});
       filtro.tipo = tipo;
     }
 
@@ -184,10 +190,11 @@ router.put(
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
   async (req, res) => {
   try {
-    const cambios = { ...req.body };
-
-    // La empresa propietaria no se cambia desde esta ruta.
-    delete cambios.empresaId;
+    const scope = catalogScope(req.auth,true);
+    if (!scope) return res.status(403).json({ok:false,error:"Sede no autorizada"});
+    if (!mongoose.isObjectIdOrHexString(req.params.id)) return res.status(400).json({ok:false,error:"ID inválido"});
+    const cambios = catalogChanges(req.body);
+    if (!cambios) return res.status(400).json({ok:false,error:"Campos de actualización inválidos"});
 
     if (cambios.tipo === "servicio") {
       cambios.manejaInventario = false;
@@ -197,9 +204,9 @@ router.put(
       await ProductoServicio.findOneAndUpdate(
         {
           _id: req.params.id,
-          empresaId: req.auth.empresaId
+          ...scope
         },
-        cambios,
+        { $set: cambios },
         {
           new: true,
           runValidators: true
@@ -239,11 +246,14 @@ router.put(
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
   async (req, res) => {
   try {
+    const scope = catalogScope(req.auth,true);
+    if (!scope) return res.status(403).json({ok:false,error:"Sede no autorizada"});
+    if (!mongoose.isObjectIdOrHexString(req.params.id)) return res.status(400).json({ok:false,error:"ID inválido"});
     const actualizado =
       await ProductoServicio.findOneAndUpdate(
         {
           _id: req.params.id,
-          empresaId: req.auth.empresaId
+          ...scope
         },
         {
           activo: false

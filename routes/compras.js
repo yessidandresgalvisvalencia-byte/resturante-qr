@@ -182,7 +182,8 @@ router.post(
 
         producto = await ProductoServicio.findOne({
           _id: item.productoServicioId,
-          empresaId
+          empresaId,
+          sedeId: sedeEfectiva ? { $in: [null, sedeEfectiva] } : null
         });
 
         if (!producto) {
