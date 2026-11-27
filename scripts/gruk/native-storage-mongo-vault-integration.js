@@ -3,10 +3,12 @@ const assert=require('node:assert/strict');
 const {createHash,generateKeyPairSync}=require('node:crypto');
 const fs=require('node:fs/promises');
 const {createKeyring}=require('./drive-manifest-keyring');
+const {publishVerifiedArchive}=require('./native-storage-cloud-publication');
 const {createMongoVault,CHUNK,CAP}=require('./native-storage-mongo-vault');
 async function main(){
  const data=await fs.readFile(process.argv[2]);
- assert.ok(data.length>CHUNK&&data.length<2*CHUNK);
+ const drill=process.argv[4]==='restore-drill';
+ assert.ok(drill?data.length>=64&&data.length<CAP:data.length>CHUNK&&data.length<2*CHUNK);
  const c=require('mongoose').createConnection('mongodb://127.0.0.1:27189/gruk_storage_vault?replicaSet=grukci&directConnection=true',{serverSelectionTimeoutMS:15000});
  try{
   await c.asPromise();
@@ -23,11 +25,13 @@ async function main(){
   const name='gruk-restaurante-1-1.archive.age';
   const sign=n=>keyring.sign({version:1,database:'restaurante',name:n,bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')},privateKey);
   const receipt=sign(name);
-  const result=await vault.put(name,data,receipt);
+  const result=await publishVerifiedArchive({name,data,receipt,keyring,vault});
+  assert.equal(result.status,'CLOUD_CIPHERTEXT_VERIFIED');
   assert.equal(result.independentReplica,false);
   const saved=await vault.get(name);
   assert.deepEqual(saved.data,data);
   await fs.writeFile(process.argv[3],saved.data,{flag:'wx',mode:0o600});
+  if(drill){console.log('GRUK_SYNTHETIC_CLOUD_PUBLICATION_OK');return;}
   const used=(await quota.findOne({_id:'enterprise'})).used;
   assert.ok(used>data.length);
   await assert.rejects(vault.put(name,data,receipt),/VAULT_ALREADY_EXISTS/);

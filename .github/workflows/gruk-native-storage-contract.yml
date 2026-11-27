@@ -175,3 +175,44 @@ jobs:
           age -d -i "$tmp/identity" -o "$tmp/recovered" "$tmp/recovered.age"
           cmp "$tmp/plain" "$tmp/recovered"
           echo GRUK_MONGO_VAULT_AGE_RECOVERY_OK
+
+      - name: End-to-end isolated MongoDB restore through signed cloud vault
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp=$(mktemp -d)
+          trap 'docker rm -f gruk-vault-restore-src gruk-vault-restore-dst gruk-vault-ci >/dev/null 2>&1 || true; rm -rf "$tmp"' EXIT
+          for c in gruk-vault-restore-src gruk-vault-restore-dst; do
+            docker run -d --name "$c" --network none mongo:7.0 >/dev/null
+            ready=0
+            for i in $(seq 1 40); do
+              if docker exec "$c" mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep -qx 1; then ready=1; break; fi
+              sleep 1
+            done
+            [[ "$ready" == 1 ]]
+          done
+          docker run -d --name gruk-vault-ci -p 127.0.0.1:27189:27017 mongo:7.0 --replSet grukci --bind_ip_all >/dev/null
+          ready=0
+          for i in $(seq 1 40); do
+            if docker exec gruk-vault-ci mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep -qx 1; then ready=1; break; fi
+            sleep 1
+          done
+          [[ "$ready" == 1 ]]
+          docker exec gruk-vault-ci mongosh --quiet --eval 'rs.initiate({_id:"grukci",members:[{_id:0,host:"localhost:27017"}]})'
+          ready=0
+          for i in $(seq 1 40); do
+            if docker exec gruk-vault-ci mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -qx true; then ready=1; break; fi
+            sleep 1
+          done
+          [[ "$ready" == 1 ]]
+          docker exec gruk-vault-restore-src mongosh --quiet --eval 'const d=db.getSiblingDB("restaurante"); d.ventas.createIndex({folio:1},{unique:true}); d.ventas.insertOne({_id:1,folio:1,total:NumberDecimal("123.45")}); d.stock.insertOne({_id:1,qty:7});'
+          age-keygen -o "$tmp/key" 2>/dev/null
+          docker exec gruk-vault-restore-src mongodump --db restaurante --archive --gzip --quiet | age -r "$(age-keygen -y "$tmp/key")" -o "$tmp/input.age"
+          node scripts/gruk/native-storage-mongo-vault-integration.js "$tmp/input.age" "$tmp/recovered.age" restore-drill
+          age -d -i "$tmp/key" "$tmp/recovered.age" | docker exec -i gruk-vault-restore-dst mongorestore --archive --gzip --nsFrom='restaurante.*' --nsTo='restaurante_restore_drill.*' --stopOnError
+          summary='const d=db.getSiblingDB(process.env.DB_NAME); print(EJSON.stringify(d.getCollectionNames().sort().map(n=>({name:n,docs:d.getCollection(n).find().sort({_id:1}).toArray(),indexes:d.getCollection(n).getIndexes().map(i=>({name:i.name,key:i.key,unique:i.unique===true})).sort((a,b)=>a.name.localeCompare(b.name))})),{relaxed:false}));'
+          docker exec -e DB_NAME=restaurante gruk-vault-restore-src mongosh --quiet --eval "$summary" > "$tmp/source"
+          docker exec -e DB_NAME=restaurante_restore_drill gruk-vault-restore-dst mongosh --quiet --eval "$summary" > "$tmp/target"
+          test -s "$tmp/source"
+          cmp "$tmp/source" "$tmp/target"
+          echo GRUK_SYNTHETIC_CLOUD_VAULT_RESTORE_OK
