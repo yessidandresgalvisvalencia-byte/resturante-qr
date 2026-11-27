@@ -123,6 +123,7 @@ async function probarMigracionAutorizada(db,uri,password,t){
   await t.test("cierre HTTP sin aplicar conserva contexto privado y caja intacta",()=>require("./helpers/contextoCierreRestauracionAutorizado").probarContextoCierreRestauracion(db));
   await t.test("imputación HTTP contextual conserva historia, recibos y caja en cuatro decisiones",()=>require("./helpers/contextoImputacionAutorizado").probarContextoImputacion(db));
   await t.test("cierre explícito de retiros excluye aplicación concurrente y conserva fuentes",()=>require("./helpers/cierreRetiroDeudaAutorizado").probarCierreRetiro(db));
+  await t.test("historial privado de resoluciones recupera claves sin duplicar caja y pagina con snapshot verificado",()=>require("./helpers/historialResolucionesRetiroAutorizado").probarHistorialResoluciones(db));
   await t.test("retiro y restauración HTTP de deuda conservan contexto privado e historia mixta",()=>require("./helpers/contextoRetiroDeudaAutorizado").probarContextoRetiroDeuda(db));
   await t.test("recepción nueva HTTP conserva contexto del ingreso, replay y rollback atómicos",()=>require("./helpers/contextoRecepcionCalendarioAutorizada").probarContextoRecepcion(db));
   await t.test("calendario minimiza contexto nuevo y redacta legado sin reescribir hashes ni caja",()=>require("./helpers/contextoCalendarioAutorizado").probarContextoCalendario(db));
