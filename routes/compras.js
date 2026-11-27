@@ -735,6 +735,23 @@ router.get(
 });
 
 
+// Read-only reconciliation diagnostic. Never authorizes a reversal.
+router.get("/:id/conciliacion-anulacion",authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO,ROLES_GRUK.ADMIN_SEDE),async(req,res)=>{
+  try{
+    if(!mongoose.isObjectIdOrHexString(req.params.id))return res.status(400).json({ok:false,error:"ID de compra inválido"});
+    const scope={_id:req.params.id,empresaId:req.auth.empresaId};
+    if(req.auth.rol===ROLES_GRUK.ADMIN_SEDE)scope.sedeId=await resolverSedeAutorizada({auth:req.auth});
+    const purchase=await Compra.findOne(scope).lean();
+    if(!purchase)return res.status(404).json({ok:false,error:"Compra no encontrada"});
+    const {inspectPurchaseReversal}=require("../services/purchaseReversalPreflight");
+    const diagnostic=await inspectPurchaseReversal(purchase,{Movement:MovimientoInventario,Inventory:Inventario});
+    return res.json({ok:true,diagnostic});
+  }catch(error){
+    return res.status(error.statusCode||500).json({ok:false,error:error.statusCode?error.message:"Error verificando conciliación"});
+  }
+});
+
 // ==========================================
 // ANULAR COMPRA
 // ==========================================
