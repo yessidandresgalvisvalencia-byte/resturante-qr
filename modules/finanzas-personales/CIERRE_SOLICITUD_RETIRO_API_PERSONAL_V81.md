@@ -41,3 +41,8 @@ Helper Mongo autorizado añadido: HTTP real/otro dueño/rechazos/ausencia de rec
 Siguiente: cliente durable que distingue recibo cerrado/aplicado, confirma cierre con solicitud conservada, consulta GET tras respuesta perdida, libera solo el control correspondiente y conserva cierres en copia cifrada/recuperación/verificación; probar recarga/cambio de usuario/carrera de pestañas. Después archivo a capacidad sin purga. No convertir un404 en cancelación ni inventar cuerpos de solicitudes antiguas.
 
 #407/custodio y anclas reales, backup independiente/retención/acceso/credenciales, restauración aislada/RPO-RTO operativos, roles/índices/configuración/migración reales, dispositivos/carga/auditoría independiente/compatibilidad/informe final permanecen pendientes. Sin merge/Render/main/Empresarial/Blushéa/datos reales/costos. Publicar con HEAD/expected_sha/force:false, verificar CI del código y del checkpoint, actualizarPR389 preservando descripción. Tarea activa.
+
+
+## Ajuste de integración antes del cierre
+
+Revisión detectó que la foto de corrección de préstamo también debía excluir resolucionRetiroRevision/resolucionRetiroHash. Se excluyen esos metadatos al crear foto y comparar vigencia de replay; los snapshots/hash/BSON históricos almacenados no se reescriben. Se compara foto con foto para admitir snapshots que ya contengan metadatos. Unitario adicional y helper autorizado prueban corrección previa, cierre no financiero posterior y replay aún vigente con registro original idéntico. Es parte del mismo bloque API, no un bloque adicional. CI del SHA definitivo debe confirmar todos los casos.
