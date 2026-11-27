@@ -21,3 +21,34 @@
 .gruk-workspace .workspace-list a:hover{background:#1b2b3b}
 @media(max-width:1024px){.gruk-workspace .adminContenidoGRUK{margin-left:0;padding-top:80px}.gruk-workspace .menuAdminGRUK{transform:translateX(-100%)}.gruk-workspace .menuAdminGRUK.abierto{transform:translateX(0)}}
 @media(prefers-reduced-motion:reduce){.gruk-workspace .menuAdminGRUK,.gruk-workspace .adminContenidoGRUK{transition:none}}
+
+/* Command center — high density, restrained luminous accents */
+.gruk-workspace{--g-bg:#07111a;--g-panel:#101f29;--g-line:#29434e;--g-accent:#36e0cf;--g-nav:250px}
+.gruk-workspace .menuAdminGRUK{background:#091722;padding:22px 12px 24px}
+.gruk-workspace .menuAdminGRUK h2{margin:0 12px 4px;font-size:29px;letter-spacing:.08em}
+.gruk-workspace .gruk-brand-sub{margin:0 12px 24px;color:var(--g-muted);font-size:12px}
+.gruk-workspace .gruk-nav-label{margin:20px 12px 6px;color:#91a9b7;font-size:10px;letter-spacing:.13em;text-transform:uppercase}
+.gruk-workspace .menuAdminGRUK button{min-height:39px;font-size:13px}
+.gruk-workspace .menuAdminGRUK button[aria-current=page]{background:#123b40;border-color:#36b8b0;color:#8cf7e9;box-shadow:inset 3px 0 #36e0cf}
+.gruk-workspace .adminContenidoGRUK{padding:0 24px 28px}
+.gruk-workspace .gruk-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;border-bottom:1px solid var(--g-line);margin-bottom:24px;color:var(--g-muted);font-size:13px}
+.gruk-workspace .gruk-topbar strong{color:var(--g-text)}
+.gruk-workspace .gruk-topbar button{background:#142a35;color:var(--g-text);border:1px solid var(--g-line);border-radius:7px;padding:9px 12px;cursor:pointer}
+.gruk-workspace .gruk-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.gruk-workspace .gruk-kpi{display:grid;gap:10px;background:linear-gradient(145deg,#142b35,#0c1923);border:1px solid var(--g-line);border-radius:12px;padding:16px;min-width:0}
+.gruk-workspace .gruk-kpi span{color:#b5c9d2;font-size:12px}
+.gruk-workspace .gruk-kpi strong{font-size:clamp(17px,2vw,27px);font-variant-numeric:tabular-nums;letter-spacing:-.04em;overflow-wrap:anywhere}
+.gruk-workspace .gruk-kpi small{font-size:10px;color:#9db7c2}
+.gruk-workspace .gruk-dashboard-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;align-items:start}
+.gruk-workspace .gruk-dashboard-grid .card{min-width:0;background:#101f29;border:1px solid var(--g-line);border-radius:12px;box-shadow:none;padding:18px}
+.gruk-workspace .gruk-dashboard-grid .card:nth-child(n+3){grid-column:1/-1}
+.gruk-workspace .gruk-eyebrow{color:var(--g-accent);font-size:10px;letter-spacing:.13em;font-weight:700}
+.gruk-workspace .gruk-bar-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin:22px 0;font-size:12px}
+.gruk-workspace .gruk-bar-track{grid-column:1/-1;height:9px;border-radius:8px;background:#263a46;overflow:hidden}
+.gruk-workspace .gruk-bar-track div{height:100%;background:#32cfc1;border-radius:8px}
+.gruk-workspace .gruk-intelligence p{line-height:1.55;font-size:13px}
+.gruk-workspace .gruk-intelligence{border-top:2px solid #36c8bb!important}
+.gruk-workspace #logoRestaurante:not([src]){display:none}
+@media(min-width:1025px){.gruk-workspace .btnMenuGRUK{display:none}}
+@media(max-width:1024px){.gruk-workspace .adminContenidoGRUK{padding:0 16px 24px}.gruk-workspace .gruk-topbar{padding-left:58px}.gruk-workspace .menuAdminGRUK{padding-top:72px}.gruk-workspace .gruk-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.gruk-workspace .gruk-dashboard-grid{grid-template-columns:1fr}.gruk-workspace .gruk-topbar{flex-wrap:wrap;padding-block:12px}.gruk-workspace .gruk-kpi{padding:12px}}
