@@ -253,7 +253,7 @@ async function cargarDecisionCerebroGRUK() {
       `
       : "";
 
-    const resumen = `<div class="card"><h2>Cerebro decidió</h2><p><strong>Situación:</strong> ${escaparGRUK(d.decision_general?.situacion)}</p><p><strong>Causa:</strong> ${escaparGRUK(d.decision_general?.causa_raiz)}</p><p><strong>Predicción:</strong> ${escaparGRUK(d.decision_general?.prediccion)}</p><p><strong>Riesgo si no se actúa:</strong> ${escaparGRUK(d.riesgo_si_no_se_hace)}</p><p><strong>Cómo medir éxito en 7 días:</strong> ${escaparGRUK(d.como_medir_exito_en_7_dias)}</p><p><strong>Confianza:</strong> ${Number(d.confianza_global || 0)}%</p></div>` + contextoFinanciero;
+    const resumen = `<div class="card gruk-intelligence"><p class="gruk-eyebrow">GRUK INTELLIGENCE</p><h2>Decisión ejecutiva</h2><p><strong>Situación:</strong> ${escaparGRUK(d.decision_general?.situacion)}</p><p><strong>Causa:</strong> ${escaparGRUK(d.decision_general?.causa_raiz)}</p><p><strong>Predicción:</strong> ${escaparGRUK(d.decision_general?.prediccion)}</p><p><strong>Riesgo si no se actúa:</strong> ${escaparGRUK(d.riesgo_si_no_se_hace)}</p><p><strong>Cómo medir éxito en 7 días:</strong> ${escaparGRUK(d.como_medir_exito_en_7_dias)}</p><p><strong>Confianza:</strong> ${Number(d.confianza_global || 0)}%</p></div>` + contextoFinanciero;
 
     const tarjetas = ordenes.map((o) => {
       const acciones = o.estado === "PENDIENTE_APROBACION"
@@ -269,8 +269,19 @@ async function cargarDecisionCerebroGRUK() {
         planesPago
       );
 
+    const metricas = [
+      ["Tesorería", financiero?.saldoActual],
+      ["Caja operativa", financiero?.saldoOperativo],
+      ["Obligaciones · 7 días", financiero?.obligaciones7d],
+      ["Cobros previstos · 7 días", financiero?.cobros7d]
+    ];
+    const monto = v => typeof v === "number" && Number.isFinite(v) ? formatoCOP(v) : "No disponible";
+    const kpis = '<section class="gruk-kpis" aria-label="Indicadores de la última decisión">' + metricas.map(([label,v]) => '<article class="gruk-kpi"><span>'+escaparGRUK(label)+'</span><strong>'+escaparGRUK(monto(v))+'</strong><small>Última decisión registrada</small></article>').join("") + '</section>';
+    const values = metricas.slice(1).filter(([,v])=>typeof v==="number"&&Number.isFinite(v)&&v>=0);
+    const max = Math.max(1,...values.map(([,v])=>v));
+    const chart = '<section class="card gruk-chart"><p class="gruk-eyebrow">TESORERÍA</p><h2>Panorama de liquidez</h2>'+ (values.length?values.map(([label,v])=>'<div class="gruk-bar-row"><span>'+escaparGRUK(label)+'</span><strong>'+escaparGRUK(monto(v))+'</strong><div class="gruk-bar-track"><div style="width:'+ (v/max*100) +'%"></div></div></div>').join(""):'<p>Sin datos verificables para graficar.</p>')+'</section>';
     contenedor.innerHTML =
-      resumen +
+      kpis + '<div class="gruk-dashboard-grid">' + chart + resumen + '</div>' +
       planesPagoHTML +
       tarjetas;
     contenedor.querySelectorAll("button[data-accion]").forEach((boton) => {
