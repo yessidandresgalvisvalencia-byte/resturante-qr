@@ -2,6 +2,7 @@
 const {execFile}=require('node:child_process');
 const path=require('node:path');
 const {randomInt}=require('node:crypto');
+const {prepareCloudPublication}=require('./native-storage-cloud-publication');
 const {prepareSignedRegistration}=require('./native-storage-signed-runtime');
 async function defaultConnect(uri,options){const c=require('mongoose').createConnection(uri,options);try{return await c.asPromise();}catch(e){await c.close().catch(()=>{});throw e;}}
 function createBackupAdapter({env=process.env,execute=execFile,timeoutMs=900000,connect=defaultConnect,prepareRegistration=prepareSignedRegistration}={}){
@@ -12,6 +13,7 @@ function createBackupAdapter({env=process.env,execute=execFile,timeoutMs=900000,
   if(env.GRUK_CATALOG_ENABLED==='true'&&!signed)throw Error('NATIVE_SIGNED_REGISTRATION_REQUIRED');
   const required=env.GRUK_NATIVE_REPLICATION_REQUIRED==='true';
   if(required&&!signed)throw Error('NATIVE_REPLICATION_REQUIRES_SIGNING');
+  const publish=env.GRUK_NATIVE_CLOUD_PUBLICATION_ENABLED==='true'?prepareCloudPublication(env,connect):null;
   const register=signed?prepareRegistration(env,connect):null;
   if(required){if(typeof register.preflight!=='function')throw Error('NATIVE_REPLICATION_PREFLIGHT_REQUIRED');await register.preflight();}
   const childEnv={};
@@ -27,7 +29,7 @@ function createBackupAdapter({env=process.env,execute=execFile,timeoutMs=900000,
     resolve();
    });
   });
-  if(register){const name='gruk-restaurante-'+childEnv.GITHUB_RUN_ID+'-'+childEnv.GITHUB_RUN_ATTEMPT+'.archive.age';const result=await register(name);if(result?.name!==name||result.status!=='REGISTERED'||result.restoreVerified!==false)throw Error('NATIVE_REGISTRATION_UNVERIFIED');if(required&&result.replicationVerified!==true)throw Error('NATIVE_REPLICATION_UNVERIFIED');}
+  if(register){const name='gruk-restaurante-'+childEnv.GITHUB_RUN_ID+'-'+childEnv.GITHUB_RUN_ATTEMPT+'.archive.age';const result=await register(name);if(result?.name!==name||result.status!=='REGISTERED'||result.restoreVerified!==false)throw Error('NATIVE_REGISTRATION_UNVERIFIED');if(required&&result.replicationVerified!==true)throw Error('NATIVE_REPLICATION_UNVERIFIED');if(publish){const cloud=await publish(name);if(cloud?.name!==name||cloud.status!=='CLOUD_CIPHERTEXT_VERIFIED')throw Error('CLOUD_PUBLICATION_UNVERIFIED');}}
  };
 }
 module.exports={createBackupAdapter};
