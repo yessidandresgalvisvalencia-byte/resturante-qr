@@ -17,66 +17,17 @@ const eventBus = require("../core/eventos/eventBus");
 
 const router = express.Router();
 
-async function resolverSedeAutorizada({
-  auth,
-  sedeId
-}) {
-  if (auth.rol === ROLES_GRUK.ADMIN_SEDE) {
-    if (!auth.sedeId) {
-      const error = new Error(
-        "ADMIN_SEDE requiere una sede autorizada"
-      );
-      error.statusCode = 403;
-      throw error;
-    }
+const {resolveCatalogSite}=require("../core/auth/catalogScope");
 
-    if (
-      sedeId &&
-      String(sedeId) !==
-        String(auth.sedeId)
-    ) {
-      const error = new Error(
-        "No tienes acceso a otra sede"
-      );
-      error.statusCode = 403;
-      throw error;
-    }
-
-    return auth.sedeId;
-  }
-
-  if (!sedeId) return null;
-
-  if (
-    !mongoose.Types.ObjectId.isValid(
-      sedeId
-    )
-  ) {
-    const error = new Error(
-      "sedeId invalido"
-    );
-    error.statusCode = 400;
+async function resolverSedeAutorizada({auth,sedeId}) {
+  const result=await resolveCatalogSite(auth,sedeId,Sede);
+  if(!result.ok) {
+    const error=new Error(result.error);
+    error.statusCode=result.status;
     throw error;
   }
-
-  const sede = await Sede.findOne({
-    _id: sedeId,
-    empresaId: auth.empresaId
-  })
-    .select("_id")
-    .lean();
-
-  if (!sede) {
-    const error = new Error(
-      "Sede fuera del tenant autorizado"
-    );
-    error.statusCode = 403;
-    throw error;
-  }
-
-  return sede._id;
+  return result.sedeId;
 }
-
 
 // ==========================================
 // CREAR COMPRA
@@ -87,7 +38,7 @@ router.post(
   authMiddleware,
   roleCheck(ROLES_GRUK.DUENO, ROLES_GRUK.ADMIN_SEDE),
   async (req, res) => {
-  const session = await mongoose.startSession();
+  let session;
 
   try {
     const {
@@ -144,7 +95,7 @@ router.post(
     const sedeEfectiva =
       await resolverSedeAutorizada({
         auth: req.auth,
-        sedeId: sedeId || null
+        sedeId
       });
 
     const itemsProcesados = [];
@@ -263,6 +214,7 @@ router.post(
     // TRANSACCIÓN
     // ==========================================
 
+    session = await mongoose.startSession();
     await session.withTransaction(async () => {
 
       // 1. CREAR COMPRA
@@ -492,7 +444,7 @@ inventario.costo = costoPromedioPonderado;
     });
 
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 });
 
@@ -569,8 +521,7 @@ router.put(
           });
         }
 
-        filtro.sedeId =
-          req.auth.sedeId;
+        filtro.sedeId = await resolverSedeAutorizada({auth:req.auth});
       }
 
       const compra =
@@ -702,10 +653,9 @@ router.put(
         error
       );
 
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         ok: false,
-        error:
-          "Error actualizando estado de pago"
+        error: error.statusCode ? error.message : "Error actualizando estado de pago"
       });
     }
   }
@@ -753,8 +703,7 @@ router.get(
         });
       }
 
-      filtroCompras.sedeId =
-        req.auth.sedeId;
+      filtroCompras.sedeId = await resolverSedeAutorizada({auth:req.auth});
     }
 
     const compras = await Compra.find(
@@ -778,9 +727,9 @@ router.get(
   } catch (error) {
     console.error("Error obteniendo compras:", error);
 
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       ok: false,
-      error: "Error obteniendo compras"
+      error: error.statusCode ? error.message : "Error obteniendo compras"
     });
   }
 });
@@ -818,8 +767,7 @@ router.put(
         });
       }
 
-      filtroCompra.sedeId =
-        req.auth.sedeId;
+      filtroCompra.sedeId = await resolverSedeAutorizada({auth:req.auth});
     }
 
     const compra = await Compra.findOneAndUpdate(
@@ -848,9 +796,9 @@ router.put(
   } catch (error) {
     console.error("Error anulando compra:", error);
 
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       ok: false,
-      error: "Error anulando compra"
+      error: error.statusCode ? error.message : "Error anulando compra"
     });
   }
 });
