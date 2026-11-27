@@ -164,6 +164,7 @@ async function iniciarAplicacion() {
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`Servidor corriendo en puerto ${PORT}`);
+      void require('./core/health/storageVaultProbe.service').runStartupVaultProbe();
     });
   } catch (err) {
     console.error("Error MongoDB:", err.message);
