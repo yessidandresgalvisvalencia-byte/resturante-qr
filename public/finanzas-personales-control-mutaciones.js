@@ -194,7 +194,7 @@
    return{opciones:{...o,headers:d.headers,...(o.body!==undefined?{body:JSON.stringify(d.cuerpo)}:{})},finalizar(resultado){
     if(terminada)return;terminada=true;s.activas.delete(id);
     // Una respuesta perdida nunca se resuelve solo por leer saldos después.
-    if(resultado==="CONFIRMADA"||resultado==="NO_ENVIADA"&&!incierta||resultado==="RECHAZADA"&&!incierta){
+    if(!retiro&&(resultado==="CONFIRMADA"||resultado==="NO_ENVIADA"&&!incierta||resultado==="RECHAZADA"&&!incierta)){
      s.pendientes.delete(id);try{guardar(s);}catch(e){s.pendientes.set(id,p);cambio(s);throw e;}
     }cambio(s);
    }};
