@@ -21,7 +21,7 @@ async function probeVault({env=process.env,connect}){
 }
 // Emit only fixed diagnostic codes; never log driver messages, URIs or stacks.
 function safeProbeError(e){
- const allowed=['VAULT_ENDPOINT','VAULT_ENDPOINT_SCOPE','VAULT_ENDPOINT_OPTIONS','VAULT_PROBE_DISABLED','VAULT_SCOPE','VAULT_QUOTA_UNVERIFIED'];
+ const allowed=['VAULT_ENDPOINT','VAULT_ENDPOINT_SCOPE','VAULT_ENDPOINT_OPTIONS','VAULT_PROBE_DISABLED','VAULT_SCOPE','VAULT_QUOTA_UNVERIFIED','VAULT_WRITE_PROBE_DISABLED','VAULT_QUOTA_WRITE_UNVERIFIED','VAULT_WRITE_UNVERIFIED','VAULT_PROBE_RESIDUE'];
  if(allowed.includes(e?.message))return e.message;
  if(e?.code===18)return 'VAULT_AUTHENTICATION_FAILED';
  if(e?.code===13)return 'VAULT_PERMISSION_DENIED';
