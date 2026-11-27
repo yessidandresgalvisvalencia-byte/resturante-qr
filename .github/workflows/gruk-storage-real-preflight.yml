@@ -1,0 +1,28 @@
+name: GRUK Storage read-only readiness
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    if: ${{ github.ref == 'refs/heads/main' && vars.GRUK_STORAGE_PREFLIGHT_ALLOWED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: gruk-storage-real-preflight
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate source read role and internal vault capacity
+        env:
+          GRUK_STORAGE_PREFLIGHT_ENABLED: 'true'
+          GRUK_NATIVE_REAL_BACKUP_ENABLED: 'false'
+          GRUK_ENTERPRISE_BACKUP_URI: ${{ secrets.GRUK_ENTERPRISE_BACKUP_URI }}
+          GRUK_ENTERPRISE_BACKUP_EXPECTED_HOST: ${{ vars.GRUK_ENTERPRISE_BACKUP_EXPECTED_HOST }}
+          GRUK_VAULT_MONGO_URI: ${{ secrets.GRUK_VAULT_MONGO_URI }}
+          GRUK_VAULT_EXPECTED_HOST: ${{ vars.GRUK_VAULT_EXPECTED_HOST }}
+        run: node scripts/gruk/native-storage-real-preflight.js
