@@ -22,3 +22,12 @@ test('preflight only runs scoped read commands and closes connections',async()=>
  assert.equal(result.sourceRoleVerified,true);assert.equal(result.realBackupEnabled,false);assert.deepEqual(calls,['connectionStatus','dbStats',['vault_quota',{_id:'enterprise'}],'close','close']);
  await assert.rejects(preflight({env:{...env,GRUK_NATIVE_REAL_BACKUP_ENABLED:'true'},connect}),/PREFLIGHT_DISABLED/);
 });
+
+test('connection diagnostics isolate source and vault without leaking driver details',async()=>{
+ const err=Object.assign(Error('synthetic secret must not leak'),{name:'MongoServerSelectionError'});
+ await assert.rejects(preflight({env,connect:async()=>{throw err;}}),{message:'SOURCE_CONNECT_NETWORK_OR_TLS'});
+ let closed=false;
+ const connect=async(uri,opts)=>{if(opts.dbName==='gruk_storage_vault')throw Object.assign(Error('secret'),{code:18});return {db:{databaseName:'restaurante',command:async q=>q.connectionStatus?identity:{dataSize:10,indexSize:20}},close:async()=>{closed=true;}};};
+ await assert.rejects(preflight({env,connect}),{message:'VAULT_CONNECT_AUTHENTICATION'});assert.equal(closed,true);
+ await assert.rejects(preflight({env,connect:async()=>({db:{databaseName:'restaurante',command:async()=>{throw Object.assign(Error('secret'),{code:13});}},close:async()=>{}})}),{message:'SOURCE_IDENTITY_READ_PERMISSION'});
+});
