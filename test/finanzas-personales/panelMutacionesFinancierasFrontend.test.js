@@ -43,7 +43,7 @@ test("HTTP 200 sin confirmación de aplicación permanece incierto y una consult
  let confirma=false;const f=entorno(async(p,o)=>{if(p==="/transacciones")return respuesta({mensaje:"respuesta no verificable"});if(p==="/transacciones/confirmar-intento")return respuesta({ok:true,confirmado:confirma});});
  const payload={tipo:"GASTO",montoMinor:1200,externalId:"movimiento_01"};await assert.rejects(f.ctx.api("/transacciones",{method:"POST",body:JSON.stringify(payload)}),/no confirmó/);assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
  await f.ctx.api("/transacciones/confirmar-intento",{method:"POST",body:JSON.stringify(payload)});assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);confirma=true;
- await f.ctx.api("/transacciones/confirmar-intento",{method:"POST",body:JSON.stringify({...payload,montoMinor:1300})});assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
+ await assert.rejects(f.ctx.api("/transacciones/confirmar-intento",{method:"POST",body:JSON.stringify({...payload,montoMinor:1300})}),e=>e.code==="OPERACION_PERSONAL_NO_CONFIRMADA");assert.equal(f.ctx.api.estadoFinanciero().bloqueada,true);
  await f.ctx.api("/transacciones/confirmar-intento",{method:"POST",body:JSON.stringify(payload)});assert.equal(f.ctx.api.estadoFinanciero().bloqueada,false);
 });
 

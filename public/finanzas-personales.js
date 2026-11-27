@@ -107,7 +107,7 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
    }
    if(operacion&&controlFinancieroPersonal().cierreRevisionOrigenRuta(path)){operacion.finalizar("INCIERTA");resuelta=true;}
    if(operacion){if(j.ok!==true)throw Error("La respuesta no confirmó el resultado de la operación");operacion.finalizar("CONFIRMADA");resuelta=true;}
-   if(path==="/transacciones/confirmar-intento"&&j.confirmado===true&&tokenSolicitud){await controlFinancieroPersonal().confirmarRegistro(tokenSolicitud,JSON.parse(o.body));}
+   if(path==="/transacciones/confirmar-intento"&&j.confirmado===true&&tokenSolicitud){if(!await controlFinancieroPersonal().confirmarRegistro(tokenSolicitud,JSON.parse(o.body),()=>token===tokenSolicitud&&!controller.signal.aborted))throw Object.assign(Error("No se pudo verificar la confirmación con el control original; conserva la solicitud y consulta de nuevo"),{code:"OPERACION_PERSONAL_NO_CONFIRMADA"});comprobarSesion();}
    return j;
   }
  }finally{try{if(operacion&&!resuelta)operacion.finalizar(enviada?"INCIERTA":"NO_ENVIADA");}finally{solicitudesEnCurso.delete(controller);}}

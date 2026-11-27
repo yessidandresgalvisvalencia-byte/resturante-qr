@@ -127,6 +127,17 @@
   function decisionRetiro(u,p,solicitud){return JSON.stringify({version:1,usuarioId:u,solicitudOriginal:JSON.stringify(solicitud),pendienteOriginal:p?JSON.stringify(p):null});}
   function leerDecisionRetiro(raw,u,p){if(raw===null)return null;if(typeof raw!=="string"||raw.length>8192)throw falla("Decisión de cierre demasiado extensa");let d,s,anterior;try{d=JSON.parse(raw);if(typeof d.solicitudOriginal!=="string"||d.pendienteOriginal!==null&&typeof d.pendienteOriginal!=="string")throw Error();s=JSON.parse(d.solicitudOriginal);anterior=d.pendienteOriginal===null?null:JSON.parse(d.pendienteOriginal);}catch{throw falla("Decisión de cierre de retiro no verificable");}if(!d||Object.keys(d).sort().join(",")!=="pendienteOriginal,solicitudOriginal,usuarioId,version"||d.version!==1||d.usuarioId!==u||!solicitudRetiroDeudaValida(s)||s.body.solicitudId!==p.id||d.pendienteOriginal!==null&&JSON.stringify(canon(anterior))!==JSON.stringify(canon(p)))throw falla("La decisión de cierre no corresponde al pendiente original");return s;}
   function exigirControlOriginal(s,raw){let coincide=false;try{coincide=raw===null?s.pendientes.size===0:JSON.stringify(canon(JSON.parse(raw)))===JSON.stringify(canon([...s.pendientes.values()]));}catch{}if(!coincide){s.error=true;cambio(s);throw falla("El control original cambió; conserva las copias sin reemplazarlas");}}
+  const copiaConfirmacion=x=>{try{return JSON.parse(JSON.stringify(x));}catch{return null;}};
+  function resolverControlConfirmado(token,id,tipo,huella,vigente){
+   if(!vigente())return false;const s=cargar(token);if(s.error)return false;
+   const p=s.pendientes.get(id),raw=almacenamiento.getItem(PREFIJO+s.usuario);
+   // Un recibo solo permite converger con la eliminación de su misma referencia.
+   // No incorpora ni reemplaza cambios externos del registro de pendientes.
+   if(p&&p.tipo===tipo&&p.huella===huella&&!s.activas.size&&raw!==null){let resuelta=false;try{resuelta=JSON.stringify(canon(JSON.parse(raw)))===JSON.stringify(canon([...s.pendientes.values()].filter(x=>x.id!==id)));}catch{}if(resuelta){if(!vigente())return false;s.pendientes.delete(id);cambio(s);return true;}}
+   try{exigirControlOriginal(s,raw);}catch{return false;}if(!vigente())return false;if(!p)return true;
+   if(p.tipo!==tipo||p.huella!==huella||s.activas.has(id))return false;
+   s.pendientes.delete(id);try{guardar(s);}catch(e){s.pendientes.set(id,p);cambio(s);throw e;}cambio(s);return true;
+  }
   async function solicitudesRetiroDeuda(token,vigente=()=>true){const s=cargar(token),revision=s.revision,raw=almacenamiento.getItem(PREFIJO+s.usuario);exigirControlOriginal(s,raw);if(!vigente()||s.error||s.activas.size)throw falla("Conserva las operaciones en curso y el control original");const solicitudes=[],decisiones=[];let sinCuerpo=0;for(const p of s.pendientes.values()){if(p.tipo!=="solicitudId")continue;const key=claveCierreRetiro(s.usuario,p.id),original=almacenamiento.getItem(key),decision=leerDecisionRetiro(original,s.usuario,p);decisiones.push({key,original});if(p.solicitud&&!solicitudRetiroConservada(p.solicitud,s.usuario))throw falla("La copia no pertenece al propietario");const solicitud=p.solicitud?{path:p.solicitud.path,method:p.solicitud.method,body:p.solicitud.body}:decision;if(!solicitud){sinCuerpo++;continue;}if(!solicitudRetiroDeudaValida(solicitud)||p.id!==solicitud.body.solicitudId||decision&&JSON.stringify(canon(decision))!==JSON.stringify(canon(solicitud))||p.huella!==await digerir(datos(solicitud.path,{method:solicitud.method,body:JSON.stringify(solicitud.body)}).contenido))throw falla("Solicitud original de retiro no verificable");solicitudes.push({id:p.id,huellaControl:p.huella,solicitud:JSON.parse(JSON.stringify(solicitud)),...(decision?{cierreSolicitado:true}:{})});}if(!vigente()||s.revision!==revision||s.activas.size||almacenamiento.getItem(PREFIJO+s.usuario)!==raw||decisiones.some(x=>almacenamiento.getItem(x.key)!==x.original))throw falla("La sesión o las decisiones de retiro cambiaron");return{usuarioId:s.usuario,solicitudes,sinCuerpo};}
   function cargar(token){
    const usuario=usuarioDeToken(token);if(!usuario)throw falla("No se pudo identificar la sesión para conservar la operación");
@@ -199,12 +210,12 @@
     }cambio(s);
    }};
   }
-  async function confirmarRegistro(token,cuerpo){
-   const s=cargar(token);if(s.error)return;
-   const d=datos("/transacciones",{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);
-   const p=s.pendientes.get(cuerpo.externalId);if(p?.tipo==="externalId"&&p.huella===huella){s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);}
+  async function confirmarRegistro(token,cuerpo,vigente=()=>true){
+   const b=copiaConfirmacion(cuerpo);if(!vigente()||typeof b?.externalId!=="string")return false;
+   const d=datos("/transacciones",{method:"POST",body:JSON.stringify(b)}),huella=await digerir(d.contenido);
+   return resolverControlConfirmado(token,b.externalId,"externalId",huella,vigente);
   }
-  async function confirmarConstancia(token,r,cuerpo,vigente=()=>true){if(!vigente()||!await validarConstancia(r,{usuarioId:usuarioDeToken(token),cuerpo})||!vigente())return false;if(!["ANULADA","CORREGIDA"].includes(r.estado))return false;const d=datos("/transacciones",{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);if(!vigente())return false;const s=cargar(token),p=s.pendientes.get(cuerpo.externalId);if(s.error)return false;if(!p)return true;if(p.tipo!=="externalId"||p.huella!==huella||s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;}
+  async function confirmarConstancia(token,r,cuerpo,vigente=()=>true){const b=copiaConfirmacion(cuerpo),recibo=copiaConfirmacion(r);if(!b||!recibo||!vigente()||!await validarConstancia(recibo,{usuarioId:usuarioDeToken(token),cuerpo:b})||!vigente())return false;if(!["ANULADA","CORREGIDA"].includes(recibo.estado))return false;const d=datos("/transacciones",{method:"POST",body:JSON.stringify(b)}),huella=await digerir(d.contenido);return resolverControlConfirmado(token,b.externalId,"externalId",huella,vigente);}
   function pendientes(token){const s=cargar(token);if(s.error)throw falla("El registro local requiere revisión");return [...s.pendientes.values()].filter(p=>!s.activas.has(p.id)).map(p=>JSON.parse(JSON.stringify(p)));}
   function contextoAprobacionValido(r){if(!r||Object.keys(r).some(k=>!["confirmado","versionBorrador","solicitudId","hash","borradorId","itemId","ruta","metodo","certificaEstadoActual","duplicado","contextoAuditoria","auditoriaCompromiso"].includes(k)))return false;const c=r.contextoAuditoria,h=r.auditoriaCompromiso,keys=(o,ks)=>o&&Object.getPrototypeOf(o)===Object.prototype&&Object.keys(o).sort().join(",")===ks.sort().join(",");if(c===undefined&&h===undefined)return true;if(!c||c.ipExpuesta!==false||c.identidadDispositivoVerificada!==false)return false;if(c.origen==="LEGADO_SIN_CONTEXTO")return h===undefined&&keys(c,["origen","identidadDispositivoVerificada","ipExpuesta"]);if(!/^[a-f0-9]{64}$/.test(h||"")||!keys(c,["origen","capturadoEn","red","dispositivoDeclarado","navegadorDeclarado","identidadDispositivoVerificada","ipExpuesta"])||typeof c.capturadoEn!=="string"||!Number.isFinite(Date.parse(c.capturadoEn))||new Date(c.capturadoEn).toISOString()!==c.capturadoEn||!["MOVIL","ESCRITORIO","DESCONOCIDO","NO_OBSERVADO"].includes(c.dispositivoDeclarado)||!["CHROMIUM","FIREFOX","SAFARI","OTRO","NO_OBSERVADO"].includes(c.navegadorDeclarado))return false;return c.origen==="HTTP_SOCKET"&&c.red==="PEER_SOCKET_NO_CLIENTE_VERIFICADO"||c.origen==="INTERNO_SIN_RED"&&c.red==="NO_OBSERVADA"&&c.dispositivoDeclarado==="NO_OBSERVADO"&&c.navegadorDeclarado==="NO_OBSERVADO";}
   function textoContextoAprobacion(r){if(!contextoAprobacionValido(r))throw Error("Contexto público de aprobación inválido");const c=r.contextoAuditoria;if(!c||c.origen==="LEGADO_SIN_CONTEXTO")return "Sin contexto de conexión conservado de esta aprobación.";if(c.origen==="INTERNO_SIN_RED")return "Aprobación interna observada: "+c.capturadoEn+". Sin red ni dispositivo observados; el recibo no certifica saldo actual.";return "Aprobación observada: "+c.capturadoEn+". Dispositivo declarado "+c.dispositivoDeclarado+" / "+c.navegadorDeclarado+" (no verificado). El recibo no acredita banco ni saldo actual.";}
@@ -285,24 +296,24 @@
    return reciboCalendarioValido(token,{...r,confirmado:true,certificaEstadoActual:false,accion:cuerpo.solicitud.accion,version:r.versionEsperada+1,hash:r.hashVigente},path,cuerpo,true);
   }
   async function confirmarRechazoCalendario(token,r,path,cuerpo,vigente=()=>true){
-   if(!vigente()||!await rechazoCalendarioValido(token,r,path,cuerpo)||!vigente())return false;
-   return resolverCalendario(token,r.solicitudId,path,cuerpo,vigente);
+   const b=copiaConfirmacion(cuerpo),recibo=copiaConfirmacion(r);if(!b||!recibo||!vigente()||!await rechazoCalendarioValido(token,recibo,path,b)||!vigente())return false;
+   return resolverCalendario(token,recibo.solicitudId,path,b,vigente);
   }
   async function confirmarCalendario(token,r,path,cuerpo,vigente=()=>true){
-   if(!vigente()||!await reciboCalendarioValido(token,r,path,cuerpo)||!vigente())return false;
-   return resolverCalendario(token,r.solicitudId,path,cuerpo,vigente);
+   const b=copiaConfirmacion(cuerpo),recibo=copiaConfirmacion(r);if(!b||!recibo||!vigente()||!await reciboCalendarioValido(token,recibo,path,b)||!vigente())return false;
+   return resolverCalendario(token,recibo.solicitudId,path,b,vigente);
   }
   async function resolverCalendario(token,solicitudId,path,cuerpo,vigente){
-   const d=datos(path,{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);if(!vigente())return false;
-   const s=cargar(token);if(s.error)return false;const p=s.pendientes.get(solicitudId);if(!p)return true;if(p.tipo!=="solicitudId"||p.huella!==huella||s.activas.has(p.id))return false;
-   s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
+   const d=datos(path,{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);
+   return resolverControlConfirmado(token,solicitudId,"solicitudId",huella,vigente);
   }
   async function reciboImputacionValido(token,r,path,cuerpo){
    if(!/^\/prestamos\/[a-f0-9]{24}\/imputaciones$/.test(path)||r?.confirmado!==true||r.certificaEstadoActual!==false||r.afectaCaja!==false||r.usuarioId!==usuarioDeToken(token)||r.prestamoId!==path.split("/")[2]||r.ruta!==path||r.metodo!=="POST"||!/^imputacion_[A-Za-z0-9_-]{8,80}$/.test(r.solicitudId||"")||! /^[a-f0-9]{64}$/.test(r.hash||"")||typeof r.noAplicada!=="boolean"||(r.noAplicada?!["CONTEXTO_CAMBIO","DECISION_NO_VIGENTE"].includes(r.motivoNoAplicada):r.motivoNoAplicada!==null))return false;
    const d=datos(path,{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);if(r.solicitudHuella!==huella)return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&(!p||p.tipo==="header"&&p.huella===huella);
   }
   async function confirmarImputacion(token,r,path,cuerpo,vigente=()=>true){
-   if(!vigente()||!await reciboImputacionValido(token,r,path,cuerpo)||!vigente())return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(!p)return true;if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
+   const b=copiaConfirmacion(cuerpo),recibo=copiaConfirmacion(r);if(!b||!recibo||!vigente()||!await reciboImputacionValido(token,recibo,path,b)||!vigente())return false;
+   return resolverControlConfirmado(token,recibo.solicitudId,"header",recibo.solicitudHuella,vigente);
   }
   async function reciboRestauracionCicloValido(token,r,path,cuerpo){
    if(!/^\/prestamos\/[a-f0-9]{24}\/cuotas\/restaurar-con-ciclo$/.test(path)||r?.confirmado!==true||r.certificaEstadoActual!==false||r.autorizaGasto!==false||typeof r.afectaCaja!=="boolean"||r.usuarioId!==usuarioDeToken(token)||r.prestamoId!==path.split("/")[2]||r.movimientoId!==cuerpo?.movimientoId||r.anulacionHash!==cuerpo?.anulacionHash||r.ruta!==path||r.metodo!=="POST"||! /^[A-Za-z0-9_-]{8,128}$/.test(r.solicitudId||"")||![r.imputacionHash,r.anulacionHash].every(x=>typeof x==="string"&&/^[a-f0-9]{64}$/.test(x)))return false;
@@ -311,7 +322,8 @@
    const d=datos(path,{method:"POST",body:JSON.stringify(cuerpo)}),huella=await digerir(d.contenido);if(r.solicitudHuella!==huella)return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);return !s.error&&(!p||p.tipo==="header"&&p.huella===huella);
   }
   async function confirmarRestauracionCiclo(token,r,path,cuerpo,vigente=()=>true){
-   if(!vigente()||!await reciboRestauracionCicloValido(token,r,path,cuerpo)||!vigente())return false;const s=cargar(token),p=s.pendientes.get(r.solicitudId);if(!p)return true;if(s.activas.has(p.id))return false;s.pendientes.delete(p.id);try{guardar(s);}catch(e){s.pendientes.set(p.id,p);cambio(s);throw e;}cambio(s);return true;
+   const b=copiaConfirmacion(cuerpo),recibo=copiaConfirmacion(r);if(!b||!recibo||!vigente()||!await reciboRestauracionCicloValido(token,recibo,path,b)||!vigente())return false;
+   return resolverControlConfirmado(token,recibo.solicitudId,"header",recibo.solicitudHuella,vigente);
   }
   const PREF_RECIBOS="gruk.fp.recibosOrigenCobro.v1:",V_RECIBOS="FP_RECIBOS_ORIGEN_LOCAL_V1",V2_RECIBOS="FP_RECIBOS_ORIGEN_LOCAL_V2";
   const camposRecibos=(o,ks)=>o&&Object.getPrototypeOf(o)===Object.prototype&&Object.keys(o).sort().join(",")===ks.split(",").sort().join(","),hexRecibos=h=>typeof h==="string"&&/^[a-f0-9]{64}$/.test(h),igualRecibos=(a,b)=>JSON.stringify(canon(a))===JSON.stringify(canon(b));
