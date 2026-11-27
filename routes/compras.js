@@ -735,6 +735,23 @@ router.get(
 });
 
 
+// Read-only reconciliation diagnostic. Never authorizes a reversal.
+router.get("/:id/conciliacion-anulacion",authMiddleware,
+  roleCheck(ROLES_GRUK.DUENO,ROLES_GRUK.ADMIN_SEDE),async(req,res)=>{
+  try{
+    if(!mongoose.isObjectIdOrHexString(req.params.id))return res.status(400).json({ok:false,error:"ID de compra inválido"});
+    const scope={_id:req.params.id,empresaId:req.auth.empresaId};
+    if(req.auth.rol===ROLES_GRUK.ADMIN_SEDE)scope.sedeId=await resolverSedeAutorizada({auth:req.auth});
+    const purchase=await Compra.findOne(scope).lean();
+    if(!purchase)return res.status(404).json({ok:false,error:"Compra no encontrada"});
+    const {inspectPurchaseReversal}=require("../services/purchaseReversalPreflight");
+    const diagnostic=await inspectPurchaseReversal(purchase,{Movement:MovimientoInventario,Inventory:Inventario});
+    return res.json({ok:true,diagnostic});
+  }catch(error){
+    return res.status(error.statusCode||500).json({ok:false,error:error.statusCode?error.message:"Error verificando conciliación"});
+  }
+});
+
 // ==========================================
 // ANULAR COMPRA
 // ==========================================
@@ -770,27 +787,21 @@ router.put(
       filtroCompra.sedeId = await resolverSedeAutorizada({auth:req.auth});
     }
 
-    const compra = await Compra.findOneAndUpdate(
-      filtroCompra,
-      {
-        estado: "anulada"
-      },
-      {
-        new: true,
-        runValidators: true
-      }
-    );
-
+    // Cancellation affects stock, supplier obligations and financial projections.
+    // Until a reconciled reversal is implemented, do not mark a live purchase
+    // as cancelled. A status-only update would hide the purchase without undoing
+    // its economic effects. Keep historical records and return a stable conflict.
+    const compra = await Compra.findOne(filtroCompra);
     if (!compra) {
-      return res.status(404).json({
-        ok: false,
-        error: "Compra no encontrada"
-      });
+      return res.status(404).json({ok:false,error:"Compra no encontrada"});
     }
-
-    res.json({
-      ok: true,
-      compra
+    if (compra.estado === "anulada") {
+      return res.status(200).json({ok:true,compra,yaAnulada:true});
+    }
+    return res.status(409).json({
+      ok:false,
+      codigo:"GRUK_COMPRA_REVERSO_REQUERIDO",
+      error:"La anulación requiere una reversión conciliada de inventario y obligaciones. La compra permanece registrada."
     });
 
   } catch (error) {
