@@ -74,3 +74,45 @@
 .gruk-workspace .gruk-shortcuts button{width:100%}
 @media(max-width:1200px){.gruk-workspace .gruk-command-layout{grid-template-columns:1fr}}
 @media(max-width:620px){.gruk-workspace .gruk-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Approved reference: graphite, emerald and electric turquoise. */
+.gruk-workspace{--g-bg:#050d14;--g-panel:#0d1d26;--g-line:#263e49;--g-accent:#00d8c2;--g-nav:clamp(190px,17vw,260px);background:radial-gradient(ellipse at 75% 0,#0c2029 0,transparent 45%),#050d14;color:#f0f6fa}
+.gruk-workspace .menuAdminGRUK{background:linear-gradient(155deg,#0b1c26,#050e16 65%,#09232b);padding:16px 12px;border-right:1px solid #29434d}
+.gruk-workspace .gruk-brand{display:flex;align-items:center;gap:10px;padding:10px 4px 22px;margin-bottom:12px;border-bottom:1px solid #24404a}
+.gruk-workspace .gruk-brand svg{width:48px;height:48px;filter:drop-shadow(0 0 10px #00d8c244)}
+.gruk-workspace .gruk-brand h2{font-size:27px;line-height:1;margin:0;letter-spacing:.02em}
+.gruk-workspace .gruk-brand strong,.gruk-workspace .gruk-brand small{display:block;line-height:1.3}
+.gruk-workspace .gruk-brand small{font-size:10px;color:#a6b8c9}
+.gruk-workspace .menuAdminGRUK button[aria-current=page]{background:linear-gradient(100deg,#07514d,#103139);border-color:#00d8c2;box-shadow:inset 0 0 15px #00d8c233,0 0 12px #00d8c233;color:#effffb}
+.gruk-workspace .menuAdminGRUK button[aria-current=page] svg{color:#00ed91}
+.gruk-workspace .adminContenidoGRUK{padding-inline:clamp(12px,1.6vw,26px)}
+.gruk-workspace .gruk-topbar{min-height:64px;margin-bottom:16px;gap:12px}
+.gruk-workspace .gruk-tenant{border:1px solid #35505c;border-radius:30px;padding:10px 16px;background:linear-gradient(110deg,#0e333a,#10202a)}
+.gruk-workspace #gruk-network{color:#00ed91}
+.gruk-workspace .gruk-welcome{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 20px;flex-wrap:wrap}
+.gruk-workspace .gruk-welcome h1{margin:4px 0;font-size:clamp(23px,2.4vw,34px)}
+.gruk-workspace .gruk-welcome p{margin:3px 0;color:#bacbd5}
+.gruk-workspace .gruk-period{border:1px solid #34505a;border-radius:8px;padding:8px 12px;font-size:12px;color:#b9d5d9}
+.gruk-workspace .adminContenidoGRUK .card,.gruk-workspace .gruk-kpi{background:linear-gradient(145deg,#142731,#0a171f 75%);border:1px solid #2a414b;box-shadow:0 6px 18px #0003;border-radius:15px}
+.gruk-workspace .gruk-kpi{position:relative;overflow:hidden;padding:14px;gap:10px}
+.gruk-workspace .gruk-kpi::after{content:"";position:absolute;right:-20px;bottom:-45px;width:130px;height:100px;background:radial-gradient(ellipse,#00d8c22c,transparent 70%);pointer-events:none}
+.gruk-workspace .gruk-kpi span{display:flex;align-items:center;gap:8px;font-size:12px}
+.gruk-workspace .gruk-kpi svg,.gruk-workspace .gruk-shortcuts svg{width:24px;height:24px;color:#00ed91;flex:none}
+.gruk-workspace .gruk-kpi strong{color:#f4fbff}
+.gruk-workspace .gruk-command-layout{grid-template-columns:minmax(0,1fr) minmax(230px,.35fr);gap:14px}
+.gruk-workspace .gruk-analytics{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px}
+.gruk-workspace .gruk-analytics .card{min-width:0;padding:16px}
+.gruk-workspace .gruk-analytics h2{font-size:18px;margin:0 0 10px}
+.gruk-workspace .gruk-bar-track{height:10px;background:#233844}
+.gruk-workspace .gruk-bar-track div{background:linear-gradient(90deg,#008d96,#00d8c2);box-shadow:0 0 8px #00d8c255}
+.gruk-workspace .gruk-ring{width:min(150px,90%);aspect-ratio:1;margin:20px auto;display:grid;place-items:center;border-radius:50%;background:conic-gradient(#00d8c2 var(--coverage),#29404b 0);position:relative}
+.gruk-workspace .gruk-ring::before{content:"";position:absolute;inset:17%;border-radius:50%;background:#0a171f}
+.gruk-workspace .gruk-ring strong{position:relative;font-size:26px}
+.gruk-workspace .gruk-coverage p{text-align:center;font-size:12px;color:#b5c9d2}
+.gruk-workspace .adminContenidoGRUK .gruk-intelligence{background:radial-gradient(ellipse at 100% 0,#006c6655,transparent 45%),linear-gradient(150deg,#112a34,#091820);border-color:#197c78;box-shadow:inset 0 0 20px #00d8c210}
+.gruk-workspace .gruk-shortcuts{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.gruk-workspace .adminContenidoGRUK .gruk-shortcuts button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:88px;background:linear-gradient(145deg,#152a34,#0a1820);border-color:#304953;color:#e8f6fa;font-size:12px;padding:10px 5px}
+.gruk-workspace .gruk-system-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px;margin-top:20px;border:1px solid #2c4650;border-radius:14px;background:#0d2029;color:#b5c9d2;font-size:12px}
+.gruk-workspace .gruk-system-strip a,.gruk-workspace .gruk-system-strip strong{color:#00d8c2}
+@media(max-width:1200px){.gruk-workspace .gruk-command-layout{grid-template-columns:1fr}.gruk-workspace .gruk-command-layout aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+@media(max-width:760px){.gruk-workspace .gruk-analytics,.gruk-workspace .gruk-command-layout aside{grid-template-columns:1fr}.gruk-workspace .gruk-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr))}.gruk-workspace .menuAdminGRUK{padding-top:72px}}

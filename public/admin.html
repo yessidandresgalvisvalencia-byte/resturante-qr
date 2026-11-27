@@ -8,7 +8,7 @@
 <title>Administrador GRUK</title>
 
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="/gruk-design.css">
+<link id="gruk-design-system" rel="stylesheet" href="/gruk-design.css?v=3000-reference-1">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -22,7 +22,7 @@
 
 <aside id="menuAdminGRUK" class="menuAdminGRUK">
 
-<h2>GRUK</h2><p class="gruk-brand-sub">Empresarial · Centro de mando</p>
+<div class="gruk-brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path fill="#00d8c2" d="M33 3 57 11 50 24 34 19 18 29 19 43 32 49 43 40 31 40 31 29 59 29 55 49 32 62 9 51 3 30 12 12Z"/><path fill="#078d93" d="M19 43 32 49 43 40 31 40 31 29 59 29 55 49 32 62Z"/></svg><div><h2>GRUK</h2><strong>Empresarial</strong><small>Sistema de gestión integral</small></div></div>
 
 <button onclick="cargarModuloGRUK('centro-control')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v11h14V10"/></svg><span>Centro de Control</span></button>
 <p class="gruk-nav-label">Dirección</p><button onclick="cargarModuloGRUK('auditoria')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Auditoría</span></button>
@@ -45,7 +45,7 @@
 
 <main class="adminContenidoGRUK">
 
-<header class="gruk-topbar"><strong>GRUK / Espacio empresarial</strong><span id="gruk-network" role="status"></span><button id="gruk-logout">Cerrar sesión</button></header><div id="contenidoPrincipalGRUK"></div>
+<header class="gruk-topbar"><strong class="gruk-tenant" id="gruk-tenant">Espacio empresarial</strong><span id="gruk-network" role="status"></span><span class="gruk-user" id="gruk-user"></span><button id="gruk-logout">Cerrar sesión</button></header><div id="contenidoPrincipalGRUK"></div><footer class="gruk-system-strip"><span>Estado de red: <strong id="gruk-footer-network"></strong></span><a href="/offline-status.html">Consultar sincronización</a><span>GRUK V3000</span></footer>
 
 </main>
 
@@ -76,7 +76,7 @@ window.location.href="/login.html";
 <script src="js/configuracion.js"></script>
 <script src="admin.js"></script>
 <script>
-(function(){const status=document.getElementById("gruk-network");function network(){status.textContent=navigator.onLine?"Red disponible":"Sin conexión"}window.addEventListener("online",network);window.addEventListener("offline",network);network();document.getElementById("gruk-logout").onclick=()=>{for(const k of ["grukAuthToken","adminRestaurantId","adminUsuario"])localStorage.removeItem(k);for(const k of ["grukEnterpriseToken","grukEnterpriseIdentity"])sessionStorage.removeItem(k);location.replace("/login-empresa.html")};const nav=document.getElementById("menuAdminGRUK");const content=document.getElementById("contenidoPrincipalGRUK");function active(){for(const b of nav.querySelectorAll("button")){if(b.getAttribute("onclick")=== "cargarModuloGRUK('"+content.dataset.moduloActual+"')")b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")}}new MutationObserver(active).observe(content,{attributes:true,attributeFilter:["data-modulo-actual"]});active()})();
+(function(){const status=document.getElementById("gruk-network");function network(){status.textContent=navigator.onLine?"Red disponible":"Sin conexión";document.getElementById("gruk-footer-network").textContent=status.textContent}window.addEventListener("online",network);window.addEventListener("offline",network);network();document.getElementById("gruk-user").textContent=localStorage.getItem("adminUsuario")||"Cuenta empresarial";document.getElementById("gruk-logout").onclick=()=>{for(const k of ["grukAuthToken","adminRestaurantId","adminUsuario"])localStorage.removeItem(k);for(const k of ["grukEnterpriseToken","grukEnterpriseIdentity"])sessionStorage.removeItem(k);location.replace("/login-empresa.html")};const nav=document.getElementById("menuAdminGRUK");const content=document.getElementById("contenidoPrincipalGRUK");function active(){for(const b of nav.querySelectorAll("button")){if(b.getAttribute("onclick")=== "cargarModuloGRUK('"+content.dataset.moduloActual+"')")b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")}}new MutationObserver(active).observe(content,{attributes:true,attributeFilter:["data-modulo-actual"]});active()})();
 </script></body>
 
 </html>

@@ -269,6 +269,8 @@ async function cargarDecisionCerebroGRUK() {
         planesPago
       );
 
+    const iconos = ["M3 17l6-6 4 4 8-9M15 6h6v6","M3 6h18v12H3zM16 12h2","M5 3h14v18H5zM8 8h8M8 12h8","M4 12h16M14 6l6 6-6 6"];
+    const icono = path => '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="'+path+'"/></svg>';
     const metricas = [
       ["Tesorería", financiero?.saldoActual],
       ["Caja operativa", financiero?.saldoOperativo],
@@ -276,12 +278,15 @@ async function cargarDecisionCerebroGRUK() {
       ["Cobros previstos · 7 días", financiero?.cobros7d]
     ];
     const monto = v => typeof v === "number" && Number.isFinite(v) ? formatoCOP(v) : "No disponible";
-    const kpis = '<section class="gruk-kpis" aria-label="Indicadores de la última decisión">' + metricas.map(([label,v]) => '<article class="gruk-kpi"><span>'+escaparGRUK(label)+'</span><strong>'+escaparGRUK(monto(v))+'</strong><small>Última decisión registrada</small></article>').join("") + '</section>';
+    const kpis = '<section class="gruk-kpis" aria-label="Indicadores de la última decisión">' + metricas.map(([label,v],i) => '<article class="gruk-kpi"><span>'+icono(iconos[i])+escaparGRUK(label)+'</span><strong>'+escaparGRUK(monto(v))+'</strong><small>Última decisión registrada</small></article>').join("") + '</section>';
     const values = metricas.slice(1).filter(([,v])=>typeof v==="number"&&Number.isFinite(v)&&v>=0);
     const max = Math.max(1,...values.map(([,v])=>v));
     const chart = '<section class="card gruk-chart"><p class="gruk-eyebrow">TESORERÍA</p><h2>Panorama de liquidez</h2>'+ (values.length?values.map(([label,v])=>'<div class="gruk-bar-row"><span>'+escaparGRUK(label)+'</span><strong>'+escaparGRUK(monto(v))+'</strong><div class="gruk-bar-track"><div style="width:'+ (v/max*100) +'%"></div></div></div>').join(""):'<p>Sin datos verificables para graficar.</p>')+'</section>';
+    const caja = financiero?.saldoOperativo, deuda = financiero?.obligaciones7d;
+    const cobertura = typeof caja==="number"&&Number.isFinite(caja)&&typeof deuda==="number"&&Number.isFinite(deuda)&&deuda>0 ? Math.max(0,Math.min(100,caja/deuda*100)) : null;
+    const ring = '<section class="card gruk-coverage"><h2>Cobertura de obligaciones</h2>'+(cobertura===null?'<p>Sin obligaciones positivas verificadas para calcular cobertura.</p>':'<div class="gruk-ring" style="--coverage:'+cobertura+'%"><strong>'+Math.round(cobertura)+'%</strong></div><p>Caja operativa frente a obligaciones de 7 días</p>')+'</section>';
     contenedor.innerHTML =
-      '<div class="gruk-command-layout"><div>' + kpis + chart + '<nav class="gruk-shortcuts" aria-label="Accesos rápidos">' + [["inventario","Inventario"],["finanzas","Finanzas"],["reportes","Reportes"],["costos","Costos"],["junta-directiva","Junta Directiva"],["configuracion","Configuración"]].map(([id,label])=>'<button type="button" data-gruk-shortcut="'+id+'">'+label+'</button>').join("") + '</nav></div><aside>' + resumen + '<section class="card"><h3>Órdenes de la última decisión</h3><p>'+ordenes.length+' órdenes registradas</p></section></aside></div>' + contextoFinanciero +
+      '<div class="gruk-command-layout"><div>' + kpis + '<div class="gruk-analytics">'+chart+ring+'</div>' + '<nav class="gruk-shortcuts" aria-label="Accesos rápidos">' + [["inventario","Inventario"],["finanzas","Finanzas"],["reportes","Reportes"],["costos","Costos"],["junta-directiva","Junta Directiva"],["configuracion","Configuración"]].map(([id,label])=>'<button type="button" data-gruk-shortcut="'+id+'">'+label+'</button>').join("") + '</nav></div><aside>' + resumen + '<section class="card"><h3>Órdenes de la última decisión</h3><p>'+ordenes.length+' órdenes registradas</p></section></aside></div>' + contextoFinanciero +
       planesPagoHTML +
       tarjetas;
     contenedor.querySelectorAll("button[data-gruk-shortcut]").forEach(b=>b.addEventListener("click",()=>cargarModuloGRUK(b.dataset.grukShortcut)));
