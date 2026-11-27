@@ -13,14 +13,25 @@ document.getElementById("login").addEventListener("submit",async event=>{
  event.preventDefault();
  const button=document.getElementById("entrar"),msg=document.getElementById("msg");button.disabled=true;msg.textContent="Validando acceso…";
  try{
-  const response=await fetch("/api/onboarding/login",{method:"POST",headers:{"Content-Type":"application/json"},
+  let response=await fetch("/api/onboarding/login",{method:"POST",headers:{"Content-Type":"application/json"},
    body:JSON.stringify({usuario:document.getElementById("usuario").value.trim(),password:document.getElementById("password").value})});
-  const data=await response.json();
+  let data=await response.json();
+  if(response.ok&&data.ok&&data.token&&data.restaurantId&&!data.empresaId){
+    sessionStorage.removeItem("grukEnterpriseToken");
+    sessionStorage.removeItem("grukEnterpriseIdentity");
+    localStorage.setItem("grukAuthToken",data.token);
+    localStorage.setItem("adminRestaurantId",data.restaurantId);
+    localStorage.setItem("adminUsuario",data.usuario||document.getElementById("usuario").value.trim());
+    location.replace("/admin.html?restaurantId="+encodeURIComponent(data.restaurantId));
+    return;
+  }
   if(!response.ok||!data.ok||!data.token)throw new Error(data.error||"No se pudo iniciar sesión");
   sessionStorage.setItem("grukEnterpriseToken",data.token);
   sessionStorage.setItem("grukEnterpriseIdentity",JSON.stringify({usuario:data.usuario,rol:data.rol,empresaId:data.empresaId,sedeId:data.sedeId,restaurantId:data.restaurantId}));
   // Existing enterprise modules rely on this token key for authorization.
   localStorage.setItem("grukAuthToken",data.token);
+  localStorage.removeItem("adminRestaurantId");
+  localStorage.removeItem("adminUsuario");
   if(data.restaurantId)localStorage.setItem("adminRestaurantId",data.restaurantId);
   location.replace("/panel-empresa.html");
  }catch(err){msg.textContent=err.message;button.disabled=false;}

@@ -92,6 +92,18 @@ app.use((req,res,next)=>{
 app.use(express.static("public"));
 app.use("/estadisticas", estadisticasRoutes);
 app.use("/api/restaurants", restaurantRoutes);
+// Canonical enterprise entry; existing enterprise identities never fall back on bad credentials.
+app.post("/api/onboarding/login", async (req,res,next)=>{
+  try {
+    const usuario=String(req.body?.usuario||"").trim();
+    const password=String(req.body?.password||"");
+    if(!usuario||!password||usuario.length>120||password.length>200)return next();
+    const identity=await require("./models/usuario").exists({usuario});
+    if(identity)return next();
+    req.url="/admin/login";
+    return apiRoutes(req,res,next);
+  } catch(error){return res.status(503).json({ok:false,error:"Autenticación temporalmente no disponible"});}
+});
 app.use("/api/onboarding", onboardingRoutes);
 app.use("/pagos", pagosRoutes);
 app.use("/api/facturacion", facturacionRoutes); // legado: no retirar aún
