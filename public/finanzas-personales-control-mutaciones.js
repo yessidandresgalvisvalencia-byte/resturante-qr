@@ -130,7 +130,7 @@
   const copiaConfirmacion=x=>{try{return JSON.parse(JSON.stringify(x));}catch{return null;}};
   function resolverControlConfirmado(token,id,tipo,huella,vigente){
    if(!vigente())return false;const s=cargar(token);if(s.error)return false;
-   const p=s.pendientes.get(id),raw=almacenamiento.getItem(PREFIJO+s.usuario);
+   const p=s.pendientes.get(id);let raw;try{raw=almacenamiento.getItem(PREFIJO+s.usuario);}catch{s.error=true;cambio(s);throw falla("No se pudo leer el control original; conserva las solicitudes sin reemplazarlas");}
    // Un recibo solo permite converger con la eliminación de su misma referencia.
    // No incorpora ni reemplaza cambios externos del registro de pendientes.
    if(p&&p.tipo===tipo&&p.huella===huella&&!s.activas.size&&raw!==null){let resuelta=false;try{resuelta=JSON.stringify(canon(JSON.parse(raw)))===JSON.stringify(canon([...s.pendientes.values()].filter(x=>x.id!==id)));}catch{}if(resuelta){if(!vigente())return false;s.pendientes.delete(id);cambio(s);return true;}}

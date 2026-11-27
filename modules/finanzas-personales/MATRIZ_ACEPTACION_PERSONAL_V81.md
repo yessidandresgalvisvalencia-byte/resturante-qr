@@ -385,3 +385,17 @@ HEAD inicialfb00b2b35aba2d3e5f8e5b123120b85e89361b01/árbol4060a94a28f56eb70d3a8
 
 
 Validación local final r144:56/56 nuevos,191/191 dirigidos y85/85 API/control;1255casos del módulo/1246aprobados/9omisiones de integración local,0fallos/cancelaciones;ci:personal353/349/4omisiones,0fallos/cancelaciones. La primera ejecución completa señaló una prueba que esperaba éxito silencioso con cuerpo diferente;ahora exige rechazo OPERACION_PERSONAL_NO_CONFIRMADA y conserva su aserción de bloqueo. Sintaxis y diff--check aprobados. CI propia pendiente;no inferir integración desde omisiones locales.
+
+
+Corrección del mismo bloque r144:las seis confirmaciones ahora marcan el control como no verificable si getItem de su raíz falla,incluso con Map vacío. Seis nuevas reproducciones fallaban antes de esta guarda;evita que al recuperar la lectura reaparezca autorización sin revisión. No escribe ni repara la raíz. Suite nueva62casos;91/91 API/control. Primer código608b70d5eff224d46f9d5b26234d04c8051a1dbe/árboldec25f52a0fb96cc1149465a8219180643bcefc6 publicado;su CI no cubre esta guarda posterior,que requiere SHA/CI propios. Se mantiene un solo bloque funcional. Próximo:inicio/finalización genéricos y restantes recibos;bloqueos de entrega independientes intactos.
+
+
+Validación local de la guarda final r144:62/62casos nuevos,197/197dirigidos,91/91 API/control;módulo1261casos/1252aprobados/9omisiones de integración local,0fallos/cancelaciones. ci:personal previo353/349/4omisiones,sin fallos;CI exacta de esta corrección pendiente. No se atribuye a omisiones locales evidencia de integración.
+
+
+CI del primer código608b70d5:Gate45985115892 y Seguridad45985115891 success;PrecisiónIntegridad45985115908 failure en job140458627422. Mongo110/110 aprobado. Chromium33casos/31aprobados/2fallos(contando padre),0omisiones/cancelaciones;falló CONTROL_PERSISTENCIA_IGNORADA_Y_CONFIRMACION_MANUAL al esperar CONFIRMADA tras una consulta cuyo control tenía error de escritura. Los cuatro FP_CONFIRMACION_CONTROL_CONCURRENTE_BROWSER(RESTAURACION,CIERRE,IMPUTACION_APLICADA,IMPUTACION_NO_APLICADA) sí pasaron,2GET propios por modo,0HTTPasesoría/0reenvíos. No se declara CI verde del primer código.
+
+La prueba antigua ahora exige que esa consulta fallida deje diario PENDIENTE y bytes originales;tras recarga explícita otro GET propio confirma,y un GET adicional verifica idempotencia del registro ya confirmado. Conserva todas las aserciones de caja/fuentes/clave/390px,un único POST financiero y5consultas propias,33casos/timeout120000ms/concurrencia2/cuotas intactos. FP_CONTROL_PERSISTENCIA añade consultaFallidaNoConfirmaDiario:true. Regresión API real reproduce el mismo control fallido y recuperación por instancia recargada,sin POST financiero adicional. Suite nueva63casos,92/92 API/control;requiere CI del SHA corregido.
+
+
+Validación local definitiva tras correcciones de lectura y contrato UI:63/63casos nuevos,198/198dirigidos,92/92 API/control;módulo1262casos/1253aprobados/9omisiones de integración local,0fallos/cancelaciones;sintaxis/diff--check aprobados. La nueva evidencia de Chromium depende de CI del SHA corregido;la ejecución anterior fallida queda conservada arriba. No relajación de gates ni despliegue.
