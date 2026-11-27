@@ -1,0 +1,23 @@
+/* GRUK V3000 — shared workspace foundation */
+.gruk-workspace{--g-bg:#0b111a;--g-panel:#111b28;--g-line:#29394a;--g-text:#e7eef5;--g-muted:#a6b8c9;--g-accent:#76d9d2;--g-nav:248px;--g-radius:10px;--g-space:8px;background:var(--g-bg);color:var(--g-text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100dvh;margin:0}
+.gruk-workspace .menuAdminGRUK{box-sizing:border-box;width:var(--g-nav);background:#101925;border-right:1px solid var(--g-line);padding:76px 14px 24px;overflow-y:auto;overscroll-behavior:contain;height:100dvh;backdrop-filter:none}
+.gruk-workspace .menuAdminGRUK h2{font-size:24px;letter-spacing:.16em;margin:0 10px 24px;color:var(--g-text)}
+.gruk-workspace .menuAdminGRUK button,.gruk-workspace .menuAdminGRUK a{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;text-align:left;min-height:44px;margin:2px 0;padding:10px 12px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--g-muted);font:500 14px/1.4 system-ui;text-decoration:none;box-shadow:none;transform:none;cursor:pointer}
+.gruk-workspace .menuAdminGRUK button:hover,.gruk-workspace .menuAdminGRUK a:hover,.gruk-workspace .menuAdminGRUK [aria-current=page]{background:#1b2b3b;border-color:#31495a;color:var(--g-accent)}
+.gruk-workspace .menuAdminGRUK svg,.gruk-workspace .btnMenuGRUK svg{width:19px;height:19px;flex:none}
+.gruk-workspace .btnMenuGRUK{top:16px;left:16px;display:grid;place-items:center;width:44px;height:44px;padding:0;background:var(--g-panel);border:1px solid var(--g-line);border-radius:8px;box-shadow:none;color:var(--g-text)}
+.gruk-workspace .adminContenidoGRUK{box-sizing:border-box;margin-left:var(--g-nav);padding:clamp(20px,3vw,48px);min-width:0}
+.gruk-workspace .card{background:var(--g-panel);border:1px solid var(--g-line);border-radius:var(--g-radius);box-shadow:none;padding:clamp(16px,2vw,28px);margin-bottom:16px;color:var(--g-text);overflow-wrap:anywhere}
+.gruk-workspace h1{font-size:clamp(24px,3vw,34px);letter-spacing:-.035em;line-height:1.2}
+.gruk-workspace h2{letter-spacing:-.02em}
+.gruk-workspace :focus-visible{outline:2px solid var(--g-accent);outline-offset:3px}
+.gruk-workspace [hidden]{display:none!important}
+.gruk-workspace .workspace-heading{border-bottom:1px solid var(--g-line);padding-bottom:20px;margin-bottom:24px}
+.gruk-workspace .workspace-kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--g-accent)}
+.gruk-workspace .workspace-muted{color:var(--g-muted)}
+.gruk-workspace .workspace-list{display:grid;gap:0;border:1px solid var(--g-line);border-radius:var(--g-radius);overflow:hidden}
+.gruk-workspace .workspace-list a{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px;color:var(--g-text);text-decoration:none;background:var(--g-panel);border-bottom:1px solid var(--g-line)}
+.gruk-workspace .workspace-list a:last-child{border-bottom:0}
+.gruk-workspace .workspace-list a:hover{background:#1b2b3b}
+@media(max-width:1024px){.gruk-workspace .adminContenidoGRUK{margin-left:0;padding-top:80px}.gruk-workspace .menuAdminGRUK{transform:translateX(-100%)}.gruk-workspace .menuAdminGRUK.abierto{transform:translateX(0)}}
+@media(prefers-reduced-motion:reduce){.gruk-workspace .menuAdminGRUK,.gruk-workspace .adminContenidoGRUK{transition:none}}
