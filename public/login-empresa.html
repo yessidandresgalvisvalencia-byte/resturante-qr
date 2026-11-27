@@ -16,11 +16,7 @@ document.getElementById("login").addEventListener("submit",async event=>{
   let response=await fetch("/api/onboarding/login",{method:"POST",headers:{"Content-Type":"application/json"},
    body:JSON.stringify({usuario:document.getElementById("usuario").value.trim(),password:document.getElementById("password").value})});
   let data=await response.json();
-  // Legacy identities retain their existing server-side authentication.
-  if(response.status===401){
-   response=await fetch("/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({usuario:document.getElementById("usuario").value.trim(),password:document.getElementById("password").value})});
-   data=await response.json();
-   if(response.ok&&data.ok&&data.token&&data.restaurantId){
+  if(response.ok&&data.ok&&data.token&&data.restaurantId&&!data.empresaId){
     sessionStorage.removeItem("grukEnterpriseToken");
     sessionStorage.removeItem("grukEnterpriseIdentity");
     localStorage.setItem("grukAuthToken",data.token);
@@ -28,8 +24,6 @@ document.getElementById("login").addEventListener("submit",async event=>{
     localStorage.setItem("adminUsuario",data.usuario||document.getElementById("usuario").value.trim());
     location.replace("/admin.html?restaurantId="+encodeURIComponent(data.restaurantId));
     return;
-   }
-   throw new Error("No se pudo iniciar sesión");
   }
   if(!response.ok||!data.ok||!data.token)throw new Error(data.error||"No se pudo iniciar sesión");
   sessionStorage.setItem("grukEnterpriseToken",data.token);
