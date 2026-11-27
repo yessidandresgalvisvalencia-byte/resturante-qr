@@ -27,3 +27,8 @@ La descarga cifrada real del mismo caso ahora conserva tres recibos (dos aplicad
 Archivo de cerrados a capacidad sigue pendiente; no se borran recibos para liberar sitio. Cierre no prueba que deuda esté pagada ni certifica estado actual, autenticidad contable externa o cupo de gasto. Fuente financiera, caja y pagos permanecen en servidor; cierre es resolución de solicitud, no compensación monetaria. La copia del diario no es backup independiente MongoDB ni cifra el perfil/localStorage en reposo; perder frase impide descifrar. Web Locks solo coordina clientes compatibles que respetan el protocolo. Safari/dispositivos físicos/carga real no verificados por este bloque.
 
 Siguiente: archivo explícito de terminales a capacidad con páginas/copias y verificación, conservando originales, decisiones de cierre, pendientes y recuperabilidad. Reabrir HEAD/PR389/issue407/CI/continuidad/matriz/informe antes de actuar. #407/custodio/anclas independientes reales,backup durable independiente/retención/accesos/credenciales,restauración aislada/RPO-RTO operativos,roles/índices/configuración/migración reales,dispositivos/carga/auditoría independiente/compatibilidad/informe final siguen bloqueando liberación. No merge/Render/main/Empresarial/Blushéa/datos reales/costos. Publicar con expected_sha/force:false;verificar CI del código y del checkpoint. Tarea activa.
+
+
+## Caso estricto de respuesta ambigua
+
+Antes del cierre se añadió rechazo de GET200 sin recibo válido: no equivale a404, no permite POST de cierre ni reenvío original y conserva intención/solicitud/control pendientes. Caso nuevo prueba cuerpo vacío, recibo nulo e inválido. Pertenece al mismo bloque; confirmar CI del SHA definitivo, no solo del inicialdee069cc.
