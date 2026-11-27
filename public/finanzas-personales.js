@@ -40,7 +40,7 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
   const soloLectura=String(o.method||"GET").toUpperCase()==="GET";
   if(!soloLectura&&!consultaSoloLectura&&tokenSolicitud&&!path.startsWith("/auth/")&&controlFinancieroPersonal().esMutacion(path,o,tokenSolicitud)){
    if(typeof invalidarAutorizacionDisponible==="function")invalidarAutorizacionDisponible();
-   operacion=controlFinancieroPersonal().cierreRevisionOrigenRuta(path)?await controlFinancieroPersonal().iniciarCierreRevisionOrigen(tokenSolicitud,path,o,o.confirmarCierreRevision===true,()=>tokenSolicitud===token&&!controller.signal.aborted):await controlFinancieroPersonal().iniciar(tokenSolicitud,path,o);o=operacion.opciones;
+   operacion=/^\/prestamos\/[a-f0-9]{24}\/retiros\/cerrar-solicitud$/.test(path)?await controlFinancieroPersonal().iniciarCierreRetiroDeuda(tokenSolicitud,path,o,o.confirmarCierreRetiro===true,()=>tokenSolicitud===token&&!controller.signal.aborted):controlFinancieroPersonal().cierreRevisionOrigenRuta(path)?await controlFinancieroPersonal().iniciarCierreRevisionOrigen(tokenSolicitud,path,o,o.confirmarCierreRevision===true,()=>tokenSolicitud===token&&!controller.signal.aborted):await controlFinancieroPersonal().iniciar(tokenSolicitud,path,o);o=operacion.opciones;
   }
   comprobarSesion();const h={"Content-Type":"application/json",...(o.headers||{})};if(tokenSolicitud)h.Authorization="Bearer "+tokenSolicitud;
   for(let intento=0;;intento++){
