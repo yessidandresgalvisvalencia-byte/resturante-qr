@@ -101,7 +101,7 @@ function cargarCSSModuloGRUK(nombreModulo) {
   link.rel = "stylesheet";
   link.href = `/css/${nombreModulo}.css`;
 
-  document.head.appendChild(link);
+  document.head.insertBefore(link, document.getElementById("gruk-design-system") || null);
 }
 function cargarScriptModuloGRUK(nombreModulo) {
   return new Promise((resolve) => {
@@ -125,7 +125,7 @@ function cargarScriptModuloGRUK(nombreModulo) {
       return;
     }
 
-    const yaExiste = document.querySelector(`script[src="${src}"]`);
+    const yaExiste = Array.from(document.scripts).find(s => new URL(s.src, location.href).pathname === src);
 
     if (yaExiste) {
       resolve();
