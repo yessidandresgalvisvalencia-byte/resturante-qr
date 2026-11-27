@@ -253,7 +253,7 @@ async function cargarDecisionCerebroGRUK() {
       `
       : "";
 
-    const resumen = `<div class="card gruk-intelligence"><p class="gruk-eyebrow">GRUK INTELLIGENCE</p><h2>Decisión ejecutiva</h2><p><strong>Situación:</strong> ${escaparGRUK(d.decision_general?.situacion)}</p><p><strong>Causa:</strong> ${escaparGRUK(d.decision_general?.causa_raiz)}</p><p><strong>Predicción:</strong> ${escaparGRUK(d.decision_general?.prediccion)}</p><p><strong>Riesgo si no se actúa:</strong> ${escaparGRUK(d.riesgo_si_no_se_hace)}</p><p><strong>Cómo medir éxito en 7 días:</strong> ${escaparGRUK(d.como_medir_exito_en_7_dias)}</p><p><strong>Confianza:</strong> ${Number(d.confianza_global || 0)}%</p></div>` + contextoFinanciero;
+    const resumen = `<div class="card gruk-intelligence"><p class="gruk-eyebrow">GRUK INTELLIGENCE</p><h2>Decisión ejecutiva</h2><p><strong>Situación:</strong> ${escaparGRUK(d.decision_general?.situacion)}</p><p><strong>Causa:</strong> ${escaparGRUK(d.decision_general?.causa_raiz)}</p><p><strong>Predicción:</strong> ${escaparGRUK(d.decision_general?.prediccion)}</p><p><strong>Riesgo si no se actúa:</strong> ${escaparGRUK(d.riesgo_si_no_se_hace)}</p><p><strong>Cómo medir éxito en 7 días:</strong> ${escaparGRUK(d.como_medir_exito_en_7_dias)}</p><p><strong>Confianza:</strong> ${Number(d.confianza_global || 0)}%</p></div>`;
 
     const tarjetas = ordenes.map((o) => {
       const acciones = o.estado === "PENDIENTE_APROBACION"
@@ -281,9 +281,10 @@ async function cargarDecisionCerebroGRUK() {
     const max = Math.max(1,...values.map(([,v])=>v));
     const chart = '<section class="card gruk-chart"><p class="gruk-eyebrow">TESORERÍA</p><h2>Panorama de liquidez</h2>'+ (values.length?values.map(([label,v])=>'<div class="gruk-bar-row"><span>'+escaparGRUK(label)+'</span><strong>'+escaparGRUK(monto(v))+'</strong><div class="gruk-bar-track"><div style="width:'+ (v/max*100) +'%"></div></div></div>').join(""):'<p>Sin datos verificables para graficar.</p>')+'</section>';
     contenedor.innerHTML =
-      kpis + '<div class="gruk-dashboard-grid">' + chart + resumen + '</div>' +
+      '<div class="gruk-command-layout"><div>' + kpis + chart + '<nav class="gruk-shortcuts" aria-label="Accesos rápidos">' + [["inventario","Inventario"],["finanzas","Finanzas"],["reportes","Reportes"],["costos","Costos"],["junta-directiva","Junta Directiva"],["configuracion","Configuración"]].map(([id,label])=>'<button type="button" data-gruk-shortcut="'+id+'">'+label+'</button>').join("") + '</nav></div><aside>' + resumen + '<section class="card"><h3>Órdenes de la última decisión</h3><p>'+ordenes.length+' órdenes registradas</p></section></aside></div>' + contextoFinanciero +
       planesPagoHTML +
       tarjetas;
+    contenedor.querySelectorAll("button[data-gruk-shortcut]").forEach(b=>b.addEventListener("click",()=>cargarModuloGRUK(b.dataset.grukShortcut)));
     contenedor.querySelectorAll("button[data-accion]").forEach((boton) => {
       boton.addEventListener("click", () => procesarOrdenCerebroGRUK(
         boton.dataset.decision,

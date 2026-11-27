@@ -52,3 +52,25 @@
 @media(min-width:1025px){.gruk-workspace .btnMenuGRUK{display:none}}
 @media(max-width:1024px){.gruk-workspace .adminContenidoGRUK{padding:0 16px 24px}.gruk-workspace .gruk-topbar{padding-left:58px}.gruk-workspace .menuAdminGRUK{padding-top:72px}.gruk-workspace .gruk-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.gruk-workspace .gruk-dashboard-grid{grid-template-columns:1fr}.gruk-workspace .gruk-topbar{flex-wrap:wrap;padding-block:12px}.gruk-workspace .gruk-kpi{padding:12px}}
+
+/* V3000 shared module controls: neutral surfaces, teal actions, no legacy glow. */
+.gruk-workspace{--g-bg:#071019;--g-panel:#101e28;--g-line:#29404b;--g-accent:#38d9c6;color-scheme:dark}
+.gruk-workspace .adminContenidoGRUK button:not(.btnMenuGRUK),.gruk-workspace .adminContenidoGRUK input[type=submit]{background:#123b3e;border:1px solid #397b78;color:#d9fff8;box-shadow:none;text-shadow:none;border-radius:8px;font:600 14px/1.4 system-ui;letter-spacing:normal;text-transform:none;min-height:44px;padding:10px 16px;transform:none}
+.gruk-workspace .adminContenidoGRUK button:hover:not(:disabled){background:#1c5050;border-color:#65d9ca;box-shadow:none;transform:none}
+.gruk-workspace .adminContenidoGRUK button:disabled{opacity:.55;cursor:not-allowed}
+.gruk-workspace .adminContenidoGRUK button[data-accion=rechazar]{background:#38242c;border-color:#80515e;color:#ffd0d7}
+.gruk-workspace .adminContenidoGRUK input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]),.gruk-workspace .adminContenidoGRUK select,.gruk-workspace .adminContenidoGRUK textarea{background:#09151e;color:#e7eef5;border:1px solid #344c59;border-radius:7px;box-shadow:none;font:400 14px/1.5 system-ui;max-width:100%;box-sizing:border-box}
+.gruk-workspace .adminContenidoGRUK .card{background:#101e28;border:1px solid #29404b;border-radius:12px;box-shadow:none;text-shadow:none}
+.gruk-workspace .adminContenidoGRUK .card::before,.gruk-workspace .adminContenidoGRUK .card::after{content:none}
+.gruk-workspace .adminContenidoGRUK h3{font-size:17px;text-transform:none;letter-spacing:-.015em}
+.gruk-workspace .adminContenidoGRUK p{line-height:1.55}
+.gruk-workspace .adminContenidoGRUK table{font-variant-numeric:tabular-nums;border-collapse:collapse}
+.gruk-workspace .adminContenidoGRUK th,.gruk-workspace .adminContenidoGRUK td{padding:10px;border-bottom:1px solid var(--g-line)}
+.gruk-workspace .gruk-kpi{background:linear-gradient(145deg,#142832,#0c1923)}
+.gruk-workspace .gruk-command-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,.36fr);gap:16px;align-items:start}
+.gruk-workspace .gruk-command-layout .gruk-kpis{margin-top:0}
+.gruk-workspace .gruk-command-layout .gruk-kpis strong{font-size:clamp(16px,1.6vw,25px)}
+.gruk-workspace .gruk-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.gruk-workspace .gruk-shortcuts button{width:100%}
+@media(max-width:1200px){.gruk-workspace .gruk-command-layout{grid-template-columns:1fr}}
+@media(max-width:620px){.gruk-workspace .gruk-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}}
