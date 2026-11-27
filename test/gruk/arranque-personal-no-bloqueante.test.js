@@ -27,6 +27,15 @@ test("healthz falla cerrado si Mongo está desconectado o faltan índices",()=>{
  assert.match(fuente,/mongoose\.connection\.readyState===1&&indicesVerificados/);
  assert.match(fuente,/status\(ok\?200:503\)/);
  assert.match(fuente,/Cache-Control","no-store"/);
+ assert.match(fuente,/&&indicesVerificados&&privilegiosVerificados/);
+});
+test("arranque no realiza provisión y exige privilegios e índices compensatorios",()=>{
+ const fuente=fs.readFileSync(path.join(__dirname,"../../modules/finanzas-personales/server.js"),"utf8");
+ assert.match(fuente,/autoIndex:false,autoCreate:false/);
+ assert.match(fuente,/await auditarPrivilegiosLedgerPersonal\(mongoose\.connection\.db\)/);
+ assert.match(fuente,/await exigirIndices\(\)/);
+ assert.doesNotMatch(fuente,/provisionarMongoPersonal|syncIndexes|createIndexes|createCollection/);
+ assert.ok(fuente.indexOf('throw new Error("PRIVILEGIOS_FINANCIEROS_NO_VERIFICADOS")')<fuente.indexOf('server.listen(port,"0.0.0.0",resolve)'));
 });
 
 test("servicio financiero se niega a escuchar si los índices no están verificados",()=>{

@@ -4,6 +4,40 @@ const assert=require("node:assert/strict");
 const {crearRegistroMovimientoV81}=require("../../modules/finanzas-personales/services/registroMovimientoV81.handler");
 const {normalizarErrorTransaccionalV81}=require("../../modules/finanzas-personales/services/persistenciaLedgerV81.service");
 const usuarioId="507f1f77bcf86cd799439011";
+const {crearLecturaPanelPersonal}=require("../../modules/finanzas-personales/services/lecturaPanelPersonal.handler");
+for(const campo of ["home","progreso"]){
+ test(campo+" conserva el contrato y usa exclusivamente la identidad autenticada",async()=>{
+  const res=respuesta(),datos={corte:"prueba",montoMinor:25};let leido;
+  const handler=crearLecturaPanelPersonal({campo,leer:async id=>{leido=id;return datos;}});
+  await handler({personalAuth:{userId:usuarioId},query:{usuarioId:"ajeno"},body:{usuarioId:"ajeno"}},res);
+  assert.equal(leido,usuarioId);assert.equal(res.statusCode,200);
+  assert.deepEqual(res.body,{ok:true,[campo]:datos});
+  assert.equal(res.headers["Cache-Control"],"private, no-store, max-age=0");
+ });
+ test(campo+" rechaza límites sin convertirlos en 500 ni entregar cifras parciales",async()=>{
+  const res=respuesta();
+  await crearLecturaPanelPersonal({campo,leer:async()=>{throw Object.assign(Error("detalle privado"),{statusCode:422});}})
+   ({personalAuth:{userId:usuarioId}},res);
+  assert.equal(res.statusCode,422);assert.equal(res.body.ok,false);
+  assert.equal(res.body.codigo,"LECTURA_PANEL_INCOMPLETA");
+  assert.match(res.body.error,/datos incompletos/);assert.doesNotMatch(JSON.stringify(res.body),/detalle privado/);
+  assert.equal(Object.hasOwn(res.body,campo),false);
+  assert.equal(res.headers["Cache-Control"],"private, no-store, max-age=0");
+ });
+ test(campo+" mantiene fallos internos como errores sin detalles ni cifras",async()=>{
+  for(const error of [new TypeError("credencial privada"),Object.assign(Error("servidor privado"),{statusCode:400}),null]){
+   const res=respuesta();
+   await crearLecturaPanelPersonal({campo,leer:async()=>{throw error;}})({personalAuth:{userId:usuarioId}},res);
+   assert.equal(res.statusCode,500);assert.equal(res.body.codigo,"LECTURA_PANEL_NO_DISPONIBLE");
+   assert.equal(Object.hasOwn(res.body,campo),false);assert.doesNotMatch(JSON.stringify(res.body),/privad/);
+  }
+ });
+ test(campo+" sin sesión no invoca el servicio financiero",async()=>{
+  const res=respuesta();let lecturas=0;
+  await crearLecturaPanelPersonal({campo,leer:async()=>{lecturas++;}})({},res);
+  assert.equal(res.statusCode,401);assert.equal(lecturas,0);
+ });
+}
 const entrada={id:"v81_entrada_000001",tipo:"GASTO",montoCop:"25000.30",fechaContable:"2026-01-01",timestamp:"2026-01-01T10:00:00-05:00"};
 function respuesta(){
  const res={headers:{},statusCode:200,body:null};

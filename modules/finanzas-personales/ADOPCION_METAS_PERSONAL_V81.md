@@ -1,0 +1,57 @@
+# Adopción explícita de metas antiguas — r92
+
+## Base, alcance y plan
+13 de noviembre de 2026. PR389 abierto/sin merge, integration/fp-hormiga-clasificacion-credito-v81 hacia feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e. HEAD real inicial9b9569abbe1821189c26fd9de52632c46df39841; tres CI success: Gate43393220228/Seguridad43393220311/V8143393220353, job131777868757 Mongo84/84 y navegador/backend19/19. #407 es issue abierto; no habilita despliegue.
+
+Un bloque: permitir que el dueño revise una meta antigua válida, confirme su declaración y acceda al ciclo de gestión sin modificar la fuente ni inventar una creación pasada. No se registra dinero, aporte, ingreso, reserva ni saldo bancario. El estado anterior PAUSADA/CUMPLIDA/ACTIVA se conserva; adoptar o corregir no activa una meta.
+
+1. Extender el ciclo por eventos con ADOPCION y contrato estricto/confirmación específica.
+2. Proyectar gestión/origen desde eventos verificados, sin confiar en flags insertados en la fuente antigua.
+3. Revisión readonly, consentimiento que no se hereda entre metas/sesiones y recibo recuperable ante respuesta perdida.
+4. Pruebas normales/fallos, aislamiento, idempotencia, carreras, rollback, conservación, compatibilidad de hash/respaldo y navegador/backend real.
+5. Publicar lote con lease del HEAD y árboles iguales, comprobar las tres CI del SHA exacto y cerrar evidencia aquí, matriz y continuidad.
+
+## Contrato y aceptación
+POST /metas/:id/adoptar-legado usa Idempotency-Key ciclo_meta_... y cuerpo exacto confirmacion=true, confirmacionLegado=true, versionMeta, motivo y datos. datos incluye nombre, objetivo, acumulado, fechaObjetivo civil/null y estado. Deben coincidir exactamente con los datos revisados de la fuente; objetivo positivo y acumulado entre0 y objetivo, COP enteros seguros, sin coerción/decimales. Fecha antigua válida puede estar vencida: no se inventa otro plazo ni cambia el instante original.
+
+Solo una fuente sin recibo ni metadata parcial de creación, sin eventos anteriores y no gestionada puede adoptarse. ADOPCION es el primer evento de esa meta; repeticiones con la misma clave/cuerpo recuperan el recibo, nueva adopción o clave con otros datos se rechazan. Estados/flags que existieran en la fuente no habilitan gestión: el indicador adoptada se obtiene exclusivamente de un evento verificado. No se crea documento nuevo de meta ni recibo de creación histórico. Se mantiene la fecha de adopción actual.
+
+El nombre normalizado no puede estar reservado por otro original/declaración. Metas con objetivo0, acumulado superior, duplicados ambiguos, metadata incompleta o datos corruptos requieren revisión separada: no se fusionan, descartan, redondean ni convierten a cero. No afirmar que todos los legados pueden adoptarse.
+
+GET /metas expone puedeAdoptar/legadoAdoptado e historiaAnteriorNoVerificada. La procedencia de un legado adoptado es LEGADO_DECLARADO_POR_USUARIO; saldoVerificado=false, afectaCaja=false y autorizaGasto=false. Resumen y listado usan el mismo ciclo verificado. Historial/recibo pertenecen al JWT y no certifican historia anterior ni estado actual desde un recibo histórico.
+
+## Preservación, operación y recuperación
+ADOPCION se inserta en fin_ciclo_metas_personales_v1, ya protegida por política/modelo INSERT-only (25 colecciones). Conserva original, antes, cuerpo, dueño, fecha, referencia y cadena. No cambia fin_metas ni fin_recibos_creacion_metas_personales_v1. Cursor técnico y evento comparten transacción snapshot/majority; creaciones del cursor siguen siendo0 para una fuente legacy sin recibo. Rollback conserva estado si falla evento o cursor. La serialización existente protege carreras de adopción/creación/cambios y los cupos de restauración.
+
+Después de adoptar, corrección/retiro/restauración conservan el original. Corrección mantiene el estado original; si fecha civil no cambia, puede conservar un plazo vencido aunque el instante almacenado fuera distinto de medianoche Bogotá. Cambiar a otra fecha exige hoy/futuro. Eventos r91 de metas creadas con recibo siguen verificables.
+
+Respaldo V23 mantiene44 colecciones. Lee V22/44, V21/42 y anteriores. La nueva versión distingue la semántica ADOPCION; herramientas previas que desconocen V23 deben rechazarlo. No autoriza downgrade a código r91 con eventos de adopción presentes ni sobrescribir producción desde una copia antigua. Compatibilidad operativa de rollback productivo sigue pendiente.
+
+## Interfaz y pruebas
+Revisar meta antigua carga nombre/importes/fecha readonly y muestra el estado declarado. Exige checkbox específico, motivo y confirmación. Cambiar selección/sesión reinicia consentimiento. Cancelar conserva formulario; nueva meta restablece edición. ADOPCION entra al control persistido de cuerpo/clave/consentimiento/estado/fecha; tras recarga se consulta primero recibo.404 no prueba que faltara aplicar: solo reenvío explícito conserva la solicitud original. La confirmación de un resultado no crea dinero.
+
+Pruebas locales iniciales: nuevas puras4 e interfaz4 aprobadas; módulo845/836aprobadas/9omisiones, cero fallos. CI:personal y ensayos autorizados del nuevo SHA pendientes de consolidación. El ensayo de navegador previsto pierde respuesta después del commit, recupera recibo sin POST adicional, conserva estadoPAUSADA y originales, luego retira/restaura sin inventar recibo de creación ni cambiar caja. No presentar omisiones locales como pruebas reales aprobadas.
+
+## Límites y siguiente paso
+Auditoría contextual minimizada IP/dispositivo y su política de acceso/retención quedan pendientes como bloque propio. Revisión de legados ambiguos/corruptos debe conservar evidencia y exigir decisión explícita; no inventar procedencia ni creación. Custodio independiente real, backup/restore operativo con retención/acceso/credenciales separados/RPO-RTO, roles/índices/migración históricos productivos, dispositivos físicos/Safari y auditoría independiente siguen pendientes. Hash local no garantiza protección frente a administrador capaz de reescribir coherentemente todas las evidencias. Sin certificaciones externas ni garantías absolutas.
+
+Siguiente: completar auditoría contextual y su minimización/retención; revisar recuperación explícita de legados ambiguos sin alterar fuentes. #407 sigue abierto. Sin merge a feature/main, Render, costos, otros productos o datos reales modificados.
+
+## Primer SHA y refuerzo de invariantes r92
+Publicado57271d32a980e8bc0efb5d025b14c79880d0d3a4/árbol5b5b1dc51810c6b3505c5b5922a156bac9d3a850 con lease y árboles local/remoto iguales. Gate43404784531/Seguridad43404784488/V8143404784483 completaron pruebas; job131816360325 Mongo85/85 y navegador/backend20/20 sin fallos. FP_ADOPCION_META confirmó consentimiento explícito, original/estadoPAUSADA, respuesta perdida/recibo, retiro/restauración y ausencia de recibo de creación inventado. Se refuerzan después las dos fixtures para iniciar con un ingreso real de ensayo y saldo sintético100000, verificando preservación de fuentes financieras no vacías. Es un refuerzo de pruebas del mismo bloque, no otro bloque funcional. El nuevo SHA requiere las tres CI y ensayos exactos propios.
+
+
+## Cierre funcional verificado r92
+Código y pruebas febee86a79bc53df29dfd6d01b6103c95d83acd0, árbol31b5a7c50ce84b204b43c8c6a062b282d6ce680e; base9b9569abbe1821189c26fd9de52632c46df39841/árbol741a869e1f2568dab1c4f33caf20af08b9c813bf. Publicaciones con expected_sha/force=false y árboles local/remoto iguales. [Gate43405360080](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43405360080), [Seguridad43405359967](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43405359967) y [V8143405359971](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43405359971) success para ese SHA, ocho jobs V81 aprobados. [Job131818263657](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/43405359971/job/131818263657): Mongo85/85 y navegador/backend20/20, cero fallos/omisiones/cancelaciones.
+
+Adopción autorizada aprobó confirmación específica y datos/version exactos, conservación del original/estado/fecha antigua, ausencia de meta/recibo de creación inventados, contador creaciones0, replay sin cambios de cursor, clave/cuerpo distintos, dueño ajeno404, carreras misma/diferente clave con un evento, duplicados bloqueados sin fusión, rollback de evento/cursor, manipulación detectada y meta sin objetivo no adoptable. El ciclo posterior conserva PAUSADA/CUMPLIDA; las correcciones no activan esas metas. Fixtures de ingreso/saldo100000 sintéticos demostraron preservación de cuenta, movimiento, outbox y cursor financiero, además del objetivo declarado.
+
+FP_ADOPCION_META verificó Chromium390/HTML/API/Mongo real con datos sintéticos: revisión readonly, checkbox específico, estadoPAUSADA visible, respuesta perdida tras commit, solicitud/consentimiento/fecha/estado conservados, recibo propio tras recarga sin otro POST, otro dueño404, texto literal sin ejecutar script y retiro/restauración posteriores. Tres decisiones/una consulta, fuente original y saldo/ingreso100000 intactos, sin recibo de creación inventado, sin desborde en ese caso. Pruebas puras/UI acreditan cancelación, cuerpo modificado, flags heredados no autorizantes, doble adopción rechazada, aislamiento de consentimiento/sesión/selección y reenvío explícito idéntico después de404. No acredita Safari/dispositivos físicos ni durabilidad física del navegador.
+
+Respaldo aislado V23:44 colecciones,7229 documentos,7278150bytes; captura269ms/restauración941ms/edad1137ms. custodiaIndependiente=false y rpoProduccion=false. Son medidas sintéticas de fidelidad BSON/índices; no prueban backup productivo, auditoría semántica de todos los registros ni RPO/RTO operacionales. V22/44, V21/42 y anteriores siguen legibles por el código nuevo; rollback a un código que no reconoce ADOPCION sigue sin autorizarse. Política25 colecciones conservada y ensayada; permisos/índices efectivos productivos y credenciales independientes pendientes.
+
+Local: módulo845/836aprobadas/9omisiones; nuevas puras4/UI4 aprobadas y regresión adicional de respaldoV22; ci:personal353/349aprobadas/4omisiones, cero fallos. Omisiones locales no sustituyen ensayos autorizados. Auditoría estática sin patrones revisados; --enforce conserva salida1 por evidencia externa pendiente #407. Revisión de gastoInteligentePersonal.service.js mantiene saldo/obligaciones/snapshot verificados y horizonte futuro válido con importe exacto; no se duplicó implementación existente.
+
+Un bloque funcional completo. El refuerzo de fixtures y cierre documental no cuentan como nuevos bloques. Tarea existente comprobada habilitada. El descendiente documental requiere sus propias tres CI; resultados finales exactos quedan en PR389 e historial Git. Retomar siempre desde HEAD/documentación versionada.
+
+Siguiente: auditoría contextual minimizada IP/dispositivo, acceso y retención; revisión explícita de legados ambiguos/corruptos conservando fuente y sin inventar procedencia. Siguen pendientes custodio independiente real, backup/restore operativo, roles/índices/migración históricos productivos, recuperación aislada funcional/operativa, físicos/Safari y auditoría independiente cuando corresponda. #407 abierto; no se certifica preparación global ni garantías absolutas. Sin merge a feature/main, Render, costos, otros productos o datos reales modificados.

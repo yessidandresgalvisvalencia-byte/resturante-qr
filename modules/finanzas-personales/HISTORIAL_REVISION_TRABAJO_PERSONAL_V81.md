@@ -1,0 +1,71 @@
+# Historial propio de recibos de revisión — r109
+
+19 de noviembre de2026 (Colombia). Padre reale9b6d61274b697dc8c7d07128de4137111979cd9/árbol5b0d8c94b0e48ed4ae29998c82e57b320e639084; PR389 abierto/no integrado hacia feature652126a03f19fbec3c529cad1e84bff11cd3699e, rama integration/fp-hormiga-clasificacion-credito-v81. Issue407 abierto y sin actualización de evidencia externa. Padre Gate44605389675/Seguridad44605389849/V8144605389808 success, ocho jobs, Mongo100/100 y Chromium/backend32/32 sin omisiones. Instrucciones personales/continuidad revisadas, sin AGENTS.md adicional. Gasto inteligente/fechas, selección y recibo r108 ya cerrados: no repetir como bloques nuevos.
+
+## Bloque y plan
+
+Un bloque completo: historial propio paginado con acceso a verificación individual desde interfaz. Resuelve la búsqueda de recibos cuya clave ya no está disponible en el navegador. La exportación/importación portable del diario queda como siguiente bloque; no se cuenta como completada.
+
+- GET /reconciliar-ingresos-trabajo/recibos acepta únicamente cursor opcional24hex minúsculas; dueño JWT, no-store y sin datos del usuario por cuerpo/filtro. Página20+1, orden_id descendente, cursor sobre último recibo mostrado. Cursor debe existir para ese dueño; ajeno/ausente404, inválido/duplicado/filtros extra400. No se inventan totales ni un snapshot congelado de todas las páginas ante nuevas inserciones.
+- Índice no único nuevo(usuarioId1,_id1), nombre fp_revision_trabajo_historial_v1, permite recorrido inverso con dueño fijo. Se exige definición exacta sin sparse/TTL/colación incompatible; faltante503 para historial. Índice único de idempotencia se mantiene. Provisión solo administrativa y no destructiva, nunca desde HTTP. Colección/roles protegidos26 y backupV32/45 no cambian; copias previas sin el índice necesitan provisión administrativa antes de ofrecer este historial, no se descartan.
+- Cada recibo de la página verifica estructura/hash/propietario. Salida estricta:solicitudId/fecha/estado/corregidos/requierenRevisionManual/hash/verificacionFuentesPendiente. No expone selección cruda, fuentes, compensaciones ni contexto privado. Un recibo adulterado en la página rechaza toda esa página409, sin omitirlo para simular completitud. La lista es resumen histórico: no certifica fuentes actuales ni resuelve pendientes por sí sola.
+- El botón Verificar recibo usa la consulta existente que comprueba hash, originales y cadena. El recibo consultado debe coincidir con resumen/propietario/resultado/hash y límites declarados. Puede cerrar solamente el pendiente local correspondiente con el mismo cuerpo/clave conservados; no crea solicitud ni reenvía una revisión. Sin pendiente local es lectura histórica. Sin recibo verificable conserva incertidumbre.
+- Interfaz visible en Deudas/Cuentas por cobrar, con consultar/anterior/siguiente y estado accesible. Renderiza texto con textContent, sin HTML financiero interpolado; ajuste de línea para hashes. No usa saldo actual como prueba de una operación anterior. Cambio de sesión, limpieza o respuesta tardía no muestra datos de otra identidad ni confirma pendientes. Error de red o página incompleta no muestra resultados parciales como verificados. Sin pagos, compensaciones o modificaciones de caja desde el historial.
+
+## Aceptación y pruebas
+
+| Criterio | Evidencia requerida |
+| --- | --- |
+| Paginación/privacidad | Mongo autorizado crea23 recibos propios y1 ajeno; páginas20+3 sin duplicación, cursor final/vacío/repetición, salida exacta sin privados |
+| Seguridad | JWT dueño, cursor ajeno/inexistente404, cursor/consulta malformados400, índice retirado solo en ensayo503 y reposición administrativa exacta |
+| Preservación | Listar/verificar no modifica originales/recibos/cursor/caja; adulteración de recibo en página409, reposición completa BSON del fixture recupera200 |
+| Interfaz | Página/siguiente/anterior, resumen separado de verificación, errores/red/recibo cruzado; respuesta tardía al cambiar sesión no dibuja datos ni confirma |
+| Navegador real | Chromium390 login/HTML/API, historial visible, consulta individual sin otro POST de revisión, recibos/finanzas exactos, login ajeno no ve recibo anterior |
+| Operación | Sin colección/formato de backup nuevos; índice capturado/restaurado en ensayo V32/45; CI verde del SHA exacto con trazabilidad y lease |
+
+## Límites y siguiente paso
+
+No es prueba externa de trabajo/ingreso, saldo bancario actual o custodia independiente. La lista acredita solo integridad del recibo almacenado dentro de esa página; fuentes/cadena se verifican al consultar individualmente. Nuevos recibos pueden cambiar la primera página entre solicitudes; orden_id/cursor evita repetir filas anteriores al avanzar pero no ofrece exportación consistente de todo el historial ni acredita ausencia de borrado por administrador. Hash/rol de aplicación no reemplazan custodio real.
+
+Diario de revisión todavía en sessionStorage por propietario: exportación/importación cifrada y preservación ante pérdida de almacenamiento siguen pendientes. Historial permite encontrar recibos ya persistidos, no recuperar solicitudes que nunca llegaron al servidor ni convertir404 en certeza de no ejecución. Próximo bloque: diario portable propio, validación estricta, rechazo de mezcla entre usuarios y no sobrescribir originales/pendientes, con recuperación vinculada al recibo. Después diagnóstico/adopción de orígenes legacy/otros conceptos, contexto deuda/crédito/metas ambiguas.
+
+#407 sigue abierto: custodio independiente/anclas, respaldo durable/retención/accesos/claves separados y restauración operativa/RPO-RTO, roles/índices/migración/configuración reales, Safari/dispositivos, auditoría independiente según matriz, compatibilidad/informe final. Sin merge/Render/main/Empresarial/Blushéa, costos/servicios nuevos o datos reales alterados. Tarea activa.
+
+## Validación previa
+
+Local:módulo926 casos/917pass/9 omisiones externas/0fallos; ci:personal353/349pass/4omisiones/0fallos; caché/integración6/6 solapadas, sintaxis browser y diff correctos. Nuevo escenario completo Mongo autorizado y extensión del mismo caso nativo sin ampliar timeout/número artificial. CI del SHA nuevo pendiente, no declarar cierre hasta completarla. SHA propio del cierre por Git/PR sin autoreferencia circular.
+
+
+### r109 — primer CI y aislamiento de identidad del fixture de navegador
+
+SHA02518d133eaeb60ca877b0f16a0efeefb2ccc477/árbol52b2a6ddc415d6971741d3d78686f1077d5a9b53. Integración Mongo general y Mongo autorizado101/101 aprobaron sin omisiones. V8144612919946/job135873925526 falló solo navegador:32casos/30pass/2fail (uno es el padre),0omisiones. El caso nuevo sí consultó el historial y verificó individualmente el recibo con originales/caja intactos; agotó30s esperando la pestaña tras intentar entrar con el usuario global otro.
+
+La prueba anterior CALENDARIO_HTTP_INCIERTO comprueba explícitamente429 para ese usuario compartido con cuota de login agotada. El nuevo cambio de usuario reutilizaba esa identidad, por lo que el límite de seguridad impedía el login, correctamente. Se prepara otra identidad sintética real para este escenario y se exige respuesta200 del login antes de esperar la pestaña. Se conserva la aserción429 anterior, el rate limit y todos los límites/guards; no se amplían timeouts. No hay cambios de producto en esta corrección del fixture. Nueva CI pendiente; no declarar cierre hasta completar navegador del SHA final.
+
+
+### r109 — segundo CI: representación canónica de datetime-local en ensayo existente
+
+SHA676d637e8817168599c93bccdd58d308c7215f87/árbolca2338ae4d53071c2f36b087c4cca8eefb3dbfc3. Gate44613867311 y Seguridad44613867319 success; V8144613867330/job135877204712: Mongo101/101 sin omisiones. El caso de historial nuevo aprobó y emitió FP_HISTORIAL_REVISION_TRABAJO (historial visible, consulta individual, POSTRevision1/GETRecibosTotal2, otro usuario sin recibo ajeno, originales/caja1200 intactos y390 sin desbordamiento).
+
+El navegador total32/30pass/2fail,0omisiones falló después en CONTEXTO_CONCILIACION_RECIBO_NO_REPONE_SALDO_TRAS_GASTO al hacer fill("2026-11-19T15:59:00") sobre datetime-local. Chromium serializa segundos cero sin :00 y fill compara la representación; no había un fallo de cálculo o del historial. Se añade formateador de ensayo en America/Bogota que omite solo segundos00 y conserva segundos no nulos, con regresiones de roundtrip de instante/día y rechazo de fecha inválida. Se usa en ese fixture sin cambiar app, fechas financieras, límites ni aserciones de conciliación. No basta con reintentar hasta caer en otro segundo; nueva CI del SHA corregido pendiente.
+
+
+## Cierre r109 verificado — 19 de noviembre de2026 (Colombia)
+
+Código inicial02518d133eaeb60ca877b0f16a0efeefb2ccc477/árbol52b2a6ddc415d6971741d3d78686f1077d5a9b53, aislamiento de fixture676d637e8817168599c93bccdd58d308c7215f87/árbolca2338ae4d53071c2f36b087c4cca8eefb3dbfc3 y corrección final6319094d558c68136735f9ef297900bef63bdbc7/árbol42a8d6577b1efff61f4c12d479442ab04e4b2b33. Diecisiete archivos personales entre producto/pruebas/docs. Publicados con expected_sha/force:false desde HEAD comprobadoe9b6d61274b697dc8c7d07128de4137111979cd9 y sucesores verificados; árbol API igual al índice local. PR389 abierto/no integrado/base feature652126a03f19fbec3c529cad1e84bff11cd3699e; issue407 abierto.
+
+Un bloque completo: historial propio paginado de recibos con interfaz visible y verificación individual. Permite encontrar recibos persistidos sin conocer antes su solicitudId. API solo lectura/no-store, dueño JWT, páginas20+1 con cursor propio y orden_id descendente, índice exacto exigido/usado por hint; no inventa totales ni snapshot global entre páginas. El resumen verifica hash/estructura de cada recibo mostrado y declara fuentes pendientes; no sustituye la consulta individual ni confirma pendientes por sí solo. La consulta individual comprueba originales/cadena mediante servicio existente. Interfaz muestra texto literal, maneja errores y cambio de sesión, no reenvía revisiones/pagos ni cambia caja. Diario portable sigue pendiente.
+
+CI del SHA exacto6319094d558c68136735f9ef297900bef63bdbc7: [Gate44640515554](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44640515554), [Seguridad44640516550](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44640516550), [V8144640515603](https://github.com/yessidandresgalvisvalencia-byte/resturante-qr/actions/runs/44640515603), todos success; ocho jobs V81. Job135970085911: Mongo101/101 y Chromium/backend32/32, cero fallos/omisiones/cancelaciones. Local módulo926/917pass/9omisiones externas/0fallos; ci:personal353/349pass/4omisiones/0fallos; caché6/6 y fecha/UI5/5 solapadas (incluye2 regresiones nuevas de formato de ensayo). Sintaxis/diff correctos. No se amplían timeouts, omiten casos ni desactivan gates.
+
+Aceptación Mongo autorizado:23 recibos propios y1 ajeno por API real; páginas20+3 sin repetición, orden esperado/repetición/cursor final y página vacía; cursor ajeno o inexistente404; inválido/vacío/duplicado/filtros extra400. Salida de claves exactas sin selección/fuentes/contexto privado. Retirar índice solo en contenedor de ensayo produce503 sin escrituras; reposición administrativa conserva datos. Recibo adulterado dentro de la página bloquea409 toda esa página; reposición completa de BSON del fixture recupera200. Lecturas preservan todos los recibos y cursor financiero. Las pruebas existentes de append-only/compensaciones/backup siguieron aprobadas.
+
+Marcador FP_HISTORIAL_REVISION_TRABAJO: login real/HTML/API en Chromium390, historial visible, consulta individual, POSTRevision1 y GETRecibosTotal2 (recuperación previa+historial); recibos originales y caja1200 intactos. Logout/login con otra identidad sintética no muestra el recibo del dueño anterior; sin desbordamiento. Se extendió el caso existente sin contar pasos como casos adicionales ni aumentar120s. Datos sintéticos, no prueba de ingreso real o saldo bancario.
+
+Los dos intentos fallidos se conservan arriba:02518d usaba la cuenta compartida con cuota de login agotada (429 esperado en un caso anterior), corregido con identidad nueva sin relajar el rate limit;676d637 aprobó historial pero otro ensayo falló al llenar datetime-local con segundos00, corregido con representación canónica que preserva el instante/día Colombia y regresiones explícitas. La aprobación corresponde al SHA final. No se ocultó la espera de30s ni se eludieron permisos/timeouts para simular preparación.
+
+BackupV32/45 sin colección o formato nuevos; incluye nuevo índice no destructivo de historial. Ensayo cifrado/BSON/índices restaurados en destino aislado vacío:8021 documentos/8071926 bytes; captura315ms/restauración1188ms/edad1497ms. custodiaIndependiente=false/rpoProduccion=false. Son métricas de ensayo, no RPO/RTO operativo, custodia durable ni validación semántica de todos los fixtures deliberadamente corruptos. Copias anteriores conservan sus originales; índice faltante se añade administrativamente, nunca se borra la copia ni se sobrescribe producción.
+
+Siguiente bloque: diario portable propio de revisión con exportación/importación cifrada, validación y rechazo de mezcla entre usuarios, preservación de originales/pendientes y consulta de recibo sin repetir operaciones. El historial resuelve localizar recibos persistidos, no solicitudes que nunca llegaron al servidor ni pérdidas de almacenamiento local sin copia.404 no acredita que una operación nunca se haya ejecutado. Después diagnóstico/adopción de orígenes legacy/otros conceptos, contexto deuda/crédito y metas ambiguas. Verificar HEAD/base/PR389/issue407/CI/instrucciones y este cierre antes del siguiente lote. El descendiente documental necesita su CI del SHA exacto, verificable en Git/PR sin autoreferencia circular.
+
+#407 y producción pendientes: custodio independiente real/anclas, backup durable/retención/accesos/claves separados y restauración operativa/RPO-RTO, roles/índices/migración/configuración reales, Safari/dispositivos y auditoría independiente según matriz, compatibilidad/informe final. Sin merge a feature, Render, main/Empresarial/Blushéa, costos/servicios nuevos ni datos reales alterados. Tarea activa, sin prometer ejecución ininterrumpida o garantías absolutas.

@@ -6,8 +6,8 @@ test("Guardado manual V81 impide doble envío simultáneo y conserva id al falla
  assert.ok(a>=0&&b>a);
  const fn=src.slice(a,b);
  assert.match(fn,/if\(boton\.disabled\)return;boton\.disabled=true/);
- assert.match(fn,/finally\{boton\.disabled=false\}/);
- assert.match(fn,/manualExternalId=await resolverIntentoManual\(datosMovimiento\)/);
+ assert.match(fn,/finally\{if\(vigente\(\)\)boton\.disabled=false\}/);
+ assert.match(fn,/const idIntento=await resolverIntentoManual\(datosMovimiento\)/);
  assert.ok(fn.indexOf('limpiarIntentoManual();')>fn.indexOf('await api("/transacciones"'));
  assert.ok(fn.indexOf('limpiarIntentoManual();')<fn.indexOf('await load()'));
 });

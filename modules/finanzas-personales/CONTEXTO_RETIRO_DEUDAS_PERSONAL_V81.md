@@ -1,0 +1,40 @@
+# Contexto de retiro y restauración lógica de deudas — r134
+
+26/11/2026 Colombia. HEAD real inicialde0f14cbec4ef07ca72a95998997f9cd093e78ee/árbol20580b51f61803d7aa6b7867a941cb251ea0e578. Base feature/finanzas-personales652126a03f19fbec3c529cad1e84bff11cd3699e intacta. PR389 abierto/no integrado, integration/fp-hormiga-clasificacion-credito-v81. #407 es issue abierto: cuerpo/cuatro comentarios revisados sin evidencia independiente nueva. CI inicial Gate45880221284/Seguridad45880221256/V8145880221253 success. Instrucciones/continuidad/matriz/informe r133 revisados; sin AGENTS.md adicional en checkout. Fechas de ingreso/compra estricta ya completadas, no repetir.
+
+## Un bloque funcional y aceptación
+
+Retiro/restauración lógica de préstamos personales POR_PAGAR conservan una observación HTTP propia por acto, dominio FP_RETIRO_DEUDA_CTX_MIN_V1. La captura sale del servidor y dueño JWT, fuera del cuerpo. La solicitud exacta admite confirmacion/solicitudId y solo en restauración retiroHash; campos extras/contexto forjado se rechazan400 antes de abrir MongoDB. Mantiene identificadores estables, confirmación explícita y referencia del retiro. No toca créditos anteriores legacy, que tienen servicio separado.
+
+Campo auditoriaContexto opcional, inmutable, select:false y omitido por toJSON/toObject; compromiso SHA256 incluido en hash encadenado. Ausencia conserva bytes/hashes históricos. No hay HMAC de autenticación del evento nuevo: la cadena continúa usando SHA256, sin presentarla como firma digital ni custodia independiente. El token de peer sí usa HMAC del dominio/dueño/día. No hay migración/backfill/colecciones/índices nuevos, ni claves en código ni reescritura de eventos antiguos.
+
+Captura diferida después de validar deuda, cadena, solicitud/replay, capacidad y ausencia de movimientos vinculados, antes del primer INSERT. Configuración/contexto/dueño/dominio incorrectos fallan sin escritores; resolver conserva una observación entre retries de transacción. Replay verifica la cadena y sale sin captura/clave contextual actual/escrituras. Llamadas internas sin callback conservan ausencia de contexto anterior. Conflicto único de concurrencia se traduce409 para reintento conservando solicitud; no se acepta500 como resultado normal de una carrera.
+
+Evento, proyección de estado/calendario/cursor y outbox permanecen atómicos. RETIRO no significa pagada: saldo/capital/calendario original se conservan en snapshots; restaura la misma deuda/referencia, sin copiar saldo sobre movimientos posteriores. Se mantienen rechazos por pagos incluso anulados, retiro histórico sin evidencia o fuente cambiada. No se crean pagos ni caja. Respuesta existente {id,hash,duplicado,vigente} intacta; el hash referencia contexto sin exponerlo.
+
+GET /prestamos/:id/retiros es lectura propia JWT, sin filtros, private/no-store, instantánea acotada a1000 eventos/maxTimeMS5000 por consulta. Selecciona campo privado para verificar toda la cadena/cursor y devuelve contexto público minimizado/compromiso. No requiere clave contextual actual ni modifica fuentes. Omitir/alterar contexto nuevo invalida lectura/replay, sin reparación automática. No certifica estado vigente, completitud histórica anterior a la evidencia ni autorización de gasto. Fotos del propietario incluyen información financiera propia; no exponen tokens/claveId/IP/UA crudos.
+
+## Validación previa a publicación
+
+Seis pruebas nuevas y regresiones14/14: hash legado por vector independiente, retiro/restauración con contexto y compromiso, DTO rechazado como original, omisión/adulteración/dueño/dominio/fecha, campo privado/solicitud estricta, captura preINSERT/retry único, callback ausente/interno/incorrecto y replay sin captura, historial HTTP dueño/filtros/caché/error seguro. Módulo1088 casos/1079aprobados/9omisiones locales por integración no configurada;ci:personal353/349aprobados/4omisiones locales por Mongo no configurado;0fallos/cancelaciones. Sintaxis/diff correctos.
+
+Mongo autorizado añade HTTP real RETIRO/RESTAURACION de ACTIVO/VENCIDO, historia mixta con dos eventos internos legados BSON intactos, falta de clave503 antes de escribir, dueño ajeno404/cuerpo forjado400, rollback tras outbox, carrera con un evento, replay/historial sin clave, hash público verificable/privacidad, caja/pagos intactos, misma deuda/saldo1000 y omisión administrativa sintética detectada en restauración del caso VENCIDO. No atribuir el ataque de omisión a cada escenario por separado.
+
+Chromium añade un caso de interfaz/handler real: login390px, retiro DELETE con respuesta perdida, cuerpo y clave originales repetidos sin clave contextual actual, GET historial minimizado/aislamiento, restauración nueva503 sin clave y posterior restauración de misma deuda/saldo, fuentes/caja intactas. No sube timeout ni cuotas. CI propia pendiente: resultados del padre no acreditan este lote.
+
+## Límites y checkpoint
+
+El peer socket observado no verifica cliente detrás de proxy; dispositivo declarado siempre sin verificar. Cadena SHA256 detecta discrepancias respecto al cursor, no evita reescritura coherente por administrador; exige anclas/custodia independiente real. No es auditoría independiente ni certificación bancaria. Nueva ruta de historial es API privada, sin nuevo componente visual de historial. La interfaz existente mantiene reintento en memoria; este lote no acredita persistencia de la solicitud de retiro tras cerrar el navegador.
+
+#407 sigue bloqueando producción: custodio/anclas independientes reales; respaldo independiente durable/retención/accesos y claves separadas, restauración aislada/RPO-RTO operativo; roles/índices/migración/configuración reales; dispositivos/Safari/carga, auditoría independiente y compatibilidad/informe final. Ensayo sintético no sustituye evidencia productiva. Base/main/Empresarial/Blushéa intactos, cero merge/Render/datos reales/costos.
+
+Publicar con expected_sha/force:false tras comprobar HEAD; si cambia, reevaluar sin sobrescribir. Verificar CI del SHA propio y documentar evidencia. Siguiente revisar recuperación durable de solicitudes de retiro/restauración de deudas en navegador (cierre de sesión/recarga/respuesta perdida), incluyendo contratos de recibo y compatibilidad; no presentar la memoria actual como persistencia durable. Créditos legacy/contexto permanecen revisión posterior independiente. Tarea activa.
+
+
+## Verificación propia del código y cierre recuperable
+
+Códigoc93d4abbacef892468bd6a9fb0f6251af680db2c/árbol9236bcc3471d6d27e62f4a75b1718e0772a1e26b. Gate45886638749/Seguridad45886638727/PrecisiónIntegridad45886638717 success,13jobs completados/success. Job autenticado140138860405: Mongo108/108 y Chromium/backend33/33,cero fallos/omisiones/cancelaciones. Marcadores FP_CONTEXTO_RETIRO_DEUDA_MONGO presentes ACTIVO/VENCIDO; prueba de omisión administrativa solo en VENCIDO, declarada false/true respectivamente. FP_CONTEXTO_RETIRO_DEUDA_BROWSER verifica login390/handler real,DELETE perdido/reintento exacto sin clave contextual actual,historial privado minimizado y restauración misma deuda/saldo1000,sin pagos/caja. Fuente de prueba sin movimientos vinculados; regresiones mantienen rechazo de deudas con pagos incluso anulados.
+
+Copia/restauración aislada sintética:45colecciones/8200documentos/8392402bytes,captura336ms/restauración1151ms/edad1474ms,custodiaIndependiente=false,rpoProduccion=false. No acredita respaldo durable/retención/acceso/custodia independientes ni RPO/RTO operativos de producción. No certifica semánticamente fixtures deliberadamente corruptos por preservar BSON.
+
+Un bloque funcional completo publicado en GitHub. Cierre documental descendiente requiere su propia CI; SHA se obtiene por git/PR sin autorreferencia circular. Base652126a intacta; #407 sigue abierto, cero merge/Render/datos reales/costos. Próximo bloque: solicitudes de retiro/restauración durables en navegador, recuperación tras recarga/cierre y recibos vinculantes, conservando compatibilidad; contexto de créditos legacy queda separado y pendiente. Reabrir instrucciones/HEAD/CI/#407/continuidad/matriz/informe antes de editar, no repetir retiros contextuales ya cubiertos. Tarea activa.

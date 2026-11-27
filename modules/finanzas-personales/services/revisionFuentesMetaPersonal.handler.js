@@ -1,0 +1,3 @@
+"use strict";
+function crear({servicio=require("./revisionFuentesMetaPersonal.service")}={}){return async(req,res)=>{res.set("Cache-Control","private, no-store");try{if(!req.personalAuth?.userId)return res.status(401).json({ok:false,error:"Sesión personal requerida"});const q=req.query||{},p=q.pagina??"1";if(Object.keys(q).some(k=>k!=="pagina")||typeof p!=="string"||!/^([1-9]|1\d|2[0-5])$/.test(p))return res.status(400).json({ok:false,error:"Consulta no admitida"});return res.json({ok:true,...await servicio.consultar(req.personalAuth.userId,+p)});}catch(e){return res.status(e.statusCode||503).json({ok:false,error:e.statusCode?e.message:"No se pudo revisar las fuentes; originales conservados"});}};}
+module.exports={crear};

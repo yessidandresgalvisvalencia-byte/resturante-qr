@@ -1,0 +1,43 @@
+"use strict";
+const {consultarPeriodo}=require("./consultaCompensadaPersonal.service");
+const {originalDesdeFuente}=require("./eventoCompensatorioPersonal.service");
+const CAMPOS=["_id","tipo","montoMinor","concepto","categoria","contraparte","fecha","estado","prestamoId"];
+function recuperacion(t){
+ const simple=t.estado==="ANULADA"&&["INGRESO","GASTO"].includes(t.tipo)&&t.moneda==="COP"&&
+  t.impactoCaja===true&&t.cuentaId&&!t.prestamoId&&!t.recurrente&&(!t.recurrenteOrigenId||t.tipo==="GASTO")&&t.medioPago!=="CREDITO"&&
+  /^[a-f0-9]{64}$/.test(t.compensacionHash||"");
+ const m=/^Compromiso ([a-f0-9]{24}) cuota ([1-9][0-9]{0,2})$/.exec(t.descripcion||"");
+ const cuota=t.estado==="ANULADA"&&t.tipo==="PAGO_DEUDA"&&t.moneda==="COP"&&m&&Number(m[2])<=360&&
+  !t.prestamoId&&!t.recurrente&&!t.recurrenteOrigenId&&t.medioPago!=="CREDITO"&&
+  (t.montoPagadoRealMinor==null||t.montoPagadoRealMinor===t.montoMinor)&&
+  (t.impactoCaja===true&&t.cuentaId||t.impactoCaja===false&&!t.cuentaId)&&/^[a-f0-9]{64}$/.test(t.compensacionHash||"");
+ let prestamo=false;
+ if(t.estado==="ANULADA"&&t.tipo==="PAGO_DEUDA"&&t.moneda==="COP"&&t.prestamoId&&
+  !t.recurrente&&!t.recurrenteOrigenId&&t.medioPago!=="CREDITO"&&
+  (t.impactoCaja===true&&t.cuentaId||t.impactoCaja===false&&!t.cuentaId)&&/^[a-f0-9]{64}$/.test(t.compensacionHash||"")){
+  try{prestamo=Boolean(originalDesdeFuente(t).prestamoId);}catch{}
+ }
+ return simple||cuota||prestamo?{recuperacion:{disponible:true,anulacionHash:t.compensacionHash}}:{};
+}
+function filtrar(rows,f){
+ const texto=String(f.q||"").toLowerCase();
+ const tipos=new Set(["INGRESO","GASTO","COBRO_PRESTAMO"]);
+ return rows.filter(t=>
+  (f.estado==="ANULADA"?t.estado==="ANULADA":t.estado!=="ANULADA")&&
+  (!tipos.has(f.tipo)||t.tipo===f.tipo)&&
+  (f.monto===undefined||t.montoMinor===f.monto)&&
+  (!texto||[t.concepto,t.categoria,t.contraparte,t.descripcion].some(s=>String(s||"").toLowerCase().includes(texto))))
+  .sort((a,b)=>+new Date(b.fecha)-+new Date(a.fecha)||String(b._id).localeCompare(String(a._id)))
+  .slice((f.pagina-1)*20,(f.pagina-1)*20+21)
+  .map(t=>({...Object.fromEntries(CAMPOS.filter(k=>Object.hasOwn(t,k)).map(k=>[k,t[k]])),...recuperacion(t)}));
+}
+async function buscar(usuarioId,f){
+ if(!Number.isSafeInteger(f.pagina)||f.pagina<1||f.pagina>1000)throw new TypeError("Página inválida");
+ const fin=f.hasta?new Date(f.hasta):new Date("9999-12-31T23:59:59.998Z");
+ if(f.hasta)fin.setUTCHours(23,59,59,999);
+ const rows=await consultarPeriodo({usuarioId,
+  desde:f.desde?new Date(f.desde).toISOString():"0001-01-01T00:00:00.000Z",
+  hasta:new Date(+fin+1).toISOString(),incluirAnuladas:true});
+ return filtrar(rows,f);
+}
+module.exports={buscar,filtrar};

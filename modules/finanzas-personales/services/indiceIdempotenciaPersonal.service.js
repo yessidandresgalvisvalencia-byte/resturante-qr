@@ -1,14 +1,9 @@
 "use strict";
+const {indiceExacto}=require("../security/auditoriaIndicesMongoV81.service");
 // Fail-closed: sin índice único real, dos solicitudes concurrentes con
 // el mismo externalId podrían crear movimientos duplicados.
 function indiceIdempotenciaValido(indices){
- return Array.isArray(indices)&&indices.some(indice=>{
-  const claves=indice?.key;
-  const filtro=indice?.partialFilterExpression;
-  return indice.unique===true&&claves?.usuarioId===1&&claves?.externalIdHash===1&&
-   Object.keys(claves).length===2&&
-   filtro?.externalIdHash?.$type==="string";
- });
+ return indiceExacto(indices,["usuarioId","externalIdHash"],{parcial:true});
 }
 async function exigirIndiceIdempotencia(Transaccion){
  let indices;

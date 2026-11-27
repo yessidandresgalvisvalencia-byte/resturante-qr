@@ -6,7 +6,7 @@ test("Una nueva sesión puede actualizar el panel sin esperar carga de usuario a
  const b=src.indexOf("}window.deshacerUltimaCuota",a);
  assert.ok(a>=0&&b>a);
  const load=src.slice(a,b);
- assert.match(load,/if\(cargaPanelEnCurso&&tokenCargaPanel===token\)return cargaPanelEnCurso/);
+ assert.match(load,/if\(cargaPanelEnCurso&&tokenCargaPanel===token&&revisionCargaPanel===revisionInicial\)return cargaPanelEnCurso/);
  assert.match(load,/tokenCargaPanel=tokenAlInicio/);
  assert.match(load,/if\(cargaPanelEnCurso===ejecucion\)\{cargaPanelEnCurso=null;tokenCargaPanel=null/);
  assert.match(load,/if\(token!==tokenAlInicio\|\|!tokenAlInicio/);
