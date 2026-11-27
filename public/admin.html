@@ -8,73 +8,46 @@
 <title>Administrador GRUK</title>
 
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/gruk-design.css">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 </head>
 
-<body>
+<body class="gruk-workspace">
 
 <img id="logoRestaurante" width="180">
 
-<button class="btnMenuGRUK" onclick="toggleMenuGRUK()">☰</button>
+<button class="btnMenuGRUK" aria-label="Alternar navegación" onclick="toggleMenuGRUK()"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
 
 <aside id="menuAdminGRUK" class="menuAdminGRUK">
 
 <h2>GRUK</h2>
 
-<button onclick="cargarModuloGRUK('centro-control')">
-🏠 Centro de Control
-</button>
+<button onclick="cargarModuloGRUK('centro-control')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v11h14V10"/></svg><span>Centro de Control</span></button>
 
-<button onclick="cargarModuloGRUK('auditoria')">
-🧾 Auditoría
-</button>
+<button onclick="cargarModuloGRUK('auditoria')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Auditoría</span></button>
 
-<button onclick="cargarModuloGRUK('junta-directiva')">
-🏛 Junta Directiva
-</button>
+<button onclick="cargarModuloGRUK('junta-directiva')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6M5 10v9M12 10v9M19 10v9M3 21h18"/></svg><span>Junta Directiva</span></button>
 
-<button onclick="cargarModuloGRUK('memoria')">
-🧠 Memoria 7 días
-</button>
+<button onclick="cargarModuloGRUK('memoria')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9M12 7v5l4 2"/></svg><span>Memoria 7 días</span></button>
 
-<button onclick="cargarModuloGRUK('restaurante')">
-🍽 Restaurante
-</button>
+<button onclick="cargarModuloGRUK('restaurante')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v8h5V3M6 11v10M18 3v18M18 3c-5 3-5 9 0 9"/></svg><span>Restaurante</span></button>
 
-<button onclick="window.location.href='/laboral.html?restaurantId=' + getRestaurantId()">
-👥 Laboral
-</button>
+<button onclick="window.location.href='/laboral.html?restaurantId=' + getRestaurantId()"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21v-3a6 6 0 0 1 12 0v3M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5"/></svg><span>Laboral</span></button>
 
-<button onclick="cargarModuloGRUK('finanzas')">
-💰 Finanzas
-</button>
+<button onclick="cargarModuloGRUK('finanzas')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3zM12 9v6M9 12h6"/></svg><span>Finanzas</span></button>
 
-<button onclick="window.location.href='/offline-status.html'">📡 Pedidos sin conexión</button>
-<button onclick="window.location.href='/offline-conflicts.html'">⚠️ Incidencias offline</button>
-<button onclick="cargarModuloGRUK('inventario')">
-📦 Inventario
-</button>
-<button onclick="cargarModuloGRUK('recetas')">
-📖 Recetas
-</button>
-<button onclick="cargarModuloGRUK('costos')">
-💸 Costos
-</button>
-<button onclick="cargarModuloGRUK('deudas')">
-  💳 Deudas
-</button>
-<button onclick="cargarModuloGRUK('mensajes')">
-💬 Mensajes
-</button>
-<button onclick="cargarModuloGRUK('reportes')">
-📊 Reportes
-</button>
+<button onclick="window.location.href='/offline-status.html'"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v11h14V10"/></svg><span>Pedidos sin conexión</span></button>
+<button onclick="window.location.href='/offline-conflicts.html'"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Incidencias offline</span></button>
+<button onclick="cargarModuloGRUK('inventario')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6M5 10v9M12 10v9M19 10v9M3 21h18"/></svg><span>Inventario</span></button>
+<button onclick="cargarModuloGRUK('recetas')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9M12 7v5l4 2"/></svg><span>Recetas</span></button>
+<button onclick="cargarModuloGRUK('costos')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v8h5V3M6 11v10M18 3v18M18 3c-5 3-5 9 0 9"/></svg><span>Costos</span></button>
+<button onclick="cargarModuloGRUK('deudas')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21v-3a6 6 0 0 1 12 0v3M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5"/></svg><span>Deudas</span></button>
+<button onclick="cargarModuloGRUK('mensajes')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3zM12 9v6M9 12h6"/></svg><span>Mensajes</span></button>
+<button onclick="cargarModuloGRUK('reportes')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v11h14V10"/></svg><span>Reportes</span></button>
 
-<button onclick="cargarModuloGRUK('configuracion')">
-⚙ Configuración
-</button>
+<button onclick="cargarModuloGRUK('configuracion')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Configuración</span></button>
 
 </aside>
 

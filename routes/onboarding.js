@@ -45,7 +45,11 @@ router.get("/me",authMiddleware,async(req,res)=>{
  const identity=await Usuario.findOne({_id:req.auth.usuarioId,empresaId:req.auth.empresaId,estado:"activo"})
   .select("_id empresaId sedeId nombre usuario rol").lean();
  if(!identity||String(identity.sedeId)!==req.auth.sedeId)return res.status(403).json({ok:false,error:"Acceso no autorizado"});
+ const empresa=await Empresa.findById(identity.empresaId).select("nombre tipoNegocio estado modulos").lean();
+ if(!empresa||empresa.estado!=="activa")return res.status(403).json({ok:false,error:"Empresa no disponible"});
+ const tipoNegocio=["restaurante","retail","servicios","otro"].includes(empresa.tipoNegocio)?empresa.tipoNegocio:null;
  return res.json({ok:true,usuario:identity.usuario,nombre:identity.nombre,rol:req.auth.rol,
-  empresaId:req.auth.empresaId,sedeId:req.auth.sedeId,gratis:accesoEmpresarialGratis()});
+  empresaId:req.auth.empresaId,sedeId:req.auth.sedeId,gratis:accesoEmpresarialGratis(),
+  empresaNombre:empresa.nombre,tipoNegocio,modulos:{restaurante:tipoNegocio==="restaurante"&&empresa.modulos?.restaurante===true,inventario:empresa.modulos?.inventario===true,finanzas:empresa.modulos?.finanzas===true,inteligencia:empresa.modulos?.inteligencia===true}});
 });
 module.exports=router;
