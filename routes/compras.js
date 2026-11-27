@@ -770,27 +770,21 @@ router.put(
       filtroCompra.sedeId = await resolverSedeAutorizada({auth:req.auth});
     }
 
-    const compra = await Compra.findOneAndUpdate(
-      filtroCompra,
-      {
-        estado: "anulada"
-      },
-      {
-        new: true,
-        runValidators: true
-      }
-    );
-
+    // Cancellation affects stock, supplier obligations and financial projections.
+    // Until a reconciled reversal is implemented, do not mark a live purchase
+    // as cancelled. A status-only update would hide the purchase without undoing
+    // its economic effects. Keep historical records and return a stable conflict.
+    const compra = await Compra.findOne(filtroCompra);
     if (!compra) {
-      return res.status(404).json({
-        ok: false,
-        error: "Compra no encontrada"
-      });
+      return res.status(404).json({ok:false,error:"Compra no encontrada"});
     }
-
-    res.json({
-      ok: true,
-      compra
+    if (compra.estado === "anulada") {
+      return res.status(200).json({ok:true,compra,yaAnulada:true});
+    }
+    return res.status(409).json({
+      ok:false,
+      codigo:"GRUK_COMPRA_REVERSO_REQUERIDO",
+      error:"La anulación requiere una reversión conciliada de inventario y obligaciones. La compra permanece registrada."
     });
 
   } catch (error) {
