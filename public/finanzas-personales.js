@@ -44,7 +44,7 @@ const persist=()=>document.getElementById("keepSession")?.checked===true;functio
   }
   comprobarSesion();const h={"Content-Type":"application/json",...(o.headers||{})};if(tokenSolicitud)h.Authorization="Bearer "+tokenSolicitud;
   for(let intento=0;;intento++){
-   comprobarSesion();operacion?.verificarAntesDeEnviar?.();let r;try{enviada=true;r=await fetch("/api"+path,{...o,headers:h,cache:"no-store",signal:controller.signal});}catch(err){comprobarSesion();if(!soloLectura||intento>=2||!(err instanceof TypeError))throw err;await new Promise(resolve=>setTimeout(resolve,[500,1200][intento]));continue;}
+   comprobarSesion();let r;operacion?.verificarAntesDeEnviar?.();try{enviada=true;r=await fetch("/api"+path,{...o,headers:h,cache:"no-store",signal:controller.signal});}catch(err){comprobarSesion();if(!soloLectura||intento>=2||!(err instanceof TypeError))throw err;await new Promise(resolve=>setTimeout(resolve,[500,1200][intento]));continue;}
    comprobarSesion();if(soloLectura&&intento<2&&[502,503,504].includes(r.status)){await new Promise(resolve=>setTimeout(resolve,[500,1200][intento]));continue;}
    const ct=r.headers.get("content-type")||"",j=ct.includes("application/json")?await r.json():null;comprobarSesion();
    if(!j)throw Error("Respuesta inválida del servidor; no se confirmó la operación");
