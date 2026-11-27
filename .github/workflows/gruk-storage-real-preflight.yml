@@ -5,13 +5,31 @@ permissions:
   contents: read
 jobs:
   preflight:
-    if: ${{ github.ref == 'refs/heads/main' && vars.GRUK_STORAGE_PREFLIGHT_ALLOWED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     concurrency:
       group: gruk-storage-real-preflight
       cancel-in-progress: false
     steps:
+      - name: Verify explicit authorization and branch
+        env:
+          PREFLIGHT_ALLOWED: ${{ vars.GRUK_STORAGE_PREFLIGHT_ALLOWED }}
+          PREFLIGHT_REF: ${{ github.ref }}
+        shell: bash
+        run: |
+          if [[ "$PREFLIGHT_REF" != "refs/heads/main" ]]; then
+            echo "::error::GRUK_PREFLIGHT_WRONG_BRANCH"
+            exit 1
+          fi
+          if [[ -z "$PREFLIGHT_ALLOWED" ]]; then
+            echo "::error::GRUK_PREFLIGHT_VARIABLE_MISSING"
+            exit 1
+          fi
+          if [[ "$PREFLIGHT_ALLOWED" != "true" ]]; then
+            echo "::error::GRUK_PREFLIGHT_NOT_AUTHORIZED"
+            exit 1
+          fi
+          echo "GRUK_PREFLIGHT_AUTHORIZATION_VERIFIED"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
