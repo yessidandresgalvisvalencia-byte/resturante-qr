@@ -46,3 +46,9 @@ jobs:
             echo 'Real MongoDB index test must never skip or fail'
             exit 1
           fi
+
+      - name: Verify catalog HTTP isolation against disposable MongoDB
+        env:
+          GRUK_CATALOG_MONGO_DRILL: '1'
+          NODE_ENV: test
+        run: node --test test/gruk/p0-04-catalog-http-scope.test.js
