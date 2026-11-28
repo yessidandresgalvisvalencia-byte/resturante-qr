@@ -143,6 +143,7 @@ function cargarScriptModuloGRUK(nombreModulo) {
   });
 }
 async function cargarModuloGRUK(nombreModulo) {
+  if (contextoEmpresaGRUK && !contextoEmpresaGRUK.restaurantId && ["restaurante", "recetas"].includes(nombreModulo)) return;
   const contenedor = document.getElementById("contenidoPrincipalGRUK");
 
   if (!contenedor) {
@@ -163,6 +164,7 @@ async function cargarModuloGRUK(nombreModulo) {
     cargarCSSModuloGRUK(nombreModulo);
 
     const res = await grukFetch(`/modulos/${nombreModulo}.html`);
+    if (!res.ok) throw new Error("Módulo no disponible: " + res.status);
     const html = await res.text();
     
 
@@ -296,6 +298,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       contextoEmpresaGRUK = await cargarContextoEmpresaGRUK();
       if (restaurantIdUrl && restaurantIdUrl !== contextoEmpresaGRUK.restaurantId) throw new Error("Sede no autorizada");
       document.getElementById("gruk-tenant").textContent = contextoEmpresaGRUK.empresaNombre;
+      if (!contextoEmpresaGRUK.restaurantId) {
+        for (const button of document.querySelectorAll("#menuAdminGRUK button")) {
+          const action = button.getAttribute("onclick") || "";
+          if (/cargarModuloGRUK\('(restaurante|recetas)'\)|offline-status\.html|offline-conflicts\.html/.test(action)) {
+            button.hidden = true;
+            button.style.display = "none";
+          }
+        }
+      }
     } catch (error) {
       window.location.replace("/login-empresa.html");
       return;
