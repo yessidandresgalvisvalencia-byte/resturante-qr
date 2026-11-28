@@ -33,7 +33,7 @@ document.getElementById("login").addEventListener("submit",async event=>{
   localStorage.removeItem("adminRestaurantId");
   localStorage.removeItem("adminUsuario");
   if(data.restaurantId)localStorage.setItem("adminRestaurantId",data.restaurantId);
-  location.replace("/admin.html");
+  location.replace("/panel-empresa.html");
  }catch(err){msg.textContent=err.message;button.disabled=false;}
 });
 </script></body></html>
