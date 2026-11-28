@@ -89,7 +89,7 @@ async function loadEnterpriseModule(path){
  if(financial){
  const summary=data.resumenExacto;if(!summary)throw Error("Resumen no disponible.");
  for(const [key,label] of [["ingresos","Ingresos registrados"],["gastos","Gastos registrados"],["resultado","Resultado neto"]]){if(typeof summary[key]!=="string")throw Error("Importe no disponible.");metric(label,summary[key]+" COP")}
- status.textContent="Resumen histórico · Ventas pagadas y gastos registrados. Consulta de solo lectura.";
+ status.textContent="Resumen histórico · Ventas pagadas y gastos registrados.";
  }else{
  if(!Array.isArray(data.catalogo))throw Error("Catálogo no disponible.");
  for(const item of data.catalogo){metric(item.nombre,(item.tipo==="servicio"?"Servicio":"Producto")+" · Precio: "+String(item.precioVenta)+" COP")}
@@ -97,6 +97,7 @@ async function loadEnterpriseModule(path){
  }
  target.append(grid);
  if(path==="inventario"||path==="finanzas") addEntryForm(path,target,version);
+ if(path==="finanzas"){const response=await fetch("/api/gastos/empresa/"+id,{headers:{Authorization:"Bearer "+token},cache:"no-store"});if(version!==requestVersion)return;if(!response.ok)throw Error("No se pudo consultar el historial de gastos.");const result=await response.json();if(version!==requestVersion)return;if(!result.ok||!Array.isArray(result.gastos))throw Error("Historial no disponible.");const history=document.createElement("section");history.className="card";const heading=document.createElement("h3");heading.textContent="Historial de gastos";history.append(heading);for(const gasto of result.gastos){const row=document.createElement("p");row.textContent=String(gasto.concepto)+" · "+String(gasto.monto)+" COP · "+String(gasto.estadoPago||"desconocido");history.append(row)}if(!result.gastos.length){const empty=document.createElement("p");empty.textContent="Sin gastos registrados.";history.append(empty)}target.append(history)}
  }catch(error){if(version===requestVersion)status.textContent=error.message||"No se pudo consultar el módulo."}
 }
 
@@ -119,6 +120,7 @@ $("toggle").onclick=()=>{if(wide.matches)document.body.classList.toggle("nav-col
  if(!localStorage.getItem("adminRestaurantId")){location.replace("/login-empresa.html");return}
  for(const src of ["/socket.io/socket.io.js","js/gruk-api.js","finanzas.js","js/costos.js","js/deudas.js","js/mensajes.js?v=4","js/centro-control.js","js/inventario.js","js/configuracion.js","admin.js"])await new Promise((resolve,reject)=>{const el=document.createElement("script");el.src=src;el.onload=resolve;el.onerror=reject;document.body.append(el)});
  const restaurantId=localStorage.getItem("adminRestaurantId");const urlId=new URLSearchParams(location.search).get("restaurantId");if(urlId&&urlId!==restaurantId){location.replace("/login-empresa.html");return}
+ if(document.readyState==="loading")await new Promise(resolve=>document.addEventListener("DOMContentLoaded",resolve,{once:true}));
  await cargarModuloGRUK("centro-control");
 })().catch(()=>{document.getElementById("contenidoPrincipalGRUK").textContent="No se pudo iniciar el administrador. Recarga la página."});
 </script><script>
