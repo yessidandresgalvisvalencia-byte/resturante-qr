@@ -43,6 +43,16 @@ function vibrar() {
 let contextoEmpresaGRUK = null;
 const socket = io();
 
+function getEmpresaIdGRUK() {
+  if (!contextoEmpresaGRUK) throw new Error("Contexto empresarial no validado");
+  return contextoEmpresaGRUK.empresaId;
+}
+
+function getSedeIdGRUK() {
+  if (!contextoEmpresaGRUK) throw new Error("Sede empresarial no validada");
+  return contextoEmpresaGRUK.sedeId;
+}
+
 function getRestaurantId() {
   const restaurantId = contextoEmpresaGRUK ? contextoEmpresaGRUK.restaurantId : localStorage.getItem("adminRestaurantId");
 
@@ -231,7 +241,7 @@ if (nombreModulo === "mensajes" && typeof inicializarMensajesGRUK === "function"
   if (nombreModulo === "finanzas" && typeof calcularFinanzasGRUK === "function") {
     const contenedor = document.getElementById("resultadoFinanzasGRUK");
 
-    if (contenedor && typeof generarBloqueFinancieroGRUK === "function") {
+    if (contenedor && (!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && typeof generarBloqueFinancieroGRUK === "function") {
       const f = await calcularFinanzasGRUK(getRestaurantId());
       contenedor.innerHTML = generarBloqueFinancieroGRUK(f);
     }
@@ -297,7 +307,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       contextoEmpresaGRUK = await cargarContextoEmpresaGRUK();
       if (restaurantIdUrl && restaurantIdUrl !== contextoEmpresaGRUK.restaurantId) throw new Error("Sede no autorizada");
-      document.getElementById("gruk-tenant").textContent = contextoEmpresaGRUK.empresaNombre;
+      const tenant = document.getElementById("gruk-tenant");
+      if (tenant) tenant.textContent = contextoEmpresaGRUK.empresaNombre;
       if (!contextoEmpresaGRUK.restaurantId) {
         for (const button of document.querySelectorAll("#menuAdminGRUK button")) {
           const action = button.getAttribute("onclick") || "";
