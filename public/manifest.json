@@ -1,11 +1,11 @@
 {
-  "name": "GRUK Restaurante",
+  "name": "GRUK Empresarial",
   "short_name": "GRUK",
-  "description": "GRUK restaurante, acceso a operaciones disponibles",
-  "start_url": "/?source=pwa",
+  "description": "Sistema de gestión empresarial multinegocio",
+  "start_url": "/login-empresa.html?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#162332",
+  "background_color": "#050d14",
+  "theme_color": "#050d14",
   "lang": "es-CO"
 }
