@@ -40,10 +40,11 @@ function vibrar() {
   if (navigator.vibrate) navigator.vibrate(100);
 }
 
+let contextoEmpresaGRUK = null;
 const socket = io();
 
 function getRestaurantId() {
-  const restaurantId = localStorage.getItem("adminRestaurantId");
+  const restaurantId = contextoEmpresaGRUK ? contextoEmpresaGRUK.restaurantId : localStorage.getItem("adminRestaurantId");
 
   if (!restaurantId) {
     throw new Error("GRUK: no existe restaurantId para la sesión actual");
@@ -251,31 +252,31 @@ function refrescarModuloActualGRUK() {
 }
 
 socket.on("pedido:nuevo", (pedido) => {
-  if (pedido.restaurantId === getRestaurantId()) {
+  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && pedido.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
 
 socket.on("pedido:actualizado", (pedido) => {
-  if (pedido.restaurantId === getRestaurantId()) {
+  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && pedido.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
 
 socket.on("menu:actualizado", (payload) => {
-  if (payload.restaurantId === getRestaurantId()) {
+  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && payload.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
 
 socket.on("llamado:nuevo", (llamado) => {
-  if (llamado.restaurantId === getRestaurantId()) {
+  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && llamado.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
 
 socket.on("llamado:actualizado", (llamado) => {
-  if (llamado.restaurantId === getRestaurantId()) {
+  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && llamado.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
@@ -290,10 +291,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const grukAuthToken =
     localStorage.getItem("grukAuthToken");
 
+  if (sessionStorage.getItem("grukEnterpriseToken")) {
+    try {
+      contextoEmpresaGRUK = await cargarContextoEmpresaGRUK();
+      if (restaurantIdUrl && restaurantIdUrl !== contextoEmpresaGRUK.restaurantId) throw new Error("Sede no autorizada");
+      document.getElementById("gruk-tenant").textContent = contextoEmpresaGRUK.empresaNombre;
+    } catch (error) {
+      window.location.replace("/login-empresa.html");
+      return;
+    }
+  }
+
   if (
-    !adminRestaurantId ||
+    (!contextoEmpresaGRUK && !adminRestaurantId) ||
     !grukAuthToken ||
-    (restaurantIdUrl && restaurantIdUrl !== adminRestaurantId)
+    (!contextoEmpresaGRUK && restaurantIdUrl && restaurantIdUrl !== adminRestaurantId)
   ) {
     window.location.href = "/login.html";
     return;
