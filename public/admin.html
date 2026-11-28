@@ -50,16 +50,9 @@
 </main>
 
 <script>
-
-const adminRestaurantId = localStorage.getItem("adminRestaurantId");
-const grukAuthToken = localStorage.getItem("grukAuthToken");
-
-if (!adminRestaurantId || !grukAuthToken){
-
-window.location.href="/login.html";
-
+if (!localStorage.getItem("grukAuthToken")) {
+  window.location.replace("/login-empresa.html");
 }
-
 </script>
 
 <script src="/socket.io/socket.io.js"></script>
