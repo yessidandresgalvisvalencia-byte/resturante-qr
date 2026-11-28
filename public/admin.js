@@ -40,21 +40,10 @@ function vibrar() {
   if (navigator.vibrate) navigator.vibrate(100);
 }
 
-let contextoEmpresaGRUK = null;
 const socket = io();
 
-function getEmpresaIdGRUK() {
-  if (!contextoEmpresaGRUK) throw new Error("Contexto empresarial no validado");
-  return contextoEmpresaGRUK.empresaId;
-}
-
-function getSedeIdGRUK() {
-  if (!contextoEmpresaGRUK) throw new Error("Sede empresarial no validada");
-  return contextoEmpresaGRUK.sedeId;
-}
-
 function getRestaurantId() {
-  const restaurantId = contextoEmpresaGRUK ? contextoEmpresaGRUK.restaurantId : localStorage.getItem("adminRestaurantId");
+  const restaurantId = localStorage.getItem("adminRestaurantId");
 
   if (!restaurantId) {
     throw new Error("GRUK: no existe restaurantId para la sesión actual");
@@ -153,7 +142,6 @@ function cargarScriptModuloGRUK(nombreModulo) {
   });
 }
 async function cargarModuloGRUK(nombreModulo) {
-  if (contextoEmpresaGRUK && !contextoEmpresaGRUK.restaurantId && ["restaurante", "recetas"].includes(nombreModulo)) return;
   const contenedor = document.getElementById("contenidoPrincipalGRUK");
 
   if (!contenedor) {
@@ -174,7 +162,6 @@ async function cargarModuloGRUK(nombreModulo) {
     cargarCSSModuloGRUK(nombreModulo);
 
     const res = await grukFetch(`/modulos/${nombreModulo}.html`);
-    if (!res.ok) throw new Error("Módulo no disponible: " + res.status);
     const html = await res.text();
     
 
@@ -241,7 +228,7 @@ if (nombreModulo === "mensajes" && typeof inicializarMensajesGRUK === "function"
   if (nombreModulo === "finanzas" && typeof calcularFinanzasGRUK === "function") {
     const contenedor = document.getElementById("resultadoFinanzasGRUK");
 
-    if (contenedor && (!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && typeof generarBloqueFinancieroGRUK === "function") {
+    if (contenedor && typeof generarBloqueFinancieroGRUK === "function") {
       const f = await calcularFinanzasGRUK(getRestaurantId());
       contenedor.innerHTML = generarBloqueFinancieroGRUK(f);
     }
@@ -264,31 +251,31 @@ function refrescarModuloActualGRUK() {
 }
 
 socket.on("pedido:nuevo", (pedido) => {
-  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && pedido.restaurantId === getRestaurantId()) {
+  if (pedido.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
 
 socket.on("pedido:actualizado", (pedido) => {
-  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && pedido.restaurantId === getRestaurantId()) {
+  if (pedido.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
 
 socket.on("menu:actualizado", (payload) => {
-  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && payload.restaurantId === getRestaurantId()) {
+  if (payload.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
 
 socket.on("llamado:nuevo", (llamado) => {
-  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && llamado.restaurantId === getRestaurantId()) {
+  if (llamado.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
 
 socket.on("llamado:actualizado", (llamado) => {
-  if ((!contextoEmpresaGRUK || contextoEmpresaGRUK.restaurantId) && llamado.restaurantId === getRestaurantId()) {
+  if (llamado.restaurantId === getRestaurantId()) {
     refrescarModuloActualGRUK();
   }
 });
@@ -303,31 +290,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const grukAuthToken =
     localStorage.getItem("grukAuthToken");
 
-  if (sessionStorage.getItem("grukEnterpriseToken")) {
-    try {
-      contextoEmpresaGRUK = await cargarContextoEmpresaGRUK();
-      if (restaurantIdUrl && restaurantIdUrl !== contextoEmpresaGRUK.restaurantId) throw new Error("Sede no autorizada");
-      const tenant = document.getElementById("gruk-tenant");
-      if (tenant) tenant.textContent = contextoEmpresaGRUK.empresaNombre;
-      if (!contextoEmpresaGRUK.restaurantId) {
-        for (const button of document.querySelectorAll("#menuAdminGRUK button")) {
-          const action = button.getAttribute("onclick") || "";
-          if (/cargarModuloGRUK\('(restaurante|recetas)'\)|offline-status\.html|offline-conflicts\.html/.test(action)) {
-            button.hidden = true;
-            button.style.display = "none";
-          }
-        }
-      }
-    } catch (error) {
-      window.location.replace("/login-empresa.html");
-      return;
-    }
-  }
-
   if (
-    (!contextoEmpresaGRUK && !adminRestaurantId) ||
+    !adminRestaurantId ||
     !grukAuthToken ||
-    (!contextoEmpresaGRUK && restaurantIdUrl && restaurantIdUrl !== adminRestaurantId)
+    (restaurantIdUrl && restaurantIdUrl !== adminRestaurantId)
   ) {
     window.location.href = "/login.html";
     return;
