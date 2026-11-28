@@ -7,6 +7,7 @@ const express=require("express");
 const bcrypt=require("bcrypt");
 const Usuario=require("../../models/usuario");
 const Empresa=require("../../models/Empresa");
+const Sede=require("../../models/sede");
 const onboarding=require("../../routes/onboarding");
 const {accesoEmpresarialGratis,suspenderCobroSuscripcion}=require("../../core/comercial/grukFreeAccess.service");
 const {validarVersionSesion}=require("../../core/auth/sessionVersion.service");
@@ -53,7 +54,7 @@ test("free registration flow never collects card data and disables legacy paymen
 });
 
 test("enterprise owner: bcrypt login, tenant-scoped JWT, /me and invalid password",async()=>{
- const backup=oldEnv(),originals={findOne:Usuario.findOne,findById:Usuario.findById,companyFind:Empresa.findById};
+ const backup=oldEnv(),originals={findOne:Usuario.findOne,findById:Usuario.findById,companyFind:Empresa.findById,siteFind:Sede.findOne};
  process.env.GRUK_ENTERPRISE_FREE_ACCESS="true";
  process.env.JWT_SECRET="GRUK_FREE_LOGIN_TEST_SECRET_ONLY_SUPPLIED_LOCALLY";
  const enterprise="222222222222222222222222",site="333333333333333333333333",subject="111111111111111111111111";
@@ -66,6 +67,8 @@ test("enterprise owner: bcrypt login, tenant-scoped JWT, /me and invalid passwor
  });
  Usuario.findById=()=>({select:()=>({lean:async()=>({tokenVersion:0})})});
  Empresa.findById=()=>({select:()=>({lean:async()=>({_id:enterprise,estado:"activa"})})});
+ let siteAuthorized=true;
+ Sede.findOne=query=>({select:()=>({lean:async()=>siteAuthorized&&String(query._id)===site&&String(query.empresaId)===enterprise?{_id:site,restauranteId:null}:null})});
  const app=express();app.use(express.json());app.use("/api/onboarding",onboarding);
  const server=await new Promise(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s))});
  const base="http://127.0.0.1:"+server.address().port;
@@ -90,6 +93,11 @@ test("enterprise owner: bcrypt login, tenant-scoped JWT, /me and invalid passwor
   assert.equal(profile.empresaId,enterprise);
   assert.equal(profile.sedeId,site);
   assert.equal(profile.usuario,"dueño-prueba");
+  assert.equal(profile.restaurantId,null);
+  siteAuthorized=false;
+  const denied=await fetch(base+"/api/onboarding/me",{headers:{Authorization:"Bearer "+result.token}});
+  assert.equal(denied.status,403);
+  siteAuthorized=true;
   assert.equal(await validarVersionSesion({identityType:"USUARIO",sub:subject,tokenVersion:1}),false);
   assert.equal(await validarVersionSesion({identityType:"USUARIO",sub:subject,tokenVersion:0}),true);
   const checkout=await fetch(base+"/api/onboarding/empresa/emp_test/preparar-pago",{method:"POST"});
@@ -97,7 +105,7 @@ test("enterprise owner: bcrypt login, tenant-scoped JWT, /me and invalid passwor
   assert.equal((await checkout.json()).code,"GRUK_EMPRESARIAL_GRATIS");
  }finally{
   await new Promise(resolve=>server.close(resolve));
-  Usuario.findOne=originals.findOne;Usuario.findById=originals.findById;Empresa.findById=originals.companyFind;
+  Usuario.findOne=originals.findOne;Usuario.findById=originals.findById;Empresa.findById=originals.companyFind;Sede.findOne=originals.siteFind;
   restore(backup);
  }
 });
