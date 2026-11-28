@@ -12,7 +12,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-</head>
+<style>.workspace-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.workspace-top button{min-height:44px;background:#172635;color:#e7eef5;border:1px solid #42576a;border-radius:8px;padding:10px 16px;cursor:pointer}.workspace-list small{display:block;color:var(--g-muted);margin-top:5px}.workspace-list a span:last-child{color:var(--g-accent)}@media(min-width:1025px){.gruk-workspace.nav-collapsed .menuAdminGRUK{transform:translateX(-100%)}.gruk-workspace.nav-collapsed .adminContenidoGRUK{margin-left:0;padding-top:80px}}.enterprise-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0}.enterprise-metrics .card{padding:16px;min-width:0}.enterprise-metrics h3{font-size:14px}.enterprise-metrics p{font-size:20px;overflow-wrap:anywhere}#nav a{display:flex;align-items:center;gap:10px}#nav svg{width:19px;height:19px;flex:none}.enterprise-module{margin-top:18px}.enterprise-metrics .card{background:linear-gradient(145deg,#142938,#0c1823);border:1px solid #345365}.enterprise-metrics p{font-size:clamp(20px,2.5vw,30px);font-weight:700}#workspace-title{font-size:clamp(24px,3vw,36px);margin:18px 0 6px}#network{color:#65d9b2}#module-back{margin-top:16px}</style></head>
 
 <body class="gruk-workspace">
 
@@ -45,38 +45,84 @@
 
 <main class="adminContenidoGRUK">
 
-<header class="gruk-topbar"><strong class="gruk-tenant" id="gruk-tenant">Espacio empresarial</strong><span id="gruk-network" role="status"></span><span class="gruk-user" id="gruk-user"></span><button id="gruk-logout">Cerrar sesión</button></header><div id="contenidoPrincipalGRUK"></div><footer class="gruk-system-strip"><span>Estado de red: <strong id="gruk-footer-network"></strong></span><a href="/offline-status.html">Consultar sincronización</a><span>GRUK V3000</span></footer>
+<header class="gruk-topbar"><strong class="gruk-tenant" id="gruk-tenant">Espacio empresarial</strong><span id="gruk-network" role="status"></span><span class="gruk-user" id="gruk-user"></span><button id="gruk-logout">Cerrar sesión</button></header><div id="contenidoPrincipalGRUK"></div><section id="menu" hidden><p id="gratis" class="workspace-kicker" hidden>Acceso gratis por ahora · Sin cobro de suscripción</p><h2 id="workspace-title">Centro de Control GRUK</h2><p class="workspace-muted" id="sector"></p><div class="workspace-list" id="modulos"></div><p class="workspace-muted" id="aviso"></p><section id="module-detail" class="enterprise-module" hidden aria-live="polite"><h2 id="module-title"></h2><p id="module-message" role="status"></p><div id="module-data"></div><button type="button" id="module-back">Volver al centro de operaciones</button></section></section><footer class="gruk-system-strip"><span>Estado de red: <strong id="gruk-footer-network"></strong></span><a href="/offline-status.html">Consultar sincronización</a><span>GRUK V3000</span></footer>
 
 </main>
 
 <script>
+(async function(){
+ const token=sessionStorage.getItem("grukEnterpriseToken")||localStorage.getItem("grukAuthToken");
+ if(!token){location.replace("/login-empresa.html");return}
+ if(sessionStorage.getItem("grukEnterpriseToken")){
+  document.getElementById("logoRestaurante").hidden=true;
+  document.getElementById("contenidoPrincipalGRUK").hidden=true;
+  const nav=document.getElementById("menuAdminGRUK");for(const e of nav.querySelectorAll("button,.gruk-nav-label"))e.remove();
+  const n=document.createElement("nav");n.id="nav";n.hidden=true;n.innerHTML='<a href="/admin.html">Inicio</a>';nav.append(n);
+  document.querySelector(".btnMenuGRUK").id="toggle";document.querySelector(".btnMenuGRUK").removeAttribute("onclick");
+  for(const [oldId,newId] of [["gruk-tenant","empresa"],["gruk-network","network"],["gruk-user","estado"],["gruk-logout","salir"]])document.getElementById(oldId).id=newId;
+  document.querySelector(".gruk-system-strip").hidden=true;
+  
 
-const adminRestaurantId = localStorage.getItem("adminRestaurantId");
-const grukAuthToken = localStorage.getItem("grukAuthToken");
+const $=id=>document.getElementById(id);
 
-if (!adminRestaurantId || !grukAuthToken){
+function salir(){for(const k of ["grukEnterpriseToken","grukEnterpriseIdentity"])sessionStorage.removeItem(k);for(const k of ["grukAuthToken","adminRestaurantId","adminUsuario"])localStorage.removeItem(k);location.replace("/login-empresa.html")}
+$("salir").onclick=salir;function network(){ $("network").textContent=navigator.onLine?"Red disponible":"Sin conexión"; }window.addEventListener("online",network);window.addEventListener("offline",network);network();
+let identity, requestVersion=0;
+function openModule(path,label){$("workspace-title").textContent=path==="centro-control"?"Centro de Control GRUK":label;$("module-title").textContent=path==="centro-control"?"Panorama financiero de tu empresa":"Resumen empresarial";loadEnterpriseModule(path);$("module-detail").hidden=false;$("modulos").hidden=true;for(const a of $("nav").querySelectorAll("a")){if(a.getAttribute("href")==="#"+path)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")}if(!wide.matches){$("menuAdminGRUK").classList.remove("abierto");navState()}$("module-detail").scrollIntoView({block:"nearest"})}
+$("module-back").onclick=()=>{requestVersion++;$("module-data").replaceChildren();$("module-detail").hidden=true;$("modulos").hidden=false;for(const a of $("nav").querySelectorAll("a"))a.removeAttribute("aria-current");$("nav").querySelector("a").setAttribute("aria-current","page")};
 
-window.location.href="/login.html";
-
+async function loadEnterpriseModule(path){
+ const version=++requestVersion, target=$("module-data"), status=$("module-message");
+ target.replaceChildren();status.textContent="Consultando información de tu empresa…";
+ const id=encodeURIComponent(identity.empresaId);
+ const financial=["centro-control","finanzas","reportes"].includes(path);
+ if(!financial&&path!=="inventario"){status.textContent="La operación de este módulo aún no está integrada.";return}
+ try{
+ const response=await fetch(financial?"/api/finanzas/resumen/"+id+"?precision=exact":"/api/productos-servicios/empresa/"+id,{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+ if(version!==requestVersion)return;
+ if(response.status===401){salir();return}
+ if(!response.ok)throw Error("No se pudo consultar la información ("+response.status+").");
+ const data=await response.json();if(version!==requestVersion)return;
+ if(!data.ok)throw Error("Consulta no disponible.");
+ const grid=document.createElement("div");grid.className="enterprise-metrics";
+ function metric(label,value){const card=document.createElement("section"),h=document.createElement("h3"),p=document.createElement("p");card.className="card";h.textContent=label;p.textContent=value;card.append(h,p);grid.append(card)}
+ if(financial){
+ const summary=data.resumenExacto;if(!summary)throw Error("Resumen no disponible.");
+ for(const [key,label] of [["ingresos","Ingresos registrados"],["gastos","Gastos registrados"],["resultado","Resultado neto"]]){if(typeof summary[key]!=="string")throw Error("Importe no disponible.");metric(label,summary[key]+" COP")}
+ status.textContent="Resumen histórico · Ventas pagadas y gastos registrados. Consulta de solo lectura.";
+ }else{
+ if(!Array.isArray(data.catalogo))throw Error("Catálogo no disponible.");
+ for(const item of data.catalogo){metric(item.nombre,(item.tipo==="servicio"?"Servicio":"Producto")+" · Precio: "+String(item.precioVenta)+" COP")}
+ status.textContent=data.catalogo.length?"Catálogo empresarial · Consulta de solo lectura; no representa existencias físicas.":"No hay productos o servicios registrados en el catálogo.";
+ }
+ target.append(grid);
+ if(path==="inventario"||path==="finanzas") addEntryForm(path,target,version);
+ }catch(error){if(version===requestVersion)status.textContent=error.message||"No se pudo consultar el módulo."}
 }
 
-</script>
+function addEntryForm(path,target,version){
+ if(!["DUEÑO","DUENO","ADMIN_SEDE"].includes(identity.rol))return;
+ const form=document.createElement("form");form.className="card";
+ const title=document.createElement("h3");title.textContent=path==="inventario"?"Registrar producto o servicio":"Registrar gasto";form.append(title);
+ const fields=path==="inventario"?[["nombre","Nombre","text"],["tipo","Tipo","select",["producto","servicio"]],["precioVenta","Precio de venta COP","number"]]:[["concepto","Concepto","text"],["categoria","Categoría","text"],["monto","Monto COP","number"],["estadoPago","Estado de pago","select",["pendiente","pagado","desconocido"]]];
+ for(const [name,label,type,options] of fields){const l=document.createElement("label");l.textContent=label;const input=document.createElement(type==="select"?"select":"input");input.name=name;input.required=true;if(options){for(const value of options){const o=document.createElement("option");o.value=value;o.textContent=value;input.append(o)}}else{input.type=type;if(type==="number"){input.min="0";input.step="0.01"}else input.maxLength=name==="categoria"?80:200}l.append(input);form.append(l)}
+ const button=document.createElement("button");button.type="submit";button.textContent="Guardar";const status=document.createElement("p");status.setAttribute("role","status");form.append(button,status);target.append(form);
+ form.onsubmit=async e=>{e.preventDefault();if(button.disabled||version!==requestVersion)return;button.disabled=true;const body=Object.fromEntries(new FormData(form));body.empresaId=identity.empresaId;body.sedeId=identity.sedeId;if(path==="inventario"){body.precioVenta=Number(body.precioVenta);body.manejaInventario=body.tipo==="producto"}else body.monto=Number(body.monto);try{const res=await fetch(path==="inventario"?"/api/productos-servicios":"/api/gastos",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify(body)});const result=await res.json();if(!res.ok||!result.ok){status.textContent=result.error||"Operación rechazada";button.disabled=false;return}if(version===requestVersion)await loadEnterpriseModule(path)}catch{status.textContent="No se pudo confirmar el registro. Consulta el historial antes de repetirlo.";}}
+}
+const wide=matchMedia("(min-width:1025px)");
+function navState(){const open=wide.matches?!document.body.classList.contains("nav-collapsed"):$("menuAdminGRUK").classList.contains("abierto");$("toggle").setAttribute("aria-expanded",String(open));$("menuAdminGRUK").inert=!open}
+$("toggle").onclick=()=>{if(wide.matches)document.body.classList.toggle("nav-collapsed");else $("menuAdminGRUK").classList.toggle("abierto");navState()};wide.addEventListener("change",navState);navState();
+(async()=>{if(!token){salir();return}try{const res=await fetch("/api/onboarding/me",{headers:{Authorization:"Bearer "+token},cache:"no-store"});if(res.status===401||res.status===403){salir();return}if(!res.ok)throw Error("session");const data=await res.json();if(!data.ok)throw Error("session");identity=data;$("empresa").textContent=data.empresaNombre||"Mi empresa";$("estado").textContent=data.nombre+" · "+data.rol;$("gratis").hidden=!data.gratis;const tipos={restaurante:"Gastronomía",retail:"Comercio",servicios:"Servicios",otro:"Actividad empresarial"};$("sector").textContent=tipos[data.tipoNegocio]||"Actividad pendiente de confirmar";const m=data.modulos||{};const items=[["inteligencia","Centro de Control","Gestiona tu operación","centro-control"],["inteligencia","Reportes","Revisa indicadores de la empresa","reportes"],["inventario","Inventario","Consulta el catálogo de productos y servicios","inventario"],["restaurante","Restaurante","Operación gastronómica","restaurante"],["finanzas","Finanzas","Revisa información de tu negocio","finanzas"]];const groups={reportes:"Dirección",inventario:"Operación",finanzas:"Administración"};for(const [flag,label,desc,path] of items){if(m[flag]!==true||(flag==="restaurante"&&data.tipoNegocio!=="restaurante"))continue;const href="#"+path;if(groups[path]){const group=document.createElement("p");group.className="gruk-nav-label";group.textContent=groups[path];$("nav").append(group)}const nav=document.createElement("a");nav.href=href;const icon=document.createElementNS("http://www.w3.org/2000/svg","svg");icon.setAttribute("viewBox","0 0 24 24");icon.setAttribute("aria-hidden","true");icon.setAttribute("fill","none");icon.setAttribute("stroke","currentColor");icon.setAttribute("stroke-width","1.6");const shape=document.createElementNS("http://www.w3.org/2000/svg","path");shape.setAttribute("d",({"centro-control":"M3 12l9-9 9 9M5 10v11h14V10",reportes:"M4 20V4M4 20h16M8 16v-4M12 16V8M16 16V5",inventario:"M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10",finanzas:"M3 6h18v12H3zM12 9v6M9 12h6",restaurante:"M4 3v8h5V3M6 11v10M18 3v18"})[path]);icon.append(shape);const navLabel=document.createElement("span");navLabel.textContent=label;nav.append(icon,navLabel);nav.addEventListener("click",e=>{e.preventDefault();openModule(path,label)});$("nav").append(nav);const a=document.createElement("a");a.href=href;a.addEventListener("click",e=>{e.preventDefault();openModule(path,label)});const wrap=document.createElement("span"),title=document.createElement("strong"),small=document.createElement("small"),arrow=document.createElement("span");title.textContent=label;small.textContent=desc;arrow.textContent="→";arrow.setAttribute("aria-hidden","true");wrap.append(title,small);a.append(wrap,arrow);$("modulos").append(a)}$("aviso").textContent="Información de tu empresa · Consulta segura";$("nav").hidden=false;$("menu").hidden=false;if(m.inteligencia===true)openModule("centro-control","Centro de Control")}catch(e){$("estado").textContent="No pudimos verificar la sesión. Revisa tu conexión."}})();
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="js/gruk-api.js"></script>
-<script src="finanzas.js"></script>
-
-<script src="js/costos.js"></script>
-<script src="js/deudas.js"></script>
-<script src="js/mensajes.js?v=4"></script>
-<script src="js/centro-control.js"></script>
-
-<script src="js/inventario.js"></script>
-
-<script src="js/configuracion.js"></script>
-<script src="admin.js"></script>
-<script>
-(function(){const status=document.getElementById("gruk-network");function network(){status.textContent=navigator.onLine?"Red disponible":"Sin conexión";document.getElementById("gruk-footer-network").textContent=status.textContent}window.addEventListener("online",network);window.addEventListener("offline",network);network();document.getElementById("gruk-user").textContent=localStorage.getItem("adminUsuario")||"Cuenta empresarial";document.getElementById("gruk-logout").onclick=()=>{for(const k of ["grukAuthToken","adminRestaurantId","adminUsuario"])localStorage.removeItem(k);for(const k of ["grukEnterpriseToken","grukEnterpriseIdentity"])sessionStorage.removeItem(k);location.replace("/login-empresa.html")};const nav=document.getElementById("menuAdminGRUK");const content=document.getElementById("contenidoPrincipalGRUK");function active(){for(const b of nav.querySelectorAll("button")){if(b.getAttribute("onclick")=== "cargarModuloGRUK('"+content.dataset.moduloActual+"')")b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")}}new MutationObserver(active).observe(content,{attributes:true,attributeFilter:["data-modulo-actual"]});active()})();
+  return;
+ }
+ if(!localStorage.getItem("adminRestaurantId")){location.replace("/login-empresa.html");return}
+ for(const src of ["/socket.io/socket.io.js","js/gruk-api.js","finanzas.js","js/costos.js","js/deudas.js","js/mensajes.js?v=4","js/centro-control.js","js/inventario.js","js/configuracion.js","admin.js"])await new Promise((resolve,reject)=>{const el=document.createElement("script");el.src=src;el.onload=resolve;el.onerror=reject;document.body.append(el)});
+ const restaurantId=localStorage.getItem("adminRestaurantId");const urlId=new URLSearchParams(location.search).get("restaurantId");if(urlId&&urlId!==restaurantId){location.replace("/login-empresa.html");return}
+ await cargarModuloGRUK("centro-control");
+})().catch(()=>{document.getElementById("contenidoPrincipalGRUK").textContent="No se pudo iniciar el administrador. Recarga la página."});
+</script><script>
+(function(){if(sessionStorage.getItem("grukEnterpriseToken"))return;const status=document.getElementById("gruk-network");function network(){status.textContent=navigator.onLine?"Red disponible":"Sin conexión";document.getElementById("gruk-footer-network").textContent=status.textContent}window.addEventListener("online",network);window.addEventListener("offline",network);network();document.getElementById("gruk-user").textContent=localStorage.getItem("adminUsuario")||"Cuenta empresarial";document.getElementById("gruk-logout").onclick=()=>{for(const k of ["grukAuthToken","adminRestaurantId","adminUsuario"])localStorage.removeItem(k);for(const k of ["grukEnterpriseToken","grukEnterpriseIdentity"])sessionStorage.removeItem(k);location.replace("/login-empresa.html")};const nav=document.getElementById("menuAdminGRUK");const content=document.getElementById("contenidoPrincipalGRUK");function active(){for(const b of nav.querySelectorAll("button")){if(b.getAttribute("onclick")=== "cargarModuloGRUK('"+content.dataset.moduloActual+"')")b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")}}new MutationObserver(active).observe(content,{attributes:true,attributeFilter:["data-modulo-actual"]});active()})();
 </script></body>
 
 </html>
