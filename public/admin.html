@@ -53,7 +53,7 @@
 (async function(){
  const token=sessionStorage.getItem("grukEnterpriseToken")||localStorage.getItem("grukAuthToken");
  if(!token){location.replace("/login-empresa.html");return}
- if(sessionStorage.getItem("grukEnterpriseToken")){
+ if(sessionStorage.getItem("grukEnterpriseToken")||!localStorage.getItem("adminRestaurantId")){
   document.getElementById("logoRestaurante").hidden=true;
   document.getElementById("contenidoPrincipalGRUK").hidden=true;
   const nav=document.getElementById("menuAdminGRUK");for(const e of nav.querySelectorAll("button,.gruk-nav-label"))e.remove();
@@ -118,13 +118,14 @@ $("toggle").onclick=()=>{if(wide.matches)document.body.classList.toggle("nav-col
   return;
  }
  if(!localStorage.getItem("adminRestaurantId")){location.replace("/login-empresa.html");return}
- for(const src of ["/socket.io/socket.io.js","js/gruk-api.js","finanzas.js","js/costos.js","js/deudas.js","js/mensajes.js?v=4","js/centro-control.js","js/inventario.js","js/configuracion.js","admin.js"])await new Promise((resolve,reject)=>{const el=document.createElement("script");el.src=src;el.onload=resolve;el.onerror=reject;document.body.append(el)});
  const restaurantId=localStorage.getItem("adminRestaurantId");const urlId=new URLSearchParams(location.search).get("restaurantId");if(urlId&&urlId!==restaurantId){location.replace("/login-empresa.html");return}
+ for(const src of ["/socket.io/socket.io.js","js/gruk-api.js","finanzas.js","js/costos.js","js/deudas.js","js/mensajes.js?v=4","js/centro-control.js","js/inventario.js","js/configuracion.js","admin.js"])await new Promise((resolve,reject)=>{const el=document.createElement("script");el.src=src;el.onload=resolve;el.onerror=reject;document.body.append(el)});
+ 
  if(document.readyState==="loading")await new Promise(resolve=>document.addEventListener("DOMContentLoaded",resolve,{once:true}));
  await cargarModuloGRUK("centro-control");
 })().catch(()=>{document.getElementById("contenidoPrincipalGRUK").textContent="No se pudo iniciar el administrador. Recarga la página."});
 </script><script>
-(function(){if(sessionStorage.getItem("grukEnterpriseToken"))return;const status=document.getElementById("gruk-network");function network(){status.textContent=navigator.onLine?"Red disponible":"Sin conexión";document.getElementById("gruk-footer-network").textContent=status.textContent}window.addEventListener("online",network);window.addEventListener("offline",network);network();document.getElementById("gruk-user").textContent=localStorage.getItem("adminUsuario")||"Cuenta empresarial";document.getElementById("gruk-logout").onclick=()=>{for(const k of ["grukAuthToken","adminRestaurantId","adminUsuario"])localStorage.removeItem(k);for(const k of ["grukEnterpriseToken","grukEnterpriseIdentity"])sessionStorage.removeItem(k);location.replace("/login-empresa.html")};const nav=document.getElementById("menuAdminGRUK");const content=document.getElementById("contenidoPrincipalGRUK");function active(){for(const b of nav.querySelectorAll("button")){if(b.getAttribute("onclick")=== "cargarModuloGRUK('"+content.dataset.moduloActual+"')")b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")}}new MutationObserver(active).observe(content,{attributes:true,attributeFilter:["data-modulo-actual"]});active()})();
+(function(){if(!document.getElementById("gruk-network"))return;const status=document.getElementById("gruk-network");function network(){status.textContent=navigator.onLine?"Red disponible":"Sin conexión";document.getElementById("gruk-footer-network").textContent=status.textContent}window.addEventListener("online",network);window.addEventListener("offline",network);network();document.getElementById("gruk-user").textContent=localStorage.getItem("adminUsuario")||"Cuenta empresarial";document.getElementById("gruk-logout").onclick=()=>{for(const k of ["grukAuthToken","adminRestaurantId","adminUsuario"])localStorage.removeItem(k);for(const k of ["grukEnterpriseToken","grukEnterpriseIdentity"])sessionStorage.removeItem(k);location.replace("/login-empresa.html")};const nav=document.getElementById("menuAdminGRUK");const content=document.getElementById("contenidoPrincipalGRUK");function active(){for(const b of nav.querySelectorAll("button")){if(b.getAttribute("onclick")=== "cargarModuloGRUK('"+content.dataset.moduloActual+"')")b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")}}new MutationObserver(active).observe(content,{attributes:true,attributeFilter:["data-modulo-actual"]});active()})();
 </script></body>
 
 </html>
