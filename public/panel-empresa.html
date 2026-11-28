@@ -33,9 +33,19 @@ async function loadEnterpriseModule(path){
  status.textContent=data.catalogo.length?"Catálogo empresarial · Consulta de solo lectura; no representa existencias físicas.":"No hay productos o servicios registrados en el catálogo.";
  }
  target.append(grid);
+ if(path==="inventario"||path==="finanzas") addEntryForm(path,target,version);
  }catch(error){if(version===requestVersion)status.textContent=error.message||"No se pudo consultar el módulo."}
 }
 
+function addEntryForm(path,target,version){
+ if(!["DUEÑO","DUENO","ADMIN_SEDE"].includes(identity.rol))return;
+ const form=document.createElement("form");form.className="card";
+ const title=document.createElement("h3");title.textContent=path==="inventario"?"Registrar producto o servicio":"Registrar gasto";form.append(title);
+ const fields=path==="inventario"?[["nombre","Nombre","text"],["tipo","Tipo","select",["producto","servicio"]],["precioVenta","Precio de venta COP","number"]]:[["concepto","Concepto","text"],["categoria","Categoría","text"],["monto","Monto COP","number"],["estadoPago","Estado de pago","select",["pendiente","pagado","desconocido"]]];
+ for(const [name,label,type,options] of fields){const l=document.createElement("label");l.textContent=label;const input=document.createElement(type==="select"?"select":"input");input.name=name;input.required=true;if(options){for(const value of options){const o=document.createElement("option");o.value=value;o.textContent=value;input.append(o)}}else{input.type=type;if(type==="number"){input.min="0";input.step="0.01"}else input.maxLength=name==="categoria"?80:200}l.append(input);form.append(l)}
+ const button=document.createElement("button");button.type="submit";button.textContent="Guardar";const status=document.createElement("p");status.setAttribute("role","status");form.append(button,status);target.append(form);
+ form.onsubmit=async e=>{e.preventDefault();if(button.disabled||version!==requestVersion)return;button.disabled=true;const body=Object.fromEntries(new FormData(form));body.empresaId=identity.empresaId;body.sedeId=identity.sedeId;if(path==="inventario"){body.precioVenta=Number(body.precioVenta);body.manejaInventario=body.tipo==="producto"}else body.monto=Number(body.monto);try{const res=await fetch(path==="inventario"?"/api/productos-servicios":"/api/gastos",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify(body)});const result=await res.json();if(!res.ok||!result.ok){status.textContent=result.error||"Operación rechazada";button.disabled=false;return}if(version===requestVersion)await loadEnterpriseModule(path)}catch{status.textContent="No se pudo confirmar el registro. Consulta el historial antes de repetirlo.";}}
+}
 const wide=matchMedia("(min-width:1025px)");
 function navState(){const open=wide.matches?!document.body.classList.contains("nav-collapsed"):$("menuAdminGRUK").classList.contains("abierto");$("toggle").setAttribute("aria-expanded",String(open));$("menuAdminGRUK").inert=!open}
 $("toggle").onclick=()=>{if(wide.matches)document.body.classList.toggle("nav-collapsed");else $("menuAdminGRUK").classList.toggle("abierto");navState()};wide.addEventListener("change",navState);navState();
