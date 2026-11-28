@@ -21,7 +21,7 @@
   async function cargarContextoEmpresaGRUK() {
     const token = localStorage.getItem("grukAuthToken");
     if (!token) throw new Error("Sesión requerida");
-    const response = await grukFetch("/api/onboarding/me", {cache:"no-store"});
+    const response = await grukFetch("/api/onboarding/me", {cache:"no-store", redirect:"error"});
     if (!response.ok) throw new Error("Identidad empresarial no autorizada");
     const profile = await response.json();
     if (!profile.ok || !/^[a-f0-9]{24}$/i.test(profile.empresaId) || !/^[a-f0-9]{24}$/i.test(profile.sedeId) || token !== localStorage.getItem("grukAuthToken")) throw new Error("Contexto empresarial inválido");
