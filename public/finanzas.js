@@ -3,13 +3,16 @@ function formatoCOPFinanzas(valor) {
 }
 
 function getRestaurantIdFinanzas() {
-  return (
-    new URLSearchParams(window.location.search).get("restaurantId") ||
-    localStorage.getItem("adminRestaurantId") ||
-    "rest1"
-  );
+  if (typeof getRestaurantId === "function") return getRestaurantId();
+  const id = localStorage.getItem("adminRestaurantId");
+  if (!id) throw new Error("No existe restaurante asociado a la sesión");
+  return id;
 }
 async function getEmpresaIdFinanzas() {
+  if (sessionStorage.getItem("grukEnterpriseToken")) {
+    const contexto = await cargarContextoEmpresaGRUK();
+    return contexto.empresaId;
+  }
   const restaurantId = getRestaurantIdFinanzas();
 
   if (!restaurantId) {
